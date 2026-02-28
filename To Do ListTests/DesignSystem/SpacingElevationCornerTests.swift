@@ -29,6 +29,57 @@ final class SpacingElevationCornerTests: XCTestCase {
         XCTAssertLessThan(elevation.e2.shadowOffsetY, elevation.e3.shadowOffsetY)
     }
 
+    func testLayoutResolverClassifiesBreakpointsAsExpected() {
+        let phoneMetrics = TaskerLayoutMetrics(width: 390, height: 844, idiom: .phone)
+        XCTAssertEqual(TaskerLayoutResolver.classify(metrics: phoneMetrics), .phone)
+
+        let compactPad = TaskerLayoutMetrics(width: 699, height: 1024, idiom: .pad)
+        XCTAssertEqual(TaskerLayoutResolver.classify(metrics: compactPad), .padCompact)
+
+        let regularPad = TaskerLayoutMetrics(width: 700, height: 1024, idiom: .pad)
+        XCTAssertEqual(TaskerLayoutResolver.classify(metrics: regularPad), .padRegular)
+
+        let expandedPad = TaskerLayoutMetrics(width: 1024, height: 1366, idiom: .pad)
+        XCTAssertEqual(TaskerLayoutResolver.classify(metrics: expandedPad), .padExpanded)
+    }
+
+    @MainActor
+    func testLayoutResolverFallsBackToWindowMetricsWhenViewWidthIsZero() {
+        let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 900, height: 700))
+        let view = UIView(frame: .zero)
+        window.addSubview(view)
+        window.layoutIfNeeded()
+
+        let metrics = TaskerLayoutResolver.metrics(for: view)
+        XCTAssertEqual(metrics.width, 900, accuracy: 0.1)
+        XCTAssertEqual(metrics.height, 700, accuracy: 0.1)
+    }
+
+    func testPhoneLayoutTokensMatchLegacyThemeTokens() {
+        let theme = TaskerTheme(index: 0)
+        let legacy = theme.tokens
+        let phone = theme.tokens(for: .phone)
+
+        XCTAssertEqual(phone.spacing.screenHorizontal, legacy.spacing.screenHorizontal)
+        XCTAssertEqual(phone.spacing.sectionGap, legacy.spacing.sectionGap)
+        XCTAssertEqual(phone.corner.card, legacy.corner.card)
+        XCTAssertEqual(phone.corner.modal, legacy.corner.modal)
+        XCTAssertEqual(phone.typography.display.pointSize, legacy.typography.display.pointSize)
+        XCTAssertEqual(phone.typography.body.pointSize, legacy.typography.body.pointSize)
+        XCTAssertEqual(phone.elevation.e2.shadowBlur, legacy.elevation.e2.shadowBlur)
+    }
+
+    func testPadLayoutTokensIncreaseDensityAndScale() {
+        let theme = TaskerTheme(index: 0)
+        let phone = theme.tokens(for: .phone)
+        let pad = theme.tokens(for: .padRegular)
+
+        XCTAssertGreaterThan(pad.spacing.screenHorizontal, phone.spacing.screenHorizontal)
+        XCTAssertGreaterThan(pad.corner.card, phone.corner.card)
+        XCTAssertGreaterThan(pad.typography.title1.pointSize, phone.typography.title1.pointSize)
+        XCTAssertGreaterThanOrEqual(pad.elevation.e2.shadowBlur, phone.elevation.e2.shadowBlur)
+    }
+
     @MainActor
     func testTaskerChipTintedSelectionUsesMutedBackground() {
         let chip = TaskerChipView(frame: CGRect(x: 0, y: 0, width: 120, height: 44))

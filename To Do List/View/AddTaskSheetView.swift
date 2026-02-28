@@ -10,6 +10,11 @@ import SwiftUI
 
 // MARK: - Add Task Sheet View
 
+public enum AddTaskContainerMode: Equatable {
+    case sheet
+    case inspector
+}
+
 public struct AddTaskSheetView: View {
     /// Initializes a new instance.
     @StateObject private var viewModel: AddTaskViewModel
@@ -27,6 +32,7 @@ public struct AddTaskSheetView: View {
     public var body: some View {
         AddTaskForedropView(
             viewModel: viewModel,
+            containerMode: .sheet,
             showAddAnother: showAddAnother,
             successFlash: $successFlash,
             onCancel: handleCancel,
@@ -108,6 +114,45 @@ public struct AddTaskSheetView: View {
         TaskerFeedback.light()
         withAnimation(TaskerAnimation.gentle) {
             selectedDetent = .large
+        }
+    }
+}
+
+struct AddTaskInspectorContainer: View {
+    @StateObject private var viewModel: AddTaskViewModel
+    @State private var successFlash = false
+    let onClose: () -> Void
+
+    init(viewModel: AddTaskViewModel, onClose: @escaping () -> Void) {
+        _viewModel = StateObject(wrappedValue: viewModel)
+        self.onClose = onClose
+    }
+
+    var body: some View {
+        AddTaskForedropView(
+            viewModel: viewModel,
+            containerMode: .inspector,
+            showAddAnother: false,
+            successFlash: $successFlash,
+            onCancel: onClose,
+            onCreate: handleCreate,
+            onAddAnother: handleCreate,
+            onExpandToLarge: {}
+        )
+        .accessibilityIdentifier("home.ipad.detail.addTask")
+    }
+
+    private func handleCreate() {
+        guard viewModel.viewState.canSubmit, !viewModel.isLoading else { return }
+        viewModel.createTask()
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+            guard viewModel.isTaskCreated else { return }
+            TaskerFeedback.success()
+            successFlash = true
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
+                successFlash = false
+                viewModel.resetForm()
+            }
         }
     }
 }

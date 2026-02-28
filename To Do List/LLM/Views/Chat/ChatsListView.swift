@@ -223,7 +223,9 @@ struct ChatsListView: View {
         currentThread = thread
         isPromptFocused = true
         #if os(iOS)
-        dismiss()
+        if appManager.userInterfaceIdiom == .phone || V2FeatureFlags.iPadNativeShellEnabled == false {
+            dismiss()
+        }
         #endif
         appManager.playHaptic()
     }

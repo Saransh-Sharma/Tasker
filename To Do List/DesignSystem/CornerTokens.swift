@@ -42,4 +42,60 @@ public struct TaskerCornerTokens: TaskerTokenGroup {
         bottomBar: 28,
         modal: 28
     )
+
+    public static let padCompact = TaskerCornerTokens(
+        r0: 0,
+        r1: 8,
+        r2: 14,
+        r3: 22,
+        r4: 30,
+        pill: 999,
+        card: 22,
+        input: 14,
+        chip: 999,
+        bottomBar: 30,
+        modal: 30
+    )
+
+    public static let padRegular = TaskerCornerTokens(
+        r0: 0,
+        r1: 8,
+        r2: 14,
+        r3: 24,
+        r4: 32,
+        pill: 999,
+        card: 24,
+        input: 14,
+        chip: 999,
+        bottomBar: 32,
+        modal: 32
+    )
+
+    public static let padExpanded = TaskerCornerTokens(
+        r0: 0,
+        r1: 8,
+        r2: 16,
+        r3: 26,
+        r4: 34,
+        pill: 999,
+        card: 26,
+        input: 16,
+        chip: 999,
+        bottomBar: 34,
+        modal: 34
+    )
+
+    /// Executes forLayout.
+    public static func forLayout(_ layoutClass: TaskerLayoutClass) -> TaskerCornerTokens {
+        switch layoutClass {
+        case .phone:
+            return `default`
+        case .padCompact:
+            return padCompact
+        case .padRegular:
+            return padRegular
+        case .padExpanded:
+            return padExpanded
+        }
+    }
 }

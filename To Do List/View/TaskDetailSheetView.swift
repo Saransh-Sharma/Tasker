@@ -7,6 +7,11 @@
 
 import SwiftUI
 
+enum TaskDetailContainerMode: Equatable {
+    case sheet
+    case inspector
+}
+
 struct TaskDetailSheetView: View {
     typealias UpdateHandler = (UUID, UpdateTaskDefinitionRequest, @escaping (Result<TaskDefinition, Error>) -> Void) -> Void
     typealias CompletionHandler = (UUID, Bool, @escaping (Result<TaskDefinition, Error>) -> Void) -> Void
@@ -43,12 +48,14 @@ struct TaskDetailSheetView: View {
     @FocusState private var stepFocused: Bool
     @FocusState private var descriptionFocused: Bool
     private let isGamificationV2Enabled: Bool
+    private let containerMode: TaskDetailContainerMode
 
     init(
         task: TaskDefinition,
         projects: [Project],
         todayXPSoFar: Int? = nil,
         isGamificationV2Enabled: Bool = V2FeatureFlags.gamificationV2Enabled,
+        containerMode: TaskDetailContainerMode = .sheet,
         onUpdate: @escaping UpdateHandler,
         onSetCompletion: @escaping CompletionHandler,
         onDelete: @escaping DeleteHandler,
@@ -61,6 +68,7 @@ struct TaskDetailSheetView: View {
     ) {
         self._liveTodayXPSoFar = State(initialValue: todayXPSoFar)
         self.isGamificationV2Enabled = isGamificationV2Enabled
+        self.containerMode = containerMode
         _viewModel = StateObject(wrappedValue: TaskDetailViewModel(
             task: task,
             projects: projects,
@@ -280,19 +288,24 @@ struct TaskDetailSheetView: View {
 
     private var topBar: some View {
         HStack {
-            Button {
-                dismiss()
-            } label: {
-                Image(systemName: "xmark")
-                    .font(.system(size: 14, weight: .semibold))
-                    .foregroundColor(Color.tasker.textSecondary)
+            if containerMode == .sheet {
+                Button {
+                    dismiss()
+                } label: {
+                    Image(systemName: "xmark")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundColor(Color.tasker.textSecondary)
+                        .frame(width: 30, height: 30)
+                        .background(Color.tasker.surfaceSecondary)
+                        .clipShape(Circle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityIdentifier("taskDetail.closeButton")
+                .accessibilityLabel("Close task details")
+            } else {
+                Color.clear
                     .frame(width: 30, height: 30)
-                    .background(Color.tasker.surfaceSecondary)
-                    .clipShape(Circle())
             }
-            .buttonStyle(.plain)
-            .accessibilityIdentifier("taskDetail.closeButton")
-            .accessibilityLabel("Close task details")
 
             Spacer()
 

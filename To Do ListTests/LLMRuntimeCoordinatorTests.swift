@@ -5,14 +5,17 @@ import UIKit
 @MainActor
 final class LLMRuntimeCoordinatorTests: XCTestCase {
     private var originalPrewarmMode: LLMChatPrewarmMode = .adaptiveOnDemand
+    private var originalDeferPrewarmFlag: Bool = true
 
     override func setUp() {
         super.setUp()
         originalPrewarmMode = V2FeatureFlags.llmChatPrewarmMode
+        originalDeferPrewarmFlag = V2FeatureFlags.iPadPerfDeferLLMPrewarmV2Enabled
     }
 
     override func tearDown() {
         V2FeatureFlags.llmChatPrewarmMode = originalPrewarmMode
+        V2FeatureFlags.iPadPerfDeferLLMPrewarmV2Enabled = originalDeferPrewarmFlag
         super.tearDown()
     }
 
@@ -212,5 +215,49 @@ final class LLMRuntimeCoordinatorTests: XCTestCase {
         XCTAssertTrue(evaluator.cancelled)
         XCTAssertFalse(evaluator.isThinking)
         XCTAssertEqual(evaluator.runtimePhase, .stopping)
+    }
+
+    func testChatEntryPrewarmIsDeferredWhenPerformanceFlagEnabled() async {
+        V2FeatureFlags.llmChatPrewarmMode = .adaptiveOnDemand
+        V2FeatureFlags.iPadPerfDeferLLMPrewarmV2Enabled = true
+        let defaults = UserDefaults(suiteName: "LLMRuntimeCoordinatorTests.Deferred.\(UUID().uuidString)")!
+        defaults.set("mlx-community/Qwen3-0.6B-4bit", forKey: "currentModelName")
+
+        var prepareCallCount = 0
+        let coordinator = LLMRuntimeCoordinator(
+            defaults: defaults,
+            prepareHandler: { _ in
+                prepareCallCount += 1
+                return LLMEvaluator.PrepareResult(wasAlreadyLoaded: false)
+            },
+            registerLifecycleObservers: false
+        )
+
+        coordinator.requestChatEntryPrewarm(trigger: "unit_test", delaySeconds: 0.05)
+        XCTAssertEqual(prepareCallCount, 0)
+        try? await _Concurrency.Task.sleep(nanoseconds: 90_000_000)
+        XCTAssertEqual(prepareCallCount, 1)
+    }
+
+    func testDeferredChatEntryPrewarmCancelsBeforeExecution() async {
+        V2FeatureFlags.llmChatPrewarmMode = .adaptiveOnDemand
+        V2FeatureFlags.iPadPerfDeferLLMPrewarmV2Enabled = true
+        let defaults = UserDefaults(suiteName: "LLMRuntimeCoordinatorTests.DeferredCancel.\(UUID().uuidString)")!
+        defaults.set("mlx-community/Qwen3-0.6B-4bit", forKey: "currentModelName")
+
+        var prepareCallCount = 0
+        let coordinator = LLMRuntimeCoordinator(
+            defaults: defaults,
+            prepareHandler: { _ in
+                prepareCallCount += 1
+                return LLMEvaluator.PrepareResult(wasAlreadyLoaded: false)
+            },
+            registerLifecycleObservers: false
+        )
+
+        coordinator.requestChatEntryPrewarm(trigger: "unit_test_cancel", delaySeconds: 0.2)
+        coordinator.cancelDeferredPrewarm(reason: "unit_test_cancelled")
+        try? await _Concurrency.Task.sleep(nanoseconds: 250_000_000)
+        XCTAssertEqual(prepareCallCount, 0)
     }
 }

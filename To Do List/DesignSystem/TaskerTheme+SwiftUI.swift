@@ -75,7 +75,7 @@ extension TaskerTheme {
     @MainActor
     public enum Spacing {
         private static var tokens: TaskerSpacingTokens {
-            TaskerThemeManager.shared.currentTheme.tokens.spacing
+            TaskerThemeManager.shared.tokens(for: .phone, traits: .unspecified).spacing
         }
 
         public static var xs: CGFloat { tokens.s4 }
@@ -92,6 +92,10 @@ extension TaskerTheme {
 
         /// Extra bottom padding for views behind a tab bar
         public static var tabBarHeight: CGFloat { 80 }
+
+        public static func forLayout(_ layoutClass: TaskerLayoutClass) -> TaskerSpacingTokens {
+            TaskerThemeManager.tokens(for: layoutClass).spacing
+        }
     }
 }
 
@@ -101,7 +105,7 @@ extension TaskerTheme {
     @MainActor
     public enum CornerRadius {
         private static var tokens: TaskerCornerTokens {
-            TaskerThemeManager.shared.currentTheme.tokens.corner
+            TaskerThemeManager.shared.tokens(for: .phone, traits: .unspecified).corner
         }
 
         public static var sm: CGFloat { tokens.r1 }
@@ -111,5 +115,9 @@ extension TaskerTheme {
         public static var card: CGFloat { tokens.card }
         public static var modal: CGFloat { tokens.modal }
         public static var pill: CGFloat { tokens.pill }
+
+        public static func forLayout(_ layoutClass: TaskerLayoutClass) -> TaskerCornerTokens {
+            TaskerThemeManager.tokens(for: layoutClass).corner
+        }
     }
 }

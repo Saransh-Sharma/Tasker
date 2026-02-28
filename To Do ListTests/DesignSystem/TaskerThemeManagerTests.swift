@@ -58,4 +58,28 @@ final class TaskerThemeManagerTests: XCTestCase {
         XCTAssertEqual(TaskerTheme.migrateLegacyIndex(21), 7)
         XCTAssertEqual(TaskerTheme.migrateLegacyIndex(27), 8)
     }
+
+    func testTokenResolverKeepsPhoneValuesStable() {
+        let baseline = TaskerThemeManager.shared.currentTheme.tokens
+        let resolved = TaskerThemeManager.shared.tokens(for: .phone, traits: .unspecified)
+
+        XCTAssertEqual(resolved.spacing.s16, baseline.spacing.s16)
+        XCTAssertEqual(resolved.corner.r2, baseline.corner.r2)
+        XCTAssertEqual(resolved.typography.body.pointSize, baseline.typography.body.pointSize)
+    }
+
+    func testTokenResolverIsStableForSameLayoutAndTraitCluster() {
+        let traits = TaskerTokenTraitContext(
+            colorScheme: .light,
+            contentSizeCategory: .large,
+            accessibilityContrast: .normal
+        )
+
+        let first = TaskerThemeManager.shared.tokens(for: .padRegular, traits: traits)
+        let second = TaskerThemeManager.shared.tokens(for: .padRegular, traits: traits)
+
+        XCTAssertEqual(first.spacing.sectionGap, second.spacing.sectionGap)
+        XCTAssertEqual(first.corner.card, second.corner.card)
+        XCTAssertEqual(first.typography.title2.pointSize, second.typography.title2.pointSize)
+    }
 }

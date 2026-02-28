@@ -73,24 +73,111 @@ public struct TaskerSwiftUIColorTokens {
 
 @MainActor
 public enum TaskerSwiftUITokens {
+    private struct SwiftUIColorCacheKey: Hashable {
+        let themeIndex: Int
+        let layoutClass: TaskerLayoutClass
+        let traits: TaskerTokenTraitContext
+    }
+
+    private static var swiftUIColorCache: [SwiftUIColorCacheKey: TaskerSwiftUIColorTokens] = [:]
+
     public static var color: TaskerSwiftUIColorTokens {
-        TaskerSwiftUIColorTokens(TaskerThemeManager.shared.currentTheme.tokens.color)
+        color(for: .phone, traits: .unspecified)
     }
 
     public static var spacing: TaskerSpacingTokens {
-        TaskerThemeManager.shared.currentTheme.tokens.spacing
+        TaskerThemeManager.shared.tokens(for: .phone, traits: .unspecified).spacing
     }
 
     public static var corner: TaskerCornerTokens {
-        TaskerThemeManager.shared.currentTheme.tokens.corner
+        TaskerThemeManager.shared.tokens(for: .phone, traits: .unspecified).corner
     }
 
     public static var typography: TaskerTypographyTokens {
-        TaskerThemeManager.shared.currentTheme.tokens.typography
+        TaskerThemeManager.shared.tokens(for: .phone, traits: .unspecified).typography
     }
 
     public static var elevation: TaskerElevationTokens {
-        TaskerThemeManager.shared.currentTheme.tokens.elevation
+        TaskerThemeManager.shared.tokens(for: .phone, traits: .unspecified).elevation
+    }
+
+    public static func color(for layoutClass: TaskerLayoutClass) -> TaskerSwiftUIColorTokens {
+        color(for: layoutClass, traits: .unspecified)
+    }
+
+    public static func color(
+        for layoutClass: TaskerLayoutClass,
+        traits: TaskerTokenTraitContext
+    ) -> TaskerSwiftUIColorTokens {
+        let cacheKey = SwiftUIColorCacheKey(
+            themeIndex: TaskerThemeManager.shared.selectedThemeIndex,
+            layoutClass: layoutClass,
+            traits: traits
+        )
+        if let cached = swiftUIColorCache[cacheKey] {
+            return cached
+        }
+
+        let resolved = TaskerSwiftUIColorTokens(
+            TaskerThemeManager.tokens(for: layoutClass, traits: traits).color
+        )
+        swiftUIColorCache[cacheKey] = resolved
+        return resolved
+    }
+
+    public static func spacing(for layoutClass: TaskerLayoutClass) -> TaskerSpacingTokens {
+        spacing(for: layoutClass, traits: .unspecified)
+    }
+
+    public static func spacing(
+        for layoutClass: TaskerLayoutClass,
+        traits: TaskerTokenTraitContext
+    ) -> TaskerSpacingTokens {
+        TaskerThemeManager.tokens(for: layoutClass, traits: traits).spacing
+    }
+
+    public static func corner(for layoutClass: TaskerLayoutClass) -> TaskerCornerTokens {
+        corner(for: layoutClass, traits: .unspecified)
+    }
+
+    public static func corner(
+        for layoutClass: TaskerLayoutClass,
+        traits: TaskerTokenTraitContext
+    ) -> TaskerCornerTokens {
+        TaskerThemeManager.tokens(for: layoutClass, traits: traits).corner
+    }
+
+    public static func typography(for layoutClass: TaskerLayoutClass) -> TaskerTypographyTokens {
+        typography(for: layoutClass, traits: .unspecified)
+    }
+
+    public static func typography(
+        for layoutClass: TaskerLayoutClass,
+        traits: TaskerTokenTraitContext
+    ) -> TaskerTypographyTokens {
+        TaskerThemeManager.tokens(for: layoutClass, traits: traits).typography
+    }
+
+    public static func elevation(for layoutClass: TaskerLayoutClass) -> TaskerElevationTokens {
+        elevation(for: layoutClass, traits: .unspecified)
+    }
+
+    public static func elevation(
+        for layoutClass: TaskerLayoutClass,
+        traits: TaskerTokenTraitContext
+    ) -> TaskerElevationTokens {
+        TaskerThemeManager.tokens(for: layoutClass, traits: traits).elevation
+    }
+}
+
+private struct TaskerLayoutClassKey: EnvironmentKey {
+    static let defaultValue: TaskerLayoutClass = .phone
+}
+
+public extension EnvironmentValues {
+    var taskerLayoutClass: TaskerLayoutClass {
+        get { self[TaskerLayoutClassKey.self] }
+        set { self[TaskerLayoutClassKey.self] = newValue }
     }
 }
 
@@ -102,7 +189,7 @@ public extension Color {
 
     /// Executes tasker.
     static func tasker(_ role: TaskerColorRole) -> Color {
-        Color(uiColor: TaskerThemeManager.shared.currentTheme.tokens.color.color(for: role))
+        Color(uiColor: TaskerThemeManager.shared.tokens(for: .phone, traits: .unspecified).color.color(for: role))
     }
 }
 
@@ -116,6 +203,9 @@ public extension Font {
 
 private struct TaskerElevationModifier: ViewModifier {
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @Environment(\.colorSchemeContrast) private var colorSchemeContrast
+    @Environment(\.taskerLayoutClass) private var layoutClass
     let level: TaskerElevationLevel
     let cornerRadius: CGFloat
     let includesBorder: Bool
@@ -123,7 +213,12 @@ private struct TaskerElevationModifier: ViewModifier {
     /// Executes body.
     @MainActor
     func body(content: Content) -> some View {
-        let style = TaskerSwiftUITokens.elevation.style(for: level)
+        let traits = TaskerTokenTraitContext(
+            colorScheme: colorScheme == .dark ? .dark : .light,
+            contentSizeCategory: dynamicTypeSize.uiContentSizeCategory,
+            accessibilityContrast: colorSchemeContrast.uiAccessibilityContrast
+        )
+        let style = TaskerSwiftUITokens.elevation(for: layoutClass, traits: traits).style(for: level)
         let trait = UITraitCollection(userInterfaceStyle: colorScheme == .dark ? .dark : .light)
         let shadowColor = Color(uiColor: style.shadowColor.resolvedColor(with: trait))
 
@@ -148,6 +243,11 @@ public extension View {
     ) -> some View {
         modifier(TaskerElevationModifier(level: level, cornerRadius: cornerRadius, includesBorder: includesBorder))
     }
+
+    /// Executes taskerLayoutClass.
+    func taskerLayoutClass(_ layoutClass: TaskerLayoutClass) -> some View {
+        environment(\.taskerLayoutClass, layoutClass)
+    }
 }
 
 public struct TaskerTextFieldStyle: TextFieldStyle {
@@ -171,7 +271,7 @@ private func taskerTextFieldBody<Label: View>(
     configuration: TextField<Label>,
     isFocused: Bool
 ) -> some View {
-    let tokens = TaskerThemeManager.shared.currentTheme.tokens
+    let tokens = TaskerThemeManager.shared.tokens(for: .phone, traits: .unspecified)
     return configuration
         .font(.tasker(.body))
         .foregroundColor(.tasker(.textPrimary))
@@ -262,7 +362,7 @@ public struct TaskerCard<Content: View>: View {
     }
 
     public var body: some View {
-        let tokens = TaskerThemeManager.shared.currentTheme.tokens
+        let tokens = TaskerThemeManager.shared.tokens(for: .phone, traits: .unspecified)
         return content
             .padding(tokens.spacing.cardPadding)
             .background(Color.tasker.surfacePrimary)
@@ -272,5 +372,39 @@ public struct TaskerCard<Content: View>: View {
             )
             .clipShape(RoundedRectangle(cornerRadius: tokens.corner.r3))
             .taskerElevation(elevated ? .e2 : .e1, cornerRadius: tokens.corner.r3, includesBorder: false)
+    }
+}
+
+private extension DynamicTypeSize {
+    var uiContentSizeCategory: UIContentSizeCategory {
+        switch self {
+        case .xSmall: return .extraSmall
+        case .small: return .small
+        case .medium: return .medium
+        case .large: return .large
+        case .xLarge: return .extraLarge
+        case .xxLarge: return .extraExtraLarge
+        case .xxxLarge: return .extraExtraExtraLarge
+        case .accessibility1: return .accessibilityMedium
+        case .accessibility2: return .accessibilityLarge
+        case .accessibility3: return .accessibilityExtraLarge
+        case .accessibility4: return .accessibilityExtraExtraLarge
+        case .accessibility5: return .accessibilityExtraExtraExtraLarge
+        @unknown default:
+            return .large
+        }
+    }
+}
+
+private extension ColorSchemeContrast {
+    var uiAccessibilityContrast: UIAccessibilityContrast {
+        switch self {
+        case .standard:
+            return .normal
+        case .increased:
+            return .high
+        @unknown default:
+            return .normal
+        }
     }
 }

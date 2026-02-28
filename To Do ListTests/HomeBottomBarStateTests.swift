@@ -3,6 +3,18 @@ import XCTest
 
 @MainActor
 final class HomeBottomBarStateTests: XCTestCase {
+    private var originalSchedulerFlag: Bool = true
+
+    override func setUp() {
+        super.setUp()
+        originalSchedulerFlag = V2FeatureFlags.iPadPerfBottomBarSchedulerV2Enabled
+        V2FeatureFlags.iPadPerfBottomBarSchedulerV2Enabled = true
+    }
+
+    override func tearDown() {
+        V2FeatureFlags.iPadPerfBottomBarSchedulerV2Enabled = originalSchedulerFlag
+        super.tearDown()
+    }
 
     func testSelectUpdatesSelectedItem() {
         let state = HomeBottomBarState()
@@ -85,5 +97,16 @@ final class HomeBottomBarStateTests: XCTestCase {
         try? await _Concurrency.Task.sleep(nanoseconds: 550_000_000)
 
         XCTAssertFalse(state.isMinimized)
+    }
+
+    func testRapidDownwardScrollUsesSingleIdleRevealWorker() {
+        let state = HomeBottomBarState()
+
+        state.handleScrollOffsetChange(100)
+        for step in 1...48 {
+            state.handleScrollOffsetChange(100 + CGFloat(step * 4))
+        }
+
+        XCTAssertLessThanOrEqual(state.idleRevealSchedulerWorkerStartsForTesting, 1)
     }
 }

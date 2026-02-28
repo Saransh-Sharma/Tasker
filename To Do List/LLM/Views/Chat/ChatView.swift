@@ -721,7 +721,9 @@ struct ChatView: View {
                     if focused {
                         Task { @MainActor in
                             LLMRuntimeCoordinator.shared.acquireSession(reason: "chat_prompt_focus")
-                            await LLMRuntimeCoordinator.shared.prepareCurrentModelIfConfigured(trigger: "prompt_focus")
+                            if V2FeatureFlags.iPadPerfDeferLLMPrewarmV2Enabled == false {
+                                await LLMRuntimeCoordinator.shared.prepareCurrentModelIfConfigured(trigger: "prompt_focus")
+                            }
                         }
                     } else {
                         Task { @MainActor in
@@ -732,11 +734,16 @@ struct ChatView: View {
                 .onAppear {
                     Task { @MainActor in
                         LLMRuntimeCoordinator.shared.acquireSession(reason: "chat_view")
-                        await LLMRuntimeCoordinator.shared.prepareCurrentModelIfConfigured(trigger: "chat_view_appear")
+                        if V2FeatureFlags.iPadPerfDeferLLMPrewarmV2Enabled {
+                            LLMRuntimeCoordinator.shared.requestChatEntryPrewarm(trigger: "chat_view_appear", delaySeconds: 2.0)
+                        } else {
+                            await LLMRuntimeCoordinator.shared.prepareCurrentModelIfConfigured(trigger: "chat_view_appear")
+                        }
                     }
                 }
                 .onDisappear {
                     Task { @MainActor in
+                        LLMRuntimeCoordinator.shared.cancelDeferredPrewarm(reason: "chat_view_disappear")
                         cancelActiveGeneration(reason: "chat_view_disappear")
                         LLMRuntimeCoordinator.shared.releaseSession(reason: "chat_prompt_focus")
                         LLMRuntimeCoordinator.shared.releaseSession(reason: "chat_view")

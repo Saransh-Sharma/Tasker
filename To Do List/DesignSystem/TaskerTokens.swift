@@ -1,5 +1,106 @@
 import UIKit
 
+public enum TaskerLayoutClass: String, CaseIterable {
+    case phone
+    case padCompact
+    case padRegular
+    case padExpanded
+
+    public var isPad: Bool {
+        self != .phone
+    }
+}
+
+public struct TaskerLayoutMetrics {
+    public let width: CGFloat
+    public let height: CGFloat
+    public let idiom: UIUserInterfaceIdiom
+    public let horizontalSizeClass: UIUserInterfaceSizeClass?
+    public let verticalSizeClass: UIUserInterfaceSizeClass?
+    public let safeAreaInsets: UIEdgeInsets
+
+    /// Initializes a new instance.
+    public init(
+        width: CGFloat,
+        height: CGFloat,
+        idiom: UIUserInterfaceIdiom,
+        horizontalSizeClass: UIUserInterfaceSizeClass? = nil,
+        verticalSizeClass: UIUserInterfaceSizeClass? = nil,
+        safeAreaInsets: UIEdgeInsets = .zero
+    ) {
+        self.width = width
+        self.height = height
+        self.idiom = idiom
+        self.horizontalSizeClass = horizontalSizeClass
+        self.verticalSizeClass = verticalSizeClass
+        self.safeAreaInsets = safeAreaInsets
+    }
+}
+
+public enum TaskerLayoutResolver {
+    public static let padCompactUpperBound: CGFloat = 700
+    public static let padRegularUpperBound: CGFloat = 1024
+
+    /// Executes classify.
+    public static func classify(metrics: TaskerLayoutMetrics) -> TaskerLayoutClass {
+        guard metrics.idiom == .pad else { return .phone }
+        if metrics.width < padCompactUpperBound {
+            return .padCompact
+        }
+        if metrics.width < padRegularUpperBound {
+            return .padRegular
+        }
+        return .padExpanded
+    }
+
+    /// Executes classify.
+    public static func classify(windowScene: UIWindowScene?) -> TaskerLayoutClass {
+        guard let windowScene else { return .phone }
+        let size = windowScene.coordinateSpace.bounds.size
+        let horizontalSizeClass = windowScene.traitCollection.horizontalSizeClass
+        let verticalSizeClass = windowScene.traitCollection.verticalSizeClass
+        let safeAreaInsets = windowScene.windows.first?.safeAreaInsets ?? .zero
+        let metrics = TaskerLayoutMetrics(
+            width: size.width,
+            height: size.height,
+            idiom: windowScene.traitCollection.userInterfaceIdiom,
+            horizontalSizeClass: horizontalSizeClass,
+            verticalSizeClass: verticalSizeClass,
+            safeAreaInsets: safeAreaInsets
+        )
+        return classify(metrics: metrics)
+    }
+
+    /// Executes classify.
+    public static func classify(view: UIView) -> TaskerLayoutClass {
+        classify(metrics: metrics(for: view))
+    }
+
+    static func metrics(for view: UIView) -> TaskerLayoutMetrics {
+        let bounds = view.bounds
+        let fallbackBounds = view.window?.windowScene?.coordinateSpace.bounds ?? view.window?.bounds
+        let resolvedWidth: CGFloat
+        let resolvedHeight: CGFloat
+
+        if bounds.width <= 1, let fallbackBounds, fallbackBounds.width > 1 {
+            resolvedWidth = fallbackBounds.width
+            resolvedHeight = fallbackBounds.height
+        } else {
+            resolvedWidth = bounds.width
+            resolvedHeight = bounds.height
+        }
+
+        return TaskerLayoutMetrics(
+            width: resolvedWidth,
+            height: resolvedHeight,
+            idiom: view.traitCollection.userInterfaceIdiom,
+            horizontalSizeClass: view.traitCollection.horizontalSizeClass,
+            verticalSizeClass: view.traitCollection.verticalSizeClass,
+            safeAreaInsets: view.safeAreaInsets
+        )
+    }
+}
+
 public protocol TaskerTokenGroup {}
 
 public protocol TaskerTokenContainer {
