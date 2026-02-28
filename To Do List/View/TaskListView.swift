@@ -22,6 +22,8 @@ struct TaskListView: View {
     let doneTimelineTasks: [TaskDefinition]
     let tagNameByID: [UUID: String]
     let activeQuickView: HomeQuickView?
+    let todayXPSoFar: Int?
+    let isGamificationV2Enabled: Bool
     let projectGroupingMode: HomeProjectGroupingMode
     let customProjectOrderIDs: [UUID]
     let emptyStateMessage: String?
@@ -54,6 +56,8 @@ struct TaskListView: View {
         doneTimelineTasks: [TaskDefinition] = [],
         tagNameByID: [UUID: String] = [:],
         activeQuickView: HomeQuickView? = nil,
+        todayXPSoFar: Int? = nil,
+        isGamificationV2Enabled: Bool = V2FeatureFlags.gamificationV2Enabled,
         projectGroupingMode: HomeProjectGroupingMode = .defaultMode,
         customProjectOrderIDs: [UUID] = [],
         emptyStateMessage: String? = nil,
@@ -82,6 +86,8 @@ struct TaskListView: View {
         self.doneTimelineTasks = doneTimelineTasks
         self.tagNameByID = tagNameByID
         self.activeQuickView = activeQuickView
+        self.todayXPSoFar = todayXPSoFar
+        self.isGamificationV2Enabled = isGamificationV2Enabled
         self.projectGroupingMode = projectGroupingMode
         self.customProjectOrderIDs = customProjectOrderIDs
         self.emptyStateMessage = emptyStateMessage
@@ -178,6 +184,8 @@ struct TaskListView: View {
                 project: inboxSection.project,
                 tasks: inboxSection.tasks,
                 tagNameByID: tagNameByID,
+                todayXPSoFar: todayXPSoFar,
+                isGamificationV2Enabled: isGamificationV2Enabled,
                 completedCollapsed: isCompletedCollapsedBySection[inboxSection.project.id],
                 isTaskDragEnabled: isTaskDragEnabled,
                 onTaskTap: onTaskTap,
@@ -201,6 +209,8 @@ struct TaskListView: View {
             OverdueGroupedSectionView(
                 groups: layout.overdueGroups,
                 tagNameByID: tagNameByID,
+                todayXPSoFar: todayXPSoFar,
+                isGamificationV2Enabled: isGamificationV2Enabled,
                 isTaskDragEnabled: isTaskDragEnabled,
                 headerActionTitle: overdueHeaderActionTitle,
                 onHeaderAction: onOverdueHeaderAction,
@@ -221,6 +231,8 @@ struct TaskListView: View {
                 project: section.project,
                 tasks: section.tasks,
                 tagNameByID: tagNameByID,
+                todayXPSoFar: todayXPSoFar,
+                isGamificationV2Enabled: isGamificationV2Enabled,
                 completedCollapsed: isCompletedCollapsedBySection[section.project.id],
                 isTaskDragEnabled: isTaskDragEnabled,
                 onTaskTap: onTaskTap,
@@ -261,6 +273,8 @@ struct TaskListView: View {
                 tasks: overdueTasks,
                 isOverdueSection: true,
                 tagNameByID: tagNameByID,
+                todayXPSoFar: todayXPSoFar,
+                isGamificationV2Enabled: isGamificationV2Enabled,
                 completedCollapsed: isCompletedCollapsedBySection[overdueProject.id],
                 isTaskDragEnabled: isTaskDragEnabled,
                 onTaskTap: onTaskTap,
@@ -285,6 +299,8 @@ struct TaskListView: View {
                 project: section.project,
                 tasks: section.tasks,
                 tagNameByID: tagNameByID,
+                todayXPSoFar: todayXPSoFar,
+                isGamificationV2Enabled: isGamificationV2Enabled,
                 completedCollapsed: isCompletedCollapsedBySection[section.project.id],
                 isTaskDragEnabled: isTaskDragEnabled,
                 onTaskTap: onTaskTap,
@@ -312,6 +328,8 @@ struct TaskListView: View {
                 tasks: group.tasks,
                 isOverdueSection: false,
                 tagNameByID: tagNameByID,
+                todayXPSoFar: todayXPSoFar,
+                isGamificationV2Enabled: isGamificationV2Enabled,
                 completedCollapsed: isCompletedCollapsedBySection[group.project.id],
                 isTaskDragEnabled: false,
                 onTaskTap: onTaskTap,
@@ -487,6 +505,8 @@ struct TaskListView: View {
         switch activeQuickView {
         case .upcoming:
             return "No upcoming tasks in 14 days"
+        case .overdue:
+            return "No overdue tasks"
         case .done:
             return "No completed tasks in last 30 days"
         case .morning:
@@ -510,6 +530,8 @@ private struct ProjectSection: Identifiable {
 private struct OverdueGroupedSectionView: View {
     let groups: [HomeTaskOverdueGroup]
     let tagNameByID: [UUID: String]
+    let todayXPSoFar: Int?
+    let isGamificationV2Enabled: Bool
     let isTaskDragEnabled: Bool
     var headerActionTitle: String?
     var onHeaderAction: (() -> Void)?
@@ -553,6 +575,8 @@ private struct OverdueGroupedSectionView: View {
                                 showTypeBadge: false,
                                 isInOverdueSection: true,
                                 tagNameByID: tagNameByID,
+                                todayXPSoFar: todayXPSoFar,
+                                isGamificationV2Enabled: isGamificationV2Enabled,
                                 isTaskDragEnabled: isTaskDragEnabled,
                                 onTap: { onTaskTap?(task) },
                                 onToggleComplete: { onToggleComplete?(task) },

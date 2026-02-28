@@ -3314,6 +3314,8 @@ struct HomeBackdropForedropRootView: View {
                 doneTimelineTasks: viewModel.doneTimelineTasks,
                 tagNameByID: Dictionary(uniqueKeysWithValues: viewModel.tags.map { ($0.id, $0.name) }),
                 activeQuickView: viewModel.activeScope.quickView,
+                todayXPSoFar: (V2FeatureFlags.gamificationV2Enabled && viewModel.progressState.todayTargetXP <= 0) ? nil : viewModel.progressState.earnedXP,
+                isGamificationV2Enabled: V2FeatureFlags.gamificationV2Enabled,
                 projectGroupingMode: viewModel.activeFilterState.projectGroupingMode,
                 customProjectOrderIDs: viewModel.activeFilterState.customProjectOrderIDs,
                 emptyStateMessage: viewModel.emptyStateMessage,
@@ -4131,6 +4133,8 @@ struct HomeBackdropForedropRootView: View {
             return "custom_date"
         case .upcoming:
             return "upcoming"
+        case .overdue:
+            return "overdue"
         case .done:
             return "done"
         case .morning:
@@ -4150,8 +4154,7 @@ struct HomeBackdropForedropRootView: View {
             return "Complete 1 more task to keep your streak safe."
         }
         if progress.earnedXP < progress.todayTargetXP {
-            let remainingXP = max(0, progress.todayTargetXP - progress.earnedXP)
-            return "Complete another task to earn about \(min(15, remainingXP)) XP."
+            return "Complete another task to keep building XP."
         }
         if viewModel.todayOpenTaskCount > 0 {
             return "Daily goal hit. Keep momentum with one more completion."

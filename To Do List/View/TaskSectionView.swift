@@ -85,6 +85,8 @@ struct TaskSectionView: View {
     let tasks: [TaskDefinition]
     let isOverdueSection: Bool
     let tagNameByID: [UUID: String]
+    let todayXPSoFar: Int?
+    let isGamificationV2Enabled: Bool
     let completedCollapsed: Bool?
     let isTaskDragEnabled: Bool
     var onTaskTap: ((TaskDefinition) -> Void)?
@@ -109,6 +111,8 @@ struct TaskSectionView: View {
         tasks: [TaskDefinition],
         isOverdueSection: Bool = false,
         tagNameByID: [UUID: String] = [:],
+        todayXPSoFar: Int? = nil,
+        isGamificationV2Enabled: Bool = V2FeatureFlags.gamificationV2Enabled,
         completedCollapsed: Bool? = nil,
         isTaskDragEnabled: Bool = false,
         onTaskTap: ((TaskDefinition) -> Void)? = nil,
@@ -125,6 +129,8 @@ struct TaskSectionView: View {
         self.tasks = tasks
         self.isOverdueSection = isOverdueSection
         self.tagNameByID = tagNameByID
+        self.todayXPSoFar = todayXPSoFar
+        self.isGamificationV2Enabled = isGamificationV2Enabled
         self.completedCollapsed = completedCollapsed
         self.isTaskDragEnabled = isTaskDragEnabled
         self.onTaskTap = onTaskTap
@@ -185,6 +191,8 @@ struct TaskSectionView: View {
                     showTypeBadge: hasMixedTypes,
                     isInOverdueSection: isOverdueSection,
                     tagNameByID: tagNameByID,
+                    todayXPSoFar: todayXPSoFar,
+                    isGamificationV2Enabled: isGamificationV2Enabled,
                     isTaskDragEnabled: isTaskDragEnabled,
                     onTap: { onTaskTap?(item.task) },
                     onToggleComplete: { onToggleComplete?(item.task) },
@@ -207,6 +215,8 @@ struct TaskSectionView: View {
                             showTypeBadge: hasMixedTypes,
                             isInOverdueSection: isOverdueSection,
                             tagNameByID: tagNameByID,
+                            todayXPSoFar: todayXPSoFar,
+                            isGamificationV2Enabled: isGamificationV2Enabled,
                             isTaskDragEnabled: false,
                             onTap: { onTaskTap?(item.task) },
                             onToggleComplete: { onToggleComplete?(item.task) },

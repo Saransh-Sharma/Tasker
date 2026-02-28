@@ -28,6 +28,24 @@ public enum XPDisplayEstimate: Equatable {
     }
 }
 
+public struct XPCompletionPreview: Equatable {
+    public let awardedXP: Int
+    public let isCapped: Bool
+
+    public init(awardedXP: Int, isCapped: Bool) {
+        self.awardedXP = awardedXP
+        self.isCapped = isCapped
+    }
+
+    public var shortLabel: String {
+        isCapped ? "+\(awardedXP) XP (cap)" : "+\(awardedXP) XP"
+    }
+
+    public var compactLabel: String {
+        isCapped ? "+\(awardedXP) cap" : "+\(awardedXP)"
+    }
+}
+
 public struct XPCalculationEngine {
 
     public static let dailyCap: Int = 250
@@ -112,6 +130,38 @@ public struct XPCalculationEngine {
         return minutes * focusXPPerMinute
     }
 
+    public static func completionXPIfCompletedNow(
+        priorityRaw: Int32,
+        estimatedDuration: TimeInterval?,
+        dueDate: Date?,
+        completedAt: Date = Date(),
+        dailyEarnedSoFar: Int,
+        cap: Int = dailyCap,
+        isGamificationV2Enabled: Bool,
+        isFocusSessionActive: Bool = false,
+        isPinnedInFocusStrip: Bool = false
+    ) -> XPCompletionPreview {
+        // Legacy path awards a fixed +10 without V2 quality weighting or cap semantics.
+        guard isGamificationV2Enabled else {
+            return XPCompletionPreview(awardedXP: baseXP(for: .complete), isCapped: false)
+        }
+
+        let priority = max(0, Int(priorityRaw) - 1)
+        let safeDailyEarned = max(0, dailyEarnedSoFar)
+        let quality = qualityWeight(
+            priority: priority,
+            estimatedDuration: estimatedDuration,
+            isFocusSessionActive: isFocusSessionActive,
+            isPinnedInFocusStrip: isPinnedInFocusStrip
+        )
+        let bonus = isOnTimeCompletion(dueDate: dueDate, completedAt: completedAt) ? onTimeBonusXP() : 0
+        let raw = Int(round(Double(baseXP(for: .complete) + bonus) * quality))
+        let remaining = max(0, cap - safeDailyEarned)
+        let awardedXP = min(raw, remaining)
+        return XPCompletionPreview(awardedXP: awardedXP, isCapped: awardedXP < raw)
+    }
+
+    @available(*, deprecated, message: "Use completionXPIfCompletedNow(...) for precise XP rewards.")
     public static func completionEstimate(
         priorityRaw: Int32,
         estimatedDuration: TimeInterval?,

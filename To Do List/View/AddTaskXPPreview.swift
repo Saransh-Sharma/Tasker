@@ -2,7 +2,7 @@
 //  AddTaskXPPreview.swift
 //  Tasker
 //
-//  Dynamic XP preview badge — shows estimated XP based on selected priority.
+//  Dynamic XP preview badge — shows exact XP if completed now.
 //  Uses .contentTransition(.numericText()) for rolling counter animation.
 //
 
@@ -12,11 +12,28 @@ import SwiftUI
 
 struct AddTaskXPPreview: View {
     let priority: TaskPriority
+    let estimatedDuration: TimeInterval?
+    let dueDate: Date?
+    let todayXPSoFar: Int?
+    let isGamificationV2Enabled: Bool
 
-    private var estimate: XPDisplayEstimate {
-        XPCalculationEngine.completionEstimate(
+    private var preview: XPCompletionPreview? {
+        if isGamificationV2Enabled {
+            guard let todayXPSoFar else { return nil }
+            return XPCalculationEngine.completionXPIfCompletedNow(
+                priorityRaw: priority.rawValue,
+                estimatedDuration: estimatedDuration,
+                dueDate: dueDate,
+                dailyEarnedSoFar: todayXPSoFar,
+                isGamificationV2Enabled: true
+            )
+        }
+        return XPCalculationEngine.completionXPIfCompletedNow(
             priorityRaw: priority.rawValue,
-            estimatedDuration: nil
+            estimatedDuration: estimatedDuration,
+            dueDate: dueDate,
+            dailyEarnedSoFar: 0,
+            isGamificationV2Enabled: false
         )
     }
 
@@ -44,7 +61,7 @@ struct AddTaskXPPreview: View {
                     .font(.system(size: 12, weight: .medium))
                     .foregroundColor(isHighValue ? Color.tasker.accentSecondary : Color.tasker.textTertiary)
 
-                Text(estimate.shortLabel)
+                Text(preview?.shortLabel ?? "XP pending")
                     .font(.tasker(.callout))
                     .fontWeight(.medium)
                     .foregroundColor(isHighValue ? Color.tasker.textSecondary : Color.tasker.textTertiary)

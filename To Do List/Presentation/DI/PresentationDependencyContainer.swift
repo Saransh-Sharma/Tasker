@@ -162,6 +162,7 @@ public final class PresentationDependencyContainer {
             manageLifeAreasUseCase: useCaseCoordinator.manageLifeAreas,
             manageSectionsUseCase: useCaseCoordinator.manageSections,
             manageTagsUseCase: useCaseCoordinator.manageTags,
+            gamificationEngine: useCaseCoordinator.gamificationEngine,
             aiSuggestionService: MainActor.assumeIsolated { AISuggestionService.shared }
         )
         _addTaskViewModel = viewModel
@@ -238,6 +239,7 @@ public final class PresentationDependencyContainer {
             manageLifeAreasUseCase: useCaseCoordinator.manageLifeAreas,
             manageSectionsUseCase: useCaseCoordinator.manageSections,
             manageTagsUseCase: useCaseCoordinator.manageTags,
+            gamificationEngine: useCaseCoordinator.gamificationEngine,
             aiSuggestionService: MainActor.assumeIsolated { AISuggestionService.shared }
         )
     }
