@@ -7,6 +7,9 @@
 
 import Foundation
 import Combine
+#if canImport(WidgetKit)
+import WidgetKit
+#endif
 
 public enum HomeTaskMutationEvent: String, Codable, CaseIterable {
     case created
@@ -2368,6 +2371,7 @@ public final class HomeViewModel: ObservableObject {
             emptyStateMessage = "No completed tasks in last 30 days"
             emptyStateActionTitle = nil
             updateCompletionRateFromFocusResult(openTasks: openTasks, doneTasks: doneTasks)
+            writeTaskListWidgetSnapshot(reason: "apply_result_done")
             return
         }
 
@@ -2403,6 +2407,10 @@ public final class HomeViewModel: ObservableObject {
             upcomingTasks = openTasks
             emptyStateMessage = "No upcoming tasks in 14 days"
             emptyStateActionTitle = nil
+        case .overdue:
+            upcomingTasks = []
+            emptyStateMessage = "No overdue tasks. Great job."
+            emptyStateActionTitle = nil
         case .morning:
             upcomingTasks = []
             emptyStateMessage = "No morning tasks. Add one to start strong."
@@ -2421,6 +2429,7 @@ public final class HomeViewModel: ObservableObject {
         }
 
         updateCompletionRateFromFocusResult(openTasks: openTasks, doneTasks: doneTasks)
+        writeTaskListWidgetSnapshot(reason: "apply_result_\(activeScope.quickView.rawValue)")
     }
 
     /// Executes updateCompletionRateFromFocusResult.
@@ -2788,6 +2797,8 @@ public final class HomeViewModel: ObservableObject {
             return []
         case .upcoming:
             return upcomingTasks.filter { !$0.isComplete }
+        case .overdue:
+            return overdueTasks.filter { !$0.isComplete }
         case .today, .morning, .evening:
             return (morningTasks + eveningTasks + overdueTasks).filter { !$0.isComplete }
         }
@@ -2807,6 +2818,121 @@ public final class HomeViewModel: ObservableObject {
         }
         focusTasks = composedFocusTasks(from: openTasks)
         refreshEvaInsights(openTasks: openTasks)
+    }
+
+    private func writeTaskListWidgetSnapshot(reason: String = "home_event") {
+        guard V2FeatureFlags.taskListWidgetsEnabled else { return }
+        TaskListWidgetSnapshotService.shared.scheduleRefresh(reason: reason)
+    }
+
+    private func buildTaskListWidgetSnapshot() -> TaskListWidgetSnapshot {
+        let openUnion = uniqueTasks(
+            morningTasks.filter { !$0.isComplete } +
+            eveningTasks.filter { !$0.isComplete } +
+            overdueTasks.filter { !$0.isComplete } +
+            upcomingTasks.filter { !$0.isComplete } +
+            focusTasks.filter { !$0.isComplete }
+        )
+        let sortedOpen = sortTasksByPriorityThenDue(openUnion)
+        let topTasks = Array((focusTasks.filter { !$0.isComplete }.isEmpty ? sortedOpen : focusTasks.filter { !$0.isComplete }).prefix(3))
+        let overdueTop = Array(sortTasksByPriorityThenDue(overdueTasks.filter { !$0.isComplete }).prefix(3))
+
+        let now = Date()
+        let fortyEightHours = now.addingTimeInterval(48 * 60 * 60)
+        let dueSoon = sortTasksByPriorityThenDue(
+            openUnion.filter { task in
+                guard let dueDate = task.dueDate else { return false }
+                return dueDate >= now && dueDate <= fortyEightHours
+            }
+        )
+
+        let quickWinCandidates = sortTasksByPriorityThenDue(
+            openUnion.filter { task in
+                guard let minutes = task.estimatedDuration.map({ Int($0 / 60) }) else { return false }
+                return minutes > 0 && minutes <= 15
+            }
+        )
+
+        let waiting = Array(
+            sortTasksByPriorityThenDue(openUnion.filter { !$0.dependencies.isEmpty })
+                .prefix(3)
+        )
+
+        let completedToday = dailyCompletedTasks.filter { task in
+            guard let completedAt = task.dateCompleted else { return false }
+            return Calendar.current.isDateInToday(completedAt)
+        }
+
+        let projectSlices: [TaskListWidgetProjectSlice] = Dictionary(
+            grouping: openUnion,
+            by: { task in
+                task.projectID
+            }
+        )
+        .map { projectID, tasks in
+            let projectName = tasks.first?.projectName?.trimmingCharacters(in: .whitespacesAndNewlines)
+            let normalizedName = (projectName?.isEmpty == false ? projectName : nil) ?? "Inbox"
+            return TaskListWidgetProjectSlice(
+                projectID: projectID,
+                projectName: normalizedName,
+                openCount: tasks.count,
+                overdueCount: tasks.filter(\.isOverdue).count
+            )
+        }
+        .sorted { lhs, rhs in
+            if lhs.openCount != rhs.openCount {
+                return lhs.openCount > rhs.openCount
+            }
+            return lhs.projectName.localizedCaseInsensitiveCompare(rhs.projectName) == .orderedAscending
+        }
+
+        let energyBuckets: [TaskListWidgetEnergyBucket] = TaskEnergy.allCases.map { energy in
+            TaskListWidgetEnergyBucket(
+                energy: energy.rawValue,
+                count: openUnion.filter { $0.energy == energy }.count
+            )
+        }
+
+        return TaskListWidgetSnapshot(
+            updatedAt: Date(),
+            todayTopTasks: topTasks.map(widgetTask(from:)),
+            upcomingTasks: Array(dueSoon.prefix(3)).map(widgetTask(from:)),
+            overdueTasks: overdueTop.map(widgetTask(from:)),
+            quickWins: Array(quickWinCandidates.prefix(3)).map(widgetTask(from:)),
+            projectSlices: Array(projectSlices.prefix(4)),
+            doneTodayCount: completedToday.count,
+            focusNow: Array(focusTasks.filter { !$0.isComplete }.prefix(3)).map(widgetTask(from:)),
+            waitingOn: waiting.map(widgetTask(from:)),
+            energyBuckets: energyBuckets
+        )
+    }
+
+    private func widgetTask(from task: TaskDefinition) -> TaskListWidgetTask {
+        let minutes = task.estimatedDuration.map { duration in
+            max(1, Int(duration / 60))
+        }
+        return TaskListWidgetTask(
+            id: task.id,
+            title: task.title,
+            projectID: task.projectID,
+            projectName: task.projectName,
+            priorityCode: task.priority.code,
+            dueDate: task.dueDate,
+            isOverdue: task.isOverdue,
+            estimatedDurationMinutes: minutes,
+            energy: task.energy.rawValue,
+            context: task.context.rawValue,
+            isComplete: task.isComplete,
+            hasDependencies: !task.dependencies.isEmpty
+        )
+    }
+
+    private func reloadTaskListWidgetTimelines() {
+        #if canImport(WidgetKit)
+        DispatchQueue.main.async {
+            WidgetCenter.shared.reloadAllTimelines()
+        }
+        #endif
     }
 
     /// Executes trackFeatureUsage.
@@ -3025,6 +3151,8 @@ public final class HomeViewModel: ObservableObject {
             return "custom_date"
         case .upcoming:
             return "upcoming"
+        case .overdue:
+            return "overdue"
         case .done:
             return "done"
         case .morning:
@@ -3169,6 +3297,7 @@ public final class HomeViewModel: ObservableObject {
         }
         refreshFocusTasksFromCurrentState()
         refreshProgressState()
+        writeTaskListWidgetSnapshot(reason: "local_completion_apply")
     }
 
     /// Executes replacingTask.
@@ -3343,7 +3472,7 @@ public final class HomeViewModel: ObservableObject {
             return dueDate < Calendar.current.startOfDay(for: Date())
         case .customDate(let anchorDate):
             return dueDate < Calendar.current.startOfDay(for: anchorDate)
-        case .upcoming, .done, .morning, .evening:
+        case .upcoming, .overdue, .done, .morning, .evening:
             return task.isOverdue
         }
     }
@@ -3353,7 +3482,7 @@ public final class HomeViewModel: ObservableObject {
         switch scope {
         case .today, .customDate:
             return true
-        case .upcoming, .done, .morning, .evening:
+        case .upcoming, .overdue, .done, .morning, .evening:
             return false
         }
     }
@@ -3703,6 +3832,242 @@ public enum DailySummaryModalData: Equatable {
                 "streak_count": summary.streakCount
             ]
         }
+    }
+}
+
+final class TaskListWidgetSnapshotService {
+    static let shared = TaskListWidgetSnapshotService()
+
+    private let queue = DispatchQueue(label: "tasker.tasklist.widget.snapshot", qos: .utility)
+    private let debounceDelay: TimeInterval = 0.25
+    private var pendingWorkItem: DispatchWorkItem?
+
+    private init() {}
+
+    func scheduleRefresh(reason: String) {
+        queue.async { [weak self] in
+            guard let self else { return }
+            self.pendingWorkItem?.cancel()
+            let workItem = DispatchWorkItem { [weak self] in
+                self?.refreshNow(reason: reason)
+            }
+            self.pendingWorkItem = workItem
+            self.queue.asyncAfter(deadline: .now() + self.debounceDelay, execute: workItem)
+        }
+    }
+
+    private func refreshNow(reason: String) {
+        guard V2FeatureFlags.taskListWidgetsEnabled else { return }
+        guard let coordinator = currentCoordinator() else { return }
+
+        coordinator.getTasks.searchTasks(query: "", in: .all) { [weak self] result in
+            guard let self else { return }
+            switch result {
+            case .failure(let error):
+                logWarning(
+                    event: "task_list_widget_snapshot_refresh_failed",
+                    message: "Failed to refresh task list widget snapshot",
+                    fields: [
+                        "reason": reason,
+                        "error": error.localizedDescription
+                    ]
+                )
+            case .success(let tasks):
+                let snapshot = self.buildSnapshot(tasks: tasks)
+                self.persistIfChanged(snapshot: snapshot, reason: reason)
+            }
+        }
+    }
+
+    private func currentCoordinator() -> UseCaseCoordinator? {
+        let container = PresentationDependencyContainer.shared
+        guard container.isConfiguredForRuntime else { return nil }
+        return container.coordinator
+    }
+
+    private func buildSnapshot(tasks: [TaskDefinition], now: Date = Date()) -> TaskListWidgetSnapshot {
+        let calendar = Calendar.current
+        let startOfToday = calendar.startOfDay(for: now)
+        let endOfToday = calendar.date(byAdding: .day, value: 1, to: startOfToday) ?? now
+        let fortyEightHours = now.addingTimeInterval(48 * 60 * 60)
+
+        let openTasks = tasks.filter { !$0.isComplete }
+        let sortedOpen = openTasks.sorted(by: sortByPriorityThenDue)
+        let overdueOpen = openTasks
+            .filter { task in
+                guard let dueDate = task.dueDate else { return false }
+                return dueDate < startOfToday
+            }
+            .sorted(by: sortByPriorityThenDue)
+        let todayOpen = openTasks
+            .filter { task in
+                guard let dueDate = task.dueDate else { return false }
+                return dueDate >= startOfToday && dueDate < endOfToday
+            }
+            .sorted(by: sortByPriorityThenDue)
+        let dueSoon = openTasks
+            .filter { task in
+                guard let dueDate = task.dueDate else { return false }
+                return dueDate >= now && dueDate <= fortyEightHours
+            }
+            .sorted(by: sortByPriorityThenDue)
+        let quickWins = openTasks
+            .filter { task in
+                guard let duration = task.estimatedDuration else { return false }
+                let minutes = Int(duration / 60)
+                return minutes > 0 && minutes <= 15
+            }
+            .sorted(by: sortByPriorityThenDue)
+        let waitingOn = openTasks
+            .filter { !$0.dependencies.isEmpty }
+            .sorted(by: sortByPriorityThenDue)
+
+        let completedToday = tasks
+            .filter(\.isComplete)
+            .filter { task in
+                guard let completedAt = task.dateCompleted else { return false }
+                return calendar.isDateInToday(completedAt)
+            }
+            .sorted(by: sortCompletedDescending)
+
+        let focusNow = Array((todayOpen.isEmpty ? sortedOpen : todayOpen).prefix(3))
+        let topTasks = Array((todayOpen + overdueOpen).isEmpty ? sortedOpen.prefix(3) : (todayOpen + overdueOpen).prefix(3))
+
+        let projectSlices: [TaskListWidgetProjectSlice] = Dictionary(
+            grouping: openTasks,
+            by: { $0.projectID }
+        )
+        .map { projectID, projectTasks in
+            let projectName = projectTasks.first?.projectName?.trimmingCharacters(in: .whitespacesAndNewlines)
+            return TaskListWidgetProjectSlice(
+                projectID: projectID,
+                projectName: (projectName?.isEmpty == false ? projectName : nil) ?? "Inbox",
+                openCount: projectTasks.count,
+                overdueCount: projectTasks.filter(\.isOverdue).count
+            )
+        }
+        .sorted { lhs, rhs in
+            if lhs.openCount != rhs.openCount {
+                return lhs.openCount > rhs.openCount
+            }
+            return lhs.projectName.localizedCaseInsensitiveCompare(rhs.projectName) == .orderedAscending
+        }
+
+        let energyBuckets: [TaskListWidgetEnergyBucket] = TaskEnergy.allCases.map { energy in
+            TaskListWidgetEnergyBucket(
+                energy: energy.rawValue,
+                count: openTasks.filter { $0.energy == energy }.count
+            )
+        }
+
+        return TaskListWidgetSnapshot(
+            schemaVersion: TaskListWidgetSnapshot.currentSchemaVersion,
+            updatedAt: now,
+            todayTopTasks: topTasks.map(widgetTask(from:)),
+            upcomingTasks: Array(dueSoon.prefix(3)).map(widgetTask(from:)),
+            overdueTasks: Array(overdueOpen.prefix(3)).map(widgetTask(from:)),
+            quickWins: Array(quickWins.prefix(3)).map(widgetTask(from:)),
+            projectSlices: Array(projectSlices.prefix(6)),
+            doneTodayCount: completedToday.count,
+            focusNow: focusNow.map(widgetTask(from:)),
+            waitingOn: Array(waitingOn.prefix(3)).map(widgetTask(from:)),
+            energyBuckets: energyBuckets,
+            openTodayCount: todayOpen.count + overdueOpen.count,
+            openTaskPool: Array(sortedOpen.prefix(25)).map(widgetTask(from:)),
+            completedTodayTasks: Array(completedToday.prefix(8)).map(widgetTask(from:)),
+            snapshotHealth: TaskListWidgetSnapshotHealth(
+                source: "full_query",
+                generatedAt: now,
+                isStale: false,
+                hasCorruptionFallback: false
+            )
+        )
+    }
+
+    private func widgetTask(from task: TaskDefinition) -> TaskListWidgetTask {
+        TaskListWidgetTask(
+            id: task.id,
+            title: task.title,
+            projectID: task.projectID,
+            projectName: task.projectName,
+            priorityCode: task.priority.code,
+            dueDate: task.dueDate,
+            isOverdue: task.isOverdue,
+            estimatedDurationMinutes: task.estimatedDuration.map { max(1, Int($0 / 60)) },
+            energy: task.energy.rawValue,
+            context: task.context.rawValue,
+            isComplete: task.isComplete,
+            hasDependencies: !task.dependencies.isEmpty
+        )
+    }
+
+    private func sortByPriorityThenDue(lhs: TaskDefinition, rhs: TaskDefinition) -> Bool {
+        if lhs.priority.scorePoints != rhs.priority.scorePoints {
+            return lhs.priority.scorePoints > rhs.priority.scorePoints
+        }
+        let lhsDate = lhs.dueDate ?? Date.distantFuture
+        let rhsDate = rhs.dueDate ?? Date.distantFuture
+        if lhsDate != rhsDate {
+            return lhsDate < rhsDate
+        }
+        return lhs.title.localizedCaseInsensitiveCompare(rhs.title) == .orderedAscending
+    }
+
+    private func sortCompletedDescending(lhs: TaskDefinition, rhs: TaskDefinition) -> Bool {
+        let lhsDate = lhs.dateCompleted ?? Date.distantPast
+        let rhsDate = rhs.dateCompleted ?? Date.distantPast
+        if lhsDate != rhsDate {
+            return lhsDate > rhsDate
+        }
+        return lhs.title.localizedCaseInsensitiveCompare(rhs.title) == .orderedAscending
+    }
+
+    private func persistIfChanged(snapshot: TaskListWidgetSnapshot, reason: String) {
+        let current = TaskListWidgetSnapshot.load()
+        if normalized(snapshot) == normalized(current) {
+            return
+        }
+        snapshot.save()
+        reloadTaskListTimelines()
+        logDebug("TASK_WIDGET_SNAPSHOT refreshed reason=\(reason)")
+    }
+
+    private func normalized(_ snapshot: TaskListWidgetSnapshot) -> TaskListWidgetSnapshot {
+        var value = snapshot
+        value.updatedAt = Date(timeIntervalSince1970: 0)
+        value.snapshotHealth.generatedAt = Date(timeIntervalSince1970: 0)
+        value.snapshotHealth.hasCorruptionFallback = false
+        return value
+    }
+
+    private func reloadTaskListTimelines() {
+        #if canImport(WidgetKit)
+        let kinds = [
+            "TopTaskNowWidget", "TodayCounterNextWidget", "OverdueRescueWidget", "QuickWin15mWidget",
+            "MorningKickoffWidget", "EveningWrapWidget", "WaitingOnWidget", "InboxTriageWidget",
+            "DueSoonRadarWidget", "EnergyMatchWidget", "ProjectSpotlightWidget", "CalendarTaskBridgeWidget",
+            "TodayTop3Widget", "NowLaneWidget", "OverdueBoardWidget", "Upcoming48hWidget",
+            "MorningEveningPlanWidget", "QuickViewSwitcherWidget", "ProjectSprintWidget",
+            "PriorityMatrixLiteWidget", "ContextWidget", "FocusSessionQueueWidget",
+            "RecoveryWidget", "DoneReflectionWidget",
+            "TodayPlannerBoardWidget", "WeekTaskPlannerWidget", "ProjectCockpitWidget",
+            "BacklogHealthWidget", "KanbanLiteWidget", "DeadlineHeatmapWidget",
+            "ExecutionDashboardWidget", "DeepWorkAgendaWidget", "AssistantPlanPreviewWidget",
+            "LifeAreasBoardWidget",
+            "InlineNextTaskWidget", "InlineDueSoonWidget",
+            "CircularTodayProgressWidget", "CircularQuickAddWidget",
+            "RectangularTop2TasksWidget", "RectangularOverdueAlertWidget",
+            "RectangularFocusNowWidget", "RectangularWaitingOnWidget",
+            "DeskTodayBoardWidget", "CountdownPanelWidget", "NightlyResetWidget",
+            "MorningBriefPanelWidget", "ProjectPulseWidget", "FocusDockWidget"
+        ]
+        DispatchQueue.main.async {
+            let center = WidgetCenter.shared
+            for kind in kinds {
+                center.reloadTimelines(ofKind: kind)
+            }
+        }
+        #endif
     }
 }
 

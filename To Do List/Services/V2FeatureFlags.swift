@@ -13,6 +13,7 @@ public enum LLMChatContextStrategy: String, CaseIterable {
 
 public enum V2FeatureFlags {
     private static let defaults = UserDefaults.standard
+    private static let sharedDefaults = UserDefaults(suiteName: AppGroupConstants.suiteName)
 
     public static var remindersSyncEnabled: Bool {
         get { defaults.object(forKey: "feature.reminders.sync") as? Bool ?? true }
@@ -132,5 +133,52 @@ public enum V2FeatureFlags {
     public static var gamificationOverhaulV1Enabled: Bool {
         get { defaults.object(forKey: "feature.gamification.overhaul.v1") as? Bool ?? true }
         set { defaults.set(newValue, forKey: "feature.gamification.overhaul.v1") }
+    }
+
+    // MARK: - Task list widgets
+
+    public static var taskListWidgetsEnabled: Bool {
+        get {
+            boolValue(
+                forKey: "feature.task_list.widgets",
+                defaultValue: true
+            )
+        }
+        set {
+            setBoolValue(
+                newValue,
+                forKey: "feature.task_list.widgets"
+            )
+        }
+    }
+
+    public static var interactiveTaskWidgetsEnabled: Bool {
+        get {
+            boolValue(
+                forKey: "feature.task_list.widgets.interactive",
+                defaultValue: true
+            )
+        }
+        set {
+            setBoolValue(
+                newValue,
+                forKey: "feature.task_list.widgets.interactive"
+            )
+        }
+    }
+
+    private static func boolValue(forKey key: String, defaultValue: Bool) -> Bool {
+        if let value = defaults.object(forKey: key) as? Bool {
+            return value
+        }
+        if let value = sharedDefaults?.object(forKey: key) as? Bool {
+            return value
+        }
+        return defaultValue
+    }
+
+    private static func setBoolValue(_ value: Bool, forKey key: String) {
+        defaults.set(value, forKey: key)
+        sharedDefaults?.set(value, forKey: key)
     }
 }

@@ -212,6 +212,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         if FirebaseApp.app() != nil {
             GamificationRemoteKillSwitchService.shared.refreshIfAvailable(reason: "app_did_become_active")
         }
+        TaskListWidgetSnapshotService.shared.scheduleRefresh(reason: "app_did_become_active")
     }
 
     /// Executes makeLaunchRootMode.
@@ -297,6 +298,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
             }
             configureTaskerNotifications()
             installPersistentStoreObservers(container: container)
+            TaskListWidgetSnapshotService.shared.scheduleRefresh(reason: "bootstrap_ready")
 
             logWarning(
                 event: "persistent_sync_mode_activated",
