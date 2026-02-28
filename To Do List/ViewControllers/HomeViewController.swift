@@ -146,9 +146,6 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
             onAddTask: { [weak self] in
                 self?.AddTaskAction()
             },
-            onOpenSearch: { [weak self] in
-                self?.searchButtonTapped()
-            },
             onOpenChat: { [weak self] in
                 self?.chatButtonTapped()
             },

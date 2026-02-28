@@ -2451,14 +2451,306 @@ extension ForedropAnchor {
             return "fullReveal"
         }
     }
+}
+
+enum HomeForedropFace: Equatable {
+    case tasks
+    case analytics
+    case search
+
+    var isBackFace: Bool {
+        self != .tasks
+    }
 
     var selectedBottomBarItem: HomeBottomBarItem {
         switch self {
-        case .fullReveal:
-            return .charts
-        case .collapsed, .midReveal:
+        case .tasks:
             return .home
+        case .analytics:
+            return .charts
+        case .search:
+            return .search
         }
+    }
+
+    var surfaceAccessibilityValue: String {
+        switch self {
+        case .tasks:
+            return "collapsed"
+        case .analytics, .search:
+            return "fullReveal"
+        }
+    }
+}
+
+enum HomeSearchStatusFilter: String, CaseIterable, Equatable, Identifiable {
+    case all
+    case today
+    case overdue
+    case completed
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .all:
+            return "All"
+        case .today:
+            return "Today"
+        case .overdue:
+            return "Overdue"
+        case .completed:
+            return "Completed"
+        }
+    }
+
+    var analyticsName: String { rawValue }
+
+    var accessibilityIdentifier: String {
+        "search.status.\(rawValue)"
+    }
+}
+
+private extension HomeSearchStatusFilter {
+    var legacyValue: LGSearchViewModel.StatusFilterType {
+        switch self {
+        case .all:
+            return .all
+        case .today:
+            return .today
+        case .overdue:
+            return .overdue
+        case .completed:
+            return .completed
+        }
+    }
+}
+
+struct HomeSearchSection: Identifiable, Equatable {
+    let projectName: String
+    let tasks: [TaskDefinition]
+
+    var id: String { projectName }
+}
+
+@MainActor
+protocol HomeSearchEngine: AnyObject {
+    var onResultsUpdated: (([TaskDefinition]) -> Void)? { get set }
+    var projects: [Project] { get }
+
+    func search(query: String)
+    func loadProjects(completion: (() -> Void)?)
+    func clearFilters()
+    func toggleProjectFilter(_ project: String)
+    func togglePriorityFilter(_ priority: Int32)
+    func setStatusFilter(_ filter: HomeSearchStatusFilter)
+    func groupTasksByProject(_ tasks: [TaskDefinition]) -> [(project: String, tasks: [TaskDefinition])]
+}
+
+@MainActor
+final class LGHomeSearchEngine: HomeSearchEngine {
+    private let viewModel: LGSearchViewModel
+
+    init(viewModel: LGSearchViewModel) {
+        self.viewModel = viewModel
+    }
+
+    var onResultsUpdated: (([TaskDefinition]) -> Void)? {
+        get { viewModel.onResultsUpdated }
+        set { viewModel.onResultsUpdated = newValue }
+    }
+
+    var projects: [Project] {
+        viewModel.projects
+    }
+
+    func search(query: String) {
+        viewModel.search(query: query)
+    }
+
+    func loadProjects(completion: (() -> Void)?) {
+        viewModel.loadProjects(completion: completion)
+    }
+
+    func clearFilters() {
+        viewModel.clearFilters()
+    }
+
+    func toggleProjectFilter(_ project: String) {
+        viewModel.toggleProjectFilter(project)
+    }
+
+    func togglePriorityFilter(_ priority: Int32) {
+        viewModel.togglePriorityFilter(priority)
+    }
+
+    func setStatusFilter(_ filter: HomeSearchStatusFilter) {
+        viewModel.setStatusFilter(filter.legacyValue)
+    }
+
+    func groupTasksByProject(_ tasks: [TaskDefinition]) -> [(project: String, tasks: [TaskDefinition])] {
+        viewModel.groupTasksByProject(tasks)
+    }
+}
+
+@MainActor
+final class HomeSearchState: ObservableObject {
+    @Published var query: String = ""
+    @Published var selectedStatus: HomeSearchStatusFilter = .all
+    @Published var selectedPriorities: Set<Int32> = []
+    @Published var selectedProjects: Set<String> = []
+    @Published private(set) var sections: [HomeSearchSection] = []
+    @Published private(set) var availableProjects: [String] = []
+    @Published private(set) var isLoading = false
+    @Published private(set) var hasLoaded = false
+
+    private var engine: HomeSearchEngine?
+    private var debounceTask: Task<Void, Never>?
+    private let debounceNanoseconds: UInt64
+
+    init(debounceDelay: TimeInterval = 0.2) {
+        debounceNanoseconds = UInt64(max(0, debounceDelay) * 1_000_000_000)
+    }
+
+    var hasActiveFilters: Bool {
+        selectedStatus != .all || !selectedPriorities.isEmpty || !selectedProjects.isEmpty
+    }
+
+    var trimmedQuery: String {
+        query.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    var shouldShowNoResultsMessage: Bool {
+        hasLoaded && !isLoading && sections.isEmpty
+    }
+
+    var emptyStateTitle: String {
+        if trimmedQuery.isEmpty && !hasActiveFilters {
+            return "Start searching"
+        }
+        return "No tasks found"
+    }
+
+    var emptyStateSubtitle: String {
+        if trimmedQuery.isEmpty && !hasActiveFilters {
+            return "Type to search your tasks or use quick chips."
+        }
+        return "Try a different query or adjust quick chips."
+    }
+
+    func configureIfNeeded(makeEngine: () -> HomeSearchEngine) {
+        guard engine == nil else { return }
+        let resolvedEngine = makeEngine()
+        engine = resolvedEngine
+        resolvedEngine.onResultsUpdated = { [weak self] tasks in
+            guard let self else { return }
+            Task { @MainActor in
+                self.handleResults(tasks)
+            }
+        }
+        resolvedEngine.loadProjects { [weak self] in
+            guard let self else { return }
+            Task { @MainActor in
+                self.refreshAvailableProjects()
+            }
+        }
+        refresh(immediate: true)
+    }
+
+    func activate() {
+        refresh(immediate: true)
+    }
+
+    func deactivate() {
+        debounceTask?.cancel()
+        isLoading = false
+    }
+
+    func updateQuery(_ newValue: String) {
+        query = newValue
+        refresh(immediate: false)
+    }
+
+    func clearQuery() {
+        guard !query.isEmpty else { return }
+        query = ""
+        refresh(immediate: true)
+    }
+
+    func setStatus(_ status: HomeSearchStatusFilter) {
+        guard selectedStatus != status else { return }
+        selectedStatus = status
+        refresh(immediate: true)
+    }
+
+    func togglePriority(_ priority: TaskPriorityConfig.Priority) {
+        let raw = priority.rawValue
+        if selectedPriorities.contains(raw) {
+            selectedPriorities.remove(raw)
+        } else {
+            selectedPriorities.insert(raw)
+        }
+        refresh(immediate: true)
+    }
+
+    func toggleProject(_ project: String) {
+        if selectedProjects.contains(project) {
+            selectedProjects.remove(project)
+        } else {
+            selectedProjects.insert(project)
+        }
+        refresh(immediate: true)
+    }
+
+    func refresh(immediate: Bool) {
+        guard engine != nil else { return }
+        debounceTask?.cancel()
+        if immediate || debounceNanoseconds == 0 {
+            performSearch()
+            return
+        }
+
+        let wait = debounceNanoseconds
+        debounceTask = Task { [weak self] in
+            guard let self else { return }
+            do {
+                try await Task.sleep(nanoseconds: wait)
+            } catch {
+                return
+            }
+            guard !Task.isCancelled else { return }
+            await self.performSearch()
+        }
+    }
+
+    private func performSearch() {
+        guard let engine else { return }
+        isLoading = true
+        engine.clearFilters()
+        selectedProjects.sorted().forEach { engine.toggleProjectFilter($0) }
+        selectedPriorities.sorted().forEach { engine.togglePriorityFilter($0) }
+        engine.setStatusFilter(selectedStatus)
+        engine.search(query: trimmedQuery)
+    }
+
+    private func handleResults(_ tasks: [TaskDefinition]) {
+        guard let engine else { return }
+        sections = engine
+            .groupTasksByProject(tasks)
+            .map { HomeSearchSection(projectName: $0.project, tasks: $0.tasks) }
+        hasLoaded = true
+        isLoading = false
+        refreshAvailableProjects()
+    }
+
+    private func refreshAvailableProjects() {
+        let remoteProjectNames = Set((engine?.projects ?? []).map(\.name))
+        let visibleProjectNames = Set(sections.map(\.projectName))
+        let allProjects = remoteProjectNames
+            .union(visibleProjectNames)
+            .union([ProjectConstants.inboxProjectName])
+        availableProjects = allProjects.sorted()
+        selectedProjects = selectedProjects.intersection(allProjects)
     }
 }
 
@@ -2477,13 +2769,12 @@ struct HomeBackdropForedropRootView: View {
     let onRescheduleTask: (TaskDefinition) -> Void
     let onReorderCustomProjects: ([UUID]) -> Void
     let onAddTask: () -> Void
-    let onOpenSearch: () -> Void
     let onOpenChat: () -> Void
     let onOpenProjectCreator: () -> Void
     let onOpenSettings: () -> Void
     let onStartFocus: (TaskDefinition) -> Void
 
-    @State private var foredropAnchor: ForedropAnchor = .collapsed
+    @State private var activeFace: HomeForedropFace = .tasks
     @State private var showAdvancedFilters = false
     @State private var showDatePicker = false
     @State private var draftDate = Date()
@@ -2504,6 +2795,9 @@ struct HomeBackdropForedropRootView: View {
     @State private var isHomeVisible = false
     @State private var snackbar: SnackbarData?
     @State private var shownUnlockKeys = Set<String>()
+    @State private var lastSearchQueryTelemetryAt: Date?
+    @StateObject private var searchState = HomeSearchState()
+    @FocusState private var isSearchFieldFocused: Bool
 
     private static let foredropHintLaunchDelay: TimeInterval = 0.10
     private static let foredropHintPeekDistance: CGFloat = 24
@@ -2521,7 +2815,11 @@ struct HomeBackdropForedropRootView: View {
     private var isUITesting: Bool {
         Self.launchArguments.contains("-UI_TESTING") || Self.launchArguments.contains("-DISABLE_ANIMATIONS")
     }
-    private var isAnalyticsOpen: Bool { foredropAnchor == .fullReveal }
+    private var foredropAnchorForHint: ForedropAnchor {
+        activeFace == .tasks ? .collapsed : .fullReveal
+    }
+    private var isSearchOpen: Bool { activeFace == .search }
+    private var isBackFaceVisible: Bool { activeFace.isBackFace }
     private var foredropFlipTransition: AnyTransition {
         if reduceMotion || isUITesting {
             return .opacity
@@ -2583,7 +2881,7 @@ struct HomeBackdropForedropRootView: View {
                                     taskListBottomInset: taskListBottomInset
                                 )
                                     .offset(y: foredropHintOffset)
-                                    .animation(foredropFlipAnimation, value: foredropAnchor)
+                                    .animation(foredropFlipAnimation, value: activeFace)
                             }
                         }
                     }
@@ -2678,13 +2976,31 @@ struct HomeBackdropForedropRootView: View {
         .taskerSnackbar($snackbar)
         .onAppear {
             isHomeVisible = true
-            bottomBarState.select(foredropAnchor.selectedBottomBarItem)
+            searchState.configureIfNeeded {
+                LGHomeSearchEngine(viewModel: viewModel.makeHomeSearchViewModel())
+            }
+            bottomBarState.select(activeFace.selectedBottomBarItem)
             refreshReflectionClaimState()
             triggerForedropHintIfEligible()
         }
         .onDisappear {
             isHomeVisible = false
             cancelForedropHintAnimation()
+            searchState.deactivate()
+        }
+        .onChange(of: activeFace) { _, newValue in
+            bottomBarState.select(newValue.selectedBottomBarItem)
+            if newValue == .search {
+                searchState.activate()
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.08) {
+                    isSearchFieldFocused = true
+                }
+                return
+            }
+            isSearchFieldFocused = false
+            if newValue != .search {
+                searchState.deactivate()
+            }
         }
         .onReceive(NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification)) { _ in
             triggerForedropHintIfEligible()
@@ -2808,7 +3124,7 @@ struct HomeBackdropForedropRootView: View {
     private func triggerForedropHintIfEligible(now: Date = Date()) {
         let canTrigger = HomeForedropHintEligibility.canTrigger(
             isHomeVisible: isHomeVisible,
-            foredropAnchor: foredropAnchor,
+            foredropAnchor: foredropAnchorForHint,
             reduceMotionEnabled: reduceMotion,
             isUITesting: isUITesting,
             hasRunningAnimation: hintAnimationTask != nil,
@@ -2887,7 +3203,7 @@ struct HomeBackdropForedropRootView: View {
                         )
                         .padding(.horizontal, spacing.s16)
                         .frame(maxWidth: .infinity, alignment: .leading)
-                        .opacity(isAnalyticsOpen ? 0.001 : 1)
+                        .opacity(isBackFaceVisible ? 0.001 : 1)
                     }
                 }
             Spacer(minLength: 0)
@@ -2897,12 +3213,16 @@ struct HomeBackdropForedropRootView: View {
     /// Executes foredropLayer.
     private func foredropLayer(geometry: GeometryProxy, taskListBottomInset: CGFloat) -> some View {
         ZStack {
-            if isAnalyticsOpen {
-                foredropBackFace(geometry: geometry)
+            if activeFace == .tasks {
+                foredropFrontFace(taskListBottomInset: taskListBottomInset)
+                    .transition(foredropFlipTransition)
+                    .zIndex(1)
+            } else if activeFace == .analytics {
+                foredropAnalyticsFace(geometry: geometry)
                     .transition(foredropFlipTransition)
                     .zIndex(1)
             } else {
-                foredropFrontFace(taskListBottomInset: taskListBottomInset)
+                foredropSearchFace(taskListBottomInset: taskListBottomInset)
                     .transition(foredropFlipTransition)
                     .zIndex(1)
             }
@@ -2941,8 +3261,8 @@ struct HomeBackdropForedropRootView: View {
         )
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("home.foredrop.surface")
-        .accessibilityValue(foredropAnchor.accessibilityValue)
-        .animation(foredropFlipAnimation, value: isAnalyticsOpen)
+        .accessibilityValue(activeFace.surfaceAccessibilityValue)
+        .animation(foredropFlipAnimation, value: activeFace)
     }
 
     private var handleBar: some View {
@@ -3040,7 +3360,7 @@ struct HomeBackdropForedropRootView: View {
         }
     }
 
-    private func foredropBackFace(geometry: GeometryProxy) -> some View {
+    private func foredropAnalyticsFace(geometry: GeometryProxy) -> some View {
         VStack(spacing: spacing.s8) {
             HStack(spacing: spacing.s8) {
                 Text("Analytics")
@@ -3048,7 +3368,7 @@ struct HomeBackdropForedropRootView: View {
                     .foregroundColor(Color.tasker.textPrimary)
                 Spacer()
                 Button {
-                    closeAnalytics(source: "back_chip")
+                    returnToTasks(source: "back_chip")
                 } label: {
                     HStack(spacing: spacing.s4) {
                         Image(systemName: "arrow.left")
@@ -3072,7 +3392,122 @@ struct HomeBackdropForedropRootView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
     }
 
+    private func foredropSearchFace(taskListBottomInset: CGFloat) -> some View {
+        VStack(spacing: 0) {
+            HStack(spacing: spacing.s8) {
+                Text("Search")
+                    .font(.tasker(.headline))
+                    .foregroundColor(Color.tasker.textPrimary)
+                Spacer()
+                Button {
+                    returnToTasks(source: "back_chip")
+                } label: {
+                    HStack(spacing: spacing.s4) {
+                        Image(systemName: "arrow.left")
+                            .font(.system(size: 10, weight: .semibold))
+                        Text("Back to tasks")
+                            .font(.tasker(.caption2))
+                    }
+                    .foregroundColor(Color.tasker.textQuaternary.opacity(0.92))
+                }
+                .buttonStyle(.plain)
+                .accessibilityIdentifier("search.backChip")
+                .accessibilityLabel("Back to tasks")
+            }
+            .padding(.horizontal, spacing.s16)
+            .padding(.top, spacing.s12)
+            .padding(.bottom, spacing.s8)
+
+            VStack(alignment: .leading, spacing: spacing.s8) {
+                searchStatusChips
+                searchPriorityChips
+                if !searchState.availableProjects.isEmpty {
+                    searchProjectChips
+                }
+            }
+            .padding(.horizontal, spacing.s12)
+            .padding(.bottom, spacing.s8)
+
+            Divider()
+                .overlay(Color.tasker.strokeHairline)
+
+            if searchState.isLoading && !searchState.hasLoaded {
+                VStack(spacing: spacing.s8) {
+                    ProgressView()
+                        .progressViewStyle(.circular)
+                    Text("Loading tasks…")
+                        .font(.tasker(.caption1))
+                        .foregroundColor(Color.tasker.textSecondary)
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
+            } else if searchState.shouldShowNoResultsMessage {
+                VStack(spacing: spacing.s8) {
+                    Image(systemName: "sparkle.magnifyingglass")
+                        .font(.system(size: 28, weight: .semibold))
+                        .foregroundColor(Color.tasker.textTertiary)
+                    Text(searchState.emptyStateTitle)
+                        .font(.tasker(.headline))
+                        .foregroundColor(Color.tasker.textPrimary)
+                        .accessibilityIdentifier("search.emptyStateLabel")
+                    Text(searchState.emptyStateSubtitle)
+                        .font(.tasker(.caption1))
+                        .foregroundColor(Color.tasker.textSecondary)
+                        .multilineTextAlignment(.center)
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
+                .padding(.horizontal, spacing.s16)
+            } else {
+                ScrollView(.vertical, showsIndicators: false) {
+                    LazyVStack(alignment: .leading, spacing: spacing.s12) {
+                        ForEach(searchState.sections) { section in
+                            TaskSectionView(
+                                project: searchProject(for: section.projectName),
+                                tasks: section.tasks,
+                                tagNameByID: Dictionary(uniqueKeysWithValues: viewModel.tags.map { ($0.id, $0.name) }),
+                                completedCollapsed: false,
+                                isTaskDragEnabled: false,
+                                onTaskTap: { task in
+                                    trackSearchResultOpened(task, projectName: section.projectName)
+                                    onTaskTap(task)
+                                },
+                                onToggleComplete: { task in
+                                    trackTaskToggle(task, source: "search_results")
+                                    onToggleComplete(task)
+                                    refreshSearchAfterMutation()
+                                },
+                                onDeleteTask: { task in
+                                    onDeleteTask(task)
+                                    refreshSearchAfterMutation()
+                                },
+                                onRescheduleTask: { task in
+                                    onRescheduleTask(task)
+                                    refreshSearchAfterMutation()
+                                }
+                            )
+                        }
+                        Spacer()
+                            .frame(height: taskListBottomInset)
+                    }
+                    .padding(.horizontal, spacing.s16)
+                    .padding(.top, spacing.s8)
+                    .padding(.bottom, spacing.s8)
+                }
+                .accessibilityIdentifier("search.resultsList")
+            }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("search.view")
+    }
+
     private func topNavigationBar() -> some View {
+        if isSearchOpen {
+            return AnyView(searchTopBackdropBar)
+        }
+        return AnyView(defaultTopNavigationBar)
+    }
+
+    private var defaultTopNavigationBar: some View {
         VStack(spacing: spacing.s8) {
             HStack(spacing: spacing.s8) {
                 QuickViewSelector(
@@ -3107,9 +3542,63 @@ struct HomeBackdropForedropRootView: View {
         .padding(.bottom, spacing.s8)
     }
 
+    private var searchTopBackdropBar: some View {
+        HStack(spacing: spacing.s8) {
+            HStack(spacing: spacing.s8) {
+                Image(systemName: "magnifyingglass")
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundColor(Color.tasker.textSecondary)
+
+                TextField(
+                    "Search tasks...",
+                    text: Binding(
+                        get: { searchState.query },
+                        set: { newValue in
+                            searchState.updateQuery(newValue)
+                            trackSearchQueryChanged(newValue)
+                        }
+                    )
+                )
+                .focused($isSearchFieldFocused)
+                .submitLabel(.search)
+                .textInputAutocapitalization(.never)
+                .autocorrectionDisabled()
+                .font(.tasker(.body))
+                .foregroundColor(Color.tasker.textPrimary)
+                .accessibilityIdentifier("search.searchField")
+
+                if !searchState.query.isEmpty {
+                    Button {
+                        searchState.clearQuery()
+                    } label: {
+                        Image(systemName: "xmark.circle.fill")
+                            .font(.system(size: 16))
+                            .foregroundColor(Color.tasker.textTertiary)
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityIdentifier("search.clearButton")
+                    .accessibilityLabel("Clear Search")
+                }
+            }
+            .padding(.horizontal, spacing.s12)
+            .frame(height: 44)
+            .background(
+                Capsule(style: .continuous)
+                    .fill(Color.tasker.surfaceSecondary.opacity(0.96))
+                    .overlay(
+                        Capsule(style: .continuous)
+                            .stroke(Color.tasker.strokeHairline.opacity(0.4), lineWidth: 1)
+                    )
+            )
+        }
+        .padding(.horizontal, spacing.s16)
+        .padding(.top, spacing.s4)
+        .padding(.bottom, spacing.s8)
+    }
+
     private var topSearchButton: some View {
         Button {
-            onOpenSearch()
+            openSearch(source: "top_nav_search")
         } label: {
             Image(systemName: "magnifyingglass")
                 .font(.system(size: 18, weight: .semibold))
@@ -3140,6 +3629,169 @@ struct HomeBackdropForedropRootView: View {
         }
         .buttonStyle(.plain)
         .accessibilityIdentifier("home.settingsButton")
+    }
+
+    private var searchStatusChips: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: spacing.s8) {
+                ForEach(HomeSearchStatusFilter.allCases) { status in
+                    searchChipButton(
+                        title: status.title,
+                        isSelected: searchState.selectedStatus == status,
+                        accessibilityIdentifier: status.accessibilityIdentifier
+                    ) {
+                        searchState.setStatus(status)
+                        trackSearchChipToggled(kind: "status", value: status.analyticsName, isSelected: true)
+                    }
+                }
+            }
+            .padding(.horizontal, spacing.s4)
+        }
+    }
+
+    private var searchPriorityChips: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: spacing.s8) {
+                ForEach(TaskPriorityConfig.Priority.allCases, id: \.rawValue) { priority in
+                    let isSelected = searchState.selectedPriorities.contains(priority.rawValue)
+                    searchChipButton(
+                        title: priority.code,
+                        isSelected: isSelected,
+                        tintColor: Color(uiColor: priority.color),
+                        accessibilityIdentifier: "search.priority.\(priority.code.lowercased())"
+                    ) {
+                        searchState.togglePriority(priority)
+                        trackSearchChipToggled(
+                            kind: "priority",
+                            value: priority.code.lowercased(),
+                            isSelected: !isSelected
+                        )
+                    }
+                }
+            }
+            .padding(.horizontal, spacing.s4)
+        }
+    }
+
+    private var searchProjectChips: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: spacing.s8) {
+                ForEach(searchState.availableProjects, id: \.self) { projectName in
+                    let isSelected = searchState.selectedProjects.contains(projectName)
+                    searchChipButton(
+                        title: projectName,
+                        isSelected: isSelected,
+                        accessibilityIdentifier: "search.project.\(searchIdentifierToken(projectName))"
+                    ) {
+                        searchState.toggleProject(projectName)
+                        trackSearchChipToggled(
+                            kind: "project",
+                            value: projectName,
+                            isSelected: !isSelected
+                        )
+                    }
+                }
+            }
+            .padding(.horizontal, spacing.s4)
+        }
+    }
+
+    private func searchChipButton(
+        title: String,
+        isSelected: Bool,
+        tintColor: Color? = nil,
+        accessibilityIdentifier: String,
+        action: @escaping () -> Void
+    ) -> some View {
+        let resolvedTintColor = tintColor ?? Color.tasker.accentPrimary
+        return Button(action: action) {
+            Text(title)
+                .font(.tasker(.caption1))
+                .foregroundColor(isSelected ? Color.tasker.textPrimary : Color.tasker.textSecondary)
+                .padding(.horizontal, spacing.s12)
+                .padding(.vertical, spacing.s4)
+                .background(
+                    Capsule(style: .continuous)
+                        .fill(
+                            isSelected
+                                ? resolvedTintColor.opacity(0.25)
+                                : Color.tasker.surfaceSecondary
+                        )
+                        .overlay(
+                            Capsule(style: .continuous)
+                                .stroke(
+                                    isSelected
+                                        ? resolvedTintColor.opacity(0.55)
+                                        : Color.tasker.strokeHairline.opacity(0.35),
+                                    lineWidth: 1
+                                )
+                        )
+                )
+        }
+        .buttonStyle(.plain)
+        .accessibilityIdentifier(accessibilityIdentifier)
+        .accessibilityValue(isSelected ? "selected" : "unselected")
+    }
+
+    private func searchProject(for name: String) -> Project {
+        if let resolved = viewModel.projects.first(where: { $0.name == name }) {
+            return resolved
+        }
+        if name == ProjectConstants.inboxProjectName {
+            return Project.createInbox()
+        }
+        return Project(name: name)
+    }
+
+    private func searchIdentifierToken(_ rawValue: String) -> String {
+        rawValue
+            .lowercased()
+            .replacingOccurrences(of: " ", with: "_")
+            .replacingOccurrences(of: ".", with: "_")
+            .replacingOccurrences(of: "-", with: "_")
+    }
+
+    private func refreshSearchAfterMutation() {
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) {
+            searchState.refresh(immediate: true)
+        }
+    }
+
+    private func trackSearchQueryChanged(_ query: String) {
+        let now = Date()
+        if let lastSearchQueryTelemetryAt, now.timeIntervalSince(lastSearchQueryTelemetryAt) < 0.7 {
+            return
+        }
+        lastSearchQueryTelemetryAt = now
+        let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        viewModel.trackHomeInteraction(
+            action: "home_search_query_changed",
+            metadata: [
+                "length": trimmed.count,
+                "has_query": trimmed.isEmpty ? "false" : "true"
+            ]
+        )
+    }
+
+    private func trackSearchChipToggled(kind: String, value: String, isSelected: Bool) {
+        viewModel.trackHomeInteraction(
+            action: "home_search_chip_toggled",
+            metadata: [
+                "kind": kind,
+                "value": value,
+                "selected": isSelected ? "true" : "false"
+            ]
+        )
+    }
+
+    private func trackSearchResultOpened(_ task: TaskDefinition, projectName: String) {
+        viewModel.trackHomeInteraction(
+            action: "home_search_result_opened",
+            metadata: [
+                "task_id": task.id.uuidString,
+                "project": projectName
+            ]
+        )
     }
 
     private var hasActiveQuickFilters: Bool {
@@ -3342,13 +3994,13 @@ struct HomeBackdropForedropRootView: View {
         HomeGlassBottomBar(
             state: bottomBarState,
             onHome: {
-                closeAnalytics(source: "bottom_bar_home")
+                returnToTasks(source: "bottom_bar_home")
             },
             onChartsToggle: {
                 toggleInsights(source: "bottom_bar_analytics")
             },
             onSearch: {
-                onOpenSearch()
+                toggleSearch(source: "bottom_bar_search")
             },
             onChat: {
                 onOpenChat()
@@ -3549,7 +4201,7 @@ struct HomeBackdropForedropRootView: View {
     }
 
     private func toggleInsights(source: String) {
-        let shouldOpenInsights = !isAnalyticsOpen
+        let shouldOpenInsights = activeFace != .analytics
         if shouldOpenInsights {
             openAnalytics(source: source, launchDefaultInsights: true)
         } else {
@@ -3565,10 +4217,14 @@ struct HomeBackdropForedropRootView: View {
     }
 
     private func openAnalytics(source: String, launchDefaultInsights: Bool) {
-        withAnimation(foredropFlipAnimation) {
-            foredropAnchor = .fullReveal
+        guard activeFace != .analytics else { return }
+        if activeFace == .search {
+            trackSearchFlipClose(source: "analytics_switch")
         }
-        bottomBarState.select(.charts)
+        withAnimation(foredropFlipAnimation) {
+            activeFace = .analytics
+        }
+        bottomBarState.select(activeFace.selectedBottomBarItem)
         viewModel.trackHomeInteraction(
             action: "home_insights_flip_open",
             metadata: ["source": source]
@@ -3579,12 +4235,71 @@ struct HomeBackdropForedropRootView: View {
     }
 
     private func closeAnalytics(source: String) {
+        guard activeFace == .analytics else { return }
         withAnimation(foredropFlipAnimation) {
-            foredropAnchor = .collapsed
+            activeFace = .tasks
         }
-        bottomBarState.select(.home)
+        bottomBarState.select(activeFace.selectedBottomBarItem)
         viewModel.trackHomeInteraction(
             action: "home_insights_flip_close",
+            metadata: ["source": source]
+        )
+    }
+
+    private func toggleSearch(source: String) {
+        let shouldOpenSearch = activeFace != .search
+        if shouldOpenSearch {
+            openSearch(source: source)
+        } else {
+            closeSearch(source: source)
+        }
+    }
+
+    private func openSearch(source: String) {
+        guard activeFace != .search else { return }
+        if activeFace == .analytics {
+            viewModel.trackHomeInteraction(
+                action: "home_insights_flip_close",
+                metadata: ["source": "analytics_switch"]
+            )
+        }
+        withAnimation(foredropFlipAnimation) {
+            activeFace = .search
+        }
+        bottomBarState.select(activeFace.selectedBottomBarItem)
+        trackSearchFlipOpen(source: source)
+    }
+
+    private func closeSearch(source: String) {
+        guard activeFace == .search else { return }
+        withAnimation(foredropFlipAnimation) {
+            activeFace = .tasks
+        }
+        bottomBarState.select(activeFace.selectedBottomBarItem)
+        trackSearchFlipClose(source: source)
+    }
+
+    private func returnToTasks(source: String) {
+        switch activeFace {
+        case .tasks:
+            bottomBarState.select(HomeForedropFace.tasks.selectedBottomBarItem)
+        case .analytics:
+            closeAnalytics(source: source)
+        case .search:
+            closeSearch(source: source)
+        }
+    }
+
+    private func trackSearchFlipOpen(source: String) {
+        viewModel.trackHomeInteraction(
+            action: "home_search_flip_open",
+            metadata: ["source": source]
+        )
+    }
+
+    private func trackSearchFlipClose(source: String) {
+        viewModel.trackHomeInteraction(
+            action: "home_search_flip_close",
             metadata: ["source": source]
         )
     }

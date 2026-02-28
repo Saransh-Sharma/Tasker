@@ -1320,6 +1320,10 @@ public final class HomeViewModel: ObservableObject {
         )
     }
 
+    func makeHomeSearchViewModel() -> LGSearchViewModel {
+        LGSearchViewModel(useCaseCoordinator: useCaseCoordinator)
+    }
+
     public func startTriage(scope: EvaTriageScope) {
         guard V2FeatureFlags.evaTriageEnabled else { return }
         evaTriageSheetPresented = true
