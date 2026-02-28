@@ -205,16 +205,15 @@ class ThemeAndAppearanceTests: BaseUITest {
 
         // Search surface
         homePage.tapSearch()
-        let searchView = app.otherElements["search.view"]
-        XCTAssertTrue(searchView.waitForExistence(timeout: 3), "Search screen should be displayed")
+        XCTAssertTrue(homePage.waitForSearchFaceOpen(timeout: 3), "Search screen should be displayed")
+        XCTAssertTrue(homePage.searchField.waitForExistence(timeout: 3), "Search field should be visible on backdrop")
         takeScreenshot(named: "theme_surface_search")
-        if app.buttons["Cancel"].firstMatch.exists {
-            app.buttons["Cancel"].firstMatch.tap()
-        } else if app.buttons["Back"].firstMatch.exists {
-            app.buttons["Back"].firstMatch.tap()
+        if homePage.searchBackChip.exists {
+            homePage.tapSearchBackChip()
         } else {
-            app.navigationBars.buttons.element(boundBy: 0).tap()
+            homePage.tapSearch()
         }
+        XCTAssertTrue(homePage.waitForForedropState("collapsed", timeout: 3), "Search should collapse before opening settings")
 
         // Settings + LLM surfaces
         settingsPage = homePage.tapSettings()

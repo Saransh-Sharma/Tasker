@@ -243,12 +243,8 @@ class PerformanceTests: BaseUITest {
             testCase: self
         ) {
             homePage.tapSearch()
-
-            let searchField = app.searchFields.firstMatch
-            if searchField.waitForExistence(timeout: 2) {
-                searchField.tap()
-                searchField.typeText("Search Task 25")
-            }
+            XCTAssertTrue(homePage.waitForSearchFaceOpen(timeout: 2), "Search face should open during perf run")
+            homePage.typeSearchQuery("Search Task 25")
 
             waitForAnimations(duration: 1.0)
         }
