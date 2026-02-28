@@ -1620,6 +1620,167 @@ final class FeatureFlagKillSwitchTests: XCTestCase {
     }
 }
 
+final class TaskListWidgetSourceContractTests: XCTestCase {
+    func testSceneDelegateRestrictsTaskScopesToDocumentedRoutes() throws {
+        let source = try loadWorkspaceFile("To Do List/SceneDelegate.swift")
+        XCTAssertTrue(
+            source.contains("let allowedScopes: Set<String> = [\"today\", \"upcoming\", \"overdue\"]"),
+            "SceneDelegate must restrict task scopes to today/upcoming/overdue."
+        )
+        XCTAssertFalse(
+            source.contains("queryItems"),
+            "SceneDelegate should not parse URL query mutations for widget routing."
+        )
+    }
+
+    func testWidgetBundleDoesNotUseActionQueryDeepLinks() throws {
+        let source = try loadWorkspaceFile("TaskerWidgets/TaskerWidgetBundle.swift")
+        XCTAssertFalse(
+            source.contains("?action="),
+            "Widget intents must not rely on URL query mutation actions."
+        )
+    }
+
+    func testWidgetBundleRegistersFullTaskListCatalogKinds() throws {
+        let source = try loadWorkspaceFile("TaskerWidgets/TaskerWidgetBundle.swift")
+        let expectedKinds = [
+            "TopTaskNowWidget", "TodayCounterNextWidget", "OverdueRescueWidget", "QuickWin15mWidget",
+            "MorningKickoffWidget", "EveningWrapWidget", "WaitingOnWidget", "InboxTriageWidget",
+            "DueSoonRadarWidget", "EnergyMatchWidget", "ProjectSpotlightWidget", "CalendarTaskBridgeWidget",
+            "TodayTop3Widget", "NowLaneWidget", "OverdueBoardWidget", "Upcoming48hWidget",
+            "MorningEveningPlanWidget", "QuickViewSwitcherWidget", "ProjectSprintWidget",
+            "PriorityMatrixLiteWidget", "ContextWidget", "FocusSessionQueueWidget",
+            "RecoveryWidget", "DoneReflectionWidget",
+            "TodayPlannerBoardWidget", "WeekTaskPlannerWidget", "ProjectCockpitWidget",
+            "BacklogHealthWidget", "KanbanLiteWidget", "DeadlineHeatmapWidget",
+            "ExecutionDashboardWidget", "DeepWorkAgendaWidget", "AssistantPlanPreviewWidget",
+            "LifeAreasBoardWidget",
+            "InlineNextTaskWidget", "InlineDueSoonWidget",
+            "CircularTodayProgressWidget", "CircularQuickAddWidget",
+            "RectangularTop2TasksWidget", "RectangularOverdueAlertWidget",
+            "RectangularFocusNowWidget", "RectangularWaitingOnWidget",
+            "DeskTodayBoardWidget", "CountdownPanelWidget", "FocusDockWidget",
+            "NightlyResetWidget", "MorningBriefPanelWidget", "ProjectPulseWidget"
+        ]
+
+        for kind in expectedKinds {
+            XCTAssertTrue(
+                source.contains("kind: \"\(kind)\""),
+                "Widget bundle must include kind \(kind)."
+            )
+        }
+    }
+
+    func testWidgetBundleHasNonEmptyDisplayMetadata() throws {
+        let source = try loadWorkspaceFile("TaskerWidgets/TaskerWidgetBundle.swift")
+        XCTAssertFalse(source.contains("displayName: \"\""))
+        XCTAssertFalse(source.contains("description: \"\""))
+    }
+
+    func testRemoteKillSwitchMapsTaskWidgetFlags() throws {
+        let source = try loadWorkspaceFile("To Do List/Services/GamificationRemoteKillSwitchService.swift")
+        XCTAssertTrue(source.contains("feature_task_list_widgets_enabled"))
+        XCTAssertTrue(source.contains("feature_task_list_widgets_interactive_enabled"))
+        XCTAssertTrue(source.contains("V2FeatureFlags.taskListWidgetsEnabled"))
+        XCTAssertTrue(source.contains("V2FeatureFlags.interactiveTaskWidgetsEnabled"))
+    }
+
+    private func loadWorkspaceFile(_ relativePath: String) throws -> String {
+        let testsFilePath = URL(fileURLWithPath: #filePath)
+        let workspaceRoot = testsFilePath.deletingLastPathComponent().deletingLastPathComponent()
+        let targetURL = workspaceRoot.appendingPathComponent(relativePath)
+        return try String(contentsOf: targetURL, encoding: .utf8)
+    }
+}
+
+final class TaskListWidgetSnapshotSchemaTests: XCTestCase {
+    func testSnapshotV1PayloadDecodesWithBackwardCompatibleDefaults() throws {
+        let json = """
+        {
+          "updatedAt": "2026-02-28T00:00:00Z",
+          "todayTopTasks": [
+            {
+              "id": "11111111-1111-1111-1111-111111111111",
+              "title": "Legacy Task",
+              "priorityCode": "P2",
+              "isOverdue": false,
+              "energy": "medium",
+              "context": "anywhere",
+              "isComplete": false,
+              "hasDependencies": false
+            }
+          ],
+          "upcomingTasks": [],
+          "overdueTasks": [],
+          "quickWins": [],
+          "projectSlices": [],
+          "doneTodayCount": 1,
+          "focusNow": [],
+          "waitingOn": [],
+          "energyBuckets": []
+        }
+        """
+
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        let snapshot = try decoder.decode(TaskListWidgetSnapshot.self, from: Data(json.utf8))
+
+        XCTAssertEqual(snapshot.schemaVersion, 1)
+        XCTAssertEqual(snapshot.todayTopTasks.count, 1)
+        XCTAssertEqual(snapshot.openTodayCount, 1)
+        XCTAssertTrue(snapshot.openTaskPool.isEmpty)
+        XCTAssertTrue(snapshot.completedTodayTasks.isEmpty)
+        XCTAssertEqual(snapshot.snapshotHealth.source, "full_query")
+    }
+
+    func testSnapshotV2RoundTripPreservesNewFields() throws {
+        let now = Date()
+        let task = TaskListWidgetTask(
+            id: UUID(),
+            title: "Round Trip",
+            priorityCode: "P1",
+            dueDate: now,
+            isOverdue: false,
+            estimatedDurationMinutes: 20,
+            energy: "high",
+            context: "computer",
+            isComplete: false,
+            hasDependencies: false
+        )
+        let snapshot = TaskListWidgetSnapshot(
+            schemaVersion: TaskListWidgetSnapshot.currentSchemaVersion,
+            updatedAt: now,
+            todayTopTasks: [task],
+            upcomingTasks: [],
+            overdueTasks: [],
+            quickWins: [],
+            projectSlices: [],
+            doneTodayCount: 2,
+            focusNow: [task],
+            waitingOn: [],
+            energyBuckets: [TaskListWidgetEnergyBucket(energy: "high", count: 1)],
+            openTodayCount: 3,
+            openTaskPool: [task],
+            completedTodayTasks: [],
+            snapshotHealth: TaskListWidgetSnapshotHealth(
+                source: "unit_test",
+                generatedAt: now,
+                isStale: false,
+                hasCorruptionFallback: true
+            )
+        )
+
+        let encoded = try JSONEncoder().encode(snapshot)
+        let decoded = try JSONDecoder().decode(TaskListWidgetSnapshot.self, from: encoded)
+
+        XCTAssertEqual(decoded.schemaVersion, TaskListWidgetSnapshot.currentSchemaVersion)
+        XCTAssertEqual(decoded.openTodayCount, 3)
+        XCTAssertEqual(decoded.openTaskPool.count, 1)
+        XCTAssertEqual(decoded.snapshotHealth.source, "unit_test")
+        XCTAssertTrue(decoded.snapshotHealth.hasCorruptionFallback)
+    }
+}
+
 private final class NoopAssistantActionRepository: AssistantActionRepositoryProtocol {
     func createRun(_ run: AssistantActionRunDefinition, completion: @escaping (Result<AssistantActionRunDefinition, Error>) -> Void) {
         completion(.success(run))
@@ -7142,6 +7303,218 @@ final class CelebrationRouterBehaviorTests: XCTestCase {
             occurredAt: Date(timeIntervalSince1970: 1_700_000_000 + secondsFromBase),
             signature: signature
         )
+    }
+}
+
+final class XPCalculationEngineExactPreviewTests: XCTestCase {
+    func testCompletionXPIfCompletedNowIncludesOnTimeBonus() {
+        let completedAt = Date(timeIntervalSince1970: 1_700_000_000)
+        let dueDate = completedAt
+        let preview = XPCalculationEngine.completionXPIfCompletedNow(
+            priorityRaw: TaskPriority.none.rawValue,
+            estimatedDuration: nil,
+            dueDate: dueDate,
+            completedAt: completedAt,
+            dailyEarnedSoFar: 0,
+            isGamificationV2Enabled: true
+        )
+
+        XCTAssertEqual(preview.awardedXP, 17)
+        XCTAssertFalse(preview.isCapped)
+    }
+
+    func testCompletionXPIfCompletedNowOmitsBonusForOverdueTask() {
+        let completedAt = Date(timeIntervalSince1970: 1_700_000_000)
+        let dueDate = Calendar.current.date(byAdding: .day, value: -1, to: completedAt)
+        let preview = XPCalculationEngine.completionXPIfCompletedNow(
+            priorityRaw: TaskPriority.none.rawValue,
+            estimatedDuration: nil,
+            dueDate: dueDate,
+            completedAt: completedAt,
+            dailyEarnedSoFar: 0,
+            isGamificationV2Enabled: true
+        )
+
+        XCTAssertEqual(preview.awardedXP, 11)
+        XCTAssertFalse(preview.isCapped)
+    }
+
+    func testCompletionXPIfCompletedNowAppliesEffortWeight() {
+        let completedAt = Date(timeIntervalSince1970: 1_700_000_000)
+        let preview = XPCalculationEngine.completionXPIfCompletedNow(
+            priorityRaw: TaskPriority.high.rawValue,
+            estimatedDuration: 90 * 60,
+            dueDate: nil,
+            completedAt: completedAt,
+            dailyEarnedSoFar: 0,
+            isGamificationV2Enabled: true
+        )
+
+        XCTAssertEqual(preview.awardedXP, 17)
+        XCTAssertFalse(preview.isCapped)
+    }
+
+    func testCompletionXPIfCompletedNowClampsToRemainingCapHeadroom() {
+        let completedAt = Date(timeIntervalSince1970: 1_700_000_000)
+        let preview = XPCalculationEngine.completionXPIfCompletedNow(
+            priorityRaw: TaskPriority.max.rawValue,
+            estimatedDuration: nil,
+            dueDate: completedAt,
+            completedAt: completedAt,
+            dailyEarnedSoFar: 245,
+            isGamificationV2Enabled: true
+        )
+
+        XCTAssertEqual(preview.awardedXP, 5)
+        XCTAssertTrue(preview.isCapped)
+    }
+
+    func testCompletionXPIfCompletedNowUsesLegacyFixedRewardWhenV2Disabled() {
+        let completedAt = Date(timeIntervalSince1970: 1_700_000_000)
+        let preview = XPCalculationEngine.completionXPIfCompletedNow(
+            priorityRaw: TaskPriority.max.rawValue,
+            estimatedDuration: 120 * 60,
+            dueDate: completedAt,
+            completedAt: completedAt,
+            dailyEarnedSoFar: 10_000,
+            isGamificationV2Enabled: false
+        )
+
+        XCTAssertEqual(preview.awardedXP, 10)
+        XCTAssertFalse(preview.isCapped)
+    }
+}
+
+final class XPExactPreviewParityTests: XCTestCase {
+    func testPreviewMatchesGamificationEngineAwardForStandardCompletion() throws {
+        let repository = InMemoryGamificationEngineRepository()
+        let engine = GamificationEngine(repository: repository)
+        let completedAt = Date(timeIntervalSince1970: 1_700_000_100)
+        let dueDate = completedAt
+
+        let preview = XPCalculationEngine.completionXPIfCompletedNow(
+            priorityRaw: TaskPriority.high.rawValue,
+            estimatedDuration: 60 * 60,
+            dueDate: dueDate,
+            completedAt: completedAt,
+            dailyEarnedSoFar: 0,
+            isGamificationV2Enabled: true
+        )
+
+        var recordedResult: Result<XPEventResult, Error>?
+        let completionExpectation = expectation(description: "record completion")
+        engine.recordEvent(
+            context: XPEventContext(
+                category: .complete,
+                source: .manual,
+                taskID: UUID(),
+                dueDate: dueDate,
+                completedAt: completedAt,
+                priority: max(0, Int(TaskPriority.high.rawValue) - 1),
+                estimatedDuration: 60 * 60
+            )
+        ) { result in
+            recordedResult = result
+            completionExpectation.fulfill()
+        }
+
+        wait(for: [completionExpectation], timeout: 2.0)
+        let awarded = try XCTUnwrap(recordedResult).get().awardedXP
+        XCTAssertEqual(preview.awardedXP, awarded)
+    }
+
+    func testPreviewMatchesGamificationEngineAwardWhenNearDailyCap() throws {
+        let repository = InMemoryGamificationEngineRepository()
+        let engine = GamificationEngine(repository: repository)
+        let completedAt = Date(timeIntervalSince1970: 1_700_000_200)
+        let dateKey = XPCalculationEngine.periodKey(for: completedAt)
+        repository.seed(
+            dailyAggregates: [
+                dateKey: DailyXPAggregateDefinition(
+                    id: UUID(),
+                    dateKey: dateKey,
+                    totalXP: 245,
+                    eventCount: 10,
+                    updatedAt: completedAt
+                )
+            ]
+        )
+
+        let preview = XPCalculationEngine.completionXPIfCompletedNow(
+            priorityRaw: TaskPriority.max.rawValue,
+            estimatedDuration: nil,
+            dueDate: completedAt,
+            completedAt: completedAt,
+            dailyEarnedSoFar: 245,
+            isGamificationV2Enabled: true
+        )
+
+        var recordedResult: Result<XPEventResult, Error>?
+        let completionExpectation = expectation(description: "record near-cap completion")
+        engine.recordEvent(
+            context: XPEventContext(
+                category: .complete,
+                source: .manual,
+                taskID: UUID(),
+                dueDate: completedAt,
+                completedAt: completedAt,
+                priority: max(0, Int(TaskPriority.max.rawValue) - 1),
+                estimatedDuration: nil
+            )
+        ) { result in
+            recordedResult = result
+            completionExpectation.fulfill()
+        }
+
+        wait(for: [completionExpectation], timeout: 2.0)
+        let result = try XCTUnwrap(recordedResult).get()
+        XCTAssertEqual(preview.awardedXP, result.awardedXP)
+        XCTAssertTrue(preview.isCapped)
+        XCTAssertEqual(result.dailyXPSoFar, 245 + preview.awardedXP)
+    }
+}
+
+final class XPRewardPreviewCopyRegressionTests: XCTestCase {
+    func testCompletionRewardSurfacesUseExactPreviewAPI() throws {
+        let rewardSurfaceFiles = [
+            "To Do List/View/TaskRowView.swift",
+            "To Do List/View/TaskDetailSheetView.swift",
+            "To Do List/View/AddTaskXPPreview.swift"
+        ]
+
+        for relativePath in rewardSurfaceFiles {
+            let source = try loadWorkspaceFile(relativePath)
+            XCTAssertTrue(
+                source.contains("completionXPIfCompletedNow("),
+                "\(relativePath) should use exact completion preview API."
+            )
+            XCTAssertFalse(
+                source.contains("completionEstimate("),
+                "\(relativePath) should not use range-based completion estimate API."
+            )
+        }
+    }
+
+    func testCompletionRewardSurfacesDoNotUseApproximateCopy() throws {
+        let rewardCopyFiles = [
+            "To Do List/View/TaskRowView.swift",
+            "To Do List/View/TaskDetailComponents.swift",
+            "To Do List/View/AddTaskXPPreview.swift"
+        ]
+
+        for relativePath in rewardCopyFiles {
+            let source = try loadWorkspaceFile(relativePath)
+            XCTAssertFalse(source.contains("Est. +"), "\(relativePath) should not show estimated XP labels.")
+            XCTAssertFalse(source.contains("~+"), "\(relativePath) should not show approximate compact XP labels.")
+            XCTAssertFalse(source.contains("Estimated reward"), "\(relativePath) should use reward wording.")
+        }
+    }
+
+    private func loadWorkspaceFile(_ relativePath: String) throws -> String {
+        let testsFilePath = URL(fileURLWithPath: #filePath)
+        let workspaceRoot = testsFilePath.deletingLastPathComponent().deletingLastPathComponent()
+        let targetURL = workspaceRoot.appendingPathComponent(relativePath)
+        return try String(contentsOf: targetURL, encoding: .utf8)
     }
 }
 
