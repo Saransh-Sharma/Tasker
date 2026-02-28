@@ -30,6 +30,7 @@ struct TaskDetailSheetView: View {
     /// Initializes a new instance.
     @Environment(\.dismiss) private var dismiss
     @StateObject private var viewModel: TaskDetailViewModel
+    @State private var liveTodayXPSoFar: Int?
 
     @State private var activeEditor: ActiveEditor?
     @State private var showDeleteScopeDialog = false
@@ -41,10 +42,13 @@ struct TaskDetailSheetView: View {
     @FocusState private var titleFocused: Bool
     @FocusState private var stepFocused: Bool
     @FocusState private var descriptionFocused: Bool
+    private let isGamificationV2Enabled: Bool
 
     init(
         task: TaskDefinition,
         projects: [Project],
+        todayXPSoFar: Int? = nil,
+        isGamificationV2Enabled: Bool = V2FeatureFlags.gamificationV2Enabled,
         onUpdate: @escaping UpdateHandler,
         onSetCompletion: @escaping CompletionHandler,
         onDelete: @escaping DeleteHandler,
@@ -55,6 +59,8 @@ struct TaskDetailSheetView: View {
         onCreateTag: @escaping CreateTagHandler,
         onCreateProject: @escaping CreateProjectHandler
     ) {
+        self._liveTodayXPSoFar = State(initialValue: todayXPSoFar)
+        self.isGamificationV2Enabled = isGamificationV2Enabled
         _viewModel = StateObject(wrappedValue: TaskDetailViewModel(
             task: task,
             projects: projects,
@@ -71,6 +77,95 @@ struct TaskDetailSheetView: View {
     }
 
     var body: some View {
+        dialogsAndSheetsBoundView
+    }
+
+    private var dialogsAndSheetsBoundView: some View {
+        autosaveBoundView
+            .confirmationDialog(
+                "Delete recurring task?",
+                isPresented: $showDeleteScopeDialog,
+                titleVisibility: .visible
+            ) {
+                Button("Delete This Task", role: .destructive) {
+                    deleteTask(scope: .single)
+                }
+                Button("Delete Entire Series", role: .destructive) {
+                    deleteTask(scope: .series)
+                }
+                Button("Cancel", role: .cancel) {}
+            } message: {
+                Text("Choose whether to remove only this task or every task in the series.")
+            }
+            .sheet(isPresented: $showBreakdownSheet) {
+                breakdownSheetContent
+            }
+    }
+
+    private var autosaveBoundView: some View {
+        baseContentView
+            .onChange(of: viewModel.taskName) { _ in
+                viewModel.scheduleAutosave(debounced: true)
+            }
+            .onChange(of: viewModel.taskDescription) { _ in
+                viewModel.scheduleAutosave(debounced: true)
+            }
+            .onChange(of: viewModel.selectedPriority) { _ in
+                viewModel.scheduleAutosave(debounced: false)
+            }
+            .onChange(of: viewModel.selectedType) { _ in
+                viewModel.scheduleAutosave(debounced: false)
+            }
+            .onChange(of: viewModel.selectedProjectID) { _ in
+                viewModel.refreshMetadata()
+                viewModel.scheduleAutosave(debounced: false)
+            }
+            .onChange(of: viewModel.dueDate) { _ in
+                viewModel.scheduleAutosave(debounced: false)
+            }
+            .onChange(of: viewModel.reminderTime) { _ in
+                viewModel.scheduleAutosave(debounced: false)
+            }
+            .onChange(of: viewModel.selectedLifeAreaID) { _ in
+                viewModel.scheduleAutosave(debounced: false)
+            }
+            .onChange(of: viewModel.selectedSectionID) { _ in
+                viewModel.scheduleAutosave(debounced: false)
+            }
+            .onChange(of: viewModel.selectedTagIDs) { _ in
+                viewModel.scheduleAutosave(debounced: false)
+            }
+            .onChange(of: viewModel.selectedParentTaskID) { _ in
+                viewModel.scheduleAutosave(debounced: false)
+            }
+            .onChange(of: viewModel.selectedDependencyTaskIDs) { _ in
+                viewModel.scheduleAutosave(debounced: false)
+            }
+            .onChange(of: viewModel.selectedDependencyKind) { _ in
+                viewModel.scheduleAutosave(debounced: false)
+            }
+            .onChange(of: viewModel.selectedEnergy) { _ in
+                viewModel.scheduleAutosave(debounced: false)
+            }
+            .onChange(of: viewModel.selectedCategory) { _ in
+                viewModel.scheduleAutosave(debounced: false)
+            }
+            .onChange(of: viewModel.selectedContext) { _ in
+                viewModel.scheduleAutosave(debounced: false)
+            }
+            .onChange(of: viewModel.estimatedDuration) { _ in
+                viewModel.scheduleAutosave(debounced: false)
+            }
+            .onChange(of: viewModel.repeatPattern) { _ in
+                viewModel.scheduleAutosave(debounced: false)
+            }
+            .onChange(of: viewModel.aiBreakdownSteps) { _, updated in
+                guard showBreakdownSheet else { return }
+                reconcileBreakdownSelection(with: updated)
+            }
+    }
+
+    private var baseContentView: some View {
         ScrollView(.vertical, showsIndicators: false) {
             VStack(alignment: .leading, spacing: TaskerTheme.Spacing.md) {
                 Rectangle()
@@ -106,147 +201,78 @@ struct TaskDetailSheetView: View {
         .onAppear {
             viewModel.onAppear()
         }
-        .onChange(of: viewModel.taskName) { _ in
-            viewModel.scheduleAutosave(debounced: true)
+        .onReceive(NotificationCenter.default.publisher(for: .gamificationLedgerDidMutate)) { notification in
+            guard let mutation = notification.gamificationLedgerMutation else { return }
+            liveTodayXPSoFar = max(0, mutation.dailyXPSoFar)
         }
-        .onChange(of: viewModel.taskDescription) { _ in
-            viewModel.scheduleAutosave(debounced: true)
-        }
-        .onChange(of: viewModel.selectedPriority) { _ in
-            viewModel.scheduleAutosave(debounced: false)
-        }
-        .onChange(of: viewModel.selectedType) { _ in
-            viewModel.scheduleAutosave(debounced: false)
-        }
-        .onChange(of: viewModel.selectedProjectID) { _ in
-            viewModel.refreshMetadata()
-            viewModel.scheduleAutosave(debounced: false)
-        }
-        .onChange(of: viewModel.dueDate) { _ in
-            viewModel.scheduleAutosave(debounced: false)
-        }
-        .onChange(of: viewModel.reminderTime) { _ in
-            viewModel.scheduleAutosave(debounced: false)
-        }
-        .onChange(of: viewModel.selectedLifeAreaID) { _ in
-            viewModel.scheduleAutosave(debounced: false)
-        }
-        .onChange(of: viewModel.selectedSectionID) { _ in
-            viewModel.scheduleAutosave(debounced: false)
-        }
-        .onChange(of: viewModel.selectedTagIDs) { _ in
-            viewModel.scheduleAutosave(debounced: false)
-        }
-        .onChange(of: viewModel.selectedParentTaskID) { _ in
-            viewModel.scheduleAutosave(debounced: false)
-        }
-        .onChange(of: viewModel.selectedDependencyTaskIDs) { _ in
-            viewModel.scheduleAutosave(debounced: false)
-        }
-        .onChange(of: viewModel.selectedDependencyKind) { _ in
-            viewModel.scheduleAutosave(debounced: false)
-        }
-        .onChange(of: viewModel.selectedEnergy) { _ in
-            viewModel.scheduleAutosave(debounced: false)
-        }
-        .onChange(of: viewModel.selectedCategory) { _ in
-            viewModel.scheduleAutosave(debounced: false)
-        }
-        .onChange(of: viewModel.selectedContext) { _ in
-            viewModel.scheduleAutosave(debounced: false)
-        }
-        .onChange(of: viewModel.estimatedDuration) { _ in
-            viewModel.scheduleAutosave(debounced: false)
-        }
-        .onChange(of: viewModel.repeatPattern) { _ in
-            viewModel.scheduleAutosave(debounced: false)
-        }
-        .onChange(of: viewModel.aiBreakdownSteps) { _, updated in
-            guard showBreakdownSheet else { return }
-            reconcileBreakdownSelection(with: updated)
-        }
-        .confirmationDialog(
-            "Delete recurring task?",
-            isPresented: $showDeleteScopeDialog,
-            titleVisibility: .visible
-        ) {
-            Button("Delete This Task", role: .destructive) {
-                deleteTask(scope: .single)
-            }
-            Button("Delete Entire Series", role: .destructive) {
-                deleteTask(scope: .series)
-            }
-            Button("Cancel", role: .cancel) {}
-        } message: {
-            Text("Choose whether to remove only this task or every task in the series.")
-        }
-        .sheet(isPresented: $showBreakdownSheet) {
-            NavigationStack {
-                VStack(spacing: 0) {
-                    if let routeBanner = viewModel.aiBreakdownRouteBanner, routeBanner.isEmpty == false {
-                        HStack(alignment: .top, spacing: TaskerTheme.Spacing.xs) {
-                            Image(systemName: "cpu")
-                                .foregroundColor(Color.tasker.accentPrimary)
-                            Text(routeBanner)
-                                .font(.tasker(.caption1))
-                                .foregroundColor(Color.tasker.textSecondary)
-                            Spacer(minLength: 0)
-                        }
-                        .padding(.horizontal, TaskerTheme.Spacing.md)
-                        .padding(.vertical, TaskerTheme.Spacing.sm)
-                        .background(Color.tasker.surfaceSecondary)
-                    }
+    }
 
-                    if viewModel.isGeneratingAIBreakdown {
-                        HStack(spacing: TaskerTheme.Spacing.xs) {
-                            ProgressView()
-                            Text("Refining step suggestions...")
-                                .font(.tasker(.caption1))
-                                .foregroundColor(Color.tasker.textSecondary)
-                            Spacer(minLength: 0)
-                        }
-                        .padding(.horizontal, TaskerTheme.Spacing.md)
-                        .padding(.vertical, TaskerTheme.Spacing.xs)
+    private var breakdownSheetContent: some View {
+        NavigationStack {
+            VStack(spacing: 0) {
+                if let routeBanner = viewModel.aiBreakdownRouteBanner, routeBanner.isEmpty == false {
+                    HStack(alignment: .top, spacing: TaskerTheme.Spacing.xs) {
+                        Image(systemName: "cpu")
+                            .foregroundColor(Color.tasker.accentPrimary)
+                        Text(routeBanner)
+                            .font(.tasker(.caption1))
+                            .foregroundColor(Color.tasker.textSecondary)
+                        Spacer(minLength: 0)
                     }
+                    .padding(.horizontal, TaskerTheme.Spacing.md)
+                    .padding(.vertical, TaskerTheme.Spacing.sm)
+                    .background(Color.tasker.surfaceSecondary)
+                }
 
-                    List {
-                        if viewModel.aiBreakdownSteps.isEmpty {
-                            Text("No step suggestions available.")
-                                .foregroundColor(Color.tasker.textTertiary)
-                        } else {
-                            ForEach(viewModel.aiBreakdownSteps, id: \.self) { step in
-                                Button {
-                                    if selectedBreakdownSteps.contains(step) {
-                                        selectedBreakdownSteps.remove(step)
-                                    } else {
-                                        selectedBreakdownSteps.insert(step)
-                                    }
-                                } label: {
-                                    HStack {
-                                        Image(systemName: selectedBreakdownSteps.contains(step) ? "checkmark.circle.fill" : "circle")
-                                            .foregroundColor(selectedBreakdownSteps.contains(step) ? Color.tasker.accentPrimary : Color.tasker.textTertiary)
-                                        Text(step)
-                                            .foregroundColor(Color.tasker.textPrimary)
-                                    }
+                if viewModel.isGeneratingAIBreakdown {
+                    HStack(spacing: TaskerTheme.Spacing.xs) {
+                        ProgressView()
+                        Text("Refining step suggestions...")
+                            .font(.tasker(.caption1))
+                            .foregroundColor(Color.tasker.textSecondary)
+                        Spacer(minLength: 0)
+                    }
+                    .padding(.horizontal, TaskerTheme.Spacing.md)
+                    .padding(.vertical, TaskerTheme.Spacing.xs)
+                }
+
+                List {
+                    if viewModel.aiBreakdownSteps.isEmpty {
+                        Text("No step suggestions available.")
+                            .foregroundColor(Color.tasker.textTertiary)
+                    } else {
+                        ForEach(viewModel.aiBreakdownSteps, id: \.self) { step in
+                            Button {
+                                if selectedBreakdownSteps.contains(step) {
+                                    selectedBreakdownSteps.remove(step)
+                                } else {
+                                    selectedBreakdownSteps.insert(step)
                                 }
-                                .buttonStyle(.plain)
+                            } label: {
+                                HStack {
+                                    Image(systemName: selectedBreakdownSteps.contains(step) ? "checkmark.circle.fill" : "circle")
+                                        .foregroundColor(selectedBreakdownSteps.contains(step) ? Color.tasker.accentPrimary : Color.tasker.textTertiary)
+                                    Text(step)
+                                        .foregroundColor(Color.tasker.textPrimary)
+                                }
                             }
+                            .buttonStyle(.plain)
                         }
                     }
                 }
-                .navigationTitle("Breakdown")
-                .toolbar {
-                    ToolbarItem(placement: .cancellationAction) {
-                        Button("Cancel") { showBreakdownSheet = false }
-                    }
-                    ToolbarItem(placement: .confirmationAction) {
-                        Button("Add to task") {
-                            viewModel.addBreakdownSteps(Array(selectedBreakdownSteps)) {
-                                showBreakdownSheet = false
-                            }
+            }
+            .navigationTitle("Breakdown")
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") { showBreakdownSheet = false }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Add to task") {
+                        viewModel.addBreakdownSteps(Array(selectedBreakdownSteps)) {
+                            showBreakdownSheet = false
                         }
-                        .disabled(selectedBreakdownSteps.isEmpty)
                     }
+                    .disabled(selectedBreakdownSteps.isEmpty)
                 }
             }
         }
@@ -313,7 +339,7 @@ struct TaskDetailSheetView: View {
             HStack(spacing: TaskerTheme.Spacing.sm) {
                 PriorityBadge(priority: viewModel.selectedPriority.rawValue)
                 ScoreBadge(
-                    estimate: detailXPEstimate,
+                    preview: detailXPPreview,
                     reasonHint: XPCalculationEngine.estimateReasonHints(
                         estimatedDuration: viewModel.estimatedDuration,
                         isFocusSessionActive: false,
@@ -341,10 +367,23 @@ struct TaskDetailSheetView: View {
         .padding(.horizontal, TaskerTheme.Spacing.screenHorizontal)
     }
 
-    private var detailXPEstimate: XPDisplayEstimate {
-        XPCalculationEngine.completionEstimate(
+    private var detailXPPreview: XPCompletionPreview? {
+        if isGamificationV2Enabled {
+            guard let liveTodayXPSoFar else { return nil }
+            return XPCalculationEngine.completionXPIfCompletedNow(
+                priorityRaw: viewModel.selectedPriority.rawValue,
+                estimatedDuration: viewModel.estimatedDuration,
+                dueDate: viewModel.dueDate,
+                dailyEarnedSoFar: liveTodayXPSoFar,
+                isGamificationV2Enabled: true
+            )
+        }
+        return XPCalculationEngine.completionXPIfCompletedNow(
             priorityRaw: viewModel.selectedPriority.rawValue,
-            estimatedDuration: viewModel.estimatedDuration
+            estimatedDuration: viewModel.estimatedDuration,
+            dueDate: viewModel.dueDate,
+            dailyEarnedSoFar: 0,
+            isGamificationV2Enabled: false
         )
     }
 

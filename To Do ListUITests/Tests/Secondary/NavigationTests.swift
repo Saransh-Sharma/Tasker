@@ -141,13 +141,10 @@ class NavigationTests: BaseUITest {
         waitForAnimations(duration: 0.4)
 
         homePage.tapSearch()
-        let searchView = app.otherElements[AccessibilityIdentifiers.Search.view]
-        XCTAssertTrue(searchView.waitForExistence(timeout: 3), "Search view should be displayed")
-        if app.buttons["Cancel"].firstMatch.exists {
-            app.buttons["Cancel"].firstMatch.tap()
-        } else {
-            app.navigationBars.buttons.element(boundBy: 0).tap()
-        }
+        XCTAssertTrue(homePage.waitForSearchFaceOpen(timeout: 3), "Search face should be displayed")
+        XCTAssertTrue(homePage.searchField.waitForExistence(timeout: 3), "Search field should appear on top backdrop")
+        homePage.tapSearch()
+        XCTAssertTrue(homePage.waitForForedropState("collapsed", timeout: 3), "Search should collapse on second search tap")
 
         homePage.tapChat()
         XCTAssertTrue(app.navigationBars.firstMatch.waitForExistence(timeout: 3), "Chat screen should present")

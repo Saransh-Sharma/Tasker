@@ -22,6 +22,7 @@ public final class AddTaskViewModel: ObservableObject {
     @Published public private(set) var errorMessage: String?
     @Published public private(set) var isTaskCreated: Bool = false
     @Published public private(set) var validationErrors: [ValidationError] = []
+    @Published public private(set) var todayXPSoFar: Int? = nil
     @Published var aiSuggestion: TaskFieldSuggestion?
     @Published var isGeneratingSuggestion: Bool = false
     @Published public private(set) var aiSuggestionIsRefined: Bool = false
@@ -85,6 +86,7 @@ public final class AddTaskViewModel: ObservableObject {
     private let manageLifeAreasUseCase: ManageLifeAreasUseCase?
     private let manageSectionsUseCase: ManageSectionsUseCase?
     private let manageTagsUseCase: ManageTagsUseCase?
+    private let gamificationEngine: GamificationEngine?
     private let aiSuggestionService: AISuggestionService?
     private var cancellables = Set<AnyCancellable>()
     private var suggestionTask: Task<Void, Never>?
@@ -101,6 +103,7 @@ public final class AddTaskViewModel: ObservableObject {
         manageLifeAreasUseCase: ManageLifeAreasUseCase? = nil,
         manageSectionsUseCase: ManageSectionsUseCase? = nil,
         manageTagsUseCase: ManageTagsUseCase? = nil,
+        gamificationEngine: GamificationEngine? = nil,
         aiSuggestionService: AISuggestionService? = nil
     ) {
         self.taskReadModelRepository = taskReadModelRepository
@@ -110,10 +113,12 @@ public final class AddTaskViewModel: ObservableObject {
         self.manageLifeAreasUseCase = manageLifeAreasUseCase
         self.manageSectionsUseCase = manageSectionsUseCase
         self.manageTagsUseCase = manageTagsUseCase
+        self.gamificationEngine = gamificationEngine
         self.aiSuggestionService = aiSuggestionService
 
         setupValidation()
         setupAISuggestionPipeline()
+        setupGamificationXPObservation()
         loadProjects()
         loadLifeAreas()
         loadTags()
@@ -463,6 +468,26 @@ public final class AddTaskViewModel: ObservableObject {
                 }
             }
             .store(in: &cancellables)
+    }
+
+    /// Executes setupGamificationXPObservation.
+    private func setupGamificationXPObservation() {
+        NotificationCenter.default.publisher(for: .gamificationLedgerDidMutate)
+            .compactMap { $0.gamificationLedgerMutation?.dailyXPSoFar }
+            .sink { [weak self] dailyXP in
+                self?.todayXPSoFar = max(0, dailyXP)
+            }
+            .store(in: &cancellables)
+
+        guard let gamificationEngine else { return }
+        gamificationEngine.fetchTodayXP { [weak self] result in
+            DispatchQueue.main.async {
+                guard let self else { return }
+                if let dailyXP = try? result.get() {
+                    self.todayXPSoFar = max(0, dailyXP)
+                }
+            }
+        }
     }
 
     /// Executes requestAISuggestionIfNeeded.

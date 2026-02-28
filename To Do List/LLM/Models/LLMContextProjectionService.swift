@@ -21,7 +21,10 @@ enum LLMContextRepositoryProvider {
     }
 
     /// Executes makeService.
-    static func makeService() -> LLMContextProjectionService? {
+    static func makeService(
+        maxTasksPerSlice: Int = LLMChatBudgets.active.maxProjectionTasksPerSlice,
+        compactTaskPayload: Bool = (V2FeatureFlags.llmChatContextStrategy == .bounded)
+    ) -> LLMContextProjectionService? {
         guard let taskReadModelRepository = taskReadModelRepositoryStorage,
               let projectRepository = projectRepositoryStorage else {
             return nil
@@ -29,7 +32,9 @@ enum LLMContextRepositoryProvider {
         return LLMContextProjectionService(
             taskReadModelRepository: taskReadModelRepository,
             projectRepository: projectRepository,
-            tagRepository: tagRepositoryStorage
+            tagRepository: tagRepositoryStorage,
+            maxTasksPerSlice: maxTasksPerSlice,
+            compactTaskPayload: compactTaskPayload
         )
     }
 
@@ -102,9 +107,36 @@ struct LLMContextProjectionService {
     let taskReadModelRepository: TaskReadModelRepositoryProtocol
     let projectRepository: ProjectRepositoryProtocol
     let tagRepository: TagRepositoryProtocol?
+    let maxTasksPerSlice: Int
+    let compactTaskPayload: Bool
+
+    init(
+        taskReadModelRepository: TaskReadModelRepositoryProtocol,
+        projectRepository: ProjectRepositoryProtocol,
+        tagRepository: TagRepositoryProtocol?,
+        maxTasksPerSlice: Int = 1_000,
+        compactTaskPayload: Bool = false
+    ) {
+        self.taskReadModelRepository = taskReadModelRepository
+        self.projectRepository = projectRepository
+        self.tagRepository = tagRepository
+        self.maxTasksPerSlice = max(1, maxTasksPerSlice)
+        self.compactTaskPayload = compactTaskPayload
+    }
+
+    func withProjectionBudget(maxTasksPerSlice: Int, compactTaskPayload: Bool) -> LLMContextProjectionService {
+        LLMContextProjectionService(
+            taskReadModelRepository: taskReadModelRepository,
+            projectRepository: projectRepository,
+            tagRepository: tagRepository,
+            maxTasksPerSlice: maxTasksPerSlice,
+            compactTaskPayload: compactTaskPayload
+        )
+    }
 
     /// Executes buildTodayJSON.
     func buildTodayJSON() async -> String {
+        guard !Task.isCancelled else { return "{}" }
         let calendar = Calendar.current
         let startOfDay = calendar.startOfDay(for: Date())
         let startOfTomorrow = calendar.date(byAdding: .day, value: 1, to: startOfDay) ?? Date()
@@ -116,10 +148,11 @@ struct LLMContextProjectionService {
                 dueDateStart: startOfDay,
                 dueDateEnd: endOfDay,
                 sortBy: .dueDateAscending,
-                limit: 1_000,
+                limit: maxTasksPerSlice,
                 offset: 0
             )
         )
+        guard !Task.isCancelled else { return "{}" }
         let scopedTasks = tasks.filter { task in
             guard task.isComplete else { return true }
             guard let completedAt = task.dateCompleted else { return false }
@@ -130,12 +163,14 @@ struct LLMContextProjectionService {
             tasks: scopedTasks,
             contextType: "today",
             metadata: defaultMetadata(),
-            tagNameLookup: tagNameLookup
+            tagNameLookup: tagNameLookup,
+            compactTaskPayload: compactTaskPayload
         )
     }
 
     /// Executes buildOverdueJSON.
     func buildOverdueJSON() async -> String {
+        guard !Task.isCancelled else { return "{}" }
         let calendar = Calendar.current
         let startOfToday = calendar.startOfDay(for: Date())
 
@@ -144,10 +179,11 @@ struct LLMContextProjectionService {
                 includeCompleted: false,
                 dueDateEnd: startOfToday,
                 sortBy: .dueDateAscending,
-                limit: 1_000,
+                limit: maxTasksPerSlice,
                 offset: 0
             )
         )
+        guard !Task.isCancelled else { return "{}" }
         let overdueTasks = tasks.filter { task in
             guard task.isComplete == false, let dueDate = task.dueDate else { return false }
             return dueDate < startOfToday
@@ -157,12 +193,14 @@ struct LLMContextProjectionService {
             tasks: overdueTasks,
             contextType: "overdue",
             metadata: defaultMetadata(),
-            tagNameLookup: tagNameLookup
+            tagNameLookup: tagNameLookup,
+            compactTaskPayload: compactTaskPayload
         )
     }
 
     /// Executes buildUpcomingJSON.
     func buildUpcomingJSON() async -> String {
+        guard !Task.isCancelled else { return "{}" }
         let calendar = Calendar.current
         let tomorrow = calendar.startOfDay(for: calendar.date(byAdding: .day, value: 1, to: Date()) ?? Date())
 
@@ -171,31 +209,35 @@ struct LLMContextProjectionService {
                 includeCompleted: false,
                 dueDateStart: tomorrow,
                 sortBy: .dueDateAscending,
-                limit: 1_000,
+                limit: maxTasksPerSlice,
                 offset: 0
             )
         )
+        guard !Task.isCancelled else { return "{}" }
         let tagNameLookup = await buildTagNameLookup()
         return Self.encode(
             tasks: tasks,
             contextType: "upcoming",
             metadata: defaultMetadata(),
-            tagNameLookup: tagNameLookup
+            tagNameLookup: tagNameLookup,
+            compactTaskPayload: compactTaskPayload
         )
     }
 
     /// Executes buildProjectJSON.
     func buildProjectJSON(projectID: UUID) async -> String {
+        guard !Task.isCancelled else { return "{}" }
         let projectName = await fetchProjectName(id: projectID) ?? ""
         let tasks = await fetchTasks(
             query: TaskReadQuery(
                 projectID: projectID,
                 includeCompleted: true,
                 sortBy: .dueDateAscending,
-                limit: 1_000,
+                limit: maxTasksPerSlice,
                 offset: 0
             )
         )
+        guard !Task.isCancelled else { return "{}" }
         var metadata = defaultMetadata()
         metadata["project_id"] = projectID.uuidString
         metadata["project_name"] = projectName
@@ -203,7 +245,8 @@ struct LLMContextProjectionService {
             tasks: tasks,
             contextType: "project",
             metadata: metadata,
-            tagNameLookup: await buildTagNameLookup()
+            tagNameLookup: await buildTagNameLookup(),
+            compactTaskPayload: compactTaskPayload
         )
     }
 
@@ -237,8 +280,13 @@ struct LLMContextProjectionService {
 
     /// Executes fetchTasks.
     private func fetchTasks(query: TaskReadQuery) async -> [TaskDefinition] {
-        await withCheckedContinuation { continuation in
+        guard !Task.isCancelled else { return [] }
+        return await withCheckedContinuation { continuation in
             taskReadModelRepository.fetchTasks(query: query) { result in
+                if Task.isCancelled {
+                    continuation.resume(returning: [])
+                    return
+                }
                 let tasks = (try? result.get().tasks) ?? []
                 continuation.resume(returning: tasks)
             }
@@ -247,7 +295,8 @@ struct LLMContextProjectionService {
 
     /// Executes fetchProjectName.
     private func fetchProjectName(id: UUID) async -> String? {
-        await withCheckedContinuation { continuation in
+        guard !Task.isCancelled else { return nil }
+        return await withCheckedContinuation { continuation in
             projectRepository.fetchProject(withId: id) { result in
                 switch result {
                 case .success(let project):
@@ -271,6 +320,7 @@ struct LLMContextProjectionService {
     /// Executes buildTagNameLookup.
     private func buildTagNameLookup() async -> [UUID: String] {
         guard let tagRepository else { return [:] }
+        guard !Task.isCancelled else { return [:] }
         return await withCheckedContinuation { continuation in
             tagRepository.fetchAll { result in
                 guard case .success(let tags) = result else {
@@ -287,7 +337,8 @@ struct LLMContextProjectionService {
         tasks: [TaskDefinition],
         contextType: String,
         metadata: [String: Any] = [:],
-        tagNameLookup: [UUID: String] = [:]
+        tagNameLookup: [UUID: String] = [:],
+        compactTaskPayload: Bool = false
     ) -> String {
         var payload: [String: Any] = [
             "context_type": contextType,
@@ -300,24 +351,28 @@ struct LLMContextProjectionService {
                     .compactMap { tagNameLookup[$0] }
                     .sorted { $0.localizedCaseInsensitiveCompare($1) == .orderedAscending }
                 let projectName = task.projectName ?? ""
-
-                return [
+                var projected: [String: Any] = [
                     "id": task.id.uuidString,
                     "title": task.title,
                     "is_completed": task.isComplete,
                     "project": projectName,
                     "project_id": task.projectID.uuidString,
                     "priority": task.priority.rawValue,
-                    "energy": task.energy.rawValue,
-                    "context": task.context.rawValue,
                     "type": task.type.rawValue,
-                    "estimated_duration_minutes": task.estimatedDuration.map { Int($0 / 60) } ?? NSNull(),
-                    "has_dependencies": !task.dependencies.isEmpty,
-                    "dependency_count": task.dependencies.count,
-                    "tag_ids": tagIDs,
                     "tag_names": tagNames,
                     "due_date": task.dueDate?.ISO8601Format() ?? NSNull()
                 ]
+
+                if compactTaskPayload == false {
+                    projected["energy"] = task.energy.rawValue
+                    projected["context"] = task.context.rawValue
+                    projected["estimated_duration_minutes"] = task.estimatedDuration.map { Int($0 / 60) } ?? NSNull()
+                    projected["has_dependencies"] = !task.dependencies.isEmpty
+                    projected["dependency_count"] = task.dependencies.count
+                    projected["tag_ids"] = tagIDs
+                }
+
+                return projected
             }
         ]
         for (key, value) in metadata {
@@ -434,7 +489,9 @@ enum LLMChatContextEnvelopeBuilder {
     static func build(
         timeoutMs: UInt64,
         service: LLMContextProjectionService?,
-        injectionPolicy: String = "per_turn"
+        injectionPolicy: String = "per_turn",
+        budgets: LLMChatBudgets = .active,
+        contextStrategy: LLMChatContextStrategy = V2FeatureFlags.llmChatContextStrategy
     ) async -> LLMChatContextBuildResult {
         guard let service else {
             let partialFlags = LLMChatContextPartialFlags(
@@ -465,19 +522,49 @@ enum LLMChatContextEnvelopeBuilder {
             )
         }
 
-        async let todayResult = LLMProjectionTimeout.execute(timeoutMs: timeoutMs) {
-            await service.buildTodayJSON()
-        }
-        async let overdueResult = LLMProjectionTimeout.execute(timeoutMs: timeoutMs) {
-            await service.buildOverdueJSON()
-        }
-        async let upcomingResult = LLMProjectionTimeout.execute(timeoutMs: timeoutMs) {
-            await service.buildUpcomingJSON()
+        let scopedService = service.withProjectionBudget(
+            maxTasksPerSlice: budgets.maxProjectionTasksPerSlice,
+            compactTaskPayload: contextStrategy == .bounded
+        )
+
+        let todayValue = await LLMProjectionTimeout.execute(timeoutMs: timeoutMs) {
+            await scopedService.buildTodayJSON()
         }
 
-        let todayValue = await todayResult
-        let overdueValue = await overdueResult
-        let upcomingValue = await upcomingResult
+        var overdueValue: (payload: String, timedOut: Bool) = ("{}", false)
+        var upcomingValue: (payload: String, timedOut: Bool) = ("{}", false)
+
+        if Task.isCancelled {
+            overdueValue = ("{}", true)
+            upcomingValue = ("{}", true)
+        } else if todayValue.timedOut {
+            // Under pressure, avoid launching additional projection work this turn.
+            overdueValue = ("{}", true)
+            upcomingValue = ("{}", true)
+            logWarning(
+                event: "chat_context_slice_short_circuit",
+                message: "Skipped overdue/upcoming context slices after today slice timeout",
+                fields: ["slice": "today"]
+            )
+        } else {
+            overdueValue = await LLMProjectionTimeout.execute(timeoutMs: timeoutMs) {
+                await scopedService.buildOverdueJSON()
+            }
+            if Task.isCancelled {
+                upcomingValue = ("{}", true)
+            } else if overdueValue.timedOut {
+                upcomingValue = ("{}", true)
+                logWarning(
+                    event: "chat_context_slice_short_circuit",
+                    message: "Skipped upcoming context slice after overdue timeout",
+                    fields: ["slice": "overdue"]
+                )
+            } else {
+                upcomingValue = await LLMProjectionTimeout.execute(timeoutMs: timeoutMs) {
+                    await scopedService.buildUpcomingJSON()
+                }
+            }
+        }
 
         let partialFlags = LLMChatContextPartialFlags(
             missingService: false,

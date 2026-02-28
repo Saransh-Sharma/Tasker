@@ -94,6 +94,8 @@ extension HomeQuickFilterSummary {
             return dateFormatter.string(from: date)
         case .upcoming:
             return "Upcoming"
+        case .overdue:
+            return "Overdue"
         case .done:
             return "Done"
         case .morning:

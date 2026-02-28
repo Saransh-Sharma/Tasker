@@ -208,6 +208,55 @@ final class LLMContextProjectionServiceTests: XCTestCase {
         XCTAssertEqual(partialFlags["upcoming_timed_out"] as? Bool, true)
     }
 
+    func testContextProjectionRespectsPerSliceBudget() async throws {
+        let calendar = Calendar.current
+        let tomorrow = calendar.startOfDay(for: calendar.date(byAdding: .day, value: 1, to: Date()) ?? Date())
+        let tasks = (0..<20).map { index in
+            makeTask(
+                title: "Task \(index)",
+                dueDate: tomorrow.addingTimeInterval(Double(index) * 60),
+                isComplete: false
+            )
+        }
+        let service = LLMContextProjectionService(
+            taskReadModelRepository: MockTaskReadModelRepository(tasks: tasks),
+            projectRepository: MockProjectRepository(),
+            tagRepository: nil,
+            maxTasksPerSlice: 3,
+            compactTaskPayload: true
+        )
+
+        let json = await service.buildUpcomingJSON()
+        let payload = try XCTUnwrap(parseJSONDictionary(json))
+        XCTAssertEqual(payload["count"] as? Int, 3)
+    }
+
+    func testContextEnvelopeBuilderShortCircuitsRemainingSlicesAfterTimeout() async throws {
+        let lock = NSLock()
+        var fetchCount = 0
+        let slowRepository = MockTaskReadModelRepository(
+            tasks: [makeTask(title: "Slow", dueDate: Date(), isComplete: false)],
+            fetchDelayMs: 150,
+            onFetch: {
+                lock.lock()
+                fetchCount += 1
+                lock.unlock()
+            }
+        )
+        let service = LLMContextProjectionService(
+            taskReadModelRepository: slowRepository,
+            projectRepository: MockProjectRepository(),
+            tagRepository: nil
+        )
+
+        let _ = await LLMChatContextEnvelopeBuilder.build(timeoutMs: 10, service: service)
+        try? await _Concurrency.Task.sleep(nanoseconds: 300_000_000)
+        lock.lock()
+        let observedFetchCount = fetchCount
+        lock.unlock()
+        XCTAssertEqual(observedFetchCount, 1)
+    }
+
     private func makeTask(
         title: String,
         dueDate: Date?,
@@ -410,13 +459,16 @@ final class SlashCommandExecutionServiceTests: XCTestCase {
 private final class MockTaskReadModelRepository: TaskReadModelRepositoryProtocol {
     private let tasks: [TaskDefinition]
     private let fetchDelayMs: Int
+    private let onFetch: (() -> Void)?
 
-    init(tasks: [TaskDefinition], fetchDelayMs: Int = 0) {
+    init(tasks: [TaskDefinition], fetchDelayMs: Int = 0, onFetch: (() -> Void)? = nil) {
         self.tasks = tasks
         self.fetchDelayMs = fetchDelayMs
+        self.onFetch = onFetch
     }
 
     func fetchTasks(query: TaskReadQuery, completion: @escaping (Result<TaskDefinitionSliceResult, Error>) -> Void) {
+        onFetch?()
         var filtered = tasks
         if let projectID = query.projectID {
             filtered = filtered.filter { $0.projectID == projectID }
@@ -433,9 +485,14 @@ private final class MockTaskReadModelRepository: TaskReadModelRepositoryProtocol
         filtered = filtered.sorted {
             ($0.dueDate ?? .distantFuture, $0.updatedAt) < ($1.dueDate ?? .distantFuture, $1.updatedAt)
         }
+        let totalCount = filtered.count
+        let boundedOffset = min(max(0, query.offset), filtered.count)
+        let boundedLimit = max(0, query.limit)
+        let sliceEnd = min(filtered.count, boundedOffset + boundedLimit)
+        let pagedTasks = Array(filtered[boundedOffset..<sliceEnd])
         let result = TaskDefinitionSliceResult(
-            tasks: filtered,
-            totalCount: filtered.count,
+            tasks: pagedTasks,
+            totalCount: totalCount,
             limit: query.limit,
             offset: query.offset
         )

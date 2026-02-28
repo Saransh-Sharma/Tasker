@@ -6,6 +6,45 @@
 import Foundation
 import MLXLMCommon
 
+struct LLMChatBudgets {
+    let maxThreadMessages: Int
+    let maxPromptChars: Int
+    let maxProjectionTasksPerSlice: Int
+    let projectionTimeoutMs: UInt64
+    let contextCacheTTLms: UInt64
+    let outputMinUpdateIntervalMs: UInt64
+    let outputTokenStride: Int
+
+    static let bounded = LLMChatBudgets(
+        maxThreadMessages: 40,
+        maxPromptChars: 18_000,
+        maxProjectionTasksPerSlice: 120,
+        projectionTimeoutMs: 450,
+        contextCacheTTLms: 2_000,
+        outputMinUpdateIntervalMs: 60,
+        outputTokenStride: 24
+    )
+
+    static let full = LLMChatBudgets(
+        maxThreadMessages: 500,
+        maxPromptChars: 120_000,
+        maxProjectionTasksPerSlice: 1_000,
+        projectionTimeoutMs: 800,
+        contextCacheTTLms: 0,
+        outputMinUpdateIntervalMs: 24,
+        outputTokenStride: 8
+    )
+
+    static var active: LLMChatBudgets {
+        switch V2FeatureFlags.llmChatContextStrategy {
+        case .bounded:
+            return .bounded
+        case .full:
+            return .full
+        }
+    }
+}
+
 public extension ModelConfiguration {
     enum ModelType {
         case regular, reasoning
@@ -77,33 +116,141 @@ public extension ModelConfiguration {
 
     /// Executes getPromptHistory.
     internal func getPromptHistory(thread: Thread, systemPrompt: String) -> [[String: String]] {
-        var history: [[String: String]] = []
-
-        // system prompt
-        history.append([
+        let budgets = LLMChatBudgets.active
+        var promptHistory: [[String: String]] = [[
             "role": "system",
-            "content": systemPrompt,
-        ])
+            "content": systemPrompt
+        ]]
 
-        // messages
-        for message in thread.sortedMessages {
-            let role = message.role.rawValue
-            if AssistantCardCodec.isCard(message.content) {
-                if let payload = AssistantCardCodec.decode(from: message.content) {
-                    history.append([
-                        "role": role,
-                        "content": "[assistant_card \(payload.cardType.rawValue) \(payload.status.rawValue)]",
-                    ])
-                }
-                continue
-            }
-            history.append([
-                "role": role,
-                "content": formatForTokenizer(message.content), // remove reasoning part
-            ])
+        let normalizedMessages = normalizedThreadMessages(from: thread.sortedMessages)
+        if normalizedMessages.isEmpty {
+            return promptHistory
         }
 
-        return history
+        let clippedByCount = Array(normalizedMessages.suffix(budgets.maxThreadMessages))
+        let droppedPrefix = Array(normalizedMessages.prefix(max(0, normalizedMessages.count - clippedByCount.count)))
+        if droppedPrefix.isEmpty == false {
+            promptHistory.append([
+                "role": "system",
+                "content": buildRecapMessage(from: droppedPrefix)
+            ])
+        }
+        promptHistory.append(contentsOf: clippedByCount)
+        enforcePromptBudget(&promptHistory, maxChars: budgets.maxPromptChars)
+
+        return promptHistory
+    }
+
+    private func normalizedThreadMessages(from messages: [Message]) -> [[String: String]] {
+        messages.compactMap { message in
+            let role = message.role.rawValue
+            if AssistantCardCodec.isCard(message.content) {
+                guard let payload = AssistantCardCodec.decode(from: message.content) else { return nil }
+                return [
+                    "role": role,
+                    "content": "[assistant_card \(payload.cardType.rawValue) \(payload.status.rawValue)]"
+                ]
+            }
+            return [
+                "role": role,
+                "content": formatForTokenizer(message.content)
+            ]
+        }
+    }
+
+    private func buildRecapMessage(from droppedMessages: [[String: String]]) -> String {
+        let mergedPreview: [[String: String]]
+        if droppedMessages.count > 4 {
+            mergedPreview = Array(droppedMessages.prefix(2)) + Array(droppedMessages.suffix(2))
+        } else {
+            mergedPreview = droppedMessages
+        }
+        let lines = mergedPreview.enumerated().compactMap { _, item -> String? in
+            guard let role = item["role"], let content = item["content"] else { return nil }
+            let singleLine = content
+                .replacingOccurrences(of: "\n", with: " ")
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+            guard singleLine.isEmpty == false else { return nil }
+            return "\(role): \(singleLine.prefix(120))"
+        }
+        let lineBlock = lines.isEmpty ? "No recap lines available." : lines.joined(separator: "\n- ")
+        return """
+        Earlier context recap (\(droppedMessages.count) messages omitted for brevity):
+        - \(lineBlock)
+        """
+    }
+
+    private func totalPromptCharacters(_ history: [[String: String]]) -> Int {
+        history.reduce(0) { partial, item in
+            partial + (item["content"]?.count ?? 0)
+        }
+    }
+
+    private func enforcePromptBudget(_ promptHistory: inout [[String: String]], maxChars: Int) {
+        guard maxChars > 0 else {
+            promptHistory = []
+            return
+        }
+
+        while totalPromptCharacters(promptHistory) > maxChars && promptHistory.count > 2 {
+            // Preserve system prompt + recap entry, and trim oldest user/assistant turns first.
+            promptHistory.remove(at: 2)
+        }
+
+        if totalPromptCharacters(promptHistory) <= maxChars { return }
+
+        if promptHistory.count > 1,
+           promptHistory[1]["role"] == "system",
+           var recapContent = promptHistory[1]["content"] {
+            let recapBudget = min(recapContent.count, max(64, maxChars / 6))
+            if recapContent.count > recapBudget {
+                recapContent = String(recapContent.prefix(recapBudget))
+                promptHistory[1]["content"] = recapContent
+            }
+        }
+
+        if totalPromptCharacters(promptHistory) <= maxChars { return }
+
+        if var systemEntry = promptHistory.first,
+           let systemContent = systemEntry["content"] {
+            let maxSystemChars = min(systemContent.count, max(128, maxChars / 3))
+            if systemContent.count > maxSystemChars {
+                systemEntry["content"] = String(systemContent.prefix(maxSystemChars))
+                promptHistory[0] = systemEntry
+            }
+        }
+
+        if totalPromptCharacters(promptHistory) <= maxChars { return }
+
+        guard promptHistory.count >= 2 else {
+            if var systemEntry = promptHistory.first,
+               let systemContent = systemEntry["content"],
+               systemContent.count > maxChars {
+                systemEntry["content"] = String(systemContent.prefix(maxChars))
+                promptHistory[0] = systemEntry
+            }
+            return
+        }
+
+        let fixedChars = totalPromptCharacters(Array(promptHistory.dropLast()))
+        let lastEntryBudget = max(64, maxChars - fixedChars)
+        if var lastEntry = promptHistory.last,
+           let content = lastEntry["content"],
+           content.count > lastEntryBudget {
+            // Keep the most recent tail of the newest turn for deterministic truncation.
+            lastEntry["content"] = String(content.suffix(lastEntryBudget))
+            promptHistory[promptHistory.count - 1] = lastEntry
+        }
+
+        if totalPromptCharacters(promptHistory) > maxChars,
+           var systemEntry = promptHistory.first,
+           let systemContent = systemEntry["content"] {
+            let remainingBudget = max(0, maxChars - totalPromptCharacters(Array(promptHistory.dropFirst())))
+            if systemContent.count > remainingBudget {
+                systemEntry["content"] = String(systemContent.prefix(remainingBudget))
+                promptHistory[0] = systemEntry
+            }
+        }
     }
 
     // TODO: Remove this function when Jinja gets updated

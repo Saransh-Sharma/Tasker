@@ -7,6 +7,9 @@ final class HomeBottomBarStateTests: XCTestCase {
     func testSelectUpdatesSelectedItem() {
         let state = HomeBottomBarState()
 
+        state.select(.home)
+        XCTAssertEqual(state.selectedItem, .home)
+
         state.select(.charts)
         XCTAssertEqual(state.selectedItem, .charts)
 
@@ -18,6 +21,11 @@ final class HomeBottomBarStateTests: XCTestCase {
 
         state.select(.create)
         XCTAssertEqual(state.selectedItem, .create)
+    }
+
+    func testSelectedItemDefaultsToHome() {
+        let state = HomeBottomBarState()
+        XCTAssertEqual(state.selectedItem, .home)
     }
 
     func testCumulativeDownwardScrollMinimizesBottomBar() {

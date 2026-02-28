@@ -395,6 +395,7 @@
 		F2A1B2C3D4E5F60718293B50 /* HomeBottomBarItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2A1B2C3D4E5F60718293A50 /* HomeBottomBarItem.swift */; };
 		F2A1B2C3D4E5F60718293B51 /* HomeBottomBarState.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2A1B2C3D4E5F60718293A51 /* HomeBottomBarState.swift */; };
 		F2A1B2C3D4E5F60718293B52 /* HomeGlassBottomBar.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2A1B2C3D4E5F60718293A52 /* HomeGlassBottomBar.swift */; };
+		AB12CD34EF5607891234ABCE /* CoverFlipTransition.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB12CD34EF5607891234ABCD /* CoverFlipTransition.swift */; };
 		F2A1B2C3D4E5F60718293B53 /* HomeBottomBarStateTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2A1B2C3D4E5F60718293A53 /* HomeBottomBarStateTests.swift */; };
 		F2A1B2C3D4E5F60718293B54 /* HomeViewModelXPScoreRegressionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2A1B2C3D4E5F60718293A54 /* HomeViewModelXPScoreRegressionTests.swift */; };
 		F3A1B2C3D4E5F60718293B55 /* HomeForedropLayoutMetricsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F3A1B2C3D4E5F60718293A55 /* HomeForedropLayoutMetricsTests.swift */; };
@@ -841,6 +842,7 @@
 		F2A1B2C3D4E5F60718293A50 /* HomeBottomBarItem.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HomeBottomBarItem.swift; sourceTree = "<group>"; };
 		F2A1B2C3D4E5F60718293A51 /* HomeBottomBarState.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HomeBottomBarState.swift; sourceTree = "<group>"; };
 		F2A1B2C3D4E5F60718293A52 /* HomeGlassBottomBar.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HomeGlassBottomBar.swift; sourceTree = "<group>"; };
+		AB12CD34EF5607891234ABCD /* CoverFlipTransition.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = CoverFlipTransition.swift; sourceTree = "<group>"; };
 		F2A1B2C3D4E5F60718293A53 /* HomeBottomBarStateTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HomeBottomBarStateTests.swift; sourceTree = "<group>"; };
 		F2A1B2C3D4E5F60718293A54 /* HomeViewModelXPScoreRegressionTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HomeViewModelXPScoreRegressionTests.swift; sourceTree = "<group>"; };
 		F311D68194F7FDAA5BAD7ADA /* CoreSchedulingEngine.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "To Do List/State/Services/CoreSchedulingEngine.swift"; sourceTree = SOURCE_ROOT; };
@@ -1461,6 +1463,7 @@
 				F2A1B2C3D4E5F60718293A50 /* HomeBottomBarItem.swift */,
 				F2A1B2C3D4E5F60718293A51 /* HomeBottomBarState.swift */,
 				F2A1B2C3D4E5F60718293A52 /* HomeGlassBottomBar.swift */,
+				AB12CD34EF5607891234ABCD /* CoverFlipTransition.swift */,
 				CFF019E9E7D0253D5D139030 /* WeeklyCalendarStripView.swift */,
 				4FCA458CC709E59AA20BC5C8 /* NextActionModule.swift */,
 				A10000000000000000000003 /* FocusZone.swift */,
@@ -2490,6 +2493,7 @@
 				F2A1B2C3D4E5F60718293B50 /* HomeBottomBarItem.swift in Sources */,
 				F2A1B2C3D4E5F60718293B51 /* HomeBottomBarState.swift in Sources */,
 				F2A1B2C3D4E5F60718293B52 /* HomeGlassBottomBar.swift in Sources */,
+				AB12CD34EF5607891234ABCE /* CoverFlipTransition.swift in Sources */,
 				A81985165D5E3A5F46B5A5FB /* WeeklyCalendarStripView.swift in Sources */,
 				2F8630D073B32E4FB52F1DAE /* NextActionModule.swift in Sources */,
 				664B05702E92F236C487E1AD /* HomeQuickFilterDropdown.swift in Sources */,

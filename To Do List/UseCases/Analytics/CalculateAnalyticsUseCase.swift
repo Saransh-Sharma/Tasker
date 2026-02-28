@@ -15,6 +15,12 @@ public final class CalculateAnalyticsUseCase {
     private let taskReadModelRepository: TaskReadModelRepositoryProtocol?
     private let scoringService: TaskScoringServiceProtocol
     private let cacheService: CacheServiceProtocol?
+    private let analyticsWindowLimit = 4_000
+    private let analyticsDayWindowLimit = 1_200
+    private let analyticsComputeQueue = DispatchQueue(
+        label: "tasker.analytics.compute",
+        qos: .userInitiated
+    )
     
     // MARK: - Initialization
     
@@ -44,8 +50,14 @@ public final class CalculateAnalyticsUseCase {
         fetchTasksForDay(date) { [weak self] result in
             switch result {
             case .success(let tasks):
-                let analytics = self?.computeDailyAnalytics(tasks: tasks, date: date) ?? DailyAnalytics(date: date)
-                completion(.success(analytics))
+                guard let self else {
+                    completion(.success(DailyAnalytics(date: date)))
+                    return
+                }
+                self.analyticsComputeQueue.async {
+                    let analytics = self.computeDailyAnalytics(tasks: tasks, date: date)
+                    completion(.success(analytics))
+                }
                 
             case .failure(let error):
                 completion(.failure(.repositoryError(error)))
@@ -163,19 +175,24 @@ public final class CalculateAnalyticsUseCase {
                 dueDateStart: startDate,
                 dueDateEnd: endDate,
                 sortBy: .dueDateAscending,
-                limit: 10_000,
+                limit: analyticsWindowLimit,
                 offset: 0
             )
         ) { [weak self] result in
             switch result {
             case .success(let tasksInRange):
-                let analytics = self?.computePeriodAnalytics(
-                    tasks: tasksInRange,
-                    startDate: startDate,
-                    endDate: endDate
-                ) ?? PeriodAnalytics(startDate: startDate, endDate: endDate)
-                
-                completion(.success(analytics))
+                guard let self else {
+                    completion(.success(PeriodAnalytics(startDate: startDate, endDate: endDate)))
+                    return
+                }
+                self.analyticsComputeQueue.async {
+                    let analytics = self.computePeriodAnalytics(
+                        tasks: tasksInRange,
+                        startDate: startDate,
+                        endDate: endDate
+                    )
+                    completion(.success(analytics))
+                }
                 
             case .failure(let error):
                 completion(.failure(.repositoryError(error)))
@@ -191,14 +208,20 @@ public final class CalculateAnalyticsUseCase {
             query: TaskReadQuery(
                 includeCompleted: true,
                 sortBy: .updatedAtDescending,
-                limit: 10_000,
+                limit: analyticsWindowLimit,
                 offset: 0
             )
         ) { [weak self] result in
             switch result {
             case .success(let tasks):
-                let score = self?.computeProductivityScore(tasks: tasks) ?? ProductivityScore()
-                completion(.success(score))
+                guard let self else {
+                    completion(.success(ProductivityScore()))
+                    return
+                }
+                self.analyticsComputeQueue.async {
+                    let score = self.computeProductivityScore(tasks: tasks)
+                    completion(.success(score))
+                }
                 
             case .failure(let error):
                 completion(.failure(.repositoryError(error)))
@@ -214,15 +237,21 @@ public final class CalculateAnalyticsUseCase {
             query: TaskReadQuery(
                 includeCompleted: true,
                 sortBy: .updatedAtDescending,
-                limit: 10_000,
+                limit: analyticsWindowLimit,
                 offset: 0
             )
         ) { [weak self] result in
             switch result {
             case .success(let tasks):
-                let completedTasks = tasks.filter(\.isComplete)
-                let streak = self?.computeStreak(completedTasks: completedTasks) ?? StreakInfo()
-                completion(.success(streak))
+                guard let self else {
+                    completion(.success(StreakInfo()))
+                    return
+                }
+                self.analyticsComputeQueue.async {
+                    let completedTasks = tasks.filter(\.isComplete)
+                    let streak = self.computeStreak(completedTasks: completedTasks)
+                    completion(.success(streak))
+                }
                 
             case .failure(let error):
                 completion(.failure(.repositoryError(error)))
@@ -245,7 +274,7 @@ public final class CalculateAnalyticsUseCase {
                 dueDateStart: startOfDay,
                 dueDateEnd: endOfDay,
                 sortBy: .dueDateAscending,
-                limit: 5_000,
+                limit: analyticsDayWindowLimit,
                 offset: 0
             ),
             completion: completion

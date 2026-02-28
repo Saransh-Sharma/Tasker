@@ -41,25 +41,32 @@ class SearchAndFilteringTests: BaseUITest {
     func testSearchTaskByTitle() throws {
         // GIVEN: Multiple tasks exist
         XCTAssertTrue(homePage.verifyTaskExists(withTitle: "Meeting with Team"), "Task should exist")
+        XCTAssertTrue(homePage.waitForForedropState("collapsed", timeout: 3), "Home should start collapsed")
+        XCTAssertTrue(homePage.waitForToolSelection(homePage.homeButton), "Home tool should be selected initially")
+        let collapsedMinY = homePage.foredropSurface.frame.minY
 
         // WHEN: User searches for "Meeting"
         homePage.tapSearch()
-        waitForAnimations(duration: 0.5)
+        XCTAssertTrue(homePage.waitForSearchFaceOpen(timeout: 3), "Search face should open in-place")
+        XCTAssertTrue(homePage.waitForToolSelection(homePage.searchButton), "Search tool should be selected while open")
+        XCTAssertTrue(homePage.searchField.waitForExistence(timeout: 3), "Backdrop search field should be visible")
+        let searchOpenMinY = homePage.foredropSurface.frame.minY
+        XCTAssertLessThan(abs(searchOpenMinY - collapsedMinY), 12, "Foredrop should stay anchored while opening search")
 
-        let searchField = app.searchFields.firstMatch
-        if searchField.waitForExistence(timeout: 3) {
-            searchField.tap()
-            searchField.typeText("Meeting")
+        homePage.typeSearchQuery("Meeting")
+        waitForAnimations(duration: 1.0)
 
-            waitForAnimations(duration: 1.0)
+        // THEN: Only matching tasks should be displayed
+        XCTAssertTrue(homePage.verifyTaskExists(withTitle: "Meeting with Team"), "Meeting task should be visible")
+        XCTAssertTrue(homePage.verifyTaskExists(withTitle: "Meeting Prep"), "Meeting Prep should be visible")
+        XCTAssertTrue(homePage.searchResultsList.waitForExistence(timeout: 2), "Search results list should exist")
 
-            // THEN: Only matching tasks should be displayed
-            XCTAssertTrue(homePage.verifyTaskExists(withTitle: "Meeting with Team"), "Meeting task should be visible")
-            XCTAssertTrue(homePage.verifyTaskExists(withTitle: "Meeting Prep"), "Meeting Prep should be visible")
+        takeScreenshot(named: "search_by_title")
 
-            // Non-matching tasks might still be visible depending on implementation
-            takeScreenshot(named: "search_by_title")
-        }
+        // Close path by tapping Search again.
+        homePage.tapSearch()
+        XCTAssertTrue(homePage.waitForForedropState("collapsed", timeout: 3), "Search should collapse on second tap")
+        XCTAssertTrue(homePage.waitForToolSelection(homePage.homeButton), "Home should be re-selected when search closes")
     }
 
     // MARK: - Test 53: Search No Results
@@ -68,23 +75,16 @@ class SearchAndFilteringTests: BaseUITest {
         // GIVEN: Tasks exist
         // WHEN: User searches for non-existent term
         homePage.tapSearch()
-        waitForAnimations(duration: 0.5)
+        XCTAssertTrue(homePage.waitForSearchFaceOpen(timeout: 3), "Search face should open")
+        homePage.typeSearchQuery("NonExistentTask123")
+        waitForAnimations(duration: 1.0)
 
-        let searchField = app.searchFields.firstMatch
-        if searchField.waitForExistence(timeout: 3) {
-            searchField.tap()
-            searchField.typeText("NonExistentTask123")
-
-            waitForAnimations(duration: 1.0)
-
-            // THEN: No tasks or empty state should be shown
-            let taskCount = homePage.getTaskCount()
-
-            // Either no tasks or all tasks hidden
-            print("📊 Task count after search: \(taskCount)")
-
-            takeScreenshot(named: "search_no_results")
-        }
+        // THEN: Empty state should be shown in the flipped search face
+        XCTAssertTrue(
+            app.staticTexts[AccessibilityIdentifiers.Search.emptyStateLabel].waitForExistence(timeout: 2),
+            "No-result empty state should be visible"
+        )
+        takeScreenshot(named: "search_no_results")
     }
 
     // MARK: - Test 54: Clear Search
@@ -92,34 +92,39 @@ class SearchAndFilteringTests: BaseUITest {
     func testClearSearch() throws {
         // GIVEN: User has performed a search
         homePage.tapSearch()
-        waitForAnimations(duration: 0.5)
+        XCTAssertTrue(homePage.waitForSearchFaceOpen(timeout: 3), "Search face should open")
+        homePage.typeSearchQuery("Meeting")
+        waitForAnimations(duration: 1.0)
 
-        let searchField = app.searchFields.firstMatch
-        if searchField.waitForExistence(timeout: 3) {
-            searchField.tap()
-            searchField.typeText("Meeting")
-            waitForAnimations(duration: 1.0)
+        // WHEN: User clears the search
+        let clearButton = app.buttons[AccessibilityIdentifiers.Search.clearButton]
+        XCTAssertTrue(clearButton.waitForExistence(timeout: 2), "Search clear button should appear")
+        clearButton.tap()
+        waitForAnimations(duration: 0.7)
 
-            // WHEN: User clears the search
-            let clearButton = searchField.buttons["Clear text"]
-            if clearButton.exists {
-                clearButton.tap()
-            } else {
-                // Alternative: tap X button
-                let xButton = app.buttons["Cancel"]
-                if xButton.exists {
-                    xButton.tap()
-                }
-            }
+        // THEN: Results should still be visible and non-empty for empty-query search
+        XCTAssertTrue(homePage.searchResultsList.waitForExistence(timeout: 2), "Results list should remain visible")
+        XCTAssertGreaterThan(homePage.getTaskCount(), 0, "Tasks should be visible after clearing search")
+        takeScreenshot(named: "clear_search")
+    }
 
-            waitForAnimations(duration: 1.0)
+    func testSearchFaceClosePaths_HomeAndBackChip() throws {
+        XCTAssertTrue(homePage.waitForForedropState("collapsed", timeout: 3), "Home should start collapsed")
+        XCTAssertTrue(homePage.waitForToolSelection(homePage.homeButton), "Home should start selected")
 
-            // THEN: All tasks should be visible again
-            let taskCount = homePage.getTaskCount()
-            XCTAssertGreaterThan(taskCount, 0, "Tasks should be visible after clearing search")
+        homePage.tapSearch()
+        XCTAssertTrue(homePage.waitForSearchFaceOpen(timeout: 3), "Search should open")
+        XCTAssertTrue(homePage.waitForToolSelection(homePage.searchButton), "Search tool should be selected")
 
-            takeScreenshot(named: "clear_search")
-        }
+        homePage.tapHome()
+        XCTAssertTrue(homePage.waitForForedropState("collapsed", timeout: 3), "Home tap should collapse search")
+        XCTAssertTrue(homePage.waitForToolSelection(homePage.homeButton), "Home should be selected after closing search")
+
+        homePage.tapTopNavSearch()
+        XCTAssertTrue(homePage.waitForSearchFaceOpen(timeout: 3), "Top-nav search should open search face")
+        XCTAssertTrue(homePage.searchBackChip.waitForExistence(timeout: 2), "Back chip should appear on search face")
+        homePage.tapSearchBackChip()
+        XCTAssertTrue(homePage.waitForForedropState("collapsed", timeout: 3), "Back chip should collapse search")
     }
 
     // MARK: - Test 55: Filter by Priority - High Only
@@ -210,19 +215,17 @@ class SearchAndFilteringTests: BaseUITest {
         // GIVEN: Tasks exist
         // WHEN: User applies both search and filter
         homePage.tapSearch()
-        waitForAnimations(duration: 0.5)
+        XCTAssertTrue(homePage.waitForSearchFaceOpen(timeout: 3), "Search face should open")
+        homePage.typeSearchQuery("Meeting")
+        waitForAnimations(duration: 0.9)
 
-        let searchField = app.searchFields.firstMatch
-        if searchField.waitForExistence(timeout: 3) {
-            searchField.tap()
-            searchField.typeText("Meeting")
-            waitForAnimations(duration: 1.0)
-
-            // Apply filter if available
-            // (Implementation depends on app UI)
-
-            // THEN: Results should match both criteria
-            takeScreenshot(named: "combined_search_filter")
+        if homePage.searchStatusTodayChip.waitForExistence(timeout: 2) {
+            homePage.searchStatusTodayChip.tap()
+            waitForAnimations(duration: 0.7)
         }
+
+        // THEN: Results should remain visible and searchable after chip refinement
+        XCTAssertTrue(homePage.searchResultsList.waitForExistence(timeout: 2), "Search results should remain visible")
+        takeScreenshot(named: "combined_search_filter")
     }
 }

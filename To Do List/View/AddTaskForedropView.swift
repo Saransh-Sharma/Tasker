@@ -128,7 +128,13 @@ struct AddTaskForedropView: View {
                     }
 
                     // XP preview
-                    AddTaskXPPreview(priority: viewModel.selectedPriority)
+                    AddTaskXPPreview(
+                        priority: viewModel.selectedPriority,
+                        estimatedDuration: viewModel.estimatedDuration,
+                        dueDate: viewModel.dueDate,
+                        todayXPSoFar: viewModel.todayXPSoFar,
+                        isGamificationV2Enabled: V2FeatureFlags.gamificationV2Enabled
+                    )
                 }
                 .padding(.horizontal, spacing.s16)
                 .padding(.top, spacing.s8)

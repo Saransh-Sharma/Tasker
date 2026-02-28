@@ -7,6 +7,9 @@
 
 import Foundation
 import Combine
+#if canImport(WidgetKit)
+import WidgetKit
+#endif
 
 public enum HomeTaskMutationEvent: String, Codable, CaseIterable {
     case created
@@ -262,11 +265,24 @@ public final class HomeViewModel: ObservableObject {
     private let completionNotificationDebounceMS = 120
     private let completionReloadSuppressionSeconds: TimeInterval = 0.35
     private let mutationNotificationDebounceMS = 90
+    private let reloadDebounceMS = 120
+    private let analyticsDebounceMS = 120
     private let recurringTopUpThrottleSeconds: TimeInterval = 90
     private let ledgerMutationWatchdogDelaySeconds: TimeInterval = 1.0
     private static let mutationNotificationSource = "homeViewModel"
     private var pendingLedgerMutationWatchdog: DispatchWorkItem?
     private var lastLedgerMutationObservedAt: Date = .distantPast
+    private var pendingReloadWorkItem: DispatchWorkItem?
+    private var pendingReloadSources: Set<String> = []
+    private var pendingReloadReasons: Set<HomeTaskMutationEvent> = []
+    private var pendingReloadInvalidateCaches = false
+    private var pendingReloadIncludeAnalytics = false
+    private var pendingReloadRepostEvent = false
+    private var isApplyingReloadBatch = false
+    private var queuedReloadAfterCurrentBatch = false
+    private var pendingAnalyticsWorkItem: DispatchWorkItem?
+    private var pendingAnalyticsIncludeGamificationRefresh = false
+    private var analyticsGeneration: Int = 0
 
     // MARK: - Initialization
 
@@ -379,9 +395,13 @@ public final class HomeViewModel: ObservableObject {
             DispatchQueue.main.async {
                 switch result {
                 case .success:
-                    self?.invalidateTaskCaches()
-                    self?.reloadCurrentModeTasks()
-                    self?.requestChartRefresh(reason: .created)
+                    self?.enqueueReload(
+                        source: "create_task",
+                        reason: .created,
+                        invalidateCaches: true,
+                        includeAnalytics: false,
+                        repostEvent: true
+                    )
 
                 case .failure(let error):
                     self?.errorMessage = error.localizedDescription
@@ -406,9 +426,13 @@ public final class HomeViewModel: ObservableObject {
                 switch result {
                 case .success:
                     self?.removePinnedFocusTaskID(taskID)
-                    self?.invalidateTaskCaches()
-                    self?.reloadCurrentModeTasks()
-                    self?.requestChartRefresh(reason: .deleted)
+                    self?.enqueueReload(
+                        source: "delete_task",
+                        reason: .deleted,
+                        invalidateCaches: true,
+                        includeAnalytics: false,
+                        repostEvent: true
+                    )
                     completion(.success(()))
 
                 case .failure(let error):
@@ -434,9 +458,13 @@ public final class HomeViewModel: ObservableObject {
             DispatchQueue.main.async {
                 switch result {
                 case .success(let task):
-                    self?.invalidateTaskCaches()
-                    self?.reloadCurrentModeTasks()
-                    self?.requestChartRefresh(reason: .rescheduled)
+                    self?.enqueueReload(
+                        source: "reschedule_task",
+                        reason: .rescheduled,
+                        invalidateCaches: true,
+                        includeAnalytics: false,
+                        repostEvent: true
+                    )
                     completion(.success(task))
 
                 case .failure(let error):
@@ -459,9 +487,13 @@ public final class HomeViewModel: ObservableObject {
             DispatchQueue.main.async {
                 switch result {
                 case .success(let task):
-                    self?.invalidateTaskCaches()
-                    self?.reloadCurrentModeTasks()
-                    self?.requestChartRefresh(reason: self?.mutationReason(for: request) ?? .updated)
+                    self?.enqueueReload(
+                        source: "update_task",
+                        reason: self?.mutationReason(for: request) ?? .updated,
+                        invalidateCaches: true,
+                        includeAnalytics: false,
+                        repostEvent: true
+                    )
                     completion(.success(task))
 
                 case .failure(let error):
@@ -587,9 +619,13 @@ public final class HomeViewModel: ObservableObject {
             DispatchQueue.main.async {
                 switch result {
                 case .success(let createdTask):
-                    self?.invalidateTaskCaches()
-                    self?.reloadCurrentModeTasks()
-                    self?.requestChartRefresh(reason: .created)
+                    self?.enqueueReload(
+                        source: "create_task_definition",
+                        reason: .created,
+                        invalidateCaches: true,
+                        includeAnalytics: false,
+                        repostEvent: true
+                    )
                     completion(.success(createdTask))
                 case .failure(let error):
                     self?.errorMessage = error.localizedDescription
@@ -793,9 +829,13 @@ public final class HomeViewModel: ObservableObject {
             DispatchQueue.main.async {
                 switch result {
                 case .success(let cleanup):
-                    self?.invalidateTaskCaches()
-                    self?.reloadCurrentModeTasks()
-                    self?.loadDailyAnalytics()
+                    self?.enqueueReload(
+                        source: "end_of_day_cleanup",
+                        reason: .bulkChanged,
+                        invalidateCaches: true,
+                        includeAnalytics: true,
+                        repostEvent: true
+                    )
                     completion(.success(cleanup))
                 case .failure(let error):
                     self?.errorMessage = error.localizedDescription
@@ -1283,6 +1323,10 @@ public final class HomeViewModel: ObservableObject {
         )
     }
 
+    func makeHomeSearchViewModel() -> LGSearchViewModel {
+        LGSearchViewModel(useCaseCoordinator: useCaseCoordinator)
+    }
+
     public func startTriage(scope: EvaTriageScope) {
         guard V2FeatureFlags.evaTriageEnabled else { return }
         evaTriageSheetPresented = true
@@ -1579,7 +1623,13 @@ public final class HomeViewModel: ObservableObject {
                                 switch applyResult {
                                 case .success(let run):
                                     self?.evaLastBatchRunID = run.id
-                                    self?.reloadCurrentModeTasks()
+                                    self?.enqueueReload(
+                                        source: "eva_batch_apply",
+                                        reason: .bulkChanged,
+                                        invalidateCaches: true,
+                                        includeAnalytics: false,
+                                        repostEvent: true
+                                    )
                                     self?.trackHomeInteraction(action: source == .triage ? "triage_bulk_apply" : "rescue_apply_confirmed", metadata: [
                                         "mutation_count": mutations.count
                                     ])
@@ -1684,7 +1734,13 @@ public final class HomeViewModel: ObservableObject {
             DispatchQueue.main.async {
                 switch result {
                 case .success(let run):
-                    self?.reloadCurrentModeTasks()
+                    self?.enqueueReload(
+                        source: "eva_batch_undo",
+                        reason: .bulkChanged,
+                        invalidateCaches: true,
+                        includeAnalytics: false,
+                        repostEvent: true
+                    )
                     self?.trackHomeInteraction(action: "rescue_undo", metadata: [
                         "run_id": run.id.uuidString
                     ])
@@ -1795,7 +1851,13 @@ public final class HomeViewModel: ObservableObject {
                 completion(.failure(firstError))
                 return
             }
-            self.reloadCurrentModeTasks()
+            self.enqueueReload(
+                source: "rescue_split_created",
+                reason: .updated,
+                invalidateCaches: true,
+                includeAnalytics: false,
+                repostEvent: true
+            )
             self.trackHomeInteraction(action: "rescue_split_created", metadata: [
                 "parent_task_id": parentTaskID.uuidString,
                 "child_count": created.count
@@ -1835,7 +1897,13 @@ public final class HomeViewModel: ObservableObject {
                 completion(.failure(firstError))
                 return
             }
-            self.reloadCurrentModeTasks()
+            self.enqueueReload(
+                source: "rescue_split_undo",
+                reason: .updated,
+                invalidateCaches: true,
+                includeAnalytics: false,
+                repostEvent: true
+            )
             self.trackHomeInteraction(action: "rescue_split_undo", metadata: [
                 "child_count": childTaskIDs.count
             ])
@@ -1850,27 +1918,39 @@ public final class HomeViewModel: ObservableObject {
         NotificationCenter.default.publisher(for: NSNotification.Name("TaskCreated"))
             .receive(on: RunLoop.main)
             .sink { [weak self] _ in
-                self?.invalidateTaskCaches()
-                self?.reloadCurrentModeTasks()
-                self?.requestChartRefresh(reason: .created)
+                self?.enqueueReload(
+                    source: "notification_task_created",
+                    reason: .created,
+                    invalidateCaches: true,
+                    includeAnalytics: false,
+                    repostEvent: true
+                )
             }
             .store(in: &cancellables)
 
         NotificationCenter.default.publisher(for: NSNotification.Name("TaskUpdated"))
             .receive(on: RunLoop.main)
             .sink { [weak self] _ in
-                self?.invalidateTaskCaches()
-                self?.reloadCurrentModeTasks()
-                self?.requestChartRefresh(reason: .updated)
+                self?.enqueueReload(
+                    source: "notification_task_updated",
+                    reason: .updated,
+                    invalidateCaches: true,
+                    includeAnalytics: false,
+                    repostEvent: true
+                )
             }
             .store(in: &cancellables)
 
         NotificationCenter.default.publisher(for: NSNotification.Name("TaskDeleted"))
             .receive(on: RunLoop.main)
             .sink { [weak self] _ in
-                self?.invalidateTaskCaches()
-                self?.reloadCurrentModeTasks()
-                self?.requestChartRefresh(reason: .deleted)
+                self?.enqueueReload(
+                    source: "notification_task_deleted",
+                    reason: .deleted,
+                    invalidateCaches: true,
+                    includeAnalytics: false,
+                    repostEvent: true
+                )
             }
             .store(in: &cancellables)
 
@@ -1883,10 +1963,13 @@ public final class HomeViewModel: ObservableObject {
                     logDebug("HOME_ROW_STATE vm.notification_suppressed source=TaskCompletionChanged")
                     return
                 }
-                self.invalidateTaskCaches()
-                self.reloadCurrentModeTasks()
-                self.loadDailyAnalytics(includeGamificationRefresh: false)
-                self.requestChartRefresh(reason: .bulkChanged)
+                self.enqueueReload(
+                    source: "notification_task_completion_changed",
+                    reason: .bulkChanged,
+                    invalidateCaches: true,
+                    includeAnalytics: true,
+                    repostEvent: true
+                )
             }
             .store(in: &cancellables)
 
@@ -1954,14 +2037,15 @@ public final class HomeViewModel: ObservableObject {
                             "forcing_analytics_reload=true"
                         )
                     }
-                    self?.loadDailyAnalytics(includeGamificationRefresh: false)
-                    self?.invalidateTaskCaches()
-                    self?.reloadCurrentModeTasks()
                     if updatedTask.isComplete {
                         self?.scheduleLedgerMutationWatchdog(trigger: "task_completion")
                     }
-                    self?.requestChartRefresh(
-                        reason: updatedTask.isComplete ? .completed : .reopened
+                    self?.enqueueReload(
+                        source: "set_task_completion",
+                        reason: updatedTask.isComplete ? .completed : .reopened,
+                        invalidateCaches: true,
+                        includeAnalytics: true,
+                        repostEvent: true
                     )
                     self?.trackFirstCompletionLatencyIfNeeded()
                     completion(.success(updatedTask))
@@ -2019,26 +2103,47 @@ public final class HomeViewModel: ObservableObject {
 
     /// Executes loadDailyAnalytics.
     private func loadDailyAnalytics(includeGamificationRefresh: Bool = true) {
+        pendingAnalyticsIncludeGamificationRefresh = pendingAnalyticsIncludeGamificationRefresh || includeGamificationRefresh
+        pendingAnalyticsWorkItem?.cancel()
+
+        let workItem = DispatchWorkItem { [weak self] in
+            guard let self else { return }
+            let shouldIncludeGamificationRefresh = self.pendingAnalyticsIncludeGamificationRefresh
+            self.pendingAnalyticsIncludeGamificationRefresh = false
+            self.pendingAnalyticsWorkItem = nil
+            self.performDailyAnalyticsRefresh(includeGamificationRefresh: shouldIncludeGamificationRefresh)
+        }
+        pendingAnalyticsWorkItem = workItem
+        DispatchQueue.main.asyncAfter(
+            deadline: .now() + .milliseconds(analyticsDebounceMS),
+            execute: workItem
+        )
+    }
+
+    private func performDailyAnalyticsRefresh(includeGamificationRefresh: Bool) {
+        let generation = nextAnalyticsGeneration()
         if V2FeatureFlags.gamificationV2Enabled {
             guard includeGamificationRefresh else {
                 useCaseCoordinator.calculateAnalytics.calculateTodayAnalytics { [weak self] result in
                     DispatchQueue.main.async {
+                        guard let self, self.isCurrentAnalyticsGeneration(generation) else { return }
                         if case .success(let analytics) = result {
-                            self?.completionRate = analytics.completionRate
+                            self.completionRate = analytics.completionRate
                         }
                     }
                 }
                 return
             }
-            refreshGamificationV2State()
+            refreshGamificationV2State(generation: generation)
         } else {
-            refreshDailyScoreFromCompletedTasksToday()
+            refreshDailyScoreFromCompletedTasksToday(generation: generation)
         }
 
         useCaseCoordinator.calculateAnalytics.calculateTodayAnalytics { [weak self] result in
             DispatchQueue.main.async {
+                guard let self, self.isCurrentAnalyticsGeneration(generation) else { return }
                 if case .success(let analytics) = result {
-                    self?.completionRate = analytics.completionRate
+                    self.completionRate = analytics.completionRate
                 }
             }
         }
@@ -2046,9 +2151,10 @@ public final class HomeViewModel: ObservableObject {
         if !V2FeatureFlags.gamificationV2Enabled {
             useCaseCoordinator.calculateAnalytics.calculateStreak { [weak self] result in
                 DispatchQueue.main.async {
+                    guard let self, self.isCurrentAnalyticsGeneration(generation) else { return }
                     if case .success(let streakInfo) = result {
-                        self?.streak = streakInfo.currentStreak
-                        self?.refreshProgressState()
+                        self.streak = streakInfo.currentStreak
+                        self.refreshProgressState()
                     }
                 }
             }
@@ -2056,12 +2162,13 @@ public final class HomeViewModel: ObservableObject {
     }
 
     /// Fetches gamification state from the v2 XP ledger.
-    private func refreshGamificationV2State() {
+    private func refreshGamificationV2State(generation: Int? = nil) {
         let engine = useCaseCoordinator.gamificationEngine
 
         engine.fetchTodayXP { [weak self] result in
             DispatchQueue.main.async {
                 guard let self else { return }
+                if let generation, !self.isCurrentAnalyticsGeneration(generation) { return }
                 if case .success(let todayXP) = result {
                     self.dailyScore = todayXP
                     self.refreshProgressState()
@@ -2072,6 +2179,7 @@ public final class HomeViewModel: ObservableObject {
         engine.fetchCurrentProfile { [weak self] result in
             DispatchQueue.main.async {
                 guard let self else { return }
+                if let generation, !self.isCurrentAnalyticsGeneration(generation) { return }
                 if case .success(let profile) = result {
                     self.currentLevel = profile.level
                     self.totalXP = profile.xpTotal
@@ -2084,7 +2192,7 @@ public final class HomeViewModel: ObservableObject {
     }
 
     /// Executes refreshDailyScoreFromCompletedTasksToday.
-    private func refreshDailyScoreFromCompletedTasksToday(referenceDate: Date = Date()) {
+    private func refreshDailyScoreFromCompletedTasksToday(referenceDate: Date = Date(), generation: Int? = nil) {
         let calendar = Calendar.current
         let startOfDay = calendar.startOfDay(for: referenceDate)
         guard let endOfDay = calendar.date(byAdding: .day, value: 1, to: startOfDay) else {
@@ -2094,6 +2202,7 @@ public final class HomeViewModel: ObservableObject {
         useCaseCoordinator.getTasks.searchTasks(query: "", in: .all) { [weak self] result in
             DispatchQueue.main.async {
                 guard let self else { return }
+                if let generation, !self.isCurrentAnalyticsGeneration(generation) { return }
 
                 switch result {
                 case .success(let tasks):
@@ -2262,6 +2371,7 @@ public final class HomeViewModel: ObservableObject {
             emptyStateMessage = "No completed tasks in last 30 days"
             emptyStateActionTitle = nil
             updateCompletionRateFromFocusResult(openTasks: openTasks, doneTasks: doneTasks)
+            writeTaskListWidgetSnapshot(reason: "apply_result_done")
             return
         }
 
@@ -2297,6 +2407,10 @@ public final class HomeViewModel: ObservableObject {
             upcomingTasks = openTasks
             emptyStateMessage = "No upcoming tasks in 14 days"
             emptyStateActionTitle = nil
+        case .overdue:
+            upcomingTasks = []
+            emptyStateMessage = "No overdue tasks. Great job."
+            emptyStateActionTitle = nil
         case .morning:
             upcomingTasks = []
             emptyStateMessage = "No morning tasks. Add one to start strong."
@@ -2315,6 +2429,7 @@ public final class HomeViewModel: ObservableObject {
         }
 
         updateCompletionRateFromFocusResult(openTasks: openTasks, doneTasks: doneTasks)
+        writeTaskListWidgetSnapshot(reason: "apply_result_\(activeScope.quickView.rawValue)")
     }
 
     /// Executes updateCompletionRateFromFocusResult.
@@ -2682,6 +2797,8 @@ public final class HomeViewModel: ObservableObject {
             return []
         case .upcoming:
             return upcomingTasks.filter { !$0.isComplete }
+        case .overdue:
+            return overdueTasks.filter { !$0.isComplete }
         case .today, .morning, .evening:
             return (morningTasks + eveningTasks + overdueTasks).filter { !$0.isComplete }
         }
@@ -2703,6 +2820,121 @@ public final class HomeViewModel: ObservableObject {
         refreshEvaInsights(openTasks: openTasks)
     }
 
+    private func writeTaskListWidgetSnapshot(reason: String = "home_event") {
+        guard V2FeatureFlags.taskListWidgetsEnabled else { return }
+        TaskListWidgetSnapshotService.shared.scheduleRefresh(reason: reason)
+    }
+
+    private func buildTaskListWidgetSnapshot() -> TaskListWidgetSnapshot {
+        let openUnion = uniqueTasks(
+            morningTasks.filter { !$0.isComplete } +
+            eveningTasks.filter { !$0.isComplete } +
+            overdueTasks.filter { !$0.isComplete } +
+            upcomingTasks.filter { !$0.isComplete } +
+            focusTasks.filter { !$0.isComplete }
+        )
+        let sortedOpen = sortTasksByPriorityThenDue(openUnion)
+        let topTasks = Array((focusTasks.filter { !$0.isComplete }.isEmpty ? sortedOpen : focusTasks.filter { !$0.isComplete }).prefix(3))
+        let overdueTop = Array(sortTasksByPriorityThenDue(overdueTasks.filter { !$0.isComplete }).prefix(3))
+
+        let now = Date()
+        let fortyEightHours = now.addingTimeInterval(48 * 60 * 60)
+        let dueSoon = sortTasksByPriorityThenDue(
+            openUnion.filter { task in
+                guard let dueDate = task.dueDate else { return false }
+                return dueDate >= now && dueDate <= fortyEightHours
+            }
+        )
+
+        let quickWinCandidates = sortTasksByPriorityThenDue(
+            openUnion.filter { task in
+                guard let minutes = task.estimatedDuration.map({ Int($0 / 60) }) else { return false }
+                return minutes > 0 && minutes <= 15
+            }
+        )
+
+        let waiting = Array(
+            sortTasksByPriorityThenDue(openUnion.filter { !$0.dependencies.isEmpty })
+                .prefix(3)
+        )
+
+        let completedToday = dailyCompletedTasks.filter { task in
+            guard let completedAt = task.dateCompleted else { return false }
+            return Calendar.current.isDateInToday(completedAt)
+        }
+
+        let projectSlices: [TaskListWidgetProjectSlice] = Dictionary(
+            grouping: openUnion,
+            by: { task in
+                task.projectID
+            }
+        )
+        .map { projectID, tasks in
+            let projectName = tasks.first?.projectName?.trimmingCharacters(in: .whitespacesAndNewlines)
+            let normalizedName = (projectName?.isEmpty == false ? projectName : nil) ?? "Inbox"
+            return TaskListWidgetProjectSlice(
+                projectID: projectID,
+                projectName: normalizedName,
+                openCount: tasks.count,
+                overdueCount: tasks.filter(\.isOverdue).count
+            )
+        }
+        .sorted { lhs, rhs in
+            if lhs.openCount != rhs.openCount {
+                return lhs.openCount > rhs.openCount
+            }
+            return lhs.projectName.localizedCaseInsensitiveCompare(rhs.projectName) == .orderedAscending
+        }
+
+        let energyBuckets: [TaskListWidgetEnergyBucket] = TaskEnergy.allCases.map { energy in
+            TaskListWidgetEnergyBucket(
+                energy: energy.rawValue,
+                count: openUnion.filter { $0.energy == energy }.count
+            )
+        }
+
+        return TaskListWidgetSnapshot(
+            updatedAt: Date(),
+            todayTopTasks: topTasks.map(widgetTask(from:)),
+            upcomingTasks: Array(dueSoon.prefix(3)).map(widgetTask(from:)),
+            overdueTasks: overdueTop.map(widgetTask(from:)),
+            quickWins: Array(quickWinCandidates.prefix(3)).map(widgetTask(from:)),
+            projectSlices: Array(projectSlices.prefix(4)),
+            doneTodayCount: completedToday.count,
+            focusNow: Array(focusTasks.filter { !$0.isComplete }.prefix(3)).map(widgetTask(from:)),
+            waitingOn: waiting.map(widgetTask(from:)),
+            energyBuckets: energyBuckets
+        )
+    }
+
+    private func widgetTask(from task: TaskDefinition) -> TaskListWidgetTask {
+        let minutes = task.estimatedDuration.map { duration in
+            max(1, Int(duration / 60))
+        }
+        return TaskListWidgetTask(
+            id: task.id,
+            title: task.title,
+            projectID: task.projectID,
+            projectName: task.projectName,
+            priorityCode: task.priority.code,
+            dueDate: task.dueDate,
+            isOverdue: task.isOverdue,
+            estimatedDurationMinutes: minutes,
+            energy: task.energy.rawValue,
+            context: task.context.rawValue,
+            isComplete: task.isComplete,
+            hasDependencies: !task.dependencies.isEmpty
+        )
+    }
+
+    private func reloadTaskListWidgetTimelines() {
+        #if canImport(WidgetKit)
+        DispatchQueue.main.async {
+            WidgetCenter.shared.reloadAllTimelines()
+        }
+        #endif
+    }
+
     /// Executes trackFeatureUsage.
     private func trackFeatureUsage(action: String, metadata: [String: Any]? = nil) {
         analyticsService?.trackFeatureUsage(feature: "home_filter", action: action, metadata: metadata)
@@ -2710,12 +2942,111 @@ public final class HomeViewModel: ObservableObject {
 
     /// Executes handleExternalMutation.
     public func handleExternalMutation(reason: HomeTaskMutationEvent, repostEvent: Bool = true) {
-        invalidateTaskCaches()
+        enqueueReload(
+            source: "external_mutation_\(reason.rawValue)",
+            reason: reason,
+            invalidateCaches: true,
+            includeAnalytics: true,
+            repostEvent: repostEvent
+        )
+    }
+
+    public func enqueueReload(
+        source: String,
+        reason: HomeTaskMutationEvent? = nil,
+        invalidateCaches: Bool,
+        includeAnalytics: Bool,
+        repostEvent: Bool
+    ) {
+        pendingReloadSources.insert(source)
+        if let reason {
+            pendingReloadReasons.insert(reason)
+        }
+        pendingReloadInvalidateCaches = pendingReloadInvalidateCaches || invalidateCaches
+        pendingReloadIncludeAnalytics = pendingReloadIncludeAnalytics || includeAnalytics
+        pendingReloadRepostEvent = pendingReloadRepostEvent || repostEvent
+
+        pendingReloadWorkItem?.cancel()
+        let workItem = DispatchWorkItem { [weak self] in
+            self?.flushQueuedReloads()
+        }
+        pendingReloadWorkItem = workItem
+        DispatchQueue.main.asyncAfter(
+            deadline: .now() + .milliseconds(reloadDebounceMS),
+            execute: workItem
+        )
+    }
+
+    private func flushQueuedReloads() {
+        if isApplyingReloadBatch {
+            queuedReloadAfterCurrentBatch = true
+            return
+        }
+        isApplyingReloadBatch = true
+        defer {
+            isApplyingReloadBatch = false
+            if queuedReloadAfterCurrentBatch {
+                queuedReloadAfterCurrentBatch = false
+                if pendingReloadSources.isEmpty == false {
+                    flushQueuedReloads()
+                }
+            }
+        }
+
+        let reasons = pendingReloadReasons
+        let sources = pendingReloadSources
+        let shouldInvalidate = pendingReloadInvalidateCaches
+        let shouldIncludeAnalytics = pendingReloadIncludeAnalytics
+        let shouldRepostEvent = pendingReloadRepostEvent
+
+        pendingReloadReasons = []
+        pendingReloadSources = []
+        pendingReloadInvalidateCaches = false
+        pendingReloadIncludeAnalytics = false
+        pendingReloadRepostEvent = false
+        pendingReloadWorkItem = nil
+
+        let reloadStartedAt = Date()
+        if shouldInvalidate {
+            invalidateTaskCaches()
+        }
         reloadCurrentModeTasks()
-        loadDailyAnalytics(includeGamificationRefresh: false)
-        if repostEvent {
+        if shouldIncludeAnalytics {
+            loadDailyAnalytics(includeGamificationRefresh: false)
+        }
+        if shouldRepostEvent, let reason = prioritizedReloadReason(from: reasons) {
             requestChartRefresh(reason: reason)
         }
+
+        logWarning(
+            event: "home_reload_batch_applied",
+            message: "Applied coalesced Home reload batch",
+            fields: [
+                "source_count": String(sources.count),
+                "reason_count": String(reasons.count),
+                "invalidate_caches": shouldInvalidate ? "true" : "false",
+                "include_analytics": shouldIncludeAnalytics ? "true" : "false",
+                "repost_event": shouldRepostEvent ? "true" : "false",
+                "duration_ms": String(Int(Date().timeIntervalSince(reloadStartedAt) * 1_000))
+            ]
+        )
+    }
+
+    private func prioritizedReloadReason(from reasons: Set<HomeTaskMutationEvent>) -> HomeTaskMutationEvent? {
+        let priorityOrder: [HomeTaskMutationEvent] = [
+            .completed,
+            .reopened,
+            .created,
+            .deleted,
+            .rescheduled,
+            .projectChanged,
+            .priorityChanged,
+            .typeChanged,
+            .dueDateChanged,
+            .updated,
+            .bulkChanged
+        ]
+        return priorityOrder.first(where: { reasons.contains($0) }) ?? reasons.first
     }
 
     private func handleGamificationLedgerMutation(_ mutation: GamificationLedgerMutation) {
@@ -2820,6 +3151,8 @@ public final class HomeViewModel: ObservableObject {
             return "custom_date"
         case .upcoming:
             return "upcoming"
+        case .overdue:
+            return "overdue"
         case .done:
             return "done"
         case .morning:
@@ -2964,6 +3297,7 @@ public final class HomeViewModel: ObservableObject {
         }
         refreshFocusTasksFromCurrentState()
         refreshProgressState()
+        writeTaskListWidgetSnapshot(reason: "local_completion_apply")
     }
 
     /// Executes replacingTask.
@@ -3138,7 +3472,7 @@ public final class HomeViewModel: ObservableObject {
             return dueDate < Calendar.current.startOfDay(for: Date())
         case .customDate(let anchorDate):
             return dueDate < Calendar.current.startOfDay(for: anchorDate)
-        case .upcoming, .done, .morning, .evening:
+        case .upcoming, .overdue, .done, .morning, .evening:
             return task.isOverdue
         }
     }
@@ -3148,7 +3482,7 @@ public final class HomeViewModel: ObservableObject {
         switch scope {
         case .today, .customDate:
             return true
-        case .upcoming, .done, .morning, .evening:
+        case .upcoming, .overdue, .done, .morning, .evening:
             return false
         }
     }
@@ -3227,9 +3561,19 @@ public final class HomeViewModel: ObservableObject {
         return reloadGeneration
     }
 
+    @discardableResult
+    private func nextAnalyticsGeneration() -> Int {
+        analyticsGeneration += 1
+        return analyticsGeneration
+    }
+
     /// Executes isCurrentReloadGeneration.
     private func isCurrentReloadGeneration(_ generation: Int) -> Bool {
         generation == reloadGeneration
+    }
+
+    private func isCurrentAnalyticsGeneration(_ generation: Int) -> Bool {
+        generation == analyticsGeneration
     }
 
     /// Executes applyCompletionOverrides.
@@ -3488,6 +3832,242 @@ public enum DailySummaryModalData: Equatable {
                 "streak_count": summary.streakCount
             ]
         }
+    }
+}
+
+final class TaskListWidgetSnapshotService {
+    static let shared = TaskListWidgetSnapshotService()
+
+    private let queue = DispatchQueue(label: "tasker.tasklist.widget.snapshot", qos: .utility)
+    private let debounceDelay: TimeInterval = 0.25
+    private var pendingWorkItem: DispatchWorkItem?
+
+    private init() {}
+
+    func scheduleRefresh(reason: String) {
+        queue.async { [weak self] in
+            guard let self else { return }
+            self.pendingWorkItem?.cancel()
+            let workItem = DispatchWorkItem { [weak self] in
+                self?.refreshNow(reason: reason)
+            }
+            self.pendingWorkItem = workItem
+            self.queue.asyncAfter(deadline: .now() + self.debounceDelay, execute: workItem)
+        }
+    }
+
+    private func refreshNow(reason: String) {
+        guard V2FeatureFlags.taskListWidgetsEnabled else { return }
+        guard let coordinator = currentCoordinator() else { return }
+
+        coordinator.getTasks.searchTasks(query: "", in: .all) { [weak self] result in
+            guard let self else { return }
+            switch result {
+            case .failure(let error):
+                logWarning(
+                    event: "task_list_widget_snapshot_refresh_failed",
+                    message: "Failed to refresh task list widget snapshot",
+                    fields: [
+                        "reason": reason,
+                        "error": error.localizedDescription
+                    ]
+                )
+            case .success(let tasks):
+                let snapshot = self.buildSnapshot(tasks: tasks)
+                self.persistIfChanged(snapshot: snapshot, reason: reason)
+            }
+        }
+    }
+
+    private func currentCoordinator() -> UseCaseCoordinator? {
+        let container = PresentationDependencyContainer.shared
+        guard container.isConfiguredForRuntime else { return nil }
+        return container.coordinator
+    }
+
+    private func buildSnapshot(tasks: [TaskDefinition], now: Date = Date()) -> TaskListWidgetSnapshot {
+        let calendar = Calendar.current
+        let startOfToday = calendar.startOfDay(for: now)
+        let endOfToday = calendar.date(byAdding: .day, value: 1, to: startOfToday) ?? now
+        let fortyEightHours = now.addingTimeInterval(48 * 60 * 60)
+
+        let openTasks = tasks.filter { !$0.isComplete }
+        let sortedOpen = openTasks.sorted(by: sortByPriorityThenDue)
+        let overdueOpen = openTasks
+            .filter { task in
+                guard let dueDate = task.dueDate else { return false }
+                return dueDate < startOfToday
+            }
+            .sorted(by: sortByPriorityThenDue)
+        let todayOpen = openTasks
+            .filter { task in
+                guard let dueDate = task.dueDate else { return false }
+                return dueDate >= startOfToday && dueDate < endOfToday
+            }
+            .sorted(by: sortByPriorityThenDue)
+        let dueSoon = openTasks
+            .filter { task in
+                guard let dueDate = task.dueDate else { return false }
+                return dueDate >= now && dueDate <= fortyEightHours
+            }
+            .sorted(by: sortByPriorityThenDue)
+        let quickWins = openTasks
+            .filter { task in
+                guard let duration = task.estimatedDuration else { return false }
+                let minutes = Int(duration / 60)
+                return minutes > 0 && minutes <= 15
+            }
+            .sorted(by: sortByPriorityThenDue)
+        let waitingOn = openTasks
+            .filter { !$0.dependencies.isEmpty }
+            .sorted(by: sortByPriorityThenDue)
+
+        let completedToday = tasks
+            .filter(\.isComplete)
+            .filter { task in
+                guard let completedAt = task.dateCompleted else { return false }
+                return calendar.isDateInToday(completedAt)
+            }
+            .sorted(by: sortCompletedDescending)
+
+        let focusNow = Array((todayOpen.isEmpty ? sortedOpen : todayOpen).prefix(3))
+        let topTasks = Array((todayOpen + overdueOpen).isEmpty ? sortedOpen.prefix(3) : (todayOpen + overdueOpen).prefix(3))
+
+        let projectSlices: [TaskListWidgetProjectSlice] = Dictionary(
+            grouping: openTasks,
+            by: { $0.projectID }
+        )
+        .map { projectID, projectTasks in
+            let projectName = projectTasks.first?.projectName?.trimmingCharacters(in: .whitespacesAndNewlines)
+            return TaskListWidgetProjectSlice(
+                projectID: projectID,
+                projectName: (projectName?.isEmpty == false ? projectName : nil) ?? "Inbox",
+                openCount: projectTasks.count,
+                overdueCount: projectTasks.filter(\.isOverdue).count
+            )
+        }
+        .sorted { lhs, rhs in
+            if lhs.openCount != rhs.openCount {
+                return lhs.openCount > rhs.openCount
+            }
+            return lhs.projectName.localizedCaseInsensitiveCompare(rhs.projectName) == .orderedAscending
+        }
+
+        let energyBuckets: [TaskListWidgetEnergyBucket] = TaskEnergy.allCases.map { energy in
+            TaskListWidgetEnergyBucket(
+                energy: energy.rawValue,
+                count: openTasks.filter { $0.energy == energy }.count
+            )
+        }
+
+        return TaskListWidgetSnapshot(
+            schemaVersion: TaskListWidgetSnapshot.currentSchemaVersion,
+            updatedAt: now,
+            todayTopTasks: topTasks.map(widgetTask(from:)),
+            upcomingTasks: Array(dueSoon.prefix(3)).map(widgetTask(from:)),
+            overdueTasks: Array(overdueOpen.prefix(3)).map(widgetTask(from:)),
+            quickWins: Array(quickWins.prefix(3)).map(widgetTask(from:)),
+            projectSlices: Array(projectSlices.prefix(6)),
+            doneTodayCount: completedToday.count,
+            focusNow: focusNow.map(widgetTask(from:)),
+            waitingOn: Array(waitingOn.prefix(3)).map(widgetTask(from:)),
+            energyBuckets: energyBuckets,
+            openTodayCount: todayOpen.count + overdueOpen.count,
+            openTaskPool: Array(sortedOpen.prefix(25)).map(widgetTask(from:)),
+            completedTodayTasks: Array(completedToday.prefix(8)).map(widgetTask(from:)),
+            snapshotHealth: TaskListWidgetSnapshotHealth(
+                source: "full_query",
+                generatedAt: now,
+                isStale: false,
+                hasCorruptionFallback: false
+            )
+        )
+    }
+
+    private func widgetTask(from task: TaskDefinition) -> TaskListWidgetTask {
+        TaskListWidgetTask(
+            id: task.id,
+            title: task.title,
+            projectID: task.projectID,
+            projectName: task.projectName,
+            priorityCode: task.priority.code,
+            dueDate: task.dueDate,
+            isOverdue: task.isOverdue,
+            estimatedDurationMinutes: task.estimatedDuration.map { max(1, Int($0 / 60)) },
+            energy: task.energy.rawValue,
+            context: task.context.rawValue,
+            isComplete: task.isComplete,
+            hasDependencies: !task.dependencies.isEmpty
+        )
+    }
+
+    private func sortByPriorityThenDue(lhs: TaskDefinition, rhs: TaskDefinition) -> Bool {
+        if lhs.priority.scorePoints != rhs.priority.scorePoints {
+            return lhs.priority.scorePoints > rhs.priority.scorePoints
+        }
+        let lhsDate = lhs.dueDate ?? Date.distantFuture
+        let rhsDate = rhs.dueDate ?? Date.distantFuture
+        if lhsDate != rhsDate {
+            return lhsDate < rhsDate
+        }
+        return lhs.title.localizedCaseInsensitiveCompare(rhs.title) == .orderedAscending
+    }
+
+    private func sortCompletedDescending(lhs: TaskDefinition, rhs: TaskDefinition) -> Bool {
+        let lhsDate = lhs.dateCompleted ?? Date.distantPast
+        let rhsDate = rhs.dateCompleted ?? Date.distantPast
+        if lhsDate != rhsDate {
+            return lhsDate > rhsDate
+        }
+        return lhs.title.localizedCaseInsensitiveCompare(rhs.title) == .orderedAscending
+    }
+
+    private func persistIfChanged(snapshot: TaskListWidgetSnapshot, reason: String) {
+        let current = TaskListWidgetSnapshot.load()
+        if normalized(snapshot) == normalized(current) {
+            return
+        }
+        snapshot.save()
+        reloadTaskListTimelines()
+        logDebug("TASK_WIDGET_SNAPSHOT refreshed reason=\(reason)")
+    }
+
+    private func normalized(_ snapshot: TaskListWidgetSnapshot) -> TaskListWidgetSnapshot {
+        var value = snapshot
+        value.updatedAt = Date(timeIntervalSince1970: 0)
+        value.snapshotHealth.generatedAt = Date(timeIntervalSince1970: 0)
+        value.snapshotHealth.hasCorruptionFallback = false
+        return value
+    }
+
+    private func reloadTaskListTimelines() {
+        #if canImport(WidgetKit)
+        let kinds = [
+            "TopTaskNowWidget", "TodayCounterNextWidget", "OverdueRescueWidget", "QuickWin15mWidget",
+            "MorningKickoffWidget", "EveningWrapWidget", "WaitingOnWidget", "InboxTriageWidget",
+            "DueSoonRadarWidget", "EnergyMatchWidget", "ProjectSpotlightWidget", "CalendarTaskBridgeWidget",
+            "TodayTop3Widget", "NowLaneWidget", "OverdueBoardWidget", "Upcoming48hWidget",
+            "MorningEveningPlanWidget", "QuickViewSwitcherWidget", "ProjectSprintWidget",
+            "PriorityMatrixLiteWidget", "ContextWidget", "FocusSessionQueueWidget",
+            "RecoveryWidget", "DoneReflectionWidget",
+            "TodayPlannerBoardWidget", "WeekTaskPlannerWidget", "ProjectCockpitWidget",
+            "BacklogHealthWidget", "KanbanLiteWidget", "DeadlineHeatmapWidget",
+            "ExecutionDashboardWidget", "DeepWorkAgendaWidget", "AssistantPlanPreviewWidget",
+            "LifeAreasBoardWidget",
+            "InlineNextTaskWidget", "InlineDueSoonWidget",
+            "CircularTodayProgressWidget", "CircularQuickAddWidget",
+            "RectangularTop2TasksWidget", "RectangularOverdueAlertWidget",
+            "RectangularFocusNowWidget", "RectangularWaitingOnWidget",
+            "DeskTodayBoardWidget", "CountdownPanelWidget", "NightlyResetWidget",
+            "MorningBriefPanelWidget", "ProjectPulseWidget", "FocusDockWidget"
+        ]
+        DispatchQueue.main.async {
+            let center = WidgetCenter.shared
+            for kind in kinds {
+                center.reloadTimelines(ofKind: kind)
+            }
+        }
+        #endif
     }
 }
 

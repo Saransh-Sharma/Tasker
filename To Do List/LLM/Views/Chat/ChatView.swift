@@ -69,11 +69,23 @@ struct ChatView: View {
     @State private var commandFeedback: String?
     @State private var showClearConfirmation = false
     @State private var projectLookupTask: _Concurrency.Task<Void, Never>?
+    @State private var generationTask: _Concurrency.Task<Void, Never>?
+    @State private var generationRunID: UUID?
     @FocusState private var isProjectFieldFocused: Bool
 
     static private let contextInjectionTracker = ChatContextInjectionTracker()
-    private let contextFetchTimeoutMs: UInt64 = 800
-    private let contextInjectionPolicy: ContextInjectionPolicy = .perTurn(throttleMs: 0)
+
+    private var chatBudgets: LLMChatBudgets {
+        LLMChatBudgets.active
+    }
+
+    private var contextFetchTimeoutMs: UInt64 {
+        chatBudgets.projectionTimeoutMs
+    }
+
+    private var contextInjectionPolicy: ContextInjectionPolicy {
+        .perTurn(throttleMs: chatBudgets.contextCacheTTLms)
+    }
 
     private enum ContextInjectionPolicy {
         case perTurn(throttleMs: UInt64)
@@ -102,6 +114,10 @@ struct ChatView: View {
             return slashDraft.isReady
         }
         return !isPromptEmpty
+    }
+
+    var isGenerationInFlight: Bool {
+        generationTask != nil || llm.running || (generatingThreadID != nil && llm.isThinking)
     }
 
     private var projectQueryBinding: Binding<String> {
@@ -253,7 +269,7 @@ struct ChatView: View {
                 }
                 #endif
 
-                if llm.running {
+                if isGenerationInFlight {
                     stopButton
                 } else {
                     generateButton
@@ -479,7 +495,7 @@ struct ChatView: View {
 
     var stopButton: some View {
         Button {
-            llm.stop()
+            cancelActiveGeneration(reason: "stop_button")
         } label: {
             Image(systemName: "stop.fill")
                 .font(.caption)
@@ -701,6 +717,43 @@ struct ChatView: View {
                     }
                     isProjectFieldFocused = true
                 }
+                .onChange(of: isPromptFocused) { _, focused in
+                    if focused {
+                        Task { @MainActor in
+                            LLMRuntimeCoordinator.shared.acquireSession(reason: "chat_prompt_focus")
+                            await LLMRuntimeCoordinator.shared.prepareCurrentModelIfConfigured(trigger: "prompt_focus")
+                        }
+                    } else {
+                        Task { @MainActor in
+                            LLMRuntimeCoordinator.shared.releaseSession(reason: "chat_prompt_focus")
+                        }
+                    }
+                }
+                .onAppear {
+                    Task { @MainActor in
+                        LLMRuntimeCoordinator.shared.acquireSession(reason: "chat_view")
+                        await LLMRuntimeCoordinator.shared.prepareCurrentModelIfConfigured(trigger: "chat_view_appear")
+                    }
+                }
+                .onDisappear {
+                    Task { @MainActor in
+                        cancelActiveGeneration(reason: "chat_view_disappear")
+                        LLMRuntimeCoordinator.shared.releaseSession(reason: "chat_prompt_focus")
+                        LLMRuntimeCoordinator.shared.releaseSession(reason: "chat_view")
+                    }
+                }
+                .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("TaskCreated"))) { _ in
+                    invalidateContextCacheForCurrentThread()
+                }
+                .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("TaskUpdated"))) { _ in
+                    invalidateContextCacheForCurrentThread()
+                }
+                .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("TaskDeleted"))) { _ in
+                    invalidateContextCacheForCurrentThread()
+                }
+                .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("TaskCompletionChanged"))) { _ in
+                    invalidateContextCacheForCurrentThread()
+                }
                 .toolbar {
                     #if os(macOS)
                     ToolbarItem(placement: .primaryAction) {
@@ -804,6 +857,7 @@ struct ChatView: View {
     @MainActor
     private func clearCurrentThread() {
         projectLookupTask?.cancel()
+        cancelActiveGeneration(reason: "clear_thread")
         if let thread = currentThread {
             modelContext.delete(thread)
             try? modelContext.save()
@@ -947,8 +1001,13 @@ struct ChatView: View {
         generatingThreadID = thread.id
 
         let message = prompt
-        _Concurrency.Task {
-            await runStandardGeneration(message: message, thread: thread)
+        if generationTask != nil {
+            cancelActiveGeneration(reason: "superseded_by_new_generation")
+        }
+        let runID = UUID()
+        generationRunID = runID
+        generationTask = _Concurrency.Task {
+            await runStandardGeneration(message: message, thread: thread, runID: runID)
         }
     }
 
@@ -1047,21 +1106,61 @@ struct ChatView: View {
         }
     }
 
-    private func runStandardGeneration(message: String, thread: Thread) async {
+    private func runStandardGeneration(message: String, thread: Thread, runID: UUID) async {
+        let threadID = thread.id
+        await MainActor.run {
+            LLMRuntimeCoordinator.shared.acquireSession(reason: "chat_generation")
+        }
+        defer {
+            Task { @MainActor in
+                LLMRuntimeCoordinator.shared.releaseSession(reason: "chat_generation")
+                if generationRunID == runID {
+                    generationTask = nil
+                    generationRunID = nil
+                    if generatingThreadID == threadID {
+                        generatingThreadID = nil
+                    }
+                    llm.isThinking = false
+                }
+            }
+        }
+
+        guard !Task.isCancelled else {
+            await MainActor.run {
+                llm.cancelGeneration(reason: "run_cancelled_before_start")
+            }
+            return
+        }
+
         await MainActor.run {
             prompt = ""
             appManager.playHaptic()
+            sendMessage(Message(role: .user, content: message, thread: thread))
+            llm.isThinking = true
+        }
+
+        guard !Task.isCancelled else {
+            await MainActor.run {
+                llm.cancelGeneration(reason: "run_cancelled_before_context")
+            }
+            return
         }
 
         var dynamicSystemPrompt = "You are Eva, the user's personal task assistant. Use the provided tasks and project details to answer questions and help manage their work." + "\n\n" + appManager.systemPrompt
         dynamicSystemPrompt += "\n\n" + contextPromptContract()
 
-        let tID = thread.id
+        let tID = threadID
         let contextStartedAt = Date()
         let contextPayload = await buildContextPayloadForCurrentTurn(
             threadID: tID,
             timeoutMs: contextFetchTimeoutMs
         )
+        guard !Task.isCancelled else {
+            await MainActor.run {
+                llm.cancelGeneration(reason: "run_cancelled_after_context")
+            }
+            return
+        }
         let contextBuildMs = Int(Date().timeIntervalSince(contextStartedAt) * 1_000)
         if contextPayload.fromCache {
             logWarning(
@@ -1086,15 +1185,17 @@ struct ChatView: View {
         }
         dynamicSystemPrompt += "\n\n" + contextPayload.payload
 
-        await MainActor.run {
-            sendMessage(Message(role: .user, content: message, thread: thread))
-            llm.isThinking = true
-        }
-
         guard let modelName = appManager.currentModelName else {
             await MainActor.run {
                 sendMessage(Message(role: .assistant, content: "No model selected", thread: thread))
-                generatingThreadID = nil
+                llm.isThinking = false
+            }
+            return
+        }
+
+        guard !Task.isCancelled else {
+            await MainActor.run {
+                llm.cancelGeneration(reason: "run_cancelled_before_prepare")
             }
             return
         }
@@ -1123,7 +1224,14 @@ struct ChatView: View {
                         thread: thread
                     )
                 )
-                generatingThreadID = nil
+                llm.isThinking = false
+            }
+            return
+        }
+
+        guard !Task.isCancelled else {
+            await MainActor.run {
+                llm.cancelGeneration(reason: "run_cancelled_before_generate")
             }
             return
         }
@@ -1132,12 +1240,37 @@ struct ChatView: View {
         logDebug("SYSTEM PROMPT ->\n\(dynamicSystemPrompt)")
         logDebug("USER MESSAGE ->\n\(message)")
         let output = await llm.generate(modelName: modelName, thread: thread, systemPrompt: dynamicSystemPrompt)
+        guard !Task.isCancelled else {
+            await MainActor.run {
+                llm.cancelGeneration(reason: "run_cancelled_after_generate")
+            }
+            return
+        }
+        let trimmedOutput = output.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard trimmedOutput.isEmpty == false else {
+            await MainActor.run {
+                llm.isThinking = false
+            }
+            return
+        }
         logDebug("LLM RESPONSE ->\n\(output)")
 
         await MainActor.run {
+            guard generationRunID == runID else { return }
+            guard llm.cancelled == false else { return }
             sendMessage(Message(role: .assistant, content: output, thread: thread, generatingTime: llm.thinkingTime))
-            generatingThreadID = nil
         }
+    }
+
+    @MainActor
+    private func cancelActiveGeneration(reason: String) {
+        generationTask?.cancel()
+        generationTask = nil
+        generationRunID = nil
+        generatingThreadID = nil
+        llm.isThinking = false
+        llm.cancelGeneration(reason: reason)
+        LLMRuntimeCoordinator.shared.cancelGenerationIfActive(reason: reason)
     }
 
     /// Executes sendMessage.
@@ -1160,8 +1293,13 @@ struct ChatView: View {
     private func buildLLMContextPayloadAsync(timeoutMs: UInt64) async -> (payload: String, usedTimeoutFallback: Bool) {
         let result = await LLMChatContextEnvelopeBuilder.build(
             timeoutMs: timeoutMs,
-            service: LLMContextRepositoryProvider.makeService(),
-            injectionPolicy: contextInjectionPolicy.rawValue
+            service: LLMContextRepositoryProvider.makeService(
+                maxTasksPerSlice: chatBudgets.maxProjectionTasksPerSlice,
+                compactTaskPayload: V2FeatureFlags.llmChatContextStrategy == .bounded
+            ),
+            injectionPolicy: contextInjectionPolicy.rawValue,
+            budgets: chatBudgets,
+            contextStrategy: V2FeatureFlags.llmChatContextStrategy
         )
         return (result.payload, result.usedTimeoutFallback)
     }
@@ -1188,6 +1326,13 @@ struct ChatView: View {
             generatedAt: now
         )
         return (built.payload, built.usedTimeoutFallback, false)
+    }
+
+    private func invalidateContextCacheForCurrentThread() {
+        guard let threadID = currentThread?.id else { return }
+        Task {
+            await ChatView.contextInjectionTracker.clear(threadID: threadID)
+        }
     }
 
     /// Executes contextPromptContract.

@@ -15,6 +15,10 @@ extension Notification.Name {
     static let taskerOpenFocusDeepLink = Notification.Name("TaskerOpenFocusDeepLink")
     static let taskerOpenHomeDeepLink = Notification.Name("TaskerOpenHomeDeepLink")
     static let taskerOpenInsightsDeepLink = Notification.Name("TaskerOpenInsightsDeepLink")
+    static let taskerOpenTaskScopeDeepLink = Notification.Name("TaskerOpenTaskScopeDeepLink")
+    static let taskerOpenTaskDetailDeepLink = Notification.Name("TaskerOpenTaskDetailDeepLink")
+    static let taskerOpenQuickAddDeepLink = Notification.Name("TaskerOpenQuickAddDeepLink")
+    static let taskerProcessWidgetActionCommand = Notification.Name("TaskerProcessWidgetActionCommand")
 }
 
 class SceneDelegate: UIResponder, UIWindowSceneDelegate {
@@ -129,6 +133,8 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         // Use this method to restart any tasks that were paused (or not yet started) when the scene was inactive.
         (UIApplication.shared.delegate as? AppDelegate)?.reconcileNotifications(reason: "scene_did_become_active")
         chatPrewarmTask?.cancel()
+        guard V2FeatureFlags.llmChatPrewarmMode == .eager else { return }
+
         chatPrewarmTask = Task { @MainActor in
             do {
                 try await Task.sleep(nanoseconds: 5_000_000_000)
@@ -136,7 +142,7 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
                 return
             }
             guard !Task.isCancelled else { return }
-            await LLMRuntimeCoordinator.shared.prewarmIfEligibleCurrentModel()
+            await LLMRuntimeCoordinator.shared.prepareCurrentModelIfConfigured(trigger: "scene_did_become_active")
         }
     }
 
@@ -173,6 +179,7 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
     private func handleIncomingURL(_ url: URL) {
         guard url.scheme?.lowercased() == "tasker" else { return }
         guard let host = url.host?.lowercased() else { return }
+        let pathSegments = url.pathComponents.filter { $0 != "/" }
 
         if host == "focus" {
             NotificationCenter.default.post(name: .taskerOpenFocusDeepLink, object: nil)
@@ -184,6 +191,47 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         }
         if host == "insights" {
             NotificationCenter.default.post(name: .taskerOpenInsightsDeepLink, object: nil)
+            return
+        }
+        if host == "quickadd" {
+            NotificationCenter.default.post(name: .taskerOpenQuickAddDeepLink, object: nil)
+            return
+        }
+        if host == "tasks" {
+            guard let scope = pathSegments.first?.lowercased() else { return }
+            if scope == "project",
+               pathSegments.count > 1,
+               let projectID = UUID(uuidString: pathSegments[1]) {
+                NotificationCenter.default.post(
+                    name: .taskerOpenTaskScopeDeepLink,
+                    object: nil,
+                    userInfo: [
+                        "scope": "project",
+                        "projectID": projectID.uuidString
+                    ]
+                )
+                NotificationCenter.default.post(name: .taskerProcessWidgetActionCommand, object: nil)
+                return
+            }
+            let allowedScopes: Set<String> = ["today", "upcoming", "overdue"]
+            guard allowedScopes.contains(scope) else { return }
+            NotificationCenter.default.post(
+                name: .taskerOpenTaskScopeDeepLink,
+                object: nil,
+                userInfo: ["scope": scope]
+            )
+            NotificationCenter.default.post(name: .taskerProcessWidgetActionCommand, object: nil)
+            return
+        }
+        if host == "task",
+           let firstSegment = pathSegments.first,
+           let taskID = UUID(uuidString: firstSegment) {
+            NotificationCenter.default.post(
+                name: .taskerOpenTaskDetailDeepLink,
+                object: nil,
+                userInfo: ["taskID": taskID.uuidString]
+            )
+            NotificationCenter.default.post(name: .taskerProcessWidgetActionCommand, object: nil)
         }
     }
 

@@ -853,10 +853,14 @@ class LGSearchViewController: UIViewController, UseCaseCoordinatorInjectable, Pr
     /// Executes presentTaskDetailSheet.
     private func presentTaskDetailSheet(for task: TaskDefinition) {
         logDebug("HOME_TAP_DETAIL mode=sheet scope=search action=present_start taskID=\(task.id.uuidString)")
-        let detailView = TaskDetailSheetView(
-            task: task,
-            projects: viewModel.projects,
-            onUpdate: { [weak self] taskID, request, completion in
+        viewModel.fetchTodayXPSoFar { [weak self] todayXPSoFar in
+            guard let self else { return }
+            let detailView = TaskDetailSheetView(
+                task: task,
+                projects: self.viewModel.projects,
+                todayXPSoFar: todayXPSoFar,
+                isGamificationV2Enabled: V2FeatureFlags.gamificationV2Enabled,
+                onUpdate: { [weak self] taskID, request, completion in
                 guard let self else {
                     completion(.failure(NSError(
                         domain: "LGSearchViewController",
@@ -1000,7 +1004,7 @@ class LGSearchViewController: UIViewController, UseCaseCoordinatorInjectable, Pr
                 }
                 self.viewModel.createTagForTaskDetail(name: name, completion: completion)
             },
-            onCreateProject: { [weak self] name, completion in
+                onCreateProject: { [weak self] name, completion in
                 guard let self else {
                     completion(.failure(NSError(
                         domain: "LGSearchViewController",
@@ -1010,22 +1014,23 @@ class LGSearchViewController: UIViewController, UseCaseCoordinatorInjectable, Pr
                     return
                 }
                 self.viewModel.createProjectForTaskDetail(name: name, completion: completion)
+                }
+            )
+
+            let hostingController = UIHostingController(rootView: detailView)
+            hostingController.view.backgroundColor = TaskerThemeManager.shared.currentTheme.tokens.color.bgCanvas
+            hostingController.modalPresentationStyle = .pageSheet
+            if let sheet = hostingController.sheetPresentationController {
+                sheet.detents = [.medium(), .large()]
+                sheet.preferredCornerRadius = TaskerThemeManager.shared.currentTheme.tokens.corner.modal
+                sheet.prefersScrollingExpandsWhenScrolledToEdge = true
             }
-        )
 
-        let hostingController = UIHostingController(rootView: detailView)
-        hostingController.view.backgroundColor = TaskerThemeManager.shared.currentTheme.tokens.color.bgCanvas
-        hostingController.modalPresentationStyle = .pageSheet
-        if let sheet = hostingController.sheetPresentationController {
-            sheet.detents = [.medium(), .large()]
-            sheet.preferredCornerRadius = TaskerThemeManager.shared.currentTheme.tokens.corner.modal
-            sheet.prefersScrollingExpandsWhenScrolledToEdge = true
+            self.present(hostingController, animated: true)
+            let generator = UIImpactFeedbackGenerator(style: .medium)
+            generator.impactOccurred()
+            logDebug("HOME_TAP_DETAIL mode=sheet scope=search action=presented taskID=\(task.id.uuidString)")
         }
-
-        present(hostingController, animated: true)
-        let generator = UIImpactFeedbackGenerator(style: .medium)
-        generator.impactOccurred()
-        logDebug("HOME_TAP_DETAIL mode=sheet scope=search action=presented taskID=\(task.id.uuidString)")
     }
 
     /// Executes refreshAfterTaskDetailMutation.

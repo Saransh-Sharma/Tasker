@@ -91,15 +91,27 @@ class ChatHostViewController: UIViewController, PresentationDependencyContainerA
 
         setupNavigationBar()
 
-        Task { @MainActor in
-            await LLMRuntimeCoordinator.shared.prewarmIfEligibleCurrentModel()
-        }
-
         themeCancellable = TaskerThemeManager.shared.publisher
             .receive(on: DispatchQueue.main)
             .sink { [weak self] _ in
                 self?.applyTheme()
             }
+    }
+
+    override func viewDidAppear(_ animated: Bool) {
+        super.viewDidAppear(animated)
+        Task { @MainActor in
+            LLMRuntimeCoordinator.shared.acquireSession(reason: "chat_host_visible")
+            await LLMRuntimeCoordinator.shared.prepareCurrentModelIfConfigured(trigger: "chat_host_visible")
+        }
+    }
+
+    override func viewWillDisappear(_ animated: Bool) {
+        super.viewWillDisappear(animated)
+        Task { @MainActor in
+            LLMRuntimeCoordinator.shared.cancelGenerationIfActive(reason: "chat_host_will_disappear")
+            LLMRuntimeCoordinator.shared.releaseSession(reason: "chat_host_visible")
+        }
     }
 
     private func resolveDependenciesIfNeeded() {
@@ -157,6 +169,10 @@ class ChatHostViewController: UIViewController, PresentationDependencyContainerA
     }
 
     @objc private func onBackTapped() {
+        Task { @MainActor in
+            LLMRuntimeCoordinator.shared.cancelGenerationIfActive(reason: "chat_host_back")
+            LLMRuntimeCoordinator.shared.releaseSession(reason: "chat_host_visible")
+        }
         dismiss(animated: true)
     }
 
@@ -179,11 +195,13 @@ class ChatHostViewController: UIViewController, PresentationDependencyContainerA
 
         loadProjectsIfNeeded(coordinator: coordinator) { [weak self] projects in
             guard let self else { return }
-
-            let detailView = TaskDetailSheetView(
-                task: task,
-                projects: projects,
-                onUpdate: { [weak self] _, request, completion in
+            self.resolveTodayXPSoFar(coordinator: coordinator) { todayXPSoFar in
+                let detailView = TaskDetailSheetView(
+                    task: task,
+                    projects: projects,
+                    todayXPSoFar: todayXPSoFar,
+                    isGamificationV2Enabled: V2FeatureFlags.gamificationV2Enabled,
+                    onUpdate: { [weak self] _, request, completion in
                     guard let self, let coordinator = self.resolvedUseCaseCoordinator else {
                         completion(.failure(NSError(
                             domain: "ChatHostViewController",
@@ -291,7 +309,7 @@ class ChatHostViewController: UIViewController, PresentationDependencyContainerA
                         }
                     }
                 },
-                onCreateProject: { [weak self] name, completion in
+                    onCreateProject: { [weak self] name, completion in
                     guard let self, let coordinator = self.resolvedUseCaseCoordinator else {
                         completion(.failure(NSError(
                             domain: "ChatHostViewController",
@@ -305,20 +323,21 @@ class ChatHostViewController: UIViewController, PresentationDependencyContainerA
                             completion(result.mapError { $0 as Error })
                         }
                     }
+                    }
+                )
+
+                let hostingController = UIHostingController(rootView: detailView)
+                hostingController.view.backgroundColor = TaskerThemeManager.shared.currentTheme.tokens.color.bgCanvas
+                hostingController.modalPresentationStyle = .pageSheet
+
+                if let sheet = hostingController.sheetPresentationController {
+                    sheet.detents = [.medium(), .large()]
+                    sheet.preferredCornerRadius = TaskerThemeManager.shared.currentTheme.tokens.corner.modal
+                    sheet.prefersScrollingExpandsWhenScrolledToEdge = true
                 }
-            )
 
-            let hostingController = UIHostingController(rootView: detailView)
-            hostingController.view.backgroundColor = TaskerThemeManager.shared.currentTheme.tokens.color.bgCanvas
-            hostingController.modalPresentationStyle = .pageSheet
-
-            if let sheet = hostingController.sheetPresentationController {
-                sheet.detents = [.medium(), .large()]
-                sheet.preferredCornerRadius = TaskerThemeManager.shared.currentTheme.tokens.corner.modal
-                sheet.prefersScrollingExpandsWhenScrolledToEdge = true
+                self.present(hostingController, animated: true)
             }
-
-            self.present(hostingController, animated: true)
         }
     }
 
@@ -352,6 +371,22 @@ class ChatHostViewController: UIViewController, PresentationDependencyContainerA
                 case .failure:
                     completion(self?.cachedProjects ?? [Project.createInbox()])
                 }
+            }
+        }
+    }
+
+    private func resolveTodayXPSoFar(
+        coordinator: UseCaseCoordinator,
+        completion: @escaping (Int?) -> Void
+    ) {
+        guard V2FeatureFlags.gamificationV2Enabled else {
+            completion(0)
+            return
+        }
+        coordinator.gamificationEngine.fetchTodayXP { result in
+            DispatchQueue.main.async {
+                let resolvedXP = (try? result.get()).map { max(0, $0) }
+                completion(resolvedXP)
             }
         }
     }

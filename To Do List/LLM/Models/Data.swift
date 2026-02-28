@@ -179,6 +179,7 @@ class Message {
     var content: String
     var timestamp: Date
     var generatingTime: TimeInterval?
+    var sortTimestamp: Date { timestamp }
     
     /// Initializes a new instance.
     @Relationship(inverse: \Thread.messages) var thread: Thread?
@@ -202,7 +203,11 @@ final class Thread {
     @Relationship var messages: [Message] = []
     
     var sortedMessages: [Message] {
-        return messages.sorted { $0.timestamp < $1.timestamp }
+        return messages.sorted { $0.sortTimestamp < $1.sortTimestamp }
+    }
+
+    func sortedMessagesSnapshot() -> [Message] {
+        messages.sorted { $0.sortTimestamp < $1.sortTimestamp }
     }
     
     /// Initializes a new instance.

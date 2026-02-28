@@ -171,6 +171,8 @@ struct TaskRowView: View {
     let showTypeBadge: Bool
     let isInOverdueSection: Bool
     let tagNameByID: [UUID: String]
+    let todayXPSoFar: Int?
+    let isGamificationV2Enabled: Bool
     let isTaskDragEnabled: Bool
     var onTap: (() -> Void)? = nil
     var onToggleComplete: (() -> Void)? = nil
@@ -184,6 +186,8 @@ struct TaskRowView: View {
         showTypeBadge: Bool,
         isInOverdueSection: Bool = false,
         tagNameByID: [UUID: String] = [:],
+        todayXPSoFar: Int? = nil,
+        isGamificationV2Enabled: Bool = V2FeatureFlags.gamificationV2Enabled,
         isTaskDragEnabled: Bool,
         onTap: (() -> Void)? = nil,
         onToggleComplete: (() -> Void)? = nil,
@@ -195,6 +199,8 @@ struct TaskRowView: View {
         self.showTypeBadge = showTypeBadge
         self.isInOverdueSection = isInOverdueSection
         self.tagNameByID = tagNameByID
+        self.todayXPSoFar = todayXPSoFar
+        self.isGamificationV2Enabled = isGamificationV2Enabled
         self.isTaskDragEnabled = isTaskDragEnabled
         self.onTap = onTap
         self.onToggleComplete = onToggleComplete
@@ -442,11 +448,27 @@ struct TaskRowView: View {
     }
 
     private var compactXPBadge: some View {
-        let estimate = XPCalculationEngine.completionEstimate(
-            priorityRaw: task.priority.rawValue,
-            estimatedDuration: task.estimatedDuration
-        )
-        return Text(estimate.compactLabel)
+        let preview: XPCompletionPreview? = {
+            if isGamificationV2Enabled {
+                guard let todayXPSoFar else { return nil }
+                return XPCalculationEngine.completionXPIfCompletedNow(
+                    priorityRaw: task.priority.rawValue,
+                    estimatedDuration: task.estimatedDuration,
+                    dueDate: task.dueDate,
+                    dailyEarnedSoFar: todayXPSoFar,
+                    isGamificationV2Enabled: true
+                )
+            }
+            return XPCalculationEngine.completionXPIfCompletedNow(
+                priorityRaw: task.priority.rawValue,
+                estimatedDuration: task.estimatedDuration,
+                dueDate: task.dueDate,
+                dailyEarnedSoFar: 0,
+                isGamificationV2Enabled: false
+            )
+        }()
+
+        return Text(preview?.compactLabel ?? "XP pending")
             .font(.tasker(.caption2))
             .fontWeight(task.priority == .max || task.priority == .high ? .bold : .medium)
             .foregroundColor(task.priority == .max || task.priority == .high ? Color.tasker.accentOnPrimary : Color.tasker.textSecondary)
@@ -463,9 +485,9 @@ struct TaskRowView: View {
             .fixedSize()
             .scaleEffect(task.isComplete ? 1.15 : 1.0)
             .animation(TaskerAnimation.bouncy, value: task.isComplete)
-            .accessibilityLabel("Estimated XP \(estimate.shortLabel)")
+            .accessibilityLabel(preview.map { "Reward \($0.shortLabel)" } ?? "Reward pending")
             .accessibilityHint(
-                "Estimate factors: \(XPCalculationEngine.estimateReasonHints(estimatedDuration: task.estimatedDuration, isFocusSessionActive: false, isPinnedInFocusStrip: false))"
+                "Reward factors: \(XPCalculationEngine.estimateReasonHints(estimatedDuration: task.estimatedDuration, isFocusSessionActive: false, isPinnedInFocusStrip: false))"
             )
     }
 }

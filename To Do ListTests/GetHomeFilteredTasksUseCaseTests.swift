@@ -111,6 +111,41 @@ final class GetHomeFilteredTasksUseCaseTests: XCTestCase {
         XCTAssertEqual(captured?.doneTimelineTasks.map(\.title), ["Completed"])
     }
 
+    func testOverdueQuickViewReturnsOnlyOpenOverdueTasks() {
+        let now = Date()
+        let calendar = Calendar.current
+        let startOfToday = calendar.startOfDay(for: now)
+        let overdueDate = calendar.date(byAdding: .day, value: -2, to: startOfToday)!
+        let dueToday = calendar.date(byAdding: .hour, value: 8, to: startOfToday)!
+        let upcomingDate = calendar.date(byAdding: .day, value: 3, to: startOfToday)!
+
+        let overdueOpen = makeTask(name: "Overdue Open", dueDate: overdueDate, isComplete: false)
+        let overdueCompleted = makeTask(name: "Overdue Completed", dueDate: overdueDate, isComplete: true, completionDate: now)
+        let dueTodayOpen = makeTask(name: "Due Today Open", dueDate: dueToday, isComplete: false)
+        let upcomingOpen = makeTask(name: "Upcoming Open", dueDate: upcomingDate, isComplete: false)
+
+        let repository = MockTaskRepository(tasks: [overdueOpen, overdueCompleted, dueTodayOpen, upcomingOpen])
+        let useCase = GetHomeFilteredTasksUseCase(taskRepository: repository)
+
+        let expectation = expectation(description: "Overdue filters")
+        var captured: HomeFilteredTasksResult?
+
+        var state = HomeFilterState.default
+        state.quickView = .overdue
+
+        useCase.execute(state: state) { result in
+            if case let .success(value) = result {
+                captured = value
+            }
+            expectation.fulfill()
+        }
+
+        waitForExpectations(timeout: 1.0)
+
+        XCTAssertEqual(captured?.openTasks.map(\.title), ["Overdue Open"])
+        XCTAssertFalse(captured?.openTasks.contains(where: { $0.title == "Overdue Completed" }) ?? true)
+    }
+
     func testTodayQuickViewIncludesOnlyCompletedTasksCompletedToday() {
         let now = Date()
         let calendar = Calendar.current

@@ -66,16 +66,17 @@ private struct PriorityPill: View {
 
 // MARK: - Score Badge
 
-/// Compact capsule showing estimated XP for task completion.
+/// Compact capsule showing task completion reward.
 struct ScoreBadge: View {
-    let estimate: XPDisplayEstimate
+    let preview: XPCompletionPreview?
     var reasonHint: String = "priority · on-time · focus · effort · cap"
 
     var body: some View {
+        let label = preview?.shortLabel ?? "XP pending"
         HStack(spacing: 3) {
             Image(systemName: "star.fill")
                 .font(.system(size: 10, weight: .bold))
-            Text(estimate.shortLabel)
+            Text(label)
                 .font(.tasker(.caption1))
                 .fontWeight(.bold)
         }
@@ -84,8 +85,8 @@ struct ScoreBadge: View {
         .padding(.vertical, 4)
         .background(Color.tasker.accentMuted)
         .clipShape(Capsule())
-        .accessibilityLabel("Estimated reward \(estimate.shortLabel)")
-        .accessibilityHint("Estimate factors: \(reasonHint)")
+        .accessibilityLabel(preview.map { "Reward \($0.shortLabel)" } ?? "Reward pending")
+        .accessibilityHint("Reward factors: \(reasonHint)")
     }
 }
 

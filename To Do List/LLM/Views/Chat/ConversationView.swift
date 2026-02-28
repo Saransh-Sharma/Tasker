@@ -44,12 +44,12 @@ struct TypingIndicator: View {
 }
 
 struct MessageView: View {
-    @Environment(LLMEvaluator.self) var llm
     @State private var collapsed = true
     @State private var now = Date()
     @State private var undoExpiredLogged = false
 
     let message: Message
+    var runtime: LLMEvaluator? = nil
     var isLiveOutput: Bool = false
     var onApplyProposal: ((Message, AssistantCardPayload) -> Void)?
     var onRejectProposal: ((Message, AssistantCardPayload) -> Void)?
@@ -63,8 +63,16 @@ struct MessageView: View {
         AssistantCardCodec.decode(from: message.content)
     }
 
+    private var runtimeRunning: Bool {
+        runtime?.running ?? false
+    }
+
+    private var runtimeElapsedTime: TimeInterval? {
+        runtime?.elapsedTime
+    }
+
     var isThinking: Bool {
-        !message.content.contains("</think>")
+        message.content.contains("<think>") && !message.content.contains("</think>")
     }
 
     func processThinkingContent(_ content: String) -> (String?, String?) {
@@ -82,7 +90,7 @@ struct MessageView: View {
     }
 
     var time: String {
-        if isThinking, llm.running, let elapsedTime = llm.elapsedTime {
+        if isThinking, runtimeRunning, let elapsedTime = runtimeElapsedTime {
             return "(\(elapsedTime.formatted))"
         }
         if let generatingTime = message.generatingTime {
@@ -138,11 +146,18 @@ struct MessageView: View {
                                             .frame(width: 2)
                                             .padding(.vertical, 1)
                                             .foregroundStyle(Color.tasker(.accentMuted))
-                                        Markdown(thinking)
-                                            .textSelection(.enabled)
-                                            .markdownTextStyle {
-                                                ForegroundColor(Color.tasker(.textSecondary))
-                                            }
+                                        if isLiveOutput && runtimeRunning {
+                                            Text(thinking)
+                                                .font(.tasker(.body))
+                                                .foregroundColor(Color.tasker(.textSecondary))
+                                                .textSelection(.enabled)
+                                        } else {
+                                            Markdown(thinking)
+                                                .textSelection(.enabled)
+                                                .markdownTextStyle {
+                                                    ForegroundColor(Color.tasker(.textSecondary))
+                                                }
+                                        }
                                     }
                                     .padding(.leading, 5)
                                 }
@@ -150,21 +165,28 @@ struct MessageView: View {
                             .contentShape(.rect)
                             .onTapGesture {
                                 collapsed.toggle()
-                                if isThinking {
-                                    llm.collapsed = collapsed
+                                if isThinking, isLiveOutput {
+                                    runtime?.collapsed = collapsed
                                 }
                             }
                         }
 
                         if let afterThink {
-                            Markdown(afterThink)
-                                .textSelection(.enabled)
-                                .markdownTextStyle {
-                                    ForegroundColor(Color.tasker(.textPrimary))
-                                }
+                            if isLiveOutput && runtimeRunning {
+                                Text(afterThink)
+                                    .font(.tasker(.body))
+                                    .foregroundColor(Color.tasker(.textPrimary))
+                                    .textSelection(.enabled)
+                            } else {
+                                Markdown(afterThink)
+                                    .textSelection(.enabled)
+                                    .markdownTextStyle {
+                                        ForegroundColor(Color.tasker(.textPrimary))
+                                    }
+                            }
                         }
 
-                        if isLiveOutput && llm.running {
+                        if isLiveOutput && runtimeRunning {
                             TypingIndicator()
                         }
                     }
@@ -199,18 +221,18 @@ struct MessageView: View {
             if message.role == .assistant { Spacer() }
         }
         .onAppear {
-            if llm.running {
+            if runtimeRunning {
                 collapsed = false
             }
         }
-        .onChange(of: llm.elapsedTime) {
-            if isThinking {
-                llm.thinkingTime = llm.elapsedTime
+        .onChange(of: runtimeElapsedTime) {
+            if isLiveOutput, isThinking {
+                runtime?.thinkingTime = runtimeElapsedTime
             }
         }
-        .onChange(of: isThinking) {
-            if llm.running {
-                llm.isThinking = isThinking
+        .onChange(of: isThinking) { _, isThinkingNow in
+            if isLiveOutput, runtimeRunning {
+                runtime?.isThinking = isThinkingNow
             }
         }
         .onReceive(countdownTimer) { _ in
@@ -445,14 +467,18 @@ struct ConversationView: View {
 
     @State private var scrollID: String?
     @State private var scrollInterrupted = false
+    @State private var cachedSortedMessages: [Message] = []
+    @State private var lastAnswerHapticAt: Date = .distantPast
+    @State private var liveOutputMessage = Message(role: .assistant, content: "")
 
     var body: some View {
         ScrollViewReader { scrollView in
             ScrollView(.vertical) {
-                VStack(alignment: .leading, spacing: 0) {
-                    ForEach(Array(thread.sortedMessages.enumerated()), id: \.element.id) { index, message in
+                LazyVStack(alignment: .leading, spacing: 0) {
+                    ForEach(Array(cachedSortedMessages.enumerated()), id: \.element.id) { index, message in
                         MessageView(
                             message: message,
+                            runtime: nil,
                             onApplyProposal: onApplyProposal,
                             onRejectProposal: onRejectProposal,
                             onUndoRun: onUndoRun,
@@ -467,7 +493,7 @@ struct ConversationView: View {
 
                     if (llm.running || isPreparingResponse) && !llm.output.isEmpty && thread.id == generatingThreadID {
                         VStack {
-                            MessageView(message: Message(role: .assistant, content: llm.output), isLiveOutput: true)
+                            MessageView(message: liveOutputMessage, runtime: llm, isLiveOutput: true)
                         }
                         .padding(.horizontal, TaskerTheme.Spacing.lg)
                         .padding(.vertical, TaskerTheme.Spacing.sm)
@@ -487,12 +513,33 @@ struct ConversationView: View {
             .background(Color.tasker(.bgCanvas))
             .scrollPosition(id: $scrollID, anchor: .bottom)
             .onChange(of: llm.output) { _, _ in
+                liveOutputMessage.content = llm.output
                 if !scrollInterrupted {
                     scrollView.scrollTo("bottom")
                 }
 
-                if !llm.isThinking {
-                    appManager.playHaptic()
+                guard thread.id == generatingThreadID else { return }
+                guard V2FeatureFlags.llmChatAnswerPhaseHapticsEnabled else { return }
+                guard llm.runtimePhase == .answering else { return }
+                let now = Date()
+                guard now.timeIntervalSince(lastAnswerHapticAt) >= 0.35 else { return }
+                lastAnswerHapticAt = now
+                appManager.playHaptic()
+            }
+            .onChange(of: llm.runtimePhase) { _, phase in
+                guard thread.id == generatingThreadID else { return }
+                guard phase == .thinking else { return }
+                guard V2FeatureFlags.llmChatThinkingPhaseHapticsEnabled else { return }
+                appManager.playHaptic()
+            }
+            .onAppear {
+                liveOutputMessage.content = llm.output
+                refreshCachedMessages()
+            }
+            .onChange(of: messageSetFingerprint) { _, _ in
+                refreshCachedMessages()
+                if !scrollInterrupted {
+                    scrollView.scrollTo("bottom")
                 }
             }
             .onChange(of: scrollID) { _, _ in
@@ -505,6 +552,22 @@ struct ConversationView: View {
         #if os(iOS)
             .scrollDismissesKeyboard(.interactively)
         #endif
+    }
+
+    private var messageSetFingerprint: Int {
+        var hasher = Hasher()
+        hasher.combine(thread.messages.count)
+        for message in thread.messages {
+            hasher.combine(message.id)
+            hasher.combine(message.role.rawValue)
+            hasher.combine(message.timestamp.timeIntervalSinceReferenceDate.bitPattern)
+            hasher.combine(message.generatingTime?.bitPattern ?? 0)
+        }
+        return hasher.finalize()
+    }
+
+    private func refreshCachedMessages() {
+        cachedSortedMessages = thread.sortedMessagesSnapshot()
     }
 }
 

@@ -74,6 +74,20 @@ class LGSearchViewModel {
         currentStatusFilter = filter
     }
 
+    /// Executes fetchTodayXPSoFar.
+    func fetchTodayXPSoFar(completion: @escaping (Int?) -> Void) {
+        guard V2FeatureFlags.gamificationV2Enabled else {
+            completion(0)
+            return
+        }
+        useCaseCoordinator.gamificationEngine.fetchTodayXP { result in
+            DispatchQueue.main.async {
+                let resolvedXP = (try? result.get()).map { max(0, $0) }
+                completion(resolvedXP)
+            }
+        }
+    }
+
     /// Executes setTaskCompletion.
     func setTaskCompletion(taskID: UUID, to isComplete: Bool, completion: @escaping (Bool) -> Void) {
         useCaseCoordinator.completeTaskDefinition.setCompletion(

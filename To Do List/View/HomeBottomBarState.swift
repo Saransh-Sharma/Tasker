@@ -10,7 +10,7 @@ import Foundation
 @MainActor
 @Observable
 final class HomeBottomBarState {
-    var selectedItem: HomeBottomBarItem?
+    var selectedItem: HomeBottomBarItem? = .home
     var isMinimized = false
 
     private let jitterThreshold: CGFloat = 6

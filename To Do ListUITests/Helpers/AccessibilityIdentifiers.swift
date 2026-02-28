@@ -25,6 +25,7 @@ enum AccessibilityIdentifiers {
         static let completionRateLabel = "home.completionRateLabel"
         static let datePicker = "home.datePicker"
         static let bottomBar = "home.bottomBar"
+        static let bottomBarHome = "home.bottomBar.home"
         static let bottomBarCharts = "home.bottomBar.charts"
         static let searchButton = "home.searchButton"
         static let topNavSearchButton = "home.topNav.searchButton"
@@ -197,6 +198,15 @@ enum AccessibilityIdentifiers {
         static let emptyStateLabel = "search.emptyStateLabel"
         static let clearButton = "search.clearButton"
         static let cancelButton = "search.cancelButton"
+        static let backChip = "search.backChip"
+        static let statusAll = "search.status.all"
+        static let statusToday = "search.status.today"
+        static let statusOverdue = "search.status.overdue"
+        static let statusCompleted = "search.status.completed"
+        static let priorityP0 = "search.priority.p0"
+        static let priorityP1 = "search.priority.p1"
+        static let priorityP2 = "search.priority.p2"
+        static let priorityP3 = "search.priority.p3"
     }
 
     // MARK: - Analytics Screen

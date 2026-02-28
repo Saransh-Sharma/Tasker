@@ -65,9 +65,11 @@ public final class CoreDataTaskDefinitionRepository: TaskDefinitionRepositoryPro
                     NSSortDescriptor(key: "taskID", ascending: true),
                     NSSortDescriptor(key: "id", ascending: true)
                 ]
+                request.fetchBatchSize = 120
                 if let query {
                     if let limit = query.limit, limit > 0 {
                         request.fetchLimit = limit
+                        request.fetchBatchSize = min(max(50, limit), 200)
                     }
                     if let offset = query.offset, offset >= 0 {
                         request.fetchOffset = offset

@@ -50,6 +50,10 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
         observeFocusDeepLinks()
         observeHomeDeepLinks()
         observeInsightsDeepLinks()
+        observeTaskScopeDeepLinks()
+        observeTaskDetailDeepLinks()
+        observeQuickAddDeepLinks()
+        observeWidgetActionCommands()
         observeTaskCreatedForSnackbar()
         observePersistentSyncMode()
         applyTheme()
@@ -69,6 +73,7 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
             handleNotificationRoute(pendingRoute)
         }
         consumeUITestInjectedRouteIfNeeded()
+        processPendingWidgetActionCommand()
     }
 
     /// Executes viewWillDisappear.
@@ -111,14 +116,8 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
 
     /// Executes bindViewModel.
     private func bindViewModel() {
-        guard let viewModel else { return }
-
-        if !viewModel.focusEngineEnabled {
-            viewModel.loadTodayTasks()
-        }
-
-        viewModel.loadProjects()
-        viewModel.loadTodayTasks()
+        // HomeViewModel performs initial data loading in its initializer.
+        // Keep this hook for future bindings, but avoid duplicate startup fetches.
     }
 
     /// Executes mountHomeShell.
@@ -151,9 +150,6 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
             },
             onAddTask: { [weak self] in
                 self?.AddTaskAction()
-            },
-            onOpenSearch: { [weak self] in
-                self?.searchButtonTapped()
             },
             onOpenChat: { [weak self] in
                 self?.chatButtonTapped()
@@ -237,6 +233,48 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
             .receive(on: RunLoop.main)
             .sink { [weak self] _ in
                 self?.handleInsightsDeepLink()
+            }
+            .store(in: &cancellables)
+    }
+
+    private func observeTaskScopeDeepLinks() {
+        NotificationCenter.default.publisher(for: .taskerOpenTaskScopeDeepLink)
+            .receive(on: RunLoop.main)
+            .sink { [weak self] notification in
+                let scope = (notification.userInfo?["scope"] as? String)?.lowercased() ?? "today"
+                let projectID = (notification.userInfo?["projectID"] as? String).flatMap(UUID.init(uuidString:))
+                self?.handleTaskScopeDeepLink(scope: scope, projectID: projectID)
+            }
+            .store(in: &cancellables)
+    }
+
+    private func observeTaskDetailDeepLinks() {
+        NotificationCenter.default.publisher(for: .taskerOpenTaskDetailDeepLink)
+            .receive(on: RunLoop.main)
+            .sink { [weak self] notification in
+                guard let taskIDRaw = notification.userInfo?["taskID"] as? String,
+                      let taskID = UUID(uuidString: taskIDRaw) else {
+                    return
+                }
+                self?.handleTaskDetailDeepLink(taskID: taskID)
+            }
+            .store(in: &cancellables)
+    }
+
+    private func observeQuickAddDeepLinks() {
+        NotificationCenter.default.publisher(for: .taskerOpenQuickAddDeepLink)
+            .receive(on: RunLoop.main)
+            .sink { [weak self] _ in
+                self?.handleQuickAddDeepLink()
+            }
+            .store(in: &cancellables)
+    }
+
+    private func observeWidgetActionCommands() {
+        NotificationCenter.default.publisher(for: .taskerProcessWidgetActionCommand)
+            .receive(on: RunLoop.main)
+            .sink { [weak self] _ in
+                self?.processPendingWidgetActionCommand()
             }
             .store(in: &cancellables)
     }
@@ -440,6 +478,14 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
         let detailView = TaskDetailSheetView(
             task: task,
             projects: viewModel?.projects ?? [],
+            todayXPSoFar: {
+                guard let viewModel else { return nil }
+                if V2FeatureFlags.gamificationV2Enabled, viewModel.progressState.todayTargetXP <= 0 {
+                    return nil
+                }
+                return viewModel.progressState.earnedXP
+            }(),
+            isGamificationV2Enabled: V2FeatureFlags.gamificationV2Enabled,
             onUpdate: { [weak self] taskID, request, completion in
                 guard let self, let viewModel = self.viewModel else {
                     completion(.failure(NSError(
@@ -567,6 +613,104 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
 
     private func handleInsightsDeepLink() {
         viewModel?.launchInsights(.default)
+    }
+
+    private func handleTaskScopeDeepLink(scope: String, projectID: UUID?) {
+        switch scope {
+        case "upcoming":
+            viewModel?.clearProjectFilters()
+            viewModel?.setQuickView(.upcoming)
+        case "overdue":
+            viewModel?.clearProjectFilters()
+            viewModel?.setQuickView(.overdue)
+        case "project":
+            guard let projectID else {
+                viewModel?.clearProjectFilters()
+                viewModel?.setQuickView(.today)
+                return
+            }
+            viewModel?.setQuickView(.today)
+            viewModel?.setProjectFilters([projectID])
+        default:
+            viewModel?.clearProjectFilters()
+            viewModel?.setQuickView(.today)
+        }
+    }
+
+    private func handleTaskDetailDeepLink(taskID: UUID) {
+        viewModel?.setQuickView(.today)
+        pendingNotificationFocusTaskID = taskID
+        resolveAndPresentTaskDetail(taskID: taskID)
+    }
+
+    private func handleQuickAddDeepLink() {
+        if presentedViewController != nil {
+            dismiss(animated: true) { [weak self] in
+                self?.AddTaskAction()
+            }
+            return
+        }
+        AddTaskAction()
+    }
+
+    private func processPendingWidgetActionCommand() {
+        guard V2FeatureFlags.interactiveTaskWidgetsEnabled else { return }
+        guard AppDelegate.isWriteClosed == false else { return }
+        guard let command = TaskListWidgetActionCommand.loadPending() else { return }
+
+        if command.expiresAt <= Date() {
+            TaskListWidgetActionCommand.clearPending()
+            return
+        }
+
+        processWidgetActionCommand(command, attemptsRemaining: 2)
+    }
+
+    private func processWidgetActionCommand(_ command: TaskListWidgetActionCommand, attemptsRemaining: Int) {
+        guard let viewModel else { return }
+
+        guard let task = viewModel.taskSnapshot(for: command.taskID) else {
+            guard attemptsRemaining > 0 else {
+                TaskListWidgetActionCommand.clearPending()
+                return
+            }
+            viewModel.loadTodayTasks()
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) { [weak self] in
+                self?.processWidgetActionCommand(command, attemptsRemaining: attemptsRemaining - 1)
+            }
+            return
+        }
+
+        switch command.action {
+        case .complete:
+            guard task.isComplete == false else {
+                TaskListWidgetActionCommand.clearPending()
+                return
+            }
+            viewModel.setTaskCompletion(taskID: task.id, to: true) { _ in
+                TaskListWidgetActionCommand.clearPending()
+            }
+            viewModel.setQuickView(.today)
+
+        case .defer15m, .defer60m:
+            guard task.isComplete == false else {
+                TaskListWidgetActionCommand.clearPending()
+                return
+            }
+            let deferMinutes = command.action == .defer15m ? 15 : 60
+            let idempotenceThreshold = command.createdAt.addingTimeInterval(TimeInterval(max(deferMinutes - 1, 1) * 60))
+            if let dueDate = task.dueDate, dueDate >= idempotenceThreshold {
+                TaskListWidgetActionCommand.clearPending()
+                return
+            }
+
+            let requestedDate = Date().addingTimeInterval(TimeInterval(deferMinutes * 60))
+            let clampedDate = min(requestedDate, Date().addingTimeInterval(24 * 60 * 60))
+            viewModel.rescheduleTask(taskID: task.id, to: clampedDate) { _ in
+                TaskListWidgetActionCommand.clearPending()
+            }
+            viewModel.setQuickView(.today)
+        }
     }
 
     private func startFocusFlow(task: TaskDefinition?, source: String) {

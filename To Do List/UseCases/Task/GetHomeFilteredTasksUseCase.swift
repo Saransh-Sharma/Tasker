@@ -28,6 +28,7 @@ public enum GetHomeFilteredTasksError: LocalizedError {
 public final class GetHomeFilteredTasksUseCase {
 
     private let readModelRepository: TaskReadModelRepositoryProtocol?
+    private let homeWindowLimit = 1_200
 
     /// Initializes a new instance.
     public init(
@@ -57,7 +58,7 @@ public final class GetHomeFilteredTasksUseCase {
                 projectID: narrowedProjectID,
                 includeCompleted: true,
                 sortBy: .dueDateAscending,
-                limit: 2_000,
+                limit: self.homeWindowLimit,
                 offset: 0
             )
             readModel.fetchTasks(query: query) { result in
@@ -216,6 +217,8 @@ public final class GetHomeFilteredTasksUseCase {
             return applyQuickView(.today, to: tasks, anchorDate: date)
         case .upcoming:
             return applyQuickView(.upcoming, to: tasks, anchorDate: Date())
+        case .overdue:
+            return applyQuickView(.overdue, to: tasks, anchorDate: Date())
         case .done:
             return applyQuickView(.done, to: tasks, anchorDate: Date())
         case .morning:
@@ -252,6 +255,15 @@ public final class GetHomeFilteredTasksUseCase {
             return tasks.filter { task in
                 guard let dueDate = task.dueDate else { return false }
                 return dueDate >= startOfNextDay && dueDate <= endOfUpcomingWindow
+            }
+
+        case .overdue:
+            return tasks.filter { task in
+                guard task.isComplete == false,
+                      let dueDate = task.dueDate else {
+                    return false
+                }
+                return dueDate < startOfAnchorDay
             }
 
         case .done:

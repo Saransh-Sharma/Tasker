@@ -8,21 +8,28 @@ enum LLMProjectionTimeout {
         enum ProjectionResult {
             case payload(String)
             case timeout
+            case cancelled
         }
 
         let result = await withTaskGroup(of: ProjectionResult.self) { group in
             group.addTask {
-                .payload(await operation())
+                guard !Task.isCancelled else { return .cancelled }
+                return .payload(await operation())
             }
             group.addTask {
                 do {
                     try await Task.sleep(nanoseconds: timeoutMs * 1_000_000)
                     return .timeout
+                } catch is CancellationError {
+                    return .cancelled
                 } catch {
                     return .timeout
                 }
             }
-            let first = await group.next() ?? .timeout
+            var first = await group.next() ?? .timeout
+            if case .cancelled = first {
+                first = await group.next() ?? .timeout
+            }
             group.cancelAll()
             return first
         }
@@ -32,6 +39,8 @@ enum LLMProjectionTimeout {
             return (payload, false)
         case .timeout:
             return ("{}", true)
+        case .cancelled:
+            return ("{}", false)
         }
     }
 }
