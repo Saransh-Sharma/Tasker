@@ -11,6 +11,60 @@ import SwiftUI
 
 // MARK: - Task List View
 
+private struct TaskListTodayLayoutCacheKey: Equatable {
+    let morningTaskSignature: [String]
+    let eveningTaskSignature: [String]
+    let overdueTaskSignature: [String]
+    let inlineCompletedSignature: [String]
+    let projectSignature: [String]
+    let groupingMode: HomeProjectGroupingMode
+    let customProjectOrderIDs: [UUID]
+}
+
+private enum TaskListTodayLayoutCache {
+    private static var lastEntry: (key: TaskListTodayLayoutCacheKey, layout: HomeTaskTodayLayout)?
+
+    static func layout(
+        for key: TaskListTodayLayoutCacheKey,
+        build: () -> HomeTaskTodayLayout
+    ) -> HomeTaskTodayLayout {
+        if V2FeatureFlags.iPadPerfTaskRenderMemoizationV3Enabled,
+           let lastEntry,
+           lastEntry.key == key {
+            return lastEntry.layout
+        }
+
+        let layout = build()
+        if V2FeatureFlags.iPadPerfTaskRenderMemoizationV3Enabled {
+            lastEntry = (key, layout)
+        }
+        return layout
+    }
+
+    static func taskSignature(for tasks: [TaskDefinition]) -> [String] {
+        tasks.map { task in
+            let completedAt = task.dateCompleted?.timeIntervalSinceReferenceDate ?? 0
+            return [
+                task.id.uuidString,
+                task.projectID.uuidString,
+                String(task.updatedAt.timeIntervalSinceReferenceDate),
+                String(completedAt),
+                task.isComplete ? "1" : "0"
+            ].joined(separator: ":")
+        }
+    }
+
+    static func projectSignature(for projects: [Project]) -> [String] {
+        projects.map { project in
+            [
+                project.id.uuidString,
+                project.name,
+                project.icon.systemImageName
+            ].joined(separator: ":")
+        }
+    }
+}
+
 struct TaskListView: View {
     private static let defaultBottomContentInset: CGFloat = 80
 
@@ -169,13 +223,24 @@ struct TaskListView: View {
         let mergedNonOverdue = baseNonOverdue + additionalCompleted.filter { !$0.isOverdue }
         let mergedOverdue = reconciledOverdue + additionalCompleted.filter(\.isOverdue)
 
-        let layout = HomeTaskSectionBuilder.buildTodayLayout(
-            mode: projectGroupingMode,
-            nonOverdueTasks: mergedNonOverdue,
-            overdueTasks: mergedOverdue,
-            projects: projects,
+        let layoutKey = TaskListTodayLayoutCacheKey(
+            morningTaskSignature: TaskListTodayLayoutCache.taskSignature(for: morningTasks),
+            eveningTaskSignature: TaskListTodayLayoutCache.taskSignature(for: eveningTasks),
+            overdueTaskSignature: TaskListTodayLayoutCache.taskSignature(for: overdueTasks),
+            inlineCompletedSignature: TaskListTodayLayoutCache.taskSignature(for: inlineCompletedTasks),
+            projectSignature: TaskListTodayLayoutCache.projectSignature(for: projects),
+            groupingMode: projectGroupingMode,
             customProjectOrderIDs: customProjectOrderIDs
         )
+        let layout = TaskListTodayLayoutCache.layout(for: layoutKey) {
+            HomeTaskSectionBuilder.buildTodayLayout(
+                mode: projectGroupingMode,
+                nonOverdueTasks: mergedNonOverdue,
+                overdueTasks: mergedOverdue,
+                projects: projects,
+                customProjectOrderIDs: customProjectOrderIDs
+            )
+        }
         let hasInboxSection = layout.inboxSection?.tasks.isEmpty == false
         let hasOverdueSection = projectGroupingMode == .prioritizeOverdue && !layout.overdueGroups.isEmpty
 

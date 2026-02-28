@@ -72,11 +72,52 @@ struct TaskSectionHeaderRow: View {
                 }
                 .buttonStyle(.plain)
                 .contentShape(Rectangle())
+                .hoverEffect(.highlight)
                 .accessibilityIdentifier(headerActionAccessibilityID ?? "home.section.headerAction")
             }
         }
         .padding(.vertical, TaskerTheme.Spacing.sm)
         .contentShape(Rectangle())
+    }
+}
+
+private struct TaskSectionRenderItem: Equatable {
+    let index: Int
+    let task: TaskDefinition
+}
+
+struct TaskSectionDerivedState: Equatable {
+    let openTasks: [TaskDefinition]
+    let completedTasks: [TaskDefinition]
+    let openRenderItems: [TaskSectionRenderItem]
+    let completedRenderItems: [TaskSectionRenderItem]
+    let hasMixedTypes: Bool
+    let completedCount: Int
+
+    init(tasks: [TaskDefinition]) {
+        let openTasks = tasks.filter { !$0.isComplete }
+        let completedTasks = tasks
+            .filter(\.isComplete)
+            .sorted { lhs, rhs in
+                let lhsCompleted = lhs.dateCompleted ?? Date.distantPast
+                let rhsCompleted = rhs.dateCompleted ?? Date.distantPast
+                if lhsCompleted != rhsCompleted {
+                    return lhsCompleted > rhsCompleted
+                }
+                return lhs.id.uuidString < rhs.id.uuidString
+            }
+
+        self.openTasks = openTasks
+        self.completedTasks = completedTasks
+        self.openRenderItems = openTasks.enumerated().map { index, task in
+            TaskSectionRenderItem(index: index, task: task)
+        }
+        self.completedRenderItems = completedTasks.enumerated().map { index, task in
+            TaskSectionRenderItem(index: index, task: task)
+        }
+        let types = Set(tasks.map(\.type))
+        self.hasMixedTypes = types.contains(.morning) && types.contains(.evening)
+        self.completedCount = completedTasks.count
     }
 }
 
@@ -89,6 +130,7 @@ struct TaskSectionView: View {
     let isGamificationV2Enabled: Bool
     let completedCollapsed: Bool?
     let isTaskDragEnabled: Bool
+    private let derivedState: TaskSectionDerivedState
     var onTaskTap: ((TaskDefinition) -> Void)?
     var onToggleComplete: ((TaskDefinition) -> Void)?
     var onDeleteTask: ((TaskDefinition) -> Void)?
@@ -100,9 +142,10 @@ struct TaskSectionView: View {
     var headerActionAccessibilityID: String?
 
     @State private var isExpanded: Bool = true
+    @Environment(\.taskerLayoutClass) private var layoutClass
 
     private var themeColors: TaskerColorTokens {
-        TaskerThemeManager.shared.currentTheme.tokens.color
+        TaskerThemeManager.shared.tokens(for: layoutClass).color
     }
 
     /// Initializes a new instance.
@@ -133,6 +176,7 @@ struct TaskSectionView: View {
         self.isGamificationV2Enabled = isGamificationV2Enabled
         self.completedCollapsed = completedCollapsed
         self.isTaskDragEnabled = isTaskDragEnabled
+        self.derivedState = TaskSectionDerivedState(tasks: tasks)
         self.onTaskTap = onTaskTap
         self.onToggleComplete = onToggleComplete
         self.onDeleteTask = onDeleteTask
@@ -185,10 +229,10 @@ struct TaskSectionView: View {
 
     private var taskList: some View {
         VStack(spacing: TaskerTheme.Spacing.xs) {
-            ForEach(openRenderItems, id: \.renderKey) { item in
+            ForEach(derivedState.openRenderItems, id: \.task.id) { item in
                 TaskRowView(
                     task: item.task,
-                    showTypeBadge: hasMixedTypes,
+                    showTypeBadge: derivedState.hasMixedTypes,
                     isInOverdueSection: isOverdueSection,
                     tagNameByID: tagNameByID,
                     todayXPSoFar: todayXPSoFar,
@@ -200,19 +244,20 @@ struct TaskSectionView: View {
                     onReschedule: { onRescheduleTask?(item.task) },
                     onTaskDragStarted: onTaskDragStarted
                 )
+                .equatable()
                 .enhancedStaggeredAppearance(index: item.index)
             }
 
-            if !completedTasks.isEmpty {
+            if derivedState.completedCount > 0 {
                 completedToggleRow
                     .padding(.top, 2)
-                    .enhancedStaggeredAppearance(index: openRenderItems.count)
+                    .enhancedStaggeredAppearance(index: derivedState.openRenderItems.count)
 
                 if !isCompletedCollapsed {
-                    ForEach(completedRenderItems, id: \.renderKey) { item in
+                    ForEach(derivedState.completedRenderItems, id: \.task.id) { item in
                         TaskRowView(
                             task: item.task,
-                            showTypeBadge: hasMixedTypes,
+                            showTypeBadge: derivedState.hasMixedTypes,
                             isInOverdueSection: isOverdueSection,
                             tagNameByID: tagNameByID,
                             todayXPSoFar: todayXPSoFar,
@@ -223,65 +268,23 @@ struct TaskSectionView: View {
                             onDelete: { onDeleteTask?(item.task) },
                             onReschedule: { onRescheduleTask?(item.task) }
                         )
-                        .enhancedStaggeredAppearance(index: item.index + openRenderItems.count + 1)
+                        .equatable()
+                        .enhancedStaggeredAppearance(index: item.index + derivedState.openRenderItems.count + 1)
                     }
                 }
             }
         }
     }
 
-    private struct TaskRowRenderItem {
-        let index: Int
-        let task: TaskDefinition
-        let renderKey: String
-    }
-
-    private var openRenderItems: [TaskRowRenderItem] {
-        openTasks.enumerated().map { index, task in
-            TaskRowRenderItem(
-                index: index,
-                task: task,
-                renderKey: taskRenderKey(for: task)
-            )
-        }
-    }
-
-    private var completedRenderItems: [TaskRowRenderItem] {
-        completedTasks.enumerated().map { index, task in
-            TaskRowRenderItem(
-                index: index,
-                task: task,
-                renderKey: taskRenderKey(for: task)
-            )
-        }
-    }
-
-    private var openTasks: [TaskDefinition] {
-        tasks.filter { !$0.isComplete }
-    }
-
-    private var completedTasks: [TaskDefinition] {
-        tasks
-            .filter(\.isComplete)
-            .sorted { lhs, rhs in
-                let lhsCompleted = lhs.dateCompleted ?? Date.distantPast
-                let rhsCompleted = rhs.dateCompleted ?? Date.distantPast
-                if lhsCompleted != rhsCompleted {
-                    return lhsCompleted > rhsCompleted
-                }
-                return lhs.id.uuidString < rhs.id.uuidString
-            }
-    }
-
     private var isCompletedCollapsed: Bool {
-        guard completedTasks.count > 2 else { return false }
+        guard derivedState.completedCount > 2 else { return false }
         return completedCollapsed ?? true
     }
 
     private var completedToggleRow: some View {
         Button {
             let nextCollapsed = !isCompletedCollapsed
-            onCompletedCollapsedChange?(nextCollapsed, completedTasks.count)
+            onCompletedCollapsedChange?(nextCollapsed, derivedState.completedCount)
             TaskerFeedback.selection()
         } label: {
             HStack(spacing: TaskerTheme.Spacing.sm) {
@@ -289,7 +292,7 @@ struct TaskSectionView: View {
                     .font(.tasker(.caption1))
                     .foregroundColor(Color.tasker.textTertiary)
 
-                Text("\(completedTasks.count)")
+                Text("\(derivedState.completedCount)")
                     .font(.tasker(.caption2))
                     .foregroundColor(Color.tasker.textQuaternary)
                     .padding(.horizontal, 6)
@@ -310,12 +313,6 @@ struct TaskSectionView: View {
         }
         .buttonStyle(.plain)
         .accessibilityIdentifier("home.completedToggle.\(project.id.uuidString)")
-    }
-
-    /// Executes taskRenderKey.
-    private func taskRenderKey(for task: TaskDefinition) -> String {
-        let completedAt = task.dateCompleted?.timeIntervalSince1970 ?? 0
-        return "\(task.id.uuidString)-\(task.isComplete)-\(completedAt)"
     }
 
     // MARK: - Computed Properties
@@ -339,12 +336,6 @@ struct TaskSectionView: View {
             return "Overdue"
         }
         return project.name
-    }
-
-    /// Whether this section contains both morning and evening tasks
-    private var hasMixedTypes: Bool {
-        let types = Set(tasks.map(\.type))
-        return types.contains(.morning) && types.contains(.evening)
     }
 }
 
