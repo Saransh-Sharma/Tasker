@@ -227,4 +227,146 @@ class NavigationTests: BaseUITest {
 
         takeScreenshot(named: "rapid_tab_switching")
     }
+
+    // MARK: - iPad/iPhone Orientation Policy
+
+    func testIPhoneLandscapeRotationIsBlocked() throws {
+        let iPadTasksDestination = app.buttons["home.ipad.destination.tasks"]
+        if iPadTasksDestination.waitForExistence(timeout: 1) {
+            throw XCTSkip("This check is for iPhone-only orientation policy")
+        }
+
+        let homeRoot = app.otherElements[AccessibilityIdentifiers.Home.view]
+        XCTAssertTrue(homeRoot.waitForExistence(timeout: 5), "Home should be visible")
+
+        XCUIDevice.shared.orientation = .landscapeLeft
+        waitForAnimations(duration: 0.8)
+
+        let frame = app.windows.firstMatch.frame
+        XCTAssertGreaterThan(
+            frame.height,
+            frame.width,
+            "iPhone should stay portrait-oriented when landscape is requested"
+        )
+        XCTAssertTrue(homeRoot.exists, "Home should remain visible after blocked rotation")
+
+        XCUIDevice.shared.orientation = .portrait
+    }
+
+    func testIPhoneUpsideDownPortraitIsSupported() throws {
+        let iPadTasksDestination = app.buttons["home.ipad.destination.tasks"]
+        if iPadTasksDestination.waitForExistence(timeout: 1) {
+            throw XCTSkip("This check is for iPhone-only orientation policy")
+        }
+
+        let homeRoot = app.otherElements[AccessibilityIdentifiers.Home.view]
+        XCTAssertTrue(homeRoot.waitForExistence(timeout: 5), "Home should be visible")
+
+        XCUIDevice.shared.orientation = .portraitUpsideDown
+        waitForAnimations(duration: 0.8)
+
+        let frame = app.windows.firstMatch.frame
+        XCTAssertGreaterThan(
+            frame.height,
+            frame.width,
+            "iPhone should remain in portrait family in upside-down mode"
+        )
+        XCTAssertTrue(homeRoot.exists, "Home should remain visible in upside-down portrait")
+
+        XCUIDevice.shared.orientation = .portrait
+    }
+
+    func testIPadSupportsAllOrientations() throws {
+        let iPadTasksDestination = app.buttons["home.ipad.destination.tasks"]
+        guard iPadTasksDestination.waitForExistence(timeout: 3) else {
+            throw XCTSkip("Requires iPad native shell destination controls")
+        }
+
+        XCUIDevice.shared.orientation = .landscapeLeft
+        waitForAnimations(duration: 0.8)
+        XCTAssertTrue(iPadTasksDestination.exists, "iPad shell should remain visible in landscape")
+        XCTAssertGreaterThan(
+            app.windows.firstMatch.frame.width,
+            app.windows.firstMatch.frame.height,
+            "iPad should rotate to landscape"
+        )
+
+        XCUIDevice.shared.orientation = .portrait
+        waitForAnimations(duration: 0.8)
+        XCTAssertTrue(iPadTasksDestination.exists, "iPad shell should remain visible in portrait")
+        XCTAssertGreaterThan(
+            app.windows.firstMatch.frame.height,
+            app.windows.firstMatch.frame.width,
+            "iPad should rotate back to portrait"
+        )
+
+        XCUIDevice.shared.orientation = .portraitUpsideDown
+        waitForAnimations(duration: 0.8)
+        XCTAssertTrue(iPadTasksDestination.exists, "iPad shell should remain visible upside-down")
+    }
+
+    func testIPadSidebarCanSwitchAcrossCoreDestinations() throws {
+        let iPadTasksDestination = app.buttons["home.ipad.destination.tasks"]
+        guard iPadTasksDestination.waitForExistence(timeout: 3) else {
+            throw XCTSkip("Requires iPad native shell destination controls")
+        }
+
+        let destinationToDetail: [(destination: String, detail: String)] = [
+            ("tasks", "home.ipad.detail.tasks"),
+            ("search", "home.ipad.detail.search"),
+            ("analytics", "home.ipad.detail.analytics"),
+            ("addTask", "home.ipad.detail.addTask"),
+            ("settings", "home.ipad.detail.settings"),
+            ("projects", "home.ipad.detail.projects")
+        ]
+
+        for (destination, detailID) in destinationToDetail {
+            let destinationButton = app.buttons["home.ipad.destination.\(destination)"]
+            XCTAssertTrue(
+                destinationButton.waitForExistence(timeout: 2),
+                "Expected iPad destination button \(destination)"
+            )
+            destinationButton.tap()
+            waitForAnimations(duration: 0.5)
+            if destination == "addTask" {
+                let embeddedDetail = app.otherElements["home.ipad.detail.addTask"].waitForExistence(timeout: 1.5)
+                let sheetTitleField = app.textFields[AccessibilityIdentifiers.AddTask.titleField].waitForExistence(timeout: 1.5)
+                let fallbackTasksDetail = app.otherElements["home.ipad.detail.tasks"].exists
+                XCTAssertTrue(
+                    embeddedDetail || sheetTitleField || fallbackTasksDetail,
+                    "Expected add-task route to resolve to inspector, sheet, or tasks fallback"
+                )
+
+                if sheetTitleField {
+                    let cancelButton = app.buttons["Cancel"]
+                    if cancelButton.waitForExistence(timeout: 1) {
+                        cancelButton.tap()
+                        waitForAnimations(duration: 0.4)
+                    }
+                }
+            } else {
+                let routedByPrimaryDetailID = app.otherElements[detailID].waitForExistence(timeout: 1.5)
+                if destination == "settings" {
+                    let settingsMarker = app.staticTexts["Your Workspace"].exists
+                        || app.staticTexts["Notifications & Focus"].exists
+                    XCTAssertTrue(
+                        routedByPrimaryDetailID || settingsMarker,
+                        "Expected settings destination content after tapping settings"
+                    )
+                } else if destination == "projects" {
+                    let projectsMarker = app.staticTexts["Select a Project"].exists
+                        || app.staticTexts["Inbox is your capture project and cannot be deleted."].exists
+                    XCTAssertTrue(
+                        routedByPrimaryDetailID || projectsMarker,
+                        "Expected projects destination content after tapping projects"
+                    )
+                } else {
+                    XCTAssertTrue(
+                        routedByPrimaryDetailID,
+                        "Expected iPad detail surface \(detailID) after tapping \(destination)"
+                    )
+                }
+            }
+        }
+    }
 }

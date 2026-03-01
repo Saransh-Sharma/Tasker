@@ -7,6 +7,24 @@ public struct TaskerThemeSwatch {
     public let secondary: UIColor
 }
 
+public struct TaskerTokenTraitContext: Hashable {
+    public let colorScheme: UIUserInterfaceStyle
+    public let contentSizeCategory: UIContentSizeCategory
+    public let accessibilityContrast: UIAccessibilityContrast
+
+    public init(
+        colorScheme: UIUserInterfaceStyle = .unspecified,
+        contentSizeCategory: UIContentSizeCategory = .unspecified,
+        accessibilityContrast: UIAccessibilityContrast = .normal
+    ) {
+        self.colorScheme = colorScheme
+        self.contentSizeCategory = contentSizeCategory
+        self.accessibilityContrast = accessibilityContrast
+    }
+
+    public static let unspecified = TaskerTokenTraitContext()
+}
+
 public struct TaskerAccentTheme {
     public let name: String
     public let accentBaseHex: String
@@ -116,6 +134,17 @@ public struct TaskerTheme: Equatable {
         )
     }
 
+    /// Executes tokens.
+    public func tokens(for layoutClass: TaskerLayoutClass) -> TaskerTokens {
+        TaskerTokens(
+            color: tokens.color,
+            typography: TaskerTypographyTokens.make(for: layoutClass),
+            spacing: TaskerSpacingTokens.forLayout(layoutClass),
+            elevation: TaskerElevationTokens.forLayout(layoutClass),
+            corner: TaskerCornerTokens.forLayout(layoutClass)
+        )
+    }
+
     /// Executes ==.
     public static func == (lhs: TaskerTheme, rhs: TaskerTheme) -> Bool {
         lhs.index == rhs.index
@@ -138,12 +167,19 @@ public struct TaskerTheme: Equatable {
 
 @MainActor
 public final class TaskerThemeManager: ObservableObject {
+    private struct TokenCacheKey: Hashable {
+        let themeIndex: Int
+        let layoutClass: TaskerLayoutClass
+        let traits: TaskerTokenTraitContext
+    }
+
     public static let shared = TaskerThemeManager()
     static let themeMigrationKey = "selectedThemeIndexMigrationVersion"
     static let themeMigrationVersion = 1
 
     @Published public private(set) var currentTheme: TaskerTheme
     private let userDefaults: UserDefaults
+    private var tokenCache: [TokenCacheKey: TaskerTokens] = [:]
 
     public var publisher: AnyPublisher<TaskerTheme, Never> {
         $currentTheme
@@ -184,12 +220,54 @@ public final class TaskerThemeManager: ObservableObject {
 
         userDefaults.set(clamped, forKey: TaskerTheme.userDefaultsKey)
         currentTheme = TaskerTheme(index: clamped)
+        tokenCache.removeAll(keepingCapacity: false)
+        TaskerTypographyTokens.resetCache()
     }
 
     /// Executes reloadFromPersistence.
     public func reloadFromPersistence() {
         let persisted = Self.migratedPersistedThemeIndex(in: userDefaults)
         currentTheme = TaskerTheme(index: persisted)
+        tokenCache.removeAll(keepingCapacity: false)
+        TaskerTypographyTokens.resetCache()
+    }
+
+    /// Executes tokens.
+    public func tokens(for layoutClass: TaskerLayoutClass) -> TaskerTokens {
+        tokens(for: layoutClass, traits: .unspecified)
+    }
+
+    public func tokens(
+        for layoutClass: TaskerLayoutClass,
+        traits: TaskerTokenTraitContext
+    ) -> TaskerTokens {
+        guard V2FeatureFlags.iPadPerfThemeTokenCacheV2Enabled else {
+            return currentTheme.tokens(for: layoutClass)
+        }
+
+        let cacheKey = TokenCacheKey(
+            themeIndex: currentTheme.index,
+            layoutClass: layoutClass,
+            traits: traits
+        )
+
+        if let cached = tokenCache[cacheKey] {
+            return cached
+        }
+
+        let resolved = currentTheme.tokens(for: layoutClass)
+        tokenCache[cacheKey] = resolved
+        logWarning(
+            event: "themeTokenResolve",
+            message: "Resolved theme tokens for layout + trait cluster",
+            fields: [
+                "layout_class": layoutClass.rawValue,
+                "color_scheme": String(traits.colorScheme.rawValue),
+                "content_size_category": traits.contentSizeCategory.rawValue,
+                "accessibility_contrast": String(traits.accessibilityContrast.rawValue)
+            ]
+        )
+        return resolved
     }
 
     /// Executes migratedPersistedThemeIndex.
@@ -210,6 +288,18 @@ public final class TaskerThemeManager: ObservableObject {
 
     public static var tokens: TaskerTokens {
         TaskerThemeManager.shared.currentTheme.tokens
+    }
+
+    /// Executes tokens.
+    public static func tokens(for layoutClass: TaskerLayoutClass) -> TaskerTokens {
+        TaskerThemeManager.shared.tokens(for: layoutClass)
+    }
+
+    public static func tokens(
+        for layoutClass: TaskerLayoutClass,
+        traits: TaskerTokenTraitContext
+    ) -> TaskerTokens {
+        TaskerThemeManager.shared.tokens(for: layoutClass, traits: traits)
     }
 }
 

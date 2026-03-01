@@ -7,6 +7,7 @@
 
 import SwiftUI
 import UIKit
+import Combine
 
 // MARK: - Foredrop Anchor
 
@@ -2533,17 +2534,36 @@ struct HomeSearchSection: Identifiable, Equatable {
     var id: String { projectName }
 }
 
+struct HomeSearchRequestSignature: Equatable {
+    let dataRevision: Int
+    let query: String
+    let status: HomeSearchStatusFilter
+    let priorities: [Int32]
+    let projects: [String]
+}
+
+enum HomeSearchFocusPolicyResolver {
+    static func shouldAutoFocusOnSearchEntry(layoutClass: TaskerLayoutClass) -> Bool {
+        guard V2FeatureFlags.iPadPerfSearchFocusStabilizationV3Enabled else {
+            return true
+        }
+        return layoutClass == .phone
+    }
+}
+
 @MainActor
 protocol HomeSearchEngine: AnyObject {
-    var onResultsUpdated: (([TaskDefinition]) -> Void)? { get set }
+    var onResultsUpdated: ((Int, [TaskDefinition]) -> Void)? { get set }
     var projects: [Project] { get }
 
-    func search(query: String)
+    func search(query: String, revision: Int)
     func loadProjects(completion: (() -> Void)?)
+    func setFilters(status: HomeSearchStatusFilter, projects: [String], priorities: [Int32])
     func clearFilters()
     func toggleProjectFilter(_ project: String)
     func togglePriorityFilter(_ priority: Int32)
     func setStatusFilter(_ filter: HomeSearchStatusFilter)
+    func invalidateSearchCache(revision: Int)
     func groupTasksByProject(_ tasks: [TaskDefinition]) -> [(project: String, tasks: [TaskDefinition])]
 }
 
@@ -2555,21 +2575,29 @@ final class LGHomeSearchEngine: HomeSearchEngine {
         self.viewModel = viewModel
     }
 
-    var onResultsUpdated: (([TaskDefinition]) -> Void)? {
-        get { viewModel.onResultsUpdated }
-        set { viewModel.onResultsUpdated = newValue }
+    var onResultsUpdated: ((Int, [TaskDefinition]) -> Void)? {
+        get { viewModel.onResultsUpdatedWithRevision }
+        set { viewModel.onResultsUpdatedWithRevision = newValue }
     }
 
     var projects: [Project] {
         viewModel.projects
     }
 
-    func search(query: String) {
-        viewModel.search(query: query)
+    func search(query: String, revision: Int) {
+        viewModel.search(query: query, revision: revision)
     }
 
     func loadProjects(completion: (() -> Void)?) {
         viewModel.loadProjects(completion: completion)
+    }
+
+    func setFilters(status: HomeSearchStatusFilter, projects: [String], priorities: [Int32]) {
+        viewModel.replaceFilters(
+            status: status.legacyValue,
+            projects: projects,
+            priorities: priorities
+        )
     }
 
     func clearFilters() {
@@ -2588,8 +2616,55 @@ final class LGHomeSearchEngine: HomeSearchEngine {
         viewModel.setStatusFilter(filter.legacyValue)
     }
 
+    func invalidateSearchCache(revision: Int) {
+        viewModel.invalidateSearchCache(revision: revision)
+    }
+
     func groupTasksByProject(_ tasks: [TaskDefinition]) -> [(project: String, tasks: [TaskDefinition])] {
         viewModel.groupTasksByProject(tasks)
+    }
+}
+
+@MainActor
+final class SearchRefreshCoordinator {
+    private let debounceNanoseconds: UInt64
+    private var debounceTask: Task<Void, Never>?
+    private var generation: UInt64 = 0
+
+    init(debounceDelay: TimeInterval = 0.18) {
+        debounceNanoseconds = UInt64(max(0, debounceDelay) * 1_000_000_000)
+    }
+
+    @discardableResult
+    func request(
+        immediate: Bool,
+        perform: @escaping @MainActor (UInt64) -> Void
+    ) -> UInt64 {
+        generation &+= 1
+        let requestGeneration = generation
+        debounceTask?.cancel()
+
+        if immediate || debounceNanoseconds == 0 {
+            perform(requestGeneration)
+            return requestGeneration
+        }
+
+        let wait = debounceNanoseconds
+        debounceTask = Task {
+            do {
+                try await Task.sleep(nanoseconds: wait)
+            } catch {
+                return
+            }
+            guard !Task.isCancelled else { return }
+            await perform(requestGeneration)
+        }
+        return requestGeneration
+    }
+
+    func cancel() {
+        debounceTask?.cancel()
+        debounceTask = nil
     }
 }
 
@@ -2605,11 +2680,14 @@ final class HomeSearchState: ObservableObject {
     @Published private(set) var hasLoaded = false
 
     private var engine: HomeSearchEngine?
-    private var debounceTask: Task<Void, Never>?
-    private let debounceNanoseconds: UInt64
+    private let refreshCoordinator: SearchRefreshCoordinator
+    private var dataRevision: Int = 0
+    private var latestIssuedSearchRevision: Int = 0
+    private var needsRefreshOnNextActivation = false
+    private var lastExecutedSignature: HomeSearchRequestSignature?
 
-    init(debounceDelay: TimeInterval = 0.2) {
-        debounceNanoseconds = UInt64(max(0, debounceDelay) * 1_000_000_000)
+    init(debounceDelay: TimeInterval = 0.18) {
+        refreshCoordinator = SearchRefreshCoordinator(debounceDelay: debounceDelay)
     }
 
     var hasActiveFilters: Bool {
@@ -2642,10 +2720,11 @@ final class HomeSearchState: ObservableObject {
         guard engine == nil else { return }
         let resolvedEngine = makeEngine()
         engine = resolvedEngine
-        resolvedEngine.onResultsUpdated = { [weak self] tasks in
+        resolvedEngine.invalidateSearchCache(revision: dataRevision)
+        resolvedEngine.onResultsUpdated = { [weak self] revision, tasks in
             guard let self else { return }
             Task { @MainActor in
-                self.handleResults(tasks)
+                self.handleResults(tasks, revision: revision)
             }
         }
         resolvedEngine.loadProjects { [weak self] in
@@ -2658,11 +2737,18 @@ final class HomeSearchState: ObservableObject {
     }
 
     func activate() {
+        guard engine != nil else { return }
+        let nextSignature = requestSignature
+        if hasLoaded,
+           needsRefreshOnNextActivation == false,
+           lastExecutedSignature == nextSignature {
+            return
+        }
         refresh(immediate: true)
     }
 
     func deactivate() {
-        debounceTask?.cancel()
+        refreshCoordinator.cancel()
         isLoading = false
     }
 
@@ -2702,39 +2788,66 @@ final class HomeSearchState: ObservableObject {
         refresh(immediate: true)
     }
 
+    func markDataMutated() {
+        dataRevision &+= 1
+        needsRefreshOnNextActivation = true
+        engine?.invalidateSearchCache(revision: dataRevision)
+    }
+
     func refresh(immediate: Bool) {
         guard engine != nil else { return }
-        debounceTask?.cancel()
-        if immediate || debounceNanoseconds == 0 {
-            performSearch()
+        guard V2FeatureFlags.iPadPerfSearchCoalescingV2Enabled else {
+            let nextRevision = max(1, latestIssuedSearchRevision &+ 1)
+            performSearch(refreshGeneration: UInt64(nextRevision))
             return
         }
-
-        let wait = debounceNanoseconds
-        debounceTask = Task { [weak self] in
-            guard let self else { return }
-            do {
-                try await Task.sleep(nanoseconds: wait)
-            } catch {
-                return
-            }
-            guard !Task.isCancelled else { return }
-            await self.performSearch()
+        logWarning(
+            event: "searchRefresh",
+            message: "Home search refresh requested",
+            fields: [
+                "immediate": immediate ? "true" : "false",
+                "data_revision": String(dataRevision),
+                "query_length": String(trimmedQuery.count)
+            ]
+        )
+        _ = refreshCoordinator.request(immediate: immediate) { [weak self] refreshGeneration in
+            self?.performSearch(refreshGeneration: refreshGeneration)
         }
     }
 
-    private func performSearch() {
+    private func performSearch(refreshGeneration: UInt64) {
         guard let engine else { return }
+        let cappedRevision = Int(refreshGeneration % UInt64(Int.max))
+        latestIssuedSearchRevision = cappedRevision
         isLoading = true
-        engine.clearFilters()
-        selectedProjects.sorted().forEach { engine.toggleProjectFilter($0) }
-        selectedPriorities.sorted().forEach { engine.togglePriorityFilter($0) }
-        engine.setStatusFilter(selectedStatus)
-        engine.search(query: trimmedQuery)
+        let signature = requestSignature
+        let projects = signature.projects
+        let priorities = signature.priorities
+        engine.setFilters(
+            status: selectedStatus,
+            projects: projects,
+            priorities: priorities
+        )
+        lastExecutedSignature = signature
+        needsRefreshOnNextActivation = false
+        logWarning(
+            event: "searchPerform",
+            message: "Home search execution started",
+            fields: [
+                "search_revision": String(cappedRevision),
+                "data_revision": String(dataRevision),
+                "status": selectedStatus.analyticsName,
+                "query_length": String(trimmedQuery.count),
+                "project_filter_count": String(projects.count),
+                "priority_filter_count": String(priorities.count)
+            ]
+        )
+        engine.search(query: trimmedQuery, revision: cappedRevision)
     }
 
-    private func handleResults(_ tasks: [TaskDefinition]) {
+    private func handleResults(_ tasks: [TaskDefinition], revision: Int) {
         guard let engine else { return }
+        guard revision >= latestIssuedSearchRevision else { return }
         sections = engine
             .groupTasksByProject(tasks)
             .map { HomeSearchSection(projectName: $0.project, tasks: $0.tasks) }
@@ -2752,6 +2865,16 @@ final class HomeSearchState: ObservableObject {
         availableProjects = allProjects.sorted()
         selectedProjects = selectedProjects.intersection(allProjects)
     }
+
+    private var requestSignature: HomeSearchRequestSignature {
+        HomeSearchRequestSignature(
+            dataRevision: dataRevision,
+            query: trimmedQuery,
+            status: selectedStatus,
+            priorities: selectedPriorities.sorted(),
+            projects: selectedProjects.sorted()
+        )
+    }
 }
 
 struct HomeBackdropForedropRootView: View {
@@ -2759,6 +2882,8 @@ struct HomeBackdropForedropRootView: View {
     let chartCardViewModel: ChartCardViewModel
     let radarChartCardViewModel: RadarChartCardViewModel
     let insightsViewModel: InsightsViewModel
+    let layoutClass: TaskerLayoutClass
+    let forcedFace: Binding<HomeForedropFace>?
     @ObservedObject private var themeManager = TaskerThemeManager.shared
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.colorScheme) private var colorScheme
@@ -2798,6 +2923,11 @@ struct HomeBackdropForedropRootView: View {
     @State private var lastSearchQueryTelemetryAt: Date?
     @StateObject private var searchState = HomeSearchState()
     @FocusState private var isSearchFieldFocused: Bool
+    @State private var hasAutoFocusedSearchField = false
+    @State private var projectsByIDCache: [UUID: Project] = [:]
+    @State private var projectsByNameCache: [String: Project] = [:]
+    @State private var tagNameByIDCache: [UUID: String] = [:]
+    @State private var rescueTasksByIDCache: [UUID: TaskDefinition] = [:]
 
     private static let foredropHintLaunchDelay: TimeInterval = 0.10
     private static let foredropHintPeekDistance: CGFloat = 24
@@ -2807,8 +2937,10 @@ struct HomeBackdropForedropRootView: View {
     private static let foredropHintSettleDuration: TimeInterval = 0.16
     private static let launchArguments = Set(ProcessInfo.processInfo.arguments)
 
-    private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.currentTheme.tokens.spacing }
-    private var corner: TaskerCornerTokens { TaskerThemeManager.shared.currentTheme.tokens.corner }
+    private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.tokens(for: layoutClass).spacing }
+    private var corner: TaskerCornerTokens { TaskerThemeManager.shared.tokens(for: layoutClass).corner }
+    private var forcedFaceValue: HomeForedropFace? { forcedFace?.wrappedValue }
+    private var showsBottomBar: Bool { layoutClass == .phone }
     private var topNavGlassCircleColor: Color {
         Color.tasker.accentSecondaryMuted.opacity(colorScheme == .dark ? 0.44 : 0.68)
     }
@@ -2821,13 +2953,21 @@ struct HomeBackdropForedropRootView: View {
     private var isSearchOpen: Bool { activeFace == .search }
     private var isBackFaceVisible: Bool { activeFace.isBackFace }
     private var foredropFlipTransition: AnyTransition {
-        if reduceMotion || isUITesting {
+        if reduceMotion || isUITesting || (layoutClass.isPad && V2FeatureFlags.iPadPerfHomeAnimationTrimV3Enabled) {
             return .opacity
         }
         return .coverFlip(blurStrength: 3.5)
     }
     private var foredropFlipAnimation: Animation {
-        .easeInOut(duration: reduceMotion || isUITesting ? 0.2 : 0.42)
+        let duration: TimeInterval
+        if reduceMotion || isUITesting {
+            duration = 0.2
+        } else if layoutClass.isPad && V2FeatureFlags.iPadPerfHomeAnimationTrimV3Enabled {
+            duration = 0.12
+        } else {
+            duration = 0.42
+        }
+        return .easeInOut(duration: duration)
     }
 
     /// Executes chartCardsViewportHeight.
@@ -2971,11 +3111,25 @@ struct HomeBackdropForedropRootView: View {
         }
         .accessibilityIdentifier("home.view")
         .overlay(alignment: .bottom) {
-            homeBottomBar
+            if showsBottomBar {
+                homeBottomBar
+            }
         }
         .taskerSnackbar($snackbar)
         .onAppear {
+            if let forcedFaceValue {
+                activeFace = forcedFaceValue
+            }
             isHomeVisible = true
+            hasAutoFocusedSearchField = false
+            rebuildProjectCaches(viewModel.projects)
+            rebuildTagCache(viewModel.tags)
+            rebuildRescueTasksCache(
+                overdueTasks: viewModel.overdueTasks,
+                morningTasks: viewModel.morningTasks,
+                eveningTasks: viewModel.eveningTasks,
+                triageQueue: viewModel.evaTriageQueue
+            )
             searchState.configureIfNeeded {
                 LGHomeSearchEngine(viewModel: viewModel.makeHomeSearchViewModel())
             }
@@ -2990,16 +3144,60 @@ struct HomeBackdropForedropRootView: View {
         }
         .onChange(of: activeFace) { _, newValue in
             bottomBarState.select(newValue.selectedBottomBarItem)
+            forcedFace?.wrappedValue = newValue
             if newValue == .search {
                 searchState.activate()
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.08) {
-                    isSearchFieldFocused = true
+                if HomeSearchFocusPolicyResolver.shouldAutoFocusOnSearchEntry(layoutClass: layoutClass),
+                   hasAutoFocusedSearchField == false {
+                    hasAutoFocusedSearchField = true
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.08) {
+                        isSearchFieldFocused = true
+                    }
+                } else if layoutClass.isPad && V2FeatureFlags.iPadPerfSearchFocusStabilizationV3Enabled {
+                    logWarning(
+                        event: "ipadSearchAutoFocusSkipped",
+                        message: "Skipped implicit search field autofocus on iPad tab switch"
+                    )
                 }
                 return
             }
             isSearchFieldFocused = false
             if newValue != .search {
                 searchState.deactivate()
+            }
+        }
+        .onReceive(viewModel.$projects.receive(on: RunLoop.main)) { projects in
+            rebuildProjectCaches(projects)
+        }
+        .onReceive(viewModel.$tags.receive(on: RunLoop.main)) { tags in
+            rebuildTagCache(tags)
+        }
+        .onReceive(
+            Publishers.CombineLatest4(
+                viewModel.$overdueTasks,
+                viewModel.$morningTasks,
+                viewModel.$eveningTasks,
+                viewModel.$evaTriageQueue
+            )
+            .receive(on: RunLoop.main)
+        ) { overdueTasks, morningTasks, eveningTasks, triageQueue in
+            rebuildRescueTasksCache(
+                overdueTasks: overdueTasks,
+                morningTasks: morningTasks,
+                eveningTasks: eveningTasks,
+                triageQueue: triageQueue
+            )
+        }
+        .onChange(of: forcedFaceValue) { _, newValue in
+            guard let newValue, newValue != activeFace else { return }
+            if layoutClass.isPad && V2FeatureFlags.iPadPerfHomeAnimationTrimV3Enabled {
+                withAnimation(.easeInOut(duration: 0.12)) {
+                    activeFace = newValue
+                }
+            } else {
+                withAnimation(foredropFlipAnimation) {
+                    activeFace = newValue
+                }
             }
         }
         .onReceive(NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification)) { _ in
@@ -3028,7 +3226,7 @@ struct HomeBackdropForedropRootView: View {
         )) {
             EvaTriageSprintSheetV2(
                 queue: viewModel.evaTriageQueue,
-                projectsByID: Dictionary(uniqueKeysWithValues: viewModel.projects.map { ($0.id, $0) }),
+                projectsByID: projectsByIDCache,
                 activeScope: viewModel.evaTriageScope,
                 isLoadingScope: viewModel.evaTriageQueueLoading,
                 queueErrorMessage: viewModel.evaTriageQueueErrorMessage,
@@ -3070,10 +3268,7 @@ struct HomeBackdropForedropRootView: View {
         )) {
             EvaOverdueRescueSheetV2(
                 plan: viewModel.evaRescuePlan,
-                tasksByID: (viewModel.overdueTasks + viewModel.morningTasks + viewModel.eveningTasks + viewModel.evaTriageQueue.map(\.task))
-                    .reduce(into: [UUID: TaskDefinition]()) { partialResult, task in
-                        partialResult[task.id] = task
-                    },
+                tasksByID: rescueTasksByIDCache,
                 lastBatchRunID: viewModel.evaLastBatchRunID,
                 onApply: { mutations, completion in
                     viewModel.applyRescuePlan(mutations: mutations, completion: completion)
@@ -3122,6 +3317,14 @@ struct HomeBackdropForedropRootView: View {
 
     /// Executes triggerForedropHintIfEligible.
     private func triggerForedropHintIfEligible(now: Date = Date()) {
+        if layoutClass.isPad && V2FeatureFlags.iPadPerfHomeAnimationTrimV3Enabled {
+            logWarning(
+                event: "ipadForedropHintSuppressed",
+                message: "Suppressed decorative foredrop hint animation on iPad"
+            )
+            return
+        }
+
         let canTrigger = HomeForedropHintEligibility.canTrigger(
             isHomeVisible: isHomeVisible,
             foredropAnchor: foredropAnchorForHint,
@@ -3312,7 +3515,7 @@ struct HomeBackdropForedropRootView: View {
                 inlineCompletedTasks: viewModel.activeScope.quickView == .today ? viewModel.completedTasks : [],
                 projects: viewModel.projects,
                 doneTimelineTasks: viewModel.doneTimelineTasks,
-                tagNameByID: Dictionary(uniqueKeysWithValues: viewModel.tags.map { ($0.id, $0.name) }),
+                tagNameByID: tagNameByIDCache,
                 activeQuickView: viewModel.activeScope.quickView,
                 todayXPSoFar: (V2FeatureFlags.gamificationV2Enabled && viewModel.progressState.todayTargetXP <= 0) ? nil : viewModel.progressState.earnedXP,
                 isGamificationV2Enabled: V2FeatureFlags.gamificationV2Enabled,
@@ -3465,7 +3668,7 @@ struct HomeBackdropForedropRootView: View {
                             TaskSectionView(
                                 project: searchProject(for: section.projectName),
                                 tasks: section.tasks,
-                                tagNameByID: Dictionary(uniqueKeysWithValues: viewModel.tags.map { ($0.id, $0.name) }),
+                                tagNameByID: tagNameByIDCache,
                                 completedCollapsed: false,
                                 isTaskDragEnabled: false,
                                 onTaskTap: { task in
@@ -3736,13 +3939,56 @@ struct HomeBackdropForedropRootView: View {
     }
 
     private func searchProject(for name: String) -> Project {
-        if let resolved = viewModel.projects.first(where: { $0.name == name }) {
+        if let resolved = projectsByNameCache[name] {
             return resolved
         }
         if name == ProjectConstants.inboxProjectName {
             return Project.createInbox()
         }
         return Project(name: name)
+    }
+
+    private func rebuildProjectCaches(_ projects: [Project]) {
+        var byID: [UUID: Project] = [:]
+        byID.reserveCapacity(projects.count)
+
+        var byName: [String: Project] = [:]
+        byName.reserveCapacity(projects.count + 1)
+
+        for project in projects {
+            byID[project.id] = project
+            byName[project.name] = project
+        }
+
+        let inbox = Project.createInbox()
+        byName[ProjectConstants.inboxProjectName] = inbox
+
+        projectsByIDCache = byID
+        projectsByNameCache = byName
+    }
+
+    private func rebuildTagCache(_ tags: [TagDefinition]) {
+        var tagMap: [UUID: String] = [:]
+        tagMap.reserveCapacity(tags.count)
+        for tag in tags {
+            tagMap[tag.id] = tag.name
+        }
+        tagNameByIDCache = tagMap
+    }
+
+    private func rebuildRescueTasksCache(
+        overdueTasks: [TaskDefinition],
+        morningTasks: [TaskDefinition],
+        eveningTasks: [TaskDefinition],
+        triageQueue: [EvaTriageQueueItem]
+    ) {
+        let combinedTasks = overdueTasks + morningTasks + eveningTasks + triageQueue.map(\.task)
+        var taskMap: [UUID: TaskDefinition] = [:]
+        taskMap.reserveCapacity(combinedTasks.count)
+        for task in combinedTasks {
+            taskMap[task.id] = task
+        }
+        rescueTasksByIDCache = taskMap
     }
 
     private func searchIdentifierToken(_ rawValue: String) -> String {
@@ -3754,6 +4000,7 @@ struct HomeBackdropForedropRootView: View {
     }
 
     private func refreshSearchAfterMutation() {
+        searchState.markDataMutated()
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) {
             searchState.refresh(immediate: true)
         }
@@ -4335,5 +4582,509 @@ struct HomeBackdropForedropRootView: View {
     private func openReflectionSheet() {
         refreshReflectionClaimState()
         showReflectionSheet = true
+    }
+}
+
+enum HomeiPadDestination: String, CaseIterable, Identifiable {
+    case tasks
+    case search
+    case analytics
+    case addTask
+    case settings
+    case projects
+    case chat
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .tasks: return "Tasks"
+        case .search: return "Search"
+        case .analytics: return "Analytics"
+        case .addTask: return "Add Task"
+        case .settings: return "Settings"
+        case .projects: return "Projects"
+        case .chat: return "Eva"
+        }
+    }
+
+    var icon: String {
+        switch self {
+        case .tasks: return "checklist"
+        case .search: return "magnifyingglass"
+        case .analytics: return "chart.bar.xaxis"
+        case .addTask: return "plus.circle"
+        case .settings: return "gearshape"
+        case .projects: return "folder"
+        case .chat: return "sparkles"
+        }
+    }
+
+    var homeFace: HomeForedropFace? {
+        switch self {
+        case .tasks: return .tasks
+        case .search: return .search
+        case .analytics: return .analytics
+        case .addTask, .settings, .projects, .chat: return nil
+        }
+    }
+
+    var isPrimaryHomeDestination: Bool {
+        homeFace != nil
+    }
+}
+
+@MainActor
+enum HomeiPadModalRequest: Equatable {
+    case addTask
+}
+
+@MainActor
+final class HomeiPadShellState: ObservableObject {
+    @Published var destination: HomeiPadDestination = .tasks
+    @Published var selectedTask: TaskDefinition?
+    @Published var modalRequest: HomeiPadModalRequest?
+}
+
+// MARK: - iPad Sidebar Sections
+
+enum HomeiPadSidebarSection: String, CaseIterable, Identifiable {
+    case primary
+    case create
+    case manage
+
+    var id: String { rawValue }
+
+    var title: String? {
+        switch self {
+        case .primary: return nil
+        case .create: return "Create"
+        case .manage: return "Manage"
+        }
+    }
+
+    var destinations: [HomeiPadDestination] {
+        switch self {
+        case .primary: return [.tasks, .search, .analytics]
+        case .create: return [.addTask]
+        case .manage: return [.projects, .settings, .chat]
+        }
+    }
+}
+
+// MARK: - iPad Split Shell
+
+private struct HomeiPadPrimaryPaneHost: View {
+    @Binding var activeFace: HomeForedropFace
+    let layoutClass: TaskerLayoutClass
+    let destination: HomeiPadDestination
+    let homeSurface: (Binding<HomeForedropFace>) -> AnyView
+
+    var body: some View {
+        homeSurface($activeFace)
+            .accessibilityIdentifier("home.ipad.detail.\(destination.rawValue)")
+            .onAppear {
+                guard layoutClass.isPad, V2FeatureFlags.iPadPerfPrimarySurfacePersistenceV3Enabled else { return }
+                logWarning(
+                    event: "ipadPrimarySurfaceReused",
+                    message: "Reused the persistent iPad primary surface host",
+                    fields: ["destination": destination.rawValue]
+                )
+            }
+    }
+}
+
+struct HomeiPadSplitShellView: View {
+    let layoutClass: TaskerLayoutClass
+    @ObservedObject var shellState: HomeiPadShellState
+    let homeSurface: (Binding<HomeForedropFace>) -> AnyView
+    let addTaskSurface: () -> AnyView
+    let settingsSurface: () -> AnyView
+    let projectsSurface: () -> AnyView
+    let chatSurface: () -> AnyView
+    let inspectorSurface: (TaskDefinition) -> AnyView
+    let onOpenTaskDetailSheet: (TaskDefinition) -> Void
+
+    @State private var activeHomeFace: HomeForedropFace = .tasks
+    @State private var showCompactSidebar = false
+    @State private var columnVisibility: NavigationSplitViewVisibility = .all
+
+    private var spacing: TaskerSpacingTokens {
+        TaskerThemeManager.shared.tokens(for: layoutClass).spacing
+    }
+
+    private var isPrimaryHomeDestination: Bool {
+        shellState.destination.isPrimaryHomeDestination
+    }
+
+    var body: some View {
+        shellLayout
+            .accessibilityIdentifier("home.ipad.shell")
+            .background {
+                hiddenKeyboardShortcuts
+            }
+            .onAppear {
+                if let face = shellState.destination.homeFace {
+                    activeHomeFace = face
+            }
+        }
+        .onChange(of: shellState.destination) { _, newValue in
+            if newValue.isPrimaryHomeDestination {
+                logWarning(
+                    event: "ipadPrimaryDestinationSwitchStart",
+                    message: "Switched iPad primary destination",
+                    fields: ["destination": newValue.rawValue]
+                )
+            }
+            if newValue == .addTask, layoutClass != .padExpanded {
+                shellState.modalRequest = .addTask
+                shellState.destination = .tasks
+                return
+            }
+            if let face = newValue.homeFace {
+                activeHomeFace = face
+            } else {
+                shellState.selectedTask = nil
+            }
+        }
+        .onChange(of: activeHomeFace) {
+            handleActiveHomeFaceChange()
+        }
+    }
+
+    private var shellLayout: AnyView {
+        if layoutClass == .padCompact {
+            return AnyView(compactShell)
+        }
+        if layoutClass == .padExpanded {
+            return AnyView(expandedShell)
+        }
+        return AnyView(regularShell)
+    }
+
+    private var compactShell: some View {
+        NavigationStack {
+            detailContent
+                .toolbar {
+                    ToolbarItem(placement: .topBarLeading) {
+                        compactSidebarToggle
+                    }
+                    ToolbarItemGroup(placement: .topBarTrailing) {
+                        detailToolbarItems
+                    }
+                }
+        }
+        .sheet(isPresented: $showCompactSidebar) {
+            compactSidebarSheet
+        }
+    }
+
+    private var expandedShell: some View {
+        NavigationSplitView(columnVisibility: $columnVisibility) {
+            sidebar
+                .navigationSplitViewColumnWidth(min: 220, ideal: 260, max: 300)
+        } content: {
+            detailContent
+                .toolbar {
+                    ToolbarItemGroup(placement: .topBarTrailing) {
+                        detailToolbarItems
+                    }
+                }
+                .navigationSplitViewColumnWidth(min: 400, ideal: 500, max: .infinity)
+        } detail: {
+            inspectorPanel
+                .navigationSplitViewColumnWidth(min: 300, ideal: 360, max: 420)
+                .background(Color.tasker.bgElevated)
+        }
+        .navigationSplitViewStyle(.balanced)
+    }
+
+    private var regularShell: some View {
+        NavigationSplitView(columnVisibility: $columnVisibility) {
+            sidebar
+                .navigationSplitViewColumnWidth(min: 220, ideal: 260, max: 300)
+        } detail: {
+            detailContent
+                .toolbar {
+                    ToolbarItemGroup(placement: .topBarTrailing) {
+                        detailToolbarItems
+                    }
+                }
+        }
+        .navigationSplitViewStyle(.prominentDetail)
+    }
+
+    private var hiddenKeyboardShortcuts: some View {
+        Group {
+            Button("") { shellState.destination = .search }
+                .keyboardShortcut("f", modifiers: .command)
+            Button("") { shellState.destination = .tasks }
+                .keyboardShortcut("1", modifiers: .command)
+            Button("") { shellState.destination = .analytics }
+                .keyboardShortcut("2", modifiers: .command)
+            Button("") { shellState.destination = .settings }
+                .keyboardShortcut(",", modifiers: .command)
+        }
+        .opacity(0)
+        .frame(width: 0, height: 0)
+        .allowsHitTesting(false)
+    }
+
+    private func analyticsName(for face: HomeForedropFace) -> String {
+        switch face {
+        case .tasks:
+            return "tasks"
+        case .analytics:
+            return "analytics"
+        case .search:
+            return "search"
+        }
+    }
+
+    private func handleActiveHomeFaceChange() {
+        let newValue = activeHomeFace
+        if layoutClass.isPad && V2FeatureFlags.iPadPerfPrimarySurfacePersistenceV3Enabled {
+            logWarning(
+                event: "ipadPrimaryDestinationSwitchEnd",
+                message: "Completed iPad primary destination switch",
+                fields: ["face": analyticsName(for: newValue)]
+            )
+        }
+        let nextDestination = destination(for: newValue)
+        if shellState.destination != nextDestination {
+            shellState.destination = nextDestination
+        }
+    }
+
+    // MARK: - Toolbar Items
+
+    @ViewBuilder
+    private var detailToolbarItems: some View {
+        if isPrimaryHomeDestination {
+            Button {
+                if layoutClass == .padExpanded {
+                    shellState.destination = .addTask
+                } else {
+                    shellState.modalRequest = .addTask
+                }
+            } label: {
+                Image(systemName: "plus")
+            }
+            .hoverEffect(.highlight)
+            .keyboardShortcut("n", modifiers: .command)
+            .accessibilityIdentifier("home.ipad.toolbar.addTask")
+            .accessibilityLabel("New Task")
+        }
+    }
+
+    // MARK: - Compact Sidebar Toggle
+
+    private var compactSidebarToggle: some View {
+        Button {
+            showCompactSidebar = true
+        } label: {
+            Label(shellState.destination.title, systemImage: "sidebar.left")
+                .labelStyle(.titleAndIcon)
+                .frame(minWidth: 44, minHeight: 44)
+        }
+        .hoverEffect(.highlight)
+        .accessibilityIdentifier("home.ipad.sidebar.toggle")
+    }
+
+    // MARK: - Sidebar
+
+    private var sidebar: some View {
+        List(selection: Binding<HomeiPadDestination?>(
+            get: { shellState.destination },
+            set: { newValue in
+                if let newValue { shellState.destination = newValue }
+            }
+        )) {
+            ForEach(HomeiPadSidebarSection.allCases) { section in
+                Section {
+                    ForEach(section.destinations) { dest in
+                        Label(dest.title, systemImage: dest.icon)
+                            .tag(dest)
+                            .hoverEffect(.highlight)
+                            .accessibilityIdentifier("home.ipad.destination.\(dest.rawValue)")
+                    }
+                } header: {
+                    if let title = section.title {
+                        Text(title)
+                    }
+                }
+            }
+        }
+        .listStyle(.sidebar)
+        .scrollContentBackground(.hidden)
+        .background(Color.tasker.bgCanvas)
+        .navigationTitle("Tasker")
+        .safeAreaInset(edge: .bottom) {
+            sidebarFooter
+        }
+        .accessibilityIdentifier("home.ipad.sidebar")
+    }
+
+    private var sidebarFooter: some View {
+        VStack(spacing: spacing.s4) {
+            Divider()
+            Text("Tasker v\(Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0")")
+                .font(.tasker(.caption2))
+                .foregroundColor(Color.tasker.textQuaternary)
+                .padding(.vertical, spacing.s8)
+        }
+        .padding(.horizontal, spacing.s16)
+    }
+
+    // MARK: - Compact Sidebar Sheet
+
+    private var compactSidebarSheet: some View {
+        NavigationStack {
+            List {
+                ForEach(HomeiPadSidebarSection.allCases) { section in
+                    Section {
+                        ForEach(section.destinations) { dest in
+                            Button {
+                                shellState.destination = dest
+                                showCompactSidebar = false
+                            } label: {
+                                Label(dest.title, systemImage: dest.icon)
+                            }
+                            .hoverEffect(.highlight)
+                            .accessibilityIdentifier("home.ipad.compact.destination.\(dest.rawValue)")
+                        }
+                    } header: {
+                        if let title = section.title {
+                            Text(title)
+                        }
+                    }
+                }
+            }
+            .listStyle(.sidebar)
+            .navigationTitle("Navigate")
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Close") {
+                        showCompactSidebar = false
+                    }
+                }
+            }
+        }
+    }
+
+    // MARK: - Detail Content
+
+    @ViewBuilder
+    private var detailContent: some View {
+        switch shellState.destination {
+        case .tasks, .search, .analytics:
+            HomeiPadPrimaryPaneHost(
+                activeFace: $activeHomeFace,
+                layoutClass: layoutClass,
+                destination: shellState.destination,
+                homeSurface: homeSurface
+            )
+        case .addTask:
+            if layoutClass == .padExpanded {
+                addTaskSurface()
+                    .accessibilityIdentifier("home.ipad.detail.addTask")
+            } else {
+                HomeiPadPrimaryPaneHost(
+                    activeFace: $activeHomeFace,
+                    layoutClass: layoutClass,
+                    destination: .tasks,
+                    homeSurface: homeSurface
+                )
+            }
+        case .settings:
+            settingsSurface()
+                .accessibilityIdentifier("home.ipad.detail.settings")
+        case .projects:
+            projectsSurface()
+                .accessibilityIdentifier("home.ipad.detail.projects")
+        case .chat:
+            chatSurface()
+                .accessibilityIdentifier("home.ipad.detail.chat")
+        }
+    }
+
+    // MARK: - Inspector Panel
+
+    @ViewBuilder
+    private var inspectorPanel: some View {
+        if let task = shellState.selectedTask {
+            NavigationStack {
+                inspectorSurface(task)
+                    .toolbar {
+                        ToolbarItem(placement: .principal) {
+                            Text(task.title)
+                                .font(.tasker(.headline))
+                                .foregroundColor(Color.tasker.textPrimary)
+                                .lineLimit(1)
+                        }
+                        ToolbarItem(placement: .topBarTrailing) {
+                            Button {
+                                onOpenTaskDetailSheet(task)
+                            } label: {
+                                Image(systemName: "arrow.up.left.and.arrow.down.right")
+                            }
+                            .hoverEffect(.highlight)
+                            .accessibilityLabel("Expand to sheet")
+                        }
+                    }
+                    .navigationBarTitleDisplayMode(.inline)
+            }
+            .transition(.opacity.combined(with: .move(edge: .trailing)))
+            .id(task.id)
+            .accessibilityIdentifier("home.ipad.inspector.task")
+        } else {
+            VStack(spacing: spacing.s16) {
+                Image(systemName: "rectangle.righthalf.inset.filled")
+                    .font(.system(size: 48, weight: .thin))
+                    .foregroundStyle(Color.tasker.accentMuted)
+                Text("No task selected")
+                    .font(.tasker(.title3))
+                    .foregroundColor(Color.tasker.textSecondary)
+                Text("Tap a task in the list to see its details here.")
+                    .font(.tasker(.body))
+                    .foregroundColor(Color.tasker.textTertiary)
+                    .multilineTextAlignment(.center)
+                    .frame(maxWidth: 260)
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background(Color.tasker.bgCanvas)
+            .accessibilityIdentifier("home.ipad.inspector.empty")
+        }
+    }
+
+    private func destination(for face: HomeForedropFace) -> HomeiPadDestination {
+        switch face {
+        case .tasks:
+            return .tasks
+        case .analytics:
+            return .analytics
+        case .search:
+            return .search
+        }
+    }
+}
+
+struct HomeiPadSettingsContainer: View {
+    let onNavigateToProjects: () -> Void
+    let onNavigateToChats: () -> Void
+    let onNavigateToModels: () -> Void
+
+    @StateObject private var viewModel = SettingsViewModel()
+
+    var body: some View {
+        NavigationStack {
+            SettingsRootView(viewModel: viewModel)
+                .onAppear {
+                    viewModel.onNavigateToProjects = onNavigateToProjects
+                    viewModel.onNavigateToChats = onNavigateToChats
+                    viewModel.onNavigateToModels = onNavigateToModels
+                }
+        }
+        .accessibilityIdentifier("home.ipad.detail.settings")
     }
 }

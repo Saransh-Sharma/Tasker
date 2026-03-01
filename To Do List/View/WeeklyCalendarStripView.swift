@@ -50,6 +50,52 @@ extension Calendar {
 
 // MARK: - Weekly Calendar Strip
 
+private struct WeeklyCalendarDayCell: View, Equatable {
+    let dayLabel: String
+    let dayNumber: Int
+    let isSelected: Bool
+    let isToday: Bool
+
+    static func == (lhs: WeeklyCalendarDayCell, rhs: WeeklyCalendarDayCell) -> Bool {
+        lhs.dayLabel == rhs.dayLabel &&
+        lhs.dayNumber == rhs.dayNumber &&
+        lhs.isSelected == rhs.isSelected &&
+        lhs.isToday == rhs.isToday
+    }
+
+    var body: some View {
+        VStack(spacing: 4) {
+            Text(dayLabel)
+                .font(.system(size: 11, weight: isSelected ? .bold : .medium, design: .rounded))
+                .foregroundColor(isSelected ? Color.tasker.accentOnPrimary : Color.tasker.textPrimary.opacity(0.7))
+                .textCase(.uppercase)
+
+            ZStack {
+                if isSelected {
+                    Circle()
+                        .fill(Color.tasker.accentPrimary)
+                        .frame(width: 34, height: 34)
+                } else if isToday {
+                    Circle()
+                        .stroke(Color.tasker.accentOnPrimary.opacity(0.6), lineWidth: 1.5)
+                        .frame(width: 34, height: 34)
+                }
+
+                Text("\(dayNumber)")
+                    .font(.system(size: 15, weight: isSelected ? .bold : .medium, design: .rounded))
+                    .foregroundColor(
+                        isSelected
+                            ? Color.tasker.accentOnPrimary
+                            : isToday
+                                ? Color.tasker.accentOnPrimary
+                                : Color.tasker.textPrimary
+                    )
+            }
+            .frame(width: 34, height: 34)
+        }
+    }
+}
+
 struct WeeklyCalendarStripView: View {
     @Binding var selectedDate: Date
     let todayDate: Date
@@ -57,9 +103,24 @@ struct WeeklyCalendarStripView: View {
     @State private var displayedWeekStart: Date
     @State private var isExpanded: Bool = false
     @GestureState private var dragOffset: CGFloat = 0
+    @Environment(\.taskerLayoutClass) private var layoutClass
 
     private let calendar = Calendar.current
-    private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.currentTheme.tokens.spacing }
+    private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.tokens(for: layoutClass).spacing }
+    private static let weekdayFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.calendar = Calendar.current
+        formatter.locale = Locale.autoupdatingCurrent
+        formatter.dateFormat = "EEE"
+        return formatter
+    }()
+    private static let monthYearFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.calendar = Calendar.current
+        formatter.locale = Locale.autoupdatingCurrent
+        formatter.dateFormat = "MMMM yyyy"
+        return formatter
+    }()
 
     /// Initializes a new instance.
     init(selectedDate: Binding<Date>, todayDate: Date = Date()) {
@@ -120,38 +181,17 @@ struct WeeklyCalendarStripView: View {
         let isSelected = calendar.isDate(date, inSameDayAs: selectedDate)
         let isToday = calendar.isDate(date, inSameDayAs: todayDate)
         let dayNumber = calendar.component(.day, from: date)
+        let dayLabel = dayAbbreviation(date)
 
-        return VStack(spacing: 4) {
-            Text(dayAbbreviation(date))
-                .font(.system(size: 11, weight: isSelected ? .bold : .medium, design: .rounded))
-                .foregroundColor(isSelected ? Color.tasker.accentOnPrimary : Color.tasker.textPrimary.opacity(0.7))
-                .textCase(.uppercase)
-
-            ZStack {
-                if isSelected {
-                    Circle()
-                        .fill(Color.tasker.accentPrimary)
-                        .frame(width: 34, height: 34)
-                } else if isToday {
-                    Circle()
-                        .stroke(Color.tasker.accentOnPrimary.opacity(0.6), lineWidth: 1.5)
-                        .frame(width: 34, height: 34)
-                }
-
-                Text("\(dayNumber)")
-                    .font(.system(size: 15, weight: isSelected ? .bold : .medium, design: .rounded))
-                    .foregroundColor(
-                        isSelected
-                            ? Color.tasker.accentOnPrimary
-                            : isToday
-                                ? Color.tasker.accentOnPrimary
-                                : Color.tasker.textPrimary
-                    )
-            }
-            .frame(width: 34, height: 34)
-        }
+        return WeeklyCalendarDayCell(
+            dayLabel: dayLabel,
+            dayNumber: dayNumber,
+            isSelected: isSelected,
+            isToday: isToday
+        )
+        .equatable()
         .accessibilityElement(children: .combine)
-        .accessibilityLabel("\(dayAbbreviation(date)) \(dayNumber)\(isToday ? ", today" : "")")
+        .accessibilityLabel("\(dayLabel) \(dayNumber)\(isToday ? ", today" : "")")
         .accessibilityAddTraits(isSelected ? .isSelected : [])
         .accessibilityIdentifier("home.calendar.day.\(dayNumber)")
     }
@@ -275,15 +315,11 @@ struct WeeklyCalendarStripView: View {
 
     /// Executes dayAbbreviation.
     private func dayAbbreviation(_ date: Date) -> String {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "EEE"
-        return formatter.string(from: date).uppercased()
+        Self.weekdayFormatter.string(from: date).uppercased()
     }
 
     /// Executes monthYearText.
     private func monthYearText(for date: Date) -> String {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "MMMM yyyy"
-        return formatter.string(from: date)
+        Self.monthYearFormatter.string(from: date)
     }
 }

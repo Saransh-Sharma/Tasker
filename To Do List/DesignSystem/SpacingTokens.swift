@@ -45,4 +45,78 @@ public struct TaskerSpacingTokens: TaskerTokenGroup {
         chipSpacing: 8,
         buttonHeight: 48
     )
+
+    public static let padCompact = TaskerSpacingTokens(
+        s2: 2,
+        s4: 4,
+        s8: 8,
+        s12: 12,
+        s16: 16,
+        s20: 20,
+        s24: 24,
+        s32: 32,
+        s40: 40,
+        screenHorizontal: 24,
+        cardPadding: 22,
+        cardStackVertical: 14,
+        sectionGap: 30,
+        listRowVerticalPadding: 13,
+        titleSubtitleGap: 4,
+        chipSpacing: 8,
+        buttonHeight: 48
+    )
+
+    public static let padRegular = TaskerSpacingTokens(
+        s2: 2,
+        s4: 4,
+        s8: 8,
+        s12: 12,
+        s16: 16,
+        s20: 20,
+        s24: 24,
+        s32: 32,
+        s40: 40,
+        screenHorizontal: 28,
+        cardPadding: 24,
+        cardStackVertical: 14,
+        sectionGap: 32,
+        listRowVerticalPadding: 14,
+        titleSubtitleGap: 6,
+        chipSpacing: 10,
+        buttonHeight: 50
+    )
+
+    public static let padExpanded = TaskerSpacingTokens(
+        s2: 2,
+        s4: 4,
+        s8: 8,
+        s12: 12,
+        s16: 16,
+        s20: 20,
+        s24: 24,
+        s32: 32,
+        s40: 40,
+        screenHorizontal: 32,
+        cardPadding: 26,
+        cardStackVertical: 16,
+        sectionGap: 36,
+        listRowVerticalPadding: 14,
+        titleSubtitleGap: 6,
+        chipSpacing: 10,
+        buttonHeight: 52
+    )
+
+    /// Executes forLayout.
+    public static func forLayout(_ layoutClass: TaskerLayoutClass) -> TaskerSpacingTokens {
+        switch layoutClass {
+        case .phone:
+            return `default`
+        case .padCompact:
+            return padCompact
+        case .padRegular:
+            return padRegular
+        case .padExpanded:
+            return padExpanded
+        }
+    }
 }

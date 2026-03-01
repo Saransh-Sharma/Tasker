@@ -2,6 +2,11 @@ import Foundation
 import MLXLMCommon
 import UIKit
 
+enum LLMPrewarmPolicy: Equatable {
+    case immediate
+    case deferred(seconds: TimeInterval)
+}
+
 @MainActor
 final class LLMRuntimeCoordinator {
     struct EnsureReadyResult {
@@ -29,10 +34,18 @@ final class LLMRuntimeCoordinator {
     private var observers: [NSObjectProtocol] = []
     private var inFlightPrewarmTask: Task<Void, Never>?
     private var inFlightPrewarmModelName: String?
+    private var deferredPrewarmTask: Task<Void, Never>?
     private var backgroundUnloadTask: Task<Void, Never>?
     private var idleUnloadTask: Task<Void, Never>?
     private var activeSessionReasons: Set<String> = []
     private(set) var activeModelName: String?
+
+    private var prewarmPolicy: LLMPrewarmPolicy {
+        guard V2FeatureFlags.iPadPerfDeferLLMPrewarmV2Enabled else {
+            return .immediate
+        }
+        return .deferred(seconds: 2.0)
+    }
 
     init(
         evaluator: LLMEvaluator? = nil,
@@ -75,6 +88,7 @@ final class LLMRuntimeCoordinator {
             notificationCenter.removeObserver(observer)
         }
         inFlightPrewarmTask?.cancel()
+        deferredPrewarmTask?.cancel()
         backgroundUnloadTask?.cancel()
         idleUnloadTask?.cancel()
     }
@@ -130,6 +144,55 @@ final class LLMRuntimeCoordinator {
                 self.inFlightPrewarmTask = nil
             }
         }
+    }
+
+    func requestChatEntryPrewarm(trigger: String, delaySeconds: TimeInterval = 2.0) {
+        cancelDeferredPrewarm(reason: "chat_entry_rescheduled")
+
+        switch prewarmPolicy {
+        case .immediate:
+            Task { @MainActor in
+                await self.prepareCurrentModelIfConfigured(trigger: trigger)
+            }
+        case .deferred(let policyDelaySeconds):
+            let resolvedDelaySeconds = max(0, delaySeconds > 0 ? delaySeconds : policyDelaySeconds)
+            let delayNanoseconds = UInt64(resolvedDelaySeconds * 1_000_000_000)
+            logWarning(
+                event: "llmPrewarm",
+                message: "Scheduled deferred LLM prewarm on chat entry",
+                fields: [
+                    "trigger": trigger,
+                    "delay_seconds": String(format: "%.2f", resolvedDelaySeconds)
+                ]
+            )
+
+            deferredPrewarmTask = Task { @MainActor in
+                do {
+                    try await Task.sleep(nanoseconds: delayNanoseconds)
+                } catch {
+                    return
+                }
+                guard !Task.isCancelled else { return }
+                logWarning(
+                    event: "llmPrewarm",
+                    message: "Executing deferred LLM prewarm",
+                    fields: ["trigger": trigger]
+                )
+                await self.prepareCurrentModelIfConfigured(trigger: "\(trigger)_deferred")
+                self.deferredPrewarmTask = nil
+            }
+        }
+    }
+
+    func cancelDeferredPrewarm(reason: String) {
+        guard deferredPrewarmTask != nil else { return }
+        deferredPrewarmTask?.cancel()
+        deferredPrewarmTask = nil
+        logWarning(
+            event: "llmPrewarm",
+            message: "Cancelled deferred LLM prewarm",
+            fields: ["reason": reason]
+        )
     }
 
     func prepareCurrentModelIfConfigured(trigger: String) async {
@@ -317,6 +380,7 @@ final class LLMRuntimeCoordinator {
     }
 
     func unload(reason: String) {
+        cancelDeferredPrewarm(reason: "unload_\(reason)")
         cancelGenerationIfActive(reason: "unload_\(reason)")
         inFlightPrewarmTask?.cancel()
         inFlightPrewarmTask = nil
@@ -393,6 +457,7 @@ final class LLMRuntimeCoordinator {
     private func scheduleBackgroundUnload() {
         backgroundUnloadTask?.cancel()
         cancelIdleUnload()
+        cancelDeferredPrewarm(reason: "app_backgrounded")
         backgroundUnloadTask = Task { @MainActor in
             do {
                 try await Task.sleep(nanoseconds: backgroundUnloadDelayNanoseconds)

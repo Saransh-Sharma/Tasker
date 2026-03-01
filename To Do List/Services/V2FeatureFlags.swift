@@ -113,6 +113,56 @@ public enum V2FeatureFlags {
         set { defaults.set(newValue, forKey: "feature.eva.rescue") }
     }
 
+    public static var iPadNativeShellEnabled: Bool {
+        get { defaults.object(forKey: "feature.ipad.native_shell") as? Bool ?? true }
+        set { defaults.set(newValue, forKey: "feature.ipad.native_shell") }
+    }
+
+    public static var iPadPerfBottomBarSchedulerV2Enabled: Bool {
+        get { defaults.object(forKey: "feature.ipad.perf.bottomBar_scheduler_v2") as? Bool ?? true }
+        set { defaults.set(newValue, forKey: "feature.ipad.perf.bottomBar_scheduler_v2") }
+    }
+
+    public static var iPadPerfSearchCoalescingV2Enabled: Bool {
+        get { defaults.object(forKey: "feature.ipad.perf.search_coalescing_v2") as? Bool ?? true }
+        set { defaults.set(newValue, forKey: "feature.ipad.perf.search_coalescing_v2") }
+    }
+
+    public static var iPadPerfThemeTokenCacheV2Enabled: Bool {
+        get { defaults.object(forKey: "feature.ipad.perf.theme_token_cache_v2") as? Bool ?? true }
+        set { defaults.set(newValue, forKey: "feature.ipad.perf.theme_token_cache_v2") }
+    }
+
+    public static var iPadPerfDeferLLMPrewarmV2Enabled: Bool {
+        get { defaults.object(forKey: "feature.ipad.perf.defer_llm_prewarm_v2") as? Bool ?? true }
+        set { defaults.set(newValue, forKey: "feature.ipad.perf.defer_llm_prewarm_v2") }
+    }
+
+    public static var iPadPerfPrimarySurfacePersistenceV3Enabled: Bool {
+        get { defaults.object(forKey: "feature.ipad.perf.primary_surface_persistence_v3") as? Bool ?? true }
+        set { defaults.set(newValue, forKey: "feature.ipad.perf.primary_surface_persistence_v3") }
+    }
+
+    public static var iPadPerfSearchFocusStabilizationV3Enabled: Bool {
+        get { defaults.object(forKey: "feature.ipad.perf.search_focus_stabilization_v3") as? Bool ?? true }
+        set { defaults.set(newValue, forKey: "feature.ipad.perf.search_focus_stabilization_v3") }
+    }
+
+    public static var iPadPerfHomeAnimationTrimV3Enabled: Bool {
+        get { defaults.object(forKey: "feature.ipad.perf.home_animation_trim_v3") as? Bool ?? true }
+        set { defaults.set(newValue, forKey: "feature.ipad.perf.home_animation_trim_v3") }
+    }
+
+    public static var iPadPerfTaskRenderMemoizationV3Enabled: Bool {
+        get { defaults.object(forKey: "feature.ipad.perf.task_render_memoization_v3") as? Bool ?? true }
+        set { defaults.set(newValue, forKey: "feature.ipad.perf.task_render_memoization_v3") }
+    }
+
+    public static var iPadPerfCoreDataMappingSnapshotV3Enabled: Bool {
+        get { defaults.object(forKey: "feature.ipad.perf.coredata_mapping_snapshot_v3") as? Bool ?? true }
+        set { defaults.set(newValue, forKey: "feature.ipad.perf.coredata_mapping_snapshot_v3") }
+    }
+
     // MARK: - Gamification v2
 
     public static var gamificationV2Enabled: Bool {

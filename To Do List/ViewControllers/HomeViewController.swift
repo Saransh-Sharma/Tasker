@@ -8,8 +8,9 @@
 import UIKit
 import SwiftUI
 import Combine
+import SwiftData
 
-final class HomeViewController: UIViewController, HomeViewControllerProtocol, HomeAnalyticsViewModelsInjectable, PresentationDependencyContainerAware {
+final class HomeViewController: UIViewController, HomeViewControllerProtocol, HomeAnalyticsViewModelsInjectable, PresentationDependencyContainerAware, UIAdaptivePresentationControllerDelegate {
     private static var hasConsumedUITestRoute = false
 
     // MARK: - Dependencies
@@ -21,7 +22,7 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
 
     // MARK: - UI
 
-    private var homeHostingController: UIHostingController<HomeBackdropForedropRootView>?
+    private var homeHostingController: UIHostingController<AnyView>?
     private var insightsViewModel: InsightsViewModel?
 
     // MARK: - State
@@ -33,6 +34,16 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
     private var pendingNotificationFocusTaskID: UUID?
     private var syncOutageBanner: UIView?
     private var syncOutageLabel: UILabel?
+    private var currentLayoutClass: TaskerLayoutClass = .phone
+    private let iPadShellState = HomeiPadShellState()
+    private let iPadChatAppManager = AppManager()
+    private var didTrackLayoutClassAtLaunch = false
+    private var didTrackIPadShellRendered = false
+    private var hasMountedStableLayoutShell = false
+    private var pendingIPadModalRequest: HomeiPadModalRequest?
+    private weak var pendingIPadModalFallbackController: UIViewController?
+    private var didConsumePendingIPadModalFallbackRetry = false
+    private var isPendingIPadModalFallbackRetryScheduled = false
 
 
     // MARK: - Lifecycle
@@ -56,6 +67,7 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
         observeWidgetActionCommands()
         observeTaskCreatedForSnackbar()
         observePersistentSyncMode()
+        observeIPadShellTelemetry()
         applyTheme()
         refreshPersistentSyncOutageBanner()
     }
@@ -74,6 +86,19 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
         }
         consumeUITestInjectedRouteIfNeeded()
         processPendingWidgetActionCommand()
+        processPendingIPadModalRequest()
+    }
+
+    /// Executes viewDidLayoutSubviews.
+    override func viewDidLayoutSubviews() {
+        super.viewDidLayoutSubviews()
+        refreshLayoutClassIfNeeded()
+    }
+
+    /// Executes traitCollectionDidChange.
+    override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
+        super.traitCollectionDidChange(previousTraitCollection)
+        refreshLayoutClassIfNeeded()
     }
 
     /// Executes viewWillDisappear.
@@ -120,19 +145,83 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
         // Keep this hook for future bindings, but avoid duplicate startup fetches.
     }
 
+    private var isUsingIPadNativeShell: Bool {
+        currentLayoutClass.isPad && V2FeatureFlags.iPadNativeShellEnabled
+    }
+
+    /// Executes refreshLayoutClassIfNeeded.
+    private func refreshLayoutClassIfNeeded() {
+        let nextLayoutClass = TaskerLayoutResolver.classify(view: view)
+        guard nextLayoutClass != currentLayoutClass || homeHostingController == nil else { return }
+        currentLayoutClass = nextLayoutClass
+        mountHomeShell()
+    }
+
+    private var hasStableLayoutMetrics: Bool {
+        let metrics = TaskerLayoutResolver.metrics(for: view)
+        return metrics.width > 1 && metrics.height > 1
+    }
+
     /// Executes mountHomeShell.
     private func mountHomeShell() {
         guard let viewModel else { return }
+        guard hasMountedStableLayoutShell || hasStableLayoutMetrics else { return }
         if insightsViewModel == nil {
             insightsViewModel = viewModel.makeInsightsViewModel()
         }
         guard let insightsViewModel else { return }
 
-        let root = HomeBackdropForedropRootView(
+        currentLayoutClass = TaskerLayoutResolver.classify(view: view)
+        if hasStableLayoutMetrics {
+            hasMountedStableLayoutShell = true
+            trackLayoutClassAtLaunchIfNeeded()
+        }
+        let root: AnyView
+
+        if currentLayoutClass.isPad && V2FeatureFlags.iPadNativeShellEnabled {
+            root = makeIPadSplitRoot(layoutClass: currentLayoutClass)
+            trackIPadShellRenderedIfNeeded()
+        } else {
+            let homeRoot = makeHomeBackdropRoot(layoutClass: currentLayoutClass, forcedFace: nil)
+            root = AnyView(homeRoot.taskerLayoutClass(currentLayoutClass))
+        }
+
+        if let existingHostingController = homeHostingController {
+            existingHostingController.rootView = root
+            return
+        }
+
+        let hostingController = UIHostingController(rootView: root)
+        hostingController.view.backgroundColor = .clear
+        hostingController.view.isOpaque = false
+
+        homeHostingController = hostingController
+        addChild(hostingController)
+        view.addSubview(hostingController.view)
+        hostingController.view.translatesAutoresizingMaskIntoConstraints = false
+
+        NSLayoutConstraint.activate([
+            hostingController.view.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            hostingController.view.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            hostingController.view.topAnchor.constraint(equalTo: view.topAnchor),
+            hostingController.view.bottomAnchor.constraint(equalTo: view.bottomAnchor)
+        ])
+
+        hostingController.didMove(toParent: self)
+    }
+
+    /// Executes makeHomeBackdropRoot.
+    private func makeHomeBackdropRoot(
+        layoutClass: TaskerLayoutClass,
+        forcedFace: Binding<HomeForedropFace>?
+    ) -> HomeBackdropForedropRootView {
+        HomeBackdropForedropRootView(
             viewModel: viewModel,
             chartCardViewModel: chartCardViewModel,
             radarChartCardViewModel: radarChartCardViewModel,
-            insightsViewModel: insightsViewModel,
+            insightsViewModel: insightsViewModel ?? viewModel.makeInsightsViewModel(),
+            layoutClass: layoutClass,
+            forcedFace: forcedFace,
             onTaskTap: { [weak self] task in
                 self?.handleTaskTap(task)
             },
@@ -149,42 +238,268 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
                 self?.viewModel?.setCustomProjectOrder(projectIDs)
             },
             onAddTask: { [weak self] in
-                self?.AddTaskAction()
+                if self?.isUsingIPadNativeShell == true {
+                    if self?.currentLayoutClass == .padExpanded {
+                        self?.iPadShellState.destination = .addTask
+                    } else {
+                        self?.presentAddTaskSheetForPadFallback()
+                    }
+                } else {
+                    self?.AddTaskAction()
+                }
             },
             onOpenChat: { [weak self] in
-                self?.chatButtonTapped()
+                if self?.isUsingIPadNativeShell == true {
+                    self?.iPadShellState.destination = .chat
+                } else {
+                    self?.chatButtonTapped()
+                }
             },
             onOpenProjectCreator: { [weak self] in
                 self?.openProjectCreator()
             },
             onOpenSettings: { [weak self] in
-                self?.onMenuButtonTapped()
+                if self?.isUsingIPadNativeShell == true {
+                    self?.iPadShellState.destination = .settings
+                } else {
+                    self?.onMenuButtonTapped()
+                }
             },
             onStartFocus: { [weak self] task in
                 self?.startFocusFlow(task: task, source: "focus_strip")
             }
         )
+    }
 
-        let hostingController = UIHostingController(rootView: root)
-        hostingController.view.backgroundColor = .clear
-        hostingController.view.isOpaque = false
-        homeHostingController?.willMove(toParent: nil)
-        homeHostingController?.view.removeFromSuperview()
-        homeHostingController?.removeFromParent()
+    /// Executes makeIPadSplitRoot.
+    private func makeIPadSplitRoot(layoutClass: TaskerLayoutClass) -> AnyView {
+        let root = HomeiPadSplitShellView(
+            layoutClass: layoutClass,
+            shellState: iPadShellState,
+            homeSurface: { [weak self] forcedFace in
+                guard let self else { return AnyView(EmptyView()) }
+                return AnyView(
+                    self.makeHomeBackdropRoot(layoutClass: layoutClass, forcedFace: forcedFace)
+                        .taskerLayoutClass(layoutClass)
+                )
+            },
+            addTaskSurface: { [weak self] in
+                self?.makeAddTaskInspectorRoot(layoutClass: layoutClass) ?? AnyView(EmptyView())
+            },
+            settingsSurface: { [weak self] in
+                self?.makeSettingsInspectorRoot(layoutClass: layoutClass) ?? AnyView(EmptyView())
+            },
+            projectsSurface: { [weak self] in
+                self?.makeProjectManagementInspectorRoot(layoutClass: layoutClass) ?? AnyView(EmptyView())
+            },
+            chatSurface: { [weak self] in
+                self?.makeChatInspectorRoot(layoutClass: layoutClass) ?? AnyView(EmptyView())
+            },
+            inspectorSurface: { [weak self] task in
+                self?.makeTaskInspectorRoot(task, layoutClass: layoutClass) ?? AnyView(EmptyView())
+            },
+            onOpenTaskDetailSheet: { [weak self] task in
+                self?.presentTaskDetailView(for: task)
+            }
+        )
+        return AnyView(root.taskerLayoutClass(layoutClass))
+    }
 
-        homeHostingController = hostingController
-        addChild(hostingController)
-        view.addSubview(hostingController.view)
-        hostingController.view.translatesAutoresizingMaskIntoConstraints = false
+    private func makeAddTaskInspectorRoot(layoutClass: TaskerLayoutClass) -> AnyView {
+        guard let presentationDependencyContainer else {
+            return AnyView(Text("Add Task unavailable").font(.tasker(.body)))
+        }
+        return AnyView(
+            AddTaskInspectorContainer(
+                viewModel: presentationDependencyContainer.makeNewAddTaskViewModel(),
+                onClose: { [weak self] in
+                    self?.iPadShellState.destination = .tasks
+                }
+            )
+            .taskerLayoutClass(layoutClass)
+        )
+    }
 
-        NSLayoutConstraint.activate([
-            hostingController.view.leadingAnchor.constraint(equalTo: view.leadingAnchor),
-            hostingController.view.trailingAnchor.constraint(equalTo: view.trailingAnchor),
-            hostingController.view.topAnchor.constraint(equalTo: view.topAnchor),
-            hostingController.view.bottomAnchor.constraint(equalTo: view.bottomAnchor)
-        ])
+    private func makeSettingsInspectorRoot(layoutClass: TaskerLayoutClass) -> AnyView {
+        AnyView(
+            HomeiPadSettingsContainer(
+                onNavigateToProjects: { [weak self] in
+                    self?.iPadShellState.destination = .projects
+                },
+                onNavigateToChats: { [weak self] in
+                    self?.iPadShellState.destination = .chat
+                },
+                onNavigateToModels: { [weak self] in
+                    self?.iPadShellState.destination = .chat
+                }
+            )
+            .taskerLayoutClass(layoutClass)
+        )
+    }
 
-        hostingController.didMove(toParent: self)
+    private func makeProjectManagementInspectorRoot(layoutClass: TaskerLayoutClass) -> AnyView {
+        guard let presentationDependencyContainer else {
+            return AnyView(Text("Projects unavailable").font(.tasker(.body)))
+        }
+        let vm = presentationDependencyContainer.makeProjectManagementViewModel()
+        return AnyView(
+            ProjectManagementView(viewModel: vm)
+                .taskerLayoutClass(layoutClass)
+        )
+    }
+
+    private func makeChatInspectorRoot(layoutClass: TaskerLayoutClass) -> AnyView {
+        guard let container = LLMDataController.shared else {
+            return AnyView(
+                LLMStoreUnavailableView()
+                    .taskerLayoutClass(layoutClass)
+            )
+        }
+
+        return AnyView(
+            ChatContainerView(onOpenTaskDetail: { [weak self] task in
+                self?.handleTaskTap(task)
+            })
+            .environmentObject(iPadChatAppManager)
+            .environment(LLMRuntimeCoordinator.shared.evaluator)
+            .modelContainer(container)
+            .taskerLayoutClass(layoutClass)
+        )
+    }
+
+    private func makeTaskInspectorRoot(_ task: TaskDefinition, layoutClass: TaskerLayoutClass) -> AnyView {
+        AnyView(
+            makeTaskDetailView(for: task, containerMode: .inspector)
+                .taskerLayoutClass(layoutClass)
+        )
+    }
+
+    private func trackLayoutClassAtLaunchIfNeeded() {
+        guard didTrackLayoutClassAtLaunch == false else { return }
+        didTrackLayoutClassAtLaunch = true
+        viewModel?.trackHomeInteraction(
+            action: "layout_class_at_launch_stable",
+            metadata: [
+                "layout_class": currentLayoutClass.rawValue,
+                "is_ipad_native_shell_enabled": isUsingIPadNativeShell
+            ]
+        )
+    }
+
+    private func trackIPadShellRenderedIfNeeded() {
+        guard didTrackIPadShellRendered == false else { return }
+        guard currentLayoutClass.isPad else { return }
+        didTrackIPadShellRendered = true
+        viewModel?.trackHomeInteraction(
+            action: "ipad_shell_rendered",
+            metadata: [
+                "layout_class": currentLayoutClass.rawValue
+            ]
+        )
+    }
+
+    private func observeIPadShellTelemetry() {
+        iPadShellState.$destination
+            .removeDuplicates()
+            .receive(on: RunLoop.main)
+            .sink { [weak self] destination in
+                guard let self else { return }
+                guard self.currentLayoutClass.isPad else { return }
+                self.viewModel?.trackHomeInteraction(
+                    action: "ipad_destination_switch",
+                    metadata: [
+                        "layout_class": self.currentLayoutClass.rawValue,
+                        "destination": destination.rawValue
+                    ]
+                )
+            }
+            .store(in: &cancellables)
+
+        iPadShellState.$selectedTask
+            .receive(on: RunLoop.main)
+            .sink { [weak self] selectedTask in
+                guard let self else { return }
+                guard self.currentLayoutClass == .padExpanded else { return }
+                guard selectedTask != nil else { return }
+                self.viewModel?.trackHomeInteraction(
+                    action: "ipad_inspector_open",
+                    metadata: [
+                        "layout_class": self.currentLayoutClass.rawValue
+                    ]
+                )
+            }
+            .store(in: &cancellables)
+
+        iPadShellState.$modalRequest
+            .compactMap { $0 }
+            .receive(on: RunLoop.main)
+            .sink { [weak self] request in
+                guard let self else { return }
+                guard self.currentLayoutClass.isPad else { return }
+                self.iPadShellState.modalRequest = nil
+                self.pendingIPadModalRequest = request
+                self.processPendingIPadModalRequest()
+            }
+            .store(in: &cancellables)
+    }
+
+    private func processPendingIPadModalRequest() {
+        guard isUsingIPadNativeShell else {
+            pendingIPadModalRequest = nil
+            resetPendingIPadModalWaitState()
+            return
+        }
+        guard let request = pendingIPadModalRequest else {
+            resetPendingIPadModalWaitState()
+            return
+        }
+        if let blockingController = presentedViewController {
+            if let presentationController = blockingController.presentationController {
+                resetPendingIPadModalFallbackState()
+                presentationController.delegate = self
+                return
+            }
+
+            if pendingIPadModalFallbackController !== blockingController {
+                pendingIPadModalFallbackController = blockingController
+                didConsumePendingIPadModalFallbackRetry = false
+                isPendingIPadModalFallbackRetryScheduled = false
+            }
+            guard !didConsumePendingIPadModalFallbackRetry else { return }
+            guard !isPendingIPadModalFallbackRetryScheduled else { return }
+
+            didConsumePendingIPadModalFallbackRetry = true
+            isPendingIPadModalFallbackRetryScheduled = true
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.12) { [weak self, weak blockingController] in
+                guard let self else { return }
+                self.isPendingIPadModalFallbackRetryScheduled = false
+                guard let blockingController else { return }
+                guard self.pendingIPadModalFallbackController === blockingController else { return }
+                self.processPendingIPadModalRequest()
+            }
+            return
+        }
+
+        resetPendingIPadModalWaitState()
+        pendingIPadModalRequest = nil
+        switch request {
+        case .addTask:
+            viewModel?.trackHomeInteraction(
+                action: "ipad_modal_request_presented",
+                metadata: ["layout_class": currentLayoutClass.rawValue]
+            )
+            presentAddTaskSheetForPadFallback()
+        }
+    }
+
+    private func resetPendingIPadModalFallbackState() {
+        pendingIPadModalFallbackController = nil
+        didConsumePendingIPadModalFallbackRetry = false
+        isPendingIPadModalFallbackRetryScheduled = false
+    }
+
+    private func resetPendingIPadModalWaitState() {
+        resetPendingIPadModalFallbackState()
     }
 
     /// Executes observeMutations.
@@ -390,6 +705,34 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
         present(hostingVC, animated: true)
     }
 
+    private func presentAddTaskSheetForPadFallback() {
+        guard isUsingIPadNativeShell else {
+            AddTaskAction()
+            return
+        }
+        guard let presentationDependencyContainer else {
+            fatalError("HomeViewController missing PresentationDependencyContainer")
+        }
+        let vm = presentationDependencyContainer.makeNewAddTaskViewModel()
+        let sheet = AddTaskSheetView(viewModel: vm)
+        let hostingVC = UIHostingController(rootView: sheet.taskerLayoutClass(currentLayoutClass))
+        hostingVC.modalPresentationStyle = .formSheet
+        hostingVC.preferredContentSize = CGSize(width: 540, height: 620)
+        if let sheetController = hostingVC.sheetPresentationController {
+            sheetController.detents = [.large()]
+            sheetController.prefersGrabberVisible = true
+            sheetController.prefersScrollingExpandsWhenScrolledToEdge = false
+        }
+        viewModel?.trackHomeInteraction(
+            action: "ipad_fallback_sheet_presented",
+            metadata: [
+                "layout_class": currentLayoutClass.rawValue,
+                "surface": "add_task"
+            ]
+        )
+        present(hostingVC, animated: true)
+    }
+
     @objc private func openProjectCreator() {
         let controller = NewProjectViewController()
         let navController = UINavigationController(rootViewController: controller)
@@ -429,6 +772,10 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
 
     /// Executes handleTaskTap.
     private func handleTaskTap(_ task: TaskDefinition) {
+        if isUsingIPadNativeShell, currentLayoutClass == .padExpanded {
+            iPadShellState.selectedTask = task
+            return
+        }
         presentTaskDetailView(for: task)
     }
 
@@ -475,7 +822,68 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
 
     /// Executes presentTaskDetailView.
     private func presentTaskDetailView(for task: TaskDefinition) {
-        let detailView = TaskDetailSheetView(
+        let detailView = makeTaskDetailView(for: task, containerMode: .sheet)
+
+        let hostingController = UIHostingController(rootView: detailView.taskerLayoutClass(currentLayoutClass))
+        hostingController.view.backgroundColor = TaskerThemeManager.shared.currentTheme.tokens.color.bgCanvas
+        if isUsingIPadNativeShell {
+            switch currentLayoutClass {
+            case .padCompact:
+                hostingController.modalPresentationStyle = .formSheet
+                hostingController.preferredContentSize = CGSize(width: 540, height: 680)
+                viewModel?.trackHomeInteraction(
+                    action: "ipad_task_detail_fallback_formsheet",
+                    metadata: ["layout_class": currentLayoutClass.rawValue]
+                )
+                viewModel?.trackHomeInteraction(
+                    action: "ipad_fallback_sheet_presented",
+                    metadata: ["layout_class": currentLayoutClass.rawValue, "surface": "task_detail_formsheet"]
+                )
+            case .padRegular:
+                hostingController.modalPresentationStyle = .formSheet
+                hostingController.preferredContentSize = CGSize(width: 540, height: 680)
+                if let sheet = hostingController.sheetPresentationController {
+                    sheet.detents = [.large()]
+                    sheet.preferredCornerRadius = TaskerThemeManager.shared.currentTheme.tokens.corner.modal
+                    sheet.prefersScrollingExpandsWhenScrolledToEdge = false
+                }
+                viewModel?.trackHomeInteraction(
+                    action: "ipad_task_detail_fallback_formsheet",
+                    metadata: ["layout_class": currentLayoutClass.rawValue]
+                )
+                viewModel?.trackHomeInteraction(
+                    action: "ipad_fallback_sheet_presented",
+                    metadata: ["layout_class": currentLayoutClass.rawValue, "surface": "task_detail_formsheet"]
+                )
+            case .padExpanded:
+                hostingController.modalPresentationStyle = .formSheet
+                hostingController.preferredContentSize = CGSize(width: 540, height: 680)
+                if let sheet = hostingController.sheetPresentationController {
+                    sheet.detents = [.large()]
+                    sheet.preferredCornerRadius = TaskerThemeManager.shared.currentTheme.tokens.corner.modal
+                    sheet.prefersScrollingExpandsWhenScrolledToEdge = false
+                }
+            case .phone:
+                hostingController.modalPresentationStyle = .pageSheet
+            }
+        } else {
+            hostingController.modalPresentationStyle = .pageSheet
+            if let sheet = hostingController.sheetPresentationController {
+                sheet.detents = [.medium(), .large()]
+                sheet.preferredCornerRadius = TaskerThemeManager.shared.currentTheme.tokens.corner.modal
+                sheet.prefersScrollingExpandsWhenScrolledToEdge = true
+            }
+        }
+
+        present(hostingController, animated: true)
+    }
+
+    /// Executes makeTaskDetailView.
+    private func makeTaskDetailView(
+        for task: TaskDefinition,
+        containerMode: TaskDetailContainerMode
+    ) -> TaskDetailSheetView {
+        TaskDetailSheetView(
             task: task,
             projects: viewModel?.projects ?? [],
             todayXPSoFar: {
@@ -486,6 +894,7 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
                 return viewModel.progressState.earnedXP
             }(),
             isGamificationV2Enabled: V2FeatureFlags.gamificationV2Enabled,
+            containerMode: containerMode,
             onUpdate: { [weak self] taskID, request, completion in
                 guard let self, let viewModel = self.viewModel else {
                     completion(.failure(NSError(
@@ -586,21 +995,12 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
                 viewModel.createProjectForTaskDetail(name: name, completion: completion)
             }
         )
-
-        let hostingController = UIHostingController(rootView: detailView)
-        hostingController.view.backgroundColor = TaskerThemeManager.shared.currentTheme.tokens.color.bgCanvas
-        hostingController.modalPresentationStyle = .pageSheet
-
-        if let sheet = hostingController.sheetPresentationController {
-            sheet.detents = [.medium(), .large()]
-            sheet.preferredCornerRadius = TaskerThemeManager.shared.currentTheme.tokens.corner.modal
-            sheet.prefersScrollingExpandsWhenScrolledToEdge = true
-        }
-
-        present(hostingController, animated: true)
     }
 
     private func handleFocusDeepLink() {
+        if isUsingIPadNativeShell {
+            iPadShellState.destination = .tasks
+        }
         let preferredTask = viewModel?.focusTasks.first
             ?? viewModel?.morningTasks.first(where: { !$0.isComplete })
             ?? viewModel?.eveningTasks.first(where: { !$0.isComplete })
@@ -608,14 +1008,23 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
     }
 
     private func handleHomeDeepLink() {
+        if isUsingIPadNativeShell {
+            iPadShellState.destination = .tasks
+        }
         viewModel?.setQuickView(.today)
     }
 
     private func handleInsightsDeepLink() {
+        if isUsingIPadNativeShell {
+            iPadShellState.destination = .analytics
+        }
         viewModel?.launchInsights(.default)
     }
 
     private func handleTaskScopeDeepLink(scope: String, projectID: UUID?) {
+        if isUsingIPadNativeShell {
+            iPadShellState.destination = .tasks
+        }
         switch scope {
         case "upcoming":
             viewModel?.clearProjectFilters()
@@ -644,6 +1053,25 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
     }
 
     private func handleQuickAddDeepLink() {
+        if isUsingIPadNativeShell {
+            if presentedViewController != nil {
+                dismiss(animated: true) { [weak self] in
+                    guard let self else { return }
+                    if self.currentLayoutClass == .padExpanded {
+                        self.iPadShellState.destination = .addTask
+                    } else {
+                        self.presentAddTaskSheetForPadFallback()
+                    }
+                }
+                return
+            }
+            if currentLayoutClass == .padExpanded {
+                iPadShellState.destination = .addTask
+            } else {
+                presentAddTaskSheetForPadFallback()
+            }
+            return
+        }
         if presentedViewController != nil {
             dismiss(animated: true) { [weak self] in
                 self?.AddTaskAction()
@@ -820,12 +1248,21 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
         guard let viewModel else { return }
         switch route {
         case .homeToday(let taskID):
+            if isUsingIPadNativeShell {
+                iPadShellState.destination = .tasks
+            }
             viewModel.setQuickView(.today)
             pendingNotificationFocusTaskID = taskID
         case .homeDone:
+            if isUsingIPadNativeShell {
+                iPadShellState.destination = .tasks
+            }
             viewModel.setQuickView(.done)
             pendingNotificationFocusTaskID = nil
         case .taskDetail(let taskID):
+            if isUsingIPadNativeShell {
+                iPadShellState.destination = .tasks
+            }
             viewModel.setQuickView(.today)
             pendingNotificationFocusTaskID = taskID
             resolveAndPresentTaskDetail(taskID: taskID)
@@ -836,7 +1273,16 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
 
     private func resolveAndPresentTaskDetail(taskID: UUID, attemptsRemaining: Int = 2) {
         if let task = viewModel?.taskSnapshot(for: taskID) {
-            presentTaskDetailView(for: task)
+            if isUsingIPadNativeShell {
+                iPadShellState.destination = .tasks
+                if currentLayoutClass == .padExpanded {
+                    iPadShellState.selectedTask = task
+                } else {
+                    presentTaskDetailView(for: task)
+                }
+            } else {
+                presentTaskDetailView(for: task)
+            }
             return
         }
         guard attemptsRemaining > 0 else { return }
@@ -1654,5 +2100,12 @@ private struct DailySummaryModalView: View {
         formatter.dateStyle = .full
         formatter.timeStyle = .none
         return formatter.string(from: date)
+    }
+}
+
+extension HomeViewController {
+    func presentationControllerDidDismiss(_ presentationController: UIPresentationController) {
+        resetPendingIPadModalWaitState()
+        processPendingIPadModalRequest()
     }
 }

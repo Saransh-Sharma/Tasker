@@ -21,6 +21,9 @@ public struct TaskerTypographyTokens: TaskerTokenGroup {
     public let button: UIFont
     public let buttonSmall: UIFont
 
+    private static let cacheLock = NSLock()
+    private static var cacheByLayoutClass: [TaskerLayoutClass: TaskerTypographyTokens] = [:]
+
     /// Executes font.
     public func font(for style: TaskerTextStyle) -> UIFont {
         switch style {
@@ -41,54 +44,96 @@ public struct TaskerTypographyTokens: TaskerTokenGroup {
 
     /// Executes dynamicFont.
     public func dynamicFont(for style: TaskerTextStyle, compatibleWith traitCollection: UITraitCollection? = nil) -> UIFont {
-        Self.font(for: Self.spec(for: style), compatibleWith: traitCollection)
+        Self.font(for: Self.spec(for: style, scale: 1.0), compatibleWith: traitCollection)
     }
 
     /// Executes makeDefault.
     public static func makeDefault() -> TaskerTypographyTokens {
-        TaskerTypographyTokens(
-            display: font(for: spec(for: .display), compatibleWith: nil),
-            title1: font(for: spec(for: .title1), compatibleWith: nil),
-            title2: font(for: spec(for: .title2), compatibleWith: nil),
-            title3: font(for: spec(for: .title3), compatibleWith: nil),
-            headline: font(for: spec(for: .headline), compatibleWith: nil),
-            body: font(for: spec(for: .body), compatibleWith: nil),
-            bodyEmphasis: font(for: spec(for: .bodyEmphasis), compatibleWith: nil),
-            callout: font(for: spec(for: .callout), compatibleWith: nil),
-            caption1: font(for: spec(for: .caption1), compatibleWith: nil),
-            caption2: font(for: spec(for: .caption2), compatibleWith: nil),
-            button: font(for: spec(for: .button), compatibleWith: nil),
-            buttonSmall: font(for: spec(for: .buttonSmall), compatibleWith: nil)
+        make(for: .phone)
+    }
+
+    /// Executes make.
+    public static func make(for layoutClass: TaskerLayoutClass) -> TaskerTypographyTokens {
+        cacheLock.lock()
+        if let cached = cacheByLayoutClass[layoutClass] {
+            cacheLock.unlock()
+            return cached
+        }
+        cacheLock.unlock()
+
+        let scale = scaleFactor(for: layoutClass)
+        let tokens = TaskerTypographyTokens(
+            display: font(for: spec(for: .display, scale: scale), compatibleWith: nil),
+            title1: font(for: spec(for: .title1, scale: scale), compatibleWith: nil),
+            title2: font(for: spec(for: .title2, scale: scale), compatibleWith: nil),
+            title3: font(for: spec(for: .title3, scale: scale), compatibleWith: nil),
+            headline: font(for: spec(for: .headline, scale: scale), compatibleWith: nil),
+            body: font(for: spec(for: .body, scale: scale), compatibleWith: nil),
+            bodyEmphasis: font(for: spec(for: .bodyEmphasis, scale: scale), compatibleWith: nil),
+            callout: font(for: spec(for: .callout, scale: scale), compatibleWith: nil),
+            caption1: font(for: spec(for: .caption1, scale: scale), compatibleWith: nil),
+            caption2: font(for: spec(for: .caption2, scale: scale), compatibleWith: nil),
+            button: font(for: spec(for: .button, scale: scale), compatibleWith: nil),
+            buttonSmall: font(for: spec(for: .buttonSmall, scale: scale), compatibleWith: nil)
         )
+
+        cacheLock.lock()
+        cacheByLayoutClass[layoutClass] = tokens
+        cacheLock.unlock()
+        return tokens
+    }
+
+    static func resetCache() {
+        cacheLock.lock()
+        cacheByLayoutClass.removeAll(keepingCapacity: true)
+        cacheLock.unlock()
     }
 
     /// Executes spec.
-    private static func spec(for style: TaskerTextStyle) -> Spec {
+    private static func spec(for style: TaskerTextStyle, scale: CGFloat) -> Spec {
+        func scaled(_ base: CGFloat) -> CGFloat {
+            max(11, base * scale)
+        }
+
         switch style {
         case .display:
-            return Spec(textStyle: .largeTitle, pointSize: 30, weight: .semibold, maximumPointSize: 40)
+            return Spec(textStyle: .largeTitle, pointSize: scaled(30), weight: .semibold, maximumPointSize: scaled(40))
         case .title1:
-            return Spec(textStyle: .title1, pointSize: 22, weight: .semibold, maximumPointSize: nil)
+            return Spec(textStyle: .title1, pointSize: scaled(22), weight: .semibold, maximumPointSize: nil)
         case .title2:
-            return Spec(textStyle: .title2, pointSize: 18, weight: .semibold, maximumPointSize: nil)
+            return Spec(textStyle: .title2, pointSize: scaled(18), weight: .semibold, maximumPointSize: nil)
         case .title3:
-            return Spec(textStyle: .headline, pointSize: 16, weight: .semibold, maximumPointSize: nil)
+            return Spec(textStyle: .headline, pointSize: scaled(16), weight: .semibold, maximumPointSize: nil)
         case .headline:
-            return Spec(textStyle: .headline, pointSize: 16, weight: .semibold, maximumPointSize: nil)
+            return Spec(textStyle: .headline, pointSize: scaled(16), weight: .semibold, maximumPointSize: nil)
         case .body:
-            return Spec(textStyle: .body, pointSize: 16, weight: .regular, maximumPointSize: nil)
+            return Spec(textStyle: .body, pointSize: scaled(16), weight: .regular, maximumPointSize: nil)
         case .bodyEmphasis:
-            return Spec(textStyle: .body, pointSize: 16, weight: .medium, maximumPointSize: nil)
+            return Spec(textStyle: .body, pointSize: scaled(16), weight: .medium, maximumPointSize: nil)
         case .callout:
-            return Spec(textStyle: .callout, pointSize: 14, weight: .regular, maximumPointSize: nil)
+            return Spec(textStyle: .callout, pointSize: scaled(14), weight: .regular, maximumPointSize: nil)
         case .caption1:
-            return Spec(textStyle: .caption1, pointSize: 13, weight: .regular, maximumPointSize: nil)
+            return Spec(textStyle: .caption1, pointSize: scaled(13), weight: .regular, maximumPointSize: nil)
         case .caption2:
-            return Spec(textStyle: .caption2, pointSize: 12, weight: .regular, maximumPointSize: nil)
+            return Spec(textStyle: .caption2, pointSize: scaled(12), weight: .regular, maximumPointSize: nil)
         case .button:
-            return Spec(textStyle: .body, pointSize: 16, weight: .semibold, maximumPointSize: nil)
+            return Spec(textStyle: .body, pointSize: scaled(16), weight: .semibold, maximumPointSize: nil)
         case .buttonSmall:
-            return Spec(textStyle: .callout, pointSize: 14, weight: .semibold, maximumPointSize: nil)
+            return Spec(textStyle: .callout, pointSize: scaled(14), weight: .semibold, maximumPointSize: nil)
+        }
+    }
+
+    /// Executes scaleFactor.
+    private static func scaleFactor(for layoutClass: TaskerLayoutClass) -> CGFloat {
+        switch layoutClass {
+        case .phone:
+            return 1.0
+        case .padCompact:
+            return 1.04
+        case .padRegular:
+            return 1.1
+        case .padExpanded:
+            return 1.14
         }
     }
 

@@ -1,6 +1,142 @@
 import Foundation
 import CoreData
 
+private struct TaskEntitySnapshot {
+    private static let keys = [
+        "id",
+        "taskID",
+        "projectID",
+        "recurrenceSeriesID",
+        "lifeAreaID",
+        "sectionID",
+        "parentTaskID",
+        "title",
+        "notes",
+        "taskType",
+        "priority",
+        "energy",
+        "category",
+        "context",
+        "dueDate",
+        "isComplete",
+        "dateAdded",
+        "dateCompleted",
+        "isEveningTask",
+        "alertReminderTime",
+        "estimatedDuration",
+        "actualDuration",
+        "repeatPatternData",
+        "createdAt",
+        "updatedAt"
+    ]
+
+    let taskID: UUID
+    let projectID: UUID
+    let recurrenceSeriesID: UUID?
+    let lifeAreaID: UUID?
+    let sectionID: UUID?
+    let parentTaskID: UUID?
+    let title: String
+    let notes: String?
+    let taskTypeRaw: Int32
+    let priorityRaw: Int32
+    let energyRaw: String
+    let categoryRaw: String
+    let contextRaw: String
+    let dueDate: Date?
+    let isComplete: Bool
+    let dateAdded: Date
+    let dateCompleted: Date?
+    let isEveningTask: Bool
+    let alertReminderTime: Date?
+    let estimatedDuration: Double?
+    let actualDuration: Double?
+    let repeatPatternData: Data?
+    let createdAt: Date
+    let updatedAt: Date
+    let fallbackProjectName: String?
+
+    init(entity: NSManagedObject) {
+        let values = entity.dictionaryWithValues(forKeys: Self.keys)
+        self.taskID = (values["taskID"] as? UUID) ?? (values["id"] as? UUID) ?? UUID()
+        self.projectID = (values["projectID"] as? UUID) ?? ProjectConstants.inboxProjectID
+        self.recurrenceSeriesID = values["recurrenceSeriesID"] as? UUID
+        self.lifeAreaID = values["lifeAreaID"] as? UUID
+        self.sectionID = values["sectionID"] as? UUID
+        self.parentTaskID = values["parentTaskID"] as? UUID
+        self.title = (values["title"] as? String) ?? "Untitled Task"
+        self.notes = values["notes"] as? String
+        self.taskTypeRaw = (values["taskType"] as? Int32) ?? 1
+        self.priorityRaw = (values["priority"] as? Int32) ?? 2
+        self.energyRaw = (values["energy"] as? String) ?? ""
+        self.categoryRaw = (values["category"] as? String) ?? ""
+        self.contextRaw = (values["context"] as? String) ?? ""
+        self.dueDate = values["dueDate"] as? Date
+        self.isComplete = (values["isComplete"] as? Bool) ?? false
+        self.dateAdded = (values["dateAdded"] as? Date) ?? Date()
+        self.dateCompleted = values["dateCompleted"] as? Date
+        self.isEveningTask = (values["isEveningTask"] as? Bool) ?? false
+        self.alertReminderTime = values["alertReminderTime"] as? Date
+        self.estimatedDuration = (values["estimatedDuration"] as? Double).flatMap { $0 > 0 ? $0 : nil }
+        self.actualDuration = (values["actualDuration"] as? Double).flatMap { $0 > 0 ? $0 : nil }
+        self.repeatPatternData = values["repeatPatternData"] as? Data
+        self.createdAt = (values["createdAt"] as? Date) ?? Date()
+        self.updatedAt = (values["updatedAt"] as? Date) ?? Date()
+
+        if let projectRef = entity.value(forKey: "projectRef") as? NSManagedObject {
+            let projectValues = projectRef.dictionaryWithValues(forKeys: ["name"])
+            self.fallbackProjectName = projectValues["name"] as? String
+        } else {
+            self.fallbackProjectName = nil
+        }
+    }
+}
+
+private struct TaskTagLinkSnapshot {
+    private static let keys = ["taskID", "tagID"]
+
+    let taskID: UUID?
+    let tagID: UUID?
+
+    init(object: NSManagedObject) {
+        let values = object.dictionaryWithValues(forKeys: Self.keys)
+        self.taskID = values["taskID"] as? UUID
+        self.tagID = values["tagID"] as? UUID
+    }
+}
+
+private struct TaskDependencySnapshot {
+    private static let keys = ["id", "taskID", "dependsOnTaskID", "kind", "createdAt"]
+
+    let id: UUID
+    let taskID: UUID?
+    let dependsOnTaskID: UUID?
+    let rawKind: String?
+    let createdAt: Date
+
+    init(object: NSManagedObject) {
+        let values = object.dictionaryWithValues(forKeys: Self.keys)
+        self.id = (values["id"] as? UUID) ?? UUID()
+        self.taskID = values["taskID"] as? UUID
+        self.dependsOnTaskID = values["dependsOnTaskID"] as? UUID
+        self.rawKind = values["kind"] as? String
+        self.createdAt = (values["createdAt"] as? Date) ?? Date()
+    }
+}
+
+private struct ProjectNameSnapshot {
+    private static let keys = ["id", "name"]
+
+    let id: UUID?
+    let name: String?
+
+    init(object: NSManagedObject) {
+        let values = object.dictionaryWithValues(forKeys: Self.keys)
+        self.id = values["id"] as? UUID
+        self.name = values["name"] as? String
+    }
+}
+
 public final class CoreDataTaskDefinitionRepository: TaskDefinitionRepositoryProtocol {
     private let viewContext: NSManagedObjectContext
     private let backgroundContext: NSManagedObjectContext
@@ -272,8 +408,50 @@ public final class CoreDataTaskDefinitionRepository: TaskDefinitionRepositoryPro
         }
     }
 
+    private static func mapTaskDefinition(from snapshot: TaskEntitySnapshot) -> TaskDefinition {
+        let energy = TaskEnergy(rawValue: snapshot.energyRaw) ?? .medium
+        let category = TaskCategory(rawValue: snapshot.categoryRaw) ?? .general
+        let context = TaskContext(rawValue: snapshot.contextRaw) ?? .anywhere
+        let repeatPattern = snapshot.repeatPatternData.flatMap { try? JSONDecoder().decode(TaskRepeatPattern.self, from: $0) }
+        let projectName = snapshot.fallbackProjectName ?? ProjectConstants.inboxProjectName
+
+        return TaskDefinition(
+            id: snapshot.taskID,
+            recurrenceSeriesID: snapshot.recurrenceSeriesID,
+            projectID: snapshot.projectID,
+            projectName: projectName,
+            lifeAreaID: snapshot.lifeAreaID,
+            sectionID: snapshot.sectionID,
+            parentTaskID: snapshot.parentTaskID,
+            title: snapshot.title,
+            details: snapshot.notes,
+            priority: TaskPriority(rawValue: snapshot.priorityRaw),
+            type: TaskType(rawValue: snapshot.taskTypeRaw),
+            energy: energy,
+            category: category,
+            context: context,
+            dueDate: snapshot.dueDate,
+            isComplete: snapshot.isComplete,
+            dateAdded: snapshot.dateAdded,
+            dateCompleted: snapshot.dateCompleted,
+            isEveningTask: snapshot.isEveningTask,
+            alertReminderTime: snapshot.alertReminderTime,
+            tagIDs: [],
+            dependencies: [],
+            estimatedDuration: snapshot.estimatedDuration,
+            actualDuration: snapshot.actualDuration,
+            repeatPattern: repeatPattern,
+            createdAt: snapshot.createdAt,
+            updatedAt: snapshot.updatedAt
+        )
+    }
+
     /// Executes mapTaskDefinition.
     static func mapTaskDefinition(_ entity: NSManagedObject) -> TaskDefinition {
+        if V2FeatureFlags.iPadPerfCoreDataMappingSnapshotV3Enabled {
+            return mapTaskDefinition(from: TaskEntitySnapshot(entity: entity))
+        }
+
         let taskID = attributeValue("taskID", from: entity) ?? attributeValue("id", from: entity) ?? UUID()
         let projectID = attributeValue("projectID", from: entity) ?? ProjectConstants.inboxProjectID
         let title = attributeValue("title", from: entity) ?? "Untitled Task"
@@ -325,6 +503,28 @@ public final class CoreDataTaskDefinitionRepository: TaskDefinitionRepositoryPro
         context: NSManagedObjectContext
     ) throws -> [TaskDefinition] {
         guard entities.isEmpty == false else { return [] }
+        if V2FeatureFlags.iPadPerfCoreDataMappingSnapshotV3Enabled {
+            logWarning(
+                event: "taskMapSnapshotPathUsed",
+                message: "Using snapshot-based Core Data task mapping path",
+                fields: ["entity_count": String(entities.count)]
+            )
+
+            let snapshots = entities.map(TaskEntitySnapshot.init)
+            let taskIDs = snapshots.map(\.taskID)
+            let projectIDs = snapshots.map(\.projectID)
+            let tagIDsByTaskID = try hydrateTagIDsByTaskID(taskIDs: taskIDs, context: context)
+            let dependenciesByTaskID = try hydrateDependenciesByTaskID(taskIDs: taskIDs, context: context)
+            let projectNamesByProjectID = try hydrateProjectNamesByProjectID(projectIDs: projectIDs, context: context)
+
+            return snapshots.map { snapshot in
+                var mapped = mapTaskDefinition(from: snapshot)
+                mapped.tagIDs = tagIDsByTaskID[mapped.id] ?? []
+                mapped.dependencies = dependenciesByTaskID[mapped.id] ?? []
+                mapped.projectName = projectNamesByProjectID[mapped.projectID] ?? mapped.projectName
+                return mapped
+            }
+        }
 
         let taskIDs: [UUID] = entities.compactMap { entity -> UUID? in
             let taskID: UUID? = attributeValue("taskID", from: entity)
@@ -366,6 +566,18 @@ public final class CoreDataTaskDefinitionRepository: TaskDefinitionRepositoryPro
         var seen: [UUID: Set<UUID>] = [:]
 
         for object in objects {
+            if V2FeatureFlags.iPadPerfCoreDataMappingSnapshotV3Enabled {
+                let snapshot = TaskTagLinkSnapshot(object: object)
+                guard let taskID = snapshot.taskID, let tagID = snapshot.tagID else {
+                    continue
+                }
+                if seen[taskID, default: []].contains(tagID) {
+                    continue
+                }
+                seen[taskID, default: []].insert(tagID)
+                grouped[taskID, default: []].append(tagID)
+                continue
+            }
             guard
                 let taskID: UUID = attributeValue("taskID", from: object),
                 let tagID: UUID = attributeValue("tagID", from: object)
@@ -407,6 +619,38 @@ public final class CoreDataTaskDefinitionRepository: TaskDefinitionRepositoryPro
         var seen: [UUID: Set<String>] = [:]
 
         for object in objects {
+            if V2FeatureFlags.iPadPerfCoreDataMappingSnapshotV3Enabled {
+                let snapshot = TaskDependencySnapshot(object: object)
+                guard
+                    let taskID = snapshot.taskID,
+                    let dependsOnTaskID = snapshot.dependsOnTaskID,
+                    let rawKind = snapshot.rawKind,
+                    let kind = TaskDependencyKind(rawValue: rawKind)
+                else {
+                    continue
+                }
+
+                let key = V2CoreDataRepositorySupport.compositeKey([
+                    taskID.uuidString,
+                    dependsOnTaskID.uuidString,
+                    kind.rawValue
+                ])
+                if seen[taskID, default: []].contains(key) {
+                    continue
+                }
+                seen[taskID, default: []].insert(key)
+
+                grouped[taskID, default: []].append(
+                    TaskDependencyLinkDefinition(
+                        id: snapshot.id,
+                        taskID: taskID,
+                        dependsOnTaskID: dependsOnTaskID,
+                        kind: kind,
+                        createdAt: snapshot.createdAt
+                    )
+                )
+                continue
+            }
             guard
                 let taskID: UUID = attributeValue("taskID", from: object),
                 let dependsOnTaskID: UUID = attributeValue("dependsOnTaskID", from: object),
@@ -454,6 +698,18 @@ public final class CoreDataTaskDefinitionRepository: TaskDefinitionRepositoryPro
         let objects = try context.fetch(request)
         var namesByID: [UUID: String] = [:]
         for object in objects {
+            if V2FeatureFlags.iPadPerfCoreDataMappingSnapshotV3Enabled {
+                let snapshot = ProjectNameSnapshot(object: object)
+                guard
+                    let id = snapshot.id,
+                    let name = snapshot.name,
+                    name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false
+                else {
+                    continue
+                }
+                namesByID[id] = name
+                continue
+            }
             guard
                 let id: UUID = attributeValue("id", from: object),
                 let name: String = attributeValue("name", from: object),

@@ -9,11 +9,32 @@ import Foundation
 
 class LGSearchViewModel {
 
-    enum StatusFilterType {
+    enum StatusFilterType: Hashable {
         case all
         case today
         case overdue
         case completed
+    }
+
+    private struct CorpusCacheKey: Hashable {
+        let revision: Int
+        let status: StatusFilterType
+    }
+
+    private struct SearchCacheKey: Hashable {
+        let cacheRevision: Int
+        let status: StatusFilterType
+        let normalizedQuery: String
+        let normalizedProjects: [String]
+        let priorities: [Int32]
+    }
+
+    private struct PreparedTask {
+        let task: TaskDefinition
+        let normalizedTitle: String
+        let normalizedDetails: String
+        let normalizedProjectName: String
+        let mappedPriority: Int32
     }
 
     // MARK: - Properties
@@ -23,6 +44,13 @@ class LGSearchViewModel {
     private var lastQuery: String = ""
     private var lastRecurringTopUpAt: Date?
     private let recurringTopUpThrottleSeconds: TimeInterval = 90
+    private var activeCacheRevision: Int = 0
+    private var latestSearchRequestID: Int = 0
+    private var corpusCache: [CorpusCacheKey: [PreparedTask]] = [:]
+    private var filteredResultsCache: [SearchCacheKey: [TaskDefinition]] = [:]
+    private var groupedResultsCache: [SearchCacheKey: [(project: String, tasks: [TaskDefinition])]] = [:]
+    private var lastEmittedSearchCacheKey: SearchCacheKey?
+    private var lastEmittedSearchTaskIDs: [UUID] = []
 
     var searchResults: [TaskDefinition] = []
     private(set) var projects: [Project] = []
@@ -30,6 +58,7 @@ class LGSearchViewModel {
     var filteredPriorities: Set<Int32> = []
 
     var onResultsUpdated: (([TaskDefinition]) -> Void)?
+    var onResultsUpdatedWithRevision: ((Int, [TaskDefinition]) -> Void)?
 
     // MARK: - Initialization
 
@@ -42,19 +71,41 @@ class LGSearchViewModel {
 
     /// Executes search.
     func search(query: String) {
+        search(query: query, revision: latestSearchRequestID &+ 1)
+    }
+
+    /// Executes search.
+    func search(query: String, revision: Int) {
         lastQuery = query
-        fetchTasksForCurrentStatusFilter { [weak self] tasks in
+        latestSearchRequestID &+= 1
+        let requestID = latestSearchRequestID
+        let cacheKey = makeSearchCacheKey(query: query)
+
+        if let cachedResults = filteredResultsCache[cacheKey] {
+            searchResults = cachedResults
+            lastEmittedSearchCacheKey = cacheKey
+            lastEmittedSearchTaskIDs = cachedResults.map(\.id)
+            dispatchSearchResults(cachedResults, revision: revision, requestID: requestID)
+            return
+        }
+
+        fetchPreparedTasksForCurrentStatusFilter(revision: activeCacheRevision) { [weak self] preparedTasks in
             guard let self else { return }
-            self.searchResults = self.applyInMemoryFilters(tasks: tasks, query: query)
-            DispatchQueue.main.async {
-                self.onResultsUpdated?(self.searchResults)
-            }
+            let filteredPreparedTasks = self.applyInMemoryFilters(tasks: preparedTasks, cacheKey: cacheKey)
+            let filteredTasks = filteredPreparedTasks.map(\.task)
+            self.searchResults = filteredTasks
+            self.filteredResultsCache[cacheKey] = filteredTasks
+            self.groupedResultsCache[cacheKey] = self.groupPreparedTasksByProject(filteredPreparedTasks)
+            self.lastEmittedSearchCacheKey = cacheKey
+            self.lastEmittedSearchTaskIDs = filteredTasks.map(\.id)
+            self.pruneCachesIfNeeded()
+            self.dispatchSearchResults(filteredTasks, revision: revision, requestID: requestID)
         }
     }
 
     /// Executes searchAll.
     func searchAll() {
-        search(query: lastQuery)
+        search(query: lastQuery, revision: latestSearchRequestID &+ 1)
     }
 
     /// Executes loadProjects.
@@ -72,6 +123,31 @@ class LGSearchViewModel {
     /// Executes setStatusFilter.
     func setStatusFilter(_ filter: StatusFilterType) {
         currentStatusFilter = filter
+    }
+
+    func replaceFilters(
+        status: StatusFilterType,
+        projects: [String],
+        priorities: [Int32]
+    ) {
+        currentStatusFilter = status
+        filteredProjects = Set(projects)
+        filteredPriorities = Set(priorities)
+    }
+
+    func invalidateSearchCache(revision: Int) {
+        activeCacheRevision = revision
+        latestSearchRequestID &+= 1
+        let floorRevision = max(0, revision - 1)
+        corpusCache = corpusCache.filter { $0.key.revision >= floorRevision }
+        filteredResultsCache = filteredResultsCache.filter { $0.key.cacheRevision >= floorRevision }
+        groupedResultsCache = groupedResultsCache.filter { $0.key.cacheRevision >= floorRevision }
+
+        if let lastEmittedSearchCacheKey,
+           lastEmittedSearchCacheKey.cacheRevision < floorRevision {
+            self.lastEmittedSearchCacheKey = nil
+            self.lastEmittedSearchTaskIDs = []
+        }
     }
 
     /// Executes fetchTodayXPSoFar.
@@ -353,29 +429,77 @@ class LGSearchViewModel {
 
     /// Executes groupTasksByProject.
     func groupTasksByProject(_ tasks: [TaskDefinition]) -> [(project: String, tasks: [TaskDefinition])] {
-        let grouped = Dictionary(grouping: tasks) { $0.projectName ?? "Inbox" }
-        return grouped.map { (project: $0.key, tasks: $0.value) }
+        let taskIDs = tasks.map(\.id)
+        if let lastEmittedSearchCacheKey,
+           taskIDs == lastEmittedSearchTaskIDs,
+           let cachedGrouping = groupedResultsCache[lastEmittedSearchCacheKey] {
+            return cachedGrouping
+        }
+
+        let grouped = Dictionary(grouping: tasks) { $0.projectName ?? ProjectConstants.inboxProjectName }
+        return grouped
+            .map { (project: $0.key, tasks: $0.value) }
             .sorted { $0.project < $1.project }
     }
 
-    /// Executes fetchTasksForCurrentStatusFilter.
-    private func fetchTasksForCurrentStatusFilter(completion: @escaping ([TaskDefinition]) -> Void) {
+    private func dispatchSearchResults(
+        _ results: [TaskDefinition],
+        revision: Int,
+        requestID: Int
+    ) {
+        DispatchQueue.main.async { [weak self] in
+            guard let self else { return }
+            guard requestID == self.latestSearchRequestID else { return }
+            self.onResultsUpdated?(results)
+            self.onResultsUpdatedWithRevision?(revision, results)
+        }
+    }
+
+    private func makeSearchCacheKey(query: String) -> SearchCacheKey {
+        SearchCacheKey(
+            cacheRevision: activeCacheRevision,
+            status: currentStatusFilter,
+            normalizedQuery: query.trimmingCharacters(in: .whitespacesAndNewlines).lowercased(),
+            normalizedProjects: filteredProjects.map { $0.lowercased() }.sorted(),
+            priorities: filteredPriorities.sorted()
+        )
+    }
+
+    private func fetchPreparedTasksForCurrentStatusFilter(
+        revision: Int,
+        completion: @escaping ([PreparedTask]) -> Void
+    ) {
+        let status = currentStatusFilter
+        let cacheKey = CorpusCacheKey(revision: revision, status: status)
+        if let cached = corpusCache[cacheKey] {
+            completion(cached)
+            return
+        }
+
         triggerRecurringTopUpIfNeeded()
-        let handler: (Result<[TaskDefinition], Error>) -> Void = { result in
+
+        let handler: (Result<[TaskDefinition], Error>) -> Void = { [weak self] result in
+            guard let self else { return }
             switch result {
             case .success(let tasks):
-                completion(tasks)
+                let preparedTasks = self.prepareTasks(tasks)
+                DispatchQueue.main.async {
+                    self.corpusCache[cacheKey] = preparedTasks
+                    completion(preparedTasks)
+                }
             case .failure(let error):
                 logError(
                     event: "search_task_fetch_failed",
                     message: "Failed to fetch tasks for search",
                     fields: ["error": error.localizedDescription]
                 )
-                completion([])
+                DispatchQueue.main.async {
+                    completion([])
+                }
             }
         }
 
-        switch currentStatusFilter {
+        switch status {
         case .all:
             useCaseCoordinator.getTasks.searchTasks(query: "", in: .all) { result in
                 handler(result.mapError { $0 as Error })
@@ -402,6 +526,37 @@ class LGSearchViewModel {
         }
     }
 
+    private func prepareTasks(_ tasks: [TaskDefinition]) -> [PreparedTask] {
+        tasks.map { task in
+            PreparedTask(
+                task: task,
+                normalizedTitle: task.title.lowercased(),
+                normalizedDetails: (task.details ?? "").lowercased(),
+                normalizedProjectName: (task.projectName ?? ProjectConstants.inboxProjectName).lowercased(),
+                mappedPriority: Int32(task.priority.rawValue)
+            )
+        }
+    }
+
+    private func groupPreparedTasksByProject(_ preparedTasks: [PreparedTask]) -> [(project: String, tasks: [TaskDefinition])] {
+        let grouped = Dictionary(grouping: preparedTasks) {
+            $0.task.projectName ?? ProjectConstants.inboxProjectName
+        }
+
+        return grouped
+            .map { key, value in
+                (project: key, tasks: value.map(\.task))
+            }
+            .sorted { $0.project < $1.project }
+    }
+
+    private func pruneCachesIfNeeded() {
+        let floorRevision = max(0, activeCacheRevision - 2)
+        corpusCache = corpusCache.filter { $0.key.revision >= floorRevision }
+        filteredResultsCache = filteredResultsCache.filter { $0.key.cacheRevision >= floorRevision }
+        groupedResultsCache = groupedResultsCache.filter { $0.key.cacheRevision >= floorRevision }
+    }
+
     /// Executes triggerRecurringTopUpIfNeeded.
     private func triggerRecurringTopUpIfNeeded() {
         let now = Date()
@@ -414,32 +569,34 @@ class LGSearchViewModel {
     }
 
     /// Executes applyInMemoryFilters.
-    private func applyInMemoryFilters(tasks: [TaskDefinition], query: String) -> [TaskDefinition] {
-        let normalizedQuery = query.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-        let normalizedProjects = Set(filteredProjects.map { $0.lowercased() })
+    private func applyInMemoryFilters(
+        tasks: [PreparedTask],
+        cacheKey: SearchCacheKey
+    ) -> [PreparedTask] {
+        let normalizedQuery = cacheKey.normalizedQuery
+        let normalizedProjects = Set(cacheKey.normalizedProjects)
+        let priorities = Set(cacheKey.priorities)
 
-        return tasks.filter { task in
+        return tasks.filter { preparedTask in
             if normalizedQuery.isEmpty == false {
                 let haystacks = [
-                    task.title,
-                    task.details ?? "",
-                    task.projectName ?? ""
-                ].map { $0.lowercased() }
+                    preparedTask.normalizedTitle,
+                    preparedTask.normalizedDetails,
+                    preparedTask.normalizedProjectName
+                ]
                 guard haystacks.contains(where: { $0.contains(normalizedQuery) }) else {
                     return false
                 }
             }
 
             if normalizedProjects.isEmpty == false {
-                let projectName = (task.projectName ?? ProjectConstants.inboxProjectName).lowercased()
-                guard normalizedProjects.contains(projectName) else {
+                guard normalizedProjects.contains(preparedTask.normalizedProjectName) else {
                     return false
                 }
             }
 
-            if filteredPriorities.isEmpty == false {
-                let mappedPriority = Int32(task.priority.rawValue)
-                guard filteredPriorities.contains(mappedPriority) else {
+            if priorities.isEmpty == false {
+                guard priorities.contains(preparedTask.mappedPriority) else {
                     return false
                 }
             }
@@ -447,10 +604,10 @@ class LGSearchViewModel {
             return true
         }
         .sorted(by: { lhs, rhs in
-            if lhs.isComplete != rhs.isComplete {
-                return lhs.isComplete == false
+            if lhs.task.isComplete != rhs.task.isComplete {
+                return lhs.task.isComplete == false
             }
-            switch (lhs.dueDate, rhs.dueDate) {
+            switch (lhs.task.dueDate, rhs.task.dueDate) {
             case let (l?, r?):
                 return l < r
             case (nil, .some):
@@ -458,7 +615,7 @@ class LGSearchViewModel {
             case (.some, nil):
                 return true
             case (nil, nil):
-                return lhs.dateAdded < rhs.dateAdded
+                return lhs.task.dateAdded < rhs.task.dateAdded
             }
         })
     }

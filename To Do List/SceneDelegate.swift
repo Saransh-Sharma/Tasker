@@ -133,7 +133,8 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         // Use this method to restart any tasks that were paused (or not yet started) when the scene was inactive.
         (UIApplication.shared.delegate as? AppDelegate)?.reconcileNotifications(reason: "scene_did_become_active")
         chatPrewarmTask?.cancel()
-        guard V2FeatureFlags.llmChatPrewarmMode == .eager else { return }
+        guard V2FeatureFlags.llmChatPrewarmMode == .eager,
+              V2FeatureFlags.iPadPerfDeferLLMPrewarmV2Enabled == false else { return }
 
         chatPrewarmTask = Task { @MainActor in
             do {
@@ -152,6 +153,9 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         // This may occur due to temporary interruptions (ex. an incoming phone call).
         chatPrewarmTask?.cancel()
         chatPrewarmTask = nil
+        Task { @MainActor in
+            LLMRuntimeCoordinator.shared.cancelDeferredPrewarm(reason: "scene_will_resign_active")
+        }
     }
 
     /// Executes sceneWillEnterForeground.
@@ -168,6 +172,9 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         // to restore the scene back to its current state.
         chatPrewarmTask?.cancel()
         chatPrewarmTask = nil
+        Task { @MainActor in
+            LLMRuntimeCoordinator.shared.cancelDeferredPrewarm(reason: "scene_did_enter_background")
+        }
         (UIApplication.shared.delegate as? AppDelegate)?.reconcileNotifications(reason: "scene_did_enter_background")
     }
 

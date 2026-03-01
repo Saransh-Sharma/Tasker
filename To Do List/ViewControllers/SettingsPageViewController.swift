@@ -20,6 +20,8 @@ class SettingsPageViewController: UIViewController, PresentationDependencyContai
 
     private var settingsViewModel: SettingsViewModel?
     private var themeCancellable: AnyCancellable?
+    private var settingsHostingController: UIHostingController<AnyView>?
+    private var currentLayoutClass: TaskerLayoutClass = .phone
 
     // MARK: - Backdrop compatibility properties (needed for SettingsBackdrop.swift)
     var backdropContainer = UIView()
@@ -55,6 +57,11 @@ class SettingsPageViewController: UIViewController, PresentationDependencyContai
         settingsViewModel?.reload()
     }
 
+    override func viewDidLayoutSubviews() {
+        super.viewDidLayoutSubviews()
+        refreshLayoutClassIfNeeded()
+    }
+
     // MARK: - SwiftUI Hosting
 
     private func setupSwiftUIHost() {
@@ -75,9 +82,14 @@ class SettingsPageViewController: UIViewController, PresentationDependencyContai
 
         self.settingsViewModel = viewModel
 
-        let rootView = SettingsRootView(viewModel: viewModel)
+        currentLayoutClass = TaskerLayoutResolver.classify(view: view)
+        let rootView = AnyView(
+            SettingsRootView(viewModel: viewModel)
+                .taskerLayoutClass(currentLayoutClass)
+        )
         let hostingController = UIHostingController(rootView: rootView)
         hostingController.view.backgroundColor = .clear
+        settingsHostingController = hostingController
 
         addChild(hostingController)
         view.addSubview(hostingController.view)
@@ -89,6 +101,17 @@ class SettingsPageViewController: UIViewController, PresentationDependencyContai
             hostingController.view.bottomAnchor.constraint(equalTo: view.bottomAnchor),
         ])
         hostingController.didMove(toParent: self)
+    }
+
+    private func refreshLayoutClassIfNeeded() {
+        let nextLayoutClass = TaskerLayoutResolver.classify(view: view)
+        guard nextLayoutClass != currentLayoutClass else { return }
+        currentLayoutClass = nextLayoutClass
+        guard let settingsViewModel else { return }
+        settingsHostingController?.rootView = AnyView(
+            SettingsRootView(viewModel: settingsViewModel)
+                .taskerLayoutClass(nextLayoutClass)
+        )
     }
 
     // MARK: - Actions
@@ -123,7 +146,7 @@ class SettingsPageViewController: UIViewController, PresentationDependencyContai
             return
         }
         let viewModel = presentationDependencyContainer.makeProjectManagementViewModel()
-        let view = SettingsProjectManagementV2View(viewModel: viewModel)
+        let view = ProjectManagementView(viewModel: viewModel)
         let controller = UIHostingController(rootView: view)
         controller.title = "Projects"
         navigationController?.pushViewController(controller, animated: true)
@@ -141,90 +164,5 @@ class SettingsPageViewController: UIViewController, PresentationDependencyContai
 
     override var preferredStatusBarStyle: UIStatusBarStyle {
         return .lightContent
-    }
-}
-
-// MARK: - Project Management View (kept for navigation target)
-
-private struct SettingsProjectManagementV2View: View {
-    @ObservedObject var viewModel: ProjectManagementViewModel
-    @State private var showingCreateDialog = false
-    @State private var newProjectName = ""
-    @State private var newProjectDescription = ""
-
-    var body: some View {
-        List {
-            ForEach(viewModel.filteredProjects, id: \.project.id) { entry in
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(entry.project.name)
-                        .font(.headline)
-                    if let description = entry.project.projectDescription, description.isEmpty == false {
-                        Text(description)
-                            .font(.subheadline)
-                            .foregroundStyle(.secondary)
-                    }
-                    Text("\(entry.taskCount) tasks")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-            }
-            .onDelete(perform: deleteProjects)
-        }
-        .overlay {
-            if viewModel.filteredProjects.filter({ $0.project.id != ProjectConstants.inboxProjectID }).isEmpty {
-                ContentUnavailableView(
-                    "No Custom Projects",
-                    systemImage: "folder.badge.plus",
-                    description: Text("Tap + to create your first custom project")
-                )
-            }
-        }
-        .navigationTitle("Projects")
-        .toolbar {
-            ToolbarItem(placement: .topBarTrailing) {
-                Button {
-                    showingCreateDialog = true
-                } label: {
-                    Image(systemName: "plus")
-                }
-            }
-        }
-        .alert("New Project", isPresented: $showingCreateDialog) {
-            TextField("Project Name", text: $newProjectName)
-            TextField("Description (Optional)", text: $newProjectDescription)
-            Button("Cancel", role: .cancel) {
-                resetDraft()
-            }
-            Button("Create") {
-                let trimmedName = newProjectName.trimmingCharacters(in: .whitespacesAndNewlines)
-                guard trimmedName.isEmpty == false else { return }
-                viewModel.createProject(name: trimmedName, description: normalizedDescription())
-                resetDraft()
-            }
-        } message: {
-            Text("Create a new project under your life areas.")
-        }
-        .task {
-            viewModel.loadProjects()
-        }
-    }
-
-    private func deleteProjects(at offsets: IndexSet) {
-        for index in offsets {
-            guard viewModel.filteredProjects.indices.contains(index) else { continue }
-            let entry = viewModel.filteredProjects[index]
-            guard entry.project.id != ProjectConstants.inboxProjectID else { continue }
-            viewModel.deleteProject(entry, strategy: .moveToInbox)
-        }
-    }
-
-    private func normalizedDescription() -> String? {
-        let trimmed = newProjectDescription.trimmingCharacters(in: .whitespacesAndNewlines)
-        return trimmed.isEmpty ? nil : trimmed
-    }
-
-    private func resetDraft() {
-        newProjectName = ""
-        newProjectDescription = ""
     }
 }

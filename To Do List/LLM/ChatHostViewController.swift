@@ -27,6 +27,7 @@ class ChatHostViewController: UIViewController, PresentationDependencyContainerA
     private var hostingController: UIHostingController<AnyView>!
     private var themeCancellable: AnyCancellable?
     private var cachedProjects: [Project] = [Project.createInbox()]
+    private var currentLayoutClass: TaskerLayoutClass = .phone
 
     private var resolvedUseCaseCoordinator: UseCaseCoordinator? {
         if let useCaseCoordinator {
@@ -62,21 +63,8 @@ class ChatHostViewController: UIViewController, PresentationDependencyContainerA
         let themeColors = TaskerThemeManager.shared.currentTheme.tokens.color
         view.backgroundColor = themeColors.bgCanvas
 
-        let rootView: AnyView
-        if let container {
-            rootView = AnyView(
-                ChatContainerView(onOpenTaskDetail: { [weak self] task in
-                    self?.presentTaskDetailSheet(for: task)
-                })
-                    .environmentObject(appManager)
-                    .environment(llmEvaluator)
-                    .modelContainer(container)
-            )
-        } else {
-            rootView = AnyView(LLMStoreUnavailableView())
-        }
-
-        hostingController = UIHostingController(rootView: rootView)
+        currentLayoutClass = TaskerLayoutResolver.classify(view: view)
+        hostingController = UIHostingController(rootView: makeRootView(layoutClass: currentLayoutClass))
         addChild(hostingController)
         hostingController.view.translatesAutoresizingMaskIntoConstraints = false
         hostingController.view.backgroundColor = themeColors.bgCanvas
@@ -98,17 +86,28 @@ class ChatHostViewController: UIViewController, PresentationDependencyContainerA
             }
     }
 
+    override func viewDidLayoutSubviews() {
+        super.viewDidLayoutSubviews()
+        refreshLayoutClassIfNeeded()
+    }
+
+    override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
+        super.traitCollectionDidChange(previousTraitCollection)
+        refreshLayoutClassIfNeeded()
+    }
+
     override func viewDidAppear(_ animated: Bool) {
         super.viewDidAppear(animated)
         Task { @MainActor in
             LLMRuntimeCoordinator.shared.acquireSession(reason: "chat_host_visible")
-            await LLMRuntimeCoordinator.shared.prepareCurrentModelIfConfigured(trigger: "chat_host_visible")
+            LLMRuntimeCoordinator.shared.requestChatEntryPrewarm(trigger: "chat_host_visible")
         }
     }
 
     override func viewWillDisappear(_ animated: Bool) {
         super.viewWillDisappear(animated)
         Task { @MainActor in
+            LLMRuntimeCoordinator.shared.cancelDeferredPrewarm(reason: "chat_host_will_disappear")
             LLMRuntimeCoordinator.shared.cancelGenerationIfActive(reason: "chat_host_will_disappear")
             LLMRuntimeCoordinator.shared.releaseSession(reason: "chat_host_visible")
         }
@@ -125,6 +124,31 @@ class ChatHostViewController: UIViewController, PresentationDependencyContainerA
            presentationDependencyContainer.isConfiguredForRuntime {
             useCaseCoordinator = presentationDependencyContainer.coordinator
         }
+    }
+
+    private func makeRootView(layoutClass: TaskerLayoutClass) -> AnyView {
+        let rootView: AnyView
+        if let container {
+            rootView = AnyView(
+                ChatContainerView(onOpenTaskDetail: { [weak self] task in
+                    self?.presentTaskDetailSheet(for: task)
+                })
+                .environmentObject(appManager)
+                .environment(llmEvaluator)
+                .modelContainer(container)
+            )
+        } else {
+            rootView = AnyView(LLMStoreUnavailableView())
+        }
+
+        return AnyView(rootView.taskerLayoutClass(layoutClass))
+    }
+
+    private func refreshLayoutClassIfNeeded() {
+        let nextLayoutClass = TaskerLayoutResolver.classify(view: view)
+        guard nextLayoutClass != currentLayoutClass else { return }
+        currentLayoutClass = nextLayoutClass
+        hostingController.rootView = makeRootView(layoutClass: nextLayoutClass)
     }
 
     // MARK: - Navigation Bar Setup
@@ -170,6 +194,7 @@ class ChatHostViewController: UIViewController, PresentationDependencyContainerA
 
     @objc private func onBackTapped() {
         Task { @MainActor in
+            LLMRuntimeCoordinator.shared.cancelDeferredPrewarm(reason: "chat_host_back")
             LLMRuntimeCoordinator.shared.cancelGenerationIfActive(reason: "chat_host_back")
             LLMRuntimeCoordinator.shared.releaseSession(reason: "chat_host_visible")
         }
@@ -326,7 +351,8 @@ class ChatHostViewController: UIViewController, PresentationDependencyContainerA
                     }
                 )
 
-                let hostingController = UIHostingController(rootView: detailView)
+                let layoutClass = TaskerLayoutResolver.classify(view: self.view)
+                let hostingController = UIHostingController(rootView: detailView.taskerLayoutClass(layoutClass))
                 hostingController.view.backgroundColor = TaskerThemeManager.shared.currentTheme.tokens.color.bgCanvas
                 hostingController.modalPresentationStyle = .pageSheet
 
@@ -518,7 +544,7 @@ class ChatHostViewController: UIViewController, PresentationDependencyContainerA
     }
 }
 
-private struct LLMStoreUnavailableView: View {
+struct LLMStoreUnavailableView: View {
     var body: some View {
         VStack(spacing: 12) {
             Image(systemName: "exclamationmark.triangle")
@@ -540,9 +566,10 @@ private struct LLMStoreUnavailableView: View {
 
 // MARK: - SwiftUI container deciding between onboarding and chat
 
-private struct ChatContainerView: View {
+struct ChatContainerView: View {
     @EnvironmentObject var appManager: AppManager
     @Environment(LLMEvaluator.self) var llm
+    @Environment(\.taskerLayoutClass) private var layoutClass
 
     var onOpenTaskDetail: (TaskDefinition) -> Void
 
@@ -552,6 +579,11 @@ private struct ChatContainerView: View {
     @State private var showSettings = false
     @State private var showOnboarding = true
 
+    private var useIPadSplitChatLayout: Bool {
+        V2FeatureFlags.iPadNativeShellEnabled
+            && (layoutClass == .padRegular || layoutClass == .padExpanded)
+    }
+
     var body: some View {
         Group {
             if appManager.installedModels.isEmpty {
@@ -560,30 +592,51 @@ private struct ChatContainerView: View {
                         showOnboarding = false
                     }
             } else {
-                ChatView(
-                    currentThread: $currentThread,
-                    isPromptFocused: $isPromptFocused,
-                    showChats: $showChats,
-                    showSettings: $showSettings,
-                    onOpenTaskDetail: onOpenTaskDetail
-                )
+                if useIPadSplitChatLayout {
+                    NavigationSplitView {
+                        ChatsListView(currentThread: $currentThread, isPromptFocused: $isPromptFocused)
+                            .environmentObject(appManager)
+                    } detail: {
+                        ChatView(
+                            currentThread: $currentThread,
+                            isPromptFocused: $isPromptFocused,
+                            showChats: .constant(false),
+                            showSettings: $showSettings,
+                            onOpenTaskDetail: onOpenTaskDetail
+                        )
+                    }
+                    .navigationSplitViewStyle(.balanced)
+                } else {
+                    ChatView(
+                        currentThread: $currentThread,
+                        isPromptFocused: $isPromptFocused,
+                        showChats: $showChats,
+                        showSettings: $showSettings,
+                        onOpenTaskDetail: onOpenTaskDetail
+                    )
+                }
             }
         }
+        .accessibilityIdentifier("home.ipad.detail.chat")
         .environmentObject(appManager)
         .environment(llm)
         .background(Color.tasker(.bgCanvas))
-        .sheet(isPresented: $showChats) {
-            ChatsListView(currentThread: $currentThread, isPromptFocused: $isPromptFocused)
-                .environmentObject(appManager)
-                #if os(iOS)
-                .presentationDragIndicator(.hidden)
-                .presentationDetents(appManager.userInterfaceIdiom == .phone ? [.medium, .large] : [.large])
-                .presentationBackground(Color.tasker(.bgElevated))
-                .presentationCornerRadius(TaskerTheme.CornerRadius.modal)
-            #endif
+        .if(useIPadSplitChatLayout == false) { base in
+            base.sheet(isPresented: $showChats) {
+                ChatsListView(currentThread: $currentThread, isPromptFocused: $isPromptFocused)
+                    .environmentObject(appManager)
+                    #if os(iOS)
+                    .presentationDragIndicator(.hidden)
+                    .presentationDetents(appManager.userInterfaceIdiom == .phone ? [.medium, .large] : [.large])
+                    .presentationBackground(Color.tasker(.bgElevated))
+                    .presentationCornerRadius(TaskerTheme.CornerRadius.modal)
+                #endif
+            }
         }
         .onReceive(NotificationCenter.default.publisher(for: .toggleChatHistory)) { _ in
-            showChats.toggle()
+            if useIPadSplitChatLayout == false {
+                showChats.toggle()
+            }
         }
     }
 }

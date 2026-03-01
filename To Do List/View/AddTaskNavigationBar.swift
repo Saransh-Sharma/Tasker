@@ -10,6 +10,7 @@ import SwiftUI
 // MARK: - Add Task Navigation Bar
 
 struct AddTaskNavigationBar: View {
+    let containerMode: AddTaskContainerMode
     let canSave: Bool
     let onCancel: () -> Void
     let onSave: () -> Void
@@ -21,7 +22,7 @@ struct AddTaskNavigationBar: View {
             Button {
                 onCancel()
             } label: {
-                Text("Cancel")
+                Text(containerMode == .inspector ? "Close" : "Cancel")
                     .font(.tasker(.callout))
                     .foregroundColor(Color.tasker.textSecondary)
             }

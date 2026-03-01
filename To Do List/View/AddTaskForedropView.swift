@@ -12,6 +12,7 @@ import SwiftUI
 
 struct AddTaskForedropView: View {
     @ObservedObject var viewModel: AddTaskViewModel
+    let containerMode: AddTaskContainerMode
     let showAddAnother: Bool
     @Binding var successFlash: Bool
     let onCancel: () -> Void
@@ -22,14 +23,17 @@ struct AddTaskForedropView: View {
     @FocusState private var titleFieldFocused: Bool
     @FocusState private var descriptionFieldFocused: Bool
     @State private var errorShakeTrigger = false
+    @State private var didAutoFocusTitleField = false
+    @Environment(\.taskerLayoutClass) private var layoutClass
 
-    private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.currentTheme.tokens.spacing }
-    private var corner: TaskerCornerTokens { TaskerThemeManager.shared.currentTheme.tokens.corner }
+    private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.tokens(for: layoutClass).spacing }
+    private var corner: TaskerCornerTokens { TaskerThemeManager.shared.tokens(for: layoutClass).corner }
 
     var body: some View {
         VStack(spacing: 0) {
             // Navigation bar
             AddTaskNavigationBar(
+                containerMode: containerMode,
                 canSave: viewModel.viewState.canSubmit && !viewModel.isLoading
             ) {
                 onCancel()
@@ -167,6 +171,9 @@ struct AddTaskForedropView: View {
             }
         }
         .onAppear {
+            guard layoutClass == .phone else { return }
+            guard didAutoFocusTitleField == false else { return }
+            didAutoFocusTitleField = true
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
                 titleFieldFocused = true
             }

@@ -78,6 +78,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
     private let localOnlyConfiguration: Set<String> = ["LocalOnly"]
     private let cloudKitContainerIdentifier = "iCloud.TaskerCloudKitV3"
     private let v3StoreEpoch = 4
+    private let orientationPolicyResolver = DeviceOrientationPolicyResolver()
     private var notificationOrchestrator: TaskNotificationOrchestrator?
     private var notificationActionHandler: TaskerNotificationActionHandler?
     private var gamificationRemoteChangeCoordinator: GamificationRemoteChangeCoordinator?
@@ -213,6 +214,16 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
             GamificationRemoteKillSwitchService.shared.refreshIfAvailable(reason: "app_did_become_active")
         }
         TaskListWidgetSnapshotService.shared.scheduleRefresh(reason: "app_did_become_active")
+    }
+
+    func application(
+        _ application: UIApplication,
+        supportedInterfaceOrientationsFor window: UIWindow?
+    ) -> UIInterfaceOrientationMask {
+        let idiom = window?.windowScene?.traitCollection.userInterfaceIdiom
+            ?? window?.traitCollection.userInterfaceIdiom
+            ?? UIDevice.current.userInterfaceIdiom
+        return orientationPolicyResolver.supportedOrientations(for: idiom)
     }
 
     /// Executes makeLaunchRootMode.

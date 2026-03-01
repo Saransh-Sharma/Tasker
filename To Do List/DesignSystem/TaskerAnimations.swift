@@ -65,21 +65,28 @@ public struct EnhancedStaggeredAppearance: ViewModifier {
     let index: Int
     @State private var appeared = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.taskerLayoutClass) private var layoutClass
 
     public init(index: Int) {
         self.index = index
     }
 
     public func body(content: Content) -> some View {
-        content
-            .opacity(reduceMotion ? 1 : (appeared ? 1 : 0))
-            .scaleEffect(reduceMotion ? 1 : (appeared ? 1 : 0.97))
-            .offset(y: reduceMotion ? 0 : (appeared ? 0 : 16))
-            .animation(
-                reduceMotion ? nil : TaskerAnimation.gentle.delay(Double(index) * TaskerAnimation.staggerInterval),
-                value: appeared
-            )
-            .onAppear { appeared = true }
+        if reduceMotion || (layoutClass.isPad && V2FeatureFlags.iPadPerfHomeAnimationTrimV3Enabled) {
+            return AnyView(content)
+        }
+
+        return AnyView(
+            content
+                .opacity(appeared ? 1 : 0)
+                .scaleEffect(appeared ? 1 : 0.97)
+                .offset(y: appeared ? 0 : 16)
+                .animation(
+                    TaskerAnimation.gentle.delay(Double(index) * TaskerAnimation.staggerInterval),
+                    value: appeared
+                )
+                .onAppear { appeared = true }
+        )
     }
 }
 

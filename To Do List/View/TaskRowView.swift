@@ -166,7 +166,16 @@ enum TaskRowStatusChip: Equatable {
     }
 }
 
-struct TaskRowView: View {
+struct TaskRowDerivedState: Equatable {
+    let displayModel: TaskRowDisplayModel
+    let accessibilityLabel: String
+    let accessibilityHint: String
+    let accessibilityStateValue: String
+    let xpPreview: XPCompletionPreview?
+    let tagDisplaySignature: [String]
+}
+
+struct TaskRowView: View, Equatable {
     let task: TaskDefinition
     let showTypeBadge: Bool
     let isInOverdueSection: Bool
@@ -174,11 +183,14 @@ struct TaskRowView: View {
     let todayXPSoFar: Int?
     let isGamificationV2Enabled: Bool
     let isTaskDragEnabled: Bool
+    private let derivedState: TaskRowDerivedState
     var onTap: (() -> Void)? = nil
     var onToggleComplete: (() -> Void)? = nil
     var onDelete: (() -> Void)? = nil
     var onReschedule: (() -> Void)? = nil
     var onTaskDragStarted: ((TaskDefinition) -> Void)? = nil
+
+    @Environment(\.taskerLayoutClass) private var layoutClass
 
     /// Initializes a new instance.
     init(
@@ -202,6 +214,70 @@ struct TaskRowView: View {
         self.todayXPSoFar = todayXPSoFar
         self.isGamificationV2Enabled = isGamificationV2Enabled
         self.isTaskDragEnabled = isTaskDragEnabled
+        let displayModel = TaskRowDisplayModel.from(
+            task: task,
+            showTypeBadge: showTypeBadge,
+            isInOverdueSection: isInOverdueSection,
+            tagNameByID: tagNameByID
+        )
+        let xpPreview: XPCompletionPreview?
+        if isGamificationV2Enabled {
+            if let todayXPSoFar {
+                xpPreview = XPCalculationEngine.completionXPIfCompletedNow(
+                    priorityRaw: task.priority.rawValue,
+                    estimatedDuration: task.estimatedDuration,
+                    dueDate: task.dueDate,
+                    dailyEarnedSoFar: todayXPSoFar,
+                    isGamificationV2Enabled: true
+                )
+            } else {
+                xpPreview = nil
+            }
+        } else {
+            xpPreview = XPCalculationEngine.completionXPIfCompletedNow(
+                priorityRaw: task.priority.rawValue,
+                estimatedDuration: task.estimatedDuration,
+                dueDate: task.dueDate,
+                dailyEarnedSoFar: 0,
+                isGamificationV2Enabled: false
+            )
+        }
+        let tagDisplaySignature = task.tagIDs.compactMap { tagNameByID[$0] }.sorted()
+        let accessibilityStateValue = task.isComplete ? "done" : "open"
+        var labelParts: [String] = ["Task: \(task.title)"]
+        if task.isComplete {
+            labelParts.append("completed")
+        }
+        if let descriptionText = displayModel.descriptionText {
+            labelParts.append(descriptionText)
+        }
+        if let metadataText = displayModel.metadataText {
+            labelParts.append(metadataText)
+        }
+        if let statusChip = displayModel.statusChip {
+            labelParts.append(statusChip.text.lowercased())
+        }
+        var hintParts: [String] = []
+        if onToggleComplete != nil {
+            hintParts.append("Double tap to toggle completion")
+        }
+        if onTap != nil {
+            hintParts.append("Tap to view details")
+        }
+        if onDelete != nil || onReschedule != nil {
+            hintParts.append("Swipe for actions")
+        }
+        if isTaskDragEnabled {
+            hintParts.append("Long press and drag to move task to Focus")
+        }
+        self.derivedState = TaskRowDerivedState(
+            displayModel: displayModel,
+            accessibilityLabel: labelParts.joined(separator: ", "),
+            accessibilityHint: hintParts.joined(separator: ", "),
+            accessibilityStateValue: accessibilityStateValue,
+            xpPreview: xpPreview,
+            tagDisplaySignature: tagDisplaySignature
+        )
         self.onTap = onTap
         self.onToggleComplete = onToggleComplete
         self.onDelete = onDelete
@@ -210,16 +286,23 @@ struct TaskRowView: View {
     }
 
     private var displayModel: TaskRowDisplayModel {
-        TaskRowDisplayModel.from(
-            task: task,
-            showTypeBadge: showTypeBadge,
-            isInOverdueSection: isInOverdueSection,
-            tagNameByID: tagNameByID
-        )
+        derivedState.displayModel
     }
 
     private var themeColors: TaskerColorTokens {
-        TaskerThemeManager.shared.currentTheme.tokens.color
+        TaskerThemeManager.shared.tokens(for: layoutClass).color
+    }
+
+    static func == (lhs: TaskRowView, rhs: TaskRowView) -> Bool {
+        lhs.task.id == rhs.task.id &&
+        lhs.task.updatedAt == rhs.task.updatedAt &&
+        lhs.task.isComplete == rhs.task.isComplete &&
+        lhs.task.dateCompleted == rhs.task.dateCompleted &&
+        lhs.showTypeBadge == rhs.showTypeBadge &&
+        lhs.isInOverdueSection == rhs.isInOverdueSection &&
+        lhs.todayXPSoFar == rhs.todayXPSoFar &&
+        lhs.isTaskDragEnabled == rhs.isTaskDragEnabled &&
+        lhs.derivedState == rhs.derivedState
     }
 
     private var rowBase: some View {
@@ -265,6 +348,33 @@ struct TaskRowView: View {
             .accessibilityLabel(accessibilityLabel)
             .accessibilityValue(accessibilityStateValue)
             .accessibilityHint(accessibilityHint)
+            .hoverEffect(.highlight)
+            .contextMenu {
+                Button {
+                    onToggleComplete?()
+                } label: {
+                    Label(
+                        task.isComplete ? "Mark Incomplete" : "Mark Complete",
+                        systemImage: task.isComplete ? "arrow.uturn.backward" : "checkmark.circle"
+                    )
+                }
+
+                if !task.isComplete {
+                    Button {
+                        onReschedule?()
+                    } label: {
+                        Label("Reschedule", systemImage: "calendar")
+                    }
+                }
+
+                Divider()
+
+                Button(role: .destructive) {
+                    onDelete?()
+                } label: {
+                    Label("Delete", systemImage: "trash")
+                }
+            }
     }
 
     @ViewBuilder
@@ -279,11 +389,13 @@ struct TaskRowView: View {
         }
     }
 
+    private var isPad: Bool { layoutClass.isPad }
+
     private var rowContent: some View {
         HStack(spacing: 0) {
             priorityStripe
 
-            HStack(alignment: .center, spacing: TaskerTheme.Spacing.xs) {
+            HStack(alignment: .center, spacing: isPad ? TaskerTheme.Spacing.sm : TaskerTheme.Spacing.xs) {
                 CompletionCheckbox(isComplete: task.isComplete, compact: true) {
                     onToggleComplete?()
                 }
@@ -292,14 +404,20 @@ struct TaskRowView: View {
                 .accessibilityHint(task.isComplete ? "Double tap to mark as open" : "Double tap to mark as completed")
                 .accessibilityValue(accessibilityStateValue)
 
-                VStack(alignment: .leading, spacing: 1) {
+                VStack(alignment: .leading, spacing: isPad ? 3 : 1) {
                     Text(task.title)
                         .font(.tasker(.body))
                         .foregroundColor(task.isComplete ? Color.tasker.textTertiary : Color.tasker.textPrimary)
                         .lineLimit(displayModel.hasDescription ? 1 : 2)
                         .multilineTextAlignment(.leading)
 
-                    if let descriptionText = displayModel.descriptionText {
+                    if isPad, let description = task.details?.trimmingCharacters(in: .whitespacesAndNewlines), !description.isEmpty, !task.isComplete {
+                        // iPad: always show description if available
+                        Text(description)
+                            .font(.tasker(.caption2))
+                            .foregroundColor(Color.tasker.textTertiary)
+                            .lineLimit(1)
+                    } else if let descriptionText = displayModel.descriptionText {
                         Text(descriptionText)
                             .font(.tasker(.caption2))
                             .foregroundColor(task.isComplete ? Color.tasker.textQuaternary : Color.tasker.textTertiary)
@@ -317,6 +435,10 @@ struct TaskRowView: View {
                 Spacer(minLength: 0)
 
                 HStack(spacing: 6) {
+                    if isPad {
+                        iPadTrailingMetadata
+                    }
+
                     if let statusChip = displayModel.statusChip {
                         statusChipView(statusChip)
                     }
@@ -324,13 +446,29 @@ struct TaskRowView: View {
                     compactXPBadge
                 }
             }
-            .padding(.vertical, displayModel.hasSecondaryContent ? 6 : 4)
+            .padding(.vertical, isPad ? 8 : (displayModel.hasSecondaryContent ? 6 : 4))
             .padding(.trailing, TaskerTheme.Spacing.md)
             .padding(.leading, TaskerTheme.Spacing.xs)
-            .frame(minHeight: displayModel.hasDescription ? 56 : 50)
+            .frame(minHeight: isPad ? 60 : (displayModel.hasDescription ? 56 : 50))
         }
         .background(rowBackground)
         .animation(TaskerAnimation.quick, value: task.isComplete)
+    }
+
+    @ViewBuilder
+    private var iPadTrailingMetadata: some View {
+        if let dueDate = task.dueDate, !task.isComplete {
+            Text(dueDate, style: .date)
+                .font(.tasker(.caption2))
+                .foregroundColor(task.isOverdue ? Color.tasker.statusDanger : Color.tasker.textTertiary)
+                .padding(.horizontal, 6)
+                .padding(.vertical, 2)
+                .background(
+                    Capsule()
+                        .fill(task.isOverdue ? Color.tasker.statusDanger.opacity(0.1) : Color.tasker.surfaceSecondary)
+                )
+                .fixedSize()
+        }
     }
 
     private var rowBackground: Color {
@@ -405,31 +543,15 @@ struct TaskRowView: View {
     }
 
     private var accessibilityLabel: String {
-        var parts: [String] = ["Task: \(task.title)"]
-        if task.isComplete { parts.append("completed") }
-        if let descriptionText = displayModel.descriptionText {
-            parts.append(descriptionText)
-        }
-        if let metadataText = displayModel.metadataText {
-            parts.append(metadataText)
-        }
-        if let statusChip = displayModel.statusChip {
-            parts.append(statusChip.text.lowercased())
-        }
-        return parts.joined(separator: ", ")
+        derivedState.accessibilityLabel
     }
 
     private var accessibilityHint: String {
-        var hints: [String] = []
-        if onToggleComplete != nil { hints.append("Double tap to toggle completion") }
-        if onTap != nil { hints.append("Tap to view details") }
-        if onDelete != nil || onReschedule != nil { hints.append("Swipe for actions") }
-        if isTaskDragEnabled { hints.append("Long press and drag to move task to Focus") }
-        return hints.joined(separator: ", ")
+        derivedState.accessibilityHint
     }
 
     private var accessibilityStateValue: String {
-        task.isComplete ? "done" : "open"
+        derivedState.accessibilityStateValue
     }
 
     /// Executes statusChipView.
@@ -448,25 +570,7 @@ struct TaskRowView: View {
     }
 
     private var compactXPBadge: some View {
-        let preview: XPCompletionPreview? = {
-            if isGamificationV2Enabled {
-                guard let todayXPSoFar else { return nil }
-                return XPCalculationEngine.completionXPIfCompletedNow(
-                    priorityRaw: task.priority.rawValue,
-                    estimatedDuration: task.estimatedDuration,
-                    dueDate: task.dueDate,
-                    dailyEarnedSoFar: todayXPSoFar,
-                    isGamificationV2Enabled: true
-                )
-            }
-            return XPCalculationEngine.completionXPIfCompletedNow(
-                priorityRaw: task.priority.rawValue,
-                estimatedDuration: task.estimatedDuration,
-                dueDate: task.dueDate,
-                dailyEarnedSoFar: 0,
-                isGamificationV2Enabled: false
-            )
-        }()
+        let preview = derivedState.xpPreview
 
         return Text(preview?.compactLabel ?? "XP pending")
             .font(.tasker(.caption2))

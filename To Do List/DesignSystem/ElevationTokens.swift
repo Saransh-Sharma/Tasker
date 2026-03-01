@@ -79,4 +79,70 @@ public struct TaskerElevationTokens: TaskerTokenGroup {
             blurStyle: .systemMaterial
         )
     )
+
+    private static let padCompact: TaskerElevationTokens = scaled(
+        from: `default`,
+        blurMultiplier: 1.08,
+        offsetMultiplier: 1.05,
+        opacityMultiplier: 1.03,
+        borderMultiplier: 1.0
+    )
+
+    private static let padRegular: TaskerElevationTokens = scaled(
+        from: `default`,
+        blurMultiplier: 1.18,
+        offsetMultiplier: 1.12,
+        opacityMultiplier: 1.08,
+        borderMultiplier: 1.0
+    )
+
+    private static let padExpanded: TaskerElevationTokens = scaled(
+        from: `default`,
+        blurMultiplier: 1.26,
+        offsetMultiplier: 1.2,
+        opacityMultiplier: 1.12,
+        borderMultiplier: 1.0
+    )
+
+    /// Executes forLayout.
+    public static func forLayout(_ layoutClass: TaskerLayoutClass) -> TaskerElevationTokens {
+        switch layoutClass {
+        case .phone:
+            return `default`
+        case .padCompact:
+            return padCompact
+        case .padRegular:
+            return padRegular
+        case .padExpanded:
+            return padExpanded
+        }
+    }
+
+    /// Executes scaled.
+    private static func scaled(
+        from source: TaskerElevationTokens,
+        blurMultiplier: CGFloat,
+        offsetMultiplier: CGFloat,
+        opacityMultiplier: Float,
+        borderMultiplier: CGFloat
+    ) -> TaskerElevationTokens {
+        func apply(_ style: TaskerElevationStyle) -> TaskerElevationStyle {
+            TaskerElevationStyle(
+                shadowOffsetY: style.shadowOffsetY * offsetMultiplier,
+                shadowBlur: style.shadowBlur * blurMultiplier,
+                shadowOpacity: min(1, style.shadowOpacity * opacityMultiplier),
+                shadowColor: style.shadowColor,
+                borderWidth: style.borderWidth * borderMultiplier,
+                borderColor: style.borderColor,
+                blurStyle: style.blurStyle
+            )
+        }
+
+        return TaskerElevationTokens(
+            e0: apply(source.e0),
+            e1: apply(source.e1),
+            e2: apply(source.e2),
+            e3: apply(source.e3)
+        )
+    }
 }
