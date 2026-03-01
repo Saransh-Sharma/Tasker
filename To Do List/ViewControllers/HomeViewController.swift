@@ -10,7 +10,7 @@ import SwiftUI
 import Combine
 import SwiftData
 
-final class HomeViewController: UIViewController, HomeViewControllerProtocol, HomeAnalyticsViewModelsInjectable, PresentationDependencyContainerAware {
+final class HomeViewController: UIViewController, HomeViewControllerProtocol, HomeAnalyticsViewModelsInjectable, PresentationDependencyContainerAware, UIAdaptivePresentationControllerDelegate {
     private static var hasConsumedUITestRoute = false
 
     // MARK: - Dependencies
@@ -41,6 +41,9 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
     private var didTrackIPadShellRendered = false
     private var hasMountedStableLayoutShell = false
     private var pendingIPadModalRequest: HomeiPadModalRequest?
+    private weak var pendingIPadModalFallbackController: UIViewController?
+    private var didConsumePendingIPadModalFallbackRetry = false
+    private var isPendingIPadModalFallbackRetryScheduled = false
 
 
     // MARK: - Lifecycle
@@ -443,16 +446,41 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
     private func processPendingIPadModalRequest() {
         guard isUsingIPadNativeShell else {
             pendingIPadModalRequest = nil
+            resetPendingIPadModalWaitState()
             return
         }
-        guard let request = pendingIPadModalRequest else { return }
-        guard presentedViewController == nil else {
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.12) { [weak self] in
-                self?.processPendingIPadModalRequest()
+        guard let request = pendingIPadModalRequest else {
+            resetPendingIPadModalWaitState()
+            return
+        }
+        if let blockingController = presentedViewController {
+            if let presentationController = blockingController.presentationController {
+                resetPendingIPadModalFallbackState()
+                presentationController.delegate = self
+                return
+            }
+
+            if pendingIPadModalFallbackController !== blockingController {
+                pendingIPadModalFallbackController = blockingController
+                didConsumePendingIPadModalFallbackRetry = false
+                isPendingIPadModalFallbackRetryScheduled = false
+            }
+            guard !didConsumePendingIPadModalFallbackRetry else { return }
+            guard !isPendingIPadModalFallbackRetryScheduled else { return }
+
+            didConsumePendingIPadModalFallbackRetry = true
+            isPendingIPadModalFallbackRetryScheduled = true
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.12) { [weak self, weak blockingController] in
+                guard let self else { return }
+                self.isPendingIPadModalFallbackRetryScheduled = false
+                guard let blockingController else { return }
+                guard self.pendingIPadModalFallbackController === blockingController else { return }
+                self.processPendingIPadModalRequest()
             }
             return
         }
 
+        resetPendingIPadModalWaitState()
         pendingIPadModalRequest = nil
         switch request {
         case .addTask:
@@ -462,6 +490,16 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
             )
             presentAddTaskSheetForPadFallback()
         }
+    }
+
+    private func resetPendingIPadModalFallbackState() {
+        pendingIPadModalFallbackController = nil
+        didConsumePendingIPadModalFallbackRetry = false
+        isPendingIPadModalFallbackRetryScheduled = false
+    }
+
+    private func resetPendingIPadModalWaitState() {
+        resetPendingIPadModalFallbackState()
     }
 
     /// Executes observeMutations.
@@ -2062,5 +2100,12 @@ private struct DailySummaryModalView: View {
         formatter.dateStyle = .full
         formatter.timeStyle = .none
         return formatter.string(from: date)
+    }
+}
+
+extension HomeViewController {
+    func presentationControllerDidDismiss(_ presentationController: UIPresentationController) {
+        resetPendingIPadModalWaitState()
+        processPendingIPadModalRequest()
     }
 }
