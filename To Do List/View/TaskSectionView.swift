@@ -86,7 +86,7 @@ private struct TaskSectionRenderItem: Equatable {
     let task: TaskDefinition
 }
 
-struct TaskSectionDerivedState: Equatable {
+private struct TaskSectionDerivedState: Equatable {
     let openTasks: [TaskDefinition]
     let completedTasks: [TaskDefinition]
     let openRenderItems: [TaskSectionRenderItem]
