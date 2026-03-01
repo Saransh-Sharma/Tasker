@@ -181,6 +181,28 @@ public extension EnvironmentValues {
     }
 }
 
+private func taskerTokenTraits(
+    colorScheme: ColorScheme,
+    dynamicTypeSize: DynamicTypeSize,
+    colorSchemeContrast: ColorSchemeContrast
+) -> TaskerTokenTraitContext {
+    TaskerTokenTraitContext(
+        colorScheme: colorScheme == .dark ? .dark : .light,
+        contentSizeCategory: dynamicTypeSize.uiContentSizeCategory,
+        accessibilityContrast: colorSchemeContrast.uiAccessibilityContrast
+    )
+}
+
+private extension UITraitCollection {
+    var taskerTokenTraits: TaskerTokenTraitContext {
+        TaskerTokenTraitContext(
+            colorScheme: userInterfaceStyle,
+            contentSizeCategory: preferredContentSizeCategory,
+            accessibilityContrast: accessibilityContrast
+        )
+    }
+}
+
 @MainActor
 public extension Color {
     static var tasker: TaskerSwiftUIColorTokens {
@@ -189,7 +211,9 @@ public extension Color {
 
     /// Executes tasker.
     static func tasker(_ role: TaskerColorRole) -> Color {
-        Color(uiColor: TaskerThemeManager.shared.tokens(for: .phone, traits: .unspecified).color.color(for: role))
+        Color(uiColor: UIColor { traits in
+            TaskerThemeManager.shared.tokens(for: .phone, traits: traits.taskerTokenTraits).color.color(for: role)
+        })
     }
 }
 
@@ -213,10 +237,10 @@ private struct TaskerElevationModifier: ViewModifier {
     /// Executes body.
     @MainActor
     func body(content: Content) -> some View {
-        let traits = TaskerTokenTraitContext(
-            colorScheme: colorScheme == .dark ? .dark : .light,
-            contentSizeCategory: dynamicTypeSize.uiContentSizeCategory,
-            accessibilityContrast: colorSchemeContrast.uiAccessibilityContrast
+        let traits = taskerTokenTraits(
+            colorScheme: colorScheme,
+            dynamicTypeSize: dynamicTypeSize,
+            colorSchemeContrast: colorSchemeContrast
         )
         let style = TaskerSwiftUITokens.elevation(for: layoutClass, traits: traits).style(for: level)
         let trait = UITraitCollection(userInterfaceStyle: colorScheme == .dark ? .dark : .light)
@@ -260,33 +284,43 @@ public struct TaskerTextFieldStyle: TextFieldStyle {
 
     /// Executes _body.
     public func _body(configuration: TextField<_Label>) -> some View {
-        MainActor.assumeIsolated {
-            taskerTextFieldBody(configuration: configuration, isFocused: isFocused)
-        }
+        TaskerTextFieldBody(configuration: configuration, isFocused: isFocused)
     }
 }
 
-@MainActor
-private func taskerTextFieldBody<Label: View>(
-    configuration: TextField<Label>,
-    isFocused: Bool
-) -> some View {
-    let tokens = TaskerThemeManager.shared.tokens(for: .phone, traits: .unspecified)
-    return configuration
-        .font(.tasker(.body))
-        .foregroundColor(.tasker(.textPrimary))
-        .tint(.tasker(.accentPrimary))
-        .padding(.horizontal, tokens.spacing.s12)
-        .frame(height: TaskerTextFieldTokens.singleLineHeight)
-        .background(Color.tasker.surfaceSecondary)
-        .overlay(
-            RoundedRectangle(cornerRadius: tokens.corner.r2)
-                .stroke(
-                    isFocused ? Color.tasker.accentRing : Color.tasker.divider,
-                    lineWidth: isFocused ? 2 : 1
-                )
+private struct TaskerTextFieldBody<Label: View>: View {
+    let configuration: TextField<Label>
+    let isFocused: Bool
+
+    @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @Environment(\.colorSchemeContrast) private var colorSchemeContrast
+    @Environment(\.taskerLayoutClass) private var layoutClass
+
+    var body: some View {
+        let traits = taskerTokenTraits(
+            colorScheme: colorScheme,
+            dynamicTypeSize: dynamicTypeSize,
+            colorSchemeContrast: colorSchemeContrast
         )
-        .clipShape(RoundedRectangle(cornerRadius: tokens.corner.r2))
+        let tokens = TaskerThemeManager.shared.tokens(for: layoutClass, traits: traits)
+
+        return configuration
+            .font(.tasker(.body))
+            .foregroundColor(.tasker(.textPrimary))
+            .tint(.tasker(.accentPrimary))
+            .padding(.horizontal, tokens.spacing.s12)
+            .frame(height: TaskerTextFieldTokens.singleLineHeight)
+            .background(Color.tasker.surfaceSecondary)
+            .overlay(
+                RoundedRectangle(cornerRadius: tokens.corner.r2)
+                    .stroke(
+                        isFocused ? Color.tasker.accentRing : Color.tasker.divider,
+                        lineWidth: isFocused ? 2 : 1
+                    )
+            )
+            .clipShape(RoundedRectangle(cornerRadius: tokens.corner.r2))
+    }
 }
 
 public struct TaskerChip: View {
@@ -354,6 +388,11 @@ public struct TaskerCard<Content: View>: View {
     public var elevated: Bool
     private let content: Content
 
+    @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @Environment(\.colorSchemeContrast) private var colorSchemeContrast
+    @Environment(\.taskerLayoutClass) private var layoutClass
+
     /// Initializes a new instance.
     public init(active: Bool = false, elevated: Bool = false, @ViewBuilder content: () -> Content) {
         self.active = active
@@ -362,7 +401,12 @@ public struct TaskerCard<Content: View>: View {
     }
 
     public var body: some View {
-        let tokens = TaskerThemeManager.shared.tokens(for: .phone, traits: .unspecified)
+        let traits = taskerTokenTraits(
+            colorScheme: colorScheme,
+            dynamicTypeSize: dynamicTypeSize,
+            colorSchemeContrast: colorSchemeContrast
+        )
+        let tokens = TaskerThemeManager.shared.tokens(for: layoutClass, traits: traits)
         return content
             .padding(tokens.spacing.cardPadding)
             .background(Color.tasker.surfacePrimary)
