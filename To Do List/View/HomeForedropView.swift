@@ -4718,75 +4718,14 @@ struct HomeiPadSplitShellView: View {
     }
 
     var body: some View {
-        Group {
-            if layoutClass == .padCompact {
-                NavigationStack {
-                    detailContent
-                        .toolbar {
-                            ToolbarItem(placement: .topBarLeading) {
-                                compactSidebarToggle
-                            }
-                            ToolbarItemGroup(placement: .topBarTrailing) {
-                                detailToolbarItems
-                            }
-                        }
-                }
-                .sheet(isPresented: $showCompactSidebar) {
-                    compactSidebarSheet
-                }
-            } else if layoutClass == .padExpanded {
-                NavigationSplitView(columnVisibility: $columnVisibility) {
-                    sidebar
-                        .navigationSplitViewColumnWidth(min: 220, ideal: 260, max: 300)
-                } content: {
-                    detailContent
-                        .toolbar {
-                            ToolbarItemGroup(placement: .topBarTrailing) {
-                                detailToolbarItems
-                            }
-                        }
-                        .navigationSplitViewColumnWidth(min: 400, ideal: 500, max: .infinity)
-                } detail: {
-                    inspectorPanel
-                        .navigationSplitViewColumnWidth(min: 300, ideal: 360, max: 420)
-                        .background(Color.tasker.bgElevated)
-                }
-                .navigationSplitViewStyle(.balanced)
-            } else {
-                NavigationSplitView(columnVisibility: $columnVisibility) {
-                    sidebar
-                        .navigationSplitViewColumnWidth(min: 220, ideal: 260, max: 300)
-                } detail: {
-                    detailContent
-                        .toolbar {
-                            ToolbarItemGroup(placement: .topBarTrailing) {
-                                detailToolbarItems
-                            }
-                        }
-                }
-                .navigationSplitViewStyle(.prominentDetail)
+        shellLayout
+            .accessibilityIdentifier("home.ipad.shell")
+            .background {
+                hiddenKeyboardShortcuts
             }
-        }
-        .accessibilityIdentifier("home.ipad.shell")
-        .background {
-            // Global keyboard shortcuts (hidden buttons)
-            Group {
-                Button("") { shellState.destination = .search }
-                    .keyboardShortcut("f", modifiers: .command)
-                Button("") { shellState.destination = .tasks }
-                    .keyboardShortcut("1", modifiers: .command)
-                Button("") { shellState.destination = .analytics }
-                    .keyboardShortcut("2", modifiers: .command)
-                Button("") { shellState.destination = .settings }
-                    .keyboardShortcut(",", modifiers: .command)
-            }
-            .opacity(0)
-            .frame(width: 0, height: 0)
-            .allowsHitTesting(false)
-        }
-        .onAppear {
-            if let face = shellState.destination.homeFace {
-                activeHomeFace = face
+            .onAppear {
+                if let face = shellState.destination.homeFace {
+                    activeHomeFace = face
             }
         }
         .onChange(of: shellState.destination) { _, newValue in
@@ -4808,18 +4747,112 @@ struct HomeiPadSplitShellView: View {
                 shellState.selectedTask = nil
             }
         }
-        .onChange(of: activeHomeFace) { _, newValue in
-            if layoutClass.isPad && V2FeatureFlags.iPadPerfPrimarySurfacePersistenceV3Enabled {
-                logWarning(
-                    event: "ipadPrimaryDestinationSwitchEnd",
-                    message: "Completed iPad primary destination switch",
-                    fields: ["face": newValue.analyticsName]
-                )
-            }
-            let destination = destination(for: newValue)
-            if shellState.destination != destination {
-                shellState.destination = destination
-            }
+        .onChange(of: activeHomeFace) {
+            handleActiveHomeFaceChange()
+        }
+    }
+
+    private var shellLayout: AnyView {
+        if layoutClass == .padCompact {
+            return AnyView(compactShell)
+        }
+        if layoutClass == .padExpanded {
+            return AnyView(expandedShell)
+        }
+        return AnyView(regularShell)
+    }
+
+    private var compactShell: some View {
+        NavigationStack {
+            detailContent
+                .toolbar {
+                    ToolbarItem(placement: .topBarLeading) {
+                        compactSidebarToggle
+                    }
+                    ToolbarItemGroup(placement: .topBarTrailing) {
+                        detailToolbarItems
+                    }
+                }
+        }
+        .sheet(isPresented: $showCompactSidebar) {
+            compactSidebarSheet
+        }
+    }
+
+    private var expandedShell: some View {
+        NavigationSplitView(columnVisibility: $columnVisibility) {
+            sidebar
+                .navigationSplitViewColumnWidth(min: 220, ideal: 260, max: 300)
+        } content: {
+            detailContent
+                .toolbar {
+                    ToolbarItemGroup(placement: .topBarTrailing) {
+                        detailToolbarItems
+                    }
+                }
+                .navigationSplitViewColumnWidth(min: 400, ideal: 500, max: .infinity)
+        } detail: {
+            inspectorPanel
+                .navigationSplitViewColumnWidth(min: 300, ideal: 360, max: 420)
+                .background(Color.tasker.bgElevated)
+        }
+        .navigationSplitViewStyle(.balanced)
+    }
+
+    private var regularShell: some View {
+        NavigationSplitView(columnVisibility: $columnVisibility) {
+            sidebar
+                .navigationSplitViewColumnWidth(min: 220, ideal: 260, max: 300)
+        } detail: {
+            detailContent
+                .toolbar {
+                    ToolbarItemGroup(placement: .topBarTrailing) {
+                        detailToolbarItems
+                    }
+                }
+        }
+        .navigationSplitViewStyle(.prominentDetail)
+    }
+
+    private var hiddenKeyboardShortcuts: some View {
+        Group {
+            Button("") { shellState.destination = .search }
+                .keyboardShortcut("f", modifiers: .command)
+            Button("") { shellState.destination = .tasks }
+                .keyboardShortcut("1", modifiers: .command)
+            Button("") { shellState.destination = .analytics }
+                .keyboardShortcut("2", modifiers: .command)
+            Button("") { shellState.destination = .settings }
+                .keyboardShortcut(",", modifiers: .command)
+        }
+        .opacity(0)
+        .frame(width: 0, height: 0)
+        .allowsHitTesting(false)
+    }
+
+    private func analyticsName(for face: HomeForedropFace) -> String {
+        switch face {
+        case .tasks:
+            return "tasks"
+        case .analytics:
+            return "analytics"
+        case .search:
+            return "search"
+        }
+    }
+
+    private func handleActiveHomeFaceChange() {
+        let newValue = activeHomeFace
+        if layoutClass.isPad && V2FeatureFlags.iPadPerfPrimarySurfacePersistenceV3Enabled {
+            logWarning(
+                event: "ipadPrimaryDestinationSwitchEnd",
+                message: "Completed iPad primary destination switch",
+                fields: ["face": analyticsName(for: newValue)]
+            )
+        }
+        let nextDestination = destination(for: newValue)
+        if shellState.destination != nextDestination {
+            shellState.destination = nextDestination
         }
     }
 
