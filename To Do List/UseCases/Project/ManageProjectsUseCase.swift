@@ -146,6 +146,100 @@ public final class ManageProjectsUseCase {
             }
         }
     }
+
+    /// Archives a project without deleting tasks.
+    public func archiveProject(
+        projectId: UUID,
+        completion: @escaping (Result<Project, ProjectError>) -> Void
+    ) {
+        projectRepository.fetchProject(withId: projectId) { [weak self] result in
+            switch result {
+            case .success(let project):
+                guard var project else {
+                    completion(.failure(.projectNotFound))
+                    return
+                }
+                if project.isDefault || project.isInbox {
+                    completion(.failure(.cannotModifyDefault))
+                    return
+                }
+
+                if project.isArchived {
+                    completion(.success(project))
+                    return
+                }
+
+                project.isArchived = true
+                project.modifiedDate = Date()
+                self?.performProjectUpdate(project: project) { updateResult in
+                    switch updateResult {
+                    case .success(let updatedProject):
+                        TaskNotificationDispatcher.postOnMain(
+                            name: .homeTaskMutation,
+                            userInfo: [
+                                "reason": "projectChanged",
+                                "source": "manageProjectsUseCase",
+                                "projectID": updatedProject.id.uuidString,
+                                "archived": true
+                            ]
+                        )
+                        completion(.success(updatedProject))
+                    case .failure(let error):
+                        completion(.failure(error))
+                    }
+                }
+            case .failure(let error):
+                completion(.failure(.repositoryError(error)))
+            }
+        }
+    }
+
+    /// Unarchives a previously archived project.
+    public func unarchiveProject(
+        projectId: UUID,
+        completion: @escaping (Result<Project, ProjectError>) -> Void
+    ) {
+        projectRepository.fetchProject(withId: projectId) { [weak self] result in
+            switch result {
+            case .success(let project):
+                guard var project else {
+                    completion(.failure(.projectNotFound))
+                    return
+                }
+                if project.isDefault || project.isInbox {
+                    completion(.failure(.cannotModifyDefault))
+                    return
+                }
+
+                if project.isArchived == false {
+                    completion(.success(project))
+                    return
+                }
+
+                project.isArchived = false
+                project.modifiedDate = Date()
+                self?.performProjectUpdate(project: project) { updateResult in
+                    switch updateResult {
+                    case .success(let updatedProject):
+                        TaskNotificationDispatcher.postOnMain(
+                            name: .homeTaskMutation,
+                            userInfo: [
+                                "reason": "projectChanged",
+                                "source": "manageProjectsUseCase",
+                                "projectID": updatedProject.id.uuidString,
+                                "archived": false
+                            ]
+                        )
+                        completion(.success(updatedProject))
+                    case .failure(let error):
+                        completion(.failure(error))
+                    }
+                }
+            case .failure(let error):
+                completion(.failure(.repositoryError(error)))
+            }
+        }
+    }
     
     // MARK: - Delete Project
     
