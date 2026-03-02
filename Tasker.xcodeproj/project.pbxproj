@@ -13,6 +13,7 @@
 		0512DBCE948D6692B0F1857F /* TaskerThemeManagerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5DA1D87ADF956BED887FE0CC /* TaskerThemeManagerTests.swift */; };
 		08CCE589CA3E83FE266289D1 /* To Do List/State/Repositories/CoreDataAssistantActionRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = E6747A1FAF23571C7A3DA320 /* To Do List/State/Repositories/CoreDataAssistantActionRepository.swift */; };
 		0BF080CECE0D47F110E23C11 /* SettingsRootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BC92DC6157EF1B9AAB1422D9 /* SettingsRootView.swift */; };
+		A91F8E112F44420100AB11C1 /* LifeManagementView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A91F8E132F44420100AB11C1 /* LifeManagementView.swift */; };
 		0D77AD04BFBCEC5DAB92B68D /* To Do List/Domain/Interfaces/ScheduleRepositoryProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = 712BE2C322E8930A4886933B /* To Do List/Domain/Interfaces/ScheduleRepositoryProtocol.swift */; };
 		0F2D95B3C4177167351607FF /* SlashCommandPickerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 93D25A779BBE1A1B798EFA4D /* SlashCommandPickerView.swift */; };
 		0F67D9989E8924F5B6E2B2EE /* To Do List/State/Repositories/CoreDataLifeAreaRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = 26D9ECAA7CAE990AACBF05E5 /* To Do List/State/Repositories/CoreDataLifeAreaRepository.swift */; };
@@ -78,6 +79,7 @@
 		5E49A6FCA0C096CB2B6EA054 /* TaskerWidgets/StreakResilienceWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BBE8CE1B13AA2877F4BBCAE /* TaskerWidgets/StreakResilienceWidget.swift */; };
 		5F230AF6BB3D9F989C5A6418 /* ColorTokens.swift in Sources */ = {isa = PBXBuildFile; fileRef = B812E7A0B879607C95C0571B /* ColorTokens.swift */; };
 		600B7F6D47A6091946016C7A /* GetHomeFilteredTasksUseCaseTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C39FDE21811FCBE733038318 /* GetHomeFilteredTasksUseCaseTests.swift */; };
+		A91F8E162F44420100AB11C1 /* LifeManagementFeatureTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A91F8E152F44420100AB11C1 /* LifeManagementFeatureTests.swift */; };
 		6211D7BD7037AA1D03E6F90B /* TaskReadModelRepositoryProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4C3F70CE989FCF07417B5EE /* TaskReadModelRepositoryProtocol.swift */; };
 		63F0A29CF92317D22F150D4B /* To Do List/Domain/Interfaces/ReminderRepositoryProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8D0FFCDBD5039DB8EE185B5E /* To Do List/Domain/Interfaces/ReminderRepositoryProtocol.swift */; };
 		656AE33F845CFC0E1E317F5E /* To Do List/Domain/Interfaces/TagRepositoryProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = D69B4ECB89C44E275D829577 /* To Do List/Domain/Interfaces/TagRepositoryProtocol.swift */; };
@@ -99,6 +101,7 @@
 		7509A01A2F13D806009162CD /* HomeViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7509A00D2F13D806009162CD /* HomeViewModel.swift */; };
 		7509A01B2F13D806009162CD /* PresentationDependencyContainer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7509A00A2F13D806009162CD /* PresentationDependencyContainer.swift */; };
 		7509A01C2F13D806009162CD /* ProjectManagementViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7509A00E2F13D806009162CD /* ProjectManagementViewModel.swift */; };
+		A91F8E122F44420100AB11C1 /* LifeManagementViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A91F8E142F44420100AB11C1 /* LifeManagementViewModel.swift */; };
 		750F9EDC2685CC9F00C008C4 /* CloudKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 750F9EDB2685CC9F00C008C4 /* CloudKit.framework */; };
 		7513BA322687C40500F8CCE0 /* SettingsBackdrop.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7513BA312687C40500F8CCE0 /* SettingsBackdrop.swift */; };
 		7524B71B2DE4EAC90026D865 /* GoogleService-Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = 7524B71A2DE4EAC90026D865 /* GoogleService-Info.plist */; };
@@ -535,6 +538,7 @@
 		7509A00C2F13D806009162CD /* AddTaskViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddTaskViewModel.swift; sourceTree = "<group>"; };
 		7509A00D2F13D806009162CD /* HomeViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeViewModel.swift; sourceTree = "<group>"; };
 		7509A00E2F13D806009162CD /* ProjectManagementViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProjectManagementViewModel.swift; sourceTree = "<group>"; };
+		A91F8E142F44420100AB11C1 /* LifeManagementViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LifeManagementViewModel.swift; sourceTree = "<group>"; };
 		750F9EDA2685CC9500C008C4 /* This Day.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = "This Day.entitlements"; sourceTree = "<group>"; };
 		750F9EDB2685CC9F00C008C4 /* CloudKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CloudKit.framework; path = System/Library/Frameworks/CloudKit.framework; sourceTree = SDKROOT; };
 		7513BA312687C40500F8CCE0 /* SettingsBackdrop.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsBackdrop.swift; sourceTree = "<group>"; };
@@ -596,6 +600,7 @@
 		7551DA08248832BE005CF826 /* ToDoTimeUtils.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ToDoTimeUtils.swift; sourceTree = "<group>"; };
 		75573CAE2DE88A8000F5A873 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		75573CB22DE8954500F5A873 /* ProjectManagementView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProjectManagementView.swift; sourceTree = "<group>"; };
+		A91F8E132F44420100AB11C1 /* LifeManagementView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LifeManagementView.swift; sourceTree = "<group>"; };
 		755FE8DB2479220700A71A75 /* LineChart.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LineChart.swift; sourceTree = "<group>"; };
 		755FE8DD2479227A00A71A75 /* TinyPieChart.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TinyPieChart.swift; sourceTree = "<group>"; };
 		755FE8E12479EA5300A71A75 /* RippleDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RippleDelegate.swift; sourceTree = "<group>"; };
@@ -773,6 +778,7 @@
 		B3A1F2C4D5E6F70C /* To Do List/View/BadgeDetailSheet.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "To Do List/View/BadgeDetailSheet.swift"; sourceTree = SOURCE_ROOT; };
 		B4599EE24B534345B7E5F063 /* TaskerWidgets/WeeklyScoreboardWidget.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = TaskerWidgets/WeeklyScoreboardWidget.swift; sourceTree = SOURCE_ROOT; };
 		B4D7E8213A4F5C6D7E8F9011 /* V3TestHarness.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = V3TestHarness.swift; sourceTree = "<group>"; };
+		A91F8E152F44420100AB11C1 /* LifeManagementFeatureTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeManagementFeatureTests.swift; sourceTree = "<group>"; };
 		B7C8D9E0F1A2233445566778 /* OverdueAgeFormatter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OverdueAgeFormatter.swift; sourceTree = "<group>"; };
 		B7C8D9E0F1A223344556677A /* OverdueAgeFormatterTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = OverdueAgeFormatterTests.swift; sourceTree = "<group>"; };
 		B7C8D9E0F1A223344556677C /* FocusZoneStatusTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = FocusZoneStatusTests.swift; sourceTree = "<group>"; };
@@ -1071,6 +1077,7 @@
 			isa = PBXGroup;
 			children = (
 				BC92DC6157EF1B9AAB1422D9 /* SettingsRootView.swift */,
+				A91F8E132F44420100AB11C1 /* LifeManagementView.swift */,
 				BCD0B9C7DEE094DB1B55D5BD /* SettingsViewModel.swift */,
 				5DAFF791DE50B3141083F4FD /* Components */,
 			);
@@ -1146,6 +1153,7 @@
 				7509A00D2F13D806009162CD /* HomeViewModel.swift */,
 				A7B8C9D12F13D806009162CD /* TaskDetailViewModel.swift */,
 				7509A00E2F13D806009162CD /* ProjectManagementViewModel.swift */,
+				A91F8E142F44420100AB11C1 /* LifeManagementViewModel.swift */,
 				B1A1C1D1E1F1020304050603 /* ChartCardViewModel.swift */,
 				B1A1C1D1E1F1020304050604 /* RadarChartCardViewModel.swift */,
 				B1A1C1D1E1F1020304050605 /* ProjectSelectionViewModel.swift */,
@@ -1297,6 +1305,7 @@
 				F2A1B2C3D4E5F60718293A54 /* HomeViewModelXPScoreRegressionTests.swift */,
 				F3A1B2C3D4E5F60718293A55 /* HomeForedropLayoutMetricsTests.swift */,
 				F4A1B2C3D4E5F60718293A56 /* HomeForedropHintEligibilityTests.swift */,
+				A91F8E152F44420100AB11C1 /* LifeManagementFeatureTests.swift */,
 				753EFCB62445A24800A739E3 /* Info.plist */,
 				56E141F5136022B40FFD72B3 /* DesignSystem */,
 				B4D7E8213A4F5C6D7E8F9013 /* TestSupport */,
@@ -2347,6 +2356,7 @@
 				758D4D7C24A940C300AB57A8 /* ProjectEntity+CoreDataClass.swift in Sources */,
 				75C7B8212454DABC00C61668 /* SettingsPageViewController.swift in Sources */,
 				0BF080CECE0D47F110E23C11 /* SettingsRootView.swift in Sources */,
+				A91F8E112F44420100AB11C1 /* LifeManagementView.swift in Sources */,
 				86E61B5C7E8F8DDAD3BAC7C9 /* SettingsViewModel.swift in Sources */,
 				A2538173786D1C9268A5495A /* SettingsProfileHeaderView.swift in Sources */,
 				65EC8640A12B976FD27DE5FD /* AppearanceCardView.swift in Sources */,
@@ -2395,6 +2405,7 @@
 				A7B8C9D22F13D806009162CD /* TaskDetailViewModel.swift in Sources */,
 				7509A01B2F13D806009162CD /* PresentationDependencyContainer.swift in Sources */,
 				7509A01C2F13D806009162CD /* ProjectManagementViewModel.swift in Sources */,
+				A91F8E122F44420100AB11C1 /* LifeManagementViewModel.swift in Sources */,
 				B1A1C1D1E1F1020304050613 /* ChartCardViewModel.swift in Sources */,
 				B1A1C1D1E1F1020304050614 /* RadarChartCardViewModel.swift in Sources */,
 				B1A1C1D1E1F1020304050615 /* ProjectSelectionViewModel.swift in Sources */,
@@ -2682,6 +2693,7 @@
 				F2A1B2C3D4E5F60718293B54 /* HomeViewModelXPScoreRegressionTests.swift in Sources */,
 				F3A1B2C3D4E5F60718293B55 /* HomeForedropLayoutMetricsTests.swift in Sources */,
 				F4A1B2C3D4E5F60718293B56 /* HomeForedropHintEligibilityTests.swift in Sources */,
+				A91F8E162F44420100AB11C1 /* LifeManagementFeatureTests.swift in Sources */,
 				B4D7E8213A4F5C6D7E8F9012 /* V3TestHarness.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
