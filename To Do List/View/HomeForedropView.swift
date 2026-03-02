@@ -4591,6 +4591,7 @@ enum HomeiPadDestination: String, CaseIterable, Identifiable {
     case analytics
     case addTask
     case settings
+    case lifeManagement
     case projects
     case chat
 
@@ -4603,6 +4604,7 @@ enum HomeiPadDestination: String, CaseIterable, Identifiable {
         case .analytics: return "Analytics"
         case .addTask: return "Add Task"
         case .settings: return "Settings"
+        case .lifeManagement: return "Life Management"
         case .projects: return "Projects"
         case .chat: return "Eva"
         }
@@ -4615,6 +4617,7 @@ enum HomeiPadDestination: String, CaseIterable, Identifiable {
         case .analytics: return "chart.bar.xaxis"
         case .addTask: return "plus.circle"
         case .settings: return "gearshape"
+        case .lifeManagement: return "square.grid.2x2"
         case .projects: return "folder"
         case .chat: return "sparkles"
         }
@@ -4625,7 +4628,7 @@ enum HomeiPadDestination: String, CaseIterable, Identifiable {
         case .tasks: return .tasks
         case .search: return .search
         case .analytics: return .analytics
-        case .addTask, .settings, .projects, .chat: return nil
+        case .addTask, .settings, .lifeManagement, .projects, .chat: return nil
         }
     }
 
@@ -4667,7 +4670,7 @@ enum HomeiPadSidebarSection: String, CaseIterable, Identifiable {
         switch self {
         case .primary: return [.tasks, .search, .analytics]
         case .create: return [.addTask]
-        case .manage: return [.projects, .settings, .chat]
+        case .manage: return [.lifeManagement, .projects, .settings, .chat]
         }
     }
 }
@@ -4700,6 +4703,7 @@ struct HomeiPadSplitShellView: View {
     let homeSurface: (Binding<HomeForedropFace>) -> AnyView
     let addTaskSurface: () -> AnyView
     let settingsSurface: () -> AnyView
+    let lifeManagementSurface: () -> AnyView
     let projectsSurface: () -> AnyView
     let chatSurface: () -> AnyView
     let inspectorSurface: (TaskDefinition) -> AnyView
@@ -4999,6 +5003,9 @@ struct HomeiPadSplitShellView: View {
         case .settings:
             settingsSurface()
                 .accessibilityIdentifier("home.ipad.detail.settings")
+        case .lifeManagement:
+            lifeManagementSurface()
+                .accessibilityIdentifier("home.ipad.detail.lifeManagement")
         case .projects:
             projectsSurface()
                 .accessibilityIdentifier("home.ipad.detail.projects")
@@ -5071,6 +5078,7 @@ struct HomeiPadSplitShellView: View {
 
 struct HomeiPadSettingsContainer: View {
     let onNavigateToProjects: () -> Void
+    let onNavigateToLifeManagement: () -> Void
     let onNavigateToChats: () -> Void
     let onNavigateToModels: () -> Void
 
@@ -5081,6 +5089,7 @@ struct HomeiPadSettingsContainer: View {
             SettingsRootView(viewModel: viewModel)
                 .onAppear {
                     viewModel.onNavigateToProjects = onNavigateToProjects
+                    viewModel.onNavigateToLifeManagement = onNavigateToLifeManagement
                     viewModel.onNavigateToChats = onNavigateToChats
                     viewModel.onNavigateToModels = onNavigateToModels
                 }

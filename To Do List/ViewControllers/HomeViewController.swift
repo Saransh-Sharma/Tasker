@@ -289,6 +289,9 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
             settingsSurface: { [weak self] in
                 self?.makeSettingsInspectorRoot(layoutClass: layoutClass) ?? AnyView(EmptyView())
             },
+            lifeManagementSurface: { [weak self] in
+                self?.makeLifeManagementInspectorRoot(layoutClass: layoutClass) ?? AnyView(EmptyView())
+            },
             projectsSurface: { [weak self] in
                 self?.makeProjectManagementInspectorRoot(layoutClass: layoutClass) ?? AnyView(EmptyView())
             },
@@ -326,6 +329,9 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
                 onNavigateToProjects: { [weak self] in
                     self?.iPadShellState.destination = .projects
                 },
+                onNavigateToLifeManagement: { [weak self] in
+                    self?.iPadShellState.destination = .lifeManagement
+                },
                 onNavigateToChats: { [weak self] in
                     self?.iPadShellState.destination = .chat
                 },
@@ -334,6 +340,17 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
                 }
             )
             .taskerLayoutClass(layoutClass)
+        )
+    }
+
+    private func makeLifeManagementInspectorRoot(layoutClass: TaskerLayoutClass) -> AnyView {
+        guard let presentationDependencyContainer else {
+            return AnyView(Text("Life Management unavailable").font(.tasker(.body)))
+        }
+        let vm = presentationDependencyContainer.makeLifeManagementViewModel()
+        return AnyView(
+            LifeManagementView(viewModel: vm)
+                .taskerLayoutClass(layoutClass)
         )
     }
 
