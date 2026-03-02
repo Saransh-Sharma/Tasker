@@ -48,6 +48,7 @@ public final class ManageProjectsUseCase {
                 
                 // Create the project
                 let project = Project(
+                    lifeAreaID: request.lifeAreaID,
                     name: request.name,
                     projectDescription: request.description,
                     createdDate: Date(),
@@ -308,6 +309,98 @@ public final class ManageProjectsUseCase {
             }
         }
     }
+
+    /// Move a project under a different life area and remap all tasks under the project.
+    public func moveProjectToLifeArea(
+        projectId: UUID,
+        lifeAreaID: UUID,
+        completion: @escaping (Result<ProjectLifeAreaMoveResult, ProjectError>) -> Void
+    ) {
+        projectRepository.fetchProject(withId: projectId) { [weak self] sourceResult in
+            switch sourceResult {
+            case .success(let sourceProject):
+                guard let sourceProject else {
+                    completion(.failure(.projectNotFound))
+                    return
+                }
+
+                if sourceProject.isDefault || sourceProject.isInbox {
+                    completion(.failure(.cannotModifyDefault))
+                    return
+                }
+
+                if sourceProject.lifeAreaID == lifeAreaID {
+                    let noOp = ProjectLifeAreaMoveResult(
+                        updatedProjectID: sourceProject.id,
+                        fromLifeAreaID: sourceProject.lifeAreaID,
+                        toLifeAreaID: lifeAreaID,
+                        tasksRemappedCount: 0
+                    )
+                    completion(.success(noOp))
+                    return
+                }
+
+                self?.projectRepository.moveProjectToLifeArea(
+                    projectID: projectId,
+                    lifeAreaID: lifeAreaID
+                ) { result in
+                    switch result {
+                    case .success(let moveResult):
+                        TaskNotificationDispatcher.postOnMain(
+                            name: NSNotification.Name("ProjectUpdated"),
+                            userInfo: [
+                                "projectID": moveResult.updatedProjectID.uuidString,
+                                "lifeAreaID": moveResult.toLifeAreaID.uuidString
+                            ]
+                        )
+                        TaskNotificationDispatcher.postOnMain(
+                            name: .homeTaskMutation,
+                            userInfo: [
+                                "reason": "projectChanged",
+                                "source": "manageProjectsUseCase",
+                                "projectID": moveResult.updatedProjectID.uuidString,
+                                "lifeAreaID": moveResult.toLifeAreaID.uuidString,
+                                "tasksRemappedCount": moveResult.tasksRemappedCount
+                            ]
+                        )
+                        completion(.success(moveResult))
+                    case .failure(let error):
+                        completion(.failure(.repositoryError(error)))
+                    }
+                }
+
+            case .failure(let error):
+                completion(.failure(.repositoryError(error)))
+            }
+        }
+    }
+
+    /// Backfill projects without a life-area linkage to the provided default life area.
+    public func backfillUnassignedProjectsToGeneral(
+        generalLifeAreaID: UUID,
+        completion: @escaping (Result<ProjectLifeAreaBackfillResult, ProjectError>) -> Void
+    ) {
+        projectRepository.backfillProjectsWithoutLifeArea(defaultLifeAreaID: generalLifeAreaID) { result in
+            switch result {
+            case .success(let backfillResult):
+                if backfillResult.projectsUpdatedCount > 0 || backfillResult.tasksRemappedCount > 0 {
+                    TaskNotificationDispatcher.postOnMain(
+                        name: .homeTaskMutation,
+                        userInfo: [
+                            "reason": "bulkChanged",
+                            "source": "manageProjectsUseCase",
+                            "lifeAreaID": generalLifeAreaID.uuidString,
+                            "projectsUpdatedCount": backfillResult.projectsUpdatedCount,
+                            "tasksRemappedCount": backfillResult.tasksRemappedCount
+                        ]
+                    )
+                }
+                completion(.success(backfillResult))
+            case .failure(let error):
+                completion(.failure(.repositoryError(error)))
+            }
+        }
+    }
     
     // MARK: - Private Methods
     
@@ -367,11 +460,13 @@ public final class ManageProjectsUseCase {
 public struct CreateProjectRequest {
     public let name: String
     public let description: String?
+    public let lifeAreaID: UUID?
     
     /// Initializes a new instance.
-    public init(name: String, description: String? = nil) {
+    public init(name: String, description: String? = nil, lifeAreaID: UUID? = nil) {
         self.name = name
         self.description = description
+        self.lifeAreaID = lifeAreaID
     }
 }
 

@@ -31,6 +31,7 @@ public enum StateProjectMapper {
 
         return Project(
             id: id,
+            lifeAreaID: entity.lifeAreaID,
             name: normalizedProjectName ?? "Unnamed Project",
             projectDescription: entity.projectDescription,
             createdDate: entity.createdDate ?? Date(),
@@ -70,6 +71,7 @@ public enum StateProjectMapper {
     ///   - project: The domain Project model
     public static func updateEntity(_ entity: ProjectEntity, from project: Project) {
         entity.id = project.id
+        entity.lifeAreaID = project.lifeAreaID
         entity.name = project.name
         entity.projectDescription = project.projectDescription
         entity.createdDate = project.createdDate

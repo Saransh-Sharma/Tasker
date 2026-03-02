@@ -368,6 +368,32 @@ private class CachedProjectRepository: ProjectRepositoryProtocol {
         cache.clearAll()
         repository.moveTasks(from: sourceProjectId, to: targetProjectId, completion: completion)
     }
+
+    /// Executes moveProjectToLifeArea.
+    func moveProjectToLifeArea(
+        projectID: UUID,
+        lifeAreaID: UUID,
+        completion: @escaping (Result<ProjectLifeAreaMoveResult, Error>) -> Void
+    ) {
+        cache.clearAll()
+        repository.moveProjectToLifeArea(
+            projectID: projectID,
+            lifeAreaID: lifeAreaID,
+            completion: completion
+        )
+    }
+
+    /// Executes backfillProjectsWithoutLifeArea.
+    func backfillProjectsWithoutLifeArea(
+        defaultLifeAreaID: UUID,
+        completion: @escaping (Result<ProjectLifeAreaBackfillResult, Error>) -> Void
+    ) {
+        cache.clearAll()
+        repository.backfillProjectsWithoutLifeArea(
+            defaultLifeAreaID: defaultLifeAreaID,
+            completion: completion
+        )
+    }
     
     /// Executes isProjectNameAvailable.
     func isProjectNameAvailable(_ name: String, excludingId: UUID?, completion: @escaping (Result<Bool, Error>) -> Void) {
