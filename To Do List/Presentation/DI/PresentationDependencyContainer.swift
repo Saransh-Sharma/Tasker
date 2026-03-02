@@ -30,6 +30,7 @@ public final class PresentationDependencyContainer {
     private var _homeViewModel: HomeViewModel?
     private var _addTaskViewModel: AddTaskViewModel?
     private var _projectManagementViewModel: ProjectManagementViewModel?
+    private var _lifeManagementViewModel: LifeManagementViewModel?
     private var _chartCardViewModel: ChartCardViewModel?
     private var _radarChartCardViewModel: RadarChartCardViewModel?
     private var _projectSelectionViewModel: ProjectSelectionViewModel?
@@ -181,6 +182,22 @@ public final class PresentationDependencyContainer {
             getTasksUseCase: useCaseCoordinator.getTasks
         )
         _projectManagementViewModel = viewModel
+        return viewModel
+    }
+
+    /// Get or create LifeManagementViewModel
+    public func makeLifeManagementViewModel() -> LifeManagementViewModel {
+        assertConfigured()
+        if let existing = _lifeManagementViewModel {
+            return existing
+        }
+
+        let viewModel = LifeManagementViewModel(
+            manageLifeAreasUseCase: useCaseCoordinator.manageLifeAreas,
+            manageProjectsUseCase: useCaseCoordinator.manageProjects,
+            projectRepository: projectRepository
+        )
+        _lifeManagementViewModel = viewModel
         return viewModel
     }
 

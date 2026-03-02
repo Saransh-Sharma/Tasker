@@ -101,9 +101,9 @@ struct SettingsRootView: View {
 
                 TaskerCard {
                     SettingsNavigationRow(
-                        iconName: "folder.fill",
-                        title: "Projects",
-                        action: viewModel.onNavigateToProjects
+                        iconName: "square.grid.2x2.fill",
+                        title: "Life Management",
+                        action: viewModel.onNavigateToLifeManagement
                     )
                 }
                 .cardPressEffect()

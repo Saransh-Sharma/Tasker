@@ -21,6 +21,7 @@ final class SettingsViewModel: ObservableObject {
     // MARK: - Navigation callbacks (set by SettingsPageViewController)
 
     var onNavigateToProjects: (() -> Void)?
+    var onNavigateToLifeManagement: (() -> Void)?
     var onNavigateToChats: (() -> Void)?
     var onNavigateToModels: (() -> Void)?
     var onDismiss: (() -> Void)?

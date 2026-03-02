@@ -67,8 +67,8 @@ class SettingsPageViewController: UIViewController, PresentationDependencyContai
     private func setupSwiftUIHost() {
         let viewModel = SettingsViewModel(appManager: appManager)
 
-        viewModel.onNavigateToProjects = { [weak self] in
-            self?.navigateToProjectManagement()
+        viewModel.onNavigateToLifeManagement = { [weak self] in
+            self?.navigateToLifeManagement()
         }
         viewModel.onNavigateToChats = { [weak self] in
             self?.navigateToLLMChatsSettings()
@@ -149,6 +149,18 @@ class SettingsPageViewController: UIViewController, PresentationDependencyContai
         let view = ProjectManagementView(viewModel: viewModel)
         let controller = UIHostingController(rootView: view)
         controller.title = "Projects"
+        navigationController?.pushViewController(controller, animated: true)
+    }
+
+    private func navigateToLifeManagement() {
+        guard let presentationDependencyContainer else {
+            assertionFailure("SettingsPageViewController requires injected PresentationDependencyContainer")
+            return
+        }
+        let viewModel = presentationDependencyContainer.makeLifeManagementViewModel()
+        let view = LifeManagementView(viewModel: viewModel)
+        let controller = UIHostingController(rootView: view)
+        controller.title = "Life Management"
         navigationController?.pushViewController(controller, animated: true)
     }
 
