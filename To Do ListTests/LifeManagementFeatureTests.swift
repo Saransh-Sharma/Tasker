@@ -2,6 +2,92 @@ import XCTest
 import CoreData
 @testable import To_Do_List
 
+final class ManageLifeAreasUseCaseTests: XCTestCase {
+    func testUpdateLifeAreaNameAndIconSucceeds() {
+        let area = LifeArea(id: UUID(), name: "Health", color: "#22C55E", icon: "heart.fill")
+        let repository = LifeAreaRepositoryStub(areas: [area])
+        let useCase = ManageLifeAreasUseCase(repository: repository)
+
+        let expectation = expectation(description: "update life area")
+        useCase.update(
+            id: area.id,
+            name: "Wellness",
+            color: "#16A34A",
+            icon: "leaf.fill"
+        ) { result in
+            switch result {
+            case .success(let updated):
+                XCTAssertEqual(updated.name, "Wellness")
+                XCTAssertEqual(updated.color, "#16A34A")
+                XCTAssertEqual(updated.icon, "leaf.fill")
+                XCTAssertEqual(repository.areas.first?.name, "Wellness")
+                XCTAssertEqual(repository.areas.first?.icon, "leaf.fill")
+            case .failure(let error):
+                XCTFail("Expected success, got \(error)")
+            }
+            expectation.fulfill()
+        }
+
+        waitForExpectations(timeout: 1.0)
+    }
+
+    func testUpdateRejectsDuplicateNormalizedName() {
+        let first = LifeArea(id: UUID(), name: "Career", color: nil, icon: nil)
+        let second = LifeArea(id: UUID(), name: "Health", color: nil, icon: nil)
+        let repository = LifeAreaRepositoryStub(areas: [first, second])
+        let useCase = ManageLifeAreasUseCase(repository: repository)
+
+        let expectation = expectation(description: "duplicate rename rejected")
+        useCase.update(
+            id: second.id,
+            name: " career ",
+            color: nil,
+            icon: nil
+        ) { result in
+            switch result {
+            case .success:
+                XCTFail("Expected duplicate-name failure")
+            case .failure(let error):
+                let nsError = error as NSError
+                XCTAssertEqual(nsError.domain, "ManageLifeAreasUseCase")
+                XCTAssertEqual(nsError.code, 409)
+            }
+            expectation.fulfill()
+        }
+
+        waitForExpectations(timeout: 1.0)
+    }
+
+    func testArchiveAndUnarchiveToggleIsArchived() {
+        let area = LifeArea(id: UUID(), name: "Career", color: nil, icon: nil)
+        let repository = LifeAreaRepositoryStub(areas: [area])
+        let useCase = ManageLifeAreasUseCase(repository: repository)
+
+        let expectation = expectation(description: "archive and unarchive")
+        useCase.archive(id: area.id) { archiveResult in
+            switch archiveResult {
+            case .success(let archived):
+                XCTAssertTrue(archived.isArchived)
+                useCase.unarchive(id: area.id) { unarchiveResult in
+                    switch unarchiveResult {
+                    case .success(let restored):
+                        XCTAssertFalse(restored.isArchived)
+                        XCTAssertEqual(repository.areas.first?.isArchived, false)
+                    case .failure(let error):
+                        XCTFail("Expected unarchive success, got \(error)")
+                    }
+                    expectation.fulfill()
+                }
+            case .failure(let error):
+                XCTFail("Expected archive success, got \(error)")
+                expectation.fulfill()
+            }
+        }
+
+        waitForExpectations(timeout: 1.0)
+    }
+}
+
 final class ManageProjectsLifeAreaRoutingTests: XCTestCase {
     func testCreateProjectCarriesLifeAreaIDToRepository() {
         let lifeAreaID = UUID()
@@ -92,6 +178,81 @@ final class ManageProjectsLifeAreaRoutingTests: XCTestCase {
 
         waitForExpectations(timeout: 1.0)
         XCTAssertEqual(repository.moveProjectCalls.count, 0)
+    }
+
+    func testArchiveAndUnarchiveProjectToggleIsArchived() {
+        let project = Project(id: UUID(), lifeAreaID: UUID(), name: "Roadmap", projectDescription: "Quarter")
+        let repository = ProjectRepositoryStub(projects: [project], taskCounts: [project.id: 4])
+        let useCase = ManageProjectsUseCase(projectRepository: repository)
+
+        let expectation = expectation(description: "archive and unarchive project")
+        useCase.archiveProject(projectId: project.id) { archiveResult in
+            switch archiveResult {
+            case .success(let archived):
+                XCTAssertTrue(archived.isArchived)
+                XCTAssertEqual(repository.projects.first?.isArchived, true)
+                useCase.unarchiveProject(projectId: project.id) { unarchiveResult in
+                    switch unarchiveResult {
+                    case .success(let restored):
+                        XCTAssertFalse(restored.isArchived)
+                        XCTAssertEqual(repository.projects.first?.isArchived, false)
+                    case .failure(let error):
+                        XCTFail("Expected unarchive success, got \(error)")
+                    }
+                    expectation.fulfill()
+                }
+            case .failure(let error):
+                XCTFail("Expected archive success, got \(error)")
+                expectation.fulfill()
+            }
+        }
+
+        waitForExpectations(timeout: 1.0)
+    }
+
+    func testArchiveProjectRejectsInbox() {
+        let inbox = Project.createInbox()
+        let repository = ProjectRepositoryStub(projects: [inbox], taskCounts: [inbox.id: 1])
+        let useCase = ManageProjectsUseCase(projectRepository: repository)
+
+        let expectation = expectation(description: "reject inbox archive")
+        useCase.archiveProject(projectId: inbox.id) { result in
+            switch result {
+            case .success:
+                XCTFail("Expected inbox archive to fail")
+            case .failure(let error):
+                if case .cannotModifyDefault = error {
+                    XCTAssertTrue(true)
+                } else {
+                    XCTFail("Unexpected error \(error)")
+                }
+            }
+            expectation.fulfill()
+        }
+
+        waitForExpectations(timeout: 1.0)
+    }
+
+    func testArchiveProjectDispatchesMutationNotification() {
+        let project = Project(id: UUID(), lifeAreaID: UUID(), name: "Focus")
+        let repository = ProjectRepositoryStub(projects: [project], taskCounts: [project.id: 2])
+        let useCase = ManageProjectsUseCase(projectRepository: repository)
+
+        let mutationExpectation = expectation(forNotification: .homeTaskMutation, object: nil) { notification in
+            let userInfo = notification.userInfo ?? [:]
+            return (userInfo["projectID"] as? String) == project.id.uuidString &&
+                (userInfo["archived"] as? Bool) == true
+        }
+
+        let completionExpectation = expectation(description: "archive completion")
+        useCase.archiveProject(projectId: project.id) { result in
+            if case .failure(let error) = result {
+                XCTFail("Expected archive success, got \(error)")
+            }
+            completionExpectation.fulfill()
+        }
+
+        wait(for: [mutationExpectation, completionExpectation], timeout: 1.0)
     }
 }
 
@@ -340,6 +501,187 @@ final class LifeManagementViewModelTests: XCTestCase {
         }
 
         XCTAssertEqual(projectRepository.moveProjectCalls.count, 1)
+    }
+
+    func testCreateProjectFromDraftAssignsSelectedLifeArea() {
+        let general = LifeArea(id: UUID(), name: "General", color: "#4A6FA5", icon: "square.grid.2x2")
+        let career = LifeArea(id: UUID(), name: "Career", color: "#3B82F6", icon: "briefcase.fill")
+        let projectRepository = ProjectRepositoryStub(projects: [], taskCounts: [:])
+        let lifeAreaRepository = LifeAreaRepositoryStub(areas: [general, career])
+
+        let viewModel = LifeManagementViewModel(
+            manageLifeAreasUseCase: ManageLifeAreasUseCase(repository: lifeAreaRepository),
+            manageProjectsUseCase: ManageProjectsUseCase(projectRepository: projectRepository),
+            projectRepository: projectRepository
+        )
+
+        viewModel.loadIfNeeded()
+        waitUntil(timeout: 1.0) {
+            viewModel.isLoading == false && viewModel.sections.count == 2
+        }
+
+        viewModel.draftProjectName = "Promotion Prep"
+        viewModel.draftProjectDescription = "Q2 milestones"
+        viewModel.draftProjectLifeAreaID = career.id
+        viewModel.createProjectFromDraft()
+
+        waitUntil(timeout: 1.0) {
+            projectRepository.projects.contains(where: {
+                $0.name == "Promotion Prep" && $0.lifeAreaID == career.id
+            })
+        }
+
+        XCTAssertTrue(projectRepository.projects.contains(where: {
+            $0.name == "Promotion Prep" && $0.lifeAreaID == career.id
+        }))
+    }
+
+    func testArchiveLifeAreaMovesSectionToArchivedGroupAndExposesWarningCounts() {
+        let general = LifeArea(id: UUID(), name: "General", color: "#4A6FA5", icon: "square.grid.2x2")
+        let career = LifeArea(id: UUID(), name: "Career", color: "#3B82F6", icon: "briefcase.fill")
+
+        let project = Project(
+            id: UUID(),
+            lifeAreaID: career.id,
+            name: "Promotion Prep",
+            projectDescription: "Quarter goals"
+        )
+
+        let projectRepository = ProjectRepositoryStub(projects: [project], taskCounts: [project.id: 3])
+        let lifeAreaRepository = LifeAreaRepositoryStub(areas: [general, career])
+
+        let viewModel = LifeManagementViewModel(
+            manageLifeAreasUseCase: ManageLifeAreasUseCase(repository: lifeAreaRepository),
+            manageProjectsUseCase: ManageProjectsUseCase(projectRepository: projectRepository),
+            projectRepository: projectRepository
+        )
+
+        viewModel.loadIfNeeded()
+        waitUntil(timeout: 1.0) {
+            viewModel.isLoading == false && viewModel.sections.count == 2
+        }
+
+        viewModel.requestArchiveLifeArea(career.id)
+        XCTAssertEqual(viewModel.lifeAreaArchivePreview?.projectCount, 1)
+        XCTAssertEqual(viewModel.lifeAreaArchivePreview?.taskCount, 3)
+
+        viewModel.confirmLifeAreaArchive()
+        waitUntil(timeout: 1.0) {
+            viewModel.isMutating == false &&
+            viewModel.archivedLifeAreaSections.contains(where: { $0.lifeArea.id == career.id }) &&
+            viewModel.sections.contains(where: { $0.lifeArea.id == career.id }) == false
+        }
+    }
+
+    func testArchiveProjectMovesToArchivedProjectsAndUnarchiveRestoresActiveList() {
+        let general = LifeArea(id: UUID(), name: "General", color: "#4A6FA5", icon: "square.grid.2x2")
+        let career = LifeArea(id: UUID(), name: "Career", color: "#3B82F6", icon: "briefcase.fill")
+
+        let project = Project(
+            id: UUID(),
+            lifeAreaID: career.id,
+            name: "Promotion Prep",
+            projectDescription: "Quarter goals"
+        )
+
+        let projectRepository = ProjectRepositoryStub(projects: [project], taskCounts: [project.id: 3])
+        let lifeAreaRepository = LifeAreaRepositoryStub(areas: [general, career])
+
+        let viewModel = LifeManagementViewModel(
+            manageLifeAreasUseCase: ManageLifeAreasUseCase(repository: lifeAreaRepository),
+            manageProjectsUseCase: ManageProjectsUseCase(projectRepository: projectRepository),
+            projectRepository: projectRepository
+        )
+
+        viewModel.loadIfNeeded()
+        waitUntil(timeout: 1.0) {
+            viewModel.isLoading == false && viewModel.sections.count == 2
+        }
+
+        viewModel.requestArchiveProject(project.id)
+        XCTAssertEqual(viewModel.projectArchivePreview?.taskCount, 3)
+
+        viewModel.confirmProjectArchive()
+        waitUntil(timeout: 1.0) {
+            let activeContains = viewModel.sections.first(where: { $0.lifeArea.id == career.id })?
+                .projects
+                .contains(where: { $0.project.id == project.id }) ?? false
+            let archivedContains = viewModel.archivedProjectGroups
+                .flatMap(\.projects)
+                .contains(where: { $0.project.id == project.id })
+            return viewModel.isMutating == false && !activeContains && archivedContains
+        }
+
+        viewModel.unarchiveProject(project.id)
+        waitUntil(timeout: 1.0) {
+            let activeContains = viewModel.sections.first(where: { $0.lifeArea.id == career.id })?
+                .projects
+                .contains(where: { $0.project.id == project.id }) ?? false
+            let archivedContains = viewModel.archivedProjectGroups
+                .flatMap(\.projects)
+                .contains(where: { $0.project.id == project.id })
+            return viewModel.isMutating == false && activeContains && !archivedContains
+        }
+    }
+
+    func testCanDropProjectRejectsArchivedLifeAreaTarget() {
+        let general = LifeArea(id: UUID(), name: "General", color: "#4A6FA5", icon: "square.grid.2x2")
+        let archived = LifeArea(id: UUID(), name: "Career", color: "#3B82F6", icon: "briefcase.fill", isArchived: true)
+        let project = Project(
+            id: UUID(),
+            lifeAreaID: general.id,
+            name: "Inbox Zero",
+            projectDescription: nil
+        )
+
+        let projectRepository = ProjectRepositoryStub(projects: [project], taskCounts: [project.id: 1])
+        let lifeAreaRepository = LifeAreaRepositoryStub(areas: [general, archived])
+
+        let viewModel = LifeManagementViewModel(
+            manageLifeAreasUseCase: ManageLifeAreasUseCase(repository: lifeAreaRepository),
+            manageProjectsUseCase: ManageProjectsUseCase(projectRepository: projectRepository),
+            projectRepository: projectRepository
+        )
+
+        viewModel.loadIfNeeded()
+        waitUntil(timeout: 1.0) {
+            viewModel.isLoading == false && viewModel.sections.count == 1
+        }
+
+        viewModel.beginDrag(projectID: project.id)
+        XCTAssertFalse(viewModel.canDropProject(on: archived.id))
+        viewModel.dropEntered(targetLifeAreaID: archived.id)
+        XCTAssertNil(viewModel.activeDropLifeAreaID)
+    }
+
+    func testEditLifeAreaAndIconUpdateRenderedSection() {
+        let general = LifeArea(id: UUID(), name: "General", color: "#4A6FA5", icon: "square.grid.2x2")
+        let career = LifeArea(id: UUID(), name: "Career", color: "#3B82F6", icon: "briefcase.fill")
+        let projectRepository = ProjectRepositoryStub(projects: [], taskCounts: [:])
+        let lifeAreaRepository = LifeAreaRepositoryStub(areas: [general, career])
+
+        let viewModel = LifeManagementViewModel(
+            manageLifeAreasUseCase: ManageLifeAreasUseCase(repository: lifeAreaRepository),
+            manageProjectsUseCase: ManageProjectsUseCase(projectRepository: projectRepository),
+            projectRepository: projectRepository
+        )
+
+        viewModel.loadIfNeeded()
+        waitUntil(timeout: 1.0) {
+            viewModel.isLoading == false && viewModel.sections.count == 2
+        }
+
+        viewModel.beginEditLifeArea(career.id)
+        viewModel.saveLifeAreaEdit(name: "Work", colorHex: "#112233")
+        waitUntil(timeout: 1.0) {
+            viewModel.sections.contains(where: { $0.lifeArea.id == career.id && $0.lifeArea.name == "Work" })
+        }
+
+        viewModel.showIconPicker(for: career.id)
+        viewModel.applyIconSelection("flag.fill")
+        waitUntil(timeout: 1.0) {
+            viewModel.sections.contains(where: { $0.lifeArea.id == career.id && $0.lifeArea.icon == "flag.fill" })
+        }
     }
 
     private func waitUntil(timeout: TimeInterval, condition: @escaping () -> Bool) {
