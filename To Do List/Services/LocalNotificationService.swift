@@ -842,7 +842,7 @@ public final class TaskNotificationOrchestrator {
                 title: "Due Soon",
                 body: body,
                 fireDate: fireDate,
-                route: .homeToday(taskID: primaryTask.id),
+                route: .taskDetail(taskID: primaryTask.id),
                 taskID: primaryTask.id
             )
         ]
@@ -885,7 +885,7 @@ public final class TaskNotificationOrchestrator {
                     title: "Overdue Task",
                     body: body,
                     fireDate: fireDate,
-                    route: .homeToday(taskID: primary.id),
+                    route: .taskDetail(taskID: primary.id),
                     taskID: primary.id
                 )
             }

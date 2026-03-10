@@ -28,6 +28,16 @@ private enum LiquidGlassRecipe {
     static let normalShadowYOffset: CGFloat = 10
 
     static let reduceTransparencyOpacity: Double = 0.96
+
+    static let normalThickness: Float = 16
+    static let strongThickness: Float = 18
+    static let normalRefractiveIndex: Float = 1.15
+    static let strongRefractiveIndex: Float = 1.18
+}
+
+private struct LiquidGlassOptics {
+    let thickness: Float
+    let refractiveIndex: Float
 }
 
 struct LiquidGlassSurface<S: Shape, Content: View>: View {
@@ -38,27 +48,30 @@ struct LiquidGlassSurface<S: Shape, Content: View>: View {
 
     private let shape: S
     private let emphasis: Emphasis
+    private let clearGlassEnabled: Bool
     private let content: Content
 
     /// Initializes a new instance.
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+    @Environment(\.displayScale) private var displayScale
 
     init(
         shape: S,
         emphasis: Emphasis = .normal,
+        clearGlassEnabled: Bool = true,
         @ViewBuilder content: () -> Content
     ) {
         self.shape = shape
         self.emphasis = emphasis
+        self.clearGlassEnabled = clearGlassEnabled
         self.content = content()
     }
 
     var body: some View {
         content
             .background {
-                shape
-                    .fill(surfaceStyle)
+                surfaceBackground
                     .overlay(rimOverlay)
                     .overlay(innerRimOverlay)
                     .overlay(specularOverlay)
@@ -69,6 +82,15 @@ struct LiquidGlassSurface<S: Shape, Content: View>: View {
                         y: emphasis == .strong ? LiquidGlassRecipe.strongShadowYOffset : LiquidGlassRecipe.normalShadowYOffset
                     )
             }
+    }
+
+    @ViewBuilder
+    private var surfaceBackground: some View {
+        if #available(iOS 26.0, *), !reduceTransparency, clearGlassEnabled {
+            clearGlassSurface
+        } else {
+            shape.fill(surfaceStyle)
+        }
     }
 
     private var surfaceStyle: AnyShapeStyle {
@@ -90,6 +112,52 @@ struct LiquidGlassSurface<S: Shape, Content: View>: View {
         }
 
         return AnyShapeStyle(.thinMaterial)
+    }
+
+    @available(iOS 26.0, *)
+    private var clearGlassSurface: some View {
+        let optics = clearGlassOptics
+        let safeDisplayScale = max(displayScale, 1)
+
+        return shape
+            .fill(.clear)
+            .glassEffect(.clear, in: shape)
+            .visualEffect { content, proxy in
+                let pixelSize = CGSize(
+                    width: max(proxy.size.width * safeDisplayScale, 1),
+                    height: max(proxy.size.height * safeDisplayScale, 1)
+                )
+                let pixelCenter = CGPoint(x: pixelSize.width * 0.5, y: pixelSize.height * 0.5)
+                let maxOffset = CGFloat(optics.thickness) / safeDisplayScale
+
+                let shader = ShaderLibrary.clearGlassDistortion(
+                    .float2(pixelCenter),
+                    .float2(pixelSize),
+                    .float(optics.thickness),
+                    .float(optics.refractiveIndex),
+                    .float(Float(safeDisplayScale))
+                )
+
+                return content.distortionEffect(
+                    shader,
+                    maxSampleOffset: CGSize(width: maxOffset, height: maxOffset)
+                )
+            }
+    }
+
+    private var clearGlassOptics: LiquidGlassOptics {
+        switch emphasis {
+        case .normal:
+            return LiquidGlassOptics(
+                thickness: LiquidGlassRecipe.normalThickness,
+                refractiveIndex: LiquidGlassRecipe.normalRefractiveIndex
+            )
+        case .strong:
+            return LiquidGlassOptics(
+                thickness: LiquidGlassRecipe.strongThickness,
+                refractiveIndex: LiquidGlassRecipe.strongRefractiveIndex
+            )
+        }
     }
 
     private var rimOverlay: some View {

@@ -6,6 +6,8 @@
 import SwiftUI
 import Observation
 
+private let forceLegacyIOS26BottomBar = true
+
 struct HomeGlassBottomBar: View {
     @Bindable var state: HomeBottomBarState
 
@@ -18,6 +20,18 @@ struct HomeGlassBottomBar: View {
     private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.currentTheme.tokens.spacing }
 
     var body: some View {
+        Group {
+            if #available(iOS 26.0, *), !forceLegacyIOS26BottomBar {
+                GlassEffectContainer {
+                    barContent
+                }
+            } else {
+                barContent
+            }
+        }
+    }
+
+    private var barContent: some View {
         HStack(spacing: spacing.s12) {
             LiquidToolCluster(
                 selectedItem: state.selectedItem,
@@ -119,51 +133,90 @@ private struct LiquidToolCluster: View {
     private let buttonWidth: CGFloat = 54
     private let buttonHeight: CGFloat = 44
     private let clusterHeight: CGFloat = 56
+    private let clusterSpacing: CGFloat = 4
+    private let clusterHorizontalPadding: CGFloat = 8
+    private let clusterVerticalPadding: CGFloat = 6
 
     var body: some View {
-        LiquidGlassSurface(shape: Capsule(style: .continuous), emphasis: .normal) {
-            HStack(spacing: 4) {
-                ForEach(Self.tools) { tool in
-                    ZStack {
-                        if selectedItem == tool.item {
-                            selectionHighlight
-                                .matchedGeometryEffect(id: "home.bottomBar.selection", in: selectionNamespace)
-                        }
-
-                        Button {
-                            onTap(tool.item)
-                        } label: {
-                            Image(systemName: tool.symbolName)
-                                .font(.system(size: 18, weight: selectedItem == tool.item ? .bold : .semibold))
-                                .frame(width: 44, height: 44)
-                                .foregroundStyle(selectedItem == tool.item ? Color.tasker.textPrimary : Color.tasker.textSecondary)
-                                .contentShape(Rectangle())
-                        }
-                        .buttonStyle(.plain)
-                        .accessibilityIdentifier(tool.accessibilityID)
-                        .accessibilityLabel(tool.accessibilityLabel)
-                        .accessibilityValue(selectedItem == tool.item ? "selected" : "unselected")
-                        .simultaneousGesture(
-                            DragGesture(minimumDistance: 0)
-                                .onChanged { _ in
-                                    if pressedItem != tool.item {
-                                        pressedItem = tool.item
-                                    }
-                                }
-                                .onEnded { _ in
-                                    pressedItem = nil
-                                }
-                        )
-                    }
-                    .frame(width: buttonWidth, height: buttonHeight)
-                    .scaleEffect(pressedItem == tool.item ? 0.96 : 1.0)
-                    .animation(.spring(response: 0.22, dampingFraction: 0.85), value: pressedItem == tool.item)
+        Group {
+            if #available(iOS 26.0, *), !forceLegacyIOS26BottomBar {
+                ZStack {
+                    toolGlassShell
+                        .allowsHitTesting(false)
+                        .accessibilityHidden(true)
+                    toolForeground
+                }
+            } else {
+                LiquidGlassSurface(
+                    shape: Capsule(style: .continuous),
+                    emphasis: .normal,
+                    clearGlassEnabled: !forceLegacyIOS26BottomBar
+                ) {
+                    toolForeground
                 }
             }
-            .padding(.horizontal, 8)
-            .padding(.vertical, 6)
         }
         .frame(height: clusterHeight)
+    }
+
+    private var clusterWidth: CGFloat {
+        let toolCount = CGFloat(Self.tools.count)
+        let gapCount = CGFloat(max(Self.tools.count - 1, 0))
+        return (toolCount * buttonWidth) + (gapCount * clusterSpacing) + (clusterHorizontalPadding * 2)
+    }
+
+    private var toolGlassShell: some View {
+        LiquidGlassSurface(
+            shape: Capsule(style: .continuous),
+            emphasis: .normal,
+            clearGlassEnabled: !forceLegacyIOS26BottomBar
+        ) {
+            Color.clear
+                .frame(width: clusterWidth, height: clusterHeight)
+        }
+    }
+
+    private var toolForeground: some View {
+        HStack(spacing: clusterSpacing) {
+            ForEach(Self.tools) { tool in
+                ZStack {
+                    if selectedItem == tool.item {
+                        selectionHighlight
+                            .matchedGeometryEffect(id: "home.bottomBar.selection", in: selectionNamespace)
+                    }
+
+                    Button {
+                        onTap(tool.item)
+                    } label: {
+                        Image(systemName: tool.symbolName)
+                            .font(.system(size: 18, weight: selectedItem == tool.item ? .bold : .semibold))
+                            .frame(width: 44, height: 44)
+                            .foregroundStyle(selectedItem == tool.item ? Color.tasker.textPrimary : Color.tasker.textSecondary)
+                            .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityIdentifier(tool.accessibilityID)
+                    .accessibilityLabel(tool.accessibilityLabel)
+                    .accessibilityValue(selectedItem == tool.item ? "selected" : "unselected")
+                    .simultaneousGesture(
+                        DragGesture(minimumDistance: 0)
+                            .onChanged { _ in
+                                if pressedItem != tool.item {
+                                    pressedItem = tool.item
+                                }
+                            }
+                            .onEnded { _ in
+                                pressedItem = nil
+                            }
+                    )
+                }
+                .frame(width: buttonWidth, height: buttonHeight)
+                .scaleEffect(pressedItem == tool.item ? 0.96 : 1.0)
+                .animation(.spring(response: 0.22, dampingFraction: 0.85), value: pressedItem == tool.item)
+            }
+        }
+        .padding(.horizontal, clusterHorizontalPadding)
+        .padding(.vertical, clusterVerticalPadding)
     }
 
     private var selectionHighlight: some View {
@@ -207,15 +260,23 @@ private struct LiquidAddTaskCTA: View {
             triggerSheenIfNeeded()
             onTap()
         } label: {
-            LiquidGlassSurface(shape: Capsule(style: .continuous), emphasis: .strong) {
-                Image(systemName: "plus")
-                    .font(.system(size: 18, weight: .bold))
-                .foregroundStyle(Color.tasker.textPrimary)
-                .frame(width: 56)
-                .frame(height: 56)
-                .overlay(
-                    sheenOverlay
-                )
+            Group {
+                if #available(iOS 26.0, *), !forceLegacyIOS26BottomBar {
+                    ZStack {
+                        ctaGlassShell
+                            .allowsHitTesting(false)
+                            .accessibilityHidden(true)
+                        ctaForeground
+                    }
+                } else {
+                    LiquidGlassSurface(
+                        shape: Capsule(style: .continuous),
+                        emphasis: .strong,
+                        clearGlassEnabled: !forceLegacyIOS26BottomBar
+                    ) {
+                        ctaForeground
+                    }
+                }
             }
         }
         .buttonStyle(.plain)
@@ -233,6 +294,27 @@ private struct LiquidAddTaskCTA: View {
         )
         .accessibilityIdentifier("home.addTaskButton")
         .accessibilityLabel("Add Task")
+    }
+
+    private var ctaGlassShell: some View {
+        LiquidGlassSurface(
+            shape: Capsule(style: .continuous),
+            emphasis: .strong,
+            clearGlassEnabled: !forceLegacyIOS26BottomBar
+        ) {
+            Color.clear
+                .frame(width: 56, height: 56)
+        }
+    }
+
+    private var ctaForeground: some View {
+        Image(systemName: "plus")
+            .font(.system(size: 18, weight: .bold))
+            .foregroundStyle(Color.tasker.textPrimary)
+            .frame(width: 56, height: 56)
+            .overlay(
+                sheenOverlay
+            )
     }
 
     @ViewBuilder

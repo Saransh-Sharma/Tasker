@@ -7,6 +7,7 @@
 //
 
 import UIKit
+import UserNotifications
 
 // Import Clean Architecture components
 // These types are defined in the Presentation layer
@@ -47,6 +48,15 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
             message: AppDelegate.persistentBootstrapFailureMessage ?? "Tasker storage is unavailable. Please relaunch the app."
         )
         renderRoot(for: rootMode)
+
+        if let notificationResponse = connectionOptions.notificationResponse {
+            DispatchQueue.main.async { [weak self] in
+                self?.handleNotificationLaunch(
+                    request: notificationResponse.notification.request,
+                    actionIdentifier: notificationResponse.actionIdentifier
+                )
+            }
+        }
 
         if let deepLinkURL = connectionOptions.urlContexts.first?.url {
             DispatchQueue.main.async { [weak self] in
@@ -181,6 +191,29 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
     func scene(_ scene: UIScene, openURLContexts URLContexts: Set<UIOpenURLContext>) {
         guard let url = URLContexts.first?.url else { return }
         handleIncomingURL(url)
+    }
+
+    func handleNotificationLaunch(
+        request: UNNotificationRequest,
+        actionIdentifier: String = UNNotificationDefaultActionIdentifier
+    ) {
+        if let actionHandler = TaskerNotificationRuntime.actionHandler {
+            actionHandler.handleAction(identifier: actionIdentifier, request: request)
+            return
+        }
+
+        postFallbackNotificationRoute(for: request)
+    }
+
+    func postFallbackNotificationRoute(for request: UNNotificationRequest) {
+        let payload = request.content.userInfo[TaskerLocalNotificationRequest.UserInfoKey.route] as? String
+        let taskIDRaw = request.content.userInfo[TaskerLocalNotificationRequest.UserInfoKey.taskID] as? String
+        let taskID = taskIDRaw.flatMap(UUID.init(uuidString:))
+        let route = TaskerNotificationRoute.from(
+            payload: payload ?? "home_today",
+            fallbackTaskID: taskID
+        )
+        TaskerNotificationRouteBus.shared.post(route: route)
     }
 
     private func handleIncomingURL(_ url: URL) {

@@ -13,12 +13,10 @@
 		0512DBCE948D6692B0F1857F /* TaskerThemeManagerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5DA1D87ADF956BED887FE0CC /* TaskerThemeManagerTests.swift */; };
 		08CCE589CA3E83FE266289D1 /* To Do List/State/Repositories/CoreDataAssistantActionRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = E6747A1FAF23571C7A3DA320 /* To Do List/State/Repositories/CoreDataAssistantActionRepository.swift */; };
 		0BF080CECE0D47F110E23C11 /* SettingsRootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BC92DC6157EF1B9AAB1422D9 /* SettingsRootView.swift */; };
-		A91F8E112F44420100AB11C1 /* LifeManagementView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A91F8E132F44420100AB11C1 /* LifeManagementView.swift */; };
 		0D77AD04BFBCEC5DAB92B68D /* To Do List/Domain/Interfaces/ScheduleRepositoryProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = 712BE2C322E8930A4886933B /* To Do List/Domain/Interfaces/ScheduleRepositoryProtocol.swift */; };
 		0F2D95B3C4177167351607FF /* SlashCommandPickerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 93D25A779BBE1A1B798EFA4D /* SlashCommandPickerView.swift */; };
 		0F67D9989E8924F5B6E2B2EE /* To Do List/State/Repositories/CoreDataLifeAreaRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = 26D9ECAA7CAE990AACBF05E5 /* To Do List/State/Repositories/CoreDataLifeAreaRepository.swift */; };
 		11B9B8EE3F64B7B3AC3E53AC /* DueSoonLeadTimeCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 267DB3EE27A6E3C161F380D5 /* DueSoonLeadTimeCard.swift */; };
-		A1C3D4E5F6A7B8C9D0E1F2A3 /* KeyboardShortcutsCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2D4E5F6A7B8C9D0E1F2A3B4 /* KeyboardShortcutsCard.swift */; };
 		1325F41FAECBAE30E66C3E42 /* To Do List/Domain/Interfaces/V2RepositoryProtocols.swift in Sources */ = {isa = PBXBuildFile; fileRef = 42AD2BFC988A80E8157AD2B2 /* To Do List/Domain/Interfaces/V2RepositoryProtocols.swift */; };
 		147231A5B5EE1AFA9351EA13 /* To Do List/Domain/Models/TagDefinition.swift in Sources */ = {isa = PBXBuildFile; fileRef = C2C66FE334854F296A4203FD /* To Do List/Domain/Models/TagDefinition.swift */; };
 		166AB064CD81E7EAF6579B7E /* To Do List/State/Repositories/CoreDataSectionRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0E3799E6AD3B71C2BCAA18D /* To Do List/State/Repositories/CoreDataSectionRepository.swift */; };
@@ -59,7 +57,6 @@
 		47EE4E9B0C3B5EC21C43BED8 /* To Do List/UseCases/Sync/ReminderMergeEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9AE41E54BA355D96A678CBF7 /* To Do List/UseCases/Sync/ReminderMergeEngine.swift */; };
 		481A6828453BE977412FD2EB /* TaskerWidgets/NextMilestoneWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = 89676F376DC27DF3823AB623 /* TaskerWidgets/NextMilestoneWidget.swift */; };
 		4987E47C4FB2B55409BA424F /* SpacingElevationCornerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7ADDF7126AA32EF840CE257C /* SpacingElevationCornerTests.swift */; };
-		A8F1D2035E9C44A100112233 /* DeviceOrientationPolicyResolverTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A8F1D2065E9C44A100112233 /* DeviceOrientationPolicyResolverTests.swift */; };
 		4B7CFEBE8C7C67CCB5E4E73C /* To Do List/Domain/Models/GamificationProfile.swift in Sources */ = {isa = PBXBuildFile; fileRef = A9ADCB5DB568A54708322C8E /* To Do List/Domain/Models/GamificationProfile.swift */; };
 		4BB22BF593C5283CF8557AFE /* Shared/AppGroupConstants.swift in Sources */ = {isa = PBXBuildFile; fileRef = 79E40B0ED12A11ACC6A161C8 /* Shared/AppGroupConstants.swift */; };
 		4C1518DF4ED5BA6F4E6D9C81 /* InMemoryCacheService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1D1019B77D01322B031EC108 /* InMemoryCacheService.swift */; };
@@ -79,7 +76,6 @@
 		5E49A6FCA0C096CB2B6EA054 /* TaskerWidgets/StreakResilienceWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BBE8CE1B13AA2877F4BBCAE /* TaskerWidgets/StreakResilienceWidget.swift */; };
 		5F230AF6BB3D9F989C5A6418 /* ColorTokens.swift in Sources */ = {isa = PBXBuildFile; fileRef = B812E7A0B879607C95C0571B /* ColorTokens.swift */; };
 		600B7F6D47A6091946016C7A /* GetHomeFilteredTasksUseCaseTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C39FDE21811FCBE733038318 /* GetHomeFilteredTasksUseCaseTests.swift */; };
-		A91F8E162F44420100AB11C1 /* LifeManagementFeatureTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A91F8E152F44420100AB11C1 /* LifeManagementFeatureTests.swift */; };
 		6211D7BD7037AA1D03E6F90B /* TaskReadModelRepositoryProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4C3F70CE989FCF07417B5EE /* TaskReadModelRepositoryProtocol.swift */; };
 		63F0A29CF92317D22F150D4B /* To Do List/Domain/Interfaces/ReminderRepositoryProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8D0FFCDBD5039DB8EE185B5E /* To Do List/Domain/Interfaces/ReminderRepositoryProtocol.swift */; };
 		656AE33F845CFC0E1E317F5E /* To Do List/Domain/Interfaces/TagRepositoryProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = D69B4ECB89C44E275D829577 /* To Do List/Domain/Interfaces/TagRepositoryProtocol.swift */; };
@@ -101,7 +97,6 @@
 		7509A01A2F13D806009162CD /* HomeViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7509A00D2F13D806009162CD /* HomeViewModel.swift */; };
 		7509A01B2F13D806009162CD /* PresentationDependencyContainer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7509A00A2F13D806009162CD /* PresentationDependencyContainer.swift */; };
 		7509A01C2F13D806009162CD /* ProjectManagementViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7509A00E2F13D806009162CD /* ProjectManagementViewModel.swift */; };
-		A91F8E122F44420100AB11C1 /* LifeManagementViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A91F8E142F44420100AB11C1 /* LifeManagementViewModel.swift */; };
 		750F9EDC2685CC9F00C008C4 /* CloudKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 750F9EDB2685CC9F00C008C4 /* CloudKit.framework */; };
 		7513BA322687C40500F8CCE0 /* SettingsBackdrop.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7513BA312687C40500F8CCE0 /* SettingsBackdrop.swift */; };
 		7524B71B2DE4EAC90026D865 /* GoogleService-Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = 7524B71A2DE4EAC90026D865 /* GoogleService-Info.plist */; };
@@ -120,7 +115,6 @@
 		7537B62324A2AF0800B978E5 /* NewProjectViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7537B62224A2AF0800B978E5 /* NewProjectViewController.swift */; };
 		7539AABB2DE988C900619EDD /* TaskDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7539AAB82DE988C900619EDD /* TaskDetailView.swift */; };
 		753EFC9E2445A24500A739E3 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 753EFC9D2445A24500A739E3 /* AppDelegate.swift */; };
-		A8F1D2025E9C44A100112233 /* DeviceOrientationPolicyResolver.swift in Sources */ = {isa = PBXBuildFile; fileRef = A8F1D2055E9C44A100112233 /* DeviceOrientationPolicyResolver.swift */; };
 		753EFCA02445A24500A739E3 /* SceneDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 753EFC9F2445A24500A739E3 /* SceneDelegate.swift */; };
 		753EFCA22445A24500A739E3 /* HomeViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 753EFCA12445A24500A739E3 /* HomeViewController.swift */; };
 		753EFCA52445A24500A739E3 /* Main.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 753EFCA32445A24500A739E3 /* Main.storyboard */; };
@@ -247,7 +241,6 @@
 		76CEBFD41A570542EB212A69 /* To Do List/UseCases/Gamification/GamificationEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C5FAE972A10C45BCDDB0142 /* To Do List/UseCases/Gamification/GamificationEngine.swift */; };
 		78824D15E7415EDE2EBA903C /* To Do List/Domain/Interfaces/HabitRepositoryProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = FEC0DEA9E6D02E2F991F11A1 /* To Do List/Domain/Interfaces/HabitRepositoryProtocol.swift */; };
 		7AF141A3F67EC19A0961D749 /* TaskerTokens.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6442D619CAA8E6CA77B46126 /* TaskerTokens.swift */; };
-		A8F1D2015E9C44A100112233 /* TaskerLayoutContext.swift in Sources */ = {isa = PBXBuildFile; fileRef = A8F1D2045E9C44A100112233 /* TaskerLayoutContext.swift */; };
 		7B3C9A7D2F2B0F1A00D4C113 /* FocusNowSimplificationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7B3C9A7D2F2B0F1A00D4C112 /* FocusNowSimplificationTests.swift */; };
 		7DDFA05C1E835A398268D1EF /* TaskerWidgets/WeeklyScoreboardWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = B4599EE24B534345B7E5F063 /* TaskerWidgets/WeeklyScoreboardWidget.swift */; };
 		7F1B2C3D4E5F60718293A4B5 /* To Do List/Services/GamificationRemoteKillSwitchService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7F1B2C3D4E5F60718293A4B6 /* To Do List/Services/GamificationRemoteKillSwitchService.swift */; };
@@ -276,6 +269,7 @@
 		A195295E32A95E537E16AF8A /* To Do List/UseCases/Schedule/ResolveOccurrenceUseCase.swift in Sources */ = {isa = PBXBuildFile; fileRef = E9EF3524C96CA56E66C86177 /* To Do List/UseCases/Schedule/ResolveOccurrenceUseCase.swift */; };
 		A1B2C3D4E5F607080910AB01 /* GradientTokens.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F607080910AB02 /* GradientTokens.swift */; };
 		A1B2C3D52EAA11BB00CCDDEE /* LLMModelRegistryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D42EAA11BB00CCDDEE /* LLMModelRegistryTests.swift */; };
+		A1C3D4E5F6A7B8C9D0E1F2A3 /* KeyboardShortcutsCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2D4E5F6A7B8C9D0E1F2A3B4 /* KeyboardShortcutsCard.swift */; };
 		A1E5C40F2F1A4B9D9C1E8A10 /* To Do List/Domain/Interfaces/AppleRemindersProviderProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1E5C40F2F1A4B9D9C1E8A12 /* To Do List/Domain/Interfaces/AppleRemindersProviderProtocol.swift */; };
 		A1E5C40F2F1A4B9D9C1E8A11 /* To Do List/State/Services/EventKitAppleRemindersProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1E5C40F2F1A4B9D9C1E8A13 /* To Do List/State/Services/EventKitAppleRemindersProvider.swift */; };
 		A20000000000000000000001 /* QuickViewSelector.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000001 /* QuickViewSelector.swift */; };
@@ -308,7 +302,13 @@
 		A7B8C9D22F13D806009162CD /* TaskDetailViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A7B8C9D12F13D806009162CD /* TaskDetailViewModel.swift */; };
 		A81985165D5E3A5F46B5A5FB /* WeeklyCalendarStripView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CFF019E9E7D0253D5D139030 /* WeeklyCalendarStripView.swift */; };
 		A8595F3EF93E3431E8562A05 /* To Do List/Domain/Models/ScheduleTemplate.swift in Sources */ = {isa = PBXBuildFile; fileRef = FAF2AECE194CB6DF20940C57 /* To Do List/Domain/Models/ScheduleTemplate.swift */; };
+		A8F1D2015E9C44A100112233 /* TaskerLayoutContext.swift in Sources */ = {isa = PBXBuildFile; fileRef = A8F1D2045E9C44A100112233 /* TaskerLayoutContext.swift */; };
+		A8F1D2025E9C44A100112233 /* DeviceOrientationPolicyResolver.swift in Sources */ = {isa = PBXBuildFile; fileRef = A8F1D2055E9C44A100112233 /* DeviceOrientationPolicyResolver.swift */; };
+		A8F1D2035E9C44A100112233 /* DeviceOrientationPolicyResolverTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A8F1D2065E9C44A100112233 /* DeviceOrientationPolicyResolverTests.swift */; };
 		A912CB15A1588398C547FCE3 /* To Do List/View/FocusSessionSummaryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6D63FBA200D736491232884A /* To Do List/View/FocusSessionSummaryView.swift */; };
+		A91F8E112F44420100AB11C1 /* LifeManagementView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A91F8E132F44420100AB11C1 /* LifeManagementView.swift */; };
+		A91F8E122F44420100AB11C1 /* LifeManagementViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A91F8E142F44420100AB11C1 /* LifeManagementViewModel.swift */; };
+		A91F8E162F44420100AB11C1 /* LifeManagementFeatureTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A91F8E152F44420100AB11C1 /* LifeManagementFeatureTests.swift */; };
 		AB12CD34EF5607891234ABCE /* CoverFlipTransition.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB12CD34EF5607891234ABCD /* CoverFlipTransition.swift */; };
 		AB5F19766B9E8B7A003B9B1E /* TaskerSnackbar.swift in Sources */ = {isa = PBXBuildFile; fileRef = D7C5BD9B9BA76D61F7F044BD /* TaskerSnackbar.swift */; };
 		ABEDCF04774EFF887D0E6357 /* To Do List/View/Insights/InsightsWeekView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9A29C6400C2C2B7C5DD54720 /* To Do List/View/Insights/InsightsWeekView.swift */; };
@@ -353,6 +353,7 @@
 		C537950FC6FD78BB996E7CA5 /* To Do List/View/HomeXPHeroView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 17DC0A5BC84D9C6C792B2AB6 /* To Do List/View/HomeXPHeroView.swift */; };
 		C5E24F11E95F5281AFA4E8DD /* UIKit+TokenAdapters.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A94E5E4F9BB3AA846B56A72 /* UIKit+TokenAdapters.swift */; };
 		C6182C050AFE59B731DAD798 /* TaskerWidgets.appex in Embed App Extensions */ = {isa = PBXBuildFile; fileRef = F9A8B91DCC93833939CAE3C6 /* TaskerWidgets.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		C7A1B2C3D4E5F60718293AAC /* ClearGlassDistortion.metal in Sources */ = {isa = PBXBuildFile; fileRef = C7A1B2C3D4E5F60718293AAB /* ClearGlassDistortion.metal */; };
 		C9F2A10C3D4E5F60718293AA /* To Do List/State/Sync/WriteClosedRepositoryAdapters.swift in Sources */ = {isa = PBXBuildFile; fileRef = B9F2A10C3D4E5F60718293AA /* To Do List/State/Sync/WriteClosedRepositoryAdapters.swift */; };
 		CD83FC6E516299A8FB19F781 /* TaskerWidgets/TodayXPWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3A74DF0E9DCAEB8A8179F375 /* TaskerWidgets/TodayXPWidget.swift */; };
 		CEA4FD3F132804749E69A4B3 /* To Do List/Domain/Mappers/SectionMapper.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6956BC00E9F0B0BC847DD7AA /* To Do List/Domain/Mappers/SectionMapper.swift */; };
@@ -483,7 +484,6 @@
 		23A78189DAF93E5F5EA0C769 /* To Do List/State/Repositories/CoreDataTombstoneRepository.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "To Do List/State/Repositories/CoreDataTombstoneRepository.swift"; sourceTree = SOURCE_ROOT; };
 		24EC3451B4B59726B8F286E2 /* ColorTokenGenerationTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ColorTokenGenerationTests.swift; sourceTree = "<group>"; };
 		267DB3EE27A6E3C161F380D5 /* DueSoonLeadTimeCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DueSoonLeadTimeCard.swift; sourceTree = "<group>"; };
-		B2D4E5F6A7B8C9D0E1F2A3B4 /* KeyboardShortcutsCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeyboardShortcutsCard.swift; sourceTree = "<group>"; };
 		26D9ECAA7CAE990AACBF05E5 /* To Do List/State/Repositories/CoreDataLifeAreaRepository.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "To Do List/State/Repositories/CoreDataLifeAreaRepository.swift"; sourceTree = SOURCE_ROOT; };
 		2856D1EE26429146B60B6633 /* TaskReadQueries.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = TaskReadQueries.swift; sourceTree = "<group>"; };
 		2A1F5E5105AE9585B4120F9F /* AddTaskRepeatEditor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddTaskRepeatEditor.swift; sourceTree = "<group>"; };
@@ -493,7 +493,6 @@
 		2F80480EA58FB983550B882B /* To Do List/UseCases/Schedule/GenerateOccurrencesUseCase.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "To Do List/UseCases/Schedule/GenerateOccurrencesUseCase.swift"; sourceTree = SOURCE_ROOT; };
 		316921199F513341A93BD753 /* AddTaskDurationPicker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddTaskDurationPicker.swift; sourceTree = "<group>"; };
 		32CFD17024C4F8FF10386CE1 /* TypographyTokenTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = TypographyTokenTests.swift; sourceTree = "<group>"; };
-		A8F1D2065E9C44A100112233 /* DeviceOrientationPolicyResolverTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeviceOrientationPolicyResolverTests.swift; sourceTree = "<group>"; };
 		34288F9F2CB1DADA41F1673D /* To Do List/Domain/Models/LifeArea.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "To Do List/Domain/Models/LifeArea.swift"; sourceTree = SOURCE_ROOT; };
 		34CC91CCAA408A3ADB2D8693 /* To Do List/Services/V2FeatureFlags.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "To Do List/Services/V2FeatureFlags.swift"; sourceTree = SOURCE_ROOT; };
 		37E2466DBE2A76A73458F530 /* To Do List/View/FocusTimerView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "To Do List/View/FocusTimerView.swift"; sourceTree = SOURCE_ROOT; };
@@ -520,7 +519,6 @@
 		5DA1D87ADF956BED887FE0CC /* TaskerThemeManagerTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = TaskerThemeManagerTests.swift; sourceTree = "<group>"; };
 		607D98C13538414095C75E7B /* AddTaskMetadataRow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddTaskMetadataRow.swift; sourceTree = "<group>"; };
 		6442D619CAA8E6CA77B46126 /* TaskerTokens.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = TaskerTokens.swift; sourceTree = "<group>"; };
-		A8F1D2045E9C44A100112233 /* TaskerLayoutContext.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TaskerLayoutContext.swift; sourceTree = "<group>"; };
 		65A7A039AC9CA38845D1E44F /* SyncMergeState.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SyncMergeState.swift; sourceTree = "<group>"; };
 		6956BC00E9F0B0BC847DD7AA /* To Do List/Domain/Mappers/SectionMapper.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "To Do List/Domain/Mappers/SectionMapper.swift"; sourceTree = SOURCE_ROOT; };
 		6A30108580052CC2C67D2058 /* To Do List/Domain/Models/HabitDefinition.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "To Do List/Domain/Models/HabitDefinition.swift"; sourceTree = SOURCE_ROOT; };
@@ -538,7 +536,6 @@
 		7509A00C2F13D806009162CD /* AddTaskViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddTaskViewModel.swift; sourceTree = "<group>"; };
 		7509A00D2F13D806009162CD /* HomeViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeViewModel.swift; sourceTree = "<group>"; };
 		7509A00E2F13D806009162CD /* ProjectManagementViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProjectManagementViewModel.swift; sourceTree = "<group>"; };
-		A91F8E142F44420100AB11C1 /* LifeManagementViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LifeManagementViewModel.swift; sourceTree = "<group>"; };
 		750F9EDA2685CC9500C008C4 /* This Day.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = "This Day.entitlements"; sourceTree = "<group>"; };
 		750F9EDB2685CC9F00C008C4 /* CloudKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CloudKit.framework; path = System/Library/Frameworks/CloudKit.framework; sourceTree = SDKROOT; };
 		7513BA312687C40500F8CCE0 /* SettingsBackdrop.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsBackdrop.swift; sourceTree = "<group>"; };
@@ -556,7 +553,6 @@
 		7539AAB82DE988C900619EDD /* TaskDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TaskDetailView.swift; sourceTree = "<group>"; };
 		753EFC9A2445A24500A739E3 /* This Day.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "This Day.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 		753EFC9D2445A24500A739E3 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
-		A8F1D2055E9C44A100112233 /* DeviceOrientationPolicyResolver.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeviceOrientationPolicyResolver.swift; sourceTree = "<group>"; };
 		753EFC9F2445A24500A739E3 /* SceneDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SceneDelegate.swift; sourceTree = "<group>"; };
 		753EFCA12445A24500A739E3 /* HomeViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeViewController.swift; sourceTree = "<group>"; };
 		753EFCA42445A24500A739E3 /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; name = Base; path = Base.lproj/Main.storyboard; sourceTree = "<group>"; };
@@ -600,7 +596,6 @@
 		7551DA08248832BE005CF826 /* ToDoTimeUtils.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ToDoTimeUtils.swift; sourceTree = "<group>"; };
 		75573CAE2DE88A8000F5A873 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		75573CB22DE8954500F5A873 /* ProjectManagementView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProjectManagementView.swift; sourceTree = "<group>"; };
-		A91F8E132F44420100AB11C1 /* LifeManagementView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LifeManagementView.swift; sourceTree = "<group>"; };
 		755FE8DB2479220700A71A75 /* LineChart.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LineChart.swift; sourceTree = "<group>"; };
 		755FE8DD2479227A00A71A75 /* TinyPieChart.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TinyPieChart.swift; sourceTree = "<group>"; };
 		755FE8E12479EA5300A71A75 /* RippleDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RippleDelegate.swift; sourceTree = "<group>"; };
@@ -756,6 +751,12 @@
 		A6E1D4182F3C120100B1C2D3 /* LLMGenerationProfile.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LLMGenerationProfile.swift; sourceTree = "<group>"; };
 		A7B8C9D12F13D806009162CD /* TaskDetailViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TaskDetailViewModel.swift; sourceTree = "<group>"; };
 		A8699B1ED0E60EAAE73AE2E3 /* To Do List/UseCases/LLM/AssistantCommandExecutor.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "To Do List/UseCases/LLM/AssistantCommandExecutor.swift"; sourceTree = SOURCE_ROOT; };
+		A8F1D2045E9C44A100112233 /* TaskerLayoutContext.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TaskerLayoutContext.swift; sourceTree = "<group>"; };
+		A8F1D2055E9C44A100112233 /* DeviceOrientationPolicyResolver.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeviceOrientationPolicyResolver.swift; sourceTree = "<group>"; };
+		A8F1D2065E9C44A100112233 /* DeviceOrientationPolicyResolverTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeviceOrientationPolicyResolverTests.swift; sourceTree = "<group>"; };
+		A91F8E132F44420100AB11C1 /* LifeManagementView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LifeManagementView.swift; sourceTree = "<group>"; };
+		A91F8E142F44420100AB11C1 /* LifeManagementViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LifeManagementViewModel.swift; sourceTree = "<group>"; };
+		A91F8E152F44420100AB11C1 /* LifeManagementFeatureTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeManagementFeatureTests.swift; sourceTree = "<group>"; };
 		A95FD785F6B6001D9106C2B8 /* To Do List/State/Repositories/CoreDataTaskReadModelRepository.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "To Do List/State/Repositories/CoreDataTaskReadModelRepository.swift"; sourceTree = SOURCE_ROOT; };
 		A9ADCB5DB568A54708322C8E /* To Do List/Domain/Models/GamificationProfile.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "To Do List/Domain/Models/GamificationProfile.swift"; sourceTree = SOURCE_ROOT; };
 		A9C6F21138AB4C41B2D309E7 /* TaskModelV3_Gamification.xcdatamodel */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcdatamodel; path = TaskModelV3_Gamification.xcdatamodel; sourceTree = "<group>"; };
@@ -771,6 +772,7 @@
 		B1A1C1D1E1F1020304050603 /* ChartCardViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChartCardViewModel.swift; sourceTree = "<group>"; };
 		B1A1C1D1E1F1020304050604 /* RadarChartCardViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RadarChartCardViewModel.swift; sourceTree = "<group>"; };
 		B1A1C1D1E1F1020304050605 /* ProjectSelectionViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProjectSelectionViewModel.swift; sourceTree = "<group>"; };
+		B2D4E5F6A7B8C9D0E1F2A3B4 /* KeyboardShortcutsCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeyboardShortcutsCard.swift; sourceTree = "<group>"; };
 		B3A1F2C4D5E6F708 /* To Do List/Domain/Models/AchievementCatalog.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "To Do List/Domain/Models/AchievementCatalog.swift"; sourceTree = SOURCE_ROOT; };
 		B3A1F2C4D5E6F709 /* To Do List/View/BadgeGalleryView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "To Do List/View/BadgeGalleryView.swift"; sourceTree = SOURCE_ROOT; };
 		B3A1F2C4D5E6F70A /* To Do List/View/LevelUpCelebrationView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "To Do List/View/LevelUpCelebrationView.swift"; sourceTree = SOURCE_ROOT; };
@@ -778,7 +780,6 @@
 		B3A1F2C4D5E6F70C /* To Do List/View/BadgeDetailSheet.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "To Do List/View/BadgeDetailSheet.swift"; sourceTree = SOURCE_ROOT; };
 		B4599EE24B534345B7E5F063 /* TaskerWidgets/WeeklyScoreboardWidget.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = TaskerWidgets/WeeklyScoreboardWidget.swift; sourceTree = SOURCE_ROOT; };
 		B4D7E8213A4F5C6D7E8F9011 /* V3TestHarness.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = V3TestHarness.swift; sourceTree = "<group>"; };
-		A91F8E152F44420100AB11C1 /* LifeManagementFeatureTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeManagementFeatureTests.swift; sourceTree = "<group>"; };
 		B7C8D9E0F1A2233445566778 /* OverdueAgeFormatter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OverdueAgeFormatter.swift; sourceTree = "<group>"; };
 		B7C8D9E0F1A223344556677A /* OverdueAgeFormatterTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = OverdueAgeFormatterTests.swift; sourceTree = "<group>"; };
 		B7C8D9E0F1A223344556677C /* FocusZoneStatusTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = FocusZoneStatusTests.swift; sourceTree = "<group>"; };
@@ -812,6 +813,7 @@
 		C5A1D20E3F4B6789ABCDEF0C /* Device+Notch.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Device+Notch.swift"; sourceTree = "<group>"; };
 		C5DC4383109EA7E312BED57A /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS18.0.sdk/System/Library/Frameworks/Foundation.framework; sourceTree = DEVELOPER_DIR; };
 		C63740651E231116AA556D8F /* To Do List/UseCases/Gamification/MarkDailyReflectionCompleteUseCase.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "To Do List/UseCases/Gamification/MarkDailyReflectionCompleteUseCase.swift"; sourceTree = SOURCE_ROOT; };
+		C7A1B2C3D4E5F60718293AAB /* ClearGlassDistortion.metal */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.metal; path = ClearGlassDistortion.metal; sourceTree = "<group>"; };
 		CA35E641ED7341169B9EC48D /* TypographyTokens.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = TypographyTokens.swift; sourceTree = "<group>"; };
 		CCBCDF94E1BBCA170FD4E6C2 /* HomeQuickView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HomeQuickView.swift; sourceTree = "<group>"; };
 		CD059BC932A17FD845CAC6CD /* To Do List/Domain/Mappers/TombstoneMapper.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "To Do List/Domain/Mappers/TombstoneMapper.swift"; sourceTree = SOURCE_ROOT; };
@@ -1258,19 +1260,19 @@
 			name = Products;
 			sourceTree = "<group>";
 		};
-			753EFC9C2445A24500A739E3 /* To Do List */ = {
-				isa = PBXGroup;
-				children = (
+		753EFC9C2445A24500A739E3 /* To Do List */ = {
+			isa = PBXGroup;
+			children = (
 				7551DA0724883298005CF826 /* Utils */,
 				755FE8DF2479E60200A71A75 /* View */,
 				751074EB2DEE24EA00AC7F22 /* Models */,
 				75B7121B246AF77000453AEC /* Model */,
 				75B7121A246AF74E00453AEC /* ViewControllers */,
 				75B71219246AF70300453AEC /* Storyboards */,
-					75F18100245C99CD004D9A69 /* TaskModelV3.xcdatamodeld */,
-					753EFC9D2445A24500A739E3 /* AppDelegate.swift */,
-					A8F1D2055E9C44A100112233 /* DeviceOrientationPolicyResolver.swift */,
-					753EFC9F2445A24500A739E3 /* SceneDelegate.swift */,
+				75F18100245C99CD004D9A69 /* TaskModelV3.xcdatamodeld */,
+				753EFC9D2445A24500A739E3 /* AppDelegate.swift */,
+				A8F1D2055E9C44A100112233 /* DeviceOrientationPolicyResolver.swift */,
+				753EFC9F2445A24500A739E3 /* SceneDelegate.swift */,
 				753EFCA62445A24700A739E3 /* Assets.xcassets */,
 				753EFCAB2445A24700A739E3 /* Info.plist */,
 				75DFF2B02DF22E6B00EB8850 /* Managers */,
@@ -1543,6 +1545,7 @@
 				75A631652E8BDADC006EEA59 /* LGSearchBar.swift */,
 				75A631662E8BDADC006EEA59 /* LGTaskCard.swift */,
 				F3B4C5D6E7F8091A2B3C4D50 /* LiquidGlassSurface.swift */,
+				C7A1B2C3D4E5F60718293AAB /* ClearGlassDistortion.metal */,
 				75A631672E8BDADC006EEA59 /* README.md */,
 			);
 			path = LiquidGlass;
@@ -2340,6 +2343,7 @@
 				75A6316A2E8BDADC006EEA59 /* LGBaseView.swift in Sources */,
 				75A6316B2E8BDADC006EEA59 /* LGSearchBar.swift in Sources */,
 				F3B4C5D6E7F8091A2B3C4D51 /* LiquidGlassSurface.swift in Sources */,
+				C7A1B2C3D4E5F60718293AAC /* ClearGlassDistortion.metal in Sources */,
 				752A97642E93088100CFC576 /* ProjectSelectionSheet.swift in Sources */,
 				75E929F12E8C7B6B00207270 /* DomainEventPublisher.swift in Sources */,
 				75E929F22E8C7B6B00207270 /* DomainEvent.swift in Sources */,
@@ -2924,7 +2928,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_ENTITLEMENTS = "This Day.entitlements";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 2;
 				DEVELOPMENT_TEAM = CJ43UNM3AR;
 				INFOPLIST_FILE = "To Do List/Info.plist";
 				INFOPLIST_KEY_CFBundleDisplayName = Tasker;
@@ -2934,7 +2938,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.8.1;
+				MARKETING_VERSION = 1.8.3;
 				PRODUCT_BUNDLE_IDENTIFIER = "com.saransh1337.To-Do-List";
 				PRODUCT_MODULE_NAME = To_Do_List;
 				PRODUCT_NAME = "This Day";
@@ -2950,7 +2954,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_ENTITLEMENTS = "This Day.entitlements";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 2;
 				DEVELOPMENT_TEAM = CJ43UNM3AR;
 				INFOPLIST_FILE = "To Do List/Info.plist";
 				INFOPLIST_KEY_CFBundleDisplayName = Tasker;
@@ -2960,7 +2964,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.8.1;
+				MARKETING_VERSION = 1.8.3;
 				PRODUCT_BUNDLE_IDENTIFIER = "com.saransh1337.To-Do-List";
 				PRODUCT_MODULE_NAME = To_Do_List;
 				PRODUCT_NAME = "This Day";
