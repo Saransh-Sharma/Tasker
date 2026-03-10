@@ -251,11 +251,35 @@ Purpose:
 - Support reflection that leads to action without guilt.
 
 Requirements:
-- Today card summarizes completed count and meaningful progress.
-- Backlog health card surfaces overdue and stale trends.
-- Reminder effectiveness card surfaces response quality.
-- Streak resilience framing emphasizes return behavior, not all-or-nothing streak loss.
-- Weekly reflection prompts are optional and non-blocking.
+- Insights is split into three tabs with distinct intent:
+  - `Today` for operational momentum and immediate decision support.
+  - `Week` for reflective pattern analysis.
+  - `Systems` for long-term system health and progression.
+- `Today` includes:
+  - A hero or momentum board showing completed vs scheduled work, daily XP, streak-safe framing, and top XP source.
+  - Goal + pace analysis showing progress to daily cap, morning/evening split, and high-priority clears.
+  - Due pressure analysis showing due-today open work, overdue pressure, stale overdue pressure, blocked tasks, and long tasks.
+  - Focus pulse analysis showing focus minutes, session count, average session length, and target-hit rate.
+  - Completion mix analysis showing priority, task-type, energy, and context distribution from completed work.
+  - Recovery loop analysis showing recover/reschedule, decomposition, and reflection signals with a plain-language takeaway.
+- `Week` includes:
+  - A weekly momentum hero with XP total, goal-hit framing, and summary metrics.
+  - A completions-vs-XP weekly bar surface.
+  - A weekday pattern strip showing intensity and consistency by day.
+  - A project leaderboard based on weekly completion score totals.
+  - Priority and task-type mix summaries for completed work.
+  - Summary cards covering best day, average day, goal-hit days, and carry-over pressure.
+- `Systems` includes:
+  - Level and milestone progression framing.
+  - Streak resilience metrics emphasizing return behavior, not all-or-nothing streak loss.
+  - Achievement velocity metrics.
+  - Reminder response quality based on delivery status, acknowledgements, and snoozes.
+  - Focus ritual health metrics.
+  - Recovery loop health metrics across recover/reschedule, decomposition, and reflection behavior.
+- Insights reuses the existing task, gamification, reminder, focus-session, and analytics models; no schema change is required for richer analysis.
+- Copy is action-first and shame-free, with explicit no-data states instead of blank or thin dashboards.
+- Reduced-motion fallback is required for transitions and animated module reveals.
+- Weekly reflection prompts remain optional and non-blocking.
 
 ### Settings
 Purpose:
@@ -408,8 +432,15 @@ This table maps product surfaces to existing runtime usecases for implementation
 - Undo behavior is shown only while available; expired states are explicit.
 
 ### Insights
-- New users see sensible no-data states.
+- New users see explicit no-data states on all three tabs:
+  - `Today` explains that mix and momentum unlock after the first meaningful completion.
+  - `Week` explains that leaderboard and mix modules unlock once the week has enough completed work.
+  - `Systems` explains that reminder and focus health appear once reminders or sessions exist.
+- Insights never regresses to a thin XP-only dashboard; all three tabs render multi-widget analysis surfaces.
+- `Today` stays decision-oriented, `Week` stays reflective, and `Systems` stays long-term/systemic.
+- Existing tab accessibility identifiers remain stable for `Today`, `Week`, and `Systems`.
 - Weekly reflection inputs are optional and never block navigation.
+- Motion honors reduced-motion accessibility settings without removing information density.
 
 ### Accessibility And Privacy
 - Critical flows are completable with VoiceOver.
@@ -451,6 +482,7 @@ Technical implementation details are intentionally kept out of this PRD. Use the
 
 ## Document History
 
+- **v4.3 (March 11, 2026):** Updated Insights requirements to match the redesigned Today, Week, and Systems analytics surfaces, including richer widgets, empty-state behavior, and system-health framing.
 - **v4.2 (February 19, 2026):** Consolidated deep-research inputs into a detailed product-only PRD, added mental loop model, detailed screen requirements, implementation alignment table, interaction flows, explicit non-functional requirements, QA acceptance criteria, and horizon-based roadmap framing.
 - **v4.1 (February 19, 2026):** Added product constraints for V3 runtime cutover, non-goals, metric interpretation guardrails, and updated technical reference index.
 - **v4.0 (February 18, 2026):** Product-only PRD with explicit ADHD framework, metrics model, ethics section, and architecture-doc handoff.
