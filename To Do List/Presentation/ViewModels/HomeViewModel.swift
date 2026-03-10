@@ -1319,7 +1319,10 @@ public final class HomeViewModel: ObservableObject {
     public func makeInsightsViewModel() -> InsightsViewModel {
         InsightsViewModel(
             engine: useCaseCoordinator.gamificationEngine,
-            repository: useCaseCoordinator.gamificationRepository
+            repository: useCaseCoordinator.gamificationRepository,
+            taskReadModelRepository: useCaseCoordinator.taskReadModelRepository,
+            reminderRepository: useCaseCoordinator.reminderRepository,
+            analyticsUseCase: useCaseCoordinator.calculateAnalytics
         )
     }
 

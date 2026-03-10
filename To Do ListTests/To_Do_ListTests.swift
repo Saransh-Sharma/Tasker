@@ -6031,25 +6031,37 @@ final class TaskNotificationOrchestratorTests: XCTestCase {
         orchestrator.reconcile(reason: "unit_test")
 
         let reminderID = "task.reminder.\(reminderTask.id.uuidString)"
+        let reminder = notificationService.scheduled.first(where: { $0.id == reminderID })
         XCTAssertEqual(
-            notificationService.scheduled.first(where: { $0.id == reminderID })?.title,
+            reminder?.title,
             "Task Reminder"
         )
+        XCTAssertEqual(reminder?.route, .taskDetail(taskID: reminderTask.id))
 
         let dueSoonID = "task.dueSoon.\(dueSoonPrimary.id.uuidString).20260224"
-        let dueSoonBody = notificationService.scheduled.first(where: { $0.id == dueSoonID })?.body ?? ""
+        let dueSoon = notificationService.scheduled.first(where: { $0.id == dueSoonID })
+        let dueSoonBody = dueSoon?.body ?? ""
         XCTAssertTrue(dueSoonBody.contains("\"Send status update\" is due in"))
         XCTAssertTrue(dueSoonBody.contains("+ 1 more due soon"))
         XCTAssertEqual(notificationService.scheduled.filter { $0.kind == .dueSoon }.count, 1)
+        XCTAssertEqual(dueSoon?.route, .taskDetail(taskID: dueSoonPrimary.id))
 
         let overdueAMID = "task.overdue.\(overdue.id.uuidString).20260224.am"
-        let overdueBody = notificationService.scheduled.first(where: { $0.id == overdueAMID })?.body ?? ""
+        let overdueAM = notificationService.scheduled.first(where: { $0.id == overdueAMID })
+        let overdueBody = overdueAM?.body ?? ""
         XCTAssertEqual(overdueBody, "\"Submit invoice\" is overdue by 1 day(s).")
+        XCTAssertEqual(overdueAM?.route, .taskDetail(taskID: overdue.id))
 
         let overdueTomorrowAMID = "task.overdue.\(overdue.id.uuidString).20260225.am"
         let overdueTomorrowPMID = "task.overdue.\(overdue.id.uuidString).20260225.pm"
-        XCTAssertNotNil(notificationService.scheduled.first(where: { $0.id == overdueTomorrowAMID }))
-        XCTAssertNotNil(notificationService.scheduled.first(where: { $0.id == overdueTomorrowPMID }))
+        XCTAssertEqual(
+            notificationService.scheduled.first(where: { $0.id == overdueTomorrowAMID })?.route,
+            .taskDetail(taskID: overdue.id)
+        )
+        XCTAssertEqual(
+            notificationService.scheduled.first(where: { $0.id == overdueTomorrowPMID })?.route,
+            .taskDetail(taskID: overdue.id)
+        )
     }
 
     func testReconcileCancelsStaleManagedIdentifiersAndKeepsUnmanagedOnes() {
@@ -6202,6 +6214,7 @@ final class TaskNotificationOrchestratorTests: XCTestCase {
         XCTAssertEqual(calendar.component(.hour, from: dueSoon.fireDate), 9)
         XCTAssertEqual(calendar.component(.minute, from: dueSoon.fireDate), 0)
         XCTAssertTrue(dueSoon.body.contains("due in 60m"))
+        XCTAssertEqual(dueSoon.route, .taskDetail(taskID: dueSoonTask.id))
     }
 
     func testQuietHoursDefersTaskReminderToQuietWindowEnd() {
@@ -6312,6 +6325,55 @@ final class TaskerNotificationRouteTests: XCTestCase {
             TaskerNotificationRoute.from(payload: nightlyNoDate.payload, fallbackTaskID: nil),
             nightlyNoDate
         )
+    }
+}
+
+final class SceneDelegateNotificationRoutingTests: XCTestCase {
+    override func tearDown() {
+        clearRouteBus()
+        TaskerNotificationRuntime.actionHandler = nil
+        super.tearDown()
+    }
+
+    func testHandleNotificationLaunchFallsBackToPendingTaskDetailRouteWhenRuntimeHandlerUnavailable() {
+        let taskID = UUID()
+        let sceneDelegate = SceneDelegate()
+
+        sceneDelegate.handleNotificationLaunch(
+            request: makeUNNotificationRequest(
+                id: "task.reminder.\(taskID.uuidString)",
+                kind: .taskReminder,
+                route: .taskDetail(taskID: taskID),
+                taskID: taskID
+            )
+        )
+
+        XCTAssertEqual(TaskerNotificationRouteBus.shared.consumePendingRoute(), .taskDetail(taskID: taskID))
+    }
+
+    func testHandleNotificationLaunchUsesRuntimeActionHandlerWhenAvailable() {
+        let notificationService = CapturingNotificationService()
+        TaskerNotificationRuntime.actionHandler = TaskerNotificationActionHandler(
+            notificationService: notificationService,
+            coordinatorProvider: { nil }
+        )
+
+        let sceneDelegate = SceneDelegate()
+        sceneDelegate.handleNotificationLaunch(
+            request: makeUNNotificationRequest(
+                id: "daily.nightly.20260224",
+                kind: .nightlyRetrospective,
+                route: .dailySummary(kind: .nightly, dateStamp: "20260224"),
+                category: TaskerNotificationCategoryID.dailyNightly.rawValue
+            ),
+            actionIdentifier: TaskerNotificationActionID.openDone.rawValue
+        )
+
+        XCTAssertEqual(TaskerNotificationRouteBus.shared.consumePendingRoute(), .homeDone)
+    }
+
+    private func clearRouteBus() {
+        while TaskerNotificationRouteBus.shared.consumePendingRoute() != nil {}
     }
 }
 
@@ -6709,6 +6771,50 @@ final class TaskerNotificationActionHandlerTests: XCTestCase {
         XCTAssertEqual(routed, expectedRoute)
     }
 
+    func testDefaultTapRoutesTaskAlertToTaskDetail() {
+        clearRouteBus()
+        let taskID = UUID()
+        let notificationService = CapturingNotificationService()
+        let handler = TaskerNotificationActionHandler(
+            notificationService: notificationService,
+            coordinatorProvider: { nil }
+        )
+
+        handler.handleAction(
+            identifier: UNNotificationDefaultActionIdentifier,
+            request: makeUNNotificationRequest(
+                id: "task.overdue.\(taskID.uuidString).20260224.am",
+                kind: .overdue,
+                route: .taskDetail(taskID: taskID),
+                taskID: taskID
+            )
+        )
+
+        XCTAssertEqual(TaskerNotificationRouteBus.shared.consumePendingRoute(), .taskDetail(taskID: taskID))
+    }
+
+    func testOpenActionRoutesTaskAlertToTaskDetail() {
+        clearRouteBus()
+        let taskID = UUID()
+        let notificationService = CapturingNotificationService()
+        let handler = TaskerNotificationActionHandler(
+            notificationService: notificationService,
+            coordinatorProvider: { nil }
+        )
+
+        handler.handleAction(
+            identifier: TaskerNotificationActionID.open.rawValue,
+            request: makeUNNotificationRequest(
+                id: "task.dueSoon.\(taskID.uuidString).20260224",
+                kind: .dueSoon,
+                route: .taskDetail(taskID: taskID),
+                taskID: taskID
+            )
+        )
+
+        XCTAssertEqual(TaskerNotificationRouteBus.shared.consumePendingRoute(), .taskDetail(taskID: taskID))
+    }
+
     func testCompleteActionInvokesCompletionExactlyOnce() throws {
         let taskID = UUID()
         let task = TaskDefinition(
@@ -6764,10 +6870,11 @@ final class TaskerNotificationActionHandlerTests: XCTestCase {
         handler.handleAction(
             identifier: TaskerNotificationActionID.openToday.rawValue,
             request: makeUNNotificationRequest(
-                id: "task.dueSoon.\(taskID.uuidString).20260224",
-                kind: .dueSoon,
-                route: .taskDetail(taskID: taskID),
-                taskID: taskID
+                id: "daily.morning.20260224",
+                kind: .morningPlan,
+                route: .homeToday(taskID: taskID),
+                taskID: taskID,
+                category: TaskerNotificationCategoryID.dailyMorning.rawValue
             )
         )
 
@@ -7207,14 +7314,211 @@ final class InsightsViewModelPerformanceLogicTests: XCTestCase {
         XCTAssertTrue(viewModel.systemsState.unlockedAchievements.contains(unlockedKey))
     }
 
+    func testTodayProjectionBuildsDuePressureFocusAndMixModules() {
+        let repository = InsightsRepositorySpy()
+        let calendar = XPCalculationEngine.mondayCalendar()
+        let today = calendar.startOfDay(for: Date())
+        let overdueDate = calendar.date(byAdding: .day, value: -3, to: today) ?? today
+        let dueLaterToday = calendar.date(byAdding: .hour, value: 10, to: today) ?? today
+        let completedAt = calendar.date(byAdding: .hour, value: 9, to: today) ?? today
+
+        repository.dailyAggregatesByDateKey[XPCalculationEngine.periodKey(for: today)] = DailyXPAggregateDefinition(
+            dateKey: XPCalculationEngine.periodKey(for: today),
+            totalXP: 48,
+            eventCount: 4
+        )
+        repository.todayEvents = [
+            XPEventDefinition(delta: 18, reason: "task_completion", idempotencyKey: "today-1", createdAt: completedAt, category: .complete),
+            XPEventDefinition(delta: 12, reason: "focus", idempotencyKey: "today-2", createdAt: completedAt, category: .focus),
+            XPEventDefinition(delta: 8, reason: "recover", idempotencyKey: "today-3", createdAt: completedAt, category: .recoverReschedule),
+            XPEventDefinition(delta: 10, reason: "reflection", idempotencyKey: "today-4", createdAt: completedAt, category: .reflection)
+        ]
+        repository.focusSessions = [
+            FocusSessionDefinition(startedAt: completedAt, endedAt: calendar.date(byAdding: .minute, value: 30, to: completedAt), durationSeconds: 1_800, targetDurationSeconds: 1_800, wasCompleted: true, xpAwarded: 12),
+            FocusSessionDefinition(
+                startedAt: calendar.date(byAdding: .hour, value: 2, to: completedAt) ?? completedAt,
+                endedAt: calendar.date(byAdding: .hour, value: 2, to: completedAt)?.addingTimeInterval(1_200),
+                durationSeconds: 1_200,
+                targetDurationSeconds: 1_500,
+                wasCompleted: false,
+                xpAwarded: 0
+            )
+        ]
+
+        let tasks = [
+            TaskDefinition(
+                title: "High leverage task",
+                priority: .high,
+                type: .morning,
+                energy: .high,
+                context: .computer,
+                dueDate: dueLaterToday,
+                isComplete: true,
+                dateCompleted: completedAt
+            ),
+            TaskDefinition(
+                title: "Blocked overdue task",
+                priority: .max,
+                type: .morning,
+                energy: .medium,
+                context: .office,
+                dueDate: overdueDate,
+                estimatedDuration: 7_200,
+                dependencies: [TaskDependencyLinkDefinition(taskID: UUID(), dependsOnTaskID: UUID(), kind: .blocks, createdAt: Date())]
+            )
+        ]
+        let readModel = InMemoryTaskReadModelRepositoryStub(tasks: tasks)
+        let viewModel = makeInsightsViewModel(repository: repository, taskReadModelRepository: readModel)
+
+        viewModel.onAppear()
+        waitUntil(timeout: 1.5) {
+            viewModel.refreshState(for: .today).isLoaded
+                && !viewModel.todayState.completionMixSections.isEmpty
+        }
+
+        XCTAssertEqual(viewModel.todayState.momentumMetrics.count, 4)
+        XCTAssertEqual(viewModel.todayState.duePressureMetrics.first(where: { $0.id == "overdue" })?.value, "1")
+        XCTAssertEqual(viewModel.todayState.duePressureMetrics.first(where: { $0.id == "blocked" })?.value, "1")
+        XCTAssertEqual(viewModel.todayState.focusMetrics.first(where: { $0.id == "focus_minutes" })?.value, "50")
+        XCTAssertTrue(viewModel.todayState.recoveryMetrics.contains(where: { $0.id == "reflection" && $0.value == "Claimed" }))
+    }
+
+    func testWeekProjectionBuildsLeaderboardAndMix() {
+        let repository = InsightsRepositorySpy()
+        let calendar = XPCalculationEngine.mondayCalendar()
+        let weekStart = XPCalculationEngine.mondayStartOfWeek(for: Date(), calendar: calendar)
+        let formatter = makeDateFormatter(calendar: calendar)
+
+        repository.weekAggregates = (0..<7).compactMap { offset in
+            guard let day = calendar.date(byAdding: .day, value: offset, to: weekStart) else { return nil }
+            return DailyXPAggregateDefinition(
+                dateKey: formatter.string(from: day),
+                totalXP: offset < 4 ? (offset + 1) * 15 : 0,
+                eventCount: offset < 4 ? offset + 1 : 0
+            )
+        }
+
+        let projectA = UUID()
+        let projectB = UUID()
+        let completionDayOne = calendar.date(byAdding: .day, value: 1, to: weekStart) ?? weekStart
+        let completionDayTwo = calendar.date(byAdding: .day, value: 2, to: weekStart) ?? weekStart
+        repository.allEvents = [
+            XPEventDefinition(delta: 15, reason: "task_completion", idempotencyKey: "week-1", createdAt: completionDayOne, category: .complete),
+            XPEventDefinition(delta: 20, reason: "task_completion", idempotencyKey: "week-2", createdAt: completionDayTwo, category: .complete)
+        ]
+
+        let tasks = [
+            TaskDefinition(
+                projectID: projectA,
+                projectName: "Apollo",
+                title: "Apollo close",
+                priority: .high,
+                type: .morning,
+                dueDate: completionDayOne,
+                isComplete: true,
+                dateCompleted: completionDayOne
+            ),
+            TaskDefinition(
+                projectID: projectA,
+                projectName: "Apollo",
+                title: "Apollo follow-up",
+                priority: .max,
+                type: .evening,
+                dueDate: completionDayTwo,
+                isComplete: true,
+                dateCompleted: completionDayTwo
+            ),
+            TaskDefinition(
+                projectID: projectB,
+                projectName: "Beacon",
+                title: "Beacon prep",
+                priority: .low,
+                type: .upcoming,
+                dueDate: completionDayTwo,
+                isComplete: true,
+                dateCompleted: completionDayTwo
+            )
+        ]
+        let readModel = InMemoryTaskReadModelRepositoryStub(tasks: tasks)
+        let viewModel = makeInsightsViewModel(repository: repository, taskReadModelRepository: readModel)
+
+        viewModel.selectTab(.week)
+        viewModel.onAppear()
+        waitUntil(timeout: 1.5) {
+            viewModel.refreshState(for: .week).isLoaded
+                && !viewModel.weekState.projectLeaderboard.isEmpty
+        }
+
+        XCTAssertEqual(viewModel.weekState.projectLeaderboard.first?.title, "Apollo")
+        XCTAssertFalse(viewModel.weekState.priorityMix.isEmpty)
+        XCTAssertFalse(viewModel.weekState.taskTypeMix.isEmpty)
+        XCTAssertEqual(viewModel.weekState.weeklyBars.count, 7)
+    }
+
+    func testSystemsProjectionBuildsReminderResponseAndFocusHealth() {
+        let repository = InsightsRepositorySpy()
+        let reminderRepository = InsightsReminderRepositorySpy()
+        let now = Date()
+
+        repository.allEvents = [
+            XPEventDefinition(delta: 8, reason: "recover", idempotencyKey: "sys-1", createdAt: now, category: .recoverReschedule),
+            XPEventDefinition(delta: 6, reason: "reflection", idempotencyKey: "sys-2", createdAt: now, category: .reflection),
+            XPEventDefinition(delta: 4, reason: "decompose", idempotencyKey: "sys-3", createdAt: now, category: .decompose)
+        ]
+        repository.focusSessions = [
+            FocusSessionDefinition(startedAt: now.addingTimeInterval(-86_400), endedAt: now.addingTimeInterval(-84_600), durationSeconds: 1_800, targetDurationSeconds: 1_800, wasCompleted: true, xpAwarded: 10),
+            FocusSessionDefinition(startedAt: now.addingTimeInterval(-43_200), endedAt: now.addingTimeInterval(-42_000), durationSeconds: 1_200, targetDurationSeconds: 1_500, wasCompleted: false, xpAwarded: 0)
+        ]
+
+        let reminder = ReminderDefinition(
+            id: UUID(),
+            sourceType: .task,
+            sourceID: UUID(),
+            occurrenceID: nil,
+            policy: "default",
+            channelMask: 1,
+            isEnabled: true,
+            createdAt: now,
+            updatedAt: now
+        )
+        reminderRepository.reminders = [reminder]
+        reminderRepository.deliveriesByReminderID[reminder.id] = [
+            ReminderDeliveryDefinition(id: UUID(), reminderID: reminder.id, triggerID: UUID(), status: "acked", scheduledAt: now, sentAt: now, ackAt: now, snoozedUntil: nil, errorCode: nil, createdAt: now),
+            ReminderDeliveryDefinition(id: UUID(), reminderID: reminder.id, triggerID: UUID(), status: "snoozed", scheduledAt: now, sentAt: now, ackAt: nil, snoozedUntil: now.addingTimeInterval(600), errorCode: nil, createdAt: now),
+            ReminderDeliveryDefinition(id: UUID(), reminderID: reminder.id, triggerID: UUID(), status: "pending", scheduledAt: now, sentAt: nil, ackAt: nil, snoozedUntil: nil, errorCode: nil, createdAt: now)
+        ]
+
+        let viewModel = makeInsightsViewModel(
+            repository: repository,
+            reminderRepository: reminderRepository
+        )
+
+        viewModel.selectTab(.systems)
+        viewModel.onAppear()
+        waitUntil(timeout: 1.5) {
+            viewModel.refreshState(for: .systems).isLoaded
+                && viewModel.systemsState.reminderResponse.totalDeliveries == 3
+        }
+
+        XCTAssertEqual(viewModel.systemsState.reminderResponse.acknowledgedDeliveries, 1)
+        XCTAssertEqual(viewModel.systemsState.reminderResponse.snoozedDeliveries, 1)
+        XCTAssertEqual(viewModel.systemsState.reminderResponse.pendingDeliveries, 1)
+        XCTAssertEqual(viewModel.systemsState.focusHealthMetrics.first(where: { $0.id == "focus_sessions" })?.value, "2")
+        XCTAssertTrue(viewModel.systemsState.recoveryHealthMetrics.contains(where: { $0.id == "reflections" && $0.value == "1" }))
+    }
+
     private func makeInsightsViewModel(
         repository: InsightsRepositorySpy,
+        taskReadModelRepository: TaskReadModelRepositoryProtocol? = nil,
+        reminderRepository: ReminderRepositoryProtocol? = nil,
         notificationCenter: NotificationCenter = NotificationCenter()
     ) -> InsightsViewModel {
         let engine = GamificationEngine(repository: repository)
         return InsightsViewModel(
             engine: engine,
             repository: repository,
+            taskReadModelRepository: taskReadModelRepository,
+            reminderRepository: reminderRepository,
             notificationCenter: notificationCenter
         )
     }
@@ -7533,14 +7837,18 @@ private final class InsightsRepositorySpy: GamificationRepositoryProtocol {
     var dailyAggregatesByDateKey: [String: DailyXPAggregateDefinition] = [:]
     var weekAggregates: [DailyXPAggregateDefinition] = []
     var todayEvents: [XPEventDefinition] = []
+    var allEvents: [XPEventDefinition] = []
+    var focusSessions: [FocusSessionDefinition] = []
     var achievements: [AchievementUnlockDefinition] = []
     var rangeFetchDelay: TimeInterval = 0
 
     private(set) var fetchProfileCount = 0
     private(set) var fetchDailyAggregateCount = 0
     private(set) var fetchDailyAggregatesCount = 0
+    private(set) var fetchXPEventsAllCount = 0
     private(set) var fetchXPEventsRangeCount = 0
     private(set) var fetchAchievementUnlocksCount = 0
+    private(set) var fetchFocusSessionsCount = 0
 
     func fetchProfile(completion: @escaping (Result<GamificationSnapshot?, Error>) -> Void) {
         lock.lock()
@@ -7555,13 +7863,18 @@ private final class InsightsRepositorySpy: GamificationRepositoryProtocol {
     }
 
     func fetchXPEvents(completion: @escaping (Result<[XPEventDefinition], Error>) -> Void) {
-        completion(.success([]))
+        lock.lock()
+        fetchXPEventsAllCount += 1
+        let events = allEvents.isEmpty ? todayEvents : allEvents
+        lock.unlock()
+        completion(.success(events))
     }
 
     func fetchXPEvents(from startDate: Date, to endDate: Date, completion: @escaping (Result<[XPEventDefinition], Error>) -> Void) {
         lock.lock()
         fetchXPEventsRangeCount += 1
-        let events = todayEvents
+        let sourceEvents = allEvents.isEmpty ? todayEvents : allEvents
+        let events = sourceEvents.filter { $0.createdAt >= startDate && $0.createdAt < endDate }
         let delay = rangeFetchDelay
         lock.unlock()
 
@@ -7624,6 +7937,43 @@ private final class InsightsRepositorySpy: GamificationRepositoryProtocol {
     }
 
     func fetchFocusSessions(from startDate: Date, to endDate: Date, completion: @escaping (Result<[FocusSessionDefinition], Error>) -> Void) {
+        lock.lock()
+        fetchFocusSessionsCount += 1
+        let sessions = focusSessions.filter { $0.startedAt >= startDate && $0.startedAt < endDate }
+        lock.unlock()
+        completion(.success(sessions))
+    }
+}
+
+private final class InsightsReminderRepositorySpy: ReminderRepositoryProtocol {
+    var reminders: [ReminderDefinition] = []
+    var deliveriesByReminderID: [UUID: [ReminderDeliveryDefinition]] = [:]
+
+    func fetchReminders(completion: @escaping (Result<[ReminderDefinition], Error>) -> Void) {
+        completion(.success(reminders))
+    }
+
+    func saveReminder(_ reminder: ReminderDefinition, completion: @escaping (Result<ReminderDefinition, Error>) -> Void) {
+        completion(.success(reminder))
+    }
+
+    func fetchTriggers(reminderID: UUID, completion: @escaping (Result<[ReminderTriggerDefinition], Error>) -> Void) {
         completion(.success([]))
+    }
+
+    func saveTrigger(_ trigger: ReminderTriggerDefinition, completion: @escaping (Result<ReminderTriggerDefinition, Error>) -> Void) {
+        completion(.success(trigger))
+    }
+
+    func fetchDeliveries(reminderID: UUID, completion: @escaping (Result<[ReminderDeliveryDefinition], Error>) -> Void) {
+        completion(.success(deliveriesByReminderID[reminderID] ?? []))
+    }
+
+    func saveDelivery(_ delivery: ReminderDeliveryDefinition, completion: @escaping (Result<ReminderDeliveryDefinition, Error>) -> Void) {
+        completion(.success(delivery))
+    }
+
+    func updateDelivery(_ delivery: ReminderDeliveryDefinition, completion: @escaping (Result<ReminderDeliveryDefinition, Error>) -> Void) {
+        completion(.success(delivery))
     }
 }
