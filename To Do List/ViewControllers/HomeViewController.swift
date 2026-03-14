@@ -10,8 +10,351 @@ import SwiftUI
 import Combine
 import SwiftData
 
+public enum HomeShellPhase: String, Equatable {
+    case startup
+    case interactive
+}
+
+public enum HomeScrollChromeState: String, Equatable {
+    case nearTop
+    case expanded
+    case collapsed
+    case idle
+}
+
+enum HomeAnalyticsSurfaceState: Equatable {
+    case idle
+    case placeholder
+    case loading
+    case ready
+}
+
+enum HomeSearchSurfaceState: Equatable {
+    case idle
+    case presenting
+    case preparing
+    case ready
+}
+
+struct HomeLayoutMetrics: Equatable {
+    let width: CGFloat
+    let height: CGFloat
+    let safeAreaTop: CGFloat
+    let safeAreaBottom: CGFloat
+    let backdropGradientHeight: CGFloat
+    let taskListBottomInset: CGFloat
+    let chartViewportHeight: CGFloat
+
+    static let zero = HomeLayoutMetrics(
+        width: 0,
+        height: 0,
+        safeAreaTop: 0,
+        safeAreaBottom: 0,
+        backdropGradientHeight: 0,
+        taskListBottomInset: 80,
+        chartViewportHeight: 560
+    )
+
+    var isReady: Bool {
+        width > 1 && height > 1
+    }
+}
+
+typealias HomeChromeState = HomeChromeSnapshot
+typealias HomeTasksState = HomeTasksSnapshot
+typealias HomeOverlayState = HomeOverlaySnapshot
+
+struct HomeRenderTransaction: Equatable {
+    let chrome: HomeChromeState
+    let tasks: HomeTasksState
+    let overlay: HomeOverlayState
+
+    static let empty = HomeRenderTransaction(
+        chrome: .empty,
+        tasks: .empty,
+        overlay: .empty
+    )
+
+    func changedSliceCount(comparedTo previous: HomeRenderTransaction) -> Int {
+        var count = 0
+        if chrome != previous.chrome {
+            count += 1
+        }
+        if tasks != previous.tasks {
+            count += 1
+        }
+        if overlay != previous.overlay {
+            count += 1
+        }
+        return count
+    }
+}
+
+struct HomeChromeSnapshot: Equatable {
+    let selectedDate: Date
+    let activeScope: HomeListScope
+    let activeFilterState: HomeFilterState
+    let savedHomeViews: [SavedHomeView]
+    let quickViewCounts: [HomeQuickView: Int]
+    let progressState: HomeProgressState
+    let dailyScore: Int
+    let completionRate: Double
+    let projects: [Project]
+    let reflectionEligible: Bool
+    let momentumGuidanceText: String
+
+    static let empty = HomeChromeSnapshot(
+        selectedDate: Date(),
+        activeScope: .today,
+        activeFilterState: .default,
+        savedHomeViews: [],
+        quickViewCounts: [:],
+        progressState: .empty,
+        dailyScore: 0,
+        completionRate: 0,
+        projects: [],
+        reflectionEligible: false,
+        momentumGuidanceText: ""
+    )
+}
+
+struct HomeTasksSnapshot: Equatable {
+    let morningTasks: [TaskDefinition]
+    let eveningTasks: [TaskDefinition]
+    let overdueTasks: [TaskDefinition]
+    let inlineCompletedTasks: [TaskDefinition]
+    let doneTimelineTasks: [TaskDefinition]
+    let projects: [Project]
+    let projectsByID: [UUID: Project]
+    let projectsByName: [String: Project]
+    let tagNameByID: [UUID: String]
+    let rescueTasksByID: [UUID: TaskDefinition]
+    let activeQuickView: HomeQuickView
+    let todayXPSoFar: Int?
+    let projectGroupingMode: HomeProjectGroupingMode
+    let customProjectOrderIDs: [UUID]
+    let emptyStateMessage: String?
+    let emptyStateActionTitle: String?
+    let canUseManualFocusDrag: Bool
+    let focusTasks: [TaskDefinition]
+    let pinnedFocusTaskIDs: [UUID]
+    let todayOpenTaskCount: Int
+
+    static let empty = HomeTasksSnapshot(
+        morningTasks: [],
+        eveningTasks: [],
+        overdueTasks: [],
+        inlineCompletedTasks: [],
+        doneTimelineTasks: [],
+        projects: [],
+        projectsByID: [:],
+        projectsByName: [:],
+        tagNameByID: [:],
+        rescueTasksByID: [:],
+        activeQuickView: .today,
+        todayXPSoFar: nil,
+        projectGroupingMode: .defaultMode,
+        customProjectOrderIDs: [],
+        emptyStateMessage: nil,
+        emptyStateActionTitle: nil,
+        canUseManualFocusDrag: false,
+        focusTasks: [],
+        pinnedFocusTaskIDs: [],
+        todayOpenTaskCount: 0
+    )
+
+    var hasCommittedInitialContent: Bool {
+        !morningTasks.isEmpty
+            || !eveningTasks.isEmpty
+            || !overdueTasks.isEmpty
+            || !inlineCompletedTasks.isEmpty
+            || !doneTimelineTasks.isEmpty
+            || rendersDefaultTodayEmptyState
+            || emptyStateMessage != nil
+    }
+
+    var rendersDefaultTodayEmptyState: Bool {
+        activeQuickView == .today
+            && morningTasks.isEmpty
+            && eveningTasks.isEmpty
+            && overdueTasks.isEmpty
+            && inlineCompletedTasks.isEmpty
+            && doneTimelineTasks.isEmpty
+    }
+}
+
+struct HomeOverlaySnapshot: Equatable {
+    let guidanceState: HomeOnboardingGuidanceModel.State?
+    let focusWhyPresented: Bool
+    let triagePresented: Bool
+    let triageScope: EvaTriageScope
+    let triageQueueLoading: Bool
+    let triageQueueErrorMessage: String?
+    let triageQueue: [EvaTriageQueueItem]
+    let rescuePresented: Bool
+    let rescuePlan: EvaRescuePlan?
+    let lastBatchRunID: UUID?
+    let lastXPResult: XPEventResult?
+
+    static let empty = HomeOverlaySnapshot(
+        guidanceState: nil,
+        focusWhyPresented: false,
+        triagePresented: false,
+        triageScope: .visible,
+        triageQueueLoading: false,
+        triageQueueErrorMessage: nil,
+        triageQueue: [],
+        rescuePresented: false,
+        rescuePlan: nil,
+        lastBatchRunID: nil,
+        lastXPResult: nil
+    )
+
+    static func == (lhs: HomeOverlaySnapshot, rhs: HomeOverlaySnapshot) -> Bool {
+        lhs.guidanceState == rhs.guidanceState
+            && lhs.focusWhyPresented == rhs.focusWhyPresented
+            && lhs.triagePresented == rhs.triagePresented
+            && lhs.triageScope == rhs.triageScope
+            && lhs.triageQueueLoading == rhs.triageQueueLoading
+            && lhs.triageQueueErrorMessage == rhs.triageQueueErrorMessage
+            && lhs.triageQueue.map(\.task.id) == rhs.triageQueue.map(\.task.id)
+            && lhs.rescuePresented == rhs.rescuePresented
+            && String(describing: lhs.rescuePlan) == String(describing: rhs.rescuePlan)
+            && lhs.lastBatchRunID == rhs.lastBatchRunID
+            && String(describing: lhs.lastXPResult) == String(describing: rhs.lastXPResult)
+    }
+}
+
+@MainActor
+final class HomeChromeStore: ObservableObject {
+    @Published private(set) var snapshot: HomeChromeSnapshot = .empty
+
+    func apply(_ snapshot: HomeChromeSnapshot) {
+        guard self.snapshot != snapshot else { return }
+        self.snapshot = snapshot
+    }
+}
+
+@MainActor
+final class HomeTasksStore: ObservableObject {
+    @Published private(set) var snapshot: HomeTasksSnapshot = .empty
+
+    func apply(_ snapshot: HomeTasksSnapshot) {
+        guard self.snapshot != snapshot else { return }
+        self.snapshot = snapshot
+    }
+}
+
+@MainActor
+final class HomeOverlayStore: ObservableObject {
+    @Published private(set) var snapshot: HomeOverlaySnapshot = .empty
+
+    func apply(_ snapshot: HomeOverlaySnapshot) {
+        guard self.snapshot != snapshot else { return }
+        self.snapshot = snapshot
+    }
+}
+
+@MainActor
+final class HomeFaceCoordinator: ObservableObject {
+    @Published private(set) var activeFace: HomeForedropFace = .tasks
+    @Published private(set) var shellPhase: HomeShellPhase = .startup
+    @Published private(set) var layoutMetrics: HomeLayoutMetrics = .zero
+    @Published private(set) var searchMutationRevision: UInt64 = 0
+    @Published private(set) var analyticsSurfaceState: HomeAnalyticsSurfaceState = .idle
+    @Published private(set) var searchSurfaceState: HomeSearchSurfaceState = .idle
+    @Published var insightsViewModel: InsightsViewModel?
+
+    let bottomBarState = HomeBottomBarState()
+
+    func setActiveFace(_ face: HomeForedropFace) {
+        guard activeFace != face else { return }
+        activeFace = face
+        bottomBarState.select(face.selectedBottomBarItem)
+    }
+
+    func setShellPhase(_ phase: HomeShellPhase) {
+        guard shellPhase != phase else { return }
+        shellPhase = phase
+    }
+
+    func setLayoutMetrics(_ metrics: HomeLayoutMetrics) {
+        guard layoutMetrics != metrics else { return }
+        layoutMetrics = metrics
+    }
+
+    func setAnalyticsSurfaceState(_ state: HomeAnalyticsSurfaceState) {
+        guard analyticsSurfaceState != state else { return }
+        analyticsSurfaceState = state
+    }
+
+    func setSearchSurfaceState(_ state: HomeSearchSurfaceState) {
+        guard searchSurfaceState != state else { return }
+        searchSurfaceState = state
+    }
+
+    func recordSearchMutation() {
+        searchMutationRevision &+= 1
+    }
+}
+
+private struct PhoneHomeRootContainer: View {
+    let root: HomeBackdropForedropRootView
+    let layoutClass: TaskerLayoutClass
+
+    var body: some View {
+        root.taskerLayoutClass(layoutClass)
+    }
+}
+
+private struct HomeHostRootView: View {
+    let layoutClass: TaskerLayoutClass
+    let phoneRoot: HomeBackdropForedropRootView?
+    let iPadRoot: AnyView?
+
+    @ViewBuilder
+    var body: some View {
+        if let phoneRoot {
+            PhoneHomeRootContainer(root: phoneRoot, layoutClass: layoutClass)
+        } else if let iPadRoot {
+            iPadRoot
+        } else {
+            EmptyView()
+        }
+    }
+}
+
+private struct HomeBottomBarContainer: View {
+    let state: HomeBottomBarState
+    let shellPhase: HomeShellPhase
+    let onHome: () -> Void
+    let onChartsToggle: () -> Void
+    let onSearch: () -> Void
+    let onChat: () -> Void
+    let onCreate: () -> Void
+    let layoutClass: TaskerLayoutClass
+
+    var body: some View {
+        HomeGlassBottomBar(
+            state: state,
+            shellPhase: shellPhase,
+            onHome: onHome,
+            onChartsToggle: onChartsToggle,
+            onSearch: onSearch,
+            onChat: onChat,
+            onCreate: onCreate
+        )
+        .padding(.horizontal, TaskerThemeManager.shared.tokens(for: layoutClass).spacing.s16)
+        .padding(.bottom, 0)
+        .ignoresSafeArea(.container, edges: .bottom)
+        .offset(y: 6)
+    }
+}
+
 final class HomeViewController: UIViewController, HomeViewControllerProtocol, HomeAnalyticsViewModelsInjectable, PresentationDependencyContainerAware, UIAdaptivePresentationControllerDelegate {
     private static var hasConsumedUITestRoute = false
+    private static var hasConsumedUITestOpenSettings = false
+    private static var hasSeededUITestEstablishedWorkspace = false
 
     // MARK: - Dependencies
 
@@ -22,8 +365,14 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
 
     // MARK: - UI
 
-    private var homeHostingController: UIHostingController<AnyView>?
+    private var homeHostingController: UIHostingController<HomeHostRootView>?
+    private var bottomBarHostingController: UIHostingController<HomeBottomBarContainer>?
     private var insightsViewModel: InsightsViewModel?
+    private let searchState = HomeSearchState()
+    private let chromeStore = HomeChromeStore()
+    private let tasksStore = HomeTasksStore()
+    private let overlayStore = HomeOverlayStore()
+    private let faceCoordinator = HomeFaceCoordinator()
 
     // MARK: - State
 
@@ -44,6 +393,17 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
     private weak var pendingIPadModalFallbackController: UIViewController?
     private var didConsumePendingIPadModalFallbackRetry = false
     private var isPendingIPadModalFallbackRetryScheduled = false
+    private let onboardingGuidanceModel = HomeOnboardingGuidanceModel()
+    private var onboardingCoordinator: AppOnboardingCoordinator?
+    private var pendingInsightsLaunchRequest: InsightsLaunchRequest?
+    private var pendingInsightsPreparationTask: Task<Void, Never>?
+    private var pendingSearchPreparationTask: Task<Void, Never>?
+    private var pendingSearchWarmupTask: Task<Void, Never>?
+    private var pendingSearchMutationRefreshTask: Task<Void, Never>?
+    private var pendingOnboardingEvaluationTask: Task<Void, Never>?
+    private var onboardingEvaluationSceneToken: Int = 1
+    private var completedOnboardingEvaluationSceneToken: Int = 0
+    private var lastAppliedHomeRenderTransaction: HomeRenderTransaction = .empty
 
 
     // MARK: - Lifecycle
@@ -55,6 +415,7 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
         injectDependenciesIfNeeded()
         bindTheme()
         bindViewModel()
+        bindRenderPipeline()
         mountHomeShell()
         observeMutations()
         observeNotificationRoutes()
@@ -68,8 +429,14 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
         observeTaskCreatedForSnackbar()
         observePersistentSyncMode()
         observeIPadShellTelemetry()
+        observeOnboardingRequests()
         applyTheme()
         refreshPersistentSyncOutageBanner()
+        onboardingCoordinator = AppOnboardingCoordinator(
+            homeViewController: self,
+            presentationDependencyContainer: presentationDependencyContainer,
+            guidanceModel: onboardingGuidanceModel
+        )
     }
 
     /// Executes viewWillAppear.
@@ -85,14 +452,21 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
             handleNotificationRoute(pendingRoute)
         }
         consumeUITestInjectedRouteIfNeeded()
+        consumeUITestOpenSettingsIfNeeded()
         processPendingWidgetActionCommand()
         processPendingIPadModalRequest()
+        seedUITestEstablishedWorkspaceIfNeeded { [weak self] in
+            self?.scheduleOnboardingEvaluationIfNeeded()
+        }
     }
 
     /// Executes viewDidLayoutSubviews.
     override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
         refreshLayoutClassIfNeeded()
+        refreshLayoutMetrics()
+        updateInteractivePhaseIfNeeded()
+        mountBottomBarOverlayIfNeeded()
     }
 
     /// Executes traitCollectionDidChange.
@@ -108,6 +482,11 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
     }
 
     deinit {
+        pendingInsightsPreparationTask?.cancel()
+        pendingSearchPreparationTask?.cancel()
+        pendingSearchWarmupTask?.cancel()
+        pendingSearchMutationRefreshTask?.cancel()
+        pendingOnboardingEvaluationTask?.cancel()
         notificationCenter.removeObserver(self)
     }
 
@@ -145,6 +524,64 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
         // Keep this hook for future bindings, but avoid duplicate startup fetches.
     }
 
+    private func bindRenderPipeline() {
+        viewModel.$homeRenderTransaction
+            .receive(on: RunLoop.main)
+            .sink { [weak self] transaction in
+                self?.applyHomeRenderTransaction(transaction)
+            }
+            .store(in: &cancellables)
+
+        onboardingGuidanceModel.$state
+            .receive(on: RunLoop.main)
+            .sink { [weak self] _ in
+                guard let self else { return }
+                self.applyOverlayState(self.viewModel.homeOverlayState)
+            }
+            .store(in: &cancellables)
+
+        viewModel.$insightsLaunchRequest
+            .receive(on: RunLoop.main)
+            .sink { [weak self] request in
+                self?.handleInsightsLaunchRequest(request)
+            }
+            .store(in: &cancellables)
+
+        faceCoordinator.$activeFace
+            .receive(on: RunLoop.main)
+            .sink { [weak self] activeFace in
+                self?.trackFaceSelection(activeFace)
+                if activeFace == .tasks {
+                    self?.scheduleOnboardingEvaluationIfNeeded()
+                }
+            }
+            .store(in: &cancellables)
+
+        faceCoordinator.$shellPhase
+            .receive(on: RunLoop.main)
+            .sink { [weak self] _ in
+                self?.mountBottomBarOverlayIfNeeded()
+                self?.scheduleOnboardingEvaluationIfNeeded()
+            }
+            .store(in: &cancellables)
+
+        notificationCenter.publisher(for: UIApplication.didBecomeActiveNotification)
+            .receive(on: RunLoop.main)
+            .sink { [weak self] _ in
+                guard let self else { return }
+                self.onboardingEvaluationSceneToken &+= 1
+                self.scheduleOnboardingEvaluationIfNeeded()
+            }
+            .store(in: &cancellables)
+
+        faceCoordinator.$searchMutationRevision
+            .receive(on: RunLoop.main)
+            .sink { [weak self] _ in
+                self?.handleSearchMutationRevision()
+            }
+            .store(in: &cancellables)
+    }
+
     private var isUsingIPadNativeShell: Bool {
         currentLayoutClass.isPad && V2FeatureFlags.iPadNativeShellEnabled
     }
@@ -162,32 +599,473 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
         return metrics.width > 1 && metrics.height > 1
     }
 
+    private func scheduleInsightsPreparationIfNeeded() {
+        guard faceCoordinator.insightsViewModel == nil else {
+            faceCoordinator.setAnalyticsSurfaceState(.ready)
+            applyPendingInsightsLaunchRequestIfNeeded()
+            return
+        }
+
+        pendingInsightsPreparationTask?.cancel()
+        faceCoordinator.setAnalyticsSurfaceState(.placeholder)
+
+        let interval = TaskerPerformanceTrace.begin("HomeInsightsFirstMount")
+        pendingInsightsPreparationTask = Task { @MainActor [weak self] in
+            defer {
+                TaskerPerformanceTrace.end(interval)
+                self?.pendingInsightsPreparationTask = nil
+            }
+            guard let self else { return }
+
+            TaskerPerformanceTrace.event("HomeAnalyticsPlaceholderShown")
+            await Task.yield()
+            guard Task.isCancelled == false, self.faceCoordinator.activeFace == .analytics else { return }
+
+            self.faceCoordinator.setAnalyticsSurfaceState(.loading)
+            let resolvedViewModel = self.viewModel.makeInsightsViewModel()
+            guard Task.isCancelled == false else { return }
+
+            self.insightsViewModel = resolvedViewModel
+            self.faceCoordinator.insightsViewModel = resolvedViewModel
+            self.faceCoordinator.setAnalyticsSurfaceState(.ready)
+            TaskerPerformanceTrace.event("HomeAnalyticsReady")
+            self.applyPendingInsightsLaunchRequestIfNeeded()
+        }
+    }
+
+    private func scheduleOnboardingEvaluationIfNeeded() {
+        guard isViewLoaded, view.window != nil else { return }
+        guard faceCoordinator.shellPhase == .interactive else { return }
+        guard faceCoordinator.activeFace == .tasks else { return }
+        guard presentedViewController == nil else { return }
+        guard onboardingEvaluationSceneToken > completedOnboardingEvaluationSceneToken else { return }
+        guard pendingOnboardingEvaluationTask == nil else { return }
+
+        let sceneToken = onboardingEvaluationSceneToken
+        pendingOnboardingEvaluationTask = Task { @MainActor [weak self] in
+            await self?.runOnboardingEvaluationAfterDelay(sceneToken: sceneToken)
+        }
+    }
+
+    private func handleInsightsLaunchRequest(_ request: InsightsLaunchRequest?) {
+        guard let request else { return }
+        pendingInsightsLaunchRequest = request
+        if faceCoordinator.activeFace == .analytics {
+            scheduleInsightsPreparationIfNeeded()
+            applyPendingInsightsLaunchRequestIfNeeded()
+            return
+        }
+        openAnalytics(source: "launch_request", launchDefaultInsights: false)
+    }
+
+    private func applyPendingInsightsLaunchRequestIfNeeded() {
+        guard let request = pendingInsightsLaunchRequest else { return }
+        guard let insightsViewModel = faceCoordinator.insightsViewModel else { return }
+        pendingInsightsLaunchRequest = nil
+        insightsViewModel.selectTab(request.targetTab)
+        insightsViewModel.highlightAchievement(request.highlightedAchievementKey)
+    }
+
+    private func trackFaceSelection(_ activeFace: HomeForedropFace) {
+        let faceName: String
+        switch activeFace {
+        case .tasks:
+            faceName = "tasks"
+        case .analytics:
+            faceName = "analytics"
+        case .search:
+            faceName = "search"
+        }
+        logDebug("HOME_RENDER face=\(faceName) phase=\(faceCoordinator.shellPhase.rawValue)")
+    }
+
+    private func openAnalytics(source: String, launchDefaultInsights: Bool) {
+        guard faceCoordinator.activeFace != .analytics else { return }
+        pendingOnboardingEvaluationTask?.cancel()
+        pendingOnboardingEvaluationTask = nil
+        faceCoordinator.setActiveFace(.analytics)
+        faceCoordinator.setAnalyticsSurfaceState(faceCoordinator.insightsViewModel == nil ? .placeholder : .ready)
+        if launchDefaultInsights {
+            viewModel.launchInsights(.default)
+        }
+        viewModel.trackHomeInteraction(
+            action: "home_insights_flip_open",
+            metadata: ["source": source]
+        )
+        scheduleInsightsPreparationIfNeeded()
+    }
+
+    @MainActor
+    func runOnboardingEvaluationAfterDelay(
+        sceneToken: Int,
+        sleepNanoseconds: UInt64 = 2_000_000_000,
+        retry: (@MainActor () -> Void)? = nil
+    ) async {
+        let clear = { [weak self] in
+            self?.pendingOnboardingEvaluationTask = nil
+        }
+        defer { clear() }
+
+        do {
+            try await Task.sleep(nanoseconds: sleepNanoseconds)
+        } catch {
+            return
+        }
+
+        guard Task.isCancelled == false else { return }
+        let retryEvaluation = retry ?? { [weak self] in
+            self?.scheduleOnboardingEvaluationIfNeeded()
+        }
+
+        guard sceneToken == self.onboardingEvaluationSceneToken else {
+            retryEvaluation()
+            return
+        }
+        guard self.isViewLoaded, self.view.window != nil else {
+            retryEvaluation()
+            return
+        }
+        guard self.faceCoordinator.shellPhase == .interactive else {
+            retryEvaluation()
+            return
+        }
+        guard self.faceCoordinator.activeFace == .tasks else {
+            retryEvaluation()
+            return
+        }
+        guard self.presentedViewController == nil else {
+            retryEvaluation()
+            return
+        }
+
+        let interval = TaskerPerformanceTrace.begin("HomeOnboardingLaunchEval")
+        self.onboardingCoordinator?.evaluateLaunchIfNeeded()
+        self.onboardingCoordinator?.drainPendingPresentationIfPossible()
+        TaskerPerformanceTrace.end(interval)
+        self.completedOnboardingEvaluationSceneToken = sceneToken
+    }
+
+    private func closeAnalytics(source: String) {
+        guard faceCoordinator.activeFace == .analytics else { return }
+        if faceCoordinator.insightsViewModel == nil {
+            pendingInsightsPreparationTask?.cancel()
+        }
+        faceCoordinator.setActiveFace(.tasks)
+        faceCoordinator.setAnalyticsSurfaceState(.idle)
+        viewModel.trackHomeInteraction(
+            action: "home_insights_flip_close",
+            metadata: ["source": source]
+        )
+    }
+
+    private func toggleInsights(source: String) {
+        if faceCoordinator.activeFace == .analytics {
+            closeAnalytics(source: source)
+        } else {
+            openAnalytics(source: source, launchDefaultInsights: true)
+        }
+    }
+
+    private func openSearch(source: String) {
+        guard faceCoordinator.activeFace != .search else { return }
+        pendingSearchPreparationTask?.cancel()
+        pendingSearchWarmupTask?.cancel()
+        pendingOnboardingEvaluationTask?.cancel()
+        pendingOnboardingEvaluationTask = nil
+        faceCoordinator.setActiveFace(.search)
+        faceCoordinator.setSearchSurfaceState(.presenting)
+        TaskerPerformanceTrace.event("HomeSearchTapped")
+        viewModel.trackHomeInteraction(
+            action: "home_search_flip_open",
+            metadata: ["source": source]
+        )
+        scheduleSearchPreparation()
+    }
+
+    private func closeSearch(source: String) {
+        guard faceCoordinator.activeFace == .search else { return }
+        pendingSearchPreparationTask?.cancel()
+        pendingSearchWarmupTask?.cancel()
+        pendingSearchMutationRefreshTask?.cancel()
+        faceCoordinator.setActiveFace(.tasks)
+        faceCoordinator.setSearchSurfaceState(.idle)
+        searchState.deactivate()
+        viewModel.trackHomeInteraction(
+            action: "home_search_flip_close",
+            metadata: ["source": source]
+        )
+    }
+
+    private func toggleSearch(source: String) {
+        if faceCoordinator.activeFace == .search {
+            closeSearch(source: source)
+        } else {
+            openSearch(source: source)
+        }
+    }
+
+    private func returnToTasks(source: String) {
+        switch faceCoordinator.activeFace {
+        case .tasks:
+            faceCoordinator.bottomBarState.select(.home)
+        case .analytics:
+            closeAnalytics(source: source)
+        case .search:
+            closeSearch(source: source)
+        }
+    }
+
+    private func handleTaskListChromeStateChange(_ state: HomeScrollChromeState) {
+        faceCoordinator.bottomBarState.handleChromeStateChange(state)
+    }
+
+    private func scheduleSearchPreparation() {
+        let interval = TaskerPerformanceTrace.begin("HomeSearchSurface")
+        pendingSearchPreparationTask = Task { @MainActor [weak self] in
+            defer {
+                TaskerPerformanceTrace.end(interval)
+                self?.pendingSearchPreparationTask = nil
+            }
+            guard let self else { return }
+
+            await Task.yield()
+            guard Task.isCancelled == false, self.faceCoordinator.activeFace == .search else { return }
+
+            TaskerPerformanceTrace.event("HomeSearchSurfaceVisible")
+            self.faceCoordinator.setSearchSurfaceState(.preparing)
+            self.searchState.configureIfNeeded(
+                makeEngine: {
+                    LGHomeSearchEngine(viewModel: self.viewModel.makeHomeSearchViewModel())
+                },
+                dataRevisionProvider: {
+                    self.viewModel.currentDataRevision
+                }
+            )
+            TaskerPerformanceTrace.event("HomeSearchConfigured")
+            guard Task.isCancelled == false, self.faceCoordinator.activeFace == .search else { return }
+
+            self.faceCoordinator.setSearchSurfaceState(.ready)
+            TaskerPerformanceTrace.event("HomeSearchSurfaceReady")
+            self.scheduleInitialSearchWarmupIfNeeded()
+        }
+    }
+
+    private func scheduleInitialSearchWarmupIfNeeded() {
+        pendingSearchWarmupTask?.cancel()
+        pendingSearchWarmupTask = Task { @MainActor [weak self] in
+            defer { self?.pendingSearchWarmupTask = nil }
+            do {
+                try await Task.sleep(nanoseconds: 300_000_000)
+            } catch {
+                return
+            }
+            guard let self, Task.isCancelled == false else { return }
+            guard self.faceCoordinator.activeFace == .search else { return }
+            guard self.faceCoordinator.searchSurfaceState == .ready else { return }
+            self.searchState.activate()
+        }
+    }
+
+    private func handleSearchMutationRevision() {
+        searchState.markDataMutated()
+        guard faceCoordinator.activeFace == .search, faceCoordinator.searchSurfaceState == .ready else { return }
+
+        pendingSearchMutationRefreshTask?.cancel()
+        pendingSearchMutationRefreshTask = Task { @MainActor [weak self] in
+            guard let self else { return }
+            do {
+                try await Task.sleep(nanoseconds: 250_000_000)
+            } catch {
+                return
+            }
+            guard Task.isCancelled == false,
+                  self.faceCoordinator.activeFace == .search,
+                  self.faceCoordinator.searchSurfaceState == .ready else {
+                return
+            }
+            self.searchState.refresh(immediate: true)
+        }
+    }
+
+    private func computeHomeLayoutMetrics() -> HomeLayoutMetrics {
+        let safeAreaInsets = view.safeAreaInsets
+        let width = view.bounds.width
+        let height = view.bounds.height
+        let tokens = TaskerThemeManager.shared.tokens(for: currentLayoutClass)
+        let spacing = tokens.spacing
+        let bottomOverlayObstruction = currentLayoutClass == .phone ? ((spacing.s12 * 2) + 56 + 6) : 0
+        let taskListBottomInset = bottomOverlayObstruction + safeAreaInsets.bottom + spacing.s20
+        let chartViewportHeight = min(max(height * 0.66, 560), max(560, height - 150))
+
+        return HomeLayoutMetrics(
+            width: width,
+            height: height,
+            safeAreaTop: safeAreaInsets.top,
+            safeAreaBottom: safeAreaInsets.bottom,
+            backdropGradientHeight: height + safeAreaInsets.top + safeAreaInsets.bottom,
+            taskListBottomInset: taskListBottomInset,
+            chartViewportHeight: chartViewportHeight
+        )
+    }
+
+    private func refreshLayoutMetrics() {
+        faceCoordinator.setLayoutMetrics(computeHomeLayoutMetrics())
+    }
+
+    private func updateInteractivePhaseIfNeeded() {
+        let layoutMetrics = faceCoordinator.layoutMetrics
+        let tasksState = tasksStore.snapshot
+        if faceCoordinator.shellPhase == .startup,
+           layoutMetrics.isReady,
+           tasksState.hasCommittedInitialContent {
+            faceCoordinator.setShellPhase(.interactive)
+        }
+    }
+
+    private func applyHomeRenderTransaction(_ transaction: HomeRenderTransaction) {
+        guard transaction != lastAppliedHomeRenderTransaction else { return }
+
+        let changedSliceCount = transaction.changedSliceCount(comparedTo: lastAppliedHomeRenderTransaction)
+        let interval = TaskerPerformanceTrace.begin("HomeRenderTransactionCommit")
+        defer {
+            TaskerPerformanceTrace.event("HomeRenderSliceCommits", value: changedSliceCount)
+            TaskerPerformanceTrace.end(interval)
+            lastAppliedHomeRenderTransaction = transaction
+        }
+
+        if transaction.chrome != lastAppliedHomeRenderTransaction.chrome {
+            chromeStore.apply(transaction.chrome)
+        }
+        if transaction.tasks != lastAppliedHomeRenderTransaction.tasks {
+            tasksStore.apply(transaction.tasks)
+            updateInteractivePhaseIfNeeded()
+        }
+        if transaction.overlay != lastAppliedHomeRenderTransaction.overlay {
+            applyOverlayState(transaction.overlay)
+        }
+    }
+
+    private func applyOverlayState(_ state: HomeOverlayState) {
+        overlayStore.apply(
+            HomeOverlaySnapshot(
+                guidanceState: onboardingGuidanceModel.state,
+                focusWhyPresented: state.focusWhyPresented,
+                triagePresented: state.triagePresented,
+                triageScope: state.triageScope,
+                triageQueueLoading: state.triageQueueLoading,
+                triageQueueErrorMessage: state.triageQueueErrorMessage,
+                triageQueue: state.triageQueue,
+                rescuePresented: state.rescuePresented,
+                rescuePlan: state.rescuePlan,
+                lastBatchRunID: state.lastBatchRunID,
+                lastXPResult: state.lastXPResult
+            )
+        )
+    }
+
+    private func mountBottomBarOverlayIfNeeded() {
+        let shouldShowBottomBar = currentLayoutClass == .phone && faceCoordinator.shellPhase == .interactive
+        if shouldShowBottomBar == false {
+            if let bottomBarHostingController {
+                bottomBarHostingController.willMove(toParent: nil)
+                bottomBarHostingController.view.removeFromSuperview()
+                bottomBarHostingController.removeFromParent()
+                self.bottomBarHostingController = nil
+            }
+            return
+        }
+
+        let root = makeBottomBarRoot()
+        if let bottomBarHostingController {
+            bottomBarHostingController.rootView = root
+            return
+        }
+
+        let hostingController = UIHostingController(rootView: root)
+        hostingController.view.backgroundColor = .clear
+        hostingController.view.translatesAutoresizingMaskIntoConstraints = false
+        addChild(hostingController)
+        view.addSubview(hostingController.view)
+        NSLayoutConstraint.activate([
+            hostingController.view.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            hostingController.view.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            hostingController.view.bottomAnchor.constraint(equalTo: view.bottomAnchor)
+        ])
+        hostingController.didMove(toParent: self)
+        bottomBarHostingController = hostingController
+    }
+
+    private func makeBottomBarRoot() -> HomeBottomBarContainer {
+        HomeBottomBarContainer(
+            state: faceCoordinator.bottomBarState,
+            shellPhase: faceCoordinator.shellPhase,
+            onHome: { [weak self] in
+                self?.returnToTasks(source: "bottom_bar_home")
+            },
+            onChartsToggle: { [weak self] in
+                self?.toggleInsights(source: "bottom_bar_analytics")
+            },
+            onSearch: { [weak self] in
+                self?.toggleSearch(source: "bottom_bar_search")
+            },
+            onChat: { [weak self] in
+                if self?.isUsingIPadNativeShell == true {
+                    self?.iPadShellState.destination = .chat
+                } else {
+                    self?.chatButtonTapped()
+                }
+            },
+            onCreate: { [weak self] in
+                if self?.isUsingIPadNativeShell == true {
+                    if self?.currentLayoutClass == .padExpanded {
+                        self?.iPadShellState.destination = .addTask
+                    } else {
+                        self?.presentAddTaskSheetForPadFallback()
+                    }
+                } else {
+                    self?.AddTaskAction()
+                }
+            },
+            layoutClass: currentLayoutClass
+        )
+    }
+
     /// Executes mountHomeShell.
     private func mountHomeShell() {
-        guard let viewModel else { return }
+        let interval = TaskerPerformanceTrace.begin("HomeShellMount")
+        defer { TaskerPerformanceTrace.end(interval) }
+
+        guard self.viewModel != nil else { return }
         guard hasMountedStableLayoutShell || hasStableLayoutMetrics else { return }
-        if insightsViewModel == nil {
-            insightsViewModel = viewModel.makeInsightsViewModel()
-        }
-        guard let insightsViewModel else { return }
 
         currentLayoutClass = TaskerLayoutResolver.classify(view: view)
         if hasStableLayoutMetrics {
             hasMountedStableLayoutShell = true
             trackLayoutClassAtLaunchIfNeeded()
         }
-        let root: AnyView
+        let root: HomeHostRootView
 
         if currentLayoutClass.isPad && V2FeatureFlags.iPadNativeShellEnabled {
-            root = makeIPadSplitRoot(layoutClass: currentLayoutClass)
+            root = HomeHostRootView(
+                layoutClass: currentLayoutClass,
+                phoneRoot: nil,
+                iPadRoot: makeIPadSplitRoot(layoutClass: currentLayoutClass)
+            )
             trackIPadShellRenderedIfNeeded()
         } else {
             let homeRoot = makeHomeBackdropRoot(layoutClass: currentLayoutClass, forcedFace: nil)
-            root = AnyView(homeRoot.taskerLayoutClass(currentLayoutClass))
+            root = HomeHostRootView(
+                layoutClass: currentLayoutClass,
+                phoneRoot: homeRoot,
+                iPadRoot: nil
+            )
         }
 
         if let existingHostingController = homeHostingController {
             existingHostingController.rootView = root
+            refreshLayoutMetrics()
+            updateInteractivePhaseIfNeeded()
+            mountBottomBarOverlayIfNeeded()
             return
         }
 
@@ -208,6 +1086,9 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
         ])
 
         hostingController.didMove(toParent: self)
+        refreshLayoutMetrics()
+        updateInteractivePhaseIfNeeded()
+        mountBottomBarOverlayIfNeeded()
     }
 
     /// Executes makeHomeBackdropRoot.
@@ -217,9 +1098,13 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
     ) -> HomeBackdropForedropRootView {
         HomeBackdropForedropRootView(
             viewModel: viewModel,
+            chromeStore: chromeStore,
+            tasksStore: tasksStore,
+            overlayStore: overlayStore,
+            faceCoordinator: faceCoordinator,
+            searchState: searchState,
             chartCardViewModel: chartCardViewModel,
             radarChartCardViewModel: radarChartCardViewModel,
-            insightsViewModel: insightsViewModel ?? viewModel.makeInsightsViewModel(),
             layoutClass: layoutClass,
             forcedFace: forcedFace,
             onTaskTap: { [weak self] task in
@@ -265,6 +1150,24 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
                     self?.onMenuButtonTapped()
                 }
             },
+            onOpenAnalytics: { [weak self] source, launchDefaultInsights in
+                self?.openAnalytics(source: source, launchDefaultInsights: launchDefaultInsights)
+            },
+            onCloseAnalytics: { [weak self] source in
+                self?.closeAnalytics(source: source)
+            },
+            onOpenSearch: { [weak self] source in
+                self?.openSearch(source: source)
+            },
+            onCloseSearch: { [weak self] source in
+                self?.closeSearch(source: source)
+            },
+            onReturnToTasks: { [weak self] source in
+                self?.returnToTasks(source: source)
+            },
+            onTaskListScrollChromeStateChange: { [weak self] state in
+                self?.handleTaskListChromeStateChange(state)
+            },
             onStartFocus: { [weak self] task in
                 self?.startFocusFlow(task: task, source: "focus_strip")
             }
@@ -288,6 +1191,9 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
             },
             settingsSurface: { [weak self] in
                 self?.makeSettingsInspectorRoot(layoutClass: layoutClass) ?? AnyView(EmptyView())
+            },
+            lifeManagementSurface: { [weak self] in
+                self?.makeLifeManagementInspectorRoot(layoutClass: layoutClass) ?? AnyView(EmptyView())
             },
             projectsSurface: { [weak self] in
                 self?.makeProjectManagementInspectorRoot(layoutClass: layoutClass) ?? AnyView(EmptyView())
@@ -326,14 +1232,31 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
                 onNavigateToProjects: { [weak self] in
                     self?.iPadShellState.destination = .projects
                 },
+                onNavigateToLifeManagement: { [weak self] in
+                    self?.iPadShellState.destination = .lifeManagement
+                },
                 onNavigateToChats: { [weak self] in
                     self?.iPadShellState.destination = .chat
                 },
                 onNavigateToModels: { [weak self] in
                     self?.iPadShellState.destination = .chat
+                },
+                onRestartOnboarding: {
+                    NotificationCenter.default.post(name: .taskerStartOnboardingRequested, object: nil)
                 }
             )
             .taskerLayoutClass(layoutClass)
+        )
+    }
+
+    private func makeLifeManagementInspectorRoot(layoutClass: TaskerLayoutClass) -> AnyView {
+        guard let presentationDependencyContainer else {
+            return AnyView(Text("Life Management unavailable").font(.tasker(.body)))
+        }
+        let vm = presentationDependencyContainer.makeLifeManagementViewModel()
+        return AnyView(
+            LifeManagementView(viewModel: vm)
+                .taskerLayoutClass(layoutClass)
         )
     }
 
@@ -672,6 +1595,131 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
         handleNotificationRoute(route)
     }
 
+    private func consumeUITestOpenSettingsIfNeeded() {
+        guard Self.hasConsumedUITestOpenSettings == false else { return }
+        guard ProcessInfo.processInfo.arguments.contains("-TASKER_TEST_OPEN_SETTINGS") else { return }
+        guard presentedViewController == nil else { return }
+
+        Self.hasConsumedUITestOpenSettings = true
+        DispatchQueue.main.async { [weak self] in
+            guard let self, self.presentedViewController == nil else { return }
+            self.onMenuButtonTapped()
+        }
+    }
+
+    private func seedUITestEstablishedWorkspaceIfNeeded(completion: @escaping () -> Void) {
+        guard ProcessInfo.processInfo.arguments.contains("-TASKER_TEST_SEED_ESTABLISHED_WORKSPACE") else {
+            completion()
+            return
+        }
+        guard Self.hasSeededUITestEstablishedWorkspace == false else {
+            completion()
+            return
+        }
+        guard let presentationDependencyContainer else {
+            completion()
+            return
+        }
+
+        Self.hasSeededUITestEstablishedWorkspace = true
+
+        Task { @MainActor in
+            do {
+                let manageLifeAreas = presentationDependencyContainer.coordinator.manageLifeAreas
+                let manageProjects = presentationDependencyContainer.coordinator.manageProjects
+                let createTaskDefinition = presentationDependencyContainer.coordinator.createTaskDefinition
+
+                let lifeArea = try await manageLifeAreas.createAsync(
+                    name: "Career",
+                    color: "#3B82F6",
+                    icon: "briefcase.fill"
+                )
+                let project = try await manageProjects.createProjectAsync(
+                    request: CreateProjectRequest(
+                        name: "Ship one thing",
+                        description: "UI test workspace seed",
+                        lifeAreaID: lifeArea.id
+                    )
+                )
+
+                let requests = [
+                    CreateTaskDefinitionRequest(
+                        title: "Draft update",
+                        details: "UI test established-workspace seed",
+                        projectID: project.id,
+                        projectName: project.name,
+                        lifeAreaID: lifeArea.id,
+                        dueDate: DatePreset.today.resolvedDueDate(),
+                        createdAt: Date()
+                    ),
+                    CreateTaskDefinitionRequest(
+                        title: "Send recap",
+                        details: "UI test established-workspace seed",
+                        projectID: project.id,
+                        projectName: project.name,
+                        lifeAreaID: lifeArea.id,
+                        dueDate: DatePreset.today.resolvedDueDate(),
+                        createdAt: Date()
+                    ),
+                    CreateTaskDefinitionRequest(
+                        title: "Plan next step",
+                        details: "UI test established-workspace seed",
+                        projectID: project.id,
+                        projectName: project.name,
+                        lifeAreaID: lifeArea.id,
+                        dueDate: DatePreset.today.resolvedDueDate(),
+                        createdAt: Date()
+                    )
+                ]
+
+                for request in requests {
+                    _ = try await createTaskDefinition.executeAsync(request: request)
+                }
+            } catch {
+                logError(
+                    event: "ui_test_onboarding_workspace_seed_failed",
+                    message: "Failed to seed established workspace for onboarding UI test",
+                    fields: ["error": error.localizedDescription]
+                )
+            }
+
+            completion()
+        }
+    }
+
+    var currentOnboardingLayoutClass: TaskerLayoutClass {
+        currentLayoutClass
+    }
+
+    func prepareForOnboardingHomeGuidance() {
+        if isUsingIPadNativeShell {
+            iPadShellState.destination = .tasks
+        }
+    }
+
+    func makeOnboardingAddTaskController(
+        prefill: AddTaskPrefillTemplate,
+        onTaskCreated: @escaping (UUID) -> Void
+    ) -> UIViewController? {
+        guard let presentationDependencyContainer else {
+            return nil
+        }
+        let viewModel = presentationDependencyContainer.makeNewAddTaskViewModel()
+        viewModel.applyPrefill(prefill)
+        let sheet = AddTaskSheetView(
+            viewModel: viewModel,
+            onTaskCreated: onTaskCreated
+        )
+        let hostingController = UIHostingController(rootView: AnyView(sheet.taskerLayoutClass(currentLayoutClass)))
+        hostingController.modalPresentationStyle = .pageSheet
+        if let sheetController = hostingController.sheetPresentationController {
+            sheetController.detents = [.medium(), .large()]
+            sheetController.prefersGrabberVisible = true
+            sheetController.prefersScrollingExpandsWhenScrolledToEdge = false
+        }
+        return hostingController
+    }
+
     // MARK: - Navigation Actions
 
     /// Executes onMenuButtonTapped.
@@ -702,7 +1750,10 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
             sheetController.prefersGrabberVisible = true
             sheetController.prefersScrollingExpandsWhenScrolledToEdge = false
         }
-        present(hostingVC, animated: true)
+        let interval = TaskerPerformanceTrace.begin("AddTaskSheetOpen")
+        present(hostingVC, animated: true) {
+            TaskerPerformanceTrace.end(interval)
+        }
     }
 
     private func presentAddTaskSheetForPadFallback() {
@@ -730,7 +1781,10 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
                 "surface": "add_task"
             ]
         )
-        present(hostingVC, animated: true)
+        let interval = TaskerPerformanceTrace.begin("AddTaskSheetOpen")
+        present(hostingVC, animated: true) {
+            TaskerPerformanceTrace.end(interval)
+        }
     }
 
     @objc private func openProjectCreator() {
@@ -875,7 +1929,10 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
             }
         }
 
-        present(hostingController, animated: true)
+        let interval = TaskerPerformanceTrace.begin("TaskDetailOpen")
+        present(hostingController, animated: true) {
+            TaskerPerformanceTrace.end(interval)
+        }
     }
 
     /// Executes makeTaskDetailView.
@@ -949,6 +2006,17 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
                     return
                 }
                 viewModel.loadTaskDetailMetadata(projectID: projectID, completion: completion)
+            },
+            onLoadRelationshipMetadata: { [weak self] projectID, completion in
+                guard let self, let viewModel = self.viewModel else {
+                    completion(.failure(NSError(
+                        domain: "HomeViewController",
+                        code: 9,
+                        userInfo: [NSLocalizedDescriptionKey: "HomeViewModel unavailable"]
+                    )))
+                    return
+                }
+                viewModel.loadTaskDetailRelationshipMetadata(projectID: projectID, completion: completion)
             },
             onLoadChildren: { [weak self] parentTaskID, completion in
                 guard let self, let viewModel = self.viewModel else {
@@ -1494,8 +2562,12 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
     }
 
     @objc private func homeTaskMutationReceived(_ notification: Notification) {
-        let reasonRaw = notification.userInfo?["reason"] as? String
-        let reason = reasonRaw.flatMap(HomeTaskMutationEvent.init(rawValue:))
+        let payload = HomeTaskMutationPayload(notification: notification)
+        let reason = payload?.reason ?? (notification.userInfo?["reason"] as? String).flatMap(HomeTaskMutationEvent.init(rawValue:))
+
+        if let payload, HomeSearchInvalidationPolicy.shouldRefreshSearch(for: payload) {
+            faceCoordinator.recordSearchMutation()
+        }
 
         pendingChartRefreshWorkItem?.cancel()
         let refreshWorkItem = DispatchWorkItem { [weak self] in
@@ -1582,6 +2654,16 @@ extension HomeViewController {
             .compactMap { $0.object as? TaskDefinition }
             .sink { [weak self] createdTask in
                 self?.showTaskCreatedSnackbar(for: createdTask)
+            }
+            .store(in: &cancellables)
+    }
+
+    private func observeOnboardingRequests() {
+        notificationCenter.publisher(for: .taskerStartOnboardingRequested)
+            .receive(on: RunLoop.main)
+            .sink { [weak self] _ in
+                self?.onboardingCoordinator?.restartOnboarding()
+                self?.onboardingCoordinator?.drainPendingPresentationIfPossible()
             }
             .store(in: &cancellables)
     }
@@ -2109,3 +3191,34 @@ extension HomeViewController {
         processPendingIPadModalRequest()
     }
 }
+
+#if DEBUG
+extension HomeViewController {
+    func testingSetAnalyticsVisible(with insightsViewModel: InsightsViewModel?) {
+        self.insightsViewModel = insightsViewModel
+        faceCoordinator.insightsViewModel = insightsViewModel
+        faceCoordinator.setActiveFace(.analytics)
+        faceCoordinator.setAnalyticsSurfaceState(insightsViewModel == nil ? .placeholder : .ready)
+    }
+
+    func testingHandleInsightsLaunchRequest(_ request: InsightsLaunchRequest?) {
+        handleInsightsLaunchRequest(request)
+    }
+
+    var testingPendingInsightsLaunchRequest: InsightsLaunchRequest? {
+        pendingInsightsLaunchRequest
+    }
+
+    func testingSetPendingOnboardingEvaluationTask() {
+        pendingOnboardingEvaluationTask = Task {}
+    }
+
+    var testingHasPendingOnboardingEvaluationTask: Bool {
+        pendingOnboardingEvaluationTask != nil
+    }
+
+    func testingSetOnboardingEvaluationSceneToken(_ token: Int) {
+        onboardingEvaluationSceneToken = token
+    }
+}
+#endif

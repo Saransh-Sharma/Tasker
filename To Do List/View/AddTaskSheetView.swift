@@ -19,14 +19,19 @@ public struct AddTaskSheetView: View {
     /// Initializes a new instance.
     @StateObject private var viewModel: AddTaskViewModel
     @Environment(\.dismiss) private var dismiss
+    private let onTaskCreated: ((UUID) -> Void)?
 
     @State private var showDiscardConfirmation = false
     @State private var showAddAnother = false
     @State private var successFlash = false
     @State private var selectedDetent: PresentationDetent = .medium
 
-    public init(viewModel: AddTaskViewModel) {
+    public init(
+        viewModel: AddTaskViewModel,
+        onTaskCreated: ((UUID) -> Void)? = nil
+    ) {
         _viewModel = StateObject(wrappedValue: viewModel)
+        self.onTaskCreated = onTaskCreated
     }
 
     public var body: some View {
@@ -80,6 +85,9 @@ public struct AddTaskSheetView: View {
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
             if viewModel.isTaskCreated {
                 TaskerFeedback.success()
+                if let taskID = viewModel.lastCreatedTaskID {
+                    onTaskCreated?(taskID)
+                }
                 dismiss()
             }
         }
@@ -94,6 +102,9 @@ public struct AddTaskSheetView: View {
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
             if viewModel.isTaskCreated {
                 TaskerFeedback.success()
+                if let taskID = viewModel.lastCreatedTaskID {
+                    onTaskCreated?(taskID)
+                }
                 withAnimation(TaskerAnimation.snappy) {
                     successFlash = true
                 }

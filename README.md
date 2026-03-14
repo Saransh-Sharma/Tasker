@@ -54,8 +54,9 @@ Design intent by phase:
 - Apply mode: propose -> confirm -> apply with diff visibility and bounded undo.
 
 ### Insights And Analytics
-- Action-oriented progress and backlog health summaries.
-- Reminder quality and streak resilience signals.
+- Today: momentum, due pressure, focus pulse, completion mix, and recovery loop signals.
+- Week: weekly momentum, weekday pattern, project leaderboard, and priority/task-type mix.
+- Systems: progression, streak resilience, reminder response, focus ritual health, and recovery loop health.
 
 ### Settings
 - Controls for reminders, focus behavior, assistant behavior, privacy posture, and accessibility preferences.

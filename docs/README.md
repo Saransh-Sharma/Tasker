@@ -1,6 +1,6 @@
 # Tasker Documentation Hub
 
-Last updated: 2026-02-27
+Last updated: 2026-03-11
 
 This directory is the canonical home for technical architecture, operations, release runbooks, and archived legacy docs.
 
@@ -38,6 +38,7 @@ flowchart TD
 | `docs/architecture/notifications-local-strategy-v3.md` | Local notification catalog, product decisions, scheduling/reconcile and action handling contracts |
 | `docs/architecture/llm-assistant-stack-v2.md` | LLM context pipeline and assistant transaction stack |
 | `docs/architecture/gamification-v2-engine.md` | Gamification engine runtime path, event-driven freshness, reconciliation, and widget snapshot architecture |
+| `docs/architecture/insights-analytics-surface.md` | Insights screen contract, widget inventory, projection inputs, and tab refresh behavior |
 
 ## Operations Docs
 

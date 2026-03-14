@@ -81,21 +81,7 @@ struct AddTaskDatePresetRow: View {
 
     /// Executes applyPreset.
     private func applyPreset(_ preset: DatePreset) {
-        let calendar = Calendar.current
-        let today = calendar.startOfDay(for: Date())
-
-        switch preset {
-        case .today:
-            dueDate = today
-        case .tomorrow:
-            dueDate = calendar.date(byAdding: .day, value: 1, to: today)
-        case .thisWeek:
-            // End of current week (Sunday)
-            let daysUntilEndOfWeek = 7 - calendar.component(.weekday, from: today)
-            dueDate = calendar.date(byAdding: .day, value: max(daysUntilEndOfWeek, 2), to: today)
-        case .someday:
-            dueDate = nil
-        }
+        dueDate = preset.resolvedDueDate()
     }
 }
 
@@ -119,6 +105,22 @@ enum DatePreset: CaseIterable {
         case .tomorrow: return "sunrise"
         case .thisWeek: return "calendar"
         case .someday: return "tray"
+        }
+    }
+
+    func resolvedDueDate(anchorDate: Date = Date(), calendar: Calendar = .current) -> Date? {
+        let today = calendar.startOfDay(for: anchorDate)
+
+        switch self {
+        case .today:
+            return today
+        case .tomorrow:
+            return calendar.date(byAdding: .day, value: 1, to: today)
+        case .thisWeek:
+            let daysUntilEndOfWeek = 7 - calendar.component(.weekday, from: today)
+            return calendar.date(byAdding: .day, value: max(daysUntilEndOfWeek, 2), to: today)
+        case .someday:
+            return nil
         }
     }
 }

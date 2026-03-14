@@ -66,7 +66,11 @@ final class TaskSemanticRetrievalService {
     }
 
     /// Executes searchDetailed.
-    func searchDetailed(query: String, topK: Int = 8) -> TaskSemanticSearchResult {
+    func searchDetailed(
+        query: String,
+        topK: Int = 8,
+        limitingTo taskIDs: Set<UUID>? = nil
+    ) -> TaskSemanticSearchResult {
         guard let queryVector = embeddingEngine.vector(for: query) else {
             logWarning(
                 event: "assistant_semantic_fallback_lexical",
@@ -86,7 +90,17 @@ final class TaskSemanticRetrievalService {
             return TaskSemanticSearchResult(hits: [], fallbackReason: "index_empty")
         }
 
-        let hits = snapshot.map { item in
+        let candidates: [(taskID: UUID, text: String, vector: [Double])]
+        if let taskIDs {
+            candidates = snapshot.filter { taskIDs.contains($0.taskID) }
+        } else {
+            candidates = snapshot
+        }
+        guard candidates.isEmpty == false else {
+            return TaskSemanticSearchResult(hits: [], fallbackReason: "candidate_filter_empty")
+        }
+
+        let hits = candidates.map { item in
             TaskSemanticHit(
                 taskID: item.taskID,
                 score: TaskEmbeddingEngine.cosineSimilarity(queryVector, item.vector),
@@ -105,7 +119,11 @@ final class TaskSemanticRetrievalService {
 
     /// Executes rerank.
     func rerank(taskIDs: [UUID], query: String) -> [UUID] {
-        let result = searchDetailed(query: query, topK: max(20, taskIDs.count))
+        let result = searchDetailed(
+            query: query,
+            topK: max(20, taskIDs.count),
+            limitingTo: Set(taskIDs)
+        )
         let scores = Dictionary(uniqueKeysWithValues: result.hits.map { ($0.taskID, $0.score) })
         guard scores.isEmpty == false else { return taskIDs }
         let originalOrder = Dictionary(uniqueKeysWithValues: taskIDs.enumerated().map { ($1, $0) })

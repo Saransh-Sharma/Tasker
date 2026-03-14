@@ -56,7 +56,6 @@ struct ChartCardsScrollView: View {
         }
         .scrollContentBackground(.hidden)
         .background(Color.clear)
-        .compositingGroup()
     }
 }
 

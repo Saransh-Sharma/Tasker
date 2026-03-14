@@ -1,0 +1,16 @@
+- [x] Coalesce notification reconciliation and add signposts for the notification pipeline.
+- [x] Trim launch-to-home attach work and defer onboarding until the home shell is interactive.
+- [x] Defer non-critical home analytics refresh from the initial task-visible path.
+- [x] Reduce completion-side fan-out on the main interaction path.
+- [x] Add Add Task AI refinement gating so cold model work does not block typing.
+- [x] Trim bottom-bar task hops and add targeted signposts for Add Task and Task Detail presentation.
+- [x] Defer Task Detail metadata/children enrichment until after the sheet appears.
+- [x] Re-run app build verification and report remaining test/device validation gaps.
+- [x] Remove search-surface auto-focus and split draft query input from committed search execution.
+- [x] Stop eager search refresh during surface setup and add delayed warmup after the surface settles.
+- [x] Move home search filtering/grouping work off the main interaction path.
+- [x] Disable decorative foredrop hint motion in production builds.
+- [x] Gate onboarding launch evaluation to one idle pass per scene activation.
+- [x] Restrict chat prewarm to prompt intent instead of screen visibility.
+- [x] Split task-detail enrichment into editing and relationship phases.
+- [x] Move recurring-series maintenance out of the search execution path.

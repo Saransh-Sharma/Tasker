@@ -109,6 +109,32 @@ final class WriteClosedProjectRepositoryAdapter: ProjectRepositoryProtocol {
         }
     }
 
+    func moveProjectToLifeArea(
+        projectID: UUID,
+        lifeAreaID: UUID,
+        completion: @escaping (Result<ProjectLifeAreaMoveResult, Error>) -> Void
+    ) {
+        gate.performWrite(operation: "ProjectRepository.moveProjectToLifeArea", completion: completion) {
+            self.base.moveProjectToLifeArea(
+                projectID: projectID,
+                lifeAreaID: lifeAreaID,
+                completion: completion
+            )
+        }
+    }
+
+    func backfillProjectsWithoutLifeArea(
+        defaultLifeAreaID: UUID,
+        completion: @escaping (Result<ProjectLifeAreaBackfillResult, Error>) -> Void
+    ) {
+        gate.performWrite(operation: "ProjectRepository.backfillProjectsWithoutLifeArea", completion: completion) {
+            self.base.backfillProjectsWithoutLifeArea(
+                defaultLifeAreaID: defaultLifeAreaID,
+                completion: completion
+            )
+        }
+    }
+
     func isProjectNameAvailable(_ name: String, excludingId: UUID?, completion: @escaping (Result<Bool, Error>) -> Void) {
         base.isProjectNameAvailable(name, excludingId: excludingId, completion: completion)
     }

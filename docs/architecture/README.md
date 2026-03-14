@@ -1,6 +1,6 @@
 # Tasker Architecture Docs Index (V3 Runtime)
 
-**Last validated against code on 2026-02-27**
+**Last validated against code on 2026-03-11**
 
 This folder is the implementation-facing source of truth for Tasker's shipped V3 runtime.
 The runtime is V3-only (`TaskModelV3`, V3 bootstrap cutover, `TaskDefinition`-centric contracts).
@@ -37,6 +37,7 @@ Treat these docs as the current V3 architecture references unless explicitly mar
 | `docs/architecture/domain-events-and-observability-v2.md` | Domain event bus, handler rules, observability expectations | event schemas/handlers/logging behavior change |
 | `docs/architecture/notifications-local-strategy-v3.md` | Local notification catalog, defaults, routing, action handling, schedule reconciliation | notification behavior, UX copy, action categories, or reconciliation logic changes |
 | `docs/architecture/gamification-v2-engine.md` | Gamification engine contracts, ledger mutation signal path, reconciliation loop prevention, and widgets | `UseCases/Gamification/*`, `CoreDataGamificationRepository`, `InsightsViewModel` refresh strategy, `HomeViewModel` mutation handling, or `AppDelegate` remote-change reconciliation changes |
+| `docs/architecture/insights-analytics-surface.md` | Insights screen contract, widget inventory, projection inputs, and tab refresh semantics | Insights widget inventory, view-model state payloads, tab intent split, accessibility IDs, or motion/empty-state contracts change |
 | `docs/architecture/llm-assistant-stack-v2.md` | LLM context pipeline and assistant transaction boundaries | `/LLM` or `/UseCases/LLM` changes |
 | `docs/architecture/risk-register-v2.md` | Active technical risk register and mitigations | risk posture/guardrails/release criteria change |
 | `docs/architecture/v3-runtime-cutover-todo.md` | Active migration and release gate tracker | gate status or verification evidence changes |
@@ -63,7 +64,7 @@ Treat these docs as the current V3 architecture references unless explicitly mar
 | --- | --- |
 | `To Do List/Domain/Models/*` or model schema | `data-model-v2.md`, `risk-register-v2.md` |
 | `To Do List/UseCases/*` | `usecases-v2.md`, `risk-register-v2.md` |
-| `To Do List/UseCases/Gamification/*`, `To Do List/State/Repositories/CoreDataGamificationRepository.swift`, `To Do List/Presentation/ViewModels/InsightsViewModel.swift`, `To Do List/AppDelegate.swift` (gamification remote-change path) | `gamification-v2-engine.md`, `usecases-v2.md`, `state-repositories-and-services-v2.md`, `domain-events-and-observability-v2.md`, `risk-register-v2.md` |
+| `To Do List/UseCases/Gamification/*`, `To Do List/State/Repositories/CoreDataGamificationRepository.swift`, `To Do List/Presentation/ViewModels/InsightsViewModel.swift`, `To Do List/AppDelegate.swift` (gamification remote-change path) | `gamification-v2-engine.md`, `insights-analytics-surface.md`, `usecases-v2.md`, `state-repositories-and-services-v2.md`, `domain-events-and-observability-v2.md`, `risk-register-v2.md` |
 | `To Do List/State/Repositories/*`, `To Do List/State/Services/*` | `state-repositories-and-services-v2.md`, `clean-architecture-v2.md` |
 | `To Do List/Domain/Events/*` | `domain-events-and-observability-v2.md`, `usecases-v2.md` |
 | `To Do List/LLM/*`, `To Do List/UseCases/LLM/*` | `llm-assistant-stack-v2.md`, `usecases-v2.md`, `risk-register-v2.md` |
@@ -75,6 +76,7 @@ Treat these docs as the current V3 architecture references unless explicitly mar
 2. `docs/architecture/data-model-v2.md`
 3. `docs/architecture/usecases-v2.md`
 4. `docs/architecture/gamification-v2-engine.md` (for XP/reconciliation/widgets/live-update paths)
-5. `docs/architecture/state-repositories-and-services-v2.md`
-6. `docs/architecture/risk-register-v2.md`
-7. `docs/architecture/llm-assistant-stack-v2.md` (for AI/assistant changes)
+5. `docs/architecture/insights-analytics-surface.md` (for Insights widgets, state, and refresh behavior)
+6. `docs/architecture/state-repositories-and-services-v2.md`
+7. `docs/architecture/risk-register-v2.md`
+8. `docs/architecture/llm-assistant-stack-v2.md` (for AI/assistant changes)

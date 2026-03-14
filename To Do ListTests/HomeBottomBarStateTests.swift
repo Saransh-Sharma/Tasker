@@ -3,19 +3,6 @@ import XCTest
 
 @MainActor
 final class HomeBottomBarStateTests: XCTestCase {
-    private var originalSchedulerFlag: Bool = true
-
-    override func setUp() {
-        super.setUp()
-        originalSchedulerFlag = V2FeatureFlags.iPadPerfBottomBarSchedulerV2Enabled
-        V2FeatureFlags.iPadPerfBottomBarSchedulerV2Enabled = true
-    }
-
-    override func tearDown() {
-        V2FeatureFlags.iPadPerfBottomBarSchedulerV2Enabled = originalSchedulerFlag
-        super.tearDown()
-    }
-
     func testSelectUpdatesSelectedItem() {
         let state = HomeBottomBarState()
 
@@ -40,73 +27,70 @@ final class HomeBottomBarStateTests: XCTestCase {
         XCTAssertEqual(state.selectedItem, .home)
     }
 
-    func testCumulativeDownwardScrollMinimizesBottomBar() {
+    func testCollapsedChromeStateMinimizesBottomBar() {
         let state = HomeBottomBarState()
-        XCTAssertFalse(state.isMinimized)
 
-        state.handleScrollOffsetChange(120)
-        state.handleScrollOffsetChange(132)
-        XCTAssertFalse(state.isMinimized)
+        state.handleChromeStateChange(.collapsed)
 
-        state.handleScrollOffsetChange(145)
         XCTAssertTrue(state.isMinimized)
     }
 
-    func testCumulativeUpwardScrollRestoresBottomBar() {
+    func testExpandedChromeStateRestoresBottomBar() {
         let state = HomeBottomBarState()
         state.isMinimized = true
 
-        state.handleScrollOffsetChange(200)
-        state.handleScrollOffsetChange(194)
-        XCTAssertTrue(state.isMinimized)
+        state.handleChromeStateChange(.expanded)
 
-        state.handleScrollOffsetChange(188)
         XCTAssertFalse(state.isMinimized)
     }
 
-    func testSmallJitterDoesNotToggleState() {
-        let state = HomeBottomBarState()
-        XCTAssertFalse(state.isMinimized)
-
-        state.handleScrollOffsetChange(120)
-        state.handleScrollOffsetChange(123)
-        XCTAssertFalse(state.isMinimized)
-
-        state.isMinimized = true
-        state.handleScrollOffsetChange(200)
-        state.handleScrollOffsetChange(196)
-        XCTAssertTrue(state.isMinimized)
-    }
-
-    func testNearTopAlwaysShowsCluster() {
+    func testNearTopChromeStateRestoresBottomBar() {
         let state = HomeBottomBarState()
         state.isMinimized = true
 
-        state.handleScrollOffsetChange(120)
-        state.handleScrollOffsetChange(30)
+        state.handleChromeStateChange(.nearTop)
 
         XCTAssertFalse(state.isMinimized)
     }
 
-    func testIdleRevealRestoresBottomBarAfterDelay() async {
+    func testIdleChromeStateRestoresBottomBar() {
         let state = HomeBottomBarState()
-        state.handleScrollOffsetChange(120)
-        state.handleScrollOffsetChange(152)
-        XCTAssertTrue(state.isMinimized)
+        state.isMinimized = true
 
-        try? await _Concurrency.Task.sleep(nanoseconds: 550_000_000)
+        state.handleChromeStateChange(.idle)
 
         XCTAssertFalse(state.isMinimized)
     }
 
-    func testRapidDownwardScrollUsesSingleIdleRevealWorker() {
-        let state = HomeBottomBarState()
+    func testScrollTrackerEmitsOnlyThresholdedChromeTransitions() {
+        var tracker = HomeScrollChromeStateTracker()
 
-        state.handleScrollOffsetChange(100)
-        for step in 1...48 {
-            state.handleScrollOffsetChange(100 + CGFloat(step * 4))
-        }
+        XCTAssertNil(tracker.consume(offset: 0))
+        XCTAssertEqual(tracker.consume(offset: 52), .expanded)
+        XCTAssertNil(tracker.consume(offset: 56))
+        XCTAssertNil(tracker.consume(offset: 72))
+        XCTAssertEqual(tracker.consume(offset: 80), .collapsed)
+        XCTAssertNil(tracker.consume(offset: 83))
+        XCTAssertNil(tracker.consume(offset: 74))
+        XCTAssertEqual(tracker.consume(offset: 64), .expanded)
+    }
 
-        XCTAssertLessThanOrEqual(state.idleRevealSchedulerWorkerStartsForTesting, 1)
+    func testScrollTrackerOnlyEmitsIdleOncePerIdlePeriod() {
+        var tracker = HomeScrollChromeStateTracker()
+
+        XCTAssertEqual(tracker.consume(offset: 50), .expanded)
+        XCTAssertEqual(tracker.emitIdleIfNeeded(), .idle)
+        XCTAssertNil(tracker.emitIdleIfNeeded())
+        XCTAssertEqual(tracker.consume(offset: 78), .collapsed)
+        XCTAssertEqual(tracker.emitIdleIfNeeded(), .idle)
+    }
+
+    func testScrollTrackerReturningNearTopResetsChromeState() {
+        var tracker = HomeScrollChromeStateTracker()
+
+        XCTAssertEqual(tracker.consume(offset: 50), .expanded)
+        XCTAssertEqual(tracker.consume(offset: 80), .collapsed)
+        XCTAssertEqual(tracker.consume(offset: 18), .nearTop)
+        XCTAssertNil(tracker.consume(offset: 22))
     }
 }

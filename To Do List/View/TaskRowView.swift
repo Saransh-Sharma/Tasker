@@ -183,6 +183,7 @@ struct TaskRowView: View, Equatable {
     let todayXPSoFar: Int?
     let isGamificationV2Enabled: Bool
     let isTaskDragEnabled: Bool
+    let highlightedTaskID: UUID?
     private let derivedState: TaskRowDerivedState
     var onTap: (() -> Void)? = nil
     var onToggleComplete: (() -> Void)? = nil
@@ -191,6 +192,8 @@ struct TaskRowView: View, Equatable {
     var onTaskDragStarted: ((TaskDefinition) -> Void)? = nil
 
     @Environment(\.taskerLayoutClass) private var layoutClass
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var highlightPulse = false
 
     /// Initializes a new instance.
     init(
@@ -201,6 +204,7 @@ struct TaskRowView: View, Equatable {
         todayXPSoFar: Int? = nil,
         isGamificationV2Enabled: Bool = V2FeatureFlags.gamificationV2Enabled,
         isTaskDragEnabled: Bool,
+        highlightedTaskID: UUID? = nil,
         onTap: (() -> Void)? = nil,
         onToggleComplete: (() -> Void)? = nil,
         onDelete: (() -> Void)? = nil,
@@ -214,6 +218,7 @@ struct TaskRowView: View, Equatable {
         self.todayXPSoFar = todayXPSoFar
         self.isGamificationV2Enabled = isGamificationV2Enabled
         self.isTaskDragEnabled = isTaskDragEnabled
+        self.highlightedTaskID = highlightedTaskID
         let displayModel = TaskRowDisplayModel.from(
             task: task,
             showTypeBadge: showTypeBadge,
@@ -302,6 +307,7 @@ struct TaskRowView: View, Equatable {
         lhs.isInOverdueSection == rhs.isInOverdueSection &&
         lhs.todayXPSoFar == rhs.todayXPSoFar &&
         lhs.isTaskDragEnabled == rhs.isTaskDragEnabled &&
+        lhs.highlightedTaskID == rhs.highlightedTaskID &&
         lhs.derivedState == rhs.derivedState
     }
 
@@ -336,19 +342,27 @@ struct TaskRowView: View, Equatable {
                     Label("Delete", systemImage: "trash")
                 }
             }
-            .overlay(
-                RoundedRectangle(cornerRadius: TaskerTheme.CornerRadius.md)
-                    .stroke(Color.tasker.strokeHairline, lineWidth: 1)
-            )
             .clipShape(RoundedRectangle(cornerRadius: TaskerTheme.CornerRadius.md))
-            .taskerElevation(.e1, cornerRadius: TaskerTheme.CornerRadius.md, includesBorder: false)
+            .taskerDenseSurface(
+                cornerRadius: TaskerTheme.CornerRadius.md,
+                fillColor: rowBackground,
+                strokeColor: highlightStrokeColor,
+                lineWidth: isOnboardingHighlighted ? 2 : 1
+            )
             .taskCompletionTransition(isComplete: task.isComplete)
+            .scaleEffect(isOnboardingHighlighted && !reduceMotion ? (highlightPulse ? 1.01 : 0.992) : 1)
             .accessibilityElement(children: .contain)
             .accessibilityIdentifier("home.taskRow.\(task.id.uuidString)")
             .accessibilityLabel(accessibilityLabel)
             .accessibilityValue(accessibilityStateValue)
             .accessibilityHint(accessibilityHint)
             .hoverEffect(.highlight)
+            .onAppear {
+                updateHighlightAnimation()
+            }
+            .onChange(of: isOnboardingHighlighted) { _, _ in
+                updateHighlightAnimation()
+            }
             .contextMenu {
                 Button {
                     onToggleComplete?()
@@ -390,6 +404,10 @@ struct TaskRowView: View, Equatable {
     }
 
     private var isPad: Bool { layoutClass.isPad }
+    private var isOnboardingHighlighted: Bool { highlightedTaskID == task.id && task.isComplete == false }
+    private var highlightStrokeColor: Color {
+        isOnboardingHighlighted ? Color.tasker.accentPrimary : Color.tasker.strokeHairline
+    }
 
     private var rowContent: some View {
         HStack(spacing: 0) {
@@ -451,8 +469,25 @@ struct TaskRowView: View, Equatable {
             .padding(.leading, TaskerTheme.Spacing.xs)
             .frame(minHeight: isPad ? 60 : (displayModel.hasDescription ? 56 : 50))
         }
-        .background(rowBackground)
         .animation(TaskerAnimation.quick, value: task.isComplete)
+        .overlay {
+            if isOnboardingHighlighted {
+                RoundedRectangle(cornerRadius: TaskerTheme.CornerRadius.md)
+                    .fill(Color.tasker.accentPrimary.opacity(reduceMotion ? 0.08 : (highlightPulse ? 0.12 : 0.04)))
+                    .padding(1)
+                    .allowsHitTesting(false)
+            }
+        }
+    }
+
+    private func updateHighlightAnimation() {
+        guard isOnboardingHighlighted, !reduceMotion else {
+            highlightPulse = false
+            return
+        }
+        withAnimation(TaskerAnimation.gentle.repeatForever(autoreverses: true)) {
+            highlightPulse = true
+        }
     }
 
     @ViewBuilder

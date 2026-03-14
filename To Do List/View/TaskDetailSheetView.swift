@@ -18,6 +18,7 @@ struct TaskDetailSheetView: View {
     typealias DeleteHandler = (UUID, TaskDeleteScope, @escaping (Result<Void, Error>) -> Void) -> Void
     typealias RescheduleHandler = (UUID, Date?, @escaping (Result<TaskDefinition, Error>) -> Void) -> Void
     typealias MetadataHandler = (UUID, @escaping (Result<TaskDetailMetadataPayload, Error>) -> Void) -> Void
+    typealias RelationshipMetadataHandler = (UUID, @escaping (Result<TaskDetailRelationshipMetadataPayload, Error>) -> Void) -> Void
     typealias ChildrenHandler = (UUID, @escaping (Result<[TaskDefinition], Error>) -> Void) -> Void
     typealias CreateTaskHandler = (CreateTaskDefinitionRequest, @escaping (Result<TaskDefinition, Error>) -> Void) -> Void
     typealias CreateTagHandler = (String, @escaping (Result<TagDefinition, Error>) -> Void) -> Void
@@ -61,6 +62,7 @@ struct TaskDetailSheetView: View {
         onDelete: @escaping DeleteHandler,
         onReschedule: @escaping RescheduleHandler,
         onLoadMetadata: @escaping MetadataHandler,
+        onLoadRelationshipMetadata: @escaping RelationshipMetadataHandler,
         onLoadChildren: @escaping ChildrenHandler,
         onCreateTask: @escaping CreateTaskHandler,
         onCreateTag: @escaping CreateTagHandler,
@@ -77,6 +79,7 @@ struct TaskDetailSheetView: View {
             onDelete: onDelete,
             onReschedule: onReschedule,
             onLoadMetadata: onLoadMetadata,
+            onLoadRelationshipMetadata: onLoadRelationshipMetadata,
             onLoadChildren: onLoadChildren,
             onCreateTask: onCreateTask,
             onCreateTag: onCreateTag,
@@ -126,6 +129,7 @@ struct TaskDetailSheetView: View {
             }
             .onChange(of: viewModel.selectedProjectID) { _ in
                 viewModel.refreshMetadata()
+                viewModel.refreshRelationshipMetadata()
                 viewModel.scheduleAutosave(debounced: false)
             }
             .onChange(of: viewModel.dueDate) { _ in
@@ -142,6 +146,9 @@ struct TaskDetailSheetView: View {
             }
             .onChange(of: viewModel.selectedTagIDs) { _ in
                 viewModel.scheduleAutosave(debounced: false)
+            }
+            .onDisappear {
+                viewModel.handleDisappear()
             }
             .onChange(of: viewModel.selectedParentTaskID) { _ in
                 viewModel.scheduleAutosave(debounced: false)

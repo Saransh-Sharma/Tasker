@@ -13,6 +13,7 @@ public struct Project: Codable {
     // MARK: - Properties
     
     public let id: UUID
+    public var lifeAreaID: UUID?
     public var name: String
     public var projectDescription: String?
     public var createdDate: Date
@@ -39,6 +40,7 @@ public struct Project: Codable {
     /// Initializes a new instance.
     public init(
         id: UUID = UUID(),
+        lifeAreaID: UUID? = nil,
         name: String,
         projectDescription: String? = nil,
         createdDate: Date = Date(),
@@ -58,6 +60,7 @@ public struct Project: Codable {
         settings: ProjectSettings = ProjectSettings()
     ) {
         self.id = id
+        self.lifeAreaID = lifeAreaID
         self.name = name
         self.projectDescription = projectDescription
         self.createdDate = createdDate

@@ -1,9 +1,12 @@
 # Gamification V2 Engine Architecture
 
-**Last validated against code on 2026-02-27**
+**Last validated against code on 2026-03-11**
 
 This document is the canonical implementation reference for Tasker gamification runtime behavior.
 It is engine-centric and reflects the current event-driven model used by Home, Insights, and widgets.
+
+See also:
+- `docs/architecture/insights-analytics-surface.md` for the Today / Week / Systems widget contract, projection inputs, and Insights-specific refresh behavior.
 
 ## Purpose and Boundaries
 

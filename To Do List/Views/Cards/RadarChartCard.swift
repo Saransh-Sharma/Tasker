@@ -90,10 +90,10 @@ struct RadarChartCard: View {
                             referenceDate: referenceDate
                         )
                         .frame(height: 350)
-                        .background(
-                            RoundedRectangle(cornerRadius: corner.input)
-                                .fill(Color.tasker.surfacePrimary)
-                                .taskerElevation(.e1, cornerRadius: corner.input, includesBorder: false)
+                        .taskerDenseSurface(
+                            cornerRadius: corner.input,
+                            fillColor: Color.tasker.surfacePrimary,
+                            strokeColor: Color.tasker.strokeHairline
                         )
                     }
                 }
@@ -108,8 +108,18 @@ struct RadarChartCard: View {
         .onReceive(
             NotificationCenter.default.publisher(for: .homeTaskMutation)
                 .debounce(for: .milliseconds(120), scheduler: RunLoop.main)
-        ) { _ in
-            viewModel.load(referenceDate: referenceDate)
+        ) { notification in
+            guard let payload = HomeTaskMutationPayload(notification: notification) else {
+                viewModel.load(referenceDate: referenceDate, force: true)
+                return
+            }
+            guard ChartInvalidationPolicy.shouldRefreshRadarChart(
+                for: payload,
+                referenceDate: referenceDate ?? Date.today()
+            ) else {
+                return
+            }
+            viewModel.load(referenceDate: referenceDate, force: true)
         }
     }
 

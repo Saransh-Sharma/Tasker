@@ -371,9 +371,14 @@ public final class CoreDataProjectRepository: ProjectRepositoryProtocol {
                         } else {
                             // Move tasks to Inbox.
                             let inboxID = ProjectConstants.inboxProjectID
+                            let inboxRequest: NSFetchRequest<ProjectEntity> = ProjectEntity.fetchRequest()
+                            inboxRequest.predicate = NSPredicate(format: "id == %@", inboxID as CVarArg)
+                            inboxRequest.fetchLimit = 1
+                            let inboxLifeAreaID = try self?.backgroundContext.fetch(inboxRequest).first?.lifeAreaID
 
                             tasks.forEach { task in
                                 task.projectID = inboxID
+                                task.lifeAreaID = inboxLifeAreaID
                             }
                             logDebug("  ✅ Reassigned \(tasks.count) tasks to Inbox")
                         }
@@ -449,6 +454,7 @@ public final class CoreDataProjectRepository: ProjectRepositoryProtocol {
                                 let tasks = try self?.backgroundContext.fetch(request) ?? []
                                 tasks.forEach {
                                     $0.projectID = targetProjectId
+                                    $0.lifeAreaID = targetProject?.lifeAreaID
                                 }
                                 
                                 try self?.backgroundContext.save()
@@ -465,6 +471,185 @@ public final class CoreDataProjectRepository: ProjectRepositoryProtocol {
                 
             case .failure(let error):
                 completion(.failure(error))
+            }
+        }
+    }
+
+    /// Executes moveProjectToLifeArea.
+    public func moveProjectToLifeArea(
+        projectID: UUID,
+        lifeAreaID: UUID,
+        completion: @escaping (Result<ProjectLifeAreaMoveResult, Error>) -> Void
+    ) {
+        backgroundContext.perform {
+            do {
+                let lifeAreaRequest = NSFetchRequest<NSManagedObject>(entityName: "LifeArea")
+                lifeAreaRequest.predicate = NSPredicate(format: "id == %@", lifeAreaID as CVarArg)
+                lifeAreaRequest.fetchLimit = 1
+                guard let lifeAreaObject = try self.backgroundContext.fetch(lifeAreaRequest).first else {
+                    let error = NSError(
+                        domain: "ProjectRepository",
+                        code: 404,
+                        userInfo: [NSLocalizedDescriptionKey: "Target life area not found"]
+                    )
+                    DispatchQueue.main.async { completion(.failure(error)) }
+                    return
+                }
+
+                let lifeAreaArchived = lifeAreaObject.value(forKey: "isArchived") as? Bool ?? false
+                if lifeAreaArchived {
+                    let error = NSError(
+                        domain: "ProjectRepository",
+                        code: 409,
+                        userInfo: [NSLocalizedDescriptionKey: "Cannot move project into an archived life area"]
+                    )
+                    DispatchQueue.main.async { completion(.failure(error)) }
+                    return
+                }
+
+                let projectRequest: NSFetchRequest<ProjectEntity> = ProjectEntity.fetchRequest()
+                projectRequest.predicate = NSPredicate(format: "id == %@", projectID as CVarArg)
+                projectRequest.fetchLimit = 1
+                guard let projectEntity = try self.backgroundContext.fetch(projectRequest).first else {
+                    let error = NSError(
+                        domain: "ProjectRepository",
+                        code: 404,
+                        userInfo: [NSLocalizedDescriptionKey: "Project not found"]
+                    )
+                    DispatchQueue.main.async { completion(.failure(error)) }
+                    return
+                }
+
+                if self.isInboxCandidate(projectEntity) || self.effectiveProjectID(for: projectEntity) == ProjectConstants.inboxProjectID {
+                    let error = NSError(
+                        domain: "ProjectRepository",
+                        code: 403,
+                        userInfo: [NSLocalizedDescriptionKey: "Cannot move the default Inbox project"]
+                    )
+                    DispatchQueue.main.async { completion(.failure(error)) }
+                    return
+                }
+
+                let fromLifeAreaID = projectEntity.lifeAreaID
+                if fromLifeAreaID == lifeAreaID {
+                    let result = ProjectLifeAreaMoveResult(
+                        updatedProjectID: projectID,
+                        fromLifeAreaID: fromLifeAreaID,
+                        toLifeAreaID: lifeAreaID,
+                        tasksRemappedCount: 0
+                    )
+                    DispatchQueue.main.async { completion(.success(result)) }
+                    return
+                }
+
+                projectEntity.lifeAreaID = lifeAreaID
+                if projectEntity.entity.relationshipsByName["lifeAreaRef"] != nil {
+                    projectEntity.setValue(lifeAreaObject, forKey: "lifeAreaRef")
+                }
+                projectEntity.updatedAt = Date()
+                projectEntity.modifiedDate = Date()
+
+                let taskRequest: NSFetchRequest<TaskDefinitionEntity> = TaskDefinitionEntity.fetchRequest()
+                taskRequest.predicate = NSPredicate(format: "projectID == %@", projectID as CVarArg)
+                let tasks = try self.backgroundContext.fetch(taskRequest)
+
+                var remappedCount = 0
+                for task in tasks {
+                    if task.lifeAreaID != lifeAreaID {
+                        remappedCount += 1
+                    }
+                    task.lifeAreaID = lifeAreaID
+                }
+
+                try self.backgroundContext.save()
+
+                let result = ProjectLifeAreaMoveResult(
+                    updatedProjectID: projectID,
+                    fromLifeAreaID: fromLifeAreaID,
+                    toLifeAreaID: lifeAreaID,
+                    tasksRemappedCount: remappedCount
+                )
+                DispatchQueue.main.async { completion(.success(result)) }
+            } catch {
+                DispatchQueue.main.async { completion(.failure(error)) }
+            }
+        }
+    }
+
+    /// Executes backfillProjectsWithoutLifeArea.
+    public func backfillProjectsWithoutLifeArea(
+        defaultLifeAreaID: UUID,
+        completion: @escaping (Result<ProjectLifeAreaBackfillResult, Error>) -> Void
+    ) {
+        backgroundContext.perform {
+            do {
+                let lifeAreaRequest = NSFetchRequest<NSManagedObject>(entityName: "LifeArea")
+                lifeAreaRequest.predicate = NSPredicate(format: "id == %@", defaultLifeAreaID as CVarArg)
+                lifeAreaRequest.fetchLimit = 1
+                guard let lifeAreaObject = try self.backgroundContext.fetch(lifeAreaRequest).first else {
+                    let error = NSError(
+                        domain: "ProjectRepository",
+                        code: 404,
+                        userInfo: [NSLocalizedDescriptionKey: "Default life area not found"]
+                    )
+                    DispatchQueue.main.async { completion(.failure(error)) }
+                    return
+                }
+
+                let projectRequest: NSFetchRequest<ProjectEntity> = ProjectEntity.fetchRequest()
+                let projects = try self.backgroundContext.fetch(projectRequest)
+
+                var projectsUpdatedCount = 0
+                var tasksRemappedCount = 0
+                var inboxPinned = false
+
+                for project in projects {
+                    let projectID = self.effectiveProjectID(for: project)
+                    let shouldPinInbox = projectID == ProjectConstants.inboxProjectID
+                    let shouldBackfill = shouldPinInbox || project.lifeAreaID == nil
+                    guard shouldBackfill else { continue }
+
+                    if project.lifeAreaID != defaultLifeAreaID {
+                        project.lifeAreaID = defaultLifeAreaID
+                        projectsUpdatedCount += 1
+                    }
+
+                    if shouldPinInbox {
+                        inboxPinned = true
+                        project.isInbox = true
+                        project.isDefault = true
+                    }
+
+                    if project.entity.relationshipsByName["lifeAreaRef"] != nil {
+                        project.setValue(lifeAreaObject, forKey: "lifeAreaRef")
+                    }
+                    project.updatedAt = Date()
+                    project.modifiedDate = Date()
+
+                    let taskRequest: NSFetchRequest<TaskDefinitionEntity> = TaskDefinitionEntity.fetchRequest()
+                    taskRequest.predicate = NSPredicate(format: "projectID == %@", projectID as CVarArg)
+                    let tasks = try self.backgroundContext.fetch(taskRequest)
+                    for task in tasks {
+                        if task.lifeAreaID != defaultLifeAreaID {
+                            tasksRemappedCount += 1
+                        }
+                        task.lifeAreaID = defaultLifeAreaID
+                    }
+                }
+
+                if self.backgroundContext.hasChanges {
+                    try self.backgroundContext.save()
+                }
+
+                let result = ProjectLifeAreaBackfillResult(
+                    defaultLifeAreaID: defaultLifeAreaID,
+                    projectsUpdatedCount: projectsUpdatedCount,
+                    tasksRemappedCount: tasksRemappedCount,
+                    inboxPinned: inboxPinned
+                )
+                DispatchQueue.main.async { completion(.success(result)) }
+            } catch {
+                DispatchQueue.main.async { completion(.failure(error)) }
             }
         }
     }
@@ -542,6 +727,7 @@ public final class CoreDataProjectRepository: ProjectRepositoryProtocol {
             let tasks = try backgroundContext.fetch(request)
             for task in tasks {
                 task.projectID = targetID
+                task.lifeAreaID = target.lifeAreaID
             }
         } catch {
             logWarning("Project identity repair could not repoint tasks: \(error.localizedDescription)")

@@ -1,8 +1,23 @@
 import Foundation
 import NaturalLanguage
 
+private final class TaskEmbeddingVectorBox: NSObject {
+    let vector: [Double]
+
+    init(vector: [Double]) {
+        self.vector = vector
+    }
+}
+
 struct TaskEmbeddingEngine {
     typealias VectorProvider = (String) -> [Double]?
+
+    private static let sentenceEmbedding = NLEmbedding.sentenceEmbedding(for: .english)
+    private static let vectorCache: NSCache<NSString, TaskEmbeddingVectorBox> = {
+        let cache = NSCache<NSString, TaskEmbeddingVectorBox>()
+        cache.countLimit = 512
+        return cache
+    }()
 
     private let vectorProvider: VectorProvider
 
@@ -13,7 +28,14 @@ struct TaskEmbeddingEngine {
             return
         }
         self.vectorProvider = { text in
-            NLEmbedding.sentenceEmbedding(for: .english)?.vector(for: text)
+            if let cached = Self.vectorCache.object(forKey: text as NSString) {
+                return cached.vector
+            }
+            guard let vector = Self.sentenceEmbedding?.vector(for: text) else {
+                return nil
+            }
+            Self.vectorCache.setObject(TaskEmbeddingVectorBox(vector: vector), forKey: text as NSString)
+            return vector
         }
     }
 

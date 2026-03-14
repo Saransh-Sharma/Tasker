@@ -4,22 +4,29 @@ import SwiftUI
 
 public struct TaskDetailMetadataPayload {
     public let projects: [Project]
-    public let lifeAreas: [LifeArea]
     public let sections: [TaskerProjectSection]
-    public let tags: [TagDefinition]
-    public let availableTasks: [TaskDefinition]
 
     /// Initializes a new instance.
     public init(
         projects: [Project],
+        sections: [TaskerProjectSection]
+    ) {
+        self.projects = projects
+        self.sections = sections
+    }
+}
+
+public struct TaskDetailRelationshipMetadataPayload {
+    public let lifeAreas: [LifeArea]
+    public let tags: [TagDefinition]
+    public let availableTasks: [TaskDefinition]
+
+    public init(
         lifeAreas: [LifeArea],
-        sections: [TaskerProjectSection],
         tags: [TagDefinition],
         availableTasks: [TaskDefinition]
     ) {
-        self.projects = projects
         self.lifeAreas = lifeAreas
-        self.sections = sections
         self.tags = tags
         self.availableTasks = availableTasks
     }
@@ -52,6 +59,7 @@ public final class TaskDetailViewModel: ObservableObject {
     public typealias DeleteHandler = (UUID, TaskDeleteScope, @escaping (Result<Void, Error>) -> Void) -> Void
     public typealias RescheduleHandler = (UUID, Date?, @escaping (Result<TaskDefinition, Error>) -> Void) -> Void
     public typealias MetadataHandler = (UUID, @escaping (Result<TaskDetailMetadataPayload, Error>) -> Void) -> Void
+    public typealias RelationshipMetadataHandler = (UUID, @escaping (Result<TaskDetailRelationshipMetadataPayload, Error>) -> Void) -> Void
     public typealias ChildrenHandler = (UUID, @escaping (Result<[TaskDefinition], Error>) -> Void) -> Void
     public typealias CreateTaskHandler = (CreateTaskDefinitionRequest, @escaping (Result<TaskDefinition, Error>) -> Void) -> Void
     public typealias CreateTagHandler = (String, @escaping (Result<TagDefinition, Error>) -> Void) -> Void
@@ -64,6 +72,7 @@ public final class TaskDetailViewModel: ObservableObject {
     @Published public private(set) var tags: [TagDefinition] = []
     @Published public private(set) var availableTasks: [TaskDefinition] = []
     @Published public private(set) var childSteps: [TaskDefinition] = []
+    @Published public private(set) var displayProjectName: String
 
     @Published public var taskName: String
     @Published public var taskDescription: String
@@ -100,6 +109,7 @@ public final class TaskDetailViewModel: ObservableObject {
     private let onDelete: DeleteHandler
     private let onReschedule: RescheduleHandler
     private let onLoadMetadata: MetadataHandler
+    private let onLoadRelationshipMetadata: RelationshipMetadataHandler
     private let onLoadChildren: ChildrenHandler
     private let onCreateTask: CreateTaskHandler
     private let onCreateTag: CreateTagHandler
@@ -111,8 +121,13 @@ public final class TaskDetailViewModel: ObservableObject {
     private var suppressAutosave = false
     private let textAutosaveDebounceSeconds: TimeInterval = 0.4
 
-    private var metadataRequestID: UUID?
+    private var editingMetadataRequestID: UUID?
+    private var relationshipMetadataRequestID: UUID?
+    private var childrenRequestID: UUID?
     private var breakdownRequestToken = UUID()
+    private var hasScheduledInitialEnrichment = false
+    private var pendingEditingMetadataTask: Task<Void, Never>?
+    private var pendingSecondaryEnrichmentTask: Task<Void, Never>?
 
     /// Initializes a new instance.
     public init(
@@ -123,6 +138,7 @@ public final class TaskDetailViewModel: ObservableObject {
         onDelete: @escaping DeleteHandler,
         onReschedule: @escaping RescheduleHandler,
         onLoadMetadata: @escaping MetadataHandler,
+        onLoadRelationshipMetadata: @escaping RelationshipMetadataHandler,
         onLoadChildren: @escaping ChildrenHandler,
         onCreateTask: @escaping CreateTaskHandler,
         onCreateTag: @escaping CreateTagHandler,
@@ -152,12 +168,14 @@ public final class TaskDetailViewModel: ObservableObject {
         self.selectedContext = task.context
         self.estimatedDuration = task.estimatedDuration
         self.repeatPattern = task.repeatPattern
+        self.displayProjectName = task.projectName ?? ProjectConstants.inboxProjectName
 
         self.onUpdate = onUpdate
         self.onSetCompletion = onSetCompletion
         self.onDelete = onDelete
         self.onReschedule = onReschedule
         self.onLoadMetadata = onLoadMetadata
+        self.onLoadRelationshipMetadata = onLoadRelationshipMetadata
         self.onLoadChildren = onLoadChildren
         self.onCreateTask = onCreateTask
         self.onCreateTag = onCreateTag
@@ -166,12 +184,12 @@ public final class TaskDetailViewModel: ObservableObject {
 
     deinit {
         autosaveWorkItem?.cancel()
+        pendingEditingMetadataTask?.cancel()
+        pendingSecondaryEnrichmentTask?.cancel()
     }
 
     public var selectedProjectName: String {
-        projects.first(where: { $0.id == selectedProjectID })?.name
-        ?? persistedTask.projectName
-        ?? ProjectConstants.inboxProjectName
+        displayProjectName
     }
 
     public var availableParentTasks: [TaskDefinition] {
@@ -184,34 +202,101 @@ public final class TaskDetailViewModel: ObservableObject {
 
     /// Executes onAppear.
     public func onAppear() {
-        refreshMetadata()
-        refreshChildren()
+        guard hasScheduledInitialEnrichment == false else { return }
+        hasScheduledInitialEnrichment = true
+        pendingEditingMetadataTask?.cancel()
+        pendingSecondaryEnrichmentTask?.cancel()
+        pendingEditingMetadataTask = Task { @MainActor [weak self] in
+            await Task.yield()
+            guard let self, Task.isCancelled == false else { return }
+            self.refreshMetadata()
+            self.pendingEditingMetadataTask = nil
+        }
+        pendingSecondaryEnrichmentTask = Task { @MainActor [weak self] in
+            do {
+                try await Task.sleep(nanoseconds: 250_000_000)
+            } catch {
+                return
+            }
+            guard let self, Task.isCancelled == false else { return }
+            self.refreshRelationshipMetadata()
+            self.refreshChildren()
+            self.pendingSecondaryEnrichmentTask = nil
+        }
+    }
+
+    public func handleDisappear() {
+        pendingEditingMetadataTask?.cancel()
+        pendingSecondaryEnrichmentTask?.cancel()
+        pendingEditingMetadataTask = nil
+        pendingSecondaryEnrichmentTask = nil
+        editingMetadataRequestID = UUID()
+        relationshipMetadataRequestID = UUID()
+        childrenRequestID = UUID()
     }
 
     /// Executes refreshMetadata.
     public func refreshMetadata() {
+        refreshDisplayProjectName()
         let requestID = UUID()
-        metadataRequestID = requestID
+        editingMetadataRequestID = requestID
+        let interval = TaskerPerformanceTrace.begin("TaskDetailEditingMetadataLoad")
         onLoadMetadata(selectedProjectID) { [weak self] result in
             DispatchQueue.main.async {
+                defer { TaskerPerformanceTrace.end(interval) }
                 guard let self else { return }
-                guard self.metadataRequestID == requestID else { return }
+                guard self.editingMetadataRequestID == requestID else { return }
                 switch result {
                 case .success(let payload):
-                    self.projects = self.dedupeProjects(payload.projects)
-                    self.lifeAreas = payload.lifeAreas
+                    let nextProjects = self.dedupeProjects(payload.projects)
+                    let nextSections = payload.sections.sorted { $0.sortOrder < $1.sortOrder }
+                    if self.projects != nextProjects {
+                        self.projects = nextProjects
+                    }
+                    if self.sections != nextSections {
+                        self.sections = nextSections
+                    }
+                    self.refreshDisplayProjectName()
+                    self.reconcileSelectionAfterMetadataRefresh()
+                case .failure(let error):
+                    self.errorMessage = error.localizedDescription
+                }
+            }
+        }
+    }
+
+    public func refreshRelationshipMetadata() {
+        let requestID = UUID()
+        relationshipMetadataRequestID = requestID
+        let interval = TaskerPerformanceTrace.begin("TaskDetailRelationshipMetadataLoad")
+        onLoadRelationshipMetadata(selectedProjectID) { [weak self] result in
+            DispatchQueue.main.async {
+                defer { TaskerPerformanceTrace.end(interval) }
+                guard let self else { return }
+                guard self.relationshipMetadataRequestID == requestID else { return }
+                switch result {
+                case .success(let payload):
+                    let nextLifeAreas = payload.lifeAreas
                         .filter { !$0.isArchived }
                         .sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
-                    self.sections = payload.sections.sorted { $0.sortOrder < $1.sortOrder }
-                    self.tags = payload.tags.sorted {
+                    let nextTags = payload.tags.sorted {
                         if $0.sortOrder != $1.sortOrder {
                             return $0.sortOrder < $1.sortOrder
                         }
                         return $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending
                     }
-                    self.availableTasks = payload.availableTasks
+                    let nextAvailableTasks = payload.availableTasks
                         .filter { !$0.isComplete && $0.id != self.persistedTask.id }
                         .sorted(by: Self.sortTasksByDueThenName)
+                    if self.lifeAreas != nextLifeAreas {
+                        self.lifeAreas = nextLifeAreas
+                    }
+                    if self.tags != nextTags {
+                        self.tags = nextTags
+                    }
+                    if self.availableTasks != nextAvailableTasks {
+                        self.availableTasks = nextAvailableTasks
+                    }
                     self.reconcileSelectionAfterMetadataRefresh()
                 case .failure(let error):
                     self.errorMessage = error.localizedDescription
@@ -222,12 +307,20 @@ public final class TaskDetailViewModel: ObservableObject {
 
     /// Executes refreshChildren.
     public func refreshChildren() {
+        let requestID = UUID()
+        childrenRequestID = requestID
+        let interval = TaskerPerformanceTrace.begin("TaskDetailChildrenLoad")
         onLoadChildren(persistedTask.id) { [weak self] result in
             DispatchQueue.main.async {
+                defer { TaskerPerformanceTrace.end(interval) }
                 guard let self else { return }
+                guard self.childrenRequestID == requestID else { return }
                 switch result {
                 case .success(let children):
-                    self.childSteps = children.sorted(by: Self.sortSteps)
+                    let nextChildren = children.sorted(by: Self.sortSteps)
+                    if self.childSteps != nextChildren {
+                        self.childSteps = nextChildren
+                    }
                 case .failure(let error):
                     self.errorMessage = error.localizedDescription
                 }
@@ -888,6 +981,12 @@ public final class TaskDetailViewModel: ObservableObject {
         if let selectedParentTaskID {
             selectedDependencyTaskIDs.remove(selectedParentTaskID)
         }
+    }
+
+    private func refreshDisplayProjectName() {
+        displayProjectName = projects.first(where: { $0.id == selectedProjectID })?.name
+            ?? persistedTask.projectName
+            ?? ProjectConstants.inboxProjectName
     }
 
     /// Executes sortTasksByDueThenName.

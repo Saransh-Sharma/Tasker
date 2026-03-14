@@ -13,6 +13,7 @@ class BaseUITest: XCTestCase {
 
     var app: XCUIApplication!
     var additionalLaunchArguments: [String] { [] }
+    var shouldSkipOnboarding: Bool { true }
 
     // MARK: - Test Lifecycle
 
@@ -29,6 +30,9 @@ class BaseUITest: XCTestCase {
             "-UI_TESTING",       // Flag for UI testing mode
             "-DISABLE_ANIMATIONS" // Speed up tests
         ]
+        if shouldSkipOnboarding {
+            app.launchArguments.append("-SKIP_ONBOARDING")
+        }
         app.launchArguments.append(contentsOf: additionalLaunchArguments)
 
         // Launch the app
@@ -50,19 +54,32 @@ class BaseUITest: XCTestCase {
 
     /// Wait for app to finish launching and be ready for interaction
     func waitForAppLaunch() {
-        // Wait for home screen to appear
-        let homeIndicator = app.otherElements["home.view"]
-        let exists = homeIndicator.waitForExistence(timeout: 10)
+        let homeIndicator = app.descendants(matching: .any)[AccessibilityIdentifiers.Home.view]
+        let homeExists = homeIndicator.waitForExistence(timeout: shouldSkipOnboarding ? 12 : 6)
 
-        if !exists {
-            // Fallback: wait for any navigation bar or tab bar
-            let navBar = app.navigationBars.firstMatch
-            let tabBar = app.tabBars.firstMatch
-            XCTAssert(
-                navBar.waitForExistence(timeout: 5) || tabBar.waitForExistence(timeout: 5),
-                "App did not launch successfully within timeout"
-            )
+        if homeExists {
+            return
         }
+
+        if !shouldSkipOnboarding {
+            let onboardingFlow = app.descendants(matching: .any)[AccessibilityIdentifiers.Onboarding.flow]
+            let onboardingPrompt = app.descendants(matching: .any)[AccessibilityIdentifiers.Onboarding.prompt]
+            let onboardingFinish = app.descendants(matching: .any)[AccessibilityIdentifiers.Onboarding.finish]
+            let onboardingExists =
+                onboardingFlow.waitForExistence(timeout: 20)
+                || onboardingPrompt.waitForExistence(timeout: 4)
+                || onboardingFinish.waitForExistence(timeout: 4)
+            if onboardingExists {
+                return
+            }
+        }
+
+        let navBar = app.navigationBars.firstMatch
+        let tabBar = app.tabBars.firstMatch
+        XCTAssert(
+            navBar.waitForExistence(timeout: 5) || tabBar.waitForExistence(timeout: 5),
+            "App did not launch successfully within timeout"
+        )
     }
 
     // MARK: - Wait Helpers

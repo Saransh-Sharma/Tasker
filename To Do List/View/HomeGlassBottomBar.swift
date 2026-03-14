@@ -8,6 +8,7 @@ import Observation
 
 struct HomeGlassBottomBar: View {
     @Bindable var state: HomeBottomBarState
+    let shellPhase: HomeShellPhase
 
     let onHome: () -> Void
     let onChartsToggle: () -> Void
@@ -16,11 +17,17 @@ struct HomeGlassBottomBar: View {
     let onCreate: () -> Void
 
     private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.currentTheme.tokens.spacing }
+    private var prefersReducedMotion: Bool { shellPhase != .interactive }
 
     var body: some View {
+        barContent
+    }
+
+    private var barContent: some View {
         HStack(spacing: spacing.s12) {
-            LiquidToolCluster(
+            BottomToolCluster(
                 selectedItem: state.selectedItem,
+                shellPhase: shellPhase,
                 onTap: handleToolTap
             )
             .opacity(state.isMinimized ? 0 : 1)
@@ -28,11 +35,12 @@ struct HomeGlassBottomBar: View {
             .offset(y: state.isMinimized ? spacing.s20 : 0)
             .allowsHitTesting(!state.isMinimized)
             .accessibilityHidden(state.isMinimized)
-            .animation(TaskerAnimation.snappy, value: state.isMinimized)
+            .animation(prefersReducedMotion ? .easeOut(duration: 0.14) : TaskerAnimation.snappy, value: state.isMinimized)
 
             Spacer(minLength: spacing.s2)
 
-            LiquidAddTaskCTA(
+            BottomAddTaskCTA(
+                shellPhase: shellPhase,
                 onTap: handleCreateTap
             )
         }
@@ -45,30 +53,34 @@ struct HomeGlassBottomBar: View {
     /// Executes handleToolTap.
     private func handleToolTap(_ item: HomeBottomBarItem) {
         TaskerFeedback.selection()
-        withAnimation(.spring(response: 0.38, dampingFraction: 0.86)) {
+        withAnimation(prefersReducedMotion ? .easeOut(duration: 0.14) : .spring(response: 0.38, dampingFraction: 0.86)) {
             state.select(item)
         }
 
-        switch item {
-        case .home:
-            onHome()
-        case .charts:
-            onChartsToggle()
-        case .search:
-            onSearch()
-        case .chat:
-            onChat()
-        case .create:
-            break
+        DispatchQueue.main.async {
+            switch item {
+            case .home:
+                onHome()
+            case .charts:
+                onChartsToggle()
+            case .search:
+                onSearch()
+            case .chat:
+                onChat()
+            case .create:
+                break
+            }
         }
     }
 
     /// Executes handleCreateTap.
     private func handleCreateTap() {
-        withAnimation(.spring(response: 0.38, dampingFraction: 0.86)) {
+        withAnimation(prefersReducedMotion ? .easeOut(duration: 0.14) : .spring(response: 0.38, dampingFraction: 0.86)) {
             state.select(.create)
         }
-        onCreate()
+        DispatchQueue.main.async {
+            onCreate()
+        }
     }
 }
 
@@ -81,7 +93,7 @@ private struct BottomToolDescriptor: Identifiable {
     var id: String { accessibilityID }
 }
 
-private struct LiquidToolCluster: View {
+private struct BottomToolCluster: View {
     private static let tools: [BottomToolDescriptor] = [
         BottomToolDescriptor(
             item: .home,
@@ -110,6 +122,7 @@ private struct LiquidToolCluster: View {
     ]
 
     let selectedItem: HomeBottomBarItem?
+    let shellPhase: HomeShellPhase
     let onTap: (HomeBottomBarItem) -> Void
 
     @Namespace private var selectionNamespace
@@ -119,109 +132,112 @@ private struct LiquidToolCluster: View {
     private let buttonWidth: CGFloat = 54
     private let buttonHeight: CGFloat = 44
     private let clusterHeight: CGFloat = 56
+    private let clusterSpacing: CGFloat = 4
+    private let clusterHorizontalPadding: CGFloat = 8
+    private let clusterVerticalPadding: CGFloat = 6
+    private var prefersReducedMotion: Bool { shellPhase != .interactive }
 
     var body: some View {
-        LiquidGlassSurface(shape: Capsule(style: .continuous), emphasis: .normal) {
-            HStack(spacing: 4) {
-                ForEach(Self.tools) { tool in
-                    ZStack {
-                        if selectedItem == tool.item {
+        toolForeground
+            .frame(width: clusterWidth, height: clusterHeight)
+            .background(clusterBackground)
+            .frame(height: clusterHeight)
+    }
+
+    private var clusterWidth: CGFloat {
+        let toolCount = CGFloat(Self.tools.count)
+        let gapCount = CGFloat(max(Self.tools.count - 1, 0))
+        return (toolCount * buttonWidth) + (gapCount * clusterSpacing) + (clusterHorizontalPadding * 2)
+    }
+
+    private var clusterBackground: some View {
+        Capsule(style: .continuous)
+            .fill(Color.tasker.surfacePrimary)
+            .overlay(
+                Capsule(style: .continuous)
+                    .stroke(Color.tasker.strokeHairline.opacity(colorScheme == .dark ? 0.72 : 0.92), lineWidth: 1)
+            )
+    }
+
+    private var toolForeground: some View {
+        HStack(spacing: clusterSpacing) {
+            ForEach(Self.tools) { tool in
+                ZStack {
+                    if selectedItem == tool.item {
+                        if prefersReducedMotion {
+                            selectionHighlight
+                        } else {
                             selectionHighlight
                                 .matchedGeometryEffect(id: "home.bottomBar.selection", in: selectionNamespace)
                         }
-
-                        Button {
-                            onTap(tool.item)
-                        } label: {
-                            Image(systemName: tool.symbolName)
-                                .font(.system(size: 18, weight: selectedItem == tool.item ? .bold : .semibold))
-                                .frame(width: 44, height: 44)
-                                .foregroundStyle(selectedItem == tool.item ? Color.tasker.textPrimary : Color.tasker.textSecondary)
-                                .contentShape(Rectangle())
-                        }
-                        .buttonStyle(.plain)
-                        .accessibilityIdentifier(tool.accessibilityID)
-                        .accessibilityLabel(tool.accessibilityLabel)
-                        .accessibilityValue(selectedItem == tool.item ? "selected" : "unselected")
-                        .simultaneousGesture(
-                            DragGesture(minimumDistance: 0)
-                                .onChanged { _ in
-                                    if pressedItem != tool.item {
-                                        pressedItem = tool.item
-                                    }
-                                }
-                                .onEnded { _ in
-                                    pressedItem = nil
-                                }
-                        )
                     }
-                    .frame(width: buttonWidth, height: buttonHeight)
-                    .scaleEffect(pressedItem == tool.item ? 0.96 : 1.0)
-                    .animation(.spring(response: 0.22, dampingFraction: 0.85), value: pressedItem == tool.item)
+
+                    Button {
+                        onTap(tool.item)
+                    } label: {
+                        Image(systemName: tool.symbolName)
+                            .font(.system(size: 18, weight: selectedItem == tool.item ? .bold : .semibold))
+                            .frame(width: 44, height: 44)
+                            .foregroundStyle(selectedItem == tool.item ? Color.tasker.textPrimary : Color.tasker.textSecondary)
+                            .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityIdentifier(tool.accessibilityID)
+                    .accessibilityLabel(tool.accessibilityLabel)
+                    .accessibilityValue(selectedItem == tool.item ? "selected" : "unselected")
+                    .simultaneousGesture(
+                        DragGesture(minimumDistance: 0)
+                            .onChanged { _ in
+                                if pressedItem != tool.item {
+                                    pressedItem = tool.item
+                                }
+                            }
+                            .onEnded { _ in
+                                pressedItem = nil
+                            }
+                    )
                 }
+                .frame(width: buttonWidth, height: buttonHeight)
+                .scaleEffect(prefersReducedMotion ? 1.0 : (pressedItem == tool.item ? 0.96 : 1.0))
+                .animation(prefersReducedMotion ? .linear(duration: 0.01) : .spring(response: 0.22, dampingFraction: 0.85), value: pressedItem == tool.item)
             }
-            .padding(.horizontal, 8)
-            .padding(.vertical, 6)
         }
-        .frame(height: clusterHeight)
+        .padding(.horizontal, clusterHorizontalPadding)
+        .padding(.vertical, clusterVerticalPadding)
     }
 
     private var selectionHighlight: some View {
         RoundedRectangle(cornerRadius: 16, style: .continuous)
-            .fill(Color.tasker.textPrimary.opacity(colorScheme == .dark ? 0.14 : 0.10))
+            .fill(Color.tasker.accentWash.opacity(colorScheme == .dark ? 0.34 : 0.90))
             .overlay(
                 RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .stroke(Color.tasker.strokeHairline.opacity(colorScheme == .dark ? 0.40 : 0.55), lineWidth: 1)
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .fill(
-                        LinearGradient(
-                            colors: [
-                                Color.tasker.accentWash.opacity(colorScheme == .dark ? 0.42 : 0.68),
-                                .clear
-                            ],
-                            startPoint: .top,
-                            endPoint: .bottom
-                        )
-                    )
-                    .blendMode(.screen)
+                    .stroke(Color.tasker.strokeHairline.opacity(colorScheme == .dark ? 0.52 : 0.82), lineWidth: 1)
             )
             .frame(width: buttonWidth, height: buttonHeight)
     }
 }
 
-private struct LiquidAddTaskCTA: View {
+private struct BottomAddTaskCTA: View {
+    let shellPhase: HomeShellPhase
     let onTap: () -> Void
 
     @Environment(\.colorScheme) private var colorScheme
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     @State private var isPressed = false
-    @State private var sheenOffset: CGFloat = -1.0
-    @State private var showSheen = false
+    private var prefersReducedMotion: Bool { shellPhase != .interactive }
 
     var body: some View {
         Button {
             TaskerFeedback.medium()
-            triggerSheenIfNeeded()
             onTap()
         } label: {
-            LiquidGlassSurface(shape: Capsule(style: .continuous), emphasis: .strong) {
-                Image(systemName: "plus")
-                    .font(.system(size: 18, weight: .bold))
-                .foregroundStyle(Color.tasker.textPrimary)
-                .frame(width: 56)
-                .frame(height: 56)
-                .overlay(
-                    sheenOverlay
-                )
-            }
+            ctaForeground
+                .background(ctaBackground)
         }
         .buttonStyle(.plain)
-        .scaleEffect(isPressed ? 0.975 : 1.0)
-        .brightness(isPressed ? 0.03 : 0)
-        .animation(.spring(response: 0.22, dampingFraction: 0.85), value: isPressed)
+        .scaleEffect(prefersReducedMotion ? 1.0 : (isPressed ? 0.975 : 1.0))
+        .brightness(prefersReducedMotion ? 0 : (isPressed ? 0.03 : 0))
+        .animation(prefersReducedMotion ? .linear(duration: 0.01) : .spring(response: 0.22, dampingFraction: 0.85), value: isPressed)
         .simultaneousGesture(
             DragGesture(minimumDistance: 0)
                 .onChanged { _ in
@@ -235,44 +251,19 @@ private struct LiquidAddTaskCTA: View {
         .accessibilityLabel("Add Task")
     }
 
-    @ViewBuilder
-    private var sheenOverlay: some View {
-        if showSheen && !reduceMotion {
-            GeometryReader { proxy in
+    private var ctaBackground: some View {
+        Capsule(style: .continuous)
+            .fill(Color.tasker.surfaceSecondary)
+            .overlay(
                 Capsule(style: .continuous)
-                    .fill(
-                        LinearGradient(
-                            colors: [
-                                .clear,
-                                Color.white.opacity(colorScheme == .dark ? 0.16 : 0.10),
-                                .clear
-                            ],
-                            startPoint: .leading,
-                            endPoint: .trailing
-                        )
-                    )
-                    .frame(width: proxy.size.width * 0.70)
-                    .offset(x: sheenOffset * proxy.size.width)
-                    .blendMode(.screen)
-            }
-            .clipShape(Capsule(style: .continuous))
-            .allowsHitTesting(false)
-        }
+                    .stroke(Color.tasker.strokeHairline.opacity(colorScheme == .dark ? 0.76 : 0.92), lineWidth: 1)
+            )
     }
 
-    /// Executes triggerSheenIfNeeded.
-    private func triggerSheenIfNeeded() {
-        guard !reduceMotion else { return }
-
-        showSheen = true
-        sheenOffset = -0.8
-
-        withAnimation(.easeInOut(duration: 0.35)) {
-            sheenOffset = 0.8
-        }
-
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
-            showSheen = false
-        }
+    private var ctaForeground: some View {
+        Image(systemName: "plus")
+            .font(.system(size: 18, weight: .bold))
+            .foregroundStyle(Color.tasker.textPrimary)
+            .frame(width: 56, height: 56)
     }
 }

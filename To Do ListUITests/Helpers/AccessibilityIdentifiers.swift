@@ -156,6 +156,19 @@ enum AccessibilityIdentifiers {
         static let darkModeToggle = "settings.darkModeToggle"
         static let appVersionLabel = "settings.appVersionLabel"
         static let aboutSection = "settings.aboutSection"
+        static let onboardingRestartButton = "settings.onboarding.restartButton"
+    }
+
+    // MARK: - Onboarding
+
+    enum Onboarding {
+        static let flow = "onboarding.flow"
+        static let welcome = "onboarding.welcome"
+        static let skipButton = "onboarding.skipButton"
+        static let prompt = "onboarding.prompt"
+        static let promptStart = "onboarding.prompt.start"
+        static let promptDismiss = "onboarding.prompt.dismiss"
+        static let finish = "onboarding.finish"
     }
 
     // MARK: - Project Management Screen

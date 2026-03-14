@@ -25,6 +25,84 @@ public enum HomeTaskMutationEvent: String, Codable, CaseIterable {
     case bulkChanged
 }
 
+public enum HomeReloadScope: String, CaseIterable, Hashable {
+    case visibleTasks
+    case facets
+    case analytics
+    case charts
+    case savedViews
+}
+
+public struct HomeDataRevision: Equatable, Hashable {
+    public static let zero = HomeDataRevision(rawValue: 0)
+    public private(set) var rawValue: UInt64
+
+    public init(rawValue: UInt64 = 0) {
+        self.rawValue = rawValue
+    }
+
+    mutating func advance() {
+        rawValue &+= 1
+    }
+}
+
+private final class HomeReloadBatchTracker {
+    private let lock = NSLock()
+    private let onComplete: () -> Void
+    private var pendingOperations: Int = 0
+    private var finishedScheduling = false
+    private var completed = false
+
+    init(onComplete: @escaping () -> Void) {
+        self.onComplete = onComplete
+    }
+
+    func registerOperation() {
+        lock.lock()
+        pendingOperations += 1
+        lock.unlock()
+    }
+
+    func completeOperation() {
+        let shouldComplete: Bool = lock.withLock {
+            pendingOperations = max(0, pendingOperations - 1)
+            return finishedScheduling && pendingOperations == 0 && completed == false
+        }
+        if shouldComplete {
+            finish()
+        }
+    }
+
+    func finishSchedulingOperations() {
+        let shouldComplete: Bool = lock.withLock {
+            finishedScheduling = true
+            return pendingOperations == 0 && completed == false
+        }
+        if shouldComplete {
+            finish()
+        }
+    }
+
+    private func finish() {
+        let shouldRun: Bool = lock.withLock {
+            guard completed == false else { return false }
+            completed = true
+            return true
+        }
+        if shouldRun {
+            onComplete()
+        }
+    }
+}
+
+private extension NSLock {
+    func withLock<T>(_ work: () -> T) -> T {
+        lock()
+        defer { unlock() }
+        return work()
+    }
+}
+
 public enum FocusPinResult: Equatable {
     case pinned
     case alreadyPinned
@@ -169,7 +247,9 @@ public final class HomeViewModel: ObservableObject {
     // MARK: - Published Properties (Observable State)
 
     @Published public private(set) var todayTasks: TodayTasksResult?
-    @Published public private(set) var selectedDate: Date = Date()
+    @Published public private(set) var selectedDate: Date = Date() {
+        didSet { scheduleHomeRenderStateRefresh() }
+    }
     @Published public private(set) var selectedProject: String = "All"
     @Published public private(set) var isLoading: Bool = false
     @Published public private(set) var errorMessage: String?
@@ -182,7 +262,9 @@ public final class HomeViewModel: ObservableObject {
     @Published public private(set) var dailyXPCap: Int = GamificationTokens.dailyXPCap
     @Published public private(set) var totalXP: Int64 = 0
     @Published public private(set) var nextLevelXP: Int64 = 0
-    @Published public private(set) var lastXPResult: XPEventResult?
+    @Published public private(set) var lastXPResult: XPEventResult? {
+        didSet { scheduleHomeRenderStateRefresh() }
+    }
     @Published public private(set) var insightsLaunchRequest: InsightsLaunchRequest?
     @Published public private(set) var insightsLaunchToken: UUID?
 
@@ -196,8 +278,12 @@ public final class HomeViewModel: ObservableObject {
     @Published public private(set) var doneTimelineTasks: [TaskDefinition] = []
 
     // Focus Engine
-    @Published public private(set) var activeFilterState: HomeFilterState = .default
-    @Published public private(set) var savedHomeViews: [SavedHomeView] = []
+    @Published public private(set) var activeFilterState: HomeFilterState = .default {
+        didSet { scheduleHomeRenderStateRefresh() }
+    }
+    @Published public private(set) var savedHomeViews: [SavedHomeView] = [] {
+        didSet { scheduleHomeRenderStateRefresh() }
+    }
     @Published public private(set) var quickViewCounts: [HomeQuickView: Int] = [:]
     @Published public private(set) var pointsPotential: Int = 0
     @Published public private(set) var progressState: HomeProgressState = .empty
@@ -206,17 +292,42 @@ public final class HomeViewModel: ObservableObject {
     @Published public private(set) var emptyStateMessage: String?
     @Published public private(set) var emptyStateActionTitle: String?
     @Published public private(set) var focusEngineEnabled: Bool = true
-    @Published public private(set) var activeScope: HomeListScope = .today
+    @Published public private(set) var activeScope: HomeListScope = .today {
+        didSet { scheduleHomeRenderStateRefresh() }
+    }
     @Published public private(set) var evaHomeInsights: EvaHomeInsights?
-    @Published public private(set) var evaFocusWhySheetPresented: Bool = false
-    @Published public private(set) var evaTriageSheetPresented: Bool = false
-    @Published public private(set) var evaRescueSheetPresented: Bool = false
-    @Published public private(set) var evaTriageScope: EvaTriageScope = .visible
-    @Published public private(set) var evaTriageQueueLoading: Bool = false
-    @Published public private(set) var evaTriageQueueErrorMessage: String?
-    @Published public private(set) var evaTriageQueue: [EvaTriageQueueItem] = []
-    @Published public private(set) var evaRescuePlan: EvaRescuePlan?
-    @Published public private(set) var evaLastBatchRunID: UUID?
+    @Published public private(set) var evaFocusWhySheetPresented: Bool = false {
+        didSet { scheduleHomeRenderStateRefresh() }
+    }
+    @Published public private(set) var evaTriageSheetPresented: Bool = false {
+        didSet { scheduleHomeRenderStateRefresh() }
+    }
+    @Published public private(set) var evaRescueSheetPresented: Bool = false {
+        didSet { scheduleHomeRenderStateRefresh() }
+    }
+    @Published public private(set) var evaTriageScope: EvaTriageScope = .visible {
+        didSet { scheduleHomeRenderStateRefresh() }
+    }
+    @Published public private(set) var evaTriageQueueLoading: Bool = false {
+        didSet { scheduleHomeRenderStateRefresh() }
+    }
+    @Published public private(set) var evaTriageQueueErrorMessage: String? {
+        didSet { scheduleHomeRenderStateRefresh() }
+    }
+    @Published public private(set) var evaTriageQueue: [EvaTriageQueueItem] = [] {
+        didSet { scheduleHomeRenderStateRefresh() }
+    }
+    @Published public private(set) var evaRescuePlan: EvaRescuePlan? {
+        didSet { scheduleHomeRenderStateRefresh() }
+    }
+    @Published public private(set) var evaLastBatchRunID: UUID? {
+        didSet { scheduleHomeRenderStateRefresh() }
+    }
+
+    private(set) var homeChromeState: HomeChromeState = .empty
+    private(set) var homeTasksState: HomeTasksState = .empty
+    private(set) var homeOverlayState: HomeOverlayState = .empty
+    @Published private(set) var homeRenderTransaction: HomeRenderTransaction = .empty
 
     // Next Action Module: total open tasks for today
     public var todayOpenTaskCount: Int {
@@ -258,8 +369,10 @@ public final class HomeViewModel: ObservableObject {
     private var didTrackFirstCompletionLatency = false
     private var completionOverrides: [UUID: Bool] = [:]
     private var reloadGeneration: Int = 0
+    private var dataRevision: HomeDataRevision = .zero
     private var suppressCompletionReloadUntil: Date?
     private var lastRecurringTopUpAt: Date?
+    private var pendingRecurringTopUpWorkItem: DispatchWorkItem?
     private var recentShuffledFocusTaskIDs: [UUID] = []
 
     private let completionNotificationDebounceMS = 120
@@ -267,6 +380,7 @@ public final class HomeViewModel: ObservableObject {
     private let mutationNotificationDebounceMS = 90
     private let reloadDebounceMS = 120
     private let analyticsDebounceMS = 120
+    private let recurringTopUpDelaySeconds: TimeInterval = 5.0
     private let recurringTopUpThrottleSeconds: TimeInterval = 90
     private let ledgerMutationWatchdogDelaySeconds: TimeInterval = 1.0
     private static let mutationNotificationSource = "homeViewModel"
@@ -275,14 +389,135 @@ public final class HomeViewModel: ObservableObject {
     private var pendingReloadWorkItem: DispatchWorkItem?
     private var pendingReloadSources: Set<String> = []
     private var pendingReloadReasons: Set<HomeTaskMutationEvent> = []
+    private var pendingReloadScopes: Set<HomeReloadScope> = []
+    private var pendingReloadTaskIDs: Set<UUID> = []
     private var pendingReloadInvalidateCaches = false
     private var pendingReloadIncludeAnalytics = false
     private var pendingReloadRepostEvent = false
     private var isApplyingReloadBatch = false
     private var queuedReloadAfterCurrentBatch = false
     private var pendingAnalyticsWorkItem: DispatchWorkItem?
+    private var pendingDeferredAnalyticsRefreshWorkItem: DispatchWorkItem?
     private var pendingAnalyticsIncludeGamificationRefresh = false
+    private var pendingAnalyticsCompletions: [() -> Void] = []
     private var analyticsGeneration: Int = 0
+    private var pendingHomeRenderStateWorkItem: DispatchWorkItem?
+
+    deinit {
+        pendingRecurringTopUpWorkItem?.cancel()
+    }
+
+    var currentDataRevision: HomeDataRevision {
+        dataRevision
+    }
+
+    private func scheduleHomeRenderStateRefresh() {
+        if Foundation.Thread.isMainThread == false {
+            DispatchQueue.main.async { [weak self] in
+                self?.scheduleHomeRenderStateRefresh()
+            }
+            return
+        }
+
+        pendingHomeRenderStateWorkItem?.cancel()
+        let workItem = DispatchWorkItem { [weak self] in
+            self?.refreshHomeRenderStates()
+        }
+        pendingHomeRenderStateWorkItem = workItem
+        DispatchQueue.main.async(execute: workItem)
+    }
+
+    private func refreshHomeRenderStates() {
+        let transaction = HomeRenderTransaction(
+            chrome: buildHomeChromeState(),
+            tasks: buildHomeTasksState(),
+            overlay: buildHomeOverlayState()
+        )
+        guard homeRenderTransaction != transaction else { return }
+
+        homeChromeState = transaction.chrome
+        homeTasksState = transaction.tasks
+        homeOverlayState = transaction.overlay
+        homeRenderTransaction = transaction
+    }
+
+    private func buildHomeChromeState() -> HomeChromeState {
+        HomeChromeState(
+            selectedDate: selectedDate,
+            activeScope: activeScope,
+            activeFilterState: activeFilterState,
+            savedHomeViews: savedHomeViews,
+            quickViewCounts: quickViewCounts,
+            progressState: progressState,
+            dailyScore: dailyScore,
+            completionRate: completionRate,
+            projects: projects,
+            reflectionEligible: activeScope.quickView == .today && !isDailyReflectionCompletedToday(),
+            momentumGuidanceText: makeMomentumGuidanceText()
+        )
+    }
+
+    private func buildHomeTasksState() -> HomeTasksState {
+        let projectByID = Dictionary(uniqueKeysWithValues: projects.map { ($0.id, $0) })
+        var projectByName = Dictionary(uniqueKeysWithValues: projects.map { ($0.name, $0) })
+        projectByName[ProjectConstants.inboxProjectName] = Project.createInbox()
+        let tagNameByID = Dictionary(uniqueKeysWithValues: tags.map { ($0.id, $0.name) })
+        let rescueTasks = overdueTasks + morningTasks + eveningTasks + evaTriageQueue.map(\.task)
+        let rescueTasksByID = Dictionary(uniqueKeysWithValues: rescueTasks.map { ($0.id, $0) })
+        let todayXPSoFar: Int? =
+            (V2FeatureFlags.gamificationV2Enabled && progressState.todayTargetXP <= 0)
+            ? nil
+            : progressState.earnedXP
+
+        return HomeTasksState(
+            morningTasks: morningTasks,
+            eveningTasks: eveningTasks,
+            overdueTasks: overdueTasks,
+            inlineCompletedTasks: activeScope.quickView == .today ? completedTasks : [],
+            doneTimelineTasks: doneTimelineTasks,
+            projects: projects,
+            projectsByID: projectByID,
+            projectsByName: projectByName,
+            tagNameByID: tagNameByID,
+            rescueTasksByID: rescueTasksByID,
+            activeQuickView: activeScope.quickView,
+            todayXPSoFar: todayXPSoFar,
+            projectGroupingMode: activeFilterState.projectGroupingMode,
+            customProjectOrderIDs: activeFilterState.customProjectOrderIDs,
+            emptyStateMessage: emptyStateMessage,
+            emptyStateActionTitle: emptyStateActionTitle,
+            canUseManualFocusDrag: canUseManualFocusDrag,
+            focusTasks: focusTasks,
+            pinnedFocusTaskIDs: pinnedFocusTaskIDs,
+            todayOpenTaskCount: todayOpenTaskCount
+        )
+    }
+
+    private func buildHomeOverlayState() -> HomeOverlayState {
+        HomeOverlayState(
+            guidanceState: nil,
+            focusWhyPresented: evaFocusWhySheetPresented,
+            triagePresented: evaTriageSheetPresented,
+            triageScope: evaTriageScope,
+            triageQueueLoading: evaTriageQueueLoading,
+            triageQueueErrorMessage: evaTriageQueueErrorMessage,
+            triageQueue: evaTriageQueue,
+            rescuePresented: evaRescueSheetPresented,
+            rescuePlan: evaRescuePlan,
+            lastBatchRunID: evaLastBatchRunID,
+            lastXPResult: lastXPResult
+        )
+    }
+
+    private func makeMomentumGuidanceText() -> String {
+        if progressState.todayTargetXP > 0 && progressState.earnedXP >= progressState.todayTargetXP {
+            return "Momentum secured. Protect the streak with one clean finish."
+        }
+        if todayOpenTaskCount > 0 {
+            return "Pick one visible task and finish it before switching surfaces."
+        }
+        return "Your surface is clear. Add one intentional task for today."
+    }
 
     // MARK: - Initialization
 
@@ -329,7 +564,7 @@ public final class HomeViewModel: ObservableObject {
 
     /// Executes loadTasksForSelectedDate.
     private func loadTasksForSelectedDate(generation: Int) {
-        triggerRecurringTopUpIfNeeded()
+        scheduleRecurringTopUpIfNeeded()
         focusEngineEnabled = true
         activeScope = .customDate(selectedDate)
         applyFocusFilters(trackAnalytics: false, generation: generation)
@@ -342,7 +577,7 @@ public final class HomeViewModel: ObservableObject {
 
     /// Executes loadTodayTasks.
     private func loadTodayTasks(generation: Int) {
-        triggerRecurringTopUpIfNeeded()
+        scheduleRecurringTopUpIfNeeded()
         focusEngineEnabled = true
         activeScope = .today
         selectedDate = Date()
@@ -355,15 +590,24 @@ public final class HomeViewModel: ObservableObject {
         loadDailyAnalytics()
     }
 
-    /// Executes triggerRecurringTopUpIfNeeded.
-    private func triggerRecurringTopUpIfNeeded() {
+    /// Executes scheduleRecurringTopUpIfNeeded.
+    private func scheduleRecurringTopUpIfNeeded() {
         let now = Date()
         if let lastRecurringTopUpAt,
            now.timeIntervalSince(lastRecurringTopUpAt) < recurringTopUpThrottleSeconds {
             return
         }
-        lastRecurringTopUpAt = now
-        useCaseCoordinator.createTaskDefinition.maintainRecurringSeries(daysAhead: 45) { _ in }
+        pendingRecurringTopUpWorkItem?.cancel()
+        let workItem = DispatchWorkItem { [weak self] in
+            guard let self else { return }
+            self.lastRecurringTopUpAt = Date()
+            self.useCaseCoordinator.createTaskDefinition.maintainRecurringSeries(daysAhead: 45) { _ in }
+        }
+        pendingRecurringTopUpWorkItem = workItem
+        DispatchQueue.global(qos: .utility).asyncAfter(
+            deadline: .now() + recurringTopUpDelaySeconds,
+            execute: workItem
+        )
     }
 
     /// Toggle task completion.
@@ -514,12 +758,8 @@ public final class HomeViewModel: ObservableObject {
         var firstError: Error?
 
         var loadedProjects: [Project] = projects
-        var loadedLifeAreas: [LifeArea] = []
         var loadedSections: [TaskerProjectSection] = []
-        var loadedTags: [TagDefinition] = []
-        var availableTasks: [TaskDefinition] = []
 
-        /// Executes record.
         func record(_ error: Error) {
             lock.lock()
             if firstError == nil {
@@ -540,22 +780,55 @@ public final class HomeViewModel: ObservableObject {
         }
 
         group.enter()
-        useCaseCoordinator.manageLifeAreas.list { result in
-            defer { group.leave() }
-            switch result {
-            case .success(let lifeAreas):
-                loadedLifeAreas = lifeAreas
-            case .failure(let error):
-                record(error)
-            }
-        }
-
-        group.enter()
         useCaseCoordinator.manageSections.list(projectID: projectID) { result in
             defer { group.leave() }
             switch result {
             case .success(let sections):
                 loadedSections = sections
+            case .failure(let error):
+                record(error)
+            }
+        }
+
+        group.notify(queue: .main) {
+            if let firstError {
+                completion(.failure(firstError))
+                return
+            }
+            completion(.success(TaskDetailMetadataPayload(
+                projects: loadedProjects,
+                sections: loadedSections
+            )))
+        }
+    }
+
+    public func loadTaskDetailRelationshipMetadata(
+        projectID: UUID,
+        completion: @escaping (Result<TaskDetailRelationshipMetadataPayload, Error>) -> Void
+    ) {
+        let group = DispatchGroup()
+        let lock = NSLock()
+        var firstError: Error?
+
+        var loadedLifeAreas: [LifeArea] = []
+        var loadedTags: [TagDefinition] = []
+        var availableTasks: [TaskDefinition] = []
+
+        /// Executes record.
+        func record(_ error: Error) {
+            lock.lock()
+            if firstError == nil {
+                firstError = error
+            }
+            lock.unlock()
+        }
+
+        group.enter()
+        useCaseCoordinator.manageLifeAreas.list { result in
+            defer { group.leave() }
+            switch result {
+            case .success(let lifeAreas):
+                loadedLifeAreas = lifeAreas
             case .failure(let error):
                 record(error)
             }
@@ -588,10 +861,8 @@ public final class HomeViewModel: ObservableObject {
                 completion(.failure(firstError))
                 return
             }
-            completion(.success(TaskDetailMetadataPayload(
-                projects: loadedProjects,
+            completion(.success(TaskDetailRelationshipMetadataPayload(
                 lifeAreas: loadedLifeAreas,
-                sections: loadedSections,
                 tags: loadedTags,
                 availableTasks: availableTasks
             )))
@@ -1074,8 +1345,10 @@ public final class HomeViewModel: ObservableObject {
 
     /// Executes loadProjects.
     private func loadProjects(generation: Int) {
+        let interval = TaskerPerformanceTrace.begin("HomeLoadProjects")
         useCaseCoordinator.manageProjects.getAllProjects { [weak self] result in
             DispatchQueue.main.async {
+                defer { TaskerPerformanceTrace.end(interval) }
                 guard let self else { return }
                 guard self.isCurrentReloadGeneration(generation) else {
                     logDebug("HOME_ROW_STATE vm.drop_stale_reload source=projects generation=\(generation)")
@@ -1084,7 +1357,7 @@ public final class HomeViewModel: ObservableObject {
                 switch result {
                 case .success(let projectsWithStats):
                     let loadedProjects = projectsWithStats.map { $0.project }
-                    self.projects = loadedProjects
+                    self.assignIfChanged(\.projects, loadedProjects)
                     self.seedPinnedProjectsIfNeeded(from: loadedProjects)
                     self.normalizeCustomProjectOrderIfNeeded(from: loadedProjects)
 
@@ -1097,8 +1370,10 @@ public final class HomeViewModel: ObservableObject {
 
     /// Executes loadTags.
     private func loadTags(generation: Int) {
+        let interval = TaskerPerformanceTrace.begin("HomeLoadTags")
         useCaseCoordinator.manageTags.list { [weak self] result in
             DispatchQueue.main.async {
+                defer { TaskerPerformanceTrace.end(interval) }
                 guard let self else { return }
                 guard self.isCurrentReloadGeneration(generation) else {
                     logDebug("HOME_ROW_STATE vm.drop_stale_reload source=tags generation=\(generation)")
@@ -1107,9 +1382,10 @@ public final class HomeViewModel: ObservableObject {
 
                 switch result {
                 case .success(let loadedTags):
-                    self.tags = loadedTags.sorted {
+                    let sortedTags = loadedTags.sorted {
                         $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending
                     }
+                    self.assignIfChanged(\.tags, sortedTags)
                 case .failure(let error):
                     self.errorMessage = error.localizedDescription
                 }
@@ -1120,6 +1396,10 @@ public final class HomeViewModel: ObservableObject {
     /// Clears task-related cache entries to force fresh reads.
     public func invalidateTaskCaches() {
         useCaseCoordinator.cacheService?.clearAll()
+        useCaseCoordinator.calculateAnalytics.invalidateCaches()
+        homeFilteredTasksUseCase.invalidateCaches()
+        dataRevision.advance()
+        TaskerPerformanceTrace.event("HomeDataInvalidated")
         logDebug("HOME_CACHE invalidated scope=all")
     }
 
@@ -1319,7 +1599,10 @@ public final class HomeViewModel: ObservableObject {
     public func makeInsightsViewModel() -> InsightsViewModel {
         InsightsViewModel(
             engine: useCaseCoordinator.gamificationEngine,
-            repository: useCaseCoordinator.gamificationRepository
+            repository: useCaseCoordinator.gamificationRepository,
+            taskReadModelRepository: useCaseCoordinator.taskReadModelRepository,
+            reminderRepository: useCaseCoordinator.reminderRepository,
+            analyticsUseCase: useCaseCoordinator.calculateAnalytics
         )
     }
 
@@ -2043,9 +2326,14 @@ public final class HomeViewModel: ObservableObject {
                     self?.enqueueReload(
                         source: "set_task_completion",
                         reason: updatedTask.isComplete ? .completed : .reopened,
+                        taskID: updatedTask.id,
                         invalidateCaches: true,
-                        includeAnalytics: true,
-                        repostEvent: true
+                        includeAnalytics: false,
+                        repostEvent: false
+                    )
+                    self?.scheduleDeferredAnalyticsRefresh(
+                        reason: updatedTask.isComplete ? "task_completion" : "task_reopen",
+                        includeGamificationRefresh: false
                     )
                     self?.trackFirstCompletionLatencyIfNeeded()
                     completion(.success(updatedTask))
@@ -2066,23 +2354,14 @@ public final class HomeViewModel: ObservableObject {
 
     /// Executes mutationReason.
     private func mutationReason(for request: UpdateTaskDefinitionRequest) -> HomeTaskMutationEvent {
-        if request.projectID != nil {
-            return .projectChanged
-        }
-        if request.priority != nil {
-            return .priorityChanged
-        }
-        if request.type != nil {
-            return .typeChanged
-        }
-        if request.dueDate != nil || request.clearDueDate {
-            return .dueDateChanged
-        }
-        return .updated
+        HomeTaskMutationReasonResolver.reason(for: request)
     }
 
     /// Executes loadInitialData.
     private func loadInitialData() {
+        let interval = TaskerPerformanceTrace.begin("HomeInitialLoad")
+        defer { TaskerPerformanceTrace.end(interval) }
+
         homeOpenedAt = Date()
         didTrackFirstCompletionLatency = false
 
@@ -2097,21 +2376,36 @@ public final class HomeViewModel: ObservableObject {
         let generation = nextReloadGeneration()
         loadProjects(generation: generation)
         loadTags(generation: generation)
-        applyFocusFilters(trackAnalytics: false, generation: generation)
-        loadDailyAnalytics()
+        applyFocusFilters(trackAnalytics: false, generation: generation) { [weak self] in
+            self?.scheduleDeferredAnalyticsRefresh(
+                reason: "initial_load",
+                includeGamificationRefresh: true
+            )
+        }
     }
 
     /// Executes loadDailyAnalytics.
-    private func loadDailyAnalytics(includeGamificationRefresh: Bool = true) {
+    private func loadDailyAnalytics(
+        includeGamificationRefresh: Bool = true,
+        completion: (() -> Void)? = nil
+    ) {
         pendingAnalyticsIncludeGamificationRefresh = pendingAnalyticsIncludeGamificationRefresh || includeGamificationRefresh
+        if let completion {
+            pendingAnalyticsCompletions.append(completion)
+        }
         pendingAnalyticsWorkItem?.cancel()
 
         let workItem = DispatchWorkItem { [weak self] in
             guard let self else { return }
             let shouldIncludeGamificationRefresh = self.pendingAnalyticsIncludeGamificationRefresh
+            let completions = self.pendingAnalyticsCompletions
             self.pendingAnalyticsIncludeGamificationRefresh = false
+            self.pendingAnalyticsCompletions = []
             self.pendingAnalyticsWorkItem = nil
-            self.performDailyAnalyticsRefresh(includeGamificationRefresh: shouldIncludeGamificationRefresh)
+            self.performDailyAnalyticsRefresh(
+                includeGamificationRefresh: shouldIncludeGamificationRefresh,
+                completions: completions
+            )
         }
         pendingAnalyticsWorkItem = workItem
         DispatchQueue.main.asyncAfter(
@@ -2120,27 +2414,96 @@ public final class HomeViewModel: ObservableObject {
         )
     }
 
-    private func performDailyAnalyticsRefresh(includeGamificationRefresh: Bool) {
+    private func scheduleDeferredAnalyticsRefresh(
+        reason: String,
+        includeGamificationRefresh: Bool,
+        delayMilliseconds: Int = 450
+    ) {
+        pendingDeferredAnalyticsRefreshWorkItem?.cancel()
+        let workItem = DispatchWorkItem { [weak self] in
+            guard let self else { return }
+            let interval = TaskerPerformanceTrace.begin("HomeDeferredAnalyticsRefresh")
+            self.loadDailyAnalytics(includeGamificationRefresh: includeGamificationRefresh) {
+                TaskerPerformanceTrace.end(interval)
+                logWarning(
+                    event: "home_deferred_analytics_refresh",
+                    message: "Deferred analytics refresh completed",
+                    fields: [
+                        "reason": reason,
+                        "include_gamification_refresh": includeGamificationRefresh ? "true" : "false"
+                    ]
+                )
+            }
+        }
+        pendingDeferredAnalyticsRefreshWorkItem = workItem
+        DispatchQueue.main.asyncAfter(
+            deadline: .now() + .milliseconds(delayMilliseconds),
+            execute: workItem
+        )
+    }
+
+    private func performDailyAnalyticsRefresh(
+        includeGamificationRefresh: Bool,
+        completions: [() -> Void]
+    ) {
         let generation = nextAnalyticsGeneration()
+        let completionGroup = DispatchGroup()
         if V2FeatureFlags.gamificationV2Enabled {
             guard includeGamificationRefresh else {
+                completionGroup.enter()
                 useCaseCoordinator.calculateAnalytics.calculateTodayAnalytics { [weak self] result in
                     DispatchQueue.main.async {
+                        defer { completionGroup.leave() }
                         guard let self, self.isCurrentAnalyticsGeneration(generation) else { return }
                         if case .success(let analytics) = result {
                             self.completionRate = analytics.completionRate
                         }
                     }
                 }
+                completionGroup.notify(queue: .main) {
+                    completions.forEach { $0() }
+                }
                 return
             }
-            refreshGamificationV2State(generation: generation)
+            let engine = useCaseCoordinator.gamificationEngine
+
+            completionGroup.enter()
+            engine.fetchTodayXP { [weak self] result in
+                DispatchQueue.main.async {
+                    defer { completionGroup.leave() }
+                    guard let self, self.isCurrentAnalyticsGeneration(generation) else { return }
+                    if case .success(let todayXP) = result {
+                        self.dailyScore = todayXP
+                        self.refreshProgressState()
+                    }
+                }
+            }
+
+            completionGroup.enter()
+            engine.fetchCurrentProfile { [weak self] result in
+                DispatchQueue.main.async {
+                    defer { completionGroup.leave() }
+                    guard let self, self.isCurrentAnalyticsGeneration(generation) else { return }
+                    if case .success(let profile) = result {
+                        self.currentLevel = profile.level
+                        self.totalXP = profile.xpTotal
+                        self.nextLevelXP = profile.nextLevelXP
+                        self.streak = profile.currentStreak
+                        self.refreshProgressState()
+                    }
+                }
+            }
         } else {
-            refreshDailyScoreFromCompletedTasksToday(generation: generation)
+            completionGroup.enter()
+            refreshDailyScoreFromCompletedTasksToday(generation: generation) {
+                completionGroup.leave()
+            }
         }
 
+        completionGroup.enter()
         useCaseCoordinator.calculateAnalytics.calculateTodayAnalytics { [weak self] result in
             DispatchQueue.main.async {
+                defer { completionGroup.leave() }
                 guard let self, self.isCurrentAnalyticsGeneration(generation) else { return }
                 if case .success(let analytics) = result {
                     self.completionRate = analytics.completionRate
@@ -2149,8 +2512,10 @@ public final class HomeViewModel: ObservableObject {
         }
 
         if !V2FeatureFlags.gamificationV2Enabled {
+            completionGroup.enter()
             useCaseCoordinator.calculateAnalytics.calculateStreak { [weak self] result in
                 DispatchQueue.main.async {
+                    defer { completionGroup.leave() }
                     guard let self, self.isCurrentAnalyticsGeneration(generation) else { return }
                     if case .success(let streakInfo) = result {
                         self.streak = streakInfo.currentStreak
@@ -2158,6 +2523,10 @@ public final class HomeViewModel: ObservableObject {
                     }
                 }
             }
+        }
+
+        completionGroup.notify(queue: .main) {
+            completions.forEach { $0() }
         }
     }
 
@@ -2192,15 +2561,21 @@ public final class HomeViewModel: ObservableObject {
     }
 
     /// Executes refreshDailyScoreFromCompletedTasksToday.
-    private func refreshDailyScoreFromCompletedTasksToday(referenceDate: Date = Date(), generation: Int? = nil) {
+    private func refreshDailyScoreFromCompletedTasksToday(
+        referenceDate: Date = Date(),
+        generation: Int? = nil,
+        completion: (() -> Void)? = nil
+    ) {
         let calendar = Calendar.current
         let startOfDay = calendar.startOfDay(for: referenceDate)
         guard let endOfDay = calendar.date(byAdding: .day, value: 1, to: startOfDay) else {
+            completion?()
             return
         }
 
         useCaseCoordinator.getTasks.searchTasks(query: "", in: .all) { [weak self] result in
             DispatchQueue.main.async {
+                defer { completion?() }
                 guard let self else { return }
                 if let generation, !self.isCurrentAnalyticsGeneration(generation) { return }
 
@@ -2273,9 +2648,28 @@ public final class HomeViewModel: ObservableObject {
     /// Executes reloadCurrentModeTasks.
     private func reloadCurrentModeTasks() {
         let generation = nextReloadGeneration()
-        loadProjects(generation: generation)
-        loadTags(generation: generation)
-        applyFocusFilters(trackAnalytics: false, generation: generation)
+        applyReloadScopes([.visibleTasks], generation: generation)
+    }
+
+    private func applyReloadScopes(
+        _ scopes: Set<HomeReloadScope>,
+        generation: Int,
+        visibleTasksCompletion: (() -> Void)? = nil
+    ) {
+        if scopes.contains(.savedViews) {
+            loadSavedViews()
+        }
+        if scopes.contains(.facets) {
+            loadProjects(generation: generation)
+            loadTags(generation: generation)
+        }
+        if scopes.contains(.visibleTasks) {
+            applyFocusFilters(
+                trackAnalytics: false,
+                generation: generation,
+                completion: visibleTasksCompletion
+            )
+        }
     }
 
     /// Executes upsertTag.
@@ -2294,12 +2688,23 @@ public final class HomeViewModel: ObservableObject {
     }
 
     /// Executes applyFocusFilters.
-    private func applyFocusFilters(trackAnalytics: Bool, generation: Int) {
+    private func applyFocusFilters(
+        trackAnalytics: Bool,
+        generation: Int,
+        completion: (() -> Void)? = nil
+    ) {
+        let interval = TaskerPerformanceTrace.begin("HomeApplyFilters")
         isLoading = true
         errorMessage = nil
 
-        homeFilteredTasksUseCase.execute(state: activeFilterState, scope: activeScope) { [weak self] result in
+        homeFilteredTasksUseCase.execute(
+            state: activeFilterState,
+            scope: activeScope,
+            revision: dataRevision
+        ) { [weak self] result in
             DispatchQueue.main.async {
+                defer { TaskerPerformanceTrace.end(interval) }
+                defer { completion?() }
                 guard let self else { return }
                 guard self.isCurrentReloadGeneration(generation) else {
                     logDebug("HOME_ROW_STATE vm.drop_stale_reload source=focus generation=\(generation)")
@@ -2309,8 +2714,8 @@ public final class HomeViewModel: ObservableObject {
 
                 switch result {
                 case .success(let filteredResult):
-                    self.quickViewCounts = filteredResult.quickViewCounts
-                    self.pointsPotential = filteredResult.pointsPotential
+                    self.assignIfChanged(\.quickViewCounts, filteredResult.quickViewCounts)
+                    self.assignIfChanged(\.pointsPotential, filteredResult.pointsPotential)
                     self.applyResultToSections(filteredResult)
                     self.refreshProgressState()
 
@@ -2355,29 +2760,29 @@ public final class HomeViewModel: ObservableObject {
         if canUseManualFocusDrag {
             prunePinnedFocusTaskIDs(keepingOpenTaskIDs: Set(openTasks.map(\.id)))
         }
-        focusTasks = composedFocusTasks(from: openTasks)
+        assignIfChanged(\.focusTasks, composedFocusTasks(from: openTasks))
         refreshEvaInsights(openTasks: openTasks)
 
         if activeScope == .done {
-            doneTimelineTasks = doneTasks
-            dailyCompletedTasks = doneTasks
-            completedTasks = doneTasks
-            focusTasks = []
+            assignIfChanged(\.doneTimelineTasks, doneTasks)
+            assignIfChanged(\.dailyCompletedTasks, doneTasks)
+            assignIfChanged(\.completedTasks, doneTasks)
+            assignIfChanged(\.focusTasks, [])
             refreshEvaInsights(openTasks: [])
-            upcomingTasks = []
-            morningTasks = []
-            eveningTasks = []
-            overdueTasks = []
-            emptyStateMessage = "No completed tasks in last 30 days"
-            emptyStateActionTitle = nil
+            assignIfChanged(\.upcomingTasks, [])
+            assignIfChanged(\.morningTasks, [])
+            assignIfChanged(\.eveningTasks, [])
+            assignIfChanged(\.overdueTasks, [])
+            assignIfChanged(\.emptyStateMessage, "No completed tasks in last 30 days")
+            assignIfChanged(\.emptyStateActionTitle, nil)
             updateCompletionRateFromFocusResult(openTasks: openTasks, doneTasks: doneTasks)
             writeTaskListWidgetSnapshot(reason: "apply_result_done")
             return
         }
 
-        doneTimelineTasks = []
-        completedTasks = doneTasks
-        dailyCompletedTasks = doneTasks
+        assignIfChanged(\.doneTimelineTasks, [])
+        assignIfChanged(\.completedTasks, doneTasks)
+        assignIfChanged(\.dailyCompletedTasks, doneTasks)
 
         let overdue = visibleTasks.filter { isTaskOverdue($0, relativeTo: activeScope) }
         let nonOverdue = visibleTasks.filter { !isTaskOverdue($0, relativeTo: activeScope) }
@@ -2393,36 +2798,36 @@ public final class HomeViewModel: ObservableObject {
                 computedOverdue: computedOverdue,
                 doneTasks: doneTasks
             )
-            morningTasks = retained.morning
-            eveningTasks = retained.evening
-            overdueTasks = retained.overdue
+            assignIfChanged(\.morningTasks, retained.morning)
+            assignIfChanged(\.eveningTasks, retained.evening)
+            assignIfChanged(\.overdueTasks, retained.overdue)
         } else {
-            morningTasks = computedMorning
-            eveningTasks = computedEvening
-            overdueTasks = computedOverdue
+            assignIfChanged(\.morningTasks, computedMorning)
+            assignIfChanged(\.eveningTasks, computedEvening)
+            assignIfChanged(\.overdueTasks, computedOverdue)
         }
 
         switch activeScope.quickView {
         case .upcoming:
-            upcomingTasks = openTasks
-            emptyStateMessage = "No upcoming tasks in 14 days"
-            emptyStateActionTitle = nil
+            assignIfChanged(\.upcomingTasks, openTasks)
+            assignIfChanged(\.emptyStateMessage, "No upcoming tasks in 14 days")
+            assignIfChanged(\.emptyStateActionTitle, nil)
         case .overdue:
-            upcomingTasks = []
-            emptyStateMessage = "No overdue tasks. Great job."
-            emptyStateActionTitle = nil
+            assignIfChanged(\.upcomingTasks, [])
+            assignIfChanged(\.emptyStateMessage, "No overdue tasks. Great job.")
+            assignIfChanged(\.emptyStateActionTitle, nil)
         case .morning:
-            upcomingTasks = []
-            emptyStateMessage = "No morning tasks. Add one to start strong."
-            emptyStateActionTitle = "Add Morning TaskDefinition"
+            assignIfChanged(\.upcomingTasks, [])
+            assignIfChanged(\.emptyStateMessage, "No morning tasks. Add one to start strong.")
+            assignIfChanged(\.emptyStateActionTitle, "Add Morning TaskDefinition")
         case .evening:
-            upcomingTasks = []
-            emptyStateMessage = "No evening tasks. Plan your wind-down."
-            emptyStateActionTitle = "Add Evening TaskDefinition"
+            assignIfChanged(\.upcomingTasks, [])
+            assignIfChanged(\.emptyStateMessage, "No evening tasks. Plan your wind-down.")
+            assignIfChanged(\.emptyStateActionTitle, "Add Evening TaskDefinition")
         case .today:
-            upcomingTasks = []
-            emptyStateMessage = nil
-            emptyStateActionTitle = nil
+            assignIfChanged(\.upcomingTasks, [])
+            assignIfChanged(\.emptyStateMessage, nil)
+            assignIfChanged(\.emptyStateActionTitle, nil)
         case .done:
             // handled above
             break
@@ -2435,7 +2840,7 @@ public final class HomeViewModel: ObservableObject {
     /// Executes updateCompletionRateFromFocusResult.
     private func updateCompletionRateFromFocusResult(openTasks: [TaskDefinition], doneTasks: [TaskDefinition]) {
         let total = openTasks.count + doneTasks.count
-        completionRate = total > 0 ? Double(doneTasks.count) / Double(total) : 0
+        assignIfChanged(\.completionRate, total > 0 ? Double(doneTasks.count) / Double(total) : 0)
     }
 
     /// Executes refreshProgressState.
@@ -2454,13 +2859,13 @@ public final class HomeViewModel: ObservableObject {
 
         let streakDays = max(0, streak)
 
-        progressState = HomeProgressState(
+        assignIfChanged(\.progressState, HomeProgressState(
             earnedXP: earnedXP,
             remainingPotentialXP: remainingPotentialXP,
             todayTargetXP: targetXP,
             streakDays: streakDays,
             isStreakSafeToday: earnedXP > 0
-        )
+        ))
     }
 
     /// Executes persistLastFilterState.
@@ -2945,6 +3350,7 @@ public final class HomeViewModel: ObservableObject {
         enqueueReload(
             source: "external_mutation_\(reason.rawValue)",
             reason: reason,
+            taskID: nil,
             invalidateCaches: true,
             includeAnalytics: true,
             repostEvent: repostEvent
@@ -2954,6 +3360,7 @@ public final class HomeViewModel: ObservableObject {
     public func enqueueReload(
         source: String,
         reason: HomeTaskMutationEvent? = nil,
+        taskID: UUID? = nil,
         invalidateCaches: Bool,
         includeAnalytics: Bool,
         repostEvent: Bool
@@ -2961,6 +3368,12 @@ public final class HomeViewModel: ObservableObject {
         pendingReloadSources.insert(source)
         if let reason {
             pendingReloadReasons.insert(reason)
+        }
+        pendingReloadScopes.formUnion(
+            reloadScopes(for: reason, includeAnalytics: includeAnalytics, repostEvent: repostEvent)
+        )
+        if let taskID {
+            pendingReloadTaskIDs.insert(taskID)
         }
         pendingReloadInvalidateCaches = pendingReloadInvalidateCaches || invalidateCaches
         pendingReloadIncludeAnalytics = pendingReloadIncludeAnalytics || includeAnalytics
@@ -2983,24 +3396,19 @@ public final class HomeViewModel: ObservableObject {
             return
         }
         isApplyingReloadBatch = true
-        defer {
-            isApplyingReloadBatch = false
-            if queuedReloadAfterCurrentBatch {
-                queuedReloadAfterCurrentBatch = false
-                if pendingReloadSources.isEmpty == false {
-                    flushQueuedReloads()
-                }
-            }
-        }
 
         let reasons = pendingReloadReasons
         let sources = pendingReloadSources
+        let scopes = pendingReloadScopes
+        let taskIDs = pendingReloadTaskIDs
         let shouldInvalidate = pendingReloadInvalidateCaches
         let shouldIncludeAnalytics = pendingReloadIncludeAnalytics
         let shouldRepostEvent = pendingReloadRepostEvent
 
         pendingReloadReasons = []
         pendingReloadSources = []
+        pendingReloadScopes = []
+        pendingReloadTaskIDs = []
         pendingReloadInvalidateCaches = false
         pendingReloadIncludeAnalytics = false
         pendingReloadRepostEvent = false
@@ -3010,26 +3418,71 @@ public final class HomeViewModel: ObservableObject {
         if shouldInvalidate {
             invalidateTaskCaches()
         }
-        reloadCurrentModeTasks()
-        if shouldIncludeAnalytics {
-            loadDailyAnalytics(includeGamificationRefresh: false)
-        }
-        if shouldRepostEvent, let reason = prioritizedReloadReason(from: reasons) {
-            requestChartRefresh(reason: reason)
+        let interval = TaskerPerformanceTrace.begin("HomeReloadBatch")
+        let generation = nextReloadGeneration()
+        let tracker = HomeReloadBatchTracker { [weak self] in
+            TaskerPerformanceTrace.end(interval)
+            logWarning(
+                event: "home_reload_batch_applied",
+                message: "Applied coalesced Home reload batch",
+                fields: [
+                    "source_count": String(sources.count),
+                    "reason_count": String(reasons.count),
+                    "scope_count": String(scopes.count),
+                    "invalidate_caches": shouldInvalidate ? "true" : "false",
+                    "include_analytics": shouldIncludeAnalytics ? "true" : "false",
+                    "repost_event": shouldRepostEvent ? "true" : "false",
+                    "duration_ms": String(Int(Date().timeIntervalSince(reloadStartedAt) * 1_000))
+                ]
+            )
+            self?.completeReloadBatchLifecycle()
         }
 
-        logWarning(
-            event: "home_reload_batch_applied",
-            message: "Applied coalesced Home reload batch",
-            fields: [
-                "source_count": String(sources.count),
-                "reason_count": String(reasons.count),
-                "invalidate_caches": shouldInvalidate ? "true" : "false",
-                "include_analytics": shouldIncludeAnalytics ? "true" : "false",
-                "repost_event": shouldRepostEvent ? "true" : "false",
-                "duration_ms": String(Int(Date().timeIntervalSince(reloadStartedAt) * 1_000))
-            ]
+        if scopes.contains(.visibleTasks) {
+            tracker.registerOperation()
+        }
+        applyReloadScopes(
+            scopes,
+            generation: generation,
+            visibleTasksCompletion: scopes.contains(.visibleTasks) ? { tracker.completeOperation() } : nil
         )
+
+        if shouldIncludeAnalytics || scopes.contains(.analytics) {
+            tracker.registerOperation()
+            loadDailyAnalytics(includeGamificationRefresh: false) {
+                tracker.completeOperation()
+            }
+        }
+        if (shouldRepostEvent || scopes.contains(.charts)),
+           let reason = prioritizedReloadReason(from: reasons) {
+            requestChartRefresh(reason: reason, taskID: prioritizedTaskID(from: taskIDs, for: reason))
+        }
+        tracker.finishSchedulingOperations()
+    }
+
+    private func completeReloadBatchLifecycle() {
+        isApplyingReloadBatch = false
+        if queuedReloadAfterCurrentBatch {
+            queuedReloadAfterCurrentBatch = false
+            if pendingReloadSources.isEmpty == false {
+                flushQueuedReloads()
+            }
+        }
+    }
+
+    private func reloadScopes(
+        for reason: HomeTaskMutationEvent?,
+        includeAnalytics: Bool,
+        repostEvent: Bool
+    ) -> Set<HomeReloadScope> {
+        var scopes: Set<HomeReloadScope> = [.visibleTasks]
+        if includeAnalytics {
+            scopes.insert(.analytics)
+        }
+        if repostEvent {
+            scopes.insert(.charts)
+        }
+        return scopes
     }
 
     private func prioritizedReloadReason(from reasons: Set<HomeTaskMutationEvent>) -> HomeTaskMutationEvent? {
@@ -3047,6 +3500,17 @@ public final class HomeViewModel: ObservableObject {
             .bulkChanged
         ]
         return priorityOrder.first(where: { reasons.contains($0) }) ?? reasons.first
+    }
+
+    private func prioritizedTaskID(from taskIDs: Set<UUID>, for reason: HomeTaskMutationEvent) -> UUID? {
+        guard taskIDs.isEmpty == false else { return nil }
+
+        switch reason {
+        case .completed, .reopened, .created, .deleted, .rescheduled, .projectChanged, .priorityChanged, .typeChanged, .dueDateChanged, .updated:
+            return taskIDs.first
+        case .bulkChanged:
+            return nil
+        }
     }
 
     private func handleGamificationLedgerMutation(_ mutation: GamificationLedgerMutation) {
@@ -3131,14 +3595,16 @@ public final class HomeViewModel: ObservableObject {
     }
 
     /// Executes requestChartRefresh.
-    public func requestChartRefresh(reason: HomeTaskMutationEvent) {
+    public func requestChartRefresh(reason: HomeTaskMutationEvent, taskID: UUID? = nil) {
+        let userInfo = HomeTaskMutationPayload(
+            reason: reason,
+            source: Self.mutationNotificationSource,
+            taskID: taskID
+        ).userInfo
         NotificationCenter.default.post(
             name: .homeTaskMutation,
             object: nil,
-            userInfo: [
-                "reason": reason.rawValue,
-                "source": Self.mutationNotificationSource
-            ]
+            userInfo: userInfo
         )
     }
 
@@ -3574,6 +4040,15 @@ public final class HomeViewModel: ObservableObject {
 
     private func isCurrentAnalyticsGeneration(_ generation: Int) -> Bool {
         generation == analyticsGeneration
+    }
+
+    private func assignIfChanged<Value: Equatable>(
+        _ keyPath: ReferenceWritableKeyPath<HomeViewModel, Value>,
+        _ newValue: Value
+    ) {
+        guard self[keyPath: keyPath] != newValue else { return }
+        self[keyPath: keyPath] = newValue
+        scheduleHomeRenderStateRefresh()
     }
 
     /// Executes applyCompletionOverrides.

@@ -72,14 +72,24 @@ public final class CompleteTaskDefinitionUseCase {
                             name: NSNotification.Name("TaskCompletionChanged"),
                             object: updatedTask
                         )
+                        let payload = HomeTaskMutationPayload(
+                            reason: updatedTask.isComplete ? .completed : .reopened,
+                            source: "completeTaskDefinitionUseCase",
+                            taskID: updatedTask.id,
+                            previousIsComplete: task.isComplete,
+                            newIsComplete: updatedTask.isComplete,
+                            previousDueDate: task.dueDate,
+                            newDueDate: updatedTask.dueDate,
+                            previousCompletionDate: task.dateCompleted,
+                            newCompletionDate: updatedTask.dateCompleted,
+                            previousProjectID: task.projectID,
+                            newProjectID: updatedTask.projectID,
+                            previousPriorityRawValue: task.priority.rawValue,
+                            newPriorityRawValue: updatedTask.priority.rawValue
+                        )
                         TaskNotificationDispatcher.postOnMain(
                             name: .homeTaskMutation,
-                            userInfo: [
-                                "reason": updatedTask.isComplete ? "completed" : "reopened",
-                                "source": "completeTaskDefinitionUseCase",
-                                "taskID": updatedTask.id.uuidString,
-                                "isComplete": updatedTask.isComplete
-                            ]
+                            userInfo: payload.userInfo
                         )
                     }
                     completion(updateResult)

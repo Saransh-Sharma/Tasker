@@ -58,18 +58,21 @@ final class HomeForedropLayoutMetricsTests: XCTestCase {
         }
 
         await MainActor.run {
-            state.configureIfNeeded { engine }
+            state.configureIfNeeded(
+                makeEngine: { engine },
+                dataRevisionProvider: { .zero }
+            )
             state.updateQuery("meet")
             state.updateQuery("meeting")
         }
 
         try await _Concurrency.Task.sleep(nanoseconds: 10_000_000)
         let queriesBeforeDebounce = await MainActor.run { engine.searchQueries }
-        XCTAssertEqual(queriesBeforeDebounce, [""], "Debounced query should not fire immediately")
+        XCTAssertEqual(queriesBeforeDebounce, [], "Debounced query should not fire immediately")
 
         try await _Concurrency.Task.sleep(nanoseconds: 80_000_000)
         let queriesAfterDebounce = await MainActor.run { engine.searchQueries }
-        XCTAssertEqual(queriesAfterDebounce, ["", "meeting"], "Debounce should emit only latest query")
+        XCTAssertEqual(queriesAfterDebounce, ["meeting"], "Debounce should emit only latest query")
     }
 
     func testSearchStateAppliesStatusPriorityAndProjectFiltersTogether() async {
@@ -79,7 +82,10 @@ final class HomeForedropLayoutMetricsTests: XCTestCase {
         }
 
         await MainActor.run {
-            state.configureIfNeeded { engine }
+            state.configureIfNeeded(
+                makeEngine: { engine },
+                dataRevisionProvider: { .zero }
+            )
             state.setStatus(.today)
             state.togglePriority(.high)
             state.toggleProject("Inbox")
@@ -102,7 +108,11 @@ final class HomeForedropLayoutMetricsTests: XCTestCase {
         await MainActor.run {
             engine.stubbedResultsByQuery[""] = []
             engine.stubbedResultsByQuery["xyz"] = []
-            state.configureIfNeeded { engine }
+            state.configureIfNeeded(
+                makeEngine: { engine },
+                dataRevisionProvider: { .zero }
+            )
+            state.activate()
         }
 
         let defaultTitle = await MainActor.run { state.emptyStateTitle }
@@ -125,7 +135,7 @@ final class HomeForedropLayoutMetricsTests: XCTestCase {
         defer { V2FeatureFlags.iPadPerfSearchFocusStabilizationV3Enabled = originalValue }
         V2FeatureFlags.iPadPerfSearchFocusStabilizationV3Enabled = true
 
-        XCTAssertTrue(HomeSearchFocusPolicyResolver.shouldAutoFocusOnSearchEntry(layoutClass: .phone))
+        XCTAssertFalse(HomeSearchFocusPolicyResolver.shouldAutoFocusOnSearchEntry(layoutClass: .phone))
         XCTAssertFalse(HomeSearchFocusPolicyResolver.shouldAutoFocusOnSearchEntry(layoutClass: .padRegular))
         XCTAssertFalse(HomeSearchFocusPolicyResolver.shouldAutoFocusOnSearchEntry(layoutClass: .padExpanded))
     }
@@ -137,7 +147,11 @@ final class HomeForedropLayoutMetricsTests: XCTestCase {
         }
 
         await MainActor.run {
-            state.configureIfNeeded { engine }
+            state.configureIfNeeded(
+                makeEngine: { engine },
+                dataRevisionProvider: { .zero }
+            )
+            state.activate()
         }
 
         let initialCount = await MainActor.run { engine.searchQueries.count }
@@ -158,7 +172,11 @@ final class HomeForedropLayoutMetricsTests: XCTestCase {
         }
 
         await MainActor.run {
-            state.configureIfNeeded { engine }
+            state.configureIfNeeded(
+                makeEngine: { engine },
+                dataRevisionProvider: { .zero }
+            )
+            state.activate()
             state.markDataMutated()
             state.activate()
         }

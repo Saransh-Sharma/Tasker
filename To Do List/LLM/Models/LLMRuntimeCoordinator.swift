@@ -34,7 +34,9 @@ final class LLMRuntimeCoordinator {
     private var observers: [NSObjectProtocol] = []
     private var inFlightPrewarmTask: Task<Void, Never>?
     private var inFlightPrewarmModelName: String?
+    private var inFlightPrewarmRequestKey: String?
     private var deferredPrewarmTask: Task<Void, Never>?
+    private var deferredPrewarmRequestKey: String?
     private var backgroundUnloadTask: Task<Void, Never>?
     private var idleUnloadTask: Task<Void, Never>?
     private var activeSessionReasons: Set<String> = []
@@ -104,6 +106,7 @@ final class LLMRuntimeCoordinator {
         cancelIdleUnload()
         inFlightPrewarmTask?.cancel()
         inFlightPrewarmModelName = currentModelName
+        inFlightPrewarmRequestKey = "\(currentModelName)|\(trigger)"
 
         inFlightPrewarmTask = Task { @MainActor in
             let startedAt = Date()
@@ -142,45 +145,66 @@ final class LLMRuntimeCoordinator {
             if self.inFlightPrewarmModelName == currentModelName {
                 self.inFlightPrewarmModelName = nil
                 self.inFlightPrewarmTask = nil
+                self.inFlightPrewarmRequestKey = nil
             }
         }
     }
 
     func requestChatEntryPrewarm(trigger: String, delaySeconds: TimeInterval = 2.0) {
+        guard let currentModelName = defaults.string(forKey: currentModelKey),
+              currentModelName.isEmpty == false else {
+            return
+        }
+        let requestKey = "\(currentModelName)|\(trigger)"
+        if inFlightPrewarmRequestKey == requestKey || deferredPrewarmRequestKey == requestKey {
+            return
+        }
         cancelDeferredPrewarm(reason: "chat_entry_rescheduled")
 
+        let resolvedDelaySeconds: TimeInterval
         switch prewarmPolicy {
         case .immediate:
+            resolvedDelaySeconds = max(0, delaySeconds)
+        case .deferred(let policyDelaySeconds):
+            resolvedDelaySeconds = max(policyDelaySeconds, delaySeconds)
+        }
+
+        if resolvedDelaySeconds == 0 {
+            inFlightPrewarmRequestKey = requestKey
             Task { @MainActor in
                 await self.prepareCurrentModelIfConfigured(trigger: trigger)
             }
-        case .deferred(let policyDelaySeconds):
-            let resolvedDelaySeconds = max(0, delaySeconds > 0 ? delaySeconds : policyDelaySeconds)
-            let delayNanoseconds = UInt64(resolvedDelaySeconds * 1_000_000_000)
+            return
+        }
+
+        let delayNanoseconds = UInt64(resolvedDelaySeconds * 1_000_000_000)
+        deferredPrewarmRequestKey = requestKey
+        logWarning(
+            event: "llmPrewarm",
+            message: "Scheduled deferred LLM prewarm on chat entry",
+            fields: [
+                "trigger": trigger,
+                "delay_seconds": String(format: "%.2f", resolvedDelaySeconds)
+            ]
+        )
+
+        deferredPrewarmTask = Task { @MainActor in
+            do {
+                try await Task.sleep(nanoseconds: delayNanoseconds)
+            } catch {
+                self.deferredPrewarmTask = nil
+                return
+            }
+            guard !Task.isCancelled else { return }
+            guard self.deferredPrewarmRequestKey == requestKey else { return }
             logWarning(
                 event: "llmPrewarm",
-                message: "Scheduled deferred LLM prewarm on chat entry",
-                fields: [
-                    "trigger": trigger,
-                    "delay_seconds": String(format: "%.2f", resolvedDelaySeconds)
-                ]
+                message: "Executing deferred LLM prewarm",
+                fields: ["trigger": trigger]
             )
-
-            deferredPrewarmTask = Task { @MainActor in
-                do {
-                    try await Task.sleep(nanoseconds: delayNanoseconds)
-                } catch {
-                    return
-                }
-                guard !Task.isCancelled else { return }
-                logWarning(
-                    event: "llmPrewarm",
-                    message: "Executing deferred LLM prewarm",
-                    fields: ["trigger": trigger]
-                )
-                await self.prepareCurrentModelIfConfigured(trigger: "\(trigger)_deferred")
-                self.deferredPrewarmTask = nil
-            }
+            self.deferredPrewarmRequestKey = nil
+            await self.prepareCurrentModelIfConfigured(trigger: "\(trigger)_deferred")
+            self.deferredPrewarmTask = nil
         }
     }
 
@@ -188,6 +212,7 @@ final class LLMRuntimeCoordinator {
         guard deferredPrewarmTask != nil else { return }
         deferredPrewarmTask?.cancel()
         deferredPrewarmTask = nil
+        deferredPrewarmRequestKey = nil
         logWarning(
             event: "llmPrewarm",
             message: "Cancelled deferred LLM prewarm",

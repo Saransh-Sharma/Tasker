@@ -7,6 +7,7 @@
 //
 
 import UIKit
+import UserNotifications
 
 // Import Clean Architecture components
 // These types are defined in the Presentation layer
@@ -48,6 +49,15 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         )
         renderRoot(for: rootMode)
 
+        if let notificationResponse = connectionOptions.notificationResponse {
+            DispatchQueue.main.async { [weak self] in
+                self?.handleNotificationLaunch(
+                    request: notificationResponse.notification.request,
+                    actionIdentifier: notificationResponse.actionIdentifier
+                )
+            }
+        }
+
         if let deepLinkURL = connectionOptions.urlContexts.first?.url {
             DispatchQueue.main.async { [weak self] in
                 self?.handleIncomingURL(deepLinkURL)
@@ -59,27 +69,35 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
     private func renderRoot(for rootMode: LaunchRootMode) {
         switch rootMode {
         case .home:
-            _ = LLMRuntimeCoordinator.shared
-            let storyboard = UIStoryboard(name: "Main", bundle: nil)
-            guard let homeViewController = storyboard.instantiateViewController(withIdentifier: "homeScreen") as? HomeViewController else {
-                showBootstrapFailureRoot(message: "Tasker could not load the home screen.")
-                return
+            let launchHostController = TaskerLaunchHostController { [weak self] in
+                self?.makeDeferredHomeRootController()
             }
-
-            guard PresentationDependencyContainer.shared.tryInject(into: homeViewController) else {
-                showBootstrapFailureRoot(
-                    message: AppDelegate.persistentBootstrapFailureMessage ?? "Tasker could not initialize dependencies."
-                )
-                return
-            }
-
-            let navigationController = UINavigationController(rootViewController: homeViewController)
-            window?.rootViewController = navigationController
+            window?.rootViewController = launchHostController
             window?.makeKeyAndVisible()
 
         case .bootstrapFailure(let message):
             showBootstrapFailureRoot(message: message)
         }
+    }
+
+    private func makeDeferredHomeRootController() -> UIViewController? {
+        let interval = TaskerPerformanceTrace.begin("SceneDeferredHomeAttach")
+        defer { TaskerPerformanceTrace.end(interval) }
+
+        let storyboard = UIStoryboard(name: "Main", bundle: nil)
+        guard let homeViewController = storyboard.instantiateViewController(withIdentifier: "homeScreen") as? HomeViewController else {
+            showBootstrapFailureRoot(message: "Tasker could not load the home screen.")
+            return nil
+        }
+
+        guard PresentationDependencyContainer.shared.tryInject(into: homeViewController) else {
+            showBootstrapFailureRoot(
+                message: AppDelegate.persistentBootstrapFailureMessage ?? "Tasker could not initialize dependencies."
+            )
+            return nil
+        }
+
+        return UINavigationController(rootViewController: homeViewController)
     }
 
     /// Executes showBootstrapFailureRoot.
@@ -133,17 +151,19 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         // Use this method to restart any tasks that were paused (or not yet started) when the scene was inactive.
         (UIApplication.shared.delegate as? AppDelegate)?.reconcileNotifications(reason: "scene_did_become_active")
         chatPrewarmTask?.cancel()
+        chatPrewarmTask = nil
         guard V2FeatureFlags.llmChatPrewarmMode == .eager,
               V2FeatureFlags.iPadPerfDeferLLMPrewarmV2Enabled == false else { return }
 
         chatPrewarmTask = Task { @MainActor in
             do {
-                try await Task.sleep(nanoseconds: 5_000_000_000)
+                try await Task.sleep(nanoseconds: 15_000_000_000)
             } catch {
                 return
             }
             guard !Task.isCancelled else { return }
-            await LLMRuntimeCoordinator.shared.prepareCurrentModelIfConfigured(trigger: "scene_did_become_active")
+            guard UIApplication.shared.applicationState == .active else { return }
+            await LLMRuntimeCoordinator.shared.prepareCurrentModelIfConfigured(trigger: "scene_did_become_active_idle")
         }
     }
 
@@ -181,6 +201,29 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
     func scene(_ scene: UIScene, openURLContexts URLContexts: Set<UIOpenURLContext>) {
         guard let url = URLContexts.first?.url else { return }
         handleIncomingURL(url)
+    }
+
+    func handleNotificationLaunch(
+        request: UNNotificationRequest,
+        actionIdentifier: String = UNNotificationDefaultActionIdentifier
+    ) {
+        if let actionHandler = TaskerNotificationRuntime.actionHandler {
+            actionHandler.handleAction(identifier: actionIdentifier, request: request)
+            return
+        }
+
+        postFallbackNotificationRoute(for: request)
+    }
+
+    func postFallbackNotificationRoute(for request: UNNotificationRequest) {
+        let payload = request.content.userInfo[TaskerLocalNotificationRequest.UserInfoKey.route] as? String
+        let taskIDRaw = request.content.userInfo[TaskerLocalNotificationRequest.UserInfoKey.taskID] as? String
+        let taskID = taskIDRaw.flatMap(UUID.init(uuidString:))
+        let route = TaskerNotificationRoute.from(
+            payload: payload ?? "home_today",
+            fallbackTaskID: taskID
+        )
+        TaskerNotificationRouteBus.shared.post(route: route)
     }
 
     private func handleIncomingURL(_ url: URL) {
@@ -239,8 +282,133 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
                 userInfo: ["taskID": taskID.uuidString]
             )
             NotificationCenter.default.post(name: .taskerProcessWidgetActionCommand, object: nil)
+    }
+}
+
+private final class TaskerLaunchHostController: UIViewController {
+    private let resolveHomeRootController: () -> UIViewController?
+
+    private let canvasView = UIView()
+    private let chromePlaceholderView = UIView()
+    private let foredropPlaceholderView = UIView()
+    private let skeletonStack = UIStackView()
+    private let gradientLayer = CAGradientLayer()
+
+    private var hasScheduledHomeAttach = false
+    private var pendingHomeController: UIViewController?
+    private var attachedHomeController: UIViewController?
+
+    init(resolveHomeRootController: @escaping () -> UIViewController?) {
+        self.resolveHomeRootController = resolveHomeRootController
+        super.init(nibName: nil, bundle: nil)
+    }
+
+    @available(*, unavailable)
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+
+    override func viewDidLoad() {
+        super.viewDidLoad()
+        setupSkeleton()
+    }
+
+    override func viewDidAppear(_ animated: Bool) {
+        super.viewDidAppear(animated)
+        scheduleHomeAttachIfNeeded()
+    }
+
+    override func viewDidLayoutSubviews() {
+        super.viewDidLayoutSubviews()
+        gradientLayer.frame = canvasView.bounds
+        attachHomeIfPossible()
+    }
+
+    private func setupSkeleton() {
+        view.backgroundColor = TaskerThemeManager.shared.currentTheme.tokens.color.bgCanvas
+
+        canvasView.translatesAutoresizingMaskIntoConstraints = false
+        chromePlaceholderView.translatesAutoresizingMaskIntoConstraints = false
+        foredropPlaceholderView.translatesAutoresizingMaskIntoConstraints = false
+        skeletonStack.translatesAutoresizingMaskIntoConstraints = false
+
+        gradientLayer.colors = [
+            TaskerThemeManager.shared.currentTheme.tokens.color.bgCanvas.cgColor,
+            TaskerThemeManager.shared.currentTheme.tokens.color.overlayScrim.withAlphaComponent(0.08).cgColor
+        ]
+        gradientLayer.startPoint = CGPoint(x: 0.5, y: 0)
+        gradientLayer.endPoint = CGPoint(x: 0.5, y: 1)
+        canvasView.layer.insertSublayer(gradientLayer, at: 0)
+
+        chromePlaceholderView.backgroundColor = TaskerThemeManager.shared.currentTheme.tokens.color.surfaceSecondary
+            .withAlphaComponent(0.78)
+        chromePlaceholderView.layer.cornerRadius = 22
+
+        foredropPlaceholderView.backgroundColor = TaskerThemeManager.shared.currentTheme.tokens.color.surfaceTertiary
+        foredropPlaceholderView.layer.cornerRadius = 28
+
+        skeletonStack.axis = .vertical
+        skeletonStack.spacing = 20
+        skeletonStack.alignment = .fill
+        skeletonStack.addArrangedSubview(chromePlaceholderView)
+        skeletonStack.addArrangedSubview(foredropPlaceholderView)
+
+        view.addSubview(canvasView)
+        view.addSubview(skeletonStack)
+
+        NSLayoutConstraint.activate([
+            canvasView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            canvasView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            canvasView.topAnchor.constraint(equalTo: view.topAnchor),
+            canvasView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
+
+            skeletonStack.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 16),
+            skeletonStack.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -16),
+            skeletonStack.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 12),
+            skeletonStack.bottomAnchor.constraint(lessThanOrEqualTo: view.safeAreaLayoutGuide.bottomAnchor, constant: -12),
+
+            chromePlaceholderView.heightAnchor.constraint(equalToConstant: 112),
+            foredropPlaceholderView.heightAnchor.constraint(greaterThanOrEqualToConstant: 420)
+        ])
+    }
+
+    private func scheduleHomeAttachIfNeeded() {
+        guard hasScheduledHomeAttach == false else { return }
+        hasScheduledHomeAttach = true
+
+        let firstFrameInterval = TaskerPerformanceTrace.begin("LaunchHostFirstFrame")
+        DispatchQueue.main.async { [weak self] in
+            guard let self else { return }
+            TaskerPerformanceTrace.end(firstFrameInterval)
+            self.pendingHomeController = self.resolveHomeRootController()
+            self.attachHomeIfPossible()
         }
     }
+
+    private func attachHomeIfPossible() {
+        guard attachedHomeController == nil else { return }
+        guard let homeController = pendingHomeController else { return }
+        guard view.bounds.width > 1, view.bounds.height > 1 else { return }
+
+        let interval = TaskerPerformanceTrace.begin("LaunchHostAttachHome")
+        addChild(homeController)
+        homeController.view.translatesAutoresizingMaskIntoConstraints = false
+        homeController.view.alpha = 1
+        view.addSubview(homeController.view)
+        NSLayoutConstraint.activate([
+            homeController.view.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            homeController.view.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            homeController.view.topAnchor.constraint(equalTo: view.topAnchor),
+            homeController.view.bottomAnchor.constraint(equalTo: view.bottomAnchor)
+        ])
+        homeController.didMove(toParent: self)
+        skeletonStack.alpha = 0
+        TaskerPerformanceTrace.end(interval)
+        skeletonStack.removeFromSuperview()
+        attachedHomeController = homeController
+        pendingHomeController = nil
+    }
+}
 
 
 }

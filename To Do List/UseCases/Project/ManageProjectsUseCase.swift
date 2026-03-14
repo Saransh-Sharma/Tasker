@@ -48,6 +48,7 @@ public final class ManageProjectsUseCase {
                 
                 // Create the project
                 let project = Project(
+                    lifeAreaID: request.lifeAreaID,
                     name: request.name,
                     projectDescription: request.description,
                     createdDate: Date(),
@@ -140,6 +141,102 @@ public final class ManageProjectsUseCase {
                     self?.performProjectUpdate(project: project, completion: completion)
                 }
                 
+            case .failure(let error):
+                completion(.failure(.repositoryError(error)))
+            }
+        }
+    }
+
+    /// Archives a project without deleting tasks.
+    public func archiveProject(
+        projectId: UUID,
+        completion: @escaping (Result<Project, ProjectError>) -> Void
+    ) {
+        projectRepository.fetchProject(withId: projectId) { [weak self] result in
+            switch result {
+            case .success(let project):
+                guard var project else {
+                    completion(.failure(.projectNotFound))
+                    return
+                }
+                if project.isDefault || project.isInbox {
+                    completion(.failure(.cannotModifyDefault))
+                    return
+                }
+
+                if project.isArchived {
+                    completion(.success(project))
+                    return
+                }
+
+                project.isArchived = true
+                project.modifiedDate = Date()
+                self?.performProjectUpdate(project: project) { updateResult in
+                    switch updateResult {
+                    case .success(let updatedProject):
+                        var userInfo = HomeTaskMutationPayload(
+                            reason: .projectChanged,
+                            source: "manageProjectsUseCase",
+                            affectedProjectID: updatedProject.id
+                        ).userInfo
+                        userInfo["archived"] = true
+                        TaskNotificationDispatcher.postOnMain(
+                            name: .homeTaskMutation,
+                            userInfo: userInfo
+                        )
+                        completion(.success(updatedProject))
+                    case .failure(let error):
+                        completion(.failure(error))
+                    }
+                }
+            case .failure(let error):
+                completion(.failure(.repositoryError(error)))
+            }
+        }
+    }
+
+    /// Unarchives a previously archived project.
+    public func unarchiveProject(
+        projectId: UUID,
+        completion: @escaping (Result<Project, ProjectError>) -> Void
+    ) {
+        projectRepository.fetchProject(withId: projectId) { [weak self] result in
+            switch result {
+            case .success(let project):
+                guard var project else {
+                    completion(.failure(.projectNotFound))
+                    return
+                }
+                if project.isDefault || project.isInbox {
+                    completion(.failure(.cannotModifyDefault))
+                    return
+                }
+
+                if project.isArchived == false {
+                    completion(.success(project))
+                    return
+                }
+
+                project.isArchived = false
+                project.modifiedDate = Date()
+                self?.performProjectUpdate(project: project) { updateResult in
+                    switch updateResult {
+                    case .success(let updatedProject):
+                        var userInfo = HomeTaskMutationPayload(
+                            reason: .projectChanged,
+                            source: "manageProjectsUseCase",
+                            affectedProjectID: updatedProject.id
+                        ).userInfo
+                        userInfo["archived"] = false
+                        TaskNotificationDispatcher.postOnMain(
+                            name: .homeTaskMutation,
+                            userInfo: userInfo
+                        )
+                        completion(.success(updatedProject))
+                    case .failure(let error):
+                        completion(.failure(error))
+                    }
+                }
             case .failure(let error):
                 completion(.failure(.repositoryError(error)))
             }
@@ -308,6 +405,100 @@ public final class ManageProjectsUseCase {
             }
         }
     }
+
+    /// Move a project under a different life area and remap all tasks under the project.
+    public func moveProjectToLifeArea(
+        projectId: UUID,
+        lifeAreaID: UUID,
+        completion: @escaping (Result<ProjectLifeAreaMoveResult, ProjectError>) -> Void
+    ) {
+        projectRepository.fetchProject(withId: projectId) { [weak self] sourceResult in
+            switch sourceResult {
+            case .success(let sourceProject):
+                guard let sourceProject else {
+                    completion(.failure(.projectNotFound))
+                    return
+                }
+
+                if sourceProject.isDefault || sourceProject.isInbox {
+                    completion(.failure(.cannotModifyDefault))
+                    return
+                }
+
+                if sourceProject.lifeAreaID == lifeAreaID {
+                    let noOp = ProjectLifeAreaMoveResult(
+                        updatedProjectID: sourceProject.id,
+                        fromLifeAreaID: sourceProject.lifeAreaID,
+                        toLifeAreaID: lifeAreaID,
+                        tasksRemappedCount: 0
+                    )
+                    completion(.success(noOp))
+                    return
+                }
+
+                self?.projectRepository.moveProjectToLifeArea(
+                    projectID: projectId,
+                    lifeAreaID: lifeAreaID
+                ) { result in
+                    switch result {
+                    case .success(let moveResult):
+                        TaskNotificationDispatcher.postOnMain(
+                            name: NSNotification.Name("ProjectUpdated"),
+                            userInfo: [
+                                "projectID": moveResult.updatedProjectID.uuidString,
+                                "lifeAreaID": moveResult.toLifeAreaID.uuidString
+                            ]
+                        )
+                        var userInfo = HomeTaskMutationPayload(
+                            reason: .projectChanged,
+                            source: "manageProjectsUseCase",
+                            affectedProjectID: moveResult.updatedProjectID
+                        ).userInfo
+                        userInfo["lifeAreaID"] = moveResult.toLifeAreaID.uuidString
+                        userInfo["tasksRemappedCount"] = moveResult.tasksRemappedCount
+                        TaskNotificationDispatcher.postOnMain(
+                            name: .homeTaskMutation,
+                            userInfo: userInfo
+                        )
+                        completion(.success(moveResult))
+                    case .failure(let error):
+                        completion(.failure(.repositoryError(error)))
+                    }
+                }
+
+            case .failure(let error):
+                completion(.failure(.repositoryError(error)))
+            }
+        }
+    }
+
+    /// Backfill projects without a life-area linkage to the provided default life area.
+    public func backfillUnassignedProjectsToGeneral(
+        generalLifeAreaID: UUID,
+        completion: @escaping (Result<ProjectLifeAreaBackfillResult, ProjectError>) -> Void
+    ) {
+        projectRepository.backfillProjectsWithoutLifeArea(defaultLifeAreaID: generalLifeAreaID) { result in
+            switch result {
+            case .success(let backfillResult):
+                if backfillResult.projectsUpdatedCount > 0 || backfillResult.tasksRemappedCount > 0 {
+                    var userInfo = HomeTaskMutationPayload(
+                        reason: .bulkChanged,
+                        source: "manageProjectsUseCase"
+                    ).userInfo
+                    userInfo["lifeAreaID"] = generalLifeAreaID.uuidString
+                    userInfo["projectsUpdatedCount"] = backfillResult.projectsUpdatedCount
+                    userInfo["tasksRemappedCount"] = backfillResult.tasksRemappedCount
+                    TaskNotificationDispatcher.postOnMain(
+                        name: .homeTaskMutation,
+                        userInfo: userInfo
+                    )
+                }
+                completion(.success(backfillResult))
+            case .failure(let error):
+                completion(.failure(.repositoryError(error)))
+            }
+        }
+    }
     
     // MARK: - Private Methods
     
@@ -367,11 +558,13 @@ public final class ManageProjectsUseCase {
 public struct CreateProjectRequest {
     public let name: String
     public let description: String?
+    public let lifeAreaID: UUID?
     
     /// Initializes a new instance.
-    public init(name: String, description: String? = nil) {
+    public init(name: String, description: String? = nil, lifeAreaID: UUID? = nil) {
         self.name = name
         self.description = description
+        self.lifeAreaID = lifeAreaID
     }
 }
 

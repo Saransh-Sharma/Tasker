@@ -30,6 +30,59 @@ public struct ProjectRepairReport {
     }
 }
 
+public struct ProjectLifeAreaMoveResult {
+    public let updatedProjectID: UUID
+    public let fromLifeAreaID: UUID?
+    public let toLifeAreaID: UUID
+    public let tasksRemappedCount: Int
+
+    /// Initializes a new instance.
+    public init(
+        updatedProjectID: UUID,
+        fromLifeAreaID: UUID?,
+        toLifeAreaID: UUID,
+        tasksRemappedCount: Int
+    ) {
+        self.updatedProjectID = updatedProjectID
+        self.fromLifeAreaID = fromLifeAreaID
+        self.toLifeAreaID = toLifeAreaID
+        self.tasksRemappedCount = tasksRemappedCount
+    }
+}
+
+public struct ProjectLifeAreaBackfillResult {
+    public let defaultLifeAreaID: UUID
+    public let projectsUpdatedCount: Int
+    public let tasksRemappedCount: Int
+    public let inboxPinned: Bool
+
+    /// Initializes a new instance.
+    public init(
+        defaultLifeAreaID: UUID,
+        projectsUpdatedCount: Int,
+        tasksRemappedCount: Int,
+        inboxPinned: Bool
+    ) {
+        self.defaultLifeAreaID = defaultLifeAreaID
+        self.projectsUpdatedCount = projectsUpdatedCount
+        self.tasksRemappedCount = tasksRemappedCount
+        self.inboxPinned = inboxPinned
+    }
+}
+
+public struct ProjectRepositoryUnsupportedOperationError: LocalizedError {
+    public let operation: String
+
+    /// Initializes a new instance.
+    public init(operation: String) {
+        self.operation = operation
+    }
+
+    public var errorDescription: String? {
+        "Project repository operation '\(operation)' is not supported by this implementation."
+    }
+}
+
 /// Protocol defining all project-related data operations
 /// This abstraction allows for different implementations (Core Data, Mock, etc.)
 public protocol ProjectRepositoryProtocol {
@@ -82,9 +135,41 @@ public protocol ProjectRepositoryProtocol {
     
     /// Move tasks from one project to another
     func moveTasks(from sourceProjectId: UUID, to targetProjectId: UUID, completion: @escaping (Result<Void, Error>) -> Void)
+
+    // MARK: - Life Area Association
+
+    /// Move a project under another life area and remap all tasks under the project.
+    func moveProjectToLifeArea(
+        projectID: UUID,
+        lifeAreaID: UUID,
+        completion: @escaping (Result<ProjectLifeAreaMoveResult, Error>) -> Void
+    )
+
+    /// Assign projects without a life-area linkage to a default life area.
+    func backfillProjectsWithoutLifeArea(
+        defaultLifeAreaID: UUID,
+        completion: @escaping (Result<ProjectLifeAreaBackfillResult, Error>) -> Void
+    )
     
     // MARK: - Validation
     
     /// Check if a project name is available
     func isProjectNameAvailable(_ name: String, excludingId: UUID?, completion: @escaping (Result<Bool, Error>) -> Void)
+}
+
+public extension ProjectRepositoryProtocol {
+    func moveProjectToLifeArea(
+        projectID: UUID,
+        lifeAreaID: UUID,
+        completion: @escaping (Result<ProjectLifeAreaMoveResult, Error>) -> Void
+    ) {
+        completion(.failure(ProjectRepositoryUnsupportedOperationError(operation: "moveProjectToLifeArea")))
+    }
+
+    func backfillProjectsWithoutLifeArea(
+        defaultLifeAreaID: UUID,
+        completion: @escaping (Result<ProjectLifeAreaBackfillResult, Error>) -> Void
+    ) {
+        completion(.failure(ProjectRepositoryUnsupportedOperationError(operation: "backfillProjectsWithoutLifeArea")))
+    }
 }

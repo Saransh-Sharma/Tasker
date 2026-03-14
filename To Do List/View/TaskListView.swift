@@ -65,6 +65,67 @@ private enum TaskListTodayLayoutCache {
     }
 }
 
+struct HomeScrollChromeStateTracker {
+    private let jitterThreshold: CGFloat = 6
+    private let minimizeThreshold: CGFloat = 24
+    private let restoreThreshold: CGFloat = 12
+    private let nearTopThreshold: CGFloat = 40
+
+    private(set) var lastOffsetY: CGFloat?
+    private(set) var cumulativeDownward: CGFloat = 0
+    private(set) var cumulativeUpward: CGFloat = 0
+    private(set) var emittedState: HomeScrollChromeState = .nearTop
+
+    mutating func consume(offset newOffset: CGFloat) -> HomeScrollChromeState? {
+        guard newOffset.isFinite else { return nil }
+
+        if newOffset < nearTopThreshold {
+            lastOffsetY = newOffset
+            cumulativeDownward = 0
+            cumulativeUpward = 0
+            return emit(.nearTop)
+        }
+
+        guard let lastOffsetY else {
+            self.lastOffsetY = newOffset
+            return emit(.expanded)
+        }
+
+        let delta = newOffset - lastOffsetY
+        self.lastOffsetY = newOffset
+
+        guard abs(delta) >= jitterThreshold else { return nil }
+
+        if delta > 0 {
+            cumulativeDownward += delta
+            cumulativeUpward = 0
+            if cumulativeDownward >= minimizeThreshold {
+                cumulativeDownward = 0
+                return emit(.collapsed)
+            }
+            return nil
+        }
+
+        cumulativeUpward += abs(delta)
+        cumulativeDownward = 0
+        if cumulativeUpward >= restoreThreshold {
+            cumulativeUpward = 0
+            return emit(.expanded)
+        }
+        return nil
+    }
+
+    mutating func emitIdleIfNeeded() -> HomeScrollChromeState? {
+        emit(.idle)
+    }
+
+    private mutating func emit(_ state: HomeScrollChromeState) -> HomeScrollChromeState? {
+        guard emittedState != state else { return nil }
+        emittedState = state
+        return state
+    }
+}
+
 struct TaskListView: View {
     private static let defaultBottomContentInset: CGFloat = 80
 
@@ -95,10 +156,12 @@ struct TaskListView: View {
     var onCompletedSectionToggle: ((UUID, Bool, Int) -> Void)? = nil
     var onEmptyStateAction: (() -> Void)? = nil
     var onTaskDragStarted: ((TaskDefinition) -> Void)? = nil
-    var onScrollOffsetChange: ((CGFloat) -> Void)? = nil
+    var onScrollChromeStateChange: ((HomeScrollChromeState) -> Void)? = nil
+    let highlightedTaskID: UUID?
     let bottomContentInset: CGFloat
     @State private var draggingCustomProjectID: UUID?
     @State private var isCompletedCollapsedBySection: [UUID: Bool] = [:]
+    @State private var scrollChromeStateTracker = HomeScrollChromeStateTracker()
 
     /// Initializes a new instance.
     init(
@@ -129,7 +192,8 @@ struct TaskListView: View {
         onCompletedSectionToggle: ((UUID, Bool, Int) -> Void)? = nil,
         onEmptyStateAction: (() -> Void)? = nil,
         onTaskDragStarted: ((TaskDefinition) -> Void)? = nil,
-        onScrollOffsetChange: ((CGFloat) -> Void)? = nil,
+        onScrollChromeStateChange: ((HomeScrollChromeState) -> Void)? = nil,
+        highlightedTaskID: UUID? = nil,
         bottomContentInset: CGFloat = TaskListView.defaultBottomContentInset
     ) {
         self.morningTasks = morningTasks
@@ -159,42 +223,66 @@ struct TaskListView: View {
         self.onCompletedSectionToggle = onCompletedSectionToggle
         self.onEmptyStateAction = onEmptyStateAction
         self.onTaskDragStarted = onTaskDragStarted
-        self.onScrollOffsetChange = onScrollOffsetChange
+        self.onScrollChromeStateChange = onScrollChromeStateChange
+        self.highlightedTaskID = highlightedTaskID
         self.bottomContentInset = bottomContentInset
     }
 
     var body: some View {
-        ScrollView(.vertical, showsIndicators: false) {
-            LazyVStack(alignment: .leading, spacing: TaskerTheme.Spacing.lg) {
-                if activeQuickView == .done {
-                    doneTimelineContent
-                } else {
-                    regularTaskContent
-                }
+        ScrollViewReader { proxy in
+            ScrollView(.vertical, showsIndicators: false) {
+                LazyVStack(alignment: .leading, spacing: TaskerTheme.Spacing.lg) {
+                    if activeQuickView == .done {
+                        doneTimelineContent
+                    } else {
+                        regularTaskContent
+                    }
 
-                // Empty state
-                if allTasksEmpty {
-                    emptyStateView
-                        .enhancedStaggeredAppearance(index: 0)
-                }
+                    // Empty state
+                    if allTasksEmpty {
+                        emptyStateView
+                            .enhancedStaggeredAppearance(index: 0)
+                    }
 
-                // Bottom spacer for tab bar
-                Spacer()
-                    .frame(height: bottomContentInset)
+                    // Bottom spacer for tab bar
+                    Spacer()
+                        .frame(height: bottomContentInset)
+                }
             }
             .padding(.horizontal, TaskerTheme.Spacing.lg)
-            .animation(TaskerAnimation.gentle, value: activeQuickView)
-        }
-        .onScrollGeometryChange(
-            for: CGFloat.self,
-            of: { geometry in
-                max(0, geometry.contentOffset.y + geometry.contentInsets.top)
-            },
-            action: { _, newOffset in
-                onScrollOffsetChange?(newOffset)
+            .onAppear {
+                scrollToHighlightedTaskIfNeeded(proxy: proxy)
+                onScrollChromeStateChange?(.nearTop)
             }
-        )
-        .accessibilityIdentifier("home.taskList.scrollView")
+            .onChange(of: highlightedTaskID) { _, _ in
+                scrollToHighlightedTaskIfNeeded(proxy: proxy)
+            }
+            .onScrollGeometryChange(
+                for: CGFloat.self,
+                of: { geometry in
+                    max(0, geometry.contentOffset.y + geometry.contentInsets.top)
+                },
+                action: { _, newOffset in
+                    handleScrollOffsetChange(newOffset)
+                }
+            )
+            .accessibilityIdentifier("home.taskList.scrollView")
+        }
+    }
+
+    private func handleScrollOffsetChange(_ newOffset: CGFloat) {
+        if let nextState = scrollChromeStateTracker.consume(offset: newOffset) {
+            onScrollChromeStateChange?(nextState)
+        }
+    }
+
+    private func scrollToHighlightedTaskIfNeeded(proxy: ScrollViewProxy) {
+        guard let highlightedTaskID else { return }
+        DispatchQueue.main.async {
+            withAnimation(TaskerAnimation.gentle) {
+                proxy.scrollTo(highlightedTaskID, anchor: .center)
+            }
+        }
     }
 
     // MARK: - Regular Grouping Logic
@@ -253,6 +341,7 @@ struct TaskListView: View {
                 isGamificationV2Enabled: isGamificationV2Enabled,
                 completedCollapsed: isCompletedCollapsedBySection[inboxSection.project.id],
                 isTaskDragEnabled: isTaskDragEnabled,
+                highlightedTaskID: highlightedTaskID,
                 onTaskTap: onTaskTap,
                 onToggleComplete: onToggleComplete,
                 onDeleteTask: onDeleteTask,
@@ -300,6 +389,7 @@ struct TaskListView: View {
                 isGamificationV2Enabled: isGamificationV2Enabled,
                 completedCollapsed: isCompletedCollapsedBySection[section.project.id],
                 isTaskDragEnabled: isTaskDragEnabled,
+                highlightedTaskID: highlightedTaskID,
                 onTaskTap: onTaskTap,
                 onToggleComplete: onToggleComplete,
                 onDeleteTask: onDeleteTask,
@@ -342,6 +432,7 @@ struct TaskListView: View {
                 isGamificationV2Enabled: isGamificationV2Enabled,
                 completedCollapsed: isCompletedCollapsedBySection[overdueProject.id],
                 isTaskDragEnabled: isTaskDragEnabled,
+                highlightedTaskID: highlightedTaskID,
                 onTaskTap: onTaskTap,
                 onToggleComplete: onToggleComplete,
                 onDeleteTask: onDeleteTask,
@@ -368,6 +459,7 @@ struct TaskListView: View {
                 isGamificationV2Enabled: isGamificationV2Enabled,
                 completedCollapsed: isCompletedCollapsedBySection[section.project.id],
                 isTaskDragEnabled: isTaskDragEnabled,
+                highlightedTaskID: highlightedTaskID,
                 onTaskTap: onTaskTap,
                 onToggleComplete: onToggleComplete,
                 onDeleteTask: onDeleteTask,
@@ -397,6 +489,7 @@ struct TaskListView: View {
                 isGamificationV2Enabled: isGamificationV2Enabled,
                 completedCollapsed: isCompletedCollapsedBySection[group.project.id],
                 isTaskDragEnabled: false,
+                highlightedTaskID: highlightedTaskID,
                 onTaskTap: onTaskTap,
                 onToggleComplete: onToggleComplete,
                 onDeleteTask: onDeleteTask,

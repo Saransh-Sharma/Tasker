@@ -110,7 +110,11 @@ public final class UseCaseCoordinator {
     // MARK: - Dependencies
 
     public let projectRepository: ProjectRepositoryProtocol
+    public let lifeAreaRepository: LifeAreaRepositoryProtocol
+    public let taskDefinitionRepository: TaskDefinitionRepositoryProtocol
     public let gamificationRepository: GamificationRepositoryProtocol
+    public let reminderRepository: ReminderRepositoryProtocol
+    public let taskReadModelRepository: TaskReadModelRepositoryProtocol?
     public let cacheService: CacheServiceProtocol?
 
     // MARK: - Initialization
@@ -124,7 +128,11 @@ public final class UseCaseCoordinator {
         v2Dependencies: V2Dependencies
     ) {
         self.projectRepository = projectRepository
+        self.lifeAreaRepository = v2Dependencies.lifeAreaRepository
+        self.taskDefinitionRepository = v2Dependencies.taskDefinitionRepository
         self.gamificationRepository = v2Dependencies.gamificationRepository
+        self.reminderRepository = v2Dependencies.reminderRepository
+        self.taskReadModelRepository = taskReadModelRepository
         self.cacheService = cacheService
 
         // Query-centric use cases
