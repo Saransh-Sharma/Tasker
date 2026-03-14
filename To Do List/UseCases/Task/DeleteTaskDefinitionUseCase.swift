@@ -120,11 +120,17 @@ public final class DeleteTaskDefinitionUseCase {
                 name: NSNotification.Name("TaskDeleted"),
                 object: deletedTask
             )
-            var userInfo: [String: Any] = [
-                "reason": "deleted",
-                "source": "deleteTaskDefinitionUseCase",
-                "taskID": uniqueIDs.first?.uuidString ?? ""
-            ]
+            var userInfo = HomeTaskMutationPayload(
+                reason: .deleted,
+                source: "deleteTaskDefinitionUseCase",
+                taskID: uniqueIDs.first,
+                previousIsComplete: deletedTask?.isComplete,
+                previousDueDate: deletedTask?.dueDate,
+                previousCompletionDate: deletedTask?.dateCompleted,
+                previousProjectID: deletedTask?.projectID,
+                newProjectID: deletedTask?.projectID,
+                previousPriorityRawValue: deletedTask?.priority.rawValue
+            ).userInfo
             userInfo["deleteScope"] = scope.rawValue
             userInfo["deletedCount"] = uniqueIDs.count
             if let recurrenceSeriesID {

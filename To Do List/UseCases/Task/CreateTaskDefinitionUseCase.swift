@@ -62,13 +62,19 @@ public final class CreateTaskDefinitionUseCase {
                                     name: NSNotification.Name("TaskCreated"),
                                     object: createdTask
                                 )
+                                let payload = HomeTaskMutationPayload(
+                                    reason: .created,
+                                    source: "createTaskDefinitionUseCase",
+                                    taskID: createdTask.id,
+                                    newIsComplete: createdTask.isComplete,
+                                    newDueDate: createdTask.dueDate,
+                                    newCompletionDate: createdTask.dateCompleted,
+                                    newProjectID: createdTask.projectID,
+                                    newPriorityRawValue: createdTask.priority.rawValue
+                                )
                                 TaskNotificationDispatcher.postOnMain(
                                     name: .homeTaskMutation,
-                                    userInfo: [
-                                        "reason": "created",
-                                        "source": "createTaskDefinitionUseCase",
-                                        "taskID": createdTask.id.uuidString
-                                    ]
+                                    userInfo: payload.userInfo
                                 )
                                 completion(.success(createdTask))
                             case .failure(let error):

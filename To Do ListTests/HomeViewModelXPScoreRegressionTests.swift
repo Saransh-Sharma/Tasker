@@ -88,6 +88,44 @@ final class HomeViewModelXPScoreRegressionTests: XCTestCase {
         defaults.removePersistentDomain(forName: suiteName)
     }
 
+    func testTaskCompletionMutationNotificationIncludesTaskID() {
+        let suiteName = "HomeViewModelXPScoreRegressionTests.TaskMutationIncludesTaskID.\(UUID().uuidString)"
+        guard let defaults = UserDefaults(suiteName: suiteName) else {
+            return XCTFail("Failed to create isolated defaults suite")
+        }
+        defaults.removePersistentDomain(forName: suiteName)
+
+        let inbox = Project.createInbox()
+        let task = makeTask(
+            name: "Mutation Carries Task ID",
+            project: inbox,
+            dueDate: Date(),
+            priority: .low,
+            isComplete: false
+        )
+
+        let taskRepository = XPRegressionMockTaskRepository(tasks: [task])
+        let projectRepository = XPRegressionMockProjectRepository(projects: [inbox])
+        let coordinator = UseCaseCoordinator(
+            taskRepository: taskRepository,
+            projectRepository: projectRepository
+        )
+        let viewModel = HomeViewModel(useCaseCoordinator: coordinator, userDefaults: defaults)
+
+        waitForMainQueueFlush(seconds: 0.35)
+
+        let mutationExpectation = expectation(forNotification: .homeTaskMutation, object: nil) { notification in
+            let userInfo = notification.userInfo ?? [:]
+            return (userInfo["reason"] as? String) == HomeTaskMutationEvent.completed.rawValue &&
+                (userInfo["taskID"] as? String) == task.id.uuidString
+        }
+
+        viewModel.toggleTaskCompletion(task)
+
+        wait(for: [mutationExpectation], timeout: 1.0)
+        defaults.removePersistentDomain(forName: suiteName)
+    }
+
     func testLedgerMutationNotificationImmediatelyUpdatesGamificationSurfaces() {
         let suiteName = "HomeViewModelXPScoreRegressionTests.LedgerMutation.\(UUID().uuidString)"
         guard let defaults = UserDefaults(suiteName: suiteName) else {

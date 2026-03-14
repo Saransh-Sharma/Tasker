@@ -457,6 +457,65 @@ final class GetHomeFilteredTasksUseCaseTests: XCTestCase {
         XCTAssertEqual(Set(captured?.openTasks.map(\.title) ?? []), Set(["P1", "P2"]))
     }
 
+    func testRevisionCacheAvoidsDuplicateFetchesUntilRevisionChanges() {
+        let repository = CountingReadModelRepository(tasks: [
+            makeTask(name: "Cached A"),
+            makeTask(name: "Cached B", dueDate: Calendar.current.date(byAdding: .day, value: 1, to: Date()))
+        ])
+        let useCase = GetHomeFilteredTasksUseCase(readModelRepository: repository)
+        let state = HomeFilterState.default
+
+        let firstExpectation = expectation(description: "First fetch")
+        useCase.execute(state: state, scope: .today, revision: HomeDataRevision(rawValue: 1)) { _ in
+            firstExpectation.fulfill()
+        }
+
+        let secondExpectation = expectation(description: "Cached fetch")
+        useCase.execute(state: state, scope: .today, revision: HomeDataRevision(rawValue: 1)) { _ in
+            secondExpectation.fulfill()
+        }
+
+        let thirdExpectation = expectation(description: "Revision invalidated fetch")
+        useCase.execute(state: state, scope: .today, revision: HomeDataRevision(rawValue: 2)) { _ in
+            thirdExpectation.fulfill()
+        }
+
+        waitForExpectations(timeout: 1.0)
+
+        XCTAssertEqual(repository.fetchCount, 2)
+    }
+
+    func testTodayQuickViewCountsRemainExactBeyondSingleProjectionPage() {
+        let calendar = Calendar.current
+        let startOfToday = calendar.startOfDay(for: Date())
+        let tasks = (0..<930).map { index in
+            makeTask(
+                name: "Today \(index)",
+                dueDate: calendar.date(byAdding: .minute, value: index, to: startOfToday),
+                isComplete: false
+            )
+        }
+        let repository = CountingReadModelRepository(tasks: tasks)
+        let useCase = GetHomeFilteredTasksUseCase(readModelRepository: repository)
+
+        let expectation = expectation(description: "Large today projection")
+        var captured: HomeFilteredTasksResult?
+
+        useCase.execute(state: .default, scope: .today, revision: HomeDataRevision(rawValue: 7)) { result in
+            if case let .success(value) = result {
+                captured = value
+            }
+            expectation.fulfill()
+        }
+
+        waitForExpectations(timeout: 1.0)
+
+        XCTAssertEqual(captured?.quickViewCounts[.today], 930)
+        XCTAssertEqual(captured?.pointsPotential, 930)
+        XCTAssertEqual(captured?.openTasks.count, 360)
+        XCTAssertEqual(repository.fetchCount, 3)
+    }
+
     private func makeTask(
         name: String,
         projectID: UUID = UUID(),
@@ -535,4 +594,44 @@ private final class MockTaskRepository: LegacyTaskRepositoryShim {
     func fetchTasksWithoutProject(completion: @escaping (Result<[Task], Error>) -> Void) { completion(.success([])) }
     func assignTasksToProject(taskIDs: [UUID], projectID: UUID, completion: @escaping (Result<Void, Error>) -> Void) { completion(.success(())) }
     func fetchInboxTasks(completion: @escaping (Result<[Task], Error>) -> Void) { completion(.success(tasks.filter { $0.projectID == ProjectConstants.inboxProjectID })) }
+}
+
+private final class CountingReadModelRepository: TaskReadModelRepositoryProtocol {
+    private let tasks: [TaskDefinition]
+    private(set) var fetchCount: Int = 0
+
+    init(tasks: [TaskDefinition]) {
+        self.tasks = tasks
+    }
+
+    func fetchTasks(query: TaskReadQuery, completion: @escaping (Result<TaskDefinitionSliceResult, Error>) -> Void) {
+        fetchCount += 1
+        let start = min(query.offset, tasks.count)
+        let end = min(start + query.limit, tasks.count)
+        completion(.success(TaskDefinitionSliceResult(
+            tasks: Array(tasks[start..<end]),
+            totalCount: tasks.count,
+            limit: query.limit,
+            offset: query.offset
+        )))
+    }
+
+    func searchTasks(query: TaskSearchQuery, completion: @escaping (Result<TaskDefinitionSliceResult, Error>) -> Void) {
+        completion(.success(TaskDefinitionSliceResult(tasks: [], totalCount: 0, limit: query.limit, offset: query.offset)))
+    }
+
+    func fetchProjectTaskCounts(
+        includeCompleted: Bool,
+        completion: @escaping (Result<[UUID : Int], Error>) -> Void
+    ) {
+        completion(.success([:]))
+    }
+
+    func fetchProjectCompletionScoreTotals(
+        from startDate: Date,
+        to endDate: Date,
+        completion: @escaping (Result<[UUID : Int], Error>) -> Void
+    ) {
+        completion(.success([:]))
+    }
 }

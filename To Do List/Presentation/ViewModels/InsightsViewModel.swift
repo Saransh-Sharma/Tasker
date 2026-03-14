@@ -794,6 +794,7 @@ public final class InsightsViewModel: ObservableObject {
     }
 
     private func refreshToday(version: UInt64) {
+        let interval = TaskerPerformanceTrace.begin("InsightsTodayRefresh")
         let calendar = XPCalculationEngine.mondayCalendar()
         let now = Date()
         let startOfToday = calendar.startOfDay(for: now)
@@ -899,6 +900,7 @@ public final class InsightsViewModel: ObservableObject {
         }
 
         group.notify(queue: .main) { [weak self] in
+            defer { TaskerPerformanceTrace.end(interval) }
             guard let self else { return }
             let nextState = Self.buildTodayState(
                 dailyXP: dailyXP,
@@ -919,6 +921,7 @@ public final class InsightsViewModel: ObservableObject {
     }
 
     private func refreshWeek(version: UInt64) {
+        let interval = TaskerPerformanceTrace.begin("InsightsWeekRefresh")
         let calendar = XPCalculationEngine.mondayCalendar()
         let today = calendar.startOfDay(for: Date())
         let weekStart = XPCalculationEngine.mondayStartOfWeek(for: today, calendar: calendar)
@@ -1032,6 +1035,7 @@ public final class InsightsViewModel: ObservableObject {
         }
 
         group.notify(queue: .main) { [weak self] in
+            defer { TaskerPerformanceTrace.end(interval) }
             guard let self else { return }
             let nextState = Self.buildWeekState(
                 currentAggregates: currentAggregates,
@@ -1053,6 +1057,7 @@ public final class InsightsViewModel: ObservableObject {
     }
 
     private func refreshSystems(version: UInt64) {
+        let interval = TaskerPerformanceTrace.begin("InsightsSystemsRefresh")
         let lock = NSLock()
         let group = DispatchGroup()
         let now = Date()
@@ -1165,6 +1170,7 @@ public final class InsightsViewModel: ObservableObject {
         }
 
         group.notify(queue: .main) { [weak self] in
+            defer { TaskerPerformanceTrace.end(interval) }
             guard let self else { return }
             state.achievementProgress = Self.buildAchievementProgress(
                 profile: latestProfile,

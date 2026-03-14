@@ -21,31 +21,46 @@ public final class UpdateTaskDefinitionUseCase {
         request: UpdateTaskDefinitionRequest,
         completion: @escaping (Result<TaskDefinition, Error>) -> Void
     ) {
-        repository.update(request: request) { result in
-            switch result {
-            case .success(let updatedTask):
-                self.persistLinks(taskID: updatedTask.id, request: request) { linkResult in
-                    switch linkResult {
-                    case .success:
-                        TaskNotificationDispatcher.postOnMain(
-                            name: NSNotification.Name("TaskUpdated"),
-                            object: updatedTask
-                        )
-                        TaskNotificationDispatcher.postOnMain(
-                            name: .homeTaskMutation,
-                            userInfo: [
-                                "reason": "updated",
-                                "source": "updateTaskDefinitionUseCase",
-                                "taskID": updatedTask.id.uuidString
-                            ]
-                        )
-                        completion(.success(updatedTask))
-                    case .failure(let error):
-                        completion(.failure(error))
+        repository.fetchTaskDefinition(id: request.id) { existingResult in
+            let previousTask = try? existingResult.get().flatMap { $0 }
+
+            self.repository.update(request: request) { result in
+                switch result {
+                case .success(let updatedTask):
+                    self.persistLinks(taskID: updatedTask.id, request: request) { linkResult in
+                        switch linkResult {
+                        case .success:
+                            TaskNotificationDispatcher.postOnMain(
+                                name: NSNotification.Name("TaskUpdated"),
+                                object: updatedTask
+                            )
+                            let payload = HomeTaskMutationPayload(
+                                reason: HomeTaskMutationReasonResolver.reason(for: request),
+                                source: "updateTaskDefinitionUseCase",
+                                taskID: updatedTask.id,
+                                previousIsComplete: previousTask?.isComplete,
+                                newIsComplete: updatedTask.isComplete,
+                                previousDueDate: previousTask?.dueDate,
+                                newDueDate: updatedTask.dueDate,
+                                previousCompletionDate: previousTask?.dateCompleted,
+                                newCompletionDate: updatedTask.dateCompleted,
+                                previousProjectID: previousTask?.projectID,
+                                newProjectID: updatedTask.projectID,
+                                previousPriorityRawValue: previousTask?.priority.rawValue,
+                                newPriorityRawValue: updatedTask.priority.rawValue
+                            )
+                            TaskNotificationDispatcher.postOnMain(
+                                name: .homeTaskMutation,
+                                userInfo: payload.userInfo
+                            )
+                            completion(.success(updatedTask))
+                        case .failure(let error):
+                            completion(.failure(error))
+                        }
                     }
+                case .failure(let error):
+                    completion(.failure(error))
                 }
-            case .failure(let error):
-                completion(.failure(error))
             }
         }
     }

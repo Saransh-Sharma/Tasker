@@ -174,14 +174,15 @@ public final class ManageProjectsUseCase {
                 self?.performProjectUpdate(project: project) { updateResult in
                     switch updateResult {
                     case .success(let updatedProject):
+                        var userInfo = HomeTaskMutationPayload(
+                            reason: .projectChanged,
+                            source: "manageProjectsUseCase",
+                            affectedProjectID: updatedProject.id
+                        ).userInfo
+                        userInfo["archived"] = true
                         TaskNotificationDispatcher.postOnMain(
                             name: .homeTaskMutation,
-                            userInfo: [
-                                "reason": "projectChanged",
-                                "source": "manageProjectsUseCase",
-                                "projectID": updatedProject.id.uuidString,
-                                "archived": true
-                            ]
+                            userInfo: userInfo
                         )
                         completion(.success(updatedProject))
                     case .failure(let error):
@@ -221,14 +222,15 @@ public final class ManageProjectsUseCase {
                 self?.performProjectUpdate(project: project) { updateResult in
                     switch updateResult {
                     case .success(let updatedProject):
+                        var userInfo = HomeTaskMutationPayload(
+                            reason: .projectChanged,
+                            source: "manageProjectsUseCase",
+                            affectedProjectID: updatedProject.id
+                        ).userInfo
+                        userInfo["archived"] = false
                         TaskNotificationDispatcher.postOnMain(
                             name: .homeTaskMutation,
-                            userInfo: [
-                                "reason": "projectChanged",
-                                "source": "manageProjectsUseCase",
-                                "projectID": updatedProject.id.uuidString,
-                                "archived": false
-                            ]
+                            userInfo: userInfo
                         )
                         completion(.success(updatedProject))
                     case .failure(let error):
@@ -447,15 +449,16 @@ public final class ManageProjectsUseCase {
                                 "lifeAreaID": moveResult.toLifeAreaID.uuidString
                             ]
                         )
+                        var userInfo = HomeTaskMutationPayload(
+                            reason: .projectChanged,
+                            source: "manageProjectsUseCase",
+                            affectedProjectID: moveResult.updatedProjectID
+                        ).userInfo
+                        userInfo["lifeAreaID"] = moveResult.toLifeAreaID.uuidString
+                        userInfo["tasksRemappedCount"] = moveResult.tasksRemappedCount
                         TaskNotificationDispatcher.postOnMain(
                             name: .homeTaskMutation,
-                            userInfo: [
-                                "reason": "projectChanged",
-                                "source": "manageProjectsUseCase",
-                                "projectID": moveResult.updatedProjectID.uuidString,
-                                "lifeAreaID": moveResult.toLifeAreaID.uuidString,
-                                "tasksRemappedCount": moveResult.tasksRemappedCount
-                            ]
+                            userInfo: userInfo
                         )
                         completion(.success(moveResult))
                     case .failure(let error):
@@ -478,15 +481,16 @@ public final class ManageProjectsUseCase {
             switch result {
             case .success(let backfillResult):
                 if backfillResult.projectsUpdatedCount > 0 || backfillResult.tasksRemappedCount > 0 {
+                    var userInfo = HomeTaskMutationPayload(
+                        reason: .bulkChanged,
+                        source: "manageProjectsUseCase"
+                    ).userInfo
+                    userInfo["lifeAreaID"] = generalLifeAreaID.uuidString
+                    userInfo["projectsUpdatedCount"] = backfillResult.projectsUpdatedCount
+                    userInfo["tasksRemappedCount"] = backfillResult.tasksRemappedCount
                     TaskNotificationDispatcher.postOnMain(
                         name: .homeTaskMutation,
-                        userInfo: [
-                            "reason": "bulkChanged",
-                            "source": "manageProjectsUseCase",
-                            "lifeAreaID": generalLifeAreaID.uuidString,
-                            "projectsUpdatedCount": backfillResult.projectsUpdatedCount,
-                            "tasksRemappedCount": backfillResult.tasksRemappedCount
-                        ]
+                        userInfo: userInfo
                     )
                 }
                 completion(.success(backfillResult))

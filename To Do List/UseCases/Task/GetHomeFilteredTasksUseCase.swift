@@ -8,10 +8,26 @@
 import Foundation
 
 public struct HomeFilteredTasksResult {
+    public let visibleOpenTasks: [TaskDefinition]
+    public let visibleDoneTimelineTasks: [TaskDefinition]
     public let openTasks: [TaskDefinition]
     public let doneTimelineTasks: [TaskDefinition]
     public let quickViewCounts: [HomeQuickView: Int]
     public let pointsPotential: Int
+
+    public init(
+        visibleOpenTasks: [TaskDefinition],
+        visibleDoneTimelineTasks: [TaskDefinition],
+        quickViewCounts: [HomeQuickView: Int],
+        pointsPotential: Int
+    ) {
+        self.visibleOpenTasks = visibleOpenTasks
+        self.visibleDoneTimelineTasks = visibleDoneTimelineTasks
+        self.openTasks = visibleOpenTasks
+        self.doneTimelineTasks = visibleDoneTimelineTasks
+        self.quickViewCounts = quickViewCounts
+        self.pointsPotential = pointsPotential
+    }
 }
 
 public enum GetHomeFilteredTasksError: LocalizedError {
@@ -28,7 +44,9 @@ public enum GetHomeFilteredTasksError: LocalizedError {
 public final class GetHomeFilteredTasksUseCase {
 
     private let readModelRepository: TaskReadModelRepositoryProtocol?
-    private let homeWindowLimit = 1_200
+    private let cacheLock = NSLock()
+    private var resultCache: [String: HomeFilteredTasksResult] = [:]
+    private let exactProjectionPageSize = 400
 
     /// Initializes a new instance.
     public init(
@@ -37,10 +55,17 @@ public final class GetHomeFilteredTasksUseCase {
         self.readModelRepository = readModelRepository
     }
 
+    public func invalidateCaches() {
+        cacheLock.lock()
+        resultCache.removeAll()
+        cacheLock.unlock()
+    }
+
     /// Executes execute.
     public func execute(
         state: HomeFilterState,
         scope: HomeListScope,
+        revision: HomeDataRevision = .zero,
         completion: @escaping (Result<HomeFilteredTasksResult, GetHomeFilteredTasksError>) -> Void
     ) {
         guard let readModel = readModelRepository else {
@@ -52,47 +77,66 @@ public final class GetHomeFilteredTasksUseCase {
             return
         }
 
-        let loadTasks: (@escaping (Result<[TaskDefinition], Error>) -> Void) -> Void = { handler in
-            let narrowedProjectID = state.selectedProjectIDs.count == 1 ? state.selectedProjectIDs.first : nil
-            let query = TaskReadQuery(
-                projectID: narrowedProjectID,
-                includeCompleted: true,
-                sortBy: .dueDateAscending,
-                limit: self.homeWindowLimit,
-                offset: 0
-            )
-            readModel.fetchTasks(query: query) { result in
-                handler(result.map(\.tasks))
-            }
+        let cacheKey = makeCacheKey(state: state, scope: scope, revision: revision)
+        cacheLock.lock()
+        if let cached = resultCache[cacheKey] {
+            cacheLock.unlock()
+            completion(.success(cached))
+            return
         }
+        cacheLock.unlock()
 
-        loadTasks { [weak self] result in
+        let interval = TaskerPerformanceTrace.begin("HomeFilterQuery")
+        let projectionInterval = TaskerPerformanceTrace.begin("HomeFilterExactProjection")
+
+        fetchHomeProjection(
+            state: state,
+            readModel: readModel
+        ) { [weak self] result in
             guard let self else { return }
+            defer {
+                TaskerPerformanceTrace.end(projectionInterval)
+                TaskerPerformanceTrace.end(interval)
+            }
 
             switch result {
-            case .success(let tasks):
-                let facetedTasks = self.applyProjectAndAdvancedFacets(tasks, state: state)
+            case .success(let facetedTasks):
                 let quickCounts = self.computeQuickViewCounts(from: facetedTasks, scope: scope)
                 let filtered = self.applyScope(scope, to: facetedTasks)
+                var pointsPotential = 0
+                var openTasks: [TaskDefinition] = []
+                var doneTimelineTasks: [TaskDefinition] = []
+                openTasks.reserveCapacity(filtered.count)
+                doneTimelineTasks.reserveCapacity(min(filtered.count, 64))
 
-                let pointsPotential = filtered
-                    .filter { !$0.isComplete }
-                    .reduce(0) { $0 + $1.priority.scorePoints }
+                for task in filtered {
+                    if task.isComplete {
+                        doneTimelineTasks.append(task)
+                    } else {
+                        openTasks.append(task)
+                        pointsPotential += task.priority.scorePoints
+                    }
+                }
 
-                let openTasks = filtered
-                    .filter { !$0.isComplete }
-                    .sorted(by: self.sortByPriorityThenDue)
-
-                let doneTimelineTasks = filtered
-                    .filter { $0.isComplete }
-                    .sorted(by: self.sortDoneTimeline)
-
-                completion(.success(HomeFilteredTasksResult(
+                openTasks.sort(by: self.sortByPriorityThenDue)
+                doneTimelineTasks.sort(by: self.sortDoneTimeline)
+                let visibleTasks = self.makeVisibleTaskWindow(
+                    state: state,
                     openTasks: openTasks,
                     doneTimelineTasks: doneTimelineTasks,
+                    scope: scope
+                )
+
+                let payload = HomeFilteredTasksResult(
+                    visibleOpenTasks: visibleTasks.openTasks,
+                    visibleDoneTimelineTasks: visibleTasks.doneTimelineTasks,
                     quickViewCounts: quickCounts,
                     pointsPotential: pointsPotential
-                )))
+                )
+                self.cacheLock.lock()
+                self.resultCache[cacheKey] = payload
+                self.cacheLock.unlock()
+                completion(.success(payload))
 
             case .failure(let error):
                 completion(.failure(.repositoryError(error)))
@@ -105,20 +149,163 @@ public final class GetHomeFilteredTasksUseCase {
         state: HomeFilterState,
         completion: @escaping (Result<HomeFilteredTasksResult, GetHomeFilteredTasksError>) -> Void
     ) {
-        execute(state: state, scope: .fromQuickView(state.quickView), completion: completion)
+        execute(state: state, scope: .fromQuickView(state.quickView), revision: .zero, completion: completion)
+    }
+
+    private func fetchHomeProjection(
+        state: HomeFilterState,
+        readModel: TaskReadModelRepositoryProtocol,
+        completion: @escaping (Result<[TaskDefinition], Error>) -> Void
+    ) {
+        let narrowedProjectID = state.selectedProjectIDs.count == 1 ? state.selectedProjectIDs.first : nil
+        var accumulatedTasks: [TaskDefinition] = []
+
+        func loadPage(offset: Int) {
+            readModel.fetchTasks(
+                query: TaskReadQuery(
+                    projectID: narrowedProjectID,
+                    includeCompleted: true,
+                    sortBy: .dueDateAscending,
+                    limit: exactProjectionPageSize,
+                    offset: offset
+                )
+            ) { result in
+                switch result {
+                case .success(let slice):
+                    let facetedBatch = self.applyProjectAndAdvancedFacets(slice.tasks, state: state)
+                    accumulatedTasks.append(contentsOf: facetedBatch)
+
+                    let nextOffset = offset + slice.tasks.count
+                    let loadedAllTasks = nextOffset >= slice.totalCount || slice.tasks.isEmpty
+                    if loadedAllTasks {
+                        completion(.success(accumulatedTasks))
+                    } else {
+                        loadPage(offset: nextOffset)
+                    }
+
+                case .failure(let error):
+                    completion(.failure(error))
+                }
+            }
+        }
+
+        loadPage(offset: 0)
     }
 
     /// Executes computeQuickViewCounts.
     private func computeQuickViewCounts(from tasks: [TaskDefinition], scope: HomeListScope) -> [HomeQuickView: Int] {
-        var counts: [HomeQuickView: Int] = [:]
+        var counts = Dictionary(uniqueKeysWithValues: HomeQuickView.allCases.map { ($0, 0) })
         let anchorDate = scope.referenceDate
+        let calendar = Calendar.current
+        let startOfAnchorDay = calendar.startOfDay(for: anchorDate)
+        let startOfNextDay = calendar.date(byAdding: .day, value: 1, to: startOfAnchorDay) ?? anchorDate
+        let endOfUpcomingWindow = calendar.date(byAdding: .day, value: 14, to: startOfAnchorDay) ?? anchorDate
+        let doneWindowStart = calendar.date(byAdding: .day, value: -30, to: startOfAnchorDay) ?? Date.distantPast
+        let doneWindowEnd = calendar.date(byAdding: .day, value: 1, to: startOfAnchorDay) ?? anchorDate
 
-        for view in HomeQuickView.allCases {
-            let filtered = applyQuickView(view, to: tasks, anchorDate: anchorDate)
-            counts[view] = filtered.count
+        for task in tasks {
+            if matchesToday(task, startOfAnchorDay: startOfAnchorDay, startOfNextDay: startOfNextDay) {
+                counts[.today, default: 0] += 1
+            }
+            if let dueDate = task.dueDate,
+               dueDate >= startOfNextDay,
+               dueDate <= endOfUpcomingWindow {
+                counts[.upcoming, default: 0] += 1
+            }
+            if task.isComplete == false,
+               let dueDate = task.dueDate,
+               dueDate < startOfAnchorDay {
+                counts[.overdue, default: 0] += 1
+            }
+            if task.isComplete,
+               let completionDate = task.dateCompleted,
+               completionDate >= doneWindowStart,
+               completionDate < doneWindowEnd {
+                counts[.done, default: 0] += 1
+            }
+            if isMorningTaskHybrid(task) {
+                counts[.morning, default: 0] += 1
+            }
+            if isEveningTaskHybrid(task) {
+                counts[.evening, default: 0] += 1
+            }
         }
 
         return counts
+    }
+
+    private func matchesToday(
+        _ task: TaskDefinition,
+        startOfAnchorDay: Date,
+        startOfNextDay: Date
+    ) -> Bool {
+        if task.isComplete {
+            guard let completionDate = task.dateCompleted else { return false }
+            return completionDate >= startOfAnchorDay && completionDate < startOfNextDay
+        }
+
+        let dueDate = task.dueDate
+        let dueOnAnchorDay = dueDate.map { $0 >= startOfAnchorDay && $0 < startOfNextDay } ?? false
+        let overdue = dueDate.map { $0 < startOfAnchorDay } ?? false
+        return dueOnAnchorDay || overdue
+    }
+
+    private func homeWindowLimit(for state: HomeFilterState, scope: HomeListScope) -> Int {
+        switch scope.quickView {
+        case .done:
+            return 640
+        case .upcoming:
+            return 420
+        case .overdue:
+            return 320
+        case .morning, .evening:
+            return state.showCompletedInline ? 420 : 320
+        case .today:
+            return state.showCompletedInline ? 480 : 360
+        }
+    }
+
+    private func makeVisibleTaskWindow(
+        state: HomeFilterState,
+        openTasks: [TaskDefinition],
+        doneTimelineTasks: [TaskDefinition],
+        scope: HomeListScope
+    ) -> (openTasks: [TaskDefinition], doneTimelineTasks: [TaskDefinition]) {
+        let windowLimit = homeWindowLimit(for: state, scope: scope)
+        guard windowLimit > 0 else {
+            return ([], [])
+        }
+
+        let shouldReserveInlineDoneWindow = scope.quickView != .done
+            && state.showCompletedInline
+            && openTasks.isEmpty == false
+            && doneTimelineTasks.isEmpty == false
+        let doneReservation = shouldReserveInlineDoneWindow ? min(doneTimelineTasks.count, max(12, windowLimit / 4)) : 0
+        let openLimit = max(0, windowLimit - doneReservation)
+
+        let visibleOpenTasks = Array(openTasks.prefix(max(1, openLimit)))
+        let remainingSlots = max(0, windowLimit - visibleOpenTasks.count)
+        let doneLimit = visibleOpenTasks.isEmpty ? windowLimit : remainingSlots
+        let visibleDoneTimelineTasks = Array(doneTimelineTasks.prefix(doneLimit))
+        return (visibleOpenTasks, visibleDoneTimelineTasks)
+    }
+
+    private func makeCacheKey(
+        state: HomeFilterState,
+        scope: HomeListScope,
+        revision: HomeDataRevision
+    ) -> String {
+        struct Payload: Codable {
+            let state: HomeFilterState
+            let scope: HomeListScope
+            let revision: UInt64
+        }
+
+        let encoder = JSONEncoder()
+        encoder.dateEncodingStrategy = .iso8601
+        let payload = Payload(state: state, scope: scope, revision: revision.rawValue)
+        let data = (try? encoder.encode(payload)) ?? Data()
+        return data.base64EncodedString()
     }
 
     /// Executes applyProjectAndAdvancedFacets.

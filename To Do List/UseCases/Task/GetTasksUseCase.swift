@@ -7,6 +7,33 @@
 
 import Foundation
 
+public struct SemanticSearchPolicy: Equatable {
+    public let minimumQueryLength: Int
+    public let minimumResultCount: Int
+    public let candidateLimit: Int
+
+    public static let `default` = SemanticSearchPolicy(
+        minimumQueryLength: 3,
+        minimumResultCount: 8,
+        candidateLimit: 60
+    )
+
+    public init(
+        minimumQueryLength: Int,
+        minimumResultCount: Int,
+        candidateLimit: Int
+    ) {
+        self.minimumQueryLength = minimumQueryLength
+        self.minimumResultCount = minimumResultCount
+        self.candidateLimit = candidateLimit
+    }
+
+    func shouldRerank(query: String, taskCount: Int) -> Bool {
+        let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.count >= minimumQueryLength && taskCount >= minimumResultCount
+    }
+}
+
 /// Use case for retrieving tasks with complex filtering
 /// Handles all task query operations with business logic
 public final class GetTasksUseCase {
@@ -15,6 +42,7 @@ public final class GetTasksUseCase {
 
     private let readModelRepository: TaskReadModelRepositoryProtocol?
     private let cacheService: CacheServiceProtocol?
+    private let semanticSearchPolicy: SemanticSearchPolicy
     private let listWindowLimit = 1_200
     private let searchWindowLimit = 800
 
@@ -23,10 +51,12 @@ public final class GetTasksUseCase {
     /// Initializes a new instance.
     public init(
         readModelRepository: TaskReadModelRepositoryProtocol? = nil,
-        cacheService: CacheServiceProtocol? = nil
+        cacheService: CacheServiceProtocol? = nil,
+        semanticSearchPolicy: SemanticSearchPolicy = .default
     ) {
         self.readModelRepository = readModelRepository
         self.cacheService = cacheService
+        self.semanticSearchPolicy = semanticSearchPolicy
     }
 
     // MARK: - Task Retrieval Methods
@@ -356,16 +386,29 @@ public final class GetTasksUseCase {
             return
         }
 
+        let interval = TaskerPerformanceTrace.begin("TaskSearch")
         readModelRepository.searchTasks(query: query) { result in
             switch result {
             case .failure(let error):
+                TaskerPerformanceTrace.end(interval)
                 completion(.failure(.repositoryError(error)))
             case .success(let slice):
                 var tasks = slice.tasks
+                let trimmedQuery = query.text.trimmingCharacters(in: .whitespacesAndNewlines)
                 if V2FeatureFlags.assistantSemanticRetrievalEnabled,
-                   query.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false {
-                    tasks = self.applySemanticRerank(to: tasks, query: query.text)
+                   self.semanticSearchPolicy.shouldRerank(query: trimmedQuery, taskCount: tasks.count) {
+                    let semanticInterval = TaskerPerformanceTrace.begin("TaskSearchSemanticRerank")
+                    let candidateCount = min(self.semanticSearchPolicy.candidateLimit, tasks.count)
+                    let lexicalCandidates = Array(tasks.prefix(candidateCount))
+                    let rerankedPrefix = self.applySemanticRerank(to: lexicalCandidates, query: trimmedQuery)
+                    if candidateCount < tasks.count {
+                        tasks = rerankedPrefix + Array(tasks.dropFirst(candidateCount))
+                    } else {
+                        tasks = rerankedPrefix
+                    }
+                    TaskerPerformanceTrace.end(semanticInterval)
                 }
+                TaskerPerformanceTrace.end(interval)
                 completion(.success(tasks))
             }
         }
@@ -374,21 +417,10 @@ public final class GetTasksUseCase {
     /// Executes applySemanticRerank.
     private func applySemanticRerank(to tasks: [TaskDefinition], query: String) -> [TaskDefinition] {
         guard tasks.isEmpty == false else { return [] }
-        let semantic = TaskSemanticRetrievalService.shared.searchDetailed(query: query, topK: max(20, tasks.count))
         let taskByID = Dictionary(uniqueKeysWithValues: tasks.map { ($0.id, $0) })
-        let scores = Dictionary(uniqueKeysWithValues: semantic.hits.map { ($0.taskID, $0.score) })
-        guard scores.isEmpty == false else {
+        let rerankedIDs = TaskSemanticRetrievalService.shared.rerank(taskIDs: tasks.map(\.id), query: query)
+        guard rerankedIDs.isEmpty == false else {
             return tasks
-        }
-
-        let originalOrder = Dictionary(uniqueKeysWithValues: tasks.enumerated().map { ($1.id, $0) })
-        let rerankedIDs = tasks.map(\.id).sorted { lhs, rhs in
-            let ls = scores[lhs] ?? 0
-            let rs = scores[rhs] ?? 0
-            if ls == rs {
-                return (originalOrder[lhs] ?? 0) < (originalOrder[rhs] ?? 0)
-            }
-            return ls > rs
         }
         var reranked: [TaskDefinition] = rerankedIDs.compactMap { taskByID[$0] }
         if reranked.count < tasks.count {

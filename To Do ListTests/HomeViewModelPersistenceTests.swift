@@ -1,7 +1,9 @@
 import XCTest
+import Combine
 @testable import To_Do_List
 
 final class HomeViewModelPersistenceTests: XCTestCase {
+    private var cancellables = Set<AnyCancellable>()
 
     func testGroupingModeAndCustomProjectOrderPersistAcrossSessions() {
         let suiteName = "HomeViewModelPersistenceTests.\(UUID().uuidString)"
@@ -515,6 +517,84 @@ final class HomeViewModelPersistenceTests: XCTestCase {
         defaults.removePersistentDomain(forName: suiteName)
     }
 
+    func testGroupedOverlayStateCoalescesSynchronousMutationsIntoSinglePublish() {
+        let suiteName = "HomeViewModelPersistenceTests.GroupedOverlayCoalescing.\(UUID().uuidString)"
+        guard let defaults = UserDefaults(suiteName: suiteName) else {
+            return XCTFail("Failed to create test UserDefaults suite")
+        }
+        defaults.removePersistentDomain(forName: suiteName)
+
+        let inbox = Project.createInbox()
+        let taskRepository = HomeViewModelMockTaskRepository(tasks: [])
+        let projectRepository = HomeViewModelMockProjectRepository(projects: [inbox])
+        let coordinator = UseCaseCoordinator(taskRepository: taskRepository, projectRepository: projectRepository)
+        let viewModel = HomeViewModel(useCaseCoordinator: coordinator, userDefaults: defaults)
+        waitForMainQueueFlush()
+
+        var emittedStates: [HomeOverlayState] = []
+        viewModel.$homeRenderTransaction
+            .map(\.overlay)
+            .dropFirst()
+            .sink { emittedStates.append($0) }
+            .store(in: &cancellables)
+
+        let xpResult = XPEventResult(
+            awardedXP: 12,
+            totalXP: 120,
+            level: 2,
+            previousLevel: 1,
+            currentStreak: 3,
+            didLevelUp: false,
+            dailyXPSoFar: 12,
+            dailyCap: 100,
+            unlockedAchievements: [],
+            crossedMilestone: nil,
+            celebration: nil
+        )
+
+        viewModel.openFocusWhy()
+        viewModel.dispatchCelebration(xpResult)
+        waitForMainQueueFlush()
+
+        XCTAssertEqual(emittedStates.count, 1)
+        XCTAssertEqual(emittedStates.last?.focusWhyPresented, true)
+        XCTAssertEqual(emittedStates.last?.lastXPResult?.awardedXP, xpResult.awardedXP)
+
+        defaults.removePersistentDomain(forName: suiteName)
+    }
+
+    func testGroupedHomeStatesStayAlignedAfterGroupingMutation() {
+        let suiteName = "HomeViewModelPersistenceTests.GroupedStatesAligned.\(UUID().uuidString)"
+        guard let defaults = UserDefaults(suiteName: suiteName) else {
+            return XCTFail("Failed to create test UserDefaults suite")
+        }
+        defaults.removePersistentDomain(forName: suiteName)
+
+        let inbox = Project.createInbox()
+        let alpha = Project(id: UUID(), name: "Alpha", icon: .folder)
+        let beta = Project(id: UUID(), name: "Beta", icon: .folder)
+        let tasks = [
+            makeTask(name: "Alpha task", project: alpha, dueDate: Date(), priority: .high),
+            makeTask(name: "Beta task", project: beta, dueDate: Date(), priority: .low)
+        ]
+
+        let taskRepository = HomeViewModelMockTaskRepository(tasks: tasks)
+        let projectRepository = HomeViewModelMockProjectRepository(projects: [inbox, alpha, beta])
+        let coordinator = UseCaseCoordinator(taskRepository: taskRepository, projectRepository: projectRepository)
+        let viewModel = HomeViewModel(useCaseCoordinator: coordinator, userDefaults: defaults)
+        waitForMainQueueFlush()
+
+        viewModel.setProjectGroupingMode(.groupByProjects)
+        viewModel.setCustomProjectOrder([beta.id, alpha.id])
+        waitForMainQueueFlush()
+
+        XCTAssertEqual(viewModel.homeChromeState.activeFilterState.projectGroupingMode, .groupByProjects)
+        XCTAssertEqual(viewModel.homeTasksState.projectGroupingMode, .groupByProjects)
+        XCTAssertEqual(Array(viewModel.homeTasksState.customProjectOrderIDs.prefix(2)), [beta.id, alpha.id])
+
+        defaults.removePersistentDomain(forName: suiteName)
+    }
+
     private func waitForMainQueueFlush() {
         let expectation = expectation(description: "MainQueueFlush")
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
@@ -542,6 +622,11 @@ final class HomeViewModelPersistenceTests: XCTestCase {
             isComplete: isComplete,
             dateCompleted: dateCompleted
         )
+    }
+
+    override func tearDown() {
+        cancellables.removeAll()
+        super.tearDown()
     }
 }
 

@@ -17,6 +17,11 @@ public final class CalculateAnalyticsUseCase {
     private let cacheService: CacheServiceProtocol?
     private let analyticsWindowLimit = 4_000
     private let analyticsDayWindowLimit = 1_200
+    private let analyticsCacheLock = NSLock()
+    private var dailyAnalyticsCache: [String: DailyAnalytics] = [:]
+    private var periodAnalyticsCache: [String: PeriodAnalytics] = [:]
+    private var cachedProductivityScore: ProductivityScore?
+    private var cachedStreakInfo: StreakInfo?
     private let analyticsComputeQueue = DispatchQueue(
         label: "tasker.analytics.compute",
         qos: .userInitiated
@@ -34,6 +39,15 @@ public final class CalculateAnalyticsUseCase {
         self.scoringService = scoringService ?? DefaultTaskScoringService()
         self.cacheService = cacheService
     }
+
+    public func invalidateCaches() {
+        analyticsCacheLock.lock()
+        dailyAnalyticsCache.removeAll()
+        periodAnalyticsCache.removeAll()
+        cachedProductivityScore = nil
+        cachedStreakInfo = nil
+        analyticsCacheLock.unlock()
+    }
     
     // MARK: - Daily Analytics
     
@@ -47,19 +61,35 @@ public final class CalculateAnalyticsUseCase {
         for date: Date,
         completion: @escaping (Result<DailyAnalytics, AnalyticsError>) -> Void
     ) {
+        let cacheKey = dailyCacheKey(for: date)
+        analyticsCacheLock.lock()
+        if let cached = dailyAnalyticsCache[cacheKey] {
+            analyticsCacheLock.unlock()
+            completion(.success(cached))
+            return
+        }
+        analyticsCacheLock.unlock()
+
+        let interval = TaskerPerformanceTrace.begin("AnalyticsDaily")
         fetchTasksForDay(date) { [weak self] result in
             switch result {
             case .success(let tasks):
                 guard let self else {
+                    TaskerPerformanceTrace.end(interval)
                     completion(.success(DailyAnalytics(date: date)))
                     return
                 }
                 self.analyticsComputeQueue.async {
                     let analytics = self.computeDailyAnalytics(tasks: tasks, date: date)
+                    self.analyticsCacheLock.lock()
+                    self.dailyAnalyticsCache[cacheKey] = analytics
+                    self.analyticsCacheLock.unlock()
+                    TaskerPerformanceTrace.end(interval)
                     completion(.success(analytics))
                 }
                 
             case .failure(let error):
+                TaskerPerformanceTrace.end(interval)
                 completion(.failure(.repositoryError(error)))
             }
         }
@@ -168,6 +198,17 @@ public final class CalculateAnalyticsUseCase {
             return
         }
         
+        let cacheKey = periodCacheKey(startDate: startDate, endDate: endDate)
+        analyticsCacheLock.lock()
+        if let cached = periodAnalyticsCache[cacheKey] {
+            analyticsCacheLock.unlock()
+            completion(.success(cached))
+            return
+        }
+        analyticsCacheLock.unlock()
+
+        let interval = TaskerPerformanceTrace.begin("AnalyticsPeriod")
+
         // Fetch all tasks in the date range
         fetchTasks(
             query: TaskReadQuery(
@@ -182,6 +223,7 @@ public final class CalculateAnalyticsUseCase {
             switch result {
             case .success(let tasksInRange):
                 guard let self else {
+                    TaskerPerformanceTrace.end(interval)
                     completion(.success(PeriodAnalytics(startDate: startDate, endDate: endDate)))
                     return
                 }
@@ -191,10 +233,15 @@ public final class CalculateAnalyticsUseCase {
                         startDate: startDate,
                         endDate: endDate
                     )
+                    self.analyticsCacheLock.lock()
+                    self.periodAnalyticsCache[cacheKey] = analytics
+                    self.analyticsCacheLock.unlock()
+                    TaskerPerformanceTrace.end(interval)
                     completion(.success(analytics))
                 }
                 
             case .failure(let error):
+                TaskerPerformanceTrace.end(interval)
                 completion(.failure(.repositoryError(error)))
             }
         }
@@ -204,6 +251,15 @@ public final class CalculateAnalyticsUseCase {
     
     /// Calculate overall productivity score
     public func calculateProductivityScore(completion: @escaping (Result<ProductivityScore, AnalyticsError>) -> Void) {
+        analyticsCacheLock.lock()
+        if let cachedProductivityScore {
+            analyticsCacheLock.unlock()
+            completion(.success(cachedProductivityScore))
+            return
+        }
+        analyticsCacheLock.unlock()
+
+        let interval = TaskerPerformanceTrace.begin("AnalyticsProductivity")
         fetchTasks(
             query: TaskReadQuery(
                 includeCompleted: true,
@@ -215,15 +271,21 @@ public final class CalculateAnalyticsUseCase {
             switch result {
             case .success(let tasks):
                 guard let self else {
+                    TaskerPerformanceTrace.end(interval)
                     completion(.success(ProductivityScore()))
                     return
                 }
                 self.analyticsComputeQueue.async {
                     let score = self.computeProductivityScore(tasks: tasks)
+                    self.analyticsCacheLock.lock()
+                    self.cachedProductivityScore = score
+                    self.analyticsCacheLock.unlock()
+                    TaskerPerformanceTrace.end(interval)
                     completion(.success(score))
                 }
                 
             case .failure(let error):
+                TaskerPerformanceTrace.end(interval)
                 completion(.failure(.repositoryError(error)))
             }
         }
@@ -233,6 +295,15 @@ public final class CalculateAnalyticsUseCase {
     
     /// Calculate current completion streak
     public func calculateStreak(completion: @escaping (Result<StreakInfo, AnalyticsError>) -> Void) {
+        analyticsCacheLock.lock()
+        if let cachedStreakInfo {
+            analyticsCacheLock.unlock()
+            completion(.success(cachedStreakInfo))
+            return
+        }
+        analyticsCacheLock.unlock()
+
+        let interval = TaskerPerformanceTrace.begin("AnalyticsStreak")
         fetchTasks(
             query: TaskReadQuery(
                 includeCompleted: true,
@@ -244,16 +315,22 @@ public final class CalculateAnalyticsUseCase {
             switch result {
             case .success(let tasks):
                 guard let self else {
+                    TaskerPerformanceTrace.end(interval)
                     completion(.success(StreakInfo()))
                     return
                 }
                 self.analyticsComputeQueue.async {
                     let completedTasks = tasks.filter(\.isComplete)
                     let streak = self.computeStreak(completedTasks: completedTasks)
+                    self.analyticsCacheLock.lock()
+                    self.cachedStreakInfo = streak
+                    self.analyticsCacheLock.unlock()
+                    TaskerPerformanceTrace.end(interval)
                     completion(.success(streak))
                 }
                 
             case .failure(let error):
+                TaskerPerformanceTrace.end(interval)
                 completion(.failure(.repositoryError(error)))
             }
         }
@@ -342,17 +419,19 @@ public final class CalculateAnalyticsUseCase {
         let calendar = Calendar.current
         var dailyBreakdown: [DailyAnalytics] = []
         var currentDate = startDate
-        
-        // Calculate daily analytics for each day in the period
+
+        var tasksByDay: [Date: [TaskDefinition]] = [:]
+        tasksByDay.reserveCapacity(tasks.count)
+        for task in tasks {
+            guard let dueDate = task.dueDate else { continue }
+            let day = calendar.startOfDay(for: dueDate)
+            tasksByDay[day, default: []].append(task)
+        }
+
         while currentDate <= endDate {
-            let dayTasks = tasks.filter { task in
-                guard let dueDate = task.dueDate else { return false }
-                return calendar.isDate(dueDate, inSameDayAs: currentDate)
-            }
-            
-            let dailyAnalytics = computeDailyAnalytics(tasks: dayTasks, date: currentDate)
-            dailyBreakdown.append(dailyAnalytics)
-            
+            let day = calendar.startOfDay(for: currentDate)
+            let dayTasks = tasksByDay[day] ?? []
+            dailyBreakdown.append(computeDailyAnalytics(tasks: dayTasks, date: currentDate))
             currentDate = calendar.date(byAdding: .day, value: 1, to: currentDate) ?? endDate
         }
         
@@ -485,6 +564,14 @@ public final class CalculateAnalyticsUseCase {
         case 75..<100: return "Grandmaster"
         default: return "Legend"
         }
+    }
+
+    private func dailyCacheKey(for date: Date) -> String {
+        String(Calendar.current.startOfDay(for: date).timeIntervalSinceReferenceDate)
+    }
+
+    private func periodCacheKey(startDate: Date, endDate: Date) -> String {
+        "\(Calendar.current.startOfDay(for: startDate).timeIntervalSinceReferenceDate):\(Calendar.current.startOfDay(for: endDate).timeIntervalSinceReferenceDate)"
     }
 }
 
