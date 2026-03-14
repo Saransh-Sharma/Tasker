@@ -152,6 +152,7 @@ final class AppOnboardingTests: XCTestCase {
         XCTAssertTrue(calendar.isDate(resolved ?? .distantPast, inSameDayAs: now))
     }
 
+    @MainActor
     func testAddTaskPrefillAppliesTodayScopedDefaults() {
         let lifeArea = LifeArea(id: UUID(), name: "Health")
         let project = Project(id: UUID(), lifeAreaID: lifeArea.id, name: "Move your body")
@@ -179,7 +180,9 @@ final class AppOnboardingTests: XCTestCase {
         )
 
         viewModel.applyPrefill(prefill)
-        drainMainQueue()
+        waitUntil("prefill resolved") {
+            viewModel.selectedProject == project.name
+        }
 
         XCTAssertEqual(viewModel.taskName, "Walk for 10 minutes")
         XCTAssertEqual(viewModel.taskDetails, "Shoes on and out the door.")
@@ -193,12 +196,144 @@ final class AppOnboardingTests: XCTestCase {
         XCTAssertTrue(viewModel.showMoreDetails)
     }
 
+    @MainActor
+    func testAddTaskPrefillLeavesInboxSelectionWhenProjectCannotBeResolved() {
+        let lifeArea = LifeArea(id: UUID(), name: "Health")
+        let taskRepository = MockTaskDefinitionRepository()
+        let viewModel = AddTaskViewModel(
+            manageProjectsUseCase: ManageProjectsUseCase(projectRepository: MockProjectRepository(projects: [Project.createInbox()])),
+            createTaskDefinitionUseCase: CreateTaskDefinitionUseCase(repository: taskRepository),
+            manageLifeAreasUseCase: ManageLifeAreasUseCase(repository: MockLifeAreaRepository(lifeAreas: [lifeArea]))
+        )
+
+        let prefill = AddTaskPrefillTemplate(
+            title: "Walk for 10 minutes",
+            projectID: UUID(),
+            projectName: "Missing Project",
+            lifeAreaID: lifeArea.id
+        )
+
+        viewModel.applyPrefill(prefill)
+        drainMainQueue()
+
+        XCTAssertEqual(viewModel.selectedProject, ProjectConstants.inboxProjectName)
+
+        let expectation = expectation(description: "task created")
+        viewModel.taskName = "Walk for 10 minutes"
+        viewModel.createTask()
+        DispatchQueue.main.async {
+            XCTAssertEqual(taskRepository.lastCreateRequest?.projectID, ProjectConstants.inboxProjectID)
+            XCTAssertEqual(taskRepository.lastCreateRequest?.projectName, ProjectConstants.inboxProjectName)
+            expectation.fulfill()
+        }
+
+        wait(for: [expectation], timeout: 1.0)
+    }
+
+    func testHomeTasksSnapshotTreatsTodayDefaultEmptyStateAsCommittedContent() {
+        let snapshot = HomeTasksSnapshot(
+            morningTasks: [],
+            eveningTasks: [],
+            overdueTasks: [],
+            inlineCompletedTasks: [],
+            doneTimelineTasks: [],
+            projects: [],
+            projectsByID: [:],
+            projectsByName: [:],
+            tagNameByID: [:],
+            rescueTasksByID: [:],
+            activeQuickView: .today,
+            todayXPSoFar: nil,
+            projectGroupingMode: .defaultMode,
+            customProjectOrderIDs: [],
+            emptyStateMessage: nil,
+            emptyStateActionTitle: nil,
+            canUseManualFocusDrag: false,
+            focusTasks: [],
+            pinnedFocusTaskIDs: [],
+            todayOpenTaskCount: 0
+        )
+
+        XCTAssertTrue(snapshot.rendersDefaultTodayEmptyState)
+        XCTAssertTrue(snapshot.hasCommittedInitialContent)
+    }
+
+    func testHomeViewControllerAppliesInsightsLaunchRequestWhenAnalyticsIsAlreadyVisible() {
+        let controller = HomeViewController()
+        let insightsViewModel = makeInsightsViewModel()
+        let request = InsightsLaunchRequest(targetTab: .systems, highlightedAchievementKey: "streak")
+
+        controller.testingSetAnalyticsVisible(with: insightsViewModel)
+        controller.testingHandleInsightsLaunchRequest(request)
+
+        XCTAssertEqual(insightsViewModel.selectedTab, .systems)
+        XCTAssertEqual(insightsViewModel.highlightedAchievementKey, "streak")
+        XCTAssertNil(controller.testingPendingInsightsLaunchRequest)
+    }
+
+    @MainActor
+    func testRunOnboardingEvaluationAfterDelayClearsPendingTaskAndRetriesOnSceneMismatch() async {
+        let controller = HomeViewController()
+        var retryCount = 0
+
+        controller.testingSetPendingOnboardingEvaluationTask()
+        controller.testingSetOnboardingEvaluationSceneToken(2)
+
+        await controller.runOnboardingEvaluationAfterDelay(
+            sceneToken: 1,
+            sleepNanoseconds: 0,
+            retry: { retryCount += 1 }
+        )
+
+        XCTAssertFalse(controller.testingHasPendingOnboardingEvaluationTask)
+        XCTAssertEqual(retryCount, 1)
+    }
+
+    @MainActor
+    func testRunOnboardingEvaluationAfterDelayClearsPendingTaskAndRetriesWhenViewIsUnavailable() async {
+        let controller = HomeViewController()
+        var retryCount = 0
+
+        controller.testingSetPendingOnboardingEvaluationTask()
+        controller.testingSetOnboardingEvaluationSceneToken(1)
+
+        await controller.runOnboardingEvaluationAfterDelay(
+            sceneToken: 1,
+            sleepNanoseconds: 0,
+            retry: { retryCount += 1 }
+        )
+
+        XCTAssertFalse(controller.testingHasPendingOnboardingEvaluationTask)
+        XCTAssertEqual(retryCount, 1)
+    }
+
     private func drainMainQueue() {
         let expectation = expectation(description: "Drain main queue")
         DispatchQueue.main.async {
             expectation.fulfill()
         }
         wait(for: [expectation], timeout: 1.0)
+    }
+
+    private func waitUntil(
+        _ description: String,
+        timeout: TimeInterval = 1.0,
+        condition: @escaping () -> Bool
+    ) {
+        let expectation = expectation(description: description)
+
+        func poll() {
+            if condition() {
+                expectation.fulfill()
+                return
+            }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.02) {
+                poll()
+            }
+        }
+
+        poll()
+        wait(for: [expectation], timeout: timeout)
     }
 }
 
@@ -310,6 +445,8 @@ private final class MockProjectRepository: ProjectRepositoryProtocol {
 }
 
 private final class MockTaskDefinitionRepository: TaskDefinitionRepositoryProtocol {
+    var lastCreateRequest: CreateTaskDefinitionRequest?
+
     func fetchAll(completion: @escaping (Result<[TaskDefinition], Error>) -> Void) {
         completion(.success([]))
     }
@@ -327,6 +464,7 @@ private final class MockTaskDefinitionRepository: TaskDefinitionRepositoryProtoc
     }
 
     func create(request: CreateTaskDefinitionRequest, completion: @escaping (Result<TaskDefinition, Error>) -> Void) {
+        lastCreateRequest = request
         completion(.success(TaskDefinition(id: request.id, projectID: request.projectID, projectName: request.projectName, title: request.title)))
     }
 
@@ -345,4 +483,29 @@ private final class MockTaskDefinitionRepository: TaskDefinitionRepositoryProtoc
     func delete(id: UUID, completion: @escaping (Result<Void, Error>) -> Void) {
         completion(.success(()))
     }
+}
+
+private func makeInsightsViewModel() -> InsightsViewModel {
+    let repository = MockInsightsGamificationRepository()
+    return InsightsViewModel(
+        engine: GamificationEngine(repository: repository),
+        repository: repository
+    )
+}
+
+private final class MockInsightsGamificationRepository: GamificationRepositoryProtocol {
+    func fetchProfile(completion: @escaping (Result<GamificationSnapshot?, Error>) -> Void) { completion(.success(nil)) }
+    func saveProfile(_ profile: GamificationSnapshot, completion: @escaping (Result<Void, Error>) -> Void) { completion(.success(())) }
+    func fetchXPEvents(completion: @escaping (Result<[XPEventDefinition], Error>) -> Void) { completion(.success([])) }
+    func fetchXPEvents(from startDate: Date, to endDate: Date, completion: @escaping (Result<[XPEventDefinition], Error>) -> Void) { completion(.success([])) }
+    func saveXPEvent(_ event: XPEventDefinition, completion: @escaping (Result<Void, Error>) -> Void) { completion(.success(())) }
+    func hasXPEvent(idempotencyKey: String, completion: @escaping (Result<Bool, Error>) -> Void) { completion(.success(false)) }
+    func fetchAchievementUnlocks(completion: @escaping (Result<[AchievementUnlockDefinition], Error>) -> Void) { completion(.success([])) }
+    func saveAchievementUnlock(_ unlock: AchievementUnlockDefinition, completion: @escaping (Result<Void, Error>) -> Void) { completion(.success(())) }
+    func fetchDailyAggregate(dateKey: String, completion: @escaping (Result<DailyXPAggregateDefinition?, Error>) -> Void) { completion(.success(nil)) }
+    func saveDailyAggregate(_ aggregate: DailyXPAggregateDefinition, completion: @escaping (Result<Void, Error>) -> Void) { completion(.success(())) }
+    func fetchDailyAggregates(from startDateKey: String, to endDateKey: String, completion: @escaping (Result<[DailyXPAggregateDefinition], Error>) -> Void) { completion(.success([])) }
+    func createFocusSession(_ session: FocusSessionDefinition, completion: @escaping (Result<Void, Error>) -> Void) { completion(.success(())) }
+    func updateFocusSession(_ session: FocusSessionDefinition, completion: @escaping (Result<Void, Error>) -> Void) { completion(.success(())) }
+    func fetchFocusSessions(from startDate: Date, to endDate: Date, completion: @escaping (Result<[FocusSessionDefinition], Error>) -> Void) { completion(.success([])) }
 }

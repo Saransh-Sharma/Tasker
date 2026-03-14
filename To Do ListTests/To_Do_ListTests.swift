@@ -9,6 +9,7 @@
 import XCTest
 import CoreData
 import UserNotifications
+import MLXLMCommon
 @testable import To_Do_List
 
 // MARK: - Legacy test compatibility shims
@@ -5599,13 +5600,13 @@ final class AddTaskViewModelAISuggestionPerformanceTests: XCTestCase {
             generateOutput: { _, thread, _, _, _ in
                 let prompt = thread.messages.first?.content ?? ""
                 if prompt.contains("draft weekly plan for team sync") {
-                    try? await Task.sleep(nanoseconds: 600_000_000)
+                    try? await _Concurrency.Task.sleep(nanoseconds: 600_000_000)
                     return """
                     {"priority":"high","energy":"high","type":"morning","context":"computer","rationale":"stale-first","confidence":0.9}
                     """
                 }
 
-                try? await Task.sleep(nanoseconds: 120_000_000)
+                try? await _Concurrency.Task.sleep(nanoseconds: 120_000_000)
                 return """
                 {"priority":"low","energy":"medium","type":"evening","context":"anywhere","rationale":"latest-second","confidence":0.7}
                 """
