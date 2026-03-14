@@ -824,8 +824,11 @@ private struct LifeAreaProjectDropDelegate: DropDelegate {
     let acceptsDrop: Bool
 
     func validateDrop(info: DropInfo) -> Bool {
-        guard acceptsDrop else { return false }
-        return viewModel.canDropProject(on: targetLifeAreaID) || info.hasItemsConforming(to: [UTType.text.identifier])
+        lifeAreaProjectDropIsValid(
+            acceptsDrop: acceptsDrop,
+            canDropProject: viewModel.canDropProject(on: targetLifeAreaID),
+            hasTextItem: info.hasItemsConforming(to: [UTType.text.identifier])
+        )
     }
 
     func dropEntered(info: DropInfo) {
@@ -850,6 +853,16 @@ private struct LifeAreaProjectDropDelegate: DropDelegate {
         viewModel.clearDropTarget(targetLifeAreaID)
         return handled
     }
+}
+
+func lifeAreaProjectDropIsValid(
+    acceptsDrop: Bool,
+    canDropProject: Bool,
+    hasTextItem: Bool
+) -> Bool {
+    guard acceptsDrop else { return false }
+    guard canDropProject else { return false }
+    return hasTextItem
 }
 
 private struct LifeAreaEditSheet: View {

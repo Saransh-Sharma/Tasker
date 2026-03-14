@@ -752,6 +752,56 @@ final class WriteClosedProjectRepositoryAdapterLifeAreaTests: XCTestCase {
         waitForExpectations(timeout: 1.0)
         XCTAssertTrue(repository.backfillCalls.isEmpty)
     }
+
+    func testProjectRepositoryStubUpdateRejectsUnknownID() {
+        let existingProject = Project(id: UUID(), lifeAreaID: UUID(), name: "Existing", projectDescription: nil)
+        let missingProject = Project(id: UUID(), lifeAreaID: UUID(), name: "Missing", projectDescription: nil)
+        let repository = ProjectRepositoryStub(projects: [existingProject])
+
+        let expectation = expectation(description: "missing project update rejected")
+        repository.updateProject(missingProject) { result in
+            switch result {
+            case .success:
+                XCTFail("Expected missing-ID update to fail")
+            case .failure(let error):
+                let nsError = error as NSError
+                XCTAssertEqual(nsError.domain, "ProjectRepository")
+                XCTAssertEqual(nsError.code, 404)
+                XCTAssertEqual(nsError.localizedDescription, "Project not found")
+            }
+            expectation.fulfill()
+        }
+
+        waitForExpectations(timeout: 1.0)
+        XCTAssertEqual(repository.projects.count, 1)
+        XCTAssertEqual(repository.projects.first?.id, existingProject.id)
+    }
+}
+
+final class LifeAreaProjectDropValidationTests: XCTestCase {
+    func testValidateDropRequiresAllowedTargetAndTextPayload() {
+        XCTAssertTrue(
+            lifeAreaProjectDropIsValid(
+                acceptsDrop: true,
+                canDropProject: true,
+                hasTextItem: true
+            )
+        )
+        XCTAssertFalse(
+            lifeAreaProjectDropIsValid(
+                acceptsDrop: true,
+                canDropProject: false,
+                hasTextItem: true
+            )
+        )
+        XCTAssertFalse(
+            lifeAreaProjectDropIsValid(
+                acceptsDrop: true,
+                canDropProject: true,
+                hasTextItem: false
+            )
+        )
+    }
 }
 
 private final class ProjectRepositoryStub: ProjectRepositoryProtocol {
@@ -811,11 +861,19 @@ private final class ProjectRepositoryStub: ProjectRepositoryProtocol {
     }
 
     func updateProject(_ project: Project, completion: @escaping (Result<Project, Error>) -> Void) {
-        if let index = projects.firstIndex(where: { $0.id == project.id }) {
-            projects[index] = project
-        } else {
-            projects.append(project)
+        guard let index = projects.firstIndex(where: { $0.id == project.id }) else {
+            completion(
+                .failure(
+                    NSError(
+                        domain: "ProjectRepository",
+                        code: 404,
+                        userInfo: [NSLocalizedDescriptionKey: "Project not found"]
+                    )
+                )
+            )
+            return
         }
+        projects[index] = project
         completion(.success(project))
     }
 
