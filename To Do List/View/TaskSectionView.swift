@@ -130,6 +130,7 @@ struct TaskSectionView: View {
     let isGamificationV2Enabled: Bool
     let completedCollapsed: Bool?
     let isTaskDragEnabled: Bool
+    let highlightedTaskID: UUID?
     private let derivedState: TaskSectionDerivedState
     var onTaskTap: ((TaskDefinition) -> Void)?
     var onToggleComplete: ((TaskDefinition) -> Void)?
@@ -158,6 +159,7 @@ struct TaskSectionView: View {
         isGamificationV2Enabled: Bool = V2FeatureFlags.gamificationV2Enabled,
         completedCollapsed: Bool? = nil,
         isTaskDragEnabled: Bool = false,
+        highlightedTaskID: UUID? = nil,
         onTaskTap: ((TaskDefinition) -> Void)? = nil,
         onToggleComplete: ((TaskDefinition) -> Void)? = nil,
         onDeleteTask: ((TaskDefinition) -> Void)? = nil,
@@ -176,6 +178,7 @@ struct TaskSectionView: View {
         self.isGamificationV2Enabled = isGamificationV2Enabled
         self.completedCollapsed = completedCollapsed
         self.isTaskDragEnabled = isTaskDragEnabled
+        self.highlightedTaskID = highlightedTaskID
         self.derivedState = TaskSectionDerivedState(tasks: tasks)
         self.onTaskTap = onTaskTap
         self.onToggleComplete = onToggleComplete
@@ -238,6 +241,7 @@ struct TaskSectionView: View {
                     todayXPSoFar: todayXPSoFar,
                     isGamificationV2Enabled: isGamificationV2Enabled,
                     isTaskDragEnabled: isTaskDragEnabled,
+                    highlightedTaskID: highlightedTaskID,
                     onTap: { onTaskTap?(item.task) },
                     onToggleComplete: { onToggleComplete?(item.task) },
                     onDelete: { onDeleteTask?(item.task) },
@@ -245,6 +249,7 @@ struct TaskSectionView: View {
                     onTaskDragStarted: onTaskDragStarted
                 )
                 .equatable()
+                .id(item.task.id)
                 .enhancedStaggeredAppearance(index: item.index)
             }
 
@@ -263,12 +268,14 @@ struct TaskSectionView: View {
                             todayXPSoFar: todayXPSoFar,
                             isGamificationV2Enabled: isGamificationV2Enabled,
                             isTaskDragEnabled: false,
+                            highlightedTaskID: highlightedTaskID,
                             onTap: { onTaskTap?(item.task) },
                             onToggleComplete: { onToggleComplete?(item.task) },
                             onDelete: { onDeleteTask?(item.task) },
                             onReschedule: { onRescheduleTask?(item.task) }
                         )
                         .equatable()
+                        .id(item.task.id)
                         .enhancedStaggeredAppearance(index: item.index + derivedState.openRenderItems.count + 1)
                     }
                 }

@@ -110,10 +110,9 @@ public final class LifeManagementViewModel: ObservableObject {
     @Published public private(set) var projectArchivePreview: ProjectArchivePreview?
     @Published public private(set) var iconPickerContext: LifeAreaIconPickerContext?
 
-    public let suggestedLifeAreasCatalog: [LifeAreaSuggestion] = [
-        LifeAreaSuggestion(name: "Health", icon: "heart.fill", colorHex: "#22C55E"),
-        LifeAreaSuggestion(name: "Career", icon: "briefcase.fill", colorHex: "#3B82F6")
-    ]
+    public let suggestedLifeAreasCatalog: [LifeAreaSuggestion] = StarterWorkspaceCatalog.allLifeAreas.map {
+        LifeAreaSuggestion(name: $0.name, icon: $0.icon, colorHex: $0.colorHex)
+    }
 
     public let lifeAreaIconCatalog: [LifeAreaIconOption] = [
         LifeAreaIconOption(symbolName: "square.grid.2x2", keywords: ["general", "default", "grid"]),

@@ -5521,6 +5521,136 @@ final class AddTaskViewModelTagCreationTests: XCTestCase {
     }
 }
 
+@MainActor
+final class AddTaskViewModelAISuggestionPerformanceTests: XCTestCase {
+    override func tearDown() {
+        V2FeatureFlags.assistantCopilotEnabled = true
+        UserDefaults.standard.removeObject(forKey: "currentModelName")
+        UserDefaults.standard.removeObject(forKey: "installedModels")
+        super.tearDown()
+    }
+
+    func testDeferredRefineKeepsInstantSuggestionWhenRuntimeIsCold() {
+        V2FeatureFlags.assistantCopilotEnabled = true
+
+        let manageProjectsUseCase = ManageProjectsUseCase(
+            projectRepository: MockProjectRepository(projects: [Project.createInbox()])
+        )
+        let createTaskUseCase = CreateTaskDefinitionUseCase(
+            repository: NoopTaskDefinitionRepository(),
+            taskTagLinkRepository: nil,
+            taskDependencyRepository: nil
+        )
+
+        var refineInvocationCount = 0
+        let aiSuggestionService = AISuggestionService(
+            llm: LLMEvaluator(),
+            generateOutput: { _, _, _, _, _ in
+                refineInvocationCount += 1
+                return """
+                {"priority":"high","energy":"high","type":"morning","context":"computer","rationale":"refined","confidence":0.9}
+                """
+            }
+        )
+
+        let viewModel = AddTaskViewModel(
+            taskReadModelRepository: nil,
+            manageProjectsUseCase: manageProjectsUseCase,
+            createTaskDefinitionUseCase: createTaskUseCase,
+            rescheduleTaskDefinitionUseCase: nil,
+            manageLifeAreasUseCase: nil,
+            manageSectionsUseCase: nil,
+            manageTagsUseCase: nil,
+            gamificationEngine: nil,
+            aiSuggestionService: aiSuggestionService,
+            isAISuggestionRefinementReady: { false }
+        )
+
+        let expectation = expectation(description: "heuristic suggestion surfaced")
+        viewModel.taskName = "call pharmacy before lunch"
+
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.9) {
+            XCTAssertEqual(refineInvocationCount, 0)
+            XCTAssertNotNil(viewModel.aiSuggestion)
+            XCTAssertNil(viewModel.aiSuggestion?.modelName)
+            XCTAssertFalse(viewModel.aiSuggestionIsRefined)
+            XCTAssertFalse(viewModel.isGeneratingSuggestion)
+            expectation.fulfill()
+        }
+
+        waitForExpectations(timeout: 1.5)
+    }
+
+    func testRapidTypingCancelsStaleRefineBeforePublishing() {
+        V2FeatureFlags.assistantCopilotEnabled = true
+        configureInstalledModels([ModelConfiguration.qwen_3_0_6b_4bit.name])
+
+        let manageProjectsUseCase = ManageProjectsUseCase(
+            projectRepository: MockProjectRepository(projects: [Project.createInbox()])
+        )
+        let createTaskUseCase = CreateTaskDefinitionUseCase(
+            repository: NoopTaskDefinitionRepository(),
+            taskTagLinkRepository: nil,
+            taskDependencyRepository: nil
+        )
+
+        let aiSuggestionService = AISuggestionService(
+            llm: LLMEvaluator(),
+            generateOutput: { _, thread, _, _, _ in
+                let prompt = thread.messages.first?.content ?? ""
+                if prompt.contains("draft weekly plan for team sync") {
+                    try? await Task.sleep(nanoseconds: 600_000_000)
+                    return """
+                    {"priority":"high","energy":"high","type":"morning","context":"computer","rationale":"stale-first","confidence":0.9}
+                    """
+                }
+
+                try? await Task.sleep(nanoseconds: 120_000_000)
+                return """
+                {"priority":"low","energy":"medium","type":"evening","context":"anywhere","rationale":"latest-second","confidence":0.7}
+                """
+            }
+        )
+
+        let viewModel = AddTaskViewModel(
+            taskReadModelRepository: nil,
+            manageProjectsUseCase: manageProjectsUseCase,
+            createTaskDefinitionUseCase: createTaskUseCase,
+            rescheduleTaskDefinitionUseCase: nil,
+            manageLifeAreasUseCase: nil,
+            manageSectionsUseCase: nil,
+            manageTagsUseCase: nil,
+            gamificationEngine: nil,
+            aiSuggestionService: aiSuggestionService,
+            isAISuggestionRefinementReady: { true }
+        )
+
+        let expectation = expectation(description: "latest refined suggestion wins")
+        viewModel.taskName = "draft weekly plan for team sync"
+
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.72) {
+            viewModel.taskName = "call dentist after standup"
+        }
+
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.8) {
+            XCTAssertEqual(viewModel.taskName, "call dentist after standup")
+            XCTAssertEqual(viewModel.aiSuggestion?.rationale, "latest-second")
+            XCTAssertEqual(viewModel.aiSuggestion?.type, .evening)
+            XCTAssertTrue(viewModel.aiSuggestionIsRefined)
+            XCTAssertFalse(viewModel.isGeneratingSuggestion)
+            expectation.fulfill()
+        }
+
+        waitForExpectations(timeout: 2.5)
+    }
+
+    private func configureInstalledModels(_ models: [String]) {
+        let data = try? JSONEncoder().encode(models)
+        UserDefaults.standard.set(data, forKey: "installedModels")
+        UserDefaults.standard.removeObject(forKey: "currentModelName")
+    }
+}
+
 final class RecurringTaskSeriesMaterializationTests: XCTestCase {
     func testCreateDailyRecurringTaskMaterializesConcreteSeriesWithSharedSeriesID() throws {
         let repository = InMemoryTaskDefinitionRepositoryStub()
@@ -5858,7 +5988,83 @@ final class TaskDefinitionClearFlagPersistenceTests: XCTestCase {
     }
 }
 
+private final class CountingTaskDefinitionRepositorySpy: TaskDefinitionRepositoryProtocol {
+    private let base: InMemoryTaskDefinitionRepositoryStub
+    private(set) var fetchAllInvocationCount = 0
+
+    init(seed: [TaskDefinition] = []) {
+        self.base = InMemoryTaskDefinitionRepositoryStub(seed: seed)
+    }
+
+    func fetchAll(completion: @escaping (Result<[TaskDefinition], Error>) -> Void) {
+        fetchAllInvocationCount += 1
+        base.fetchAll(completion: completion)
+    }
+
+    func fetchAll(query: TaskDefinitionQuery?, completion: @escaping (Result<[TaskDefinition], Error>) -> Void) {
+        fetchAllInvocationCount += 1
+        base.fetchAll(query: query, completion: completion)
+    }
+
+    func fetchTaskDefinition(id: UUID, completion: @escaping (Result<TaskDefinition?, Error>) -> Void) {
+        base.fetchTaskDefinition(id: id, completion: completion)
+    }
+
+    func create(_ task: TaskDefinition, completion: @escaping (Result<TaskDefinition, Error>) -> Void) {
+        base.create(task, completion: completion)
+    }
+
+    func create(request: CreateTaskDefinitionRequest, completion: @escaping (Result<TaskDefinition, Error>) -> Void) {
+        base.create(request: request, completion: completion)
+    }
+
+    func update(_ task: TaskDefinition, completion: @escaping (Result<TaskDefinition, Error>) -> Void) {
+        base.update(task, completion: completion)
+    }
+
+    func update(request: UpdateTaskDefinitionRequest, completion: @escaping (Result<TaskDefinition, Error>) -> Void) {
+        base.update(request: request, completion: completion)
+    }
+
+    func fetchChildren(parentTaskID: UUID, completion: @escaping (Result<[TaskDefinition], Error>) -> Void) {
+        base.fetchChildren(parentTaskID: parentTaskID, completion: completion)
+    }
+
+    func delete(id: UUID, completion: @escaping (Result<Void, Error>) -> Void) {
+        base.delete(id: id, completion: completion)
+    }
+}
+
 final class TaskNotificationOrchestratorTests: XCTestCase {
+    func testReconcileCoalescesBurstReasonsIntoSingleFetchPass() {
+        let notificationService = CapturingNotificationService()
+        let repository = CountingTaskDefinitionRepositorySpy(seed: [])
+        let calendar = Calendar(identifier: .gregorian, timeZoneID: "UTC")
+        let nowDate = makeUTCDate(year: 2026, month: 2, day: 24, hour: 7, minute: 30)
+        let store = makePreferencesStore()
+
+        let orchestrator = TaskNotificationOrchestrator(
+            taskRepository: repository,
+            notificationService: notificationService,
+            preferencesStore: store,
+            calendar: calendar,
+            now: { nowDate },
+            reconcileDebounceInterval: 0.05
+        )
+
+        let expectation = expectation(description: "coalesced reconcile finished")
+        orchestrator.reconcile(reason: "scene_active")
+        orchestrator.reconcile(reason: "scene_foreground")
+        orchestrator.reconcile(reason: "scene_background")
+
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) {
+            XCTAssertEqual(repository.fetchAllInvocationCount, 1)
+            expectation.fulfill()
+        }
+
+        waitForExpectations(timeout: 1.0)
+    }
+
     func testDailyNotificationsUseDefaultTimesAndFallbackCopy() {
         let notificationService = CapturingNotificationService()
         let repository = InMemoryTaskDefinitionRepositoryStub(seed: [])
@@ -7363,8 +7569,8 @@ final class InsightsViewModelPerformanceLogicTests: XCTestCase {
                 energy: .medium,
                 context: .office,
                 dueDate: overdueDate,
-                estimatedDuration: 7_200,
-                dependencies: [TaskDependencyLinkDefinition(taskID: UUID(), dependsOnTaskID: UUID(), kind: .blocks, createdAt: Date())]
+                dependencies: [TaskDependencyLinkDefinition(taskID: UUID(), dependsOnTaskID: UUID(), kind: .blocks, createdAt: Date())],
+                estimatedDuration: 7_200
             )
         ]
         let readModel = InMemoryTaskReadModelRepositoryStub(tasks: tasks)

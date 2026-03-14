@@ -76,6 +76,11 @@ class SettingsPageViewController: UIViewController, PresentationDependencyContai
         viewModel.onNavigateToModels = { [weak self] in
             self?.navigateToLLMModelsSettings()
         }
+        viewModel.onRestartOnboarding = { [weak self] in
+            self?.dismiss(animated: true) {
+                NotificationCenter.default.post(name: .taskerStartOnboardingRequested, object: nil)
+            }
+        }
         viewModel.onDismiss = { [weak self] in
             self?.doneTapped()
         }

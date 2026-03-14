@@ -8,6 +8,84 @@
 import Foundation
 import Combine
 
+public enum AddTaskPrefillDueIntent: Equatable {
+    case none
+    case today
+    case exact(Date)
+
+    func resolvedDate(now: Date = Date(), calendar: Calendar = .current) -> Date? {
+        switch self {
+        case .none:
+            return nil
+        case .today:
+            return DatePreset.today.resolvedDueDate(anchorDate: now, calendar: calendar)
+        case .exact(let date):
+            return date
+        }
+    }
+}
+
+public struct AddTaskPrefillTemplate: Equatable {
+    public let title: String
+    public let details: String?
+    public let projectID: UUID?
+    public let projectName: String?
+    public let lifeAreaID: UUID?
+    public let priority: TaskPriority
+    public let type: TaskType
+    public let dueDateIntent: AddTaskPrefillDueIntent
+    public let estimatedDuration: TimeInterval?
+    public let energy: TaskEnergy
+    public let category: TaskCategory
+    public let context: TaskContext
+    public let showMoreDetails: Bool
+    public let showAdvancedPlanning: Bool
+
+    /// Initializes a new instance.
+    public init(
+        title: String,
+        details: String? = nil,
+        projectID: UUID? = nil,
+        projectName: String? = nil,
+        lifeAreaID: UUID? = nil,
+        priority: TaskPriority = .low,
+        type: TaskType = .morning,
+        dueDateIntent: AddTaskPrefillDueIntent? = nil,
+        dueDate: Date? = Date(),
+        estimatedDuration: TimeInterval? = nil,
+        energy: TaskEnergy = .medium,
+        category: TaskCategory = .general,
+        context: TaskContext = .anywhere,
+        showMoreDetails: Bool = false,
+        showAdvancedPlanning: Bool = false
+    ) {
+        self.title = title
+        self.details = details
+        self.projectID = projectID
+        self.projectName = projectName
+        self.lifeAreaID = lifeAreaID
+        self.priority = priority
+        self.type = type
+        if let dueDateIntent {
+            self.dueDateIntent = dueDateIntent
+        } else if let dueDate {
+            self.dueDateIntent = .exact(dueDate)
+        } else {
+            self.dueDateIntent = .none
+        }
+        self.estimatedDuration = estimatedDuration
+        self.energy = energy
+        self.category = category
+        self.context = context
+        self.showMoreDetails = showMoreDetails
+        self.showAdvancedPlanning = showAdvancedPlanning
+    }
+
+    public var dueDate: Date? {
+        dueDateIntent.resolvedDate()
+    }
+}
+
 /// ViewModel for the Add Task screen
 /// Manages task creation state and validation
 public final class AddTaskViewModel: ObservableObject {
@@ -88,9 +166,12 @@ public final class AddTaskViewModel: ObservableObject {
     private let manageTagsUseCase: ManageTagsUseCase?
     private let gamificationEngine: GamificationEngine?
     private let aiSuggestionService: AISuggestionService?
+    private let isAISuggestionRefinementReady: @MainActor () -> Bool
     private var cancellables = Set<AnyCancellable>()
     private var suggestionTask: Task<Void, Never>?
     private var suggestionRequestToken = UUID()
+    private var pendingPrefillTemplate: AddTaskPrefillTemplate?
+    private let suggestionDebounceMilliseconds = 650
     
     // MARK: - Initialization
     
@@ -104,7 +185,8 @@ public final class AddTaskViewModel: ObservableObject {
         manageSectionsUseCase: ManageSectionsUseCase? = nil,
         manageTagsUseCase: ManageTagsUseCase? = nil,
         gamificationEngine: GamificationEngine? = nil,
-        aiSuggestionService: AISuggestionService? = nil
+        aiSuggestionService: AISuggestionService? = nil,
+        isAISuggestionRefinementReady: (@MainActor () -> Bool)? = nil
     ) {
         self.taskReadModelRepository = taskReadModelRepository
         self.manageProjectsUseCase = manageProjectsUseCase
@@ -115,6 +197,10 @@ public final class AddTaskViewModel: ObservableObject {
         self.manageTagsUseCase = manageTagsUseCase
         self.gamificationEngine = gamificationEngine
         self.aiSuggestionService = aiSuggestionService
+        self.isAISuggestionRefinementReady = isAISuggestionRefinementReady ?? {
+            let evaluator = LLMRuntimeCoordinator.shared.evaluator
+            return evaluator.loadedModelName != nil && evaluator.runtimePhase != .preparing
+        }
 
         setupValidation()
         setupAISuggestionPipeline()
@@ -136,6 +222,8 @@ public final class AddTaskViewModel: ObservableObject {
             return
         }
 
+        lastCreatedTaskID = nil
+        isTaskCreated = false
         isLoading = true
         errorMessage = nil
         
@@ -237,6 +325,7 @@ public final class AddTaskViewModel: ObservableObject {
                         self?.selectedParentTaskID = nil
                         self?.selectedDependencyTaskIDs = []
                     }
+                    self?.applyPendingPrefillIfPossible()
                     
                 case .failure(let error):
                     self?.errorMessage = error.localizedDescription
@@ -261,6 +350,12 @@ public final class AddTaskViewModel: ObservableObject {
                 }
             }
         }
+    }
+
+    /// Apply a prefill template without bypassing the normal create-task flow.
+    public func applyPrefill(_ template: AddTaskPrefillTemplate) {
+        pendingPrefillTemplate = template
+        applyPendingPrefillIfPossible()
     }
 
     /// Create a tag inline from Add Task and select it on success.
@@ -363,6 +458,8 @@ public final class AddTaskViewModel: ObservableObject {
         validationErrors = []
         errorMessage = nil
         isTaskCreated = false
+        lastCreatedTaskID = nil
+        pendingPrefillTemplate = nil
         aiSuggestion = nil
         isGeneratingSuggestion = false
         aiSuggestionIsRefined = false
@@ -459,7 +556,7 @@ public final class AddTaskViewModel: ObservableObject {
             return
         }
         $taskName
-            .debounce(for: .milliseconds(300), scheduler: RunLoop.main)
+            .debounce(for: .milliseconds(suggestionDebounceMilliseconds), scheduler: RunLoop.main)
             .removeDuplicates()
             .sink { [weak self] taskName in
                 guard let self else { return }
@@ -537,16 +634,38 @@ public final class AddTaskViewModel: ObservableObject {
             )
         }
 
+        guard isAISuggestionRefinementReady() else {
+            isGeneratingSuggestion = false
+            aiSuggestionIsRefined = false
+            logWarning(
+                event: "assistant_refine_deferred",
+                message: "Add-task suggestion refine skipped until AI runtime is warm",
+                fields: [
+                    "surface": "add_task",
+                    "reason": "runtime_not_ready"
+                ]
+            )
+            return
+        }
+
         isGeneratingSuggestion = true
+        let refineInterval = TaskerPerformanceTrace.begin("AddTaskSuggestionRefine")
         suggestionTask = Task { [weak self] in
-            guard let self else { return }
+            guard let self else {
+                TaskerPerformanceTrace.end(refineInterval)
+                return
+            }
             let suggestion = await aiSuggestionService.refineFieldSuggestion(
                 for: titleAtRequestStart,
                 projectName: self.selectedProject
             )
-            guard Task.isCancelled == false else { return }
+            guard Task.isCancelled == false else {
+                TaskerPerformanceTrace.end(refineInterval)
+                return
+            }
 
             await MainActor.run {
+                defer { TaskerPerformanceTrace.end(refineInterval) }
                 guard self.suggestionRequestToken == requestToken else {
                     self.isGeneratingSuggestion = false
                     return
@@ -656,6 +775,7 @@ public final class AddTaskViewModel: ObservableObject {
                     } else {
                         self.selectedLifeAreaID = dedupedAreas.first?.id
                     }
+                    self.applyPendingPrefillIfPossible()
                 case .failure(let error):
                     self?.errorMessage = error.localizedDescription
                 }
@@ -700,6 +820,79 @@ public final class AddTaskViewModel: ObservableObject {
     private func normalizedLifeAreaName(_ name: String) -> String {
         let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
         return (trimmed.isEmpty ? "General" : trimmed).lowercased()
+    }
+
+    /// Executes applyPendingPrefillIfPossible.
+    private func applyPendingPrefillIfPossible() {
+        guard let template = pendingPrefillTemplate else { return }
+
+        taskName = template.title
+        taskDetails = template.details ?? ""
+        selectedPriority = template.priority
+        selectedType = template.type
+        selectedEnergy = template.energy
+        selectedCategory = template.category
+        selectedContext = template.context
+        estimatedDuration = template.estimatedDuration
+        dueDate = template.dueDateIntent.resolvedDate()
+        showMoreDetails = template.showMoreDetails
+        showAdvancedPlanning = template.showAdvancedPlanning
+
+        var resolvedAllSelections = true
+
+        if let lifeAreaID = template.lifeAreaID {
+            selectedLifeAreaID = lifeAreaID
+            if lifeAreas.contains(where: { $0.id == lifeAreaID }) {
+                // Keep the explicit prefill selection.
+            } else {
+                resolvedAllSelections = false
+            }
+        }
+
+        if let project = resolveProjectForPrefill(template) {
+            selectedProject = project.name
+            if let projectLifeAreaID = project.lifeAreaID {
+                selectedLifeAreaID = template.lifeAreaID ?? projectLifeAreaID
+            }
+            loadSections(projectID: project.id)
+            loadTaskMetadataOptions(projectID: project.id)
+        } else if let projectName = template.projectName?.trimmingCharacters(in: .whitespacesAndNewlines),
+                  projectName.isEmpty == false {
+            selectedProject = projectName
+            resolvedAllSelections = false
+        } else if template.projectID != nil {
+            resolvedAllSelections = false
+        }
+
+        validationErrors = []
+        errorMessage = nil
+
+        if resolvedAllSelections {
+            pendingPrefillTemplate = nil
+        }
+    }
+
+    /// Executes resolveProjectForPrefill.
+    private func resolveProjectForPrefill(_ template: AddTaskPrefillTemplate) -> Project? {
+        if let projectID = template.projectID,
+           let project = projects.first(where: { $0.id == projectID }) {
+            return project
+        }
+
+        guard let projectName = template.projectName?.trimmingCharacters(in: .whitespacesAndNewlines),
+              projectName.isEmpty == false else {
+            return nil
+        }
+
+        let normalizedProjectName = projectName.lowercased()
+        return projects.first(where: {
+            $0.name.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() == normalizedProjectName
+        })
+    }
+
+    private func hasNonEmptyProjectName(_ template: AddTaskPrefillTemplate) -> Bool {
+        guard let projectName = template.projectName else { return false }
+        return projectName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false
     }
 
     /// Executes loadSections.

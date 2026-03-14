@@ -36,12 +36,12 @@ struct SettingsRootView: View {
     private var phoneSettingsBody: some View {
         VStack(spacing: 0) {
             workspaceSection(baseIndex: 1)
-            notificationsSection(baseIndex: 5)
+            notificationsSection(baseIndex: 6)
             SettingsFooterView(
                 version: viewModel.appVersion,
                 build: viewModel.buildNumber
             )
-            .enhancedStaggeredAppearance(index: 11)
+            .enhancedStaggeredAppearance(index: 12)
         }
     }
 
@@ -54,7 +54,7 @@ struct SettingsRootView: View {
                 .frame(maxWidth: 520, alignment: .top)
 
                 VStack(spacing: 0) {
-                    notificationsSection(baseIndex: 5, includeHorizontalPadding: false)
+                    notificationsSection(baseIndex: 6, includeHorizontalPadding: false)
                 }
                 .frame(maxWidth: 520, alignment: .top)
             }
@@ -69,18 +69,18 @@ struct SettingsRootView: View {
                 build: viewModel.buildNumber
             )
             .padding(.top, spacing.sectionGap)
-            .enhancedStaggeredAppearance(index: 13)
+            .enhancedStaggeredAppearance(index: 14)
         }
     }
 
     private var keyboardShortcutsSection: some View {
         VStack(spacing: 0) {
             SettingsSectionHeader(title: "Keyboard Shortcuts")
-                .enhancedStaggeredAppearance(index: 11)
+                .enhancedStaggeredAppearance(index: 12)
                 .padding(.top, spacing.sectionGap)
 
             KeyboardShortcutsCard()
-                .enhancedStaggeredAppearance(index: 12)
+                .enhancedStaggeredAppearance(index: 13)
                 .padding(.top, spacing.s12)
                 .frame(maxWidth: 520, alignment: .leading)
         }
@@ -130,10 +130,48 @@ struct SettingsRootView: View {
                 }
                 .cardPressEffect()
                 .enhancedStaggeredAppearance(index: baseIndex + 3)
+
+                onboardingReplayCard
+                    .enhancedStaggeredAppearance(index: baseIndex + 4)
             }
             .padding(.horizontal, includeHorizontalPadding ? spacing.screenHorizontal : 0)
             .padding(.top, spacing.s12)
         }
+    }
+
+    private var onboardingReplayCard: some View {
+        TaskerCard {
+            VStack(alignment: .leading, spacing: spacing.s12) {
+                HStack(alignment: .top, spacing: spacing.s12) {
+                    Image(systemName: "sparkles")
+                        .font(.system(size: 18, weight: .semibold))
+                        .foregroundColor(Color.tasker.accentPrimary)
+                        .frame(width: 28, height: 28)
+
+                    VStack(alignment: .leading, spacing: spacing.s4) {
+                        Text("Guided Setup")
+                            .font(.tasker(.headline))
+                            .foregroundColor(Color.tasker.textPrimary)
+                        Text("Replay onboarding any time to rebuild momentum using your real workspace.")
+                            .font(.tasker(.caption1))
+                            .foregroundColor(Color.tasker.textSecondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                }
+
+                Button(action: viewModel.restartOnboarding) {
+                    Text("Restart onboarding")
+                        .font(.tasker(.buttonSmall))
+                        .foregroundColor(Color.tasker.accentPrimary)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.vertical, spacing.s8)
+                }
+                .buttonStyle(.plain)
+                .accessibilityIdentifier("settings.onboarding.restartButton")
+            }
+            .padding(spacing.s16)
+        }
+        .accessibilityIdentifier("settings.onboarding.card")
     }
 
     private func notificationsSection(baseIndex: Int, includeHorizontalPadding: Bool = true) -> some View {
