@@ -169,7 +169,17 @@ struct HomeTasksSnapshot: Equatable {
             || !overdueTasks.isEmpty
             || !inlineCompletedTasks.isEmpty
             || !doneTimelineTasks.isEmpty
+            || rendersDefaultTodayEmptyState
             || emptyStateMessage != nil
+    }
+
+    var rendersDefaultTodayEmptyState: Bool {
+        activeQuickView == .today
+            && morningTasks.isEmpty
+            && eveningTasks.isEmpty
+            && overdueTasks.isEmpty
+            && inlineCompletedTasks.isEmpty
+            && doneTimelineTasks.isEmpty
     }
 }
 
@@ -633,29 +643,18 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
 
         let sceneToken = onboardingEvaluationSceneToken
         pendingOnboardingEvaluationTask = Task { @MainActor [weak self] in
-            do {
-                try await Task.sleep(nanoseconds: 2_000_000_000)
-            } catch {
-                return
-            }
-            guard let self, Task.isCancelled == false else { return }
-            defer { self.pendingOnboardingEvaluationTask = nil }
-            guard sceneToken == self.onboardingEvaluationSceneToken else { return }
-            guard self.isViewLoaded, self.view.window != nil else { return }
-            guard self.faceCoordinator.shellPhase == .interactive else { return }
-            guard self.faceCoordinator.activeFace == .tasks else { return }
-            guard self.presentedViewController == nil else { return }
-            let interval = TaskerPerformanceTrace.begin("HomeOnboardingLaunchEval")
-            self.onboardingCoordinator?.evaluateLaunchIfNeeded()
-            self.onboardingCoordinator?.drainPendingPresentationIfPossible()
-            TaskerPerformanceTrace.end(interval)
-            self.completedOnboardingEvaluationSceneToken = sceneToken
+            await self?.runOnboardingEvaluationAfterDelay(sceneToken: sceneToken)
         }
     }
 
     private func handleInsightsLaunchRequest(_ request: InsightsLaunchRequest?) {
         guard let request else { return }
         pendingInsightsLaunchRequest = request
+        if faceCoordinator.activeFace == .analytics {
+            scheduleInsightsPreparationIfNeeded()
+            applyPendingInsightsLaunchRequestIfNeeded()
+            return
+        }
         openAnalytics(source: "launch_request", launchDefaultInsights: false)
     }
 
@@ -694,6 +693,56 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
             metadata: ["source": source]
         )
         scheduleInsightsPreparationIfNeeded()
+    }
+
+    @MainActor
+    func runOnboardingEvaluationAfterDelay(
+        sceneToken: Int,
+        sleepNanoseconds: UInt64 = 2_000_000_000,
+        retry: (@MainActor () -> Void)? = nil
+    ) async {
+        let clear = { [weak self] in
+            self?.pendingOnboardingEvaluationTask = nil
+        }
+        defer { clear() }
+
+        do {
+            try await Task.sleep(nanoseconds: sleepNanoseconds)
+        } catch {
+            return
+        }
+
+        guard Task.isCancelled == false else { return }
+        let retryEvaluation = retry ?? { [weak self] in
+            self?.scheduleOnboardingEvaluationIfNeeded()
+        }
+
+        guard sceneToken == self.onboardingEvaluationSceneToken else {
+            retryEvaluation()
+            return
+        }
+        guard self.isViewLoaded, self.view.window != nil else {
+            retryEvaluation()
+            return
+        }
+        guard self.faceCoordinator.shellPhase == .interactive else {
+            retryEvaluation()
+            return
+        }
+        guard self.faceCoordinator.activeFace == .tasks else {
+            retryEvaluation()
+            return
+        }
+        guard self.presentedViewController == nil else {
+            retryEvaluation()
+            return
+        }
+
+        let interval = TaskerPerformanceTrace.begin("HomeOnboardingLaunchEval")
+        self.onboardingCoordinator?.evaluateLaunchIfNeeded()
+        self.onboardingCoordinator?.drainPendingPresentationIfPossible()
+        TaskerPerformanceTrace.end(interval)
+        self.completedOnboardingEvaluationSceneToken = sceneToken
     }
 
     private func closeAnalytics(source: String) {
@@ -3142,3 +3191,34 @@ extension HomeViewController {
         processPendingIPadModalRequest()
     }
 }
+
+#if DEBUG
+extension HomeViewController {
+    func testingSetAnalyticsVisible(with insightsViewModel: InsightsViewModel?) {
+        self.insightsViewModel = insightsViewModel
+        faceCoordinator.insightsViewModel = insightsViewModel
+        faceCoordinator.setActiveFace(.analytics)
+        faceCoordinator.setAnalyticsSurfaceState(insightsViewModel == nil ? .placeholder : .ready)
+    }
+
+    func testingHandleInsightsLaunchRequest(_ request: InsightsLaunchRequest?) {
+        handleInsightsLaunchRequest(request)
+    }
+
+    var testingPendingInsightsLaunchRequest: InsightsLaunchRequest? {
+        pendingInsightsLaunchRequest
+    }
+
+    func testingSetPendingOnboardingEvaluationTask() {
+        pendingOnboardingEvaluationTask = Task {}
+    }
+
+    var testingHasPendingOnboardingEvaluationTask: Bool {
+        pendingOnboardingEvaluationTask != nil
+    }
+
+    func testingSetOnboardingEvaluationSceneToken(_ token: Int) {
+        onboardingEvaluationSceneToken = token
+    }
+}
+#endif

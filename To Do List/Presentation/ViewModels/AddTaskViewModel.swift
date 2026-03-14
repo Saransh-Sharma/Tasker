@@ -353,6 +353,7 @@ public final class AddTaskViewModel: ObservableObject {
     }
 
     /// Apply a prefill template without bypassing the normal create-task flow.
+    @MainActor
     public func applyPrefill(_ template: AddTaskPrefillTemplate) {
         pendingPrefillTemplate = template
         applyPendingPrefillIfPossible()
@@ -856,9 +857,7 @@ public final class AddTaskViewModel: ObservableObject {
             }
             loadSections(projectID: project.id)
             loadTaskMetadataOptions(projectID: project.id)
-        } else if let projectName = template.projectName?.trimmingCharacters(in: .whitespacesAndNewlines),
-                  projectName.isEmpty == false {
-            selectedProject = projectName
+        } else if hasNonEmptyProjectName(template) {
             resolvedAllSelections = false
         } else if template.projectID != nil {
             resolvedAllSelections = false

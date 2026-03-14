@@ -799,9 +799,9 @@ final class AppOnboardingCoordinator: NSObject {
         self.notificationCenter = notificationCenter
         self.eligibilityService = OnboardingEligibilityService(
             stateStore: stateStore,
-            lifeAreaRepository: EnhancedDependencyContainer.shared.lifeAreaRepository,
-            projectRepository: EnhancedDependencyContainer.shared.projectRepository,
-            taskRepository: EnhancedDependencyContainer.shared.taskDefinitionRepository
+            lifeAreaRepository: presentationDependencyContainer.coordinator.lifeAreaRepository,
+            projectRepository: presentationDependencyContainer.coordinator.projectRepository,
+            taskRepository: presentationDependencyContainer.coordinator.taskDefinitionRepository
         )
         super.init()
     }
@@ -1078,7 +1078,7 @@ final class AppOnboardingCoordinator: NSObject {
                 let lifeAreasByTemplateID = Dictionary(uniqueKeysWithValues: viewModel.resolvedLifeAreas.map {
                     ($0.template.id, $0.lifeArea)
                 })
-                let existingProjects = try await EnhancedDependencyContainer.shared.projectRepository.fetchAllProjectsAsync()
+                let existingProjects = try await presentationDependencyContainer.coordinator.projectRepository.fetchAllProjectsAsync()
                 let plans = StarterWorkspaceCatalog.resolveProjectSelections(
                     selected: viewModel.selectedProjectTemplates,
                     existing: existingProjects,
@@ -1261,7 +1261,7 @@ final class AppOnboardingCoordinator: NSObject {
     }
 
     private func fetchEligibleFallbackCompletedTask() async throws -> TaskDefinition? {
-        guard let repository = EnhancedDependencyContainer.shared.taskDefinitionRepository else { return nil }
+        let repository = presentationDependencyContainer.coordinator.taskDefinitionRepository
         let tasks = try await repository.fetchAllAsync()
         return tasks.first(where: isEligibleFallbackCompletion)
     }
@@ -1316,7 +1316,7 @@ final class AppOnboardingCoordinator: NSObject {
     }
 
     private func resolveCompletionTargetTask() async throws -> TaskDefinition? {
-        guard let taskRepository = EnhancedDependencyContainer.shared.taskDefinitionRepository else { return nil }
+        let taskRepository = presentationDependencyContainer.coordinator.taskDefinitionRepository
         for taskID in viewModel.createdTaskIDs {
             if let task = try await taskRepository.fetchTaskDefinitionAsync(id: taskID),
                task.isComplete == false {
@@ -1327,12 +1327,12 @@ final class AppOnboardingCoordinator: NSObject {
     }
 
     private func fetchExistingLifeAreas() async throws -> [LifeArea] {
-        guard let repository = EnhancedDependencyContainer.shared.lifeAreaRepository else { return [] }
+        let repository = presentationDependencyContainer.coordinator.lifeAreaRepository
         return try await repository.fetchAllAsync()
     }
 
     private func fetchTask(id: UUID) async throws -> TaskDefinition? {
-        guard let repository = EnhancedDependencyContainer.shared.taskDefinitionRepository else { return nil }
+        let repository = presentationDependencyContainer.coordinator.taskDefinitionRepository
         return try await repository.fetchTaskDefinitionAsync(id: id)
     }
 
