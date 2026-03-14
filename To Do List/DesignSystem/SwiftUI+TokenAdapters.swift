@@ -257,6 +257,25 @@ private struct TaskerElevationModifier: ViewModifier {
     }
 }
 
+private struct TaskerDenseSurfaceModifier: ViewModifier {
+    let cornerRadius: CGFloat
+    let fillColor: Color
+    let strokeColor: Color
+    let lineWidth: CGFloat
+
+    func body(content: Content) -> some View {
+        content
+            .background(
+                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                    .fill(fillColor)
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                    .stroke(strokeColor, lineWidth: lineWidth)
+            )
+    }
+}
+
 public extension View {
     /// Executes taskerElevation.
     @MainActor
@@ -266,6 +285,25 @@ public extension View {
         includesBorder: Bool = true
     ) -> some View {
         modifier(TaskerElevationModifier(level: level, cornerRadius: cornerRadius, includesBorder: includesBorder))
+    }
+
+    @MainActor
+    func taskerDenseSurface(
+        cornerRadius: CGFloat,
+        fillColor: Color? = nil,
+        strokeColor: Color? = nil,
+        lineWidth: CGFloat = 1
+    ) -> some View {
+        let resolvedFillColor = fillColor ?? Color.tasker.surfacePrimary
+        let resolvedStrokeColor = strokeColor ?? Color.tasker.strokeHairline
+        return modifier(
+            TaskerDenseSurfaceModifier(
+                cornerRadius: cornerRadius,
+                fillColor: resolvedFillColor,
+                strokeColor: resolvedStrokeColor,
+                lineWidth: lineWidth
+            )
+        )
     }
 
     /// Executes taskerLayoutClass.

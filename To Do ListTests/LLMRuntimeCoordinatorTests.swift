@@ -260,4 +260,26 @@ final class LLMRuntimeCoordinatorTests: XCTestCase {
         try? await _Concurrency.Task.sleep(nanoseconds: 250_000_000)
         XCTAssertEqual(prepareCallCount, 0)
     }
+
+    func testDeferredChatEntryPrewarmDedupesMatchingRequests() async {
+        V2FeatureFlags.llmChatPrewarmMode = .adaptiveOnDemand
+        V2FeatureFlags.iPadPerfDeferLLMPrewarmV2Enabled = true
+        let defaults = UserDefaults(suiteName: "LLMRuntimeCoordinatorTests.DeferredDedup.\(UUID().uuidString)")!
+        defaults.set("mlx-community/Qwen3-0.6B-4bit", forKey: "currentModelName")
+
+        var prepareCallCount = 0
+        let coordinator = LLMRuntimeCoordinator(
+            defaults: defaults,
+            prepareHandler: { _ in
+                prepareCallCount += 1
+                return LLMEvaluator.PrepareResult(wasAlreadyLoaded: false)
+            },
+            registerLifecycleObservers: false
+        )
+
+        coordinator.requestChatEntryPrewarm(trigger: "prompt_focus", delaySeconds: 0.05)
+        coordinator.requestChatEntryPrewarm(trigger: "prompt_focus", delaySeconds: 0.05)
+        try? await _Concurrency.Task.sleep(nanoseconds: 90_000_000)
+        XCTAssertEqual(prepareCallCount, 1)
+    }
 }

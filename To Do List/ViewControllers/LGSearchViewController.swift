@@ -966,6 +966,17 @@ class LGSearchViewController: UIViewController, UseCaseCoordinatorInjectable, Pr
                 }
                 self.viewModel.loadTaskDetailMetadata(projectID: projectID, completion: completion)
             },
+            onLoadRelationshipMetadata: { [weak self] projectID, completion in
+                guard let self else {
+                    completion(.failure(NSError(
+                        domain: "LGSearchViewController",
+                        code: 10,
+                        userInfo: [NSLocalizedDescriptionKey: "Search controller unavailable"]
+                    )))
+                    return
+                }
+                self.viewModel.loadTaskDetailRelationshipMetadata(projectID: projectID, completion: completion)
+            },
             onLoadChildren: { [weak self] parentTaskID, completion in
                 guard let self else {
                     completion(.failure(NSError(

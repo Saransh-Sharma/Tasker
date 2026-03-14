@@ -14,6 +14,7 @@ import SwiftUI
 public struct FocusZone: View {
     let tasks: [TaskDefinition]
     let canDrag: Bool
+    let shellPhase: HomeShellPhase
     let insightForTaskID: (UUID) -> EvaFocusTaskInsight?
     let onShuffle: () -> Void
     let onWhy: () -> Void
@@ -27,11 +28,13 @@ public struct FocusZone: View {
 
     private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.currentTheme.tokens.spacing }
     private var corner: TaskerCornerTokens { TaskerThemeManager.shared.currentTheme.tokens.corner }
+    private var prefersBudgetVisuals: Bool { shellPhase != .interactive }
 
     /// Initializes a new instance.
     public init(
         tasks: [TaskDefinition],
         canDrag: Bool,
+        shellPhase: HomeShellPhase = .interactive,
         insightForTaskID: @escaping (UUID) -> EvaFocusTaskInsight? = { _ in nil },
         onShuffle: @escaping () -> Void = {},
         onWhy: @escaping () -> Void = {},
@@ -43,6 +46,7 @@ public struct FocusZone: View {
     ) {
         self.tasks = tasks
         self.canDrag = canDrag
+        self.shellPhase = shellPhase
         self.insightForTaskID = insightForTaskID
         self.onShuffle = onShuffle
         self.onWhy = onWhy
@@ -94,22 +98,10 @@ public struct FocusZone: View {
                     lineWidth: 1
                 )
         )
-        .shadow(
-            color: Color.tasker.accentPrimary.opacity(0.06),
-            radius: 3,
-            x: 0,
-            y: 1
-        )
-        .shadow(
-            color: Color.tasker.accentPrimary.opacity(0.12),
-            radius: isTargeted ? 16 : 12,
-            x: 0,
-            y: 2
-        )
-        .scaleEffect(isTargeted ? 1.01 : 1.0)
-        .brightness(isTargeted ? 0.02 : 0)
+        .scaleEffect(prefersBudgetVisuals ? 1.0 : (isTargeted ? 1.01 : 1.0))
+        .brightness(prefersBudgetVisuals ? 0 : (isTargeted ? 0.02 : 0))
         .onDrop(of: ["public.text"], isTargeted: $isTargeted, perform: onDrop)
-        .animation(.spring(response: 0.3), value: isTargeted)
+        .animation(prefersBudgetVisuals ? .linear(duration: 0.01) : .spring(response: 0.3), value: isTargeted)
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("home.focus.dropzone")
     }
@@ -124,8 +116,8 @@ public struct FocusZone: View {
                     Image(systemName: "flame.fill")
                         .font(.system(size: 14, weight: .medium))
                         .foregroundColor(Color.tasker.accentPrimary)
-                        .symbolEffect(.pulse, options: .repeating.speed(0.5), isActive: !tasks.isEmpty)
-                        .breathingPulse(min: 0.8, max: 1.0, duration: 2.5)
+                        .symbolEffect(.pulse, options: .repeating.speed(0.5), isActive: !tasks.isEmpty && !prefersBudgetVisuals)
+                        .modifier(FocusBreathingModifier(isEnabled: !prefersBudgetVisuals, min: 0.8, max: 1.0, duration: 2.5))
 
                     // Title
                     Text("FOCUS NOW")
@@ -189,7 +181,7 @@ public struct FocusZone: View {
             Image(systemName: "hand.point.up.left")
                 .font(.system(size: 24, weight: .light))
                 .foregroundColor(Color.tasker.accentPrimary.opacity(0.4))
-                .breathingPulse(min: 0.3, max: 0.5, duration: 2.0)
+                .modifier(FocusBreathingModifier(isEnabled: !prefersBudgetVisuals, min: 0.3, max: 0.5, duration: 2.0))
 
             Text("Long-press a task to pin here")
                 .font(.tasker(.caption1))
@@ -223,10 +215,38 @@ public struct FocusZone: View {
                     onDragStarted: { onTaskDragStarted(task) }
                 )
                 .taskCompletionTransition(isComplete: task.isComplete)
-                .staggeredAppearance(index: index)
+                .modifier(FocusStaggerModifier(isEnabled: !prefersBudgetVisuals, index: index))
             }
         }
         .accessibilityIdentifier("home.focusZone.taskList")
+    }
+}
+
+private struct FocusBreathingModifier: ViewModifier {
+    let isEnabled: Bool
+    let min: Double
+    let max: Double
+    let duration: Double
+
+    func body(content: Content) -> some View {
+        if isEnabled {
+            content.breathingPulse(min: min, max: max, duration: duration)
+        } else {
+            content
+        }
+    }
+}
+
+private struct FocusStaggerModifier: ViewModifier {
+    let isEnabled: Bool
+    let index: Int
+
+    func body(content: Content) -> some View {
+        if isEnabled {
+            content.staggeredAppearance(index: index)
+        } else {
+            content
+        }
     }
 }
 

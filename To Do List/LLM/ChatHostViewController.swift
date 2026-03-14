@@ -100,7 +100,6 @@ class ChatHostViewController: UIViewController, PresentationDependencyContainerA
         super.viewDidAppear(animated)
         Task { @MainActor in
             LLMRuntimeCoordinator.shared.acquireSession(reason: "chat_host_visible")
-            LLMRuntimeCoordinator.shared.requestChatEntryPrewarm(trigger: "chat_host_visible")
         }
     }
 
@@ -289,6 +288,9 @@ class ChatHostViewController: UIViewController, PresentationDependencyContainerA
                 onLoadMetadata: { [weak self] projectID, completion in
                     self?.loadTaskDetailMetadata(projectID: projectID, completion: completion)
                 },
+                onLoadRelationshipMetadata: { [weak self] projectID, completion in
+                    self?.loadTaskDetailRelationshipMetadata(projectID: projectID, completion: completion)
+                },
                 onLoadChildren: { [weak self] parentTaskID, completion in
                     guard let self, let coordinator = self.resolvedUseCaseCoordinator else {
                         completion(.failure(NSError(
@@ -435,10 +437,7 @@ class ChatHostViewController: UIViewController, PresentationDependencyContainerA
         var firstError: Error?
 
         var loadedProjects: [Project] = cachedProjects
-        var loadedLifeAreas: [LifeArea] = []
         var loadedSections: [TaskerProjectSection] = []
-        var loadedTags: [TagDefinition] = []
-        var availableTasks: [TaskDefinition] = []
 
         func record(_ error: Error) {
             lock.lock()
@@ -460,22 +459,63 @@ class ChatHostViewController: UIViewController, PresentationDependencyContainerA
         }
 
         group.enter()
-        coordinator.manageLifeAreas.list { result in
-            defer { group.leave() }
-            switch result {
-            case .success(let lifeAreas):
-                loadedLifeAreas = lifeAreas
-            case .failure(let error):
-                record(error)
-            }
-        }
-
-        group.enter()
         coordinator.manageSections.list(projectID: projectID) { result in
             defer { group.leave() }
             switch result {
             case .success(let sections):
                 loadedSections = sections
+            case .failure(let error):
+                record(error)
+            }
+        }
+
+        group.notify(queue: .main) {
+            if let firstError {
+                completion(.failure(firstError))
+                return
+            }
+            completion(.success(TaskDetailMetadataPayload(
+                projects: loadedProjects,
+                sections: loadedSections
+            )))
+        }
+    }
+
+    private func loadTaskDetailRelationshipMetadata(
+        projectID: UUID,
+        completion: @escaping (Result<TaskDetailRelationshipMetadataPayload, Error>) -> Void
+    ) {
+        guard let coordinator = resolvedUseCaseCoordinator else {
+            completion(.failure(NSError(
+                domain: "ChatHostViewController",
+                code: 11,
+                userInfo: [NSLocalizedDescriptionKey: "Coordinator unavailable"]
+            )))
+            return
+        }
+
+        let group = DispatchGroup()
+        let lock = NSLock()
+        var firstError: Error?
+
+        var loadedLifeAreas: [LifeArea] = []
+        var loadedTags: [TagDefinition] = []
+        var availableTasks: [TaskDefinition] = []
+
+        func record(_ error: Error) {
+            lock.lock()
+            if firstError == nil {
+                firstError = error
+            }
+            lock.unlock()
+        }
+
+        group.enter()
+        coordinator.manageLifeAreas.list { result in
+            defer { group.leave() }
+            switch result {
+            case .success(let lifeAreas):
+                loadedLifeAreas = lifeAreas
             case .failure(let error):
                 record(error)
             }
@@ -508,10 +548,8 @@ class ChatHostViewController: UIViewController, PresentationDependencyContainerA
                 completion(.failure(firstError))
                 return
             }
-            completion(.success(TaskDetailMetadataPayload(
-                projects: loadedProjects,
+            completion(.success(TaskDetailRelationshipMetadataPayload(
                 lifeAreas: loadedLifeAreas,
-                sections: loadedSections,
                 tags: loadedTags,
                 availableTasks: availableTasks
             )))

@@ -553,21 +553,12 @@ private struct EvaTriageSprintSheetV2: View {
                                     .contentTransition(.numericText())
                                     .animation(TaskerAnimation.snappy, value: currentIndex)
 
-                                GeometryReader { geo in
-                                    ZStack(alignment: .leading) {
-                                        Capsule()
-                                            .fill(Color.tasker.surfaceSecondary)
-                                            .frame(height: 4)
-                                        Capsule()
-                                            .fill(Color.tasker.accentPrimary)
-                                            .frame(
-                                                width: geo.size.width * CGFloat(min(currentIndex + 1, queue.count)) / CGFloat(max(queue.count, 1)),
-                                                height: 4
-                                            )
-                                            .animation(TaskerAnimation.snappy, value: currentIndex)
-                                    }
-                                }
-                                .frame(height: 4)
+                                TaskerProgressBar(
+                                    progress: Double(min(currentIndex + 1, queue.count)) / Double(max(queue.count, 1)),
+                                    colors: [Color.tasker.accentPrimary, Color.tasker.accentPrimary],
+                                    trackColor: Color.tasker.surfaceSecondary,
+                                    height: 4
+                                )
                             }
                             .enhancedStaggeredAppearance(index: 0)
 
@@ -590,11 +581,11 @@ private struct EvaTriageSprintSheetV2: View {
                                 .padding(spacing.s16)
                             }
                             .frame(maxWidth: .infinity, alignment: .leading)
-                            .background(
-                                RoundedRectangle(cornerRadius: corner.r2)
-                                    .fill(Color.tasker.surfacePrimary)
+                            .taskerDenseSurface(
+                                cornerRadius: corner.r2,
+                                fillColor: Color.tasker.surfacePrimary,
+                                strokeColor: Color.tasker.strokeHairline
                             )
-                            .taskerElevation(.e2, cornerRadius: corner.r2)
                             .id(currentItem.task.id)
                             .transition(.asymmetric(
                                 insertion: .move(edge: .trailing).combined(with: .opacity),
@@ -630,11 +621,11 @@ private struct EvaTriageSprintSheetV2: View {
                                 )
                             }
                             .padding(spacing.s16)
-                            .background(
-                                RoundedRectangle(cornerRadius: corner.r2)
-                                    .fill(Color.tasker.surfaceSecondary)
+                            .taskerDenseSurface(
+                                cornerRadius: corner.r2,
+                                fillColor: Color.tasker.surfaceSecondary,
+                                strokeColor: Color.tasker.strokeHairline
                             )
-                            .taskerElevation(.e1, cornerRadius: corner.r2)
                             .enhancedStaggeredAppearance(index: 1)
 
                             // 6D: Quick defer chips
@@ -921,11 +912,7 @@ private struct EvaTriageSprintSheetV2: View {
                         .font(.tasker(.caption1))
                         .foregroundColor(isSelected ? Color.tasker.accentOnPrimary : Color.tasker.textSecondary)
                         .frame(maxWidth: .infinity, minHeight: 36)
-                        .background(
-                            isSelected
-                                ? AnyView(Capsule().fill(Color.tasker.accentPrimary))
-                                : AnyView(Capsule().fill(Color.clear))
-                        )
+                        .background(Capsule().fill(isSelected ? Color.tasker.accentPrimary : Color.clear))
                         .animation(TaskerAnimation.snappy, value: selectedScope)
                 }
                 .buttonStyle(.plain)
@@ -1148,11 +1135,11 @@ private struct EvaTriageSprintSheetV2: View {
             }
         }
         .padding(spacing.s12)
-        .background(
-            RoundedRectangle(cornerRadius: corner.r2)
-                .fill(Color.tasker.surfaceSecondary)
+        .taskerDenseSurface(
+            cornerRadius: corner.r2,
+            fillColor: Color.tasker.surfaceSecondary,
+            strokeColor: Color.tasker.strokeHairline
         )
-        .taskerElevation(.e1, cornerRadius: corner.r2)
     }
 
     private func changeScope(to nextScope: EvaTriageScope) {
@@ -1664,18 +1651,12 @@ private struct EvaOverdueRescueSheetV2: View {
                         }
 
                         // 7B: Debt progress bar
-                        GeometryReader { geo in
-                            ZStack(alignment: .leading) {
-                                Capsule()
-                                    .fill(Color.tasker.surfaceSecondary)
-                                    .frame(height: 6)
-                                Capsule()
-                                    .fill(debtLevelColor(plan.debtLevel))
-                                    .frame(width: geo.size.width * min(plan.debtScore / 100.0, 1.0), height: 6)
-                                    .animation(TaskerAnimation.snappy, value: plan.debtScore)
-                            }
-                        }
-                        .frame(height: 6)
+                        TaskerProgressBar(
+                            progress: min(plan.debtScore / 100.0, 1.0),
+                            colors: [debtLevelColor(plan.debtLevel), debtLevelColor(plan.debtLevel)],
+                            trackColor: Color.tasker.surfaceSecondary,
+                            height: 6
+                        )
 
                         if let errorMessage {
                             Text(errorMessage)
@@ -1947,11 +1928,11 @@ private struct EvaOverdueRescueSheetV2: View {
                     }
                     .padding(spacing.s12)
                 }
-                .background(
-                    RoundedRectangle(cornerRadius: corner.r2)
-                        .fill(Color.tasker.surfacePrimary)
+                .taskerDenseSurface(
+                    cornerRadius: corner.r2,
+                    fillColor: Color.tasker.surfacePrimary,
+                    strokeColor: Color.tasker.strokeHairline
                 )
-                .taskerElevation(.e1, cornerRadius: corner.r2)
                 .enhancedStaggeredAppearance(index: startIndex + index + 1)
             }
         }
@@ -2535,7 +2516,7 @@ struct HomeSearchSection: Identifiable, Equatable {
 }
 
 struct HomeSearchRequestSignature: Equatable {
-    let dataRevision: Int
+    let dataRevision: UInt64
     let query: String
     let status: HomeSearchStatusFilter
     let priorities: [Int32]
@@ -2545,9 +2526,9 @@ struct HomeSearchRequestSignature: Equatable {
 enum HomeSearchFocusPolicyResolver {
     static func shouldAutoFocusOnSearchEntry(layoutClass: TaskerLayoutClass) -> Bool {
         guard V2FeatureFlags.iPadPerfSearchFocusStabilizationV3Enabled else {
-            return true
+            return false
         }
-        return layoutClass == .phone
+        return false
     }
 }
 
@@ -2681,7 +2662,7 @@ final class HomeSearchState: ObservableObject {
 
     private var engine: HomeSearchEngine?
     private let refreshCoordinator: SearchRefreshCoordinator
-    private var dataRevision: Int = 0
+    private var sharedDataRevisionProvider: (() -> HomeDataRevision)?
     private var latestIssuedSearchRevision: Int = 0
     private var needsRefreshOnNextActivation = false
     private var lastExecutedSignature: HomeSearchRequestSignature?
@@ -2716,11 +2697,15 @@ final class HomeSearchState: ObservableObject {
         return "Try a different query or adjust quick chips."
     }
 
-    func configureIfNeeded(makeEngine: () -> HomeSearchEngine) {
+    func configureIfNeeded(
+        makeEngine: () -> HomeSearchEngine,
+        dataRevisionProvider: @escaping () -> HomeDataRevision
+    ) {
         guard engine == nil else { return }
+        sharedDataRevisionProvider = dataRevisionProvider
         let resolvedEngine = makeEngine()
         engine = resolvedEngine
-        resolvedEngine.invalidateSearchCache(revision: dataRevision)
+        resolvedEngine.invalidateSearchCache(revision: currentSearchCacheRevision)
         resolvedEngine.onResultsUpdated = { [weak self] revision, tasks in
             guard let self else { return }
             Task { @MainActor in
@@ -2733,14 +2718,12 @@ final class HomeSearchState: ObservableObject {
                 self.refreshAvailableProjects()
             }
         }
-        refresh(immediate: true)
     }
 
     func activate() {
         guard engine != nil else { return }
         let nextSignature = requestSignature
-        if hasLoaded,
-           needsRefreshOnNextActivation == false,
+        if needsRefreshOnNextActivation == false,
            lastExecutedSignature == nextSignature {
             return
         }
@@ -2753,6 +2736,7 @@ final class HomeSearchState: ObservableObject {
     }
 
     func updateQuery(_ newValue: String) {
+        guard query != newValue else { return }
         query = newValue
         refresh(immediate: false)
     }
@@ -2789,13 +2773,19 @@ final class HomeSearchState: ObservableObject {
     }
 
     func markDataMutated() {
-        dataRevision &+= 1
         needsRefreshOnNextActivation = true
-        engine?.invalidateSearchCache(revision: dataRevision)
+        engine?.invalidateSearchCache(revision: currentSearchCacheRevision)
     }
 
     func refresh(immediate: Bool) {
         guard engine != nil else { return }
+        let nextSignature = requestSignature
+        if hasLoaded,
+           needsRefreshOnNextActivation == false,
+           lastExecutedSignature == nextSignature {
+            isLoading = false
+            return
+        }
         guard V2FeatureFlags.iPadPerfSearchCoalescingV2Enabled else {
             let nextRevision = max(1, latestIssuedSearchRevision &+ 1)
             performSearch(refreshGeneration: UInt64(nextRevision))
@@ -2806,7 +2796,7 @@ final class HomeSearchState: ObservableObject {
             message: "Home search refresh requested",
             fields: [
                 "immediate": immediate ? "true" : "false",
-                "data_revision": String(dataRevision),
+                "data_revision": String(currentDataRevision.rawValue),
                 "query_length": String(trimmedQuery.count)
             ]
         )
@@ -2835,7 +2825,7 @@ final class HomeSearchState: ObservableObject {
             message: "Home search execution started",
             fields: [
                 "search_revision": String(cappedRevision),
-                "data_revision": String(dataRevision),
+                "data_revision": String(currentDataRevision.rawValue),
                 "status": selectedStatus.analyticsName,
                 "query_length": String(trimmedQuery.count),
                 "project_filter_count": String(projects.count),
@@ -2848,12 +2838,16 @@ final class HomeSearchState: ObservableObject {
     private func handleResults(_ tasks: [TaskDefinition], revision: Int) {
         guard let engine else { return }
         guard revision >= latestIssuedSearchRevision else { return }
-        sections = engine
+        let nextSections = engine
             .groupTasksByProject(tasks)
             .map { HomeSearchSection(projectName: $0.project, tasks: $0.tasks) }
+        if sections != nextSections {
+            sections = nextSections
+        }
         hasLoaded = true
         isLoading = false
         refreshAvailableProjects()
+        TaskerPerformanceTrace.event("HomeSearchResultsApplied")
     }
 
     private func refreshAvailableProjects() {
@@ -2862,26 +2856,44 @@ final class HomeSearchState: ObservableObject {
         let allProjects = remoteProjectNames
             .union(visibleProjectNames)
             .union([ProjectConstants.inboxProjectName])
-        availableProjects = allProjects.sorted()
-        selectedProjects = selectedProjects.intersection(allProjects)
+        let nextAvailableProjects = allProjects.sorted()
+        let nextSelectedProjects = selectedProjects.intersection(allProjects)
+        if availableProjects != nextAvailableProjects {
+            availableProjects = nextAvailableProjects
+        }
+        if selectedProjects != nextSelectedProjects {
+            selectedProjects = nextSelectedProjects
+        }
     }
 
     private var requestSignature: HomeSearchRequestSignature {
         HomeSearchRequestSignature(
-            dataRevision: dataRevision,
+            dataRevision: currentDataRevision.rawValue,
             query: trimmedQuery,
             status: selectedStatus,
             priorities: selectedPriorities.sorted(),
             projects: selectedProjects.sorted()
         )
     }
+
+    private var currentDataRevision: HomeDataRevision {
+        sharedDataRevisionProvider?() ?? .zero
+    }
+
+    private var currentSearchCacheRevision: Int {
+        Int(truncatingIfNeeded: currentDataRevision.rawValue)
+    }
 }
 
 struct HomeBackdropForedropRootView: View {
-    @ObservedObject var viewModel: HomeViewModel
+    let viewModel: HomeViewModel
+    @ObservedObject var chromeStore: HomeChromeStore
+    @ObservedObject var tasksStore: HomeTasksStore
+    @ObservedObject var overlayStore: HomeOverlayStore
+    @ObservedObject var faceCoordinator: HomeFaceCoordinator
+    @ObservedObject var searchState: HomeSearchState
     let chartCardViewModel: ChartCardViewModel
     let radarChartCardViewModel: RadarChartCardViewModel
-    let insightsViewModel: InsightsViewModel
     let layoutClass: TaskerLayoutClass
     let forcedFace: Binding<HomeForedropFace>?
     @ObservedObject private var themeManager = TaskerThemeManager.shared
@@ -2897,9 +2909,14 @@ struct HomeBackdropForedropRootView: View {
     let onOpenChat: () -> Void
     let onOpenProjectCreator: () -> Void
     let onOpenSettings: () -> Void
+    let onOpenAnalytics: (String, Bool) -> Void
+    let onCloseAnalytics: (String) -> Void
+    let onOpenSearch: (String) -> Void
+    let onCloseSearch: (String) -> Void
+    let onReturnToTasks: (String) -> Void
+    let onTaskListScrollChromeStateChange: (HomeScrollChromeState) -> Void
     let onStartFocus: (TaskDefinition) -> Void
 
-    @State private var activeFace: HomeForedropFace = .tasks
     @State private var showAdvancedFilters = false
     @State private var showDatePicker = false
     @State private var draftDate = Date()
@@ -2913,7 +2930,6 @@ struct HomeBackdropForedropRootView: View {
     @State private var semanticCelebrationXP = 0
     @State private var showReflectionSheet = false
     @State private var reflectionClaimState: DailyReflectionClaimState = .ready
-    @State private var bottomBarState = HomeBottomBarState()
     @State private var foredropHintOffset: CGFloat = 0
     @State private var hintAnimationTask: _Concurrency.Task<Void, Never>?
     @State private var lastHintTriggerAt: Date?
@@ -2921,13 +2937,10 @@ struct HomeBackdropForedropRootView: View {
     @State private var snackbar: SnackbarData?
     @State private var shownUnlockKeys = Set<String>()
     @State private var lastSearchQueryTelemetryAt: Date?
-    @StateObject private var searchState = HomeSearchState()
     @FocusState private var isSearchFieldFocused: Bool
     @State private var hasAutoFocusedSearchField = false
-    @State private var projectsByIDCache: [UUID: Project] = [:]
-    @State private var projectsByNameCache: [String: Project] = [:]
-    @State private var tagNameByIDCache: [UUID: String] = [:]
-    @State private var rescueTasksByIDCache: [UUID: TaskDefinition] = [:]
+    @State private var searchDraftQuery = ""
+    @State private var pendingSearchCommitTask: Task<Void, Never>?
 
     private static let foredropHintLaunchDelay: TimeInterval = 0.10
     private static let foredropHintPeekDistance: CGFloat = 24
@@ -2936,16 +2949,27 @@ struct HomeBackdropForedropRootView: View {
     private static let foredropHintReturnDampingFraction: CGFloat = 0.86
     private static let foredropHintSettleDuration: TimeInterval = 0.16
     private static let launchArguments = Set(ProcessInfo.processInfo.arguments)
+    private static let searchCommitDebounceNanoseconds: UInt64 = 250_000_000
 
     private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.tokens(for: layoutClass).spacing }
     private var corner: TaskerCornerTokens { TaskerThemeManager.shared.tokens(for: layoutClass).corner }
     private var forcedFaceValue: HomeForedropFace? { forcedFace?.wrappedValue }
-    private var showsBottomBar: Bool { layoutClass == .phone }
+    private var chromeSnapshot: HomeChromeSnapshot { chromeStore.snapshot }
+    private var tasksSnapshot: HomeTasksSnapshot { tasksStore.snapshot }
+    private var overlaySnapshot: HomeOverlaySnapshot { overlayStore.snapshot }
+    private var activeFace: HomeForedropFace { faceCoordinator.activeFace }
+    private var shellPhase: HomeShellPhase { faceCoordinator.shellPhase }
+    private var analyticsSurfaceState: HomeAnalyticsSurfaceState { faceCoordinator.analyticsSurfaceState }
+    private var searchSurfaceState: HomeSearchSurfaceState { faceCoordinator.searchSurfaceState }
+    private var layoutMetrics: HomeLayoutMetrics { faceCoordinator.layoutMetrics }
     private var topNavGlassCircleColor: Color {
         Color.tasker.accentSecondaryMuted.opacity(colorScheme == .dark ? 0.44 : 0.68)
     }
     private var isUITesting: Bool {
         Self.launchArguments.contains("-UI_TESTING") || Self.launchArguments.contains("-DISABLE_ANIMATIONS")
+    }
+    private var isForedropHintAnimationEnabled: Bool {
+        Self.launchArguments.contains("-ENABLE_FOREDROP_HINT_ANIMATION")
     }
     private var foredropAnchorForHint: ForedropAnchor {
         activeFace == .tasks ? .collapsed : .fullReveal
@@ -2953,7 +2977,7 @@ struct HomeBackdropForedropRootView: View {
     private var isSearchOpen: Bool { activeFace == .search }
     private var isBackFaceVisible: Bool { activeFace.isBackFace }
     private var foredropFlipTransition: AnyTransition {
-        if reduceMotion || isUITesting || (layoutClass.isPad && V2FeatureFlags.iPadPerfHomeAnimationTrimV3Enabled) {
+        if reduceMotion || isUITesting || shellPhase != .interactive || (layoutClass.isPad && V2FeatureFlags.iPadPerfHomeAnimationTrimV3Enabled) {
             return .opacity
         }
         return .coverFlip(blurStrength: 3.5)
@@ -2970,130 +2994,74 @@ struct HomeBackdropForedropRootView: View {
         return .easeInOut(duration: duration)
     }
 
-    /// Executes chartCardsViewportHeight.
-    private func chartCardsViewportHeight(for geometry: GeometryProxy) -> CGFloat {
-        let preferred = geometry.size.height * 0.66
-        let lowerBound: CGFloat = 560
-        let upperBound = geometry.size.height - 150
-        return min(max(preferred, lowerBound), upperBound)
+    private var chartCardsViewportHeight: CGFloat {
+        max(420, layoutMetrics.chartViewportHeight)
+    }
+
+    private var homeBackdropGradient: some View {
+        LinearGradient(
+            colors: [
+                Color.tasker.accentSecondaryMuted.opacity(colorScheme == .dark ? 0.24 : 0.28),
+                Color.tasker.accentWash.opacity(colorScheme == .dark ? 0.16 : 0.22),
+                Color.tasker.bgCanvas.opacity(0.01)
+            ],
+            startPoint: .top,
+            endPoint: .bottom
+        )
+        .overlay(alignment: .topTrailing) {
+            Circle()
+                .fill(Color.tasker.accentSecondaryWash.opacity(colorScheme == .dark ? 0.34 : 0.42))
+                .frame(width: 240, height: 240)
+                .blur(radius: 28)
+                .offset(x: 72, y: -48)
+        }
     }
 
     var body: some View {
         let _ = themeManager.currentTheme.index
 
         ZStack {
-            GeometryReader { geometry in
-                let backdropGradientHeight = geometry.size.height + geometry.safeAreaInsets.top + geometry.safeAreaInsets.bottom
-                let bottomOverlayObstruction = (spacing.s12 * 2) + 56 + 6
-                let taskListBottomInset = bottomOverlayObstruction + geometry.safeAreaInsets.bottom + spacing.s20
+            ZStack(alignment: .top) {
+                Color.tasker.bgCanvas
+                    .ignoresSafeArea()
 
-                ZStack(alignment: .top) {
-                    Color.tasker.bgCanvas
-                        .ignoresSafeArea()
+                homeBackdropGradient
+                    .frame(height: max(layoutMetrics.backdropGradientHeight, 720))
+                    .ignoresSafeArea()
+                    .allowsHitTesting(false)
 
-                    HeaderGradientView()
-                        .frame(height: backdropGradientHeight)
-                        .ignoresSafeArea()
-                        .allowsHitTesting(false)
+                LinearGradient(
+                    colors: [
+                        Color.tasker(.overlayScrim).opacity(0.12),
+                        .clear
+                    ],
+                    startPoint: .top,
+                    endPoint: .bottom
+                )
+                .frame(height: max(layoutMetrics.backdropGradientHeight, 720))
+                .ignoresSafeArea()
+                .allowsHitTesting(false)
 
-                    LinearGradient(
-                        colors: [
-                            Color.tasker(.overlayScrim).opacity(0.12),
-                            .clear
-                        ],
-                        startPoint: .top,
-                        endPoint: .bottom
-                    )
-                        .frame(height: backdropGradientHeight)
-                        .ignoresSafeArea()
-                        .allowsHitTesting(false)
+                VStack(spacing: 0) {
+                    topNavigationBar()
+                        .accessibilityIdentifier("home.topNav.container")
 
-                    VStack(spacing: 0) {
-                        topNavigationBar()
-                            .accessibilityIdentifier("home.topNav.container")
+                    ZStack(alignment: .top) {
+                        backdropLayer()
 
-                        GeometryReader { contentGeometry in
-                            ZStack(alignment: .top) {
-                                backdropLayer(geometry: contentGeometry)
-
-                                foredropLayer(
-                                    geometry: contentGeometry,
-                                    taskListBottomInset: taskListBottomInset
-                                )
-                                    .offset(y: foredropHintOffset)
-                                    .animation(foredropFlipAnimation, value: activeFace)
-                            }
-                        }
+                        foredropLayer(taskListBottomInset: layoutMetrics.taskListBottomInset)
+                            .offset(y: foredropHintOffset)
+                            .animation(foredropFlipAnimation, value: activeFace)
                     }
-                }
-                .background(Color.clear)
-                .sheet(isPresented: $showDatePicker) {
-                    NavigationView {
-                        VStack(spacing: spacing.s16) {
-                            DatePicker(
-                                "Select date",
-                                selection: $draftDate,
-                                displayedComponents: .date
-                            )
-                            .datePickerStyle(.graphical)
-                            .padding(.horizontal, spacing.s16)
-
-                            HStack(spacing: spacing.s12) {
-                                Button("Today") {
-                                    draftDate = Date()
-                                    viewModel.selectDate(Date())
-                                    showDatePicker = false
-                                }
-                                .buttonStyle(.bordered)
-
-                                Button("Apply") {
-                                    viewModel.selectDate(draftDate)
-                                    showDatePicker = false
-                                }
-                                .buttonStyle(.borderedProminent)
-                            }
-                        }
-                        .navigationTitle("Date")
-                        .toolbar {
-                            ToolbarItem(placement: .cancellationAction) {
-                                Button("Close") { showDatePicker = false }
-                            }
-                        }
-                    }
-                }
-                .sheet(isPresented: $showAdvancedFilters) {
-                    HomeAdvancedFilterSheetView(
-                        initialFilter: viewModel.activeFilterState.advancedFilter,
-                        initialShowCompletedInline: viewModel.activeFilterState.showCompletedInline,
-                        savedViews: viewModel.savedHomeViews,
-                        activeSavedViewID: viewModel.activeFilterState.selectedSavedViewID,
-                        onApply: { filter, showCompletedInline in
-                            viewModel.applyAdvancedFilter(filter, showCompletedInline: showCompletedInline)
-                        },
-                        onClear: {
-                            viewModel.applyAdvancedFilter(nil, showCompletedInline: false)
-                            viewModel.clearProjectFilters()
-                            viewModel.setQuickView(.today)
-                        },
-                        onSaveNamedView: { filter, showCompletedInline, name in
-                            viewModel.applyAdvancedFilter(filter, showCompletedInline: showCompletedInline)
-                            viewModel.saveCurrentFilterAsView(name: name)
-                        },
-                        onApplySavedView: { id in
-                            viewModel.applySavedView(id: id)
-                        },
-                        onDeleteSavedView: { id in
-                            viewModel.deleteSavedView(id: id)
-                        }
-                    )
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
                 }
             }
 
-            if showXPBurst {
+            if showXPBurst && shellPhase == .interactive {
                 xpBurstOverlay
             }
 
-            if showLevelUp {
+            if showLevelUp && shellPhase == .interactive {
                 LevelUpCelebrationView(
                     level: levelUpValue,
                     awardedXP: semanticCelebrationXP,
@@ -3101,7 +3069,7 @@ struct HomeBackdropForedropRootView: View {
                 )
             }
 
-            if showMilestone, let milestone = milestoneValue {
+            if showMilestone, let milestone = milestoneValue, shellPhase == .interactive {
                 MilestoneCelebrationView(
                     milestone: milestone,
                     awardedXP: semanticCelebrationXP,
@@ -3110,127 +3078,146 @@ struct HomeBackdropForedropRootView: View {
             }
         }
         .accessibilityIdentifier("home.view")
-        .overlay(alignment: .bottom) {
-            if showsBottomBar {
-                homeBottomBar
+        .taskerSnackbar($snackbar)
+        .sheet(isPresented: $showDatePicker) {
+            NavigationView {
+                VStack(spacing: spacing.s16) {
+                    DatePicker(
+                        "Select date",
+                        selection: $draftDate,
+                        displayedComponents: .date
+                    )
+                    .datePickerStyle(.graphical)
+                    .padding(.horizontal, spacing.s16)
+
+                    HStack(spacing: spacing.s12) {
+                        Button("Today") {
+                            draftDate = Date()
+                            viewModel.selectDate(Date())
+                            showDatePicker = false
+                        }
+                        .buttonStyle(.bordered)
+
+                        Button("Apply") {
+                            viewModel.selectDate(draftDate)
+                            showDatePicker = false
+                        }
+                        .buttonStyle(.borderedProminent)
+                    }
+                }
+                .navigationTitle("Date")
+                .toolbar {
+                    ToolbarItem(placement: .cancellationAction) {
+                        Button("Close") { showDatePicker = false }
+                    }
+                }
             }
         }
-        .taskerSnackbar($snackbar)
+        .sheet(isPresented: $showAdvancedFilters) {
+            HomeAdvancedFilterSheetView(
+                initialFilter: viewModel.activeFilterState.advancedFilter,
+                initialShowCompletedInline: viewModel.activeFilterState.showCompletedInline,
+                savedViews: chromeSnapshot.savedHomeViews,
+                activeSavedViewID: viewModel.activeFilterState.selectedSavedViewID,
+                onApply: { filter, showCompletedInline in
+                    viewModel.applyAdvancedFilter(filter, showCompletedInline: showCompletedInline)
+                },
+                onClear: {
+                    viewModel.applyAdvancedFilter(nil, showCompletedInline: false)
+                    viewModel.clearProjectFilters()
+                    viewModel.setQuickView(.today)
+                },
+                onSaveNamedView: { filter, showCompletedInline, name in
+                    viewModel.applyAdvancedFilter(filter, showCompletedInline: showCompletedInline)
+                    viewModel.saveCurrentFilterAsView(name: name)
+                },
+                onApplySavedView: { id in
+                    viewModel.applySavedView(id: id)
+                },
+                onDeleteSavedView: { id in
+                    viewModel.deleteSavedView(id: id)
+                }
+            )
+        }
         .onAppear {
             if let forcedFaceValue {
-                activeFace = forcedFaceValue
+                setActiveFace(forcedFaceValue, animated: false)
             }
             isHomeVisible = true
             hasAutoFocusedSearchField = false
-            rebuildProjectCaches(viewModel.projects)
-            rebuildTagCache(viewModel.tags)
-            rebuildRescueTasksCache(
-                overdueTasks: viewModel.overdueTasks,
-                morningTasks: viewModel.morningTasks,
-                eveningTasks: viewModel.eveningTasks,
-                triageQueue: viewModel.evaTriageQueue
-            )
-            searchState.configureIfNeeded {
-                LGHomeSearchEngine(viewModel: viewModel.makeHomeSearchViewModel())
-            }
-            bottomBarState.select(activeFace.selectedBottomBarItem)
+            searchDraftQuery = searchState.query
             refreshReflectionClaimState()
             triggerForedropHintIfEligible()
         }
         .onDisappear {
             isHomeVisible = false
             cancelForedropHintAnimation()
+            cancelPendingSearchCommit()
             searchState.deactivate()
+            isSearchFieldFocused = false
         }
         .onChange(of: activeFace) { _, newValue in
-            bottomBarState.select(newValue.selectedBottomBarItem)
             forcedFace?.wrappedValue = newValue
-            if newValue == .search {
-                searchState.activate()
-                if HomeSearchFocusPolicyResolver.shouldAutoFocusOnSearchEntry(layoutClass: layoutClass),
-                   hasAutoFocusedSearchField == false {
-                    hasAutoFocusedSearchField = true
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.08) {
-                        isSearchFieldFocused = true
-                    }
-                } else if layoutClass.isPad && V2FeatureFlags.iPadPerfSearchFocusStabilizationV3Enabled {
-                    logWarning(
-                        event: "ipadSearchAutoFocusSkipped",
-                        message: "Skipped implicit search field autofocus on iPad tab switch"
-                    )
-                }
-                return
-            }
-            isSearchFieldFocused = false
             if newValue != .search {
-                searchState.deactivate()
+                isSearchFieldFocused = false
+                cancelPendingSearchCommit()
+            } else {
+                searchDraftQuery = searchState.query
             }
         }
-        .onReceive(viewModel.$projects.receive(on: RunLoop.main)) { projects in
-            rebuildProjectCaches(projects)
+        .onChange(of: searchSurfaceState) { _, newValue in
+            switch newValue {
+            case .idle:
+                hasAutoFocusedSearchField = false
+                isSearchFieldFocused = false
+                cancelPendingSearchCommit()
+                searchDraftQuery = searchState.query
+                searchState.deactivate()
+            case .presenting, .preparing:
+                isSearchFieldFocused = false
+            case .ready:
+                guard activeFace == .search else { return }
+                hasAutoFocusedSearchField = false
+            }
         }
-        .onReceive(viewModel.$tags.receive(on: RunLoop.main)) { tags in
-            rebuildTagCache(tags)
+        .onChange(of: searchState.query) { _, newValue in
+            guard newValue != searchDraftQuery else { return }
+            guard isSearchFieldFocused == false else { return }
+            searchDraftQuery = newValue
         }
-        .onReceive(
-            Publishers.CombineLatest4(
-                viewModel.$overdueTasks,
-                viewModel.$morningTasks,
-                viewModel.$eveningTasks,
-                viewModel.$evaTriageQueue
-            )
-            .receive(on: RunLoop.main)
-        ) { overdueTasks, morningTasks, eveningTasks, triageQueue in
-            rebuildRescueTasksCache(
-                overdueTasks: overdueTasks,
-                morningTasks: morningTasks,
-                eveningTasks: eveningTasks,
-                triageQueue: triageQueue
-            )
+        .onChange(of: overlaySnapshot.guidanceState) { _, state in
+            guard state != nil, activeFace != .tasks else { return }
+            setActiveFace(.tasks, animated: true)
         }
         .onChange(of: forcedFaceValue) { _, newValue in
             guard let newValue, newValue != activeFace else { return }
-            if layoutClass.isPad && V2FeatureFlags.iPadPerfHomeAnimationTrimV3Enabled {
-                withAnimation(.easeInOut(duration: 0.12)) {
-                    activeFace = newValue
-                }
-            } else {
-                withAnimation(foredropFlipAnimation) {
-                    activeFace = newValue
-                }
-            }
+            setActiveFace(newValue, animated: true)
         }
-        .onReceive(NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification)) { _ in
-            triggerForedropHintIfEligible()
-        }
-        .onReceive(viewModel.$lastXPResult.receive(on: RunLoop.main)) { result in
+        .onReceive(overlayStore.$snapshot.map(\.lastXPResult).receive(on: RunLoop.main)) { result in
             handleXPResult(result)
         }
-        .onReceive(viewModel.$insightsLaunchRequest.receive(on: RunLoop.main)) { request in
-            handleInsightsLaunchRequest(request)
-        }
         .sheet(isPresented: Binding(
-            get: { viewModel.evaFocusWhySheetPresented },
+            get: { overlaySnapshot.focusWhyPresented },
             set: { viewModel.setEvaFocusWhyPresented($0) }
         )) {
             EvaFocusWhySheetView(
-                focusTasks: viewModel.focusTasks,
+                focusTasks: tasksSnapshot.focusTasks,
                 insightProvider: { taskID in
                     viewModel.evaFocusInsight(for: taskID)
                 }
             )
         }
         .sheet(isPresented: Binding(
-            get: { viewModel.evaTriageSheetPresented },
+            get: { overlaySnapshot.triagePresented },
             set: { viewModel.setEvaTriagePresented($0) }
         )) {
             EvaTriageSprintSheetV2(
-                queue: viewModel.evaTriageQueue,
-                projectsByID: projectsByIDCache,
-                activeScope: viewModel.evaTriageScope,
-                isLoadingScope: viewModel.evaTriageQueueLoading,
-                queueErrorMessage: viewModel.evaTriageQueueErrorMessage,
-                lastBatchRunID: viewModel.evaLastBatchRunID,
+                queue: overlaySnapshot.triageQueue,
+                projectsByID: tasksSnapshot.projectsByID,
+                activeScope: overlaySnapshot.triageScope,
+                isLoadingScope: overlaySnapshot.triageQueueLoading,
+                queueErrorMessage: overlaySnapshot.triageQueueErrorMessage,
+                lastBatchRunID: overlaySnapshot.lastBatchRunID,
                 onScopeChange: { scope, completion in
                     viewModel.refreshTriageQueue(scope: scope, completion: completion)
                 },
@@ -3263,13 +3250,13 @@ struct HomeBackdropForedropRootView: View {
             )
         }
         .sheet(isPresented: Binding(
-            get: { viewModel.evaRescueSheetPresented },
+            get: { overlaySnapshot.rescuePresented },
             set: { viewModel.setEvaRescuePresented($0) }
         )) {
             EvaOverdueRescueSheetV2(
-                plan: viewModel.evaRescuePlan,
-                tasksByID: rescueTasksByIDCache,
-                lastBatchRunID: viewModel.evaLastBatchRunID,
+                plan: overlaySnapshot.rescuePlan,
+                tasksByID: tasksSnapshot.rescueTasksByID,
+                lastBatchRunID: overlaySnapshot.lastBatchRunID,
                 onApply: { mutations, completion in
                     viewModel.applyRescuePlan(mutations: mutations, completion: completion)
                 },
@@ -3289,8 +3276,8 @@ struct HomeBackdropForedropRootView: View {
         }
         .sheet(isPresented: $showReflectionSheet) {
             DailyReflectionView(
-                tasksCompleted: max(viewModel.dailyCompletedTasks.count, insightsViewModel.tasksCompletedToday),
-                xpEarned: viewModel.dailyScore,
+                tasksCompleted: max(viewModel.dailyCompletedTasks.count, faceCoordinator.insightsViewModel?.tasksCompletedToday ?? 0),
+                xpEarned: chromeSnapshot.dailyScore,
                 streakDays: viewModel.streak,
                 claimState: reflectionClaimState,
                 onComplete: {
@@ -3317,6 +3304,10 @@ struct HomeBackdropForedropRootView: View {
 
     /// Executes triggerForedropHintIfEligible.
     private func triggerForedropHintIfEligible(now: Date = Date()) {
+        guard isForedropHintAnimationEnabled else {
+            cancelForedropHintAnimation()
+            return
+        }
         if layoutClass.isPad && V2FeatureFlags.iPadPerfHomeAnimationTrimV3Enabled {
             logWarning(
                 event: "ipadForedropHintSuppressed",
@@ -3326,7 +3317,7 @@ struct HomeBackdropForedropRootView: View {
         }
 
         let canTrigger = HomeForedropHintEligibility.canTrigger(
-            isHomeVisible: isHomeVisible,
+            isHomeVisible: isHomeVisible && shellPhase == .interactive,
             foredropAnchor: foredropAnchorForHint,
             reduceMotionEnabled: reduceMotion,
             isUITesting: isUITesting,
@@ -3389,12 +3380,46 @@ struct HomeBackdropForedropRootView: View {
         foredropHintOffset = 0
     }
 
+    private func scheduleSearchCommit(for newValue: String) {
+        pendingSearchCommitTask?.cancel()
+        let pendingValue = newValue
+        pendingSearchCommitTask = Task { @MainActor in
+            do {
+                try await Task.sleep(nanoseconds: Self.searchCommitDebounceNanoseconds)
+            } catch {
+                pendingSearchCommitTask = nil
+                return
+            }
+            guard !Task.isCancelled else { return }
+            commitDraftSearchQuery(pendingValue)
+            pendingSearchCommitTask = nil
+        }
+    }
+
+    private func commitDraftSearchQueryImmediately() {
+        cancelPendingSearchCommit()
+        commitDraftSearchQuery(searchDraftQuery)
+    }
+
+    private func commitDraftSearchQuery(_ newValue: String) {
+        let committedQuery = searchState.trimmedQuery
+        let nextCommittedQuery = newValue.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard committedQuery != nextCommittedQuery else { return }
+        TaskerPerformanceTrace.event("HomeSearchQueryCommitted")
+        searchState.updateQuery(newValue)
+    }
+
+    private func cancelPendingSearchCommit() {
+        pendingSearchCommitTask?.cancel()
+        pendingSearchCommitTask = nil
+    }
+
     /// Executes backdropLayer.
-    private func backdropLayer(geometry: GeometryProxy) -> some View {
+    private func backdropLayer() -> some View {
         VStack(spacing: 0) {
             Rectangle()
                 .fill(Color.clear)
-                .frame(height: max(480, geometry.size.height * 0.65))
+                .frame(height: max(480, layoutMetrics.height * 0.65))
                 .overlay(alignment: .topLeading) {
                     VStack(alignment: .leading, spacing: spacing.s8) {
                         WeeklyCalendarStripView(
@@ -3414,14 +3439,14 @@ struct HomeBackdropForedropRootView: View {
     }
 
     /// Executes foredropLayer.
-    private func foredropLayer(geometry: GeometryProxy, taskListBottomInset: CGFloat) -> some View {
+    private func foredropLayer(taskListBottomInset: CGFloat) -> some View {
         ZStack {
             if activeFace == .tasks {
                 foredropFrontFace(taskListBottomInset: taskListBottomInset)
                     .transition(foredropFlipTransition)
                     .zIndex(1)
             } else if activeFace == .analytics {
-                foredropAnalyticsFace(geometry: geometry)
+                foredropAnalyticsFace()
                     .transition(foredropFlipTransition)
                     .zIndex(1)
             } else {
@@ -3431,37 +3456,11 @@ struct HomeBackdropForedropRootView: View {
             }
         }
         .frame(
-            width: geometry.size.width,
-            height: geometry.size.height,
+            maxWidth: .infinity,
+            maxHeight: .infinity,
             alignment: .top
         )
-        .background(
-            UnevenRoundedRectangle(
-                topLeadingRadius: corner.modal,
-                bottomLeadingRadius: 0,
-                bottomTrailingRadius: 0,
-                topTrailingRadius: corner.modal
-            )
-                .fill(Color.tasker.surfaceTertiary)
-                .overlay(
-                    UnevenRoundedRectangle(
-                        topLeadingRadius: corner.modal,
-                        bottomLeadingRadius: 0,
-                        bottomTrailingRadius: 0,
-                        topTrailingRadius: corner.modal
-                    )
-                        .stroke(Color.tasker.strokeHairline.opacity(0.35), lineWidth: 1)
-                )
-                .taskerElevation(.e2, cornerRadius: corner.modal, includesBorder: false)
-        )
-        .clipShape(
-            UnevenRoundedRectangle(
-                topLeadingRadius: corner.modal,
-                bottomLeadingRadius: 0,
-                bottomTrailingRadius: 0,
-                topTrailingRadius: corner.modal
-            )
-        )
+        .modifier(HomeDenseSurfaceModifier(cornerRadius: corner.modal))
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("home.foredrop.surface")
         .accessibilityValue(activeFace.surfaceAccessibilityValue)
@@ -3488,7 +3487,7 @@ struct HomeBackdropForedropRootView: View {
                     .padding(.top, spacing.s8)
             }
 
-            if viewModel.canUseManualFocusDrag || !viewModel.focusTasks.isEmpty {
+            if tasksSnapshot.canUseManualFocusDrag || !tasksSnapshot.focusTasks.isEmpty {
                 focusStrip
                     .fixedSize(horizontal: false, vertical: true)
                     .padding(.horizontal, spacing.s16)
@@ -3497,10 +3496,10 @@ struct HomeBackdropForedropRootView: View {
                     .accessibilityIdentifier("home.focus.strip")
             }
 
-            if viewModel.activeScope.quickView == .today && viewModel.pinnedFocusTaskIDs.count < 3 {
+            if tasksSnapshot.activeQuickView == .today && tasksSnapshot.pinnedFocusTaskIDs.count < 3 {
                 NextActionModule(
-                    openTaskCount: viewModel.todayOpenTaskCount,
-                    focusPinnedCount: viewModel.pinnedFocusTaskIDs.count,
+                    openTaskCount: tasksSnapshot.todayOpenTaskCount,
+                    focusPinnedCount: tasksSnapshot.pinnedFocusTaskIDs.count,
                     onAddTask: { onAddTask() }
                 )
                 .fixedSize(horizontal: false, vertical: true)
@@ -3508,22 +3507,29 @@ struct HomeBackdropForedropRootView: View {
                 .padding(.top, spacing.s4)
             }
 
+            if let guidanceState = overlaySnapshot.guidanceState {
+                HomeOnboardingGuidanceBanner(state: guidanceState)
+                    .padding(.horizontal, spacing.s16)
+                    .padding(.top, spacing.s8)
+                    .modifier(HomeStaggerModifier(isEnabled: shellPhase == .interactive, index: 3))
+            }
+
             TaskListView(
-                morningTasks: viewModel.morningTasks,
-                eveningTasks: viewModel.eveningTasks,
-                overdueTasks: viewModel.overdueTasks,
-                inlineCompletedTasks: viewModel.activeScope.quickView == .today ? viewModel.completedTasks : [],
-                projects: viewModel.projects,
-                doneTimelineTasks: viewModel.doneTimelineTasks,
-                tagNameByID: tagNameByIDCache,
-                activeQuickView: viewModel.activeScope.quickView,
-                todayXPSoFar: (V2FeatureFlags.gamificationV2Enabled && viewModel.progressState.todayTargetXP <= 0) ? nil : viewModel.progressState.earnedXP,
+                morningTasks: tasksSnapshot.morningTasks,
+                eveningTasks: tasksSnapshot.eveningTasks,
+                overdueTasks: tasksSnapshot.overdueTasks,
+                inlineCompletedTasks: tasksSnapshot.inlineCompletedTasks,
+                projects: tasksSnapshot.projects,
+                doneTimelineTasks: tasksSnapshot.doneTimelineTasks,
+                tagNameByID: tasksSnapshot.tagNameByID,
+                activeQuickView: tasksSnapshot.activeQuickView,
+                todayXPSoFar: tasksSnapshot.todayXPSoFar,
                 isGamificationV2Enabled: V2FeatureFlags.gamificationV2Enabled,
-                projectGroupingMode: viewModel.activeFilterState.projectGroupingMode,
-                customProjectOrderIDs: viewModel.activeFilterState.customProjectOrderIDs,
-                emptyStateMessage: viewModel.emptyStateMessage,
-                emptyStateActionTitle: viewModel.emptyStateActionTitle,
-                isTaskDragEnabled: viewModel.canUseManualFocusDrag,
+                projectGroupingMode: tasksSnapshot.projectGroupingMode,
+                customProjectOrderIDs: tasksSnapshot.customProjectOrderIDs,
+                emptyStateMessage: tasksSnapshot.emptyStateMessage,
+                emptyStateActionTitle: tasksSnapshot.emptyStateActionTitle,
+                isTaskDragEnabled: tasksSnapshot.canUseManualFocusDrag,
                 onTaskTap: onTaskTap,
                 onToggleComplete: { task in
                     trackTaskToggle(task, source: "task_list")
@@ -3554,9 +3560,10 @@ struct HomeBackdropForedropRootView: View {
                 onTaskDragStarted: { task in
                     trackTaskDragStarted(task, source: "task_list")
                 },
-                onScrollOffsetChange: { newOffset in
-                    bottomBarState.handleScrollOffsetChange(newOffset)
+                onScrollChromeStateChange: { state in
+                    onTaskListScrollChromeStateChange(state)
                 },
+                highlightedTaskID: overlaySnapshot.guidanceState?.taskID,
                 bottomContentInset: taskListBottomInset
             )
             .padding(.top, spacing.s4)
@@ -3565,7 +3572,7 @@ struct HomeBackdropForedropRootView: View {
         }
     }
 
-    private func foredropAnalyticsFace(geometry: GeometryProxy) -> some View {
+    private func foredropAnalyticsFace() -> some View {
         VStack(spacing: spacing.s8) {
             HStack(spacing: spacing.s8) {
                 Text("Analytics")
@@ -3573,7 +3580,7 @@ struct HomeBackdropForedropRootView: View {
                     .foregroundColor(Color.tasker.textPrimary)
                 Spacer()
                 Button {
-                    returnToTasks(source: "back_chip")
+                    onReturnToTasks("back_chip")
                 } label: {
                     HStack(spacing: spacing.s4) {
                         Image(systemName: "arrow.left")
@@ -3590,9 +3597,23 @@ struct HomeBackdropForedropRootView: View {
             .padding(.horizontal, spacing.s16)
             .padding(.top, spacing.s12)
 
-            InsightsTabView(viewModel: insightsViewModel)
-                .frame(maxWidth: .infinity)
-                .frame(height: chartCardsViewportHeight(for: geometry))
+            Group {
+                if let insightsViewModel = faceCoordinator.insightsViewModel,
+                   analyticsSurfaceState == .ready {
+                    InsightsTabView(viewModel: insightsViewModel)
+                } else {
+                    VStack(spacing: spacing.s8) {
+                        ProgressView()
+                            .progressViewStyle(CircularProgressViewStyle())
+                        Text(analyticsSurfaceState == .placeholder ? "Opening analytics…" : "Loading analytics…")
+                            .font(.tasker(.caption1))
+                            .foregroundColor(Color.tasker.textSecondary)
+                    }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
+                }
+            }
+            .frame(maxWidth: .infinity)
+            .frame(height: chartCardsViewportHeight)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
     }
@@ -3605,7 +3626,7 @@ struct HomeBackdropForedropRootView: View {
                     .foregroundColor(Color.tasker.textPrimary)
                 Spacer()
                 Button {
-                    returnToTasks(source: "back_chip")
+                    onReturnToTasks("back_chip")
                 } label: {
                     HStack(spacing: spacing.s4) {
                         Image(systemName: "arrow.left")
@@ -3636,10 +3657,19 @@ struct HomeBackdropForedropRootView: View {
             Divider()
                 .overlay(Color.tasker.strokeHairline)
 
-            if searchState.isLoading && !searchState.hasLoaded {
+            if searchSurfaceState != .ready && !searchState.hasLoaded {
                 VStack(spacing: spacing.s8) {
                     ProgressView()
-                        .progressViewStyle(.circular)
+                        .progressViewStyle(CircularProgressViewStyle())
+                    Text(searchSurfaceState == .presenting ? "Opening search…" : "Loading tasks…")
+                        .font(.tasker(.caption1))
+                        .foregroundColor(Color.tasker.textSecondary)
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
+            } else if searchState.isLoading && !searchState.hasLoaded {
+                VStack(spacing: spacing.s8) {
+                    ProgressView()
+                        .progressViewStyle(CircularProgressViewStyle())
                     Text("Loading tasks…")
                         .font(.tasker(.caption1))
                         .foregroundColor(Color.tasker.textSecondary)
@@ -3668,7 +3698,7 @@ struct HomeBackdropForedropRootView: View {
                             TaskSectionView(
                                 project: searchProject(for: section.projectName),
                                 tasks: section.tasks,
-                                tagNameByID: tagNameByIDCache,
+                                tagNameByID: tasksSnapshot.tagNameByID,
                                 completedCollapsed: false,
                                 isTaskDragEnabled: false,
                                 onTaskTap: { task in
@@ -3678,15 +3708,12 @@ struct HomeBackdropForedropRootView: View {
                                 onToggleComplete: { task in
                                     trackTaskToggle(task, source: "search_results")
                                     onToggleComplete(task)
-                                    refreshSearchAfterMutation()
                                 },
                                 onDeleteTask: { task in
                                     onDeleteTask(task)
-                                    refreshSearchAfterMutation()
                                 },
                                 onRescheduleTask: { task in
                                     onRescheduleTask(task)
-                                    refreshSearchAfterMutation()
                                 }
                             )
                         }
@@ -3705,11 +3732,13 @@ struct HomeBackdropForedropRootView: View {
         .accessibilityIdentifier("search.view")
     }
 
+    @ViewBuilder
     private func topNavigationBar() -> some View {
         if isSearchOpen {
-            return AnyView(searchTopBackdropBar)
+            searchTopBackdropBar
+        } else {
+            defaultTopNavigationBar
         }
-        return AnyView(defaultTopNavigationBar)
     }
 
     private var defaultTopNavigationBar: some View {
@@ -3717,12 +3746,12 @@ struct HomeBackdropForedropRootView: View {
             HStack(spacing: spacing.s8) {
                 QuickViewSelector(
                     selectedQuickView: Binding(
-                        get: { viewModel.activeScope.quickView },
+                        get: { chromeSnapshot.activeScope.quickView },
                         set: { viewModel.setQuickView($0) }
                     ),
-                    taskCounts: viewModel.quickViewCounts,
+                    taskCounts: chromeSnapshot.quickViewCounts,
                     onShowDatePicker: {
-                        draftDate = viewModel.selectedDate
+                        draftDate = chromeSnapshot.selectedDate
                         showDatePicker = true
                     },
                     onShowAdvancedFilters: {
@@ -3756,13 +3785,7 @@ struct HomeBackdropForedropRootView: View {
 
                 TextField(
                     "Search tasks...",
-                    text: Binding(
-                        get: { searchState.query },
-                        set: { newValue in
-                            searchState.updateQuery(newValue)
-                            trackSearchQueryChanged(newValue)
-                        }
-                    )
+                    text: $searchDraftQuery
                 )
                 .focused($isSearchFieldFocused)
                 .submitLabel(.search)
@@ -3771,10 +3794,20 @@ struct HomeBackdropForedropRootView: View {
                 .font(.tasker(.body))
                 .foregroundColor(Color.tasker.textPrimary)
                 .accessibilityIdentifier("search.searchField")
+                .onChange(of: searchDraftQuery) { _, newValue in
+                    trackSearchQueryChanged(newValue)
+                    scheduleSearchCommit(for: newValue)
+                }
+                .onSubmit {
+                    commitDraftSearchQueryImmediately()
+                }
 
-                if !searchState.query.isEmpty {
+                if !searchDraftQuery.isEmpty {
                     Button {
+                        cancelPendingSearchCommit()
+                        searchDraftQuery = ""
                         searchState.clearQuery()
+                        trackSearchQueryChanged("")
                     } label: {
                         Image(systemName: "xmark.circle.fill")
                             .font(.system(size: 16))
@@ -3803,7 +3836,7 @@ struct HomeBackdropForedropRootView: View {
 
     private var topSearchButton: some View {
         Button {
-            openSearch(source: "top_nav_search")
+            onOpenSearch("top_nav_search")
         } label: {
             Image(systemName: "magnifyingglass")
                 .font(.system(size: 18, weight: .semibold))
@@ -3834,6 +3867,7 @@ struct HomeBackdropForedropRootView: View {
         }
         .buttonStyle(.plain)
         .accessibilityIdentifier("home.settingsButton")
+        .accessibilityLabel("Settings")
     }
 
     private var searchStatusChips: some View {
@@ -3939,7 +3973,7 @@ struct HomeBackdropForedropRootView: View {
     }
 
     private func searchProject(for name: String) -> Project {
-        if let resolved = projectsByNameCache[name] {
+        if let resolved = tasksSnapshot.projectsByName[name] {
             return resolved
         }
         if name == ProjectConstants.inboxProjectName {
@@ -3948,62 +3982,12 @@ struct HomeBackdropForedropRootView: View {
         return Project(name: name)
     }
 
-    private func rebuildProjectCaches(_ projects: [Project]) {
-        var byID: [UUID: Project] = [:]
-        byID.reserveCapacity(projects.count)
-
-        var byName: [String: Project] = [:]
-        byName.reserveCapacity(projects.count + 1)
-
-        for project in projects {
-            byID[project.id] = project
-            byName[project.name] = project
-        }
-
-        let inbox = Project.createInbox()
-        byName[ProjectConstants.inboxProjectName] = inbox
-
-        projectsByIDCache = byID
-        projectsByNameCache = byName
-    }
-
-    private func rebuildTagCache(_ tags: [TagDefinition]) {
-        var tagMap: [UUID: String] = [:]
-        tagMap.reserveCapacity(tags.count)
-        for tag in tags {
-            tagMap[tag.id] = tag.name
-        }
-        tagNameByIDCache = tagMap
-    }
-
-    private func rebuildRescueTasksCache(
-        overdueTasks: [TaskDefinition],
-        morningTasks: [TaskDefinition],
-        eveningTasks: [TaskDefinition],
-        triageQueue: [EvaTriageQueueItem]
-    ) {
-        let combinedTasks = overdueTasks + morningTasks + eveningTasks + triageQueue.map(\.task)
-        var taskMap: [UUID: TaskDefinition] = [:]
-        taskMap.reserveCapacity(combinedTasks.count)
-        for task in combinedTasks {
-            taskMap[task.id] = task
-        }
-        rescueTasksByIDCache = taskMap
-    }
-
     private func searchIdentifierToken(_ rawValue: String) -> String {
         rawValue
             .lowercased()
             .replacingOccurrences(of: " ", with: "_")
             .replacingOccurrences(of: ".", with: "_")
             .replacingOccurrences(of: "-", with: "_")
-    }
-
-    private func refreshSearchAfterMutation() {
-        searchState.markDataMutated()
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) {
-            searchState.refresh(immediate: true)
-        }
     }
 
     private func trackSearchQueryChanged(_ query: String) {
@@ -4044,31 +4028,31 @@ struct HomeBackdropForedropRootView: View {
     }
 
     private var hasActiveQuickFilters: Bool {
-        !viewModel.activeFilterState.selectedProjectIDs.isEmpty
-            || viewModel.activeFilterState.advancedFilter != nil
+        !chromeSnapshot.activeFilterState.selectedProjectIDs.isEmpty
+            || chromeSnapshot.activeFilterState.advancedFilter != nil
     }
 
     private var shouldShowInboxTriageAction: Bool {
-        V2FeatureFlags.evaTriageEnabled && viewModel.activeScope.quickView == .today
+        V2FeatureFlags.evaTriageEnabled && chromeSnapshot.activeScope.quickView == .today
     }
 
     private var shouldShowOverdueRescueAction: Bool {
-        V2FeatureFlags.evaRescueEnabled && viewModel.activeScope.quickView == .today
+        V2FeatureFlags.evaRescueEnabled && chromeSnapshot.activeScope.quickView == .today
     }
 
     private var quickFilterPills: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: spacing.s4) {
-                if let projectFilter = viewModel.activeFilterState.selectedProjectIDs.first {
+                if let projectFilter = chromeSnapshot.activeFilterState.selectedProjectIDs.first {
                     FilterPill(
-                        title: viewModel.projects.first(where: { $0.id == projectFilter })?.name ?? "Project",
+                        title: chromeSnapshot.projects.first(where: { $0.id == projectFilter })?.name ?? "Project",
                         systemImage: "folder"
                     ) {
                         viewModel.clearProjectFilters()
                     }
                 }
 
-                if viewModel.activeFilterState.advancedFilter != nil {
+                if chromeSnapshot.activeFilterState.advancedFilter != nil {
                     FilterPill(
                         title: "Filters",
                         systemImage: "slider.horizontal.3"
@@ -4089,16 +4073,16 @@ struct HomeBackdropForedropRootView: View {
     }
 
     private var momentumHUD: some View {
-        let progress = viewModel.progressState
+        let progress = chromeSnapshot.progressState
         let denominator = max(1, progress.todayTargetXP)
         let progressRatio = min(1, Double(progress.earnedXP) / Double(denominator))
-        let completionPercent = Int((viewModel.completionRate * 100).rounded())
+        let completionPercent = Int((chromeSnapshot.completionRate * 100).rounded())
 
         return VStack(alignment: .leading, spacing: spacing.s8) {
             HStack(spacing: spacing.s12) {
                 NavPieChart(
-                    score: viewModel.dailyScore,
-                    maxScore: viewModel.progressState.todayTargetXP,
+                    score: chromeSnapshot.dailyScore,
+                    maxScore: chromeSnapshot.progressState.todayTargetXP,
                     accessibilityContainerID: "home.navXpPieChart",
                     accessibilityButtonID: "home.navXpPieChart.button"
                 ) {
@@ -4141,35 +4125,11 @@ struct HomeBackdropForedropRootView: View {
                 }
             }
 
-            // Enhanced progress bar with gradient and glow
-            GeometryReader { geo in
-                ZStack(alignment: .leading) {
-                    // Background track
-                    RoundedRectangle(cornerRadius: 3)
-                        .fill(Color.tasker.surfaceSecondary)
-
-                    // Progress fill with gradient
-                    RoundedRectangle(cornerRadius: 3)
-                        .fill(
-                            LinearGradient(
-                                colors: progressGradientColors(isStreakSafe: progress.isStreakSafeToday),
-                                startPoint: .leading,
-                                endPoint: .trailing
-                            )
-                        )
-                        .frame(width: geo.size.width * progressRatio)
-                        .shadow(
-                            color: progress.isStreakSafeToday
-                                ? Color.tasker.accentPrimary.opacity(0.4)
-                                : Color.tasker.statusWarning.opacity(0.4),
-                            radius: 4,
-                            x: 2,
-                            y: 0
-                        )
-                }
-            }
-            .frame(height: 6)
-            .animation(reduceMotion ? .easeInOut(duration: 0.2) : .spring(response: 0.4, dampingFraction: 0.7), value: progressRatio)
+            TaskerProgressBar(
+                progress: progressRatio,
+                colors: progressGradientColors(isStreakSafe: progress.isStreakSafeToday),
+                animate: shellPhase == .interactive && !reduceMotion
+            )
 
             Text(momentumGuidanceText)
                 .font(.tasker(.caption1))
@@ -4200,7 +4160,7 @@ struct HomeBackdropForedropRootView: View {
             Image(systemName: "flame.fill")
                 .font(.system(size: 12, weight: .medium))
                 .foregroundColor(progress.isStreakSafeToday ? Color.tasker.accentSecondary : Color.tasker.statusWarning)
-                .symbolEffect(.pulse, options: .repeating.speed(0.5), isActive: !progress.isStreakSafeToday && !reduceMotion)
+                .symbolEffect(.pulse, options: .repeating.speed(0.5), isActive: !progress.isStreakSafeToday && !reduceMotion && shellPhase == .interactive)
 
             Text("\(progress.streakDays)d")
                 .font(.tasker(.caption1))
@@ -4211,8 +4171,9 @@ struct HomeBackdropForedropRootView: View {
 
     private var focusStrip: some View {
         FocusZone(
-            tasks: viewModel.focusTasks,
-            canDrag: viewModel.canUseManualFocusDrag,
+            tasks: tasksSnapshot.focusTasks,
+            canDrag: tasksSnapshot.canUseManualFocusDrag,
+            shellPhase: shellPhase,
             insightForTaskID: { taskID in
                 viewModel.evaFocusInsight(for: taskID)
             },
@@ -4237,32 +4198,6 @@ struct HomeBackdropForedropRootView: View {
             },
             onDrop: handleFocusDrop
         )
-    }
-
-    private var homeBottomBar: some View {
-        HomeGlassBottomBar(
-            state: bottomBarState,
-            onHome: {
-                returnToTasks(source: "bottom_bar_home")
-            },
-            onChartsToggle: {
-                toggleInsights(source: "bottom_bar_analytics")
-            },
-            onSearch: {
-                toggleSearch(source: "bottom_bar_search")
-            },
-            onChat: {
-                onOpenChat()
-            },
-            onCreate: {
-                onAddTask()
-            }
-        )
-        .padding(.horizontal, spacing.s16)
-        .padding(.bottom, 0)
-        .ignoresSafeArea(.container, edges: .bottom)
-        .offset(y: 6)
-        .animation(TaskerAnimation.snappy, value: bottomBarState.isMinimized)
     }
 
     private var xpBurstOverlay: some View {
@@ -4392,21 +4327,11 @@ struct HomeBackdropForedropRootView: View {
     }
 
     private var reflectionEligible: Bool {
-        viewModel.activeScope.quickView == .today && !viewModel.isDailyReflectionCompletedToday()
+        chromeSnapshot.reflectionEligible
     }
 
     private var momentumGuidanceText: String {
-        let progress = viewModel.progressState
-        if !progress.isStreakSafeToday {
-            return "Complete 1 more task to keep your streak safe."
-        }
-        if progress.earnedXP < progress.todayTargetXP {
-            return "Complete another task to keep building XP."
-        }
-        if viewModel.todayOpenTaskCount > 0 {
-            return "Daily goal hit. Keep momentum with one more completion."
-        }
-        return "Daily board clear. Add a task to keep momentum rolling."
+        chromeSnapshot.momentumGuidanceText
     }
 
     private func handleXPResult(_ result: XPEventResult?) {
@@ -4459,41 +4384,22 @@ struct HomeBackdropForedropRootView: View {
         }
     }
 
-    private func handleInsightsLaunchRequest(_ request: InsightsLaunchRequest?) {
-        guard let request else { return }
-        openAnalytics(source: "launch_request", launchDefaultInsights: false)
-        insightsViewModel.selectTab(request.targetTab)
-        insightsViewModel.highlightAchievement(request.highlightedAchievementKey)
+    private func setActiveFace(_ face: HomeForedropFace, animated: Bool) {
+        if animated {
+            withAnimation(foredropFlipAnimation) {
+                faceCoordinator.setActiveFace(face)
+            }
+        } else {
+            faceCoordinator.setActiveFace(face)
+        }
     }
 
     private func openAnalytics(source: String, launchDefaultInsights: Bool) {
-        guard activeFace != .analytics else { return }
-        if activeFace == .search {
-            trackSearchFlipClose(source: "analytics_switch")
-        }
-        withAnimation(foredropFlipAnimation) {
-            activeFace = .analytics
-        }
-        bottomBarState.select(activeFace.selectedBottomBarItem)
-        viewModel.trackHomeInteraction(
-            action: "home_insights_flip_open",
-            metadata: ["source": source]
-        )
-        if launchDefaultInsights {
-            viewModel.launchInsights(.default)
-        }
+        onOpenAnalytics(source, launchDefaultInsights)
     }
 
     private func closeAnalytics(source: String) {
-        guard activeFace == .analytics else { return }
-        withAnimation(foredropFlipAnimation) {
-            activeFace = .tasks
-        }
-        bottomBarState.select(activeFace.selectedBottomBarItem)
-        viewModel.trackHomeInteraction(
-            action: "home_insights_flip_close",
-            metadata: ["source": source]
-        )
+        onCloseAnalytics(source)
     }
 
     private func toggleSearch(source: String) {
@@ -4506,38 +4412,15 @@ struct HomeBackdropForedropRootView: View {
     }
 
     private func openSearch(source: String) {
-        guard activeFace != .search else { return }
-        if activeFace == .analytics {
-            viewModel.trackHomeInteraction(
-                action: "home_insights_flip_close",
-                metadata: ["source": "analytics_switch"]
-            )
-        }
-        withAnimation(foredropFlipAnimation) {
-            activeFace = .search
-        }
-        bottomBarState.select(activeFace.selectedBottomBarItem)
-        trackSearchFlipOpen(source: source)
+        onOpenSearch(source)
     }
 
     private func closeSearch(source: String) {
-        guard activeFace == .search else { return }
-        withAnimation(foredropFlipAnimation) {
-            activeFace = .tasks
-        }
-        bottomBarState.select(activeFace.selectedBottomBarItem)
-        trackSearchFlipClose(source: source)
+        onCloseSearch(source)
     }
 
     private func returnToTasks(source: String) {
-        switch activeFace {
-        case .tasks:
-            bottomBarState.select(HomeForedropFace.tasks.selectedBottomBarItem)
-        case .analytics:
-            closeAnalytics(source: source)
-        case .search:
-            closeSearch(source: source)
-        }
+        onReturnToTasks(source)
     }
 
     private func trackSearchFlipOpen(source: String) {
@@ -4582,6 +4465,85 @@ struct HomeBackdropForedropRootView: View {
     private func openReflectionSheet() {
         refreshReflectionClaimState()
         showReflectionSheet = true
+    }
+}
+
+private struct HomeStaggerModifier: ViewModifier {
+    let isEnabled: Bool
+    let index: Int
+
+    func body(content: Content) -> some View {
+        if isEnabled {
+            content.enhancedStaggeredAppearance(index: index)
+        } else {
+            content
+        }
+    }
+}
+
+private struct HomeDenseSurfaceModifier: ViewModifier {
+    let cornerRadius: CGFloat
+
+    func body(content: Content) -> some View {
+        content
+            .background(
+                UnevenRoundedRectangle(
+                    topLeadingRadius: cornerRadius,
+                    bottomLeadingRadius: 0,
+                    bottomTrailingRadius: 0,
+                    topTrailingRadius: cornerRadius
+                )
+                .fill(Color.tasker.surfaceTertiary)
+                .overlay(
+                    UnevenRoundedRectangle(
+                        topLeadingRadius: cornerRadius,
+                        bottomLeadingRadius: 0,
+                        bottomTrailingRadius: 0,
+                        topTrailingRadius: cornerRadius
+                    )
+                    .stroke(Color.tasker.strokeHairline.opacity(0.35), lineWidth: 1)
+                )
+            )
+            .clipShape(
+                UnevenRoundedRectangle(
+                    topLeadingRadius: cornerRadius,
+                    bottomLeadingRadius: 0,
+                    bottomTrailingRadius: 0,
+                    topTrailingRadius: cornerRadius
+                )
+            )
+    }
+}
+
+private struct TaskerProgressBar: View {
+    let progress: Double
+    let colors: [Color]
+    var trackColor: Color = Color.tasker.surfaceSecondary
+    var height: CGFloat = 6
+    var animate: Bool = true
+
+    private var clampedProgress: Double {
+        min(max(progress, 0), 1)
+    }
+
+    var body: some View {
+        RoundedRectangle(cornerRadius: height / 2, style: .continuous)
+            .fill(trackColor)
+            .overlay(alignment: .leading) {
+                RoundedRectangle(cornerRadius: height / 2, style: .continuous)
+                    .fill(
+                        LinearGradient(
+                            colors: colors,
+                            startPoint: .leading,
+                            endPoint: .trailing
+                        )
+                    )
+                    .scaleEffect(x: clampedProgress, y: 1, anchor: .leading)
+                    .animation(animate ? .spring(response: 0.34, dampingFraction: 0.82) : .linear(duration: 0.01), value: clampedProgress)
+            }
+            .frame(height: height)
+            .accessibilityElement(children: .ignore)
+            .accessibilityValue("\(Int((clampedProgress * 100).rounded())) percent")
     }
 }
 
@@ -4756,14 +4718,15 @@ struct HomeiPadSplitShellView: View {
         }
     }
 
-    private var shellLayout: AnyView {
+    @ViewBuilder
+    private var shellLayout: some View {
         if layoutClass == .padCompact {
-            return AnyView(compactShell)
+            compactShell
+        } else if layoutClass == .padExpanded {
+            expandedShell
+        } else {
+            regularShell
         }
-        if layoutClass == .padExpanded {
-            return AnyView(expandedShell)
-        }
-        return AnyView(regularShell)
     }
 
     private var compactShell: some View {
@@ -5081,6 +5044,7 @@ struct HomeiPadSettingsContainer: View {
     let onNavigateToLifeManagement: () -> Void
     let onNavigateToChats: () -> Void
     let onNavigateToModels: () -> Void
+    let onRestartOnboarding: () -> Void
 
     @StateObject private var viewModel = SettingsViewModel()
 
@@ -5092,6 +5056,7 @@ struct HomeiPadSettingsContainer: View {
                     viewModel.onNavigateToLifeManagement = onNavigateToLifeManagement
                     viewModel.onNavigateToChats = onNavigateToChats
                     viewModel.onNavigateToModels = onNavigateToModels
+                    viewModel.onRestartOnboarding = onRestartOnboarding
                 }
         }
         .accessibilityIdentifier("home.ipad.detail.settings")

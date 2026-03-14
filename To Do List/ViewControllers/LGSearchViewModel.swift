@@ -37,13 +37,32 @@ class LGSearchViewModel {
         let mappedPriority: Int32
     }
 
+    private final class SearchComputationWorker {
+        private let queue = DispatchQueue(label: "tasker.search.computation", qos: .userInitiated)
+
+        func compute(
+            preparedTasks: [PreparedTask],
+            cacheKey: SearchCacheKey,
+            filter: @escaping ([PreparedTask], SearchCacheKey) -> [PreparedTask],
+            group: @escaping ([PreparedTask]) -> [(project: String, tasks: [TaskDefinition])],
+            completion: @escaping ([PreparedTask], [(project: String, tasks: [TaskDefinition])]) -> Void
+        ) {
+            queue.async {
+                let filteredPreparedTasks = filter(preparedTasks, cacheKey)
+                let groupedResults = group(filteredPreparedTasks)
+                DispatchQueue.main.async {
+                    completion(filteredPreparedTasks, groupedResults)
+                }
+            }
+        }
+    }
+
     // MARK: - Properties
 
     private let useCaseCoordinator: UseCaseCoordinator
+    private let computationWorker = SearchComputationWorker()
     private var currentStatusFilter: StatusFilterType = .all
     private var lastQuery: String = ""
-    private var lastRecurringTopUpAt: Date?
-    private let recurringTopUpThrottleSeconds: TimeInterval = 90
     private var activeCacheRevision: Int = 0
     private var latestSearchRequestID: Int = 0
     private var corpusCache: [CorpusCacheKey: [PreparedTask]] = [:]
@@ -91,15 +110,26 @@ class LGSearchViewModel {
 
         fetchPreparedTasksForCurrentStatusFilter(revision: activeCacheRevision) { [weak self] preparedTasks in
             guard let self else { return }
-            let filteredPreparedTasks = self.applyInMemoryFilters(tasks: preparedTasks, cacheKey: cacheKey)
-            let filteredTasks = filteredPreparedTasks.map(\.task)
-            self.searchResults = filteredTasks
-            self.filteredResultsCache[cacheKey] = filteredTasks
-            self.groupedResultsCache[cacheKey] = self.groupPreparedTasksByProject(filteredPreparedTasks)
-            self.lastEmittedSearchCacheKey = cacheKey
-            self.lastEmittedSearchTaskIDs = filteredTasks.map(\.id)
-            self.pruneCachesIfNeeded()
-            self.dispatchSearchResults(filteredTasks, revision: revision, requestID: requestID)
+            self.computationWorker.compute(
+                preparedTasks: preparedTasks,
+                cacheKey: cacheKey,
+                filter: { tasks, key in
+                    self.applyInMemoryFilters(tasks: tasks, cacheKey: key)
+                },
+                group: { tasks in
+                    self.groupPreparedTasksByProject(tasks)
+                }
+            ) { [weak self] filteredPreparedTasks, groupedResults in
+                guard let self else { return }
+                let filteredTasks = filteredPreparedTasks.map(\.task)
+                self.searchResults = filteredTasks
+                self.filteredResultsCache[cacheKey] = filteredTasks
+                self.groupedResultsCache[cacheKey] = groupedResults
+                self.lastEmittedSearchCacheKey = cacheKey
+                self.lastEmittedSearchTaskIDs = filteredTasks.map(\.id)
+                self.pruneCachesIfNeeded()
+                self.dispatchSearchResults(filteredTasks, revision: revision, requestID: requestID)
+            }
         }
     }
 
@@ -113,7 +143,10 @@ class LGSearchViewModel {
         useCaseCoordinator.manageProjects.getAllProjects { [weak self] result in
             DispatchQueue.main.async {
                 if case .success(let projectsWithStats) = result {
-                    self?.projects = projectsWithStats.map(\.project)
+                    let nextProjects = projectsWithStats.map(\.project)
+                    if self?.projects != nextProjects {
+                        self?.projects = nextProjects
+                    }
                 }
                 completion?()
             }
@@ -136,6 +169,7 @@ class LGSearchViewModel {
     }
 
     func invalidateSearchCache(revision: Int) {
+        guard revision != activeCacheRevision else { return }
         activeCacheRevision = revision
         latestSearchRequestID &+= 1
         let floorRevision = max(0, revision - 1)
@@ -259,12 +293,8 @@ class LGSearchViewModel {
         var firstError: Error?
 
         var loadedProjects: [Project] = projects
-        var loadedLifeAreas: [LifeArea] = []
         var loadedSections: [TaskerProjectSection] = []
-        var loadedTags: [TagDefinition] = []
-        var availableTasks: [TaskDefinition] = []
 
-        /// Executes record.
         func record(_ error: Error) {
             lock.lock()
             if firstError == nil {
@@ -285,22 +315,56 @@ class LGSearchViewModel {
         }
 
         group.enter()
-        useCaseCoordinator.manageLifeAreas.list { result in
-            defer { group.leave() }
-            switch result {
-            case .success(let lifeAreas):
-                loadedLifeAreas = lifeAreas
-            case .failure(let error):
-                record(error)
-            }
-        }
-
-        group.enter()
         useCaseCoordinator.manageSections.list(projectID: projectID) { result in
             defer { group.leave() }
             switch result {
             case .success(let sections):
                 loadedSections = sections
+            case .failure(let error):
+                record(error)
+            }
+        }
+
+        group.notify(queue: .main) {
+            if let firstError {
+                completion(.failure(firstError))
+                return
+            }
+
+            completion(.success(TaskDetailMetadataPayload(
+                projects: loadedProjects,
+                sections: loadedSections
+            )))
+        }
+    }
+
+    func loadTaskDetailRelationshipMetadata(
+        projectID: UUID,
+        completion: @escaping (Result<TaskDetailRelationshipMetadataPayload, Error>) -> Void
+    ) {
+        let group = DispatchGroup()
+        let lock = NSLock()
+        var firstError: Error?
+
+        var loadedLifeAreas: [LifeArea] = []
+        var loadedTags: [TagDefinition] = []
+        var availableTasks: [TaskDefinition] = []
+
+        /// Executes record.
+        func record(_ error: Error) {
+            lock.lock()
+            if firstError == nil {
+                firstError = error
+            }
+            lock.unlock()
+        }
+
+        group.enter()
+        useCaseCoordinator.manageLifeAreas.list { result in
+            defer { group.leave() }
+            switch result {
+            case .success(let lifeAreas):
+                loadedLifeAreas = lifeAreas
             case .failure(let error):
                 record(error)
             }
@@ -334,10 +398,8 @@ class LGSearchViewModel {
                 return
             }
 
-            completion(.success(TaskDetailMetadataPayload(
-                projects: loadedProjects,
+            completion(.success(TaskDetailRelationshipMetadataPayload(
                 lifeAreas: loadedLifeAreas,
-                sections: loadedSections,
                 tags: loadedTags,
                 availableTasks: availableTasks
             )))
@@ -476,8 +538,6 @@ class LGSearchViewModel {
             return
         }
 
-        triggerRecurringTopUpIfNeeded()
-
         let handler: (Result<[TaskDefinition], Error>) -> Void = { [weak self] result in
             guard let self else { return }
             switch result {
@@ -555,17 +615,6 @@ class LGSearchViewModel {
         corpusCache = corpusCache.filter { $0.key.revision >= floorRevision }
         filteredResultsCache = filteredResultsCache.filter { $0.key.cacheRevision >= floorRevision }
         groupedResultsCache = groupedResultsCache.filter { $0.key.cacheRevision >= floorRevision }
-    }
-
-    /// Executes triggerRecurringTopUpIfNeeded.
-    private func triggerRecurringTopUpIfNeeded() {
-        let now = Date()
-        if let lastRecurringTopUpAt,
-           now.timeIntervalSince(lastRecurringTopUpAt) < recurringTopUpThrottleSeconds {
-            return
-        }
-        lastRecurringTopUpAt = now
-        useCaseCoordinator.createTaskDefinition.maintainRecurringSeries(daysAhead: 45) { _ in }
     }
 
     /// Executes applyInMemoryFilters.
