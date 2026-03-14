@@ -98,10 +98,18 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
 
     private(set) var persistentBootstrapState: PersistentBootstrapState = .failed("Persistent store bootstrap has not run")
     private(set) var persistentContainer: NSPersistentCloudKitContainer?
+    private var didScheduleDeferredLaunchServices = false
+    private let deferredLaunchWarmupQueue = DispatchQueue(
+        label: "tasker.app.launchWarmup",
+        qos: .utility
+    )
 
 
     /// Executes application.
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
+        let launchInterval = TaskerPerformanceTrace.begin("AppLaunchCriticalPath")
+        defer { TaskerPerformanceTrace.end(launchInterval) }
+
         // Override point for customization after application launch.
 
 //        HomeViewController.setDateForViewValue(dateToSetForView: Date.today())
@@ -131,41 +139,6 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
             #endif
         }()
 
-        if shouldConfigureFirebase {
-            FirebaseApp.configure()
-            FirebaseConfiguration.shared.setLoggerLevel(.error)
-
-            #if !DEBUG
-            Analytics.setAnalyticsCollectionEnabled(true)
-            #endif
-
-            #if DEBUG
-            let firebaseStartupSource = "debug_launch_argument"
-            #else
-            let firebaseStartupSource = "release_default_enabled"
-            #endif
-
-            logWarning(
-                event: "firebase_startup_mode",
-                message: "Firebase configured for this run",
-                fields: [
-                    "enabled": "true",
-                    "source": firebaseStartupSource
-                ]
-            )
-            GamificationRemoteKillSwitchService.shared.refreshIfAvailable(reason: "app_launch")
-        } else {
-            logWarning(
-                event: "firebase_startup_mode",
-                message: "Firebase skipped in DEBUG (opt in with launch arg)",
-                fields: [
-                    "enabled": "false",
-                    "source": "debug_default_disabled",
-                    "launch_arg": "-TASKER_ENABLE_FIREBASE_DEBUG"
-                ]
-            )
-        }
-        
         // Configure UIAppearance to make ShyHeaderController's dummy table view transparent
         UITableView.appearance().backgroundColor = UIColor.clear
         UITableView.appearance().isOpaque = false
@@ -177,15 +150,91 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         UIScrollView.appearance().backgroundColor = UIColor.clear
         UIScrollView.appearance().isOpaque = false
         
-        // Register for CloudKit silent pushes
-        application.registerForRemoteNotifications()
-
         // Hard-reset cutover to V3 model/container.
+        let bootstrapInterval = TaskerPerformanceTrace.begin("PersistentBootstrap")
         performV3BootstrapCutoverIfNeeded()
-        logCloudKitPreflightTelemetry()
         _ = applyBootstrapState(bootstrapV3PersistentContainer(), trigger: "launch")
+        TaskerPerformanceTrace.end(bootstrapInterval)
+        scheduleDeferredLaunchServices(
+            application: application,
+            shouldConfigureFirebase: shouldConfigureFirebase
+        )
         
         return true
+    }
+
+    private func scheduleDeferredLaunchServices(
+        application: UIApplication,
+        shouldConfigureFirebase: Bool
+    ) {
+        guard didScheduleDeferredLaunchServices == false else { return }
+        didScheduleDeferredLaunchServices = true
+
+        DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(250)) { [weak self] in
+            guard let self else { return }
+            self.runDeferredLaunchPostFirstFrameMain(application: application)
+            self.deferredLaunchWarmupQueue.async { [weak self] in
+                self?.runDeferredLaunchBackgroundWarmup(shouldConfigureFirebase: shouldConfigureFirebase)
+            }
+        }
+    }
+
+    private func runDeferredLaunchPostFirstFrameMain(
+        application: UIApplication
+    ) {
+        let interval = TaskerPerformanceTrace.begin("DeferredLaunchPostFirstFrameMain")
+        defer { TaskerPerformanceTrace.end(interval) }
+        application.registerForRemoteNotifications()
+    }
+
+    private func runDeferredLaunchBackgroundWarmup(
+        shouldConfigureFirebase: Bool
+    ) {
+        let interval = TaskerPerformanceTrace.begin("DeferredLaunchBackgroundWarmup")
+        defer { TaskerPerformanceTrace.end(interval) }
+
+        configureFirebaseIfNeeded(shouldConfigureFirebase)
+        logCloudKitPreflightTelemetry()
+    }
+
+    private func configureFirebaseIfNeeded(_ shouldConfigureFirebase: Bool) {
+        guard shouldConfigureFirebase else {
+            logWarning(
+                event: "firebase_startup_mode",
+                message: "Firebase skipped in DEBUG (opt in with launch arg)",
+                fields: [
+                    "enabled": "false",
+                    "source": "debug_default_disabled",
+                    "launch_arg": "-TASKER_ENABLE_FIREBASE_DEBUG"
+                ]
+            )
+            return
+        }
+
+        if FirebaseApp.app() == nil {
+            FirebaseApp.configure()
+            FirebaseConfiguration.shared.setLoggerLevel(.error)
+
+            #if !DEBUG
+            Analytics.setAnalyticsCollectionEnabled(true)
+            #endif
+        }
+
+        #if DEBUG
+        let firebaseStartupSource = "debug_launch_argument"
+        #else
+        let firebaseStartupSource = "release_default_enabled"
+        #endif
+
+        logWarning(
+            event: "firebase_startup_mode",
+            message: "Firebase configured for this run",
+            fields: [
+                "enabled": "true",
+                "source": firebaseStartupSource
+            ]
+        )
+        GamificationRemoteKillSwitchService.shared.refreshIfAvailable(reason: "app_launch")
     }
 
     /// Executes applicationDidEnterBackground.
@@ -199,17 +248,17 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
                 scheduleRemindersRefresh()
             }
         }
-        notificationOrchestrator?.reconcile(reason: "app_did_enter_background")
+        reconcileNotifications(reason: "app_did_enter_background")
     }
 
     /// Executes applicationWillEnterForeground.
     func applicationWillEnterForeground(_ application: UIApplication) {
-        notificationOrchestrator?.reconcile(reason: "app_will_enter_foreground")
+        reconcileNotifications(reason: "app_will_enter_foreground")
     }
 
     /// Executes applicationDidBecomeActive.
     func applicationDidBecomeActive(_ application: UIApplication) {
-        notificationOrchestrator?.reconcile(reason: "app_did_become_active")
+        reconcileNotifications(reason: "app_did_become_active")
         if FirebaseApp.app() != nil {
             GamificationRemoteKillSwitchService.shared.refreshIfAvailable(reason: "app_did_become_active")
         }
@@ -594,7 +643,8 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
             taskRepository: taskRepository,
             notificationService: notificationService,
             gamificationRepository: EnhancedDependencyContainer.shared.gamificationRepository,
-            preferencesStore: .shared
+            preferencesStore: .shared,
+            reconcileDebounceInterval: 0.35
         )
         orchestrator.startObservingMutations()
         notificationOrchestrator = orchestrator

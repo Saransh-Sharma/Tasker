@@ -1,5 +1,6 @@
 import Foundation
 import os.log
+import os.signpost
 
 /// Log level enumeration
 public enum LogLevel: Int {
@@ -332,6 +333,48 @@ final class LoggingService {
         } else {
             try? data.write(to: fileURL, options: .atomic)
         }
+    }
+}
+
+public struct TaskerPerformanceInterval {
+    fileprivate let name: StaticString
+    fileprivate let signpostID: OSSignpostID
+}
+
+public enum TaskerPerformanceTrace {
+    private static let performanceLog = OSLog(
+        subsystem: Bundle.main.bundleIdentifier ?? "com.tasker",
+        category: "performance"
+    )
+    private static let pointsOfInterestLog = OSLog(
+        subsystem: Bundle.main.bundleIdentifier ?? "com.tasker",
+        category: .pointsOfInterest
+    )
+
+    /// Begins a signposted interval for Instruments correlation.
+    public static func begin(_ name: StaticString) -> TaskerPerformanceInterval {
+        let signpostID = OSSignpostID(log: performanceLog)
+        os_signpost(.begin, log: performanceLog, name: name, signpostID: signpostID)
+        os_signpost(.begin, log: pointsOfInterestLog, name: name, signpostID: signpostID)
+        return TaskerPerformanceInterval(name: name, signpostID: signpostID)
+    }
+
+    /// Ends a previously started signposted interval.
+    public static func end(_ interval: TaskerPerformanceInterval) {
+        os_signpost(.end, log: performanceLog, name: interval.name, signpostID: interval.signpostID)
+        os_signpost(.end, log: pointsOfInterestLog, name: interval.name, signpostID: interval.signpostID)
+    }
+
+    /// Emits a point-in-time event to the performance log.
+    public static func event(_ name: StaticString) {
+        os_signpost(.event, log: performanceLog, name: name)
+        os_signpost(.event, log: pointsOfInterestLog, name: name)
+    }
+
+    /// Emits a point-in-time event with a numeric payload for quick Instruments correlation.
+    public static func event(_ name: StaticString, value: Int) {
+        os_signpost(.event, log: performanceLog, name: name, "%{public}ld", value)
+        os_signpost(.event, log: pointsOfInterestLog, name: name, "%{public}ld", value)
     }
 }
 

@@ -584,6 +584,11 @@ public final class TaskNotificationOrchestrator {
 
     private var observers: [NSObjectProtocol] = []
     private let stampFormatter: DateFormatter
+    private let reconcileDebounceInterval: TimeInterval
+    private var pendingReconcileReasons: Set<String> = []
+    private var pendingReconcileWorkItem: DispatchWorkItem?
+    private var isReconciling = false
+    private var queuedReconcileAfterCurrentPass = false
 
     /// Initializes a new instance.
     public init(
@@ -592,7 +597,8 @@ public final class TaskNotificationOrchestrator {
         gamificationRepository: GamificationRepositoryProtocol? = nil,
         preferencesStore: TaskerNotificationPreferencesStore = .shared,
         calendar: Calendar = .current,
-        now: @escaping () -> Date = Date.init
+        now: @escaping () -> Date = Date.init,
+        reconcileDebounceInterval: TimeInterval = 0
     ) {
         self.taskRepository = taskRepository
         self.notificationService = notificationService
@@ -600,6 +606,7 @@ public final class TaskNotificationOrchestrator {
         self.preferencesStore = preferencesStore
         self.calendar = calendar
         self.now = now
+        self.reconcileDebounceInterval = max(0, reconcileDebounceInterval)
 
         let formatter = DateFormatter()
         formatter.dateFormat = "yyyyMMdd"
@@ -635,6 +642,46 @@ public final class TaskNotificationOrchestrator {
     }
 
     public func reconcile(reason: String = "manual") {
+        DispatchQueue.main.async { [weak self] in
+            self?.scheduleReconcile(reason: reason)
+        }
+    }
+
+    private func scheduleReconcile(reason: String) {
+        pendingReconcileReasons.insert(reason)
+
+        if isReconciling {
+            queuedReconcileAfterCurrentPass = true
+            return
+        }
+
+        pendingReconcileWorkItem?.cancel()
+        let workItem = DispatchWorkItem { [weak self] in
+            self?.flushPendingReconcile()
+        }
+        pendingReconcileWorkItem = workItem
+
+        if reconcileDebounceInterval == 0 {
+            DispatchQueue.main.async(execute: workItem)
+        } else {
+            DispatchQueue.main.asyncAfter(deadline: .now() + reconcileDebounceInterval, execute: workItem)
+        }
+    }
+
+    private func flushPendingReconcile() {
+        guard isReconciling == false else {
+            queuedReconcileAfterCurrentPass = true
+            return
+        }
+        guard pendingReconcileReasons.isEmpty == false else { return }
+
+        isReconciling = true
+        let reasons = pendingReconcileReasons.sorted()
+        pendingReconcileReasons.removeAll()
+        pendingReconcileWorkItem = nil
+
+        let interval = TaskerPerformanceTrace.begin("NotificationReconcile")
+        let mergedReason = reasons.joined(separator: ",")
         taskRepository.fetchAll(query: nil) { [weak self] result in
             guard let self else { return }
             switch result {
@@ -643,20 +690,43 @@ public final class TaskNotificationOrchestrator {
                     event: "notification_reconcile_failed",
                     message: "Failed to fetch tasks for notification reconciliation",
                     fields: [
-                        "reason": reason,
+                        "reason": mergedReason,
                         "error": error.localizedDescription
                     ]
                 )
+                TaskerPerformanceTrace.end(interval)
+                self.completeReconcileCycle()
             case .success(let tasks):
-                self.applyReconciliation(tasks: tasks, reason: reason)
+                self.applyReconciliation(tasks: tasks, reason: mergedReason) {
+                    TaskerPerformanceTrace.end(interval)
+                    self.completeReconcileCycle()
+                }
             }
         }
     }
 
-    private func applyReconciliation(tasks: [TaskDefinition], reason: String) {
+    private func completeReconcileCycle() {
+        DispatchQueue.main.async { [weak self] in
+            guard let self else { return }
+            self.isReconciling = false
+            if self.queuedReconcileAfterCurrentPass || self.pendingReconcileReasons.isEmpty == false {
+                self.queuedReconcileAfterCurrentPass = false
+                self.scheduleReconcile(reason: "queued_follow_up")
+            }
+        }
+    }
+
+    private func applyReconciliation(
+        tasks: [TaskDefinition],
+        reason: String,
+        completion: @escaping () -> Void
+    ) {
         let nowDate = now()
         resolveExactDailyXPByDateKey(nowDate: nowDate) { [weak self] exactDailyXPByDateKey in
-            guard let self else { return }
+            guard let self else {
+                completion()
+                return
+            }
             let preferences = self.preferencesStore.load()
             let desired = self.desiredRequests(
                 tasks: tasks,
@@ -707,6 +777,7 @@ public final class TaskNotificationOrchestrator {
                         "unchanged_count": String(unchangedCount)
                     ]
                 )
+                completion()
             }
         }
     }
