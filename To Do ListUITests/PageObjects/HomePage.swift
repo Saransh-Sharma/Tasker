@@ -1009,18 +1009,34 @@ class HomePage {
     /// Verify floating nav XP pie chart frame is fully within the visible app window.
     @discardableResult
     func verifyNavXpPieChartIsFullyVisibleInWindow(file: StaticString = #file, line: UInt = #line) -> Bool {
-        let chartFrame = navXpPieChart.frame
-        let window = app.windows.firstMatch
-        let windowFrame = window.frame
+        verifyElementIsFullyVisibleInWindow(
+            navXpPieChart,
+            description: "Navigation XP pie chart",
+            file: file,
+            line: line
+        )
+    }
 
-        let isFullyVisible = windowFrame.contains(chartFrame)
+    /// Verify an element's frame is fully within the visible app window.
+    @discardableResult
+    func verifyElementIsFullyVisibleInWindow(
+        _ element: XCUIElement,
+        description: String,
+        file: StaticString = #file,
+        line: UInt = #line
+    ) -> Bool {
+        let elementFrame = element.frame
+        let windowFrame = app.windows.firstMatch.frame
+        let isFullyVisible = windowFrame.contains(elementFrame)
+
         if !isFullyVisible {
             XCTFail(
-                "Expected nav XP pie chart frame \(chartFrame) to be fully inside window frame \(windowFrame)",
+                "Expected \(description) frame \(elementFrame) to be fully inside window frame \(windowFrame)",
                 file: file,
                 line: line
             )
         }
+
         return isFullyVisible
     }
 

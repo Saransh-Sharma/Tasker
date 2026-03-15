@@ -75,6 +75,30 @@ class AnalyticsAndChartsTests: BaseUITest {
         XCTAssertTrue(homePage.searchButton.waitForExistence(timeout: 3), "Bottom search should remain present")
         XCTAssertTrue(homePage.homeButton.waitForExistence(timeout: 3), "Bottom home button should remain present")
         XCTAssertTrue(homePage.settingsButton.waitForExistence(timeout: 3), "Settings button should be present in top nav")
+        XCTAssertTrue(homePage.projectFilterButton.isHittable, "Quick view selector should be hittable")
+        XCTAssertTrue(homePage.topNavSearchButton.isHittable, "Top nav search should be hittable")
+        XCTAssertTrue(homePage.settingsButton.isHittable, "Settings button should be hittable")
+        XCTAssertTrue(
+            homePage.verifyElementIsFullyVisibleInWindow(
+                homePage.projectFilterButton,
+                description: "Quick view selector"
+            ),
+            "Quick view selector should be fully visible inside the window"
+        )
+        XCTAssertTrue(
+            homePage.verifyElementIsFullyVisibleInWindow(
+                homePage.topNavSearchButton,
+                description: "Top nav search button"
+            ),
+            "Top nav search should be fully visible inside the window"
+        )
+        XCTAssertTrue(
+            homePage.verifyElementIsFullyVisibleInWindow(
+                homePage.settingsButton,
+                description: "Settings button"
+            ),
+            "Settings button should be fully visible inside the window"
+        )
         XCTAssertTrue(homePage.waitForToolSelection(homePage.homeButton), "Home should be the default selected bottom tool")
 
         // Top nav controls should stay above the foredrop surface.

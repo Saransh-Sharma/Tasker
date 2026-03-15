@@ -3044,6 +3044,7 @@ struct HomeBackdropForedropRootView: View {
 
                 VStack(spacing: 0) {
                     topNavigationBar()
+                        .padding(.top, layoutMetrics.safeAreaTop)
                         .accessibilityIdentifier("home.topNav.container")
 
                     ZStack(alignment: .top) {
@@ -3772,7 +3773,7 @@ struct HomeBackdropForedropRootView: View {
             momentumHUD
         }
         .padding(.horizontal, spacing.s16)
-        .padding(.top, 0)
+        .padding(.top, spacing.s8)
         .padding(.bottom, spacing.s8)
     }
 
