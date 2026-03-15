@@ -81,9 +81,11 @@ final class LoggingService {
     }
 
     /// Configure runtime log verbosity from process arguments.
-    /// Currently supports `-TASKER_VERBOSE_LOGS` for debug-level verbosity.
+    /// Currently supports `-TASKER_VERBOSE_LOGS` and `-TASKER_VERBOSE_PERF_TRACE`
+    /// for debug-level verbosity.
     func configureFromLaunchArguments(_ arguments: [String]) {
-        if arguments.contains("-TASKER_VERBOSE_LOGS") {
+        if arguments.contains("-TASKER_VERBOSE_LOGS")
+            || arguments.contains("-TASKER_VERBOSE_PERF_TRACE") {
             minimumLogLevel = .debug
         }
     }
@@ -338,10 +340,12 @@ final class LoggingService {
 
 public struct TaskerPerformanceInterval {
     fileprivate let name: StaticString
-    fileprivate let signpostID: OSSignpostID
+    fileprivate let signpostID: OSSignpostID?
+    fileprivate let isEnabled: Bool
 }
 
 public enum TaskerPerformanceTrace {
+    private static let launchArguments = Set(ProcessInfo.processInfo.arguments)
     private static let performanceLog = OSLog(
         subsystem: Bundle.main.bundleIdentifier ?? "com.tasker",
         category: "performance"
@@ -350,29 +354,40 @@ public enum TaskerPerformanceTrace {
         subsystem: Bundle.main.bundleIdentifier ?? "com.tasker",
         category: .pointsOfInterest
     )
+    private static let tracingEnabled =
+        launchArguments.contains("-TASKER_ENABLE_PERF_TRACE")
+        || launchArguments.contains("-TASKER_VERBOSE_PERF_TRACE")
+
+    public static var isEnabled: Bool { tracingEnabled }
 
     /// Begins a signposted interval for Instruments correlation.
     public static func begin(_ name: StaticString) -> TaskerPerformanceInterval {
+        guard tracingEnabled else {
+            return TaskerPerformanceInterval(name: name, signpostID: nil, isEnabled: false)
+        }
         let signpostID = OSSignpostID(log: performanceLog)
         os_signpost(.begin, log: performanceLog, name: name, signpostID: signpostID)
         os_signpost(.begin, log: pointsOfInterestLog, name: name, signpostID: signpostID)
-        return TaskerPerformanceInterval(name: name, signpostID: signpostID)
+        return TaskerPerformanceInterval(name: name, signpostID: signpostID, isEnabled: true)
     }
 
     /// Ends a previously started signposted interval.
     public static func end(_ interval: TaskerPerformanceInterval) {
-        os_signpost(.end, log: performanceLog, name: interval.name, signpostID: interval.signpostID)
-        os_signpost(.end, log: pointsOfInterestLog, name: interval.name, signpostID: interval.signpostID)
+        guard interval.isEnabled, let signpostID = interval.signpostID else { return }
+        os_signpost(.end, log: performanceLog, name: interval.name, signpostID: signpostID)
+        os_signpost(.end, log: pointsOfInterestLog, name: interval.name, signpostID: signpostID)
     }
 
     /// Emits a point-in-time event to the performance log.
     public static func event(_ name: StaticString) {
+        guard tracingEnabled else { return }
         os_signpost(.event, log: performanceLog, name: name)
         os_signpost(.event, log: pointsOfInterestLog, name: name)
     }
 
     /// Emits a point-in-time event with a numeric payload for quick Instruments correlation.
     public static func event(_ name: StaticString, value: Int) {
+        guard tracingEnabled else { return }
         os_signpost(.event, log: performanceLog, name: name, "%{public}ld", value)
         os_signpost(.event, log: pointsOfInterestLog, name: name, "%{public}ld", value)
     }
@@ -402,6 +417,28 @@ public func logDebug(
     let message = items.map { String(describing: $0) }.joined(separator: separator)
     let suffix = terminator == "\n" ? "" : terminator
     LoggingService.shared.debug(message + suffix, file: file, function: function, line: line)
+}
+
+/// Executes logDebug.
+public func logDebug(
+    event: String,
+    message: String,
+    component: String? = nil,
+    fields: [String: String] = [:],
+    file: String = #file,
+    function: String = #function,
+    line: Int = #line
+) {
+    LoggingService.shared.log(
+        level: .debug,
+        component: component,
+        event: event,
+        message: message,
+        fields: fields,
+        file: file,
+        function: function,
+        line: line
+    )
 }
 
 /// Executes logInfo.

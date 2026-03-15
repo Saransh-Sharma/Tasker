@@ -504,7 +504,7 @@ public final class CoreDataTaskDefinitionRepository: TaskDefinitionRepositoryPro
     ) throws -> [TaskDefinition] {
         guard entities.isEmpty == false else { return [] }
         if V2FeatureFlags.iPadPerfCoreDataMappingSnapshotV3Enabled {
-            logWarning(
+            logDebug(
                 event: "taskMapSnapshotPathUsed",
                 message: "Using snapshot-based Core Data task mapping path",
                 fields: ["entity_count": String(entities.count)]

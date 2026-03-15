@@ -7,6 +7,7 @@ public struct TaskReadQuery: Codable, Equatable, Hashable {
     public var dueDateEnd: Date?
     public var updatedAfter: Date?
     public var sortBy: TaskReadSort
+    public var needsTotalCount: Bool
     public var limit: Int
     public var offset: Int
 
@@ -18,6 +19,7 @@ public struct TaskReadQuery: Codable, Equatable, Hashable {
         dueDateEnd: Date? = nil,
         updatedAfter: Date? = nil,
         sortBy: TaskReadSort = .dueDateAscending,
+        needsTotalCount: Bool = false,
         limit: Int = 200,
         offset: Int = 0
     ) {
@@ -27,6 +29,7 @@ public struct TaskReadQuery: Codable, Equatable, Hashable {
         self.dueDateEnd = dueDateEnd
         self.updatedAfter = updatedAfter
         self.sortBy = sortBy
+        self.needsTotalCount = needsTotalCount
         self.limit = max(1, limit)
         self.offset = max(0, offset)
     }
@@ -42,6 +45,7 @@ public struct TaskSearchQuery: Codable, Equatable, Hashable {
     public var text: String
     public var projectID: UUID?
     public var includeCompleted: Bool
+    public var needsTotalCount: Bool
     public var limit: Int
     public var offset: Int
 
@@ -50,12 +54,14 @@ public struct TaskSearchQuery: Codable, Equatable, Hashable {
         text: String,
         projectID: UUID? = nil,
         includeCompleted: Bool = true,
+        needsTotalCount: Bool = false,
         limit: Int = 100,
         offset: Int = 0
     ) {
         self.text = text
         self.projectID = projectID
         self.includeCompleted = includeCompleted
+        self.needsTotalCount = needsTotalCount
         self.limit = max(1, limit)
         self.offset = max(0, offset)
     }

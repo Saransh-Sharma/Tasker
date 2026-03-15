@@ -15,7 +15,6 @@ public final class CoreDataTaskReadModelRepository: TaskReadModelRepositoryProto
         context.perform {
             do {
                 let predicate = self.predicate(for: query)
-                let totalCount = try self.countTasks(predicate: predicate)
                 let entities = try self.fetchTaskEntities(
                     predicate: predicate,
                     sortDescriptors: self.sortDescriptors(for: query.sortBy),
@@ -23,6 +22,13 @@ public final class CoreDataTaskReadModelRepository: TaskReadModelRepositoryProto
                     offset: query.offset
                 )
                 let definitions = try CoreDataTaskDefinitionRepository.mapTaskDefinitions(entities, context: self.context)
+                let totalCount = try self.totalCount(
+                    needsTotalCount: query.needsTotalCount,
+                    predicate: predicate,
+                    loadedCount: definitions.count,
+                    limit: query.limit,
+                    offset: query.offset
+                )
                 completion(.success(TaskDefinitionSliceResult(
                     tasks: definitions,
                     totalCount: totalCount,
@@ -40,7 +46,6 @@ public final class CoreDataTaskReadModelRepository: TaskReadModelRepositoryProto
         context.perform {
             do {
                 let predicate = self.searchPredicate(for: query)
-                let totalCount = try self.countTasks(predicate: predicate)
                 let entities = try self.fetchTaskEntities(
                     predicate: predicate,
                     sortDescriptors: self.sortDescriptors(for: .updatedAtDescending),
@@ -48,6 +53,13 @@ public final class CoreDataTaskReadModelRepository: TaskReadModelRepositoryProto
                     offset: query.offset
                 )
                 let definitions = try CoreDataTaskDefinitionRepository.mapTaskDefinitions(entities, context: self.context)
+                let totalCount = try self.totalCount(
+                    needsTotalCount: query.needsTotalCount,
+                    predicate: predicate,
+                    loadedCount: definitions.count,
+                    limit: query.limit,
+                    offset: query.offset
+                )
                 completion(.success(TaskDefinitionSliceResult(
                     tasks: definitions,
                     totalCount: totalCount,
@@ -141,6 +153,23 @@ public final class CoreDataTaskReadModelRepository: TaskReadModelRepositoryProto
         countRequest.predicate = predicate
         let count = try context.count(for: countRequest)
         return max(0, count)
+    }
+
+    private func totalCount(
+        needsTotalCount: Bool,
+        predicate: NSPredicate?,
+        loadedCount: Int,
+        limit: Int,
+        offset: Int
+    ) throws -> Int {
+        guard needsTotalCount else {
+            // Preserve pagination semantics without paying for a full count() query.
+            if loadedCount < limit {
+                return offset + loadedCount
+            }
+            return offset + loadedCount + 1
+        }
+        return try countTasks(predicate: predicate)
     }
 
     /// Executes fetchTaskEntities.
