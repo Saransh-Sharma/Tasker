@@ -1,7 +1,6 @@
 //
 //  ConversationView.swift
 //
-//
 
 import MarkdownUI
 import SwiftUI
@@ -24,7 +23,7 @@ struct TypingIndicator: View {
 
     var body: some View {
         HStack(spacing: 4) {
-            ForEach(0..<3) { i in
+            ForEach(0..<3) { index in
                 Circle()
                     .fill(Color.tasker(.accentPrimary))
                     .frame(width: 6, height: 6)
@@ -33,7 +32,7 @@ struct TypingIndicator: View {
                     .animation(
                         Animation.easeInOut(duration: 0.6)
                             .repeatForever(autoreverses: true)
-                            .delay(Double(i) * 0.2),
+                            .delay(Double(index) * 0.2),
                         value: animating
                     )
             }
@@ -45,23 +44,13 @@ struct TypingIndicator: View {
 
 struct MessageView: View {
     @State private var collapsed = true
-    @State private var now = Date()
     @State private var undoExpiredLogged = false
 
-    let message: Message
+    let renderModel: ChatMessageRenderModel
+    let now: Date
     var runtime: LLMEvaluator? = nil
     var isLiveOutput: Bool = false
-    var onApplyProposal: ((Message, AssistantCardPayload) -> Void)?
-    var onRejectProposal: ((Message, AssistantCardPayload) -> Void)?
-    var onUndoRun: ((Message, AssistantCardPayload) -> Void)?
-    var onRefreshContext: ((Message, AssistantCardPayload) -> Void)?
     var onOpenTaskFromCard: ((TaskDefinition) -> Void)?
-
-    private let countdownTimer = Timer.publish(every: 60, on: .main, in: .common).autoconnect()
-
-    var cardPayload: AssistantCardPayload? {
-        AssistantCardCodec.decode(from: message.content)
-    }
 
     private var runtimeRunning: Bool {
         runtime?.running ?? false
@@ -71,35 +60,21 @@ struct MessageView: View {
         runtime?.elapsedTime
     }
 
-    var isThinking: Bool {
-        message.content.contains("<think>") && !message.content.contains("</think>")
+    private var isThinking: Bool {
+        renderModel.isThinkingOpenEnded
     }
 
-    func processThinkingContent(_ content: String) -> (String?, String?) {
-        guard let startRange = content.range(of: "<think>") else {
-            return (nil, content.trimmingCharacters(in: .whitespacesAndNewlines))
-        }
-        guard let endRange = content.range(of: "</think>") else {
-            let thinking = String(content[startRange.upperBound...]).trimmingCharacters(in: .whitespacesAndNewlines)
-            return (thinking, nil)
-        }
-
-        let thinking = String(content[startRange.upperBound ..< endRange.lowerBound]).trimmingCharacters(in: .whitespacesAndNewlines)
-        let afterThink = String(content[endRange.upperBound...]).trimmingCharacters(in: .whitespacesAndNewlines)
-        return (thinking, afterThink.isEmpty ? nil : afterThink)
-    }
-
-    var time: String {
+    private var time: String {
         if isThinking, runtimeRunning, let elapsedTime = runtimeElapsedTime {
             return "(\(elapsedTime.formatted))"
         }
-        if let generatingTime = message.generatingTime {
-            return "\(generatingTime.formatted)"
+        if let generatingTime = renderModel.generatingTime {
+            return generatingTime.formatted
         }
         return "0s"
     }
 
-    var thinkingLabel: some View {
+    private var thinkingLabel: some View {
         HStack(spacing: TaskerTheme.Spacing.sm) {
             Button {
                 collapsed.toggle()
@@ -107,13 +82,13 @@ struct MessageView: View {
                 Image(systemName: collapsed ? "chevron.right" : "chevron.down")
                     .font(.tasker(.caption2))
                     .fontWeight(.medium)
-                    .foregroundColor(Color.tasker(.textTertiary))
+                    .foregroundStyle(Color.tasker(.textTertiary))
             }
 
             Text("\(isThinking ? "thinking..." : "thought for") \(time)")
                 .font(.tasker(.caption1))
                 .italic()
-                .foregroundColor(Color.tasker(.textTertiary))
+                .foregroundStyle(Color.tasker(.textTertiary))
         }
         .padding(.horizontal, TaskerTheme.Spacing.md)
         .padding(.vertical, TaskerTheme.Spacing.xs)
@@ -127,113 +102,19 @@ struct MessageView: View {
 
     var body: some View {
         HStack {
-            if message.role == .user { Spacer() }
-
-            if message.role == .assistant {
-                if let cardPayload {
-                    assistantCardView(payload: cardPayload)
-                        .padding(TaskerTheme.Spacing.lg)
-                        .taskerPremiumSurface(
-                            cornerRadius: TaskerTheme.CornerRadius.lg,
-                            fillColor: Color.tasker(.surfacePrimary),
-                            strokeColor: Color.tasker(.strokeHairline),
-                            accentColor: Color.tasker(.accentSecondary),
-                            level: .e2
-                        )
-                        .padding(.trailing, 48)
-                } else {
-                    let (thinking, afterThink) = processThinkingContent(message.content)
-                    VStack(alignment: .leading, spacing: TaskerTheme.Spacing.lg) {
-                        if let thinking {
-                            VStack(alignment: .leading, spacing: TaskerTheme.Spacing.md) {
-                                thinkingLabel
-                                if !collapsed, !thinking.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                                    HStack(spacing: TaskerTheme.Spacing.md) {
-                                        Capsule()
-                                            .frame(width: 2)
-                                            .padding(.vertical, 1)
-                                            .foregroundStyle(Color.tasker(.accentMuted))
-                                        if isLiveOutput && runtimeRunning {
-                                            Text(thinking)
-                                                .font(.tasker(.body))
-                                                .foregroundColor(Color.tasker(.textSecondary))
-                                                .textSelection(.enabled)
-                                        } else {
-                                            Markdown(thinking)
-                                                .textSelection(.enabled)
-                                                .markdownTextStyle {
-                                                    ForegroundColor(Color.tasker(.textSecondary))
-                                                }
-                                        }
-                                    }
-                                    .padding(.leading, 5)
-                                }
-                            }
-                            .contentShape(.rect)
-                            .onTapGesture {
-                                collapsed.toggle()
-                                if isThinking, isLiveOutput {
-                                    runtime?.collapsed = collapsed
-                                }
-                            }
-                        }
-
-                        if let afterThink {
-                            if isLiveOutput && runtimeRunning {
-                                Text(afterThink)
-                                    .font(.tasker(.body))
-                                    .foregroundColor(Color.tasker(.textPrimary))
-                                    .textSelection(.enabled)
-                            } else {
-                                Markdown(afterThink)
-                                    .textSelection(.enabled)
-                                    .markdownTextStyle {
-                                        ForegroundColor(Color.tasker(.textPrimary))
-                                    }
-                            }
-                        }
-
-                        if isLiveOutput && runtimeRunning {
-                            TypingIndicator()
-                        }
-                    }
-                    .padding(TaskerTheme.Spacing.lg)
-                    .taskerPremiumSurface(
-                        cornerRadius: TaskerTheme.CornerRadius.lg,
-                        fillColor: Color.tasker(.surfacePrimary),
-                        strokeColor: Color.tasker(.strokeHairline),
-                        accentColor: Color.tasker(.accentSecondary),
-                        level: .e2
-                    )
-                    .padding(.trailing, 48)
-                }
-            } else {
-                Markdown(message.content)
-                    .textSelection(.enabled)
-                    .markdownTextStyle {
-                        ForegroundColor(Color.tasker(.accentOnPrimary))
-                    }
-                #if os(iOS) || os(visionOS)
-                    .padding(.horizontal, TaskerTheme.Spacing.lg)
-                    .padding(.vertical, TaskerTheme.Spacing.md)
-                #else
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 8)
-                #endif
-                    .background(Color.tasker(.accentPrimary))
-                #if os(iOS) || os(visionOS)
-                    .clipShape(RoundedRectangle(cornerRadius: TaskerTheme.CornerRadius.lg, style: .continuous))
-                #elseif os(macOS)
-                    .clipShape(RoundedRectangle(cornerRadius: 16))
-                #endif
-                    .overlay(
-                        RoundedRectangle(cornerRadius: TaskerTheme.CornerRadius.lg, style: .continuous)
-                            .stroke(Color.tasker(.accentPrimary).opacity(0.18), lineWidth: 1)
-                    )
-                    .padding(.leading, 48)
+            if renderModel.role == .user {
+                Spacer()
             }
 
-            if message.role == .assistant { Spacer() }
+            if renderModel.role == .assistant {
+                assistantBody
+            } else {
+                userBody
+            }
+
+            if renderModel.role == .assistant {
+                Spacer()
+            }
         }
         .onAppear {
             if runtimeRunning {
@@ -245,14 +126,14 @@ struct MessageView: View {
                 runtime?.thinkingTime = runtimeElapsedTime
             }
         }
-        .onChange(of: isThinking) { _, isThinkingNow in
+        .onChange(of: isThinking) { _, thinkingNow in
             if isLiveOutput, runtimeRunning {
-                runtime?.isThinking = isThinkingNow
+                runtime?.isThinking = thinkingNow
+                runtime?.collapsed = collapsed
             }
         }
-        .onReceive(countdownTimer) { _ in
-            now = Date()
-            if let payload = cardPayload,
+        .onChange(of: now) { _, _ in
+            if let payload = renderModel.cardPayload,
                payload.cardType == .undo,
                isUndoExpired(payload: payload),
                !undoExpiredLogged {
@@ -267,85 +148,182 @@ struct MessageView: View {
     }
 
     @ViewBuilder
+    private var assistantBody: some View {
+        if let payload = renderModel.cardPayload {
+            assistantCardView(payload: payload)
+                .padding(TaskerTheme.Spacing.lg)
+                .taskerPremiumSurface(
+                    cornerRadius: TaskerTheme.CornerRadius.lg,
+                    fillColor: Color.tasker(.surfacePrimary),
+                    strokeColor: Color.tasker(.strokeHairline),
+                    accentColor: Color.tasker(.accentSecondary),
+                    level: .e2
+                )
+                .padding(.trailing, 48)
+        } else {
+            VStack(alignment: .leading, spacing: TaskerTheme.Spacing.lg) {
+                if let thinking = renderModel.thinkingText {
+                    VStack(alignment: .leading, spacing: TaskerTheme.Spacing.md) {
+                        thinkingLabel
+                        if !collapsed, !thinking.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                            HStack(spacing: TaskerTheme.Spacing.md) {
+                                Capsule()
+                                    .frame(width: 2)
+                                    .padding(.vertical, 1)
+                                    .foregroundStyle(Color.tasker(.accentMuted))
+                                markdownText(
+                                    thinking,
+                                    color: Color.tasker(.textSecondary)
+                                )
+                            }
+                            .padding(.leading, 5)
+                        }
+                    }
+                    .contentShape(.rect)
+                    .onTapGesture {
+                        collapsed.toggle()
+                        if isThinking, isLiveOutput {
+                            runtime?.collapsed = collapsed
+                        }
+                    }
+                }
+
+                if let answer = renderModel.answerText {
+                    markdownText(
+                        answer,
+                        color: Color.tasker(.textPrimary)
+                    )
+                }
+
+                if isLiveOutput && runtimeRunning {
+                    TypingIndicator()
+                }
+            }
+            .padding(TaskerTheme.Spacing.lg)
+            .taskerPremiumSurface(
+                cornerRadius: TaskerTheme.CornerRadius.lg,
+                fillColor: Color.tasker(.surfacePrimary),
+                strokeColor: Color.tasker(.strokeHairline),
+                accentColor: Color.tasker(.accentSecondary),
+                level: .e2
+            )
+            .padding(.trailing, 48)
+        }
+    }
+
+    private var userBody: some View {
+        Markdown(renderModel.displayContent)
+            .textSelection(.enabled)
+            .markdownTextStyle {
+                ForegroundColor(Color.tasker(.accentOnPrimary))
+            }
+        #if os(iOS) || os(visionOS)
+            .padding(.horizontal, TaskerTheme.Spacing.lg)
+            .padding(.vertical, TaskerTheme.Spacing.md)
+        #else
+            .padding(.horizontal, 10)
+            .padding(.vertical, 8)
+        #endif
+            .background(Color.tasker(.accentPrimary))
+        #if os(iOS) || os(visionOS)
+            .clipShape(RoundedRectangle(cornerRadius: TaskerTheme.CornerRadius.lg, style: .continuous))
+        #elseif os(macOS)
+            .clipShape(RoundedRectangle(cornerRadius: 16))
+        #endif
+            .overlay(
+                RoundedRectangle(cornerRadius: TaskerTheme.CornerRadius.lg, style: .continuous)
+                    .stroke(Color.tasker(.accentPrimary).opacity(0.18), lineWidth: 1)
+            )
+            .padding(.leading, 48)
+    }
+
+    @ViewBuilder
+    private func markdownText(_ text: String, color: Color) -> some View {
+        if isLiveOutput && runtimeRunning {
+            Text(text)
+                .font(.tasker(.body))
+                .foregroundStyle(color)
+                .textSelection(.enabled)
+        } else {
+            Markdown(text)
+                .textSelection(.enabled)
+                .markdownTextStyle {
+                    ForegroundColor(color)
+                }
+                .id(renderModel.markdownSourceHash)
+        }
+    }
+
+    @ViewBuilder
     private func assistantCardView(payload: AssistantCardPayload) -> some View {
         if payload.cardType == .commandResult, let commandResult = payload.commandResult {
             commandResultCardView(commandResult)
         } else {
-        VStack(alignment: .leading, spacing: TaskerTheme.Spacing.sm) {
-            HStack {
-                Text(payload.cardType == .undo ? "Changes applied" : "Eva's Plan")
-                    .font(.tasker(.headline))
-                    .foregroundColor(Color.tasker(.textPrimary))
-                Spacer()
-                if payload.cardType == .proposal {
-                    Text("Affects \(payload.affectedTaskCount) tasks")
-                        .font(.tasker(.caption1))
-                        .foregroundColor(Color.tasker(.textTertiary))
-                }
-            }
-
-            if let rationale = payload.rationale, rationale.isEmpty == false {
-                Text("Rationale: \"\(rationale)\"")
-                    .font(.tasker(.caption1))
-                    .foregroundColor(Color.tasker(.textSecondary))
-            }
-
-            if !payload.diffLines.isEmpty {
-                VStack(alignment: .leading, spacing: TaskerTheme.Spacing.xs) {
-                    ForEach(Array(payload.diffLines.enumerated()), id: \.offset) { _, line in
-                        Text("• \(line.text)")
-                            .font(.tasker(.callout))
-                            .foregroundColor(line.isDestructive ? Color.tasker(.statusDanger) : Color.tasker(.textPrimary))
-                    }
-                }
-            }
-
-            if payload.cardType == .undo {
+            VStack(alignment: .leading, spacing: TaskerTheme.Spacing.sm) {
                 HStack {
-                    Text(undoLabel(payload: payload))
-                        .font(.tasker(.caption1))
-                        .foregroundColor(Color.tasker(.textSecondary))
+                    Text(payload.cardType == .undo ? "Changes applied" : "Eva's Plan")
+                        .font(.tasker(.headline))
+                        .foregroundStyle(Color.tasker(.textPrimary))
                     Spacer()
-                    Button("Undo") {
-                        onUndoRun?(message, payload)
+                    if payload.cardType == .proposal {
+                        Text("Affects \(payload.affectedTaskCount) tasks")
+                            .font(.tasker(.caption1))
+                            .foregroundStyle(Color.tasker(.textTertiary))
                     }
-                    .buttonStyle(.borderedProminent)
-                    .disabled(isUndoExpired(payload: payload))
                 }
-            } else if payload.cardType == .proposal {
-                if payload.runID == nil {
-                    Text("Invalid proposal card (missing run ID).")
-                        .font(.tasker(.caption1))
-                        .foregroundColor(Color.tasker(.statusDanger))
-                } else if payload.status == .pending || payload.status == .confirmed {
-                    HStack(spacing: TaskerTheme.Spacing.sm) {
-                        Button("Reject") {
-                            onRejectProposal?(message, payload)
-                        }
-                        .buttonStyle(.bordered)
 
-                        Button("Apply Changes") {
-                            onApplyProposal?(message, payload)
-                        }
-                        .buttonStyle(.borderedProminent)
-                    }
-                } else {
-                    Text(payload.message ?? proposalStatusText(payload.status))
+                if let rationale = payload.rationale, !rationale.isEmpty {
+                    Text("Rationale: \"\(rationale)\"")
                         .font(.tasker(.caption1))
-                        .foregroundColor(Color.tasker(.textTertiary))
-                    if (payload.message ?? "").localizedCaseInsensitiveContains("refresh context") {
-                        Button("Refresh context") {
-                            onRefreshContext?(message, payload)
+                        .foregroundStyle(Color.tasker(.textSecondary))
+                }
+
+                if !payload.diffLines.isEmpty {
+                    VStack(alignment: .leading, spacing: TaskerTheme.Spacing.xs) {
+                        ForEach(Array(payload.diffLines.enumerated()), id: \.offset) { _, line in
+                            Text("• \(line.text)")
+                                .font(.tasker(.callout))
+                                .foregroundStyle(
+                                    line.isDestructive ? Color.tasker(.statusDanger) : Color.tasker(.textPrimary)
+                                )
                         }
-                        .buttonStyle(.bordered)
                     }
                 }
-            } else if let status = payload.message {
-                Text(status)
-                    .font(.tasker(.caption1))
-                    .foregroundColor(Color.tasker(.textTertiary))
+
+                if payload.cardType == .undo {
+                    HStack {
+                        Text(undoLabel(payload: payload))
+                            .font(.tasker(.caption1))
+                            .foregroundStyle(Color.tasker(.textSecondary))
+                        Spacer()
+                        Button("Undo") {}
+                            .buttonStyle(.borderedProminent)
+                            .disabled(isUndoExpired(payload: payload))
+                    }
+                } else if payload.cardType == .proposal {
+                    if payload.runID == nil {
+                        Text("Invalid proposal card (missing run ID).")
+                            .font(.tasker(.caption1))
+                            .foregroundStyle(Color.tasker(.statusDanger))
+                    } else if payload.status == .pending || payload.status == .confirmed {
+                        HStack(spacing: TaskerTheme.Spacing.sm) {
+                            Button("Reject") {}
+                                .buttonStyle(.bordered)
+
+                            Button("Apply Changes") {}
+                                .buttonStyle(.borderedProminent)
+                        }
+                    } else {
+                        Text(payload.message ?? proposalStatusText(payload.status))
+                            .font(.tasker(.caption1))
+                            .foregroundStyle(Color.tasker(.textTertiary))
+                    }
+                } else if let status = payload.message {
+                    Text(status)
+                        .font(.tasker(.caption1))
+                        .foregroundStyle(Color.tasker(.textTertiary))
+                }
             }
-        }
         }
     }
 
@@ -355,28 +333,28 @@ struct MessageView: View {
             HStack {
                 Label(result.commandLabel, systemImage: result.commandID.icon)
                     .font(.tasker(.headline))
-                    .foregroundColor(Color.tasker(.textPrimary))
+                    .foregroundStyle(Color.tasker(.textPrimary))
                 Spacer()
                 Text("\(result.totalTaskCount)")
                     .font(.tasker(.caption1))
-                    .foregroundColor(Color.tasker(.textTertiary))
+                    .foregroundStyle(Color.tasker(.textTertiary))
             }
 
             Text(result.summary)
                 .font(.tasker(.caption1))
-                .foregroundColor(Color.tasker(.textSecondary))
+                .foregroundStyle(Color.tasker(.textSecondary))
 
             if result.sections.isEmpty {
                 Text("No tasks to show.")
                     .font(.tasker(.caption1))
-                    .foregroundColor(Color.tasker(.textTertiary))
+                    .foregroundStyle(Color.tasker(.textTertiary))
             } else {
                 VStack(alignment: .leading, spacing: TaskerTheme.Spacing.sm) {
                     ForEach(Array(result.sections.enumerated()), id: \.offset) { _, section in
                         VStack(alignment: .leading, spacing: TaskerTheme.Spacing.xs) {
                             Text("\(section.title) (\(section.totalCount))")
                                 .font(.tasker(.caption1))
-                                .foregroundColor(Color.tasker(.textTertiary))
+                                .foregroundStyle(Color.tasker(.textTertiary))
 
                             ForEach(Array(section.tasks.enumerated()), id: \.element.taskID) { _, item in
                                 Button {
@@ -393,24 +371,29 @@ struct MessageView: View {
                                     VStack(alignment: .leading, spacing: TaskerTheme.Spacing.xs) {
                                         Text(item.title)
                                             .font(.tasker(.callout))
-                                            .foregroundColor(Color.tasker(.textPrimary))
+                                            .foregroundStyle(Color.tasker(.textPrimary))
                                             .multilineTextAlignment(.leading)
                                         HStack(spacing: TaskerTheme.Spacing.xs) {
-                                            if let dueLabel = item.dueLabel, dueLabel.isEmpty == false {
+                                            if let dueLabel = item.dueLabel, !dueLabel.isEmpty {
                                                 Text(dueLabel)
                                                     .font(.tasker(.caption1))
-                                                    .foregroundColor(dueLabelColor(dueLabel))
+                                                    .foregroundStyle(dueLabelColor(dueLabel))
                                             }
                                             Text(item.projectName)
                                                 .font(.tasker(.caption1))
-                                                .foregroundColor(Color.tasker(.textTertiary))
+                                                .foregroundStyle(Color.tasker(.textTertiary))
                                         }
                                     }
                                     .padding(.horizontal, TaskerTheme.Spacing.sm)
                                     .padding(.vertical, TaskerTheme.Spacing.sm)
                                     .frame(maxWidth: .infinity, alignment: .leading)
                                     .background(Color.tasker(.surfaceSecondary))
-                                    .clipShape(RoundedRectangle(cornerRadius: TaskerTheme.CornerRadius.md, style: .continuous))
+                                    .clipShape(
+                                        RoundedRectangle(
+                                            cornerRadius: TaskerTheme.CornerRadius.md,
+                                            style: .continuous
+                                        )
+                                    )
                                 }
                                 .buttonStyle(.plain)
                                 .accessibilityLabel("Open task \(item.title)")
@@ -430,7 +413,6 @@ struct MessageView: View {
             : Color.tasker(.textTertiary)
     }
 
-    /// Executes proposalStatusText.
     private func proposalStatusText(_ status: AssistantCardStatus) -> String {
         switch status {
         case .applied:
@@ -468,48 +450,44 @@ struct MessageView: View {
 }
 
 struct ConversationView: View {
-    @Environment(LLMEvaluator.self) var llm
-    @EnvironmentObject var appManager: AppManager
+    @Environment(LLMEvaluator.self) private var llm
+    @EnvironmentObject private var appManager: AppManager
 
-    let thread: Thread
-    let generatingThreadID: UUID?
-    let isPreparingResponse: Bool
-    var onApplyProposal: ((Message, AssistantCardPayload) -> Void)?
-    var onRejectProposal: ((Message, AssistantCardPayload) -> Void)?
-    var onUndoRun: ((Message, AssistantCardPayload) -> Void)?
-    var onRefreshContext: ((Message, AssistantCardPayload) -> Void)?
+    let snapshot: ChatTranscriptSnapshot
+    let liveOutput: ChatLiveOutputState
     var onOpenTaskFromCard: ((TaskDefinition) -> Void)?
 
     @State private var scrollID: String?
     @State private var scrollInterrupted = false
-    @State private var cachedSortedMessages: [Message] = []
-    @State private var lastAnswerHapticAt: Date = .distantPast
-    @State private var liveOutputMessage = Message(role: .assistant, content: "")
+    @State private var now = Date()
+
+    private var shouldRenderLiveOutput: Bool {
+        liveOutput.shouldRender && snapshot.threadID == liveOutput.threadID
+    }
 
     var body: some View {
         ScrollViewReader { scrollView in
             ScrollView(.vertical) {
                 LazyVStack(alignment: .leading, spacing: 0) {
-                    ForEach(Array(cachedSortedMessages.enumerated()), id: \.element.id) { index, message in
+                    ForEach(Array(snapshot.messages.enumerated()), id: \.element.id) { index, message in
                         MessageView(
-                            message: message,
-                            runtime: nil,
-                            onApplyProposal: onApplyProposal,
-                            onRejectProposal: onRejectProposal,
-                            onUndoRun: onUndoRun,
-                            onRefreshContext: onRefreshContext,
+                            renderModel: message,
+                            now: now,
                             onOpenTaskFromCard: onOpenTaskFromCard
                         )
-                            .padding(.horizontal, TaskerTheme.Spacing.lg)
-                            .padding(.vertical, TaskerTheme.Spacing.sm)
-                            .staggeredAppearance(index: index)
-                            .id(message.id.uuidString)
+                        .padding(.horizontal, TaskerTheme.Spacing.lg)
+                        .padding(.vertical, TaskerTheme.Spacing.sm)
+                        .staggeredAppearance(index: index)
+                        .id(message.id.uuidString)
                     }
 
-                    if (llm.running || isPreparingResponse) && !llm.output.isEmpty && thread.id == generatingThreadID {
-                        VStack {
-                            MessageView(message: liveOutputMessage, runtime: llm, isLiveOutput: true)
-                        }
+                    if shouldRenderLiveOutput {
+                        MessageView(
+                            renderModel: liveOutput.renderModel,
+                            now: now,
+                            runtime: llm,
+                            isLiveOutput: true
+                        )
                         .padding(.horizontal, TaskerTheme.Spacing.lg)
                         .padding(.vertical, TaskerTheme.Spacing.sm)
                         .id("output")
@@ -527,40 +505,53 @@ struct ConversationView: View {
             }
             .background(Color.tasker(.bgCanvas))
             .scrollPosition(id: $scrollID, anchor: .bottom)
-            .onChange(of: llm.output) { _, _ in
-                liveOutputMessage.content = llm.output
+            .onAppear {
                 if !scrollInterrupted {
                     scrollView.scrollTo("bottom")
                 }
-
-                guard thread.id == generatingThreadID else { return }
-                guard V2FeatureFlags.llmChatAnswerPhaseHapticsEnabled else { return }
-                guard llm.runtimePhase == .answering else { return }
-                let now = Date()
-                guard now.timeIntervalSince(lastAnswerHapticAt) >= 0.35 else { return }
-                lastAnswerHapticAt = now
-                appManager.playHaptic()
             }
-            .onChange(of: llm.runtimePhase) { _, phase in
-                guard thread.id == generatingThreadID else { return }
-                guard phase == .thinking else { return }
-                guard V2FeatureFlags.llmChatThinkingPhaseHapticsEnabled else { return }
-                appManager.playHaptic()
-            }
-            .onAppear {
-                liveOutputMessage.content = llm.output
-                refreshCachedMessages()
-            }
-            .onChange(of: messageSetFingerprint) { _, _ in
-                refreshCachedMessages()
+            .onChange(of: snapshot.identityHash) { _, _ in
                 if !scrollInterrupted {
                     scrollView.scrollTo("bottom")
+                }
+            }
+            .onChange(of: liveOutput.text) { _, _ in
+                if !scrollInterrupted {
+                    scrollView.scrollTo("bottom")
+                }
+            }
+            .onChange(of: liveOutput.runtimePhase) { oldPhase, newPhase in
+                guard snapshot.threadID == liveOutput.threadID else { return }
+
+                if newPhase == .thinking,
+                   oldPhase != .thinking,
+                   V2FeatureFlags.llmChatThinkingPhaseHapticsEnabled {
+                    appManager.playHaptic()
+                }
+
+                if newPhase == .answering,
+                   oldPhase != .answering,
+                   V2FeatureFlags.llmChatAnswerPhaseHapticsEnabled {
+                    appManager.playHaptic()
                 }
             }
             .onChange(of: scrollID) { _, _ in
-                if llm.running {
+                if shouldRenderLiveOutput {
                     scrollInterrupted = true
                 }
+            }
+        }
+        .task(id: snapshot.containsUndoCard) {
+            guard snapshot.containsUndoCard else { return }
+            now = Date()
+            while !Task.isCancelled {
+                do {
+                    try await Task.sleep(nanoseconds: 60_000_000_000)
+                } catch {
+                    return
+                }
+                guard !Task.isCancelled else { return }
+                now = Date()
             }
         }
         .defaultScrollAnchor(.bottom)
@@ -568,26 +559,10 @@ struct ConversationView: View {
             .scrollDismissesKeyboard(.interactively)
         #endif
     }
-
-    private var messageSetFingerprint: Int {
-        var hasher = Hasher()
-        hasher.combine(thread.messages.count)
-        for message in thread.messages {
-            hasher.combine(message.id)
-            hasher.combine(message.role.rawValue)
-            hasher.combine(message.timestamp.timeIntervalSinceReferenceDate.bitPattern)
-            hasher.combine(message.generatingTime?.bitPattern ?? 0)
-        }
-        return hasher.finalize()
-    }
-
-    private func refreshCachedMessages() {
-        cachedSortedMessages = thread.sortedMessagesSnapshot()
-    }
 }
 
 #Preview {
-    ConversationView(thread: Thread(), generatingThreadID: nil, isPreparingResponse: false)
+    ConversationView(snapshot: .empty, liveOutput: .empty)
         .environment(LLMEvaluator())
         .environmentObject(AppManager())
 }

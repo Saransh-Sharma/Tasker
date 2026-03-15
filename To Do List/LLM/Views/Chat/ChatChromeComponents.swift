@@ -461,8 +461,8 @@ struct ChatScaffoldView: View {
     @Environment(LLMEvaluator.self) private var llm
 
     @Binding var currentThread: Thread?
-    let generatingThreadID: UUID?
-    let isPreparingResponse: Bool
+    let transcriptSnapshot: ChatTranscriptSnapshot
+    let liveOutput: ChatLiveOutputState
     let prompt: Binding<String>
     let isPromptFocused: FocusState<Bool>.Binding
     let isProjectFieldFocused: FocusState<Bool>.Binding
@@ -510,11 +510,10 @@ struct ChatScaffoldView: View {
                     }
                 )
 
-                if let currentThread {
+                if transcriptSnapshot.threadID != nil {
                     ConversationView(
-                        thread: currentThread,
-                        generatingThreadID: generatingThreadID,
-                        isPreparingResponse: isPreparingResponse,
+                        snapshot: transcriptSnapshot,
+                        liveOutput: liveOutput,
                         onOpenTaskFromCard: { task in
                             onOpenTaskDetail?(task)
                         }

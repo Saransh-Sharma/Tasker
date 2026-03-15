@@ -34,6 +34,7 @@ struct ChatView: View {
     @State private var projectLookupTask: _Concurrency.Task<Void, Never>?
     @State private var generationTask: _Concurrency.Task<Void, Never>?
     @State private var generationRunID: UUID?
+    @State private var transcriptSnapshot: ChatTranscriptSnapshot = .empty
     @FocusState private var isProjectFieldFocused: Bool
 
     static private let contextInjectionTracker = ChatContextInjectionTracker()
@@ -130,13 +131,7 @@ struct ChatView: View {
         if trimmedPrompt.isEmpty == false {
             fragments.append(trimmedPrompt.lowercased())
         }
-        if let currentThread {
-            let recentUserMessages = currentThread.sortedMessages
-                .filter { $0.role == .user }
-                .suffix(2)
-                .map { $0.content.lowercased() }
-            fragments.append(contentsOf: recentUserMessages)
-        }
+        fragments.append(contentsOf: transcriptSnapshot.recentUserMessageFragments)
         return fragments.joined(separator: " ")
     }
 
@@ -162,19 +157,24 @@ struct ChatView: View {
     }
 
     var chatTitle: String {
-        if let currentThread = currentThread,
-           let firstMessage = currentThread.sortedMessages.first {
-            return firstMessage.content
-        }
+        transcriptSnapshot.title
+    }
 
-        return "chat"
+    private var liveOutputState: ChatLiveOutputState {
+        ChatLiveOutputState(
+            threadID: generatingThreadID,
+            text: llm.output,
+            runtimePhase: llm.runtimePhase,
+            isRunning: llm.running,
+            isPreparingResponse: llm.isThinking
+        )
     }
 
     var body: some View {
         ChatScaffoldView(
             currentThread: $currentThread,
-            generatingThreadID: generatingThreadID,
-            isPreparingResponse: llm.isThinking,
+            transcriptSnapshot: transcriptSnapshot,
+            liveOutput: liveOutputState,
             prompt: $prompt,
             isPromptFocused: $isPromptFocused,
             isProjectFieldFocused: $isProjectFieldFocused,
@@ -233,6 +233,9 @@ struct ChatView: View {
             }
             isProjectFieldFocused = true
         }
+        .onChange(of: currentThread?.id) { _, _ in
+            refreshTranscriptSnapshot()
+        }
         .onChange(of: isPromptFocused) { _, focused in
             if focused {
                 Task { @MainActor in
@@ -250,6 +253,7 @@ struct ChatView: View {
             }
         }
         .onAppear {
+            refreshTranscriptSnapshot()
             Task { @MainActor in
                 LLMRuntimeCoordinator.shared.acquireSession(reason: "chat_view")
             }
@@ -394,6 +398,7 @@ struct ChatView: View {
             }
         }
         currentThread = nil
+        transcriptSnapshot = .empty
         prompt = ""
         slashDraft = nil
         commandFeedback = nil
@@ -418,6 +423,7 @@ struct ChatView: View {
             modelContext.insert(newThread)
             do {
                 try modelContext.save()
+                refreshTranscriptSnapshot(for: newThread)
             } catch {
                 logError(
                     event: "chat_thread_save_failed",
@@ -674,14 +680,12 @@ struct ChatView: View {
             return
         }
 
-        var dynamicSystemPrompt = "You are Eva, the user's personal task assistant. Use the provided tasks and project details to answer questions and help manage their work." + "\n\n" + appManager.systemPrompt
-        dynamicSystemPrompt += "\n\n" + contextPromptContract()
-
         let tID = threadID
         let contextStartedAt = Date()
         let contextPayload = await buildContextPayloadForCurrentTurn(
             threadID: tID,
-            timeoutMs: contextFetchTimeoutMs
+            timeoutMs: contextFetchTimeoutMs,
+            userPrompt: message
         )
         guard !Task.isCancelled else {
             await MainActor.run {
@@ -711,7 +715,25 @@ struct ChatView: View {
                 ]
             )
         }
-        dynamicSystemPrompt += "\n\n" + contextPayload.payload
+        let slashCommandContext = slashCommandContextPrompt(for: thread)
+        let runtimeContextBlocks = [contextPayload.payload, slashCommandContext]
+            .compactMap { $0?.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+        let dynamicSystemPrompt = composeChatSystemPrompt(
+            basePrompt: appManager.systemPrompt,
+            contextBlocks: runtimeContextBlocks
+        )
+        logWarning(
+            event: "chat_prompt_component_sizes",
+            message: "Computed runtime prompt component sizes for current turn",
+            fields: [
+                "thread_id": tID.uuidString,
+                "stored_system_prompt_chars": String(appManager.systemPrompt.count),
+                "runtime_context_chars": String(contextPayload.payload.count),
+                "slash_context_chars": String(slashCommandContext?.count ?? 0),
+                "final_prompt_chars": String(dynamicSystemPrompt.count)
+            ]
+        )
 
         guard let modelName = appManager.currentModelName else {
             await MainActor.run {
@@ -764,29 +786,107 @@ struct ChatView: View {
             return
         }
 
-        os_log("SystemPrompt length %d", dynamicSystemPrompt.count)
-        logDebug("SYSTEM PROMPT ->\n\(dynamicSystemPrompt)")
-        logDebug("USER MESSAGE ->\n\(message)")
-        let output = await llm.generate(modelName: modelName, thread: thread, systemPrompt: dynamicSystemPrompt)
+        let output = await llm.generate(
+            modelName: modelName,
+            thread: thread,
+            systemPrompt: dynamicSystemPrompt
+        )
         guard !Task.isCancelled else {
             await MainActor.run {
                 llm.cancelGeneration(reason: "run_cancelled_after_generate")
             }
             return
         }
-        let trimmedOutput = output.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard trimmedOutput.isEmpty == false else {
+
+        let sanitizedOutput = LLMChatTextSanitizer.sanitize(
+            output,
+            stripReasoningBlocks: true,
+            stripTemplateArtifacts: true
+        ).text
+        var finalOutput = sanitizedOutput.trimmingCharacters(in: .whitespacesAndNewlines)
+        let primaryTerminationReason = await MainActor.run { llm.lastTerminationReason }
+        var qualityAssessment = LLMChatQualityGate.assess(
+            finalOutput,
+            userPrompt: message,
+            terminationReason: primaryTerminationReason
+        )
+
+        if qualityAssessment.shouldRetry {
+            logWarning(
+                event: "chat_quality_retry_triggered",
+                message: "Retrying low-quality chat generation with compact fallback prompt",
+                fields: [
+                    "model_name": modelName,
+                    "termination_reason": primaryTerminationReason ?? "unknown",
+                    "reasons": qualityAssessment.reasons.joined(separator: ",")
+                ]
+            )
+
+            let retryContextPayload = await buildContextPayloadForCurrentTurn(
+                threadID: tID,
+                timeoutMs: contextFetchTimeoutMs,
+                userPrompt: message,
+                contextCharBudgetOverride: 450,
+                allowCacheReuse: false
+            )
+            guard !Task.isCancelled else {
+                await MainActor.run {
+                    llm.cancelGeneration(reason: "run_cancelled_after_retry_context")
+                }
+                return
+            }
+
+            let retrySystemPrompt = composeChatSystemPrompt(
+                basePrompt: appManager.systemPrompt,
+                contextBlocks: [retryContextPayload.payload],
+                additionalInstruction: "Do not introduce yourself. Answer directly in 3 short bullets max."
+            )
+            let retryThread = Thread()
+            retryThread.messages = [Message(role: .user, content: message, thread: retryThread)]
+            let retryOutput = await llm.generate(
+                modelName: modelName,
+                thread: retryThread,
+                systemPrompt: retrySystemPrompt
+            )
+            guard !Task.isCancelled else {
+                await MainActor.run {
+                    llm.cancelGeneration(reason: "run_cancelled_after_retry_generate")
+                }
+                return
+            }
+
+            finalOutput = LLMChatTextSanitizer.sanitize(
+                retryOutput,
+                stripReasoningBlocks: true,
+                stripTemplateArtifacts: true
+            ).text.trimmingCharacters(in: .whitespacesAndNewlines)
+            let retryTerminationReason = await MainActor.run { llm.lastTerminationReason }
+            qualityAssessment = LLMChatQualityGate.assess(
+                finalOutput,
+                userPrompt: message,
+                terminationReason: retryTerminationReason
+            )
+        }
+
+        guard qualityAssessment.isAcceptable, finalOutput.isEmpty == false else {
             await MainActor.run {
-                llm.isThinking = false
+                guard generationRunID == runID else { return }
+                guard llm.cancelled == false else { return }
+                sendMessage(
+                    Message(
+                        role: .assistant,
+                        content: "I couldn't produce a reliable answer with this model. Try `/today` for structured help or switch to a stronger chat model.",
+                        thread: thread
+                    )
+                )
             }
             return
         }
-        logDebug("LLM RESPONSE ->\n\(output)")
 
         await MainActor.run {
             guard generationRunID == runID else { return }
             guard llm.cancelled == false else { return }
-            sendMessage(Message(role: .assistant, content: output, thread: thread, generatingTime: llm.thinkingTime))
+            sendMessage(Message(role: .assistant, content: finalOutput, thread: thread, generatingTime: llm.thinkingTime))
         }
     }
 
@@ -804,10 +904,20 @@ struct ChatView: View {
     /// Executes sendMessage.
     @MainActor
     private func sendMessage(_ message: Message) {
+        if message.role == .assistant && AssistantCardCodec.isCard(message.content) == false {
+            let sanitized = LLMChatTextSanitizer.sanitize(
+                message.content,
+                stripReasoningBlocks: true,
+                stripTemplateArtifacts: true
+            ).text
+            guard sanitized.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false else { return }
+            message.content = sanitized
+        }
         appManager.playHaptic()
         modelContext.insert(message)
         do {
             try modelContext.save()
+            refreshTranscriptSnapshot(for: message.thread ?? currentThread)
         } catch {
             logError(
                 event: "chat_message_save_failed",
@@ -819,15 +929,14 @@ struct ChatView: View {
 
     /// Executes buildLLMContextPayloadAsync.
     private func buildLLMContextPayloadAsync(timeoutMs: UInt64) async -> (payload: String, usedTimeoutFallback: Bool) {
-        let result = await LLMChatContextEnvelopeBuilder.build(
+        let result = await LLMChatPlanningContextBuilder.build(
             timeoutMs: timeoutMs,
             service: LLMContextRepositoryProvider.makeService(
                 maxTasksPerSlice: chatBudgets.maxProjectionTasksPerSlice,
                 compactTaskPayload: V2FeatureFlags.llmChatContextStrategy == .bounded
             ),
-            injectionPolicy: contextInjectionPolicy.rawValue,
-            budgets: chatBudgets,
-            contextStrategy: V2FeatureFlags.llmChatContextStrategy
+            query: prompt,
+            budgets: chatBudgets
         )
         return (result.payload, result.usedTimeoutFallback)
     }
@@ -835,24 +944,45 @@ struct ChatView: View {
     /// Executes buildContextPayloadForCurrentTurn.
     private func buildContextPayloadForCurrentTurn(
         threadID: UUID,
-        timeoutMs: UInt64
+        timeoutMs: UInt64,
+        userPrompt: String,
+        contextCharBudgetOverride: Int? = nil,
+        allowCacheReuse: Bool = true
     ) async -> (payload: String, usedTimeoutFallback: Bool, fromCache: Bool) {
         let now = Date()
-        if let cached = await ChatView.contextInjectionTracker.cachedContext(
-            for: threadID,
-            now: now,
-            throttleMs: contextInjectionPolicy.throttleMs
-        ) {
-            return (cached.payload, cached.usedTimeoutFallback, true)
+        let querySignature = userPrompt
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .lowercased()
+        if allowCacheReuse && contextCharBudgetOverride == nil {
+            if let cached = await ChatView.contextInjectionTracker.cachedContext(
+                for: threadID,
+                querySignature: querySignature,
+                now: now,
+                throttleMs: contextInjectionPolicy.throttleMs
+            ) {
+                return (cached.payload, cached.usedTimeoutFallback, true)
+            }
         }
 
-        let built = await buildLLMContextPayloadAsync(timeoutMs: timeoutMs)
-        await ChatView.contextInjectionTracker.store(
-            threadID: threadID,
-            payload: built.payload,
-            usedTimeoutFallback: built.usedTimeoutFallback,
-            generatedAt: now
+        let built = await LLMChatPlanningContextBuilder.build(
+            timeoutMs: timeoutMs,
+            service: LLMContextRepositoryProvider.makeService(
+                maxTasksPerSlice: chatBudgets.maxProjectionTasksPerSlice,
+                compactTaskPayload: V2FeatureFlags.llmChatContextStrategy == .bounded
+            ),
+            query: userPrompt,
+            budgets: chatBudgets,
+            contextCharBudgetOverride: contextCharBudgetOverride
         )
+        if allowCacheReuse && contextCharBudgetOverride == nil {
+            await ChatView.contextInjectionTracker.store(
+                threadID: threadID,
+                querySignature: querySignature,
+                payload: built.payload,
+                usedTimeoutFallback: built.usedTimeoutFallback,
+                generatedAt: now
+            )
+        }
         return (built.payload, built.usedTimeoutFallback, false)
     }
 
@@ -863,14 +993,58 @@ struct ChatView: View {
         }
     }
 
-    /// Executes contextPromptContract.
-    private func contextPromptContract() -> String {
-        """
-        Context contract:
-        - Use the Context JSON envelope injected for this turn as the source of truth.
-        - Check `metadata.context_partial` and `partial_flags`.
-        - If context is partial, say data may be incomplete and avoid definitive zero/none claims for overdue or due counts.
-        """
+    @MainActor
+    private func refreshTranscriptSnapshot(for thread: Thread? = nil) {
+        transcriptSnapshot = ChatTranscriptSnapshot(thread: thread ?? currentThread)
+    }
+
+    private func composeChatSystemPrompt(
+        basePrompt: String,
+        contextBlocks: [String],
+        additionalInstruction: String? = nil
+    ) -> String {
+        var sections = [basePrompt.trimmingCharacters(in: .whitespacesAndNewlines)]
+        if let additionalInstruction {
+            let trimmedInstruction = additionalInstruction.trimmingCharacters(in: .whitespacesAndNewlines)
+            if trimmedInstruction.isEmpty == false {
+                sections.append(trimmedInstruction)
+            }
+        }
+        sections.append(contentsOf: contextBlocks.map { $0.trimmingCharacters(in: .whitespacesAndNewlines) })
+        return sections.filter { !$0.isEmpty }.joined(separator: "\n\n")
+    }
+
+    private func slashCommandContextPrompt(for thread: Thread) -> String? {
+        let recentCards = thread.sortedMessages
+            .reversed()
+            .compactMap { message -> SlashCommandExecutionResult? in
+                guard let payload = AssistantCardCodec.decode(from: message.content) else { return nil }
+                return payload.commandResult
+            }
+
+        guard let commandResult = recentCards.first else { return nil }
+
+        var lines: [String] = []
+        lines.append("Recent slash command context:")
+        lines.append("- Command: \(commandResult.commandLabel)")
+        lines.append("- Summary: \(commandResult.summary)")
+
+        for section in commandResult.sections.prefix(3) {
+            lines.append("\(section.title):")
+            for task in section.tasks.prefix(5) {
+                var parts = [task.title]
+                if let dueLabel = task.dueLabel, dueLabel.isEmpty == false {
+                    parts.append(dueLabel)
+                }
+                if task.projectName.isEmpty == false {
+                    parts.append(task.projectName)
+                }
+                lines.append("- " + parts.joined(separator: " | "))
+            }
+        }
+
+        let block = lines.joined(separator: "\n")
+        return block.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : block
     }
 
     #if os(macOS)
