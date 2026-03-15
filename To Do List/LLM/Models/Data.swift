@@ -5,6 +5,7 @@
 
 import SwiftUI
 import SwiftData
+import MLXLMCommon
 
 enum LLMPersistedModelSelection {
     struct State: Equatable {

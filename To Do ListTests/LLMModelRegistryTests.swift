@@ -68,6 +68,8 @@ final class LLMModelRegistryTests: XCTestCase {
     func testModelInstallPickerSectionsSurfaceDefaultModelAsRecommended() {
         let sections = ModelInstallPickerSections.make(
             installedModelNames: [],
+            availableModels: ModelConfiguration.availableModels,
+            defaultModel: ModelConfiguration.defaultModel,
             availableMemory: 100,
             memoryThreshold: 1
         )
@@ -78,6 +80,8 @@ final class LLMModelRegistryTests: XCTestCase {
     func testModelInstallPickerSectionsExcludeRecommendedModelFromOtherModels() {
         let sections = ModelInstallPickerSections.make(
             installedModelNames: [],
+            availableModels: ModelConfiguration.availableModels,
+            defaultModel: ModelConfiguration.defaultModel,
             availableMemory: 100,
             memoryThreshold: 1
         )
@@ -88,6 +92,8 @@ final class LLMModelRegistryTests: XCTestCase {
     func testModelInstallPickerSectionsKeepRecommendedVisibleWhenOtherModelsInstalled() {
         let sections = ModelInstallPickerSections.make(
             installedModelNames: [ModelConfiguration.llama_3_2_1b_4bit.name],
+            availableModels: ModelConfiguration.availableModels,
+            defaultModel: ModelConfiguration.defaultModel,
             availableMemory: 100,
             memoryThreshold: 1
         )
@@ -99,6 +105,8 @@ final class LLMModelRegistryTests: XCTestCase {
     func testModelInstallPickerSectionsHideRecommendedWhenAlreadyInstalled() {
         let sections = ModelInstallPickerSections.make(
             installedModelNames: [qwenModelName],
+            availableModels: ModelConfiguration.availableModels,
+            defaultModel: ModelConfiguration.defaultModel,
             availableMemory: 100,
             memoryThreshold: 1
         )
@@ -109,6 +117,8 @@ final class LLMModelRegistryTests: XCTestCase {
     func testModelInstallPickerSectionsHideRecommendedWhenMemoryFilterExcludesIt() {
         let sections = ModelInstallPickerSections.make(
             installedModelNames: [],
+            availableModels: ModelConfiguration.availableModels,
+            defaultModel: ModelConfiguration.defaultModel,
             availableMemory: 0,
             memoryThreshold: 1
         )

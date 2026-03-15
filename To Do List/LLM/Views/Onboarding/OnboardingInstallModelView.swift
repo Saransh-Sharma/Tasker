@@ -14,8 +14,8 @@ struct ModelInstallPickerSections {
 
     static func make(
         installedModelNames: [String],
-        availableModels: [ModelConfiguration] = ModelConfiguration.availableModels,
-        defaultModel: ModelConfiguration = .defaultModel,
+        availableModels: [ModelConfiguration],
+        defaultModel: ModelConfiguration,
         availableMemory: Double,
         memoryThreshold: Double
     ) -> Self {
@@ -53,6 +53,8 @@ struct OnboardingInstallModelView: View {
     var installSections: ModelInstallPickerSections {
         ModelInstallPickerSections.make(
             installedModelNames: appManager.installedModels,
+            availableModels: ModelConfiguration.availableModels,
+            defaultModel: ModelConfiguration.defaultModel,
             availableMemory: appManager.availableMemory,
             memoryThreshold: modelMemoryThreshold
         )
