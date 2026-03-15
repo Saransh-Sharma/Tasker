@@ -7,6 +7,35 @@ import MLXLMCommon
 import os
 import SwiftUI
 
+struct ModelInstallPickerSections {
+    let installedModels: [String]
+    let recommendedModel: ModelConfiguration?
+    let otherModels: [ModelConfiguration]
+
+    static func make(
+        installedModelNames: [String],
+        availableModels: [ModelConfiguration] = ModelConfiguration.availableModels,
+        defaultModel: ModelConfiguration = .defaultModel,
+        availableMemory: Double,
+        memoryThreshold: Double
+    ) -> Self {
+        let downloadableModels = availableModels
+            .filter { installedModelNames.contains($0.name) == false }
+            .filter { model in
+                guard let size = model.modelSize else { return false }
+                return size <= Decimal(availableMemory * memoryThreshold)
+            }
+
+        return Self(
+            installedModels: installedModelNames,
+            recommendedModel: downloadableModels.first(where: { $0.name == defaultModel.name }),
+            otherModels: downloadableModels
+                .filter { $0.name != defaultModel.name }
+                .sorted { $0.name < $1.name }
+        )
+    }
+}
+
 struct OnboardingInstallModelView: View {
     @EnvironmentObject var appManager: AppManager
     @State private var deviceSupportsMetal3: Bool = true
@@ -21,6 +50,18 @@ struct OnboardingInstallModelView: View {
     }
 
     let modelMemoryThreshold = 0.6
+
+    var installSections: ModelInstallPickerSections {
+        ModelInstallPickerSections.make(
+            installedModelNames: appManager.installedModels,
+            availableMemory: appManager.availableMemory,
+            memoryThreshold: modelMemoryThreshold
+        )
+    }
+
+    var downloadableModels: [ModelConfiguration] {
+        [installSections.recommendedModel].compactMap { $0 } + installSections.otherModels
+    }
 
     var modelsList: some View {
         Form {
@@ -56,9 +97,9 @@ struct OnboardingInstallModelView: View {
             }
             .listRowBackground(Color.clear)
 
-            if appManager.installedModels.count > 0 {
+            if installSections.installedModels.isEmpty == false {
                 Section(header: Text("installed")) {
-                    ForEach(appManager.installedModels, id: \.self) { modelName in
+                    ForEach(installSections.installedModels, id: \.self) { modelName in
                         let model = ModelConfiguration.getModelByName(modelName)
                         Button {} label: {
                             Label {
@@ -77,41 +118,38 @@ struct OnboardingInstallModelView: View {
                             .disabled(true)
                     }
                 }
-            } else {
-                Section(header: Text("suggested")) {
-                    Button { selectedModel = suggestedModel } label: {
-                        Label {
-                            Text(appManager.modelDisplayName(suggestedModel.name))
-                                .font(.tasker(.body))
-                                .tint(Color.tasker(.textPrimary))
-                        } icon: {
-                            Image(systemName: selectedModel.name == suggestedModel.name ? "checkmark.circle.fill" : "circle")
-                                .foregroundColor(selectedModel.name == suggestedModel.name ? Color.tasker(.accentPrimary) : Color.tasker(.textQuaternary))
-                        }
+            }
+
+            if let recommendedModel = installSections.recommendedModel {
+                Section(header: Text("recommended")) {
+                    ModelInstallOptionRow(
+                        title: appManager.modelDisplayName(recommendedModel.name),
+                        subtitle: "Best default for most devices",
+                        sizeText: sizeBadge(recommendedModel),
+                        isSelected: selectedModel.name == recommendedModel.name,
+                        isRecommended: true,
+                        accessibilityIdentifier: "llm.modelPicker.recommendedRow"
+                    ) {
+                        selectedModel = recommendedModel
                     }
-                    .badge(sizeBadge(suggestedModel))
-                    #if os(macOS)
-                        .buttonStyle(.borderless)
-                    #endif
                 }
             }
 
-            if filteredModels.count > 0 {
-                Section(header: Text("other")) {
-                    ForEach(filteredModels, id: \.name) { model in
-                        Button { selectedModel = model } label: {
-                            Label {
-                                Text(appManager.modelDisplayName(model.name))
-                                    .font(.tasker(.body))
-                                    .tint(Color.tasker(.textPrimary))
-                            } icon: {
-                                Image(systemName: selectedModel.name == model.name ? "checkmark.circle.fill" : "circle")
-                                    .foregroundColor(selectedModel.name == model.name ? Color.tasker(.accentPrimary) : Color.tasker(.textQuaternary))
-                            }
+            if installSections.otherModels.isEmpty == false {
+                Section(header: Text(installSections.recommendedModel == nil ? "available models" : "other models")) {
+                    ForEach(installSections.otherModels, id: \.name) { model in
+                        ModelInstallOptionRow(
+                            title: appManager.modelDisplayName(model.name),
+                            subtitle: nil,
+                            sizeText: sizeBadge(model),
+                            isSelected: selectedModel.name == model.name,
+                            isRecommended: false,
+                            accessibilityIdentifier: "llm.modelPicker.row.\(model.name)"
+                        ) {
+                            selectedModel = model
                         }
-                        .badge(sizeBadge(model))
                         #if os(macOS)
-                            .buttonStyle(.borderless)
+                        .buttonStyle(.borderless)
                         #endif
                     }
                 }
@@ -123,7 +161,7 @@ struct OnboardingInstallModelView: View {
                     Text("install")
                         .buttonStyle(.borderedProminent)
                 }
-                .disabled(filteredModels.isEmpty)
+                .disabled(downloadableModels.isEmpty)
             }
             .padding()
             #endif
@@ -131,6 +169,7 @@ struct OnboardingInstallModelView: View {
         .formStyle(.grouped)
         .scrollContentBackground(.hidden)
         .background(Color.tasker(.bgCanvas))
+        .accessibilityIdentifier("llm.modelPicker.view")
     }
 
     var body: some View {
@@ -145,13 +184,13 @@ struct OnboardingInstallModelView: View {
                                 .font(.tasker(.button))
                                 .foregroundColor(Color.tasker(.accentPrimary))
                         }
-                        .disabled(filteredModels.isEmpty)
+                        .disabled(downloadableModels.isEmpty)
                     }
                 }
                 .listStyle(.insetGrouped)
                 #endif
                 .task {
-                    checkModels()
+                    syncSelectedModel()
                 }
             } else {
                 DeviceNotSupportedView()
@@ -162,25 +201,13 @@ struct OnboardingInstallModelView: View {
         }
     }
 
-    var filteredModels: [ModelConfiguration] {
-        ModelConfiguration.availableModels
-            .filter { !appManager.installedModels.contains($0.name) }
-            .filter { model in
-                !(appManager.installedModels.isEmpty && model.name == suggestedModel.name)
-            }
-            .filter { model in
-                guard let size = model.modelSize else { return false }
-                return size <= Decimal(modelMemoryThreshold * appManager.availableMemory)
-            }
-            .sorted { $0.name < $1.name }
-    }
-
-    /// Executes checkModels.
-    func checkModels() {
-        if appManager.installedModels.contains(suggestedModel.name) {
-            if let model = filteredModels.first {
-                selectedModel = model
-            }
+    /// Executes syncSelectedModel.
+    func syncSelectedModel() {
+        guard downloadableModels.contains(where: { $0.name == selectedModel.name }) == false else { return }
+        if let recommendedModel = installSections.recommendedModel {
+            selectedModel = recommendedModel
+        } else if let fallbackModel = installSections.otherModels.first {
+            selectedModel = fallbackModel
         }
     }
 
@@ -191,6 +218,85 @@ struct OnboardingInstallModelView: View {
             deviceSupportsMetal3 = device.supportsFamily(.metal3)
         }
         #endif
+    }
+}
+
+private struct ModelInstallOptionRow: View {
+    let title: String
+    let subtitle: String?
+    let sizeText: String?
+    let isSelected: Bool
+    let isRecommended: Bool
+    let accessibilityIdentifier: String
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: TaskerTheme.Spacing.md) {
+                Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
+                    .font(.title3)
+                    .foregroundStyle(isSelected ? Color.tasker(.accentPrimary) : Color.tasker(.textQuaternary))
+                    .accessibilityHidden(true)
+
+                VStack(alignment: .leading, spacing: TaskerTheme.Spacing.xs) {
+                    HStack(spacing: TaskerTheme.Spacing.sm) {
+                        Text(title)
+                            .font(.tasker(.bodyEmphasis))
+                            .foregroundStyle(Color.tasker(.textPrimary))
+                            .multilineTextAlignment(.leading)
+
+                        if isRecommended {
+                            Text("Recommended")
+                                .font(.tasker(.caption1))
+                                .foregroundStyle(Color.tasker(.accentPrimary))
+                                .padding(.horizontal, TaskerTheme.Spacing.sm)
+                                .padding(.vertical, TaskerTheme.Spacing.xs)
+                                .background(Color.tasker(.accentWash))
+                                .clipShape(Capsule())
+                                .accessibilityIdentifier("llm.modelPicker.recommendedBadge")
+                        }
+                    }
+
+                    if let subtitle {
+                        Text(subtitle)
+                            .font(.tasker(.callout))
+                            .foregroundStyle(Color.tasker(.textSecondary))
+                            .multilineTextAlignment(.leading)
+                    }
+                }
+
+                Spacer(minLength: TaskerTheme.Spacing.md)
+
+                if let sizeText {
+                    Text(sizeText)
+                        .font(.tasker(.caption1))
+                        .foregroundStyle(Color.tasker(.textTertiary))
+                }
+            }
+            .frame(minHeight: 44)
+            .contentShape(Rectangle())
+        }
+        .accessibilityIdentifier(accessibilityIdentifier)
+        .accessibilityLabel(accessibilityLabel)
+        .accessibilityHint(isRecommended ? "Recommended default model for most devices." : "Double tap to select this model for download.")
+        .accessibilityValue(isSelected ? "selected" : "not selected")
+        #if os(iOS) || os(visionOS)
+        .buttonStyle(.plain)
+        #endif
+    }
+
+    private var accessibilityLabel: String {
+        var components = [title]
+        if let subtitle {
+            components.append(subtitle)
+        }
+        if isRecommended {
+            components.append("Recommended")
+        }
+        if let sizeText {
+            components.append(sizeText)
+        }
+        return components.joined(separator: ", ")
     }
 }
 
