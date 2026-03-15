@@ -62,7 +62,15 @@ struct ChatsListView: View {
 
                                 Spacer()
                             }
-                            .padding(.vertical, TaskerTheme.Spacing.xs)
+                            .padding(.horizontal, TaskerTheme.Spacing.sm)
+                            .padding(.vertical, TaskerTheme.Spacing.sm)
+                            .taskerPremiumSurface(
+                                cornerRadius: 20,
+                                fillColor: Color.tasker(.surfacePrimary),
+                                strokeColor: Color.tasker(.strokeHairline),
+                                accentColor: Color.tasker(.accentSecondary),
+                                level: .e1
+                            )
                             .staggeredAppearance(index: index)
                             #if os(macOS)
                                 .swipeActions {
@@ -80,7 +88,9 @@ struct ChatsListView: View {
                                 }
                             #endif
                                 .tag(thread)
-                                .listRowBackground(Color.tasker(.bgElevated))
+                                .listRowInsets(EdgeInsets(top: 6, leading: 16, bottom: 6, trailing: 16))
+                                .listRowSeparator(.hidden)
+                                .listRowBackground(Color.clear)
                         }
                         .onDelete(perform: deleteThreads)
                     }
@@ -162,10 +172,10 @@ struct ChatsListView: View {
             }
 
             VStack(spacing: TaskerTheme.Spacing.xs) {
-                Text(threads.isEmpty ? "no chats yet" : "no results")
+                Text(threads.isEmpty ? "No chats yet" : "No results")
                     .font(.tasker(.headline))
                     .foregroundColor(Color.tasker(.textPrimary))
-                Text(threads.isEmpty ? "start a conversation with Eva" : "try a different search term")
+                Text(threads.isEmpty ? "Start a conversation with Eva" : "Try a different search term")
                     .font(.tasker(.callout))
                     .foregroundColor(Color.tasker(.textSecondary))
             }

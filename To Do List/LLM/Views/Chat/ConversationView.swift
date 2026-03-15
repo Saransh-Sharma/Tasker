@@ -117,8 +117,11 @@ struct MessageView: View {
         }
         .padding(.horizontal, TaskerTheme.Spacing.md)
         .padding(.vertical, TaskerTheme.Spacing.xs)
-        .background(Color.tasker(.surfaceSecondary))
-        .clipShape(Capsule())
+        .taskerChromeSurface(
+            cornerRadius: 16,
+            accentColor: Color.tasker(.accentSecondary),
+            level: .e1
+        )
         .buttonStyle(.borderless)
     }
 
@@ -130,9 +133,13 @@ struct MessageView: View {
                 if let cardPayload {
                     assistantCardView(payload: cardPayload)
                         .padding(TaskerTheme.Spacing.lg)
-                        .background(Color.tasker(.surfacePrimary))
-                        .clipShape(RoundedRectangle(cornerRadius: TaskerTheme.CornerRadius.lg, style: .continuous))
-                        .taskerElevation(.e1, cornerRadius: TaskerTheme.CornerRadius.lg)
+                        .taskerPremiumSurface(
+                            cornerRadius: TaskerTheme.CornerRadius.lg,
+                            fillColor: Color.tasker(.surfacePrimary),
+                            strokeColor: Color.tasker(.strokeHairline),
+                            accentColor: Color.tasker(.accentSecondary),
+                            level: .e2
+                        )
                         .padding(.trailing, 48)
                 } else {
                     let (thinking, afterThink) = processThinkingContent(message.content)
@@ -191,9 +198,13 @@ struct MessageView: View {
                         }
                     }
                     .padding(TaskerTheme.Spacing.lg)
-                    .background(Color.tasker(.surfacePrimary))
-                    .clipShape(RoundedRectangle(cornerRadius: TaskerTheme.CornerRadius.lg, style: .continuous))
-                    .taskerElevation(.e1, cornerRadius: TaskerTheme.CornerRadius.lg)
+                    .taskerPremiumSurface(
+                        cornerRadius: TaskerTheme.CornerRadius.lg,
+                        fillColor: Color.tasker(.surfacePrimary),
+                        strokeColor: Color.tasker(.strokeHairline),
+                        accentColor: Color.tasker(.accentSecondary),
+                        level: .e2
+                    )
                     .padding(.trailing, 48)
                 }
             } else {
@@ -215,6 +226,10 @@ struct MessageView: View {
                 #elseif os(macOS)
                     .clipShape(RoundedRectangle(cornerRadius: 16))
                 #endif
+                    .overlay(
+                        RoundedRectangle(cornerRadius: TaskerTheme.CornerRadius.lg, style: .continuous)
+                            .stroke(Color.tasker(.accentPrimary).opacity(0.18), lineWidth: 1)
+                    )
                     .padding(.leading, 48)
             }
 

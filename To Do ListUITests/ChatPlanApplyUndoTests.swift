@@ -1,7 +1,7 @@
 import XCTest
 
 final class ChatPlanApplyUndoTests: BaseUITest {
-    func testChatEntryPointOpensAssistantSurface() throws {
+    func testChatEntryPointOpensAssistantSurfaceAndSlashPicker() throws {
         let homePage = HomePage(app: app)
         let chatCandidates: [XCUIElement] = [
             homePage.chatButton,
@@ -19,9 +19,9 @@ final class ChatPlanApplyUndoTests: BaseUITest {
                 candidate.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
             }
 
-            let emptyStateTitle = app.staticTexts["ask Eva anything"]
-            let chatInput = app.textFields["ask me anything..."]
-            if emptyStateTitle.waitForExistence(timeout: 4) || chatInput.waitForExistence(timeout: 4) {
+            let emptyState = app.otherElements["chat.emptyState.container"]
+            let composer = app.otherElements["chat.composer.container"]
+            if emptyState.waitForExistence(timeout: 4) || composer.waitForExistence(timeout: 4) {
                 opened = true
                 break
             }
@@ -31,5 +31,11 @@ final class ChatPlanApplyUndoTests: BaseUITest {
             throw XCTSkip("Chat entry point is not reachable with current accessibility identifiers")
         }
 
+        let slashButton = app.buttons["chat.slash_button"]
+        XCTAssertTrue(slashButton.waitForExistence(timeout: 3), "Slash picker button should be visible")
+        slashButton.tap()
+
+        let commandSearch = app.textFields["chat.command_picker.search"]
+        XCTAssertTrue(commandSearch.waitForExistence(timeout: 4), "Slash command picker search should open")
     }
 }
