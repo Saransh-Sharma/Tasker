@@ -351,6 +351,20 @@ private struct HomeBottomBarContainer: View {
     }
 }
 
+private var onboardingTaskDetailDismissBridgeKey: UInt8 = 0
+
+private final class OnboardingTaskDetailDismissBridge: NSObject, UIAdaptivePresentationControllerDelegate {
+    private let onDismiss: () -> Void
+
+    init(onDismiss: @escaping () -> Void) {
+        self.onDismiss = onDismiss
+    }
+
+    func presentationControllerDidDismiss(_ presentationController: UIPresentationController) {
+        onDismiss()
+    }
+}
+
 final class HomeViewController: UIViewController, HomeViewControllerProtocol, HomeAnalyticsViewModelsInjectable, PresentationDependencyContainerAware, UIAdaptivePresentationControllerDelegate {
     private static var hasConsumedUITestRoute = false
     private static var hasConsumedUITestOpenSettings = false
@@ -1699,7 +1713,8 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
 
     func makeOnboardingAddTaskController(
         prefill: AddTaskPrefillTemplate,
-        onTaskCreated: @escaping (UUID) -> Void
+        onTaskCreated: @escaping (UUID) -> Void,
+        onDismissWithoutTask: (() -> Void)? = nil
     ) -> UIViewController? {
         guard let presentationDependencyContainer else {
             return nil
@@ -1708,7 +1723,8 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
         viewModel.applyPrefill(prefill)
         let sheet = AddTaskSheetView(
             viewModel: viewModel,
-            onTaskCreated: onTaskCreated
+            onTaskCreated: onTaskCreated,
+            onDismissWithoutTask: onDismissWithoutTask
         )
         let hostingController = UIHostingController(rootView: AnyView(sheet.taskerLayoutClass(currentLayoutClass)))
         hostingController.modalPresentationStyle = .pageSheet
@@ -1717,6 +1733,47 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
             sheetController.prefersGrabberVisible = true
             sheetController.prefersScrollingExpandsWhenScrolledToEdge = false
         }
+        return hostingController
+    }
+
+    func makeOnboardingTaskDetailController(
+        task: TaskDefinition,
+        onDismiss: @escaping () -> Void
+    ) -> UIViewController? {
+        let detailView = makeTaskDetailView(for: task, containerMode: .sheet)
+        let hostingController = UIHostingController(rootView: AnyView(detailView.taskerLayoutClass(currentLayoutClass)))
+        hostingController.view.backgroundColor = TaskerThemeManager.shared.currentTheme.tokens.color.bgCanvas
+
+        if isUsingIPadNativeShell {
+            switch currentLayoutClass {
+            case .padCompact, .padRegular, .padExpanded:
+                hostingController.modalPresentationStyle = .formSheet
+                hostingController.preferredContentSize = CGSize(width: 540, height: 680)
+                if let sheet = hostingController.sheetPresentationController {
+                    sheet.detents = [.large()]
+                    sheet.preferredCornerRadius = TaskerThemeManager.shared.currentTheme.tokens.corner.modal
+                    sheet.prefersScrollingExpandsWhenScrolledToEdge = false
+                }
+            case .phone:
+                hostingController.modalPresentationStyle = .pageSheet
+            }
+        } else {
+            hostingController.modalPresentationStyle = .pageSheet
+            if let sheet = hostingController.sheetPresentationController {
+                sheet.detents = [.medium(), .large()]
+                sheet.preferredCornerRadius = TaskerThemeManager.shared.currentTheme.tokens.corner.modal
+                sheet.prefersScrollingExpandsWhenScrolledToEdge = true
+            }
+        }
+
+        let dismissBridge = OnboardingTaskDetailDismissBridge(onDismiss: onDismiss)
+        hostingController.presentationController?.delegate = dismissBridge
+        objc_setAssociatedObject(
+            hostingController,
+            &onboardingTaskDetailDismissBridgeKey,
+            dismissBridge,
+            .OBJC_ASSOCIATION_RETAIN_NONATOMIC
+        )
         return hostingController
     }
 

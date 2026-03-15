@@ -1,6 +1,7 @@
 import SwiftUI
 import UIKit
 import Combine
+import CoreHaptics
 
 extension Notification.Name {
     static let taskerStartOnboardingRequested = Notification.Name("TaskerStartOnboardingRequested")
@@ -8,10 +9,10 @@ extension Notification.Name {
 
 private func onboardingLogLine(event: String, message: String? = nil, fields: [String: String] = [:]) -> String {
     var parts = ["event=\(event)"]
-    if let message, !message.isEmpty {
+    if let message, message.isEmpty == false {
         parts.append("message=\(message)")
     }
-    if !fields.isEmpty {
+    if fields.isEmpty == false {
         let serializedFields = fields
             .sorted(by: { $0.key < $1.key })
             .map { "\($0.key)=\($0.value)" }
@@ -34,33 +35,76 @@ enum OnboardingOutcome: String, Codable, Equatable {
     case skippedAfterWelcome
 }
 
-struct AppOnboardingState: Codable, Equatable {
-    static let currentVersion = 1
-
-    var outcome: OnboardingOutcome?
-    var completedVersion: Int?
-    var establishedWorkspacePromptDismissedVersion: Int?
-
-    var hasHandledCurrentVersion: Bool {
-        completedVersion == Self.currentVersion && outcome != nil
-    }
-}
-
-enum OnboardingStep: Int, CaseIterable {
+enum OnboardingStep: Int, CaseIterable, Codable {
     case welcome
     case lifeAreas
     case projects
-    case tasks
-    case completeTask
-    case finish
+    case firstTask
+    case focusRoom
 
-    var progressIndex: Int {
-        rawValue + 1
-    }
+    var progressIndex: Int { rawValue + 1 }
 
     var progressLabel: String {
         "Step \(progressIndex) of \(Self.allCases.count)"
     }
+
+    var accessibilitySummary: String {
+        switch self {
+        case .welcome:
+            return "Welcome. Step 1 of 5."
+        case .lifeAreas:
+            return "Choose life areas. Step 2 of 5."
+        case .projects:
+            return "Confirm starter projects. Step 3 of 5."
+        case .firstTask:
+            return "Pick your first tiny task. Step 4 of 5."
+        case .focusRoom:
+            return "Focus room. Step 5 of 5."
+        }
+    }
+}
+
+enum OnboardingFrictionProfile: String, CaseIterable, Codable, Identifiable {
+    case starting
+    case choosing
+    case remembering
+    case finishing
+    case overwhelmed
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .starting:
+            return "Starting"
+        case .choosing:
+            return "Choosing"
+        case .remembering:
+            return "Remembering"
+        case .finishing:
+            return "Finishing"
+        case .overwhelmed:
+            return "Overwhelmed"
+        }
+    }
+}
+
+enum OnboardingMode: String, Codable, Equatable {
+    case guided
+    case custom
+}
+
+enum OnboardingTaskTemplateState: Equatable {
+    case idle
+    case creating
+    case created(UUID)
+    case failed(String)
+}
+
+enum OnboardingReminderPromptState: Equatable {
+    case hidden
+    case prompt
+    case openSettings
 }
 
 struct OnboardingWorkspaceSnapshot: Equatable {
@@ -77,6 +121,146 @@ enum OnboardingEligibility: Equatable {
     case fullFlow(OnboardingWorkspaceSnapshot)
     case promptOnly(OnboardingWorkspaceSnapshot)
     case suppressed
+}
+
+struct AppOnboardingSummary: Codable, Equatable {
+    let lifeAreaCount: Int
+    let projectCount: Int
+    let createdTaskCount: Int
+    let completedTaskCount: Int
+    let completedTaskTitle: String?
+    let nextTaskTitle: String?
+    let promptReminderAfterSuccess: Bool
+}
+
+struct OnboardingBreakdownStep: Identifiable, Codable, Equatable {
+    let id: UUID
+    var title: String
+    var isSelected: Bool
+
+    init(id: UUID = UUID(), title: String, isSelected: Bool = false) {
+        self.id = id
+        self.title = title
+        self.isSelected = isSelected
+    }
+}
+
+struct OnboardingProjectDraft: Identifiable, Codable, Equatable {
+    let id: UUID
+    let lifeAreaTemplateID: String
+    var templateID: String
+    var name: String
+    var summary: String
+    var suggestionTemplateIDs: [String]
+    var suggestionIndex: Int
+    var isSelected: Bool
+
+    init(
+        id: UUID = UUID(),
+        lifeAreaTemplateID: String,
+        templateID: String,
+        name: String,
+        summary: String,
+        suggestionTemplateIDs: [String],
+        suggestionIndex: Int,
+        isSelected: Bool = true
+    ) {
+        self.id = id
+        self.lifeAreaTemplateID = lifeAreaTemplateID
+        self.templateID = templateID
+        self.name = name
+        self.summary = summary
+        self.suggestionTemplateIDs = suggestionTemplateIDs
+        self.suggestionIndex = suggestionIndex
+        self.isSelected = isSelected
+    }
+}
+
+struct ResolvedLifeAreaSelection: Codable, Equatable {
+    let templateID: String
+    let lifeArea: LifeArea
+    let reusedExisting: Bool
+}
+
+struct ResolvedProjectSelection: Codable, Equatable {
+    let draft: OnboardingProjectDraft
+    let project: Project
+    let reusedExisting: Bool
+}
+
+struct OnboardingJourneySnapshot: Codable, Equatable {
+    var schemaVersion: Int = 2
+    var step: OnboardingStep
+    var mode: OnboardingMode
+    var frictionProfile: OnboardingFrictionProfile?
+    var selectedLifeAreaIDs: [String]
+    var showAllLifeAreas: Bool
+    var projectDrafts: [OnboardingProjectDraft]
+    var resolvedLifeAreas: [ResolvedLifeAreaSelection]
+    var resolvedProjects: [ResolvedProjectSelection]
+    var createdTasks: [TaskDefinition]
+    var createdTaskTemplateMap: [String: UUID]
+    var focusTaskID: UUID?
+    var parentFocusTaskID: UUID?
+    var focusStartedAt: Date?
+    var focusIsActive: Bool
+    var successSummary: AppOnboardingSummary?
+    var hasSeenSuccess: Bool
+}
+
+struct AppOnboardingState: Codable, Equatable {
+    static let currentVersion = 1
+
+    var outcome: OnboardingOutcome?
+    var completedVersion: Int?
+    var establishedWorkspacePromptDismissedVersion: Int?
+    var journeySnapshot: OnboardingJourneySnapshot?
+
+    var hasHandledCurrentVersion: Bool {
+        completedVersion == Self.currentVersion && outcome != nil
+    }
+}
+
+enum PendingOnboardingPresentation: Equatable {
+    case prompt
+    case fullFlow(source: String)
+
+    var priority: Int {
+        switch self {
+        case .prompt:
+            return 1
+        case .fullFlow:
+            return 2
+        }
+    }
+
+    var analyticsLabel: String {
+        switch self {
+        case .prompt:
+            return "prompt"
+        case .fullFlow:
+            return "full_flow"
+        }
+    }
+}
+
+struct OnboardingPresentationQueue: Equatable {
+    private(set) var pending: PendingOnboardingPresentation?
+
+    mutating func enqueue(_ presentation: PendingOnboardingPresentation) {
+        guard let pending else {
+            self.pending = presentation
+            return
+        }
+        if presentation.priority >= pending.priority {
+            self.pending = presentation
+        }
+    }
+
+    mutating func markPresented(_ presentation: PendingOnboardingPresentation) {
+        guard pending == presentation else { return }
+        pending = nil
+    }
 }
 
 final class AppOnboardingStateStore {
@@ -101,12 +285,25 @@ final class AppOnboardingStateStore {
         var state = load()
         state.outcome = outcome
         state.completedVersion = version
+        state.journeySnapshot = nil
         save(state)
     }
 
     func markEstablishedWorkspacePromptDismissed(version: Int = AppOnboardingState.currentVersion) {
         var state = load()
         state.establishedWorkspacePromptDismissedVersion = version
+        save(state)
+    }
+
+    func storeJourney(_ snapshot: OnboardingJourneySnapshot?) {
+        var state = load()
+        state.journeySnapshot = snapshot
+        save(state)
+    }
+
+    func clearJourney() {
+        var state = load()
+        state.journeySnapshot = nil
         save(state)
     }
 
@@ -124,16 +321,18 @@ struct StarterTaskTemplate: Identifiable, Equatable {
     let id: String
     let projectTemplateID: String
     let title: String
-    let details: String
+    let reason: String
     let durationMinutes: Int
     let priority: TaskPriority
     let type: TaskType
     let energy: TaskEnergy
+    let clearDoneState: Bool
+    let recommendedProfiles: Set<OnboardingFrictionProfile>
 
     func makePrefill(project: Project) -> AddTaskPrefillTemplate {
         AddTaskPrefillTemplate(
             title: title,
-            details: details,
+            details: nil,
             projectID: project.id,
             projectName: project.name,
             lifeAreaID: project.lifeAreaID,
@@ -144,7 +343,26 @@ struct StarterTaskTemplate: Identifiable, Equatable {
             energy: energy,
             category: .general,
             context: .anywhere,
-            showMoreDetails: true
+            showMoreDetails: false,
+            showAdvancedPlanning: false
+        )
+    }
+
+    func makeRequest(project: Project) -> CreateTaskDefinitionRequest {
+        CreateTaskDefinitionRequest(
+            title: title,
+            details: nil,
+            projectID: project.id,
+            projectName: project.name,
+            lifeAreaID: project.lifeAreaID,
+            dueDate: DatePreset.today.resolvedDueDate(),
+            priority: priority,
+            type: type,
+            energy: energy,
+            category: .general,
+            context: .anywhere,
+            estimatedDuration: TimeInterval(durationMinutes * 60),
+            createdAt: Date()
         )
     }
 }
@@ -154,6 +372,7 @@ struct StarterProjectTemplate: Identifiable, Equatable {
     let lifeAreaTemplateID: String
     let name: String
     let summary: String
+    let aliases: [String]
     let taskTemplates: [StarterTaskTemplate]
 }
 
@@ -163,82 +382,8 @@ struct StarterLifeAreaTemplate: Identifiable, Equatable {
     let subtitle: String
     let icon: String
     let colorHex: String
+    let aliases: [String]
     let projects: [StarterProjectTemplate]
-}
-
-struct ResolvedLifeAreaSelection: Equatable {
-    let template: StarterLifeAreaTemplate
-    let lifeArea: LifeArea
-    let reusedExisting: Bool
-}
-
-struct ResolvedProjectSelection: Equatable {
-    let template: StarterProjectTemplate
-    let project: Project
-    let reusedExisting: Bool
-}
-
-struct AppOnboardingSummary: Equatable {
-    let lifeAreaCount: Int
-    let projectCount: Int
-    let createdTaskCount: Int
-    let completedTaskTitle: String?
-}
-
-enum PendingOnboardingPresentation: Equatable {
-    case prompt
-    case fullFlow(source: String)
-    case completion(summary: AppOnboardingSummary)
-
-    var priority: Int {
-        switch self {
-        case .prompt:
-            return 1
-        case .fullFlow:
-            return 2
-        case .completion:
-            return 3
-        }
-    }
-
-    var analyticsLabel: String {
-        switch self {
-        case .prompt:
-            return "prompt"
-        case .fullFlow:
-            return "full_flow"
-        case .completion:
-            return "completion"
-        }
-    }
-}
-
-struct OnboardingPresentationQueue: Equatable {
-    private(set) var pending: PendingOnboardingPresentation?
-
-    mutating func enqueue(_ presentation: PendingOnboardingPresentation) {
-        guard let pending else {
-            self.pending = presentation
-            return
-        }
-        if presentation.priority >= pending.priority {
-            self.pending = presentation
-        }
-    }
-
-    mutating func markPresented(_ presentation: PendingOnboardingPresentation) {
-        guard pending == presentation else { return }
-        pending = nil
-    }
-}
-
-struct OnboardingCompletionTrackingState: Equatable {
-    var highlightedTaskID: UUID?
-    var acceptableTaskIDs: Set<UUID> = []
-
-    func acceptsCompletion(reason: String?, taskID: UUID) -> Bool {
-        reason == "completed" && acceptableTaskIDs.contains(taskID)
-    }
 }
 
 enum StarterWorkspaceCatalog {
@@ -248,51 +393,105 @@ enum StarterWorkspaceCatalog {
             name: "Health",
             subtitle: "Energy, movement, and recovery",
             icon: "heart.fill",
-            colorHex: "#22C55E",
+            colorHex: "#2FA96E",
+            aliases: ["wellness", "fitness", "body"],
             projects: [
                 StarterProjectTemplate(
                     id: "health-move",
                     lifeAreaTemplateID: "health",
                     name: "Move your body",
-                    summary: "Quick wins for energy and momentum.",
+                    summary: "Small movement that gets the day unstuck.",
+                    aliases: ["movement", "exercise", "workout"],
                     taskTemplates: [
                         StarterTaskTemplate(
-                            id: "task-health-move-1",
+                            id: "task-health-move-clothes",
+                            projectTemplateID: "health-move",
+                            title: "Put on workout clothes",
+                            reason: "It is small enough to begin and makes the next move easier.",
+                            durationMinutes: 1,
+                            priority: .low,
+                            type: .morning,
+                            energy: .low,
+                            clearDoneState: true,
+                            recommendedProfiles: [.starting, .overwhelmed]
+                        ),
+                        StarterTaskTemplate(
+                            id: "task-health-move-water",
+                            projectTemplateID: "health-move",
+                            title: "Fill your water bottle",
+                            reason: "You get an instant physical win and a visible done-state.",
+                            durationMinutes: 1,
+                            priority: .low,
+                            type: .morning,
+                            energy: .low,
+                            clearDoneState: true,
+                            recommendedProfiles: [.starting, .remembering]
+                        ),
+                        StarterTaskTemplate(
+                            id: "task-health-move-walk",
                             projectTemplateID: "health-move",
                             title: "Walk for 10 minutes",
-                            details: "Keep it tiny. Shoes on, outside, one short lap.",
+                            reason: "A good backup option when you want a little more movement.",
                             durationMinutes: 10,
                             priority: .low,
                             type: .morning,
-                            energy: .low
-                        ),
-                        StarterTaskTemplate(
-                            id: "task-health-move-2",
-                            projectTemplateID: "health-move",
-                            title: "Lay out workout clothes",
-                            details: "Make the next session frictionless before you forget.",
-                            durationMinutes: 5,
-                            priority: .low,
-                            type: .morning,
-                            energy: .low
+                            energy: .medium,
+                            clearDoneState: true,
+                            recommendedProfiles: []
                         )
                     ]
                 ),
                 StarterProjectTemplate(
-                    id: "health-reset",
+                    id: "health-meal",
                     lifeAreaTemplateID: "health",
                     name: "Meal reset",
-                    summary: "Simple routines that keep the day stable.",
+                    summary: "Reduce food friction before it gets loud.",
+                    aliases: ["food", "meals", "nutrition"],
                     taskTemplates: [
                         StarterTaskTemplate(
-                            id: "task-health-reset-1",
-                            projectTemplateID: "health-reset",
-                            title: "Refill water bottle",
-                            details: "Set yourself up for the next few hours.",
-                            durationMinutes: 3,
+                            id: "task-health-meal-snack",
+                            projectTemplateID: "health-meal",
+                            title: "Put one easy snack where you can see it",
+                            reason: "This lowers the energy needed to make the next decent choice.",
+                            durationMinutes: 2,
                             priority: .low,
                             type: .morning,
-                            energy: .low
+                            energy: .low,
+                            clearDoneState: true,
+                            recommendedProfiles: [.overwhelmed, .remembering]
+                        ),
+                        StarterTaskTemplate(
+                            id: "task-health-meal-list",
+                            projectTemplateID: "health-meal",
+                            title: "Write one meal idea for tonight",
+                            reason: "One concrete choice beats carrying the whole problem around.",
+                            durationMinutes: 2,
+                            priority: .low,
+                            type: .morning,
+                            energy: .low,
+                            clearDoneState: true,
+                            recommendedProfiles: [.choosing]
+                        )
+                    ]
+                ),
+                StarterProjectTemplate(
+                    id: "health-sleep",
+                    lifeAreaTemplateID: "health",
+                    name: "Sleep wind-down",
+                    summary: "Tiny cues that make stopping easier later.",
+                    aliases: ["sleep", "rest", "bedtime"],
+                    taskTemplates: [
+                        StarterTaskTemplate(
+                            id: "task-health-sleep-charge",
+                            projectTemplateID: "health-sleep",
+                            title: "Put your phone on the charger",
+                            reason: "One visible action can mark the start of winding down.",
+                            durationMinutes: 1,
+                            priority: .low,
+                            type: .evening,
+                            energy: .low,
+                            clearDoneState: true,
+                            recommendedProfiles: [.remembering, .finishing]
                         )
                     ]
                 )
@@ -303,33 +502,39 @@ enum StarterWorkspaceCatalog {
             name: "Career",
             subtitle: "Ship work without drowning in it",
             icon: "briefcase.fill",
-            colorHex: "#3B82F6",
+            colorHex: "#2E75FF",
+            aliases: ["work", "job", "business"],
             projects: [
                 StarterProjectTemplate(
                     id: "career-ship",
                     lifeAreaTemplateID: "career",
                     name: "Ship one thing",
-                    summary: "A focused lane for the next visible win.",
+                    summary: "Keep the next visible output moving.",
+                    aliases: ["shipping", "deliverable", "work output"],
                     taskTemplates: [
                         StarterTaskTemplate(
-                            id: "task-career-ship-1",
+                            id: "task-career-ship-draft",
                             projectTemplateID: "career-ship",
-                            title: "Write the first rough draft",
-                            details: "Fifteen messy minutes beats waiting for clarity.",
-                            durationMinutes: 15,
+                            title: "Open the draft and write 3 lines",
+                            reason: "It removes the hard part: starting from closed.",
+                            durationMinutes: 2,
                             priority: .low,
                             type: .morning,
-                            energy: .medium
+                            energy: .low,
+                            clearDoneState: true,
+                            recommendedProfiles: [.starting, .overwhelmed]
                         ),
                         StarterTaskTemplate(
-                            id: "task-career-ship-2",
+                            id: "task-career-ship-message",
                             projectTemplateID: "career-ship",
                             title: "Send one unblocker message",
-                            details: "Ask the question that keeps the work moving.",
-                            durationMinutes: 5,
+                            reason: "A single message can restart stalled work fast.",
+                            durationMinutes: 2,
                             priority: .low,
                             type: .morning,
-                            energy: .low
+                            energy: .low,
+                            clearDoneState: true,
+                            recommendedProfiles: [.finishing, .choosing]
                         )
                     ]
                 ),
@@ -337,17 +542,41 @@ enum StarterWorkspaceCatalog {
                     id: "career-admin",
                     lifeAreaTemplateID: "career",
                     name: "Work admin reset",
-                    summary: "Small cleanup so work feels lighter.",
+                    summary: "Reduce drag from tiny work chores.",
+                    aliases: ["admin", "ops", "cleanup"],
                     taskTemplates: [
                         StarterTaskTemplate(
-                            id: "task-career-admin-1",
+                            id: "task-career-admin-email",
                             projectTemplateID: "career-admin",
-                            title: "Archive or reply to one email thread",
-                            details: "Pick one open loop and close it.",
-                            durationMinutes: 8,
+                            title: "Archive one stale thread",
+                            reason: "It closes a loop with almost no setup cost.",
+                            durationMinutes: 2,
                             priority: .low,
                             type: .morning,
-                            energy: .low
+                            energy: .low,
+                            clearDoneState: true,
+                            recommendedProfiles: [.finishing, .remembering]
+                        )
+                    ]
+                ),
+                StarterProjectTemplate(
+                    id: "career-followups",
+                    lifeAreaTemplateID: "career",
+                    name: "Follow-ups",
+                    summary: "Keep important loose ends from disappearing.",
+                    aliases: ["followups", "follow up", "replies"],
+                    taskTemplates: [
+                        StarterTaskTemplate(
+                            id: "task-career-followups-note",
+                            projectTemplateID: "career-followups",
+                            title: "Write the name of one person to follow up with",
+                            reason: "Capture first, decide the full message second.",
+                            durationMinutes: 1,
+                            priority: .low,
+                            type: .morning,
+                            energy: .low,
+                            clearDoneState: true,
+                            recommendedProfiles: [.remembering, .overwhelmed]
                         )
                     ]
                 )
@@ -358,33 +587,60 @@ enum StarterWorkspaceCatalog {
             name: "Home",
             subtitle: "Keep your space calm and usable",
             icon: "house.fill",
-            colorHex: "#F59E0B",
+            colorHex: "#E59A28",
+            aliases: ["household", "space", "apartment"],
             projects: [
                 StarterProjectTemplate(
                     id: "home-reset",
                     lifeAreaTemplateID: "home",
                     name: "Home reset",
-                    summary: "Tiny resets that remove visual drag.",
+                    summary: "Quick wins that make your environment easier to re-enter.",
+                    aliases: ["reset", "tidy", "cleanup"],
                     taskTemplates: [
                         StarterTaskTemplate(
-                            id: "task-home-reset-1",
+                            id: "task-home-reset-five",
                             projectTemplateID: "home-reset",
-                            title: "Clear one surface",
-                            details: "Desk, counter, or bedside table. One surface is enough.",
-                            durationMinutes: 10,
+                            title: "Put away 5 things",
+                            reason: "It is concrete, finite, and hard to overthink.",
+                            durationMinutes: 2,
                             priority: .low,
                             type: .evening,
-                            energy: .low
+                            energy: .low,
+                            clearDoneState: true,
+                            recommendedProfiles: [.starting, .overwhelmed]
                         ),
                         StarterTaskTemplate(
-                            id: "task-home-reset-2",
+                            id: "task-home-reset-surface",
                             projectTemplateID: "home-reset",
-                            title: "Put away five things",
-                            details: "Fast enough that you can do it right now.",
-                            durationMinutes: 5,
+                            title: "Clear one surface",
+                            reason: "One visible patch of calm counts immediately.",
+                            durationMinutes: 2,
                             priority: .low,
                             type: .evening,
-                            energy: .low
+                            energy: .low,
+                            clearDoneState: true,
+                            recommendedProfiles: [.finishing, .choosing]
+                        )
+                    ]
+                ),
+                StarterProjectTemplate(
+                    id: "home-laundry",
+                    lifeAreaTemplateID: "home",
+                    name: "Laundry / clothes",
+                    summary: "Prevent clothes from becoming ambient stress.",
+                    aliases: ["laundry", "clothes", "wardrobe"],
+                    taskTemplates: [
+                        StarterTaskTemplate(
+                            id: "task-home-laundry-basket",
+                            projectTemplateID: "home-laundry",
+                            title: "Put clothes in one basket",
+                            reason: "Gathering counts. Sorting can happen later.",
+                            durationMinutes: 2,
+                            priority: .low,
+                            type: .evening,
+                            energy: .low,
+                            clearDoneState: true,
+                            recommendedProfiles: [.overwhelmed, .remembering]
                         )
                     ]
                 ),
@@ -392,17 +648,20 @@ enum StarterWorkspaceCatalog {
                     id: "home-errands",
                     lifeAreaTemplateID: "home",
                     name: "Errands",
-                    summary: "The outside-the-house stuff you keep carrying.",
+                    summary: "Move one outside-the-house loose end forward.",
+                    aliases: ["shopping", "pickup", "store"],
                     taskTemplates: [
                         StarterTaskTemplate(
-                            id: "task-home-errands-1",
+                            id: "task-home-errands-note",
                             projectTemplateID: "home-errands",
-                            title: "Write the one errand you keep forgetting",
-                            details: "Capture it now so it stops taking up headspace.",
-                            durationMinutes: 4,
+                            title: "Write one errand in one place",
+                            reason: "This gets it out of your head before it vanishes again.",
+                            durationMinutes: 1,
                             priority: .low,
                             type: .morning,
-                            energy: .low
+                            energy: .low,
+                            clearDoneState: true,
+                            recommendedProfiles: [.remembering]
                         )
                     ]
                 )
@@ -413,23 +672,81 @@ enum StarterWorkspaceCatalog {
             name: "Learning",
             subtitle: "Study, read, and make it stick",
             icon: "book.fill",
-            colorHex: "#8B5CF6",
+            colorHex: "#8759D1",
+            aliases: ["study", "reading", "practice"],
             projects: [
                 StarterProjectTemplate(
-                    id: "learning-sprint",
+                    id: "learning-read",
                     lifeAreaTemplateID: "learning",
-                    name: "Study sprint",
-                    summary: "Keep learning in short, winnable sessions.",
+                    name: "Read and capture",
+                    summary: "Turn a small reading moment into something retained.",
+                    aliases: ["read", "reading", "capture"],
                     taskTemplates: [
                         StarterTaskTemplate(
-                            id: "task-learning-sprint-1",
-                            projectTemplateID: "learning-sprint",
-                            title: "Study for 15 focused minutes",
-                            details: "Timer on. Stop while energy is still good.",
-                            durationMinutes: 15,
+                            id: "task-learning-read-page",
+                            projectTemplateID: "learning-read",
+                            title: "Open the book and read 1 page",
+                            reason: "The commitment is tiny, but it still counts as re-entry.",
+                            durationMinutes: 2,
                             priority: .low,
                             type: .morning,
-                            energy: .medium
+                            energy: .low,
+                            clearDoneState: true,
+                            recommendedProfiles: [.starting, .overwhelmed]
+                        ),
+                        StarterTaskTemplate(
+                            id: "task-learning-read-takeaway",
+                            projectTemplateID: "learning-read",
+                            title: "Write 1 takeaway from yesterday",
+                            reason: "One sentence closes the loop on previous effort.",
+                            durationMinutes: 2,
+                            priority: .low,
+                            type: .morning,
+                            energy: .low,
+                            clearDoneState: true,
+                            recommendedProfiles: [.finishing]
+                        )
+                    ]
+                ),
+                StarterProjectTemplate(
+                    id: "learning-study",
+                    lifeAreaTemplateID: "learning",
+                    name: "Study session",
+                    summary: "Short, bounded study bursts.",
+                    aliases: ["study session", "course", "class"],
+                    taskTemplates: [
+                        StarterTaskTemplate(
+                            id: "task-learning-study-open",
+                            projectTemplateID: "learning-study",
+                            title: "Open the study doc",
+                            reason: "Opening the material is often the actual activation barrier.",
+                            durationMinutes: 1,
+                            priority: .low,
+                            type: .morning,
+                            energy: .low,
+                            clearDoneState: true,
+                            recommendedProfiles: [.starting]
+                        )
+                    ]
+                ),
+                StarterProjectTemplate(
+                    id: "learning-practice",
+                    lifeAreaTemplateID: "learning",
+                    name: "Practice block",
+                    summary: "Build repetition without needing a huge block of time.",
+                    aliases: ["practice", "reps", "drills"],
+                    taskTemplates: [
+                        StarterTaskTemplate(
+                            id: "task-learning-practice-minute",
+                            projectTemplateID: "learning-practice",
+                            title: "Do one 2-minute practice round",
+                            reason: "You only need enough momentum to begin.",
+                            durationMinutes: 2,
+                            priority: .low,
+                            type: .morning,
+                            energy: .low,
+                            clearDoneState: true,
+                            recommendedProfiles: [.choosing]
                         )
                     ]
                 )
@@ -440,23 +757,69 @@ enum StarterWorkspaceCatalog {
             name: "Money",
             subtitle: "Bills, budgeting, and fewer surprise fires",
             icon: "dollarsign.circle.fill",
-            colorHex: "#14B8A6",
+            colorHex: "#1D998B",
+            aliases: ["finance", "finances", "budget"],
             projects: [
                 StarterProjectTemplate(
                     id: "money-bills",
                     lifeAreaTemplateID: "money",
-                    name: "Bills and budget",
-                    summary: "Simple maintenance so money feels handled.",
+                    name: "Bills this week",
+                    summary: "Remove uncertainty before it starts compounding.",
+                    aliases: ["bills", "payments", "due dates"],
                     taskTemplates: [
                         StarterTaskTemplate(
-                            id: "task-money-bills-1",
+                            id: "task-money-bills-date",
                             projectTemplateID: "money-bills",
-                            title: "Check one upcoming bill",
-                            details: "Confirm due date and remove uncertainty.",
-                            durationMinutes: 6,
+                            title: "Open one bill and check the due date",
+                            reason: "Knowing the date is a real win and lowers dread.",
+                            durationMinutes: 2,
                             priority: .low,
                             type: .morning,
-                            energy: .low
+                            energy: .low,
+                            clearDoneState: true,
+                            recommendedProfiles: [.choosing, .overwhelmed]
+                        )
+                    ]
+                ),
+                StarterProjectTemplate(
+                    id: "money-budget",
+                    lifeAreaTemplateID: "money",
+                    name: "Budget reset",
+                    summary: "Lightweight money awareness without a full planning session.",
+                    aliases: ["budget", "spending", "plan"],
+                    taskTemplates: [
+                        StarterTaskTemplate(
+                            id: "task-money-budget-receipt",
+                            projectTemplateID: "money-budget",
+                            title: "Move one receipt into one place",
+                            reason: "Organizing one input is easier than fixing the whole system.",
+                            durationMinutes: 1,
+                            priority: .low,
+                            type: .morning,
+                            energy: .low,
+                            clearDoneState: true,
+                            recommendedProfiles: [.remembering]
+                        )
+                    ]
+                ),
+                StarterProjectTemplate(
+                    id: "money-errands",
+                    lifeAreaTemplateID: "money",
+                    name: "Financial errands",
+                    summary: "Small admin that prevents surprise problems later.",
+                    aliases: ["financial errands", "bank", "paperwork"],
+                    taskTemplates: [
+                        StarterTaskTemplate(
+                            id: "task-money-errands-note",
+                            projectTemplateID: "money-errands",
+                            title: "Write the one money errand you need",
+                            reason: "Capturing it now keeps it from turning into background stress.",
+                            durationMinutes: 1,
+                            priority: .low,
+                            type: .morning,
+                            energy: .low,
+                            clearDoneState: true,
+                            recommendedProfiles: [.remembering, .overwhelmed]
                         )
                     ]
                 )
@@ -464,53 +827,149 @@ enum StarterWorkspaceCatalog {
         )
     ]
 
-    static func defaultLifeAreaSelectionIDs() -> Set<String> {
-        Set(allLifeAreas.prefix(3).map(\.id))
+    static func lifeAreaTemplate(id: String) -> StarterLifeAreaTemplate? {
+        allLifeAreas.first(where: { $0.id == id })
     }
 
-    static func projectTemplates(for lifeAreaIDs: Set<String>) -> [StarterProjectTemplate] {
+    static func projectTemplate(id: String) -> StarterProjectTemplate? {
         allLifeAreas
-            .filter { lifeAreaIDs.contains($0.id) }
             .flatMap(\.projects)
+            .first(where: { $0.id == id })
     }
 
-    static func defaultProjectSelectionIDs(for lifeAreaIDs: Set<String>) -> Set<String> {
-        let starterProjects = allLifeAreas
-            .filter { lifeAreaIDs.contains($0.id) }
-            .compactMap { $0.projects.first?.id }
-        return Set(starterProjects.prefix(3))
+    static func defaultLifeAreaSelectionIDs(
+        for frictionProfile: OnboardingFrictionProfile?,
+        mode: OnboardingMode
+    ) -> [String] {
+        let guided: [String]
+        switch frictionProfile {
+        case .starting:
+            guided = ["health", "career", "home"]
+        case .choosing:
+            guided = ["career", "home", "health"]
+        case .remembering:
+            guided = ["home", "career", "money"]
+        case .finishing:
+            guided = ["career", "home", "money"]
+        case .overwhelmed:
+            guided = ["home", "health"]
+        case .none:
+            guided = ["health", "career", "home"]
+        }
+
+        if mode == .custom {
+            return Array(guided.prefix(1))
+        }
+        return guided
     }
 
-    static func resolveLifeAreaSelections(
-        selected: [StarterLifeAreaTemplate],
-        existing: [LifeArea]
-    ) -> [(template: StarterLifeAreaTemplate, existing: LifeArea?)] {
-        var existingByName: [String: LifeArea] = [:]
-        for lifeArea in existing {
-            existingByName[normalizedName(lifeArea.name)] = lifeArea
+    static func orderedLifeAreas(for frictionProfile: OnboardingFrictionProfile?) -> [StarterLifeAreaTemplate] {
+        let preferredIDs: [String]
+        switch frictionProfile {
+        case .choosing:
+            preferredIDs = ["career", "home", "health", "money", "learning"]
+        case .remembering:
+            preferredIDs = ["home", "career", "money", "health", "learning"]
+        case .finishing:
+            preferredIDs = ["career", "home", "money", "health", "learning"]
+        case .overwhelmed:
+            preferredIDs = ["home", "health", "career", "money", "learning"]
+        case .starting:
+            preferredIDs = ["health", "career", "home", "learning", "money"]
+        case .none:
+            preferredIDs = allLifeAreas.map(\.id)
         }
-        return selected.map { template in
-            (template, existingByName[normalizedName(template.name)])
+
+        return preferredIDs.compactMap(lifeAreaTemplate(id:))
+    }
+
+    static func visibleLifeAreas(
+        for frictionProfile: OnboardingFrictionProfile?,
+        showAll: Bool
+    ) -> [StarterLifeAreaTemplate] {
+        let ordered = orderedLifeAreas(for: frictionProfile)
+        let shouldCollapse = frictionProfile == .choosing || frictionProfile == .overwhelmed
+        guard shouldCollapse, showAll == false else { return ordered }
+        return Array(ordered.prefix(4))
+    }
+
+    static func defaultProjectDrafts(
+        for selectedLifeAreaIDs: [String],
+        mode: OnboardingMode
+    ) -> [OnboardingProjectDraft] {
+        selectedLifeAreaIDs.compactMap(lifeAreaTemplate(id:)).flatMap { area in
+            let templateIDs = area.projects.map(\.id)
+            let initial = Array(area.projects.prefix(2))
+            return initial.enumerated().map { index, project in
+                OnboardingProjectDraft(
+                    lifeAreaTemplateID: area.id,
+                    templateID: project.id,
+                    name: project.name,
+                    summary: project.summary,
+                    suggestionTemplateIDs: templateIDs,
+                    suggestionIndex: index,
+                    isSelected: mode == .guided || initial.count == 1 || index < 2
+                )
+            }
         }
     }
 
-    static func resolveProjectSelections(
-        selected: [StarterProjectTemplate],
-        existing: [Project],
-        lifeAreasByTemplateID: [String: LifeArea]
-    ) -> [(template: StarterProjectTemplate, existing: Project?, lifeArea: LifeArea)] {
-        var existingByName: [String: Project] = [:]
-        for project in existing {
-            existingByName[normalizedName(project.name)] = project
+    static func taskSuggestions(
+        for projects: [ResolvedProjectSelection],
+        frictionProfile: OnboardingFrictionProfile?
+    ) -> [StarterTaskTemplate] {
+        projects
+            .flatMap { project in
+                projectTemplate(id: project.draft.templateID)?.taskTemplates ?? []
+            }
+            .sorted { lhs, rhs in
+                score(task: lhs, frictionProfile: frictionProfile) > score(task: rhs, frictionProfile: frictionProfile)
+            }
+    }
+
+    static func defaultFallbackTaskTemplate(for projectTemplateID: String) -> StarterTaskTemplate {
+        StarterTaskTemplate(
+            id: "fallback-\(projectTemplateID)",
+            projectTemplateID: projectTemplateID,
+            title: "Open this project and pick one next step",
+            reason: "A tiny orienting action still counts as motion.",
+            durationMinutes: 2,
+            priority: .low,
+            type: .morning,
+            energy: .low,
+            clearDoneState: true,
+            recommendedProfiles: []
+        )
+    }
+
+    static func matchingLifeArea(
+        for template: StarterLifeAreaTemplate,
+        in existing: [LifeArea]
+    ) -> LifeArea? {
+        let candidateNames = Set(([template.name] + template.aliases).map(normalizedName))
+        return existing.first(where: { candidateNames.contains(normalizedName($0.name)) })
+    }
+
+    static func matchingProject(
+        for draft: OnboardingProjectDraft,
+        lifeAreaID: UUID?,
+        in existing: [Project]
+    ) -> Project? {
+        let template = projectTemplate(id: draft.templateID)
+        let candidateNames = Set(([draft.name] + (template?.aliases ?? []) + [template?.name].compactMap { $0 }).map(normalizedName))
+        let candidates = existing.filter { candidateNames.contains(normalizedName($0.name)) }
+        if let preferred = candidates.first(where: { $0.lifeAreaID == lifeAreaID }) {
+            return preferred
         }
-        return selected.compactMap { template in
-            guard let lifeArea = lifeAreasByTemplateID[template.lifeAreaTemplateID] else { return nil }
-            return (template, existingByName[normalizedName(template.name)], lifeArea)
-        }
+        return candidates.first
     }
 
     static func normalizedName(_ name: String) -> String {
-        name.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        let lowered = name.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        let filtered = lowered.unicodeScalars.map { scalar -> Character in
+            CharacterSet.alphanumerics.contains(scalar) ? Character(scalar) : " "
+        }
+        return String(filtered).replacingOccurrences(of: "\\s+", with: " ", options: .regularExpression)
     }
 
     static func isCustomLifeArea(_ lifeArea: LifeArea) -> Bool {
@@ -519,6 +978,32 @@ enum StarterWorkspaceCatalog {
 
     static func isCustomProject(_ project: Project) -> Bool {
         project.isArchived == false && project.isInbox == false && project.isDefault == false
+    }
+
+    private static func score(task: StarterTaskTemplate, frictionProfile: OnboardingFrictionProfile?) -> Int {
+        var score = 0
+        score += task.durationMinutes <= 2 ? 40 : 18
+        score += task.clearDoneState ? 25 : 0
+        score += task.durationMinutes <= 5 ? 10 : 0
+        if let frictionProfile, task.recommendedProfiles.contains(frictionProfile) {
+            score += 15
+        }
+        switch frictionProfile {
+        case .starting:
+            score += task.durationMinutes <= 2 ? 8 : 0
+        case .choosing:
+            score += task.clearDoneState ? 8 : 0
+        case .remembering:
+            score += task.title.localizedCaseInsensitiveContains("write") ? 8 : 0
+        case .finishing:
+            score += task.title.localizedCaseInsensitiveContains("send") ? 6 : 0
+            score += task.title.localizedCaseInsensitiveContains("clear") ? 6 : 0
+        case .overwhelmed:
+            score += task.durationMinutes <= 2 ? 10 : 0
+        case .none:
+            break
+        }
+        return score
     }
 }
 
@@ -580,18 +1065,16 @@ final class OnboardingEligibilityService {
 
         let snapshot: OnboardingWorkspaceSnapshot
         do {
-            async let lifeAreas = fetchLifeAreas()
-            async let projects = fetchProjects()
-            async let tasks = fetchTasks()
-
-            let resolvedLifeAreas = try await lifeAreas
-            let resolvedProjects = try await projects
-            let resolvedTasks = try await tasks
-
+            async let lifeAreasTask = fetchLifeAreas()
+            async let projectsTask = fetchProjects()
+            async let tasksTask = fetchTasks()
+            let lifeAreas = try await lifeAreasTask
+            let projects = try await projectsTask
+            let tasks = try await tasksTask
             snapshot = OnboardingWorkspaceSnapshot(
-                customLifeAreaCount: resolvedLifeAreas.filter(StarterWorkspaceCatalog.isCustomLifeArea).count,
-                customProjectCount: resolvedProjects.filter(StarterWorkspaceCatalog.isCustomProject).count,
-                taskCount: resolvedTasks.count
+                customLifeAreaCount: lifeAreas.filter(StarterWorkspaceCatalog.isCustomLifeArea).count,
+                customProjectCount: projects.filter(StarterWorkspaceCatalog.isCustomProject).count,
+                taskCount: tasks.count
             )
         } catch {
             logOnboardingError(
@@ -627,8 +1110,8 @@ final class HomeOnboardingGuidanceModel: ObservableObject {
     func showCompletionGuide(task: TaskDefinition) {
         state = State(
             taskID: task.id,
-            title: "Finish your first win",
-            message: "Tap the checkbox on \"\(task.title)\", or finish the other starter task, so you can feel the XP and streak loop for real."
+            title: "Your first tiny win is ready",
+            message: "Finish \"\(task.title)\" to lock in the first-session momentum loop."
         )
     }
 
@@ -638,59 +1121,316 @@ final class HomeOnboardingGuidanceModel: ObservableObject {
 }
 
 @MainActor
-final class AppOnboardingFlowViewModel: ObservableObject {
+final class OnboardingFeedbackController {
+    private let selectionGenerator = UISelectionFeedbackGenerator()
+    private let lightGenerator = UIImpactFeedbackGenerator(style: .light)
+    private let mediumGenerator = UIImpactFeedbackGenerator(style: .medium)
+    private let successGenerator = UINotificationFeedbackGenerator()
+    private var hapticEngine: CHHapticEngine?
+
+    func prepare() {
+        selectionGenerator.prepare()
+        lightGenerator.prepare()
+        mediumGenerator.prepare()
+        successGenerator.prepare()
+        prepareEngineIfNeeded()
+    }
+
+    func selection() {
+        selectionGenerator.selectionChanged()
+        selectionGenerator.prepare()
+    }
+
+    func light() {
+        lightGenerator.impactOccurred()
+        lightGenerator.prepare()
+    }
+
+    func medium() {
+        mediumGenerator.impactOccurred()
+        mediumGenerator.prepare()
+    }
+
+    func successSignature() {
+        guard playSuccessPattern() == false else { return }
+        successGenerator.notificationOccurred(.success)
+        successGenerator.prepare()
+    }
+
+    private func prepareEngineIfNeeded() {
+        guard CHHapticEngine.capabilitiesForHardware().supportsHaptics else { return }
+        if hapticEngine == nil {
+            hapticEngine = try? CHHapticEngine()
+            try? hapticEngine?.start()
+        }
+    }
+
+    private func playSuccessPattern() -> Bool {
+        prepareEngineIfNeeded()
+        guard let hapticEngine else { return false }
+        let events = [
+            CHHapticEvent(
+                eventType: .hapticTransient,
+                parameters: [
+                    CHHapticEventParameter(parameterID: .hapticIntensity, value: 0.45),
+                    CHHapticEventParameter(parameterID: .hapticSharpness, value: 0.45)
+                ],
+                relativeTime: 0
+            ),
+            CHHapticEvent(
+                eventType: .hapticTransient,
+                parameters: [
+                    CHHapticEventParameter(parameterID: .hapticIntensity, value: 0.75),
+                    CHHapticEventParameter(parameterID: .hapticSharpness, value: 0.8)
+                ],
+                relativeTime: 0.12
+            )
+        ]
+        do {
+            let pattern = try CHHapticPattern(events: events, parameters: [])
+            let player = try hapticEngine.makePlayer(with: pattern)
+            try player.start(atTime: 0)
+            return true
+        } catch {
+            return false
+        }
+    }
+}
+
+@MainActor
+final class OnboardingFlowModel: ObservableObject {
+    private let stateStore: AppOnboardingStateStore
+    private let notificationService: NotificationServiceProtocol?
+    private let fetchLifeAreas: () async throws -> [LifeArea]
+    private let fetchProjects: () async throws -> [Project]
+    private let fetchTask: (UUID) async throws -> TaskDefinition?
+    private let createLifeArea: (StarterLifeAreaTemplate) async throws -> LifeArea
+    private let createProject: (OnboardingProjectDraft, LifeArea) async throws -> Project
+    private let createTask: (CreateTaskDefinitionRequest) async throws -> TaskDefinition
+    private let setTaskCompletion: (UUID, Bool) async throws -> TaskDefinition
+
     @Published var step: OnboardingStep = .welcome
-    @Published var selectedLifeAreaIDs: Set<String>
-    @Published var selectedProjectIDs: Set<String>
+    @Published var mode: OnboardingMode = .guided
+    @Published var frictionProfile: OnboardingFrictionProfile?
+    @Published var selectedLifeAreaIDs: Set<String> = []
+    @Published var showAllLifeAreas = false
+    @Published var projectDrafts: [OnboardingProjectDraft] = []
     @Published private(set) var resolvedLifeAreas: [ResolvedLifeAreaSelection] = []
     @Published private(set) var resolvedProjects: [ResolvedProjectSelection] = []
-    @Published private(set) var createdTaskTemplateIDs: [String: UUID] = [:]
-    @Published private(set) var createdTaskIDs: [UUID] = []
+    @Published private(set) var createdTasks: [TaskDefinition] = []
+    @Published private(set) var createdTaskTemplateMap: [String: UUID] = [:]
+    @Published private(set) var taskTemplateStates: [String: OnboardingTaskTemplateState] = [:]
+    @Published private(set) var focusTaskID: UUID?
+    @Published private(set) var parentFocusTaskID: UUID?
+    @Published private(set) var focusStartedAt: Date?
+    @Published private(set) var focusIsActive = false
+    @Published private(set) var successSummary: AppOnboardingSummary?
+    @Published var reminderPromptState: OnboardingReminderPromptState = .hidden
     @Published var isWorking = false
     @Published var errorMessage: String?
-    @Published private(set) var reusedLifeAreaCount = 0
-    @Published private(set) var reusedProjectCount = 0
+    @Published var breakdownSteps: [OnboardingBreakdownStep] = []
+    @Published var breakdownSheetPresented = false
+    @Published var breakdownIsLoading = false
+    @Published var breakdownRouteBanner: String?
 
-    let catalog: [StarterLifeAreaTemplate]
+    init(
+        stateStore: AppOnboardingStateStore = .shared,
+        notificationService: NotificationServiceProtocol? = nil,
+        fetchLifeAreas: @escaping () async throws -> [LifeArea] = { [] },
+        fetchProjects: @escaping () async throws -> [Project] = { [] },
+        fetchTask: @escaping (UUID) async throws -> TaskDefinition? = { _ in nil },
+        createLifeArea: @escaping (StarterLifeAreaTemplate) async throws -> LifeArea = { template in
+            LifeArea(name: template.name, color: template.colorHex, icon: template.icon)
+        },
+        createProject: @escaping (OnboardingProjectDraft, LifeArea) async throws -> Project = { draft, lifeArea in
+            Project(lifeAreaID: lifeArea.id, name: draft.name, projectDescription: draft.summary)
+        },
+        createTask: @escaping (CreateTaskDefinitionRequest) async throws -> TaskDefinition = { request in
+            request.toTaskDefinition(projectName: request.projectName)
+        },
+        setTaskCompletion: @escaping (UUID, Bool) async throws -> TaskDefinition = { taskID, isComplete in
+            var task = TaskDefinition(id: taskID, title: "Task")
+            task.isComplete = isComplete
+            task.dateCompleted = isComplete ? Date() : nil
+            return task
+        }
+    ) {
+        self.stateStore = stateStore
+        self.notificationService = notificationService
+        self.fetchLifeAreas = fetchLifeAreas
+        self.fetchProjects = fetchProjects
+        self.fetchTask = fetchTask
+        self.createLifeArea = createLifeArea
+        self.createProject = createProject
+        self.createTask = createTask
+        self.setTaskCompletion = setTaskCompletion
+        applyDefaults(mode: .guided, frictionProfile: nil)
+    }
 
-    init(catalog: [StarterLifeAreaTemplate] = StarterWorkspaceCatalog.allLifeAreas) {
-        self.catalog = catalog
-        let selectedLifeAreaIDs = StarterWorkspaceCatalog.defaultLifeAreaSelectionIDs()
-        self.selectedLifeAreaIDs = selectedLifeAreaIDs
-        self.selectedProjectIDs = StarterWorkspaceCatalog.defaultProjectSelectionIDs(for: selectedLifeAreaIDs)
+    var visibleLifeAreas: [StarterLifeAreaTemplate] {
+        StarterWorkspaceCatalog.visibleLifeAreas(for: frictionProfile, showAll: showAllLifeAreas)
     }
 
     var selectedLifeAreas: [StarterLifeAreaTemplate] {
-        catalog.filter { selectedLifeAreaIDs.contains($0.id) }
+        StarterWorkspaceCatalog.orderedLifeAreas(for: frictionProfile)
+            .filter { selectedLifeAreaIDs.contains($0.id) }
     }
 
-    var availableProjectTemplates: [StarterProjectTemplate] {
-        StarterWorkspaceCatalog.projectTemplates(for: selectedLifeAreaIDs)
+    var selectedProjectDrafts: [OnboardingProjectDraft] {
+        projectDrafts.filter(\.isSelected)
     }
 
-    var selectedProjectTemplates: [StarterProjectTemplate] {
-        availableProjectTemplates.filter { selectedProjectIDs.contains($0.id) }
+    var primaryTaskSuggestions: [StarterTaskTemplate] {
+        Array(taskSuggestions.prefix(2))
+    }
+
+    var secondaryTaskSuggestions: [StarterTaskTemplate] {
+        Array(taskSuggestions.dropFirst(2).prefix(4))
     }
 
     var taskSuggestions: [StarterTaskTemplate] {
-        let sourceProjects = resolvedProjects.isEmpty ? selectedProjectTemplates : resolvedProjects.map(\.template)
-        return sourceProjects.flatMap(\.taskTemplates)
+        let sourceProjects = resolvedProjects.isEmpty
+            ? selectedProjectDrafts.compactMap { draft in
+                StarterWorkspaceCatalog.projectTemplate(id: draft.templateID).map { _ in
+                    ResolvedProjectSelection(
+                        draft: draft,
+                        project: Project(name: draft.name),
+                        reusedExisting: false
+                    )
+                }
+            }
+            : resolvedProjects
+        return StarterWorkspaceCatalog.taskSuggestions(for: sourceProjects, frictionProfile: frictionProfile)
     }
 
     var canContinueLifeAreas: Bool {
-        (2...3).contains(selectedLifeAreaIDs.count)
+        (1...3).contains(selectedLifeAreaIDs.count)
     }
 
     var canContinueProjects: Bool {
-        selectedProjectIDs.count >= 2
+        selectedProjectDrafts.isEmpty == false
     }
 
-    var hasCreatedRequiredTasks: Bool {
-        createdTaskIDs.count >= 2
+    var canContinueToFocus: Bool {
+        createdTasks.isEmpty == false
     }
 
-    var nextTaskTemplateToCreate: StarterTaskTemplate? {
-        taskSuggestions.first(where: { createdTaskTemplateIDs[$0.id] == nil })
+    var canGoBack: Bool {
+        successSummary == nil && step != .welcome
+    }
+
+    var focusTask: TaskDefinition? {
+        guard let focusTaskID else { return nil }
+        return createdTasks.first(where: { $0.id == focusTaskID })
+    }
+
+    var parentFocusTask: TaskDefinition? {
+        guard let parentFocusTaskID else { return nil }
+        return createdTasks.first(where: { $0.id == parentFocusTaskID })
+    }
+
+    var nextOpenTask: TaskDefinition? {
+        if let parentFocusTask, parentFocusTask.isComplete == false {
+            return parentFocusTask
+        }
+        return createdTasks.first(where: { task in
+            task.isComplete == false && task.id != focusTaskID
+        })
+    }
+
+    var preferredComposerProject: Project? {
+        if let firstResolved = resolvedProjects.first {
+            return firstResolved.project
+        }
+        return nil
+    }
+
+    var allowsShowAllAreas: Bool {
+        frictionProfile == .choosing || frictionProfile == .overwhelmed
+    }
+
+    func prepareForPresentation(snapshot: OnboardingJourneySnapshot?) {
+        errorMessage = nil
+        reminderPromptState = .hidden
+        breakdownSheetPresented = false
+        breakdownSteps = []
+        breakdownIsLoading = false
+        breakdownRouteBanner = nil
+
+        guard let snapshot else {
+            applyDefaults(mode: .guided, frictionProfile: frictionProfile)
+            step = .welcome
+            successSummary = nil
+            persistJourney()
+            return
+        }
+
+        step = snapshot.step
+        mode = snapshot.mode
+        frictionProfile = snapshot.frictionProfile
+        selectedLifeAreaIDs = Set(snapshot.selectedLifeAreaIDs)
+        showAllLifeAreas = snapshot.showAllLifeAreas
+        projectDrafts = snapshot.projectDrafts
+        resolvedLifeAreas = snapshot.resolvedLifeAreas
+        resolvedProjects = snapshot.resolvedProjects
+        createdTasks = snapshot.createdTasks
+        createdTaskTemplateMap = snapshot.createdTaskTemplateMap
+        taskTemplateStates = snapshot.createdTaskTemplateMap.reduce(into: [:]) { partialResult, entry in
+            partialResult[entry.key] = .created(entry.value)
+        }
+        focusTaskID = snapshot.focusTaskID
+        parentFocusTaskID = snapshot.parentFocusTaskID
+        focusStartedAt = snapshot.focusStartedAt
+        focusIsActive = snapshot.focusIsActive
+        successSummary = snapshot.successSummary
+        if snapshot.hasSeenSuccess {
+            Task { [weak self] in
+                await self?.refreshReminderPromptState()
+            }
+        }
+    }
+
+    func resetForReplay() {
+        step = .welcome
+        mode = .guided
+        frictionProfile = nil
+        showAllLifeAreas = false
+        resolvedLifeAreas = []
+        resolvedProjects = []
+        createdTasks = []
+        createdTaskTemplateMap = [:]
+        taskTemplateStates = [:]
+        focusTaskID = nil
+        parentFocusTaskID = nil
+        focusStartedAt = nil
+        focusIsActive = false
+        successSummary = nil
+        reminderPromptState = .hidden
+        breakdownSteps = []
+        breakdownSheetPresented = false
+        breakdownIsLoading = false
+        breakdownRouteBanner = nil
+        errorMessage = nil
+        applyDefaults(mode: .guided, frictionProfile: nil)
+        stateStore.clearJourney()
+    }
+
+    func selectFriction(_ profile: OnboardingFrictionProfile) {
+        frictionProfile = frictionProfile == profile ? nil : profile
+        if step == .welcome {
+            applyDefaults(mode: mode, frictionProfile: frictionProfile)
+            clearDownstreamState()
+        }
+        persistJourney()
+    }
+
+    func begin(mode: OnboardingMode) {
+        self.mode = mode
+        applyDefaults(mode: mode, frictionProfile: frictionProfile)
+        clearDownstreamState()
+        step = .lifeAreas
+        errorMessage = nil
+        persistJourney()
     }
 
     func toggleLifeArea(_ templateID: String) {
@@ -700,62 +1440,502 @@ final class AppOnboardingFlowViewModel: ObservableObject {
             selectedLifeAreaIDs.insert(templateID)
         }
 
-        let validProjectIDs = Set(availableProjectTemplates.map(\.id))
-        selectedProjectIDs = selectedProjectIDs.intersection(validProjectIDs)
+        var nextDrafts = projectDrafts.filter { selectedLifeAreaIDs.contains($0.lifeAreaTemplateID) }
+        let existingAreaIDs = Set(nextDrafts.map(\.lifeAreaTemplateID))
+        let selectedIDsInOrder = StarterWorkspaceCatalog.orderedLifeAreas(for: frictionProfile)
+            .map(\.id)
+            .filter { selectedLifeAreaIDs.contains($0) }
+        let missingAreas = selectedIDsInOrder.filter { existingAreaIDs.contains($0) == false }
+        nextDrafts.append(contentsOf: StarterWorkspaceCatalog.defaultProjectDrafts(for: missingAreas, mode: mode))
+        projectDrafts = nextDrafts
+        errorMessage = nil
+        persistJourney()
+    }
 
-        let defaults = StarterWorkspaceCatalog.defaultProjectSelectionIDs(for: selectedLifeAreaIDs)
-        for projectID in defaults where selectedProjectIDs.count < 3 {
-            selectedProjectIDs.insert(projectID)
+    func showAllAreas() {
+        showAllLifeAreas = true
+        persistJourney()
+    }
+
+    func continueFromLifeAreas() async {
+        guard canContinueLifeAreas else {
+            errorMessage = "Pick 1 to 3 life areas to continue."
+            return
+        }
+        isWorking = true
+        errorMessage = nil
+        defer { isWorking = false }
+
+        do {
+            let existingLifeAreas = try await fetchLifeAreas().filter { $0.isArchived == false }
+            var selections: [ResolvedLifeAreaSelection] = []
+            for template in selectedLifeAreas {
+                if let existing = StarterWorkspaceCatalog.matchingLifeArea(for: template, in: existingLifeAreas + selections.map(\.lifeArea)) {
+                    selections.append(
+                        ResolvedLifeAreaSelection(templateID: template.id, lifeArea: existing, reusedExisting: true)
+                    )
+                } else {
+                    let created = try await createLifeArea(template)
+                    selections.append(
+                        ResolvedLifeAreaSelection(templateID: template.id, lifeArea: created, reusedExisting: false)
+                    )
+                }
+            }
+            resolvedLifeAreas = selections
+            projectDrafts = mergedProjectDrafts(for: selections.map(\.templateID))
+            clearProjectsAndTasks()
+            step = .projects
+            persistJourney()
+        } catch {
+            errorMessage = error.localizedDescription
         }
     }
 
-    func toggleProject(_ templateID: String) {
-        if selectedProjectIDs.contains(templateID) {
-            selectedProjectIDs.remove(templateID)
-        } else {
-            selectedProjectIDs.insert(templateID)
+    func toggleProjectDraft(_ draftID: UUID) {
+        guard let index = projectDrafts.firstIndex(where: { $0.id == draftID }) else { return }
+        projectDrafts[index].isSelected.toggle()
+        errorMessage = nil
+        persistJourney()
+    }
+
+    func renameProjectDraft(_ draftID: UUID, to name: String) {
+        guard let index = projectDrafts.firstIndex(where: { $0.id == draftID }) else { return }
+        projectDrafts[index].name = name
+        persistJourney()
+    }
+
+    func cycleProjectSuggestion(_ draftID: UUID) {
+        guard let index = projectDrafts.firstIndex(where: { $0.id == draftID }) else { return }
+        var draft = projectDrafts[index]
+        guard draft.suggestionTemplateIDs.isEmpty == false else { return }
+        draft.suggestionIndex = (draft.suggestionIndex + 1) % draft.suggestionTemplateIDs.count
+        draft.templateID = draft.suggestionTemplateIDs[draft.suggestionIndex]
+        if let template = StarterWorkspaceCatalog.projectTemplate(id: draft.templateID) {
+            draft.name = template.name
+            draft.summary = template.summary
+        }
+        projectDrafts[index] = draft
+        persistJourney()
+    }
+
+    func continueFromProjects() async {
+        guard canContinueProjects else {
+            errorMessage = "Keep at least one starter project to continue."
+            return
+        }
+        isWorking = true
+        errorMessage = nil
+        defer { isWorking = false }
+
+        do {
+            let existingProjects = try await fetchProjects().filter { $0.isArchived == false }
+            let lifeAreasByTemplate = Dictionary(uniqueKeysWithValues: resolvedLifeAreas.map { ($0.templateID, $0.lifeArea) })
+            var selections: [ResolvedProjectSelection] = []
+            for draft in selectedProjectDrafts {
+                guard let lifeArea = lifeAreasByTemplate[draft.lifeAreaTemplateID] else { continue }
+                if let existing = StarterWorkspaceCatalog.matchingProject(for: draft, lifeAreaID: lifeArea.id, in: existingProjects + selections.map(\.project)) {
+                    selections.append(
+                        ResolvedProjectSelection(draft: draft, project: existing, reusedExisting: true)
+                    )
+                } else {
+                    let created = try await createProject(draft, lifeArea)
+                    selections.append(
+                        ResolvedProjectSelection(draft: draft, project: created, reusedExisting: false)
+                    )
+                }
+            }
+            resolvedProjects = selections
+            clearTasksAndFocus()
+            step = .firstTask
+            persistJourney()
+        } catch {
+            errorMessage = error.localizedDescription
         }
     }
 
-    func moveToLifeAreas() {
-        step = .lifeAreas
-        errorMessage = nil
-    }
-
-    func applyResolvedLifeAreas(_ selections: [ResolvedLifeAreaSelection]) {
-        resolvedLifeAreas = selections
-        reusedLifeAreaCount = selections.filter(\.reusedExisting).count
-        step = .projects
-        errorMessage = nil
-    }
-
-    func applyResolvedProjects(_ selections: [ResolvedProjectSelection]) {
-        resolvedProjects = selections
-        reusedProjectCount = selections.filter(\.reusedExisting).count
-        step = .tasks
-        errorMessage = nil
-    }
-
-    func registerCreatedTask(templateID: String, taskID: UUID) {
-        createdTaskTemplateIDs[templateID] = taskID
-        if createdTaskIDs.contains(taskID) == false {
-            createdTaskIDs.append(taskID)
+    func addSuggestedTask(_ template: StarterTaskTemplate) async {
+        if case .creating = taskTemplateStates[template.id] {
+            return
         }
+        if case .created = taskTemplateStates[template.id] {
+            return
+        }
+
+        taskTemplateStates[template.id] = .creating
+        errorMessage = nil
+        defer { if case .creating = taskTemplateStates[template.id] { taskTemplateStates[template.id] = .idle } }
+
+        guard let resolvedProject = resolvedProjects.first(where: { $0.draft.templateID == template.projectTemplateID }) else {
+            taskTemplateStates[template.id] = .failed("Tasker could not find that project.")
+            return
+        }
+
+        do {
+            let createdTask = try await createTask(template.makeRequest(project: resolvedProject.project))
+            upsertCreatedTask(createdTask)
+            createdTaskTemplateMap[template.id] = createdTask.id
+            taskTemplateStates[template.id] = .created(createdTask.id)
+            if focusTaskID == nil {
+                focusTaskID = createdTask.id
+            }
+            persistJourney()
+        } catch {
+            let message = error.localizedDescription
+            taskTemplateStates[template.id] = .failed(message)
+            errorMessage = message
+        }
+    }
+
+    func registerCustomCreatedTask(taskID: UUID) async {
+        do {
+            guard let task = try await fetchTask(taskID) else { return }
+            upsertCreatedTask(task)
+            if focusTaskID == nil {
+                focusTaskID = task.id
+            }
+            persistJourney()
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+    }
+
+    func refreshCreatedTask(taskID: UUID) async {
+        do {
+            guard let task = try await fetchTask(taskID) else {
+                createdTasks.removeAll(where: { $0.id == taskID })
+                createdTaskTemplateMap = createdTaskTemplateMap.filter { $0.value != taskID }
+                if focusTaskID == taskID {
+                    focusTaskID = createdTasks.first(where: { $0.isComplete == false })?.id
+                    if focusTaskID == nil {
+                        step = .firstTask
+                    }
+                }
+                persistJourney()
+                return
+            }
+            upsertCreatedTask(task)
+            persistJourney()
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+    }
+
+    func continueToFocus() {
+        guard canContinueToFocus else { return }
+        focusTaskID = createdTasks.first(where: { $0.isComplete == false })?.id ?? createdTasks.first?.id
+        step = .focusRoom
+        errorMessage = nil
+        persistJourney()
+    }
+
+    func startFocusNow() {
+        focusIsActive = true
+        if focusStartedAt == nil {
+            focusStartedAt = Date()
+        }
+        persistJourney()
+    }
+
+    func completeFocusTask() async {
+        guard let focusTaskID else { return }
+        isWorking = true
+        errorMessage = nil
+        defer { isWorking = false }
+
+        do {
+            let completed = try await setTaskCompletion(focusTaskID, true)
+            upsertCreatedTask(completed)
+            focusIsActive = false
+            focusStartedAt = nil
+            successSummary = buildSummary(completedTask: completed)
+            await refreshReminderPromptState()
+            successSummary = buildSummary(completedTask: completed)
+            persistJourney()
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+    }
+
+    func generateBreakdownSuggestions() async {
+        guard let focusTask else { return }
+        let service = TaskBreakdownService.shared
+        let immediate = service.immediateHeuristicSteps(
+            taskTitle: focusTask.title,
+            taskDetails: focusTask.details,
+            projectName: projectName(for: focusTask)
+        )
+        breakdownSteps = immediate.steps.enumerated().map { index, step in
+            OnboardingBreakdownStep(title: step, isSelected: index == 0)
+        }
+        breakdownRouteBanner = immediate.routeBanner
+        breakdownSheetPresented = true
+        breakdownIsLoading = true
+
+        let refined = await service.refine(
+            taskTitle: focusTask.title,
+            taskDetails: focusTask.details,
+            projectName: projectName(for: focusTask)
+        )
+        let selectedTitles = Set(breakdownSteps.filter(\.isSelected).map { StarterWorkspaceCatalog.normalizedName($0.title) })
+        breakdownSteps = refined.steps.enumerated().map { index, step in
+            let normalized = StarterWorkspaceCatalog.normalizedName(step)
+            return OnboardingBreakdownStep(
+                title: step,
+                isSelected: selectedTitles.contains(normalized) || (selectedTitles.isEmpty && index == 0)
+            )
+        }
+        breakdownRouteBanner = refined.routeBanner ?? breakdownRouteBanner
+        breakdownIsLoading = false
+    }
+
+    func toggleBreakdownStep(_ stepID: UUID) {
+        guard let index = breakdownSteps.firstIndex(where: { $0.id == stepID }) else { return }
+        breakdownSteps[index].isSelected.toggle()
+    }
+
+    func applySelectedBreakdownSteps() async {
+        guard let focusTask, let project = project(for: focusTask) else { return }
+        let selected = breakdownSteps.filter(\.isSelected)
+        guard selected.isEmpty == false else {
+            errorMessage = "Select at least one smaller step."
+            return
+        }
+
+        isWorking = true
+        errorMessage = nil
+        defer { isWorking = false }
+
+        do {
+            var createdChildren: [TaskDefinition] = []
+            for item in selected {
+                let request = CreateTaskDefinitionRequest(
+                    title: item.title,
+                    details: nil,
+                    projectID: project.id,
+                    projectName: project.name,
+                    lifeAreaID: project.lifeAreaID,
+                    dueDate: focusTask.dueDate ?? DatePreset.today.resolvedDueDate(),
+                    parentTaskID: focusTask.id,
+                    priority: .low,
+                    type: focusTask.type,
+                    energy: .low,
+                    category: focusTask.category,
+                    context: focusTask.context,
+                    estimatedDuration: 60,
+                    createdAt: Date()
+                )
+                let child = try await createTask(request)
+                createdChildren.append(child)
+                upsertCreatedTask(child)
+            }
+
+            parentFocusTaskID = focusTask.id
+            focusTaskID = createdChildren.first?.id
+            focusStartedAt = nil
+            focusIsActive = false
+            breakdownSheetPresented = false
+            persistJourney()
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+    }
+
+    func breakDownNextTask() async {
+        guard let nextOpenTask else { return }
+        focusTaskID = nextOpenTask.id
+        successSummary = nil
+        step = .focusRoom
+        persistJourney()
+        await generateBreakdownSuggestions()
+    }
+
+    func refreshReminderPromptState() async {
+        guard successSummary != nil, let notificationService else {
+            reminderPromptState = .hidden
+            persistJourney()
+            return
+        }
+
+        let status = await notificationService.fetchAuthorizationStatusAsync()
+        switch status {
+        case .notDetermined:
+            reminderPromptState = .prompt
+        case .denied:
+            reminderPromptState = .openSettings
+        case .authorized, .provisional, .ephemeral:
+            reminderPromptState = .hidden
+        }
+        persistJourney()
+    }
+
+    func handleReminderPrimaryAction() async {
+        guard reminderPromptState == .prompt, let notificationService else { return }
+        _ = await notificationService.requestPermissionAsync()
+        await refreshReminderPromptState()
+    }
+
+    func dismissReminderPrompt() {
+        reminderPromptState = .hidden
+        persistJourney()
+    }
+
+    func finishOnboarding() {
+        stateStore.markHandled(outcome: .completed)
+    }
+
+    func skipToFocusRoom() async {
+        mode = .guided
+        applyDefaults(mode: .guided, frictionProfile: frictionProfile)
+        await continueFromLifeAreas()
+        guard errorMessage == nil else { return }
+        await continueFromProjects()
+        guard errorMessage == nil else { return }
+        guard let firstTemplate = primaryTaskSuggestions.first ?? taskSuggestions.first,
+              let resolvedProject = resolvedProjects.first(where: { $0.draft.templateID == firstTemplate.projectTemplateID })
+        else {
+            errorMessage = "Tasker could not build a starter task right now."
+            return
+        }
+
+        do {
+            let createdTask = try await createTask(firstTemplate.makeRequest(project: resolvedProject.project))
+            upsertCreatedTask(createdTask)
+            createdTaskTemplateMap[firstTemplate.id] = createdTask.id
+            taskTemplateStates[firstTemplate.id] = .created(createdTask.id)
+            focusTaskID = createdTask.id
+            step = .focusRoom
+            persistJourney()
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+    }
+
+    func goBack() {
+        errorMessage = nil
+        if successSummary != nil {
+            successSummary = nil
+            step = .focusRoom
+            persistJourney()
+            return
+        }
+
+        switch step {
+        case .welcome:
+            break
+        case .lifeAreas:
+            step = .welcome
+        case .projects:
+            step = .lifeAreas
+        case .firstTask:
+            step = .projects
+        case .focusRoom:
+            step = .firstTask
+        }
+        persistJourney()
+    }
+
+    private func applyDefaults(mode: OnboardingMode, frictionProfile: OnboardingFrictionProfile?) {
+        let selection = StarterWorkspaceCatalog.defaultLifeAreaSelectionIDs(for: frictionProfile, mode: mode)
+        selectedLifeAreaIDs = Set(selection)
+        projectDrafts = StarterWorkspaceCatalog.defaultProjectDrafts(for: selection, mode: mode)
+        showAllLifeAreas = false
+    }
+
+    private func clearDownstreamState() {
+        clearProjectsAndTasks()
         errorMessage = nil
     }
 
-    func resetForReplay() {
-        step = .welcome
-        selectedLifeAreaIDs = StarterWorkspaceCatalog.defaultLifeAreaSelectionIDs()
-        selectedProjectIDs = StarterWorkspaceCatalog.defaultProjectSelectionIDs(for: selectedLifeAreaIDs)
-        resolvedLifeAreas = []
+    private func clearProjectsAndTasks() {
         resolvedProjects = []
-        createdTaskTemplateIDs = [:]
-        createdTaskIDs = []
-        isWorking = false
-        errorMessage = nil
-        reusedLifeAreaCount = 0
-        reusedProjectCount = 0
+        clearTasksAndFocus()
+    }
+
+    private func clearTasksAndFocus() {
+        createdTasks = []
+        createdTaskTemplateMap = [:]
+        taskTemplateStates = [:]
+        focusTaskID = nil
+        parentFocusTaskID = nil
+        focusStartedAt = nil
+        focusIsActive = false
+        successSummary = nil
+        reminderPromptState = .hidden
+        breakdownSteps = []
+        breakdownSheetPresented = false
+        breakdownIsLoading = false
+        breakdownRouteBanner = nil
+    }
+
+    private func mergedProjectDrafts(for selectedTemplateIDs: [String]) -> [OnboardingProjectDraft] {
+        let orderedSelections = StarterWorkspaceCatalog.orderedLifeAreas(for: frictionProfile)
+            .map(\.id)
+            .filter { selectedTemplateIDs.contains($0) }
+        let existingByArea = Dictionary(grouping: projectDrafts, by: \.lifeAreaTemplateID)
+        var merged: [OnboardingProjectDraft] = []
+        for areaID in orderedSelections {
+            let drafts = existingByArea[areaID]?.filter(\.isSelected) ?? []
+            if drafts.isEmpty {
+                merged.append(contentsOf: StarterWorkspaceCatalog.defaultProjectDrafts(for: [areaID], mode: mode))
+            } else {
+                merged.append(contentsOf: Array(drafts.prefix(2)))
+            }
+        }
+        return merged
+    }
+
+    private func upsertCreatedTask(_ task: TaskDefinition) {
+        if let index = createdTasks.firstIndex(where: { $0.id == task.id }) {
+            createdTasks[index] = task
+        } else {
+            createdTasks.append(task)
+        }
+    }
+
+    private func buildSummary(completedTask: TaskDefinition) -> AppOnboardingSummary {
+        let completedCount = createdTasks.filter(\.isComplete).count
+        let nextTaskTitle = nextOpenTask?.title
+        return AppOnboardingSummary(
+            lifeAreaCount: resolvedLifeAreas.count,
+            projectCount: resolvedProjects.count,
+            createdTaskCount: createdTasks.count,
+            completedTaskCount: completedCount,
+            completedTaskTitle: completedTask.title,
+            nextTaskTitle: nextTaskTitle,
+            promptReminderAfterSuccess: reminderPromptState != .hidden
+        )
+    }
+
+    private func persistJourney() {
+        let snapshot = OnboardingJourneySnapshot(
+            step: step,
+            mode: mode,
+            frictionProfile: frictionProfile,
+            selectedLifeAreaIDs: StarterWorkspaceCatalog.orderedLifeAreas(for: frictionProfile)
+                .map(\.id)
+                .filter { selectedLifeAreaIDs.contains($0) },
+            showAllLifeAreas: showAllLifeAreas,
+            projectDrafts: projectDrafts,
+            resolvedLifeAreas: resolvedLifeAreas,
+            resolvedProjects: resolvedProjects,
+            createdTasks: createdTasks,
+            createdTaskTemplateMap: createdTaskTemplateMap,
+            focusTaskID: focusTaskID,
+            parentFocusTaskID: parentFocusTaskID,
+            focusStartedAt: focusStartedAt,
+            focusIsActive: focusIsActive,
+            successSummary: successSummary,
+            hasSeenSuccess: successSummary != nil
+        )
+        stateStore.storeJourney(snapshot)
+    }
+
+    private func project(for task: TaskDefinition) -> Project? {
+        resolvedProjects.first(where: { $0.project.id == task.projectID })?.project
+    }
+
+    private func projectName(for task: TaskDefinition) -> String? {
+        project(for: task)?.name ?? task.projectName
     }
 }
 
@@ -767,20 +1947,61 @@ final class AppOnboardingCoordinator: NSObject {
     private let stateStore: AppOnboardingStateStore
     private let eligibilityService: OnboardingEligibilityService
     private let notificationCenter: NotificationCenter
+    private let feedbackController = OnboardingFeedbackController()
 
-    private let viewModel = AppOnboardingFlowViewModel()
+    private lazy var viewModel = OnboardingFlowModel(
+        stateStore: stateStore,
+        notificationService: EnhancedDependencyContainer.shared.notificationService,
+        fetchLifeAreas: { [weak self] in
+            guard let self else { return [] }
+            return try await self.presentationDependencyContainer.coordinator.lifeAreaRepository.fetchAllAsync()
+        },
+        fetchProjects: { [weak self] in
+            guard let self else { return [] }
+            return try await self.presentationDependencyContainer.coordinator.projectRepository.fetchAllProjectsAsync()
+        },
+        fetchTask: { [weak self] taskID in
+            guard let self else { return nil }
+            return try await self.presentationDependencyContainer.coordinator.taskDefinitionRepository.fetchTaskDefinitionAsync(id: taskID)
+        },
+        createLifeArea: { [weak self] template in
+            guard let self else { return LifeArea(name: template.name, color: template.colorHex, icon: template.icon) }
+            return try await self.presentationDependencyContainer.coordinator.manageLifeAreas.createAsync(
+                name: template.name,
+                color: template.colorHex,
+                icon: template.icon
+            )
+        },
+        createProject: { [weak self] draft, lifeArea in
+            guard let self else { return Project(lifeAreaID: lifeArea.id, name: draft.name, projectDescription: draft.summary) }
+            return try await self.presentationDependencyContainer.coordinator.manageProjects.createProjectAsync(
+                request: CreateProjectRequest(
+                    name: draft.name,
+                    description: draft.summary,
+                    lifeAreaID: lifeArea.id
+                )
+            )
+        },
+        createTask: { [weak self] request in
+            guard let self else { return request.toTaskDefinition(projectName: request.projectName) }
+            return try await self.presentationDependencyContainer.coordinator.createTaskDefinition.executeAsync(request: request)
+        },
+        setTaskCompletion: { [weak self] taskID, isComplete in
+            guard let self else {
+                var task = TaskDefinition(id: taskID, title: "Task")
+                task.isComplete = isComplete
+                task.dateCompleted = isComplete ? Date() : nil
+                return task
+            }
+            return try await self.presentationDependencyContainer.coordinator.completeTaskDefinition.setCompletionAsync(taskID: taskID, to: isComplete)
+        }
+    )
+
     private var onboardingHost: UIHostingController<AnyView>?
     private var promptHost: UIHostingController<AnyView>?
-    private var completionHost: UIHostingController<AnyView>?
-    private var completionObserver: AnyCancellable?
-    private var completionPollingTask: Task<Void, Never>?
     private var hasEvaluatedLaunch = false
     private var presentationQueue = OnboardingPresentationQueue()
-    private var completionTracking = OnboardingCompletionTrackingState()
-    private var completionPresentationRetryCount = 0
     private var pendingPresentationWasBlocked = false
-    private var isHandlingCompletionTarget = false
-    private var completionStepActivatedAt: Date?
 
     init?(
         homeViewController: HomeViewController,
@@ -791,7 +2012,6 @@ final class AppOnboardingCoordinator: NSObject {
     ) {
         guard let presentationDependencyContainer else { return nil }
         guard presentationDependencyContainer.isConfiguredForRuntime else { return nil }
-
         self.homeViewController = homeViewController
         self.presentationDependencyContainer = presentationDependencyContainer
         self.guidanceModel = guidanceModel
@@ -812,11 +2032,16 @@ final class AppOnboardingCoordinator: NSObject {
 
         Task { @MainActor [weak self] in
             guard let self else { return }
-            switch await eligibilityService.evaluate() {
+            let state = self.stateStore.load()
+            if state.hasHandledCurrentVersion == false, state.journeySnapshot != nil {
+                self.enqueuePresentation(.fullFlow(source: "resume"))
+                return
+            }
+            switch await self.eligibilityService.evaluate() {
             case .fullFlow:
-                enqueuePresentation(.fullFlow(source: "launch_auto"))
+                self.enqueuePresentation(.fullFlow(source: "launch_auto"))
             case .promptOnly:
-                enqueuePresentation(.prompt)
+                self.enqueuePresentation(.prompt)
             case .suppressed:
                 break
             }
@@ -827,17 +2052,7 @@ final class AppOnboardingCoordinator: NSObject {
         stateStore.clear()
         viewModel.resetForReplay()
         guidanceModel.clear()
-        completionTracking = OnboardingCompletionTrackingState()
-        completionPresentationRetryCount = 0
         presentationQueue = OnboardingPresentationQueue()
-        pendingPresentationWasBlocked = false
-        isHandlingCompletionTarget = false
-        completionStepActivatedAt = nil
-        cancelCompletionObservation()
-        logOnboardingInfo(
-            event: "onboarding_restart_requested",
-            message: "User requested onboarding replay from settings"
-        )
         enqueuePresentation(.fullFlow(source: "settings_replay"))
     }
 
@@ -851,10 +2066,10 @@ final class AppOnboardingCoordinator: NSObject {
     private func enqueuePresentation(_ presentation: PendingOnboardingPresentation) {
         let previousPending = presentationQueue.pending
         presentationQueue.enqueue(presentation)
-        let activePending = presentationQueue.pending
+        let currentPending = presentationQueue.pending
 
-        if activePending == presentation,
-           shouldLogQueuedPresentation(previous: previousPending, current: presentation),
+        if currentPending == presentation,
+           previousPending != presentation,
            isPresentationBlocked() {
             pendingPresentationWasBlocked = true
             logOnboardingInfo(
@@ -870,86 +2085,55 @@ final class AppOnboardingCoordinator: NSObject {
         drainPendingPresentationIfPossible()
     }
 
-    private func shouldLogQueuedPresentation(
-        previous: PendingOnboardingPresentation?,
-        current: PendingOnboardingPresentation
-    ) -> Bool {
-        guard previous != current else { return false }
-        if let previous, previous.priority > current.priority {
-            return false
-        }
-        return true
-    }
-
     @discardableResult
     private func attemptPresentation(_ presentation: PendingOnboardingPresentation, source: String) -> Bool {
         let presented: Bool
         switch presentation {
         case .prompt:
             presented = presentPromptIfPossible()
-        case .fullFlow(let origin):
-            presented = presentFullFlowIfPossible(source: origin)
-        case .completion(let summary):
-            presented = presentCompletionIfPossible(summary: summary)
+        case .fullFlow(let sourceLabel):
+            presented = presentFullFlowIfPossible(source: sourceLabel)
         }
 
-        if presented {
-            if pendingPresentationWasBlocked {
-                pendingPresentationWasBlocked = false
-                logOnboardingInfo(
-                    event: "onboarding_presentation_drained",
-                    message: "Presented a queued onboarding surface",
-                    fields: [
-                        "presentation": presentation.analyticsLabel,
-                        "source": source
-                    ]
-                )
-            }
+        if presented, pendingPresentationWasBlocked {
+            pendingPresentationWasBlocked = false
+            logOnboardingInfo(
+                event: "onboarding_presentation_drained",
+                message: "Presented queued onboarding surface",
+                fields: [
+                    "presentation": presentation.analyticsLabel,
+                    "source": source
+                ]
+            )
         }
-
         return presented
-    }
-
-    private func isPresentationBlocked() -> Bool {
-        homeViewController?.presentedViewController != nil
     }
 
     private func presentPromptIfPossible() -> Bool {
         guard promptHost == nil else { return false }
         guard let homeViewController, homeViewController.presentedViewController == nil else { return false }
 
-        logOnboardingInfo(
-            event: "onboarding_started",
-            message: "Presented onboarding prompt for established workspace",
-            fields: ["mode": "prompt_only"]
-        )
-
-        let root = AnyView(
-            AppOnboardingPromptSheetView(
-                onStart: { [weak self] in
-                    self?.dismissPrompt(animated: true) {
-                        self?.enqueuePresentation(.fullFlow(source: "prompt_opt_in"))
+        let controller = UIHostingController(
+            rootView: AnyView(
+                AppOnboardingPromptSheetView(
+                    onStart: { [weak self] in
+                        self?.dismissPrompt(animated: true) {
+                            self?.enqueuePresentation(.fullFlow(source: "prompt_opt_in"))
+                        }
+                    },
+                    onNotNow: { [weak self] in
+                        self?.stateStore.markEstablishedWorkspacePromptDismissed()
+                        self?.dismissPrompt(animated: true, completion: nil)
                     }
-                },
-                onNotNow: { [weak self] in
-                    guard let self else { return }
-                    self.stateStore.markEstablishedWorkspacePromptDismissed()
-                    logOnboardingInfo(
-                        event: "onboarding_prompt_dismissed",
-                        message: "User dismissed onboarding prompt for established workspace"
-                    )
-                    self.dismissPrompt(animated: true, completion: nil)
-                }
+                )
+                .taskerLayoutClass(homeViewController.currentOnboardingLayoutClass)
             )
-            .taskerLayoutClass(homeViewController.currentOnboardingLayoutClass)
         )
-
-        let controller: UIHostingController<AnyView> = UIHostingController(rootView: root)
-        controller.modalPresentationStyle = UIModalPresentationStyle.pageSheet
+        controller.modalPresentationStyle = .pageSheet
         if let sheet = controller.sheetPresentationController {
-            sheet.detents = [UISheetPresentationController.Detent.medium()]
+            sheet.detents = [.medium()]
             sheet.prefersGrabberVisible = false
-            sheet.preferredCornerRadius = 28
+            sheet.preferredCornerRadius = 30
         }
         promptHost = controller
         homeViewController.present(controller, animated: true)
@@ -967,46 +2151,34 @@ final class AppOnboardingCoordinator: NSObject {
 
     private func presentFullFlowIfPossible(source: String) -> Bool {
         dismissPrompt(animated: false, completion: nil)
-        guidanceModel.clear()
-
         guard onboardingHost == nil else { return false }
         guard let homeViewController, homeViewController.presentedViewController == nil else { return false }
 
-        viewModel.resetForReplay()
+        feedbackController.prepare()
+        viewModel.prepareForPresentation(snapshot: stateStore.load().journeySnapshot)
         logOnboardingInfo(
             event: "onboarding_started",
-            message: "Started guided onboarding flow",
+            message: "Started ADHD-first onboarding flow",
             fields: ["source": source]
         )
 
-        let root = AnyView(
-            AppOnboardingJourneyView(
-                viewModel: viewModel,
-                onSkip: { [weak self] in
-                    self?.handleWelcomeSkipped()
-                },
-                onContinueWelcome: { [weak self] in
-                    self?.viewModel.moveToLifeAreas()
-                    self?.logStepCompleted(.welcome)
-                },
-                onContinueLifeAreas: { [weak self] in
-                    self?.resolveLifeAreas()
-                },
-                onContinueProjects: { [weak self] in
-                    self?.resolveProjects()
-                },
-                onCreateTaskTemplate: { [weak self] template in
-                    self?.openAddTaskSheet(for: template)
-                },
-                onContinueToHome: { [weak self] in
-                    self?.prepareCompletionStep()
-                }
-            )
-            .taskerLayoutClass(homeViewController.currentOnboardingLayoutClass)
+        let rootView = AppOnboardingJourneyView(
+            viewModel: viewModel,
+            feedbackController: feedbackController,
+            onOpenCustomTaskComposer: { [weak self] prefill in
+                self?.presentCustomTaskComposer(prefill: prefill) ?? false
+            },
+            onEditTask: { [weak self] task in
+                self?.presentTaskEditor(task: task) ?? false
+            },
+            onDismissFlow: { [weak self] in
+                self?.dismissFullFlow(animated: true)
+            }
         )
+        .taskerLayoutClass(homeViewController.currentOnboardingLayoutClass)
 
-        let controller: UIHostingController<AnyView> = UIHostingController(rootView: root)
-        controller.modalPresentationStyle = UIModalPresentationStyle.fullScreen
+        let controller = UIHostingController(rootView: AnyView(rootView))
+        controller.modalPresentationStyle = .fullScreen
         onboardingHost = controller
         homeViewController.present(controller, animated: true)
         return true
@@ -1021,346 +2193,58 @@ final class AppOnboardingCoordinator: NSObject {
         onboardingHost.dismiss(animated: animated, completion: completion)
     }
 
-    private func handleWelcomeSkipped() {
-        stateStore.markHandled(outcome: .skippedAfterWelcome)
-        logOnboardingInfo(
-            event: "onboarding_skipped",
-            message: "User skipped onboarding from the welcome step"
-        )
-        dismissFullFlow(animated: true)
-    }
-
-    private func resolveLifeAreas() {
-        viewModel.isWorking = true
-        viewModel.errorMessage = nil
-
-        Task { @MainActor [weak self] in
-            guard let self else { return }
-            do {
-                let templates = viewModel.selectedLifeAreas
-                let existingLifeAreas = try await self.fetchExistingLifeAreas()
-                let plans = StarterWorkspaceCatalog.resolveLifeAreaSelections(
-                    selected: templates,
-                    existing: existingLifeAreas.filter { !$0.isArchived }
-                )
-
-                var resolved: [ResolvedLifeAreaSelection] = []
-                for plan in plans {
-                    if let existing = plan.existing {
-                        resolved.append(ResolvedLifeAreaSelection(template: plan.template, lifeArea: existing, reusedExisting: true))
-                    } else {
-                        let created = try await presentationDependencyContainer.coordinator.manageLifeAreas.createAsync(
-                            name: plan.template.name,
-                            color: plan.template.colorHex,
-                            icon: plan.template.icon
-                        )
-                        resolved.append(ResolvedLifeAreaSelection(template: plan.template, lifeArea: created, reusedExisting: false))
-                    }
-                }
-
-                viewModel.applyResolvedLifeAreas(resolved)
-                viewModel.isWorking = false
-                logStepCompleted(.lifeAreas)
-            } catch {
-                viewModel.isWorking = false
-                viewModel.errorMessage = error.localizedDescription
-            }
-        }
-    }
-
-    private func resolveProjects() {
-        viewModel.isWorking = true
-        viewModel.errorMessage = nil
-
-        Task { @MainActor [weak self] in
-            guard let self else { return }
-            do {
-                let lifeAreasByTemplateID = Dictionary(uniqueKeysWithValues: viewModel.resolvedLifeAreas.map {
-                    ($0.template.id, $0.lifeArea)
-                })
-                let existingProjects = try await presentationDependencyContainer.coordinator.projectRepository.fetchAllProjectsAsync()
-                let plans = StarterWorkspaceCatalog.resolveProjectSelections(
-                    selected: viewModel.selectedProjectTemplates,
-                    existing: existingProjects,
-                    lifeAreasByTemplateID: lifeAreasByTemplateID
-                )
-
-                var resolved: [ResolvedProjectSelection] = []
-                for plan in plans {
-                    if let existing = plan.existing {
-                        resolved.append(ResolvedProjectSelection(template: plan.template, project: existing, reusedExisting: true))
-                    } else {
-                        let created = try await presentationDependencyContainer.coordinator.manageProjects.createProjectAsync(
-                            request: CreateProjectRequest(
-                                name: plan.template.name,
-                                description: plan.template.summary,
-                                lifeAreaID: plan.lifeArea.id
-                            )
-                        )
-                        resolved.append(ResolvedProjectSelection(template: plan.template, project: created, reusedExisting: false))
-                    }
-                }
-
-                viewModel.applyResolvedProjects(resolved)
-                viewModel.isWorking = false
-                logStepCompleted(.projects)
-            } catch {
-                viewModel.isWorking = false
-                viewModel.errorMessage = error.localizedDescription
-            }
-        }
-    }
-
-    private func openAddTaskSheet(for template: StarterTaskTemplate) {
-        guard let onboardingHost,
-              onboardingHost.presentedViewController == nil,
-              let resolvedProject = viewModel.resolvedProjects.first(where: { $0.template.id == template.projectTemplateID }) else {
-            return
-        }
-
-        let controller = homeViewController?.makeOnboardingAddTaskController(
-            prefill: template.makePrefill(project: resolvedProject.project),
+    private func presentCustomTaskComposer(prefill: AddTaskPrefillTemplate) -> Bool {
+        guard let onboardingHost, onboardingHost.presentedViewController == nil else { return false }
+        guard let controller = homeViewController?.makeOnboardingAddTaskController(
+            prefill: prefill,
             onTaskCreated: { [weak self] taskID in
                 Task { @MainActor [weak self] in
-                    self?.viewModel.registerCreatedTask(templateID: template.id, taskID: taskID)
+                    await self?.viewModel.registerCustomCreatedTask(taskID: taskID)
                 }
             }
-        )
-
-        guard let controller else { return }
+        ) else { return false }
         onboardingHost.present(controller, animated: true)
-    }
-
-    private func prepareCompletionStep() {
-        guard viewModel.hasCreatedRequiredTasks else { return }
-        viewModel.isWorking = true
-        viewModel.errorMessage = nil
-
-        Task { @MainActor [weak self] in
-            guard let self else { return }
-            do {
-                guard let targetTask = try await resolveCompletionTargetTask() else {
-                    viewModel.isWorking = false
-                    viewModel.errorMessage = "Create two tasks first so Tasker has something to guide you through."
-                    return
-                }
-
-                completionTracking = OnboardingCompletionTrackingState(
-                    highlightedTaskID: targetTask.id,
-                    acceptableTaskIDs: Set(viewModel.createdTaskIDs)
-                )
-                isHandlingCompletionTarget = false
-                completionStepActivatedAt = Date()
-                guidanceModel.showCompletionGuide(task: targetTask)
-                homeViewController?.prepareForOnboardingHomeGuidance()
-                observeCompletionTarget()
-                viewModel.isWorking = false
-                logStepCompleted(.tasks)
-
-                dismissFullFlow(animated: true)
-            } catch {
-                viewModel.isWorking = false
-                viewModel.errorMessage = error.localizedDescription
-            }
-        }
-    }
-
-    private func observeCompletionTarget() {
-        cancelCompletionObservation()
-        completionObserver = notificationCenter.publisher(for: .homeTaskMutation)
-            .receive(on: RunLoop.main)
-            .sink { [weak self] notification in
-                guard let self else { return }
-                let reason = notification.userInfo?["reason"] as? String
-                guard let taskIDRaw = notification.userInfo?["taskID"] as? String,
-                      let taskID = UUID(uuidString: taskIDRaw),
-                      reason == "completed" else {
-                    return
-                }
-                Task { @MainActor [weak self] in
-                    guard let self else { return }
-                    guard await self.shouldAcceptCompletion(taskID: taskID) else { return }
-                    self.handleCompletionTargetFinished(taskID: taskID)
-                }
-            }
-        completionPollingTask = Task { [weak self] in
-            while Task.isCancelled == false {
-                try? await Task.sleep(nanoseconds: 350_000_000)
-                guard Task.isCancelled == false else { return }
-                await self?.pollForCompletedOnboardingTask()
-            }
-        }
-    }
-
-    private func handleCompletionTargetFinished(taskID: UUID) {
-        guard isHandlingCompletionTarget == false else { return }
-        guard completionTracking.acceptableTaskIDs.contains(taskID) else { return }
-
-        isHandlingCompletionTarget = true
-        cancelCompletionObservation()
-        guidanceModel.clear()
-
-        Task { @MainActor [weak self] in
-            guard let self else { return }
-            let completedTask = try? await self.fetchTask(id: taskID)
-            let highlightedTaskID = completionTracking.highlightedTaskID
-            let summary = AppOnboardingSummary(
-                lifeAreaCount: viewModel.resolvedLifeAreas.count,
-                projectCount: viewModel.resolvedProjects.count,
-                createdTaskCount: viewModel.createdTaskIDs.count,
-                completedTaskTitle: completedTask?.title
-            )
-            stateStore.markHandled(outcome: .completed)
-            logStepCompleted(.completeTask)
-            logOnboardingInfo(
-                event: "onboarding_completed",
-                message: "User completed guided onboarding",
-                fields: [
-                    "completed_task_id": taskID.uuidString,
-                    "highlighted_task_id": highlightedTaskID?.uuidString ?? "none",
-                    "used_highlighted_task": String(taskID == highlightedTaskID)
-                ]
-            )
-            completionTracking = OnboardingCompletionTrackingState()
-            completionStepActivatedAt = nil
-            DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) { [weak self] in
-                guard let self else { return }
-                self.enqueuePresentation(.completion(summary: summary))
-            }
-        }
-    }
-
-    private func cancelCompletionObservation() {
-        completionObserver?.cancel()
-        completionObserver = nil
-        completionPollingTask?.cancel()
-        completionPollingTask = nil
-    }
-
-    private func pollForCompletedOnboardingTask() async {
-        guard isHandlingCompletionTarget == false else { return }
-
-        for taskID in completionTracking.acceptableTaskIDs {
-            guard let task = try? await fetchTask(id: taskID), task.isComplete else {
-                continue
-            }
-            handleCompletionTargetFinished(taskID: taskID)
-            return
-        }
-
-        guard let fallbackTask = try? await fetchEligibleFallbackCompletedTask() else { return }
-        handleCompletionTargetFinished(taskID: fallbackTask.id)
-    }
-
-    private func shouldAcceptCompletion(taskID: UUID) async -> Bool {
-        if completionTracking.acceptsCompletion(reason: "completed", taskID: taskID) {
-            return true
-        }
-        guard let task = try? await fetchTask(id: taskID) else { return false }
-        return isEligibleFallbackCompletion(task)
-    }
-
-    private func fetchEligibleFallbackCompletedTask() async throws -> TaskDefinition? {
-        let repository = presentationDependencyContainer.coordinator.taskDefinitionRepository
-        let tasks = try await repository.fetchAllAsync()
-        return tasks.first(where: isEligibleFallbackCompletion)
-    }
-
-    private func isEligibleFallbackCompletion(_ task: TaskDefinition) -> Bool {
-        guard task.isComplete else { return false }
-        guard let completedAt = task.dateCompleted else { return false }
-        guard let activatedAt = completionStepActivatedAt else { return false }
-
-        let starterProjectIDs = Set(viewModel.resolvedProjects.map(\.project.id))
-        guard starterProjectIDs.contains(task.projectID) else { return false }
-
-        return completedAt >= activatedAt.addingTimeInterval(-2)
-    }
-
-    private func presentCompletionIfPossible(summary: AppOnboardingSummary) -> Bool {
-        guard completionHost == nil else { return false }
-        guard let homeViewController else { return false }
-        guard homeViewController.presentedViewController == nil else {
-            pendingPresentationWasBlocked = true
-            completionPresentationRetryCount += 1
-            logOnboardingInfo(
-                event: "onboarding_completion_recap_retry_scheduled",
-                message: "Delayed onboarding recap because another controller is active",
-                fields: ["retry_count": String(completionPresentationRetryCount)]
-            )
-            return false
-        }
-
-        let root = AnyView(
-            AppOnboardingCompletionView(
-                summary: summary,
-                onDone: { [weak self] in
-                    self?.completionHost?.dismiss(animated: true)
-                    self?.completionHost = nil
-                }
-            )
-            .taskerLayoutClass(homeViewController.currentOnboardingLayoutClass)
-        )
-
-        let controller: UIHostingController<AnyView> = UIHostingController(rootView: root)
-        controller.modalPresentationStyle = UIModalPresentationStyle.fullScreen
-        completionHost = controller
-        homeViewController.present(controller, animated: true)
-        logOnboardingInfo(
-            event: "onboarding_completion_recap_presented",
-            message: "Presented onboarding completion recap",
-            fields: ["retry_count": String(completionPresentationRetryCount)]
-        )
-        completionPresentationRetryCount = 0
         return true
     }
 
-    private func resolveCompletionTargetTask() async throws -> TaskDefinition? {
-        let taskRepository = presentationDependencyContainer.coordinator.taskDefinitionRepository
-        for taskID in viewModel.createdTaskIDs {
-            if let task = try await taskRepository.fetchTaskDefinitionAsync(id: taskID),
-               task.isComplete == false {
-                return task
+    private func presentTaskEditor(task: TaskDefinition) -> Bool {
+        guard let onboardingHost, onboardingHost.presentedViewController == nil else { return false }
+        guard let controller = homeViewController?.makeOnboardingTaskDetailController(
+            task: task,
+            onDismiss: { [weak self] in
+                Task { @MainActor [weak self] in
+                    await self?.viewModel.refreshCreatedTask(taskID: task.id)
+                }
             }
-        }
-        return nil
+        ) else { return false }
+        onboardingHost.present(controller, animated: true)
+        return true
     }
 
-    private func fetchExistingLifeAreas() async throws -> [LifeArea] {
-        let repository = presentationDependencyContainer.coordinator.lifeAreaRepository
-        return try await repository.fetchAllAsync()
-    }
-
-    private func fetchTask(id: UUID) async throws -> TaskDefinition? {
-        let repository = presentationDependencyContainer.coordinator.taskDefinitionRepository
-        return try await repository.fetchTaskDefinitionAsync(id: id)
-    }
-
-    private func logStepCompleted(_ step: OnboardingStep) {
-        logOnboardingInfo(
-            event: "onboarding_step_completed",
-            message: "User completed an onboarding step",
-            fields: [
-                "step": "\(step.progressIndex)",
-                "step_id": String(describing: step)
-            ]
-        )
+    private func isPresentationBlocked() -> Bool {
+        homeViewController?.presentedViewController != nil
     }
 }
 
 struct AppOnboardingJourneyView: View {
-    @ObservedObject var viewModel: AppOnboardingFlowViewModel
-    @Environment(\.taskerLayoutClass) private var layoutClass
+    @ObservedObject var viewModel: OnboardingFlowModel
+    let feedbackController: OnboardingFeedbackController
+    let onOpenCustomTaskComposer: (AddTaskPrefillTemplate) -> Bool
+    let onEditTask: (TaskDefinition) -> Bool
+    let onDismissFlow: () -> Void
 
-    let onSkip: () -> Void
-    let onContinueWelcome: () -> Void
-    let onContinueLifeAreas: () -> Void
-    let onContinueProjects: () -> Void
-    let onCreateTaskTemplate: (StarterTaskTemplate) -> Void
-    let onContinueToHome: () -> Void
+    @Environment(\.taskerLayoutClass) private var layoutClass
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.openURL) private var openURL
+    @State private var editingProjectIDs: Set<UUID> = []
+    @State private var hasPlayedSuccess = false
 
     private var spacing: TaskerSpacingTokens {
         TaskerThemeManager.shared.tokens(for: layoutClass).spacing
+    }
+
+    private var horizontalPadding: CGFloat {
+        layoutClass.isPad ? 32 : spacing.screenHorizontal
     }
 
     var body: some View {
@@ -1368,316 +2252,610 @@ struct AppOnboardingJourneyView: View {
             AppOnboardingBackground()
                 .ignoresSafeArea()
 
-            VStack(spacing: spacing.s16) {
-                topBar
-
-                ScrollView(showsIndicators: false) {
-                    VStack(alignment: .leading, spacing: spacing.sectionGap) {
-                        stepContent
+            ScrollView(showsIndicators: false) {
+                VStack(alignment: .leading, spacing: spacing.sectionGap) {
+                    if let summary = viewModel.successSummary {
+                        successView(summary: summary)
+                    } else {
+                        stepHeader
+                        stepBody
                     }
-                    .padding(.horizontal, spacing.screenHorizontal)
-                    .padding(.bottom, spacing.s24)
-                    .transition(.opacity.combined(with: .move(edge: .trailing)))
                 }
-
-                if let errorMessage = viewModel.errorMessage, errorMessage.isEmpty == false {
-                    Text(errorMessage)
-                        .font(.tasker(.caption1))
-                        .foregroundColor(Color.tasker.statusDanger)
-                        .padding(.horizontal, spacing.screenHorizontal)
-                }
-
-                footer
+                .frame(maxWidth: layoutClass.isPad ? 760 : .infinity, alignment: .leading)
+                .padding(.horizontal, horizontalPadding)
+                .padding(.top, spacing.s16)
+                .padding(.bottom, 120)
             }
-            .padding(.top, spacing.s20)
-            .padding(.bottom, spacing.s20)
+        }
+        .safeAreaInset(edge: .bottom) {
+            if viewModel.successSummary != nil || viewModel.step != .focusRoom || viewModel.errorMessage != nil {
+                bottomDock
+            }
+        }
+        .sheet(isPresented: $viewModel.breakdownSheetPresented) {
+            breakdownSheet
         }
         .interactiveDismissDisabled(true)
-        .animation(TaskerAnimation.gentle, value: viewModel.step)
+        .animation(reduceMotion ? .easeInOut(duration: 0.18) : TaskerAnimation.gentle, value: viewModel.step)
+        .animation(reduceMotion ? .easeInOut(duration: 0.18) : TaskerAnimation.gentle, value: viewModel.successSummary != nil)
+        .onAppear {
+            feedbackController.prepare()
+        }
+        .onChange(of: viewModel.successSummary != nil) { _, isShowingSuccess in
+            guard isShowingSuccess, hasPlayedSuccess == false else { return }
+            hasPlayedSuccess = true
+            feedbackController.successSignature()
+        }
         .accessibilityIdentifier("onboarding.flow")
     }
 
-    private var topBar: some View {
+    private var stepHeader: some View {
         VStack(alignment: .leading, spacing: spacing.s12) {
-            HStack {
-                VStack(alignment: .leading, spacing: spacing.s4) {
-                    Text("Guided momentum")
-                        .font(.tasker(.caption1))
-                        .foregroundColor(Color.tasker.textSecondary)
-                    Text(viewModel.step.progressLabel)
-                        .font(.tasker(.headline))
-                        .foregroundColor(Color.tasker.textPrimary)
+            HStack(alignment: .center, spacing: spacing.s12) {
+                if viewModel.canGoBack {
+                    Button {
+                        feedbackController.light()
+                        viewModel.goBack()
+                    } label: {
+                        Label("Back", systemImage: "chevron.left")
+                            .font(.tasker(.buttonSmall))
+                            .foregroundStyle(OnboardingTheme.textPrimary)
+                    }
+                    .buttonStyle(.plain)
                 }
+
                 Spacer()
+
                 if viewModel.step == .welcome {
                     Button("Skip") {
-                        TaskerFeedback.light()
-                        onSkip()
+                        feedbackController.light()
+                        Task {
+                            await viewModel.skipToFocusRoom()
+                        }
                     }
                     .font(.tasker(.buttonSmall))
-                    .foregroundColor(Color.tasker.textSecondary)
+                    .foregroundStyle(OnboardingTheme.textSecondary)
+                    .buttonStyle(.plain)
                     .accessibilityIdentifier("onboarding.skipButton")
                 }
             }
 
-            ProgressView(value: Double(viewModel.step.progressIndex), total: Double(OnboardingStep.allCases.count))
-                .tint(Color.tasker.accentPrimary)
-                .accessibilityIdentifier("onboarding.progress")
+            HStack {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(viewModel.step.progressLabel)
+                        .font(.tasker(.headline))
+                        .foregroundStyle(OnboardingTheme.textPrimary)
+                    Text("One small win at a time.")
+                        .font(.tasker(.caption1))
+                        .foregroundStyle(OnboardingTheme.textSecondary)
+                }
+
+                Spacer()
+
+                Capsule()
+                    .fill(OnboardingTheme.accent.opacity(0.12))
+                    .overlay(alignment: .leading) {
+                        GeometryReader { proxy in
+                            Capsule()
+                                .fill(OnboardingTheme.accent)
+                                .frame(width: proxy.size.width * (CGFloat(viewModel.step.progressIndex) / CGFloat(OnboardingStep.allCases.count)))
+                        }
+                    }
+                    .frame(width: layoutClass.isPad ? 170 : 120, height: 10)
+                    .accessibilityElement(children: .ignore)
+                    .accessibilityLabel("Onboarding progress")
+                    .accessibilityValue(viewModel.step.accessibilitySummary)
+            }
+            .padding(.horizontal, spacing.s16)
+            .padding(.vertical, spacing.s12)
+            .onboardingGlassPanel(cornerRadius: 26)
         }
-        .padding(.horizontal, spacing.screenHorizontal)
     }
 
     @ViewBuilder
-    private var stepContent: some View {
+    private var stepBody: some View {
         switch viewModel.step {
         case .welcome:
             welcomeStep
         case .lifeAreas:
             lifeAreasStep
+                .accessibilityIdentifier("onboarding.lifeAreas")
         case .projects:
             projectsStep
-        case .tasks:
-            tasksStep
-        case .completeTask, .finish:
-            EmptyView()
+                .accessibilityIdentifier("onboarding.projects")
+        case .firstTask:
+            firstTaskStep
+                .accessibilityIdentifier("onboarding.firstTask")
+        case .focusRoom:
+            focusRoomStep
+                .accessibilityIdentifier("onboarding.focusRoom")
         }
     }
 
     private var welcomeStep: some View {
         VStack(alignment: .leading, spacing: spacing.sectionGap) {
-            VStack(alignment: .leading, spacing: spacing.s12) {
-                Text("Set up the parts of life you actually move through.")
-                    .font(.tasker(.display))
-                    .foregroundColor(Color.tasker.textPrimary)
-                    .fixedSize(horizontal: false, vertical: true)
+            VStack(alignment: .leading, spacing: spacing.s16) {
+                OnboardingHeroAccent(title: "Let’s get you one small win.", subtitle: "In about 2 minutes, Tasker will set up a few starting areas, suggest one tiny task, and help you finish it today.")
 
-                Text("In about two minutes, you'll create a few real life areas, add two tiny tasks, and complete one so the mechanics make sense immediately.")
-                    .font(.tasker(.body))
-                    .foregroundColor(Color.tasker.textSecondary)
-                    .fixedSize(horizontal: false, vertical: true)
+                Text("No fake tutorial. Everything you do here is real.")
+                    .font(.tasker(.bodyEmphasis))
+                    .foregroundStyle(OnboardingTheme.textPrimary)
+
+                VStack(alignment: .leading, spacing: spacing.s12) {
+                    Text("What gets in your way most often?")
+                        .font(.tasker(.headline))
+                        .foregroundStyle(OnboardingTheme.textPrimary)
+
+                    FlexibleChipFlow(spacing: spacing.s8) {
+                        ForEach(OnboardingFrictionProfile.allCases) { profile in
+                            OnboardingChoiceChip(
+                                title: profile.title,
+                                isSelected: viewModel.frictionProfile == profile
+                            ) {
+                                feedbackController.selection()
+                                viewModel.selectFriction(profile)
+                            }
+                        }
+                    }
+
+                    Text("Optional. This helps Tasker suggest a better first setup.")
+                        .font(.tasker(.caption1))
+                        .foregroundStyle(OnboardingTheme.textSecondary)
+                }
             }
             .accessibilityIdentifier("onboarding.welcome")
-
-            HStack(spacing: spacing.s12) {
-                onboardingMetricCard(icon: "clock.fill", title: "2 min", subtitle: "honest setup time")
-                onboardingMetricCard(icon: "sparkles", title: "Real data", subtitle: "no tutorial mode")
-                onboardingMetricCard(icon: "bolt.fill", title: "1 win", subtitle: "complete a task today")
-            }
-
-            TaskerCard {
-                VStack(alignment: .leading, spacing: spacing.s12) {
-                    Text("This teaches the loop Tasker is built for")
-                        .font(.tasker(.headline))
-                        .foregroundColor(Color.tasker.textPrimary)
-                    onboardingBullet("Capture small tasks before they disappear.")
-                    onboardingBullet("Give work a home with life areas and projects.")
-                    onboardingBullet("Complete one action and watch the feedback loop kick in.")
-                }
-                .padding(spacing.s16)
-            }
         }
     }
 
     private var lifeAreasStep: some View {
         VStack(alignment: .leading, spacing: spacing.s16) {
             OnboardingSectionHeader(
-                title: "Pick 2 or 3 life areas",
-                subtitle: "These become the buckets that keep tasks feeling anchored instead of random."
+                title: "Pick 1–3 parts of life to start with.",
+                subtitle: viewModel.frictionProfile == .overwhelmed
+                    ? "We preselected a calmer starting set. Change it if you want. You can change everything later."
+                    : "We preselected a few good starting places. Change them if you want."
             )
 
-            LazyVGrid(columns: [GridItem(.adaptive(minimum: layoutClass.isPad ? 220 : 156), spacing: spacing.s12)], spacing: spacing.s12) {
-                ForEach(viewModel.catalog) { template in
+            if viewModel.allowsShowAllAreas, viewModel.showAllLifeAreas == false, StarterWorkspaceCatalog.orderedLifeAreas(for: viewModel.frictionProfile).count > viewModel.visibleLifeAreas.count {
+                Button("Show all areas") {
+                    feedbackController.light()
+                    viewModel.showAllAreas()
+                }
+                .font(.tasker(.buttonSmall))
+                .foregroundStyle(OnboardingTheme.accent)
+                .buttonStyle(.plain)
+            }
+
+            LazyVGrid(
+                columns: [GridItem(.adaptive(minimum: layoutClass.isPad ? 220 : 156), spacing: spacing.s12)],
+                spacing: spacing.s12
+            ) {
+                ForEach(viewModel.visibleLifeAreas) { area in
                     OnboardingSelectableCard(
-                        title: template.name,
-                        subtitle: template.subtitle,
-                        icon: template.icon,
-                        colorHex: template.colorHex,
-                        isSelected: viewModel.selectedLifeAreaIDs.contains(template.id),
-                        badgeText: "\(template.projects.count) starter projects"
+                        title: area.name,
+                        subtitle: area.subtitle,
+                        icon: area.icon,
+                        colorHex: area.colorHex,
+                        isSelected: viewModel.selectedLifeAreaIDs.contains(area.id)
                     ) {
-                        TaskerFeedback.selection()
-                        viewModel.toggleLifeArea(template.id)
+                        feedbackController.selection()
+                        viewModel.toggleLifeArea(area.id)
                     }
-                    .accessibilityIdentifier("onboarding.lifeArea.\(template.id)")
+                    .accessibilityIdentifier("onboarding.lifeArea.\(area.id)")
                 }
             }
 
-            if viewModel.reusedLifeAreaCount > 0 {
-                Text("We'll reuse anything you already named the same instead of making duplicates.")
-                    .font(.tasker(.caption1))
-                    .foregroundColor(Color.tasker.textSecondary)
-            }
+            Text("You can change this later.")
+                .font(.tasker(.caption1))
+                .foregroundStyle(OnboardingTheme.textSecondary)
         }
     }
 
     private var projectsStep: some View {
-        VStack(alignment: .leading, spacing: spacing.s16) {
+        VStack(alignment: .leading, spacing: spacing.sectionGap) {
             OnboardingSectionHeader(
-                title: "Choose a few starter projects",
-                subtitle: "These are small lanes of work inside the life areas you just picked."
+                title: "We suggested a few starter projects.",
+                subtitle: "Keep them, rename them, or swap them. You can change all of this later."
             )
 
-            LazyVGrid(columns: [GridItem(.adaptive(minimum: layoutClass.isPad ? 220 : 164), spacing: spacing.s12)], spacing: spacing.s12) {
-                ForEach(viewModel.availableProjectTemplates) { template in
-                    let parent = viewModel.catalog.first(where: { $0.id == template.lifeAreaTemplateID })
-                    OnboardingSelectableCard(
-                        title: template.name,
-                        subtitle: template.summary,
-                        icon: parent?.icon ?? "folder.fill",
-                        colorHex: parent?.colorHex ?? "#3B82F6",
-                        isSelected: viewModel.selectedProjectIDs.contains(template.id),
-                        badgeText: parent?.name ?? "Project"
-                    ) {
-                        TaskerFeedback.selection()
-                        viewModel.toggleProject(template.id)
+            ForEach(viewModel.selectedLifeAreas) { area in
+                VStack(alignment: .leading, spacing: spacing.s12) {
+                    Text(area.name)
+                        .font(.tasker(.headline))
+                        .foregroundStyle(OnboardingTheme.textPrimary)
+
+                    let drafts = viewModel.projectDrafts.filter { $0.lifeAreaTemplateID == area.id }
+                    ForEach(drafts) { draft in
+                        OnboardingProjectDraftCard(
+                            draft: draft,
+                            colorHex: area.colorHex,
+                            icon: area.icon,
+                            mode: viewModel.mode,
+                            isRenaming: editingProjectIDs.contains(draft.id),
+                            nameBinding: Binding(
+                                get: {
+                                    viewModel.projectDrafts.first(where: { $0.id == draft.id })?.name ?? draft.name
+                                },
+                                set: { viewModel.renameProjectDraft(draft.id, to: $0) }
+                            ),
+                            onToggleSelection: {
+                                feedbackController.selection()
+                                viewModel.toggleProjectDraft(draft.id)
+                            },
+                            onRename: {
+                                feedbackController.light()
+                                if editingProjectIDs.contains(draft.id) {
+                                    editingProjectIDs.remove(draft.id)
+                                } else {
+                                    editingProjectIDs.insert(draft.id)
+                                }
+                            },
+                            onSwap: {
+                                feedbackController.light()
+                                viewModel.cycleProjectSuggestion(draft.id)
+                            }
+                        )
                     }
-                    .accessibilityIdentifier("onboarding.project.\(template.id)")
                 }
             }
-
-            Text("At least two is enough. Tasker will use matching projects you already have.")
-                .font(.tasker(.caption1))
-                .foregroundColor(Color.tasker.textSecondary)
         }
     }
 
-    private var tasksStep: some View {
-        VStack(alignment: .leading, spacing: spacing.s16) {
+    private var firstTaskStep: some View {
+        VStack(alignment: .leading, spacing: spacing.sectionGap) {
             OnboardingSectionHeader(
-                title: "Create two tiny tasks",
-                subtitle: "These open in the real add-task flow, already scoped to today so you can finish one right away."
+                title: "Pick one tiny task you can actually finish today.",
+                subtitle: "Small enough to start. Real enough to count."
             )
 
-            TaskerCard {
-                VStack(alignment: .leading, spacing: spacing.s12) {
-                    Text("\(viewModel.createdTaskIDs.count) of 2 created")
-                        .font(.tasker(.headline))
-                        .foregroundColor(Color.tasker.textPrimary)
+            Text("We recommend starting with a task that takes 2 minutes or less.")
+                .font(.tasker(.body))
+                .foregroundStyle(OnboardingTheme.textSecondary)
 
-                    ForEach(viewModel.taskSuggestions.prefix(4)) { template in
-                        let isCreated = viewModel.createdTaskTemplateIDs[template.id] != nil
-                        HStack(alignment: .top, spacing: spacing.s12) {
-                            Image(systemName: isCreated ? "checkmark.circle.fill" : "circle.dashed")
-                                .font(.system(size: 18, weight: .semibold))
-                                .foregroundColor(isCreated ? Color.tasker.statusSuccess : Color.tasker.accentPrimary)
-                                .padding(.top, 2)
+            VStack(alignment: .leading, spacing: spacing.s12) {
+                Text("Best first wins")
+                    .font(.tasker(.headline))
+                    .foregroundStyle(OnboardingTheme.textPrimary)
 
-                            VStack(alignment: .leading, spacing: spacing.s4) {
-                                Text(template.title)
-                                    .font(.tasker(.bodyEmphasis))
-                                    .foregroundColor(Color.tasker.textPrimary)
-                                Text(template.details)
-                                    .font(.tasker(.caption1))
-                                    .foregroundColor(Color.tasker.textSecondary)
-                                Text("\(template.durationMinutes) min")
-                                    .font(.tasker(.caption2))
-                                    .foregroundColor(Color.tasker.textTertiary)
-                            }
-
-                            Spacer()
-
-                            Button(isCreated ? "Created" : "Use") {
-                                guard !isCreated else { return }
-                                TaskerFeedback.light()
-                                onCreateTaskTemplate(template)
-                            }
-                            .font(.tasker(.buttonSmall))
-                            .foregroundColor(isCreated ? Color.tasker.textTertiary : Color.tasker.accentPrimary)
-                            .disabled(isCreated)
-                            .accessibilityIdentifier("onboarding.taskTemplate.\(template.id)")
+                ForEach(viewModel.primaryTaskSuggestions) { template in
+                    OnboardingTaskRecommendationCard(
+                        template: template,
+                        state: viewModel.taskTemplateStates[template.id] ?? .idle,
+                        onAdd: {
+                            feedbackController.light()
+                            Task { await viewModel.addSuggestedTask(template) }
+                        },
+                        onEdit: {
+                            guard let taskID = viewModel.createdTaskTemplateMap[template.id],
+                                  let task = viewModel.createdTasks.first(where: { $0.id == taskID })
+                            else { return }
+                            _ = onEditTask(task)
                         }
-                    }
+                    )
+                    .accessibilityIdentifier("onboarding.taskTemplate.\(template.id)")
                 }
-                .padding(spacing.s16)
             }
 
-            Text("You can edit anything in the sheet. The important part is learning the real create flow, not keeping our exact wording.")
+            if viewModel.secondaryTaskSuggestions.isEmpty == false {
+                VStack(alignment: .leading, spacing: spacing.s12) {
+                    Text("More ideas")
+                        .font(.tasker(.headline))
+                        .foregroundStyle(OnboardingTheme.textPrimary)
+
+                    ForEach(viewModel.secondaryTaskSuggestions) { template in
+                        OnboardingTaskRecommendationCard(
+                            template: template,
+                            state: viewModel.taskTemplateStates[template.id] ?? .idle,
+                            onAdd: {
+                                feedbackController.light()
+                                Task { await viewModel.addSuggestedTask(template) }
+                            },
+                            onEdit: {
+                                guard let taskID = viewModel.createdTaskTemplateMap[template.id],
+                                      let task = viewModel.createdTasks.first(where: { $0.id == taskID })
+                                else { return }
+                                _ = onEditTask(task)
+                            }
+                        )
+                        .accessibilityIdentifier("onboarding.taskTemplate.\(template.id)")
+                    }
+                }
+            }
+
+            Button("Write my own instead") {
+                guard let project = viewModel.preferredComposerProject else { return }
+                let opened = onOpenCustomTaskComposer(
+                    AddTaskPrefillTemplate(
+                        title: "",
+                        details: nil,
+                        projectID: project.id,
+                        projectName: project.name,
+                        lifeAreaID: project.lifeAreaID,
+                        priority: .low,
+                        type: .morning,
+                        dueDateIntent: .today,
+                        estimatedDuration: nil,
+                        energy: .low,
+                        category: .general,
+                        context: .anywhere,
+                        showMoreDetails: false,
+                        showAdvancedPlanning: false
+                    )
+                )
+                if opened == false {
+                    viewModel.errorMessage = "Tasker could not open the task composer right now."
+                }
+            }
+            .font(.tasker(.buttonSmall))
+            .foregroundStyle(OnboardingTheme.accent)
+            .buttonStyle(.plain)
+        }
+    }
+
+    private var focusRoomStep: some View {
+        VStack(alignment: .leading, spacing: spacing.sectionGap) {
+            OnboardingSectionHeader(
+                title: "Finish this now.",
+                subtitle: "One real completion unlocks your starting momentum."
+            )
+
+            if let parent = viewModel.parentFocusTask {
+                HStack(spacing: spacing.s8) {
+                    Image(systemName: "arrow.turn.down.right")
+                        .foregroundStyle(OnboardingTheme.textSecondary)
+                    Text("From: \(parent.title)")
+                        .font(.tasker(.caption1))
+                        .foregroundStyle(OnboardingTheme.textSecondary)
+                }
+                .padding(.horizontal, spacing.s12)
+                .padding(.vertical, spacing.s8)
+                .background(OnboardingTheme.surfaceMuted, in: Capsule())
+            }
+
+            if let task = viewModel.focusTask {
+                OnboardingFocusHeroCard(
+                    task: task,
+                    projectName: viewModel.resolvedProjects.first(where: { $0.project.id == task.projectID })?.project.name ?? task.projectName ?? "Project",
+                    xpAward: XPCalculationEngine.completionXPIfCompletedNow(
+                        priorityRaw: task.priority.rawValue,
+                        estimatedDuration: task.estimatedDuration,
+                        dueDate: task.dueDate,
+                        dailyEarnedSoFar: 0,
+                        isGamificationV2Enabled: V2FeatureFlags.gamificationV2Enabled
+                    ).awardedXP,
+                    isActive: viewModel.focusIsActive,
+                    startedAt: viewModel.focusStartedAt,
+                    onPrimary: {
+                        if viewModel.focusIsActive {
+                            Task { await viewModel.completeFocusTask() }
+                        } else {
+                            feedbackController.medium()
+                            viewModel.startFocusNow()
+                        }
+                    },
+                    onSecondary: {
+                        Task { await viewModel.completeFocusTask() }
+                    },
+                    onBreakDown: {
+                        feedbackController.light()
+                        Task { await viewModel.generateBreakdownSuggestions() }
+                    }
+                )
+            }
+        }
+    }
+
+    private func successView(summary: AppOnboardingSummary) -> some View {
+        VStack(alignment: .leading, spacing: spacing.sectionGap) {
+            OnboardingSuccessHero(completedTaskTitle: summary.completedTaskTitle)
+                .accessibilityIdentifier("onboarding.success")
+
+            LazyVGrid(
+                columns: [GridItem(.flexible(minimum: 120), spacing: spacing.s12), GridItem(.flexible(minimum: 120), spacing: spacing.s12)],
+                spacing: spacing.s12
+            ) {
+                OnboardingMetricCard(value: "\(summary.lifeAreaCount)", label: "life areas ready")
+                OnboardingMetricCard(value: "\(summary.projectCount)", label: "projects in place")
+                OnboardingMetricCard(value: "\(summary.completedTaskCount)", label: "tasks completed")
+                OnboardingMetricCard(value: summary.nextTaskTitle == nil ? "0" : "1", label: "next task waiting")
+            }
+            .padding(.vertical, spacing.s8)
+            .padding(.horizontal, spacing.s8)
+            .onboardingGlassPanel(cornerRadius: 28)
+
+            VStack(alignment: .leading, spacing: spacing.s12) {
+                OnboardingRevealCard(title: "Focus Now", message: "Tasker will keep surfacing the next easiest win.")
+                OnboardingRevealCard(title: "XP and momentum", message: "Small wins earn XP. Progress matters more than perfection.")
+                OnboardingRevealCard(title: "Ask Tasker", message: "Feeling stuck again? Ask Tasker to break down, plan, or rewrite your next task.")
+                OnboardingRevealCard(title: "Analytics later", message: "After a few more completions, Tasker will start showing patterns in your consistency and momentum.")
+            }
+
+            if viewModel.reminderPromptState != .hidden {
+                OnboardingReminderCard(
+                    state: viewModel.reminderPromptState,
+                    onPrimary: {
+                        switch viewModel.reminderPromptState {
+                        case .prompt:
+                            Task { await viewModel.handleReminderPrimaryAction() }
+                        case .openSettings:
+                            if let url = URL(string: UIApplication.openSettingsURLString) {
+                                openURL(url)
+                            }
+                        case .hidden:
+                            break
+                        }
+                    },
+                    onSecondary: {
+                        viewModel.dismissReminderPrompt()
+                    }
+                )
+            }
+
+            Text("You can reset this guided setup later from Settings without losing your data.")
                 .font(.tasker(.caption1))
-                .foregroundColor(Color.tasker.textSecondary)
+                .foregroundStyle(OnboardingTheme.textSecondary)
+        }
+    }
+
+    private var breakdownSheet: some View {
+        NavigationStack {
+            List {
+                if let banner = viewModel.breakdownRouteBanner, banner.isEmpty == false {
+                    Section {
+                        Text(banner)
+                            .font(.tasker(.caption1))
+                            .foregroundStyle(OnboardingTheme.textSecondary)
+                    }
+                }
+
+                Section("Need it smaller?") {
+                    ForEach(viewModel.breakdownSteps) { step in
+                        Button {
+                            viewModel.toggleBreakdownStep(step.id)
+                        } label: {
+                            HStack(spacing: 12) {
+                                Image(systemName: step.isSelected ? "checkmark.circle.fill" : "circle")
+                                    .foregroundStyle(step.isSelected ? OnboardingTheme.accent : OnboardingTheme.textSecondary)
+                                Text(step.title)
+                                    .foregroundStyle(OnboardingTheme.textPrimary)
+                            }
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+
+                if viewModel.breakdownIsLoading {
+                    Section {
+                        ProgressView("Refining steps…")
+                            .tint(OnboardingTheme.accent)
+                    }
+                }
+            }
+            .navigationTitle("Break it down")
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") {
+                        viewModel.breakdownSheetPresented = false
+                    }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Add selected") {
+                        Task { await viewModel.applySelectedBreakdownSteps() }
+                    }
+                }
+            }
         }
     }
 
     @ViewBuilder
-    private var footer: some View {
-        switch viewModel.step {
-        case .welcome:
-            primaryFooterButton(title: "Start guided setup", action: onContinueWelcome)
-                .accessibilityIdentifier("onboarding.continueWelcome")
-        case .lifeAreas:
-            primaryFooterButton(
-                title: viewModel.isWorking ? "Setting up..." : "Use these life areas",
-                action: onContinueLifeAreas,
-                disabled: viewModel.canContinueLifeAreas == false || viewModel.isWorking
-            )
-            .accessibilityIdentifier("onboarding.continueLifeAreas")
-        case .projects:
-            primaryFooterButton(
-                title: viewModel.isWorking ? "Building projects..." : "Use these projects",
-                action: onContinueProjects,
-                disabled: viewModel.canContinueProjects == false || viewModel.isWorking
-            )
-            .accessibilityIdentifier("onboarding.continueProjects")
-        case .tasks:
-            primaryFooterButton(
-                title: viewModel.hasCreatedRequiredTasks ? "Go to Home and complete either one" : "Create two tasks to continue",
-                action: onContinueToHome,
-                disabled: viewModel.hasCreatedRequiredTasks == false || viewModel.isWorking
-            )
-            .accessibilityIdentifier("onboarding.continueTasks")
-        case .completeTask, .finish:
-            EmptyView()
-        }
-    }
-
-    private func primaryFooterButton(title: String, action: @escaping () -> Void, disabled: Bool = false) -> some View {
-        Button(action: action) {
-            Text(title)
-                .font(.tasker(.button))
-                .frame(maxWidth: .infinity)
-                .frame(minHeight: spacing.buttonHeight)
-        }
-        .buttonStyle(.plain)
-        .foregroundColor(Color.tasker.textInverse)
-        .background(disabled ? Color.tasker.textTertiary : Color.tasker.accentPrimary)
-        .clipShape(RoundedRectangle(cornerRadius: 18))
-        .padding(.horizontal, spacing.screenHorizontal)
-        .disabled(disabled)
-    }
-
-    private func onboardingMetricCard(icon: String, title: String, subtitle: String) -> some View {
-        TaskerCard {
-            VStack(alignment: .leading, spacing: spacing.s8) {
-                Image(systemName: icon)
-                    .font(.system(size: 16, weight: .semibold))
-                    .foregroundColor(Color.tasker.accentPrimary)
-                Text(title)
-                    .font(.tasker(.title3))
-                    .foregroundColor(Color.tasker.textPrimary)
-                Text(subtitle)
+    private var bottomDock: some View {
+        VStack(spacing: spacing.s8) {
+            if let errorMessage = viewModel.errorMessage, errorMessage.isEmpty == false {
+                Text(errorMessage)
                     .font(.tasker(.caption1))
-                    .foregroundColor(Color.tasker.textSecondary)
+                    .foregroundStyle(OnboardingTheme.danger)
+                    .multilineTextAlignment(.center)
             }
-            .padding(spacing.s16)
-        }
-    }
 
-    private func onboardingBullet(_ text: String) -> some View {
-        HStack(alignment: .top, spacing: spacing.s8) {
-            Circle()
-                .fill(Color.tasker.accentPrimary)
-                .frame(width: 6, height: 6)
-                .padding(.top, 6)
-            Text(text)
-                .font(.tasker(.body))
-                .foregroundColor(Color.tasker.textSecondary)
-                .fixedSize(horizontal: false, vertical: true)
+            if viewModel.successSummary != nil {
+                VStack(spacing: spacing.s8) {
+                    Button {
+                        feedbackController.medium()
+                        viewModel.finishOnboarding()
+                        onDismissFlow()
+                    } label: {
+                        Text("Go to my Home")
+                            .frame(maxWidth: .infinity)
+                    }
+                    .onboardingPrimaryButton()
+                    .accessibilityIdentifier("onboarding.cta.goHome")
+
+                    if viewModel.nextOpenTask != nil {
+                        Button("Break down my next task") {
+                            feedbackController.light()
+                            Task { await viewModel.breakDownNextTask() }
+                        }
+                        .font(.tasker(.buttonSmall))
+                        .foregroundStyle(OnboardingTheme.accent)
+                        .buttonStyle(.plain)
+                        .accessibilityIdentifier("onboarding.cta.breakdownNext")
+                    }
+                }
+            } else {
+                switch viewModel.step {
+                case .welcome:
+                    VStack(spacing: spacing.s8) {
+                        Button {
+                            feedbackController.medium()
+                            viewModel.begin(mode: .guided)
+                        } label: {
+                            Text("Start with recommended setup")
+                                .frame(maxWidth: .infinity)
+                        }
+                        .onboardingPrimaryButton()
+                        .accessibilityIdentifier("onboarding.cta.startRecommended")
+
+                        Button("Customize instead") {
+                            feedbackController.light()
+                            viewModel.begin(mode: .custom)
+                        }
+                        .font(.tasker(.buttonSmall))
+                        .foregroundStyle(OnboardingTheme.accent)
+                        .buttonStyle(.plain)
+                        .accessibilityIdentifier("onboarding.cta.customize")
+                    }
+                case .lifeAreas:
+                    Button {
+                        feedbackController.medium()
+                        Task { await viewModel.continueFromLifeAreas() }
+                    } label: {
+                        Text(viewModel.isWorking ? "Setting up your areas…" : "Use these areas")
+                            .frame(maxWidth: .infinity)
+                    }
+                    .onboardingPrimaryButton(disabled: viewModel.canContinueLifeAreas == false || viewModel.isWorking)
+                    .accessibilityIdentifier("onboarding.cta.useAreas")
+                case .projects:
+                    Button {
+                        feedbackController.medium()
+                        Task { await viewModel.continueFromProjects() }
+                    } label: {
+                        Text(viewModel.isWorking ? "Setting up your projects…" : "Use these projects")
+                            .frame(maxWidth: .infinity)
+                    }
+                    .onboardingPrimaryButton(disabled: viewModel.canContinueProjects == false || viewModel.isWorking)
+                    .accessibilityIdentifier("onboarding.cta.useProjects")
+                case .firstTask:
+                    Button {
+                        feedbackController.medium()
+                        viewModel.continueToFocus()
+                    } label: {
+                        Text("Go finish this task")
+                            .frame(maxWidth: .infinity)
+                    }
+                    .onboardingPrimaryButton(disabled: viewModel.canContinueToFocus == false || viewModel.isWorking)
+                    .accessibilityIdentifier("onboarding.cta.goFinishTask")
+                case .focusRoom:
+                    EmptyView()
+                }
+            }
         }
+        .padding(.horizontal, horizontalPadding)
+        .padding(.top, spacing.s12)
+        .padding(.bottom, max(spacing.s12, 10))
+        .background(
+            Color.clear
+                .overlay(alignment: .top) {
+                    Rectangle()
+                        .fill(Color.white.opacity(0.001))
+                }
+                .onboardingGlassPanel(cornerRadius: 30, shadowOpacity: 0.08)
+                .ignoresSafeArea(edges: .bottom)
+        )
     }
 }
 
 struct AppOnboardingPromptSheetView: View {
     @Environment(\.taskerLayoutClass) private var layoutClass
-
     let onStart: () -> Void
     let onNotNow: () -> Void
 
@@ -1691,110 +2869,41 @@ struct AppOnboardingPromptSheetView: View {
                 .ignoresSafeArea()
 
             VStack(alignment: .leading, spacing: spacing.sectionGap) {
-                Text("Want a quick guided setup?")
-                    .font(.tasker(.display))
-                    .foregroundColor(Color.tasker.textPrimary)
-                    .accessibilityIdentifier("onboarding.prompt.title")
+                OnboardingHeroAccent(
+                    title: "Let’s shape what you already have into a calmer starting point.",
+                    subtitle: "Tasker can reuse matching life areas and projects, suggest one tiny task, and guide you to one real completion."
+                )
 
-                Text("Tasker can map your life areas, create a couple of starter tasks, and walk you through your first completion without touching anything you already made.")
+                Text("No duplicate clutter. No fake setup. Just one clearer starting path.")
                     .font(.tasker(.body))
-                    .foregroundColor(Color.tasker.textSecondary)
+                    .foregroundStyle(OnboardingTheme.textSecondary)
 
                 VStack(spacing: spacing.s12) {
-                    Button(action: onStart) {
-                        Text("Start guided setup")
-                            .font(.tasker(.button))
+                    Button {
+                        onStart()
+                    } label: {
+                        Text("Start with recommended setup")
                             .frame(maxWidth: .infinity)
-                            .frame(minHeight: spacing.buttonHeight)
                     }
-                    .buttonStyle(.plain)
-                    .foregroundColor(Color.tasker.textInverse)
-                    .background(Color.tasker.accentPrimary)
-                    .clipShape(RoundedRectangle(cornerRadius: 18))
+                    .onboardingPrimaryButton()
                     .accessibilityIdentifier("onboarding.prompt.start")
 
-                    Button(action: onNotNow) {
-                        Text("Not now")
-                            .font(.tasker(.buttonSmall))
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, spacing.s12)
+                    Button("Not now") {
+                        onNotNow()
                     }
+                    .font(.tasker(.buttonSmall))
+                    .foregroundStyle(OnboardingTheme.accent)
                     .buttonStyle(.plain)
-                    .foregroundColor(Color.tasker.textSecondary)
                     .accessibilityIdentifier("onboarding.prompt.dismiss")
                 }
             }
-            .padding(spacing.screenHorizontal)
+            .frame(maxWidth: min(UIScreen.main.bounds.width - 40, 560), alignment: .leading)
+            .padding(spacing.s20)
+            .onboardingGlassPanel(cornerRadius: 30)
+            .padding(.horizontal, spacing.screenHorizontal)
         }
         .interactiveDismissDisabled(true)
         .accessibilityIdentifier("onboarding.prompt")
-    }
-}
-
-struct AppOnboardingCompletionView: View {
-    @Environment(\.taskerLayoutClass) private var layoutClass
-
-    let summary: AppOnboardingSummary
-    let onDone: () -> Void
-
-    private var spacing: TaskerSpacingTokens {
-        TaskerThemeManager.shared.tokens(for: layoutClass).spacing
-    }
-
-    var body: some View {
-        ZStack {
-            AppOnboardingBackground()
-                .ignoresSafeArea()
-
-            VStack(alignment: .leading, spacing: spacing.sectionGap) {
-                Text("You’re live.")
-                    .font(.tasker(.display))
-                    .foregroundColor(Color.tasker.textPrimary)
-                    .accessibilityIdentifier("onboarding.finish")
-
-                Text(summary.completedTaskTitle.map { "You completed \"\($0)\" and felt the real loop: create, complete, reflect." } ?? "You completed your first guided task and felt the real loop: create, complete, reflect.")
-                    .font(.tasker(.body))
-                    .foregroundColor(Color.tasker.textSecondary)
-
-                HStack(spacing: spacing.s12) {
-                    completionMetric(title: "\(summary.lifeAreaCount)", subtitle: "life areas")
-                    completionMetric(title: "\(summary.projectCount)", subtitle: "projects")
-                    completionMetric(title: "\(summary.createdTaskCount)", subtitle: "tasks created")
-                }
-
-                Text("Replay this any time from Settings if you want to re-orient without touching your existing data.")
-                    .font(.tasker(.caption1))
-                    .foregroundColor(Color.tasker.textSecondary)
-
-                Button(action: onDone) {
-                    Text("Back to Home")
-                        .font(.tasker(.button))
-                        .frame(maxWidth: .infinity)
-                        .frame(minHeight: spacing.buttonHeight)
-                }
-                .buttonStyle(.plain)
-                .foregroundColor(Color.tasker.textInverse)
-                .background(Color.tasker.accentPrimary)
-                .clipShape(RoundedRectangle(cornerRadius: 18))
-                .accessibilityIdentifier("onboarding.finish.done")
-            }
-            .padding(spacing.screenHorizontal)
-        }
-        .interactiveDismissDisabled(true)
-    }
-
-    private func completionMetric(title: String, subtitle: String) -> some View {
-        TaskerCard {
-            VStack(alignment: .leading, spacing: spacing.s8) {
-                Text(title)
-                    .font(.tasker(.title1))
-                    .foregroundColor(Color.tasker.textPrimary)
-                Text(subtitle)
-                    .font(.tasker(.caption1))
-                    .foregroundColor(Color.tasker.textSecondary)
-            }
-            .padding(spacing.s16)
-        }
     }
 }
 
@@ -1802,28 +2911,73 @@ struct HomeOnboardingGuidanceBanner: View {
     let state: HomeOnboardingGuidanceModel.State
 
     var body: some View {
-        TaskerCard {
-            VStack(alignment: .leading, spacing: 8) {
-                HStack {
-                    Text("Step 5 of 6")
-                        .font(.tasker(.caption2))
-                        .foregroundColor(Color.tasker.textSecondary)
-                    Spacer()
-                    Image(systemName: "sparkles")
-                        .font(.system(size: 13, weight: .semibold))
-                        .foregroundColor(Color.tasker.accentPrimary)
-                }
-
+        HStack(alignment: .top, spacing: 12) {
+            Image(systemName: "sparkles")
+                .foregroundStyle(OnboardingTheme.accent)
+            VStack(alignment: .leading, spacing: 6) {
                 Text(state.title)
                     .font(.tasker(.headline))
-                    .foregroundColor(Color.tasker.textPrimary)
+                    .foregroundStyle(OnboardingTheme.textPrimary)
                 Text(state.message)
                     .font(.tasker(.caption1))
-                    .foregroundColor(Color.tasker.textSecondary)
+                    .foregroundStyle(OnboardingTheme.textSecondary)
             }
-            .padding(16)
+            Spacer()
         }
+        .padding(16)
+        .background(OnboardingTheme.surface, in: RoundedRectangle(cornerRadius: 22, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 22, style: .continuous)
+                .stroke(OnboardingTheme.border, lineWidth: 1)
+        )
         .accessibilityIdentifier("home.onboarding.guide")
+    }
+}
+
+private enum OnboardingTheme {
+    static let canvas = Color(uiColor: UIColor(taskerHex: "#F6F2E9"))
+    static let canvasSecondary = Color(uiColor: UIColor(taskerHex: "#F0F5EE"))
+    static let surface = Color.white.opacity(0.82)
+    static let surfaceMuted = Color.white.opacity(0.58)
+    static let border = Color.black.opacity(0.08)
+    static let textPrimary = Color(uiColor: UIColor(taskerHex: "#1D211F"))
+    static let textSecondary = Color(uiColor: UIColor(taskerHex: "#58605B"))
+    static let accent = Color(uiColor: UIColor(taskerHex: "#2A7B62"))
+    static let accentSecondary = Color(uiColor: UIColor(taskerHex: "#D38A24"))
+    static let success = Color(uiColor: UIColor(taskerHex: "#2EA670"))
+    static let danger = Color(uiColor: UIColor(taskerHex: "#C75144"))
+}
+
+private struct AppOnboardingBackground: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var drift = false
+
+    var body: some View {
+        ZStack {
+            LinearGradient(
+                colors: [OnboardingTheme.canvas, OnboardingTheme.canvasSecondary],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+
+            Circle()
+                .fill(OnboardingTheme.accent.opacity(drift ? 0.12 : 0.08))
+                .frame(width: 320, height: 320)
+                .blur(radius: 24)
+                .offset(x: drift ? -120 : -80, y: -220)
+
+            Circle()
+                .fill(OnboardingTheme.accentSecondary.opacity(drift ? 0.12 : 0.08))
+                .frame(width: 280, height: 280)
+                .blur(radius: 28)
+                .offset(x: drift ? 120 : 90, y: 280)
+        }
+        .onAppear {
+            guard reduceMotion == false else { return }
+            withAnimation(.easeInOut(duration: 3.6).repeatForever(autoreverses: true)) {
+                drift = true
+            }
+        }
     }
 }
 
@@ -1835,11 +2989,103 @@ private struct OnboardingSectionHeader: View {
         VStack(alignment: .leading, spacing: 8) {
             Text(title)
                 .font(.tasker(.display))
-                .foregroundColor(Color.tasker.textPrimary)
+                .foregroundStyle(OnboardingTheme.textPrimary)
+                .fixedSize(horizontal: false, vertical: true)
             Text(subtitle)
                 .font(.tasker(.body))
-                .foregroundColor(Color.tasker.textSecondary)
+                .foregroundStyle(OnboardingTheme.textSecondary)
                 .fixedSize(horizontal: false, vertical: true)
+        }
+    }
+}
+
+private struct OnboardingHeroAccent: View {
+    let title: String
+    let subtitle: String
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var glow = false
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            HStack(spacing: 10) {
+                Circle()
+                    .fill(OnboardingTheme.accent.opacity(glow ? 0.25 : 0.16))
+                    .frame(width: 56, height: 56)
+                    .overlay(
+                        Image(systemName: "figure.walk.motion")
+                            .font(.system(size: 24, weight: .semibold))
+                            .foregroundStyle(OnboardingTheme.accent)
+                    )
+
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Relief first")
+                        .font(.tasker(.caption1))
+                        .foregroundStyle(OnboardingTheme.accent)
+                    Text("Real setup, real task, real completion.")
+                        .font(.tasker(.bodyEmphasis))
+                        .foregroundStyle(OnboardingTheme.textPrimary)
+                }
+            }
+
+            Text(title)
+                .font(.tasker(.display))
+                .foregroundStyle(OnboardingTheme.textPrimary)
+                .fixedSize(horizontal: false, vertical: true)
+
+            Text(subtitle)
+                .font(.tasker(.body))
+                .foregroundStyle(OnboardingTheme.textSecondary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .padding(20)
+        .onboardingGlassPanel(cornerRadius: 30)
+        .onAppear {
+            guard reduceMotion == false else { return }
+            withAnimation(.easeInOut(duration: 1.6).repeatForever(autoreverses: true)) {
+                glow = true
+            }
+        }
+    }
+}
+
+private struct OnboardingChoiceChip: View {
+    let title: String
+    let isSelected: Bool
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 8) {
+                if isSelected {
+                    Image(systemName: "checkmark.circle.fill")
+                        .foregroundStyle(OnboardingTheme.accent)
+                }
+                Text(title)
+                    .font(.tasker(.buttonSmall))
+                    .foregroundStyle(isSelected ? OnboardingTheme.textPrimary : OnboardingTheme.textSecondary)
+            }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 10)
+            .background(isSelected ? OnboardingTheme.surface : OnboardingTheme.surfaceMuted, in: Capsule())
+            .overlay(
+                Capsule()
+                    .stroke(isSelected ? OnboardingTheme.accent.opacity(0.7) : OnboardingTheme.border, lineWidth: isSelected ? 1.5 : 1)
+            )
+        }
+        .buttonStyle(.plain)
+        .accessibilityAddTraits(isSelected ? .isSelected : [])
+    }
+}
+
+private struct FlexibleChipFlow<Content: View>: View {
+    let spacing: CGFloat
+    @ViewBuilder let content: () -> Content
+
+    var body: some View {
+        ViewThatFits(in: .vertical) {
+            HStack(spacing: spacing, content: content)
+                .frame(maxWidth: .infinity, alignment: .leading)
+            VStack(alignment: .leading, spacing: spacing, content: content)
         }
     }
 }
@@ -1850,95 +3096,578 @@ private struct OnboardingSelectableCard: View {
     let icon: String
     let colorHex: String
     let isSelected: Bool
-    let badgeText: String
     let action: () -> Void
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         Button(action: action) {
-            VStack(alignment: .leading, spacing: 12) {
+            VStack(alignment: .leading, spacing: 14) {
                 HStack {
                     ZStack {
                         Circle()
-                            .fill(Color(uiColor: UIColor(taskerHex: colorHex)).opacity(0.18))
-                            .frame(width: 38, height: 38)
+                            .fill(Color(uiColor: UIColor(taskerHex: colorHex)).opacity(0.16))
+                            .frame(width: 40, height: 40)
                         Image(systemName: icon)
-                            .font(.system(size: 16, weight: .semibold))
-                            .foregroundColor(Color(uiColor: UIColor(taskerHex: colorHex)))
+                            .foregroundStyle(Color(uiColor: UIColor(taskerHex: colorHex)))
                     }
                     Spacer()
                     Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
                         .font(.system(size: 20, weight: .semibold))
-                        .foregroundColor(isSelected ? Color.tasker.accentPrimary : Color.tasker.textTertiary)
+                        .foregroundStyle(isSelected ? OnboardingTheme.accent : OnboardingTheme.textSecondary)
                 }
 
                 VStack(alignment: .leading, spacing: 6) {
                     Text(title)
                         .font(.tasker(.bodyEmphasis))
-                        .foregroundColor(Color.tasker.textPrimary)
+                        .foregroundStyle(OnboardingTheme.textPrimary)
                     Text(subtitle)
                         .font(.tasker(.caption1))
-                        .foregroundColor(Color.tasker.textSecondary)
+                        .foregroundStyle(OnboardingTheme.textSecondary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
 
-                Text(badgeText)
+                Text(isSelected ? "Selected" : "Tap to select")
                     .font(.tasker(.caption2))
-                    .foregroundColor(Color.tasker.textSecondary)
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 4)
-                    .background(Color.tasker.surfaceSecondary)
-                    .clipShape(Capsule())
+                    .foregroundStyle(isSelected ? OnboardingTheme.accent : OnboardingTheme.textSecondary)
             }
             .padding(16)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(isSelected ? Color.tasker.accentPrimary.opacity(0.08) : Color.tasker.surfacePrimary.opacity(0.85))
+            .background(isSelected ? OnboardingTheme.accent.opacity(0.10) : OnboardingTheme.surface, in: RoundedRectangle(cornerRadius: 24, style: .continuous))
             .overlay(
-                RoundedRectangle(cornerRadius: 22)
-                    .stroke(isSelected ? Color.tasker.accentPrimary : Color.tasker.strokeHairline, lineWidth: isSelected ? 2 : 1)
+                RoundedRectangle(cornerRadius: 24, style: .continuous)
+                    .stroke(isSelected ? OnboardingTheme.accent.opacity(0.9) : OnboardingTheme.border, lineWidth: isSelected ? 2 : 1)
             )
-            .clipShape(RoundedRectangle(cornerRadius: 22))
-            .contentShape(RoundedRectangle(cornerRadius: 22))
+            .scaleEffect(isSelected && reduceMotion == false ? 1.01 : 1)
+            .shadow(color: isSelected ? OnboardingTheme.accent.opacity(0.12) : .clear, radius: 10, y: 4)
         }
         .buttonStyle(.plain)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(title)
+        .accessibilityValue(isSelected ? "Selected" : "Not selected")
+        .accessibilityHint(subtitle)
     }
 }
 
-private struct AppOnboardingBackground: View {
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @State private var animatePrimary = false
-    @State private var animateSecondary = false
+private struct OnboardingProjectDraftCard: View {
+    let draft: OnboardingProjectDraft
+    let colorHex: String
+    let icon: String
+    let mode: OnboardingMode
+    let isRenaming: Bool
+    let nameBinding: Binding<String>
+    let onToggleSelection: () -> Void
+    let onRename: () -> Void
+    let onSwap: () -> Void
 
     var body: some View {
-        ZStack {
-            Color.tasker(.bgCanvas)
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(alignment: .center, spacing: 10) {
+                ZStack {
+                    Circle()
+                        .fill(Color(uiColor: UIColor(taskerHex: colorHex)).opacity(0.14))
+                        .frame(width: 34, height: 34)
+                    Image(systemName: icon)
+                        .foregroundStyle(Color(uiColor: UIColor(taskerHex: colorHex)))
+                }
 
-            Circle()
-                .fill(Color.tasker.accentPrimary.opacity(0.14))
-                .frame(width: 320, height: 320)
-                .blur(radius: 24)
-                .offset(x: animatePrimary ? 110 : -90, y: animatePrimary ? -180 : -120)
-                .animation(reduceMotion ? nil : TaskerAnimation.gentle.repeatForever(autoreverses: true), value: animatePrimary)
+                VStack(alignment: .leading, spacing: 4) {
+                    if mode == .custom || isRenaming {
+                        TextField("Project name", text: nameBinding)
+                            .font(.tasker(.bodyEmphasis))
+                            .foregroundStyle(OnboardingTheme.textPrimary)
+                    } else {
+                        Text(draft.name)
+                            .font(.tasker(.bodyEmphasis))
+                            .foregroundStyle(OnboardingTheme.textPrimary)
+                    }
+                    Text(draft.summary)
+                        .font(.tasker(.caption1))
+                        .foregroundStyle(OnboardingTheme.textSecondary)
+                }
 
-            Circle()
-                .fill(Color.tasker.accentSecondaryMuted.opacity(0.18))
-                .frame(width: 260, height: 260)
-                .blur(radius: 18)
-                .offset(x: animateSecondary ? -120 : 120, y: animateSecondary ? 220 : 140)
-                .animation(reduceMotion ? nil : TaskerAnimation.snappy.repeatForever(autoreverses: true), value: animateSecondary)
+                Spacer()
 
-            LinearGradient(
-                colors: [
-                    Color.tasker.surfacePrimary.opacity(0.08),
-                    Color.clear
-                ],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
+                Image(systemName: draft.isSelected ? "checkmark.circle.fill" : "circle")
+                    .foregroundStyle(draft.isSelected ? OnboardingTheme.accent : OnboardingTheme.textSecondary)
+            }
+
+            HStack(spacing: 16) {
+                Button(draft.isSelected ? "Remove" : "Keep") {
+                    onToggleSelection()
+                }
+                .buttonStyle(.plain)
+                .font(.tasker(.buttonSmall))
+                .foregroundStyle(OnboardingTheme.accent)
+
+                Button(mode == .custom || isRenaming ? "Done" : "Rename") {
+                    onRename()
+                }
+                .buttonStyle(.plain)
+                .font(.tasker(.buttonSmall))
+                .foregroundStyle(OnboardingTheme.textSecondary)
+
+                Button("Swap") {
+                    onSwap()
+                }
+                .buttonStyle(.plain)
+                .font(.tasker(.buttonSmall))
+                .foregroundStyle(OnboardingTheme.textSecondary)
+
+                Spacer()
+            }
         }
+        .padding(16)
+        .background(draft.isSelected ? OnboardingTheme.surface : OnboardingTheme.surfaceMuted, in: RoundedRectangle(cornerRadius: 24, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 24, style: .continuous)
+                .stroke(draft.isSelected ? OnboardingTheme.accent.opacity(0.7) : OnboardingTheme.border, lineWidth: draft.isSelected ? 1.5 : 1)
+        )
+        .accessibilityElement(children: .contain)
+    }
+}
+
+private struct OnboardingTaskRecommendationCard: View {
+    let template: StarterTaskTemplate
+    let state: OnboardingTaskTemplateState
+    let onAdd: () -> Void
+    let onEdit: () -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(alignment: .top, spacing: 12) {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text(template.title)
+                        .font(.tasker(.bodyEmphasis))
+                        .foregroundStyle(titleColor)
+                    Text(template.reason)
+                        .font(.tasker(.caption1))
+                        .foregroundStyle(OnboardingTheme.textSecondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                Spacer()
+                badge
+            }
+
+            HStack(spacing: 10) {
+                Text("\(template.durationMinutes) min")
+                    .font(.tasker(.caption2))
+                    .foregroundStyle(OnboardingTheme.textSecondary)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 6)
+                    .background(OnboardingTheme.surfaceMuted, in: Capsule())
+
+                Text("+\(XPCalculationEngine.completionXPIfCompletedNow(priorityRaw: template.priority.rawValue, estimatedDuration: TimeInterval(template.durationMinutes * 60), dueDate: DatePreset.today.resolvedDueDate(), dailyEarnedSoFar: 0, isGamificationV2Enabled: V2FeatureFlags.gamificationV2Enabled).awardedXP) XP")
+                    .font(.tasker(.caption2))
+                    .foregroundStyle(OnboardingTheme.accent)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 6)
+                    .background(OnboardingTheme.accent.opacity(0.10), in: Capsule())
+
+                Spacer()
+
+                switch state {
+                case .created:
+                    Button("Edit") {
+                        onEdit()
+                    }
+                    .font(.tasker(.buttonSmall))
+                    .foregroundStyle(OnboardingTheme.accent)
+                    .buttonStyle(.plain)
+                default:
+                    Button(buttonTitle) {
+                        onAdd()
+                    }
+                    .font(.tasker(.buttonSmall))
+                    .foregroundStyle(state == .creating ? OnboardingTheme.textSecondary : OnboardingTheme.accent)
+                    .buttonStyle(.plain)
+                    .disabled(state == .creating)
+                }
+            }
+        }
+        .padding(16)
+        .background(backgroundColor, in: RoundedRectangle(cornerRadius: 24, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 24, style: .continuous)
+                .stroke(borderColor, lineWidth: stateBorderWidth)
+        )
+    }
+
+    private var buttonTitle: String {
+        switch state {
+        case .idle:
+            return "Add"
+        case .creating:
+            return "Adding…"
+        case .created:
+            return "Added"
+        case .failed:
+            return "Try again"
+        }
+    }
+
+    private var titleColor: Color {
+        switch state {
+        case .failed:
+            return OnboardingTheme.danger
+        default:
+            return OnboardingTheme.textPrimary
+        }
+    }
+
+    private var backgroundColor: Color {
+        switch state {
+        case .created:
+            return OnboardingTheme.success.opacity(0.10)
+        case .failed:
+            return OnboardingTheme.danger.opacity(0.08)
+        default:
+            return OnboardingTheme.surface
+        }
+    }
+
+    private var borderColor: Color {
+        switch state {
+        case .created:
+            return OnboardingTheme.success.opacity(0.7)
+        case .failed:
+            return OnboardingTheme.danger.opacity(0.7)
+        default:
+            return OnboardingTheme.border
+        }
+    }
+
+    private var stateBorderWidth: CGFloat {
+        switch state {
+        case .created, .failed:
+            return 1.5
+        default:
+            return 1
+        }
+    }
+
+    @ViewBuilder
+    private var badge: some View {
+        switch state {
+        case .created:
+            OnboardingInlineBadge(title: "Added", accent: OnboardingTheme.success)
+        case .creating:
+            OnboardingInlineBadge(title: "Saving", accent: OnboardingTheme.accent)
+        case .failed:
+            OnboardingInlineBadge(title: "Needs retry", accent: OnboardingTheme.danger)
+        case .idle:
+            OnboardingInlineBadge(title: "Recommended", accent: OnboardingTheme.accent)
+        }
+    }
+}
+
+private struct OnboardingInlineBadge: View {
+    let title: String
+    let accent: Color
+
+    var body: some View {
+        Text(title)
+            .font(.tasker(.caption2))
+            .foregroundStyle(accent)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 6)
+            .background(accent.opacity(0.10), in: Capsule())
+    }
+}
+
+private struct OnboardingFocusHeroCard: View {
+    let task: TaskDefinition
+    let projectName: String
+    let xpAward: Int
+    let isActive: Bool
+    let startedAt: Date?
+    let onPrimary: () -> Void
+    let onSecondary: () -> Void
+    let onBreakDown: () -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 18) {
+            ZStack {
+                Circle()
+                    .stroke(OnboardingTheme.accent.opacity(0.10), lineWidth: 18)
+                    .frame(width: 110, height: 110)
+                Circle()
+                    .fill(OnboardingTheme.surface)
+                    .frame(width: 88, height: 88)
+                    .overlay(
+                        Image(systemName: task.isComplete ? "checkmark.circle.fill" : "bolt.fill")
+                            .font(.system(size: 30, weight: .semibold))
+                            .foregroundStyle(task.isComplete ? OnboardingTheme.success : OnboardingTheme.accent)
+                    )
+            }
+            .frame(maxWidth: .infinity)
+
+            Text(task.title)
+                .font(.tasker(.title2))
+                .foregroundStyle(OnboardingTheme.textPrimary)
+                .frame(maxWidth: .infinity, alignment: .center)
+                .multilineTextAlignment(.center)
+
+            Text("Recommended first win")
+                .font(.tasker(.caption1))
+                .foregroundStyle(OnboardingTheme.accent)
+                .frame(maxWidth: .infinity, alignment: .center)
+
+            HStack(spacing: 10) {
+                pill(projectName, accent: OnboardingTheme.textSecondary)
+                pill(durationText, accent: OnboardingTheme.textSecondary)
+                pill("+\(xpAward) XP", accent: OnboardingTheme.accent)
+                Spacer()
+            }
+
+            if isActive {
+                OnboardingFocusTimer(startedAt: startedAt, estimatedDuration: task.estimatedDuration)
+            }
+
+            VStack(spacing: 10) {
+                Button {
+                    onPrimary()
+                } label: {
+                    Text(isActive ? "Done" : "I’m doing this now")
+                        .frame(maxWidth: .infinity)
+                }
+                .onboardingPrimaryButton(disabled: task.isComplete)
+                .accessibilityIdentifier("onboarding.cta.focusPrimary")
+
+                Button("Mark complete") {
+                    onSecondary()
+                }
+                .font(.tasker(.buttonSmall))
+                .foregroundStyle(OnboardingTheme.accent)
+                .buttonStyle(.plain)
+                .accessibilityIdentifier("onboarding.cta.markComplete")
+
+                Button("Need it smaller? Break it down") {
+                    onBreakDown()
+                }
+                .font(.tasker(.buttonSmall))
+                .foregroundStyle(OnboardingTheme.textSecondary)
+                .buttonStyle(.plain)
+                .accessibilityIdentifier("onboarding.cta.breakDown")
+            }
+        }
+        .padding(24)
+        .background(OnboardingTheme.surface, in: RoundedRectangle(cornerRadius: 32, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 32, style: .continuous)
+                .stroke(OnboardingTheme.border, lineWidth: 1)
+        )
+        .shadow(color: OnboardingTheme.accent.opacity(0.12), radius: 24, y: 8)
+    }
+
+    private var durationText: String {
+        if let estimated = task.estimatedDuration {
+            let minutes = max(1, Int(estimated / 60))
+            return "\(minutes) min"
+        }
+        return "No timer"
+    }
+
+    private func pill(_ title: String, accent: Color) -> some View {
+        Text(title)
+            .font(.tasker(.caption2))
+            .foregroundStyle(accent)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 6)
+            .background(OnboardingTheme.surfaceMuted, in: Capsule())
+    }
+}
+
+private struct OnboardingFocusTimer: View {
+    let startedAt: Date?
+    let estimatedDuration: TimeInterval?
+
+    var body: some View {
+        TimelineView(.periodic(from: .now, by: 1)) { timeline in
+            let elapsed = max(0, Int(timeline.date.timeIntervalSince(startedAt ?? timeline.date)))
+            HStack(spacing: 12) {
+                if let estimatedDuration, estimatedDuration > 0 {
+                    let progress = min(max(timeline.date.timeIntervalSince(startedAt ?? timeline.date) / estimatedDuration, 0), 1)
+                    ZStack {
+                        Circle()
+                            .stroke(OnboardingTheme.surfaceMuted, lineWidth: 8)
+                        Circle()
+                            .trim(from: 0, to: progress)
+                            .stroke(OnboardingTheme.accent, style: StrokeStyle(lineWidth: 8, lineCap: .round))
+                            .rotationEffect(.degrees(-90))
+                    }
+                    .frame(width: 42, height: 42)
+                } else {
+                    Image(systemName: "timer")
+                        .foregroundStyle(OnboardingTheme.accent)
+                }
+
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(estimatedDuration == nil ? "Elapsed time" : "Focus timer")
+                        .font(.tasker(.caption1))
+                        .foregroundStyle(OnboardingTheme.textSecondary)
+                    Text(formatted(elapsed))
+                        .font(.tasker(.headline))
+                        .foregroundStyle(OnboardingTheme.textPrimary)
+                }
+                Spacer()
+            }
+            .padding(14)
+            .background(OnboardingTheme.surfaceMuted, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+        }
+    }
+
+    private func formatted(_ seconds: Int) -> String {
+        let minutes = seconds / 60
+        let remainder = seconds % 60
+        return String(format: "%d:%02d", minutes, remainder)
+    }
+}
+
+private struct OnboardingSuccessHero: View {
+    let completedTaskTitle: String?
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var pulse = false
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            HStack {
+                ZStack {
+                    Circle()
+                        .fill(OnboardingTheme.success.opacity(pulse ? 0.18 : 0.12))
+                        .frame(width: 74, height: 74)
+                    Image(systemName: "checkmark")
+                        .font(.system(size: 28, weight: .bold))
+                        .foregroundStyle(OnboardingTheme.success)
+                }
+                Spacer()
+                Text("XP unlocked")
+                    .font(.tasker(.headline))
+                    .foregroundStyle(OnboardingTheme.accent)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 8)
+                    .background(OnboardingTheme.accent.opacity(0.10), in: Capsule())
+                    .offset(y: pulse ? -4 : 0)
+            }
+
+            Text("Nice. You got your first real win.")
+                .font(.tasker(.display))
+                .foregroundStyle(OnboardingTheme.textPrimary)
+
+            Text(completedTaskTitle.map { "You set up your starting structure and finished \"\($0)\". Tasker is ready to help you keep moving." } ?? "You set up your starting structure and finished your first task. Tasker is ready to help you keep moving.")
+                .font(.tasker(.body))
+                .foregroundStyle(OnboardingTheme.textSecondary)
+        }
+        .padding(24)
+        .onboardingGlassPanel(cornerRadius: 32)
         .onAppear {
-            animatePrimary = true
-            animateSecondary = true
+            guard reduceMotion == false else { return }
+            withAnimation(.easeInOut(duration: 0.8).repeatCount(2, autoreverses: true)) {
+                pulse = true
+            }
         }
+    }
+}
+
+private struct OnboardingMetricCard: View {
+    let value: String
+    let label: String
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(value)
+                .font(.tasker(.title1))
+                .foregroundStyle(OnboardingTheme.textPrimary)
+            Text(label)
+                .font(.tasker(.caption1))
+                .foregroundStyle(OnboardingTheme.textSecondary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(16)
+        .background(OnboardingTheme.surfaceMuted, in: RoundedRectangle(cornerRadius: 22, style: .continuous))
+    }
+}
+
+private struct OnboardingRevealCard: View {
+    let title: String
+    let message: String
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(title)
+                .font(.tasker(.headline))
+                .foregroundStyle(OnboardingTheme.textPrimary)
+            Text(message)
+                .font(.tasker(.body))
+                .foregroundStyle(OnboardingTheme.textSecondary)
+        }
+        .padding(18)
+        .background(OnboardingTheme.surface, in: RoundedRectangle(cornerRadius: 24, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 24, style: .continuous)
+                .stroke(OnboardingTheme.border, lineWidth: 1)
+        )
+    }
+}
+
+private struct OnboardingReminderCard: View {
+    let state: OnboardingReminderPromptState
+    let onPrimary: () -> Void
+    let onSecondary: () -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("Want gentle reminders when momentum drops?")
+                .font(.tasker(.headline))
+                .foregroundStyle(OnboardingTheme.textPrimary)
+            Text("Tasker can bring things back at the right time, without asking before you’ve seen value.")
+                .font(.tasker(.body))
+                .foregroundStyle(OnboardingTheme.textSecondary)
+
+            HStack(spacing: 12) {
+                Button(state == .openSettings ? "Open Settings" : "Turn on reminders") {
+                    onPrimary()
+                }
+                .buttonStyle(.plain)
+                .font(.tasker(.buttonSmall))
+                .foregroundStyle(OnboardingTheme.accent)
+
+                Button("Not now") {
+                    onSecondary()
+                }
+                .buttonStyle(.plain)
+                .font(.tasker(.buttonSmall))
+                .foregroundStyle(OnboardingTheme.textSecondary)
+            }
+        }
+        .padding(18)
+        .background(OnboardingTheme.surface, in: RoundedRectangle(cornerRadius: 24, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 24, style: .continuous)
+                .stroke(OnboardingTheme.border, lineWidth: 1)
+        )
+    }
+}
+
+private extension View {
+    func onboardingGlassPanel(cornerRadius: CGFloat, shadowOpacity: Double = 0.06) -> some View {
+        background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                    .stroke(Color.white.opacity(0.42), lineWidth: 1)
+            )
+            .shadow(color: Color.black.opacity(shadowOpacity), radius: 18, y: 8)
+    }
+
+    func onboardingPrimaryButton(disabled: Bool = false) -> some View {
+        self
+            .font(.tasker(.button))
+            .foregroundStyle(Color.white)
+            .frame(minHeight: 52)
+            .padding(.horizontal, 18)
+            .background(disabled ? OnboardingTheme.textSecondary.opacity(0.4) : OnboardingTheme.accent, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+            .disabled(disabled)
+            .buttonStyle(.plain)
     }
 }
 
@@ -2010,6 +3739,34 @@ extension CreateTaskDefinitionUseCase {
         try await withCheckedThrowingContinuation { continuation in
             execute(request: request) { result in
                 continuation.resume(with: result)
+            }
+        }
+    }
+}
+
+extension CompleteTaskDefinitionUseCase {
+    func setCompletionAsync(taskID: UUID, to isComplete: Bool) async throws -> TaskDefinition {
+        try await withCheckedThrowingContinuation { continuation in
+            setCompletion(taskID: taskID, to: isComplete) { result in
+                continuation.resume(with: result)
+            }
+        }
+    }
+}
+
+extension NotificationServiceProtocol {
+    func fetchAuthorizationStatusAsync() async -> TaskerNotificationAuthorizationStatus {
+        await withCheckedContinuation { continuation in
+            fetchAuthorizationStatus { status in
+                continuation.resume(returning: status)
+            }
+        }
+    }
+
+    func requestPermissionAsync() async -> Bool {
+        await withCheckedContinuation { continuation in
+            requestPermission { granted in
+                continuation.resume(returning: granted)
             }
         }
     }
