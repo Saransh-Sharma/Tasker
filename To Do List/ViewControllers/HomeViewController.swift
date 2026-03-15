@@ -414,7 +414,10 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
     private var pendingSearchPreparationTask: Task<Void, Never>?
     private var pendingSearchWarmupTask: Task<Void, Never>?
     private var pendingSearchMutationRefreshTask: Task<Void, Never>?
+    private var pendingBackgroundSearchPrewarmTask: Task<Void, Never>?
+    private var pendingBackgroundInsightsPrewarmTask: Task<Void, Never>?
     private var pendingOnboardingEvaluationTask: Task<Void, Never>?
+    private var awaitsAnalyticsFirstInteractiveFrame = false
     private var onboardingEvaluationSceneToken: Int = 1
     private var completedOnboardingEvaluationSceneToken: Int = 0
     private var lastAppliedHomeRenderTransaction: HomeRenderTransaction = .empty
@@ -500,6 +503,8 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
         pendingSearchPreparationTask?.cancel()
         pendingSearchWarmupTask?.cancel()
         pendingSearchMutationRefreshTask?.cancel()
+        pendingBackgroundSearchPrewarmTask?.cancel()
+        pendingBackgroundInsightsPrewarmTask?.cancel()
         pendingOnboardingEvaluationTask?.cancel()
         notificationCenter.removeObserver(self)
     }
@@ -576,6 +581,7 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
             .sink { [weak self] _ in
                 self?.mountBottomBarOverlayIfNeeded()
                 self?.scheduleOnboardingEvaluationIfNeeded()
+                self?.scheduleBackgroundSurfacePrewarmIfNeeded()
             }
             .store(in: &cancellables)
 
@@ -616,6 +622,7 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
     private func scheduleInsightsPreparationIfNeeded() {
         guard faceCoordinator.insightsViewModel == nil else {
             faceCoordinator.setAnalyticsSurfaceState(.ready)
+            emitAnalyticsFirstInteractiveFrameIfNeeded()
             applyPendingInsightsLaunchRequestIfNeeded()
             return
         }
@@ -643,6 +650,7 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
             self.faceCoordinator.insightsViewModel = resolvedViewModel
             self.faceCoordinator.setAnalyticsSurfaceState(.ready)
             TaskerPerformanceTrace.event("HomeAnalyticsReady")
+            self.emitAnalyticsFirstInteractiveFrameIfNeeded()
             self.applyPendingInsightsLaunchRequestIfNeeded()
         }
     }
@@ -697,6 +705,8 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
         guard faceCoordinator.activeFace != .analytics else { return }
         pendingOnboardingEvaluationTask?.cancel()
         pendingOnboardingEvaluationTask = nil
+        awaitsAnalyticsFirstInteractiveFrame = true
+        TaskerPerformanceTrace.event("HomeFaceSwitch")
         faceCoordinator.setActiveFace(.analytics)
         faceCoordinator.setAnalyticsSurfaceState(faceCoordinator.insightsViewModel == nil ? .placeholder : .ready)
         if launchDefaultInsights {
@@ -764,6 +774,8 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
         if faceCoordinator.insightsViewModel == nil {
             pendingInsightsPreparationTask?.cancel()
         }
+        awaitsAnalyticsFirstInteractiveFrame = false
+        TaskerPerformanceTrace.event("HomeFaceSwitch")
         faceCoordinator.setActiveFace(.tasks)
         faceCoordinator.setAnalyticsSurfaceState(.idle)
         viewModel.trackHomeInteraction(
@@ -786,6 +798,7 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
         pendingSearchWarmupTask?.cancel()
         pendingOnboardingEvaluationTask?.cancel()
         pendingOnboardingEvaluationTask = nil
+        TaskerPerformanceTrace.event("HomeFaceSwitch")
         faceCoordinator.setActiveFace(.search)
         faceCoordinator.setSearchSurfaceState(.presenting)
         TaskerPerformanceTrace.event("HomeSearchTapped")
@@ -801,6 +814,7 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
         pendingSearchPreparationTask?.cancel()
         pendingSearchWarmupTask?.cancel()
         pendingSearchMutationRefreshTask?.cancel()
+        TaskerPerformanceTrace.event("HomeFaceSwitch")
         faceCoordinator.setActiveFace(.tasks)
         faceCoordinator.setSearchSurfaceState(.idle)
         searchState.deactivate()
@@ -860,7 +874,60 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
 
             self.faceCoordinator.setSearchSurfaceState(.ready)
             TaskerPerformanceTrace.event("HomeSearchSurfaceReady")
+            TaskerPerformanceTrace.event("HomeSearchFirstInteractiveFrame")
             self.scheduleInitialSearchWarmupIfNeeded()
+        }
+    }
+
+    private func emitAnalyticsFirstInteractiveFrameIfNeeded() {
+        guard awaitsAnalyticsFirstInteractiveFrame else { return }
+        guard faceCoordinator.activeFace == .analytics else { return }
+        guard faceCoordinator.analyticsSurfaceState == .ready else { return }
+        awaitsAnalyticsFirstInteractiveFrame = false
+        TaskerPerformanceTrace.event("HomeAnalyticsFirstInteractiveFrame")
+    }
+
+    private func scheduleBackgroundSurfacePrewarmIfNeeded() {
+        guard faceCoordinator.shellPhase == .interactive else { return }
+
+        if pendingBackgroundSearchPrewarmTask == nil {
+            pendingBackgroundSearchPrewarmTask = Task { @MainActor [weak self] in
+                defer { self?.pendingBackgroundSearchPrewarmTask = nil }
+                do {
+                    try await Task.sleep(nanoseconds: 800_000_000)
+                } catch {
+                    return
+                }
+                guard let self, Task.isCancelled == false else { return }
+                guard self.faceCoordinator.activeFace == .tasks else { return }
+                self.searchState.configureIfNeeded(
+                    makeEngine: {
+                        LGHomeSearchEngine(viewModel: self.viewModel.makeHomeSearchViewModel())
+                    },
+                    dataRevisionProvider: {
+                        self.viewModel.currentDataRevision
+                    }
+                )
+                TaskerPerformanceTrace.event("HomeSearchSurfaceReady")
+            }
+        }
+
+        if pendingBackgroundInsightsPrewarmTask == nil {
+            pendingBackgroundInsightsPrewarmTask = Task { @MainActor [weak self] in
+                defer { self?.pendingBackgroundInsightsPrewarmTask = nil }
+                do {
+                    try await Task.sleep(nanoseconds: 1_500_000_000)
+                } catch {
+                    return
+                }
+                guard let self, Task.isCancelled == false else { return }
+                guard self.faceCoordinator.activeFace == .tasks else { return }
+                guard self.faceCoordinator.insightsViewModel == nil else { return }
+                let resolvedViewModel = self.viewModel.makeInsightsViewModel()
+                self.insightsViewModel = resolvedViewModel
+                self.faceCoordinator.insightsViewModel = resolvedViewModel
+                resolvedViewModel.onAppear()
+            }
         }
     }
 

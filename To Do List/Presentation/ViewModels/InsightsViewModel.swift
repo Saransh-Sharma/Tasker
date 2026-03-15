@@ -401,6 +401,7 @@ public final class InsightsViewModel: ObservableObject {
     private let analyticsUseCase: CalculateAnalyticsUseCase?
     private let notificationCenter: NotificationCenter
     private let userDefaults: UserDefaults
+    private let refreshComputeQueue = DispatchQueue(label: "tasker.insights.refresh.compute", qos: .userInitiated)
 
     private var tabRefreshState: [InsightsTab: InsightsTabRefreshState] = [:]
     private var versionCounter: UInt64 = 0
@@ -899,9 +900,7 @@ public final class InsightsViewModel: ObservableObject {
             }
         }
 
-        group.notify(queue: .main) { [weak self] in
-            defer { TaskerPerformanceTrace.end(interval) }
-            guard let self else { return }
+        group.notify(queue: refreshComputeQueue) { [weak self] in
             let nextState = Self.buildTodayState(
                 dailyXP: dailyXP,
                 level: level,
@@ -913,10 +912,14 @@ public final class InsightsViewModel: ObservableObject {
                 dayStart: startOfToday,
                 calendar: calendar
             )
-            if self.todayState != nextState {
-                self.todayState = nextState
+            DispatchQueue.main.async {
+                defer { TaskerPerformanceTrace.end(interval) }
+                guard let self else { return }
+                if self.todayState != nextState {
+                    self.todayState = nextState
+                }
+                self.completeRefresh(for: .today, version: version)
             }
-            self.completeRefresh(for: .today, version: version)
         }
     }
 
@@ -1034,9 +1037,7 @@ public final class InsightsViewModel: ObservableObject {
             }
         }
 
-        group.notify(queue: .main) { [weak self] in
-            defer { TaskerPerformanceTrace.end(interval) }
-            guard let self else { return }
+        group.notify(queue: refreshComputeQueue) { [weak self] in
             let nextState = Self.buildWeekState(
                 currentAggregates: currentAggregates,
                 previousAggregates: previousAggregates,
@@ -1049,10 +1050,14 @@ public final class InsightsViewModel: ObservableObject {
                 today: today,
                 calendar: calendar
             )
-            if self.weekState != nextState {
-                self.weekState = nextState
+            DispatchQueue.main.async {
+                defer { TaskerPerformanceTrace.end(interval) }
+                guard let self else { return }
+                if self.weekState != nextState {
+                    self.weekState = nextState
+                }
+                self.completeRefresh(for: .week, version: version)
             }
-            self.completeRefresh(for: .week, version: version)
         }
     }
 
@@ -1169,9 +1174,7 @@ public final class InsightsViewModel: ObservableObject {
             }
         }
 
-        group.notify(queue: .main) { [weak self] in
-            defer { TaskerPerformanceTrace.end(interval) }
-            guard let self else { return }
+        group.notify(queue: refreshComputeQueue) { [weak self] in
             state.achievementProgress = Self.buildAchievementProgress(
                 profile: latestProfile,
                 unlocks: unlocks,
@@ -1195,16 +1198,20 @@ public final class InsightsViewModel: ObservableObject {
                 reminderResponse: responseState,
                 focusSessions: focusSessions
             )
-
-            if self.systemsState != state {
-                self.systemsState = state
+            let nextState = state
+            DispatchQueue.main.async {
+                defer { TaskerPerformanceTrace.end(interval) }
+                guard let self else { return }
+                if self.systemsState != nextState {
+                    self.systemsState = nextState
+                }
+                if self.todayState.level != nextState.level {
+                    var today = self.todayState
+                    today.level = nextState.level
+                    self.todayState = today
+                }
+                self.completeRefresh(for: .systems, version: version)
             }
-            if self.todayState.level != state.level {
-                var today = self.todayState
-                today.level = state.level
-                self.todayState = today
-            }
-            self.completeRefresh(for: .systems, version: version)
         }
     }
 

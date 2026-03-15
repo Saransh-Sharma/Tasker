@@ -1240,7 +1240,7 @@ final class HomeSearchState: ObservableObject {
             performSearch(refreshGeneration: UInt64(nextRevision))
             return
         }
-        logWarning(
+        logDebug(
             event: "searchRefresh",
             message: "Home search refresh requested",
             fields: [
@@ -1269,7 +1269,7 @@ final class HomeSearchState: ObservableObject {
         )
         lastExecutedSignature = signature
         needsRefreshOnNextActivation = false
-        logWarning(
+        logDebug(
             event: "searchPerform",
             message: "Home search execution started",
             fields: [
@@ -1390,6 +1390,8 @@ struct HomeBackdropForedropRootView: View {
     @State private var hasAutoFocusedSearchField = false
     @State private var searchDraftQuery = ""
     @State private var pendingSearchCommitTask: Task<Void, Never>?
+    @State private var hasMountedSearchSurface = false
+    @State private var hasMountedAnalyticsSurface = false
 
     private static let foredropHintLaunchDelay: TimeInterval = 0.10
     private static let foredropHintPeekDistance: CGFloat = 24
@@ -1422,18 +1424,14 @@ struct HomeBackdropForedropRootView: View {
     }
     private var isSearchOpen: Bool { activeFace == .search }
     private var isBackFaceVisible: Bool { activeFace.isBackFace }
-    private var foredropFlipTransition: AnyTransition {
-        if reduceMotion || isUITesting || shellPhase != .interactive || (layoutClass.isPad && V2FeatureFlags.iPadPerfHomeAnimationTrimV3Enabled) {
-            return .opacity
-        }
-        return .coverFlip(blurStrength: 3.5)
-    }
     private var foredropFlipAnimation: Animation {
         let duration: TimeInterval
         if reduceMotion || isUITesting {
             duration = 0.2
         } else if layoutClass.isPad && V2FeatureFlags.iPadPerfHomeAnimationTrimV3Enabled {
             duration = 0.12
+        } else if layoutClass == .phone {
+            duration = 0.16
         } else {
             duration = 0.42
         }
@@ -1593,6 +1591,8 @@ struct HomeBackdropForedropRootView: View {
             isHomeVisible = true
             hasAutoFocusedSearchField = false
             searchDraftQuery = searchState.query
+            hasMountedSearchSurface = activeFace == .search
+            hasMountedAnalyticsSurface = activeFace == .analytics
             refreshReflectionClaimState()
             triggerForedropHintIfEligible()
         }
@@ -1605,6 +1605,11 @@ struct HomeBackdropForedropRootView: View {
         }
         .onChange(of: activeFace) { _, newValue in
             forcedFace?.wrappedValue = newValue
+            if newValue == .search {
+                hasMountedSearchSurface = true
+            } else if newValue == .analytics {
+                hasMountedAnalyticsSurface = true
+            }
             if newValue != .search {
                 isSearchFieldFocused = false
                 cancelPendingSearchCommit()
@@ -1888,18 +1893,20 @@ struct HomeBackdropForedropRootView: View {
     /// Executes foredropLayer.
     private func foredropLayer(taskListBottomInset: CGFloat) -> some View {
         ZStack {
-            if activeFace == .tasks {
+            persistentFace(.tasks) {
                 foredropFrontFace(taskListBottomInset: taskListBottomInset)
-                    .transition(foredropFlipTransition)
-                    .zIndex(1)
-            } else if activeFace == .analytics {
-                foredropAnalyticsFace()
-                    .transition(foredropFlipTransition)
-                    .zIndex(1)
-            } else {
-                foredropSearchFace(taskListBottomInset: taskListBottomInset)
-                    .transition(foredropFlipTransition)
-                    .zIndex(1)
+            }
+
+            if hasMountedAnalyticsSurface || activeFace == .analytics {
+                persistentFace(.analytics) {
+                    foredropAnalyticsFace()
+                }
+            }
+
+            if hasMountedSearchSurface || activeFace == .search {
+                persistentFace(.search) {
+                    foredropSearchFace(taskListBottomInset: taskListBottomInset)
+                }
             }
         }
         .frame(
@@ -1912,6 +1919,19 @@ struct HomeBackdropForedropRootView: View {
         .accessibilityIdentifier("home.foredrop.surface")
         .accessibilityValue(activeFace.surfaceAccessibilityValue)
         .animation(foredropFlipAnimation, value: activeFace)
+    }
+
+    private func persistentFace<Content: View>(
+        _ face: HomeForedropFace,
+        @ViewBuilder content: () -> Content
+    ) -> some View {
+        let isVisible = activeFace == face
+        return content()
+            .opacity(isVisible ? 1 : 0.001)
+            .offset(x: isVisible ? 0 : (layoutClass.isPad ? 0 : (face == .tasks ? 0 : 10)))
+            .allowsHitTesting(isVisible)
+            .accessibilityHidden(!isVisible)
+            .zIndex(isVisible ? 1 : 0)
     }
 
     private var handleBar: some View {
