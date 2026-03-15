@@ -51,7 +51,7 @@ struct PersistentStoreLoadReport {
     let errors: [NSError]
 }
 
-enum CloudKitMirroringMode {
+enum CloudKitMirroringMode: Equatable {
     case enabled
     case disabled(reason: String)
 
@@ -62,6 +62,25 @@ enum CloudKitMirroringMode {
         case .disabled(let reason):
             return reason
         }
+    }
+}
+
+struct CloudKitRuntimeContext {
+    let environment: [String: String]
+    let arguments: [String]
+    let isSimulator: Bool
+
+    static func current(processInfo: ProcessInfo = .processInfo) -> Self {
+#if targetEnvironment(simulator)
+        let isSimulator = true
+#else
+        let isSimulator = false
+#endif
+        return Self(
+            environment: processInfo.environment,
+            arguments: processInfo.arguments,
+            isSimulator: isSimulator
+        )
     }
 }
 
@@ -809,24 +828,25 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
     ///
     /// Keep CloudKit mirroring off in simulator/XCTest runs to avoid startup crashes in
     /// unsigned test hosts where runtime entitlements are unavailable.
-    private func cloudKitMirroringMode() -> CloudKitMirroringMode {
-        let processInfo = ProcessInfo.processInfo
-        let environment = processInfo.environment
-
-        if environment["XCTestConfigurationFilePath"] != nil || environment["XCInjectBundleInto"] != nil {
+    func cloudKitMirroringMode(
+        context: CloudKitRuntimeContext = .current()
+    ) -> CloudKitMirroringMode {
+        if context.environment["XCTestConfigurationFilePath"] != nil ||
+            context.environment["XCInjectBundleInto"] != nil {
             return .disabled(reason: "xctest_runtime")
         }
 
-        #if targetEnvironment(simulator)
-        return .disabled(reason: "simulator_runtime")
-        #else
-            #if DEBUG
-            if processInfo.arguments.contains("-TASKER_DISABLE_CLOUDKIT") {
+        if context.isSimulator {
+            return .disabled(reason: "simulator_runtime")
+        }
+
+        #if DEBUG
+            if context.arguments.contains("-TASKER_DISABLE_CLOUDKIT") {
                 return .disabled(reason: "launch_arg_disable_cloudkit")
             }
-            #endif
-            return .enabled
         #endif
+
+        return .enabled
     }
 
     private func logCloudKitPreflightTelemetry() {
@@ -841,6 +861,19 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
                 "mirroring_mode": mirroringMode.reason
             ]
         )
+
+        guard case .enabled = mirroringMode else {
+            logWarning(
+                event: "cloudkit_preflight_skipped",
+                message: "Skipped CloudKit account status preflight because runtime disables CloudKit",
+                fields: [
+                    "container_id": cloudKitContainerIdentifier,
+                    "entitlement_present": String(entitlementPresent),
+                    "mirroring_mode": mirroringMode.reason
+                ]
+            )
+            return
+        }
 
         CKContainer(identifier: cloudKitContainerIdentifier).accountStatus { status, error in
             var fields: [String: String] = [

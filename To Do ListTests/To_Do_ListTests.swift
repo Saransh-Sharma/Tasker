@@ -12,6 +12,81 @@ import UserNotifications
 import MLXLMCommon
 @testable import To_Do_List
 
+final class AppDelegateCloudKitPreflightTests: XCTestCase {
+
+    func testCloudKitMirroringModeDisablesForXCTestConfigurationRuntime() {
+        let appDelegate = AppDelegate()
+
+        let mode = appDelegate.cloudKitMirroringMode(
+            context: CloudKitRuntimeContext(
+                environment: ["XCTestConfigurationFilePath": "/tmp/test.xctestconfiguration"],
+                arguments: [],
+                isSimulator: false
+            )
+        )
+
+        XCTAssertEqual(mode, .disabled(reason: "xctest_runtime"))
+    }
+
+    func testCloudKitMirroringModeDisablesForInjectedTestHostRuntime() {
+        let appDelegate = AppDelegate()
+
+        let mode = appDelegate.cloudKitMirroringMode(
+            context: CloudKitRuntimeContext(
+                environment: ["XCInjectBundleInto": "/tmp/This Day.app/This Day"],
+                arguments: [],
+                isSimulator: false
+            )
+        )
+
+        XCTAssertEqual(mode, .disabled(reason: "xctest_runtime"))
+    }
+
+    func testCloudKitMirroringModeDisablesForSimulatorRuntime() {
+        let appDelegate = AppDelegate()
+
+        let mode = appDelegate.cloudKitMirroringMode(
+            context: CloudKitRuntimeContext(
+                environment: [:],
+                arguments: [],
+                isSimulator: true
+            )
+        )
+
+        XCTAssertEqual(mode, .disabled(reason: "simulator_runtime"))
+    }
+
+#if DEBUG
+    func testCloudKitMirroringModeDisablesForLaunchArgumentOverride() {
+        let appDelegate = AppDelegate()
+
+        let mode = appDelegate.cloudKitMirroringMode(
+            context: CloudKitRuntimeContext(
+                environment: [:],
+                arguments: ["-TASKER_DISABLE_CLOUDKIT"],
+                isSimulator: false
+            )
+        )
+
+        XCTAssertEqual(mode, .disabled(reason: "launch_arg_disable_cloudkit"))
+    }
+#endif
+
+    func testCloudKitMirroringModeEnablesForSupportedRuntime() {
+        let appDelegate = AppDelegate()
+
+        let mode = appDelegate.cloudKitMirroringMode(
+            context: CloudKitRuntimeContext(
+                environment: [:],
+                arguments: [],
+                isSimulator: false
+            )
+        )
+
+        XCTAssertEqual(mode, .enabled)
+    }
+}
+
 // MARK: - Legacy test compatibility shims
 
 typealias Task = TaskDefinition
