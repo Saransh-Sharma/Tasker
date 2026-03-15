@@ -6,33 +6,51 @@
 import Foundation
 import MLXLMCommon
 
+private enum LLMModelStopTokenRegistry {
+    static let llama: Set<String> = [
+        "<|eot_id|>"
+    ]
+
+    static let qwenStyle: Set<String> = [
+        "<｜end▁of▁sentence｜>",
+        "<|im_end|>"
+    ]
+
+}
+
 struct LLMChatBudgets {
     let maxThreadMessages: Int
     let maxPromptChars: Int
+    let maxContextChars: Int
     let maxProjectionTasksPerSlice: Int
     let projectionTimeoutMs: UInt64
     let contextCacheTTLms: UInt64
     let outputMinUpdateIntervalMs: UInt64
     let outputTokenStride: Int
+    let includeRecapMessage: Bool
 
     static let bounded = LLMChatBudgets(
-        maxThreadMessages: 40,
-        maxPromptChars: 18_000,
-        maxProjectionTasksPerSlice: 120,
+        maxThreadMessages: 6,
+        maxPromptChars: 2_400,
+        maxContextChars: 900,
+        maxProjectionTasksPerSlice: 32,
         projectionTimeoutMs: 450,
         contextCacheTTLms: 2_000,
-        outputMinUpdateIntervalMs: 60,
-        outputTokenStride: 24
+        outputMinUpdateIntervalMs: 100,
+        outputTokenStride: 32,
+        includeRecapMessage: false
     )
 
     static let full = LLMChatBudgets(
         maxThreadMessages: 500,
         maxPromptChars: 120_000,
+        maxContextChars: 9_000,
         maxProjectionTasksPerSlice: 1_000,
         projectionTimeoutMs: 800,
         contextCacheTTLms: 0,
-        outputMinUpdateIntervalMs: 24,
-        outputTokenStride: 8
+        outputMinUpdateIntervalMs: 100,
+        outputTokenStride: 32,
+        includeRecapMessage: true
     )
 
     static var active: LLMChatBudgets {
@@ -64,31 +82,38 @@ public extension ModelConfiguration {
 
 public extension ModelConfiguration {
     static let llama_3_2_1b_4bit = ModelConfiguration(
-        id: "mlx-community/Llama-3.2-1B-Instruct-4bit"
+        id: "mlx-community/Llama-3.2-1B-Instruct-4bit",
+        extraEOSTokens: LLMModelStopTokenRegistry.llama
     )
 
     static let llama_3_2_3b_4bit = ModelConfiguration(
-        id: "mlx-community/Llama-3.2-3B-Instruct-4bit"
+        id: "mlx-community/Llama-3.2-3B-Instruct-4bit",
+        extraEOSTokens: LLMModelStopTokenRegistry.llama
     )
 
     static let deepseek_r1_distill_qwen_1_5b_4bit = ModelConfiguration(
-        id: "mlx-community/DeepSeek-R1-Distill-Qwen-1.5B-4bit"
+        id: "mlx-community/DeepSeek-R1-Distill-Qwen-1.5B-4bit",
+        extraEOSTokens: LLMModelStopTokenRegistry.qwenStyle
     )
 
     static let deepseek_r1_distill_qwen_1_5b_8bit = ModelConfiguration(
-        id: "mlx-community/DeepSeek-R1-Distill-Qwen-1.5B-8bit"
+        id: "mlx-community/DeepSeek-R1-Distill-Qwen-1.5B-8bit",
+        extraEOSTokens: LLMModelStopTokenRegistry.qwenStyle
     )
 
     static let qwen_3_0_6b_4bit = ModelConfiguration(
-        id: "mlx-community/Qwen3-0.6B-4bit"
+        id: "mlx-community/Qwen3-0.6B-4bit",
+        extraEOSTokens: LLMModelStopTokenRegistry.qwenStyle
     )
 
     static let qwen_3_4b_4bit = ModelConfiguration(
-        id: "mlx-community/Qwen3-4B-4bit"
+        id: "mlx-community/Qwen3-4B-4bit",
+        extraEOSTokens: LLMModelStopTokenRegistry.qwenStyle
     )
 
     static let qwen_3_8b_4bit = ModelConfiguration(
-        id: "mlx-community/Qwen3-8B-4bit"
+        id: "mlx-community/Qwen3-8B-4bit",
+        extraEOSTokens: LLMModelStopTokenRegistry.qwenStyle
     )
 
     static var availableModels: [ModelConfiguration] = [
@@ -129,7 +154,7 @@ public extension ModelConfiguration {
 
         let clippedByCount = Array(normalizedMessages.suffix(budgets.maxThreadMessages))
         let droppedPrefix = Array(normalizedMessages.prefix(max(0, normalizedMessages.count - clippedByCount.count)))
-        if droppedPrefix.isEmpty == false {
+        if budgets.includeRecapMessage && droppedPrefix.isEmpty == false {
             promptHistory.append([
                 "role": "system",
                 "content": buildRecapMessage(from: droppedPrefix)
@@ -146,14 +171,24 @@ public extension ModelConfiguration {
             let role = message.role.rawValue
             if AssistantCardCodec.isCard(message.content) {
                 guard let payload = AssistantCardCodec.decode(from: message.content) else { return nil }
+                guard let summarized = summarizedAssistantCardContent(from: payload) else { return nil }
                 return [
                     "role": role,
-                    "content": "[assistant_card \(payload.cardType.rawValue) \(payload.status.rawValue)]"
+                    "content": summarized
                 ]
+            }
+            guard let sanitized = formatForTokenizer(message.content) else { return nil }
+            if message.role == .assistant,
+               LLMChatQualityGate.assess(
+                sanitized,
+                userPrompt: nil,
+                terminationReason: nil
+               ).isAcceptable == false {
+                return nil
             }
             return [
                 "role": role,
-                "content": formatForTokenizer(message.content)
+                "content": sanitized
             ]
         }
     }
@@ -255,19 +290,59 @@ public extension ModelConfiguration {
 
     // TODO: Remove this function when Jinja gets updated
     /// Executes formatForTokenizer.
-    func formatForTokenizer(_ message: String) -> String {
+    func formatForTokenizer(_ message: String) -> String? {
+        let sanitized = LLMChatTextSanitizer.sanitizeForPromptHistory(
+            message,
+            stripReasoningBlocks: modelType == .reasoning
+        )
+        guard let sanitized else { return nil }
         if modelType == .reasoning {
-            let pattern = "<think>.*?(</think>|$)"
-            do {
-                let regex = try NSRegularExpression(pattern: pattern, options: [.dotMatchesLineSeparators])
-                let range = NSRange(location: 0, length: message.utf16.count)
-                let formattedMessage = regex.stringByReplacingMatches(in: message, options: [], range: range, withTemplate: "")
-                return " " + formattedMessage
-            } catch {
-                return " " + message
+            return " " + sanitized
+        }
+        return sanitized
+    }
+
+    private func summarizedAssistantCardContent(from payload: AssistantCardPayload) -> String? {
+        if let commandResult = payload.commandResult,
+           let summary = summarizedSlashCommandResult(commandResult),
+           let sanitized = formatForTokenizer(summary) {
+            return sanitized
+        }
+
+        if let message = payload.message,
+           let sanitized = formatForTokenizer(message) {
+            return sanitized
+        }
+
+        if let rationale = payload.rationale,
+           let sanitized = formatForTokenizer(rationale) {
+            return sanitized
+        }
+
+        return nil
+    }
+
+    private func summarizedSlashCommandResult(_ result: SlashCommandExecutionResult) -> String? {
+        var lines: [String] = []
+        lines.append("Slash command: \(result.commandLabel)")
+        lines.append("Summary: \(result.summary)")
+
+        for section in result.sections.prefix(3) {
+            lines.append("\(section.title):")
+            for item in section.tasks.prefix(4) {
+                var parts = [item.title]
+                if let dueLabel = item.dueLabel, dueLabel.isEmpty == false {
+                    parts.append(dueLabel)
+                }
+                if item.projectName.isEmpty == false {
+                    parts.append(item.projectName)
+                }
+                lines.append("- " + parts.joined(separator: " | "))
             }
         }
-        return message
+
+        let summary = lines.joined(separator: "\n")
+        return summary.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : summary
     }
 
     /// Returns the model's approximate size, in GB.

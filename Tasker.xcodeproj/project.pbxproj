@@ -3273,3 +3273,7 @@
 	};
 	rootObject = 753EFC922445A24500A739E3 /* Project object */;
 }
+		C1A2B3C4D5E6F70011223350 /* LLMInferenceEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = C1A2B3C4D5E6F70011223351 /* LLMInferenceEngine.swift */; };
+		C1A2B3C4D5E6F70011223351 /* LLMInferenceEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LLMInferenceEngine.swift; sourceTree = "<group>"; };
+				C1A2B3C4D5E6F70011223351 /* LLMInferenceEngine.swift */,
+				C1A2B3C4D5E6F70011223350 /* LLMInferenceEngine.swift in Sources */,

@@ -103,7 +103,7 @@ struct RequestLLMIntent: AppIntent {
         }
 
         if let modelName = appManager.currentModelName {
-            _ = try? await llm.load(modelName: modelName)
+            _ = try? await llm.prepare(modelName: modelName)
 
             let contextResult = await LLMChatContextEnvelopeBuilder.build(
                 timeoutMs: 800,

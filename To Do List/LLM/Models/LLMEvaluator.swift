@@ -4,12 +4,9 @@
 //
 //
 
-import MLX
-import MLXLLM
-import MLXLMCommon
-import MLXRandom
-import SwiftUI
 import Foundation
+import MLXLMCommon
+import SwiftUI
 
 enum LLMEvaluatorError: Error {
     case modelNotFound(String)
@@ -59,137 +56,79 @@ class LLMEvaluator {
     var collapsed: Bool = false
     var isThinking: Bool = false
     var lastGenerationTimedOut: Bool = false
+    var lastTerminationReason: String?
+    var lastGeneratedTokenCount: Int = 0
+    var lastVisibleCharacterCount: Int = 0
+    var lastSanitizedTemplateArtifacts: Bool = false
     var runtimePhase: LLMChatRuntimePhase = .idle
     var answerPhaseSignalCount: Int = 0
+    var loadedModelName: String?
 
     var elapsedTime: TimeInterval? {
-        if let startTime {
-            return Date().timeIntervalSince(startTime)
-        }
+        guard let startTime else { return nil }
+        return Date().timeIntervalSince(startTime)
+    }
 
-        return nil
+    var generationStartedAt: Date? {
+        startTime
     }
 
     private var startTime: Date?
     private var generationCancellationToken = LLMGenerationCancellationToken()
     private var didEmitAnswerPhaseSignalForRun = false
+    private let inferenceEngine: LLMInferenceEngine
 
     var modelConfiguration = ModelConfiguration.defaultModel
 
+    init(inferenceEngine: LLMInferenceEngine = LLMInferenceEngine()) {
+        self.inferenceEngine = inferenceEngine
+    }
+
     /// Executes switchModel.
     func switchModel(_ model: ModelConfiguration) async {
-        progress = 0.0 // reset progress
-        unload()
+        progress = 0.0
         modelConfiguration = model
-        _ = try? await load(modelName: model.name)
-    }
-
-    /// parameters controlling the output
-    let generateParameters = GenerateParameters(temperature: 0.5)
-    let maxTokens = 4096
-
-    enum LoadState {
-        case idle
-        case loaded(modelName: String, container: ModelContainer)
-    }
-
-    var loadState = LoadState.idle
-    private var inFlightLoadTask: (modelName: String, task: Task<ModelContainer, Error>)?
-
-    var loadedModelName: String? {
-        switch loadState {
-        case .idle:
-            return nil
-        case .loaded(let modelName, _):
-            return modelName
-        }
-    }
-
-    /// load and return the model -- can be called multiple times, subsequent calls will
-    /// just return the loaded model
-    func load(modelName: String) async throws -> ModelContainer {
-        guard let model = ModelConfiguration.getModelByName(modelName) else {
-            throw LLMEvaluatorError.modelNotFound(modelName)
-        }
-        modelConfiguration = model
-
-        switch loadState {
-        case let .loaded(loadedModelName, modelContainer):
-            if loadedModelName == modelName {
-                return modelContainer
-            }
-            unload()
-        case .idle:
-            break
-        }
-
-        if let inFlightLoadTask {
-            if inFlightLoadTask.modelName == modelName {
-                return try await inFlightLoadTask.task.value
-            }
-            inFlightLoadTask.task.cancel()
-            self.inFlightLoadTask = nil
-        }
-
-        // limit the buffer cache
-        MLX.GPU.set(cacheLimit: 20 * 1024 * 1024)
-
-        let task = Task<ModelContainer, Error> {
-            try await LLMModelFactory.shared.loadContainer(configuration: model) { progress in
-                _Concurrency.Task { @MainActor in
-                    self.modelInfo =
-                        "Downloading \(model.name): \(Int(progress.fractionCompleted * 100))%"
-                    self.progress = progress.fractionCompleted
-                }
-            }
-        }
-
-        inFlightLoadTask = (modelName, task)
-
-        do {
-            let modelContainer = try await task.value
-            modelInfo =
-                "Loaded \(model.id).  Weights: \(MLX.GPU.activeMemory / 1024 / 1024)M"
-            loadState = .loaded(modelName: modelName, container: modelContainer)
-            if inFlightLoadTask?.modelName == modelName {
-                inFlightLoadTask = nil
-            }
-            return modelContainer
-        } catch {
-            if inFlightLoadTask?.modelName == modelName {
-                inFlightLoadTask = nil
-            }
-            throw error
-        }
+        _ = try? await prepare(modelName: model.name)
     }
 
     func prepare(modelName: String) async throws -> PrepareResult {
-        let wasAlreadyLoaded = loadedModelName == modelName
-        _ = try await load(modelName: modelName)
-        return PrepareResult(wasAlreadyLoaded: wasAlreadyLoaded)
+        guard let model = ModelConfiguration.getModelByName(modelName) else {
+            throw LLMEvaluatorError.modelNotFound(modelName)
+        }
+
+        modelConfiguration = model
+        let prepareResult = try await inferenceEngine.prepare(modelName: modelName) { [weak self] fractionCompleted in
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                self.modelInfo = "Downloading \(model.name): \(Int(fractionCompleted * 100))%"
+                self.progress = fractionCompleted
+            }
+        }
+        loadedModelName = modelName
+        modelInfo = prepareResult.modelInfo
+        progress = 1.0
+        return PrepareResult(wasAlreadyLoaded: prepareResult.wasAlreadyLoaded)
     }
 
     func unload() {
-        inFlightLoadTask?.task.cancel()
-        inFlightLoadTask = nil
-        generationCancellationToken.cancel()
-        loadState = .idle
-        progress = 0
-        isThinking = false
-        running = false
-        cancelled = false
-        runtimePhase = .idle
-        modelInfo = "Model unloaded"
+        Task {
+            await unloadNow()
+        }
+    }
+
+    func unloadNow() async {
+        await inferenceEngine.unload()
+        resetRuntimeStateForUnload()
     }
 
     func cancelGeneration(reason: String = "unknown") {
         cancelled = true
         isThinking = false
-        if runtimePhase == .preparing {
-            inFlightLoadTask?.task.cancel()
-            inFlightLoadTask = nil
-        }
+        let shouldCancelLoad = runtimePhase == .preparing
         generationCancellationToken.cancel()
+        Task {
+            await inferenceEngine.cancelGeneration(cancelLoad: shouldCancelLoad)
+        }
         guard running else {
             if runtimePhase == .preparing || runtimePhase == .thinking || runtimePhase == .answering {
                 runtimePhase = .stopping
@@ -221,12 +160,18 @@ class LLMEvaluator {
         onFirstToken: (@MainActor () -> Void)? = nil
     ) async -> String {
         lastGenerationTimedOut = false
+        lastTerminationReason = nil
+        lastGeneratedTokenCount = 0
+        lastVisibleCharacterCount = 0
+        lastSanitizedTemplateArtifacts = false
+
         let timeoutMs = UInt64(max(profile.timeoutSeconds, 0) * 1_000)
         guard timeoutMs > 0 else {
             return await runGeneration(
                 modelName: modelName,
                 thread: thread,
                 systemPrompt: systemPrompt,
+                profile: profile,
                 onFirstToken: onFirstToken
             )
         }
@@ -237,6 +182,7 @@ class LLMEvaluator {
                 modelName: modelName,
                 thread: thread,
                 systemPrompt: systemPrompt,
+                profile: profile,
                 onFirstToken: onFirstToken
             )
         }
@@ -253,24 +199,25 @@ class LLMEvaluator {
         modelName: String,
         thread: Thread,
         systemPrompt: String,
+        profile: LLMGenerationProfile,
         onFirstToken: (@MainActor () -> Void)?
     ) async -> String {
         guard !running else { return "" }
-
-        let streamBudgets = LLMChatBudgets.active
-        let outputTokenStride = max(1, streamBudgets.outputTokenStride)
-        let outputMinUpdateNanoseconds = streamBudgets.outputMinUpdateIntervalMs * 1_000_000
+        guard let model = ModelConfiguration.getModelByName(modelName) else {
+            runtimePhase = .failed
+            output = "Failed: model not found"
+            return output
+        }
 
         running = true
         cancelled = false
         output = ""
         stat = ""
+        progress = 0.0
         thinkingTime = nil
         startTime = Date()
         runtimePhase = .preparing
         didEmitAnswerPhaseSignalForRun = false
-        let generationStartedAt = Date()
-        let prewarmHit = loadedModelName == modelName
 
         let runCancellationToken = LLMGenerationCancellationToken()
         generationCancellationToken = runCancellationToken
@@ -286,32 +233,18 @@ class LLMEvaluator {
         }
 
         do {
-            let modelContainer = try await load(modelName: modelName)
-            if Task.isCancelled || runCancellationToken.isCancelled {
-                throw CancellationError()
-            }
-            let isReasoningModel = await modelContainer.configuration.modelType == .reasoning
-            if isReasoningModel {
-                runtimePhase = .thinking
-                isThinking = true
-            } else {
-                runtimePhase = .answering
-                isThinking = false
-            }
+            modelConfiguration = model
 
-            var firstTokenLogged = false
-            var lastOutputUpdateNanoseconds: UInt64 = 0
-            var decodedTokenCount = 0
-            var streamedOutputText = ""
-
-            // augment the prompt as needed
             let promptBuildStartedAt = Date()
-            let promptHistory = await modelContainer.configuration.getPromptHistory(thread: thread, systemPrompt: systemPrompt)
+            let promptHistory = model.getPromptHistory(thread: thread, systemPrompt: systemPrompt)
             if Task.isCancelled || runCancellationToken.isCancelled {
                 throw CancellationError()
             }
             let promptBuildMs = Int(Date().timeIntervalSince(promptBuildStartedAt) * 1_000)
             let promptChars = promptHistory.reduce(0) { partial, item in
+                partial + (item["content"]?.count ?? 0)
+            }
+            let promptHistoryChars = promptHistory.dropFirst().reduce(0) { partial, item in
                 partial + (item["content"]?.count ?? 0)
             }
             logWarning(
@@ -321,125 +254,69 @@ class LLMEvaluator {
                     "model_name": modelName,
                     "duration_ms": String(promptBuildMs),
                     "message_count": String(promptHistory.count),
-                    "prompt_chars": String(promptChars)
+                    "system_prompt_chars": String(systemPrompt.count),
+                    "prompt_history_chars": String(promptHistoryChars),
+                    "final_prompt_chars": String(promptChars)
                 ]
             )
 
-            // each time you generate you will get something new
-            MLXRandom.seed(UInt64(Date.timeIntervalSinceReferenceDate * 1000))
+            let isReasoningModel = model.modelType == .reasoning
+            if isReasoningModel {
+                runtimePhase = .thinking
+                isThinking = true
+            } else {
+                runtimePhase = .answering
+                isThinking = false
+            }
+
+            let generationResult = try await inferenceEngine.generate(
+                modelName: modelName,
+                promptHistory: promptHistory,
+                profile: profile,
+                onFirstToken: {
+                    Task { @MainActor in
+                        onFirstToken?()
+                    }
+                },
+                onStreamUpdate: { [weak self] update in
+                    Task { @MainActor [weak self] in
+                        self?.handleStreamUpdate(
+                            rawText: update.rawText,
+                            visibleText: update.visibleText,
+                            phaseTrigger: update.phaseTrigger,
+                            isReasoningModel: isReasoningModel,
+                            modelName: modelName
+                        )
+                    }
+                }
+            )
+
             if Task.isCancelled || runCancellationToken.isCancelled {
                 throw CancellationError()
             }
 
-            // Streaming generation using latest MLX APIs
-            let result = try await modelContainer.perform { context in
-                let input = try await context.processor.prepare(input: .init(messages: promptHistory))
-                if Task.isCancelled || runCancellationToken.isCancelled {
-                    throw CancellationError()
-                }
-
-                return try MLXLMCommon.generate(
-                    input: input,
-                    parameters: generateParameters,
-                    context: context
-                ) { tokens in
-                    if Task.isCancelled || runCancellationToken.isCancelled {
-                        return .stop
-                    }
-
-                    if !firstTokenLogged, !tokens.isEmpty {
-                        firstTokenLogged = true
-                        _Concurrency.Task { @MainActor in
-                            onFirstToken?()
-                            if isReasoningModel == false {
-                                self.markAnswerPhaseStarted(modelName: modelName, trigger: "first_token")
-                            }
-                        }
-                        let firstTokenLatencyMs = Int(Date().timeIntervalSince(generationStartedAt) * 1_000)
-                        _Concurrency.Task { @MainActor in
-                            logWarning(
-                                event: "chat_first_token_latency_ms",
-                                message: "First token latency measured for chat generation",
-                                fields: [
-                                    "model_name": modelName,
-                                    "latency_ms": String(firstTokenLatencyMs),
-                                    "prewarm_hit": prewarmHit ? "true" : "false"
-                                ]
-                            )
-                        }
-                    }
-
-                    let nowNanoseconds = DispatchTime.now().uptimeNanoseconds
-                    let shouldUpdateByStride = tokens.count % outputTokenStride == 0
-                    let shouldUpdateByTime = outputMinUpdateNanoseconds > 0 && (
-                        lastOutputUpdateNanoseconds == 0 ||
-                        nowNanoseconds &- lastOutputUpdateNanoseconds >= outputMinUpdateNanoseconds
-                    )
-                    let shouldPublishUpdate = shouldUpdateByStride || shouldUpdateByTime || tokens.count == 1
-
-                    if shouldPublishUpdate {
-                        lastOutputUpdateNanoseconds = nowNanoseconds
-                        if tokens.count < decodedTokenCount {
-                            // Fallback for unexpected token stream resets.
-                            decodedTokenCount = tokens.count
-                            streamedOutputText = context.tokenizer.decode(tokens: tokens)
-                        } else if tokens.count == decodedTokenCount {
-                            if streamedOutputText.isEmpty, !tokens.isEmpty {
-                                streamedOutputText = context.tokenizer.decode(tokens: tokens)
-                            }
-                        } else {
-                            let deltaTokens = Array(tokens.dropFirst(decodedTokenCount))
-                            let deltaText = context.tokenizer.decode(tokens: deltaTokens)
-                            streamedOutputText.append(deltaText)
-                            decodedTokenCount = tokens.count
-                        }
-                        let text = streamedOutputText
-                        _Concurrency.Task { @MainActor in
-                            self.handleStreamUpdate(
-                                text: text,
-                                isReasoningModel: isReasoningModel,
-                                modelName: modelName
-                            )
-                        }
-                    }
-
-                    if tokens.count >= self.maxTokens || runCancellationToken.isCancelled {
-                        return .stop
-                    }
-                    return .more
-                }
+            loadedModelName = modelName
+            progress = 1.0
+            if generationResult.output != output {
+                output = generationResult.output
             }
-
-            // Ensure the final output is captured
-            if Task.isCancelled || runCancellationToken.isCancelled {
-                throw CancellationError()
-            }
-            if result.output != output {
-                output = result.output
-            }
-
-            stat = " Tokens/second: \(String(format: "%.3f", result.tokensPerSecond))"
+            stat = " Tokens/second: \(String(format: "%.3f", generationResult.tokensPerSecond))"
             thinkingTime = elapsedTime
-            let firstResponseLatencyMs = Int(Date().timeIntervalSince(generationStartedAt) * 1_000)
-            logWarning(
-                event: "chat_first_response_latency_ms",
-                message: "First response latency measured for chat generation",
-                fields: [
-                    "model_name": modelName,
-                    "latency_ms": String(firstResponseLatencyMs),
-                    "tokens_per_second": String(format: "%.3f", result.tokensPerSecond),
-                    "prewarm_hit": prewarmHit ? "true" : "false"
-                ]
-            )
-
+            lastTerminationReason = generationResult.terminationReason
+            lastGeneratedTokenCount = generationResult.generationTokenCount
+            lastVisibleCharacterCount = generationResult.output.count
+            lastSanitizedTemplateArtifacts = generationResult.removedTemplateArtifacts
         } catch is CancellationError {
+            let cancellationReason = cancelled ? "user_cancel" : "timeout"
+            lastTerminationReason = cancellationReason
             logWarning(
                 event: "chat_generation_cancelled",
                 message: "Generation task cancelled before completion",
                 fields: [
                     "model_name": modelName,
                     "phase": runtimePhase.rawValue,
-                    "cancelled_flag": cancelled ? "true" : "false"
+                    "cancelled_flag": cancelled ? "true" : "false",
+                    "termination_reason": cancellationReason
                 ]
             )
         } catch {
@@ -460,22 +337,15 @@ class LLMEvaluator {
     }
 
     private func handleStreamUpdate(
-        text: String,
+        rawText: String,
+        visibleText: String,
+        phaseTrigger: String?,
         isReasoningModel: Bool,
         modelName: String
     ) {
-        output = text
-        if isReasoningModel {
-            if runtimePhase == .thinking {
-                if text.contains("</think>") {
-                    markAnswerPhaseStarted(modelName: modelName, trigger: "think_close")
-                } else if text.contains("<think>") == false &&
-                    text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false {
-                    markAnswerPhaseStarted(modelName: modelName, trigger: "reasoning_without_think_block")
-                }
-            }
-        } else {
-            markAnswerPhaseStarted(modelName: modelName, trigger: "non_reasoning_stream")
+        output = visibleText
+        if isReasoningModel, runtimePhase == .thinking, let phaseTrigger {
+            markAnswerPhaseStarted(modelName: modelName, trigger: phaseTrigger)
         }
     }
 
@@ -494,5 +364,25 @@ class LLMEvaluator {
                 "signal_count": String(answerPhaseSignalCount)
             ]
         )
+    }
+
+    private func resetRuntimeStateForUnload() {
+        loadedModelName = nil
+        progress = 0
+        output = ""
+        stat = ""
+        thinkingTime = nil
+        isThinking = false
+        running = false
+        cancelled = false
+        lastGenerationTimedOut = false
+        lastTerminationReason = nil
+        lastGeneratedTokenCount = 0
+        lastVisibleCharacterCount = 0
+        lastSanitizedTemplateArtifacts = false
+        answerPhaseSignalCount = 0
+        runtimePhase = .idle
+        startTime = nil
+        modelInfo = "Model unloaded"
     }
 }
