@@ -51,6 +51,9 @@
 		355015C0A77A72D864F1AC64 /* HomeForedropView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BF5D7161411B42651DF00D60 /* HomeForedropView.swift */; };
 		36235D01BFCF2D2001A39CCE /* To Do List/UseCases/Gamification/FocusSessionUseCase.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7CC4B584282446580AA72B44 /* To Do List/UseCases/Gamification/FocusSessionUseCase.swift */; };
 		37A2B8A6A25F06C72606019E /* To Do List/Domain/Mappers/TaskDefinitionMapper.swift in Sources */ = {isa = PBXBuildFile; fileRef = 592346DCA3C3FE56E12617C2 /* To Do List/Domain/Mappers/TaskDefinitionMapper.swift */; };
+		C1A2B3C4D5E6F70011223350 /* LLMInferenceEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = C1A2B3C4D5E6F70011223351 /* LLMInferenceEngine.swift */; };
+		C1A2B3C4D5E6F70011223352 /* ChatTranscriptSnapshot.swift in Sources */ = {isa = PBXBuildFile; fileRef = C1A2B3C4D5E6F70011223353 /* ChatTranscriptSnapshot.swift */; };
+		C1A2B3C4D5E6F70011223354 /* ChatTranscriptSnapshotTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C1A2B3C4D5E6F70011223355 /* ChatTranscriptSnapshotTests.swift */; };
 		3A549BEBEF3902410F96971A /* To Do List/View/FocusTimerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 37E2466DBE2A76A73458F530 /* To Do List/View/FocusTimerView.swift */; };
 		3AB385B89C00477CF14637A3 /* AddTaskPriorityPicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = DDFDBE1A33B827BB4D7FD04A /* AddTaskPriorityPicker.swift */; };
 		3D26E03F6D3A9571E7204553 /* To Do List/State/Repositories/CoreDataExternalSyncRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = 08CEBA82D3CB1ACE79D0E158 /* To Do List/State/Repositories/CoreDataExternalSyncRepository.swift */; };
@@ -814,9 +817,12 @@
 		C1256A6FF63A60FC9D9E82C2 /* TaskerWidgets/TaskerWidgetBundle.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = TaskerWidgets/TaskerWidgetBundle.swift; sourceTree = SOURCE_ROOT; };
 		C1429E78D48CAF30D016B671 /* NotificationTypesCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationTypesCard.swift; sourceTree = "<group>"; };
 		C1A2B3C4D5E6F70011223345 /* LLMRuntimeCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LLMRuntimeCoordinator.swift; sourceTree = "<group>"; };
+		C1A2B3C4D5E6F70011223351 /* LLMInferenceEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LLMInferenceEngine.swift; sourceTree = "<group>"; };
 		C1A2B3C4D5E6F70011223347 /* LLMProjectionTimeout.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LLMProjectionTimeout.swift; sourceTree = "<group>"; };
 		C1A2B3C4D5E6F70011223349 /* LLMRuntimeCoordinatorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LLMRuntimeCoordinatorTests.swift; sourceTree = "<group>"; };
 		C1A2B3C4D5E6F7001122334B /* LLMProjectionTimeoutTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LLMProjectionTimeoutTests.swift; sourceTree = "<group>"; };
+		C1A2B3C4D5E6F70011223353 /* ChatTranscriptSnapshot.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatTranscriptSnapshot.swift; sourceTree = "<group>"; };
+		C1A2B3C4D5E6F70011223355 /* ChatTranscriptSnapshotTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatTranscriptSnapshotTests.swift; sourceTree = "<group>"; };
 		C2C66FE334854F296A4203FD /* To Do List/Domain/Models/TagDefinition.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "To Do List/Domain/Models/TagDefinition.swift"; sourceTree = SOURCE_ROOT; };
 		C39FDE21811FCBE733038318 /* GetHomeFilteredTasksUseCaseTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = GetHomeFilteredTasksUseCaseTests.swift; sourceTree = "<group>"; };
 		A4C2E9F12B7D4C5581AA0004 /* HomeTaskMutationPayloadTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HomeTaskMutationPayloadTests.swift; sourceTree = "<group>"; };
@@ -1321,6 +1327,7 @@
 				A1F0D0B42F5A100100ABC001 /* AppOnboardingTests.swift */,
 				A1B2C3D42EAA11BB00CCDDEE /* LLMModelRegistryTests.swift */,
 				C1A2B3C4D5E6F70011223349 /* LLMRuntimeCoordinatorTests.swift */,
+				C1A2B3C4D5E6F70011223355 /* ChatTranscriptSnapshotTests.swift */,
 				C1A2B3C4D5E6F7001122334B /* LLMProjectionTimeoutTests.swift */,
 				F0A1B2C3D4E5F60718293A4D /* HomeFilterStateTests.swift */,
 				F0A1B2C3D4E5F60718293A4E /* HomeTaskSectionBuilderTests.swift */,
@@ -1882,6 +1889,7 @@
 				75F89F2C2DFC44E6009EDD8F /* Data.swift */,
 				75F89F2D2DFC44E6009EDD8F /* DeviceStat.swift */,
 				75F89F2E2DFC44E6009EDD8F /* LLMEvaluator.swift */,
+				C1A2B3C4D5E6F70011223351 /* LLMInferenceEngine.swift */,
 				A6E1D3F52F3C100100B1C2D3 /* AISuggestionService.swift */,
 				A6E1D3F72F3C100100B1C2D3 /* AssistantCardPayload.swift */,
 				A6E1D4022F3C120100B1C2D3 /* AIChatModeRouter.swift */,
@@ -1917,6 +1925,7 @@
 				75F89F332DFC44E6009EDD8F /* ChatView.swift */,
 				B1A000000000000000000014 /* ChatChromeComponents.swift */,
 				75F89F342DFC44E6009EDD8F /* ConversationView.swift */,
+				C1A2B3C4D5E6F70011223353 /* ChatTranscriptSnapshot.swift */,
 				93D25A779BBE1A1B798EFA4D /* SlashCommandPickerView.swift */,
 			);
 			path = Chat;
@@ -2485,6 +2494,7 @@
 				75F89F4A2DFC44E6009EDD8F /* Data.swift in Sources */,
 				75F89F4B2DFC44E6009EDD8F /* OnboardingView.swift in Sources */,
 				75F89F4C2DFC44E6009EDD8F /* LLMEvaluator.swift in Sources */,
+				C1A2B3C4D5E6F70011223350 /* LLMInferenceEngine.swift in Sources */,
 				A6E1D3F42F3C100100B1C2D3 /* AISuggestionService.swift in Sources */,
 				A6E1D3F62F3C100100B1C2D3 /* AssistantCardPayload.swift in Sources */,
 				A6E1D4012F3C120100B1C2D3 /* AIChatModeRouter.swift in Sources */,
@@ -2507,6 +2517,7 @@
 				75F89F4F2DFC44E6009EDD8F /* CreditsView.swift in Sources */,
 				75F89F502DFC44E6009EDD8F /* ChatsSettingsView.swift in Sources */,
 				75F89F512DFC44E6009EDD8F /* ConversationView.swift in Sources */,
+				C1A2B3C4D5E6F70011223352 /* ChatTranscriptSnapshot.swift in Sources */,
 				B1A000000000000000000004 /* ChatChromeComponents.swift in Sources */,
 				0F2D95B3C4177167351607FF /* SlashCommandPickerView.swift in Sources */,
 				75F89F522DFC44E6009EDD8F /* OnboardingInstallModelView.swift in Sources */,
@@ -2728,6 +2739,7 @@
 			files = (
 				A1B2C3D52EAA11BB00CCDDEE /* LLMModelRegistryTests.swift in Sources */,
 				C1A2B3C4D5E6F70011223348 /* LLMRuntimeCoordinatorTests.swift in Sources */,
+				C1A2B3C4D5E6F70011223354 /* ChatTranscriptSnapshotTests.swift in Sources */,
 				C1A2B3C4D5E6F7001122334A /* LLMProjectionTimeoutTests.swift in Sources */,
 				753EFCB52445A24700A739E3 /* To_Do_ListTests.swift in Sources */,
 				0512DBCE948D6692B0F1857F /* TaskerThemeManagerTests.swift in Sources */,
@@ -3273,15 +3285,3 @@
 	};
 	rootObject = 753EFC922445A24500A739E3 /* Project object */;
 }
-		C1A2B3C4D5E6F70011223350 /* LLMInferenceEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = C1A2B3C4D5E6F70011223351 /* LLMInferenceEngine.swift */; };
-		C1A2B3C4D5E6F70011223351 /* LLMInferenceEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LLMInferenceEngine.swift; sourceTree = "<group>"; };
-				C1A2B3C4D5E6F70011223351 /* LLMInferenceEngine.swift */,
-				C1A2B3C4D5E6F70011223350 /* LLMInferenceEngine.swift in Sources */,
-		C1A2B3C4D5E6F70011223352 /* ChatTranscriptSnapshot.swift in Sources */ = {isa = PBXBuildFile; fileRef = C1A2B3C4D5E6F70011223353 /* ChatTranscriptSnapshot.swift */; };
-		C1A2B3C4D5E6F70011223353 /* ChatTranscriptSnapshot.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatTranscriptSnapshot.swift; sourceTree = "<group>"; };
-				C1A2B3C4D5E6F70011223353 /* ChatTranscriptSnapshot.swift */,
-				C1A2B3C4D5E6F70011223352 /* ChatTranscriptSnapshot.swift in Sources */,
-		C1A2B3C4D5E6F70011223354 /* ChatTranscriptSnapshotTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C1A2B3C4D5E6F70011223355 /* ChatTranscriptSnapshotTests.swift */; };
-		C1A2B3C4D5E6F70011223355 /* ChatTranscriptSnapshotTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatTranscriptSnapshotTests.swift; sourceTree = "<group>"; };
-				C1A2B3C4D5E6F70011223355 /* ChatTranscriptSnapshotTests.swift */,
-				C1A2B3C4D5E6F70011223354 /* ChatTranscriptSnapshotTests.swift in Sources */,

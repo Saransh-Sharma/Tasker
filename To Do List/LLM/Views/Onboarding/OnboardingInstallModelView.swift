@@ -41,7 +41,6 @@ struct OnboardingInstallModelView: View {
     @State private var deviceSupportsMetal3: Bool = true
     @Binding var showOnboarding: Bool
     @State var selectedModel = ModelConfiguration.defaultModel
-    let suggestedModel = ModelConfiguration.defaultModel
 
     /// Executes sizeBadge.
     func sizeBadge(_ model: ModelConfiguration?) -> String? {

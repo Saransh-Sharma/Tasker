@@ -30,6 +30,7 @@ struct LLMSettingsView: View {
                                 .foregroundColor(Color.tasker(.textPrimary))
                         }
                     }
+                    .accessibilityIdentifier("llmSettings.chatsSettingsRow")
 
                     NavigationLink(destination: ModelsSettingsView()) {
                         HStack(spacing: TaskerTheme.Spacing.md) {
@@ -51,6 +52,7 @@ struct LLMSettingsView: View {
                                 .foregroundColor(Color.tasker(.textTertiary))
                         }
                     }
+                    .accessibilityIdentifier("llmSettings.modelsSettingsRow")
                 }
 
                 Section {} footer: {
@@ -68,6 +70,7 @@ struct LLMSettingsView: View {
             .scrollContentBackground(.hidden)
             .background(Color.tasker(.bgCanvas))
             .navigationTitle("settings")
+            .accessibilityIdentifier("llmSettings.view")
             #if os(iOS)
                 .navigationBarTitleDisplayMode(.inline)
             #endif

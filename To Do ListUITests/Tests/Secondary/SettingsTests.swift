@@ -203,4 +203,39 @@ class SettingsTests: BaseUITest {
             print("⚠️ LLM Settings not available - skipping test")
         }
     }
+
+    func testRecommendedModelIsPreselectedInInstallPicker() throws {
+        settingsPage = homePage.tapSettings()
+        XCTAssertTrue(settingsPage.verifyIsDisplayed(), "Settings should be displayed")
+
+        guard settingsPage.verifyLLMSettingsRowExists() else {
+            throw XCTSkip("LLM Settings not available in this configuration")
+        }
+
+        settingsPage.navigateToLLMSettings()
+
+        let llmSettingsView = app.descendants(matching: .any)[AccessibilityIdentifiers.LLMSettings.view]
+        XCTAssertTrue(llmSettingsView.waitForExistence(timeout: 8), "LLM settings should be displayed")
+
+        let modelsRow = app.descendants(matching: .any)[AccessibilityIdentifiers.LLMSettings.modelsSettingsRow]
+        XCTAssertTrue(modelsRow.waitForExistence(timeout: 8), "Models row should be displayed")
+        modelsRow.tap()
+
+        let modelsView = app.descendants(matching: .any)[AccessibilityIdentifiers.LLMSettings.modelsView]
+        XCTAssertTrue(modelsView.waitForExistence(timeout: 8), "Models view should be displayed")
+
+        let installModelButton = app.descendants(matching: .any)[AccessibilityIdentifiers.LLMSettings.installModelButton]
+        XCTAssertTrue(installModelButton.waitForExistence(timeout: 8), "Install model button should be displayed")
+        installModelButton.tap()
+
+        let modelPicker = app.descendants(matching: .any)[AccessibilityIdentifiers.LLMModelPicker.view]
+        XCTAssertTrue(modelPicker.waitForExistence(timeout: 8), "Model picker should be displayed")
+
+        let recommendedBadge = app.descendants(matching: .any)[AccessibilityIdentifiers.LLMModelPicker.recommendedBadge]
+        XCTAssertTrue(recommendedBadge.waitForExistence(timeout: 8), "Recommended badge should be visible")
+
+        let recommendedRow = app.buttons[AccessibilityIdentifiers.LLMModelPicker.recommendedRow]
+        XCTAssertTrue(recommendedRow.waitForExistence(timeout: 8), "Recommended row should be visible")
+        XCTAssertEqual(recommendedRow.value as? String, "selected", "Recommended model should be preselected")
+    }
 }

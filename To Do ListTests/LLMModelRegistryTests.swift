@@ -65,6 +65,58 @@ final class LLMModelRegistryTests: XCTestCase {
         XCTAssertEqual(ModelConfiguration.defaultModel.name, qwenModelName)
     }
 
+    func testModelInstallPickerSectionsSurfaceDefaultModelAsRecommended() {
+        let sections = ModelInstallPickerSections.make(
+            installedModelNames: [],
+            availableMemory: 100,
+            memoryThreshold: 1
+        )
+
+        XCTAssertEqual(sections.recommendedModel?.name, qwenModelName)
+    }
+
+    func testModelInstallPickerSectionsExcludeRecommendedModelFromOtherModels() {
+        let sections = ModelInstallPickerSections.make(
+            installedModelNames: [],
+            availableMemory: 100,
+            memoryThreshold: 1
+        )
+
+        XCTAssertFalse(sections.otherModels.contains(where: { $0.name == qwenModelName }))
+    }
+
+    func testModelInstallPickerSectionsKeepRecommendedVisibleWhenOtherModelsInstalled() {
+        let sections = ModelInstallPickerSections.make(
+            installedModelNames: [ModelConfiguration.llama_3_2_1b_4bit.name],
+            availableMemory: 100,
+            memoryThreshold: 1
+        )
+
+        XCTAssertEqual(sections.installedModels, [ModelConfiguration.llama_3_2_1b_4bit.name])
+        XCTAssertEqual(sections.recommendedModel?.name, qwenModelName)
+    }
+
+    func testModelInstallPickerSectionsHideRecommendedWhenAlreadyInstalled() {
+        let sections = ModelInstallPickerSections.make(
+            installedModelNames: [qwenModelName],
+            availableMemory: 100,
+            memoryThreshold: 1
+        )
+
+        XCTAssertNil(sections.recommendedModel)
+    }
+
+    func testModelInstallPickerSectionsHideRecommendedWhenMemoryFilterExcludesIt() {
+        let sections = ModelInstallPickerSections.make(
+            installedModelNames: [],
+            availableMemory: 0,
+            memoryThreshold: 1
+        )
+
+        XCTAssertNil(sections.recommendedModel)
+        XCTAssertTrue(sections.otherModels.isEmpty)
+    }
+
     func testRetiredModelsAreNotDefaultModel() {
         XCTAssertNotEqual(ModelConfiguration.defaultModel.name, gemmaModelName)
         XCTAssertNotEqual(ModelConfiguration.defaultModel.name, nexVeridianQwenModelName)

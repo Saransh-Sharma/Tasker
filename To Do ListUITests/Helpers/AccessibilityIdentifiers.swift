@@ -257,6 +257,14 @@ enum AccessibilityIdentifiers {
         static let modelsSettingsRow = "llmSettings.modelsSettingsRow"
         static let chatsSettingsRow = "llmSettings.chatsSettingsRow"
         static let creditsRow = "llmSettings.creditsRow"
+        static let modelsView = "llmSettings.modelsView"
+        static let installModelButton = "llmSettings.installModelButton"
+    }
+
+    enum LLMModelPicker {
+        static let view = "llm.modelPicker.view"
+        static let recommendedRow = "llm.modelPicker.recommendedRow"
+        static let recommendedBadge = "llm.modelPicker.recommendedBadge"
     }
 
     // MARK: - Tab Bar

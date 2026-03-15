@@ -75,6 +75,7 @@ struct ModelsSettingsView: View {
                         .foregroundColor(Color.tasker(.accentPrimary))
                 }
             }
+            .accessibilityIdentifier("llmSettings.installModelButton")
             #if os(macOS)
             .buttonStyle(.borderless)
             #endif
@@ -83,6 +84,7 @@ struct ModelsSettingsView: View {
         .scrollContentBackground(.hidden)
         .background(Color.tasker(.bgCanvas))
         .navigationTitle("models")
+        .accessibilityIdentifier("llmSettings.modelsView")
         #if os(iOS)
         .navigationBarTitleDisplayMode(.inline)
         #endif
