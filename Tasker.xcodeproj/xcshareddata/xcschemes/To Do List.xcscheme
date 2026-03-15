@@ -33,8 +33,8 @@
             <BuildableReference
                BuildableIdentifier = "primary"
                BlueprintIdentifier = "753EFCAF2445A24700A739E3"
-               BuildableName = "TaskerTests.xctest"
-               BlueprintName = "TaskerTests"
+               BuildableName = "To Do ListTests.xctest"
+               BlueprintName = "To Do ListTests"
                ReferencedContainer = "container:Tasker.xcodeproj">
             </BuildableReference>
          </TestableReference>
@@ -43,8 +43,8 @@
             <BuildableReference
                BuildableIdentifier = "primary"
                BlueprintIdentifier = "753EFCBA2445A24800A739E3"
-               BuildableName = "TaskerUITests.xctest"
-               BlueprintName = "TaskerUITests"
+               BuildableName = "To Do ListUITests.xctest"
+               BlueprintName = "To Do ListUITests"
                ReferencedContainer = "container:Tasker.xcodeproj">
             </BuildableReference>
          </TestableReference>

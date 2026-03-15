@@ -1,0 +1,657 @@
+import SwiftUI
+
+struct ChatHeaderView: View {
+    let title: String
+    let subtitle: String
+    let onShowChats: () -> Void
+    let onShowSettings: () -> Void
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    var body: some View {
+        HStack(alignment: .top, spacing: TaskerTheme.Spacing.md) {
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Eva")
+                    .font(.tasker(.caption1))
+                    .foregroundStyle(Color.tasker(.textTertiary))
+
+                Text(title)
+                    .font(.tasker(.headline))
+                    .foregroundStyle(Color.tasker(.textPrimary))
+                    .lineLimit(1)
+
+                Text(subtitle)
+                    .font(.tasker(.caption1))
+                    .foregroundStyle(Color.tasker(.textSecondary))
+                    .lineLimit(2)
+            }
+
+            Spacer(minLength: TaskerTheme.Spacing.sm)
+
+            HStack(spacing: TaskerTheme.Spacing.xs) {
+                iconButton(
+                    systemName: "text.bubble",
+                    identifier: "chat.header.chats",
+                    label: "Chats",
+                    action: onShowChats
+                )
+                iconButton(
+                    systemName: "gearshape",
+                    identifier: "chat.header.settings",
+                    label: "Settings",
+                    action: onShowSettings
+                )
+            }
+        }
+        .padding(.horizontal, TaskerTheme.Spacing.lg)
+        .padding(.top, TaskerTheme.Spacing.sm)
+        .padding(.bottom, TaskerTheme.Spacing.sm)
+    }
+
+    private func iconButton(
+        systemName: String,
+        identifier: String,
+        label: String,
+        action: @escaping () -> Void
+    ) -> some View {
+        Button(action: action) {
+            Image(systemName: systemName)
+                .font(.system(size: 15, weight: .semibold))
+                .foregroundStyle(Color.tasker(.textSecondary))
+                .frame(width: 44, height: 44)
+                .taskerChromeSurface(
+                    cornerRadius: 22,
+                    accentColor: Color.tasker(.accentSecondary),
+                    level: .e1
+                )
+        }
+        .buttonStyle(.plain)
+        .accessibilityIdentifier(identifier)
+        .accessibilityLabel(label)
+        .taskerPressFeedback(reduceMotion: reduceMotion)
+    }
+}
+
+struct ChatModelPickerButton: View {
+    @Binding var isPresented: Bool
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    var body: some View {
+        Button {
+            isPresented.toggle()
+        } label: {
+            Group {
+                Image(systemName: "chevron.up")
+                    .resizable()
+                    .aspectRatio(contentMode: .fit)
+                #if os(iOS) || os(visionOS)
+                    .frame(width: 16)
+                #elseif os(macOS)
+                    .frame(width: 12)
+                #endif
+                    .fontWeight(.semibold)
+                    .foregroundStyle(Color.tasker(.accentPrimary))
+            }
+            #if os(iOS) || os(visionOS)
+            .frame(width: 48, height: 48)
+            #elseif os(macOS)
+            .frame(width: 32, height: 32)
+            #endif
+            .taskerChromeSurface(
+                cornerRadius: 24,
+                accentColor: Color.tasker(.accentSecondary),
+                level: .e1
+            )
+        }
+        #if os(macOS) || os(visionOS)
+        .buttonStyle(.plain)
+        #endif
+        .accessibilityLabel("Models")
+        .taskerPressFeedback(reduceMotion: reduceMotion)
+    }
+}
+
+struct ChatEmptyStateView: View {
+    let commandSuggestions: [SlashCommandDescriptor]
+    let onSelectSuggestion: (SlashCommandDescriptor) -> Void
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    var body: some View {
+        VStack(spacing: TaskerTheme.Spacing.lg) {
+            Spacer()
+
+            ZStack {
+                Circle()
+                    .fill(Color.tasker(.accentWash))
+                    .frame(width: 80, height: 80)
+                Image(systemName: "bubble.left.and.text.bubble.right")
+                    .font(.system(size: 32, weight: .light))
+                    .foregroundStyle(Color.tasker(.accentPrimary))
+                    .symbolEffect(
+                        .wiggle.byLayer,
+                        options: .repeat(.periodic(delay: 3.0)),
+                        isActive: !reduceMotion
+                    )
+            }
+
+            VStack(spacing: TaskerTheme.Spacing.xs) {
+                Text("ask Eva anything")
+                    .font(.tasker(.title2))
+                    .foregroundStyle(Color.tasker(.textPrimary))
+                    .accessibilityIdentifier("chat.emptyState.title")
+                Text("Type / for commands")
+                    .font(.tasker(.callout))
+                    .foregroundStyle(Color.tasker(.textTertiary))
+                    .multilineTextAlignment(.center)
+            }
+            .padding(.horizontal, TaskerTheme.Spacing.xl)
+            .padding(.vertical, TaskerTheme.Spacing.lg)
+            .taskerPremiumSurface(
+                cornerRadius: TaskerTheme.CornerRadius.xl,
+                fillColor: Color.tasker(.surfacePrimary),
+                strokeColor: Color.tasker(.strokeHairline),
+                accentColor: Color.tasker(.accentSecondary),
+                level: .e1
+            )
+
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: TaskerTheme.Spacing.sm) {
+                    ForEach(commandSuggestions, id: \.id) { descriptor in
+                        Button {
+                            onSelectSuggestion(descriptor)
+                        } label: {
+                            HStack(spacing: TaskerTheme.Spacing.xs) {
+                                Image(systemName: descriptor.id.icon)
+                                    .font(.tasker(.caption1))
+                                Text(descriptor.command)
+                                    .font(.tasker(.callout))
+                            }
+                            .foregroundStyle(Color.tasker(.accentPrimary))
+                            .padding(.horizontal, TaskerTheme.Spacing.md)
+                            .padding(.vertical, TaskerTheme.Spacing.sm)
+                            .background(Color.tasker(.accentWash))
+                            .clipShape(Capsule())
+                            .overlay(Capsule().stroke(Color.tasker(.accentMuted), lineWidth: 1))
+                        }
+                        .accessibilityLabel("Run command \(descriptor.command)")
+                        .accessibilityIdentifier("chat.command_suggestion.\(descriptor.id.rawValue)")
+                        .taskerPressFeedback(reduceMotion: reduceMotion)
+                    }
+                }
+                .padding(.horizontal, TaskerTheme.Spacing.xl)
+            }
+
+            Spacer()
+        }
+        .accessibilityIdentifier("chat.emptyState.container")
+    }
+}
+
+struct ChatComposerView: View {
+    let slashDraft: SlashCommandInvocation?
+    let commandFeedback: String?
+    let hasCurrentThread: Bool
+    @Binding var prompt: String
+    @FocusState.Binding var isPromptFocused: Bool
+    @FocusState.Binding var isProjectFieldFocused: Bool
+    let projectQuery: Binding<String>
+    let commandSuggestions: [SlashCommandDescriptor]
+    let isGenerationInFlight: Bool
+    let canSubmit: Bool
+    let llmCancelled: Bool
+    let onOpenSlashPicker: () -> Void
+    let onSelectSuggestion: (SlashCommandDescriptor) -> Void
+    let onCancelDraft: () -> Void
+    let onGenerate: () -> Void
+    let onStop: () -> Void
+    let onSubmitPrompt: () -> Void
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: TaskerTheme.Spacing.xs) {
+            if let slashDraft {
+                commandDraftRow(slashDraft)
+            }
+
+            if let commandFeedback, !commandFeedback.isEmpty {
+                Text(commandFeedback)
+                    .font(.tasker(.caption1))
+                    .foregroundStyle(Color.tasker(.statusDanger))
+                    .padding(.horizontal, TaskerTheme.Spacing.md)
+                    .accessibilityIdentifier("chat.command_feedback")
+                    .transition(.opacity)
+            }
+
+            if slashDraft == nil,
+               hasCurrentThread,
+               prompt.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                composerSuggestionStrip
+            }
+
+            HStack(alignment: .bottom, spacing: 0) {
+                slashButton
+
+                TextField("ask Eva anything...", text: $prompt, axis: .vertical)
+                    .focused($isPromptFocused)
+                    .textFieldStyle(.plain)
+                    .font(.tasker(.body))
+                    .foregroundStyle(Color.tasker(.textPrimary))
+                #if os(iOS) || os(visionOS)
+                    .padding(.horizontal, TaskerTheme.Spacing.md)
+                #elseif os(macOS)
+                    .padding(.horizontal, TaskerTheme.Spacing.md)
+                    .onSubmit(onSubmitPrompt)
+                    .submitLabel(.send)
+                #endif
+                    .padding(.vertical, TaskerTheme.Spacing.sm)
+                #if os(iOS) || os(visionOS)
+                    .frame(minHeight: 48)
+                    .onSubmit(onSubmitPrompt)
+                #elseif os(macOS)
+                    .frame(minHeight: 32)
+                #endif
+
+                if isGenerationInFlight {
+                    stopButton
+                } else {
+                    generateButton
+                }
+            }
+        }
+        #if os(iOS) || os(visionOS)
+        .padding(.vertical, TaskerTheme.Spacing.sm)
+        .padding(.horizontal, 2)
+        .taskerPremiumSurface(
+            cornerRadius: TaskerTheme.CornerRadius.xl,
+            fillColor: Color.tasker(.surfaceSecondary),
+            strokeColor: Color.tasker(.strokeHairline),
+            accentColor: Color.tasker(.accentSecondary),
+            level: .e2
+        )
+        #elseif os(macOS)
+        .background(
+            RoundedRectangle(cornerRadius: 16)
+                .fill(Color.tasker(.surfaceSecondary))
+        )
+        #endif
+        .accessibilityIdentifier("chat.composer.container")
+    }
+
+    private var composerSuggestionStrip: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: TaskerTheme.Spacing.xs) {
+                ForEach(commandSuggestions, id: \.id) { descriptor in
+                    Button {
+                        onSelectSuggestion(descriptor)
+                    } label: {
+                        HStack(spacing: 6) {
+                            Image(systemName: descriptor.id.icon)
+                                .font(.tasker(.caption2))
+                            Text(descriptor.command)
+                                .font(.tasker(.caption1))
+                        }
+                        .foregroundStyle(Color.tasker(.accentPrimary))
+                        .padding(.horizontal, TaskerTheme.Spacing.sm)
+                        .padding(.vertical, TaskerTheme.Spacing.xs)
+                        .background(Color.tasker(.accentWash))
+                        .clipShape(Capsule())
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("Insert \(descriptor.command)")
+                    .accessibilityIdentifier("chat.command_composer_suggestion.\(descriptor.id.rawValue)")
+                    .taskerPressFeedback(reduceMotion: reduceMotion)
+                }
+            }
+            .padding(.horizontal, TaskerTheme.Spacing.sm)
+        }
+        .transition(.opacity)
+    }
+
+    private var slashButton: some View {
+        Button(action: onOpenSlashPicker) {
+            Text("/")
+                .font(.tasker(.callout))
+                .fontWeight(.semibold)
+                .foregroundStyle(Color.tasker(.accentPrimary))
+                .frame(width: 32, height: 32)
+                .background(
+                    Circle()
+                        .fill(Color.tasker(.accentWash))
+                )
+                .overlay(
+                    Circle()
+                        .stroke(Color.tasker(.accentMuted), lineWidth: 1)
+                )
+        }
+        .padding(.leading, TaskerTheme.Spacing.sm)
+        .padding(.bottom, TaskerTheme.Spacing.xs)
+        .accessibilityLabel("Commands")
+        .accessibilityHint("Open slash commands")
+        .accessibilityIdentifier("chat.slash_button")
+        .taskerPressFeedback(reduceMotion: reduceMotion)
+    }
+
+    @ViewBuilder
+    private func commandDraftRow(_ invocation: SlashCommandInvocation) -> some View {
+        VStack(alignment: .leading, spacing: TaskerTheme.Spacing.xs) {
+            HStack(spacing: TaskerTheme.Spacing.xs) {
+                Label(invocation.id.canonicalCommand, systemImage: invocation.id.icon)
+                    .font(.tasker(.caption1))
+                    .foregroundStyle(Color.tasker(.accentPrimary))
+                    .padding(.horizontal, TaskerTheme.Spacing.sm)
+                    .padding(.vertical, TaskerTheme.Spacing.xs)
+                    .background(Color.tasker(.accentWash))
+                    .clipShape(Capsule())
+                    .accessibilityIdentifier("chat.command_chip.\(invocation.id.rawValue)")
+
+                Button(action: onCancelDraft) {
+                    Image(systemName: "xmark.circle.fill")
+                        .font(.tasker(.caption1))
+                        .foregroundStyle(Color.tasker(.textTertiary))
+                }
+                .buttonStyle(.plain)
+
+                Spacer()
+            }
+
+            if invocation.id == .project {
+                HStack(spacing: TaskerTheme.Spacing.xs) {
+                    Image(systemName: "folder")
+                        .font(.tasker(.caption1))
+                        .foregroundStyle(Color.tasker(.textTertiary))
+
+                    TextField("Pick project", text: projectQuery)
+                        .font(.tasker(.caption1))
+                        .textFieldStyle(.plain)
+                        .autocorrectionDisabled()
+                        .focused($isProjectFieldFocused)
+                        .accessibilityIdentifier("chat.command_project_field")
+
+                    if let projectName = invocation.projectName, !projectName.isEmpty {
+                        HStack(spacing: 4) {
+                            Image(systemName: "checkmark.circle.fill")
+                                .foregroundStyle(Color.tasker(.statusSuccess))
+                            Text(projectName)
+                                .font(.tasker(.caption1))
+                                .foregroundStyle(Color.tasker(.statusSuccess))
+                        }
+                    }
+                }
+                .padding(.horizontal, TaskerTheme.Spacing.sm)
+                .padding(.vertical, TaskerTheme.Spacing.sm)
+                .background(Color.tasker(.surfaceTertiary))
+                .clipShape(RoundedRectangle(cornerRadius: TaskerTheme.CornerRadius.md, style: .continuous))
+                .overlay(
+                    RoundedRectangle(cornerRadius: TaskerTheme.CornerRadius.md, style: .continuous)
+                        .stroke(Color.tasker(.strokeHairline), lineWidth: 1)
+                )
+                .padding(.horizontal, TaskerTheme.Spacing.sm)
+            }
+        }
+        .transition(.opacity)
+    }
+
+    private var generateButton: some View {
+        Button(action: onGenerate) {
+            Image(systemName: "arrow.up")
+                .font(.tasker(.buttonSmall))
+                .fontWeight(.semibold)
+                .foregroundStyle(canSubmit ? Color.tasker(.accentOnPrimary) : Color.tasker(.textQuaternary))
+            #if os(iOS) || os(visionOS)
+                .frame(width: 32, height: 32)
+            #else
+                .frame(width: 24, height: 24)
+            #endif
+                .background(
+                    Circle()
+                        .fill(canSubmit ? Color.tasker(.accentPrimary) : Color.tasker(.surfaceTertiary))
+                )
+        }
+        .disabled(!canSubmit)
+        .accessibilityIdentifier("chat.send_button")
+        #if os(iOS) || os(visionOS)
+            .padding(.trailing, TaskerTheme.Spacing.md)
+            .padding(.bottom, TaskerTheme.Spacing.xs)
+        #else
+            .padding(.trailing, TaskerTheme.Spacing.sm)
+            .padding(.bottom, TaskerTheme.Spacing.sm)
+        #endif
+        .animation(reduceMotion ? nil : TaskerAnimation.quick, value: canSubmit)
+        #if os(macOS) || os(visionOS)
+        .buttonStyle(.plain)
+        #endif
+    }
+
+    private var stopButton: some View {
+        Button(action: onStop) {
+            Image(systemName: "stop.fill")
+                .font(.caption)
+                .foregroundStyle(Color.tasker(.accentOnPrimary))
+            #if os(iOS) || os(visionOS)
+                .frame(width: 32, height: 32)
+            #else
+                .frame(width: 24, height: 24)
+            #endif
+                .background(
+                    Circle()
+                        .fill(Color.tasker(.statusDanger))
+                )
+        }
+        .disabled(llmCancelled)
+        .accessibilityIdentifier("chat.stop_button")
+        #if os(iOS) || os(visionOS)
+            .padding(.trailing, TaskerTheme.Spacing.md)
+            .padding(.bottom, TaskerTheme.Spacing.xs)
+        #else
+            .padding(.trailing, TaskerTheme.Spacing.sm)
+            .padding(.bottom, TaskerTheme.Spacing.sm)
+        #endif
+        #if os(macOS) || os(visionOS)
+        .buttonStyle(.plain)
+        #endif
+        .taskerPressFeedback(reduceMotion: reduceMotion)
+    }
+}
+
+struct ChatScaffoldView: View {
+    @EnvironmentObject private var appManager: AppManager
+    @Environment(LLMEvaluator.self) private var llm
+
+    @Binding var currentThread: Thread?
+    let generatingThreadID: UUID?
+    let isPreparingResponse: Bool
+    let prompt: Binding<String>
+    let isPromptFocused: FocusState<Bool>.Binding
+    let isProjectFieldFocused: FocusState<Bool>.Binding
+    let showChats: Binding<Bool>
+    let showSettings: Binding<Bool>
+    let showModelPicker: Binding<Bool>
+    let showSlashPicker: Binding<Bool>
+    let showClearConfirmation: Binding<Bool>
+    let slashDraft: Binding<SlashCommandInvocation?>
+    let slashPickerQuery: Binding<String>
+    let commandFeedback: String?
+    let projectQuery: Binding<String>
+    let commandSuggestions: [SlashCommandDescriptor]
+    let recentCommands: [SlashCommandDescriptor]
+    let popularCommands: [SlashCommandDescriptor]
+    let allCommands: [SlashCommandDescriptor]
+    let isGenerationInFlight: Bool
+    let canSubmit: Bool
+    let llmCancelled: Bool
+    let chatTitle: String
+    let onOpenTaskDetail: ((TaskDefinition) -> Void)?
+    let onOpenSlashPicker: () -> Void
+    let onSelectSuggestion: (SlashCommandDescriptor) -> Void
+    let onCancelDraft: () -> Void
+    let onGenerate: () -> Void
+    let onStop: () -> Void
+    let onSubmitPrompt: () -> Void
+    let onClearCurrentThread: () -> Void
+
+    var body: some View {
+        NavigationStack {
+            VStack(spacing: 0) {
+                ChatHeaderView(
+                    title: currentThread == nil ? "Planning workspace" : chatTitle,
+                    subtitle: currentThread == nil
+                        ? "Ask, plan, then apply with confirmation."
+                        : "Keep context tight, use commands when you want structured help.",
+                    onShowChats: {
+                        appManager.playHaptic()
+                        showChats.wrappedValue.toggle()
+                    },
+                    onShowSettings: {
+                        appManager.playHaptic()
+                        showSettings.wrappedValue.toggle()
+                    }
+                )
+
+                if let currentThread {
+                    ConversationView(
+                        thread: currentThread,
+                        generatingThreadID: generatingThreadID,
+                        isPreparingResponse: isPreparingResponse,
+                        onOpenTaskFromCard: { task in
+                            onOpenTaskDetail?(task)
+                        }
+                    )
+                } else {
+                    ChatEmptyStateView(
+                        commandSuggestions: commandSuggestions,
+                        onSelectSuggestion: onSelectSuggestion
+                    )
+                }
+
+                HStack(alignment: .bottom, spacing: TaskerTheme.Spacing.md) {
+                    ChatModelPickerButton(isPresented: showModelPicker)
+                    ChatComposerView(
+                        slashDraft: slashDraft.wrappedValue,
+                        commandFeedback: commandFeedback,
+                        hasCurrentThread: currentThread != nil,
+                        prompt: prompt,
+                        isPromptFocused: isPromptFocused,
+                        isProjectFieldFocused: isProjectFieldFocused,
+                        projectQuery: projectQuery,
+                        commandSuggestions: commandSuggestions,
+                        isGenerationInFlight: isGenerationInFlight,
+                        canSubmit: canSubmit,
+                        llmCancelled: llmCancelled,
+                        onOpenSlashPicker: onOpenSlashPicker,
+                        onSelectSuggestion: onSelectSuggestion,
+                        onCancelDraft: onCancelDraft,
+                        onGenerate: onGenerate,
+                        onStop: onStop,
+                        onSubmitPrompt: onSubmitPrompt
+                    )
+                }
+                .padding(.horizontal, TaskerTheme.Spacing.lg)
+                .padding(.bottom, TaskerTheme.Spacing.md)
+                .padding(.top, TaskerTheme.Spacing.sm)
+                .background(
+                    Color.tasker(.bgCanvas)
+                        .shadow(color: Color.tasker(.textPrimary).opacity(0.04), radius: 8, y: -4)
+                )
+            }
+            .background(Color.tasker(.bgCanvas))
+            .navigationTitle(chatTitle)
+            #if os(iOS) || os(visionOS)
+                .navigationBarTitleDisplayMode(.inline)
+                .navigationBarHidden(true)
+            #endif
+                .sheet(isPresented: showModelPicker) {
+                    NavigationStack {
+                        ModelsSettingsView()
+                            .environment(llm)
+                        #if os(visionOS)
+                            .toolbar {
+                                ToolbarItem(placement: .topBarLeading) {
+                                    Button(action: { showModelPicker.wrappedValue.toggle() }) {
+                                        Image(systemName: "xmark")
+                                    }
+                                }
+                            }
+                        #endif
+                    }
+                    #if os(iOS)
+                    .presentationBackground(Color.tasker(.bgElevated))
+                    .presentationCornerRadius(TaskerTheme.CornerRadius.xl)
+                    .presentationDragIndicator(.visible)
+                    .presentationDetents(appManager.userInterfaceIdiom == .phone ? [.medium] : [.large])
+                    #elseif os(macOS)
+                    .toolbar {
+                        ToolbarItem(placement: .destructiveAction) {
+                            Button(action: { showModelPicker.wrappedValue.toggle() }) {
+                                Text("close")
+                            }
+                        }
+                    }
+                    #endif
+                }
+                .sheet(isPresented: showSettings) {
+                    NavigationStack {
+                        LLMSettingsView(currentThread: $currentThread)
+                            .environment(llm)
+                        #if os(visionOS)
+                            .toolbar {
+                                ToolbarItem(placement: .topBarLeading) {
+                                    Button(action: { showSettings.wrappedValue.toggle() }) {
+                                        Image(systemName: "xmark")
+                                    }
+                                }
+                            }
+                        #endif
+                    }
+                    #if os(iOS)
+                    .presentationBackground(Color.tasker(.bgElevated))
+                    .presentationCornerRadius(TaskerTheme.CornerRadius.xl)
+                    .presentationDragIndicator(.visible)
+                    .presentationDetents(appManager.userInterfaceIdiom == .phone ? [.large] : [.large])
+                    #elseif os(macOS)
+                    .toolbar {
+                        ToolbarItem(placement: .destructiveAction) {
+                            Button(action: { showSettings.wrappedValue.toggle() }) {
+                                Text("close")
+                            }
+                        }
+                    }
+                    #endif
+                }
+                .sheet(isPresented: showSlashPicker) {
+                    SlashCommandPickerView(
+                        query: slashPickerQuery,
+                        recentCommands: recentCommands,
+                        popularCommands: popularCommands,
+                        allCommands: allCommands,
+                        onSelect: onSelectSuggestion
+                    )
+                    .presentationBackground(Color.tasker(.bgElevated))
+                    .presentationDragIndicator(.visible)
+                    .presentationDetents(appManager.userInterfaceIdiom == .phone ? [.medium, .large] : [.large])
+                }
+                .alert("Clear this chat?", isPresented: showClearConfirmation) {
+                    Button("Cancel", role: .cancel) {}
+                    Button("Clear", role: .destructive) {
+                        onClearCurrentThread()
+                    }
+                } message: {
+                    Text("This deletes all messages in the current thread.")
+                }
+                .toolbar {
+                    #if os(macOS)
+                    ToolbarItem(placement: .primaryAction) {
+                        Button(action: {
+                            appManager.playHaptic()
+                            showSettings.wrappedValue.toggle()
+                        }) {
+                            Label("settings", systemImage: "gear")
+                        }
+                    }
+                    #endif
+                }
+        }
+    }
+}

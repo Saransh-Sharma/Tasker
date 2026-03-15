@@ -276,6 +276,105 @@ private struct TaskerDenseSurfaceModifier: ViewModifier {
     }
 }
 
+private struct TaskerPremiumSurfaceModifier: ViewModifier {
+    let cornerRadius: CGFloat
+    let fillColor: Color
+    let strokeColor: Color
+    let accentColor: Color
+    let level: TaskerElevationLevel
+    let useNativeGlass: Bool
+
+    @ViewBuilder
+    private var fallbackSurface: some View {
+        let shape = RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+
+        shape
+            .fill(
+                LinearGradient(
+                    colors: [
+                        fillColor.opacity(0.98),
+                        fillColor.opacity(0.94)
+                    ],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
+            )
+            .overlay(
+                shape
+                    .fill(
+                        LinearGradient(
+                            colors: [
+                                accentColor.opacity(0.14),
+                                .clear,
+                                fillColor.opacity(0.08)
+                            ],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+            )
+            .overlay(
+                shape
+                    .stroke(strokeColor.opacity(0.88), lineWidth: 1)
+            )
+            .overlay(alignment: .top) {
+                Capsule(style: .continuous)
+                    .fill(
+                        LinearGradient(
+                            colors: [
+                                .white.opacity(0.34),
+                                .clear
+                            ],
+                            startPoint: .top,
+                            endPoint: .bottom
+                        )
+                    )
+                    .frame(height: max(16, cornerRadius * 0.9))
+                    .padding(.horizontal, cornerRadius * 0.85)
+                    .blur(radius: 1.5)
+                    .opacity(0.8)
+            }
+    }
+
+    @ViewBuilder
+    private var nativeGlassSurface: some View {
+        let shape = RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+
+        if #available(iOS 26.0, *), useNativeGlass {
+            shape
+                .fill(.clear)
+                .glassEffect(.regular, in: shape)
+                .overlay(
+                    shape
+                        .fill(
+                            LinearGradient(
+                                colors: [
+                                    fillColor.opacity(0.16),
+                                    accentColor.opacity(0.08),
+                                    .clear
+                                ],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
+                        )
+                )
+                .overlay(
+                    shape
+                        .stroke(strokeColor.opacity(0.72), lineWidth: 1)
+                )
+        } else {
+            fallbackSurface
+        }
+    }
+
+    @ViewBuilder
+    func body(content: Content) -> some View {
+        content
+            .background(nativeGlassSurface)
+            .taskerElevation(level, cornerRadius: cornerRadius, includesBorder: false)
+    }
+}
+
 public extension View {
     /// Executes taskerElevation.
     @MainActor
@@ -302,6 +401,46 @@ public extension View {
                 fillColor: resolvedFillColor,
                 strokeColor: resolvedStrokeColor,
                 lineWidth: lineWidth
+            )
+        )
+    }
+
+    @MainActor
+    func taskerPremiumSurface(
+        cornerRadius: CGFloat,
+        fillColor: Color? = nil,
+        strokeColor: Color? = nil,
+        accentColor: Color? = nil,
+        level: TaskerElevationLevel = .e2,
+        useNativeGlass: Bool = true
+    ) -> some View {
+        modifier(
+            TaskerPremiumSurfaceModifier(
+                cornerRadius: cornerRadius,
+                fillColor: fillColor ?? Color.tasker.surfacePrimary,
+                strokeColor: strokeColor ?? Color.tasker.strokeHairline,
+                accentColor: accentColor ?? Color.tasker.accentSecondary,
+                level: level,
+                useNativeGlass: useNativeGlass
+            )
+        )
+    }
+
+    @MainActor
+    func taskerChromeSurface(
+        cornerRadius: CGFloat,
+        accentColor: Color? = nil,
+        level: TaskerElevationLevel = .e1,
+        useNativeGlass: Bool = true
+    ) -> some View {
+        modifier(
+            TaskerPremiumSurfaceModifier(
+                cornerRadius: cornerRadius,
+                fillColor: Color.tasker.surfaceSecondary,
+                strokeColor: Color.tasker.strokeHairline.opacity(0.78),
+                accentColor: accentColor ?? Color.tasker.accentSecondary,
+                level: level,
+                useNativeGlass: useNativeGlass
             )
         )
     }
