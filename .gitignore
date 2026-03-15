@@ -8,6 +8,7 @@
 # Xcode
 build/
 build_test/
+build_debug/
 GoogleService-Info.plist
 
 *.pbxuser
