@@ -19,6 +19,7 @@ public struct HomeQuickFilterTriggerButton: View {
 
     /// Action when button is tapped
     let onTap: () -> Void
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.currentTheme.tokens.spacing }
     private var corner: TaskerCornerTokens { TaskerThemeManager.shared.currentTheme.tokens.corner }
@@ -46,7 +47,7 @@ public struct HomeQuickFilterTriggerButton: View {
                         .fill(Color.tasker.accentPrimary)
                         .frame(width: 8, height: 8)
                         .transition(.scale.combined(with: .opacity))
-                        .animation(TaskerAnimation.bouncy, value: summary.hasActiveFilters)
+                        .animation(reduceMotion ? nil : TaskerAnimation.bouncy, value: summary.hasActiveFilters)
                 }
 
                 // Primary text
@@ -68,7 +69,7 @@ public struct HomeQuickFilterTriggerButton: View {
                     .font(.system(size: 12, weight: .medium))
                     .foregroundColor(Color.tasker.textSecondary)
                     .rotationEffect(.degrees(isOpen ? 180 : 0))
-                    .animation(TaskerAnimation.quick, value: isOpen)
+                    .animation(reduceMotion ? nil : TaskerAnimation.quick, value: isOpen)
             }
             .padding(.horizontal, spacing.s12)
             .padding(.vertical, spacing.s8)
@@ -81,9 +82,9 @@ public struct HomeQuickFilterTriggerButton: View {
                 Capsule()
                     .stroke(borderColor, lineWidth: 1)
             )
-            .animation(TaskerAnimation.quick, value: summary.hasActiveFilters)
+            .animation(reduceMotion ? nil : TaskerAnimation.quick, value: summary.hasActiveFilters)
         }
-        .scaleOnPress()
+        .taskerPressFeedback(reduceMotion: reduceMotion)
         .accessibilityLabel(accessibilityLabel)
         .accessibilityHint(isOpen ? "Double tap to close filters" : "Double tap to open filters")
     }

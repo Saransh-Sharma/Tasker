@@ -90,25 +90,86 @@ public struct QuickViewSelector: View {
                 }
             }
         } label: {
-            HStack(spacing: 6) {
-                Text(selectedQuickView.title)
-                    .font(.tasker(.headline))
-                    .foregroundColor(Color.tasker.textPrimary)
+            HStack(spacing: 10) {
+                ZStack {
+                    Circle()
+                        .fill(selectionTint.opacity(colorScheme == .dark ? 0.24 : 0.16))
+                        .frame(width: 28, height: 28)
+
+                    Image(systemName: iconName(for: selectedQuickView))
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(selectionTint)
+                }
+
+                VStack(alignment: .leading, spacing: 1) {
+                    Text("Focus view")
+                        .font(.tasker(.caption2))
+                        .foregroundStyle(Color.tasker.textTertiary)
+
+                    Text(selectedQuickView.title)
+                        .font(.tasker(.callout))
+                        .fontWeight(.semibold)
+                        .foregroundStyle(Color.tasker.textPrimary)
+                }
+
+                if let count = taskCounts?[selectedQuickView] {
+                    Text("\(count)")
+                        .font(.tasker(.caption1))
+                        .fontWeight(.semibold)
+                        .foregroundStyle(Color.tasker.textSecondary)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 4)
+                        .background(
+                            Capsule(style: .continuous)
+                                .fill(Color.tasker.surfacePrimary.opacity(colorScheme == .dark ? 0.58 : 0.92))
+                        )
+                }
 
                 Image(systemName: "chevron.down")
-                    .font(.system(size: 10, weight: .semibold))
-                    .foregroundColor(Color.tasker.textSecondary)
+                    .font(.system(size: 10, weight: .bold))
+                    .foregroundStyle(Color.tasker.textSecondary)
+                    .rotationEffect(.degrees(2))
             }
-            .padding(.horizontal, 10)
-            .padding(.vertical, 6)
-            .background(
-                Capsule()
-                    .fill(Color.tasker.accentSecondaryMuted.opacity(colorScheme == .dark ? 0.44 : 0.68))
+            .padding(.horizontal, 12)
+            .padding(.vertical, 10)
+            .frame(minHeight: 44)
+            .taskerChromeSurface(
+                cornerRadius: 22,
+                accentColor: selectionTint,
+                level: .e1
             )
+            .contentShape(Capsule(style: .continuous))
+            .scaleOnPress()
         }
         .menuStyle(.borderlessButton)
         .accessibilityLabel("Quick view selector: \(selectedQuickView.title)")
         .accessibilityHint("Double tap to change view")
+    }
+
+    private var selectionTint: Color {
+        switch selectedQuickView {
+        case .overdue:
+            return Color.tasker.statusWarning
+        case .done:
+            return Color.tasker.statusSuccess
+        case .morning:
+            return Color.tasker.accentPrimary
+        case .evening:
+            return Color.tasker.accentSecondary
+        case .today, .upcoming:
+            return Color.tasker.accentPrimary
+        }
+    }
+
+    private func iconName(for quickView: HomeQuickView) -> String {
+        switch quickView {
+        case .today: return "sun.max.fill"
+        case .upcoming: return "calendar.badge.clock"
+        case .overdue: return "flame.fill"
+        case .done: return "checkmark.circle.fill"
+        case .morning: return "sunrise.fill"
+        case .evening: return "moon.stars.fill"
+        }
     }
 }
 
@@ -152,11 +213,12 @@ public struct CompactNavSelector: View {
                 Image(systemName: "chevron.down")
                     .font(.system(size: 8, weight: .semibold))
             }
-            .foregroundColor(Color.tasker.textPrimary)
-            .padding(6)
-            .background(
-                Circle()
-                    .fill(Color.tasker.surfaceSecondary)
+            .foregroundStyle(Color.tasker.textPrimary)
+            .frame(width: 38, height: 38)
+            .taskerChromeSurface(
+                cornerRadius: 19,
+                accentColor: Color.tasker.accentSecondary,
+                level: .e1
             )
         }
         .menuStyle(.borderlessButton)

@@ -53,7 +53,7 @@ class LGFilterButton: LGBaseView {
 
     /// Executes setupUI.
     private func setupUI() {
-        cornerRadius = TaskerThemeManager.shared.currentTheme.tokens.corner.r2
+        cornerRadius = TaskerSearchChromeStyle.chipCornerRadius
         borderWidth = 0
 
         addSubview(titleLabel)
@@ -90,9 +90,9 @@ class LGFilterButton: LGBaseView {
         if isSelected {
             switch selectedStyle {
             case .tinted:
-                backgroundColor = todoColors.accentMuted
-                titleLabel.textColor = todoColors.accentPrimary
-                borderColor = todoColors.accentRing
+                backgroundColor = TaskerSearchChromeStyle.tintedSelectedBackground(tokens: todoColors)
+                titleLabel.textColor = todoColors.textPrimary
+                borderColor = TaskerSearchChromeStyle.tintedSelectedBorder(tokens: todoColors)
                 borderWidth = 1.0
             case .filled:
                 backgroundColor = tintColor ?? todoColors.chipSelectedBackground
@@ -100,13 +100,18 @@ class LGFilterButton: LGBaseView {
                 borderColor = UIColor.clear
                 borderWidth = 0
             }
-            transform = CGAffineTransform(scaleX: 1.05, y: 1.05)
+            transform = CGAffineTransform(
+                scaleX: TaskerSearchChromeStyle.selectedChipScale,
+                y: TaskerSearchChromeStyle.selectedChipScale
+            )
+            elevationLevel = .e2
         } else {
             backgroundColor = todoColors.chipUnselectedBackground
             borderColor = UIColor.clear
             borderWidth = 0
             transform = .identity
             titleLabel.textColor = todoColors.textSecondary
+            elevationLevel = .e1
         }
     }
 
@@ -363,7 +368,7 @@ class LGSearchViewController: UIViewController, UseCaseCoordinatorInjectable, Pr
             searchBar.topAnchor.constraint(equalTo: navigationBarView.bottomAnchor, constant: 12),
             searchBar.leadingAnchor.constraint(equalTo: backdropContainer.leadingAnchor, constant: 16),
             searchBar.trailingAnchor.constraint(equalTo: backdropContainer.trailingAnchor, constant: -16),
-            searchBar.heightAnchor.constraint(equalToConstant: 44)
+            searchBar.heightAnchor.constraint(equalToConstant: TaskerSearchChromeStyle.searchFieldHeight)
         ])
 
         // Animate appearance
@@ -388,7 +393,7 @@ class LGSearchViewController: UIViewController, UseCaseCoordinatorInjectable, Pr
             filterStackView.leadingAnchor.constraint(equalTo: filterScrollView.leadingAnchor, constant: 16),
             filterStackView.trailingAnchor.constraint(equalTo: filterScrollView.trailingAnchor, constant: -16),
             filterStackView.bottomAnchor.constraint(equalTo: filterScrollView.bottomAnchor),
-            filterStackView.heightAnchor.constraint(equalToConstant: 44)
+            filterStackView.heightAnchor.constraint(equalToConstant: TaskerSearchChromeStyle.searchFieldHeight)
         ])
 
         setupFilterButtons()
@@ -503,7 +508,7 @@ class LGSearchViewController: UIViewController, UseCaseCoordinatorInjectable, Pr
         }
 
         button.translatesAutoresizingMaskIntoConstraints = false
-        button.heightAnchor.constraint(equalToConstant: 44).isActive = true
+        button.heightAnchor.constraint(equalToConstant: TaskerSearchChromeStyle.searchFieldHeight).isActive = true
 
         return button
     }
@@ -561,16 +566,16 @@ class LGSearchViewController: UIViewController, UseCaseCoordinatorInjectable, Pr
     private func applyTheme() {
         view.backgroundColor = todoColors.bgCanvas
         backdropContainer.backgroundColor = todoColors.bgElevated
-        navigationBarView.backgroundColor = todoColors.surfacePrimary
+        navigationBarView.backgroundColor = todoColors.bgElevated
         backButton.tintColor = todoColors.accentPrimary
         navigationTitleLabel.textColor = todoColors.textPrimary
-        searchBar.backgroundColor = todoColors.surfaceSecondary
-        searchBar.layer.borderColor = todoColors.divider.cgColor
+        searchBar.backgroundColor = TaskerSearchChromeStyle.projectHeaderBackground(tokens: todoColors)
+        searchBar.layer.borderColor = todoColors.strokeHairline.cgColor
 
         // Apply theme to search bar internal elements
         searchBar.applyTheme()
 
-        filterScrollView.backgroundColor = todoColors.bgElevated
+        filterScrollView.backgroundColor = .clear
 
         // Update empty state colors to match theme
         emptyStateLabel.textColor = todoColors.textPrimary
@@ -608,7 +613,9 @@ class LGSearchViewController: UIViewController, UseCaseCoordinatorInjectable, Pr
 
         // Animate selection
         UIView.animate(withDuration: 0.2, delay: 0, usingSpringWithDamping: 0.8, initialSpringVelocity: 0.5) {
-            button.transform = button.isSelected ? CGAffineTransform(scaleX: 1.05, y: 1.05) : .identity
+            button.transform = button.isSelected
+                ? CGAffineTransform(scaleX: TaskerSearchChromeStyle.selectedChipScale, y: TaskerSearchChromeStyle.selectedChipScale)
+                : .identity
         }
 
         // Apply filter and re-run search
@@ -622,7 +629,9 @@ class LGSearchViewController: UIViewController, UseCaseCoordinatorInjectable, Pr
 
         // Animate selection
         UIView.animate(withDuration: 0.2, delay: 0, usingSpringWithDamping: 0.8, initialSpringVelocity: 0.5) {
-            button.transform = button.isSelected ? CGAffineTransform(scaleX: 1.05, y: 1.05) : .identity
+            button.transform = button.isSelected
+                ? CGAffineTransform(scaleX: TaskerSearchChromeStyle.selectedChipScale, y: TaskerSearchChromeStyle.selectedChipScale)
+                : .identity
         }
 
         // Apply filter and re-run search
@@ -636,7 +645,9 @@ class LGSearchViewController: UIViewController, UseCaseCoordinatorInjectable, Pr
 
         // Animate selection
         UIView.animate(withDuration: 0.2, delay: 0, usingSpringWithDamping: 0.8, initialSpringVelocity: 0.5) {
-            button.transform = button.isSelected ? CGAffineTransform(scaleX: 1.05, y: 1.05) : .identity
+            button.transform = button.isSelected
+                ? CGAffineTransform(scaleX: TaskerSearchChromeStyle.selectedChipScale, y: TaskerSearchChromeStyle.selectedChipScale)
+                : .identity
         }
 
         // Apply filter and re-run search
@@ -807,8 +818,9 @@ class LGSearchViewController: UIViewController, UseCaseCoordinatorInjectable, Pr
     /// Executes createProjectHeader.
     private func createProjectHeader(project: String, count: Int) -> UIView {
         let headerContainer = LGBaseView()
-        headerContainer.cornerRadius = 12
-        headerContainer.backgroundColor = todoColors.surfaceSecondary
+        headerContainer.cornerRadius = TaskerSearchChromeStyle.projectHeaderCornerRadius
+        headerContainer.elevationLevel = .e2
+        headerContainer.backgroundColor = TaskerSearchChromeStyle.projectHeaderBackground(tokens: todoColors)
 
         let headerLabel = UILabel()
         headerLabel.text = "\(project) (\(count))"
@@ -823,7 +835,7 @@ class LGSearchViewController: UIViewController, UseCaseCoordinatorInjectable, Pr
             headerLabel.trailingAnchor.constraint(equalTo: headerContainer.trailingAnchor, constant: -16),
             headerLabel.topAnchor.constraint(equalTo: headerContainer.topAnchor, constant: 12),
             headerLabel.bottomAnchor.constraint(equalTo: headerContainer.bottomAnchor, constant: -12),
-            headerContainer.heightAnchor.constraint(equalToConstant: 44)
+            headerContainer.heightAnchor.constraint(equalToConstant: TaskerSearchChromeStyle.projectHeaderHeight)
         ])
 
         return headerContainer

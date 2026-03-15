@@ -28,50 +28,15 @@ public struct FilterPill: View {
         self.isDestructive = isDestructive
         self.onRemove = onRemove
     }
-
-    private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.currentTheme.tokens.spacing }
-
     public var body: some View {
-        Button(action: {
-            TaskerFeedback.light()
-            onRemove()
-        }) {
-            HStack(spacing: spacing.s4) {
-                if let systemImage {
-                    Image(systemName: systemImage)
-                        .font(.system(size: 10, weight: .medium))
-                }
-
-                Text(title)
-                    .font(.tasker(.caption2))
-                    .fontWeight(.medium)
-                    .lineLimit(1)
-            }
-            .foregroundColor(foregroundColor)
-            .padding(.horizontal, 8)
-            .padding(.vertical, 4)
-            .background(
-                Capsule()
-                    .fill(backgroundColor)
-            )
-            .activeGlow(isActive: !isDestructive, color: Color.tasker.accentPrimary)
-        }
-        .scaleOnPress()
+        TaskerFilterChip(
+            title: title,
+            systemImage: systemImage,
+            isSelected: true,
+            isDestructive: isDestructive,
+            action: onRemove
+        )
         .transition(.scale(scale: 0.8).combined(with: .opacity))
-    }
-
-    private var foregroundColor: Color {
-        if isDestructive {
-            return Color.tasker.statusDanger
-        }
-        return Color.tasker.accentOnPrimary
-    }
-
-    private var backgroundColor: Color {
-        if isDestructive {
-            return Color.tasker.statusDanger.opacity(0.15)
-        }
-        return Color.tasker.accentPrimary
     }
 }
 

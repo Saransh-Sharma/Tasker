@@ -29,7 +29,6 @@ class LGSearchBar: LGBaseView {
     // Theme support
     private var todoColors: TaskerColorTokens { TaskerThemeManager.shared.currentTheme.tokens.color }
     private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.currentTheme.tokens.spacing }
-    private var corners: TaskerCornerTokens { TaskerThemeManager.shared.currentTheme.tokens.corner }
     
     private let searchIconImageView: UIImageView = {
         let imageView = UIImageView()
@@ -99,7 +98,7 @@ class LGSearchBar: LGBaseView {
     
     /// Executes setupUI.
     private func setupUI() {
-        cornerRadius = corners.input
+        cornerRadius = TaskerSearchChromeStyle.headerCornerRadius
         
         addSubview(searchIconImageView)
         addSubview(searchTextField)
@@ -137,7 +136,7 @@ class LGSearchBar: LGBaseView {
             cancelButtonWidthConstraint!,
             
             // Height
-            heightAnchor.constraint(equalToConstant: spacing.buttonHeight)
+            heightAnchor.constraint(equalToConstant: TaskerSearchChromeStyle.searchFieldHeight)
         ])
     }
     
@@ -198,6 +197,8 @@ class LGSearchBar: LGBaseView {
 
     /// Executes applyTheme.
     func applyTheme() {
+        cornerRadius = TaskerSearchChromeStyle.headerCornerRadius
+
         // Update search icon color
         searchIconImageView.tintColor = todoColors.textPrimary.withAlphaComponent(0.6)
 

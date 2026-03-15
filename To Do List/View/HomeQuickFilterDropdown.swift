@@ -17,6 +17,7 @@ public struct HomeQuickFilterDropdown: View {
 
     @ObservedObject var viewModel: HomeViewModel
     @Binding var isPresented: Bool
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     let onShowDatePicker: () -> Void
     let onShowAdvancedFilters: () -> Void
@@ -51,7 +52,14 @@ public struct HomeQuickFilterDropdown: View {
         ZStack {
             // Dimmed background
             if isVisible {
-                Color.black.opacity(0.3)
+                LinearGradient(
+                    colors: [
+                        Color.tasker(.overlayScrim).opacity(0.18),
+                        Color.tasker(.overlayScrim).opacity(0.72)
+                    ],
+                    startPoint: .top,
+                    endPoint: .bottom
+                )
                     .ignoresSafeArea()
                     .transition(.opacity)
                     .onTapGesture {
@@ -70,8 +78,12 @@ public struct HomeQuickFilterDropdown: View {
             }
         }
         .onAppear {
-            withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
+            if reduceMotion {
                 isVisible = true
+            } else {
+                withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
+                    isVisible = true
+                }
             }
         }
     }
@@ -79,98 +91,79 @@ public struct HomeQuickFilterDropdown: View {
     // MARK: - Dropdown Content
 
     private var dropdownContent: some View {
-        VStack(spacing: 0) {
-            // Header with close button
-            headerView
+        TaskerFilterSheetContainer(
+            horizontalPadding: spacing.s16,
+            bottomPadding: safeAreaBottom + spacing.s16
+        ) {
+            VStack(spacing: 0) {
+                headerView
 
-            ScrollView {
-                VStack(alignment: .leading, spacing: 0) {
-                    // Quick View Section
-                    quickViewSection
-
-                    divider
-
-                    // Date Section
-                    dateSection
-
-                    divider
-
-                    // Projects Section
-                    projectsSection
-
-                    // Grouping Section (only for Today/customDate)
-                    if shouldShowGrouping {
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 0) {
+                        quickViewSection
                         divider
-                        groupingSection
+                        dateSection
+                        divider
+                        projectsSection
+
+                        if shouldShowGrouping {
+                            divider
+                            groupingSection
+                        }
+
+                        divider
+                        savedViewsSection
+                        divider
+                        advancedFiltersRow
                     }
-
-                    divider
-
-                    // Saved Views Section
-                    savedViewsSection
-
-                    divider
-
-                    // Advanced Filters Row
-                    advancedFiltersRow
                 }
-            }
-            .maxHeight(screenHeight * 0.6)
+                .frame(maxHeight: screenHeight * 0.6)
 
-            // Reset Button
-            resetButton
+                resetButton
+            }
         }
-        .background(
-            RoundedRectangle(cornerRadius: corner.modal)
-                .fill(Color.tasker.surfacePrimary)
-        )
-        .taskerElevation(.e3, cornerRadius: corner.modal, includesBorder: false)
-        .padding(.horizontal, spacing.s16)
-        .padding(.bottom, safeAreaBottom + spacing.s16)
+        .accessibilityIdentifier("home.focus.menu.container")
     }
 
     // MARK: - Header
 
     private var headerView: some View {
-        HStack {
-            Spacer()
-
-            VStack(spacing: spacing.s8) {
-                // Handle indicator
+        HStack(alignment: .top, spacing: spacing.s12) {
+            VStack(alignment: .leading, spacing: spacing.s8) {
                 RoundedRectangle(cornerRadius: 3)
-                    .fill(Color.tasker.textQuaternary.opacity(0.4))
-                    .frame(width: 40, height: 5)
+                    .fill(Color.tasker.textQuaternary.opacity(0.28))
+                    .frame(width: 42, height: 5)
 
-                Text("Filters")
+                Text("Quick filters")
                     .font(.tasker(.headline))
-                    .foregroundColor(Color.tasker.textPrimary)
+                    .foregroundStyle(Color.tasker.textPrimary)
+
+                Text("Keep the board calm while you narrow the scope.")
+                    .font(.tasker(.caption1))
+                    .foregroundStyle(Color.tasker.textSecondary)
             }
 
-            Spacer()
+            Spacer(minLength: spacing.s12)
 
-            // Close button (positioned absolutely)
             Button {
                 dismissWithAnimation()
             } label: {
-                Image(systemName: "xmark.circle.fill")
-                    .font(.system(size: 24))
-                    .foregroundColor(Color.tasker.textTertiary)
+                Image(systemName: "xmark")
+                    .font(.system(size: 14, weight: .bold))
+                    .foregroundStyle(Color.tasker.textSecondary)
+                    .frame(width: 34, height: 34)
+                    .taskerChromeSurface(
+                        cornerRadius: 17,
+                        accentColor: Color.tasker.accentSecondary,
+                        level: .e1
+                    )
             }
+            .buttonStyle(.plain)
+            .taskerPressFeedback(reduceMotion: reduceMotion)
         }
         .padding(.horizontal, spacing.s20)
         .padding(.top, spacing.s12)
         .padding(.bottom, spacing.s16)
-        .overlay(
-            Button {
-                dismissWithAnimation()
-            } label: {
-                Image(systemName: "xmark.circle.fill")
-                    .font(.system(size: 24))
-                    .foregroundColor(Color.tasker.textTertiary)
-            }
-            .padding(.trailing, spacing.s20),
-            alignment: .trailing
-        )
     }
 
     // MARK: - Quick View Section
@@ -180,7 +173,7 @@ public struct HomeQuickFilterDropdown: View {
             sectionHeader("Quick View", index: 0)
 
             ForEach(HomeQuickView.allCases, id: \.rawValue) { quickView in
-                FilterRow(
+                TaskerFilterRow(
                     title: quickView.title,
                     isSelected: viewModel.activeScope.quickView == quickView,
                     count: viewModel.quickViewCounts[quickView]
@@ -199,7 +192,7 @@ public struct HomeQuickFilterDropdown: View {
         VStack(alignment: .leading, spacing: 0) {
             sectionHeader("Date", index: 1)
 
-            FilterRow(
+            TaskerFilterRow(
                 title: "Select specific date...",
                 isSelected: false,
                 systemImage: "calendar"
@@ -217,7 +210,7 @@ public struct HomeQuickFilterDropdown: View {
             sectionHeader("Projects", index: 2)
 
             // All Projects option
-            FilterRow(
+            TaskerFilterRow(
                 title: "All Projects",
                 isSelected: viewModel.activeFilterState.selectedProjectIDs.isEmpty,
                 systemImage: "folder"
@@ -232,7 +225,7 @@ public struct HomeQuickFilterDropdown: View {
             }
 
             ForEach(pinnedProjects, id: \.id) { project in
-                FilterRow(
+                TaskerFilterRow(
                     title: project.name,
                     isSelected: viewModel.activeFilterState.selectedProjectIDSet.contains(project.id),
                     isMultiSelect: true
@@ -268,7 +261,7 @@ public struct HomeQuickFilterDropdown: View {
             sectionHeader("Grouping", index: 3)
 
             ForEach(HomeProjectGroupingMode.allCases, id: \.rawValue) { mode in
-                FilterRow(
+                TaskerFilterRow(
                     title: mode.title,
                     isSelected: viewModel.activeFilterState.projectGroupingMode == mode
                 ) {
@@ -339,11 +332,12 @@ public struct HomeQuickFilterDropdown: View {
     // MARK: - Advanced Filters Row
 
     private var advancedFiltersRow: some View {
-        FilterRow(
+        TaskerFilterRow(
             title: "Advanced Filters",
             subtitle: advancedFiltersSubtitle,
             isSelected: viewModel.activeFilterState.advancedFilter != nil,
-            systemImage: "slider.horizontal.3"
+            systemImage: "slider.horizontal.3",
+            accessibilityIdentifier: "home.focus.menu.advanced"
         ) {
             dismissWithAnimation()
             onShowAdvancedFilters()
@@ -366,17 +360,26 @@ public struct HomeQuickFilterDropdown: View {
             viewModel.resetAllFilters()
             dismissWithAnimation()
         } label: {
-            Text("Reset All Filters")
-                .font(.tasker(.bodyEmphasis))
-                .foregroundColor(Color.tasker.statusDanger)
-                .frame(maxWidth: .infinity)
-                .frame(height: 48)
-                .background(
-                    RoundedRectangle(cornerRadius: corner.r3)
-                        .fill(Color.tasker.surfaceSecondary)
-                )
+            HStack(spacing: spacing.s8) {
+                Image(systemName: "line.3.horizontal.decrease.circle")
+                    .font(.system(size: 14, weight: .semibold))
+                Text("Reset all filters")
+                    .font(.tasker(.bodyEmphasis))
+            }
+            .foregroundStyle(Color.tasker.statusDanger)
+            .frame(maxWidth: .infinity)
+            .frame(height: 48)
+            .taskerChromeSurface(
+                cornerRadius: corner.r3,
+                accentColor: Color.tasker.statusDanger,
+                level: .e1
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: corner.r3, style: .continuous)
+                    .stroke(Color.tasker.statusDanger.opacity(0.28), lineWidth: 1)
+            )
         }
-        .scaleOnPress()
+        .taskerPressFeedback(reduceMotion: reduceMotion)
         .padding(.horizontal, spacing.s20)
         .padding(.vertical, spacing.s12)
     }
@@ -392,13 +395,7 @@ public struct HomeQuickFilterDropdown: View {
 
     /// Executes sectionHeader.
     private func sectionHeader(_ title: String, index: Int = 0) -> some View {
-        Text(title)
-            .font(.tasker(.caption1))
-            .foregroundColor(Color.tasker.textSecondary)
-            .padding(.horizontal, spacing.s20)
-            .padding(.top, spacing.s12)
-            .padding(.bottom, spacing.s8)
-            .enhancedStaggeredAppearance(index: index)
+        TaskerFilterSectionHeader(title: title, index: index)
     }
 
     /// Executes provideHapticFeedback.
@@ -408,6 +405,12 @@ public struct HomeQuickFilterDropdown: View {
 
     /// Executes dismissWithAnimation.
     private func dismissWithAnimation() {
+        if reduceMotion {
+            isVisible = false
+            isPresented = false
+            return
+        }
+
         withAnimation(.spring(response: 0.3, dampingFraction: 0.9)) {
             isVisible = false
         }
@@ -424,104 +427,6 @@ public struct HomeQuickFilterDropdown: View {
         let scenes = UIApplication.shared.connectedScenes
         let windowScene = scenes.first as? UIWindowScene
         return windowScene?.windows.first?.safeAreaInsets.bottom ?? 0
-    }
-}
-
-// MARK: - Filter Row
-
-/// A single row in the filter dropdown.
-struct FilterRow: View {
-
-    let title: String
-    var subtitle: String? = nil
-    let isSelected: Bool
-    var count: Int? = nil
-    var isMultiSelect: Bool = false
-    var systemImage: String? = nil
-    let action: () -> Void
-
-    private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.currentTheme.tokens.spacing }
-
-    var body: some View {
-        Button(action: {
-            action()
-        }) {
-            HStack(spacing: spacing.s12) {
-                // Selection indicator
-                if isMultiSelect {
-                    Image(systemName: isSelected ? "checkmark.square.fill" : "square")
-                        .font(.system(size: 18))
-                        .foregroundColor(isSelected ? Color.tasker.accentPrimary : Color.tasker.textTertiary)
-                        .animation(TaskerAnimation.quick, value: isSelected)
-                } else {
-                    Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
-                        .font(.system(size: 18))
-                        .foregroundColor(isSelected ? Color.tasker.accentPrimary : Color.tasker.textTertiary)
-                        .animation(TaskerAnimation.quick, value: isSelected)
-                }
-
-                // Optional system image
-                if let systemImage = systemImage {
-                    Image(systemName: systemImage)
-                        .font(.system(size: 16))
-                        .foregroundColor(Color.tasker.textSecondary)
-                }
-
-                // Title
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(title)
-                        .font(.tasker(.callout))
-                        .foregroundColor(Color.tasker.textPrimary)
-                        .lineLimit(1)
-
-                    if let subtitle = subtitle {
-                        Text(subtitle)
-                            .font(.tasker(.caption2))
-                            .foregroundColor(Color.tasker.textSecondary)
-                            .lineLimit(1)
-                    }
-                }
-
-                Spacer()
-
-                // Count badge
-                if let count = count {
-                    Text("\(count)")
-                        .font(.tasker(.caption1))
-                        .foregroundColor(Color.tasker.textSecondary)
-                        .padding(.horizontal, spacing.s8)
-                        .padding(.vertical, spacing.s2)
-                        .background(
-                            Capsule()
-                                .fill(Color.tasker.surfaceSecondary)
-                        )
-                }
-
-                // Chevron for navigation rows
-                if systemImage != nil {
-                    Image(systemName: "chevron.right")
-                        .font(.system(size: 12, weight: .medium))
-                        .foregroundColor(Color.tasker.textTertiary)
-                }
-            }
-            .padding(.horizontal, spacing.s20)
-            .padding(.vertical, spacing.s12)
-            .contentShape(Rectangle())
-        }
-        .scaleOnPress()
-        .accessibilityLabel(accessibilityLabel)
-        .accessibilityHint(isSelected ? "Selected" : "Not selected")
-    }
-
-    private var accessibilityLabel: String {
-        var label = title
-        if let count = count {
-            label += ", \(count) items"
-        }
-        if isSelected {
-            label += ", selected"
-        }
-        return label
     }
 }
 

@@ -20,6 +20,7 @@ struct HomeAdvancedFilterSheetView: View {
 
     /// Initializes a new instance.
     @Environment(\.dismiss) private var dismiss
+    private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.currentTheme.tokens.spacing }
 
     @State private var selectedPriorities: Set<TaskPriority>
     @State private var selectedCategories: Set<TaskCategory>
@@ -73,40 +74,73 @@ struct HomeAdvancedFilterSheetView: View {
     }
 
     var body: some View {
-        NavigationView {
+        NavigationStack {
             Form {
-                Section("Completion") {
-                    Toggle("Show completed inline", isOn: $showCompletedInline)
+                Section {
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("Precision filters")
+                            .font(.tasker(.headline))
+                            .foregroundStyle(Color.tasker.textPrimary)
+                        Text("Save named slices for the moments when the default board is still too broad.")
+                            .font(.tasker(.caption1))
+                            .foregroundStyle(Color.tasker.textSecondary)
+                    }
+                    .padding(.vertical, 4)
+                    .padding(.horizontal, spacing.s4)
+                    .padding(.vertical, spacing.s8)
+                    .taskerPremiumSurface(
+                        cornerRadius: 20,
+                        fillColor: Color.tasker.surfacePrimary,
+                        strokeColor: Color.tasker.strokeHairline,
+                        accentColor: Color.tasker.accentSecondary,
+                        level: .e1
+                    )
                 }
 
-                Section("Priority") {
+                Section {
+                    Toggle("Show completed inline", isOn: $showCompletedInline)
+                } header: {
+                    sectionHeader("Completion", index: 0)
+                }
+
+                Section {
                     MultiToggleList(TaskPriority.uiOrder, selection: $selectedPriorities) { priority in
                         "\(priority.displayName) (\(priority.code))"
                     }
+                } header: {
+                    sectionHeader("Priority", index: 1)
                 }
 
-                Section("Categories") {
+                Section {
                     MultiToggleList(TaskCategory.allCases, selection: $selectedCategories) { $0.displayName }
+                } header: {
+                    sectionHeader("Categories", index: 2)
                 }
 
-                Section("Contexts") {
+                Section {
                     MultiToggleList(TaskContext.allCases, selection: $selectedContexts) { $0.displayName }
+                } header: {
+                    sectionHeader("Contexts", index: 3)
                 }
 
-                Section("Energy") {
+                Section {
                     MultiToggleList(TaskEnergy.allCases, selection: $selectedEnergyLevels) { $0.displayName }
+                } header: {
+                    sectionHeader("Energy", index: 4)
                 }
 
-                Section("Tags") {
+                Section {
                     TextField("work, deep-focus, errands", text: $tagsText)
                     Picker("Tag match", selection: $tagMatchMode) {
                         Text("Any").tag(HomeTagMatchMode.any)
                         Text("All").tag(HomeTagMatchMode.all)
                     }
                     .pickerStyle(.segmented)
+                } header: {
+                    sectionHeader("Tags", index: 5)
                 }
 
-                Section("Attributes") {
+                Section {
                     Toggle("Require due date", isOn: $requireDueDate)
 
                     Picker("Has estimate", selection: $hasEstimateState) {
@@ -120,48 +154,50 @@ struct HomeAdvancedFilterSheetView: View {
                             Text(state.title).tag(state)
                         }
                     }
+                } header: {
+                    sectionHeader("Attributes", index: 6)
                 }
 
-                Section("Date range") {
+                Section {
                     Toggle("Enable range", isOn: $useDateRange)
                     if useDateRange {
                         DatePicker("Start", selection: $startDate, displayedComponents: .date)
                         DatePicker("End", selection: $endDate, displayedComponents: .date)
                     }
+                } header: {
+                    sectionHeader("Date Range", index: 7)
                 }
 
-                Section("Saved views") {
+                Section {
                     if savedViews.isEmpty {
                         Text("No saved views yet")
-                            .foregroundColor(.secondary)
+                            .foregroundColor(Color.tasker.textSecondary)
                     } else {
                         ForEach(savedViews) { saved in
-                            HStack {
-                                Button {
+                            HStack(spacing: spacing.s12) {
+                                TaskerFilterRow(
+                                    title: saved.name,
+                                    subtitle: activeSavedViewID == saved.id ? "Active" : "Saved view",
+                                    isSelected: activeSavedViewID == saved.id
+                                ) {
                                     onApplySavedView(saved.id)
                                     dismiss()
-                                } label: {
-                                    HStack {
-                                        Text(saved.name)
-                                        if activeSavedViewID == saved.id {
-                                            Text("Active")
-                                                .font(.caption)
-                                                .padding(.horizontal, 6)
-                                                .padding(.vertical, 2)
-                                                .background(Color.green.opacity(0.2))
-                                                .clipShape(Capsule())
-                                        }
-                                    }
                                 }
-                                .buttonStyle(.plain)
-
-                                Spacer()
 
                                 Button(role: .destructive) {
                                     onDeleteSavedView(saved.id)
                                 } label: {
                                     Image(systemName: "trash")
+                                        .font(.system(size: 15, weight: .semibold))
+                                        .foregroundStyle(Color.tasker.statusDanger)
+                                        .frame(width: 36, height: 36)
+                                        .taskerChromeSurface(
+                                            cornerRadius: 18,
+                                            accentColor: Color.tasker.statusDanger,
+                                            level: .e1
+                                        )
                                 }
+                                .buttonStyle(.plain)
                             }
                         }
                     }
@@ -173,9 +209,15 @@ struct HomeAdvancedFilterSheetView: View {
                         saveViewName = ""
                     }
                     .disabled(saveViewName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                } header: {
+                    sectionHeader("Saved Views", index: 8)
                 }
             }
+            .scrollContentBackground(.hidden)
+            .background(Color.tasker.bgCanvas)
+            .listRowBackground(Color.tasker.surfacePrimary)
             .navigationTitle("Advanced Filters")
+            .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Close") { dismiss() }
@@ -228,6 +270,11 @@ struct HomeAdvancedFilterSheetView: View {
         )
 
         return draft.isEmpty ? nil : draft
+    }
+
+    private func sectionHeader(_ title: String, index: Int) -> some View {
+        TaskerFilterSectionHeader(title: title, index: index)
+            .textCase(nil)
     }
 }
 
