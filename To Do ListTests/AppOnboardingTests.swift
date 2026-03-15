@@ -1,16 +1,15 @@
 import XCTest
+import UserNotifications
 @testable import To_Do_List
 
 final class AppOnboardingTests: XCTestCase {
 
     func testEligibilityReturnsFullFlowForEffectivelyEmptyWorkspace() async {
-        let suiteName = UUID().uuidString
-        let suite = UserDefaults(suiteName: suiteName)!
-        defer { suite.removePersistentDomain(forName: suiteName) }
+        let context = makeStoreContext()
+        defer { context.cleanup() }
 
-        let store = AppOnboardingStateStore(userDefaults: suite)
         let service = OnboardingEligibilityService(
-            stateStore: store,
+            stateStore: context.store,
             launchArguments: [],
             fetchLifeAreas: { [LifeArea(name: "General")] },
             fetchProjects: { [Project.createInbox()] },
@@ -28,17 +27,21 @@ final class AppOnboardingTests: XCTestCase {
     }
 
     func testEligibilityReturnsPromptOnlyForEstablishedWorkspaceWithoutState() async {
-        let suiteName = UUID().uuidString
-        let suite = UserDefaults(suiteName: suiteName)!
-        defer { suite.removePersistentDomain(forName: suiteName) }
+        let context = makeStoreContext()
+        defer { context.cleanup() }
 
-        let store = AppOnboardingStateStore(userDefaults: suite)
         let service = OnboardingEligibilityService(
-            stateStore: store,
+            stateStore: context.store,
             launchArguments: [],
             fetchLifeAreas: { [LifeArea(name: "General"), LifeArea(name: "Career")] },
             fetchProjects: { [Project.createInbox(), Project(name: "Ship one thing")] },
-            fetchTasks: { [TaskDefinition(title: "Draft update"), TaskDefinition(title: "Send recap"), TaskDefinition(title: "Plan next step")] }
+            fetchTasks: {
+                [
+                    TaskDefinition(title: "Draft update"),
+                    TaskDefinition(title: "Send recap"),
+                    TaskDefinition(title: "Plan next step")
+                ]
+            }
         )
 
         let result = await service.evaluate()
@@ -51,461 +54,350 @@ final class AppOnboardingTests: XCTestCase {
         XCTAssertEqual(snapshot.taskCount, 3)
     }
 
-    func testEligibilitySuppressesWhenPromptWasDismissedForCurrentVersion() async {
-        let suiteName = UUID().uuidString
-        let suite = UserDefaults(suiteName: suiteName)!
-        defer { suite.removePersistentDomain(forName: suiteName) }
+    func testEligibilitySuppressesWhenCurrentVersionAlreadyHandled() async {
+        let context = makeStoreContext()
+        defer { context.cleanup() }
 
-        let store = AppOnboardingStateStore(userDefaults: suite)
-        store.markEstablishedWorkspacePromptDismissed()
+        context.store.markHandled(outcome: .completed)
 
         let service = OnboardingEligibilityService(
-            stateStore: store,
+            stateStore: context.store,
             launchArguments: [],
-            fetchLifeAreas: { [LifeArea(name: "General"), LifeArea(name: "Home")] },
-            fetchProjects: { [Project.createInbox(), Project(name: "Home reset")] },
-            fetchTasks: { [TaskDefinition(title: "One"), TaskDefinition(title: "Two"), TaskDefinition(title: "Three")] }
+            fetchLifeAreas: { [LifeArea(name: "Career")] },
+            fetchProjects: { [Project.createInbox(), Project(name: "Ship one thing")] },
+            fetchTasks: { [TaskDefinition(title: "Draft update")] }
         )
 
         let result = await service.evaluate()
         XCTAssertEqual(result, .suppressed)
     }
 
-    func testLifeAreaResolutionReusesExistingItemsInsteadOfDuplicates() {
-        let existingArea = LifeArea(name: "Health")
-        let selected = StarterWorkspaceCatalog.allLifeAreas.filter { ["health", "career"].contains($0.id) }
-
-        let resolved = StarterWorkspaceCatalog.resolveLifeAreaSelections(
-            selected: selected,
-            existing: [existingArea]
+    func testDefaultLifeAreaSelectionRespectsFrictionProfileAndMode() {
+        XCTAssertEqual(
+            StarterWorkspaceCatalog.defaultLifeAreaSelectionIDs(for: .starting, mode: .guided),
+            ["health", "career", "home"]
         )
-
-        XCTAssertEqual(resolved.count, 2)
-        XCTAssertEqual(resolved.first?.existing?.id, existingArea.id)
-        XCTAssertNil(resolved.last?.existing)
+        XCTAssertEqual(
+            StarterWorkspaceCatalog.defaultLifeAreaSelectionIDs(for: .overwhelmed, mode: .guided),
+            ["home", "health"]
+        )
+        XCTAssertEqual(
+            StarterWorkspaceCatalog.defaultLifeAreaSelectionIDs(for: .remembering, mode: .custom),
+            ["home"]
+        )
     }
 
-    func testProjectResolutionReusesExistingProjectInsteadOfDuplicateNameFailure() {
-        let lifeArea = LifeArea(name: "Career")
-        let selected = StarterWorkspaceCatalog.projectTemplates(for: ["career"])
-        let existingProject = Project(lifeAreaID: lifeArea.id, name: "Ship one thing")
+    func testCatalogReuseMatchesAliasesForExistingLifeAreasAndProjects() {
+        let healthTemplate = tryUnwrap(StarterWorkspaceCatalog.lifeAreaTemplate(id: "health"))
+        let existingLifeArea = LifeArea(name: "Wellness")
 
-        let resolved = StarterWorkspaceCatalog.resolveProjectSelections(
-            selected: selected,
-            existing: [existingProject],
-            lifeAreasByTemplateID: ["career": lifeArea]
+        let matchedLifeArea = StarterWorkspaceCatalog.matchingLifeArea(
+            for: healthTemplate,
+            in: [existingLifeArea]
         )
 
-        XCTAssertEqual(resolved.first?.existing?.id, existingProject.id)
-    }
+        XCTAssertEqual(matchedLifeArea?.id, existingLifeArea.id)
 
-    func testCompletionTrackingAcceptsAnyCreatedTask() {
-        let firstTaskID = UUID()
-        let secondTaskID = UUID()
-        let tracking = OnboardingCompletionTrackingState(
-            highlightedTaskID: firstTaskID,
-            acceptableTaskIDs: Set([firstTaskID, secondTaskID])
+        let careerDraft = tryUnwrap(
+            StarterWorkspaceCatalog.defaultProjectDrafts(for: ["career"], mode: .guided).first
+        )
+        let lifeAreaID = UUID()
+        let existingProject = Project(lifeAreaID: lifeAreaID, name: "Deliverable")
+
+        let matchedProject = StarterWorkspaceCatalog.matchingProject(
+            for: careerDraft,
+            lifeAreaID: lifeAreaID,
+            in: [existingProject]
         )
 
-        XCTAssertTrue(tracking.acceptsCompletion(reason: "completed", taskID: firstTaskID))
-        XCTAssertTrue(tracking.acceptsCompletion(reason: "completed", taskID: secondTaskID))
-    }
-
-    func testCompletionTrackingRejectsNonOnboardingTask() {
-        let trackedTaskID = UUID()
-        let unrelatedTaskID = UUID()
-        let tracking = OnboardingCompletionTrackingState(
-            highlightedTaskID: trackedTaskID,
-            acceptableTaskIDs: Set([trackedTaskID])
-        )
-
-        XCTAssertFalse(tracking.acceptsCompletion(reason: "completed", taskID: unrelatedTaskID))
-        XCTAssertFalse(tracking.acceptsCompletion(reason: "created", taskID: trackedTaskID))
-    }
-
-    func testPresentationQueuePrefersCompletionOverLaunchPresentation() {
-        var queue = OnboardingPresentationQueue()
-        let summary = AppOnboardingSummary(
-            lifeAreaCount: 2,
-            projectCount: 2,
-            createdTaskCount: 2,
-            completedTaskTitle: "Walk for 10 minutes"
-        )
-
-        queue.enqueue(.prompt)
-        queue.enqueue(.fullFlow(source: "launch_auto"))
-        queue.enqueue(.completion(summary: summary))
-
-        XCTAssertEqual(queue.pending, .completion(summary: summary))
-
-        queue.markPresented(.completion(summary: summary))
-        XCTAssertNil(queue.pending)
-    }
-
-    func testTodayDueIntentResolvesToSameDayDefault() {
-        let calendar = Calendar(identifier: .gregorian)
-        let now = calendar.date(from: DateComponents(year: 2026, month: 3, day: 11, hour: 15, minute: 30))!
-
-        let resolved = AddTaskPrefillDueIntent.today.resolvedDate(now: now, calendar: calendar)
-
-        XCTAssertEqual(resolved, calendar.startOfDay(for: now))
-        XCTAssertTrue(calendar.isDate(resolved ?? .distantPast, inSameDayAs: now))
+        XCTAssertEqual(matchedProject?.id, existingProject.id)
     }
 
     @MainActor
-    func testAddTaskPrefillAppliesTodayScopedDefaults() {
-        let lifeArea = LifeArea(id: UUID(), name: "Health")
-        let project = Project(id: UUID(), lifeAreaID: lifeArea.id, name: "Move your body")
-        let dueDate = Date(timeIntervalSince1970: 1_000)
+    func testFlowModelCapsLifeAreaSelectionAtThree() {
+        let context = makeStoreContext()
+        defer { context.cleanup() }
 
-        let viewModel = AddTaskViewModel(
-            manageProjectsUseCase: ManageProjectsUseCase(projectRepository: MockProjectRepository(projects: [Project.createInbox(), project])),
-            createTaskDefinitionUseCase: CreateTaskDefinitionUseCase(repository: MockTaskDefinitionRepository()),
-            manageLifeAreasUseCase: ManageLifeAreasUseCase(repository: MockLifeAreaRepository(lifeAreas: [lifeArea]))
-        )
+        let viewModel = OnboardingFlowModel(stateStore: context.store)
+        viewModel.begin(mode: .guided)
+        viewModel.selectedLifeAreaIDs = []
 
-        let prefill = AddTaskPrefillTemplate(
-            title: "Walk for 10 minutes",
-            details: "Shoes on and out the door.",
+        viewModel.toggleLifeArea("health")
+        viewModel.toggleLifeArea("career")
+        viewModel.toggleLifeArea("home")
+        viewModel.toggleLifeArea("learning")
+
+        XCTAssertEqual(viewModel.selectedLifeAreaIDs.count, 3)
+        XCTAssertFalse(viewModel.selectedLifeAreaIDs.contains("learning"))
+        XCTAssertTrue(viewModel.canContinueLifeAreas)
+    }
+
+    @MainActor
+    func testPrepareForPresentationRestoresJourneySnapshot() {
+        let context = makeStoreContext()
+        defer { context.cleanup() }
+
+        let area = LifeArea(name: "Health")
+        let project = Project(lifeAreaID: area.id, name: "Move your body")
+        let task = TaskDefinition(
             projectID: project.id,
             projectName: project.name,
-            lifeAreaID: lifeArea.id,
-            priority: .low,
-            type: .morning,
-            dueDateIntent: .exact(dueDate),
-            dueDate: dueDate,
-            estimatedDuration: 600,
-            energy: .low,
-            showMoreDetails: true
+            lifeAreaID: area.id,
+            title: "Put on workout clothes",
+            estimatedDuration: 60
+        )
+        let projectDraft = tryUnwrap(
+            StarterWorkspaceCatalog.defaultProjectDrafts(for: ["health"], mode: .guided).first
+        )
+        let snapshot = OnboardingJourneySnapshot(
+            step: .focusRoom,
+            mode: .guided,
+            frictionProfile: .starting,
+            selectedLifeAreaIDs: ["health"],
+            showAllLifeAreas: false,
+            projectDrafts: [projectDraft],
+            resolvedLifeAreas: [
+                ResolvedLifeAreaSelection(templateID: "health", lifeArea: area, reusedExisting: true)
+            ],
+            resolvedProjects: [
+                ResolvedProjectSelection(draft: projectDraft, project: project, reusedExisting: true)
+            ],
+            createdTasks: [task],
+            createdTaskTemplateMap: ["task-health-move-clothes": task.id],
+            focusTaskID: task.id,
+            parentFocusTaskID: nil,
+            focusStartedAt: Date(timeIntervalSince1970: 1_700_000_000),
+            focusIsActive: true,
+            successSummary: nil,
+            hasSeenSuccess: false
         )
 
-        viewModel.applyPrefill(prefill)
-        waitUntil("prefill resolved") {
-            viewModel.selectedProject == project.name
-        }
+        let viewModel = OnboardingFlowModel(stateStore: context.store)
+        viewModel.prepareForPresentation(snapshot: snapshot)
 
-        XCTAssertEqual(viewModel.taskName, "Walk for 10 minutes")
-        XCTAssertEqual(viewModel.taskDetails, "Shoes on and out the door.")
-        XCTAssertEqual(viewModel.selectedProject, project.name)
-        XCTAssertEqual(viewModel.selectedLifeAreaID, lifeArea.id)
-        XCTAssertEqual(viewModel.selectedPriority, .low)
-        XCTAssertEqual(viewModel.selectedType, .morning)
-        XCTAssertEqual(viewModel.selectedEnergy, .low)
-        XCTAssertEqual(viewModel.estimatedDuration, 600)
-        XCTAssertEqual(viewModel.dueDate, dueDate)
-        XCTAssertTrue(viewModel.showMoreDetails)
+        XCTAssertEqual(viewModel.step, .focusRoom)
+        XCTAssertEqual(viewModel.mode, .guided)
+        XCTAssertEqual(viewModel.frictionProfile, .starting)
+        XCTAssertEqual(viewModel.selectedLifeAreaIDs, Set(["health"]))
+        XCTAssertEqual(viewModel.focusTaskID, task.id)
+        XCTAssertTrue(viewModel.focusIsActive)
+        XCTAssertEqual(viewModel.createdTasks.map(\.id), [task.id])
     }
 
     @MainActor
-    func testAddTaskPrefillLeavesInboxSelectionWhenProjectCannotBeResolved() {
-        let lifeArea = LifeArea(id: UUID(), name: "Health")
-        let taskRepository = MockTaskDefinitionRepository()
-        let viewModel = AddTaskViewModel(
-            manageProjectsUseCase: ManageProjectsUseCase(projectRepository: MockProjectRepository(projects: [Project.createInbox()])),
-            createTaskDefinitionUseCase: CreateTaskDefinitionUseCase(repository: taskRepository),
-            manageLifeAreasUseCase: ManageLifeAreasUseCase(repository: MockLifeAreaRepository(lifeAreas: [lifeArea]))
-        )
+    func testSkipToFocusRoomSeedsStarterWorkspaceAndTask() async {
+        let context = makeStoreContext()
+        defer { context.cleanup() }
 
-        let prefill = AddTaskPrefillTemplate(
-            title: "Walk for 10 minutes",
-            projectID: UUID(),
-            projectName: "Missing Project",
-            lifeAreaID: lifeArea.id
-        )
+        var createdLifeAreas: [LifeArea] = []
+        var createdProjects: [Project] = []
+        var createdTasks: [TaskDefinition] = []
 
-        viewModel.applyPrefill(prefill)
-        drainMainQueue()
-
-        XCTAssertEqual(viewModel.selectedProject, ProjectConstants.inboxProjectName)
-
-        let expectation = expectation(description: "task created")
-        viewModel.taskName = "Walk for 10 minutes"
-        viewModel.createTask()
-        DispatchQueue.main.async {
-            XCTAssertEqual(taskRepository.lastCreateRequest?.projectID, ProjectConstants.inboxProjectID)
-            XCTAssertEqual(taskRepository.lastCreateRequest?.projectName, ProjectConstants.inboxProjectName)
-            expectation.fulfill()
-        }
-
-        wait(for: [expectation], timeout: 1.0)
-    }
-
-    func testHomeTasksSnapshotTreatsTodayDefaultEmptyStateAsCommittedContent() {
-        let snapshot = HomeTasksSnapshot(
-            morningTasks: [],
-            eveningTasks: [],
-            overdueTasks: [],
-            inlineCompletedTasks: [],
-            doneTimelineTasks: [],
-            projects: [],
-            projectsByID: [:],
-            projectsByName: [:],
-            tagNameByID: [:],
-            rescueTasksByID: [:],
-            activeQuickView: .today,
-            todayXPSoFar: nil,
-            projectGroupingMode: .defaultMode,
-            customProjectOrderIDs: [],
-            emptyStateMessage: nil,
-            emptyStateActionTitle: nil,
-            canUseManualFocusDrag: false,
-            focusTasks: [],
-            pinnedFocusTaskIDs: [],
-            todayOpenTaskCount: 0
-        )
-
-        XCTAssertTrue(snapshot.rendersDefaultTodayEmptyState)
-        XCTAssertTrue(snapshot.hasCommittedInitialContent)
-    }
-
-    func testHomeViewControllerAppliesInsightsLaunchRequestWhenAnalyticsIsAlreadyVisible() {
-        let controller = HomeViewController()
-        let insightsViewModel = makeInsightsViewModel()
-        let request = InsightsLaunchRequest(targetTab: .systems, highlightedAchievementKey: "streak")
-
-        controller.testingSetAnalyticsVisible(with: insightsViewModel)
-        controller.testingHandleInsightsLaunchRequest(request)
-
-        XCTAssertEqual(insightsViewModel.selectedTab, .systems)
-        XCTAssertEqual(insightsViewModel.highlightedAchievementKey, "streak")
-        XCTAssertNil(controller.testingPendingInsightsLaunchRequest)
-    }
-
-    @MainActor
-    func testRunOnboardingEvaluationAfterDelayClearsPendingTaskAndRetriesOnSceneMismatch() async {
-        let controller = HomeViewController()
-        var retryCount = 0
-
-        controller.testingSetPendingOnboardingEvaluationTask()
-        controller.testingSetOnboardingEvaluationSceneToken(2)
-
-        await controller.runOnboardingEvaluationAfterDelay(
-            sceneToken: 1,
-            sleepNanoseconds: 0,
-            retry: { retryCount += 1 }
-        )
-
-        XCTAssertFalse(controller.testingHasPendingOnboardingEvaluationTask)
-        XCTAssertEqual(retryCount, 1)
-    }
-
-    @MainActor
-    func testRunOnboardingEvaluationAfterDelayClearsPendingTaskAndRetriesWhenViewIsUnavailable() async {
-        let controller = HomeViewController()
-        var retryCount = 0
-
-        controller.testingSetPendingOnboardingEvaluationTask()
-        controller.testingSetOnboardingEvaluationSceneToken(1)
-
-        await controller.runOnboardingEvaluationAfterDelay(
-            sceneToken: 1,
-            sleepNanoseconds: 0,
-            retry: { retryCount += 1 }
-        )
-
-        XCTAssertFalse(controller.testingHasPendingOnboardingEvaluationTask)
-        XCTAssertEqual(retryCount, 1)
-    }
-
-    private func drainMainQueue() {
-        let expectation = expectation(description: "Drain main queue")
-        DispatchQueue.main.async {
-            expectation.fulfill()
-        }
-        wait(for: [expectation], timeout: 1.0)
-    }
-
-    private func waitUntil(
-        _ description: String,
-        timeout: TimeInterval = 1.0,
-        condition: @escaping () -> Bool
-    ) {
-        let expectation = expectation(description: description)
-
-        func poll() {
-            if condition() {
-                expectation.fulfill()
-                return
+        let viewModel = OnboardingFlowModel(
+            stateStore: context.store,
+            fetchLifeAreas: { [] },
+            fetchProjects: { [] },
+            fetchTask: { taskID in createdTasks.first(where: { $0.id == taskID }) },
+            createLifeArea: { template in
+                let area = LifeArea(name: template.name, color: template.colorHex, icon: template.icon)
+                createdLifeAreas.append(area)
+                return area
+            },
+            createProject: { draft, lifeArea in
+                let project = Project(lifeAreaID: lifeArea.id, name: draft.name, projectDescription: draft.summary)
+                createdProjects.append(project)
+                return project
+            },
+            createTask: { request in
+                let task = request.toTaskDefinition(projectName: request.projectName)
+                createdTasks.append(task)
+                return task
             }
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.02) {
-                poll()
+        )
+
+        await viewModel.skipToFocusRoom()
+
+        XCTAssertEqual(viewModel.step, .focusRoom)
+        XCTAssertFalse(createdLifeAreas.isEmpty)
+        XCTAssertFalse(createdProjects.isEmpty)
+        XCTAssertEqual(createdTasks.count, 1)
+        XCTAssertEqual(viewModel.createdTasks.count, 1)
+        XCTAssertEqual(viewModel.focusTaskID, createdTasks.first?.id)
+        XCTAssertEqual(context.store.load().journeySnapshot?.step, .focusRoom)
+    }
+
+    @MainActor
+    func testBreakdownPromotesFirstAddedChildTaskIntoFocus() async {
+        let context = makeStoreContext()
+        defer { context.cleanup() }
+
+        let area = LifeArea(name: "Career")
+        let project = Project(lifeAreaID: area.id, name: "Ship one thing")
+        let focusTask = TaskDefinition(
+            projectID: project.id,
+            projectName: project.name,
+            lifeAreaID: area.id,
+            title: "Open the draft and write 3 lines",
+            estimatedDuration: 120
+        )
+        let projectDraft = tryUnwrap(
+            StarterWorkspaceCatalog.defaultProjectDrafts(for: ["career"], mode: .guided).first
+        )
+
+        var createdChildren: [TaskDefinition] = []
+        let viewModel = OnboardingFlowModel(
+            stateStore: context.store,
+            createTask: { request in
+                let child = request.toTaskDefinition(projectName: request.projectName)
+                createdChildren.append(child)
+                return child
             }
+        )
+        viewModel.prepareForPresentation(
+            snapshot: OnboardingJourneySnapshot(
+                step: .focusRoom,
+                mode: .guided,
+                frictionProfile: .starting,
+                selectedLifeAreaIDs: ["career"],
+                showAllLifeAreas: false,
+                projectDrafts: [projectDraft],
+                resolvedLifeAreas: [
+                    ResolvedLifeAreaSelection(templateID: "career", lifeArea: area, reusedExisting: true)
+                ],
+                resolvedProjects: [
+                    ResolvedProjectSelection(draft: projectDraft, project: project, reusedExisting: true)
+                ],
+                createdTasks: [focusTask],
+                createdTaskTemplateMap: [:],
+                focusTaskID: focusTask.id,
+                parentFocusTaskID: nil,
+                focusStartedAt: nil,
+                focusIsActive: false,
+                successSummary: nil,
+                hasSeenSuccess: false
+            )
+        )
+        viewModel.breakdownSteps = [
+            OnboardingBreakdownStep(title: "Open the draft", isSelected: true),
+            OnboardingBreakdownStep(title: "Write one sentence", isSelected: true)
+        ]
+
+        await viewModel.applySelectedBreakdownSteps()
+
+        XCTAssertEqual(createdChildren.count, 2)
+        XCTAssertEqual(viewModel.parentFocusTaskID, focusTask.id)
+        XCTAssertEqual(viewModel.focusTask?.title, "Open the draft")
+        XCTAssertEqual(createdChildren.first?.parentTaskID, focusTask.id)
+    }
+
+    @MainActor
+    func testCompleteFocusTaskBuildsSuccessSummaryAndReminderPrompt() async {
+        let context = makeStoreContext()
+        defer { context.cleanup() }
+
+        let notificationService = TestNotificationService(status: .notDetermined)
+        let area = LifeArea(name: "Health")
+        let project = Project(lifeAreaID: area.id, name: "Move your body")
+        let task = TaskDefinition(
+            id: UUID(),
+            projectID: project.id,
+            projectName: project.name,
+            lifeAreaID: area.id,
+            title: "Fill your water bottle",
+            estimatedDuration: 60
+        )
+        let projectDraft = tryUnwrap(
+            StarterWorkspaceCatalog.defaultProjectDrafts(for: ["health"], mode: .guided).first
+        )
+
+        let viewModel = OnboardingFlowModel(
+            stateStore: context.store,
+            notificationService: notificationService,
+            setTaskCompletion: { taskID, isComplete in
+                var completed = task
+                completed.isComplete = isComplete
+                completed.dateCompleted = isComplete ? Date() : nil
+                return completed
+            }
+        )
+        viewModel.prepareForPresentation(
+            snapshot: OnboardingJourneySnapshot(
+                step: .focusRoom,
+                mode: .guided,
+                frictionProfile: .starting,
+                selectedLifeAreaIDs: ["health"],
+                showAllLifeAreas: false,
+                projectDrafts: [projectDraft],
+                resolvedLifeAreas: [
+                    ResolvedLifeAreaSelection(templateID: "health", lifeArea: area, reusedExisting: true)
+                ],
+                resolvedProjects: [
+                    ResolvedProjectSelection(draft: projectDraft, project: project, reusedExisting: true)
+                ],
+                createdTasks: [task],
+                createdTaskTemplateMap: [:],
+                focusTaskID: task.id,
+                parentFocusTaskID: nil,
+                focusStartedAt: Date(),
+                focusIsActive: true,
+                successSummary: nil,
+                hasSeenSuccess: false
+            )
+        )
+
+        await viewModel.completeFocusTask()
+
+        XCTAssertEqual(viewModel.reminderPromptState, .prompt)
+        XCTAssertEqual(viewModel.successSummary?.completedTaskTitle, "Fill your water bottle")
+        XCTAssertEqual(viewModel.successSummary?.completedTaskCount, 1)
+        XCTAssertEqual(viewModel.successSummary?.promptReminderAfterSuccess, true)
+    }
+
+    private func makeStoreContext() -> StoreContext {
+        let suiteName = "AppOnboardingTests.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        let store = AppOnboardingStateStore(userDefaults: defaults)
+        return StoreContext(store: store) {
+            defaults.removePersistentDomain(forName: suiteName)
         }
-
-        poll()
-        wait(for: [expectation], timeout: timeout)
-    }
-}
-
-private final class MockLifeAreaRepository: LifeAreaRepositoryProtocol {
-    var lifeAreas: [LifeArea]
-
-    init(lifeAreas: [LifeArea]) {
-        self.lifeAreas = lifeAreas
     }
 
-    func fetchAll(completion: @escaping (Result<[LifeArea], Error>) -> Void) {
-        completion(.success(lifeAreas))
-    }
-
-    func create(_ area: LifeArea, completion: @escaping (Result<LifeArea, Error>) -> Void) {
-        lifeAreas.append(area)
-        completion(.success(area))
-    }
-
-    func update(_ area: LifeArea, completion: @escaping (Result<LifeArea, Error>) -> Void) {
-        completion(.success(area))
-    }
-
-    func delete(id: UUID, completion: @escaping (Result<Void, Error>) -> Void) {
-        completion(.success(()))
-    }
-}
-
-private final class MockProjectRepository: ProjectRepositoryProtocol {
-    var projects: [Project]
-
-    init(projects: [Project]) {
-        self.projects = projects
-    }
-
-    func fetchAllProjects(completion: @escaping (Result<[Project], Error>) -> Void) {
-        completion(.success(projects))
-    }
-
-    func fetchProject(withId id: UUID, completion: @escaping (Result<Project?, Error>) -> Void) {
-        completion(.success(projects.first(where: { $0.id == id })))
-    }
-
-    func fetchProject(withName name: String, completion: @escaping (Result<Project?, Error>) -> Void) {
-        completion(.success(projects.first(where: { $0.name == name })))
-    }
-
-    func fetchInboxProject(completion: @escaping (Result<Project, Error>) -> Void) {
-        completion(.success(projects.first(where: \.isInbox) ?? Project.createInbox()))
-    }
-
-    func fetchCustomProjects(completion: @escaping (Result<[Project], Error>) -> Void) {
-        completion(.success(projects.filter { !$0.isDefault }))
-    }
-
-    func createProject(_ project: Project, completion: @escaping (Result<Project, Error>) -> Void) {
-        projects.append(project)
-        completion(.success(project))
-    }
-
-    func ensureInboxProject(completion: @escaping (Result<Project, Error>) -> Void) {
-        completion(.success(projects.first(where: \.isInbox) ?? Project.createInbox()))
-    }
-
-    func repairProjectIdentityCollisions(completion: @escaping (Result<ProjectRepairReport, Error>) -> Void) {
-        completion(.success(ProjectRepairReport(scanned: projects.count, merged: 0, deleted: 0, inboxCandidates: 0, warnings: [])))
-    }
-
-    func updateProject(_ project: Project, completion: @escaping (Result<Project, Error>) -> Void) {
-        completion(.success(project))
-    }
-
-    func renameProject(withId id: UUID, to newName: String, completion: @escaping (Result<Project, Error>) -> Void) {
-        guard let project = projects.first(where: { $0.id == id }) else {
-            return completion(.failure(NSError(domain: "test", code: 404)))
+    private func tryUnwrap<T>(_ value: T?, file: StaticString = #filePath, line: UInt = #line) -> T {
+        guard let value else {
+            XCTFail("Expected value to exist", file: file, line: line)
+            fatalError("Unreachable after XCTFail")
         }
-        var renamed = project
-        renamed.name = newName
-        completion(.success(renamed))
-    }
-
-    func deleteProject(withId id: UUID, deleteTasks: Bool, completion: @escaping (Result<Void, Error>) -> Void) {
-        completion(.success(()))
-    }
-
-    func getTaskCount(for projectId: UUID, completion: @escaping (Result<Int, Error>) -> Void) {
-        completion(.success(0))
-    }
-
-    func moveTasks(from sourceProjectId: UUID, to targetProjectId: UUID, completion: @escaping (Result<Void, Error>) -> Void) {
-        completion(.success(()))
-    }
-
-    func moveProjectToLifeArea(projectID: UUID, lifeAreaID: UUID, completion: @escaping (Result<ProjectLifeAreaMoveResult, Error>) -> Void) {
-        completion(.success(ProjectLifeAreaMoveResult(updatedProjectID: projectID, fromLifeAreaID: nil, toLifeAreaID: lifeAreaID, tasksRemappedCount: 0)))
-    }
-
-    func backfillProjectsWithoutLifeArea(defaultLifeAreaID: UUID, completion: @escaping (Result<ProjectLifeAreaBackfillResult, Error>) -> Void) {
-        completion(.success(ProjectLifeAreaBackfillResult(defaultLifeAreaID: defaultLifeAreaID, projectsUpdatedCount: 0, tasksRemappedCount: 0, inboxPinned: true)))
-    }
-
-    func isProjectNameAvailable(_ name: String, excludingId: UUID?, completion: @escaping (Result<Bool, Error>) -> Void) {
-        let normalized = name.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-        let isAvailable = projects.contains {
-            $0.id != excludingId && $0.name.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() == normalized
-        } == false
-        completion(.success(isAvailable))
+        return value
     }
 }
 
-private final class MockTaskDefinitionRepository: TaskDefinitionRepositoryProtocol {
-    var lastCreateRequest: CreateTaskDefinitionRequest?
-
-    func fetchAll(completion: @escaping (Result<[TaskDefinition], Error>) -> Void) {
-        completion(.success([]))
-    }
-
-    func fetchAll(query: TaskDefinitionQuery?, completion: @escaping (Result<[TaskDefinition], Error>) -> Void) {
-        completion(.success([]))
-    }
-
-    func fetchTaskDefinition(id: UUID, completion: @escaping (Result<TaskDefinition?, Error>) -> Void) {
-        completion(.success(nil))
-    }
-
-    func create(_ task: TaskDefinition, completion: @escaping (Result<TaskDefinition, Error>) -> Void) {
-        completion(.success(task))
-    }
-
-    func create(request: CreateTaskDefinitionRequest, completion: @escaping (Result<TaskDefinition, Error>) -> Void) {
-        lastCreateRequest = request
-        completion(.success(TaskDefinition(id: request.id, projectID: request.projectID, projectName: request.projectName, title: request.title)))
-    }
-
-    func update(_ task: TaskDefinition, completion: @escaping (Result<TaskDefinition, Error>) -> Void) {
-        completion(.success(task))
-    }
-
-    func update(request: UpdateTaskDefinitionRequest, completion: @escaping (Result<TaskDefinition, Error>) -> Void) {
-        completion(.failure(NSError(domain: "test", code: 1)))
-    }
-
-    func fetchChildren(parentTaskID: UUID, completion: @escaping (Result<[TaskDefinition], Error>) -> Void) {
-        completion(.success([]))
-    }
-
-    func delete(id: UUID, completion: @escaping (Result<Void, Error>) -> Void) {
-        completion(.success(()))
-    }
+private struct StoreContext {
+    let store: AppOnboardingStateStore
+    let cleanup: () -> Void
 }
 
-private func makeInsightsViewModel() -> InsightsViewModel {
-    let repository = MockInsightsGamificationRepository()
-    return InsightsViewModel(
-        engine: GamificationEngine(repository: repository),
-        repository: repository
-    )
-}
+private final class TestNotificationService: NotificationServiceProtocol {
+    var status: TaskerNotificationAuthorizationStatus
+    var permissionGranted = true
 
-private final class MockInsightsGamificationRepository: GamificationRepositoryProtocol {
-    func fetchProfile(completion: @escaping (Result<GamificationSnapshot?, Error>) -> Void) { completion(.success(nil)) }
-    func saveProfile(_ profile: GamificationSnapshot, completion: @escaping (Result<Void, Error>) -> Void) { completion(.success(())) }
-    func fetchXPEvents(completion: @escaping (Result<[XPEventDefinition], Error>) -> Void) { completion(.success([])) }
-    func fetchXPEvents(from startDate: Date, to endDate: Date, completion: @escaping (Result<[XPEventDefinition], Error>) -> Void) { completion(.success([])) }
-    func saveXPEvent(_ event: XPEventDefinition, completion: @escaping (Result<Void, Error>) -> Void) { completion(.success(())) }
-    func hasXPEvent(idempotencyKey: String, completion: @escaping (Result<Bool, Error>) -> Void) { completion(.success(false)) }
-    func fetchAchievementUnlocks(completion: @escaping (Result<[AchievementUnlockDefinition], Error>) -> Void) { completion(.success([])) }
-    func saveAchievementUnlock(_ unlock: AchievementUnlockDefinition, completion: @escaping (Result<Void, Error>) -> Void) { completion(.success(())) }
-    func fetchDailyAggregate(dateKey: String, completion: @escaping (Result<DailyXPAggregateDefinition?, Error>) -> Void) { completion(.success(nil)) }
-    func saveDailyAggregate(_ aggregate: DailyXPAggregateDefinition, completion: @escaping (Result<Void, Error>) -> Void) { completion(.success(())) }
-    func fetchDailyAggregates(from startDateKey: String, to endDateKey: String, completion: @escaping (Result<[DailyXPAggregateDefinition], Error>) -> Void) { completion(.success([])) }
-    func createFocusSession(_ session: FocusSessionDefinition, completion: @escaping (Result<Void, Error>) -> Void) { completion(.success(())) }
-    func updateFocusSession(_ session: FocusSessionDefinition, completion: @escaping (Result<Void, Error>) -> Void) { completion(.success(())) }
-    func fetchFocusSessions(from startDate: Date, to endDate: Date, completion: @escaping (Result<[FocusSessionDefinition], Error>) -> Void) { completion(.success([])) }
+    init(status: TaskerNotificationAuthorizationStatus) {
+        self.status = status
+    }
+
+    func scheduleTaskReminder(taskId: UUID, taskName: String, at date: Date) {}
+    func cancelTaskReminder(taskId: UUID) {}
+    func cancelAllReminders() {}
+    func send(_ notification: CollaborationNotification) {}
+    func requestPermission(completion: @escaping (Bool) -> Void) { completion(permissionGranted) }
+    func checkAuthorizationStatus(completion: @escaping (Bool) -> Void) {
+        completion(status == .authorized || status == .provisional || status == .ephemeral)
+    }
+    func schedule(request: TaskerLocalNotificationRequest) {}
+    func cancel(ids: [String]) {}
+    func pendingRequests(completion: @escaping ([TaskerPendingNotificationRequest]) -> Void) { completion([]) }
+    func registerCategories(_ categories: Set<UNNotificationCategory>) {}
+    func setDelegate(_ delegate: UNUserNotificationCenterDelegate?) {}
+    func fetchAuthorizationStatus(completion: @escaping (TaskerNotificationAuthorizationStatus) -> Void) {
+        completion(status)
+    }
 }

@@ -164,11 +164,26 @@ enum AccessibilityIdentifiers {
     enum Onboarding {
         static let flow = "onboarding.flow"
         static let welcome = "onboarding.welcome"
+        static let lifeAreas = "onboarding.lifeAreas"
+        static let projects = "onboarding.projects"
+        static let firstTask = "onboarding.firstTask"
+        static let focusRoom = "onboarding.focusRoom"
+        static let success = "onboarding.success"
         static let skipButton = "onboarding.skipButton"
+        static let startRecommended = "onboarding.cta.startRecommended"
+        static let customize = "onboarding.cta.customize"
+        static let useAreas = "onboarding.cta.useAreas"
+        static let useProjects = "onboarding.cta.useProjects"
+        static let goFinishTask = "onboarding.cta.goFinishTask"
+        static let focusPrimary = "onboarding.cta.focusPrimary"
+        static let markComplete = "onboarding.cta.markComplete"
+        static let breakDown = "onboarding.cta.breakDown"
+        static let goHome = "onboarding.cta.goHome"
+        static let breakdownNext = "onboarding.cta.breakdownNext"
         static let prompt = "onboarding.prompt"
         static let promptStart = "onboarding.prompt.start"
         static let promptDismiss = "onboarding.prompt.dismiss"
-        static let finish = "onboarding.finish"
+        static let finish = "onboarding.success"
     }
 
     // MARK: - Project Management Screen

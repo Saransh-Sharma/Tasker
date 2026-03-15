@@ -20,18 +20,22 @@ public struct AddTaskSheetView: View {
     @StateObject private var viewModel: AddTaskViewModel
     @Environment(\.dismiss) private var dismiss
     private let onTaskCreated: ((UUID) -> Void)?
+    private let onDismissWithoutTask: (() -> Void)?
 
     @State private var showDiscardConfirmation = false
     @State private var showAddAnother = false
     @State private var successFlash = false
     @State private var selectedDetent: PresentationDetent = .medium
+    @State private var didCreateTask = false
 
     public init(
         viewModel: AddTaskViewModel,
-        onTaskCreated: ((UUID) -> Void)? = nil
+        onTaskCreated: ((UUID) -> Void)? = nil,
+        onDismissWithoutTask: (() -> Void)? = nil
     ) {
         _viewModel = StateObject(wrappedValue: viewModel)
         self.onTaskCreated = onTaskCreated
+        self.onDismissWithoutTask = onDismissWithoutTask
     }
 
     public var body: some View {
@@ -61,6 +65,11 @@ public struct AddTaskSheetView: View {
         } message: {
             Text("You have unsaved changes that will be lost.")
         }
+        .onDisappear {
+            if didCreateTask == false {
+                onDismissWithoutTask?()
+            }
+        }
     }
 
     // MARK: - Actions
@@ -85,6 +94,7 @@ public struct AddTaskSheetView: View {
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
             if viewModel.isTaskCreated {
                 TaskerFeedback.success()
+                didCreateTask = true
                 if let taskID = viewModel.lastCreatedTaskID {
                     onTaskCreated?(taskID)
                 }
@@ -102,6 +112,7 @@ public struct AddTaskSheetView: View {
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
             if viewModel.isTaskCreated {
                 TaskerFeedback.success()
+                didCreateTask = true
                 if let taskID = viewModel.lastCreatedTaskID {
                     onTaskCreated?(taskID)
                 }
