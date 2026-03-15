@@ -39,6 +39,12 @@ Release tag promotion is blocked until every gate below is green.
 - semantic fallback behavior verified (`assistant_semantic_fallback_lexical` path)
 - daily brief notification open verified with seeded chat behavior
 - overdue triage apply-all verified to use pipeline mutation contract
+- bounded freeform chat smoke verified on weakest supported model with:
+  - direct answer to `What tasks should I focus on`
+  - direct answer to `How was my last week?`
+  - no persona self-introduction loops
+  - no repeated-token tails
+  - no visible template/control markers
 
 ## Workflow-to-Gate Traceability
 
@@ -50,7 +56,7 @@ Release tag promotion is blocked until every gate below is green.
 | CloudKit smoke docs/evidence gate | `.github/workflows/cloudkit-smoke.yml` | `scripts/validate_cloudkit_smoke_evidence.sh` + runbook existence |
 | Token/logging UI guardrails (supporting quality gate) | `.github/workflows/design-token-law.yml` | `scripts/token-law-guardrails.sh`, `scripts/check-no-print-logs.sh` |
 | flowctl tooling gate | `.github/workflows/ios.yml` (`guardrails`) | `scripts/install_flowctl.sh`, `scripts/verify_flowctl.sh` |
-| AI behavior gate | iOS CI + manual/automated smoke evidence | release evidence rows in `docs/architecture/v3-runtime-cutover-todo.md` |
+| AI behavior gate | iOS CI + manual/automated smoke evidence | release evidence rows in `docs/architecture/v3-runtime-cutover-todo.md`, including bounded freeform weak-model smoke |
 
 ## Release Evidence Bundle
 
@@ -60,6 +66,7 @@ For each release candidate, attach:
 3. benchmark artifact `build/benchmarks/v2_readmodel.json`.
 4. smoke evidence markdown path and commit SHA.
 5. AI evidence references from `docs/architecture/v3-runtime-cutover-todo.md`.
+6. weakest-model freeform chat smoke evidence for bounded prompt path.
 
 ## Block Criteria
 

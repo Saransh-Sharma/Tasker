@@ -1,13 +1,17 @@
 # LLM Feature Integration Handbook (Mixed Engineering + PM)
 
-**Last validated against code on 2026-02-21**
+**Last validated against code on 2026-03-16**
 
 This handbook explains what Tasker's AI features do for users, how they are implemented, and how to safely evolve them.
 Use this as the first stop for product/engineering alignment before editing AI runtime code.
 
 Primary source anchors:
+- `To Do List/LLM/ChatHostViewController.swift`
 - `To Do List/LLM/Views/Chat/ChatView.swift`
 - `To Do List/LLM/Views/Chat/ConversationView.swift`
+- `To Do List/LLM/Views/Chat/ChatTranscriptSnapshot.swift`
+- `To Do List/LLM/Models/LLMInferenceEngine.swift`
+- `To Do List/LLM/Models/LLMRuntimeCoordinator.swift`
 - `To Do List/LLM/Models/AISuggestionService.swift`
 - `To Do List/LLM/Models/TaskBreakdownService.swift`
 - `To Do List/LLM/Models/OverdueTriageService.swift`
@@ -54,6 +58,21 @@ flowchart TD
     P4 --> P5["User confirm/apply"]
     P5 --> P6["Pipeline applyConfirmedRun()"]
     P6 --> P7["Render undo card"]
+```
+
+### Chat runtime performance path
+
+```mermaid
+flowchart TD
+    E["Chat host visible"] --> P["LLMRuntimeCoordinator.enterChatScreen()"]
+    P --> W["Prime selected model if memory/thermal gate passes"]
+    W --> F["User focuses or types with warmup already in flight or complete"]
+    F --> S["Send message"]
+    S --> R["ensureReady() reuses in-flight prewarm when possible"]
+    R --> G["LLMEvaluator updates UI state"]
+    G --> I["LLMInferenceEngine streams generation off main actor"]
+    I --> T["ChatTranscriptSnapshot + ChatLiveOutputState drive render"]
+    T --> X["Immediate unload on definitive chat exit"]
 ```
 
 ### Overdue triage customize/deep-link path
@@ -112,6 +131,13 @@ Fallback principles:
 ### Context contract
 - Context is rebuilt on every generation request.
 - Payload includes enriched task metadata (`energy`, `context`, `type`, tags, dependencies, `project_id`) and payload metadata (`timezone`, `generated_at_iso`, `context_version`).
+- First-turn model warmup is no longer expected on the send path when entry prewarm succeeds; first send should usually reuse a prepared model.
+
+### Chat rendering contract
+- `ConversationView` renders immutable `ChatTranscriptSnapshot` data instead of a live `Thread`.
+- `ChatMessageRenderModel` owns expensive per-message preprocessing: card decode, visible-text sanitization, think/answer split, and markdown identity.
+- One conversation-level timer drives undo countdown refresh when needed; per-message timer publishers are not allowed in chat transcript rendering.
+- Live output is throttled before UI publish to reduce typing/focus contention.
 
 ### Semantic contract
 - Input text combines task title/details/project/tag names.
@@ -129,6 +155,7 @@ Fallback principles:
 | `assistantSemanticRetrievalEnabled` | semantic indexing/context/rerank |
 | `assistantBriefEnabled` | daily brief generation + notification path |
 | `assistantBreakdownEnabled` | task-detail breakdown action visibility |
+| `llmChatPrewarmMode` | chat-screen prewarm behavior and disable switch |
 
 ## Release Validation Checklist for AI Changes
 
@@ -137,10 +164,13 @@ Fallback principles:
 - `./scripts/validate_legacy_runtime_guardrails.sh`
 2. Chat plan/apply/undo smoke verified end-to-end.
 3. Ask mode verified non-mutating.
-4. Add Task suggestion latency and accept flow verified.
-5. Overdue triage apply path verified via pipeline.
-6. Daily brief notification open path seeds chat correctly.
-7. Semantic fallback telemetry verified when embeddings unavailable.
+4. Chat entry performance profiled for `open chat -> tap composer -> type 10 chars -> send first message -> leave chat`.
+5. Confirm first send does not include full model load when entry prewarm completed.
+6. Confirm model unload log fires promptly after definitive chat exit.
+7. Add Task suggestion latency and accept flow verified.
+8. Overdue triage apply path verified via pipeline.
+9. Daily brief notification open path seeds chat correctly.
+10. Semantic fallback telemetry verified when embeddings unavailable.
 
 ## Incident Triage Quick Paths
 
@@ -149,6 +179,9 @@ Fallback principles:
 | Proposal cards not rendering | sentinel payload decode, missing `run_id`, thread ownership mismatch |
 | Apply keeps failing | `assistant_apply_failed`, rollback status, stale-context hints |
 | Undo unavailable unexpectedly | `expires_at`, undo-window age, `assistantUndoEnabled` flag |
+| Keyboard focus or first typing hangs in chat | chat entry prewarm timing, main-thread model work regression, transcript snapshot invalidation |
+| First response too slow | `chat_model_prepare_ms`, `chat_first_token_latency_ms`, prewarm hit/miss, context-build timing |
+| Memory stays high after leaving chat | `chat_model_unloaded`, chat exit path, lingering active session reasons |
 | Suggestion quality drop | context payload event fields + model routing banner/fallback |
 | Brief notification opens but no chat seed | pending keys + open-chat notification path |
 | Search relevance regression | semantic flag state + `assistant_semantic_fallback_lexical` events |

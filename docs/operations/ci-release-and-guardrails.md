@@ -79,6 +79,12 @@ For any release that includes AI/LLM changes, collect and attach:
 3. Ask-mode non-mutation evidence.
 4. Semantic fallback evidence (`assistant_semantic_fallback_lexical` path) when embedding unavailability is simulated or observed.
 5. Daily brief open/deep-link evidence (`assistant_daily_brief_opened` and seeded chat behavior).
+6. Bounded freeform weak-model smoke evidence showing:
+   - compact prompt path stayed within bounded budgets,
+   - no self-introduction loop,
+   - no repeated-token tail,
+   - no visible template/control markers,
+   - direct answers for both forward-looking and retrospective prompts.
 
 ## Release Evidence Checklist
 

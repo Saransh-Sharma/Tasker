@@ -1,0 +1,5 @@
+- [x] Add `LLMInferenceEngine` and move model lifecycle off `@MainActor`
+- [x] Rework `LLMRuntimeCoordinator` entry/exit prewarm and unload behavior for chat only
+- [x] Isolate chat transcript rendering from composer state changes
+- [x] Add/update tests for runtime lifecycle and transcript behavior
+- [x] Run targeted verification and summarize remaining risks
