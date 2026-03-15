@@ -196,6 +196,7 @@ struct OnboardingJourneySnapshot: Codable, Equatable {
     var selectedLifeAreaIDs: [String]
     var showAllLifeAreas: Bool
     var projectDrafts: [OnboardingProjectDraft]
+    var expandedProjectIDs: [UUID] = []
     var resolvedLifeAreas: [ResolvedLifeAreaSelection]
     var resolvedProjects: [ResolvedProjectSelection]
     var createdTasks: [TaskDefinition]
@@ -206,6 +207,7 @@ struct OnboardingJourneySnapshot: Codable, Equatable {
     var focusIsActive: Bool
     var successSummary: AppOnboardingSummary?
     var hasSeenSuccess: Bool
+    var reminderPromptDismissed: Bool = false
 }
 
 struct AppOnboardingState: Codable, Equatable {
@@ -1215,6 +1217,8 @@ final class OnboardingFlowModel: ObservableObject {
     @Published var selectedLifeAreaIDs: Set<String> = []
     @Published var showAllLifeAreas = false
     @Published var projectDrafts: [OnboardingProjectDraft] = []
+    @Published var expandedProjectIDs: Set<UUID> = []
+    @Published var reminderPromptDismissed = false
     @Published private(set) var resolvedLifeAreas: [ResolvedLifeAreaSelection] = []
     @Published private(set) var resolvedProjects: [ResolvedProjectSelection] = []
     @Published private(set) var createdTasks: [TaskDefinition] = []
@@ -1232,6 +1236,8 @@ final class OnboardingFlowModel: ObservableObject {
     @Published var breakdownSheetPresented = false
     @Published var breakdownIsLoading = false
     @Published var breakdownRouteBanner: String?
+
+    private var lastReminderPromptState: OnboardingReminderPromptState = .hidden
 
     init(
         stateStore: AppOnboardingStateStore = .shared,
@@ -1352,6 +1358,7 @@ final class OnboardingFlowModel: ObservableObject {
     func prepareForPresentation(snapshot: OnboardingJourneySnapshot?) {
         errorMessage = nil
         reminderPromptState = .hidden
+        lastReminderPromptState = .hidden
         breakdownSheetPresented = false
         breakdownSteps = []
         breakdownIsLoading = false
@@ -1371,6 +1378,8 @@ final class OnboardingFlowModel: ObservableObject {
         selectedLifeAreaIDs = Set(snapshot.selectedLifeAreaIDs)
         showAllLifeAreas = snapshot.showAllLifeAreas
         projectDrafts = snapshot.projectDrafts
+        expandedProjectIDs = Set(snapshot.expandedProjectIDs)
+        reminderPromptDismissed = snapshot.reminderPromptDismissed
         resolvedLifeAreas = snapshot.resolvedLifeAreas
         resolvedProjects = snapshot.resolvedProjects
         createdTasks = snapshot.createdTasks
@@ -1406,6 +1415,9 @@ final class OnboardingFlowModel: ObservableObject {
         focusIsActive = false
         successSummary = nil
         reminderPromptState = .hidden
+        reminderPromptDismissed = false
+        expandedProjectIDs = []
+        lastReminderPromptState = .hidden
         breakdownSteps = []
         breakdownSheetPresented = false
         breakdownIsLoading = false
@@ -1416,7 +1428,11 @@ final class OnboardingFlowModel: ObservableObject {
     }
 
     func selectFriction(_ profile: OnboardingFrictionProfile) {
-        frictionProfile = frictionProfile == profile ? nil : profile
+        let nextProfile = frictionProfile == profile ? nil : profile
+        frictionProfile = nextProfile
+        if let nextProfile {
+            logOnboardingInfo(event: "friction_type_selected", fields: ["profile": nextProfile.rawValue])
+        }
         if step == .welcome {
             applyDefaults(mode: mode, frictionProfile: frictionProfile)
             clearDownstreamState()
@@ -1495,6 +1511,16 @@ final class OnboardingFlowModel: ObservableObject {
         guard let index = projectDrafts.firstIndex(where: { $0.id == draftID }) else { return }
         projectDrafts[index].isSelected.toggle()
         errorMessage = nil
+        persistJourney()
+    }
+
+    func toggleProjectEditExpansion(_ draftID: UUID) {
+        if expandedProjectIDs.contains(draftID) {
+            expandedProjectIDs.remove(draftID)
+        } else {
+            expandedProjectIDs.insert(draftID)
+            logOnboardingInfo(event: "project_edit_expanded", fields: ["draft_id": draftID.uuidString])
+        }
         persistJourney()
     }
 
@@ -1633,6 +1659,7 @@ final class OnboardingFlowModel: ObservableObject {
         if focusStartedAt == nil {
             focusStartedAt = Date()
         }
+        logOnboardingInfo(event: "focus_mode_started")
         persistJourney()
     }
 
@@ -1658,6 +1685,7 @@ final class OnboardingFlowModel: ObservableObject {
 
     func generateBreakdownSuggestions() async {
         guard let focusTask else { return }
+        logOnboardingInfo(event: "ai_breakdown_used")
         let service = TaskBreakdownService.shared
         let immediate = service.immediateHeuristicSteps(
             taskTitle: focusTask.title,
@@ -1755,6 +1783,11 @@ final class OnboardingFlowModel: ObservableObject {
             persistJourney()
             return
         }
+        if reminderPromptDismissed {
+            reminderPromptState = .hidden
+            persistJourney()
+            return
+        }
 
         let status = await notificationService.fetchAuthorizationStatusAsync()
         switch status {
@@ -1765,17 +1798,31 @@ final class OnboardingFlowModel: ObservableObject {
         case .authorized, .provisional, .ephemeral:
             reminderPromptState = .hidden
         }
+
+        if reminderPromptState != .hidden, reminderPromptState != lastReminderPromptState {
+            logOnboardingInfo(
+                event: "reminder_prompt_shown",
+                fields: ["state": String(describing: reminderPromptState)]
+            )
+        }
+        lastReminderPromptState = reminderPromptState
         persistJourney()
     }
 
     func handleReminderPrimaryAction() async {
         guard reminderPromptState == .prompt, let notificationService else { return }
-        _ = await notificationService.requestPermissionAsync()
+        let granted = await notificationService.requestPermissionAsync()
+        logOnboardingInfo(
+            event: "reminder_prompt_accepted",
+            fields: ["granted": String(granted)]
+        )
         await refreshReminderPromptState()
     }
 
     func dismissReminderPrompt() {
+        reminderPromptDismissed = true
         reminderPromptState = .hidden
+        logOnboardingInfo(event: "reminder_prompt_declined")
         persistJourney()
     }
 
@@ -1838,6 +1885,8 @@ final class OnboardingFlowModel: ObservableObject {
         let selection = StarterWorkspaceCatalog.defaultLifeAreaSelectionIDs(for: frictionProfile, mode: mode)
         selectedLifeAreaIDs = Set(selection)
         projectDrafts = StarterWorkspaceCatalog.defaultProjectDrafts(for: selection, mode: mode)
+        expandedProjectIDs = []
+        reminderPromptDismissed = false
         showAllLifeAreas = false
     }
 
@@ -1861,6 +1910,9 @@ final class OnboardingFlowModel: ObservableObject {
         focusIsActive = false
         successSummary = nil
         reminderPromptState = .hidden
+        reminderPromptDismissed = false
+        expandedProjectIDs = []
+        lastReminderPromptState = .hidden
         breakdownSteps = []
         breakdownSheetPresented = false
         breakdownIsLoading = false
@@ -1916,6 +1968,7 @@ final class OnboardingFlowModel: ObservableObject {
                 .filter { selectedLifeAreaIDs.contains($0) },
             showAllLifeAreas: showAllLifeAreas,
             projectDrafts: projectDrafts,
+            expandedProjectIDs: Array(expandedProjectIDs),
             resolvedLifeAreas: resolvedLifeAreas,
             resolvedProjects: resolvedProjects,
             createdTasks: createdTasks,
@@ -1925,7 +1978,8 @@ final class OnboardingFlowModel: ObservableObject {
             focusStartedAt: focusStartedAt,
             focusIsActive: focusIsActive,
             successSummary: successSummary,
-            hasSeenSuccess: successSummary != nil
+            hasSeenSuccess: successSummary != nil,
+            reminderPromptDismissed: reminderPromptDismissed
         )
         stateStore.storeJourney(snapshot)
     }
