@@ -4,6 +4,12 @@ import SwiftUI
 struct InsightsTodayView: View {
 
     @ObservedObject var viewModel: InsightsViewModel
+    let homeProgress: HomeProgressState
+    let homeCompletionRate: Double
+    let reflectionEligible: Bool
+    let momentumGuidanceText: String
+    let animateMomentumCard: Bool
+    let onOpenReflection: () -> Void
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var didAppear = false
 
@@ -23,9 +29,19 @@ struct InsightsTodayView: View {
     var body: some View {
         VStack(spacing: spacing.s12) {
             module(index: 0) {
-                heroCard
+                HomeMomentumSummaryCard(
+                    progress: homeProgress,
+                    completionRate: homeCompletionRate,
+                    reflectionEligible: reflectionEligible,
+                    momentumGuidanceText: momentumGuidanceText,
+                    animate: animateMomentumCard,
+                    onOpenReflection: onOpenReflection
+                )
             }
             module(index: 1) {
+                heroCard
+            }
+            module(index: 2) {
                 metricGridCard(
                     eyebrow: "Momentum board",
                     title: "The operating picture for today",
@@ -33,10 +49,10 @@ struct InsightsTodayView: View {
                     metrics: state.momentumMetrics
                 )
             }
-            module(index: 2) {
+            module(index: 3) {
                 goalAndPaceCard
             }
-            module(index: 3) {
+            module(index: 4) {
                 metricGridCard(
                     eyebrow: "Due pressure",
                     title: "What still needs an explicit decision",
@@ -44,7 +60,7 @@ struct InsightsTodayView: View {
                     metrics: state.duePressureMetrics
                 )
             }
-            module(index: 4) {
+            module(index: 5) {
                 metricGridCard(
                     eyebrow: "Focus pulse",
                     title: "Depth, not just movement",
@@ -52,10 +68,10 @@ struct InsightsTodayView: View {
                     metrics: state.focusMetrics
                 )
             }
-            module(index: 5) {
+            module(index: 6) {
                 completionMixCard
             }
-            module(index: 6) {
+            module(index: 7) {
                 metricGridCard(
                     eyebrow: "Recovery loop",
                     title: "How the day recovers instead of spirals",
@@ -343,9 +359,10 @@ struct InsightsTodayView: View {
         let delay = Double(index) * 0.05
         return content()
             .opacity(reduceMotion || didAppear ? 1 : 0)
+            .scaleEffect(reduceMotion || didAppear ? 1 : 0.985)
             .offset(y: reduceMotion || didAppear ? 0 : 12)
             .animation(
-                reduceMotion ? nil : .easeOut(duration: 0.32).delay(delay),
+                reduceMotion ? nil : TaskerAnimation.gentle.delay(delay),
                 value: didAppear
             )
     }
@@ -355,13 +372,12 @@ struct InsightsTodayView: View {
         content()
             .padding(spacing.s16)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(
-                RoundedRectangle(cornerRadius: 24, style: .continuous)
-                    .fill(Color.tasker.surfacePrimary)
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: 24, style: .continuous)
-                    .stroke(Color.tasker.strokeHairline.opacity(0.8), lineWidth: 1)
+            .taskerPremiumSurface(
+                cornerRadius: 24,
+                fillColor: Color.tasker.surfacePrimary,
+                strokeColor: Color.tasker.strokeHairline.opacity(0.82),
+                accentColor: Color.tasker.accentSecondary,
+                level: .e2
             )
     }
 

@@ -4,50 +4,82 @@ import SwiftUI
 public struct InsightsTabView: View {
 
     @ObservedObject var viewModel: InsightsViewModel
+    let homeProgress: HomeProgressState
+    let homeCompletionRate: Double
+    let reflectionEligible: Bool
+    let momentumGuidanceText: String
+    let animateMomentumCard: Bool
+    let onOpenReflection: () -> Void
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.currentTheme.tokens.spacing }
 
     public var body: some View {
         VStack(spacing: 0) {
-            HStack(spacing: 0) {
-                ForEach(InsightsViewModel.InsightsTab.allCases, id: \.self) { tab in
-                    Button(action: { viewModel.selectTab(tab) }) {
-                        VStack(spacing: spacing.s2) {
-                            Text(tab.rawValue)
-                                .font(.tasker(.callout))
-                                .fontWeight(.semibold)
-                                .foregroundColor(
-                                    viewModel.selectedTab == tab
-                                        ? Color.tasker.textPrimary
-                                        : Color.tasker.textTertiary
-                                )
-                            Text(tabSubtitle(for: tab))
-                                .font(.tasker(.caption2))
-                                .foregroundColor(
-                                    viewModel.selectedTab == tab
-                                        ? Color.tasker.textSecondary
-                                        : Color.tasker.textQuaternary
-                                )
+            VStack(alignment: .leading, spacing: spacing.s12) {
+                VStack(alignment: .leading, spacing: spacing.s4) {
+                    Text("Insights")
+                        .font(.tasker(.caption1))
+                        .foregroundStyle(Color.tasker.textTertiary)
+
+                    Text("Reflection without overload")
+                        .font(.tasker(.title3))
+                        .fontWeight(.semibold)
+                        .foregroundStyle(Color.tasker.textPrimary)
+
+                    Text("Today keeps the board operational, Week shows patterns, and Systems checks whether the product is helping you recover.")
+                        .font(.tasker(.caption1))
+                        .foregroundStyle(Color.tasker.textSecondary)
+                }
+
+                HStack(spacing: spacing.s8) {
+                    ForEach(InsightsViewModel.InsightsTab.allCases, id: \.self) { tab in
+                        Button(action: { viewModel.selectTab(tab) }) {
+                            VStack(alignment: .leading, spacing: spacing.s2) {
+                                Text(tab.rawValue)
+                                    .font(.tasker(.callout))
+                                    .fontWeight(.semibold)
+                                    .foregroundStyle(
+                                        viewModel.selectedTab == tab
+                                            ? Color.tasker.textPrimary
+                                            : Color.tasker.textTertiary
+                                    )
+                                Text(tabSubtitle(for: tab))
+                                    .font(.tasker(.caption2))
+                                    .foregroundStyle(
+                                        viewModel.selectedTab == tab
+                                            ? Color.tasker.textSecondary
+                                            : Color.tasker.textQuaternary
+                                    )
+                            }
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(.horizontal, spacing.s12)
+                            .padding(.vertical, spacing.s12)
+                            .taskerChromeSurface(
+                                cornerRadius: 18,
+                                accentColor: accentColor(for: tab),
+                                level: .e1
+                            )
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                                    .fill(viewModel.selectedTab == tab ? accentColor(for: tab).opacity(0.14) : Color.clear)
+                            )
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                                    .stroke(
+                                        viewModel.selectedTab == tab
+                                            ? accentColor(for: tab).opacity(0.26)
+                                            : Color.clear,
+                                        lineWidth: 1
+                                    )
+                            )
                         }
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, spacing.s8)
-                        .background(
-                            Capsule()
-                                .fill(
-                                    viewModel.selectedTab == tab
-                                        ? Color.tasker.surfacePrimary
-                                        : Color.clear
-                                )
-                        )
+                        .buttonStyle(.plain)
+                        .scaleOnPress()
+                        .accessibilityIdentifier(accessibilityIdentifier(for: tab))
                     }
-                    .buttonStyle(.plain)
-                    .accessibilityIdentifier(accessibilityIdentifier(for: tab))
                 }
             }
-            .padding(4)
-            .background(Color.tasker.surfaceTertiary)
-            .clipShape(Capsule())
             .padding(.horizontal, spacing.screenHorizontal)
             .padding(.vertical, spacing.s12)
 
@@ -55,7 +87,15 @@ public struct InsightsTabView: View {
                 ZStack {
                     switch viewModel.selectedTab {
                     case .today:
-                        InsightsTodayView(viewModel: viewModel)
+                        InsightsTodayView(
+                            viewModel: viewModel,
+                            homeProgress: homeProgress,
+                            homeCompletionRate: homeCompletionRate,
+                            reflectionEligible: reflectionEligible,
+                            momentumGuidanceText: momentumGuidanceText,
+                            animateMomentumCard: animateMomentumCard,
+                            onOpenReflection: onOpenReflection
+                        )
                             .accessibilityIdentifier("home.insights.content.today")
                             .transition(contentTransition)
                     case .week:
@@ -111,6 +151,17 @@ public struct InsightsTabView: View {
             return "home.insights.tab.week"
         case .systems:
             return "home.insights.tab.systems"
+        }
+    }
+
+    private func accentColor(for tab: InsightsViewModel.InsightsTab) -> Color {
+        switch tab {
+        case .today:
+            return Color.tasker.accentPrimary
+        case .week:
+            return Color.tasker.accentSecondary
+        case .systems:
+            return Color.tasker.statusSuccess
         }
     }
 }

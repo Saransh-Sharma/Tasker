@@ -129,6 +129,7 @@ struct HomeScrollChromeStateTracker {
 struct TaskListView: View {
     private static let defaultBottomContentInset: CGFloat = 80
 
+    let headerContent: AnyView?
     let morningTasks: [TaskDefinition]
     let eveningTasks: [TaskDefinition]
     let overdueTasks: [TaskDefinition]
@@ -165,6 +166,7 @@ struct TaskListView: View {
 
     /// Initializes a new instance.
     init(
+        headerContent: AnyView? = nil,
         morningTasks: [TaskDefinition],
         eveningTasks: [TaskDefinition],
         overdueTasks: [TaskDefinition],
@@ -196,6 +198,7 @@ struct TaskListView: View {
         highlightedTaskID: UUID? = nil,
         bottomContentInset: CGFloat = TaskListView.defaultBottomContentInset
     ) {
+        self.headerContent = headerContent
         self.morningTasks = morningTasks
         self.eveningTasks = eveningTasks
         self.overdueTasks = overdueTasks
@@ -232,6 +235,10 @@ struct TaskListView: View {
         ScrollViewReader { proxy in
             ScrollView(.vertical, showsIndicators: false) {
                 LazyVStack(alignment: .leading, spacing: TaskerTheme.Spacing.lg) {
+                    if let headerContent {
+                        headerContent
+                    }
+
                     if activeQuickView == .done {
                         doneTimelineContent
                     } else {

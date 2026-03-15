@@ -336,9 +336,10 @@ struct InsightsSystemsView: View {
         let delay = Double(index) * 0.05
         return content()
             .opacity(reduceMotion || didAppear ? 1 : 0)
+            .scaleEffect(reduceMotion || didAppear ? 1 : 0.985)
             .offset(y: reduceMotion || didAppear ? 0 : 14)
             .animation(
-                reduceMotion ? nil : .easeOut(duration: 0.32).delay(delay),
+                reduceMotion ? nil : TaskerAnimation.gentle.delay(delay),
                 value: didAppear
             )
     }
@@ -348,13 +349,12 @@ struct InsightsSystemsView: View {
         content()
             .padding(spacing.s16)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(
-                RoundedRectangle(cornerRadius: 24, style: .continuous)
-                    .fill(Color.tasker.surfacePrimary)
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: 24, style: .continuous)
-                    .stroke(Color.tasker.strokeHairline.opacity(0.8), lineWidth: 1)
+            .taskerPremiumSurface(
+                cornerRadius: 24,
+                fillColor: Color.tasker.surfacePrimary,
+                strokeColor: Color.tasker.strokeHairline.opacity(0.82),
+                accentColor: Color.tasker.accentSecondary,
+                level: .e2
             )
     }
 
