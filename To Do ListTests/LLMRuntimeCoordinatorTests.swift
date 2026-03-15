@@ -61,6 +61,38 @@ final class LLMRuntimeCoordinatorTests: XCTestCase {
         XCTAssertEqual(prepareCallCount, 1)
     }
 
+    func testPrewarmNormalizesRetiredCurrentModelBeforePreparing() async {
+        V2FeatureFlags.llmChatPrewarmMode = .adaptiveOnDemand
+        let suiteName = "LLMRuntimeCoordinatorTests.RetiredCurrent.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+
+        LLMPersistedModelSelection.persistInstalledModels(
+            [
+                "NexVeridian/Qwen3.5-0.8B-4bit",
+                "mlx-community/Qwen3-0.6B-4bit"
+            ],
+            defaults: defaults
+        )
+        defaults.set("NexVeridian/Qwen3.5-0.8B-4bit", forKey: LLMPersistedModelSelection.currentModelKey)
+
+        var preparedModelNames: [String] = []
+        let coordinator = LLMRuntimeCoordinator(
+            defaults: defaults,
+            prepareHandler: { modelName in
+                preparedModelNames.append(modelName)
+                return LLMEvaluator.PrepareResult(wasAlreadyLoaded: false)
+            },
+            registerLifecycleObservers: false
+        )
+
+        await coordinator.prewarmIfEligibleCurrentModel()
+        try? await _Concurrency.Task.sleep(nanoseconds: 50_000_000)
+
+        XCTAssertEqual(preparedModelNames, ["mlx-community/Qwen3-0.6B-4bit"])
+        XCTAssertEqual(defaults.string(forKey: LLMPersistedModelSelection.currentModelKey), "mlx-community/Qwen3-0.6B-4bit")
+    }
+
     func testSwitchModelCancelsInflightPrewarm() async {
         V2FeatureFlags.llmChatPrewarmMode = .adaptiveOnDemand
         let defaults = UserDefaults(suiteName: "LLMRuntimeCoordinatorTests.Cancel.\(UUID().uuidString)")!
@@ -107,7 +139,7 @@ final class LLMRuntimeCoordinatorTests: XCTestCase {
 
         let coordinator = LLMRuntimeCoordinator(
             notificationCenter: center,
-            unloadHandler: {
+            unloadHandler: { _ in
                 unloadCount += 1
             },
             registerLifecycleObservers: true
@@ -126,7 +158,7 @@ final class LLMRuntimeCoordinatorTests: XCTestCase {
 
         let coordinator = LLMRuntimeCoordinator(
             notificationCenter: center,
-            unloadHandler: {
+            unloadHandler: { _ in
                 unloadCount += 1
             },
             backgroundUnloadDelayNanoseconds: 60_000_000,
@@ -148,7 +180,7 @@ final class LLMRuntimeCoordinatorTests: XCTestCase {
 
         let coordinator = LLMRuntimeCoordinator(
             notificationCenter: center,
-            unloadHandler: {
+            unloadHandler: { _ in
                 unloadCount += 1
             },
             backgroundUnloadDelayNanoseconds: 40_000_000,
@@ -173,7 +205,7 @@ final class LLMRuntimeCoordinatorTests: XCTestCase {
             defaults: defaults,
             notificationCenter: center,
             prepareHandler: { _ in LLMEvaluator.PrepareResult(wasAlreadyLoaded: false) },
-            unloadHandler: {
+            unloadHandler: { _ in
                 unloadCount += 1
             },
             idleUnloadDelayNanoseconds: 40_000_000,
@@ -217,9 +249,8 @@ final class LLMRuntimeCoordinatorTests: XCTestCase {
         XCTAssertEqual(evaluator.runtimePhase, .stopping)
     }
 
-    func testChatEntryPrewarmIsDeferredWhenPerformanceFlagEnabled() async {
+    func testPromptFocusPrewarmHonorsRequestedDelay() async {
         V2FeatureFlags.llmChatPrewarmMode = .adaptiveOnDemand
-        V2FeatureFlags.iPadPerfDeferLLMPrewarmV2Enabled = true
         let defaults = UserDefaults(suiteName: "LLMRuntimeCoordinatorTests.Deferred.\(UUID().uuidString)")!
         defaults.set("mlx-community/Qwen3-0.6B-4bit", forKey: "currentModelName")
 
@@ -241,7 +272,6 @@ final class LLMRuntimeCoordinatorTests: XCTestCase {
 
     func testDeferredChatEntryPrewarmCancelsBeforeExecution() async {
         V2FeatureFlags.llmChatPrewarmMode = .adaptiveOnDemand
-        V2FeatureFlags.iPadPerfDeferLLMPrewarmV2Enabled = true
         let defaults = UserDefaults(suiteName: "LLMRuntimeCoordinatorTests.DeferredCancel.\(UUID().uuidString)")!
         defaults.set("mlx-community/Qwen3-0.6B-4bit", forKey: "currentModelName")
 
@@ -263,7 +293,6 @@ final class LLMRuntimeCoordinatorTests: XCTestCase {
 
     func testDeferredChatEntryPrewarmDedupesMatchingRequests() async {
         V2FeatureFlags.llmChatPrewarmMode = .adaptiveOnDemand
-        V2FeatureFlags.iPadPerfDeferLLMPrewarmV2Enabled = true
         let defaults = UserDefaults(suiteName: "LLMRuntimeCoordinatorTests.DeferredDedup.\(UUID().uuidString)")!
         defaults.set("mlx-community/Qwen3-0.6B-4bit", forKey: "currentModelName")
 
@@ -281,5 +310,43 @@ final class LLMRuntimeCoordinatorTests: XCTestCase {
         coordinator.requestChatEntryPrewarm(trigger: "prompt_focus", delaySeconds: 0.05)
         try? await _Concurrency.Task.sleep(nanoseconds: 90_000_000)
         XCTAssertEqual(prepareCallCount, 1)
+    }
+
+    func testEnterChatScreenTriggersImmediatePrewarm() async {
+        V2FeatureFlags.llmChatPrewarmMode = .adaptiveOnDemand
+        let defaults = UserDefaults(suiteName: "LLMRuntimeCoordinatorTests.Entry.\(UUID().uuidString)")!
+        defaults.set("mlx-community/Qwen3-0.6B-4bit", forKey: "currentModelName")
+
+        var prepareCallCount = 0
+        let coordinator = LLMRuntimeCoordinator(
+            defaults: defaults,
+            prepareHandler: { _ in
+                prepareCallCount += 1
+                return LLMEvaluator.PrepareResult(wasAlreadyLoaded: false)
+            },
+            registerLifecycleObservers: false
+        )
+
+        coordinator.enterChatScreen(trigger: "unit_test_entry")
+        try? await _Concurrency.Task.sleep(nanoseconds: 80_000_000)
+        XCTAssertEqual(prepareCallCount, 1)
+    }
+
+    func testExitChatScreenUnloadsImmediately() async {
+        let center = NotificationCenter()
+        var unloadReasons: [String] = []
+
+        let coordinator = LLMRuntimeCoordinator(
+            notificationCenter: center,
+            unloadHandler: { reason in
+                unloadReasons.append(reason)
+            },
+            registerLifecycleObservers: false
+        )
+
+        coordinator.acquireSession(reason: "chat_host_visible")
+        await coordinator.exitChatScreen(reason: "unit_test_exit")
+
+        XCTAssertEqual(unloadReasons, ["unit_test_exit"])
     }
 }

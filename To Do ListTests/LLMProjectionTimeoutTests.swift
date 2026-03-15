@@ -231,6 +231,130 @@ final class LLMContextProjectionServiceTests: XCTestCase {
         XCTAssertEqual(payload["count"] as? Int, 3)
     }
 
+    func testBuildChatPlanningContextUsesPlaintextSectionsAndLifeAreaNames() async throws {
+        let calendar = Calendar.current
+        let startOfToday = calendar.startOfDay(for: Date())
+        let career = LifeArea(name: "Career")
+        let health = LifeArea(name: "Health")
+        let workProject = Project(name: "Work")
+        let wellnessProject = Project(name: "Wellness")
+
+        let overdueTask = TaskDefinition(
+            projectID: workProject.id,
+            projectName: workProject.name,
+            lifeAreaID: career.id,
+            title: "Prepare slides",
+            dueDate: startOfToday.addingTimeInterval(-3_600),
+            isComplete: false
+        )
+        let todayTask = TaskDefinition(
+            projectID: wellnessProject.id,
+            projectName: wellnessProject.name,
+            lifeAreaID: health.id,
+            title: "Go for a run",
+            dueDate: startOfToday.addingTimeInterval(3_600),
+            isComplete: false
+        )
+
+        let service = LLMContextProjectionService(
+            taskReadModelRepository: MockTaskReadModelRepository(tasks: [overdueTask, todayTask]),
+            projectRepository: MockProjectRepository(projects: [Project.createInbox(), workProject, wellnessProject]),
+            lifeAreaRepository: MockLifeAreaRepository(lifeAreas: [career, health]),
+            tagRepository: nil
+        )
+
+        let context = await service.buildChatPlanningContext(query: "plan my week", maxChars: 4_000)
+
+        XCTAssertTrue(context.contains("Planning context:"))
+        XCTAssertTrue(context.contains("Summary: 1 overdue, 1 today, 0 tomorrow, 0 this week"))
+        XCTAssertTrue(context.contains("Focus:"))
+        XCTAssertTrue(context.contains("Prepare slides | overdue | Work"))
+        XCTAssertTrue(context.contains("Go for a run | today | Wellness"))
+        XCTAssertTrue(context.contains("Life areas:"))
+        XCTAssertTrue(context.contains("- Career"))
+        XCTAssertTrue(context.contains("- Health"))
+        XCTAssertTrue(context.contains("Projects:"))
+        XCTAssertTrue(context.contains("- Work"))
+        XCTAssertTrue(context.contains("- Wellness"))
+        XCTAssertFalse(context.contains("Status: full"))
+        XCTAssertFalse(context.contains("\"context_type\""))
+        XCTAssertFalse(context.contains(overdueTask.id.uuidString))
+        XCTAssertFalse(context.contains(workProject.id.uuidString))
+    }
+
+    func testBuildChatPlanningContextFailsSoftWithoutLifeAreaRepository() async throws {
+        let calendar = Calendar.current
+        let startOfToday = calendar.startOfDay(for: Date())
+        let workProject = Project(name: "Work")
+        let overdueTask = TaskDefinition(
+            projectID: workProject.id,
+            projectName: workProject.name,
+            title: "Prepare slides",
+            dueDate: startOfToday.addingTimeInterval(-3_600),
+            isComplete: false
+        )
+
+        let service = LLMContextProjectionService(
+            taskReadModelRepository: MockTaskReadModelRepository(tasks: [overdueTask]),
+            projectRepository: MockProjectRepository(projects: [Project.createInbox(), workProject]),
+            lifeAreaRepository: nil,
+            tagRepository: nil
+        )
+
+        let context = await service.buildChatPlanningContext(query: "what is overdue", maxChars: 2_000)
+
+        XCTAssertTrue(context.contains("Planning context:"))
+        XCTAssertTrue(context.contains("Projects:"))
+        XCTAssertTrue(context.contains("Prepare slides | overdue | Work"))
+        XCTAssertFalse(context.contains("Career"))
+    }
+
+    func testBuildChatPlanningContextAddsRetrospectiveHistoryForLastWeekQueries() async throws {
+        let calendar = Calendar.current
+        let now = Date()
+        let currentWeekStart = calendar.dateInterval(of: .weekOfYear, for: now)?.start ?? now
+        let lastWeekStart = calendar.date(byAdding: .weekOfYear, value: -1, to: currentWeekStart) ?? now
+        let completedAt = calendar.date(byAdding: .day, value: 2, to: lastWeekStart) ?? now
+        let dueAt = calendar.date(byAdding: .day, value: 3, to: lastWeekStart) ?? now
+        let workProject = Project(name: "Work")
+
+        var completedTask = TaskDefinition(
+            projectID: workProject.id,
+            projectName: workProject.name,
+            title: "Shipped release notes",
+            dueDate: dueAt,
+            isComplete: true
+        )
+        completedTask.dateCompleted = completedAt
+        completedTask.updatedAt = completedAt
+
+        let openTask = TaskDefinition(
+            projectID: workProject.id,
+            projectName: workProject.name,
+            title: "Finish customer follow-up",
+            dueDate: dueAt,
+            isComplete: false
+        )
+
+        let service = LLMContextProjectionService(
+            taskReadModelRepository: MockTaskReadModelRepository(tasks: [completedTask, openTask]),
+            projectRepository: MockProjectRepository(projects: [Project.createInbox(), workProject]),
+            lifeAreaRepository: nil,
+            tagRepository: nil
+        )
+
+        let context = await service.buildChatPlanningContext(
+            query: "How was my last week in terms of productivity?",
+            maxChars: 4_000
+        )
+
+        XCTAssertTrue(context.contains("History:"))
+        XCTAssertTrue(context.contains("- Period: Last week"))
+        XCTAssertTrue(context.contains("- Completed tasks: 1"))
+        XCTAssertTrue(context.contains("- Open due tasks in period: 1"))
+        XCTAssertTrue(context.contains("- Projects touched: 1"))
+    }
+
     func testContextEnvelopeBuilderShortCircuitsRemainingSlicesAfterTimeout() async throws {
         let lock = NSLock()
         var fetchCount = 0
@@ -276,6 +400,117 @@ final class LLMContextProjectionServiceTests: XCTestCase {
             return nil
         }
         return dictionary
+    }
+}
+
+final class LLMVisibleOutputFormatterTests: XCTestCase {
+    func testFormatterStripsThinkBlocksAndTemplateArtifacts() {
+        let raw = """
+        <think>
+        long hidden reasoning
+        even more hidden reasoning
+        </think>
+        Focus
+        Plan the release tasks.
+        <end_of_turn>
+        <|im_start|>user
+        """
+
+        let visible = LLMVisibleOutputFormatter.formatVisibleText(raw, profile: .chat)
+
+        XCTAssertFalse(visible.contains("<think>"))
+        XCTAssertFalse(visible.contains("hidden reasoning"))
+        XCTAssertFalse(visible.contains("<end_of_turn>"))
+        XCTAssertFalse(visible.contains("<|im_start|>"))
+        XCTAssertEqual(visible, "Focus\nPlan the release tasks.")
+    }
+
+    func testFormatterTrimsLongVisibleOutputToCharacterBudget() {
+        let raw = String(repeating: "a", count: 2_600)
+        let visible = LLMVisibleOutputFormatter.formatVisibleText(raw, profile: .chat)
+
+        XCTAssertLessThanOrEqual(visible.count, 2_403)
+        XCTAssertTrue(visible.hasSuffix("..."))
+    }
+}
+
+final class LLMChatTextSanitizerTests: XCTestCase {
+    func testSanitizerRemovesDanglingTemplateFenceTail() {
+        let raw = """
+        Summary
+        ```json
+        {"ok":true}
+        ```
+        <end_of_turn>
+        ```json
+        {"bad":true}
+        """
+
+        let sanitized = LLMChatTextSanitizer.sanitize(
+            raw,
+            stripReasoningBlocks: false,
+            stripTemplateArtifacts: true
+        ).text
+
+        XCTAssertEqual(sanitized, "Summary\n```json\n{\"ok\":true}\n```")
+    }
+}
+
+final class LLMChatQualityGateTests: XCTestCase {
+    func testQualityGateRejectsGenericIntroAndRepetitionLoop() {
+        let output = """
+        Okay, I'm ready to be your proactive personal assistant.
+        Career, Career, Career, Career, Career, Career, Career, Career, Career, Career.
+        """
+
+        let assessment = LLMChatQualityGate.assess(
+            output,
+            userPrompt: "What tasks should I focus on?",
+            terminationReason: "raw_cap"
+        )
+
+        XCTAssertFalse(assessment.isAcceptable)
+        XCTAssertTrue(assessment.reasons.contains("generic_intro"))
+        XCTAssertTrue(assessment.reasons.contains("repetition_loop"))
+    }
+
+    func testQualityGateAcceptsShortDirectAnswer() {
+        let assessment = LLMChatQualityGate.assess(
+            """
+            Focus:
+            - Prepare slides
+            - Review roadmap
+            """,
+            userPrompt: "What tasks should I focus on?",
+            terminationReason: "eos"
+        )
+
+        XCTAssertTrue(assessment.isAcceptable)
+        XCTAssertFalse(assessment.shouldRetry)
+    }
+}
+
+final class LLMChatGenerationLimiterTests: XCTestCase {
+    func testReasoningLimiterAllowsAnswerFloorAfterLateAnswerPhase() {
+        var limiter = LLMChatGenerationLimiter(
+            maxRawTokens: 768,
+            minAnswerTokensAfterAnswerPhase: 200
+        )
+
+        XCTAssertNil(limiter.stopReason(currentTokenCount: 768))
+        limiter.markAnswerPhaseStarted(currentTokenCount: 820)
+        XCTAssertNil(limiter.stopReason(currentTokenCount: 900))
+        XCTAssertEqual(limiter.stopReason(currentTokenCount: 1_019), "answer_floor_reached")
+    }
+
+    func testReasoningLimiterUsesGraceBeforeAnyAnswerStarts() {
+        var limiter = LLMChatGenerationLimiter(
+            maxRawTokens: 768,
+            minAnswerTokensAfterAnswerPhase: 200
+        )
+
+        XCTAssertNil(limiter.stopReason(currentTokenCount: 900))
+        XCTAssertEqual(limiter.stopReason(currentTokenCount: 968), "raw_cap")
     }
 }
 
@@ -570,4 +805,28 @@ private final class MockProjectRepository: ProjectRepositoryProtocol {
     func getTaskCount(for projectId: UUID, completion: @escaping (Result<Int, Error>) -> Void) { completion(.success(0)) }
     func moveTasks(from sourceProjectId: UUID, to targetProjectId: UUID, completion: @escaping (Result<Void, Error>) -> Void) { completion(.success(())) }
     func isProjectNameAvailable(_ name: String, excludingId: UUID?, completion: @escaping (Result<Bool, Error>) -> Void) { completion(.success(true)) }
+}
+
+private final class MockLifeAreaRepository: LifeAreaRepositoryProtocol {
+    private let lifeAreas: [LifeArea]
+
+    init(lifeAreas: [LifeArea]) {
+        self.lifeAreas = lifeAreas
+    }
+
+    func fetchAll(completion: @escaping (Result<[LifeArea], Error>) -> Void) {
+        completion(.success(lifeAreas))
+    }
+
+    func create(_ area: LifeArea, completion: @escaping (Result<LifeArea, Error>) -> Void) {
+        completion(.success(area))
+    }
+
+    func update(_ area: LifeArea, completion: @escaping (Result<LifeArea, Error>) -> Void) {
+        completion(.success(area))
+    }
+
+    func delete(id: UUID, completion: @escaping (Result<Void, Error>) -> Void) {
+        completion(.success(()))
+    }
 }

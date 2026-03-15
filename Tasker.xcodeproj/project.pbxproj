@@ -3281,3 +3281,7 @@
 		C1A2B3C4D5E6F70011223353 /* ChatTranscriptSnapshot.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatTranscriptSnapshot.swift; sourceTree = "<group>"; };
 				C1A2B3C4D5E6F70011223353 /* ChatTranscriptSnapshot.swift */,
 				C1A2B3C4D5E6F70011223352 /* ChatTranscriptSnapshot.swift in Sources */,
+		C1A2B3C4D5E6F70011223354 /* ChatTranscriptSnapshotTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C1A2B3C4D5E6F70011223355 /* ChatTranscriptSnapshotTests.swift */; };
+		C1A2B3C4D5E6F70011223355 /* ChatTranscriptSnapshotTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatTranscriptSnapshotTests.swift; sourceTree = "<group>"; };
+				C1A2B3C4D5E6F70011223355 /* ChatTranscriptSnapshotTests.swift */,
+				C1A2B3C4D5E6F70011223354 /* ChatTranscriptSnapshotTests.swift in Sources */,
