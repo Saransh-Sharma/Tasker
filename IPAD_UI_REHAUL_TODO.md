@@ -37,3 +37,15 @@
 - [x] Add iPad destination-switch UI test coverage for split-shell surfaces (tasks/search/analytics/add/settings/projects).
 - [ ] Run full iPhone UI regression suite.
 - [ ] Run full iPad UI regression suite across split/Stage Manager widths.
+
+## Premium UI Overhaul
+- [x] Add a shared premium surface treatment with iOS 26-aware fallback styling.
+- [x] Rebuild home top chrome, quick filters, and search face hierarchy.
+- [x] Upgrade analytics tab chrome and card surfaces into the shared visual system.
+- [x] Refresh chat thread, chats list, and composer hierarchy.
+- [x] Bring legacy UIKit search visuals closer to the shared SwiftUI language.
+- [ ] Validate home redesigned chrome on iPhone and iPad.
+- [ ] Validate analytics redesigned tabs and premium cards on iPhone and iPad.
+- [ ] Validate chat redesigned header, composer, and thread states.
+- [ ] Validate quick-filter dropdown and advanced filter sheet flows.
+- [ ] Validate legacy UIKit search parity against the SwiftUI search chrome.
