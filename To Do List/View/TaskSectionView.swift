@@ -249,14 +249,11 @@ struct TaskSectionView: View {
                     onTaskDragStarted: onTaskDragStarted
                 )
                 .equatable()
-                .id(item.task.id)
-                .enhancedStaggeredAppearance(index: item.index)
             }
 
             if derivedState.completedCount > 0 {
                 completedToggleRow
                     .padding(.top, 2)
-                    .enhancedStaggeredAppearance(index: derivedState.openRenderItems.count)
 
                 if !isCompletedCollapsed {
                     ForEach(derivedState.completedRenderItems, id: \.task.id) { item in
@@ -275,8 +272,6 @@ struct TaskSectionView: View {
                             onReschedule: { onRescheduleTask?(item.task) }
                         )
                         .equatable()
-                        .id(item.task.id)
-                        .enhancedStaggeredAppearance(index: item.index + derivedState.openRenderItems.count + 1)
                     }
                 }
             }

@@ -175,6 +175,156 @@ struct TaskRowDerivedState: Equatable {
     let tagDisplaySignature: [String]
 }
 
+private struct TaskRowDerivedStateCacheKey: Hashable {
+    let taskID: UUID
+    let updatedAt: Date
+    let isComplete: Bool
+    let dateCompleted: Date?
+    let title: String
+    let details: String?
+    let dueDate: Date?
+    let priorityRaw: Int32
+    let estimatedDuration: TimeInterval?
+    let showTypeBadge: Bool
+    let isInOverdueSection: Bool
+    let todayXPSoFar: Int?
+    let isGamificationV2Enabled: Bool
+    let isTaskDragEnabled: Bool
+    let hasTapAction: Bool
+    let hasToggleAction: Bool
+    let hasDeleteAction: Bool
+    let hasRescheduleAction: Bool
+    let tagDisplaySignature: [String]
+}
+
+private enum TaskRowDerivedStateCache {
+    private static let lock = NSLock()
+    private static let cacheLimit = 512
+    private static var cache: [TaskRowDerivedStateCacheKey: TaskRowDerivedState] = [:]
+    private static var insertionOrder: [TaskRowDerivedStateCacheKey] = []
+
+    static func resolve(
+        task: TaskDefinition,
+        showTypeBadge: Bool,
+        isInOverdueSection: Bool,
+        tagNameByID: [UUID: String],
+        todayXPSoFar: Int?,
+        isGamificationV2Enabled: Bool,
+        isTaskDragEnabled: Bool,
+        hasTapAction: Bool,
+        hasToggleAction: Bool,
+        hasDeleteAction: Bool,
+        hasRescheduleAction: Bool
+    ) -> TaskRowDerivedState {
+        let tagDisplaySignature = task.tagIDs.compactMap { tagNameByID[$0] }.sorted()
+        let key = TaskRowDerivedStateCacheKey(
+            taskID: task.id,
+            updatedAt: task.updatedAt,
+            isComplete: task.isComplete,
+            dateCompleted: task.dateCompleted,
+            title: task.title,
+            details: task.details,
+            dueDate: task.dueDate,
+            priorityRaw: task.priority.rawValue,
+            estimatedDuration: task.estimatedDuration,
+            showTypeBadge: showTypeBadge,
+            isInOverdueSection: isInOverdueSection,
+            todayXPSoFar: todayXPSoFar,
+            isGamificationV2Enabled: isGamificationV2Enabled,
+            isTaskDragEnabled: isTaskDragEnabled,
+            hasTapAction: hasTapAction,
+            hasToggleAction: hasToggleAction,
+            hasDeleteAction: hasDeleteAction,
+            hasRescheduleAction: hasRescheduleAction,
+            tagDisplaySignature: tagDisplaySignature
+        )
+
+        lock.lock()
+        if let cached = cache[key] {
+            lock.unlock()
+            return cached
+        }
+        lock.unlock()
+
+        let displayModel = TaskRowDisplayModel.from(
+            task: task,
+            showTypeBadge: showTypeBadge,
+            isInOverdueSection: isInOverdueSection,
+            tagNameByID: tagNameByID
+        )
+        let xpPreview: XPCompletionPreview?
+        if isGamificationV2Enabled {
+            if let todayXPSoFar {
+                xpPreview = XPCalculationEngine.completionXPIfCompletedNow(
+                    priorityRaw: task.priority.rawValue,
+                    estimatedDuration: task.estimatedDuration,
+                    dueDate: task.dueDate,
+                    dailyEarnedSoFar: todayXPSoFar,
+                    isGamificationV2Enabled: true
+                )
+            } else {
+                xpPreview = nil
+            }
+        } else {
+            xpPreview = XPCalculationEngine.completionXPIfCompletedNow(
+                priorityRaw: task.priority.rawValue,
+                estimatedDuration: task.estimatedDuration,
+                dueDate: task.dueDate,
+                dailyEarnedSoFar: 0,
+                isGamificationV2Enabled: false
+            )
+        }
+
+        let accessibilityStateValue = task.isComplete ? "done" : "open"
+        var labelParts: [String] = ["Task: \(task.title)"]
+        if task.isComplete {
+            labelParts.append("completed")
+        }
+        if let descriptionText = displayModel.descriptionText {
+            labelParts.append(descriptionText)
+        }
+        if let metadataText = displayModel.metadataText {
+            labelParts.append(metadataText)
+        }
+        if let statusChip = displayModel.statusChip {
+            labelParts.append(statusChip.text.lowercased())
+        }
+
+        var hintParts: [String] = []
+        if hasToggleAction {
+            hintParts.append("Double tap to toggle completion")
+        }
+        if hasTapAction {
+            hintParts.append("Tap to view details")
+        }
+        if hasDeleteAction || hasRescheduleAction {
+            hintParts.append("Swipe for actions")
+        }
+        if isTaskDragEnabled {
+            hintParts.append("Long press and drag to move task to Focus")
+        }
+
+        let resolved = TaskRowDerivedState(
+            displayModel: displayModel,
+            accessibilityLabel: labelParts.joined(separator: ", "),
+            accessibilityHint: hintParts.joined(separator: ", "),
+            accessibilityStateValue: accessibilityStateValue,
+            xpPreview: xpPreview,
+            tagDisplaySignature: tagDisplaySignature
+        )
+
+        lock.lock()
+        cache[key] = resolved
+        insertionOrder.append(key)
+        if insertionOrder.count > cacheLimit, let oldest = insertionOrder.first {
+            insertionOrder.removeFirst()
+            cache.removeValue(forKey: oldest)
+        }
+        lock.unlock()
+        return resolved
+    }
+}
+
 struct TaskRowView: View, Equatable {
     let task: TaskDefinition
     let showTypeBadge: Bool
@@ -219,69 +369,18 @@ struct TaskRowView: View, Equatable {
         self.isGamificationV2Enabled = isGamificationV2Enabled
         self.isTaskDragEnabled = isTaskDragEnabled
         self.highlightedTaskID = highlightedTaskID
-        let displayModel = TaskRowDisplayModel.from(
+        self.derivedState = TaskRowDerivedStateCache.resolve(
             task: task,
             showTypeBadge: showTypeBadge,
             isInOverdueSection: isInOverdueSection,
-            tagNameByID: tagNameByID
-        )
-        let xpPreview: XPCompletionPreview?
-        if isGamificationV2Enabled {
-            if let todayXPSoFar {
-                xpPreview = XPCalculationEngine.completionXPIfCompletedNow(
-                    priorityRaw: task.priority.rawValue,
-                    estimatedDuration: task.estimatedDuration,
-                    dueDate: task.dueDate,
-                    dailyEarnedSoFar: todayXPSoFar,
-                    isGamificationV2Enabled: true
-                )
-            } else {
-                xpPreview = nil
-            }
-        } else {
-            xpPreview = XPCalculationEngine.completionXPIfCompletedNow(
-                priorityRaw: task.priority.rawValue,
-                estimatedDuration: task.estimatedDuration,
-                dueDate: task.dueDate,
-                dailyEarnedSoFar: 0,
-                isGamificationV2Enabled: false
-            )
-        }
-        let tagDisplaySignature = task.tagIDs.compactMap { tagNameByID[$0] }.sorted()
-        let accessibilityStateValue = task.isComplete ? "done" : "open"
-        var labelParts: [String] = ["Task: \(task.title)"]
-        if task.isComplete {
-            labelParts.append("completed")
-        }
-        if let descriptionText = displayModel.descriptionText {
-            labelParts.append(descriptionText)
-        }
-        if let metadataText = displayModel.metadataText {
-            labelParts.append(metadataText)
-        }
-        if let statusChip = displayModel.statusChip {
-            labelParts.append(statusChip.text.lowercased())
-        }
-        var hintParts: [String] = []
-        if onToggleComplete != nil {
-            hintParts.append("Double tap to toggle completion")
-        }
-        if onTap != nil {
-            hintParts.append("Tap to view details")
-        }
-        if onDelete != nil || onReschedule != nil {
-            hintParts.append("Swipe for actions")
-        }
-        if isTaskDragEnabled {
-            hintParts.append("Long press and drag to move task to Focus")
-        }
-        self.derivedState = TaskRowDerivedState(
-            displayModel: displayModel,
-            accessibilityLabel: labelParts.joined(separator: ", "),
-            accessibilityHint: hintParts.joined(separator: ", "),
-            accessibilityStateValue: accessibilityStateValue,
-            xpPreview: xpPreview,
-            tagDisplaySignature: tagDisplaySignature
+            tagNameByID: tagNameByID,
+            todayXPSoFar: todayXPSoFar,
+            isGamificationV2Enabled: isGamificationV2Enabled,
+            isTaskDragEnabled: isTaskDragEnabled,
+            hasTapAction: onTap != nil,
+            hasToggleAction: onToggleComplete != nil,
+            hasDeleteAction: onDelete != nil,
+            hasRescheduleAction: onReschedule != nil
         )
         self.onTap = onTap
         self.onToggleComplete = onToggleComplete

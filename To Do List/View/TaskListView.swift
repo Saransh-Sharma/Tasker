@@ -80,7 +80,7 @@ struct HomeScrollChromeStateTracker {
         guard newOffset.isFinite else { return nil }
 
         if newOffset < nearTopThreshold {
-            lastOffsetY = newOffset
+            lastOffsetY = nil
             cumulativeDownward = 0
             cumulativeUpward = 0
             return emit(.nearTop)
@@ -128,6 +128,7 @@ struct HomeScrollChromeStateTracker {
 
 struct TaskListView: View {
     private static let defaultBottomContentInset: CGFloat = 80
+    private static let scrollTraceIdleDelayNanoseconds: UInt64 = 250_000_000
 
     let headerContent: AnyView?
     let morningTasks: [TaskDefinition]
@@ -163,6 +164,8 @@ struct TaskListView: View {
     @State private var draggingCustomProjectID: UUID?
     @State private var isCompletedCollapsedBySection: [UUID: Bool] = [:]
     @State private var scrollChromeStateTracker = HomeScrollChromeStateTracker()
+    @State private var scrollTraceInterval: TaskerPerformanceInterval?
+    @State private var pendingScrollTraceIdleTask: Task<Void, Never>?
 
     /// Initializes a new instance.
     init(
@@ -261,6 +264,9 @@ struct TaskListView: View {
                 scrollToHighlightedTaskIfNeeded(proxy: proxy)
                 onScrollChromeStateChange?(.nearTop)
             }
+            .onDisappear {
+                finishScrollTraceIfNeeded()
+            }
             .onChange(of: highlightedTaskID) { _, _ in
                 scrollToHighlightedTaskIfNeeded(proxy: proxy)
             }
@@ -278,8 +284,42 @@ struct TaskListView: View {
     }
 
     private func handleScrollOffsetChange(_ newOffset: CGFloat) {
+        let previousOffset = scrollChromeStateTracker.lastOffsetY
+        if previousOffset != nil || newOffset > 2 {
+            recordScrollActivity()
+        }
         if let nextState = scrollChromeStateTracker.consume(offset: newOffset) {
             onScrollChromeStateChange?(nextState)
+        }
+    }
+
+    private func recordScrollActivity() {
+        if scrollTraceInterval == nil {
+            scrollTraceInterval = TaskerPerformanceTrace.begin("HomeTaskListScrollSession")
+        }
+
+        pendingScrollTraceIdleTask?.cancel()
+        pendingScrollTraceIdleTask = Task { @MainActor in
+            do {
+                try await Task.sleep(nanoseconds: Self.scrollTraceIdleDelayNanoseconds)
+            } catch {
+                return
+            }
+            finishScrollTraceIfNeeded()
+        }
+    }
+
+    private func finishScrollTraceIfNeeded() {
+        pendingScrollTraceIdleTask?.cancel()
+        pendingScrollTraceIdleTask = nil
+
+        if let scrollTraceInterval {
+            TaskerPerformanceTrace.end(scrollTraceInterval)
+            self.scrollTraceInterval = nil
+        }
+
+        if let idleState = scrollChromeStateTracker.emitIdleIfNeeded() {
+            onScrollChromeStateChange?(idleState)
         }
     }
 
@@ -336,9 +376,6 @@ struct TaskListView: View {
                 customProjectOrderIDs: customProjectOrderIDs
             )
         }
-        let hasInboxSection = layout.inboxSection?.tasks.isEmpty == false
-        let hasOverdueSection = projectGroupingMode == .prioritizeOverdue && !layout.overdueGroups.isEmpty
-
         if let inboxSection = layout.inboxSection, !inboxSection.tasks.isEmpty {
             TaskSectionView(
                 project: inboxSection.project,
@@ -362,8 +399,6 @@ struct TaskListView: View {
                 onHeaderAction: onInboxHeaderAction,
                 headerActionAccessibilityID: "home.inbox.headerAction"
             )
-            .id(sectionRenderKey(projectID: inboxSection.project.id, tasks: inboxSection.tasks))
-            .enhancedStaggeredAppearance(index: 0)
         }
 
         if projectGroupingMode == .prioritizeOverdue, !layout.overdueGroups.isEmpty {
@@ -381,12 +416,9 @@ struct TaskListView: View {
                 onRescheduleTask: onRescheduleTask,
                 onTaskDragStarted: onTaskDragStarted
             )
-            .id(overdueGroupsRenderKey(layout.overdueGroups))
-            .enhancedStaggeredAppearance(index: hasInboxSection ? 1 : 0)
         }
 
         let currentCustomOrder = layout.customSections.map(\.project.id)
-        let customStartIndex = (hasInboxSection ? 1 : 0) + (hasOverdueSection ? 1 : 0)
         ForEach(Array(layout.customSections.enumerated()), id: \.element.id) { index, section in
             TaskSectionView(
                 project: section.project,
@@ -407,8 +439,6 @@ struct TaskListView: View {
                 },
                 onTaskDragStarted: onTaskDragStarted
             )
-            .id(sectionRenderKey(projectID: section.project.id, tasks: section.tasks))
-            .enhancedStaggeredAppearance(index: customStartIndex + index)
             .onDrag {
                 draggingCustomProjectID = section.project.id
                 return NSItemProvider(object: section.project.id.uuidString as NSString)
@@ -453,8 +483,6 @@ struct TaskListView: View {
                 onHeaderAction: onOverdueHeaderAction,
                 headerActionAccessibilityID: "home.overdue.headerAction"
             )
-            .id(sectionRenderKey(projectID: overdueProject.id, tasks: overdueTasks))
-            .enhancedStaggeredAppearance(index: 0)
         }
 
         ForEach(Array(legacySortedProjectSections.enumerated()), id: \.element.id) { index, section in
@@ -477,8 +505,6 @@ struct TaskListView: View {
                 },
                 onTaskDragStarted: onTaskDragStarted
             )
-            .id(sectionRenderKey(projectID: section.project.id, tasks: section.tasks))
-            .enhancedStaggeredAppearance(index: index + (overdueTasks.isEmpty ? 0 : 1))
         }
     }
 
@@ -506,8 +532,6 @@ struct TaskListView: View {
                     onCompletedSectionToggle?(group.project.id, collapsed, count)
                 }
             )
-            .id(sectionRenderKey(projectID: group.project.id, tasks: group.tasks))
-            .enhancedStaggeredAppearance(index: index)
         }
     }
 
@@ -588,27 +612,6 @@ struct TaskListView: View {
         }
 
         return morningTasks.isEmpty && eveningTasks.isEmpty && overdueTasks.isEmpty
-    }
-
-    /// Executes sectionRenderKey.
-    private func sectionRenderKey(projectID: UUID, tasks: [TaskDefinition]) -> String {
-        let rows = tasks.map(taskRenderKey(for:)).joined(separator: ",")
-        return "\(projectID.uuidString)|\(rows)"
-    }
-
-    /// Executes overdueGroupsRenderKey.
-    private func overdueGroupsRenderKey(_ groups: [HomeTaskOverdueGroup]) -> String {
-        groups
-            .map { group in
-                sectionRenderKey(projectID: group.project.id, tasks: group.tasks)
-            }
-            .joined(separator: ";")
-    }
-
-    /// Executes taskRenderKey.
-    private func taskRenderKey(for task: TaskDefinition) -> String {
-        let completedAt = task.dateCompleted?.timeIntervalSince1970 ?? 0
-        return "\(task.id.uuidString)-\(task.isComplete)-\(completedAt)"
     }
 
     /// Executes normalizedTaskProjectName.
@@ -749,8 +752,6 @@ private struct OverdueGroupedSectionView: View {
                                 onReschedule: { onRescheduleTask?(task) },
                                 onTaskDragStarted: onTaskDragStarted
                             )
-                            .id(taskRenderKey(for: task))
-                            .enhancedStaggeredAppearance(index: taskIndex)
                         }
                     }
                 }
@@ -763,13 +764,6 @@ private struct OverdueGroupedSectionView: View {
     private var totalTaskCount: Int {
         groups.reduce(0) { $0 + $1.tasks.count }
     }
-
-    /// Executes taskRenderKey.
-    private func taskRenderKey(for task: TaskDefinition) -> String {
-        let completedAt = task.dateCompleted?.timeIntervalSince1970 ?? 0
-        return "\(task.id.uuidString)-\(task.isComplete)-\(completedAt)"
-    }
-
 }
 
 private struct CustomProjectSectionDropDelegate: DropDelegate {
