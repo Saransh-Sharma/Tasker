@@ -1763,6 +1763,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         LLMContextRepositoryProvider.configure(
             taskReadModelRepository: stateContainer.taskReadModelRepository,
             projectRepository: stateContainer.projectRepository,
+            lifeAreaRepository: stateContainer.lifeAreaRepository,
             tagRepository: stateContainer.tagRepository
         )
         return true

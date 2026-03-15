@@ -24,6 +24,15 @@ struct ChatsSettingsView: View {
                     .frame(minHeight: 150)
                     .textEditorStyle(.plain)
                     .tint(Color.tasker(.accentPrimary))
+
+                if appManager.systemPrompt != AppManager.defaultSystemPrompt {
+                    Button("reset Eva prompt") {
+                        appManager.resetSystemPromptToDefault()
+                    }
+                    .font(.tasker(.body))
+                    .foregroundColor(Color.tasker(.accentPrimary))
+                    .buttonStyle(.borderless)
+                }
             }
 
             if appManager.userInterfaceIdiom == .phone {

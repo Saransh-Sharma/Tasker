@@ -99,16 +99,16 @@ class ChatHostViewController: UIViewController, PresentationDependencyContainerA
     override func viewDidAppear(_ animated: Bool) {
         super.viewDidAppear(animated)
         Task { @MainActor in
-            LLMRuntimeCoordinator.shared.acquireSession(reason: "chat_host_visible")
+            LLMRuntimeCoordinator.shared.enterChatScreen(trigger: "chat_host_visible")
         }
     }
 
     override func viewWillDisappear(_ animated: Bool) {
         super.viewWillDisappear(animated)
+        let isDefinitiveExit = isMovingFromParent || isBeingDismissed || navigationController?.isBeingDismissed == true
+        guard isDefinitiveExit else { return }
         Task { @MainActor in
-            LLMRuntimeCoordinator.shared.cancelDeferredPrewarm(reason: "chat_host_will_disappear")
-            LLMRuntimeCoordinator.shared.cancelGenerationIfActive(reason: "chat_host_will_disappear")
-            LLMRuntimeCoordinator.shared.releaseSession(reason: "chat_host_visible")
+            await LLMRuntimeCoordinator.shared.exitChatScreen(reason: "chat_host_exit")
         }
     }
 
@@ -192,11 +192,6 @@ class ChatHostViewController: UIViewController, PresentationDependencyContainerA
     }
 
     @objc private func onBackTapped() {
-        Task { @MainActor in
-            LLMRuntimeCoordinator.shared.cancelDeferredPrewarm(reason: "chat_host_back")
-            LLMRuntimeCoordinator.shared.cancelGenerationIfActive(reason: "chat_host_back")
-            LLMRuntimeCoordinator.shared.releaseSession(reason: "chat_host_visible")
-        }
         dismiss(animated: true)
     }
 

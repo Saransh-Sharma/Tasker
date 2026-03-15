@@ -3,20 +3,24 @@ import Foundation
 enum LLMContextRepositoryProvider {
     private static var taskReadModelRepositoryStorage: TaskReadModelRepositoryProtocol?
     private static var projectRepositoryStorage: ProjectRepositoryProtocol?
+    private static var lifeAreaRepositoryStorage: LifeAreaRepositoryProtocol?
     private static var tagRepositoryStorage: TagRepositoryProtocol?
 
     static var taskReadModelRepository: TaskReadModelRepositoryProtocol? { taskReadModelRepositoryStorage }
     static var projectRepository: ProjectRepositoryProtocol? { projectRepositoryStorage }
+    static var lifeAreaRepository: LifeAreaRepositoryProtocol? { lifeAreaRepositoryStorage }
     static var tagRepository: TagRepositoryProtocol? { tagRepositoryStorage }
 
     /// Executes configure.
     static func configure(
         taskReadModelRepository: TaskReadModelRepositoryProtocol?,
         projectRepository: ProjectRepositoryProtocol?,
+        lifeAreaRepository: LifeAreaRepositoryProtocol? = nil,
         tagRepository: TagRepositoryProtocol? = nil
     ) {
         self.taskReadModelRepositoryStorage = taskReadModelRepository
         self.projectRepositoryStorage = projectRepository
+        self.lifeAreaRepositoryStorage = lifeAreaRepository
         self.tagRepositoryStorage = tagRepository
     }
 
@@ -32,6 +36,7 @@ enum LLMContextRepositoryProvider {
         return LLMContextProjectionService(
             taskReadModelRepository: taskReadModelRepository,
             projectRepository: projectRepository,
+            lifeAreaRepository: lifeAreaRepositoryStorage,
             tagRepository: tagRepositoryStorage,
             maxTasksPerSlice: maxTasksPerSlice,
             compactTaskPayload: compactTaskPayload
@@ -106,6 +111,7 @@ enum LLMContextRepositoryProvider {
 struct LLMContextProjectionService {
     let taskReadModelRepository: TaskReadModelRepositoryProtocol
     let projectRepository: ProjectRepositoryProtocol
+    let lifeAreaRepository: LifeAreaRepositoryProtocol?
     let tagRepository: TagRepositoryProtocol?
     let maxTasksPerSlice: Int
     let compactTaskPayload: Bool
@@ -113,12 +119,14 @@ struct LLMContextProjectionService {
     init(
         taskReadModelRepository: TaskReadModelRepositoryProtocol,
         projectRepository: ProjectRepositoryProtocol,
+        lifeAreaRepository: LifeAreaRepositoryProtocol? = nil,
         tagRepository: TagRepositoryProtocol?,
         maxTasksPerSlice: Int = 1_000,
         compactTaskPayload: Bool = false
     ) {
         self.taskReadModelRepository = taskReadModelRepository
         self.projectRepository = projectRepository
+        self.lifeAreaRepository = lifeAreaRepository
         self.tagRepository = tagRepository
         self.maxTasksPerSlice = max(1, maxTasksPerSlice)
         self.compactTaskPayload = compactTaskPayload
@@ -128,10 +136,126 @@ struct LLMContextProjectionService {
         LLMContextProjectionService(
             taskReadModelRepository: taskReadModelRepository,
             projectRepository: projectRepository,
+            lifeAreaRepository: lifeAreaRepository,
             tagRepository: tagRepository,
             maxTasksPerSlice: maxTasksPerSlice,
             compactTaskPayload: compactTaskPayload
         )
+    }
+
+    func buildChatPlanningContext(query: String, maxChars: Int) async -> String {
+        let normalizedQuery = Self.searchTerms(from: query)
+        let activeProjects = await fetchActiveProjects()
+        let activeLifeAreas = await fetchActiveLifeAreas()
+        let projectNameByID = Dictionary(uniqueKeysWithValues: activeProjects.map { ($0.id, $0.name) })
+        let lifeAreaNameByID = Dictionary(uniqueKeysWithValues: activeLifeAreas.map { ($0.id, $0.name) })
+
+        let buckets = await buildChatTaskBuckets(
+            queryTerms: normalizedQuery,
+            projectNameByID: projectNameByID,
+            lifeAreaNameByID: lifeAreaNameByID
+        )
+
+        let orderedProjects = Self.orderProjectNames(
+            projects: activeProjects,
+            attachedTasks: buckets.allTasks,
+            queryTerms: normalizedQuery
+        )
+        let orderedLifeAreas = Self.orderLifeAreaNames(
+            lifeAreas: activeLifeAreas,
+            attachedTasks: buckets.allTasks,
+            queryTerms: normalizedQuery
+        )
+        let retrospectiveSection = await buildRetrospectiveSection(
+            query: query,
+            overdueRemaining: buckets.overdue.count,
+            projectNameByID: projectNameByID
+        )
+
+        let focusTasks = Self.prioritizedFocusTasks(
+            buckets: buckets,
+            queryTerms: normalizedQuery,
+            projectNameByID: projectNameByID,
+            lifeAreaNameByID: lifeAreaNameByID,
+            maxItems: 6
+        )
+        let focusProjectNames = Self.uniqueNames(
+            focusTasks.compactMap { task in
+                let name = Self.projectName(for: task, projectNameByID: projectNameByID)
+                return name.isEmpty ? nil : name
+            }
+        )
+        let focusLifeAreaNames = Self.uniqueNames(
+            focusTasks.compactMap { task in
+                guard let lifeAreaID = task.lifeAreaID else { return nil }
+                let name = lifeAreaNameByID[lifeAreaID] ?? ""
+                return name.isEmpty ? nil : name
+            }
+        )
+
+        let projectSectionItems = Array((focusProjectNames + orderedProjects).prefix(4))
+        let lifeAreaSectionItems = Array((focusLifeAreaNames + orderedLifeAreas).prefix(4))
+        let clampedMaxChars = max(320, maxChars)
+        var accumulator = PlanningContextAccumulator(maxChars: clampedMaxChars)
+
+        _ = accumulator.append("Planning context:")
+        _ = accumulator.append(
+            "Summary: \(buckets.overdue.count) overdue, \(buckets.today.count) today, \(buckets.tomorrow.count) tomorrow, \(buckets.thisWeek.count) this week"
+        )
+
+        _ = accumulator.append("Focus:")
+        if focusTasks.isEmpty {
+            _ = accumulator.append("- none")
+        } else {
+            for task in focusTasks {
+                let line = Self.compactTaskLine(task: task, projectNameByID: projectNameByID)
+                if accumulator.append("- \(line)") == false {
+                    return accumulator.rendered
+                }
+            }
+        }
+
+        if let projectsSection = Self.buildListSection(
+            title: "Projects",
+            items: projectSectionItems,
+            maxChars: min(220, max(100, clampedMaxChars / 4))
+        ) {
+            _ = accumulator.append("")
+            for line in projectsSection.components(separatedBy: .newlines) {
+                if accumulator.append(line) == false {
+                    return accumulator.rendered
+                }
+            }
+        }
+
+        if let lifeAreasSection = Self.buildListSection(
+            title: "Life areas",
+            items: lifeAreaSectionItems,
+            maxChars: min(220, max(100, clampedMaxChars / 4))
+        ) {
+            _ = accumulator.append("")
+            for line in lifeAreasSection.components(separatedBy: .newlines) {
+                if accumulator.append(line) == false {
+                    return accumulator.rendered
+                }
+            }
+        }
+
+        if let retrospectiveSection,
+           let historySection = Self.buildListSection(
+            title: "History",
+            items: retrospectiveSection,
+            maxChars: min(240, max(120, clampedMaxChars / 3))
+           ) {
+            _ = accumulator.append("")
+            for line in historySection.components(separatedBy: .newlines) {
+                if accumulator.append(line) == false {
+                    return accumulator.rendered
+                }
+            }
+        }
+
+        return accumulator.rendered
     }
 
     /// Executes buildTodayJSON.
@@ -293,6 +417,200 @@ struct LLMContextProjectionService {
         }
     }
 
+    private func fetchActiveProjects() async -> [Project] {
+        guard !Task.isCancelled else { return [] }
+        return await withCheckedContinuation { continuation in
+            projectRepository.fetchAllProjects { result in
+                let projects = ((try? result.get()) ?? []).filter { !$0.isArchived }
+                continuation.resume(returning: projects)
+            }
+        }
+    }
+
+    private func fetchActiveLifeAreas() async -> [LifeArea] {
+        guard let lifeAreaRepository else { return [] }
+        guard !Task.isCancelled else { return [] }
+        return await withCheckedContinuation { continuation in
+            lifeAreaRepository.fetchAll { result in
+                let lifeAreas = ((try? result.get()) ?? []).filter { !$0.isArchived }
+                continuation.resume(returning: lifeAreas)
+            }
+        }
+    }
+
+    private func buildChatTaskBuckets(
+        queryTerms: [String],
+        projectNameByID: [UUID: String],
+        lifeAreaNameByID: [UUID: String]
+    ) async -> LLMChatPlanningTaskBuckets {
+        let calendar = Calendar.current
+        let now = Date()
+        let startOfToday = calendar.startOfDay(for: now)
+        let startOfTomorrow = calendar.date(byAdding: .day, value: 1, to: startOfToday) ?? now
+        let endOfToday = startOfTomorrow.addingTimeInterval(-1)
+        let startOfDayAfterTomorrow = calendar.date(byAdding: .day, value: 2, to: startOfToday) ?? startOfTomorrow
+        let endOfTomorrow = startOfDayAfterTomorrow.addingTimeInterval(-1)
+        let endOfWeekWindow = calendar.date(
+            byAdding: DateComponents(day: 7, second: -1),
+            to: startOfTomorrow
+        ) ?? endOfTomorrow
+
+        let overdueTasks = await fetchTasks(
+            query: TaskReadQuery(
+                includeCompleted: false,
+                dueDateEnd: startOfToday,
+                sortBy: .dueDateAscending,
+                limit: maxTasksPerSlice,
+                offset: 0
+            )
+        ).filter {
+            guard let dueDate = $0.dueDate else { return false }
+            return dueDate < startOfToday
+        }
+
+        let todayTasks = await fetchTasks(
+            query: TaskReadQuery(
+                includeCompleted: false,
+                dueDateStart: startOfToday,
+                dueDateEnd: endOfToday,
+                sortBy: .dueDateAscending,
+                limit: maxTasksPerSlice,
+                offset: 0
+            )
+        )
+
+        let tomorrowTasks = await fetchTasks(
+            query: TaskReadQuery(
+                includeCompleted: false,
+                dueDateStart: startOfTomorrow,
+                dueDateEnd: endOfTomorrow,
+                sortBy: .dueDateAscending,
+                limit: maxTasksPerSlice,
+                offset: 0
+            )
+        )
+
+        let thisWeekTasks = await fetchTasks(
+            query: TaskReadQuery(
+                includeCompleted: false,
+                dueDateStart: startOfDayAfterTomorrow,
+                dueDateEnd: endOfWeekWindow,
+                sortBy: .dueDateAscending,
+                limit: maxTasksPerSlice,
+                offset: 0
+            )
+        )
+
+        let unscheduledCandidates = await fetchTasks(
+            query: TaskReadQuery(
+                includeCompleted: false,
+                sortBy: .updatedAtDescending,
+                limit: maxTasksPerSlice,
+                offset: 0
+            )
+        ).filter { $0.dueDate == nil }
+
+        let orderedOverdue = Self.rankTasks(
+            overdueTasks,
+            queryTerms: queryTerms,
+            projectNameByID: projectNameByID,
+            lifeAreaNameByID: lifeAreaNameByID
+        )
+        let orderedToday = Self.rankTasks(
+            todayTasks,
+            queryTerms: queryTerms,
+            projectNameByID: projectNameByID,
+            lifeAreaNameByID: lifeAreaNameByID
+        )
+        let orderedTomorrow = Self.rankTasks(
+            tomorrowTasks,
+            queryTerms: queryTerms,
+            projectNameByID: projectNameByID,
+            lifeAreaNameByID: lifeAreaNameByID
+        )
+        let orderedThisWeek = Self.rankTasks(
+            thisWeekTasks,
+            queryTerms: queryTerms,
+            projectNameByID: projectNameByID,
+            lifeAreaNameByID: lifeAreaNameByID
+        )
+
+        let rankedUnscheduled = Self.rankTasks(
+            unscheduledCandidates,
+            queryTerms: queryTerms,
+            projectNameByID: projectNameByID,
+            lifeAreaNameByID: lifeAreaNameByID
+        )
+        var seenProjectKeys = Set<String>()
+        let unscheduled = rankedUnscheduled.filter { task in
+            let projectName = Self.projectName(for: task, projectNameByID: projectNameByID)
+            let projectKey = projectName.isEmpty ? task.projectID.uuidString : projectName.lowercased()
+            return seenProjectKeys.insert(projectKey).inserted
+        }
+
+        return LLMChatPlanningTaskBuckets(
+            overdue: orderedOverdue,
+            today: orderedToday,
+            tomorrow: orderedTomorrow,
+            thisWeek: orderedThisWeek,
+            unscheduled: unscheduled
+        )
+    }
+
+    private func buildRetrospectiveSection(
+        query: String,
+        overdueRemaining: Int,
+        projectNameByID: [UUID: String]
+    ) async -> [String]? {
+        guard let window = Self.retrospectiveWindow(for: query) else { return nil }
+
+        let completedCandidates = await fetchTasks(
+            query: TaskReadQuery(
+                includeCompleted: true,
+                updatedAfter: window.start,
+                sortBy: .updatedAtDescending,
+                limit: maxTasksPerSlice,
+                offset: 0
+            )
+        )
+
+        let dueCandidates = await fetchTasks(
+            query: TaskReadQuery(
+                includeCompleted: true,
+                dueDateStart: window.start,
+                dueDateEnd: window.end,
+                sortBy: .dueDateAscending,
+                limit: maxTasksPerSlice,
+                offset: 0
+            )
+        )
+
+        let completedCount = completedCandidates.filter { task in
+            guard task.isComplete, let completedAt = task.dateCompleted else { return false }
+            return completedAt >= window.start && completedAt <= window.end
+        }.count
+
+        let openDueCount = dueCandidates.filter { task in
+            guard task.isComplete == false, let dueDate = task.dueDate else { return false }
+            return dueDate >= window.start && dueDate <= window.end
+        }.count
+
+        let touchedProjects = Set(
+            (completedCandidates + dueCandidates).compactMap { task -> String? in
+                let projectName = Self.projectName(for: task, projectNameByID: projectNameByID)
+                return projectName.isEmpty ? nil : projectName
+            }
+        )
+
+        return [
+            "Period: \(window.label)",
+            "Completed tasks: \(completedCount)",
+            "Open due tasks in period: \(openDueCount)",
+            "Overdue remaining: \(overdueRemaining)",
+            "Projects touched: \(touchedProjects.count)"
+        ]
+    }
+
     /// Executes fetchProjectName.
     private func fetchProjectName(id: UUID) async -> String? {
         guard !Task.isCancelled else { return nil }
@@ -384,6 +702,447 @@ struct LLMContextProjectionService {
         }
         return String(decoding: data, as: UTF8.self)
     }
+
+    private static func buildListSection(
+        title: String,
+        items: [String],
+        maxChars: Int
+    ) -> String? {
+        let nonEmptyItems = items
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+        guard nonEmptyItems.isEmpty == false else { return nil }
+
+        var accumulator = PlanningContextAccumulator(maxChars: maxChars)
+        guard accumulator.append("\(title):") else { return nil }
+        for item in nonEmptyItems {
+            if accumulator.append("- \(item)") == false {
+                break
+            }
+        }
+        return accumulator.rendered
+    }
+
+    private static func buildTasksSection(
+        buckets: LLMChatPlanningTaskBuckets,
+        projectNameByID: [UUID: String],
+        lifeAreaNameByID: [UUID: String],
+        maxChars: Int
+    ) -> String {
+        var accumulator = PlanningContextAccumulator(maxChars: maxChars)
+        _ = accumulator.append("Tasks:")
+
+        var appendedAnyTask = false
+        for (title, tasks) in [
+            ("Overdue", buckets.overdue),
+            ("Today", buckets.today),
+            ("Tomorrow", buckets.tomorrow),
+            ("This week", buckets.thisWeek),
+            ("Unscheduled", buckets.unscheduled)
+        ] {
+            let lines = tasks.map {
+                formatTaskLine(
+                    task: $0,
+                    projectNameByID: projectNameByID,
+                    lifeAreaNameByID: lifeAreaNameByID
+                )
+            }
+            guard lines.isEmpty == false else { continue }
+            guard accumulator.append("\(title):") else { break }
+            var appendedSectionLine = false
+            for line in lines {
+                if accumulator.append("- \(line)") == false {
+                    return accumulator.rendered
+                }
+                appendedAnyTask = true
+                appendedSectionLine = true
+            }
+            if appendedSectionLine == false {
+                break
+            }
+        }
+
+        if appendedAnyTask == false {
+            _ = accumulator.append("- none")
+        }
+        return accumulator.rendered
+    }
+
+    private static func formatTaskLine(
+        task: TaskDefinition,
+        projectNameByID: [UUID: String],
+        lifeAreaNameByID: [UUID: String]
+    ) -> String {
+        var parts: [String] = [
+            task.title.trimmingCharacters(in: .whitespacesAndNewlines),
+            dueLabel(for: task.dueDate)
+        ]
+
+        let projectName = projectName(for: task, projectNameByID: projectNameByID)
+        if projectName.isEmpty == false {
+            parts.append(projectName)
+        }
+
+        if let lifeAreaID = task.lifeAreaID,
+           let lifeAreaName = lifeAreaNameByID[lifeAreaID],
+           lifeAreaName.isEmpty == false {
+            parts.append(lifeAreaName)
+        }
+
+        return parts.joined(separator: " | ")
+    }
+
+    private static func compactTaskLine(
+        task: TaskDefinition,
+        projectNameByID: [UUID: String]
+    ) -> String {
+        var parts: [String] = [
+            task.title.trimmingCharacters(in: .whitespacesAndNewlines),
+            dueLabel(for: task.dueDate)
+        ]
+        let projectName = projectName(for: task, projectNameByID: projectNameByID)
+        if projectName.isEmpty == false {
+            parts.append(projectName)
+        }
+        return parts.joined(separator: " | ")
+    }
+
+    private static func projectName(
+        for task: TaskDefinition,
+        projectNameByID: [UUID: String]
+    ) -> String {
+        let directName = task.projectName?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        if directName.isEmpty == false {
+            return directName
+        }
+        return projectNameByID[task.projectID] ?? ""
+    }
+
+    private static func dueLabel(for dueDate: Date?) -> String {
+        guard let dueDate else { return "unscheduled" }
+        let calendar = Calendar.current
+        if calendar.isDateInToday(dueDate) {
+            return "today"
+        }
+        if calendar.isDateInTomorrow(dueDate) {
+            return "tomorrow"
+        }
+        let startOfToday = calendar.startOfDay(for: Date())
+        if dueDate < startOfToday {
+            return "overdue"
+        }
+
+        let formatter = DateFormatter()
+        formatter.locale = Locale.current
+        formatter.setLocalizedDateFormatFromTemplate("EEE d MMM")
+        return formatter.string(from: dueDate)
+    }
+
+    private static func searchTerms(from query: String) -> [String] {
+        let separators = CharacterSet.alphanumerics.inverted
+        return query
+            .lowercased()
+            .components(separatedBy: separators)
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { $0.count >= 3 }
+    }
+
+    private static func retrospectiveWindow(for query: String) -> (label: String, start: Date, end: Date)? {
+        let normalized = query.lowercased()
+        let retrospectiveHints = [
+            "last week", "this week", "last month", "this month",
+            "yesterday", "productivity", "productive", "completed",
+            "complete", "finished", "finish", "progress", "how was"
+        ]
+        guard retrospectiveHints.contains(where: normalized.contains) else { return nil }
+
+        let calendar = Calendar.current
+        let now = Date()
+        let startOfToday = calendar.startOfDay(for: now)
+
+        if normalized.contains("last week") {
+            let currentWeek = calendar.dateInterval(of: .weekOfYear, for: now)
+            let end = currentWeek?.start.addingTimeInterval(-1) ?? startOfToday.addingTimeInterval(-1)
+            let start = calendar.date(byAdding: .weekOfYear, value: -1, to: currentWeek?.start ?? startOfToday) ?? startOfToday
+            return ("Last week", start, end)
+        }
+
+        if normalized.contains("this week") {
+            let start = calendar.dateInterval(of: .weekOfYear, for: now)?.start ?? startOfToday
+            return ("This week", start, now)
+        }
+
+        if normalized.contains("last month") {
+            let currentMonth = calendar.dateInterval(of: .month, for: now)
+            let end = currentMonth?.start.addingTimeInterval(-1) ?? startOfToday.addingTimeInterval(-1)
+            let start = calendar.date(byAdding: .month, value: -1, to: currentMonth?.start ?? startOfToday) ?? startOfToday
+            return ("Last month", start, end)
+        }
+
+        if normalized.contains("this month") {
+            let start = calendar.dateInterval(of: .month, for: now)?.start ?? startOfToday
+            return ("This month", start, now)
+        }
+
+        if normalized.contains("yesterday") {
+            let start = calendar.date(byAdding: .day, value: -1, to: startOfToday) ?? startOfToday
+            let end = startOfToday.addingTimeInterval(-1)
+            return ("Yesterday", start, end)
+        }
+
+        let start = calendar.date(byAdding: .day, value: -7, to: startOfToday) ?? startOfToday
+        return ("Last 7 days", start, now)
+    }
+
+    private static func prioritizedFocusTasks(
+        buckets: LLMChatPlanningTaskBuckets,
+        queryTerms: [String],
+        projectNameByID: [UUID: String],
+        lifeAreaNameByID: [UUID: String],
+        maxItems: Int
+    ) -> [TaskDefinition] {
+        guard maxItems > 0 else { return [] }
+
+        let queryMatches = Self.uniqueTasks(
+            tasks: buckets.allTasks.filter {
+                taskMatchScore(
+                    $0,
+                    queryTerms: queryTerms,
+                    projectNameByID: projectNameByID,
+                    lifeAreaNameByID: lifeAreaNameByID
+                ) > 0
+            }
+        )
+
+        let orderedGroups: [[TaskDefinition]] = [
+            buckets.overdue,
+            buckets.today,
+            buckets.tomorrow,
+            queryMatches,
+            buckets.thisWeek,
+            buckets.unscheduled
+        ]
+
+        var selected: [TaskDefinition] = []
+        var seen = Set<UUID>()
+
+        for group in orderedGroups {
+            for task in group where seen.insert(task.id).inserted {
+                selected.append(task)
+                if selected.count >= maxItems {
+                    return selected
+                }
+            }
+        }
+
+        return selected
+    }
+
+    private static func uniqueTasks(tasks: [TaskDefinition]) -> [TaskDefinition] {
+        var seen = Set<UUID>()
+        return tasks.filter { seen.insert($0.id).inserted }
+    }
+
+    private static func uniqueNames(_ items: [String]) -> [String] {
+        var seen = Set<String>()
+        return items.filter { item in
+            let cleaned = item.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard cleaned.isEmpty == false else { return false }
+            return seen.insert(cleaned.lowercased()).inserted
+        }
+    }
+
+    private static func rankTasks(
+        _ tasks: [TaskDefinition],
+        queryTerms: [String],
+        projectNameByID: [UUID: String],
+        lifeAreaNameByID: [UUID: String]
+    ) -> [TaskDefinition] {
+        tasks.sorted { lhs, rhs in
+            let lhsScore = taskMatchScore(
+                lhs,
+                queryTerms: queryTerms,
+                projectNameByID: projectNameByID,
+                lifeAreaNameByID: lifeAreaNameByID
+            )
+            let rhsScore = taskMatchScore(
+                rhs,
+                queryTerms: queryTerms,
+                projectNameByID: projectNameByID,
+                lifeAreaNameByID: lifeAreaNameByID
+            )
+            if lhsScore != rhsScore {
+                return lhsScore > rhsScore
+            }
+            if lhs.dueDate != rhs.dueDate {
+                return (lhs.dueDate ?? .distantFuture) < (rhs.dueDate ?? .distantFuture)
+            }
+            if lhs.updatedAt != rhs.updatedAt {
+                return lhs.updatedAt > rhs.updatedAt
+            }
+            return lhs.title.localizedCaseInsensitiveCompare(rhs.title) == .orderedAscending
+        }
+    }
+
+    private static func taskMatchScore(
+        _ task: TaskDefinition,
+        queryTerms: [String],
+        projectNameByID: [UUID: String],
+        lifeAreaNameByID: [UUID: String]
+    ) -> Int {
+        guard queryTerms.isEmpty == false else { return 0 }
+        let title = task.title.lowercased()
+        let projectName = projectName(for: task, projectNameByID: projectNameByID).lowercased()
+        let lifeAreaName = task.lifeAreaID.flatMap { lifeAreaNameByID[$0] }?.lowercased() ?? ""
+
+        var score = 0
+        for term in queryTerms {
+            if title.contains(term) {
+                score += 4
+            }
+            if projectName.contains(term) {
+                score += 2
+            }
+            if lifeAreaName.contains(term) {
+                score += 1
+            }
+        }
+        return score
+    }
+
+    private static func orderProjectNames(
+        projects: [Project],
+        attachedTasks: [TaskDefinition],
+        queryTerms: [String]
+    ) -> [String] {
+        let attachedIDs = Set(attachedTasks.map(\.projectID))
+
+        return projects
+            .filter { !$0.name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
+            .sorted { lhs, rhs in
+                let lhsAttached = attachedIDs.contains(lhs.id)
+                let rhsAttached = attachedIDs.contains(rhs.id)
+                if lhsAttached != rhsAttached {
+                    return lhsAttached && !rhsAttached
+                }
+                let lhsScore = textMatchScore(lhs.name, queryTerms: queryTerms)
+                let rhsScore = textMatchScore(rhs.name, queryTerms: queryTerms)
+                if lhsScore != rhsScore {
+                    return lhsScore > rhsScore
+                }
+                return lhs.name.localizedCaseInsensitiveCompare(rhs.name) == .orderedAscending
+            }
+            .map(\.name)
+    }
+
+    private static func orderLifeAreaNames(
+        lifeAreas: [LifeArea],
+        attachedTasks: [TaskDefinition],
+        queryTerms: [String]
+    ) -> [String] {
+        let attachedIDs = Set(attachedTasks.compactMap(\.lifeAreaID))
+        return lifeAreas
+            .sorted { lhs, rhs in
+                let lhsAttached = attachedIDs.contains(lhs.id)
+                let rhsAttached = attachedIDs.contains(rhs.id)
+                if lhsAttached != rhsAttached {
+                    return lhsAttached && !rhsAttached
+                }
+                let lhsScore = textMatchScore(lhs.name, queryTerms: queryTerms)
+                let rhsScore = textMatchScore(rhs.name, queryTerms: queryTerms)
+                if lhsScore != rhsScore {
+                    return lhsScore > rhsScore
+                }
+                return lhs.name.localizedCaseInsensitiveCompare(rhs.name) == .orderedAscending
+            }
+            .map(\.name)
+    }
+
+    private static func textMatchScore(_ text: String, queryTerms: [String]) -> Int {
+        guard queryTerms.isEmpty == false else { return 0 }
+        let normalizedText = text.lowercased()
+        return queryTerms.reduce(into: 0) { score, term in
+            if normalizedText.contains(term) {
+                score += 1
+            }
+        }
+    }
+}
+
+private struct LLMChatPlanningTaskBuckets {
+    let overdue: [TaskDefinition]
+    let today: [TaskDefinition]
+    let tomorrow: [TaskDefinition]
+    let thisWeek: [TaskDefinition]
+    let unscheduled: [TaskDefinition]
+
+    var allTasks: [TaskDefinition] {
+        overdue + today + tomorrow + thisWeek + unscheduled
+    }
+}
+
+private struct PlanningContextAccumulator {
+    private(set) var lines: [String] = []
+    private(set) var currentChars = 0
+    let maxChars: Int
+
+    mutating func append(_ line: String) -> Bool {
+        let cleanLine = line.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard cleanLine.isEmpty == false else { return true }
+        let extraChars = lines.isEmpty ? cleanLine.count : cleanLine.count + 1
+        guard currentChars + extraChars <= maxChars else { return false }
+        lines.append(cleanLine)
+        currentChars += extraChars
+        return true
+    }
+
+    var rendered: String {
+        lines.joined(separator: "\n")
+    }
+}
+
+struct LLMChatPlanningContextBuildResult {
+    let payload: String
+    let usedTimeoutFallback: Bool
+}
+
+enum LLMChatPlanningContextBuilder {
+    static func build(
+        timeoutMs: UInt64,
+        service: LLMContextProjectionService?,
+        query: String,
+        budgets: LLMChatBudgets = .active,
+        contextCharBudgetOverride: Int? = nil
+    ) async -> LLMChatPlanningContextBuildResult {
+        guard let service else {
+            return LLMChatPlanningContextBuildResult(
+                payload: fallbackPayload,
+                usedTimeoutFallback: true
+            )
+        }
+
+        let contextCharBudget = contextCharBudgetOverride ?? budgets.maxContextChars
+        let result = await LLMProjectionTimeout.execute(timeoutMs: timeoutMs) {
+            await service.buildChatPlanningContext(query: query, maxChars: contextCharBudget)
+        }
+
+        if result.timedOut {
+            return LLMChatPlanningContextBuildResult(
+                payload: fallbackPayload,
+                usedTimeoutFallback: true
+            )
+        }
+
+        return LLMChatPlanningContextBuildResult(
+            payload: result.payload,
+            usedTimeoutFallback: false
+        )
+    }
+
+    private static let fallbackPayload = """
+    Planning context:
+    Status: partial
+    """
 }
 
 struct LLMChatContextPartialFlags {

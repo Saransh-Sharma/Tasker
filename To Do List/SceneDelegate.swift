@@ -30,7 +30,6 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
     }
 
     var window: UIWindow?
-    private var chatPrewarmTask: Task<Void, Never>?
 
 
     /// Executes scene.
@@ -150,29 +149,12 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         // Called when the scene has moved from an inactive state to an active state.
         // Use this method to restart any tasks that were paused (or not yet started) when the scene was inactive.
         (UIApplication.shared.delegate as? AppDelegate)?.reconcileNotifications(reason: "scene_did_become_active")
-        chatPrewarmTask?.cancel()
-        chatPrewarmTask = nil
-        guard V2FeatureFlags.llmChatPrewarmMode == .eager,
-              V2FeatureFlags.iPadPerfDeferLLMPrewarmV2Enabled == false else { return }
-
-        chatPrewarmTask = Task { @MainActor in
-            do {
-                try await Task.sleep(nanoseconds: 15_000_000_000)
-            } catch {
-                return
-            }
-            guard !Task.isCancelled else { return }
-            guard UIApplication.shared.applicationState == .active else { return }
-            await LLMRuntimeCoordinator.shared.prepareCurrentModelIfConfigured(trigger: "scene_did_become_active_idle")
-        }
     }
 
     /// Executes sceneWillResignActive.
     func sceneWillResignActive(_ scene: UIScene) {
         // Called when the scene will move from an active state to an inactive state.
         // This may occur due to temporary interruptions (ex. an incoming phone call).
-        chatPrewarmTask?.cancel()
-        chatPrewarmTask = nil
         Task { @MainActor in
             LLMRuntimeCoordinator.shared.cancelDeferredPrewarm(reason: "scene_will_resign_active")
         }
@@ -190,8 +172,6 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         // Called as the scene transitions from the foreground to the background.
         // Use this method to save data, release shared resources, and store enough scene-specific state information
         // to restore the scene back to its current state.
-        chatPrewarmTask?.cancel()
-        chatPrewarmTask = nil
         Task { @MainActor in
             LLMRuntimeCoordinator.shared.cancelDeferredPrewarm(reason: "scene_did_enter_background")
         }

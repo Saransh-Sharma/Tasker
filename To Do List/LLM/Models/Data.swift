@@ -6,13 +6,125 @@
 import SwiftUI
 import SwiftData
 
+enum LLMPersistedModelSelection {
+    struct State: Equatable {
+        let installedModels: [String]
+        let currentModelName: String?
+    }
+
+    static let installedModelsKey = "installedModels"
+    static let currentModelKey = "currentModelName"
+    static let retiredModelNames: Set<String> = [
+        "NexVeridian/Qwen3.5-0.8B-4bit",
+        "mlx-community/gemma-3-270m-it-4bit"
+    ]
+
+    @discardableResult
+    static func normalize(
+        defaults: UserDefaults = .standard,
+        fileManager: FileManager = .default,
+        applicationSupportDirectory: URL? = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
+    ) -> State {
+        let rawInstalledModels = loadInstalledModels(defaults: defaults)
+        let state = normalizedState(
+            installedModels: rawInstalledModels,
+            currentModelName: defaults.string(forKey: currentModelKey)
+        )
+
+        persistInstalledModels(state.installedModels, defaults: defaults)
+        if let currentModelName = state.currentModelName {
+            defaults.set(currentModelName, forKey: currentModelKey)
+        } else {
+            defaults.removeObject(forKey: currentModelKey)
+        }
+
+        let retiredInstalledModels = Array(Set(rawInstalledModels.filter { retiredModelNames.contains($0) }))
+        for modelName in retiredInstalledModels {
+            removeCachedModelFiles(
+                for: modelName,
+                fileManager: fileManager,
+                applicationSupportDirectory: applicationSupportDirectory
+            )
+        }
+
+        return state
+    }
+
+    static func normalizedState(installedModels: [String], currentModelName: String?) -> State {
+        let supportedModels = Set(ModelConfiguration.availableModels.map(\.name))
+        var seen = Set<String>()
+        let normalizedInstalledModels = installedModels.filter { modelName in
+            guard seen.insert(modelName).inserted else { return false }
+            guard retiredModelNames.contains(modelName) == false else { return false }
+            return supportedModels.contains(modelName)
+        }
+
+        let normalizedCurrentModelName: String?
+        if let currentModelName, normalizedInstalledModels.contains(currentModelName) {
+            normalizedCurrentModelName = currentModelName
+        } else {
+            normalizedCurrentModelName = normalizedInstalledModels.first
+        }
+
+        return State(
+            installedModels: normalizedInstalledModels,
+            currentModelName: normalizedCurrentModelName
+        )
+    }
+
+    static func loadInstalledModels(defaults: UserDefaults = .standard) -> [String] {
+        if let jsonData = defaults.data(forKey: installedModelsKey),
+           let decodedArray = try? JSONDecoder().decode([String].self, from: jsonData) {
+            return decodedArray
+        }
+        return []
+    }
+
+    static func persistInstalledModels(_ installedModels: [String], defaults: UserDefaults = .standard) {
+        if let jsonData = try? JSONEncoder().encode(installedModels) {
+            defaults.set(jsonData, forKey: installedModelsKey)
+        }
+    }
+
+    static func removeCachedModelFiles(
+        for model: String,
+        fileManager: FileManager = .default,
+        applicationSupportDirectory: URL? = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
+    ) {
+        guard let folder = modelFolderURL(for: model, applicationSupportDirectory: applicationSupportDirectory),
+              fileManager.fileExists(atPath: folder.path) else {
+            return
+        }
+
+        do {
+            try fileManager.removeItem(at: folder)
+        } catch {
+            logError("Failed to delete model files for \(model): \(error)")
+        }
+    }
+
+    static func modelFolderURL(for model: String, applicationSupportDirectory: URL?) -> URL? {
+        guard let applicationSupportDirectory else { return nil }
+        return applicationSupportDirectory
+            .appendingPathComponent("MLXLM")
+            .appendingPathComponent(model)
+    }
+}
+
 enum AssistantChatMode: String, CaseIterable {
     case ask
     case plan
 }
 
 class AppManager: ObservableObject {
-    @AppStorage("systemPrompt") var systemPrompt = "You are Eva, the user's upbeat and clever personal assistant, here to keep tasks and calendars in perfect harmony. Your responses sparkle with tidy markdown—bold headers, sleek italics, sharp lists, and clear tables. Always refer to dates casually—Today, Yesterday, next Thursday. Stay brief and witty, unless the user invites you to dive into details. Use the provided task and project details to keep their day breezy and productive."
+    static let defaultSystemPrompt = "You are Eva, a task and planning assistant. Help the user plan their day, week, tasks, projects, and life areas. Be brief, clear, and helpful. Use simple markdown and casual dates. Use only provided context. Do not invent details."
+    static let legacyBuiltInSystemPrompts: Set<String> = [
+        "You are Eva, the user's upbeat and clever personal assistant, here to keep tasks and calendars in perfect harmony. Your responses sparkle with tidy markdown-bold headers, sleek italics, sharp lists, and clear tables. Always refer to dates casually-Today, Yesterday, next Thursday. Stay brief and witty, unless the user invites you to dive into details. Use the provided task and project details to keep their day breezy and productive.",
+        "You are Eva, the user's upbeat and clever personal assistant, here to keep tasks and calendars in perfect harmony. Your responses sparkle with tidy markdown—bold headers, sleek italics, sharp lists, and clear tables. Always refer to dates casually—Today, Yesterday, next Thursday. Stay brief and witty, unless the user invites you to dive into details. Use the provided task and project details to keep their day breezy and productive.",
+        "You are Eva, a clever personal assistant. Keep tasks and priorities aligned. Be brief, clear, and helpful. Use simple markdown, short lists, and casual dates. Use only provided context. Do not invent details."
+    ]
+
+    @AppStorage("systemPrompt") var systemPrompt = defaultSystemPrompt
     @AppStorage("currentModelName") var currentModelName: String?
     @AppStorage("shouldPlayHaptics") var shouldPlayHaptics = true
     @AppStorage("numberOfVisits") var numberOfVisits = 0
@@ -41,8 +153,6 @@ class AppManager: ObservableObject {
         case mac, phone, pad, vision, unknown
     }
         
-    private let installedModelsKey = "installedModels"
-        
     @Published var installedModels: [String] = [] {
         didSet {
             saveInstalledModelsToUserDefaults()
@@ -51,7 +161,29 @@ class AppManager: ObservableObject {
     
     /// Initializes a new instance.
     init() {
+        migrateBuiltInSystemPromptIfNeeded()
         loadInstalledModelsFromUserDefaults()
+        let normalized = LLMPersistedModelSelection.normalize()
+        installedModels = normalized.installedModels
+        currentModelName = normalized.currentModelName
+    }
+
+    static func migratedBuiltInSystemPrompt(_ storedPrompt: String?) -> String? {
+        guard let storedPrompt else { return nil }
+        guard legacyBuiltInSystemPrompts.contains(storedPrompt) else { return nil }
+        guard storedPrompt != defaultSystemPrompt else { return nil }
+        return defaultSystemPrompt
+    }
+
+    func migrateBuiltInSystemPromptIfNeeded(defaults: UserDefaults = .standard) {
+        guard let migratedPrompt = Self.migratedBuiltInSystemPrompt(defaults.string(forKey: "systemPrompt")) else {
+            return
+        }
+        systemPrompt = migratedPrompt
+    }
+
+    func resetSystemPromptToDefault() {
+        systemPrompt = Self.defaultSystemPrompt
     }
     
     /// Executes incrementNumberOfVisits.
@@ -63,20 +195,13 @@ class AppManager: ObservableObject {
     // Function to save the array to UserDefaults as JSON
     /// Executes saveInstalledModelsToUserDefaults.
     private func saveInstalledModelsToUserDefaults() {
-        if let jsonData = try? JSONEncoder().encode(installedModels) {
-            UserDefaults.standard.set(jsonData, forKey: installedModelsKey)
-        }
+        LLMPersistedModelSelection.persistInstalledModels(installedModels)
     }
     
     // Function to load the array from UserDefaults
     /// Executes loadInstalledModelsFromUserDefaults.
     private func loadInstalledModelsFromUserDefaults() {
-        if let jsonData = UserDefaults.standard.data(forKey: installedModelsKey),
-           let decodedArray = try? JSONDecoder().decode([String].self, from: jsonData) {
-            self.installedModels = decodedArray
-        } else {
-            self.installedModels = [] // Default to an empty array if there's no data
-        }
+        self.installedModels = LLMPersistedModelSelection.loadInstalledModels()
     }
     
     /// Executes playHaptic.
@@ -95,24 +220,16 @@ class AppManager: ObservableObject {
         if let idx = installedModels.firstIndex(of: model) {
             installedModels.remove(at: idx)
         }
-        // Attempt to delete the model files from disk
-        do {
-            if let folder = modelFolderURL(for: model), FileManager.default.fileExists(atPath: folder.path) {
-                try FileManager.default.removeItem(at: folder)
-            }
-        } catch {
-            logError("Failed to delete model files for \(model): \(error)")
-        }
+        LLMPersistedModelSelection.removeCachedModelFiles(for: model)
     }
     
     /// Returns the expected local folder URL where the model is stored, based on MLXLMCommon's default.
     /// Adjust this path if the underlying library changes its cache location.
     private func modelFolderURL(for model: String) -> URL? {
-        // Application Support/MLXLM/<model-name>
-        if let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first {
-            return appSupport.appendingPathComponent("MLXLM").appendingPathComponent(model)
-        }
-        return nil
+        LLMPersistedModelSelection.modelFolderURL(
+            for: model,
+            applicationSupportDirectory: FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
+        )
     }
     
     /// Executes addInstalledModel.

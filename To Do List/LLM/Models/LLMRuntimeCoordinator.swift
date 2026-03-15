@@ -2,11 +2,6 @@ import Foundation
 import MLXLMCommon
 import UIKit
 
-enum LLMPrewarmPolicy: Equatable {
-    case immediate
-    case deferred(seconds: TimeInterval)
-}
-
 @MainActor
 final class LLMRuntimeCoordinator {
     struct EnsureReadyResult {
@@ -17,7 +12,7 @@ final class LLMRuntimeCoordinator {
 
     typealias PrepareHandler = @MainActor (String) async throws -> LLMEvaluator.PrepareResult
     typealias SwitchHandler = @MainActor (String) async throws -> Bool
-    typealias UnloadHandler = @MainActor () -> Void
+    typealias UnloadHandler = @MainActor (String) async -> Void
 
     @MainActor static let shared = LLMRuntimeCoordinator()
 
@@ -30,24 +25,17 @@ final class LLMRuntimeCoordinator {
     private let unloadHandler: UnloadHandler
     private let backgroundUnloadDelayNanoseconds: UInt64
     private let idleUnloadDelayNanoseconds: UInt64
-    private let currentModelKey = "currentModelName"
+
     private var observers: [NSObjectProtocol] = []
     private var inFlightPrewarmTask: Task<Void, Never>?
     private var inFlightPrewarmModelName: String?
-    private var inFlightPrewarmRequestKey: String?
     private var deferredPrewarmTask: Task<Void, Never>?
     private var deferredPrewarmRequestKey: String?
     private var backgroundUnloadTask: Task<Void, Never>?
     private var idleUnloadTask: Task<Void, Never>?
     private var activeSessionReasons: Set<String> = []
-    private(set) var activeModelName: String?
 
-    private var prewarmPolicy: LLMPrewarmPolicy {
-        guard V2FeatureFlags.iPadPerfDeferLLMPrewarmV2Enabled else {
-            return .immediate
-        }
-        return .deferred(seconds: 2.0)
-    }
+    private(set) var activeModelName: String?
 
     init(
         evaluator: LLMEvaluator? = nil,
@@ -74,14 +62,14 @@ final class LLMRuntimeCoordinator {
             await runtimeEvaluator.switchModel(model)
             return true
         }
-        self.unloadHandler = unloadHandler ?? {
-            runtimeEvaluator.unload()
+        self.unloadHandler = unloadHandler ?? { _ in
+            await runtimeEvaluator.unloadNow()
         }
         self.backgroundUnloadDelayNanoseconds = backgroundUnloadDelayNanoseconds
         self.idleUnloadDelayNanoseconds = idleUnloadDelayNanoseconds
 
         if registerLifecycleObservers {
-            self.registerLifecycleObservers()
+            installLifecycleObservers()
         }
     }
 
@@ -95,99 +83,85 @@ final class LLMRuntimeCoordinator {
         idleUnloadTask?.cancel()
     }
 
-    func prewarmIfEligibleCurrentModel(trigger: String = "unknown") async {
-        guard V2FeatureFlags.llmChatPrewarmMode != .disabled else { return }
-        guard let currentModelName = defaults.string(forKey: currentModelKey), !currentModelName.isEmpty else { return }
-        guard let model = ModelConfiguration.getModelByName(currentModelName), model.isPrewarmEligible() else { return }
-        guard evaluator.loadedModelName != currentModelName else { return }
-        guard activeModelName != currentModelName else { return }
-        guard inFlightPrewarmModelName != currentModelName else { return }
-
-        cancelIdleUnload()
-        inFlightPrewarmTask?.cancel()
-        inFlightPrewarmModelName = currentModelName
-        inFlightPrewarmRequestKey = "\(currentModelName)|\(trigger)"
-
-        inFlightPrewarmTask = Task { @MainActor in
-            let startedAt = Date()
-            do {
-                _ = try await self.prepareHandler(currentModelName)
-                self.activeModelName = currentModelName
-                logWarning(
-                    event: "chat_prewarm_completed",
-                    message: "Completed model prewarm for chat",
-                    fields: [
-                        "model_name": currentModelName,
-                        "duration_ms": String(Int(Date().timeIntervalSince(startedAt) * 1_000)),
-                        "trigger": trigger
-                    ]
-                )
-            } catch is CancellationError {
-                logWarning(
-                    event: "chat_prewarm_cancelled",
-                    message: "Cancelled in-flight prewarm due to newer model request",
-                    fields: [
-                        "model_name": currentModelName,
-                        "trigger": trigger
-                    ]
-                )
-            } catch {
-                logError(
-                    event: "chat_prewarm_failed",
-                    message: "Model prewarm failed",
-                    fields: [
-                        "model_name": currentModelName,
-                        "error": error.localizedDescription,
-                        "trigger": trigger
-                    ]
-                )
-            }
-            if self.inFlightPrewarmModelName == currentModelName {
-                self.inFlightPrewarmModelName = nil
-                self.inFlightPrewarmTask = nil
-                self.inFlightPrewarmRequestKey = nil
-            }
-        }
+    func enterChatScreen(trigger: String) {
+        acquireSession(reason: "chat_host_visible")
+        requestChatEntryPrewarm(trigger: trigger, delaySeconds: 0)
     }
 
-    func requestChatEntryPrewarm(trigger: String, delaySeconds: TimeInterval = 2.0) {
-        guard let currentModelName = defaults.string(forKey: currentModelKey),
-              currentModelName.isEmpty == false else {
+    func primeSelectedModelForChatEntry(trigger: String = "chat_entry") async {
+        guard V2FeatureFlags.llmChatPrewarmMode != .disabled else { return }
+        guard let modelName = normalizedCurrentModelName(), !modelName.isEmpty else { return }
+        guard let model = ModelConfiguration.getModelByName(modelName) else { return }
+        guard canPrimeOnChatEntry(model: model) else { return }
+        guard evaluator.loadedModelName != modelName else {
+            activeModelName = modelName
             return
         }
-        let requestKey = "\(currentModelName)|\(trigger)"
-        if inFlightPrewarmRequestKey == requestKey || deferredPrewarmRequestKey == requestKey {
+
+        let requestKey = "\(modelName)|\(trigger)"
+        if inFlightPrewarmModelName == modelName {
             return
         }
+
+        cancelIdleUnload()
+        cancelBackgroundUnload()
+        startPrewarm(modelName: modelName, trigger: trigger, requestKey: requestKey)
+    }
+
+    func exitChatScreen(reason: String) async {
+        cancelDeferredPrewarm(reason: "exit_\(reason)")
+        cancelBackgroundUnload()
+        cancelIdleUnload()
+        activeSessionReasons.removeAll()
+        cancelGenerationIfActive(reason: reason)
+        cancelInFlightPrewarm(reason: "exit_\(reason)")
+        await unload(reason: reason)
+    }
+
+    func prewarmIfEligibleCurrentModel(trigger: String = "unknown") async {
+        guard V2FeatureFlags.llmChatPrewarmMode != .disabled else { return }
+        guard let currentModelName = normalizedCurrentModelName(), !currentModelName.isEmpty else { return }
+        guard let model = ModelConfiguration.getModelByName(currentModelName), model.isPrewarmEligible() else { return }
+        guard evaluator.loadedModelName != currentModelName, activeModelName != currentModelName else {
+            activeModelName = currentModelName
+            return
+        }
+
+        cancelIdleUnload()
+        startPrewarm(
+            modelName: currentModelName,
+            trigger: trigger,
+            requestKey: "\(currentModelName)|\(trigger)"
+        )
+    }
+
+    func requestChatEntryPrewarm(trigger: String, delaySeconds: TimeInterval = 0.5) {
+        guard V2FeatureFlags.llmChatPrewarmMode != .disabled else { return }
+        guard let modelName = normalizedCurrentModelName(), !modelName.isEmpty else { return }
+
+        let requestKey = "\(modelName)|\(trigger)"
+        if deferredPrewarmRequestKey == requestKey || inFlightPrewarmModelName == modelName {
+            return
+        }
+
         cancelDeferredPrewarm(reason: "chat_entry_rescheduled")
+        cancelIdleUnload()
 
-        let resolvedDelaySeconds: TimeInterval
-        switch prewarmPolicy {
-        case .immediate:
-            resolvedDelaySeconds = max(0, delaySeconds)
-        case .deferred(let policyDelaySeconds):
-            resolvedDelaySeconds = max(policyDelaySeconds, delaySeconds)
-        }
-
-        if resolvedDelaySeconds == 0 {
-            inFlightPrewarmRequestKey = requestKey
-            Task { @MainActor in
-                await self.prepareCurrentModelIfConfigured(trigger: trigger)
+        if delaySeconds <= 0 {
+            deferredPrewarmRequestKey = requestKey
+            deferredPrewarmTask = Task { @MainActor in
+                await Task.yield()
+                guard !Task.isCancelled else { return }
+                guard self.deferredPrewarmRequestKey == requestKey else { return }
+                self.deferredPrewarmRequestKey = nil
+                self.deferredPrewarmTask = nil
+                await self.primeSelectedModelForChatEntry(trigger: trigger)
             }
             return
         }
 
-        let delayNanoseconds = UInt64(resolvedDelaySeconds * 1_000_000_000)
+        let delayNanoseconds = UInt64(max(0, delaySeconds) * 1_000_000_000)
         deferredPrewarmRequestKey = requestKey
-        logWarning(
-            event: "llmPrewarm",
-            message: "Scheduled deferred LLM prewarm on chat entry",
-            fields: [
-                "trigger": trigger,
-                "delay_seconds": String(format: "%.2f", resolvedDelaySeconds)
-            ]
-        )
-
         deferredPrewarmTask = Task { @MainActor in
             do {
                 try await Task.sleep(nanoseconds: delayNanoseconds)
@@ -197,14 +171,9 @@ final class LLMRuntimeCoordinator {
             }
             guard !Task.isCancelled else { return }
             guard self.deferredPrewarmRequestKey == requestKey else { return }
-            logWarning(
-                event: "llmPrewarm",
-                message: "Executing deferred LLM prewarm",
-                fields: ["trigger": trigger]
-            )
             self.deferredPrewarmRequestKey = nil
-            await self.prepareCurrentModelIfConfigured(trigger: "\(trigger)_deferred")
             self.deferredPrewarmTask = nil
+            await self.primeSelectedModelForChatEntry(trigger: trigger)
         }
     }
 
@@ -214,39 +183,28 @@ final class LLMRuntimeCoordinator {
         deferredPrewarmTask = nil
         deferredPrewarmRequestKey = nil
         logWarning(
-            event: "llmPrewarm",
-            message: "Cancelled deferred LLM prewarm",
+            event: "llm_prewarm_cancelled",
+            message: "Cancelled deferred LLM chat prewarm",
             fields: ["reason": reason]
         )
     }
 
     func prepareCurrentModelIfConfigured(trigger: String) async {
-        guard let currentModelName = defaults.string(forKey: currentModelKey),
-              currentModelName.isEmpty == false else {
-            return
-        }
-        guard let model = ModelConfiguration.getModelByName(currentModelName) else { return }
+        guard let currentModelName = normalizedCurrentModelName(), !currentModelName.isEmpty else { return }
+        guard V2FeatureFlags.llmChatPrewarmMode != .disabled else { return }
 
-        switch V2FeatureFlags.llmChatPrewarmMode {
-        case .disabled:
-            return
-        case .adaptiveOnDemand:
-            guard model.isPrewarmEligible() else { return }
-            await prewarmIfEligibleCurrentModel(trigger: trigger)
-        case .eager:
-            let startedAt = Date()
-            let result = await ensureReady(modelName: currentModelName)
-            logWarning(
-                event: "chat_eager_prepare_completed",
-                message: "Completed eager model prepare for chat",
-                fields: [
-                    "model_name": currentModelName,
-                    "ready": result.ready ? "true" : "false",
-                    "duration_ms": String(Int(Date().timeIntervalSince(startedAt) * 1_000)),
-                    "trigger": trigger
-                ]
-            )
-        }
+        let startedAt = Date()
+        let result = await ensureReady(modelName: currentModelName)
+        logWarning(
+            event: "chat_prepare_current_model_completed",
+            message: "Prepared configured chat model",
+            fields: [
+                "model_name": currentModelName,
+                "ready": result.ready ? "true" : "false",
+                "duration_ms": String(Int(Date().timeIntervalSince(startedAt) * 1_000)),
+                "trigger": trigger
+            ]
+        )
     }
 
     func acquireSession(reason: String) {
@@ -263,6 +221,10 @@ final class LLMRuntimeCoordinator {
                 ]
             )
         }
+    }
+
+    private func normalizedCurrentModelName() -> String? {
+        LLMPersistedModelSelection.normalize(defaults: defaults).currentModelName
     }
 
     func releaseSession(reason: String) {
@@ -313,7 +275,9 @@ final class LLMRuntimeCoordinator {
         let clampedDelay = max(0, seconds)
         let delayNanoseconds = UInt64(clampedDelay * 1_000_000_000)
         if delayNanoseconds == 0 {
-            unload(reason: "idle_timeout")
+            Task { @MainActor in
+                await self.unload(reason: "idle_timeout")
+            }
             return
         }
 
@@ -326,7 +290,7 @@ final class LLMRuntimeCoordinator {
             guard !Task.isCancelled else { return }
             guard self.activeSessionReasons.isEmpty else { return }
             self.cancelGenerationIfActive(reason: "idle_timeout")
-            self.unload(reason: "idle_timeout")
+            await self.unload(reason: "idle_timeout")
         }
         logWarning(
             event: "chat_idle_unload_scheduled",
@@ -337,7 +301,9 @@ final class LLMRuntimeCoordinator {
 
     func ensureReady(modelName: String) async -> EnsureReadyResult {
         cancelIdleUnload()
-        let prewarmEligible = ModelConfiguration.getModelByName(modelName)?.isPrewarmEligible() ?? false
+        let prewarmEligible = ModelConfiguration.getModelByName(modelName).map { model in
+            canPrimeOnChatEntry(model: model)
+        } ?? false
         let prewarmHit = evaluator.loadedModelName == modelName
 
         if let inFlightPrewarmTask, inFlightPrewarmModelName == modelName {
@@ -345,14 +311,12 @@ final class LLMRuntimeCoordinator {
             return EnsureReadyResult(
                 prewarmEligible: prewarmEligible,
                 prewarmHit: prewarmHit,
-                ready: evaluator.loadedModelName == modelName
+                ready: evaluator.loadedModelName == modelName || activeModelName == modelName
             )
         }
 
         if inFlightPrewarmModelName != nil && inFlightPrewarmModelName != modelName {
-            inFlightPrewarmTask?.cancel()
-            inFlightPrewarmTask = nil
-            inFlightPrewarmModelName = nil
+            cancelInFlightPrewarm(reason: "ensure_ready_switch")
         }
 
         do {
@@ -380,9 +344,7 @@ final class LLMRuntimeCoordinator {
         }
 
         if inFlightPrewarmModelName != nil && inFlightPrewarmModelName != modelName {
-            inFlightPrewarmTask?.cancel()
-            inFlightPrewarmTask = nil
-            inFlightPrewarmModelName = nil
+            cancelInFlightPrewarm(reason: "switch_model")
         }
 
         do {
@@ -404,16 +366,12 @@ final class LLMRuntimeCoordinator {
         }
     }
 
-    func unload(reason: String) {
+    func unload(reason: String) async {
         cancelDeferredPrewarm(reason: "unload_\(reason)")
-        cancelGenerationIfActive(reason: "unload_\(reason)")
-        inFlightPrewarmTask?.cancel()
-        inFlightPrewarmTask = nil
-        inFlightPrewarmModelName = nil
-        backgroundUnloadTask?.cancel()
-        backgroundUnloadTask = nil
+        cancelInFlightPrewarm(reason: "unload_\(reason)")
+        cancelBackgroundUnload()
         cancelIdleUnload()
-        unloadHandler()
+        await unloadHandler(reason)
         activeModelName = nil
         logWarning(
             event: "chat_model_unloaded",
@@ -422,14 +380,14 @@ final class LLMRuntimeCoordinator {
         )
     }
 
-    private func registerLifecycleObservers() {
+    private func installLifecycleObservers() {
         let memoryWarningObserver = notificationCenter.addObserver(
             forName: UIApplication.didReceiveMemoryWarningNotification,
             object: nil,
             queue: .main
         ) { [weak self] _ in
             Task { @MainActor in
-                self?.unload(reason: "memory_warning")
+                await self?.unload(reason: "memory_warning")
             }
         }
         observers.append(memoryWarningObserver)
@@ -440,7 +398,7 @@ final class LLMRuntimeCoordinator {
             queue: .main
         ) { [weak self] _ in
             Task { @MainActor in
-                self?.handleThermalStateChange()
+                await self?.handleThermalStateChange()
             }
         }
         observers.append(thermalObserver)
@@ -468,12 +426,83 @@ final class LLMRuntimeCoordinator {
         observers.append(foregroundObserver)
     }
 
-    private func handleThermalStateChange() {
+    private func startPrewarm(modelName: String, trigger: String, requestKey: String) {
+        guard evaluator.loadedModelName != modelName else {
+            activeModelName = modelName
+            return
+        }
+
+        if inFlightPrewarmModelName == modelName {
+            return
+        }
+
+        cancelInFlightPrewarm(reason: "prewarm_rescheduled")
+        inFlightPrewarmModelName = modelName
+        inFlightPrewarmTask = Task { @MainActor in
+            let startedAt = Date()
+            defer {
+                if self.inFlightPrewarmModelName == modelName {
+                    self.inFlightPrewarmModelName = nil
+                    self.inFlightPrewarmTask = nil
+                }
+            }
+
+            do {
+                _ = try await self.prepareHandler(modelName)
+                self.activeModelName = modelName
+                logWarning(
+                    event: "chat_prewarm_completed",
+                    message: "Completed model prewarm for chat",
+                    fields: [
+                        "model_name": modelName,
+                        "duration_ms": String(Int(Date().timeIntervalSince(startedAt) * 1_000)),
+                        "trigger": trigger,
+                        "request_key": requestKey
+                    ]
+                )
+            } catch is CancellationError {
+                logWarning(
+                    event: "chat_prewarm_cancelled",
+                    message: "Cancelled in-flight prewarm due to newer model request",
+                    fields: [
+                        "model_name": modelName,
+                        "trigger": trigger,
+                        "request_key": requestKey
+                    ]
+                )
+            } catch {
+                logError(
+                    event: "chat_prewarm_failed",
+                    message: "Model prewarm failed",
+                    fields: [
+                        "model_name": modelName,
+                        "error": error.localizedDescription,
+                        "trigger": trigger,
+                        "request_key": requestKey
+                    ]
+                )
+            }
+        }
+    }
+
+    private func cancelInFlightPrewarm(reason: String) {
+        guard inFlightPrewarmTask != nil else { return }
+        inFlightPrewarmTask?.cancel()
+        inFlightPrewarmTask = nil
+        inFlightPrewarmModelName = nil
+        logWarning(
+            event: "chat_prewarm_cancelled",
+            message: "Cancelled in-flight chat prewarm",
+            fields: ["reason": reason]
+        )
+    }
+
+    private func handleThermalStateChange() async {
         switch ProcessInfo.processInfo.thermalState {
         case .serious:
-            unload(reason: "thermal_serious")
+            await unload(reason: "thermal_serious")
         case .critical:
-            unload(reason: "thermal_critical")
+            await unload(reason: "thermal_critical")
         default:
             break
         }
@@ -490,7 +519,7 @@ final class LLMRuntimeCoordinator {
                 return
             }
             guard !Task.isCancelled else { return }
-            self.unload(reason: "background_timeout")
+            await self.unload(reason: "background_timeout")
         }
     }
 
@@ -502,5 +531,28 @@ final class LLMRuntimeCoordinator {
     private func cancelIdleUnload() {
         idleUnloadTask?.cancel()
         idleUnloadTask = nil
+    }
+
+    private func canPrimeOnChatEntry(model: ModelConfiguration) -> Bool {
+        guard isThermalStateBelowSerious(ProcessInfo.processInfo.thermalState) else {
+            return false
+        }
+        guard let modelSize = model.modelSize else {
+            return false
+        }
+        let physicalMemoryGB = Decimal(Double(ProcessInfo.processInfo.physicalMemory) / 1_073_741_824)
+        let budget = physicalMemoryGB * Decimal(string: "0.6")!
+        return modelSize <= budget
+    }
+
+    private func isThermalStateBelowSerious(_ thermalState: ProcessInfo.ThermalState) -> Bool {
+        switch thermalState {
+        case .nominal, .fair:
+            return true
+        case .serious, .critical:
+            return false
+        @unknown default:
+            return false
+        }
     }
 }

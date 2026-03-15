@@ -32,13 +32,7 @@ struct AIRuntimeSnapshot {
     let fastModeEnabled: Bool
 
     static func current(defaults: UserDefaults = .standard) -> AIRuntimeSnapshot {
-        let installedModels: [String]
-        if let data = defaults.data(forKey: "installedModels"),
-           let decoded = try? JSONDecoder().decode([String].self, from: data) {
-            installedModels = decoded
-        } else {
-            installedModels = []
-        }
+        let persistedState = LLMPersistedModelSelection.normalize(defaults: defaults)
 
         #if os(visionOS)
         let layout: AppManager.LayoutType = .vision
@@ -51,8 +45,8 @@ struct AIRuntimeSnapshot {
         #endif
 
         return AIRuntimeSnapshot(
-            selectedModelName: defaults.string(forKey: "currentModelName"),
-            installedModels: installedModels,
+            selectedModelName: persistedState.currentModelName,
+            installedModels: persistedState.installedModels,
             availableMemoryGB: Double(ProcessInfo.processInfo.physicalMemory) / (1024 * 1024 * 1024),
             userInterfaceIdiom: layout,
             fastModeEnabled: V2FeatureFlags.assistantFastModeEnabled
