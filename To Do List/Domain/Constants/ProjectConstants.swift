@@ -24,3 +24,13 @@ public struct ProjectConstants {
         // Prevent instantiation of constants struct
     }
 }
+
+/// Constants related to life-area seeding and defaults.
+public struct LifeAreaConstants {
+    public static let generalSeedColor = "#9E5F0A"
+
+    /// Initializes a new instance.
+    private init() {
+        // Prevent instantiation of constants struct
+    }
+}

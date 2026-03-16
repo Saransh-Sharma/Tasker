@@ -66,15 +66,6 @@ class SettingsPage {
         llmSettingsRow.tap()
     }
 
-    func toggleDarkMode() {
-    }
-
-    func enableDarkMode() {
-    }
-
-    func disableDarkMode() {
-    }
-
     /// Tap app version to show version info
     func tapAppVersion() {
         appVersionLabel.tap()

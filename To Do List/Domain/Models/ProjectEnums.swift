@@ -28,15 +28,15 @@ public enum ProjectColor: String, CaseIterable, Codable {
     public var hexString: String {
         switch self {
         case .red: return "#C11317"
-        case .orange: return "#9E5F0A"
+        case .orange: return "#D97706"
         case .yellow: return "#FEBF2B"
         case .green: return "#293A18"
-        case .blue: return "#B1205F"
-        case .purple: return "#B1205F"
+        case .blue: return "#2F6B9A"
+        case .purple: return "#6D4AA3"
         case .pink: return "#B1205F"
-        case .gray: return "#8E7151"
+        case .gray: return "#7D7A74"
         case .brown: return "#9E5F0A"
-        case .teal: return "#293A18"
+        case .teal: return "#147A72"
         }
     }
 }
@@ -192,7 +192,7 @@ public enum ProjectHealth: String, CaseIterable, Codable {
         case .good: return "#FEBF2B"
         case .warning: return "#9E5F0A"
         case .critical: return "#C11317"
-        case .unknown: return "#8E7151"
+        case .unknown: return "#000000"
         }
     }
 }

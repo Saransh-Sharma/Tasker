@@ -54,8 +54,9 @@ final class DarkModeToggleCell: UITableViewCell {
         subtitleLabel.translatesAutoresizingMaskIntoConstraints = false
         subtitleLabel.font = TaskerUIKitTokens.typography.meta
         subtitleLabel.textColor = colors.textSecondary
-        subtitleLabel.numberOfLines = 2
-        subtitleLabel.text = "Tasker follows your device's light or dark appearance automatically."
+        subtitleLabel.numberOfLines = 0
+        subtitleLabel.lineBreakMode = .byWordWrapping
+        subtitleLabel.text = "To Do List follows your device's light or dark appearance automatically."
         contentView.addSubview(subtitleLabel)
 
         modeBadge.translatesAutoresizingMaskIntoConstraints = false
@@ -76,9 +77,11 @@ final class DarkModeToggleCell: UITableViewCell {
 
             titleLabel.leadingAnchor.constraint(equalTo: iconView.trailingAnchor, constant: 12),
             titleLabel.topAnchor.constraint(equalTo: contentView.topAnchor, constant: 14),
+            titleLabel.trailingAnchor.constraint(lessThanOrEqualTo: modeBadge.leadingAnchor, constant: -12),
 
             subtitleLabel.leadingAnchor.constraint(equalTo: titleLabel.leadingAnchor),
             subtitleLabel.topAnchor.constraint(equalTo: titleLabel.bottomAnchor, constant: 4),
+            subtitleLabel.trailingAnchor.constraint(lessThanOrEqualTo: modeBadge.leadingAnchor, constant: -12),
             subtitleLabel.bottomAnchor.constraint(equalTo: contentView.bottomAnchor, constant: -14),
 
             modeBadge.leadingAnchor.constraint(greaterThanOrEqualTo: titleLabel.trailingAnchor, constant: 12),
@@ -91,6 +94,15 @@ final class DarkModeToggleCell: UITableViewCell {
         ])
 
         // Set initial visuals
+        updateVisuals(isDark: traitCollection.userInterfaceStyle == .dark)
+    }
+
+    override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
+        super.traitCollectionDidChange(previousTraitCollection)
+
+        guard previousTraitCollection?.userInterfaceStyle != traitCollection.userInterfaceStyle else {
+            return
+        }
         updateVisuals(isDark: traitCollection.userInterfaceStyle == .dark)
     }
 

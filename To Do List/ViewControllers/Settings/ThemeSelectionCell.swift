@@ -1,5 +1,20 @@
 import UIKit
 
+@discardableResult
+func addBrandPalettePreview(to contentView: UIView, theme: TaskerTheme) -> BrandPalettePreviewView {
+    let preview = BrandPalettePreviewView(theme: theme)
+    contentView.addSubview(preview)
+
+    NSLayoutConstraint.activate([
+        preview.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 16),
+        preview.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -16),
+        preview.topAnchor.constraint(equalTo: contentView.topAnchor, constant: 12),
+        preview.bottomAnchor.constraint(equalTo: contentView.bottomAnchor, constant: -12)
+    ])
+
+    return preview
+}
+
 final class ThemeSelectionCell: UITableViewCell {
     static let reuseID = "ThemeSelectionCell"
 
@@ -16,14 +31,6 @@ final class ThemeSelectionCell: UITableViewCell {
     }
 
     private func configure() {
-        let preview = BrandPalettePreviewView(theme: TaskerThemeManager.shared.currentTheme)
-        contentView.addSubview(preview)
-
-        NSLayoutConstraint.activate([
-            preview.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 16),
-            preview.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -16),
-            preview.topAnchor.constraint(equalTo: contentView.topAnchor, constant: 12),
-            preview.bottomAnchor.constraint(equalTo: contentView.bottomAnchor, constant: -12)
-        ])
+        addBrandPalettePreview(to: contentView, theme: TaskerThemeManager.shared.currentTheme)
     }
 }

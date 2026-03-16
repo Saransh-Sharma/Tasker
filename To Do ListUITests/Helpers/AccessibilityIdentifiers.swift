@@ -152,7 +152,7 @@ enum AccessibilityIdentifiers {
         static let doneButton = "Done"
         static let projectManagementRow = "Project Management"
         static let llmSettingsRow = "LLM Settings"
-        static let darkModeToggle = "settings.appearance.info"
+        static let appearanceInfo = "settings.appearance.info"
         static let appVersionLabel = "settings.appVersionLabel"
         static let aboutSection = "settings.aboutSection"
         static let onboardingRestartButton = "settings.onboarding.restartButton"

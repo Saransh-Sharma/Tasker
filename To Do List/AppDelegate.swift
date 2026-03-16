@@ -1327,7 +1327,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
                     let created = NSEntityDescription.insertNewObject(forEntityName: "LifeArea", into: context)
                     created.setValue(UUID(), forKey: "id")
                     created.setValue("General", forKey: "name")
-                    created.setValue("#9E5F0A", forKey: "color")
+                    created.setValue(LifeAreaConstants.generalSeedColor, forKey: "color")
                     created.setValue("square.grid.2x2", forKey: "icon")
                     created.setValue(Int32(0), forKey: "sortOrder")
                     created.setValue(false, forKey: "isArchived")

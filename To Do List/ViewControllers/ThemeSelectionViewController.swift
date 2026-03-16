@@ -1,6 +1,7 @@
 import UIKit
 
 final class ThemeSelectionViewController: UIViewController {
+    private let scrollView = UIScrollView()
     private let stackView = UIStackView()
 
     override func viewDidLoad() {
@@ -14,6 +15,9 @@ final class ThemeSelectionViewController: UIViewController {
     private func configureStack() {
         let spacing = TaskerThemeManager.shared.currentTheme.tokens.spacing
         let colors = TaskerThemeManager.shared.currentTheme
+
+        scrollView.translatesAutoresizingMaskIntoConstraints = false
+        view.addSubview(scrollView)
 
         stackView.axis = .vertical
         stackView.spacing = spacing.s16
@@ -35,16 +39,24 @@ final class ThemeSelectionViewController: UIViewController {
         stackView.addArrangedSubview(header)
         stackView.addArrangedSubview(preview)
         stackView.addArrangedSubview(footnote)
-        view.addSubview(stackView)
+        scrollView.addSubview(stackView)
 
         NSLayoutConstraint.activate([
-            stackView.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: spacing.screenHorizontal),
-            stackView.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -spacing.screenHorizontal),
-            stackView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: spacing.s24)
+            scrollView.leadingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.leadingAnchor, constant: spacing.screenHorizontal),
+            scrollView.trailingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.trailingAnchor, constant: -spacing.screenHorizontal),
+            scrollView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: spacing.s24),
+            scrollView.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor, constant: -spacing.s24),
+
+            stackView.leadingAnchor.constraint(equalTo: scrollView.contentLayoutGuide.leadingAnchor),
+            stackView.trailingAnchor.constraint(equalTo: scrollView.contentLayoutGuide.trailingAnchor),
+            stackView.topAnchor.constraint(equalTo: scrollView.contentLayoutGuide.topAnchor),
+            stackView.bottomAnchor.constraint(equalTo: scrollView.contentLayoutGuide.bottomAnchor),
+            stackView.widthAnchor.constraint(equalTo: scrollView.frameLayoutGuide.widthAnchor)
         ])
     }
 }
 
+#if DEBUG
 final class ThemeDebugSwatchesViewController: UIViewController {
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -62,6 +74,7 @@ final class ThemeDebugSwatchesViewController: UIViewController {
         ])
     }
 }
+#endif
 
 final class BrandPalettePreviewView: UIView {
     init(theme: TaskerTheme) {

@@ -40,7 +40,7 @@ struct SettingsView: View {
                         Label("System appearance", systemImage: "circle.lefthalf.filled")
                             .foregroundColor(Color(uiColor: todoColors.textPrimary))
 
-                        Text("Tasker follows your iPhone or iPad light and dark appearance automatically.")
+                        Text("To Do List follows your iPhone or iPad light and dark appearance automatically.")
                             .font(.footnote)
                             .foregroundColor(Color(uiColor: todoColors.textSecondary))
                     }
