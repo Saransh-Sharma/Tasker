@@ -107,6 +107,10 @@ public struct TaskerTypographyTokens: TaskerTokenGroup {
         )
 
         cacheLock.lock()
+        if let cached = cacheByLayoutClass[layoutClass] {
+            cacheLock.unlock()
+            return cached
+        }
         cacheByLayoutClass[layoutClass] = tokens
         cacheLock.unlock()
         return tokens

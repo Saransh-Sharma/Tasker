@@ -159,9 +159,8 @@ public struct TaskerHeaderGradient {
 
     /// Executes scrimColors.
     private static func scrimColors(traits: UITraitCollection) -> [CGColor] {
-        let isDark = traits.userInterfaceStyle == .dark
-        let topAlpha: CGFloat = isDark ? 0.18 : 0.18
-        let midAlpha: CGFloat = isDark ? 0.10 : 0.10
+        let topAlpha: CGFloat = 0.18
+        let midAlpha: CGFloat = 0.10
         return [
             UIColor.black.withAlphaComponent(topAlpha).cgColor,
             UIColor.black.withAlphaComponent(midAlpha).cgColor,

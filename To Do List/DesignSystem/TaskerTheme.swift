@@ -132,7 +132,8 @@ public struct TaskerTheme {
     public let tokens: TaskerTokens
 
     public init(index: Int = 0) {
-        self.index = 0
+        // `index` is retained for backward compatibility, but the app now ships a single palette.
+        self.index = index
         self.palette = .sarvam
         self.patterns = TaskerPatternTokens(palette: palette)
         self.widgets = TaskerWidgetTokens(palette: palette)
@@ -201,7 +202,8 @@ public final class TaskerThemeManager: ObservableObject {
 
         let resolved = currentTheme.tokens(for: layoutClass)
         tokenCache[cacheKey] = resolved
-        logWarning(
+#if DEBUG
+        logDebug(
             event: "themeTokenResolve",
             message: "Resolved brand tokens for layout + trait cluster",
             fields: [
@@ -211,6 +213,7 @@ public final class TaskerThemeManager: ObservableObject {
                 "accessibility_contrast": String(traits.accessibilityContrast.rawValue)
             ]
         )
+#endif
         return resolved
     }
 

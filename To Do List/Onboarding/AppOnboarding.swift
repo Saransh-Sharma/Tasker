@@ -3064,7 +3064,7 @@ struct HomeOnboardingGuidanceBanner: View {
 @MainActor
 private enum OnboardingTheme {
     static let canvas = Color.tasker(.bgCanvas)
-    static let canvasSecondary = Color(uiColor: UIColor.taskerDynamic(lightHex: "#F7EFE4", darkHex: "#15110E"))
+    static let canvasSecondary = Color.tasker(.bgCanvasSecondary)
     static let surface = Color.tasker(.surfacePrimary).opacity(0.92)
     static let surfaceMuted = Color.tasker(.surfaceSecondary).opacity(0.88)
     static let border = Color.tasker(.borderDefault)

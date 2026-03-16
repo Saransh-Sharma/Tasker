@@ -2,6 +2,7 @@ import UIKit
 
 public struct TaskerColorTokens: TaskerTokenGroup {
     public let bgCanvas: UIColor
+    public let bgCanvasSecondary: UIColor
     public let bgElevated: UIColor
 
     public let surfacePrimary: UIColor
@@ -74,6 +75,7 @@ public struct TaskerColorTokens: TaskerTokenGroup {
     public var dangerAccent: UIColor { statusDanger }
     public var dangerWash: UIColor { taskOverdue.withAlphaComponent(0.14) }
     public var canvas: UIColor { bgCanvas }
+    public var canvasSecondary: UIColor { bgCanvasSecondary }
     public var canvasElevated: UIColor { bgElevated }
     public var strokeSubtle: UIColor { borderSubtle }
     public var focusRing: UIColor { actionFocus }
@@ -85,6 +87,7 @@ public struct TaskerColorTokens: TaskerTokenGroup {
     public func color(for role: TaskerColorRole) -> UIColor {
         switch role {
         case .bgCanvas: return bgCanvas
+        case .bgCanvasSecondary: return bgCanvasSecondary
         case .bgElevated: return bgElevated
         case .surfacePrimary: return surfacePrimary
         case .surfaceSecondary: return surfaceSecondary
@@ -141,6 +144,9 @@ public struct TaskerColorTokens: TaskerTokenGroup {
     public static func make(palette: TaskerBrandPalette) -> TaskerColorTokens {
         let bgCanvas = UIColor { traits in
             traits.userInterfaceStyle == .dark ? palette.neutralDarkInk0 : palette.neutralIvory
+        }
+        let bgCanvasSecondary = UIColor { traits in
+            traits.userInterfaceStyle == .dark ? palette.neutralDarkInk1 : palette.neutralCream
         }
         let bgElevated = UIColor { traits in
             traits.userInterfaceStyle == .dark ? palette.neutralDarkInk1 : UIColor(taskerHex: "#FFFCF8")
@@ -240,6 +246,7 @@ public struct TaskerColorTokens: TaskerTokenGroup {
 
         return TaskerColorTokens(
             bgCanvas: bgCanvas,
+            bgCanvasSecondary: bgCanvasSecondary,
             bgElevated: bgElevated,
             surfacePrimary: surfacePrimary,
             surfaceSecondary: surfaceSecondary,

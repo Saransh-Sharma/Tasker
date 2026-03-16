@@ -3,6 +3,7 @@ import UIKit
 
 public struct TaskerSwiftUIColorTokens {
     public let bgCanvas: Color
+    public let bgCanvasSecondary: Color
     public let bgElevated: Color
     public let surfacePrimary: Color
     public let surfaceSecondary: Color
@@ -51,6 +52,7 @@ public struct TaskerSwiftUIColorTokens {
     /// Initializes a new instance.
     public init(_ ui: TaskerColorTokens) {
         self.bgCanvas = Color(uiColor: ui.bgCanvas)
+        self.bgCanvasSecondary = Color(uiColor: ui.bgCanvasSecondary)
         self.bgElevated = Color(uiColor: ui.bgElevated)
         self.surfacePrimary = Color(uiColor: ui.surfacePrimary)
         self.surfaceSecondary = Color(uiColor: ui.surfaceSecondary)
@@ -504,15 +506,15 @@ private struct TaskerTextFieldBody<Label: View>: View {
 
         return configuration
             .font(.tasker(.body))
-            .foregroundColor(.tasker(.textPrimary))
-            .tint(.tasker(.actionPrimary))
+            .foregroundColor(Color(uiColor: tokens.color.textPrimary))
+            .tint(Color(uiColor: tokens.color.actionPrimary))
             .padding(.horizontal, tokens.spacing.s12)
             .frame(height: TaskerTextFieldTokens.singleLineHeight)
-            .background(Color.tasker.surfaceSecondary)
+            .background(Color(uiColor: tokens.color.surfaceSecondary))
             .overlay(
                 RoundedRectangle(cornerRadius: tokens.corner.r2)
                     .stroke(
-                        isFocused ? Color.tasker(.actionFocus) : Color.tasker(.borderDefault),
+                        Color(uiColor: isFocused ? tokens.color.actionFocus : tokens.color.borderDefault),
                         lineWidth: isFocused ? 2 : 1
                     )
             )
@@ -606,10 +608,13 @@ public struct TaskerCard<Content: View>: View {
         let tokens = TaskerThemeManager.shared.tokens(for: layoutClass, traits: traits)
         return content
             .padding(tokens.spacing.cardPadding)
-            .background(Color.tasker.surfacePrimary)
+            .background(Color(uiColor: tokens.color.surfacePrimary))
             .overlay(
                 RoundedRectangle(cornerRadius: tokens.corner.r3)
-                    .stroke(active ? Color.tasker(.borderStrong) : Color.tasker(.borderDefault), lineWidth: 1)
+                    .stroke(
+                        Color(uiColor: active ? tokens.color.borderStrong : tokens.color.borderDefault),
+                        lineWidth: 1
+                    )
             )
             .clipShape(RoundedRectangle(cornerRadius: tokens.corner.r3))
             .taskerElevation(elevated ? .e2 : .e1, cornerRadius: tokens.corner.r3, includesBorder: false)

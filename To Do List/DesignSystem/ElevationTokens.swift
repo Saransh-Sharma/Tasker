@@ -16,6 +16,18 @@ public struct TaskerElevationTokens: TaskerTokenGroup {
     public let e2: TaskerElevationStyle
     public let e3: TaskerElevationStyle
 
+    private static let warmBorder = UIColor.taskerDynamic(lightHex: "#E2D3C2", darkHex: "#3A2E24")
+    private static let warmBorderStrong = UIColor.taskerDynamic(lightHex: "#C9B9A6", darkHex: "#4A3B30")
+
+    private static func warmShadowColor(darkAlpha: CGFloat, lightAlpha: CGFloat) -> UIColor {
+        UIColor { traits in
+            if traits.userInterfaceStyle == .dark {
+                return UIColor(red: 0.02, green: 0.02, blue: 0.02, alpha: darkAlpha)
+            }
+            return UIColor(red: 0.10, green: 0.09, blue: 0.08, alpha: lightAlpha)
+        }
+    }
+
     /// Executes style.
     public func style(for level: TaskerElevationLevel) -> TaskerElevationStyle {
         switch level {
@@ -40,42 +52,27 @@ public struct TaskerElevationTokens: TaskerTokenGroup {
             shadowOffsetY: 1,
             shadowBlur: 8,
             shadowOpacity: 0.06,
-            shadowColor: UIColor { traits in
-                if traits.userInterfaceStyle == .dark {
-                    return UIColor(red: 0.02, green: 0.02, blue: 0.02, alpha: 0.36)
-                }
-                return UIColor(red: 0.10, green: 0.09, blue: 0.08, alpha: 0.10)
-            },
+            shadowColor: warmShadowColor(darkAlpha: 0.36, lightAlpha: 0.10),
             borderWidth: 1,
-            borderColor: UIColor.taskerDynamic(lightHex: "#E2D3C2", darkHex: "#3A2E24"),
+            borderColor: warmBorder,
             blurStyle: .systemUltraThinMaterial
         ),
         e2: TaskerElevationStyle(
             shadowOffsetY: 6,
             shadowBlur: 24,
             shadowOpacity: 0.08,
-            shadowColor: UIColor { traits in
-                if traits.userInterfaceStyle == .dark {
-                    return UIColor(red: 0.02, green: 0.02, blue: 0.02, alpha: 0.44)
-                }
-                return UIColor(red: 0.10, green: 0.09, blue: 0.08, alpha: 0.14)
-            },
+            shadowColor: warmShadowColor(darkAlpha: 0.44, lightAlpha: 0.14),
             borderWidth: 1,
-            borderColor: UIColor.taskerDynamic(lightHex: "#E2D3C2", darkHex: "#3A2E24"),
+            borderColor: warmBorder,
             blurStyle: .systemThinMaterial
         ),
         e3: TaskerElevationStyle(
             shadowOffsetY: 10,
             shadowBlur: 34,
             shadowOpacity: 0.10,
-            shadowColor: UIColor { traits in
-                if traits.userInterfaceStyle == .dark {
-                    return UIColor(red: 0.02, green: 0.02, blue: 0.02, alpha: 0.56)
-                }
-                return UIColor(red: 0.10, green: 0.09, blue: 0.08, alpha: 0.20)
-            },
+            shadowColor: warmShadowColor(darkAlpha: 0.56, lightAlpha: 0.20),
             borderWidth: 1,
-            borderColor: UIColor.taskerDynamic(lightHex: "#C9B9A6", darkHex: "#4A3B30"),
+            borderColor: warmBorderStrong,
             blurStyle: .systemMaterial
         )
     )

@@ -137,6 +137,7 @@ public enum TaskerTextStyle: String, CaseIterable {
 
 public enum TaskerColorRole: String, CaseIterable {
     case bgCanvas
+    case bgCanvasSecondary
     case bgElevated
     case surfacePrimary
     case surfaceSecondary

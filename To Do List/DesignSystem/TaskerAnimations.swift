@@ -2,8 +2,8 @@
 //  TaskerAnimations.swift
 //  Tasker
 //
-//  Reusable animation tokens and ViewModifiers for the "Obsidian & Gold" premium feel.
-//  Spring physics everywhere, staggered reveals, haptic helpers.
+//  Reusable animation tokens and ViewModifiers for the Sarvam-inspired single-brand system.
+//  Supports calm transitions, staggered reveals, and shared haptic helpers.
 //
 
 import SwiftUI

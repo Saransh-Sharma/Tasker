@@ -27,6 +27,7 @@ extension TaskerTheme {
         // Surfaces
         public static var cardBackground: Color { Color.tasker(.surfacePrimary) }
         public static var background: Color { Color.tasker(.bgCanvas) }
+        public static var backgroundSecondary: Color { Color.tasker(.bgCanvasSecondary) }
         public static var surfaceSecondary: Color { Color.tasker(.surfaceSecondary) }
 
         // Brand
