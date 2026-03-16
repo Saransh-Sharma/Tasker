@@ -100,7 +100,6 @@ struct SettingsRootView: View {
                         action: viewModel.onNavigateToLifeManagement
                     )
                 }
-                .cardPressEffect()
                 .enhancedStaggeredAppearance(index: baseIndex + 1)
 
                 TaskerCard {
@@ -122,7 +121,6 @@ struct SettingsRootView: View {
                         )
                     }
                 }
-                .cardPressEffect()
                 .enhancedStaggeredAppearance(index: baseIndex + 2)
 
                 onboardingReplayCard
