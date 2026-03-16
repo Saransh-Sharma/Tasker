@@ -1,84 +1,24 @@
-//
-//  ModelsSettingsView.swift
-//
-//
-
-import SwiftUI
 import MLXLMCommon
+import SwiftUI
 
 struct ModelsSettingsView: View {
     @EnvironmentObject var appManager: AppManager
     @Environment(LLMEvaluator.self) var llm
-    @State var showOnboardingInstallModelView = false
+    @State private var showOnboardingInstallModelView = false
 
     var body: some View {
         Form {
-            Section(header: Text("installed")) {
-                ForEach(appManager.installedModels, id: \.self) { modelName in
-                    let isCurrent = (appManager.currentModelName == modelName)
-                    Button {
-                        _Concurrency.Task {
-                            await switchModel(modelName)
-                        }
-                    } label: {
-                        HStack(spacing: TaskerTheme.Spacing.md) {
-                            Image(systemName: isCurrent ? "checkmark.circle.fill" : "circle")
-                                .font(.title3)
-                                .foregroundColor(isCurrent ? Color.tasker(.accentPrimary) : Color.tasker(.textQuaternary))
-
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text(appManager.modelDisplayName(modelName))
-                                    .font(.tasker(.bodyEmphasis))
-                                    .foregroundColor(Color.tasker(.textPrimary))
-                                    .tint(Color.tasker(.textPrimary))
-
-                                if isCurrent {
-                                    Text("active")
-                                        .font(.tasker(.caption2))
-                                        .foregroundColor(Color.tasker(.accentPrimary))
-                                }
-                            }
-
-                            Spacer()
-
-                            Button {
-                                deleteModel(modelName)
-                            } label: {
-                                Image(systemName: "trash")
-                                    .font(.callout)
-                                    .foregroundColor(Color.tasker(.statusDanger).opacity(0.7))
-                                    .frame(width: 36, height: 36)
-                                    .background(Color.tasker(.statusDanger).opacity(0.08))
-                                    .clipShape(Circle())
-                            }
-                            #if os(macOS)
-                            .buttonStyle(.borderless)
-                            #endif
-                        }
-                    }
-                    #if os(macOS)
-                    .buttonStyle(.borderless)
-                    #endif
-                }
-                .onDelete(perform: deleteModels)
+            Section {
+                Text("All AI features use the active model below.")
+                    .font(.tasker(.callout))
+                    .foregroundStyle(Color.tasker(.textSecondary))
             }
 
-            Button {
-                showOnboardingInstallModelView.toggle()
-            } label: {
-                Label {
-                    Text("install a model")
-                        .font(.tasker(.bodyEmphasis))
-                        .foregroundColor(Color.tasker(.accentPrimary))
-                } icon: {
-                    Image(systemName: "arrow.down.circle.dotted")
-                        .foregroundColor(Color.tasker(.accentPrimary))
+            Section("models") {
+                ForEach(ModelConfiguration.availableModels, id: \.name) { model in
+                    modelRow(for: model)
                 }
             }
-            .accessibilityIdentifier("llmSettings.installModelButton")
-            #if os(macOS)
-            .buttonStyle(.borderless)
-            #endif
         }
         .formStyle(.grouped)
         .scrollContentBackground(.hidden)
@@ -115,46 +55,86 @@ struct ModelsSettingsView: View {
         }
     }
 
-    /// Executes deleteModel.
-    private func deleteModel(_ name: String) {
-        appManager.removeInstalledModel(name)
-        postDeleteAdjustments(removedNames: [name])
-    }
+    @ViewBuilder
+    private func modelRow(for model: ModelConfiguration) -> some View {
+        let isInstalled = appManager.installedModels.contains(model.name)
+        let isActive = appManager.currentModelName == model.name
 
-    /// Executes deleteModels.
-    private func deleteModels(at offsets: IndexSet) {
-        let removedNames = offsets.map { appManager.installedModels[$0] }
-        for name in removedNames {
-            appManager.removeInstalledModel(name)
-        }
-        postDeleteAdjustments(removedNames: removedNames)
-    }
+        VStack(alignment: .leading, spacing: TaskerTheme.Spacing.sm) {
+            HStack(spacing: TaskerTheme.Spacing.md) {
+                VStack(alignment: .leading, spacing: TaskerTheme.Spacing.xs) {
+                    Text(model.displayName.lowercased())
+                        .font(.tasker(.bodyEmphasis))
+                        .foregroundStyle(Color.tasker(.textPrimary))
+                    Text(model.shortDescription.lowercased())
+                        .font(.tasker(.caption1))
+                        .foregroundStyle(Color.tasker(.textSecondary))
+                }
 
-    /// Executes postDeleteAdjustments.
-    private func postDeleteAdjustments(removedNames: [String]) {
-        if let current = appManager.currentModelName, removedNames.contains(current) {
-            appManager.currentModelName = appManager.installedModels.first
-            if let newName = appManager.currentModelName,
-               ModelConfiguration.availableModels.first(where: { $0.name == newName }) != nil {
-                _Concurrency.Task { @MainActor in
-                    _ = await LLMRuntimeCoordinator.shared.switchModelIfNeeded(modelName: newName)
+                Spacer()
+
+                if isActive {
+                    Text("active")
+                        .font(.tasker(.caption1))
+                        .foregroundStyle(Color.tasker(.accentPrimary))
+                        .padding(.horizontal, TaskerTheme.Spacing.sm)
+                        .padding(.vertical, TaskerTheme.Spacing.xs)
+                        .background(Color.tasker(.accentWash))
+                        .clipShape(Capsule())
+                }
+            }
+
+            HStack(spacing: TaskerTheme.Spacing.sm) {
+                if isInstalled == false {
+                    Button("install") {
+                        showOnboardingInstallModelView = true
+                    }
+                    .buttonStyle(.borderedProminent)
+                } else if isActive == false {
+                    Button("make active") {
+                        Task {
+                            await switchModel(model.name)
+                        }
+                    }
+                    .buttonStyle(.borderedProminent)
+                }
+
+                if isInstalled {
+                    Button(role: .destructive) {
+                        deleteModel(model.name)
+                    } label: {
+                        Text("delete")
+                    }
+                    .buttonStyle(.bordered)
                 }
             }
         }
-        if appManager.installedModels.isEmpty {
-            showOnboardingInstallModelView = true
+        .padding(.vertical, TaskerTheme.Spacing.xs)
+    }
+
+    private func deleteModel(_ name: String) {
+        appManager.removeInstalledModel(name)
+        if appManager.currentModelName == name {
+            let fallback = appManager.preferredFallbackModelName(excluding: name)
+            appManager.setActiveModel(fallback)
+            if let fallback {
+                Task {
+                    _ = await LLMRuntimeCoordinator.shared.switchModelIfNeeded(modelName: fallback)
+                }
+            } else {
+                showOnboardingInstallModelView = true
+            }
         }
     }
 
-    /// Executes switchModel.
     private func switchModel(_ modelName: String) async {
-        if ModelConfiguration.availableModels.first(where: {
-            $0.name == modelName
-        }) != nil {
-            appManager.currentModelName = modelName
-            appManager.playHaptic()
-            _ = await LLMRuntimeCoordinator.shared.switchModelIfNeeded(modelName: modelName)
+        guard appManager.installedModels.contains(modelName) else {
+            showOnboardingInstallModelView = true
+            return
         }
+        appManager.setActiveModel(modelName)
+        appManager.playHaptic()
+        _ = await LLMRuntimeCoordinator.shared.switchModelIfNeeded(modelName: modelName)
     }
 }
 

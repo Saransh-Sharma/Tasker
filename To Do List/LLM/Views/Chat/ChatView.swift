@@ -3,6 +3,7 @@
 //
 
 import MarkdownUI
+import MLXLMCommon
 import SwiftData
 import SwiftUI
 import os
@@ -41,6 +42,18 @@ struct ChatView: View {
 
     private var chatBudgets: LLMChatBudgets {
         LLMChatBudgets.active
+    }
+
+    private var resolvedChatBudget: LLMResolvedChatBudget {
+        chatBudgets.resolved(for: activeModelConfiguration)
+    }
+
+    private var activeModelConfiguration: MLXLMCommon.ModelConfiguration {
+        guard let modelName = appManager.currentModelName,
+              let model = MLXLMCommon.ModelConfiguration.getModelByName(modelName) else {
+            return MLXLMCommon.ModelConfiguration.defaultModel
+        }
+        return model
     }
 
     private var contextFetchTimeoutMs: UInt64 {
@@ -685,7 +698,10 @@ struct ChatView: View {
         let contextPayload = await buildContextPayloadForCurrentTurn(
             threadID: tID,
             timeoutMs: contextFetchTimeoutMs,
-            userPrompt: message
+            userPrompt: message,
+            contextCharBudgetOverride: LLMTokenBudgetEstimator.estimatedCharacterBudget(
+                for: resolvedChatBudget.maxContextTokens
+            )
         )
         guard !Task.isCancelled else {
             await MainActor.run {
@@ -715,13 +731,17 @@ struct ChatView: View {
                 ]
             )
         }
-        let slashCommandContext = slashCommandContextPrompt(for: thread)
-        let runtimeContextBlocks = [contextPayload.payload, slashCommandContext]
-            .compactMap { $0?.trimmingCharacters(in: .whitespacesAndNewlines) }
-            .filter { !$0.isEmpty }
+        let memoryBlock = LLMPersonalMemoryDefaultsStore.promptBlock(for: activeModelConfiguration)
+        let slashCommandContext = slashCommandContextPrompt(
+            for: thread,
+            tokenBudget: resolvedChatBudget.slashContextTokens
+        )
         let dynamicSystemPrompt = composeChatSystemPrompt(
             basePrompt: appManager.systemPrompt,
-            contextBlocks: runtimeContextBlocks
+            model: activeModelConfiguration,
+            personalMemory: memoryBlock,
+            slashContext: slashCommandContext,
+            taskContext: contextPayload.payload
         )
         logWarning(
             event: "chat_prompt_component_sizes",
@@ -729,9 +749,13 @@ struct ChatView: View {
             fields: [
                 "thread_id": tID.uuidString,
                 "stored_system_prompt_chars": String(appManager.systemPrompt.count),
+                "personal_memory_chars": String(memoryBlock?.count ?? 0),
                 "runtime_context_chars": String(contextPayload.payload.count),
                 "slash_context_chars": String(slashCommandContext?.count ?? 0),
-                "final_prompt_chars": String(dynamicSystemPrompt.count)
+                "final_prompt_chars": String(dynamicSystemPrompt.count),
+                "estimated_final_prompt_tokens": String(
+                    LLMTokenBudgetEstimator.estimatedTokenCount(for: dynamicSystemPrompt)
+                )
             ]
         )
 
@@ -826,7 +850,9 @@ struct ChatView: View {
                 threadID: tID,
                 timeoutMs: contextFetchTimeoutMs,
                 userPrompt: message,
-                contextCharBudgetOverride: 450,
+                contextCharBudgetOverride: LLMTokenBudgetEstimator.estimatedCharacterBudget(
+                    for: max(160, resolvedChatBudget.maxContextTokens / 2)
+                ),
                 allowCacheReuse: false
             )
             guard !Task.isCancelled else {
@@ -838,7 +864,8 @@ struct ChatView: View {
 
             let retrySystemPrompt = composeChatSystemPrompt(
                 basePrompt: appManager.systemPrompt,
-                contextBlocks: [retryContextPayload.payload],
+                model: activeModelConfiguration,
+                taskContext: retryContextPayload.payload,
                 additionalInstruction: "Do not introduce yourself. Answer directly in 3 short bullets max."
             )
             let retryThread = Thread()
@@ -936,7 +963,8 @@ struct ChatView: View {
                 compactTaskPayload: V2FeatureFlags.llmChatContextStrategy == .bounded
             ),
             query: prompt,
-            budgets: chatBudgets
+            budgets: chatBudgets,
+            model: activeModelConfiguration
         )
         return (result.payload, result.usedTimeoutFallback)
     }
@@ -953,10 +981,12 @@ struct ChatView: View {
         let querySignature = userPrompt
             .trimmingCharacters(in: .whitespacesAndNewlines)
             .lowercased()
-        if allowCacheReuse && contextCharBudgetOverride == nil {
+        let budgetSignature = contextCharBudgetOverride.map(String.init) ?? "default"
+        let cacheSignature = "\(querySignature)|\(budgetSignature)"
+        if allowCacheReuse {
             if let cached = await ChatView.contextInjectionTracker.cachedContext(
                 for: threadID,
-                querySignature: querySignature,
+                querySignature: cacheSignature,
                 now: now,
                 throttleMs: contextInjectionPolicy.throttleMs
             ) {
@@ -972,12 +1002,13 @@ struct ChatView: View {
             ),
             query: userPrompt,
             budgets: chatBudgets,
+            model: activeModelConfiguration,
             contextCharBudgetOverride: contextCharBudgetOverride
         )
-        if allowCacheReuse && contextCharBudgetOverride == nil {
+        if allowCacheReuse {
             await ChatView.contextInjectionTracker.store(
                 threadID: threadID,
-                querySignature: querySignature,
+                querySignature: cacheSignature,
                 payload: built.payload,
                 usedTimeoutFallback: built.usedTimeoutFallback,
                 generatedAt: now
@@ -1000,21 +1031,23 @@ struct ChatView: View {
 
     private func composeChatSystemPrompt(
         basePrompt: String,
-        contextBlocks: [String],
+        model: MLXLMCommon.ModelConfiguration,
+        personalMemory: String? = nil,
+        slashContext: String? = nil,
+        taskContext: String? = nil,
         additionalInstruction: String? = nil
     ) -> String {
-        var sections = [basePrompt.trimmingCharacters(in: .whitespacesAndNewlines)]
-        if let additionalInstruction {
-            let trimmedInstruction = additionalInstruction.trimmingCharacters(in: .whitespacesAndNewlines)
-            if trimmedInstruction.isEmpty == false {
-                sections.append(trimmedInstruction)
-            }
-        }
-        sections.append(contentsOf: contextBlocks.map { $0.trimmingCharacters(in: .whitespacesAndNewlines) })
-        return sections.filter { !$0.isEmpty }.joined(separator: "\n\n")
+        return LLMSystemPromptComposer.compose(
+            basePrompt: basePrompt,
+            model: model,
+            additionalInstruction: additionalInstruction,
+            personalMemory: personalMemory,
+            slashContext: slashContext,
+            taskContext: taskContext
+        )
     }
 
-    private func slashCommandContextPrompt(for thread: Thread) -> String? {
+    private func slashCommandContextPrompt(for thread: Thread, tokenBudget: Int) -> String? {
         let recentCards = thread.sortedMessages
             .reversed()
             .compactMap { message -> SlashCommandExecutionResult? in
@@ -1044,7 +1077,9 @@ struct ChatView: View {
         }
 
         let block = lines.joined(separator: "\n")
-        return block.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : block
+        let trimmed = block.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard trimmed.isEmpty == false else { return nil }
+        return LLMTokenBudgetEstimator.trimPrefix(trimmed, toTokenBudget: tokenBudget)
     }
 
     #if os(macOS)

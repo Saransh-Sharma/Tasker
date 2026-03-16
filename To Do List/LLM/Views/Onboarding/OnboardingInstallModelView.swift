@@ -1,198 +1,61 @@
-//
-//  OnboardingInstallModelView.swift
-//
-//
-
 import MLXLMCommon
-import os
 import SwiftUI
 
-struct ModelInstallPickerSections {
+struct TwoQwenModelInstallCatalog {
     let installedModels: [String]
-    let recommendedModel: ModelConfiguration?
-    let otherModels: [ModelConfiguration]
+    let installableModels: [ModelConfiguration]
 
-    static func make(
-        installedModelNames: [String],
-        availableModels: [ModelConfiguration],
-        defaultModel: ModelConfiguration,
-        availableMemory: Double,
-        memoryThreshold: Double
-    ) -> Self {
-        let downloadableModels = availableModels
-            .filter { installedModelNames.contains($0.name) == false }
-            .filter { model in
-                guard let size = model.modelSize else { return false }
-                return size <= Decimal(availableMemory * memoryThreshold)
-            }
+    static func make(installedModelNames: [String], availableMemory: Double) -> Self {
+        let maxSupportedSizeGB: Decimal
+        if availableMemory < 4 {
+            maxSupportedSizeGB = 0.5
+        } else if availableMemory < 6 {
+            maxSupportedSizeGB = 0.7
+        } else {
+            maxSupportedSizeGB = 1.2
+        }
+
+        let installableModels = ModelConfiguration.availableModels.filter { model in
+            guard installedModelNames.contains(model.name) == false else { return false }
+            guard let size = model.modelSize else { return false }
+            return size <= maxSupportedSizeGB
+        }
 
         return Self(
             installedModels: installedModelNames,
-            recommendedModel: downloadableModels.first(where: { $0.name == defaultModel.name }),
-            otherModels: downloadableModels
-                .filter { $0.name != defaultModel.name }
-                .sorted { $0.name < $1.name }
+            installableModels: installableModels
         )
     }
 }
 
 struct OnboardingInstallModelView: View {
     @EnvironmentObject var appManager: AppManager
-    @State private var deviceSupportsMetal3: Bool = true
+    @State private var deviceSupportsMetal3 = true
     @Binding var showOnboarding: Bool
-    @State var selectedModel = ModelConfiguration.defaultModel
+    @State private var selectedModelNames: Set<String> = [ModelConfiguration.defaultModel.name]
 
-    /// Executes sizeBadge.
-    func sizeBadge(_ model: ModelConfiguration?) -> String? {
-        guard let size = model?.modelSize else { return nil }
-        return "\(size) GB"
-    }
-
-    let modelMemoryThreshold = 0.6
-
-    var installSections: ModelInstallPickerSections {
-        ModelInstallPickerSections.make(
+    private var catalog: TwoQwenModelInstallCatalog {
+        TwoQwenModelInstallCatalog.make(
             installedModelNames: appManager.installedModels,
-            availableModels: ModelConfiguration.availableModels,
-            defaultModel: ModelConfiguration.defaultModel,
-            availableMemory: appManager.availableMemory,
-            memoryThreshold: modelMemoryThreshold
+            availableMemory: appManager.availableMemory
         )
     }
 
-    var downloadableModels: [ModelConfiguration] {
-        [installSections.recommendedModel].compactMap { $0 } + installSections.otherModels
+    private var selectedModels: [ModelConfiguration] {
+        ModelConfiguration.availableModels.filter { selectedModelNames.contains($0.name) }
     }
 
-    var modelsList: some View {
-        Form {
-            Section {
-                VStack(spacing: TaskerTheme.Spacing.lg) {
-                    ZStack {
-                        Circle()
-                            .fill(Color.tasker(.accentWash))
-                            .frame(width: 80, height: 80)
-                        Image(systemName: "arrow.down.circle.dotted")
-                            .font(.system(size: 36, weight: .medium))
-                            .foregroundColor(Color.tasker(.accentPrimary))
-                            .symbolEffect(.wiggle.byLayer, options: .repeat(.continuous))
-                    }
-
-                    VStack(spacing: TaskerTheme.Spacing.xs) {
-                        Text("install a model")
-                            .font(.tasker(.title1))
-                            .foregroundColor(Color.tasker(.textPrimary))
-                        Text("select from models optimized for apple silicon")
-                            .font(.tasker(.callout))
-                            .foregroundColor(Color.tasker(.textSecondary))
-                            .multilineTextAlignment(.center)
-                        #if DEBUG
-                        Text("ram: \(appManager.availableMemory) GB")
-                            .font(.tasker(.caption2))
-                            .foregroundColor(Color.tasker(.statusDanger))
-                        #endif
-                    }
-                }
-                .padding(.vertical, TaskerTheme.Spacing.lg)
-                .frame(maxWidth: .infinity)
-            }
-            .listRowBackground(Color.clear)
-
-            if installSections.installedModels.isEmpty == false {
-                Section(header: Text("installed")) {
-                    ForEach(installSections.installedModels, id: \.self) { modelName in
-                        let model = ModelConfiguration.getModelByName(modelName)
-                        Button {} label: {
-                            Label {
-                                Text(appManager.modelDisplayName(modelName))
-                                    .font(.tasker(.body))
-                            } icon: {
-                                Image(systemName: "checkmark")
-                                    .foregroundColor(Color.tasker(.accentPrimary))
-                            }
-                        }
-                        .badge(sizeBadge(model))
-                        #if os(macOS)
-                            .buttonStyle(.borderless)
-                        #endif
-                            .foregroundStyle(Color.tasker(.textSecondary))
-                            .disabled(true)
-                    }
-                }
-            }
-
-            if let recommendedModel = installSections.recommendedModel {
-                Section(header: Text("recommended")) {
-                    ModelInstallOptionRow(
-                        title: appManager.modelDisplayName(recommendedModel.name),
-                        subtitle: "Best default for most devices",
-                        sizeText: sizeBadge(recommendedModel),
-                        isSelected: selectedModel.name == recommendedModel.name,
-                        isRecommended: true,
-                        accessibilityIdentifier: "llm.modelPicker.recommendedRow"
-                    ) {
-                        selectedModel = recommendedModel
-                    }
-                }
-            }
-
-            if installSections.otherModels.isEmpty == false {
-                Section(header: Text(installSections.recommendedModel == nil ? "available models" : "other models")) {
-                    ForEach(installSections.otherModels, id: \.name) { model in
-                        ModelInstallOptionRow(
-                            title: appManager.modelDisplayName(model.name),
-                            subtitle: nil,
-                            sizeText: sizeBadge(model),
-                            isSelected: selectedModel.name == model.name,
-                            isRecommended: false,
-                            accessibilityIdentifier: "llm.modelPicker.row.\(model.name)"
-                        ) {
-                            selectedModel = model
-                        }
-                        #if os(macOS)
-                        .buttonStyle(.borderless)
-                        #endif
-                    }
-                }
-            }
-
-            #if os(macOS)
-            Section {} footer: {
-                NavigationLink(destination: OnboardingDownloadingModelProgressView(showOnboarding: $showOnboarding, selectedModel: $selectedModel)) {
-                    Text("install")
-                        .buttonStyle(.borderedProminent)
-                }
-                .disabled(downloadableModels.isEmpty)
-            }
-            .padding()
-            #endif
-        }
-        .formStyle(.grouped)
-        .scrollContentBackground(.hidden)
-        .background(Color.tasker(.bgCanvas))
-        .accessibilityIdentifier("llm.modelPicker.view")
+    private var canInstall: Bool {
+        selectedModels.isEmpty == false
     }
 
     var body: some View {
         ZStack {
             if deviceSupportsMetal3 {
-                modelsList
-                #if os(iOS) || os(visionOS)
-                .toolbar {
-                    ToolbarItem(placement: .topBarTrailing) {
-                        NavigationLink(destination: OnboardingDownloadingModelProgressView(showOnboarding: $showOnboarding, selectedModel: $selectedModel)) {
-                            Text("install")
-                                .font(.tasker(.button))
-                                .foregroundColor(Color.tasker(.accentPrimary))
-                        }
-                        .disabled(downloadableModels.isEmpty)
+                content
+                    .task {
+                        syncSelection()
                     }
-                }
-                .listStyle(.insetGrouped)
-                #endif
-                .task {
-                    syncSelectedModel()
-                }
             } else {
                 DeviceNotSupportedView()
             }
@@ -202,18 +65,122 @@ struct OnboardingInstallModelView: View {
         }
     }
 
-    /// Executes syncSelectedModel.
-    func syncSelectedModel() {
-        guard downloadableModels.contains(where: { $0.name == selectedModel.name }) == false else { return }
-        if let recommendedModel = installSections.recommendedModel {
-            selectedModel = recommendedModel
-        } else if let fallbackModel = installSections.otherModels.first {
-            selectedModel = fallbackModel
+    private var content: some View {
+        Form {
+            Section {
+                VStack(spacing: TaskerTheme.Spacing.lg) {
+                    ZStack {
+                        Circle()
+                            .fill(Color.tasker(.accentWash))
+                            .frame(width: 80, height: 80)
+                        Image(systemName: "brain.head.profile")
+                            .font(.system(size: 34, weight: .medium))
+                            .foregroundStyle(Color.tasker(.accentPrimary))
+                    }
+
+                    VStack(spacing: TaskerTheme.Spacing.xs) {
+                        Text("choose your local models")
+                            .font(.tasker(.title1))
+                            .foregroundStyle(Color.tasker(.textPrimary))
+                        Text("install one or both qwen models. all AI features use the active model you choose later.")
+                            .font(.tasker(.callout))
+                            .foregroundStyle(Color.tasker(.textSecondary))
+                            .multilineTextAlignment(.center)
+                    }
+                }
+                .padding(.vertical, TaskerTheme.Spacing.lg)
+                .frame(maxWidth: .infinity)
+            }
+            .listRowBackground(Color.clear)
+
+            if catalog.installedModels.isEmpty == false {
+                Section("installed") {
+                    ForEach(catalog.installedModels, id: \.self) { modelName in
+                        let title = appManager.modelDisplayName(modelName)
+                        HStack(spacing: TaskerTheme.Spacing.md) {
+                            Image(systemName: "checkmark.circle.fill")
+                                .foregroundStyle(Color.tasker(.accentPrimary))
+                            Text(title)
+                                .font(.tasker(.bodyEmphasis))
+                                .foregroundStyle(Color.tasker(.textPrimary))
+                            Spacer()
+                            Text("installed")
+                                .font(.tasker(.caption1))
+                                .foregroundStyle(Color.tasker(.textTertiary))
+                        }
+                    }
+                }
+            }
+
+            Section("available") {
+                ForEach(catalog.installableModels, id: \.name) { model in
+                    TwoQwenModelOptionCard(
+                        model: model,
+                        isSelected: selectedModelNames.contains(model.name)
+                    ) {
+                        toggleSelection(for: model)
+                    }
+                    .listRowInsets(EdgeInsets(top: 8, leading: 0, bottom: 8, trailing: 0))
+                    .listRowBackground(Color.clear)
+                }
+            }
+
+            #if os(macOS)
+            Section {} footer: {
+                NavigationLink(
+                    destination: OnboardingDownloadingModelProgressView(
+                        showOnboarding: $showOnboarding,
+                        selectedModels: selectedModels
+                    )
+                ) {
+                    Text("install selected models")
+                }
+                .disabled(!canInstall)
+            }
+            #endif
+        }
+        .formStyle(.grouped)
+        .scrollContentBackground(.hidden)
+        .background(Color.tasker(.bgCanvas))
+        .accessibilityIdentifier("llm.modelPicker.view")
+        #if os(iOS) || os(visionOS)
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                NavigationLink(
+                    destination: OnboardingDownloadingModelProgressView(
+                        showOnboarding: $showOnboarding,
+                        selectedModels: selectedModels
+                    )
+                ) {
+                    Text("install")
+                        .font(.tasker(.button))
+                        .foregroundStyle(Color.tasker(.accentPrimary))
+                }
+                .disabled(!canInstall)
+            }
+        }
+        .listStyle(.insetGrouped)
+        #endif
+    }
+
+    private func toggleSelection(for model: ModelConfiguration) {
+        if selectedModelNames.contains(model.name) {
+            selectedModelNames.remove(model.name)
+        } else {
+            selectedModelNames.insert(model.name)
         }
     }
 
-    /// Executes checkMetal3Support.
-    func checkMetal3Support() {
+    private func syncSelection() {
+        let installableNames = Set(catalog.installableModels.map(\.name))
+        selectedModelNames = selectedModelNames.intersection(installableNames)
+        if selectedModelNames.isEmpty,
+           let defaultInstall = catalog.installableModels.first(where: { $0 == .defaultModel }) ?? catalog.installableModels.first {
+            selectedModelNames = [defaultInstall.name]
+        }
+    }
+
+    private func checkMetal3Support() {
         #if os(iOS)
         if let device = MTLCreateSystemDefaultDevice() {
             deviceSupportsMetal3 = device.supportsFamily(.metal3)
@@ -222,88 +189,74 @@ struct OnboardingInstallModelView: View {
     }
 }
 
-private struct ModelInstallOptionRow: View {
-    let title: String
-    let subtitle: String?
-    let sizeText: String?
+private struct TwoQwenModelOptionCard: View {
+    let model: ModelConfiguration
     let isSelected: Bool
-    let isRecommended: Bool
-    let accessibilityIdentifier: String
     let action: () -> Void
+
+    private var sizeLabel: String {
+        "\(model.modelSize.map { NSDecimalNumber(decimal: $0).stringValue } ?? "?") GB"
+    }
 
     var body: some View {
         Button(action: action) {
-            HStack(spacing: TaskerTheme.Spacing.md) {
-                Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
-                    .font(.title3)
-                    .foregroundStyle(isSelected ? Color.tasker(.accentPrimary) : Color.tasker(.textQuaternary))
-                    .accessibilityHidden(true)
+            VStack(alignment: .leading, spacing: TaskerTheme.Spacing.md) {
+                HStack(spacing: TaskerTheme.Spacing.sm) {
+                    Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
+                        .font(.title3)
+                        .foregroundStyle(isSelected ? Color.tasker(.accentPrimary) : Color.tasker(.textQuaternary))
 
-                VStack(alignment: .leading, spacing: TaskerTheme.Spacing.xs) {
-                    HStack(spacing: TaskerTheme.Spacing.sm) {
-                        Text(title)
-                            .font(.tasker(.bodyEmphasis))
-                            .foregroundStyle(Color.tasker(.textPrimary))
-                            .multilineTextAlignment(.leading)
+                    Text(model.displayName)
+                        .font(.tasker(.headline))
+                        .foregroundStyle(Color.tasker(.textPrimary))
 
-                        if isRecommended {
-                            Text("Recommended")
-                                .font(.tasker(.caption1))
-                                .foregroundStyle(Color.tasker(.accentPrimary))
-                                .padding(.horizontal, TaskerTheme.Spacing.sm)
-                                .padding(.vertical, TaskerTheme.Spacing.xs)
-                                .background(Color.tasker(.accentWash))
-                                .clipShape(Capsule())
-                                .accessibilityIdentifier("llm.modelPicker.recommendedBadge")
-                        }
-                    }
+                    Spacer()
 
-                    if let subtitle {
-                        Text(subtitle)
-                            .font(.tasker(.callout))
-                            .foregroundStyle(Color.tasker(.textSecondary))
-                            .multilineTextAlignment(.leading)
-                    }
+                    Text(model.onboardingBadgeTitle)
+                        .font(.tasker(.caption1))
+                        .foregroundStyle(Color.tasker(.accentPrimary))
+                        .padding(.horizontal, TaskerTheme.Spacing.sm)
+                        .padding(.vertical, TaskerTheme.Spacing.xs)
+                        .background(Color.tasker(.accentWash))
+                        .clipShape(Capsule())
                 }
 
-                Spacer(minLength: TaskerTheme.Spacing.md)
+                Text(model.shortDescription)
+                    .font(.tasker(.callout))
+                    .foregroundStyle(Color.tasker(.textSecondary))
+                    .multilineTextAlignment(.leading)
 
-                if let sizeText {
-                    Text(sizeText)
+                HStack {
+                    Text(sizeLabel)
                         .font(.tasker(.caption1))
                         .foregroundStyle(Color.tasker(.textTertiary))
+                    Spacer()
+                    Text(model.onboardingSubtitle)
+                        .font(.tasker(.caption2))
+                        .foregroundStyle(Color.tasker(.textQuaternary))
+                        .multilineTextAlignment(.trailing)
                 }
             }
-            .frame(minHeight: 44)
-            .contentShape(Rectangle())
+            .padding(TaskerTheme.Spacing.lg)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(
+                RoundedRectangle(cornerRadius: TaskerTheme.CornerRadius.lg, style: .continuous)
+                    .fill(isSelected ? Color.tasker(.accentWash) : Color.tasker(.bgElevated))
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: TaskerTheme.CornerRadius.lg, style: .continuous)
+                    .stroke(isSelected ? Color.tasker(.accentPrimary) : Color.tasker(.borderSubtle), lineWidth: 1)
+            )
         }
-        .accessibilityIdentifier(accessibilityIdentifier)
-        .accessibilityLabel(accessibilityLabel)
-        .accessibilityHint(isRecommended ? "Recommended default model for most devices." : "Double tap to select this model for download.")
-        .accessibilityValue(isSelected ? "selected" : "not selected")
-        #if os(iOS) || os(visionOS)
+        #if os(macOS)
         .buttonStyle(.plain)
         #endif
-    }
-
-    private var accessibilityLabel: String {
-        var components = [title]
-        if let subtitle {
-            components.append(subtitle)
-        }
-        if isRecommended {
-            components.append("Recommended")
-        }
-        if let sizeText {
-            components.append(sizeText)
-        }
-        return components.joined(separator: ", ")
     }
 }
 
 #Preview {
-    @Previewable @State var appManager = AppManager()
-
-    OnboardingInstallModelView(showOnboarding: .constant(true))
-        .environmentObject(appManager)
+    NavigationStack {
+        OnboardingInstallModelView(showOnboarding: .constant(true))
+            .environmentObject(AppManager())
+    }
 }
