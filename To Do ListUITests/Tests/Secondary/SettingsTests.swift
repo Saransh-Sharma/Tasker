@@ -95,31 +95,16 @@ class SettingsTests: BaseUITest {
         takeScreenshot(named: "navigate_back_from_project_management")
     }
 
-    // MARK: - Test 50: Toggle Dark Mode
+    // MARK: - Test 50: Appearance Card
 
-    func testToggleDarkMode() throws {
-        // GIVEN: User is on settings screen
+    func testAppearanceCardShowsBrandPreview() throws {
         settingsPage = homePage.tapSettings()
         XCTAssertTrue(settingsPage.verifyIsDisplayed(), "Settings should be displayed")
 
-        // Get initial dark mode state (if accessible)
-        // Note: Dark mode toggle might be in appearance section
+        XCTAssertTrue(settingsPage.verifyAppearanceRowExists(), "Appearance card should exist")
+        XCTAssertTrue(app.otherElements["settings.appearance.palette"].waitForExistence(timeout: 3), "Brand palette preview should exist")
 
-        // WHEN: User toggles dark mode
-        settingsPage.toggleDarkMode()
-
-        waitForAnimations(duration: 1.0)
-
-        // THEN: Theme should change
-        // (Visual verification - theme change might be immediate or require app restart)
-
-        takeScreenshot(named: "toggle_dark_mode")
-
-        // Toggle back to restore state
-        settingsPage.toggleDarkMode()
-        waitForAnimations(duration: 1.0)
-
-        takeScreenshot(named: "toggle_dark_mode_restored")
+        takeScreenshot(named: "appearance_brand_preview")
     }
 
     // MARK: - Test 51: App Version Display

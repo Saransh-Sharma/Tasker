@@ -15,11 +15,11 @@ struct SettingsNavigationRow: View {
                 // Tinted icon circle
                 ZStack {
                     Circle()
-                        .fill(Color.tasker.accentWash)
+                        .fill(Color.tasker(.accentSecondaryWash))
                         .frame(width: 32, height: 32)
                     Image(systemName: iconName)
-                        .font(.system(size: 14, weight: .semibold))
-                        .foregroundColor(.tasker(.accentPrimary))
+                        .font(.tasker(.meta))
+                        .foregroundColor(.tasker(.brandSecondary))
                 }
 
                 Text(title)
@@ -35,7 +35,7 @@ struct SettingsNavigationRow: View {
                 }
 
                 Image(systemName: "chevron.right")
-                    .font(.system(size: 13, weight: .semibold))
+                    .font(.tasker(.meta))
                     .foregroundColor(.tasker(.textQuaternary))
             }
             .padding(.vertical, TaskerSwiftUITokens.spacing.s12)

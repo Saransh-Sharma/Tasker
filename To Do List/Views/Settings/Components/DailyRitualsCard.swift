@@ -66,12 +66,12 @@ struct DailyRitualsCard: View {
             // Toggle row
             HStack(spacing: TaskerSwiftUITokens.spacing.s12) {
                 Image(systemName: icon)
-                    .font(.system(size: 18, weight: .medium))
+                    .font(.tasker(.sectionTitle))
                     .foregroundColor(iconColor)
                     .frame(width: 24)
 
                 Text(title)
-                    .font(.tasker(.bodyEmphasis))
+                    .font(.tasker(.bodyStrong))
                     .foregroundColor(.tasker(.textPrimary))
 
                 Spacer()

@@ -23,11 +23,11 @@ struct SettingsProfileHeaderView: View {
 
                 Spacer()
 
-                // Accent theme swatch
+                // Brand accent marker
                 Circle()
-                    .fill(Color.tasker(.accentPrimary))
+                    .fill(Color.tasker(.brandHighlight))
                     .frame(width: 12, height: 12)
-                    .shadow(color: Color.tasker(.accentPrimary).opacity(0.4), radius: 4)
+                    .shadow(color: Color.tasker(.brandHighlight).opacity(0.28), radius: 4)
             }
             .padding(.horizontal, TaskerSwiftUITokens.spacing.screenHorizontal)
             .padding(.top, TaskerSwiftUITokens.spacing.s8)

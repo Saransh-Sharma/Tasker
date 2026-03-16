@@ -1,77 +1,51 @@
 import SwiftUI
 
 struct ThemeGemGalleryView: View {
-    @ObservedObject private var themeManager = TaskerThemeManager.shared
-
-    private let cardWidth: CGFloat = 68
-    private let cardHeight: CGFloat = 96
+    private var swatches: [(String, Color)] {
+        [
+            ("Emerald", Color(uiColor: TaskerThemeManager.shared.currentTheme.palette.brandEmerald)),
+            ("Magenta", Color(uiColor: TaskerThemeManager.shared.currentTheme.palette.brandMagenta)),
+            ("Marigold", Color(uiColor: TaskerThemeManager.shared.currentTheme.palette.brandMarigold)),
+            ("Red", Color(uiColor: TaskerThemeManager.shared.currentTheme.palette.brandRed)),
+            ("Sandstone", Color(uiColor: TaskerThemeManager.shared.currentTheme.palette.brandSandstone))
+        ]
+    }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: TaskerSwiftUITokens.spacing.s8) {
-            Text("ACCENT THEME")
-                .font(.tasker(.caption2))
-                .foregroundColor(.tasker(.textTertiary))
-                .tracking(0.5)
+        let columns = Array(repeating: GridItem(.flexible(), spacing: TaskerSwiftUITokens.spacing.s8), count: 5)
 
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: TaskerSwiftUITokens.spacing.s8) {
-                    ForEach(themeManager.availableThemeSwatches, id: \.index) { swatch in
-                        gemCard(swatch: swatch, isSelected: swatch.index == themeManager.selectedThemeIndex)
-                            .onTapGesture {
-                                TaskerFeedback.selection()
-                                withAnimation(TaskerAnimation.snappy) {
-                                    themeManager.selectTheme(index: swatch.index)
-                                }
-                            }
+        VStack(alignment: .leading, spacing: TaskerSwiftUITokens.spacing.s12) {
+            Text("Brand palette")
+                .font(.tasker(.eyebrow))
+                .foregroundStyle(Color.tasker(.textTertiary))
+                .tracking(0.6)
+
+            LazyVGrid(columns: columns, spacing: TaskerSwiftUITokens.spacing.s8) {
+                ForEach(swatches, id: \.0) { swatch in
+                    VStack(spacing: TaskerSwiftUITokens.spacing.s4) {
+                        RoundedRectangle(cornerRadius: 16, style: .continuous)
+                            .fill(
+                                LinearGradient(
+                                    colors: [swatch.1.opacity(0.92), swatch.1],
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                )
+                            )
+                            .frame(height: 54)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                                    .stroke(Color.tasker(.strokeHairline), lineWidth: 1)
+                            )
+
+                        Text(swatch.0)
+                            .font(.tasker(.caption2))
+                            .foregroundStyle(Color.tasker(.textSecondary))
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.7)
                     }
                 }
             }
         }
-    }
-
-    @ViewBuilder
-    private func gemCard(swatch: TaskerThemeSwatch, isSelected: Bool) -> some View {
-        let themeName = TaskerTheme.accentThemes[swatch.index].name
-        VStack(spacing: TaskerSwiftUITokens.spacing.s4) {
-            ZStack {
-                // Gradient card
-                RoundedRectangle(cornerRadius: TaskerSwiftUITokens.corner.r2, style: .continuous)
-                    .fill(
-                        LinearGradient(
-                            colors: [Color(uiColor: swatch.primary), Color(uiColor: swatch.secondary)],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        )
-                    )
-                    .frame(width: cardWidth, height: cardHeight - 20)
-
-                // Checkmark overlay
-                if isSelected {
-                    Image(systemName: "checkmark")
-                        .font(.system(size: 14, weight: .bold))
-                        .foregroundColor(.white)
-                        .shadow(color: .black.opacity(0.3), radius: 2)
-                }
-            }
-            .overlay(
-                RoundedRectangle(cornerRadius: TaskerSwiftUITokens.corner.r2, style: .continuous)
-                    .stroke(
-                        isSelected ? Color.tasker.accentRing : Color.tasker.strokeHairline,
-                        lineWidth: isSelected ? 2.5 : 0.5
-                    )
-            )
-            .scaleEffect(isSelected ? 1.04 : 1.0)
-            .shadow(
-                color: isSelected ? Color(uiColor: swatch.primary).opacity(0.3) : .clear,
-                radius: isSelected ? 6 : 0
-            )
-
-            Text(themeName)
-                .font(.tasker(.caption2))
-                .foregroundColor(isSelected ? .tasker(.textPrimary) : .tasker(.textTertiary))
-                .lineLimit(1)
-        }
-        .frame(width: cardWidth)
-        .animation(TaskerAnimation.snappy, value: isSelected)
+        .accessibilityIdentifier("settings.appearance.palette")
     }
 }

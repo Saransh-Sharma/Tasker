@@ -42,12 +42,12 @@ struct NotificationTypesCard: View {
     private func toggleRow(_ row: NotificationToggleRow) -> some View {
         HStack(spacing: TaskerSwiftUITokens.spacing.s12) {
             Image(systemName: row.icon)
-                .font(.system(size: 16, weight: .medium))
+                .font(.tasker(.support))
                 .foregroundColor(.tasker(.accentPrimary))
                 .frame(width: 24)
 
             Text(row.title)
-                .font(.tasker(.body))
+                .font(.tasker(.bodyStrong))
                 .foregroundColor(.tasker(.textPrimary))
 
             Spacer()

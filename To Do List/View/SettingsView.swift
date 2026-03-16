@@ -5,8 +5,6 @@ struct SettingsView: View {
     private let projectManagementDestination: AnyView
 
     @Environment(\.presentationMode) var presentationMode // To dismiss the view later
-    // State to track the current mode, initialized based on system's current style
-    @State private var isDarkMode: Bool = UIScreen.main.traitCollection.userInterfaceStyle == .dark
     @State private var showingVersionAlert = false // State for controlling the alert
 
     // Helper to get app version and build number
@@ -38,26 +36,14 @@ struct SettingsView: View {
                 }
 
                 Section(header: Text("Appearance").foregroundColor(Color(uiColor: todoColors.accentPrimary))) {
-                    Button(action: {
-                        isDarkMode.toggle()
-                        if #available(iOS 13.0, *) {
-                            let newStyle: UIUserInterfaceStyle = isDarkMode ? .dark : .light
-                            if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene {
-                                windowScene.windows.forEach { window in
-                                    window.overrideUserInterfaceStyle = newStyle
-                                }
-                            }
-                        }
-                        // No need for alerts like in the old version for now
-                    }) {
-                        HStack {
-                            Image(systemName: isDarkMode ? "sun.max.fill" : "moon.fill")
-                                .foregroundColor(Color(uiColor: todoColors.accentPrimary))
-                            Text(isDarkMode ? "Light Mode" : "Dark Mode")
-                        }
+                    VStack(alignment: .leading, spacing: 8) {
+                        Label("System appearance", systemImage: "circle.lefthalf.filled")
+                            .foregroundColor(Color(uiColor: todoColors.textPrimary))
+
+                        Text("Tasker follows your iPhone or iPad light and dark appearance automatically.")
+                            .font(.footnote)
+                            .foregroundColor(Color(uiColor: todoColors.textSecondary))
                     }
-                    // Standard text color for the button label itself is often fine to indicate interactivity.
-                    // If specific text color is needed: .foregroundColor(Color(todoColors.textColor))
                 }
 
                 // New section for LLM / AI Assistant settings
@@ -102,16 +88,6 @@ struct SettingsView: View {
                     dismissButton: .default(Text("OK"))
                 )
             }
-        }
-        // Update isDarkMode state if the system theme changes from outside
-        .onAppear {
-            isDarkMode = UIScreen.main.traitCollection.userInterfaceStyle == .dark
-            // More complex nav bar styling would go here if using UIHostingController specifics
-            // For example, accessing parent UIViewController's navigationItem.
-            // However, direct SwiftUI styling is preferred if possible.
-        }
-        .onChange(of: UIScreen.main.traitCollection.userInterfaceStyle) { _, newStyle in
-            isDarkMode = newStyle == .dark
         }
     }
 }

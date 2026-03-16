@@ -94,8 +94,8 @@ struct SettingsRootView: View {
 
             VStack(spacing: spacing.cardStackVertical) {
                 AppearanceCardView(
-                    isDarkMode: $viewModel.isDarkMode,
-                    onToggleDarkMode: { viewModel.toggleDarkMode($0) }
+                    appVersion: viewModel.appVersion,
+                    buildNumber: viewModel.buildNumber
                 )
                 .enhancedStaggeredAppearance(index: baseIndex + 1)
 
@@ -144,7 +144,7 @@ struct SettingsRootView: View {
             VStack(alignment: .leading, spacing: spacing.s12) {
                 HStack(alignment: .top, spacing: spacing.s12) {
                     Image(systemName: "sparkles")
-                        .font(.system(size: 18, weight: .semibold))
+                        .font(.tasker(.sectionTitle))
                         .foregroundColor(Color.tasker.accentPrimary)
                         .frame(width: 28, height: 28)
 

@@ -39,8 +39,8 @@ class SettingsPage {
         return app.tables.cells.staticTexts[AccessibilityIdentifiers.Settings.appearanceRow]
     }
 
-    var darkModeToggle: XCUIElement {
-        return app.switches[AccessibilityIdentifiers.Settings.darkModeToggle]
+    var appearanceCard: XCUIElement {
+        return app.otherElements["settings.appearance.card"]
     }
 
     var appVersionLabel: XCUIElement {
@@ -76,46 +76,18 @@ class SettingsPage {
 
     /// Navigate to Appearance settings
     func navigateToAppearance() {
-        appearanceRow.tap()
-    }
-
-    /// Toggle dark mode
-    func toggleDarkMode() {
-        if darkModeToggle.exists {
-            darkModeToggle.tap()
-        } else {
-            // Fallback: find dark mode in appearance row
+        if appearanceRow.exists {
             appearanceRow.tap()
-
-            // Look for dark mode toggle in the appearance screen
-            let darkModeSwitch = app.switches.matching(NSPredicate(format: "label CONTAINS[c] 'dark' OR label CONTAINS[c] 'theme'")).firstMatch
-            if darkModeSwitch.exists {
-                darkModeSwitch.tap()
-            }
-
-            // Go back
-            app.navigationBars.buttons.element(boundBy: 0).tap()
         }
     }
 
-    /// Enable dark mode
+    func toggleDarkMode() {
+    }
+
     func enableDarkMode() {
-        if darkModeToggle.exists {
-            let isOn = darkModeToggle.value as? String == "1"
-            if !isOn {
-                darkModeToggle.tap()
-            }
-        }
     }
 
-    /// Disable dark mode
     func disableDarkMode() {
-        if darkModeToggle.exists {
-            let isOn = darkModeToggle.value as? String == "1"
-            if isOn {
-                darkModeToggle.tap()
-            }
-        }
     }
 
     /// Tap app version to show version info
@@ -143,23 +115,7 @@ class SettingsPage {
 
     /// Verify appearance row exists
     func verifyAppearanceRowExists() -> Bool {
-        return appearanceRow.exists
-    }
-
-    /// Verify dark mode is enabled
-    func verifyDarkModeEnabled() -> Bool {
-        if darkModeToggle.exists {
-            return darkModeToggle.value as? String == "1"
-        }
-        return false
-    }
-
-    /// Verify dark mode is disabled
-    func verifyDarkModeDisabled() -> Bool {
-        if darkModeToggle.exists {
-            return darkModeToggle.value as? String != "1"
-        }
-        return false
+        return appearanceCard.exists || appearanceRow.exists
     }
 
     /// Verify app version is displayed
