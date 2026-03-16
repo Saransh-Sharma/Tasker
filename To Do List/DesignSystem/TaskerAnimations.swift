@@ -13,21 +13,38 @@ import UIKit
 
 @MainActor
 public enum TaskerAnimation {
-    // Spring configs — SwiftUI
-    public static let snappy: Animation = .spring(response: 0.35, dampingFraction: 0.75)
-    public static let gentle: Animation = .spring(response: 0.5, dampingFraction: 0.8)
-    public static let bouncy: Animation = .spring(response: 0.4, dampingFraction: 0.6)
-    public static let quick: Animation = .spring(response: 0.25, dampingFraction: 0.85)
-    public static let micro: Animation = .spring(response: 0.20, dampingFraction: 0.90)
-    public static let expressive: Animation = .spring(response: 0.55, dampingFraction: 0.65)
-    public static let ambient: Animation = .easeInOut(duration: 2.0)
+    public static let press: Animation = .timingCurve(0.22, 1, 0.36, 1, duration: 0.09)
+    public static let feedbackFast: Animation = .timingCurve(0.22, 1, 0.36, 1, duration: 0.14)
+    public static let stateChange: Animation = .timingCurve(0.22, 1, 0.36, 1, duration: 0.22)
+    public static let panelIn: Animation = .timingCurve(0.22, 1, 0.36, 1, duration: 0.28)
+    public static let panelOut: Animation = .timingCurve(0.25, 1, 0.5, 1, duration: 0.22)
+    public static let heroReveal: Animation = .timingCurve(0.22, 1, 0.36, 1, duration: 0.36)
+    public static let celebration: Animation = .timingCurve(0.22, 1, 0.36, 1, duration: 0.54)
+    public static let gatewayReveal: Animation = .timingCurve(0.16, 1, 0.3, 1, duration: 0.38)
 
-    // UIKit spring parameters
-    public static let uiSnappy = (duration: 0.4, damping: CGFloat(0.75), velocity: CGFloat(0.5))
-    public static let uiGentle = (duration: 0.6, damping: CGFloat(0.8), velocity: CGFloat(0.3))
-    public static let uiBouncy = (duration: 0.5, damping: CGFloat(0.6), velocity: CGFloat(0.6))
-    public static let uiMicro = (duration: 0.25, damping: CGFloat(0.90), velocity: CGFloat(0.4))
-    public static let uiExpressive = (duration: 0.65, damping: CGFloat(0.65), velocity: CGFloat(0.5))
+    // Backward-compatible aliases
+    public static let snappy: Animation = stateChange
+    public static let gentle: Animation = heroReveal
+    public static let bouncy: Animation = celebration
+    public static let quick: Animation = feedbackFast
+    public static let micro: Animation = feedbackFast
+    public static let expressive: Animation = celebration
+    public static let ambient: Animation = .easeInOut(duration: 1.4)
+
+    // UIKit parameters
+    public static let uiPress = (duration: 0.09, damping: CGFloat(1.0), velocity: CGFloat(0.0))
+    public static let uiFeedbackFast = (duration: 0.14, damping: CGFloat(0.96), velocity: CGFloat(0.08))
+    public static let uiStateChange = (duration: 0.22, damping: CGFloat(0.94), velocity: CGFloat(0.10))
+    public static let uiHeroReveal = (duration: 0.36, damping: CGFloat(0.92), velocity: CGFloat(0.12))
+    public static let uiCelebration = (duration: 0.54, damping: CGFloat(0.90), velocity: CGFloat(0.16))
+    public static let uiGatewayReveal = (duration: 0.38, damping: CGFloat(0.92), velocity: CGFloat(0.12))
+
+    // Backward-compatible aliases
+    public static let uiSnappy = uiStateChange
+    public static let uiGentle = uiHeroReveal
+    public static let uiBouncy = uiCelebration
+    public static let uiMicro = uiFeedbackFast
+    public static let uiExpressive = uiCelebration
 
     // Stagger delay per item (seconds)
     public static let staggerInterval: Double = 0.04

@@ -4,8 +4,8 @@ import SwiftUI
 // MARK: - Tasker Header Gradient
 
 /// Provides a reusable multi-stop gradient + scrim + noise for header backdrops.
-/// All stops are derived dynamically from the current accent color so they adapt
-/// across all accent themes.
+/// The look is fixed to the Tasker brand: gateway sunrise in light mode and
+/// forest ink in dark mode.
 @MainActor
 public struct TaskerHeaderGradient {
 
@@ -14,9 +14,7 @@ public struct TaskerHeaderGradient {
     /// Apply the full header treatment (gradient + scrim + bottom fade + noise) to a UIKit layer.
     /// Call again in `viewDidLayoutSubviews` so the layers resize correctly.
     public static func apply(to layer: CALayer, bounds: CGRect, traits: UITraitCollection) {
-        let colors = TaskerThemeManager.shared.currentTheme.tokens.color
-        let primary = colors.accentPrimary.resolvedColor(with: traits)
-        let secondary = colors.accentSecondary.resolvedColor(with: traits)
+        let patterns = TaskerThemeManager.shared.currentTheme.patterns
 
         removeLayers(from: layer)
 
@@ -26,7 +24,7 @@ public struct TaskerHeaderGradient {
         let gradientLayer = CAGradientLayer()
         gradientLayer.name = "taskerHeaderGradient"
         gradientLayer.frame = bounds
-        gradientLayer.colors = gradientColors(primary: primary, secondary: secondary, traits: traits)
+        gradientLayer.colors = gradientColors(patterns: patterns, traits: traits)
         gradientLayer.locations = [0.0, 0.35, 0.7, 1.0]
         gradientLayer.startPoint = CGPoint(x: 0.5, y: 0)
         gradientLayer.endPoint = CGPoint(x: 0.5, y: 1)
@@ -105,26 +103,22 @@ public struct TaskerHeaderGradient {
 
     // MARK: - Gradient Color Generation
 
-    /// Build 4-stop dual-tone gradient blending primary → secondary, adapting to light/dark mode.
-    /// Creates a "gem catching light" effect with richer color dimension than monochromatic shading.
-    private static func gradientColors(primary: UIColor, secondary: UIColor, traits: UITraitCollection) -> [CGColor] {
+    private static func gradientColors(patterns: TaskerPatternTokens, traits: UITraitCollection) -> [CGColor] {
         let isDark = traits.userInterfaceStyle == .dark
         if isDark {
-            // Dark mode: deep primary shades at top → secondary tones emerging at bottom
             return [
-                shade(primary, by: 0.68).cgColor,
-                shade(primary, by: 0.48).cgColor,
-                shade(blendColors(primary, secondary, ratio: 0.5), by: 0.30).cgColor,
-                shade(secondary, by: 0.20).cgColor
+                blendColors(patterns.forestInkBottom, patterns.gatewaySunriseTop, ratio: 0.02).cgColor,
+                blendColors(patterns.forestInkBottom, patterns.gatewaySunriseTop, ratio: 0.06).cgColor,
+                blendColors(patterns.forestInkBottom, patterns.gatewaySunriseBottom, ratio: 0.07).cgColor,
+                blendColors(patterns.forestInkTop, patterns.forestInkBottom, ratio: 0.28).cgColor
             ]
         } else {
-            // Light mode: soften first stop to reduce saturation wash, preserving gem character
             let canvas = TaskerThemeManager.shared.currentTheme.tokens.color.bgCanvas.resolvedColor(with: traits)
             return [
-                blendColors(primary, canvas, ratio: 0.15).cgColor,
-                shade(primary, by: 0.06).cgColor,
-                blendColors(primary, secondary, ratio: 0.5).cgColor,
-                shade(secondary, by: 0.10).cgColor
+                blendColors(patterns.gatewaySunriseTop, canvas, ratio: 0.18).cgColor,
+                shade(patterns.gatewaySunriseMid, by: 0.02).cgColor,
+                blendColors(patterns.gatewaySunriseMid, patterns.gatewaySunriseBottom, ratio: 0.52).cgColor,
+                shade(patterns.gatewaySunriseBottom, by: 0.04).cgColor
             ]
         }
     }
@@ -166,8 +160,8 @@ public struct TaskerHeaderGradient {
     /// Executes scrimColors.
     private static func scrimColors(traits: UITraitCollection) -> [CGColor] {
         let isDark = traits.userInterfaceStyle == .dark
-        let topAlpha: CGFloat = isDark ? 0.26 : 0.18
-        let midAlpha: CGFloat = isDark ? 0.14 : 0.10
+        let topAlpha: CGFloat = isDark ? 0.18 : 0.18
+        let midAlpha: CGFloat = isDark ? 0.10 : 0.10
         return [
             UIColor.black.withAlphaComponent(topAlpha).cgColor,
             UIColor.black.withAlphaComponent(midAlpha).cgColor,

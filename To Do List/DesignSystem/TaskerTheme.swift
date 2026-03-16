@@ -1,12 +1,6 @@
 import UIKit
 import Combine
 
-public struct TaskerThemeSwatch {
-    public let index: Int
-    public let primary: UIColor
-    public let secondary: UIColor
-}
-
 public struct TaskerTokenTraitContext: Hashable {
     public let colorScheme: UIUserInterfaceStyle
     public let contentSizeCategory: UIContentSizeCategory
@@ -25,108 +19,125 @@ public struct TaskerTokenTraitContext: Hashable {
     public static let unspecified = TaskerTokenTraitContext()
 }
 
-public struct TaskerAccentTheme {
-    public let name: String
-    public let accentBaseHex: String
-    public let secondaryBaseHex: String
+public struct TaskerBrandPalette: Equatable {
+    public let brandEmerald: UIColor
+    public let brandMagenta: UIColor
+    public let brandMarigold: UIColor
+    public let brandRed: UIColor
+    public let brandSandstone: UIColor
+    public let neutralIvory: UIColor
+    public let neutralCream: UIColor
+    public let neutralMist: UIColor
+    public let neutralStone: UIColor
+    public let neutralSandGray: UIColor
+    public let neutralUmber: UIColor
+    public let neutralInk: UIColor
+    public let neutralDarkInk0: UIColor
+    public let neutralDarkInk1: UIColor
+    public let neutralDarkInk2: UIColor
+    public let neutralDarkInk3: UIColor
+    public let neutralDarkBorder1: UIColor
+    public let neutralDarkBorder2: UIColor
+    public let neutralDarkText1: UIColor
+    public let neutralDarkText2: UIColor
+    public let neutralDarkText3: UIColor
+    public let neutralDarkDisabled: UIColor
+    public let inkDark: UIColor
+    public let parchmentLight: UIColor
 
-    /// Initializes a new instance.
-    public init(name: String, accentBaseHex: String, secondaryBaseHex: String) {
-        self.name = name
-        self.accentBaseHex = accentBaseHex
-        self.secondaryBaseHex = secondaryBaseHex
+    public static let sarvam = TaskerBrandPalette(
+        brandEmerald: UIColor(taskerHex: "#293A18"),
+        brandMagenta: UIColor(taskerHex: "#B1205F"),
+        brandMarigold: UIColor(taskerHex: "#FEBF2B"),
+        brandRed: UIColor(taskerHex: "#C11317"),
+        brandSandstone: UIColor(taskerHex: "#9E5F0A"),
+        neutralIvory: UIColor(taskerHex: "#FFF8EF"),
+        neutralCream: UIColor(taskerHex: "#F7EFE4"),
+        neutralMist: UIColor(taskerHex: "#EFE4D6"),
+        neutralStone: UIColor(taskerHex: "#E2D3C2"),
+        neutralSandGray: UIColor(taskerHex: "#C9B9A6"),
+        neutralUmber: UIColor(taskerHex: "#3A2E24"),
+        neutralInk: UIColor(taskerHex: "#1B1511"),
+        neutralDarkInk0: UIColor(taskerHex: "#0F0C0A"),
+        neutralDarkInk1: UIColor(taskerHex: "#15110E"),
+        neutralDarkInk2: UIColor(taskerHex: "#1D1712"),
+        neutralDarkInk3: UIColor(taskerHex: "#2A211A"),
+        neutralDarkBorder1: UIColor(taskerHex: "#3A2E24"),
+        neutralDarkBorder2: UIColor(taskerHex: "#4A3B30"),
+        neutralDarkText1: UIColor(taskerHex: "#FFF3E6"),
+        neutralDarkText2: UIColor(taskerHex: "#E7D9CB"),
+        neutralDarkText3: UIColor(taskerHex: "#CBBBA7"),
+        neutralDarkDisabled: UIColor(taskerHex: "#7E7268"),
+        inkDark: UIColor(taskerHex: "#10130D"),
+        parchmentLight: UIColor(taskerHex: "#F6EFE2")
+    )
+}
+
+public struct TaskerPatternTokens: Equatable {
+    public let gatewaySunriseTop: UIColor
+    public let gatewaySunriseMid: UIColor
+    public let gatewaySunriseBottom: UIColor
+    public let forestInkTop: UIColor
+    public let forestInkBottom: UIColor
+    public let patternTint: UIColor
+
+    init(palette: TaskerBrandPalette) {
+        gatewaySunriseTop = palette.brandSandstone
+        gatewaySunriseMid = palette.brandMarigold
+        gatewaySunriseBottom = palette.brandMagenta
+        forestInkTop = palette.brandEmerald
+        forestInkBottom = palette.inkDark
+        patternTint = palette.brandSandstone.withAlphaComponent(0.12)
     }
 }
 
-public struct TaskerAccentRamp {
-    public let accent050: UIColor
-    public let accent100: UIColor
-    public let accent400: UIColor
-    public let accent500: UIColor
-    public let accent600: UIColor
-    public let onAccent: UIColor
-    public let ring: UIColor
+public struct TaskerWidgetTokens: Equatable {
+    public let background: UIColor
+    public let backgroundElevated: UIColor
+    public let accent: UIColor
+    public let accentQuiet: UIColor
+    public let highlight: UIColor
+    public let textPrimary: UIColor
+    public let textSecondary: UIColor
 
-    /// Initializes a new instance.
-    public init(base: UIColor) {
-        let source = base.resolvedColor(with: UITraitCollection(userInterfaceStyle: .light))
-        let hsl = source.taskerHSL
-
-        /// Executes build.
-        func build(sDelta: CGFloat, lDelta: CGFloat) -> UIColor {
-            let saturation = TaskerAccentRamp.clamp(hsl.s + sDelta, min: 0.35, max: 0.95)
-            let lightness = TaskerAccentRamp.clamp(hsl.l + lDelta, min: 0.10, max: 0.92)
-            return UIColor(taskerHue: hsl.h, saturation: saturation, lightness: lightness, alpha: 1.0)
+    init(palette: TaskerBrandPalette) {
+        background = UIColor { traits in
+            traits.userInterfaceStyle == .dark ? palette.neutralDarkInk1 : palette.neutralIvory
         }
-
-        self.accent500 = source
-        self.accent600 = build(sDelta: 0.05, lDelta: -0.10)
-        self.accent400 = build(sDelta: -0.05, lDelta: 0.08)
-        self.accent100 = build(sDelta: -0.25, lDelta: 0.35)
-        self.accent050 = build(sDelta: -0.35, lDelta: 0.45)
-
-        if source.taskerPerceivedLuminance > 0.72 {
-            self.onAccent = UIColor(taskerHex: "#0E0F12")
-        } else {
-            self.onAccent = .white
+        backgroundElevated = UIColor { traits in
+            traits.userInterfaceStyle == .dark ? palette.neutralDarkInk2 : UIColor(taskerHex: "#FFFCF8")
         }
-
-        self.ring = self.accent500.withAlphaComponent(0.40)
-    }
-
-    /// Executes clamp.
-    private static func clamp(_ value: CGFloat, min: CGFloat, max: CGFloat) -> CGFloat {
-        Swift.max(min, Swift.min(max, value))
+        accent = UIColor { traits in
+            traits.userInterfaceStyle == .dark ? palette.brandMarigold : palette.brandEmerald
+        }
+        accentQuiet = UIColor { traits in
+            let base = traits.userInterfaceStyle == .dark ? palette.brandMarigold : palette.brandMagenta
+            return base.withAlphaComponent(traits.userInterfaceStyle == .dark ? 0.16 : 0.14)
+        }
+        highlight = palette.brandMagenta
+        textPrimary = UIColor { traits in
+            traits.userInterfaceStyle == .dark ? palette.neutralDarkText1 : palette.neutralInk
+        }
+        textSecondary = UIColor { traits in
+            traits.userInterfaceStyle == .dark ? palette.neutralDarkText2 : UIColor(taskerHex: "#6A594B")
+        }
     }
 }
 
-public struct TaskerTheme: Equatable {
-    public static let userDefaultsKey = "selectedThemeIndex"
-
-    public static let accentThemes: [TaskerAccentTheme] = [
-        TaskerAccentTheme(name: "Royal Gold",  accentBaseHex: "#C49832", secondaryBaseHex: "#E8C868"),
-        TaskerAccentTheme(name: "Ruby",        accentBaseHex: "#C94444", secondaryBaseHex: "#E86868"),
-        TaskerAccentTheme(name: "Ice Crystal", accentBaseHex: "#78ACCA", secondaryBaseHex: "#A8D0EE"),
-        TaskerAccentTheme(name: "Sapphire",    accentBaseHex: "#5580C0", secondaryBaseHex: "#88B5E8"),
-        TaskerAccentTheme(name: "Emerald",     accentBaseHex: "#38A868", secondaryBaseHex: "#60D090"),
-        TaskerAccentTheme(name: "Topaz",       accentBaseHex: "#D0A830", secondaryBaseHex: "#F0D060"),
-        TaskerAccentTheme(name: "Aquamarine",  accentBaseHex: "#40A8C0", secondaryBaseHex: "#68CCE0"),
-        TaskerAccentTheme(name: "Rose Quartz", accentBaseHex: "#D05A78", secondaryBaseHex: "#E8A0B8"),
-        TaskerAccentTheme(name: "Amethyst",    accentBaseHex: "#A868C0", secondaryBaseHex: "#CC9EE0")
-    ]
-
-    static let legacyThemeCount = 28
-    static let legacyToCurrentIndexMap: [Int: Int] = [
-        0: 0, 1: 1, 2: 2, 3: 3,
-        4: 1, 5: 2, 6: 3,
-        7: 4, 8: 4, 9: 4, 10: 4, 11: 4,
-        12: 5, 13: 5, 14: 5, 15: 5, 16: 5,
-        17: 6, 18: 6, 19: 6, 20: 6,
-        21: 7, 22: 7, 23: 7,
-        24: 8, 25: 8, 26: 8, 27: 8
-    ]
-
+public struct TaskerTheme {
     public let index: Int
-    public let accentTheme: TaskerAccentTheme
-    public let accentRamp: TaskerAccentRamp
-    public let secondaryRamp: TaskerAccentRamp
+    public let palette: TaskerBrandPalette
+    public let patterns: TaskerPatternTokens
+    public let widgets: TaskerWidgetTokens
     public let tokens: TaskerTokens
 
-    /// Initializes a new instance.
-    public init(index: Int) {
-        let clampedIndex = TaskerTheme.clampIndex(index)
-        self.index = clampedIndex
-        self.accentTheme = TaskerTheme.accentThemes[clampedIndex]
-
-        let primaryBase = UIColor(taskerHex: accentTheme.accentBaseHex)
-        let secondaryBase = UIColor(taskerHex: accentTheme.secondaryBaseHex)
-        let primaryRamp = TaskerAccentRamp(base: primaryBase)
-        let secondaryRamp = TaskerAccentRamp(base: secondaryBase)
-        self.accentRamp = primaryRamp
-        self.secondaryRamp = secondaryRamp
-
+    public init(index: Int = 0) {
+        self.index = 0
+        self.palette = .sarvam
+        self.patterns = TaskerPatternTokens(palette: palette)
+        self.widgets = TaskerWidgetTokens(palette: palette)
         self.tokens = TaskerTokens(
-            color: TaskerColorTokens.make(accentRamp: primaryRamp, secondaryRamp: secondaryRamp),
+            color: TaskerColorTokens.make(palette: palette),
             typography: TaskerTypographyTokens.makeDefault(),
             spacing: TaskerSpacingTokens.default,
             elevation: TaskerElevationTokens.default,
@@ -134,7 +145,6 @@ public struct TaskerTheme: Equatable {
         )
     }
 
-    /// Executes tokens.
     public func tokens(for layoutClass: TaskerLayoutClass) -> TaskerTokens {
         TaskerTokens(
             color: tokens.color,
@@ -144,95 +154,34 @@ public struct TaskerTheme: Equatable {
             corner: TaskerCornerTokens.forLayout(layoutClass)
         )
     }
-
-    /// Executes ==.
-    public static func == (lhs: TaskerTheme, rhs: TaskerTheme) -> Bool {
-        lhs.index == rhs.index
-    }
-
-    /// Executes clampIndex.
-    public static func clampIndex(_ index: Int) -> Int {
-        guard !accentThemes.isEmpty else { return 0 }
-        return Swift.max(0, Swift.min(accentThemes.count - 1, index))
-    }
-
-    /// Executes migrateLegacyIndex.
-    static func migrateLegacyIndex(_ index: Int) -> Int {
-        if let migrated = legacyToCurrentIndexMap[index] {
-            return migrated
-        }
-        return clampIndex(index)
-    }
 }
 
 @MainActor
 public final class TaskerThemeManager: ObservableObject {
     private struct TokenCacheKey: Hashable {
-        let themeIndex: Int
         let layoutClass: TaskerLayoutClass
         let traits: TaskerTokenTraitContext
     }
 
     public static let shared = TaskerThemeManager()
-    static let themeMigrationKey = "selectedThemeIndexMigrationVersion"
-    static let themeMigrationVersion = 1
 
     @Published public private(set) var currentTheme: TaskerTheme
-    private let userDefaults: UserDefaults
     private var tokenCache: [TokenCacheKey: TaskerTokens] = [:]
 
     public var publisher: AnyPublisher<TaskerTheme, Never> {
-        $currentTheme
-            .removeDuplicates(by: { $0.index == $1.index })
-            .eraseToAnyPublisher()
+        $currentTheme.eraseToAnyPublisher()
     }
 
-    public var selectedThemeIndex: Int {
-        currentTheme.index
+    private init() {
+        currentTheme = TaskerTheme()
     }
 
-    public var availableThemes: [TaskerAccentTheme] {
-        TaskerTheme.accentThemes
-    }
-
-    public var availableThemeSwatches: [TaskerThemeSwatch] {
-        TaskerTheme.accentThemes.indices.map { index in
-            let theme = TaskerTheme(index: index)
-            return TaskerThemeSwatch(
-                index: index,
-                primary: theme.tokens.color.accentPrimary,
-                secondary: theme.tokens.color.accentSecondary
-            )
-        }
-    }
-
-    /// Initializes a new instance.
-    private init(userDefaults: UserDefaults = .standard) {
-        self.userDefaults = userDefaults
-        let persisted = Self.migratedPersistedThemeIndex(in: userDefaults)
-        self.currentTheme = TaskerTheme(index: persisted)
-    }
-
-    /// Executes selectTheme.
-    public func selectTheme(index: Int) {
-        let clamped = TaskerTheme.clampIndex(index)
-        guard clamped != currentTheme.index else { return }
-
-        userDefaults.set(clamped, forKey: TaskerTheme.userDefaultsKey)
-        currentTheme = TaskerTheme(index: clamped)
-        tokenCache.removeAll(keepingCapacity: false)
-        TaskerTypographyTokens.resetCache()
-    }
-
-    /// Executes reloadFromPersistence.
     public func reloadFromPersistence() {
-        let persisted = Self.migratedPersistedThemeIndex(in: userDefaults)
-        currentTheme = TaskerTheme(index: persisted)
+        currentTheme = TaskerTheme()
         tokenCache.removeAll(keepingCapacity: false)
         TaskerTypographyTokens.resetCache()
     }
 
-    /// Executes tokens.
     public func tokens(for layoutClass: TaskerLayoutClass) -> TaskerTokens {
         tokens(for: layoutClass, traits: .unspecified)
     }
@@ -245,12 +194,7 @@ public final class TaskerThemeManager: ObservableObject {
             return currentTheme.tokens(for: layoutClass)
         }
 
-        let cacheKey = TokenCacheKey(
-            themeIndex: currentTheme.index,
-            layoutClass: layoutClass,
-            traits: traits
-        )
-
+        let cacheKey = TokenCacheKey(layoutClass: layoutClass, traits: traits)
         if let cached = tokenCache[cacheKey] {
             return cached
         }
@@ -259,7 +203,7 @@ public final class TaskerThemeManager: ObservableObject {
         tokenCache[cacheKey] = resolved
         logWarning(
             event: "themeTokenResolve",
-            message: "Resolved theme tokens for layout + trait cluster",
+            message: "Resolved brand tokens for layout + trait cluster",
             fields: [
                 "layout_class": layoutClass.rawValue,
                 "color_scheme": String(traits.colorScheme.rawValue),
@@ -270,27 +214,10 @@ public final class TaskerThemeManager: ObservableObject {
         return resolved
     }
 
-    /// Executes migratedPersistedThemeIndex.
-    static func migratedPersistedThemeIndex(in userDefaults: UserDefaults) -> Int {
-        let hasPersistedTheme = userDefaults.object(forKey: TaskerTheme.userDefaultsKey) != nil
-        let persisted = hasPersistedTheme ? userDefaults.integer(forKey: TaskerTheme.userDefaultsKey) : 0
-        let migrationVersion = userDefaults.integer(forKey: themeMigrationKey)
-
-        if migrationVersion < themeMigrationVersion {
-            let migrated = TaskerTheme.migrateLegacyIndex(persisted)
-            userDefaults.set(migrated, forKey: TaskerTheme.userDefaultsKey)
-            userDefaults.set(themeMigrationVersion, forKey: themeMigrationKey)
-            return migrated
-        }
-
-        return TaskerTheme.clampIndex(persisted)
-    }
-
     public static var tokens: TaskerTokens {
         TaskerThemeManager.shared.currentTheme.tokens
     }
 
-    /// Executes tokens.
     public static func tokens(for layoutClass: TaskerLayoutClass) -> TaskerTokens {
         TaskerThemeManager.shared.tokens(for: layoutClass)
     }
@@ -303,62 +230,7 @@ public final class TaskerThemeManager: ObservableObject {
     }
 }
 
-private extension UIColor {
-    struct TaskerHSL {
-        let h: CGFloat
-        let s: CGFloat
-        let l: CGFloat
-    }
-
-    var taskerHSL: TaskerHSL {
-        var red: CGFloat = 0
-        var green: CGFloat = 0
-        var blue: CGFloat = 0
-        var alpha: CGFloat = 0
-        guard getRed(&red, green: &green, blue: &blue, alpha: &alpha) else {
-            return TaskerHSL(h: 0, s: 0, l: 0)
-        }
-
-        let maxValue = Swift.max(red, green, blue)
-        let minValue = Swift.min(red, green, blue)
-        let delta = maxValue - minValue
-        let lightness = (maxValue + minValue) / 2
-
-        let saturation: CGFloat
-        if delta == 0 {
-            saturation = 0
-        } else {
-            saturation = delta / (1 - abs(2 * lightness - 1))
-        }
-
-        let hue: CGFloat
-        if delta == 0 {
-            hue = 0
-        } else if maxValue == red {
-            hue = ((green - blue) / delta).truncatingRemainder(dividingBy: 6)
-        } else if maxValue == green {
-            hue = ((blue - red) / delta) + 2
-        } else {
-            hue = ((red - green) / delta) + 4
-        }
-
-        let normalizedHue = ((hue * 60).truncatingRemainder(dividingBy: 360) + 360).truncatingRemainder(dividingBy: 360) / 360
-
-        return TaskerHSL(h: normalizedHue, s: saturation, l: lightness)
-    }
-
-    var taskerPerceivedLuminance: CGFloat {
-        var red: CGFloat = 0
-        var green: CGFloat = 0
-        var blue: CGFloat = 0
-        var alpha: CGFloat = 0
-        guard getRed(&red, green: &green, blue: &blue, alpha: &alpha) else { return 0 }
-        return (0.299 * red) + (0.587 * green) + (0.114 * blue)
-    }
-}
-
 public extension UIColor {
-    /// Initializes a new instance.
     convenience init(taskerHex hex: String, alpha: CGFloat = 1.0) {
         var sanitized = hex.trimmingCharacters(in: .whitespacesAndNewlines)
         sanitized = sanitized.replacingOccurrences(of: "#", with: "")
@@ -380,7 +252,6 @@ public extension UIColor {
         }
     }
 
-    /// Executes taskerDynamic.
     static func taskerDynamic(lightHex: String, darkHex: String) -> UIColor {
         UIColor { traits in
             if traits.userInterfaceStyle == .dark {
@@ -388,33 +259,5 @@ public extension UIColor {
             }
             return UIColor(taskerHex: lightHex)
         }
-    }
-
-    /// Initializes a new instance.
-    convenience init(taskerHue hue: CGFloat, saturation: CGFloat, lightness: CGFloat, alpha: CGFloat) {
-        let q: CGFloat
-        if lightness < 0.5 {
-            q = lightness * (1 + saturation)
-        } else {
-            q = lightness + saturation - lightness * saturation
-        }
-        let p = (2 * lightness) - q
-
-        /// Executes hueToRGB.
-        func hueToRGB(p: CGFloat, q: CGFloat, t: CGFloat) -> CGFloat {
-            var value = t
-            if value < 0 { value += 1 }
-            if value > 1 { value -= 1 }
-            if value < 1.0 / 6.0 { return p + (q - p) * 6 * value }
-            if value < 1.0 / 2.0 { return q }
-            if value < 2.0 / 3.0 { return p + (q - p) * (2.0 / 3.0 - value) * 6 }
-            return p
-        }
-
-        let red = hueToRGB(p: p, q: q, t: hue + 1.0 / 3.0)
-        let green = hueToRGB(p: p, q: q, t: hue)
-        let blue = hueToRGB(p: p, q: q, t: hue - 1.0 / 3.0)
-
-        self.init(red: red, green: green, blue: blue, alpha: alpha)
     }
 }

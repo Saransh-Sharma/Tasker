@@ -425,7 +425,7 @@ enum StarterWorkspaceCatalog {
             name: "Health",
             subtitle: "Energy, movement, and recovery",
             icon: "heart.fill",
-            colorHex: "#2FA96E",
+            colorHex: "#293A18",
             aliases: ["wellness", "fitness", "body"],
             projects: [
                 StarterProjectTemplate(
@@ -534,7 +534,7 @@ enum StarterWorkspaceCatalog {
             name: "Career",
             subtitle: "Ship work without drowning in it",
             icon: "briefcase.fill",
-            colorHex: "#2E75FF",
+            colorHex: "#B1205F",
             aliases: ["work", "job", "business"],
             projects: [
                 StarterProjectTemplate(
@@ -619,7 +619,7 @@ enum StarterWorkspaceCatalog {
             name: "Home",
             subtitle: "Keep your space calm and usable",
             icon: "house.fill",
-            colorHex: "#E59A28",
+            colorHex: "#FEBF2B",
             aliases: ["household", "space", "apartment"],
             projects: [
                 StarterProjectTemplate(
@@ -704,7 +704,7 @@ enum StarterWorkspaceCatalog {
             name: "Learning",
             subtitle: "Study, read, and make it stick",
             icon: "book.fill",
-            colorHex: "#8759D1",
+            colorHex: "#9E5F0A",
             aliases: ["study", "reading", "practice"],
             projects: [
                 StarterProjectTemplate(
@@ -789,7 +789,7 @@ enum StarterWorkspaceCatalog {
             name: "Money",
             subtitle: "Bills, budgeting, and fewer surprise fires",
             icon: "dollarsign.circle.fill",
-            colorHex: "#1D998B",
+            colorHex: "#C11317",
             aliases: ["finance", "finances", "budget"],
             projects: [
                 StarterProjectTemplate(
@@ -3061,18 +3061,19 @@ struct HomeOnboardingGuidanceBanner: View {
     }
 }
 
+@MainActor
 private enum OnboardingTheme {
-    static let canvas = Color(uiColor: UIColor(taskerHex: "#F6F2E9"))
-    static let canvasSecondary = Color(uiColor: UIColor(taskerHex: "#F0F5EE"))
-    static let surface = Color.white.opacity(0.82)
-    static let surfaceMuted = Color.white.opacity(0.58)
-    static let border = Color.black.opacity(0.08)
-    static let textPrimary = Color(uiColor: UIColor(taskerHex: "#1D211F"))
-    static let textSecondary = Color(uiColor: UIColor(taskerHex: "#58605B"))
-    static let accent = Color(uiColor: UIColor(taskerHex: "#2A7B62"))
-    static let accentSecondary = Color(uiColor: UIColor(taskerHex: "#D38A24"))
-    static let success = Color(uiColor: UIColor(taskerHex: "#2EA670"))
-    static let danger = Color(uiColor: UIColor(taskerHex: "#C75144"))
+    static let canvas = Color.tasker(.bgCanvas)
+    static let canvasSecondary = Color(uiColor: UIColor.taskerDynamic(lightHex: "#F7EFE4", darkHex: "#15110E"))
+    static let surface = Color.tasker(.surfacePrimary).opacity(0.92)
+    static let surfaceMuted = Color.tasker(.surfaceSecondary).opacity(0.88)
+    static let border = Color.tasker(.borderDefault)
+    static let textPrimary = Color.tasker(.textPrimary)
+    static let textSecondary = Color.tasker(.textSecondary)
+    static let accent = Color.tasker(.brandSecondary)
+    static let accentSecondary = Color.tasker(.brandHighlight)
+    static let success = Color.tasker(.statusSuccess)
+    static let danger = Color.tasker(.statusDanger)
 }
 
 private struct AppOnboardingBackground: View {
@@ -3270,7 +3271,7 @@ private struct OnboardingSelectableCard: View {
         .accessibilityLabel(title)
         .accessibilityValue(isSelected ? "Selected" : "Not selected")
         .accessibilityHint(subtitle)
-        .animation(reduceMotion ? .none : .easeOut(duration: 0.2), value: isSelected)
+        .animation(reduceMotion ? .none : TaskerAnimation.stateChange, value: isSelected)
     }
 }
 

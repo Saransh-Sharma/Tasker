@@ -1,62 +1,21 @@
 import XCTest
+import UIKit
 @testable import To_Do_List
 
 @MainActor
 final class TaskerThemeManagerTests: XCTestCase {
-    private var originalIndex: Int = 0
+    func testThemeManagerAlwaysResolvesSingleBrandTheme() {
+        let currentTheme = TaskerThemeManager.shared.currentTheme
 
-    override func setUp() {
-        super.setUp()
-        originalIndex = TaskerThemeManager.shared.selectedThemeIndex
+        XCTAssertEqual(currentTheme.index, 0)
+        XCTAssertEqual(currentTheme.palette, .sarvam)
     }
 
-    override func tearDown() {
-        TaskerThemeManager.shared.selectTheme(index: originalIndex)
-        super.tearDown()
-    }
+    func testReloadFromPersistenceKeepsSingleBrandTheme() {
+        TaskerThemeManager.shared.reloadFromPersistence()
 
-    func testSelectThemeUpdatesCurrentThemeAndIndex() {
-        TaskerThemeManager.shared.selectTheme(index: 3)
-
-        XCTAssertEqual(TaskerThemeManager.shared.selectedThemeIndex, 3)
-        XCTAssertEqual(TaskerThemeManager.shared.currentTheme.index, 3)
-    }
-
-    func testThemeSelectionPersistsToUserDefaultsKey() {
-        TaskerThemeManager.shared.selectTheme(index: 5)
-
-        let persisted = UserDefaults.standard.integer(forKey: TaskerTheme.userDefaultsKey)
-        XCTAssertEqual(persisted, 5)
-    }
-
-    func testInvalidThemeIndexIsClamped() {
-        TaskerThemeManager.shared.selectTheme(index: 500)
-
-        XCTAssertEqual(TaskerThemeManager.shared.selectedThemeIndex, TaskerTheme.accentThemes.count - 1)
-    }
-
-    func testLegacyThemeIndexMigrationMapsPersistedValue() {
-        let suiteName = "TaskerThemeManagerTests.\(UUID().uuidString)"
-        guard let defaults = UserDefaults(suiteName: suiteName) else {
-            return XCTFail("Could not create isolated defaults suite")
-        }
-        defer { defaults.removePersistentDomain(forName: suiteName) }
-
-        defaults.set(24, forKey: TaskerTheme.userDefaultsKey)
-        defaults.removeObject(forKey: TaskerThemeManager.themeMigrationKey)
-
-        let migrated = TaskerThemeManager.migratedPersistedThemeIndex(in: defaults)
-        XCTAssertEqual(migrated, 8)
-        XCTAssertEqual(defaults.integer(forKey: TaskerTheme.userDefaultsKey), 8)
-        XCTAssertEqual(defaults.integer(forKey: TaskerThemeManager.themeMigrationKey), TaskerThemeManager.themeMigrationVersion)
-    }
-
-    func testLegacyIndexMapCoversOldThemeRange() {
-        XCTAssertEqual(TaskerTheme.legacyThemeCount, 28)
-        XCTAssertEqual(TaskerTheme.migrateLegacyIndex(0), 0)
-        XCTAssertEqual(TaskerTheme.migrateLegacyIndex(7), 4)
-        XCTAssertEqual(TaskerTheme.migrateLegacyIndex(21), 7)
-        XCTAssertEqual(TaskerTheme.migrateLegacyIndex(27), 8)
+        XCTAssertEqual(TaskerThemeManager.shared.currentTheme.index, 0)
+        XCTAssertEqual(TaskerThemeManager.shared.currentTheme.palette, .sarvam)
     }
 
     func testTokenResolverKeepsPhoneValuesStable() {
@@ -66,6 +25,10 @@ final class TaskerThemeManagerTests: XCTestCase {
         XCTAssertEqual(resolved.spacing.s16, baseline.spacing.s16)
         XCTAssertEqual(resolved.corner.r2, baseline.corner.r2)
         XCTAssertEqual(resolved.typography.body.pointSize, baseline.typography.body.pointSize)
+        XCTAssertEqual(
+            resolved.color.bgCanvas.resolvedColor(with: UITraitCollection(userInterfaceStyle: .dark)),
+            baseline.color.bgCanvas.resolvedColor(with: UITraitCollection(userInterfaceStyle: .dark))
+        )
     }
 
     func testTokenResolverIsStableForSameLayoutAndTraitCluster() {
@@ -81,5 +44,30 @@ final class TaskerThemeManagerTests: XCTestCase {
         XCTAssertEqual(first.spacing.sectionGap, second.spacing.sectionGap)
         XCTAssertEqual(first.corner.card, second.corner.card)
         XCTAssertEqual(first.typography.title2.pointSize, second.typography.title2.pointSize)
+    }
+
+    func testCurrentPaletteCarriesSilkScribeInspiredNeutrals() {
+        let palette = TaskerThemeManager.shared.currentTheme.palette
+
+        assertEqualColor(palette.neutralIvory, UIColor(taskerHex: "#FFF8EF"))
+        assertEqualColor(palette.neutralDarkInk0, UIColor(taskerHex: "#0F0C0A"))
+        assertEqualColor(palette.neutralDarkBorder2, UIColor(taskerHex: "#4A3B30"))
+    }
+
+    private func assertEqualColor(_ lhs: UIColor, _ rhs: UIColor, file: StaticString = #filePath, line: UInt = #line) {
+        var lR: CGFloat = 0
+        var lG: CGFloat = 0
+        var lB: CGFloat = 0
+        var lA: CGFloat = 0
+        var rR: CGFloat = 0
+        var rG: CGFloat = 0
+        var rB: CGFloat = 0
+        var rA: CGFloat = 0
+        XCTAssertTrue(lhs.getRed(&lR, green: &lG, blue: &lB, alpha: &lA), file: file, line: line)
+        XCTAssertTrue(rhs.getRed(&rR, green: &rG, blue: &rB, alpha: &rA), file: file, line: line)
+        XCTAssertEqual(lR, rR, accuracy: 0.001, file: file, line: line)
+        XCTAssertEqual(lG, rG, accuracy: 0.001, file: file, line: line)
+        XCTAssertEqual(lB, rB, accuracy: 0.001, file: file, line: line)
+        XCTAssertEqual(lA, rA, accuracy: 0.001, file: file, line: line)
     }
 }

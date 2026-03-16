@@ -7,6 +7,15 @@ public struct TaskerSwiftUIColorTokens {
     public let surfacePrimary: Color
     public let surfaceSecondary: Color
     public let surfaceTertiary: Color
+    public let brandPrimary: Color
+    public let brandSecondary: Color
+    public let brandHighlight: Color
+    public let actionPrimary: Color
+    public let actionPrimaryPressed: Color
+    public let actionFocus: Color
+    public let borderSubtle: Color
+    public let borderDefault: Color
+    public let borderStrong: Color
     public let divider: Color
     public let strokeHairline: Color
     public let strokeStrong: Color
@@ -16,6 +25,7 @@ public struct TaskerSwiftUIColorTokens {
     public let textTertiary: Color
     public let textQuaternary: Color
     public let textInverse: Color
+    public let textDisabled: Color
 
     public let accentPrimary: Color
     public let accentPrimaryPressed: Color
@@ -31,6 +41,7 @@ public struct TaskerSwiftUIColorTokens {
     public let statusSuccess: Color
     public let statusWarning: Color
     public let statusDanger: Color
+    public let stateInfo: Color
 
     public let priorityMax: Color
     public let priorityHigh: Color
@@ -44,6 +55,15 @@ public struct TaskerSwiftUIColorTokens {
         self.surfacePrimary = Color(uiColor: ui.surfacePrimary)
         self.surfaceSecondary = Color(uiColor: ui.surfaceSecondary)
         self.surfaceTertiary = Color(uiColor: ui.surfaceTertiary)
+        self.brandPrimary = Color(uiColor: ui.brandPrimary)
+        self.brandSecondary = Color(uiColor: ui.brandSecondary)
+        self.brandHighlight = Color(uiColor: ui.brandHighlight)
+        self.actionPrimary = Color(uiColor: ui.actionPrimary)
+        self.actionPrimaryPressed = Color(uiColor: ui.actionPrimaryPressed)
+        self.actionFocus = Color(uiColor: ui.actionFocus)
+        self.borderSubtle = Color(uiColor: ui.borderSubtle)
+        self.borderDefault = Color(uiColor: ui.borderDefault)
+        self.borderStrong = Color(uiColor: ui.borderStrong)
         self.divider = Color(uiColor: ui.divider)
         self.strokeHairline = Color(uiColor: ui.strokeHairline)
         self.strokeStrong = Color(uiColor: ui.strokeStrong)
@@ -52,6 +72,7 @@ public struct TaskerSwiftUIColorTokens {
         self.textTertiary = Color(uiColor: ui.textTertiary)
         self.textQuaternary = Color(uiColor: ui.textQuaternary)
         self.textInverse = Color(uiColor: ui.textInverse)
+        self.textDisabled = Color(uiColor: ui.textDisabled)
         self.accentPrimary = Color(uiColor: ui.accentPrimary)
         self.accentPrimaryPressed = Color(uiColor: ui.accentPrimaryPressed)
         self.accentMuted = Color(uiColor: ui.accentMuted)
@@ -64,6 +85,7 @@ public struct TaskerSwiftUIColorTokens {
         self.statusSuccess = Color(uiColor: ui.statusSuccess)
         self.statusWarning = Color(uiColor: ui.statusWarning)
         self.statusDanger = Color(uiColor: ui.statusDanger)
+        self.stateInfo = Color(uiColor: ui.stateInfo)
         self.priorityMax = Color(uiColor: ui.priorityMax)
         self.priorityHigh = Color(uiColor: ui.priorityHigh)
         self.priorityLow = Color(uiColor: ui.priorityLow)
@@ -74,7 +96,6 @@ public struct TaskerSwiftUIColorTokens {
 @MainActor
 public enum TaskerSwiftUITokens {
     private struct SwiftUIColorCacheKey: Hashable {
-        let themeIndex: Int
         let layoutClass: TaskerLayoutClass
         let traits: TaskerTokenTraitContext
     }
@@ -110,7 +131,6 @@ public enum TaskerSwiftUITokens {
         traits: TaskerTokenTraitContext
     ) -> TaskerSwiftUIColorTokens {
         let cacheKey = SwiftUIColorCacheKey(
-            themeIndex: TaskerThemeManager.shared.selectedThemeIndex,
             layoutClass: layoutClass,
             traits: traits
         )
@@ -485,14 +505,14 @@ private struct TaskerTextFieldBody<Label: View>: View {
         return configuration
             .font(.tasker(.body))
             .foregroundColor(.tasker(.textPrimary))
-            .tint(.tasker(.accentPrimary))
+            .tint(.tasker(.actionPrimary))
             .padding(.horizontal, tokens.spacing.s12)
             .frame(height: TaskerTextFieldTokens.singleLineHeight)
             .background(Color.tasker.surfaceSecondary)
             .overlay(
                 RoundedRectangle(cornerRadius: tokens.corner.r2)
                     .stroke(
-                        isFocused ? Color.tasker.accentRing : Color.tasker.divider,
+                        isFocused ? Color.tasker(.actionFocus) : Color.tasker(.borderDefault),
                         lineWidth: isFocused ? 2 : 1
                     )
             )
@@ -536,7 +556,7 @@ public struct TaskerChip: View {
 
     private var textColor: Color {
         if !isSelected { return .tasker(.textSecondary) }
-        return selectedStyle == .filled ? .tasker(.accentOnPrimary) : .tasker(.accentPrimary)
+        return selectedStyle == .filled ? .tasker(.accentOnPrimary) : .tasker(.actionPrimary)
     }
 
     @ViewBuilder
@@ -546,14 +566,14 @@ public struct TaskerChip: View {
         } else if selectedStyle == .filled {
             Color.tasker(.chipSelectedBackground)
         } else {
-            Color.tasker.accentMuted
+            Color.tasker(.accentWash)
         }
     }
 
     @ViewBuilder
     private var border: some View {
         if isSelected && selectedStyle == .tinted {
-            Capsule().stroke(Color.tasker.accentRing, lineWidth: 1)
+            Capsule().stroke(Color.tasker(.actionFocus), lineWidth: 1)
         } else {
             Capsule().stroke(Color.clear, lineWidth: 0)
         }
@@ -589,7 +609,7 @@ public struct TaskerCard<Content: View>: View {
             .background(Color.tasker.surfacePrimary)
             .overlay(
                 RoundedRectangle(cornerRadius: tokens.corner.r3)
-                    .stroke(active ? Color.tasker.strokeStrong : Color.tasker.strokeHairline, lineWidth: 1)
+                    .stroke(active ? Color.tasker(.borderStrong) : Color.tasker(.borderDefault), lineWidth: 1)
             )
             .clipShape(RoundedRectangle(cornerRadius: tokens.corner.r3))
             .taskerElevation(elevated ? .e2 : .e1, cornerRadius: tokens.corner.r3, includesBorder: false)

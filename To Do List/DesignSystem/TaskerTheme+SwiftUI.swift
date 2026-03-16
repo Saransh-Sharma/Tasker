@@ -15,8 +15,8 @@ extension TaskerTheme {
     @MainActor
     public enum Colors {
         // XP / Gamification
-        public static var xpGold: Color { Color.tasker(.accentPrimary) }
-        public static var xpGoldLight: Color { Color.tasker(.accentMuted) }
+        public static var xpGold: Color { Color.tasker(.statusWarning) }
+        public static var xpGoldLight: Color { Color.tasker(.accentSecondaryWash) }
 
         // Text
         public static var textPrimary: Color { Color.tasker(.textPrimary) }
@@ -29,9 +29,16 @@ extension TaskerTheme {
         public static var background: Color { Color.tasker(.bgCanvas) }
         public static var surfaceSecondary: Color { Color.tasker(.surfaceSecondary) }
 
+        // Brand
+        public static var brandPrimary: Color { Color.tasker(.brandPrimary) }
+        public static var brandSecondary: Color { Color.tasker(.brandSecondary) }
+        public static var brandHighlight: Color { Color.tasker(.brandHighlight) }
+
         // Primary Accent
         public static var accentPrimary: Color { Color.tasker(.accentPrimary) }
         public static var accentMuted: Color { Color.tasker(.accentMuted) }
+        public static var actionPrimary: Color { Color.tasker(.actionPrimary) }
+        public static var actionFocus: Color { Color.tasker(.actionFocus) }
 
         // Secondary Accent
         public static var accentSecondary: Color { Color.tasker(.accentSecondary) }
@@ -41,6 +48,7 @@ extension TaskerTheme {
         public static var statusSuccess: Color { Color.tasker(.statusSuccess) }
         public static var statusWarning: Color { Color.tasker(.statusWarning) }
         public static var statusDanger: Color { Color.tasker(.statusDanger) }
+        public static var stateInfo: Color { Color.tasker(.stateInfo) }
 
         // Priority
         public static var priorityMax: Color { Color.tasker(.priorityMax) }
@@ -55,13 +63,22 @@ extension TaskerTheme {
 extension TaskerTheme {
     @MainActor
     public enum Typography {
+        public static var heroDisplay: Font { .tasker(.heroDisplay) }
+        public static var screenTitle: Font { .tasker(.screenTitle) }
+        public static var sectionTitle: Font { .tasker(.sectionTitle) }
+        public static var eyebrow: Font { .tasker(.eyebrow) }
         public static var display: Font { .tasker(.display) }
         public static var title1: Font { .tasker(.title1) }
         public static var title2: Font { .tasker(.title2) }
         public static var title3: Font { .tasker(.title3) }
         public static var headline: Font { .tasker(.headline) }
         public static var body: Font { .tasker(.body) }
+        public static var bodyStrong: Font { .tasker(.bodyStrong) }
         public static var bodyMedium: Font { .tasker(.bodyEmphasis) }
+        public static var support: Font { .tasker(.support) }
+        public static var meta: Font { .tasker(.meta) }
+        public static var metric: Font { .tasker(.metric) }
+        public static var monoMeta: Font { .tasker(.monoMeta) }
         public static var callout: Font { .tasker(.callout) }
         public static var caption: Font { .tasker(.caption1) }
         public static var captionSemibold: Font { .tasker(.caption1).weight(.semibold) }

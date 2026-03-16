@@ -47,10 +47,10 @@ public struct TaskPriorityConfig {
         /// Hex color string for UI representation ("Four Jewels" — maximally distinct)
         public var colorHex: String {
             switch self {
-            case .none: return "#B09080"  // Antique Bronze
-            case .low: return "#38C8A8"   // Jade Teal
-            case .high: return "#7C68D8"  // Imperial Violet
-            case .max: return "#E05058"   // Scarlet Garnet
+            case .none: return "#9E5F0A"
+            case .low: return "#293A18"
+            case .high: return "#B1205F"
+            case .max: return "#C11317"
             }
         }
 

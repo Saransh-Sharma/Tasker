@@ -6,6 +6,9 @@ final class TypographyTokenTests: XCTestCase {
     func testTypographyStylesExist() {
         let typography = TaskerTheme(index: 0).tokens.typography
 
+        XCTAssertGreaterThan(typography.heroDisplay.pointSize, 0)
+        XCTAssertGreaterThan(typography.screenTitle.pointSize, 0)
+        XCTAssertGreaterThan(typography.sectionTitle.pointSize, 0)
         XCTAssertGreaterThan(typography.display.pointSize, 0)
         XCTAssertGreaterThan(typography.title1.pointSize, 0)
         XCTAssertGreaterThan(typography.body.pointSize, 0)
@@ -24,6 +27,13 @@ final class TypographyTokenTests: XCTestCase {
         let typography = TaskerTheme(index: 0).tokens.typography
 
         XCTAssertGreaterThanOrEqual(typography.button.pointSize, typography.buttonSmall.pointSize)
+    }
+
+    func testMetricAndMonoRolesUseSpecializedDesigns() {
+        let typography = TaskerTheme(index: 0).tokens.typography
+
+        XCTAssertTrue(typography.metric.fontName.localizedCaseInsensitiveContains("rounded"))
+        XCTAssertTrue(typography.monoMeta.fontName.localizedCaseInsensitiveContains("mono"))
     }
 
     func testTextStylesAreDynamicTypeCompatibleAndNotHelvetica() {
