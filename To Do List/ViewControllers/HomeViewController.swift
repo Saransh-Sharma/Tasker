@@ -1712,7 +1712,7 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
 
                 let lifeArea = try await manageLifeAreas.createAsync(
                     name: "Career",
-                    color: "#3B82F6",
+                    color: "#293A18",
                     icon: "briefcase.fill"
                 )
                 let project = try await manageProjects.createProjectAsync(

@@ -7,7 +7,7 @@ struct WeeklyScoreboardWidget: Widget {
     var body: some WidgetConfiguration {
         StaticConfiguration(kind: kind, provider: WeeklyScoreboardProvider()) { entry in
             WeeklyScoreboardWidgetView(entry: entry)
-                .containerBackground(.fill.tertiary, for: .widget)
+                .containerBackground(WidgetBrand.canvas, for: .widget)
         }
         .configurationDisplayName("Weekly XP")
         .description("View your XP for the week.")
@@ -85,10 +85,11 @@ struct WeeklyScoreboardWidgetView: View {
             HStack {
                 Text("This Week")
                     .font(.system(size: 11, weight: .medium))
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(WidgetBrand.textSecondary)
                 Spacer()
                 Text("Total: \(entry.snapshot.weeklyTotalXP)")
                     .font(.system(size: 11, weight: .bold, design: .rounded))
+                    .foregroundStyle(WidgetBrand.textPrimary)
             }
 
             HStack(alignment: .bottom, spacing: 6) {
@@ -106,7 +107,7 @@ struct WeeklyScoreboardWidgetView: View {
                         }
                         Text(dayLabels[index])
                             .font(.system(size: 9, weight: index == todayIndex ? .bold : .regular))
-                            .foregroundStyle(index == todayIndex ? .primary : .secondary)
+                            .foregroundStyle(index == todayIndex ? WidgetBrand.textPrimary : WidgetBrand.textSecondary)
                     }
                     .accessibilityElement(children: .combine)
                     .accessibilityLabel("\(dayLabels[index]) \(xp) XP")
@@ -119,11 +120,11 @@ struct WeeklyScoreboardWidgetView: View {
             HStack {
                 Text(scaleMode == .goal ? "Goal scale" : "Personal max")
                     .font(.system(size: 9, weight: .medium))
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(WidgetBrand.textSecondary)
                 Spacer()
                 Text(freshnessText)
                     .font(.system(size: 9, weight: .medium))
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(WidgetBrand.textSecondary)
             }
         }
         .accessibilityElement(children: .contain)
@@ -132,8 +133,8 @@ struct WeeklyScoreboardWidgetView: View {
     }
 
     private func barColor(index: Int) -> Color {
-        if index == todayIndex { return .accentColor }
-        if index > todayIndex { return Color(.systemGray5) }
-        return .accentColor.opacity(0.4)
+        if index == todayIndex { return WidgetBrand.magenta }
+        if index > todayIndex { return WidgetBrand.line }
+        return WidgetBrand.marigold.opacity(0.55)
     }
 }

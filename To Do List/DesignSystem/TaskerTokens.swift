@@ -112,14 +112,23 @@ public protocol TaskerTokenContainer {
 }
 
 public enum TaskerTextStyle: String, CaseIterable {
+    case heroDisplay
+    case screenTitle
+    case sectionTitle
+    case eyebrow
     case display
     case title1
     case title2
     case title3
     case headline
     case body
+    case bodyStrong
     case bodyEmphasis
+    case support
+    case meta
     case callout
+    case metric
+    case monoMeta
     case caption1
     case caption2
     case button
@@ -128,10 +137,20 @@ public enum TaskerTextStyle: String, CaseIterable {
 
 public enum TaskerColorRole: String, CaseIterable {
     case bgCanvas
+    case bgCanvasSecondary
     case bgElevated
     case surfacePrimary
     case surfaceSecondary
     case surfaceTertiary
+    case brandPrimary
+    case brandSecondary
+    case brandHighlight
+    case actionPrimary
+    case actionPrimaryPressed
+    case actionFocus
+    case borderSubtle
+    case borderDefault
+    case borderStrong
     case divider
     case strokeHairline
     case strokeStrong
@@ -140,6 +159,7 @@ public enum TaskerColorRole: String, CaseIterable {
     case textTertiary
     case textQuaternary
     case textInverse
+    case textDisabled
     case accentPrimary
     case accentPrimaryPressed
     case accentMuted
@@ -153,6 +173,7 @@ public enum TaskerColorRole: String, CaseIterable {
     case statusSuccess
     case statusWarning
     case statusDanger
+    case stateInfo
     case overlayScrim
     case overlayGlassTint
     case taskCheckboxBorder

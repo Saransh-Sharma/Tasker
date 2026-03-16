@@ -5,10 +5,6 @@ import Combine
 @MainActor
 final class SettingsViewModel: ObservableObject {
 
-    // MARK: - Appearance
-
-    @Published var isDarkMode: Bool
-
     // MARK: - Notifications
 
     @Published var preferences: TaskerNotificationPreferences
@@ -93,19 +89,7 @@ final class SettingsViewModel: ObservableObject {
         self.appManager = appManager
         self.notificationPreferencesStore = notificationPreferencesStore
         self.preferences = notificationPreferencesStore.load()
-        self.isDarkMode = UIScreen.main.traitCollection.userInterfaceStyle == .dark
         self.currentModelDisplayName = appManager.modelDisplayName(appManager.currentModelName ?? "")
-    }
-
-    // MARK: - Dark Mode
-
-    func toggleDarkMode(_ isDark: Bool) {
-        isDarkMode = isDark
-        let newStyle: UIUserInterfaceStyle = isDark ? .dark : .light
-        if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene {
-            windowScene.windows.forEach { $0.overrideUserInterfaceStyle = newStyle }
-        }
-        TaskerFeedback.selection()
     }
 
     // MARK: - Notification Toggles

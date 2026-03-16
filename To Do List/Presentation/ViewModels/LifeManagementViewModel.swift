@@ -746,7 +746,7 @@ public final class LifeManagementViewModel: ObservableObject {
 
         manageLifeAreasUseCase.create(
             name: Self.generalDisplayName,
-            color: "#4A6FA5",
+            color: LifeAreaConstants.generalSeedColor,
             icon: "square.grid.2x2"
         ) { [weak self] createResult in
             guard let self else { return }

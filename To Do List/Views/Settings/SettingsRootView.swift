@@ -93,12 +93,6 @@ struct SettingsRootView: View {
                 .padding(.top, spacing.sectionGap)
 
             VStack(spacing: spacing.cardStackVertical) {
-                AppearanceCardView(
-                    isDarkMode: $viewModel.isDarkMode,
-                    onToggleDarkMode: { viewModel.toggleDarkMode($0) }
-                )
-                .enhancedStaggeredAppearance(index: baseIndex + 1)
-
                 TaskerCard {
                     SettingsNavigationRow(
                         iconName: "square.grid.2x2.fill",
@@ -106,8 +100,7 @@ struct SettingsRootView: View {
                         action: viewModel.onNavigateToLifeManagement
                     )
                 }
-                .cardPressEffect()
-                .enhancedStaggeredAppearance(index: baseIndex + 2)
+                .enhancedStaggeredAppearance(index: baseIndex + 1)
 
                 TaskerCard {
                     VStack(spacing: 0) {
@@ -128,11 +121,10 @@ struct SettingsRootView: View {
                         )
                     }
                 }
-                .cardPressEffect()
-                .enhancedStaggeredAppearance(index: baseIndex + 3)
+                .enhancedStaggeredAppearance(index: baseIndex + 2)
 
                 onboardingReplayCard
-                    .enhancedStaggeredAppearance(index: baseIndex + 4)
+                    .enhancedStaggeredAppearance(index: baseIndex + 3)
             }
             .padding(.horizontal, includeHorizontalPadding ? spacing.screenHorizontal : 0)
             .padding(.top, spacing.s12)
@@ -144,7 +136,7 @@ struct SettingsRootView: View {
             VStack(alignment: .leading, spacing: spacing.s12) {
                 HStack(alignment: .top, spacing: spacing.s12) {
                     Image(systemName: "sparkles")
-                        .font(.system(size: 18, weight: .semibold))
+                        .font(.tasker(.sectionTitle))
                         .foregroundColor(Color.tasker.accentPrimary)
                         .frame(width: 28, height: 28)
 

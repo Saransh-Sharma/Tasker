@@ -7,7 +7,7 @@ struct StreakResilienceWidget: Widget {
     var body: some WidgetConfiguration {
         StaticConfiguration(kind: kind, provider: StreakResilienceProvider()) { entry in
             StreakResilienceWidgetView(entry: entry)
-                .containerBackground(.fill.tertiary, for: .widget)
+                .containerBackground(WidgetBrand.canvas, for: .widget)
         }
         .configurationDisplayName("Streak")
         .description("Track your streak and best record.")
@@ -48,20 +48,21 @@ struct StreakResilienceWidgetView: View {
         VStack(spacing: 8) {
             Image(systemName: "flame.fill")
                 .font(.system(size: 36))
-                .foregroundStyle(entry.snapshot.streakDays > 0 ? .orange : Color(.systemGray4))
+                .foregroundStyle(entry.snapshot.streakDays > 0 ? WidgetBrand.marigold : WidgetBrand.line)
 
             Text("\(entry.snapshot.streakDays)")
                 .font(.system(size: 28, weight: .bold, design: .rounded))
+                .foregroundStyle(WidgetBrand.textPrimary)
             Text("days")
                 .font(.system(size: 11, weight: .medium))
-                .foregroundStyle(.secondary)
+                .foregroundStyle(WidgetBrand.textSecondary)
 
             VStack(spacing: 2) {
                 Text("Best: \(entry.snapshot.bestStreak) days")
                     .font(.system(size: 10, weight: .medium))
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(WidgetBrand.textSecondary)
                 ProgressView(value: streakProgress)
-                    .tint(.orange)
+                    .tint(WidgetBrand.magenta)
             }
         }
         .accessibilityElement(children: .combine)

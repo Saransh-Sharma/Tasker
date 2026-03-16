@@ -18,7 +18,7 @@ final class ColoredPillBackgroundView: UIView {
         case .neutralNavBar:
             backgroundColor = colors.surfaceSecondary
         case .brandNavBar:
-            backgroundColor = colors.accentPrimary
+            backgroundColor = colors.actionPrimary
         }
     }
     /// Initializes a new instance.

@@ -1,275 +1,164 @@
-//
-//  ThemeSelectionViewController.swift
-//  To Do List
-//
-//  Created by Saransh Sharma on 15/06/25.
-//
-
 import UIKit
 
-// A simple collection-view-based UI that lets users choose among predefined themes.
-// Each cell renders a visual card consisting of two rectangles: the top 80 % shows the
-// theme's primary colour and the bottom 20 % shows the secondary colour.
-class ThemeSelectionViewController: UIViewController {
+final class ThemeSelectionViewController: UIViewController {
+    private let scrollView = UIScrollView()
+    private let stackView = UIStackView()
 
-    // MARK: - Properties
-    private var collectionView: UICollectionView!
-    private let cellReuseIdentifier = "ThemeCardCell"
-
-    // MARK: - Lifecycle
-    /// Executes viewDidLoad.
     override func viewDidLoad() {
         super.viewDidLoad()
 
+        title = "Brand Palette"
         view.backgroundColor = TaskerThemeManager.shared.currentTheme.tokens.color.bgCanvas
-        title = "Choose Theme"
-
-        configureCollectionView()
+        configureStack()
     }
 
-    // MARK: - UI Setup
-    /// Executes configureCollectionView.
-    private func configureCollectionView() {
+    private func configureStack() {
         let spacing = TaskerThemeManager.shared.currentTheme.tokens.spacing
-        let layout = UICollectionViewFlowLayout()
-        layout.scrollDirection = .horizontal
-        layout.minimumLineSpacing = spacing.s16
-        layout.sectionInset = UIEdgeInsets(top: 0, left: spacing.s16, bottom: 0, right: spacing.s16)
-        layout.itemSize = CGSize(width: 80, height: 100)
+        let colors = TaskerThemeManager.shared.currentTheme
 
-        collectionView = UICollectionView(frame: .zero, collectionViewLayout: layout)
-        collectionView.translatesAutoresizingMaskIntoConstraints = false
-        collectionView.backgroundColor = .clear
-        collectionView.showsHorizontalScrollIndicator = false
-        collectionView.dataSource = self
-        collectionView.delegate = self
-        collectionView.register(ThemeCardCell.self, forCellWithReuseIdentifier: cellReuseIdentifier)
+        scrollView.translatesAutoresizingMaskIntoConstraints = false
+        view.addSubview(scrollView)
 
-        view.addSubview(collectionView)
+        stackView.axis = .vertical
+        stackView.spacing = spacing.s16
+        stackView.translatesAutoresizingMaskIntoConstraints = false
+
+        let header = UILabel()
+        header.font = UIFont.tasker.screenTitle
+        header.textColor = TaskerUIKitTokens.color.textPrimary
+        header.text = "Tasker now uses one rooted Sarvam-inspired brand across every screen."
+        header.numberOfLines = 0
+
+        let preview = BrandPalettePreviewView(theme: colors)
+        let footnote = UILabel()
+        footnote.font = UIFont.tasker.meta
+        footnote.textColor = TaskerUIKitTokens.color.textSecondary
+        footnote.text = "Light and dark appearance follow your system settings automatically."
+        footnote.numberOfLines = 0
+
+        stackView.addArrangedSubview(header)
+        stackView.addArrangedSubview(preview)
+        stackView.addArrangedSubview(footnote)
+        scrollView.addSubview(stackView)
 
         NSLayoutConstraint.activate([
-            collectionView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
-            collectionView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
-            collectionView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: spacing.s24),
-            collectionView.heightAnchor.constraint(equalToConstant: 100)
+            scrollView.leadingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.leadingAnchor, constant: spacing.screenHorizontal),
+            scrollView.trailingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.trailingAnchor, constant: -spacing.screenHorizontal),
+            scrollView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: spacing.s24),
+            scrollView.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor, constant: -spacing.s24),
+
+            stackView.leadingAnchor.constraint(equalTo: scrollView.contentLayoutGuide.leadingAnchor),
+            stackView.trailingAnchor.constraint(equalTo: scrollView.contentLayoutGuide.trailingAnchor),
+            stackView.topAnchor.constraint(equalTo: scrollView.contentLayoutGuide.topAnchor),
+            stackView.bottomAnchor.constraint(equalTo: scrollView.contentLayoutGuide.bottomAnchor),
+            stackView.widthAnchor.constraint(equalTo: scrollView.frameLayoutGuide.widthAnchor)
+        ])
+    }
+}
+
+#if DEBUG
+final class ThemeDebugSwatchesViewController: UIViewController {
+    override func viewDidLoad() {
+        super.viewDidLoad()
+        title = "Brand QA"
+        view.backgroundColor = TaskerThemeManager.shared.currentTheme.tokens.color.bgCanvas
+
+        let preview = BrandPalettePreviewView(theme: TaskerThemeManager.shared.currentTheme)
+        preview.translatesAutoresizingMaskIntoConstraints = false
+        view.addSubview(preview)
+
+        NSLayoutConstraint.activate([
+            preview.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 20),
+            preview.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -20),
+            preview.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 24)
+        ])
+    }
+}
+#endif
+
+final class BrandPalettePreviewView: UIView {
+    init(theme: TaskerTheme) {
+        super.init(frame: .zero)
+        translatesAutoresizingMaskIntoConstraints = false
+        backgroundColor = TaskerUIKitTokens.color.surfacePrimary
+        layer.cornerRadius = TaskerUIKitTokens.corner.card
+        layer.cornerCurve = .continuous
+        applyTaskerElevation(.e1)
+
+        let titleLabel = UILabel()
+        titleLabel.font = UIFont.tasker.eyebrow
+        titleLabel.textColor = TaskerUIKitTokens.color.textTertiary
+        titleLabel.text = "SARVAM-INSPIRED PALETTE"
+
+        let swatchStack = UIStackView()
+        swatchStack.axis = .horizontal
+        swatchStack.distribution = .fillEqually
+        swatchStack.spacing = 10
+
+        let swatches: [(String, UIColor)] = [
+            ("Emerald", theme.palette.brandEmerald),
+            ("Magenta", theme.palette.brandMagenta),
+            ("Marigold", theme.palette.brandMarigold),
+            ("Red", theme.palette.brandRed),
+            ("Sandstone", theme.palette.brandSandstone)
+        ]
+
+        swatches.forEach { swatch in
+            swatchStack.addArrangedSubview(makeSwatch(name: swatch.0, color: swatch.1))
+        }
+
+        let stack = UIStackView(arrangedSubviews: [titleLabel, swatchStack])
+        stack.axis = .vertical
+        stack.spacing = 14
+        stack.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(stack)
+
+        NSLayoutConstraint.activate([
+            stack.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 16),
+            stack.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -16),
+            stack.topAnchor.constraint(equalTo: topAnchor, constant: 16),
+            stack.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -16),
+            swatchStack.heightAnchor.constraint(equalToConstant: 86)
         ])
     }
 
-}
-
-// MARK: - UICollectionViewDataSource
-extension ThemeSelectionViewController: UICollectionViewDataSource {
-    /// Executes collectionView.
-    func collectionView(_ collectionView: UICollectionView, numberOfItemsInSection section: Int) -> Int {
-        return TaskerThemeManager.shared.availableThemeSwatches.count
-    }
-
-    /// Executes collectionView.
-    func collectionView(_ collectionView: UICollectionView, cellForItemAt indexPath: IndexPath) -> UICollectionViewCell {
-        guard let cell = collectionView.dequeueReusableCell(withReuseIdentifier: cellReuseIdentifier, for: indexPath) as? ThemeCardCell else {
-            return UICollectionViewCell()
-        }
-        let swatch = TaskerThemeManager.shared.availableThemeSwatches[indexPath.item]
-        cell.configure(
-            primary: swatch.primary,
-            secondary: swatch.secondary,
-            isSelected: indexPath.item == TaskerThemeManager.shared.selectedThemeIndex
-        )
-        return cell
-    }
-}
-
-// MARK: - UICollectionViewDelegate
-extension ThemeSelectionViewController: UICollectionViewDelegate {
-    /// Executes collectionView.
-    func collectionView(_ collectionView: UICollectionView, didSelectItemAt indexPath: IndexPath) {
-        // Persist selection
-        TaskerThemeManager.shared.selectTheme(index: indexPath.item)
-        // Refresh visuals
-        collectionView.reloadData()
-        // Pop back after slight delay to show selection feedback
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { [weak self] in
-            self?.navigationController?.popViewController(animated: true)
-        }
-    }
-}
-
-// MARK: - Collection View Cell
-private class ThemeCardCell: UICollectionViewCell {
-
-    private let primaryView = UIView()
-    private let secondaryView = UIView()
-
-    /// Initializes a new instance.
-    override init(frame: CGRect) {
-        super.init(frame: frame)
-
-        layer.cornerRadius = TaskerThemeManager.shared.currentTheme.tokens.corner.r1
-        layer.masksToBounds = true
-
-        primaryView.translatesAutoresizingMaskIntoConstraints = false
-        secondaryView.translatesAutoresizingMaskIntoConstraints = false
-
-        contentView.addSubview(primaryView)
-        contentView.addSubview(secondaryView)
-
-        NSLayoutConstraint.activate([
-            // Primary occupies 80 % height
-            primaryView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor),
-            primaryView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor),
-            primaryView.topAnchor.constraint(equalTo: contentView.topAnchor),
-            primaryView.heightAnchor.constraint(equalTo: contentView.heightAnchor, multiplier: 0.8),
-
-            // Secondary occupies remaining 20 %
-            secondaryView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor),
-            secondaryView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor),
-            secondaryView.bottomAnchor.constraint(equalTo: contentView.bottomAnchor),
-            secondaryView.topAnchor.constraint(equalTo: primaryView.bottomAnchor)
-        ])
-    }
-
-    /// Initializes a new instance.
+    @available(*, unavailable)
     required init?(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
     }
 
-    /// Executes configure.
-    func configure(primary: UIColor, secondary: UIColor, isSelected: Bool) {
-        primaryView.backgroundColor = primary
-        secondaryView.backgroundColor = secondary
+    private func makeSwatch(name: String, color: UIColor) -> UIView {
+        let container = UIView()
 
-        layer.borderWidth = isSelected ? 3 : 0
-        layer.borderColor = isSelected ? TaskerThemeManager.shared.currentTheme.tokens.color.accentRing.cgColor : nil
-    }
-}
+        let swatch = UIView()
+        swatch.backgroundColor = color
+        swatch.layer.cornerRadius = 14
+        swatch.layer.cornerCurve = .continuous
+        swatch.translatesAutoresizingMaskIntoConstraints = false
 
-final class ThemeDebugSwatchesViewController: UIViewController {
-    private let tableView = UITableView(frame: .zero, style: .insetGrouped)
-    private let reuseIdentifier = "ThemeDebugSwatchCell"
+        let label = UILabel()
+        label.font = UIFont.tasker.caption2
+        label.textColor = TaskerUIKitTokens.color.textSecondary
+        label.textAlignment = .center
+        label.text = name
+        label.adjustsFontSizeToFitWidth = true
+        label.minimumScaleFactor = 0.7
+        label.translatesAutoresizingMaskIntoConstraints = false
 
-    /// Executes viewDidLoad.
-    override func viewDidLoad() {
-        super.viewDidLoad()
-        title = "Theme QA Swatches"
-        view.backgroundColor = TaskerThemeManager.shared.currentTheme.tokens.color.bgCanvas
-        setupTableView()
-    }
-
-    /// Executes setupTableView.
-    private func setupTableView() {
-        tableView.translatesAutoresizingMaskIntoConstraints = false
-        tableView.dataSource = self
-        tableView.delegate = self
-        tableView.backgroundColor = .clear
-        tableView.rowHeight = UITableView.automaticDimension
-        tableView.estimatedRowHeight = 72
-        view.addSubview(tableView)
+        container.addSubview(swatch)
+        container.addSubview(label)
 
         NSLayoutConstraint.activate([
-            tableView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
-            tableView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
-            tableView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
-            tableView.bottomAnchor.constraint(equalTo: view.bottomAnchor)
+            swatch.leadingAnchor.constraint(equalTo: container.leadingAnchor),
+            swatch.trailingAnchor.constraint(equalTo: container.trailingAnchor),
+            swatch.topAnchor.constraint(equalTo: container.topAnchor),
+            swatch.heightAnchor.constraint(equalToConstant: 56),
+            label.leadingAnchor.constraint(equalTo: container.leadingAnchor),
+            label.trailingAnchor.constraint(equalTo: container.trailingAnchor),
+            label.topAnchor.constraint(equalTo: swatch.bottomAnchor, constant: 8),
+            label.bottomAnchor.constraint(equalTo: container.bottomAnchor)
         ])
-    }
 
-    /// Executes summary.
-    private func summary(for index: Int) -> String {
-        let theme = TaskerTheme(index: index)
-        let colors = theme.tokens.color
-        let traits = traitCollection
-        let accent = colors.accentPrimary.resolvedColor(with: traits)
-        let ring = colors.accentRing.resolvedColor(with: traits)
-        let onAccent = colors.accentOnPrimary.resolvedColor(with: traits)
-        let textInverse = colors.textInverse.resolvedColor(with: traits)
-        let ratio = contrastRatio(between: accent, and: textInverse)
-        return "accent500 \(accent.taskerHexString) • ring \(ring.taskerHexString) • onAccent \(onAccent.taskerHexString) • contrast \(String(format: "%.2f", ratio)):1"
-    }
-
-    /// Executes contrastRatio.
-    private func contrastRatio(between lhs: UIColor, and rhs: UIColor) -> Double {
-        let lhsL = lhs.taskerRelativeLuminance
-        let rhsL = rhs.taskerRelativeLuminance
-        let lighter = max(lhsL, rhsL)
-        let darker = min(lhsL, rhsL)
-        return (lighter + 0.05) / (darker + 0.05)
-    }
-}
-
-extension ThemeDebugSwatchesViewController: UITableViewDataSource, UITableViewDelegate {
-    /// Executes numberOfSections.
-    func numberOfSections(in tableView: UITableView) -> Int {
-        1
-    }
-
-    /// Executes tableView.
-    func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
-        TaskerTheme.accentThemes.count
-    }
-
-    /// Executes tableView.
-    func tableView(_ tableView: UITableView, titleForHeaderInSection section: Int) -> String? {
-        "Tap a swatch to preview/apply"
-    }
-
-    /// Executes tableView.
-    func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
-        let cell = tableView.dequeueReusableCell(withIdentifier: reuseIdentifier)
-            ?? UITableViewCell(style: .subtitle, reuseIdentifier: reuseIdentifier)
-        let index = indexPath.row
-        let theme = TaskerTheme(index: index)
-        let colors = theme.tokens.color
-
-        cell.textLabel?.text = "\(theme.accentTheme.name)"
-        cell.textLabel?.font = UIFont.tasker.bodyEmphasis
-        cell.detailTextLabel?.text = summary(for: index)
-        cell.detailTextLabel?.font = UIFont.tasker.caption2
-        cell.detailTextLabel?.numberOfLines = 0
-        cell.backgroundColor = colors.surfacePrimary
-        cell.tintColor = TaskerThemeManager.shared.currentTheme.tokens.color.accentPrimary
-        cell.accessoryType = TaskerThemeManager.shared.selectedThemeIndex == index ? .checkmark : .none
-        return cell
-    }
-
-    /// Executes tableView.
-    func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
-        TaskerThemeManager.shared.selectTheme(index: indexPath.row)
-        tableView.reloadData()
-    }
-}
-
-private extension UIColor {
-    var taskerHexString: String {
-        var red: CGFloat = 0
-        var green: CGFloat = 0
-        var blue: CGFloat = 0
-        var alpha: CGFloat = 0
-        guard getRed(&red, green: &green, blue: &blue, alpha: &alpha) else { return "#000000" }
-        let redInt = Int(round(red * 255))
-        let greenInt = Int(round(green * 255))
-        let blueInt = Int(round(blue * 255))
-        return String(format: "#%02X%02X%02X", redInt, greenInt, blueInt)
-    }
-
-    var taskerRelativeLuminance: Double {
-        var red: CGFloat = 0
-        var green: CGFloat = 0
-        var blue: CGFloat = 0
-        var alpha: CGFloat = 0
-        guard getRed(&red, green: &green, blue: &blue, alpha: &alpha) else { return 0 }
-
-        /// Executes convert.
-        func convert(_ value: CGFloat) -> Double {
-            let srgb = Double(value)
-            if srgb <= 0.04045 {
-                return srgb / 12.92
-            }
-            return pow((srgb + 0.055) / 1.055, 2.4)
-        }
-
-        let redLin = convert(red)
-        let greenLin = convert(green)
-        let blueLin = convert(blue)
-        return (0.2126 * redLin) + (0.7152 * greenLin) + (0.0722 * blueLin)
+        return container
     }
 }

@@ -15,10 +15,10 @@ final class SpacingElevationCornerTests: XCTestCase {
     func testCornerScaleValues() {
         let corner = TaskerTheme(index: 0).tokens.corner
 
-        XCTAssertEqual(corner.r1, 8)
-        XCTAssertEqual(corner.r2, 12)
-        XCTAssertEqual(corner.r3, 20)
-        XCTAssertEqual(corner.r4, 28)
+        XCTAssertEqual(corner.r1, 12)
+        XCTAssertEqual(corner.r2, 14)
+        XCTAssertEqual(corner.r3, 18)
+        XCTAssertEqual(corner.r4, 22)
         XCTAssertEqual(corner.pill, 999)
     }
 
@@ -86,7 +86,7 @@ final class SpacingElevationCornerTests: XCTestCase {
         chip.selectedStyle = .tinted
         chip.isSelected = true
 
-        let expected = TaskerThemeManager.shared.currentTheme.tokens.color.accentMuted
+        let expected = TaskerThemeManager.shared.currentTheme.tokens.color.accentWash
         XCTAssertEqualColor(chip.backgroundColor, expected)
     }
 
@@ -101,16 +101,16 @@ final class SpacingElevationCornerTests: XCTestCase {
     }
 
     @MainActor
-    func testTaskerTextFieldFocusRingUsesAccentRing() {
+    func testTaskerTextFieldFocusRingUsesActionFocus() {
         let textField = TaskerTextField(kind: .singleLine)
         textField.sendActions(for: .editingDidBegin)
 
         XCTAssertEqual(textField.layer.borderWidth, 2)
-        XCTAssertEqualColor(UIColor(cgColor: textField.layer.borderColor ?? UIColor.clear.cgColor), UIColor.tasker.accentRing)
+        XCTAssertEqualColor(UIColor(cgColor: textField.layer.borderColor ?? UIColor.clear.cgColor), UIColor.tasker.actionFocus)
 
         textField.sendActions(for: .editingDidEnd)
         XCTAssertEqual(textField.layer.borderWidth, 1)
-        XCTAssertEqualColor(UIColor(cgColor: textField.layer.borderColor ?? UIColor.clear.cgColor), UIColor.tasker.strokeHairline)
+        XCTAssertEqualColor(UIColor(cgColor: textField.layer.borderColor ?? UIColor.clear.cgColor), UIColor.tasker.borderDefault)
     }
 
     private func XCTAssertEqualColor(

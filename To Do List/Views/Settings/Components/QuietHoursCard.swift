@@ -12,12 +12,12 @@ struct QuietHoursCard: View {
                 // Header toggle row
                 HStack(spacing: TaskerSwiftUITokens.spacing.s12) {
                     Image(systemName: "moon.zzz.fill")
-                        .font(.system(size: 18, weight: .medium))
+                        .font(.tasker(.sectionTitle))
                         .foregroundColor(.tasker(.accentPrimary))
                         .frame(width: 24)
 
                     Text("Quiet Hours")
-                        .font(.tasker(.bodyEmphasis))
+                        .font(.tasker(.bodyStrong))
                         .foregroundColor(.tasker(.textPrimary))
 
                     Spacer()

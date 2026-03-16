@@ -7,7 +7,7 @@ struct TodayXPWidget: Widget {
     var body: some WidgetConfiguration {
         StaticConfiguration(kind: kind, provider: TodayXPProvider()) { entry in
             TodayXPWidgetView(entry: entry)
-                .containerBackground(.fill.tertiary, for: .widget)
+                .containerBackground(WidgetBrand.canvas, for: .widget)
         }
         .configurationDisplayName("Today's XP")
         .description("Track your daily XP progress.")
@@ -75,15 +75,15 @@ struct TodayXPWidgetView: View {
             xpRing(size: 56, lineWidth: 5)
             Text("\(entry.snapshot.dailyXP)/\(entry.snapshot.dailyCap) XP")
                 .font(.system(size: 11, weight: .semibold, design: .rounded))
-                .foregroundStyle(.secondary)
+                .foregroundStyle(WidgetBrand.textSecondary)
             HStack(spacing: 2) {
                 Image(systemName: "flame.fill")
                     .font(.system(size: 10))
-                    .foregroundStyle(.orange)
+                    .foregroundStyle(WidgetBrand.marigold)
                 Text("\(entry.snapshot.streakDays) days")
                     .font(.system(size: 10, weight: .medium, design: .rounded))
-                    .foregroundStyle(.secondary)
-                }
+                    .foregroundStyle(WidgetBrand.textSecondary)
+            }
         }
         .accessibilityElement(children: .combine)
         .accessibilityLabel(
@@ -99,16 +99,17 @@ struct TodayXPWidgetView: View {
                 VStack(alignment: .leading, spacing: 4) {
                     Text("Today")
                         .font(.system(size: 11, weight: .medium))
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(WidgetBrand.textSecondary)
                     HStack(spacing: 4) {
                         Text("\(entry.snapshot.dailyXP)")
                             .font(.system(size: 20, weight: .bold, design: .rounded))
+                            .foregroundStyle(WidgetBrand.textPrimary)
                         Text("/ \(entry.snapshot.dailyCap) XP")
                             .font(.system(size: 11, weight: .medium))
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(WidgetBrand.textSecondary)
                     }
                     ProgressView(value: progress)
-                        .tint(entry.snapshot.dailyXP >= entry.snapshot.dailyCap ? .green : .accentColor)
+                        .tint(entry.snapshot.dailyXP >= entry.snapshot.dailyCap ? WidgetBrand.emerald : WidgetBrand.magenta)
                 }
 
                 Spacer()
@@ -116,15 +117,16 @@ struct TodayXPWidgetView: View {
                 VStack(spacing: 4) {
                     Text("L\(entry.snapshot.level)")
                         .font(.system(size: 13, weight: .bold, design: .rounded))
-                        .foregroundStyle(.white)
+                        .foregroundStyle(WidgetBrand.canvasElevated)
                         .frame(width: 28, height: 28)
-                        .background(.tint, in: Capsule())
+                        .background(WidgetBrand.actionPrimary, in: Capsule())
                     HStack(spacing: 2) {
                         Image(systemName: "flame.fill")
                             .font(.system(size: 12))
-                            .foregroundStyle(.orange)
+                            .foregroundStyle(WidgetBrand.marigold)
                         Text("\(entry.snapshot.streakDays)")
                             .font(.system(size: 11, weight: .semibold, design: .rounded))
+                            .foregroundStyle(WidgetBrand.textPrimary)
                     }
                 }
             }
@@ -133,7 +135,7 @@ struct TodayXPWidgetView: View {
                 Spacer()
                 Text(freshnessText)
                     .font(.system(size: 9, weight: .medium))
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(WidgetBrand.textSecondary)
             }
         }
         .accessibilityElement(children: .combine)
@@ -145,13 +147,14 @@ struct TodayXPWidgetView: View {
     private func xpRing(size: CGFloat, lineWidth: CGFloat) -> some View {
         ZStack {
             Circle()
-                .stroke(.quaternary, lineWidth: lineWidth)
+                .stroke(WidgetBrand.line, lineWidth: lineWidth)
             Circle()
                 .trim(from: 0, to: progress)
-                .stroke(.tint, style: StrokeStyle(lineWidth: lineWidth, lineCap: .round))
+                .stroke(WidgetBrand.magenta, style: StrokeStyle(lineWidth: lineWidth, lineCap: .round))
                 .rotationEffect(.degrees(-90))
             Text("\(entry.snapshot.dailyXP)")
                 .font(.system(size: size * 0.3, weight: .bold, design: .rounded))
+                .foregroundStyle(WidgetBrand.textPrimary)
         }
         .frame(width: size, height: size)
     }

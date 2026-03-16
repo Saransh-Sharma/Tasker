@@ -162,11 +162,11 @@ public final class TaskerTextField: UITextField {
     private func configure() {
         font = TaskerUIKitTokens.typography.body
         textColor = colors.textPrimary
-        tintColor = colors.accentPrimary
+        tintColor = colors.actionPrimary
         backgroundColor = colors.surfaceSecondary
         layer.cornerRadius = corners.r2
         layer.cornerCurve = .continuous
-        layer.borderColor = colors.strokeHairline.cgColor
+        layer.borderColor = colors.borderDefault.cgColor
         layer.borderWidth = 1
         clearButtonMode = .whileEditing
         setContentHuggingPriority(.defaultLow, for: .horizontal)
@@ -191,12 +191,12 @@ public final class TaskerTextField: UITextField {
     }
 
     @objc private func editingDidBegin() {
-        layer.borderColor = colors.accentRing.cgColor
+        layer.borderColor = colors.actionFocus.cgColor
         layer.borderWidth = 2
     }
 
     @objc private func editingDidEnd() {
-        layer.borderColor = colors.strokeHairline.cgColor
+        layer.borderColor = colors.borderDefault.cgColor
         layer.borderWidth = 1
     }
 }
@@ -258,9 +258,9 @@ public final class TaskerChipView: UIControl {
         if isSelected {
             switch selectedStyle {
             case .tinted:
-                backgroundColor = colors.accentMuted
-                titleLabel.textColor = colors.accentPrimary
-                layer.borderColor = colors.accentRing.cgColor
+                backgroundColor = colors.accentWash
+                titleLabel.textColor = colors.actionPrimary
+                layer.borderColor = colors.actionFocus.cgColor
                 layer.borderWidth = 1
             case .filled:
                 backgroundColor = colors.chipSelectedBackground
@@ -306,7 +306,7 @@ public final class TaskerCardView: UIView {
         layer.cornerRadius = TaskerUIKitTokens.corner.r3
         layer.cornerCurve = .continuous
         layer.borderWidth = 1
-        layer.borderColor = (highlighted ? colors.strokeStrong : colors.strokeHairline).cgColor
+        layer.borderColor = (highlighted ? colors.borderStrong : colors.borderDefault).cgColor
         applyTaskerElevation(elevated ? .e2 : .e1)
     }
 }

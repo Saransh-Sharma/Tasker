@@ -19,7 +19,6 @@
 		11B9B8EE3F64B7B3AC3E53AC /* DueSoonLeadTimeCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 267DB3EE27A6E3C161F380D5 /* DueSoonLeadTimeCard.swift */; };
 		1325F41FAECBAE30E66C3E42 /* To Do List/Domain/Interfaces/V2RepositoryProtocols.swift in Sources */ = {isa = PBXBuildFile; fileRef = 42AD2BFC988A80E8157AD2B2 /* To Do List/Domain/Interfaces/V2RepositoryProtocols.swift */; };
 		147231A5B5EE1AFA9351EA13 /* To Do List/Domain/Models/TagDefinition.swift in Sources */ = {isa = PBXBuildFile; fileRef = C2C66FE334854F296A4203FD /* To Do List/Domain/Models/TagDefinition.swift */; };
-		A4C2E9F12B7D4C5581AA0001 /* To Do List/Domain/Models/HomeTaskMutationPayload.swift in Sources */ = {isa = PBXBuildFile; fileRef = A4C2E9F12B7D4C5581AA0003 /* To Do List/Domain/Models/HomeTaskMutationPayload.swift */; };
 		166AB064CD81E7EAF6579B7E /* To Do List/State/Repositories/CoreDataSectionRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0E3799E6AD3B71C2BCAA18D /* To Do List/State/Repositories/CoreDataSectionRepository.swift */; };
 		1670AB6E54D82AC77EBC9B3D /* To Do List/State/Repositories/CoreDataScheduleRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = D6248E090BE231D70E41F08C /* To Do List/State/Repositories/CoreDataScheduleRepository.swift */; };
 		18C32A093ADC765E90DBA71D /* AddTaskTagMultiSelect.swift in Sources */ = {isa = PBXBuildFile; fileRef = 95932952BC5EBADE8D30791C /* AddTaskTagMultiSelect.swift */; };
@@ -31,14 +30,6 @@
 		27F1CA9185082A8916CE7149 /* ColorTokenGenerationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 24EC3451B4B59726B8F286E2 /* ColorTokenGenerationTests.swift */; };
 		2C3429C2681D310EA9197AE3 /* To Do List/UseCases/Sync/LinkExternalRemindersUseCase.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4C109B5D75A091971FB33633 /* To Do List/UseCases/Sync/LinkExternalRemindersUseCase.swift */; };
 		2F8630D073B32E4FB52F1DAE /* NextActionModule.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4FCA458CC709E59AA20BC5C8 /* NextActionModule.swift */; };
-		B1A000000000000000000001 /* TaskerFilterComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1A000000000000000000011 /* TaskerFilterComponents.swift */; };
-		B1A000000000000000000002 /* TaskerSearchChrome.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1A000000000000000000012 /* TaskerSearchChrome.swift */; };
-		B1A000000000000000000003 /* HomeChromeComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1A000000000000000000013 /* HomeChromeComponents.swift */; };
-		B1A000000000000000000004 /* ChatChromeComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1A000000000000000000014 /* ChatChromeComponents.swift */; };
-		B1A000000000000000000005 /* QuickFilterChromeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1A000000000000000000015 /* QuickFilterChromeTests.swift */; };
-		B1A000000000000000000006 /* HomeEvaLegacySheetViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1A000000000000000000016 /* HomeEvaLegacySheetViews.swift */; };
-		B1A000000000000000000007 /* ChatContextSupport.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1A000000000000000000017 /* ChatContextSupport.swift */; };
-		B1A000000000000000000008 /* HomeEvaTriageSprintSheetV2.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1A000000000000000000018 /* HomeEvaTriageSprintSheetV2.swift */; };
 		300E318A0AD9AB7F088C497E /* To Do List/UseCases/Tag/ManageTagsUseCase.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0643A03092D9D90FE7DC26D4 /* To Do List/UseCases/Tag/ManageTagsUseCase.swift */; };
 		308A7EC3564F5C557224C776 /* To Do List/Domain/Interfaces/OccurrenceRepositoryProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = 74615C475C9EB3F67E96D7FE /* To Do List/Domain/Interfaces/OccurrenceRepositoryProtocol.swift */; };
 		30B49EE9EC93A901D247EA1F /* To Do List/State/Services/CoreSchedulingEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = F311D68194F7FDAA5BAD7ADA /* To Do List/State/Services/CoreSchedulingEngine.swift */; };
@@ -51,9 +42,6 @@
 		355015C0A77A72D864F1AC64 /* HomeForedropView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BF5D7161411B42651DF00D60 /* HomeForedropView.swift */; };
 		36235D01BFCF2D2001A39CCE /* To Do List/UseCases/Gamification/FocusSessionUseCase.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7CC4B584282446580AA72B44 /* To Do List/UseCases/Gamification/FocusSessionUseCase.swift */; };
 		37A2B8A6A25F06C72606019E /* To Do List/Domain/Mappers/TaskDefinitionMapper.swift in Sources */ = {isa = PBXBuildFile; fileRef = 592346DCA3C3FE56E12617C2 /* To Do List/Domain/Mappers/TaskDefinitionMapper.swift */; };
-		C1A2B3C4D5E6F70011223350 /* LLMInferenceEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = C1A2B3C4D5E6F70011223351 /* LLMInferenceEngine.swift */; };
-		C1A2B3C4D5E6F70011223352 /* ChatTranscriptSnapshot.swift in Sources */ = {isa = PBXBuildFile; fileRef = C1A2B3C4D5E6F70011223353 /* ChatTranscriptSnapshot.swift */; };
-		C1A2B3C4D5E6F70011223354 /* ChatTranscriptSnapshotTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C1A2B3C4D5E6F70011223355 /* ChatTranscriptSnapshotTests.swift */; };
 		3A549BEBEF3902410F96971A /* To Do List/View/FocusTimerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 37E2466DBE2A76A73458F530 /* To Do List/View/FocusTimerView.swift */; };
 		3AB385B89C00477CF14637A3 /* AddTaskPriorityPicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = DDFDBE1A33B827BB4D7FD04A /* AddTaskPriorityPicker.swift */; };
 		3D26E03F6D3A9571E7204553 /* To Do List/State/Repositories/CoreDataExternalSyncRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = 08CEBA82D3CB1ACE79D0E158 /* To Do List/State/Repositories/CoreDataExternalSyncRepository.swift */; };
@@ -68,6 +56,7 @@
 		470D7F96B8766217C5B2F698 /* AddTaskEnumPicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = F4AB324AE764BB56051B2AA8 /* AddTaskEnumPicker.swift */; };
 		47EE4E9B0C3B5EC21C43BED8 /* To Do List/UseCases/Sync/ReminderMergeEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9AE41E54BA355D96A678CBF7 /* To Do List/UseCases/Sync/ReminderMergeEngine.swift */; };
 		481A6828453BE977412FD2EB /* TaskerWidgets/NextMilestoneWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = 89676F376DC27DF3823AB623 /* TaskerWidgets/NextMilestoneWidget.swift */; };
+		F1A2B3C4D5E6F708192A3B4C /* TaskerWidgets/WidgetBrand.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1A2B3C4D5E6F708192A3B4D /* TaskerWidgets/WidgetBrand.swift */; };
 		4987E47C4FB2B55409BA424F /* SpacingElevationCornerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7ADDF7126AA32EF840CE257C /* SpacingElevationCornerTests.swift */; };
 		4B7CFEBE8C7C67CCB5E4E73C /* To Do List/Domain/Models/GamificationProfile.swift in Sources */ = {isa = PBXBuildFile; fileRef = A9ADCB5DB568A54708322C8E /* To Do List/Domain/Models/GamificationProfile.swift */; };
 		4BB22BF593C5283CF8557AFE /* Shared/AppGroupConstants.swift in Sources */ = {isa = PBXBuildFile; fileRef = 79E40B0ED12A11ACC6A161C8 /* Shared/AppGroupConstants.swift */; };
@@ -88,11 +77,9 @@
 		5E49A6FCA0C096CB2B6EA054 /* TaskerWidgets/StreakResilienceWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BBE8CE1B13AA2877F4BBCAE /* TaskerWidgets/StreakResilienceWidget.swift */; };
 		5F230AF6BB3D9F989C5A6418 /* ColorTokens.swift in Sources */ = {isa = PBXBuildFile; fileRef = B812E7A0B879607C95C0571B /* ColorTokens.swift */; };
 		600B7F6D47A6091946016C7A /* GetHomeFilteredTasksUseCaseTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C39FDE21811FCBE733038318 /* GetHomeFilteredTasksUseCaseTests.swift */; };
-		A4C2E9F12B7D4C5581AA0002 /* HomeTaskMutationPayloadTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A4C2E9F12B7D4C5581AA0004 /* HomeTaskMutationPayloadTests.swift */; };
 		6211D7BD7037AA1D03E6F90B /* TaskReadModelRepositoryProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4C3F70CE989FCF07417B5EE /* TaskReadModelRepositoryProtocol.swift */; };
 		63F0A29CF92317D22F150D4B /* To Do List/Domain/Interfaces/ReminderRepositoryProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8D0FFCDBD5039DB8EE185B5E /* To Do List/Domain/Interfaces/ReminderRepositoryProtocol.swift */; };
 		656AE33F845CFC0E1E317F5E /* To Do List/Domain/Interfaces/TagRepositoryProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = D69B4ECB89C44E275D829577 /* To Do List/Domain/Interfaces/TagRepositoryProtocol.swift */; };
-		65EC8640A12B976FD27DE5FD /* AppearanceCardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 55412F74ED21D0A6BE53A2DA /* AppearanceCardView.swift */; };
 		664B05702E92F236C487E1AD /* HomeQuickFilterDropdown.swift in Sources */ = {isa = PBXBuildFile; fileRef = 82752F8BF563DB0673AB2770 /* HomeQuickFilterDropdown.swift */; };
 		68910C38BADF060D09F81CE3 /* To Do List/State/Repositories/V2CoreDataRepositorySupport.swift in Sources */ = {isa = PBXBuildFile; fileRef = 836DC307393EA1752081FFEE /* To Do List/State/Repositories/V2CoreDataRepositorySupport.swift */; };
 		6A386E990F32D3D2DF9AE465 /* UnifiedThemePickerCell.swift in Sources */ = {isa = PBXBuildFile; fileRef = 741573708CF6B514C62FF327 /* UnifiedThemePickerCell.swift */; };
@@ -240,7 +227,6 @@
 		75F89F502DFC44E6009EDD8F /* ChatsSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75F89F3D2DFC44E6009EDD8F /* ChatsSettingsView.swift */; };
 		75F89F512DFC44E6009EDD8F /* ConversationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75F89F342DFC44E6009EDD8F /* ConversationView.swift */; };
 		75F89F522DFC44E6009EDD8F /* OnboardingInstallModelView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75F89F392DFC44E6009EDD8F /* OnboardingInstallModelView.swift */; };
-		75F89F532DFC44E6009EDD8F /* AppearanceSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75F89F3C2DFC44E6009EDD8F /* AppearanceSettingsView.swift */; };
 		75F89F542DFC44E6009EDD8F /* DeviceStat.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75F89F2D2DFC44E6009EDD8F /* DeviceStat.swift */; };
 		75F89F562DFC44E6009EDD8F /* MoonAnimationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75F89F372DFC44E6009EDD8F /* MoonAnimationView.swift */; };
 		75F89F572DFC44E6009EDD8F /* ChatView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75F89F332DFC44E6009EDD8F /* ChatView.swift */; };
@@ -299,6 +285,8 @@
 		A2538173786D1C9268A5495A /* SettingsProfileHeaderView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DBF5FA356354C0F76959A4CF /* SettingsProfileHeaderView.swift */; };
 		A25DA7AE7D00020D26A9EBC7 /* To Do List/View/Insights/InsightsTabView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7C915FFCD3814E051A506B72 /* To Do List/View/Insights/InsightsTabView.swift */; };
 		A3A6DF9571AB7FEB410EB861 /* HomeAdvancedFilterSheetView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 594ECD331C0135DA36357314 /* HomeAdvancedFilterSheetView.swift */; };
+		A4C2E9F12B7D4C5581AA0001 /* To Do List/Domain/Models/HomeTaskMutationPayload.swift in Sources */ = {isa = PBXBuildFile; fileRef = A4C2E9F12B7D4C5581AA0003 /* To Do List/Domain/Models/HomeTaskMutationPayload.swift */; };
+		A4C2E9F12B7D4C5581AA0002 /* HomeTaskMutationPayloadTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A4C2E9F12B7D4C5581AA0004 /* HomeTaskMutationPayloadTests.swift */; };
 		A4E8C9D12F9A4C3600A1B2C3 /* To Do List/State/Integrity/LifeAreaIdentityRepair.swift in Sources */ = {isa = PBXBuildFile; fileRef = A4E8C9D22F9A4C3600A1B2C3 /* To Do List/State/Integrity/LifeAreaIdentityRepair.swift */; };
 		A6D5E0EA942DF95EA0C175B8 /* GamificationTokens.swift in Sources */ = {isa = PBXBuildFile; fileRef = D48E4DB12D2E1FE5A90FC97D /* GamificationTokens.swift */; };
 		A6E1D3F42F3C100100B1C2D3 /* AISuggestionService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A6E1D3F52F3C100100B1C2D3 /* AISuggestionService.swift */; };
@@ -341,6 +329,14 @@
 		B10B1C2D3E4F506172839405 /* To Do List/State/Mappers/StateHabitDefinitionMapper.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10B1C2D3E4F506172839405 /* To Do List/State/Mappers/StateHabitDefinitionMapper.swift */; };
 		B10B1C2D3E4F506172839407 /* To Do List/State/Mappers/StateTaskDefinitionMapper.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10B1C2D3E4F506172839407 /* To Do List/State/Mappers/StateTaskDefinitionMapper.swift */; };
 		B10B1C2D3E4F506172839408 /* To Do List/State/Mappers/StateProjectMapper.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10B1C2D3E4F506172839408 /* To Do List/State/Mappers/StateProjectMapper.swift */; };
+		B1A000000000000000000001 /* TaskerFilterComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1A000000000000000000011 /* TaskerFilterComponents.swift */; };
+		B1A000000000000000000002 /* TaskerSearchChrome.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1A000000000000000000012 /* TaskerSearchChrome.swift */; };
+		B1A000000000000000000003 /* HomeChromeComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1A000000000000000000013 /* HomeChromeComponents.swift */; };
+		B1A000000000000000000004 /* ChatChromeComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1A000000000000000000014 /* ChatChromeComponents.swift */; };
+		B1A000000000000000000005 /* QuickFilterChromeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1A000000000000000000015 /* QuickFilterChromeTests.swift */; };
+		B1A000000000000000000006 /* HomeEvaLegacySheetViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1A000000000000000000016 /* HomeEvaLegacySheetViews.swift */; };
+		B1A000000000000000000007 /* ChatContextSupport.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1A000000000000000000017 /* ChatContextSupport.swift */; };
+		B1A000000000000000000008 /* HomeEvaTriageSprintSheetV2.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1A000000000000000000018 /* HomeEvaTriageSprintSheetV2.swift */; };
 		B1A1C1D1E1F1020304050612 /* BootstrapFailureViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1A1C1D1E1F1020304050602 /* BootstrapFailureViewController.swift */; };
 		B1A1C1D1E1F1020304050613 /* ChartCardViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1A1C1D1E1F1020304050603 /* ChartCardViewModel.swift */; };
 		B1A1C1D1E1F1020304050614 /* RadarChartCardViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1A1C1D1E1F1020304050604 /* RadarChartCardViewModel.swift */; };
@@ -359,6 +355,9 @@
 		C1A2B3C4D5E6F70011223346 /* LLMProjectionTimeout.swift in Sources */ = {isa = PBXBuildFile; fileRef = C1A2B3C4D5E6F70011223347 /* LLMProjectionTimeout.swift */; };
 		C1A2B3C4D5E6F70011223348 /* LLMRuntimeCoordinatorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C1A2B3C4D5E6F70011223349 /* LLMRuntimeCoordinatorTests.swift */; };
 		C1A2B3C4D5E6F7001122334A /* LLMProjectionTimeoutTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C1A2B3C4D5E6F7001122334B /* LLMProjectionTimeoutTests.swift */; };
+		C1A2B3C4D5E6F70011223350 /* LLMInferenceEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = C1A2B3C4D5E6F70011223351 /* LLMInferenceEngine.swift */; };
+		C1A2B3C4D5E6F70011223352 /* ChatTranscriptSnapshot.swift in Sources */ = {isa = PBXBuildFile; fileRef = C1A2B3C4D5E6F70011223353 /* ChatTranscriptSnapshot.swift */; };
+		C1A2B3C4D5E6F70011223354 /* ChatTranscriptSnapshotTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C1A2B3C4D5E6F70011223355 /* ChatTranscriptSnapshotTests.swift */; };
 		C2D804681AC165ADEAD7D906 /* SavedHomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7F7676A13058C4757D1E2718 /* SavedHomeView.swift */; };
 		C4B2E3D5F6A70819 /* To Do List/Domain/Models/AchievementCatalog.swift in Sources */ = {isa = PBXBuildFile; fileRef = B3A1F2C4D5E6F708 /* To Do List/Domain/Models/AchievementCatalog.swift */; };
 		C4B2E3D5F6A7081A /* To Do List/View/BadgeGalleryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B3A1F2C4D5E6F709 /* To Do List/View/BadgeGalleryView.swift */; };
@@ -415,7 +414,6 @@
 		F0A1B2C3D4E5F60718293B4F /* HomeViewModelPersistenceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0A1B2C3D4E5F60718293A4F /* HomeViewModelPersistenceTests.swift */; };
 		F1A2B3C4D5E6F7A8B9C0D1E3 /* TaskerTheme+SwiftUI.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1A2B3C4D5E6F7A8B9C0D1E2 /* TaskerTheme+SwiftUI.swift */; };
 		F1A2B3C4D5E6F7A8B9C0D1E5 /* TaskerAnimations.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1A2B3C4D5E6F7A8B9C0D1E4 /* TaskerAnimations.swift */; };
-		F1B2F813DE0CCF4518511A98 /* ThemeGemGalleryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6C0220D3DB4B4E025037B2E4 /* ThemeGemGalleryView.swift */; };
 		F2A1B2C3D4E5F60718293B50 /* HomeBottomBarItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2A1B2C3D4E5F60718293A50 /* HomeBottomBarItem.swift */; };
 		F2A1B2C3D4E5F60718293B51 /* HomeBottomBarState.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2A1B2C3D4E5F60718293A51 /* HomeBottomBarState.swift */; };
 		F2A1B2C3D4E5F60718293B52 /* HomeGlassBottomBar.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2A1B2C3D4E5F60718293A52 /* HomeGlassBottomBar.swift */; };
@@ -504,7 +502,6 @@
 		2A7397B50382FF7FB4FAEC5F /* TaskSectionView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = TaskSectionView.swift; sourceTree = "<group>"; };
 		2D01967BDAF0ABB45A855C29 /* AddTaskTaskPicker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddTaskTaskPicker.swift; sourceTree = "<group>"; };
 		2E753995C5FB25BE948BE1E9 /* HomeFilterState.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HomeFilterState.swift; sourceTree = "<group>"; };
-		A4C2E9F12B7D4C5581AA0003 /* To Do List/Domain/Models/HomeTaskMutationPayload.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "To Do List/Domain/Models/HomeTaskMutationPayload.swift"; sourceTree = SOURCE_ROOT; };
 		2F80480EA58FB983550B882B /* To Do List/UseCases/Schedule/GenerateOccurrencesUseCase.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "To Do List/UseCases/Schedule/GenerateOccurrencesUseCase.swift"; sourceTree = SOURCE_ROOT; };
 		316921199F513341A93BD753 /* AddTaskDurationPicker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddTaskDurationPicker.swift; sourceTree = "<group>"; };
 		32CFD17024C4F8FF10386CE1 /* TypographyTokenTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = TypographyTokenTests.swift; sourceTree = "<group>"; };
@@ -512,6 +509,7 @@
 		34CC91CCAA408A3ADB2D8693 /* To Do List/Services/V2FeatureFlags.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "To Do List/Services/V2FeatureFlags.swift"; sourceTree = SOURCE_ROOT; };
 		37E2466DBE2A76A73458F530 /* To Do List/View/FocusTimerView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "To Do List/View/FocusTimerView.swift"; sourceTree = SOURCE_ROOT; };
 		3A74DF0E9DCAEB8A8179F375 /* TaskerWidgets/TodayXPWidget.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = TaskerWidgets/TodayXPWidget.swift; sourceTree = SOURCE_ROOT; };
+		F1A2B3C4D5E6F708192A3B4D /* TaskerWidgets/WidgetBrand.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = TaskerWidgets/WidgetBrand.swift; sourceTree = SOURCE_ROOT; };
 		3B52F546EA648DBA17C720A1 /* Pods-Tasker-TaskerUITests.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Tasker-TaskerUITests.debug.xcconfig"; path = "Target Support Files/Pods-Tasker-TaskerUITests/Pods-Tasker-TaskerUITests.debug.xcconfig"; sourceTree = "<group>"; };
 		3CAA3A6573B0FE5C495C67AC /* To Do List/Domain/Models/ExternalSyncModels.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "To Do List/Domain/Models/ExternalSyncModels.swift"; sourceTree = SOURCE_ROOT; };
 		3D233F155B6A87F62F52F845 /* HomeQuickFilterSummary.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HomeQuickFilterSummary.swift; sourceTree = "<group>"; };
@@ -526,7 +524,6 @@
 		52E1464E13744427AAFDF824 /* TaskDetailComponents.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = TaskDetailComponents.swift; sourceTree = "<group>"; };
 		52EDFF0556DE6F60CD19AA39 /* To Do List/Presentation/ViewModels/InsightsViewModel.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "To Do List/Presentation/ViewModels/InsightsViewModel.swift"; sourceTree = SOURCE_ROOT; };
 		53C94956D526284966A1EEDC /* To Do List/Services/LocalNotificationService.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "To Do List/Services/LocalNotificationService.swift"; sourceTree = SOURCE_ROOT; };
-		55412F74ED21D0A6BE53A2DA /* AppearanceCardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppearanceCardView.swift; sourceTree = "<group>"; };
 		55C5A46909EF46C27D7B84E3 /* SavedHomeViewRepositoryProtocol.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SavedHomeViewRepositoryProtocol.swift; sourceTree = "<group>"; };
 		592346DCA3C3FE56E12617C2 /* To Do List/Domain/Mappers/TaskDefinitionMapper.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "To Do List/Domain/Mappers/TaskDefinitionMapper.swift"; sourceTree = SOURCE_ROOT; };
 		594ECD331C0135DA36357314 /* HomeAdvancedFilterSheetView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HomeAdvancedFilterSheetView.swift; sourceTree = "<group>"; };
@@ -537,7 +534,6 @@
 		65A7A039AC9CA38845D1E44F /* SyncMergeState.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SyncMergeState.swift; sourceTree = "<group>"; };
 		6956BC00E9F0B0BC847DD7AA /* To Do List/Domain/Mappers/SectionMapper.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "To Do List/Domain/Mappers/SectionMapper.swift"; sourceTree = SOURCE_ROOT; };
 		6A30108580052CC2C67D2058 /* To Do List/Domain/Models/HabitDefinition.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "To Do List/Domain/Models/HabitDefinition.swift"; sourceTree = SOURCE_ROOT; };
-		6C0220D3DB4B4E025037B2E4 /* ThemeGemGalleryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThemeGemGalleryView.swift; sourceTree = "<group>"; };
 		6D63FBA200D736491232884A /* To Do List/View/FocusSessionSummaryView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "To Do List/View/FocusSessionSummaryView.swift"; sourceTree = SOURCE_ROOT; };
 		712BE2C322E8930A4886933B /* To Do List/Domain/Interfaces/ScheduleRepositoryProtocol.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "To Do List/Domain/Interfaces/ScheduleRepositoryProtocol.swift"; sourceTree = SOURCE_ROOT; };
 		718216D68E8278668DDB49BC /* SettingsFooterView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsFooterView.swift; sourceTree = "<group>"; };
@@ -574,10 +570,10 @@
 		753EFCA62445A24700A739E3 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		753EFCA92445A24700A739E3 /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; name = Base; path = Base.lproj/LaunchScreen.storyboard; sourceTree = "<group>"; };
 		753EFCAB2445A24700A739E3 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
-		753EFCB02445A24700A739E3 /* TaskerTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = TaskerTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		753EFCB02445A24700A739E3 /* To Do ListTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "To Do ListTests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
 		753EFCB42445A24700A739E3 /* To_Do_ListTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = To_Do_ListTests.swift; sourceTree = "<group>"; };
 		753EFCB62445A24800A739E3 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
-		753EFCBB2445A24800A739E3 /* TaskerUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = TaskerUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		753EFCBB2445A24800A739E3 /* To Do ListUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "To Do ListUITests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
 		753EFCBF2445A24800A739E3 /* To_Do_ListUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = To_Do_ListUITests.swift; sourceTree = "<group>"; };
 		753EFCC12445A24800A739E3 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		7551BCAC2EAB665F003C6916 /* BaseUITest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BaseUITest.swift; sourceTree = "<group>"; };
@@ -606,10 +602,6 @@
 		7551BCC82EAB665F003C6916 /* SearchAndFilteringTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SearchAndFilteringTests.swift; sourceTree = "<group>"; };
 		7551BCC92EAB665F003C6916 /* SettingsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsTests.swift; sourceTree = "<group>"; };
 		7551BCCA2EAB665F003C6916 /* ThemeAndAppearanceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThemeAndAppearanceTests.swift; sourceTree = "<group>"; };
-		B1A000000000000000000015 /* QuickFilterChromeTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuickFilterChromeTests.swift; sourceTree = "<group>"; };
-		B1A000000000000000000016 /* HomeEvaLegacySheetViews.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HomeEvaLegacySheetViews.swift; sourceTree = "<group>"; };
-		B1A000000000000000000017 /* ChatContextSupport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatContextSupport.swift; sourceTree = "<group>"; };
-		B1A000000000000000000018 /* HomeEvaTriageSprintSheetV2.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HomeEvaTriageSprintSheetV2.swift; sourceTree = "<group>"; };
 		7551DA0124880DAC005CF826 /* AddTaskForedropView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddTaskForedropView.swift; sourceTree = "<group>"; };
 		7551DA0524882E94005CF826 /* ToDoFont.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ToDoFont.swift; sourceTree = "<group>"; };
 		7551DA08248832BE005CF826 /* ToDoTimeUtils.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ToDoTimeUtils.swift; sourceTree = "<group>"; };
@@ -682,14 +674,12 @@
 		75F89F302DFC44E6009EDD8F /* RequestLLMIntent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RequestLLMIntent.swift; sourceTree = "<group>"; };
 		75F89F322DFC44E6009EDD8F /* ChatsListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatsListView.swift; sourceTree = "<group>"; };
 		75F89F332DFC44E6009EDD8F /* ChatView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatView.swift; sourceTree = "<group>"; };
-		B1A000000000000000000014 /* ChatChromeComponents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatChromeComponents.swift; sourceTree = "<group>"; };
 		75F89F342DFC44E6009EDD8F /* ConversationView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConversationView.swift; sourceTree = "<group>"; };
 		75F89F362DFC44E6009EDD8F /* DeviceNotSupportedView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeviceNotSupportedView.swift; sourceTree = "<group>"; };
 		75F89F372DFC44E6009EDD8F /* MoonAnimationView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MoonAnimationView.swift; sourceTree = "<group>"; };
 		75F89F382DFC44E6009EDD8F /* OnboardingDownloadingModelProgressView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingDownloadingModelProgressView.swift; sourceTree = "<group>"; };
 		75F89F392DFC44E6009EDD8F /* OnboardingInstallModelView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingInstallModelView.swift; sourceTree = "<group>"; };
 		75F89F3A2DFC44E6009EDD8F /* OnboardingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingView.swift; sourceTree = "<group>"; };
-		75F89F3C2DFC44E6009EDD8F /* AppearanceSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppearanceSettingsView.swift; sourceTree = "<group>"; };
 		75F89F3D2DFC44E6009EDD8F /* ChatsSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatsSettingsView.swift; sourceTree = "<group>"; };
 		75F89F3E2DFC44E6009EDD8F /* CreditsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CreditsView.swift; sourceTree = "<group>"; };
 		75F89F3F2DFC44E6009EDD8F /* ModelsSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModelsSettingsView.swift; sourceTree = "<group>"; };
@@ -712,9 +702,6 @@
 		7F7676A13058C4757D1E2718 /* SavedHomeView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SavedHomeView.swift; sourceTree = "<group>"; };
 		817A26FD3474A08EC2250BED /* SwiftUI+TokenAdapters.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "SwiftUI+TokenAdapters.swift"; sourceTree = "<group>"; };
 		82752F8BF563DB0673AB2770 /* HomeQuickFilterDropdown.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HomeQuickFilterDropdown.swift; sourceTree = "<group>"; };
-		B1A000000000000000000011 /* TaskerFilterComponents.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = TaskerFilterComponents.swift; sourceTree = "<group>"; };
-		B1A000000000000000000012 /* TaskerSearchChrome.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = TaskerSearchChrome.swift; sourceTree = "<group>"; };
-		B1A000000000000000000013 /* HomeChromeComponents.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HomeChromeComponents.swift; sourceTree = "<group>"; };
 		82ACA5EA351487686C155548 /* SettingsSectionHeader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsSectionHeader.swift; sourceTree = "<group>"; };
 		836DC307393EA1752081FFEE /* To Do List/State/Repositories/V2CoreDataRepositorySupport.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "To Do List/State/Repositories/V2CoreDataRepositorySupport.swift"; sourceTree = SOURCE_ROOT; };
 		85F3DEB89B5BEB05F1972CA7 /* To Do List/Domain/Models/XPEvent.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "To Do List/Domain/Models/XPEvent.swift"; sourceTree = SOURCE_ROOT; };
@@ -760,6 +747,8 @@
 		A1F0D0B62F5A100100ABC001 /* OnboardingUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingUITests.swift; sourceTree = "<group>"; };
 		A365503F0A1EC71D5D159FC0 /* UserDefaultsSavedHomeViewRepository.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = UserDefaultsSavedHomeViewRepository.swift; path = State/Repositories/UserDefaultsSavedHomeViewRepository.swift; sourceTree = "<group>"; };
 		A41487F741A541AD1CB7DD2E /* Pods_Tasker.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_Tasker.framework; sourceTree = BUILT_PRODUCTS_DIR; };
+		A4C2E9F12B7D4C5581AA0003 /* To Do List/Domain/Models/HomeTaskMutationPayload.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "To Do List/Domain/Models/HomeTaskMutationPayload.swift"; sourceTree = SOURCE_ROOT; };
+		A4C2E9F12B7D4C5581AA0004 /* HomeTaskMutationPayloadTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HomeTaskMutationPayloadTests.swift; sourceTree = "<group>"; };
 		A4E8C9D22F9A4C3600A1B2C3 /* To Do List/State/Integrity/LifeAreaIdentityRepair.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "To Do List/State/Integrity/LifeAreaIdentityRepair.swift"; sourceTree = SOURCE_ROOT; };
 		A6E1D3F52F3C100100B1C2D3 /* AISuggestionService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AISuggestionService.swift; sourceTree = "<group>"; };
 		A6E1D3F72F3C100100B1C2D3 /* AssistantCardPayload.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AssistantCardPayload.swift; sourceTree = "<group>"; };
@@ -794,6 +783,14 @@
 		ADB62B5450F5D70EBBEC2940 /* ElevationTokens.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ElevationTokens.swift; sourceTree = "<group>"; };
 		B0B69EFFAB72804AE4A38EB3 /* To Do List/UseCases/Habit/ManageHabitsUseCase.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "To Do List/UseCases/Habit/ManageHabitsUseCase.swift"; sourceTree = SOURCE_ROOT; };
 		B1286F3B4BF1B37261405007 /* To Do List/View/Insights/InsightsSystemsView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "To Do List/View/Insights/InsightsSystemsView.swift"; sourceTree = SOURCE_ROOT; };
+		B1A000000000000000000011 /* TaskerFilterComponents.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = TaskerFilterComponents.swift; sourceTree = "<group>"; };
+		B1A000000000000000000012 /* TaskerSearchChrome.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = TaskerSearchChrome.swift; sourceTree = "<group>"; };
+		B1A000000000000000000013 /* HomeChromeComponents.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HomeChromeComponents.swift; sourceTree = "<group>"; };
+		B1A000000000000000000014 /* ChatChromeComponents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatChromeComponents.swift; sourceTree = "<group>"; };
+		B1A000000000000000000015 /* QuickFilterChromeTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuickFilterChromeTests.swift; sourceTree = "<group>"; };
+		B1A000000000000000000016 /* HomeEvaLegacySheetViews.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HomeEvaLegacySheetViews.swift; sourceTree = "<group>"; };
+		B1A000000000000000000017 /* ChatContextSupport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatContextSupport.swift; sourceTree = "<group>"; };
+		B1A000000000000000000018 /* HomeEvaTriageSprintSheetV2.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HomeEvaTriageSprintSheetV2.swift; sourceTree = "<group>"; };
 		B1A1C1D1E1F1020304050602 /* BootstrapFailureViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BootstrapFailureViewController.swift; sourceTree = "<group>"; };
 		B1A1C1D1E1F1020304050603 /* ChartCardViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChartCardViewModel.swift; sourceTree = "<group>"; };
 		B1A1C1D1E1F1020304050604 /* RadarChartCardViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RadarChartCardViewModel.swift; sourceTree = "<group>"; };
@@ -817,15 +814,14 @@
 		C1256A6FF63A60FC9D9E82C2 /* TaskerWidgets/TaskerWidgetBundle.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = TaskerWidgets/TaskerWidgetBundle.swift; sourceTree = SOURCE_ROOT; };
 		C1429E78D48CAF30D016B671 /* NotificationTypesCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationTypesCard.swift; sourceTree = "<group>"; };
 		C1A2B3C4D5E6F70011223345 /* LLMRuntimeCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LLMRuntimeCoordinator.swift; sourceTree = "<group>"; };
-		C1A2B3C4D5E6F70011223351 /* LLMInferenceEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LLMInferenceEngine.swift; sourceTree = "<group>"; };
 		C1A2B3C4D5E6F70011223347 /* LLMProjectionTimeout.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LLMProjectionTimeout.swift; sourceTree = "<group>"; };
 		C1A2B3C4D5E6F70011223349 /* LLMRuntimeCoordinatorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LLMRuntimeCoordinatorTests.swift; sourceTree = "<group>"; };
 		C1A2B3C4D5E6F7001122334B /* LLMProjectionTimeoutTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LLMProjectionTimeoutTests.swift; sourceTree = "<group>"; };
+		C1A2B3C4D5E6F70011223351 /* LLMInferenceEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LLMInferenceEngine.swift; sourceTree = "<group>"; };
 		C1A2B3C4D5E6F70011223353 /* ChatTranscriptSnapshot.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatTranscriptSnapshot.swift; sourceTree = "<group>"; };
 		C1A2B3C4D5E6F70011223355 /* ChatTranscriptSnapshotTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatTranscriptSnapshotTests.swift; sourceTree = "<group>"; };
 		C2C66FE334854F296A4203FD /* To Do List/Domain/Models/TagDefinition.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "To Do List/Domain/Models/TagDefinition.swift"; sourceTree = SOURCE_ROOT; };
 		C39FDE21811FCBE733038318 /* GetHomeFilteredTasksUseCaseTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = GetHomeFilteredTasksUseCaseTests.swift; sourceTree = "<group>"; };
-		A4C2E9F12B7D4C5581AA0004 /* HomeTaskMutationPayloadTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HomeTaskMutationPayloadTests.swift; sourceTree = "<group>"; };
 		C4AF3952DBA8C2ACE185FEF0 /* To Do List/Domain/Models/DailyXPAggregateDefinition.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "To Do List/Domain/Models/DailyXPAggregateDefinition.swift"; sourceTree = SOURCE_ROOT; };
 		C4C3F70CE989FCF07417B5EE /* TaskReadModelRepositoryProtocol.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = TaskReadModelRepositoryProtocol.swift; sourceTree = "<group>"; };
 		C4D5E6F70891A2B3C4D5E6F7 /* TaskDetailSheetView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = TaskDetailSheetView.swift; sourceTree = "<group>"; };
@@ -975,6 +971,7 @@
 				89676F376DC27DF3823AB623 /* TaskerWidgets/NextMilestoneWidget.swift */,
 				9BBE8CE1B13AA2877F4BBCAE /* TaskerWidgets/StreakResilienceWidget.swift */,
 				FD3BCAD6C5A546608629F532 /* TaskerWidgets/FocusSeedWidget.swift */,
+				F1A2B3C4D5E6F708192A3B4D /* TaskerWidgets/WidgetBrand.swift */,
 				E6095F80ED6FB73CD69363AC /* Info.plist */,
 				FF7B2CAF2B3D23AD9512B999 /* TaskerWidgets.entitlements */,
 			);
@@ -1118,8 +1115,6 @@
 			isa = PBXGroup;
 			children = (
 				DBF5FA356354C0F76959A4CF /* SettingsProfileHeaderView.swift */,
-				55412F74ED21D0A6BE53A2DA /* AppearanceCardView.swift */,
-				6C0220D3DB4B4E025037B2E4 /* ThemeGemGalleryView.swift */,
 				147B7C5EB48AC2259B009894 /* SettingsNavigationRow.swift */,
 				82ACA5EA351487686C155548 /* SettingsSectionHeader.swift */,
 				919DB5CEED1B1E1906FF474C /* NotificationPermissionBanner.swift */,
@@ -1281,8 +1276,8 @@
 			isa = PBXGroup;
 			children = (
 				753EFC9A2445A24500A739E3 /* This Day.app */,
-				753EFCB02445A24700A739E3 /* TaskerTests.xctest */,
-				753EFCBB2445A24800A739E3 /* TaskerUITests.xctest */,
+				753EFCB02445A24700A739E3 /* To Do ListTests.xctest */,
+				753EFCBB2445A24800A739E3 /* To Do ListUITests.xctest */,
 				F9A8B91DCC93833939CAE3C6 /* TaskerWidgets.appex */,
 			);
 			name = Products;
@@ -1946,7 +1941,6 @@
 		75F89F412DFC44E6009EDD8F /* Settings */ = {
 			isa = PBXGroup;
 			children = (
-				75F89F3C2DFC44E6009EDD8F /* AppearanceSettingsView.swift */,
 				75F89F3D2DFC44E6009EDD8F /* ChatsSettingsView.swift */,
 				75F89F3E2DFC44E6009EDD8F /* CreditsView.swift */,
 				75F89F3F2DFC44E6009EDD8F /* ModelsSettingsView.swift */,
@@ -2113,9 +2107,9 @@
 			productReference = 753EFC9A2445A24500A739E3 /* This Day.app */;
 			productType = "com.apple.product-type.application";
 		};
-		753EFCAF2445A24700A739E3 /* TaskerTests */ = {
+		753EFCAF2445A24700A739E3 /* To Do ListTests */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = 753EFCC72445A24800A739E3 /* Build configuration list for PBXNativeTarget "TaskerTests" */;
+			buildConfigurationList = 753EFCC72445A24800A739E3 /* Build configuration list for PBXNativeTarget "To Do ListTests" */;
 			buildPhases = (
 				AD1582A39B5E343C3D3137CC /* [CP] Check Pods Manifest.lock */,
 				753EFCAC2445A24700A739E3 /* Sources */,
@@ -2129,12 +2123,12 @@
 			);
 			name = "To Do ListTests";
 			productName = "To Do ListTests";
-			productReference = 753EFCB02445A24700A739E3 /* TaskerTests.xctest */;
+			productReference = 753EFCB02445A24700A739E3 /* To Do ListTests.xctest */;
 			productType = "com.apple.product-type.bundle.unit-test";
 		};
-		753EFCBA2445A24800A739E3 /* TaskerUITests */ = {
+		753EFCBA2445A24800A739E3 /* To Do ListUITests */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = 753EFCCA2445A24800A739E3 /* Build configuration list for PBXNativeTarget "TaskerUITests" */;
+			buildConfigurationList = 753EFCCA2445A24800A739E3 /* Build configuration list for PBXNativeTarget "To Do ListUITests" */;
 			buildPhases = (
 				9AFB8E588655C3DCF9B400A1 /* [CP] Check Pods Manifest.lock */,
 				753EFCB72445A24800A739E3 /* Sources */,
@@ -2149,7 +2143,7 @@
 			);
 			name = "To Do ListUITests";
 			productName = "To Do ListUITests";
-			productReference = 753EFCBB2445A24800A739E3 /* TaskerUITests.xctest */;
+			productReference = 753EFCBB2445A24800A739E3 /* To Do ListUITests.xctest */;
 			productType = "com.apple.product-type.bundle.ui-testing";
 		};
 		7E3A3EE5163CF5A9C1350CFA /* TaskerWidgets */ = {
@@ -2212,8 +2206,8 @@
 			projectRoot = "";
 			targets = (
 				753EFC992445A24500A739E3 /* Tasker */,
-				753EFCAF2445A24700A739E3 /* TaskerTests */,
-				753EFCBA2445A24800A739E3 /* TaskerUITests */,
+				753EFCAF2445A24700A739E3 /* To Do ListTests */,
+				753EFCBA2445A24800A739E3 /* To Do ListUITests */,
 				7E3A3EE5163CF5A9C1350CFA /* TaskerWidgets */,
 			);
 		};
@@ -2381,6 +2375,7 @@
 				481A6828453BE977412FD2EB /* TaskerWidgets/NextMilestoneWidget.swift in Sources */,
 				5E49A6FCA0C096CB2B6EA054 /* TaskerWidgets/StreakResilienceWidget.swift in Sources */,
 				8142FD6EB789DF1EED06EA7F /* TaskerWidgets/FocusSeedWidget.swift in Sources */,
+				F1A2B3C4D5E6F708192A3B4C /* TaskerWidgets/WidgetBrand.swift in Sources */,
 				4BB22BF593C5283CF8557AFE /* Shared/AppGroupConstants.swift in Sources */,
 				919FF9A13C8BB0FF98385DAA /* Shared/WidgetSnapshot.swift in Sources */,
 			);
@@ -2411,8 +2406,6 @@
 				A91F8E112F44420100AB11C1 /* LifeManagementView.swift in Sources */,
 				86E61B5C7E8F8DDAD3BAC7C9 /* SettingsViewModel.swift in Sources */,
 				A2538173786D1C9268A5495A /* SettingsProfileHeaderView.swift in Sources */,
-				65EC8640A12B976FD27DE5FD /* AppearanceCardView.swift in Sources */,
-				F1B2F813DE0CCF4518511A98 /* ThemeGemGalleryView.swift in Sources */,
 				988BCDE3365760394848B424 /* SettingsNavigationRow.swift in Sources */,
 				3464C0D69143BB1C99FBFD7A /* SettingsSectionHeader.swift in Sources */,
 				D2E850DDFA592D3CFAA9C922 /* NotificationPermissionBanner.swift in Sources */,
@@ -2521,7 +2514,6 @@
 				B1A000000000000000000004 /* ChatChromeComponents.swift in Sources */,
 				0F2D95B3C4177167351607FF /* SlashCommandPickerView.swift in Sources */,
 				75F89F522DFC44E6009EDD8F /* OnboardingInstallModelView.swift in Sources */,
-				75F89F532DFC44E6009EDD8F /* AppearanceSettingsView.swift in Sources */,
 				75F89F542DFC44E6009EDD8F /* DeviceStat.swift in Sources */,
 				75F89F562DFC44E6009EDD8F /* MoonAnimationView.swift in Sources */,
 				75F89F572DFC44E6009EDD8F /* ChatView.swift in Sources */,
@@ -2849,7 +2841,7 @@
 				CLANG_ENABLE_OBJC_WEAK = NO;
 				CODE_SIGN_ENTITLEMENTS = TaskerWidgets/TaskerWidgets.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 4;
+				CURRENT_PROJECT_VERSION = 5;
 				DEVELOPMENT_TEAM = CJ43UNM3AR;
 				INFOPLIST_FILE = TaskerWidgets/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 18.6;
@@ -2858,7 +2850,7 @@
 					"@executable_path/Frameworks",
 					"@executable_path/../../Frameworks",
 				);
-				MARKETING_VERSION = 1.8.1;
+				MARKETING_VERSION = 1.8.4;
 				PRODUCT_BUNDLE_IDENTIFIER = "com.saransh1337.To-Do-List.TaskerWidgets";
 				PRODUCT_NAME = TaskerWidgets;
 				SDKROOT = iphoneos;
@@ -2992,7 +2984,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_ENTITLEMENTS = "This Day.entitlements";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 4;
+				CURRENT_PROJECT_VERSION = 5;
 				DEVELOPMENT_TEAM = CJ43UNM3AR;
 				INFOPLIST_FILE = "To Do List/Info.plist";
 				INFOPLIST_KEY_CFBundleDisplayName = Tasker;
@@ -3002,7 +2994,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.8.3;
+				MARKETING_VERSION = 1.8.4;
 				PRODUCT_BUNDLE_IDENTIFIER = "com.saransh1337.To-Do-List";
 				PRODUCT_MODULE_NAME = To_Do_List;
 				PRODUCT_NAME = "This Day";
@@ -3018,7 +3010,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_ENTITLEMENTS = "This Day.entitlements";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 4;
+				CURRENT_PROJECT_VERSION = 5;
 				DEVELOPMENT_TEAM = CJ43UNM3AR;
 				INFOPLIST_FILE = "To Do List/Info.plist";
 				INFOPLIST_KEY_CFBundleDisplayName = Tasker;
@@ -3028,7 +3020,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.8.3;
+				MARKETING_VERSION = 1.8.4;
 				PRODUCT_BUNDLE_IDENTIFIER = "com.saransh1337.To-Do-List";
 				PRODUCT_MODULE_NAME = To_Do_List;
 				PRODUCT_NAME = "This Day";
@@ -3132,7 +3124,7 @@
 				CLANG_ENABLE_OBJC_WEAK = NO;
 				CODE_SIGN_ENTITLEMENTS = TaskerWidgets/TaskerWidgets.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 4;
+				CURRENT_PROJECT_VERSION = 5;
 				DEVELOPMENT_TEAM = CJ43UNM3AR;
 				INFOPLIST_FILE = TaskerWidgets/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 18.6;
@@ -3141,7 +3133,7 @@
 					"@executable_path/Frameworks",
 					"@executable_path/../../Frameworks",
 				);
-				MARKETING_VERSION = 1.8.1;
+				MARKETING_VERSION = 1.8.4;
 				PRODUCT_BUNDLE_IDENTIFIER = "com.saransh1337.To-Do-List.TaskerWidgets";
 				PRODUCT_NAME = TaskerWidgets;
 				SDKROOT = iphoneos;
@@ -3181,7 +3173,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		753EFCC72445A24800A739E3 /* Build configuration list for PBXNativeTarget "TaskerTests" */ = {
+		753EFCC72445A24800A739E3 /* Build configuration list for PBXNativeTarget "To Do ListTests" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				753EFCC82445A24800A739E3 /* Debug */,
@@ -3190,7 +3182,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		753EFCCA2445A24800A739E3 /* Build configuration list for PBXNativeTarget "TaskerUITests" */ = {
+		753EFCCA2445A24800A739E3 /* Build configuration list for PBXNativeTarget "To Do ListUITests" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				753EFCCB2445A24800A739E3 /* Debug */,

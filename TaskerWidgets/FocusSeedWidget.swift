@@ -7,7 +7,7 @@ struct FocusSeedWidget: Widget {
     var body: some WidgetConfiguration {
         StaticConfiguration(kind: kind, provider: FocusSeedProvider()) { entry in
             FocusSeedWidgetView(entry: entry)
-                .containerBackground(.fill.tertiary, for: .widget)
+                .containerBackground(WidgetBrand.canvas, for: .widget)
         }
         .configurationDisplayName("Focus Seed")
         .description("See today's focus time and start a session.")
@@ -43,21 +43,22 @@ struct FocusSeedWidgetView: View {
         VStack(spacing: 8) {
             Image(systemName: "timer")
                 .font(.system(size: 28))
-                .foregroundStyle(.tint)
+                .foregroundStyle(WidgetBrand.magenta)
 
             Text("\(entry.snapshot.focusMinutesToday) min")
                 .font(.system(size: 22, weight: .bold, design: .rounded))
+                .foregroundStyle(WidgetBrand.textPrimary)
             Text("focused today")
                 .font(.system(size: 11, weight: .medium))
-                .foregroundStyle(.secondary)
+                .foregroundStyle(WidgetBrand.textSecondary)
 
             Link(destination: URL(string: "tasker://focus")!) {
                 Text("Start Focus")
                     .font(.system(size: 11, weight: .semibold))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(WidgetBrand.canvasElevated)
                     .padding(.horizontal, 12)
                     .padding(.vertical, 6)
-                    .background(.tint, in: Capsule())
+                    .background(WidgetBrand.actionPrimary, in: Capsule())
             }
         }
         .accessibilityElement(children: .combine)

@@ -44,76 +44,33 @@ class ThemeAndAppearanceTests: BaseUITest {
         takeScreenshot(named: "core_components_render")
     }
 
-    // MARK: - Test 62: Dark Mode Toggle
+    // MARK: - Test 62: Workspace Settings Messaging
 
-    func testDarkModeToggle() throws {
-        // GIVEN: User is on home screen in light mode (default)
+    func testWorkspaceSettingsMessaging() throws {
         XCTAssertTrue(homePage.verifyIsDisplayed(), "Home screen should be displayed")
-
-        // Capture light mode screenshot
-        takeScreenshot(named: "theme_light_mode_before")
-
-        // WHEN: User toggles dark mode
         settingsPage = homePage.tapSettings()
         XCTAssertTrue(settingsPage.verifyIsDisplayed(), "Settings should be displayed")
 
-        settingsPage.toggleDarkMode()
-        waitForAnimations(duration: 1.5)
+        XCTAssertTrue(app.staticTexts["Life Management"].waitForExistence(timeout: 3), "Life Management row should exist")
+        XCTAssertTrue(app.staticTexts["Chats"].waitForExistence(timeout: 3), "Chats row should exist")
+        XCTAssertTrue(app.staticTexts["Models"].waitForExistence(timeout: 3), "Models row should exist")
 
-        takeScreenshot(named: "theme_dark_mode_settings")
-
-        // Return to home to see theme change
-        homePage = settingsPage.tapDone()
-        waitForAnimations(duration: 1.0)
-
-        // THEN: UI should reflect dark mode
-        takeScreenshot(named: "theme_dark_mode_home")
-
-        // Toggle back to light mode
-        settingsPage = homePage.tapSettings()
-        settingsPage.toggleDarkMode()
-        waitForAnimations(duration: 1.5)
-
-        homePage = settingsPage.tapDone()
-        waitForAnimations(duration: 1.0)
-
-        takeScreenshot(named: "theme_light_mode_restored")
+        takeScreenshot(named: "workspace_settings_rows")
     }
 
-    // MARK: - Test 63: Theme Persistence
+    // MARK: - Test 63: Theme Propagation Into Settings
 
-    func testThemePersistence() throws {
-        // GIVEN: User sets theme to dark mode
+    func testThemePropagationIntoSettings() throws {
+        XCTAssertTrue(homePage.verifyIsDisplayed(), "Home screen should appear")
+        takeScreenshot(named: "brand_surface_home")
+
         settingsPage = homePage.tapSettings()
-        settingsPage.enableDarkMode()
-        waitForAnimations(duration: 1.0)
+        XCTAssertTrue(settingsPage.verifyIsDisplayed(), "Settings should appear")
+        XCTAssertTrue(app.staticTexts["Life Management"].waitForExistence(timeout: 3), "Workspace rows should remain visible in settings")
+        takeScreenshot(named: "brand_surface_settings")
 
         homePage = settingsPage.tapDone()
-        waitForAnimations(duration: 1.0)
-
-        takeScreenshot(named: "theme_persistence_dark_set")
-
-        // WHEN: User restarts app
-        app.terminate()
-        app.launch()
-
-        homePage = HomePage(app: app)
-        XCTAssertTrue(homePage.verifyIsDisplayed(), "Home screen should appear after relaunch")
-
-        waitForAnimations(duration: 2.0)
-
-        // THEN: Dark mode should persist
-        // (Visual verification via screenshot)
-        // Note: With fresh state launch arguments, theme won't persist
-        // In production without fresh state, it should persist
-
-        takeScreenshot(named: "theme_persistence_after_relaunch")
-
-        // Restore light mode
-        settingsPage = homePage.tapSettings()
-        settingsPage.disableDarkMode()
-        waitForAnimations(duration: 1.0)
-        homePage = settingsPage.tapDone()
+        XCTAssertTrue(homePage.verifyIsDisplayed(), "Home should be displayed after closing settings")
     }
 
     // MARK: - Bonus: Material Design Elements
@@ -183,11 +140,10 @@ class ThemeAndAppearanceTests: BaseUITest {
         settingsPage = homePage.tapSettings()
         XCTAssertTrue(settingsPage.verifyIsDisplayed(), "Settings should be displayed")
 
-        XCTAssertTrue(app.staticTexts["Appearance"].exists, "Appearance section should exist")
-        XCTAssertTrue(app.staticTexts["Theme"].exists, "Theme row should exist")
-        XCTAssertTrue(app.staticTexts["LLM Settings"].exists, "LLM settings section should exist")
-        XCTAssertTrue(app.staticTexts["Chats"].exists, "Chats setting should exist")
-        XCTAssertTrue(app.staticTexts["Models"].exists, "Models setting should exist")
+        XCTAssertTrue(app.staticTexts["Life Management"].waitForExistence(timeout: 3), "Life Management setting should exist")
+        XCTAssertTrue(app.staticTexts["Chats"].waitForExistence(timeout: 3), "Chats setting should exist")
+        XCTAssertTrue(app.staticTexts["Models"].waitForExistence(timeout: 3), "Models setting should exist")
+        XCTAssertTrue(app.staticTexts["Guided Setup"].waitForExistence(timeout: 3), "Guided Setup card should exist")
 
         takeScreenshot(named: "theme_and_llm_settings_visibility")
     }

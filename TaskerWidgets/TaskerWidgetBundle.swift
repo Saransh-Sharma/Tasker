@@ -581,7 +581,9 @@ private struct TaskWidgetContainerBackgroundModifier: ViewModifier {
     @ViewBuilder
     func body(content: Content) -> some View {
         if enabled {
-            content.containerBackground(.fill.tertiary, for: .widget)
+            content
+                .tint(WidgetBrand.actionPrimary)
+                .containerBackground(WidgetBrand.canvas, for: .widget)
         } else {
             content
         }
@@ -763,6 +765,16 @@ private func uniqueTasks(_ tasks: [TaskListWidgetTask]) -> [TaskListWidgetTask] 
     return unique
 }
 
+private extension View {
+    func widgetPanelBackground(borderTint: Color = WidgetBrand.line, cornerRadius: CGFloat = 10) -> some View {
+        background(WidgetBrand.canvasElevated, in: RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                    .stroke(borderTint.opacity(0.32), lineWidth: 1)
+            )
+    }
+}
+
 private struct TaskRow: View {
     let task: TaskListWidgetTask
     var emphasize: Bool = false
@@ -776,7 +788,7 @@ private struct TaskRow: View {
                 Spacer(minLength: 4)
                 Text(task.priorityCode)
                     .font(.system(size: 9, weight: .bold, design: .rounded))
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(WidgetBrand.textSecondary)
             }
         }
     }
@@ -791,14 +803,14 @@ private struct MetricChip: View {
         VStack(spacing: 2) {
             Text(title)
                 .font(.system(size: 10, weight: .medium))
-                .foregroundStyle(.secondary)
+                .foregroundStyle(WidgetBrand.textSecondary)
             Text(value)
                 .font(.system(size: 14, weight: .bold, design: .rounded))
                 .foregroundStyle(tint)
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 6)
-        .background(tint.opacity(0.12), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+        .widgetPanelBackground(borderTint: tint)
     }
 }
 
@@ -816,7 +828,7 @@ private struct BoardColumnView: View {
             if tasks.isEmpty {
                 Text(fallback)
                     .font(.system(size: 10, weight: .medium))
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(WidgetBrand.textSecondary)
                     .lineLimit(2)
             } else {
                 ForEach(tasks) { task in
@@ -828,14 +840,14 @@ private struct BoardColumnView: View {
                         }
                         Text(task.shortDueLabel)
                             .font(.system(size: 9, weight: .medium))
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(WidgetBrand.textSecondary)
                     }
                 }
             }
             Spacer(minLength: 0)
         }
         .padding(8)
-        .background(tint.opacity(0.12), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+        .widgetPanelBackground(borderTint: tint)
     }
 }
 
@@ -848,7 +860,7 @@ private struct TopTaskNowWidgetView: View {
         VStack(alignment: .leading, spacing: 6) {
             Text("Now")
                 .font(.system(size: 11, weight: .medium))
-                .foregroundStyle(.secondary)
+                .foregroundStyle(WidgetBrand.textSecondary)
 
             if let task = entry.snapshot.nextTask {
                 Text(task.title)
@@ -857,7 +869,7 @@ private struct TopTaskNowWidgetView: View {
 
                 Text(task.priorityCode + " • " + task.dueLabel)
                     .font(.system(size: 10, weight: .medium))
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(WidgetBrand.textSecondary)
 
                 Spacer(minLength: 4)
 
@@ -882,14 +894,14 @@ private struct TopTaskNowWidgetView: View {
                             .font(.system(size: 10, weight: .semibold))
                             .padding(.horizontal, 8)
                             .padding(.vertical, 4)
-                            .background(.tint, in: Capsule())
-                            .foregroundStyle(.white)
+                            .background(WidgetBrand.actionPrimary, in: Capsule())
+                            .foregroundStyle(WidgetBrand.canvasElevated)
                     }
                 }
             } else {
                 Text("No open tasks")
                     .font(.system(size: 12, weight: .medium))
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(WidgetBrand.textSecondary)
                 Spacer()
                 Link(destination: TaskWidgetRoutes.quickAdd) {
                     Text("Quick Add")
@@ -919,11 +931,11 @@ private struct TodayCounterNextWidgetView: View {
                     .lineLimit(2)
                 Text(task.dueLabel)
                     .font(.system(size: 10, weight: .medium))
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(WidgetBrand.textSecondary)
             } else {
                 Text("No queued tasks")
                     .font(.system(size: 11, weight: .medium))
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(WidgetBrand.textSecondary)
             }
             Spacer(minLength: 0)
         }
@@ -938,7 +950,7 @@ private struct OverdueRescueWidgetView: View {
         VStack(alignment: .leading, spacing: 6) {
             HStack {
                 Image(systemName: "exclamationmark.triangle.fill")
-                    .foregroundStyle(.orange)
+                    .foregroundStyle(WidgetBrand.marigold)
                 Text("Overdue")
                     .font(.system(size: 12, weight: .semibold))
                 Spacer()
@@ -952,7 +964,7 @@ private struct OverdueRescueWidgetView: View {
                     .lineLimit(3)
                 Text(task.dueLabel)
                     .font(.system(size: 10, weight: .medium))
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(WidgetBrand.textSecondary)
                 Spacer()
                 Link(destination: TaskWidgetRoutes.task(task.id)) {
                     Text("Rescue")
@@ -962,7 +974,7 @@ private struct OverdueRescueWidgetView: View {
                 Spacer()
                 Text("Backlog is clean")
                     .font(.system(size: 11, weight: .medium))
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(WidgetBrand.textSecondary)
             }
         }
         .widgetURL(entry.snapshot.overdueTasks.first.map { TaskWidgetRoutes.task($0.id) } ?? TaskWidgetRoutes.overdue)
@@ -982,11 +994,11 @@ private struct QuickWin15mWidgetView: View {
                     .lineLimit(3)
                 Text(task.estimateLabel + " • " + task.projectLabel)
                     .font(.system(size: 10, weight: .medium))
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(WidgetBrand.textSecondary)
             } else {
                 Text("No short tasks right now")
                     .font(.system(size: 11, weight: .medium))
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(WidgetBrand.textSecondary)
             }
             Spacer(minLength: 0)
         }
@@ -1007,11 +1019,11 @@ private struct MorningKickoffWidgetView: View {
                     .lineLimit(3)
                 Text(task.shortDueLabel)
                     .font(.system(size: 10, weight: .medium))
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(WidgetBrand.textSecondary)
             } else {
                 Text("No morning tasks")
                     .font(.system(size: 11, weight: .medium))
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(WidgetBrand.textSecondary)
             }
             Spacer(minLength: 0)
         }
@@ -1027,13 +1039,13 @@ private struct EveningWrapWidgetView: View {
             Text("Evening Wrap")
                 .font(.system(size: 12, weight: .semibold))
             HStack(spacing: 8) {
-                MetricChip(title: "Done", value: "\(entry.snapshot.doneTodayCount)", tint: .green)
-                MetricChip(title: "Carry", value: "\(entry.snapshot.overdueCount)", tint: .orange)
+                MetricChip(title: "Done", value: "\(entry.snapshot.doneTodayCount)", tint: WidgetBrand.emerald)
+                MetricChip(title: "Carry", value: "\(entry.snapshot.overdueCount)", tint: WidgetBrand.marigold)
             }
             Spacer(minLength: 0)
             Text(entry.snapshot.overdueCount == 0 ? "Ready to reset" : "Rescue overdue before close")
                 .font(.system(size: 10, weight: .medium))
-                .foregroundStyle(.secondary)
+                .foregroundStyle(WidgetBrand.textSecondary)
         }
         .widgetURL(entry.snapshot.overdueTasks.first.map { TaskWidgetRoutes.task($0.id) } ?? TaskWidgetRoutes.today)
     }
@@ -1057,11 +1069,11 @@ private struct WaitingOnWidgetView: View {
                     .lineLimit(3)
                 Text(task.projectLabel)
                     .font(.system(size: 10, weight: .medium))
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(WidgetBrand.textSecondary)
             } else {
                 Text("No blocked tasks")
                     .font(.system(size: 11, weight: .medium))
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(WidgetBrand.textSecondary)
             }
             Spacer(minLength: 0)
         }
@@ -1089,11 +1101,11 @@ private struct InboxTriageWidgetView: View {
                     .lineLimit(3)
                 Text(task.priorityCode)
                     .font(.system(size: 10, weight: .medium))
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(WidgetBrand.textSecondary)
             } else {
                 Text("Inbox is clear")
                     .font(.system(size: 11, weight: .medium))
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(WidgetBrand.textSecondary)
             }
             Spacer(minLength: 0)
         }
@@ -1119,11 +1131,11 @@ private struct DueSoonRadarWidgetView: View {
                     .lineLimit(3)
                 Text(task.dueLabel)
                     .font(.system(size: 10, weight: .medium))
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(WidgetBrand.textSecondary)
             } else {
                 Text("No near deadlines")
                     .font(.system(size: 11, weight: .medium))
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(WidgetBrand.textSecondary)
             }
             Spacer(minLength: 0)
         }
@@ -1146,7 +1158,7 @@ private struct EnergyMatchWidgetView: View {
             if let bucket = topBucket {
                 Text(normalizedBucketLabel(bucket.energy, fallback: "Medium") + " load: \(bucket.count)")
                     .font(.system(size: 11, weight: .medium))
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(WidgetBrand.textSecondary)
             }
             if let task = matching {
                 Text(task.title)
@@ -1155,7 +1167,7 @@ private struct EnergyMatchWidgetView: View {
             } else {
                 Text("No matched task")
                     .font(.system(size: 11, weight: .medium))
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(WidgetBrand.textSecondary)
             }
             Spacer(minLength: 0)
         }
@@ -1178,13 +1190,13 @@ private struct ProjectSpotlightWidgetView: View {
                     .font(.system(size: 13, weight: .semibold))
                     .lineLimit(2)
                 HStack(spacing: 8) {
-                    MetricChip(title: "Open", value: "\(slice.openCount)", tint: .accentColor)
-                    MetricChip(title: "Overdue", value: "\(slice.overdueCount)", tint: .orange)
+                    MetricChip(title: "Open", value: "\(slice.openCount)", tint: WidgetBrand.actionPrimary)
+                    MetricChip(title: "Overdue", value: "\(slice.overdueCount)", tint: WidgetBrand.marigold)
                 }
             } else {
                 Text("No active projects")
                     .font(.system(size: 11, weight: .medium))
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(WidgetBrand.textSecondary)
             }
             Spacer(minLength: 0)
         }
@@ -1205,8 +1217,8 @@ private struct CalendarTaskBridgeWidgetView: View {
             Text("Calendar Bridge")
                 .font(.system(size: 12, weight: .semibold))
             HStack(spacing: 8) {
-                MetricChip(title: "Today", value: "\(dueToday.count)", tint: .accentColor)
-                MetricChip(title: "48h", value: "\(entry.snapshot.upcomingTasks.count)", tint: .blue)
+                MetricChip(title: "Today", value: "\(dueToday.count)", tint: WidgetBrand.actionPrimary)
+                MetricChip(title: "48h", value: "\(entry.snapshot.upcomingTasks.count)", tint: WidgetBrand.sandstone)
             }
             if let task = dueToday.first ?? entry.snapshot.upcomingTasks.first {
                 Text(task.title)
@@ -1215,7 +1227,7 @@ private struct CalendarTaskBridgeWidgetView: View {
             } else {
                 Text("No scheduled tasks")
                     .font(.system(size: 11, weight: .medium))
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(WidgetBrand.textSecondary)
             }
             Spacer(minLength: 0)
         }
@@ -1236,13 +1248,13 @@ private struct TodayTop3WidgetView: View {
                 Spacer()
                 Text("Done \(entry.snapshot.doneTodayCount)")
                     .font(.system(size: 11, weight: .medium))
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(WidgetBrand.textSecondary)
             }
 
             if entry.snapshot.todayTopTasks.isEmpty {
                 Text("No tasks for today")
                     .font(.system(size: 12, weight: .medium))
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(WidgetBrand.textSecondary)
             } else {
                 ForEach(Array(entry.snapshot.todayTopTasks.prefix(3)).indices, id: \.self) { index in
                     let task = entry.snapshot.todayTopTasks[index]
@@ -1250,14 +1262,14 @@ private struct TodayTop3WidgetView: View {
                         HStack(spacing: 8) {
                             Text("\(index + 1).")
                                 .font(.system(size: 11, weight: .bold))
-                                .foregroundStyle(.secondary)
+                                .foregroundStyle(WidgetBrand.textSecondary)
                             Text(task.title)
                                 .font(.system(size: 12, weight: .medium))
                                 .lineLimit(1)
                             Spacer()
                             Text(task.priorityCode)
                                 .font(.system(size: 10, weight: .bold, design: .rounded))
-                                .foregroundStyle(.secondary)
+                                .foregroundStyle(WidgetBrand.textSecondary)
                         }
                     }
                 }
@@ -1281,7 +1293,7 @@ private struct NowLaneWidgetView: View {
             if tasks.isEmpty {
                 Text("No current lane")
                     .font(.system(size: 12, weight: .medium))
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(WidgetBrand.textSecondary)
             } else {
                 ForEach(Array(tasks.prefix(4))) { task in
                     TaskRow(task: task, emphasize: true)
@@ -1304,13 +1316,13 @@ private struct OverdueBoardWidgetView: View {
                 Spacer()
                 Text("\(entry.snapshot.overdueCount)")
                     .font(.system(size: 11, weight: .bold, design: .rounded))
-                    .foregroundStyle(.orange)
+                    .foregroundStyle(WidgetBrand.marigold)
             }
 
             if entry.snapshot.overdueTasks.isEmpty {
                 Text("No overdue tasks")
                     .font(.system(size: 12, weight: .medium))
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(WidgetBrand.textSecondary)
             } else {
                 ForEach(Array(entry.snapshot.overdueTasks.prefix(4))) { task in
                     Link(destination: TaskWidgetRoutes.task(task.id)) {
@@ -1321,7 +1333,7 @@ private struct OverdueBoardWidgetView: View {
                             Spacer()
                             Text(task.dueLabel)
                                 .font(.system(size: 10, weight: .medium))
-                                .foregroundStyle(.secondary)
+                                .foregroundStyle(WidgetBrand.textSecondary)
                         }
                     }
                 }
@@ -1343,7 +1355,7 @@ private struct Upcoming48hWidgetView: View {
             if entry.snapshot.upcomingTasks.isEmpty {
                 Text("No deadlines in 48 hours")
                     .font(.system(size: 12, weight: .medium))
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(WidgetBrand.textSecondary)
             } else {
                 ForEach(Array(entry.snapshot.upcomingTasks.prefix(4))) { task in
                     Link(destination: TaskWidgetRoutes.task(task.id)) {
@@ -1354,7 +1366,7 @@ private struct Upcoming48hWidgetView: View {
                             Spacer()
                             Text(task.dueLabel)
                                 .font(.system(size: 10, weight: .medium))
-                                .foregroundStyle(.secondary)
+                                .foregroundStyle(WidgetBrand.textSecondary)
                         }
                     }
                 }
@@ -1373,11 +1385,11 @@ private struct MorningEveningPlanWidgetView: View {
             VStack(alignment: .leading, spacing: 6) {
                 Text("Morning")
                     .font(.system(size: 11, weight: .bold))
-                    .foregroundStyle(Color.accentColor)
+                    .foregroundStyle(WidgetBrand.actionPrimary)
                 if entry.snapshot.morningTasks.isEmpty {
                     Text("No tasks")
                         .font(.system(size: 10, weight: .medium))
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(WidgetBrand.textSecondary)
                 } else {
                     ForEach(Array(entry.snapshot.morningTasks.prefix(3))) { task in
                         TaskRow(task: task)
@@ -1386,16 +1398,16 @@ private struct MorningEveningPlanWidgetView: View {
                 Spacer(minLength: 0)
             }
             .padding(8)
-            .background(Color.accentColor.opacity(0.12), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+            .widgetPanelBackground(borderTint: WidgetBrand.actionPrimary)
 
             VStack(alignment: .leading, spacing: 6) {
                 Text("Evening")
                     .font(.system(size: 11, weight: .bold))
-                    .foregroundStyle(.blue)
+                    .foregroundStyle(WidgetBrand.sandstone)
                 if entry.snapshot.eveningTasks.isEmpty {
                     Text("No tasks")
                         .font(.system(size: 10, weight: .medium))
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(WidgetBrand.textSecondary)
                 } else {
                     ForEach(Array(entry.snapshot.eveningTasks.prefix(3))) { task in
                         TaskRow(task: task)
@@ -1404,7 +1416,7 @@ private struct MorningEveningPlanWidgetView: View {
                 Spacer(minLength: 0)
             }
             .padding(8)
-            .background(Color.blue.opacity(0.12), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+            .widgetPanelBackground(borderTint: WidgetBrand.sandstone)
         }
         .widgetURL(TaskWidgetRoutes.today)
     }
@@ -1418,9 +1430,9 @@ private struct QuickViewSwitcherWidgetView: View {
             Text("Quick Views")
                 .font(.system(size: 12, weight: .semibold))
             HStack(spacing: 8) {
-                quickScopeChip("Today", count: entry.snapshot.todayTopTasks.count, tint: .accentColor, url: TaskWidgetRoutes.today, scope: .today)
-                quickScopeChip("Upcoming", count: entry.snapshot.upcomingTasks.count, tint: .blue, url: TaskWidgetRoutes.upcoming, scope: .upcoming)
-                quickScopeChip("Overdue", count: entry.snapshot.overdueTasks.count, tint: .orange, url: TaskWidgetRoutes.overdue, scope: .overdue)
+                quickScopeChip("Today", count: entry.snapshot.todayTopTasks.count, tint: WidgetBrand.actionPrimary, url: TaskWidgetRoutes.today, scope: .today)
+                quickScopeChip("Upcoming", count: entry.snapshot.upcomingTasks.count, tint: WidgetBrand.sandstone, url: TaskWidgetRoutes.upcoming, scope: .upcoming)
+                quickScopeChip("Overdue", count: entry.snapshot.overdueTasks.count, tint: WidgetBrand.marigold, url: TaskWidgetRoutes.overdue, scope: .overdue)
             }
             Spacer(minLength: 0)
         }
@@ -1451,14 +1463,14 @@ private struct QuickViewSwitcherWidgetView: View {
         VStack(spacing: 2) {
             Text(title)
                 .font(.system(size: 10, weight: .medium))
-                .foregroundStyle(.secondary)
+                .foregroundStyle(WidgetBrand.textSecondary)
             Text("\(count)")
                 .font(.system(size: 15, weight: .bold, design: .rounded))
                 .foregroundStyle(tint)
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 8)
-        .background(tint.opacity(0.12), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+        .widgetPanelBackground(borderTint: tint)
     }
 }
 
@@ -1473,7 +1485,7 @@ private struct ProjectSprintWidgetView: View {
             if entry.snapshot.projectSlices.isEmpty {
                 Text("No active projects")
                     .font(.system(size: 12, weight: .medium))
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(WidgetBrand.textSecondary)
             } else {
                 ForEach(Array(entry.snapshot.projectSlices.prefix(4))) { slice in
                     let destination = slice.projectID.map(TaskWidgetRoutes.project(_:)) ?? TaskWidgetRoutes.today
@@ -1488,7 +1500,7 @@ private struct ProjectSprintWidgetView: View {
                             if slice.overdueCount > 0 {
                                 Text("!\(slice.overdueCount)")
                                     .font(.system(size: 10, weight: .semibold))
-                                    .foregroundStyle(.orange)
+                                    .foregroundStyle(WidgetBrand.marigold)
                             }
                         }
                     }
@@ -1510,16 +1522,16 @@ private struct PriorityMatrixLiteWidgetView: View {
             Text("Priority Matrix")
                 .font(.system(size: 12, weight: .semibold))
             HStack(spacing: 8) {
-                MetricChip(title: "P0/P1", value: "\(counts["P0", default: 0] + counts["P1", default: 0])", tint: .red)
-                MetricChip(title: "P2", value: "\(counts["P2", default: 0])", tint: .orange)
-                MetricChip(title: "P3+", value: "\(counts["P3", default: 0] + counts["P4", default: 0] + counts["P5", default: 0])", tint: .blue)
+                MetricChip(title: "P0/P1", value: "\(counts["P0", default: 0] + counts["P1", default: 0])", tint: WidgetBrand.red)
+                MetricChip(title: "P2", value: "\(counts["P2", default: 0])", tint: WidgetBrand.marigold)
+                MetricChip(title: "P3+", value: "\(counts["P3", default: 0] + counts["P4", default: 0] + counts["P5", default: 0])", tint: WidgetBrand.sandstone)
             }
             if let task = entry.snapshot.todayTopTasks.first {
                 TaskRow(task: task, emphasize: true)
             } else {
                 Text("No prioritized tasks")
                     .font(.system(size: 11, weight: .medium))
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(WidgetBrand.textSecondary)
             }
             Spacer(minLength: 0)
         }
@@ -1537,7 +1549,7 @@ private struct ContextWidgetView: View {
             if entry.snapshot.contextCounts.isEmpty {
                 Text("No context-tagged tasks")
                     .font(.system(size: 12, weight: .medium))
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(WidgetBrand.textSecondary)
             } else {
                 ForEach(Array(entry.snapshot.contextCounts.prefix(4)), id: \.key) { bucket in
                     HStack {
@@ -1546,7 +1558,7 @@ private struct ContextWidgetView: View {
                         Spacer()
                         Text("\(bucket.value)")
                             .font(.system(size: 11, weight: .bold, design: .rounded))
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(WidgetBrand.textSecondary)
                     }
                 }
             }
@@ -1574,21 +1586,21 @@ private struct FocusSessionQueueWidgetView: View {
             if queue.isEmpty {
                 Text("No focus queue")
                     .font(.system(size: 12, weight: .medium))
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(WidgetBrand.textSecondary)
             } else {
                 ForEach(Array(queue.prefix(4))) { task in
                     Link(destination: TaskWidgetRoutes.task(task.id)) {
                         HStack {
                             Image(systemName: "target")
                                 .font(.system(size: 10, weight: .bold))
-                                .foregroundStyle(.tint)
+                                .foregroundStyle(WidgetBrand.actionPrimary)
                             Text(task.title)
                                 .font(.system(size: 12, weight: .medium))
                                 .lineLimit(1)
                             Spacer()
                             Text(task.estimateLabel)
                                 .font(.system(size: 10, weight: .medium))
-                                .foregroundStyle(.secondary)
+                                .foregroundStyle(WidgetBrand.textSecondary)
                         }
                     }
                 }
@@ -1613,7 +1625,7 @@ private struct RecoveryWidgetView: View {
                 Spacer()
                 Text("\(completed.count) resumed")
                     .font(.system(size: 10, weight: .medium))
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(WidgetBrand.textSecondary)
             }
 
             if let resumeCandidate {
@@ -1623,13 +1635,13 @@ private struct RecoveryWidgetView: View {
             } else {
                 Text("No pending task to resume")
                     .font(.system(size: 12, weight: .medium))
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(WidgetBrand.textSecondary)
             }
 
             if let completedTask = completed.first {
                 Text("Last done: \(completedTask.title)")
                     .font(.system(size: 11, weight: .medium))
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(WidgetBrand.textSecondary)
                     .lineLimit(1)
             }
             Spacer(minLength: 0)
@@ -1653,7 +1665,7 @@ private struct DoneReflectionWidgetView: View {
 
             Text("Streak \(entry.gamificationSnapshot.streakDays)d • XP \(entry.gamificationSnapshot.dailyXP)")
                 .font(.system(size: 11, weight: .medium))
-                .foregroundStyle(.secondary)
+                .foregroundStyle(WidgetBrand.textSecondary)
                 .lineLimit(1)
 
             if let quickWin = entry.snapshot.quickWins.first {
@@ -1665,7 +1677,7 @@ private struct DoneReflectionWidgetView: View {
             } else {
                 Text("No quick wins queued")
                     .font(.system(size: 11, weight: .medium))
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(WidgetBrand.textSecondary)
             }
             Spacer(minLength: 0)
         }
@@ -1682,19 +1694,19 @@ private struct TodayPlannerBoardWidgetView: View {
         HStack(alignment: .top, spacing: 8) {
             BoardColumnView(
                 title: "Overdue",
-                tint: .orange,
+                tint: WidgetBrand.marigold,
                 tasks: Array(entry.snapshot.overdueTasks.prefix(3)),
                 fallback: "None"
             )
             BoardColumnView(
                 title: "Now",
-                tint: .accentColor,
+                tint: WidgetBrand.actionPrimary,
                 tasks: Array(entry.snapshot.todayTopTasks.prefix(3)),
                 fallback: "No focus task"
             )
             BoardColumnView(
                 title: "Later",
-                tint: .blue,
+                tint: WidgetBrand.sandstone,
                 tasks: Array(entry.snapshot.upcomingTasks.prefix(3)),
                 fallback: "No upcoming"
             )
@@ -1717,7 +1729,7 @@ private struct WeekTaskPlannerWidgetView: View {
             if datedTasks.isEmpty {
                 Text("No scheduled deadlines")
                     .font(.system(size: 12, weight: .medium))
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(WidgetBrand.textSecondary)
             } else {
                 ForEach(Array(datedTasks.prefix(8))) { task in
                     Link(destination: TaskWidgetRoutes.task(task.id)) {
@@ -1728,7 +1740,7 @@ private struct WeekTaskPlannerWidgetView: View {
                             Spacer()
                             Text(task.shortDueLabel)
                                 .font(.system(size: 10, weight: .medium))
-                                .foregroundStyle(.secondary)
+                                .foregroundStyle(WidgetBrand.textSecondary)
                         }
                     }
                 }
@@ -1747,9 +1759,9 @@ private struct ProjectCockpitWidgetView: View {
             Text("Project Cockpit")
                 .font(.system(size: 13, weight: .semibold))
             HStack(spacing: 8) {
-                MetricChip(title: "Projects", value: "\(entry.snapshot.projectSlices.count)", tint: .accentColor)
-                MetricChip(title: "Overdue", value: "\(entry.snapshot.projectSlices.reduce(0) { $0 + $1.overdueCount })", tint: .orange)
-                MetricChip(title: "Open", value: "\(entry.snapshot.projectSlices.reduce(0) { $0 + $1.openCount })", tint: .blue)
+                MetricChip(title: "Projects", value: "\(entry.snapshot.projectSlices.count)", tint: WidgetBrand.actionPrimary)
+                MetricChip(title: "Overdue", value: "\(entry.snapshot.projectSlices.reduce(0) { $0 + $1.overdueCount })", tint: WidgetBrand.marigold)
+                MetricChip(title: "Open", value: "\(entry.snapshot.projectSlices.reduce(0) { $0 + $1.openCount })", tint: WidgetBrand.sandstone)
             }
 
             ForEach(Array(entry.snapshot.projectSlices.prefix(6))) { slice in
@@ -1762,7 +1774,7 @@ private struct ProjectCockpitWidgetView: View {
                         Spacer()
                         Text("\(slice.openCount) open")
                             .font(.system(size: 10, weight: .semibold))
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(WidgetBrand.textSecondary)
                     }
                 }
             }
@@ -1785,14 +1797,14 @@ private struct BacklogHealthWidgetView: View {
                 .font(.system(size: 13, weight: .semibold))
 
             HStack(spacing: 8) {
-                MetricChip(title: "Overdue", value: "\(overdue)", tint: .orange)
-                MetricChip(title: "Blocked", value: "\(blocked)", tint: .purple)
-                MetricChip(title: "Inbox", value: "\(intake)", tint: .blue)
+                MetricChip(title: "Overdue", value: "\(overdue)", tint: WidgetBrand.marigold)
+                MetricChip(title: "Blocked", value: "\(blocked)", tint: WidgetBrand.magenta)
+                MetricChip(title: "Inbox", value: "\(intake)", tint: WidgetBrand.sandstone)
             }
 
             Text(overdue == 0 && blocked == 0 ? "Healthy backlog" : "Recovery recommended")
                 .font(.system(size: 11, weight: .medium))
-                .foregroundStyle(.secondary)
+                .foregroundStyle(WidgetBrand.textSecondary)
 
             ForEach(Array(entry.snapshot.overdueTasks.prefix(4))) { task in
                 TaskRow(task: task)
@@ -1811,19 +1823,19 @@ private struct KanbanLiteWidgetView: View {
         HStack(alignment: .top, spacing: 8) {
             BoardColumnView(
                 title: "Rescue",
-                tint: .orange,
+                tint: WidgetBrand.marigold,
                 tasks: Array(entry.snapshot.overdueTasks.prefix(3)),
                 fallback: "Empty"
             )
             BoardColumnView(
                 title: "Now",
-                tint: .accentColor,
+                tint: WidgetBrand.actionPrimary,
                 tasks: Array(entry.snapshot.todayTopTasks.prefix(3)),
                 fallback: "Empty"
             )
             BoardColumnView(
                 title: "Blocked",
-                tint: .purple,
+                tint: WidgetBrand.magenta,
                 tasks: Array(entry.snapshot.waitingOn.prefix(3)),
                 fallback: "Empty"
             )
@@ -1858,14 +1870,17 @@ private struct DeadlineHeatmapWidgetView: View {
                     VStack(spacing: 4) {
                         Text(bucket.label)
                             .font(.system(size: 10, weight: .medium))
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(WidgetBrand.textSecondary)
                         Text("\(bucket.count)")
                             .font(.system(size: 12, weight: .bold, design: .rounded))
-                            .foregroundStyle(bucket.count == 0 ? .secondary : .primary)
+                            .foregroundStyle(bucket.count == 0 ? WidgetBrand.textSecondary : WidgetBrand.textPrimary)
                     }
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 8)
-                    .background((bucket.count == 0 ? Color(.systemGray6) : Color.red.opacity(0.12)), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+                    .widgetPanelBackground(
+                        borderTint: bucket.count == 0 ? WidgetBrand.line : WidgetBrand.red,
+                        cornerRadius: 8
+                    )
                 }
             }
 
@@ -1889,10 +1904,10 @@ private struct ExecutionDashboardWidgetView: View {
                 .font(.system(size: 13, weight: .semibold))
 
             HStack(spacing: 8) {
-                MetricChip(title: "Done", value: "\(entry.snapshot.doneTodayCount)", tint: .green)
-                MetricChip(title: "Open", value: "\(entry.snapshot.openCount)", tint: .accentColor)
-                MetricChip(title: "Overdue", value: "\(entry.snapshot.overdueCount)", tint: .orange)
-                MetricChip(title: "Blocked", value: "\(entry.snapshot.waitingOn.count)", tint: .purple)
+                MetricChip(title: "Done", value: "\(entry.snapshot.doneTodayCount)", tint: WidgetBrand.emerald)
+                MetricChip(title: "Open", value: "\(entry.snapshot.openCount)", tint: WidgetBrand.actionPrimary)
+                MetricChip(title: "Overdue", value: "\(entry.snapshot.overdueCount)", tint: WidgetBrand.marigold)
+                MetricChip(title: "Blocked", value: "\(entry.snapshot.waitingOn.count)", tint: WidgetBrand.magenta)
             }
 
             if let task = entry.snapshot.nextTask {
@@ -1902,10 +1917,11 @@ private struct ExecutionDashboardWidgetView: View {
             } else {
                 Text("No active next action")
                     .font(.system(size: 12, weight: .medium))
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(WidgetBrand.textSecondary)
             }
 
             ProgressView(value: entry.snapshot.completionProgress)
+                .tint(WidgetBrand.actionPrimary)
 
             Spacer(minLength: 0)
         }
@@ -1934,7 +1950,7 @@ private struct DeepWorkAgendaWidgetView: View {
             if deepWorkTasks.isEmpty {
                 Text("No deep-work candidates")
                     .font(.system(size: 12, weight: .medium))
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(WidgetBrand.textSecondary)
             } else {
                 ForEach(Array(deepWorkTasks.prefix(7))) { task in
                     Link(destination: TaskWidgetRoutes.task(task.id)) {
@@ -1945,7 +1961,7 @@ private struct DeepWorkAgendaWidgetView: View {
                             Spacer()
                             Text(task.estimateLabel)
                                 .font(.system(size: 10, weight: .medium))
-                                .foregroundStyle(.secondary)
+                                .foregroundStyle(WidgetBrand.textSecondary)
                         }
                     }
                 }
@@ -1967,7 +1983,7 @@ private struct AssistantPlanPreviewWidgetView: View {
                 Spacer()
                 Text("Read-only")
                     .font(.system(size: 10, weight: .semibold))
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(WidgetBrand.textSecondary)
             }
             ForEach(Array(entry.snapshot.todayTopTasks.prefix(6)).indices, id: \.self) { index in
                 let task = entry.snapshot.todayTopTasks[index]
@@ -1978,7 +1994,7 @@ private struct AssistantPlanPreviewWidgetView: View {
                             .lineLimit(1)
                         Text("Reason: \(task.priorityCode), due \(task.dueLabel)")
                             .font(.system(size: 10, weight: .medium))
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(WidgetBrand.textSecondary)
                             .lineLimit(1)
                     }
                 }
@@ -2002,13 +2018,13 @@ private struct LifeAreasBoardWidgetView: View {
                     VStack(spacing: 2) {
                         Text(normalizedBucketLabel(bucket.energy, fallback: "Medium"))
                             .font(.system(size: 10, weight: .medium))
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(WidgetBrand.textSecondary)
                         Text("\(bucket.count)")
                             .font(.system(size: 14, weight: .bold, design: .rounded))
                     }
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 6)
-                    .background(Color(.systemGray6), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+                    .background(WidgetBrand.canvasElevated, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
                 }
             }
 
@@ -2022,7 +2038,7 @@ private struct LifeAreasBoardWidgetView: View {
                         Spacer()
                         Text("Open \(slice.openCount)")
                             .font(.system(size: 10, weight: .semibold))
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(WidgetBrand.textSecondary)
                     }
                 }
             }
@@ -2081,7 +2097,7 @@ private struct RectangularTop2TasksWidgetView: View {
             if entry.snapshot.todayTopTasks.isEmpty {
                 Text("No tasks queued")
                     .font(.system(size: 11, weight: .medium))
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(WidgetBrand.textSecondary)
             } else {
                 ForEach(Array(entry.snapshot.todayTopTasks.prefix(2))) { task in
                     Text(task.title)
@@ -2108,7 +2124,7 @@ private struct RectangularOverdueAlertWidgetView: View {
             } else {
                 Text("No overdue tasks")
                     .font(.system(size: 11, weight: .medium))
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(WidgetBrand.textSecondary)
             }
         }
         .widgetURL(entry.snapshot.overdueTasks.first.map { TaskWidgetRoutes.task($0.id) } ?? TaskWidgetRoutes.overdue)
@@ -2140,7 +2156,7 @@ private struct RectangularFocusNowWidgetView: View {
             } else {
                 Text("No focus task")
                     .font(.system(size: 11, weight: .medium))
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(WidgetBrand.textSecondary)
             }
         }
         .widgetURL((entry.snapshot.focusNow.first ?? entry.snapshot.todayTopTasks.first).map { TaskWidgetRoutes.task($0.id) } ?? TaskWidgetRoutes.today)
@@ -2176,7 +2192,7 @@ private struct RectangularWaitingOnWidgetView: View {
             } else {
                 Text("No blocked tasks")
                     .font(.system(size: 11, weight: .medium))
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(WidgetBrand.textSecondary)
             }
         }
         .widgetURL(entry.snapshot.waitingOn.first.map { TaskWidgetRoutes.task($0.id) } ?? TaskWidgetRoutes.today)
@@ -2196,13 +2212,13 @@ private struct DeskTodayBoardWidgetView: View {
                 Spacer()
                 Text("Done \(entry.snapshot.doneTodayCount)")
                     .font(.system(size: 11, weight: .medium))
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(WidgetBrand.textSecondary)
             }
 
             HStack(spacing: 10) {
-                MetricChip(title: "Now", value: "\(entry.snapshot.todayTopTasks.count)", tint: .accentColor)
-                MetricChip(title: "Overdue", value: "\(entry.snapshot.overdueTasks.count)", tint: .orange)
-                MetricChip(title: "Upcoming", value: "\(entry.snapshot.upcomingTasks.count)", tint: .blue)
+                MetricChip(title: "Now", value: "\(entry.snapshot.todayTopTasks.count)", tint: WidgetBrand.actionPrimary)
+                MetricChip(title: "Overdue", value: "\(entry.snapshot.overdueTasks.count)", tint: WidgetBrand.marigold)
+                MetricChip(title: "Upcoming", value: "\(entry.snapshot.upcomingTasks.count)", tint: WidgetBrand.sandstone)
             }
 
             if let task = entry.snapshot.nextTask {
@@ -2214,7 +2230,7 @@ private struct DeskTodayBoardWidgetView: View {
             } else {
                 Text("No active tasks")
                     .font(.system(size: 12, weight: .medium))
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(WidgetBrand.textSecondary)
             }
         }
         .widgetURL(TaskWidgetRoutes.today)
@@ -2236,11 +2252,11 @@ private struct CountdownPanelWidgetView: View {
                     .lineLimit(2)
                 Text("Due \(next.dueLabel)")
                     .font(.system(size: 11, weight: .medium))
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(WidgetBrand.textSecondary)
             } else {
                 Text("No upcoming deadlines")
                     .font(.system(size: 12, weight: .medium))
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(WidgetBrand.textSecondary)
             }
             Spacer(minLength: 0)
         }
@@ -2260,21 +2276,21 @@ private struct FocusDockWidgetView: View {
             if queue.isEmpty {
                 Text("No focus lane yet")
                     .font(.system(size: 12, weight: .medium))
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(WidgetBrand.textSecondary)
             } else {
                 ForEach(Array(queue.prefix(3))) { task in
                     Link(destination: TaskWidgetRoutes.task(task.id)) {
                         HStack {
                             Image(systemName: "target")
                                 .font(.system(size: 10, weight: .bold))
-                                .foregroundStyle(.tint)
+                                .foregroundStyle(WidgetBrand.actionPrimary)
                             Text(task.title)
                                 .font(.system(size: 12, weight: .medium))
                                 .lineLimit(1)
                             Spacer()
                             Text(task.priorityCode)
                                 .font(.system(size: 10, weight: .bold, design: .rounded))
-                                .foregroundStyle(.secondary)
+                                .foregroundStyle(WidgetBrand.textSecondary)
                         }
                     }
                 }
@@ -2293,8 +2309,8 @@ private struct NightlyResetWidgetView: View {
             Text("Nightly Reset")
                 .font(.system(size: 12, weight: .semibold))
             HStack(spacing: 8) {
-                MetricChip(title: "Done", value: "\(entry.snapshot.doneTodayCount)", tint: .green)
-                MetricChip(title: "Carry", value: "\(entry.snapshot.overdueCount)", tint: .orange)
+                MetricChip(title: "Done", value: "\(entry.snapshot.doneTodayCount)", tint: WidgetBrand.emerald)
+                MetricChip(title: "Carry", value: "\(entry.snapshot.overdueCount)", tint: WidgetBrand.marigold)
             }
             if let carry = entry.snapshot.overdueTasks.first {
                 Text("Carry-over: \(carry.title)")
@@ -2303,7 +2319,7 @@ private struct NightlyResetWidgetView: View {
             } else {
                 Text("All clear for tomorrow")
                     .font(.system(size: 11, weight: .medium))
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(WidgetBrand.textSecondary)
             }
             Spacer(minLength: 0)
         }
@@ -2319,9 +2335,9 @@ private struct MorningBriefPanelWidgetView: View {
             Text("Morning Brief")
                 .font(.system(size: 12, weight: .semibold))
             HStack(spacing: 8) {
-                MetricChip(title: "Today", value: "\(entry.snapshot.todayTopTasks.count)", tint: .accentColor)
-                MetricChip(title: "Overdue", value: "\(entry.snapshot.overdueCount)", tint: .orange)
-                MetricChip(title: "Focus", value: "\(entry.snapshot.focusNow.count)", tint: .blue)
+                MetricChip(title: "Today", value: "\(entry.snapshot.todayTopTasks.count)", tint: WidgetBrand.actionPrimary)
+                MetricChip(title: "Overdue", value: "\(entry.snapshot.overdueCount)", tint: WidgetBrand.marigold)
+                MetricChip(title: "Focus", value: "\(entry.snapshot.focusNow.count)", tint: WidgetBrand.sandstone)
             }
             if let kickoff = entry.snapshot.morningTasks.first {
                 Text("Kickoff: \(kickoff.title)")
@@ -2330,7 +2346,7 @@ private struct MorningBriefPanelWidgetView: View {
             } else {
                 Text("No kickoff task")
                     .font(.system(size: 11, weight: .medium))
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(WidgetBrand.textSecondary)
             }
             Spacer(minLength: 0)
         }
@@ -2349,12 +2365,12 @@ private struct ProjectPulseWidgetView: View {
                 Spacer()
                 Text("\(entry.snapshot.projectSlices.count) active")
                     .font(.system(size: 10, weight: .medium))
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(WidgetBrand.textSecondary)
             }
             if entry.snapshot.projectSlices.isEmpty {
                 Text("No active project slices")
                     .font(.system(size: 12, weight: .medium))
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(WidgetBrand.textSecondary)
             } else {
                 ForEach(Array(entry.snapshot.projectSlices.prefix(4))) { slice in
                     let destination = slice.projectID.map(TaskWidgetRoutes.project(_:)) ?? TaskWidgetRoutes.today
@@ -2369,7 +2385,7 @@ private struct ProjectPulseWidgetView: View {
                             if slice.overdueCount > 0 {
                                 Text("!\(slice.overdueCount)")
                                     .font(.system(size: 10, weight: .semibold))
-                                    .foregroundStyle(.orange)
+                                    .foregroundStyle(WidgetBrand.marigold)
                             }
                         }
                     }

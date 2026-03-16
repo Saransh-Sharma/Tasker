@@ -95,31 +95,17 @@ class SettingsTests: BaseUITest {
         takeScreenshot(named: "navigate_back_from_project_management")
     }
 
-    // MARK: - Test 50: Toggle Dark Mode
+    // MARK: - Test 50: Workspace Rows
 
-    func testToggleDarkMode() throws {
-        // GIVEN: User is on settings screen
+    func testWorkspaceRowsAreVisible() throws {
         settingsPage = homePage.tapSettings()
         XCTAssertTrue(settingsPage.verifyIsDisplayed(), "Settings should be displayed")
 
-        // Get initial dark mode state (if accessible)
-        // Note: Dark mode toggle might be in appearance section
+        XCTAssertTrue(app.staticTexts["Life Management"].waitForExistence(timeout: 3), "Life Management row should exist")
+        XCTAssertTrue(app.staticTexts["Chats"].waitForExistence(timeout: 3), "Chats row should exist")
+        XCTAssertTrue(app.staticTexts["Models"].waitForExistence(timeout: 3), "Models row should exist")
 
-        // WHEN: User toggles dark mode
-        settingsPage.toggleDarkMode()
-
-        waitForAnimations(duration: 1.0)
-
-        // THEN: Theme should change
-        // (Visual verification - theme change might be immediate or require app restart)
-
-        takeScreenshot(named: "toggle_dark_mode")
-
-        // Toggle back to restore state
-        settingsPage.toggleDarkMode()
-        waitForAnimations(duration: 1.0)
-
-        takeScreenshot(named: "toggle_dark_mode_restored")
+        takeScreenshot(named: "workspace_rows_visible")
     }
 
     // MARK: - Test 51: App Version Display
@@ -168,11 +154,6 @@ class SettingsTests: BaseUITest {
         // LLM Settings (if available)
         if settingsPage.verifyLLMSettingsRowExists() {
             print("✅ LLM Settings available")
-        }
-
-        // Appearance settings
-        if settingsPage.verifyAppearanceRowExists() {
-            print("✅ Appearance settings available")
         }
 
         takeScreenshot(named: "settings_rows_exist")

@@ -1,24 +1,15 @@
 import UIKit
 
-// MARK: - Delegate
+// MARK: - System Appearance Cell
 
-@MainActor
-protocol DarkModeToggleCellDelegate: AnyObject {
-    /// Executes darkModeToggleCell.
-    func darkModeToggleCell(_ cell: DarkModeToggleCell, didToggle isDark: Bool)
-}
-
-// MARK: - Dark Mode Toggle Cell
-
-/// Inline dark mode toggle with UISwitch — no alert confirmation needed
+/// Legacy compatibility cell that now explains system appearance instead of toggling app-specific themes.
 final class DarkModeToggleCell: UITableViewCell {
     static let reuseID = "DarkModeToggleCell"
 
-    weak var delegate: DarkModeToggleCellDelegate?
-
-    private let modeSwitch = UISwitch()
     private let iconView = UIImageView()
     private let titleLabel = UILabel()
+    private let subtitleLabel = UILabel()
+    private let modeBadge = UILabel()
 
     /// Initializes a new instance.
     override init(style: UITableViewCell.CellStyle, reuseIdentifier: String?) {
@@ -36,8 +27,7 @@ final class DarkModeToggleCell: UITableViewCell {
 
     /// Executes update.
     func update(isDarkMode: Bool) {
-        modeSwitch.isOn = isDarkMode
-        updateVisuals(isDark: isDarkMode, animated: false)
+        updateVisuals(isDark: isDarkMode)
     }
 
     // MARK: - Setup
@@ -45,7 +35,7 @@ final class DarkModeToggleCell: UITableViewCell {
     /// Executes configure.
     private func configure() {
         selectionStyle = .none
-        accessibilityIdentifier = "settings.darkModeToggle"
+        accessibilityIdentifier = "settings.appearance.info"
 
         let colors = TaskerUIKitTokens.color
 
@@ -57,60 +47,70 @@ final class DarkModeToggleCell: UITableViewCell {
 
         // Title
         titleLabel.translatesAutoresizingMaskIntoConstraints = false
-        titleLabel.font = TaskerUIKitTokens.typography.body
+        titleLabel.font = TaskerUIKitTokens.typography.bodyStrong
         titleLabel.textColor = colors.textPrimary
         contentView.addSubview(titleLabel)
 
-        // Switch
-        modeSwitch.translatesAutoresizingMaskIntoConstraints = false
-        modeSwitch.onTintColor = colors.accentPrimary
-        modeSwitch.addTarget(self, action: #selector(switchChanged), for: .valueChanged)
-        contentView.addSubview(modeSwitch)
+        subtitleLabel.translatesAutoresizingMaskIntoConstraints = false
+        subtitleLabel.font = TaskerUIKitTokens.typography.meta
+        subtitleLabel.textColor = colors.textSecondary
+        subtitleLabel.numberOfLines = 0
+        subtitleLabel.lineBreakMode = .byWordWrapping
+        subtitleLabel.text = "To Do List follows your device's light or dark appearance automatically."
+        contentView.addSubview(subtitleLabel)
+
+        modeBadge.translatesAutoresizingMaskIntoConstraints = false
+        modeBadge.font = TaskerUIKitTokens.typography.monoMeta
+        modeBadge.textColor = colors.textInverse
+        modeBadge.backgroundColor = colors.accentPrimary
+        modeBadge.layer.cornerRadius = 12
+        modeBadge.layer.cornerCurve = .continuous
+        modeBadge.clipsToBounds = true
+        modeBadge.textAlignment = .center
+        contentView.addSubview(modeBadge)
 
         NSLayoutConstraint.activate([
             iconView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 16),
-            iconView.centerYAnchor.constraint(equalTo: contentView.centerYAnchor),
+            iconView.topAnchor.constraint(equalTo: contentView.topAnchor, constant: 16),
             iconView.widthAnchor.constraint(equalToConstant: 24),
             iconView.heightAnchor.constraint(equalToConstant: 24),
 
             titleLabel.leadingAnchor.constraint(equalTo: iconView.trailingAnchor, constant: 12),
-            titleLabel.centerYAnchor.constraint(equalTo: contentView.centerYAnchor),
+            titleLabel.topAnchor.constraint(equalTo: contentView.topAnchor, constant: 14),
+            titleLabel.trailingAnchor.constraint(lessThanOrEqualTo: modeBadge.leadingAnchor, constant: -12),
 
-            modeSwitch.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -16),
-            modeSwitch.centerYAnchor.constraint(equalTo: contentView.centerYAnchor),
+            subtitleLabel.leadingAnchor.constraint(equalTo: titleLabel.leadingAnchor),
+            subtitleLabel.topAnchor.constraint(equalTo: titleLabel.bottomAnchor, constant: 4),
+            subtitleLabel.trailingAnchor.constraint(lessThanOrEqualTo: modeBadge.leadingAnchor, constant: -12),
+            subtitleLabel.bottomAnchor.constraint(equalTo: contentView.bottomAnchor, constant: -14),
 
-            contentView.heightAnchor.constraint(greaterThanOrEqualToConstant: 52)
+            modeBadge.leadingAnchor.constraint(greaterThanOrEqualTo: titleLabel.trailingAnchor, constant: 12),
+            modeBadge.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -16),
+            modeBadge.centerYAnchor.constraint(equalTo: contentView.centerYAnchor),
+            modeBadge.widthAnchor.constraint(greaterThanOrEqualToConstant: 74),
+            modeBadge.heightAnchor.constraint(equalToConstant: 24),
+
+            contentView.heightAnchor.constraint(greaterThanOrEqualToConstant: 72)
         ])
 
         // Set initial visuals
-        updateVisuals(isDark: false, animated: false)
+        updateVisuals(isDark: traitCollection.userInterfaceStyle == .dark)
+    }
+
+    override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
+        super.traitCollectionDidChange(previousTraitCollection)
+
+        guard previousTraitCollection?.userInterfaceStyle != traitCollection.userInterfaceStyle else {
+            return
+        }
+        updateVisuals(isDark: traitCollection.userInterfaceStyle == .dark)
     }
 
     /// Executes updateVisuals.
-    private func updateVisuals(isDark: Bool, animated: Bool) {
-        let iconName = isDark ? "moon.fill" : "sun.max.fill"
-        let title = isDark ? "Dark Mode" : "Light Mode"
-
-        if animated {
-            UIView.transition(with: iconView, duration: 0.25, options: .transitionCrossDissolve) {
-                let config = UIImage.SymbolConfiguration(pointSize: 20, weight: .medium)
-                self.iconView.image = UIImage(systemName: iconName, withConfiguration: config)
-            }
-            UIView.transition(with: titleLabel, duration: 0.25, options: .transitionCrossDissolve) {
-                self.titleLabel.text = title
-            }
-        } else {
-            let config = UIImage.SymbolConfiguration(pointSize: 20, weight: .medium)
-            iconView.image = UIImage(systemName: iconName, withConfiguration: config)
-            titleLabel.text = title
-        }
-    }
-
-    // MARK: - Actions
-
-    @objc private func switchChanged() {
-        TaskerFeedback.selection()
-        updateVisuals(isDark: modeSwitch.isOn, animated: true)
-        delegate?.darkModeToggleCell(self, didToggle: modeSwitch.isOn)
+    private func updateVisuals(isDark: Bool) {
+        let config = UIImage.SymbolConfiguration(pointSize: 20, weight: .medium)
+        iconView.image = UIImage(systemName: "circle.lefthalf.filled", withConfiguration: config)
+        titleLabel.text = "System Appearance"
+        modeBadge.text = isDark ? "Dark" : "Light"
     }
 }

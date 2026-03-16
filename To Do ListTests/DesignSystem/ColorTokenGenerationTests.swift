@@ -3,65 +3,75 @@ import UIKit
 @testable import To_Do_List
 
 final class ColorTokenGenerationTests: XCTestCase {
-    func testDefaultAccentMatchesSpec() {
-        XCTAssertEqual(TaskerTheme.accentThemes.first?.accentBaseHex.uppercased(), "#C49832")
+    func testSarvamPaletteMatchesSpec() {
+        let palette = TaskerBrandPalette.sarvam
+
+        assertEqualColor(palette.brandEmerald, UIColor(taskerHex: "#293A18"))
+        assertEqualColor(palette.brandMagenta, UIColor(taskerHex: "#B1205F"))
+        assertEqualColor(palette.brandMarigold, UIColor(taskerHex: "#FEBF2B"))
+        assertEqualColor(palette.brandRed, UIColor(taskerHex: "#C11317"))
+        assertEqualColor(palette.brandSandstone, UIColor(taskerHex: "#9E5F0A"))
+        assertEqualColor(palette.neutralIvory, UIColor(taskerHex: "#FFF8EF"))
+        assertEqualColor(palette.neutralDarkInk0, UIColor(taskerHex: "#0F0C0A"))
+        assertEqualColor(palette.neutralDarkText1, UIColor(taskerHex: "#FFF3E6"))
     }
 
-    func testNeutralsAreStableAcrossThemes() {
-        let first = TaskerTheme(index: 0).tokens.color
-        let second = TaskerTheme(index: 8).tokens.color
-
-        assertEqualColor(
-            first.bgCanvas.resolvedColor(with: .init(userInterfaceStyle: .light)),
-            second.bgCanvas.resolvedColor(with: .init(userInterfaceStyle: .light))
-        )
-        assertEqualColor(
-            first.surfacePrimary.resolvedColor(with: .init(userInterfaceStyle: .dark)),
-            second.surfacePrimary.resolvedColor(with: .init(userInterfaceStyle: .dark))
-        )
-    }
-
-    func testAccentRampChangesWithTheme() {
-        let first = TaskerTheme(index: 0).tokens.color
-        let second = TaskerTheme(index: 1).tokens.color
-
-        assertNotEqualColor(first.accentPrimary, second.accentPrimary)
-        assertNotEqualColor(first.accentMuted, second.accentMuted)
-    }
-
-    func testThemePaletteReducedToNineUniqueBases() {
-        XCTAssertEqual(TaskerTheme.accentThemes.count, 9)
-        let uniqueBases = Set(TaskerTheme.accentThemes.map { $0.accentBaseHex.uppercased() })
-        XCTAssertEqual(uniqueBases.count, 9)
-    }
-
-    func testStatusColorsMatchSpec() {
+    func testSemanticNeutralsStayStableAcrossBrandTheme() {
         let colors = TaskerTheme(index: 0).tokens.color
 
-        assertEqualColor(colors.statusSuccess, UIColor(taskerHex: "#38C8A8"))
-        assertEqualColor(colors.statusWarning, UIColor(taskerHex: "#E8A040"))
-        assertEqualColor(colors.statusDanger, UIColor(taskerHex: "#E05058"))
+        assertEqualColor(
+            colors.bgCanvas.resolvedColor(with: .init(userInterfaceStyle: .light)),
+            UIColor(taskerHex: "#FFF8EF")
+        )
+        assertEqualColor(
+            colors.bgCanvasSecondary.resolvedColor(with: .init(userInterfaceStyle: .light)),
+            UIColor(taskerHex: "#F7EFE4")
+        )
+        assertEqualColor(
+            colors.bgCanvasSecondary.resolvedColor(with: .init(userInterfaceStyle: .dark)),
+            UIColor(taskerHex: "#15110E")
+        )
+        assertEqualColor(
+            colors.surfacePrimary.resolvedColor(with: .init(userInterfaceStyle: .dark)),
+            UIColor(taskerHex: "#15110E")
+        )
     }
 
-    func testAccentRampUsesSpecifiedHSLTransformAndClampRules() {
-        let base = UIColor(taskerHex: "#F08A2B")
-        let baseHSL = hsl(from: base)
-        let ramp = TaskerAccentRamp(base: base)
+    func testPrimaryAndAssistantAccentsMatchBrandRoles() {
+        let colors = TaskerTheme(index: 0).tokens.color
 
-        let expected600 = expectedRampColor(baseHSL: baseHSL, sDelta: 0.05, lDelta: -0.10)
-        let expected400 = expectedRampColor(baseHSL: baseHSL, sDelta: -0.05, lDelta: 0.08)
-        let expected100 = expectedRampColor(baseHSL: baseHSL, sDelta: -0.25, lDelta: 0.35)
-        let expected050 = expectedRampColor(baseHSL: baseHSL, sDelta: -0.35, lDelta: 0.45)
+        assertEqualColor(
+            colors.primaryAction.resolvedColor(with: .init(userInterfaceStyle: .light)),
+            UIColor(taskerHex: "#293A18")
+        )
+        assertEqualColor(
+            colors.primaryAction.resolvedColor(with: .init(userInterfaceStyle: .dark)),
+            UIColor(taskerHex: "#FEBF2B")
+        )
+        assertEqualColor(colors.assistantAccent, UIColor(taskerHex: "#B1205F"))
+        assertEqualColor(colors.warningAccent, UIColor(taskerHex: "#FEBF2B"))
+        assertEqualColor(colors.dangerAccent, UIColor(taskerHex: "#C11317"))
+        assertEqualColor(colors.stateInfo, UIColor(taskerHex: "#9E5F0A"))
+    }
 
-        assertEqualColor(ramp.accent600, expected600)
-        assertEqualColor(ramp.accent400, expected400)
-        assertEqualColor(ramp.accent100, expected100)
-        assertEqualColor(ramp.accent050, expected050)
+    func testPriorityColorsUseBrandFamilies() {
+        let colors = TaskerTheme(index: 0).tokens.color
 
-        assertHSLInBounds(ramp.accent600)
-        assertHSLInBounds(ramp.accent400)
-        assertHSLInBounds(ramp.accent100)
-        assertHSLInBounds(ramp.accent050)
+        assertEqualColor(colors.priorityNone, UIColor(taskerHex: "#9E5F0A"))
+        assertEqualColor(colors.priorityLow, UIColor(taskerHex: "#293A18"))
+        assertEqualColor(colors.priorityHigh, UIColor(taskerHex: "#B1205F"))
+        assertEqualColor(colors.priorityMax, UIColor(taskerHex: "#C11317"))
+    }
+
+    func testCompatibilityAliasesMapToSemanticRoles() {
+        let colors = TaskerTheme(index: 0).tokens.color
+        let darkTraits = UITraitCollection(userInterfaceStyle: .dark)
+
+        assertEqualColor(colors.accentPrimary.resolvedColor(with: darkTraits), colors.actionPrimary.resolvedColor(with: darkTraits))
+        assertEqualColor(colors.accentPrimaryPressed.resolvedColor(with: darkTraits), colors.actionPrimaryPressed.resolvedColor(with: darkTraits))
+        assertEqualColor(colors.accentRing.resolvedColor(with: darkTraits), colors.actionFocus.resolvedColor(with: darkTraits))
+        assertEqualColor(colors.divider.resolvedColor(with: darkTraits), colors.borderSubtle.resolvedColor(with: darkTraits))
+        assertEqualColor(colors.strokeHairline.resolvedColor(with: darkTraits), colors.borderDefault.resolvedColor(with: darkTraits))
     }
 
     private func assertEqualColor(_ lhs: UIColor, _ rhs: UIColor, file: StaticString = #filePath, line: UInt = #line) {
@@ -80,72 +90,16 @@ final class ColorTokenGenerationTests: XCTestCase {
         XCTAssertEqual(lB, rB, accuracy: 0.001, file: file, line: line)
         XCTAssertEqual(lA, rA, accuracy: 0.001, file: file, line: line)
     }
+}
 
-    private func assertNotEqualColor(_ lhs: UIColor, _ rhs: UIColor, file: StaticString = #filePath, line: UInt = #line) {
-        var lR: CGFloat = 0
-        var lG: CGFloat = 0
-        var lB: CGFloat = 0
-        var lA: CGFloat = 0
-        var rR: CGFloat = 0
-        var rG: CGFloat = 0
-        var rB: CGFloat = 0
-        var rA: CGFloat = 0
-        XCTAssertTrue(lhs.getRed(&lR, green: &lG, blue: &lB, alpha: &lA), file: file, line: line)
-        XCTAssertTrue(rhs.getRed(&rR, green: &rG, blue: &rB, alpha: &rA), file: file, line: line)
-        let isEqual = abs(lR - rR) < 0.001 && abs(lG - rG) < 0.001 && abs(lB - rB) < 0.001 && abs(lA - rA) < 0.001
-        XCTAssertFalse(isEqual, file: file, line: line)
+final class ProjectEnumColorTests: XCTestCase {
+    func testProjectColorsUseDistinctHexValues() {
+        let uniqueHexes = Set(ProjectColor.allCases.map(\.hexString))
+        XCTAssertEqual(uniqueHexes.count, ProjectColor.allCases.count)
     }
 
-    private func assertHSLInBounds(_ color: UIColor, file: StaticString = #filePath, line: UInt = #line) {
-        let values = hsl(from: color)
-        XCTAssertGreaterThanOrEqual(values.s, 0.35 - 0.001, file: file, line: line)
-        XCTAssertLessThanOrEqual(values.s, 0.95 + 0.001, file: file, line: line)
-        XCTAssertGreaterThanOrEqual(values.l, 0.10 - 0.001, file: file, line: line)
-        XCTAssertLessThanOrEqual(values.l, 0.92 + 0.001, file: file, line: line)
-    }
-
-    private func expectedRampColor(baseHSL: (h: CGFloat, s: CGFloat, l: CGFloat), sDelta: CGFloat, lDelta: CGFloat) -> UIColor {
-        let saturation = clamp(baseHSL.s + sDelta, min: 0.35, max: 0.95)
-        let lightness = clamp(baseHSL.l + lDelta, min: 0.10, max: 0.92)
-        return UIColor(taskerHue: baseHSL.h, saturation: saturation, lightness: lightness, alpha: 1.0)
-    }
-
-    private func hsl(from color: UIColor) -> (h: CGFloat, s: CGFloat, l: CGFloat) {
-        var red: CGFloat = 0
-        var green: CGFloat = 0
-        var blue: CGFloat = 0
-        var alpha: CGFloat = 0
-        XCTAssertTrue(color.getRed(&red, green: &green, blue: &blue, alpha: &alpha))
-
-        let maxValue = max(red, green, blue)
-        let minValue = min(red, green, blue)
-        let delta = maxValue - minValue
-        let lightness = (maxValue + minValue) / 2
-
-        let saturation: CGFloat
-        if delta == 0 {
-            saturation = 0
-        } else {
-            saturation = delta / (1 - abs(2 * lightness - 1))
-        }
-
-        let hue: CGFloat
-        if delta == 0 {
-            hue = 0
-        } else if maxValue == red {
-            hue = ((green - blue) / delta).truncatingRemainder(dividingBy: 6)
-        } else if maxValue == green {
-            hue = ((blue - red) / delta) + 2
-        } else {
-            hue = ((red - green) / delta) + 4
-        }
-
-        let normalizedHue = ((hue * 60).truncatingRemainder(dividingBy: 360) + 360).truncatingRemainder(dividingBy: 360) / 360
-        return (normalizedHue, saturation, lightness)
-    }
-
-    private func clamp(_ value: CGFloat, min: CGFloat, max: CGFloat) -> CGFloat {
-        Swift.max(min, Swift.min(max, value))
+    func testUnknownProjectHealthUsesBlackIndicatorHex() {
+        XCTAssertEqual(ProjectHealth.unknown.colorHex, "#000000")
     }
 }
 
@@ -167,7 +121,7 @@ final class HeaderGradientTokenTests: XCTestCase {
         )
     }
 
-    func testHeaderScrimAlphaConstantsMatchSpec() {
+    func testHeaderGradientUsesBrandPatternFamilies() {
         let lightLayer = CALayer()
         TaskerHeaderGradient.apply(
             to: lightLayer,
@@ -176,14 +130,13 @@ final class HeaderGradientTokenTests: XCTestCase {
         )
 
         guard let lightContainer = lightLayer.sublayers?.first(where: { $0.name == "taskerHeaderGradientContainer" }),
-              let lightScrim = lightContainer.sublayers?.first(where: { $0.name == "taskerHeaderScrim" }) as? CAGradientLayer,
-              let lightColors = lightScrim.colors as? [CGColor],
-              lightColors.count >= 2 else {
-            return XCTFail("Missing light scrim colors")
+              let lightGradient = lightContainer.sublayers?.first(where: { $0.name == "taskerHeaderGradient" }) as? CAGradientLayer,
+              let lightColors = lightGradient.colors as? [CGColor],
+              lightColors.count == 4 else {
+            return XCTFail("Missing light gradient colors")
         }
 
-        XCTAssertEqual(UIColor(cgColor: lightColors[0]).cgColor.alpha, 0.18, accuracy: 0.01)
-        XCTAssertEqual(UIColor(cgColor: lightColors[1]).cgColor.alpha, 0.10, accuracy: 0.01)
+        XCTAssertEqual(UIColor(cgColor: lightColors[1]).cgColor.alpha, 1, accuracy: 0.01)
 
         let darkLayer = CALayer()
         TaskerHeaderGradient.apply(
@@ -193,13 +146,12 @@ final class HeaderGradientTokenTests: XCTestCase {
         )
 
         guard let darkContainer = darkLayer.sublayers?.first(where: { $0.name == "taskerHeaderGradientContainer" }),
-              let darkScrim = darkContainer.sublayers?.first(where: { $0.name == "taskerHeaderScrim" }) as? CAGradientLayer,
-              let darkColors = darkScrim.colors as? [CGColor],
-              darkColors.count >= 2 else {
-            return XCTFail("Missing dark scrim colors")
+              let darkGradient = darkContainer.sublayers?.first(where: { $0.name == "taskerHeaderGradient" }) as? CAGradientLayer,
+              let darkColors = darkGradient.colors as? [CGColor],
+              darkColors.count == 4 else {
+            return XCTFail("Missing dark gradient colors")
         }
 
-        XCTAssertEqual(UIColor(cgColor: darkColors[0]).cgColor.alpha, 0.26, accuracy: 0.01)
-        XCTAssertEqual(UIColor(cgColor: darkColors[1]).cgColor.alpha, 0.14, accuracy: 0.01)
+        XCTAssertNotEqual(UIColor(cgColor: lightColors[0]), UIColor(cgColor: darkColors[0]))
     }
 }

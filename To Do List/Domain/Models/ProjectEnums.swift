@@ -27,16 +27,16 @@ public enum ProjectColor: String, CaseIterable, Codable {
     /// Hex color string for UI representation (platform-agnostic)
     public var hexString: String {
         switch self {
-        case .red: return "#FF3B30"
-        case .orange: return "#FF9500"
-        case .yellow: return "#FFCC00"
-        case .green: return "#34C759"
-        case .blue: return "#007AFF"
-        case .purple: return "#AF52DE"
-        case .pink: return "#FF2D92"
-        case .gray: return "#8E8E93"
-        case .brown: return "#A2845E"
-        case .teal: return "#5AC8FA"
+        case .red: return "#C11317"
+        case .orange: return "#D97706"
+        case .yellow: return "#FEBF2B"
+        case .green: return "#293A18"
+        case .blue: return "#2F6B9A"
+        case .purple: return "#6D4AA3"
+        case .pink: return "#B1205F"
+        case .gray: return "#7D7A74"
+        case .brown: return "#9E5F0A"
+        case .teal: return "#147A72"
         }
     }
 }
@@ -188,11 +188,11 @@ public enum ProjectHealth: String, CaseIterable, Codable {
     /// Hex color string for UI representation (platform-agnostic)
     public var colorHex: String {
         switch self {
-        case .excellent: return "#34C759"  // systemGreen
-        case .good: return "#FFCC00"       // systemYellow
-        case .warning: return "#FF9500"    // systemOrange
-        case .critical: return "#FF3B30"   // systemRed
-        case .unknown: return "#8E8E93"    // systemGray
+        case .excellent: return "#293A18"
+        case .good: return "#FEBF2B"
+        case .warning: return "#9E5F0A"
+        case .critical: return "#C11317"
+        case .unknown: return "#000000"
         }
     }
 }

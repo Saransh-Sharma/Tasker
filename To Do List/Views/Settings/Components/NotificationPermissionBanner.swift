@@ -7,7 +7,7 @@ struct NotificationPermissionBanner: View {
     var body: some View {
         HStack(spacing: TaskerSwiftUITokens.spacing.s12) {
             Image(systemName: iconName)
-                .font(.system(size: 22, weight: .medium))
+                .font(.tasker(.sectionTitle))
                 .foregroundColor(iconColor)
 
             VStack(alignment: .leading, spacing: TaskerSwiftUITokens.spacing.s2) {
@@ -46,7 +46,7 @@ struct NotificationPermissionBanner: View {
     }
 
     private var iconColor: Color {
-        status == .denied ? .tasker(.statusWarning) : .tasker(.accentPrimary)
+        status == .denied ? .tasker(.statusWarning) : .tasker(.stateInfo)
     }
 
     private var titleText: String {
@@ -62,7 +62,7 @@ struct NotificationPermissionBanner: View {
     }
 
     private var buttonBackground: Color {
-        status == .denied ? .tasker(.statusWarning) : .tasker(.accentPrimary)
+        status == .denied ? .tasker(.statusWarning) : .tasker(.actionPrimary)
     }
 
     private var bannerBackground: Color {
