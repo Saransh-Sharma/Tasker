@@ -118,7 +118,10 @@ public final class DeleteTaskDefinitionUseCase {
             }
             TaskNotificationDispatcher.postOnMain(
                 name: NSNotification.Name("TaskDeleted"),
-                object: deletedTask
+                object: deletedTask,
+                userInfo: [
+                    "deletedTaskIDs": uniqueIDs.map(\.uuidString)
+                ]
             )
             var userInfo = HomeTaskMutationPayload(
                 reason: .deleted,
@@ -131,6 +134,7 @@ public final class DeleteTaskDefinitionUseCase {
                 newProjectID: deletedTask?.projectID,
                 previousPriorityRawValue: deletedTask?.priority.rawValue
             ).userInfo
+            userInfo["deletedTaskIDs"] = uniqueIDs.map(\.uuidString)
             userInfo["deleteScope"] = scope.rawValue
             userInfo["deletedCount"] = uniqueIDs.count
             if let recurrenceSeriesID {

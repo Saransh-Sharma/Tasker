@@ -94,7 +94,7 @@ sequenceDiagram
 
 ### Semantic index lifecycle wiring (`AppDelegate`)
 - startup: `TaskSemanticRetrievalService.shared.loadPersistedIndex()` then snapshot rebuild.
-- mutation observer: `.homeTaskMutation` routes to incremental semantic index update/remove.
+- mutation observer: `TaskCreated`, `TaskUpdated`, `TaskCompletionChanged`, and `TaskDeleted` notifications route to incremental semantic index update/remove.
 - background: `TaskSemanticRetrievalService.shared.persistIndex()`.
 
 ### Gamification runtime wiring (`AppDelegate`)
