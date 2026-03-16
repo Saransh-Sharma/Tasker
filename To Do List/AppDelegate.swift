@@ -255,6 +255,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
             ]
         )
         GamificationRemoteKillSwitchService.shared.refreshIfAvailable(reason: "app_launch")
+        LiquidMetalCTARemoteConfigService.shared.refreshIfAvailable(reason: "app_launch")
     }
 
     /// Executes applicationDidEnterBackground.
@@ -282,6 +283,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         reconcileNotifications(reason: "app_did_become_active")
         if FirebaseApp.app() != nil {
             GamificationRemoteKillSwitchService.shared.refreshIfAvailable(reason: "app_did_become_active")
+            LiquidMetalCTARemoteConfigService.shared.refreshIfAvailable(reason: "app_did_become_active")
         }
         TaskListWidgetSnapshotService.shared.scheduleRefresh(reason: "app_did_become_active")
     }

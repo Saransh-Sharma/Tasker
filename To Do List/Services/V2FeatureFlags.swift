@@ -14,10 +14,25 @@ public enum LLMChatContextStrategy: String, CaseIterable {
 public enum V2FeatureFlags {
     private static let defaults = UserDefaults.standard
     private static let sharedDefaults = UserDefaults(suiteName: AppGroupConstants.suiteName)
+    private static let launchArguments = Set(ProcessInfo.processInfo.arguments)
+    private static let liquidMetalCTAKey = "feature.ui.liquid_metal_cta"
 
     public static var remindersSyncEnabled: Bool {
         get { defaults.object(forKey: "feature.reminders.sync") as? Bool ?? true }
         set { defaults.set(newValue, forKey: "feature.reminders.sync") }
+    }
+
+    public static var liquidMetalCTAEnabled: Bool {
+        get {
+            if launchArguments.contains("-TASKER_ENABLE_LIQUID_METAL_CTA") {
+                return true
+            }
+            if launchArguments.contains("-TASKER_DISABLE_LIQUID_METAL_CTA") {
+                return false
+            }
+            return defaults.object(forKey: liquidMetalCTAKey) as? Bool ?? true
+        }
+        set { defaults.set(newValue, forKey: liquidMetalCTAKey) }
     }
 
     public static var assistantApplyEnabled: Bool {

@@ -243,6 +243,7 @@
 		7B3C9A7D2F2B0F1A00D4C113 /* FocusNowSimplificationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7B3C9A7D2F2B0F1A00D4C112 /* FocusNowSimplificationTests.swift */; };
 		7DDFA05C1E835A398268D1EF /* TaskerWidgets/WeeklyScoreboardWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = B4599EE24B534345B7E5F063 /* TaskerWidgets/WeeklyScoreboardWidget.swift */; };
 		7F1B2C3D4E5F60718293A4B5 /* To Do List/Services/GamificationRemoteKillSwitchService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7F1B2C3D4E5F60718293A4B6 /* To Do List/Services/GamificationRemoteKillSwitchService.swift */; };
+		7F1B2C3D4E5F60718293A4B7 /* To Do List/Services/LiquidMetalCTARemoteConfigService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7F1B2C3D4E5F60718293A4B8 /* To Do List/Services/LiquidMetalCTARemoteConfigService.swift */; };
 		7F23C3443025ADC4664A8AC2 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C5DC4383109EA7E312BED57A /* Foundation.framework */; };
 		7F7D8255FC6F6CFC199943F2 /* To Do List/Domain/Mappers/LifeAreaMapper.swift in Sources */ = {isa = PBXBuildFile; fileRef = ECB224DA34C6529E86C73875 /* To Do List/Domain/Mappers/LifeAreaMapper.swift */; };
 		807193C0B8E13112AFE45388 /* To Do List/Domain/Models/Tombstone.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5A9A2796943621DC66C4703 /* To Do List/Domain/Models/Tombstone.swift */; };
@@ -347,6 +348,9 @@
 		B7C8D9E0F1A2233445566779 /* OverdueAgeFormatter.swift in Sources */ = {isa = PBXBuildFile; fileRef = B7C8D9E0F1A2233445566778 /* OverdueAgeFormatter.swift */; };
 		B7C8D9E0F1A223344556677B /* OverdueAgeFormatterTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B7C8D9E0F1A223344556677A /* OverdueAgeFormatterTests.swift */; };
 		B7C8D9E0F1A223344556677D /* FocusZoneStatusTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B7C8D9E0F1A223344556677C /* FocusZoneStatusTests.swift */; };
+		B8E100012F70000100A0A001 /* TaskerCTABezel.swift in Sources */ = {isa = PBXBuildFile; fileRef = B8E100002F70000100A0A001 /* TaskerCTABezel.swift */; };
+		B8E100032F70000100A0A001 /* TaskerCTABezel.metal in Sources */ = {isa = PBXBuildFile; fileRef = B8E100022F70000100A0A001 /* TaskerCTABezel.metal */; };
+		B8E100052F70000100A0A001 /* TaskerCTABezelResolverTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B8E100042F70000100A0A001 /* TaskerCTABezelResolverTests.swift */; };
 		B93F762182E74294AC55C6CB /* To Do List/Domain/Interfaces/TaskDefinitionRepositoryProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = EA45AF6FFE4463E49D8FEA68 /* To Do List/Domain/Interfaces/TaskDefinitionRepositoryProtocol.swift */; };
 		BA046E8ED5086F9E39ACB225 /* To Do List/View/DailyReflectionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E2BA3F253548BE9F1EE2AB4B /* To Do List/View/DailyReflectionView.swift */; };
 		BEB8BC780A4A962C58A77BC4 /* To Do List/Services/V2FeatureFlags.swift in Sources */ = {isa = PBXBuildFile; fileRef = 34CC91CCAA408A3ADB2D8693 /* To Do List/Services/V2FeatureFlags.swift */; };
@@ -699,6 +703,7 @@
 		7D6A566DA8BAF8C85BE11CE5 /* Pods-TaskerTests.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-TaskerTests.release.xcconfig"; path = "Target Support Files/Pods-TaskerTests/Pods-TaskerTests.release.xcconfig"; sourceTree = "<group>"; };
 		7DD613471ECDE5AFB1BB199B /* To Do List/UseCases/Reminder/ScheduleReminderUseCase.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "To Do List/UseCases/Reminder/ScheduleReminderUseCase.swift"; sourceTree = SOURCE_ROOT; };
 		7F1B2C3D4E5F60718293A4B6 /* To Do List/Services/GamificationRemoteKillSwitchService.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "To Do List/Services/GamificationRemoteKillSwitchService.swift"; sourceTree = SOURCE_ROOT; };
+		7F1B2C3D4E5F60718293A4B8 /* To Do List/Services/LiquidMetalCTARemoteConfigService.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "To Do List/Services/LiquidMetalCTARemoteConfigService.swift"; sourceTree = SOURCE_ROOT; };
 		7F7676A13058C4757D1E2718 /* SavedHomeView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SavedHomeView.swift; sourceTree = "<group>"; };
 		817A26FD3474A08EC2250BED /* SwiftUI+TokenAdapters.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "SwiftUI+TokenAdapters.swift"; sourceTree = "<group>"; };
 		82752F8BF563DB0673AB2770 /* HomeQuickFilterDropdown.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HomeQuickFilterDropdown.swift; sourceTree = "<group>"; };
@@ -806,6 +811,9 @@
 		B7C8D9E0F1A2233445566778 /* OverdueAgeFormatter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OverdueAgeFormatter.swift; sourceTree = "<group>"; };
 		B7C8D9E0F1A223344556677A /* OverdueAgeFormatterTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = OverdueAgeFormatterTests.swift; sourceTree = "<group>"; };
 		B7C8D9E0F1A223344556677C /* FocusZoneStatusTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = FocusZoneStatusTests.swift; sourceTree = "<group>"; };
+		B8E100002F70000100A0A001 /* TaskerCTABezel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TaskerCTABezel.swift; sourceTree = "<group>"; };
+		B8E100022F70000100A0A001 /* TaskerCTABezel.metal */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.metal; path = "Effects/TaskerCTABezel.metal"; sourceTree = "<group>"; };
+		B8E100042F70000100A0A001 /* TaskerCTABezelResolverTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TaskerCTABezelResolverTests.swift; sourceTree = "<group>"; };
 		B812E7A0B879607C95C0571B /* ColorTokens.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ColorTokens.swift; sourceTree = "<group>"; };
 		B9F2A10C3D4E5F60718293AA /* To Do List/State/Sync/WriteClosedRepositoryAdapters.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "To Do List/State/Sync/WriteClosedRepositoryAdapters.swift"; sourceTree = SOURCE_ROOT; };
 		BC92DC6157EF1B9AAB1422D9 /* SettingsRootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsRootView.swift; sourceTree = "<group>"; };
@@ -1334,6 +1342,7 @@
 				F3A1B2C3D4E5F60718293A55 /* HomeForedropLayoutMetricsTests.swift */,
 				F4A1B2C3D4E5F60718293A56 /* HomeForedropHintEligibilityTests.swift */,
 				A91F8E152F44420100AB11C1 /* LifeManagementFeatureTests.swift */,
+				B8E100042F70000100A0A001 /* TaskerCTABezelResolverTests.swift */,
 				753EFCB62445A24800A739E3 /* Info.plist */,
 				56E141F5136022B40FFD72B3 /* DesignSystem */,
 				B4D7E8213A4F5C6D7E8F9013 /* TestSupport */,
@@ -1554,6 +1563,7 @@
 				B3A1F2C4D5E6F70A /* To Do List/View/LevelUpCelebrationView.swift */,
 				B3A1F2C4D5E6F70B /* To Do List/View/MilestoneCelebrationView.swift */,
 				B3A1F2C4D5E6F70C /* To Do List/View/BadgeDetailSheet.swift */,
+				B8E100022F70000100A0A001 /* TaskerCTABezel.metal */,
 				37E2466DBE2A76A73458F530 /* To Do List/View/FocusTimerView.swift */,
 				6D63FBA200D736491232884A /* To Do List/View/FocusSessionSummaryView.swift */,
 				E2BA3F253548BE9F1EE2AB4B /* To Do List/View/DailyReflectionView.swift */,
@@ -1632,6 +1642,7 @@
 				D39BBE25D96F4BE6E41320B1 /* SpacingTokens.swift */,
 				ADB62B5450F5D70EBBEC2940 /* ElevationTokens.swift */,
 				8C72110A1F555F951D89BBEB /* CornerTokens.swift */,
+				B8E100002F70000100A0A001 /* TaskerCTABezel.swift */,
 				1A94E5E4F9BB3AA846B56A72 /* UIKit+TokenAdapters.swift */,
 				817A26FD3474A08EC2250BED /* SwiftUI+TokenAdapters.swift */,
 				A1B2C3D4E5F607080910AB02 /* GradientTokens.swift */,
@@ -1661,6 +1672,7 @@
 				34CC91CCAA408A3ADB2D8693 /* To Do List/Services/V2FeatureFlags.swift */,
 				53C94956D526284966A1EEDC /* To Do List/Services/LocalNotificationService.swift */,
 				7F1B2C3D4E5F60718293A4B6 /* To Do List/Services/GamificationRemoteKillSwitchService.swift */,
+				7F1B2C3D4E5F60718293A4B8 /* To Do List/Services/LiquidMetalCTARemoteConfigService.swift */,
 			);
 			path = Services;
 			sourceTree = "<group>";
@@ -2197,7 +2209,7 @@
 			mainGroup = 753EFC912445A24500A739E3;
 			packageReferences = (
 				75A328B02DFB603F00F36C31 /* XCRemoteSwiftPackageReference "mlx-swift" */,
-				75A328B72DFB606700F36C31 /* XCRemoteSwiftPackageReference "mlx-swift-examples" */,
+				75A328B72DFB606700F36C31 /* XCRemoteSwiftPackageReference "mlx-swift-lm" */,
 				75F89FB02DFC62C3009EDD8F /* XCRemoteSwiftPackageReference "swift-markdown-ui" */,
 				7529F6FB2DFDEFB3000CBE36 /* XCRemoteSwiftPackageReference "lottie-ios" */,
 			);
@@ -2550,10 +2562,12 @@
 				268BE6701AAC432C4DDDF880 /* SpacingTokens.swift in Sources */,
 				044ECC7C2F392E01E778DF95 /* ElevationTokens.swift in Sources */,
 				1ACBC36A38323DB2A8E4EC02 /* CornerTokens.swift in Sources */,
+				B8E100012F70000100A0A001 /* TaskerCTABezel.swift in Sources */,
 				C5E24F11E95F5281AFA4E8DD /* UIKit+TokenAdapters.swift in Sources */,
 				8B3CA34519B5A28D8599A5B0 /* SwiftUI+TokenAdapters.swift in Sources */,
 				F1A2B3C4D5E6F7A8B9C0D1E3 /* TaskerTheme+SwiftUI.swift in Sources */,
 				F1A2B3C4D5E6F7A8B9C0D1E5 /* TaskerAnimations.swift in Sources */,
+				B8E100032F70000100A0A001 /* TaskerCTABezel.metal in Sources */,
 				B77B0891A4A5B4BF8D6162DC /* TaskDetailComponents.swift in Sources */,
 				C4D5E6F70891A2B3C4D5E6F8 /* TaskDetailSheetView.swift in Sources */,
 				350E661527174B8BDEE11FCC /* TaskRowView.swift in Sources */,
@@ -2699,6 +2713,7 @@
 				BEB8BC780A4A962C58A77BC4 /* To Do List/Services/V2FeatureFlags.swift in Sources */,
 				59E0A865A7529C69B04F684A /* To Do List/Services/LocalNotificationService.swift in Sources */,
 				7F1B2C3D4E5F60718293A4B5 /* To Do List/Services/GamificationRemoteKillSwitchService.swift in Sources */,
+				7F1B2C3D4E5F60718293A4B7 /* To Do List/Services/LiquidMetalCTARemoteConfigService.swift in Sources */,
 				C03666F6116B077DFA194278 /* SyncMergeState.swift in Sources */,
 				47EE4E9B0C3B5EC21C43BED8 /* To Do List/UseCases/Sync/ReminderMergeEngine.swift in Sources */,
 				6A4B1EB5E3E85FE74AD7AEDC /* To Do List/UseCases/LLM/AssistantCommandExecutor.swift in Sources */,
@@ -2752,6 +2767,7 @@
 				F4A1B2C3D4E5F60718293B56 /* HomeForedropHintEligibilityTests.swift in Sources */,
 				A91F8E162F44420100AB11C1 /* LifeManagementFeatureTests.swift in Sources */,
 				A1F0D0B52F5A100100ABC001 /* AppOnboardingTests.swift in Sources */,
+				B8E100052F70000100A0A001 /* TaskerCTABezelResolverTests.swift in Sources */,
 				B4D7E8213A4F5C6D7E8F9012 /* V3TestHarness.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -3206,16 +3222,16 @@
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/ml-explore/mlx-swift.git";
 			requirement = {
-				kind = upToNextMajorVersion;
-				minimumVersion = 0.25.4;
+				kind = upToNextMinorVersion;
+				minimumVersion = 0.30.6;
 			};
 		};
-		75A328B72DFB606700F36C31 /* XCRemoteSwiftPackageReference "mlx-swift-examples" */ = {
+		75A328B72DFB606700F36C31 /* XCRemoteSwiftPackageReference "mlx-swift-lm" */ = {
 			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "https://github.com/ml-explore/mlx-swift-examples.git";
+			repositoryURL = "https://github.com/ml-explore/mlx-swift-lm.git";
 			requirement = {
-				kind = upToNextMajorVersion;
-				minimumVersion = 2.25.4;
+				branch = main;
+				kind = branch;
 			};
 		};
 		75F89FB02DFC62C3009EDD8F /* XCRemoteSwiftPackageReference "swift-markdown-ui" */ = {
@@ -3246,12 +3262,12 @@
 		};
 		75A328B82DFB606700F36C31 /* MLXLLM */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = 75A328B72DFB606700F36C31 /* XCRemoteSwiftPackageReference "mlx-swift-examples" */;
+			package = 75A328B72DFB606700F36C31 /* XCRemoteSwiftPackageReference "mlx-swift-lm" */;
 			productName = MLXLLM;
 		};
 		75A328BA2DFB606700F36C31 /* MLXLMCommon */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = 75A328B72DFB606700F36C31 /* XCRemoteSwiftPackageReference "mlx-swift-examples" */;
+			package = 75A328B72DFB606700F36C31 /* XCRemoteSwiftPackageReference "mlx-swift-lm" */;
 			productName = MLXLMCommon;
 		};
 		75F89FB12DFC62C3009EDD8F /* MarkdownUI */ = {

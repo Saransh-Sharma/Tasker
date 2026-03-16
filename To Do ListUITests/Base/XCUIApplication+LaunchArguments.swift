@@ -15,6 +15,7 @@ extension XCUIApplication {
         case resetAppState = "-RESET_APP_STATE"
         case uiTesting = "-UI_TESTING"
         case disableAnimations = "-DISABLE_ANIMATIONS"
+        case enableLiquidMetalCTA = "-TASKER_ENABLE_LIQUID_METAL_CTA"
         case skipOnboarding = "-SKIP_ONBOARDING"
         case mockDate = "-MOCK_DATE"
         case mockNetworkFailure = "-MOCK_NETWORK_FAILURE"
@@ -90,7 +91,7 @@ extension XCUIApplication {
     }
 
     /// Launch with a notification route payload (for route-driven UI tests)
-    func launchWithTestRoute(_ payload: String) {
+    func launchWithTestRoute(_ payload: String, additionalArguments: [LaunchArgumentKey] = []) {
         launchArguments = [
             LaunchArgumentKey.resetAppState.rawValue,
             LaunchArgumentKey.uiTesting.rawValue,
@@ -99,6 +100,7 @@ extension XCUIApplication {
             LaunchArgumentKey.disableCloudSync.rawValue,
             "\(LaunchArgumentKey.testRoute.rawValue):\(payload)"
         ]
+        launchArguments.append(contentsOf: additionalArguments.map(\.rawValue))
         launch()
     }
 
