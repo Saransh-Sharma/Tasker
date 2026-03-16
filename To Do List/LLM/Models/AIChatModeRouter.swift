@@ -69,6 +69,7 @@ struct AIChatModeRouter {
 
         if let selectedModelName = snapshot.selectedModelName,
            installed.contains(selectedModelName),
+           LLMRuntimeSupportMatrix.compatibility(for: selectedModelName)?.canActivate == true,
            isAllowedByDeviceBudget(modelName: selectedModelName, snapshot: snapshot) {
             let selectedSize = ModelConfiguration.getModelByName(selectedModelName)?.modelSize
             let usedFallback = selectedModelName != ideal
@@ -85,6 +86,7 @@ struct AIChatModeRouter {
         }
 
         if installed.contains(ideal),
+           LLMRuntimeSupportMatrix.compatibility(for: ideal)?.canActivate == true,
            isAllowedByDeviceBudget(modelName: ideal, snapshot: snapshot) {
             let selectedSize = ModelConfiguration.getModelByName(ideal)?.modelSize
             return AIModelRoute(
@@ -101,7 +103,9 @@ struct AIChatModeRouter {
 
         let fallbackCandidates = ModelConfiguration.availableModels.map(\.name).filter { $0 != ideal }
         if let fallback = fallbackCandidates.first(where: {
-            installed.contains($0) && isAllowedByDeviceBudget(modelName: $0, snapshot: snapshot)
+            installed.contains($0)
+                && LLMRuntimeSupportMatrix.compatibility(for: $0)?.canActivate == true
+                && isAllowedByDeviceBudget(modelName: $0, snapshot: snapshot)
         }) {
             return AIModelRoute(
                 selectedModelName: fallback,
@@ -165,6 +169,10 @@ struct AIChatModeRouter {
     }
 
     private static func displayName(for modelName: String) -> String {
-        ModelConfiguration.getModelByName(modelName)?.displayName ?? modelName.replacingOccurrences(of: "mlx-community/", with: "")
+        ModelConfiguration.getModelByName(modelName)?.displayName
+            ?? modelName
+                .replacingOccurrences(of: "mlx-community/", with: "")
+                .replacingOccurrences(of: "NexVeridian/", with: "")
+                .replacingOccurrences(of: "Jackrong/", with: "")
     }
 }

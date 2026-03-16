@@ -16,14 +16,16 @@ enum LLMPersistedModelSelection {
     static let installedModelsKey = "installedModels"
     static let currentModelKey = "currentModelName"
     static let unsupportedLegacyModelNames: Set<String> = [
-        "NexVeridian/Qwen3.5-0.8B-4bit",
         "mlx-community/gemma-3-270m-it-4bit",
         "mlx-community/Llama-3.2-1B-Instruct-4bit",
         "mlx-community/Llama-3.2-3B-Instruct-4bit",
         "mlx-community/DeepSeek-R1-Distill-Qwen-1.5B-4bit",
         "mlx-community/DeepSeek-R1-Distill-Qwen-1.5B-8bit",
         "mlx-community/Qwen3-4B-4bit",
-        "mlx-community/Qwen3-8B-4bit"
+        "mlx-community/Qwen3-8B-4bit",
+        "mlx-community/Qwen3.5-0.8B-MLX-4bit",
+        "mlx-community/Qwen3.5-0.8B-4bit",
+        "mlx-community/Qwen3.5-0.8B-6bit"
     ]
 
     @discardableResult
@@ -33,6 +35,7 @@ enum LLMPersistedModelSelection {
         applicationSupportDirectory: URL? = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
     ) -> State {
         let rawInstalledModels = loadInstalledModels(defaults: defaults)
+        let supportedModels = Set(ModelConfiguration.availableModels.map(\.name))
         let state = normalizedState(
             installedModels: rawInstalledModels,
             currentModelName: defaults.string(forKey: currentModelKey)
@@ -46,7 +49,11 @@ enum LLMPersistedModelSelection {
         }
 
         let unsupportedInstalledModels = Array(
-            Set(rawInstalledModels.filter { unsupportedLegacyModelNames.contains($0) })
+            Set(
+                rawInstalledModels.filter { modelName in
+                    unsupportedLegacyModelNames.contains(modelName) || supportedModels.contains(modelName) == false
+                }
+            )
         )
         for modelName in unsupportedInstalledModels {
             removeCachedModelFiles(
@@ -69,10 +76,12 @@ enum LLMPersistedModelSelection {
         }
 
         let normalizedCurrentModelName: String?
-        if let currentModelName, normalizedInstalledModels.contains(currentModelName) {
+        if let currentModelName,
+           normalizedInstalledModels.contains(currentModelName),
+           LLMRuntimeSupportMatrix.compatibility(for: currentModelName)?.canActivate == true {
             normalizedCurrentModelName = currentModelName
         } else {
-            normalizedCurrentModelName = normalizedInstalledModels.first
+            normalizedCurrentModelName = AppManager.preferredActiveModelName(from: normalizedInstalledModels)
         }
 
         return State(
@@ -255,7 +264,9 @@ class AppManager: ObservableObject {
     static func preferredActiveModelName(from installedModelNames: [String]) -> String? {
         let installedSet = Set(installedModelNames)
         let preferredOrder = ModelConfiguration.availableModels.map(\.name)
-        for candidate in preferredOrder where installedSet.contains(candidate) {
+        for candidate in preferredOrder
+        where installedSet.contains(candidate)
+            && LLMRuntimeSupportMatrix.compatibility(for: candidate)?.canActivate == true {
             return candidate
         }
         return nil

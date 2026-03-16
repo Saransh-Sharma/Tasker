@@ -10,6 +10,7 @@ import SwiftUI
 
 enum LLMEvaluatorError: Error {
     case modelNotFound(String)
+    case unsupportedRuntime(String, String)
 }
 
 enum LLMChatRuntimePhase: String {
@@ -94,6 +95,10 @@ class LLMEvaluator {
     func prepare(modelName: String) async throws -> PrepareResult {
         guard let model = ModelConfiguration.getModelByName(modelName) else {
             throw LLMEvaluatorError.modelNotFound(modelName)
+        }
+        let compatibility = LLMRuntimeSupportMatrix.compatibility(for: model)
+        guard compatibility.canActivate else {
+            throw LLMEvaluatorError.unsupportedRuntime(modelName, compatibility.prepareFailureMessage)
         }
 
         modelConfiguration = model

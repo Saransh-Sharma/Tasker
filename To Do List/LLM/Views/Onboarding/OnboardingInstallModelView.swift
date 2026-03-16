@@ -1,30 +1,80 @@
 import MLXLMCommon
 import SwiftUI
 
-struct TwoQwenModelInstallCatalog {
-    let installedModels: [String]
-    let installableModels: [ModelConfiguration]
+enum LLMCatalogSectionKind: CaseIterable, Identifiable {
+    case availableNow
+    case additionalTextModels
+
+    var id: Self { self }
+
+    var title: String {
+        switch self {
+        case .availableNow:
+            return "available now"
+        case .additionalTextModels:
+            return "additional text models"
+        }
+    }
+}
+
+struct LLMCatalogEntry: Identifiable {
+    let model: ModelConfiguration
+    let compatibility: LLMModelCompatibilityResult
+    let isInstalled: Bool
+
+    var id: String { model.name }
+
+    var isSelectable: Bool {
+        compatibility.canInstall && !isInstalled
+    }
+
+    var sectionKind: LLMCatalogSectionKind {
+        switch model.metadata.tier {
+        case .default, .smarter:
+            return .availableNow
+        case .experimental:
+            return .additionalTextModels
+        }
+    }
+}
+
+struct LLMCatalogSection: Identifiable {
+    let kind: LLMCatalogSectionKind
+    let entries: [LLMCatalogEntry]
+
+    var id: LLMCatalogSectionKind { kind }
+}
+
+struct LocalModelInstallCatalog {
+    let entries: [LLMCatalogEntry]
 
     static func make(installedModelNames: [String], availableMemory: Double) -> Self {
-        let maxSupportedSizeGB: Decimal
-        if availableMemory < 4 {
-            maxSupportedSizeGB = 0.5
-        } else if availableMemory < 6 {
-            maxSupportedSizeGB = 0.7
-        } else {
-            maxSupportedSizeGB = 1.2
+        _ = availableMemory
+        let installedSet = Set(installedModelNames)
+        let entries = ModelConfiguration.availableModels.map { model in
+            LLMCatalogEntry(
+                model: model,
+                compatibility: LLMRuntimeSupportMatrix.compatibility(for: model),
+                isInstalled: installedSet.contains(model.name)
+            )
         }
+        return Self(entries: entries)
+    }
 
-        let installableModels = ModelConfiguration.availableModels.filter { model in
-            guard installedModelNames.contains(model.name) == false else { return false }
-            guard let size = model.modelSize else { return false }
-            return size <= maxSupportedSizeGB
+    var installedEntries: [LLMCatalogEntry] {
+        entries.filter(\.isInstalled)
+    }
+
+    var selectableModels: [ModelConfiguration] {
+        entries.filter(\.isSelectable).map(\.model)
+    }
+
+    var sections: [LLMCatalogSection] {
+        LLMCatalogSectionKind.allCases.compactMap { kind in
+            let groupedEntries = entries.filter { $0.sectionKind == kind && $0.isInstalled == false }
+            guard groupedEntries.isEmpty == false else { return nil }
+            return LLMCatalogSection(kind: kind, entries: groupedEntries)
         }
-
-        return Self(
-            installedModels: installedModelNames,
-            installableModels: installableModels
-        )
     }
 }
 
@@ -34,15 +84,15 @@ struct OnboardingInstallModelView: View {
     @Binding var showOnboarding: Bool
     @State private var selectedModelNames: Set<String> = [ModelConfiguration.defaultModel.name]
 
-    private var catalog: TwoQwenModelInstallCatalog {
-        TwoQwenModelInstallCatalog.make(
+    private var catalog: LocalModelInstallCatalog {
+        LocalModelInstallCatalog.make(
             installedModelNames: appManager.installedModels,
             availableMemory: appManager.availableMemory
         )
     }
 
     private var selectedModels: [ModelConfiguration] {
-        ModelConfiguration.availableModels.filter { selectedModelNames.contains($0.name) }
+        catalog.selectableModels.filter { selectedModelNames.contains($0.name) }
     }
 
     private var canInstall: Bool {
@@ -82,7 +132,7 @@ struct OnboardingInstallModelView: View {
                         Text("choose your local models")
                             .font(.tasker(.title1))
                             .foregroundStyle(Color.tasker(.textPrimary))
-                        Text("install one or both qwen models. all AI features use the active model you choose later.")
+                        Text("install one or more text models for local chat. qwen3 0.6b stays the default, and qwen 3.5 models are available for higher quality responses.")
                             .font(.tasker(.callout))
                             .foregroundStyle(Color.tasker(.textSecondary))
                             .multilineTextAlignment(.center)
@@ -93,35 +143,26 @@ struct OnboardingInstallModelView: View {
             }
             .listRowBackground(Color.clear)
 
-            if catalog.installedModels.isEmpty == false {
+            if catalog.installedEntries.isEmpty == false {
                 Section("installed") {
-                    ForEach(catalog.installedModels, id: \.self) { modelName in
-                        let title = appManager.modelDisplayName(modelName)
-                        HStack(spacing: TaskerTheme.Spacing.md) {
-                            Image(systemName: "checkmark.circle.fill")
-                                .foregroundStyle(Color.tasker(.accentPrimary))
-                            Text(title)
-                                .font(.tasker(.bodyEmphasis))
-                                .foregroundStyle(Color.tasker(.textPrimary))
-                            Spacer()
-                            Text("installed")
-                                .font(.tasker(.caption1))
-                                .foregroundStyle(Color.tasker(.textTertiary))
-                        }
+                    ForEach(catalog.installedEntries) { entry in
+                        InstalledModelStatusRow(entry: entry)
                     }
                 }
             }
 
-            Section("available") {
-                ForEach(catalog.installableModels, id: \.name) { model in
-                    TwoQwenModelOptionCard(
-                        model: model,
-                        isSelected: selectedModelNames.contains(model.name)
-                    ) {
-                        toggleSelection(for: model)
+            ForEach(catalog.sections) { section in
+                Section(section.kind.title) {
+                    ForEach(section.entries) { entry in
+                        LLMModelOptionCard(
+                            entry: entry,
+                            isSelected: selectedModelNames.contains(entry.model.name)
+                        ) {
+                            toggleSelection(for: entry)
+                        }
+                        .listRowInsets(EdgeInsets(top: 8, leading: 0, bottom: 8, trailing: 0))
+                        .listRowBackground(Color.clear)
                     }
-                    .listRowInsets(EdgeInsets(top: 8, leading: 0, bottom: 8, trailing: 0))
-                    .listRowBackground(Color.clear)
                 }
             }
 
@@ -163,19 +204,20 @@ struct OnboardingInstallModelView: View {
         #endif
     }
 
-    private func toggleSelection(for model: ModelConfiguration) {
-        if selectedModelNames.contains(model.name) {
-            selectedModelNames.remove(model.name)
+    private func toggleSelection(for entry: LLMCatalogEntry) {
+        guard entry.isSelectable else { return }
+        if selectedModelNames.contains(entry.model.name) {
+            selectedModelNames.remove(entry.model.name)
         } else {
-            selectedModelNames.insert(model.name)
+            selectedModelNames.insert(entry.model.name)
         }
     }
 
     private func syncSelection() {
-        let installableNames = Set(catalog.installableModels.map(\.name))
-        selectedModelNames = selectedModelNames.intersection(installableNames)
+        let selectableNames = Set(catalog.selectableModels.map(\.name))
+        selectedModelNames = selectedModelNames.intersection(selectableNames)
         if selectedModelNames.isEmpty,
-           let defaultInstall = catalog.installableModels.first(where: { $0 == .defaultModel }) ?? catalog.installableModels.first {
+           let defaultInstall = catalog.selectableModels.first(where: { $0 == .defaultModel }) ?? catalog.selectableModels.first {
             selectedModelNames = [defaultInstall.name]
         }
     }
@@ -189,52 +231,103 @@ struct OnboardingInstallModelView: View {
     }
 }
 
-private struct TwoQwenModelOptionCard: View {
-    let model: ModelConfiguration
+private struct InstalledModelStatusRow: View {
+    let entry: LLMCatalogEntry
+
+    var body: some View {
+        HStack(spacing: TaskerTheme.Spacing.md) {
+            Image(systemName: "checkmark.circle.fill")
+                .foregroundStyle(Color.tasker(.accentPrimary))
+            VStack(alignment: .leading, spacing: TaskerTheme.Spacing.xs) {
+                Text(entry.model.displayName.lowercased())
+                    .font(.tasker(.bodyEmphasis))
+                    .foregroundStyle(Color.tasker(.textPrimary))
+                if let statusReason = entry.compatibility.statusReason,
+                   entry.compatibility.canActivate == false {
+                    Text(statusReason)
+                        .font(.tasker(.caption1))
+                        .foregroundStyle(Color.tasker(.textSecondary))
+                }
+            }
+            Spacer()
+            Text(entry.compatibility.statusBadgeTitle ?? "installed")
+                .font(.tasker(.caption1))
+                .foregroundStyle(entry.compatibility.canActivate ? Color.tasker(.accentPrimary) : Color.tasker(.statusWarning))
+        }
+    }
+}
+
+private struct LLMModelOptionCard: View {
+    let entry: LLMCatalogEntry
     let isSelected: Bool
     let action: () -> Void
 
     private var sizeLabel: String {
-        "\(model.modelSize.map { NSDecimalNumber(decimal: $0).stringValue } ?? "?") GB"
+        "\(entry.model.modelSize.map { NSDecimalNumber(decimal: $0).stringValue } ?? "?") GB"
+    }
+
+    private var isDisabled: Bool {
+        entry.isSelectable == false
+    }
+
+    private var badgeTitle: String {
+        entry.compatibility.statusBadgeTitle ?? entry.model.onboardingBadgeTitle
+    }
+
+    private var isDefaultModel: Bool {
+        entry.model.name == ModelConfiguration.defaultModel.name
     }
 
     var body: some View {
         Button(action: action) {
             VStack(alignment: .leading, spacing: TaskerTheme.Spacing.md) {
                 HStack(spacing: TaskerTheme.Spacing.sm) {
-                    Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
+                    Image(systemName: isDisabled ? "minus.circle" : (isSelected ? "checkmark.circle.fill" : "circle"))
                         .font(.title3)
-                        .foregroundStyle(isSelected ? Color.tasker(.accentPrimary) : Color.tasker(.textQuaternary))
+                        .foregroundStyle(isDisabled ? Color.tasker(.textQuaternary) : (isSelected ? Color.tasker(.accentPrimary) : Color.tasker(.textQuaternary)))
 
-                    Text(model.displayName)
+                    Text(entry.model.displayName)
                         .font(.tasker(.headline))
                         .foregroundStyle(Color.tasker(.textPrimary))
 
                     Spacer()
 
-                    Text(model.onboardingBadgeTitle)
+                    Text(badgeTitle)
                         .font(.tasker(.caption1))
-                        .foregroundStyle(Color.tasker(.accentPrimary))
+                        .foregroundStyle(isDisabled ? Color.tasker(.statusWarning) : Color.tasker(.accentPrimary))
                         .padding(.horizontal, TaskerTheme.Spacing.sm)
                         .padding(.vertical, TaskerTheme.Spacing.xs)
-                        .background(Color.tasker(.accentWash))
+                        .background(isDisabled ? Color.tasker(.accentWash) : Color.tasker(.accentWash))
                         .clipShape(Capsule())
+                        .accessibilityIdentifier(isDefaultModel ? "llm.modelPicker.recommendedBadge" : "")
                 }
 
-                Text(model.shortDescription)
+                Text(entry.model.shortDescription)
                     .font(.tasker(.callout))
                     .foregroundStyle(Color.tasker(.textSecondary))
                     .multilineTextAlignment(.leading)
+
+                if let statusReason = entry.compatibility.statusReason,
+                   isDisabled {
+                    Text(statusReason)
+                        .font(.tasker(.caption1))
+                        .foregroundStyle(Color.tasker(.statusWarning))
+                } else {
+                    Text(entry.model.onboardingSubtitle)
+                        .font(.tasker(.caption2))
+                        .foregroundStyle(Color.tasker(.textQuaternary))
+                }
 
                 HStack {
                     Text(sizeLabel)
                         .font(.tasker(.caption1))
                         .foregroundStyle(Color.tasker(.textTertiary))
                     Spacer()
-                    Text(model.onboardingSubtitle)
-                        .font(.tasker(.caption2))
-                        .foregroundStyle(Color.tasker(.textQuaternary))
-                        .multilineTextAlignment(.trailing)
+                    if entry.model.sourceModelID != nil {
+                        Text("converted MLX equivalent")
+                            .font(.tasker(.caption2))
+                            .foregroundStyle(Color.tasker(.textQuaternary))
+                    }
                 }
             }
             .padding(TaskerTheme.Spacing.lg)
@@ -247,7 +340,11 @@ private struct TwoQwenModelOptionCard: View {
                 RoundedRectangle(cornerRadius: TaskerTheme.CornerRadius.lg, style: .continuous)
                     .stroke(isSelected ? Color.tasker(.accentPrimary) : Color.tasker(.borderSubtle), lineWidth: 1)
             )
+            .opacity(isDisabled ? 0.78 : 1)
         }
+        .disabled(isDisabled)
+        .accessibilityIdentifier(isDefaultModel ? "llm.modelPicker.recommendedRow" : "")
+        .accessibilityValue(isSelected ? "selected" : "unselected")
         #if os(macOS)
         .buttonStyle(.plain)
         #endif

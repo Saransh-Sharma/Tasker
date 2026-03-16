@@ -253,9 +253,20 @@ public extension ModelConfiguration {
         case regular, reasoning
     }
 
+    enum ModelFamily {
+        case qwen3
+        case qwen3_5Text
+    }
+
+    enum ModelDistribution {
+        case mlx
+        case transformers
+    }
+
     enum ProductTier {
         case `default`
         case smarter
+        case experimental
     }
 
     struct ProductMetadata {
@@ -266,12 +277,17 @@ public extension ModelConfiguration {
         let tier: ProductTier
         let approximateSizeGB: Decimal
         let tokenBudget: LLMTokenBudget
+        let family: ModelFamily
+        let distribution: ModelDistribution
+        let sourceModelID: String?
     }
 
     var modelType: ModelType {
         switch self {
         case .qwen_3_0_6b_4bit: .reasoning
         case .qwen_3_5_0_8b_optiq_4bit: .reasoning
+        case .qwen_3_5_0_8b_nexveridian_4bit: .reasoning
+        case .qwen_3_5_0_8b_claude_4_6_opus_reasoning_distilled_4bit: .reasoning
         default: .regular
         }
     }
@@ -294,7 +310,10 @@ public extension ModelConfiguration {
                     taskContextTokens: 520,
                     slashContextTokens: 180,
                     historyMessageLimit: 8
-                )
+                ),
+                family: .qwen3,
+                distribution: .mlx,
+                sourceModelID: nil
             )
         case .qwen_3_5_0_8b_optiq_4bit:
             return ProductMetadata(
@@ -312,7 +331,52 @@ public extension ModelConfiguration {
                     taskContextTokens: 700,
                     slashContextTokens: 220,
                     historyMessageLimit: 8
-                )
+                ),
+                family: .qwen3_5Text,
+                distribution: .mlx,
+                sourceModelID: nil
+            )
+        case .qwen_3_5_0_8b_nexveridian_4bit:
+            return ProductMetadata(
+                displayName: "Qwen3.5 0.8B NexVeridian 4bit",
+                shortDescription: "Alternative Qwen 3.5 text model with the same lightweight footprint.",
+                onboardingBadgeTitle: "Experimental",
+                onboardingSubtitle: "Text-first Qwen 3.5 option for comparing quality and style.",
+                tier: .experimental,
+                approximateSizeGB: Decimal(string: "0.6") ?? 0.6,
+                tokenBudget: LLMTokenBudget(
+                    inputTokens: 1_920,
+                    reservedOutputTokens: 512,
+                    systemPromptTokens: 240,
+                    personalMemoryTokens: 140,
+                    taskContextTokens: 700,
+                    slashContextTokens: 220,
+                    historyMessageLimit: 8
+                ),
+                family: .qwen3_5Text,
+                distribution: .mlx,
+                sourceModelID: nil
+            )
+        case .qwen_3_5_0_8b_claude_4_6_opus_reasoning_distilled_4bit:
+            return ProductMetadata(
+                displayName: "Qwen3.5 0.8B Claude 4.6 Distilled 4bit",
+                shortDescription: "Reasoning-distilled MLX equivalent of the requested Claude-style fine-tune.",
+                onboardingBadgeTitle: "Experimental",
+                onboardingSubtitle: "Heavier reasoning style tuned from the requested distilled source model.",
+                tier: .experimental,
+                approximateSizeGB: Decimal(string: "0.6") ?? 0.6,
+                tokenBudget: LLMTokenBudget(
+                    inputTokens: 1_920,
+                    reservedOutputTokens: 512,
+                    systemPromptTokens: 240,
+                    personalMemoryTokens: 140,
+                    taskContextTokens: 700,
+                    slashContextTokens: 220,
+                    historyMessageLimit: 8
+                ),
+                family: .qwen3_5Text,
+                distribution: .mlx,
+                sourceModelID: "Ishant06/Qwen3.5-0.8B-Claude-4.6-Opus-Reasoning-Distilled"
             )
         default:
             return ProductMetadata(
@@ -330,7 +394,10 @@ public extension ModelConfiguration {
                     taskContextTokens: 520,
                     slashContextTokens: 180,
                     historyMessageLimit: 8
-                )
+                ),
+                family: .qwen3,
+                distribution: .mlx,
+                sourceModelID: nil
             )
         }
     }
@@ -340,6 +407,125 @@ public extension ModelConfiguration {
     var shortDescription: String { metadata.shortDescription }
     var onboardingSubtitle: String { metadata.onboardingSubtitle }
     internal var tokenBudget: LLMTokenBudget { metadata.tokenBudget }
+    var family: ModelFamily { metadata.family }
+    var distribution: ModelDistribution { metadata.distribution }
+    var sourceModelID: String? { metadata.sourceModelID }
+}
+
+enum LLMModelAvailability: Equatable {
+    case supported
+    case temporarilyUnavailable
+}
+
+struct LLMModelCompatibilityResult: Equatable {
+    let modelName: String
+    let availability: LLMModelAvailability
+    let statusReason: String?
+
+    var canInstall: Bool {
+        availability == .supported
+    }
+
+    var canActivate: Bool {
+        availability == .supported
+    }
+
+    var statusBadgeTitle: String? {
+        switch availability {
+        case .supported:
+            return nil
+        case .temporarilyUnavailable:
+            return "Unsupported"
+        }
+    }
+
+    var prepareFailureMessage: String {
+        switch availability {
+        case .supported:
+            return "Model failed to prepare. Please switch models or retry."
+        case .temporarilyUnavailable:
+            return statusReason ?? "This model is temporarily unavailable in the local AI runtime."
+        }
+    }
+}
+
+enum LLMRuntimeSupportMatrix {
+    static func compatibility(for model: ModelConfiguration) -> LLMModelCompatibilityResult {
+        LLMModelCompatibilityResult(
+            modelName: model.name,
+            availability: .supported,
+            statusReason: nil
+        )
+    }
+
+    static func compatibility(for modelName: String) -> LLMModelCompatibilityResult? {
+        guard let model = ModelConfiguration.getModelByName(modelName) else { return nil }
+        return compatibility(for: model)
+    }
+}
+
+enum LLMRuntimeSmokeStatus: Equatable {
+    case supported
+    case failed
+}
+
+struct LLMRuntimeSmokeTestResult: Equatable {
+    let modelName: String
+    let status: LLMRuntimeSmokeStatus
+    let prepareDurationMs: Int?
+    let firstTokenLatencyMs: Int?
+    let peakMemoryMB: Int?
+    let errorDescription: String?
+}
+
+enum LLMRuntimeSmokeTester {
+    static func classify(model: ModelConfiguration) -> LLMRuntimeSmokeTestResult {
+        LLMRuntimeSmokeTestResult(
+            modelName: model.name,
+            status: .supported,
+            prepareDurationMs: nil,
+            firstTokenLatencyMs: nil,
+            peakMemoryMB: nil,
+            errorDescription: nil
+        )
+    }
+
+    static func run(
+        model: ModelConfiguration,
+        probe: (String) async throws -> LLMRuntimeSmokeMetrics
+    ) async -> LLMRuntimeSmokeTestResult {
+        let startedAt = Date()
+        do {
+            let metrics = try await probe(model.name)
+            return LLMRuntimeSmokeTestResult(
+                modelName: model.name,
+                status: .supported,
+                prepareDurationMs: Int(Date().timeIntervalSince(startedAt) * 1_000),
+                firstTokenLatencyMs: metrics.firstTokenLatencyMs,
+                peakMemoryMB: metrics.peakMemoryMB,
+                errorDescription: nil
+            )
+        } catch {
+            return LLMRuntimeSmokeTestResult(
+                modelName: model.name,
+                status: .failed,
+                prepareDurationMs: Int(Date().timeIntervalSince(startedAt) * 1_000),
+                firstTokenLatencyMs: nil,
+                peakMemoryMB: nil,
+                errorDescription: error.localizedDescription
+            )
+        }
+    }
+}
+
+struct LLMRuntimeSmokeMetrics: Equatable {
+    let firstTokenLatencyMs: Int?
+    let peakMemoryMB: Int?
+
+    init(firstTokenLatencyMs: Int? = nil, peakMemoryMB: Int? = nil) {
+        self.firstTokenLatencyMs = firstTokenLatencyMs
+        self.peakMemoryMB = peakMemoryMB
+    }
 }
 
 public extension ModelConfiguration {
@@ -353,9 +539,21 @@ public extension ModelConfiguration {
         extraEOSTokens: LLMModelStopTokenRegistry.qwenStyle
     )
 
+    static let qwen_3_5_0_8b_nexveridian_4bit = ModelConfiguration(
+        id: "NexVeridian/Qwen3.5-0.8B-4bit",
+        extraEOSTokens: LLMModelStopTokenRegistry.qwenStyle
+    )
+
+    static let qwen_3_5_0_8b_claude_4_6_opus_reasoning_distilled_4bit = ModelConfiguration(
+        id: "Jackrong/MLX-Qwen3.5-0.8B-Claude-4.6-Opus-Reasoning-Distilled-4bit",
+        extraEOSTokens: LLMModelStopTokenRegistry.qwenStyle
+    )
+
     static var availableModels: [ModelConfiguration] = [
         qwen_3_0_6b_4bit,
         qwen_3_5_0_8b_optiq_4bit,
+        qwen_3_5_0_8b_nexveridian_4bit,
+        qwen_3_5_0_8b_claude_4_6_opus_reasoning_distilled_4bit,
     ]
 
     static var defaultModel: ModelConfiguration {
@@ -588,6 +786,8 @@ public extension ModelConfiguration {
         switch self {
         case .qwen_3_0_6b_4bit: return metadata.approximateSizeGB
         case .qwen_3_5_0_8b_optiq_4bit: return metadata.approximateSizeGB
+        case .qwen_3_5_0_8b_nexveridian_4bit: return metadata.approximateSizeGB
+        case .qwen_3_5_0_8b_claude_4_6_opus_reasoning_distilled_4bit: return metadata.approximateSizeGB
         default: return nil
         }
     }

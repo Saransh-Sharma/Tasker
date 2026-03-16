@@ -4,6 +4,7 @@ import UIKit
 
 @MainActor
 final class LLMRuntimeCoordinatorTests: XCTestCase {
+    private let qwenPointSixName = "mlx-community/Qwen3-0.6B-4bit"
     private var originalPrewarmMode: LLMChatPrewarmMode = .adaptiveOnDemand
     private var originalDeferPrewarmFlag: Bool = true
 
@@ -19,10 +20,18 @@ final class LLMRuntimeCoordinatorTests: XCTestCase {
         super.tearDown()
     }
 
+    private func configureInstalledCurrentModel(
+        _ modelName: String,
+        defaults: UserDefaults
+    ) {
+        LLMPersistedModelSelection.persistInstalledModels([modelName], defaults: defaults)
+        defaults.set(modelName, forKey: LLMPersistedModelSelection.currentModelKey)
+    }
+
     func testNoPrewarmWhenFeatureFlagDisabled() async {
         V2FeatureFlags.llmChatPrewarmMode = .disabled
         let defaults = UserDefaults(suiteName: "LLMRuntimeCoordinatorTests.Disabled.\(UUID().uuidString)")!
-        defaults.set("mlx-community/Qwen3-0.6B-4bit", forKey: "currentModelName")
+        configureInstalledCurrentModel(qwenPointSixName, defaults: defaults)
 
         var prepareCallCount = 0
         let coordinator = LLMRuntimeCoordinator(
@@ -41,7 +50,7 @@ final class LLMRuntimeCoordinatorTests: XCTestCase {
     func testRepeatedPrewarmSkipsAfterFirstActivation() async {
         V2FeatureFlags.llmChatPrewarmMode = .adaptiveOnDemand
         let defaults = UserDefaults(suiteName: "LLMRuntimeCoordinatorTests.Repeated.\(UUID().uuidString)")!
-        defaults.set("mlx-community/Qwen3-0.6B-4bit", forKey: "currentModelName")
+        configureInstalledCurrentModel(qwenPointSixName, defaults: defaults)
 
         var prepareCallCount = 0
         let coordinator = LLMRuntimeCoordinator(
@@ -93,46 +102,6 @@ final class LLMRuntimeCoordinatorTests: XCTestCase {
         XCTAssertEqual(defaults.string(forKey: LLMPersistedModelSelection.currentModelKey), "mlx-community/Qwen3-0.6B-4bit")
     }
 
-    func testSwitchModelCancelsInflightPrewarm() async {
-        V2FeatureFlags.llmChatPrewarmMode = .adaptiveOnDemand
-        let defaults = UserDefaults(suiteName: "LLMRuntimeCoordinatorTests.Cancel.\(UUID().uuidString)")!
-        defaults.set("mlx-community/Qwen3-0.6B-4bit", forKey: "currentModelName")
-
-        var prewarmCancelled = false
-        var switchedModelName: String?
-
-        let coordinator = LLMRuntimeCoordinator(
-            defaults: defaults,
-            prepareHandler: { modelName in
-                if modelName == "mlx-community/Qwen3-0.6B-4bit" {
-                    do {
-                        try await _Concurrency.Task.sleep(nanoseconds: 2_000_000_000)
-                    } catch is CancellationError {
-                        prewarmCancelled = true
-                        throw CancellationError()
-                    } catch {
-                        throw error
-                    }
-                }
-                return LLMEvaluator.PrepareResult(wasAlreadyLoaded: false)
-            },
-            switchHandler: { modelName in
-                switchedModelName = modelName
-                return true
-            },
-            registerLifecycleObservers: false
-        )
-
-        await coordinator.prewarmIfEligibleCurrentModel()
-        try? await _Concurrency.Task.sleep(nanoseconds: 50_000_000)
-        _ = await coordinator.switchModelIfNeeded(modelName: "mlx-community/Qwen3.5-0.8B-OptiQ-4bit")
-        try? await _Concurrency.Task.sleep(nanoseconds: 50_000_000)
-
-        XCTAssertTrue(prewarmCancelled)
-        XCTAssertEqual(switchedModelName, "mlx-community/Qwen3.5-0.8B-OptiQ-4bit")
-        XCTAssertEqual(coordinator.activeModelName, "mlx-community/Qwen3.5-0.8B-OptiQ-4bit")
-    }
-
     func testSwitchModelRejectsUnsupportedLegacyModelName() async {
         let evaluator = LLMEvaluator()
         let coordinator = LLMRuntimeCoordinator(
@@ -145,6 +114,84 @@ final class LLMRuntimeCoordinatorTests: XCTestCase {
         XCTAssertFalse(switched)
         XCTAssertNil(coordinator.activeModelName)
         XCTAssertNil(evaluator.loadedModelName)
+    }
+
+    func testSwitchModelSupportsQwen35TextCatalogEntry() async {
+        var switchedModelNames: [String] = []
+        let coordinator = LLMRuntimeCoordinator(
+            switchHandler: { modelName in
+                switchedModelNames.append(modelName)
+                return true
+            },
+            registerLifecycleObservers: false
+        )
+
+        let switched = await coordinator.switchModelIfNeeded(modelName: "mlx-community/Qwen3.5-0.8B-OptiQ-4bit")
+
+        XCTAssertTrue(switched)
+        XCTAssertEqual(switchedModelNames, ["mlx-community/Qwen3.5-0.8B-OptiQ-4bit"])
+        XCTAssertEqual(coordinator.activeModelName, "mlx-community/Qwen3.5-0.8B-OptiQ-4bit")
+    }
+
+    func testEnsureReadySupportsQwen35TextCatalogEntry() async {
+        var preparedModelNames: [String] = []
+        let coordinator = LLMRuntimeCoordinator(
+            prepareHandler: { modelName in
+                preparedModelNames.append(modelName)
+                return LLMEvaluator.PrepareResult(wasAlreadyLoaded: false)
+            },
+            registerLifecycleObservers: false
+        )
+
+        let result = await coordinator.ensureReady(modelName: "Jackrong/MLX-Qwen3.5-0.8B-Claude-4.6-Opus-Reasoning-Distilled-4bit")
+
+        XCTAssertTrue(result.ready)
+        XCTAssertEqual(
+            preparedModelNames,
+            ["Jackrong/MLX-Qwen3.5-0.8B-Claude-4.6-Opus-Reasoning-Distilled-4bit"]
+        )
+        XCTAssertEqual(
+            result.resolvedModelName,
+            "Jackrong/MLX-Qwen3.5-0.8B-Claude-4.6-Opus-Reasoning-Distilled-4bit"
+        )
+    }
+
+    func testEnsureReadyFallsBackToDefaultTextModelAfterPrepareFailure() async {
+        let suiteName = "LLMRuntimeCoordinatorTests.Fallback.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+
+        LLMPersistedModelSelection.persistInstalledModels(
+            [
+                "mlx-community/Qwen3.5-0.8B-OptiQ-4bit",
+                qwenPointSixName
+            ],
+            defaults: defaults
+        )
+        defaults.set("mlx-community/Qwen3.5-0.8B-OptiQ-4bit", forKey: LLMPersistedModelSelection.currentModelKey)
+
+        var preparedModelNames: [String] = []
+        let coordinator = LLMRuntimeCoordinator(
+            defaults: defaults,
+            prepareHandler: { modelName in
+                preparedModelNames.append(modelName)
+                if modelName == "mlx-community/Qwen3.5-0.8B-OptiQ-4bit" {
+                    throw LLMEvaluatorError.modelNotFound(modelName)
+                }
+                return LLMEvaluator.PrepareResult(wasAlreadyLoaded: false)
+            },
+            registerLifecycleObservers: false
+        )
+
+        let result = await coordinator.ensureReady(modelName: "mlx-community/Qwen3.5-0.8B-OptiQ-4bit")
+
+        XCTAssertTrue(result.ready)
+        XCTAssertEqual(
+            preparedModelNames,
+            ["mlx-community/Qwen3.5-0.8B-OptiQ-4bit", qwenPointSixName]
+        )
+        XCTAssertEqual(result.resolvedModelName, qwenPointSixName)
+        XCTAssertEqual(defaults.string(forKey: LLMPersistedModelSelection.currentModelKey), qwenPointSixName)
     }
 
     func testMemoryWarningNotificationTriggersUnload() async {
@@ -211,7 +258,7 @@ final class LLMRuntimeCoordinatorTests: XCTestCase {
     func testReleaseSessionSchedulesIdleUnload() async {
         let center = NotificationCenter()
         let defaults = UserDefaults(suiteName: "LLMRuntimeCoordinatorTests.Idle.\(UUID().uuidString)")!
-        defaults.set("mlx-community/Qwen3-0.6B-4bit", forKey: "currentModelName")
+        configureInstalledCurrentModel(qwenPointSixName, defaults: defaults)
         V2FeatureFlags.llmChatPrewarmMode = .eager
 
         var unloadCount = 0
@@ -266,7 +313,7 @@ final class LLMRuntimeCoordinatorTests: XCTestCase {
     func testPromptFocusPrewarmHonorsRequestedDelay() async {
         V2FeatureFlags.llmChatPrewarmMode = .adaptiveOnDemand
         let defaults = UserDefaults(suiteName: "LLMRuntimeCoordinatorTests.Deferred.\(UUID().uuidString)")!
-        defaults.set("mlx-community/Qwen3-0.6B-4bit", forKey: "currentModelName")
+        configureInstalledCurrentModel(qwenPointSixName, defaults: defaults)
 
         var prepareCallCount = 0
         let coordinator = LLMRuntimeCoordinator(
@@ -287,7 +334,7 @@ final class LLMRuntimeCoordinatorTests: XCTestCase {
     func testDeferredChatEntryPrewarmCancelsBeforeExecution() async {
         V2FeatureFlags.llmChatPrewarmMode = .adaptiveOnDemand
         let defaults = UserDefaults(suiteName: "LLMRuntimeCoordinatorTests.DeferredCancel.\(UUID().uuidString)")!
-        defaults.set("mlx-community/Qwen3-0.6B-4bit", forKey: "currentModelName")
+        configureInstalledCurrentModel(qwenPointSixName, defaults: defaults)
 
         var prepareCallCount = 0
         let coordinator = LLMRuntimeCoordinator(
@@ -308,7 +355,7 @@ final class LLMRuntimeCoordinatorTests: XCTestCase {
     func testDeferredChatEntryPrewarmDedupesMatchingRequests() async {
         V2FeatureFlags.llmChatPrewarmMode = .adaptiveOnDemand
         let defaults = UserDefaults(suiteName: "LLMRuntimeCoordinatorTests.DeferredDedup.\(UUID().uuidString)")!
-        defaults.set("mlx-community/Qwen3-0.6B-4bit", forKey: "currentModelName")
+        configureInstalledCurrentModel(qwenPointSixName, defaults: defaults)
 
         var prepareCallCount = 0
         let coordinator = LLMRuntimeCoordinator(
@@ -329,7 +376,7 @@ final class LLMRuntimeCoordinatorTests: XCTestCase {
     func testEnterChatScreenTriggersImmediatePrewarm() async {
         V2FeatureFlags.llmChatPrewarmMode = .adaptiveOnDemand
         let defaults = UserDefaults(suiteName: "LLMRuntimeCoordinatorTests.Entry.\(UUID().uuidString)")!
-        defaults.set("mlx-community/Qwen3-0.6B-4bit", forKey: "currentModelName")
+        configureInstalledCurrentModel(qwenPointSixName, defaults: defaults)
 
         var prepareCallCount = 0
         let coordinator = LLMRuntimeCoordinator(

@@ -782,6 +782,7 @@ struct ChatView: View {
             message: "Prepared selected model prior to chat generation",
             fields: [
                 "model_name": modelName,
+                "resolved_model_name": prepareResult.resolvedModelName,
                 "duration_ms": String(prepareMs),
                 "prewarm_eligible": prepareResult.prewarmEligible ? "true" : "false",
                 "prewarm_hit": prepareResult.prewarmHit ? "true" : "false",
@@ -794,7 +795,7 @@ struct ChatView: View {
                 sendMessage(
                     Message(
                         role: .assistant,
-                        content: "Model failed to prepare. Please switch models or retry.",
+                        content: prepareResult.failureMessage ?? "Model failed to prepare. Please switch models or retry.",
                         thread: thread
                     )
                 )
@@ -802,6 +803,8 @@ struct ChatView: View {
             }
             return
         }
+        let runtimeModelConfiguration = ModelConfiguration.getModelByName(prepareResult.resolvedModelName)
+            ?? activeModelConfiguration
 
         guard !Task.isCancelled else {
             await MainActor.run {
@@ -811,7 +814,7 @@ struct ChatView: View {
         }
 
         let output = await llm.generate(
-            modelName: modelName,
+            modelName: prepareResult.resolvedModelName,
             thread: thread,
             systemPrompt: dynamicSystemPrompt
         )
@@ -840,7 +843,7 @@ struct ChatView: View {
                 event: "chat_quality_retry_triggered",
                 message: "Retrying low-quality chat generation with compact fallback prompt",
                 fields: [
-                    "model_name": modelName,
+                    "model_name": prepareResult.resolvedModelName,
                     "termination_reason": primaryTerminationReason ?? "unknown",
                     "reasons": qualityAssessment.reasons.joined(separator: ",")
                 ]
@@ -864,14 +867,14 @@ struct ChatView: View {
 
             let retrySystemPrompt = composeChatSystemPrompt(
                 basePrompt: appManager.systemPrompt,
-                model: activeModelConfiguration,
+                model: runtimeModelConfiguration,
                 taskContext: retryContextPayload.payload,
                 additionalInstruction: "Do not introduce yourself. Answer directly in 3 short bullets max."
             )
             let retryThread = Thread()
             retryThread.messages = [Message(role: .user, content: message, thread: retryThread)]
             let retryOutput = await llm.generate(
-                modelName: modelName,
+                modelName: prepareResult.resolvedModelName,
                 thread: retryThread,
                 systemPrompt: retrySystemPrompt
             )

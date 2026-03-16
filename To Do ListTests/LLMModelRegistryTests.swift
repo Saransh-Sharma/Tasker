@@ -7,6 +7,8 @@ final class LLMModelRegistryTests: XCTestCase {
     private let unsupportedModelNameTwo = "unsupported/legacy-model-2"
     private let qwenPointSixName = "mlx-community/Qwen3-0.6B-4bit"
     private let qwenOptiQName = "mlx-community/Qwen3.5-0.8B-OptiQ-4bit"
+    private let qwenNexVeridianName = "NexVeridian/Qwen3.5-0.8B-4bit"
+    private let qwenClaudeDistilledName = "Jackrong/MLX-Qwen3.5-0.8B-Claude-4.6-Opus-Reasoning-Distilled-4bit"
     private var originalContextStrategy: LLMChatContextStrategy = .bounded
 
     override func setUp() {
@@ -19,9 +21,17 @@ final class LLMModelRegistryTests: XCTestCase {
         super.tearDown()
     }
 
-    func testAvailableModelsContainsExactlyTwoSupportedQwenModels() {
+    func testAvailableModelsContainsExpandedQwenCatalog() {
         let modelNames = ModelConfiguration.availableModels.map(\.name)
-        XCTAssertEqual(modelNames, [qwenPointSixName, qwenOptiQName])
+        XCTAssertEqual(
+            modelNames,
+            [
+                qwenPointSixName,
+                qwenOptiQName,
+                qwenNexVeridianName,
+                qwenClaudeDistilledName
+            ]
+        )
     }
 
     func testDefaultModelIsQwenPointSix() {
@@ -36,10 +46,36 @@ final class LLMModelRegistryTests: XCTestCase {
         XCTAssertGreaterThan(model.tokenBudget.taskContextTokens, ModelConfiguration.defaultModel.tokenBudget.taskContextTokens)
     }
 
+    func testClaudeDistilledModelTracksRequestedSourceModel() {
+        let model = tryUnwrap(ModelConfiguration.getModelByName(qwenClaudeDistilledName))
+        XCTAssertEqual(model.sourceModelID, "Ishant06/Qwen3.5-0.8B-Claude-4.6-Opus-Reasoning-Distilled")
+    }
+
+    func testCompatibilityMarksAllTextModelsAsSupported() {
+        for modelName in [
+            qwenPointSixName,
+            qwenOptiQName,
+            qwenNexVeridianName,
+            qwenClaudeDistilledName
+        ] {
+            XCTAssertEqual(
+                LLMRuntimeSupportMatrix.compatibility(for: tryUnwrap(ModelConfiguration.getModelByName(modelName))).availability,
+                .supported
+            )
+        }
+    }
+
     func testPreferredActiveModelNamePrefersDefaultModelWhenBothAreInstalled() {
         XCTAssertEqual(
             AppManager.preferredActiveModelName(from: [qwenOptiQName, qwenPointSixName]),
             qwenPointSixName
+        )
+    }
+
+    func testPreferredActiveModelNameUsesBestInstalledTextModelWhenDefaultMissing() {
+        XCTAssertEqual(
+            AppManager.preferredActiveModelName(from: [qwenOptiQName, qwenNexVeridianName]),
+            qwenOptiQName
         )
     }
 
@@ -51,22 +87,18 @@ final class LLMModelRegistryTests: XCTestCase {
         XCTAssertGreaterThan(optiQBudget.maxPromptTokens, ModelConfiguration.defaultModel.tokenBudget.inputTokens)
     }
 
-    func testInstallCatalogSurfacesBothModelsWhenMemoryAllows() {
-        let catalog = TwoQwenModelInstallCatalog.make(
+    func testInstallCatalogGroupsTextModelsBySection() {
+        let catalog = LocalModelInstallCatalog.make(
             installedModelNames: [],
             availableMemory: 8
         )
 
-        XCTAssertEqual(catalog.installableModels.map(\.name), [qwenPointSixName, qwenOptiQName])
-    }
-
-    func testInstallCatalogFiltersHeavierModelOnSmallMemoryDevices() {
-        let catalog = TwoQwenModelInstallCatalog.make(
-            installedModelNames: [],
-            availableMemory: 3
+        XCTAssertEqual(
+            catalog.selectableModels.map(\.name),
+            [qwenPointSixName, qwenOptiQName, qwenNexVeridianName, qwenClaudeDistilledName]
         )
-
-        XCTAssertEqual(catalog.installableModels.map(\.name), [qwenPointSixName])
+        XCTAssertEqual(catalog.sections.first?.kind, .availableNow)
+        XCTAssertEqual(catalog.sections.last?.kind, .additionalTextModels)
     }
 
     func testPersistedModelNormalizationRemovesUnsupportedLegacyModels() throws {
@@ -109,6 +141,43 @@ final class LLMModelRegistryTests: XCTestCase {
                 )?.path ?? ""
             )
         )
+    }
+
+    func testPersistedModelNormalizationRemovesOldMultimodalModelEntries() {
+        let state = LLMPersistedModelSelection.normalizedState(
+            installedModels: ["mlx-community/Qwen3.5-0.8B-MLX-4bit", qwenOptiQName, qwenPointSixName],
+            currentModelName: "mlx-community/Qwen3.5-0.8B-MLX-4bit"
+        )
+
+        XCTAssertEqual(state.installedModels, [qwenOptiQName, qwenPointSixName])
+        XCTAssertEqual(state.currentModelName, qwenPointSixName)
+    }
+
+    func testSmokeTesterClassifiesCatalogEntries() {
+        for modelName in [
+            qwenPointSixName,
+            qwenOptiQName,
+            qwenNexVeridianName,
+            qwenClaudeDistilledName
+        ] {
+            XCTAssertEqual(
+                LLMRuntimeSmokeTester.classify(model: tryUnwrap(ModelConfiguration.getModelByName(modelName))).status,
+                .supported
+            )
+        }
+    }
+
+    func testSmokeTesterRunCapturesSuccessMetrics() async {
+        let result = await LLMRuntimeSmokeTester.run(
+            model: tryUnwrap(ModelConfiguration.getModelByName(qwenOptiQName))
+        ) { _ in
+            LLMRuntimeSmokeMetrics(firstTokenLatencyMs: 42, peakMemoryMB: 512)
+        }
+
+        XCTAssertEqual(result.status, .supported)
+        XCTAssertEqual(result.firstTokenLatencyMs, 42)
+        XCTAssertEqual(result.peakMemoryMB, 512)
+        XCTAssertNil(result.errorDescription)
     }
 
     func testPromptHistoryRespectsTokenBudgetAndKeepsLatestSuffix() {

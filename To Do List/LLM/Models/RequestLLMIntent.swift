@@ -106,12 +106,13 @@ struct RequestLLMIntent: AppIntent {
         let route = AIChatModeRouter.route(for: .addTaskSuggestion, appManager: appManager)
         if let modelName = route.selectedModelName,
            let model = ModelConfiguration.getModelByName(modelName) {
-            let resolvedBudget = LLMChatBudgets.active.resolved(for: model)
             let ready = await LLMRuntimeCoordinator.shared.ensureReady(modelName: modelName)
             guard ready.ready else {
-                let error = "The active local model could not be prepared right now."
+                let error = ready.failureMessage ?? "The active local model could not be prepared right now."
                 return .result(value: error, dialog: "\(error)")
             }
+            let runtimeModel = ModelConfiguration.getModelByName(ready.resolvedModelName) ?? model
+            let resolvedBudget = LLMChatBudgets.active.resolved(for: runtimeModel)
 
             let contextResult = await LLMChatPlanningContextBuilder.build(
                 timeoutMs: 800,
@@ -121,23 +122,23 @@ struct RequestLLMIntent: AppIntent {
                 ),
                 query: prompt,
                 budgets: LLMChatBudgets.active,
-                model: model,
+                model: runtimeModel,
                 contextCharBudgetOverride: LLMTokenBudgetEstimator.estimatedCharacterBudget(
                     for: resolvedBudget.maxContextTokens
                 )
             )
             let composedSystemPrompt = LLMSystemPromptComposer.compose(
                 basePrompt: appManager.systemPrompt,
-                model: model,
+                model: runtimeModel,
                 additionalInstruction: systemPrompt,
-                personalMemory: LLMPersonalMemoryDefaultsStore.promptBlock(for: model),
+                personalMemory: LLMPersonalMemoryDefaultsStore.promptBlock(for: runtimeModel),
                 taskContext: contextResult.payload
             )
             
             let message = Message(role: .user, content: prompt, thread: thread)
             thread.messages.append(message)
             var output = await llm.generate(
-                modelName: modelName,
+                modelName: ready.resolvedModelName,
                 thread: thread,
                 systemPrompt: composedSystemPrompt,
                 profile: .chat

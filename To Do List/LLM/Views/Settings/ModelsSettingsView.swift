@@ -6,17 +6,34 @@ struct ModelsSettingsView: View {
     @Environment(LLMEvaluator.self) var llm
     @State private var showOnboardingInstallModelView = false
 
+    private var catalog: LocalModelInstallCatalog {
+        LocalModelInstallCatalog.make(
+            installedModelNames: appManager.installedModels,
+            availableMemory: appManager.availableMemory
+        )
+    }
+
     var body: some View {
         Form {
             Section {
-                Text("All AI features use the active model below.")
+                Text("All AI features use the active model below. Qwen3 0.6B is the default fast path, while the Qwen 3.5 text models are available for higher-quality local responses.")
                     .font(.tasker(.callout))
                     .foregroundStyle(Color.tasker(.textSecondary))
             }
 
-            Section("models") {
-                ForEach(ModelConfiguration.availableModels, id: \.name) { model in
-                    modelRow(for: model)
+            if catalog.installedEntries.isEmpty == false {
+                Section("installed") {
+                    ForEach(catalog.installedEntries) { entry in
+                        modelRow(for: entry)
+                    }
+                }
+            }
+
+            ForEach(catalog.sections) { section in
+                Section(section.kind.title) {
+                    ForEach(section.entries) { entry in
+                        modelRow(for: entry)
+                    }
                 }
             }
         }
@@ -56,9 +73,11 @@ struct ModelsSettingsView: View {
     }
 
     @ViewBuilder
-    private func modelRow(for model: ModelConfiguration) -> some View {
-        let isInstalled = appManager.installedModels.contains(model.name)
+    private func modelRow(for entry: LLMCatalogEntry) -> some View {
+        let model = entry.model
+        let isInstalled = entry.isInstalled
         let isActive = appManager.currentModelName == model.name
+        let compatibility = entry.compatibility
 
         VStack(alignment: .leading, spacing: TaskerTheme.Spacing.sm) {
             HStack(spacing: TaskerTheme.Spacing.md) {
@@ -69,6 +88,12 @@ struct ModelsSettingsView: View {
                     Text(model.shortDescription.lowercased())
                         .font(.tasker(.caption1))
                         .foregroundStyle(Color.tasker(.textSecondary))
+                    if let statusReason = compatibility.statusReason,
+                       compatibility.canActivate == false {
+                        Text(statusReason)
+                            .font(.tasker(.caption1))
+                            .foregroundStyle(Color.tasker(.statusWarning))
+                    }
                 }
 
                 Spacer()
@@ -81,16 +106,25 @@ struct ModelsSettingsView: View {
                         .padding(.vertical, TaskerTheme.Spacing.xs)
                         .background(Color.tasker(.accentWash))
                         .clipShape(Capsule())
+                } else if let statusBadgeTitle = compatibility.statusBadgeTitle {
+                    Text(statusBadgeTitle.lowercased())
+                        .font(.tasker(.caption1))
+                        .foregroundStyle(Color.tasker(.textTertiary))
+                        .padding(.horizontal, TaskerTheme.Spacing.sm)
+                        .padding(.vertical, TaskerTheme.Spacing.xs)
+                        .background(Color.tasker(.accentWash))
+                        .clipShape(Capsule())
                 }
             }
 
             HStack(spacing: TaskerTheme.Spacing.sm) {
-                if isInstalled == false {
+                if isInstalled == false && compatibility.canInstall {
                     Button("install") {
                         showOnboardingInstallModelView = true
                     }
                     .buttonStyle(.borderedProminent)
-                } else if isActive == false {
+                    .accessibilityIdentifier("llmSettings.installModelButton")
+                } else if isInstalled && isActive == false && compatibility.canActivate {
                     Button("make active") {
                         Task {
                             await switchModel(model.name)
@@ -130,6 +164,9 @@ struct ModelsSettingsView: View {
     private func switchModel(_ modelName: String) async {
         guard appManager.installedModels.contains(modelName) else {
             showOnboardingInstallModelView = true
+            return
+        }
+        guard LLMRuntimeSupportMatrix.compatibility(for: modelName)?.canActivate == true else {
             return
         }
         appManager.setActiveModel(modelName)
