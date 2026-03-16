@@ -9,6 +9,7 @@
 import XCTest
 
 class TaskCreationTests: BaseUITest {
+    override var additionalLaunchArguments: [String] { ["-TASKER_ENABLE_LIQUID_METAL_CTA"] }
 
     var homePage: HomePage!
 

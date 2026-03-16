@@ -1,6 +1,7 @@
 import XCTest
 
 final class OnboardingFreshLaunchUITests: BaseUITest {
+    override var additionalLaunchArguments: [String] { ["-TASKER_ENABLE_LIQUID_METAL_CTA"] }
     override var shouldSkipOnboarding: Bool { false }
 
     func testFreshLaunchShowsWelcomeOnboarding() {

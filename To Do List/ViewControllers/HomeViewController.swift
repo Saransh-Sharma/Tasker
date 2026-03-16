@@ -3192,11 +3192,18 @@ private struct DailySummaryModalView: View {
     }
 
     private var ctaBar: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        let primaryCTAIdentifier = TaskerCTABezelResolver.dailySummaryPrimaryCTAIdentifier(for: summary)
+
+        return VStack(alignment: .leading, spacing: 10) {
             switch summary {
             case .morning(let value):
                 Button("Start Today") { onStartToday() }
                     .buttonStyle(.borderedProminent)
+                    .taskerCTABezel(
+                        style: .summaryPrimary,
+                        idleMotion: .slowLoop,
+                        isEnabled: primaryCTAIdentifier == "home.dailySummary.cta.startToday"
+                    )
                     .frame(maxWidth: .infinity)
                     .accessibilityIdentifier("home.dailySummary.cta.startToday")
 
@@ -3226,6 +3233,11 @@ private struct DailySummaryModalView: View {
             case .nightly(let value):
                 Button("Plan Tomorrow") { onPlanTomorrow() }
                     .buttonStyle(.borderedProminent)
+                    .taskerCTABezel(
+                        style: .summaryPrimary,
+                        idleMotion: .slowLoop,
+                        isEnabled: primaryCTAIdentifier == "home.dailySummary.cta.planTomorrow"
+                    )
                     .frame(maxWidth: .infinity)
                     .accessibilityIdentifier("home.dailySummary.cta.planTomorrow")
 

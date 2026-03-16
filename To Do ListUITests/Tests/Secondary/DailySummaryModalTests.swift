@@ -23,7 +23,10 @@ final class DailySummaryModalTests: XCTestCase {
     }
 
     func testMorningRoutePresentsMorningSummaryModal() {
-        app.launchWithTestRoute("daily_summary:morning:20260225")
+        app.launchWithTestRoute(
+            "daily_summary:morning:20260225",
+            additionalArguments: [.enableLiquidMetalCTA]
+        )
 
         let modal = app.otherElements[AccessibilityIdentifiers.Home.dailySummaryModal]
         XCTAssertTrue(modal.waitForExistence(timeout: 10), "Morning summary modal should appear")
@@ -32,10 +35,16 @@ final class DailySummaryModalTests: XCTestCase {
         XCTAssertTrue(app.buttons[AccessibilityIdentifiers.Home.dailySummaryCTAStartToday].waitForExistence(timeout: 2))
         XCTAssertTrue(app.buttons[AccessibilityIdentifiers.Home.dailySummaryCTACompleteMorning].waitForExistence(timeout: 2))
         XCTAssertTrue(app.buttons[AccessibilityIdentifiers.Home.dailySummaryCTAStartTriage].waitForExistence(timeout: 2))
+
+        app.buttons[AccessibilityIdentifiers.Home.dailySummaryCTAStartToday].tap()
+        XCTAssertFalse(modal.waitForExistence(timeout: 2), "Primary morning CTA should remain tappable and dismiss the modal")
     }
 
     func testNightlyRoutePresentsNightlySummaryModal() {
-        app.launchWithTestRoute("daily_summary:nightly:20260225")
+        app.launchWithTestRoute(
+            "daily_summary:nightly:20260225",
+            additionalArguments: [.enableLiquidMetalCTA]
+        )
 
         let modal = app.otherElements[AccessibilityIdentifiers.Home.dailySummaryModal]
         XCTAssertTrue(modal.waitForExistence(timeout: 10), "Nightly summary modal should appear")
@@ -43,5 +52,8 @@ final class DailySummaryModalTests: XCTestCase {
         XCTAssertTrue(app.otherElements[AccessibilityIdentifiers.Home.dailySummaryHeroCompleted].waitForExistence(timeout: 2))
         XCTAssertTrue(app.buttons[AccessibilityIdentifiers.Home.dailySummaryCTAPlanTomorrow].waitForExistence(timeout: 2))
         XCTAssertTrue(app.buttons[AccessibilityIdentifiers.Home.dailySummaryCTAReviewDone].waitForExistence(timeout: 2))
+
+        app.buttons[AccessibilityIdentifiers.Home.dailySummaryCTAPlanTomorrow].tap()
+        XCTAssertFalse(modal.waitForExistence(timeout: 2), "Primary nightly CTA should remain tappable and dismiss the modal")
     }
 }

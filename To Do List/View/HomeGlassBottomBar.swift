@@ -233,6 +233,14 @@ private struct BottomAddTaskCTA: View {
         } label: {
             ctaForeground
                 .background(ctaBackground)
+                .taskerCTABezel(
+                    style: .fab,
+                    palette: .roseGold,
+                    idleMotion: .slowLoop,
+                    isEnabled: true,
+                    isBusy: false,
+                    isPressed: isPressed
+                )
         }
         .buttonStyle(.plain)
         .scaleEffect(prefersReducedMotion ? 1.0 : (isPressed ? 0.975 : 1.0))

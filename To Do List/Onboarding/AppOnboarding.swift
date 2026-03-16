@@ -2636,7 +2636,12 @@ struct AppOnboardingJourneyView: View {
     }
 
     private var firstTaskStep: some View {
-        VStack(alignment: .leading, spacing: spacing.sectionGap) {
+        let highlightedPrimaryTemplateID = TaskerCTABezelResolver.highlightedOnboardingTemplateID(
+            primarySuggestionIDs: viewModel.primaryTaskSuggestions.map(\.id),
+            taskTemplateStates: viewModel.taskTemplateStates
+        )
+
+        return VStack(alignment: .leading, spacing: spacing.sectionGap) {
             OnboardingSectionHeader(
                 title: "Pick one tiny task you can actually finish today.",
                 subtitle: "Start with something that takes 2 minutes or less."
@@ -2651,6 +2656,7 @@ struct AppOnboardingJourneyView: View {
                     OnboardingTaskRecommendationCard(
                         template: template,
                         state: viewModel.taskTemplateStates[template.id] ?? .idle,
+                        isGuidanceHighlighted: template.id == highlightedPrimaryTemplateID,
                         onAdd: {
                             feedbackController.light()
                             Task { await viewModel.addSuggestedTask(template) }
@@ -2676,6 +2682,7 @@ struct AppOnboardingJourneyView: View {
                         OnboardingTaskRecommendationCard(
                             template: template,
                             state: viewModel.taskTemplateStates[template.id] ?? .idle,
+                            isGuidanceHighlighted: false,
                             onAdd: {
                                 feedbackController.light()
                                 Task { await viewModel.addSuggestedTask(template) }
@@ -3381,6 +3388,7 @@ private struct OnboardingProjectDraftCard: View {
 private struct OnboardingTaskRecommendationCard: View {
     let template: StarterTaskTemplate
     let state: OnboardingTaskTemplateState
+    let isGuidanceHighlighted: Bool
     let onAdd: () -> Void
     let onEdit: () -> Void
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -3448,14 +3456,24 @@ private struct OnboardingTaskRecommendationCard: View {
                     Label(buttonTitle, systemImage: buttonIcon)
                         .labelStyle(.titleAndIcon)
                         .font(.tasker(.buttonSmall))
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 8)
+                        .padding(.horizontal, guidanceUsesOuterShell ? 13 : 12)
+                        .padding(.vertical, guidanceUsesOuterShell ? 9 : 8)
                         .background(buttonBackground, in: Capsule())
-                        .overlay(
-                            Capsule()
-                                .stroke(buttonBorder, lineWidth: 1)
-                        )
+                        .overlay {
+                            if guidanceUsesOuterShell == false {
+                                Capsule()
+                                    .stroke(buttonBorder, lineWidth: 1)
+                            }
+                        }
                 }
+                .taskerCTABezel(
+                    style: .pill,
+                    palette: .copper,
+                    idleMotion: .slowLoop,
+                    isEnabled: state != .creating,
+                    isBusy: state == .creating,
+                    isPrimarySuggestion: isGuidanceHighlighted
+                )
                 .buttonStyle(OnboardingPressScaleButtonStyle())
                 .foregroundStyle(state == .creating ? OnboardingTheme.textSecondary : OnboardingTheme.accent)
                 .disabled(state == .creating)
@@ -3477,6 +3495,9 @@ private struct OnboardingTaskRecommendationCard: View {
     }
 
     private var buttonBackground: Color {
+        if guidanceUsesOuterShell {
+            return OnboardingTheme.accent.opacity(0.16)
+        }
         switch state {
         case .creating:
             return OnboardingTheme.surfaceMuted
@@ -3488,12 +3509,19 @@ private struct OnboardingTaskRecommendationCard: View {
     }
 
     private var buttonBorder: Color {
+        if guidanceUsesOuterShell {
+            return .clear
+        }
         switch state {
         case .failed:
             return OnboardingTheme.danger.opacity(0.6)
         default:
             return OnboardingTheme.accent.opacity(0.3)
         }
+    }
+
+    private var guidanceUsesOuterShell: Bool {
+        isGuidanceHighlighted && V2FeatureFlags.liquidMetalCTAEnabled && state != .creating
     }
 
     private var buttonTitle: String {
