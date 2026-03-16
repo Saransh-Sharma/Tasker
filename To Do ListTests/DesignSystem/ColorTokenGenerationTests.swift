@@ -24,6 +24,14 @@ final class ColorTokenGenerationTests: XCTestCase {
             UIColor(taskerHex: "#FFF8EF")
         )
         assertEqualColor(
+            colors.bgCanvasSecondary.resolvedColor(with: .init(userInterfaceStyle: .light)),
+            UIColor(taskerHex: "#F7EFE4")
+        )
+        assertEqualColor(
+            colors.bgCanvasSecondary.resolvedColor(with: .init(userInterfaceStyle: .dark)),
+            UIColor(taskerHex: "#15110E")
+        )
+        assertEqualColor(
             colors.surfacePrimary.resolvedColor(with: .init(userInterfaceStyle: .dark)),
             UIColor(taskerHex: "#15110E")
         )
@@ -81,6 +89,17 @@ final class ColorTokenGenerationTests: XCTestCase {
         XCTAssertEqual(lG, rG, accuracy: 0.001, file: file, line: line)
         XCTAssertEqual(lB, rB, accuracy: 0.001, file: file, line: line)
         XCTAssertEqual(lA, rA, accuracy: 0.001, file: file, line: line)
+    }
+}
+
+final class ProjectEnumColorTests: XCTestCase {
+    func testProjectColorsUseDistinctHexValues() {
+        let uniqueHexes = Set(ProjectColor.allCases.map(\.hexString))
+        XCTAssertEqual(uniqueHexes.count, ProjectColor.allCases.count)
+    }
+
+    func testUnknownProjectHealthUsesBlackIndicatorHex() {
+        XCTAssertEqual(ProjectHealth.unknown.colorHex, "#000000")
     }
 }
 

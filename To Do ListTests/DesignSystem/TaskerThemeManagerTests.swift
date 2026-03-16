@@ -11,6 +11,13 @@ final class TaskerThemeManagerTests: XCTestCase {
         XCTAssertEqual(currentTheme.palette, .sarvam)
     }
 
+    func testTaskerThemePreservesPassedIndexForCompatibility() {
+        let theme = TaskerTheme(index: 7)
+
+        XCTAssertEqual(theme.index, 7)
+        XCTAssertEqual(theme.palette, .sarvam)
+    }
+
     func testReloadFromPersistenceKeepsSingleBrandTheme() {
         TaskerThemeManager.shared.reloadFromPersistence()
 

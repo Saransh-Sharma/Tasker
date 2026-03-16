@@ -101,7 +101,7 @@ final class SpacingElevationCornerTests: XCTestCase {
     }
 
     @MainActor
-    func testTaskerTextFieldFocusRingUsesAccentRing() {
+    func testTaskerTextFieldFocusRingUsesActionFocus() {
         let textField = TaskerTextField(kind: .singleLine)
         textField.sendActions(for: .editingDidBegin)
 
