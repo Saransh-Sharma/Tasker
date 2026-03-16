@@ -1,4 +1,5 @@
 import Foundation
+import MLXLMCommon
 
 enum LLMContextRepositoryProvider {
     private static var taskReadModelRepositoryStorage: TaskReadModelRepositoryProtocol?
@@ -145,8 +146,10 @@ struct LLMContextProjectionService {
 
     func buildChatPlanningContext(query: String, maxChars: Int) async -> String {
         let normalizedQuery = Self.searchTerms(from: query)
-        let activeProjects = await fetchActiveProjects()
-        let activeLifeAreas = await fetchActiveLifeAreas()
+        async let activeProjectsTask = fetchActiveProjects()
+        async let activeLifeAreasTask = fetchActiveLifeAreas()
+        let activeProjects = await activeProjectsTask
+        let activeLifeAreas = await activeLifeAreasTask
         let projectNameByID = Dictionary(uniqueKeysWithValues: activeProjects.map { ($0.id, $0.name) })
         let lifeAreaNameByID = Dictionary(uniqueKeysWithValues: activeLifeAreas.map { ($0.id, $0.name) })
 
@@ -455,7 +458,7 @@ struct LLMContextProjectionService {
             to: startOfTomorrow
         ) ?? endOfTomorrow
 
-        let overdueTasks = await fetchTasks(
+        async let overdueFetch = fetchTasks(
             query: TaskReadQuery(
                 includeCompleted: false,
                 dueDateEnd: startOfToday,
@@ -463,12 +466,8 @@ struct LLMContextProjectionService {
                 limit: maxTasksPerSlice,
                 offset: 0
             )
-        ).filter {
-            guard let dueDate = $0.dueDate else { return false }
-            return dueDate < startOfToday
-        }
-
-        let todayTasks = await fetchTasks(
+        )
+        async let todayFetch = fetchTasks(
             query: TaskReadQuery(
                 includeCompleted: false,
                 dueDateStart: startOfToday,
@@ -478,8 +477,7 @@ struct LLMContextProjectionService {
                 offset: 0
             )
         )
-
-        let tomorrowTasks = await fetchTasks(
+        async let tomorrowFetch = fetchTasks(
             query: TaskReadQuery(
                 includeCompleted: false,
                 dueDateStart: startOfTomorrow,
@@ -489,8 +487,7 @@ struct LLMContextProjectionService {
                 offset: 0
             )
         )
-
-        let thisWeekTasks = await fetchTasks(
+        async let thisWeekFetch = fetchTasks(
             query: TaskReadQuery(
                 includeCompleted: false,
                 dueDateStart: startOfDayAfterTomorrow,
@@ -500,36 +497,49 @@ struct LLMContextProjectionService {
                 offset: 0
             )
         )
-
-        let unscheduledCandidates = await fetchTasks(
+        async let unscheduledFetch = fetchTasks(
             query: TaskReadQuery(
                 includeCompleted: false,
                 sortBy: .updatedAtDescending,
                 limit: maxTasksPerSlice,
                 offset: 0
             )
-        ).filter { $0.dueDate == nil }
+        )
+
+        let overdueTasks = await overdueFetch
+        let filteredOverdueTasks = overdueTasks.filter {
+            guard let dueDate = $0.dueDate else { return false }
+            return dueDate < startOfToday
+        }
+        let todayTasks = await todayFetch
+        let tomorrowTasks = await tomorrowFetch
+        let thisWeekTasks = await thisWeekFetch
+        let unscheduledCandidates = (await unscheduledFetch).filter { $0.dueDate == nil }
 
         let orderedOverdue = Self.rankTasks(
-            overdueTasks,
+            filteredOverdueTasks,
+            query: queryTerms.joined(separator: " "),
             queryTerms: queryTerms,
             projectNameByID: projectNameByID,
             lifeAreaNameByID: lifeAreaNameByID
         )
         let orderedToday = Self.rankTasks(
             todayTasks,
+            query: queryTerms.joined(separator: " "),
             queryTerms: queryTerms,
             projectNameByID: projectNameByID,
             lifeAreaNameByID: lifeAreaNameByID
         )
         let orderedTomorrow = Self.rankTasks(
             tomorrowTasks,
+            query: queryTerms.joined(separator: " "),
             queryTerms: queryTerms,
             projectNameByID: projectNameByID,
             lifeAreaNameByID: lifeAreaNameByID
         )
         let orderedThisWeek = Self.rankTasks(
             thisWeekTasks,
+            query: queryTerms.joined(separator: " "),
             queryTerms: queryTerms,
             projectNameByID: projectNameByID,
             lifeAreaNameByID: lifeAreaNameByID
@@ -537,6 +547,7 @@ struct LLMContextProjectionService {
 
         let rankedUnscheduled = Self.rankTasks(
             unscheduledCandidates,
+            query: queryTerms.joined(separator: " "),
             queryTerms: queryTerms,
             projectNameByID: projectNameByID,
             lifeAreaNameByID: lifeAreaNameByID
@@ -954,11 +965,12 @@ struct LLMContextProjectionService {
 
     private static func rankTasks(
         _ tasks: [TaskDefinition],
+        query: String,
         queryTerms: [String],
         projectNameByID: [UUID: String],
         lifeAreaNameByID: [UUID: String]
     ) -> [TaskDefinition] {
-        tasks.sorted { lhs, rhs in
+        let lexicallyRanked = tasks.sorted { lhs, rhs in
             let lhsScore = taskMatchScore(
                 lhs,
                 queryTerms: queryTerms,
@@ -982,6 +994,14 @@ struct LLMContextProjectionService {
             }
             return lhs.title.localizedCaseInsensitiveCompare(rhs.title) == .orderedAscending
         }
+        guard queryTerms.isEmpty == false else { return lexicallyRanked }
+
+        let semanticIDs = TaskSemanticRetrievalService.shared.rerank(
+            taskIDs: lexicallyRanked.map(\.id),
+            query: query
+        )
+        let rankedLookup = Dictionary(uniqueKeysWithValues: lexicallyRanked.map { ($0.id, $0) })
+        return semanticIDs.compactMap { rankedLookup[$0] }
     }
 
     private static func taskMatchScore(
@@ -1112,6 +1132,7 @@ enum LLMChatPlanningContextBuilder {
         service: LLMContextProjectionService?,
         query: String,
         budgets: LLMChatBudgets = .active,
+        model: ModelConfiguration = .defaultModel,
         contextCharBudgetOverride: Int? = nil
     ) async -> LLMChatPlanningContextBuildResult {
         guard let service else {
@@ -1121,7 +1142,7 @@ enum LLMChatPlanningContextBuilder {
             )
         }
 
-        let contextCharBudget = contextCharBudgetOverride ?? budgets.maxContextChars
+        let contextCharBudget = contextCharBudgetOverride ?? budgets.resolved(for: model).maxContextChars
         let result = await LLMProjectionTimeout.execute(timeoutMs: timeoutMs) {
             await service.buildChatPlanningContext(query: query, maxChars: contextCharBudget)
         }

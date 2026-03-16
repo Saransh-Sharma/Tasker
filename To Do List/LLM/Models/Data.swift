@@ -15,9 +15,15 @@ enum LLMPersistedModelSelection {
 
     static let installedModelsKey = "installedModels"
     static let currentModelKey = "currentModelName"
-    static let retiredModelNames: Set<String> = [
+    static let unsupportedLegacyModelNames: Set<String> = [
         "NexVeridian/Qwen3.5-0.8B-4bit",
-        "mlx-community/gemma-3-270m-it-4bit"
+        "mlx-community/gemma-3-270m-it-4bit",
+        "mlx-community/Llama-3.2-1B-Instruct-4bit",
+        "mlx-community/Llama-3.2-3B-Instruct-4bit",
+        "mlx-community/DeepSeek-R1-Distill-Qwen-1.5B-4bit",
+        "mlx-community/DeepSeek-R1-Distill-Qwen-1.5B-8bit",
+        "mlx-community/Qwen3-4B-4bit",
+        "mlx-community/Qwen3-8B-4bit"
     ]
 
     @discardableResult
@@ -39,8 +45,10 @@ enum LLMPersistedModelSelection {
             defaults.removeObject(forKey: currentModelKey)
         }
 
-        let retiredInstalledModels = Array(Set(rawInstalledModels.filter { retiredModelNames.contains($0) }))
-        for modelName in retiredInstalledModels {
+        let unsupportedInstalledModels = Array(
+            Set(rawInstalledModels.filter { unsupportedLegacyModelNames.contains($0) })
+        )
+        for modelName in unsupportedInstalledModels {
             removeCachedModelFiles(
                 for: modelName,
                 fileManager: fileManager,
@@ -56,7 +64,7 @@ enum LLMPersistedModelSelection {
         var seen = Set<String>()
         let normalizedInstalledModels = installedModels.filter { modelName in
             guard seen.insert(modelName).inserted else { return false }
-            guard retiredModelNames.contains(modelName) == false else { return false }
+            guard unsupportedLegacyModelNames.contains(modelName) == false else { return false }
             return supportedModels.contains(modelName)
         }
 
@@ -239,9 +247,29 @@ class AppManager: ObservableObject {
             installedModels.append(model)
         }
     }
-    
+
+    func setActiveModel(_ modelName: String?) {
+        currentModelName = modelName
+    }
+
+    static func preferredActiveModelName(from installedModelNames: [String]) -> String? {
+        let installedSet = Set(installedModelNames)
+        let preferredOrder = ModelConfiguration.availableModels.map(\.name)
+        for candidate in preferredOrder where installedSet.contains(candidate) {
+            return candidate
+        }
+        return nil
+    }
+
+    func preferredFallbackModelName(excluding removedModelName: String? = nil) -> String? {
+        Self.preferredActiveModelName(from: installedModels.filter { $0 != removedModelName })
+    }
+
     /// Executes modelDisplayName.
     func modelDisplayName(_ modelName: String) -> String {
+        if let model = ModelConfiguration.getModelByName(modelName) {
+            return model.displayName.lowercased()
+        }
         return modelName.replacingOccurrences(of: "mlx-community/", with: "").lowercased()
     }
     
@@ -281,6 +309,140 @@ class AppManager: ObservableObject {
         default:
             return "moonphase.new.moon" // New Moon (fallback)
         }
+    }
+}
+
+struct LLMPersonalMemoryEntry: Codable, Equatable, Identifiable {
+    let id: UUID
+    var text: String
+
+    init(id: UUID = UUID(), text: String) {
+        self.id = id
+        self.text = text
+    }
+}
+
+enum LLMPersonalMemorySection: String, CaseIterable, Codable, Identifiable {
+    case preferences
+    case routines
+    case currentGoals
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .preferences:
+            return "preferences"
+        case .routines:
+            return "routines"
+        case .currentGoals:
+            return "current goals"
+        }
+    }
+}
+
+struct LLMPersonalMemoryStoreV1: Codable, Equatable {
+    static let maxEntriesPerSection = 4
+    static let maxEntryCharacters = 120
+
+    var preferences: [LLMPersonalMemoryEntry]
+    var routines: [LLMPersonalMemoryEntry]
+    var currentGoals: [LLMPersonalMemoryEntry]
+
+    init(
+        preferences: [LLMPersonalMemoryEntry] = [],
+        routines: [LLMPersonalMemoryEntry] = [],
+        currentGoals: [LLMPersonalMemoryEntry] = []
+    ) {
+        self.preferences = preferences
+        self.routines = routines
+        self.currentGoals = currentGoals
+    }
+
+    func entries(for section: LLMPersonalMemorySection) -> [LLMPersonalMemoryEntry] {
+        switch section {
+        case .preferences:
+            return preferences
+        case .routines:
+            return routines
+        case .currentGoals:
+            return currentGoals
+        }
+    }
+
+    mutating func setEntries(_ entries: [LLMPersonalMemoryEntry], for section: LLMPersonalMemorySection) {
+        let normalized = Self.normalized(entries)
+        switch section {
+        case .preferences:
+            preferences = normalized
+        case .routines:
+            routines = normalized
+        case .currentGoals:
+            currentGoals = normalized
+        }
+    }
+
+    var isEmpty: Bool {
+        LLMPersonalMemorySection.allCases.allSatisfy { entries(for: $0).isEmpty }
+    }
+
+    static func normalized(_ entries: [LLMPersonalMemoryEntry]) -> [LLMPersonalMemoryEntry] {
+        Array(
+            entries
+                .map {
+                    LLMPersonalMemoryEntry(
+                        id: $0.id,
+                        text: String($0.text.trimmingCharacters(in: .whitespacesAndNewlines).prefix(maxEntryCharacters))
+                    )
+                }
+                .prefix(maxEntriesPerSection)
+        )
+    }
+}
+
+enum LLMPersonalMemoryDefaultsStore {
+    static let key = "llm.personalMemory.v1"
+
+    static func load(defaults: UserDefaults = .standard) -> LLMPersonalMemoryStoreV1 {
+        guard let data = defaults.data(forKey: key),
+              let decoded = try? JSONDecoder().decode(LLMPersonalMemoryStoreV1.self, from: data) else {
+            return LLMPersonalMemoryStoreV1()
+        }
+        return decoded
+    }
+
+    static func save(_ store: LLMPersonalMemoryStoreV1, defaults: UserDefaults = .standard) {
+        guard let data = try? JSONEncoder().encode(store) else { return }
+        defaults.set(data, forKey: key)
+    }
+
+    static func clear(defaults: UserDefaults = .standard) {
+        defaults.removeObject(forKey: key)
+    }
+
+    static func promptBlock(
+        for model: MLXLMCommon.ModelConfiguration,
+        defaults: UserDefaults = .standard
+    ) -> String? {
+        let store = load(defaults: defaults)
+        guard store.isEmpty == false else { return nil }
+
+        var lines = ["Personal memory:"]
+        for section in LLMPersonalMemorySection.allCases {
+            let items = store.entries(for: section)
+                .map(\.text)
+                .filter { $0.isEmpty == false }
+            guard items.isEmpty == false else { continue }
+            lines.append("\(section.title):")
+            lines.append(contentsOf: items.map { "- \($0)" })
+        }
+
+        let block = lines.joined(separator: "\n").trimmingCharacters(in: .whitespacesAndNewlines)
+        guard block.isEmpty == false else { return nil }
+        return LLMTokenBudgetEstimator.trimPrefix(
+            block,
+            toTokenBudget: model.tokenBudget.personalMemoryTokens
+        )
     }
 }
 

@@ -1,4 +1,5 @@
 import AppIntents
+import MLXLMCommon
 import SwiftData
 import SwiftUI
 
@@ -39,7 +40,7 @@ struct RequestLLMIntent: AppIntent {
     /// Executes perform.
     @MainActor
     func perform() async throws -> some IntentResult & ReturnsValue<String> & ProvidesDialog {
-        let llm = LLMEvaluator()
+        let llm = LLMRuntimeCoordinator.shared.evaluator
         let appManager = AppManager()
         let thread = Thread()
         
@@ -102,30 +103,45 @@ struct RequestLLMIntent: AppIntent {
             return .result(value: immediateResponse, dialog: "\(immediateResponse)")
         }
 
-        if let modelName = appManager.currentModelName {
-            _ = try? await llm.prepare(modelName: modelName)
+        let route = AIChatModeRouter.route(for: .addTaskSuggestion, appManager: appManager)
+        if let modelName = route.selectedModelName,
+           let model = ModelConfiguration.getModelByName(modelName) {
+            let resolvedBudget = LLMChatBudgets.active.resolved(for: model)
+            let ready = await LLMRuntimeCoordinator.shared.ensureReady(modelName: modelName)
+            guard ready.ready else {
+                let error = "The active local model could not be prepared right now."
+                return .result(value: error, dialog: "\(error)")
+            }
 
-            let contextResult = await LLMChatContextEnvelopeBuilder.build(
+            let contextResult = await LLMChatPlanningContextBuilder.build(
                 timeoutMs: 800,
-                service: LLMContextRepositoryProvider.makeService(),
-                injectionPolicy: "per_turn"
+                service: LLMContextRepositoryProvider.makeService(
+                    maxTasksPerSlice: LLMChatBudgets.active.maxProjectionTasksPerSlice,
+                    compactTaskPayload: V2FeatureFlags.llmChatContextStrategy == .bounded
+                ),
+                query: prompt,
+                budgets: LLMChatBudgets.active,
+                model: model,
+                contextCharBudgetOverride: LLMTokenBudgetEstimator.estimatedCharacterBudget(
+                    for: resolvedBudget.maxContextTokens
+                )
             )
-            let contextContract = """
-            Context contract:
-            - Use the Context JSON envelope injected for this turn as the source of truth.
-            - Check `metadata.context_partial` and `partial_flags`.
-            - If context is partial, say data may be incomplete and avoid definitive zero/none claims for overdue or due counts.
-            """
-            let composedSystemPrompt = appManager.systemPrompt
-                + "\n\n"
-                + contextContract
-                + "\n\n"
-                + contextResult.payload
-                + systemPrompt
+            let composedSystemPrompt = LLMSystemPromptComposer.compose(
+                basePrompt: appManager.systemPrompt,
+                model: model,
+                additionalInstruction: systemPrompt,
+                personalMemory: LLMPersonalMemoryDefaultsStore.promptBlock(for: model),
+                taskContext: contextResult.payload
+            )
             
             let message = Message(role: .user, content: prompt, thread: thread)
             thread.messages.append(message)
-            var output = await llm.generate(modelName: modelName, thread: thread, systemPrompt: composedSystemPrompt)
+            var output = await llm.generate(
+                modelName: modelName,
+                thread: thread,
+                systemPrompt: composedSystemPrompt,
+                profile: .chat
+            )
             
             let maxCharacters = maxCharacters ?? .max
             

@@ -8,7 +8,7 @@ struct TaskBreakdownOutput {
 
 @MainActor
 final class TaskBreakdownService {
-    @MainActor static let shared = TaskBreakdownService(llm: LLMEvaluator())
+    @MainActor static let shared = TaskBreakdownService()
 
     private let llm: LLMEvaluator
 
@@ -17,8 +17,8 @@ final class TaskBreakdownService {
     }
 
     /// Initializes a new instance.
-    init(llm: LLMEvaluator) {
-        self.llm = llm
+    init(llm: LLMEvaluator? = nil) {
+        self.llm = llm ?? LLMRuntimeCoordinator.shared.evaluator
     }
 
     /// Executes generateSteps.

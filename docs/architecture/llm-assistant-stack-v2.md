@@ -68,7 +68,7 @@ Freeform chat does not append extra response/context contract blocks in the boun
 
 ### Compact planning context shape
 
-The bounded freeform path is tuned for the weakest shipped chat model (`gemma-3-270m-it-4bit`). Chat context is flattened into a small plaintext block:
+The bounded freeform path is tuned for the lighter shipped chat model (`Qwen3-0.6B-4bit`). Chat context is flattened into a small plaintext block:
 - `Summary: X overdue, Y today, Z tomorrow, W this week`
 - `Focus:` up to 6 compact task lines
 - `Projects:` up to 4 relevant names
@@ -91,7 +91,12 @@ The bounded freeform path intentionally omits IDs, JSON wrappers, tags, timestam
 | `LLMInferenceEngine` | actor that owns prepare/load/generate/cancel/unload for the MLX model |
 | `V2FeatureFlags.llmChatPrewarmMode` | mode switch for chat prewarm policy (`disabled`, `adaptiveOnDemand`, `eager`) |
 
-Model catalog and install surfaces are driven by `ModelConfiguration.availableModels`; optional chat models may point at any MLX-compatible Hugging Face repo ID, including non-`mlx-community` publishers such as `NexVeridian/Qwen3.5-0.8B-4bit`.
+Model catalog and install surfaces are now intentionally fixed to two supported local models:
+- `mlx-community/Qwen3-0.6B-4bit`
+- `mlx-community/Qwen3.5-0.8B-OptiQ-4bit`
+
+All AI surfaces use the single active model from settings; feature routing no longer picks different models per workflow.
+OptiQ rollout still depends on landing an MLX runtime/package set that can safely load Qwen3.5; until that dependency floor is verified, treat OptiQ support as conditional rather than assumed.
 
 ### Prewarm policy
 - At most one model is prewarmed at a time.
@@ -138,7 +143,7 @@ Model catalog and install surfaces are driven by `ModelConfiguration.availableMo
 - `findProjectNameSync`: short semaphore-bounded lookup (`3s` timeout).
 
 ### Prompt history normalization
-- bounded freeform chat clips thread history aggressively (`6` messages, bounded char budget).
+- bounded freeform chat clips thread history aggressively using the active model budget (`8` messages max for the current two-model catalog).
 - bounded freeform chat does not synthesize recap/system recap messages.
 - assistant turns are sanitized before re-entry into prompt history.
 - low-utility assistant turns that look like template bleed, self-introduction, or repetition loops are dropped from prompt history.
@@ -162,9 +167,9 @@ Model catalog and install surfaces are driven by `ModelConfiguration.availableMo
 | per-run timeout | 90 seconds | `AssistantActionPipelineUseCase` |
 | sync project-name lookup timeout | 3 seconds | `LLMContextProjectionService` |
 | bounded chat projection timeout | 450 ms | `ChatView` + `LLMProjectionTimeout` |
-| bounded chat prompt-history budget | 6 messages / 2400 chars | `ModelConfiguration.getPromptHistory` + `LLMChatBudgets.bounded` |
-| bounded chat context budget | 900 chars | `LLMChatBudgets.bounded` |
-| bounded retry context budget | 450 chars | `ChatView` retry path |
+| bounded chat prompt-history budget | active-model token budget (`8` messages max in current catalog) | `ModelConfiguration.getPromptHistory` |
+| bounded chat context budget | task-context token cap from active model (`520` for 0.6B, `700` for OptiQ) | `LLMChatPlanningContextBuilder` |
+| bounded retry context budget | half of active-model task-context budget, floored at `160` tokens | `ChatView` retry path |
 | freeform chat generation cap | 256 raw tokens regular / 512 reasoning | `LLMGenerationProfile.chat` |
 | streamed output publish cadence | 100 ms or 32 tokens | `LLMChatBudgets` |
 
@@ -196,9 +201,7 @@ Model catalog and install surfaces are driven by `ModelConfiguration.availableMo
 - if the retry also fails, chat stores a short fallback message instead of persisting garbage output.
 
 ### Model stop tokens
-- shipped Llama models use `<|eot_id|>`.
-- shipped Qwen/DeepSeek-style models use `<｜end▁of▁sentence｜>` and `<|im_end|>`.
-- shipped Gemma models use `<end_of_turn>`.
+- shipped Qwen models use `<｜end▁of▁sentence｜>` and `<|im_end|>`.
 
 ## Concurrency Model
 

@@ -69,12 +69,12 @@ final class LLMRuntimeCoordinatorTests: XCTestCase {
 
         LLMPersistedModelSelection.persistInstalledModels(
             [
-                "NexVeridian/Qwen3.5-0.8B-4bit",
+                "unsupported/legacy-model",
                 "mlx-community/Qwen3-0.6B-4bit"
             ],
             defaults: defaults
         )
-        defaults.set("NexVeridian/Qwen3.5-0.8B-4bit", forKey: LLMPersistedModelSelection.currentModelKey)
+        defaults.set("unsupported/legacy-model", forKey: LLMPersistedModelSelection.currentModelKey)
 
         var preparedModelNames: [String] = []
         let coordinator = LLMRuntimeCoordinator(
@@ -125,12 +125,26 @@ final class LLMRuntimeCoordinatorTests: XCTestCase {
 
         await coordinator.prewarmIfEligibleCurrentModel()
         try? await _Concurrency.Task.sleep(nanoseconds: 50_000_000)
-        _ = await coordinator.switchModelIfNeeded(modelName: "mlx-community/Llama-3.2-1B-Instruct-4bit")
+        _ = await coordinator.switchModelIfNeeded(modelName: "mlx-community/Qwen3.5-0.8B-OptiQ-4bit")
         try? await _Concurrency.Task.sleep(nanoseconds: 50_000_000)
 
         XCTAssertTrue(prewarmCancelled)
-        XCTAssertEqual(switchedModelName, "mlx-community/Llama-3.2-1B-Instruct-4bit")
-        XCTAssertEqual(coordinator.activeModelName, "mlx-community/Llama-3.2-1B-Instruct-4bit")
+        XCTAssertEqual(switchedModelName, "mlx-community/Qwen3.5-0.8B-OptiQ-4bit")
+        XCTAssertEqual(coordinator.activeModelName, "mlx-community/Qwen3.5-0.8B-OptiQ-4bit")
+    }
+
+    func testSwitchModelRejectsUnsupportedLegacyModelName() async {
+        let evaluator = LLMEvaluator()
+        let coordinator = LLMRuntimeCoordinator(
+            evaluator: evaluator,
+            registerLifecycleObservers: false
+        )
+
+        let switched = await coordinator.switchModelIfNeeded(modelName: "unsupported/legacy-model")
+
+        XCTAssertFalse(switched)
+        XCTAssertNil(coordinator.activeModelName)
+        XCTAssertNil(evaluator.loadedModelName)
     }
 
     func testMemoryWarningNotificationTriggersUnload() async {

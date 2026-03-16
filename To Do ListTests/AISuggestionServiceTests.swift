@@ -59,7 +59,7 @@ final class AISuggestionServiceTests: XCTestCase {
     }
 
     func testChooseTopThreeFiltersUnknownIDsAndClampsConfidence() async {
-        configureInstalledModels([ModelConfiguration.deepseek_r1_distill_qwen_1_5b_4bit.name])
+        configureInstalledModels([ModelConfiguration.qwen_3_5_0_8b_optiq_4bit.name])
         let validID = UUID()
         let tasks = [
             TaskDefinition(id: validID, title: "File expense report", priority: .high),

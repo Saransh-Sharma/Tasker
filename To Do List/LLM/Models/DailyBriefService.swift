@@ -8,15 +8,15 @@ struct DailyBriefOutput {
 
 @MainActor
 final class DailyBriefService {
-    @MainActor static let shared = DailyBriefService(llm: LLMEvaluator())
+    @MainActor static let shared = DailyBriefService()
 
     private let defaults = UserDefaults.standard
     private let cachePrefix = "assistant.daily_brief."
     private let llm: LLMEvaluator
 
     /// Initializes a new instance.
-    init(llm: LLMEvaluator) {
-        self.llm = llm
+    init(llm: LLMEvaluator? = nil) {
+        self.llm = llm ?? LLMRuntimeCoordinator.shared.evaluator
     }
 
     /// Executes cachedBrief.

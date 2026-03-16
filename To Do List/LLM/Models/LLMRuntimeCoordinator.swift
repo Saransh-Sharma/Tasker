@@ -121,7 +121,7 @@ final class LLMRuntimeCoordinator {
     func prewarmIfEligibleCurrentModel(trigger: String = "unknown") async {
         guard V2FeatureFlags.llmChatPrewarmMode != .disabled else { return }
         guard let currentModelName = normalizedCurrentModelName(), !currentModelName.isEmpty else { return }
-        guard let model = ModelConfiguration.getModelByName(currentModelName), model.isPrewarmEligible() else { return }
+        guard let model = ModelConfiguration.getModelByName(currentModelName), canPrimeOnChatEntry(model: model) else { return }
         guard evaluator.loadedModelName != currentModelName, activeModelName != currentModelName else {
             activeModelName = currentModelName
             return
@@ -540,8 +540,12 @@ final class LLMRuntimeCoordinator {
         guard let modelSize = model.modelSize else {
             return false
         }
+        if activeSessionReasons.count > 2 {
+            return false
+        }
         let physicalMemoryGB = Decimal(Double(ProcessInfo.processInfo.physicalMemory) / 1_073_741_824)
-        let budget = physicalMemoryGB * Decimal(string: "0.6")!
+        let budgetMultiplier = model == .qwen_3_5_0_8b_optiq_4bit ? Decimal(string: "0.7")! : Decimal(string: "0.6")!
+        let budget = physicalMemoryGB * budgetMultiplier
         return modelSize <= budget
     }
 

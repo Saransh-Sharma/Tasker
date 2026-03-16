@@ -34,8 +34,8 @@ final class AssistantPlannerService {
     private let llm: LLMEvaluator
 
     /// Initializes a new instance.
-    init(llm: LLMEvaluator) {
-        self.llm = llm
+    init(llm: LLMEvaluator? = nil) {
+        self.llm = llm ?? LLMRuntimeCoordinator.shared.evaluator
     }
 
     /// Executes generatePlan.

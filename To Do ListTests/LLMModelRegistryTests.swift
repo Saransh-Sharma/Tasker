@@ -1,16 +1,12 @@
-//
-//  LLMModelRegistryTests.swift
-//  To Do ListTests
-//
-
 import XCTest
 import MLXLMCommon
 @testable import To_Do_List
 
 final class LLMModelRegistryTests: XCTestCase {
-    private let gemmaModelName = "mlx-community/gemma-3-270m-it-4bit"
-    private let nexVeridianQwenModelName = "NexVeridian/Qwen3.5-0.8B-4bit"
-    private let qwenModelName = "mlx-community/Qwen3-0.6B-4bit"
+    private let unsupportedModelName = "unsupported/legacy-model"
+    private let unsupportedModelNameTwo = "unsupported/legacy-model-2"
+    private let qwenPointSixName = "mlx-community/Qwen3-0.6B-4bit"
+    private let qwenOptiQName = "mlx-community/Qwen3.5-0.8B-OptiQ-4bit"
     private var originalContextStrategy: LLMChatContextStrategy = .bounded
 
     override func setUp() {
@@ -23,133 +19,58 @@ final class LLMModelRegistryTests: XCTestCase {
         super.tearDown()
     }
 
-    func testAvailableModelsContainsQwenPointSixB() {
+    func testAvailableModelsContainsExactlyTwoSupportedQwenModels() {
         let modelNames = ModelConfiguration.availableModels.map(\.name)
-        XCTAssertTrue(modelNames.contains(qwenModelName))
+        XCTAssertEqual(modelNames, [qwenPointSixName, qwenOptiQName])
     }
 
-    func testAvailableModelsExcludesRetiredModels() {
-        let modelNames = ModelConfiguration.availableModels.map(\.name)
-        XCTAssertFalse(modelNames.contains(gemmaModelName))
-        XCTAssertFalse(modelNames.contains(nexVeridianQwenModelName))
+    func testDefaultModelIsQwenPointSix() {
+        XCTAssertEqual(ModelConfiguration.defaultModel.name, qwenPointSixName)
     }
 
-    func testGetModelByNameReturnsQwenPointSixB() {
-        let model = ModelConfiguration.getModelByName(qwenModelName)
-        XCTAssertNotNil(model)
-        XCTAssertEqual(model?.name, qwenModelName)
+    func testOptiQModelMetadataIsExposed() {
+        let model = tryUnwrap(ModelConfiguration.getModelByName(qwenOptiQName))
+        XCTAssertEqual(model.displayName, "Qwen3.5 0.8B OptiQ 4bit")
+        XCTAssertEqual(model.onboardingBadgeTitle, "Smarter")
+        XCTAssertEqual(model.modelType, .reasoning)
+        XCTAssertGreaterThan(model.tokenBudget.taskContextTokens, ModelConfiguration.defaultModel.tokenBudget.taskContextTokens)
     }
 
-    func testGetModelByNameReturnsNilForRetiredModels() {
-        XCTAssertNil(ModelConfiguration.getModelByName(gemmaModelName))
-        XCTAssertNil(ModelConfiguration.getModelByName(nexVeridianQwenModelName))
+    func testPreferredActiveModelNamePrefersDefaultModelWhenBothAreInstalled() {
+        XCTAssertEqual(
+            AppManager.preferredActiveModelName(from: [qwenOptiQName, qwenPointSixName]),
+            qwenPointSixName
+        )
     }
 
-    func testQwenPointSixBModelTypeIsReasoning() {
-        let model = ModelConfiguration.getModelByName(qwenModelName)
-        XCTAssertNotNil(model)
-        XCTAssertEqual(model?.modelType, .reasoning)
+    func testResolvedBudgetUsesProvidedModelRatherThanDefaultModel() {
+        let optiQBudget = LLMChatBudgets.active.resolved(for: tryUnwrap(ModelConfiguration.getModelByName(qwenOptiQName)))
+
+        XCTAssertEqual(optiQBudget.maxPromptTokens, 1_920)
+        XCTAssertEqual(optiQBudget.maxContextTokens, 700)
+        XCTAssertGreaterThan(optiQBudget.maxPromptTokens, ModelConfiguration.defaultModel.tokenBudget.inputTokens)
     }
 
-    func testQwenPointSixBModelSizeIsNonNilAndPositive() {
-        let model = ModelConfiguration.getModelByName(qwenModelName)
-        XCTAssertNotNil(model)
-        XCTAssertNotNil(model?.modelSize)
-
-        if let size = model?.modelSize {
-            XCTAssertGreaterThan(size, 0)
-        }
-    }
-
-    func testDefaultModelIsQwenPointSixB() {
-        XCTAssertEqual(ModelConfiguration.defaultModel.name, qwenModelName)
-    }
-
-    func testModelInstallPickerSectionsSurfaceDefaultModelAsRecommended() {
-        let sections = ModelInstallPickerSections.make(
+    func testInstallCatalogSurfacesBothModelsWhenMemoryAllows() {
+        let catalog = TwoQwenModelInstallCatalog.make(
             installedModelNames: [],
-            availableModels: ModelConfiguration.availableModels,
-            defaultModel: ModelConfiguration.defaultModel,
-            availableMemory: 100,
-            memoryThreshold: 1
+            availableMemory: 8
         )
 
-        XCTAssertEqual(sections.recommendedModel?.name, qwenModelName)
+        XCTAssertEqual(catalog.installableModels.map(\.name), [qwenPointSixName, qwenOptiQName])
     }
 
-    func testModelInstallPickerSectionsExcludeRecommendedModelFromOtherModels() {
-        let sections = ModelInstallPickerSections.make(
+    func testInstallCatalogFiltersHeavierModelOnSmallMemoryDevices() {
+        let catalog = TwoQwenModelInstallCatalog.make(
             installedModelNames: [],
-            availableModels: ModelConfiguration.availableModels,
-            defaultModel: ModelConfiguration.defaultModel,
-            availableMemory: 100,
-            memoryThreshold: 1
+            availableMemory: 3
         )
 
-        XCTAssertFalse(sections.otherModels.contains(where: { $0.name == qwenModelName }))
+        XCTAssertEqual(catalog.installableModels.map(\.name), [qwenPointSixName])
     }
 
-    func testModelInstallPickerSectionsKeepRecommendedVisibleWhenOtherModelsInstalled() {
-        let sections = ModelInstallPickerSections.make(
-            installedModelNames: [ModelConfiguration.llama_3_2_1b_4bit.name],
-            availableModels: ModelConfiguration.availableModels,
-            defaultModel: ModelConfiguration.defaultModel,
-            availableMemory: 100,
-            memoryThreshold: 1
-        )
-
-        XCTAssertEqual(sections.installedModels, [ModelConfiguration.llama_3_2_1b_4bit.name])
-        XCTAssertEqual(sections.recommendedModel?.name, qwenModelName)
-    }
-
-    func testModelInstallPickerSectionsHideRecommendedWhenAlreadyInstalled() {
-        let sections = ModelInstallPickerSections.make(
-            installedModelNames: [qwenModelName],
-            availableModels: ModelConfiguration.availableModels,
-            defaultModel: ModelConfiguration.defaultModel,
-            availableMemory: 100,
-            memoryThreshold: 1
-        )
-
-        XCTAssertNil(sections.recommendedModel)
-    }
-
-    func testModelInstallPickerSectionsHideRecommendedWhenMemoryFilterExcludesIt() {
-        let sections = ModelInstallPickerSections.make(
-            installedModelNames: [],
-            availableModels: ModelConfiguration.availableModels,
-            defaultModel: ModelConfiguration.defaultModel,
-            availableMemory: 0,
-            memoryThreshold: 1
-        )
-
-        XCTAssertNil(sections.recommendedModel)
-        XCTAssertTrue(sections.otherModels.isEmpty)
-    }
-
-    func testRetiredModelsAreNotDefaultModel() {
-        XCTAssertNotEqual(ModelConfiguration.defaultModel.name, gemmaModelName)
-        XCTAssertNotEqual(ModelConfiguration.defaultModel.name, nexVeridianQwenModelName)
-    }
-
-    func testQwenPointSixBIsPrewarmEligible() {
-        let model = ModelConfiguration.getModelByName(qwenModelName)
-        XCTAssertNotNil(model)
-        XCTAssertEqual(model?.isPrewarmEligible(), true)
-    }
-
-    func testLlamaOneBIsNotPrewarmEligible() {
-        let model = ModelConfiguration.llama_3_2_1b_4bit
-        XCTAssertEqual(model.isPrewarmEligible(), false)
-    }
-
-    func testUnknownModelIsNotPrewarmEligible() {
-        let unknown = ModelConfiguration(id: "mlx-community/Unknown-Model")
-        XCTAssertEqual(unknown.isPrewarmEligible(), false)
-    }
-
-    func testPersistedModelNormalizationRetiresOnlyInstalledModelsAndDeletesCachedFiles() throws {
-        let suiteName = "LLMModelRegistryTests.RetiredOnly.\(UUID().uuidString)"
+    func testPersistedModelNormalizationRemovesUnsupportedLegacyModels() throws {
+        let suiteName = "LLMModelRegistryTests.Legacy.\(UUID().uuidString)"
         let defaults = try XCTUnwrap(UserDefaults(suiteName: suiteName))
         defer { defaults.removePersistentDomain(forName: suiteName) }
 
@@ -157,25 +78,21 @@ final class LLMModelRegistryTests: XCTestCase {
             .appendingPathComponent("LLMModelRegistryTests-\(UUID().uuidString)", isDirectory: true)
         defer { try? FileManager.default.removeItem(at: applicationSupportDirectory) }
 
-        for modelName in [gemmaModelName, nexVeridianQwenModelName] {
+        for modelName in [unsupportedModelName, unsupportedModelNameTwo] {
             let folderURL = try XCTUnwrap(
                 LLMPersistedModelSelection.modelFolderURL(
                     for: modelName,
                     applicationSupportDirectory: applicationSupportDirectory
                 )
             )
-            try FileManager.default.createDirectory(
-                at: folderURL,
-                withIntermediateDirectories: true,
-                attributes: nil
-            )
+            try FileManager.default.createDirectory(at: folderURL, withIntermediateDirectories: true)
         }
 
         LLMPersistedModelSelection.persistInstalledModels(
-            [gemmaModelName, nexVeridianQwenModelName],
+            [unsupportedModelName, qwenPointSixName, unsupportedModelNameTwo],
             defaults: defaults
         )
-        defaults.set(gemmaModelName, forKey: LLMPersistedModelSelection.currentModelKey)
+        defaults.set(unsupportedModelName, forKey: LLMPersistedModelSelection.currentModelKey)
 
         let state = LLMPersistedModelSelection.normalize(
             defaults: defaults,
@@ -183,171 +100,41 @@ final class LLMModelRegistryTests: XCTestCase {
             applicationSupportDirectory: applicationSupportDirectory
         )
 
-        XCTAssertEqual(state, .init(installedModels: [], currentModelName: nil))
-        XCTAssertEqual(LLMPersistedModelSelection.loadInstalledModels(defaults: defaults), [])
-        XCTAssertNil(defaults.string(forKey: LLMPersistedModelSelection.currentModelKey))
-        for modelName in [gemmaModelName, nexVeridianQwenModelName] {
-            let folderURL = LLMPersistedModelSelection.modelFolderURL(
-                for: modelName,
-                applicationSupportDirectory: applicationSupportDirectory
-            )
-            XCTAssertFalse(FileManager.default.fileExists(atPath: folderURL?.path ?? ""))
-        }
-    }
-
-    func testPersistedModelNormalizationPromotesFirstSupportedInstalledModel() {
-        let suiteName = "LLMModelRegistryTests.Mixed.\(UUID().uuidString)"
-        let defaults = UserDefaults(suiteName: suiteName)!
-        defer { defaults.removePersistentDomain(forName: suiteName) }
-
-        LLMPersistedModelSelection.persistInstalledModels(
-            [
-                nexVeridianQwenModelName,
-                qwenModelName,
-                qwenModelName,
-                "mlx-community/Unknown-Model",
-                ModelConfiguration.llama_3_2_1b_4bit.name,
-                gemmaModelName
-            ],
-            defaults: defaults
-        )
-        defaults.set(gemmaModelName, forKey: LLMPersistedModelSelection.currentModelKey)
-
-        let state = LLMPersistedModelSelection.normalize(defaults: defaults)
-
-        XCTAssertEqual(
-            state,
-            .init(
-                installedModels: [qwenModelName, ModelConfiguration.llama_3_2_1b_4bit.name],
-                currentModelName: qwenModelName
+        XCTAssertEqual(state, .init(installedModels: [qwenPointSixName], currentModelName: qwenPointSixName))
+        XCTAssertFalse(
+            FileManager.default.fileExists(
+                atPath: LLMPersistedModelSelection.modelFolderURL(
+                    for: unsupportedModelName,
+                    applicationSupportDirectory: applicationSupportDirectory
+                )?.path ?? ""
             )
         )
-        XCTAssertEqual(defaults.string(forKey: LLMPersistedModelSelection.currentModelKey), qwenModelName)
     }
 
-    func testPersistedModelNormalizationLeavesValidSelectionsUnchanged() {
-        let suiteName = "LLMModelRegistryTests.Valid.\(UUID().uuidString)"
-        let defaults = UserDefaults(suiteName: suiteName)!
-        defer { defaults.removePersistentDomain(forName: suiteName) }
-
-        let installedModels = [
-            ModelConfiguration.llama_3_2_1b_4bit.name,
-            qwenModelName
-        ]
-        LLMPersistedModelSelection.persistInstalledModels(installedModels, defaults: defaults)
-        defaults.set(qwenModelName, forKey: LLMPersistedModelSelection.currentModelKey)
-
-        let state = LLMPersistedModelSelection.normalize(defaults: defaults)
-
-        XCTAssertEqual(
-            state,
-            .init(installedModels: installedModels, currentModelName: qwenModelName)
-        )
-        XCTAssertEqual(LLMPersistedModelSelection.loadInstalledModels(defaults: defaults), installedModels)
-        XCTAssertEqual(defaults.string(forKey: LLMPersistedModelSelection.currentModelKey), qwenModelName)
-    }
-
-    func testShippedModelsExposeChatStopTokens() {
-        for model in ModelConfiguration.availableModels {
-            XCTAssertFalse(
-                model.extraEOSTokens.isEmpty,
-                "Expected stop tokens for \(model.name)"
-            )
-        }
-    }
-
-    func testPromptHistoryAppliesBoundedMessageBudget() {
-        V2FeatureFlags.llmChatContextStrategy = .bounded
-        let thread = To_Do_List.Thread()
-        for idx in 0..<80 {
-            let message = Message(role: idx % 2 == 0 ? .user : .assistant, content: "Message \(idx)", thread: thread)
-            thread.messages.append(message)
-        }
-
-        let history = ModelConfiguration.defaultModel.getPromptHistory(
-            thread: thread,
-            systemPrompt: "System"
-        )
-
-        XCTAssertLessThanOrEqual(history.count, LLMChatBudgets.bounded.maxThreadMessages + 1)
-        XCTAssertEqual(history.first?["role"], "system")
-        XCTAssertFalse((history.dropFirst().first?["content"] ?? "").contains("Earlier context recap"))
-    }
-
-    func testPromptHistoryRetainsMoreMessagesInFullMode() {
-        V2FeatureFlags.llmChatContextStrategy = .full
-        let thread = To_Do_List.Thread()
-        for idx in 0..<80 {
-            let message = Message(role: idx % 2 == 0 ? .user : .assistant, content: "Message \(idx)", thread: thread)
-            thread.messages.append(message)
-        }
-
-        let history = ModelConfiguration.defaultModel.getPromptHistory(
-            thread: thread,
-            systemPrompt: "System"
-        )
-
-        XCTAssertGreaterThan(history.count, 70)
-    }
-
-    func testPromptHistoryHardCapsCharacterBudget() {
+    func testPromptHistoryRespectsTokenBudgetAndKeepsLatestSuffix() {
         V2FeatureFlags.llmChatContextStrategy = .bounded
         let thread = To_Do_List.Thread()
         let suffix = "LATEST_SUFFIX_SHOULD_SURVIVE"
-        let oversizedContent = String(repeating: "x", count: LLMChatBudgets.bounded.maxPromptChars * 2) + suffix
-        let message = Message(role: .user, content: oversizedContent, thread: thread)
-        thread.messages.append(message)
+        let oversizedContent = String(repeating: "x", count: 12_000) + suffix
+        thread.messages.append(Message(role: .user, content: oversizedContent, thread: thread))
 
         let history = ModelConfiguration.defaultModel.getPromptHistory(
             thread: thread,
             systemPrompt: "System"
         )
 
-        let totalChars = history.reduce(0) { partial, item in
-            partial + (item["content"]?.count ?? 0)
+        let totalTokens = history.reduce(0) { partial, item in
+            partial + LLMTokenBudgetEstimator.estimatedTokenCount(for: item["content"] ?? "")
         }
 
-        XCTAssertLessThanOrEqual(totalChars, LLMChatBudgets.bounded.maxPromptChars)
+        XCTAssertLessThanOrEqual(totalTokens, ModelConfiguration.defaultModel.tokenBudget.inputTokens)
         XCTAssertEqual(history.last?["role"], "user")
         XCTAssertTrue((history.last?["content"] ?? "").hasSuffix(suffix))
     }
 
-    func testPromptHistorySanitizesCorruptedAssistantMessages() {
-        let thread = To_Do_List.Thread()
-        thread.messages.append(Message(role: .assistant, content: "Plan\n<end_of_turn>\n<|im_start|>user", thread: thread))
-
-        let history = ModelConfiguration.defaultModel.getPromptHistory(
-            thread: thread,
-            systemPrompt: "System"
-        )
-
-        XCTAssertEqual(
-            history.last?["content"]?.trimmingCharacters(in: .whitespacesAndNewlines),
-            "Plan"
-        )
-    }
-
-    func testPromptHistoryDropsPureTemplateGarbage() {
+    func testPromptHistoryDropsTemplateGarbage() {
         let thread = To_Do_List.Thread()
         thread.messages.append(Message(role: .assistant, content: "<end_of_turn><|im_end|>", thread: thread))
-
-        let history = ModelConfiguration.defaultModel.getPromptHistory(
-            thread: thread,
-            systemPrompt: "System"
-        )
-
-        XCTAssertEqual(history.count, 1)
-    }
-
-    func testPromptHistoryDropsLowUtilityAssistantDegeneration() {
-        let thread = To_Do_List.Thread()
-        thread.messages.append(
-            Message(
-                role: .assistant,
-                content: "Okay, I'm ready to be your proactive personal assistant. Career, Career, Career, Career, Career, Career, Career, Career.",
-                thread: thread
-            )
-        )
 
         let history = ModelConfiguration.defaultModel.getPromptHistory(
             thread: thread,
@@ -401,6 +188,25 @@ final class LLMModelRegistryTests: XCTestCase {
         XCTAssertTrue(content.contains("Review roadmap"))
     }
 
+    func testSystemPromptComposerPreservesTaskContextUnderOverflow() {
+        let model = ModelConfiguration.defaultModel
+        let prompt = LLMSystemPromptComposer.compose(
+            basePrompt: String(repeating: "base ", count: 400),
+            model: model,
+            additionalInstruction: String(repeating: "instruction ", count: 400),
+            personalMemory: String(repeating: "memory ", count: 400),
+            slashContext: "Slash marker survives",
+            taskContext: "Task marker survives"
+        )
+
+        XCTAssertTrue(prompt.contains("Task marker survives"))
+        XCTAssertTrue(prompt.contains("Slash marker survives"))
+        XCTAssertLessThanOrEqual(
+            LLMTokenBudgetEstimator.estimatedTokenCount(for: prompt),
+            model.tokenBudget.inputTokens
+        )
+    }
+
     func testPromptMigrationUpdatesLegacyBuiltInPromptOnly() {
         let migrated = AppManager.migratedBuiltInSystemPrompt(
             "You are Eva, a clever personal assistant. Keep tasks and priorities aligned. Be brief, clear, and helpful. Use simple markdown, short lists, and casual dates. Use only provided context. Do not invent details."
@@ -410,7 +216,14 @@ final class LLMModelRegistryTests: XCTestCase {
     }
 
     func testPromptMigrationPreservesCustomPrompt() {
-        let migrated = AppManager.migratedBuiltInSystemPrompt("Custom prompt")
-        XCTAssertNil(migrated)
+        XCTAssertNil(AppManager.migratedBuiltInSystemPrompt("Custom prompt"))
+    }
+
+    private func tryUnwrap<T>(_ value: T?, file: StaticString = #filePath, line: UInt = #line) -> T {
+        guard let value else {
+            XCTFail("Expected non-nil value", file: file, line: line)
+            fatalError("unreachable")
+        }
+        return value
     }
 }

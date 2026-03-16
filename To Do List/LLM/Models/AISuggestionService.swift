@@ -24,7 +24,7 @@ struct AITopTaskSuggestion: Codable, Equatable {
 final class AISuggestionService {
     typealias GenerateOutputHandler = @MainActor (String, Thread, String, LLMGenerationProfile, (@MainActor () -> Void)?) async -> String
 
-    @MainActor static let shared = AISuggestionService(llm: LLMEvaluator())
+    @MainActor static let shared = AISuggestionService()
 
     private let llm: LLMEvaluator
     private let generateOutput: GenerateOutputHandler
@@ -35,12 +35,13 @@ final class AISuggestionService {
 
     /// Initializes a new instance.
     init(
-        llm: LLMEvaluator,
+        llm: LLMEvaluator? = nil,
         generateOutput: GenerateOutputHandler? = nil
     ) {
-        self.llm = llm
+        let runtimeLLM = llm ?? LLMRuntimeCoordinator.shared.evaluator
+        self.llm = runtimeLLM
         self.generateOutput = generateOutput ?? { modelName, thread, systemPrompt, profile, onFirstToken in
-            await llm.generate(
+            await runtimeLLM.generate(
                 modelName: modelName,
                 thread: thread,
                 systemPrompt: systemPrompt,
