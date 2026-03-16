@@ -93,12 +93,6 @@ struct SettingsRootView: View {
                 .padding(.top, spacing.sectionGap)
 
             VStack(spacing: spacing.cardStackVertical) {
-                AppearanceCardView(
-                    appVersion: viewModel.appVersion,
-                    buildNumber: viewModel.buildNumber
-                )
-                .enhancedStaggeredAppearance(index: baseIndex + 1)
-
                 TaskerCard {
                     SettingsNavigationRow(
                         iconName: "square.grid.2x2.fill",
@@ -107,7 +101,7 @@ struct SettingsRootView: View {
                     )
                 }
                 .cardPressEffect()
-                .enhancedStaggeredAppearance(index: baseIndex + 2)
+                .enhancedStaggeredAppearance(index: baseIndex + 1)
 
                 TaskerCard {
                     VStack(spacing: 0) {
@@ -129,10 +123,10 @@ struct SettingsRootView: View {
                     }
                 }
                 .cardPressEffect()
-                .enhancedStaggeredAppearance(index: baseIndex + 3)
+                .enhancedStaggeredAppearance(index: baseIndex + 2)
 
                 onboardingReplayCard
-                    .enhancedStaggeredAppearance(index: baseIndex + 4)
+                    .enhancedStaggeredAppearance(index: baseIndex + 3)
             }
             .padding(.horizontal, includeHorizontalPadding ? spacing.screenHorizontal : 0)
             .padding(.top, spacing.s12)

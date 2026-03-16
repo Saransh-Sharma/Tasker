@@ -44,28 +44,29 @@ class ThemeAndAppearanceTests: BaseUITest {
         takeScreenshot(named: "core_components_render")
     }
 
-    // MARK: - Test 62: Appearance Messaging
+    // MARK: - Test 62: Workspace Settings Messaging
 
-    func testAppearanceMessaging() throws {
+    func testWorkspaceSettingsMessaging() throws {
         XCTAssertTrue(homePage.verifyIsDisplayed(), "Home screen should be displayed")
         settingsPage = homePage.tapSettings()
         XCTAssertTrue(settingsPage.verifyIsDisplayed(), "Settings should be displayed")
 
-        XCTAssertTrue(app.staticTexts["Appearance"].exists, "Appearance copy should exist")
-        XCTAssertTrue(app.otherElements["settings.appearance.palette"].waitForExistence(timeout: 3), "Brand palette preview should exist")
+        XCTAssertTrue(app.staticTexts["Life Management"].waitForExistence(timeout: 3), "Life Management row should exist")
+        XCTAssertTrue(app.staticTexts["Chats"].waitForExistence(timeout: 3), "Chats row should exist")
+        XCTAssertTrue(app.staticTexts["Models"].waitForExistence(timeout: 3), "Models row should exist")
 
-        takeScreenshot(named: "appearance_settings_brand_preview")
+        takeScreenshot(named: "workspace_settings_rows")
     }
 
-    // MARK: - Test 63: Appearance Propagation
+    // MARK: - Test 63: Theme Propagation Into Settings
 
-    func testAppearancePropagation() throws {
+    func testThemePropagationIntoSettings() throws {
         XCTAssertTrue(homePage.verifyIsDisplayed(), "Home screen should appear")
         takeScreenshot(named: "brand_surface_home")
 
         settingsPage = homePage.tapSettings()
         XCTAssertTrue(settingsPage.verifyIsDisplayed(), "Settings should appear")
-        XCTAssertTrue(app.otherElements["settings.appearance.card"].waitForExistence(timeout: 3), "Appearance card should exist")
+        XCTAssertTrue(app.staticTexts["Life Management"].waitForExistence(timeout: 3), "Workspace rows should remain visible in settings")
         takeScreenshot(named: "brand_surface_settings")
 
         homePage = settingsPage.tapDone()
@@ -139,10 +140,10 @@ class ThemeAndAppearanceTests: BaseUITest {
         settingsPage = homePage.tapSettings()
         XCTAssertTrue(settingsPage.verifyIsDisplayed(), "Settings should be displayed")
 
-        XCTAssertTrue(app.staticTexts["Appearance"].exists, "Appearance section should exist")
-        XCTAssertTrue(app.staticTexts["LLM Settings"].exists, "LLM settings section should exist")
-        XCTAssertTrue(app.staticTexts["Chats"].exists, "Chats setting should exist")
-        XCTAssertTrue(app.staticTexts["Models"].exists, "Models setting should exist")
+        XCTAssertTrue(app.staticTexts["Life Management"].waitForExistence(timeout: 3), "Life Management setting should exist")
+        XCTAssertTrue(app.staticTexts["Chats"].waitForExistence(timeout: 3), "Chats setting should exist")
+        XCTAssertTrue(app.staticTexts["Models"].waitForExistence(timeout: 3), "Models setting should exist")
+        XCTAssertTrue(app.staticTexts["Guided Setup"].waitForExistence(timeout: 3), "Guided Setup card should exist")
 
         takeScreenshot(named: "theme_and_llm_settings_visibility")
     }

@@ -95,16 +95,17 @@ class SettingsTests: BaseUITest {
         takeScreenshot(named: "navigate_back_from_project_management")
     }
 
-    // MARK: - Test 50: Appearance Card
+    // MARK: - Test 50: Workspace Rows
 
-    func testAppearanceCardShowsBrandPreview() throws {
+    func testWorkspaceRowsAreVisible() throws {
         settingsPage = homePage.tapSettings()
         XCTAssertTrue(settingsPage.verifyIsDisplayed(), "Settings should be displayed")
 
-        XCTAssertTrue(settingsPage.verifyAppearanceRowExists(), "Appearance card should exist")
-        XCTAssertTrue(app.otherElements["settings.appearance.palette"].waitForExistence(timeout: 3), "Brand palette preview should exist")
+        XCTAssertTrue(app.staticTexts["Life Management"].waitForExistence(timeout: 3), "Life Management row should exist")
+        XCTAssertTrue(app.staticTexts["Chats"].waitForExistence(timeout: 3), "Chats row should exist")
+        XCTAssertTrue(app.staticTexts["Models"].waitForExistence(timeout: 3), "Models row should exist")
 
-        takeScreenshot(named: "appearance_brand_preview")
+        takeScreenshot(named: "workspace_rows_visible")
     }
 
     // MARK: - Test 51: App Version Display
@@ -153,11 +154,6 @@ class SettingsTests: BaseUITest {
         // LLM Settings (if available)
         if settingsPage.verifyLLMSettingsRowExists() {
             print("✅ LLM Settings available")
-        }
-
-        // Appearance settings
-        if settingsPage.verifyAppearanceRowExists() {
-            print("✅ Appearance settings available")
         }
 
         takeScreenshot(named: "settings_rows_exist")

@@ -35,14 +35,6 @@ class SettingsPage {
         return app.tables.cells.staticTexts[AccessibilityIdentifiers.Settings.llmSettingsRow]
     }
 
-    var appearanceRow: XCUIElement {
-        return app.tables.cells.staticTexts[AccessibilityIdentifiers.Settings.appearanceRow]
-    }
-
-    var appearanceCard: XCUIElement {
-        return app.otherElements["settings.appearance.card"]
-    }
-
     var appVersionLabel: XCUIElement {
         return app.staticTexts[AccessibilityIdentifiers.Settings.appVersionLabel]
     }
@@ -72,13 +64,6 @@ class SettingsPage {
     /// Navigate to LLM Settings
     func navigateToLLMSettings() {
         llmSettingsRow.tap()
-    }
-
-    /// Navigate to Appearance settings
-    func navigateToAppearance() {
-        if appearanceRow.exists {
-            appearanceRow.tap()
-        }
     }
 
     func toggleDarkMode() {
@@ -111,11 +96,6 @@ class SettingsPage {
     /// Verify LLM settings row exists
     func verifyLLMSettingsRowExists() -> Bool {
         return llmSettingsRow.exists
-    }
-
-    /// Verify appearance row exists
-    func verifyAppearanceRowExists() -> Bool {
-        return appearanceCard.exists || appearanceRow.exists
     }
 
     /// Verify app version is displayed

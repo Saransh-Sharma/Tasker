@@ -79,7 +79,6 @@
 		6211D7BD7037AA1D03E6F90B /* TaskReadModelRepositoryProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4C3F70CE989FCF07417B5EE /* TaskReadModelRepositoryProtocol.swift */; };
 		63F0A29CF92317D22F150D4B /* To Do List/Domain/Interfaces/ReminderRepositoryProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8D0FFCDBD5039DB8EE185B5E /* To Do List/Domain/Interfaces/ReminderRepositoryProtocol.swift */; };
 		656AE33F845CFC0E1E317F5E /* To Do List/Domain/Interfaces/TagRepositoryProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = D69B4ECB89C44E275D829577 /* To Do List/Domain/Interfaces/TagRepositoryProtocol.swift */; };
-		65EC8640A12B976FD27DE5FD /* AppearanceCardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 55412F74ED21D0A6BE53A2DA /* AppearanceCardView.swift */; };
 		664B05702E92F236C487E1AD /* HomeQuickFilterDropdown.swift in Sources */ = {isa = PBXBuildFile; fileRef = 82752F8BF563DB0673AB2770 /* HomeQuickFilterDropdown.swift */; };
 		68910C38BADF060D09F81CE3 /* To Do List/State/Repositories/V2CoreDataRepositorySupport.swift in Sources */ = {isa = PBXBuildFile; fileRef = 836DC307393EA1752081FFEE /* To Do List/State/Repositories/V2CoreDataRepositorySupport.swift */; };
 		6A386E990F32D3D2DF9AE465 /* UnifiedThemePickerCell.swift in Sources */ = {isa = PBXBuildFile; fileRef = 741573708CF6B514C62FF327 /* UnifiedThemePickerCell.swift */; };
@@ -227,7 +226,6 @@
 		75F89F502DFC44E6009EDD8F /* ChatsSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75F89F3D2DFC44E6009EDD8F /* ChatsSettingsView.swift */; };
 		75F89F512DFC44E6009EDD8F /* ConversationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75F89F342DFC44E6009EDD8F /* ConversationView.swift */; };
 		75F89F522DFC44E6009EDD8F /* OnboardingInstallModelView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75F89F392DFC44E6009EDD8F /* OnboardingInstallModelView.swift */; };
-		75F89F532DFC44E6009EDD8F /* AppearanceSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75F89F3C2DFC44E6009EDD8F /* AppearanceSettingsView.swift */; };
 		75F89F542DFC44E6009EDD8F /* DeviceStat.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75F89F2D2DFC44E6009EDD8F /* DeviceStat.swift */; };
 		75F89F562DFC44E6009EDD8F /* MoonAnimationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75F89F372DFC44E6009EDD8F /* MoonAnimationView.swift */; };
 		75F89F572DFC44E6009EDD8F /* ChatView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75F89F332DFC44E6009EDD8F /* ChatView.swift */; };
@@ -415,7 +413,6 @@
 		F0A1B2C3D4E5F60718293B4F /* HomeViewModelPersistenceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0A1B2C3D4E5F60718293A4F /* HomeViewModelPersistenceTests.swift */; };
 		F1A2B3C4D5E6F7A8B9C0D1E3 /* TaskerTheme+SwiftUI.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1A2B3C4D5E6F7A8B9C0D1E2 /* TaskerTheme+SwiftUI.swift */; };
 		F1A2B3C4D5E6F7A8B9C0D1E5 /* TaskerAnimations.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1A2B3C4D5E6F7A8B9C0D1E4 /* TaskerAnimations.swift */; };
-		F1B2F813DE0CCF4518511A98 /* ThemeGemGalleryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6C0220D3DB4B4E025037B2E4 /* ThemeGemGalleryView.swift */; };
 		F2A1B2C3D4E5F60718293B50 /* HomeBottomBarItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2A1B2C3D4E5F60718293A50 /* HomeBottomBarItem.swift */; };
 		F2A1B2C3D4E5F60718293B51 /* HomeBottomBarState.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2A1B2C3D4E5F60718293A51 /* HomeBottomBarState.swift */; };
 		F2A1B2C3D4E5F60718293B52 /* HomeGlassBottomBar.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2A1B2C3D4E5F60718293A52 /* HomeGlassBottomBar.swift */; };
@@ -525,7 +522,6 @@
 		52E1464E13744427AAFDF824 /* TaskDetailComponents.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = TaskDetailComponents.swift; sourceTree = "<group>"; };
 		52EDFF0556DE6F60CD19AA39 /* To Do List/Presentation/ViewModels/InsightsViewModel.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "To Do List/Presentation/ViewModels/InsightsViewModel.swift"; sourceTree = SOURCE_ROOT; };
 		53C94956D526284966A1EEDC /* To Do List/Services/LocalNotificationService.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "To Do List/Services/LocalNotificationService.swift"; sourceTree = SOURCE_ROOT; };
-		55412F74ED21D0A6BE53A2DA /* AppearanceCardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppearanceCardView.swift; sourceTree = "<group>"; };
 		55C5A46909EF46C27D7B84E3 /* SavedHomeViewRepositoryProtocol.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SavedHomeViewRepositoryProtocol.swift; sourceTree = "<group>"; };
 		592346DCA3C3FE56E12617C2 /* To Do List/Domain/Mappers/TaskDefinitionMapper.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "To Do List/Domain/Mappers/TaskDefinitionMapper.swift"; sourceTree = SOURCE_ROOT; };
 		594ECD331C0135DA36357314 /* HomeAdvancedFilterSheetView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HomeAdvancedFilterSheetView.swift; sourceTree = "<group>"; };
@@ -536,7 +532,6 @@
 		65A7A039AC9CA38845D1E44F /* SyncMergeState.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SyncMergeState.swift; sourceTree = "<group>"; };
 		6956BC00E9F0B0BC847DD7AA /* To Do List/Domain/Mappers/SectionMapper.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "To Do List/Domain/Mappers/SectionMapper.swift"; sourceTree = SOURCE_ROOT; };
 		6A30108580052CC2C67D2058 /* To Do List/Domain/Models/HabitDefinition.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "To Do List/Domain/Models/HabitDefinition.swift"; sourceTree = SOURCE_ROOT; };
-		6C0220D3DB4B4E025037B2E4 /* ThemeGemGalleryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThemeGemGalleryView.swift; sourceTree = "<group>"; };
 		6D63FBA200D736491232884A /* To Do List/View/FocusSessionSummaryView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "To Do List/View/FocusSessionSummaryView.swift"; sourceTree = SOURCE_ROOT; };
 		712BE2C322E8930A4886933B /* To Do List/Domain/Interfaces/ScheduleRepositoryProtocol.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "To Do List/Domain/Interfaces/ScheduleRepositoryProtocol.swift"; sourceTree = SOURCE_ROOT; };
 		718216D68E8278668DDB49BC /* SettingsFooterView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsFooterView.swift; sourceTree = "<group>"; };
@@ -683,7 +678,6 @@
 		75F89F382DFC44E6009EDD8F /* OnboardingDownloadingModelProgressView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingDownloadingModelProgressView.swift; sourceTree = "<group>"; };
 		75F89F392DFC44E6009EDD8F /* OnboardingInstallModelView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingInstallModelView.swift; sourceTree = "<group>"; };
 		75F89F3A2DFC44E6009EDD8F /* OnboardingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingView.swift; sourceTree = "<group>"; };
-		75F89F3C2DFC44E6009EDD8F /* AppearanceSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppearanceSettingsView.swift; sourceTree = "<group>"; };
 		75F89F3D2DFC44E6009EDD8F /* ChatsSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatsSettingsView.swift; sourceTree = "<group>"; };
 		75F89F3E2DFC44E6009EDD8F /* CreditsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CreditsView.swift; sourceTree = "<group>"; };
 		75F89F3F2DFC44E6009EDD8F /* ModelsSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModelsSettingsView.swift; sourceTree = "<group>"; };
@@ -1118,8 +1112,6 @@
 			isa = PBXGroup;
 			children = (
 				DBF5FA356354C0F76959A4CF /* SettingsProfileHeaderView.swift */,
-				55412F74ED21D0A6BE53A2DA /* AppearanceCardView.swift */,
-				6C0220D3DB4B4E025037B2E4 /* ThemeGemGalleryView.swift */,
 				147B7C5EB48AC2259B009894 /* SettingsNavigationRow.swift */,
 				82ACA5EA351487686C155548 /* SettingsSectionHeader.swift */,
 				919DB5CEED1B1E1906FF474C /* NotificationPermissionBanner.swift */,
@@ -1946,7 +1938,6 @@
 		75F89F412DFC44E6009EDD8F /* Settings */ = {
 			isa = PBXGroup;
 			children = (
-				75F89F3C2DFC44E6009EDD8F /* AppearanceSettingsView.swift */,
 				75F89F3D2DFC44E6009EDD8F /* ChatsSettingsView.swift */,
 				75F89F3E2DFC44E6009EDD8F /* CreditsView.swift */,
 				75F89F3F2DFC44E6009EDD8F /* ModelsSettingsView.swift */,
@@ -2411,8 +2402,6 @@
 				A91F8E112F44420100AB11C1 /* LifeManagementView.swift in Sources */,
 				86E61B5C7E8F8DDAD3BAC7C9 /* SettingsViewModel.swift in Sources */,
 				A2538173786D1C9268A5495A /* SettingsProfileHeaderView.swift in Sources */,
-				65EC8640A12B976FD27DE5FD /* AppearanceCardView.swift in Sources */,
-				F1B2F813DE0CCF4518511A98 /* ThemeGemGalleryView.swift in Sources */,
 				988BCDE3365760394848B424 /* SettingsNavigationRow.swift in Sources */,
 				3464C0D69143BB1C99FBFD7A /* SettingsSectionHeader.swift in Sources */,
 				D2E850DDFA592D3CFAA9C922 /* NotificationPermissionBanner.swift in Sources */,
@@ -2521,7 +2510,6 @@
 				B1A000000000000000000004 /* ChatChromeComponents.swift in Sources */,
 				0F2D95B3C4177167351607FF /* SlashCommandPickerView.swift in Sources */,
 				75F89F522DFC44E6009EDD8F /* OnboardingInstallModelView.swift in Sources */,
-				75F89F532DFC44E6009EDD8F /* AppearanceSettingsView.swift in Sources */,
 				75F89F542DFC44E6009EDD8F /* DeviceStat.swift in Sources */,
 				75F89F562DFC44E6009EDD8F /* MoonAnimationView.swift in Sources */,
 				75F89F572DFC44E6009EDD8F /* ChatView.swift in Sources */,
