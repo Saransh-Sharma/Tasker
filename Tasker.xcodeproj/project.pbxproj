@@ -56,6 +56,7 @@
 		470D7F96B8766217C5B2F698 /* AddTaskEnumPicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = F4AB324AE764BB56051B2AA8 /* AddTaskEnumPicker.swift */; };
 		47EE4E9B0C3B5EC21C43BED8 /* To Do List/UseCases/Sync/ReminderMergeEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9AE41E54BA355D96A678CBF7 /* To Do List/UseCases/Sync/ReminderMergeEngine.swift */; };
 		481A6828453BE977412FD2EB /* TaskerWidgets/NextMilestoneWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = 89676F376DC27DF3823AB623 /* TaskerWidgets/NextMilestoneWidget.swift */; };
+		F1A2B3C4D5E6F708192A3B4C /* TaskerWidgets/WidgetBrand.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1A2B3C4D5E6F708192A3B4D /* TaskerWidgets/WidgetBrand.swift */; };
 		4987E47C4FB2B55409BA424F /* SpacingElevationCornerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7ADDF7126AA32EF840CE257C /* SpacingElevationCornerTests.swift */; };
 		4B7CFEBE8C7C67CCB5E4E73C /* To Do List/Domain/Models/GamificationProfile.swift in Sources */ = {isa = PBXBuildFile; fileRef = A9ADCB5DB568A54708322C8E /* To Do List/Domain/Models/GamificationProfile.swift */; };
 		4BB22BF593C5283CF8557AFE /* Shared/AppGroupConstants.swift in Sources */ = {isa = PBXBuildFile; fileRef = 79E40B0ED12A11ACC6A161C8 /* Shared/AppGroupConstants.swift */; };
@@ -508,6 +509,7 @@
 		34CC91CCAA408A3ADB2D8693 /* To Do List/Services/V2FeatureFlags.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "To Do List/Services/V2FeatureFlags.swift"; sourceTree = SOURCE_ROOT; };
 		37E2466DBE2A76A73458F530 /* To Do List/View/FocusTimerView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "To Do List/View/FocusTimerView.swift"; sourceTree = SOURCE_ROOT; };
 		3A74DF0E9DCAEB8A8179F375 /* TaskerWidgets/TodayXPWidget.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = TaskerWidgets/TodayXPWidget.swift; sourceTree = SOURCE_ROOT; };
+		F1A2B3C4D5E6F708192A3B4D /* TaskerWidgets/WidgetBrand.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = TaskerWidgets/WidgetBrand.swift; sourceTree = SOURCE_ROOT; };
 		3B52F546EA648DBA17C720A1 /* Pods-Tasker-TaskerUITests.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Tasker-TaskerUITests.debug.xcconfig"; path = "Target Support Files/Pods-Tasker-TaskerUITests/Pods-Tasker-TaskerUITests.debug.xcconfig"; sourceTree = "<group>"; };
 		3CAA3A6573B0FE5C495C67AC /* To Do List/Domain/Models/ExternalSyncModels.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "To Do List/Domain/Models/ExternalSyncModels.swift"; sourceTree = SOURCE_ROOT; };
 		3D233F155B6A87F62F52F845 /* HomeQuickFilterSummary.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HomeQuickFilterSummary.swift; sourceTree = "<group>"; };
@@ -969,6 +971,7 @@
 				89676F376DC27DF3823AB623 /* TaskerWidgets/NextMilestoneWidget.swift */,
 				9BBE8CE1B13AA2877F4BBCAE /* TaskerWidgets/StreakResilienceWidget.swift */,
 				FD3BCAD6C5A546608629F532 /* TaskerWidgets/FocusSeedWidget.swift */,
+				F1A2B3C4D5E6F708192A3B4D /* TaskerWidgets/WidgetBrand.swift */,
 				E6095F80ED6FB73CD69363AC /* Info.plist */,
 				FF7B2CAF2B3D23AD9512B999 /* TaskerWidgets.entitlements */,
 			);
@@ -2372,6 +2375,7 @@
 				481A6828453BE977412FD2EB /* TaskerWidgets/NextMilestoneWidget.swift in Sources */,
 				5E49A6FCA0C096CB2B6EA054 /* TaskerWidgets/StreakResilienceWidget.swift in Sources */,
 				8142FD6EB789DF1EED06EA7F /* TaskerWidgets/FocusSeedWidget.swift in Sources */,
+				F1A2B3C4D5E6F708192A3B4C /* TaskerWidgets/WidgetBrand.swift in Sources */,
 				4BB22BF593C5283CF8557AFE /* Shared/AppGroupConstants.swift in Sources */,
 				919FF9A13C8BB0FF98385DAA /* Shared/WidgetSnapshot.swift in Sources */,
 			);
@@ -2837,7 +2841,7 @@
 				CLANG_ENABLE_OBJC_WEAK = NO;
 				CODE_SIGN_ENTITLEMENTS = TaskerWidgets/TaskerWidgets.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 5;
 				DEVELOPMENT_TEAM = CJ43UNM3AR;
 				INFOPLIST_FILE = TaskerWidgets/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 18.6;
@@ -2980,7 +2984,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_ENTITLEMENTS = "This Day.entitlements";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 5;
 				DEVELOPMENT_TEAM = CJ43UNM3AR;
 				INFOPLIST_FILE = "To Do List/Info.plist";
 				INFOPLIST_KEY_CFBundleDisplayName = Tasker;
@@ -3006,7 +3010,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_ENTITLEMENTS = "This Day.entitlements";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 5;
 				DEVELOPMENT_TEAM = CJ43UNM3AR;
 				INFOPLIST_FILE = "To Do List/Info.plist";
 				INFOPLIST_KEY_CFBundleDisplayName = Tasker;
@@ -3120,7 +3124,7 @@
 				CLANG_ENABLE_OBJC_WEAK = NO;
 				CODE_SIGN_ENTITLEMENTS = TaskerWidgets/TaskerWidgets.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 5;
 				DEVELOPMENT_TEAM = CJ43UNM3AR;
 				INFOPLIST_FILE = TaskerWidgets/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 18.6;
