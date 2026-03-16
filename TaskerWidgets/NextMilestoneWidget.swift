@@ -7,7 +7,7 @@ struct NextMilestoneWidget: Widget {
     var body: some WidgetConfiguration {
         StaticConfiguration(kind: kind, provider: NextMilestoneProvider()) { entry in
             NextMilestoneWidgetView(entry: entry)
-                .containerBackground(.fill.tertiary, for: .widget)
+                .containerBackground(WidgetBrand.canvas, for: .widget)
         }
         .configurationDisplayName("Next Milestone")
         .description("Track progress toward your next milestone.")
@@ -43,13 +43,14 @@ struct NextMilestoneWidgetView: View {
         VStack(spacing: 8) {
             ZStack {
                 Circle()
-                    .stroke(.quaternary, lineWidth: 6)
+                    .stroke(WidgetBrand.line, lineWidth: 6)
                 Circle()
                     .trim(from: 0, to: CGFloat(entry.snapshot.milestoneProgress))
-                    .stroke(.tint, style: StrokeStyle(lineWidth: 6, lineCap: .round))
+                    .stroke(WidgetBrand.magenta, style: StrokeStyle(lineWidth: 6, lineCap: .round))
                     .rotationEffect(.degrees(-90))
                 Text("\(Int(entry.snapshot.milestoneProgress * 100))%")
                     .font(.system(size: 16, weight: .bold, design: .rounded))
+                    .foregroundStyle(WidgetBrand.textPrimary)
             }
             .frame(width: 64, height: 64)
 
@@ -57,12 +58,13 @@ struct NextMilestoneWidgetView: View {
                 Text(name)
                     .font(.system(size: 13, weight: .semibold, design: .rounded))
                     .lineLimit(1)
+                    .foregroundStyle(WidgetBrand.textPrimary)
             }
 
             if let target = entry.snapshot.nextMilestoneXP {
                 Text("\(entry.snapshot.totalXP)/\(target)")
                     .font(.system(size: 10, weight: .medium, design: .rounded))
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(WidgetBrand.textSecondary)
             }
         }
         .accessibilityElement(children: .combine)
