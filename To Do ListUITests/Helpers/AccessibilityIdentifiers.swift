@@ -153,6 +153,8 @@ enum AccessibilityIdentifiers {
         static let projectManagementRow = "Project Management"
         static let llmSettingsRow = "LLM Settings"
         static let appearanceInfo = "settings.appearance.info"
+        static let decorativeButtonEffectsCard = "settings.appearance.decorativeButtonEffects.card"
+        static let decorativeButtonEffectsToggle = "settings.appearance.decorativeButtonEffects.toggle"
         static let appVersionLabel = "settings.appVersionLabel"
         static let aboutSection = "settings.aboutSection"
         static let onboardingRestartButton = "settings.onboarding.restartButton"

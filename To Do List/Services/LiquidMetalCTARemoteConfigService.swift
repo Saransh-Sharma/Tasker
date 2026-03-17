@@ -4,8 +4,8 @@ import Foundation
 import FirebaseRemoteConfig
 #endif
 
-/// Syncs the liquid-metal CTA rollout flag from Firebase Remote Config.
-/// The product default is enabled, but this preserves a server-side rollback path.
+/// Syncs the liquid-metal CTA rollback allow-list from Firebase Remote Config.
+/// User preference is stored separately and defaults off.
 final class LiquidMetalCTARemoteConfigService {
     static let shared = LiquidMetalCTARemoteConfigService()
 
@@ -22,7 +22,7 @@ final class LiquidMetalCTARemoteConfigService {
         #endif
         remoteConfig.configSettings = settings
         remoteConfig.setDefaults([
-            Keys.enabled: NSNumber(value: V2FeatureFlags.liquidMetalCTAEnabled)
+            Keys.enabled: NSNumber(value: V2FeatureFlags.remoteDecorativeCTAEffectsAllowed)
         ])
 
         remoteConfig.fetchAndActivate { status, error in
@@ -53,8 +53,8 @@ private extension LiquidMetalCTARemoteConfigService {
     }
 
     func apply(remoteConfig: RemoteConfig, reason: String, status: RemoteConfigFetchAndActivateStatus) {
-        let enabled = boolValue(for: Keys.enabled, remoteConfig: remoteConfig) ?? V2FeatureFlags.liquidMetalCTAEnabled
-        V2FeatureFlags.liquidMetalCTAEnabled = enabled
+        let allowed = boolValue(for: Keys.enabled, remoteConfig: remoteConfig) ?? V2FeatureFlags.remoteDecorativeCTAEffectsAllowed
+        V2FeatureFlags.remoteDecorativeCTAEffectsAllowed = allowed
 
         logWarning(
             event: "liquid_metal_cta_remote_config_applied",
@@ -62,7 +62,7 @@ private extension LiquidMetalCTARemoteConfigService {
             fields: [
                 "reason": reason,
                 "status": "\(status.rawValue)",
-                "enabled": enabled ? "true" : "false"
+                "allowed": allowed ? "true" : "false"
             ]
         )
     }

@@ -219,4 +219,41 @@ class SettingsTests: BaseUITest {
         XCTAssertTrue(recommendedRow.waitForExistence(timeout: 8), "Recommended row should be visible")
         XCTAssertEqual(recommendedRow.value as? String, "selected", "Recommended model should be preselected")
     }
+
+    func testDecorativeButtonEffectsToggleDefaultsOffAndCanBeEnabled() throws {
+        settingsPage = homePage.tapSettings()
+        XCTAssertTrue(settingsPage.verifyIsDisplayed(), "Settings should be displayed")
+
+        let decorativeCard = app.descendants(matching: .any)[AccessibilityIdentifiers.Settings.decorativeButtonEffectsCard]
+
+        for _ in 0..<4 where decorativeCard.exists == false {
+            app.swipeUp()
+        }
+
+        XCTAssertTrue(decorativeCard.waitForExistence(timeout: 8), "Decorative button effects card should exist")
+
+        let decorativeToggle = decorativeCard.switches.firstMatch
+        XCTAssertTrue(decorativeToggle.waitForExistence(timeout: 8), "Decorative button effects toggle should exist")
+        XCTAssertEqual(decorativeToggle.value as? String, "0", "Decorative button effects should default off")
+
+        decorativeToggle.tap()
+        XCTAssertEqual(decorativeToggle.value as? String, "1", "Decorative button effects should toggle on")
+
+        settingsPage.tapDone()
+        XCTAssertTrue(settingsPage.waitForDismissal(timeout: 5), "Settings should dismiss after tapping Done")
+
+        settingsPage = homePage.tapSettings()
+        XCTAssertTrue(settingsPage.verifyIsDisplayed(), "Settings should be displayed after reopening")
+
+        let reopenedCard = app.descendants(matching: .any)[AccessibilityIdentifiers.Settings.decorativeButtonEffectsCard]
+        for _ in 0..<4 where reopenedCard.exists == false {
+            app.swipeUp()
+        }
+
+        XCTAssertTrue(reopenedCard.waitForExistence(timeout: 8), "Decorative button effects card should exist after reopening")
+
+        let reopenedToggle = reopenedCard.switches.firstMatch
+        XCTAssertTrue(reopenedToggle.waitForExistence(timeout: 8), "Decorative button effects toggle should exist after reopening")
+        XCTAssertEqual(reopenedToggle.value as? String, "1", "Decorative button effects should persist after relaunching settings")
+    }
 }

@@ -15,7 +15,8 @@ public enum V2FeatureFlags {
     private static let defaults = UserDefaults.standard
     private static let sharedDefaults = UserDefaults(suiteName: AppGroupConstants.suiteName)
     private static let launchArguments = Set(ProcessInfo.processInfo.arguments)
-    private static let liquidMetalCTAKey = "feature.ui.liquid_metal_cta"
+    private static let decorativeCTAEffectsUserKey = "feature.ui.decorative_cta_effects.user_enabled"
+    private static let decorativeCTAEffectsRemoteAllowKey = "feature.ui.decorative_cta_effects.remote_allowed"
 
     public static var remindersSyncEnabled: Bool {
         get { defaults.object(forKey: "feature.reminders.sync") as? Bool ?? true }
@@ -30,9 +31,24 @@ public enum V2FeatureFlags {
             if launchArguments.contains("-TASKER_DISABLE_LIQUID_METAL_CTA") {
                 return false
             }
-            return defaults.object(forKey: liquidMetalCTAKey) as? Bool ?? true
+            return userDecorativeCTAEffectsEnabled && remoteDecorativeCTAEffectsAllowed
         }
-        set { defaults.set(newValue, forKey: liquidMetalCTAKey) }
+        set {
+            userDecorativeCTAEffectsEnabled = newValue
+            if newValue {
+                remoteDecorativeCTAEffectsAllowed = true
+            }
+        }
+    }
+
+    public static var userDecorativeCTAEffectsEnabled: Bool {
+        get { defaults.object(forKey: decorativeCTAEffectsUserKey) as? Bool ?? false }
+        set { defaults.set(newValue, forKey: decorativeCTAEffectsUserKey) }
+    }
+
+    public static var remoteDecorativeCTAEffectsAllowed: Bool {
+        get { defaults.object(forKey: decorativeCTAEffectsRemoteAllowKey) as? Bool ?? true }
+        set { defaults.set(newValue, forKey: decorativeCTAEffectsRemoteAllowKey) }
     }
 
     public static var assistantApplyEnabled: Bool {
@@ -111,6 +127,42 @@ public enum V2FeatureFlags {
     public static var llmChatAnswerPhaseHapticsEnabled: Bool {
         get { defaults.object(forKey: "feature.llm.chat_answer_phase_haptics") as? Bool ?? true }
         set { defaults.set(newValue, forKey: "feature.llm.chat_answer_phase_haptics") }
+    }
+
+    public static var llmChatTemplateDiagnosticsEnabled: Bool {
+        get {
+            #if DEBUG
+            if launchArguments.contains("-TASKER_LLM_TEMPLATE_DIAGNOSTICS") {
+                return true
+            }
+            return defaults.object(forKey: "debug.llm.chat_template_diagnostics") as? Bool ?? false
+            #else
+            return false
+            #endif
+        }
+        set {
+            #if DEBUG
+            defaults.set(newValue, forKey: "debug.llm.chat_template_diagnostics")
+            #endif
+        }
+    }
+
+    public static var llmRuntimeSmokeEnabled: Bool {
+        get {
+            #if DEBUG
+            if launchArguments.contains("-TASKER_LLM_RUN_SMOKE") {
+                return true
+            }
+            return defaults.object(forKey: "debug.llm.runtime_smoke") as? Bool ?? false
+            #else
+            return false
+            #endif
+        }
+        set {
+            #if DEBUG
+            defaults.set(newValue, forKey: "debug.llm.runtime_smoke")
+            #endif
+        }
     }
 
     public static var evaFocusEnabled: Bool {

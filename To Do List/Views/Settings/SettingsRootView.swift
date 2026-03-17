@@ -36,12 +36,13 @@ struct SettingsRootView: View {
     private var phoneSettingsBody: some View {
         VStack(spacing: 0) {
             workspaceSection(baseIndex: 1)
-            notificationsSection(baseIndex: 6)
+            appearanceSection(baseIndex: 5)
+            notificationsSection(baseIndex: 7)
             SettingsFooterView(
                 version: viewModel.appVersion,
                 build: viewModel.buildNumber
             )
-            .enhancedStaggeredAppearance(index: 12)
+            .enhancedStaggeredAppearance(index: 13)
         }
     }
 
@@ -50,11 +51,12 @@ struct SettingsRootView: View {
             HStack(alignment: .top, spacing: spacing.sectionGap) {
                 VStack(spacing: 0) {
                     workspaceSection(baseIndex: 1, includeHorizontalPadding: false)
+                    appearanceSection(baseIndex: 5, includeHorizontalPadding: false)
                 }
                 .frame(maxWidth: 520, alignment: .top)
 
                 VStack(spacing: 0) {
-                    notificationsSection(baseIndex: 6, includeHorizontalPadding: false)
+                    notificationsSection(baseIndex: 7, includeHorizontalPadding: false)
                 }
                 .frame(maxWidth: 520, alignment: .top)
             }
@@ -69,7 +71,7 @@ struct SettingsRootView: View {
                 build: viewModel.buildNumber
             )
             .padding(.top, spacing.sectionGap)
-            .enhancedStaggeredAppearance(index: 14)
+            .enhancedStaggeredAppearance(index: 15)
         }
     }
 
@@ -196,5 +198,59 @@ struct SettingsRootView: View {
             .padding(.horizontal, includeHorizontalPadding ? spacing.screenHorizontal : 0)
             .padding(.top, spacing.s12)
         }
+    }
+
+    private func appearanceSection(baseIndex: Int, includeHorizontalPadding: Bool = true) -> some View {
+        VStack(spacing: 0) {
+            SettingsSectionHeader(title: "Appearance")
+                .enhancedStaggeredAppearance(index: baseIndex)
+                .padding(.top, spacing.sectionGap)
+
+            DecorativeButtonEffectsCard(viewModel: viewModel)
+                .enhancedStaggeredAppearance(index: baseIndex + 1)
+                .padding(.horizontal, includeHorizontalPadding ? spacing.screenHorizontal : 0)
+                .padding(.top, spacing.s12)
+        }
+    }
+}
+
+private struct DecorativeButtonEffectsCard: View {
+    @ObservedObject var viewModel: SettingsViewModel
+
+    var body: some View {
+        TaskerCard {
+            HStack(alignment: .top, spacing: TaskerSwiftUITokens.spacing.s12) {
+                Image(systemName: "sparkles.rectangle.stack.fill")
+                    .font(.tasker(.sectionTitle))
+                    .foregroundColor(.tasker(.accentPrimary))
+                    .frame(width: 24)
+
+                VStack(alignment: .leading, spacing: TaskerSwiftUITokens.spacing.s4) {
+                    Text("Decorative Button Effects")
+                        .font(.tasker(.bodyStrong))
+                        .foregroundColor(.tasker(.textPrimary))
+
+                    Text("Show gem and metal guidance effects on important buttons.")
+                        .font(.tasker(.caption1))
+                        .foregroundColor(.tasker(.textSecondary))
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+
+                Spacer(minLength: TaskerSwiftUITokens.spacing.s12)
+
+                Toggle(
+                    "",
+                    isOn: Binding(
+                        get: { viewModel.decorativeButtonEffectsEnabled },
+                        set: { viewModel.setDecorativeButtonEffectsEnabled($0) }
+                    )
+                )
+                .labelsHidden()
+                .tint(Color.tasker(.accentPrimary))
+                .accessibilityLabel("Decorative Button Effects")
+                .accessibilityIdentifier("settings.appearance.decorativeButtonEffects.toggle")
+            }
+        }
+        .accessibilityIdentifier("settings.appearance.decorativeButtonEffects.card")
     }
 }

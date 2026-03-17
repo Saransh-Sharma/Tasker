@@ -13,6 +13,7 @@ final class SettingsViewModel: ObservableObject {
     // MARK: - LLM
 
     @Published var currentModelDisplayName: String
+    @Published var decorativeButtonEffectsEnabled: Bool
 
     // MARK: - Navigation callbacks (set by SettingsPageViewController)
 
@@ -90,6 +91,7 @@ final class SettingsViewModel: ObservableObject {
         self.notificationPreferencesStore = notificationPreferencesStore
         self.preferences = notificationPreferencesStore.load()
         self.currentModelDisplayName = appManager.modelDisplayName(appManager.currentModelName ?? "")
+        self.decorativeButtonEffectsEnabled = V2FeatureFlags.userDecorativeCTAEffectsEnabled
     }
 
     // MARK: - Notification Toggles
@@ -103,6 +105,12 @@ final class SettingsViewModel: ObservableObject {
     func updateDueSoonLeadMinutes(_ minutes: Int) {
         preferences.dueSoonLeadMinutes = minutes
         saveAndReconcile()
+        TaskerFeedback.selection()
+    }
+
+    func setDecorativeButtonEffectsEnabled(_ isEnabled: Bool) {
+        decorativeButtonEffectsEnabled = isEnabled
+        V2FeatureFlags.userDecorativeCTAEffectsEnabled = isEnabled
         TaskerFeedback.selection()
     }
 
@@ -154,6 +162,7 @@ final class SettingsViewModel: ObservableObject {
     func reload() {
         preferences = notificationPreferencesStore.load()
         currentModelDisplayName = appManager.modelDisplayName(appManager.currentModelName ?? "")
+        decorativeButtonEffectsEnabled = V2FeatureFlags.userDecorativeCTAEffectsEnabled
         refreshPermissionStatus()
     }
 

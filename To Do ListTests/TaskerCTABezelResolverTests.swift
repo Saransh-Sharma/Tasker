@@ -2,11 +2,13 @@ import XCTest
 @testable import To_Do_List
 
 final class TaskerCTABezelResolverTests: XCTestCase {
-    private let liquidMetalCTAKey = "feature.ui.liquid_metal_cta"
+    private let userDecorativeCTAEffectsKey = "feature.ui.decorative_cta_effects.user_enabled"
+    private let remoteDecorativeCTAEffectsKey = "feature.ui.decorative_cta_effects.remote_allowed"
 
     override func tearDown() {
         super.tearDown()
-        UserDefaults.standard.removeObject(forKey: liquidMetalCTAKey)
+        UserDefaults.standard.removeObject(forKey: userDecorativeCTAEffectsKey)
+        UserDefaults.standard.removeObject(forKey: remoteDecorativeCTAEffectsKey)
     }
 
     func testOnboardingHighlightMovesPastCreatedTemplate() {
@@ -76,8 +78,33 @@ final class TaskerCTABezelResolverTests: XCTestCase {
         )
     }
 
-    func testLiquidMetalCTAFeatureDefaultsToEnabled() {
-        UserDefaults.standard.removeObject(forKey: liquidMetalCTAKey)
+    func testDecorativeButtonEffectsDefaultToDisabled() {
+        UserDefaults.standard.removeObject(forKey: userDecorativeCTAEffectsKey)
+        UserDefaults.standard.removeObject(forKey: remoteDecorativeCTAEffectsKey)
+
+        XCTAssertFalse(V2FeatureFlags.userDecorativeCTAEffectsEnabled)
+        XCTAssertTrue(V2FeatureFlags.remoteDecorativeCTAEffectsAllowed)
+        XCTAssertFalse(V2FeatureFlags.liquidMetalCTAEnabled)
+    }
+
+    func testDecorativeButtonEffectsStayDisabledWhenUserPrefIsFalseAndRemoteAllows() {
+        V2FeatureFlags.userDecorativeCTAEffectsEnabled = false
+        V2FeatureFlags.remoteDecorativeCTAEffectsAllowed = true
+
+        XCTAssertFalse(V2FeatureFlags.liquidMetalCTAEnabled)
+    }
+
+    func testDecorativeButtonEffectsEnableWhenUserPrefIsTrueAndRemoteAllows() {
+        V2FeatureFlags.userDecorativeCTAEffectsEnabled = true
+        V2FeatureFlags.remoteDecorativeCTAEffectsAllowed = true
+
         XCTAssertTrue(V2FeatureFlags.liquidMetalCTAEnabled)
+    }
+
+    func testDecorativeButtonEffectsDisableWhenRemoteDisallowsDespiteUserPref() {
+        V2FeatureFlags.userDecorativeCTAEffectsEnabled = true
+        V2FeatureFlags.remoteDecorativeCTAEffectsAllowed = false
+
+        XCTAssertFalse(V2FeatureFlags.liquidMetalCTAEnabled)
     }
 }
