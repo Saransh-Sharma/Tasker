@@ -138,12 +138,13 @@ Relation to legacy `DomainEventPublisher.gamificationEvents`:
 
 ### AI regression triage order (what to inspect first)
 
-1. Check feature flags (`assistantPlanModeEnabled`, `assistantCopilotEnabled`, `assistantSemanticRetrievalEnabled`, `assistantBriefEnabled`, `assistantBreakdownEnabled`).
+1. Check current AI flags (`assistantApplyEnabled`, `assistantUndoEnabled`, `assistantCopilotEnabled`, `assistantSemanticRetrievalEnabled`, `assistantBreakdownEnabled`, `llmChatPrewarmMode`, `llmChatContextStrategy`).
 2. Verify startup wiring logs for `LLMContextRepositoryProvider` and `LLMAssistantPipelineProvider` configuration.
-3. Inspect context generation signal (`assistant_context_built`) for payload completeness.
-4. Inspect proposal path events (`assistant_proposal_generated`, `assistant_apply_failed`, rollback statuses).
-5. Inspect deep-link/open-chat path for brief/triage pending keys and `assistant_daily_brief_opened`.
-6. Inspect semantic fallback signal (`assistant_semantic_fallback_lexical`) before suspecting search regression.
+3. Inspect chat runtime logs for `chat_generation_parameters`, `quality_text_source`, visible-thinking extraction, and repetition diagnostics before assuming model-quality regression.
+4. Inspect context generation signal (`assistant_context_built`) for payload completeness.
+5. Inspect proposal path events (`assistant_proposal_generated`, `assistant_apply_failed`, rollback statuses).
+6. Inspect deep-link/open-chat path for brief/triage pending keys and `assistant_daily_brief_opened`.
+7. Inspect semantic fallback signal (`assistant_semantic_fallback_lexical`) before suspecting search regression.
 
 ## Cross-Links
 

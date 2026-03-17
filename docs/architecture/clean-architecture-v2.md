@@ -148,11 +148,12 @@ This prevents app-wide startup crash on local chat-store incompatibility.
 | `remindersSyncEnabled` | reminders link/reconcile flows and reminder-notification scheduling side effects | sync paths return disabled error/skip work; notification scheduling side effects are suppressed |
 | `assistantApplyEnabled` | assistant apply flow | blocks apply with explicit error |
 | `assistantUndoEnabled` | assistant undo flow | blocks undo with explicit error |
-| `assistantPlanModeEnabled` | chat plan mode and proposal actions | ask mode remains active; plan-mode entry blocked |
 | `assistantCopilotEnabled` | add-task/home/task-detail AI surfaces | AI suggestion surfaces hidden or no-op |
 | `assistantSemanticRetrievalEnabled` | semantic context/rerank/index lifecycle | lexical search/context fallback only |
-| `assistantBriefEnabled` | daily brief generation + scheduling | no brief generation/notification |
 | `assistantBreakdownEnabled` | task detail AI breakdown action | breakdown action hidden |
+| `assistantFastModeEnabled` | reserved fast-mode/runtime preference hook | currently no material runtime behavior change in the shipped router |
+| `llmChatPrewarmMode` | chat runtime prewarm policy | prewarm disabled or altered by selected mode |
+| `llmChatContextStrategy` | bounded vs full chat context payload strategy | chat context shape changes to the selected strategy |
 | `remindersBackgroundRefreshEnabled` | background reminders scheduling/execution | no reminders BG refresh scheduling |
 | `gamificationV2Enabled` | gamification engine/runtime path | engine path disabled; legacy XP call sites may remain for compatibility |
 | `gamificationWidgetsEnabled` | widget snapshot writes + timeline reload | widget updates skipped |

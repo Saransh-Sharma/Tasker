@@ -222,6 +222,7 @@ xcodebuild test -workspace Tasker.xcworkspace -scheme "To Do List" -destination 
 | `docs/architecture/domain-events-and-observability-v2.md` | domain event system and handler behavior | Canonical | event schema/handler/notification changes | app + analytics engineers |
 | `docs/architecture/notifications-local-strategy-v3.md` | local notification product + technical strategy | Canonical | notification catalog, routing, scheduling/reconcile, permission flow changes | app engineers, product, QA |
 | `docs/architecture/llm-assistant-stack-v2.md` | LLM context + assistant transaction boundaries | Canonical | `/LLM` or `/UseCases/LLM` changes | AI feature engineers |
+| `docs/architecture/llm-feature-integration-handbook.md` | mixed engineering/product AI runtime handbook | Canonical | AI routing, runtime semantics, flags, or release behavior changes | AI feature engineers, PMs, QA |
 | `docs/operations/ci-release-and-guardrails.md` | CI workflows, script guardrails, release evidence flow | Canonical | workflow/script/release gate changes | release owners, maintainers |
 | `docs/operations/developer-tooling-and-flowctl.md` | `taskerctl` + flowctl policy and troubleshooting | Canonical | tooling scripts or CI tooling rules change | contributors, CI maintainers |
 | `docs/cloudkit-two-device-smoke.md` | CloudKit two-device runbook | Canonical | smoke scenarios/evidence rules change | QA, release managers |
@@ -247,6 +248,7 @@ Legacy generated repowiki docs were moved out of active paths and are non-canoni
 - `.github/workflows/ios.yml`
 - `.github/workflows/cloudkit-smoke.yml`
 - `scripts/validate_cloudkit_smoke_evidence.sh`
+5. Update both canonical LLM docs together when `/LLM` runtime behavior changes.
 
 ## Legacy Cleanup Status
 
