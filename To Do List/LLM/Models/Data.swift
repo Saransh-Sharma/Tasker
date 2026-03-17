@@ -283,6 +283,32 @@ class AppManager: ObservableObject {
         }
         return modelName.replacingOccurrences(of: "mlx-community/", with: "").lowercased()
     }
+
+    func compactModelDisplayName(_ modelName: String) -> String {
+        guard let model = ModelConfiguration.getModelByName(modelName) else {
+            return modelName
+                .replacingOccurrences(of: "mlx-community/", with: "")
+                .replacingOccurrences(of: "nexveridian/", with: "")
+                .replacingOccurrences(of: "jackrong/", with: "")
+                .lowercased()
+        }
+
+        switch model {
+        case .qwen_3_0_6b_4bit:
+            return "qwen3 0.6B"
+        case .qwen_3_5_0_8b_optiq_4bit:
+            return "qwen3.5 0.8B"
+        case .qwen_3_5_0_8b_nexveridian_4bit:
+            return "qwen3.5 0.8B"
+        case .qwen_3_5_0_8b_claude_4_6_opus_reasoning_distilled_4bit:
+            return "qwen3.5 0.8B"
+        default:
+            return model.displayName
+                .replacingOccurrences(of: " 4bit", with: "")
+                .replacingOccurrences(of: " 4-bit", with: "")
+                .lowercased()
+        }
+    }
     
     /// Executes getMoonPhaseIcon.
     func getMoonPhaseIcon() -> String {
