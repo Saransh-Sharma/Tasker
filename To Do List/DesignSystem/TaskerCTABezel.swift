@@ -693,3 +693,53 @@ extension View {
         )
     }
 }
+
+private struct TaskerNoisyGradientLayer: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    var body: some View {
+        if reduceMotion {
+            Color.black
+                .layerEffect(
+                    Shader(
+                        function: ShaderFunction(library: .default, name: "TaskerNoisyGradient"),
+                        arguments: [
+                            .boundingRect,
+                            .float(0)
+                        ]
+                    ),
+                    maxSampleOffset: .zero
+                )
+        } else {
+            TimelineView(.animation) { context in
+                let time = Float(context.date.timeIntervalSinceReferenceDate.truncatingRemainder(dividingBy: 100))
+                Color.black
+                    .layerEffect(
+                        Shader(
+                            function: ShaderFunction(library: .default, name: "TaskerNoisyGradient"),
+                            arguments: [
+                                .boundingRect,
+                                .float(time)
+                            ]
+                        ),
+                        maxSampleOffset: .zero
+                    )
+            }
+        }
+    }
+}
+
+struct TaskerNoisyGradientBackdrop: View {
+    let opacity: Double
+
+    init(opacity: Double = 1.0) {
+        self.opacity = opacity
+    }
+
+    var body: some View {
+        TaskerNoisyGradientLayer()
+            .opacity(opacity)
+            .allowsHitTesting(false)
+            .accessibilityHidden(true)
+    }
+}

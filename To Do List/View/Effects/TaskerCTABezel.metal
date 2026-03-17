@@ -116,3 +116,23 @@ namespace TaskerMetalBezel {
 
     return half4(half3(color), currentColor.a);
 }
+
+[[ stitchable ]] half4 TaskerNoisyGradient(float2 pos, SwiftUI::Layer l, float4 bounds, float time) {
+    float2 size = bounds.zw;
+    float2 uv = pos / size;
+
+    // Base colors from the reference gradient sample.
+    half3 peach = half3(0.9, 0.4, 0.3);
+    half3 purple = half3(0.2, 0.1, 0.6);
+    half3 teal = half3(0.0, 0.8, 0.8);
+
+    // Vertical and horizontal distortion for organic motion.
+    float t = uv.y + 0.2 * sin(time + uv.x * 3.0);
+    float p = uv.x + 0.2 * cos(time + uv.y * 6.0);
+
+    // Blend in a way that keeps the same palette shape as the source sample.
+    half3 bottomColor = mix(purple, teal, half(clamp(p, 0.0, 1.0)));
+    half3 color = mix(bottomColor, peach, half(clamp(t, 0.0, 1.0)));
+
+    return half4(color, 1.0);
+}

@@ -3090,10 +3090,14 @@ private struct AppOnboardingBackground: View {
     var body: some View {
         ZStack {
             LinearGradient(
-                colors: [OnboardingTheme.canvas, OnboardingTheme.canvasSecondary],
+                colors: [OnboardingTheme.canvas.opacity(0.86), OnboardingTheme.canvasSecondary.opacity(0.92)],
                 startPoint: .topLeading,
                 endPoint: .bottomTrailing
             )
+                .overlay(alignment: .center) {
+                    TaskerNoisyGradientBackdrop(opacity: 0.72)
+                        .ignoresSafeArea()
+                }
 
             Circle()
                 .fill(OnboardingTheme.accent.opacity(drift ? 0.12 : 0.08))
