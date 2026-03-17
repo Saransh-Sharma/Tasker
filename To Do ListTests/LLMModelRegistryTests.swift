@@ -38,20 +38,20 @@ final class LLMModelRegistryTests: XCTestCase {
         XCTAssertEqual(ModelConfiguration.defaultModel.name, qwenPointSixName)
     }
 
-    func testOptiQModelMetadataIsExposed() {
-        let model = tryUnwrap(ModelConfiguration.getModelByName(qwenOptiQName))
+    func testOptiQModelMetadataIsExposed() throws {
+        let model = try XCTUnwrap(ModelConfiguration.getModelByName(qwenOptiQName))
         XCTAssertEqual(model.displayName, "Qwen3.5 0.8B OptiQ 4bit")
         XCTAssertEqual(model.onboardingBadgeTitle, "Smarter")
         XCTAssertEqual(model.modelType, .reasoning)
         XCTAssertGreaterThan(model.tokenBudget.taskContextTokens, ModelConfiguration.defaultModel.tokenBudget.taskContextTokens)
     }
 
-    func testClaudeDistilledModelTracksRequestedSourceModel() {
-        let model = tryUnwrap(ModelConfiguration.getModelByName(qwenClaudeDistilledName))
+    func testClaudeDistilledModelTracksRequestedSourceModel() throws {
+        let model = try XCTUnwrap(ModelConfiguration.getModelByName(qwenClaudeDistilledName))
         XCTAssertEqual(model.sourceModelID, "Ishant06/Qwen3.5-0.8B-Claude-4.6-Opus-Reasoning-Distilled")
     }
 
-    func testCompatibilityMarksAllTextModelsAsSupported() {
+    func testCompatibilityMarksAllTextModelsAsSupported() throws {
         for modelName in [
             qwenPointSixName,
             qwenOptiQName,
@@ -59,7 +59,7 @@ final class LLMModelRegistryTests: XCTestCase {
             qwenClaudeDistilledName
         ] {
             XCTAssertEqual(
-                LLMRuntimeSupportMatrix.compatibility(for: tryUnwrap(ModelConfiguration.getModelByName(modelName))).availability,
+                LLMRuntimeSupportMatrix.compatibility(for: try XCTUnwrap(ModelConfiguration.getModelByName(modelName))).availability,
                 .supported
             )
         }
@@ -79,18 +79,56 @@ final class LLMModelRegistryTests: XCTestCase {
         )
     }
 
-    func testResolvedBudgetUsesProvidedModelRatherThanDefaultModel() {
-        let optiQBudget = LLMChatBudgets.active.resolved(for: tryUnwrap(ModelConfiguration.getModelByName(qwenOptiQName)))
+    func testResolvedBudgetUsesProvidedModelRatherThanDefaultModel() throws {
+        let optiQBudget = LLMChatBudgets.active.resolved(for: try XCTUnwrap(ModelConfiguration.getModelByName(qwenOptiQName)))
 
         XCTAssertEqual(optiQBudget.maxPromptTokens, 1_920)
         XCTAssertEqual(optiQBudget.maxContextTokens, 700)
         XCTAssertGreaterThan(optiQBudget.maxPromptTokens, ModelConfiguration.defaultModel.tokenBudget.inputTokens)
     }
 
+    func testAIChatModeRouterDoesNotMarkIdealSelectionAsFallback() {
+        let route = AIChatModeRouter.route(
+            for: .planMode,
+            snapshot: AIRuntimeSnapshot(
+                selectedModelName: nil,
+                installedModels: [qwenPointSixName],
+                availableMemoryGB: 8,
+                userInterfaceIdiom: .phone
+            )
+        )
+
+        XCTAssertEqual(route.selectedModelName, qwenPointSixName)
+        XCTAssertFalse(route.usedFallback)
+        XCTAssertNil(route.fallbackReason)
+        XCTAssertFalse(route.shouldPromptDownload)
+    }
+
+    func testAIChatModeRouterDoesNotPromptDownloadWhenUnsupportedModelsAreAlreadyInstalled() {
+        let route = AIChatModeRouter.route(
+            for: .planMode,
+            snapshot: AIRuntimeSnapshot(
+                selectedModelName: nil,
+                installedModels: [unsupportedModelName],
+                availableMemoryGB: 8,
+                userInterfaceIdiom: .phone
+            )
+        )
+
+        XCTAssertNil(route.selectedModelName)
+        XCTAssertFalse(route.shouldPromptDownload)
+        XCTAssertEqual(route.bannerMessage, "Installed models are unavailable on this device.")
+    }
+
+    func testAIChatModeRouterDisplayNameStripsProviderPrefixesCaseInsensitively() {
+        XCTAssertEqual(AIChatModeRouter.displayName(for: "jackrong/Model"), "Model")
+        XCTAssertEqual(AIChatModeRouter.displayName(for: "NEXVERIDIAN/Model"), "Model")
+        XCTAssertEqual(AIChatModeRouter.displayName(for: "MLX-COMMUNITY/Model"), "Model")
+    }
+
     func testInstallCatalogGroupsTextModelsBySection() {
         let catalog = LocalModelInstallCatalog.make(
-            installedModelNames: [],
-            availableMemory: 8
+            installedModelNames: []
         )
 
         XCTAssertEqual(
@@ -153,7 +191,7 @@ final class LLMModelRegistryTests: XCTestCase {
         XCTAssertEqual(state.currentModelName, qwenPointSixName)
     }
 
-    func testSmokeTesterClassifiesCatalogEntries() {
+    func testSmokeTesterClassifiesCatalogEntries() throws {
         for modelName in [
             qwenPointSixName,
             qwenOptiQName,
@@ -161,15 +199,15 @@ final class LLMModelRegistryTests: XCTestCase {
             qwenClaudeDistilledName
         ] {
             XCTAssertEqual(
-                LLMRuntimeSmokeTester.classify(model: tryUnwrap(ModelConfiguration.getModelByName(modelName))).status,
+                LLMRuntimeSmokeTester.classify(model: try XCTUnwrap(ModelConfiguration.getModelByName(modelName))).status,
                 .supported
             )
         }
     }
 
-    func testSmokeTesterRunCapturesSuccessMetrics() async {
+    func testSmokeTesterRunCapturesSuccessMetrics() async throws {
         let result = await LLMRuntimeSmokeTester.run(
-            model: tryUnwrap(ModelConfiguration.getModelByName(qwenOptiQName))
+            model: try XCTUnwrap(ModelConfiguration.getModelByName(qwenOptiQName))
         ) { _ in
             LLMRuntimeSmokeMetrics(
                 firstTokenLatencyMs: 42,
@@ -193,13 +231,13 @@ final class LLMModelRegistryTests: XCTestCase {
         XCTAssertNil(result.errorDescription)
     }
 
-    func testSmokeTesterRunClearsDiagnosticsOnFailure() async {
+    func testSmokeTesterRunClearsDiagnosticsOnFailure() async throws {
         struct SmokeFailure: LocalizedError {
             var errorDescription: String? { "probe failed" }
         }
 
         let result = await LLMRuntimeSmokeTester.run(
-            model: tryUnwrap(ModelConfiguration.getModelByName(qwenPointSixName))
+            model: try XCTUnwrap(ModelConfiguration.getModelByName(qwenPointSixName))
         ) { _ in
             throw SmokeFailure()
         }
@@ -290,6 +328,58 @@ final class LLMModelRegistryTests: XCTestCase {
         XCTAssertTrue(content.contains("Review roadmap"))
     }
 
+    func testPromptHistoryWithoutRecapDropsOldestTurnFirst() {
+        V2FeatureFlags.llmChatContextStrategy = .bounded
+        let thread = To_Do_List.Thread()
+        thread.messages = [
+            Message(role: .user, content: String(repeating: "OLD ", count: 2_500), thread: thread),
+            Message(role: .assistant, content: String(repeating: "ASSISTANT ", count: 2_500), thread: thread),
+            Message(role: .user, content: "LATEST TURN MUST SURVIVE", thread: thread)
+        ]
+
+        let history = ModelConfiguration.defaultModel.getPromptHistory(
+            thread: thread,
+            systemPrompt: "System"
+        )
+
+        let combined = history.compactMap { $0["content"] }.joined(separator: "\n")
+        XCTAssertFalse(combined.contains("OLD OLD"))
+        XCTAssertTrue(combined.contains("LATEST TURN MUST SURVIVE"))
+    }
+
+    func testPromptHistoryWithRecapPreservesRecapAndComposedSystemTailSections() {
+        V2FeatureFlags.llmChatContextStrategy = .full
+        let thread = To_Do_List.Thread()
+        for index in 0..<10 {
+            thread.messages.append(
+                Message(
+                    role: index.isMultiple(of: 2) ? .user : .assistant,
+                    content: "message \(index) " + String(repeating: "body ", count: 200),
+                    thread: thread
+                )
+            )
+        }
+
+        let composedPrompt = LLMSystemPromptComposer.compose(
+            basePrompt: String(repeating: "base ", count: 250),
+            model: ModelConfiguration.defaultModel,
+            personalMemory: "Personal memory marker survives",
+            slashContext: "Slash marker survives",
+            taskContext: "Task marker survives"
+        )
+
+        let history = ModelConfiguration.defaultModel.getPromptHistory(
+            thread: thread,
+            systemPrompt: composedPrompt
+        )
+
+        XCTAssertEqual(history.first?["role"], "system")
+        XCTAssertEqual(history.dropFirst().first?["role"], "system")
+        XCTAssertTrue(history.first?["content"]?.contains("Personal memory marker survives") == true)
+        XCTAssertTrue(history.first?["content"]?.contains("Slash marker survives") == true)
+        XCTAssertTrue(history.first?["content"]?.contains("Task marker survives") == true)
+    }
+
     func testSystemPromptComposerPreservesTaskContextUnderOverflow() {
         let model = ModelConfiguration.defaultModel
         let prompt = LLMSystemPromptComposer.compose(
@@ -321,11 +411,4 @@ final class LLMModelRegistryTests: XCTestCase {
         XCTAssertNil(AppManager.migratedBuiltInSystemPrompt("Custom prompt"))
     }
 
-    private func tryUnwrap<T>(_ value: T?, file: StaticString = #filePath, line: UInt = #line) -> T {
-        guard let value else {
-            XCTFail("Expected non-nil value", file: file, line: line)
-            fatalError("unreachable")
-        }
-        return value
-    }
 }

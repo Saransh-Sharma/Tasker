@@ -1,4 +1,5 @@
 import Foundation
+import CoreData
 import SwiftData
 import os
 
@@ -55,6 +56,21 @@ enum LLMDataController {
     }
 
     static func recoveryDisposition(for error: Error) -> StoreRecoveryDisposition {
+        let nsError = error as NSError
+        if nsError.domain == NSCocoaErrorDomain {
+            switch nsError.code {
+            case NSMigrationError,
+                 NSMigrationCancelledError,
+                 NSMigrationMissingSourceModelError,
+                 NSMigrationMissingMappingModelError,
+                 NSPersistentStoreIncompatibleVersionHashError,
+                 NSPersistentStoreIncompatibleSchemaError:
+                return .fallbackWithoutRecreation(reason: "persistent_store_migration_failed")
+            default:
+                break
+            }
+        }
+
         let description = error.localizedDescription.lowercased()
         let migrationSignals = [
             "incompatible",

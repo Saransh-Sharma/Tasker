@@ -270,6 +270,7 @@
 		A195295E32A95E537E16AF8A /* To Do List/UseCases/Schedule/ResolveOccurrenceUseCase.swift in Sources */ = {isa = PBXBuildFile; fileRef = E9EF3524C96CA56E66C86177 /* To Do List/UseCases/Schedule/ResolveOccurrenceUseCase.swift */; };
 		A1B2C3D4E5F607080910AB01 /* GradientTokens.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F607080910AB02 /* GradientTokens.swift */; };
 		A1B2C3D52EAA11BB00CCDDEE /* LLMModelRegistryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D42EAA11BB00CCDDEE /* LLMModelRegistryTests.swift */; };
+		A1C2D3E4F5A60718293B4C5D /* AssistantPlannerServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1C2D3E4F5A60718293B4C5C /* AssistantPlannerServiceTests.swift */; };
 		A1C3D4E5F6A7B8C9D0E1F2A3 /* KeyboardShortcutsCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2D4E5F6A7B8C9D0E1F2A3B4 /* KeyboardShortcutsCard.swift */; };
 		A1E5C40F2F1A4B9D9C1E8A10 /* To Do List/Domain/Interfaces/AppleRemindersProviderProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1E5C40F2F1A4B9D9C1E8A12 /* To Do List/Domain/Interfaces/AppleRemindersProviderProtocol.swift */; };
 		A1E5C40F2F1A4B9D9C1E8A11 /* To Do List/State/Services/EventKitAppleRemindersProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1E5C40F2F1A4B9D9C1E8A13 /* To Do List/State/Services/EventKitAppleRemindersProvider.swift */; };
@@ -352,6 +353,7 @@
 		B8E100012F70000100A0A001 /* TaskerCTABezel.swift in Sources */ = {isa = PBXBuildFile; fileRef = B8E100002F70000100A0A001 /* TaskerCTABezel.swift */; };
 		B8E100032F70000100A0A001 /* TaskerCTABezel.metal in Sources */ = {isa = PBXBuildFile; fileRef = B8E100022F70000100A0A001 /* TaskerCTABezel.metal */; };
 		B8E100052F70000100A0A001 /* TaskerCTABezelResolverTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B8E100042F70000100A0A001 /* TaskerCTABezelResolverTests.swift */; };
+		B8F9A0B1C2D3E4F506172839 /* LLMPersonalMemoryStoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B8F9A0B1C2D3E4F506172838 /* LLMPersonalMemoryStoreTests.swift */; };
 		B93F762182E74294AC55C6CB /* To Do List/Domain/Interfaces/TaskDefinitionRepositoryProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = EA45AF6FFE4463E49D8FEA68 /* To Do List/Domain/Interfaces/TaskDefinitionRepositoryProtocol.swift */; };
 		BA046E8ED5086F9E39ACB225 /* To Do List/View/DailyReflectionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E2BA3F253548BE9F1EE2AB4B /* To Do List/View/DailyReflectionView.swift */; };
 		BEB8BC780A4A962C58A77BC4 /* To Do List/Services/V2FeatureFlags.swift in Sources */ = {isa = PBXBuildFile; fileRef = 34CC91CCAA408A3ADB2D8693 /* To Do List/Services/V2FeatureFlags.swift */; };
@@ -363,6 +365,7 @@
 		C1A2B3C4D5E6F70011223350 /* LLMInferenceEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = C1A2B3C4D5E6F70011223351 /* LLMInferenceEngine.swift */; };
 		C1A2B3C4D5E6F70011223352 /* ChatTranscriptSnapshot.swift in Sources */ = {isa = PBXBuildFile; fileRef = C1A2B3C4D5E6F70011223353 /* ChatTranscriptSnapshot.swift */; };
 		C1A2B3C4D5E6F70011223354 /* ChatTranscriptSnapshotTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C1A2B3C4D5E6F70011223355 /* ChatTranscriptSnapshotTests.swift */; };
+		C2D3E4F5061728394A5B6C7D /* DeleteTaskDefinitionUseCaseTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C2D3E4F5061728394A5B6C7C /* DeleteTaskDefinitionUseCaseTests.swift */; };
 		C2D804681AC165ADEAD7D906 /* SavedHomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7F7676A13058C4757D1E2718 /* SavedHomeView.swift */; };
 		C4B2E3D5F6A70819 /* To Do List/Domain/Models/AchievementCatalog.swift in Sources */ = {isa = PBXBuildFile; fileRef = B3A1F2C4D5E6F708 /* To Do List/Domain/Models/AchievementCatalog.swift */; };
 		C4B2E3D5F6A7081A /* To Do List/View/BadgeGalleryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B3A1F2C4D5E6F709 /* To Do List/View/BadgeGalleryView.swift */; };
@@ -746,6 +749,7 @@
 		A10B1C2D3E4F506172839408 /* To Do List/State/Mappers/StateProjectMapper.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "To Do List/State/Mappers/StateProjectMapper.swift"; sourceTree = SOURCE_ROOT; };
 		A11B22C32F10000100ABCDEF /* TaskNotificationDispatcher.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TaskNotificationDispatcher.swift; sourceTree = "<group>"; };
 		A1B2C3D42EAA11BB00CCDDEE /* LLMModelRegistryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LLMModelRegistryTests.swift; sourceTree = "<group>"; };
+		A1C2D3E4F5A60718293B4C5C /* AssistantPlannerServiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AssistantPlannerServiceTests.swift; sourceTree = "<group>"; };
 		A1B2C3D4E5F607080910AB02 /* GradientTokens.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = GradientTokens.swift; sourceTree = "<group>"; };
 		A1E5C40F2F1A4B9D9C1E8A12 /* To Do List/Domain/Interfaces/AppleRemindersProviderProtocol.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "To Do List/Domain/Interfaces/AppleRemindersProviderProtocol.swift"; sourceTree = SOURCE_ROOT; };
 		A1E5C40F2F1A4B9D9C1E8A13 /* To Do List/State/Services/EventKitAppleRemindersProvider.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "To Do List/State/Services/EventKitAppleRemindersProvider.swift"; sourceTree = SOURCE_ROOT; };
@@ -816,6 +820,7 @@
 		B8E100002F70000100A0A001 /* TaskerCTABezel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TaskerCTABezel.swift; sourceTree = "<group>"; };
 		B8E100022F70000100A0A001 /* TaskerCTABezel.metal */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.metal; path = "Effects/TaskerCTABezel.metal"; sourceTree = "<group>"; };
 		B8E100042F70000100A0A001 /* TaskerCTABezelResolverTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TaskerCTABezelResolverTests.swift; sourceTree = "<group>"; };
+		B8F9A0B1C2D3E4F506172838 /* LLMPersonalMemoryStoreTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LLMPersonalMemoryStoreTests.swift; sourceTree = "<group>"; };
 		B812E7A0B879607C95C0571B /* ColorTokens.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ColorTokens.swift; sourceTree = "<group>"; };
 		B9F2A10C3D4E5F60718293AA /* To Do List/State/Sync/WriteClosedRepositoryAdapters.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "To Do List/State/Sync/WriteClosedRepositoryAdapters.swift"; sourceTree = SOURCE_ROOT; };
 		BC92DC6157EF1B9AAB1422D9 /* SettingsRootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsRootView.swift; sourceTree = "<group>"; };
@@ -830,6 +835,7 @@
 		C1A2B3C4D5E6F70011223351 /* LLMInferenceEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LLMInferenceEngine.swift; sourceTree = "<group>"; };
 		C1A2B3C4D5E6F70011223353 /* ChatTranscriptSnapshot.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatTranscriptSnapshot.swift; sourceTree = "<group>"; };
 		C1A2B3C4D5E6F70011223355 /* ChatTranscriptSnapshotTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatTranscriptSnapshotTests.swift; sourceTree = "<group>"; };
+		C2D3E4F5061728394A5B6C7C /* DeleteTaskDefinitionUseCaseTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeleteTaskDefinitionUseCaseTests.swift; sourceTree = "<group>"; };
 		C2C66FE334854F296A4203FD /* To Do List/Domain/Models/TagDefinition.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "To Do List/Domain/Models/TagDefinition.swift"; sourceTree = SOURCE_ROOT; };
 		C39FDE21811FCBE733038318 /* GetHomeFilteredTasksUseCaseTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = GetHomeFilteredTasksUseCaseTests.swift; sourceTree = "<group>"; };
 		C4AF3952DBA8C2ACE185FEF0 /* To Do List/Domain/Models/DailyXPAggregateDefinition.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "To Do List/Domain/Models/DailyXPAggregateDefinition.swift"; sourceTree = SOURCE_ROOT; };
@@ -1329,11 +1335,14 @@
 			isa = PBXGroup;
 			children = (
 				753EFCB42445A24700A739E3 /* To_Do_ListTests.swift */,
+				A1C2D3E4F5A60718293B4C5C /* AssistantPlannerServiceTests.swift */,
 				A1F0D0B42F5A100100ABC001 /* AppOnboardingTests.swift */,
+				B8F9A0B1C2D3E4F506172838 /* LLMPersonalMemoryStoreTests.swift */,
 				A1B2C3D42EAA11BB00CCDDEE /* LLMModelRegistryTests.swift */,
 				C1A2B3C4D5E6F70011223349 /* LLMRuntimeCoordinatorTests.swift */,
 				C1A2B3C4D5E6F70011223355 /* ChatTranscriptSnapshotTests.swift */,
 				C1A2B3C4D5E6F7001122334B /* LLMProjectionTimeoutTests.swift */,
+				C2D3E4F5061728394A5B6C7C /* DeleteTaskDefinitionUseCaseTests.swift */,
 				F0A1B2C3D4E5F60718293A4D /* HomeFilterStateTests.swift */,
 				F0A1B2C3D4E5F60718293A4E /* HomeTaskSectionBuilderTests.swift */,
 				B7C8D9E0F1A223344556677A /* OverdueAgeFormatterTests.swift */,
@@ -2748,6 +2757,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				A1C2D3E4F5A60718293B4C5D /* AssistantPlannerServiceTests.swift in Sources */,
 				A1B2C3D52EAA11BB00CCDDEE /* LLMModelRegistryTests.swift in Sources */,
 				C1A2B3C4D5E6F70011223348 /* LLMRuntimeCoordinatorTests.swift in Sources */,
 				C1A2B3C4D5E6F70011223354 /* ChatTranscriptSnapshotTests.swift in Sources */,
@@ -2772,7 +2782,9 @@
 				A91F8E162F44420100AB11C1 /* LifeManagementFeatureTests.swift in Sources */,
 				A1F0D0B52F5A100100ABC001 /* AppOnboardingTests.swift in Sources */,
 				B8E100052F70000100A0A001 /* TaskerCTABezelResolverTests.swift in Sources */,
+				B8F9A0B1C2D3E4F506172839 /* LLMPersonalMemoryStoreTests.swift in Sources */,
 				B4D7E8213A4F5C6D7E8F9012 /* V3TestHarness.swift in Sources */,
+				C2D3E4F5061728394A5B6C7D /* DeleteTaskDefinitionUseCaseTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -3234,8 +3246,8 @@
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/ml-explore/mlx-swift-lm.git";
 			requirement = {
-				branch = main;
-				kind = branch;
+				kind = upToNextMinorVersion;
+				minimumVersion = 2.30.6;
 			};
 		};
 		75F89FB02DFC62C3009EDD8F /* XCRemoteSwiftPackageReference "swift-markdown-ui" */ = {

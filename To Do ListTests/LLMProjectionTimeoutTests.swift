@@ -1,3 +1,4 @@
+import CoreData
 import XCTest
 import MLXLMCommon
 @testable import To_Do_List
@@ -686,6 +687,19 @@ final class LLMPromptHistoryFormattingTests: XCTestCase {
 }
 
 final class LLMDataControllerRecoveryTests: XCTestCase {
+    func testCocoaMigrationCodeDoesNotTriggerStoreRecreation() {
+        let error = NSError(
+            domain: NSCocoaErrorDomain,
+            code: NSPersistentStoreIncompatibleSchemaError,
+            userInfo: nil
+        )
+
+        XCTAssertEqual(
+            LLMDataController.recoveryDisposition(for: error),
+            .fallbackWithoutRecreation(reason: "persistent_store_migration_failed")
+        )
+    }
+
     func testMigrationLikeErrorDoesNotTriggerStoreRecreation() {
         let error = NSError(
             domain: "LLMDataControllerTests",

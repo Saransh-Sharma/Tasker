@@ -6,6 +6,7 @@
 import SwiftUI
 import SwiftData
 import MLXLMCommon
+import Security
 
 enum LLMPersistedModelSelection {
     struct State: Equatable {
@@ -258,7 +259,15 @@ class AppManager: ObservableObject {
     }
 
     func setActiveModel(_ modelName: String?) {
-        currentModelName = modelName
+        guard let normalizedModelName = normalizedInstalledModelName(for: modelName) else {
+            currentModelName = nil
+            return
+        }
+        guard LLMRuntimeSupportMatrix.compatibility(for: normalizedModelName)?.canActivate == true else {
+            currentModelName = Self.preferredActiveModelName(from: installedModels)
+            return
+        }
+        currentModelName = normalizedModelName
     }
 
     static func preferredActiveModelName(from installedModelNames: [String]) -> String? {
@@ -274,6 +283,19 @@ class AppManager: ObservableObject {
 
     func preferredFallbackModelName(excluding removedModelName: String? = nil) -> String? {
         Self.preferredActiveModelName(from: installedModels.filter { $0 != removedModelName })
+    }
+
+    private func normalizedInstalledModelName(for modelName: String?) -> String? {
+        guard let trimmedModelName = modelName?.trimmingCharacters(in: .whitespacesAndNewlines),
+              trimmedModelName.isEmpty == false else {
+            return nil
+        }
+        if installedModels.contains(trimmedModelName) {
+            return trimmedModelName
+        }
+        return installedModels.first { installedModelName in
+            installedModelName.caseInsensitiveCompare(trimmedModelName) == .orderedSame
+        }
     }
 
     /// Executes modelDisplayName.
@@ -424,44 +446,140 @@ struct LLMPersonalMemoryStoreV1: Codable, Equatable {
     }
 
     static func normalized(_ entries: [LLMPersonalMemoryEntry]) -> [LLMPersonalMemoryEntry] {
-        Array(
-            entries
-                .map {
-                    LLMPersonalMemoryEntry(
-                        id: $0.id,
-                        text: String($0.text.trimmingCharacters(in: .whitespacesAndNewlines).prefix(maxEntryCharacters))
-                    )
-                }
-                .prefix(maxEntriesPerSection)
-        )
+        let cleaned = entries.compactMap { entry -> LLMPersonalMemoryEntry? in
+            let normalizedText = String(
+                entry.text
+                    .trimmingCharacters(in: .whitespacesAndNewlines)
+                    .prefix(maxEntryCharacters)
+            )
+            guard normalizedText.isEmpty == false else { return nil }
+            return LLMPersonalMemoryEntry(id: entry.id, text: normalizedText)
+        }
+        return Array(cleaned.prefix(maxEntriesPerSection))
+    }
+}
+
+struct LLMSecureBlobStore {
+    let service: String
+    let account: String
+
+    static let personalMemory = LLMSecureBlobStore(
+        service: (Bundle.main.bundleIdentifier ?? "Tasker") + ".secureStorage",
+        account: LLMPersonalMemoryDefaultsStore.key
+    )
+
+    private var baseQuery: [CFString: Any] {
+        [
+            kSecClass: kSecClassGenericPassword,
+            kSecAttrService: service,
+            kSecAttrAccount: account
+        ]
+    }
+
+    func loadData() -> Data? {
+        var query = baseQuery
+        query[kSecReturnData] = true
+        query[kSecMatchLimit] = kSecMatchLimitOne
+
+        var item: CFTypeRef?
+        let status = SecItemCopyMatching(query as CFDictionary, &item)
+        switch status {
+        case errSecSuccess:
+            return item as? Data
+        case errSecItemNotFound:
+            return nil
+        default:
+            logError("Failed to load secure blob \(account): \(status)")
+            return nil
+        }
+    }
+
+    @discardableResult
+    func saveData(_ data: Data) -> Bool {
+        let deleteStatus = SecItemDelete(baseQuery as CFDictionary)
+        if deleteStatus != errSecSuccess && deleteStatus != errSecItemNotFound {
+            logWarning("Failed to replace secure blob \(account): \(deleteStatus)")
+        }
+
+        var attributes = baseQuery
+        attributes[kSecValueData] = data
+        #if os(iOS) || os(tvOS) || os(visionOS) || os(watchOS)
+        attributes[kSecAttrAccessible] = kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly
+        #endif
+
+        let saveStatus = SecItemAdd(attributes as CFDictionary, nil)
+        guard saveStatus == errSecSuccess else {
+            logError("Failed to save secure blob \(account): \(saveStatus)")
+            return false
+        }
+        return true
+    }
+
+    func clear() {
+        let status = SecItemDelete(baseQuery as CFDictionary)
+        if status != errSecSuccess && status != errSecItemNotFound {
+            logWarning("Failed to clear secure blob \(account): \(status)")
+        }
     }
 }
 
 enum LLMPersonalMemoryDefaultsStore {
     static let key = "llm.personalMemory.v1"
 
-    static func load(defaults: UserDefaults = .standard) -> LLMPersonalMemoryStoreV1 {
-        guard let data = defaults.data(forKey: key),
-              let decoded = try? JSONDecoder().decode(LLMPersonalMemoryStoreV1.self, from: data) else {
+    static func load(
+        defaults: UserDefaults = .standard,
+        secureStore: LLMSecureBlobStore = .personalMemory
+    ) -> LLMPersonalMemoryStoreV1 {
+        if let secureData = secureStore.loadData() {
+            guard let decoded = try? JSONDecoder().decode(LLMPersonalMemoryStoreV1.self, from: secureData) else {
+                logWarning("Failed to decode secure personal memory store.")
+                return LLMPersonalMemoryStoreV1()
+            }
+            return decoded
+        }
+
+        guard let legacyData = defaults.data(forKey: key) else {
             return LLMPersonalMemoryStoreV1()
+        }
+
+        guard let decoded = try? JSONDecoder().decode(LLMPersonalMemoryStoreV1.self, from: legacyData) else {
+            logWarning("Failed to decode legacy personal memory store.")
+            defaults.removeObject(forKey: key)
+            return LLMPersonalMemoryStoreV1()
+        }
+
+        if secureStore.saveData(legacyData) {
+            defaults.removeObject(forKey: key)
+        } else {
+            logWarning("Failed to migrate legacy personal memory store into secure storage.")
         }
         return decoded
     }
 
-    static func save(_ store: LLMPersonalMemoryStoreV1, defaults: UserDefaults = .standard) {
+    static func save(
+        _ store: LLMPersonalMemoryStoreV1,
+        defaults: UserDefaults = .standard,
+        secureStore: LLMSecureBlobStore = .personalMemory
+    ) {
         guard let data = try? JSONEncoder().encode(store) else { return }
-        defaults.set(data, forKey: key)
+        guard secureStore.saveData(data) else { return }
+        defaults.removeObject(forKey: key)
     }
 
-    static func clear(defaults: UserDefaults = .standard) {
+    static func clear(
+        defaults: UserDefaults = .standard,
+        secureStore: LLMSecureBlobStore = .personalMemory
+    ) {
+        secureStore.clear()
         defaults.removeObject(forKey: key)
     }
 
     static func promptBlock(
         for model: MLXLMCommon.ModelConfiguration,
-        defaults: UserDefaults = .standard
+        defaults: UserDefaults = .standard,
+        secureStore: LLMSecureBlobStore = .personalMemory
     ) -> String? {
-        let store = load(defaults: defaults)
+        let store = load(defaults: defaults, secureStore: secureStore)
         guard store.isEmpty == false else { return nil }
 
         var lines = ["Personal memory:"]

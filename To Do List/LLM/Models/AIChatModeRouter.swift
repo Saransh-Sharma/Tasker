@@ -92,7 +92,7 @@ struct AIChatModeRouter {
             return AIModelRoute(
                 selectedModelName: ideal,
                 idealModelName: ideal,
-                fallbackReason: "default_model_promoted",
+                fallbackReason: nil,
                 usedFallback: false,
                 idealModelSizeGB: idealSize,
                 selectedModelSizeGB: selectedSize,
@@ -126,8 +126,10 @@ struct AIChatModeRouter {
             usedFallback: true,
             idealModelSizeGB: idealSize,
             selectedModelSizeGB: nil,
-            shouldPromptDownload: true,
-            bannerMessage: "Install a Qwen model to use AI features."
+            shouldPromptDownload: installed.isEmpty,
+            bannerMessage: installed.isEmpty
+                ? "Install a Qwen model to use AI features."
+                : "Installed models are unavailable on this device."
         )
     }
 
@@ -168,11 +170,11 @@ struct AIChatModeRouter {
         return memoryBudget
     }
 
-    private static func displayName(for modelName: String) -> String {
+    static func displayName(for modelName: String) -> String {
         ModelConfiguration.getModelByName(modelName)?.displayName
             ?? modelName
-                .replacingOccurrences(of: "mlx-community/", with: "")
-                .replacingOccurrences(of: "NexVeridian/", with: "")
-                .replacingOccurrences(of: "Jackrong/", with: "")
+                .replacingOccurrences(of: "mlx-community/", with: "", options: .caseInsensitive)
+                .replacingOccurrences(of: "NexVeridian/", with: "", options: .caseInsensitive)
+                .replacingOccurrences(of: "Jackrong/", with: "", options: .caseInsensitive)
     }
 }

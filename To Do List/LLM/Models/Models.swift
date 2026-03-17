@@ -787,9 +787,12 @@ public extension ModelConfiguration {
             return
         }
 
-        while totalPromptTokens(promptHistory) > maxTokens && promptHistory.count > 2 {
-            // Preserve system prompt + recap entry, and trim oldest user/assistant turns first.
-            promptHistory.remove(at: 2)
+        let hasRecapEntry = promptHistory.count > 1 && promptHistory[1].role == .system
+        let firstRemovableIndex = hasRecapEntry ? 2 : 1
+        let minimumRetainedCount = hasRecapEntry ? 3 : 2
+        while totalPromptTokens(promptHistory) > maxTokens && promptHistory.count > minimumRetainedCount {
+            // Preserve the system prompt (+ recap when present), then trim the oldest conversation turn first.
+            promptHistory.remove(at: firstRemovableIndex)
         }
 
         if totalPromptTokens(promptHistory) <= maxTokens { return }
@@ -804,20 +807,6 @@ public extension ModelConfiguration {
             if LLMTokenBudgetEstimator.estimatedTokenCount(for: recapContent) > recapBudgetTokens {
                 recapContent = LLMTokenBudgetEstimator.trimPrefix(recapContent, toTokenBudget: recapBudgetTokens)
                 promptHistory[1].content = recapContent
-            }
-        }
-
-        if totalPromptTokens(promptHistory) <= maxTokens { return }
-
-        if var systemEntry = promptHistory.first {
-            let systemContent = systemEntry.content
-            let maxSystemTokens = min(
-                LLMTokenBudgetEstimator.estimatedTokenCount(for: systemContent),
-                max(48, tokenBudget.systemPromptTokens)
-            )
-            if LLMTokenBudgetEstimator.estimatedTokenCount(for: systemContent) > maxSystemTokens {
-                systemEntry.content = LLMTokenBudgetEstimator.trimPrefix(systemContent, toTokenBudget: maxSystemTokens)
-                promptHistory[0] = systemEntry
             }
         }
 

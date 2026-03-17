@@ -49,17 +49,20 @@ final class AssistantPlannerService {
         knownTaskIDs: Set<UUID>
     ) async -> Result<AssistantPlanResult, AssistantPlannerError> {
         let route = AIChatModeRouter.route(for: .planMode)
-        guard let modelName = route.selectedModelName else {
+        guard
+            let modelName = route.selectedModelName,
+            let model = ModelConfiguration.getModelByName(modelName)
+        else {
             return .failure(.noModelConfigured)
         }
 
         let systemPrompt = planSystemPrompt(contextPayload: contextPayload)
         let output = await llm.generate(
-            modelName: modelName,
+            modelName: model.name,
             thread: thread,
             systemPrompt: systemPrompt,
             profile: .chatPlanJSON,
-            requestOptions: .structuredOutput(for: ModelConfiguration.getModelByName(modelName) ?? .defaultModel)
+            requestOptions: .structuredOutput(for: model)
         )
 
         if output.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
@@ -85,7 +88,7 @@ final class AssistantPlannerService {
                     envelope: envelope,
                     rationale: envelope.rationaleText ?? "Prepared proposed task updates.",
                     diffLines: diffLines,
-                    modelName: modelName,
+                    modelName: model.name,
                     routeBanner: route.bannerMessage,
                     shouldPromptDownload: route.shouldPromptDownload
                 )

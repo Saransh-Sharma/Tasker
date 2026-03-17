@@ -43,6 +43,7 @@ struct ChatMessageRenderModel: Identifiable, Equatable {
         hasher.combine(message.role.rawValue)
         hasher.combine(displayContent)
         hasher.combine(cardFingerprint)
+        hasher.combine(self.sourceModelName ?? "")
         self.markdownSourceHash = hasher.finalize()
     }
 
@@ -71,6 +72,7 @@ struct ChatMessageRenderModel: Identifiable, Equatable {
         hasher.combine(role.rawValue)
         hasher.combine(displayContent)
         hasher.combine(cardFingerprint)
+        hasher.combine(sourceModelName ?? "")
         self.markdownSourceHash = hasher.finalize()
     }
 

@@ -88,4 +88,21 @@ final class ChatTranscriptSnapshotTests: XCTestCase {
         XCTAssertEqual(snapshot.messages.first?.thinkingText, "Thinking Process:\n1. Analyze the day.\n2. Pick the most important task.")
         XCTAssertNil(snapshot.messages.first?.answerText)
     }
+
+    func testRenderModelHashChangesWhenSourceModelChanges() {
+        let first = ChatMessageRenderModel(
+            role: .assistant,
+            originalContent: "<think>Reason</think>\nAnswer",
+            displayContent: "<think>Reason</think>\nAnswer",
+            sourceModelName: ModelConfiguration.qwen_3_0_6b_4bit.name
+        )
+        let second = ChatMessageRenderModel(
+            role: .assistant,
+            originalContent: "<think>Reason</think>\nAnswer",
+            displayContent: "<think>Reason</think>\nAnswer",
+            sourceModelName: ModelConfiguration.qwen_3_5_0_8b_claude_4_6_opus_reasoning_distilled_4bit.name
+        )
+
+        XCTAssertNotEqual(first.markdownSourceHash, second.markdownSourceHash)
+    }
 }

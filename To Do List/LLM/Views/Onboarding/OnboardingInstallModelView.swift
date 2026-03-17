@@ -48,8 +48,7 @@ struct LLMCatalogSection: Identifiable {
 struct LocalModelInstallCatalog {
     let entries: [LLMCatalogEntry]
 
-    static func make(installedModelNames: [String], availableMemory: Double) -> Self {
-        _ = availableMemory
+    static func make(installedModelNames: [String]) -> Self {
         let installedSet = Set(installedModelNames)
         let entries = ModelConfiguration.availableModels.map { model in
             LLMCatalogEntry(
@@ -86,8 +85,7 @@ struct OnboardingInstallModelView: View {
 
     private var catalog: LocalModelInstallCatalog {
         LocalModelInstallCatalog.make(
-            installedModelNames: appManager.installedModels,
-            availableMemory: appManager.availableMemory
+            installedModelNames: appManager.installedModels
         )
     }
 

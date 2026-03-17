@@ -14,8 +14,7 @@ struct ModelsSettingsView: View {
 
     private var catalog: LocalModelInstallCatalog {
         LocalModelInstallCatalog.make(
-            installedModelNames: appManager.installedModels,
-            availableMemory: appManager.availableMemory
+            installedModelNames: appManager.installedModels
         )
     }
 
