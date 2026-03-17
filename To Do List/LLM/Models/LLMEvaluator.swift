@@ -373,6 +373,7 @@ class LLMEvaluator {
         if output.hasPrefix("Failed: ") {
             return output
         }
+        // Return raw output for downstream assessment; display sanitization happens later in ChatView.
         return lastRawOutput.isEmpty ? output : lastRawOutput
     }
 

@@ -1129,16 +1129,24 @@ struct ChatView: View {
             fields: [
                 "model_name": modelName,
                 "run_id": runID.uuidString,
+                "has_visible_thinking": assessment.hasVisibleThinking ? "true" : "false",
+                "has_answer": assessment.hasAnswer ? "true" : "false",
+                "raw_cap_hit_stage": assessment.rawCapHitStage ?? "nil"
+            ]
+        )
+        logDebug(
+            event: "chat_\(stage)_sanitization_result_details",
+            message: "\(stage.capitalized) chat output sanitization diagnostics",
+            fields: [
+                "model_name": modelName,
+                "run_id": runID.uuidString,
                 "raw_length": String(rawOutput.count),
                 "sanitized_length": String(assessment.finalOutput.count),
                 "removed_reasoning_blocks": assessment.removedReasoningBlocks ? "true" : "false",
                 "removed_template_artifacts": assessment.removedTemplateArtifacts ? "true" : "false",
                 "thinking_length": String(assessment.thinkingLength),
                 "answer_length": String(assessment.answerLength),
-                "has_visible_thinking": assessment.hasVisibleThinking ? "true" : "false",
-                "has_answer": assessment.hasAnswer ? "true" : "false",
                 "extraction_mode": assessment.extractionMode,
-                "raw_cap_hit_stage": assessment.rawCapHitStage ?? "nil",
                 "quality_text_source": assessment.qualityAssessment.qualityTextSource,
                 "repetition_confidence": assessment.qualityAssessment.repetitionDiagnostics?.confidence ?? "none",
                 "repetition_detector": assessment.qualityAssessment.repetitionDiagnostics?.detector ?? "none",

@@ -199,11 +199,11 @@ There is no current dedicated plan-mode or daily-brief feature gate in `V2Featur
 
 ### Don't
 
-1. Do not add direct task-mutation logic to chat helpers or view models.
-2. Do not reintroduce hidden per-feature model routing tables that contradict `AIChatModeRouter`.
-3. Do not evaluate repetition on combined thinking + answer text.
-4. Do not regress retry back to a same-mode rerun.
-5. Do not ship new LLM behavior without updating `llm-assistant-stack-v2.md` and this handbook together.
+1. Avoid adding direct task-mutation logic to chat helpers or view models.
+2. Avoid reintroducing hidden per-feature model routing tables that contradict `AIChatModeRouter`.
+3. Avoid evaluating repetition on combined thinking + answer text.
+4. Avoid regressing retry back to a same-mode rerun.
+5. Avoid shipping new LLM behavior without updating `llm-assistant-stack-v2.md` and this handbook together.
 
 ## Cross-Links
 

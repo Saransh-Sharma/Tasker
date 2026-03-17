@@ -118,6 +118,7 @@ namespace TaskerMetalBezel {
 }
 
 [[ stitchable ]] half4 TaskerNoisyGradient(float2 pos, SwiftUI::Layer l, float4 bounds, float time) {
+    // Kept for SwiftUI layer-effect compatibility; intentionally unused.
     float2 size = bounds.zw;
     float2 uv = pos / size;
 

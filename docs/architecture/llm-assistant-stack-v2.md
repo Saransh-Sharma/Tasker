@@ -141,11 +141,11 @@ Important current rules:
 
 ### Unload policy
 
-- unload immediately on memory warning.
-- unload on thermal state `serious` or `critical`.
-- unload immediately on definitive chat dismissal/pop.
-- unload after app stays in background for `5m` unless foregrounded sooner.
-- unload after chat idle timeout when no active chat sessions remain.
+- On memory warning: unload immediately.
+- When thermal state is `serious` or `critical`: unload.
+- On definitive chat dismissal/pop: release immediately.
+- After `5m` in background without foregrounding: unload.
+- When chat idle timeout fires and no sessions remain: unload.
 
 ## Chat Rendering and Persistence
 

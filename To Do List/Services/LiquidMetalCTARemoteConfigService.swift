@@ -56,14 +56,8 @@ private extension LiquidMetalCTARemoteConfigService {
         let allowed = boolValue(for: Keys.enabled, remoteConfig: remoteConfig) ?? V2FeatureFlags.remoteDecorativeCTAEffectsAllowed
         V2FeatureFlags.remoteDecorativeCTAEffectsAllowed = allowed
 
-        logWarning(
-            event: "liquid_metal_cta_remote_config_applied",
-            message: "Applied liquid metal CTA remote config",
-            fields: [
-                "reason": reason,
-                "status": "\(status.rawValue)",
-                "allowed": allowed ? "true" : "false"
-            ]
+        logInfo(
+            "Applied liquid metal CTA remote config (reason: \(reason), status: \(status.rawValue), allowed: \(allowed ? "true" : "false"))"
         )
     }
 

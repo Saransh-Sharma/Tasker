@@ -35,9 +35,6 @@ public enum V2FeatureFlags {
         }
         set {
             userDecorativeCTAEffectsEnabled = newValue
-            if newValue {
-                remoteDecorativeCTAEffectsAllowed = true
-            }
         }
     }
 

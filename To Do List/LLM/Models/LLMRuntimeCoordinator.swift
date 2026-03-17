@@ -647,10 +647,12 @@ final class LLMRuntimeCoordinator {
         guard let modelSize = model.modelSize else {
             return false
         }
+        // Avoid prewarming when more than two independent sessions already hold runtime state.
         if activeSessionReasons.count > 2 {
             return false
         }
         let physicalMemoryGB = Decimal(Double(ProcessInfo.processInfo.physicalMemory) / 1_073_741_824)
+        // OptiQ models have lower memory overhead, so they can use a slightly larger share of RAM.
         let budgetMultiplier = model == .qwen_3_5_0_8b_optiq_4bit ? Decimal(string: "0.7")! : Decimal(string: "0.6")!
         let budget = physicalMemoryGB * budgetMultiplier
         return modelSize <= budget
