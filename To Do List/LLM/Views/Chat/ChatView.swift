@@ -3,6 +3,7 @@
 //
 
 import MarkdownUI
+import MLXLMCommon
 import SwiftData
 import SwiftUI
 import os
@@ -41,6 +42,18 @@ struct ChatView: View {
 
     private var chatBudgets: LLMChatBudgets {
         LLMChatBudgets.active
+    }
+
+    private var resolvedChatBudget: LLMResolvedChatBudget {
+        chatBudgets.resolved(for: activeModelConfiguration)
+    }
+
+    private var activeModelConfiguration: MLXLMCommon.ModelConfiguration {
+        guard let modelName = appManager.currentModelName,
+              let model = MLXLMCommon.ModelConfiguration.getModelByName(modelName) else {
+            return MLXLMCommon.ModelConfiguration.defaultModel
+        }
+        return model
     }
 
     private var contextFetchTimeoutMs: UInt64 {
@@ -164,6 +177,7 @@ struct ChatView: View {
         ChatLiveOutputState(
             threadID: generatingThreadID,
             text: llm.output,
+            sourceModelName: llm.loadedModelName ?? appManager.currentModelName,
             runtimePhase: llm.runtimePhase,
             isRunning: llm.running,
             isPreparingResponse: llm.isThinking
@@ -685,7 +699,10 @@ struct ChatView: View {
         let contextPayload = await buildContextPayloadForCurrentTurn(
             threadID: tID,
             timeoutMs: contextFetchTimeoutMs,
-            userPrompt: message
+            userPrompt: message,
+            contextCharBudgetOverride: LLMTokenBudgetEstimator.estimatedCharacterBudget(
+                for: resolvedChatBudget.maxContextTokens
+            )
         )
         guard !Task.isCancelled else {
             await MainActor.run {
@@ -715,13 +732,17 @@ struct ChatView: View {
                 ]
             )
         }
-        let slashCommandContext = slashCommandContextPrompt(for: thread)
-        let runtimeContextBlocks = [contextPayload.payload, slashCommandContext]
-            .compactMap { $0?.trimmingCharacters(in: .whitespacesAndNewlines) }
-            .filter { !$0.isEmpty }
+        let memoryBlock = LLMPersonalMemoryDefaultsStore.promptBlock(for: activeModelConfiguration)
+        let slashCommandContext = slashCommandContextPrompt(
+            for: thread,
+            tokenBudget: resolvedChatBudget.slashContextTokens
+        )
         let dynamicSystemPrompt = composeChatSystemPrompt(
             basePrompt: appManager.systemPrompt,
-            contextBlocks: runtimeContextBlocks
+            model: activeModelConfiguration,
+            personalMemory: memoryBlock,
+            slashContext: slashCommandContext,
+            taskContext: contextPayload.payload
         )
         logWarning(
             event: "chat_prompt_component_sizes",
@@ -729,9 +750,13 @@ struct ChatView: View {
             fields: [
                 "thread_id": tID.uuidString,
                 "stored_system_prompt_chars": String(appManager.systemPrompt.count),
+                "personal_memory_chars": String(memoryBlock?.count ?? 0),
                 "runtime_context_chars": String(contextPayload.payload.count),
                 "slash_context_chars": String(slashCommandContext?.count ?? 0),
-                "final_prompt_chars": String(dynamicSystemPrompt.count)
+                "final_prompt_chars": String(dynamicSystemPrompt.count),
+                "estimated_final_prompt_tokens": String(
+                    LLMTokenBudgetEstimator.estimatedTokenCount(for: dynamicSystemPrompt)
+                )
             ]
         )
 
@@ -758,6 +783,7 @@ struct ChatView: View {
             message: "Prepared selected model prior to chat generation",
             fields: [
                 "model_name": modelName,
+                "resolved_model_name": prepareResult.resolvedModelName,
                 "duration_ms": String(prepareMs),
                 "prewarm_eligible": prepareResult.prewarmEligible ? "true" : "false",
                 "prewarm_hit": prepareResult.prewarmHit ? "true" : "false",
@@ -770,7 +796,7 @@ struct ChatView: View {
                 sendMessage(
                     Message(
                         role: .assistant,
-                        content: "Model failed to prepare. Please switch models or retry.",
+                        content: prepareResult.failureMessage ?? "Model failed to prepare. Please switch models or retry.",
                         thread: thread
                     )
                 )
@@ -778,6 +804,13 @@ struct ChatView: View {
             }
             return
         }
+        let runtimeModelConfiguration = ModelConfiguration.getModelByName(prepareResult.resolvedModelName)
+            ?? activeModelConfiguration
+        let chatRequestOptions = LLMGenerationRequestOptions.interactiveChat(for: runtimeModelConfiguration)
+        let chatProfile = LLMGenerationProfile.chatProfile(
+            for: runtimeModelConfiguration,
+            requestOptions: chatRequestOptions
+        )
 
         guard !Task.isCancelled else {
             await MainActor.run {
@@ -787,9 +820,25 @@ struct ChatView: View {
         }
 
         let output = await llm.generate(
-            modelName: modelName,
+            modelName: prepareResult.resolvedModelName,
             thread: thread,
-            systemPrompt: dynamicSystemPrompt
+            systemPrompt: dynamicSystemPrompt,
+            profile: chatProfile,
+            requestOptions: chatRequestOptions
+        )
+        let primaryTerminationReason = await MainActor.run { llm.lastTerminationReason }
+        logWarning(
+            event: "chat_primary_generation_result",
+            message: "Primary chat generation completed",
+            fields: [
+                "model_name": prepareResult.resolvedModelName,
+                "run_id": runID.uuidString,
+                "raw_length": String(output.count),
+                "raw_is_empty": (output.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "true" : "false"),
+                "raw_preview_128": LoggingService.previewText(output, maxLength: 128).replacingOccurrences(of: "\n", with: "\\n"),
+                "raw_tail_preview_128": LoggingService.previewText(String(output.suffix(128)), maxLength: 128).replacingOccurrences(of: "\n", with: "\\n"),
+                "termination_reason": primaryTerminationReason ?? "unknown"
+            ]
         )
         guard !Task.isCancelled else {
             await MainActor.run {
@@ -798,27 +847,32 @@ struct ChatView: View {
             return
         }
 
-        let sanitizedOutput = LLMChatTextSanitizer.sanitize(
-            output,
-            stripReasoningBlocks: true,
-            stripTemplateArtifacts: true
-        ).text
-        var finalOutput = sanitizedOutput.trimmingCharacters(in: .whitespacesAndNewlines)
-        let primaryTerminationReason = await MainActor.run { llm.lastTerminationReason }
-        var qualityAssessment = LLMChatQualityGate.assess(
-            finalOutput,
+        let primaryOutputAssessment = assessChatOutput(
+            rawOutput: output,
+            modelName: prepareResult.resolvedModelName,
             userPrompt: message,
-            terminationReason: primaryTerminationReason
+            terminationReason: primaryTerminationReason,
+            runID: runID,
+            stage: "primary"
         )
+
+        var finalRawOutput = output
+        var finalOutput = primaryOutputAssessment.finalOutput
+        var salvageOutput = primaryOutputAssessment.salvageOutput
+        var qualityAssessment = primaryOutputAssessment.qualityAssessment
+        var templateMismatchDetected = primaryOutputAssessment.templateMismatch
+        let primaryUsableOutput = primaryOutputAssessment.finalOutput.isEmpty == false &&
+            primaryOutputAssessment.qualityAssessment.hardFailureReasons.isEmpty
 
         if qualityAssessment.shouldRetry {
             logWarning(
                 event: "chat_quality_retry_triggered",
-                message: "Retrying low-quality chat generation with compact fallback prompt",
+                message: "Retrying chat generation in answer-completion mode",
                 fields: [
-                    "model_name": modelName,
+                    "model_name": prepareResult.resolvedModelName,
                     "termination_reason": primaryTerminationReason ?? "unknown",
-                    "reasons": qualityAssessment.reasons.joined(separator: ",")
+                    "reasons": qualityAssessment.reasons.joined(separator: ","),
+                    "retry_mode": "answer_completion"
                 ]
             )
 
@@ -826,7 +880,9 @@ struct ChatView: View {
                 threadID: tID,
                 timeoutMs: contextFetchTimeoutMs,
                 userPrompt: message,
-                contextCharBudgetOverride: 450,
+                contextCharBudgetOverride: LLMTokenBudgetEstimator.estimatedCharacterBudget(
+                    for: max(160, resolvedChatBudget.maxContextTokens / 2)
+                ),
                 allowCacheReuse: false
             )
             guard !Task.isCancelled else {
@@ -838,15 +894,55 @@ struct ChatView: View {
 
             let retrySystemPrompt = composeChatSystemPrompt(
                 basePrompt: appManager.systemPrompt,
-                contextBlocks: [retryContextPayload.payload],
-                additionalInstruction: "Do not introduce yourself. Answer directly in 3 short bullets max."
+                model: runtimeModelConfiguration,
+                taskContext: retryContextPayload.payload,
+                additionalInstruction: "Return only the final answer. Do not repeat the previous analysis, thinking, or intro. Keep it short and directly useful."
             )
             let retryThread = Thread()
-            retryThread.messages = [Message(role: .user, content: message, thread: retryThread)]
+            let retrySeedContent = primaryOutputAssessment.finalOutput.isEmpty == false
+                ? primaryOutputAssessment.finalOutput
+                : output
+            retryThread.messages = [
+                Message(role: .user, content: message, thread: retryThread),
+                Message(
+                    role: .assistant,
+                    content: retrySeedContent,
+                    thread: retryThread,
+                    sourceModelName: prepareResult.resolvedModelName
+                ),
+                Message(
+                    role: .user,
+                    content: "Continue with only the final answer. Do not repeat the prior analysis, thinking, or bullets.",
+                    thread: retryThread
+                )
+            ]
+            let retryRequestOptions = LLMGenerationRequestOptions.answerCompletionRetry(
+                for: runtimeModelConfiguration
+            )
+            let retryProfile = LLMGenerationProfile.chatProfile(
+                for: runtimeModelConfiguration,
+                requestOptions: retryRequestOptions
+            )
             let retryOutput = await llm.generate(
-                modelName: modelName,
+                modelName: prepareResult.resolvedModelName,
                 thread: retryThread,
-                systemPrompt: retrySystemPrompt
+                systemPrompt: retrySystemPrompt,
+                profile: retryProfile,
+                requestOptions: retryRequestOptions
+            )
+            let retryTerminationReason = await MainActor.run { llm.lastTerminationReason }
+            logWarning(
+                event: "chat_retry_generation_result",
+                message: "Retry chat generation completed",
+                fields: [
+                    "model_name": prepareResult.resolvedModelName,
+                    "run_id": runID.uuidString,
+                    "raw_length": String(retryOutput.count),
+                    "raw_is_empty": (retryOutput.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "true" : "false"),
+                    "raw_preview_128": LoggingService.previewText(retryOutput, maxLength: 128).replacingOccurrences(of: "\n", with: "\\n"),
+                    "raw_tail_preview_128": LoggingService.previewText(String(retryOutput.suffix(128)), maxLength: 128).replacingOccurrences(of: "\n", with: "\\n"),
+                    "termination_reason": retryTerminationReason ?? "unknown"
+                ]
             )
             guard !Task.isCancelled else {
                 await MainActor.run {
@@ -855,20 +951,126 @@ struct ChatView: View {
                 return
             }
 
-            finalOutput = LLMChatTextSanitizer.sanitize(
-                retryOutput,
-                stripReasoningBlocks: true,
-                stripTemplateArtifacts: true
-            ).text.trimmingCharacters(in: .whitespacesAndNewlines)
-            let retryTerminationReason = await MainActor.run { llm.lastTerminationReason }
-            qualityAssessment = LLMChatQualityGate.assess(
-                finalOutput,
+            let retryOutputAssessment = assessChatOutput(
+                rawOutput: retryOutput,
+                modelName: prepareResult.resolvedModelName,
                 userPrompt: message,
-                terminationReason: retryTerminationReason
+                terminationReason: retryTerminationReason,
+                runID: runID,
+                stage: "retry"
             )
+
+            finalRawOutput = retryOutput
+            finalOutput = retryOutputAssessment.finalOutput
+            salvageOutput = retryOutputAssessment.salvageOutput
+            qualityAssessment = retryOutputAssessment.qualityAssessment
+            templateMismatchDetected = retryOutputAssessment.templateMismatch
+
+            if qualityAssessment.hardFailureReasons.isEmpty == false && primaryUsableOutput {
+                logWarning(
+                    event: "chat_retry_preserving_primary_output",
+                    message: "Retry produced a worse result; preserving usable primary chat output",
+                    fields: [
+                        "model_name": prepareResult.resolvedModelName,
+                        "run_id": runID.uuidString,
+                        "retry_reasons_csv": qualityAssessment.reasons.joined(separator: ","),
+                        "primary_length": String(primaryOutputAssessment.finalOutput.count),
+                        "retry_length": String(retryOutputAssessment.finalOutput.count)
+                    ]
+                )
+                finalRawOutput = output
+                finalOutput = primaryOutputAssessment.finalOutput
+                salvageOutput = primaryOutputAssessment.salvageOutput
+                qualityAssessment = primaryOutputAssessment.qualityAssessment
+                templateMismatchDetected = primaryOutputAssessment.templateMismatch
+            }
+        }
+
+        if templateMismatchDetected {
+            if V2FeatureFlags.llmChatTemplateDiagnosticsEnabled {
+                await MainActor.run {
+                    guard generationRunID == runID else { return }
+                    guard llm.cancelled == false else { return }
+                    sendMessage(
+                        Message(
+                            role: .assistant,
+                            content: """
+                            [template_mismatch]
+                            Model: \(prepareResult.resolvedModelName)
+                            Raw preview: \(LoggingService.previewText(finalRawOutput, maxLength: 128))
+                            """,
+                            thread: thread
+                        )
+                    )
+                }
+                return
+            }
+
+            if salvageOutput.isEmpty == false {
+                await MainActor.run {
+                    guard generationRunID == runID else { return }
+                    guard llm.cancelled == false else { return }
+                    sendMessage(
+                        Message(
+                            role: .assistant,
+                            content: salvageOutput,
+                            thread: thread,
+                            generatingTime: llm.thinkingTime,
+                            sourceModelName: prepareResult.resolvedModelName
+                        )
+                    )
+                }
+                return
+            }
         }
 
         guard qualityAssessment.isAcceptable, finalOutput.isEmpty == false else {
+            let allowedThinkingFailureReasons: Set<String> = [
+                "answer_missing_after_thinking",
+                "thinking_only_output"
+            ]
+            let thinkingOnlyFailure = qualityAssessment.reasons.isEmpty == false &&
+                qualityAssessment.reasons.allSatisfy { allowedThinkingFailureReasons.contains($0) }
+            if finalOutput.isEmpty == false && thinkingOnlyFailure {
+                logWarning(
+                    event: "chat_persisting_thinking_only_output",
+                    message: "Persisting visible thinking output because no final answer was extracted before chat fallback",
+                    fields: [
+                        "model_name": prepareResult.resolvedModelName,
+                        "run_id": runID.uuidString,
+                        "reasons_csv": qualityAssessment.reasons.joined(separator: ","),
+                        "final_length": String(finalOutput.count)
+                    ]
+                )
+                await MainActor.run {
+                    guard generationRunID == runID else { return }
+                    guard llm.cancelled == false else { return }
+                    sendMessage(
+                        Message(
+                            role: .assistant,
+                            content: finalOutput,
+                            thread: thread,
+                            generatingTime: llm.thinkingTime,
+                            sourceModelName: prepareResult.resolvedModelName
+                        )
+                    )
+                }
+                return
+            }
+            logWarning(
+                event: "chat_fallback_to_static_message",
+                message: "Chat quality gate failed after primary/retry, sending static fallback message",
+                fields: [
+                    "model_name": prepareResult.resolvedModelName,
+                    "run_id": runID.uuidString,
+                    "is_acceptable": qualityAssessment.isAcceptable ? "true" : "false",
+                    "should_retry": qualityAssessment.shouldRetry ? "true" : "false",
+                    "reasons_csv": qualityAssessment.reasons.joined(separator: ","),
+                    "hard_reasons_csv": qualityAssessment.hardFailureReasons.joined(separator: ","),
+                    "soft_warnings_csv": qualityAssessment.softWarningReasons.joined(separator: ","),
+                    "final_length": String(finalOutput.count)
+                ]
+            )
             await MainActor.run {
                 guard generationRunID == runID else { return }
                 guard llm.cancelled == false else { return }
@@ -886,8 +1088,142 @@ struct ChatView: View {
         await MainActor.run {
             guard generationRunID == runID else { return }
             guard llm.cancelled == false else { return }
-            sendMessage(Message(role: .assistant, content: finalOutput, thread: thread, generatingTime: llm.thinkingTime))
+            sendMessage(
+                Message(
+                    role: .assistant,
+                    content: finalOutput,
+                    thread: thread,
+                    generatingTime: llm.thinkingTime,
+                    sourceModelName: prepareResult.resolvedModelName
+                )
+            )
         }
+    }
+
+    private struct ChatOutputAssessment {
+        let finalOutput: String
+        let salvageOutput: String
+        let qualityAssessment: LLMChatQualityAssessment
+        let templateMismatch: Bool
+        let hasVisibleThinking: Bool
+        let hasAnswer: Bool
+    }
+
+    private func assessChatOutput(
+        rawOutput: String,
+        modelName: String,
+        userPrompt: String,
+        terminationReason: String?,
+        runID: UUID,
+        stage: String
+    ) -> ChatOutputAssessment {
+        let assessment = LLMChatOutputClassifier.assess(
+            rawOutput: rawOutput,
+            modelName: modelName,
+            userPrompt: userPrompt,
+            terminationReason: terminationReason
+        )
+        logWarning(
+            event: "chat_\(stage)_sanitization_result",
+            message: "\(stage.capitalized) chat output sanitization completed",
+            fields: [
+                "model_name": modelName,
+                "run_id": runID.uuidString,
+                "has_visible_thinking": assessment.hasVisibleThinking ? "true" : "false",
+                "has_answer": assessment.hasAnswer ? "true" : "false",
+                "raw_cap_hit_stage": assessment.rawCapHitStage ?? "nil"
+            ]
+        )
+        logDebug(
+            event: "chat_\(stage)_sanitization_result_details",
+            message: "\(stage.capitalized) chat output sanitization diagnostics",
+            fields: [
+                "model_name": modelName,
+                "run_id": runID.uuidString,
+                "raw_length": String(rawOutput.count),
+                "sanitized_length": String(assessment.finalOutput.count),
+                "removed_reasoning_blocks": assessment.removedReasoningBlocks ? "true" : "false",
+                "removed_template_artifacts": assessment.removedTemplateArtifacts ? "true" : "false",
+                "thinking_length": String(assessment.thinkingLength),
+                "answer_length": String(assessment.answerLength),
+                "extraction_mode": assessment.extractionMode,
+                "quality_text_source": assessment.qualityAssessment.qualityTextSource,
+                "repetition_confidence": assessment.qualityAssessment.repetitionDiagnostics?.confidence ?? "none",
+                "repetition_detector": assessment.qualityAssessment.repetitionDiagnostics?.detector ?? "none",
+                "repeated_line_count": assessment.qualityAssessment.repetitionDiagnostics.map { String($0.repeatedLineCount) } ?? "0",
+                "repeated_sentence_count": assessment.qualityAssessment.repetitionDiagnostics.map { String($0.repeatedSentenceCount) } ?? "0",
+                "tail_loop_detected": assessment.qualityAssessment.repetitionDiagnostics?.tailLoopDetected == true ? "true" : "false",
+                "repeated_tail_preview": assessment.qualityAssessment.repetitionDiagnostics?.repeatedTailPreview ?? "nil"
+            ]
+        )
+
+        if assessment.templateMismatch {
+            logWarning(
+                event: "chat_template_mismatch_detected",
+                message: "Recoverable chat output was removed by sanitization; classifying as template mismatch",
+                fields: [
+                    "model_name": modelName,
+                    "run_id": runID.uuidString,
+                    "stage": stage,
+                    "raw_length": String(rawOutput.count),
+                    "salvage_length": String(assessment.salvageOutput.count),
+                    "raw_preview_128": LoggingService.previewText(rawOutput, maxLength: 128)
+                        .replacingOccurrences(of: "\n", with: "\\n")
+                ]
+            )
+        }
+        if assessment.thinkingOnlyOutput {
+            logWarning(
+                event: "chat_thinking_only_output_detected",
+                message: "Raw output contained reasoning only and no visible answer",
+                fields: [
+                    "model_name": modelName,
+                    "run_id": runID.uuidString,
+                    "stage": stage,
+                    "raw_length": String(rawOutput.count),
+                    "raw_preview_128": LoggingService.previewText(rawOutput, maxLength: 128)
+                        .replacingOccurrences(of: "\n", with: "\\n")
+                ]
+            )
+        }
+
+        logWarning(
+            event: "chat_quality_assessment_\(stage)",
+            message: "\(stage.capitalized) chat output quality assessment completed",
+            fields: [
+                "model_name": modelName,
+                "run_id": runID.uuidString,
+                "is_acceptable": assessment.qualityAssessment.isAcceptable ? "true" : "false",
+                "should_retry": assessment.qualityAssessment.shouldRetry ? "true" : "false",
+                "reasons_csv": assessment.qualityAssessment.reasons.joined(separator: ","),
+                "hard_reasons_csv": assessment.qualityAssessment.hardFailureReasons.joined(separator: ","),
+                "soft_warnings_csv": assessment.qualityAssessment.softWarningReasons.joined(separator: ","),
+                "final_length": String(assessment.finalOutput.count),
+                "termination_reason": terminationReason ?? "unknown",
+                "thinking_length": String(assessment.thinkingLength),
+                "answer_length": String(assessment.answerLength),
+                "has_visible_thinking": assessment.hasVisibleThinking ? "true" : "false",
+                "has_answer": assessment.hasAnswer ? "true" : "false",
+                "extraction_mode": assessment.extractionMode,
+                "raw_cap_hit_stage": assessment.rawCapHitStage ?? "nil",
+                "quality_text_source": assessment.qualityAssessment.qualityTextSource,
+                "repetition_confidence": assessment.qualityAssessment.repetitionDiagnostics?.confidence ?? "none",
+                "repetition_detector": assessment.qualityAssessment.repetitionDiagnostics?.detector ?? "none",
+                "repeated_line_count": assessment.qualityAssessment.repetitionDiagnostics.map { String($0.repeatedLineCount) } ?? "0",
+                "repeated_sentence_count": assessment.qualityAssessment.repetitionDiagnostics.map { String($0.repeatedSentenceCount) } ?? "0",
+                "tail_loop_detected": assessment.qualityAssessment.repetitionDiagnostics?.tailLoopDetected == true ? "true" : "false",
+                "repeated_tail_preview": assessment.qualityAssessment.repetitionDiagnostics?.repeatedTailPreview ?? "nil"
+            ]
+        )
+
+        return ChatOutputAssessment(
+            finalOutput: assessment.finalOutput,
+            salvageOutput: assessment.salvageOutput,
+            qualityAssessment: assessment.qualityAssessment,
+            templateMismatch: assessment.templateMismatch,
+            hasVisibleThinking: assessment.hasVisibleThinking,
+            hasAnswer: assessment.hasAnswer
+        )
     }
 
     @MainActor
@@ -905,13 +1241,40 @@ struct ChatView: View {
     @MainActor
     private func sendMessage(_ message: Message) {
         if message.role == .assistant && AssistantCardCodec.isCard(message.content) == false {
-            let sanitized = LLMChatTextSanitizer.sanitize(
+            let preSanitizeLength = message.content.count
+            let sanitizedText = LLMChatTextSanitizer.sanitizeForDisplay(
                 message.content,
-                stripReasoningBlocks: true,
-                stripTemplateArtifacts: true
-            ).text
-            guard sanitized.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false else { return }
-            message.content = sanitized
+                modelName: message.sourceModelName ?? appManager.currentModelName
+            )
+            let sanitizedResult = LLMChatTextSanitizer.Result(
+                text: sanitizedText,
+                removedReasoningBlocks: false,
+                removedTemplateArtifacts: sanitizedText != message.content
+            )
+            let postSanitizeLength = sanitizedResult.text.count
+            logWarning(
+                event: "chat_sendMessage_display_sanitize",
+                message: "Sanitized assistant message for display persistence",
+                fields: [
+                    "role": "assistant",
+                    "pre_sanitize_length": String(preSanitizeLength),
+                    "post_sanitize_length": String(postSanitizeLength),
+                    "removed_reasoning_blocks": sanitizedResult.removedReasoningBlocks ? "true" : "false",
+                    "removed_template_artifacts": sanitizedResult.removedTemplateArtifacts ? "true" : "false"
+                ]
+            )
+            guard sanitizedResult.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false else {
+                logWarning(
+                    event: "chat_sendMessage_display_dropped",
+                    message: "Assistant message was dropped after display sanitization",
+                    fields: [
+                        "pre_sanitize_length": String(preSanitizeLength),
+                        "post_sanitize_length": String(postSanitizeLength)
+                    ]
+                )
+                return
+            }
+            message.content = sanitizedResult.text
         }
         appManager.playHaptic()
         modelContext.insert(message)
@@ -936,7 +1299,8 @@ struct ChatView: View {
                 compactTaskPayload: V2FeatureFlags.llmChatContextStrategy == .bounded
             ),
             query: prompt,
-            budgets: chatBudgets
+            budgets: chatBudgets,
+            model: activeModelConfiguration
         )
         return (result.payload, result.usedTimeoutFallback)
     }
@@ -953,10 +1317,12 @@ struct ChatView: View {
         let querySignature = userPrompt
             .trimmingCharacters(in: .whitespacesAndNewlines)
             .lowercased()
-        if allowCacheReuse && contextCharBudgetOverride == nil {
+        let budgetSignature = contextCharBudgetOverride.map(String.init) ?? "default"
+        let cacheSignature = "\(querySignature)|\(budgetSignature)"
+        if allowCacheReuse {
             if let cached = await ChatView.contextInjectionTracker.cachedContext(
                 for: threadID,
-                querySignature: querySignature,
+                querySignature: cacheSignature,
                 now: now,
                 throttleMs: contextInjectionPolicy.throttleMs
             ) {
@@ -972,12 +1338,13 @@ struct ChatView: View {
             ),
             query: userPrompt,
             budgets: chatBudgets,
+            model: activeModelConfiguration,
             contextCharBudgetOverride: contextCharBudgetOverride
         )
-        if allowCacheReuse && contextCharBudgetOverride == nil {
+        if allowCacheReuse {
             await ChatView.contextInjectionTracker.store(
                 threadID: threadID,
-                querySignature: querySignature,
+                querySignature: cacheSignature,
                 payload: built.payload,
                 usedTimeoutFallback: built.usedTimeoutFallback,
                 generatedAt: now
@@ -1000,21 +1367,23 @@ struct ChatView: View {
 
     private func composeChatSystemPrompt(
         basePrompt: String,
-        contextBlocks: [String],
+        model: MLXLMCommon.ModelConfiguration,
+        personalMemory: String? = nil,
+        slashContext: String? = nil,
+        taskContext: String? = nil,
         additionalInstruction: String? = nil
     ) -> String {
-        var sections = [basePrompt.trimmingCharacters(in: .whitespacesAndNewlines)]
-        if let additionalInstruction {
-            let trimmedInstruction = additionalInstruction.trimmingCharacters(in: .whitespacesAndNewlines)
-            if trimmedInstruction.isEmpty == false {
-                sections.append(trimmedInstruction)
-            }
-        }
-        sections.append(contentsOf: contextBlocks.map { $0.trimmingCharacters(in: .whitespacesAndNewlines) })
-        return sections.filter { !$0.isEmpty }.joined(separator: "\n\n")
+        return LLMSystemPromptComposer.compose(
+            basePrompt: basePrompt,
+            model: model,
+            additionalInstruction: additionalInstruction,
+            personalMemory: personalMemory,
+            slashContext: slashContext,
+            taskContext: taskContext
+        )
     }
 
-    private func slashCommandContextPrompt(for thread: Thread) -> String? {
+    private func slashCommandContextPrompt(for thread: Thread, tokenBudget: Int) -> String? {
         let recentCards = thread.sortedMessages
             .reversed()
             .compactMap { message -> SlashCommandExecutionResult? in
@@ -1044,7 +1413,9 @@ struct ChatView: View {
         }
 
         let block = lines.joined(separator: "\n")
-        return block.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : block
+        let trimmed = block.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard trimmed.isEmpty == false else { return nil }
+        return LLMTokenBudgetEstimator.trimPrefix(trimmed, toTokenBudget: tokenBudget)
     }
 
     #if os(macOS)

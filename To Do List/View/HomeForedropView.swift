@@ -1439,18 +1439,21 @@ struct HomeBackdropForedropRootView: View {
     }
 
     private var homeBackdropGradient: some View {
-        LinearGradient(
-            colors: [
-                Color.tasker.accentSecondaryMuted.opacity(colorScheme == .dark ? 0.24 : 0.28),
-                Color.tasker.accentWash.opacity(colorScheme == .dark ? 0.16 : 0.22),
-                Color.tasker.bgCanvas.opacity(0.01)
-            ],
-            startPoint: .top,
-            endPoint: .bottom
-        )
-        .overlay(alignment: .topTrailing) {
+        ZStack {
+            TaskerNoisyGradientBackdrop(opacity: 0.9)
+
+            LinearGradient(
+                colors: [
+                    Color.tasker.accentSecondaryMuted.opacity(colorScheme == .dark ? 0.16 : 0.24),
+                    Color.tasker.accentWash.opacity(colorScheme == .dark ? 0.11 : 0.18),
+                    Color.tasker.bgCanvas.opacity(0.01)
+                ],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+
             Circle()
-                .fill(Color.tasker.accentSecondaryWash.opacity(colorScheme == .dark ? 0.34 : 0.42))
+                .fill(Color.tasker.accentSecondaryWash.opacity(colorScheme == .dark ? 0.28 : 0.34))
                 .frame(width: 240, height: 240)
                 .blur(radius: 28)
                 .offset(x: 72, y: -48)

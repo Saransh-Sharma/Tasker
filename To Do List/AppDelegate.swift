@@ -102,6 +102,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
     private var notificationActionHandler: TaskerNotificationActionHandler?
     private var gamificationRemoteChangeCoordinator: GamificationRemoteChangeCoordinator?
     private var cloudKitEventObserver: NSObjectProtocol?
+    private var semanticTaskObservers: [NSObjectProtocol] = []
 
     private(set) static var persistentBootstrapFailureMessage: String?
     private(set) static var persistentSyncMode: PersistentSyncMode = .fullSync
@@ -214,6 +215,11 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
 
         configureFirebaseIfNeeded(shouldConfigureFirebase)
         logCloudKitPreflightTelemetry()
+#if DEBUG
+        Task { @MainActor in
+            LLMDebugSmokeRunner.scheduleIfEnabled()
+        }
+#endif
     }
 
     private func configureFirebaseIfNeeded(_ shouldConfigureFirebase: Bool) {
@@ -254,6 +260,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
             ]
         )
         GamificationRemoteKillSwitchService.shared.refreshIfAvailable(reason: "app_launch")
+        LiquidMetalCTARemoteConfigService.shared.refreshIfAvailable(reason: "app_launch")
     }
 
     /// Executes applicationDidEnterBackground.
@@ -268,6 +275,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
             }
         }
         reconcileNotifications(reason: "app_did_enter_background")
+        TaskSemanticRetrievalService.shared.persistIndex()
     }
 
     /// Executes applicationWillEnterForeground.
@@ -280,6 +288,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         reconcileNotifications(reason: "app_did_become_active")
         if FirebaseApp.app() != nil {
             GamificationRemoteKillSwitchService.shared.refreshIfAvailable(reason: "app_did_become_active")
+            LiquidMetalCTARemoteConfigService.shared.refreshIfAvailable(reason: "app_did_become_active")
         }
         TaskListWidgetSnapshotService.shared.scheduleRefresh(reason: "app_did_become_active")
     }
@@ -1766,7 +1775,78 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
             lifeAreaRepository: stateContainer.lifeAreaRepository,
             tagRepository: stateContainer.tagRepository
         )
+        configureSemanticRetrievalLifecycle(stateContainer: stateContainer)
         return true
+    }
+
+    private func configureSemanticRetrievalLifecycle(stateContainer: EnhancedDependencyContainer) {
+        TaskSemanticRetrievalService.shared.loadPersistedIndex()
+        Task { [weak self] in
+            await self?.rebuildSemanticIndexIfPossible(stateContainer: stateContainer)
+        }
+
+        semanticTaskObservers.forEach(NotificationCenter.default.removeObserver)
+        semanticTaskObservers.removeAll()
+
+        let center = NotificationCenter.default
+        let upsertNames: [Notification.Name] = [
+            NSNotification.Name("TaskCreated"),
+            NSNotification.Name("TaskUpdated"),
+            NSNotification.Name("TaskCompletionChanged")
+        ]
+        for name in upsertNames {
+            let observer = center.addObserver(forName: name, object: nil, queue: .main) { notification in
+                guard let task = notification.object as? TaskDefinition else { return }
+                Task { [weak self] in
+                    let tagLookup = await self?.semanticTagNameLookup(stateContainer: stateContainer) ?? [:]
+                    TaskSemanticRetrievalService.shared.index(tasks: [task], tagNameLookup: tagLookup)
+                }
+            }
+            semanticTaskObservers.append(observer)
+        }
+
+        let deleteObserver = center.addObserver(forName: NSNotification.Name("TaskDeleted"), object: nil, queue: .main) { [weak self] notification in
+            let deletedTaskIDs = self?.deletedSemanticTaskIDs(from: notification) ?? []
+            guard deletedTaskIDs.isEmpty == false else { return }
+            deletedTaskIDs.forEach { TaskSemanticRetrievalService.shared.remove(taskID: $0) }
+        }
+        semanticTaskObservers.append(deleteObserver)
+    }
+
+    private func rebuildSemanticIndexIfPossible(stateContainer: EnhancedDependencyContainer) async {
+        guard let repository = stateContainer.taskDefinitionRepository else { return }
+        let tasks = await withCheckedContinuation { continuation in
+            repository.fetchAll { result in
+                continuation.resume(returning: (try? result.get()) ?? [])
+            }
+        }
+
+        let tagLookup = await semanticTagNameLookup(stateContainer: stateContainer)
+
+        TaskSemanticRetrievalService.shared.rebuildIndex(tasks: tasks, tagNameLookup: tagLookup)
+    }
+
+    private func semanticTagNameLookup(stateContainer: EnhancedDependencyContainer) async -> [UUID: String] {
+        guard let tagRepository = stateContainer.tagRepository else { return [:] }
+        return await withCheckedContinuation { continuation in
+            tagRepository.fetchAll { result in
+                let tags = (try? result.get()) ?? []
+                continuation.resume(returning: Dictionary(uniqueKeysWithValues: tags.map { ($0.id, $0.name) }))
+            }
+        }
+    }
+
+    private func deletedSemanticTaskIDs(from notification: Notification) -> [UUID] {
+        if let rawIDs = notification.userInfo?["deletedTaskIDs"] as? [String] {
+            let uuids = rawIDs.compactMap(UUID.init(uuidString:))
+            if uuids.isEmpty == false {
+                return uuids
+            }
+        }
+        if let task = notification.object as? TaskDefinition {
+            return [task.id]
+        }
+        return []
     }
 
     /// Executes failClosedV3Runtime.

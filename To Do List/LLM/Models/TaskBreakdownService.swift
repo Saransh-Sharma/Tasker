@@ -1,4 +1,5 @@
 import Foundation
+import MLXLMCommon
 
 struct TaskBreakdownOutput {
     let steps: [String]
@@ -8,7 +9,7 @@ struct TaskBreakdownOutput {
 
 @MainActor
 final class TaskBreakdownService {
-    @MainActor static let shared = TaskBreakdownService(llm: LLMEvaluator())
+    @MainActor static let shared = TaskBreakdownService()
 
     private let llm: LLMEvaluator
 
@@ -17,8 +18,8 @@ final class TaskBreakdownService {
     }
 
     /// Initializes a new instance.
-    init(llm: LLMEvaluator) {
-        self.llm = llm
+    init(llm: LLMEvaluator? = nil) {
+        self.llm = llm ?? LLMRuntimeCoordinator.shared.evaluator
     }
 
     /// Executes generateSteps.
@@ -104,7 +105,8 @@ final class TaskBreakdownService {
             modelName: modelName,
             thread: thread,
             systemPrompt: breakdownSystemPrompt,
-            profile: .breakdown
+            profile: .breakdown,
+            requestOptions: .structuredOutput(for: ModelConfiguration.getModelByName(modelName) ?? .defaultModel)
         )
 
         let parsed = decodeSteps(from: output) ?? []

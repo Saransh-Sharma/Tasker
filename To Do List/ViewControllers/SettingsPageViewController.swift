@@ -70,6 +70,9 @@ class SettingsPageViewController: UIViewController, PresentationDependencyContai
         viewModel.onNavigateToLifeManagement = { [weak self] in
             self?.navigateToLifeManagement()
         }
+        viewModel.onNavigateToAISettings = { [weak self] in
+            self?.navigateToAISettings()
+        }
         viewModel.onNavigateToChats = { [weak self] in
             self?.navigateToLLMChatsSettings()
         }
@@ -131,8 +134,9 @@ class SettingsPageViewController: UIViewController, PresentationDependencyContai
         let view = ChatsSettingsView(currentThread: .constant(nil))
             .environmentObject(appManager)
             .environment(llmEvaluator)
+            .taskerLayoutClass(currentLayoutClass)
         let vc = UIHostingController(rootView: view)
-        vc.title = "Chats"
+        vc.title = "Chat Behavior"
         self.navigationController?.pushViewController(vc, animated: true)
     }
 
@@ -140,9 +144,20 @@ class SettingsPageViewController: UIViewController, PresentationDependencyContai
         let view = ModelsSettingsView()
             .environmentObject(appManager)
             .environment(llmEvaluator)
+            .taskerLayoutClass(currentLayoutClass)
         let vc = UIHostingController(rootView: view)
         vc.title = "Models"
         self.navigationController?.pushViewController(vc, animated: true)
+    }
+
+    private func navigateToAISettings() {
+        let view = LLMSettingsView(currentThread: .constant(nil))
+            .environmentObject(appManager)
+            .environment(llmEvaluator)
+            .taskerLayoutClass(currentLayoutClass)
+        let vc = UIHostingController(rootView: view)
+        vc.title = "AI Assistant"
+        navigationController?.pushViewController(vc, animated: true)
     }
 
     private func navigateToProjectManagement() {

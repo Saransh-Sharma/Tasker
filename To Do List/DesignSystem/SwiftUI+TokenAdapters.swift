@@ -548,7 +548,7 @@ public struct TaskerChip: View {
                 .foregroundColor(textColor)
                 .padding(.horizontal, TaskerSwiftUITokens.spacing.s12)
                 .padding(.vertical, TaskerSwiftUITokens.spacing.s8)
-                .frame(minWidth: 44, minHeight: 44)
+                .frame(minWidth: 44, minHeight: TaskerSettingsMetrics.chipMinHeight)
                 .background(background)
                 .overlay(border)
                 .clipShape(Capsule())
@@ -566,7 +566,7 @@ public struct TaskerChip: View {
         if !isSelected {
             Color.tasker.surfaceSecondary
         } else if selectedStyle == .filled {
-            Color.tasker(.chipSelectedBackground)
+            Color.tasker(.accentPrimary).opacity(0.94)
         } else {
             Color.tasker(.accentWash)
         }
@@ -574,7 +574,9 @@ public struct TaskerChip: View {
 
     @ViewBuilder
     private var border: some View {
-        if isSelected && selectedStyle == .tinted {
+        if isSelected && selectedStyle == .filled {
+            Capsule().stroke(Color.tasker(.accentRing).opacity(0.78), lineWidth: 1)
+        } else if isSelected && selectedStyle == .tinted {
             Capsule().stroke(Color.tasker(.actionFocus), lineWidth: 1)
         } else {
             Capsule().stroke(Color.clear, lineWidth: 0)

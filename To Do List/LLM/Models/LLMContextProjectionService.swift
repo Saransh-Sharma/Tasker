@@ -1,4 +1,47 @@
 import Foundation
+import MLXLMCommon
+
+private func uniqueDictionary<Key: Hashable, Value>(
+    _ pairs: [(Key, Value)],
+    source: String,
+    context: String,
+    sampleLimit: Int = 8
+) -> [Key: Value] {
+    var dictionary: [Key: Value] = [:]
+    var duplicateKeys: [Key] = []
+    var duplicateSet: Set<Key> = []
+    var duplicateCount = 0
+
+    for (key, value) in pairs {
+        if dictionary[key] == nil {
+            dictionary[key] = value
+            continue
+        }
+        duplicateCount += 1
+        if duplicateSet.insert(key).inserted {
+            duplicateKeys.append(key)
+        }
+    }
+
+    if duplicateCount > 0 {
+        let sampleKeys = duplicateKeys
+            .prefix(sampleLimit)
+            .map(String.init(describing:))
+            .joined(separator: ", ")
+        logWarning(
+            event: "llm_context_projection_duplicate_keys",
+            message: "Detected duplicate keys while building dictionary for \(context)",
+            fields: [
+                "source": source,
+                "duplicate_count": String(duplicateCount),
+                "total_count": String(pairs.count),
+                "sample_keys": LoggingService.previewText(sampleKeys)
+            ]
+        )
+    }
+
+    return dictionary
+}
 
 enum LLMContextRepositoryProvider {
     private static var taskReadModelRepositoryStorage: TaskReadModelRepositoryProtocol?
@@ -83,7 +126,11 @@ enum LLMContextRepositoryProvider {
                 continuation.resume(returning: resolved)
             }
         }
-        return Dictionary(uniqueKeysWithValues: projects.map { ($0.id, $0.name) })
+        return uniqueDictionary(
+            projects.map { ($0.id, $0.name) },
+            source: "projects",
+            context: "projectNameLookup"
+        )
     }
 
     private static func resolveProjectName(in projects: [Project], query: String) -> String? {
@@ -145,10 +192,20 @@ struct LLMContextProjectionService {
 
     func buildChatPlanningContext(query: String, maxChars: Int) async -> String {
         let normalizedQuery = Self.searchTerms(from: query)
-        let activeProjects = await fetchActiveProjects()
-        let activeLifeAreas = await fetchActiveLifeAreas()
-        let projectNameByID = Dictionary(uniqueKeysWithValues: activeProjects.map { ($0.id, $0.name) })
-        let lifeAreaNameByID = Dictionary(uniqueKeysWithValues: activeLifeAreas.map { ($0.id, $0.name) })
+        async let activeProjectsTask = fetchActiveProjects()
+        async let activeLifeAreasTask = fetchActiveLifeAreas()
+        let activeProjects = await activeProjectsTask
+        let activeLifeAreas = await activeLifeAreasTask
+        let projectNameByID = uniqueDictionary(
+            activeProjects.map { ($0.id, $0.name) },
+            source: "projects",
+            context: "buildChatPlanningContext"
+        )
+        let lifeAreaNameByID = uniqueDictionary(
+            activeLifeAreas.map { ($0.id, $0.name) },
+            source: "life_areas",
+            context: "buildChatPlanningContext"
+        )
 
         let buckets = await buildChatTaskBuckets(
             queryTerms: normalizedQuery,
@@ -421,8 +478,27 @@ struct LLMContextProjectionService {
         guard !Task.isCancelled else { return [] }
         return await withCheckedContinuation { continuation in
             projectRepository.fetchAllProjects { result in
-                let projects = ((try? result.get()) ?? []).filter { !$0.isArchived }
-                continuation.resume(returning: projects)
+                let activeProjects = ((try? result.get()) ?? []).filter { !$0.isArchived }
+                let inboxProjectCount = activeProjects.filter { $0.id == ProjectConstants.inboxProjectID }.count
+                if inboxProjectCount > 1 {
+                    logWarning(
+                        event: "llm_context_projection_active_projects",
+                        message: "Found duplicate active inbox project IDs while preparing chat context",
+                        fields: [
+                            "source": "projects",
+                            "total_count": String(activeProjects.count),
+                            "duplicate_count": String(max(0, inboxProjectCount - 1)),
+                            "inbox_duplicate_count": String(max(0, inboxProjectCount - 1)),
+                            "sample_keys": LoggingService.previewText(
+                                [ProjectConstants.inboxProjectID]
+                                    .map(String.init)
+                                    .joined(separator: ", "),
+                                maxLength: LoggingService.defaultLogPreviewLength
+                            )
+                        ]
+                    )
+                }
+                continuation.resume(returning: activeProjects)
             }
         }
     }
@@ -455,7 +531,7 @@ struct LLMContextProjectionService {
             to: startOfTomorrow
         ) ?? endOfTomorrow
 
-        let overdueTasks = await fetchTasks(
+        async let overdueFetch = fetchTasks(
             query: TaskReadQuery(
                 includeCompleted: false,
                 dueDateEnd: startOfToday,
@@ -463,12 +539,8 @@ struct LLMContextProjectionService {
                 limit: maxTasksPerSlice,
                 offset: 0
             )
-        ).filter {
-            guard let dueDate = $0.dueDate else { return false }
-            return dueDate < startOfToday
-        }
-
-        let todayTasks = await fetchTasks(
+        )
+        async let todayFetch = fetchTasks(
             query: TaskReadQuery(
                 includeCompleted: false,
                 dueDateStart: startOfToday,
@@ -478,8 +550,7 @@ struct LLMContextProjectionService {
                 offset: 0
             )
         )
-
-        let tomorrowTasks = await fetchTasks(
+        async let tomorrowFetch = fetchTasks(
             query: TaskReadQuery(
                 includeCompleted: false,
                 dueDateStart: startOfTomorrow,
@@ -489,8 +560,7 @@ struct LLMContextProjectionService {
                 offset: 0
             )
         )
-
-        let thisWeekTasks = await fetchTasks(
+        async let thisWeekFetch = fetchTasks(
             query: TaskReadQuery(
                 includeCompleted: false,
                 dueDateStart: startOfDayAfterTomorrow,
@@ -500,36 +570,49 @@ struct LLMContextProjectionService {
                 offset: 0
             )
         )
-
-        let unscheduledCandidates = await fetchTasks(
+        async let unscheduledFetch = fetchTasks(
             query: TaskReadQuery(
                 includeCompleted: false,
                 sortBy: .updatedAtDescending,
                 limit: maxTasksPerSlice,
                 offset: 0
             )
-        ).filter { $0.dueDate == nil }
+        )
+
+        let overdueTasks = await overdueFetch
+        let filteredOverdueTasks = overdueTasks.filter {
+            guard let dueDate = $0.dueDate else { return false }
+            return dueDate < startOfToday
+        }
+        let todayTasks = await todayFetch
+        let tomorrowTasks = await tomorrowFetch
+        let thisWeekTasks = await thisWeekFetch
+        let unscheduledCandidates = (await unscheduledFetch).filter { $0.dueDate == nil }
 
         let orderedOverdue = Self.rankTasks(
-            overdueTasks,
+            filteredOverdueTasks,
+            query: queryTerms.joined(separator: " "),
             queryTerms: queryTerms,
             projectNameByID: projectNameByID,
             lifeAreaNameByID: lifeAreaNameByID
         )
         let orderedToday = Self.rankTasks(
             todayTasks,
+            query: queryTerms.joined(separator: " "),
             queryTerms: queryTerms,
             projectNameByID: projectNameByID,
             lifeAreaNameByID: lifeAreaNameByID
         )
         let orderedTomorrow = Self.rankTasks(
             tomorrowTasks,
+            query: queryTerms.joined(separator: " "),
             queryTerms: queryTerms,
             projectNameByID: projectNameByID,
             lifeAreaNameByID: lifeAreaNameByID
         )
         let orderedThisWeek = Self.rankTasks(
             thisWeekTasks,
+            query: queryTerms.joined(separator: " "),
             queryTerms: queryTerms,
             projectNameByID: projectNameByID,
             lifeAreaNameByID: lifeAreaNameByID
@@ -537,6 +620,7 @@ struct LLMContextProjectionService {
 
         let rankedUnscheduled = Self.rankTasks(
             unscheduledCandidates,
+            query: queryTerms.joined(separator: " "),
             queryTerms: queryTerms,
             projectNameByID: projectNameByID,
             lifeAreaNameByID: lifeAreaNameByID
@@ -645,7 +729,11 @@ struct LLMContextProjectionService {
                     continuation.resume(returning: [:])
                     return
                 }
-                continuation.resume(returning: Dictionary(uniqueKeysWithValues: tags.map { ($0.id, $0.name) }))
+                continuation.resume(returning: uniqueDictionary(
+                    tags.map { ($0.id, $0.name) },
+                    source: "tags",
+                    context: "buildTagNameLookup"
+                ))
             }
         }
     }
@@ -954,11 +1042,12 @@ struct LLMContextProjectionService {
 
     private static func rankTasks(
         _ tasks: [TaskDefinition],
+        query: String,
         queryTerms: [String],
         projectNameByID: [UUID: String],
         lifeAreaNameByID: [UUID: String]
     ) -> [TaskDefinition] {
-        tasks.sorted { lhs, rhs in
+        let lexicallyRanked = tasks.sorted { lhs, rhs in
             let lhsScore = taskMatchScore(
                 lhs,
                 queryTerms: queryTerms,
@@ -982,6 +1071,18 @@ struct LLMContextProjectionService {
             }
             return lhs.title.localizedCaseInsensitiveCompare(rhs.title) == .orderedAscending
         }
+        guard queryTerms.isEmpty == false else { return lexicallyRanked }
+
+        let semanticIDs = TaskSemanticRetrievalService.shared.rerank(
+            taskIDs: lexicallyRanked.map(\.id),
+            query: query
+        )
+        let rankedLookup = uniqueDictionary(
+            lexicallyRanked.map { ($0.id, $0) },
+            source: "tasks",
+            context: "rankTasks"
+        )
+        return semanticIDs.compactMap { rankedLookup[$0] }
     }
 
     private static func taskMatchScore(
@@ -1112,6 +1213,7 @@ enum LLMChatPlanningContextBuilder {
         service: LLMContextProjectionService?,
         query: String,
         budgets: LLMChatBudgets = .active,
+        model: ModelConfiguration = .defaultModel,
         contextCharBudgetOverride: Int? = nil
     ) async -> LLMChatPlanningContextBuildResult {
         guard let service else {
@@ -1121,7 +1223,7 @@ enum LLMChatPlanningContextBuilder {
             )
         }
 
-        let contextCharBudget = contextCharBudgetOverride ?? budgets.maxContextChars
+        let contextCharBudget = contextCharBudgetOverride ?? budgets.resolved(for: model).maxContextChars
         let result = await LLMProjectionTimeout.execute(timeoutMs: timeoutMs) {
             await service.buildChatPlanningContext(query: query, maxChars: contextCharBudget)
         }

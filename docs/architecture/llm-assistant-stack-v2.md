@@ -1,25 +1,24 @@
 # LLM and Assistant Stack (V3 Runtime)
 
-**Last validated against code on 2026-03-16**
+**Last validated against code on 2026-03-17**
 
-This document defines boundaries between:
-- local LLM chat UX and context projection, and
+This document defines the current boundary between:
+- local MLX chat UX, context projection, and transcript persistence, and
 - transactional assistant command execution over core task data.
 
 Primary source anchors:
-- `To Do List/LLM/ChatHostViewController.swift`
-- `To Do List/LLM/Models/LLMContextProjectionService.swift`
-- `To Do List/LLM/Models/PromptMiddleware.swift`
 - `To Do List/LLM/Models/LLMInferenceEngine.swift`
+- `To Do List/LLM/Models/LLMGenerationProfile.swift`
 - `To Do List/LLM/Models/LLMEvaluator.swift`
 - `To Do List/LLM/Models/LLMRuntimeCoordinator.swift`
-- `To Do List/LLM/Models/LLMProjectionTimeout.swift`
+- `To Do List/LLM/Models/AIChatModeRouter.swift`
+- `To Do List/LLM/Models/Models.swift`
+- `To Do List/LLM/Models/LLMDebugSmokeRunner.swift`
 - `To Do List/LLM/Models/LLMDataController.swift`
+- `To Do List/LLM/Views/Chat/ChatView.swift`
 - `To Do List/LLM/Views/Chat/ChatTranscriptSnapshot.swift`
-- `To Do List/LLM/Views/Chat/ConversationView.swift`
 - `To Do List/UseCases/LLM/AssistantActionPipelineUseCase.swift`
 - `To Do List/UseCases/LLM/AssistantCommandExecutor.swift`
-- `To Do List/Domain/Models/AssistantAction.swift`
 - `To Do List/Services/V2FeatureFlags.swift`
 
 ## Boundary Model
@@ -33,7 +32,6 @@ flowchart TD
     EVAL --> ENGINE["LLMInferenceEngine actor"]
     UI --> STORE["LLMDataController (SwiftData thread/message store)"]
     STORE --> SNAP["ChatTranscriptSnapshot"]
-    SNAP --> CONV["ConversationView"]
 
     UI --> PIPE["AssistantActionPipelineUseCase"]
     PIPE --> EXEC["AssistantCommandExecutor actor"]
@@ -45,113 +43,186 @@ flowchart TD
 
 | Surface | Owns | Must not own |
 | --- | --- | --- |
-| `/To Do List/LLM/*` | chat UX, prompt assembly, local inference, chat persistence | direct transactional mutation of core task graph |
-| `/To Do List/UseCases/LLM/*` | propose/confirm/apply/reject/undo state machine and transactional command execution | UI rendering and local chat presentation state |
+| `/To Do List/LLM/*` | chat UX, prompt assembly, local inference, AI suggestion services, chat persistence, transcript rendering | direct transactional mutation of the core task graph |
+| `/To Do List/UseCases/LLM/*` | propose/confirm/apply/reject/undo state machine and serialized command execution | chat rendering, prompt assembly, local model lifecycle |
 
-## Context Projection Pipeline
+## Current Model Catalog and Routing
+
+### Supported local chat models
+
+| Model | Visible thinking | Thinking format | Chat tuning profile |
+| --- | --- | --- | --- |
+| `mlx-community/Qwen3-0.6B-4bit` | yes | tagged think blocks | `384` answer-only raw tokens, `768` thinking raw tokens |
+| `mlx-community/Qwen3.5-0.8B-OptiQ-4bit` | yes | tagged think blocks | `512` answer-only raw tokens, `1024` thinking raw tokens |
+| `NexVeridian/Qwen3.5-0.8B-4bit` | yes | tagged think blocks | `512` answer-only raw tokens, `1024` thinking raw tokens |
+| `Jackrong/MLX-Qwen3.5-0.8B-Claude-4.6-Opus-Reasoning-Distilled-4bit` | yes | plain-text preamble | `640` answer-only raw tokens, `1536` thinking raw tokens |
+
+`Models.swift` is the source of truth for:
+- `supportsVisibleThinking`
+- `thinkingFormat`
+- `chatTuningProfile`
+- prompt-history and context token budgets
+
+### Routing reality
+
+`AIChatModeRouter` no longer picks different ideal models per feature. Current behavior is:
+1. prefer the actively selected installed model if it is supported and within device budget,
+2. otherwise fall back to the default model when possible,
+3. otherwise fall back to another supported installed model,
+4. otherwise prompt install/download.
+
+`idealModelName(for:)` currently resolves to `ModelConfiguration.defaultModel.name` for all features.
+
+## Context Projection and Prompt Assembly
+
+### Context projection pipeline
 
 | Component | Input | Output |
 | --- | --- | --- |
 | `LLMContextRepositoryProvider` | injected `taskReadModelRepository` + `projectRepository` | configured context service factory |
-| `LLMContextProjectionService` | read-model task slices + project/life-area metadata | compact planning summaries for freeform chat, plus structured context for slash-command surfaces |
-| `PromptMiddleware` | task range + optional project signal | prompt-ready summaries/bullets |
+| `LLMContextProjectionService` | read-model task slices + project/life-area metadata | compact planning summaries for chat and structured context payloads for other AI surfaces |
+| `PromptMiddleware` | task range + optional project signal | prompt-ready summaries and slash-command augmentation |
 | `LLMProjectionTimeout` | async projection operation + timeout budget | bounded-latency payload or `{}` fallback |
 
-### Freeform chat prompt assembly
+### Chat request construction
 
-Freeform chat uses a single shared prompt path for all local models. The runtime system prompt is assembled from:
-1. the persisted `appManager.systemPrompt`,
-2. a compact planning context block,
-3. slash-command augmentation when present.
+Freeform chat now uses the MLX structured input path:
+1. `ChatView` builds structured prompt history as `[Chat.Message]`.
+2. `LLMInferenceEngine` constructs `UserInput(chat:additionalContext:)`.
+3. `context.processor.prepare(input: userInput)` prepares the prompt.
+4. `MLXLMCommon.generate(...)` runs generation with model-specific parameters.
 
-Freeform chat does not append extra response/context contract blocks in the bounded path.
+The legacy dictionary-only `messages` path is not the canonical chat-generation contract anymore.
 
 ### Compact planning context shape
 
-The bounded freeform path is tuned for the weakest shipped chat model (`gemma-3-270m-it-4bit`). Chat context is flattened into a small plaintext block:
+The bounded chat path still uses a compact plaintext context block:
 - `Summary: X overdue, Y today, Z tomorrow, W this week`
-- `Focus:` up to 6 compact task lines
-- `Projects:` up to 4 relevant names
-- `Life areas:` up to 4 relevant names
-- `History:` retrospective count-only lines when the user asks about prior periods
+- `Focus:` compact task lines
+- `Projects:` relevant names
+- `Life areas:` relevant names
+- `History:` retrospective count-only lines when explicitly relevant
 
-Task lines use:
-- `[title] | [due label] | [project]`
+The bounded path intentionally omits IDs, JSON wrappers, timestamps, and exhaustive task dumps.
 
-The bounded freeform path intentionally omits IDs, JSON wrappers, tags, timestamps, and exhaustive lists.
+## Generation Request Modes
+
+`LLMGenerationRequestOptions` is the request-level contract that separates user-visible chat from machine-readable generation:
+
+| Mode | Used by | Thinking policy | Effective model type |
+| --- | --- | --- | --- |
+| `interactiveChat(for:)` | freeform chat, App Intent freeform chat | visible thinking enabled when the selected model supports it | model-native for visible-thinking chat, regular for answer-only chat |
+| `structuredOutput(for:)` | planner, breakdown, daily brief, other machine-readable flows | thinking disabled, `enable_thinking=false` for Qwen-family models | regular |
+| `answerCompletionRetry(for:)` | chat retry after a non-empty but unacceptable first pass | thinking disabled, answer-only continuation | regular |
+
+Important current rules:
+- Qwen-family structured-output flows pass `templateContext["enable_thinking"] = false`.
+- Interactive chat uses `chatMode = .thinkingThenAnswer` only for models marked `supportsVisibleThinking`.
+- Retry is not a second copy of the same chat mode. It is a shorter answer-only follow-up seeded with the first-pass assistant output.
 
 ## Chat Runtime Lifecycle
 
 | Component | Responsibility |
 | --- | --- |
-| `LLMRuntimeCoordinator` | owns chat-screen-only lifecycle, prewarm orchestration, session counting, and unload policy |
-| `ChatHostViewController.viewDidAppear` | entry trigger for chat-screen prewarm |
+| `LLMRuntimeCoordinator` | chat-screen-only lifecycle, session counting, prewarm orchestration, unload policy |
+| `ChatHostViewController.viewDidAppear` | entry trigger for chat prewarm |
 | `ChatHostViewController.viewWillDisappear` | definitive exit trigger for immediate unload |
-| `LLMEvaluator` | main-thread observable state for progress, output, runtime phase, and cancellation |
-| `LLMInferenceEngine` | actor that owns prepare/load/generate/cancel/unload for the MLX model |
-| `V2FeatureFlags.llmChatPrewarmMode` | mode switch for chat prewarm policy (`disabled`, `adaptiveOnDemand`, `eager`) |
-
-Model catalog and install surfaces are driven by `ModelConfiguration.availableModels`; optional chat models may point at any MLX-compatible Hugging Face repo ID, including non-`mlx-community` publishers such as `NexVeridian/Qwen3.5-0.8B-4bit`.
+| `LLMEvaluator` | main-thread observable state for progress, output, phase, and cancellation |
+| `LLMInferenceEngine` | actor that owns prepare/load/generate/cancel/unload for MLX models |
+| `V2FeatureFlags.llmChatPrewarmMode` | `disabled`, `adaptiveOnDemand`, or `eager` |
 
 ### Prewarm policy
+
 - At most one model is prewarmed at a time.
-- Chat entry prewarm starts when the chat host becomes visible, after one `Task.yield()` so navigation/presentation can settle first.
-- Entry prewarm targets the currently selected chat model, not a generic background candidate.
-- Entry prewarm only runs when the selected model passes the runtime gate: `modelSize <= 60% of physical RAM` and thermal state is below `serious`.
-- Prompt focus can still request prewarm, but only as a deduped fallback for chat entry misses.
-- Prewarm is skipped when the selected model is already warm or already active in the runtime coordinator.
+- Chat entry prewarm starts when the chat host becomes visible, after one `Task.yield()`.
+- Entry prewarm targets the currently selected model, not a per-feature ideal-model target.
+- Entry prewarm is gated by runtime support, device memory budget, and thermal state.
+- Prompt focus may request prewarm as a deduped fallback if chat entry missed.
 
 ### Unload policy
-- unload immediately on memory warning.
-- unload on thermal state `serious` or `critical`.
-- unload immediately on definitive chat-screen dismissal/pop.
-- unload after app has stayed in background for `5m` (cancelled if foregrounded sooner).
-- unload after chat idle timeout when no active chat sessions remain.
 
-### Chat-only lifecycle boundary
-- Scene activation no longer drives chat prewarm.
-- Chat model memory should only be retained while the user is in the LLM chat surface or while an active chat session reason remains held.
-- Temporary overlays inside chat do not count as chat exit and must not force unload.
+- On memory warning: unload immediately.
+- When thermal state is `serious` or `critical`: unload.
+- On definitive chat dismissal/pop: release immediately.
+- After `5m` in background without foregrounding: unload.
+- When chat idle timeout fires and no sessions remain: unload.
 
-## Chat Rendering Model
+## Chat Rendering and Persistence
 
 | Component | Responsibility |
 | --- | --- |
-| `ChatView` | owns chat mode, prompt, send flow, and explicit snapshot refresh triggers |
-| `ChatTranscriptSnapshot` | immutable transcript render payload derived from the current `Thread` |
-| `ChatMessageRenderModel` | precomputes card decode, sanitized text, think/answer split, and markdown hash |
-| `ConversationView` | renders snapshot data plus live output state, owns the single undo refresh timer |
-| `ChatLiveOutputState` | lightweight streaming state for the in-flight assistant bubble |
+| `ChatView` | send flow, retry decisions, live generation orchestration |
+| `ChatTranscriptSnapshot` | immutable transcript render payload |
+| `ChatMessageRenderModel` | card decode, display sanitization, thinking/answer split, markdown identity |
+| `ConversationView` | renders snapshot + live stream state, applies phase haptics |
+| `ChatLiveOutputState` | in-flight visible stream payload |
 
-### Render invalidation rules
-- Prompt edits and slash-command state should not rebuild the transcript tree.
-- Transcript snapshots are refreshed explicitly on thread switch, message insert/delete, and generation completion.
-- `ConversationView` no longer sorts or fingerprints the full live `Thread` on every render.
-- Undo countdown refresh is shared at the conversation level instead of one timer per message.
-- Haptics fire on runtime phase transitions (`thinking`, `answering`), not on every streamed token update.
+### Transcript rules
 
-### Context query behavior
-- `buildTodayJSON`: day-bounded read-model query, includes completed tasks.
-- `buildUpcomingJSON`: future open tasks query.
-- `buildProjectJSON`: project-scoped query + project-name metadata.
-- `buildChatPlanningContext`: compact bounded summary for freeform chat, including optional retrospective counts.
-- `findProjectNameSync`: short semaphore-bounded lookup (`3s` timeout).
+- assistant messages now persist `sourceModelName`.
+- transcript sanitization and thinking extraction use `sourceModelName` when available instead of assuming the currently selected model.
+- visible-thinking models render separate thinking and answer segments when extraction succeeds.
+- assistant turns are sanitized before prompt-history reuse.
 
-### Prompt history normalization
-- bounded freeform chat clips thread history aggressively (`6` messages, bounded char budget).
-- bounded freeform chat does not synthesize recap/system recap messages.
-- assistant turns are sanitized before re-entry into prompt history.
-- low-utility assistant turns that look like template bleed, self-introduction, or repetition loops are dropped from prompt history.
+## Chat Quality Pipeline
 
-## Assistant Transaction Pipeline
+### Extraction and sanitization
 
-| Stage | Behavior | Key guards |
-| --- | --- | --- |
-| `propose` | validates schema bounds and persists pending run | schema range checks |
-| `confirm` | transitions run to confirmed | valid run existence |
-| `applyConfirmedRun` | allowlist validation, serialized execution, undo-plan generation, persistence of trace/status | `assistantApplyEnabled`, status/allowlist/schema checks |
-| `reject` | marks run rejected | valid run existence |
-| `undoAppliedRun` | executes stored compensating commands within undo window | `assistantUndoEnabled`, applied status, undo payload, window bound |
+`LLMChatOutputClassifier` performs the current final-output assessment:
+1. sanitize template/control artifacts,
+2. preserve or strip reasoning depending on model support,
+3. extract visible thinking using `LLMVisibleThinkingExtractor`,
+4. evaluate answer quality on answer text when present, otherwise on sanitized non-thinking output.
+
+Current extraction modes:
+- tagged think blocks for standard Qwen visible-thinking models
+- plain-text preamble parsing for the Jackrong distilled model
+- no thinking split for answer-only models
+
+### Quality gate
+
+`LLMChatQualityGate` now separates:
+- `hardFailureReasons`
+- `softWarningReasons`
+- `repetitionDiagnostics`
+- `qualityTextSource`
+
+Current hard failures include:
+- `empty_output`
+- `template_mismatch`
+- `repetition_loop`
+- `answer_missing_after_thinking`
+- `thinking_only_output`
+
+Current soft warnings include:
+- `low_confidence_structured_repetition`
+- `generic_intro` when the answer is still materially useful
+- `answer_floor_low_utility`
+
+Repetition detection is structural rather than token/ngram-dominant. It looks for repeated normalized lines, repeated substantive sentences, and tight trailing loops. Slightly repetitive planning structure is intentionally tolerated.
+
+### Retry and fallback behavior
+
+Chat retry is now answer-completion retry, not same-mode regeneration:
+- retry thread includes the original user message,
+- first-pass assistant output is seeded back in,
+- retry user instruction asks for only the final answer without repeating prior analysis,
+- retry uses `answerCompletionRetry(for:)` and answer-only tuning.
+
+Fallback policy:
+- preserve usable primary output if retry is worse,
+- persist visible thinking when no answer was extracted but the result is still useful,
+- only emit the static fallback when both attempts fail to produce usable content or when output is empty/template-broken.
+
+## Non-Chat AI Surfaces
+
+The non-chat AI services use structured-output generation:
+- `AssistantPlannerService`
+- `TaskBreakdownService`
+- `DailyBriefService`
+- related machine-readable flows through `LLMEvaluator`
+
+These surfaces should use `.structuredOutput(for:)`, not `interactiveChat(for:)`, because they rely on parseable output and explicitly disable visible thinking.
 
 ## Timeouts and Budgets
 
@@ -162,54 +233,37 @@ Model catalog and install surfaces are driven by `ModelConfiguration.availableMo
 | per-run timeout | 90 seconds | `AssistantActionPipelineUseCase` |
 | sync project-name lookup timeout | 3 seconds | `LLMContextProjectionService` |
 | bounded chat projection timeout | 450 ms | `ChatView` + `LLMProjectionTimeout` |
-| bounded chat prompt-history budget | 6 messages / 2400 chars | `ModelConfiguration.getPromptHistory` + `LLMChatBudgets.bounded` |
-| bounded chat context budget | 900 chars | `LLMChatBudgets.bounded` |
-| bounded retry context budget | 450 chars | `ChatView` retry path |
-| freeform chat generation cap | 256 raw tokens regular / 512 reasoning | `LLMGenerationProfile.chat` |
-| streamed output publish cadence | 100 ms or 32 tokens | `LLMChatBudgets` |
+| bounded chat prompt-history budget | model token budget with `historyMessageLimit = 8` in the current catalog | `ModelConfiguration` |
+| bounded chat context budget | task-context token cap from the selected model | `LLMChatPlanningContextBuilder` |
+| bounded retry context budget | half of the active model task-context budget, floored at `160` tokens | `ChatView` retry path |
+| streamed output publish cadence | `100 ms` minimum interval; output stride is model/profile driven | `LLMChatBudgets` + `ChatTuningProfile` |
 
-## Chat Generation and Recovery
+Per-model caps and sampling now come from `chatTuningProfile`, not a single global `256 / 512` profile.
 
-### Decoding policy
-- bounded freeform chat uses lower-temperature decoding (`temperature 0.2`, `topP 0.9`).
-- repetition suppression is enabled (`repetitionPenalty 1.1`, `repetitionContextSize 64`).
-- MLX `GenerateParameters.maxTokens` is sourced from the chat generation profile, not just a post-hoc limiter.
+## Feature Flags
 
-### Output sanitation
-- `<think>...</think>` reasoning blocks are hidden from visible output.
-- template/control-token artifacts such as `<end_of_turn>` and related markers are stripped before display and persistence.
-- the same sanitizer is used for:
-  - streamed visible output,
-  - final saved assistant output,
-  - prompt-history normalization.
-
-### Quality gate and retry
-- freeform chat evaluates final visible output for:
-  - generic self-introduction,
-  - repetition loops,
-  - low-utility `raw_cap` completions.
-- when the first pass fails that gate, chat retries once with:
-  - current user message only,
-  - no prior assistant history,
-  - compact retry context,
-  - terse instruction to answer directly.
-- if the retry also fails, chat stores a short fallback message instead of persisting garbage output.
-
-### Model stop tokens
-- shipped Llama models use `<|eot_id|>`.
-- shipped Qwen/DeepSeek-style models use `<｜end▁of▁sentence｜>` and `<|im_end|>`.
-- shipped Gemma models use `<end_of_turn>`.
-
-## Concurrency Model
-
-| Area | Model |
+| Flag | Current role |
 | --- | --- |
-| Local model lifecycle | serialized by `LLMInferenceEngine` actor |
-| UI-facing runtime state | `LLMEvaluator` on `@MainActor` |
-| Assistant command execution | serialized through `AssistantCommandExecutor` actor queue |
-| Assistant API surface | callback API wrapping async transaction internals |
-| Context projection | callback + async wrapper composition, bounded by timeout helper |
-| Chat data store | SwiftData-backed local persistence for threads/messages |
+| `assistantApplyEnabled` | assistant apply path |
+| `assistantUndoEnabled` | assistant undo path |
+| `assistantCopilotEnabled` | add-task copilot suggestion surfaces |
+| `assistantSemanticRetrievalEnabled` | semantic indexing/context/rerank |
+| `assistantBreakdownEnabled` | task breakdown surface |
+| `assistantFastModeEnabled` | defined flag; no current router/runtime behavior depends on it |
+| `llmChatPrewarmMode` | chat prewarm policy |
+| `llmChatContextStrategy` | bounded vs full chat context payload strategy |
+| `llmChatThinkingPhaseHapticsEnabled` | phase haptics during visible thinking |
+| `llmChatAnswerPhaseHapticsEnabled` | phase haptics when answering begins |
+| `llmChatTemplateDiagnosticsEnabled` | debug-only template mismatch output path |
+| `llmRuntimeSmokeEnabled` | debug-only runtime smoke runner |
+
+## Debug Smoke Runner
+
+`LLMDebugSmokeRunner` is debug-only and gated by:
+- `V2FeatureFlags.llmRuntimeSmokeEnabled`
+- launch argument `-TASKER_LLM_RUN_SMOKE`
+
+It runs sequential model smoke checks through the same runtime path used by production chat, using `interactiveChat(for:)` and the same output classifier/quality pipeline.
 
 ## Failure Modes
 
@@ -218,43 +272,29 @@ Model catalog and install surfaces are driven by `ModelConfiguration.availableMo
 | unsupported schema version | envelope bounds validation | `422` failure |
 | apply disabled | feature-flag check | `403` failure |
 | undo disabled | feature-flag check | `403` failure |
-| invalid run status transition | status checks (`confirmed`/`applied`) | `409` conflict-style failure |
+| invalid run status transition | status checks (`confirmed` / `applied`) | `409` conflict-style failure |
 | undo window expired | `appliedAt` age check | `410` failure |
 | invalid proposal payload | decode or allowlist validation failure | `422` failure |
 | transaction execution failure | command pipeline catch path | run persisted as failed, rollback status captured |
-| chat context projection timeout | timeout helper in first-turn context assembly | generation continues with compact fallback payload |
-| low-quality freeform output | quality gate on visible text | one retry, then explicit fallback reply |
+| chat context projection timeout | timeout helper in turn context assembly | generation continues with compact fallback payload |
+| answer missing after visible thinking | classifier sees thinking with no answer segment | answer-completion retry |
 | template/control-token bleed | sanitizer detects control markers | stripped before display/persistence/history reuse |
-
-## Feature Flag Dependencies
-
-| Flow | Flags |
-| --- | --- |
-| assistant pipeline does not depend on reminders flags directly | n/a |
-| assistant apply | `assistantApplyEnabled` |
-| assistant undo | `assistantUndoEnabled` |
-| chat prewarm | `llmChatPrewarmMode` |
-
-## Integration Contract: Chat Context vs Assistant Actions
-
-1. Context projection is read-only and uses read-model/project repositories.
-2. Assistant apply/undo is transactional and mutates `TaskDefinition` entities.
-3. Chat history (SwiftData) and assistant action runs (core persistence) are separate state systems and must remain decoupled.
+| high-confidence repetition loop | structural repetition detector | retry once, preserve primary output if retry is worse |
 
 ## Observability
 
-Bounded freeform chat logs:
-- prompt component sizes (`stored_system_prompt_chars`, `runtime_context_chars`, `slash_context_chars`, `final_prompt_chars`)
-- prompt-history sizing (`system_prompt_chars`, `prompt_history_chars`, `final_prompt_chars`)
+Current chat observability includes:
+- prompt component sizes and prompt-history sizing
+- prewarm lifecycle and readiness
 - first-token and first-response latency
-- prewarm lifecycle and readiness (`chat_prewarm_completed`, `chat_prewarm_cancelled`, `chat_model_prepare_ms`)
-- completion termination reason (`eos`, `raw_cap`, `user_cancel`, `timeout`, etc.)
-- whether template artifacts were stripped from the visible output
-- unload behavior (`chat_model_unloaded`, session acquire/release, idle unload scheduling)
+- generation parameters (`chat_mode`, `max_raw_tokens`, `thinking_format`, sampling)
+- generation completion (`generated_tokens`, `termination_reason`, `raw_cap_hit_stage`)
+- sanitization and extraction results (`thinking_length`, `answer_length`, `quality_text_source`)
+- repetition diagnostics (`repetition_confidence`, `repetition_detector`, repeated line/sentence counts, tail preview)
+- retry/fallback behavior (`retry_mode=answer_completion`, primary-preserved-on-retry-worse)
 
 ## Cross-Links
 
+- `docs/architecture/llm-feature-integration-handbook.md`
 - `docs/architecture/usecases-v2.md`
-- `docs/architecture/clean-architecture-v2.md`
-- `docs/architecture/state-repositories-and-services-v2.md`
-- `docs/architecture/risk-register-v2.md`
+- `docs/architecture/domain-events-and-observability-v2.md`

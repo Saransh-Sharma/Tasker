@@ -6,6 +6,7 @@
 import SwiftUI
 import SwiftData
 import MLXLMCommon
+import Security
 
 enum LLMPersistedModelSelection {
     struct State: Equatable {
@@ -15,9 +16,17 @@ enum LLMPersistedModelSelection {
 
     static let installedModelsKey = "installedModels"
     static let currentModelKey = "currentModelName"
-    static let retiredModelNames: Set<String> = [
-        "NexVeridian/Qwen3.5-0.8B-4bit",
-        "mlx-community/gemma-3-270m-it-4bit"
+    static let unsupportedLegacyModelNames: Set<String> = [
+        "mlx-community/gemma-3-270m-it-4bit",
+        "mlx-community/Llama-3.2-1B-Instruct-4bit",
+        "mlx-community/Llama-3.2-3B-Instruct-4bit",
+        "mlx-community/DeepSeek-R1-Distill-Qwen-1.5B-4bit",
+        "mlx-community/DeepSeek-R1-Distill-Qwen-1.5B-8bit",
+        "mlx-community/Qwen3-4B-4bit",
+        "mlx-community/Qwen3-8B-4bit",
+        "mlx-community/Qwen3.5-0.8B-MLX-4bit",
+        "mlx-community/Qwen3.5-0.8B-4bit",
+        "mlx-community/Qwen3.5-0.8B-6bit"
     ]
 
     @discardableResult
@@ -27,6 +36,7 @@ enum LLMPersistedModelSelection {
         applicationSupportDirectory: URL? = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
     ) -> State {
         let rawInstalledModels = loadInstalledModels(defaults: defaults)
+        let supportedModels = Set(ModelConfiguration.availableModels.map(\.name))
         let state = normalizedState(
             installedModels: rawInstalledModels,
             currentModelName: defaults.string(forKey: currentModelKey)
@@ -39,8 +49,14 @@ enum LLMPersistedModelSelection {
             defaults.removeObject(forKey: currentModelKey)
         }
 
-        let retiredInstalledModels = Array(Set(rawInstalledModels.filter { retiredModelNames.contains($0) }))
-        for modelName in retiredInstalledModels {
+        let unsupportedInstalledModels = Array(
+            Set(
+                rawInstalledModels.filter { modelName in
+                    unsupportedLegacyModelNames.contains(modelName) || supportedModels.contains(modelName) == false
+                }
+            )
+        )
+        for modelName in unsupportedInstalledModels {
             removeCachedModelFiles(
                 for: modelName,
                 fileManager: fileManager,
@@ -56,15 +72,17 @@ enum LLMPersistedModelSelection {
         var seen = Set<String>()
         let normalizedInstalledModels = installedModels.filter { modelName in
             guard seen.insert(modelName).inserted else { return false }
-            guard retiredModelNames.contains(modelName) == false else { return false }
+            guard unsupportedLegacyModelNames.contains(modelName) == false else { return false }
             return supportedModels.contains(modelName)
         }
 
         let normalizedCurrentModelName: String?
-        if let currentModelName, normalizedInstalledModels.contains(currentModelName) {
+        if let currentModelName,
+           normalizedInstalledModels.contains(currentModelName),
+           LLMRuntimeSupportMatrix.compatibility(for: currentModelName)?.canActivate == true {
             normalizedCurrentModelName = currentModelName
         } else {
-            normalizedCurrentModelName = normalizedInstalledModels.first
+            normalizedCurrentModelName = AppManager.preferredActiveModelName(from: normalizedInstalledModels)
         }
 
         return State(
@@ -239,10 +257,79 @@ class AppManager: ObservableObject {
             installedModels.append(model)
         }
     }
-    
+
+    func setActiveModel(_ modelName: String?) {
+        guard let normalizedModelName = normalizedInstalledModelName(for: modelName) else {
+            currentModelName = nil
+            return
+        }
+        guard LLMRuntimeSupportMatrix.compatibility(for: normalizedModelName)?.canActivate == true else {
+            currentModelName = Self.preferredActiveModelName(from: installedModels)
+            return
+        }
+        currentModelName = normalizedModelName
+    }
+
+    static func preferredActiveModelName(from installedModelNames: [String]) -> String? {
+        let installedSet = Set(installedModelNames)
+        let preferredOrder = ModelConfiguration.availableModels.map(\.name)
+        for candidate in preferredOrder
+        where installedSet.contains(candidate)
+            && LLMRuntimeSupportMatrix.compatibility(for: candidate)?.canActivate == true {
+            return candidate
+        }
+        return nil
+    }
+
+    func preferredFallbackModelName(excluding removedModelName: String? = nil) -> String? {
+        Self.preferredActiveModelName(from: installedModels.filter { $0 != removedModelName })
+    }
+
+    private func normalizedInstalledModelName(for modelName: String?) -> String? {
+        guard let trimmedModelName = modelName?.trimmingCharacters(in: .whitespacesAndNewlines),
+              trimmedModelName.isEmpty == false else {
+            return nil
+        }
+        if installedModels.contains(trimmedModelName) {
+            return trimmedModelName
+        }
+        return installedModels.first { installedModelName in
+            installedModelName.caseInsensitiveCompare(trimmedModelName) == .orderedSame
+        }
+    }
+
     /// Executes modelDisplayName.
     func modelDisplayName(_ modelName: String) -> String {
+        if let model = ModelConfiguration.getModelByName(modelName) {
+            return model.displayName.lowercased()
+        }
         return modelName.replacingOccurrences(of: "mlx-community/", with: "").lowercased()
+    }
+
+    func compactModelDisplayName(_ modelName: String) -> String {
+        guard let model = ModelConfiguration.getModelByName(modelName) else {
+            return modelName
+                .replacingOccurrences(of: "mlx-community/", with: "")
+                .replacingOccurrences(of: "nexveridian/", with: "")
+                .replacingOccurrences(of: "jackrong/", with: "")
+                .lowercased()
+        }
+
+        switch model {
+        case .qwen_3_0_6b_4bit:
+            return "qwen3 0.6B"
+        case .qwen_3_5_0_8b_optiq_4bit:
+            return "qwen3.5 0.8B"
+        case .qwen_3_5_0_8b_nexveridian_4bit:
+            return "qwen3.5 0.8B"
+        case .qwen_3_5_0_8b_claude_4_6_opus_reasoning_distilled_4bit:
+            return "qwen3.5 0.8B"
+        default:
+            return model.displayName
+                .replacingOccurrences(of: " 4bit", with: "")
+                .replacingOccurrences(of: " 4-bit", with: "")
+                .lowercased()
+        }
     }
     
     /// Executes getMoonPhaseIcon.
@@ -284,6 +371,236 @@ class AppManager: ObservableObject {
     }
 }
 
+struct LLMPersonalMemoryEntry: Codable, Equatable, Identifiable {
+    let id: UUID
+    var text: String
+
+    init(id: UUID = UUID(), text: String) {
+        self.id = id
+        self.text = text
+    }
+}
+
+enum LLMPersonalMemorySection: String, CaseIterable, Codable, Identifiable {
+    case preferences
+    case routines
+    case currentGoals
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .preferences:
+            return "preferences"
+        case .routines:
+            return "routines"
+        case .currentGoals:
+            return "current goals"
+        }
+    }
+}
+
+struct LLMPersonalMemoryStoreV1: Codable, Equatable {
+    static let maxEntriesPerSection = 4
+    static let maxEntryCharacters = 120
+
+    var preferences: [LLMPersonalMemoryEntry]
+    var routines: [LLMPersonalMemoryEntry]
+    var currentGoals: [LLMPersonalMemoryEntry]
+
+    init(
+        preferences: [LLMPersonalMemoryEntry] = [],
+        routines: [LLMPersonalMemoryEntry] = [],
+        currentGoals: [LLMPersonalMemoryEntry] = []
+    ) {
+        self.preferences = preferences
+        self.routines = routines
+        self.currentGoals = currentGoals
+    }
+
+    func entries(for section: LLMPersonalMemorySection) -> [LLMPersonalMemoryEntry] {
+        switch section {
+        case .preferences:
+            return preferences
+        case .routines:
+            return routines
+        case .currentGoals:
+            return currentGoals
+        }
+    }
+
+    mutating func setEntries(_ entries: [LLMPersonalMemoryEntry], for section: LLMPersonalMemorySection) {
+        let normalized = Self.normalized(entries)
+        switch section {
+        case .preferences:
+            preferences = normalized
+        case .routines:
+            routines = normalized
+        case .currentGoals:
+            currentGoals = normalized
+        }
+    }
+
+    var isEmpty: Bool {
+        LLMPersonalMemorySection.allCases.allSatisfy { entries(for: $0).isEmpty }
+    }
+
+    static func normalized(_ entries: [LLMPersonalMemoryEntry]) -> [LLMPersonalMemoryEntry] {
+        let cleaned = entries.compactMap { entry -> LLMPersonalMemoryEntry? in
+            let normalizedText = String(
+                entry.text
+                    .trimmingCharacters(in: .whitespacesAndNewlines)
+                    .prefix(maxEntryCharacters)
+            )
+            guard normalizedText.isEmpty == false else { return nil }
+            return LLMPersonalMemoryEntry(id: entry.id, text: normalizedText)
+        }
+        return Array(cleaned.prefix(maxEntriesPerSection))
+    }
+}
+
+struct LLMSecureBlobStore {
+    let service: String
+    let account: String
+
+    static let personalMemory = LLMSecureBlobStore(
+        service: (Bundle.main.bundleIdentifier ?? "Tasker") + ".secureStorage",
+        account: LLMPersonalMemoryDefaultsStore.key
+    )
+
+    private var baseQuery: [CFString: Any] {
+        [
+            kSecClass: kSecClassGenericPassword,
+            kSecAttrService: service,
+            kSecAttrAccount: account
+        ]
+    }
+
+    func loadData() -> Data? {
+        var query = baseQuery
+        query[kSecReturnData] = true
+        query[kSecMatchLimit] = kSecMatchLimitOne
+
+        var item: CFTypeRef?
+        let status = SecItemCopyMatching(query as CFDictionary, &item)
+        switch status {
+        case errSecSuccess:
+            return item as? Data
+        case errSecItemNotFound:
+            return nil
+        default:
+            logError("Failed to load secure blob \(account): \(status)")
+            return nil
+        }
+    }
+
+    @discardableResult
+    func saveData(_ data: Data) -> Bool {
+        let deleteStatus = SecItemDelete(baseQuery as CFDictionary)
+        if deleteStatus != errSecSuccess && deleteStatus != errSecItemNotFound {
+            logWarning("Failed to replace secure blob \(account): \(deleteStatus)")
+        }
+
+        var attributes = baseQuery
+        attributes[kSecValueData] = data
+        #if os(iOS) || os(tvOS) || os(visionOS) || os(watchOS)
+        attributes[kSecAttrAccessible] = kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly
+        #endif
+
+        let saveStatus = SecItemAdd(attributes as CFDictionary, nil)
+        guard saveStatus == errSecSuccess else {
+            logError("Failed to save secure blob \(account): \(saveStatus)")
+            return false
+        }
+        return true
+    }
+
+    func clear() {
+        let status = SecItemDelete(baseQuery as CFDictionary)
+        if status != errSecSuccess && status != errSecItemNotFound {
+            logWarning("Failed to clear secure blob \(account): \(status)")
+        }
+    }
+}
+
+enum LLMPersonalMemoryDefaultsStore {
+    static let key = "llm.personalMemory.v1"
+
+    static func load(
+        defaults: UserDefaults = .standard,
+        secureStore: LLMSecureBlobStore = .personalMemory
+    ) -> LLMPersonalMemoryStoreV1 {
+        if let secureData = secureStore.loadData() {
+            guard let decoded = try? JSONDecoder().decode(LLMPersonalMemoryStoreV1.self, from: secureData) else {
+                logWarning("Failed to decode secure personal memory store.")
+                return LLMPersonalMemoryStoreV1()
+            }
+            return decoded
+        }
+
+        guard let legacyData = defaults.data(forKey: key) else {
+            return LLMPersonalMemoryStoreV1()
+        }
+
+        guard let decoded = try? JSONDecoder().decode(LLMPersonalMemoryStoreV1.self, from: legacyData) else {
+            logWarning("Failed to decode legacy personal memory store.")
+            defaults.removeObject(forKey: key)
+            return LLMPersonalMemoryStoreV1()
+        }
+
+        if secureStore.saveData(legacyData) {
+            defaults.removeObject(forKey: key)
+        } else {
+            logWarning("Failed to migrate legacy personal memory store into secure storage.")
+        }
+        return decoded
+    }
+
+    static func save(
+        _ store: LLMPersonalMemoryStoreV1,
+        defaults: UserDefaults = .standard,
+        secureStore: LLMSecureBlobStore = .personalMemory
+    ) {
+        guard let data = try? JSONEncoder().encode(store) else { return }
+        guard secureStore.saveData(data) else { return }
+        defaults.removeObject(forKey: key)
+    }
+
+    static func clear(
+        defaults: UserDefaults = .standard,
+        secureStore: LLMSecureBlobStore = .personalMemory
+    ) {
+        secureStore.clear()
+        defaults.removeObject(forKey: key)
+    }
+
+    static func promptBlock(
+        for model: MLXLMCommon.ModelConfiguration,
+        defaults: UserDefaults = .standard,
+        secureStore: LLMSecureBlobStore = .personalMemory
+    ) -> String? {
+        let store = load(defaults: defaults, secureStore: secureStore)
+        guard store.isEmpty == false else { return nil }
+
+        var lines = ["Personal memory:"]
+        for section in LLMPersonalMemorySection.allCases {
+            let items = store.entries(for: section)
+                .map(\.text)
+                .filter { $0.isEmpty == false }
+            guard items.isEmpty == false else { continue }
+            lines.append("\(section.title):")
+            lines.append(contentsOf: items.map { "- \($0)" })
+        }
+
+        let block = lines.joined(separator: "\n").trimmingCharacters(in: .whitespacesAndNewlines)
+        guard block.isEmpty == false else { return nil }
+        return LLMTokenBudgetEstimator.trimPrefix(
+            block,
+            toTokenBudget: model.tokenBudget.personalMemoryTokens
+        )
+    }
+}
+
 enum Role: String, Codable {
     case assistant
     case user
@@ -297,18 +614,26 @@ class Message {
     var content: String
     var timestamp: Date
     var generatingTime: TimeInterval?
+    var sourceModelName: String?
     var sortTimestamp: Date { timestamp }
     
     /// Initializes a new instance.
     @Relationship(inverse: \Thread.messages) var thread: Thread?
     
-    init(role: Role, content: String, thread: Thread? = nil, generatingTime: TimeInterval? = nil) {
+    init(
+        role: Role,
+        content: String,
+        thread: Thread? = nil,
+        generatingTime: TimeInterval? = nil,
+        sourceModelName: String? = nil
+    ) {
         self.id = UUID()
         self.role = role
         self.content = content
         self.timestamp = Date()
         self.thread = thread
         self.generatingTime = generatingTime
+        self.sourceModelName = sourceModelName
     }
 }
 

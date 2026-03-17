@@ -1,4 +1,5 @@
 import Foundation
+import MLXLMCommon
 
 struct DailyBriefOutput {
     let brief: String
@@ -8,15 +9,15 @@ struct DailyBriefOutput {
 
 @MainActor
 final class DailyBriefService {
-    @MainActor static let shared = DailyBriefService(llm: LLMEvaluator())
+    @MainActor static let shared = DailyBriefService()
 
     private let defaults = UserDefaults.standard
     private let cachePrefix = "assistant.daily_brief."
     private let llm: LLMEvaluator
 
     /// Initializes a new instance.
-    init(llm: LLMEvaluator) {
-        self.llm = llm
+    init(llm: LLMEvaluator? = nil) {
+        self.llm = llm ?? LLMRuntimeCoordinator.shared.evaluator
     }
 
     /// Executes cachedBrief.
@@ -72,7 +73,8 @@ final class DailyBriefService {
             Schema:
             {"brief":"4 short bullets with one clear next action"}
             """,
-            profile: .dailyBrief
+            profile: .dailyBrief,
+            requestOptions: .structuredOutput(for: ModelConfiguration.getModelByName(modelName) ?? .defaultModel)
         )
         if let brief = decodeBrief(from: output) {
             return DailyBriefOutput(brief: brief, modelName: modelName, routeBanner: route.bannerMessage)

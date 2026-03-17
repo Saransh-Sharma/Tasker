@@ -11,6 +11,7 @@ struct ChatMessageRenderModel: Identifiable, Equatable {
     let answerText: String?
     let isThinkingOpenEnded: Bool
     let markdownSourceHash: Int
+    let sourceModelName: String?
 
     init(message: Message) {
         self.id = message.id
@@ -18,18 +19,22 @@ struct ChatMessageRenderModel: Identifiable, Equatable {
         self.originalContent = message.content
         self.generatingTime = message.generatingTime
         self.cardPayload = AssistantCardCodec.decode(from: message.content)
+        self.sourceModelName = message.sourceModelName
 
         let cardFingerprint = Self.cardFingerprint(from: self.cardPayload)
 
         let displayContent: String
         if message.role == .assistant {
-            displayContent = LLMChatTextSanitizer.sanitizeForDisplay(message.content)
+            displayContent = LLMChatTextSanitizer.sanitizeForDisplay(
+                message.content,
+                modelName: message.sourceModelName
+            )
         } else {
             displayContent = message.content
         }
         self.displayContent = displayContent
 
-        let thinkingSplit = Self.processThinkingContent(displayContent)
+        let thinkingSplit = Self.processThinkingContent(displayContent, modelName: message.sourceModelName)
         self.thinkingText = thinkingSplit.thinking
         self.answerText = thinkingSplit.answer
         self.isThinkingOpenEnded = thinkingSplit.isOpenEnded
@@ -38,6 +43,7 @@ struct ChatMessageRenderModel: Identifiable, Equatable {
         hasher.combine(message.role.rawValue)
         hasher.combine(displayContent)
         hasher.combine(cardFingerprint)
+        hasher.combine(self.sourceModelName ?? "")
         self.markdownSourceHash = hasher.finalize()
     }
 
@@ -46,16 +52,18 @@ struct ChatMessageRenderModel: Identifiable, Equatable {
         role: Role,
         originalContent: String,
         displayContent: String,
-        generatingTime: TimeInterval? = nil
+        generatingTime: TimeInterval? = nil,
+        sourceModelName: String? = nil
     ) {
         self.id = id
         self.role = role
         self.originalContent = originalContent
         self.displayContent = displayContent
         self.generatingTime = generatingTime
+        self.sourceModelName = sourceModelName
         self.cardPayload = AssistantCardCodec.decode(from: originalContent)
         let cardFingerprint = Self.cardFingerprint(from: self.cardPayload)
-        let thinkingSplit = Self.processThinkingContent(displayContent)
+        let thinkingSplit = Self.processThinkingContent(displayContent, modelName: sourceModelName)
         self.thinkingText = thinkingSplit.thinking
         self.answerText = thinkingSplit.answer
         self.isThinkingOpenEnded = thinkingSplit.isOpenEnded
@@ -64,6 +72,7 @@ struct ChatMessageRenderModel: Identifiable, Equatable {
         hasher.combine(role.rawValue)
         hasher.combine(displayContent)
         hasher.combine(cardFingerprint)
+        hasher.combine(sourceModelName ?? "")
         self.markdownSourceHash = hasher.finalize()
     }
 
@@ -72,24 +81,31 @@ struct ChatMessageRenderModel: Identifiable, Equatable {
         answer: String?,
         isOpenEnded: Bool
     ) {
-        guard let startRange = content.range(of: "<think>") else {
-            let answer = content.trimmingCharacters(in: .whitespacesAndNewlines)
-            return (nil, answer.isEmpty ? nil : answer, false)
-        }
-        guard let endRange = content.range(of: "</think>") else {
-            let thinking = String(content[startRange.upperBound...]).trimmingCharacters(in: .whitespacesAndNewlines)
-            return (thinking.isEmpty ? nil : thinking, nil, true)
-        }
+        processThinkingContent(content, modelName: nil)
+    }
 
-        let thinking = String(content[startRange.upperBound ..< endRange.lowerBound])
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-        let answer = String(content[endRange.upperBound...])
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-        return (
-            thinking.isEmpty ? nil : thinking,
-            answer.isEmpty ? nil : answer,
-            false
+    private static func processThinkingContent(
+        _ content: String,
+        modelName: String?
+    ) -> (
+        thinking: String?,
+        answer: String?,
+        isOpenEnded: Bool
+    ) {
+        let extraction = LLMVisibleThinkingExtractor.extract(
+            from: content,
+            modelName: modelName,
+            closeOpenThinkingBlock: false
         )
+        if extraction.hasVisibleThinking {
+            return (
+                extraction.thinkingText,
+                extraction.answerText,
+                extraction.isOpenEnded
+            )
+        }
+        let answer = content.trimmingCharacters(in: .whitespacesAndNewlines)
+        return (nil, answer.isEmpty ? nil : answer, false)
     }
 
     private static func cardFingerprint(from payload: AssistantCardPayload?) -> String? {
@@ -165,6 +181,7 @@ struct ChatTranscriptSnapshot: Equatable {
 struct ChatLiveOutputState: Equatable {
     let threadID: UUID?
     let text: String
+    let sourceModelName: String?
     let runtimePhase: LLMChatRuntimePhase
     let isRunning: Bool
     let isPreparingResponse: Bool
@@ -172,6 +189,7 @@ struct ChatLiveOutputState: Equatable {
     static let empty = ChatLiveOutputState(
         threadID: nil,
         text: "",
+        sourceModelName: nil,
         runtimePhase: .idle,
         isRunning: false,
         isPreparingResponse: false
@@ -185,7 +203,8 @@ struct ChatLiveOutputState: Equatable {
         ChatMessageRenderModel(
             role: .assistant,
             originalContent: text,
-            displayContent: text
+            displayContent: text,
+            sourceModelName: sourceModelName
         )
     }
 }

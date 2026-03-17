@@ -52,8 +52,8 @@ class ThemeAndAppearanceTests: BaseUITest {
         XCTAssertTrue(settingsPage.verifyIsDisplayed(), "Settings should be displayed")
 
         XCTAssertTrue(app.staticTexts["Life Management"].waitForExistence(timeout: 3), "Life Management row should exist")
-        XCTAssertTrue(app.staticTexts["Chats"].waitForExistence(timeout: 3), "Chats row should exist")
-        XCTAssertTrue(app.staticTexts["Models"].waitForExistence(timeout: 3), "Models row should exist")
+        XCTAssertTrue(app.staticTexts["AI Assistant"].waitForExistence(timeout: 3), "AI Assistant row should exist")
+        XCTAssertTrue(settingsPage.heroCard.waitForExistence(timeout: 3), "Settings hero should exist")
 
         takeScreenshot(named: "workspace_settings_rows")
     }
@@ -67,6 +67,7 @@ class ThemeAndAppearanceTests: BaseUITest {
         settingsPage = homePage.tapSettings()
         XCTAssertTrue(settingsPage.verifyIsDisplayed(), "Settings should appear")
         XCTAssertTrue(app.staticTexts["Life Management"].waitForExistence(timeout: 3), "Workspace rows should remain visible in settings")
+        XCTAssertTrue(app.staticTexts["AI Assistant"].waitForExistence(timeout: 3), "AI Assistant row should remain visible in settings")
         takeScreenshot(named: "brand_surface_settings")
 
         homePage = settingsPage.tapDone()
@@ -141,9 +142,8 @@ class ThemeAndAppearanceTests: BaseUITest {
         XCTAssertTrue(settingsPage.verifyIsDisplayed(), "Settings should be displayed")
 
         XCTAssertTrue(app.staticTexts["Life Management"].waitForExistence(timeout: 3), "Life Management setting should exist")
-        XCTAssertTrue(app.staticTexts["Chats"].waitForExistence(timeout: 3), "Chats setting should exist")
-        XCTAssertTrue(app.staticTexts["Models"].waitForExistence(timeout: 3), "Models setting should exist")
-        XCTAssertTrue(app.staticTexts["Guided Setup"].waitForExistence(timeout: 3), "Guided Setup card should exist")
+        XCTAssertTrue(app.staticTexts["AI Assistant"].waitForExistence(timeout: 3), "AI Assistant setting should exist")
+        XCTAssertTrue(app.buttons[AccessibilityIdentifiers.Settings.onboardingRestartButton].waitForExistence(timeout: 3), "Guided Setup row should exist")
 
         takeScreenshot(named: "theme_and_llm_settings_visibility")
     }
@@ -176,9 +176,9 @@ class ThemeAndAppearanceTests: BaseUITest {
         XCTAssertTrue(settingsPage.verifyIsDisplayed(), "Settings should be displayed")
         takeScreenshot(named: "theme_surface_settings")
 
-        if settingsPage.verifyLLMSettingsRowExists() {
-            settingsPage.navigateToLLMSettings()
-            let llmNav = app.navigationBars["settings"]
+        if settingsPage.verifyAIAssistantRowExists() {
+            settingsPage.navigateToAIAssistant()
+            let llmNav = app.navigationBars["AI Assistant"]
             XCTAssertTrue(llmNav.waitForExistence(timeout: 3) || app.navigationBars.firstMatch.exists, "LLM settings should be displayed")
             takeScreenshot(named: "theme_surface_llm")
             app.navigationBars.buttons.element(boundBy: 0).tap()

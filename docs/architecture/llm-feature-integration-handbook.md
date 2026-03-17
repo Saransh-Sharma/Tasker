@@ -1,176 +1,177 @@
 # LLM Feature Integration Handbook (Mixed Engineering + PM)
 
-**Last validated against code on 2026-03-16**
+**Last validated against code on 2026-03-17**
 
-This handbook explains what Tasker's AI features do for users, how they are implemented, and how to safely evolve them.
-Use this as the first stop for product/engineering alignment before editing AI runtime code.
+This handbook explains what Tasker's AI surfaces do for users, how the current MLX runtime behaves, and what must stay true when shipping AI changes.
 
 Primary source anchors:
-- `To Do List/LLM/ChatHostViewController.swift`
 - `To Do List/LLM/Views/Chat/ChatView.swift`
 - `To Do List/LLM/Views/Chat/ConversationView.swift`
 - `To Do List/LLM/Views/Chat/ChatTranscriptSnapshot.swift`
 - `To Do List/LLM/Models/LLMInferenceEngine.swift`
+- `To Do List/LLM/Models/LLMGenerationProfile.swift`
 - `To Do List/LLM/Models/LLMRuntimeCoordinator.swift`
+- `To Do List/LLM/Models/AIChatModeRouter.swift`
 - `To Do List/LLM/Models/AISuggestionService.swift`
 - `To Do List/LLM/Models/TaskBreakdownService.swift`
-- `To Do List/LLM/Models/OverdueTriageService.swift`
 - `To Do List/LLM/Models/DailyBriefService.swift`
-- `To Do List/LLM/Models/AIChatModeRouter.swift`
 - `To Do List/LLM/Models/TaskSemanticRetrievalService.swift`
 - `To Do List/UseCases/LLM/AssistantActionPipelineUseCase.swift`
-- `To Do List/AppDelegate.swift`
 - `To Do List/Services/V2FeatureFlags.swift`
 
-## What Users Get (Surface-by-Surface)
+## What Users Get
 
 | Surface | User value | Mutation risk | Reversibility |
 | --- | --- | --- | --- |
-| Chat Ask mode | quick natural-language support over local task context | none | n/a |
+| Chat Ask mode | natural-language planning help over local task context, with visible thinking on supported models | none | n/a |
 | Chat Plan mode | structured proposal cards with visible diffs before action | controlled | undo window via pipeline |
-| Add Task suggestions | faster capture from title-to-fields inference | none | user-controlled field apply |
-| Home top-3 | ranked shortlist with rationale and confidence | none | read-only suggestions |
-| Overdue triage | one-tap overdue recovery plan with customize/apply options | controlled | via proposal workflow |
-| Task breakdown | turn a large task into 3-6 suggested steps | controlled | user selects subset before creation |
-| Daily brief | morning digest + clear next action | none | read-only briefing |
-| Semantic retrieval | better relevance for ambiguous search/planning queries | none | lexical fallback always available |
+| Add Task suggestions | faster title-to-fields inference | none | user-controlled field apply |
+| Home top-3 and overdue triage | ranked shortlist and recovery plan suggestions | triage path controlled | via proposal workflow |
+| Task breakdown | large task split into suggested child steps | controlled | user selects subset before creation |
+| Daily brief | read-only brief and next-action summary | none | n/a |
+| Semantic retrieval | better relevance for ambiguous search/planning queries | none | lexical fallback remains available |
 
 ## Core Safety Model
 
-1. Ask mode is default and read-only.
-2. Assistant mutations always require explicit `propose -> confirm -> apply`.
-3. Undo is bounded to pipeline window (30 minutes).
-4. No chat-layer direct task mutation bypass path is allowed.
-5. AI surfaces are default-on but kill-switchable.
+1. Ask mode is read-only.
+2. Assistant mutations always go through `propose -> confirm -> apply`.
+3. Undo remains bounded to the pipeline window.
+4. Chat-layer helpers must never mutate `TaskDefinition` state directly.
+5. AI surfaces are kill-switchable even when default-on.
 
-## How It Works (Flow-Level)
+## How The Current Runtime Works
 
-### Ask vs Plan (chat)
+### Ask vs Plan
 
 ```mermaid
 flowchart TD
     U["User prompt"] --> M{"Mode"}
-    M -->|Ask| A["Build fresh context + generate response"]
+    M -->|Ask| A["Build fresh context + generate chat response"]
     M -->|Plan| P1["Generate strict envelope JSON"]
-    P1 --> P2["Parse + repair pass + validate"]
+    P1 --> P2["Parse + validate + repair pass"]
     P2 --> P3["Pipeline propose()"]
     P3 --> P4["Render proposal card + diff"]
     P4 --> P5["User confirm/apply"]
     P5 --> P6["Pipeline applyConfirmedRun()"]
-    P6 --> P7["Render undo card"]
 ```
 
-### Chat runtime performance path
+### Chat runtime path
 
 ```mermaid
 flowchart TD
-    E["Chat host visible"] --> P["LLMRuntimeCoordinator.enterChatScreen()"]
-    P --> W["Prime selected model if memory/thermal gate passes"]
-    W --> F["User focuses or types with warmup already in flight or complete"]
-    F --> S["Send message"]
-    S --> R["ensureReady() reuses in-flight prewarm when possible"]
-    R --> G["LLMEvaluator updates UI state"]
-    G --> I["LLMInferenceEngine streams generation off main actor"]
-    I --> T["ChatTranscriptSnapshot + ChatLiveOutputState drive render"]
-    T --> X["Immediate unload on definitive chat exit"]
+    E["Chat host visible"] --> P["LLMRuntimeCoordinator prewarm decision"]
+    P --> W["Prime selected model if runtime support gate passes"]
+    W --> S["User sends message"]
+    S --> C["Build context + structured [Chat.Message] history"]
+    C --> G["LLMInferenceEngine prepares UserInput(chat:additionalContext:)"]
+    G --> X["Generate with model-specific tuning"]
+    X --> Q["Extract visible thinking + answer, assess quality"]
+    Q --> R["Answer-completion retry only when needed"]
+    R --> T["Persist transcript with sourceModelName"]
 ```
 
-### Overdue triage customize/deep-link path
+### Structured-output services
 
-```mermaid
-sequenceDiagram
-    participant H as Home
-    participant VM as HomeViewModel
-    participant UD as UserDefaults
-    participant HC as HomeViewController
-    participant CH as ChatView
+Planner, breakdown, daily brief, and other machine-readable surfaces do not use visible-thinking chat mode. They run through `.structuredOutput(for:)`, which disables thinking for Qwen-family models and keeps output parseable.
 
-    H->>VM: Customize in Chat
-    VM->>UD: set pending prompt/assistant summary/mode=plan
-    VM->>HC: onOpenChat()
-    HC->>CH: present chat host
-    CH->>CH: applyPendingChatSeedIfNeeded()
-```
+## Model Selection and User Expectations
 
-### Semantic retrieval path
+### Routing behavior
 
-```mermaid
-flowchart TD
-    MUT["Task mutation event"] --> IDX["TaskSemanticRetrievalService index/remove"]
-    IDX --> STORE["TaskSemanticIndexStore"]
-    Q["Query"] --> EMB["TaskEmbeddingEngine"]
-    EMB --> RET["search/rerank"]
-    RET --> CHAT["Chat semantic context append"]
-    RET --> SEARCH["GetTasksUseCase rerank"]
-    EMB -->|Unavailable| LEX["Lexical fallback + telemetry"]
-```
+`AIChatModeRouter` now uses a single active-model policy:
+- prefer the selected installed model when it is supported and within device budget,
+- otherwise fall back to the default model,
+- otherwise fall back to another supported installed model,
+- otherwise prompt install/download.
 
-## Model Routing and Fallback Behavior
+There is no longer a meaningful per-feature ideal-model routing table.
 
-`AIChatModeRouter` enforces feature-based model preference with device-budget and install-awareness.
+### Current shipped chat models
 
-| Feature route | Preferred capacity profile |
-| --- | --- |
-| `.addTaskSuggestion`, `.dynamicChips`, `.dailyBrief` | lightweight |
-| `.planMode`, `.topThree`, `.breakdown` | higher-capacity |
+The current catalog includes:
+- `mlx-community/Qwen3-0.6B-4bit`
+- `mlx-community/Qwen3.5-0.8B-OptiQ-4bit`
+- `NexVeridian/Qwen3.5-0.8B-4bit`
+- `Jackrong/MLX-Qwen3.5-0.8B-Claude-4.6-Opus-Reasoning-Distilled-4bit`
 
-Fallback principles:
-1. Fallback is explicit with visible banner messaging.
-2. Download prompt appears when ideal model is absent and device budget allows.
-3. No silent upgrade/downgrade of model behavior.
+All four can be used in Ask mode. Visible thinking is enabled by default for models marked `supportsVisibleThinking`.
 
-## Integration Contracts (Engineering)
+## Chat Quality and Fallback Rules
+
+### First-pass behavior
+
+Supported chat models may show visible thinking before the final answer. The chat pipeline now:
+- extracts thinking and answer separately when possible,
+- evaluates quality on the answer segment when present,
+- tolerates soft structured repetition instead of treating it as a hard failure,
+- preserves useful first-pass output when retry is worse.
+
+### Retry behavior
+
+Retry is now answer-completion retry:
+- seeded with the first-pass assistant output,
+- asks for only the final answer,
+- disables visible thinking for the retry attempt,
+- runs once only.
+
+### Fallback behavior
+
+The static "I couldn't produce a reliable answer..." message is the last resort, not the default outcome for a noisy but usable answer. It should appear only when:
+- output is empty after sanitization,
+- output is template-broken,
+- or both the primary generation and answer-completion retry fail to produce usable content.
+
+## Integration Contracts
 
 ### Proposal card transport
+
 - `AssistantCardPayload` is encoded with sentinel prefix `__TASKER_CARD_V1__` in `Message.content`.
-- Required proposal fields: `run_id`, `thread_id`, `affected_task_count`, `destructive_count`, `diff_lines`.
-
-### Ownership checks
-- Card actions must fetch run and verify `run.threadID == currentThread.id` before reject/apply/undo.
-
-### Context contract
-- Context is rebuilt on every generation request.
-- Payload includes enriched task metadata (`energy`, `context`, `type`, tags, dependencies, `project_id`) and payload metadata (`timezone`, `generated_at_iso`, `context_version`).
-- First-turn model warmup is no longer expected on the send path when entry prewarm succeeds; first send should usually reuse a prepared model.
+- Card actions must validate thread ownership before reject/apply/undo.
 
 ### Chat rendering contract
+
 - `ConversationView` renders immutable `ChatTranscriptSnapshot` data instead of a live `Thread`.
-- `ChatMessageRenderModel` owns expensive per-message preprocessing: card decode, visible-text sanitization, think/answer split, and markdown identity.
-- One conversation-level timer drives undo countdown refresh when needed; per-message timer publishers are not allowed in chat transcript rendering.
-- Live output is throttled before UI publish to reduce typing/focus contention.
+- `ChatMessageRenderModel` owns per-message preprocessing: card decode, sanitization, thinking/answer split, and markdown identity.
+- `sourceModelName` is persisted on assistant messages so historical rendering uses the original generating model profile.
+- Live output is throttled before UI publish to reduce focus/contention issues.
 
-### Semantic contract
-- Input text combines task title/details/project/tag names.
-- Output supports top-K semantic hits and lexical fallback path.
-- Index persistence is local-only and non-CloudKit.
+### Semantic retrieval contract
 
-## Kill-Switch Matrix
+- input combines task title, details, project, and tags,
+- output supports top-K semantic hits and lexical fallback,
+- persistence is local-only and non-CloudKit.
 
-| Feature flag | Controls |
+## Current AI Flag Matrix
+
+| Flag | Current role |
 | --- | --- |
-| `assistantApplyEnabled` | pipeline apply path |
-| `assistantUndoEnabled` | pipeline undo path |
-| `assistantPlanModeEnabled` | chat plan mode entry and proposal actions |
-| `assistantCopilotEnabled` | add-task/home/task-detail AI surfaces |
+| `assistantApplyEnabled` | assistant apply path |
+| `assistantUndoEnabled` | assistant undo path |
+| `assistantCopilotEnabled` | add-task copilot suggestion surfaces |
 | `assistantSemanticRetrievalEnabled` | semantic indexing/context/rerank |
-| `assistantBriefEnabled` | daily brief generation + notification path |
-| `assistantBreakdownEnabled` | task-detail breakdown action visibility |
-| `llmChatPrewarmMode` | chat-screen prewarm behavior and disable switch |
+| `assistantBreakdownEnabled` | task-detail breakdown visibility |
+| `assistantFastModeEnabled` | defined flag; currently not materially changing router/runtime behavior |
+| `llmChatPrewarmMode` | chat prewarm behavior |
+| `llmChatContextStrategy` | bounded vs full chat-context strategy |
+| `llmChatThinkingPhaseHapticsEnabled` | visible-thinking haptics |
+| `llmChatAnswerPhaseHapticsEnabled` | answer-phase haptics |
+| `llmChatTemplateDiagnosticsEnabled` | debug-only template diagnostics |
+| `llmRuntimeSmokeEnabled` | debug-only runtime smoke runner |
 
-## Release Validation Checklist for AI Changes
+There is no current dedicated plan-mode or daily-brief feature gate in `V2FeatureFlags`.
 
-1. Build and guardrails pass:
-- `xcodebuild ... build`
-- `./scripts/validate_legacy_runtime_guardrails.sh`
-2. Chat plan/apply/undo smoke verified end-to-end.
-3. Ask mode verified non-mutating.
-4. Chat entry performance profiled for `open chat -> tap composer -> type 10 chars -> send first message -> leave chat`.
-5. Confirm first send does not include full model load when entry prewarm completed.
-6. Confirm model unload log fires promptly after definitive chat exit.
-7. Add Task suggestion latency and accept flow verified.
-8. Overdue triage apply path verified via pipeline.
-9. Daily brief notification open path seeds chat correctly.
-10. Semantic fallback telemetry verified when embeddings unavailable.
+## Release Validation Checklist For AI Changes
+
+1. `xcodebuild` build/test gates pass.
+2. Ask mode remains non-mutating.
+3. Chat plan/apply/undo still works end-to-end.
+4. First send reuses prewarm when prewarm completed successfully.
+5. Visible-thinking models render thinking and answer correctly in transcript/live chat.
+6. Structured-output surfaces still use `.structuredOutput(for:)`.
+7. Retry path is answer-completion retry, not same-mode rerun.
+8. `sourceModelName` persists on assistant turns and transcript rendering stays model-aware.
+9. Debug smoke runner still works behind `llmRuntimeSmokeEnabled` / `-TASKER_LLM_RUN_SMOKE`.
+10. Fallback only fires after unusable primary output plus unusable retry.
 
 ## Incident Triage Quick Paths
 
@@ -178,29 +179,31 @@ Fallback principles:
 | --- | --- |
 | Proposal cards not rendering | sentinel payload decode, missing `run_id`, thread ownership mismatch |
 | Apply keeps failing | `assistant_apply_failed`, rollback status, stale-context hints |
-| Undo unavailable unexpectedly | `expires_at`, undo-window age, `assistantUndoEnabled` flag |
-| Keyboard focus or first typing hangs in chat | chat entry prewarm timing, main-thread model work regression, transcript snapshot invalidation |
+| Undo unavailable unexpectedly | `expires_at`, undo-window age, `assistantUndoEnabled` |
 | First response too slow | `chat_model_prepare_ms`, `chat_first_token_latency_ms`, prewarm hit/miss, context-build timing |
+| Visible thinking renders but no answer appears | extraction mode, `quality_text_source`, `answer_length`, `answer_missing_after_thinking`, retry-mode logs |
+| Usable answer still falls back | `hard_reasons_csv`, `soft_warnings_csv`, repetition diagnostics, primary-preserved-on-retry-worse path |
 | Memory stays high after leaving chat | `chat_model_unloaded`, chat exit path, lingering active session reasons |
-| Suggestion quality drop | context payload event fields + model routing banner/fallback |
-| Brief notification opens but no chat seed | pending keys + open-chat notification path |
-| Search relevance regression | semantic flag state + `assistant_semantic_fallback_lexical` events |
+| Suggestion quality drop | active model, router fallback banner, context payload completeness |
+| Search relevance regression | `assistantSemanticRetrievalEnabled`, semantic fallback telemetry |
 
-## Do and Don't for Future AI Additions
+## Do and Don't For Future AI Changes
 
 ### Do
+
 1. Keep mutation flows inside `AssistantActionPipelineUseCase`.
-2. Add telemetry for every new AI surface and failure path.
-3. Add feature flags for new autonomous or user-triggered AI surfaces.
-4. Document schema/contract updates in `llm-assistant-stack-v2.md` and `usecases-v2.md`.
+2. Update both canonical LLM docs in the same PR as runtime changes.
+3. Add telemetry for every new AI failure path and fallback path.
+4. Keep structured-output flows on `.structuredOutput(for:)`.
 5. Preserve lexical fallback when semantic capabilities are unavailable.
 
 ### Don't
-1. Do not add direct task mutation logic in chat/view-model AI helpers.
-2. Do not introduce non-explicit apply behavior.
-3. Do not add card payload variants without sentinel decode compatibility strategy.
-4. Do not rely on one-time context injection in long-lived sessions.
-5. Do not ship new AI behavior without release-gate evidence updates.
+
+1. Avoid adding direct task-mutation logic to chat helpers or view models.
+2. Avoid reintroducing hidden per-feature model routing tables that contradict `AIChatModeRouter`.
+3. Avoid evaluating repetition on combined thinking + answer text.
+4. Avoid regressing retry back to a same-mode rerun.
+5. Avoid shipping new LLM behavior without updating `llm-assistant-stack-v2.md` and this handbook together.
 
 ## Cross-Links
 
@@ -209,4 +212,3 @@ Fallback principles:
 - `docs/architecture/risk-register-v2.md`
 - `docs/architecture/domain-events-and-observability-v2.md`
 - `docs/release-gate-v2-efgh.md`
-- `docs/architecture/v3-runtime-cutover-todo.md`

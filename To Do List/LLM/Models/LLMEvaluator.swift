@@ -10,6 +10,7 @@ import SwiftUI
 
 enum LLMEvaluatorError: Error {
     case modelNotFound(String)
+    case unsupportedRuntime(String, String)
 }
 
 enum LLMChatRuntimePhase: String {
@@ -57,6 +58,7 @@ class LLMEvaluator {
     var isThinking: Bool = false
     var lastGenerationTimedOut: Bool = false
     var lastTerminationReason: String?
+    var lastRawOutput: String = ""
     var lastGeneratedTokenCount: Int = 0
     var lastVisibleCharacterCount: Int = 0
     var lastSanitizedTemplateArtifacts: Bool = false
@@ -94,6 +96,10 @@ class LLMEvaluator {
     func prepare(modelName: String) async throws -> PrepareResult {
         guard let model = ModelConfiguration.getModelByName(modelName) else {
             throw LLMEvaluatorError.modelNotFound(modelName)
+        }
+        let compatibility = LLMRuntimeSupportMatrix.compatibility(for: model)
+        guard compatibility.canActivate else {
+            throw LLMEvaluatorError.unsupportedRuntime(modelName, compatibility.prepareFailureMessage)
         }
 
         modelConfiguration = model
@@ -157,10 +163,12 @@ class LLMEvaluator {
         thread: Thread,
         systemPrompt: String,
         profile: LLMGenerationProfile = .chat,
+        requestOptions: LLMGenerationRequestOptions? = nil,
         onFirstToken: (@MainActor () -> Void)? = nil
     ) async -> String {
         lastGenerationTimedOut = false
         lastTerminationReason = nil
+        lastRawOutput = ""
         lastGeneratedTokenCount = 0
         lastVisibleCharacterCount = 0
         lastSanitizedTemplateArtifacts = false
@@ -172,6 +180,7 @@ class LLMEvaluator {
                 thread: thread,
                 systemPrompt: systemPrompt,
                 profile: profile,
+                requestOptions: requestOptions,
                 onFirstToken: onFirstToken
             )
         }
@@ -183,6 +192,7 @@ class LLMEvaluator {
                 thread: thread,
                 systemPrompt: systemPrompt,
                 profile: profile,
+                requestOptions: requestOptions,
                 onFirstToken: onFirstToken
             )
         }
@@ -200,6 +210,7 @@ class LLMEvaluator {
         thread: Thread,
         systemPrompt: String,
         profile: LLMGenerationProfile,
+        requestOptions: LLMGenerationRequestOptions?,
         onFirstToken: (@MainActor () -> Void)?
     ) async -> String {
         guard !running else { return "" }
@@ -221,6 +232,8 @@ class LLMEvaluator {
 
         let runCancellationToken = LLMGenerationCancellationToken()
         generationCancellationToken = runCancellationToken
+        var lastAnswerPhaseStartToken: Int?
+        var lastRawCapHitStage: String?
 
         defer {
             runCancellationToken.cancel()
@@ -236,16 +249,16 @@ class LLMEvaluator {
             modelConfiguration = model
 
             let promptBuildStartedAt = Date()
-            let promptHistory = model.getPromptHistory(thread: thread, systemPrompt: systemPrompt)
+            let chatMessages = model.getChatMessages(thread: thread, systemPrompt: systemPrompt)
             if Task.isCancelled || runCancellationToken.isCancelled {
                 throw CancellationError()
             }
             let promptBuildMs = Int(Date().timeIntervalSince(promptBuildStartedAt) * 1_000)
-            let promptChars = promptHistory.reduce(0) { partial, item in
-                partial + (item["content"]?.count ?? 0)
+            let promptChars = chatMessages.reduce(0) { partial, item in
+                partial + item.content.count
             }
-            let promptHistoryChars = promptHistory.dropFirst().reduce(0) { partial, item in
-                partial + (item["content"]?.count ?? 0)
+            let promptHistoryChars = chatMessages.dropFirst().reduce(0) { partial, item in
+                partial + item.content.count
             }
             logWarning(
                 event: "chat_prompt_build_ms",
@@ -253,14 +266,15 @@ class LLMEvaluator {
                 fields: [
                     "model_name": modelName,
                     "duration_ms": String(promptBuildMs),
-                    "message_count": String(promptHistory.count),
+                    "message_count": String(chatMessages.count),
                     "system_prompt_chars": String(systemPrompt.count),
                     "prompt_history_chars": String(promptHistoryChars),
                     "final_prompt_chars": String(promptChars)
                 ]
             )
 
-            let isReasoningModel = model.modelType == .reasoning
+            let resolvedRequestOptions = requestOptions ?? .structuredOutput(for: model)
+            let isReasoningModel = resolvedRequestOptions.isReasoningEnabled
             if isReasoningModel {
                 runtimePhase = .thinking
                 isThinking = true
@@ -271,8 +285,9 @@ class LLMEvaluator {
 
             let generationResult = try await inferenceEngine.generate(
                 modelName: modelName,
-                promptHistory: promptHistory,
+                chatMessages: chatMessages,
                 profile: profile,
+                requestOptions: resolvedRequestOptions,
                 onFirstToken: {
                     Task { @MainActor in
                         onFirstToken?()
@@ -284,6 +299,7 @@ class LLMEvaluator {
                             rawText: update.rawText,
                             visibleText: update.visibleText,
                             phaseTrigger: update.phaseTrigger,
+                            tokenCount: update.tokenCount,
                             isReasoningModel: isReasoningModel,
                             modelName: modelName
                         )
@@ -297,15 +313,18 @@ class LLMEvaluator {
 
             loadedModelName = modelName
             progress = 1.0
-            if generationResult.output != output {
-                output = generationResult.output
+            lastRawOutput = generationResult.rawOutput
+            if generationResult.visibleOutput != output {
+                output = generationResult.visibleOutput
             }
             stat = " Tokens/second: \(String(format: "%.3f", generationResult.tokensPerSecond))"
             thinkingTime = elapsedTime
             lastTerminationReason = generationResult.terminationReason
             lastGeneratedTokenCount = generationResult.generationTokenCount
-            lastVisibleCharacterCount = generationResult.output.count
+            lastVisibleCharacterCount = generationResult.visibleOutput.count
             lastSanitizedTemplateArtifacts = generationResult.removedTemplateArtifacts
+            lastAnswerPhaseStartToken = generationResult.answerPhaseStartTokenCount
+            lastRawCapHitStage = generationResult.rawCapHitStage
         } catch is CancellationError {
             let cancellationReason = cancelled ? "user_cancel" : "timeout"
             lastTerminationReason = cancellationReason
@@ -333,23 +352,46 @@ class LLMEvaluator {
             )
         }
 
-        return output
+        if output.hasPrefix("Failed: ") == false {
+            logWarning(
+                event: "chat_generation_success_returned_to_view",
+                message: "Generation succeeded and is returning output to chat view",
+                fields: [
+                    "model_name": modelName,
+                    "generation_model": modelName,
+                    "raw_output_length": String(lastRawOutput.count),
+                    "output_length": String(lastVisibleCharacterCount),
+                    "termination_reason": lastTerminationReason ?? "unknown",
+                    "visible_generation_time_ms": String(Int((thinkingTime ?? 0) * 1_000)),
+                    "token_count": String(lastGeneratedTokenCount),
+                    "answer_phase_start_token": lastAnswerPhaseStartToken.map(String.init) ?? "nil",
+                    "raw_cap_hit_stage": lastRawCapHitStage ?? "nil"
+                ]
+            )
+        }
+
+        if output.hasPrefix("Failed: ") {
+            return output
+        }
+        // Return raw output for downstream assessment; display sanitization happens later in ChatView.
+        return lastRawOutput.isEmpty ? output : lastRawOutput
     }
 
     private func handleStreamUpdate(
         rawText: String,
         visibleText: String,
         phaseTrigger: String?,
+        tokenCount: Int,
         isReasoningModel: Bool,
         modelName: String
     ) {
         output = visibleText
         if isReasoningModel, runtimePhase == .thinking, let phaseTrigger {
-            markAnswerPhaseStarted(modelName: modelName, trigger: phaseTrigger)
+            markAnswerPhaseStarted(modelName: modelName, trigger: phaseTrigger, tokenCount: tokenCount)
         }
     }
 
-    private func markAnswerPhaseStarted(modelName: String, trigger: String) {
+    private func markAnswerPhaseStarted(modelName: String, trigger: String, tokenCount: Int) {
         guard didEmitAnswerPhaseSignalForRun == false else { return }
         didEmitAnswerPhaseSignalForRun = true
         runtimePhase = .answering
@@ -361,7 +403,8 @@ class LLMEvaluator {
             fields: [
                 "model_name": modelName,
                 "trigger": trigger,
-                "signal_count": String(answerPhaseSignalCount)
+                "signal_count": String(answerPhaseSignalCount),
+                "token_count": String(tokenCount)
             ]
         )
     }
@@ -377,6 +420,7 @@ class LLMEvaluator {
         cancelled = false
         lastGenerationTimedOut = false
         lastTerminationReason = nil
+        lastRawOutput = ""
         lastGeneratedTokenCount = 0
         lastVisibleCharacterCount = 0
         lastSanitizedTemplateArtifacts = false

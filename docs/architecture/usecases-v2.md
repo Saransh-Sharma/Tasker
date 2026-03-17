@@ -153,13 +153,11 @@ This keeps deterministic domain mutations in usecases while allowing UI-facing l
 | reminder notification scheduling side effects | `remindersSyncEnabled` |
 | assistant apply | `assistantApplyEnabled` |
 | assistant undo | `assistantUndoEnabled` |
-| reminders background refresh scheduling | `remindersBackgroundRefreshEnabled` |
-| assistant plan mode surface | `assistantPlanModeEnabled` |
 | assistant copilot surfaces | `assistantCopilotEnabled` |
 | assistant semantic retrieval | `assistantSemanticRetrievalEnabled` |
-| assistant daily brief | `assistantBriefEnabled` |
 | assistant breakdown | `assistantBreakdownEnabled` |
-| assistant fast-first routing mode | `assistantFastModeEnabled` |
+| reminders background refresh scheduling | `remindersBackgroundRefreshEnabled` |
+| assistant fast-first routing mode | `assistantFastModeEnabled` currently exists as a flag, but no runtime routing contract depends on it |
 
 ## Critical Flow Sketches
 

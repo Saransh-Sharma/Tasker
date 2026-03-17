@@ -13,11 +13,13 @@ final class SettingsViewModel: ObservableObject {
     // MARK: - LLM
 
     @Published var currentModelDisplayName: String
+    @Published var decorativeButtonEffectsEnabled: Bool
 
     // MARK: - Navigation callbacks (set by SettingsPageViewController)
 
     var onNavigateToProjects: (() -> Void)?
     var onNavigateToLifeManagement: (() -> Void)?
+    var onNavigateToAISettings: (() -> Void)?
     var onNavigateToChats: (() -> Void)?
     var onNavigateToModels: (() -> Void)?
     var onRestartOnboarding: (() -> Void)?
@@ -80,6 +82,115 @@ final class SettingsViewModel: ObservableObject {
         Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? ""
     }
 
+    var enabledNotificationCount: Int {
+        [
+            preferences.taskRemindersEnabled,
+            preferences.dueSoonEnabled,
+            preferences.overdueNudgesEnabled,
+            preferences.morningAgendaEnabled,
+            preferences.nightlyRetrospectiveEnabled
+        ]
+        .filter { $0 }
+        .count
+    }
+
+    var notificationEnabledSummary: String {
+        "\(enabledNotificationCount) on"
+    }
+
+    var notificationStatusLabel: String {
+        switch permissionStatus {
+        case .authorized, .provisional, .ephemeral:
+            return notificationEnabledSummary
+        case .notDetermined:
+            return notificationEnabledSummary
+        case .denied:
+            return "Off"
+        }
+    }
+
+    var notificationStatusDetail: String {
+        "Control reminders, summaries, and quiet hours."
+    }
+
+    var notificationTone: TaskerSettingsTone {
+        switch permissionStatus {
+        case .authorized, .provisional, .ephemeral:
+            return .success
+        case .notDetermined:
+            return .warning
+        case .denied:
+            return .danger
+        }
+    }
+
+    var memoryItemCount: Int {
+        let memory = LLMPersonalMemoryDefaultsStore.load()
+        return LLMPersonalMemorySection.allCases.reduce(0) { partial, section in
+            partial + memory.entries(for: section).filter { $0.text.isEmpty == false }.count
+        }
+    }
+
+    var memorySummary: String {
+        memoryItemCount == 0 ? "Memory empty" : "\(memoryItemCount) saved"
+    }
+
+    var aiAssistantSummary: String {
+        currentModelDisplayName.isEmpty ? "No model" : currentModelDisplayName
+    }
+
+    var aiAssistantDetail: String {
+        "Manage chat behavior, models, memory, and privacy."
+    }
+
+    var setupStatusLabel: String {
+        decorativeButtonEffectsEnabled ? "Customized" : "Default"
+    }
+
+    var setupStatusDetail: String {
+        decorativeButtonEffectsEnabled
+            ? "Decorative button effects are enabled."
+            : "Using the default button appearance."
+    }
+
+    var onboardingSummary: String {
+        "Replay onboarding any time."
+    }
+
+    var dueSoonLeadTimeSummary: String {
+        let minutes = preferences.dueSoonLeadMinutes
+
+        switch minutes {
+        case 15:
+            return "15 min"
+        case 30:
+            return "30 min"
+        case 45:
+            return "45 min"
+        case 60:
+            return "1 hr"
+        case 90:
+            return "1.5 hr"
+        case 120:
+            return "2 hr"
+        default:
+            return "\(minutes) min"
+        }
+    }
+
+    var morningAgendaSummary: String {
+        formattedTime(hour: preferences.morningHour, minute: preferences.morningMinute)
+    }
+
+    var nightlyRetrospectiveSummary: String {
+        formattedTime(hour: preferences.nightlyHour, minute: preferences.nightlyMinute)
+    }
+
+    var quietHoursSummary: String {
+        guard preferences.quietHoursEnabled else { return "Off" }
+        return "\(formattedTime(hour: preferences.quietHoursStartHour, minute: preferences.quietHoursStartMinute))–\(formattedTime(hour: preferences.quietHoursEndHour, minute: preferences.quietHoursEndMinute))"
+    }
+
     // MARK: - Init
 
     init(
@@ -89,7 +200,8 @@ final class SettingsViewModel: ObservableObject {
         self.appManager = appManager
         self.notificationPreferencesStore = notificationPreferencesStore
         self.preferences = notificationPreferencesStore.load()
-        self.currentModelDisplayName = appManager.modelDisplayName(appManager.currentModelName ?? "")
+        self.currentModelDisplayName = appManager.compactModelDisplayName(appManager.currentModelName ?? "")
+        self.decorativeButtonEffectsEnabled = V2FeatureFlags.userDecorativeCTAEffectsEnabled
     }
 
     // MARK: - Notification Toggles
@@ -103,6 +215,12 @@ final class SettingsViewModel: ObservableObject {
     func updateDueSoonLeadMinutes(_ minutes: Int) {
         preferences.dueSoonLeadMinutes = minutes
         saveAndReconcile()
+        TaskerFeedback.selection()
+    }
+
+    func setDecorativeButtonEffectsEnabled(_ isEnabled: Bool) {
+        decorativeButtonEffectsEnabled = isEnabled
+        V2FeatureFlags.userDecorativeCTAEffectsEnabled = isEnabled
         TaskerFeedback.selection()
     }
 
@@ -153,7 +271,8 @@ final class SettingsViewModel: ObservableObject {
 
     func reload() {
         preferences = notificationPreferencesStore.load()
-        currentModelDisplayName = appManager.modelDisplayName(appManager.currentModelName ?? "")
+        currentModelDisplayName = appManager.compactModelDisplayName(appManager.currentModelName ?? "")
+        decorativeButtonEffectsEnabled = V2FeatureFlags.userDecorativeCTAEffectsEnabled
         refreshPermissionStatus()
     }
 

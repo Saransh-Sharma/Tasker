@@ -1,6 +1,6 @@
 # Tasker Documentation Hub
 
-Last updated: 2026-03-11
+Last updated: 2026-03-17
 
 This directory is the canonical home for technical architecture, operations, release runbooks, and archived legacy docs.
 
@@ -36,7 +36,8 @@ flowchart TD
 | `docs/architecture/state-repositories-and-services-v2.md` | State layer repository/service internals and ownership |
 | `docs/architecture/domain-events-and-observability-v2.md` | Domain events, handlers, notification bridge, observability |
 | `docs/architecture/notifications-local-strategy-v3.md` | Local notification catalog, product decisions, scheduling/reconcile and action handling contracts |
-| `docs/architecture/llm-assistant-stack-v2.md` | LLM context pipeline and assistant transaction stack |
+| `docs/architecture/llm-assistant-stack-v2.md` | LLM runtime contract: MLX chat pipeline, request modes, quality gate, persistence |
+| `docs/architecture/llm-feature-integration-handbook.md` | Mixed engineering/product handbook for AI surfaces, routing, flags, and release behavior |
 | `docs/architecture/gamification-v2-engine.md` | Gamification engine runtime path, event-driven freshness, reconciliation, and widget snapshot architecture |
 | `docs/architecture/insights-analytics-surface.md` | Insights screen contract, widget inventory, projection inputs, and tab refresh behavior |
 
@@ -57,3 +58,7 @@ Root hub:
 
 Gamification freshness note:
 - Gamification UI updates are driven by `gamificationLedgerDidMutate` (post-commit ledger mutation), not TTL-based refresh.
+
+LLM documentation policy:
+- `docs/architecture/llm-assistant-stack-v2.md` and `docs/architecture/llm-feature-integration-handbook.md` are the canonical LLM docs.
+- Update both in the same PR when MLX runtime behavior, routing, retry, quality, or AI surface integration changes.

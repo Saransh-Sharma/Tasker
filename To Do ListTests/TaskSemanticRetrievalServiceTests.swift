@@ -41,6 +41,21 @@ final class TaskSemanticRetrievalServiceTests: XCTestCase {
         XCTAssertTrue(service.search(query: "doctor", topK: 3).isEmpty)
     }
 
+    func testIndexIncludesTagNamesWhenLookupProvided() {
+        let service = makeService { text in
+            text.lowercased().contains("urgent") ? [1.0, 0.0] : [0.0, 1.0]
+        }
+
+        let tagID = UUID()
+        var task = TaskDefinition(title: "Prepare deck")
+        task.tagIDs = [tagID]
+
+        service.index(tasks: [task], tagNameLookup: [tagID: "Urgent"])
+
+        let result = service.searchDetailed(query: "urgent", topK: 3)
+        XCTAssertEqual(result.hits.first?.taskID, task.id)
+    }
+
     func testSearchReturnsFallbackReasonWhenEmbeddingUnavailable() {
         let service = makeService { _ in nil }
         let task = TaskDefinition(title: "Anything")

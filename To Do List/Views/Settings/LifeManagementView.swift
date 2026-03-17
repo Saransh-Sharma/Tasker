@@ -5,6 +5,7 @@ import UIKit
 struct LifeManagementView: View {
     @StateObject private var viewModel: LifeManagementViewModel
     @State private var iconSearchQuery = ""
+    @State private var expandedCreateSection: CreateSection? = nil
 
     @Environment(\.taskerLayoutClass) private var layoutClass
     @Environment(\.accessibilityReduceMotion) private var accessibilityReduceMotion
@@ -16,6 +17,11 @@ struct LifeManagementView: View {
     /// Initializes a new instance.
     init(viewModel: LifeManagementViewModel) {
         _viewModel = StateObject(wrappedValue: viewModel)
+    }
+
+    private enum CreateSection {
+        case lifeArea
+        case project
     }
 
     var body: some View {
@@ -105,7 +111,7 @@ struct LifeManagementView: View {
                 onSelect: { symbol in
                     viewModel.applyIconSelection(symbol)
                 },
-                onCancel: {
+                onDismiss: {
                     viewModel.dismissIconPicker()
                 }
             )
@@ -199,16 +205,11 @@ struct LifeManagementView: View {
     private var helperHeaderCard: some View {
         TaskerCard {
             VStack(alignment: .leading, spacing: spacing.s8) {
-                Text("LIFE MANAGEMENT")
-                    .font(.tasker(.caption2))
-                    .foregroundColor(Color.tasker.textTertiary)
-                    .tracking(0.5)
-
-                Text("Organize life areas and projects together")
+                Text("Organize life areas and projects")
                     .font(.tasker(.headline))
                     .foregroundColor(Color.tasker.textPrimary)
 
-                Text("Create life areas and projects below, then drag active projects between active life areas to remap their tasks.")
+                Text("Create areas and projects, then move projects between areas as your system evolves.")
                     .font(.tasker(.callout))
                     .foregroundColor(Color.tasker.textSecondary)
             }
@@ -255,23 +256,13 @@ struct LifeManagementView: View {
     private var createSection: some View {
         TaskerCard {
             VStack(alignment: .leading, spacing: spacing.s12) {
-                Text("CREATE")
-                    .font(.tasker(.caption2))
-                    .foregroundColor(Color.tasker.textTertiary)
-                    .tracking(0.5)
+                Text("Create")
+                    .font(.tasker(.headline))
+                    .foregroundColor(Color.tasker.textPrimary)
 
-                ViewThatFits(in: .horizontal) {
-                    HStack(alignment: .top, spacing: spacing.s12) {
-                        createLifeAreaCard
-                            .frame(maxWidth: .infinity, alignment: .topLeading)
-                        createProjectCard
-                            .frame(maxWidth: .infinity, alignment: .topLeading)
-                    }
-
-                    VStack(alignment: .leading, spacing: spacing.s12) {
-                        createLifeAreaCard
-                        createProjectCard
-                    }
+                VStack(alignment: .leading, spacing: spacing.s12) {
+                    createLifeAreaCard
+                    createProjectCard
                 }
             }
         }
@@ -280,8 +271,12 @@ struct LifeManagementView: View {
 
     private var createLifeAreaCard: some View {
         createPanelCard(
-            title: "Create Life Area",
-            subtitle: "Suggestion chips apply to life areas only."
+            title: "New Life Area",
+            subtitle: "Create a top-level area like Health, Career, or Home.",
+            isExpanded: expandedCreateSection == .lifeArea,
+            onToggle: {
+                expandedCreateSection = expandedCreateSection == .lifeArea ? nil : .lifeArea
+            }
         ) {
             VStack(alignment: .leading, spacing: spacing.s8) {
                 HStack(spacing: spacing.s8) {
@@ -303,9 +298,10 @@ struct LifeManagementView: View {
                                 .controlSize(.small)
                                 .frame(width: 44, height: 44)
                         } else {
-                            Image(systemName: "plus")
-                                .font(.system(size: 16, weight: .semibold))
-                                .frame(width: 44, height: 44)
+                            Text("Create Life Area")
+                                .font(.tasker(.buttonSmall))
+                                .frame(minHeight: 44)
+                                .padding(.horizontal, spacing.s12)
                         }
                     }
                     .buttonStyle(.borderedProminent)
@@ -353,8 +349,12 @@ struct LifeManagementView: View {
 
     private var createProjectCard: some View {
         createPanelCard(
-            title: "Create Project",
-            subtitle: "Project name is required. Life area defaults to General."
+            title: "New Project",
+            subtitle: "Create a project and place it in a life area.",
+            isExpanded: expandedCreateSection == .project,
+            onToggle: {
+                expandedCreateSection = expandedCreateSection == .project ? nil : .project
+            }
         ) {
             VStack(alignment: .leading, spacing: spacing.s8) {
                 TextField("Project name", text: $viewModel.draftProjectName)
@@ -436,17 +436,36 @@ struct LifeManagementView: View {
     private func createPanelCard<Content: View>(
         title: String,
         subtitle: String,
+        isExpanded: Bool,
+        onToggle: @escaping () -> Void,
         @ViewBuilder content: () -> Content
     ) -> some View {
         VStack(alignment: .leading, spacing: spacing.s8) {
-            Text(title)
-                .font(.tasker(.bodyEmphasis))
-                .foregroundColor(Color.tasker.textPrimary)
-            Text(subtitle)
-                .font(.tasker(.caption1))
-                .foregroundColor(Color.tasker.textSecondary)
-                .fixedSize(horizontal: false, vertical: true)
-            content()
+            Button(action: onToggle) {
+                HStack(spacing: spacing.s8) {
+                    VStack(alignment: .leading, spacing: spacing.s4) {
+                        Text(title)
+                            .font(.tasker(.bodyEmphasis))
+                            .foregroundColor(Color.tasker.textPrimary)
+                        Text(subtitle)
+                            .font(.tasker(.caption1))
+                            .foregroundColor(Color.tasker.textSecondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+
+                    Spacer(minLength: spacing.s8)
+
+                    Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundColor(Color.tasker.textSecondary)
+                        .frame(width: 32, height: 32)
+                }
+            }
+            .buttonStyle(.plain)
+
+            if isExpanded {
+                content()
+            }
         }
         .padding(spacing.s12)
         .background(
@@ -472,10 +491,9 @@ struct LifeManagementView: View {
             .enhancedStaggeredAppearance(index: 3)
         } else {
             VStack(alignment: .leading, spacing: spacing.s12) {
-                Text("ACTIVE LIFE AREAS")
-                    .font(.tasker(.caption2))
-                    .foregroundColor(Color.tasker.textTertiary)
-                    .tracking(0.5)
+                Text("Active life areas")
+                    .font(.tasker(.headline))
+                    .foregroundColor(Color.tasker.textPrimary)
 
                 ForEach(Array(viewModel.sections.enumerated()), id: \.element.id) { index, section in
                     lifeAreaCard(section: section, isArchivedSection: false)
@@ -489,10 +507,9 @@ struct LifeManagementView: View {
     private var archivedBoardSection: some View {
         if viewModel.hasArchivedContent {
             VStack(alignment: .leading, spacing: spacing.s12) {
-                Text("ARCHIVED")
-                    .font(.tasker(.caption2))
-                    .foregroundColor(Color.tasker.textTertiary)
-                    .tracking(0.5)
+                Text("Archived")
+                    .font(.tasker(.headline))
+                    .foregroundColor(Color.tasker.textPrimary)
 
                 if viewModel.archivedLifeAreaSections.isEmpty == false {
                     TaskerCard {
@@ -724,6 +741,14 @@ struct LifeManagementView: View {
         let rowContent = projectRowContent(row: row, isArchivedContext: isArchivedContext)
             .padding(.horizontal, spacing.s12)
             .padding(.vertical, spacing.s8)
+            .contentShape(Rectangle())
+            .contextMenu {
+                projectRowMenuActions(row: row)
+            }
+            .onTapGesture {
+                guard row.isMoveLocked == false else { return }
+                viewModel.beginEditProject(row.project.id)
+            }
 
         if isArchivedContext || row.isMoveLocked || row.project.isArchived {
             rowContent
@@ -755,7 +780,7 @@ struct LifeManagementView: View {
                     Text(description)
                         .font(.tasker(.caption1))
                         .foregroundColor(Color.tasker.textSecondary)
-                        .lineLimit(2)
+                        .lineLimit(1)
                 }
 
                 HStack(spacing: spacing.s8) {
@@ -775,38 +800,28 @@ struct LifeManagementView: View {
             }
 
             Spacer(minLength: spacing.s8)
-
-            projectRowMenu(row: row)
         }
         .frame(minHeight: 44, alignment: .leading)
-        .contentShape(Rectangle())
     }
 
-    private func projectRowMenu(row: LifeManagementProjectRow) -> some View {
-        Menu {
-            Button("Edit Project", systemImage: "pencil") {
-                viewModel.beginEditProject(row.project.id)
+    @ViewBuilder
+    private func projectRowMenuActions(row: LifeManagementProjectRow) -> some View {
+        Button("Edit Project", systemImage: "pencil") {
+            viewModel.beginEditProject(row.project.id)
+        }
+        .disabled(row.isMoveLocked)
+
+        if row.project.isArchived {
+            Button("Unarchive", systemImage: "arrow.uturn.backward") {
+                viewModel.unarchiveProject(row.project.id)
             }
             .disabled(row.isMoveLocked)
-
-            if row.project.isArchived {
-                Button("Unarchive", systemImage: "arrow.uturn.backward") {
-                    viewModel.unarchiveProject(row.project.id)
-                }
-                .disabled(row.isMoveLocked)
-            } else {
-                Button("Archive", systemImage: "archivebox") {
-                    viewModel.requestArchiveProject(row.project.id)
-                }
-                .disabled(row.isMoveLocked)
+        } else {
+            Button("Archive", systemImage: "archivebox") {
+                viewModel.requestArchiveProject(row.project.id)
             }
-        } label: {
-            Image(systemName: "ellipsis.circle")
-                .font(.system(size: 16, weight: .semibold))
-                .foregroundColor(Color.tasker.textSecondary)
-                .frame(width: 44, height: 44)
+            .disabled(row.isMoveLocked)
         }
-        .accessibilityIdentifier("settings.lifeManagement.project.menu.\(row.project.id.uuidString)")
     }
 
     private func lifeAreaAccentColor(_ lifeArea: LifeArea) -> Color {
@@ -987,7 +1002,7 @@ private struct LifeAreaIconPickerSheet: View {
     let isSaving: Bool
     @Binding var searchQuery: String
     let onSelect: (String) -> Void
-    let onCancel: () -> Void
+    let onDismiss: () -> Void
 
     private let columns: [GridItem] = [
         GridItem(.adaptive(minimum: 68), spacing: 10, alignment: .top)
@@ -1033,7 +1048,7 @@ private struct LifeAreaIconPickerSheet: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Close", action: onCancel)
+                    Button("Done", action: onDismiss)
                 }
             }
         }
