@@ -27,16 +27,20 @@ class SettingsPage {
         return navigationBar.buttons[AccessibilityIdentifiers.Settings.doneButton]
     }
 
-    var projectManagementRow: XCUIElement {
-        return app.tables.cells.staticTexts[AccessibilityIdentifiers.Settings.projectManagementRow]
+    var lifeManagementRow: XCUIElement {
+        return app.descendants(matching: .any)[AccessibilityIdentifiers.Settings.lifeManagementRow]
     }
 
-    var llmSettingsRow: XCUIElement {
-        return app.tables.cells.staticTexts[AccessibilityIdentifiers.Settings.llmSettingsRow]
+    var aiAssistantRow: XCUIElement {
+        return app.descendants(matching: .any)[AccessibilityIdentifiers.Settings.aiAssistantRow]
     }
 
-    var appVersionLabel: XCUIElement {
-        return app.staticTexts[AccessibilityIdentifiers.Settings.appVersionLabel]
+    var heroCard: XCUIElement {
+        return app.descendants(matching: .any)[AccessibilityIdentifiers.Settings.heroCard]
+    }
+
+    var appVersionRow: XCUIElement {
+        return app.descendants(matching: .any)[AccessibilityIdentifiers.Settings.appVersionRow]
     }
 
     // MARK: - Initialization
@@ -54,21 +58,31 @@ class SettingsPage {
         return HomePage(app: app)
     }
 
-    /// Navigate to Project Management
+    /// Navigate to Life Management
+    func navigateToLifeManagement() {
+        lifeManagementRow.tap()
+    }
+
+    /// Navigate to AI Assistant settings
+    func navigateToAIAssistant() {
+        aiAssistantRow.tap()
+    }
+
+    /// Backward-compatible alias for older tests.
     @discardableResult
     func navigateToProjectManagement() -> ProjectManagementPage {
-        projectManagementRow.tap()
+        navigateToLifeManagement()
         return ProjectManagementPage(app: app)
     }
 
-    /// Navigate to LLM Settings
+    /// Backward-compatible alias for older tests.
     func navigateToLLMSettings() {
-        llmSettingsRow.tap()
+        navigateToAIAssistant()
     }
 
     /// Tap app version to show version info
     func tapAppVersion() {
-        appVersionLabel.tap()
+        appVersionRow.tap()
     }
 
     // MARK: - Verifications
@@ -79,24 +93,34 @@ class SettingsPage {
         return navigationBar.waitForExistence(timeout: timeout)
     }
 
-    /// Verify project management row exists
-    func verifyProjectManagementRowExists() -> Bool {
-        return projectManagementRow.exists
+    /// Verify life management row exists
+    func verifyLifeManagementRowExists() -> Bool {
+        return lifeManagementRow.exists
     }
 
-    /// Verify LLM settings row exists
+    /// Verify AI assistant row exists
+    func verifyAIAssistantRowExists() -> Bool {
+        return aiAssistantRow.exists
+    }
+
+    /// Backward-compatible alias for older tests.
+    func verifyProjectManagementRowExists() -> Bool {
+        return verifyLifeManagementRowExists()
+    }
+
+    /// Backward-compatible alias for older tests.
     func verifyLLMSettingsRowExists() -> Bool {
-        return llmSettingsRow.exists
+        return verifyAIAssistantRowExists()
     }
 
     /// Verify app version is displayed
     func verifyAppVersionDisplayed() -> Bool {
-        return appVersionLabel.exists
+        return appVersionRow.exists
     }
 
     /// Get app version text
     func getAppVersionText() -> String {
-        return appVersionLabel.label
+        return appVersionRow.label
     }
 
     // MARK: - Wait Helpers
@@ -111,10 +135,16 @@ class SettingsPage {
         return result == .completed
     }
 
-    /// Wait for project management screen to appear
+    /// Wait for life management screen to appear
+    @discardableResult
+    func waitForLifeManagement(timeout: TimeInterval = 5) -> Bool {
+        let lifeManagementView = app.descendants(matching: .any)["settings.lifeManagement.view"]
+        return lifeManagementView.waitForExistence(timeout: timeout)
+    }
+
+    /// Backward-compatible alias for older tests.
     @discardableResult
     func waitForProjectManagement(timeout: TimeInterval = 5) -> Bool {
-        let projectsNavBar = app.navigationBars[AccessibilityIdentifiers.ProjectManagement.navigationBar]
-        return projectsNavBar.waitForExistence(timeout: timeout)
+        return waitForLifeManagement(timeout: timeout)
     }
 }

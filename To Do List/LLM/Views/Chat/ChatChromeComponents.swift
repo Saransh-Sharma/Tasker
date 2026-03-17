@@ -592,7 +592,7 @@ struct ChatScaffoldView: View {
                 }
                 .sheet(isPresented: showSettings) {
                     NavigationStack {
-                        LLMSettingsView(currentThread: $currentThread)
+                        LLMSettingsView(currentThread: $currentThread, showsCloseButton: true)
                             .environment(llm)
                         #if os(visionOS)
                             .toolbar {

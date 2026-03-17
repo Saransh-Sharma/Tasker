@@ -1,11 +1,3 @@
-//
-//  SettingsTests.swift
-//  To Do ListUITests
-//
-//  Secondary Tests: Settings (6 tests)
-//  Tests settings screen functionality and preferences
-//
-
 import XCTest
 
 class SettingsTests: BaseUITest {
@@ -18,185 +10,87 @@ class SettingsTests: BaseUITest {
         homePage = HomePage(app: app)
     }
 
-    // MARK: - Test 46: Navigate to Settings
-
     func testNavigateToSettings() throws {
-        // GIVEN: User is on home screen
         XCTAssertTrue(homePage.verifyIsDisplayed(), "Home screen should be displayed")
 
-        // WHEN: User taps settings button
         settingsPage = homePage.tapSettings()
 
-        // THEN: Settings screen should appear
         XCTAssertTrue(settingsPage.verifyIsDisplayed(), "Settings should be displayed")
-
-        // Verify settings navigation bar
         XCTAssertTrue(settingsPage.navigationBar.exists, "Settings navigation bar should exist")
-
-        // Verify done button exists
         XCTAssertTrue(settingsPage.doneButton.exists, "Done button should exist")
+        XCTAssertTrue(settingsPage.heroCard.waitForExistence(timeout: 3), "Hero card should exist")
 
         takeScreenshot(named: "navigate_to_settings")
     }
 
-    // MARK: - Test 47: Dismiss Settings
-
     func testDismissSettings() throws {
-        // GIVEN: Settings screen is displayed
         settingsPage = homePage.tapSettings()
         XCTAssertTrue(settingsPage.verifyIsDisplayed(), "Settings should be displayed")
 
-        // WHEN: User taps Done
         homePage = settingsPage.tapDone()
 
-        // THEN: Settings should be dismissed and return to home
         XCTAssertTrue(settingsPage.waitForDismissal(timeout: 3), "Settings should be dismissed")
         XCTAssertTrue(homePage.verifyIsDisplayed(), "Should return to home screen")
 
         takeScreenshot(named: "dismiss_settings")
     }
 
-    // MARK: - Test 48: Navigate to Project Management from Settings
-
-    func testNavigateToProjectManagementFromSettings() throws {
-        // GIVEN: User is on settings screen
+    func testPrimarySettingsRowsAreVisible() throws {
         settingsPage = homePage.tapSettings()
         XCTAssertTrue(settingsPage.verifyIsDisplayed(), "Settings should be displayed")
 
-        // WHEN: User taps Project Management row
-        let projectPage = settingsPage.navigateToProjectManagement()
+        XCTAssertTrue(settingsPage.verifyLifeManagementRowExists(), "Life Management row should exist")
+        XCTAssertTrue(settingsPage.verifyAIAssistantRowExists(), "AI Assistant row should exist")
+        XCTAssertTrue(app.staticTexts["Notifications & Focus"].waitForExistence(timeout: 3), "Notifications section should exist")
+        XCTAssertTrue(app.buttons[AccessibilityIdentifiers.Settings.onboardingRestartButton].waitForExistence(timeout: 3), "Guided Setup row should exist")
 
-        // THEN: Project management screen should appear
-        XCTAssertTrue(projectPage.verifyIsDisplayed(), "Project management should be displayed")
-
-        // Verify we're on projects screen
-        XCTAssertTrue(projectPage.navigationBar.exists, "Projects navigation bar should exist")
-
-        takeScreenshot(named: "navigate_to_project_management_from_settings")
+        takeScreenshot(named: "settings_primary_rows_visible")
     }
 
-    // MARK: - Test 49: Navigate Back from Project Management
-
-    func testNavigateBackFromProjectManagement() throws {
-        // GIVEN: User is on project management screen
-        settingsPage = homePage.tapSettings()
-        let projectPage = settingsPage.navigateToProjectManagement()
-        XCTAssertTrue(projectPage.verifyIsDisplayed(), "Project management should be displayed")
-
-        // WHEN: User taps back button
-        settingsPage = projectPage.tapBack()
-
-        // THEN: Should return to settings
-        XCTAssertTrue(settingsPage.verifyIsDisplayed(), "Should return to settings")
-
-        // Verify settings navigation bar is visible
-        XCTAssertTrue(settingsPage.navigationBar.exists, "Settings navigation bar should exist")
-
-        takeScreenshot(named: "navigate_back_from_project_management")
-    }
-
-    // MARK: - Test 50: Workspace Rows
-
-    func testWorkspaceRowsAreVisible() throws {
+    func testNavigateToLifeManagementFromSettings() throws {
         settingsPage = homePage.tapSettings()
         XCTAssertTrue(settingsPage.verifyIsDisplayed(), "Settings should be displayed")
 
-        XCTAssertTrue(app.staticTexts["Life Management"].waitForExistence(timeout: 3), "Life Management row should exist")
-        XCTAssertTrue(app.staticTexts["Chats"].waitForExistence(timeout: 3), "Chats row should exist")
-        XCTAssertTrue(app.staticTexts["Models"].waitForExistence(timeout: 3), "Models row should exist")
+        settingsPage.navigateToLifeManagement()
 
-        takeScreenshot(named: "workspace_rows_visible")
+        let lifeManagementView = app.descendants(matching: .any)["settings.lifeManagement.view"]
+        XCTAssertTrue(lifeManagementView.waitForExistence(timeout: 5), "Life Management screen should be displayed")
+
+        takeScreenshot(named: "navigate_to_life_management_from_settings")
     }
 
-    // MARK: - Test 51: App Version Display
-
-    func testAppVersionDisplay() throws {
-        // GIVEN: User is on settings screen
+    func testNavigateToAIAssistantSettings() throws {
         settingsPage = homePage.tapSettings()
         XCTAssertTrue(settingsPage.verifyIsDisplayed(), "Settings should be displayed")
+        XCTAssertTrue(settingsPage.verifyAIAssistantRowExists(), "AI Assistant row should exist")
 
-        // WHEN: User views app version section
-        // Scroll to bottom if needed to see version
-        let settingsTable = app.tables.firstMatch
-        if settingsTable.exists {
-            scrollToBottom(in: settingsTable)
-        }
+        settingsPage.navigateToAIAssistant()
 
-        // THEN: App version should be displayed
-        let versionDisplayed = settingsPage.verifyAppVersionDisplayed()
+        let llmSettingsView = app.descendants(matching: .any)[AccessibilityIdentifiers.LLMSettings.view]
+        XCTAssertTrue(llmSettingsView.waitForExistence(timeout: 8), "AI Assistant settings should be displayed")
 
-        if versionDisplayed {
-            let versionText = settingsPage.getAppVersionText()
-            print("📱 App Version: \(versionText)")
+        let chatsRow = app.descendants(matching: .any)[AccessibilityIdentifiers.LLMSettings.chatsSettingsRow]
+        let modelsRow = app.descendants(matching: .any)[AccessibilityIdentifiers.LLMSettings.modelsSettingsRow]
+        let memoryRow = app.descendants(matching: .any)[AccessibilityIdentifiers.LLMSettings.memorySettingsRow]
+        let privacyRow = app.descendants(matching: .any)[AccessibilityIdentifiers.LLMSettings.privacySettingsRow]
 
-            // Verify version text contains version number pattern (e.g., "1.0.0")
-            let containsVersion = versionText.range(of: "\\d+\\.\\d+", options: .regularExpression) != nil
-            XCTAssertTrue(containsVersion, "Version text should contain version number")
-        } else {
-            print("⚠️ App version label not found - might need scrolling or different locator")
-        }
+        XCTAssertTrue(chatsRow.waitForExistence(timeout: 8), "Chat Behavior row should exist")
+        XCTAssertTrue(modelsRow.exists, "Models row should exist")
+        XCTAssertTrue(memoryRow.exists, "Personal Memory row should exist")
+        XCTAssertTrue(privacyRow.exists, "Data & Privacy row should exist")
 
-        takeScreenshot(named: "app_version_display")
-    }
-
-    // MARK: - Bonus: Settings Rows Exist
-
-    func testSettingsRowsExist() throws {
-        // GIVEN: User is on settings screen
-        settingsPage = homePage.tapSettings()
-        XCTAssertTrue(settingsPage.verifyIsDisplayed(), "Settings should be displayed")
-
-        // WHEN: User views settings
-
-        // THEN: Key settings rows should exist
-        XCTAssertTrue(settingsPage.verifyProjectManagementRowExists(), "Project Management row should exist")
-
-        // LLM Settings (if available)
-        if settingsPage.verifyLLMSettingsRowExists() {
-            print("✅ LLM Settings available")
-        }
-
-        takeScreenshot(named: "settings_rows_exist")
-    }
-
-    // MARK: - Bonus: Navigate to LLM Settings (if available)
-
-    func testNavigateToLLMSettings() throws {
-        // GIVEN: User is on settings screen
-        settingsPage = homePage.tapSettings()
-        XCTAssertTrue(settingsPage.verifyIsDisplayed(), "Settings should be displayed")
-
-        // WHEN: User taps LLM Settings (if available)
-        if settingsPage.verifyLLMSettingsRowExists() {
-            settingsPage.navigateToLLMSettings()
-
-            waitForAnimations(duration: 1.0)
-
-            // THEN: LLM Settings screen should appear
-            let llmNavBar = app.navigationBars.firstMatch
-            XCTAssertTrue(llmNavBar.exists, "LLM Settings should be displayed")
-
-            takeScreenshot(named: "navigate_to_llm_settings")
-
-            // Go back
-            app.navigationBars.buttons.element(boundBy: 0).tap()
-        } else {
-            print("⚠️ LLM Settings not available - skipping test")
-        }
+        takeScreenshot(named: "navigate_to_ai_assistant_settings")
     }
 
     func testRecommendedModelIsPreselectedInInstallPicker() throws {
         settingsPage = homePage.tapSettings()
         XCTAssertTrue(settingsPage.verifyIsDisplayed(), "Settings should be displayed")
+        XCTAssertTrue(settingsPage.verifyAIAssistantRowExists(), "AI Assistant row should exist")
 
-        guard settingsPage.verifyLLMSettingsRowExists() else {
-            throw XCTSkip("LLM Settings not available in this configuration")
-        }
-
-        settingsPage.navigateToLLMSettings()
+        settingsPage.navigateToAIAssistant()
 
         let llmSettingsView = app.descendants(matching: .any)[AccessibilityIdentifiers.LLMSettings.view]
-        XCTAssertTrue(llmSettingsView.waitForExistence(timeout: 8), "LLM settings should be displayed")
+        XCTAssertTrue(llmSettingsView.waitForExistence(timeout: 8), "AI settings should be displayed")
 
         let modelsRow = app.descendants(matching: .any)[AccessibilityIdentifiers.LLMSettings.modelsSettingsRow]
         XCTAssertTrue(modelsRow.waitForExistence(timeout: 8), "Models row should be displayed")
@@ -254,6 +148,24 @@ class SettingsTests: BaseUITest {
 
         let reopenedToggle = reopenedCard.switches.firstMatch
         XCTAssertTrue(reopenedToggle.waitForExistence(timeout: 8), "Decorative button effects toggle should exist after reopening")
-        XCTAssertEqual(reopenedToggle.value as? String, "1", "Decorative button effects should persist after relaunching settings")
+        XCTAssertEqual(reopenedToggle.value as? String, "1", "Decorative button effects should persist after reopening settings")
+    }
+
+    func testAppVersionDisplay() throws {
+        settingsPage = homePage.tapSettings()
+        XCTAssertTrue(settingsPage.verifyIsDisplayed(), "Settings should be displayed")
+
+        for _ in 0..<5 where settingsPage.verifyAppVersionDisplayed() == false {
+            app.swipeUp()
+        }
+
+        XCTAssertTrue(settingsPage.verifyAppVersionDisplayed(), "App version row should exist")
+
+        let versionText = settingsPage.getAppVersionText()
+        let containsVersion = versionText.range(of: "\\d+\\.\\d+", options: .regularExpression) != nil
+        XCTAssertTrue(containsVersion, "Version text should contain version number")
+        XCTAssertTrue(app.staticTexts["Made with care by Saransh"].exists, "Footer should show the single-line author credit")
+
+        takeScreenshot(named: "app_version_display")
     }
 }
