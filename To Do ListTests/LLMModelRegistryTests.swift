@@ -171,13 +171,46 @@ final class LLMModelRegistryTests: XCTestCase {
         let result = await LLMRuntimeSmokeTester.run(
             model: tryUnwrap(ModelConfiguration.getModelByName(qwenOptiQName))
         ) { _ in
-            LLMRuntimeSmokeMetrics(firstTokenLatencyMs: 42, peakMemoryMB: 512)
+            LLMRuntimeSmokeMetrics(
+                firstTokenLatencyMs: 42,
+                peakMemoryMB: 512,
+                terminationReason: "stop_token",
+                rawOutputPreview: "<｜Assistant｜>Focus on overdue work.",
+                sanitizedOutputPreview: "Focus on overdue work.",
+                sanitizationEmptiedNonEmptyRaw: false,
+                fallbackShown: false
+            )
         }
 
         XCTAssertEqual(result.status, .supported)
         XCTAssertEqual(result.firstTokenLatencyMs, 42)
         XCTAssertEqual(result.peakMemoryMB, 512)
+        XCTAssertEqual(result.terminationReason, "stop_token")
+        XCTAssertEqual(result.rawOutputPreview, "<｜Assistant｜>Focus on overdue work.")
+        XCTAssertEqual(result.sanitizedOutputPreview, "Focus on overdue work.")
+        XCTAssertEqual(result.sanitizationEmptiedNonEmptyRaw, false)
+        XCTAssertEqual(result.fallbackShown, false)
         XCTAssertNil(result.errorDescription)
+    }
+
+    func testSmokeTesterRunClearsDiagnosticsOnFailure() async {
+        struct SmokeFailure: LocalizedError {
+            var errorDescription: String? { "probe failed" }
+        }
+
+        let result = await LLMRuntimeSmokeTester.run(
+            model: tryUnwrap(ModelConfiguration.getModelByName(qwenPointSixName))
+        ) { _ in
+            throw SmokeFailure()
+        }
+
+        XCTAssertEqual(result.status, .failed)
+        XCTAssertNil(result.terminationReason)
+        XCTAssertNil(result.rawOutputPreview)
+        XCTAssertNil(result.sanitizedOutputPreview)
+        XCTAssertNil(result.sanitizationEmptiedNonEmptyRaw)
+        XCTAssertNil(result.fallbackShown)
+        XCTAssertEqual(result.errorDescription, "probe failed")
     }
 
     func testPromptHistoryRespectsTokenBudgetAndKeepsLatestSuffix() {

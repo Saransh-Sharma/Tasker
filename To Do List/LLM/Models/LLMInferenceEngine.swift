@@ -13,16 +13,88 @@ struct LLMInferenceStreamUpdate {
     let rawText: String
     let visibleText: String
     let phaseTrigger: String?
+    let tokenCount: Int
 }
 
 struct LLMInferenceGenerationResult {
-    let output: String
+    let rawOutput: String
+    let visibleOutput: String
     let tokensPerSecond: Double
     let generationTokenCount: Int
     let removedTemplateArtifacts: Bool
     let terminationReason: String
     let firstResponseLatencyMs: Int
     let prewarmHit: Bool
+    let answerPhaseStartTokenCount: Int?
+    let rawCapHitStage: String?
+}
+
+struct LLMGenerationRequestOptions {
+    enum ChatMode {
+        case answerOnly
+        case thinkingThenAnswer
+    }
+
+    let allowThinking: Bool
+    let templateContext: [String: any Sendable]
+    let effectiveModelType: ModelConfiguration.ModelType
+    let chatMode: ChatMode
+    let thinkingFormat: ModelConfiguration.ThinkingFormat
+
+    var isReasoningEnabled: Bool {
+        effectiveModelType == .reasoning && allowThinking
+    }
+
+    var showsVisibleThinking: Bool {
+        chatMode == .thinkingThenAnswer
+    }
+
+    static func structuredOutput(for model: ModelConfiguration) -> Self {
+        Self(
+            allowThinking: false,
+            templateContext: model.metadata.family == .qwen3 || model.metadata.family == .qwen3_5Text
+                ? ["enable_thinking": false]
+                : [:],
+            effectiveModelType: .regular,
+            chatMode: .answerOnly,
+            thinkingFormat: .none
+        )
+    }
+
+    static func reasoningEnabled(for model: ModelConfiguration) -> Self {
+        Self(
+            allowThinking: model.modelType == .reasoning,
+            templateContext: [:],
+            effectiveModelType: model.modelType,
+            chatMode: model.supportsVisibleThinking ? .thinkingThenAnswer : .answerOnly,
+            thinkingFormat: model.thinkingFormat
+        )
+    }
+
+    static func interactiveChat(for model: ModelConfiguration) -> Self {
+        let shouldShowThinking = model.supportsVisibleThinking
+        let shouldDisableThinking = shouldShowThinking == false &&
+            (model.metadata.family == .qwen3 || model.metadata.family == .qwen3_5Text)
+        return Self(
+            allowThinking: shouldShowThinking,
+            templateContext: shouldDisableThinking ? ["enable_thinking": false] : [:],
+            effectiveModelType: shouldShowThinking ? model.modelType : .regular,
+            chatMode: shouldShowThinking ? .thinkingThenAnswer : .answerOnly,
+            thinkingFormat: shouldShowThinking ? model.thinkingFormat : .none
+        )
+    }
+
+    static func answerCompletionRetry(for model: ModelConfiguration) -> Self {
+        Self(
+            allowThinking: false,
+            templateContext: model.metadata.family == .qwen3 || model.metadata.family == .qwen3_5Text
+                ? ["enable_thinking": false]
+                : [:],
+            effectiveModelType: .regular,
+            chatMode: .answerOnly,
+            thinkingFormat: .none
+        )
+    }
 }
 
 actor LLMInferenceEngine {
@@ -74,13 +146,16 @@ actor LLMInferenceEngine {
 
     func generate(
         modelName: String,
-        promptHistory: [[String: String]],
+        chatMessages: [Chat.Message],
         profile: LLMGenerationProfile,
+        requestOptions: LLMGenerationRequestOptions,
         onFirstToken: (@Sendable () -> Void)? = nil,
         onStreamUpdate: (@Sendable (LLMInferenceStreamUpdate) -> Void)? = nil
     ) async throws -> LLMInferenceGenerationResult {
         let streamBudgets = LLMChatBudgets.active
-        let outputTokenStride = max(1, streamBudgets.outputTokenStride)
+        let outputTokenStride = requestOptions.showsVisibleThinking
+            ? max(1, min(streamBudgets.outputTokenStride, 16))
+            : max(1, streamBudgets.outputTokenStride)
         let outputMinUpdateNanoseconds = streamBudgets.outputMinUpdateIntervalMs * 1_000_000
         let generationStartedAt = Date()
         let prewarmHit = loadedModelName == modelName
@@ -93,13 +168,35 @@ actor LLMInferenceEngine {
             throw CancellationError()
         }
 
-        let isReasoningModel = await modelContainer.configuration.modelType == .reasoning
+        let isReasoningModel = requestOptions.isReasoningEnabled
+        let maxRawTokens = profile.maxRawTokens(isReasoningModel: isReasoningModel)
+        let minAnswerTokens = profile.minAnswerTokensAfterAnswerPhase(
+            isReasoningModel: isReasoningModel
+        )
         let generateParameters = GenerateParameters(
-            maxTokens: profile.maxRawTokens(isReasoningModel: isReasoningModel),
+            maxTokens: maxRawTokens,
             temperature: profile.temperature,
             topP: profile.topP,
             repetitionPenalty: profile.repetitionPenalty,
             repetitionContextSize: profile.repetitionContextSize
+        )
+
+        logWarning(
+            event: "chat_generation_parameters",
+            message: "Resolved chat generation parameters for current request",
+            fields: [
+                "model_name": modelName,
+                "chat_mode": requestOptions.chatMode == .thinkingThenAnswer ? "thinking_then_answer" : "answer_only",
+                "supports_visible_thinking": requestOptions.showsVisibleThinking ? "true" : "false",
+                "thinking_format": String(describing: requestOptions.thinkingFormat),
+                "allow_thinking": requestOptions.allowThinking ? "true" : "false",
+                "max_raw_tokens": String(maxRawTokens),
+                "min_answer_tokens_after_answer_phase": String(minAnswerTokens),
+                "temperature": String(format: "%.2f", profile.temperature),
+                "top_p": String(format: "%.2f", profile.topP),
+                "repetition_penalty": profile.repetitionPenalty.map { String(format: "%.2f", $0) } ?? "nil",
+                "output_token_stride": String(outputTokenStride)
+            ]
         )
 
         MLXRandom.seed(UInt64(Date.timeIntervalSinceReferenceDate * 1000))
@@ -112,16 +209,18 @@ actor LLMInferenceEngine {
         var decodedTokenCount = 0
         var streamedOutputText = ""
         var limiter = LLMChatGenerationLimiter(
-            maxRawTokens: profile.maxRawTokens(isReasoningModel: isReasoningModel),
-            minAnswerTokensAfterAnswerPhase: profile.minAnswerTokensAfterAnswerPhase(
-                isReasoningModel: isReasoningModel
-            )
+            maxRawTokens: maxRawTokens,
+            minAnswerTokensAfterAnswerPhase: minAnswerTokens
         )
         var terminationReason = "eos"
         var removedTemplateArtifacts = false
 
         let result = try await modelContainer.perform { context in
-            let input = try await context.processor.prepare(input: .init(messages: promptHistory))
+            let userInput = UserInput(
+                chat: chatMessages,
+                additionalContext: requestOptions.templateContext.isEmpty ? nil : requestOptions.templateContext
+            )
+            let input = try await context.processor.prepare(input: userInput)
             if Task.isCancelled || runCancellationToken.isCancelled {
                 throw CancellationError()
             }
@@ -177,13 +276,17 @@ actor LLMInferenceEngine {
                     let rawText = streamedOutputText
                     let visibleTextResult = LLMVisibleOutputFormatter.formatVisibleTextResult(
                         rawText,
-                        profile: profile
+                        profile: profile,
+                        modelName: modelName,
+                        closeOpenThinkingBlock: false
                     )
                     removedTemplateArtifacts = removedTemplateArtifacts || visibleTextResult.removedTemplateArtifacts
                     let phaseTrigger = Self.answerPhaseTrigger(
                         rawText: rawText,
                         visibleText: visibleTextResult.text,
-                        isReasoningModel: isReasoningModel
+                        isReasoningModel: isReasoningModel,
+                        requestOptions: requestOptions,
+                        modelName: modelName
                     )
                     if phaseTrigger != nil {
                         limiter.markAnswerPhaseStarted(currentTokenCount: tokens.count)
@@ -192,7 +295,8 @@ actor LLMInferenceEngine {
                         LLMInferenceStreamUpdate(
                             rawText: rawText,
                             visibleText: visibleTextResult.text,
-                            phaseTrigger: phaseTrigger
+                            phaseTrigger: phaseTrigger,
+                            tokenCount: tokens.count
                         )
                     )
                 }
@@ -215,11 +319,30 @@ actor LLMInferenceEngine {
 
         let finalVisibleOutputResult = LLMVisibleOutputFormatter.formatVisibleTextResult(
             result.output,
-            profile: profile
+            profile: profile,
+            modelName: modelName,
+            closeOpenThinkingBlock: true
         )
         removedTemplateArtifacts = removedTemplateArtifacts || finalVisibleOutputResult.removedTemplateArtifacts
         let finalVisibleOutput = finalVisibleOutputResult.text
         let firstResponseLatencyMs = Int(Date().timeIntervalSince(generationStartedAt) * 1_000)
+        let thinkingExtraction = LLMVisibleThinkingExtractor.extract(
+            from: finalVisibleOutput,
+            modelName: modelName,
+            closeOpenThinkingBlock: true
+        )
+        let rawTailPreview = LoggingService.previewText(String(result.output.suffix(128)), maxLength: 128)
+            .replacingOccurrences(of: "\n", with: "\\n")
+        let rawCapHitStage: String? = {
+            guard terminationReason == "raw_cap" || terminationReason == "answer_floor_reached" else { return nil }
+            if limiter.lastStopStage == "post_answer" {
+                return "post_answer"
+            }
+            if thinkingExtraction.hasVisibleThinking && thinkingExtraction.hasAnswer == false {
+                return "thinking_only"
+            }
+            return limiter.lastStopStage ?? "pre_answer"
+        }()
 
         logWarning(
             event: "chat_first_response_latency_ms",
@@ -238,19 +361,29 @@ actor LLMInferenceEngine {
                 "model_name": modelName,
                 "termination_reason": terminationReason,
                 "generated_tokens": String(result.generationTokenCount),
+                "raw_characters": String(result.output.count),
                 "visible_characters": String(finalVisibleOutput.count),
-                "sanitized_template_artifacts": removedTemplateArtifacts ? "true" : "false"
+                "sanitized_template_artifacts": removedTemplateArtifacts ? "true" : "false",
+                "answer_phase_start_token": limiter.answerPhaseStartTokenCount.map(String.init) ?? "nil",
+                "thinking_detected": thinkingExtraction.hasVisibleThinking ? "true" : "false",
+                "thinking_format_detected": thinkingExtraction.mode,
+                "raw_cap_threshold": String(maxRawTokens),
+                "raw_cap_hit_stage": rawCapHitStage ?? "nil",
+                "raw_tail_preview_128": rawTailPreview
             ]
         )
 
         return LLMInferenceGenerationResult(
-            output: finalVisibleOutput,
+            rawOutput: result.output,
+            visibleOutput: finalVisibleOutput,
             tokensPerSecond: result.tokensPerSecond,
             generationTokenCount: result.generationTokenCount,
             removedTemplateArtifacts: removedTemplateArtifacts,
             terminationReason: terminationReason,
             firstResponseLatencyMs: firstResponseLatencyMs,
-            prewarmHit: prewarmHit
+            prewarmHit: prewarmHit,
+            answerPhaseStartTokenCount: limiter.answerPhaseStartTokenCount,
+            rawCapHitStage: rawCapHitStage
         )
     }
 
@@ -309,19 +442,32 @@ actor LLMInferenceEngine {
     private nonisolated static func answerPhaseTrigger(
         rawText: String,
         visibleText: String,
-        isReasoningModel: Bool
+        isReasoningModel: Bool,
+        requestOptions: LLMGenerationRequestOptions,
+        modelName: String
     ) -> String? {
         if isReasoningModel == false {
             return "non_reasoning_stream"
         }
 
-        if rawText.contains("</think>") {
+        if requestOptions.thinkingFormat == .taggedThinkBlocks, rawText.contains("</think>") {
             return "think_close"
         }
 
-        if rawText.contains("<think>") == false &&
+        let extraction = LLMVisibleThinkingExtractor.extract(
+            from: visibleText,
+            modelName: modelName,
+            closeOpenThinkingBlock: false
+        )
+        if extraction.hasVisibleThinking && extraction.hasAnswer {
+            return requestOptions.thinkingFormat == .plainTextPreamble
+                ? "plain_text_thinking_answer"
+                : "visible_answer_after_thinking"
+        }
+
+        if extraction.hasVisibleThinking == false &&
             visibleText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false {
-            return "reasoning_without_think_block"
+            return "reasoning_without_visible_thinking"
         }
 
         return nil

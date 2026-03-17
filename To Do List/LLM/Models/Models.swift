@@ -253,6 +253,12 @@ public extension ModelConfiguration {
         case regular, reasoning
     }
 
+    enum ThinkingFormat {
+        case none
+        case taggedThinkBlocks
+        case plainTextPreamble
+    }
+
     enum ModelFamily {
         case qwen3
         case qwen3_5Text
@@ -269,6 +275,17 @@ public extension ModelConfiguration {
         case experimental
     }
 
+    struct ChatTuningProfile {
+        let answerOnlyMaxRawTokens: Int
+        let thinkingMaxRawTokens: Int
+        let minAnswerTokensAfterAnswerPhase: Int
+        let maxVisibleCharacters: Int
+        let temperature: Float
+        let topP: Float
+        let repetitionPenalty: Float?
+        let outputTokenStride: Int
+    }
+
     struct ProductMetadata {
         let displayName: String
         let shortDescription: String
@@ -280,6 +297,9 @@ public extension ModelConfiguration {
         let family: ModelFamily
         let distribution: ModelDistribution
         let sourceModelID: String?
+        let supportsVisibleThinking: Bool
+        let thinkingFormat: ThinkingFormat
+        let chatTuningProfile: ChatTuningProfile
     }
 
     var modelType: ModelType {
@@ -313,7 +333,19 @@ public extension ModelConfiguration {
                 ),
                 family: .qwen3,
                 distribution: .mlx,
-                sourceModelID: nil
+                sourceModelID: nil,
+                supportsVisibleThinking: true,
+                thinkingFormat: .taggedThinkBlocks,
+                chatTuningProfile: ChatTuningProfile(
+                    answerOnlyMaxRawTokens: 384,
+                    thinkingMaxRawTokens: 768,
+                    minAnswerTokensAfterAnswerPhase: 160,
+                    maxVisibleCharacters: 3_200,
+                    temperature: 0.5,
+                    topP: 0.95,
+                    repetitionPenalty: 1.02,
+                    outputTokenStride: 16
+                )
             )
         case .qwen_3_5_0_8b_optiq_4bit:
             return ProductMetadata(
@@ -334,7 +366,19 @@ public extension ModelConfiguration {
                 ),
                 family: .qwen3_5Text,
                 distribution: .mlx,
-                sourceModelID: nil
+                sourceModelID: nil,
+                supportsVisibleThinking: true,
+                thinkingFormat: .taggedThinkBlocks,
+                chatTuningProfile: ChatTuningProfile(
+                    answerOnlyMaxRawTokens: 512,
+                    thinkingMaxRawTokens: 1_024,
+                    minAnswerTokensAfterAnswerPhase: 224,
+                    maxVisibleCharacters: 4_800,
+                    temperature: 0.5,
+                    topP: 0.95,
+                    repetitionPenalty: 1.02,
+                    outputTokenStride: 16
+                )
             )
         case .qwen_3_5_0_8b_nexveridian_4bit:
             return ProductMetadata(
@@ -355,7 +399,19 @@ public extension ModelConfiguration {
                 ),
                 family: .qwen3_5Text,
                 distribution: .mlx,
-                sourceModelID: nil
+                sourceModelID: nil,
+                supportsVisibleThinking: true,
+                thinkingFormat: .taggedThinkBlocks,
+                chatTuningProfile: ChatTuningProfile(
+                    answerOnlyMaxRawTokens: 512,
+                    thinkingMaxRawTokens: 1_024,
+                    minAnswerTokensAfterAnswerPhase: 224,
+                    maxVisibleCharacters: 4_800,
+                    temperature: 0.5,
+                    topP: 0.95,
+                    repetitionPenalty: 1.02,
+                    outputTokenStride: 16
+                )
             )
         case .qwen_3_5_0_8b_claude_4_6_opus_reasoning_distilled_4bit:
             return ProductMetadata(
@@ -376,7 +432,19 @@ public extension ModelConfiguration {
                 ),
                 family: .qwen3_5Text,
                 distribution: .mlx,
-                sourceModelID: "Ishant06/Qwen3.5-0.8B-Claude-4.6-Opus-Reasoning-Distilled"
+                sourceModelID: "Ishant06/Qwen3.5-0.8B-Claude-4.6-Opus-Reasoning-Distilled",
+                supportsVisibleThinking: true,
+                thinkingFormat: .plainTextPreamble,
+                chatTuningProfile: ChatTuningProfile(
+                    answerOnlyMaxRawTokens: 640,
+                    thinkingMaxRawTokens: 1_536,
+                    minAnswerTokensAfterAnswerPhase: 320,
+                    maxVisibleCharacters: 6_400,
+                    temperature: 0.5,
+                    topP: 0.95,
+                    repetitionPenalty: 1.02,
+                    outputTokenStride: 16
+                )
             )
         default:
             return ProductMetadata(
@@ -397,7 +465,19 @@ public extension ModelConfiguration {
                 ),
                 family: .qwen3,
                 distribution: .mlx,
-                sourceModelID: nil
+                sourceModelID: nil,
+                supportsVisibleThinking: false,
+                thinkingFormat: .none,
+                chatTuningProfile: ChatTuningProfile(
+                    answerOnlyMaxRawTokens: 384,
+                    thinkingMaxRawTokens: 768,
+                    minAnswerTokensAfterAnswerPhase: 160,
+                    maxVisibleCharacters: 3_200,
+                    temperature: 0.2,
+                    topP: 0.9,
+                    repetitionPenalty: 1.1,
+                    outputTokenStride: 32
+                )
             )
         }
     }
@@ -410,6 +490,9 @@ public extension ModelConfiguration {
     var family: ModelFamily { metadata.family }
     var distribution: ModelDistribution { metadata.distribution }
     var sourceModelID: String? { metadata.sourceModelID }
+    var supportsVisibleThinking: Bool { metadata.supportsVisibleThinking }
+    var thinkingFormat: ThinkingFormat { metadata.thinkingFormat }
+    var chatTuningProfile: ChatTuningProfile { metadata.chatTuningProfile }
 }
 
 enum LLMModelAvailability: Equatable {
@@ -475,6 +558,11 @@ struct LLMRuntimeSmokeTestResult: Equatable {
     let prepareDurationMs: Int?
     let firstTokenLatencyMs: Int?
     let peakMemoryMB: Int?
+    let terminationReason: String?
+    let rawOutputPreview: String?
+    let sanitizedOutputPreview: String?
+    let sanitizationEmptiedNonEmptyRaw: Bool?
+    let fallbackShown: Bool?
     let errorDescription: String?
 }
 
@@ -486,6 +574,11 @@ enum LLMRuntimeSmokeTester {
             prepareDurationMs: nil,
             firstTokenLatencyMs: nil,
             peakMemoryMB: nil,
+            terminationReason: nil,
+            rawOutputPreview: nil,
+            sanitizedOutputPreview: nil,
+            sanitizationEmptiedNonEmptyRaw: nil,
+            fallbackShown: nil,
             errorDescription: nil
         )
     }
@@ -503,6 +596,11 @@ enum LLMRuntimeSmokeTester {
                 prepareDurationMs: Int(Date().timeIntervalSince(startedAt) * 1_000),
                 firstTokenLatencyMs: metrics.firstTokenLatencyMs,
                 peakMemoryMB: metrics.peakMemoryMB,
+                terminationReason: metrics.terminationReason,
+                rawOutputPreview: metrics.rawOutputPreview,
+                sanitizedOutputPreview: metrics.sanitizedOutputPreview,
+                sanitizationEmptiedNonEmptyRaw: metrics.sanitizationEmptiedNonEmptyRaw,
+                fallbackShown: metrics.fallbackShown,
                 errorDescription: nil
             )
         } catch {
@@ -512,6 +610,11 @@ enum LLMRuntimeSmokeTester {
                 prepareDurationMs: Int(Date().timeIntervalSince(startedAt) * 1_000),
                 firstTokenLatencyMs: nil,
                 peakMemoryMB: nil,
+                terminationReason: nil,
+                rawOutputPreview: nil,
+                sanitizedOutputPreview: nil,
+                sanitizationEmptiedNonEmptyRaw: nil,
+                fallbackShown: nil,
                 errorDescription: error.localizedDescription
             )
         }
@@ -521,10 +624,28 @@ enum LLMRuntimeSmokeTester {
 struct LLMRuntimeSmokeMetrics: Equatable {
     let firstTokenLatencyMs: Int?
     let peakMemoryMB: Int?
+    let terminationReason: String?
+    let rawOutputPreview: String?
+    let sanitizedOutputPreview: String?
+    let sanitizationEmptiedNonEmptyRaw: Bool?
+    let fallbackShown: Bool?
 
-    init(firstTokenLatencyMs: Int? = nil, peakMemoryMB: Int? = nil) {
+    init(
+        firstTokenLatencyMs: Int? = nil,
+        peakMemoryMB: Int? = nil,
+        terminationReason: String? = nil,
+        rawOutputPreview: String? = nil,
+        sanitizedOutputPreview: String? = nil,
+        sanitizationEmptiedNonEmptyRaw: Bool? = nil,
+        fallbackShown: Bool? = nil
+    ) {
         self.firstTokenLatencyMs = firstTokenLatencyMs
         self.peakMemoryMB = peakMemoryMB
+        self.terminationReason = terminationReason
+        self.rawOutputPreview = rawOutputPreview
+        self.sanitizedOutputPreview = sanitizedOutputPreview
+        self.sanitizationEmptiedNonEmptyRaw = sanitizationEmptiedNonEmptyRaw
+        self.fallbackShown = fallbackShown
     }
 }
 
@@ -569,43 +690,42 @@ public extension ModelConfiguration {
         }
     }
 
-    /// Executes getPromptHistory.
-    internal func getPromptHistory(thread: Thread, systemPrompt: String) -> [[String: String]] {
+    internal func getChatMessages(thread: Thread, systemPrompt: String) -> [Chat.Message] {
         let resolvedBudget = LLMChatBudgets.active.resolved(for: self)
-        var promptHistory: [[String: String]] = [[
-            "role": "system",
-            "content": systemPrompt
-        ]]
+        var chatMessages: [Chat.Message] = [.system(systemPrompt)]
 
         let normalizedMessages = normalizedThreadMessages(from: thread.sortedMessages)
         if normalizedMessages.isEmpty {
-            return promptHistory
+            return chatMessages
         }
 
         let clippedByCount = Array(normalizedMessages.suffix(resolvedBudget.maxThreadMessages))
         let droppedPrefix = Array(normalizedMessages.prefix(max(0, normalizedMessages.count - clippedByCount.count)))
         if resolvedBudget.strategy.includeRecapMessage && droppedPrefix.isEmpty == false {
-            promptHistory.append([
-                "role": "system",
-                "content": buildRecapMessage(from: droppedPrefix)
-            ])
+            chatMessages.append(.system(buildRecapMessage(from: droppedPrefix)))
         }
-        promptHistory.append(contentsOf: clippedByCount)
-        enforcePromptBudget(&promptHistory, maxTokens: resolvedBudget.maxPromptTokens)
+        chatMessages.append(contentsOf: clippedByCount)
+        enforcePromptBudget(&chatMessages, maxTokens: resolvedBudget.maxPromptTokens)
 
-        return promptHistory
+        return chatMessages
     }
 
-    private func normalizedThreadMessages(from messages: [Message]) -> [[String: String]] {
+    /// Executes getPromptHistory.
+    internal func getPromptHistory(thread: Thread, systemPrompt: String) -> [[String: String]] {
+        getChatMessages(thread: thread, systemPrompt: systemPrompt).map { message in
+            [
+                "role": message.role.rawValue,
+                "content": message.content
+            ]
+        }
+    }
+
+    private func normalizedThreadMessages(from messages: [Message]) -> [Chat.Message] {
         messages.compactMap { message in
-            let role = message.role.rawValue
             if AssistantCardCodec.isCard(message.content) {
                 guard let payload = AssistantCardCodec.decode(from: message.content) else { return nil }
                 guard let summarized = summarizedAssistantCardContent(from: payload) else { return nil }
-                return [
-                    "role": role,
-                    "content": summarized
-                ]
+                return chatMessage(role: message.role, content: summarized)
             }
             guard let sanitized = formatForTokenizer(message.content) else { return nil }
             if message.role == .assistant,
@@ -616,19 +736,29 @@ public extension ModelConfiguration {
                ).isAcceptable == false {
                 return nil
             }
-            return [
-                "role": role,
-                "content": sanitized
-            ]
+            return chatMessage(role: message.role, content: sanitized)
         }
     }
 
-    private func buildRecapMessage(from droppedMessages: [[String: String]]) -> String {
+    private func chatMessage(role: Role, content: String) -> Chat.Message {
+        switch role {
+        case .assistant:
+            return .assistant(content)
+        case .user:
+            return .user(content)
+        case .system:
+            return .system(content)
+        }
+    }
+
+    private func buildRecapMessage(from droppedMessages: [Chat.Message]) -> String {
         let mergedPreview: [[String: String]]
         if droppedMessages.count > 4 {
-            mergedPreview = Array(droppedMessages.prefix(2)) + Array(droppedMessages.suffix(2))
+            mergedPreview = (Array(droppedMessages.prefix(2)) + Array(droppedMessages.suffix(2))).map {
+                ["role": $0.role.rawValue, "content": $0.content]
+            }
         } else {
-            mergedPreview = droppedMessages
+            mergedPreview = droppedMessages.map { ["role": $0.role.rawValue, "content": $0.content] }
         }
         let lines = mergedPreview.enumerated().compactMap { _, item -> String? in
             guard let role = item["role"], let content = item["content"] else { return nil }
@@ -645,13 +775,13 @@ public extension ModelConfiguration {
         """
     }
 
-    private func totalPromptTokens(_ history: [[String: String]]) -> Int {
+    private func totalPromptTokens(_ history: [Chat.Message]) -> Int {
         history.reduce(0) { partial, item in
-            partial + LLMTokenBudgetEstimator.estimatedTokenCount(for: item["content"] ?? "")
+            partial + LLMTokenBudgetEstimator.estimatedTokenCount(for: item.content)
         }
     }
 
-    private func enforcePromptBudget(_ promptHistory: inout [[String: String]], maxTokens: Int) {
+    private func enforcePromptBudget(_ promptHistory: inout [Chat.Message], maxTokens: Int) {
         guard maxTokens > 0 else {
             promptHistory = []
             return
@@ -665,28 +795,28 @@ public extension ModelConfiguration {
         if totalPromptTokens(promptHistory) <= maxTokens { return }
 
         if promptHistory.count > 1,
-           promptHistory[1]["role"] == "system",
-           var recapContent = promptHistory[1]["content"] {
+           promptHistory[1].role == .system {
+            var recapContent = promptHistory[1].content
             let recapBudgetTokens = min(
                 LLMTokenBudgetEstimator.estimatedTokenCount(for: recapContent),
                 max(24, maxTokens / 6)
             )
             if LLMTokenBudgetEstimator.estimatedTokenCount(for: recapContent) > recapBudgetTokens {
                 recapContent = LLMTokenBudgetEstimator.trimPrefix(recapContent, toTokenBudget: recapBudgetTokens)
-                promptHistory[1]["content"] = recapContent
+                promptHistory[1].content = recapContent
             }
         }
 
         if totalPromptTokens(promptHistory) <= maxTokens { return }
 
-        if var systemEntry = promptHistory.first,
-           let systemContent = systemEntry["content"] {
+        if var systemEntry = promptHistory.first {
+            let systemContent = systemEntry.content
             let maxSystemTokens = min(
                 LLMTokenBudgetEstimator.estimatedTokenCount(for: systemContent),
                 max(48, tokenBudget.systemPromptTokens)
             )
             if LLMTokenBudgetEstimator.estimatedTokenCount(for: systemContent) > maxSystemTokens {
-                systemEntry["content"] = LLMTokenBudgetEstimator.trimPrefix(systemContent, toTokenBudget: maxSystemTokens)
+                systemEntry.content = LLMTokenBudgetEstimator.trimPrefix(systemContent, toTokenBudget: maxSystemTokens)
                 promptHistory[0] = systemEntry
             }
         }
@@ -695,9 +825,8 @@ public extension ModelConfiguration {
 
         guard promptHistory.count >= 2 else {
             if var systemEntry = promptHistory.first,
-               let systemContent = systemEntry["content"],
-               LLMTokenBudgetEstimator.estimatedTokenCount(for: systemContent) > maxTokens {
-                systemEntry["content"] = LLMTokenBudgetEstimator.trimPrefix(systemContent, toTokenBudget: maxTokens)
+               LLMTokenBudgetEstimator.estimatedTokenCount(for: systemEntry.content) > maxTokens {
+                systemEntry.content = LLMTokenBudgetEstimator.trimPrefix(systemEntry.content, toTokenBudget: maxTokens)
                 promptHistory[0] = systemEntry
             }
             return
@@ -706,35 +835,31 @@ public extension ModelConfiguration {
         let fixedTokens = totalPromptTokens(Array(promptHistory.dropLast()))
         let lastEntryBudget = max(24, maxTokens - fixedTokens)
         if var lastEntry = promptHistory.last,
-           let content = lastEntry["content"],
-           LLMTokenBudgetEstimator.estimatedTokenCount(for: content) > lastEntryBudget {
+           LLMTokenBudgetEstimator.estimatedTokenCount(for: lastEntry.content) > lastEntryBudget {
             // Keep the most recent tail of the newest turn for deterministic truncation.
-            lastEntry["content"] = LLMTokenBudgetEstimator.trimSuffix(content, toTokenBudget: lastEntryBudget)
+            lastEntry.content = LLMTokenBudgetEstimator.trimSuffix(lastEntry.content, toTokenBudget: lastEntryBudget)
             promptHistory[promptHistory.count - 1] = lastEntry
         }
 
         if totalPromptTokens(promptHistory) > maxTokens,
-           var systemEntry = promptHistory.first,
-           let systemContent = systemEntry["content"] {
+           var systemEntry = promptHistory.first {
+            let systemContent = systemEntry.content
             let remainingBudget = max(0, maxTokens - totalPromptTokens(Array(promptHistory.dropFirst())))
             if LLMTokenBudgetEstimator.estimatedTokenCount(for: systemContent) > remainingBudget {
-                systemEntry["content"] = LLMTokenBudgetEstimator.trimPrefix(systemContent, toTokenBudget: remainingBudget)
+                systemEntry.content = LLMTokenBudgetEstimator.trimPrefix(systemContent, toTokenBudget: remainingBudget)
                 promptHistory[0] = systemEntry
             }
         }
     }
 
-    // TODO: Remove this function when Jinja gets updated
     /// Executes formatForTokenizer.
     func formatForTokenizer(_ message: String) -> String? {
         let sanitized = LLMChatTextSanitizer.sanitizeForPromptHistory(
             message,
-            stripReasoningBlocks: modelType == .reasoning
+            stripReasoningBlocks: modelType == .reasoning,
+            modelName: name
         )
         guard let sanitized else { return nil }
-        if modelType == .reasoning {
-            return " " + sanitized
-        }
         return sanitized
     }
 

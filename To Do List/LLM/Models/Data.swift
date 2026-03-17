@@ -470,18 +470,26 @@ class Message {
     var content: String
     var timestamp: Date
     var generatingTime: TimeInterval?
+    var sourceModelName: String?
     var sortTimestamp: Date { timestamp }
     
     /// Initializes a new instance.
     @Relationship(inverse: \Thread.messages) var thread: Thread?
     
-    init(role: Role, content: String, thread: Thread? = nil, generatingTime: TimeInterval? = nil) {
+    init(
+        role: Role,
+        content: String,
+        thread: Thread? = nil,
+        generatingTime: TimeInterval? = nil,
+        sourceModelName: String? = nil
+    ) {
         self.id = UUID()
         self.role = role
         self.content = content
         self.timestamp = Date()
         self.thread = thread
         self.generatingTime = generatingTime
+        self.sourceModelName = sourceModelName
     }
 }
 

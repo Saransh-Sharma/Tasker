@@ -62,6 +62,13 @@ final class LoggingService {
         return formatter
     }()
 
+    static let defaultLogPreviewLength = 160
+
+    static func previewText(_ text: String, maxLength: Int = defaultLogPreviewLength) -> String {
+        guard text.count > maxLength else { return text }
+        return String(text.prefix(maxLength))
+    }
+
     // MARK: - Initialization
 
     /// Initializes a new instance.

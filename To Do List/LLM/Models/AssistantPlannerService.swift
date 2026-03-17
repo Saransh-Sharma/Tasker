@@ -1,4 +1,5 @@
 import Foundation
+import MLXLMCommon
 
 enum AssistantPlannerError: LocalizedError {
     case noModelConfigured
@@ -57,7 +58,8 @@ final class AssistantPlannerService {
             modelName: modelName,
             thread: thread,
             systemPrompt: systemPrompt,
-            profile: .chatPlanJSON
+            profile: .chatPlanJSON,
+            requestOptions: .structuredOutput(for: ModelConfiguration.getModelByName(modelName) ?? .defaultModel)
         )
 
         if output.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {

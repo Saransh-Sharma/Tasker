@@ -1,4 +1,5 @@
 import Foundation
+import MLXLMCommon
 
 struct DailyBriefOutput {
     let brief: String
@@ -72,7 +73,8 @@ final class DailyBriefService {
             Schema:
             {"brief":"4 short bullets with one clear next action"}
             """,
-            profile: .dailyBrief
+            profile: .dailyBrief,
+            requestOptions: .structuredOutput(for: ModelConfiguration.getModelByName(modelName) ?? .defaultModel)
         )
         if let brief = decodeBrief(from: output) {
             return DailyBriefOutput(brief: brief, modelName: modelName, routeBanner: route.bannerMessage)

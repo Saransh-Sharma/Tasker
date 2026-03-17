@@ -1,4 +1,5 @@
 import XCTest
+import MLXLMCommon
 @testable import To_Do_List
 
 @MainActor
@@ -39,6 +40,7 @@ final class ChatTranscriptSnapshotTests: XCTestCase {
         let liveOutput = ChatLiveOutputState(
             threadID: UUID(),
             text: "<think>Reason</think>\nAnswer",
+            sourceModelName: ModelConfiguration.qwen_3_0_6b_4bit.name,
             runtimePhase: .answering,
             isRunning: true,
             isPreparingResponse: false
@@ -48,5 +50,42 @@ final class ChatTranscriptSnapshotTests: XCTestCase {
         XCTAssertEqual(liveOutput.renderModel.role, .assistant)
         XCTAssertEqual(liveOutput.renderModel.thinkingText, "Reason")
         XCTAssertEqual(liveOutput.renderModel.answerText, "Answer")
+    }
+
+    func testSnapshotUsesPersistedSourceModelNameForAssistantSanitization() {
+        let thread = To_Do_List.Thread()
+        thread.messages = [
+            Message(
+                role: .assistant,
+                content: "<｜Assistant｜>Focus on urgent work.<｜end▁of▁sentence｜>",
+                thread: thread,
+                sourceModelName: ModelConfiguration.qwen_3_0_6b_4bit.name
+            )
+        ]
+
+        let snapshot = ChatTranscriptSnapshot(thread: thread)
+
+        XCTAssertEqual(snapshot.messages.first?.displayContent, "Focus on urgent work.")
+    }
+
+    func testSnapshotSplitsPlainTextThinkingForReasoningDistilledModel() {
+        let thread = To_Do_List.Thread()
+        thread.messages = [
+            Message(
+                role: .assistant,
+                content: """
+                Thinking Process:
+                1. Analyze the day.
+                2. Pick the most important task.
+                """,
+                thread: thread,
+                sourceModelName: ModelConfiguration.qwen_3_5_0_8b_claude_4_6_opus_reasoning_distilled_4bit.name
+            )
+        ]
+
+        let snapshot = ChatTranscriptSnapshot(thread: thread)
+
+        XCTAssertEqual(snapshot.messages.first?.thinkingText, "Thinking Process:\n1. Analyze the day.\n2. Pick the most important task.")
+        XCTAssertNil(snapshot.messages.first?.answerText)
     }
 }

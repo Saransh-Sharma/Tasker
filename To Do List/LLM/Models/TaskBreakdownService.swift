@@ -1,4 +1,5 @@
 import Foundation
+import MLXLMCommon
 
 struct TaskBreakdownOutput {
     let steps: [String]
@@ -104,7 +105,8 @@ final class TaskBreakdownService {
             modelName: modelName,
             thread: thread,
             systemPrompt: breakdownSystemPrompt,
-            profile: .breakdown
+            profile: .breakdown,
+            requestOptions: .structuredOutput(for: ModelConfiguration.getModelByName(modelName) ?? .defaultModel)
         )
 
         let parsed = decodeSteps(from: output) ?? []

@@ -137,11 +137,13 @@ struct RequestLLMIntent: AppIntent {
             
             let message = Message(role: .user, content: prompt, thread: thread)
             thread.messages.append(message)
+            let requestOptions = LLMGenerationRequestOptions.interactiveChat(for: runtimeModel)
             var output = await llm.generate(
                 modelName: ready.resolvedModelName,
                 thread: thread,
                 systemPrompt: composedSystemPrompt,
-                profile: .chat
+                profile: .chatProfile(for: runtimeModel, requestOptions: requestOptions),
+                requestOptions: requestOptions
             )
             
             let maxCharacters = maxCharacters ?? .max

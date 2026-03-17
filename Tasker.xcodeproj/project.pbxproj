@@ -101,6 +101,7 @@
 		7513BA322687C40500F8CCE0 /* SettingsBackdrop.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7513BA312687C40500F8CCE0 /* SettingsBackdrop.swift */; };
 		7524B71B2DE4EAC90026D865 /* GoogleService-Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = 7524B71A2DE4EAC90026D865 /* GoogleService-Info.plist */; };
 		7529F6F32DFDE9BC000CBE36 /* LLMDataController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7529F6F22DFDE9BC000CBE36 /* LLMDataController.swift */; };
+		7529F7AA2F5D0001000CBE36 /* LLMDebugSmokeRunner.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7529F7A92F5D0001000CBE36 /* LLMDebugSmokeRunner.swift */; };
 		7529F6F82DFDE9F0000CBE36 /* View+IfModifier.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7529F6F62DFDE9F0000CBE36 /* View+IfModifier.swift */; };
 		7529F6FD2DFDEFB3000CBE36 /* Lottie in Frameworks */ = {isa = PBXBuildFile; productRef = 7529F6FC2DFDEFB3000CBE36 /* Lottie */; };
 		7529F7042DFDF7E3000CBE36 /* loading-animation.json in Resources */ = {isa = PBXBuildFile; fileRef = 7529F7032DFDF7E3000CBE36 /* loading-animation.json */; };
@@ -556,6 +557,7 @@
 		7513BA312687C40500F8CCE0 /* SettingsBackdrop.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsBackdrop.swift; sourceTree = "<group>"; };
 		7524B71A2DE4EAC90026D865 /* GoogleService-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "GoogleService-Info.plist"; sourceTree = "<group>"; };
 		7529F6F22DFDE9BC000CBE36 /* LLMDataController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LLMDataController.swift; sourceTree = "<group>"; };
+		7529F7A92F5D0001000CBE36 /* LLMDebugSmokeRunner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LLMDebugSmokeRunner.swift; sourceTree = "<group>"; };
 		7529F6F62DFDE9F0000CBE36 /* View+IfModifier.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "View+IfModifier.swift"; sourceTree = "<group>"; };
 		7529F7032DFDF7E3000CBE36 /* loading-animation.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = "loading-animation.json"; sourceTree = "<group>"; };
 		752A97492E92A6ED00CFC576 /* ProjectConstants.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProjectConstants.swift; sourceTree = "<group>"; };
@@ -1919,6 +1921,7 @@
 				75F89F302DFC44E6009EDD8F /* RequestLLMIntent.swift */,
 				75F89FB72DFC83EF009EDD8F /* PromptMiddleware.swift */,
 				7529F6F22DFDE9BC000CBE36 /* LLMDataController.swift */,
+				7529F7A92F5D0001000CBE36 /* LLMDebugSmokeRunner.swift */,
 				88EAC5F41DAFB21D34E6790E /* To Do List/LLM/Models/LLMContextProjectionService.swift */,
 			);
 			path = Models;
@@ -2540,6 +2543,7 @@
 				75F9937E24859ADB00C340EB /* HomeBottomBarView.swift in Sources */,
 				7539AABB2DE988C900619EDD /* TaskDetailView.swift in Sources */,
 				7529F6F32DFDE9BC000CBE36 /* LLMDataController.swift in Sources */,
+				7529F7AA2F5D0001000CBE36 /* LLMDebugSmokeRunner.swift in Sources */,
 				75A631602E8BDAB9006EEA59 /* LGSearchViewController.swift in Sources */,
 				75A631612E8BDAB9006EEA59 /* LGSearchViewModel.swift in Sources */,
 				758A80642451E86E00BFB571 /* WeeklyViewController.swift in Sources */,

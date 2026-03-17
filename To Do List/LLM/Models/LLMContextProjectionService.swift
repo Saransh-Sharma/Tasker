@@ -1,6 +1,48 @@
 import Foundation
 import MLXLMCommon
 
+private func uniqueDictionary<Key: Hashable, Value>(
+    _ pairs: [(Key, Value)],
+    source: String,
+    context: String,
+    sampleLimit: Int = 8
+) -> [Key: Value] {
+    var dictionary: [Key: Value] = [:]
+    var duplicateKeys: [Key] = []
+    var duplicateSet: Set<Key> = []
+    var duplicateCount = 0
+
+    for (key, value) in pairs {
+        if dictionary[key] == nil {
+            dictionary[key] = value
+            continue
+        }
+        duplicateCount += 1
+        if duplicateSet.insert(key).inserted {
+            duplicateKeys.append(key)
+        }
+    }
+
+    if duplicateCount > 0 {
+        let sampleKeys = duplicateKeys
+            .prefix(sampleLimit)
+            .map(String.init(describing:))
+            .joined(separator: ", ")
+        logWarning(
+            event: "llm_context_projection_duplicate_keys",
+            message: "Detected duplicate keys while building dictionary for \(context)",
+            fields: [
+                "source": source,
+                "duplicate_count": String(duplicateCount),
+                "total_count": String(pairs.count),
+                "sample_keys": LoggingService.previewText(sampleKeys)
+            ]
+        )
+    }
+
+    return dictionary
+}
+
 enum LLMContextRepositoryProvider {
     private static var taskReadModelRepositoryStorage: TaskReadModelRepositoryProtocol?
     private static var projectRepositoryStorage: ProjectRepositoryProtocol?
@@ -84,7 +126,11 @@ enum LLMContextRepositoryProvider {
                 continuation.resume(returning: resolved)
             }
         }
-        return Dictionary(uniqueKeysWithValues: projects.map { ($0.id, $0.name) })
+        return uniqueDictionary(
+            projects.map { ($0.id, $0.name) },
+            source: "projects",
+            context: "projectNameLookup"
+        )
     }
 
     private static func resolveProjectName(in projects: [Project], query: String) -> String? {
@@ -150,8 +196,16 @@ struct LLMContextProjectionService {
         async let activeLifeAreasTask = fetchActiveLifeAreas()
         let activeProjects = await activeProjectsTask
         let activeLifeAreas = await activeLifeAreasTask
-        let projectNameByID = Dictionary(uniqueKeysWithValues: activeProjects.map { ($0.id, $0.name) })
-        let lifeAreaNameByID = Dictionary(uniqueKeysWithValues: activeLifeAreas.map { ($0.id, $0.name) })
+        let projectNameByID = uniqueDictionary(
+            activeProjects.map { ($0.id, $0.name) },
+            source: "projects",
+            context: "buildChatPlanningContext"
+        )
+        let lifeAreaNameByID = uniqueDictionary(
+            activeLifeAreas.map { ($0.id, $0.name) },
+            source: "life_areas",
+            context: "buildChatPlanningContext"
+        )
 
         let buckets = await buildChatTaskBuckets(
             queryTerms: normalizedQuery,
@@ -424,8 +478,27 @@ struct LLMContextProjectionService {
         guard !Task.isCancelled else { return [] }
         return await withCheckedContinuation { continuation in
             projectRepository.fetchAllProjects { result in
-                let projects = ((try? result.get()) ?? []).filter { !$0.isArchived }
-                continuation.resume(returning: projects)
+                let activeProjects = ((try? result.get()) ?? []).filter { !$0.isArchived }
+                let inboxProjectCount = activeProjects.filter { $0.id == ProjectConstants.inboxProjectID }.count
+                if inboxProjectCount > 1 {
+                    logWarning(
+                        event: "llm_context_projection_active_projects",
+                        message: "Found duplicate active inbox project IDs while preparing chat context",
+                        fields: [
+                            "source": "projects",
+                            "total_count": String(activeProjects.count),
+                            "duplicate_count": String(max(0, inboxProjectCount - 1)),
+                            "inbox_duplicate_count": String(max(0, inboxProjectCount - 1)),
+                            "sample_keys": LoggingService.previewText(
+                                [ProjectConstants.inboxProjectID]
+                                    .map(String.init)
+                                    .joined(separator: ", "),
+                                maxLength: LoggingService.defaultLogPreviewLength
+                            )
+                        ]
+                    )
+                }
+                continuation.resume(returning: activeProjects)
             }
         }
     }
@@ -656,7 +729,11 @@ struct LLMContextProjectionService {
                     continuation.resume(returning: [:])
                     return
                 }
-                continuation.resume(returning: Dictionary(uniqueKeysWithValues: tags.map { ($0.id, $0.name) }))
+                continuation.resume(returning: uniqueDictionary(
+                    tags.map { ($0.id, $0.name) },
+                    source: "tags",
+                    context: "buildTagNameLookup"
+                ))
             }
         }
     }
@@ -1000,7 +1077,11 @@ struct LLMContextProjectionService {
             taskIDs: lexicallyRanked.map(\.id),
             query: query
         )
-        let rankedLookup = Dictionary(uniqueKeysWithValues: lexicallyRanked.map { ($0.id, $0) })
+        let rankedLookup = uniqueDictionary(
+            lexicallyRanked.map { ($0.id, $0) },
+            source: "tasks",
+            context: "rankTasks"
+        )
         return semanticIDs.compactMap { rankedLookup[$0] }
     }
 

@@ -215,6 +215,11 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
 
         configureFirebaseIfNeeded(shouldConfigureFirebase)
         logCloudKitPreflightTelemetry()
+#if DEBUG
+        Task { @MainActor in
+            LLMDebugSmokeRunner.scheduleIfEnabled()
+        }
+#endif
     }
 
     private func configureFirebaseIfNeeded(_ shouldConfigureFirebase: Bool) {
