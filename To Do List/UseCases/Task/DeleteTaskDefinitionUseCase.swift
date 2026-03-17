@@ -1,6 +1,8 @@
 import Foundation
 
 public final class DeleteTaskDefinitionUseCase {
+    private static let deletedTaskIDsUserInfoKey = "deletedTaskIDs"
+
     private let repository: TaskDefinitionRepositoryProtocol
     private let tombstoneRepository: TombstoneRepositoryProtocol?
 
@@ -116,11 +118,12 @@ public final class DeleteTaskDefinitionUseCase {
                 completion(.failure(firstError))
                 return
             }
+            let deletedTaskIDs = uniqueIDs.map(\.uuidString)
             TaskNotificationDispatcher.postOnMain(
                 name: NSNotification.Name("TaskDeleted"),
                 object: deletedTask,
                 userInfo: [
-                    "deletedTaskIDs": uniqueIDs.map(\.uuidString)
+                    Self.deletedTaskIDsUserInfoKey: deletedTaskIDs
                 ]
             )
             var userInfo = HomeTaskMutationPayload(
@@ -134,7 +137,7 @@ public final class DeleteTaskDefinitionUseCase {
                 newProjectID: deletedTask?.projectID,
                 previousPriorityRawValue: deletedTask?.priority.rawValue
             ).userInfo
-            userInfo["deletedTaskIDs"] = uniqueIDs.map(\.uuidString)
+            userInfo[Self.deletedTaskIDsUserInfoKey] = deletedTaskIDs
             userInfo["deleteScope"] = scope.rawValue
             userInfo["deletedCount"] = uniqueIDs.count
             if let recurrenceSeriesID {

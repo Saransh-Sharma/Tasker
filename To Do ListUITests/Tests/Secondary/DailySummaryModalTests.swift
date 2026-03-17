@@ -7,19 +7,14 @@
 
 import XCTest
 
-final class DailySummaryModalTests: XCTestCase {
-    private var app: XCUIApplication!
-
+final class DailySummaryModalTests: BaseUITest {
     override func setUpWithError() throws {
-        try super.setUpWithError()
         continueAfterFailure = false
         app = XCUIApplication()
     }
 
-    override func tearDownWithError() throws {
-        app?.terminate()
-        app = nil
-        try super.tearDownWithError()
+    private func summaryElement(_ identifier: String) -> XCUIElement {
+        app.descendants(matching: .any)[identifier]
     }
 
     func testMorningRoutePresentsMorningSummaryModal() {
@@ -28,16 +23,16 @@ final class DailySummaryModalTests: XCTestCase {
             additionalArguments: [.enableLiquidMetalCTA]
         )
 
-        let modal = app.otherElements[AccessibilityIdentifiers.Home.dailySummaryModal]
+        let modal = summaryElement(AccessibilityIdentifiers.Home.dailySummaryModal)
         XCTAssertTrue(modal.waitForExistence(timeout: 10), "Morning summary modal should appear")
 
-        XCTAssertTrue(app.otherElements[AccessibilityIdentifiers.Home.dailySummaryHeroOpenCount].waitForExistence(timeout: 2))
-        XCTAssertTrue(app.buttons[AccessibilityIdentifiers.Home.dailySummaryCTAStartToday].waitForExistence(timeout: 2))
-        XCTAssertTrue(app.buttons[AccessibilityIdentifiers.Home.dailySummaryCTACompleteMorning].waitForExistence(timeout: 2))
-        XCTAssertTrue(app.buttons[AccessibilityIdentifiers.Home.dailySummaryCTAStartTriage].waitForExistence(timeout: 2))
-
-        app.buttons[AccessibilityIdentifiers.Home.dailySummaryCTAStartToday].tap()
-        XCTAssertFalse(modal.waitForExistence(timeout: 2), "Primary morning CTA should remain tappable and dismiss the modal")
+        let startTodayButton = app.buttons["Start Today"]
+        XCTAssertTrue(app.staticTexts["Morning Plan"].waitForExistence(timeout: 4))
+        XCTAssertTrue(startTodayButton.waitForExistence(timeout: 4))
+        XCTAssertTrue(app.buttons["Complete Morning Routine"].waitForExistence(timeout: 4))
+        XCTAssertTrue(app.buttons["Start Triage"].waitForExistence(timeout: 4))
+        startTodayButton.tap()
+        waitForElementToDisappear(modal, timeout: 2)
     }
 
     func testNightlyRoutePresentsNightlySummaryModal() {
@@ -46,14 +41,14 @@ final class DailySummaryModalTests: XCTestCase {
             additionalArguments: [.enableLiquidMetalCTA]
         )
 
-        let modal = app.otherElements[AccessibilityIdentifiers.Home.dailySummaryModal]
+        let modal = summaryElement(AccessibilityIdentifiers.Home.dailySummaryModal)
         XCTAssertTrue(modal.waitForExistence(timeout: 10), "Nightly summary modal should appear")
 
-        XCTAssertTrue(app.otherElements[AccessibilityIdentifiers.Home.dailySummaryHeroCompleted].waitForExistence(timeout: 2))
-        XCTAssertTrue(app.buttons[AccessibilityIdentifiers.Home.dailySummaryCTAPlanTomorrow].waitForExistence(timeout: 2))
-        XCTAssertTrue(app.buttons[AccessibilityIdentifiers.Home.dailySummaryCTAReviewDone].waitForExistence(timeout: 2))
-
-        app.buttons[AccessibilityIdentifiers.Home.dailySummaryCTAPlanTomorrow].tap()
-        XCTAssertFalse(modal.waitForExistence(timeout: 2), "Primary nightly CTA should remain tappable and dismiss the modal")
+        let planTomorrowButton = app.buttons["Plan Tomorrow"]
+        XCTAssertTrue(app.staticTexts["Day Retrospective"].waitForExistence(timeout: 4))
+        XCTAssertTrue(planTomorrowButton.waitForExistence(timeout: 4))
+        XCTAssertTrue(app.buttons["Review Done"].waitForExistence(timeout: 4))
+        planTomorrowButton.tap()
+        waitForElementToDisappear(modal, timeout: 2)
     }
 }

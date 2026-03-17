@@ -5,8 +5,8 @@ import XCTest
 final class DeleteTaskDefinitionUseCaseTests: XCTestCase {
     func testSeriesDeleteNotificationIncludesAllDeletedTaskIDs() {
         let recurrenceSeriesID = UUID()
-        let taskA = TaskDefinition(title: "Task A", recurrenceSeriesID: recurrenceSeriesID)
-        let taskB = TaskDefinition(title: "Task B", recurrenceSeriesID: recurrenceSeriesID)
+        let taskA = TaskDefinition(recurrenceSeriesID: recurrenceSeriesID, title: "Task A")
+        let taskB = TaskDefinition(recurrenceSeriesID: recurrenceSeriesID, title: "Task B")
         let repository = InMemoryTaskDefinitionRepository(tasks: [taskA, taskB])
         let useCase = DeleteTaskDefinitionUseCase(repository: repository)
 
@@ -23,12 +23,17 @@ final class DeleteTaskDefinitionUseCaseTests: XCTestCase {
         defer { NotificationCenter.default.removeObserver(observer) }
 
         let completionExpectation = expectation(description: "Delete completes")
-        useCase.execute(taskID: taskA.id, scope: .series) { result in
-            XCTAssertNoThrow(try result.get())
+        useCase.execute(taskID: taskA.id, scope: TaskDeleteScope.series) { result in
+            do {
+                _ = try result.get()
+            } catch {
+                XCTFail("Expected delete to succeed, got error: \(error)")
+            }
             completionExpectation.fulfill()
         }
 
         wait(for: [notificationExpectation, completionExpectation], timeout: 1.0)
+        XCTAssertEqual(observedDeletedTaskIDs.count, 2)
         XCTAssertEqual(Set(observedDeletedTaskIDs), Set([taskA.id.uuidString, taskB.id.uuidString]))
     }
 }
@@ -58,7 +63,8 @@ private final class InMemoryTaskDefinitionRepository: TaskDefinitionRepositoryPr
     }
 
     func create(request: CreateTaskDefinitionRequest, completion: @escaping (Result<TaskDefinition, Error>) -> Void) {
-        fatalError("Not needed in tests")
+        XCTFail("Unexpected create(request:) in DeleteTaskDefinitionUseCaseTests")
+        completion(.failure(InMemoryTaskDefinitionRepositoryError.unexpectedInvocation))
     }
 
     func update(_ task: TaskDefinition, completion: @escaping (Result<TaskDefinition, Error>) -> Void) {
@@ -67,7 +73,8 @@ private final class InMemoryTaskDefinitionRepository: TaskDefinitionRepositoryPr
     }
 
     func update(request: UpdateTaskDefinitionRequest, completion: @escaping (Result<TaskDefinition, Error>) -> Void) {
-        fatalError("Not needed in tests")
+        XCTFail("Unexpected update(request:) in DeleteTaskDefinitionUseCaseTests")
+        completion(.failure(InMemoryTaskDefinitionRepositoryError.unexpectedInvocation))
     }
 
     func fetchChildren(parentTaskID: UUID, completion: @escaping (Result<[TaskDefinition], Error>) -> Void) {
@@ -78,4 +85,8 @@ private final class InMemoryTaskDefinitionRepository: TaskDefinitionRepositoryPr
         tasksByID.removeValue(forKey: id)
         completion(.success(()))
     }
+}
+
+private enum InMemoryTaskDefinitionRepositoryError: Error {
+    case unexpectedInvocation
 }
