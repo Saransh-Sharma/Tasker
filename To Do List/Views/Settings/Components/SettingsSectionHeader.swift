@@ -12,7 +12,7 @@ struct SettingsSectionHeader: View {
                 .fontWeight(.bold)
                 .foregroundColor(.tasker(.textPrimary))
 
-            if let subtitle, subtitle.isEmpty == false {
+            if let subtitle, !subtitle.isEmpty {
                 Text(subtitle)
                     .font(.tasker(.callout))
                     .foregroundColor(.tasker(.textSecondary))

@@ -148,7 +148,9 @@ final class SettingsViewModel: ObservableObject {
     }
 
     var setupStatusDetail: String {
-        decorativeButtonEffectsEnabled ? "Customized" : "Default"
+        decorativeButtonEffectsEnabled
+            ? "Decorative button effects are enabled."
+            : "Using the default button appearance."
     }
 
     var onboardingSummary: String {

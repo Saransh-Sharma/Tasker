@@ -1,4 +1,7 @@
 import SwiftUI
+#if os(iOS)
+import UIKit
+#endif
 
 struct SettingsRootView: View {
     private enum NotificationExpansion: Hashable {
@@ -94,6 +97,7 @@ struct SettingsRootView: View {
 
     private var phoneSettingsBody: some View {
         VStack(spacing: 0) {
+            // baseIndex controls stagger ordering; gaps leave room for expanded card content.
             workspaceSection(baseIndex: 1)
             aiAssistantSection(baseIndex: 3)
             notificationsSection(baseIndex: 5)
@@ -106,6 +110,7 @@ struct SettingsRootView: View {
         VStack(spacing: 0) {
             HStack(alignment: .top, spacing: spacing.sectionGap) {
                 VStack(spacing: 0) {
+                    // Keep the same stagger ordering across compact and regular layouts.
                     workspaceSection(baseIndex: 1, includeHorizontalPadding: false)
                     aiAssistantSection(baseIndex: 3, includeHorizontalPadding: false)
                     appearanceSection(baseIndex: 12, includeHorizontalPadding: false)
@@ -377,7 +382,12 @@ struct SettingsRootView: View {
                             tone: .neutral,
                             accessibilityIdentifier: "settings.appVersionRow"
                         ),
-                        action: {}
+                        action: {
+                            #if os(iOS)
+                            UIPasteboard.general.string = "v\(viewModel.appVersion) (\(viewModel.buildNumber))"
+                            TaskerFeedback.selection()
+                            #endif
+                        }
                     )
                 }
                 .enhancedStaggeredAppearance(index: baseIndex + 1)
@@ -474,6 +484,14 @@ struct SettingsRootView: View {
                         )
                     }
                     .padding(.horizontal, 1)
+                }
+
+                if viewModel.preferences.quietHoursAppliesToTaskAlerts == false &&
+                    viewModel.preferences.quietHoursAppliesToDailySummaries == false {
+                    Text("Quiet hours are enabled, but they do not currently apply to any notification type.")
+                        .font(.tasker(.caption1))
+                        .foregroundStyle(Color.tasker(.textSecondary))
+                        .fixedSize(horizontal: false, vertical: true)
                 }
             }
         }

@@ -3525,7 +3525,7 @@ private struct OnboardingTaskRecommendationCard: View {
     }
 
     private var guidanceUsesOuterShell: Bool {
-        isGuidanceHighlighted && V2FeatureFlags.liquidMetalCTAEnabled && state != .creating
+        isGuidanceHighlighted && V2FeatureFlags.liquidMetalCTAEnabled && state == .idle
     }
 
     private var buttonTitle: String {

@@ -476,6 +476,7 @@ struct LLMDataPrivacySettingsView: View {
             currentThread = nil
             try modelContext.delete(model: Thread.self)
             try modelContext.delete(model: Message.self)
+            try modelContext.save()
         } catch {
             logError("Failed to delete chats.")
         }

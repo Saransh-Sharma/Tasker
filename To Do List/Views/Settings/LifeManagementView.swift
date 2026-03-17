@@ -111,7 +111,7 @@ struct LifeManagementView: View {
                 onSelect: { symbol in
                     viewModel.applyIconSelection(symbol)
                 },
-                onCancel: {
+                onDismiss: {
                     viewModel.dismissIconPicker()
                 }
             )
@@ -300,7 +300,8 @@ struct LifeManagementView: View {
                         } else {
                             Text("Create Life Area")
                                 .font(.tasker(.buttonSmall))
-                                .frame(minWidth: 132, minHeight: 44)
+                                .frame(minHeight: 44)
+                                .padding(.horizontal, spacing.s12)
                         }
                     }
                     .buttonStyle(.borderedProminent)
@@ -1001,7 +1002,7 @@ private struct LifeAreaIconPickerSheet: View {
     let isSaving: Bool
     @Binding var searchQuery: String
     let onSelect: (String) -> Void
-    let onCancel: () -> Void
+    let onDismiss: () -> Void
 
     private let columns: [GridItem] = [
         GridItem(.adaptive(minimum: 68), spacing: 10, alignment: .top)
@@ -1047,7 +1048,7 @@ private struct LifeAreaIconPickerSheet: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Done", action: onCancel)
+                    Button("Done", action: onDismiss)
                 }
             }
         }

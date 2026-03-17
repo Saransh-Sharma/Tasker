@@ -350,6 +350,7 @@ struct TaskerSettingsToggleRow: View {
             Toggle("", isOn: $isOn)
                 .labelsHidden()
                 .tint(Color.tasker(.accentPrimary))
+                .accessibilityLabel(Text(title))
         }
         .frame(maxWidth: .infinity, minHeight: TaskerSettingsMetrics.toggleRowMinHeight, alignment: .leading)
         .applyOptionalAccessibilityIdentifier(accessibilityIdentifier)
@@ -422,6 +423,7 @@ struct TaskerSettingsToggleSummaryRow<ExpandedContent: View>: View {
                 Toggle("", isOn: $isOn)
                     .labelsHidden()
                     .tint(Color.tasker(.accentPrimary))
+                    .accessibilityLabel(Text(descriptor.title))
             }
             .frame(maxWidth: .infinity, minHeight: TaskerSettingsMetrics.toggleRowMinHeight, alignment: .leading)
 

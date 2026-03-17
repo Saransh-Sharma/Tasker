@@ -96,7 +96,8 @@ struct ChatsSettingsView: View {
 
                     if appManager.systemPrompt != AppManager.defaultSystemPrompt {
                         Button("Reset to Default") {
-                            appManager.resetSystemPromptToDefault()
+                            draftPrompt = AppManager.defaultSystemPrompt
+                            isEditingPrompt = true
                         }
                         .font(.tasker(.buttonSmall))
                         .buttonStyle(.bordered)

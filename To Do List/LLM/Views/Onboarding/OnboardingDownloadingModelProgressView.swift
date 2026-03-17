@@ -18,6 +18,7 @@ struct OnboardingDownloadingModelProgressView: View {
     @State private var failedModelNames: [String] = []
     @State private var currentModelName: String?
     @State private var installStarted = false
+    @State private var isInstallInFlight = false
 
     private var currentModel: ModelConfiguration? {
         guard let currentModelName else { return nil }
@@ -136,6 +137,7 @@ struct OnboardingDownloadingModelProgressView: View {
                         #if os(macOS)
                         .buttonStyle(.bordered)
                         #endif
+                        .disabled(isInstallInFlight)
                     }
                 }
                 .padding(.horizontal, TaskerTheme.Spacing.xl)
@@ -161,6 +163,7 @@ struct OnboardingDownloadingModelProgressView: View {
                     .buttonStyle(.borderedProminent)
                     #endif
                     .padding(.horizontal, TaskerTheme.Spacing.xl)
+                    .disabled(isInstallInFlight)
                 }
             }
         }
@@ -245,6 +248,7 @@ struct OnboardingDownloadingModelProgressView: View {
     }
 
     private func retryFailedModels() {
+        guard isInstallInFlight == false else { return }
         let failedModels = selectedModels.filter { failedModelNames.contains($0.name) }
         guard failedModels.isEmpty == false else { return }
         Task {
@@ -253,6 +257,10 @@ struct OnboardingDownloadingModelProgressView: View {
     }
 
     private func install(models: [ModelConfiguration]) async {
+        guard isInstallInFlight == false else { return }
+        isInstallInFlight = true
+        defer { isInstallInFlight = false }
+
         guard models.isEmpty == false else {
             finalizeActiveModelSelection()
             return
