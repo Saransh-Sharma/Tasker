@@ -201,37 +201,45 @@ struct ChatsListView: View {
 
     /// Executes deleteThreads.
     private func deleteThreads(at offsets: IndexSet) {
-        for offset in offsets {
-            let thread = threads[offset]
+        let targets = offsets.sorted(by: >).compactMap { offset -> Thread? in
+            guard filteredThreads.indices.contains(offset) else { return nil }
+            return filteredThreads[offset]
+        }
+        for thread in targets {
+            guard let threadIndex = threads.firstIndex(where: { $0.id == thread.id }) else { continue }
+            let targetThread = threads[threadIndex]
+            let threadID = targetThread.id
 
             if let currentThread = currentThread {
-                if currentThread.id == thread.id {
+                if currentThread.id == threadID {
                     setCurrentThread(nil)
                 }
             }
 
             // Adding a delay fixes a crash on iOS following a deletion
             let delay = appManager.userInterfaceIdiom == .phone ? 1.0 : 0.0
-            DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
-                modelContext.delete(thread)
-                Task {
-                    await ThreadContextAttachmentStore.shared.clear(threadID: thread.id)
+            Task { @MainActor in
+                if delay > 0 {
+                    try? await Task.sleep(nanoseconds: UInt64(delay * 1_000_000_000))
                 }
+                await ThreadContextAttachmentStore.shared.clear(threadID: threadID)
+                modelContext.delete(targetThread)
             }
         }
     }
 
     /// Executes deleteThread.
     private func deleteThread(_ thread: Thread) {
+        let threadID = thread.id
         if let currentThread = currentThread {
-            if currentThread.id == thread.id {
+            if currentThread.id == threadID {
                 setCurrentThread(nil)
             }
         }
-        Task {
-            await ThreadContextAttachmentStore.shared.clear(threadID: thread.id)
+        Task { @MainActor in
+            await ThreadContextAttachmentStore.shared.clear(threadID: threadID)
+            modelContext.delete(thread)
         }
-        modelContext.delete(thread)
     }
 
     /// Executes setCurrentThread.

@@ -234,16 +234,20 @@ enum ThreadContextAttachmentResolver {
 @MainActor
 final class ChatContextCoordinator: ObservableObject {
     @Published private(set) var activeAttachments: [ThreadContextAttachmentRecord] = []
+    private var boundThreadID: UUID?
 
     func loadAttachments(for threadID: UUID?) {
+        boundThreadID = threadID
         guard let threadID else {
             activeAttachments = []
             return
         }
 
+        let currentThreadID = threadID
         Task {
-            let attachments = await ThreadContextAttachmentStore.shared.attachments(for: threadID)
+            let attachments = await ThreadContextAttachmentStore.shared.attachments(for: currentThreadID)
             await MainActor.run {
+                guard self.boundThreadID == currentThreadID else { return }
                 self.activeAttachments = attachments
             }
         }
@@ -263,10 +267,12 @@ final class ChatContextCoordinator: ObservableObject {
             summary: commandResult.summary,
             commandResult: commandResult
         )
+        let currentThreadID = threadID
 
         Task {
             let attachments = await ThreadContextAttachmentStore.shared.upsert(record)
             await MainActor.run {
+                guard self.boundThreadID == currentThreadID else { return }
                 self.activeAttachments = attachments
             }
             logWarning(
@@ -283,12 +289,14 @@ final class ChatContextCoordinator: ObservableObject {
     }
 
     func remove(_ record: ThreadContextAttachmentRecord) {
+        let currentThreadID = record.threadID
         Task {
             let attachments = await ThreadContextAttachmentStore.shared.remove(
                 attachmentID: record.id,
-                threadID: record.threadID
+                threadID: currentThreadID
             )
             await MainActor.run {
+                guard self.boundThreadID == currentThreadID else { return }
                 self.activeAttachments = attachments
             }
             logWarning(
@@ -305,19 +313,22 @@ final class ChatContextCoordinator: ObservableObject {
     }
 
     func clear(threadID: UUID?) {
+        boundThreadID = threadID
         guard let threadID else {
             activeAttachments = []
             return
         }
+        let currentThreadID = threadID
         Task {
-            await ThreadContextAttachmentStore.shared.clear(threadID: threadID)
+            await ThreadContextAttachmentStore.shared.clear(threadID: currentThreadID)
             await MainActor.run {
+                guard self.boundThreadID == currentThreadID else { return }
                 self.activeAttachments = []
             }
             logWarning(
                 event: "chat_slash_pins_cleared",
                 message: "Cleared all thread-scoped slash context pins",
-                fields: ["thread_id": threadID.uuidString]
+                fields: ["thread_id": currentThreadID.uuidString]
             )
         }
     }

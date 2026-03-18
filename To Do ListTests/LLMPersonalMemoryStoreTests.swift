@@ -37,11 +37,8 @@ final class LLMPersonalMemoryStoreTests: XCTestCase {
         let migrated = LLMPersonalMemoryDefaultsStore.load(defaults: defaults, secureStore: secureStore)
 
         XCTAssertEqual(migrated, legacyStore)
-        if secureStore.loadData() == legacyData {
-            XCTAssertNil(defaults.data(forKey: LLMPersonalMemoryDefaultsStore.key))
-        } else {
-            XCTAssertEqual(defaults.data(forKey: LLMPersonalMemoryDefaultsStore.key), legacyData)
-        }
+        XCTAssertEqual(secureStore.loadData(), legacyData)
+        XCTAssertNil(defaults.data(forKey: LLMPersonalMemoryDefaultsStore.key))
     }
 
     func testStableMemoryCompilerBuildsExecutiveSections() {
@@ -83,6 +80,7 @@ final class LLMPersonalMemoryStoreTests: XCTestCase {
         let tokenCount = LLMTokenBudgetEstimator.estimatedTokenCount(for: block ?? "")
 
         XCTAssertNotNil(block)
+        XCTAssertTrue(block?.contains("Preference 0") == true)
         XCTAssertLessThanOrEqual(tokenCount, ModelConfiguration.defaultModel.tokenBudget.personalMemoryTokens)
     }
 }

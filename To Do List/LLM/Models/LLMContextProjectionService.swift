@@ -1580,6 +1580,10 @@ struct EvaExecutiveContextService {
         let dueSoonTasks = await dueSoonTasksTask
         let projects = await projectsTask
         let lifeAreas = await lifeAreasTask
+        let filteredOverdueTasks = overdueTasks.filter { task in
+            guard task.isComplete == false, let dueDate = task.dueDate else { return false }
+            return dueDate < startOfToday
+        }
 
         let projectNameByID = uniqueDictionary(
             projects.map { ($0.id, $0.name) },
@@ -1596,13 +1600,13 @@ struct EvaExecutiveContextService {
             guard task.isComplete, let completedAt = task.dateCompleted else { return false }
             return completedAt >= windowStart && completedAt <= now
         }.count
-        let overdueRemainingCount = overdueTasks.count
+        let overdueRemainingCount = filteredOverdueTasks.count
         let dueSoonCount = dueSoonTasks.count
 
         let topProjects = rankedLabels(
             scores: aggregateProjectScores(
                 touchedTasks: recentTasks,
-                overdueTasks: overdueTasks,
+                overdueTasks: filteredOverdueTasks,
                 dueSoonTasks: dueSoonTasks,
                 projectNameByID: projectNameByID
             ),
@@ -1611,14 +1615,15 @@ struct EvaExecutiveContextService {
         let topLifeAreas = rankedLabels(
             scores: aggregateLifeAreaScores(
                 touchedTasks: recentTasks,
-                overdueTasks: overdueTasks,
+                overdueTasks: filteredOverdueTasks,
                 dueSoonTasks: dueSoonTasks,
                 lifeAreaNameByID: lifeAreaNameByID
             ),
             limit: 3
         )
         let pressurePoints = buildPressurePoints(
-            overdueTasks: overdueTasks,
+            now: now,
+            overdueTasks: filteredOverdueTasks,
             dueSoonTasks: dueSoonTasks,
             projectNameByID: projectNameByID,
             lifeAreaNameByID: lifeAreaNameByID,
@@ -1723,12 +1728,14 @@ struct EvaExecutiveContextService {
     }
 
     private func buildPressurePoints(
+        now: Date,
         overdueTasks: [TaskDefinition],
         dueSoonTasks: [TaskDefinition],
         projectNameByID: [UUID: String],
         lifeAreaNameByID: [UUID: String],
         limit: Int
     ) -> [String] {
+        let calendar = Calendar.current
         var scores: [String: Int] = [:]
         for task in overdueTasks {
             scores[projectLabel(for: task, projectNameByID: projectNameByID), default: 0] += 1
@@ -1736,7 +1743,7 @@ struct EvaExecutiveContextService {
         }
         for task in dueSoonTasks {
             guard let dueDate = task.dueDate,
-                  let days = Calendar.current.dateComponents([.day], from: Date(), to: dueDate).day,
+                  let days = calendar.dateComponents([.day], from: now, to: dueDate).day,
                   days <= 2 else { continue }
             scores[projectLabel(for: task, projectNameByID: projectNameByID), default: 0] += 1
         }

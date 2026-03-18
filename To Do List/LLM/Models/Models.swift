@@ -213,7 +213,7 @@ enum LLMSystemPromptComposer {
                     (taskContext ?? "").trimmingCharacters(in: .whitespacesAndNewlines),
                     toTokenBudget: model.tokenBudget.taskContextTokens
                 ),
-                trimPriority: 4
+                trimPriority: 5
             )
         )
 

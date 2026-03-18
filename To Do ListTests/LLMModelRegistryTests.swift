@@ -376,6 +376,7 @@ final class LLMModelRegistryTests: XCTestCase {
         )
 
         XCTAssertEqual(history.first?["role"], "system")
+        XCTAssertGreaterThan(history.count, 1)
         XCTAssertNotEqual(history.dropFirst().first?["role"], "system")
         XCTAssertTrue(history.first?["content"]?.contains("Personal memory marker survives") == true)
         XCTAssertTrue(history.first?["content"]?.contains("Executive marker survives") == true)
@@ -409,6 +410,12 @@ final class LLMModelRegistryTests: XCTestCase {
         let migrated = AppManager.migratedBuiltInSystemPrompt(
             "You are Eva, a clever personal assistant. Keep tasks and priorities aligned. Be brief, clear, and helpful. Use simple markdown, short lists, and casual dates. Use only provided context. Do not invent details."
         )
+
+        XCTAssertEqual(migrated, AppManager.defaultSystemPrompt)
+    }
+
+    func testPromptMigrationUpdatesPreviousBuiltInDefaultPrompt() {
+        let migrated = AppManager.migratedBuiltInSystemPrompt(AppManager.previousDefaultSystemPrompt)
 
         XCTAssertEqual(migrated, AppManager.defaultSystemPrompt)
     }

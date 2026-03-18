@@ -36,13 +36,25 @@ enum EvaMemoryMapper {
         into existing: [LLMPersonalMemoryEntry]
     ) -> [LLMPersonalMemoryEntry] {
         let normalizedNew = newEntries.compactMap(normalizeText)
+        var existingByKey: [String: LLMPersonalMemoryEntry] = [:]
+        for entry in existing {
+            guard let text = normalizeText(entry.text) else { continue }
+            let key = text.lowercased()
+            if existingByKey[key] == nil {
+                existingByKey[key] = LLMPersonalMemoryEntry(id: entry.id, text: text)
+            }
+        }
         var seen = Set<String>()
         var merged: [LLMPersonalMemoryEntry] = []
 
         for text in normalizedNew {
             let key = text.lowercased()
             guard seen.insert(key).inserted else { continue }
-            merged.append(LLMPersonalMemoryEntry(text: text))
+            if let existingEntry = existingByKey[key] {
+                merged.append(LLMPersonalMemoryEntry(id: existingEntry.id, text: text))
+            } else {
+                merged.append(LLMPersonalMemoryEntry(text: text))
+            }
         }
 
         for entry in existing {

@@ -491,6 +491,8 @@ struct ChatComposerView: View {
                                     .font(.tasker(.caption2))
                             }
                             .buttonStyle(.plain)
+                            .accessibilityLabel(Text("Remove \(attachment.commandLabel)"))
+                            .accessibilityHint(Text("Removes this pinned context from the current chat."))
                         }
                         .foregroundStyle(Color.tasker(.accentPrimary))
                         .padding(.horizontal, TaskerTheme.Spacing.sm)

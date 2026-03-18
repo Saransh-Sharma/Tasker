@@ -43,12 +43,12 @@ struct RequestLLMIntent: AppIntent {
         let llm = LLMRuntimeCoordinator.shared.evaluator
         let appManager = AppManager()
         let thread = Thread()
-        
-        if prompt.isEmpty {
+
+        let trimmedPrompt = prompt.trimmingCharacters(in: .whitespacesAndNewlines)
+        if trimmedPrompt.isEmpty {
             throw $prompt.needsValueError(IntentDialog(stringLiteral: "chat"))
         }
 
-        let trimmedPrompt = prompt.trimmingCharacters(in: .whitespacesAndNewlines)
         var immediateResponse: String?
         switch SlashCommandCatalog.parse(trimmedPrompt) {
         case .invocation(var invocation):
@@ -78,7 +78,7 @@ struct RequestLLMIntent: AppIntent {
         case .missingRequiredArgument(let commandID, _):
             immediateResponse = "\(commandID.canonicalCommand) needs a name."
         case .unknown(let command):
-            immediateResponse = "Unknown command \(command). Try /today, /tomorrow, /week, /month, /project, /area, /recent, /overdue, or /clear."
+            immediateResponse = "Unknown command \(command). Try /today, /tomorrow, /week, /month, /project, /area, /recent, or /overdue."
         case .notCommand:
             break
         }
@@ -111,29 +111,29 @@ struct RequestLLMIntent: AppIntent {
                     maxTasksPerSlice: LLMChatBudgets.active.maxProjectionTasksPerSlice,
                     compactTaskPayload: V2FeatureFlags.llmChatContextStrategy == .bounded
                 ),
-                query: prompt,
+                query: trimmedPrompt,
                 budgets: LLMChatBudgets.active,
                 model: runtimeModel,
                 contextCharBudgetOverride: LLMTokenBudgetEstimator.estimatedCharacterBudget(
                     for: resolvedBudget.maxContextTokens
                 )
             )
-            let executiveContext = await EvaExecutiveContextService.makeDefault()?
-                .buildSnapshot(
-                    maxChars: LLMTokenBudgetEstimator.estimatedCharacterBudget(
-                        for: resolvedBudget.executiveContextTokens
-                    )
+            let executiveContext = await buildExecutiveContextPrompt(
+                timeoutMs: 800,
+                maxChars: LLMTokenBudgetEstimator.estimatedCharacterBudget(
+                    for: resolvedBudget.executiveContextTokens
                 )
+            )
             let composedSystemPrompt = LLMSystemPromptComposer.compose(
                 basePrompt: appManager.systemPrompt,
                 model: runtimeModel,
                 additionalInstruction: systemPrompt,
                 personalMemory: LLMPersonalMemoryDefaultsStore.promptBlock(for: runtimeModel),
-                executiveContext: executiveContext?.promptBlock,
+                executiveContext: executiveContext,
                 taskContext: contextResult.payload
             )
             
-            let message = Message(role: .user, content: prompt, thread: thread)
+            let message = Message(role: .user, content: trimmedPrompt, thread: thread)
             thread.messages.append(message)
             let requestOptions = LLMGenerationRequestOptions.interactiveChat(for: runtimeModel)
             var output = await llm.generate(
@@ -163,6 +163,18 @@ struct RequestLLMIntent: AppIntent {
             let error = "no model is currently selected. open the app and select a model first."
             return .result(value: error, dialog: "\(error)")
         }
+    }
+
+    private func buildExecutiveContextPrompt(timeoutMs: UInt64, maxChars: Int) async -> String? {
+        guard let service = EvaExecutiveContextService.makeDefault() else { return nil }
+        let result = await LLMProjectionTimeout.execute(timeoutMs: timeoutMs) {
+            let snapshot = await service.buildSnapshot(maxChars: maxChars)
+            return snapshot.promptBlock
+        }
+        guard result.timedOut == false else { return nil }
+        let trimmed = result.payload.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard trimmed.isEmpty == false, trimmed != "{}" else { return nil }
+        return trimmed
     }
 
     private func formatShortcutCommandResult(_ result: SlashCommandExecutionResult) -> String {

@@ -289,19 +289,19 @@ enum SlashCommandCatalog {
 
         switch command {
         case "/todo", "/today":
-            return .invocation(SlashCommandInvocation(id: .today, projectQuery: nil, projectName: nil))
+            return .invocation(SlashCommandInvocation(id: .today, argumentQuery: nil, resolvedArgument: nil))
         case "/tomorrow":
-            return .invocation(SlashCommandInvocation(id: .tomorrow, projectQuery: nil, projectName: nil))
+            return .invocation(SlashCommandInvocation(id: .tomorrow, argumentQuery: nil, resolvedArgument: nil))
         case "/week":
-            return .invocation(SlashCommandInvocation(id: .week, projectQuery: nil, projectName: nil))
+            return .invocation(SlashCommandInvocation(id: .week, argumentQuery: nil, resolvedArgument: nil))
         case "/month":
-            return .invocation(SlashCommandInvocation(id: .month, projectQuery: nil, projectName: nil))
+            return .invocation(SlashCommandInvocation(id: .month, argumentQuery: nil, resolvedArgument: nil))
         case "/project":
             if argument.isEmpty {
                 return .missingRequiredArgument(commandID: .project, partial: nil)
             }
             return .invocation(
-                SlashCommandInvocation(id: .project, projectQuery: argument, projectName: nil)
+                SlashCommandInvocation(id: .project, argumentQuery: argument, resolvedArgument: nil)
             )
         case "/area":
             if argument.isEmpty {
@@ -315,7 +315,7 @@ enum SlashCommandCatalog {
         case "/overdue":
             return .invocation(SlashCommandInvocation(id: .overdue, argumentQuery: nil, resolvedArgument: nil))
         case "/clear":
-            return .invocation(SlashCommandInvocation(id: .clear, projectQuery: nil, projectName: nil))
+            return .invocation(SlashCommandInvocation(id: .clear, argumentQuery: nil, resolvedArgument: nil))
         default:
             return .unknown(command: command)
         }
