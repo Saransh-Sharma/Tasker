@@ -27,24 +27,25 @@ struct SlashCommandExecutionResult: Codable, Equatable {
 
 enum SlashCommandExecutionError: LocalizedError {
     case repositoriesUnavailable
-    case missingProjectName
-    case projectNotFound(String)
-    case ambiguousProjectName(query: String, matches: [String])
+    case missingArgument(commandID: SlashCommandID)
+    case entityNotFound(commandID: SlashCommandID, query: String)
+    case ambiguousArgument(commandID: SlashCommandID, query: String, matches: [String])
 
     var errorDescription: String? {
         switch self {
         case .repositoriesUnavailable:
             return "Task context is unavailable right now."
-        case .missingProjectName:
-            return "Project command needs a project name."
-        case .projectNotFound(let query):
-            return "Could not find a project matching \"\(query)\"."
-        case .ambiguousProjectName(let query, let matches):
+        case .missingArgument(let commandID):
+            return "\(commandID.displayName) command needs a name."
+        case .entityNotFound(let commandID, let query):
+            return "Could not find a \(commandID.displayName.lowercased()) matching \"\(query)\"."
+        case .ambiguousArgument(let commandID, let query, let matches):
             let preview = matches.prefix(3).joined(separator: ", ")
+            let label = commandID.displayName.lowercased()
             if matches.count > 3 {
-                return "More than one project matches \"\(query)\" (\(preview), ...). Please be more specific."
+                return "More than one \(label) matches \"\(query)\" (\(preview), ...). Please be more specific."
             }
-            return "More than one project matches \"\(query)\" (\(preview)). Please be more specific."
+            return "More than one \(label) matches \"\(query)\" (\(preview)). Please be more specific."
         }
     }
 }
@@ -52,8 +53,9 @@ enum SlashCommandExecutionError: LocalizedError {
 struct SlashCommandExecutionService {
     let taskReadModelRepository: TaskReadModelRepositoryProtocol
     let projectRepository: ProjectRepositoryProtocol
+    let lifeAreaRepository: LifeAreaRepositoryProtocol?
 
-    private enum ProjectNameResolution {
+    private enum NameResolution {
         case resolved(String)
         case ambiguous([String])
         case none
@@ -66,12 +68,13 @@ struct SlashCommandExecutionService {
         }
         return SlashCommandExecutionService(
             taskReadModelRepository: taskReadModelRepository,
-            projectRepository: projectRepository
+            projectRepository: projectRepository,
+            lifeAreaRepository: LLMContextRepositoryProvider.lifeAreaRepository
         )
     }
 
-    func resolveProjectName(matching raw: String) async -> String? {
-        switch await resolveProjectNameResult(matching: raw) {
+    func resolveArgumentName(for commandID: SlashCommandID, matching raw: String) async -> String? {
+        switch await resolveNameResult(for: commandID, matching: raw) {
         case .resolved(let name):
             return name
         case .ambiguous, .none:
@@ -79,16 +82,25 @@ struct SlashCommandExecutionService {
         }
     }
 
-    private func resolveProjectNameResult(matching raw: String) async -> ProjectNameResolution {
+    private func resolveNameResult(
+        for commandID: SlashCommandID,
+        matching raw: String
+    ) async -> NameResolution {
         let query = raw.trimmingCharacters(in: .whitespacesAndNewlines)
         guard query.isEmpty == false else { return .none }
 
-        let projects = await fetchProjects()
+        let names: [String]
+        switch commandID {
+        case .project:
+            names = await fetchProjects().map(\.name)
+        case .area:
+            names = await fetchLifeAreas().map(\.name)
+        default:
+            return .none
+        }
         let normalized = query.lowercased()
 
-        let exactMatches = projects
-            .filter { $0.name.lowercased() == normalized }
-            .map(\.name)
+        let exactMatches = names.filter { $0.lowercased() == normalized }
         if exactMatches.count == 1, let name = exactMatches.first {
             return .resolved(name)
         }
@@ -96,9 +108,7 @@ struct SlashCommandExecutionService {
             return .ambiguous(exactMatches.sorted(by: { $0.localizedCaseInsensitiveCompare($1) == .orderedAscending }))
         }
 
-        let prefixMatches = projects
-            .filter { $0.name.lowercased().hasPrefix(normalized) }
-            .map(\.name)
+        let prefixMatches = names.filter { $0.lowercased().hasPrefix(normalized) }
         if prefixMatches.count == 1, let name = prefixMatches.first {
             return .resolved(name)
         }
@@ -106,9 +116,7 @@ struct SlashCommandExecutionService {
             return .ambiguous(prefixMatches.sorted(by: { $0.localizedCaseInsensitiveCompare($1) == .orderedAscending }))
         }
 
-        let containsMatches = projects
-            .filter { $0.name.lowercased().contains(normalized) }
-            .map(\.name)
+        let containsMatches = names.filter { $0.lowercased().contains(normalized) }
         if containsMatches.count == 1, let name = containsMatches.first {
             return .resolved(name)
         }
@@ -197,23 +205,41 @@ struct SlashCommandExecutionService {
                 emptySummary: "No tasks due this month."
             )
 
+        case .overdue:
+            let tasks = await fetchOpenTasksWithDueDate().filter { task in
+                guard let dueDate = task.dueDate else { return false }
+                return dueDate < startOfToday
+            }
+            return buildSingleSectionResult(
+                commandID: .overdue,
+                sectionTitle: "Overdue",
+                sectionID: "overdue",
+                tasks: tasks,
+                now: now,
+                emptySummary: "No overdue tasks."
+            )
+
         case .project:
-            let query = invocation.projectName
-                ?? invocation.projectQuery?.trimmingCharacters(in: .whitespacesAndNewlines)
+            let query = invocation.resolvedArgument
+                ?? invocation.argumentQuery?.trimmingCharacters(in: .whitespacesAndNewlines)
                 ?? ""
             guard query.isEmpty == false else {
-                throw SlashCommandExecutionError.missingProjectName
+                throw SlashCommandExecutionError.missingArgument(commandID: .project)
             }
 
-            let resolution = await resolveProjectNameResult(matching: query)
+            let resolution = await resolveNameResult(for: .project, matching: query)
             let resolvedProjectName: String
             switch resolution {
             case .resolved(let name):
                 resolvedProjectName = name
             case .ambiguous(let matches):
-                throw SlashCommandExecutionError.ambiguousProjectName(query: query, matches: matches)
+                throw SlashCommandExecutionError.ambiguousArgument(
+                    commandID: .project,
+                    query: query,
+                    matches: matches
+                )
             case .none:
-                throw SlashCommandExecutionError.projectNotFound(query)
+                throw SlashCommandExecutionError.entityNotFound(commandID: .project, query: query)
             }
 
             let tasks = await fetchOpenTasks().filter { task in
@@ -233,6 +259,84 @@ struct SlashCommandExecutionService {
                 summary: summary,
                 sections: sections,
                 totalTaskCount: section.totalCount,
+                generatedAtISO: now.ISO8601Format()
+            )
+
+        case .area:
+            let query = invocation.resolvedArgument
+                ?? invocation.argumentQuery?.trimmingCharacters(in: .whitespacesAndNewlines)
+                ?? ""
+            guard query.isEmpty == false else {
+                throw SlashCommandExecutionError.missingArgument(commandID: .area)
+            }
+
+            let resolution = await resolveNameResult(for: .area, matching: query)
+            let resolvedAreaName: String
+            switch resolution {
+            case .resolved(let name):
+                resolvedAreaName = name
+            case .ambiguous(let matches):
+                throw SlashCommandExecutionError.ambiguousArgument(
+                    commandID: .area,
+                    query: query,
+                    matches: matches
+                )
+            case .none:
+                throw SlashCommandExecutionError.entityNotFound(commandID: .area, query: query)
+            }
+
+            let lifeAreas = await fetchLifeAreas()
+            let matchingArea = lifeAreas.first {
+                $0.name.caseInsensitiveCompare(resolvedAreaName) == .orderedSame
+            }
+            let tasks = await fetchOpenTasks().filter { task in
+                guard let areaID = matchingArea?.id else { return false }
+                return task.lifeAreaID == areaID
+            }
+
+            let section = makeSection(id: "area", title: resolvedAreaName, tasks: tasks, now: now)
+            let summary = section.totalCount == 0
+                ? "No open tasks found in \(resolvedAreaName)."
+                : "\(section.totalCount) open task\(section.totalCount == 1 ? "" : "s") in \(resolvedAreaName)."
+            let sections = section.totalCount == 0 ? [] : [section]
+
+            return SlashCommandExecutionResult(
+                commandID: .area,
+                commandLabel: "Life Area: \(resolvedAreaName)",
+                summary: summary,
+                sections: sections,
+                totalTaskCount: section.totalCount,
+                generatedAtISO: now.ISO8601Format()
+            )
+
+        case .recent:
+            let summary = await EvaExecutiveContextService(
+                taskReadModelRepository: taskReadModelRepository,
+                projectRepository: projectRepository,
+                lifeAreaRepository: lifeAreaRepository
+            ).buildSnapshot(maxChars: 420, now: now)
+            let recentTasks = await fetchTasks(
+                query: TaskReadQuery(
+                    includeCompleted: true,
+                    updatedAfter: Calendar.current.date(byAdding: .day, value: -14, to: startOfToday),
+                    sortBy: .updatedAtDescending,
+                    limit: 12,
+                    offset: 0
+                )
+            )
+            let completed = recentTasks.filter { $0.isComplete }
+            let active = recentTasks.filter { !$0.isComplete }
+            let sections = [
+                makeSection(id: "recent_completed", title: "Recently Completed", tasks: completed, now: now, maxTasks: 4),
+                makeSection(id: "recent_active", title: "Recently Active", tasks: active, now: now, maxTasks: 4)
+            ].filter { $0.totalCount > 0 }
+
+            return SlashCommandExecutionResult(
+                commandID: .recent,
+                commandLabel: SlashCommandID.recent.displayName,
+                summary: summary.promptBlock,
+                sections: sections,
+                totalTaskCount: sections.reduce(0) { $0 + $1.totalCount },
                 generatedAtISO: now.ISO8601Format()
             )
 
@@ -357,7 +461,18 @@ struct SlashCommandExecutionService {
     private func fetchProjects() async -> [Project] {
         await withCheckedContinuation { continuation in
             projectRepository.fetchAllProjects { result in
-                continuation.resume(returning: (try? result.get()) ?? [])
+                let projects = ((try? result.get()) ?? []).filter { $0.isArchived == false }
+                continuation.resume(returning: projects)
+            }
+        }
+    }
+
+    private func fetchLifeAreas() async -> [LifeArea] {
+        guard let lifeAreaRepository else { return [] }
+        return await withCheckedContinuation { continuation in
+            lifeAreaRepository.fetchAll { result in
+                let lifeAreas = ((try? result.get()) ?? []).filter { $0.isArchived == false }
+                continuation.resume(returning: lifeAreas)
             }
         }
     }

@@ -55,24 +55,15 @@ struct RequestLLMIntent: AppIntent {
             switch invocation.id {
             case .clear:
                 immediateResponse = "The /clear command is only available in the in-app chat."
-            case .project:
-                let query = invocation.projectQuery?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-                guard query.isEmpty == false else {
-                    immediateResponse = "/project needs a project name."
-                    break
-                }
-                invocation.projectName = query
-                if let service = SlashCommandExecutionService.makeDefault() {
-                    do {
-                        let result = try await service.execute(invocation: invocation)
-                        immediateResponse = formatShortcutCommandResult(result)
-                    } catch {
-                        immediateResponse = (error as? LocalizedError)?.errorDescription ?? "Unable to run command right now."
-                    }
-                } else {
-                    immediateResponse = "Task context is unavailable right now."
-                }
             default:
+                if invocation.id.requiresArgument {
+                    let query = invocation.argumentQuery?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+                    guard query.isEmpty == false else {
+                        immediateResponse = "\(invocation.id.canonicalCommand) needs a name."
+                        break
+                    }
+                    invocation.resolvedArgument = query
+                }
                 if let service = SlashCommandExecutionService.makeDefault() {
                     do {
                         let result = try await service.execute(invocation: invocation)
@@ -85,9 +76,9 @@ struct RequestLLMIntent: AppIntent {
                 }
             }
         case .missingRequiredArgument(let commandID, _):
-            immediateResponse = "\(commandID.canonicalCommand) needs a project name."
+            immediateResponse = "\(commandID.canonicalCommand) needs a name."
         case .unknown(let command):
-            immediateResponse = "Unknown command \(command). Try /today, /tomorrow, /week, /month, /project, or /clear."
+            immediateResponse = "Unknown command \(command). Try /today, /tomorrow, /week, /month, /project, /area, /recent, /overdue, or /clear."
         case .notCommand:
             break
         }
@@ -127,11 +118,18 @@ struct RequestLLMIntent: AppIntent {
                     for: resolvedBudget.maxContextTokens
                 )
             )
+            let executiveContext = await EvaExecutiveContextService.makeDefault()?
+                .buildSnapshot(
+                    maxChars: LLMTokenBudgetEstimator.estimatedCharacterBudget(
+                        for: resolvedBudget.executiveContextTokens
+                    )
+                )
             let composedSystemPrompt = LLMSystemPromptComposer.compose(
                 basePrompt: appManager.systemPrompt,
                 model: runtimeModel,
                 additionalInstruction: systemPrompt,
                 personalMemory: LLMPersonalMemoryDefaultsStore.promptBlock(for: runtimeModel),
+                executiveContext: executiveContext?.promptBlock,
                 taskContext: contextResult.payload
             )
             

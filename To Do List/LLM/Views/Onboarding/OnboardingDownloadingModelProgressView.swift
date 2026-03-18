@@ -67,7 +67,7 @@ struct OnboardingDownloadingModelProgressView: View {
             Spacer()
 
             VStack(spacing: TaskerTheme.Spacing.xxxl) {
-                MoonAnimationView(isDone: canContinue)
+                EvaInstallStatusView(isComplete: canContinue, progress: overallProgress)
 
                 VStack(spacing: TaskerTheme.Spacing.xs) {
                     Text(titleText)
@@ -107,7 +107,7 @@ struct OnboardingDownloadingModelProgressView: View {
             if canContinue {
                 VStack(spacing: TaskerTheme.Spacing.sm) {
                     Button(action: { showOnboarding = false }) {
-                        Text("done")
+                        Text("Done")
                             #if os(iOS) || os(visionOS)
                             .font(.tasker(.button))
                             .foregroundColor(Color.tasker(.accentOnPrimary))
@@ -124,7 +124,7 @@ struct OnboardingDownloadingModelProgressView: View {
 
                     if failedModelNames.isEmpty == false {
                         Button(action: retryFailedModels) {
-                            Text("retry failed downloads")
+                            Text("Retry failed downloads")
                                 #if os(iOS) || os(visionOS)
                                 .font(.tasker(.button))
                                 .foregroundColor(Color.tasker(.accentPrimary))
@@ -142,14 +142,14 @@ struct OnboardingDownloadingModelProgressView: View {
                 }
                 .padding(.horizontal, TaskerTheme.Spacing.xl)
             } else {
-                Text("keep this screen open while the selected models install in sequence.")
+                Text("Keep this screen open while the selected models install in sequence.")
                     .font(.tasker(.caption1))
                     .foregroundColor(Color.tasker(.textQuaternary))
                     .multilineTextAlignment(.center)
                     .padding(.horizontal, TaskerTheme.Spacing.xl)
                 if installOutcome == .failed {
                     Button(action: retryFailedModels) {
-                        Text("retry downloads")
+                        Text("Retry downloads")
                             #if os(iOS) || os(visionOS)
                             .font(.tasker(.button))
                             .foregroundColor(Color.tasker(.accentOnPrimary))
@@ -169,7 +169,7 @@ struct OnboardingDownloadingModelProgressView: View {
         }
         .padding()
         .background(Color.tasker(.bgCanvas))
-        .navigationTitle("downloading AI models..")
+        .navigationTitle("Wake Eva")
         .toolbar(canContinue ? .hidden : .visible)
         .navigationBarBackButtonHidden()
         .task {
@@ -196,22 +196,20 @@ struct OnboardingDownloadingModelProgressView: View {
     private var titleText: String {
         switch installOutcome {
         case .installing:
-            return "installing"
+            return "Getting Eva ready"
         case .success:
-            return "installed"
+            return "Eva is ready"
         case .partialFailure:
-            return "partially installed"
+            return "Eva is partly ready"
         case .failed:
-            return "install failed"
+            return "Couldn't finish setup"
         }
     }
 
     private var statusSubtitle: String {
         switch installOutcome {
         case .success:
-            return completedModelNames
-                .compactMap { ModelConfiguration.getModelByName($0)?.displayName }
-                .joined(separator: " • ")
+            return "Your selected local mode is installed and ready to use."
         case .partialFailure:
             let completed = completedModelNames
                 .compactMap { ModelConfiguration.getModelByName($0)?.displayName }
@@ -219,19 +217,19 @@ struct OnboardingDownloadingModelProgressView: View {
             let failed = failedModelNames
                 .compactMap { ModelConfiguration.getModelByName($0)?.displayName }
                 .joined(separator: " • ")
-            return "Ready to use \(completed). Retry failed: \(failed)."
+            return "Ready to use \(completed). Retry failed downloads for \(failed) when you're ready."
         case .failed:
             let failed = failedModelNames
                 .compactMap { ModelConfiguration.getModelByName($0)?.displayName }
                 .joined(separator: " • ")
-            return failed.isEmpty ? "No local model was installed." : "Unable to install \(failed)."
+            return failed.isEmpty ? "Eva couldn't finish installing a local mode." : "Eva couldn't finish installing \(failed)."
         case .installing:
             break
         }
         if let currentModel {
-            return currentModel.displayName
+            return "Installing \(currentModel.displayName) for private on-device responses."
         }
-        return "Preparing local AI"
+        return "Preparing Eva for private on-device help."
     }
 
     private var progressLabel: String {

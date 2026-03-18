@@ -98,6 +98,14 @@ struct ChatMessageRenderModel: Identifiable, Equatable {
             closeOpenThinkingBlock: false
         )
         if extraction.hasVisibleThinking {
+            if EvaThinkingVisibilityPolicy.showsVisibleThinking == false {
+                let answer = extraction.answerText?.trimmingCharacters(in: .whitespacesAndNewlines)
+                return (
+                    nil,
+                    answer?.isEmpty == false ? answer : nil,
+                    extraction.isOpenEnded
+                )
+            }
             return (
                 extraction.thinkingText,
                 extraction.answerText,
@@ -196,7 +204,7 @@ struct ChatLiveOutputState: Equatable {
     )
 
     var shouldRender: Bool {
-        threadID != nil && (isRunning || isPreparingResponse) && text.isEmpty == false
+        threadID != nil && (isRunning || isPreparingResponse)
     }
 
     var renderModel: ChatMessageRenderModel {

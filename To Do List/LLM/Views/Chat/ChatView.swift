@@ -21,6 +21,8 @@ struct ChatView: View {
     @Binding var showSettings: Bool
     @Environment(\.dismiss) var dismissView
 
+    var presentationMode: ChatPresentationMode = .normal
+    var onActivationChatEvent: ((EvaActivationChatEvent) -> Void)? = nil
     var onOpenTaskDetail: ((TaskDefinition) -> Void)? = nil
 
     @State var thinkingTime: TimeInterval?
@@ -36,6 +38,7 @@ struct ChatView: View {
     @State private var generationTask: _Concurrency.Task<Void, Never>?
     @State private var generationRunID: UUID?
     @State private var transcriptSnapshot: ChatTranscriptSnapshot = .empty
+    @StateObject private var contextCoordinator = ChatContextCoordinator()
     @FocusState private var isProjectFieldFocused: Bool
 
     static private let contextInjectionTracker = ChatContextInjectionTracker()
@@ -86,6 +89,19 @@ struct ChatView: View {
         )
     }
 
+    private var activationConfiguration: EvaActivationChatConfiguration? {
+        guard case .activation(let config) = presentationMode else { return nil }
+        return config
+    }
+
+    private var isActivationPresentation: Bool {
+        activationConfiguration != nil
+    }
+
+    private var activationStarterPrompts: [EvaStarterPrompt] {
+        activationConfiguration?.starterPrompts ?? []
+    }
+
     private var commandSuggestions: [SlashCommandDescriptor] {
         var suggestions: [SlashCommandDescriptor] = []
         var seen = Set<SlashCommandID>()
@@ -128,11 +144,14 @@ struct ChatView: View {
             ordered.append(commandID)
         }
 
-        append(.today, when: hintText.contains("overdue") || hintText.contains("late") || hintText.contains("today"))
+        append(.overdue, when: hintText.contains("overdue") || hintText.contains("late"))
+        append(.today, when: hintText.contains("today"))
         append(.tomorrow, when: hintText.contains("tomorrow"))
         append(.week, when: hintText.contains("week"))
         append(.month, when: hintText.contains("month"))
         append(.project, when: hintText.contains("project") || hintText.contains("inbox"))
+        append(.area, when: hintText.contains("life area") || hintText.contains("area"))
+        append(.recent, when: hintText.contains("recent") || hintText.contains("last 2 weeks") || hintText.contains("last two weeks"))
         append(.clear, when: hintText.contains("clear chat") || hintText.contains("reset chat"))
 
         return ordered
@@ -189,6 +208,7 @@ struct ChatView: View {
             currentThread: $currentThread,
             transcriptSnapshot: transcriptSnapshot,
             liveOutput: liveOutputState,
+            presentationMode: presentationMode,
             prompt: $prompt,
             isPromptFocused: $isPromptFocused,
             isProjectFieldFocused: $isProjectFieldFocused,
@@ -210,9 +230,14 @@ struct ChatView: View {
             llmCancelled: llm.cancelled,
             chatTitle: chatTitle,
             onOpenTaskDetail: onOpenTaskDetail,
+            starterPrompts: activationStarterPrompts,
+            activeAttachments: contextCoordinator.activeAttachments,
             onOpenSlashPicker: {
                 appManager.playHaptic()
                 openSlashPicker(trigger: "button")
+            },
+            onSelectStarterPrompt: { starter in
+                submitStarterPrompt(starter)
             },
             onSelectSuggestion: { descriptor in
                 selectSlashCommand(descriptor)
@@ -223,6 +248,9 @@ struct ChatView: View {
                 commandFeedback = nil
                 isProjectFieldFocused = false
                 appManager.playHaptic()
+            },
+            onRemoveAttachment: { attachment in
+                contextCoordinator.remove(attachment)
             },
             onGenerate: {
                 generate()
@@ -237,11 +265,14 @@ struct ChatView: View {
                 clearCurrentThread()
             }
         )
+        .onAppear {
+            contextCoordinator.loadAttachments(for: currentThread?.id)
+        }
         .onChange(of: prompt) { _, newValue in
             handlePromptChanged(newValue)
         }
         .onChange(of: slashDraft?.id) { _, newValue in
-            guard newValue == .project else {
+            guard newValue?.requiresArgument == true else {
                 isProjectFieldFocused = false
                 return
             }
@@ -249,6 +280,7 @@ struct ChatView: View {
         }
         .onChange(of: currentThread?.id) { _, _ in
             refreshTranscriptSnapshot()
+            contextCoordinator.loadAttachments(for: currentThread?.id)
         }
         .onChange(of: isPromptFocused) { _, focused in
             if focused {
@@ -270,6 +302,11 @@ struct ChatView: View {
             refreshTranscriptSnapshot()
             Task { @MainActor in
                 LLMRuntimeCoordinator.shared.acquireSession(reason: "chat_view")
+                if isActivationPresentation {
+                    try? await Task.sleep(nanoseconds: 300_000_000)
+                    guard generationTask == nil else { return }
+                    isPromptFocused = true
+                }
             }
         }
         .onDisappear {
@@ -290,6 +327,9 @@ struct ChatView: View {
             invalidateContextCacheForCurrentThread()
         }
         .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("TaskCompletionChanged"))) { _ in
+            invalidateContextCacheForCurrentThread()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: Notification.Name("HomeTaskMutationEvent"))) { _ in
             invalidateContextCacheForCurrentThread()
         }
         .toolbar {
@@ -313,6 +353,16 @@ struct ChatView: View {
         isPromptFocused = true
         generate()
         #endif
+    }
+
+    @MainActor
+    private func submitStarterPrompt(_ starter: EvaStarterPrompt) {
+        projectLookupTask?.cancel()
+        slashDraft = nil
+        commandFeedback = nil
+        prompt = starter.submissionText
+        isPromptFocused = true
+        generate()
     }
 
     private func handlePromptChanged(_ newValue: String) {
@@ -344,16 +394,16 @@ struct ChatView: View {
     private func selectSlashCommand(_ descriptor: SlashCommandDescriptor) {
         appManager.playHaptic()
         projectLookupTask?.cancel()
-        var invocation = SlashCommandInvocation(id: descriptor.id, projectQuery: nil, projectName: nil)
-        if descriptor.id == .project {
-            invocation.projectQuery = ""
-            invocation.projectName = nil
+        var invocation = SlashCommandInvocation(id: descriptor.id, argumentQuery: nil, resolvedArgument: nil)
+        if descriptor.id.requiresArgument {
+            invocation.argumentQuery = ""
+            invocation.resolvedArgument = nil
         }
         slashDraft = invocation
         showSlashPicker = false
         prompt = ""
         commandFeedback = nil
-        isProjectFieldFocused = descriptor.id == .project
+        isProjectFieldFocused = descriptor.id.requiresArgument
 
         logWarning(
             event: "chat_slash_command_selected",
@@ -363,11 +413,11 @@ struct ChatView: View {
     }
 
     private func updateProjectDraftQuery(_ rawQuery: String) {
-        guard var invocation = slashDraft, invocation.id == .project else { return }
+        guard var invocation = slashDraft, invocation.id.requiresArgument else { return }
 
         projectLookupTask?.cancel()
-        invocation.projectQuery = rawQuery
-        invocation.projectName = nil
+        invocation.argumentQuery = rawQuery
+        invocation.resolvedArgument = nil
         slashDraft = invocation
         commandFeedback = nil
 
@@ -381,12 +431,13 @@ struct ChatView: View {
                 return
             }
 
-            let resolvedName = await LLMContextRepositoryProvider.findProjectName(matching: query)
+            let resolvedName = await SlashCommandExecutionService.makeDefault()?
+                .resolveArgumentName(for: invocation.id, matching: query)
             await MainActor.run {
-                guard var current = slashDraft, current.id == .project else { return }
-                let currentQuery = current.projectQuery?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+                guard var current = slashDraft, current.id.requiresArgument else { return }
+                let currentQuery = current.argumentQuery?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
                 guard currentQuery.caseInsensitiveCompare(query) == .orderedSame else { return }
-                current.projectName = resolvedName
+                current.resolvedArgument = resolvedName
                 slashDraft = current
             }
         }
@@ -410,6 +461,7 @@ struct ChatView: View {
             _Concurrency.Task {
                 await ChatView.contextInjectionTracker.clear(threadID: thread.id)
             }
+            contextCoordinator.clear(threadID: thread.id)
         }
         currentThread = nil
         transcriptSnapshot = .empty
@@ -438,6 +490,9 @@ struct ChatView: View {
             do {
                 try modelContext.save()
                 refreshTranscriptSnapshot(for: newThread)
+                if isActivationPresentation {
+                    onActivationChatEvent?(.threadAttached(newThread.id))
+                }
             } catch {
                 logError(
                     event: "chat_thread_save_failed",
@@ -469,12 +524,12 @@ struct ChatView: View {
 
         if var invocation = slashDraft {
             projectLookupTask?.cancel()
-            if invocation.id == .project {
+            if invocation.id.requiresArgument {
                 guard invocation.isReady else {
-                    commandFeedback = "Pick a valid project before sending /project."
+                    commandFeedback = "Pick a valid value before sending \(invocation.id.canonicalCommand)."
                     logWarning(
                         event: "chat_slash_command_validation_error",
-                        message: "Project slash command missing valid project",
+                        message: "Slash command missing valid argument",
                         fields: ["command_id": invocation.id.rawValue]
                     )
                     return
@@ -495,17 +550,16 @@ struct ChatView: View {
 
         switch SlashCommandCatalog.parse(trimmed) {
         case .invocation(var invocation):
-            if invocation.id == .project {
-                let query = invocation.projectQuery?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+            if invocation.id.requiresArgument {
+                let query = invocation.argumentQuery?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
                 guard query.isEmpty == false else {
-                    commandFeedback = "Could not resolve that project. Use /project and pick one from commands."
-                    slashDraft = SlashCommandInvocation(id: .project, projectQuery: query, projectName: nil)
+                    commandFeedback = "Could not resolve that value. Use \(invocation.id.canonicalCommand) and pick one from commands."
+                    slashDraft = SlashCommandInvocation(id: invocation.id, argumentQuery: query, resolvedArgument: nil)
                     prompt = ""
                     openSlashPicker(trigger: "validation")
                     return
                 }
-                // Use query as an execution hint; deterministic resolver handles ambiguity/not-found.
-                invocation.projectName = query
+                invocation.resolvedArgument = query
             }
 
             if invocation.id == .clear {
@@ -520,8 +574,8 @@ struct ChatView: View {
             return
 
         case .missingRequiredArgument(let commandID, _):
-            commandFeedback = "\(commandID.canonicalCommand) needs a project name."
-            slashDraft = SlashCommandInvocation(id: commandID, projectQuery: nil, projectName: nil)
+            commandFeedback = "\(commandID.canonicalCommand) needs a name."
+            slashDraft = SlashCommandInvocation(id: commandID, argumentQuery: nil, resolvedArgument: nil)
             prompt = ""
             openSlashPicker(trigger: "validation")
             logWarning(
@@ -580,12 +634,12 @@ struct ChatView: View {
         }
 
         var resolvedInvocation = invocation
-        if invocation.id == .project {
-            let query = invocation.projectName
-                ?? invocation.projectQuery?.trimmingCharacters(in: .whitespacesAndNewlines)
+        if invocation.id.requiresArgument {
+            let query = invocation.resolvedArgument
+                ?? invocation.argumentQuery?.trimmingCharacters(in: .whitespacesAndNewlines)
                 ?? ""
-            if let resolvedName = await service.resolveProjectName(matching: query) {
-                resolvedInvocation.projectName = resolvedName
+            if let resolvedName = await service.resolveArgumentName(for: invocation.id, matching: query) {
+                resolvedInvocation.resolvedArgument = resolvedName
             }
         }
 
@@ -603,6 +657,7 @@ struct ChatView: View {
             await MainActor.run {
                 sendMessage(Message(role: .assistant, content: cardMessage, thread: thread))
                 recordRecentCommand(resolvedInvocation.id)
+                contextCoordinator.upsert(commandResult: result, threadID: thread.id)
             }
 
             logWarning(
@@ -618,10 +673,10 @@ struct ChatView: View {
             let recoveryQuery: String?
             if let slashError = error as? SlashCommandExecutionError {
                 switch slashError {
-                case .projectNotFound(let query), .ambiguousProjectName(let query, _):
+                case .entityNotFound(_, let query), .ambiguousArgument(_, let query, _):
                     recoveryQuery = query
-                case .missingProjectName:
-                    recoveryQuery = resolvedInvocation.projectQuery
+                case .missingArgument:
+                    recoveryQuery = resolvedInvocation.argumentQuery
                 case .repositoriesUnavailable:
                     recoveryQuery = nil
                 }
@@ -631,14 +686,14 @@ struct ChatView: View {
 
             await MainActor.run {
                 sendMessage(Message(role: .assistant, content: failureMessage, thread: thread))
-                if resolvedInvocation.id == .project, let recoveryQuery {
+                if resolvedInvocation.id.requiresArgument, let recoveryQuery {
                     slashDraft = SlashCommandInvocation(
-                        id: .project,
-                        projectQuery: recoveryQuery,
-                        projectName: nil
+                        id: resolvedInvocation.id,
+                        argumentQuery: recoveryQuery,
+                        resolvedArgument: nil
                     )
                     commandFeedback = failureMessage
-                    slashPickerQuery = "project"
+                    slashPickerQuery = resolvedInvocation.id == .area ? "area" : "project"
                     showSlashPicker = true
                     isProjectFieldFocused = true
                 }
@@ -733,14 +788,19 @@ struct ChatView: View {
             )
         }
         let memoryBlock = LLMPersonalMemoryDefaultsStore.promptBlock(for: activeModelConfiguration)
+        let executiveContext = await buildExecutiveContextPrompt(
+            tokenBudget: resolvedChatBudget.executiveContextTokens
+        )
+        let activeAttachments = await MainActor.run { contextCoordinator.activeAttachments }
         let slashCommandContext = slashCommandContextPrompt(
-            for: thread,
+            attachments: activeAttachments,
             tokenBudget: resolvedChatBudget.slashContextTokens
         )
         let dynamicSystemPrompt = composeChatSystemPrompt(
             basePrompt: appManager.systemPrompt,
             model: activeModelConfiguration,
             personalMemory: memoryBlock,
+            executiveContext: executiveContext,
             slashContext: slashCommandContext,
             taskContext: contextPayload.payload
         )
@@ -751,6 +811,7 @@ struct ChatView: View {
                 "thread_id": tID.uuidString,
                 "stored_system_prompt_chars": String(appManager.systemPrompt.count),
                 "personal_memory_chars": String(memoryBlock?.count ?? 0),
+                "executive_context_chars": String(executiveContext?.count ?? 0),
                 "runtime_context_chars": String(contextPayload.payload.count),
                 "slash_context_chars": String(slashCommandContext?.count ?? 0),
                 "final_prompt_chars": String(dynamicSystemPrompt.count),
@@ -892,9 +953,19 @@ struct ChatView: View {
                 return
             }
 
+            let retryExecutiveContext = await buildExecutiveContextPrompt(
+                tokenBudget: resolvedChatBudget.executiveContextTokens
+            )
+            let retryAttachments = await MainActor.run { contextCoordinator.activeAttachments }
             let retrySystemPrompt = composeChatSystemPrompt(
                 basePrompt: appManager.systemPrompt,
                 model: runtimeModelConfiguration,
+                personalMemory: LLMPersonalMemoryDefaultsStore.promptBlock(for: runtimeModelConfiguration),
+                executiveContext: retryExecutiveContext,
+                slashContext: slashCommandContextPrompt(
+                    attachments: retryAttachments,
+                    tokenBudget: resolvedChatBudget.slashContextTokens
+                ),
                 taskContext: retryContextPayload.payload,
                 additionalInstruction: "Return only the final answer. Do not repeat the previous analysis, thinking, or intro. Keep it short and directly useful."
             )
@@ -1025,38 +1096,6 @@ struct ChatView: View {
         }
 
         guard qualityAssessment.isAcceptable, finalOutput.isEmpty == false else {
-            let allowedThinkingFailureReasons: Set<String> = [
-                "answer_missing_after_thinking",
-                "thinking_only_output"
-            ]
-            let thinkingOnlyFailure = qualityAssessment.reasons.isEmpty == false &&
-                qualityAssessment.reasons.allSatisfy { allowedThinkingFailureReasons.contains($0) }
-            if finalOutput.isEmpty == false && thinkingOnlyFailure {
-                logWarning(
-                    event: "chat_persisting_thinking_only_output",
-                    message: "Persisting visible thinking output because no final answer was extracted before chat fallback",
-                    fields: [
-                        "model_name": prepareResult.resolvedModelName,
-                        "run_id": runID.uuidString,
-                        "reasons_csv": qualityAssessment.reasons.joined(separator: ","),
-                        "final_length": String(finalOutput.count)
-                    ]
-                )
-                await MainActor.run {
-                    guard generationRunID == runID else { return }
-                    guard llm.cancelled == false else { return }
-                    sendMessage(
-                        Message(
-                            role: .assistant,
-                            content: finalOutput,
-                            thread: thread,
-                            generatingTime: llm.thinkingTime,
-                            sourceModelName: prepareResult.resolvedModelName
-                        )
-                    )
-                }
-                return
-            }
             logWarning(
                 event: "chat_fallback_to_static_message",
                 message: "Chat quality gate failed after primary/retry, sending static fallback message",
@@ -1077,7 +1116,7 @@ struct ChatView: View {
                 sendMessage(
                     Message(
                         role: .assistant,
-                        content: "I couldn't produce a reliable answer with this model. Try `/today` for structured help or switch to a stronger chat model.",
+                        content: "I couldn't turn that into a clear answer yet. Try `/today` for structured help or ask in a shorter, more specific way.",
                         thread: thread
                     )
                 )
@@ -1281,6 +1320,23 @@ struct ChatView: View {
         do {
             try modelContext.save()
             refreshTranscriptSnapshot(for: message.thread ?? currentThread)
+            if isActivationPresentation,
+               activationConfiguration?.showsCompletionObserver == true,
+               let threadID = message.thread?.id ?? currentThread?.id {
+                switch message.role {
+                case .user:
+                    onActivationChatEvent?(.userMessagePersisted(threadID: threadID))
+                case .assistant:
+                    onActivationChatEvent?(
+                        .assistantReplyPersisted(
+                            threadID: threadID,
+                            countsForCompletion: assistantMessageCountsForActivationCompletion(message)
+                        )
+                    )
+                case .system:
+                    break
+                }
+            }
         } catch {
             logError(
                 event: "chat_message_save_failed",
@@ -1288,6 +1344,14 @@ struct ChatView: View {
                 fields: ["error": error.localizedDescription]
             )
         }
+    }
+
+    private func assistantMessageCountsForActivationCompletion(_ message: Message) -> Bool {
+        guard message.role == .assistant else { return false }
+        guard let payload = AssistantCardCodec.decode(from: message.content) else {
+            return true
+        }
+        return payload.cardType == .commandResult
     }
 
     /// Executes buildLLMContextPayloadAsync.
@@ -1357,6 +1421,7 @@ struct ChatView: View {
         guard let threadID = currentThread?.id else { return }
         Task {
             await ChatView.contextInjectionTracker.clear(threadID: threadID)
+            await EvaExecutiveContextService.invalidateCache()
         }
     }
 
@@ -1369,6 +1434,7 @@ struct ChatView: View {
         basePrompt: String,
         model: MLXLMCommon.ModelConfiguration,
         personalMemory: String? = nil,
+        executiveContext: String? = nil,
         slashContext: String? = nil,
         taskContext: String? = nil,
         additionalInstruction: String? = nil
@@ -1378,44 +1444,28 @@ struct ChatView: View {
             model: model,
             additionalInstruction: additionalInstruction,
             personalMemory: personalMemory,
+            executiveContext: executiveContext,
             slashContext: slashContext,
             taskContext: taskContext
         )
     }
 
-    private func slashCommandContextPrompt(for thread: Thread, tokenBudget: Int) -> String? {
-        let recentCards = thread.sortedMessages
-            .reversed()
-            .compactMap { message -> SlashCommandExecutionResult? in
-                guard let payload = AssistantCardCodec.decode(from: message.content) else { return nil }
-                return payload.commandResult
-            }
+    private func buildExecutiveContextPrompt(tokenBudget: Int) async -> String? {
+        guard let service = EvaExecutiveContextService.makeDefault() else { return nil }
+        let maxChars = LLMTokenBudgetEstimator.estimatedCharacterBudget(for: tokenBudget)
+        let snapshot = await service.buildSnapshot(maxChars: maxChars)
+        let trimmed = snapshot.promptBlock.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? nil : trimmed
+    }
 
-        guard let commandResult = recentCards.first else { return nil }
-
-        var lines: [String] = []
-        lines.append("Recent slash command context:")
-        lines.append("- Command: \(commandResult.commandLabel)")
-        lines.append("- Summary: \(commandResult.summary)")
-
-        for section in commandResult.sections.prefix(3) {
-            lines.append("\(section.title):")
-            for task in section.tasks.prefix(5) {
-                var parts = [task.title]
-                if let dueLabel = task.dueLabel, dueLabel.isEmpty == false {
-                    parts.append(dueLabel)
-                }
-                if task.projectName.isEmpty == false {
-                    parts.append(task.projectName)
-                }
-                lines.append("- " + parts.joined(separator: " | "))
-            }
-        }
-
-        let block = lines.joined(separator: "\n")
-        let trimmed = block.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard trimmed.isEmpty == false else { return nil }
-        return LLMTokenBudgetEstimator.trimPrefix(trimmed, toTokenBudget: tokenBudget)
+    private func slashCommandContextPrompt(
+        attachments: [ThreadContextAttachmentRecord],
+        tokenBudget: Int
+    ) -> String? {
+        ThreadContextAttachmentResolver.promptBlock(
+            for: attachments,
+            tokenBudget: tokenBudget
+        )
     }
 
     #if os(macOS)

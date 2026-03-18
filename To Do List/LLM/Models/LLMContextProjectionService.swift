@@ -1455,3 +1455,350 @@ enum LLMChatContextEnvelopeBuilder {
         )
     }
 }
+
+struct EvaExecutiveContextSnapshot: Equatable {
+    let promptBlock: String
+    let generatedAt: Date
+    let completedCount: Int
+    let overdueRemainingCount: Int
+    let dueSoonCount: Int
+    let workloadMode: String
+}
+
+private actor EvaExecutiveContextCache {
+    struct Key: Hashable {
+        let repositorySignature: String
+        let dayStamp: String
+        let maxChars: Int
+    }
+
+    private var snapshots: [Key: EvaExecutiveContextSnapshot] = [:]
+
+    func snapshot(for key: Key) -> EvaExecutiveContextSnapshot? {
+        snapshots[key]
+    }
+
+    func store(_ snapshot: EvaExecutiveContextSnapshot, for key: Key) {
+        snapshots[key] = snapshot
+    }
+
+    func clear() {
+        snapshots.removeAll()
+    }
+}
+
+struct EvaExecutiveContextService {
+    let taskReadModelRepository: TaskReadModelRepositoryProtocol
+    let projectRepository: ProjectRepositoryProtocol
+    let lifeAreaRepository: LifeAreaRepositoryProtocol?
+
+    private static let cache = EvaExecutiveContextCache()
+
+    static func makeDefault() -> EvaExecutiveContextService? {
+        guard let taskReadModelRepository = LLMContextRepositoryProvider.taskReadModelRepository,
+              let projectRepository = LLMContextRepositoryProvider.projectRepository else {
+            return nil
+        }
+        return EvaExecutiveContextService(
+            taskReadModelRepository: taskReadModelRepository,
+            projectRepository: projectRepository,
+            lifeAreaRepository: LLMContextRepositoryProvider.lifeAreaRepository
+        )
+    }
+
+    static func invalidateCache() async {
+        await cache.clear()
+    }
+
+    func buildSnapshot(
+        maxChars: Int,
+        now: Date = Date()
+    ) async -> EvaExecutiveContextSnapshot {
+        guard V2FeatureFlags.llmExecutiveContextEnabled else {
+            return EvaExecutiveContextSnapshot(
+                promptBlock: "",
+                generatedAt: now,
+                completedCount: 0,
+                overdueRemainingCount: 0,
+                dueSoonCount: 0,
+                workloadMode: "disabled"
+            )
+        }
+
+        let calendar = Calendar.current
+        let startOfToday = calendar.startOfDay(for: now)
+        let dayStamp = ISO8601DateFormatter().string(from: startOfToday)
+        let repositorySignature = [
+            String(ObjectIdentifier(taskReadModelRepository as AnyObject).hashValue),
+            String(ObjectIdentifier(projectRepository as AnyObject).hashValue),
+            lifeAreaRepository.map { String(ObjectIdentifier($0 as AnyObject).hashValue) } ?? "nil"
+        ].joined(separator: "|")
+        let cacheKey = EvaExecutiveContextCache.Key(
+            repositorySignature: repositorySignature,
+            dayStamp: dayStamp,
+            maxChars: maxChars
+        )
+        if let cached = await Self.cache.snapshot(for: cacheKey) {
+            return cached
+        }
+        let windowStart = calendar.date(byAdding: .day, value: -14, to: startOfToday) ?? startOfToday
+        let dueSoonEnd = calendar.date(byAdding: .day, value: 7, to: startOfToday) ?? startOfToday
+
+        async let recentTasksTask = fetchTasks(
+            query: TaskReadQuery(
+                includeCompleted: true,
+                updatedAfter: windowStart,
+                sortBy: .updatedAtDescending,
+                limit: 512,
+                offset: 0
+            )
+        )
+        async let overdueTasksTask = fetchTasks(
+            query: TaskReadQuery(
+                includeCompleted: false,
+                dueDateEnd: startOfToday,
+                sortBy: .dueDateAscending,
+                limit: 256,
+                offset: 0
+            )
+        )
+        async let dueSoonTasksTask = fetchTasks(
+            query: TaskReadQuery(
+                includeCompleted: false,
+                dueDateStart: startOfToday,
+                dueDateEnd: dueSoonEnd,
+                sortBy: .dueDateAscending,
+                limit: 256,
+                offset: 0
+            )
+        )
+        async let projectsTask = fetchProjects()
+        async let lifeAreasTask = fetchLifeAreas()
+
+        let recentTasks = await recentTasksTask
+        let overdueTasks = await overdueTasksTask
+        let dueSoonTasks = await dueSoonTasksTask
+        let projects = await projectsTask
+        let lifeAreas = await lifeAreasTask
+
+        let projectNameByID = uniqueDictionary(
+            projects.map { ($0.id, $0.name) },
+            source: "projects",
+            context: "EvaExecutiveContextService"
+        )
+        let lifeAreaNameByID = uniqueDictionary(
+            lifeAreas.map { ($0.id, $0.name) },
+            source: "life_areas",
+            context: "EvaExecutiveContextService"
+        )
+
+        let completedCount = recentTasks.filter { task in
+            guard task.isComplete, let completedAt = task.dateCompleted else { return false }
+            return completedAt >= windowStart && completedAt <= now
+        }.count
+        let overdueRemainingCount = overdueTasks.count
+        let dueSoonCount = dueSoonTasks.count
+
+        let topProjects = rankedLabels(
+            scores: aggregateProjectScores(
+                touchedTasks: recentTasks,
+                overdueTasks: overdueTasks,
+                dueSoonTasks: dueSoonTasks,
+                projectNameByID: projectNameByID
+            ),
+            limit: 3
+        )
+        let topLifeAreas = rankedLabels(
+            scores: aggregateLifeAreaScores(
+                touchedTasks: recentTasks,
+                overdueTasks: overdueTasks,
+                dueSoonTasks: dueSoonTasks,
+                lifeAreaNameByID: lifeAreaNameByID
+            ),
+            limit: 3
+        )
+        let pressurePoints = buildPressurePoints(
+            overdueTasks: overdueTasks,
+            dueSoonTasks: dueSoonTasks,
+            projectNameByID: projectNameByID,
+            lifeAreaNameByID: lifeAreaNameByID,
+            limit: 2
+        )
+        let workloadMode = workloadMode(
+            completedCount: completedCount,
+            overdueRemainingCount: overdueRemainingCount,
+            dueSoonCount: dueSoonCount
+        )
+
+        var accumulator = PlanningContextAccumulator(maxChars: max(240, maxChars))
+        _ = accumulator.append("14-day operating summary:")
+        _ = accumulator.append("Completed: \(completedCount); overdue remaining: \(overdueRemainingCount); due soon: \(dueSoonCount).")
+        _ = accumulator.append("Projects in motion: \(topProjects.isEmpty ? "none" : topProjects.joined(separator: ", ")).")
+        _ = accumulator.append("Life areas in motion: \(topLifeAreas.isEmpty ? "none" : topLifeAreas.joined(separator: ", ")).")
+        _ = accumulator.append("Pressure points: \(pressurePoints.isEmpty ? "none" : pressurePoints.joined(separator: "; ")).")
+        _ = accumulator.append("Mode: \(workloadMode).")
+
+        let snapshot = EvaExecutiveContextSnapshot(
+            promptBlock: accumulator.rendered,
+            generatedAt: now,
+            completedCount: completedCount,
+            overdueRemainingCount: overdueRemainingCount,
+            dueSoonCount: dueSoonCount,
+            workloadMode: workloadMode
+        )
+        await Self.cache.store(snapshot, for: cacheKey)
+        return snapshot
+    }
+
+    private func fetchTasks(query: TaskReadQuery) async -> [TaskDefinition] {
+        await withCheckedContinuation { continuation in
+            taskReadModelRepository.fetchTasks(query: query) { result in
+                let slice = (try? result.get())?.tasks ?? []
+                continuation.resume(returning: slice)
+            }
+        }
+    }
+
+    private func fetchProjects() async -> [Project] {
+        await withCheckedContinuation { continuation in
+            projectRepository.fetchAllProjects { result in
+                let projects = ((try? result.get()) ?? []).filter { $0.isArchived == false }
+                continuation.resume(returning: projects)
+            }
+        }
+    }
+
+    private func fetchLifeAreas() async -> [LifeArea] {
+        guard let lifeAreaRepository else { return [] }
+        return await withCheckedContinuation { continuation in
+            lifeAreaRepository.fetchAll { result in
+                let lifeAreas = ((try? result.get()) ?? []).filter { $0.isArchived == false }
+                continuation.resume(returning: lifeAreas)
+            }
+        }
+    }
+
+    private func aggregateProjectScores(
+        touchedTasks: [TaskDefinition],
+        overdueTasks: [TaskDefinition],
+        dueSoonTasks: [TaskDefinition],
+        projectNameByID: [UUID: String]
+    ) -> [String: Int] {
+        var scores: [String: Int] = [:]
+        for task in touchedTasks {
+            let label = projectLabel(for: task, projectNameByID: projectNameByID)
+            scores[label, default: 0] += 1
+        }
+        for task in overdueTasks {
+            let label = projectLabel(for: task, projectNameByID: projectNameByID)
+            scores[label, default: 0] += 3
+        }
+        for task in dueSoonTasks {
+            let label = projectLabel(for: task, projectNameByID: projectNameByID)
+            scores[label, default: 0] += 2
+        }
+        return scores
+    }
+
+    private func aggregateLifeAreaScores(
+        touchedTasks: [TaskDefinition],
+        overdueTasks: [TaskDefinition],
+        dueSoonTasks: [TaskDefinition],
+        lifeAreaNameByID: [UUID: String]
+    ) -> [String: Int] {
+        var scores: [String: Int] = [:]
+        for task in touchedTasks {
+            let label = lifeAreaLabel(for: task, lifeAreaNameByID: lifeAreaNameByID)
+            scores[label, default: 0] += 1
+        }
+        for task in overdueTasks {
+            let label = lifeAreaLabel(for: task, lifeAreaNameByID: lifeAreaNameByID)
+            scores[label, default: 0] += 3
+        }
+        for task in dueSoonTasks {
+            let label = lifeAreaLabel(for: task, lifeAreaNameByID: lifeAreaNameByID)
+            scores[label, default: 0] += 2
+        }
+        return scores
+    }
+
+    private func buildPressurePoints(
+        overdueTasks: [TaskDefinition],
+        dueSoonTasks: [TaskDefinition],
+        projectNameByID: [UUID: String],
+        lifeAreaNameByID: [UUID: String],
+        limit: Int
+    ) -> [String] {
+        var scores: [String: Int] = [:]
+        for task in overdueTasks {
+            scores[projectLabel(for: task, projectNameByID: projectNameByID), default: 0] += 1
+            scores[lifeAreaLabel(for: task, lifeAreaNameByID: lifeAreaNameByID), default: 0] += 1
+        }
+        for task in dueSoonTasks {
+            guard let dueDate = task.dueDate,
+                  let days = Calendar.current.dateComponents([.day], from: Date(), to: dueDate).day,
+                  days <= 2 else { continue }
+            scores[projectLabel(for: task, projectNameByID: projectNameByID), default: 0] += 1
+        }
+
+        return scores
+            .filter { $0.key != "none" && $0.value > 1 }
+            .sorted {
+                if $0.value != $1.value { return $0.value > $1.value }
+                return $0.key.localizedCaseInsensitiveCompare($1.key) == .orderedAscending
+            }
+            .prefix(limit)
+            .map { "\($0.key) (\($0.value) pressure)" }
+    }
+
+    private func rankedLabels(scores: [String: Int], limit: Int) -> [String] {
+        scores
+            .filter { $0.key != "none" && $0.value > 0 }
+            .sorted {
+                if $0.value != $1.value { return $0.value > $1.value }
+                return $0.key.localizedCaseInsensitiveCompare($1.key) == .orderedAscending
+            }
+            .prefix(limit)
+            .map(\.key)
+    }
+
+    private func workloadMode(
+        completedCount: Int,
+        overdueRemainingCount: Int,
+        dueSoonCount: Int
+    ) -> String {
+        let reactivePressure = overdueRemainingCount * 2 + dueSoonCount
+        if reactivePressure > max(4, completedCount) {
+            return "mostly reactive"
+        }
+        if completedCount >= max(3, overdueRemainingCount + 1) {
+            return "mostly planned"
+        }
+        return "mixed"
+    }
+
+    private func projectLabel(
+        for task: TaskDefinition,
+        projectNameByID: [UUID: String]
+    ) -> String {
+        let projectName = (projectNameByID[task.projectID] ?? "")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        if projectName.isEmpty == false {
+            return projectName
+        }
+        let fallback = task.projectName?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        return fallback.isEmpty ? ProjectConstants.inboxProjectName : fallback
+    }
+
+    private func lifeAreaLabel(
+        for task: TaskDefinition,
+        lifeAreaNameByID: [UUID: String]
+    ) -> String {
+        guard let lifeAreaID = task.lifeAreaID,
+              let lifeAreaName = lifeAreaNameByID[lifeAreaID],
+              lifeAreaName.isEmpty == false else {
+            return "none"
+        }
+        return lifeAreaName
+    }
+}

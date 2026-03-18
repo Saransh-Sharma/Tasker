@@ -43,9 +43,9 @@ struct LLMSettingsView: View {
         ScrollView {
             VStack(spacing: 0) {
                 TaskerSettingsHeroCard(
-                    eyebrow: "AI Assistant",
-                    title: "Shape how Eva helps",
-                    subtitle: "Manage behavior, local models, and memory in one place.",
+                    eyebrow: "EVA",
+                    title: "Run your day with Eva",
+                    subtitle: "Manage behavior, local models, and memory for your private executive assistant.",
                     statusItems: heroItems
                 )
                 .padding(.horizontal, spacing.screenHorizontal)
@@ -62,7 +62,7 @@ struct LLMSettingsView: View {
             .padding(.bottom, spacing.s24)
         }
         .background(Color.tasker(.bgCanvas))
-        .navigationTitle("AI Assistant")
+        .navigationTitle("Eva")
         .accessibilityIdentifier("llmSettings.view")
         #if os(iOS)
         .navigationBarTitleDisplayMode(.inline)
@@ -115,7 +115,7 @@ struct LLMSettingsView: View {
         VStack(spacing: 0) {
             SettingsSectionHeader(
                 title: "Behavior & Memory",
-                subtitle: "Define how Eva responds and what it remembers."
+                subtitle: "Shape how direct, structured, and momentum-focused Eva feels."
             )
             .enhancedStaggeredAppearance(index: baseIndex)
             .padding(.top, spacing.sectionGap)
@@ -130,7 +130,7 @@ struct LLMSettingsView: View {
                             descriptor: TaskerSettingsDestinationDescriptor(
                                 iconName: "text.bubble.fill",
                                 title: "Chat Behavior",
-                                subtitle: "Edit Eva’s prompt and feedback settings.",
+                                subtitle: "Tune how direct, structured, and momentum-focused Eva feels.",
                                 trailingStatus: promptStatus,
                                 inlineBadge: appManager.userInterfaceIdiom == .phone ? TaskerSettingsInlineBadge(title: hapticsStatus) : nil,
                                 tone: .accent,
@@ -150,7 +150,7 @@ struct LLMSettingsView: View {
                             descriptor: TaskerSettingsDestinationDescriptor(
                                 iconName: "person.text.rectangle.fill",
                                 title: "Personal Memory",
-                                subtitle: "Save preferences, routines, and current goals for better answers.",
+                                subtitle: "Save stable context so Eva can support your goals, routines, and working style.",
                                 trailingStatus: memorySummary,
                                 tone: .accent,
                                 accessibilityIdentifier: "llmSettings.memorySettingsRow"
@@ -170,7 +170,7 @@ struct LLMSettingsView: View {
         VStack(spacing: 0) {
             SettingsSectionHeader(
                 title: "Models",
-                subtitle: "Install, switch, and manage Eva’s local model."
+                subtitle: "Choose Eva’s default local mode and review compatibility."
             )
             .enhancedStaggeredAppearance(index: baseIndex)
             .padding(.top, spacing.sectionGap)
@@ -185,7 +185,7 @@ struct LLMSettingsView: View {
                         descriptor: TaskerSettingsDestinationDescriptor(
                             iconName: "cpu.fill",
                             title: "Models",
-                            subtitle: "Choose the active local model and review compatibility.",
+                            subtitle: "Choose Eva’s default local mode and manage installed models.",
                             trailingStatus: appManager.compactModelDisplayName(appManager.currentModelName ?? ""),
                             inlineBadge: appManager.installedModels.isEmpty ? TaskerSettingsInlineBadge(title: "None installed") : TaskerSettingsInlineBadge(title: "\(appManager.installedModels.count) installed"),
                             tone: .accent,
@@ -205,7 +205,7 @@ struct LLMSettingsView: View {
         VStack(spacing: 0) {
             SettingsSectionHeader(
                 title: "Data & Privacy",
-                subtitle: "Clean up transcripts and keep the AI workspace intentional."
+                subtitle: "Review local-only assistant data and clear transcripts when needed."
             )
             .enhancedStaggeredAppearance(index: baseIndex)
             .padding(.top, spacing.sectionGap)
@@ -218,7 +218,7 @@ struct LLMSettingsView: View {
                         descriptor: TaskerSettingsDestinationDescriptor(
                             iconName: "trash.fill",
                             title: "Data & Privacy",
-                            subtitle: "Delete saved chat history and review destructive actions.",
+                            subtitle: "Delete chat history and review Eva’s local-only data.",
                             trailingStatus: "Transcripts",
                             tone: .danger,
                             accessibilityIdentifier: "llmSettings.privacySettingsRow"

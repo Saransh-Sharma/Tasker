@@ -232,6 +232,19 @@
 		75F89F562DFC44E6009EDD8F /* MoonAnimationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75F89F372DFC44E6009EDD8F /* MoonAnimationView.swift */; };
 		75F89F572DFC44E6009EDD8F /* ChatView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75F89F332DFC44E6009EDD8F /* ChatView.swift */; };
 		75F89F782DFC57F1009EDD8F /* LLMSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75F89F752DFC57F1009EDD8F /* LLMSettingsView.swift */; };
+		E0A100000000000000000001 /* EvaActivationCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = E0A100000000000000000101 /* EvaActivationCoordinator.swift */; };
+		E0A100000000000000000002 /* EvaActivationIntroView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E0A100000000000000000102 /* EvaActivationIntroView.swift */; };
+		E0A100000000000000000003 /* EvaActivationRootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E0A100000000000000000103 /* EvaActivationRootView.swift */; };
+		E0A100000000000000000004 /* EvaAboutYouView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E0A100000000000000000104 /* EvaAboutYouView.swift */; };
+		E0A100000000000000000005 /* EvaGoalsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E0A100000000000000000105 /* EvaGoalsView.swift */; };
+		E0A100000000000000000006 /* EvaModelChoiceView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E0A100000000000000000106 /* EvaModelChoiceView.swift */; };
+		E0A100000000000000000007 /* EvaWakeEvaInstallView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E0A100000000000000000107 /* EvaWakeEvaInstallView.swift */; };
+		E0A100000000000000000008 /* EvaActivationModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = E0A100000000000000000108 /* EvaActivationModels.swift */; };
+		E0A100000000000000000009 /* EvaMemoryMapper.swift in Sources */ = {isa = PBXBuildFile; fileRef = E0A100000000000000000109 /* EvaMemoryMapper.swift */; };
+		E0A10000000000000000000A /* EvaMediaView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E0A10000000000000000010A /* EvaMediaView.swift */; };
+		E0A10000000000000000000B /* EvaIntroVideo.mp4 in Resources */ = {isa = PBXBuildFile; fileRef = E0A10000000000000000010B /* EvaIntroVideo.mp4 */; };
+		E0A10000000000000000000C /* EvaLottie00-lite.json in Resources */ = {isa = PBXBuildFile; fileRef = E0A10000000000000000010C /* EvaLottie00-lite.json */; };
+		E0A10000000000000000000D /* EvaActivationComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = E0A10000000000000000010D /* EvaActivationComponents.swift */; };
 		75F89FB22DFC62C3009EDD8F /* MarkdownUI in Frameworks */ = {isa = PBXBuildFile; productRef = 75F89FB12DFC62C3009EDD8F /* MarkdownUI */; };
 		75F89FB92DFC83EF009EDD8F /* PromptMiddleware.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75F89FB72DFC83EF009EDD8F /* PromptMiddleware.swift */; };
 		75F9937224815BF600C340EB /* ToDoColors.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75F9937124815BF600C340EB /* ToDoColors.swift */; };
@@ -277,6 +290,7 @@
 		A1F0D0B22F5A100100ABC001 /* AppOnboarding.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1F0D0B12F5A100100ABC001 /* AppOnboarding.swift */; };
 		A1F0D0B52F5A100100ABC001 /* AppOnboardingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1F0D0B42F5A100100ABC001 /* AppOnboardingTests.swift */; };
 		A1F0D0B72F5A100100ABC001 /* OnboardingUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1F0D0B62F5A100100ABC001 /* OnboardingUITests.swift */; };
+		E0A100000000000000000301 /* EvaActivationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E0A100000000000000000302 /* EvaActivationTests.swift */; };
 		A20000000000000000000001 /* QuickViewSelector.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000001 /* QuickViewSelector.swift */; };
 		A20000000000000000000002 /* NavPieChart.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000002 /* NavPieChart.swift */; };
 		A20000000000000000000003 /* FocusZone.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000003 /* FocusZone.swift */; };
@@ -695,6 +709,19 @@
 		75F89F432DFC44E6009EDD8F /* ChatHostViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatHostViewController.swift; sourceTree = "<group>"; };
 		75F89F752DFC57F1009EDD8F /* LLMSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LLMSettingsView.swift; sourceTree = "<group>"; };
 		75F89FB72DFC83EF009EDD8F /* PromptMiddleware.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PromptMiddleware.swift; sourceTree = "<group>"; };
+		E0A100000000000000000101 /* EvaActivationCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EvaActivationCoordinator.swift; sourceTree = "<group>"; };
+		E0A100000000000000000102 /* EvaActivationIntroView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EvaActivationIntroView.swift; sourceTree = "<group>"; };
+		E0A100000000000000000103 /* EvaActivationRootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EvaActivationRootView.swift; sourceTree = "<group>"; };
+		E0A100000000000000000104 /* EvaAboutYouView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EvaAboutYouView.swift; sourceTree = "<group>"; };
+		E0A100000000000000000105 /* EvaGoalsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EvaGoalsView.swift; sourceTree = "<group>"; };
+		E0A100000000000000000106 /* EvaModelChoiceView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EvaModelChoiceView.swift; sourceTree = "<group>"; };
+		E0A100000000000000000107 /* EvaWakeEvaInstallView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EvaWakeEvaInstallView.swift; sourceTree = "<group>"; };
+		E0A100000000000000000108 /* EvaActivationModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EvaActivationModels.swift; sourceTree = "<group>"; };
+		E0A100000000000000000109 /* EvaMemoryMapper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EvaMemoryMapper.swift; sourceTree = "<group>"; };
+		E0A10000000000000000010A /* EvaMediaView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EvaMediaView.swift; sourceTree = "<group>"; };
+		E0A10000000000000000010B /* EvaIntroVideo.mp4 */ = {isa = PBXFileReference; lastKnownFileType = file; path = EvaIntroVideo.mp4; sourceTree = SOURCE_ROOT; };
+		E0A10000000000000000010C /* EvaLottie00-lite.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = EvaLottie00-lite.json; sourceTree = "<group>"; };
+		E0A10000000000000000010D /* EvaActivationComponents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EvaActivationComponents.swift; sourceTree = "<group>"; };
 		75F9937124815BF600C340EB /* ToDoColors.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ToDoColors.swift; sourceTree = "<group>"; };
 		75F993792483764C00C340EB /* DayAxisValueFormatter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DayAxisValueFormatter.swift; sourceTree = "<group>"; };
 		75F9937D24859ADB00C340EB /* HomeBottomBarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeBottomBarView.swift; sourceTree = "<group>"; };
@@ -756,6 +783,7 @@
 		A1F0D0B12F5A100100ABC001 /* AppOnboarding.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppOnboarding.swift; sourceTree = "<group>"; };
 		A1F0D0B42F5A100100ABC001 /* AppOnboardingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppOnboardingTests.swift; sourceTree = "<group>"; };
 		A1F0D0B62F5A100100ABC001 /* OnboardingUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingUITests.swift; sourceTree = "<group>"; };
+		E0A100000000000000000302 /* EvaActivationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EvaActivationTests.swift; sourceTree = "<group>"; };
 		A365503F0A1EC71D5D159FC0 /* UserDefaultsSavedHomeViewRepository.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = UserDefaultsSavedHomeViewRepository.swift; path = State/Repositories/UserDefaultsSavedHomeViewRepository.swift; sourceTree = "<group>"; };
 		A41487F741A541AD1CB7DD2E /* Pods_Tasker.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_Tasker.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		A4C2E9F12B7D4C5581AA0003 /* To Do List/Domain/Models/HomeTaskMutationPayload.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "To Do List/Domain/Models/HomeTaskMutationPayload.swift"; sourceTree = SOURCE_ROOT; };
@@ -1337,6 +1365,7 @@
 				753EFCB42445A24700A739E3 /* To_Do_ListTests.swift */,
 				A1C2D3E4F5A60718293B4C5C /* AssistantPlannerServiceTests.swift */,
 				A1F0D0B42F5A100100ABC001 /* AppOnboardingTests.swift */,
+				E0A100000000000000000302 /* EvaActivationTests.swift */,
 				B8F9A0B1C2D3E4F506172838 /* LLMPersonalMemoryStoreTests.swift */,
 				A1B2C3D42EAA11BB00CCDDEE /* LLMModelRegistryTests.swift */,
 				C1A2B3C4D5E6F70011223349 /* LLMRuntimeCoordinatorTests.swift */,
@@ -1905,6 +1934,8 @@
 			isa = PBXGroup;
 			children = (
 				75F89F2C2DFC44E6009EDD8F /* Data.swift */,
+				E0A100000000000000000108 /* EvaActivationModels.swift */,
+				E0A100000000000000000109 /* EvaMemoryMapper.swift */,
 				75F89F2D2DFC44E6009EDD8F /* DeviceStat.swift */,
 				75F89F2E2DFC44E6009EDD8F /* LLMEvaluator.swift */,
 				C1A2B3C4D5E6F70011223351 /* LLMInferenceEngine.swift */,
@@ -1954,12 +1985,28 @@
 			isa = PBXGroup;
 			children = (
 				75F89F362DFC44E6009EDD8F /* DeviceNotSupportedView.swift */,
+				E0A100000000000000000101 /* EvaActivationCoordinator.swift */,
+				E0A100000000000000000102 /* EvaActivationIntroView.swift */,
+				E0A100000000000000000103 /* EvaActivationRootView.swift */,
+				E0A100000000000000000104 /* EvaAboutYouView.swift */,
+				E0A100000000000000000105 /* EvaGoalsView.swift */,
+				E0A100000000000000000106 /* EvaModelChoiceView.swift */,
+				E0A100000000000000000107 /* EvaWakeEvaInstallView.swift */,
+				E0A10000000000000000010D /* EvaActivationComponents.swift */,
 				75F89F372DFC44E6009EDD8F /* MoonAnimationView.swift */,
 				75F89F382DFC44E6009EDD8F /* OnboardingDownloadingModelProgressView.swift */,
 				75F89F392DFC44E6009EDD8F /* OnboardingInstallModelView.swift */,
 				75F89F3A2DFC44E6009EDD8F /* OnboardingView.swift */,
 			);
 			path = Onboarding;
+			sourceTree = "<group>";
+		};
+		E0A100000000000000000201 /* Shared */ = {
+			isa = PBXGroup;
+			children = (
+				E0A10000000000000000010A /* EvaMediaView.swift */,
+			);
+			path = Shared;
 			sourceTree = "<group>";
 		};
 		75F89F412DFC44E6009EDD8F /* Settings */ = {
@@ -1979,6 +2026,7 @@
 				75F89F352DFC44E6009EDD8F /* Chat */,
 				75F89F3B2DFC44E6009EDD8F /* Onboarding */,
 				75F89F412DFC44E6009EDD8F /* Settings */,
+				E0A100000000000000000201 /* Shared */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -1990,6 +2038,8 @@
 				75F89F422DFC44E6009EDD8F /* Views */,
 				75F89F432DFC44E6009EDD8F /* ChatHostViewController.swift */,
 				7529F6F72DFDE9F0000CBE36 /* Extensions */,
+				E0A10000000000000000010B /* EvaIntroVideo.mp4 */,
+				E0A10000000000000000010C /* EvaLottie00-lite.json */,
 				7529F7032DFDF7E3000CBE36 /* loading-animation.json */,
 			);
 			path = LLM;
@@ -2253,6 +2303,8 @@
 				7524B71B2DE4EAC90026D865 /* GoogleService-Info.plist in Resources */,
 				753EFCA72445A24700A739E3 /* Assets.xcassets in Resources */,
 				753EFCA52445A24500A739E3 /* Main.storyboard in Resources */,
+				E0A10000000000000000000B /* EvaIntroVideo.mp4 in Resources */,
+				E0A10000000000000000000C /* EvaLottie00-lite.json in Resources */,
 				7529F7052DFDF7E3000CBE36 /* loading-animation.json in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -2507,6 +2559,8 @@
 				75E866D92DFF0381000470B4 /* ThemeSelectionViewController.swift in Sources */,
 				750894CC2E8D3C390037FACE /* AnalyticsRepositoryProtocol.swift in Sources */,
 				75F89F782DFC57F1009EDD8F /* LLMSettingsView.swift in Sources */,
+				E0A100000000000000000008 /* EvaActivationModels.swift in Sources */,
+				E0A100000000000000000009 /* EvaMemoryMapper.swift in Sources */,
 				75F89F492DFC44E6009EDD8F /* Models.swift in Sources */,
 				75F89F4A2DFC44E6009EDD8F /* Data.swift in Sources */,
 				75F89F4B2DFC44E6009EDD8F /* OnboardingView.swift in Sources */,
@@ -2536,7 +2590,16 @@
 				75F89F512DFC44E6009EDD8F /* ConversationView.swift in Sources */,
 				C1A2B3C4D5E6F70011223352 /* ChatTranscriptSnapshot.swift in Sources */,
 				B1A000000000000000000004 /* ChatChromeComponents.swift in Sources */,
+				E0A10000000000000000000A /* EvaMediaView.swift in Sources */,
 				0F2D95B3C4177167351607FF /* SlashCommandPickerView.swift in Sources */,
+				E0A100000000000000000001 /* EvaActivationCoordinator.swift in Sources */,
+				E0A100000000000000000002 /* EvaActivationIntroView.swift in Sources */,
+				E0A100000000000000000003 /* EvaActivationRootView.swift in Sources */,
+				E0A100000000000000000004 /* EvaAboutYouView.swift in Sources */,
+				E0A100000000000000000005 /* EvaGoalsView.swift in Sources */,
+				E0A100000000000000000006 /* EvaModelChoiceView.swift in Sources */,
+				E0A100000000000000000007 /* EvaWakeEvaInstallView.swift in Sources */,
+				E0A10000000000000000000D /* EvaActivationComponents.swift in Sources */,
 				75F89F522DFC44E6009EDD8F /* OnboardingInstallModelView.swift in Sources */,
 				75F89F542DFC44E6009EDD8F /* DeviceStat.swift in Sources */,
 				75F89F562DFC44E6009EDD8F /* MoonAnimationView.swift in Sources */,
@@ -2781,6 +2844,7 @@
 				F4A1B2C3D4E5F60718293B56 /* HomeForedropHintEligibilityTests.swift in Sources */,
 				A91F8E162F44420100AB11C1 /* LifeManagementFeatureTests.swift in Sources */,
 				A1F0D0B52F5A100100ABC001 /* AppOnboardingTests.swift in Sources */,
+				E0A100000000000000000301 /* EvaActivationTests.swift in Sources */,
 				B8E100052F70000100A0A001 /* TaskerCTABezelResolverTests.swift in Sources */,
 				B8F9A0B1C2D3E4F506172839 /* LLMPersonalMemoryStoreTests.swift in Sources */,
 				B4D7E8213A4F5C6D7E8F9012 /* V3TestHarness.swift in Sources */,

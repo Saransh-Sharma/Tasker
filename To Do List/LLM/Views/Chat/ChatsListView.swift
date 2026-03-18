@@ -214,6 +214,9 @@ struct ChatsListView: View {
             let delay = appManager.userInterfaceIdiom == .phone ? 1.0 : 0.0
             DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
                 modelContext.delete(thread)
+                Task {
+                    await ThreadContextAttachmentStore.shared.clear(threadID: thread.id)
+                }
             }
         }
     }
@@ -224,6 +227,9 @@ struct ChatsListView: View {
             if currentThread.id == thread.id {
                 setCurrentThread(nil)
             }
+        }
+        Task {
+            await ThreadContextAttachmentStore.shared.clear(threadID: thread.id)
         }
         modelContext.delete(thread)
     }
