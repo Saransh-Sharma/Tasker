@@ -373,9 +373,8 @@ final class EvaActivationCoordinator: ObservableObject {
     }
 
     private func updateCompletionStateIfNeeded() {
-        guard let firstThreadID = state.firstThreadID else { return }
+        guard state.firstThreadID != nil else { return }
         guard state.hasPersistedUserMessage, state.hasPersistedAssistantReply else { return }
-        state.firstThreadID = firstThreadID
         state.isComplete = true
         state.stage = .completed
     }

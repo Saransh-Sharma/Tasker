@@ -23,6 +23,7 @@ struct EvaWakeEvaInstallView: View {
     @State private var autoAdvanceTriggered = false
     @State private var statusIndex = 0
     @State private var statusTask: Task<Void, Never>?
+    @State private var autoAdvanceTask: Task<Void, Never>?
     @State private var currentModelName: String
     @State private var currentSelectionTitle: String
     @State private var selectedModelRetryCount = 0
@@ -149,6 +150,7 @@ struct EvaWakeEvaInstallView: View {
         }
         .onDisappear {
             statusTask?.cancel()
+            autoAdvanceTask?.cancel()
             #if os(iOS)
             UIApplication.shared.isIdleTimerDisabled = false
             #endif
@@ -162,11 +164,12 @@ struct EvaWakeEvaInstallView: View {
             updateProgressPresentation(for: newValue)
         }
         .onChange(of: installOutcome) { _, outcome in
+            autoAdvanceTask?.cancel()
             guard outcome == .success, autoAdvanceTriggered == false else { return }
             autoAdvanceTriggered = true
-            Task {
+            autoAdvanceTask = Task {
                 try? await Task.sleep(nanoseconds: 900_000_000)
-                guard installSucceeded else { return }
+                guard Task.isCancelled == false, installSucceeded else { return }
                 onInstallComplete(
                     .success(
                         preparedModelName: currentModelName,
@@ -247,6 +250,8 @@ struct EvaWakeEvaInstallView: View {
         isInstallInFlight = true
         installSucceeded = false
         autoAdvanceTriggered = false
+        autoAdvanceTask?.cancel()
+        autoAdvanceTask = nil
         llm.progress = 0
         displayedProgress = 0
         progressSamples.removeAll()
@@ -256,6 +261,7 @@ struct EvaWakeEvaInstallView: View {
             isInstallInFlight = false
             statusTask?.cancel()
             statusTask = nil
+            autoAdvanceTask = nil
         }
 
         currentModelName = model.name
@@ -420,15 +426,21 @@ struct EvaActivationStageView<Content: View, Footer: View>: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     let showsAmbientBackground: Bool
+    let contentHorizontalPaddingOverride: CGFloat?
+    let contentTopPaddingOverride: CGFloat?
     let footer: () -> Footer
     let content: () -> Content
 
     init(
         showsAmbientBackground: Bool = true,
+        contentHorizontalPaddingOverride: CGFloat? = nil,
+        contentTopPaddingOverride: CGFloat? = nil,
         @ViewBuilder footer: @escaping () -> Footer,
         @ViewBuilder content: @escaping () -> Content
     ) {
         self.showsAmbientBackground = showsAmbientBackground
+        self.contentHorizontalPaddingOverride = contentHorizontalPaddingOverride
+        self.contentTopPaddingOverride = contentTopPaddingOverride
         self.footer = footer
         self.content = content
     }
@@ -439,6 +451,14 @@ struct EvaActivationStageView<Content: View, Footer: View>: View {
 
     private var horizontalPadding: CGFloat {
         layoutClass.isPad ? max(spacing.screenHorizontal, 32) : spacing.screenHorizontal
+    }
+
+    private var contentHorizontalPadding: CGFloat {
+        contentHorizontalPaddingOverride ?? horizontalPadding
+    }
+
+    private var contentTopPadding: CGFloat {
+        contentTopPaddingOverride ?? spacing.s4
     }
 
     var body: some View {
@@ -464,8 +484,8 @@ struct EvaActivationStageView<Content: View, Footer: View>: View {
                     content()
                 }
                 .frame(maxWidth: layoutClass.isPad ? 1080 : .infinity, alignment: .leading)
-                .padding(.horizontal, horizontalPadding)
-                .padding(.top, spacing.s4)
+                .padding(.horizontal, contentHorizontalPadding)
+                .padding(.top, contentTopPadding)
                 .padding(.bottom, footerIsEmpty ? spacing.s24 : 144)
             }
         }

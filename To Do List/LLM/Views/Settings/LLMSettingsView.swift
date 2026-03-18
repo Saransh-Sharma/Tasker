@@ -170,7 +170,7 @@ struct LLMSettingsView: View {
         VStack(spacing: 0) {
             SettingsSectionHeader(
                 title: "Models",
-                subtitle: "Choose Eva’s default local mode and review compatibility."
+                subtitle: "Choose Eva’s default local model and review compatibility."
             )
             .enhancedStaggeredAppearance(index: baseIndex)
             .padding(.top, spacing.sectionGap)
@@ -185,7 +185,7 @@ struct LLMSettingsView: View {
                         descriptor: TaskerSettingsDestinationDescriptor(
                             iconName: "cpu.fill",
                             title: "Models",
-                            subtitle: "Choose Eva’s default local mode and manage installed models.",
+                            subtitle: "Choose Eva’s default local model and manage installed models.",
                             trailingStatus: appManager.compactModelDisplayName(appManager.currentModelName ?? ""),
                             inlineBadge: appManager.installedModels.isEmpty ? TaskerSettingsInlineBadge(title: "None installed") : TaskerSettingsInlineBadge(title: "\(appManager.installedModels.count) installed"),
                             tone: .accent,

@@ -331,6 +331,26 @@ final class LLMRuntimeCoordinatorTests: XCTestCase {
         XCTAssertEqual(prepareCallCount, 1)
     }
 
+    func testZeroDelayChatEntryPrewarmRunsImmediately() async {
+        V2FeatureFlags.llmChatPrewarmMode = .adaptiveOnDemand
+        let defaults = UserDefaults(suiteName: "LLMRuntimeCoordinatorTests.ZeroDelay.\(UUID().uuidString)")!
+        configureInstalledCurrentModel(qwenPointSixName, defaults: defaults)
+
+        var prepareCallCount = 0
+        let coordinator = LLMRuntimeCoordinator(
+            defaults: defaults,
+            prepareHandler: { _ in
+                prepareCallCount += 1
+                return LLMEvaluator.PrepareResult(wasAlreadyLoaded: false)
+            },
+            registerLifecycleObservers: false
+        )
+
+        coordinator.requestChatEntryPrewarm(trigger: "activation_first_chat", delaySeconds: 0)
+        try? await _Concurrency.Task.sleep(nanoseconds: 50_000_000)
+        XCTAssertEqual(prepareCallCount, 1)
+    }
+
     func testDeferredChatEntryPrewarmCancelsBeforeExecution() async {
         V2FeatureFlags.llmChatPrewarmMode = .adaptiveOnDemand
         let defaults = UserDefaults(suiteName: "LLMRuntimeCoordinatorTests.DeferredCancel.\(UUID().uuidString)")!

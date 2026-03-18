@@ -51,8 +51,20 @@ final class EvaLoopingPlayerUIView: UIView {
 
     func update(videoName: String) {
         guard currentVideoName != videoName else { return }
+        guard let path = Bundle.main.path(forResource: videoName, ofType: "mp4") else {
+            player.pause()
+            player.removeAllItems()
+            playerLooper = nil
+            currentVideoName = nil
+            assertionFailure("Missing Eva media asset: \(videoName).mp4")
+            logWarning(
+                event: "eva_media_missing_video_asset",
+                message: "Missing bundled Eva media asset",
+                fields: ["video_name": videoName]
+            )
+            return
+        }
         currentVideoName = videoName
-        guard let path = Bundle.main.path(forResource: videoName, ofType: "mp4") else { return }
         let url = URL(fileURLWithPath: path)
         let item = AVPlayerItem(asset: AVURLAsset(url: url))
         player.removeAllItems()
@@ -123,8 +135,20 @@ final class EvaLoopingPlayerNSView: NSView {
 
     func update(videoName: String) {
         guard currentVideoName != videoName else { return }
+        guard let path = Bundle.main.path(forResource: videoName, ofType: "mp4") else {
+            player.pause()
+            player.removeAllItems()
+            playerLooper = nil
+            currentVideoName = nil
+            assertionFailure("Missing Eva media asset: \(videoName).mp4")
+            logWarning(
+                event: "eva_media_missing_video_asset",
+                message: "Missing bundled Eva media asset",
+                fields: ["video_name": videoName]
+            )
+            return
+        }
         currentVideoName = videoName
-        guard let path = Bundle.main.path(forResource: videoName, ofType: "mp4") else { return }
         let url = URL(fileURLWithPath: path)
         let item = AVPlayerItem(asset: AVURLAsset(url: url))
         player.removeAllItems()
@@ -134,10 +158,29 @@ final class EvaLoopingPlayerNSView: NSView {
 }
 #endif
 
+enum EvaHeroMediaPresentationStyle {
+    case card
+    case fullBleed
+}
+
 struct EvaHeroMediaView: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    let style: EvaHeroMediaPresentationStyle
+
+    init(style: EvaHeroMediaPresentationStyle = .card) {
+        self.style = style
+    }
 
     var body: some View {
+        switch style {
+        case .card:
+            cardBody
+        case .fullBleed:
+            fullBleedBody
+        }
+    }
+
+    private var cardBody: some View {
         ZStack {
             RoundedRectangle(cornerRadius: TaskerTheme.CornerRadius.modal, style: .continuous)
                 .fill(
@@ -182,6 +225,43 @@ struct EvaHeroMediaView: View {
                 .stroke(Color.tasker(.strokeHairline), lineWidth: 1)
         )
         .shadow(color: Color.tasker(.accentPrimary).opacity(0.12), radius: 18, y: 10)
+    }
+
+    private var fullBleedBody: some View {
+        ZStack {
+            if reduceMotion {
+                LinearGradient(
+                    colors: [
+                        Color.tasker(.surfacePrimary),
+                        Color.tasker(.accentWash).opacity(0.62),
+                        Color.tasker(.surfacePrimary)
+                    ],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
+
+                Image(systemName: "brain.head.profile")
+                    .font(.system(size: 58, weight: .medium))
+                    .foregroundStyle(Color.tasker(.accentPrimary))
+            } else {
+                EvaLoopingVideoView(videoName: EvaMediaAsset.introVideoName)
+                    .overlay(
+                        LinearGradient(
+                            colors: [
+                                Color.tasker(.bgCanvas).opacity(0.02),
+                                Color.tasker(.bgCanvas).opacity(0.08),
+                                Color.tasker(.bgCanvas).opacity(0.18)
+                            ],
+                            startPoint: .top,
+                            endPoint: .bottom
+                        )
+                    )
+                    .overlay(alignment: .bottomTrailing) {
+                        EvaLoopingLottieContainer(size: 76)
+                            .padding(TaskerTheme.Spacing.md)
+                    }
+            }
+        }
     }
 }
 

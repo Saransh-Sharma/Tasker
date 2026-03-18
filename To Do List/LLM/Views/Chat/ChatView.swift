@@ -38,6 +38,7 @@ struct ChatView: View {
     @State private var generationTask: _Concurrency.Task<Void, Never>?
     @State private var generationRunID: UUID?
     @State private var transcriptSnapshot: ChatTranscriptSnapshot = .empty
+    @State private var pendingResponsePhase: ChatPendingResponsePhase = .idle
     @StateObject private var contextCoordinator = ChatContextCoordinator()
     @FocusState private var isProjectFieldFocused: Bool
 
@@ -199,7 +200,11 @@ struct ChatView: View {
             sourceModelName: llm.loadedModelName ?? appManager.currentModelName,
             runtimePhase: llm.runtimePhase,
             isRunning: llm.running,
-            isPreparingResponse: llm.isThinking
+            pendingPhase: pendingResponsePhase,
+            pendingStatusText: ChatPendingResponseStatusText.status(
+                for: pendingResponsePhase,
+                isActivationPresentation: isActivationPresentation
+            )
         )
     }
 
@@ -303,6 +308,10 @@ struct ChatView: View {
             Task { @MainActor in
                 LLMRuntimeCoordinator.shared.acquireSession(reason: "chat_view")
                 if isActivationPresentation {
+                    LLMRuntimeCoordinator.shared.requestChatEntryPrewarm(
+                        trigger: "activation_first_chat",
+                        delaySeconds: 0
+                    )
                     try? await Task.sleep(nanoseconds: 300_000_000)
                     guard generationTask == nil else { return }
                     isPromptFocused = true
@@ -724,6 +733,7 @@ struct ChatView: View {
                         generatingThreadID = nil
                     }
                     llm.isThinking = false
+                    pendingResponsePhase = .idle
                 }
             }
         }
@@ -736,6 +746,7 @@ struct ChatView: View {
         }
 
         await MainActor.run {
+            pendingResponsePhase = .buildingContext
             prompt = ""
             appManager.playHaptic()
             sendMessage(Message(role: .user, content: message, thread: thread))
@@ -787,11 +798,14 @@ struct ChatView: View {
                 ]
             )
         }
+        await MainActor.run {
+            updatePendingResponsePhase(.assemblingPrompt, for: runID)
+        }
         let memoryBlock = LLMPersonalMemoryDefaultsStore.promptBlock(for: activeModelConfiguration)
         let executiveContext = await buildExecutiveContextPrompt(
             tokenBudget: resolvedChatBudget.executiveContextTokens
         )
-        let activeAttachments = await MainActor.run { contextCoordinator.activeAttachments }
+        let activeAttachments = await loadSlashAttachments(for: tID)
         let slashCommandContext = slashCommandContextPrompt(
             attachments: activeAttachments,
             tokenBudget: resolvedChatBudget.slashContextTokens
@@ -837,6 +851,9 @@ struct ChatView: View {
         }
 
         let prepareStartedAt = Date()
+        await MainActor.run {
+            updatePendingResponsePhase(.preparingModel, for: runID)
+        }
         let prepareResult = await LLMRuntimeCoordinator.shared.ensureReady(modelName: modelName)
         let prepareMs = Int(Date().timeIntervalSince(prepareStartedAt) * 1_000)
         logWarning(
@@ -880,6 +897,9 @@ struct ChatView: View {
             return
         }
 
+        await MainActor.run {
+            updatePendingResponsePhase(.generating, for: runID)
+        }
         let output = await llm.generate(
             modelName: prepareResult.resolvedModelName,
             thread: thread,
@@ -956,7 +976,7 @@ struct ChatView: View {
             let retryExecutiveContext = await buildExecutiveContextPrompt(
                 tokenBudget: resolvedChatBudget.executiveContextTokens
             )
-            let retryAttachments = await MainActor.run { contextCoordinator.activeAttachments }
+            let retryAttachments = await loadSlashAttachments(for: tID)
             let retrySystemPrompt = composeChatSystemPrompt(
                 basePrompt: appManager.systemPrompt,
                 model: runtimeModelConfiguration,
@@ -1271,9 +1291,16 @@ struct ChatView: View {
         generationTask = nil
         generationRunID = nil
         generatingThreadID = nil
+        pendingResponsePhase = .idle
         llm.isThinking = false
         llm.cancelGeneration(reason: reason)
         LLMRuntimeCoordinator.shared.cancelGenerationIfActive(reason: reason)
+    }
+
+    @MainActor
+    private func updatePendingResponsePhase(_ phase: ChatPendingResponsePhase, for runID: UUID) {
+        guard generationRunID == runID else { return }
+        pendingResponsePhase = phase
     }
 
     /// Executes sendMessage.
@@ -1456,6 +1483,10 @@ struct ChatView: View {
         let snapshot = await service.buildSnapshot(maxChars: maxChars)
         let trimmed = snapshot.promptBlock.trimmingCharacters(in: .whitespacesAndNewlines)
         return trimmed.isEmpty ? nil : trimmed
+    }
+
+    private func loadSlashAttachments(for threadID: UUID) async -> [ThreadContextAttachmentRecord] {
+        await ThreadContextAttachmentStore.shared.attachments(for: threadID)
     }
 
     private func slashCommandContextPrompt(

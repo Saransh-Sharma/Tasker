@@ -43,13 +43,68 @@ final class ChatTranscriptSnapshotTests: XCTestCase {
             sourceModelName: ModelConfiguration.qwen_3_0_6b_4bit.name,
             runtimePhase: .answering,
             isRunning: true,
-            isPreparingResponse: false
+            pendingPhase: .generating,
+            pendingStatusText: "Preparing a focused response..."
         )
 
         XCTAssertTrue(liveOutput.shouldRender)
         XCTAssertEqual(liveOutput.renderModel.role, .assistant)
         XCTAssertNil(liveOutput.renderModel.thinkingText)
         XCTAssertEqual(liveOutput.renderModel.answerText, "Answer")
+    }
+
+    func testLiveOutputStateRendersDuringPendingPhaseEvenWithoutText() {
+        let liveOutput = ChatLiveOutputState(
+            threadID: UUID(),
+            text: "",
+            sourceModelName: nil,
+            runtimePhase: .idle,
+            isRunning: false,
+            pendingPhase: .buildingContext,
+            pendingStatusText: "Looking at your tasks and goals..."
+        )
+
+        XCTAssertTrue(liveOutput.shouldRender)
+        XCTAssertEqual(liveOutput.pendingPhase, .buildingContext)
+        XCTAssertEqual(liveOutput.pendingStatusText, "Looking at your tasks and goals...")
+        XCTAssertNil(liveOutput.renderModel.answerText)
+    }
+
+    func testLiveOutputStateDoesNotRenderWhenIdleAndEmpty() {
+        let liveOutput = ChatLiveOutputState(
+            threadID: UUID(),
+            text: "",
+            sourceModelName: nil,
+            runtimePhase: .idle,
+            isRunning: false,
+            pendingPhase: .idle,
+            pendingStatusText: nil
+        )
+
+        XCTAssertFalse(liveOutput.shouldRender)
+    }
+
+    func testPendingStatusTextUsesActivationSpecificCopy() {
+        XCTAssertEqual(
+            ChatPendingResponseStatusText.status(
+                for: .buildingContext,
+                isActivationPresentation: true
+            ),
+            "Looking at your tasks and goals..."
+        )
+        XCTAssertEqual(
+            ChatPendingResponseStatusText.status(
+                for: .preparingModel,
+                isActivationPresentation: false
+            ),
+            "Getting the model ready..."
+        )
+        XCTAssertNil(
+            ChatPendingResponseStatusText.status(
+                for: .idle,
+                isActivationPresentation: true
+            )
+        )
     }
 
     func testSnapshotUsesPersistedSourceModelNameForAssistantSanitization() {

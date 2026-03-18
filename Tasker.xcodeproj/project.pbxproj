@@ -123,6 +123,7 @@
 		753EFCAA2445A24700A739E3 /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 753EFCA82445A24700A739E3 /* LaunchScreen.storyboard */; };
 		753EFCB52445A24700A739E3 /* To_Do_ListTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 753EFCB42445A24700A739E3 /* To_Do_ListTests.swift */; };
 		753EFCC02445A24800A739E3 /* To_Do_ListUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 753EFCBF2445A24800A739E3 /* To_Do_ListUITests.swift */; };
+		B7C8D9E22F6A100100ABC123 /* Localizable.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = B7C8D9E32F6A100100ABC123 /* Localizable.xcstrings */; };
 		7551BCCE2EAB665F003C6916 /* PerformanceMetrics.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7551BCB12EAB665F003C6916 /* PerformanceMetrics.swift */; };
 		7551BCCF2EAB665F003C6916 /* TaskDeletionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7551BCC02EAB665F003C6916 /* TaskDeletionTests.swift */; };
 		7551BCD02EAB665F003C6916 /* XCUIApplication+LaunchArguments.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7551BCAE2EAB665F003C6916 /* XCUIApplication+LaunchArguments.swift */; };
@@ -148,6 +149,7 @@
 		7551BCE42EAB665F003C6916 /* BaseUITest.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7551BCAC2EAB665F003C6916 /* BaseUITest.swift */; };
 		7551BCE52EAB665F003C6916 /* TaskEditingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7551BCC12EAB665F003C6916 /* TaskEditingTests.swift */; };
 		7551BCE62EAB665F003C6916 /* AnalyticsAndChartsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7551BCC52EAB665F003C6916 /* AnalyticsAndChartsTests.swift */; };
+		B7C8D9E02F6A100100ABC123 /* ChatPlanApplyUndoTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B7C8D9E12F6A100100ABC123 /* ChatPlanApplyUndoTests.swift */; };
 		7551DA0224880DAC005CF826 /* AddTaskForedropView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7551DA0124880DAC005CF826 /* AddTaskForedropView.swift */; };
 		7551DA0624882E94005CF826 /* ToDoFont.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7551DA0524882E94005CF826 /* ToDoFont.swift */; };
 		7551DA09248832BE005CF826 /* ToDoTimeUtils.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7551DA08248832BE005CF826 /* ToDoTimeUtils.swift */; };
@@ -593,6 +595,7 @@
 		753EFCA62445A24700A739E3 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		753EFCA92445A24700A739E3 /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; name = Base; path = Base.lproj/LaunchScreen.storyboard; sourceTree = "<group>"; };
 		753EFCAB2445A24700A739E3 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		B7C8D9E32F6A100100ABC123 /* Localizable.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = Localizable.xcstrings; sourceTree = "<group>"; };
 		753EFCB02445A24700A739E3 /* To Do ListTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "To Do ListTests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
 		753EFCB42445A24700A739E3 /* To_Do_ListTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = To_Do_ListTests.swift; sourceTree = "<group>"; };
 		753EFCB62445A24800A739E3 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
@@ -612,6 +615,7 @@
 		7551BCB82EAB665F003C6916 /* ProjectManagementPage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProjectManagementPage.swift; sourceTree = "<group>"; };
 		7551BCB92EAB665F003C6916 /* SettingsPage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsPage.swift; sourceTree = "<group>"; };
 		7551BCBB2EAB665F003C6916 /* SettingsUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsUITests.swift; sourceTree = "<group>"; };
+		B7C8D9E12F6A100100ABC123 /* ChatPlanApplyUndoTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatPlanApplyUndoTests.swift; sourceTree = "<group>"; };
 		7551BCBC2EAB665F003C6916 /* ProjectManagementTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProjectManagementTests.swift; sourceTree = "<group>"; };
 		7551BCBD2EAB665F003C6916 /* ScoringSystemTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScoringSystemTests.swift; sourceTree = "<group>"; };
 		7551BCBE2EAB665F003C6916 /* TaskCompletionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TaskCompletionTests.swift; sourceTree = "<group>"; };
@@ -1341,6 +1345,7 @@
 				A8F1D2055E9C44A100112233 /* DeviceOrientationPolicyResolver.swift */,
 				753EFC9F2445A24500A739E3 /* SceneDelegate.swift */,
 				753EFCA62445A24700A739E3 /* Assets.xcassets */,
+				B7C8D9E32F6A100100ABC123 /* Localizable.xcstrings */,
 				753EFCAB2445A24700A739E3 /* Info.plist */,
 				75DFF2B02DF22E6B00EB8850 /* Managers */,
 				75DFF2C72DF22F5200EB8850 /* Repositories */,
@@ -1403,6 +1408,7 @@
 				7551BCBA2EAB665F003C6916 /* PageObjects */,
 				7551BCBB2EAB665F003C6916 /* SettingsUITests.swift */,
 				A1F0D0B62F5A100100ABC001 /* OnboardingUITests.swift */,
+				B7C8D9E12F6A100100ABC123 /* ChatPlanApplyUndoTests.swift */,
 				7551BCCC2EAB665F003C6916 /* Tests */,
 			);
 			path = "To Do ListUITests";
@@ -2302,6 +2308,7 @@
 				753EFCAA2445A24700A739E3 /* LaunchScreen.storyboard in Resources */,
 				7524B71B2DE4EAC90026D865 /* GoogleService-Info.plist in Resources */,
 				753EFCA72445A24700A739E3 /* Assets.xcassets in Resources */,
+				B7C8D9E22F6A100100ABC123 /* Localizable.xcstrings in Resources */,
 				753EFCA52445A24500A739E3 /* Main.storyboard in Resources */,
 				E0A10000000000000000000B /* EvaIntroVideo.mp4 in Resources */,
 				E0A10000000000000000000C /* EvaLottie00-lite.json in Resources */,
@@ -2884,6 +2891,7 @@
 				7551BCE52EAB665F003C6916 /* TaskEditingTests.swift in Sources */,
 				7551BCE62EAB665F003C6916 /* AnalyticsAndChartsTests.swift in Sources */,
 				7B3C9A7D2F2B0F1A00D4C113 /* FocusNowSimplificationTests.swift in Sources */,
+				B7C8D9E02F6A100100ABC123 /* ChatPlanApplyUndoTests.swift in Sources */,
 				D5E7A8BA2F3C4D5E0067A1B2 /* DailySummaryModalTests.swift in Sources */,
 				753EFCC02445A24800A739E3 /* To_Do_ListUITests.swift in Sources */,
 			);

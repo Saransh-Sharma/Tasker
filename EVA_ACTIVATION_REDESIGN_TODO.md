@@ -27,3 +27,4 @@
 - [x] Update unit coverage for activation state persistence, retry/fallback, and completion
 - [x] Update UI coverage for the activation flow, recovery, and first-win handoff
 - [ ] Run targeted verification and fix regressions
+  Blocked: `ChatPlanApplyUndoTests` now runs, but all four UI checks currently skip because the chat entry point is not reachable with the current accessibility identifiers in simulator automation. Owner: Saransh. Due: 2026-03-20.

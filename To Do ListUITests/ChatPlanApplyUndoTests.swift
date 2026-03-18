@@ -25,6 +25,12 @@ final class ChatPlanApplyUndoTests: BaseUITest {
         if window.waitForExistence(timeout: 1), window.frame.width < 500 {
             XCTAssertLessThanOrEqual(introHero.frame.minX, 1, "Compact intro hero should bleed to the leading screen edge")
             XCTAssertGreaterThanOrEqual(introHero.frame.maxX, window.frame.maxX - 1, "Compact intro hero should bleed to the trailing screen edge")
+
+            let navProgress = app.otherElements["eva.activation.nav.progress"]
+            XCTAssertTrue(navProgress.waitForExistence(timeout: 3), "Activation nav progress should be visible on the intro screen")
+
+            let topGap = introHero.frame.minY - navProgress.frame.maxY
+            XCTAssertLessThanOrEqual(abs(topGap), 2, "Compact intro hero should sit flush below the navigation chrome")
         }
 
         let activate = app.buttons["Activate Eva"]
@@ -130,7 +136,11 @@ final class ChatPlanApplyUndoTests: BaseUITest {
             let intro = app.otherElements["eva.activation.intro"]
             let emptyState = app.otherElements["chat.emptyState.container"]
             let composer = app.otherElements["chat.composer.container"]
-            if intro.waitForExistence(timeout: 4) || emptyState.waitForExistence(timeout: 4) || composer.waitForExistence(timeout: 4) {
+            let predicate = NSPredicate { _, _ in
+                intro.exists || emptyState.exists || composer.exists
+            }
+            let expectation = XCTNSPredicateExpectation(predicate: predicate, object: app)
+            if XCTWaiter.wait(for: [expectation], timeout: 4) == .completed {
                 return app
             }
         }

@@ -17,9 +17,15 @@ struct EvaActivationIntroView: View {
         layoutClass.isPad ? 420 : 356
     }
 
+    private var stageHorizontalPaddingOverride: CGFloat? {
+        layoutClass.isPad ? nil : 0
+    }
+
     var body: some View {
         EvaActivationStageView(
             showsAmbientBackground: false,
+            contentHorizontalPaddingOverride: stageHorizontalPaddingOverride,
+            contentTopPaddingOverride: 0,
             footer: {
                 EvaFooterButtons(
                     primaryTitle: "Activate Eva",
@@ -32,28 +38,24 @@ struct EvaActivationIntroView: View {
         ) {
             VStack(alignment: .leading, spacing: spacing.sectionGap) {
                 mediaPanel
-                copyPanel(alignment: .leading)
-                    .frame(maxWidth: layoutClass.isPad ? 720 : .infinity, alignment: .leading)
+                copySection
             }
         }
         .accessibilityIdentifier("eva.activation.intro")
     }
 
     private var mediaPanel: some View {
-        Group {
-            if layoutClass.isPad {
-                EvaHeroMediaView()
-                    .accessibilityIdentifier("eva.activation.intro.hero")
-            } else {
-                EvaHeroMediaView()
-                    .accessibilityIdentifier("eva.activation.intro.hero")
-                    .padding(.horizontal, -spacing.screenHorizontal)
-                    .ignoresSafeArea(.container, edges: .horizontal)
-            }
-        }
-        .frame(maxWidth: .infinity)
-        .frame(height: heroHeight)
-        .enhancedStaggeredAppearance(index: 0)
+        EvaHeroMediaView(style: layoutClass.isPad ? .card : .fullBleed)
+            .accessibilityIdentifier("eva.activation.intro.hero")
+            .frame(maxWidth: .infinity)
+            .frame(height: heroHeight)
+            .enhancedStaggeredAppearance(index: 0)
+    }
+
+    private var copySection: some View {
+        copyPanel(alignment: .leading)
+            .frame(maxWidth: layoutClass.isPad ? 720 : .infinity, alignment: .leading)
+            .padding(.horizontal, layoutClass.isPad ? 0 : spacing.screenHorizontal)
     }
 
     private func copyPanel(alignment: HorizontalAlignment) -> some View {

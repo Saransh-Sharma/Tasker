@@ -22,22 +22,22 @@ struct DeviceNotSupportedView: View {
             }
 
             VStack(spacing: TaskerTheme.Spacing.sm) {
-                Text("Eva isn't available on this device")
+                Text(String(localized: "eva.device_not_supported.title", defaultValue: "Eva isn't available on this device"))
                     .font(.tasker(.title1))
                     .foregroundStyle(Color.tasker(.textPrimary))
                     .multilineTextAlignment(.center)
 
-                Text("Eva's local model needs a newer Apple GPU feature set to run on-device.")
+                Text(String(localized: "eva.device_not_supported.body", defaultValue: "Eva's local model needs a newer Apple GPU feature set to run on-device."))
                     .font(.tasker(.callout))
                     .foregroundStyle(Color.tasker(.textSecondary))
                     .multilineTextAlignment(.center)
             }
 
             VStack(alignment: .leading, spacing: TaskerTheme.Spacing.sm) {
-                Text("Why this happens")
+                Text(String(localized: "eva.device_not_supported.why", defaultValue: "Why this happens"))
                     .font(.tasker(.headline))
                     .foregroundStyle(Color.tasker(.textPrimary))
-                Text("This device does not support the local runtime Eva needs for private on-device responses.")
+                Text(String(localized: "eva.device_not_supported.why_body", defaultValue: "This device does not support the local runtime Eva needs for private on-device responses."))
                     .font(.tasker(.callout))
                     .foregroundStyle(Color.tasker(.textSecondary))
             }
@@ -53,7 +53,7 @@ struct DeviceNotSupportedView: View {
 
             if let onDismiss {
                 Button(action: onDismiss) {
-                    Text("Back")
+                    Text(String(localized: "eva.device_not_supported.dismiss", defaultValue: "Back"))
                         .font(.tasker(.button))
                         .foregroundStyle(Color.tasker(.accentOnPrimary))
                         .frame(maxWidth: .infinity)
@@ -65,7 +65,7 @@ struct DeviceNotSupportedView: View {
                 .padding(.horizontal, TaskerTheme.Spacing.xl)
             }
 
-            Text("You can still use the rest of Tasker normally.")
+            Text(String(localized: "eva.device_not_supported.footer", defaultValue: "You can continue using Tasker as usual while Eva stays unavailable on this device."))
                 .font(.tasker(.caption1))
                 .foregroundStyle(Color.tasker(.textQuaternary))
 
@@ -76,6 +76,10 @@ struct DeviceNotSupportedView: View {
     }
 }
 
-#Preview {
+#Preview("Default") {
     DeviceNotSupportedView()
+}
+
+#Preview("Dismissible") {
+    DeviceNotSupportedView(onDismiss: {})
 }

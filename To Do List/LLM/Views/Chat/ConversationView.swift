@@ -141,11 +141,12 @@ private struct EvaLiveWorkingStatusView: View {
         )
         .animation(reduceMotion ? nil : TaskerAnimation.quick, value: statusIndex)
         .task(id: statuses) {
-            guard statuses.count > 1, reduceMotion == false else { return }
+            let source = statuses.isEmpty ? EvaWorkingStatusLibrary.general : statuses
+            guard source.count > 1, reduceMotion == false else { return }
             while !Task.isCancelled {
                 try? await Task.sleep(nanoseconds: 3_100_000_000)
                 guard !Task.isCancelled else { return }
-                statusIndex = (statusIndex + 1) % statuses.count
+                statusIndex = (statusIndex + 1) % source.count
             }
         }
     }
@@ -160,6 +161,8 @@ struct MessageView: View {
     var runtime: LLMEvaluator? = nil
     var isLiveOutput: Bool = false
     var workingStatuses: [String] = []
+    var pendingPhase: ChatPendingResponsePhase = .idle
+    var pendingStatusText: String? = nil
     var onOpenTaskFromCard: ((TaskDefinition) -> Void)?
 
     private var runtimeRunning: Bool {
@@ -172,6 +175,28 @@ struct MessageView: View {
 
     private var isThinking: Bool {
         renderModel.isThinkingOpenEnded
+    }
+
+    private var answerIsEmpty: Bool {
+        renderModel.answerText?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ?? true
+    }
+
+    private var thinkingIsEmpty: Bool {
+        renderModel.thinkingText?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ?? true
+    }
+
+    private var isPendingResponse: Bool {
+        pendingPhase.isActive
+    }
+
+    private var activeWorkingStatuses: [String] {
+        if runtimeRunning {
+            return workingStatuses
+        }
+        if let pendingStatusText, pendingStatusText.isEmpty == false {
+            return [pendingStatusText]
+        }
+        return workingStatuses
     }
 
     private var time: String {
@@ -212,9 +237,13 @@ struct MessageView: View {
 
     private var shouldShowLiveWorkingStatus: Bool {
         isLiveOutput &&
-        runtimeRunning &&
-        EvaThinkingVisibilityPolicy.showsVisibleThinking == false &&
-        (renderModel.answerText?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ?? true)
+        (runtimeRunning || isPendingResponse) &&
+        answerIsEmpty &&
+        thinkingIsEmpty
+    }
+
+    private var shouldShowTypingIndicator: Bool {
+        isLiveOutput && (runtimeRunning || isPendingResponse)
     }
 
     var body: some View {
@@ -280,7 +309,7 @@ struct MessageView: View {
         } else {
             VStack(alignment: .leading, spacing: TaskerTheme.Spacing.lg) {
                 if shouldShowLiveWorkingStatus {
-                    EvaLiveWorkingStatusView(statuses: workingStatuses)
+                    EvaLiveWorkingStatusView(statuses: activeWorkingStatuses)
                 }
 
                 if EvaThinkingVisibilityPolicy.showsVisibleThinking,
@@ -317,7 +346,7 @@ struct MessageView: View {
                     )
                 }
 
-                if isLiveOutput && runtimeRunning {
+                if shouldShowTypingIndicator {
                     TypingIndicator()
                 }
             }
@@ -613,7 +642,9 @@ struct ConversationView: View {
                             now: now,
                             runtime: llm,
                             isLiveOutput: true,
-                            workingStatuses: liveWorkingStatuses
+                            workingStatuses: liveWorkingStatuses,
+                            pendingPhase: liveOutput.pendingPhase,
+                            pendingStatusText: liveOutput.pendingStatusText
                         )
                         .padding(.horizontal, TaskerTheme.Spacing.lg)
                         .padding(.vertical, TaskerTheme.Spacing.sm)

@@ -16,9 +16,7 @@ struct EvaGoalsView: View {
     }
 
     private var normalizedGoals: [String] {
-        draft.goals
-            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
-            .filter { $0.isEmpty == false }
+        normalizedStoredGoals(from: draft.goals)
     }
 
     private var trimmedDraftGoal: String {
@@ -75,7 +73,7 @@ struct EvaGoalsView: View {
                                 title: goal,
                                 accessibilityIdentifier: "eva.activation.goal_chip.\(index)"
                             ) {
-                                removeGoal(goal)
+                                removeGoal(at: index)
                             }
                         }
                     }
@@ -113,16 +111,46 @@ struct EvaGoalsView: View {
 
     private func addGoal() {
         guard canAddGoal else { return }
-
-        withAnimation(reduceMotion ? .easeInOut(duration: 0.18) : TaskerAnimation.quick) {
-            draft.goals = normalizedGoals + [trimmedDraftGoal]
+        mutateGoals {
+            draft.goals = normalizedStoredGoals(from: draft.goals + [trimmedDraftGoal])
             draftGoalText = ""
         }
     }
 
-    private func removeGoal(_ goal: String) {
-        withAnimation(reduceMotion ? .easeInOut(duration: 0.18) : TaskerAnimation.quick) {
-            draft.goals = normalizedGoals.filter { $0 != goal }
+    private func removeGoal(at index: Int) {
+        guard normalizedGoals.indices.contains(index) else { return }
+        mutateGoals {
+            var updatedGoals = normalizedGoals
+            updatedGoals.remove(at: index)
+            draft.goals = updatedGoals
         }
+    }
+
+    private func mutateGoals(_ mutation: () -> Void) {
+        if reduceMotion {
+            mutation()
+        } else {
+            withAnimation(TaskerAnimation.quick, mutation)
+        }
+    }
+
+    private func normalizedStoredGoals(from goals: [String]) -> [String] {
+        var seen = Set<String>()
+        var normalized: [String] = []
+
+        for goal in goals {
+            let trimmed = goal.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard trimmed.isEmpty == false else { continue }
+
+            let key = trimmed.lowercased()
+            guard seen.insert(key).inserted else { continue }
+
+            normalized.append(trimmed)
+            if normalized.count == 3 {
+                break
+            }
+        }
+
+        return normalized
     }
 }

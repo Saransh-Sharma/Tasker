@@ -3,6 +3,7 @@ import SwiftUI
 
 struct EvaActivationRootView: View {
     @ObservedObject private var coordinator: EvaActivationCoordinator
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private let onDismiss: () -> Void
     private let onOpenTaskDetail: (TaskDefinition) -> Void
@@ -19,7 +20,7 @@ struct EvaActivationRootView: View {
 
     var body: some View {
         currentStageView
-        .animation(TaskerAnimation.gatewayReveal, value: coordinator.state.stage)
+            .animation(reduceMotion ? nil : TaskerAnimation.gatewayReveal, value: coordinator.state.stage)
     }
 
     @ViewBuilder
