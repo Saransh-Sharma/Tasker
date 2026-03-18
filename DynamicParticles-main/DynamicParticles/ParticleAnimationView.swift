@@ -124,37 +124,26 @@ struct ParticleAnimation: View {
     }
     
     private func updateParticles() {
-
-        withAnimation(.linear(duration: 0.5)) {
-            switch state {
-            case .idle:
-                for i in particles.indices {
-                    text = "circle.fill"
-                    particles[i].update(state: .idle, dragPosition: dragPosition, dragVelocity: dragVelocity)
-                }
-            case .listening:
-                for i in particles.indices {
-                    withAnimation(.spring()){
-                        text = "circle.fill"
-
-                        particles[i].update(state: .listening, dragPosition: dragPosition, dragVelocity: dragVelocity)
-
-                    }
-
-                }
-            case .speaking:
-                for i in particles.indices {
-                    text = "circle.fill"
-
-                    particles[i].update(state: .speaking, dragPosition: dragPosition, dragVelocity: dragVelocity)
-                }
-            case .question:
-                for i in particles.indices {
-                    text = "questionmark"
-
-                    particles[i].update(state: .idle, dragPosition: dragPosition, dragVelocity: dragVelocity)
-                }
-
+        switch state {
+        case .idle:
+            text = "circle.fill"
+            for i in particles.indices {
+                particles[i].update(state: .idle, dragPosition: dragPosition, dragVelocity: dragVelocity)
+            }
+        case .listening:
+            text = "circle.fill"
+            for i in particles.indices {
+                particles[i].update(state: .listening, dragPosition: dragPosition, dragVelocity: dragVelocity)
+            }
+        case .speaking:
+            text = "circle.fill"
+            for i in particles.indices {
+                particles[i].update(state: .speaking, dragPosition: dragPosition, dragVelocity: dragVelocity)
+            }
+        case .question:
+            text = "questionmark"
+            for i in particles.indices {
+                particles[i].update(state: .question, dragPosition: dragPosition, dragVelocity: dragVelocity)
             }
         }
     }
