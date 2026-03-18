@@ -1052,6 +1052,29 @@ final class SlashCommandCatalogTests: XCTestCase {
         }
     }
 
+    func testParseAreaWithoutNameReturnsMissingArgument() {
+        let result = SlashCommandCatalog.parse("/area")
+        switch result {
+        case .missingRequiredArgument(let commandID, let partial):
+            XCTAssertEqual(commandID, .area)
+            XCTAssertNil(partial)
+        default:
+            XCTFail("Expected missing argument parse result for /area")
+        }
+    }
+
+    func testParseRecentAndOverdueCommands() {
+        guard case .invocation(let recentInvocation) = SlashCommandCatalog.parse("/recent") else {
+            return XCTFail("Expected /recent invocation")
+        }
+        guard case .invocation(let overdueInvocation) = SlashCommandCatalog.parse("/overdue") else {
+            return XCTFail("Expected /overdue invocation")
+        }
+
+        XCTAssertEqual(recentInvocation.id, .recent)
+        XCTAssertEqual(overdueInvocation.id, .overdue)
+    }
+
     func testFilteredDescriptorsPrioritizesRecentsBeforePopularity() {
         let filtered = SlashCommandCatalog.filteredDescriptors(
             query: "",
@@ -1085,15 +1108,16 @@ final class SlashCommandExecutionServiceTests: XCTestCase {
 
         let service = SlashCommandExecutionService(
             taskReadModelRepository: MockTaskReadModelRepository(tasks: [overdueTask, dueTodayTask, completedOverdueTask]),
-            projectRepository: MockProjectRepository()
+            projectRepository: MockProjectRepository(),
+            lifeAreaRepository: nil
         )
         let result = try await service.execute(
-            invocation: SlashCommandInvocation(id: .today, projectQuery: nil, projectName: nil)
+            invocation: SlashCommandInvocation(id: .today)
         )
 
-        XCTAssertEqual(result.commandID, .today)
+        XCTAssertEqual(result.commandID, SlashCommandID.today)
         XCTAssertEqual(result.totalTaskCount, 2)
-        XCTAssertEqual(Set(result.sections.map(\.id)), Set(["overdue", "today"]))
+        XCTAssertEqual(Set(result.sections.map { $0.id }), Set(["overdue", "today"]))
         let titles = Set(result.sections.flatMap { $0.tasks.map(\.title) })
         XCTAssertEqual(titles, Set(["Overdue task", "Due today task"]))
         XCTAssertFalse(titles.contains("Completed overdue"))
@@ -1110,7 +1134,8 @@ final class SlashCommandExecutionServiceTests: XCTestCase {
             projectRepository: MockProjectRepository(projects: [
                 Project.createInbox(),
                 Project(name: "Work")
-            ])
+            ]),
+            lifeAreaRepository: nil
         )
 
         do {
@@ -1120,10 +1145,11 @@ final class SlashCommandExecutionServiceTests: XCTestCase {
             XCTFail("Expected missing project query to fail")
         } catch let error as SlashCommandExecutionError {
             switch error {
-            case .projectNotFound(let query):
+            case .entityNotFound(let commandID, let query):
+                XCTAssertEqual(commandID, .project)
                 XCTAssertEqual(query, "Unknown Project")
             default:
-                XCTFail("Expected projectNotFound error")
+                XCTFail("Expected entityNotFound error")
             }
         } catch {
             XCTFail("Unexpected error: \(error)")
@@ -1137,7 +1163,8 @@ final class SlashCommandExecutionServiceTests: XCTestCase {
                 Project.createInbox(),
                 Project(name: "Work Alpha"),
                 Project(name: "Work Beta")
-            ])
+            ]),
+            lifeAreaRepository: nil
         )
 
         do {
@@ -1147,15 +1174,249 @@ final class SlashCommandExecutionServiceTests: XCTestCase {
             XCTFail("Expected ambiguous project match to fail")
         } catch let error as SlashCommandExecutionError {
             switch error {
-            case .ambiguousProjectName(let query, let matches):
+            case .ambiguousArgument(let commandID, let query, let matches):
+                XCTAssertEqual(commandID, .project)
                 XCTAssertEqual(query, "Work")
                 XCTAssertEqual(Set(matches), Set(["Work Alpha", "Work Beta"]))
             default:
-                XCTFail("Expected ambiguousProjectName error")
+                XCTFail("Expected ambiguousArgument error")
             }
         } catch {
             XCTFail("Unexpected error: \(error)")
         }
+    }
+
+    func testAreaExecutionFiltersToMatchingLifeArea() async throws {
+        let health = LifeArea(name: "Health")
+        let career = LifeArea(name: "Career")
+
+        var workout = TaskDefinition(title: "Workout", dueDate: Date(), isComplete: false)
+        workout.lifeAreaID = health.id
+        workout.projectName = "Fitness"
+
+        var roadmap = TaskDefinition(title: "Write roadmap", dueDate: Date(), isComplete: false)
+        roadmap.lifeAreaID = career.id
+        roadmap.projectName = "Work"
+
+        let service = SlashCommandExecutionService(
+            taskReadModelRepository: MockTaskReadModelRepository(tasks: [workout, roadmap]),
+            projectRepository: MockProjectRepository(),
+            lifeAreaRepository: MockLifeAreaRepository(lifeAreas: [health, career])
+        )
+
+        let result = try await service.execute(
+            invocation: SlashCommandInvocation(id: .area, argumentQuery: "Health", resolvedArgument: nil)
+        )
+
+        XCTAssertEqual(result.commandID, .area)
+        XCTAssertEqual(result.commandLabel, "Life Area: Health")
+        XCTAssertEqual(result.totalTaskCount, 1)
+        XCTAssertEqual(result.sections.first?.tasks.map(\.title), ["Workout"])
+    }
+
+    func testRecentExecutionIncludesExecutiveSummaryAndRecentSections() async throws {
+        let now = Date()
+        let startOfToday = Calendar.current.startOfDay(for: now)
+        let work = Project(name: "Work")
+        let health = LifeArea(name: "Health")
+
+        var completed = TaskDefinition(title: "Close sprint", dueDate: startOfToday.addingTimeInterval(-86_400), isComplete: true)
+        completed.projectID = work.id
+        completed.projectName = work.name
+        completed.lifeAreaID = health.id
+        completed.dateCompleted = startOfToday.addingTimeInterval(-3_600)
+        completed.updatedAt = startOfToday.addingTimeInterval(-3_600)
+
+        var overdue = TaskDefinition(title: "Book checkup", dueDate: startOfToday.addingTimeInterval(-86_400), isComplete: false)
+        overdue.projectID = work.id
+        overdue.projectName = work.name
+        overdue.lifeAreaID = health.id
+        overdue.updatedAt = startOfToday.addingTimeInterval(-1_800)
+
+        let service = SlashCommandExecutionService(
+            taskReadModelRepository: MockTaskReadModelRepository(tasks: [completed, overdue]),
+            projectRepository: MockProjectRepository(projects: [Project.createInbox(), work]),
+            lifeAreaRepository: MockLifeAreaRepository(lifeAreas: [health])
+        )
+
+        let result = try await service.execute(invocation: SlashCommandInvocation(id: .recent))
+
+        XCTAssertEqual(result.commandID, .recent)
+        XCTAssertTrue(result.summary.contains("14-day operating summary:"))
+        XCTAssertTrue(result.summary.contains("Projects in motion: Work."))
+        XCTAssertTrue(result.summary.contains("Life areas in motion: Health."))
+        XCTAssertEqual(Set(result.sections.map(\.id)), Set(["recent_completed", "recent_active"]))
+    }
+}
+
+final class EvaExecutiveContextServiceTests: XCTestCase {
+    func testBuildSnapshotSummarizesRecentMomentumAndPressure() async {
+        let now = Date()
+        let startOfToday = Calendar.current.startOfDay(for: now)
+        let work = Project(name: "Work")
+        let health = LifeArea(name: "Health")
+
+        var completed = TaskDefinition(title: "Ship update", dueDate: startOfToday.addingTimeInterval(-86_400), isComplete: true)
+        completed.projectID = work.id
+        completed.projectName = work.name
+        completed.lifeAreaID = health.id
+        completed.updatedAt = startOfToday.addingTimeInterval(-1_200)
+        completed.dateCompleted = startOfToday.addingTimeInterval(-1_200)
+
+        var overdue = TaskDefinition(title: "Review labs", dueDate: startOfToday.addingTimeInterval(-172_800), isComplete: false)
+        overdue.projectID = work.id
+        overdue.projectName = work.name
+        overdue.lifeAreaID = health.id
+        overdue.updatedAt = startOfToday.addingTimeInterval(-600)
+
+        var dueSoon = TaskDefinition(title: "Plan next sprint", dueDate: startOfToday.addingTimeInterval(172_800), isComplete: false)
+        dueSoon.projectID = work.id
+        dueSoon.projectName = work.name
+        dueSoon.lifeAreaID = health.id
+        dueSoon.updatedAt = startOfToday
+
+        let service = EvaExecutiveContextService(
+            taskReadModelRepository: MockTaskReadModelRepository(tasks: [completed, overdue, dueSoon]),
+            projectRepository: MockProjectRepository(projects: [Project.createInbox(), work]),
+            lifeAreaRepository: MockLifeAreaRepository(lifeAreas: [health])
+        )
+
+        let snapshot = await service.buildSnapshot(maxChars: 2_000, now: now)
+
+        XCTAssertEqual(snapshot.completedCount, 1)
+        XCTAssertEqual(snapshot.overdueRemainingCount, 1)
+        XCTAssertEqual(snapshot.dueSoonCount, 1)
+        XCTAssertTrue(snapshot.promptBlock.contains("14-day operating summary:"))
+        XCTAssertTrue(snapshot.promptBlock.contains("Projects in motion: Work."))
+        XCTAssertTrue(snapshot.promptBlock.contains("Life areas in motion: Health."))
+        XCTAssertTrue(snapshot.promptBlock.contains("Pressure points:"))
+    }
+
+    func testBuildSnapshotCacheIsScopedToRepositoryInstances() async {
+        let now = Date()
+        let startOfToday = Calendar.current.startOfDay(for: now)
+        let work = Project(name: "Work")
+        let health = LifeArea(name: "Health")
+
+        var firstTask = TaskDefinition(title: "First repo task", dueDate: startOfToday.addingTimeInterval(-86_400), isComplete: false)
+        firstTask.projectID = work.id
+        firstTask.projectName = work.name
+        firstTask.lifeAreaID = health.id
+        firstTask.updatedAt = startOfToday
+
+        var secondTask = TaskDefinition(title: "Second repo task", dueDate: startOfToday.addingTimeInterval(172_800), isComplete: false)
+        secondTask.projectID = work.id
+        secondTask.projectName = work.name
+        secondTask.lifeAreaID = health.id
+        secondTask.updatedAt = startOfToday
+
+        let serviceA = EvaExecutiveContextService(
+            taskReadModelRepository: MockTaskReadModelRepository(tasks: [firstTask]),
+            projectRepository: MockProjectRepository(projects: [Project.createInbox(), work]),
+            lifeAreaRepository: MockLifeAreaRepository(lifeAreas: [health])
+        )
+        let serviceB = EvaExecutiveContextService(
+            taskReadModelRepository: MockTaskReadModelRepository(tasks: [secondTask]),
+            projectRepository: MockProjectRepository(projects: [Project.createInbox(), work]),
+            lifeAreaRepository: MockLifeAreaRepository(lifeAreas: [health])
+        )
+
+        let snapshotA = await serviceA.buildSnapshot(maxChars: 2_000, now: now)
+        let snapshotB = await serviceB.buildSnapshot(maxChars: 2_000, now: now)
+
+        XCTAssertNotEqual(snapshotA.promptBlock, snapshotB.promptBlock)
+    }
+}
+
+final class ThreadContextAttachmentTests: XCTestCase {
+    func testAttachmentStoreReplacesCategoryAndCapsThreadPins() async {
+        let threadID = UUID()
+        let store = ThreadContextAttachmentStore.shared
+        await store.clear(threadID: threadID)
+
+        let records = await store.upsert(makeAttachment(threadID: threadID, category: .timeSlice, commandID: .today))
+        XCTAssertEqual(records.count, 1)
+
+        _ = await store.upsert(makeAttachment(threadID: threadID, category: .project, commandID: .project))
+        let replaced = await store.upsert(makeAttachment(threadID: threadID, category: .timeSlice, commandID: .tomorrow))
+        XCTAssertEqual(replaced.count, 2)
+        XCTAssertTrue(replaced.contains(where: { $0.commandID == .tomorrow }))
+        XCTAssertFalse(replaced.contains(where: { $0.commandID == .today }))
+
+        _ = await store.upsert(makeAttachment(threadID: threadID, category: .lifeArea, commandID: .area))
+        let capped = await store.upsert(makeAttachment(threadID: threadID, category: .backlog, commandID: .recent))
+        XCTAssertEqual(capped.count, 3)
+
+        await store.clear(threadID: threadID)
+    }
+
+    func testAttachmentResolverBuildsPinnedContextBlock() {
+        let result = SlashCommandExecutionResult(
+            commandID: .project,
+            commandLabel: "Project: Work",
+            summary: "2 open tasks in Work.",
+            sections: [
+                SlashCommandTaskSection(
+                    id: "project",
+                    title: "Work",
+                    tasks: [
+                        SlashCommandTaskItem(
+                            taskID: UUID(),
+                            title: "Review roadmap",
+                            projectName: "Work",
+                            dueDateISO: nil,
+                            dueLabel: "Today",
+                            taskSnapshot: TaskDefinition(title: "Review roadmap", dueDate: Date(), isComplete: false)
+                        )
+                    ],
+                    totalCount: 1
+                )
+            ],
+            totalTaskCount: 1,
+            generatedAtISO: Date().ISO8601Format()
+        )
+
+        let block = ThreadContextAttachmentResolver.promptBlock(
+            for: [
+                ThreadContextAttachmentRecord(
+                    threadID: UUID(),
+                    category: .project,
+                    commandID: .project,
+                    commandLabel: "Project: Work",
+                    summary: "2 open tasks in Work.",
+                    commandResult: result
+                )
+            ],
+            tokenBudget: 200
+        )
+
+        XCTAssertNotNil(block)
+        XCTAssertTrue(block?.contains("Pinned context:") == true)
+        XCTAssertTrue(block?.contains("Project: Work") == true)
+        XCTAssertTrue(block?.contains("Review roadmap | Today | Work") == true)
+    }
+
+    private func makeAttachment(
+        threadID: UUID,
+        category: ThreadContextAttachmentCategory,
+        commandID: SlashCommandID
+    ) -> ThreadContextAttachmentRecord {
+        let result = SlashCommandExecutionResult(
+            commandID: commandID,
+            commandLabel: commandID.displayName,
+            summary: "\(commandID.displayName) summary",
+            sections: [],
+            totalTaskCount: 0,
+            generatedAtISO: Date().ISO8601Format()
+        )
+        return ThreadContextAttachmentRecord(
+            threadID: threadID,
+            category: category,
+            commandID: commandID,
+            commandLabel: commandID.displayName,
+            summary: result.summary,
+            commandResult: result
+        )
     }
 }
 
@@ -1184,6 +1445,9 @@ private final class MockTaskReadModelRepository: TaskReadModelRepositoryProtocol
         }
         if let dueDateEnd = query.dueDateEnd {
             filtered = filtered.filter { ($0.dueDate ?? .distantFuture) <= dueDateEnd }
+        }
+        if let updatedAfter = query.updatedAfter {
+            filtered = filtered.filter { $0.updatedAt >= updatedAfter }
         }
         filtered = filtered.sorted {
             ($0.dueDate ?? .distantFuture, $0.updatedAt) < ($1.dueDate ?? .distantFuture, $1.updatedAt)

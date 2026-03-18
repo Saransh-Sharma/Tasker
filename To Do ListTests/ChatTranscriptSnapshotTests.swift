@@ -31,7 +31,7 @@ final class ChatTranscriptSnapshotTests: XCTestCase {
         XCTAssertEqual(snapshot.recentUserMessageFragments, ["plan my inbox"])
         XCTAssertTrue(snapshot.containsUndoCard)
         XCTAssertEqual(snapshot.messages.count, 3)
-        XCTAssertEqual(snapshot.messages[1].thinkingText, "Sort urgent work")
+        XCTAssertNil(snapshot.messages[1].thinkingText)
         XCTAssertEqual(snapshot.messages[1].answerText, "- First\n- Second")
         XCTAssertNotNil(snapshot.messages[2].cardPayload)
     }
@@ -48,7 +48,7 @@ final class ChatTranscriptSnapshotTests: XCTestCase {
 
         XCTAssertTrue(liveOutput.shouldRender)
         XCTAssertEqual(liveOutput.renderModel.role, .assistant)
-        XCTAssertEqual(liveOutput.renderModel.thinkingText, "Reason")
+        XCTAssertNil(liveOutput.renderModel.thinkingText)
         XCTAssertEqual(liveOutput.renderModel.answerText, "Answer")
     }
 
@@ -85,7 +85,7 @@ final class ChatTranscriptSnapshotTests: XCTestCase {
 
         let snapshot = ChatTranscriptSnapshot(thread: thread)
 
-        XCTAssertEqual(snapshot.messages.first?.thinkingText, "Thinking Process:\n1. Analyze the day.\n2. Pick the most important task.")
+        XCTAssertNil(snapshot.messages.first?.thinkingText)
         XCTAssertNil(snapshot.messages.first?.answerText)
     }
 
