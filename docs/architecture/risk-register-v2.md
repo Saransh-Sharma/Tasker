@@ -1,6 +1,6 @@
 # Tasker V3 Risk Register and Guardrails
 
-**Last validated against code on 2026-02-27**
+**Last validated against code on 2026-03-18**
 
 This register tracks technical risks that can regress V3 runtime correctness, data integrity, and release safety.
 
@@ -33,7 +33,7 @@ Primary source anchors:
 | `R-007` | Feature-flag guard omission in side-effect flows | Medium | disabled features still mutate state/provider | new flow added without explicit gate | require explicit `V2FeatureFlags` checks for reminders and assistant paths |
 | `R-008` | Background refresh reliability degradation | Medium | stale occurrence/reminder/brief state | repeated BG task timeout/failure signals | preserve scheduling retries, timeout logging, and dependency checks |
 | `R-009` | Documentation/runtime drift | Medium | incorrect engineering decisions and release mistakes | docs not updated with code changes | enforce same-PR doc updates and release-gate evidence in tracker doc |
-| `R-010` | LLM context staleness or under-specified context payload | High | poor/incorrect assistant proposals | one-time injection, dropped task metadata, missing timezone/tag context | rebuild context per request, include enriched metadata, log `assistant_context_built` |
+| `R-010` | LLM context staleness or under-specified context payload | High | poor/incorrect assistant proposals | one-time injection, dropped task metadata, executive-context cache drift, or missing metadata | rebuild per-request task context, keep executive-context invalidation explicit, include enriched metadata, log context-build health |
 | `R-011` | Semantic retrieval quality or availability regression | Medium | irrelevant search/chat context ranking | embedding runtime unavailable or stale index | lexical fallback + explicit `assistant_semantic_fallback_lexical` event + index rebuild hooks |
 | `R-012` | Chat plan/apply repeated failures within a session | Medium | user distrust and repeated mutation failures | consecutive apply failures from stale/invalid proposals | session circuit breaker after 3 apply failures and explicit user message |
 | `R-013` | Card transport payload corruption or incompatible decoding | Medium | proposal/undo cards fail to render or actions target wrong run | malformed sentinel payload or status mismatch | enforce sentinel prefix contract, decode guards, and run/thread ownership checks |
@@ -44,6 +44,7 @@ Primary source anchors:
 | `R-018` | Gamification stale read-after-write snapshot | High | XP charts lag until restart; inconsistent same-session values | read context not reset/merged after writes | enforce `readContext.reset()` post-write and keep read/write context split contract explicit |
 | `R-019` | Missed ledger mutation signal in UI observers | High | XP updates not reflected live on Home/Insights | observer not attached or event dropped during heavy churn | use ledger-mutation watchdog fallback refresh + notification-path tests |
 | `R-020` | Gamification doc/runtime drift | Medium | incidents prolonged due to incorrect runbook assumptions | runtime changed without architecture docs update | require same-PR updates for `gamification-v2-engine.md` and linked architecture docs |
+| `R-021` | Thread-scoped slash-pin drift or rollout mismatch | Medium | follow-up chat answers ignore or misapply pinned scope | async pin persistence race, write-only flag gating, or stale sidecar attachment state | verify pin follow-up behavior, keep pin-clear path explicit, and treat the sidecar as sensitive local state |
 
 ## Detection Signals and Containment
 
@@ -58,7 +59,7 @@ Primary source anchors:
 | `R-007` | feature-disabled scenarios still execute side effects | add/restore explicit guard checks and disabled-path tests |
 | `R-008` | repeated BG timeout/failure events | tune timeout strategy and dependency readiness, then re-run BG smoke |
 | `R-009` | stale architecture statements detected in review | update docs before merge; refresh `v3-runtime-cutover-todo.md` |
-| `R-010` | proposal quality drops after mid-thread task mutations | inspect context logs and ensure per-request context rebuild remains enabled |
+| `R-010` | proposal quality drops after mid-thread task mutations or after recent settings/project edits | inspect task-context and executive-context logs; verify invalidation paths remain wired |
 | `R-011` | semantic hits absent for ambiguous queries | verify embedding availability, index freshness, and lexical fallback path |
 | `R-012` | 3+ assistant apply failures in one session | stop plan/apply for session, triage root cause before re-enable |
 | `R-013` | card decode failures, missing `run_id` warnings, card action mismatch | validate sentinel payload generation and decode guards; block action on invalid payload |
@@ -69,6 +70,7 @@ Primary source anchors:
 | `R-018` | immediate post-write fetch does not reflect updated XP/profile/aggregate | verify gamification repository finalize-write reset behavior and canonical row selection |
 | `R-019` | completion/focus/reflection XP visible only after restart | inspect `gamificationLedgerDidMutate` emission/observer path and watchdog fallback logs |
 | `R-020` | stale architecture references during review/incident triage | block merge until gamification architecture docs are updated and cross-linked |
+| `R-021` | slash command result appears but next question ignores the intended pinned scope | inspect `chat_slash_pin_upserted`, pin-clear logs, and thread attachment state before release |
 
 ## AI Telemetry Signals to Watch
 
@@ -97,6 +99,7 @@ Primary source anchors:
 6. Do not change compatibility columns without documenting migration rationale.
 7. Do not weaken guardrail scripts without replacing equivalent coverage.
 8. Do not add chat-layer task mutation paths outside `AssistantActionPipelineUseCase`.
+9. Do not document slash-pin rollout flags as full kill switches unless read/injection behavior matches the claim.
 
 ## High-Risk Invariants to Preserve
 
@@ -108,6 +111,7 @@ Primary source anchors:
 | Assistant apply requires confirmed runs and valid undo payloads | transactional safety and user trust | `AssistantActionPipelineUseCase.swift` |
 | Tombstone lifecycle (write -> expire -> purge) is intact | prevents deletion regressions and sync churn | `DeleteTaskDefinitionUseCase.swift`, `MaintainOccurrencesUseCase.swift` |
 | Card actions require run/thread ownership checks | prevents cross-thread accidental mutation operations | `ChatView.swift`, `ConversationView.swift` |
+| Executive context and slash pins remain read-only prompt state | prevents assistant context helpers from becoming hidden mutation paths | `ChatView.swift`, `ChatContextSupport.swift`, `LLMContextProjectionService.swift` |
 | Gamification mutation signal emitted post-commit only | prevents stale pre-write UI reads | `GamificationEngine.swift`, `HomeViewModel.swift`, `InsightsViewModel.swift` |
 | Remote-change reconcile only for qualified external transactions | prevents local-write reconciliation loops | `AppDelegate.swift` (`GamificationRemoteChangeCoordinator`) |
 

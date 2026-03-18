@@ -1,6 +1,6 @@
 # Tasker Architecture Docs Index (V3 Runtime)
 
-**Last validated against code on 2026-03-17**
+**Last validated against code on 2026-03-18**
 
 This folder is the implementation-facing source of truth for Tasker's shipped V3 runtime.
 The runtime is V3-only (`TaskModelV3`, V3 bootstrap cutover, `TaskDefinition`-centric contracts).

@@ -125,11 +125,14 @@ These components are intentionally not usecases and stay in the local-LLM/runtim
 - `AssistantPlannerService`, `AssistantEnvelopeValidator`, `AssistantDiffPreviewBuilder` (chat plan/apply bridge)
 - `AISuggestionService`, `TaskBreakdownService`, `OverdueTriageService`, `DailyBriefService`
 - `TaskEmbeddingEngine`, `TaskSemanticIndexStore`, `TaskSemanticRetrievalService`
+- `EvaStableMemoryCompiler`, `EvaExecutiveContextService`
+- `ThreadContextAttachmentStore`, `ThreadContextAttachmentResolver`, `ChatContextCoordinator`
 
 ### Boundary rule
 1. Runtime services may assemble prompts, cards, and UI-facing AI outputs.
-2. Runtime services must not mutate tasks directly.
-3. All assistant mutations must still traverse `AssistantActionPipelineUseCase`.
+2. Runtime-owned prompt helpers may persist local prompt artifacts or thread-scoped context attachments, but they remain read-only with respect to task state.
+3. Runtime services must not mutate tasks directly.
+4. All assistant mutations must still traverse `AssistantActionPipelineUseCase`.
 
 This keeps deterministic domain mutations in usecases while allowing UI-facing local-AI composition to evolve independently.
 

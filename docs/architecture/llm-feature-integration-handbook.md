@@ -1,6 +1,6 @@
 # LLM Feature Integration Handbook (Mixed Engineering + PM)
 
-**Last validated against code on 2026-03-17**
+**Last validated against code on 2026-03-18**
 
 This handbook explains what Tasker's AI surfaces do for users, how the current MLX runtime behaves, and what must stay true when shipping AI changes.
 
@@ -23,7 +23,7 @@ Primary source anchors:
 
 | Surface | User value | Mutation risk | Reversibility |
 | --- | --- | --- | --- |
-| Chat Ask mode | natural-language planning help over local task context, with visible thinking on supported models | none | n/a |
+| Chat Ask mode | natural-language planning help over local task context, default goals/memory, and 14-day operating context, with visible thinking on supported models | none | n/a |
 | Chat Plan mode | structured proposal cards with visible diffs before action | controlled | undo window via pipeline |
 | Add Task suggestions | faster title-to-fields inference | none | user-controlled field apply |
 | Home top-3 and overdue triage | ranked shortlist and recovery plan suggestions | triage path controlled | via proposal workflow |
@@ -69,6 +69,52 @@ flowchart TD
     Q --> R["Answer-completion retry only when needed"]
     R --> T["Persist transcript with sourceModelName"]
 ```
+
+### Default context users now get
+
+Eva chat now starts with an always-on executive context layer:
+- stable user memory from onboarding/settings,
+- a summary-only 14-day operating snapshot across tasks, projects, and life areas,
+- normal recent thread history,
+- fixed per-model prompt budgets that reserve room for memory, executive context, slash pins, and task context instead of expanding the total prompt.
+
+Users do not get by default:
+- raw 14-day task dumps,
+- transcript recap summaries,
+- hidden memories learned from chat text.
+
+This keeps first-turn answers materially better without spending the whole prompt budget on raw records.
+
+### Slash commands now augment context persistently
+
+Slash commands are no longer just one-off cards. They can also pin context to the active thread until removed or replaced.
+
+Current commands:
+- `/today`
+- `/tomorrow`
+- `/week`
+- `/month`
+- `/project <name>`
+- `/area <name>`
+- `/recent`
+- `/overdue`
+- `/clear`
+
+Current user-visible pin rules:
+- at most three pins per thread,
+- one pin per category,
+- a newer time slice, project, life area, or backlog pin replaces the older pin in that same category,
+- chips above the composer show exactly what extra context Eva is using,
+- `/clear` removes both chat history and thread pins.
+
+### Known runtime caveats
+
+Current shipped limitations that product/release docs should preserve:
+- the first natural-language follow-up after a slash command can miss the new pin if the persistence update has not landed yet,
+- first-turn executive context is cached more narrowly than the full mutation surface, so recent project, life-area, or memory edits may not appear everywhere immediately,
+- pinned slash context improves prompt grounding, but the query-aware retrieval layer is not yet pin-aware,
+- `llmSlashPinsEnabled` behaves as a write gate today; existing stored pins can still load until code changes tighten that behavior,
+- pinned context is stored locally in a JSON sidecar, so it should be treated as sensitive local assistant data.
 
 ### Structured-output services
 
@@ -157,6 +203,8 @@ The static "I couldn't produce a reliable answer..." message is the last resort,
 | `llmChatAnswerPhaseHapticsEnabled` | answer-phase haptics |
 | `llmChatTemplateDiagnosticsEnabled` | debug-only template diagnostics |
 | `llmRuntimeSmokeEnabled` | debug-only runtime smoke runner |
+| `llmExecutiveContextEnabled` | always-on stable memory + 14-day executive context layer |
+| `llmSlashPinsEnabled` | persistent thread-scoped slash-command context pins |
 
 There is no current dedicated plan-mode or daily-brief feature gate in `V2FeatureFlags`.
 
@@ -172,6 +220,10 @@ There is no current dedicated plan-mode or daily-brief feature gate in `V2Featur
 8. `sourceModelName` persists on assistant turns and transcript rendering stays model-aware.
 9. Debug smoke runner still works behind `llmRuntimeSmokeEnabled` / `-TASKER_LLM_RUN_SMOKE`.
 10. Fallback only fires after unusable primary output plus unusable retry.
+11. First-turn Ask mode still includes stable memory plus 14-day executive summary when the feature flag is on.
+12. Slash-command chips remain visible/removable and `/clear` removes thread pins.
+13. A slash command followed by a natural-language follow-up is verified to keep the intended thread pin in context.
+14. `llmSlashPinsEnabled` and `llmExecutiveContextEnabled` behavior is checked explicitly when AI/LLM flags changed.
 
 ## Incident Triage Quick Paths
 
