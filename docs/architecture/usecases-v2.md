@@ -130,7 +130,7 @@ These components are intentionally not usecases and stay in the local-LLM/runtim
 
 ### Boundary rule
 1. Runtime services may assemble prompts, cards, and UI-facing AI outputs.
-2. Runtime-owned prompt helpers may persist local prompt artifacts or thread-scoped context attachments, but they remain read-only with respect to task state.
+2. Runtime-owned prompt helpers may persist local prompt artifacts or thread-scoped context attachments, but remain read-only regarding task state.
 3. Runtime services must not mutate tasks directly.
 4. All assistant mutations must still traverse `AssistantActionPipelineUseCase`.
 

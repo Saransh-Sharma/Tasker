@@ -69,7 +69,7 @@ For each release candidate, attach:
 4. smoke evidence markdown path and commit SHA.
 5. AI evidence references from `docs/architecture/v3-runtime-cutover-todo.md`.
 6. weakest-model freeform chat smoke evidence for bounded prompt path.
-7. executive-context and slash-pin smoke evidence when AI/LLM flags changed.
+7. executive-context and slash-pin smoke evidence when AI/LLM flags changed, including `ai_inference_enabled`, `llm_model_version`, and `llm_privacy_mode` with previous value, new value, timestamp, actor, rollout scope, related deployment ID, and audit-log link.
 
 ## Block Criteria
 

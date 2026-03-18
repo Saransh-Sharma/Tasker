@@ -62,3 +62,6 @@ Gamification freshness note:
 LLM documentation policy:
 - `docs/architecture/llm-assistant-stack-v2.md` and `docs/architecture/llm-feature-integration-handbook.md` are the canonical LLM docs.
 - Update both in the same PR when MLX runtime behavior, routing, retry, quality, or AI surface integration changes.
+
+Docs refresh note:
+- 2026-03-18: archived the completed root LLM docs refresh TODO after the architecture docs and release-gate validation updates landed.
