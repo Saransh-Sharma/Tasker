@@ -2443,10 +2443,11 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
 
     private func resolveTaskForFocusSession(taskID: UUID?) -> TaskDefinition? {
         guard let taskID else { return nil }
-        let candidates = (viewModel?.focusTasks ?? [])
-            + (viewModel?.morningTasks ?? [])
-            + (viewModel?.eveningTasks ?? [])
-            + (viewModel?.overdueTasks ?? [])
+        var candidates: [TaskDefinition] = []
+        candidates.append(contentsOf: viewModel?.focusTasks ?? [])
+        candidates.append(contentsOf: viewModel?.morningTasks ?? [])
+        candidates.append(contentsOf: viewModel?.eveningTasks ?? [])
+        candidates.append(contentsOf: viewModel?.overdueTasks ?? [])
         return candidates.first(where: { $0.id == taskID })
     }
 
