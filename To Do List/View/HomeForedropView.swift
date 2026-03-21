@@ -1525,6 +1525,7 @@ struct HomeBackdropForedropRootView: View {
                 )
             }
         }
+        .ignoresSafeArea(.keyboard, edges: .bottom)
         .accessibilityIdentifier("home.view")
         .taskerSnackbar($snackbar)
         .sheet(isPresented: $showDatePicker) {
@@ -2067,6 +2068,39 @@ struct HomeBackdropForedropRootView: View {
     }
 
     private func foredropSearchFace(taskListBottomInset: CGFloat) -> some View {
+        let effectiveSearchBottomInset = max(
+            taskListBottomInset,
+            layoutMetrics.keyboardOverlapHeight + spacing.s16
+        )
+
+        return VStack(spacing: 0) {
+            searchFaceHeader
+
+            GeometryReader { proxy in
+                ScrollView(.vertical, showsIndicators: false) {
+                    searchFaceContentBody(
+                        availableHeight: proxy.size.height,
+                        contentBottomInset: effectiveSearchBottomInset
+                    )
+                    .frame(
+                        maxWidth: .infinity,
+                        minHeight: max(proxy.size.height - effectiveSearchBottomInset, 0),
+                        alignment: searchContentAlignment
+                    )
+                    .padding(.horizontal, searchContentHorizontalPadding)
+                    .padding(.top, spacing.s8)
+                    .padding(.bottom, effectiveSearchBottomInset + spacing.s8)
+                }
+                .scrollDismissesKeyboard(.interactively)
+                .accessibilityIdentifier("search.contentContainer")
+            }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("search.view")
+    }
+
+    private var searchFaceHeader: some View {
         VStack(spacing: 0) {
             HStack(spacing: spacing.s8) {
                 Text("Search")
@@ -2104,102 +2138,130 @@ struct HomeBackdropForedropRootView: View {
 
             Divider()
                 .overlay(Color.tasker.strokeHairline)
-
-            if searchSurfaceState != .ready && !searchState.hasLoaded {
-                VStack(spacing: spacing.s8) {
-                    ProgressView()
-                        .progressViewStyle(CircularProgressViewStyle())
-                    Text(searchSurfaceState == .presenting ? "Opening search…" : "Loading tasks…")
-                        .font(.tasker(.caption1))
-                        .foregroundColor(Color.tasker.textSecondary)
-                }
-                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
-            } else if searchState.isLoading && !searchState.hasLoaded {
-                VStack(spacing: spacing.s8) {
-                    ProgressView()
-                        .progressViewStyle(CircularProgressViewStyle())
-                    Text("Loading tasks…")
-                        .font(.tasker(.caption1))
-                        .foregroundColor(Color.tasker.textSecondary)
-                }
-                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
-            } else if searchState.shouldShowNoResultsMessage {
-                VStack(spacing: spacing.s8) {
-                    Image(systemName: "sparkle.magnifyingglass")
-                        .font(.system(size: 28, weight: .semibold))
-                        .foregroundColor(Color.tasker.textTertiary)
-                    Text(searchState.emptyStateTitle)
-                        .font(.tasker(.headline))
-                        .foregroundColor(Color.tasker.textPrimary)
-                        .accessibilityIdentifier("search.emptyStateLabel")
-                    Text(searchState.emptyStateSubtitle)
-                        .font(.tasker(.caption1))
-                        .foregroundColor(Color.tasker.textSecondary)
-                        .multilineTextAlignment(.center)
-                }
-                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
-                .padding(.horizontal, spacing.s16)
-            } else {
-                ScrollView(.vertical, showsIndicators: false) {
-                    LazyVStack(alignment: .leading, spacing: spacing.s12) {
-                        ForEach(searchState.sections) { section in
-                            TaskSectionView(
-                                project: searchProject(for: section.projectName),
-                                tasks: section.tasks,
-                                tagNameByID: tasksSnapshot.tagNameByID,
-                                completedCollapsed: false,
-                                isTaskDragEnabled: false,
-                                onTaskTap: { task in
-                                    trackSearchResultOpened(task, projectName: section.projectName)
-                                    onTaskTap(task)
-                                },
-                                onToggleComplete: { task in
-                                    trackTaskToggle(task, source: "search_results")
-                                    onToggleComplete(task)
-                                },
-                                onDeleteTask: { task in
-                                    onDeleteTask(task)
-                                },
-                                onRescheduleTask: { task in
-                                    onRescheduleTask(task)
-                                }
-                            )
-                        }
-                        Spacer()
-                            .frame(height: taskListBottomInset)
-                    }
-                    .padding(.horizontal, spacing.s16)
-                    .padding(.top, spacing.s8)
-                    .padding(.bottom, spacing.s8)
-                }
-                .accessibilityIdentifier("search.resultsList")
-            }
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-        .accessibilityElement(children: .contain)
-        .accessibilityIdentifier("search.view")
+    }
+
+    @ViewBuilder
+    private func searchFaceContentBody(
+        availableHeight: CGFloat,
+        contentBottomInset: CGFloat
+    ) -> some View {
+        if isSearchLoadingContentVisible {
+            VStack(spacing: spacing.s8) {
+                ProgressView()
+                    .progressViewStyle(CircularProgressViewStyle())
+                Text(searchLoadingMessage)
+                    .font(.tasker(.caption1))
+                    .foregroundColor(Color.tasker.textSecondary)
+            }
+        } else if searchState.shouldShowNoResultsMessage {
+            VStack(spacing: spacing.s8) {
+                Image(systemName: "sparkle.magnifyingglass")
+                    .font(.system(size: 28, weight: .semibold))
+                    .foregroundColor(Color.tasker.textTertiary)
+                Text(searchState.emptyStateTitle)
+                    .font(.tasker(.headline))
+                    .foregroundColor(Color.tasker.textPrimary)
+                    .accessibilityIdentifier("search.emptyStateLabel")
+                Text(searchState.emptyStateSubtitle)
+                    .font(.tasker(.caption1))
+                    .foregroundColor(Color.tasker.textSecondary)
+                    .multilineTextAlignment(.center)
+            }
+            .frame(
+                maxWidth: .infinity,
+                minHeight: max(availableHeight - contentBottomInset, 0),
+                alignment: .center
+            )
+        } else {
+            LazyVStack(alignment: .leading, spacing: spacing.s12) {
+                Color.clear
+                    .frame(height: 0)
+                    .accessibilityIdentifier("search.resultsList")
+
+                ForEach(searchState.sections) { section in
+                    TaskSectionView(
+                        project: searchProject(for: section.projectName),
+                        tasks: section.tasks,
+                        tagNameByID: tasksSnapshot.tagNameByID,
+                        completedCollapsed: false,
+                        isTaskDragEnabled: false,
+                        onTaskTap: { task in
+                            trackSearchResultOpened(task, projectName: section.projectName)
+                            onTaskTap(task)
+                        },
+                        onToggleComplete: { task in
+                            trackTaskToggle(task, source: "search_results")
+                            onToggleComplete(task)
+                        },
+                        onDeleteTask: { task in
+                            onDeleteTask(task)
+                        },
+                        onRescheduleTask: { task in
+                            onRescheduleTask(task)
+                        }
+                    )
+                }
+            }
+            .frame(
+                maxWidth: .infinity,
+                minHeight: max(availableHeight - contentBottomInset, 0),
+                alignment: .topLeading
+            )
+        }
+    }
+
+    private var isSearchLoadingContentVisible: Bool {
+        (searchSurfaceState != .ready && !searchState.hasLoaded) || (searchState.isLoading && !searchState.hasLoaded)
+    }
+
+    private var searchLoadingMessage: String {
+        if searchSurfaceState != .ready && !searchState.hasLoaded {
+            return searchSurfaceState == .presenting ? "Opening search…" : "Loading tasks…"
+        }
+        return "Loading tasks…"
+    }
+
+    private var searchContentAlignment: Alignment {
+        (isSearchLoadingContentVisible || searchState.shouldShowNoResultsMessage) ? .center : .topLeading
+    }
+
+    private var searchContentHorizontalPadding: CGFloat {
+        searchState.shouldShowNoResultsMessage ? spacing.s20 : spacing.s16
     }
 
     @ViewBuilder
     private func topNavigationBar() -> some View {
         if isSearchOpen {
-            HomeSearchChromeView(
-                query: $searchDraftQuery,
-                isFocused: $isSearchFieldFocused,
-                onQueryChanged: { newValue in
-                    trackSearchQueryChanged(newValue)
-                    scheduleSearchCommit(for: newValue)
-                },
-                onSubmit: {
-                    commitDraftSearchQueryImmediately()
-                },
-                onClear: {
-                    cancelPendingSearchCommit()
-                    searchDraftQuery = ""
-                    searchState.clearQuery()
-                    trackSearchQueryChanged("")
-                }
-            )
+            VStack(alignment: .leading, spacing: spacing.s12) {
+                HomeTopChromeTitleLaneView(title: chromeSnapshot.activeScope.quickView.title)
+                    .hidden()
+                    .accessibilityHidden(true)
+                    .allowsHitTesting(false)
+
+                HomeSearchChromeView(
+                    query: $searchDraftQuery,
+                    isFocused: $isSearchFieldFocused,
+                    onQueryChanged: { newValue in
+                        trackSearchQueryChanged(newValue)
+                        scheduleSearchCommit(for: newValue)
+                    },
+                    onSubmit: {
+                        commitDraftSearchQueryImmediately()
+                    },
+                    onClear: {
+                        cancelPendingSearchCommit()
+                        searchDraftQuery = ""
+                        searchState.clearQuery()
+                        trackSearchQueryChanged("")
+                    }
+                )
+            }
+            .padding(.horizontal, spacing.s16)
+            .padding(.top, spacing.s12)
+            .padding(.bottom, spacing.s8)
+            .ignoresSafeArea(.keyboard)
+            .zIndex(1)
         } else {
             VStack(alignment: .leading, spacing: spacing.s12) {
                 HomeTopChromeView(

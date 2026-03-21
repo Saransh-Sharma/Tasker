@@ -76,7 +76,31 @@ class HomePage {
     }
 
     var searchButton: XCUIElement {
-        return app.buttons[AccessibilityIdentifiers.Home.searchButton]
+        let legacyIdentifier = app.buttons[AccessibilityIdentifiers.Home.searchButton]
+        if legacyIdentifier.exists {
+            return legacyIdentifier
+        }
+
+        let topNavIdentifier = app.buttons[AccessibilityIdentifiers.Home.topNavSearchButton]
+        if topNavIdentifier.exists {
+            return topNavIdentifier
+        }
+
+        let topSearchByLabel = app.buttons.matching(
+            NSPredicate(
+                format: "label == 'Search' AND identifier != %@",
+                AccessibilityIdentifiers.Home.bottomBar
+            )
+        ).firstMatch
+        if topSearchByLabel.exists {
+            return topSearchByLabel
+        }
+
+        return app.buttons.matching(
+            NSPredicate(
+                format: "label CONTAINS[c] 'Search' OR identifier CONTAINS[c] 'search'"
+            )
+        ).firstMatch
     }
 
     var topNavSearchButton: XCUIElement {
@@ -85,6 +109,18 @@ class HomePage {
 
     var searchView: XCUIElement {
         app.otherElements[AccessibilityIdentifiers.Search.view]
+    }
+
+    var searchChromeContainer: XCUIElement {
+        app.otherElements[AccessibilityIdentifiers.Search.chromeContainer]
+    }
+
+    var searchContentContainer: XCUIElement {
+        let identified = app.scrollViews[AccessibilityIdentifiers.Search.contentContainer]
+        if identified.exists {
+            return identified
+        }
+        return app.otherElements[AccessibilityIdentifiers.Search.contentContainer]
     }
 
     var searchField: XCUIElement {
@@ -118,6 +154,10 @@ class HomePage {
         app.buttons[AccessibilityIdentifiers.Search.backChip]
     }
 
+    var statusBar: XCUIElement {
+        app.statusBars.firstMatch
+    }
+
     var searchStatusAllChip: XCUIElement {
         app.buttons[AccessibilityIdentifiers.Search.statusAll]
     }
@@ -132,6 +172,10 @@ class HomePage {
 
     var topNavContainer: XCUIElement {
         return app.otherElements[AccessibilityIdentifiers.Home.topNavContainer]
+    }
+
+    var topNavActionRow: XCUIElement {
+        app.otherElements[AccessibilityIdentifiers.Home.topNavActionRow]
     }
 
     var chatButton: XCUIElement {
@@ -433,7 +477,9 @@ class HomePage {
 
     /// Tap search button
     func tapSearch() {
-        searchButton.tap()
+        let button = searchButton
+        XCTAssertTrue(button.waitForExistence(timeout: 3), "Search button should exist before tapping")
+        tapElement(button)
     }
 
     /// Tap top-nav search button
@@ -459,6 +505,14 @@ class HomePage {
     func waitForSearchFaceOpen(timeout: TimeInterval = 3) -> Bool {
         guard waitForForedropState("fullReveal", timeout: timeout) else { return false }
         return searchView.waitForExistence(timeout: timeout)
+    }
+
+    func topSafeAreaBoundary() -> CGFloat {
+        let statusBarElement = statusBar
+        if statusBarElement.exists, statusBarElement.frame.height > 0 {
+            return statusBarElement.frame.maxY
+        }
+        return app.windows.element(boundBy: 0).frame.minY + 20
     }
 
     func typeSearchQuery(_ query: String) {

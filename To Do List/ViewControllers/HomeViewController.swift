@@ -41,6 +41,7 @@ struct HomeLayoutMetrics: Equatable {
     let height: CGFloat
     let safeAreaTop: CGFloat
     let safeAreaBottom: CGFloat
+    let keyboardOverlapHeight: CGFloat
     let backdropGradientHeight: CGFloat
     let taskListBottomInset: CGFloat
     let chartViewportHeight: CGFloat
@@ -50,6 +51,7 @@ struct HomeLayoutMetrics: Equatable {
         height: 0,
         safeAreaTop: 0,
         safeAreaBottom: 0,
+        keyboardOverlapHeight: 0,
         backdropGradientHeight: 0,
         taskListBottomInset: 80,
         chartViewportHeight: 560
@@ -421,6 +423,7 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
     private var onboardingEvaluationSceneToken: Int = 1
     private var completedOnboardingEvaluationSceneToken: Int = 0
     private var lastAppliedHomeRenderTransaction: HomeRenderTransaction = .empty
+    private var keyboardOverlapHeight: CGFloat = 0
 
 
     // MARK: - Lifecycle
@@ -448,6 +451,7 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
         observePersistentSyncMode()
         observeIPadShellTelemetry()
         observeOnboardingRequests()
+        observeKeyboardFrameChanges()
         applyTheme()
         refreshPersistentSyncOutageBanner()
         onboardingCoordinator = AppOnboardingCoordinator(
@@ -469,6 +473,7 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
         if let pendingRoute = TaskerNotificationRouteBus.shared.consumePendingRoute() {
             handleNotificationRoute(pendingRoute)
         }
+        consumePendingShortcutHandoffIfNeeded()
         consumeUITestInjectedRouteIfNeeded()
         consumeUITestOpenSettingsIfNeeded()
         processPendingWidgetActionCommand()
@@ -591,6 +596,7 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
             .sink { [weak self] _ in
                 guard let self else { return }
                 self.onboardingEvaluationSceneToken &+= 1
+                self.consumePendingShortcutHandoffIfNeeded()
                 self.scheduleOnboardingEvaluationIfNeeded()
             }
             .store(in: &cancellables)
@@ -984,6 +990,7 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
             height: height,
             safeAreaTop: safeAreaInsets.top,
             safeAreaBottom: safeAreaInsets.bottom,
+            keyboardOverlapHeight: keyboardOverlapHeight,
             backdropGradientHeight: height + safeAreaInsets.top + safeAreaInsets.bottom,
             taskListBottomInset: taskListBottomInset,
             chartViewportHeight: chartViewportHeight
@@ -992,6 +999,49 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
 
     private func refreshLayoutMetrics() {
         faceCoordinator.setLayoutMetrics(computeHomeLayoutMetrics())
+    }
+
+    private func configureSafeAreaRegions(for hostingController: UIHostingController<HomeHostRootView>) {
+        hostingController.safeAreaRegions = currentLayoutClass == .phone ? .container : .all
+    }
+
+    private func observeKeyboardFrameChanges() {
+        notificationCenter.publisher(for: UIResponder.keyboardWillChangeFrameNotification)
+            .receive(on: RunLoop.main)
+            .sink { [weak self] notification in
+                self?.handleKeyboardFrameChange(notification)
+            }
+            .store(in: &cancellables)
+
+        notificationCenter.publisher(for: UIResponder.keyboardWillHideNotification)
+            .receive(on: RunLoop.main)
+            .sink { [weak self] _ in
+                self?.setKeyboardOverlapHeight(0)
+            }
+            .store(in: &cancellables)
+    }
+
+    private func handleKeyboardFrameChange(_ notification: Notification) {
+        guard currentLayoutClass == .phone else {
+            setKeyboardOverlapHeight(0)
+            return
+        }
+
+        guard let keyboardFrame = notification.userInfo?[UIResponder.keyboardFrameEndUserInfoKey] as? CGRect else {
+            return
+        }
+
+        let keyboardFrameInView = view.convert(keyboardFrame, from: nil)
+        let overlapHeight = max(0, view.bounds.maxY - keyboardFrameInView.minY)
+        let adjustedOverlapHeight = max(0, overlapHeight - view.safeAreaInsets.bottom)
+        setKeyboardOverlapHeight(adjustedOverlapHeight)
+    }
+
+    private func setKeyboardOverlapHeight(_ newValue: CGFloat) {
+        let sanitizedValue = max(0, newValue)
+        guard abs(keyboardOverlapHeight - sanitizedValue) > 0.5 else { return }
+        keyboardOverlapHeight = sanitizedValue
+        refreshLayoutMetrics()
     }
 
     private func updateInteractivePhaseIfNeeded() {
@@ -1144,6 +1194,7 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
         }
 
         if let existingHostingController = homeHostingController {
+            configureSafeAreaRegions(for: existingHostingController)
             existingHostingController.rootView = root
             refreshLayoutMetrics()
             updateInteractivePhaseIfNeeded()
@@ -1154,6 +1205,7 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
         let hostingController = UIHostingController(rootView: root)
         hostingController.view.backgroundColor = .clear
         hostingController.view.isOpaque = false
+        configureSafeAreaRegions(for: hostingController)
 
         homeHostingController = hostingController
         addChild(hostingController)
@@ -2213,10 +2265,22 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
 
     private func handleChatDeepLink(prompt: String?) {
         let launchRequest = EvaChatLaunchRequest(prompt: prompt)
-        Task { @MainActor in
-            EvaChatLaunchRequestStore.shared.submit(launchRequest)
+        do {
+            try EvaChatLaunchRequestStore.shared.submit(launchRequest)
+        } catch {
+            logError(
+                event: "shortcut_chat_launch_request_store_failed",
+                message: "Failed to persist Eva chat launch request",
+                fields: [
+                    "error": error.localizedDescription
+                ]
+            )
         }
 
+        routeToChatSurface()
+    }
+
+    private func routeToChatSurface() {
         if isUsingIPadNativeShell {
             let routeToChat = { [weak self] in
                 self?.iPadShellState.destination = .chat
@@ -2241,6 +2305,32 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
         }
 
         chatButtonTapped()
+    }
+
+    private func consumePendingShortcutHandoffIfNeeded() {
+        if let action = PendingShortcutLaunchActionStore.shared.consumePendingAction() {
+            handlePendingShortcutLaunchAction(action)
+        }
+        if let signal = ShortcutMutationSignalStore.shared.consumePendingSignal() {
+            handlePendingShortcutMutationSignal(signal)
+        }
+    }
+
+    private func handlePendingShortcutLaunchAction(_ action: PendingShortcutLaunchAction) {
+        switch action.kind {
+        case .askEva:
+            handleChatDeepLink(prompt: action.prompt)
+        case .startFocus:
+            handleFocusDeepLink()
+        }
+    }
+
+    private func handlePendingShortcutMutationSignal(_ signal: ShortcutMutationSignal) {
+        switch signal.kind {
+        case .taskCreated:
+            faceCoordinator.recordSearchMutation()
+            viewModel?.handleExternalMutation(reason: .created)
+        }
     }
 
     private func handleHomeDeepLink() {

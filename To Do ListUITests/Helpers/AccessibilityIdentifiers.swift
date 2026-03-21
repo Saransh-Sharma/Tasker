@@ -30,6 +30,7 @@ enum AccessibilityIdentifiers {
         static let searchButton = "home.searchButton"
         static let topNavSearchButton = "home.topNav.searchButton"
         static let topNavContainer = "home.topNav.container"
+        static let topNavActionRow = "home.topNav.actionRow"
         static let chatButton = "home.chatButton"
         static let inboxButton = "home.inboxButton"
         static let settingsButton = "home.settingsButton"
@@ -231,6 +232,8 @@ enum AccessibilityIdentifiers {
 
     enum Search {
         static let view = "search.view"
+        static let chromeContainer = "search.chromeContainer"
+        static let contentContainer = "search.contentContainer"
         static let searchField = "search.searchField"
         static let resultsList = "search.resultsList"
         static let emptyStateLabel = "search.emptyStateLabel"

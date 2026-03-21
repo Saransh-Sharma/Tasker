@@ -15,12 +15,9 @@ class SearchAndFilteringTests: BaseUITest {
     override func setUpWithError() throws {
         try super.setUpWithError()
         homePage = HomePage(app: app)
-
-        // Create test tasks for searching
-        createTestTasks()
     }
 
-    private func createTestTasks() {
+    private func seedSearchTasks() {
         let tasks = [
             ("Meeting with Team", TestDataFactory.TaskPriority.high),
             ("Review Code", TestDataFactory.TaskPriority.medium),
@@ -40,26 +37,71 @@ class SearchAndFilteringTests: BaseUITest {
 
     func testSearchTaskByTitle() throws {
         // GIVEN: Multiple tasks exist
+        seedSearchTasks()
         XCTAssertTrue(homePage.verifyTaskExists(withTitle: "Meeting with Team"), "Task should exist")
         XCTAssertTrue(homePage.waitForForedropState("collapsed", timeout: 3), "Home should start collapsed")
         XCTAssertTrue(homePage.waitForToolSelection(homePage.homeButton), "Home tool should be selected initially")
+        XCTAssertTrue(homePage.topNavActionRow.waitForExistence(timeout: 2), "Home top-nav action row should exist")
         let collapsedMinY = homePage.foredropSurface.frame.minY
+        let homeActionRowMinY = homePage.topNavActionRow.frame.minY
 
         // WHEN: User searches for "Meeting"
         homePage.tapSearch()
         XCTAssertTrue(homePage.waitForSearchFaceOpen(timeout: 3), "Search face should open in-place")
         XCTAssertTrue(homePage.waitForToolSelection(homePage.searchButton), "Search tool should be selected while open")
         XCTAssertTrue(homePage.searchField.waitForExistence(timeout: 3), "Backdrop search field should be visible")
+        XCTAssertTrue(homePage.searchChromeContainer.waitForExistence(timeout: 2), "Search chrome container should exist")
+        XCTAssertTrue(homePage.searchContentContainer.waitForExistence(timeout: 2), "Search content container should exist")
         let searchOpenMinY = homePage.foredropSurface.frame.minY
         XCTAssertLessThan(abs(searchOpenMinY - collapsedMinY), 12, "Foredrop should stay anchored while opening search")
+        let safeAreaBoundary = homePage.topSafeAreaBoundary()
+        let initialFieldMinY = homePage.searchField.frame.minY
+        XCTAssertGreaterThanOrEqual(initialFieldMinY, safeAreaBoundary - 1, "Search field should stay below the safe area")
+        XCTAssertGreaterThanOrEqual(
+            initialFieldMinY,
+            homeActionRowMinY - 4,
+            "Search field should not sit higher than the home top-nav action row"
+        )
+        XCTAssertGreaterThanOrEqual(
+            homePage.searchContentContainer.frame.minY,
+            homePage.searchChromeContainer.frame.maxY - 1,
+            "Search content should start below the chrome"
+        )
 
         homePage.typeSearchQuery("Meeting")
         waitForAnimations(duration: 1.0)
+        XCTAssertGreaterThanOrEqual(
+            homePage.searchField.frame.minY,
+            safeAreaBoundary - 1,
+            "Search field should remain below the safe area while focused"
+        )
+        XCTAssertGreaterThanOrEqual(
+            homePage.searchField.frame.minY,
+            homeActionRowMinY - 4,
+            "Focused search field should stay aligned with the home top-nav action row"
+        )
+        XCTAssertLessThan(
+            abs(homePage.searchField.frame.minY - initialFieldMinY),
+            3,
+            "Keyboard focus should not pull the search field upward"
+        )
+        XCTAssertGreaterThanOrEqual(
+            homePage.searchContentContainer.frame.minY,
+            homePage.searchChromeContainer.frame.maxY - 1,
+            "Results content should remain below the chrome while focused"
+        )
 
         // THEN: Only matching tasks should be displayed
         XCTAssertTrue(homePage.verifyTaskExists(withTitle: "Meeting with Team"), "Meeting task should be visible")
         XCTAssertTrue(homePage.verifyTaskExists(withTitle: "Meeting Prep"), "Meeting Prep should be visible")
         XCTAssertTrue(homePage.searchResultsList.waitForExistence(timeout: 2), "Search results list should exist")
+        let meetingResult = app.staticTexts["Meeting with Team"]
+        XCTAssertTrue(meetingResult.exists, "Meeting result should exist")
+        XCTAssertGreaterThanOrEqual(
+            meetingResult.frame.minY,
+            homePage.searchContentContainer.frame.minY - 1,
+            "Visible results should not clip above the search content region"
+        )
 
         takeScreenshot(named: "search_by_title")
 
@@ -76,6 +118,7 @@ class SearchAndFilteringTests: BaseUITest {
         // WHEN: User searches for non-existent term
         homePage.tapSearch()
         XCTAssertTrue(homePage.waitForSearchFaceOpen(timeout: 3), "Search face should open")
+        let initialFieldMinY = homePage.searchField.frame.minY
         homePage.typeSearchQuery("NonExistentTask123")
         waitForAnimations(duration: 1.0)
 
@@ -84,6 +127,28 @@ class SearchAndFilteringTests: BaseUITest {
             app.staticTexts[AccessibilityIdentifiers.Search.emptyStateLabel].waitForExistence(timeout: 2),
             "No-result empty state should be visible"
         )
+        XCTAssertTrue(homePage.searchChromeContainer.waitForExistence(timeout: 2), "Search chrome container should exist")
+        XCTAssertTrue(homePage.searchContentContainer.waitForExistence(timeout: 2), "Search content container should exist")
+        XCTAssertGreaterThanOrEqual(
+            homePage.searchField.frame.minY,
+            homePage.topSafeAreaBoundary() - 1,
+            "Focused search field should stay below the safe area"
+        )
+        XCTAssertLessThan(
+            abs(homePage.searchField.frame.minY - initialFieldMinY),
+            3,
+            "Keyboard presentation should not pull the search field upward"
+        )
+        XCTAssertGreaterThanOrEqual(
+            homePage.searchContentContainer.frame.minY,
+            homePage.searchChromeContainer.frame.maxY - 1,
+            "Search content should remain below the chrome while the keyboard is visible"
+        )
+        XCTAssertGreaterThanOrEqual(
+            app.staticTexts[AccessibilityIdentifiers.Search.emptyStateLabel].frame.minY,
+            homePage.searchChromeContainer.frame.maxY - 1,
+            "Empty state should render below the search chrome"
+        )
         takeScreenshot(named: "search_no_results")
     }
 
@@ -91,6 +156,7 @@ class SearchAndFilteringTests: BaseUITest {
 
     func testClearSearch() throws {
         // GIVEN: User has performed a search
+        seedSearchTasks()
         homePage.tapSearch()
         XCTAssertTrue(homePage.waitForSearchFaceOpen(timeout: 3), "Search face should open")
         homePage.typeSearchQuery("Meeting")
@@ -131,6 +197,7 @@ class SearchAndFilteringTests: BaseUITest {
 
     func testFilterByPriority_HighOnly() throws {
         // GIVEN: Tasks with different priorities exist
+        seedSearchTasks()
         // WHEN: User filters by high priority
         // Note: Filter UI varies by app - might be a button, menu, or segmented control
 
@@ -162,6 +229,7 @@ class SearchAndFilteringTests: BaseUITest {
 
     func testFilterByDate_Today() throws {
         // GIVEN: Tasks exist with various due dates
+        seedSearchTasks()
         // WHEN: User filters by today's date
         // Note: This might be automatic on home screen or require date picker
 
@@ -191,6 +259,7 @@ class SearchAndFilteringTests: BaseUITest {
 
     func testFilterByProject() throws {
         // GIVEN: Tasks exist in different projects
+        seedSearchTasks()
         // WHEN: User filters by project
         let filterButton = homePage.projectFilterButton
         if filterButton.exists {
@@ -213,6 +282,7 @@ class SearchAndFilteringTests: BaseUITest {
 
     func testCombinedSearchAndFilter() throws {
         // GIVEN: Tasks exist
+        seedSearchTasks()
         // WHEN: User applies both search and filter
         homePage.tapSearch()
         XCTAssertTrue(homePage.waitForSearchFaceOpen(timeout: 3), "Search face should open")

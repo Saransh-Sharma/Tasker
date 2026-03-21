@@ -1,5 +1,22 @@
 import SwiftUI
 
+struct HomeTopChromeTitleLaneView: View {
+    let title: String
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text("Today")
+                .font(.tasker(.caption1))
+                .foregroundStyle(Color.tasker.textTertiary)
+
+            Text(title)
+                .font(.tasker(.title3))
+                .fontWeight(.semibold)
+                .foregroundStyle(Color.tasker.textPrimary)
+        }
+    }
+}
+
 struct HomeTopChromeView: View {
     @Binding var selectedQuickView: HomeQuickView
     let taskCounts: [HomeQuickView: Int]
@@ -14,16 +31,7 @@ struct HomeTopChromeView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: spacing.s12) {
-            VStack(alignment: .leading, spacing: 2) {
-                Text("Today")
-                    .font(.tasker(.caption1))
-                    .foregroundStyle(Color.tasker.textTertiary)
-
-                Text(title)
-                    .font(.tasker(.title3))
-                    .fontWeight(.semibold)
-                    .foregroundStyle(Color.tasker.textPrimary)
-            }
+            HomeTopChromeTitleLaneView(title: title)
 
             HStack(spacing: spacing.s8) {
                 QuickViewSelector(
@@ -50,6 +58,7 @@ struct HomeTopChromeView: View {
                     action: onOpenSettings
                 )
             }
+            .accessibilityIdentifier("home.topNav.actionRow")
         }
         .padding(.horizontal, spacing.s16)
         .padding(.top, spacing.s12)
@@ -86,8 +95,6 @@ struct HomeSearchChromeView: View {
     let onSubmit: () -> Void
     let onClear: () -> Void
 
-    private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.currentTheme.tokens.spacing }
-
     var body: some View {
         TaskerSearchHeaderView(
             query: $query,
@@ -96,9 +103,8 @@ struct HomeSearchChromeView: View {
             onSubmit: onSubmit,
             onClear: onClear
         )
-        .padding(.horizontal, spacing.s16)
-        .padding(.top, spacing.s4)
-        .padding(.bottom, spacing.s8)
+        .ignoresSafeArea(.keyboard)
+        .accessibilityIdentifier("search.chromeContainer")
     }
 }
 
