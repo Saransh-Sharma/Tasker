@@ -304,6 +304,8 @@ final class AppOnboardingTests: XCTestCase {
 
         XCTAssertEqual(viewModel.step, .focusRoom)
         XCTAssertEqual(viewModel.successSummary, summary)
+        XCTAssertEqual(viewModel.resolvedLifeAreas.map(\.lifeArea.name), ["Health"])
+        XCTAssertEqual(viewModel.resolvedProjects.map(\.project.name), ["Move your body"])
 
         for _ in 0..<10 where viewModel.reminderPromptState != .prompt {
             try? await _Concurrency.Task.sleep(nanoseconds: 50_000_000)
@@ -585,6 +587,7 @@ final class AppOnboardingTests: XCTestCase {
         XCTAssertEqual(viewModel.reminderPromptState, .prompt)
         XCTAssertEqual(viewModel.successSummary?.completedTaskTitle, "Fill your water bottle")
         XCTAssertEqual(viewModel.successSummary?.completedTaskCount, 1)
+        XCTAssertNil(viewModel.successSummary?.nextTaskTitle)
         XCTAssertEqual(viewModel.successSummary?.promptReminderAfterSuccess, true)
     }
 
