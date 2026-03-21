@@ -39,6 +39,8 @@ Release tag promotion is blocked until every gate below is green.
 - semantic fallback behavior verified (`assistant_semantic_fallback_lexical` path)
 - daily brief notification open verified with seeded chat behavior
 - overdue triage apply-all verified to use pipeline mutation contract
+- first-turn Ask mode verified to include stable memory plus 14-day executive context when `llmExecutiveContextEnabled` is on
+- slash-command persistence verified with command -> follow-up question behavior and `/clear` verified to remove thread pins
 - bounded freeform chat smoke verified on weakest supported model with:
   - direct answer to `What tasks should I focus on`
   - direct answer to `How was my last week?`
@@ -67,6 +69,7 @@ For each release candidate, attach:
 4. smoke evidence markdown path and commit SHA.
 5. AI evidence references from `docs/architecture/v3-runtime-cutover-todo.md`.
 6. weakest-model freeform chat smoke evidence for bounded prompt path.
+7. executive-context and slash-pin smoke evidence when AI/LLM flags changed, including `ai_inference_enabled`, `llm_model_version`, and `llm_privacy_mode` with previous value, new value, timestamp, actor, rollout scope, related deployment ID, and audit-log link.
 
 ## Block Criteria
 

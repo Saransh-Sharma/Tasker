@@ -116,6 +116,16 @@ public enum V2FeatureFlags {
         set { defaults.set(newValue.rawValue, forKey: "feature.llm.chat_context_strategy") }
     }
 
+    public static var llmExecutiveContextEnabled: Bool {
+        get { defaults.object(forKey: "feature.llm.executive_context") as? Bool ?? true }
+        set { defaults.set(newValue, forKey: "feature.llm.executive_context") }
+    }
+
+    public static var llmSlashPinsEnabled: Bool {
+        get { defaults.object(forKey: "feature.llm.slash_pins") as? Bool ?? true }
+        set { defaults.set(newValue, forKey: "feature.llm.slash_pins") }
+    }
+
     public static var llmChatThinkingPhaseHapticsEnabled: Bool {
         get { defaults.object(forKey: "feature.llm.chat_thinking_phase_haptics") as? Bool ?? false }
         set { defaults.set(newValue, forKey: "feature.llm.chat_thinking_phase_haptics") }

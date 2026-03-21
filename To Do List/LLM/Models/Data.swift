@@ -8,6 +8,284 @@ import SwiftData
 import MLXLMCommon
 import Security
 
+enum EvaActivationStage: String, Codable, CaseIterable {
+    case intro
+    case aboutYou
+    case goals
+    case modelChoice
+    case modelDownload
+    case installRecovery
+    case firstChat
+    case completed
+    case unsupportedDevice
+}
+
+enum EvaWorkingStyleID: String, Codable, CaseIterable, Identifiable {
+    case concise
+    case prioritizeForMe
+    case breakIntoSteps
+    case accountable
+    case focus
+    case challengeWeakPriorities
+    case decideFaster
+    case keepPlansRealistic
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .concise:
+            return "Be concise"
+        case .prioritizeForMe:
+            return "Prioritize for me"
+        case .breakIntoSteps:
+            return "Break work into steps"
+        case .accountable:
+            return "Keep me accountable"
+        case .focus:
+            return "Help me focus"
+        case .challengeWeakPriorities:
+            return "Challenge weak priorities"
+        case .decideFaster:
+            return "Help me decide faster"
+        case .keepPlansRealistic:
+            return "Keep plans realistic"
+        }
+    }
+
+    var memoryText: String {
+        switch self {
+        case .concise:
+            return "Prefer concise, direct help."
+        case .prioritizeForMe:
+            return "Help me choose what matters most."
+        case .breakIntoSteps:
+            return "Break large work into clear next steps."
+        case .accountable:
+            return "Keep me accountable to follow-through."
+        case .focus:
+            return "Help me stay focused on the current priority."
+        case .challengeWeakPriorities:
+            return "Challenge low-value or weak priorities."
+        case .decideFaster:
+            return "Help me decide faster when priorities compete."
+        case .keepPlansRealistic:
+            return "Keep plans realistic and scoped."
+        }
+    }
+}
+
+enum EvaMomentumBlockerID: String, Codable, CaseIterable, Identifiable {
+    case tooManyOpenTasks
+    case contextSwitching
+    case startingIsHard
+    case overPlanning
+    case forgetFollowThrough
+    case stuckChoosing
+    case loseSteamMidDay
+    case largeTasksFeelHeavy
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .tooManyOpenTasks:
+            return "Too many open tasks"
+        case .contextSwitching:
+            return "Context switching"
+        case .startingIsHard:
+            return "Starting is hard"
+        case .overPlanning:
+            return "I over-plan"
+        case .forgetFollowThrough:
+            return "I forget follow-through"
+        case .stuckChoosing:
+            return "I get stuck choosing"
+        case .loseSteamMidDay:
+            return "I lose steam mid-day"
+        case .largeTasksFeelHeavy:
+            return "Large tasks feel heavy"
+        }
+    }
+
+    var memoryText: String {
+        switch self {
+        case .tooManyOpenTasks:
+            return "I lose momentum when too many tasks stay open."
+        case .contextSwitching:
+            return "I lose momentum when context switching piles up."
+        case .startingIsHard:
+            return "Starting is often the hardest part."
+        case .overPlanning:
+            return "I can over-plan instead of moving."
+        case .forgetFollowThrough:
+            return "I need help following through after I start."
+        case .stuckChoosing:
+            return "I get stuck when several priorities compete."
+        case .loseSteamMidDay:
+            return "My energy often drops mid-day."
+        case .largeTasksFeelHeavy:
+            return "Large tasks can feel heavy and harder to begin."
+        }
+    }
+}
+
+struct EvaProfileDraft: Codable, Equatable {
+    var selectedWorkingStyleIDs: [String] = []
+    var selectedMomentumBlockerIDs: [String] = []
+    var customWorkingStyleNote: String? = nil
+    var customMomentumNote: String? = nil
+    var goals: [String] = []
+}
+
+struct EvaActivationState: Codable, Equatable {
+    var stage: EvaActivationStage = .intro
+    var selectedWorkingStyleIDs: [String] = []
+    var selectedMomentumBlockerIDs: [String] = []
+    var customWorkingStyleNote: String? = nil
+    var customMomentumNote: String? = nil
+    var goals: [String] = []
+    var chosenModelName: String? = nil
+    var hasTriggeredInstall: Bool = false
+    var installedChosenModel: Bool = false
+    var preparedModelName: String? = nil
+    var failedModelName: String? = nil
+    var selectedModelRetryCount: Int = 0
+    var hasAttemptedFastFallback: Bool = false
+    var recoveryPresented: Bool = false
+    var firstThreadID: UUID? = nil
+    var hasPersistedUserMessage: Bool = false
+    var hasPersistedAssistantReply: Bool = false
+    var isComplete: Bool = false
+    var lastUpdatedAt: Date = .now
+
+    private enum CodingKeys: String, CodingKey {
+        case stage
+        case selectedWorkingStyleIDs
+        case selectedMomentumBlockerIDs
+        case customWorkingStyleNote
+        case customMomentumNote
+        case goals
+        case chosenModelName
+        case hasTriggeredInstall
+        case installedChosenModel
+        case preparedModelName
+        case failedModelName
+        case selectedModelRetryCount
+        case hasAttemptedFastFallback
+        case recoveryPresented
+        case firstThreadID
+        case hasPersistedUserMessage
+        case hasPersistedAssistantReply
+        case isComplete
+        case lastUpdatedAt
+    }
+
+    init() {}
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        stage = try container.decodeIfPresent(EvaActivationStage.self, forKey: .stage) ?? .intro
+        selectedWorkingStyleIDs = try container.decodeIfPresent([String].self, forKey: .selectedWorkingStyleIDs) ?? []
+        selectedMomentumBlockerIDs = try container.decodeIfPresent([String].self, forKey: .selectedMomentumBlockerIDs) ?? []
+        customWorkingStyleNote = try container.decodeIfPresent(String.self, forKey: .customWorkingStyleNote)
+        customMomentumNote = try container.decodeIfPresent(String.self, forKey: .customMomentumNote)
+        goals = try container.decodeIfPresent([String].self, forKey: .goals) ?? []
+        chosenModelName = try container.decodeIfPresent(String.self, forKey: .chosenModelName)
+        hasTriggeredInstall = try container.decodeIfPresent(Bool.self, forKey: .hasTriggeredInstall) ?? false
+        installedChosenModel = try container.decodeIfPresent(Bool.self, forKey: .installedChosenModel) ?? false
+        preparedModelName = try container.decodeIfPresent(String.self, forKey: .preparedModelName)
+        failedModelName = try container.decodeIfPresent(String.self, forKey: .failedModelName)
+        selectedModelRetryCount = try container.decodeIfPresent(Int.self, forKey: .selectedModelRetryCount) ?? 0
+        hasAttemptedFastFallback = try container.decodeIfPresent(Bool.self, forKey: .hasAttemptedFastFallback) ?? false
+        recoveryPresented = try container.decodeIfPresent(Bool.self, forKey: .recoveryPresented) ?? false
+        firstThreadID = try container.decodeIfPresent(UUID.self, forKey: .firstThreadID)
+        hasPersistedUserMessage = try container.decodeIfPresent(Bool.self, forKey: .hasPersistedUserMessage) ?? false
+        hasPersistedAssistantReply = try container.decodeIfPresent(Bool.self, forKey: .hasPersistedAssistantReply) ?? false
+        isComplete = try container.decodeIfPresent(Bool.self, forKey: .isComplete) ?? false
+        lastUpdatedAt = try container.decodeIfPresent(Date.self, forKey: .lastUpdatedAt) ?? .now
+    }
+
+    var profileDraft: EvaProfileDraft {
+        EvaProfileDraft(
+            selectedWorkingStyleIDs: selectedWorkingStyleIDs,
+            selectedMomentumBlockerIDs: selectedMomentumBlockerIDs,
+            customWorkingStyleNote: customWorkingStyleNote,
+            customMomentumNote: customMomentumNote,
+            goals: goals
+        )
+    }
+
+    mutating func apply(profileDraft: EvaProfileDraft) {
+        selectedWorkingStyleIDs = profileDraft.selectedWorkingStyleIDs
+        selectedMomentumBlockerIDs = profileDraft.selectedMomentumBlockerIDs
+        customWorkingStyleNote = profileDraft.customWorkingStyleNote
+        customMomentumNote = profileDraft.customMomentumNote
+        goals = profileDraft.goals
+    }
+
+    var normalizedGoals: [String] {
+        goals
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { $0.isEmpty == false }
+    }
+
+    mutating func resetInstallRecoveryState(keepingPreparedModel preparedModelName: String? = nil) {
+        failedModelName = nil
+        recoveryPresented = false
+        if let preparedModelName {
+            self.preparedModelName = preparedModelName
+        }
+    }
+}
+
+enum EvaActivationDefaultsStore {
+    static let activationStateKey = "eva.activation.state.v1"
+    static let activationCompletedKey = "eva.activation.completed.v1"
+
+    static func load(defaults: UserDefaults = .standard) -> EvaActivationState {
+        guard let data = defaults.data(forKey: activationStateKey),
+              let state = try? JSONDecoder().decode(EvaActivationState.self, from: data) else {
+            if defaults.bool(forKey: activationCompletedKey) {
+                var completedState = EvaActivationState()
+                completedState.stage = .completed
+                completedState.isComplete = true
+                return completedState
+            }
+            return EvaActivationState()
+        }
+        if defaults.bool(forKey: activationCompletedKey) {
+            var completedState = state
+            completedState.stage = .completed
+            completedState.isComplete = true
+            return completedState
+        }
+        return state
+    }
+
+    static func save(_ state: EvaActivationState, defaults: UserDefaults = .standard) {
+        guard let data = try? JSONEncoder().encode(state) else { return }
+        defaults.set(data, forKey: activationStateKey)
+        defaults.set(state.isComplete, forKey: activationCompletedKey)
+    }
+
+    static func clear(defaults: UserDefaults = .standard) {
+        defaults.removeObject(forKey: activationStateKey)
+        defaults.removeObject(forKey: activationCompletedKey)
+    }
+
+    static func markCompleted(defaults: UserDefaults = .standard) {
+        var state = load(defaults: defaults)
+        state.stage = .completed
+        state.isComplete = true
+        save(state, defaults: defaults)
+    }
+}
+
+enum EvaThinkingVisibilityPolicy {
+    static let showsVisibleThinking = false
+}
+
 enum LLMPersistedModelSelection {
     struct State: Equatable {
         let installedModels: [String]
@@ -136,8 +414,26 @@ enum AssistantChatMode: String, CaseIterable {
 }
 
 class AppManager: ObservableObject {
-    static let defaultSystemPrompt = "You are Eva, a task and planning assistant. Help the user plan their day, week, tasks, projects, and life areas. Be brief, clear, and helpful. Use simple markdown and casual dates. Use only provided context. Do not invent details."
+    static let previousDefaultSystemPrompt = """
+    You are Eva, the user’s private executive assistant for execution, focus, and momentum.
+
+    Help the user decide what matters now, sequence work realistically, reduce overwhelm, and keep moving toward their goals. Be calm, sharp, concise, and structured. Sound like a trusted chief of staff for the user’s day.
+
+    Prefer clear recommendations over open-ended brainstorming. Turn ambiguity into the next useful action. Break large work into manageable steps. When priorities compete, help the user choose. Keep answers brief by default, with clear sequencing and light formatting.
+
+    Use only the provided context. Do not invent facts or assume hidden details. When context is limited, say so briefly and still give the best scoped answer. Do not expose chain-of-thought or internal reasoning. Do not be chatty, cutesy, preachy, or overly emotional.
+
+    Your default response pattern is:
+    1. what matters most
+    2. the recommended next step
+    3. a short sequence if useful
+    4. what to defer or ignore for now when relevant
+    """
+    static let defaultSystemPrompt = """
+    You are Eva, the user’s executive assistant for focus, execution, and momentum. Help the user decide what matters now, choose the next best action, sequence work realistically, and reduce overwhelm. Be calm, sharp, concise, and structured. Prefer clear recommendations over brainstorming. Break work into manageable steps. The user’s work is organized into life areas, projects, and tasks. Life areas have projects which have tasks. Use only the provided context. Do not invent facts or reveal internal reasoning. Format replies for quick scanning with short paragraphs, bullets only when helpful, and clear labels when useful. Keep replies brief: priority, next step, short plan, and what to defer when useful.
+    """
     static let legacyBuiltInSystemPrompts: Set<String> = [
+        previousDefaultSystemPrompt,
         "You are Eva, the user's upbeat and clever personal assistant, here to keep tasks and calendars in perfect harmony. Your responses sparkle with tidy markdown-bold headers, sleek italics, sharp lists, and clear tables. Always refer to dates casually-Today, Yesterday, next Thursday. Stay brief and witty, unless the user invites you to dive into details. Use the provided task and project details to keep their day breezy and productive.",
         "You are Eva, the user's upbeat and clever personal assistant, here to keep tasks and calendars in perfect harmony. Your responses sparkle with tidy markdown—bold headers, sleek italics, sharp lists, and clear tables. Always refer to dates casually—Today, Yesterday, next Thursday. Stay brief and witty, unless the user invites you to dive into details. Use the provided task and project details to keep their day breezy and productive.",
         "You are Eva, a clever personal assistant. Keep tasks and priorities aligned. Be brief, clear, and helpful. Use simple markdown, short lists, and casual dates. Use only provided context. Do not invent details."
@@ -523,6 +819,46 @@ struct LLMSecureBlobStore {
     }
 }
 
+enum EvaStableMemoryCompiler {
+    static func promptBlock(
+        from store: LLMPersonalMemoryStoreV1,
+        model: MLXLMCommon.ModelConfiguration
+    ) -> String? {
+        guard store.isEmpty == false else { return nil }
+
+        let preferences = compactList(store.preferences)
+        let routines = compactList(store.routines)
+        let goals = compactList(store.currentGoals)
+
+        var lines: [String] = ["User memory:"]
+        if preferences.isEmpty == false {
+            lines.append("Working style: \(preferences)")
+        }
+        if routines.isEmpty == false {
+            lines.append("Routines and blockers: \(routines)")
+        }
+        if goals.isEmpty == false {
+            lines.append("Current goals: \(goals)")
+        }
+
+        let block = lines.joined(separator: "\n").trimmingCharacters(in: .whitespacesAndNewlines)
+        guard block.isEmpty == false else { return nil }
+        return LLMTokenBudgetEstimator.trimPrefix(
+            block,
+            toTokenBudget: model.tokenBudget.personalMemoryTokens
+        )
+    }
+
+    private static func compactList(_ entries: [LLMPersonalMemoryEntry], limit: Int = 3) -> String {
+        entries
+            .map(\.text)
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { $0.isEmpty == false }
+            .prefix(limit)
+            .joined(separator: "; ")
+    }
+}
+
 enum LLMPersonalMemoryDefaultsStore {
     static let key = "llm.personalMemory.v1"
 
@@ -580,24 +916,7 @@ enum LLMPersonalMemoryDefaultsStore {
         secureStore: LLMSecureBlobStore = .personalMemory
     ) -> String? {
         let store = load(defaults: defaults, secureStore: secureStore)
-        guard store.isEmpty == false else { return nil }
-
-        var lines = ["Personal memory:"]
-        for section in LLMPersonalMemorySection.allCases {
-            let items = store.entries(for: section)
-                .map(\.text)
-                .filter { $0.isEmpty == false }
-            guard items.isEmpty == false else { continue }
-            lines.append("\(section.title):")
-            lines.append(contentsOf: items.map { "- \($0)" })
-        }
-
-        let block = lines.joined(separator: "\n").trimmingCharacters(in: .whitespacesAndNewlines)
-        guard block.isEmpty == false else { return nil }
-        return LLMTokenBudgetEstimator.trimPrefix(
-            block,
-            toTokenBudget: model.tokenBudget.personalMemoryTokens
-        )
+        return EvaStableMemoryCompiler.promptBlock(from: store, model: model)
     }
 }
 

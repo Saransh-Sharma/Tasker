@@ -31,7 +31,7 @@ final class ChatTranscriptSnapshotTests: XCTestCase {
         XCTAssertEqual(snapshot.recentUserMessageFragments, ["plan my inbox"])
         XCTAssertTrue(snapshot.containsUndoCard)
         XCTAssertEqual(snapshot.messages.count, 3)
-        XCTAssertEqual(snapshot.messages[1].thinkingText, "Sort urgent work")
+        XCTAssertNil(snapshot.messages[1].thinkingText)
         XCTAssertEqual(snapshot.messages[1].answerText, "- First\n- Second")
         XCTAssertNotNil(snapshot.messages[2].cardPayload)
     }
@@ -43,13 +43,68 @@ final class ChatTranscriptSnapshotTests: XCTestCase {
             sourceModelName: ModelConfiguration.qwen_3_0_6b_4bit.name,
             runtimePhase: .answering,
             isRunning: true,
-            isPreparingResponse: false
+            pendingPhase: .generating,
+            pendingStatusText: "Preparing a focused response..."
         )
 
         XCTAssertTrue(liveOutput.shouldRender)
         XCTAssertEqual(liveOutput.renderModel.role, .assistant)
-        XCTAssertEqual(liveOutput.renderModel.thinkingText, "Reason")
+        XCTAssertNil(liveOutput.renderModel.thinkingText)
         XCTAssertEqual(liveOutput.renderModel.answerText, "Answer")
+    }
+
+    func testLiveOutputStateRendersDuringPendingPhaseEvenWithoutText() {
+        let liveOutput = ChatLiveOutputState(
+            threadID: UUID(),
+            text: "",
+            sourceModelName: nil,
+            runtimePhase: .idle,
+            isRunning: false,
+            pendingPhase: .buildingContext,
+            pendingStatusText: "Looking at your tasks and goals..."
+        )
+
+        XCTAssertTrue(liveOutput.shouldRender)
+        XCTAssertEqual(liveOutput.pendingPhase, .buildingContext)
+        XCTAssertEqual(liveOutput.pendingStatusText, "Looking at your tasks and goals...")
+        XCTAssertNil(liveOutput.renderModel.answerText)
+    }
+
+    func testLiveOutputStateDoesNotRenderWhenIdleAndEmpty() {
+        let liveOutput = ChatLiveOutputState(
+            threadID: UUID(),
+            text: "",
+            sourceModelName: nil,
+            runtimePhase: .idle,
+            isRunning: false,
+            pendingPhase: .idle,
+            pendingStatusText: nil
+        )
+
+        XCTAssertFalse(liveOutput.shouldRender)
+    }
+
+    func testPendingStatusTextUsesActivationSpecificCopy() {
+        XCTAssertEqual(
+            ChatPendingResponseStatusText.status(
+                for: .buildingContext,
+                isActivationPresentation: true
+            ),
+            "Looking at your tasks and goals..."
+        )
+        XCTAssertEqual(
+            ChatPendingResponseStatusText.status(
+                for: .preparingModel,
+                isActivationPresentation: false
+            ),
+            "Getting the model ready..."
+        )
+        XCTAssertNil(
+            ChatPendingResponseStatusText.status(
+                for: .idle,
+                isActivationPresentation: true
+            )
+        )
     }
 
     func testSnapshotUsesPersistedSourceModelNameForAssistantSanitization() {
@@ -85,7 +140,7 @@ final class ChatTranscriptSnapshotTests: XCTestCase {
 
         let snapshot = ChatTranscriptSnapshot(thread: thread)
 
-        XCTAssertEqual(snapshot.messages.first?.thinkingText, "Thinking Process:\n1. Analyze the day.\n2. Pick the most important task.")
+        XCTAssertNil(snapshot.messages.first?.thinkingText)
         XCTAssertNil(snapshot.messages.first?.answerText)
     }
 

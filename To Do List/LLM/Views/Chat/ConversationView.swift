@@ -42,6 +42,116 @@ struct TypingIndicator: View {
     }
 }
 
+private enum EvaWorkingStatusLibrary {
+    static let general = [
+        "Reviewing your context...",
+        "Looking at what matters...",
+        "Pulling the key signals...",
+        "Organizing the big picture...",
+        "Working through the details...",
+        "Sorting the important pieces...",
+        "Checking the strongest path...",
+        "Building a clear answer...",
+        "Turning this into a plan...",
+        "Pulling this into focus...",
+        "Structuring the next steps...",
+        "Tightening the recommendation...",
+        "Comparing the options...",
+        "Simplifying the decision...",
+        "Getting this into shape...",
+        "Finding the clearest path...",
+        "Breaking this down carefully...",
+        "Preparing a focused response...",
+        "Lining up the next steps...",
+        "Refining the plan..."
+    ]
+
+    static let dailyPlanning = [
+        "Reviewing your tasks...",
+        "Checking today's priorities...",
+        "Finding the highest-leverage task...",
+        "Looking for what matters most today...",
+        "Sorting urgent from important...",
+        "Narrowing today's focus...",
+        "Building today's plan...",
+        "Pulling out your top priorities...",
+        "Checking where momentum is strongest...",
+        "Looking for the best next move...",
+        "Trimming the list down...",
+        "Turning today into a clear plan...",
+        "Looking for quick wins...",
+        "Balancing urgency and impact...",
+        "Picking what deserves focus first...",
+        "Reducing the noise...",
+        "Aligning today's priorities...",
+        "Building a realistic plan for today...",
+        "Deciding what can wait...",
+        "Protecting your focus window..."
+    ]
+
+    static func statuses(for recentUserFragments: [String]) -> [String] {
+        let combined = recentUserFragments.joined(separator: " ").lowercased()
+        let planningSignals = [
+            "/today",
+            "today",
+            "task",
+            "priority",
+            "priorities",
+            "focus",
+            "plan",
+            "urgent",
+            "important",
+            "what should i focus"
+        ]
+        if planningSignals.contains(where: { combined.contains($0) }) {
+            return dailyPlanning
+        }
+        return general
+    }
+}
+
+private struct EvaLiveWorkingStatusView: View {
+    let statuses: [String]
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var statusIndex = 0
+
+    private var currentStatus: String {
+        let source = statuses.isEmpty ? EvaWorkingStatusLibrary.general : statuses
+        return source[min(statusIndex, source.count - 1)]
+    }
+
+    var body: some View {
+        HStack(spacing: TaskerTheme.Spacing.sm) {
+            Image(systemName: "sparkle")
+                .font(.tasker(.caption2))
+                .foregroundStyle(Color.tasker(.accentPrimary))
+            Text(currentStatus)
+                .font(.tasker(.caption1))
+                .foregroundStyle(Color.tasker(.textTertiary))
+                .lineLimit(2)
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal, TaskerTheme.Spacing.md)
+        .padding(.vertical, TaskerTheme.Spacing.xs)
+        .taskerChromeSurface(
+            cornerRadius: 16,
+            accentColor: Color.tasker(.accentSecondary),
+            level: .e1
+        )
+        .animation(reduceMotion ? nil : TaskerAnimation.quick, value: statusIndex)
+        .task(id: statuses) {
+            let source = statuses.isEmpty ? EvaWorkingStatusLibrary.general : statuses
+            guard source.count > 1, reduceMotion == false else { return }
+            while !Task.isCancelled {
+                try? await Task.sleep(nanoseconds: 3_100_000_000)
+                guard !Task.isCancelled else { return }
+                statusIndex = (statusIndex + 1) % source.count
+            }
+        }
+    }
+}
+
 struct MessageView: View {
     @State private var collapsed = true
     @State private var undoExpiredLogged = false
@@ -50,6 +160,9 @@ struct MessageView: View {
     let now: Date
     var runtime: LLMEvaluator? = nil
     var isLiveOutput: Bool = false
+    var workingStatuses: [String] = []
+    var pendingPhase: ChatPendingResponsePhase = .idle
+    var pendingStatusText: String? = nil
     var onOpenTaskFromCard: ((TaskDefinition) -> Void)?
 
     private var runtimeRunning: Bool {
@@ -62,6 +175,28 @@ struct MessageView: View {
 
     private var isThinking: Bool {
         renderModel.isThinkingOpenEnded
+    }
+
+    private var answerIsEmpty: Bool {
+        renderModel.answerText?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ?? true
+    }
+
+    private var thinkingIsEmpty: Bool {
+        renderModel.thinkingText?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ?? true
+    }
+
+    private var isPendingResponse: Bool {
+        pendingPhase.isActive
+    }
+
+    private var activeWorkingStatuses: [String] {
+        if runtimeRunning {
+            return workingStatuses
+        }
+        if let pendingStatusText, pendingStatusText.isEmpty == false {
+            return [pendingStatusText]
+        }
+        return workingStatuses
     }
 
     private var time: String {
@@ -98,6 +233,17 @@ struct MessageView: View {
             level: .e1
         )
         .buttonStyle(.borderless)
+    }
+
+    private var shouldShowLiveWorkingStatus: Bool {
+        isLiveOutput &&
+        (runtimeRunning || isPendingResponse) &&
+        answerIsEmpty &&
+        thinkingIsEmpty
+    }
+
+    private var shouldShowTypingIndicator: Bool {
+        isLiveOutput && (runtimeRunning || isPendingResponse)
     }
 
     var body: some View {
@@ -162,7 +308,12 @@ struct MessageView: View {
                 .padding(.trailing, 48)
         } else {
             VStack(alignment: .leading, spacing: TaskerTheme.Spacing.lg) {
-                if let thinking = renderModel.thinkingText {
+                if shouldShowLiveWorkingStatus {
+                    EvaLiveWorkingStatusView(statuses: activeWorkingStatuses)
+                }
+
+                if EvaThinkingVisibilityPolicy.showsVisibleThinking,
+                   let thinking = renderModel.thinkingText {
                     VStack(alignment: .leading, spacing: TaskerTheme.Spacing.md) {
                         thinkingLabel
                         if !collapsed, !thinking.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
@@ -195,7 +346,7 @@ struct MessageView: View {
                     )
                 }
 
-                if isLiveOutput && runtimeRunning {
+                if shouldShowTypingIndicator {
                     TypingIndicator()
                 }
             }
@@ -465,6 +616,10 @@ struct ConversationView: View {
         liveOutput.shouldRender && snapshot.threadID == liveOutput.threadID
     }
 
+    private var liveWorkingStatuses: [String] {
+        EvaWorkingStatusLibrary.statuses(for: snapshot.recentUserMessageFragments)
+    }
+
     var body: some View {
         ScrollViewReader { scrollView in
             ScrollView(.vertical) {
@@ -486,7 +641,10 @@ struct ConversationView: View {
                             renderModel: liveOutput.renderModel,
                             now: now,
                             runtime: llm,
-                            isLiveOutput: true
+                            isLiveOutput: true,
+                            workingStatuses: liveWorkingStatuses,
+                            pendingPhase: liveOutput.pendingPhase,
+                            pendingStatusText: liveOutput.pendingStatusText
                         )
                         .padding(.horizontal, TaskerTheme.Spacing.lg)
                         .padding(.vertical, TaskerTheme.Spacing.sm)

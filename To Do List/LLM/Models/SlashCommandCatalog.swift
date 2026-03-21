@@ -3,6 +3,7 @@ import Foundation
 enum SlashCommandCategory: String, Codable {
     case planning
     case project
+    case lifeArea
     case housekeeping
 }
 
@@ -12,6 +13,9 @@ enum SlashCommandID: String, Codable, CaseIterable {
     case week
     case month
     case project
+    case area
+    case recent
+    case overdue
     case clear
 
     var canonicalCommand: String {
@@ -26,6 +30,12 @@ enum SlashCommandID: String, Codable, CaseIterable {
             return "/month"
         case .project:
             return "/project"
+        case .area:
+            return "/area"
+        case .recent:
+            return "/recent"
+        case .overdue:
+            return "/overdue"
         case .clear:
             return "/clear"
         }
@@ -43,6 +53,12 @@ enum SlashCommandID: String, Codable, CaseIterable {
             return "This Month"
         case .project:
             return "Project"
+        case .area:
+            return "Life Area"
+        case .recent:
+            return "Recent"
+        case .overdue:
+            return "Overdue"
         case .clear:
             return "Clear Chat"
         }
@@ -60,21 +76,40 @@ enum SlashCommandID: String, Codable, CaseIterable {
             return "calendar.badge.clock"
         case .project:
             return "folder"
+        case .area:
+            return "square.grid.2x2"
+        case .recent:
+            return "clock.arrow.circlepath"
+        case .overdue:
+            return "exclamationmark.arrow.trianglehead.counterclockwise"
         case .clear:
             return "trash"
         }
     }
 
-    var requiresProjectName: Bool {
-        self == .project
+    var requiresArgument: Bool {
+        self == .project || self == .area
+    }
+
+    var argumentPlaceholder: String? {
+        switch self {
+        case .project:
+            return "Pick project"
+        case .area:
+            return "Pick life area"
+        default:
+            return nil
+        }
     }
 
     var category: SlashCommandCategory {
         switch self {
-        case .today, .tomorrow, .week, .month:
+        case .today, .tomorrow, .week, .month, .recent, .overdue:
             return .planning
         case .project:
             return .project
+        case .area:
+            return .lifeArea
         case .clear:
             return .housekeeping
         }
@@ -92,8 +127,14 @@ enum SlashCommandID: String, Codable, CaseIterable {
             return 3
         case .month:
             return 4
-        case .clear:
+        case .recent:
             return 5
+        case .overdue:
+            return 6
+        case .area:
+            return 7
+        case .clear:
+            return 8
         }
     }
 }
@@ -111,22 +152,49 @@ struct SlashCommandDescriptor: Identifiable, Codable, Equatable {
 
 struct SlashCommandInvocation: Codable, Equatable {
     var id: SlashCommandID
-    var projectQuery: String?
-    var projectName: String?
+    var argumentQuery: String?
+    var resolvedArgument: String?
+
+    init(
+        id: SlashCommandID,
+        projectQuery: String? = nil,
+        projectName: String? = nil,
+        argumentQuery: String? = nil,
+        resolvedArgument: String? = nil
+    ) {
+        self.id = id
+        self.argumentQuery = argumentQuery ?? projectQuery
+        self.resolvedArgument = resolvedArgument ?? projectName
+    }
+
+    var projectQuery: String? {
+        get { argumentQuery }
+        set { argumentQuery = newValue }
+    }
+
+    var projectName: String? {
+        get { resolvedArgument }
+        set { resolvedArgument = newValue }
+    }
 
     var isReady: Bool {
-        guard id.requiresProjectName else { return true }
-        guard let projectName else { return false }
-        return projectName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false
+        guard id.requiresArgument else { return true }
+        guard let resolvedArgument else { return false }
+        return resolvedArgument.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false
     }
 
     var commandLabel: String {
         switch id {
         case .project:
-            if let projectName, projectName.isEmpty == false {
-                return "Project: \(projectName)"
+            if let resolvedArgument, resolvedArgument.isEmpty == false {
+                return "Project: \(resolvedArgument)"
             }
             return "Project"
+        case .area:
+            if let resolvedArgument, resolvedArgument.isEmpty == false {
+                return "Life Area: \(resolvedArgument)"
+            }
+            return "Life Area"
         default:
             return id.displayName
         }
@@ -173,6 +241,24 @@ enum SlashCommandCatalog {
             aliases: []
         ),
         SlashCommandDescriptor(
+            id: .area,
+            shortDescription: "Open tasks for a life area",
+            example: "/area Health",
+            aliases: []
+        ),
+        SlashCommandDescriptor(
+            id: .recent,
+            shortDescription: "Recent operating summary",
+            example: "/recent",
+            aliases: []
+        ),
+        SlashCommandDescriptor(
+            id: .overdue,
+            shortDescription: "Only overdue tasks",
+            example: "/overdue",
+            aliases: []
+        ),
+        SlashCommandDescriptor(
             id: .clear,
             shortDescription: "Clear current chat thread",
             example: "/clear",
@@ -203,22 +289,33 @@ enum SlashCommandCatalog {
 
         switch command {
         case "/todo", "/today":
-            return .invocation(SlashCommandInvocation(id: .today, projectQuery: nil, projectName: nil))
+            return .invocation(SlashCommandInvocation(id: .today, argumentQuery: nil, resolvedArgument: nil))
         case "/tomorrow":
-            return .invocation(SlashCommandInvocation(id: .tomorrow, projectQuery: nil, projectName: nil))
+            return .invocation(SlashCommandInvocation(id: .tomorrow, argumentQuery: nil, resolvedArgument: nil))
         case "/week":
-            return .invocation(SlashCommandInvocation(id: .week, projectQuery: nil, projectName: nil))
+            return .invocation(SlashCommandInvocation(id: .week, argumentQuery: nil, resolvedArgument: nil))
         case "/month":
-            return .invocation(SlashCommandInvocation(id: .month, projectQuery: nil, projectName: nil))
+            return .invocation(SlashCommandInvocation(id: .month, argumentQuery: nil, resolvedArgument: nil))
         case "/project":
             if argument.isEmpty {
                 return .missingRequiredArgument(commandID: .project, partial: nil)
             }
             return .invocation(
-                SlashCommandInvocation(id: .project, projectQuery: argument, projectName: nil)
+                SlashCommandInvocation(id: .project, argumentQuery: argument, resolvedArgument: nil)
             )
+        case "/area":
+            if argument.isEmpty {
+                return .missingRequiredArgument(commandID: .area, partial: nil)
+            }
+            return .invocation(
+                SlashCommandInvocation(id: .area, argumentQuery: argument, resolvedArgument: nil)
+            )
+        case "/recent":
+            return .invocation(SlashCommandInvocation(id: .recent, argumentQuery: nil, resolvedArgument: nil))
+        case "/overdue":
+            return .invocation(SlashCommandInvocation(id: .overdue, argumentQuery: nil, resolvedArgument: nil))
         case "/clear":
-            return .invocation(SlashCommandInvocation(id: .clear, projectQuery: nil, projectName: nil))
+            return .invocation(SlashCommandInvocation(id: .clear, argumentQuery: nil, resolvedArgument: nil))
         default:
             return .unknown(command: command)
         }

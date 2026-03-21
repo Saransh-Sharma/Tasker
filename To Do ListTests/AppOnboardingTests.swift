@@ -185,6 +185,243 @@ final class AppOnboardingTests: XCTestCase {
     }
 
     @MainActor
+    func testStoreAndRestoreJourneySnapshotPreservesMidFlowState() {
+        let context = makeStoreContext()
+        defer { context.cleanup() }
+
+        let area = LifeArea(name: "Health")
+        let project = Project(lifeAreaID: area.id, name: "Move your body")
+        let task = TaskDefinition(
+            projectID: project.id,
+            projectName: project.name,
+            lifeAreaID: area.id,
+            title: "Put on workout clothes",
+            estimatedDuration: 60
+        )
+        let projectDraft = tryUnwrap(
+            StarterWorkspaceCatalog.defaultProjectDrafts(for: ["health"], mode: .guided).first
+        )
+        let snapshot = OnboardingJourneySnapshot(
+            step: .projects,
+            mode: .custom,
+            frictionProfile: .choosing,
+            selectedLifeAreaIDs: ["health"],
+            showAllLifeAreas: true,
+            projectDrafts: [projectDraft],
+            expandedProjectIDs: [UUID()],
+            resolvedLifeAreas: [
+                ResolvedLifeAreaSelection(templateID: "health", lifeArea: area, reusedExisting: true)
+            ],
+            resolvedProjects: [
+                ResolvedProjectSelection(draft: projectDraft, project: project, reusedExisting: true)
+            ],
+            createdTasks: [task],
+            createdTaskTemplateMap: ["task-health-move-clothes": task.id],
+            focusTaskID: task.id,
+            parentFocusTaskID: nil,
+            focusStartedAt: Date(timeIntervalSince1970: 1_700_000_000),
+            focusIsActive: false,
+            successSummary: nil,
+            hasSeenSuccess: false,
+            reminderPromptDismissed: false
+        )
+
+        context.store.storeJourney(snapshot)
+
+        let restoredSnapshot = tryUnwrap(context.store.load().journeySnapshot)
+        XCTAssertEqual(restoredSnapshot.step, .projects)
+        XCTAssertEqual(restoredSnapshot.selectedLifeAreaIDs, ["health"])
+
+        let viewModel = OnboardingFlowModel(stateStore: context.store)
+        viewModel.prepareForPresentation(snapshot: restoredSnapshot)
+
+        XCTAssertEqual(viewModel.step, .projects)
+        XCTAssertEqual(viewModel.mode, .custom)
+        XCTAssertEqual(viewModel.selectedLifeAreaIDs, Set(["health"]))
+        XCTAssertTrue(viewModel.showAllLifeAreas)
+        XCTAssertEqual(viewModel.projectDrafts, [projectDraft])
+        XCTAssertEqual(viewModel.createdTasks.map(\.id), [task.id])
+        XCTAssertEqual(viewModel.focusTaskID, task.id)
+    }
+
+    @MainActor
+    func testPrepareForPresentationRestoresSuccessStateAndReminderPrompt() async {
+        let context = makeStoreContext()
+        defer { context.cleanup() }
+
+        let notificationService = TestNotificationService(status: .notDetermined)
+        let area = LifeArea(name: "Health")
+        let project = Project(lifeAreaID: area.id, name: "Move your body")
+        let task = TaskDefinition(
+            projectID: project.id,
+            projectName: project.name,
+            lifeAreaID: area.id,
+            title: "Fill your water bottle",
+            estimatedDuration: 60
+        )
+        let projectDraft = tryUnwrap(
+            StarterWorkspaceCatalog.defaultProjectDrafts(for: ["health"], mode: .guided).first
+        )
+        let summary = AppOnboardingSummary(
+            lifeAreaCount: 1,
+            projectCount: 1,
+            createdTaskCount: 1,
+            completedTaskCount: 1,
+            completedTaskTitle: task.title,
+            nextTaskTitle: nil,
+            promptReminderAfterSuccess: true
+        )
+        let snapshot = OnboardingJourneySnapshot(
+            step: .focusRoom,
+            mode: .guided,
+            frictionProfile: .starting,
+            selectedLifeAreaIDs: ["health"],
+            showAllLifeAreas: false,
+            projectDrafts: [projectDraft],
+            expandedProjectIDs: [],
+            resolvedLifeAreas: [
+                ResolvedLifeAreaSelection(templateID: "health", lifeArea: area, reusedExisting: true)
+            ],
+            resolvedProjects: [
+                ResolvedProjectSelection(draft: projectDraft, project: project, reusedExisting: true)
+            ],
+            createdTasks: [task],
+            createdTaskTemplateMap: ["task-health-meal-snack": task.id],
+            focusTaskID: task.id,
+            parentFocusTaskID: nil,
+            focusStartedAt: Date(timeIntervalSince1970: 1_700_000_000),
+            focusIsActive: false,
+            successSummary: summary,
+            hasSeenSuccess: true,
+            reminderPromptDismissed: false
+        )
+
+        let viewModel = OnboardingFlowModel(
+            stateStore: context.store,
+            notificationService: notificationService
+        )
+        viewModel.prepareForPresentation(snapshot: snapshot)
+
+        XCTAssertEqual(viewModel.step, .focusRoom)
+        XCTAssertEqual(viewModel.successSummary, summary)
+        XCTAssertEqual(viewModel.resolvedLifeAreas.map(\.lifeArea.name), ["Health"])
+        XCTAssertEqual(viewModel.resolvedProjects.map(\.project.name), ["Move your body"])
+
+        for _ in 0..<10 where viewModel.reminderPromptState != .prompt {
+            try? await _Concurrency.Task.sleep(nanoseconds: 50_000_000)
+        }
+
+        XCTAssertEqual(viewModel.reminderPromptState, .prompt)
+    }
+
+    func testPresentationQueuePrefersFullFlowOverPrompt() {
+        var queue = OnboardingPresentationQueue()
+        let snapshot = OnboardingWorkspaceSnapshot(customLifeAreaCount: 1, customProjectCount: 1, taskCount: 3)
+
+        queue.enqueue(.prompt(snapshot: snapshot))
+        XCTAssertEqual(queue.pending, .prompt(snapshot: snapshot))
+
+        queue.enqueue(.fullFlow(source: "resume"))
+        XCTAssertEqual(queue.pending, .fullFlow(source: "resume"))
+
+        queue.markPresented(.prompt(snapshot: snapshot))
+        XCTAssertEqual(queue.pending, .fullFlow(source: "resume"))
+
+        queue.markPresented(.fullFlow(source: "resume"))
+        XCTAssertNil(queue.pending)
+    }
+
+    @MainActor
+    func testResetForReplayClearsPersistedJourneyAndReturnsToWelcome() {
+        let context = makeStoreContext()
+        defer { context.cleanup() }
+
+        let area = LifeArea(name: "Career")
+        let project = Project(lifeAreaID: area.id, name: "Ship one thing")
+        let task = TaskDefinition(
+            projectID: project.id,
+            projectName: project.name,
+            lifeAreaID: area.id,
+            title: "Open the draft and write 3 lines",
+            estimatedDuration: 120
+        )
+        let projectDraft = tryUnwrap(
+            StarterWorkspaceCatalog.defaultProjectDrafts(for: ["career"], mode: .guided).first
+        )
+        let snapshot = OnboardingJourneySnapshot(
+            step: .firstTask,
+            mode: .guided,
+            frictionProfile: .starting,
+            selectedLifeAreaIDs: ["career"],
+            showAllLifeAreas: false,
+            projectDrafts: [projectDraft],
+            expandedProjectIDs: [],
+            resolvedLifeAreas: [
+                ResolvedLifeAreaSelection(templateID: "career", lifeArea: area, reusedExisting: true)
+            ],
+            resolvedProjects: [
+                ResolvedProjectSelection(draft: projectDraft, project: project, reusedExisting: true)
+            ],
+            createdTasks: [task],
+            createdTaskTemplateMap: [:],
+            focusTaskID: task.id,
+            parentFocusTaskID: nil,
+            focusStartedAt: nil,
+            focusIsActive: false,
+            successSummary: nil,
+            hasSeenSuccess: false,
+            reminderPromptDismissed: false
+        )
+
+        let viewModel = OnboardingFlowModel(stateStore: context.store)
+        viewModel.prepareForPresentation(snapshot: snapshot)
+        viewModel.resetForReplay()
+
+        XCTAssertEqual(viewModel.step, .welcome)
+        XCTAssertEqual(viewModel.mode, .guided)
+        XCTAssertNil(viewModel.frictionProfile)
+        XCTAssertTrue(viewModel.selectedLifeAreaIDs.isEmpty)
+        XCTAssertTrue(viewModel.projectDrafts.isEmpty)
+        XCTAssertTrue(viewModel.createdTasks.isEmpty)
+        XCTAssertNil(context.store.load().journeySnapshot)
+    }
+
+    func testMarkHandledClearsPersistedJourneySnapshot() {
+        let context = makeStoreContext()
+        defer { context.cleanup() }
+
+        let snapshot = OnboardingJourneySnapshot(
+            step: .welcome,
+            mode: .guided,
+            frictionProfile: nil,
+            selectedLifeAreaIDs: [],
+            showAllLifeAreas: false,
+            projectDrafts: [],
+            expandedProjectIDs: [],
+            resolvedLifeAreas: [],
+            resolvedProjects: [],
+            createdTasks: [],
+            createdTaskTemplateMap: [:],
+            focusTaskID: nil,
+            parentFocusTaskID: nil,
+            focusStartedAt: nil,
+            focusIsActive: false,
+            successSummary: nil,
+            hasSeenSuccess: false,
+            reminderPromptDismissed: false
+        )
+
+        context.store.storeJourney(snapshot)
+        context.store.markHandled(outcome: .completed)
+
+        let state = context.store.load()
+        XCTAssertEqual(state.outcome, .completed)
+        XCTAssertEqual(state.completedVersion, AppOnboardingState.currentVersion)
+        XCTAssertNil(state.journeySnapshot)
+        XCTAssertTrue(state.hasHandledCurrentVersion)
+    }
+
+    @MainActor
     func testSkipToFocusRoomSeedsStarterWorkspaceAndTask() async {
         let context = makeStoreContext()
         defer { context.cleanup() }
@@ -350,6 +587,7 @@ final class AppOnboardingTests: XCTestCase {
         XCTAssertEqual(viewModel.reminderPromptState, .prompt)
         XCTAssertEqual(viewModel.successSummary?.completedTaskTitle, "Fill your water bottle")
         XCTAssertEqual(viewModel.successSummary?.completedTaskCount, 1)
+        XCTAssertNil(viewModel.successSummary?.nextTaskTitle)
         XCTAssertEqual(viewModel.successSummary?.promptReminderAfterSuccess, true)
     }
 

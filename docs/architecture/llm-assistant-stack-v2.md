@@ -1,6 +1,6 @@
 # LLM and Assistant Stack (V3 Runtime)
 
-**Last validated against code on 2026-03-17**
+**Last validated against code on 2026-03-18**
 
 This document defines the current boundary between:
 - local MLX chat UX, context projection, and transcript persistence, and
@@ -15,7 +15,11 @@ Primary source anchors:
 - `To Do List/LLM/Models/Models.swift`
 - `To Do List/LLM/Models/LLMDebugSmokeRunner.swift`
 - `To Do List/LLM/Models/LLMDataController.swift`
+- `To Do List/LLM/Models/Data.swift`
+- `To Do List/LLM/Models/SlashCommandCatalog.swift`
+- `To Do List/LLM/Models/SlashCommandExecutionService.swift`
 - `To Do List/LLM/Views/Chat/ChatView.swift`
+- `To Do List/LLM/Views/Chat/ChatContextSupport.swift`
 - `To Do List/LLM/Views/Chat/ChatTranscriptSnapshot.swift`
 - `To Do List/UseCases/LLM/AssistantActionPipelineUseCase.swift`
 - `To Do List/UseCases/LLM/AssistantCommandExecutor.swift`
@@ -94,6 +98,22 @@ Freeform chat now uses the MLX structured input path:
 
 The legacy dictionary-only `messages` path is not the canonical chat-generation contract anymore.
 
+### Executive context layers
+
+Default Eva chat prompt construction now has five layers:
+1. base system prompt,
+2. stable memory compiled from `LLMPersonalMemoryStoreV1`,
+3. a summary-only 14-day operating block from `EvaExecutiveContextService`,
+4. thread-scoped slash-command pins from `ThreadContextAttachmentStore`,
+5. query-aware planning context from `LLMContextProjectionService`.
+
+Important current rules:
+- stable memory is compressed into `Working style`, `Routines and blockers`, and `Current goals`,
+- the 14-day executive block is summary-only and does not inject raw recent task dumps by default,
+- prompt budgets reserve fixed space for these layers instead of expanding total prompt size,
+- the current shipped splits are `220 / 120 / 160 / 180 / 360` tokens for `system / memory / executive / slash / task` on the 0.6B model and `240 / 140 / 180 / 220 / 520` on the 0.8B models,
+- ordinary prompt history still uses recent in-thread turns, but recap-message injection is disabled for both bounded and full strategies.
+
 ### Compact planning context shape
 
 The bounded chat path still uses a compact plaintext context block:
@@ -104,6 +124,40 @@ The bounded chat path still uses a compact plaintext context block:
 - `History:` retrospective count-only lines when explicitly relevant
 
 The bounded path intentionally omits IDs, JSON wrappers, timestamps, and exhaustive task dumps.
+
+### Slash command context pins
+
+Slash commands now support two roles:
+- immediate command-result cards in transcript history,
+- persistent thread-scoped context pins for follow-up questions.
+
+Current shipped commands:
+- `/today`
+- `/tomorrow`
+- `/week`
+- `/month`
+- `/project <name>`
+- `/area <name>`
+- `/recent`
+- `/overdue`
+- `/clear`
+
+Pin rules:
+- max three active pins per thread,
+- one active pin per category (`timeSlice`, `project`, `lifeArea`, `backlog`),
+- newer pins replace older pins in the same category,
+- pins live in a local JSON sidecar under Application Support instead of SwiftData chat history,
+- the sidecar is managed by `ThreadContextAttachmentStore` and rendered into prompt text by `ThreadContextAttachmentResolver`,
+- `llmSlashPinsEnabled` currently gates pin writes, not all read/injection paths.
+
+### Current limitations
+
+The current runtime ships with the following known caveats:
+- slash-pin persistence is asynchronous, so an immediate follow-up can race the in-memory pin update,
+- executive-context cache invalidation is tied to task-mutation notifications in chat and does not yet cover every project, life-area, settings, or App Intent entrypoint,
+- pinned slash context is appended as its own prompt layer but does not currently steer query-aware retrieval,
+- `/project` resolves project names deterministically but filters task scope by `task.projectName` rather than `projectID`,
+- the attachment sidecar is local-only plain JSON and should be treated as sensitive prompt-context storage.
 
 ## Generation Request Modes
 

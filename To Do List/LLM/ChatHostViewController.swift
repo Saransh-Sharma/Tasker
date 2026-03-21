@@ -2,8 +2,7 @@
 //  ChatHostViewController.swift
 //  To Do List
 //
-//  Hosts the SwiftUI chat/onboarding UI for the local-LLM feature.
-//  If no model is installed, shows onboarding to guide download. Otherwise presents Chat UI.
+//  Hosts the SwiftUI EVA activation and chat UI for the local-LLM feature.
 //
 
 import Combine
@@ -23,11 +22,26 @@ class ChatHostViewController: UIViewController, PresentationDependencyContainerA
     private let appManager = AppManager()
     private let llmEvaluator = LLMRuntimeCoordinator.shared.evaluator
     private let container: ModelContainer? = LLMDataController.shared
+    private lazy var activationCoordinator = EvaActivationCoordinator(appManager: appManager)
 
     private var hostingController: UIHostingController<AnyView>!
     private var themeCancellable: AnyCancellable?
+    private var activationStateCancellable: AnyCancellable?
     private var cachedProjects: [Project] = [Project.createInbox()]
     private var currentLayoutClass: TaskerLayoutClass = .phone
+    private let activationTitleView = EvaActivationNavigationTitleView()
+    private lazy var leadingBarButtonItem = UIBarButtonItem(
+        image: UIImage(systemName: EvaActivationNavigationLeadingActionStyle.back.iconName),
+        style: .plain,
+        target: self,
+        action: #selector(onBackTapped)
+    )
+    private lazy var historyBarButtonItem = UIBarButtonItem(
+        image: UIImage(systemName: "text.below.folder"),
+        style: .plain,
+        target: self,
+        action: #selector(onHistoryTapped)
+    )
 
     private var resolvedUseCaseCoordinator: UseCaseCoordinator? {
         if let useCaseCoordinator {
@@ -78,6 +92,8 @@ class ChatHostViewController: UIViewController, PresentationDependencyContainerA
         hostingController.didMove(toParent: self)
 
         setupNavigationBar()
+        bindActivationCoordinator()
+        updateNavigationBarChrome()
 
         themeCancellable = TaskerThemeManager.shared.publisher
             .receive(on: DispatchQueue.main)
@@ -129,9 +145,15 @@ class ChatHostViewController: UIViewController, PresentationDependencyContainerA
         let rootView: AnyView
         if let container {
             rootView = AnyView(
-                ChatContainerView(onOpenTaskDetail: { [weak self] task in
-                    self?.presentTaskDetailSheet(for: task)
-                })
+                EvaActivationRootView(
+                    coordinator: activationCoordinator,
+                    onDismiss: { [weak self] in
+                        self?.dismiss(animated: true)
+                    },
+                    onOpenTaskDetail: { [weak self] task in
+                        self?.presentTaskDetailSheet(for: task)
+                    }
+                )
                 .environmentObject(appManager)
                 .environment(llmEvaluator)
                 .modelContainer(container)
@@ -148,14 +170,13 @@ class ChatHostViewController: UIViewController, PresentationDependencyContainerA
         guard nextLayoutClass != currentLayoutClass else { return }
         currentLayoutClass = nextLayoutClass
         hostingController.rootView = makeRootView(layoutClass: nextLayoutClass)
+        updateNavigationBarChrome()
     }
 
     // MARK: - Navigation Bar Setup
 
     /// Executes setupNavigationBar.
     private func setupNavigationBar() {
-        title = "Eva"
-
         let themeColors = TaskerThemeManager.shared.currentTheme.tokens.color
         let onAccent = themeColors.accentOnPrimary
 
@@ -169,30 +190,16 @@ class ChatHostViewController: UIViewController, PresentationDependencyContainerA
         navigationController?.navigationBar.scrollEdgeAppearance = appearance
         navigationController?.navigationBar.compactAppearance = appearance
         navigationController?.navigationBar.prefersLargeTitles = false
-
-        let backButton = UIBarButtonItem(
-            image: UIImage(systemName: "chevron.backward"),
-            style: .plain,
-            target: self,
-            action: #selector(onBackTapped)
-        )
-        backButton.tintColor = onAccent
-        backButton.accessibilityLabel = "Back"
-        navigationItem.leftBarButtonItem = backButton
-
-        let historyButton = UIBarButtonItem(
-            image: UIImage(systemName: "text.below.folder"),
-            style: .plain,
-            target: self,
-            action: #selector(onHistoryTapped)
-        )
-        historyButton.tintColor = onAccent
-        historyButton.accessibilityLabel = "History"
-        navigationItem.rightBarButtonItem = historyButton
+        navigationItem.largeTitleDisplayMode = .never
+        leadingBarButtonItem.tintColor = onAccent
+        historyBarButtonItem.tintColor = onAccent
+        historyBarButtonItem.accessibilityLabel = "History"
     }
 
     @objc private func onBackTapped() {
-        dismiss(animated: true)
+        activationCoordinator.handleLeadingNavigation { [weak self] in
+            self?.dismiss(animated: true)
+        }
     }
 
     @objc private func onHistoryTapped() {
@@ -568,12 +575,165 @@ class ChatHostViewController: UIViewController, PresentationDependencyContainerA
         navigationController?.navigationBar.standardAppearance = appearance
         navigationController?.navigationBar.scrollEdgeAppearance = appearance
         navigationController?.navigationBar.compactAppearance = appearance
-        navigationItem.leftBarButtonItem?.tintColor = onAccent
-        navigationItem.rightBarButtonItem?.tintColor = onAccent
+        leadingBarButtonItem.tintColor = onAccent
+        historyBarButtonItem.tintColor = onAccent
+        updateNavigationBarChrome()
+    }
+
+    private func bindActivationCoordinator() {
+        activationStateCancellable = activationCoordinator.$state
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in
+                self?.updateNavigationBarChrome()
+            }
+    }
+
+    private func updateNavigationBarChrome() {
+        let themeColors = TaskerThemeManager.shared.currentTheme.tokens.color
+        let chrome = activationCoordinator.navigationChrome
+
+        leadingBarButtonItem.image = UIImage(systemName: chrome.leadingActionStyle.iconName)
+        leadingBarButtonItem.accessibilityLabel = chrome.leadingActionStyle.accessibilityLabel
+        navigationItem.leftBarButtonItem = leadingBarButtonItem
+
+        if activationCoordinator.state.stage == .completed {
+            navigationItem.titleView = nil
+            navigationItem.title = "Eva"
+            navigationItem.rightBarButtonItem = historyBarButtonItem
+            return
+        }
+
+        navigationItem.title = nil
+        activationTitleView.preferredWidth = navigationTitleWidth
+        activationTitleView.configure(
+            title: chrome.screenTitle,
+            progressFraction: chrome.showsProgress ? chrome.progressFraction : nil,
+            progressAccessibilityValue: chrome.progressAccessibilityValue,
+            titleColor: themeColors.accentOnPrimary,
+            trackColor: themeColors.accentOnPrimary.withAlphaComponent(0.22),
+            fillColor: themeColors.accentOnPrimary.withAlphaComponent(0.96)
+        )
+        activationTitleView.frame = CGRect(
+            x: 0,
+            y: 0,
+            width: navigationTitleWidth,
+            height: chrome.showsProgress ? 42 : 24
+        )
+        navigationItem.titleView = activationTitleView
+        navigationItem.rightBarButtonItem = chrome.showsTrailingHistoryButton ? historyBarButtonItem : nil
+    }
+
+    private var navigationTitleWidth: CGFloat {
+        let maxWidth = view.bounds.width - 152
+        let preferredWidth: CGFloat = currentLayoutClass.isPad ? 340 : 232
+        return max(160, min(maxWidth, preferredWidth))
     }
 
     deinit {
         themeCancellable?.cancel()
+        activationStateCancellable?.cancel()
+    }
+}
+
+private final class EvaActivationNavigationTitleView: UIView {
+    private let titleLabel = UILabel()
+    private let progressTrackView = UIView()
+    private let progressFillView = UIView()
+    private var progressWidthConstraint: NSLayoutConstraint?
+
+    var preferredWidth: CGFloat = 232 {
+        didSet {
+            invalidateIntrinsicContentSize()
+        }
+    }
+
+    override var intrinsicContentSize: CGSize {
+        CGSize(width: preferredWidth, height: progressTrackView.isHidden ? 24 : 42)
+    }
+
+    override init(frame: CGRect) {
+        super.init(frame: frame)
+        setup()
+    }
+
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+
+    func configure(
+        title: String,
+        progressFraction: CGFloat?,
+        progressAccessibilityValue: String?,
+        titleColor: UIColor,
+        trackColor: UIColor,
+        fillColor: UIColor
+    ) {
+        titleLabel.text = title
+        titleLabel.textColor = titleColor
+        progressTrackView.backgroundColor = trackColor
+        progressFillView.backgroundColor = fillColor
+
+        let clampedProgress = max(0, min(progressFraction ?? 0, 1))
+        progressTrackView.isHidden = progressFraction == nil
+        progressTrackView.accessibilityValue = progressAccessibilityValue
+
+        progressWidthConstraint?.isActive = false
+        progressWidthConstraint = progressFillView.widthAnchor.constraint(
+            equalTo: progressTrackView.widthAnchor,
+            multiplier: clampedProgress
+        )
+        progressWidthConstraint?.isActive = true
+
+        invalidateIntrinsicContentSize()
+        setNeedsLayout()
+    }
+
+    private func setup() {
+        isAccessibilityElement = false
+
+        titleLabel.font = .systemFont(ofSize: 17, weight: .semibold)
+        titleLabel.textAlignment = .center
+        titleLabel.numberOfLines = 1
+        titleLabel.adjustsFontSizeToFitWidth = true
+        titleLabel.minimumScaleFactor = 0.8
+        titleLabel.isAccessibilityElement = true
+        titleLabel.accessibilityIdentifier = "eva.activation.nav.title"
+
+        progressTrackView.layer.cornerRadius = 2
+        progressTrackView.clipsToBounds = true
+        progressTrackView.isAccessibilityElement = true
+        progressTrackView.accessibilityIdentifier = "eva.activation.nav.progress"
+        progressTrackView.accessibilityLabel = "Onboarding progress"
+
+        progressFillView.layer.cornerRadius = 2
+        progressFillView.clipsToBounds = true
+
+        [titleLabel, progressTrackView, progressFillView].forEach {
+            $0.translatesAutoresizingMaskIntoConstraints = false
+        }
+
+        addSubview(titleLabel)
+        addSubview(progressTrackView)
+        progressTrackView.addSubview(progressFillView)
+
+        NSLayoutConstraint.activate([
+            titleLabel.topAnchor.constraint(equalTo: topAnchor),
+            titleLabel.leadingAnchor.constraint(equalTo: leadingAnchor),
+            titleLabel.trailingAnchor.constraint(equalTo: trailingAnchor),
+
+            progressTrackView.topAnchor.constraint(equalTo: titleLabel.bottomAnchor, constant: 7),
+            progressTrackView.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 2),
+            progressTrackView.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -2),
+            progressTrackView.heightAnchor.constraint(equalToConstant: 4),
+            progressTrackView.bottomAnchor.constraint(equalTo: bottomAnchor),
+
+            progressFillView.leadingAnchor.constraint(equalTo: progressTrackView.leadingAnchor),
+            progressFillView.topAnchor.constraint(equalTo: progressTrackView.topAnchor),
+            progressFillView.bottomAnchor.constraint(equalTo: progressTrackView.bottomAnchor)
+        ])
+
+        progressWidthConstraint = progressFillView.widthAnchor.constraint(equalToConstant: 0)
+        progressWidthConstraint?.isActive = true
     }
 }
 
@@ -597,57 +757,58 @@ struct LLMStoreUnavailableView: View {
     }
 }
 
-// MARK: - SwiftUI container deciding between onboarding and chat
+// MARK: - SwiftUI chat container
 
 struct ChatContainerView: View {
     @EnvironmentObject var appManager: AppManager
     @Environment(LLMEvaluator.self) var llm
     @Environment(\.taskerLayoutClass) private var layoutClass
 
+    var presentationMode: ChatPresentationMode = .normal
+    var onActivationChatEvent: ((EvaActivationChatEvent) -> Void)? = nil
     var onOpenTaskDetail: (TaskDefinition) -> Void
 
     @State private var currentThread: Thread? = nil
     @FocusState private var isPromptFocused: Bool
     @State private var showChats = false
     @State private var showSettings = false
-    @State private var showOnboarding = true
 
     private var useIPadSplitChatLayout: Bool {
-        V2FeatureFlags.iPadNativeShellEnabled
+        if case .activation(let config) = presentationMode, config.hideUtilityActions {
+            return false
+        }
+        return V2FeatureFlags.iPadNativeShellEnabled
             && (layoutClass == .padRegular || layoutClass == .padExpanded)
     }
 
     var body: some View {
         Group {
-            if appManager.installedModels.isEmpty {
-                OnboardingView(showOnboarding: $showOnboarding)
-                    .onChange(of: appManager.installedModels) { _, _ in
-                        showOnboarding = false
-                    }
-            } else {
-                if useIPadSplitChatLayout {
-                    NavigationSplitView {
-                        ChatsListView(currentThread: $currentThread, isPromptFocused: $isPromptFocused)
-                            .environmentObject(appManager)
-                    } detail: {
-                        ChatView(
-                            currentThread: $currentThread,
-                            isPromptFocused: $isPromptFocused,
-                            showChats: .constant(false),
-                            showSettings: $showSettings,
-                            onOpenTaskDetail: onOpenTaskDetail
-                        )
-                    }
-                    .navigationSplitViewStyle(.balanced)
-                } else {
+            if useIPadSplitChatLayout {
+                NavigationSplitView {
+                    ChatsListView(currentThread: $currentThread, isPromptFocused: $isPromptFocused)
+                        .environmentObject(appManager)
+                } detail: {
                     ChatView(
                         currentThread: $currentThread,
                         isPromptFocused: $isPromptFocused,
-                        showChats: $showChats,
+                        showChats: .constant(false),
                         showSettings: $showSettings,
+                        presentationMode: presentationMode,
+                        onActivationChatEvent: onActivationChatEvent,
                         onOpenTaskDetail: onOpenTaskDetail
                     )
                 }
+                .navigationSplitViewStyle(.balanced)
+            } else {
+                ChatView(
+                    currentThread: $currentThread,
+                    isPromptFocused: $isPromptFocused,
+                    showChats: $showChats,
+                    showSettings: $showSettings,
+                    presentationMode: presentationMode,
+                    onActivationChatEvent: onActivationChatEvent,
+                    onOpenTaskDetail: onOpenTaskDetail
+                )
             }
         }
         .accessibilityIdentifier("home.ipad.detail.chat")

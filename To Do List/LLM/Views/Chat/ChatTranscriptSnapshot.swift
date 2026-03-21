@@ -1,5 +1,54 @@
 import Foundation
 
+enum ChatPendingResponsePhase: String, Equatable {
+    case idle
+    case buildingContext
+    case assemblingPrompt
+    case preparingModel
+    case generating
+
+    var isActive: Bool {
+        self != .idle
+    }
+}
+
+enum ChatPendingResponseStatusText {
+    static func status(
+        for phase: ChatPendingResponsePhase,
+        isActivationPresentation: Bool
+    ) -> String? {
+        guard phase.isActive else { return nil }
+
+        if isActivationPresentation {
+            switch phase {
+            case .idle:
+                return nil
+            case .buildingContext:
+                return "Looking at your tasks and goals..."
+            case .assemblingPrompt:
+                return "Building your first plan..."
+            case .preparingModel:
+                return "Getting Eva ready..."
+            case .generating:
+                return "Writing your recommendation..."
+            }
+        }
+
+        switch phase {
+        case .idle:
+            return nil
+        case .buildingContext:
+            return "Reviewing your context..."
+        case .assemblingPrompt:
+            return "Organizing the big picture..."
+        case .preparingModel:
+            return "Getting the model ready..."
+        case .generating:
+            return "Preparing a focused response..."
+        }
+    }
+}
+
 struct ChatMessageRenderModel: Identifiable, Equatable {
     let id: UUID
     let role: Role
@@ -98,6 +147,14 @@ struct ChatMessageRenderModel: Identifiable, Equatable {
             closeOpenThinkingBlock: false
         )
         if extraction.hasVisibleThinking {
+            if EvaThinkingVisibilityPolicy.showsVisibleThinking == false {
+                let answer = extraction.answerText?.trimmingCharacters(in: .whitespacesAndNewlines)
+                return (
+                    nil,
+                    answer?.isEmpty == false ? answer : nil,
+                    extraction.isOpenEnded
+                )
+            }
             return (
                 extraction.thinkingText,
                 extraction.answerText,
@@ -184,7 +241,8 @@ struct ChatLiveOutputState: Equatable {
     let sourceModelName: String?
     let runtimePhase: LLMChatRuntimePhase
     let isRunning: Bool
-    let isPreparingResponse: Bool
+    let pendingPhase: ChatPendingResponsePhase
+    let pendingStatusText: String?
 
     static let empty = ChatLiveOutputState(
         threadID: nil,
@@ -192,11 +250,16 @@ struct ChatLiveOutputState: Equatable {
         sourceModelName: nil,
         runtimePhase: .idle,
         isRunning: false,
-        isPreparingResponse: false
+        pendingPhase: .idle,
+        pendingStatusText: nil
     )
 
+    var isPreparingResponse: Bool {
+        pendingPhase.isActive
+    }
+
     var shouldRender: Bool {
-        threadID != nil && (isRunning || isPreparingResponse) && text.isEmpty == false
+        threadID != nil && (isRunning || isPreparingResponse)
     }
 
     var renderModel: ChatMessageRenderModel {

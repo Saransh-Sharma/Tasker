@@ -3,6 +3,7 @@ import SwiftUI
 struct ChatHeaderView: View {
     let title: String
     let subtitle: String
+    let showsUtilityActions: Bool
     let onShowChats: () -> Void
     let onShowSettings: () -> Void
 
@@ -28,19 +29,21 @@ struct ChatHeaderView: View {
 
             Spacer(minLength: TaskerTheme.Spacing.sm)
 
-            HStack(spacing: TaskerTheme.Spacing.xs) {
-                iconButton(
-                    systemName: "text.bubble",
-                    identifier: "chat.header.chats",
-                    label: "Chats",
-                    action: onShowChats
-                )
-                iconButton(
-                    systemName: "gearshape",
-                    identifier: "chat.header.settings",
-                    label: "Settings",
-                    action: onShowSettings
-                )
+            if showsUtilityActions {
+                HStack(spacing: TaskerTheme.Spacing.xs) {
+                    iconButton(
+                        systemName: "text.bubble",
+                        identifier: "chat.header.chats",
+                        label: "Chats",
+                        action: onShowChats
+                    )
+                    iconButton(
+                        systemName: "gearshape",
+                        identifier: "chat.header.settings",
+                        label: "Settings",
+                        action: onShowSettings
+                    )
+                }
             }
         }
         .padding(.horizontal, TaskerTheme.Spacing.lg)
@@ -113,84 +116,174 @@ struct ChatModelPickerButton: View {
 }
 
 struct ChatEmptyStateView: View {
+    let presentationMode: ChatPresentationMode
+    let starterPrompts: [EvaStarterPrompt]
     let commandSuggestions: [SlashCommandDescriptor]
+    let onSelectStarterPrompt: (EvaStarterPrompt) -> Void
     let onSelectSuggestion: (SlashCommandDescriptor) -> Void
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    private var isActivationPresentation: Bool {
+        if case .activation = presentationMode {
+            return true
+        }
+        return false
+    }
+
+    private var activationConfiguration: EvaActivationChatConfiguration? {
+        guard case .activation(let config) = presentationMode else { return nil }
+        return config
+    }
+
+    private var activationStarterPrompts: [EvaStarterPrompt] {
+        let prompts = starterPrompts
+        guard let activationConfiguration else { return prompts }
+        return Array(prompts.prefix(activationConfiguration.visibleStarterLimit))
+    }
 
     var body: some View {
         VStack(spacing: TaskerTheme.Spacing.lg) {
             Spacer()
 
-            ZStack {
-                Circle()
-                    .fill(Color.tasker(.accentWash))
-                    .frame(width: 80, height: 80)
-                Image(systemName: "bubble.left.and.text.bubble.right")
-                    .font(.system(size: 32, weight: .light))
-                    .foregroundStyle(Color.tasker(.accentPrimary))
-                    .symbolEffect(
-                        .wiggle.byLayer,
-                        options: .repeat(.periodic(delay: 3.0)),
-                        isActive: !reduceMotion
-                    )
-            }
-
-            VStack(spacing: TaskerTheme.Spacing.xs) {
-                Text("ask Eva anything")
+            if isActivationPresentation {
+                VStack(spacing: TaskerTheme.Spacing.sm) {
+                    EvaLoopingLottieContainer(size: 64)
+                    VStack(spacing: TaskerTheme.Spacing.xs) {
+                        Text("Ask Eva anything")
+                            .font(.tasker(.title2))
+                            .foregroundStyle(Color.tasker(.textPrimary))
+                            .accessibilityIdentifier("chat.emptyState.title")
+                        Text("Start with a focused prompt, or use a command for structured help.")
+                            .font(.tasker(.callout))
+                            .foregroundStyle(Color.tasker(.textSecondary))
+                            .multilineTextAlignment(.center)
+                    }
+                }
+                .padding(.horizontal, TaskerTheme.Spacing.lg)
+                .padding(.vertical, TaskerTheme.Spacing.lg)
+                .taskerPremiumSurface(
+                    cornerRadius: TaskerTheme.CornerRadius.xl,
+                    fillColor: Color.tasker(.surfacePrimary),
+                    strokeColor: Color.tasker(.strokeHairline),
+                    accentColor: Color.tasker(.accentSecondary),
+                    level: .e1,
+                    useNativeGlass: false
+                )
+                .enhancedStaggeredAppearance(index: 0)
+            } else {
+                ZStack {
+                    Circle()
+                        .fill(Color.tasker(.accentWash))
+                        .frame(width: 80, height: 80)
+                    Image(systemName: "bubble.left.and.text.bubble.right")
+                        .font(.system(size: 32, weight: .light))
+                        .foregroundStyle(Color.tasker(.accentPrimary))
+                        .symbolEffect(
+                            .wiggle.byLayer,
+                            options: .repeat(.periodic(delay: 3.0)),
+                            isActive: !reduceMotion
+                        )
+                }
+                VStack(spacing: TaskerTheme.Spacing.xs) {
+                    Text("ask Eva anything")
                     .font(.tasker(.title2))
                     .foregroundStyle(Color.tasker(.textPrimary))
                     .accessibilityIdentifier("chat.emptyState.title")
-                Text("Type / for commands")
+                    Text("Type / for commands")
                     .font(.tasker(.callout))
                     .foregroundStyle(Color.tasker(.textTertiary))
                     .multilineTextAlignment(.center)
-            }
-            .padding(.horizontal, TaskerTheme.Spacing.xl)
-            .padding(.vertical, TaskerTheme.Spacing.lg)
-            .taskerPremiumSurface(
-                cornerRadius: TaskerTheme.CornerRadius.xl,
-                fillColor: Color.tasker(.surfacePrimary),
-                strokeColor: Color.tasker(.strokeHairline),
-                accentColor: Color.tasker(.accentSecondary),
-                level: .e1
-            )
-
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: TaskerTheme.Spacing.sm) {
-                    ForEach(commandSuggestions, id: \.id) { descriptor in
-                        Button {
-                            onSelectSuggestion(descriptor)
-                        } label: {
-                            HStack(spacing: TaskerTheme.Spacing.xs) {
-                                Image(systemName: descriptor.id.icon)
-                                    .font(.tasker(.caption1))
-                                Text(descriptor.command)
-                                    .font(.tasker(.callout))
-                            }
-                            .foregroundStyle(Color.tasker(.accentPrimary))
-                            .padding(.horizontal, TaskerTheme.Spacing.md)
-                            .padding(.vertical, TaskerTheme.Spacing.sm)
-                            .background(Color.tasker(.accentWash))
-                            .clipShape(Capsule())
-                            .overlay(Capsule().stroke(Color.tasker(.accentMuted), lineWidth: 1))
-                        }
-                        .accessibilityLabel("Run command \(descriptor.command)")
-                        .accessibilityIdentifier("chat.command_suggestion.\(descriptor.id.rawValue)")
-                        .taskerPressFeedback(reduceMotion: reduceMotion)
-                    }
                 }
                 .padding(.horizontal, TaskerTheme.Spacing.xl)
+                .padding(.vertical, TaskerTheme.Spacing.lg)
+                .taskerPremiumSurface(
+                    cornerRadius: TaskerTheme.CornerRadius.xl,
+                    fillColor: Color.tasker(.surfacePrimary),
+                    strokeColor: Color.tasker(.strokeHairline),
+                    accentColor: Color.tasker(.accentSecondary),
+                    level: .e1
+                )
+                .enhancedStaggeredAppearance(index: 0)
             }
+
+            promptCarousel
+                .enhancedStaggeredAppearance(index: 2)
 
             Spacer()
         }
         .accessibilityIdentifier("chat.emptyState.container")
     }
+
+    @ViewBuilder
+    private var promptCarousel: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: TaskerTheme.Spacing.sm) {
+                if isActivationPresentation {
+                    ForEach(activationStarterPrompts) { prompt in
+                        starterPromptChip(prompt)
+                    }
+                } else {
+                    ForEach(commandSuggestions, id: \.id) { descriptor in
+                        commandSuggestionChip(for: descriptor)
+                    }
+                }
+            }
+            .padding(.horizontal, TaskerTheme.Spacing.xl)
+        }
+    }
+
+    private func starterPromptChip(_ prompt: EvaStarterPrompt) -> some View {
+        Button {
+            onSelectStarterPrompt(prompt)
+        } label: {
+            HStack(spacing: TaskerTheme.Spacing.xs) {
+                Image(systemName: prompt.style == .slashCommand ? "command" : (prompt.isRecommended ? "star.fill" : "sparkle"))
+                    .font(.tasker(.caption1))
+                Text(prompt.title)
+                    .font(.tasker(.callout))
+            }
+            .foregroundStyle(prompt.isRecommended ? Color.tasker(.accentOnPrimary) : Color.tasker(.accentPrimary))
+            .padding(.horizontal, TaskerTheme.Spacing.md)
+            .padding(.vertical, TaskerTheme.Spacing.sm)
+            .background(prompt.isRecommended ? Color.tasker(.accentPrimary) : Color.tasker(.accentWash))
+            .clipShape(Capsule())
+            .overlay(Capsule().stroke(prompt.isRecommended ? Color.tasker(.accentPrimary) : Color.tasker(.accentMuted), lineWidth: 1))
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("Send \(prompt.title)")
+        .accessibilityIdentifier("chat.activation_starter.\(prompt.id)")
+        .taskerPressFeedback(reduceMotion: reduceMotion)
+    }
+
+    private func commandSuggestionChip(for descriptor: SlashCommandDescriptor) -> some View {
+        Button {
+            onSelectSuggestion(descriptor)
+        } label: {
+            HStack(spacing: TaskerTheme.Spacing.xs) {
+                Image(systemName: descriptor.id.icon)
+                    .font(.tasker(.caption1))
+                Text(descriptor.command)
+                    .font(.tasker(.callout))
+            }
+            .foregroundStyle(Color.tasker(.accentPrimary))
+            .padding(.horizontal, TaskerTheme.Spacing.md)
+            .padding(.vertical, TaskerTheme.Spacing.sm)
+            .background(Color.tasker(.accentWash))
+            .clipShape(Capsule())
+            .overlay(Capsule().stroke(Color.tasker(.accentMuted), lineWidth: 1))
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("Run command \(descriptor.command)")
+        .accessibilityIdentifier("chat.command_suggestion.\(descriptor.id.rawValue)")
+        .taskerPressFeedback(reduceMotion: reduceMotion)
+    }
 }
 
 struct ChatComposerView: View {
+    let presentationMode: ChatPresentationMode
     let slashDraft: SlashCommandInvocation?
+    let activeAttachments: [ThreadContextAttachmentRecord]
     let commandFeedback: String?
     let hasCurrentThread: Bool
     @Binding var prompt: String
@@ -198,20 +291,46 @@ struct ChatComposerView: View {
     @FocusState.Binding var isProjectFieldFocused: Bool
     let projectQuery: Binding<String>
     let commandSuggestions: [SlashCommandDescriptor]
+    let starterPrompts: [EvaStarterPrompt]
     let isGenerationInFlight: Bool
     let canSubmit: Bool
     let llmCancelled: Bool
+    let hasActivationAssistantReply: Bool
     let onOpenSlashPicker: () -> Void
+    let onSelectStarterPrompt: (EvaStarterPrompt) -> Void
     let onSelectSuggestion: (SlashCommandDescriptor) -> Void
     let onCancelDraft: () -> Void
+    let onRemoveAttachment: (ThreadContextAttachmentRecord) -> Void
     let onGenerate: () -> Void
     let onStop: () -> Void
     let onSubmitPrompt: () -> Void
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
+    private var isActivationPresentation: Bool {
+        if case .activation = presentationMode {
+            return true
+        }
+        return false
+    }
+
+    private var activationConfiguration: EvaActivationChatConfiguration? {
+        guard case .activation(let config) = presentationMode else { return nil }
+        return config
+    }
+
+    private var activationStarterPrompts: [EvaStarterPrompt] {
+        let prompts = starterPrompts
+        guard let activationConfiguration else { return prompts }
+        return Array(prompts.prefix(activationConfiguration.visibleStarterLimit))
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: TaskerTheme.Spacing.xs) {
+            if activeAttachments.isEmpty == false {
+                activeAttachmentRow
+            }
+
             if let slashDraft {
                 commandDraftRow(slashDraft)
             }
@@ -225,16 +344,22 @@ struct ChatComposerView: View {
                     .transition(.opacity)
             }
 
-            if slashDraft == nil,
-               hasCurrentThread,
-               prompt.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            if isActivationPresentation {
+                Text(activationConfiguration?.helperCopy ?? "Type / for structured help like today, week, or project.")
+                    .font(.tasker(.caption1))
+                    .foregroundStyle(Color.tasker(.textSecondary))
+                    .padding(.horizontal, TaskerTheme.Spacing.md)
+                    .accessibilityIdentifier("chat.activation.slash_helper")
+            }
+
+            if shouldShowComposerSuggestionStrip {
                 composerSuggestionStrip
             }
 
             HStack(alignment: .bottom, spacing: 0) {
                 slashButton
 
-                TextField("ask Eva anything...", text: $prompt, axis: .vertical)
+                TextField(composerPlaceholder, text: $prompt, axis: .vertical)
                     .focused($isPromptFocused)
                     .textFieldStyle(.plain)
                     .font(.tasker(.body))
@@ -283,31 +408,119 @@ struct ChatComposerView: View {
     private var composerSuggestionStrip: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: TaskerTheme.Spacing.xs) {
-                ForEach(commandSuggestions, id: \.id) { descriptor in
-                    Button {
-                        onSelectSuggestion(descriptor)
-                    } label: {
+                if isActivationPresentation {
+                    ForEach(Array(activationStarterPrompts.enumerated()), id: \.element.id) { index, prompt in
+                        Button {
+                            onSelectStarterPrompt(prompt)
+                        } label: {
+                            HStack(spacing: 6) {
+                                Image(systemName: prompt.style == .slashCommand ? "command" : (prompt.isRecommended ? "star.fill" : "sparkle"))
+                                    .font(.tasker(.caption2))
+                                Text(prompt.title)
+                                    .font(.tasker(.caption1))
+                            }
+                            .foregroundStyle(prompt.isRecommended ? Color.tasker(.accentOnPrimary) : Color.tasker(.accentPrimary))
+                            .padding(.horizontal, TaskerTheme.Spacing.sm)
+                            .padding(.vertical, TaskerTheme.Spacing.xs)
+                            .background(prompt.isRecommended ? Color.tasker(.accentPrimary) : Color.tasker(.accentWash))
+                            .clipShape(Capsule())
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel("Send \(prompt.title)")
+                        .accessibilityIdentifier("chat.activation.composer_starter.\(prompt.id)")
+                        .overlay(
+                            Capsule()
+                                .stroke(prompt.isRecommended ? Color.tasker(.accentPrimary) : Color.tasker(.accentMuted), lineWidth: 1)
+                        )
+                        .taskerPressFeedback(reduceMotion: reduceMotion)
+                        .enhancedStaggeredAppearance(index: index)
+                    }
+                } else {
+                    ForEach(commandSuggestions, id: \.id) { descriptor in
+                        Button {
+                            onSelectSuggestion(descriptor)
+                        } label: {
+                            HStack(spacing: 6) {
+                                Image(systemName: descriptor.id.icon)
+                                    .font(.tasker(.caption2))
+                                Text(descriptor.command)
+                                    .font(.tasker(.caption1))
+                            }
+                            .foregroundStyle(Color.tasker(.accentPrimary))
+                            .padding(.horizontal, TaskerTheme.Spacing.sm)
+                            .padding(.vertical, TaskerTheme.Spacing.xs)
+                            .background(Color.tasker(.accentWash))
+                            .clipShape(Capsule())
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel("Insert \(descriptor.command)")
+                        .accessibilityIdentifier("chat.command_composer_suggestion.\(descriptor.id.rawValue)")
+                        .taskerPressFeedback(reduceMotion: reduceMotion)
+                    }
+                }
+            }
+            .padding(.horizontal, TaskerTheme.Spacing.sm)
+        }
+        .transition(.opacity)
+    }
+
+    private var composerPlaceholder: String {
+        isActivationPresentation ? "Ask Eva what to focus on..." : "ask Eva anything..."
+    }
+
+    private var activeAttachmentRow: some View {
+        VStack(alignment: .leading, spacing: TaskerTheme.Spacing.xs) {
+            Text("Using context")
+                .font(.tasker(.caption1))
+                .foregroundStyle(Color.tasker(.textSecondary))
+                .padding(.horizontal, TaskerTheme.Spacing.sm)
+
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: TaskerTheme.Spacing.xs) {
+                    ForEach(activeAttachments) { attachment in
                         HStack(spacing: 6) {
-                            Image(systemName: descriptor.id.icon)
+                            Image(systemName: attachment.commandID.icon)
                                 .font(.tasker(.caption2))
-                            Text(descriptor.command)
+                            Text(attachment.commandLabel)
                                 .font(.tasker(.caption1))
+                                .lineLimit(1)
+                            Button {
+                                onRemoveAttachment(attachment)
+                            } label: {
+                                Image(systemName: "xmark.circle.fill")
+                                    .font(.tasker(.caption2))
+                            }
+                            .buttonStyle(.plain)
+                            .accessibilityLabel(Text("Remove \(attachment.commandLabel)"))
+                            .accessibilityHint(Text("Removes this pinned context from the current chat."))
                         }
                         .foregroundStyle(Color.tasker(.accentPrimary))
                         .padding(.horizontal, TaskerTheme.Spacing.sm)
                         .padding(.vertical, TaskerTheme.Spacing.xs)
                         .background(Color.tasker(.accentWash))
                         .clipShape(Capsule())
+                        .overlay(Capsule().stroke(Color.tasker(.accentMuted), lineWidth: 1))
+                        .accessibilityIdentifier("chat.attachment_chip.\(attachment.id.uuidString)")
                     }
-                    .buttonStyle(.plain)
-                    .accessibilityLabel("Insert \(descriptor.command)")
-                    .accessibilityIdentifier("chat.command_composer_suggestion.\(descriptor.id.rawValue)")
-                    .taskerPressFeedback(reduceMotion: reduceMotion)
                 }
+                .padding(.horizontal, TaskerTheme.Spacing.sm)
             }
-            .padding(.horizontal, TaskerTheme.Spacing.sm)
         }
         .transition(.opacity)
+    }
+
+    private var shouldShowComposerSuggestionStrip: Bool {
+        guard slashDraft == nil else { return false }
+        guard hasCurrentThread else { return false }
+        guard prompt.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return false }
+
+        if isActivationPresentation,
+           activationConfiguration?.collapsesCoachingAfterFirstAssistantReply == true,
+           hasActivationAssistantReply {
+            return false
+        }
+
+        return true
     }
 
     private var slashButton: some View {
@@ -357,24 +570,24 @@ struct ChatComposerView: View {
                 Spacer()
             }
 
-            if invocation.id == .project {
+            if invocation.id.requiresArgument {
                 HStack(spacing: TaskerTheme.Spacing.xs) {
-                    Image(systemName: "folder")
+                    Image(systemName: invocation.id.icon)
                         .font(.tasker(.caption1))
                         .foregroundStyle(Color.tasker(.textTertiary))
 
-                    TextField("Pick project", text: projectQuery)
+                    TextField(invocation.id.argumentPlaceholder ?? "Pick value", text: projectQuery)
                         .font(.tasker(.caption1))
                         .textFieldStyle(.plain)
                         .autocorrectionDisabled()
                         .focused($isProjectFieldFocused)
-                        .accessibilityIdentifier("chat.command_project_field")
+                        .accessibilityIdentifier("chat.command_argument_field")
 
-                    if let projectName = invocation.projectName, !projectName.isEmpty {
+                    if let resolvedArgument = invocation.resolvedArgument, !resolvedArgument.isEmpty {
                         HStack(spacing: 4) {
                             Image(systemName: "checkmark.circle.fill")
                                 .foregroundStyle(Color.tasker(.statusSuccess))
-                            Text(projectName)
+                            Text(resolvedArgument)
                                 .font(.tasker(.caption1))
                                 .foregroundStyle(Color.tasker(.statusSuccess))
                         }
@@ -463,6 +676,7 @@ struct ChatScaffoldView: View {
     @Binding var currentThread: Thread?
     let transcriptSnapshot: ChatTranscriptSnapshot
     let liveOutput: ChatLiveOutputState
+    let presentationMode: ChatPresentationMode
     let prompt: Binding<String>
     let isPromptFocused: FocusState<Bool>.Binding
     let isProjectFieldFocused: FocusState<Bool>.Binding
@@ -484,31 +698,70 @@ struct ChatScaffoldView: View {
     let llmCancelled: Bool
     let chatTitle: String
     let onOpenTaskDetail: ((TaskDefinition) -> Void)?
+    let starterPrompts: [EvaStarterPrompt]
+    let activeAttachments: [ThreadContextAttachmentRecord]
     let onOpenSlashPicker: () -> Void
+    let onSelectStarterPrompt: (EvaStarterPrompt) -> Void
     let onSelectSuggestion: (SlashCommandDescriptor) -> Void
     let onCancelDraft: () -> Void
+    let onRemoveAttachment: (ThreadContextAttachmentRecord) -> Void
     let onGenerate: () -> Void
     let onStop: () -> Void
     let onSubmitPrompt: () -> Void
     let onClearCurrentThread: () -> Void
 
+    private var isActivationPresentation: Bool {
+        if case .activation = presentationMode {
+            return true
+        }
+        return false
+    }
+
+    private var activationConfiguration: EvaActivationChatConfiguration? {
+        guard case .activation(let config) = presentationMode else { return nil }
+        return config
+    }
+
+    private var hasActivationAssistantReply: Bool {
+        transcriptSnapshot.messages.contains { $0.role == .assistant }
+    }
+
+    private var headerTitle: String {
+        if currentThread == nil {
+            return isActivationPresentation ? "First win" : "Planning workspace"
+        }
+        return chatTitle
+    }
+
+    private var headerSubtitle: String {
+        if currentThread == nil {
+            return isActivationPresentation
+                ? "Start with something useful. Ask Eva to prioritize, plan, or break work down."
+                : "Ask, plan, then apply with confirmation."
+        }
+        return isActivationPresentation
+            ? "Private on-device planning assistant."
+            : "Keep context tight, use commands when you want structured help."
+    }
+
     var body: some View {
         NavigationStack {
             VStack(spacing: 0) {
-                ChatHeaderView(
-                    title: currentThread == nil ? "Planning workspace" : chatTitle,
-                    subtitle: currentThread == nil
-                        ? "Ask, plan, then apply with confirmation."
-                        : "Keep context tight, use commands when you want structured help.",
-                    onShowChats: {
-                        appManager.playHaptic()
-                        showChats.wrappedValue.toggle()
-                    },
-                    onShowSettings: {
-                        appManager.playHaptic()
-                        showSettings.wrappedValue.toggle()
-                    }
-                )
+                if isActivationPresentation == false {
+                    ChatHeaderView(
+                        title: headerTitle,
+                        subtitle: headerSubtitle,
+                        showsUtilityActions: activationConfiguration?.hideUtilityActions != true,
+                        onShowChats: {
+                            appManager.playHaptic()
+                            showChats.wrappedValue.toggle()
+                        },
+                        onShowSettings: {
+                            appManager.playHaptic()
+                            showSettings.wrappedValue.toggle()
+                        }
+                    )
+                }
 
                 if transcriptSnapshot.threadID != nil {
                     ConversationView(
@@ -520,15 +773,22 @@ struct ChatScaffoldView: View {
                     )
                 } else {
                     ChatEmptyStateView(
+                        presentationMode: presentationMode,
+                        starterPrompts: starterPrompts,
                         commandSuggestions: commandSuggestions,
+                        onSelectStarterPrompt: onSelectStarterPrompt,
                         onSelectSuggestion: onSelectSuggestion
                     )
                 }
 
                 HStack(alignment: .bottom, spacing: TaskerTheme.Spacing.md) {
-                    ChatModelPickerButton(isPresented: showModelPicker)
+                    if activationConfiguration?.hideUtilityActions != true {
+                        ChatModelPickerButton(isPresented: showModelPicker)
+                    }
                     ChatComposerView(
+                        presentationMode: presentationMode,
                         slashDraft: slashDraft.wrappedValue,
+                        activeAttachments: activeAttachments,
                         commandFeedback: commandFeedback,
                         hasCurrentThread: currentThread != nil,
                         prompt: prompt,
@@ -536,12 +796,16 @@ struct ChatScaffoldView: View {
                         isProjectFieldFocused: isProjectFieldFocused,
                         projectQuery: projectQuery,
                         commandSuggestions: commandSuggestions,
+                        starterPrompts: starterPrompts,
                         isGenerationInFlight: isGenerationInFlight,
                         canSubmit: canSubmit,
                         llmCancelled: llmCancelled,
+                        hasActivationAssistantReply: hasActivationAssistantReply,
                         onOpenSlashPicker: onOpenSlashPicker,
+                        onSelectStarterPrompt: onSelectStarterPrompt,
                         onSelectSuggestion: onSelectSuggestion,
                         onCancelDraft: onCancelDraft,
+                        onRemoveAttachment: onRemoveAttachment,
                         onGenerate: onGenerate,
                         onStop: onStop,
                         onSubmitPrompt: onSubmitPrompt
@@ -549,7 +813,7 @@ struct ChatScaffoldView: View {
                 }
                 .padding(.horizontal, TaskerTheme.Spacing.lg)
                 .padding(.bottom, TaskerTheme.Spacing.md)
-                .padding(.top, TaskerTheme.Spacing.sm)
+                .padding(.top, isActivationPresentation ? TaskerTheme.Spacing.xs : TaskerTheme.Spacing.sm)
                 .background(
                     Color.tasker(.bgCanvas)
                         .shadow(color: Color.tasker(.textPrimary).opacity(0.04), radius: 8, y: -4)

@@ -83,7 +83,8 @@ final class LLMModelRegistryTests: XCTestCase {
         let optiQBudget = LLMChatBudgets.active.resolved(for: try XCTUnwrap(ModelConfiguration.getModelByName(qwenOptiQName)))
 
         XCTAssertEqual(optiQBudget.maxPromptTokens, 1_920)
-        XCTAssertEqual(optiQBudget.maxContextTokens, 700)
+        XCTAssertEqual(optiQBudget.maxContextTokens, 520)
+        XCTAssertEqual(optiQBudget.executiveContextTokens, 180)
         XCTAssertGreaterThan(optiQBudget.maxPromptTokens, ModelConfiguration.defaultModel.tokenBudget.inputTokens)
     }
 
@@ -347,7 +348,7 @@ final class LLMModelRegistryTests: XCTestCase {
         XCTAssertTrue(combined.contains("LATEST TURN MUST SURVIVE"))
     }
 
-    func testPromptHistoryWithRecapPreservesRecapAndComposedSystemTailSections() {
+    func testPromptHistoryDoesNotInjectRecapEvenForFullStrategy() {
         V2FeatureFlags.llmChatContextStrategy = .full
         let thread = To_Do_List.Thread()
         for index in 0..<10 {
@@ -364,6 +365,7 @@ final class LLMModelRegistryTests: XCTestCase {
             basePrompt: String(repeating: "base ", count: 250),
             model: ModelConfiguration.defaultModel,
             personalMemory: "Personal memory marker survives",
+            executiveContext: "Executive marker survives",
             slashContext: "Slash marker survives",
             taskContext: "Task marker survives"
         )
@@ -374,10 +376,13 @@ final class LLMModelRegistryTests: XCTestCase {
         )
 
         XCTAssertEqual(history.first?["role"], "system")
-        XCTAssertEqual(history.dropFirst().first?["role"], "system")
+        XCTAssertGreaterThan(history.count, 1)
+        XCTAssertNotEqual(history.dropFirst().first?["role"], "system")
         XCTAssertTrue(history.first?["content"]?.contains("Personal memory marker survives") == true)
+        XCTAssertTrue(history.first?["content"]?.contains("Executive marker survives") == true)
         XCTAssertTrue(history.first?["content"]?.contains("Slash marker survives") == true)
         XCTAssertTrue(history.first?["content"]?.contains("Task marker survives") == true)
+        XCTAssertFalse(history.dropFirst().contains(where: { ($0["content"] ?? "").contains("Earlier context recap") }))
     }
 
     func testSystemPromptComposerPreservesTaskContextUnderOverflow() {
@@ -387,12 +392,14 @@ final class LLMModelRegistryTests: XCTestCase {
             model: model,
             additionalInstruction: String(repeating: "instruction ", count: 400),
             personalMemory: String(repeating: "memory ", count: 400),
+            executiveContext: "Executive marker survives",
             slashContext: "Slash marker survives",
             taskContext: "Task marker survives"
         )
 
         XCTAssertTrue(prompt.contains("Task marker survives"))
         XCTAssertTrue(prompt.contains("Slash marker survives"))
+        XCTAssertTrue(prompt.contains("Executive marker survives"))
         XCTAssertLessThanOrEqual(
             LLMTokenBudgetEstimator.estimatedTokenCount(for: prompt),
             model.tokenBudget.inputTokens
@@ -403,6 +410,12 @@ final class LLMModelRegistryTests: XCTestCase {
         let migrated = AppManager.migratedBuiltInSystemPrompt(
             "You are Eva, a clever personal assistant. Keep tasks and priorities aligned. Be brief, clear, and helpful. Use simple markdown, short lists, and casual dates. Use only provided context. Do not invent details."
         )
+
+        XCTAssertEqual(migrated, AppManager.defaultSystemPrompt)
+    }
+
+    func testPromptMigrationUpdatesPreviousBuiltInDefaultPrompt() {
+        let migrated = AppManager.migratedBuiltInSystemPrompt(AppManager.previousDefaultSystemPrompt)
 
         XCTAssertEqual(migrated, AppManager.defaultSystemPrompt)
     }

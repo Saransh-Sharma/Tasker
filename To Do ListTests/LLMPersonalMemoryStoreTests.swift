@@ -1,4 +1,5 @@
 import XCTest
+import MLXLMCommon
 @testable import To_Do_List
 
 final class LLMPersonalMemoryStoreTests: XCTestCase {
@@ -36,7 +37,50 @@ final class LLMPersonalMemoryStoreTests: XCTestCase {
         let migrated = LLMPersonalMemoryDefaultsStore.load(defaults: defaults, secureStore: secureStore)
 
         XCTAssertEqual(migrated, legacyStore)
-        XCTAssertNil(defaults.data(forKey: LLMPersonalMemoryDefaultsStore.key))
         XCTAssertEqual(secureStore.loadData(), legacyData)
+        XCTAssertNil(defaults.data(forKey: LLMPersonalMemoryDefaultsStore.key))
+    }
+
+    func testStableMemoryCompilerBuildsExecutiveSections() {
+        let store = LLMPersonalMemoryStoreV1(
+            preferences: [
+                LLMPersonalMemoryEntry(text: "Prefer concise answers"),
+                LLMPersonalMemoryEntry(text: "Prioritize ruthlessly")
+            ],
+            routines: [
+                LLMPersonalMemoryEntry(text: "Energy drops after lunch"),
+                LLMPersonalMemoryEntry(text: "Starting is the hardest part")
+            ],
+            currentGoals: [
+                LLMPersonalMemoryEntry(text: "Ship the weekly review flow")
+            ]
+        )
+
+        let block = EvaStableMemoryCompiler.promptBlock(from: store, model: .defaultModel)
+
+        XCTAssertEqual(
+            block,
+            """
+            User memory:
+            Working style: Prefer concise answers; Prioritize ruthlessly
+            Routines and blockers: Energy drops after lunch; Starting is the hardest part
+            Current goals: Ship the weekly review flow
+            """
+        )
+    }
+
+    func testStableMemoryCompilerTrimsToPersonalMemoryBudget() {
+        let store = LLMPersonalMemoryStoreV1(
+            preferences: (0..<6).map { LLMPersonalMemoryEntry(text: "Preference \($0) " + String(repeating: "x", count: 120)) },
+            routines: [],
+            currentGoals: []
+        )
+
+        let block = EvaStableMemoryCompiler.promptBlock(from: store, model: .defaultModel)
+        let tokenCount = LLMTokenBudgetEstimator.estimatedTokenCount(for: block ?? "")
+
+        XCTAssertNotNil(block)
+        XCTAssertTrue(block?.contains("Preference 0") == true)
+        XCTAssertLessThanOrEqual(tokenCount, ModelConfiguration.defaultModel.tokenBudget.personalMemoryTokens)
     }
 }

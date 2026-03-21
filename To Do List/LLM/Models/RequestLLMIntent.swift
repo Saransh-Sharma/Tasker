@@ -43,36 +43,27 @@ struct RequestLLMIntent: AppIntent {
         let llm = LLMRuntimeCoordinator.shared.evaluator
         let appManager = AppManager()
         let thread = Thread()
-        
-        if prompt.isEmpty {
+
+        let trimmedPrompt = prompt.trimmingCharacters(in: .whitespacesAndNewlines)
+        if trimmedPrompt.isEmpty {
             throw $prompt.needsValueError(IntentDialog(stringLiteral: "chat"))
         }
 
-        let trimmedPrompt = prompt.trimmingCharacters(in: .whitespacesAndNewlines)
         var immediateResponse: String?
         switch SlashCommandCatalog.parse(trimmedPrompt) {
         case .invocation(var invocation):
             switch invocation.id {
             case .clear:
                 immediateResponse = "The /clear command is only available in the in-app chat."
-            case .project:
-                let query = invocation.projectQuery?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-                guard query.isEmpty == false else {
-                    immediateResponse = "/project needs a project name."
-                    break
-                }
-                invocation.projectName = query
-                if let service = SlashCommandExecutionService.makeDefault() {
-                    do {
-                        let result = try await service.execute(invocation: invocation)
-                        immediateResponse = formatShortcutCommandResult(result)
-                    } catch {
-                        immediateResponse = (error as? LocalizedError)?.errorDescription ?? "Unable to run command right now."
-                    }
-                } else {
-                    immediateResponse = "Task context is unavailable right now."
-                }
             default:
+                if invocation.id.requiresArgument {
+                    let query = invocation.argumentQuery?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+                    guard query.isEmpty == false else {
+                        immediateResponse = "\(invocation.id.canonicalCommand) needs a name."
+                        break
+                    }
+                    invocation.resolvedArgument = query
+                }
                 if let service = SlashCommandExecutionService.makeDefault() {
                     do {
                         let result = try await service.execute(invocation: invocation)
@@ -85,9 +76,9 @@ struct RequestLLMIntent: AppIntent {
                 }
             }
         case .missingRequiredArgument(let commandID, _):
-            immediateResponse = "\(commandID.canonicalCommand) needs a project name."
+            immediateResponse = "\(commandID.canonicalCommand) needs a name."
         case .unknown(let command):
-            immediateResponse = "Unknown command \(command). Try /today, /tomorrow, /week, /month, /project, or /clear."
+            immediateResponse = "Unknown command \(command). Try /today, /tomorrow, /week, /month, /project, /area, /recent, or /overdue."
         case .notCommand:
             break
         }
@@ -120,11 +111,17 @@ struct RequestLLMIntent: AppIntent {
                     maxTasksPerSlice: LLMChatBudgets.active.maxProjectionTasksPerSlice,
                     compactTaskPayload: V2FeatureFlags.llmChatContextStrategy == .bounded
                 ),
-                query: prompt,
+                query: trimmedPrompt,
                 budgets: LLMChatBudgets.active,
                 model: runtimeModel,
                 contextCharBudgetOverride: LLMTokenBudgetEstimator.estimatedCharacterBudget(
                     for: resolvedBudget.maxContextTokens
+                )
+            )
+            let executiveContext = await buildExecutiveContextPrompt(
+                timeoutMs: 800,
+                maxChars: LLMTokenBudgetEstimator.estimatedCharacterBudget(
+                    for: resolvedBudget.executiveContextTokens
                 )
             )
             let composedSystemPrompt = LLMSystemPromptComposer.compose(
@@ -132,10 +129,11 @@ struct RequestLLMIntent: AppIntent {
                 model: runtimeModel,
                 additionalInstruction: systemPrompt,
                 personalMemory: LLMPersonalMemoryDefaultsStore.promptBlock(for: runtimeModel),
+                executiveContext: executiveContext,
                 taskContext: contextResult.payload
             )
             
-            let message = Message(role: .user, content: prompt, thread: thread)
+            let message = Message(role: .user, content: trimmedPrompt, thread: thread)
             thread.messages.append(message)
             let requestOptions = LLMGenerationRequestOptions.interactiveChat(for: runtimeModel)
             var output = await llm.generate(
@@ -165,6 +163,18 @@ struct RequestLLMIntent: AppIntent {
             let error = "no model is currently selected. open the app and select a model first."
             return .result(value: error, dialog: "\(error)")
         }
+    }
+
+    private func buildExecutiveContextPrompt(timeoutMs: UInt64, maxChars: Int) async -> String? {
+        guard let service = EvaExecutiveContextService.makeDefault() else { return nil }
+        let result = await LLMProjectionTimeout.execute(timeoutMs: timeoutMs) {
+            let snapshot = await service.buildSnapshot(maxChars: maxChars)
+            return snapshot.promptBlock
+        }
+        guard result.timedOut == false else { return nil }
+        let trimmed = result.payload.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard trimmed.isEmpty == false, trimmed != "{}" else { return nil }
+        return trimmed
     }
 
     private func formatShortcutCommandResult(_ result: SlashCommandExecutionResult) -> String {

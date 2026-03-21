@@ -18,6 +18,7 @@ struct LLMTokenBudget {
     let reservedOutputTokens: Int
     let systemPromptTokens: Int
     let personalMemoryTokens: Int
+    let executiveContextTokens: Int
     let taskContextTokens: Int
     let slashContextTokens: Int
     let historyMessageLimit: Int
@@ -73,7 +74,7 @@ struct LLMChatBudgets {
         contextCacheTTLms: 0,
         outputMinUpdateIntervalMs: 100,
         outputTokenStride: 32,
-        includeRecapMessage: true
+        includeRecapMessage: false
     )
 
     static var active: LLMChatBudgets {
@@ -118,6 +119,10 @@ struct LLMResolvedChatBudget {
         model.tokenBudget.personalMemoryTokens
     }
 
+    var executiveContextTokens: Int {
+        model.tokenBudget.executiveContextTokens
+    }
+
     var slashContextTokens: Int {
         model.tokenBudget.slashContextTokens
     }
@@ -139,6 +144,7 @@ enum LLMSystemPromptComposer {
         model: ModelConfiguration,
         additionalInstruction: String? = nil,
         personalMemory: String? = nil,
+        executiveContext: String? = nil,
         slashContext: String? = nil,
         taskContext: String? = nil
     ) -> String {
@@ -153,6 +159,7 @@ enum LLMSystemPromptComposer {
         ]
 
         let reservedTailTokens = model.tokenBudget.personalMemoryTokens
+            + model.tokenBudget.executiveContextTokens
             + model.tokenBudget.slashContextTokens
             + model.tokenBudget.taskContextTokens
         let remainingForAdditional = max(
@@ -185,10 +192,19 @@ enum LLMSystemPromptComposer {
         sections.append(
             PromptSection(
                 content: LLMTokenBudgetEstimator.trimPrefix(
+                    (executiveContext ?? "").trimmingCharacters(in: .whitespacesAndNewlines),
+                    toTokenBudget: model.tokenBudget.executiveContextTokens
+                ),
+                trimPriority: 2
+            )
+        )
+        sections.append(
+            PromptSection(
+                content: LLMTokenBudgetEstimator.trimPrefix(
                     (slashContext ?? "").trimmingCharacters(in: .whitespacesAndNewlines),
                     toTokenBudget: model.tokenBudget.slashContextTokens
                 ),
-                trimPriority: 2
+                trimPriority: 3
             )
         )
         sections.append(
@@ -197,7 +213,7 @@ enum LLMSystemPromptComposer {
                     (taskContext ?? "").trimmingCharacters(in: .whitespacesAndNewlines),
                     toTokenBudget: model.tokenBudget.taskContextTokens
                 ),
-                trimPriority: 3
+                trimPriority: 5
             )
         )
 
@@ -327,7 +343,8 @@ public extension ModelConfiguration {
                     reservedOutputTokens: 448,
                     systemPromptTokens: 220,
                     personalMemoryTokens: 120,
-                    taskContextTokens: 520,
+                    executiveContextTokens: 160,
+                    taskContextTokens: 360,
                     slashContextTokens: 180,
                     historyMessageLimit: 8
                 ),
@@ -360,7 +377,8 @@ public extension ModelConfiguration {
                     reservedOutputTokens: 512,
                     systemPromptTokens: 240,
                     personalMemoryTokens: 140,
-                    taskContextTokens: 700,
+                    executiveContextTokens: 180,
+                    taskContextTokens: 520,
                     slashContextTokens: 220,
                     historyMessageLimit: 8
                 ),
@@ -393,7 +411,8 @@ public extension ModelConfiguration {
                     reservedOutputTokens: 512,
                     systemPromptTokens: 240,
                     personalMemoryTokens: 140,
-                    taskContextTokens: 700,
+                    executiveContextTokens: 180,
+                    taskContextTokens: 520,
                     slashContextTokens: 220,
                     historyMessageLimit: 8
                 ),
@@ -426,7 +445,8 @@ public extension ModelConfiguration {
                     reservedOutputTokens: 512,
                     systemPromptTokens: 240,
                     personalMemoryTokens: 140,
-                    taskContextTokens: 700,
+                    executiveContextTokens: 180,
+                    taskContextTokens: 520,
                     slashContextTokens: 220,
                     historyMessageLimit: 8
                 ),
@@ -459,7 +479,8 @@ public extension ModelConfiguration {
                     reservedOutputTokens: 448,
                     systemPromptTokens: 220,
                     personalMemoryTokens: 120,
-                    taskContextTokens: 520,
+                    executiveContextTokens: 160,
+                    taskContextTokens: 360,
                     slashContextTokens: 180,
                     historyMessageLimit: 8
                 ),
