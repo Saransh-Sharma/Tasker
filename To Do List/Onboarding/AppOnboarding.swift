@@ -2515,6 +2515,7 @@ struct AppOnboardingJourneyView: View {
             hasPlayedSuccess = true
             feedbackController.successSignature()
         }
+        .accessibilityElement(children: .contain)
         .accessibilityIdentifier(AppOnboardingAccessibilityID.flow)
     }
 
@@ -2894,24 +2895,14 @@ struct AppOnboardingJourneyView: View {
 
     private func successView(summary: AppOnboardingSummary) -> some View {
         VStack(alignment: .leading, spacing: spacing.sectionGap) {
-            OnboardingSuccessHero(completedTaskTitle: summary.completedTaskTitle)
+            OnboardingSuccessHero()
                 .accessibilityIdentifier(AppOnboardingAccessibilityID.success)
 
-            LazyVGrid(
-                columns: [GridItem(.flexible(minimum: 120), spacing: spacing.s12), GridItem(.flexible(minimum: 120), spacing: spacing.s12)],
-                spacing: spacing.s12
-            ) {
-                OnboardingMetricCard(value: "\(summary.lifeAreaCount)", label: "areas")
-                OnboardingMetricCard(value: "\(summary.projectCount)", label: "projects")
-                OnboardingMetricCard(
-                    value: "\(summary.completedTaskCount)",
-                    label: summary.completedTaskCount == 1 ? "win" : "wins"
-                )
-                OnboardingMetricCard(
-                    value: summary.nextTaskTitle == nil ? "Ready" : "Next",
-                    label: summary.nextTaskTitle ?? "next step"
-                )
-            }
+            OnboardingSuccessSummaryCard(
+                areaNames: viewModel.resolvedLifeAreas.map(\.lifeArea.name),
+                projectNames: viewModel.resolvedProjects.map(\.project.name),
+                completedTaskTitle: summary.completedTaskTitle
+            )
 
             if viewModel.reminderPromptState != .hidden {
                 OnboardingReminderCard(
@@ -4162,19 +4153,18 @@ private struct OnboardingFocusTimer: View {
 }
 
 private struct OnboardingSuccessHero: View {
-    let completedTaskTitle: String?
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var pulse = false
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
+        VStack(alignment: .leading, spacing: 14) {
             HStack {
                 ZStack {
                     Circle()
                         .fill(OnboardingTheme.success.opacity(pulse ? 0.18 : 0.12))
-                        .frame(width: 74, height: 74)
+                        .frame(width: 68, height: 68)
                     Image(systemName: "checkmark")
-                        .font(.system(size: 28, weight: .bold))
+                        .font(.system(size: 26, weight: .bold))
                         .foregroundStyle(OnboardingTheme.success)
                 }
                 Spacer()
@@ -4184,11 +4174,13 @@ private struct OnboardingSuccessHero: View {
                 .font(.tasker(.display))
                 .foregroundStyle(OnboardingTheme.textPrimary)
 
-            Text(completedTaskTitle.map { "You set up your first system and finished \"\($0)\". Tasker is ready." } ?? "You set up your first system and finished your first task. Tasker is ready.")
+            Text("You set up your first system, finished your first task, and now Tasker is ready to help you keep moving.")
                 .font(.tasker(.body))
                 .foregroundStyle(OnboardingTheme.textSecondary)
+                .lineLimit(3)
+                .fixedSize(horizontal: false, vertical: true)
         }
-        .padding(24)
+        .padding(22)
         .onboardingHeroPanel(cornerRadius: 32)
         .onAppear {
             guard reduceMotion == false else { return }
@@ -4199,27 +4191,85 @@ private struct OnboardingSuccessHero: View {
     }
 }
 
-private struct OnboardingMetricCard: View {
-    let value: String
-    let label: String
+private struct OnboardingSuccessSummaryCard: View {
+    let areaNames: [String]
+    let projectNames: [String]
+    let completedTaskTitle: String?
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text(value)
-                .font(.tasker(.title2))
+        VStack(alignment: .leading, spacing: 16) {
+            Text("What’s ready")
+                .font(.tasker(.headline))
                 .foregroundStyle(OnboardingTheme.textPrimary)
-            Text(label)
-                .font(.tasker(.caption1))
-                .foregroundStyle(OnboardingTheme.textSecondary)
-                .fixedSize(horizontal: false, vertical: true)
+
+            VStack(alignment: .leading, spacing: 0) {
+                OnboardingSuccessSummaryRow(
+                    label: "Areas",
+                    value: onboardingNaturalLanguageList(areaNames, fallback: "Your starting areas")
+                )
+
+                Divider()
+                    .overlay(OnboardingTheme.borderSoft)
+                    .padding(.vertical, 16)
+
+                OnboardingSuccessSummaryRow(
+                    label: "Projects",
+                    value: onboardingNaturalLanguageList(projectNames, fallback: "Your starting projects")
+                )
+
+                Divider()
+                    .overlay(OnboardingTheme.borderSoft)
+                    .padding(.vertical, 16)
+
+                OnboardingSuccessSummaryRow(
+                    label: "First win",
+                    value: completedTaskTitle ?? "Your first task"
+                )
+            }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(14)
+        .padding(20)
         .background(OnboardingTheme.surfaceElevated, in: RoundedRectangle(cornerRadius: 22, style: .continuous))
         .overlay(
             RoundedRectangle(cornerRadius: 22, style: .continuous)
                 .stroke(OnboardingTheme.borderSoft, lineWidth: 1)
         )
+    }
+}
+
+private struct OnboardingSuccessSummaryRow: View {
+    let label: String
+    let value: String
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(label)
+                .font(.tasker(.caption1))
+                .foregroundStyle(OnboardingTheme.textSecondary)
+            Text(value)
+                .font(.tasker(.bodyEmphasis))
+                .foregroundStyle(OnboardingTheme.textPrimary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+}
+
+private func onboardingNaturalLanguageList(_ items: [String], fallback: String) -> String {
+    let cleanedItems = items
+        .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+        .filter { $0.isEmpty == false }
+
+    switch cleanedItems.count {
+    case 0:
+        return fallback
+    case 1:
+        return cleanedItems[0]
+    case 2:
+        return "\(cleanedItems[0]) and \(cleanedItems[1])"
+    default:
+        let head = cleanedItems.dropLast().joined(separator: ", ")
+        return "\(head), and \(cleanedItems[cleanedItems.count - 1])"
     }
 }
 
