@@ -1,40 +1,6 @@
 import AppIntents
 import Foundation
 
-extension Notification.Name {
-    static let taskerEvaChatLaunchRequestDidChange = Notification.Name("TaskerEvaChatLaunchRequestDidChange")
-}
-
-struct EvaChatLaunchRequest: Equatable {
-    let id: UUID
-    let prompt: String?
-
-    init(id: UUID = UUID(), prompt: String?) {
-        let trimmedPrompt = prompt?.trimmingCharacters(in: .whitespacesAndNewlines)
-        self.id = id
-        self.prompt = trimmedPrompt?.isEmpty == false ? trimmedPrompt : nil
-    }
-}
-
-@MainActor
-final class EvaChatLaunchRequestStore {
-    static let shared = EvaChatLaunchRequestStore()
-
-    private(set) var pendingRequest: EvaChatLaunchRequest?
-
-    private init() {}
-
-    func submit(_ request: EvaChatLaunchRequest) {
-        pendingRequest = request
-        NotificationCenter.default.post(name: .taskerEvaChatLaunchRequestDidChange, object: nil)
-    }
-
-    func consumePendingRequest() -> EvaChatLaunchRequest? {
-        defer { pendingRequest = nil }
-        return pendingRequest
-    }
-}
-
 enum TaskerShortcutDeepLink {
     static func chatURL(prompt: String?) -> URL {
         var components = URLComponents()
@@ -67,11 +33,17 @@ enum TaskerShortcutDeepLink {
 
 enum TaskerShortcutRuntimeError: LocalizedError {
     case unavailable
+    case bootstrapFailed(String)
+    case handoffFailed(String)
 
     var errorDescription: String? {
         switch self {
         case .unavailable:
             return "Tasker shortcuts are unavailable until the app finishes loading."
+        case .bootstrapFailed(let message):
+            return message
+        case .handoffFailed(let message):
+            return message
         }
     }
 }
@@ -121,20 +93,58 @@ struct InboxTaskCaptureService {
     }
 }
 
+private struct HeadlessTaskerShortcutRuntime {
+    let projectRepository: ProjectRepositoryProtocol
+    let createTaskDefinitionUseCase: CreateTaskDefinitionUseCase
+}
+
 enum TaskerShortcutDependencyResolver {
-    static func coordinator() throws -> UseCaseCoordinator {
-        let container = PresentationDependencyContainer.shared
-        guard container.isConfiguredForRuntime else {
-            throw TaskerShortcutRuntimeError.unavailable
-        }
-        return container.coordinator
+    static func inboxTaskCaptureService() throws -> InboxTaskCaptureService {
+        let runtime = try headlessRuntime()
+        return InboxTaskCaptureService(
+            projectRepository: runtime.projectRepository,
+            createTaskDefinitionUseCase: runtime.createTaskDefinitionUseCase
+        )
     }
 
-    static func inboxTaskCaptureService() throws -> InboxTaskCaptureService {
-        let coordinator = try coordinator()
-        return InboxTaskCaptureService(
-            projectRepository: coordinator.projectRepository,
-            createTaskDefinitionUseCase: coordinator.createTaskDefinition
+    private static func headlessRuntime() throws -> HeadlessTaskerShortcutRuntime {
+        let bootstrapService = TaskerPersistentStoreBootstrapService()
+        let bootstrapResult = bootstrapService.bootstrapV3PersistentContainer()
+
+        guard case .ready(let container) = bootstrapResult.state else {
+            if case .failed(let message) = bootstrapResult.state {
+                throw TaskerShortcutRuntimeError.bootstrapFailed(message)
+            }
+            throw TaskerShortcutRuntimeError.unavailable
+        }
+
+        TaskerPersistentRuntimeInitializer().initialize(container: container)
+
+        let writeGate = SyncWriteGate(modeProvider: { bootstrapResult.syncMode })
+        let projectRepository = WriteClosedProjectRepositoryAdapter(
+            base: CoreDataProjectRepository(container: container),
+            gate: writeGate
+        )
+        let taskDefinitionRepository = WriteClosedTaskDefinitionRepositoryAdapter(
+            base: CoreDataTaskDefinitionRepository(container: container),
+            gate: writeGate
+        )
+        let taskTagLinkRepository = WriteClosedTaskTagLinkRepositoryAdapter(
+            base: CoreDataTaskTagLinkRepository(container: container),
+            gate: writeGate
+        )
+        let taskDependencyRepository = WriteClosedTaskDependencyRepositoryAdapter(
+            base: CoreDataTaskDependencyRepository(container: container),
+            gate: writeGate
+        )
+
+        return HeadlessTaskerShortcutRuntime(
+            projectRepository: projectRepository,
+            createTaskDefinitionUseCase: CreateTaskDefinitionUseCase(
+                repository: taskDefinitionRepository,
+                taskTagLinkRepository: taskTagLinkRepository,
+                taskDependencyRepository: taskDependencyRepository
+            )
         )
     }
 }
@@ -157,7 +167,6 @@ struct AddTaskIntent: AppIntent {
         }
     }
 
-    @MainActor
     func perform() async throws -> some IntentResult & ReturnsValue<String> & ProvidesDialog {
         let trimmedTitle = taskTitle.trimmingCharacters(in: .whitespacesAndNewlines)
         guard trimmedTitle.isEmpty == false else {
@@ -166,6 +175,17 @@ struct AddTaskIntent: AppIntent {
 
         let service = try TaskerShortcutDependencyResolver.inboxTaskCaptureService()
         let task = try await service.createTask(title: trimmedTitle, details: details)
+
+        do {
+            try ShortcutMutationSignalStore.shared.submitTaskCreated(taskID: task.id)
+        } catch {
+            throw TaskerShortcutRuntimeError.handoffFailed(
+                error.localizedDescription.isEmpty == false
+                    ? error.localizedDescription
+                    : "Tasker created the task but could not refresh the app."
+            )
+        }
+
         let confirmation = "Added \(task.title) to Inbox."
         return .result(value: task.title, dialog: IntentDialog(stringLiteral: confirmation))
     }
@@ -175,14 +195,24 @@ struct AddTaskIntent: AppIntent {
 struct OpenEvaChatIntent: AppIntent {
     static var title: LocalizedStringResource = "Ask Eva"
     static var description = IntentDescription("Opens Eva chat with your question prefilled.")
-    static var openAppWhenRun: Bool = false
+    static var openAppWhenRun: Bool = true
 
     @Parameter(title: "Question")
     var prompt: String?
 
-    func perform() async throws -> some IntentResult & OpensIntent {
-        let url = TaskerShortcutDeepLink.chatURL(prompt: prompt)
-        return .result(opensIntent: OpenURLIntent(url))
+    func perform() async throws -> some IntentResult {
+        do {
+            try PendingShortcutLaunchActionStore.shared.submit(
+                PendingShortcutLaunchAction(kind: .askEva, prompt: prompt)
+            )
+            return .result()
+        } catch {
+            throw TaskerShortcutRuntimeError.handoffFailed(
+                error.localizedDescription.isEmpty == false
+                    ? error.localizedDescription
+                    : "Tasker could not open Eva right now."
+            )
+        }
     }
 }
 
@@ -190,10 +220,21 @@ struct OpenEvaChatIntent: AppIntent {
 struct StartFocusSessionIntent: AppIntent {
     static var title: LocalizedStringResource = "Start Focus Session"
     static var description = IntentDescription("Starts a 25-minute focus session using your current focus lane.")
-    static var openAppWhenRun: Bool = false
+    static var openAppWhenRun: Bool = true
 
-    func perform() async throws -> some IntentResult & OpensIntent {
-        .result(opensIntent: OpenURLIntent(TaskerShortcutDeepLink.focusURL()))
+    func perform() async throws -> some IntentResult {
+        do {
+            try PendingShortcutLaunchActionStore.shared.submit(
+                PendingShortcutLaunchAction(kind: .startFocus)
+            )
+            return .result()
+        } catch {
+            throw TaskerShortcutRuntimeError.handoffFailed(
+                error.localizedDescription.isEmpty == false
+                    ? error.localizedDescription
+                    : "Tasker could not start focus right now."
+            )
+        }
     }
 }
 

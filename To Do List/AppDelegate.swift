@@ -93,9 +93,14 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
 
     private let occurrenceRefreshTaskIdentifier = "com.tasker.refresh.occurrences"
     private let remindersRefreshTaskIdentifier = "com.tasker.refresh.reminders"
+    private let persistentStoreLocationService = TaskerPersistentStoreLocationService()
+    private let persistentRuntimeInitializer = TaskerPersistentRuntimeInitializer()
+    private lazy var persistentStoreBootstrapService = TaskerPersistentStoreBootstrapService(
+        storeLocationService: persistentStoreLocationService
+    )
     private let expectedStoreConfigurations: Set<String> = ["CloudSync", "LocalOnly"]
     private let localOnlyConfiguration: Set<String> = ["LocalOnly"]
-    private let cloudKitContainerIdentifier = "iCloud.TaskerCloudKitV3"
+    private let cloudKitContainerIdentifier = TaskerPersistentStoreBootstrapService.defaultCloudKitContainerIdentifier
     private let v3StoreEpoch = 4
     private let orientationPolicyResolver = DeviceOrientationPolicyResolver()
     private var notificationOrchestrator: TaskNotificationOrchestrator?
@@ -771,66 +776,13 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
 
     /// Executes makeV3PersistentContainer.
     private func makeV3PersistentContainer() -> NSPersistentCloudKitContainer {
-        let container = NSPersistentCloudKitContainer(name: "TaskModelV3")
-        let cloudKitMode = cloudKitMirroringMode()
-
-        let baseURL = NSPersistentContainer.defaultDirectoryURL()
-        let cloudURL = baseURL.appendingPathComponent("TaskModelV3-cloud.sqlite")
-        let localURL = baseURL.appendingPathComponent("TaskModelV3-local.sqlite")
-
-        let cloudDescription = NSPersistentStoreDescription(url: cloudURL)
-        cloudDescription.configuration = "CloudSync"
-        if case .enabled = cloudKitMode {
-            cloudDescription.cloudKitContainerOptions = NSPersistentCloudKitContainerOptions(
-                containerIdentifier: cloudKitContainerIdentifier
-            )
-        } else {
-            logWarning(
-                event: "cloudkit_mirroring_disabled",
-                message: "CloudKit entitlement unavailable at runtime; using local Core Data store for CloudSync configuration",
-                fields: [
-                    "reason": cloudKitMode.reason,
-                    "configuration": "CloudSync"
-                ]
-            )
-        }
-        cloudDescription.setOption(true as NSNumber, forKey: NSPersistentHistoryTrackingKey)
-        cloudDescription.setOption(true as NSNumber, forKey: NSPersistentStoreRemoteChangeNotificationPostOptionKey)
-        cloudDescription.setOption(true as NSNumber, forKey: NSMigratePersistentStoresAutomaticallyOption)
-        cloudDescription.setOption(true as NSNumber, forKey: NSInferMappingModelAutomaticallyOption)
-
-        let localDescription = NSPersistentStoreDescription(url: localURL)
-        localDescription.configuration = "LocalOnly"
-        localDescription.setOption(true as NSNumber, forKey: NSPersistentHistoryTrackingKey)
-        localDescription.setOption(true as NSNumber, forKey: NSPersistentStoreRemoteChangeNotificationPostOptionKey)
-        localDescription.setOption(true as NSNumber, forKey: NSMigratePersistentStoresAutomaticallyOption)
-        localDescription.setOption(true as NSNumber, forKey: NSInferMappingModelAutomaticallyOption)
-
-        container.persistentStoreDescriptions = [cloudDescription, localDescription]
-        container.viewContext.automaticallyMergesChangesFromParent = true
-        container.viewContext.mergePolicy = NSMergeByPropertyObjectTrumpMergePolicy
-        return container
+        persistentStoreBootstrapService.makeV3PersistentContainer()
     }
 
     /// Executes makeV3LocalOnlyWriteClosedContainer.
     /// Creates a local-only runtime topology used for write-closed operation.
     private func makeV3LocalOnlyWriteClosedContainer() -> NSPersistentCloudKitContainer {
-        let container = NSPersistentCloudKitContainer(name: "TaskModelV3")
-
-        let baseURL = NSPersistentContainer.defaultDirectoryURL()
-        let localURL = baseURL.appendingPathComponent("TaskModelV3-local.sqlite")
-        let localDescription = NSPersistentStoreDescription(url: localURL)
-        localDescription.configuration = "LocalOnly"
-        localDescription.cloudKitContainerOptions = nil
-        localDescription.setOption(true as NSNumber, forKey: NSPersistentHistoryTrackingKey)
-        localDescription.setOption(true as NSNumber, forKey: NSPersistentStoreRemoteChangeNotificationPostOptionKey)
-        localDescription.setOption(true as NSNumber, forKey: NSMigratePersistentStoresAutomaticallyOption)
-        localDescription.setOption(true as NSNumber, forKey: NSInferMappingModelAutomaticallyOption)
-
-        container.persistentStoreDescriptions = [localDescription]
-        container.viewContext.automaticallyMergesChangesFromParent = true
-        container.viewContext.mergePolicy = NSMergeByPropertyObjectTrumpMergePolicy
-        return container
+        persistentStoreBootstrapService.makeV3LocalOnlyWriteClosedContainer()
     }
 
     /// Executes cloudKitMirroringMode.
@@ -840,22 +792,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
     func cloudKitMirroringMode(
         context: CloudKitRuntimeContext = .current()
     ) -> CloudKitMirroringMode {
-        if context.environment["XCTestConfigurationFilePath"] != nil ||
-            context.environment["XCInjectBundleInto"] != nil {
-            return .disabled(reason: "xctest_runtime")
-        }
-
-        if context.isSimulator {
-            return .disabled(reason: "simulator_runtime")
-        }
-
-        #if DEBUG
-            if context.arguments.contains("-TASKER_DISABLE_CLOUDKIT") {
-                return .disabled(reason: "launch_arg_disable_cloudkit")
-            }
-        #endif
-
-        return .enabled
+        persistentStoreBootstrapService.cloudKitMirroringMode(context: context)
     }
 
     private func logCloudKitPreflightTelemetry() {
@@ -925,74 +862,12 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
 
     /// Executes bootstrapV3PersistentContainer.
     private func bootstrapV3PersistentContainer() -> PersistentBootstrapState {
-        let initialContainer = makeV3PersistentContainer()
-        let initialReport = loadPersistentStoresAndReport(container: initialContainer, phase: "initial")
-        let initialHealthy = initialReport.errors.isEmpty && hasExpectedConfigurations(initialReport)
-
-        if initialHealthy {
-            updatePersistentSyncMode(.fullSync, source: "bootstrap_initial")
+        let result = persistentStoreBootstrapService.bootstrapV3PersistentContainer()
+        updatePersistentSyncMode(result.syncMode, source: result.syncModeSource)
+        if result.shouldMarkStoreEpoch {
             markV3BootstrapEpochApplied()
-            return .ready(initialContainer)
         }
-
-        let missingConfigurations = expectedStoreConfigurations.subtracting(initialReport.loadedConfigurations)
-        logError(
-            event: "persistent_store_bootstrap_split_failed",
-            message: "Split CloudSync/LocalOnly bootstrap failed; entering write-closed fallback attempt",
-            fields: [
-                "loaded_configurations": initialReport.loadedConfigurations.sorted().joined(separator: ","),
-                "missing_configurations": missingConfigurations.sorted().joined(separator: ","),
-                "error_count": String(initialReport.errors.count),
-                "errors": initialReport.errors.map { "\($0.domain):\($0.code)" }.joined(separator: ", ")
-            ]
-        )
-
-        unloadPersistentStores(initialContainer)
-        let writeClosedContainer = makeV3LocalOnlyWriteClosedContainer()
-        let writeClosedReport = loadPersistentStoresAndReport(
-            container: writeClosedContainer,
-            phase: "write_closed_fallback"
-        )
-        let writeClosedHealthy = writeClosedReport.errors.isEmpty && hasLocalOnlyConfiguration(writeClosedReport)
-        if writeClosedHealthy {
-            let fallbackReason = makeWriteClosedReason(
-                initialReport: initialReport,
-                missingConfigurations: missingConfigurations
-            )
-            updatePersistentSyncMode(
-                .writeClosed(reason: fallbackReason),
-                source: "bootstrap_write_closed"
-            )
-            markV3BootstrapEpochApplied()
-            logWarning(
-                event: "persistent_sync_write_closed_enabled",
-                message: "CloudSync store unavailable; app launched in write-closed local-read mode",
-                fields: [
-                    "reason": fallbackReason,
-                    "loaded_configurations": writeClosedReport.loadedConfigurations.sorted().joined(separator: ",")
-                ]
-            )
-            return .ready(writeClosedContainer)
-        }
-
-        let failureMessage = "Tasker could not initialize local storage. Please relaunch the app or recover from iCloud."
-        updatePersistentSyncMode(
-            .writeClosed(reason: "persistent_store_unreadable"),
-            source: "bootstrap_failed"
-        )
-        logError(
-            event: "persistent_store_bootstrap_failed_unreadable",
-            message: "Persistent store bootstrap failed for split and write-closed fallback topologies",
-            fields: [
-                "initial_loaded_configurations": initialReport.loadedConfigurations.sorted().joined(separator: ","),
-                "initial_error_count": String(initialReport.errors.count),
-                "initial_errors": initialReport.errors.map { "\($0.domain):\($0.code)" }.joined(separator: ", "),
-                "fallback_loaded_configurations": writeClosedReport.loadedConfigurations.sorted().joined(separator: ","),
-                "fallback_error_count": String(writeClosedReport.errors.count),
-                "fallback_errors": writeClosedReport.errors.map { "\($0.domain):\($0.code)" }.joined(separator: ", ")
-            ]
-        )
-        return .failed(failureMessage)
+        return result.state
     }
 
     private func makeWriteClosedReason(
@@ -1183,110 +1058,23 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
 
     /// Executes wipeV3StoreFiles.
     private func wipeV3StoreFiles() {
-        let storeDir = NSPersistentContainer.defaultDirectoryURL()
-        let fileManager = FileManager.default
-        for fileName in allKnownCutoverStoreFileNames() {
-            let fileURL = storeDir.appendingPathComponent(fileName)
-            guard fileManager.fileExists(atPath: fileURL.path) else {
-                continue
-            }
-
-            do {
-                try fileManager.removeItem(at: fileURL)
-            } catch {
-                logWarning(
-                    event: "v3_store_file_delete_failed",
-                    message: "Failed to delete V3 cutover persistent store file",
-                    fields: [
-                        "file": fileName,
-                        "error": error.localizedDescription
-                    ]
-                )
-            }
-        }
+        persistentStoreLocationService.wipeKnownCutoverStoreFiles()
     }
 
     private func allKnownCutoverStoreFileNames() -> [String] {
-        return [
-            "TaskModelV2-cloud.sqlite",
-            "TaskModelV2-cloud.sqlite-wal",
-            "TaskModelV2-cloud.sqlite-shm",
-            "TaskModelV2-local.sqlite",
-            "TaskModelV2-local.sqlite-wal",
-            "TaskModelV2-local.sqlite-shm"
-        ] + v3SplitStoreFileNames() + [
-            // Cleanup of a previously introduced fallback topology.
-            "TaskModelV3-unified.sqlite",
-            "TaskModelV3-unified.sqlite-wal",
-            "TaskModelV3-unified.sqlite-shm"
-        ]
+        persistentStoreLocationService.allKnownCutoverStoreFileNames()
     }
 
     private func v3SplitStoreFileNames() -> [String] {
-        [
-            "TaskModelV3-cloud.sqlite",
-            "TaskModelV3-cloud.sqlite-wal",
-            "TaskModelV3-cloud.sqlite-shm",
-            "TaskModelV3-local.sqlite",
-            "TaskModelV3-local.sqlite-wal",
-            "TaskModelV3-local.sqlite-shm"
-        ]
+        persistentStoreLocationService.v3SplitStoreFileNames()
     }
 
     private func quarantineV3StoreFiles(reason: String) throws -> URL? {
-        let fileManager = FileManager.default
-        let storeDir = NSPersistentContainer.defaultDirectoryURL()
-        let storeURLs = v3SplitStoreFileNames().map { storeDir.appendingPathComponent($0) }
-        let existingURLs = storeURLs.filter { fileManager.fileExists(atPath: $0.path) }
-        guard existingURLs.isEmpty == false else {
-            return nil
-        }
-
-        let formatter = DateFormatter()
-        formatter.dateFormat = "yyyyMMdd-HHmmss"
-        formatter.timeZone = TimeZone(secondsFromGMT: 0)
-        let timestamp = formatter.string(from: Date())
-        let backupRoot = storeDir.appendingPathComponent("TaskerStoreQuarantine", isDirectory: true)
-        let reasonComponent = sanitizePathComponent(reason)
-        let backupDirectory = backupRoot.appendingPathComponent("\(timestamp)-\(reasonComponent)", isDirectory: true)
-
-        try fileManager.createDirectory(at: backupDirectory, withIntermediateDirectories: true)
-        for sourceURL in existingURLs {
-            let destinationURL = backupDirectory.appendingPathComponent(sourceURL.lastPathComponent)
-            try fileManager.moveItem(at: sourceURL, to: destinationURL)
-        }
-
-        return backupDirectory
+        try persistentStoreLocationService.quarantineActiveV3StoreFiles(reason: reason)
     }
 
     private func clearActiveV3SplitStoreFiles() {
-        let fileManager = FileManager.default
-        let storeDir = NSPersistentContainer.defaultDirectoryURL()
-        for fileName in v3SplitStoreFileNames() {
-            let fileURL = storeDir.appendingPathComponent(fileName)
-            guard fileManager.fileExists(atPath: fileURL.path) else { continue }
-            do {
-                try fileManager.removeItem(at: fileURL)
-            } catch {
-                logWarning(
-                    event: "v3_store_clear_after_quarantine_failed",
-                    message: "Failed to clear active V3 split store file after quarantine",
-                    fields: [
-                        "file": fileName,
-                        "error": error.localizedDescription
-                    ]
-                )
-            }
-        }
-    }
-
-    private func sanitizePathComponent(_ rawValue: String) -> String {
-        let result = rawValue.replacingOccurrences(
-            of: "[^A-Za-z0-9_-]",
-            with: "_",
-            options: .regularExpression
-        )
-        return result.isEmpty ? "reason" : result
+        persistentStoreLocationService.clearActiveV3StoreFiles()
     }
 
     /// Executes clearLegacyV1PreferenceKeys.
@@ -1303,154 +1091,10 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
 
     /// Executes ensureV3Defaults.
     private func ensureV3Defaults() {
-        guard let context = persistentContainer?.viewContext else {
+        guard let container = persistentContainer else {
             return
         }
-        context.performAndWait {
-            do {
-                let repairReport = try LifeAreaIdentityRepair.repair(in: context)
-                if repairReport.merged > 0 || repairReport.normalized > 0 {
-                    logWarning(
-                        event: "life_area_identity_repair_applied",
-                        message: "Repaired duplicate or malformed life area rows during startup defaults",
-                        fields: [
-                            "scanned": String(repairReport.scanned),
-                            "normalized": String(repairReport.normalized),
-                            "merged": String(repairReport.merged),
-                            "duplicate_groups": String(repairReport.duplicateGroups),
-                            "repointed_projects": String(repairReport.repointedProjects),
-                            "repointed_tasks": String(repairReport.repointedTasks),
-                            "repointed_habits": String(repairReport.repointedHabits)
-                        ]
-                    )
-                }
-
-                let lifeArea: NSManagedObject
-                let normalizedGeneralKey = LifeAreaIdentityRepair.normalizedNameKey("General")
-                if let canonicalGeneralID = repairReport.canonicalIDsByNormalizedName[normalizedGeneralKey],
-                   let existing = try fetchLifeArea(id: canonicalGeneralID, in: context) {
-                    lifeArea = existing
-                } else if let existing = try fetchGeneralLifeArea(in: context) {
-                    lifeArea = existing
-                } else {
-                    let created = NSEntityDescription.insertNewObject(forEntityName: "LifeArea", into: context)
-                    created.setValue(UUID(), forKey: "id")
-                    created.setValue("General", forKey: "name")
-                    created.setValue(LifeAreaConstants.generalSeedColor, forKey: "color")
-                    created.setValue("square.grid.2x2", forKey: "icon")
-                    created.setValue(Int32(0), forKey: "sortOrder")
-                    created.setValue(false, forKey: "isArchived")
-                    created.setValue(Date(), forKey: "createdAt")
-                    created.setValue(Date(), forKey: "updatedAt")
-                    created.setValue(Int32(1), forKey: "version")
-                    lifeArea = created
-                }
-
-                let inboxRequest = NSFetchRequest<NSManagedObject>(entityName: "Project")
-                inboxRequest.predicate = NSCompoundPredicate(orPredicateWithSubpredicates: [
-                    NSPredicate(format: "id == %@", ProjectConstants.inboxProjectID as CVarArg),
-                    NSPredicate(format: "isInbox == YES"),
-                    NSPredicate(format: "isDefault == YES"),
-                    NSPredicate(format: "name ==[c] %@", ProjectConstants.inboxProjectName)
-                ])
-                inboxRequest.fetchLimit = 1
-                let inbox = try context.fetch(inboxRequest).first ?? NSEntityDescription.insertNewObject(forEntityName: "Project", into: context)
-                inbox.setValue(ProjectConstants.inboxProjectID, forKey: "id")
-                inbox.setValue(lifeArea.value(forKey: "id") as? UUID, forKey: "lifeAreaID")
-                inbox.setValue(ProjectConstants.inboxProjectName, forKey: "name")
-                inbox.setValue(ProjectConstants.inboxProjectDescription, forKey: "projectDescription")
-                inbox.setValue(true, forKey: "isInbox")
-                inbox.setValue(true, forKey: "isDefault")
-                inbox.setValue(false, forKey: "isArchived")
-                inbox.setValue(false, forKey: "isFavorite")
-                inbox.setValue("gray", forKey: "color")
-                inbox.setValue("inbox", forKey: "icon")
-                inbox.setValue("active", forKey: "status")
-                inbox.setValue(Int32(1), forKey: "priority")
-                if inbox.value(forKey: "createdDate") == nil {
-                    inbox.setValue(Date(), forKey: "createdDate")
-                }
-                inbox.setValue(Date(), forKey: "modifiedDate")
-                inbox.setValue(Date(), forKey: "updatedAt")
-
-                try backfillTaskLifeAreaIDsIfNeeded(in: context)
-
-                if context.hasChanges {
-                    try context.save()
-                }
-            } catch {
-                logError(
-                    event: "v3_default_seed_failed",
-                    message: "Failed to seed V3 default life area/inbox",
-                    fields: ["error": error.localizedDescription]
-                )
-            }
-        }
-    }
-
-    /// Executes fetchGeneralLifeArea.
-    private func fetchGeneralLifeArea(in context: NSManagedObjectContext) throws -> NSManagedObject? {
-        let request = NSFetchRequest<NSManagedObject>(entityName: "LifeArea")
-        request.predicate = NSPredicate(format: "name ==[c] %@", "General")
-        request.fetchLimit = 1
-        return try context.fetch(request).first
-    }
-
-    /// Executes fetchLifeArea.
-    private func fetchLifeArea(id: UUID, in context: NSManagedObjectContext) throws -> NSManagedObject? {
-        let request = NSFetchRequest<NSManagedObject>(entityName: "LifeArea")
-        request.predicate = NSPredicate(format: "id == %@", id as CVarArg)
-        request.fetchLimit = 1
-        return try context.fetch(request).first
-    }
-
-    /// Executes backfillTaskLifeAreaIDsIfNeeded.
-    private func backfillTaskLifeAreaIDsIfNeeded(in context: NSManagedObjectContext) throws {
-        guard
-            let taskEntity = NSEntityDescription.entity(forEntityName: "TaskDefinition", in: context),
-            taskEntity.attributesByName["lifeAreaID"] != nil
-        else {
-            return
-        }
-
-        let projectRequest = NSFetchRequest<NSManagedObject>(entityName: "Project")
-        let projects = try context.fetch(projectRequest)
-        var lifeAreaByProjectID: [UUID: UUID] = [:]
-        for project in projects {
-            let projectID = project.value(forKey: "id") as? UUID
-            let lifeAreaID = project.value(forKey: "lifeAreaID") as? UUID
-            if let projectID, let lifeAreaID {
-                lifeAreaByProjectID[projectID] = lifeAreaID
-            }
-        }
-
-        guard lifeAreaByProjectID.isEmpty == false else {
-            return
-        }
-
-        let taskRequest = NSFetchRequest<NSManagedObject>(entityName: "TaskDefinition")
-        taskRequest.predicate = NSPredicate(format: "lifeAreaID == nil")
-        let tasks = try context.fetch(taskRequest)
-
-        var updated = 0
-        for task in tasks {
-            guard
-                let projectID = task.value(forKey: "projectID") as? UUID,
-                let lifeAreaID = lifeAreaByProjectID[projectID]
-            else {
-                continue
-            }
-            task.setValue(lifeAreaID, forKey: "lifeAreaID")
-            updated += 1
-        }
-
-        if updated > 0 {
-            logWarning(
-                event: "task_life_area_backfill_applied",
-                message: "Backfilled TaskDefinition.lifeAreaID from project linkage",
-                fields: ["updated_count": String(updated)]
-            )
-        }
+        persistentRuntimeInitializer.initialize(container: container)
     }
 
     /// Executes registerBackgroundTasks.

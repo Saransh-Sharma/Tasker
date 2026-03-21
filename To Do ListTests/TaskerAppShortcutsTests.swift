@@ -1,3 +1,4 @@
+import CoreData
 import XCTest
 @testable import To_Do_List
 
@@ -16,15 +17,239 @@ final class TaskerShortcutDeepLinkTests: XCTestCase {
         XCTAssertEqual(url.absoluteString, "tasker://chat")
         XCTAssertNil(TaskerShortcutDeepLink.chatPrompt(from: url))
     }
+}
 
-    func testChatLaunchRequestStoreConsumesPendingRequest() async {
+final class ShortcutHandoffStoreTests: XCTestCase {
+    private var defaults: UserDefaults!
+    private var suiteName: String!
+
+    override func setUp() {
+        super.setUp()
+        suiteName = "TaskerShortcutTests.\(UUID().uuidString)"
+        defaults = UserDefaults(suiteName: suiteName)
+        defaults.removePersistentDomain(forName: suiteName)
+    }
+
+    override func tearDown() {
+        defaults.removePersistentDomain(forName: suiteName)
+        defaults = nil
+        suiteName = nil
+        super.tearDown()
+    }
+
+    func testChatLaunchRequestStoreConsumesPendingRequest() throws {
         let request = EvaChatLaunchRequest(prompt: "Plan my day")
+        let store = EvaChatLaunchRequestStore(defaults: defaults)
 
-        await MainActor.run {
-            EvaChatLaunchRequestStore.shared.submit(request)
-            XCTAssertEqual(EvaChatLaunchRequestStore.shared.consumePendingRequest(), request)
-            XCTAssertNil(EvaChatLaunchRequestStore.shared.consumePendingRequest())
+        try store.submit(request)
+
+        XCTAssertEqual(store.consumePendingRequest(), request)
+        XCTAssertNil(store.consumePendingRequest())
+    }
+
+    func testPendingShortcutLaunchActionStoreConsumesPendingAction() throws {
+        let action = PendingShortcutLaunchAction(kind: .askEva, prompt: "Map my day")
+        let store = PendingShortcutLaunchActionStore(defaults: defaults)
+
+        try store.submit(action)
+
+        XCTAssertEqual(store.consumePendingAction(), action)
+        XCTAssertNil(store.consumePendingAction())
+    }
+
+    func testPendingShortcutLaunchActionStoreRejectsStaleAction() throws {
+        let now = Date()
+        let store = PendingShortcutLaunchActionStore(defaults: defaults, now: { now })
+        let staleAction = PendingShortcutLaunchAction(
+            kind: .startFocus,
+            createdAt: now.addingTimeInterval(-601)
+        )
+
+        try store.submit(staleAction)
+
+        XCTAssertNil(store.consumePendingAction())
+    }
+
+    func testMutationSignalStoreConsumesPendingSignal() throws {
+        let taskID = UUID()
+        let store = ShortcutMutationSignalStore(defaults: defaults)
+
+        try store.submitTaskCreated(taskID: taskID)
+
+        let signal = store.consumePendingSignal()
+        XCTAssertEqual(signal?.kind, .taskCreated)
+        XCTAssertEqual(signal?.taskID, taskID)
+        XCTAssertNil(store.consumePendingSignal())
+    }
+}
+
+final class PersistentStoreLocationServiceTests: XCTestCase {
+    private var fileManager: FileManager!
+    private var rootURL: URL!
+    private var appGroupURL: URL!
+    private var legacyURL: URL!
+
+    override func setUpWithError() throws {
+        try super.setUpWithError()
+        fileManager = FileManager.default
+        rootURL = fileManager.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
+        appGroupURL = rootURL.appendingPathComponent("app-group", isDirectory: true)
+        legacyURL = rootURL.appendingPathComponent("legacy", isDirectory: true)
+        try fileManager.createDirectory(at: appGroupURL, withIntermediateDirectories: true, attributes: nil)
+        try fileManager.createDirectory(at: legacyURL, withIntermediateDirectories: true, attributes: nil)
+    }
+
+    override func tearDownWithError() throws {
+        if let rootURL, fileManager.fileExists(atPath: rootURL.path) {
+            try fileManager.removeItem(at: rootURL)
         }
+        fileManager = nil
+        appGroupURL = nil
+        legacyURL = nil
+        rootURL = nil
+        try super.tearDownWithError()
+    }
+
+    func testResolvedStoreLocationPrefersAppGroupContainer() {
+        let service = makeService()
+
+        let location = service.resolvedV3StoreLocation()
+
+        XCTAssertEqual(location.canonicalDirectoryURL.standardizedFileURL, appGroupURL.standardizedFileURL)
+        XCTAssertEqual(location.legacyDirectoryURL.standardizedFileURL, legacyURL.standardizedFileURL)
+        XCTAssertEqual(
+            location.cloudStoreURL,
+            appGroupURL.appendingPathComponent(TaskerPersistentStoreLocationService.cloudStoreFileName)
+        )
+        XCTAssertEqual(
+            location.localStoreURL,
+            appGroupURL.appendingPathComponent(TaskerPersistentStoreLocationService.localStoreFileName)
+        )
+        XCTAssertTrue(location.usesSharedAppGroupStore)
+    }
+
+    func testPrepareSharedStoreLocationMigratesLegacySplitStoreFiles() throws {
+        let service = makeService()
+        let legacyFileNames = service.v3SplitStoreFileNames()
+        try legacyFileNames.forEach { fileName in
+            let fileURL = legacyURL.appendingPathComponent(fileName)
+            XCTAssertTrue(fileManager.createFile(atPath: fileURL.path, contents: Data(fileName.utf8)))
+        }
+
+        let result = try service.prepareSharedStoreLocationForBootstrap()
+
+        XCTAssertTrue(result.didMigrateLegacyStore)
+        XCTAssertFalse(result.detectedStoreConflict)
+        XCTAssertEqual(result.migratedFileNames, legacyFileNames.sorted())
+        for fileName in legacyFileNames {
+            XCTAssertFalse(fileManager.fileExists(atPath: legacyURL.appendingPathComponent(fileName).path))
+            XCTAssertTrue(fileManager.fileExists(atPath: appGroupURL.appendingPathComponent(fileName).path))
+        }
+    }
+
+    func testPrepareSharedStoreLocationSkipsMigrationWhenCanonicalStoreAlreadyExists() throws {
+        let service = makeService()
+        let canonicalCloudURL = appGroupURL.appendingPathComponent(TaskerPersistentStoreLocationService.cloudStoreFileName)
+        let legacyCloudURL = legacyURL.appendingPathComponent(TaskerPersistentStoreLocationService.cloudStoreFileName)
+        XCTAssertTrue(fileManager.createFile(atPath: canonicalCloudURL.path, contents: Data("canonical".utf8)))
+        XCTAssertTrue(fileManager.createFile(atPath: legacyCloudURL.path, contents: Data("legacy".utf8)))
+
+        let result = try service.prepareSharedStoreLocationForBootstrap()
+
+        XCTAssertFalse(result.didMigrateLegacyStore)
+        XCTAssertTrue(result.detectedStoreConflict)
+        XCTAssertTrue(fileManager.fileExists(atPath: canonicalCloudURL.path))
+        XCTAssertTrue(fileManager.fileExists(atPath: legacyCloudURL.path))
+    }
+
+    private func makeService() -> TaskerPersistentStoreLocationService {
+        TaskerPersistentStoreLocationService(
+            fileManager: fileManager,
+            appGroupContainerURLProvider: { [appGroupURL] in appGroupURL },
+            legacyStoreDirectoryURLProvider: { [legacyURL] in
+                guard let legacyURL else {
+                    fatalError("Legacy URL missing during test setup")
+                }
+                return legacyURL
+            }
+        )
+    }
+}
+
+final class PersistentRuntimeInitializerTests: XCTestCase {
+    func testInitializerSeedsInboxAndBackfillsTaskLifeArea() throws {
+        let container = try makeInMemoryContainer()
+        let context = container.viewContext
+
+        let lifeAreaID = UUID()
+        let projectID = UUID()
+        let taskID = UUID()
+        let seededLifeArea = NSEntityDescription.insertNewObject(forEntityName: "LifeArea", into: context)
+        seededLifeArea.setValue(lifeAreaID, forKey: "id")
+        seededLifeArea.setValue("Work", forKey: "name")
+        seededLifeArea.setValue(Date(), forKey: "createdAt")
+        seededLifeArea.setValue(Date(), forKey: "updatedAt")
+
+        let project = NSEntityDescription.insertNewObject(forEntityName: "Project", into: context)
+        project.setValue(projectID, forKey: "id")
+        project.setValue("Deep Work", forKey: "name")
+        project.setValue(lifeAreaID, forKey: "lifeAreaID")
+        project.setValue(Date(), forKey: "createdDate")
+        project.setValue(Date(), forKey: "modifiedDate")
+        project.setValue(Date(), forKey: "updatedAt")
+
+        let task = NSEntityDescription.insertNewObject(forEntityName: "TaskDefinition", into: context)
+        task.setValue(taskID, forKey: "id")
+        task.setValue("Finish shared store fix", forKey: "title")
+        task.setValue(projectID, forKey: "projectID")
+        task.setValue(Date(), forKey: "createdAt")
+        task.setValue(Date(), forKey: "updatedAt")
+
+        try context.save()
+
+        let initializer = TaskerPersistentRuntimeInitializer()
+        initializer.initialize(container: container)
+        initializer.initialize(container: container)
+
+        let lifeAreaRequest = NSFetchRequest<NSManagedObject>(entityName: "LifeArea")
+        lifeAreaRequest.predicate = NSPredicate(format: "name ==[c] %@", "General")
+        XCTAssertEqual(try context.count(for: lifeAreaRequest), 1)
+
+        let inboxRequest = NSFetchRequest<NSManagedObject>(entityName: "Project")
+        inboxRequest.predicate = NSPredicate(format: "id == %@", ProjectConstants.inboxProjectID as CVarArg)
+        XCTAssertEqual(try context.count(for: inboxRequest), 1)
+
+        let taskRequest = NSFetchRequest<NSManagedObject>(entityName: "TaskDefinition")
+        taskRequest.predicate = NSPredicate(format: "id == %@", taskID as CVarArg)
+        let updatedTask = try XCTUnwrap(context.fetch(taskRequest).first)
+        XCTAssertEqual(updatedTask.value(forKey: "lifeAreaID") as? UUID, lifeAreaID)
+    }
+
+    private func makeInMemoryContainer() throws -> NSPersistentCloudKitContainer {
+        let bundles = [Bundle.main, Bundle(for: type(of: self))]
+        guard let model = NSManagedObjectModel.mergedModel(from: bundles),
+              model.entitiesByName["TaskDefinition"] != nil else {
+            throw NSError(
+                domain: "PersistentRuntimeInitializerTests",
+                code: 1,
+                userInfo: [NSLocalizedDescriptionKey: "Unable to load TaskModelV3 from test bundles"]
+            )
+        }
+
+        let container = NSPersistentCloudKitContainer(name: "TaskModelV3", managedObjectModel: model)
+        let description = NSPersistentStoreDescription()
+        description.type = NSInMemoryStoreType
+        description.shouldAddStoreAsynchronously = false
+        container.persistentStoreDescriptions = [description]
+
+        var loadError: Error?
+        container.loadPersistentStores { _, error in
+            loadError = error
+        }
+        if let loadError {
+            throw loadError
+        }
+        return container
     }
 }
 
