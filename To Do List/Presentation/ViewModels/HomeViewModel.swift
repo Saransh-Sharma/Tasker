@@ -1551,6 +1551,16 @@ public final class HomeViewModel: ObservableObject {
         }
     }
 
+    public func fetchActiveFocusSession(
+        completion: @escaping (Result<FocusSessionDefinition?, Error>) -> Void
+    ) {
+        useCaseCoordinator.focusSession.fetchActiveSession { result in
+            DispatchQueue.main.async {
+                completion(result)
+            }
+        }
+    }
+
     public func completeDailyReflection(
         completion: @escaping (Result<XPEventResult, Error>) -> Void
     ) {

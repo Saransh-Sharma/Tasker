@@ -7,7 +7,7 @@ struct WeeklyScoreboardWidget: Widget {
     var body: some WidgetConfiguration {
         StaticConfiguration(kind: kind, provider: WeeklyScoreboardProvider()) { entry in
             WeeklyScoreboardWidgetView(entry: entry)
-                .containerBackground(WidgetBrand.canvas, for: .widget)
+                .modifier(TaskWidgetContainerBackgroundModifier(enabled: true))
         }
         .configurationDisplayName("Weekly XP")
         .description("View your XP for the week.")
@@ -43,7 +43,7 @@ struct WeeklyScoreboardWidgetView: View {
     }
 
     let entry: WeeklyScoreboardEntry
-    private let dayLabels = ["Mo", "Tu", "We", "Th", "Fr", "Sa", "Su"]
+    private let dayLabels = ["M", "T", "W", "T", "F", "S", "S"]
 
     private var personalMaxXP: Int {
         max(entry.snapshot.weeklyXP.max() ?? 1, 1)
@@ -81,51 +81,61 @@ struct WeeklyScoreboardWidgetView: View {
     }
 
     var body: some View {
-        VStack(spacing: 4) {
-            HStack {
-                Text("This Week")
-                    .font(.system(size: 11, weight: .medium))
-                    .foregroundStyle(WidgetBrand.textSecondary)
-                Spacer()
-                Text("Total: \(entry.snapshot.weeklyTotalXP)")
-                    .font(.system(size: 11, weight: .bold, design: .rounded))
-                    .foregroundStyle(WidgetBrand.textPrimary)
-            }
-
-            HStack(alignment: .bottom, spacing: 6) {
-                ForEach(0..<7, id: \.self) { index in
-                    let xp = index < entry.snapshot.weeklyXP.count ? entry.snapshot.weeklyXP[index] : 0
-                    VStack(spacing: 2) {
-                        GeometryReader { geo in
-                            VStack {
-                                Spacer()
-                                let height = xp > 0 ? max(4, geo.size.height * CGFloat(xp) / CGFloat(maxXP)) : 4
-                                RoundedRectangle(cornerRadius: 4, style: .continuous)
-                                    .fill(barColor(index: index))
-                                    .frame(height: height)
-                            }
-                        }
-                        Text(dayLabels[index])
-                            .font(.system(size: 9, weight: index == todayIndex ? .bold : .regular))
-                            .foregroundStyle(index == todayIndex ? WidgetBrand.textPrimary : WidgetBrand.textSecondary)
-                    }
-                    .accessibilityElement(children: .combine)
-                    .accessibilityLabel("\(dayLabels[index]) \(xp) XP")
-                    .accessibilityValue(xp > 0 ? "\(xp) XP" : "No XP")
-                    .accessibilityHint(index == todayIndex ? "Today" : (index > todayIndex ? "Future day" : "Past day"))
+        TaskWidgetScene { context in
+            HStack(alignment: .top, spacing: context.panelSpacing) {
+                VStack(alignment: .leading, spacing: context.sectionSpacing) {
+                    TaskWidgetSectionHeader(eyebrow: "XP", title: "This Week", detail: nil, accent: WidgetBrand.textPrimary)
+                    Text("\(entry.snapshot.weeklyTotalXP)")
+                        .font(TaskWidgetTypography.display)
+                        .foregroundStyle(WidgetBrand.magenta)
+                        .taskWidgetNumericTransition(Double(entry.snapshot.weeklyTotalXP), reduceMotion: context.reduceMotion)
+                    Text(scaleMode == .goal ? "Scaled to daily goal." : "Scaled to personal max.")
+                        .font(TaskWidgetTypography.body)
+                        .foregroundStyle(WidgetBrand.textSecondary)
+                        .lineLimit(2)
+                    Text(freshnessText)
+                        .font(TaskWidgetTypography.caption)
+                        .foregroundStyle(WidgetBrand.textSecondary)
+                    Spacer(minLength: 0)
                 }
-            }
-            .frame(height: 80)
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
 
-            HStack {
-                Text(scaleMode == .goal ? "Goal scale" : "Personal max")
-                    .font(.system(size: 9, weight: .medium))
-                    .foregroundStyle(WidgetBrand.textSecondary)
-                Spacer()
-                Text(freshnessText)
-                    .font(.system(size: 9, weight: .medium))
-                    .foregroundStyle(WidgetBrand.textSecondary)
+                VStack(alignment: .leading, spacing: 10) {
+                    TaskWidgetSectionHeader(eyebrow: "Week", title: "Scoreboard", detail: nil, accent: WidgetBrand.textPrimary)
+                    HStack(alignment: .bottom, spacing: 8) {
+                        ForEach(0..<7, id: \.self) { index in
+                            let xp = index < entry.snapshot.weeklyXP.count ? entry.snapshot.weeklyXP[index] : 0
+                            VStack(spacing: 6) {
+                                GeometryReader { geo in
+                                    VStack {
+                                        Spacer()
+                                        let height = xp > 0 ? max(6, geo.size.height * CGFloat(xp) / CGFloat(maxXP)) : 6
+                                        RoundedRectangle(cornerRadius: 6, style: .continuous)
+                                            .fill(barColor(index: index))
+                                            .frame(height: height)
+                                    }
+                                }
+                                .frame(maxWidth: .infinity)
+
+                                Text(dayLabels[index])
+                                    .font(TaskWidgetTypography.meta)
+                                    .foregroundStyle(index == todayIndex ? WidgetBrand.textPrimary : WidgetBrand.textSecondary)
+                                    .lineLimit(1)
+                                    .fixedSize(horizontal: true, vertical: false)
+                            }
+                            .frame(maxWidth: .infinity)
+                            .accessibilityElement(children: .combine)
+                            .accessibilityLabel("\(dayLabels[index]) \(xp) XP")
+                            .accessibilityHint(index == todayIndex ? "Today" : (index > todayIndex ? "Future day" : "Past day"))
+                        }
+                    }
+                    .frame(height: max(context.chartHeight, 114))
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                .padding(12)
+                .background(WidgetBrand.canvasSecondary.opacity(0.72), in: RoundedRectangle(cornerRadius: TaskerTheme.CornerRadius.card, style: .continuous))
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         }
         .accessibilityElement(children: .contain)
         .accessibilityLabel("Weekly XP total \(entry.snapshot.weeklyTotalXP). Scale \(scaleMode == .goal ? "goal" : "personal max"). \(freshnessText).")

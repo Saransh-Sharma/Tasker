@@ -56,6 +56,10 @@
 		470D7F96B8766217C5B2F698 /* AddTaskEnumPicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = F4AB324AE764BB56051B2AA8 /* AddTaskEnumPicker.swift */; };
 		47EE4E9B0C3B5EC21C43BED8 /* To Do List/UseCases/Sync/ReminderMergeEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9AE41E54BA355D96A678CBF7 /* To Do List/UseCases/Sync/ReminderMergeEngine.swift */; };
 		481A6828453BE977412FD2EB /* TaskerWidgets/NextMilestoneWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = 89676F376DC27DF3823AB623 /* TaskerWidgets/NextMilestoneWidget.swift */; };
+		B1C2D3E42F90000100AA1001 /* TaskWidgetFoundation.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1C2D3E72F90000100AA1001 /* TaskWidgetFoundation.swift */; };
+		B1C2D3E52F90000100AA1001 /* TaskWidgetHomeViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1C2D3E82F90000100AA1001 /* TaskWidgetHomeViews.swift */; };
+		B1C2D3E62F90000100AA1001 /* TaskWidgetAccessoryViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1C2D3E92F90000100AA1001 /* TaskWidgetAccessoryViews.swift */; };
+		B1C2D3EA2F90000100AA1001 /* TaskWidgetDesignSystemCompat.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1C2D3EB2F90000100AA1001 /* TaskWidgetDesignSystemCompat.swift */; };
 		F1A2B3C4D5E6F708192A3B4C /* TaskerWidgets/WidgetBrand.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1A2B3C4D5E6F708192A3B4D /* TaskerWidgets/WidgetBrand.swift */; };
 		4987E47C4FB2B55409BA424F /* SpacingElevationCornerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7ADDF7126AA32EF840CE257C /* SpacingElevationCornerTests.swift */; };
 		4B7CFEBE8C7C67CCB5E4E73C /* To Do List/Domain/Models/GamificationProfile.swift in Sources */ = {isa = PBXBuildFile; fileRef = A9ADCB5DB568A54708322C8E /* To Do List/Domain/Models/GamificationProfile.swift */; };
@@ -97,6 +101,8 @@
 		7509A01A2F13D806009162CD /* HomeViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7509A00D2F13D806009162CD /* HomeViewModel.swift */; };
 		7509A01B2F13D806009162CD /* PresentationDependencyContainer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7509A00A2F13D806009162CD /* PresentationDependencyContainer.swift */; };
 		7509A01C2F13D806009162CD /* ProjectManagementViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7509A00E2F13D806009162CD /* ProjectManagementViewModel.swift */; };
+		A1B2C3D42F90000100AA1001 /* TaskEditorSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D62F90000100AA1001 /* TaskEditorSection.swift */; };
+		A1B2C3D52F90000100AA1001 /* TaskEditorSectionCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D72F90000100AA1001 /* TaskEditorSectionCard.swift */; };
 		750F9EDC2685CC9F00C008C4 /* CloudKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 750F9EDB2685CC9F00C008C4 /* CloudKit.framework */; };
 		7513BA322687C40500F8CCE0 /* SettingsBackdrop.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7513BA312687C40500F8CCE0 /* SettingsBackdrop.swift */; };
 		7524B71B2DE4EAC90026D865 /* GoogleService-Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = 7524B71A2DE4EAC90026D865 /* GoogleService-Info.plist */; };
@@ -220,6 +226,8 @@
 		75F89F462DFC44E6009EDD8F /* ChatHostViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75F89F432DFC44E6009EDD8F /* ChatHostViewController.swift */; };
 		75F89F472DFC44E6009EDD8F /* OnboardingDownloadingModelProgressView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75F89F382DFC44E6009EDD8F /* OnboardingDownloadingModelProgressView.swift */; };
 		75F89F482DFC44E6009EDD8F /* RequestLLMIntent.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75F89F302DFC44E6009EDD8F /* RequestLLMIntent.swift */; };
+		F5A100012F6A200100ABC001 /* TaskerAppShortcuts.swift in Sources */ = {isa = PBXBuildFile; fileRef = F5A100002F6A200100ABC001 /* TaskerAppShortcuts.swift */; };
+		F5A100032F6A200100ABC001 /* TaskerAppShortcutsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F5A100022F6A200100ABC001 /* TaskerAppShortcutsTests.swift */; };
 		75F89F492DFC44E6009EDD8F /* Models.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75F89F2F2DFC44E6009EDD8F /* Models.swift */; };
 		75F89F4A2DFC44E6009EDD8F /* Data.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75F89F2C2DFC44E6009EDD8F /* Data.swift */; };
 		75F89F4B2DFC44E6009EDD8F /* OnboardingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75F89F3A2DFC44E6009EDD8F /* OnboardingView.swift */; };
@@ -571,6 +579,8 @@
 		7509A00C2F13D806009162CD /* AddTaskViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddTaskViewModel.swift; sourceTree = "<group>"; };
 		7509A00D2F13D806009162CD /* HomeViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeViewModel.swift; sourceTree = "<group>"; };
 		7509A00E2F13D806009162CD /* ProjectManagementViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProjectManagementViewModel.swift; sourceTree = "<group>"; };
+		A1B2C3D62F90000100AA1001 /* TaskEditorSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TaskEditorSection.swift; sourceTree = "<group>"; };
+		A1B2C3D72F90000100AA1001 /* TaskEditorSectionCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TaskEditorSectionCard.swift; sourceTree = "<group>"; };
 		750F9EDA2685CC9500C008C4 /* This Day.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = "This Day.entitlements"; sourceTree = "<group>"; };
 		750F9EDB2685CC9F00C008C4 /* CloudKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CloudKit.framework; path = System/Library/Frameworks/CloudKit.framework; sourceTree = SDKROOT; };
 		7513BA312687C40500F8CCE0 /* SettingsBackdrop.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsBackdrop.swift; sourceTree = "<group>"; };
@@ -598,6 +608,7 @@
 		B7C8D9E32F6A100100ABC123 /* Localizable.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = Localizable.xcstrings; sourceTree = "<group>"; };
 		753EFCB02445A24700A739E3 /* To Do ListTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "To Do ListTests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
 		753EFCB42445A24700A739E3 /* To_Do_ListTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = To_Do_ListTests.swift; sourceTree = "<group>"; };
+		F5A100022F6A200100ABC001 /* TaskerAppShortcutsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TaskerAppShortcutsTests.swift; sourceTree = "<group>"; };
 		753EFCB62445A24800A739E3 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		753EFCBB2445A24800A739E3 /* To Do ListUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "To Do ListUITests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
 		753EFCBF2445A24800A739E3 /* To_Do_ListUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = To_Do_ListUITests.swift; sourceTree = "<group>"; };
@@ -699,6 +710,7 @@
 		75F89F2E2DFC44E6009EDD8F /* LLMEvaluator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LLMEvaluator.swift; sourceTree = "<group>"; };
 		75F89F2F2DFC44E6009EDD8F /* Models.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Models.swift; sourceTree = "<group>"; };
 		75F89F302DFC44E6009EDD8F /* RequestLLMIntent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RequestLLMIntent.swift; sourceTree = "<group>"; };
+		F5A100002F6A200100ABC001 /* TaskerAppShortcuts.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TaskerAppShortcuts.swift; sourceTree = "<group>"; };
 		75F89F322DFC44E6009EDD8F /* ChatsListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatsListView.swift; sourceTree = "<group>"; };
 		75F89F332DFC44E6009EDD8F /* ChatView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatView.swift; sourceTree = "<group>"; };
 		75F89F342DFC44E6009EDD8F /* ConversationView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConversationView.swift; sourceTree = "<group>"; };
@@ -748,6 +760,10 @@
 		85F3DEB89B5BEB05F1972CA7 /* To Do List/Domain/Models/XPEvent.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "To Do List/Domain/Models/XPEvent.swift"; sourceTree = SOURCE_ROOT; };
 		88EAC5F41DAFB21D34E6790E /* To Do List/LLM/Models/LLMContextProjectionService.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "To Do List/LLM/Models/LLMContextProjectionService.swift"; sourceTree = SOURCE_ROOT; };
 		89676F376DC27DF3823AB623 /* TaskerWidgets/NextMilestoneWidget.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = TaskerWidgets/NextMilestoneWidget.swift; sourceTree = SOURCE_ROOT; };
+		B1C2D3E72F90000100AA1001 /* TaskWidgetFoundation.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = TaskerWidgets/TaskWidgetFoundation.swift; sourceTree = SOURCE_ROOT; };
+		B1C2D3E82F90000100AA1001 /* TaskWidgetHomeViews.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = TaskerWidgets/TaskWidgetHomeViews.swift; sourceTree = SOURCE_ROOT; };
+		B1C2D3E92F90000100AA1001 /* TaskWidgetAccessoryViews.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = TaskerWidgets/TaskWidgetAccessoryViews.swift; sourceTree = SOURCE_ROOT; };
+		B1C2D3EB2F90000100AA1001 /* TaskWidgetDesignSystemCompat.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = TaskerWidgets/TaskWidgetDesignSystemCompat.swift; sourceTree = SOURCE_ROOT; };
 		8AD631E2A2245F830BA92FA5 /* CoreDataProjectRepository.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = CoreDataProjectRepository.swift; path = "To Do List/State/Repositories/CoreDataProjectRepository.swift"; sourceTree = SOURCE_ROOT; };
 		8C72110A1F555F951D89BBEB /* CornerTokens.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = CornerTokens.swift; sourceTree = "<group>"; };
 		8D0FFCDBD5039DB8EE185B5E /* To Do List/Domain/Interfaces/ReminderRepositoryProtocol.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "To Do List/Domain/Interfaces/ReminderRepositoryProtocol.swift"; sourceTree = SOURCE_ROOT; };
@@ -1014,6 +1030,10 @@
 			isa = PBXGroup;
 			children = (
 				C1256A6FF63A60FC9D9E82C2 /* TaskerWidgets/TaskerWidgetBundle.swift */,
+				B1C2D3E72F90000100AA1001 /* TaskWidgetFoundation.swift */,
+				B1C2D3E82F90000100AA1001 /* TaskWidgetHomeViews.swift */,
+				B1C2D3E92F90000100AA1001 /* TaskWidgetAccessoryViews.swift */,
+				B1C2D3EB2F90000100AA1001 /* TaskWidgetDesignSystemCompat.swift */,
 				3A74DF0E9DCAEB8A8179F375 /* TaskerWidgets/TodayXPWidget.swift */,
 				B4599EE24B534345B7E5F063 /* TaskerWidgets/WeeklyScoreboardWidget.swift */,
 				89676F376DC27DF3823AB623 /* TaskerWidgets/NextMilestoneWidget.swift */,
@@ -1223,6 +1243,7 @@
 			isa = PBXGroup;
 			children = (
 				7509A00C2F13D806009162CD /* AddTaskViewModel.swift */,
+				A1B2C3D62F90000100AA1001 /* TaskEditorSection.swift */,
 				7509A00D2F13D806009162CD /* HomeViewModel.swift */,
 				A7B8C9D12F13D806009162CD /* TaskDetailViewModel.swift */,
 				7509A00E2F13D806009162CD /* ProjectManagementViewModel.swift */,
@@ -1368,6 +1389,7 @@
 			isa = PBXGroup;
 			children = (
 				753EFCB42445A24700A739E3 /* To_Do_ListTests.swift */,
+				F5A100022F6A200100ABC001 /* TaskerAppShortcutsTests.swift */,
 				A1C2D3E4F5A60718293B4C5C /* AssistantPlannerServiceTests.swift */,
 				A1F0D0B42F5A100100ABC001 /* AppOnboardingTests.swift */,
 				E0A100000000000000000302 /* EvaActivationTests.swift */,
@@ -1596,6 +1618,7 @@
 				C5A1D20E3F4B6789ABCDEF0A /* AddTaskTitleField.swift */,
 				C5A1D20E3F4B6789ABCDEF0B /* AddTaskXPPreview.swift */,
 				C5A1D20E3F4B6789ABCDEF0C /* Device+Notch.swift */,
+				A1B2C3D72F90000100AA1001 /* TaskEditorSectionCard.swift */,
 				1E3F56B4B6E3DA6111B5E513 /* AddTaskSecondaryDetailsSection.swift */,
 				464A3B785BB4CE8EB48AB804 /* AddTaskAdvancedPlanningSection.swift */,
 				EA9D6B0D45CD7BA946FCF6F3 /* AddTaskDatePresetRow.swift */,
@@ -1965,6 +1988,7 @@
 				C1A2B3C4D5E6F70011223347 /* LLMProjectionTimeout.swift */,
 				75F89F2F2DFC44E6009EDD8F /* Models.swift */,
 				75F89F302DFC44E6009EDD8F /* RequestLLMIntent.swift */,
+				F5A100002F6A200100ABC001 /* TaskerAppShortcuts.swift */,
 				75F89FB72DFC83EF009EDD8F /* PromptMiddleware.swift */,
 				7529F6F22DFDE9BC000CBE36 /* LLMDataController.swift */,
 				7529F7A92F5D0001000CBE36 /* LLMDebugSmokeRunner.swift */,
@@ -2453,6 +2477,21 @@
 			buildActionMask = 2147483647;
 			files = (
 				DCC82F690B379131E60A69DA /* TaskerWidgets/TaskerWidgetBundle.swift in Sources */,
+				7AF141A3F67EC19A0961D749 /* TaskerTokens.swift in Sources */,
+				A8F1D2015E9C44A100112233 /* TaskerLayoutContext.swift in Sources */,
+				DE2C698360236D910D116D07 /* TaskerTheme.swift in Sources */,
+				5F230AF6BB3D9F989C5A6418 /* ColorTokens.swift in Sources */,
+				4026F77624CAF2E20A59D057 /* TypographyTokens.swift in Sources */,
+				268BE6701AAC432C4DDDF880 /* SpacingTokens.swift in Sources */,
+				044ECC7C2F392E01E778DF95 /* ElevationTokens.swift in Sources */,
+				1ACBC36A38323DB2A8E4EC02 /* CornerTokens.swift in Sources */,
+				8B3CA34519B5A28D8599A5B0 /* SwiftUI+TokenAdapters.swift in Sources */,
+				F1A2B3C4D5E6F7A8B9C0D1E3 /* TaskerTheme+SwiftUI.swift in Sources */,
+				F1A2B3C4D5E6F7A8B9C0D1E5 /* TaskerAnimations.swift in Sources */,
+				B1C2D3E42F90000100AA1001 /* TaskWidgetFoundation.swift in Sources */,
+				B1C2D3E52F90000100AA1001 /* TaskWidgetHomeViews.swift in Sources */,
+				B1C2D3E62F90000100AA1001 /* TaskWidgetAccessoryViews.swift in Sources */,
+				B1C2D3EA2F90000100AA1001 /* TaskWidgetDesignSystemCompat.swift in Sources */,
 				CD83FC6E516299A8FB19F781 /* TaskerWidgets/TodayXPWidget.swift in Sources */,
 				7DDFA05C1E835A398268D1EF /* TaskerWidgets/WeeklyScoreboardWidget.swift in Sources */,
 				481A6828453BE977412FD2EB /* TaskerWidgets/NextMilestoneWidget.swift in Sources */,
@@ -2555,6 +2594,7 @@
 				75F89F472DFC44E6009EDD8F /* OnboardingDownloadingModelProgressView.swift in Sources */,
 				75E9299D2E8C5C2D00207270 /* UIImage+Resize.swift in Sources */,
 				75F89F482DFC44E6009EDD8F /* RequestLLMIntent.swift in Sources */,
+				F5A100012F6A200100ABC001 /* TaskerAppShortcuts.swift in Sources */,
 				75E929DF2E8C782100207270 /* ProjectEnums.swift in Sources */,
 				752A97622E93087300CFC576 /* RadarChartCard.swift in Sources */,
 				75E929E02E8C782100207270 /* TaskEnergy.swift in Sources */,
@@ -2587,6 +2627,7 @@
 				A6E1D4132F3C120100B1C2D3 /* TaskSemanticIndexStore.swift in Sources */,
 				A6E1D4152F3C120100B1C2D3 /* TaskSemanticRetrievalService.swift in Sources */,
 				A6E1D4172F3C120100B1C2D3 /* LLMGenerationProfile.swift in Sources */,
+				A1B2C3D42F90000100AA1001 /* TaskEditorSection.swift in Sources */,
 				C1A2B3C4D5E6F70011223344 /* LLMRuntimeCoordinator.swift in Sources */,
 				C1A2B3C4D5E6F70011223346 /* LLMProjectionTimeout.swift in Sources */,
 				75F89F4D2DFC44E6009EDD8F /* ChatsListView.swift in Sources */,
@@ -2703,6 +2744,7 @@
 				D6B2E31F4A5C7890BCDEF0AB /* AddTaskTitleField.swift in Sources */,
 				D6B2E31F4A5C7890BCDEF0BC /* AddTaskXPPreview.swift in Sources */,
 				D6B2E31F4A5C7890BCDEF0CD /* Device+Notch.swift in Sources */,
+				A1B2C3D52F90000100AA1001 /* TaskEditorSectionCard.swift in Sources */,
 				DF485C08DA03A3AC98CA4941 /* AddTaskSecondaryDetailsSection.swift in Sources */,
 				E22FFCA4100E738724F608E3 /* AddTaskAdvancedPlanningSection.swift in Sources */,
 				3F4C0EC2880374F5E1710E7F /* AddTaskDatePresetRow.swift in Sources */,
@@ -2833,6 +2875,7 @@
 				C1A2B3C4D5E6F70011223354 /* ChatTranscriptSnapshotTests.swift in Sources */,
 				C1A2B3C4D5E6F7001122334A /* LLMProjectionTimeoutTests.swift in Sources */,
 				753EFCB52445A24700A739E3 /* To_Do_ListTests.swift in Sources */,
+				F5A100032F6A200100ABC001 /* TaskerAppShortcutsTests.swift in Sources */,
 				0512DBCE948D6692B0F1857F /* TaskerThemeManagerTests.swift in Sources */,
 				27F1CA9185082A8916CE7149 /* ColorTokenGenerationTests.swift in Sources */,
 				3494FE9BF173433EE0791F1B /* TypographyTokenTests.swift in Sources */,

@@ -305,6 +305,7 @@ struct ChatView: View {
         }
         .onAppear {
             refreshTranscriptSnapshot()
+            consumePendingChatLaunchRequest()
             Task { @MainActor in
                 LLMRuntimeCoordinator.shared.acquireSession(reason: "chat_view")
                 if isActivationPresentation {
@@ -341,6 +342,9 @@ struct ChatView: View {
         .onReceive(NotificationCenter.default.publisher(for: Notification.Name("HomeTaskMutationEvent"))) { _ in
             invalidateContextCacheForCurrentThread()
         }
+        .onReceive(NotificationCenter.default.publisher(for: .taskerEvaChatLaunchRequestDidChange)) { _ in
+            consumePendingChatLaunchRequest()
+        }
         .toolbar {
             #if os(macOS)
             ToolbarItem(placement: .primaryAction) {
@@ -362,6 +366,17 @@ struct ChatView: View {
         isPromptFocused = true
         generate()
         #endif
+    }
+
+    @MainActor
+    private func consumePendingChatLaunchRequest() {
+        guard let request = EvaChatLaunchRequestStore.shared.consumePendingRequest() else { return }
+        slashDraft = nil
+        commandFeedback = nil
+        showSlashPicker = false
+        prompt = request.prompt ?? ""
+        isProjectFieldFocused = false
+        isPromptFocused = true
     }
 
     @MainActor

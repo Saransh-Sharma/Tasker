@@ -14,90 +14,47 @@ struct AddTaskSecondaryDetailsSection: View {
     @FocusState.Binding var descriptionFocused: Bool
     let onExpand: () -> Void
 
-    private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.currentTheme.tokens.spacing }
-    private var corner: TaskerCornerTokens { TaskerThemeManager.shared.currentTheme.tokens.corner }
-
     var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            // Disclosure header
-            Button {
-                TaskerFeedback.light()
-                withAnimation(TaskerAnimation.gentle) {
-                    viewModel.showMoreDetails.toggle()
-                }
-                if viewModel.showMoreDetails {
-                    onExpand()
-                }
-            } label: {
-                HStack {
-                    Image(systemName: "ellipsis.circle")
-                        .font(.system(size: 14, weight: .medium))
-                    Text("More details")
-                        .font(.tasker(.callout))
-                    Spacer()
-                    Image(systemName: "chevron.right")
-                        .font(.system(size: 12, weight: .medium))
-                        .rotationEffect(.degrees(viewModel.showMoreDetails ? 90 : 0))
-                        .scaleEffect(viewModel.showMoreDetails ? 1.0 : 0.9)
-                        .animation(TaskerAnimation.snappy, value: viewModel.showMoreDetails)
-                }
-                .foregroundColor(Color.tasker.textSecondary)
-                .padding(.vertical, spacing.s12)
+        TaskEditorSectionCard(
+            section: .organize,
+            summary: viewModel.organizeSummary,
+            isExpanded: viewModel.isSectionExpanded(.organize)
+        ) {
+            viewModel.toggleSection(.organize)
+            if viewModel.isSectionExpanded(.organize) {
+                onExpand()
             }
-            .buttonStyle(.plain)
+        } content: {
+            VStack(spacing: TaskerTheme.Spacing.sm) {
+                AddTaskDescriptionField(
+                    text: $viewModel.taskDetails,
+                    isFocused: $descriptionFocused
+                )
 
-            // Content
-            if viewModel.showMoreDetails {
-                VStack(spacing: spacing.s12) {
-                    // Description
-                    AddTaskDescriptionField(
-                        text: $viewModel.taskDetails,
-                        isFocused: $descriptionFocused
+                if !viewModel.lifeAreas.isEmpty {
+                    AddTaskEntityPicker(
+                        label: "Life Area",
+                        items: viewModel.lifeAreas.map { (id: $0.id, name: $0.name, icon: $0.icon) },
+                        selectedID: $viewModel.selectedLifeAreaID
                     )
-                    .enhancedStaggeredAppearance(index: 0)
-
-                    // Life Area selector
-                    if !viewModel.lifeAreas.isEmpty {
-                        AddTaskEntityPicker(
-                            label: "Life Area",
-                            items: viewModel.lifeAreas.map { (id: $0.id, name: $0.name, icon: $0.icon) },
-                            selectedID: $viewModel.selectedLifeAreaID
-                        )
-                        .enhancedStaggeredAppearance(index: 1)
-                    }
-
-                    // Section selector (scoped by project)
-                    if !viewModel.sections.isEmpty {
-                        AddTaskEntityPicker(
-                            label: "Section",
-                            items: viewModel.sections.map { (id: $0.id, name: $0.name, icon: nil as String?) },
-                            selectedID: $viewModel.selectedSectionID
-                        )
-                        .enhancedStaggeredAppearance(index: 2)
-                    }
-
-                    // Tags multi-select
-                    AddTaskTagMultiSelect(
-                        tags: viewModel.tags,
-                        selectedTagIDs: $viewModel.selectedTagIDs,
-                        onCreateTag: { name, completion in
-                            viewModel.createTag(name: name, completion: completion)
-                        }
-                    )
-                    .enhancedStaggeredAppearance(index: 3)
                 }
-                .padding(.top, spacing.s8)
-                .transition(.asymmetric(
-                    insertion: .opacity.combined(with: .move(edge: .top)),
-                    removal: .opacity
-                ))
+
+                if !viewModel.sections.isEmpty {
+                    AddTaskEntityPicker(
+                        label: "Section",
+                        items: viewModel.sections.map { (id: $0.id, name: $0.name, icon: nil as String?) },
+                        selectedID: $viewModel.selectedSectionID
+                    )
+                }
+
+                AddTaskTagMultiSelect(
+                    tags: viewModel.tags,
+                    selectedTagIDs: $viewModel.selectedTagIDs,
+                    onCreateTag: { name, completion in
+                        viewModel.createTag(name: name, completion: completion)
+                    }
+                )
             }
         }
-        .padding(.horizontal, spacing.s4)
-        .padding(.vertical, spacing.s4)
-        .background(
-            RoundedRectangle(cornerRadius: corner.r2)
-                .fill(Color.tasker.surfaceSecondary.opacity(0.5))
-        )
     }
 }

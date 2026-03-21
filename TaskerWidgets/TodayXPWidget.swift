@@ -7,7 +7,7 @@ struct TodayXPWidget: Widget {
     var body: some WidgetConfiguration {
         StaticConfiguration(kind: kind, provider: TodayXPProvider()) { entry in
             TodayXPWidgetView(entry: entry)
-                .containerBackground(WidgetBrand.canvas, for: .widget)
+                .modifier(TaskWidgetContainerBackgroundModifier(enabled: true))
         }
         .configurationDisplayName("Today's XP")
         .description("Track your daily XP progress.")
@@ -71,91 +71,96 @@ struct TodayXPWidgetView: View {
     }
 
     private var smallView: some View {
-        VStack(spacing: 6) {
-            xpRing(size: 56, lineWidth: 5)
-            Text("\(entry.snapshot.dailyXP)/\(entry.snapshot.dailyCap) XP")
-                .font(.system(size: 11, weight: .semibold, design: .rounded))
-                .foregroundStyle(WidgetBrand.textSecondary)
-            HStack(spacing: 2) {
-                Image(systemName: "flame.fill")
-                    .font(.system(size: 10))
-                    .foregroundStyle(WidgetBrand.marigold)
-                Text("\(entry.snapshot.streakDays) days")
-                    .font(.system(size: 10, weight: .medium, design: .rounded))
-                    .foregroundStyle(WidgetBrand.textSecondary)
+        TaskWidgetScene(alignment: .topLeading) { context in
+            VStack(alignment: .leading, spacing: context.sectionSpacing) {
+                TaskWidgetSectionHeader(eyebrow: "Today", title: "XP", detail: "L\(entry.snapshot.level)", accent: WidgetBrand.textPrimary)
+
+                Spacer(minLength: 0)
+
+                HStack(alignment: .center, spacing: 14) {
+                    xpRing(size: 82, lineWidth: 7, reduceMotion: context.reduceMotion)
+                        .frame(width: 82, height: 82)
+
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("\(entry.snapshot.dailyXP)")
+                            .font(TaskWidgetTypography.display)
+                            .foregroundStyle(WidgetBrand.textPrimary)
+                            .taskWidgetNumericTransition(Double(entry.snapshot.dailyXP), reduceMotion: context.reduceMotion)
+                        Text("/ \(entry.snapshot.dailyCap) XP")
+                            .font(TaskWidgetTypography.body)
+                            .foregroundStyle(WidgetBrand.textSecondary)
+                        TaskWidgetInlineMetadata(items: ["\(entry.snapshot.streakDays)d streak", freshnessText])
+                    }
+                }
+
+                Spacer(minLength: 0)
+
+                TaskWidgetProgressBar(
+                    progress: Double(progress),
+                    tint: entry.snapshot.dailyXP >= entry.snapshot.dailyCap ? WidgetBrand.emerald : WidgetBrand.magenta
+                )
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         }
         .accessibilityElement(children: .combine)
-        .accessibilityLabel(
-            "Today's XP \(entry.snapshot.dailyXP) of \(entry.snapshot.dailyCap). Level \(entry.snapshot.level). \(entry.snapshot.streakDays) day streak. \(freshnessText)."
-        )
+        .accessibilityLabel("Today's XP \(entry.snapshot.dailyXP) of \(entry.snapshot.dailyCap). Level \(entry.snapshot.level). \(entry.snapshot.streakDays) day streak. \(freshnessText).")
     }
 
     private var mediumView: some View {
-        VStack(spacing: 6) {
-            HStack(spacing: 12) {
-                xpRing(size: 56, lineWidth: 5)
-
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("Today")
-                        .font(.system(size: 11, weight: .medium))
+        TaskWidgetScene(alignment: .topLeading) { context in
+            VStack(alignment: .leading, spacing: context.sectionSpacing) {
+                HStack(alignment: .firstTextBaseline, spacing: 12) {
+                    TaskWidgetSectionHeader(eyebrow: "Today", title: "XP Arc", detail: nil, accent: WidgetBrand.textPrimary)
+                    Spacer(minLength: 0)
+                    Text(freshnessText)
+                        .font(TaskWidgetTypography.meta)
                         .foregroundStyle(WidgetBrand.textSecondary)
-                    HStack(spacing: 4) {
+                }
+
+                HStack(alignment: .center, spacing: 18) {
+                    xpRing(size: 104, lineWidth: 8, reduceMotion: context.reduceMotion)
+                        .frame(width: 104, height: 104)
+
+                    VStack(alignment: .leading, spacing: 10) {
                         Text("\(entry.snapshot.dailyXP)")
-                            .font(.system(size: 20, weight: .bold, design: .rounded))
+                            .font(TaskWidgetTypography.display)
                             .foregroundStyle(WidgetBrand.textPrimary)
+                            .taskWidgetNumericTransition(Double(entry.snapshot.dailyXP), reduceMotion: context.reduceMotion)
                         Text("/ \(entry.snapshot.dailyCap) XP")
-                            .font(.system(size: 11, weight: .medium))
+                            .font(TaskWidgetTypography.title)
                             .foregroundStyle(WidgetBrand.textSecondary)
+                        TaskWidgetProgressBar(
+                            progress: Double(progress),
+                            tint: entry.snapshot.dailyXP >= entry.snapshot.dailyCap ? WidgetBrand.emerald : WidgetBrand.magenta
+                        )
                     }
-                    ProgressView(value: progress)
-                        .tint(entry.snapshot.dailyXP >= entry.snapshot.dailyCap ? WidgetBrand.emerald : WidgetBrand.magenta)
+                    .frame(maxWidth: .infinity, alignment: .leading)
                 }
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
 
-                Spacer()
-
-                VStack(spacing: 4) {
-                    Text("L\(entry.snapshot.level)")
-                        .font(.system(size: 13, weight: .bold, design: .rounded))
-                        .foregroundStyle(WidgetBrand.canvasElevated)
-                        .frame(width: 28, height: 28)
-                        .background(WidgetBrand.actionPrimary, in: Capsule())
-                    HStack(spacing: 2) {
-                        Image(systemName: "flame.fill")
-                            .font(.system(size: 12))
-                            .foregroundStyle(WidgetBrand.marigold)
-                        Text("\(entry.snapshot.streakDays)")
-                            .font(.system(size: 11, weight: .semibold, design: .rounded))
-                            .foregroundStyle(WidgetBrand.textPrimary)
-                    }
+                TaskWidgetPanel(accent: WidgetBrand.magenta, style: .softSection, padding: 12) {
+                    TaskWidgetStatStrip(items: [
+                        TaskWidgetStatItem(title: "Level", value: "L\(entry.snapshot.level)", tint: WidgetBrand.textPrimary),
+                        TaskWidgetStatItem(title: "Streak", value: "\(entry.snapshot.streakDays)d", tint: WidgetBrand.marigold),
+                        TaskWidgetStatItem(title: "Focus", value: "\(entry.snapshot.focusMinutesToday)m", tint: WidgetBrand.magenta)
+                    ])
                 }
             }
-
-            HStack {
-                Spacer()
-                Text(freshnessText)
-                    .font(.system(size: 9, weight: .medium))
-                    .foregroundStyle(WidgetBrand.textSecondary)
-            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         }
         .accessibilityElement(children: .combine)
-        .accessibilityLabel(
-            "Today's XP \(entry.snapshot.dailyXP) of \(entry.snapshot.dailyCap). Level \(entry.snapshot.level). \(entry.snapshot.streakDays) day streak. \(freshnessText)."
-        )
+        .accessibilityLabel("Today's XP \(entry.snapshot.dailyXP) of \(entry.snapshot.dailyCap). Level \(entry.snapshot.level). \(entry.snapshot.streakDays) day streak. \(freshnessText).")
     }
 
-    private func xpRing(size: CGFloat, lineWidth: CGFloat) -> some View {
-        ZStack {
-            Circle()
-                .stroke(WidgetBrand.line, lineWidth: lineWidth)
-            Circle()
-                .trim(from: 0, to: progress)
-                .stroke(WidgetBrand.magenta, style: StrokeStyle(lineWidth: lineWidth, lineCap: .round))
-                .rotationEffect(.degrees(-90))
-            Text("\(entry.snapshot.dailyXP)")
-                .font(.system(size: size * 0.3, weight: .bold, design: .rounded))
-                .foregroundStyle(WidgetBrand.textPrimary)
-        }
+    private func xpRing(size: CGFloat, lineWidth: CGFloat, reduceMotion: Bool) -> some View {
+        TaskWidgetRing(
+            progress: progress,
+            lineWidth: lineWidth,
+            accent: WidgetBrand.magenta,
+            track: WidgetBrand.line,
+            centerText: "\(entry.snapshot.dailyXP)",
+            numericValue: reduceMotion ? nil : Double(entry.snapshot.dailyXP)
+        )
         .frame(width: size, height: size)
     }
 }

@@ -7,7 +7,7 @@ struct StreakResilienceWidget: Widget {
     var body: some WidgetConfiguration {
         StaticConfiguration(kind: kind, provider: StreakResilienceProvider()) { entry in
             StreakResilienceWidgetView(entry: entry)
-                .containerBackground(WidgetBrand.canvas, for: .widget)
+                .modifier(TaskWidgetContainerBackgroundModifier(enabled: true))
         }
         .configurationDisplayName("Streak")
         .description("Track your streak and best record.")
@@ -45,30 +45,37 @@ struct StreakResilienceWidgetView: View {
     }
 
     var body: some View {
-        VStack(spacing: 8) {
-            Image(systemName: "flame.fill")
-                .font(.system(size: 36))
-                .foregroundStyle(entry.snapshot.streakDays > 0 ? WidgetBrand.marigold : WidgetBrand.line)
+        TaskWidgetScene { context in
+            VStack(alignment: .leading, spacing: context.sectionSpacing) {
+                TaskWidgetSectionHeader(eyebrow: "Consistency", title: "Streak", detail: nil, accent: WidgetBrand.textPrimary)
 
-            Text("\(entry.snapshot.streakDays)")
-                .font(.system(size: 28, weight: .bold, design: .rounded))
-                .foregroundStyle(WidgetBrand.textPrimary)
-            Text("days")
-                .font(.system(size: 11, weight: .medium))
-                .foregroundStyle(WidgetBrand.textSecondary)
+                Spacer(minLength: 0)
 
-            VStack(spacing: 2) {
-                Text("Best: \(entry.snapshot.bestStreak) days")
-                    .font(.system(size: 10, weight: .medium))
-                    .foregroundStyle(WidgetBrand.textSecondary)
-                ProgressView(value: streakProgress)
-                    .tint(WidgetBrand.magenta)
+                HStack(alignment: .center, spacing: 14) {
+                    Image(systemName: "flame.fill")
+                        .widgetAccentedRenderingMode(.accented)
+                        .font(.system(size: 54, weight: .semibold, design: .rounded))
+                        .foregroundStyle(entry.snapshot.streakDays > 0 ? WidgetBrand.marigold : WidgetBrand.line)
+                        .widgetAccentable()
+
+                    VStack(alignment: .leading, spacing: 5) {
+                        Text("\(entry.snapshot.streakDays)")
+                            .font(TaskWidgetTypography.display)
+                            .foregroundStyle(WidgetBrand.textPrimary)
+                            .taskWidgetNumericTransition(Double(entry.snapshot.streakDays), reduceMotion: context.reduceMotion)
+                        Text("days active")
+                            .font(TaskWidgetTypography.support)
+                            .foregroundStyle(WidgetBrand.textSecondary)
+                        TaskWidgetInlineMetadata(items: ["Best \(entry.snapshot.bestStreak)", "Keep it alive"])
+                    }
+                }
+
+                TaskWidgetProgressBar(progress: Double(streakProgress), tint: WidgetBrand.magenta)
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         }
         .accessibilityElement(children: .combine)
-        .accessibilityLabel(
-            "Current streak \(entry.snapshot.streakDays) days. Best streak \(entry.snapshot.bestStreak) days."
-        )
+        .accessibilityLabel("Current streak \(entry.snapshot.streakDays) days. Best streak \(entry.snapshot.bestStreak) days.")
         .widgetURL(URL(string: "tasker://insights"))
     }
 }

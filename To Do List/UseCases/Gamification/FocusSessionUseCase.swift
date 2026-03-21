@@ -159,6 +159,27 @@ public final class FocusSessionUseCase {
         }
     }
 
+    public func fetchActiveSession(completion: @escaping (Result<FocusSessionDefinition?, Error>) -> Void) {
+        repository.fetchFocusSessions(from: .distantPast, to: Date().addingTimeInterval(1)) { [weak self] result in
+            switch result {
+            case .success(let sessions):
+                let activeSession = sessions
+                    .filter { $0.endedAt == nil }
+                    .sorted(by: { $0.startedAt > $1.startedAt })
+                    .first
+
+                if activeSession == nil,
+                   UserDefaults.standard.string(forKey: "focusSessionActiveID") != nil {
+                    self?.clearPersistedSession()
+                }
+
+                completion(.success(activeSession))
+            case .failure(let error):
+                completion(.failure(error))
+            }
+        }
+    }
+
     // MARK: - Query
 
     public func fetchTodaySessions(completion: @escaping (Result<[FocusSessionDefinition], Error>) -> Void) {

@@ -144,36 +144,37 @@ class TaskEditingTests: BaseUITest {
 
         waitForAnimations(duration: 1.0)
 
-        // Find due date picker or button
-        let dueDateButton = app.buttons.matching(NSPredicate(format: "label CONTAINS 'due' OR label CONTAINS 'date'")).firstMatch
+        let dueChip = app.buttons[AccessibilityIdentifiers.TaskDetail.dueChip]
+        XCTAssertTrue(dueChip.waitForExistence(timeout: 3), "Due date chip should exist in task detail")
+        let originalDueLabel = dueChip.label
 
-        if dueDateButton.exists {
-            dueDateButton.tap()
-            waitForAnimations(duration: 0.5)
+        dueChip.tap()
+        waitForAnimations(duration: 0.5)
 
-            // Look for date picker
-            let datePicker = app.datePickers.firstMatch
-            if datePicker.exists {
-                // Set to tomorrow
-                let tomorrow = TestDataFactory.tomorrow()
-                let formattedDate = TestDataFactory.formatDateForDisplay(tomorrow)
-                datePicker.adjust(toPickerWheelValue: formattedDate)
-            }
+        let customDateChip = app.buttons[AccessibilityIdentifiers.DatePickerSheet.customDateChip]
+        XCTAssertTrue(customDateChip.waitForExistence(timeout: 3), "Custom date chip should appear when editing due date")
+        XCTAssertTrue(customDateChip.isHittable, "Custom date chip should be tappable")
+        customDateChip.tap()
 
-            // Save
-            let saveButton = app.buttons["Save"]
-            if saveButton.exists {
-                saveButton.tap()
-            } else {
-                app.buttons["Done"].tap()
-            }
-        }
+        let datePickerSheet = app.otherElements[AccessibilityIdentifiers.DatePickerSheet.sheet]
+        XCTAssertTrue(datePickerSheet.waitForExistence(timeout: 3), "Due date picker sheet should appear")
+
+        let confirmButton = app.buttons[AccessibilityIdentifiers.DatePickerSheet.confirmButton]
+        XCTAssertTrue(confirmButton.waitForExistence(timeout: 3), "Set Date button should exist")
+        XCTAssertTrue(confirmButton.isHittable, "Set Date button should be visible without dragging or scrolling")
+
+        let graphicalCalendar = app.datePickers[AccessibilityIdentifiers.DatePickerSheet.calendar]
+        XCTAssertTrue(graphicalCalendar.waitForExistence(timeout: 3), "Graphical date picker should be visible")
+
+        selectVisibleFutureDate(in: datePickerSheet, preferredDate: TestDataFactory.tomorrow())
+        confirmButton.tap()
 
         // THEN: Due date should be updated
         waitForAnimations(duration: 1.0)
 
-        // Verify task still exists
-        XCTAssertTrue(homePage.verifyTaskExists(withTitle: "Task to Edit"), "Task should still exist with updated due date")
+        XCTAssertTrue(dueChip.waitForExistence(timeout: 3), "Due date chip should still exist after saving")
+        XCTAssertNotEqual(dueChip.label, originalDueLabel, "Due date chip should change after setting a date")
+        XCTAssertFalse(dueChip.label.localizedCaseInsensitiveContains("No due"), "Due date chip should show a concrete date")
 
         takeScreenshot(named: "edit_task_due_date")
     }
@@ -263,6 +264,29 @@ class TaskEditingTests: BaseUITest {
         XCTAssertTrue(homePage.verifyTaskExists(withTitle: "Task to Edit"), "Task should still exist with updated description")
 
         takeScreenshot(named: "edit_task_description")
+    }
+
+    private func selectVisibleFutureDate(in sheet: XCUIElement, preferredDate: Date) {
+        let candidateDates = [
+            preferredDate,
+            TestDataFactory.daysFromNow(2),
+            TestDataFactory.daysFromNow(3)
+        ]
+
+        for candidate in candidateDates {
+            let dayLabel = String(Calendar.current.component(.day, from: candidate))
+            let queries = [
+                sheet.buttons[dayLabel].firstMatch,
+                sheet.staticTexts[dayLabel].firstMatch,
+                app.buttons[dayLabel].firstMatch,
+                app.staticTexts[dayLabel].firstMatch
+            ]
+
+            if let element = queries.first(where: \.exists) {
+                element.tap()
+                return
+            }
+        }
     }
 
     // MARK: - Test 21: Edit Task Type (Morning to Evening)

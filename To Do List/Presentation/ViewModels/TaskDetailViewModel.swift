@@ -96,8 +96,7 @@ public final class TaskDetailViewModel: ObservableObject {
     @Published public var estimatedDuration: TimeInterval?
     @Published public var repeatPattern: TaskRepeatPattern?
 
-    @Published public var showMoreDetails: Bool = false
-    @Published public var showAdvancedDetails: Bool = false
+    @Published public var expandedSections: Set<TaskEditorSection>
     @Published public var autosaveState: TaskDetailAutosaveState = .idle
     @Published public var errorMessage: String?
     @Published public private(set) var aiBreakdownSteps: [String] = []
@@ -169,6 +168,7 @@ public final class TaskDetailViewModel: ObservableObject {
         self.estimatedDuration = task.estimatedDuration
         self.repeatPattern = task.repeatPattern
         self.displayProjectName = task.projectName ?? ProjectConstants.inboxProjectName
+        self.expandedSections = TaskDetailViewModel.autoExpandedSections(for: task)
 
         self.onUpdate = onUpdate
         self.onSetCompletion = onSetCompletion
@@ -200,6 +200,70 @@ public final class TaskDetailViewModel: ObservableObject {
         availableTasks.filter { $0.id != persistedTask.id }
     }
 
+    public var scheduleSummary: String {
+        var parts: [String] = []
+        if let dueDate {
+            parts.append(DateUtils.formatDate(dueDate))
+        } else {
+            parts.append("No due date")
+        }
+        if let reminderTime {
+            parts.append(Self.timeLabel(for: reminderTime))
+        }
+        if selectedType != .morning {
+            parts.append(selectedType.displayName)
+        }
+        if let repeatPattern {
+            parts.append(repeatPattern.displayName)
+        }
+        return parts.joined(separator: ", ")
+    }
+
+    public var organizeSummary: String {
+        var parts = [selectedProjectName]
+        if let selectedLifeAreaID,
+           let lifeArea = lifeAreas.first(where: { $0.id == selectedLifeAreaID }) {
+            parts.append(lifeArea.name)
+        }
+        if let selectedSectionID,
+           let section = sections.first(where: { $0.id == selectedSectionID }) {
+            parts.append(section.name)
+        }
+        if selectedTagIDs.isEmpty == false {
+            parts.append(selectedTagIDs.count == 1 ? "1 tag" : "\(selectedTagIDs.count) tags")
+        }
+        return parts.joined(separator: ", ")
+    }
+
+    public var executionSummary: String {
+        var parts = ["\(selectedPriority.displayName) priority"]
+        if let estimatedDuration {
+            parts.append(Self.durationLabel(for: estimatedDuration))
+        }
+        if selectedEnergy != .medium {
+            parts.append(selectedEnergy.displayName)
+        }
+        if selectedContext != .anywhere {
+            parts.append(selectedContext.displayName)
+        }
+        if selectedCategory != .general {
+            parts.append(selectedCategory.displayName)
+        }
+        return parts.joined(separator: ", ")
+    }
+
+    public var relationshipsSummary: String {
+        var parts: [String] = []
+        if let selectedParentTaskID,
+           let task = availableParentTasks.first(where: { $0.id == selectedParentTaskID }) {
+            parts.append("Parent: \(task.title)")
+        }
+        if selectedDependencyTaskIDs.isEmpty == false {
+            parts.append(selectedDependencyTaskIDs.count == 1 ? "1 dependency" : "\(selectedDependencyTaskIDs.count) dependencies")
+        }
+        return parts.isEmpty ? "No linked tasks" : parts.joined(separator: ", ")
+    }
+
     /// Executes onAppear.
     public func onAppear() {
         guard hasScheduledInitialEnrichment == false else { return }
@@ -222,6 +286,31 @@ public final class TaskDetailViewModel: ObservableObject {
             self.refreshRelationshipMetadata()
             self.refreshChildren()
             self.pendingSecondaryEnrichmentTask = nil
+        }
+    }
+
+    public func isSectionExpanded(_ section: TaskEditorSection) -> Bool {
+        expandedSections.contains(section)
+    }
+
+    public func toggleSection(_ section: TaskEditorSection) {
+        if expandedSections.contains(section) {
+            expandedSections.remove(section)
+        } else {
+            expandedSections = [section]
+        }
+    }
+
+    public func summary(for section: TaskEditorSection) -> String {
+        switch section {
+        case .schedule:
+            return scheduleSummary
+        case .organize:
+            return organizeSummary
+        case .execution:
+            return executionSummary
+        case .relationships:
+            return relationshipsSummary
         }
     }
 
@@ -927,6 +1016,7 @@ public final class TaskDetailViewModel: ObservableObject {
         selectedContext = updatedTask.context
         estimatedDuration = updatedTask.estimatedDuration
         repeatPattern = updatedTask.repeatPattern
+        refreshDisplayProjectName()
 
         DispatchQueue.main.async {
             self.suppressAutosave = false
@@ -987,6 +1077,46 @@ public final class TaskDetailViewModel: ObservableObject {
         displayProjectName = projects.first(where: { $0.id == selectedProjectID })?.name
             ?? persistedTask.projectName
             ?? ProjectConstants.inboxProjectName
+    }
+
+    private static func autoExpandedSections(for task: TaskDefinition) -> Set<TaskEditorSection> {
+        let populatedSections: [TaskEditorSection] = [
+            (task.dueDate != nil || task.alertReminderTime != nil || task.repeatPattern != nil || task.type != .morning) ? .schedule : nil,
+            (task.projectID != ProjectConstants.inboxProjectID
+                || task.lifeAreaID != nil
+                || task.sectionID != nil
+                || task.tagIDs.isEmpty == false) ? .organize : nil,
+            (task.priority != .low
+                || task.energy != .medium
+                || task.category != .general
+                || task.context != .anywhere
+                || task.estimatedDuration != nil) ? .execution : nil,
+            (task.parentTaskID != nil || task.dependencies.isEmpty == false) ? .relationships : nil,
+        ].compactMap { $0 }
+
+        guard let firstPopulatedSection = populatedSections.first else {
+            return []
+        }
+        return [firstPopulatedSection]
+    }
+
+    private static func timeLabel(for date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.timeStyle = .short
+        return formatter.string(from: date)
+    }
+
+    private static func durationLabel(for duration: TimeInterval) -> String {
+        let minutes = max(1, Int(duration / 60))
+        if minutes < 60 {
+            return "\(minutes) min"
+        }
+        let hours = minutes / 60
+        let remainder = minutes % 60
+        if remainder == 0 {
+            return "\(hours) hr"
+        }
+        return "\(hours) hr \(remainder) min"
     }
 
     /// Executes sortTasksByDueThenName.
