@@ -30,6 +30,12 @@ final class OnboardingFreshLaunchUITests: BaseUITest {
 
         let success = app.descendants(matching: .any)[AccessibilityIdentifiers.Onboarding.success]
         XCTAssertTrue(success.waitForExistence(timeout: 12))
+        XCTAssertTrue(success.staticTexts["What’s ready"].waitForExistence(timeout: 12))
+        XCTAssertTrue(success.staticTexts["Areas"].exists)
+        XCTAssertTrue(success.staticTexts["Projects"].exists)
+        XCTAssertTrue(success.staticTexts["First win"].exists)
+        XCTAssertFalse(success.staticTexts["areas"].exists)
+        XCTAssertFalse(success.staticTexts["projects"].exists)
 
         let goHome = app.buttons[AccessibilityIdentifiers.Onboarding.goHome]
         XCTAssertTrue(goHome.waitForExistence(timeout: 12))
@@ -72,6 +78,12 @@ final class OnboardingFreshLaunchUITests: BaseUITest {
 
         let success = app.descendants(matching: .any)[AccessibilityIdentifiers.Onboarding.success]
         XCTAssertTrue(success.waitForExistence(timeout: 12))
+        XCTAssertTrue(success.staticTexts["What’s ready"].waitForExistence(timeout: 12))
+        XCTAssertTrue(success.staticTexts["Areas"].exists)
+        XCTAssertTrue(success.staticTexts["Projects"].exists)
+        XCTAssertTrue(success.staticTexts["First win"].exists)
+        XCTAssertFalse(success.staticTexts["areas"].exists)
+        XCTAssertFalse(success.staticTexts["projects"].exists)
 
         let goHome = app.buttons[AccessibilityIdentifiers.Onboarding.goHome]
         XCTAssertTrue(goHome.waitForExistence(timeout: 12))
