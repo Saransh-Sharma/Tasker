@@ -38,6 +38,7 @@ public struct AddTaskPrefillTemplate: Equatable {
     public let energy: TaskEnergy
     public let category: TaskCategory
     public let context: TaskContext
+    public let expandedSections: Set<TaskEditorSection>?
     public let showMoreDetails: Bool
     public let showAdvancedPlanning: Bool
 
@@ -56,6 +57,7 @@ public struct AddTaskPrefillTemplate: Equatable {
         energy: TaskEnergy = .medium,
         category: TaskCategory = .general,
         context: TaskContext = .anywhere,
+        expandedSections: Set<TaskEditorSection>? = nil,
         showMoreDetails: Bool = false,
         showAdvancedPlanning: Bool = false
     ) {
@@ -77,6 +79,7 @@ public struct AddTaskPrefillTemplate: Equatable {
         self.energy = energy
         self.category = category
         self.context = context
+        self.expandedSections = expandedSections
         self.showMoreDetails = showMoreDetails
         self.showAdvancedPlanning = showAdvancedPlanning
     }
@@ -115,12 +118,12 @@ public final class AddTaskViewModel: ObservableObject {
     @Published public var hasReminder: Bool = false
     @Published public var reminderTime: Date = Date()
 
-    // Form state — Secondary Details
+    // Form state — Organize
     @Published public var selectedLifeAreaID: UUID?
     @Published public var selectedSectionID: UUID?
     @Published public var selectedTagIDs: Set<UUID> = []
 
-    // Form state — Advanced Planning
+    // Form state — Relationships / Execution
     @Published public var selectedParentTaskID: UUID?
     @Published public var selectedDependencyTaskIDs: Set<UUID> = []
     @Published public var selectedDependencyKind: TaskDependencyKind = .related
@@ -131,8 +134,8 @@ public final class AddTaskViewModel: ObservableObject {
     @Published public var repeatPattern: TaskRepeatPattern? = nil
 
     // UI state
-    @Published public var showMoreDetails: Bool = false
-    @Published public var showAdvancedPlanning: Bool = false
+    @Published public var expandedSections: Set<TaskEditorSection> = []
+    @Published public var isCoreDetailsExpanded: Bool = false
     @Published public private(set) var lastCreatedTaskID: UUID? = nil
 
     // Read-only loaded data
@@ -153,6 +156,71 @@ public final class AddTaskViewModel: ObservableObject {
         || selectedDependencyTaskIDs.isEmpty == false
         || estimatedDuration != nil
         || repeatPattern != nil
+    }
+
+    public var scheduleSummary: String {
+        var parts: [String] = []
+        if let dueDate {
+            parts.append(DateUtils.formatDate(dueDate))
+        } else {
+            parts.append("No due date")
+        }
+        if hasReminder {
+            parts.append(formatTime(reminderTime))
+        }
+        if selectedType != .morning {
+            parts.append(selectedType.displayName)
+        }
+        if let repeatPattern {
+            parts.append(repeatPattern.displayName)
+        }
+        return parts.joined(separator: ", ")
+    }
+
+    public var organizeSummary: String {
+        var parts = [selectedProject]
+        if let selectedLifeAreaID,
+           selectedLifeAreaID != lifeAreas.first?.id,
+           let lifeArea = lifeAreas.first(where: { $0.id == selectedLifeAreaID }) {
+            parts.append(lifeArea.name)
+        }
+        if let selectedSectionID,
+           let section = sections.first(where: { $0.id == selectedSectionID }) {
+            parts.append(section.name)
+        }
+        if selectedTagIDs.isEmpty == false {
+            parts.append(selectedTagIDs.count == 1 ? "1 tag" : "\(selectedTagIDs.count) tags")
+        }
+        return parts.joined(separator: ", ")
+    }
+
+    public var executionSummary: String {
+        var parts = ["\(selectedPriority.displayName) priority"]
+        if let estimatedDuration {
+            parts.append(Self.durationLabel(for: estimatedDuration))
+        }
+        if selectedEnergy != .medium {
+            parts.append(selectedEnergy.displayName)
+        }
+        if selectedContext != .anywhere {
+            parts.append(selectedContext.displayName)
+        }
+        if selectedCategory != .general {
+            parts.append(selectedCategory.displayName)
+        }
+        return parts.joined(separator: ", ")
+    }
+
+    public var relationshipsSummary: String {
+        var parts: [String] = []
+        if let selectedParentTaskID,
+           let task = availableParentTasks.first(where: { $0.id == selectedParentTaskID }) {
+            parts.append("Parent: \(task.title)")
+        }
+        if selectedDependencyTaskIDs.isEmpty == false {
+            parts.append(selectedDependencyTaskIDs.count == 1 ? "1 dependency" : "\(selectedDependencyTaskIDs.count) dependencies")
+        }
+        return parts.isEmpty ? "No linked tasks" : parts.joined(separator: ", ")
     }
     
     // MARK: - Dependencies
@@ -454,8 +522,8 @@ public final class AddTaskViewModel: ObservableObject {
         dueDate = Date()
         hasReminder = false
         reminderTime = Date()
-        showMoreDetails = false
-        showAdvancedPlanning = false
+        expandedSections = []
+        isCoreDetailsExpanded = false
         validationErrors = []
         errorMessage = nil
         isTaskCreated = false
@@ -483,6 +551,31 @@ public final class AddTaskViewModel: ObservableObject {
                 "model": suggestion.modelName ?? "none"
             ]
         )
+    }
+
+    public func isSectionExpanded(_ section: TaskEditorSection) -> Bool {
+        expandedSections.contains(section)
+    }
+
+    public func toggleSection(_ section: TaskEditorSection) {
+        if expandedSections.contains(section) {
+            expandedSections.remove(section)
+        } else {
+            expandedSections.insert(section)
+        }
+    }
+
+    public func summary(for section: TaskEditorSection) -> String {
+        switch section {
+        case .schedule:
+            return scheduleSummary
+        case .organize:
+            return organizeSummary
+        case .execution:
+            return executionSummary
+        case .relationships:
+            return relationshipsSummary
+        }
     }
     
     /// Validate input and update validation errors
@@ -836,8 +929,7 @@ public final class AddTaskViewModel: ObservableObject {
         selectedContext = template.context
         estimatedDuration = template.estimatedDuration
         dueDate = template.dueDateIntent.resolvedDate()
-        showMoreDetails = template.showMoreDetails
-        showAdvancedPlanning = template.showAdvancedPlanning
+        isCoreDetailsExpanded = (template.details?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false)
 
         var resolvedAllSelections = true
 
@@ -865,10 +957,70 @@ public final class AddTaskViewModel: ObservableObject {
 
         validationErrors = []
         errorMessage = nil
+        expandedSections = resolvedExpandedSections(for: template)
 
         if resolvedAllSelections {
             pendingPrefillTemplate = nil
         }
+    }
+
+    private func resolvedExpandedSections(for template: AddTaskPrefillTemplate) -> Set<TaskEditorSection> {
+        var sections = template.expandedSections ?? []
+        if template.showMoreDetails {
+            sections.insert(.organize)
+        }
+        if template.showAdvancedPlanning {
+            sections.formUnion([.schedule, .execution, .relationships])
+        }
+        sections.formUnion(derivedExpandedSections())
+        return sections
+    }
+
+    private func derivedExpandedSections() -> Set<TaskEditorSection> {
+        var sections = Set<TaskEditorSection>()
+
+        if hasReminder || repeatPattern != nil || selectedType != .morning {
+            sections.insert(.schedule)
+        }
+
+        if selectedProject != ProjectConstants.inboxProjectName
+            || selectedLifeAreaID != lifeAreas.first?.id
+            || selectedSectionID != nil
+            || selectedTagIDs.isEmpty == false {
+            sections.insert(.organize)
+        }
+
+        if selectedEnergy != .medium
+            || selectedCategory != .general
+            || selectedContext != .anywhere
+            || estimatedDuration != nil {
+            sections.insert(.execution)
+        }
+
+        if selectedParentTaskID != nil || selectedDependencyTaskIDs.isEmpty == false {
+            sections.insert(.relationships)
+        }
+
+        return sections
+    }
+
+    private static func durationLabel(for duration: TimeInterval) -> String {
+        let minutes = max(1, Int(duration / 60))
+        if minutes < 60 {
+            return "\(minutes) min"
+        }
+        let hours = minutes / 60
+        let remainder = minutes % 60
+        if remainder == 0 {
+            return "\(hours) hr"
+        }
+        return "\(hours) hr \(remainder) min"
+    }
+
+    private func formatTime(_ date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.timeStyle = .short
+        return formatter.string(from: date)
     }
 
     /// Executes resolveProjectForPrefill.

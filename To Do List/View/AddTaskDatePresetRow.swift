@@ -9,6 +9,13 @@ import SwiftUI
 
 // MARK: - Add Task Date Preset Row
 
+private enum AddTaskDatePickerAccessibilityID {
+    static let customDateChip = "tasker.datePicker.customDateChip"
+    static let sheet = "tasker.datePicker.sheet"
+    static let calendar = "tasker.datePicker.calendar"
+    static let confirmButton = "tasker.datePicker.confirmButton"
+}
+
 struct AddTaskDatePresetRow: View {
     @Binding var dueDate: Date?
     @State private var showDatePicker = false
@@ -57,6 +64,7 @@ struct AddTaskDatePresetRow: View {
                     ) {
                         showDatePicker = true
                     }
+                    .accessibilityIdentifier(AddTaskDatePickerAccessibilityID.customDateChip)
                 }
             }
         }
@@ -134,10 +142,9 @@ struct AddTaskCustomDatePickerSheet: View {
     @State private var selectedDate = Date()
 
     private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.currentTheme.tokens.spacing }
-    private var corner: TaskerCornerTokens { TaskerThemeManager.shared.currentTheme.tokens.corner }
 
     var body: some View {
-        NavigationView {
+        NavigationStack {
             VStack(spacing: spacing.s20) {
                 DatePicker(
                     "Due Date",
@@ -147,25 +154,12 @@ struct AddTaskCustomDatePickerSheet: View {
                 )
                 .datePickerStyle(.graphical)
                 .padding(.horizontal, spacing.s16)
+                .accessibilityIdentifier(AddTaskDatePickerAccessibilityID.calendar)
 
-                Button {
-                    dueDate = selectedDate
-                    TaskerFeedback.success()
-                    isPresented = false
-                } label: {
-                    Text("Set Date")
-                        .font(.tasker(.button))
-                        .foregroundColor(Color.tasker.accentOnPrimary)
-                        .frame(maxWidth: .infinity)
-                        .frame(height: spacing.buttonHeight)
-                        .background(
-                            RoundedRectangle(cornerRadius: corner.r2)
-                                .fill(Color.tasker.accentPrimary)
-                        )
-                }
-                .buttonStyle(.plain)
-                .padding(.horizontal, spacing.s16)
+                Spacer(minLength: 0)
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+            .accessibilityIdentifier(AddTaskDatePickerAccessibilityID.sheet)
             .navigationTitle("Pick a Date")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -174,9 +168,19 @@ struct AddTaskCustomDatePickerSheet: View {
                         isPresented = false
                     }
                 }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Set Date") {
+                        dueDate = selectedDate
+                        TaskerFeedback.success()
+                        isPresented = false
+                    }
+                    .font(.tasker(.button))
+                    .accessibilityIdentifier(AddTaskDatePickerAccessibilityID.confirmButton)
+                }
             }
         }
-        .presentationDetents([.medium])
+        .accessibilityIdentifier(AddTaskDatePickerAccessibilityID.sheet)
+        .presentationDetents([.medium, .large])
         .onAppear {
             if let dueDate {
                 selectedDate = dueDate

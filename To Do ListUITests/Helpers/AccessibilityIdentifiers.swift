@@ -101,6 +101,13 @@ enum AccessibilityIdentifiers {
         static func projectPill(projectId: String) -> String { "addTask.projectPill.\(projectId)" }
     }
 
+    enum DatePickerSheet {
+        static let sheet = "tasker.datePicker.sheet"
+        static let calendar = "tasker.datePicker.calendar"
+        static let confirmButton = "tasker.datePicker.confirmButton"
+        static let customDateChip = "tasker.datePicker.customDateChip"
+    }
+
     // MARK: - Task Detail Screen
 
     enum TaskDetail {
@@ -115,6 +122,7 @@ enum AccessibilityIdentifiers {
         static let saveButton = "taskDetail.saveButton"
         static let closeButton = "taskDetail.closeButton"
         static let editButton = "taskDetail.editButton"
+        static let dueChip = "taskDetail.chip.due"
     }
 
     // MARK: - Inbox Screen
