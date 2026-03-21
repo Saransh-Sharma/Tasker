@@ -436,6 +436,7 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
         mountHomeShell()
         observeMutations()
         observeNotificationRoutes()
+        observeChatDeepLinks()
         observeFocusDeepLinks()
         observeHomeDeepLinks()
         observeInsightsDeepLinks()
@@ -1538,6 +1539,17 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
             .store(in: &cancellables)
     }
 
+    private func observeChatDeepLinks() {
+        NotificationCenter.default.publisher(for: .taskerOpenChatDeepLink)
+            .receive(on: RunLoop.main)
+            .sink { [weak self] notification in
+                let prompt = (notification.userInfo?["prompt"] as? String)?
+                    .trimmingCharacters(in: .whitespacesAndNewlines)
+                self?.handleChatDeepLink(prompt: prompt)
+            }
+            .store(in: &cancellables)
+    }
+
     private func observeHomeDeepLinks() {
         NotificationCenter.default.publisher(for: .taskerOpenHomeDeepLink)
             .receive(on: RunLoop.main)
@@ -2199,6 +2211,38 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
         startFocusFlow(task: preferredTask, source: "deeplink")
     }
 
+    private func handleChatDeepLink(prompt: String?) {
+        let launchRequest = EvaChatLaunchRequest(prompt: prompt)
+        Task { @MainActor in
+            EvaChatLaunchRequestStore.shared.submit(launchRequest)
+        }
+
+        if isUsingIPadNativeShell {
+            let routeToChat = { [weak self] in
+                self?.iPadShellState.destination = .chat
+            }
+
+            if presentedViewController != nil {
+                dismiss(animated: true) {
+                    routeToChat()
+                }
+                return
+            }
+
+            routeToChat()
+            return
+        }
+
+        if presentedViewController != nil {
+            dismiss(animated: true) { [weak self] in
+                self?.chatButtonTapped()
+            }
+            return
+        }
+
+        chatButtonTapped()
+    }
+
     private func handleHomeDeepLink() {
         if isUsingIPadNativeShell {
             iPadShellState.destination = .tasks
@@ -2349,17 +2393,61 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
                 case .success(let session):
                     self.presentFocusTimer(task: task, session: session, source: source)
                 case .failure(let error):
-                    logWarning(
-                        event: "focus_session_start_failed",
-                        message: "Failed to start focus session",
-                        fields: [
-                            "source": source,
-                            "error": error.localizedDescription
-                        ]
-                    )
+                    if let focusError = error as? FocusSessionError, case .alreadyActive = focusError {
+                        self.resumeActiveFocusSession(source: source)
+                    } else {
+                        logWarning(
+                            event: "focus_session_start_failed",
+                            message: "Failed to start focus session",
+                            fields: [
+                                "source": source,
+                                "error": error.localizedDescription
+                            ]
+                        )
+                    }
                 }
             }
         }
+    }
+
+    private func resumeActiveFocusSession(source: String) {
+        viewModel?.fetchActiveFocusSession { [weak self] result in
+            guard let self else { return }
+            switch result {
+            case .success(let session):
+                guard let session else {
+                    self.viewModel?.setQuickView(.today)
+                    logWarning(
+                        event: "focus_session_resume_missing",
+                        message: "Expected an active focus session to resume, but none was found",
+                        fields: ["source": source]
+                    )
+                    return
+                }
+
+                let task = resolveTaskForFocusSession(taskID: session.taskID)
+                presentFocusTimer(task: task, session: session, source: "\(source)_resume")
+            case .failure(let error):
+                self.viewModel?.setQuickView(.today)
+                logWarning(
+                    event: "focus_session_resume_failed",
+                    message: "Failed to resume active focus session",
+                    fields: [
+                        "source": source,
+                        "error": error.localizedDescription
+                    ]
+                )
+            }
+        }
+    }
+
+    private func resolveTaskForFocusSession(taskID: UUID?) -> TaskDefinition? {
+        guard let taskID else { return nil }
+        let candidates = (viewModel?.focusTasks ?? [])
+            + (viewModel?.morningTasks ?? [])
+            + (viewModel?.eveningTasks ?? [])
+            + (viewModel?.overdueTasks ?? [])
+        return candidates.first(where: { $0.id == taskID })
     }
 
     private func presentFocusTimer(task: TaskDefinition?, session: FocusSessionDefinition, source: String) {

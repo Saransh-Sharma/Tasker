@@ -14,6 +14,7 @@ import UserNotifications
 
 extension Notification.Name {
     static let taskerOpenFocusDeepLink = Notification.Name("TaskerOpenFocusDeepLink")
+    static let taskerOpenChatDeepLink = Notification.Name("TaskerOpenChatDeepLink")
     static let taskerOpenHomeDeepLink = Notification.Name("TaskerOpenHomeDeepLink")
     static let taskerOpenInsightsDeepLink = Notification.Name("TaskerOpenInsightsDeepLink")
     static let taskerOpenTaskScopeDeepLink = Notification.Name("TaskerOpenTaskScopeDeepLink")
@@ -211,6 +212,19 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         guard let host = url.host?.lowercased() else { return }
         let pathSegments = url.pathComponents.filter { $0 != "/" }
 
+        if host == "chat" {
+            let prompt = TaskerShortcutDeepLink.chatPrompt(from: url)
+            var userInfo: [String: String] = [:]
+            if let prompt {
+                userInfo["prompt"] = prompt
+            }
+            NotificationCenter.default.post(
+                name: .taskerOpenChatDeepLink,
+                object: nil,
+                userInfo: userInfo
+            )
+            return
+        }
         if host == "focus" {
             NotificationCenter.default.post(name: .taskerOpenFocusDeepLink, object: nil)
             return
