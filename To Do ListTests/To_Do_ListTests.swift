@@ -1761,6 +1761,53 @@ final class TaskListWidgetSourceContractTests: XCTestCase {
         XCTAssertTrue(source.contains("V2FeatureFlags.interactiveTaskWidgetsEnabled"))
     }
 
+    func testWidgetTargetCompilesAgainstDesignSystemSources() throws {
+        let project = try loadWorkspaceFile("Tasker.xcodeproj/project.pbxproj")
+
+        XCTAssertTrue(project.contains("TaskerTokens.swift in Sources"))
+        XCTAssertTrue(project.contains("TaskerTheme.swift in Sources"))
+        XCTAssertTrue(project.contains("TaskerTheme+SwiftUI.swift in Sources"))
+        XCTAssertTrue(project.contains("SwiftUI+TokenAdapters.swift in Sources"))
+        XCTAssertTrue(project.contains("TaskerAnimations.swift in Sources"))
+    }
+
+    func testWidgetBrandBridgesToTaskerThemeRoles() throws {
+        let source = try loadWorkspaceFile("TaskerWidgets/WidgetBrand.swift")
+
+        XCTAssertTrue(source.contains("TaskerTheme.Colors"))
+        XCTAssertTrue(source.contains("Color.tasker("))
+        XCTAssertFalse(source.contains("dynamic(light:"))
+        XCTAssertFalse(source.contains("Color(hex:"))
+    }
+
+    func testWidgetFoundationDefinesWeightedContextAndAccessibilityPrimitives() throws {
+        let source = try loadWorkspaceFile("TaskerWidgets/TaskWidgetFoundation.swift")
+
+        XCTAssertTrue(source.contains("isStandByLike"))
+        XCTAssertTrue(source.contains("isBackgroundRemoved"))
+        XCTAssertTrue(source.contains("leadRatio"))
+        XCTAssertTrue(source.contains("TaskWidgetPanelStyle"))
+        XCTAssertTrue(source.contains("case flush"))
+        XCTAssertTrue(source.contains("case softSection"))
+        XCTAssertTrue(source.contains("case contained"))
+        XCTAssertTrue(source.contains("compactWidthThreshold"))
+        XCTAssertTrue(source.contains("taskWidgetAccentable(if:"))
+        XCTAssertTrue(source.contains("accessibilityHidden(true)"))
+    }
+
+    func testInteractiveWidgetAffordancesRespectFeatureFlagAtRenderTime() throws {
+        let source = try loadWorkspaceFile("TaskerWidgets/TaskWidgetHomeViews.swift")
+
+        XCTAssertTrue(
+            source.contains("if #available(iOSApplicationExtension 17.0, *), TaskWidgetFeatureGate.interactiveTaskWidgetsEnabled"),
+            "Interactive widget actions must be hidden when the kill switch is disabled."
+        )
+        XCTAssertTrue(
+            source.contains("TaskWidgetFeatureGate.interactiveTaskWidgetsEnabled ? \"Open\" : \"Review\""),
+            "Fallback CTA copy should stay truthful when interactive task actions are disabled."
+        )
+    }
+
     private func loadWorkspaceFile(_ relativePath: String) throws -> String {
         let testsFilePath = URL(fileURLWithPath: #filePath)
         let workspaceRoot = testsFilePath.deletingLastPathComponent().deletingLastPathComponent()

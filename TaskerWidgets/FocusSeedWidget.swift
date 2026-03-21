@@ -7,7 +7,7 @@ struct FocusSeedWidget: Widget {
     var body: some WidgetConfiguration {
         StaticConfiguration(kind: kind, provider: FocusSeedProvider()) { entry in
             FocusSeedWidgetView(entry: entry)
-                .containerBackground(WidgetBrand.canvas, for: .widget)
+                .modifier(TaskWidgetContainerBackgroundModifier(enabled: true))
         }
         .configurationDisplayName("Focus Seed")
         .description("See today's focus time and start a session.")
@@ -40,26 +40,42 @@ struct FocusSeedWidgetView: View {
     let entry: FocusSeedEntry
 
     var body: some View {
-        VStack(spacing: 8) {
-            Image(systemName: "timer")
-                .font(.system(size: 28))
-                .foregroundStyle(WidgetBrand.magenta)
+        TaskWidgetScene { context in
+            VStack(alignment: .leading, spacing: context.sectionSpacing) {
+                TaskWidgetSectionHeader(eyebrow: "Focus", title: "Seed", detail: nil, accent: WidgetBrand.textPrimary)
 
-            Text("\(entry.snapshot.focusMinutesToday) min")
-                .font(.system(size: 22, weight: .bold, design: .rounded))
-                .foregroundStyle(WidgetBrand.textPrimary)
-            Text("focused today")
-                .font(.system(size: 11, weight: .medium))
-                .foregroundStyle(WidgetBrand.textSecondary)
+                Spacer(minLength: 0)
 
-            Link(destination: URL(string: "tasker://focus")!) {
-                Text("Start Focus")
-                    .font(.system(size: 11, weight: .semibold))
-                    .foregroundStyle(WidgetBrand.canvasElevated)
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 6)
-                    .background(WidgetBrand.actionPrimary, in: Capsule())
+                HStack(alignment: .center, spacing: 14) {
+                    ZStack {
+                        Circle()
+                            .stroke(WidgetBrand.magenta.opacity(0.28), lineWidth: 6)
+                        Image(systemName: "timer")
+                            .widgetAccentedRenderingMode(.accented)
+                            .font(TaskWidgetTypography.titleLarge)
+                            .foregroundStyle(WidgetBrand.magenta)
+                            .widgetAccentable()
+                    }
+                    .frame(width: 66, height: 66)
+
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("\(entry.snapshot.focusMinutesToday)")
+                            .font(TaskWidgetTypography.display)
+                            .foregroundStyle(WidgetBrand.textPrimary)
+                            .taskWidgetNumericTransition(Double(entry.snapshot.focusMinutesToday), reduceMotion: context.reduceMotion)
+                        Text("minutes focused")
+                            .font(TaskWidgetTypography.support)
+                            .foregroundStyle(WidgetBrand.textSecondary)
+                    }
+                }
+
+                Spacer(minLength: 0)
+
+                Link(destination: URL(string: "tasker://focus")!) {
+                    TaskWidgetActionBandLabel(title: "Start Focus", accent: WidgetBrand.actionPrimary)
+                }
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         }
         .accessibilityElement(children: .combine)
         .accessibilityLabel("Focus today \(entry.snapshot.focusMinutesToday) minutes. Double tap to start focus.")

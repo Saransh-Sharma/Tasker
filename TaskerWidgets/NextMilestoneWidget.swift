@@ -7,7 +7,7 @@ struct NextMilestoneWidget: Widget {
     var body: some WidgetConfiguration {
         StaticConfiguration(kind: kind, provider: NextMilestoneProvider()) { entry in
             NextMilestoneWidgetView(entry: entry)
-                .containerBackground(WidgetBrand.canvas, for: .widget)
+                .modifier(TaskWidgetContainerBackgroundModifier(enabled: true))
         }
         .configurationDisplayName("Next Milestone")
         .description("Track progress toward your next milestone.")
@@ -40,37 +40,40 @@ struct NextMilestoneWidgetView: View {
     let entry: NextMilestoneEntry
 
     var body: some View {
-        VStack(spacing: 8) {
-            ZStack {
-                Circle()
-                    .stroke(WidgetBrand.line, lineWidth: 6)
-                Circle()
-                    .trim(from: 0, to: CGFloat(entry.snapshot.milestoneProgress))
-                    .stroke(WidgetBrand.magenta, style: StrokeStyle(lineWidth: 6, lineCap: .round))
-                    .rotationEffect(.degrees(-90))
-                Text("\(Int(entry.snapshot.milestoneProgress * 100))%")
-                    .font(.system(size: 16, weight: .bold, design: .rounded))
-                    .foregroundStyle(WidgetBrand.textPrimary)
-            }
-            .frame(width: 64, height: 64)
+        TaskWidgetScene { context in
+            VStack(alignment: .leading, spacing: context.sectionSpacing) {
+                TaskWidgetSectionHeader(eyebrow: "Milestone", title: "Next", detail: nil, accent: WidgetBrand.textPrimary)
 
-            if let name = entry.snapshot.nextMilestoneName {
-                Text(name)
-                    .font(.system(size: 13, weight: .semibold, design: .rounded))
-                    .lineLimit(1)
-                    .foregroundStyle(WidgetBrand.textPrimary)
-            }
+                Spacer(minLength: 0)
 
-            if let target = entry.snapshot.nextMilestoneXP {
-                Text("\(entry.snapshot.totalXP)/\(target)")
-                    .font(.system(size: 10, weight: .medium, design: .rounded))
-                    .foregroundStyle(WidgetBrand.textSecondary)
+                HStack(alignment: .center, spacing: 14) {
+                    TaskWidgetRing(
+                        progress: CGFloat(entry.snapshot.milestoneProgress),
+                        lineWidth: 7,
+                        accent: WidgetBrand.magenta,
+                        track: WidgetBrand.line,
+                        centerText: "\(Int(entry.snapshot.milestoneProgress * 100))%",
+                        numericValue: context.reduceMotion ? nil : entry.snapshot.milestoneProgress * 100
+                    )
+                    .frame(width: 82, height: 82)
+
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text(entry.snapshot.nextMilestoneName ?? "No milestone")
+                            .font(TaskWidgetTypography.title)
+                            .foregroundStyle(WidgetBrand.textPrimary)
+                            .lineLimit(3)
+                        if let target = entry.snapshot.nextMilestoneXP {
+                            Text("\(entry.snapshot.totalXP) / \(target) XP")
+                                .font(TaskWidgetTypography.body)
+                                .foregroundStyle(WidgetBrand.textSecondary)
+                        }
+                    }
+                }
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         }
         .accessibilityElement(children: .combine)
-        .accessibilityLabel(
-            "Next milestone \(entry.snapshot.nextMilestoneName ?? "Unknown"). \(Int(entry.snapshot.milestoneProgress * 100)) percent complete. Total XP \(entry.snapshot.totalXP)."
-        )
+        .accessibilityLabel("Next milestone \(entry.snapshot.nextMilestoneName ?? "Unknown"). \(Int(entry.snapshot.milestoneProgress * 100)) percent complete. Total XP \(entry.snapshot.totalXP).")
         .widgetURL(URL(string: "tasker://insights"))
     }
 }
