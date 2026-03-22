@@ -7,6 +7,11 @@ public enum XPActionCategory: String, Codable, CaseIterable {
     case recoverReschedule
     case reflection
     case focus
+    case habitPositiveComplete
+    case habitNegativeSuccess
+    case habitNegativeLapse
+    case habitRecovery
+    case habitStreakMilestone
 }
 
 public enum XPSource: String, Codable, CaseIterable {
@@ -14,6 +19,7 @@ public enum XPSource: String, Codable, CaseIterable {
     case notification
     case assistant
     case system
+    case habit
 }
 
 public enum TaskMutationSource: String, Codable, CaseIterable {

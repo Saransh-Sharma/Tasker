@@ -550,6 +550,110 @@ final class HomeTaskSectionBuilderTests: XCTestCase {
         XCTAssertNil(plainModel.descriptionText)
     }
 
+    func testMixedTodaySectionsPlaceProjectHabitInsideProjectSection() {
+        let inbox = Project.createInbox()
+        let work = Project(id: UUID(), name: "Work", icon: .work)
+        let task = makeTask(name: "Send recap", project: work, dueDate: Date())
+        let habit = HomeHabitRow(
+            habitID: UUID(),
+            title: "Daily planning",
+            kind: .positive,
+            trackingMode: .dailyCheckIn,
+            lifeAreaID: UUID(),
+            lifeAreaName: "Career",
+            projectID: work.id,
+            projectName: work.name,
+            iconSymbolName: "list.bullet.clipboard",
+            dueAt: Calendar.current.date(byAdding: .hour, value: 1, to: Date()),
+            state: .due
+        )
+
+        let sections = HomeMixedSectionBuilder.buildTodaySections(
+            mode: .groupByProjects,
+            taskRows: [task],
+            habitRows: [habit],
+            projects: [inbox, work],
+            customProjectOrderIDs: [work.id]
+        )
+
+        XCTAssertEqual(sections.count, 1)
+        XCTAssertEqual(sections.first?.anchor.title, "Work")
+        XCTAssertEqual(sections.first?.rows.count, 2)
+        XCTAssertTrue(sections.first?.rows.contains(.task(task)) ?? false)
+        XCTAssertTrue(sections.first?.rows.contains(.habit(habit)) ?? false)
+    }
+
+    func testMixedTodaySectionsPlaceProjectlessLapseOnlyHabitInLifeAreaSection() {
+        let inbox = Project.createInbox()
+        let lapseOnly = HomeHabitRow(
+            habitID: UUID(),
+            title: "No smoking",
+            kind: .negative,
+            trackingMode: .lapseOnly,
+            lifeAreaID: UUID(),
+            lifeAreaName: "Health",
+            projectID: nil,
+            projectName: nil,
+            iconSymbolName: "nosign",
+            dueAt: nil,
+            state: .tracking,
+            currentStreak: 9,
+            bestStreak: 15
+        )
+
+        let sections = HomeMixedSectionBuilder.buildTodaySections(
+            mode: .groupByProjects,
+            taskRows: [],
+            habitRows: [lapseOnly],
+            projects: [inbox],
+            customProjectOrderIDs: []
+        )
+
+        XCTAssertEqual(sections.count, 1)
+        XCTAssertEqual(sections.first?.anchor.title, "Health")
+        XCTAssertEqual(sections.first?.rows, [.habit(lapseOnly)])
+    }
+
+    func testMixedTodaySectionsKeepResolvedRowsAtBottomOfSection() {
+        let work = Project(id: UUID(), name: "Work", icon: .work)
+        let openTask = makeTask(name: "Ship note", project: work, dueDate: Date(), isComplete: false)
+        let completedTask = makeTask(
+            name: "Closed loop",
+            project: work,
+            dueDate: Date(),
+            isComplete: true,
+            dateCompleted: Date()
+        )
+        let completedHabit = HomeHabitRow(
+            habitID: UUID(),
+            title: "Journal",
+            kind: .positive,
+            trackingMode: .dailyCheckIn,
+            lifeAreaID: UUID(),
+            lifeAreaName: "Mind",
+            projectID: work.id,
+            projectName: work.name,
+            iconSymbolName: "book.closed",
+            dueAt: Date(),
+            state: .completedToday
+        )
+
+        let sections = HomeMixedSectionBuilder.buildTodaySections(
+            mode: .groupByProjects,
+            taskRows: [completedTask, openTask],
+            habitRows: [completedHabit],
+            projects: [work],
+            customProjectOrderIDs: [work.id]
+        )
+
+        XCTAssertEqual(sections.first?.rows.first?.title, "Ship note")
+        XCTAssertEqual(sections.first?.rows.map(\.isResolved), [false, true, true])
+        XCTAssertEqual(
+            Set(sections.first?.rows.dropFirst().map(\.title) ?? []),
+            Set(["Journal", "Closed loop"])
+        )
+    }
+
     private func makeTask(
         id: UUID = UUID(),
         name: String,

@@ -1368,6 +1368,7 @@ struct HomeBackdropForedropRootView: View {
 
     @State private var showAdvancedFilters = false
     @State private var showDatePicker = false
+    @State private var showHabitLibrarySheet = false
     @State private var draftDate = Date()
     @State private var celebrationRouter = DefaultCelebrationRouter()
     @State private var showXPBurst = false
@@ -1586,6 +1587,11 @@ struct HomeBackdropForedropRootView: View {
                 onDeleteSavedView: { id in
                     viewModel.deleteSavedView(id: id)
                 }
+            )
+        }
+        .sheet(isPresented: $showHabitLibrarySheet) {
+            HabitLibraryView(
+                viewModel: PresentationDependencyContainer.shared.makeNewHabitLibraryViewModel()
             )
         }
         .onAppear {
@@ -1969,6 +1975,7 @@ struct HomeBackdropForedropRootView: View {
                 emptyStateMessage: tasksSnapshot.emptyStateMessage,
                 emptyStateActionTitle: tasksSnapshot.emptyStateActionTitle,
                 isTaskDragEnabled: tasksSnapshot.canUseManualFocusDrag,
+                todaySections: tasksSnapshot.todaySections,
                 onTaskTap: onTaskTap,
                 onToggleComplete: { task in
                     trackTaskToggle(task, source: "task_list")
@@ -1976,6 +1983,15 @@ struct HomeBackdropForedropRootView: View {
                 },
                 onDeleteTask: onDeleteTask,
                 onRescheduleTask: onRescheduleTask,
+                onCompleteHabit: { habit in
+                    viewModel.completeHabit(habit, source: "task_list")
+                },
+                onSkipHabit: { habit in
+                    viewModel.skipHabit(habit, source: "task_list")
+                },
+                onLapseHabit: { habit in
+                    viewModel.lapseHabit(habit, source: "task_list")
+                },
                 onReorderCustomProjects: onReorderCustomProjects,
                 onInboxHeaderAction: shouldShowInboxTriageAction ? {
                     viewModel.startTriage()
@@ -2284,6 +2300,9 @@ struct HomeBackdropForedropRootView: View {
                     onOpenSearch: {
                         onOpenSearch("top_nav_search")
                     },
+                    onOpenManageHabits: {
+                        showHabitLibrarySheet = true
+                    },
                     onOpenSettings: {
                         onOpenSettings()
                     }
@@ -2464,7 +2483,12 @@ struct HomeBackdropForedropRootView: View {
                     .padding(.top, spacing.s8)
             }
 
-            if tasksSnapshot.canUseManualFocusDrag || !tasksSnapshot.focusTasks.isEmpty {
+            if shouldShowDueTodayAgenda {
+                dueTodayAgendaSection
+                    .padding(.top, spacing.s12)
+            }
+
+            if tasksSnapshot.canUseManualFocusDrag || !tasksSnapshot.focusRows.isEmpty {
                 focusStrip
                     .fixedSize(horizontal: false, vertical: true)
                     .padding(.top, spacing.s2)
@@ -2490,9 +2514,105 @@ struct HomeBackdropForedropRootView: View {
         }
     }
 
+    private var shouldShowDueTodayAgenda: Bool {
+        chromeSnapshot.activeScope.quickView == .today && tasksSnapshot.dueTodaySection?.rows.isEmpty == false
+    }
+
+    @ViewBuilder
+    private var dueTodayAgendaSection: some View {
+        let rows = Array((tasksSnapshot.dueTodaySection?.rows ?? []).prefix(5))
+        let hasHabitRows = rows.contains { row in
+            if case .habit = row { return true }
+            return false
+        }
+
+        VStack(alignment: .leading, spacing: spacing.s8) {
+            HStack(alignment: .firstTextBaseline, spacing: spacing.s8) {
+                Label("Due today", systemImage: "calendar.badge.clock")
+                    .font(.tasker(.headline))
+                    .foregroundColor(Color.tasker.textPrimary)
+
+                Spacer(minLength: 0)
+
+                Text("\(tasksSnapshot.dueTodaySection?.rows.count ?? 0)")
+                    .font(.tasker(.caption2).weight(.semibold))
+                    .foregroundColor(Color.tasker.textSecondary)
+                    .padding(.horizontal, spacing.s8)
+                    .padding(.vertical, spacing.s4)
+                    .background(Color.tasker.surfaceSecondary)
+                    .clipShape(Capsule())
+            }
+
+            LazyVStack(alignment: .leading, spacing: spacing.s8) {
+                ForEach(rows) { row in
+                    dueTodayAgendaRow(row, showTypeBadge: hasHabitRows)
+                }
+            }
+        }
+        .padding(.horizontal, spacing.s16)
+        .padding(.vertical, spacing.s12)
+        .background(Color.tasker.surfaceSecondary.opacity(0.45))
+        .overlay(
+            RoundedRectangle(cornerRadius: corner.r3)
+                .stroke(Color.tasker.strokeHairline.opacity(0.55), lineWidth: 1)
+        )
+        .clipShape(RoundedRectangle(cornerRadius: corner.r3))
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("home.dueTodayAgenda.section")
+    }
+
+    @ViewBuilder
+    private func dueTodayAgendaRow(_ row: HomeTodayRow, showTypeBadge: Bool) -> some View {
+        switch row {
+        case .task(let task):
+            TaskRowView(
+                task: task,
+                showTypeBadge: showTypeBadge,
+                isInOverdueSection: task.isOverdue,
+                tagNameByID: tasksSnapshot.tagNameByID,
+                todayXPSoFar: tasksSnapshot.todayXPSoFar,
+                isGamificationV2Enabled: V2FeatureFlags.gamificationV2Enabled,
+                isTaskDragEnabled: false,
+                onTap: { onTaskTap(task) },
+                onToggleComplete: {
+                    trackTaskToggle(task, source: "due_today_agenda")
+                    onToggleComplete(task)
+                },
+                onDelete: { onDeleteTask(task) },
+                onReschedule: { onRescheduleTask(task) }
+            )
+            .equatable()
+
+        case .habit(let habit):
+            HomeHabitRowView(
+                row: habit,
+                onPrimaryAction: {
+                    switch (habit.kind, habit.trackingMode) {
+                    case (.positive, _):
+                        viewModel.completeHabit(habit, source: "due_today_agenda")
+                    case (.negative, .dailyCheckIn):
+                        viewModel.completeHabit(habit, source: "due_today_agenda")
+                    case (.negative, .lapseOnly):
+                        viewModel.lapseHabit(habit, source: "due_today_agenda")
+                    }
+                },
+                onSecondaryAction: {
+                    switch (habit.kind, habit.trackingMode) {
+                    case (.positive, _):
+                        viewModel.skipHabit(habit, source: "due_today_agenda")
+                    case (.negative, .dailyCheckIn):
+                        viewModel.lapseHabit(habit, source: "due_today_agenda")
+                    case (.negative, .lapseOnly):
+                        break
+                    }
+                }
+            )
+        }
+    }
+
     private var focusStrip: some View {
         FocusZone(
-            tasks: tasksSnapshot.focusTasks,
+            rows: tasksSnapshot.focusRows,
             canDrag: tasksSnapshot.canUseManualFocusDrag,
             shellPhase: shellPhase,
             insightForTaskID: { taskID in
@@ -2516,6 +2636,15 @@ struct HomeBackdropForedropRootView: View {
             },
             onTaskDragStarted: { task in
                 trackTaskDragStarted(task, source: "focus_strip")
+            },
+            onCompleteHabit: { habit in
+                viewModel.completeHabit(habit, source: "focus_strip")
+            },
+            onSkipHabit: { habit in
+                viewModel.skipHabit(habit, source: "focus_strip")
+            },
+            onLapseHabit: { habit in
+                viewModel.lapseHabit(habit, source: "focus_strip")
             },
             onDrop: handleFocusDrop
         )
@@ -2994,6 +3123,7 @@ struct HomeiPadSplitShellView: View {
 
     @State private var activeHomeFace: HomeForedropFace = .tasks
     @State private var showCompactSidebar = false
+    @State private var showHabitLibrarySheet = false
     @State private var columnVisibility: NavigationSplitViewVisibility = .all
 
     private var spacing: TaskerSpacingTokens {
@@ -3064,6 +3194,11 @@ struct HomeiPadSplitShellView: View {
         }
         .sheet(isPresented: $showCompactSidebar) {
             compactSidebarSheet
+        }
+        .sheet(isPresented: $showHabitLibrarySheet) {
+            HabitLibraryView(
+                viewModel: PresentationDependencyContainer.shared.makeNewHabitLibraryViewModel()
+            )
         }
     }
 
@@ -3149,6 +3284,15 @@ struct HomeiPadSplitShellView: View {
     @ViewBuilder
     private var detailToolbarItems: some View {
         if isPrimaryHomeDestination {
+            Button {
+                showHabitLibrarySheet = true
+            } label: {
+                Image(systemName: "repeat.circle")
+            }
+            .hoverEffect(.highlight)
+            .accessibilityIdentifier("home.ipad.toolbar.manageHabits")
+            .accessibilityLabel("Manage Habits")
+
             Button {
                 if layoutClass == .padExpanded {
                     shellState.destination = .addTask

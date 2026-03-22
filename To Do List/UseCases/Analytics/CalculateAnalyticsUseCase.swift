@@ -13,6 +13,7 @@ public final class CalculateAnalyticsUseCase {
     // MARK: - Dependencies
     
     private let taskReadModelRepository: TaskReadModelRepositoryProtocol?
+    private let habitRuntimeReadRepository: HabitRuntimeReadRepositoryProtocol?
     private let scoringService: TaskScoringServiceProtocol
     private let cacheService: CacheServiceProtocol?
     private let analyticsWindowLimit = 4_000
@@ -32,10 +33,12 @@ public final class CalculateAnalyticsUseCase {
     /// Initializes a new instance.
     public init(
         taskReadModelRepository: TaskReadModelRepositoryProtocol? = nil,
+        habitRuntimeReadRepository: HabitRuntimeReadRepositoryProtocol? = nil,
         scoringService: TaskScoringServiceProtocol? = nil,
         cacheService: CacheServiceProtocol? = nil
     ) {
         self.taskReadModelRepository = taskReadModelRepository
+        self.habitRuntimeReadRepository = habitRuntimeReadRepository
         self.scoringService = scoringService ?? DefaultTaskScoringService()
         self.cacheService = cacheService
     }
@@ -59,16 +62,34 @@ public final class CalculateAnalyticsUseCase {
     /// Calculate analytics for a specific date
     public func calculateDailyAnalytics(
         for date: Date,
+        habitSignals: [TaskerHabitSignal] = [],
+        completion: @escaping (Result<DailyAnalytics, AnalyticsError>) -> Void
+    ) {
+        resolveHabitSignalsForDay(date, suppliedSignals: habitSignals) { [weak self] resolvedSignals in
+            self?.calculateDailyAnalyticsResolved(
+                for: date,
+                habitSignals: resolvedSignals,
+                completion: completion
+            )
+        }
+    }
+
+    private func calculateDailyAnalyticsResolved(
+        for date: Date,
+        habitSignals: [TaskerHabitSignal],
         completion: @escaping (Result<DailyAnalytics, AnalyticsError>) -> Void
     ) {
         let cacheKey = dailyCacheKey(for: date)
-        analyticsCacheLock.lock()
-        if let cached = dailyAnalyticsCache[cacheKey] {
+        let canUseCache = habitSignals.isEmpty == false || habitRuntimeReadRepository != nil
+        if canUseCache {
+            analyticsCacheLock.lock()
+            if let cached = dailyAnalyticsCache[cacheKey] {
+                analyticsCacheLock.unlock()
+                completion(.success(cached))
+                return
+            }
             analyticsCacheLock.unlock()
-            completion(.success(cached))
-            return
         }
-        analyticsCacheLock.unlock()
 
         let interval = TaskerPerformanceTrace.begin("AnalyticsDaily")
         fetchTasksForDay(date) { [weak self] result in
@@ -80,10 +101,16 @@ public final class CalculateAnalyticsUseCase {
                     return
                 }
                 self.analyticsComputeQueue.async {
-                    let analytics = self.computeDailyAnalytics(tasks: tasks, date: date)
-                    self.analyticsCacheLock.lock()
-                    self.dailyAnalyticsCache[cacheKey] = analytics
-                    self.analyticsCacheLock.unlock()
+                    let analytics = self.computeDailyAnalytics(
+                        tasks: tasks,
+                        habitSignals: habitSignals,
+                        date: date
+                    )
+                    if canUseCache {
+                        self.analyticsCacheLock.lock()
+                        self.dailyAnalyticsCache[cacheKey] = analytics
+                        self.analyticsCacheLock.unlock()
+                    }
                     TaskerPerformanceTrace.end(interval)
                     completion(.success(analytics))
                 }
@@ -98,14 +125,21 @@ public final class CalculateAnalyticsUseCase {
     // MARK: - Weekly Analytics
     
     /// Calculate analytics for the current week
-    public func calculateWeeklyAnalytics(completion: @escaping (Result<WeeklyAnalytics, AnalyticsError>) -> Void) {
+    public func calculateWeeklyAnalytics(
+        habitSignalsByDay: [String: [TaskerHabitSignal]] = [:],
+        completion: @escaping (Result<WeeklyAnalytics, AnalyticsError>) -> Void
+    ) {
         let calendar = Calendar.current
         guard let weekInterval = calendar.dateInterval(of: .weekOfYear, for: Date()) else {
             completion(.failure(.invalidDateRange))
             return
         }
         
-        calculateAnalytics(from: weekInterval.start, to: weekInterval.end) { result in
+        calculateAnalytics(
+            from: weekInterval.start,
+            to: weekInterval.end,
+            habitSignalsByDay: habitSignalsByDay
+        ) { result in
             switch result {
             case .success(let periodAnalytics):
                 let weeklyAnalytics = WeeklyAnalytics(
@@ -117,7 +151,8 @@ public final class CalculateAnalyticsUseCase {
                     completionRate: periodAnalytics.completionRate,
                     averageTasksPerDay: periodAnalytics.averageTasksPerDay,
                     mostProductiveDay: periodAnalytics.mostProductiveDay,
-                    leastProductiveDay: periodAnalytics.leastProductiveDay
+                    leastProductiveDay: periodAnalytics.leastProductiveDay,
+                    habitAnalytics: periodAnalytics.habitAnalytics
                 )
                 completion(.success(weeklyAnalytics))
                 
@@ -130,14 +165,21 @@ public final class CalculateAnalyticsUseCase {
     // MARK: - Monthly Analytics
     
     /// Calculate analytics for the current month
-    public func calculateMonthlyAnalytics(completion: @escaping (Result<MonthlyAnalytics, AnalyticsError>) -> Void) {
+    public func calculateMonthlyAnalytics(
+        habitSignalsByDay: [String: [TaskerHabitSignal]] = [:],
+        completion: @escaping (Result<MonthlyAnalytics, AnalyticsError>) -> Void
+    ) {
         let calendar = Calendar.current
         guard let monthInterval = calendar.dateInterval(of: .month, for: Date()) else {
             completion(.failure(.invalidDateRange))
             return
         }
         
-        calculateAnalytics(from: monthInterval.start, to: monthInterval.end) { result in
+        calculateAnalytics(
+            from: monthInterval.start,
+            to: monthInterval.end,
+            habitSignalsByDay: habitSignalsByDay
+        ) { result in
             switch result {
             case .success(let periodAnalytics):
                 // Calculate weekly breakdown
@@ -157,7 +199,8 @@ public final class CalculateAnalyticsUseCase {
                             completionRate: 0,
                             averageTasksPerDay: 0,
                             mostProductiveDay: nil,
-                            leastProductiveDay: nil
+                            leastProductiveDay: nil,
+                            habitAnalytics: .init()
                         )
                         weeklyBreakdown.append(weekAnalytics)
                     }
@@ -174,7 +217,8 @@ public final class CalculateAnalyticsUseCase {
                     averageTasksPerDay: periodAnalytics.averageTasksPerDay,
                     mostProductiveWeek: weeklyBreakdown.max { $0.totalScore < $1.totalScore },
                     projectBreakdown: periodAnalytics.projectBreakdown,
-                    priorityBreakdown: periodAnalytics.priorityBreakdown
+                    priorityBreakdown: periodAnalytics.priorityBreakdown,
+                    habitAnalytics: periodAnalytics.habitAnalytics
                 )
                 completion(.success(monthlyAnalytics))
                 
@@ -190,6 +234,27 @@ public final class CalculateAnalyticsUseCase {
     public func calculateAnalytics(
         from startDate: Date,
         to endDate: Date,
+        habitSignalsByDay: [String: [TaskerHabitSignal]] = [:],
+        completion: @escaping (Result<PeriodAnalytics, AnalyticsError>) -> Void
+    ) {
+        resolveHabitSignalsByDay(
+            from: startDate,
+            to: endDate,
+            suppliedSignalsByDay: habitSignalsByDay
+        ) { [weak self] resolvedSignalsByDay in
+            self?.calculateAnalyticsResolved(
+                from: startDate,
+                to: endDate,
+                habitSignalsByDay: resolvedSignalsByDay,
+                completion: completion
+            )
+        }
+    }
+
+    private func calculateAnalyticsResolved(
+        from startDate: Date,
+        to endDate: Date,
+        habitSignalsByDay: [String: [TaskerHabitSignal]],
         completion: @escaping (Result<PeriodAnalytics, AnalyticsError>) -> Void
     ) {
         // Validate date range
@@ -199,13 +264,16 @@ public final class CalculateAnalyticsUseCase {
         }
         
         let cacheKey = periodCacheKey(startDate: startDate, endDate: endDate)
-        analyticsCacheLock.lock()
-        if let cached = periodAnalyticsCache[cacheKey] {
+        let canUseCache = habitSignalsByDay.isEmpty
+        if canUseCache {
+            analyticsCacheLock.lock()
+            if let cached = periodAnalyticsCache[cacheKey] {
+                analyticsCacheLock.unlock()
+                completion(.success(cached))
+                return
+            }
             analyticsCacheLock.unlock()
-            completion(.success(cached))
-            return
         }
-        analyticsCacheLock.unlock()
 
         let interval = TaskerPerformanceTrace.begin("AnalyticsPeriod")
 
@@ -230,12 +298,15 @@ public final class CalculateAnalyticsUseCase {
                 self.analyticsComputeQueue.async {
                     let analytics = self.computePeriodAnalytics(
                         tasks: tasksInRange,
+                        habitSignalsByDay: habitSignalsByDay,
                         startDate: startDate,
                         endDate: endDate
                     )
-                    self.analyticsCacheLock.lock()
-                    self.periodAnalyticsCache[cacheKey] = analytics
-                    self.analyticsCacheLock.unlock()
+                    if canUseCache {
+                        self.analyticsCacheLock.lock()
+                        self.periodAnalyticsCache[cacheKey] = analytics
+                        self.analyticsCacheLock.unlock()
+                    }
                     TaskerPerformanceTrace.end(interval)
                     completion(.success(analytics))
                 }
@@ -376,11 +447,60 @@ public final class CalculateAnalyticsUseCase {
             completion(result.map(\.tasks))
         }
     }
+
+    private func resolveHabitSignalsForDay(
+        _ date: Date,
+        suppliedSignals: [TaskerHabitSignal],
+        completion: @escaping ([TaskerHabitSignal]) -> Void
+    ) {
+        guard suppliedSignals.isEmpty, let habitRuntimeReadRepository else {
+            completion(suppliedSignals)
+            return
+        }
+
+        let calendar = Calendar.current
+        let startOfDay = calendar.startOfDay(for: date)
+        let endOfDay = calendar.date(byAdding: .day, value: 1, to: startOfDay) ?? date
+        habitRuntimeReadRepository.fetchSignals(start: startOfDay, end: endOfDay) { result in
+            let signals = (try? result.get())?.map { TaskerHabitSignal(summary: $0, referenceDate: date) } ?? []
+            completion(signals)
+        }
+    }
+
+    private func resolveHabitSignalsByDay(
+        from startDate: Date,
+        to endDate: Date,
+        suppliedSignalsByDay: [String: [TaskerHabitSignal]],
+        completion: @escaping ([String: [TaskerHabitSignal]]) -> Void
+    ) {
+        guard suppliedSignalsByDay.isEmpty, let habitRuntimeReadRepository else {
+            completion(suppliedSignalsByDay)
+            return
+        }
+
+        let calendar = Calendar.current
+        let start = calendar.startOfDay(for: startDate)
+        let endExclusive = calendar.date(byAdding: .day, value: 1, to: calendar.startOfDay(for: endDate)) ?? endDate
+        habitRuntimeReadRepository.fetchSignals(start: start, end: endExclusive) { result in
+            let summaries = (try? result.get()) ?? []
+            let grouped = Dictionary(grouping: summaries) { summary in
+                XPCalculationEngine.periodKey(for: calendar.startOfDay(for: summary.dueAt ?? start))
+            }
+            let mapped = grouped.mapValues { summaries in
+                summaries.map { TaskerHabitSignal(summary: $0, referenceDate: $0.dueAt ?? start) }
+            }
+            completion(mapped)
+        }
+    }
     
     // MARK: - Private Computation Methods
     
     /// Executes computeDailyAnalytics.
-    private func computeDailyAnalytics(tasks: [TaskDefinition], date: Date) -> DailyAnalytics {
+    private func computeDailyAnalytics(
+        tasks: [TaskDefinition],
+        habitSignals: [TaskerHabitSignal],
+        date: Date
+    ) -> DailyAnalytics {
         let completedTasks = tasks.filter { $0.isComplete }
         let totalTasks = tasks.count
         let completionRate = totalTasks > 0 ? Double(completedTasks.count) / Double(totalTasks) : 0
@@ -396,6 +516,8 @@ public final class CalculateAnalyticsUseCase {
             priorityBreakdown[task.priority, default: 0] += 1
         }
         
+        let habitAnalytics = computeHabitAnalytics(signals: habitSignals, date: date)
+
         // Group by type
         var typeBreakdown: [TaskType: Int] = [:]
         for task in completedTasks {
@@ -410,12 +532,18 @@ public final class CalculateAnalyticsUseCase {
             totalScore: totalScore,
             morningTasksCompleted: typeBreakdown[.morning] ?? 0,
             eveningTasksCompleted: typeBreakdown[.evening] ?? 0,
-            priorityBreakdown: priorityBreakdown
+            priorityBreakdown: priorityBreakdown,
+            habitAnalytics: habitAnalytics
         )
     }
     
     /// Executes computePeriodAnalytics.
-    private func computePeriodAnalytics(tasks: [TaskDefinition], startDate: Date, endDate: Date) -> PeriodAnalytics {
+    private func computePeriodAnalytics(
+        tasks: [TaskDefinition],
+        habitSignalsByDay: [String: [TaskerHabitSignal]],
+        startDate: Date,
+        endDate: Date
+    ) -> PeriodAnalytics {
         let calendar = Calendar.current
         var dailyBreakdown: [DailyAnalytics] = []
         var currentDate = startDate
@@ -431,7 +559,15 @@ public final class CalculateAnalyticsUseCase {
         while currentDate <= endDate {
             let day = calendar.startOfDay(for: currentDate)
             let dayTasks = tasksByDay[day] ?? []
-            dailyBreakdown.append(computeDailyAnalytics(tasks: dayTasks, date: currentDate))
+            let key = XPCalculationEngine.periodKey(for: day)
+            let habitSignals = habitSignalsByDay[key] ?? []
+            dailyBreakdown.append(
+                computeDailyAnalytics(
+                    tasks: dayTasks,
+                    habitSignals: habitSignals,
+                    date: currentDate
+                )
+            )
             currentDate = calendar.date(byAdding: .day, value: 1, to: currentDate) ?? endDate
         }
         
@@ -440,6 +576,9 @@ public final class CalculateAnalyticsUseCase {
         let totalTasksCompleted = dailyBreakdown.reduce(0) { $0 + $1.completedTasks }
         let totalTasks = dailyBreakdown.reduce(0) { $0 + $1.totalTasks }
         let completionRate = totalTasks > 0 ? Double(totalTasksCompleted) / Double(totalTasks) : 0
+        let habitAnalytics = dailyBreakdown.reduce(HabitAnalyticsSnapshot()) { partial, daily in
+            partial.combining(daily.habitAnalytics)
+        }
         
         let dayCount = calendar.dateComponents([.day], from: startDate, to: endDate).day ?? 1
         let averageTasksPerDay = dayCount > 0 ? Double(totalTasksCompleted) / Double(dayCount) : 0
@@ -472,7 +611,8 @@ public final class CalculateAnalyticsUseCase {
             mostProductiveDay: mostProductiveDay,
             leastProductiveDay: leastProductiveDay,
             projectBreakdown: projectBreakdown,
-            priorityBreakdown: priorityBreakdown
+            priorityBreakdown: priorityBreakdown,
+            habitAnalytics: habitAnalytics
         )
     }
     
@@ -573,9 +713,239 @@ public final class CalculateAnalyticsUseCase {
     private func periodCacheKey(startDate: Date, endDate: Date) -> String {
         "\(Calendar.current.startOfDay(for: startDate).timeIntervalSinceReferenceDate):\(Calendar.current.startOfDay(for: endDate).timeIntervalSinceReferenceDate)"
     }
+
+    private func computeHabitAnalytics(signals: [TaskerHabitSignal], date: Date) -> HabitAnalyticsSnapshot {
+        guard signals.isEmpty == false else {
+            return HabitAnalyticsSnapshot(date: date)
+        }
+
+        let calendar = Calendar.current
+        let startOfDay = calendar.startOfDay(for: date)
+        let endOfDay = calendar.date(byAdding: .day, value: 1, to: startOfDay) ?? date
+
+        let dueSignals = signals.filter { signal in
+            if signal.isDueToday { return true }
+            guard let dueAt = signal.dueAt else { return false }
+            return dueAt >= startOfDay && dueAt < endOfDay
+        }
+        let positiveHabitCount = signals.filter(\.isPositive).count
+        let negativeHabitCount = signals.filter { !$0.isPositive }.count
+        let completedPositiveHabits = dueSignals.filter {
+            $0.isPositive && Self.isSuccessfulHabitOutcome($0.outcomeRaw)
+        }.count
+        let successfulNegativeCheckIns = dueSignals.filter {
+            !$0.isPositive && Self.isSuccessfulHabitOutcome($0.outcomeRaw)
+        }.count
+        let lapseCount = dueSignals.filter {
+            Self.isLapseHabitOutcome($0.outcomeRaw)
+        }.count
+        let missedHabits = dueSignals.filter {
+            Self.isMissedHabitOutcome($0.outcomeRaw)
+        }.count
+        let skippedHabits = dueSignals.filter {
+            Self.isSkippedHabitOutcome($0.outcomeRaw)
+        }.count
+        let successCount = completedPositiveHabits + successfulNegativeCheckIns
+        let adherenceRate = dueSignals.isEmpty ? 0 : Double(successCount) / Double(dueSignals.count)
+
+        return HabitAnalyticsSnapshot(
+            date: date,
+            dueHabits: dueSignals.count,
+            completedPositiveHabits: completedPositiveHabits,
+            successfulNegativeCheckIns: successfulNegativeCheckIns,
+            lapseCount: lapseCount,
+            missedHabits: missedHabits,
+            skippedHabits: skippedHabits,
+            adherenceRate: adherenceRate,
+            positiveHabitCount: positiveHabitCount,
+            negativeHabitCount: negativeHabitCount
+        )
+    }
+
+    private static func isSuccessfulHabitOutcome(_ outcomeRaw: String?) -> Bool {
+        guard let value = outcomeRaw?.lowercased() else { return false }
+        return ["completed", "abstained", "success", "successful"].contains(value)
+    }
+
+    private static func isLapseHabitOutcome(_ outcomeRaw: String?) -> Bool {
+        guard let value = outcomeRaw?.lowercased() else { return false }
+        return ["lapsed", "lapse"].contains(value)
+    }
+
+    private static func isMissedHabitOutcome(_ outcomeRaw: String?) -> Bool {
+        guard let value = outcomeRaw?.lowercased() else { return false }
+        return value == "missed"
+    }
+
+    private static func isSkippedHabitOutcome(_ outcomeRaw: String?) -> Bool {
+        guard let value = outcomeRaw?.lowercased() else { return false }
+        return ["skipped", "skip"].contains(value)
+    }
 }
 
 // MARK: - Analytics Models
+
+public struct HabitAnalyticsSnapshot: Equatable, Sendable {
+    public let date: Date
+    public let dueHabits: Int
+    public let completedPositiveHabits: Int
+    public let successfulNegativeCheckIns: Int
+    public let lapseCount: Int
+    public let missedHabits: Int
+    public let skippedHabits: Int
+    public let adherenceRate: Double
+    public let positiveHabitCount: Int
+    public let negativeHabitCount: Int
+
+    public init(
+        date: Date = .now,
+        dueHabits: Int = 0,
+        completedPositiveHabits: Int = 0,
+        successfulNegativeCheckIns: Int = 0,
+        lapseCount: Int = 0,
+        missedHabits: Int = 0,
+        skippedHabits: Int = 0,
+        adherenceRate: Double = 0,
+        positiveHabitCount: Int = 0,
+        negativeHabitCount: Int = 0
+    ) {
+        self.date = date
+        self.dueHabits = dueHabits
+        self.completedPositiveHabits = completedPositiveHabits
+        self.successfulNegativeCheckIns = successfulNegativeCheckIns
+        self.lapseCount = lapseCount
+        self.missedHabits = missedHabits
+        self.skippedHabits = skippedHabits
+        self.adherenceRate = adherenceRate
+        self.positiveHabitCount = positiveHabitCount
+        self.negativeHabitCount = negativeHabitCount
+    }
+
+    public func combining(_ other: HabitAnalyticsSnapshot) -> HabitAnalyticsSnapshot {
+        let due = dueHabits + other.dueHabits
+        let success = completedPositiveHabits + successfulNegativeCheckIns
+        let otherSuccess = other.completedPositiveHabits + other.successfulNegativeCheckIns
+        let totalSuccess = success + otherSuccess
+        return HabitAnalyticsSnapshot(
+            date: max(date, other.date),
+            dueHabits: due,
+            completedPositiveHabits: completedPositiveHabits + other.completedPositiveHabits,
+            successfulNegativeCheckIns: successfulNegativeCheckIns + other.successfulNegativeCheckIns,
+            lapseCount: lapseCount + other.lapseCount,
+            missedHabits: missedHabits + other.missedHabits,
+            skippedHabits: skippedHabits + other.skippedHabits,
+            adherenceRate: due > 0 ? Double(totalSuccess) / Double(due) : 0,
+            positiveHabitCount: positiveHabitCount + other.positiveHabitCount,
+            negativeHabitCount: negativeHabitCount + other.negativeHabitCount
+        )
+    }
+}
+
+public struct TaskerHabitSignal: Equatable, Sendable {
+    public let habitID: UUID
+    public let title: String
+    public let isPositive: Bool
+    public let trackingModeRaw: String?
+    public let lifeAreaName: String?
+    public let projectName: String?
+    public let iconSymbolName: String?
+    public let iconCategoryKey: String?
+    public let dueAt: Date?
+    public let isDueToday: Bool
+    public let isOverdue: Bool
+    public let currentStreak: Int
+    public let bestStreak: Int
+    public let riskStateRaw: String?
+    public let outcomeRaw: String?
+    public let occurredAt: Date?
+    public let keywords: [String]
+
+    public init(
+        habitID: UUID,
+        title: String,
+        isPositive: Bool,
+        trackingModeRaw: String?,
+        lifeAreaName: String?,
+        projectName: String?,
+        iconSymbolName: String?,
+        iconCategoryKey: String?,
+        dueAt: Date?,
+        isDueToday: Bool,
+        isOverdue: Bool,
+        currentStreak: Int,
+        bestStreak: Int,
+        riskStateRaw: String?,
+        outcomeRaw: String?,
+        occurredAt: Date?,
+        keywords: [String]
+    ) {
+        self.habitID = habitID
+        self.title = title
+        self.isPositive = isPositive
+        self.trackingModeRaw = trackingModeRaw
+        self.lifeAreaName = lifeAreaName
+        self.projectName = projectName
+        self.iconSymbolName = iconSymbolName
+        self.iconCategoryKey = iconCategoryKey
+        self.dueAt = dueAt
+        self.isDueToday = isDueToday
+        self.isOverdue = isOverdue
+        self.currentStreak = currentStreak
+        self.bestStreak = bestStreak
+        self.riskStateRaw = riskStateRaw
+        self.outcomeRaw = outcomeRaw
+        self.occurredAt = occurredAt
+        self.keywords = keywords
+    }
+
+    public init(summary: HabitOccurrenceSummary, referenceDate: Date = Date()) {
+        let startOfReferenceDay = Calendar.current.startOfDay(for: referenceDate)
+        let dueAt = summary.dueAt
+        let isOverdue = {
+            guard let dueAt else { return false }
+            switch summary.state {
+            case .completed, .skipped, .failed:
+                return false
+            case .pending, .missed:
+                return dueAt < startOfReferenceDay
+            }
+        }()
+        self.init(
+            habitID: summary.habitID,
+            title: summary.title,
+            isPositive: summary.kind == .positive,
+            trackingModeRaw: summary.trackingMode.rawValue,
+            lifeAreaName: summary.lifeAreaName,
+            projectName: summary.projectName,
+            iconSymbolName: summary.icon?.symbolName,
+            iconCategoryKey: summary.icon?.categoryKey,
+            dueAt: dueAt,
+            isDueToday: dueAt.map { Calendar.current.isDate($0, inSameDayAs: referenceDate) } ?? false,
+            isOverdue: isOverdue,
+            currentStreak: summary.currentStreak,
+            bestStreak: summary.bestStreak,
+            riskStateRaw: summary.riskState.rawValue,
+            outcomeRaw: Self.outcomeRaw(for: summary.state),
+            occurredAt: dueAt,
+            keywords: [summary.title, summary.lifeAreaName, summary.projectName, summary.icon?.categoryKey].compactMap { $0 }
+        )
+    }
+
+    private static func outcomeRaw(for state: OccurrenceState) -> String? {
+        switch state {
+        case .completed:
+            return "completed"
+        case .failed:
+            return "lapsed"
+        case .missed:
+            return "missed"
+        case .skipped:
+            return "skipped"
+        case .pending:
+            return nil
+        }
+    }
+}
 
 public struct DailyAnalytics {
     public let date: Date
@@ -586,6 +956,7 @@ public struct DailyAnalytics {
     public let morningTasksCompleted: Int
     public let eveningTasksCompleted: Int
     public let priorityBreakdown: [TaskPriority: Int]
+    public let habitAnalytics: HabitAnalyticsSnapshot
     
     /// Initializes a new instance.
     init(
@@ -596,7 +967,8 @@ public struct DailyAnalytics {
         totalScore: Int = 0,
         morningTasksCompleted: Int = 0,
         eveningTasksCompleted: Int = 0,
-        priorityBreakdown: [TaskPriority: Int] = [:]
+        priorityBreakdown: [TaskPriority: Int] = [:],
+        habitAnalytics: HabitAnalyticsSnapshot = .init()
     ) {
         self.date = date
         self.totalTasks = totalTasks
@@ -606,6 +978,7 @@ public struct DailyAnalytics {
         self.morningTasksCompleted = morningTasksCompleted
         self.eveningTasksCompleted = eveningTasksCompleted
         self.priorityBreakdown = priorityBreakdown
+        self.habitAnalytics = habitAnalytics
     }
 }
 
@@ -619,6 +992,7 @@ public struct WeeklyAnalytics {
     public let averageTasksPerDay: Double
     public let mostProductiveDay: DailyAnalytics?
     public let leastProductiveDay: DailyAnalytics?
+    public let habitAnalytics: HabitAnalyticsSnapshot
 }
 
 public struct MonthlyAnalytics {
@@ -631,6 +1005,7 @@ public struct MonthlyAnalytics {
     public let mostProductiveWeek: WeeklyAnalytics?
     public let projectBreakdown: [String: Int]
     public let priorityBreakdown: [TaskPriority: Int]
+    public let habitAnalytics: HabitAnalyticsSnapshot
 }
 
 public struct PeriodAnalytics {
@@ -645,6 +1020,7 @@ public struct PeriodAnalytics {
     public let leastProductiveDay: DailyAnalytics?
     public let projectBreakdown: [String: Int]
     public let priorityBreakdown: [TaskPriority: Int]
+    public let habitAnalytics: HabitAnalyticsSnapshot
     
     /// Initializes a new instance.
     init(
@@ -658,7 +1034,8 @@ public struct PeriodAnalytics {
         mostProductiveDay: DailyAnalytics? = nil,
         leastProductiveDay: DailyAnalytics? = nil,
         projectBreakdown: [String: Int] = [:],
-        priorityBreakdown: [TaskPriority: Int] = [:]
+        priorityBreakdown: [TaskPriority: Int] = [:],
+        habitAnalytics: HabitAnalyticsSnapshot = .init()
     ) {
         self.startDate = startDate
         self.endDate = endDate
@@ -671,6 +1048,7 @@ public struct PeriodAnalytics {
         self.leastProductiveDay = leastProductiveDay
         self.projectBreakdown = projectBreakdown
         self.priorityBreakdown = priorityBreakdown
+        self.habitAnalytics = habitAnalytics
     }
 }
 

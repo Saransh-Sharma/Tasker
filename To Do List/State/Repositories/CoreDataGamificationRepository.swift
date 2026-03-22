@@ -14,7 +14,7 @@ public final class CoreDataGamificationRepository: GamificationRepositoryProtoco
         self.readContext.automaticallyMergesChangesFromParent = true
         self.backgroundContext.mergePolicy = NSMergeByPropertyObjectTrumpMergePolicy
         self.backgroundContext.transactionAuthor = "tasker.gamification.local"
-        self.schemaValidationError = Self.validateSchema(in: container.managedObjectModel)
+        self.schemaValidationError = Self.schemaValidationError(in: container.managedObjectModel)
         if let schemaValidationError {
             logError(
                 event: "gamification_schema_guard_failed",
@@ -624,7 +624,7 @@ public final class CoreDataGamificationRepository: GamificationRepositoryProtoco
         }
     }
 
-    private static func validateSchema(in model: NSManagedObjectModel) -> NSError? {
+    static func schemaValidationError(in model: NSManagedObjectModel) -> NSError? {
         let requiredSchema: [String: Set<String>] = [
             "GamificationProfile": [
                 "id", "xpTotal", "level", "currentStreak", "bestStreak", "lastActiveDate", "updatedAt",

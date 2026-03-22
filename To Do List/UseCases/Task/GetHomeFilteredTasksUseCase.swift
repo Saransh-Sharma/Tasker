@@ -907,15 +907,76 @@ public final class ComputeEvaHomeInsightsUseCase {
     private static let quickWinBoost: Double = 1.0
     private static let staleDayThreshold: Int = 14
 
+    private let habitRuntimeReadRepository: HabitRuntimeReadRepositoryProtocol?
+
     /// Initializes a new instance.
-    public init() {}
+    public init(habitRuntimeReadRepository: HabitRuntimeReadRepositoryProtocol? = nil) {
+        self.habitRuntimeReadRepository = habitRuntimeReadRepository
+    }
 
     /// Executes execute.
     public func execute(
         openTasks: [TaskDefinition],
         focusTasks: [TaskDefinition],
         anchorDate: Date = Date(),
+        now: Date = Date(),
+        completion: @escaping (EvaHomeInsights) -> Void
+    ) {
+        guard let habitRuntimeReadRepository else {
+            completion(
+                buildInsights(
+                    openTasks: openTasks,
+                    focusTasks: focusTasks,
+                    habitSignals: [],
+                    anchorDate: anchorDate,
+                    now: now
+                )
+            )
+            return
+        }
+
+        let calendar = Calendar.current
+        let startOfDay = calendar.startOfDay(for: anchorDate)
+        let endOfDay = calendar.date(byAdding: .day, value: 1, to: startOfDay) ?? anchorDate
+        habitRuntimeReadRepository.fetchSignals(start: startOfDay, end: endOfDay) { result in
+            let signals = ((try? result.get()) ?? []).map {
+                TaskerHabitSignal(summary: $0, referenceDate: anchorDate)
+            }
+            completion(
+                self.buildInsights(
+                    openTasks: openTasks,
+                    focusTasks: focusTasks,
+                    habitSignals: signals,
+                    anchorDate: anchorDate,
+                    now: now
+                )
+            )
+        }
+    }
+
+    /// Executes execute.
+    public func execute(
+        openTasks: [TaskDefinition],
+        focusTasks: [TaskDefinition],
+        habitSignals: [TaskerHabitSignal] = [],
+        anchorDate: Date = Date(),
         now: Date = Date()
+    ) -> EvaHomeInsights {
+        buildInsights(
+            openTasks: openTasks,
+            focusTasks: focusTasks,
+            habitSignals: habitSignals,
+            anchorDate: anchorDate,
+            now: now
+        )
+    }
+
+    private func buildInsights(
+        openTasks: [TaskDefinition],
+        focusTasks: [TaskDefinition],
+        habitSignals: [TaskerHabitSignal],
+        anchorDate: Date,
+        now: Date
     ) -> EvaHomeInsights {
         let overdueWeightPerDay = EvaHeuristicDebugOverride.double(
             "debug.eva.focus.overdueWeightPerDay",
@@ -1002,7 +1063,7 @@ public final class ComputeEvaHomeInsightsUseCase {
             )
         }
 
-        let summaryLine = focusSummaryLine(from: focusInsights)
+        let summaryLine = focusSummaryLine(from: focusInsights, habitSignals: habitSignals)
         let triageSignal = buildTriageSignal(inboxOpen: inboxOpen, now: now)
         let rescueSignal = buildRescueSignal(overdueOpen: overdueOpen, now: now, anchorStart: startOfAnchorDay)
 
@@ -1029,8 +1090,7 @@ public final class ComputeEvaHomeInsightsUseCase {
     }
 
     /// Executes focusSummaryLine.
-    private func focusSummaryLine(from insights: [EvaFocusTaskInsight]) -> String? {
-        guard insights.isEmpty == false else { return nil }
+    private func focusSummaryLine(from insights: [EvaFocusTaskInsight], habitSignals: [TaskerHabitSignal]) -> String? {
         var tagCounts: [String: Int] = [:]
         for insight in insights {
             for factor in insight.rationale {
@@ -1041,8 +1101,28 @@ public final class ComputeEvaHomeInsightsUseCase {
             if $0.value != $1.value { return $0.value > $1.value }
             return $0.key < $1.key
         }.prefix(3).map(\.key)
-        guard top.isEmpty == false else { return nil }
-        return "Eva picked for: " + top.joined(separator: " · ")
+        var sections: [String] = []
+        if top.isEmpty == false {
+            sections.append("Eva picked for: " + top.joined(separator: " · "))
+        }
+        if let habitSummary = habitSummaryLine(from: habitSignals) {
+            sections.append(habitSummary)
+        }
+        guard sections.isEmpty == false else { return nil }
+        return sections.joined(separator: " | ")
+    }
+
+    private func habitSummaryLine(from habitSignals: [TaskerHabitSignal]) -> String? {
+        guard habitSignals.isEmpty == false else { return nil }
+        let dueCount = habitSignals.filter { $0.isDueToday || $0.isOverdue }.count
+        let atRiskCount = habitSignals.filter {
+            ($0.riskStateRaw?.lowercased().contains("risk") ?? false) || $0.isOverdue
+        }.count
+        let lapseCount = habitSignals.filter {
+            guard let outcome = $0.outcomeRaw?.lowercased() else { return false }
+            return outcome == "lapsed"
+        }.count
+        return "Habits: \(dueCount) due, \(atRiskCount) at risk, \(lapseCount) lapsed"
     }
 
     /// Executes buildTriageSignal.

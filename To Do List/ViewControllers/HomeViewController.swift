@@ -124,6 +124,8 @@ struct HomeTasksSnapshot: Equatable {
     let morningTasks: [TaskDefinition]
     let eveningTasks: [TaskDefinition]
     let overdueTasks: [TaskDefinition]
+    let dueTodaySection: HomeListSection?
+    let todaySections: [HomeListSection]
     let inlineCompletedTasks: [TaskDefinition]
     let doneTimelineTasks: [TaskDefinition]
     let projects: [Project]
@@ -139,6 +141,7 @@ struct HomeTasksSnapshot: Equatable {
     let emptyStateActionTitle: String?
     let canUseManualFocusDrag: Bool
     let focusTasks: [TaskDefinition]
+    let focusRows: [HomeTodayRow]
     let pinnedFocusTaskIDs: [UUID]
     let todayOpenTaskCount: Int
 
@@ -146,6 +149,8 @@ struct HomeTasksSnapshot: Equatable {
         morningTasks: [],
         eveningTasks: [],
         overdueTasks: [],
+        dueTodaySection: nil,
+        todaySections: [],
         inlineCompletedTasks: [],
         doneTimelineTasks: [],
         projects: [],
@@ -161,6 +166,7 @@ struct HomeTasksSnapshot: Equatable {
         emptyStateActionTitle: nil,
         canUseManualFocusDrag: false,
         focusTasks: [],
+        focusRows: [],
         pinnedFocusTaskIDs: [],
         todayOpenTaskCount: 0
     )
@@ -169,6 +175,8 @@ struct HomeTasksSnapshot: Equatable {
         !morningTasks.isEmpty
             || !eveningTasks.isEmpty
             || !overdueTasks.isEmpty
+            || dueTodaySection != nil
+            || !todaySections.isEmpty
             || !inlineCompletedTasks.isEmpty
             || !doneTimelineTasks.isEmpty
             || rendersDefaultTodayEmptyState
@@ -180,6 +188,8 @@ struct HomeTasksSnapshot: Equatable {
             && morningTasks.isEmpty
             && eveningTasks.isEmpty
             && overdueTasks.isEmpty
+            && dueTodaySection == nil
+            && todaySections.isEmpty
             && inlineCompletedTasks.isEmpty
             && doneTimelineTasks.isEmpty
     }

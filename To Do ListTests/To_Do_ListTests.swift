@@ -87,6 +87,378 @@ final class AppDelegateCloudKitPreflightTests: XCTestCase {
     }
 }
 
+final class HabitCoreDataSchemaRegressionTests: XCTestCase {
+    func testCurrentCompiledTaskModelIncludesHabitRuntimeAndGamificationSchema() throws {
+        let model = try currentCompiledTaskModel()
+        let habitEntity = try XCTUnwrap(model.entitiesByName["HabitDefinition"])
+        let expectedHabitFields: Set<String> = [
+            "kindRaw",
+            "trackingModeRaw",
+            "iconSymbolName",
+            "iconCategoryKey",
+            "notes",
+            "archivedAt",
+            "successMask14Raw",
+            "failureMask14Raw",
+            "lastHistoryRollDate"
+        ]
+
+        XCTAssertTrue(expectedHabitFields.isSubset(of: Set(habitEntity.attributesByName.keys)))
+        XCTAssertNil(CoreDataHabitRepository.schemaValidationError(in: model))
+        XCTAssertNil(CoreDataGamificationRepository.schemaValidationError(in: model))
+    }
+
+    func testBootstrapSchemaValidationRejectsMissingHabitRuntimeFields() {
+        let model = makeInvalidHabitSchemaModel()
+
+        let error = TaskerPersistentStoreBootstrapService.validateRuntimeSchema(in: model)
+
+        let schemaError = try? XCTUnwrap(error)
+        XCTAssertEqual(schemaError?.domain, "CoreDataHabitRepository.Schema")
+        XCTAssertTrue((schemaError?.userInfo["missingRequirements"] as? String)?.contains("kindRaw") ?? false)
+    }
+
+    func testCoreDataHabitRepositoryReturnsSchemaErrorWhenModelMissesKindRaw() throws {
+        let container = try makeContainer(
+            name: "BrokenHabitSchema",
+            model: makeInvalidHabitSchemaModel(),
+            storeType: NSInMemoryStoreType
+        )
+        let repository = CoreDataHabitRepository(container: container)
+        let habit = HabitDefinitionRecord(
+            id: UUID(),
+            lifeAreaID: UUID(),
+            title: "Hydrate",
+            habitType: "check_in",
+            createdAt: Date(timeIntervalSince1970: 1_704_067_200),
+            updatedAt: Date(timeIntervalSince1970: 1_704_067_200)
+        )
+
+        do {
+            let _: HabitDefinitionRecord = try awaitResult { completion in
+                repository.create(habit, completion: completion)
+            }
+            XCTFail("Expected schema validation failure")
+        } catch {
+            let nsError = error as NSError
+            XCTAssertEqual(nsError.domain, "CoreDataHabitRepository.Schema")
+            XCTAssertTrue((nsError.userInfo["missingRequirements"] as? String)?.contains("kindRaw") ?? false)
+        }
+    }
+
+    func testCreateHabitPersistsRuntimeFieldsUsingCompiledModel() throws {
+        let storeURL = temporaryStoreURL(name: "habit-runtime-smoke")
+        defer { removeSQLiteArtifacts(at: storeURL) }
+
+        let model = try currentCompiledTaskModel()
+        let container = try makeContainer(
+            name: "TaskModelV3",
+            model: model,
+            storeType: NSSQLiteStoreType,
+            url: storeURL
+        )
+
+        let lifeAreaID = UUID()
+        let anchorDate = Date(timeIntervalSince1970: 1_704_067_200)
+        let habitRepository = CoreDataHabitRepository(container: container)
+        let scheduleRepository = CoreDataScheduleRepository(container: container)
+        let occurrenceRepository = CoreDataOccurrenceRepository(container: container)
+        let schedulingEngine = CoreSchedulingEngine(
+            scheduleRepository: scheduleRepository,
+            occurrenceRepository: occurrenceRepository
+        )
+        let recompute = RecomputeHabitStreaksUseCase(
+            habitRepository: habitRepository,
+            occurrenceRepository: occurrenceRepository
+        )
+        let sync = SyncHabitScheduleUseCase(
+            habitRepository: habitRepository,
+            scheduleRepository: scheduleRepository,
+            scheduleEngine: schedulingEngine,
+            occurrenceRepository: occurrenceRepository,
+            recomputeHabitStreaksUseCase: recompute
+        )
+        let maintain = MaintainHabitRuntimeUseCase(syncHabitScheduleUseCase: sync)
+        let useCase = CreateHabitUseCase(
+            habitRepository: habitRepository,
+            lifeAreaRepository: CapturingLifeAreaRepository(
+                storedAreas: [LifeArea(id: lifeAreaID, name: "Health", createdAt: anchorDate, updatedAt: anchorDate)]
+            ),
+            projectRepository: MockProjectRepository(projects: []),
+            scheduleRepository: scheduleRepository,
+            maintainHabitRuntimeUseCase: maintain
+        )
+
+        let created = try awaitResult { completion in
+            useCase.execute(
+                request: CreateHabitRequest(
+                    title: "No smoking",
+                    lifeAreaID: lifeAreaID,
+                    kind: .negative,
+                    trackingMode: .lapseOnly,
+                    icon: HabitIconMetadata(symbolName: "nosign", categoryKey: "recovery"),
+                    cadence: .daily(hour: 18, minute: 0),
+                    createdAt: anchorDate
+                ),
+                completion: completion
+            )
+        }
+
+        XCTAssertEqual(created.kind, .negative)
+        XCTAssertEqual(created.trackingMode, .lapseOnly)
+
+        let fetchRequest = NSFetchRequest<NSManagedObject>(entityName: "HabitDefinition")
+        let persisted = try XCTUnwrap(container.viewContext.fetch(fetchRequest).first)
+        XCTAssertEqual(persisted.value(forKey: "kindRaw") as? String, HabitKind.negative.rawValue)
+        XCTAssertEqual(persisted.value(forKey: "trackingModeRaw") as? String, HabitTrackingMode.lapseOnly.rawValue)
+        unloadPersistentStores(from: container)
+    }
+
+    func testMigratingGamificationStoreToCurrentModelBackfillsHabitRuntimeFields() throws {
+        let storeURL = temporaryStoreURL(name: "habit-runtime-migration")
+        defer { removeSQLiteArtifacts(at: storeURL) }
+        let defaults = UserDefaults.standard
+        defaults.removeObject(forKey: "tasker.habit.runtime.field_backfill.v1")
+        defaults.removeObject(forKey: "tasker.habit.runtime.repair_required.v1")
+        defaults.removeObject(forKey: "tasker.habit.runtime.repair_completed.v1")
+
+        let legacyModel = try compiledTaskModelVersion(named: "TaskModelV3_Gamification.mom")
+        let legacyContainer = try makeContainer(
+            name: "TaskModelV3",
+            model: legacyModel,
+            storeType: NSSQLiteStoreType,
+            url: storeURL
+        )
+        let habitID = UUID()
+        legacyContainer.viewContext.performAndWait {
+            let object = NSEntityDescription.insertNewObject(forEntityName: "HabitDefinition", into: legacyContainer.viewContext)
+            object.setValue(habitID, forKey: "id")
+            object.setValue(UUID(), forKey: "lifeAreaID")
+            object.setValue("No drinking", forKey: "title")
+            object.setValue("quit_lapse_only", forKey: "habitType")
+            object.setValue(false, forKey: "isPaused")
+            object.setValue(Int32(0), forKey: "streakCurrent")
+            object.setValue(Int32(0), forKey: "streakBest")
+            object.setValue(Date(timeIntervalSince1970: 1_704_067_200), forKey: "createdAt")
+            object.setValue(Date(timeIntervalSince1970: 1_704_067_200), forKey: "updatedAt")
+            try? legacyContainer.viewContext.save()
+        }
+        unloadPersistentStores(from: legacyContainer)
+
+        let currentModel = try currentCompiledTaskModel()
+        let migratedContainer = try makeCloudKitContainer(
+            name: "TaskModelV3",
+            model: currentModel,
+            url: storeURL
+        )
+
+        TaskerPersistentRuntimeInitializer().initialize(container: migratedContainer)
+
+        let request = NSFetchRequest<NSManagedObject>(entityName: "HabitDefinition")
+        request.predicate = NSPredicate(format: "id == %@", habitID as CVarArg)
+        let migrated = try XCTUnwrap(migratedContainer.viewContext.fetch(request).first)
+        XCTAssertEqual(migrated.value(forKey: "kindRaw") as? String, HabitKind.negative.rawValue)
+        XCTAssertEqual(migrated.value(forKey: "trackingModeRaw") as? String, HabitTrackingMode.lapseOnly.rawValue)
+        XCTAssertNotNil(migrated.value(forKey: "lastHistoryRollDate") as? Date)
+        unloadPersistentStores(from: migratedContainer)
+    }
+
+    func testMigrationStillBackfillsWhenLegacyBackfillMarkerIsAlreadySet() throws {
+        let storeURL = temporaryStoreURL(name: "habit-runtime-migration-flagged")
+        defer { removeSQLiteArtifacts(at: storeURL) }
+        let defaults = UserDefaults.standard
+        defaults.set(true, forKey: "tasker.habit.runtime.field_backfill.v1")
+        defaults.set(false, forKey: "tasker.habit.runtime.repair_required.v1")
+        defaults.set(false, forKey: "tasker.habit.runtime.repair_completed.v1")
+        defer {
+            defaults.removeObject(forKey: "tasker.habit.runtime.field_backfill.v1")
+            defaults.removeObject(forKey: "tasker.habit.runtime.repair_required.v1")
+            defaults.removeObject(forKey: "tasker.habit.runtime.repair_completed.v1")
+        }
+
+        let legacyModel = try compiledTaskModelVersion(named: "TaskModelV3_Gamification.mom")
+        let legacyContainer = try makeContainer(
+            name: "TaskModelV3",
+            model: legacyModel,
+            storeType: NSSQLiteStoreType,
+            url: storeURL
+        )
+        let habitID = UUID()
+        legacyContainer.viewContext.performAndWait {
+            let object = NSEntityDescription.insertNewObject(forEntityName: "HabitDefinition", into: legacyContainer.viewContext)
+            object.setValue(habitID, forKey: "id")
+            object.setValue(UUID(), forKey: "lifeAreaID")
+            object.setValue("No smoking", forKey: "title")
+            object.setValue("quit", forKey: "habitType")
+            object.setValue(false, forKey: "isPaused")
+            object.setValue(Int32(0), forKey: "streakCurrent")
+            object.setValue(Int32(0), forKey: "streakBest")
+            object.setValue(Date(timeIntervalSince1970: 1_704_067_200), forKey: "createdAt")
+            object.setValue(Date(timeIntervalSince1970: 1_704_067_200), forKey: "updatedAt")
+            try? legacyContainer.viewContext.save()
+        }
+        unloadPersistentStores(from: legacyContainer)
+
+        let migratedContainer = try makeCloudKitContainer(
+            name: "TaskModelV3",
+            model: try currentCompiledTaskModel(),
+            url: storeURL
+        )
+
+        TaskerPersistentRuntimeInitializer().initialize(container: migratedContainer)
+
+        let request = NSFetchRequest<NSManagedObject>(entityName: "HabitDefinition")
+        request.predicate = NSPredicate(format: "id == %@", habitID as CVarArg)
+        let migrated = try XCTUnwrap(migratedContainer.viewContext.fetch(request).first)
+        XCTAssertEqual(migrated.value(forKey: "kindRaw") as? String, HabitKind.negative.rawValue)
+        XCTAssertEqual(migrated.value(forKey: "trackingModeRaw") as? String, HabitTrackingMode.dailyCheckIn.rawValue)
+        XCTAssertNotNil(migrated.value(forKey: "lastHistoryRollDate") as? Date)
+        unloadPersistentStores(from: migratedContainer)
+    }
+
+    private func currentCompiledTaskModel() throws -> NSManagedObjectModel {
+        let momdURL = try taskModelBundleURL()
+        guard let model = NSManagedObjectModel(contentsOf: momdURL) else {
+            throw NSError(domain: "HabitCoreDataSchemaRegressionTests", code: 1, userInfo: [
+                NSLocalizedDescriptionKey: "Unable to load current TaskModelV3 compiled model"
+            ])
+        }
+        return model
+    }
+
+    private func compiledTaskModelVersion(named fileName: String) throws -> NSManagedObjectModel {
+        let modelURL = try taskModelBundleURL().appendingPathComponent(fileName)
+        guard let model = NSManagedObjectModel(contentsOf: modelURL) else {
+            throw NSError(domain: "HabitCoreDataSchemaRegressionTests", code: 2, userInfo: [
+                NSLocalizedDescriptionKey: "Unable to load compiled model version \(fileName)"
+            ])
+        }
+        return model
+    }
+
+    private func taskModelBundleURL() throws -> URL {
+        let bundles = [Bundle.main, Bundle(for: type(of: self))]
+        for bundle in bundles {
+            if let url = bundle.url(forResource: "TaskModelV3", withExtension: "momd") {
+                return url
+            }
+        }
+        throw NSError(domain: "HabitCoreDataSchemaRegressionTests", code: 3, userInfo: [
+            NSLocalizedDescriptionKey: "Unable to locate TaskModelV3.momd in test bundles"
+        ])
+    }
+
+    private func makeContainer(
+        name: String,
+        model: NSManagedObjectModel,
+        storeType: String,
+        url: URL? = nil
+    ) throws -> NSPersistentContainer {
+        let container = NSPersistentContainer(name: name, managedObjectModel: model)
+        let description = NSPersistentStoreDescription()
+        description.type = storeType
+        description.shouldAddStoreAsynchronously = false
+        description.shouldMigrateStoreAutomatically = true
+        description.shouldInferMappingModelAutomatically = true
+        if let url {
+            description.url = url
+        }
+        container.persistentStoreDescriptions = [description]
+
+        var loadError: Error?
+        container.loadPersistentStores { _, error in
+            loadError = error
+        }
+        if let loadError {
+            throw loadError
+        }
+        return container
+    }
+
+    private func makeCloudKitContainer(
+        name: String,
+        model: NSManagedObjectModel,
+        url: URL
+    ) throws -> NSPersistentCloudKitContainer {
+        let container = NSPersistentCloudKitContainer(name: name, managedObjectModel: model)
+        let description = NSPersistentStoreDescription(url: url)
+        description.type = NSSQLiteStoreType
+        description.shouldAddStoreAsynchronously = false
+        description.shouldMigrateStoreAutomatically = true
+        description.shouldInferMappingModelAutomatically = true
+        container.persistentStoreDescriptions = [description]
+
+        var loadError: Error?
+        container.loadPersistentStores { _, error in
+            loadError = error
+        }
+        if let loadError {
+            throw loadError
+        }
+        return container
+    }
+
+    private func temporaryStoreURL(name: String) -> URL {
+        FileManager.default.temporaryDirectory
+            .appendingPathComponent("\(name)-\(UUID().uuidString).sqlite")
+    }
+
+    private func removeSQLiteArtifacts(at url: URL) {
+        let fileManager = FileManager.default
+        let sidecars = [
+            url,
+            URL(fileURLWithPath: url.path + "-wal"),
+            URL(fileURLWithPath: url.path + "-shm")
+        ]
+        for fileURL in sidecars where fileManager.fileExists(atPath: fileURL.path) {
+            try? fileManager.removeItem(at: fileURL)
+        }
+    }
+
+    private func unloadPersistentStores(from container: NSPersistentContainer) {
+        let coordinator = container.persistentStoreCoordinator
+        for store in coordinator.persistentStores {
+            try? coordinator.remove(store)
+        }
+    }
+
+    private func makeInvalidHabitSchemaModel() -> NSManagedObjectModel {
+        let model = NSManagedObjectModel()
+        let habitEntity = NSEntityDescription()
+        habitEntity.name = "HabitDefinition"
+        habitEntity.managedObjectClassName = NSStringFromClass(NSManagedObject.self)
+
+        let id = NSAttributeDescription()
+        id.name = "id"
+        id.attributeType = .UUIDAttributeType
+        id.isOptional = true
+
+        let title = NSAttributeDescription()
+        title.name = "title"
+        title.attributeType = .stringAttributeType
+        title.isOptional = true
+
+        let habitType = NSAttributeDescription()
+        habitType.name = "habitType"
+        habitType.attributeType = .stringAttributeType
+        habitType.isOptional = true
+
+        let createdAt = NSAttributeDescription()
+        createdAt.name = "createdAt"
+        createdAt.attributeType = .dateAttributeType
+        createdAt.isOptional = true
+
+        let updatedAt = NSAttributeDescription()
+        updatedAt.name = "updatedAt"
+        updatedAt.attributeType = .dateAttributeType
+        updatedAt.isOptional = true
+
+        habitEntity.properties = [id, title, habitType, createdAt, updatedAt]
+        model.entities = [habitEntity]
+        return model
+    }
+}
+
 // MARK: - Legacy test compatibility shims
 
 typealias Task = TaskDefinition
@@ -588,6 +960,22 @@ private final class LegacyNoopHabitRepository: HabitRepositoryProtocol {
     func delete(id: UUID, completion: @escaping (Result<Void, Error>) -> Void) { completion(.success(())) }
 }
 
+private final class LegacyNoopHabitRuntimeReadRepository: HabitRuntimeReadRepositoryProtocol {
+    func fetchAgendaHabits(for date: Date, completion: @escaping (Result<[HabitOccurrenceSummary], Error>) -> Void) { completion(.success([])) }
+    func fetchHistory(habitIDs: [UUID], endingOn date: Date, dayCount: Int, completion: @escaping (Result<[HabitHistoryWindow], Error>) -> Void) { completion(.success([])) }
+    func fetchSignals(start: Date, end: Date, completion: @escaping (Result<[HabitOccurrenceSummary], Error>) -> Void) { completion(.success([])) }
+    func fetchHabitLibrary(includeArchived: Bool, completion: @escaping (Result<[HabitLibraryRow], Error>) -> Void) { completion(.success([])) }
+}
+
+private final class LegacyNoopScheduleRepository: ScheduleRepositoryProtocol {
+    func fetchTemplates(completion: @escaping (Result<[ScheduleTemplateDefinition], Error>) -> Void) { completion(.success([])) }
+    func fetchRules(templateID: UUID, completion: @escaping (Result<[ScheduleRuleDefinition], Error>) -> Void) { completion(.success([])) }
+    func saveTemplate(_ template: ScheduleTemplateDefinition, completion: @escaping (Result<ScheduleTemplateDefinition, Error>) -> Void) { completion(.success(template)) }
+    func replaceRules(templateID: UUID, rules: [ScheduleRuleDefinition], completion: @escaping (Result<[ScheduleRuleDefinition], Error>) -> Void) { completion(.success(rules)) }
+    func fetchExceptions(templateID: UUID, completion: @escaping (Result<[ScheduleExceptionDefinition], Error>) -> Void) { completion(.success([])) }
+    func saveException(_ exception: ScheduleExceptionDefinition, completion: @escaping (Result<ScheduleExceptionDefinition, Error>) -> Void) { completion(.success(exception)) }
+}
+
 private final class LegacyNoopSchedulingEngine: SchedulingEngineProtocol {
     func generateOccurrences(windowStart: Date, windowEnd: Date, sourceFilter: ScheduleSourceType?, completion: @escaping (Result<[OccurrenceDefinition], Error>) -> Void) { completion(.success([])) }
     func resolveOccurrence(id: UUID, resolution: OccurrenceResolutionType, actor: OccurrenceActor, completion: @escaping (Result<Void, Error>) -> Void) { completion(.success(())) }
@@ -690,6 +1078,7 @@ extension UseCaseCoordinator {
         let taskDefinitionRepository = ShimTaskDefinitionRepositoryAdapter(legacyRepository: taskRepository)
 
         let v2Dependencies = V2Dependencies(
+            projectRepository: projectRepository,
             lifeAreaRepository: LegacyNoopLifeAreaRepository(),
             sectionRepository: LegacyNoopSectionRepository(),
             tagRepository: LegacyNoopTagRepository(),
@@ -697,6 +1086,8 @@ extension UseCaseCoordinator {
             taskTagLinkRepository: LegacyNoopTaskTagLinkRepository(),
             taskDependencyRepository: LegacyNoopTaskDependencyRepository(),
             habitRepository: LegacyNoopHabitRepository(),
+            habitRuntimeReadRepository: LegacyNoopHabitRuntimeReadRepository(),
+            scheduleRepository: LegacyNoopScheduleRepository(),
             scheduleEngine: LegacyNoopSchedulingEngine(),
             occurrenceRepository: LegacyNoopOccurrenceRepository(),
             tombstoneRepository: LegacyNoopTombstoneRepository(),
@@ -2256,6 +2647,62 @@ private final class MockProjectRepository: ProjectRepositoryProtocol {
 
     func isProjectNameAvailable(_ name: String, excludingId: UUID?, completion: @escaping (Result<Bool, Error>) -> Void) {
         completion(.success(true))
+    }
+}
+
+private final class CapturingHabitRuntimeReadRepository: HabitRuntimeReadRepositoryProtocol {
+    var agendaSummaries: [HabitOccurrenceSummary]
+    var historyWindows: [HabitHistoryWindow]
+    var signalSummaries: [HabitOccurrenceSummary]
+    var libraryRows: [HabitLibraryRow]
+    private(set) var fetchAgendaCallCount = 0
+    private(set) var fetchSignalsCallCount = 0
+    private(set) var fetchLibraryCallCount = 0
+
+    init(
+        agendaSummaries: [HabitOccurrenceSummary] = [],
+        historyWindows: [HabitHistoryWindow] = [],
+        signalSummaries: [HabitOccurrenceSummary] = [],
+        libraryRows: [HabitLibraryRow] = []
+    ) {
+        self.agendaSummaries = agendaSummaries
+        self.historyWindows = historyWindows
+        self.signalSummaries = signalSummaries
+        self.libraryRows = libraryRows
+    }
+
+    func fetchAgendaHabits(
+        for date: Date,
+        completion: @escaping (Result<[HabitOccurrenceSummary], Error>) -> Void
+    ) {
+        fetchAgendaCallCount += 1
+        completion(.success(agendaSummaries))
+    }
+
+    func fetchHistory(
+        habitIDs: [UUID],
+        endingOn date: Date,
+        dayCount: Int,
+        completion: @escaping (Result<[HabitHistoryWindow], Error>) -> Void
+    ) {
+        completion(.success(historyWindows))
+    }
+
+    func fetchSignals(
+        start: Date,
+        end: Date,
+        completion: @escaping (Result<[HabitOccurrenceSummary], Error>) -> Void
+    ) {
+        fetchSignalsCallCount += 1
+        completion(.success(signalSummaries))
+    }
+
+    func fetchHabitLibrary(
+        includeArchived: Bool,
+        completion: @escaping (Result<[HabitLibraryRow], Error>) -> Void
+    ) {
+        fetchLibraryCallCount += 1
+        completion(.success(libraryRows))
     }
 }
 
@@ -3964,6 +4411,15 @@ private final class InMemoryScheduleRepository: ScheduleRepositoryProtocol {
         completion(.success(template))
     }
 
+    func replaceRules(
+        templateID: UUID,
+        rules: [ScheduleRuleDefinition],
+        completion: @escaping (Result<[ScheduleRuleDefinition], Error>) -> Void
+    ) {
+        rulesByTemplateID[templateID] = rules
+        completion(.success(rules))
+    }
+
     func fetchExceptions(templateID: UUID, completion: @escaping (Result<[ScheduleExceptionDefinition], Error>) -> Void) {
         completion(.success(exceptionsByTemplateID[templateID] ?? []))
     }
@@ -4078,7 +4534,10 @@ private final class InMemoryOccurrenceRepository: OccurrenceRepositoryProtocol {
     var deletedOccurrenceIDs: [UUID] = []
 
     func fetchInRange(start: Date, end: Date, completion: @escaping (Result<[OccurrenceDefinition], Error>) -> Void) {
-        completion(.success(occurrences.filter { $0.scheduledAt >= start && $0.scheduledAt <= end }))
+        completion(.success(occurrences.filter {
+            let effectiveDate = $0.dueAt ?? $0.scheduledAt
+            return effectiveDate >= start && effectiveDate <= end
+        }))
     }
 
     func saveOccurrences(_ occurrences: [OccurrenceDefinition], completion: @escaping (Result<Void, Error>) -> Void) {
@@ -4102,6 +4561,8 @@ private final class InMemoryOccurrenceRepository: OccurrenceRepositoryProtocol {
                 occurrences[index].state = .skipped
             case .missed:
                 occurrences[index].state = .missed
+            case .lapsed:
+                occurrences[index].state = .failed
             }
             occurrences[index].updatedAt = resolution.resolvedAt
         }
@@ -5988,6 +6449,443 @@ private final class DeferredLifeAreaRepository: LifeAreaRepositoryProtocol {
         pendingFetchCompletion?(.success(storedAreas))
         pendingFetchCompletion = nil
     }
+}
+
+final class HabitRuntimeRemediationTests: XCTestCase {
+    func testCreateHabitKeepsLapseOnlyTemplateActiveAndGeneratesOccurrences() throws {
+        let anchorDate = Date(timeIntervalSince1970: 1_704_132_000) // 2024-01-01 18:00:00 UTC
+        let stack = makeHabitRuntimeStack(anchorDate: anchorDate)
+
+        let habit = try awaitResult { completion in
+            stack.createHabitUseCase.execute(
+                request: CreateHabitRequest(
+                    title: "No smoking",
+                    lifeAreaID: stack.lifeAreaID,
+                    kind: .negative,
+                    trackingMode: .lapseOnly,
+                    icon: HabitIconMetadata(symbolName: "nosign", categoryKey: "recovery"),
+                    cadence: .daily(hour: 18, minute: 0),
+                    createdAt: anchorDate
+                ),
+                completion: completion
+            )
+        }
+
+        XCTAssertEqual(habit.trackingMode, .lapseOnly)
+        XCTAssertEqual(stack.scheduleRepository.templates.count, 1)
+        XCTAssertEqual(stack.scheduleRepository.templates.first?.isActive, true)
+
+        let templateID = try XCTUnwrap(stack.scheduleRepository.templates.first?.id)
+        XCTAssertEqual(stack.scheduleRepository.rulesByTemplateID[templateID]?.count, 1)
+        XCTAssertTrue(
+            stack.occurrenceRepository.occurrences.contains(where: {
+                $0.sourceID == habit.id && Calendar.current.isDate($0.dueAt ?? $0.scheduledAt, inSameDayAs: anchorDate)
+            })
+        )
+    }
+
+    func testMaintainHabitRuntimeAutoCompletesPreviousLapseOnlyDay() throws {
+        let anchorDate = Date(timeIntervalSince1970: 1_704_132_000) // 2024-01-01 18:00:00 UTC
+        let stack = makeHabitRuntimeStack(anchorDate: anchorDate)
+
+        let habit = try awaitResult { completion in
+            stack.createHabitUseCase.execute(
+                request: CreateHabitRequest(
+                    title: "No alcohol",
+                    lifeAreaID: stack.lifeAreaID,
+                    kind: .negative,
+                    trackingMode: .lapseOnly,
+                    icon: HabitIconMetadata(symbolName: "drop", categoryKey: "recovery"),
+                    cadence: .daily(hour: 18, minute: 0),
+                    createdAt: anchorDate
+                ),
+                completion: completion
+            )
+        }
+
+        let nextDay = Calendar.current.date(byAdding: .day, value: 1, to: anchorDate) ?? anchorDate
+        _ = try awaitResult { completion in
+            stack.maintainHabitRuntimeUseCase.execute(anchorDate: nextDay, completion: completion)
+        }
+
+        let previousDayOccurrence = try XCTUnwrap(
+            stack.occurrenceRepository.occurrences.first(where: {
+                $0.sourceID == habit.id && Calendar.current.isDate($0.dueAt ?? $0.scheduledAt, inSameDayAs: anchorDate)
+            })
+        )
+        XCTAssertEqual(previousDayOccurrence.state, .completed)
+        XCTAssertEqual(stack.habitRepository.habitsByID[habit.id]?.streakCurrent, 1)
+    }
+
+    func testResolveHabitOccurrenceMaterializesMissingLapseOnlyDayAsFailed() throws {
+        let anchorDate = Date(timeIntervalSince1970: 1_704_132_000) // 2024-01-01 18:00:00 UTC
+        let stack = makeHabitRuntimeStack(anchorDate: anchorDate)
+
+        let habit = try awaitResult { completion in
+            stack.createHabitUseCase.execute(
+                request: CreateHabitRequest(
+                    title: "No vaping",
+                    lifeAreaID: stack.lifeAreaID,
+                    kind: .negative,
+                    trackingMode: .lapseOnly,
+                    icon: HabitIconMetadata(symbolName: "lungs", categoryKey: "recovery"),
+                    cadence: .daily(hour: 18, minute: 0),
+                    createdAt: anchorDate
+                ),
+                completion: completion
+            )
+        }
+
+        let targetDate = Calendar.current.date(byAdding: .day, value: 2, to: anchorDate) ?? anchorDate
+        stack.occurrenceRepository.occurrences.removeAll {
+            $0.sourceID == habit.id && Calendar.current.isDate($0.dueAt ?? $0.scheduledAt, inSameDayAs: targetDate)
+        }
+
+        _ = try awaitResult { completion in
+            stack.resolveHabitOccurrenceUseCase.execute(
+                habitID: habit.id,
+                action: .lapsed,
+                on: targetDate,
+                completion: completion
+            )
+        }
+
+        let sameDayOccurrences = stack.occurrenceRepository.occurrences.filter {
+            $0.sourceID == habit.id && Calendar.current.isDate($0.dueAt ?? $0.scheduledAt, inSameDayAs: targetDate)
+        }
+        XCTAssertEqual(sameDayOccurrences.count, 1)
+        XCTAssertEqual(sameDayOccurrences.first?.state, .failed)
+        XCTAssertEqual(sameDayOccurrences.first?.generationWindow, "ad_hoc_habit_lapse")
+        XCTAssertEqual(stack.habitRepository.habitsByID[habit.id]?.streakCurrent, 0)
+    }
+
+    func testRecomputeHabitStreaksRebuildsBestFromOccurrences() throws {
+        let habitID = UUID()
+        let lifeAreaID = UUID()
+        let day1 = Date(timeIntervalSince1970: 1_704_067_200)
+        let day2 = day1.addingTimeInterval(86_400)
+        let day3 = day2.addingTimeInterval(86_400)
+
+        let habitRepository = InMemoryHabitRepository(seed: [
+            HabitDefinitionRecord(
+                id: habitID,
+                lifeAreaID: lifeAreaID,
+                title: "Hydrate",
+                habitType: "check_in",
+                kindRaw: HabitKind.positive.rawValue,
+                trackingModeRaw: HabitTrackingMode.dailyCheckIn.rawValue,
+                streakCurrent: 99,
+                streakBest: 99,
+                createdAt: day1,
+                updatedAt: day3
+            )
+        ])
+        let occurrenceRepository = InMemoryOccurrenceRepository()
+        occurrenceRepository.occurrences = [
+            makeHabitOccurrence(habitID: habitID, scheduledAt: day1, state: .completed),
+            makeHabitOccurrence(habitID: habitID, scheduledAt: day2, state: .completed),
+            makeHabitOccurrence(habitID: habitID, scheduledAt: day3, state: .failed)
+        ]
+
+        let useCase = RecomputeHabitStreaksUseCase(
+            habitRepository: habitRepository,
+            occurrenceRepository: occurrenceRepository
+        )
+
+        _ = try awaitResult { completion in
+            useCase.execute(habitIDs: [habitID], referenceDate: day3, completion: completion)
+        }
+
+        XCTAssertEqual(habitRepository.habitsByID[habitID]?.streakCurrent, 0)
+        XCTAssertEqual(habitRepository.habitsByID[habitID]?.streakBest, 2)
+        XCTAssertNotEqual(habitRepository.habitsByID[habitID]?.failureMask14Raw, 0)
+    }
+
+    func testCalculateDailyAnalyticsFetchesHabitSignalsWhenOmitted() throws {
+        let date = Date(timeIntervalSince1970: 1_704_067_200)
+        let summary = HabitOccurrenceSummary(
+            habitID: UUID(),
+            occurrenceID: UUID(),
+            title: "Hydrate",
+            kind: .positive,
+            trackingMode: .dailyCheckIn,
+            lifeAreaID: UUID(),
+            lifeAreaName: "Health",
+            icon: HabitIconMetadata(symbolName: "drop.fill", categoryKey: "hydration"),
+            dueAt: date,
+            state: .completed,
+            currentStreak: 3,
+            bestStreak: 6,
+            riskState: .stable,
+            last14Days: []
+        )
+        let habitReadRepository = CapturingHabitRuntimeReadRepository(signalSummaries: [summary])
+        let useCase = CalculateAnalyticsUseCase(
+            taskReadModelRepository: InMemoryTaskReadModelRepositoryStub(),
+            habitRuntimeReadRepository: habitReadRepository
+        )
+
+        let analytics = try awaitResult { (completion: @escaping (Result<DailyAnalytics, Error>) -> Void) in
+            useCase.calculateDailyAnalytics(for: date) { result in
+                completion(result.mapError { $0 })
+            }
+        }
+
+        XCTAssertEqual(habitReadRepository.fetchSignalsCallCount, 1)
+        XCTAssertEqual(analytics.habitAnalytics.dueHabits, 1)
+        XCTAssertEqual(analytics.habitAnalytics.completedPositiveHabits, 1)
+    }
+
+    func testComputeEvaHomeInsightsFetchesHabitSignalsInternally() {
+        let date = Date(timeIntervalSince1970: 1_704_067_200)
+        let summary = HabitOccurrenceSummary(
+            habitID: UUID(),
+            occurrenceID: UUID(),
+            title: "Meditate",
+            kind: .positive,
+            trackingMode: .dailyCheckIn,
+            lifeAreaID: UUID(),
+            lifeAreaName: "Mind",
+            icon: HabitIconMetadata(symbolName: "brain.head.profile", categoryKey: "mind"),
+            dueAt: date,
+            state: .pending,
+            currentStreak: 4,
+            bestStreak: 9,
+            riskState: .stable,
+            last14Days: []
+        )
+        let habitReadRepository = CapturingHabitRuntimeReadRepository(signalSummaries: [summary])
+        let task = TaskDefinition(
+            id: UUID(),
+            projectID: UUID(),
+            projectName: "Inbox",
+            title: "Write summary",
+            dueDate: date,
+            isComplete: false,
+            dateAdded: date,
+            createdAt: date,
+            updatedAt: date
+        )
+        let useCase = ComputeEvaHomeInsightsUseCase(habitRuntimeReadRepository: habitReadRepository)
+
+        let expectation = expectation(description: "eva")
+        var captured: EvaHomeInsights?
+        useCase.execute(openTasks: [task], focusTasks: [task], anchorDate: date, now: date) { insights in
+            captured = insights
+            expectation.fulfill()
+        }
+        waitForExpectations(timeout: 2.0)
+
+        XCTAssertEqual(habitReadRepository.fetchSignalsCallCount, 1)
+        XCTAssertTrue(captured?.focus.summaryLine?.contains("Habits: 1 due") ?? false)
+    }
+
+    func testLLMContextProjectionBuildTodayJSONFetchesHabitsByDefault() async {
+        let date = Date(timeIntervalSince1970: 1_704_067_200)
+        let summary = HabitOccurrenceSummary(
+            habitID: UUID(),
+            occurrenceID: UUID(),
+            title: "Journal",
+            kind: .positive,
+            trackingMode: .dailyCheckIn,
+            lifeAreaID: UUID(),
+            lifeAreaName: "Mind",
+            icon: HabitIconMetadata(symbolName: "book.closed", categoryKey: "mind"),
+            dueAt: date,
+            state: .pending,
+            currentStreak: 2,
+            bestStreak: 8,
+            riskState: .stable,
+            last14Days: []
+        )
+        let habitReadRepository = CapturingHabitRuntimeReadRepository(signalSummaries: [summary])
+        let service = LLMContextProjectionService(
+            taskReadModelRepository: InMemoryTaskReadModelRepositoryStub(),
+            projectRepository: MockProjectRepository(projects: []),
+            lifeAreaRepository: nil,
+            tagRepository: nil,
+            habitRuntimeReadRepository: habitReadRepository
+        )
+
+        let json = await service.buildTodayJSON()
+
+        XCTAssertEqual(habitReadRepository.fetchSignalsCallCount, 1)
+        XCTAssertTrue(json.contains("Journal"))
+    }
+
+    @MainActor
+    func testAddHabitViewModelRejectsMalformedReminderWindow() {
+        let anchorDate = Date(timeIntervalSince1970: 1_704_067_200)
+        let stack = makeHabitRuntimeStack(anchorDate: anchorDate)
+        let viewModel = AddHabitViewModel(
+            createHabitUseCase: stack.createHabitUseCase,
+            manageLifeAreasUseCase: ManageLifeAreasUseCase(
+                repository: CapturingLifeAreaRepository(
+                    storedAreas: [LifeArea(id: stack.lifeAreaID, name: "Health", createdAt: anchorDate, updatedAt: anchorDate)]
+                )
+            ),
+            manageProjectsUseCase: ManageProjectsUseCase(
+                projectRepository: MockProjectRepository(projects: [])
+            )
+        )
+
+        viewModel.habitName = "Hydrate"
+        viewModel.selectedLifeAreaID = stack.lifeAreaID
+        viewModel.reminderWindowStart = "25:99"
+
+        XCTAssertEqual(viewModel.reminderWindowValidationError, "Reminder start must use HH:mm.")
+        XCTAssertFalse(viewModel.canSubmit)
+    }
+
+    func testBuildHomeAgendaOrdersOverdueThenTodayAcrossTasksAndHabits() {
+        let date = Date(timeIntervalSince1970: 1_704_240_000) // 2024-01-03 00:00:00 UTC
+        let overdueTask = TaskDefinition(
+            id: UUID(),
+            projectID: UUID(),
+            projectName: "Inbox",
+            title: "Overdue task",
+            dueDate: date.addingTimeInterval(-86_400),
+            isComplete: false,
+            dateAdded: date,
+            createdAt: date,
+            updatedAt: date
+        )
+        let dueTask = TaskDefinition(
+            id: UUID(),
+            projectID: UUID(),
+            projectName: "Inbox",
+            title: "Due task",
+            dueDate: date.addingTimeInterval(36_000),
+            isComplete: false,
+            dateAdded: date,
+            createdAt: date,
+            updatedAt: date
+        )
+        let dueHabit = HomeHabitRow(
+            habitID: UUID(),
+            title: "Walk",
+            kind: .positive,
+            trackingMode: .dailyCheckIn,
+            lifeAreaName: "Health",
+            iconSymbolName: "figure.walk",
+            dueAt: date.addingTimeInterval(18_000),
+            state: .due
+        )
+        let completedHabit = HomeHabitRow(
+            habitID: UUID(),
+            title: "Journal",
+            kind: .positive,
+            trackingMode: .dailyCheckIn,
+            lifeAreaName: "Mind",
+            iconSymbolName: "book.closed",
+            dueAt: date.addingTimeInterval(21_600),
+            state: .completedToday
+        )
+
+        let result = BuildHomeAgendaUseCase().execute(
+            date: date,
+            taskRows: [dueTask, overdueTask],
+            habitRows: [completedHabit, dueHabit]
+        )
+
+        XCTAssertEqual(result.taskCount, 2)
+        XCTAssertEqual(result.habitCount, 2)
+        XCTAssertEqual(
+            result.rows.map(\.id),
+            [
+                HomeTodayRow.task(overdueTask).id,
+                HomeTodayRow.habit(dueHabit).id,
+                HomeTodayRow.task(dueTask).id,
+                HomeTodayRow.habit(completedHabit).id
+            ]
+        )
+    }
+
+    private func makeHabitRuntimeStack(anchorDate: Date) -> HabitRuntimeTestStack {
+        let lifeAreaID = UUID()
+        let lifeAreaRepository = CapturingLifeAreaRepository(
+            storedAreas: [LifeArea(id: lifeAreaID, name: "Health", createdAt: anchorDate, updatedAt: anchorDate)]
+        )
+        let projectRepository = MockProjectRepository(projects: [])
+        let habitRepository = InMemoryHabitRepository()
+        let scheduleRepository = InMemoryScheduleRepository()
+        let occurrenceRepository = InMemoryOccurrenceRepository()
+        let schedulingEngine = CoreSchedulingEngine(
+            scheduleRepository: scheduleRepository,
+            occurrenceRepository: occurrenceRepository
+        )
+        let recomputeHabitStreaksUseCase = RecomputeHabitStreaksUseCase(
+            habitRepository: habitRepository,
+            occurrenceRepository: occurrenceRepository
+        )
+        let syncHabitScheduleUseCase = SyncHabitScheduleUseCase(
+            habitRepository: habitRepository,
+            scheduleRepository: scheduleRepository,
+            scheduleEngine: schedulingEngine,
+            occurrenceRepository: occurrenceRepository,
+            recomputeHabitStreaksUseCase: recomputeHabitStreaksUseCase
+        )
+        let maintainHabitRuntimeUseCase = MaintainHabitRuntimeUseCase(
+            syncHabitScheduleUseCase: syncHabitScheduleUseCase
+        )
+        let gamificationRepository = InMemoryGamificationEngineRepository()
+        let gamificationEngine = GamificationEngine(repository: gamificationRepository)
+
+        return HabitRuntimeTestStack(
+            lifeAreaID: lifeAreaID,
+            habitRepository: habitRepository,
+            scheduleRepository: scheduleRepository,
+            occurrenceRepository: occurrenceRepository,
+            createHabitUseCase: CreateHabitUseCase(
+                habitRepository: habitRepository,
+                lifeAreaRepository: lifeAreaRepository,
+                projectRepository: projectRepository,
+                scheduleRepository: scheduleRepository,
+                maintainHabitRuntimeUseCase: maintainHabitRuntimeUseCase
+            ),
+            maintainHabitRuntimeUseCase: maintainHabitRuntimeUseCase,
+            resolveHabitOccurrenceUseCase: ResolveHabitOccurrenceUseCase(
+                habitRepository: habitRepository,
+                scheduleRepository: scheduleRepository,
+                occurrenceRepository: occurrenceRepository,
+                scheduleEngine: schedulingEngine,
+                maintainHabitRuntimeUseCase: maintainHabitRuntimeUseCase,
+                recomputeHabitStreaksUseCase: recomputeHabitStreaksUseCase,
+                gamificationEngine: gamificationEngine
+            )
+        )
+    }
+
+    private func makeHabitOccurrence(
+        habitID: UUID,
+        scheduledAt: Date,
+        state: OccurrenceState
+    ) -> OccurrenceDefinition {
+        OccurrenceDefinition(
+            id: UUID(),
+            occurrenceKey: "\(UUID().uuidString)|\(scheduledAt.timeIntervalSince1970)|\(habitID.uuidString)",
+            scheduleTemplateID: UUID(),
+            sourceType: .habit,
+            sourceID: habitID,
+            scheduledAt: scheduledAt,
+            dueAt: scheduledAt,
+            state: state,
+            isGenerated: true,
+            generationWindow: "test",
+            createdAt: scheduledAt,
+            updatedAt: scheduledAt
+        )
+    }
+}
+
+private struct HabitRuntimeTestStack {
+    let lifeAreaID: UUID
+    let habitRepository: InMemoryHabitRepository
+    let scheduleRepository: InMemoryScheduleRepository
+    let occurrenceRepository: InMemoryOccurrenceRepository
+    let createHabitUseCase: CreateHabitUseCase
+    let maintainHabitRuntimeUseCase: MaintainHabitRuntimeUseCase
+    let resolveHabitOccurrenceUseCase: ResolveHabitOccurrenceUseCase
 }
 
 private func workspaceRootURLForTests() -> URL {
@@ -8304,5 +9202,519 @@ private final class InsightsReminderRepositorySpy: ReminderRepositoryProtocol {
 
     func updateDelivery(_ delivery: ReminderDeliveryDefinition, completion: @escaping (Result<ReminderDeliveryDefinition, Error>) -> Void) {
         completion(.success(delivery))
+    }
+}
+
+final class HabitRuntimeMaintenanceTests: XCTestCase {
+    func testMaintainRuntimeActivatesLapseOnlyTemplateAndRollsPendingOccurrence() throws {
+        let calendar = Calendar.current
+        let anchorDate = calendar.startOfDay(for: Date(timeIntervalSince1970: 1_710_864_000))
+        let previousDay = calendar.date(byAdding: .day, value: -1, to: anchorDate) ?? anchorDate
+
+        let templateID = UUID()
+        var habit = HabitDefinitionRecord(
+            id: UUID(),
+            lifeAreaID: UUID(),
+            title: "No Smoking",
+            habitType: "quit_lapse_only",
+            isPaused: false,
+            createdAt: previousDay,
+            updatedAt: previousDay
+        )
+        habit.kind = .negative
+        habit.trackingMode = .lapseOnly
+
+        let habitRepository = InMemoryHabitRepository(habits: [habit])
+        let scheduleRepository = InMemoryScheduleRepository()
+        scheduleRepository.templates = [
+            ScheduleTemplateDefinition(
+                id: templateID,
+                sourceType: .habit,
+                sourceID: habit.id,
+                timezoneID: "UTC",
+                temporalReference: .anchored,
+                anchorAt: previousDay,
+                isActive: false,
+                createdAt: previousDay,
+                updatedAt: previousDay
+            )
+        ]
+        scheduleRepository.rulesByTemplateID[templateID] = [
+            ScheduleRuleDefinition(
+                id: UUID(),
+                scheduleTemplateID: templateID,
+                ruleType: "daily",
+                interval: 1,
+                byDayMask: nil,
+                byMonthDay: nil,
+                byHour: 9,
+                byMinute: 0,
+                rawRuleData: nil,
+                createdAt: previousDay
+            )
+        ]
+
+        let occurrenceID = UUID()
+        let occurrenceRepository = InMemoryOccurrenceRepository()
+        occurrenceRepository.occurrences = [
+            OccurrenceDefinition(
+                id: occurrenceID,
+                occurrenceKey: OccurrenceKeyCodec.encode(
+                    scheduleTemplateID: templateID,
+                    scheduledAt: previousDay,
+                    sourceID: habit.id
+                ),
+                scheduleTemplateID: templateID,
+                sourceType: .habit,
+                sourceID: habit.id,
+                scheduledAt: previousDay,
+                dueAt: previousDay,
+                state: .pending,
+                isGenerated: true,
+                generationWindow: "habit_test",
+                createdAt: previousDay,
+                updatedAt: previousDay
+            )
+        ]
+
+        let recompute = RecomputeHabitStreaksUseCase(
+            habitRepository: habitRepository,
+            occurrenceRepository: occurrenceRepository
+        )
+        let engine = RecordingSchedulingEngine(occurrenceRepository: occurrenceRepository)
+        let useCase = SyncHabitScheduleUseCase(
+            habitRepository: habitRepository,
+            scheduleRepository: scheduleRepository,
+            scheduleEngine: engine,
+            occurrenceRepository: occurrenceRepository,
+            recomputeHabitStreaksUseCase: recompute
+        )
+
+        let result = try awaitResult { completion in
+            useCase.execute(anchorDate: anchorDate, completion: completion)
+        }
+
+        XCTAssertEqual(result.templatesRebuilt, 1)
+        XCTAssertEqual(result.rolloverUpdates, 1)
+        XCTAssertEqual(engine.generateSourceFilters, [.habit])
+        XCTAssertEqual(scheduleRepository.templates.first?.isActive, true)
+        XCTAssertEqual(
+            engine.resolvedOccurrences.map(\.resolution),
+            [.completed]
+        )
+        XCTAssertEqual(
+            occurrenceRepository.occurrences.first(where: { $0.id == occurrenceID })?.state,
+            .completed
+        )
+    }
+
+    func testResolveLapseOnlyMaterializesSameDayOccurrenceAndMarksFailure() throws {
+        let anchorDate = Calendar.current.startOfDay(for: Date(timeIntervalSince1970: 1_710_950_400))
+        let templateID = UUID()
+        var habit = HabitDefinitionRecord(
+            id: UUID(),
+            lifeAreaID: UUID(),
+            title: "No Alcohol",
+            habitType: "quit_lapse_only",
+            isPaused: false,
+            createdAt: anchorDate,
+            updatedAt: anchorDate
+        )
+        habit.kind = .negative
+        habit.trackingMode = .lapseOnly
+
+        let habitRepository = InMemoryHabitRepository(habits: [habit])
+        let scheduleRepository = InMemoryScheduleRepository()
+        scheduleRepository.templates = [
+            ScheduleTemplateDefinition(
+                id: templateID,
+                sourceType: .habit,
+                sourceID: habit.id,
+                timezoneID: "UTC",
+                temporalReference: .anchored,
+                anchorAt: anchorDate,
+                isActive: true,
+                createdAt: anchorDate,
+                updatedAt: anchorDate
+            )
+        ]
+        let occurrenceRepository = InMemoryOccurrenceRepository()
+        let recompute = RecomputeHabitStreaksUseCase(
+            habitRepository: habitRepository,
+            occurrenceRepository: occurrenceRepository
+        )
+        let engine = RecordingSchedulingEngine(occurrenceRepository: occurrenceRepository)
+        let maintain = MaintainHabitRuntimeUseCase(
+            syncHabitScheduleUseCase: SyncHabitScheduleUseCase(
+                habitRepository: habitRepository,
+                scheduleRepository: scheduleRepository,
+                scheduleEngine: engine,
+                occurrenceRepository: occurrenceRepository,
+                recomputeHabitStreaksUseCase: recompute
+            )
+        )
+        let gamificationRepository = InMemoryGamificationEngineRepository()
+        let useCase = ResolveHabitOccurrenceUseCase(
+            habitRepository: habitRepository,
+            scheduleRepository: scheduleRepository,
+            occurrenceRepository: occurrenceRepository,
+            scheduleEngine: engine,
+            maintainHabitRuntimeUseCase: maintain,
+            recomputeHabitStreaksUseCase: recompute,
+            gamificationEngine: GamificationEngine(repository: gamificationRepository)
+        )
+
+        _ = try awaitResult { completion in
+            useCase.execute(
+                habitID: habit.id,
+                action: .lapsed,
+                on: anchorDate,
+                completion: completion
+            )
+        } as Void
+
+        XCTAssertEqual(occurrenceRepository.occurrences.count, 1)
+        XCTAssertEqual(occurrenceRepository.occurrences.first?.sourceID, habit.id)
+        XCTAssertEqual(occurrenceRepository.occurrences.first?.state, .failed)
+        XCTAssertEqual(engine.resolvedOccurrences.last?.resolution, .lapsed)
+
+        let events = try awaitResult { completion in
+            gamificationRepository.fetchXPEvents(completion: completion)
+        }
+        XCTAssertEqual(events.count, 1)
+        XCTAssertEqual(events.first?.category, .habitNegativeLapse)
+    }
+}
+
+final class HabitAnalyticsAndInsightsIntegrationTests: XCTestCase {
+    func testCalculateDailyAnalyticsFetchesHabitSignalsByDefault() throws {
+        let calendar = Calendar.current
+        let anchorDate = calendar.startOfDay(for: Date(timeIntervalSince1970: 1_711_036_800))
+        let summary = makeHabitSummary(
+            title: "Meditate",
+            kind: .positive,
+            trackingMode: .dailyCheckIn,
+            dueAt: calendar.date(byAdding: .hour, value: 8, to: anchorDate),
+            state: .completed,
+            riskState: .stable
+        )
+        let habitReadRepository = HabitRuntimeReadRepositorySpy(signalSummaries: [summary])
+        let useCase = CalculateAnalyticsUseCase(
+            taskReadModelRepository: InMemoryTaskReadModelRepositoryStub(tasks: []),
+            habitRuntimeReadRepository: habitReadRepository
+        )
+
+        let analytics = try awaitResult { (completion: @escaping (Result<DailyAnalytics, Error>) -> Void) in
+            useCase.calculateDailyAnalytics(for: anchorDate) { result in
+                completion(result.mapError { $0 })
+            }
+        }
+
+        XCTAssertEqual(habitReadRepository.fetchSignalsCallCount, 1)
+        XCTAssertEqual(analytics.habitAnalytics.dueHabits, 1)
+        XCTAssertEqual(analytics.habitAnalytics.completedPositiveHabits, 1)
+        XCTAssertEqual(analytics.habitAnalytics.positiveHabitCount, 1)
+        XCTAssertEqual(analytics.habitAnalytics.adherenceRate, 1.0, accuracy: 0.0001)
+    }
+
+    func testComputeEvaHomeInsightsFetchesHabitSignalsByDefault() {
+        let calendar = Calendar.current
+        let anchorDate = calendar.startOfDay(for: Date(timeIntervalSince1970: 1_711_123_200))
+        let summary = makeHabitSummary(
+            title: "No Smoking",
+            kind: .negative,
+            trackingMode: .dailyCheckIn,
+            dueAt: calendar.date(byAdding: .hour, value: 20, to: anchorDate),
+            state: .failed,
+            riskState: .atRisk
+        )
+        let habitReadRepository = HabitRuntimeReadRepositorySpy(signalSummaries: [summary])
+        let useCase = ComputeEvaHomeInsightsUseCase(habitRuntimeReadRepository: habitReadRepository)
+
+        let expectation = expectation(description: "eva-insights")
+        var captured: EvaHomeInsights?
+        useCase.execute(openTasks: [], focusTasks: [], anchorDate: anchorDate, now: anchorDate) { insights in
+            captured = insights
+            expectation.fulfill()
+        }
+        waitForExpectations(timeout: 1.0)
+
+        XCTAssertEqual(habitReadRepository.fetchSignalsCallCount, 1)
+        XCTAssertEqual(
+            captured?.focus.summaryLine,
+            "Habits: 1 due, 1 at risk, 1 lapsed"
+        )
+    }
+}
+
+final class BuildHomeAgendaUseCaseOrderingTests: XCTestCase {
+    func testAgendaOrdersOverdueBeforeDueAndPreservesMixedRows() {
+        let calendar = Calendar.current
+        let anchorDate = calendar.startOfDay(for: Date(timeIntervalSince1970: 1_711_209_600))
+        let overdueTask = TaskDefinition(
+            id: UUID(),
+            projectID: ProjectConstants.inboxProjectID,
+            projectName: ProjectConstants.inboxProjectName,
+            title: "Overdue task",
+            dueDate: calendar.date(byAdding: .day, value: -1, to: anchorDate),
+            isComplete: false
+        )
+        let dueTask = TaskDefinition(
+            id: UUID(),
+            projectID: ProjectConstants.inboxProjectID,
+            projectName: ProjectConstants.inboxProjectName,
+            title: "Later task",
+            dueDate: calendar.date(byAdding: .hour, value: 10, to: anchorDate),
+            isComplete: false
+        )
+        let dueHabit = HomeHabitRow(
+            habitID: UUID(),
+            title: "Journal",
+            kind: .positive,
+            trackingMode: .dailyCheckIn,
+            lifeAreaName: "Mind",
+            iconSymbolName: "book.closed",
+            dueAt: calendar.date(byAdding: .hour, value: 8, to: anchorDate),
+            state: .due
+        )
+        let skippedHabit = HomeHabitRow(
+            habitID: UUID(),
+            title: "Skip coffee",
+            kind: .negative,
+            trackingMode: .dailyCheckIn,
+            lifeAreaName: "Health",
+            iconSymbolName: "cup.and.saucer",
+            dueAt: calendar.date(byAdding: .hour, value: 12, to: anchorDate),
+            state: .skippedToday
+        )
+
+        let result = BuildHomeAgendaUseCase().execute(
+            date: anchorDate,
+            taskRows: [dueTask, overdueTask],
+            habitRows: [skippedHabit, dueHabit]
+        )
+
+        XCTAssertEqual(result.taskCount, 2)
+        XCTAssertEqual(result.habitCount, 2)
+        XCTAssertEqual(result.rows.count, 4)
+        XCTAssertEqual(result.rows[0], .task(overdueTask))
+        XCTAssertEqual(result.rows[1], .habit(dueHabit))
+        XCTAssertEqual(result.rows[2], .task(dueTask))
+        XCTAssertEqual(result.rows[3], .habit(skippedHabit))
+    }
+}
+
+final class HabitRuntimeMigrationFlagTests: XCTestCase {
+    func testRepairFlagRoundTripClearsPendingRepair() {
+        let suiteName = "tasker.habit.runtime.tests.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defaults.set(true, forKey: "tasker.habit.runtime.repair_required.v1")
+        defaults.set(false, forKey: "tasker.habit.runtime.repair_completed.v1")
+
+        XCTAssertTrue(TaskerPersistentRuntimeInitializer.shouldRunRepair(defaults: defaults))
+
+        TaskerPersistentRuntimeInitializer.markRepairCompleted(defaults: defaults)
+
+        XCTAssertFalse(TaskerPersistentRuntimeInitializer.shouldRunRepair(defaults: defaults))
+        defaults.removePersistentDomain(forName: suiteName)
+    }
+}
+
+private func makeHabitSummary(
+    habitID: UUID = UUID(),
+    title: String,
+    kind: HabitKind,
+    trackingMode: HabitTrackingMode,
+    dueAt: Date?,
+    state: OccurrenceState,
+    riskState: HabitRiskState
+) -> HabitOccurrenceSummary {
+    HabitOccurrenceSummary(
+        habitID: habitID,
+        occurrenceID: UUID(),
+        title: title,
+        kind: kind,
+        trackingMode: trackingMode,
+        lifeAreaID: UUID(),
+        lifeAreaName: "Health",
+        projectID: nil,
+        projectName: nil,
+        icon: HabitIconMetadata(symbolName: "heart", categoryKey: "health"),
+        dueAt: dueAt,
+        state: state,
+        currentStreak: 3,
+        bestStreak: 5,
+        riskState: riskState,
+        last14Days: []
+    )
+}
+
+private final class InMemoryHabitRepository: HabitRepositoryProtocol {
+    private(set) var habitsByID: [UUID: HabitDefinitionRecord]
+
+    init(habits: [HabitDefinitionRecord] = []) {
+        self.habitsByID = Dictionary(uniqueKeysWithValues: habits.map { ($0.id, $0) })
+    }
+
+    convenience init(seed: [HabitDefinitionRecord] = []) {
+        self.init(habits: seed)
+    }
+
+    func fetchAll(completion: @escaping (Result<[HabitDefinitionRecord], Error>) -> Void) {
+        completion(.success(Array(habitsByID.values)))
+    }
+
+    func create(_ habit: HabitDefinitionRecord, completion: @escaping (Result<HabitDefinitionRecord, Error>) -> Void) {
+        habitsByID[habit.id] = habit
+        completion(.success(habit))
+    }
+
+    func update(_ habit: HabitDefinitionRecord, completion: @escaping (Result<HabitDefinitionRecord, Error>) -> Void) {
+        habitsByID[habit.id] = habit
+        completion(.success(habit))
+    }
+
+    func delete(id: UUID, completion: @escaping (Result<Void, Error>) -> Void) {
+        habitsByID.removeValue(forKey: id)
+        completion(.success(()))
+    }
+}
+
+private final class RecordingSchedulingEngine: SchedulingEngineProtocol {
+    struct ResolveCall: Equatable {
+        let id: UUID
+        let resolution: OccurrenceResolutionType
+        let actor: OccurrenceActor
+    }
+
+    private let occurrenceRepository: InMemoryOccurrenceRepository?
+    private let generatedOccurrences: [OccurrenceDefinition]
+    private(set) var generateSourceFilters: [ScheduleSourceType?] = []
+    private(set) var resolvedOccurrences: [ResolveCall] = []
+    private(set) var rebuildTemplateIDs: [UUID] = []
+
+    init(
+        occurrenceRepository: InMemoryOccurrenceRepository? = nil,
+        generatedOccurrences: [OccurrenceDefinition] = []
+    ) {
+        self.occurrenceRepository = occurrenceRepository
+        self.generatedOccurrences = generatedOccurrences
+    }
+
+    func generateOccurrences(
+        windowStart: Date,
+        windowEnd: Date,
+        sourceFilter: ScheduleSourceType?,
+        completion: @escaping (Result<[OccurrenceDefinition], Error>) -> Void
+    ) {
+        generateSourceFilters.append(sourceFilter)
+        if let occurrenceRepository, generatedOccurrences.isEmpty == false {
+            occurrenceRepository.saveOccurrences(generatedOccurrences) { _ in
+                completion(.success(self.generatedOccurrences))
+            }
+            return
+        }
+        completion(.success(generatedOccurrences))
+    }
+
+    func resolveOccurrence(
+        id: UUID,
+        resolution: OccurrenceResolutionType,
+        actor: OccurrenceActor,
+        completion: @escaping (Result<Void, Error>) -> Void
+    ) {
+        resolvedOccurrences.append(ResolveCall(id: id, resolution: resolution, actor: actor))
+        guard let occurrenceRepository else {
+            completion(.success(()))
+            return
+        }
+        occurrenceRepository.resolve(
+            OccurrenceResolutionDefinition(
+                id: UUID(),
+                occurrenceID: id,
+                resolutionType: resolution,
+                resolvedAt: Date(),
+                actor: actor.rawValue,
+                reason: nil,
+                createdAt: Date()
+            ),
+            completion: completion
+        )
+    }
+
+    func rebuildFutureOccurrences(
+        templateID: UUID,
+        effectiveFrom: Date,
+        completion: @escaping (Result<Void, Error>) -> Void
+    ) {
+        rebuildTemplateIDs.append(templateID)
+        completion(.success(()))
+    }
+
+    func applyScheduleException(
+        templateID: UUID,
+        occurrenceKey: String,
+        action: ScheduleExceptionAction,
+        completion: @escaping (Result<Void, Error>) -> Void
+    ) {
+        completion(.success(()))
+    }
+}
+
+private final class HabitRuntimeReadRepositorySpy: HabitRuntimeReadRepositoryProtocol {
+    var agendaSummaries: [HabitOccurrenceSummary]
+    var historyWindows: [HabitHistoryWindow]
+    var signalSummaries: [HabitOccurrenceSummary]
+    var libraryRows: [HabitLibraryRow]
+    private(set) var fetchAgendaCallCount = 0
+    private(set) var fetchHistoryCallCount = 0
+    private(set) var fetchSignalsCallCount = 0
+    private(set) var fetchHabitLibraryCallCount = 0
+
+    init(
+        agendaSummaries: [HabitOccurrenceSummary] = [],
+        historyWindows: [HabitHistoryWindow] = [],
+        signalSummaries: [HabitOccurrenceSummary] = [],
+        libraryRows: [HabitLibraryRow] = []
+    ) {
+        self.agendaSummaries = agendaSummaries
+        self.historyWindows = historyWindows
+        self.signalSummaries = signalSummaries
+        self.libraryRows = libraryRows
+    }
+
+    func fetchAgendaHabits(
+        for date: Date,
+        completion: @escaping (Result<[HabitOccurrenceSummary], Error>) -> Void
+    ) {
+        fetchAgendaCallCount += 1
+        completion(.success(agendaSummaries))
+    }
+
+    func fetchHistory(
+        habitIDs: [UUID],
+        endingOn date: Date,
+        dayCount: Int,
+        completion: @escaping (Result<[HabitHistoryWindow], Error>) -> Void
+    ) {
+        fetchHistoryCallCount += 1
+        completion(.success(historyWindows))
+    }
+
+    func fetchSignals(
+        start: Date,
+        end: Date,
+        completion: @escaping (Result<[HabitOccurrenceSummary], Error>) -> Void
+    ) {
+        fetchSignalsCallCount += 1
+        completion(.success(signalSummaries))
+    }
+
+    func fetchHabitLibrary(
+        includeArchived: Bool,
+        completion: @escaping (Result<[HabitLibraryRow], Error>) -> Void
+    ) {
+        fetchHabitLibraryCallCount += 1
+        completion(.success(libraryRows))
     }
 }
