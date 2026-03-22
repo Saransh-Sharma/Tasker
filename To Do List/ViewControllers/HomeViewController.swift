@@ -1882,6 +1882,36 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
         return hostingController
     }
 
+    func makeOnboardingAddHabitController(
+        prefill: AddHabitPrefillTemplate,
+        onHabitCreated: @escaping (UUID) -> Void,
+        onDismissWithoutTask: (() -> Void)? = nil
+    ) -> UIViewController? {
+        guard let presentationDependencyContainer else {
+            return nil
+        }
+        let taskViewModel = presentationDependencyContainer.makeNewAddTaskViewModel()
+        let habitViewModel = presentationDependencyContainer.makeNewAddHabitViewModel()
+        habitViewModel.applyPrefill(prefill)
+        let sheet = AddTaskSheetView(
+            itemViewModel: AddItemViewModel(
+                taskViewModel: taskViewModel,
+                habitViewModel: habitViewModel,
+                selectedMode: .habit
+            ),
+            onHabitCreated: onHabitCreated,
+            onDismissWithoutTask: onDismissWithoutTask
+        )
+        let hostingController = UIHostingController(rootView: AnyView(sheet.taskerLayoutClass(currentLayoutClass)))
+        hostingController.modalPresentationStyle = .pageSheet
+        if let sheetController = hostingController.sheetPresentationController {
+            sheetController.detents = [.medium(), .large()]
+            sheetController.prefersGrabberVisible = true
+            sheetController.prefersScrollingExpandsWhenScrolledToEdge = false
+        }
+        return hostingController
+    }
+
     func makeOnboardingTaskDetailController(
         task: TaskDefinition,
         onDismiss: @escaping () -> Void

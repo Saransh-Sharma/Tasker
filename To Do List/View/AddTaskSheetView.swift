@@ -22,6 +22,7 @@ public struct AddTaskSheetView: View {
     @StateObject private var viewModel: AddItemViewModel
     @Environment(\.dismiss) private var dismiss
     private let onTaskCreated: ((UUID) -> Void)?
+    private let onHabitCreated: ((UUID) -> Void)?
     private let onDismissWithoutTask: (() -> Void)?
 
     @State private var showDiscardConfirmation = false
@@ -35,6 +36,7 @@ public struct AddTaskSheetView: View {
     public init(
         viewModel: AddTaskViewModel,
         onTaskCreated: ((UUID) -> Void)? = nil,
+        onHabitCreated: ((UUID) -> Void)? = nil,
         onDismissWithoutTask: (() -> Void)? = nil
     ) {
         _viewModel = StateObject(
@@ -44,16 +46,19 @@ public struct AddTaskSheetView: View {
             )
         )
         self.onTaskCreated = onTaskCreated
+        self.onHabitCreated = onHabitCreated
         self.onDismissWithoutTask = onDismissWithoutTask
     }
 
     public init(
         itemViewModel: AddItemViewModel,
         onTaskCreated: ((UUID) -> Void)? = nil,
+        onHabitCreated: ((UUID) -> Void)? = nil,
         onDismissWithoutTask: (() -> Void)? = nil
     ) {
         _viewModel = StateObject(wrappedValue: itemViewModel)
         self.onTaskCreated = onTaskCreated
+        self.onHabitCreated = onHabitCreated
         self.onDismissWithoutTask = onDismissWithoutTask
     }
 
@@ -125,8 +130,9 @@ public struct AddTaskSheetView: View {
     private func handleHabitCreate() {
         guard viewModel.habitViewModel.canSubmit, !viewModel.habitViewModel.isSaving else { return }
         viewModel.habitViewModel.createHabit { result in
-            guard case .success = result else { return }
+            guard case .success(let habit) = result else { return }
             didCreateItem = true
+            onHabitCreated?(habit.id)
             TaskerFeedback.success()
             dismiss()
         }
@@ -135,8 +141,9 @@ public struct AddTaskSheetView: View {
     private func handleHabitAddAnother() {
         guard viewModel.habitViewModel.canSubmit, !viewModel.habitViewModel.isSaving else { return }
         viewModel.habitViewModel.createHabit { result in
-            guard case .success = result else { return }
+            guard case .success(let habit) = result else { return }
             didCreateItem = true
+            onHabitCreated?(habit.id)
             runSuccessReset {
                 viewModel.habitViewModel.resetForm()
                 showAddAnother = true

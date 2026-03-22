@@ -36,6 +36,43 @@ public enum AddHabitTrackingMode: String, CaseIterable, Identifiable {
     }
 }
 
+public struct AddHabitPrefillTemplate: Equatable {
+    public let title: String
+    public let notes: String?
+    public let lifeAreaID: UUID?
+    public let projectID: UUID?
+    public let kind: AddHabitKind
+    public let trackingMode: AddHabitTrackingMode
+    public let cadence: HabitCadenceDraft
+    public let iconSymbolName: String?
+    public let reminderWindowStart: String?
+    public let reminderWindowEnd: String?
+
+    public init(
+        title: String,
+        notes: String? = nil,
+        lifeAreaID: UUID? = nil,
+        projectID: UUID? = nil,
+        kind: AddHabitKind = .positive,
+        trackingMode: AddHabitTrackingMode = .dailyCheckIn,
+        cadence: HabitCadenceDraft = .daily(),
+        iconSymbolName: String? = nil,
+        reminderWindowStart: String? = nil,
+        reminderWindowEnd: String? = nil
+    ) {
+        self.title = title
+        self.notes = notes
+        self.lifeAreaID = lifeAreaID
+        self.projectID = projectID
+        self.kind = kind
+        self.trackingMode = trackingMode
+        self.cadence = cadence
+        self.iconSymbolName = iconSymbolName
+        self.reminderWindowStart = reminderWindowStart
+        self.reminderWindowEnd = reminderWindowEnd
+    }
+}
+
 @MainActor
 public final class AddHabitViewModel: ObservableObject {
     @Published public private(set) var lifeAreas: [LifeArea] = []
@@ -270,6 +307,23 @@ public final class AddHabitViewModel: ObservableObject {
                 }
             }
         }
+    }
+
+    public func applyPrefill(_ template: AddHabitPrefillTemplate) {
+        habitName = template.title
+        habitNotes = template.notes ?? ""
+        selectedLifeAreaID = template.lifeAreaID
+        selectedProjectID = template.projectID
+        selectedKind = template.kind
+        selectedTrackingMode = template.trackingMode
+        selectedCadence = template.cadence
+        reminderWindowStart = template.reminderWindowStart ?? ""
+        reminderWindowEnd = template.reminderWindowEnd ?? ""
+        if let iconSymbolName = template.iconSymbolName {
+            selectedIconSymbolName = iconSymbolName
+        }
+        normalizeSelection()
+        errorMessage = nil
     }
 
     public func resetForm() {
