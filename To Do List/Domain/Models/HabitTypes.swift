@@ -157,6 +157,7 @@ public struct HabitLibraryRow: Codable, Equatable, Hashable, Identifiable {
     public let title: String
     public let kind: HabitKind
     public let trackingMode: HabitTrackingMode
+    public let cadence: HabitCadenceDraft
     public let lifeAreaID: UUID?
     public let lifeAreaName: String
     public let projectID: UUID?
@@ -169,6 +170,8 @@ public struct HabitLibraryRow: Codable, Equatable, Hashable, Identifiable {
     public let last14Days: [HabitDayMark]
     public let nextDueAt: Date?
     public let lastCompletedAt: Date?
+    public let reminderWindowStart: String?
+    public let reminderWindowEnd: String?
     public let notes: String?
 
     public var id: UUID { habitID }
@@ -178,6 +181,7 @@ public struct HabitLibraryRow: Codable, Equatable, Hashable, Identifiable {
         title: String,
         kind: HabitKind,
         trackingMode: HabitTrackingMode,
+        cadence: HabitCadenceDraft = .daily(),
         lifeAreaID: UUID?,
         lifeAreaName: String,
         projectID: UUID? = nil,
@@ -190,12 +194,15 @@ public struct HabitLibraryRow: Codable, Equatable, Hashable, Identifiable {
         last14Days: [HabitDayMark] = [],
         nextDueAt: Date? = nil,
         lastCompletedAt: Date? = nil,
+        reminderWindowStart: String? = nil,
+        reminderWindowEnd: String? = nil,
         notes: String? = nil
     ) {
         self.habitID = habitID
         self.title = title
         self.kind = kind
         self.trackingMode = trackingMode
+        self.cadence = cadence
         self.lifeAreaID = lifeAreaID
         self.lifeAreaName = lifeAreaName
         self.projectID = projectID
@@ -208,6 +215,8 @@ public struct HabitLibraryRow: Codable, Equatable, Hashable, Identifiable {
         self.last14Days = last14Days
         self.nextDueAt = nextDueAt
         self.lastCompletedAt = lastCompletedAt
+        self.reminderWindowStart = reminderWindowStart
+        self.reminderWindowEnd = reminderWindowEnd
         self.notes = notes
     }
 }

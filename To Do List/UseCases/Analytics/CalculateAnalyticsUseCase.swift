@@ -79,7 +79,7 @@ public final class CalculateAnalyticsUseCase {
         habitSignals: [TaskerHabitSignal],
         completion: @escaping (Result<DailyAnalytics, AnalyticsError>) -> Void
     ) {
-        let cacheKey = dailyCacheKey(for: date)
+        let cacheKey = dailyCacheKey(for: date, habitSignals: habitSignals)
         let canUseCache = habitSignals.isEmpty == false || habitRuntimeReadRepository != nil
         if canUseCache {
             analyticsCacheLock.lock()
@@ -706,8 +706,30 @@ public final class CalculateAnalyticsUseCase {
         }
     }
 
-    private func dailyCacheKey(for date: Date) -> String {
-        String(Calendar.current.startOfDay(for: date).timeIntervalSinceReferenceDate)
+    private func dailyCacheKey(for date: Date, habitSignals: [TaskerHabitSignal] = []) -> String {
+        let base = String(Calendar.current.startOfDay(for: date).timeIntervalSinceReferenceDate)
+        guard !habitSignals.isEmpty else { return base }
+        let fingerprint = habitSignals
+            .sorted { lhs, rhs in
+                if lhs.habitID != rhs.habitID {
+                    return lhs.habitID.uuidString < rhs.habitID.uuidString
+                }
+                let lhsDueAt = lhs.dueAt?.timeIntervalSinceReferenceDate ?? -.infinity
+                let rhsDueAt = rhs.dueAt?.timeIntervalSinceReferenceDate ?? -.infinity
+                return lhsDueAt < rhsDueAt
+            }
+            .map { signal in
+                [
+                    signal.habitID.uuidString,
+                    signal.dueAt.map { String($0.timeIntervalSinceReferenceDate) } ?? "nil",
+                    signal.outcomeRaw ?? "nil",
+                    signal.riskStateRaw ?? "nil",
+                    String(signal.currentStreak),
+                    String(signal.bestStreak)
+                ].joined(separator: "|")
+            }
+            .joined(separator: "||")
+        return "\(base)::\(fingerprint)"
     }
 
     private func periodCacheKey(startDate: Date, endDate: Date) -> String {

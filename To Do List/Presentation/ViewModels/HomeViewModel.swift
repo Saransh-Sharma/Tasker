@@ -2333,7 +2333,7 @@ public final class HomeViewModel: ObservableObject {
                 self?.enqueueReload(
                     source: "notification_habit_mutation",
                     reason: .updated,
-                    invalidateCaches: false,
+                    invalidateCaches: true,
                     includeAnalytics: true,
                     repostEvent: false
                 )
@@ -2513,7 +2513,8 @@ public final class HomeViewModel: ObservableObject {
             guard includeGamificationRefresh else {
                 completionGroup.enter()
                 useCaseCoordinator.calculateAnalytics.calculateDailyAnalytics(
-                    for: Date()
+                    for: Date(),
+                    habitSignals: self.currentHabitSignals
                 ) { [weak self] result in
                     DispatchQueue.main.async {
                         defer { completionGroup.leave() }
@@ -2565,7 +2566,8 @@ public final class HomeViewModel: ObservableObject {
 
         completionGroup.enter()
         useCaseCoordinator.calculateAnalytics.calculateDailyAnalytics(
-            for: Date()
+            for: Date(),
+            habitSignals: currentHabitSignals
         ) { [weak self] result in
             DispatchQueue.main.async {
                 defer { completionGroup.leave() }

@@ -126,6 +126,29 @@ public struct UpdateHabitRequest: Codable, Equatable, Hashable {
 }
 
 enum HabitRuntimeSupport {
+    static func normalizedTrackingMode(
+        kind: HabitKind,
+        trackingMode: HabitTrackingMode
+    ) -> HabitTrackingMode {
+        kind == .positive ? .dailyCheckIn : trackingMode
+    }
+
+    static func normalizedReminderWindow(
+        start: String?,
+        end: String?
+    ) -> (start: String?, end: String?) {
+        let normalizedStart = normalizeHHmm(start)
+        let normalizedEnd = normalizeHHmm(end)
+        guard let startMinutes = minutesSinceMidnight(normalizedStart),
+              let endMinutes = minutesSinceMidnight(normalizedEnd) else {
+            return (normalizedStart, normalizedEnd)
+        }
+        guard endMinutes >= startMinutes else {
+            return (normalizedStart, normalizedStart)
+        }
+        return (normalizedStart, normalizedEnd)
+    }
+
     static func buildScheduleTemplate(
         templateID: UUID = UUID(),
         habitID: UUID,
@@ -195,6 +218,65 @@ enum HabitRuntimeSupport {
             guard (1...7).contains(weekday) else { return }
             partial |= (1 << (weekday - 1))
         }
+    }
+
+    static func weekdays(from mask: Int?) -> [Int] {
+        guard let mask else { return [] }
+        return (1...7).filter { weekday in
+            (mask & (1 << (weekday - 1))) != 0
+        }
+    }
+
+    static func cadence(
+        from template: ScheduleTemplateDefinition?,
+        rules: [ScheduleRuleDefinition]
+    ) -> HabitCadenceDraft {
+        let primaryRule = rules.sorted {
+            ($0.createdAt, $0.id.uuidString) < ($1.createdAt, $1.id.uuidString)
+        }.first
+        let hour = primaryRule?.byHour
+        let minute = primaryRule?.byMinute
+        let fallbackMinutes = normalizeHHmm(template?.windowStart).flatMap(minutesSinceMidnight(_:))
+
+        switch primaryRule?.ruleType {
+        case "weekly":
+            let days = weekdays(from: primaryRule?.byDayMask)
+            return .weekly(
+                daysOfWeek: days.isEmpty ? [2, 3, 4, 5, 6] : days,
+                hour: hour,
+                minute: minute
+            )
+        default:
+            return .daily(
+                hour: hour ?? fallbackMinutes.map { $0 / 60 },
+                minute: minute ?? fallbackMinutes.map { $0 % 60 }
+            )
+        }
+    }
+
+    static func normalizeHHmm(_ value: String?) -> String? {
+        guard let value else { return nil }
+        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        let parts = trimmed.split(separator: ":")
+        guard parts.count == 2,
+              let hour = Int(parts[0]),
+              let minute = Int(parts[1]),
+              (0...23).contains(hour),
+              (0...59).contains(minute) else {
+            return nil
+        }
+        return String(format: "%02d:%02d", hour, minute)
+    }
+
+    static func minutesSinceMidnight(_ value: String?) -> Int? {
+        guard let value = normalizeHHmm(value) else { return nil }
+        let parts = value.split(separator: ":")
+        guard parts.count == 2,
+              let hour = Int(parts[0]),
+              let minute = Int(parts[1]) else {
+            return nil
+        }
+        return (hour * 60) + minute
     }
 
     static func encode<T: Encodable>(_ value: T) -> Data? {
@@ -385,14 +467,22 @@ public final class CreateHabitUseCase {
             case .failure(let error):
                 completion(.failure(error))
             case .success:
+                let trackingMode = HabitRuntimeSupport.normalizedTrackingMode(
+                    kind: request.kind,
+                    trackingMode: request.trackingMode
+                )
+                let reminderWindow = HabitRuntimeSupport.normalizedReminderWindow(
+                    start: request.reminderWindowStart,
+                    end: request.reminderWindowEnd
+                )
                 var habit = HabitDefinitionRecord(
                     id: request.id,
                     lifeAreaID: request.lifeAreaID,
                     projectID: request.projectID,
                     title: request.title.trimmingCharacters(in: .whitespacesAndNewlines),
-                    habitType: Self.habitTypeString(kind: request.kind, trackingMode: request.trackingMode),
+                    habitType: Self.habitTypeString(kind: request.kind, trackingMode: trackingMode),
                     kindRaw: request.kind.rawValue,
-                    trackingModeRaw: request.trackingMode.rawValue,
+                    trackingModeRaw: trackingMode.rawValue,
                     iconSymbolName: request.icon.symbolName,
                     iconCategoryKey: request.icon.categoryKey,
                     targetConfigData: HabitRuntimeSupport.encode(request.targetConfig),
@@ -415,8 +505,8 @@ public final class CreateHabitUseCase {
                 let template = HabitRuntimeSupport.buildScheduleTemplate(
                     habitID: habit.id,
                     cadence: request.cadence,
-                    windowStart: request.reminderWindowStart,
-                    windowEnd: request.reminderWindowEnd,
+                    windowStart: reminderWindow.start,
+                    windowEnd: reminderWindow.end,
                     anchorAt: request.createdAt,
                     isActive: true
                 )
@@ -434,17 +524,27 @@ public final class CreateHabitUseCase {
                         self.scheduleRepository.saveTemplate(template) { templateResult in
                             switch templateResult {
                             case .failure(let error):
-                                completion(.failure(error))
+                                self.habitRepository.delete(id: createdHabit.id) { _ in
+                                    completion(.failure(error))
+                                }
                             case .success:
                                 self.scheduleRepository.replaceRules(templateID: template.id, rules: rules) { rulesResult in
                                     switch rulesResult {
                                     case .failure(let error):
-                                        completion(.failure(error))
+                                        self.habitRepository.delete(id: createdHabit.id) { _ in
+                                            self.scheduleRepository.replaceRules(templateID: template.id, rules: []) { _ in
+                                                completion(.failure(error))
+                                            }
+                                        }
                                     case .success:
                                         self.maintainHabitRuntimeUseCase.execute(anchorDate: request.createdAt) { syncResult in
                                             switch syncResult {
                                             case .failure(let error):
-                                                completion(.failure(error))
+                                                self.habitRepository.delete(id: createdHabit.id) { _ in
+                                                    self.scheduleRepository.replaceRules(templateID: template.id, rules: []) { _ in
+                                                        completion(.failure(error))
+                                                    }
+                                                }
                                             case .success:
                                                 TaskNotificationDispatcher.postOnMain(
                                                     name: .homeHabitMutation,
@@ -542,10 +642,11 @@ public final class UpdateHabitUseCase {
             case .failure(let error):
                 completion(.failure(error))
             case .success(let habits):
-                guard var habit = habits.first(where: { $0.id == request.id }) else {
+                guard let existingHabit = habits.first(where: { $0.id == request.id }) else {
                     completion(.failure(HabitRuntimeError.habitNotFound))
                     return
                 }
+                var habit = existingHabit
 
                 self.validate(lifeAreaID: request.lifeAreaID ?? habit.lifeAreaID, projectID: request.clearProject ? nil : (request.projectID ?? habit.projectID)) { validationResult in
                     switch validationResult {
@@ -563,12 +664,13 @@ public final class UpdateHabitUseCase {
                         } else if let projectID = request.projectID {
                             habit.projectID = projectID
                         }
-                        if let kind = request.kind {
-                            habit.kind = kind
-                        }
-                        if let trackingMode = request.trackingMode {
-                            habit.trackingMode = trackingMode
-                        }
+                        let resolvedKind = request.kind ?? habit.kind
+                        let resolvedTrackingMode = HabitRuntimeSupport.normalizedTrackingMode(
+                            kind: resolvedKind,
+                            trackingMode: request.trackingMode ?? habit.trackingMode
+                        )
+                        habit.kind = resolvedKind
+                        habit.trackingMode = resolvedTrackingMode
                         if let icon = request.icon {
                             habit.icon = icon
                         }
@@ -604,7 +706,9 @@ public final class UpdateHabitUseCase {
                                 ) { scheduleResult in
                                     switch scheduleResult {
                                     case .failure(let error):
-                                        completion(.failure(error))
+                                        self.habitRepository.update(existingHabit) { _ in
+                                            completion(.failure(error))
+                                        }
                                     case .success:
                                         TaskNotificationDispatcher.postOnMain(
                                             name: .homeHabitMutation,
@@ -626,22 +730,22 @@ public final class UpdateHabitUseCase {
         projectID: UUID?,
         completion: @escaping (Result<Void, Error>) -> Void
     ) {
-        if let lifeAreaID {
-            lifeAreaRepository.fetchAll { result in
-                switch result {
-                case .failure(let error):
-                    completion(.failure(error))
-                case .success(let areas):
-                    guard areas.contains(where: { $0.id == lifeAreaID }) else {
-                        completion(.failure(HabitRuntimeError.invalidLifeArea))
-                        return
-                    }
-                    self.validateProject(projectID, completion: completion)
-                }
-            }
+        guard let lifeAreaID else {
+            completion(.failure(HabitRuntimeError.invalidLifeArea))
             return
         }
-        validateProject(projectID, completion: completion)
+        lifeAreaRepository.fetchAll { result in
+            switch result {
+            case .failure(let error):
+                completion(.failure(error))
+            case .success(let areas):
+                guard areas.contains(where: { $0.id == lifeAreaID }) else {
+                    completion(.failure(HabitRuntimeError.invalidLifeArea))
+                    return
+                }
+                self.validateProject(projectID, completion: completion)
+            }
+        }
     }
 
     private func validateProject(
@@ -670,7 +774,11 @@ public final class UpdateHabitUseCase {
         updatedAt: Date,
         completion: @escaping (Result<Void, Error>) -> Void
     ) {
-        guard cadence != nil || reminderWindowStart != nil || reminderWindowEnd != nil else {
+        let reminderWindow = HabitRuntimeSupport.normalizedReminderWindow(
+            start: reminderWindowStart,
+            end: reminderWindowEnd
+        )
+        guard cadence != nil || reminderWindow.start != nil || reminderWindow.end != nil else {
             maintainHabitRuntimeUseCase.execute(anchorDate: updatedAt) { result in
                 completion(result.map { _ in () })
             }
@@ -688,8 +796,8 @@ public final class UpdateHabitUseCase {
                     templateID: templateID,
                     habitID: habit.id,
                     cadence: cadence ?? .daily(),
-                    windowStart: reminderWindowStart ?? existing?.windowStart,
-                    windowEnd: reminderWindowEnd ?? existing?.windowEnd,
+                    windowStart: reminderWindow.start ?? existing?.windowStart,
+                    windowEnd: reminderWindow.end ?? existing?.windowEnd,
                     anchorAt: existing?.anchorAt ?? updatedAt,
                     isActive: habit.isPaused == false && habit.isArchived == false
                 )
@@ -761,10 +869,11 @@ public final class PauseHabitUseCase {
             case .failure(let error):
                 completion(.failure(error))
             case .success(let habits):
-                guard var habit = habits.first(where: { $0.id == id }) else {
+                guard let existingHabit = habits.first(where: { $0.id == id }) else {
                     completion(.failure(HabitRuntimeError.habitNotFound))
                     return
                 }
+                var habit = existingHabit
                 habit.isPaused = isPaused
                 habit.updatedAt = Date()
                 self.habitRepository.update(habit) { updateResult in
@@ -775,12 +884,18 @@ public final class PauseHabitUseCase {
                         self.syncTemplateActiveState(for: updatedHabit) { syncResult in
                             switch syncResult {
                             case .failure(let error):
-                                completion(.failure(error))
+                                self.habitRepository.update(existingHabit) { _ in
+                                    completion(.failure(error))
+                                }
                             case .success:
                                 self.maintainHabitRuntimeUseCase.execute(anchorDate: Date()) { maintainResult in
                                     switch maintainResult {
                                     case .failure(let error):
-                                        completion(.failure(error))
+                                        self.syncTemplateActiveState(for: existingHabit) { _ in
+                                            self.habitRepository.update(existingHabit) { _ in
+                                                completion(.failure(error))
+                                            }
+                                        }
                                     case .success:
                                         TaskNotificationDispatcher.postOnMain(name: .homeHabitMutation, object: updatedHabit)
                                         completion(.success(updatedHabit))
@@ -856,17 +971,11 @@ public final class ArchiveHabitUseCase {
                         self.pauseHabitUseCase.execute(id: id, isPaused: true) { pauseResult in
                             switch pauseResult {
                             case .failure(let error):
-                                completion(.failure(error))
-                            case .success:
-                                self.maintainHabitRuntimeUseCase.execute(anchorDate: archivedHabit.updatedAt) { maintainResult in
-                                    switch maintainResult {
-                                    case .failure(let error):
-                                        completion(.failure(error))
-                                    case .success:
-                                        TaskNotificationDispatcher.postOnMain(name: .homeHabitMutation, object: archivedHabit)
-                                        completion(.success(archivedHabit))
-                                    }
+                                self.habitRepository.update(habits.first(where: { $0.id == id }) ?? archivedHabit) { _ in
+                                    completion(.failure(error))
                                 }
+                            case .success:
+                                completion(.success(archivedHabit))
                             }
                         }
                     }
@@ -1118,7 +1227,17 @@ public final class SyncHabitScheduleUseCase {
 
         let calendar = Calendar.current
         let today = calendar.startOfDay(for: anchorDate)
-        let start = calendar.date(byAdding: .day, value: -7, to: today) ?? today
+        let start = habits
+            .filter { lapseOnlyHabitIDs.contains($0.id) }
+            .compactMap { habit in
+                let anchor = habit.lastHistoryRollDate ?? habit.createdAt
+                return calendar.startOfDay(for: anchor)
+            }
+            .min() ?? today
+        guard start < today else {
+            completion(.success(0))
+            return
+        }
         occurrenceRepository.fetchInRange(start: start, end: today) { result in
             switch result {
             case .failure(let error):
@@ -1288,25 +1407,18 @@ public final class ResolveHabitOccurrenceUseCase {
                                     case .failure(let error):
                                         completion(.failure(error))
                                     case .success:
-                                        self.recomputeHabitStreaksUseCase.execute(habitIDs: [habitID], referenceDate: date) { recomputeResult in
-                                            switch recomputeResult {
-                                            case .failure(let error):
-                                                completion(.failure(error))
-                                            case .success(let updatedHabits):
-                                                self.recordGamificationEvent(
-                                                    habit: updatedHabits.first ?? habit,
-                                                    occurrenceID: resolvedOccurrenceID,
-                                                    action: action,
-                                                    completion: { _ in
-                                                        TaskNotificationDispatcher.postOnMain(
-                                                            name: .homeHabitMutation,
-                                                            object: habitID
-                                                        )
-                                                        completion(.success(()))
-                                                    }
+                                        self.recordGamificationEvent(
+                                            habit: habit,
+                                            occurrenceID: resolvedOccurrenceID,
+                                            action: action,
+                                            completion: { _ in
+                                                TaskNotificationDispatcher.postOnMain(
+                                                    name: .homeHabitMutation,
+                                                    object: habitID
                                                 )
+                                                completion(.success(()))
                                             }
-                                        }
+                                        )
                                     }
                                 }
                             }
@@ -1411,7 +1523,13 @@ public final class ResolveHabitOccurrenceUseCase {
         let scheduledAt = calendar.date(bySettingHour: hour, minute: minute, second: 0, of: day) ?? date
         let dueAt: Date
         if let endTime = parseTime(template.windowEnd) {
-            dueAt = calendar.date(bySettingHour: endTime.hour ?? hour, minute: endTime.minute ?? minute, second: 0, of: day) ?? scheduledAt
+            let requestedDueAt = calendar.date(
+                bySettingHour: endTime.hour ?? hour,
+                minute: endTime.minute ?? minute,
+                second: 0,
+                of: day
+            ) ?? scheduledAt
+            dueAt = max(requestedDueAt, scheduledAt)
         } else {
             dueAt = scheduledAt
         }

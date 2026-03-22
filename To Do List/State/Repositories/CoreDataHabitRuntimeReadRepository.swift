@@ -3,6 +3,7 @@ import CoreData
 
 public final class CoreDataHabitRuntimeReadRepository: HabitRuntimeReadRepositoryProtocol {
     private let context: NSManagedObjectContext
+    private static let missingLifeAreaID = UUID(uuidString: "00000000-0000-0000-0000-000000000000")!
 
     public init(container: NSPersistentContainer) {
         self.context = container.newBackgroundContext()
@@ -16,20 +17,29 @@ public final class CoreDataHabitRuntimeReadRepository: HabitRuntimeReadRepositor
         context.perform {
             do {
                 let calendar = Calendar.current
-                let habits = try self.fetchHabits()
-                let activeHabits = habits.filter { !$0.isArchived && !$0.isPaused && $0.trackingMode == .dailyCheckIn }
+                let activeHabits = try self.fetchHabits(
+                    predicate: NSCompoundPredicate(andPredicateWithSubpredicates: [
+                        NSPredicate(format: "archivedAt == nil"),
+                        NSPredicate(format: "isPaused == NO"),
+                        NSPredicate(format: "lifeAreaID != nil")
+                    ])
+                ).filter { $0.trackingMode == .dailyCheckIn }
                 guard !activeHabits.isEmpty else {
                     completion(.success([]))
                     return
                 }
 
-                let habitIDs = activeHabits.map(\.id)
+                let habitIDs = Set(activeHabits.map(\.id))
                 let names = try self.fetchOwnershipLookups(habits: activeHabits)
                 let startOfDay = calendar.startOfDay(for: date)
                 let endOfDay = calendar.date(byAdding: .day, value: 1, to: startOfDay) ?? date
                 let windowStart = calendar.date(byAdding: .day, value: -45, to: startOfDay) ?? startOfDay
-                let occurrences = try self.fetchHabitOccurrences(start: windowStart, end: endOfDay, includeFuture: false)
-                    .filter { habitIDs.contains($0.sourceID) }
+                let occurrences = try self.fetchHabitOccurrences(
+                    start: windowStart,
+                    end: endOfDay,
+                    sourceIDs: habitIDs,
+                    includeFuture: false
+                )
                 let occurrencesByHabitID = Dictionary(grouping: occurrences, by: \.sourceID)
 
                 let summaries = activeHabits.compactMap { habit -> HabitOccurrenceSummary? in
@@ -89,8 +99,13 @@ public final class CoreDataHabitRuntimeReadRepository: HabitRuntimeReadRepositor
                 let calendar = Calendar.current
                 let endOfDay = calendar.date(byAdding: .day, value: 1, to: calendar.startOfDay(for: date)) ?? date
                 let start = calendar.date(byAdding: .day, value: -(dayCount + 7), to: calendar.startOfDay(for: date)) ?? date
-                let occurrences = try self.fetchHabitOccurrences(start: start, end: endOfDay, includeFuture: false)
-                let grouped = Dictionary(grouping: occurrences.filter { habitIDs.contains($0.sourceID) }, by: \.sourceID)
+                let occurrences = try self.fetchHabitOccurrences(
+                    start: start,
+                    end: endOfDay,
+                    sourceIDs: Set(habitIDs),
+                    includeFuture: false
+                )
+                let grouped = Dictionary(grouping: occurrences, by: \.sourceID)
                 let history = habitIDs.map { habitID in
                     HabitHistoryWindow(
                         habitID: habitID,
@@ -117,12 +132,33 @@ public final class CoreDataHabitRuntimeReadRepository: HabitRuntimeReadRepositor
         context.perform {
             do {
                 let calendar = Calendar.current
-                let habits = try self.fetchHabits()
+                let habits = try self.fetchHabits(
+                    predicate: NSCompoundPredicate(andPredicateWithSubpredicates: [
+                        NSPredicate(format: "archivedAt == nil"),
+                        NSPredicate(format: "isPaused == NO"),
+                        NSPredicate(format: "lifeAreaID != nil")
+                    ])
+                )
                 let habitsByID = Dictionary(uniqueKeysWithValues: habits.map { ($0.id, $0) })
+                let habitIDs = Set(habitsByID.keys)
+                guard habitIDs.isEmpty == false else {
+                    completion(.success([]))
+                    return
+                }
                 let names = try self.fetchOwnershipLookups(habits: habits)
-                let occurrences = try self.fetchHabitOccurrences(start: start, end: end, includeFuture: true)
+                let occurrences = try self.fetchHabitOccurrences(
+                    start: start,
+                    end: end,
+                    sourceIDs: habitIDs,
+                    includeFuture: true
+                )
                 let recentHistoryStart = calendar.date(byAdding: .day, value: -14, to: calendar.startOfDay(for: end)) ?? start
-                let historyWindowOccurrences = try self.fetchHabitOccurrences(start: recentHistoryStart, end: end, includeFuture: true)
+                let historyWindowOccurrences = try self.fetchHabitOccurrences(
+                    start: recentHistoryStart,
+                    end: end,
+                    sourceIDs: habitIDs,
+                    includeFuture: true
+                )
                 let historyByHabitID = Dictionary(grouping: historyWindowOccurrences, by: \.sourceID)
 
                 let summaries = occurrences.compactMap { occurrence -> HabitOccurrenceSummary? in
@@ -165,17 +201,25 @@ public final class CoreDataHabitRuntimeReadRepository: HabitRuntimeReadRepositor
         context.perform {
             do {
                 let calendar = Calendar.current
-                let habits = try self.fetchHabits()
-                    .filter { includeArchived || !$0.isArchived }
+                let habits = try self.fetchHabits(
+                    predicate: includeArchived ? nil : NSPredicate(format: "archivedAt == nil")
+                )
                 guard !habits.isEmpty else {
                     completion(.success([]))
                     return
                 }
 
+                let habitIDs = Set(habits.map(\.id))
                 let names = try self.fetchOwnershipLookups(habits: habits)
+                let scheduleMetadata = try self.fetchHabitScheduleMetadata(habitIDs: habitIDs)
                 let start = calendar.date(byAdding: .day, value: -30, to: calendar.startOfDay(for: Date())) ?? Date()
                 let end = calendar.date(byAdding: .day, value: 30, to: calendar.startOfDay(for: Date())) ?? Date()
-                let occurrences = try self.fetchHabitOccurrences(start: start, end: end, includeFuture: true)
+                let occurrences = try self.fetchHabitOccurrences(
+                    start: start,
+                    end: end,
+                    sourceIDs: habitIDs,
+                    includeFuture: true
+                )
                 let occurrencesByHabitID = Dictionary(grouping: occurrences, by: \.sourceID)
 
                 let rows = habits.map { habit in
@@ -195,13 +239,15 @@ public final class CoreDataHabitRuntimeReadRepository: HabitRuntimeReadRepositor
                         .map(self.occurrenceDate(_:))
                         .max()
                     let ownership = names[habit.id]
+                    let schedule = scheduleMetadata[habit.id]
                     return HabitLibraryRow(
                         habitID: habit.id,
                         title: habit.title,
                         kind: habit.kind,
                         trackingMode: habit.trackingMode,
+                        cadence: schedule?.cadence ?? .daily(),
                         lifeAreaID: habit.lifeAreaID,
-                        lifeAreaName: ownership?.lifeAreaName ?? "General",
+                        lifeAreaName: ownership?.lifeAreaName ?? "Needs Repair",
                         projectID: habit.projectID,
                         projectName: ownership?.projectName,
                         icon: habit.icon,
@@ -212,6 +258,8 @@ public final class CoreDataHabitRuntimeReadRepository: HabitRuntimeReadRepositor
                         last14Days: last14Days,
                         nextDueAt: nextDueAt,
                         lastCompletedAt: lastCompletedAt,
+                        reminderWindowStart: schedule?.reminderWindowStart,
+                        reminderWindowEnd: schedule?.reminderWindowEnd,
                         notes: habit.notes
                     )
                 }
@@ -223,8 +271,9 @@ public final class CoreDataHabitRuntimeReadRepository: HabitRuntimeReadRepositor
         }
     }
 
-    private func fetchHabits() throws -> [HabitDefinitionRecord] {
+    private func fetchHabits(predicate: NSPredicate? = nil) throws -> [HabitDefinitionRecord] {
         let request = NSFetchRequest<NSManagedObject>(entityName: HabitDefinitionMapper.entityName)
+        request.predicate = predicate
         request.sortDescriptors = [
             NSSortDescriptor(key: "createdAt", ascending: true),
             NSSortDescriptor(key: "id", ascending: true)
@@ -269,6 +318,7 @@ public final class CoreDataHabitRuntimeReadRepository: HabitRuntimeReadRepositor
     private func fetchHabitOccurrences(
         start: Date,
         end: Date,
+        sourceIDs: Set<UUID>? = nil,
         includeFuture: Bool
     ) throws -> [OccurrenceDefinition] {
         let request = NSFetchRequest<NSManagedObject>(entityName: "Occurrence")
@@ -279,10 +329,14 @@ public final class CoreDataHabitRuntimeReadRepository: HabitRuntimeReadRepositor
             start as NSDate,
             end as NSDate
         )
-        request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
+        var predicates: [NSPredicate] = [
             NSPredicate(format: "sourceType == %@", ScheduleSourceType.habit.rawValue),
             dueRange
-        ])
+        ]
+        if let sourceIDs, !sourceIDs.isEmpty {
+            predicates.append(NSPredicate(format: "sourceID IN %@", Array(sourceIDs)))
+        }
+        request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: predicates)
         request.sortDescriptors = [
             NSSortDescriptor(key: "dueAt", ascending: true),
             NSSortDescriptor(key: "scheduledAt", ascending: true),
@@ -322,6 +376,37 @@ public final class CoreDataHabitRuntimeReadRepository: HabitRuntimeReadRepositor
         )
     }
 
+    private func mapTemplate(_ object: NSManagedObject) -> ScheduleTemplateDefinition {
+        ScheduleTemplateDefinition(
+            id: object.value(forKey: "id") as? UUID ?? UUID(),
+            sourceType: ScheduleSourceType(rawValue: object.value(forKey: "sourceType") as? String ?? "habit") ?? .habit,
+            sourceID: object.value(forKey: "sourceID") as? UUID ?? UUID(),
+            timezoneID: object.value(forKey: "timezoneID") as? String,
+            temporalReference: TemporalReference(rawValue: object.value(forKey: "temporalReference") as? String ?? "anchored") ?? .anchored,
+            anchorAt: object.value(forKey: "anchorAt") as? Date,
+            windowStart: object.value(forKey: "windowStart") as? String,
+            windowEnd: object.value(forKey: "windowEnd") as? String,
+            isActive: object.value(forKey: "isActive") as? Bool ?? true,
+            createdAt: object.value(forKey: "createdAt") as? Date ?? Date(),
+            updatedAt: object.value(forKey: "updatedAt") as? Date ?? Date()
+        )
+    }
+
+    private func mapRule(_ object: NSManagedObject) -> ScheduleRuleDefinition {
+        ScheduleRuleDefinition(
+            id: object.value(forKey: "id") as? UUID ?? UUID(),
+            scheduleTemplateID: object.value(forKey: "scheduleTemplateID") as? UUID ?? UUID(),
+            ruleType: object.value(forKey: "ruleType") as? String ?? "daily",
+            interval: Int(object.value(forKey: "interval") as? Int32 ?? 1),
+            byDayMask: (object.value(forKey: "byDayMask") as? Int32).map(Int.init),
+            byMonthDay: (object.value(forKey: "byMonthDay") as? Int32).map(Int.init),
+            byHour: (object.value(forKey: "byHour") as? Int32).map(Int.init),
+            byMinute: (object.value(forKey: "byMinute") as? Int32).map(Int.init),
+            rawRuleData: object.value(forKey: "rawRuleData") as? Data,
+            createdAt: object.value(forKey: "createdAt") as? Date ?? Date()
+        )
+    }
+
     private func buildSummary(
         habit: HabitDefinitionRecord,
         occurrence: OccurrenceDefinition,
@@ -336,8 +421,8 @@ public final class CoreDataHabitRuntimeReadRepository: HabitRuntimeReadRepositor
             title: habit.title,
             kind: habit.kind,
             trackingMode: habit.trackingMode,
-            lifeAreaID: habit.lifeAreaID ?? UUID(),
-            lifeAreaName: names?.lifeAreaName ?? "General",
+            lifeAreaID: habit.lifeAreaID ?? Self.missingLifeAreaID,
+            lifeAreaName: names?.lifeAreaName ?? "Needs Repair",
             projectID: habit.projectID,
             projectName: names?.projectName,
             icon: habit.icon,
@@ -380,5 +465,48 @@ public final class CoreDataHabitRuntimeReadRepository: HabitRuntimeReadRepositor
             return lhs.currentStreak > rhs.currentStreak
         }
         return lhs.title.localizedCaseInsensitiveCompare(rhs.title) == .orderedAscending
+    }
+
+    private func fetchHabitScheduleMetadata(
+        habitIDs: Set<UUID>
+    ) throws -> [UUID: (cadence: HabitCadenceDraft, reminderWindowStart: String?, reminderWindowEnd: String?)] {
+        guard !habitIDs.isEmpty else { return [:] }
+
+        let templateRequest = NSFetchRequest<NSManagedObject>(entityName: "ScheduleTemplate")
+        templateRequest.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
+            NSPredicate(format: "sourceType == %@", ScheduleSourceType.habit.rawValue),
+            NSPredicate(format: "sourceID IN %@", Array(habitIDs))
+        ])
+        templateRequest.sortDescriptors = [
+            NSSortDescriptor(key: "updatedAt", ascending: false),
+            NSSortDescriptor(key: "createdAt", ascending: false),
+            NSSortDescriptor(key: "id", ascending: true)
+        ]
+        let templates = try context.fetch(templateRequest).map(self.mapTemplate(_:))
+        guard !templates.isEmpty else { return [:] }
+
+        var preferredTemplatesByHabitID: [UUID: ScheduleTemplateDefinition] = [:]
+        for template in templates {
+            preferredTemplatesByHabitID[template.sourceID] = preferredTemplatesByHabitID[template.sourceID] ?? template
+        }
+        let templateIDs = Array(Set(preferredTemplatesByHabitID.values.map(\.id)))
+        let ruleRequest = NSFetchRequest<NSManagedObject>(entityName: "ScheduleRule")
+        ruleRequest.predicate = NSPredicate(format: "scheduleTemplateID IN %@", templateIDs)
+        ruleRequest.sortDescriptors = [
+            NSSortDescriptor(key: "createdAt", ascending: true),
+            NSSortDescriptor(key: "id", ascending: true)
+        ]
+        let rulesByTemplateID = Dictionary(grouping: try context.fetch(ruleRequest).map(self.mapRule(_:)), by: \.scheduleTemplateID)
+
+        return Dictionary(uniqueKeysWithValues: preferredTemplatesByHabitID.map { habitID, template in
+            (
+                habitID,
+                (
+                    cadence: HabitRuntimeSupport.cadence(from: template, rules: rulesByTemplateID[template.id] ?? []),
+                    reminderWindowStart: template.windowStart,
+                    reminderWindowEnd: template.windowEnd
+                )
+            )
+        })
     }
 }

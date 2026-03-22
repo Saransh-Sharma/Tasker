@@ -299,6 +299,7 @@ public final class ManageProjectsUseCase {
                 let dedupedProjects = self?.dedupeProjects(projects) ?? projects
                 var projectsWithStats: [ProjectWithStats] = []
                 let group = DispatchGroup()
+                let lock = NSLock()
                 
                 for project in dedupedProjects {
                     group.enter()
@@ -309,7 +310,9 @@ public final class ManageProjectsUseCase {
                                 taskCount: count,
                                 completedTaskCount: 0 // Would need additional query
                             )
+                            lock.lock()
                             projectsWithStats.append(stats)
+                            lock.unlock()
                         }
                         group.leave()
                     }

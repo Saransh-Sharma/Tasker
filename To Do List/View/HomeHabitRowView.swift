@@ -181,6 +181,7 @@ struct HomeHabitRowView: View {
                 .foregroundColor(foreground)
                 .padding(.horizontal, spacing.s12)
                 .padding(.vertical, spacing.s4)
+                .frame(minHeight: 44)
                 .frame(maxWidth: .infinity)
                 .background(tint)
                 .clipShape(Capsule())
@@ -259,7 +260,7 @@ private struct HabitHistoryStripView: View {
                     .frame(width: 7, height: 7)
             }
         }
-        .accessibilityHidden(true)
+        .accessibilityLabel(accessibilitySummary)
     }
 
     private func color(for state: HabitDayState) -> Color {
@@ -275,5 +276,16 @@ private struct HabitHistoryStripView: View {
         case .future:
             return accentMutedColor
         }
+    }
+
+    private var accessibilitySummary: String {
+        let counts = marks.reduce(into: [HabitDayState: Int]()) { partial, mark in
+            partial[mark.state, default: 0] += 1
+        }
+        return [
+            "\(counts[.success, default: 0]) successful days",
+            "\(counts[.failure, default: 0]) failed days",
+            "\(counts[.skipped, default: 0]) skipped days"
+        ].joined(separator: ", ")
     }
 }

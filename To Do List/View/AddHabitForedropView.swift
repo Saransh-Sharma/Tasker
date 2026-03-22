@@ -1,22 +1,22 @@
 import SwiftUI
 
-struct AddHabitForedropView: View {
-    private enum HabitCadencePreset: String, CaseIterable, Identifiable {
-        case daily
-        case weekly
+private enum HabitCadencePreset: String, CaseIterable, Identifiable {
+    case daily
+    case weekly
 
-        var id: String { rawValue }
+    var id: String { rawValue }
 
-        var title: String {
-            switch self {
-            case .daily:
-                return "Daily"
-            case .weekly:
-                return "Weekly"
-            }
+    var title: String {
+        switch self {
+        case .daily:
+            return "Daily"
+        case .weekly:
+            return "Weekly"
         }
     }
+}
 
+struct AddHabitForedropView: View {
     @ObservedObject var viewModel: AddHabitViewModel
     let containerMode: AddTaskContainerMode
     let showAddAnother: Bool
@@ -423,14 +423,14 @@ struct AddHabitForedropView: View {
 private struct HabitWeekdayPickerRow: View {
     @Binding var selectedDays: [Int]
 
-    private let weekdays: [(day: Int, label: String)] = [
-        (1, "S"),
-        (2, "M"),
-        (3, "T"),
-        (4, "W"),
-        (5, "T"),
-        (6, "F"),
-        (7, "S")
+    private let weekdays: [(day: Int, label: String, accessibilityLabel: String)] = [
+        (1, "S", "Sunday"),
+        (2, "M", "Monday"),
+        (3, "T", "Tuesday"),
+        (4, "W", "Wednesday"),
+        (5, "T", "Thursday"),
+        (6, "F", "Friday"),
+        (7, "S", "Saturday")
     ]
 
     private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.currentTheme.tokens.spacing }
@@ -447,15 +447,15 @@ private struct HabitWeekdayPickerRow: View {
                         selectedDays.append(item.day)
                     }
                 } label: {
-                    Text(item.label)
-                        .font(.tasker(.callout))
-                        .fontWeight(isSelected ? .bold : .regular)
-                        .foregroundColor(isSelected ? Color.tasker.accentOnPrimary : Color.tasker.textSecondary)
-                        .frame(width: 34, height: 34)
-                        .background(
-                            Circle()
-                                .fill(isSelected ? Color.tasker.accentPrimary : Color.tasker.surfacePrimary)
-                        )
+                        Text(item.label)
+                            .font(.tasker(.callout))
+                            .fontWeight(isSelected ? .bold : .regular)
+                            .foregroundColor(isSelected ? Color.tasker.accentOnPrimary : Color.tasker.textSecondary)
+                            .frame(width: 44, height: 44)
+                            .background(
+                                Circle()
+                                    .fill(isSelected ? Color.tasker.accentPrimary : Color.tasker.surfacePrimary)
+                            )
                         .overlay(
                             Circle()
                                 .stroke(
@@ -465,6 +465,8 @@ private struct HabitWeekdayPickerRow: View {
                         )
                 }
                 .buttonStyle(.plain)
+                .accessibilityLabel(item.accessibilityLabel)
+                .accessibilityValue(isSelected ? "Selected" : "Not selected")
             }
         }
     }
@@ -493,10 +495,12 @@ struct HabitLibraryView: View {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button {
                         viewModel.refresh()
-                    } label: {
+                    }
+                    label: {
                         Image(systemName: "arrow.clockwise")
                     }
                     .disabled(viewModel.isLoading)
+                    .accessibilityLabel("Refresh habits")
                 }
             }
             .task {
@@ -675,6 +679,7 @@ struct HabitDetailSheetView: View {
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
+            .accessibilityLabel(historyAccessibilitySummary)
         }
     }
 
@@ -686,12 +691,53 @@ struct HabitDetailSheetView: View {
                     Text(kind.displayName).tag(kind)
                 }
             }
+            .onChange(of: viewModel.draft.kind) { _ in
+                viewModel.normalizeDraftSelection()
+            }
             if viewModel.draft.kind == .negative {
                 Picker("Tracking", selection: $viewModel.draft.trackingMode) {
                     ForEach(AddHabitTrackingMode.allCases) { mode in
                         Text(mode.displayName).tag(mode)
                     }
                 }
+            }
+            Picker("Cadence", selection: detailCadencePresetBinding) {
+                ForEach(HabitCadencePreset.allCases) { cadence in
+                    Text(cadence.title).tag(cadence)
+                }
+            }
+            if detailCadencePresetBinding.wrappedValue == .weekly {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Days")
+                        .font(.tasker(.caption2))
+                        .foregroundStyle(Color.tasker.textSecondary)
+                    HabitWeekdayPickerRow(selectedDays: detailWeeklyDaysBinding)
+                }
+                .padding(.vertical, 4)
+            }
+            DatePicker(
+                "Check-in time",
+                selection: detailCadenceTimeBinding,
+                displayedComponents: .hourAndMinute
+            )
+            HStack {
+                TextField("Start", text: $viewModel.draft.reminderWindowStart)
+                    .textInputAutocapitalization(.never)
+                    .autocorrectionDisabled()
+                    .keyboardType(.numbersAndPunctuation)
+                TextField("End", text: $viewModel.draft.reminderWindowEnd)
+                    .textInputAutocapitalization(.never)
+                    .autocorrectionDisabled()
+                    .keyboardType(.numbersAndPunctuation)
+            }
+            LabeledContent(
+                viewModel.draft.trackingMode == .lapseOnly ? "Recovery Window" : "Reminder Window",
+                value: reminderWindowSummary
+            )
+            if let reminderError = viewModel.editorReminderWindowValidationError {
+                Text(reminderError)
+                    .font(.tasker(.caption2))
+                    .foregroundStyle(Color.tasker.statusWarning)
             }
             Picker("Life Area", selection: $viewModel.draft.lifeAreaID) {
                 ForEach(viewModel.lifeAreas, id: \.id) { area in
@@ -755,6 +801,118 @@ struct HabitDetailSheetView: View {
                 .disabled(viewModel.isSaving)
             }
         }
+    }
+
+    private var historyAccessibilitySummary: String {
+        let counts = viewModel.historyMarks.reduce(into: [HabitDayState: Int]()) { partial, mark in
+            partial[mark.state, default: 0] += 1
+        }
+        return [
+            "\(counts[.success, default: 0]) successful days",
+            "\(counts[.failure, default: 0]) failed days",
+            "\(counts[.skipped, default: 0]) skipped days"
+        ].joined(separator: ", ")
+    }
+
+    private var reminderWindowSummary: String {
+        let start = trimmedReminderValue(viewModel.draft.reminderWindowStart) ?? "Not set"
+        let end = trimmedReminderValue(viewModel.draft.reminderWindowEnd) ?? "Not set"
+        return "\(start) to \(end)"
+    }
+
+    private var detailCadencePresetBinding: Binding<HabitCadencePreset> {
+        Binding(
+            get: {
+                switch viewModel.draft.cadence {
+                case .daily:
+                    return .daily
+                case .weekly:
+                    return .weekly
+                }
+            },
+            set: { newValue in
+                let time = detailCadenceTime(from: viewModel.draft.cadence)
+                switch newValue {
+                case .daily:
+                    viewModel.draft.cadence = .daily(hour: time.hour, minute: time.minute)
+                case .weekly:
+                    let existingDays = detailWeeklyDays(from: viewModel.draft.cadence)
+                    viewModel.draft.cadence = .weekly(
+                        daysOfWeek: existingDays.isEmpty ? [2, 3, 4, 5, 6] : existingDays,
+                        hour: time.hour,
+                        minute: time.minute
+                    )
+                }
+            }
+        )
+    }
+
+    private var detailWeeklyDaysBinding: Binding<[Int]> {
+        Binding(
+            get: {
+                let days = detailWeeklyDays(from: viewModel.draft.cadence)
+                return days.isEmpty ? [2, 3, 4, 5, 6] : days
+            },
+            set: { newValue in
+                let normalized = newValue.sorted()
+                let time = detailCadenceTime(from: viewModel.draft.cadence)
+                viewModel.draft.cadence = .weekly(
+                    daysOfWeek: normalized.isEmpty ? [2, 3, 4, 5, 6] : normalized,
+                    hour: time.hour,
+                    minute: time.minute
+                )
+            }
+        )
+    }
+
+    private var detailCadenceTimeBinding: Binding<Date> {
+        Binding(
+            get: {
+                let calendar = Calendar.current
+                let time = detailCadenceTime(from: viewModel.draft.cadence)
+                let startOfDay = calendar.startOfDay(for: Date())
+                return calendar.date(
+                    bySettingHour: time.hour ?? 9,
+                    minute: time.minute ?? 0,
+                    second: 0,
+                    of: startOfDay
+                ) ?? Date()
+            },
+            set: { newValue in
+                let calendar = Calendar.current
+                let hour = calendar.component(.hour, from: newValue)
+                let minute = calendar.component(.minute, from: newValue)
+                switch viewModel.draft.cadence {
+                case .daily:
+                    viewModel.draft.cadence = .daily(hour: hour, minute: minute)
+                case .weekly(let daysOfWeek, _, _):
+                    viewModel.draft.cadence = .weekly(daysOfWeek: daysOfWeek, hour: hour, minute: minute)
+                }
+            }
+        )
+    }
+
+    private func detailCadenceTime(from cadence: HabitCadenceDraft) -> (hour: Int?, minute: Int?) {
+        switch cadence {
+        case .daily(let hour, let minute):
+            return (hour, minute)
+        case .weekly(_, let hour, let minute):
+            return (hour, minute)
+        }
+    }
+
+    private func detailWeeklyDays(from cadence: HabitCadenceDraft) -> [Int] {
+        switch cadence {
+        case .daily:
+            return []
+        case .weekly(let daysOfWeek, _, _):
+            return daysOfWeek
+        }
+    }
+
+    private func trimmedReminderValue(_ value: String) -> String? {
+        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? nil : trimmed
     }
 
     private func color(for state: HabitDayState) -> Color {

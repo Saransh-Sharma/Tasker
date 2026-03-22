@@ -115,7 +115,7 @@ public final class AddHabitViewModel: ObservableObject {
     }
 
     public var reminderWindowValidationError: String? {
-        validateReminderWindows(start: reminderWindowStart.nilIfBlank, end: reminderWindowEnd.nilIfBlank)
+        habitReminderWindowValidationError(start: reminderWindowStart.nilIfBlank, end: reminderWindowEnd.nilIfBlank)
     }
 
     public var hasUnsavedChanges: Bool {
@@ -156,23 +156,27 @@ public final class AddHabitViewModel: ObservableObject {
 
         group.enter()
         manageLifeAreasUseCase.list { result in
-            defer { group.leave() }
-            switch result {
-            case .success(let lifeAreas):
-                loadedLifeAreas = lifeAreas
-            case .failure(let error):
-                loadedError = error
+            Task { @MainActor in
+                defer { group.leave() }
+                switch result {
+                case .success(let lifeAreas):
+                    loadedLifeAreas = lifeAreas
+                case .failure(let error):
+                    loadedError = error
+                }
             }
         }
 
         group.enter()
         manageProjectsUseCase.getAllProjects { result in
-            defer { group.leave() }
-            switch result {
-            case .success(let projects):
-                loadedProjects = projects
-            case .failure(let error):
-                loadedError = error
+            Task { @MainActor in
+                defer { group.leave() }
+                switch result {
+                case .success(let projects):
+                    loadedProjects = projects
+                case .failure(let error):
+                    loadedError = error
+                }
             }
         }
 
@@ -299,15 +303,23 @@ public final class AddHabitViewModel: ObservableObject {
         pristineQuery = iconSearchQuery.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
-    private func validateReminderWindows(start: String?, end: String?) -> String? {
-        if let start, start.normalizedHHmm == nil {
-            return "Reminder start must use HH:mm."
-        }
-        if let end, end.normalizedHHmm == nil {
-            return "Reminder end must use HH:mm."
-        }
-        return nil
+}
+
+fileprivate func habitReminderWindowValidationError(start: String?, end: String?) -> String? {
+    let normalizedStart = start?.normalizedHHmm
+    let normalizedEnd = end?.normalizedHHmm
+    if let start, normalizedStart == nil {
+        return "Reminder start must use HH:mm."
     }
+    if let end, normalizedEnd == nil {
+        return "Reminder end must use HH:mm."
+    }
+    if let startMinutes = normalizedStart?.minutesSinceMidnight,
+       let endMinutes = normalizedEnd?.minutesSinceMidnight,
+       endMinutes < startMinutes {
+        return "Reminder end must be after the start on the same day."
+    }
+    return nil
 }
 
 private extension String {
@@ -327,6 +339,17 @@ private extension String {
             return nil
         }
         return String(format: "%02d:%02d", hour, minute)
+    }
+
+    var minutesSinceMidnight: Int? {
+        guard let normalizedHHmm else { return nil }
+        let parts = normalizedHHmm.split(separator: ":")
+        guard parts.count == 2,
+              let hour = Int(parts[0]),
+              let minute = Int(parts[1]) else {
+            return nil
+        }
+        return (hour * 60) + minute
     }
 }
 
@@ -388,8 +411,11 @@ public struct HabitEditorDraft: Equatable {
     public var notes: String
     public var kind: AddHabitKind
     public var trackingMode: AddHabitTrackingMode
+    public var cadence: HabitCadenceDraft
     public var lifeAreaID: UUID?
     public var projectID: UUID?
+    public var reminderWindowStart: String
+    public var reminderWindowEnd: String
     public var iconSearchQuery: String
     public var selectedIconSymbolName: String?
 
@@ -398,8 +424,11 @@ public struct HabitEditorDraft: Equatable {
         notes = row.notes ?? ""
         kind = row.kind == .positive ? .positive : .negative
         trackingMode = row.trackingMode == .dailyCheckIn ? .dailyCheckIn : .lapseOnly
+        cadence = row.cadence
         lifeAreaID = row.lifeAreaID
         projectID = row.projectID
+        reminderWindowStart = row.reminderWindowStart ?? ""
+        reminderWindowEnd = row.reminderWindowEnd ?? ""
         iconSearchQuery = ""
         selectedIconSymbolName = row.icon?.symbolName
     }
@@ -471,7 +500,15 @@ public final class HabitDetailViewModel: ObservableObject {
     public var canSave: Bool {
         draft.title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false
             && draft.lifeAreaID != nil
+            && editorReminderWindowValidationError == nil
             && isSaving == false
+    }
+
+    public var editorReminderWindowValidationError: String? {
+        habitReminderWindowValidationError(
+            start: draft.reminderWindowStart.nilIfBlank,
+            end: draft.reminderWindowEnd.nilIfBlank
+        )
     }
 
     public func loadIfNeeded() {
@@ -493,45 +530,53 @@ public final class HabitDetailViewModel: ObservableObject {
 
         group.enter()
         getHabitLibraryUseCase.execute(includeArchived: true) { result in
-            defer { group.leave() }
-            switch result {
-            case .success(let rows):
-                latestRow = rows.first(where: { $0.habitID == self.row.habitID })
-            case .failure(let error):
-                firstError = firstError ?? error
+            Task { @MainActor in
+                defer { group.leave() }
+                switch result {
+                case .success(let rows):
+                    latestRow = rows.first(where: { $0.habitID == self.row.habitID })
+                case .failure(let error):
+                    firstError = firstError ?? error
+                }
             }
         }
 
         group.enter()
         getHabitHistoryUseCase.execute(habitIDs: [row.habitID], endingOn: Date(), dayCount: 14) { result in
-            defer { group.leave() }
-            switch result {
-            case .success(let windows):
-                latestHistory = windows.first(where: { $0.habitID == self.row.habitID })?.marks ?? latestHistory
-            case .failure(let error):
-                firstError = firstError ?? error
+            Task { @MainActor in
+                defer { group.leave() }
+                switch result {
+                case .success(let windows):
+                    latestHistory = windows.first(where: { $0.habitID == self.row.habitID })?.marks ?? latestHistory
+                case .failure(let error):
+                    firstError = firstError ?? error
+                }
             }
         }
 
         group.enter()
         manageLifeAreasUseCase.list { result in
-            defer { group.leave() }
-            switch result {
-            case .success(let values):
-                loadedLifeAreas = values
-            case .failure(let error):
-                firstError = firstError ?? error
+            Task { @MainActor in
+                defer { group.leave() }
+                switch result {
+                case .success(let values):
+                    loadedLifeAreas = values
+                case .failure(let error):
+                    firstError = firstError ?? error
+                }
             }
         }
 
         group.enter()
         manageProjectsUseCase.getAllProjects { result in
-            defer { group.leave() }
-            switch result {
-            case .success(let values):
-                loadedProjects = values
-            case .failure(let error):
-                firstError = firstError ?? error
+            Task { @MainActor in
+                defer { group.leave() }
+                switch result {
+                case .success(let values):
+                    loadedProjects = values
+                case .failure(let error):
+                    firstError = firstError ?? error
+                }
             }
         }
 
@@ -546,6 +591,7 @@ public final class HabitDetailViewModel: ObservableObject {
             self.historyMarks = latestHistory
             self.lifeAreas = loadedLifeAreas
             self.projects = loadedProjects
+            self.normalizeDraftSelection()
             if self.draft.selectedIconSymbolName == nil {
                 self.draft.selectedIconSymbolName = self.availableIconOptions.first?.symbolName
             }
@@ -555,22 +601,34 @@ public final class HabitDetailViewModel: ObservableObject {
 
     public func beginEditing() {
         draft = HabitEditorDraft(row: row)
-        if draft.selectedIconSymbolName == nil {
-            draft.selectedIconSymbolName = availableIconOptions.first?.symbolName
-        }
+        normalizeDraftSelection()
         isEditing = true
         errorMessage = nil
     }
 
     public func cancelEditing() {
         draft = HabitEditorDraft(row: row)
+        normalizeDraftSelection()
         isEditing = false
         errorMessage = nil
     }
 
+    public func normalizeDraftSelection() {
+        if draft.kind == .positive, draft.trackingMode != .dailyCheckIn {
+            draft.trackingMode = .dailyCheckIn
+        }
+        if let selectedIconSymbolName = draft.selectedIconSymbolName,
+           availableIconOptions.contains(where: { $0.symbolName == selectedIconSymbolName }) == false {
+            draft.selectedIconSymbolName = availableIconOptions.first?.symbolName
+        }
+        if draft.selectedIconSymbolName == nil {
+            draft.selectedIconSymbolName = availableIconOptions.first?.symbolName
+        }
+    }
+
     public func saveChanges(completion: (() -> Void)? = nil) {
         guard canSave else {
-            errorMessage = "Fill in the required habit details."
+            errorMessage = editorReminderWindowValidationError ?? "Fill in the required habit details."
             return
         }
 
@@ -587,6 +645,9 @@ public final class HabitDetailViewModel: ObservableObject {
             icon: selectedIconOption.map { HabitIconMetadata(symbolName: $0.symbolName, categoryKey: $0.categoryKey) },
             targetConfig: HabitTargetConfig(notes: draft.notes.nilIfBlank, targetCountPerDay: 1),
             metricConfig: HabitMetricConfig(unitLabel: nil, showNotesOnCompletion: draft.notes.nilIfBlank != nil),
+            cadence: draft.cadence,
+            reminderWindowStart: draft.reminderWindowStart.nilIfBlank?.normalizedHHmm,
+            reminderWindowEnd: draft.reminderWindowEnd.nilIfBlank?.normalizedHHmm,
             notes: draft.notes.nilIfBlank
         )
 

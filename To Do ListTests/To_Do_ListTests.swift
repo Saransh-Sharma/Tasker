@@ -214,6 +214,146 @@ final class HabitCoreDataSchemaRegressionTests: XCTestCase {
         unloadPersistentStores(from: container)
     }
 
+    func testCreateHabitNormalizesPositiveLapseOnlyToDailyCheckIn() throws {
+        let storeURL = temporaryStoreURL(name: "habit-runtime-positive-normalization")
+        defer { removeSQLiteArtifacts(at: storeURL) }
+
+        let model = try currentCompiledTaskModel()
+        let container = try makeContainer(
+            name: "TaskModelV3",
+            model: model,
+            storeType: NSSQLiteStoreType,
+            url: storeURL
+        )
+
+        let lifeAreaID = UUID()
+        let anchorDate = Date(timeIntervalSince1970: 1_704_067_200)
+        let habitRepository = CoreDataHabitRepository(container: container)
+        let scheduleRepository = CoreDataScheduleRepository(container: container)
+        let occurrenceRepository = CoreDataOccurrenceRepository(container: container)
+        let schedulingEngine = CoreSchedulingEngine(
+            scheduleRepository: scheduleRepository,
+            occurrenceRepository: occurrenceRepository
+        )
+        let recompute = RecomputeHabitStreaksUseCase(
+            habitRepository: habitRepository,
+            occurrenceRepository: occurrenceRepository
+        )
+        let sync = SyncHabitScheduleUseCase(
+            habitRepository: habitRepository,
+            scheduleRepository: scheduleRepository,
+            scheduleEngine: schedulingEngine,
+            occurrenceRepository: occurrenceRepository,
+            recomputeHabitStreaksUseCase: recompute
+        )
+        let maintain = MaintainHabitRuntimeUseCase(syncHabitScheduleUseCase: sync)
+        let useCase = CreateHabitUseCase(
+            habitRepository: habitRepository,
+            lifeAreaRepository: CapturingLifeAreaRepository(
+                storedAreas: [LifeArea(id: lifeAreaID, name: "Health", createdAt: anchorDate, updatedAt: anchorDate)]
+            ),
+            projectRepository: MockProjectRepository(projects: []),
+            scheduleRepository: scheduleRepository,
+            maintainHabitRuntimeUseCase: maintain
+        )
+
+        let created = try awaitResult { completion in
+            useCase.execute(
+                request: CreateHabitRequest(
+                    title: "Meditate",
+                    lifeAreaID: lifeAreaID,
+                    kind: .positive,
+                    trackingMode: .lapseOnly,
+                    icon: HabitIconMetadata(symbolName: "brain.head.profile", categoryKey: "mindfulness"),
+                    cadence: .daily(hour: 7, minute: 0),
+                    createdAt: anchorDate
+                ),
+                completion: completion
+            )
+        }
+
+        XCTAssertEqual(created.kind, .positive)
+        XCTAssertEqual(created.trackingMode, .dailyCheckIn)
+        XCTAssertEqual(created.habitType, "check_in")
+        unloadPersistentStores(from: container)
+    }
+
+    func testPausedHabitsAreExcludedFromSignalQueries() throws {
+        let storeURL = temporaryStoreURL(name: "habit-runtime-paused-signals")
+        defer { removeSQLiteArtifacts(at: storeURL) }
+
+        let model = try currentCompiledTaskModel()
+        let container = try makeContainer(
+            name: "TaskModelV3",
+            model: model,
+            storeType: NSSQLiteStoreType,
+            url: storeURL
+        )
+
+        let lifeAreaID = UUID()
+        let anchorDate = Date(timeIntervalSince1970: 1_704_067_200)
+        let habitRepository = CoreDataHabitRepository(container: container)
+        let scheduleRepository = CoreDataScheduleRepository(container: container)
+        let occurrenceRepository = CoreDataOccurrenceRepository(container: container)
+        let schedulingEngine = CoreSchedulingEngine(
+            scheduleRepository: scheduleRepository,
+            occurrenceRepository: occurrenceRepository
+        )
+        let recompute = RecomputeHabitStreaksUseCase(
+            habitRepository: habitRepository,
+            occurrenceRepository: occurrenceRepository
+        )
+        let sync = SyncHabitScheduleUseCase(
+            habitRepository: habitRepository,
+            scheduleRepository: scheduleRepository,
+            scheduleEngine: schedulingEngine,
+            occurrenceRepository: occurrenceRepository,
+            recomputeHabitStreaksUseCase: recompute
+        )
+        let maintain = MaintainHabitRuntimeUseCase(syncHabitScheduleUseCase: sync)
+        let createHabit = CreateHabitUseCase(
+            habitRepository: habitRepository,
+            lifeAreaRepository: CapturingLifeAreaRepository(
+                storedAreas: [LifeArea(id: lifeAreaID, name: "Health", createdAt: anchorDate, updatedAt: anchorDate)]
+            ),
+            projectRepository: MockProjectRepository(projects: []),
+            scheduleRepository: scheduleRepository,
+            maintainHabitRuntimeUseCase: maintain
+        )
+
+        var created = try awaitResult { completion in
+            createHabit.execute(
+                request: CreateHabitRequest(
+                    title: "Stretch",
+                    lifeAreaID: lifeAreaID,
+                    kind: .positive,
+                    trackingMode: .dailyCheckIn,
+                    icon: HabitIconMetadata(symbolName: "figure.cooldown", categoryKey: "movement"),
+                    cadence: .daily(hour: 8, minute: 0),
+                    createdAt: anchorDate
+                ),
+                completion: completion
+            )
+        }
+        created.isPaused = true
+        created.updatedAt = anchorDate.addingTimeInterval(60)
+        _ = try awaitResult { completion in
+            habitRepository.update(created, completion: completion)
+        }
+
+        let readRepository = CoreDataHabitRuntimeReadRepository(container: container)
+        let summaries = try awaitResult { completion in
+            readRepository.fetchSignals(
+                start: Calendar.current.startOfDay(for: anchorDate),
+                end: Calendar.current.date(byAdding: .day, value: 1, to: Calendar.current.startOfDay(for: anchorDate)) ?? anchorDate,
+                completion: completion
+            )
+        }
+
+        XCTAssertTrue(summaries.isEmpty)
+        unloadPersistentStores(from: container)
+    }
+
     func testMigratingGamificationStoreToCurrentModelBackfillsHabitRuntimeFields() throws {
         let storeURL = temporaryStoreURL(name: "habit-runtime-migration")
         defer { removeSQLiteArtifacts(at: storeURL) }
@@ -6517,6 +6657,51 @@ final class HabitRuntimeRemediationTests: XCTestCase {
         XCTAssertEqual(stack.habitRepository.habitsByID[habit.id]?.streakCurrent, 1)
     }
 
+    func testMaintainHabitRuntimeCompletesAllPendingLapseOnlyDaysAfterLongInactivity() throws {
+        let anchorDate = Date(timeIntervalSince1970: 1_704_132_000)
+        let stack = makeHabitRuntimeStack(anchorDate: anchorDate)
+
+        let habit = try awaitResult { completion in
+            stack.createHabitUseCase.execute(
+                request: CreateHabitRequest(
+                    title: "No alcohol",
+                    lifeAreaID: stack.lifeAreaID,
+                    kind: .negative,
+                    trackingMode: .lapseOnly,
+                    icon: HabitIconMetadata(symbolName: "drop", categoryKey: "recovery"),
+                    cadence: .daily(hour: 18, minute: 0),
+                    createdAt: anchorDate
+                ),
+                completion: completion
+            )
+        }
+
+        let eightDaysLater = Calendar.current.date(byAdding: .day, value: 8, to: anchorDate) ?? anchorDate
+        _ = try awaitResult { completion in
+            stack.maintainHabitRuntimeUseCase.execute(anchorDate: eightDaysLater, completion: completion)
+        }
+
+        let calendar = Calendar.current
+        let createdDayStart = calendar.startOfDay(for: anchorDate)
+        let targetDayStart = calendar.startOfDay(for: eightDaysLater)
+        let preTodayOccurrences = stack.occurrenceRepository.occurrences.filter {
+            $0.sourceID == habit.id &&
+            ($0.dueAt ?? $0.scheduledAt) < targetDayStart
+        }
+        let repairedOccurrences = preTodayOccurrences.filter { occurrence in
+            (occurrence.dueAt ?? occurrence.scheduledAt) >= createdDayStart
+        }
+        let currentRunDayCount = Set(repairedOccurrences.map { occurrence in
+            let occurrenceDate = occurrence.dueAt ?? occurrence.scheduledAt
+            return calendar.startOfDay(for: occurrenceDate)
+        }).count
+
+        XCTAssertFalse(repairedOccurrences.isEmpty)
+        XCTAssertTrue(repairedOccurrences.allSatisfy { $0.state == .completed })
+        XCTAssertEqual(currentRunDayCount, 8)
+        XCTAssertEqual(stack.habitRepository.habitsByID[habit.id]?.streakCurrent, currentRunDayCount)
+    }
+
     func testResolveHabitOccurrenceMaterializesMissingLapseOnlyDayAsFailed() throws {
         let anchorDate = Date(timeIntervalSince1970: 1_704_132_000) // 2024-01-01 18:00:00 UTC
         let stack = makeHabitRuntimeStack(anchorDate: anchorDate)
@@ -6557,6 +6742,56 @@ final class HabitRuntimeRemediationTests: XCTestCase {
         XCTAssertEqual(sameDayOccurrences.first?.state, .failed)
         XCTAssertEqual(sameDayOccurrences.first?.generationWindow, "ad_hoc_habit_lapse")
         XCTAssertEqual(stack.habitRepository.habitsByID[habit.id]?.streakCurrent, 0)
+    }
+
+    func testUpdateHabitNormalizesPositiveHabitToDailyCheckInTracking() throws {
+        let anchorDate = Date(timeIntervalSince1970: 1_704_132_000)
+        let stack = makeHabitRuntimeStack(anchorDate: anchorDate)
+
+        let created = try awaitResult { completion in
+            stack.createHabitUseCase.execute(
+                request: CreateHabitRequest(
+                    title: "Quit sugar",
+                    lifeAreaID: stack.lifeAreaID,
+                    kind: .negative,
+                    trackingMode: .lapseOnly,
+                    icon: HabitIconMetadata(symbolName: "fork.knife", categoryKey: "nutrition"),
+                    cadence: .daily(hour: 18, minute: 0),
+                    createdAt: anchorDate
+                ),
+                completion: completion
+            )
+        }
+
+        let updateUseCase = UpdateHabitUseCase(
+            habitRepository: stack.habitRepository,
+            scheduleRepository: stack.scheduleRepository,
+            scheduleEngine: CoreSchedulingEngine(
+                scheduleRepository: stack.scheduleRepository,
+                occurrenceRepository: stack.occurrenceRepository
+            ),
+            projectRepository: MockProjectRepository(projects: []),
+            lifeAreaRepository: CapturingLifeAreaRepository(
+                storedAreas: [LifeArea(id: stack.lifeAreaID, name: "Health", createdAt: anchorDate, updatedAt: anchorDate)]
+            ),
+            maintainHabitRuntimeUseCase: stack.maintainHabitRuntimeUseCase
+        )
+
+        let updated = try awaitResult { completion in
+            updateUseCase.execute(
+                request: UpdateHabitRequest(
+                    id: created.id,
+                    kind: .positive,
+                    trackingMode: .lapseOnly,
+                    updatedAt: anchorDate.addingTimeInterval(60)
+                ),
+                completion: completion
+            )
+        }
+
+        XCTAssertEqual(updated.kind, HabitKind.positive)
+        XCTAssertEqual(updated.trackingMode, HabitTrackingMode.dailyCheckIn)
+        XCTAssertEqual(stack.habitRepository.habitsByID[created.id]?.trackingMode, HabitTrackingMode.dailyCheckIn)
     }
 
     func testRecomputeHabitStreaksRebuildsBestFromOccurrences() throws {
@@ -9417,6 +9652,46 @@ final class HabitAnalyticsAndInsightsIntegrationTests: XCTestCase {
         XCTAssertEqual(analytics.habitAnalytics.adherenceRate, 1.0, accuracy: 0.0001)
     }
 
+    func testCalculateDailyAnalyticsDoesNotReuseStaleCacheWhenSuppliedSignalsChange() throws {
+        let calendar = Calendar.current
+        let anchorDate = calendar.startOfDay(for: Date(timeIntervalSince1970: 1_711_036_800))
+        let positiveSignal = TaskerHabitSignal(summary: makeHabitSummary(
+            title: "Meditate",
+            kind: .positive,
+            trackingMode: .dailyCheckIn,
+            dueAt: calendar.date(byAdding: .hour, value: 8, to: anchorDate),
+            state: .completed,
+            riskState: .stable
+        ), referenceDate: anchorDate)
+        let failedSignal = TaskerHabitSignal(summary: makeHabitSummary(
+            title: "Meditate",
+            kind: .positive,
+            trackingMode: .dailyCheckIn,
+            dueAt: calendar.date(byAdding: .hour, value: 8, to: anchorDate),
+            state: .missed,
+            riskState: .atRisk
+        ), referenceDate: anchorDate)
+
+        let useCase = CalculateAnalyticsUseCase(
+            taskReadModelRepository: InMemoryTaskReadModelRepositoryStub(tasks: [])
+        )
+
+        let firstAnalytics = try awaitResult { (completion: @escaping (Result<DailyAnalytics, Error>) -> Void) in
+            useCase.calculateDailyAnalytics(for: anchorDate, habitSignals: [positiveSignal]) { result in
+                completion(result.mapError { $0 })
+            }
+        }
+        let secondAnalytics = try awaitResult { (completion: @escaping (Result<DailyAnalytics, Error>) -> Void) in
+            useCase.calculateDailyAnalytics(for: anchorDate, habitSignals: [failedSignal]) { result in
+                completion(result.mapError { $0 })
+            }
+        }
+
+        XCTAssertEqual(firstAnalytics.habitAnalytics.completedPositiveHabits, 1)
+        XCTAssertEqual(secondAnalytics.habitAnalytics.completedPositiveHabits, 0)
+        XCTAssertEqual(secondAnalytics.habitAnalytics.missedHabits, 1)
+    }
+
     func testComputeEvaHomeInsightsFetchesHabitSignalsByDefault() {
         let calendar = Calendar.current
         let anchorDate = calendar.startOfDay(for: Date(timeIntervalSince1970: 1_711_123_200))
@@ -9444,6 +9719,59 @@ final class HabitAnalyticsAndInsightsIntegrationTests: XCTestCase {
             captured?.focus.summaryLine,
             "Habits: 1 due, 1 at risk, 1 lapsed"
         )
+    }
+}
+
+@MainActor
+final class AddHabitViewModelValidationTests: XCTestCase {
+    func testReminderWindowValidationRejectsEndBeforeStart() {
+        let anchorDate = Date(timeIntervalSince1970: 1_711_036_800)
+        let lifeAreaID = UUID()
+        let habitRepository = InMemoryHabitRepository()
+        let scheduleRepository = InMemoryScheduleRepository()
+        let occurrenceRepository = InMemoryOccurrenceRepository()
+        let maintainHabitRuntimeUseCase = MaintainHabitRuntimeUseCase(
+            syncHabitScheduleUseCase: SyncHabitScheduleUseCase(
+                habitRepository: habitRepository,
+                scheduleRepository: scheduleRepository,
+                scheduleEngine: CoreSchedulingEngine(
+                    scheduleRepository: scheduleRepository,
+                    occurrenceRepository: occurrenceRepository
+                ),
+                occurrenceRepository: occurrenceRepository,
+                recomputeHabitStreaksUseCase: RecomputeHabitStreaksUseCase(
+                    habitRepository: habitRepository,
+                    occurrenceRepository: occurrenceRepository
+                )
+            )
+        )
+        let viewModel = AddHabitViewModel(
+            createHabitUseCase: CreateHabitUseCase(
+                habitRepository: habitRepository,
+                lifeAreaRepository: CapturingLifeAreaRepository(
+                    storedAreas: [LifeArea(id: lifeAreaID, name: "Health", createdAt: anchorDate, updatedAt: anchorDate)]
+                ),
+                projectRepository: MockProjectRepository(projects: []),
+                scheduleRepository: scheduleRepository,
+                maintainHabitRuntimeUseCase: maintainHabitRuntimeUseCase
+            ),
+            manageLifeAreasUseCase: ManageLifeAreasUseCase(
+                repository: CapturingLifeAreaRepository(
+                    storedAreas: [LifeArea(id: lifeAreaID, name: "Health", createdAt: anchorDate, updatedAt: anchorDate)]
+                )
+            ),
+            manageProjectsUseCase: ManageProjectsUseCase(projectRepository: MockProjectRepository(projects: []))
+        )
+
+        viewModel.selectedLifeAreaID = lifeAreaID
+        viewModel.reminderWindowStart = "21:00"
+        viewModel.reminderWindowEnd = "08:00"
+
+        XCTAssertEqual(
+            viewModel.reminderWindowValidationError,
+            "Reminder end must be after the start on the same day."
+        )
+        XCTAssertFalse(viewModel.canSubmit)
     }
 }
 
