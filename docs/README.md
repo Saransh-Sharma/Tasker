@@ -1,6 +1,6 @@
 # Tasker Documentation Hub
 
-Last updated: 2026-03-17
+Last updated: 2026-03-22
 
 This directory is the canonical home for technical architecture, operations, release runbooks, and archived legacy docs.
 
@@ -9,6 +9,7 @@ This directory is the canonical home for technical architecture, operations, rel
 ```mermaid
 flowchart TD
     ROOT["README.md (repo root)"] --> DOCS["docs/README.md"]
+    DOCS --> HAB["docs/habits/*"]
     DOCS --> ARCH["docs/architecture/*"]
     DOCS --> OPS["docs/operations/*"]
     DOCS --> REL["docs/release-gate-v2-efgh.md"]
@@ -20,10 +21,21 @@ flowchart TD
 
 | Section | Purpose | Canonical Docs |
 | --- | --- | --- |
+| Habits | Product, runtime, risk, and roadmap docs for the habit subsystem | `docs/habits/README.md` |
 | Architecture | Data model, clean architecture, usecase and runtime contracts | `docs/architecture/README.md` |
 | Operations | CI guardrails, release checks, developer tooling | `docs/operations/ci-release-and-guardrails.md`, `docs/operations/developer-tooling-and-flowctl.md` |
 | Release Smoke | CloudKit two-device validation and evidence | `docs/cloudkit-two-device-smoke.md`, `docs/cloudkit-smoke-evidence/latest.md`, `docs/release-gate-v2-efgh.md` |
 | Archive | Deprecated, non-canonical historical docs | `docs/archive/qoder-repowiki/README.md` |
+
+## Habit Docs
+
+| Doc | Coverage |
+| --- | --- |
+| `docs/habits/README.md` | Habit documentation hub, source-of-truth boundaries, reading order, and maintenance policy |
+| `docs/habits/product-feature.md` | Product contract, journeys, UX rules, state semantics, and accessibility bar for habits |
+| `docs/habits/data-model-and-runtime.md` | Habit write/read models, persistence, scheduling, projections, invariants, and lifecycle diagrams |
+| `docs/habits/risk-register.md` | Habit-specific correctness, scale, concurrency, accessibility, and documentation-drift risks |
+| `docs/habits/roadmap.md` | Habits-only phased PM roadmap with scope, non-goals, dependencies, and success metrics |
 
 ## Architecture Docs
 
@@ -52,6 +64,7 @@ flowchart TD
 
 Product-facing intent remains in:
 - `PRODUCT_REQUIREMENTS_DOCUMENT.md`
+- `docs/habits/product-feature.md`
 
 Root hub:
 - `README.md`

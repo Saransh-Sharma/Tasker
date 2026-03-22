@@ -1,7 +1,7 @@
 # Tasker iOS - Product Requirements Document
 
-**Version:** 4.2  
-**Last Updated:** February 19, 2026  
+**Version:** 4.4  
+**Last Updated:** March 22, 2026  
 **Platform:** iOS 16.0+  
 **Status:** Active Product Direction
 
@@ -223,6 +223,33 @@ Requirements:
 - Clarify mode supports notes, steps, schedule, tags, dependencies, recurrence, and hierarchy fields when available.
 - Empty optional fields must never block save.
 
+### Habits
+Purpose:
+- Support recurring behavior loops that help users build consistency, notice risk early, and recover quickly after misses.
+
+Requirements:
+- Habits are first-class recurring behaviors and are distinct from finite tasks.
+- Every habit requires a `LifeArea`; `Project` is optional supporting context.
+- Habits support two kinds:
+  - positive habits to build
+  - negative habits to reduce or quit
+- Negative habits support two tracking modes:
+  - `dailyCheckIn`
+  - `lapseOnly`
+- Positive habits always behave as `dailyCheckIn` habits even if older/invalid stored data exists.
+- Home includes a mixed Due Today section that can contain both tasks and habits without removing existing task sections.
+- Positive habits support `Done` and `Skip`.
+- Negative `dailyCheckIn` habits support `Stayed Clean` and `Lapsed`.
+- Negative `lapseOnly` habits do not create standard due rows by default and instead support manual lapse logging from detail or quick actions.
+- Habit detail and library flows support create, edit, pause, unpause, archive, icon selection, notes, and history visibility.
+- Edit surfaces must allow schedule and reminder-window management, not only descriptive metadata changes.
+- Streaks, 14-day history, and risk indicators must help recovery framing rather than punish misses.
+- Paused habits must be excluded from active Home, analytics, daily brief, Eva, and LLM signal projections.
+- Habit analytics remain separate from task productivity metrics and are merged only in presentation where needed.
+- Habit AI/assistant surfaces consume habit signals and metadata directly; they must not route habits through fake tasks.
+- Empty, loading, and error states must remain explicit on habit surfaces.
+- Habit controls must meet accessibility expectations for labels, touch targets, readable status narration, and non-gesture alternatives.
+
 ### Tasks Browse And Search
 Purpose:
 - Make large backlogs navigable and retrievable.
@@ -360,6 +387,7 @@ This table maps product surfaces to existing runtime usecases for implementation
 | --- | --- | --- |
 | Home and Focus | `GetHomeFilteredTasksUseCase`, `GetTasksUseCase` | `CompleteTaskDefinitionUseCase`, `RescheduleTaskDefinitionUseCase`, `UpdateTaskDefinitionUseCase` |
 | Add Task | `GetTasksUseCase` (supporting reads as needed) | `CreateTaskDefinitionUseCase` |
+| Habits | `BuildHabitHomeProjectionUseCase`, `GetHabitLibraryUseCase`, `GetHabitHistoryUseCase`, `CalculateAnalyticsUseCase` | `CreateHabitUseCase`, `UpdateHabitUseCase`, `PauseHabitUseCase`, `ArchiveHabitUseCase`, `ResolveHabitOccurrenceUseCase`, `SyncHabitScheduleUseCase`, `RecomputeHabitStreaksUseCase` |
 | Tasks Browse and Search | `GetTasksUseCase` | `UpdateTaskDefinitionUseCase`, `DeleteTaskDefinitionUseCase`, `CompleteTaskDefinitionUseCase`, `RescheduleTaskDefinitionUseCase` |
 | Assistant Ask and Plan | `GetTasksUseCase` (context projection inputs) | none |
 | Assistant Apply and Undo | `GetTasksUseCase` (diff context) | `AssistantActionPipelineUseCase` |
@@ -419,6 +447,16 @@ This table maps product surfaces to existing runtime usecases for implementation
 - Clarify fields are optional and non-blocking.
 - Added steps are reflected in subsequent task surfaces.
 
+### Habits
+- Habit creation requires a title and `LifeArea`, while `Project` remains optional.
+- Positive, negative `dailyCheckIn`, and negative `lapseOnly` habits all save and render with the correct action semantics.
+- Editing a habit supports title, kind, tracking mode, cadence, reminder window, ownership, icon, and notes without data loss.
+- Paused habits disappear from active agenda and signal-driven surfaces until unpaused.
+- `lapseOnly` habits correctly repair abstinent history after extended inactivity and preserve streak correctness.
+- Reminder windows reject invalid same-day ranges and never produce inverted due times in runtime projections.
+- Home habit rows expose readable state, streak, and history cues with accessible controls and labels.
+- Habit analytics remain separate from task completion analytics and refresh after same-day habit mutations.
+
 ### Tasks Browse And Search
 - Search returns results within target latency for typical datasets.
 - Clearing query restores default browse state.
@@ -457,7 +495,7 @@ This table maps product surfaces to existing runtime usecases for implementation
 
 ### Mid-Term
 - Offer optional calendar-first planning modes without forcing calendar workflows.
-- Deepen habit-task linkage where useful.
+- Deepen habit-task linkage where useful while keeping habits analytically distinct from tasks.
 - Improve on-device assistant planning quality.
 
 ### Long-Term
@@ -468,6 +506,11 @@ This table maps product surfaces to existing runtime usecases for implementation
 
 Technical implementation details are intentionally kept out of this PRD. Use the architecture docs:
 - `docs/README.md`
+- `docs/habits/README.md`
+- `docs/habits/product-feature.md`
+- `docs/habits/data-model-and-runtime.md`
+- `docs/habits/risk-register.md`
+- `docs/habits/roadmap.md`
 - `docs/architecture/README.md`
 - `docs/architecture/data-model-v2.md`
 - `docs/architecture/clean-architecture-v2.md`
@@ -482,6 +525,7 @@ Technical implementation details are intentionally kept out of this PRD. Use the
 
 ## Document History
 
+- **v4.4 (March 22, 2026):** Added dedicated habits requirements summary and linked the new habits product, runtime, risk, and roadmap documentation package.
 - **v4.3 (March 11, 2026):** Updated Insights requirements to match the redesigned Today, Week, and Systems analytics surfaces, including richer widgets, empty-state behavior, and system-health framing.
 - **v4.2 (February 19, 2026):** Consolidated deep-research inputs into a detailed product-only PRD, added mental loop model, detailed screen requirements, implementation alignment table, interaction flows, explicit non-functional requirements, QA acceptance criteria, and horizon-based roadmap framing.
 - **v4.1 (February 19, 2026):** Added product constraints for V3 runtime cutover, non-goals, metric interpretation guardrails, and updated technical reference index.

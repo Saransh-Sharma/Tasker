@@ -1,6 +1,6 @@
 # Tasker Data Model Reference (V3 Runtime)
 
-**Last validated against code on 2026-02-27**
+**Last validated against code on 2026-03-22**
 
 This document is the canonical data-model map for the shipped runtime.
 It covers:
@@ -8,6 +8,8 @@ It covers:
 - Domain definition models and ID rules
 - Compatibility columns retained in storage
 - Ownership of writes and high-risk invariants
+
+Habit-specific data-model and runtime depth is intentionally documented in `docs/habits/data-model-and-runtime.md`.
 
 Primary source anchors:
 - `To Do List/TaskModelV3.xcdatamodeld/.xccurrentversion`
@@ -49,7 +51,7 @@ Primary source anchors:
 | --- | --- | --- |
 | Planning | `LifeArea`, `Project`, `ProjectSection`, `Tag` | manage-* planning usecases + project repair/seed paths |
 | Task graph | `TaskDefinition`, `TaskDependency`, `TaskTagLink` | create/update/delete/complete/reschedule task-definition usecases |
-| Habit | `HabitDefinition` | `ManageHabitsUseCase` |
+| Habit | `HabitDefinition`, `ScheduleTemplate`, `Occurrence`, `OccurrenceResolution` | `CreateHabitUseCase`, `UpdateHabitUseCase`, `PauseHabitUseCase`, `ArchiveHabitUseCase`, `SyncHabitScheduleUseCase`, `ResolveHabitOccurrenceUseCase`, `RecomputeHabitStreaksUseCase` |
 | Scheduling | `ScheduleTemplate`, `ScheduleRule`, `ScheduleException`, `Occurrence`, `OccurrenceResolution` | scheduling usecases + `CoreSchedulingEngine` |
 | Reminder | `Reminder`, `ReminderTrigger`, `ReminderDelivery` | `ScheduleReminderUseCase`, sync reconcile flows |
 | Sync mapping | `ExternalContainerMap`, `ExternalItemMap` | link/reconcile external reminders usecases |
@@ -68,7 +70,7 @@ Primary source anchors:
 | `TaskDefinition` | `id`, `taskID`, `projectID`, `lifeAreaID`, `sectionID`, `title`, `priority`, status, due/completion timestamps | to-one project/section/parent/habit; to-many child/dependency/tag links | identity uniqueness; completion-state consistency; link integrity | task-definition usecases + repository |
 | `TaskDependency` | `id`, `taskID`, `dependsOnTaskID`, `kind`, `createdAt` | to-one task and depended-on task | dedupe by `(taskID, dependsOnTaskID, kind)` | dependency repository |
 | `TaskTagLink` | `id`, `taskID`, `tagID`, `createdAt` | to-one task and tag | replace-set semantics, no duplicate links | tag-link repository |
-| `HabitDefinition` | `id`, `lifeAreaID`, `projectID`, streak/config fields, timestamps | to-one life area/project; to-many generated tasks | identity and life-area/project linkage preserved | `ManageHabitsUseCase` |
+| `HabitDefinition` | `id`, `title`, `lifeAreaID`, `projectID`, `kindRaw`, `trackingModeRaw`, icon/notes fields, pause/archive flags, streak/risk caches, mask caches, reminder window, timestamps | to-one life area/project; to-one schedule template by `sourceType/sourceID`; to-many occurrences/resolutions via schedule runtime | positive habits normalize to `dailyCheckIn`; paused habits are excluded from active projections; history truth comes from occurrences + resolutions | focused habit runtime usecases + habit repository |
 | `ScheduleTemplate` | `id`, source refs, timezone/window fields, timestamps | to-many rules/exceptions/occurrences | template identity stable for recurrence | schedule repository |
 | `ScheduleRule` | recurrence/by* fields + payload | to-one template | belongs to one template | schedule repository |
 | `ScheduleException` | `occurrenceKey`, action/move payload | to-one template | exception keys match occurrence identity | schedule repository + resolve usecase |
@@ -154,7 +156,7 @@ sequenceDiagram
 | --- | --- | --- |
 | Planning | `ManageLifeAreasUseCase`, `ManageProjectsUseCase`, `ManageSectionsUseCase`, `ManageTagsUseCase` | corresponding CoreData planning repositories |
 | Task graph | create/update/delete/complete/reschedule task-definition usecases | task-definition, dependency, tag-link repositories |
-| Habit | `ManageHabitsUseCase` | habit repository |
+| Habit | `CreateHabitUseCase`, `UpdateHabitUseCase`, `PauseHabitUseCase`, `ArchiveHabitUseCase`, `SyncHabitScheduleUseCase`, `ResolveHabitOccurrenceUseCase`, `RecomputeHabitStreaksUseCase` | habit repository + schedule/occurrence repositories + scheduling engine |
 | Schedule/occurrence | generate/resolve/maintain occurrence usecases | schedule/occurrence repositories + scheduling engine |
 | Reminder | `ScheduleReminderUseCase`, reconcile flows | reminder repository |
 | External sync | link/reconcile reminders usecases | external sync repository |
@@ -173,6 +175,7 @@ sequenceDiagram
 
 ## Cross-Links
 
+- `docs/habits/data-model-and-runtime.md`
 - `docs/architecture/clean-architecture-v2.md`
 - `docs/architecture/state-repositories-and-services-v2.md`
 - `docs/architecture/usecases-v2.md`

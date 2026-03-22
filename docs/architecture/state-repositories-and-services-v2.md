@@ -1,8 +1,10 @@
 # State Repositories and Services (V3 Runtime)
 
-**Last validated against code on 2026-02-27**
+**Last validated against code on 2026-03-22**
 
 This document maps State-layer ownership for persistence repositories, supporting services, and runtime wiring.
+
+Habit-specific repository and runtime sequencing detail lives in `docs/habits/data-model-and-runtime.md`.
 
 Primary source anchors:
 - `To Do List/State/Repositories/*.swift`
@@ -45,6 +47,7 @@ flowchart TD
 | `State/Repositories/CoreDataSectionRepository.swift` | `CoreDataSectionRepository` | `SectionRepositoryProtocol` | `ProjectSection` |
 | `State/Repositories/CoreDataTagRepository.swift` | `CoreDataTagRepository` | `TagRepositoryProtocol` | `Tag` |
 | `State/Repositories/CoreDataHabitRepository.swift` | `CoreDataHabitRepository` | `HabitRepositoryProtocol` | `HabitDefinition` |
+| `State/Repositories/CoreDataHabitRuntimeReadRepository.swift` | `CoreDataHabitRuntimeReadRepository` | `HabitRuntimeReadRepositoryProtocol` | habit Home/library/history/signal projections |
 | `State/Repositories/CoreDataScheduleRepository.swift` | `CoreDataScheduleRepository` | `ScheduleRepositoryProtocol` | `ScheduleTemplate`, `ScheduleRule`, `ScheduleException` |
 | `State/Repositories/CoreDataOccurrenceRepository.swift` | `CoreDataOccurrenceRepository` | `OccurrenceRepositoryProtocol` | `Occurrence`, `OccurrenceResolution` |
 | `State/Repositories/CoreDataReminderRepository.swift` | `CoreDataReminderRepository` | `ReminderRepositoryProtocol` | `Reminder`, `ReminderTrigger`, `ReminderDelivery` |
@@ -72,6 +75,8 @@ flowchart TD
 | Task graph (`TaskDefinition`, dependency/tag links) | `CoreDataTaskDefinitionRepository` family | task usecases, sync usecases, assistant pipeline |
 | Query slices/aggregates | `CoreDataTaskReadModelRepository` | home/search/analytics/project dashboards |
 | Planning hierarchy | project/life-area/section/tag repositories | project and task creation/edit flows |
+| Habit write model | `CoreDataHabitRepository` | habit create/update/pause/archive flows |
+| Habit read projections | `CoreDataHabitRuntimeReadRepository` | Home mixed agenda, habit library/detail, analytics, daily brief, Eva, LLM context |
 | Scheduling timeline | schedule + occurrence repositories and scheduling engine | schedule maintenance and reminder orchestration |
 | Reminders domain | `CoreDataReminderRepository` + provider service | reminder scheduling and external reconcile |
 | External mapping state | `CoreDataExternalSyncRepository` | link/reconcile flows |
@@ -147,6 +152,12 @@ This keeps the core runtime available even when local chat storage is incompatib
 `EnhancedDependencyContainer.configure(with:)` is the only runtime entrypoint for State-layer wiring.
 It builds repositories/services, constructs `UseCaseCoordinator`, and evaluates readiness through `assertV3RuntimeReady()`.
 
+Habit runtime ownership note:
+- `CoreDataHabitRepository` owns habit-definition persistence.
+- `CoreDataHabitRuntimeReadRepository` owns predicate-scoped habit projections for Home, analytics, and AI consumers.
+- `CoreSchedulingEngine` plus schedule/occurrence repositories own generated occurrence lifecycle.
+- Deep habit runtime sequencing and invariants are documented in `docs/habits/data-model-and-runtime.md`.
+
 AI-specific runtime wiring outside the container remains in `AppDelegate` and includes:
 - `LLMContextRepositoryProvider` setup,
 - `LLMAssistantPipelineProvider` setup,
@@ -154,6 +165,7 @@ AI-specific runtime wiring outside the container remains in `AppDelegate` and in
 
 ## Cross-Links
 
+- `docs/habits/data-model-and-runtime.md`
 - `docs/architecture/clean-architecture-v2.md`
 - `docs/architecture/data-model-v2.md`
 - `docs/architecture/usecases-v2.md`
