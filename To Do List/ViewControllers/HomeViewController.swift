@@ -412,13 +412,11 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
     private var currentLayoutClass: TaskerLayoutClass = .phone
     private let iPadShellState = HomeiPadShellState()
     private let iPadChatAppManager = AppManager()
+    private var iPadShellEpoch = 0
     private var didTrackLayoutClassAtLaunch = false
     private var didTrackIPadShellRendered = false
     private var hasMountedStableLayoutShell = false
     private var pendingIPadModalRequest: HomeiPadModalRequest?
-    private weak var pendingIPadModalFallbackController: UIViewController?
-    private var didConsumePendingIPadModalFallbackRetry = false
-    private var isPendingIPadModalFallbackRetryScheduled = false
     private let onboardingGuidanceModel = HomeOnboardingGuidanceModel()
     private var onboardingCoordinator: AppOnboardingCoordinator?
     private var pendingInsightsLaunchRequest: InsightsLaunchRequest?
@@ -464,6 +462,11 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
         observeKeyboardFrameChanges()
         applyTheme()
         refreshPersistentSyncOutageBanner()
+        if #available(iOS 17.0, *) {
+            registerForTraitChanges([UITraitHorizontalSizeClass.self, UITraitVerticalSizeClass.self]) { (self: Self, _) in
+                self.refreshLayoutClassIfNeeded()
+            }
+        }
         onboardingCoordinator = AppOnboardingCoordinator(
             homeViewController: self,
             presentationDependencyContainer: presentationDependencyContainer,
@@ -500,12 +503,6 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
         refreshLayoutMetrics()
         updateInteractivePhaseIfNeeded()
         mountBottomBarOverlayIfNeeded()
-    }
-
-    /// Executes traitCollectionDidChange.
-    override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
-        super.traitCollectionDidChange(previousTraitCollection)
-        refreshLayoutClassIfNeeded()
     }
 
     /// Executes viewWillDisappear.
@@ -1204,6 +1201,17 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
         }
 
         if let existingHostingController = homeHostingController {
+            iPadShellEpoch += 1
+            if currentLayoutClass.isPad && V2FeatureFlags.iPadNativeShellEnabled {
+                logWarning(
+                    event: "ipadPrimarySurfaceShellEpochReset",
+                    message: "Reset the iPad primary surface shell epoch after rebuilding the hosted root",
+                    fields: [
+                        "layout_class": currentLayoutClass.rawValue,
+                        "shell_epoch": String(iPadShellEpoch)
+                    ]
+                )
+            }
             configureSafeAreaRegions(for: existingHostingController)
             existingHostingController.rootView = root
             refreshLayoutMetrics()
@@ -1323,6 +1331,7 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
         let root = HomeiPadSplitShellView(
             layoutClass: layoutClass,
             shellState: iPadShellState,
+            shellEpoch: iPadShellEpoch,
             homeSurface: { [weak self] forcedFace in
                 guard let self else { return AnyView(EmptyView()) }
                 return AnyView(
@@ -1344,6 +1353,9 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
             },
             chatSurface: { [weak self] in
                 self?.makeChatInspectorRoot(layoutClass: layoutClass) ?? AnyView(EmptyView())
+            },
+            modelsSurface: { [weak self] in
+                self?.makeModelsInspectorRoot(layoutClass: layoutClass) ?? AnyView(EmptyView())
             },
             inspectorSurface: { [weak self] task in
                 self?.makeTaskInspectorRoot(task, layoutClass: layoutClass) ?? AnyView(EmptyView())
@@ -1383,7 +1395,7 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
                     self?.iPadShellState.destination = .chat
                 },
                 onNavigateToModels: { [weak self] in
-                    self?.iPadShellState.destination = .chat
+                    self?.iPadShellState.destination = .models
                 },
                 onRestartOnboarding: {
                     NotificationCenter.default.post(name: .taskerStartOnboardingRequested, object: nil)
@@ -1430,6 +1442,17 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
             .environmentObject(iPadChatAppManager)
             .environment(LLMRuntimeCoordinator.shared.evaluator)
             .modelContainer(container)
+            .taskerLayoutClass(layoutClass)
+        )
+    }
+
+    private func makeModelsInspectorRoot(layoutClass: TaskerLayoutClass) -> AnyView {
+        AnyView(
+            NavigationStack {
+                ModelsSettingsView()
+                    .environmentObject(iPadChatAppManager)
+                    .environment(LLMRuntimeCoordinator.shared.evaluator)
+            }
             .taskerLayoutClass(layoutClass)
         )
     }
@@ -1522,27 +1545,12 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
         }
         if let blockingController = presentedViewController {
             if let presentationController = blockingController.presentationController {
-                resetPendingIPadModalFallbackState()
                 presentationController.delegate = self
-                return
-            }
-
-            if pendingIPadModalFallbackController !== blockingController {
-                pendingIPadModalFallbackController = blockingController
-                didConsumePendingIPadModalFallbackRetry = false
-                isPendingIPadModalFallbackRetryScheduled = false
-            }
-            guard !didConsumePendingIPadModalFallbackRetry else { return }
-            guard !isPendingIPadModalFallbackRetryScheduled else { return }
-
-            didConsumePendingIPadModalFallbackRetry = true
-            isPendingIPadModalFallbackRetryScheduled = true
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.12) { [weak self, weak blockingController] in
-                guard let self else { return }
-                self.isPendingIPadModalFallbackRetryScheduled = false
-                guard let blockingController else { return }
-                guard self.pendingIPadModalFallbackController === blockingController else { return }
-                self.processPendingIPadModalRequest()
+            } else {
+                viewModel?.trackHomeInteraction(
+                    action: "ipad_modal_request_waiting_for_presented_controller",
+                    metadata: ["layout_class": currentLayoutClass.rawValue]
+                )
             }
             return
         }
@@ -1559,14 +1567,11 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
         }
     }
 
-    private func resetPendingIPadModalFallbackState() {
-        pendingIPadModalFallbackController = nil
-        didConsumePendingIPadModalFallbackRetry = false
-        isPendingIPadModalFallbackRetryScheduled = false
-    }
-
     private func resetPendingIPadModalWaitState() {
-        resetPendingIPadModalFallbackState()
+        if let presentationController = presentedViewController?.presentationController,
+           presentationController.delegate === self {
+            presentationController.delegate = nil
+        }
     }
 
     /// Executes observeMutations.
@@ -1986,18 +1991,50 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
     }
 
     @objc private func openProjectCreator() {
-        let controller = NewProjectViewController()
-        let navController = UINavigationController(rootViewController: controller)
         guard let presentationDependencyContainer else {
             fatalError("HomeViewController missing PresentationDependencyContainer")
         }
-        presentationDependencyContainer.inject(into: controller)
-        navController.modalPresentationStyle = .fullScreen
+        if isUsingIPadNativeShell {
+            iPadShellState.destination = .projects
+            return
+        }
+
+        let viewModel = presentationDependencyContainer.makeProjectManagementViewModel()
+        let rootView = ProjectManagementView(viewModel: viewModel)
+            .taskerLayoutClass(currentLayoutClass)
+        let controller = UIHostingController(rootView: rootView)
+        controller.title = "Projects"
+
+        let navController = UINavigationController(rootViewController: controller)
+        navController.navigationBar.prefersLargeTitles = false
+        navController.modalPresentationStyle = currentLayoutClass.isPad ? .formSheet : .pageSheet
+        if let sheet = navController.sheetPresentationController {
+            sheet.detents = currentLayoutClass.isPad ? [.large()] : [.medium(), .large()]
+            sheet.prefersGrabberVisible = true
+            sheet.prefersScrollingExpandsWhenScrolledToEdge = false
+        }
         present(navController, animated: true)
     }
 
     /// Executes searchButtonTapped.
     @objc func searchButtonTapped() {
+        if isUsingIPadNativeShell {
+            let presentSearch = { [weak self] in
+                guard let self else { return }
+                self.openSearch(source: "navigation_search_button")
+                self.iPadShellState.destination = .search
+            }
+
+            if presentedViewController != nil {
+                dismiss(animated: true) {
+                    presentSearch()
+                }
+            } else {
+                presentSearch()
+            }
+            return
+        }
+
         let searchVC = LGSearchViewController()
         guard let presentationDependencyContainer else {
             fatalError("HomeViewController missing PresentationDependencyContainer")

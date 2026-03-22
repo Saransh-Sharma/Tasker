@@ -672,6 +672,7 @@ struct ChatComposerView: View {
 struct ChatScaffoldView: View {
     @EnvironmentObject private var appManager: AppManager
     @Environment(LLMEvaluator.self) private var llm
+    @Environment(\.taskerLayoutClass) private var layoutClass
 
     @Binding var currentThread: Thread?
     let transcriptSnapshot: ChatTranscriptSnapshot
@@ -843,7 +844,7 @@ struct ChatScaffoldView: View {
                     .presentationBackground(Color.tasker(.bgElevated))
                     .presentationCornerRadius(TaskerTheme.CornerRadius.xl)
                     .presentationDragIndicator(.visible)
-                    .presentationDetents(appManager.userInterfaceIdiom == .phone ? [.medium] : [.large])
+                    .presentationDetents(layoutClass == .phone ? [.medium] : [.large])
                     #elseif os(macOS)
                     .toolbar {
                         ToolbarItem(placement: .destructiveAction) {
@@ -872,7 +873,7 @@ struct ChatScaffoldView: View {
                     .presentationBackground(Color.tasker(.bgElevated))
                     .presentationCornerRadius(TaskerTheme.CornerRadius.xl)
                     .presentationDragIndicator(.visible)
-                    .presentationDetents(appManager.userInterfaceIdiom == .phone ? [.large] : [.large])
+                    .presentationDetents(layoutClass == .phone ? [.large] : [.large])
                     #elseif os(macOS)
                     .toolbar {
                         ToolbarItem(placement: .destructiveAction) {
@@ -893,7 +894,7 @@ struct ChatScaffoldView: View {
                     )
                     .presentationBackground(Color.tasker(.bgElevated))
                     .presentationDragIndicator(.visible)
-                    .presentationDetents(appManager.userInterfaceIdiom == .phone ? [.medium, .large] : [.large])
+                    .presentationDetents(layoutClass == .phone ? [.medium, .large] : [.large])
                 }
                 .alert("Clear this chat?", isPresented: showClearConfirmation) {
                     Button("Cancel", role: .cancel) {}

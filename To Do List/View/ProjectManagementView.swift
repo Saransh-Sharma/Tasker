@@ -62,7 +62,7 @@ struct ProjectManagementView: View {
                     }
             }
         }
-        .accessibilityIdentifier("home.ipad.detail.projects")
+        .accessibilityIdentifier("projectManagement.view")
         .alert("New Project", isPresented: $showingCreateDialog) {
             TextField("Project Name", text: $newProjectName)
             TextField("Description (Optional)", text: $newProjectDescription)
@@ -110,6 +110,7 @@ struct ProjectManagementView: View {
             }
             .onDelete(perform: deleteProjects)
         }
+        .accessibilityIdentifier("projectManagement.projectsList")
     }
 
     @ViewBuilder
@@ -151,6 +152,7 @@ struct ProjectManagementView: View {
                             .foregroundStyle(.secondary)
                     }
                 }
+                .taskerReadableContent(maxWidth: 860, alignment: .center)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(24)
             }
@@ -171,6 +173,7 @@ struct ProjectManagementView: View {
         } label: {
             Image(systemName: "plus")
         }
+        .accessibilityIdentifier("projectManagement.addProjectButton")
     }
 
     private func projectMetricCard(title: String, value: String) -> some View {

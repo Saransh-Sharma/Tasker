@@ -27,7 +27,7 @@ struct SettingsView: View {
     }
 
     var body: some View {
-        NavigationView {
+        NavigationStack {
             Form { // Using Form for grouped table view style
                 Section(header: Text("Projects").foregroundColor(Color(uiColor: todoColors.accentPrimary))) {
                     NavigationLink(destination: projectManagementDestination) {

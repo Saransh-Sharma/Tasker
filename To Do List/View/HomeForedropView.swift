@@ -76,7 +76,7 @@ private struct EvaOverdueRescueSheetV2: View {
     }
 
     var body: some View {
-        NavigationView {
+        NavigationStack {
             VStack(spacing: 0) {
                 if let plan {
                     // 7B: Debt level header
@@ -1530,7 +1530,7 @@ struct HomeBackdropForedropRootView: View {
         .accessibilityIdentifier("home.view")
         .taskerSnackbar($snackbar)
         .sheet(isPresented: $showDatePicker) {
-            NavigationView {
+            NavigationStack {
                 VStack(spacing: spacing.s16) {
                     DatePicker(
                         "Select date",
@@ -3006,6 +3006,7 @@ enum HomeiPadDestination: String, CaseIterable, Identifiable {
     case lifeManagement
     case projects
     case chat
+    case models
 
     var id: String { rawValue }
 
@@ -3019,6 +3020,7 @@ enum HomeiPadDestination: String, CaseIterable, Identifiable {
         case .lifeManagement: return "Life Management"
         case .projects: return "Projects"
         case .chat: return "Eva"
+        case .models: return "Models"
         }
     }
 
@@ -3032,6 +3034,7 @@ enum HomeiPadDestination: String, CaseIterable, Identifiable {
         case .lifeManagement: return "square.grid.2x2"
         case .projects: return "folder"
         case .chat: return "sparkles"
+        case .models: return "cpu"
         }
     }
 
@@ -3040,7 +3043,7 @@ enum HomeiPadDestination: String, CaseIterable, Identifiable {
         case .tasks: return .tasks
         case .search: return .search
         case .analytics: return .analytics
-        case .addTask, .settings, .lifeManagement, .projects, .chat: return nil
+        case .addTask, .settings, .lifeManagement, .projects, .chat, .models: return nil
         }
     }
 
@@ -3082,9 +3085,84 @@ enum HomeiPadSidebarSection: String, CaseIterable, Identifiable {
         switch self {
         case .primary: return [.tasks, .search, .analytics]
         case .create: return [.addTask]
-        case .manage: return [.lifeManagement, .projects, .settings, .chat]
+        case .manage: return [.lifeManagement, .projects, .chat, .models, .settings]
         }
     }
+}
+
+@MainActor
+final class HomeiPadPrimarySurfaceMonitor: ObservableObject {
+    private var baselineShellEpoch: Int?
+    private var baselineHostID: UUID?
+
+    func recordAppearance(hostID: UUID, destination: HomeiPadDestination, shellEpoch: Int) {
+        if baselineShellEpoch != shellEpoch {
+            if let previousEpoch = baselineShellEpoch {
+                logWarning(
+                    event: "ipadPrimarySurfaceShellEpochReset",
+                    message: "Reset the iPad primary surface host baseline after an expected shell rebuild",
+                    fields: [
+                        "destination": destination.rawValue,
+                        "previous_epoch": String(previousEpoch),
+                        "next_epoch": String(shellEpoch)
+                    ]
+                )
+            }
+
+            baselineShellEpoch = shellEpoch
+            baselineHostID = hostID
+            logWarning(
+                event: "ipadPrimarySurfaceMounted",
+                message: "Mounted the persistent iPad primary surface host",
+                fields: [
+                    "destination": destination.rawValue,
+                    "shell_epoch": String(shellEpoch)
+                ]
+            )
+            return
+        }
+
+        if let baselineHostID {
+            if baselineHostID != hostID {
+                logWarning(
+                    event: "ipadPrimarySurfaceHostRemounted",
+                    message: "The iPad primary surface host was remounted",
+                    fields: [
+                        "destination": destination.rawValue,
+                        "shell_epoch": String(shellEpoch)
+                    ]
+                )
+                self.baselineHostID = hostID
+                return
+            }
+
+            logWarning(
+                event: "ipadPrimarySurfaceReused",
+                message: "Reused the persistent iPad primary surface host",
+                fields: [
+                    "destination": destination.rawValue,
+                    "shell_epoch": String(shellEpoch)
+                ]
+            )
+            return
+        }
+
+        baselineShellEpoch = shellEpoch
+        baselineHostID = hostID
+        logWarning(
+            event: "ipadPrimarySurfaceMounted",
+            message: "Mounted the persistent iPad primary surface host",
+            fields: [
+                "destination": destination.rawValue,
+                "shell_epoch": String(shellEpoch)
+            ]
+        )
+    }
+}
+
+@MainActor
+private final class HomeiPadPrimaryPaneLifecycle: ObservableObject {
+    let id = UUID()
 }
 
 // MARK: - iPad Split Shell
@@ -3093,31 +3171,42 @@ private struct HomeiPadPrimaryPaneHost: View {
     @Binding var activeFace: HomeForedropFace
     let layoutClass: TaskerLayoutClass
     let destination: HomeiPadDestination
+    let shellEpoch: Int
     let homeSurface: (Binding<HomeForedropFace>) -> AnyView
+    @ObservedObject var monitor: HomeiPadPrimarySurfaceMonitor
+    @StateObject private var lifecycle = HomeiPadPrimaryPaneLifecycle()
 
     var body: some View {
         homeSurface($activeFace)
             .accessibilityIdentifier("home.ipad.detail.\(destination.rawValue)")
             .onAppear {
                 guard layoutClass.isPad, V2FeatureFlags.iPadPerfPrimarySurfacePersistenceV3Enabled else { return }
-                logWarning(
-                    event: "ipadPrimarySurfaceReused",
-                    message: "Reused the persistent iPad primary surface host",
-                    fields: ["destination": destination.rawValue]
-                )
+                monitor.recordAppearance(hostID: lifecycle.id, destination: destination, shellEpoch: shellEpoch)
             }
     }
 }
 
 struct HomeiPadSplitShellView: View {
+    private enum HomeiPadShellCommand {
+        case tasks
+        case search
+        case analytics
+        case chat
+        case addTask
+        case settings
+        case dismiss
+    }
+
     let layoutClass: TaskerLayoutClass
     @ObservedObject var shellState: HomeiPadShellState
+    let shellEpoch: Int
     let homeSurface: (Binding<HomeForedropFace>) -> AnyView
     let addTaskSurface: () -> AnyView
     let settingsSurface: () -> AnyView
     let lifeManagementSurface: () -> AnyView
     let projectsSurface: () -> AnyView
     let chatSurface: () -> AnyView
+    let modelsSurface: () -> AnyView
     let inspectorSurface: (TaskDefinition) -> AnyView
     let onOpenTaskDetailSheet: (TaskDefinition) -> Void
 
@@ -3125,6 +3214,7 @@ struct HomeiPadSplitShellView: View {
     @State private var showCompactSidebar = false
     @State private var showHabitLibrarySheet = false
     @State private var columnVisibility: NavigationSplitViewVisibility = .all
+    @StateObject private var primarySurfaceMonitor = HomeiPadPrimarySurfaceMonitor()
 
     private var spacing: TaskerSpacingTokens {
         TaskerThemeManager.shared.tokens(for: layoutClass).spacing
@@ -3239,14 +3329,22 @@ struct HomeiPadSplitShellView: View {
 
     private var hiddenKeyboardShortcuts: some View {
         Group {
-            Button("") { shellState.destination = .search }
+            Button("") { performShellCommand(.search) }
                 .keyboardShortcut("f", modifiers: .command)
-            Button("") { shellState.destination = .tasks }
+            Button("") { performShellCommand(.tasks) }
                 .keyboardShortcut("1", modifiers: .command)
-            Button("") { shellState.destination = .analytics }
+            Button("") { performShellCommand(.search) }
                 .keyboardShortcut("2", modifiers: .command)
-            Button("") { shellState.destination = .settings }
+            Button("") { performShellCommand(.analytics) }
+                .keyboardShortcut("3", modifiers: .command)
+            Button("") { performShellCommand(.chat) }
+                .keyboardShortcut("4", modifiers: .command)
+            Button("") { performShellCommand(.addTask) }
+                .keyboardShortcut("n", modifiers: .command)
+            Button("") { performShellCommand(.settings) }
                 .keyboardShortcut(",", modifiers: .command)
+            Button("") { performShellCommand(.dismiss) }
+                .keyboardShortcut(.escape, modifiers: [])
         }
         .opacity(0)
         .frame(width: 0, height: 0)
@@ -3294,16 +3392,11 @@ struct HomeiPadSplitShellView: View {
             .accessibilityLabel("Manage Habits")
 
             Button {
-                if layoutClass == .padExpanded {
-                    shellState.destination = .addTask
-                } else {
-                    shellState.modalRequest = .addTask
-                }
+                performShellCommand(.addTask)
             } label: {
                 Image(systemName: "plus")
             }
             .hoverEffect(.highlight)
-            .keyboardShortcut("n", modifiers: .command)
             .accessibilityIdentifier("home.ipad.toolbar.addTask")
             .accessibilityLabel("New Task")
         }
@@ -3414,7 +3507,9 @@ struct HomeiPadSplitShellView: View {
                 activeFace: $activeHomeFace,
                 layoutClass: layoutClass,
                 destination: shellState.destination,
-                homeSurface: homeSurface
+                shellEpoch: shellEpoch,
+                homeSurface: homeSurface,
+                monitor: primarySurfaceMonitor
             )
         case .addTask:
             if layoutClass == .padExpanded {
@@ -3425,7 +3520,9 @@ struct HomeiPadSplitShellView: View {
                     activeFace: $activeHomeFace,
                     layoutClass: layoutClass,
                     destination: .tasks,
-                    homeSurface: homeSurface
+                    shellEpoch: shellEpoch,
+                    homeSurface: homeSurface,
+                    monitor: primarySurfaceMonitor
                 )
             }
         case .settings:
@@ -3440,6 +3537,9 @@ struct HomeiPadSplitShellView: View {
         case .chat:
             chatSurface()
                 .accessibilityIdentifier("home.ipad.detail.chat")
+        case .models:
+            modelsSurface()
+                .accessibilityIdentifier("home.ipad.detail.models")
         }
     }
 
@@ -3500,6 +3600,35 @@ struct HomeiPadSplitShellView: View {
             return .analytics
         case .search:
             return .search
+        }
+    }
+
+    private func performShellCommand(_ command: HomeiPadShellCommand) {
+        switch command {
+        case .tasks:
+            shellState.destination = .tasks
+        case .search:
+            shellState.destination = .search
+        case .analytics:
+            shellState.destination = .analytics
+        case .chat:
+            shellState.destination = .chat
+        case .addTask:
+            if layoutClass == .padExpanded {
+                shellState.destination = .addTask
+            } else {
+                shellState.modalRequest = .addTask
+            }
+        case .settings:
+            shellState.destination = .settings
+        case .dismiss:
+            if shellState.selectedTask != nil {
+                shellState.selectedTask = nil
+            } else if shellState.destination != .tasks {
+                shellState.destination = .tasks
+            } else {
+                showCompactSidebar = false
+            }
         }
     }
 }

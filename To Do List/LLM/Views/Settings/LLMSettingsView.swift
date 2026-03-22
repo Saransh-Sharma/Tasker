@@ -132,7 +132,7 @@ struct LLMSettingsView: View {
                                 title: "Chat Behavior",
                                 subtitle: "Tune how direct, structured, and momentum-focused Eva feels.",
                                 trailingStatus: promptStatus,
-                                inlineBadge: appManager.userInterfaceIdiom == .phone ? TaskerSettingsInlineBadge(title: hapticsStatus) : nil,
+                                inlineBadge: layoutClass == .phone ? TaskerSettingsInlineBadge(title: hapticsStatus) : nil,
                                 tone: .accent,
                                 accessibilityIdentifier: "llmSettings.chatsSettingsRow"
                             )

@@ -135,18 +135,33 @@ struct SettingsRootView: View {
             topPadding: sectionTopPadding,
             includeHorizontalPadding: includeHorizontalPadding
         ) {
-            TaskerSettingsCard {
-                SettingsNavigationRow(
-                    descriptor: TaskerSettingsDestinationDescriptor(
-                        iconName: "square.grid.2x2.fill",
-                        title: "Life Management",
-                        subtitle: "Review life areas, projects, and daily structure.",
-                        accessibilityIdentifier: "settings.workspace.lifeManagement.row"
-                    ),
-                    action: viewModel.onNavigateToLifeManagement
-                )
+            VStack(spacing: spacing.cardStackVertical) {
+                TaskerSettingsCard {
+                    SettingsNavigationRow(
+                        descriptor: TaskerSettingsDestinationDescriptor(
+                            iconName: "square.grid.2x2.fill",
+                            title: "Life Management",
+                            subtitle: "Review life areas, projects, and daily structure.",
+                            accessibilityIdentifier: "settings.workspace.lifeManagement.row"
+                        ),
+                        action: viewModel.onNavigateToLifeManagement
+                    )
+                }
+                .enhancedStaggeredAppearance(index: baseIndex)
+
+                TaskerSettingsCard {
+                    SettingsNavigationRow(
+                        descriptor: TaskerSettingsDestinationDescriptor(
+                            iconName: "folder.fill",
+                            title: "Projects",
+                            subtitle: "Create, organize, and inspect project progress.",
+                            accessibilityIdentifier: "settings.workspace.projects.row"
+                        ),
+                        action: viewModel.onNavigateToProjects
+                    )
+                }
+                .enhancedStaggeredAppearance(index: baseIndex + 1)
             }
-            .enhancedStaggeredAppearance(index: baseIndex)
         }
     }
 
@@ -157,21 +172,38 @@ struct SettingsRootView: View {
             topPadding: sectionTopPadding,
             includeHorizontalPadding: includeHorizontalPadding
         ) {
-            TaskerSettingsCard(active: viewModel.memoryItemCount > 0) {
-                SettingsNavigationRow(
-                    descriptor: TaskerSettingsDestinationDescriptor(
-                        iconName: "sparkles.rectangle.stack.fill",
-                        title: "AI Assistant",
-                        subtitle: "Manage chat behavior, models, memory, and privacy.",
-                        trailingStatus: viewModel.aiAssistantSummary,
-                        inlineBadge: viewModel.memoryItemCount == 0 ? TaskerSettingsInlineBadge(title: "Memory empty") : nil,
-                        tone: .accent,
-                        accessibilityIdentifier: "settings.aiAssistant.row"
-                    ),
-                    action: viewModel.onNavigateToAISettings
-                )
+            VStack(spacing: spacing.cardStackVertical) {
+                TaskerSettingsCard(active: viewModel.memoryItemCount > 0) {
+                    SettingsNavigationRow(
+                        descriptor: TaskerSettingsDestinationDescriptor(
+                            iconName: "sparkles.rectangle.stack.fill",
+                            title: "AI Assistant",
+                            subtitle: "Manage chat behavior, models, memory, and privacy.",
+                            trailingStatus: viewModel.aiAssistantSummary,
+                            inlineBadge: viewModel.memoryItemCount == 0 ? TaskerSettingsInlineBadge(title: "Memory empty") : nil,
+                            tone: .accent,
+                            accessibilityIdentifier: "settings.aiAssistant.row"
+                        ),
+                        action: viewModel.onNavigateToAISettings
+                    )
+                }
+                .enhancedStaggeredAppearance(index: baseIndex)
+
+                TaskerSettingsCard {
+                    SettingsNavigationRow(
+                        descriptor: TaskerSettingsDestinationDescriptor(
+                            iconName: "cpu.fill",
+                            title: "Models",
+                            subtitle: "Review installed models and choose Eva’s default runtime.",
+                            trailingStatus: viewModel.aiAssistantSummary,
+                            tone: .accent,
+                            accessibilityIdentifier: "settings.aiAssistant.models.row"
+                        ),
+                        action: viewModel.onNavigateToModels
+                    )
+                }
+                .enhancedStaggeredAppearance(index: baseIndex + 1)
             }
-            .enhancedStaggeredAppearance(index: baseIndex)
         }
     }
 

@@ -37,6 +37,7 @@ struct LifeManagementView: View {
                 groupedBoardSection
                 archivedBoardSection
             }
+            .taskerReadableContent(maxWidth: layoutClass.isPad ? 1040 : .infinity, alignment: .center)
             .padding(.horizontal, spacing.screenHorizontal)
             .padding(.top, spacing.s16)
             .padding(.bottom, spacing.sectionGap)
