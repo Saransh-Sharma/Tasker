@@ -66,15 +66,20 @@ The habits feature is designed to:
 
 ### Add Habit
 
-The add flow supports:
+The add flow is essentials-first.
+
+Primary visible stack:
 - title
 - habit kind
 - tracking mode for negative habits
-- cadence
-- reminder window
+- cadence and time
 - required life area
+- persistent habit summary preview
+
+Advanced disclosure contains:
+- reminder window / recovery window
 - optional project
-- icon
+- searchable icon selection
 - notes / why this matters
 
 Behavior rules:
@@ -82,10 +87,21 @@ Behavior rules:
 - invalid same-day reminder windows are rejected
 - life area is required to save
 - icon selection is searchable and curated
+- weekly cadence reveals day selection only when needed
+- lapse-only copy explains recovery semantics inline instead of relying on long helper text
 
 ### Edit Habit
 
-Habit detail/edit supports:
+Habit detail is read-first and edit-second.
+
+Read mode contains:
+- hero summary
+- health snapshot with streaks and timing
+- history and recovery framing
+- notes/context
+- lifecycle actions
+
+Edit mode supports:
 - title
 - type and tracking mode
 - cadence
@@ -100,6 +116,7 @@ Behavior rules:
 - editing must preserve history
 - cadence changes rebuild unresolved future schedule state
 - positive habits cannot remain `lapseOnly`
+- destructive actions live in a distinct lower section with softer consequence framing
 
 ### Home
 
@@ -108,26 +125,47 @@ Home includes habits in a mixed top agenda without replacing existing task secti
 Row expectations:
 - leading icon
 - title
-- optional `LifeArea / Project` context
-- due / overdue / lapse status
+- `LifeArea · Project` ownership line when project exists
+- state badge and separate risk badge
 - streak chip
 - 14-day strip with multi-state marks
+- habit-specific action rail
+
+State model:
+- `due`
+  - full active card
+  - primary action remains prominent
+- `overdue`
+  - strongest urgency treatment
+  - risk remains visible separately from due-state
+- `tracking`
+  - primarily for `lapseOnly`
+  - communicates ongoing clean-state tracking rather than "nothing to do"
+- `completedToday`
+  - compact resolved row
+  - keeps streak and history visible after completion
+- `skippedToday`
+  - compact resolved row with low visual intensity
+- `lapsedToday`
+  - compact resolved row with stronger recovery cue, not punitive language
 
 Action model:
 - positive habit: `Done`, `Skip`
 - negative `dailyCheckIn`: `Stayed Clean`, `Lapsed`
-- negative `lapseOnly`: no normal due row by default; lapse logging is manual from management/detail surfaces
+- negative `lapseOnly`: Home may show a tracking row with `Log Lapse` as the primary action
 
 Ordering expectations:
 - habits appear in the mixed agenda with tasks
 - overdue items sort ahead of due-today items
 - existing task sections stay intact below the mixed agenda
+- resolved habit rows remain visible briefly in a subdued compact form instead of disappearing immediately
 
 ### Habit Library and Detail
 
 The library is the management surface for:
 - browse all habits
-- filter active vs archived
+- filter active, paused, and archived
+- search by title, life area, project, and visible habit metadata
 - inspect streaks and recent history
 - open detail/edit state
 
@@ -231,6 +269,8 @@ Current downstream behavior includes:
 - Due and overdue states must be explicit.
 - Failure/lapse states should be visible but not hostile.
 - Risk state may be surfaced as `stable`, `atRisk`, or `broken`.
+- Risk should answer "how fragile is this habit right now" rather than replacing due-state.
+- Resolved rows should preserve outcome visibility while reducing visual weight.
 
 ### Empty, Loading, and Error States
 
@@ -260,4 +300,3 @@ Current downstream behavior includes:
 - `docs/habits/data-model-and-runtime.md`
 - `docs/habits/risk-register.md`
 - `docs/habits/roadmap.md`
-
