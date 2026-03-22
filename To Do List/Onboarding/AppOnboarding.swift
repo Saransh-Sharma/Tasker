@@ -12,6 +12,7 @@ enum AppOnboardingAccessibilityID {
     static let welcome = "onboarding.welcome"
     static let lifeAreas = "onboarding.lifeAreas"
     static let projects = "onboarding.projects"
+    static let habits = "onboarding.habits"
     static let firstTask = "onboarding.firstTask"
     static let focusRoom = "onboarding.focusRoom"
     static let success = "onboarding.success"
@@ -20,6 +21,7 @@ enum AppOnboardingAccessibilityID {
     static let customize = "onboarding.cta.customize"
     static let useAreas = "onboarding.cta.useAreas"
     static let useProjects = "onboarding.cta.useProjects"
+    static let useHabits = "onboarding.cta.useHabits"
     static let goFinishTask = "onboarding.cta.goFinishTask"
     static let focusPrimary = "onboarding.cta.focusPrimary"
     static let markComplete = "onboarding.cta.markComplete"
@@ -33,6 +35,7 @@ enum AppOnboardingAccessibilityID {
 
     static func lifeArea(_ id: String) -> String { "onboarding.lifeArea.\(id)" }
     static func taskTemplate(_ id: String) -> String { "onboarding.taskTemplate.\(id)" }
+    static func habitTemplate(_ id: String) -> String { "onboarding.habitTemplate.\(id)" }
 }
 
 func onboardingLogLine(event: String, message: String? = nil, fields: [String: String] = [:]) -> String {
@@ -67,6 +70,7 @@ enum OnboardingStep: Int, CaseIterable, Codable {
     case welcome
     case lifeAreas
     case projects
+    case habits
     case firstTask
     case focusRoom
 
@@ -84,6 +88,8 @@ enum OnboardingStep: Int, CaseIterable, Codable {
             return "Choose your starting areas"
         case .projects:
             return "Confirm your starter projects"
+        case .habits:
+            return "Set one rhythm that helps tomorrow feel easier."
         case .firstTask:
             return "Pick one tiny task you can finish today."
         case .focusRoom:
@@ -99,6 +105,8 @@ enum OnboardingStep: Int, CaseIterable, Codable {
             return "Areas"
         case .projects:
             return "Projects"
+        case .habits:
+            return "Habits"
         case .firstTask:
             return "First win"
         case .focusRoom:
@@ -114,6 +122,8 @@ enum OnboardingStep: Int, CaseIterable, Codable {
             return "Pick 1–3 areas to start with. We preselected a few good options."
         case .projects:
             return "We picked one simple project for each area. Change only what feels off."
+        case .habits:
+            return "Add one helpful habit now, or keep moving and set it up later."
         case .firstTask:
             return "Start with something that should take two minutes or less."
         case .focusRoom:
@@ -124,15 +134,17 @@ enum OnboardingStep: Int, CaseIterable, Codable {
     var accessibilitySummary: String {
         switch self {
         case .welcome:
-            return "Welcome. Step 1 of 5."
+            return "Welcome. Step 1 of 6."
         case .lifeAreas:
-            return "Choose life areas. Step 2 of 5."
+            return "Choose life areas. Step 2 of 6."
         case .projects:
-            return "Confirm starter projects. Step 3 of 5."
+            return "Confirm starter projects. Step 3 of 6."
+        case .habits:
+            return "Add starter habits. Step 4 of 6."
         case .firstTask:
-            return "Pick your first tiny task. Step 4 of 5."
+            return "Pick your first tiny task. Step 5 of 6."
         case .focusRoom:
-            return "Finish your first win. Step 5 of 5."
+            return "Finish your first win. Step 6 of 6."
         }
     }
 }
@@ -189,6 +201,13 @@ enum OnboardingTaskTemplateState: Equatable {
     case failed(String)
 }
 
+enum OnboardingHabitTemplateState: Equatable {
+    case idle
+    case creating
+    case created(UUID)
+    case failed(String)
+}
+
 enum OnboardingReminderPromptState: Equatable {
     case hidden
     case prompt
@@ -214,11 +233,62 @@ enum OnboardingEligibility: Equatable {
 struct AppOnboardingSummary: Codable, Equatable {
     let lifeAreaCount: Int
     let projectCount: Int
+    let createdHabitCount: Int
+    let createdHabitTitles: [String]
     let createdTaskCount: Int
     let completedTaskCount: Int
     let completedTaskTitle: String?
     let nextTaskTitle: String?
     let promptReminderAfterSuccess: Bool
+
+    init(
+        lifeAreaCount: Int,
+        projectCount: Int,
+        createdHabitCount: Int = 0,
+        createdHabitTitles: [String] = [],
+        createdTaskCount: Int,
+        completedTaskCount: Int,
+        completedTaskTitle: String?,
+        nextTaskTitle: String?,
+        promptReminderAfterSuccess: Bool
+    ) {
+        self.lifeAreaCount = lifeAreaCount
+        self.projectCount = projectCount
+        self.createdHabitCount = createdHabitCount
+        self.createdHabitTitles = createdHabitTitles
+        self.createdTaskCount = createdTaskCount
+        self.completedTaskCount = completedTaskCount
+        self.completedTaskTitle = completedTaskTitle
+        self.nextTaskTitle = nextTaskTitle
+        self.promptReminderAfterSuccess = promptReminderAfterSuccess
+    }
+}
+
+extension AppOnboardingSummary {
+    private enum CodingKeys: String, CodingKey {
+        case lifeAreaCount
+        case projectCount
+        case createdHabitCount
+        case createdHabitTitles
+        case createdTaskCount
+        case completedTaskCount
+        case completedTaskTitle
+        case nextTaskTitle
+        case promptReminderAfterSuccess
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        lifeAreaCount = try container.decode(Int.self, forKey: .lifeAreaCount)
+        projectCount = try container.decode(Int.self, forKey: .projectCount)
+        createdHabitCount = try container.decodeIfPresent(Int.self, forKey: .createdHabitCount) ?? 0
+        createdHabitTitles = try container.decodeIfPresent([String].self, forKey: .createdHabitTitles) ?? []
+        createdTaskCount = try container.decode(Int.self, forKey: .createdTaskCount)
+        completedTaskCount = try container.decode(Int.self, forKey: .completedTaskCount)
+        completedTaskTitle = try container.decodeIfPresent(String.self, forKey: .completedTaskTitle)
+        nextTaskTitle = try container.decodeIfPresent(String.self, forKey: .nextTaskTitle)
+        promptReminderAfterSuccess = try container.decode(Bool.self, forKey: .promptReminderAfterSuccess)
+    }
 }
 
 struct OnboardingBreakdownStep: Identifiable, Codable, Equatable {
@@ -287,6 +357,8 @@ struct OnboardingJourneySnapshot: Codable, Equatable {
     var expandedProjectIDs: [UUID] = []
     var resolvedLifeAreas: [ResolvedLifeAreaSelection]
     var resolvedProjects: [ResolvedProjectSelection]
+    var createdHabits: [HabitDefinitionRecord] = []
+    var createdHabitTemplateMap: [String: UUID] = [:]
     var createdTasks: [TaskDefinition]
     var createdTaskTemplateMap: [String: UUID]
     var focusTaskID: UUID?
@@ -296,6 +368,57 @@ struct OnboardingJourneySnapshot: Codable, Equatable {
     var successSummary: AppOnboardingSummary?
     var hasSeenSuccess: Bool
     var reminderPromptDismissed: Bool = false
+}
+
+extension OnboardingJourneySnapshot {
+    private enum CodingKeys: String, CodingKey {
+        case schemaVersion
+        case step
+        case mode
+        case frictionProfile
+        case selectedLifeAreaIDs
+        case showAllLifeAreas
+        case projectDrafts
+        case expandedProjectIDs
+        case resolvedLifeAreas
+        case resolvedProjects
+        case createdHabits
+        case createdHabitTemplateMap
+        case createdTasks
+        case createdTaskTemplateMap
+        case focusTaskID
+        case parentFocusTaskID
+        case focusStartedAt
+        case focusIsActive
+        case successSummary
+        case hasSeenSuccess
+        case reminderPromptDismissed
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        schemaVersion = try container.decodeIfPresent(Int.self, forKey: .schemaVersion) ?? 2
+        step = try container.decode(OnboardingStep.self, forKey: .step)
+        mode = try container.decode(OnboardingMode.self, forKey: .mode)
+        frictionProfile = try container.decodeIfPresent(OnboardingFrictionProfile.self, forKey: .frictionProfile)
+        selectedLifeAreaIDs = try container.decode([String].self, forKey: .selectedLifeAreaIDs)
+        showAllLifeAreas = try container.decode(Bool.self, forKey: .showAllLifeAreas)
+        projectDrafts = try container.decode([OnboardingProjectDraft].self, forKey: .projectDrafts)
+        expandedProjectIDs = try container.decodeIfPresent([UUID].self, forKey: .expandedProjectIDs) ?? []
+        resolvedLifeAreas = try container.decode([ResolvedLifeAreaSelection].self, forKey: .resolvedLifeAreas)
+        resolvedProjects = try container.decode([ResolvedProjectSelection].self, forKey: .resolvedProjects)
+        createdHabits = try container.decodeIfPresent([HabitDefinitionRecord].self, forKey: .createdHabits) ?? []
+        createdHabitTemplateMap = try container.decodeIfPresent([String: UUID].self, forKey: .createdHabitTemplateMap) ?? [:]
+        createdTasks = try container.decode([TaskDefinition].self, forKey: .createdTasks)
+        createdTaskTemplateMap = try container.decode([String: UUID].self, forKey: .createdTaskTemplateMap)
+        focusTaskID = try container.decodeIfPresent(UUID.self, forKey: .focusTaskID)
+        parentFocusTaskID = try container.decodeIfPresent(UUID.self, forKey: .parentFocusTaskID)
+        focusStartedAt = try container.decodeIfPresent(Date.self, forKey: .focusStartedAt)
+        focusIsActive = try container.decode(Bool.self, forKey: .focusIsActive)
+        successSummary = try container.decodeIfPresent(AppOnboardingSummary.self, forKey: .successSummary)
+        hasSeenSuccess = try container.decode(Bool.self, forKey: .hasSeenSuccess)
+        reminderPromptDismissed = try container.decodeIfPresent(Bool.self, forKey: .reminderPromptDismissed) ?? false
+    }
 }
 
 struct AppOnboardingState: Codable, Equatable {
@@ -453,6 +576,51 @@ struct StarterTaskTemplate: Identifiable, Equatable {
             context: .anywhere,
             estimatedDuration: TimeInterval(durationMinutes * 60),
             createdAt: Date()
+        )
+    }
+}
+
+struct StarterHabitTemplate: Identifiable, Equatable {
+    let id: String
+    let lifeAreaTemplateID: String
+    let projectTemplateID: String?
+    let title: String
+    let reason: String
+    let kind: HabitKind
+    let trackingMode: HabitTrackingMode
+    let cadence: HabitCadenceDraft
+    let icon: HabitIconMetadata
+    let notes: String?
+    let recommendedProfiles: Set<OnboardingFrictionProfile>
+
+    var isPositive: Bool {
+        kind == .positive
+    }
+
+    func makePrefill(lifeAreaID: UUID, projectID: UUID?) -> AddHabitPrefillTemplate {
+        AddHabitPrefillTemplate(
+            title: title,
+            notes: notes,
+            lifeAreaID: lifeAreaID,
+            projectID: projectID,
+            kind: kind == .positive ? .positive : .negative,
+            trackingMode: trackingMode == .dailyCheckIn ? .dailyCheckIn : .lapseOnly,
+            cadence: cadence,
+            iconSymbolName: icon.symbolName
+        )
+    }
+
+    func makeRequest(lifeAreaID: UUID, projectID: UUID?) -> CreateHabitRequest {
+        CreateHabitRequest(
+            title: title,
+            lifeAreaID: lifeAreaID,
+            projectID: projectID,
+            kind: kind,
+            trackingMode: trackingMode,
+            icon: icon,
+            targetConfig: HabitTargetConfig(notes: notes, targetCountPerDay: 1),
+            metricConfig: HabitMetricConfig(unitLabel: nil, showNotesOnCompletion: notes != nil),
+            cadence: cadence
         )
     }
 }
@@ -917,6 +1085,126 @@ enum StarterWorkspaceCatalog {
         )
     ]
 
+    static let allHabitTemplates: [StarterHabitTemplate] = [
+        StarterHabitTemplate(
+            id: "habit-health-water",
+            lifeAreaTemplateID: "health",
+            projectTemplateID: "health-move",
+            title: "Drink water after you wake up",
+            reason: "It is easy to remember, takes seconds, and creates a clean start signal.",
+            kind: .positive,
+            trackingMode: .dailyCheckIn,
+            cadence: .daily(hour: 8, minute: 0),
+            icon: HabitIconMetadata(symbolName: "drop.fill", categoryKey: "health"),
+            notes: "Use a tiny win that helps the next healthy choice happen.",
+            recommendedProfiles: [.starting, .remembering, .overwhelmed]
+        ),
+        StarterHabitTemplate(
+            id: "habit-health-charge",
+            lifeAreaTemplateID: "health",
+            projectTemplateID: "health-sleep",
+            title: "Put your phone on the charger before bed",
+            reason: "A visible bedtime cue is easier to keep than a full evening routine.",
+            kind: .positive,
+            trackingMode: .dailyCheckIn,
+            cadence: .daily(hour: 21, minute: 30),
+            icon: HabitIconMetadata(symbolName: "bed.double.fill", categoryKey: "health"),
+            notes: "Make the stop signal obvious.",
+            recommendedProfiles: [.remembering, .finishing]
+        ),
+        StarterHabitTemplate(
+            id: "habit-health-no-phone-bed",
+            lifeAreaTemplateID: "health",
+            projectTemplateID: "health-sleep",
+            title: "Keep your phone out of bed",
+            reason: "This supports better wind-down without asking for a perfect night.",
+            kind: .negative,
+            trackingMode: .dailyCheckIn,
+            cadence: .daily(hour: 22, minute: 0),
+            icon: HabitIconMetadata(symbolName: "moon.zzz.fill", categoryKey: "health"),
+            notes: "Recovery matters more than streak perfection.",
+            recommendedProfiles: [.remembering, .overwhelmed]
+        ),
+        StarterHabitTemplate(
+            id: "habit-career-plan",
+            lifeAreaTemplateID: "career",
+            projectTemplateID: "career-ship",
+            title: "Choose tomorrow's first work step",
+            reason: "Deciding before you stop makes tomorrow easier to begin.",
+            kind: .positive,
+            trackingMode: .dailyCheckIn,
+            cadence: .daily(hour: 17, minute: 30),
+            icon: HabitIconMetadata(symbolName: "briefcase.fill", categoryKey: "career"),
+            notes: "Keep it to one specific next step.",
+            recommendedProfiles: [.choosing, .finishing]
+        ),
+        StarterHabitTemplate(
+            id: "habit-career-followups",
+            lifeAreaTemplateID: "career",
+            projectTemplateID: "career-followups",
+            title: "Check follow-ups every weekday",
+            reason: "A light weekday sweep keeps important threads from disappearing.",
+            kind: .positive,
+            trackingMode: .dailyCheckIn,
+            cadence: .weekly(daysOfWeek: [2, 3, 4, 5, 6], hour: 16, minute: 0),
+            icon: HabitIconMetadata(symbolName: "tray.full.fill", categoryKey: "career"),
+            notes: "You are maintaining visibility, not clearing everything.",
+            recommendedProfiles: [.remembering, .finishing]
+        ),
+        StarterHabitTemplate(
+            id: "habit-home-reset",
+            lifeAreaTemplateID: "home",
+            projectTemplateID: "home-reset",
+            title: "Do a 2-minute home reset",
+            reason: "Short resets lower the cost of coming back to your space later.",
+            kind: .positive,
+            trackingMode: .dailyCheckIn,
+            cadence: .daily(hour: 20, minute: 0),
+            icon: HabitIconMetadata(symbolName: "house.fill", categoryKey: "home"),
+            notes: "Stop after two minutes even if more is possible.",
+            recommendedProfiles: [.starting, .overwhelmed]
+        ),
+        StarterHabitTemplate(
+            id: "habit-home-laundry",
+            lifeAreaTemplateID: "home",
+            projectTemplateID: "home-laundry",
+            title: "Put clothes in one basket each night",
+            reason: "One small reset prevents tomorrow's clutter from starting louder.",
+            kind: .positive,
+            trackingMode: .dailyCheckIn,
+            cadence: .daily(hour: 21, minute: 0),
+            icon: HabitIconMetadata(symbolName: "tshirt.fill", categoryKey: "home"),
+            notes: "Gathering counts. Sorting can stay separate.",
+            recommendedProfiles: [.remembering, .overwhelmed]
+        ),
+        StarterHabitTemplate(
+            id: "habit-money-check",
+            lifeAreaTemplateID: "money",
+            projectTemplateID: "money-budget",
+            title: "Check your spending once a week",
+            reason: "A short weekly glance is easier to keep than a full budget session.",
+            kind: .positive,
+            trackingMode: .dailyCheckIn,
+            cadence: .weekly(daysOfWeek: [6], hour: 11, minute: 0),
+            icon: HabitIconMetadata(symbolName: "dollarsign.circle.fill", categoryKey: "money"),
+            notes: "This is for awareness, not judgment.",
+            recommendedProfiles: [.choosing, .remembering]
+        ),
+        StarterHabitTemplate(
+            id: "habit-learning-page",
+            lifeAreaTemplateID: "learning",
+            projectTemplateID: "learning-practice",
+            title: "Read one page",
+            reason: "A tiny daily dose is easier to keep than waiting for a deep session.",
+            kind: .positive,
+            trackingMode: .dailyCheckIn,
+            cadence: .daily(hour: 19, minute: 0),
+            icon: HabitIconMetadata(symbolName: "book.fill", categoryKey: "learning"),
+            notes: "Stop after one page if that is all you have today.",
+            recommendedProfiles: [.starting, .overwhelmed]
+        )
+    ]
+
     static func lifeAreaTemplate(id: String) -> StarterLifeAreaTemplate? {
         allLifeAreas.first(where: { $0.id == id })
     }
@@ -925,6 +1213,10 @@ enum StarterWorkspaceCatalog {
         allLifeAreas
             .flatMap(\.projects)
             .first(where: { $0.id == id })
+    }
+
+    static func habitTemplate(id: String) -> StarterHabitTemplate? {
+        allHabitTemplates.first(where: { $0.id == id })
     }
 
     static func defaultLifeAreaSelectionIDs(
@@ -1021,6 +1313,33 @@ enum StarterWorkspaceCatalog {
             }
     }
 
+    static func habitSuggestions(
+        for projects: [ResolvedProjectSelection],
+        frictionProfile: OnboardingFrictionProfile?
+    ) -> [StarterHabitTemplate] {
+        let selectedAreaIDs = Set(projects.map { $0.draft.lifeAreaTemplateID })
+        let selectedProjectTemplateIDs = Set(projects.map { $0.draft.templateID })
+        let ranked = allHabitTemplates
+            .filter { selectedAreaIDs.contains($0.lifeAreaTemplateID) }
+            .filter { template in
+                guard template.isPositive == false else { return true }
+                guard let projectTemplateID = template.projectTemplateID else { return false }
+                return selectedProjectTemplateIDs.contains(projectTemplateID)
+            }
+            .sorted { lhs, rhs in
+                score(habit: lhs, selectedProjectTemplateIDs: selectedProjectTemplateIDs, frictionProfile: frictionProfile)
+                    > score(habit: rhs, selectedProjectTemplateIDs: selectedProjectTemplateIDs, frictionProfile: frictionProfile)
+            }
+
+        let positives = ranked.filter(\.isPositive)
+        let negatives = ranked.filter { $0.isPositive == false }
+        var ordered: [StarterHabitTemplate] = Array(positives.prefix(5))
+        if let firstNegative = negatives.first {
+            ordered.append(firstNegative)
+        }
+        return ordered
+    }
+
     static func defaultFallbackTaskTemplate(for projectTemplateID: String) -> StarterTaskTemplate {
         StarterTaskTemplate(
             id: "fallback-\(projectTemplateID)",
@@ -1096,6 +1415,34 @@ enum StarterWorkspaceCatalog {
             score += task.durationMinutes <= 2 ? 10 : 0
         case .none:
             break
+        }
+        return score
+    }
+
+    private static func score(
+        habit: StarterHabitTemplate,
+        selectedProjectTemplateIDs: Set<String>,
+        frictionProfile: OnboardingFrictionProfile?
+    ) -> Int {
+        var score = habit.isPositive ? 55 : 22
+        if let projectTemplateID = habit.projectTemplateID,
+           selectedProjectTemplateIDs.contains(projectTemplateID) {
+            score += 18
+        }
+        if let frictionProfile,
+           habit.recommendedProfiles.contains(frictionProfile) {
+            score += 14
+        }
+        switch habit.cadence {
+        case .daily:
+            score += 8
+        case .weekly:
+            score += 4
+        }
+        if habit.reason.localizedCaseInsensitiveContains("easy")
+            || habit.reason.localizedCaseInsensitiveContains("seconds")
+            || habit.reason.localizedCaseInsensitiveContains("tiny") {
+            score += 6
         }
         return score
     }
@@ -1209,6 +1556,14 @@ final class HomeOnboardingGuidanceModel: ObservableObject {
         )
     }
 
+    func showHabitGuide(habit: HabitDefinitionRecord) {
+        state = State(
+            taskID: habit.id,
+            title: "Your starter habit is ready",
+            message: "\"\(habit.title)\" will show up on Home so tomorrow feels easier to start."
+        )
+    }
+
     func clear() {
         state = nil
     }
@@ -1297,9 +1652,11 @@ final class OnboardingFlowModel: ObservableObject {
     private let notificationService: NotificationServiceProtocol?
     private let fetchLifeAreas: () async throws -> [LifeArea]
     private let fetchProjects: () async throws -> [Project]
+    private let fetchHabit: (UUID) async throws -> HabitDefinitionRecord?
     private let fetchTask: (UUID) async throws -> TaskDefinition?
     private let createLifeArea: (StarterLifeAreaTemplate) async throws -> LifeArea
     private let createProject: (OnboardingProjectDraft, LifeArea) async throws -> Project
+    private let createHabit: (CreateHabitRequest) async throws -> HabitDefinitionRecord
     private let createTask: (CreateTaskDefinitionRequest) async throws -> TaskDefinition
     private let setTaskCompletion: (UUID, Bool) async throws -> TaskDefinition
 
@@ -1313,6 +1670,9 @@ final class OnboardingFlowModel: ObservableObject {
     @Published var reminderPromptDismissed = false
     @Published private(set) var resolvedLifeAreas: [ResolvedLifeAreaSelection] = []
     @Published private(set) var resolvedProjects: [ResolvedProjectSelection] = []
+    @Published private(set) var createdHabits: [HabitDefinitionRecord] = []
+    @Published private(set) var createdHabitTemplateMap: [String: UUID] = [:]
+    @Published private(set) var habitTemplateStates: [String: OnboardingHabitTemplateState] = [:]
     @Published private(set) var createdTasks: [TaskDefinition] = []
     @Published private(set) var createdTaskTemplateMap: [String: UUID] = [:]
     @Published private(set) var taskTemplateStates: [String: OnboardingTaskTemplateState] = [:]
@@ -1336,12 +1696,30 @@ final class OnboardingFlowModel: ObservableObject {
         notificationService: NotificationServiceProtocol? = nil,
         fetchLifeAreas: @escaping () async throws -> [LifeArea] = { [] },
         fetchProjects: @escaping () async throws -> [Project] = { [] },
+        fetchHabit: @escaping (UUID) async throws -> HabitDefinitionRecord? = { _ in nil },
         fetchTask: @escaping (UUID) async throws -> TaskDefinition? = { _ in nil },
         createLifeArea: @escaping (StarterLifeAreaTemplate) async throws -> LifeArea = { template in
             LifeArea(name: template.name, color: template.colorHex, icon: template.icon)
         },
         createProject: @escaping (OnboardingProjectDraft, LifeArea) async throws -> Project = { draft, lifeArea in
             Project(lifeAreaID: lifeArea.id, name: draft.name, projectDescription: draft.summary)
+        },
+        createHabit: @escaping (CreateHabitRequest) async throws -> HabitDefinitionRecord = { request in
+            HabitDefinitionRecord(
+                id: request.id,
+                lifeAreaID: request.lifeAreaID,
+                projectID: request.projectID,
+                title: request.title,
+                habitType: CreateHabitUseCase.habitTypeString(kind: request.kind, trackingMode: request.trackingMode),
+                kindRaw: request.kind.rawValue,
+                trackingModeRaw: request.trackingMode.rawValue,
+                iconSymbolName: request.icon.symbolName,
+                iconCategoryKey: request.icon.categoryKey,
+                targetConfigData: try? JSONEncoder().encode(request.targetConfig),
+                metricConfigData: try? JSONEncoder().encode(request.metricConfig),
+                createdAt: request.createdAt,
+                updatedAt: request.createdAt
+            )
         },
         createTask: @escaping (CreateTaskDefinitionRequest) async throws -> TaskDefinition = { request in
             request.toTaskDefinition(projectName: request.projectName)
@@ -1357,9 +1735,11 @@ final class OnboardingFlowModel: ObservableObject {
         self.notificationService = notificationService
         self.fetchLifeAreas = fetchLifeAreas
         self.fetchProjects = fetchProjects
+        self.fetchHabit = fetchHabit
         self.fetchTask = fetchTask
         self.createLifeArea = createLifeArea
         self.createProject = createProject
+        self.createHabit = createHabit
         self.createTask = createTask
         self.setTaskCompletion = setTaskCompletion
         applyDefaults(mode: .guided, frictionProfile: nil)
@@ -1409,6 +1789,37 @@ final class OnboardingFlowModel: ObservableObject {
             }
             : resolvedProjects
         return StarterWorkspaceCatalog.taskSuggestions(for: sourceProjects, frictionProfile: frictionProfile)
+    }
+
+    var habitSuggestions: [StarterHabitTemplate] {
+        let sourceProjects = resolvedProjects.isEmpty
+            ? selectedProjectDrafts.compactMap { draft in
+                StarterWorkspaceCatalog.projectTemplate(id: draft.templateID).map { _ in
+                    ResolvedProjectSelection(
+                        draft: draft,
+                        project: Project(lifeAreaID: resolvedLifeAreas.first(where: { $0.templateID == draft.lifeAreaTemplateID })?.lifeArea.id, name: draft.name),
+                        reusedExisting: false
+                    )
+                }
+            }
+            : resolvedProjects
+        return StarterWorkspaceCatalog.habitSuggestions(for: sourceProjects, frictionProfile: frictionProfile)
+    }
+
+    var primaryHabitSuggestions: [StarterHabitTemplate] {
+        Array(habitSuggestions.filter(\.isPositive).prefix(1))
+    }
+
+    var secondaryHabitSuggestions: [StarterHabitTemplate] {
+        Array(habitSuggestions.filter(\.isPositive).dropFirst(primaryHabitSuggestions.count).prefix(4))
+    }
+
+    var negativeHabitSuggestion: StarterHabitTemplate? {
+        habitSuggestions.first(where: { $0.isPositive == false })
+    }
+
+    var canAddMoreHabits: Bool {
+        createdHabits.count < 2
     }
 
     var canContinueLifeAreas: Bool {
@@ -1484,6 +1895,11 @@ final class OnboardingFlowModel: ObservableObject {
         reminderPromptDismissed = snapshot.reminderPromptDismissed
         resolvedLifeAreas = snapshot.resolvedLifeAreas
         resolvedProjects = snapshot.resolvedProjects
+        createdHabits = snapshot.createdHabits
+        createdHabitTemplateMap = snapshot.createdHabitTemplateMap
+        habitTemplateStates = snapshot.createdHabitTemplateMap.reduce(into: [:]) { partialResult, entry in
+            partialResult[entry.key] = .created(entry.value)
+        }
         createdTasks = snapshot.createdTasks
         createdTaskTemplateMap = snapshot.createdTaskTemplateMap
         taskTemplateStates = snapshot.createdTaskTemplateMap.reduce(into: [:]) { partialResult, entry in
@@ -1510,6 +1926,9 @@ final class OnboardingFlowModel: ObservableObject {
         projectDrafts = []
         resolvedLifeAreas = []
         resolvedProjects = []
+        createdHabits = []
+        createdHabitTemplateMap = [:]
+        habitTemplateStates = [:]
         createdTasks = []
         createdTaskTemplateMap = [:]
         taskTemplateStates = [:]
@@ -1688,12 +2107,136 @@ final class OnboardingFlowModel: ObservableObject {
                 }
             }
             resolvedProjects = selections
-            clearTasksAndFocus()
-            step = .firstTask
+            clearHabitsAndTasks()
+            step = .habits
             persistJourney()
         } catch {
             errorMessage = error.localizedDescription
         }
+    }
+
+    func prepareEstablishedWorkspaceEntry() async {
+        isWorking = true
+        errorMessage = nil
+        defer { isWorking = false }
+
+        do {
+            let existingLifeAreas = try await fetchLifeAreas().filter { $0.isArchived == false }
+            let existingProjects = try await fetchProjects().filter { $0.isArchived == false && $0.isInbox == false && $0.isDefault == false }
+
+            let matchedAreas = StarterWorkspaceCatalog.orderedLifeAreas(for: frictionProfile)
+                .compactMap { template -> ResolvedLifeAreaSelection? in
+                    guard let existing = StarterWorkspaceCatalog.matchingLifeArea(for: template, in: existingLifeAreas) else {
+                        return nil
+                    }
+                    return ResolvedLifeAreaSelection(templateID: template.id, lifeArea: existing, reusedExisting: true)
+                }
+
+            let selectedAreas = Array(matchedAreas.prefix(3))
+            guard selectedAreas.isEmpty == false else {
+                step = .welcome
+                persistJourney()
+                return
+            }
+
+            let selectedAreaIDs = selectedAreas.map(\.templateID)
+            let resolvedProjectSelections: [ResolvedProjectSelection] = selectedAreas.compactMap { selection in
+                guard let areaTemplate = StarterWorkspaceCatalog.lifeAreaTemplate(id: selection.templateID) else { return nil }
+                let defaultDraft = StarterWorkspaceCatalog.defaultProjectDrafts(for: [selection.templateID], mode: .guided).first
+                let candidates = existingProjects.filter { $0.lifeAreaID == selection.lifeArea.id }
+                let fallbackProject = candidates.first
+                let matchedProject = defaultDraft.flatMap { draft in
+                    StarterWorkspaceCatalog.matchingProject(for: draft, lifeAreaID: selection.lifeArea.id, in: candidates)
+                } ?? fallbackProject
+                guard let project = matchedProject else { return nil }
+
+                let matchedTemplateID = areaTemplate.projects.first(where: { template in
+                    let candidateNames = Set(([template.name] + template.aliases).map(StarterWorkspaceCatalog.normalizedName))
+                    return candidateNames.contains(StarterWorkspaceCatalog.normalizedName(project.name))
+                })?.id ?? areaTemplate.projects.first?.id ?? defaultDraft?.templateID ?? ""
+                guard matchedTemplateID.isEmpty == false else { return nil }
+
+                let template = StarterWorkspaceCatalog.projectTemplate(id: matchedTemplateID)
+                let draft = OnboardingProjectDraft(
+                    lifeAreaTemplateID: selection.templateID,
+                    templateID: matchedTemplateID,
+                    name: project.name,
+                    summary: template?.summary ?? project.projectDescription ?? "Starter project",
+                    suggestionTemplateIDs: areaTemplate.projects.map(\.id),
+                    suggestionIndex: max(0, areaTemplate.projects.firstIndex(where: { $0.id == matchedTemplateID }) ?? 0),
+                    isSelected: true
+                )
+                return ResolvedProjectSelection(draft: draft, project: project, reusedExisting: true)
+            }
+
+            mode = .guided
+            selectedLifeAreaIDs = Set(selectedAreaIDs)
+            showAllLifeAreas = false
+            resolvedLifeAreas = selectedAreas
+            projectDrafts = resolvedProjectSelections.map(\.draft)
+            resolvedProjects = resolvedProjectSelections
+            createdHabits = []
+            createdHabitTemplateMap = [:]
+            habitTemplateStates = [:]
+            clearTasksAndFocus()
+            step = .habits
+            persistJourney()
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+    }
+
+    func addSuggestedHabit(_ template: StarterHabitTemplate) async {
+        if case .creating = habitTemplateStates[template.id] {
+            return
+        }
+        if case .created = habitTemplateStates[template.id] {
+            return
+        }
+        guard canAddMoreHabits else {
+            errorMessage = "Keep the starter setup light. Add up to two habits for now."
+            return
+        }
+        guard let resolvedLifeArea = resolvedLifeAreas.first(where: { $0.templateID == template.lifeAreaTemplateID }) else {
+            habitTemplateStates[template.id] = .failed("Tasker could not find that life area.")
+            return
+        }
+
+        habitTemplateStates[template.id] = .creating
+        errorMessage = nil
+        defer { if case .creating = habitTemplateStates[template.id] { habitTemplateStates[template.id] = .idle } }
+
+        let projectID = template.projectTemplateID.flatMap { projectTemplateID in
+            resolvedProjects.first(where: { $0.draft.templateID == projectTemplateID })?.project.id
+        }
+
+        do {
+            let createdHabit = try await createHabit(template.makeRequest(lifeAreaID: resolvedLifeArea.lifeArea.id, projectID: projectID))
+            upsertCreatedHabit(createdHabit)
+            createdHabitTemplateMap[template.id] = createdHabit.id
+            habitTemplateStates[template.id] = .created(createdHabit.id)
+            persistJourney()
+        } catch {
+            let message = error.localizedDescription
+            habitTemplateStates[template.id] = .failed(message)
+            errorMessage = message
+        }
+    }
+
+    func registerCustomCreatedHabit(habitID: UUID) async {
+        do {
+            guard let habit = try await fetchHabit(habitID) else { return }
+            upsertCreatedHabit(habit)
+            persistJourney()
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+    }
+
+    func continueFromHabits() {
+        step = .firstTask
+        errorMessage = nil
+        persistJourney()
     }
 
     func addSuggestedTask(_ template: StarterTaskTemplate) async {
@@ -1968,6 +2511,7 @@ final class OnboardingFlowModel: ObservableObject {
         guard errorMessage == nil else { return }
         await continueFromProjects()
         guard errorMessage == nil else { return }
+        continueFromHabits()
         guard let firstTemplate = primaryTaskSuggestions.first ?? taskSuggestions.first,
               let resolvedProject = resolvedProjects.first(where: { $0.draft.templateID == firstTemplate.projectTemplateID })
         else {
@@ -2004,8 +2548,10 @@ final class OnboardingFlowModel: ObservableObject {
             step = .welcome
         case .projects:
             step = .lifeAreas
-        case .firstTask:
+        case .habits:
             step = .projects
+        case .firstTask:
+            step = .habits
         case .focusRoom:
             step = .firstTask
         }
@@ -2028,6 +2574,13 @@ final class OnboardingFlowModel: ObservableObject {
 
     private func clearProjectsAndTasks() {
         resolvedProjects = []
+        clearHabitsAndTasks()
+    }
+
+    private func clearHabitsAndTasks() {
+        createdHabits = []
+        createdHabitTemplateMap = [:]
+        habitTemplateStates = [:]
         clearTasksAndFocus()
     }
 
@@ -2075,12 +2628,22 @@ final class OnboardingFlowModel: ObservableObject {
         }
     }
 
+    private func upsertCreatedHabit(_ habit: HabitDefinitionRecord) {
+        if let index = createdHabits.firstIndex(where: { $0.id == habit.id }) {
+            createdHabits[index] = habit
+        } else {
+            createdHabits.append(habit)
+        }
+    }
+
     private func buildSummary(completedTask: TaskDefinition) -> AppOnboardingSummary {
         let completedCount = createdTasks.filter(\.isComplete).count
         let nextTaskTitle = nextOpenTask?.title
         return AppOnboardingSummary(
             lifeAreaCount: resolvedLifeAreas.count,
             projectCount: resolvedProjects.count,
+            createdHabitCount: createdHabits.count,
+            createdHabitTitles: createdHabits.map(\.title),
             createdTaskCount: createdTasks.count,
             completedTaskCount: completedCount,
             completedTaskTitle: completedTask.title,
@@ -2102,6 +2665,8 @@ final class OnboardingFlowModel: ObservableObject {
             expandedProjectIDs: Array(expandedProjectIDs),
             resolvedLifeAreas: resolvedLifeAreas,
             resolvedProjects: resolvedProjects,
+            createdHabits: createdHabits,
+            createdHabitTemplateMap: createdHabitTemplateMap,
             createdTasks: createdTasks,
             createdTaskTemplateMap: createdTaskTemplateMap,
             focusTaskID: focusTaskID,
@@ -2136,6 +2701,11 @@ protocol AppOnboardingHostAdapter: AnyObject {
         onTaskCreated: @escaping (UUID) -> Void,
         onDismissWithoutTask: (() -> Void)?
     ) -> UIViewController?
+    func makeOnboardingAddHabitController(
+        prefill: AddHabitPrefillTemplate,
+        onHabitCreated: @escaping (UUID) -> Void,
+        onDismissWithoutTask: (() -> Void)?
+    ) -> UIViewController?
     func makeOnboardingTaskDetailController(
         task: TaskDefinition,
         onDismiss: @escaping () -> Void
@@ -2165,6 +2735,11 @@ final class AppOnboardingCoordinator: NSObject {
             guard let self else { return [] }
             return try await self.presentationDependencyContainer.coordinator.projectRepository.fetchAllProjectsAsync()
         },
+        fetchHabit: { [weak self] habitID in
+            guard let self else { return nil }
+            let habits = try await self.presentationDependencyContainer.coordinator.manageHabits.listAsync()
+            return habits.first(where: { $0.id == habitID })
+        },
         fetchTask: { [weak self] taskID in
             guard let self else { return nil }
             return try await self.presentationDependencyContainer.coordinator.taskDefinitionRepository.fetchTaskDefinitionAsync(id: taskID)
@@ -2186,6 +2761,26 @@ final class AppOnboardingCoordinator: NSObject {
                     lifeAreaID: lifeArea.id
                 )
             )
+        },
+        createHabit: { [weak self] request in
+            guard let self else {
+                return HabitDefinitionRecord(
+                    id: request.id,
+                    lifeAreaID: request.lifeAreaID,
+                    projectID: request.projectID,
+                    title: request.title,
+                    habitType: CreateHabitUseCase.habitTypeString(kind: request.kind, trackingMode: request.trackingMode),
+                    kindRaw: request.kind.rawValue,
+                    trackingModeRaw: request.trackingMode.rawValue,
+                    iconSymbolName: request.icon.symbolName,
+                    iconCategoryKey: request.icon.categoryKey,
+                    targetConfigData: try? JSONEncoder().encode(request.targetConfig),
+                    metricConfigData: try? JSONEncoder().encode(request.metricConfig),
+                    createdAt: request.createdAt,
+                    updatedAt: request.createdAt
+                )
+            }
+            return try await self.presentationDependencyContainer.coordinator.createHabit.executeAsync(request: request)
         },
         createTask: { [weak self] request in
             guard let self else { return request.toTaskDefinition(projectName: request.projectName) }
@@ -2323,8 +2918,12 @@ final class AppOnboardingCoordinator: NSObject {
                 AppOnboardingPromptSheetView(
                     snapshot: snapshot,
                     onStart: { [weak self] in
-                        self?.dismissPrompt(animated: true) {
-                            self?.enqueuePresentation(.fullFlow(source: "prompt_opt_in"))
+                        Task { @MainActor [weak self] in
+                            guard let self else { return }
+                            await self.viewModel.prepareEstablishedWorkspaceEntry()
+                            self.dismissPrompt(animated: true) {
+                                self.enqueuePresentation(.fullFlow(source: "prompt_opt_in"))
+                            }
                         }
                     },
                     onNotNow: { [weak self] in
@@ -2374,11 +2973,19 @@ final class AppOnboardingCoordinator: NSObject {
             onOpenCustomTaskComposer: { [weak self] prefill in
                 self?.presentCustomTaskComposer(prefill: prefill) ?? false
             },
+            onOpenCustomHabitComposer: { [weak self] prefill in
+                self?.presentCustomHabitComposer(prefill: prefill) ?? false
+            },
             onEditTask: { [weak self] task in
                 self?.presentTaskEditor(task: task) ?? false
             },
             onDismissFlow: { [weak self] in
-                self?.dismissFullFlow(animated: true)
+                guard let self else { return }
+                if self.viewModel.successSummary != nil,
+                   let createdHabit = self.viewModel.createdHabits.first {
+                    self.guidanceModel.showHabitGuide(habit: createdHabit)
+                }
+                self.dismissFullFlow(animated: true)
             }
         )
         .taskerLayoutClass(hostAdapter.currentOnboardingLayoutClass)
@@ -2414,6 +3021,21 @@ final class AppOnboardingCoordinator: NSObject {
         return true
     }
 
+    private func presentCustomHabitComposer(prefill: AddHabitPrefillTemplate) -> Bool {
+        guard let onboardingHost, onboardingHost.presentedViewController == nil else { return false }
+        guard let controller = hostAdapter?.makeOnboardingAddHabitController(
+            prefill: prefill,
+            onHabitCreated: { [weak self] habitID in
+                Task { @MainActor [weak self] in
+                    await self?.viewModel.registerCustomCreatedHabit(habitID: habitID)
+                }
+            },
+            onDismissWithoutTask: nil
+        ) else { return false }
+        onboardingHost.present(controller, animated: true)
+        return true
+    }
+
     private func presentTaskEditor(task: TaskDefinition) -> Bool {
         guard let onboardingHost, onboardingHost.presentedViewController == nil else { return false }
         guard let controller = hostAdapter?.makeOnboardingTaskDetailController(
@@ -2437,6 +3059,7 @@ struct AppOnboardingJourneyView: View {
     @ObservedObject var viewModel: OnboardingFlowModel
     let feedbackController: OnboardingFeedbackController
     let onOpenCustomTaskComposer: (AddTaskPrefillTemplate) -> Bool
+    let onOpenCustomHabitComposer: (AddHabitPrefillTemplate) -> Bool
     let onEditTask: (TaskDefinition) -> Bool
     let onDismissFlow: () -> Void
 
@@ -2446,6 +3069,7 @@ struct AppOnboardingJourneyView: View {
     @Environment(\.openURL) private var openURL
     @State private var projectOptionsAreaID: String?
     @State private var showsMoreIdeas = false
+    @State private var showsMoreHabitIdeas = false
     @State private var hasPlayedSuccess = false
 
     private var spacing: TaskerSpacingTokens {
@@ -2587,6 +3211,9 @@ struct AppOnboardingJourneyView: View {
         case .projects:
             projectsStep
                 .accessibilityIdentifier(AppOnboardingAccessibilityID.projects)
+        case .habits:
+            habitsStep
+                .accessibilityIdentifier(AppOnboardingAccessibilityID.habits)
         case .firstTask:
             firstTaskStep
                 .accessibilityIdentifier(AppOnboardingAccessibilityID.firstTask)
@@ -2720,6 +3347,123 @@ struct AppOnboardingJourneyView: View {
                     }
                 }
             }
+        }
+    }
+
+    private var habitsStep: some View {
+        VStack(alignment: .leading, spacing: spacing.sectionGap) {
+            OnboardingSectionHeader(
+                title: "Set one rhythm that helps tomorrow feel easier.",
+                subtitle: "Add one helpful habit now, or keep moving and set it up later.",
+                detail: viewModel.createdHabits.isEmpty ? nil : "\(viewModel.createdHabits.count) added"
+            )
+
+            if let primaryTemplate = viewModel.primaryHabitSuggestions.first {
+                VStack(alignment: .leading, spacing: spacing.s12) {
+                    Text("Recommended")
+                        .font(.tasker(.bodyEmphasis))
+                        .foregroundStyle(OnboardingTheme.textPrimary)
+
+                    OnboardingHabitRecommendationCard(
+                        template: primaryTemplate,
+                        projectName: onboardingProjectName(for: primaryTemplate),
+                        state: viewModel.habitTemplateStates[primaryTemplate.id] ?? .idle,
+                        isGuidanceHighlighted: true,
+                        isSelectionEnabled: viewModel.canAddMoreHabits || viewModel.createdHabitTemplateMap[primaryTemplate.id] != nil,
+                        onAdd: {
+                            feedbackController.light()
+                            Task { await viewModel.addSuggestedHabit(primaryTemplate) }
+                        }
+                    )
+                    .accessibilityIdentifier(AppOnboardingAccessibilityID.habitTemplate(primaryTemplate.id))
+                }
+            } else {
+                OnboardingSelectionSummaryCard(
+                    title: "No starter habit picked for you",
+                    message: "You can keep moving and add your own habit instead."
+                )
+            }
+
+            if viewModel.secondaryHabitSuggestions.isEmpty == false || viewModel.negativeHabitSuggestion != nil {
+                DisclosureGroup(isExpanded: $showsMoreHabitIdeas) {
+                    VStack(alignment: .leading, spacing: spacing.s12) {
+                        ForEach(viewModel.secondaryHabitSuggestions) { template in
+                            OnboardingHabitRecommendationCard(
+                                template: template,
+                                projectName: onboardingProjectName(for: template),
+                                state: viewModel.habitTemplateStates[template.id] ?? .idle,
+                                isGuidanceHighlighted: false,
+                                isSelectionEnabled: viewModel.canAddMoreHabits || viewModel.createdHabitTemplateMap[template.id] != nil,
+                                onAdd: {
+                                    feedbackController.light()
+                                    Task { await viewModel.addSuggestedHabit(template) }
+                                }
+                            )
+                            .accessibilityIdentifier(AppOnboardingAccessibilityID.habitTemplate(template.id))
+                        }
+
+                        if let negativeTemplate = viewModel.negativeHabitSuggestion {
+                            OnboardingHabitRecommendationCard(
+                                template: negativeTemplate,
+                                projectName: onboardingProjectName(for: negativeTemplate),
+                                state: viewModel.habitTemplateStates[negativeTemplate.id] ?? .idle,
+                                isGuidanceHighlighted: false,
+                                isSelectionEnabled: viewModel.canAddMoreHabits || viewModel.createdHabitTemplateMap[negativeTemplate.id] != nil,
+                                onAdd: {
+                                    feedbackController.light()
+                                    Task { await viewModel.addSuggestedHabit(negativeTemplate) }
+                                }
+                            )
+                            .accessibilityIdentifier(AppOnboardingAccessibilityID.habitTemplate(negativeTemplate.id))
+                        }
+                    }
+                    .padding(.top, spacing.s8)
+                } label: {
+                    Text("More ideas")
+                        .font(.tasker(.buttonSmall))
+                        .foregroundStyle(OnboardingTheme.textPrimary)
+                }
+                .padding(spacing.s16)
+                .background(OnboardingTheme.surfaceElevated, in: RoundedRectangle(cornerRadius: 24, style: .continuous))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 24, style: .continuous)
+                        .stroke(OnboardingTheme.borderSoft, lineWidth: 1)
+                )
+            }
+
+            Button {
+                guard let prefill = onboardingHabitPrefill() else {
+                    viewModel.errorMessage = "Tasker could not open the habit composer right now."
+                    return
+                }
+                let opened = onOpenCustomHabitComposer(prefill)
+                if opened == false {
+                    viewModel.errorMessage = "Tasker could not open the habit composer right now."
+                }
+            } label: {
+                HStack(spacing: spacing.s12) {
+                    Image(systemName: "repeat.circle")
+                        .foregroundStyle(OnboardingTheme.accent)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Use my own habit")
+                            .font(.tasker(.bodyEmphasis))
+                            .foregroundStyle(OnboardingTheme.textPrimary)
+                        Text("Start with a rhythm that already makes sense to you.")
+                            .font(.tasker(.caption1))
+                            .foregroundStyle(OnboardingTheme.textSecondary)
+                    }
+                    Spacer()
+                    Image(systemName: "arrow.right")
+                        .foregroundStyle(OnboardingTheme.textSecondary)
+                }
+                .padding(spacing.s16)
+                .background(OnboardingTheme.surfaceElevated, in: RoundedRectangle(cornerRadius: 24, style: .continuous))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 24, style: .continuous)
+                        .stroke(OnboardingTheme.borderSoft, lineWidth: 1)
+                )
+            }
+            .buttonStyle(.plain)
         }
     }
 
@@ -2901,6 +3645,7 @@ struct AppOnboardingJourneyView: View {
             OnboardingSuccessSummaryCard(
                 areaNames: viewModel.resolvedLifeAreas.map(\.lifeArea.name),
                 projectNames: viewModel.resolvedProjects.map(\.project.name),
+                habitTitles: summary.createdHabitTitles,
                 completedTaskTitle: summary.completedTaskTitle
             )
 
@@ -2925,6 +3670,29 @@ struct AppOnboardingJourneyView: View {
                 )
             }
         }
+    }
+
+    private func onboardingProjectName(for template: StarterHabitTemplate) -> String? {
+        guard let projectTemplateID = template.projectTemplateID else { return nil }
+        return viewModel.resolvedProjects.first(where: { $0.draft.templateID == projectTemplateID })?.project.name
+    }
+
+    private func onboardingHabitPrefill() -> AddHabitPrefillTemplate? {
+        if let template = viewModel.primaryHabitSuggestions.first,
+           let resolvedLifeArea = viewModel.resolvedLifeAreas.first(where: { $0.templateID == template.lifeAreaTemplateID }) {
+            let projectID = template.projectTemplateID.flatMap { projectTemplateID in
+                viewModel.resolvedProjects.first(where: { $0.draft.templateID == projectTemplateID })?.project.id
+            }
+            return template.makePrefill(lifeAreaID: resolvedLifeArea.lifeArea.id, projectID: projectID)
+        }
+
+        guard let lifeArea = viewModel.resolvedLifeAreas.first?.lifeArea else { return nil }
+        let projectID = viewModel.resolvedProjects.first?.project.id
+        return AddHabitPrefillTemplate(
+            title: "",
+            lifeAreaID: lifeArea.id,
+            projectID: projectID
+        )
     }
 
     private var breakdownSheet: some View {
@@ -3129,6 +3897,22 @@ struct AppOnboardingJourneyView: View {
                         .onboardingPrimaryButton(disabled: viewModel.canContinueProjects == false || viewModel.isWorking)
                         .accessibilityIdentifier(AppOnboardingAccessibilityID.useProjects)
                     }
+                case .habits:
+                    VStack(spacing: spacing.s8) {
+                        Text(viewModel.createdHabits.isEmpty ? "You can add habits later too." : "Your habits will start showing up on Home.")
+                            .font(.tasker(.caption1))
+                            .foregroundStyle(OnboardingTheme.textSecondary)
+                            .multilineTextAlignment(.center)
+                        Button {
+                            feedbackController.medium()
+                            viewModel.continueFromHabits()
+                        } label: {
+                            Text("Continue to first task")
+                                .frame(maxWidth: .infinity)
+                        }
+                        .onboardingPrimaryButton()
+                        .accessibilityIdentifier(AppOnboardingAccessibilityID.useHabits)
+                    }
                 case .firstTask:
                     VStack(spacing: spacing.s8) {
                         Button {
@@ -3208,6 +3992,7 @@ struct AppOnboardingPromptSheetView: View {
                 .foregroundStyle(OnboardingTheme.textPrimary)
             OnboardingChecklistCard(items: [
                 "Reuse matching life areas and starter projects where possible.",
+                "Suggest one helpful habit that supports tomorrow without adding pressure.",
                 "Suggest one tiny task so you can get a real completion quickly.",
                 "No duplicate clutter and no destructive edits to what you already have."
             ])
@@ -3411,6 +4196,11 @@ private struct OnboardingWelcomeValueStack: View {
                 .foregroundStyle(OnboardingTheme.textSecondary)
                 .fixedSize(horizontal: false, vertical: true)
 
+            Text("You can also add one starter habit so tomorrow begins with less friction.")
+                .font(.tasker(.body))
+                .foregroundStyle(OnboardingTheme.textSecondary)
+                .fixedSize(horizontal: false, vertical: true)
+
             OnboardingTrustRow(items: [
                 ("sparkles.rectangle.stack", "Real setup"),
                 ("clock", "~2 min"),
@@ -3475,7 +4265,7 @@ private struct OnboardingPromptValueCard: View {
                 .font(.tasker(.title2))
                 .foregroundStyle(OnboardingTheme.textPrimary)
                 .fixedSize(horizontal: false, vertical: true)
-            Text("Tasker can reuse what already fits, avoid duplicate clutter, and guide you into one real completion.")
+            Text("Tasker can reuse what already fits, avoid duplicate clutter, suggest one helpful habit, and guide you into one real completion.")
                 .font(.tasker(.body))
                 .foregroundStyle(OnboardingTheme.textSecondary)
                 .fixedSize(horizontal: false, vertical: true)
@@ -3537,6 +4327,8 @@ private struct OnboardingSplitSupportCard: View {
             return "A smaller starter scope reduces drag. You are defining where Tasker should help first, not forever."
         case .projects:
             return "Starter projects are here to reduce blank-page friction. Keep the recommended path and change only what feels obviously wrong."
+        case .habits:
+            return "A starter habit should lower tomorrow's friction, not create a second onboarding checklist. One good rhythm is enough."
         case .firstTask:
             return "The first task matters more than the perfect task. Pick the option you can actually finish today."
         case .focusRoom:
@@ -3774,6 +4566,243 @@ private struct OnboardingProjectDraftCard: View {
         }
         .buttonStyle(.plain)
         .accessibilityElement(children: .contain)
+    }
+}
+
+private struct OnboardingHabitRecommendationCard: View {
+    let template: StarterHabitTemplate
+    let projectName: String?
+    let state: OnboardingHabitTemplateState
+    let isGuidanceHighlighted: Bool
+    let isSelectionEnabled: Bool
+    let onAdd: () -> Void
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(alignment: .top, spacing: 12) {
+                Image(systemName: template.icon.symbolName)
+                    .font(.system(size: 18, weight: .semibold))
+                    .foregroundStyle(iconAccent)
+                    .frame(width: 36, height: 36)
+                    .background(iconAccent.opacity(0.12), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+
+                VStack(alignment: .leading, spacing: 6) {
+                    Text(template.title)
+                        .font(.tasker(.bodyEmphasis))
+                        .foregroundStyle(titleColor)
+                    Text(template.reason)
+                        .font(.tasker(.caption1))
+                        .foregroundStyle(OnboardingTheme.textSecondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                Spacer()
+                badge
+                    .transition(.opacity)
+            }
+
+            HStack(spacing: 8) {
+                infoChip(ownershipLine)
+                infoChip(cadenceLine)
+                Spacer(minLength: 8)
+                actionButton
+            }
+        }
+        .padding(12)
+        .background(backgroundColor, in: RoundedRectangle(cornerRadius: 24, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 24, style: .continuous)
+                .stroke(borderColor, lineWidth: stateBorderWidth)
+        )
+        .animation(reduceMotion ? .none : .easeOut(duration: 0.25), value: state)
+    }
+
+    private var actionButton: some View {
+        Group {
+            switch state {
+            case .created:
+                EmptyView()
+            default:
+                Button {
+                    onAdd()
+                } label: {
+                    Label(buttonTitle, systemImage: buttonIcon)
+                        .labelStyle(.titleAndIcon)
+                        .font(.tasker(.buttonSmall))
+                        .padding(.horizontal, guidanceUsesOuterShell ? 13 : 12)
+                        .padding(.vertical, guidanceUsesOuterShell ? 9 : 8)
+                        .background(buttonBackground, in: Capsule())
+                        .overlay {
+                            if guidanceUsesOuterShell == false {
+                                Capsule()
+                                    .stroke(buttonBorder, lineWidth: 1)
+                            }
+                        }
+                }
+                .taskerCTABezel(
+                    style: .pill,
+                    palette: template.isPositive ? .copper : .titanium,
+                    idleMotion: .slowLoop,
+                    isEnabled: state != .creating && isSelectionEnabled,
+                    isBusy: state == .creating,
+                    isPrimarySuggestion: isGuidanceHighlighted
+                )
+                .buttonStyle(OnboardingPressScaleButtonStyle())
+                .foregroundStyle(state == .creating || isSelectionEnabled == false ? OnboardingTheme.textSecondary : OnboardingTheme.accent)
+                .disabled(state == .creating || isSelectionEnabled == false)
+            }
+        }
+    }
+
+    private func infoChip(_ title: String) -> some View {
+        Text(title)
+            .font(.tasker(.caption2))
+            .foregroundStyle(OnboardingTheme.textSecondary)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 6)
+            .background(OnboardingTheme.surfaceMuted, in: Capsule())
+    }
+
+    private var ownershipLine: String {
+        if let projectName, projectName.isEmpty == false {
+            return "\(lifeAreaName) · \(projectName)"
+        }
+        return lifeAreaName
+    }
+
+    private var lifeAreaName: String {
+        StarterWorkspaceCatalog.lifeAreaTemplate(id: template.lifeAreaTemplateID)?.name ?? "Habit"
+    }
+
+    private var cadenceLine: String {
+        switch template.cadence {
+        case .daily:
+            return template.isPositive ? "Daily" : "Daily check-in"
+        case .weekly(let daysOfWeek, _, _):
+            return daysOfWeek.count > 1 ? "Weekdays" : "Weekly"
+        }
+    }
+
+    private var buttonIcon: String {
+        switch state {
+        case .idle:
+            return "plus"
+        case .creating:
+            return "hourglass"
+        case .created:
+            return "checkmark"
+        case .failed:
+            return "arrow.clockwise"
+        }
+    }
+
+    private var buttonTitle: String {
+        switch state {
+        case .idle:
+            return isSelectionEnabled ? "Add" : "Added 2"
+        case .creating:
+            return "Adding…"
+        case .created:
+            return "Added"
+        case .failed:
+            return isSelectionEnabled ? "Try again" : "Added 2"
+        }
+    }
+
+    private var guidanceUsesOuterShell: Bool {
+        isGuidanceHighlighted && V2FeatureFlags.liquidMetalCTAEnabled && state == .idle
+    }
+
+    private var buttonBackground: Color {
+        if isSelectionEnabled == false {
+            return OnboardingTheme.surfaceMuted
+        }
+        if guidanceUsesOuterShell {
+            return OnboardingTheme.accent.opacity(0.16)
+        }
+        switch state {
+        case .creating:
+            return OnboardingTheme.surfaceMuted
+        case .failed:
+            return OnboardingTheme.danger.opacity(0.10)
+        default:
+            return OnboardingTheme.accent.opacity(0.12)
+        }
+    }
+
+    private var buttonBorder: Color {
+        if guidanceUsesOuterShell {
+            return .clear
+        }
+        switch state {
+        case .failed:
+            return OnboardingTheme.danger.opacity(0.6)
+        default:
+            return OnboardingTheme.accent.opacity(0.3)
+        }
+    }
+
+    private var titleColor: Color {
+        switch state {
+        case .failed:
+            return OnboardingTheme.danger
+        default:
+            return OnboardingTheme.textPrimary
+        }
+    }
+
+    private var backgroundColor: Color {
+        switch state {
+        case .created:
+            return OnboardingTheme.accent.opacity(0.10)
+        case .failed:
+            return OnboardingTheme.danger.opacity(0.08)
+        default:
+            return isSelectionEnabled ? OnboardingTheme.surface : OnboardingTheme.surfaceMuted
+        }
+    }
+
+    private var borderColor: Color {
+        switch state {
+        case .created:
+            return OnboardingTheme.accent.opacity(0.28)
+        case .failed:
+            return OnboardingTheme.danger.opacity(0.7)
+        default:
+            return isSelectionEnabled ? OnboardingTheme.border : OnboardingTheme.borderSoft
+        }
+    }
+
+    private var stateBorderWidth: CGFloat {
+        switch state {
+        case .created, .failed:
+            return 1.5
+        default:
+            return 1
+        }
+    }
+
+    private var iconAccent: Color {
+        template.isPositive ? OnboardingTheme.accent : OnboardingTheme.textPrimary
+    }
+
+    @ViewBuilder
+    private var badge: some View {
+        switch state {
+        case .created:
+            Image(systemName: "checkmark.circle.fill")
+                .font(.system(size: 18, weight: .semibold))
+                .foregroundStyle(OnboardingTheme.accent)
+        case .creating:
+            OnboardingInlineBadge(title: "Saving", accent: OnboardingTheme.accent)
+        case .failed:
+            OnboardingInlineBadge(title: "Needs retry", accent: OnboardingTheme.danger)
+        case .idle:
+            OnboardingInlineBadge(
+                title: template.isPositive ? "Recommended" : "Optional",
+                accent: template.isPositive ? OnboardingTheme.accent : OnboardingTheme.textSecondary
+            )
+        }
     }
 }
 
@@ -4194,6 +5223,7 @@ private struct OnboardingSuccessHero: View {
 private struct OnboardingSuccessSummaryCard: View {
     let areaNames: [String]
     let projectNames: [String]
+    let habitTitles: [String]
     let completedTaskTitle: String?
 
     var body: some View {
@@ -4220,6 +5250,17 @@ private struct OnboardingSuccessSummaryCard: View {
                 Divider()
                     .overlay(OnboardingTheme.borderSoft)
                     .padding(.vertical, 16)
+
+                if habitTitles.isEmpty == false {
+                    OnboardingSuccessSummaryRow(
+                        label: "Habits",
+                        value: onboardingNaturalLanguageList(Array(habitTitles.prefix(2)), fallback: "Your starter habits")
+                    )
+
+                    Divider()
+                        .overlay(OnboardingTheme.borderSoft)
+                        .padding(.vertical, 16)
+                }
 
                 OnboardingSuccessSummaryRow(
                     label: "First win",
@@ -4392,6 +5433,16 @@ extension ProjectRepositoryProtocol {
     }
 }
 
+extension HabitRepositoryProtocol {
+    func fetchAllAsync() async throws -> [HabitDefinitionRecord] {
+        try await withCheckedThrowingContinuation { continuation in
+            fetchAll { result in
+                continuation.resume(with: result)
+            }
+        }
+    }
+}
+
 extension TaskDefinitionRepositoryProtocol {
     func fetchAllAsync() async throws -> [TaskDefinition] {
         try await withCheckedThrowingContinuation { continuation in
@@ -4439,6 +5490,26 @@ extension CreateTaskDefinitionUseCase {
     func executeAsync(request: CreateTaskDefinitionRequest) async throws -> TaskDefinition {
         try await withCheckedThrowingContinuation { continuation in
             execute(request: request) { result in
+                continuation.resume(with: result)
+            }
+        }
+    }
+}
+
+extension CreateHabitUseCase {
+    func executeAsync(request: CreateHabitRequest) async throws -> HabitDefinitionRecord {
+        try await withCheckedThrowingContinuation { continuation in
+            execute(request: request) { result in
+                continuation.resume(with: result)
+            }
+        }
+    }
+}
+
+extension ManageHabitsUseCase {
+    func listAsync() async throws -> [HabitDefinitionRecord] {
+        try await withCheckedThrowingContinuation { continuation in
+            list { result in
                 continuation.resume(with: result)
             }
         }
