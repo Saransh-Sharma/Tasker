@@ -385,6 +385,16 @@ final class WriteClosedScheduleRepositoryAdapter: ScheduleRepositoryProtocol {
         }
     }
 
+    func replaceRules(
+        templateID: UUID,
+        rules: [ScheduleRuleDefinition],
+        completion: @escaping (Result<[ScheduleRuleDefinition], Error>) -> Void
+    ) {
+        gate.performWrite(operation: "ScheduleRepository.replaceRules", completion: completion) {
+            self.base.replaceRules(templateID: templateID, rules: rules, completion: completion)
+        }
+    }
+
     func fetchExceptions(templateID: UUID, completion: @escaping (Result<[ScheduleExceptionDefinition], Error>) -> Void) {
         base.fetchExceptions(templateID: templateID, completion: completion)
     }

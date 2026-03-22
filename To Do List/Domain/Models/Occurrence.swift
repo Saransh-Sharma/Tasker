@@ -5,6 +5,7 @@ public enum OccurrenceState: String, Codable {
     case completed
     case skipped
     case missed
+    case failed
 }
 
 public enum OccurrenceResolutionType: String, Codable {
@@ -12,6 +13,7 @@ public enum OccurrenceResolutionType: String, Codable {
     case skipped
     case missed
     case deferred
+    case lapsed
 }
 
 public enum OccurrenceActor: String, Codable {

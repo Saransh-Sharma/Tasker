@@ -256,6 +256,22 @@ final class TaskerPersistentStoreLocationService {
 }
 
 struct TaskerPersistentRuntimeInitializer {
+    private enum HabitRuntimeMigration {
+        static let fieldBackfillKey = "tasker.habit.runtime.field_backfill.v1"
+        static let repairRequiredKey = "tasker.habit.runtime.repair_required.v1"
+        static let repairCompletedKey = "tasker.habit.runtime.repair_completed.v1"
+    }
+
+    static func shouldRunRepair(defaults: UserDefaults = .standard) -> Bool {
+        defaults.bool(forKey: HabitRuntimeMigration.repairRequiredKey)
+            && defaults.bool(forKey: HabitRuntimeMigration.repairCompletedKey) == false
+    }
+
+    static func markRepairCompleted(defaults: UserDefaults = .standard) {
+        defaults.set(false, forKey: HabitRuntimeMigration.repairRequiredKey)
+        defaults.set(true, forKey: HabitRuntimeMigration.repairCompletedKey)
+    }
+
     func initialize(container: NSPersistentCloudKitContainer) {
         let context = container.viewContext
         context.performAndWait {
@@ -327,6 +343,7 @@ struct TaskerPersistentRuntimeInitializer {
                 inbox.setValue(Date(), forKey: "updatedAt")
 
                 try backfillTaskLifeAreaIDsIfNeeded(in: context)
+                try backfillHabitRuntimeFieldsIfNeeded(in: context)
 
                 if context.hasChanges {
                     try context.save()
@@ -400,6 +417,134 @@ struct TaskerPersistentRuntimeInitializer {
                 message: "Backfilled TaskDefinition.lifeAreaID from project linkage",
                 fields: ["updated_count": String(updated)]
             )
+        }
+    }
+
+    private func backfillHabitRuntimeFieldsIfNeeded(in context: NSManagedObjectContext) throws {
+        let defaults = UserDefaults.standard
+        guard
+            let habitEntity = NSEntityDescription.entity(forEntityName: "HabitDefinition", in: context),
+            habitEntity.attributesByName["kindRaw"] != nil,
+            habitEntity.attributesByName["trackingModeRaw"] != nil,
+            habitEntity.attributesByName["lastHistoryRollDate"] != nil
+        else {
+            return
+        }
+
+        let request = NSFetchRequest<NSManagedObject>(entityName: "HabitDefinition")
+        let habits = try context.fetch(request)
+        let fieldBackfillAlreadyMarked = defaults.bool(forKey: HabitRuntimeMigration.fieldBackfillKey)
+
+        let templateRequest = NSFetchRequest<NSManagedObject>(entityName: "ScheduleTemplate")
+        templateRequest.predicate = NSPredicate(format: "sourceType == %@", ScheduleSourceType.habit.rawValue)
+        let templates = try context.fetch(templateRequest)
+
+        let ruleRequest = NSFetchRequest<NSManagedObject>(entityName: "ScheduleRule")
+        let rules = try context.fetch(ruleRequest)
+        let rulesByTemplateID = Dictionary(grouping: rules) { $0.value(forKey: "scheduleTemplateID") as? UUID }
+
+        if fieldBackfillAlreadyMarked {
+            let hasRepairableHabit = habits.contains { habit in
+                let kindMissing = (habit.value(forKey: "kindRaw") as? String)?.isEmpty != false
+                let trackingModeMissing = (habit.value(forKey: "trackingModeRaw") as? String)?.isEmpty != false
+                let historyRollMissing = habit.value(forKey: "lastHistoryRollDate") == nil
+
+                guard
+                    let habitID = habit.value(forKey: "id") as? UUID
+                else {
+                    return kindMissing || trackingModeMissing || historyRollMissing
+                }
+
+                let template = templates.first { template in
+                    (template.value(forKey: "sourceID") as? UUID) == habitID
+                }
+                let templateID = template?.value(forKey: "id") as? UUID
+                let linkedRules = templateID.flatMap { rulesByTemplateID[$0] } ?? []
+                let hasSupportedRule = linkedRules.contains { rule in
+                    guard let ruleType = (rule.value(forKey: "ruleType") as? String)?.lowercased() else {
+                        return false
+                    }
+                    return ruleType == "daily" || ruleType == "weekly"
+                }
+                let needsPauseRepair = template == nil || linkedRules.isEmpty || hasSupportedRule == false
+                let pauseMissing = needsPauseRepair && (habit.value(forKey: "isPaused") as? Bool) != true
+
+                return kindMissing || trackingModeMissing || historyRollMissing || pauseMissing
+            }
+
+            guard hasRepairableHabit else {
+                return
+            }
+        }
+
+        var updatedCount = 0
+        let today = Calendar.current.startOfDay(for: Date())
+
+        for habit in habits {
+            guard let habitID = habit.value(forKey: "id") as? UUID else { continue }
+            let habitType = (habit.value(forKey: "habitType") as? String)?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+
+            let kindRaw: String
+            let trackingModeRaw: String
+            switch habitType {
+            case "quit":
+                kindRaw = HabitKind.negative.rawValue
+                trackingModeRaw = HabitTrackingMode.dailyCheckIn.rawValue
+            case "quit_lapse_only":
+                kindRaw = HabitKind.negative.rawValue
+                trackingModeRaw = HabitTrackingMode.lapseOnly.rawValue
+            default:
+                kindRaw = HabitKind.positive.rawValue
+                trackingModeRaw = HabitTrackingMode.dailyCheckIn.rawValue
+            }
+
+            if (habit.value(forKey: "kindRaw") as? String)?.isEmpty != false {
+                habit.setValue(kindRaw, forKey: "kindRaw")
+                updatedCount += 1
+            }
+            if (habit.value(forKey: "trackingModeRaw") as? String)?.isEmpty != false {
+                habit.setValue(trackingModeRaw, forKey: "trackingModeRaw")
+                updatedCount += 1
+            }
+            if habit.value(forKey: "lastHistoryRollDate") == nil {
+                habit.setValue(today, forKey: "lastHistoryRollDate")
+                updatedCount += 1
+            }
+
+            let template = templates.first { template in
+                (template.value(forKey: "sourceID") as? UUID) == habitID
+            }
+            let templateID = template?.value(forKey: "id") as? UUID
+            let linkedRules = templateID.flatMap { rulesByTemplateID[$0] } ?? []
+            let hasSupportedRule = linkedRules.contains { rule in
+                guard let ruleType = (rule.value(forKey: "ruleType") as? String)?.lowercased() else {
+                    return false
+                }
+                return ruleType == "daily" || ruleType == "weekly"
+            }
+
+            if template == nil || linkedRules.isEmpty || hasSupportedRule == false {
+                if (habit.value(forKey: "isPaused") as? Bool) != true {
+                    habit.setValue(true, forKey: "isPaused")
+                    updatedCount += 1
+                }
+            }
+        }
+
+        if updatedCount > 0 {
+            logWarning(
+                event: "habit_runtime_backfill_applied",
+                message: "Backfilled legacy habit runtime fields and paused unsupported schedule linkages",
+                fields: ["updated_count": String(updatedCount)]
+            )
+        }
+
+        defaults.set(true, forKey: HabitRuntimeMigration.fieldBackfillKey)
+        if updatedCount > 0 {
+            defaults.set(true, forKey: HabitRuntimeMigration.repairRequiredKey)
+            defaults.set(false, forKey: HabitRuntimeMigration.repairCompletedKey)
+        } else {
+            defaults.set(false, forKey: HabitRuntimeMigration.repairRequiredKey)
         }
     }
 }
@@ -549,6 +694,15 @@ final class TaskerPersistentStoreBootstrapService {
         let initialHealthy = initialReport.errors.isEmpty && hasExpectedConfigurations(initialReport)
 
         if initialHealthy {
+            if Self.validateRuntimeSchema(in: initialContainer.managedObjectModel) != nil {
+                unloadPersistentStores(initialContainer)
+                return TaskerPersistentStoreBootstrapResult(
+                    state: .failed("Tasker's data model is out of date. Please reinstall or update the app."),
+                    syncMode: .writeClosed(reason: "persistent_store_schema_invalid"),
+                    syncModeSource: "bootstrap_initial_schema_invalid",
+                    shouldMarkStoreEpoch: false
+                )
+            }
             return TaskerPersistentStoreBootstrapResult(
                 state: .ready(initialContainer),
                 syncMode: .fullSync,
@@ -577,6 +731,15 @@ final class TaskerPersistentStoreBootstrapService {
         )
         let writeClosedHealthy = writeClosedReport.errors.isEmpty && hasLocalOnlyConfiguration(writeClosedReport)
         if writeClosedHealthy {
+            if Self.validateRuntimeSchema(in: writeClosedContainer.managedObjectModel) != nil {
+                unloadPersistentStores(writeClosedContainer)
+                return TaskerPersistentStoreBootstrapResult(
+                    state: .failed("Tasker's data model is out of date. Please reinstall or update the app."),
+                    syncMode: .writeClosed(reason: "persistent_store_schema_invalid"),
+                    syncModeSource: "bootstrap_write_closed_schema_invalid",
+                    shouldMarkStoreEpoch: false
+                )
+            }
             let fallbackReason = makeWriteClosedReason(
                 initialReport: initialReport,
                 missingConfigurations: missingConfigurations
@@ -715,6 +878,34 @@ final class TaskerPersistentStoreBootstrapService {
         } catch {
             return "metadata_unavailable_\(error.localizedDescription)"
         }
+    }
+
+    static func validateRuntimeSchema(in model: NSManagedObjectModel) -> NSError? {
+        if let habitSchemaError = CoreDataHabitRepository.schemaValidationError(in: model) {
+            logError(
+                event: "persistent_store_habit_schema_invalid",
+                message: "Loaded Core Data model is missing required habit runtime fields",
+                fields: [
+                    "error": habitSchemaError.localizedDescription,
+                    "missing_requirements": habitSchemaError.userInfo["missingRequirements"] as? String ?? "unknown"
+                ]
+            )
+            return habitSchemaError
+        }
+
+        if let gamificationSchemaError = CoreDataGamificationRepository.schemaValidationError(in: model) {
+            logError(
+                event: "persistent_store_gamification_schema_invalid",
+                message: "Loaded Core Data model is missing required gamification fields",
+                fields: [
+                    "error": gamificationSchemaError.localizedDescription,
+                    "missing_requirements": gamificationSchemaError.userInfo["missingRequirements"] as? String ?? "unknown"
+                ]
+            )
+            return gamificationSchemaError
+        }
+
+        return nil
     }
 
     private func underlyingCoreDataErrorSummary(_ error: NSError) -> String {

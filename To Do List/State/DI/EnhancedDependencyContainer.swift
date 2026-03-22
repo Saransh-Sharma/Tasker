@@ -11,6 +11,9 @@ import UIKit
 
 /// Enhanced dependency container supporting Clean Architecture
 public final class EnhancedDependencyContainer {
+    private enum HabitRuntimeBootstrapRepair {
+        static let repairKey = "tasker.habit.runtime.bootstrap_repair.v1"
+    }
 
     // MARK: - Singleton
 
@@ -31,6 +34,7 @@ public final class EnhancedDependencyContainer {
     public private(set) var sectionRepository: SectionRepositoryProtocol?
     public private(set) var tagRepository: TagRepositoryProtocol?
     public private(set) var habitRepository: HabitRepositoryProtocol?
+    public private(set) var habitRuntimeReadRepository: HabitRuntimeReadRepositoryProtocol?
     public private(set) var scheduleRepository: ScheduleRepositoryProtocol?
     public private(set) var occurrenceRepository: OccurrenceRepositoryProtocol?
     public private(set) var reminderRepository: ReminderRepositoryProtocol?
@@ -81,6 +85,7 @@ public final class EnhancedDependencyContainer {
         let baseSectionRepository = CoreDataSectionRepository(container: container)
         let baseTagRepository = CoreDataTagRepository(container: container)
         let baseHabitRepository = CoreDataHabitRepository(container: container)
+        let baseHabitRuntimeReadRepository = CoreDataHabitRuntimeReadRepository(container: container)
         let baseScheduleRepository = CoreDataScheduleRepository(container: container)
         let baseOccurrenceRepository = CoreDataOccurrenceRepository(container: container)
         let baseReminderRepository = CoreDataReminderRepository(container: container)
@@ -122,6 +127,7 @@ public final class EnhancedDependencyContainer {
             base: baseHabitRepository,
             gate: writeGate
         )
+        self.habitRuntimeReadRepository = baseHabitRuntimeReadRepository
         self.scheduleRepository = WriteClosedScheduleRepositoryAdapter(
             base: baseScheduleRepository,
             gate: writeGate
@@ -163,6 +169,8 @@ public final class EnhancedDependencyContainer {
               let sectionRepository,
               let tagRepository,
               let habitRepository,
+              let habitRuntimeReadRepository = self.habitRuntimeReadRepository,
+              let scheduleRepository,
               let schedulingEngine,
               let occurrenceRepository,
               let tombstoneRepository,
@@ -180,6 +188,7 @@ public final class EnhancedDependencyContainer {
         }
 
         let v2Dependencies = UseCaseCoordinator.V2Dependencies(
+            projectRepository: projectRepository,
             lifeAreaRepository: lifeAreaRepository,
             sectionRepository: sectionRepository,
             tagRepository: tagRepository,
@@ -187,6 +196,8 @@ public final class EnhancedDependencyContainer {
             taskTagLinkRepository: taskTagLinkRepository,
             taskDependencyRepository: taskDependencyRepository,
             habitRepository: habitRepository,
+            habitRuntimeReadRepository: habitRuntimeReadRepository,
+            scheduleRepository: scheduleRepository,
             scheduleEngine: schedulingEngine,
             occurrenceRepository: occurrenceRepository,
             tombstoneRepository: tombstoneRepository,
@@ -206,9 +217,42 @@ public final class EnhancedDependencyContainer {
             v2Dependencies: v2Dependencies
         )
 
+        performHabitRuntimeBootstrapRepairIfNeeded()
+
         evaluateV3RuntimeReadiness()
 
         logDebug("✅ EnhancedDependencyContainer: Configuration completed")
+    }
+
+    private func performHabitRuntimeBootstrapRepairIfNeeded() {
+        let defaults = UserDefaults.standard
+        guard defaults.bool(forKey: HabitRuntimeBootstrapRepair.repairKey) == false else {
+            return
+        }
+
+        useCaseCoordinator.maintainHabitRuntime.execute(anchorDate: Date()) { [weak self] maintainResult in
+            switch maintainResult {
+            case .failure(let error):
+                logWarning(
+                    event: "habit_runtime_bootstrap_maintain_failed",
+                    message: "Failed one-time habit runtime maintenance during startup",
+                    fields: ["error": error.localizedDescription]
+                )
+            case .success:
+                self?.useCaseCoordinator.recomputeHabitStreaks.execute(referenceDate: Date()) { recomputeResult in
+                    switch recomputeResult {
+                    case .failure(let error):
+                        logWarning(
+                            event: "habit_runtime_bootstrap_recompute_failed",
+                            message: "Failed one-time habit streak recompute during startup",
+                            fields: ["error": error.localizedDescription]
+                        )
+                    case .success:
+                        defaults.set(true, forKey: HabitRuntimeBootstrapRepair.repairKey)
+                    }
+                }
+            }
+        }
     }
 
     /// Executes assertV3RuntimeReady.
@@ -231,6 +275,7 @@ public final class EnhancedDependencyContainer {
         if taskDefinitionRepository == nil { missing.append("taskDefinitionRepository") }
         if externalSyncRepository == nil { missing.append("externalSyncRepository") }
         if assistantActionRepository == nil { missing.append("assistantActionRepository") }
+        if habitRuntimeReadRepository == nil { missing.append("habitRuntimeReadRepository") }
 
         if missing.isEmpty {
             v3RuntimeReady = true
