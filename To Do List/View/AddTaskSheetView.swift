@@ -2,13 +2,11 @@
 //  AddTaskSheetView.swift
 //  Tasker
 //
-//  V3-native Add Task sheet — Quick + Expand two-speed capture.
-//  Opens as .medium detent for lightning capture, expands to .large for planning.
+//  V3-native Add sheet. Backward compatible with task-only callers, but now
+//  scaffolded as a unified Task / Habit composer.
 //
 
 import SwiftUI
-
-// MARK: - Add Task Sheet View
 
 public enum AddTaskContainerMode: Equatable {
     case sheet
@@ -16,8 +14,7 @@ public enum AddTaskContainerMode: Equatable {
 }
 
 public struct AddTaskSheetView: View {
-    /// Initializes a new instance.
-    @StateObject private var viewModel: AddTaskViewModel
+    @StateObject private var viewModel: AddItemViewModel
     @Environment(\.dismiss) private var dismiss
     private let onTaskCreated: ((UUID) -> Void)?
     private let onDismissWithoutTask: (() -> Void)?
@@ -26,27 +23,44 @@ public struct AddTaskSheetView: View {
     @State private var showAddAnother = false
     @State private var successFlash = false
     @State private var selectedDetent: PresentationDetent = .medium
-    @State private var didCreateTask = false
+    @State private var didCreateItem = false
 
     public init(
         viewModel: AddTaskViewModel,
         onTaskCreated: ((UUID) -> Void)? = nil,
         onDismissWithoutTask: (() -> Void)? = nil
     ) {
-        _viewModel = StateObject(wrappedValue: viewModel)
+        _viewModel = StateObject(
+            wrappedValue: AddItemViewModel(
+                taskViewModel: viewModel,
+                habitViewModel: PresentationDependencyContainer.shared.makeNewAddHabitViewModel()
+            )
+        )
+        self.onTaskCreated = onTaskCreated
+        self.onDismissWithoutTask = onDismissWithoutTask
+    }
+
+    public init(
+        itemViewModel: AddItemViewModel,
+        onTaskCreated: ((UUID) -> Void)? = nil,
+        onDismissWithoutTask: (() -> Void)? = nil
+    ) {
+        _viewModel = StateObject(wrappedValue: itemViewModel)
         self.onTaskCreated = onTaskCreated
         self.onDismissWithoutTask = onDismissWithoutTask
     }
 
     public var body: some View {
-        AddTaskForedropView(
+        AddItemComposerView(
             viewModel: viewModel,
             containerMode: .sheet,
             showAddAnother: showAddAnother,
             successFlash: $successFlash,
             onCancel: handleCancel,
-            onCreate: handleCreate,
-            onAddAnother: handleAddAnother,
+            onTaskCreate: handleTaskCreate,
+            onTaskAddAnother: handleTaskAddAnother,
+            onHabitCreate: handleHabitCreate,
+            onHabitAddAnother: handleHabitAddAnother,
             onExpandToLarge: expandToLarge
         )
         .presentationDetents([.medium, .large], selection: $selectedDetent)
@@ -66,15 +80,12 @@ public struct AddTaskSheetView: View {
             Text("You have unsaved changes that will be lost.")
         }
         .onDisappear {
-            if didCreateTask == false {
+            if didCreateItem == false {
                 onDismissWithoutTask?()
             }
         }
     }
 
-    // MARK: - Actions
-
-    /// Executes handleCancel.
     private func handleCancel() {
         if viewModel.hasUnsavedChanges {
             TaskerFeedback.medium()
@@ -85,17 +96,15 @@ public struct AddTaskSheetView: View {
         }
     }
 
-    /// Executes handleCreate.
-    private func handleCreate() {
-        guard viewModel.viewState.canSubmit, !viewModel.isLoading else { return }
-        viewModel.createTask()
+    private func handleTaskCreate() {
+        guard viewModel.taskViewModel.viewState.canSubmit, !viewModel.taskViewModel.isLoading else { return }
+        viewModel.taskViewModel.createTask()
 
-        // Observe success
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-            if viewModel.isTaskCreated {
+            if viewModel.taskViewModel.isTaskCreated {
                 TaskerFeedback.success()
-                didCreateTask = true
-                if let taskID = viewModel.lastCreatedTaskID {
+                didCreateItem = true
+                if let taskID = viewModel.taskViewModel.lastCreatedTaskID {
                     onTaskCreated?(taskID)
                 }
                 dismiss()
@@ -103,17 +112,15 @@ public struct AddTaskSheetView: View {
         }
     }
 
-    /// Executes handleAddAnother.
-    private func handleAddAnother() {
-        guard viewModel.viewState.canSubmit, !viewModel.isLoading else { return }
-        viewModel.createTask()
+    private func handleTaskAddAnother() {
+        guard viewModel.taskViewModel.viewState.canSubmit, !viewModel.taskViewModel.isLoading else { return }
+        viewModel.taskViewModel.createTask()
 
-        // Observe success, then reset for another
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-            if viewModel.isTaskCreated {
+            if viewModel.taskViewModel.isTaskCreated {
                 TaskerFeedback.success()
-                didCreateTask = true
-                if let taskID = viewModel.lastCreatedTaskID {
+                didCreateItem = true
+                if let taskID = viewModel.taskViewModel.lastCreatedTaskID {
                     onTaskCreated?(taskID)
                 }
                 withAnimation(TaskerAnimation.snappy) {
@@ -122,7 +129,7 @@ public struct AddTaskSheetView: View {
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
                     withAnimation(TaskerAnimation.snappy) {
                         successFlash = false
-                        viewModel.resetForm()
+                        viewModel.taskViewModel.resetForm()
                         showAddAnother = true
                         selectedDetent = .medium
                     }
@@ -131,7 +138,41 @@ public struct AddTaskSheetView: View {
         }
     }
 
-    /// Executes expandToLarge.
+    private func handleHabitCreate() {
+        guard viewModel.habitViewModel.canSubmit, !viewModel.habitViewModel.isSaving else { return }
+        viewModel.habitViewModel.createHabit { result in
+            guard case .success = result else { return }
+            TaskerFeedback.success()
+            didCreateItem = true
+            withAnimation(TaskerAnimation.snappy) {
+                successFlash = true
+            }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                dismiss()
+            }
+        }
+    }
+
+    private func handleHabitAddAnother() {
+        guard viewModel.habitViewModel.canSubmit, !viewModel.habitViewModel.isSaving else { return }
+        viewModel.habitViewModel.createHabit { result in
+            guard case .success = result else { return }
+            TaskerFeedback.success()
+            didCreateItem = true
+            withAnimation(TaskerAnimation.snappy) {
+                successFlash = true
+            }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
+                withAnimation(TaskerAnimation.snappy) {
+                    successFlash = false
+                    viewModel.habitViewModel.resetForm()
+                    showAddAnother = true
+                    selectedDetent = .medium
+                }
+            }
+        }
+    }
+
     private func expandToLarge() {
         TaskerFeedback.light()
         withAnimation(TaskerAnimation.gentle) {
@@ -141,39 +182,59 @@ public struct AddTaskSheetView: View {
 }
 
 struct AddTaskInspectorContainer: View {
-    @StateObject private var viewModel: AddTaskViewModel
+    @StateObject private var viewModel: AddItemViewModel
     @State private var successFlash = false
     let onClose: () -> Void
 
     init(viewModel: AddTaskViewModel, onClose: @escaping () -> Void) {
-        _viewModel = StateObject(wrappedValue: viewModel)
+        _viewModel = StateObject(
+            wrappedValue: AddItemViewModel(
+                taskViewModel: viewModel,
+                habitViewModel: PresentationDependencyContainer.shared.makeNewAddHabitViewModel()
+            )
+        )
         self.onClose = onClose
     }
 
     var body: some View {
-        AddTaskForedropView(
+        AddItemComposerView(
             viewModel: viewModel,
             containerMode: .inspector,
             showAddAnother: false,
             successFlash: $successFlash,
             onCancel: onClose,
-            onCreate: handleCreate,
-            onAddAnother: handleCreate,
+            onTaskCreate: handleTaskCreate,
+            onTaskAddAnother: handleTaskCreate,
+            onHabitCreate: handleHabitCreate,
+            onHabitAddAnother: handleHabitCreate,
             onExpandToLarge: {}
         )
         .accessibilityIdentifier("home.ipad.detail.addTask")
     }
 
-    private func handleCreate() {
-        guard viewModel.viewState.canSubmit, !viewModel.isLoading else { return }
-        viewModel.createTask()
+    private func handleTaskCreate() {
+        guard viewModel.taskViewModel.viewState.canSubmit, !viewModel.taskViewModel.isLoading else { return }
+        viewModel.taskViewModel.createTask()
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-            guard viewModel.isTaskCreated else { return }
+            guard viewModel.taskViewModel.isTaskCreated else { return }
             TaskerFeedback.success()
             successFlash = true
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
                 successFlash = false
-                viewModel.resetForm()
+                viewModel.taskViewModel.resetForm()
+            }
+        }
+    }
+
+    private func handleHabitCreate() {
+        guard viewModel.habitViewModel.canSubmit, !viewModel.habitViewModel.isSaving else { return }
+        viewModel.habitViewModel.createHabit { result in
+            guard case .success = result else { return }
+            TaskerFeedback.success()
+            successFlash = true
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
+                successFlash = false
+                viewModel.habitViewModel.resetForm()
             }
         }
     }
