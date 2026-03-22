@@ -3192,7 +3192,7 @@ struct AppOnboardingPromptSheetView: View {
                     }
                 }
             }
-            .frame(maxWidth: min(UIScreen.main.bounds.width - 40, 760), alignment: .leading)
+            .taskerReadableContent(maxWidth: 760, alignment: .center)
             .padding(spacing.s20)
             .onboardingHeroPanel(cornerRadius: 32)
             .padding(.horizontal, spacing.screenHorizontal)

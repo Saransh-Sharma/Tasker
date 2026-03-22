@@ -12,7 +12,16 @@ struct AddItemComposerView: View {
     let onHabitAddAnother: () -> Void
     let onExpandToLarge: () -> Void
 
+    @Environment(\.taskerLayoutClass) private var layoutClass
     private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.currentTheme.tokens.spacing }
+    private var readableWidth: CGFloat {
+        switch containerMode {
+        case .inspector:
+            return layoutClass == .padExpanded ? 860 : 760
+        case .sheet:
+            return 720
+        }
+    }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -50,5 +59,6 @@ struct AddItemComposerView: View {
                 )
             }
         }
+        .taskerReadableContent(maxWidth: readableWidth, alignment: .center)
     }
 }

@@ -67,6 +67,7 @@ struct AddTaskTimePickerSheet: View {
     @Binding var reminderTime: Date
     @Binding var hasReminder: Bool
     @Binding var isPresented: Bool
+    @Environment(\.taskerLayoutClass) private var layoutClass
 
     @State private var selectedTime = Date()
 
@@ -74,7 +75,7 @@ struct AddTaskTimePickerSheet: View {
     private var corner: TaskerCornerTokens { TaskerThemeManager.shared.currentTheme.tokens.corner }
 
     var body: some View {
-        NavigationView {
+        NavigationStack {
             VStack(spacing: spacing.s20) {
                 // Quick preset row
                 HStack(spacing: spacing.s8) {
@@ -126,6 +127,7 @@ struct AddTaskTimePickerSheet: View {
                 .buttonStyle(.plain)
                 .padding(.horizontal, spacing.s16)
             }
+            .taskerReadableContent(maxWidth: 460, alignment: .center)
             .navigationTitle("Set Reminder")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -136,7 +138,7 @@ struct AddTaskTimePickerSheet: View {
                 }
             }
         }
-        .presentationDetents([.height(400)])
+        .presentationDetents(layoutClass.isPad ? [.medium, .large] : [.height(400)])
         .onAppear {
             selectedTime = reminderTime
         }

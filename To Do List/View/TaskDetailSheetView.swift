@@ -26,6 +26,7 @@ struct TaskDetailSheetView: View {
 
     /// Initializes a new instance.
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.taskerLayoutClass) private var layoutClass
     @StateObject private var viewModel: TaskDetailViewModel
     @State private var liveTodayXPSoFar: Int?
 
@@ -40,6 +41,14 @@ struct TaskDetailSheetView: View {
     @FocusState private var descriptionFocused: Bool
     private let isGamificationV2Enabled: Bool
     private let containerMode: TaskDetailContainerMode
+    private var readableContentWidth: CGFloat {
+        switch containerMode {
+        case .sheet:
+            return 760
+        case .inspector:
+            return layoutClass == .padExpanded ? 900 : 780
+        }
+    }
 
     init(
         task: TaskDefinition,
@@ -104,69 +113,77 @@ struct TaskDetailSheetView: View {
     }
 
     private var autosaveBoundView: some View {
+        relationshipAutosaveObservedView
+            .onChange(of: viewModel.aiBreakdownSteps) { _, updated in
+                guard showBreakdownSheet else { return }
+                reconcileBreakdownSelection(with: updated)
+            }
+    }
+
+    private var primaryAutosaveObservedView: some View {
         baseContentView
-            .onChange(of: viewModel.taskName) { _ in
+            .onChange(of: viewModel.taskName) {
                 viewModel.scheduleAutosave(debounced: true)
             }
-            .onChange(of: viewModel.taskDescription) { _ in
+            .onChange(of: viewModel.taskDescription) {
                 viewModel.scheduleAutosave(debounced: true)
             }
-            .onChange(of: viewModel.selectedPriority) { _ in
+            .onChange(of: viewModel.selectedPriority) {
                 viewModel.scheduleAutosave(debounced: false)
             }
-            .onChange(of: viewModel.selectedType) { _ in
+            .onChange(of: viewModel.selectedType) {
                 viewModel.scheduleAutosave(debounced: false)
             }
-            .onChange(of: viewModel.selectedProjectID) { _ in
+            .onChange(of: viewModel.selectedProjectID) {
                 viewModel.refreshMetadata()
                 viewModel.refreshRelationshipMetadata()
                 viewModel.scheduleAutosave(debounced: false)
             }
-            .onChange(of: viewModel.dueDate) { _ in
+            .onChange(of: viewModel.dueDate) {
                 viewModel.scheduleAutosave(debounced: false)
             }
-            .onChange(of: viewModel.reminderTime) { _ in
+            .onChange(of: viewModel.reminderTime) {
                 viewModel.scheduleAutosave(debounced: false)
             }
-            .onChange(of: viewModel.selectedLifeAreaID) { _ in
+    }
+
+    private var relationshipAutosaveObservedView: some View {
+        primaryAutosaveObservedView
+            .onChange(of: viewModel.selectedLifeAreaID) {
                 viewModel.scheduleAutosave(debounced: false)
             }
-            .onChange(of: viewModel.selectedSectionID) { _ in
+            .onChange(of: viewModel.selectedSectionID) {
                 viewModel.scheduleAutosave(debounced: false)
             }
-            .onChange(of: viewModel.selectedTagIDs) { _ in
+            .onChange(of: viewModel.selectedTagIDs) {
                 viewModel.scheduleAutosave(debounced: false)
             }
             .onDisappear {
                 viewModel.handleDisappear()
             }
-            .onChange(of: viewModel.selectedParentTaskID) { _ in
+            .onChange(of: viewModel.selectedParentTaskID) {
                 viewModel.scheduleAutosave(debounced: false)
             }
-            .onChange(of: viewModel.selectedDependencyTaskIDs) { _ in
+            .onChange(of: viewModel.selectedDependencyTaskIDs) {
                 viewModel.scheduleAutosave(debounced: false)
             }
-            .onChange(of: viewModel.selectedDependencyKind) { _ in
+            .onChange(of: viewModel.selectedDependencyKind) {
                 viewModel.scheduleAutosave(debounced: false)
             }
-            .onChange(of: viewModel.selectedEnergy) { _ in
+            .onChange(of: viewModel.selectedEnergy) {
                 viewModel.scheduleAutosave(debounced: false)
             }
-            .onChange(of: viewModel.selectedCategory) { _ in
+            .onChange(of: viewModel.selectedCategory) {
                 viewModel.scheduleAutosave(debounced: false)
             }
-            .onChange(of: viewModel.selectedContext) { _ in
+            .onChange(of: viewModel.selectedContext) {
                 viewModel.scheduleAutosave(debounced: false)
             }
-            .onChange(of: viewModel.estimatedDuration) { _ in
+            .onChange(of: viewModel.estimatedDuration) {
                 viewModel.scheduleAutosave(debounced: false)
             }
-            .onChange(of: viewModel.repeatPattern) { _ in
+            .onChange(of: viewModel.repeatPattern) {
                 viewModel.scheduleAutosave(debounced: false)
-            }
-            .onChange(of: viewModel.aiBreakdownSteps) { _, updated in
-                guard showBreakdownSheet else { return }
-                reconcileBreakdownSelection(with: updated)
             }
     }
 
@@ -199,6 +216,7 @@ struct TaskDetailSheetView: View {
                 destructiveSection
                 metadataFooter
             }
+            .taskerReadableContent(maxWidth: readableContentWidth, alignment: .center)
             .padding(.bottom, TaskerTheme.Spacing.xxxl)
         }
         .background(Color.tasker.bgCanvas)

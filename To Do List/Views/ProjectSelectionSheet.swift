@@ -42,7 +42,7 @@ struct ProjectSelectionSheet: View {
     }
 
     var body: some View {
-        NavigationView {
+        NavigationStack {
             ZStack {
                 if viewModel.isLoading {
                     ProgressView("Loading projects...")
@@ -53,6 +53,7 @@ struct ProjectSelectionSheet: View {
                     projectListView
                 }
             }
+            .taskerReadableContent(maxWidth: 760, alignment: .center)
             .navigationTitle("Select Projects")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

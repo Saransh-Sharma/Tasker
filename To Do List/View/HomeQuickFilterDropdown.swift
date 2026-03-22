@@ -18,6 +18,7 @@ public struct HomeQuickFilterDropdown: View {
     @ObservedObject var viewModel: HomeViewModel
     @Binding var isPresented: Bool
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.taskerLayoutClass) private var layoutClass
 
     let onShowDatePicker: () -> Void
     let onShowAdvancedFilters: () -> Void
@@ -49,40 +50,66 @@ public struct HomeQuickFilterDropdown: View {
     // MARK: - Body
 
     public var body: some View {
-        ZStack {
-            // Dimmed background
-            if isVisible {
-                LinearGradient(
-                    colors: [
-                        Color.tasker(.overlayScrim).opacity(0.18),
-                        Color.tasker(.overlayScrim).opacity(0.72)
-                    ],
-                    startPoint: .top,
-                    endPoint: .bottom
-                )
-                    .ignoresSafeArea()
-                    .transition(.opacity)
-                    .onTapGesture {
-                        dismissWithAnimation()
-                    }
-            }
-
-            VStack {
-                Spacer()
-
-                // Dropdown content
+        GeometryReader { geometry in
+            ZStack {
                 if isVisible {
-                    dropdownContent
-                        .transition(.move(edge: .bottom).combined(with: .opacity))
+                    LinearGradient(
+                        colors: [
+                            Color.tasker(.overlayScrim).opacity(0.18),
+                            Color.tasker(.overlayScrim).opacity(0.72)
+                        ],
+                        startPoint: .top,
+                        endPoint: .bottom
+                    )
+                        .ignoresSafeArea()
+                        .transition(.opacity)
+                        .onTapGesture {
+                            dismissWithAnimation()
+                        }
+                }
+
+                overlayContent(in: geometry)
+            }
+            .onAppear {
+                if reduceMotion {
+                    isVisible = true
+                } else {
+                    withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
+                        isVisible = true
+                    }
                 }
             }
         }
-        .onAppear {
-            if reduceMotion {
-                isVisible = true
-            } else {
-                withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
-                    isVisible = true
+    }
+
+    @ViewBuilder
+    private func overlayContent(in geometry: GeometryProxy) -> some View {
+        if layoutClass.isPad {
+            VStack {
+                Spacer()
+                HStack {
+                    Spacer(minLength: spacing.s20)
+                    if isVisible {
+                        dropdownContent(
+                            maxScrollableHeight: min(geometry.size.height * 0.55, 560),
+                            safeAreaBottom: geometry.safeAreaInsets.bottom
+                        )
+                        .frame(maxWidth: min(max(420, geometry.size.width * 0.42), 520))
+                        .transition(.move(edge: .trailing).combined(with: .opacity))
+                    }
+                }
+                .padding(.horizontal, spacing.screenHorizontal)
+                .padding(.bottom, geometry.safeAreaInsets.bottom + spacing.s16)
+            }
+        } else {
+            VStack {
+                Spacer()
+                if isVisible {
+                    dropdownContent(
+                        maxScrollableHeight: geometry.size.height * 0.6,
+                        safeAreaBottom: geometry.safeAreaInsets.bottom
+                    )
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
                 }
             }
         }
@@ -90,7 +117,7 @@ public struct HomeQuickFilterDropdown: View {
 
     // MARK: - Dropdown Content
 
-    private var dropdownContent: some View {
+    private func dropdownContent(maxScrollableHeight: CGFloat, safeAreaBottom: CGFloat) -> some View {
         TaskerFilterSheetContainer(
             horizontalPadding: spacing.s16,
             bottomPadding: safeAreaBottom + spacing.s16
@@ -117,7 +144,7 @@ public struct HomeQuickFilterDropdown: View {
                         advancedFiltersRow
                     }
                 }
-                .frame(maxHeight: screenHeight * 0.6)
+                .frame(maxHeight: maxScrollableHeight)
 
                 resetButton
             }
@@ -417,16 +444,6 @@ public struct HomeQuickFilterDropdown: View {
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
             isPresented = false
         }
-    }
-
-    private var screenHeight: CGFloat {
-        UIScreen.main.bounds.height
-    }
-
-    private var safeAreaBottom: CGFloat {
-        let scenes = UIApplication.shared.connectedScenes
-        let windowScene = scenes.first as? UIWindowScene
-        return windowScene?.windows.first?.safeAreaInsets.bottom ?? 0
     }
 }
 

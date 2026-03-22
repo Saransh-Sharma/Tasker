@@ -57,6 +57,7 @@ public struct QuickViewSelector: View {
                         }
                     }
                 }
+                .accessibilityIdentifier("home.focus.menu.option.\(quickView.rawValue)")
             }
 
             if onShowDatePicker != nil || onShowAdvancedFilters != nil || onResetFilters != nil {
@@ -68,6 +69,7 @@ public struct QuickViewSelector: View {
                         } label: {
                             Label("Select date...", systemImage: "calendar")
                         }
+                        .accessibilityIdentifier("home.focus.menu.datePicker")
                     }
 
                     if let onShowAdvancedFilters {
@@ -77,6 +79,7 @@ public struct QuickViewSelector: View {
                         } label: {
                             Label("Advanced filters", systemImage: "slider.horizontal.3")
                         }
+                        .accessibilityIdentifier("home.focus.menu.advanced")
                     }
 
                     if let onResetFilters {
@@ -86,6 +89,7 @@ public struct QuickViewSelector: View {
                         } label: {
                             Label("Reset filters", systemImage: "line.3.horizontal.decrease.circle")
                         }
+                        .accessibilityIdentifier("home.focus.menu.reset")
                     }
                 }
             }
@@ -142,6 +146,7 @@ public struct QuickViewSelector: View {
             .scaleOnPress()
         }
         .menuStyle(.borderlessButton)
+        .accessibilityIdentifier("home.focus.menu.button")
         .accessibilityLabel("Quick view selector: \(selectedQuickView.title)")
         .accessibilityHint("Double tap to change view")
     }
