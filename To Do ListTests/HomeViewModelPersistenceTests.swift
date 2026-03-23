@@ -74,11 +74,16 @@ final class HomeViewModelPersistenceTests: XCTestCase {
         waitForMainQueueFlush()
 
         XCTAssertEqual(viewModel.progressState.earnedXP, viewModel.dailyScore)
-        XCTAssertEqual(viewModel.progressState.remainingPotentialXP, viewModel.pointsPotential)
-        XCTAssertEqual(
-            viewModel.progressState.todayTargetXP,
-            viewModel.progressState.earnedXP + viewModel.progressState.remainingPotentialXP
-        )
+        if V2FeatureFlags.gamificationV2Enabled {
+            XCTAssertEqual(viewModel.progressState.remainingPotentialXP, max(0, viewModel.dailyXPCap - viewModel.dailyScore))
+            XCTAssertEqual(viewModel.progressState.todayTargetXP, viewModel.dailyXPCap)
+        } else {
+            XCTAssertEqual(viewModel.progressState.remainingPotentialXP, viewModel.pointsPotential)
+            XCTAssertEqual(
+                viewModel.progressState.todayTargetXP,
+                viewModel.progressState.earnedXP + viewModel.progressState.remainingPotentialXP
+            )
+        }
         XCTAssertEqual(viewModel.progressState.isStreakSafeToday, viewModel.progressState.earnedXP > 0)
 
         guard let openTask = viewModel.morningTasks.first else {
@@ -89,12 +94,59 @@ final class HomeViewModelPersistenceTests: XCTestCase {
         waitForMainQueueFlush()
 
         XCTAssertEqual(viewModel.progressState.earnedXP, viewModel.dailyScore)
-        XCTAssertEqual(viewModel.progressState.remainingPotentialXP, viewModel.pointsPotential)
-        XCTAssertEqual(
-            viewModel.progressState.todayTargetXP,
-            viewModel.progressState.earnedXP + viewModel.progressState.remainingPotentialXP
-        )
+        if V2FeatureFlags.gamificationV2Enabled {
+            XCTAssertEqual(viewModel.progressState.remainingPotentialXP, max(0, viewModel.dailyXPCap - viewModel.dailyScore))
+            XCTAssertEqual(viewModel.progressState.todayTargetXP, viewModel.dailyXPCap)
+        } else {
+            XCTAssertEqual(viewModel.progressState.remainingPotentialXP, viewModel.pointsPotential)
+            XCTAssertEqual(
+                viewModel.progressState.todayTargetXP,
+                viewModel.progressState.earnedXP + viewModel.progressState.remainingPotentialXP
+            )
+        }
         XCTAssertEqual(viewModel.progressState.isStreakSafeToday, viewModel.progressState.earnedXP > 0)
+
+        defaults.removePersistentDomain(forName: suiteName)
+    }
+
+    func testInsightsViewModelIsRetainedAcrossRequests() {
+        let suiteName = "HomeViewModelPersistenceTests.InsightsRetention.\(UUID().uuidString)"
+        guard let defaults = UserDefaults(suiteName: suiteName) else {
+            return XCTFail("Failed to create test UserDefaults suite")
+        }
+        defaults.removePersistentDomain(forName: suiteName)
+
+        let inbox = Project.createInbox()
+        let coordinator = UseCaseCoordinator(
+            taskRepository: HomeViewModelMockTaskRepository(tasks: [makeTask(name: "Task", project: inbox)]),
+            projectRepository: HomeViewModelMockProjectRepository(projects: [inbox])
+        )
+
+        let viewModel = HomeViewModel(useCaseCoordinator: coordinator, userDefaults: defaults)
+        waitForMainQueueFlush()
+
+        XCTAssertTrue(viewModel.makeInsightsViewModel() === viewModel.makeInsightsViewModel())
+
+        defaults.removePersistentDomain(forName: suiteName)
+    }
+
+    func testSearchViewModelIsRetainedAcrossRequests() {
+        let suiteName = "HomeViewModelPersistenceTests.SearchRetention.\(UUID().uuidString)"
+        guard let defaults = UserDefaults(suiteName: suiteName) else {
+            return XCTFail("Failed to create test UserDefaults suite")
+        }
+        defaults.removePersistentDomain(forName: suiteName)
+
+        let inbox = Project.createInbox()
+        let coordinator = UseCaseCoordinator(
+            taskRepository: HomeViewModelMockTaskRepository(tasks: [makeTask(name: "Task", project: inbox)]),
+            projectRepository: HomeViewModelMockProjectRepository(projects: [inbox])
+        )
+
+        let viewModel = HomeViewModel(useCaseCoordinator: coordinator, userDefaults: defaults)
+        waitForMainQueueFlush()
+
+        XCTAssertTrue(viewModel.makeHomeSearchViewModel() === viewModel.makeHomeSearchViewModel())
 
         defaults.removePersistentDomain(forName: suiteName)
     }
@@ -135,7 +187,11 @@ final class HomeViewModelPersistenceTests: XCTestCase {
 
         waitForMainQueueFlush()
 
-        XCTAssertEqual(viewModel.focusTasks.map(\.title), ["Overdue High", "Overdue Low", "Today High"])
+        if V2FeatureFlags.evaFocusEnabled {
+            XCTAssertEqual(viewModel.focusTasks.map(\.title), ["Today High", "Overdue High", "Today Low"])
+        } else {
+            XCTAssertEqual(viewModel.focusTasks.map(\.title), ["Overdue High", "Overdue Low", "Today High"])
+        }
 
         defaults.removePersistentDomain(forName: suiteName)
     }
@@ -232,7 +288,11 @@ final class HomeViewModelPersistenceTests: XCTestCase {
         waitForMainQueueFlush()
 
         XCTAssertEqual(viewModel.pinTaskToFocus(pinnedLow.id), .pinned)
-        XCTAssertEqual(viewModel.focusTasks.map(\.title), ["Pinned Low", "Overdue High", "Overdue Low"])
+        if V2FeatureFlags.evaFocusEnabled {
+            XCTAssertEqual(viewModel.focusTasks.map(\.title), ["Pinned Low", "Today High", "Overdue High"])
+        } else {
+            XCTAssertEqual(viewModel.focusTasks.map(\.title), ["Pinned Low", "Overdue High", "Overdue Low"])
+        }
 
         defaults.removePersistentDomain(forName: suiteName)
     }

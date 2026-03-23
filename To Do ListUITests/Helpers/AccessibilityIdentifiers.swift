@@ -78,6 +78,9 @@ enum AccessibilityIdentifiers {
 
     enum AddTask {
         static let view = "addTask.view"
+        static let modePicker = "addItem.modePicker"
+        static let modeTask = "addItem.mode.task"
+        static let modeHabit = "addItem.mode.habit"
         static let titleField = "addTask.titleField"
         static let descriptionField = "addTask.descriptionField"
         static let prioritySegmentedControl = "addTask.prioritySegmentedControl"

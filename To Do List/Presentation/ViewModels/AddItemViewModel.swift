@@ -16,6 +16,34 @@ public enum AddItemMode: String, CaseIterable, Identifiable {
     }
 }
 
+public enum AddItemModePolicy: Equatable {
+    case taskOnly
+    case habitOnly
+    case unified(defaultMode: AddItemMode = .task)
+
+    public var allowedModes: [AddItemMode] {
+        switch self {
+        case .taskOnly:
+            return [.task]
+        case .habitOnly:
+            return [.habit]
+        case .unified:
+            return AddItemMode.allCases
+        }
+    }
+
+    public var defaultMode: AddItemMode {
+        switch self {
+        case .taskOnly:
+            return .task
+        case .habitOnly:
+            return .habit
+        case .unified(let defaultMode):
+            return defaultMode
+        }
+    }
+}
+
 @MainActor
 public final class AddItemViewModel: ObservableObject {
     @Published public var selectedMode: AddItemMode
@@ -37,9 +65,16 @@ public final class AddItemViewModel: ObservableObject {
         self.selectedMode = self.allowedModes.contains(selectedMode) ? selectedMode : self.allowedModes[0]
 
         taskViewModel.objectWillChange
-            .merge(with: habitViewModel.objectWillChange)
             .sink { [weak self] _ in
-                self?.objectWillChange.send()
+                guard let self, self.selectedMode == .task else { return }
+                self.objectWillChange.send()
+            }
+            .store(in: &cancellables)
+
+        habitViewModel.objectWillChange
+            .sink { [weak self] _ in
+                guard let self, self.selectedMode == .habit else { return }
+                self.objectWillChange.send()
             }
             .store(in: &cancellables)
     }

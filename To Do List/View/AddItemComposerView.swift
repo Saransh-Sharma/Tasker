@@ -26,12 +26,10 @@ struct AddItemComposerView: View {
     var body: some View {
         VStack(spacing: 0) {
             if viewModel.showsModePicker {
-                Picker("Item Type", selection: $viewModel.selectedMode) {
-                    ForEach(viewModel.allowedModes) { mode in
-                        Text(mode.displayName).tag(mode)
-                    }
-                }
-                .pickerStyle(.segmented)
+                AddItemModeSwitcher(
+                    selectedMode: $viewModel.selectedMode,
+                    allowedModes: viewModel.allowedModes
+                )
                 .padding(.horizontal, spacing.s16)
                 .padding(.top, spacing.s8)
             }
@@ -62,5 +60,50 @@ struct AddItemComposerView: View {
             }
         }
         .taskerReadableContent(maxWidth: readableWidth, alignment: .center)
+    }
+}
+
+private struct AddItemModeSwitcher: View {
+    @Binding var selectedMode: AddItemMode
+    let allowedModes: [AddItemMode]
+
+    private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.currentTheme.tokens.spacing }
+
+    var body: some View {
+        HStack(spacing: spacing.s8) {
+            ForEach(allowedModes) { mode in
+                let isSelected = selectedMode == mode
+                Button {
+                    guard selectedMode != mode else { return }
+                    TaskerFeedback.selection()
+                    withAnimation(TaskerAnimation.snappy) {
+                        selectedMode = mode
+                    }
+                } label: {
+                    Text(mode.displayName)
+                        .font(.tasker(.callout).weight(.semibold))
+                        .foregroundStyle(isSelected ? Color.tasker.accentOnPrimary : Color.tasker.textSecondary)
+                        .frame(maxWidth: .infinity)
+                        .frame(minHeight: 40)
+                        .background(
+                            Capsule()
+                                .fill(isSelected ? Color.tasker.accentPrimary : Color.clear)
+                        )
+                }
+                .buttonStyle(.plain)
+                .scaleOnPress()
+                .accessibilityIdentifier("addItem.mode.\(mode.rawValue)")
+                .accessibilityLabel(mode.displayName)
+                .accessibilityAddTraits(isSelected ? [.isSelected] : [])
+            }
+        }
+        .padding(spacing.s4)
+        .taskerChromeSurface(
+            cornerRadius: TaskerTheme.CornerRadius.pill,
+            accentColor: Color.tasker.accentSecondary,
+            level: .e1
+        )
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("addItem.modePicker")
     }
 }

@@ -16,6 +16,8 @@ struct AddTaskCreateButton: View {
     let onCreateAction: () -> Void
     let onAddAnotherAction: () -> Void
 
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
     private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.currentTheme.tokens.spacing }
     private var corner: TaskerCornerTokens { TaskerThemeManager.shared.currentTheme.tokens.corner }
 
@@ -43,7 +45,7 @@ struct AddTaskCreateButton: View {
 
                     Text(isLoading ? "Creating..." : successFlash ? "Added!" : buttonTitle)
                         .font(.tasker(.button))
-                        .contentTransition(.numericText())
+                        .contentTransition(.opacity)
                 }
                 .foregroundColor(isEnabled ? Color.tasker.accentOnPrimary : Color.tasker.textQuaternary)
                 .frame(maxWidth: .infinity)
@@ -57,6 +59,13 @@ struct AddTaskCreateButton: View {
                                 : Color.tasker.surfaceSecondary
                         )
                 )
+                .overlay(
+                    RoundedRectangle(cornerRadius: corner.r2, style: .continuous)
+                        .stroke(
+                            successFlash ? Color.tasker.statusSuccess.opacity(0.28) : Color.tasker.strokeHairline.opacity(isEnabled ? 0 : 0.8),
+                            lineWidth: 1
+                        )
+                )
             }
             .buttonStyle(.plain)
             .taskerCTABezel(
@@ -67,10 +76,11 @@ struct AddTaskCreateButton: View {
                 isBusy: isLoading || successFlash,
                 showsWhenDisabled: false
             )
+            .taskerSuccessPulse(isActive: successFlash)
             .scaleOnPress()
             .disabled(!isEnabled || isLoading)
             .animation(TaskerAnimation.quick, value: isEnabled)
-            .animation(TaskerAnimation.bouncy, value: successFlash)
+            .animation(reduceMotion ? nil : TaskerAnimation.ctaConfirmation, value: successFlash)
             .animation(TaskerAnimation.quick, value: isLoading)
             .accessibilityIdentifier("addTask.createButton")
 

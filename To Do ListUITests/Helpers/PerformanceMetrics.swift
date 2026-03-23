@@ -9,6 +9,8 @@ import XCTest
 
 /// Performance metrics helper for measuring and asserting performance characteristics
 struct PerformanceMetrics {
+    static let taskerPerformanceSubsystem = "com.saransh1337.To-Do-List"
+    static let taskerPerformanceCategory = "performance"
 
     // MARK: - Performance Thresholds
 
@@ -54,21 +56,20 @@ struct PerformanceMetrics {
         app: XCUIApplication,
         testCase: XCTestCase
     ) -> TimeInterval {
-        let metrics: [XCTMetric] = [
-            XCTOSSignpostMetric.applicationLaunch
-        ]
+        let metrics: [XCTMetric] = [XCTApplicationLaunchMetric()]
+        var measuredDurations: [TimeInterval] = []
 
         let options = XCTMeasureOptions()
         options.iterationCount = 5
 
-        var launchTime: TimeInterval = 0
-
         testCase.measure(metrics: metrics, options: options) {
+            let start = Date()
             app.launch()
-            launchTime = Date().timeIntervalSince1970
+            measuredDurations.append(Date().timeIntervalSince(start))
         }
 
-        return launchTime
+        guard measuredDurations.isEmpty == false else { return 0 }
+        return measuredDurations.reduce(0, +) / Double(measuredDurations.count)
     }
 
     /// Measure block execution time
@@ -111,31 +112,28 @@ struct PerformanceMetrics {
         }
     }
 
-    /// Measure scroll performance (frame rate)
+    /// Measure scroll performance with signpost-backed metrics.
     static func measureScrollPerformance(
         scrollView: XCUIElement,
         testCase: XCTestCase,
         numberOfSwipes: Int = 10
     ) -> Double {
-        // Measure scroll execution time
-        let start = Date()
-
-        for _ in 0..<numberOfSwipes {
-            scrollView.swipeUp()
-            Thread.sleep(forTimeInterval: 0.1)
+        let options = XCTMeasureOptions()
+        options.iterationCount = 3
+        testCase.measure(metrics: [signpostMetric(named: "HomeTaskListScrollSession")], options: options) {
+            for _ in 0..<numberOfSwipes {
+                scrollView.swipeUp()
+            }
         }
+        return 0
+    }
 
-        let duration = Date().timeIntervalSince(start)
-
-        // Return estimated FPS based on smooth completion
-        // If scrolling completes within expected time, assume 60fps
-        let expectedDuration = Double(numberOfSwipes) * 0.1
-        let performanceRatio = expectedDuration / duration
-        let estimatedFPS = min(60.0, 60.0 * performanceRatio)
-
-        print("⏱ Scroll Performance: \(numberOfSwipes) swipes in \(String(format: "%.3f", duration))s (\(String(format: "%.1f", estimatedFPS)) fps)")
-
-        return estimatedFPS
+    static func signpostMetric(named name: String) -> XCTMetric {
+        XCTOSSignpostMetric(
+            subsystem: taskerPerformanceSubsystem,
+            category: taskerPerformanceCategory,
+            name: name
+        )
     }
 
     /// Measure memory usage

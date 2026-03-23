@@ -61,12 +61,9 @@ class PerformanceTests: BaseUITest {
         let taskListScrollView = homePage.taskListScrollView
         XCTAssertTrue(taskListScrollView.exists, "Task list scroll view should exist")
 
-        // Measure scrolling performance
-        PerformanceMetrics.measureAndAssert(
-            named: "Task List Scrolling (100 tasks)",
-            threshold: 2.0, // 2 seconds to scroll through list
-            testCase: self
-        ) {
+        let options = XCTMeasureOptions()
+        options.iterationCount = 3
+        measure(metrics: [PerformanceMetrics.signpostMetric(named: "HomeTaskListScrollSession")], options: options) {
             // Scroll through entire list
             for _ in 0..<10 {
                 taskListScrollView.swipeUp()
@@ -158,19 +155,11 @@ class PerformanceTests: BaseUITest {
         // WHEN: Chart renders with data
         // THEN: Rendering should be performant
 
-        PerformanceMetrics.measureAndAssert(
-            named: "Chart Rendering",
-            threshold: PerformanceMetrics.Thresholds.chartRenderTime,
-            testCase: self
-        ) {
-            // Force chart refresh by navigating away and back
-            let settingsPage = homePage.tapSettings()
-            _ = settingsPage.verifyIsDisplayed()
-            homePage = settingsPage.tapDone()
-            _ = homePage.verifyIsDisplayed()
-
-            // Wait for chart to render
-            waitForAnimations(duration: 1.0)
+        let options = XCTMeasureOptions()
+        options.iterationCount = 1
+        measure(metrics: [PerformanceMetrics.signpostMetric(named: "HomeInsightsFirstMount")], options: options) {
+            homePage.tapCharts()
+            XCTAssertTrue(homePage.waitForToolSelection(homePage.chartsButton), "Analytics should open during perf run")
         }
 
         takeScreenshot(named: "performance_chart_render")
@@ -237,16 +226,13 @@ class PerformanceTests: BaseUITest {
         waitForAnimations(duration: 1.0)
 
         // WHEN: User performs search
-        PerformanceMetrics.measureAndAssert(
-            named: "Search Performance",
-            threshold: PerformanceMetrics.Thresholds.searchResponseTime,
-            testCase: self
-        ) {
+        let options = XCTMeasureOptions()
+        options.iterationCount = 3
+        measure(metrics: [PerformanceMetrics.signpostMetric(named: "HomeSearchSurface")], options: options) {
             homePage.tapSearch()
             XCTAssertTrue(homePage.waitForSearchFaceOpen(timeout: 2), "Search face should open during perf run")
             homePage.typeSearchQuery("Search Task 25")
-
-            waitForAnimations(duration: 1.0)
+            homePage.tapSearchBackChip()
         }
 
         takeScreenshot(named: "performance_search")

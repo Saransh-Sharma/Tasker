@@ -122,6 +122,16 @@
             <fetchIndexElement property="isComplete" type="Binary" order="ascending"/>
             <fetchIndexElement property="dueDate" type="Binary" order="ascending"/>
         </fetchIndex>
+        <fetchIndex name="byCompletionDueDate">
+            <fetchIndexElement property="isComplete" type="Binary" order="ascending"/>
+            <fetchIndexElement property="dueDate" type="Binary" order="ascending"/>
+            <fetchIndexElement property="updatedAt" type="Binary" order="descending"/>
+        </fetchIndex>
+        <fetchIndex name="byCompletionDateCompleted">
+            <fetchIndexElement property="isComplete" type="Binary" order="ascending"/>
+            <fetchIndexElement property="dateCompleted" type="Binary" order="descending"/>
+            <fetchIndexElement property="updatedAt" type="Binary" order="descending"/>
+        </fetchIndex>
         <fetchIndex name="byParentTaskID"><fetchIndexElement property="parentTaskID" type="Binary" order="ascending"/></fetchIndex>
         <fetchIndex name="byUpdatedAt"><fetchIndexElement property="updatedAt" type="Binary" order="ascending"/></fetchIndex>
     </entity>

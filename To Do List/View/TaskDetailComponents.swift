@@ -133,6 +133,187 @@ struct PriorityBadge: View {
     }
 }
 
+// MARK: - Shared Status And Metric Components
+
+@MainActor
+enum TaskerStatusPillTone {
+    case accent
+    case neutral
+    case success
+    case warning
+    case danger
+    case quiet
+
+    var textColor: Color {
+        switch self {
+        case .accent:
+            return Color.tasker.accentPrimary
+        case .neutral:
+            return Color.tasker.textPrimary
+        case .success:
+            return Color.tasker.statusSuccess
+        case .warning:
+            return Color.tasker.statusWarning
+        case .danger:
+            return Color.tasker.statusDanger
+        case .quiet:
+            return Color.tasker.textSecondary
+        }
+    }
+
+    var fillColor: Color {
+        switch self {
+        case .accent:
+            return Color.tasker.accentWash
+        case .neutral:
+            return Color.tasker.surfacePrimary
+        case .success:
+            return Color.tasker.statusSuccess.opacity(0.12)
+        case .warning:
+            return Color.tasker.statusWarning.opacity(0.12)
+        case .danger:
+            return Color.tasker.statusDanger.opacity(0.12)
+        case .quiet:
+            return Color.tasker.surfaceSecondary
+        }
+    }
+
+    var strokeColor: Color {
+        switch self {
+        case .accent:
+            return Color.tasker.accentPrimary.opacity(0.2)
+        case .neutral:
+            return Color.tasker.strokeHairline.opacity(0.9)
+        case .success:
+            return Color.tasker.statusSuccess.opacity(0.22)
+        case .warning:
+            return Color.tasker.statusWarning.opacity(0.22)
+        case .danger:
+            return Color.tasker.statusDanger.opacity(0.22)
+        case .quiet:
+            return Color.tasker.strokeHairline.opacity(0.72)
+        }
+    }
+}
+
+struct TaskerStatusPill: View {
+    let text: String
+    var systemImage: String? = nil
+    var tone: TaskerStatusPillTone = .quiet
+
+    var body: some View {
+        HStack(spacing: 5) {
+            if let systemImage {
+                Image(systemName: systemImage)
+                    .font(.system(size: 10, weight: .semibold))
+            }
+            Text(text)
+                .lineLimit(1)
+        }
+        .font(.tasker(.caption2).weight(.semibold))
+        .foregroundStyle(tone.textColor)
+        .padding(.horizontal, 9)
+        .padding(.vertical, 6)
+        .background(tone.fillColor)
+        .overlay(
+            Capsule()
+                .stroke(tone.strokeColor, lineWidth: 1)
+        )
+        .clipShape(Capsule())
+    }
+}
+
+@MainActor
+enum TaskerHeroMetricTone {
+    case accent
+    case success
+    case warning
+    case neutral
+
+    var valueColor: Color {
+        switch self {
+        case .accent:
+            return Color.tasker.accentPrimary
+        case .success:
+            return Color.tasker.statusSuccess
+        case .warning:
+            return Color.tasker.statusWarning
+        case .neutral:
+            return Color.tasker.textPrimary
+        }
+    }
+
+    var fillColor: Color {
+        switch self {
+        case .accent:
+            return Color.tasker.accentWash.opacity(0.92)
+        case .success:
+            return Color.tasker.statusSuccess.opacity(0.12)
+        case .warning:
+            return Color.tasker.statusWarning.opacity(0.12)
+        case .neutral:
+            return Color.tasker.surfacePrimary.opacity(0.8)
+        }
+    }
+
+    var strokeColor: Color {
+        switch self {
+        case .accent:
+            return Color.tasker.accentPrimary.opacity(0.18)
+        case .success:
+            return Color.tasker.statusSuccess.opacity(0.18)
+        case .warning:
+            return Color.tasker.statusWarning.opacity(0.18)
+        case .neutral:
+            return Color.tasker.strokeHairline.opacity(0.72)
+        }
+    }
+}
+
+struct TaskerHeroMetricTile: View {
+    let title: String
+    let value: String
+    var detail: String? = nil
+    var tone: TaskerHeroMetricTone = .neutral
+    var accessibilityIdentifier: String? = nil
+
+    var body: some View {
+        let tile = VStack(alignment: .leading, spacing: 4) {
+            Text(title)
+                .font(.tasker(.caption2))
+                .foregroundStyle(Color.tasker.textTertiary)
+            Text(value)
+                .font(.tasker(.bodyEmphasis))
+                .foregroundStyle(tone.valueColor)
+                .lineLimit(1)
+                .minimumScaleFactor(0.78)
+                .monospacedDigit()
+                .contentTransition(.numericText())
+            if let detail, detail.isEmpty == false {
+                Text(detail)
+                    .font(.tasker(.caption2))
+                    .foregroundStyle(Color.tasker.textSecondary)
+                    .lineLimit(1)
+            }
+        }
+        .frame(maxWidth: .infinity, minHeight: 74, alignment: .leading)
+        .padding(.horizontal, TaskerTheme.Spacing.md)
+        .padding(.vertical, TaskerTheme.Spacing.sm)
+        .taskerDenseSurface(
+            cornerRadius: TaskerTheme.CornerRadius.md,
+            fillColor: tone.fillColor,
+            strokeColor: tone.strokeColor
+        )
+        .animation(TaskerAnimation.numericUpdate, value: value)
+
+        if let accessibilityIdentifier, accessibilityIdentifier.isEmpty == false {
+            tile.accessibilityIdentifier(accessibilityIdentifier)
+        } else {
+            tile
+        }
+    }
+}
+
 // MARK: - Detail Row
 
 /// Settings-style row with icon, label, value, and optional chevron.

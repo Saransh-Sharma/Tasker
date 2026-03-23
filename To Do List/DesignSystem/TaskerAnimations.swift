@@ -21,6 +21,10 @@ public enum TaskerAnimation {
     public static let heroReveal: Animation = .timingCurve(0.22, 1, 0.36, 1, duration: 0.36)
     public static let celebration: Animation = .timingCurve(0.22, 1, 0.36, 1, duration: 0.54)
     public static let gatewayReveal: Animation = .timingCurve(0.16, 1, 0.3, 1, duration: 0.38)
+    public static let exit: Animation = panelOut
+    public static let ctaConfirmation: Animation = .timingCurve(0.25, 1, 0.5, 1, duration: 0.32)
+    public static let numericUpdate: Animation = .timingCurve(0.22, 1, 0.36, 1, duration: 0.34)
+    public static let heroEmphasis: Animation = .timingCurve(0.16, 1, 0.3, 1, duration: 0.42)
 
     // Backward-compatible aliases
     public static let snappy: Animation = stateChange
@@ -281,6 +285,10 @@ public extension View {
     func bellShake(trigger: Binding<Bool>) -> some View {
         modifier(BellShake(trigger: trigger))
     }
+
+    func taskerSuccessPulse(isActive: Bool) -> some View {
+        modifier(TaskerSuccessPulse(isActive: isActive))
+    }
 }
 
 // MARK: - Bell Shake Modifier
@@ -307,6 +315,21 @@ public struct BellShake: ViewModifier {
                     }
                 }
             }
+    }
+}
+
+public struct TaskerSuccessPulse: ViewModifier {
+    let isActive: Bool
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    public func body(content: Content) -> some View {
+        content
+            .scaleEffect(isActive && !reduceMotion ? 1.015 : 1)
+            .shadow(
+                color: isActive ? Color.tasker.statusSuccess.opacity(reduceMotion ? 0.12 : 0.24) : .clear,
+                radius: isActive ? (reduceMotion ? 4 : 12) : 0
+            )
+            .animation(reduceMotion ? nil : TaskerAnimation.ctaConfirmation, value: isActive)
     }
 }
 

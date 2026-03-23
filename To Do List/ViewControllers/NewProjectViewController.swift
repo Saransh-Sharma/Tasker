@@ -169,7 +169,8 @@ class NewProjectViewController: UIViewController, UITextFieldDelegate, UseCaseCo
                             let vm = presentationDependencyContainer.makeNewAddTaskViewModel()
                             let sheet = AddTaskSheetView(
                                 viewModel: vm,
-                                habitViewModel: presentationDependencyContainer.makeNewAddHabitViewModel()
+                                habitViewModel: presentationDependencyContainer.makeNewAddHabitViewModel(),
+                                modePolicy: .unified(defaultMode: .task)
                             )
                             let hostingVC = UIHostingController(rootView: sheet)
                             hostingVC.modalPresentationStyle = .pageSheet

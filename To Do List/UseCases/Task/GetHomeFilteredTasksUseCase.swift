@@ -91,6 +91,7 @@ public final class GetHomeFilteredTasksUseCase {
 
         fetchHomeProjection(
             state: state,
+            scope: scope,
             readModel: readModel
         ) { [weak self] result in
             guard let self else { return }
@@ -154,25 +155,24 @@ public final class GetHomeFilteredTasksUseCase {
 
     private func fetchHomeProjection(
         state: HomeFilterState,
+        scope: HomeListScope,
         readModel: TaskReadModelRepositoryProtocol,
         completion: @escaping (Result<[TaskDefinition], Error>) -> Void
     ) {
-        let narrowedProjectID = state.selectedProjectIDs.count == 1 ? state.selectedProjectIDs.first : nil
         var accumulatedTasks: [TaskDefinition] = []
 
         func loadPage(offset: Int) {
-            readModel.fetchTasks(
-                query: TaskReadQuery(
-                    projectID: narrowedProjectID,
-                    includeCompleted: true,
-                    sortBy: .dueDateAscending,
+            readModel.fetchHomeProjection(
+                query: HomeProjectionQuery(
+                    state: state,
+                    scope: scope,
                     limit: exactProjectionPageSize,
                     offset: offset
                 )
             ) { result in
                 switch result {
                 case .success(let slice):
-                    let facetedBatch = self.applyProjectAndAdvancedFacets(slice.tasks, state: state)
+                    let facetedBatch = self.applyResidualAdvancedFacets(slice.tasks, state: state)
                     accumulatedTasks.append(contentsOf: facetedBatch)
 
                     let nextOffset = offset + slice.tasks.count
@@ -308,49 +308,13 @@ public final class GetHomeFilteredTasksUseCase {
         return data.base64EncodedString()
     }
 
-    /// Executes applyProjectAndAdvancedFacets.
-    private func applyProjectAndAdvancedFacets(_ tasks: [TaskDefinition], state: HomeFilterState) -> [TaskDefinition] {
-        let projectScoped: [TaskDefinition]
-        if state.selectedProjectIDs.isEmpty {
-            projectScoped = tasks
-        } else {
-            let selectedSet = state.selectedProjectIDSet
-            projectScoped = tasks.filter { selectedSet.contains($0.projectID) }
-        }
-
+    /// Executes applyResidualAdvancedFacets.
+    private func applyResidualAdvancedFacets(_ tasks: [TaskDefinition], state: HomeFilterState) -> [TaskDefinition] {
         guard let advanced = state.advancedFilter, !advanced.isEmpty else {
-            return projectScoped
+            return tasks
         }
 
-        return projectScoped.filter { task in
-            if !advanced.priorities.isEmpty && !advanced.priorities.contains(task.priority) {
-                return false
-            }
-
-            if !advanced.categories.isEmpty && !advanced.categories.contains(task.category) {
-                return false
-            }
-
-            if !advanced.contexts.isEmpty && !advanced.contexts.contains(task.context) {
-                return false
-            }
-
-            if !advanced.energyLevels.isEmpty && !advanced.energyLevels.contains(task.energy) {
-                return false
-            }
-
-            if let dateRange = advanced.dateRange {
-                guard let dueDate = task.dueDate else {
-                    return !advanced.requireDueDate
-                }
-
-                if dueDate < dateRange.start || dueDate > dateRange.end {
-                    return false
-                }
-            } else if advanced.requireDueDate && task.dueDate == nil {
-                return false
-            }
-
+        return tasks.filter { task in
             if !advanced.tags.isEmpty {
                 let requestedTagIDs = Set(
                     advanced.tags.compactMap { rawValue in
@@ -370,15 +334,6 @@ public final class GetHomeFilteredTasksUseCase {
                     if !requestedTagIDs.isSubset(of: taskTagIDs) {
                         return false
                     }
-                }
-            }
-
-            if let hasEstimate = advanced.hasEstimate {
-                if hasEstimate && task.estimatedDuration == nil {
-                    return false
-                }
-                if !hasEstimate && task.estimatedDuration != nil {
-                    return false
                 }
             }
 

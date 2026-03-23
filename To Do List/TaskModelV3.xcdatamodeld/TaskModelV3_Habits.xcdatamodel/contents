@@ -246,11 +246,6 @@
         <relationship name="templateRef" optional="YES" maxCount="1" deletionRule="Nullify" destinationEntity="ScheduleTemplate" inverseName="occurrences" inverseEntity="ScheduleTemplate"/>
         <relationship name="resolutions" optional="YES" toMany="YES" deletionRule="Cascade" destinationEntity="OccurrenceResolution" inverseName="occurrenceRef" inverseEntity="OccurrenceResolution"/>
         <relationship name="reminders" optional="YES" toMany="YES" deletionRule="Cascade" destinationEntity="Reminder" inverseName="occurrenceRef" inverseEntity="Reminder"/>
-        <uniquenessConstraints>
-            <uniquenessConstraint>
-                <constraint value="occurrenceKey"/>
-            </uniquenessConstraint>
-        </uniquenessConstraints>
         <fetchIndex name="byOccurrenceKey"><fetchIndexElement property="occurrenceKey" type="Binary" order="ascending"/></fetchIndex>
         <fetchIndex name="byTemplateScheduledState">
             <fetchIndexElement property="scheduleTemplateID" type="Binary" order="ascending"/>
@@ -347,11 +342,6 @@
         <attribute name="periodKey" optional="YES" attributeType="String"/>
         <attribute name="metadataBlob" optional="YES" attributeType="Binary"/>
         <relationship name="achievementUnlocks" optional="YES" toMany="YES" deletionRule="Nullify" destinationEntity="AchievementUnlock" inverseName="sourceEventRef" inverseEntity="AchievementUnlock"/>
-        <uniquenessConstraints>
-            <uniquenessConstraint>
-                <constraint value="idempotencyKey"/>
-            </uniquenessConstraint>
-        </uniquenessConstraints>
         <fetchIndex name="byIdempotencyKey"><fetchIndexElement property="idempotencyKey" type="Binary" order="ascending"/></fetchIndex>
         <fetchIndex name="byCreatedAt"><fetchIndexElement property="createdAt" type="Binary" order="ascending"/></fetchIndex>
         <fetchIndex name="byPeriodKey"><fetchIndexElement property="periodKey" type="Binary" order="ascending"/></fetchIndex>
@@ -371,11 +361,6 @@
         <attribute name="totalXP" optional="YES" attributeType="Integer 32" defaultValueString="0" usesScalarValueType="YES"/>
         <attribute name="eventCount" optional="YES" attributeType="Integer 32" defaultValueString="0" usesScalarValueType="YES"/>
         <attribute name="updatedAt" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
-        <uniquenessConstraints>
-            <uniquenessConstraint>
-                <constraint value="dateKey"/>
-            </uniquenessConstraint>
-        </uniquenessConstraints>
         <fetchIndex name="byDateKey"><fetchIndexElement property="dateKey" type="Binary" order="ascending"/></fetchIndex>
     </entity>
 

@@ -36,6 +36,7 @@ struct ChatView: View {
     @State private var showClearConfirmation = false
     @State private var projectLookupTask: _Concurrency.Task<Void, Never>?
     @State private var generationTask: _Concurrency.Task<Void, Never>?
+    @State private var activationFocusTask: _Concurrency.Task<Void, Never>?
     @State private var generationRunID: UUID?
     @State private var transcriptSnapshot: ChatTranscriptSnapshot = .empty
     @State private var pendingResponsePhase: ChatPendingResponsePhase = .idle
@@ -271,7 +272,7 @@ struct ChatView: View {
             }
         )
         .onAppear {
-            contextCoordinator.loadAttachments(for: currentThread?.id)
+            handleChatViewAppear()
         }
         .onChange(of: prompt) { _, newValue in
             handlePromptChanged(newValue)
@@ -284,48 +285,13 @@ struct ChatView: View {
             isProjectFieldFocused = true
         }
         .onChange(of: currentThread?.id) { _, _ in
-            refreshTranscriptSnapshot()
-            contextCoordinator.loadAttachments(for: currentThread?.id)
+            handleCurrentThreadChanged()
         }
         .onChange(of: isPromptFocused) { _, focused in
-            if focused {
-                Task { @MainActor in
-                    LLMRuntimeCoordinator.shared.acquireSession(reason: "chat_prompt_focus")
-                    LLMRuntimeCoordinator.shared.requestChatEntryPrewarm(
-                        trigger: "prompt_focus",
-                        delaySeconds: 0.5
-                    )
-                }
-            } else {
-                Task { @MainActor in
-                    LLMRuntimeCoordinator.shared.cancelDeferredPrewarm(reason: "chat_prompt_blur")
-                    LLMRuntimeCoordinator.shared.releaseSession(reason: "chat_prompt_focus")
-                }
-            }
-        }
-        .onAppear {
-            refreshTranscriptSnapshot()
-            consumePendingChatLaunchRequest()
-            Task { @MainActor in
-                LLMRuntimeCoordinator.shared.acquireSession(reason: "chat_view")
-                if isActivationPresentation {
-                    LLMRuntimeCoordinator.shared.requestChatEntryPrewarm(
-                        trigger: "activation_first_chat",
-                        delaySeconds: 0
-                    )
-                    try? await Task.sleep(nanoseconds: 300_000_000)
-                    guard generationTask == nil else { return }
-                    isPromptFocused = true
-                }
-            }
+            handlePromptFocusChanged(focused)
         }
         .onDisappear {
-            Task { @MainActor in
-                LLMRuntimeCoordinator.shared.cancelDeferredPrewarm(reason: "chat_view_disappear")
-                cancelActiveGeneration(reason: "chat_view_disappear")
-                LLMRuntimeCoordinator.shared.releaseSession(reason: "chat_prompt_focus")
-                LLMRuntimeCoordinator.shared.releaseSession(reason: "chat_view")
-            }
+            handleChatViewDisappear()
         }
         .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("TaskCreated"))) { _ in
             invalidateContextCacheForCurrentThread()
@@ -387,6 +353,66 @@ struct ChatView: View {
         prompt = starter.submissionText
         isPromptFocused = true
         generate()
+    }
+
+    @MainActor
+    private func handleChatViewAppear() {
+        refreshTranscriptSnapshot()
+        contextCoordinator.loadAttachments(for: currentThread?.id)
+        consumePendingChatLaunchRequest()
+        LLMRuntimeCoordinator.shared.acquireSession(reason: "chat_view")
+
+        guard isActivationPresentation else { return }
+        LLMRuntimeCoordinator.shared.requestChatEntryPrewarm(
+            trigger: "activation_first_chat",
+            delaySeconds: 0
+        )
+        activationFocusTask?.cancel()
+        activationFocusTask = _Concurrency.Task { @MainActor in
+            do {
+                try await _Concurrency.Task.sleep(nanoseconds: 300_000_000)
+            } catch {
+                return
+            }
+            guard generationTask == nil else { return }
+            isPromptFocused = true
+        }
+    }
+
+    @MainActor
+    private func handleChatViewDisappear() {
+        activationFocusTask?.cancel()
+        activationFocusTask = nil
+        projectLookupTask?.cancel()
+        LLMRuntimeCoordinator.shared.cancelDeferredPrewarm(reason: "chat_view_disappear")
+        cancelActiveGeneration(reason: "chat_view_disappear")
+        LLMRuntimeCoordinator.shared.releaseSession(reason: "chat_prompt_focus")
+        LLMRuntimeCoordinator.shared.releaseSession(reason: "chat_view")
+    }
+
+    @MainActor
+    private func handleCurrentThreadChanged() {
+        activationFocusTask?.cancel()
+        activationFocusTask = nil
+        projectLookupTask?.cancel()
+        cancelActiveGeneration(reason: "thread_changed")
+        refreshTranscriptSnapshot()
+        contextCoordinator.loadAttachments(for: currentThread?.id)
+    }
+
+    @MainActor
+    private func handlePromptFocusChanged(_ focused: Bool) {
+        if focused {
+            guard generationTask == nil else { return }
+            LLMRuntimeCoordinator.shared.acquireSession(reason: "chat_prompt_focus")
+            LLMRuntimeCoordinator.shared.requestChatEntryPrewarm(
+                trigger: "prompt_focus",
+                delaySeconds: 0.5
+            )
+        } else {
+            LLMRuntimeCoordinator.shared.cancelDeferredPrewarm(reason: "chat_prompt_blur")
+            LLMRuntimeCoordinator.shared.releaseSession(reason: "chat_prompt_focus")
+        }
     }
 
     private func handlePromptChanged(_ newValue: String) {
@@ -627,6 +653,9 @@ struct ChatView: View {
         generatingThreadID = thread.id
 
         let message = prompt
+        activationFocusTask?.cancel()
+        activationFocusTask = nil
+        projectLookupTask?.cancel()
         if generationTask != nil {
             cancelActiveGeneration(reason: "superseded_by_new_generation")
         }
@@ -736,6 +765,7 @@ struct ChatView: View {
     private func runStandardGeneration(message: String, thread: Thread, runID: UUID) async {
         let threadID = thread.id
         await MainActor.run {
+            LLMRuntimeCoordinator.shared.cancelDeferredPrewarm(reason: "chat_generation_started")
             LLMRuntimeCoordinator.shared.acquireSession(reason: "chat_generation")
         }
         defer {

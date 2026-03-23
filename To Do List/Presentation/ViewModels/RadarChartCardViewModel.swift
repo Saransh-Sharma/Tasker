@@ -32,8 +32,7 @@ public final class RadarChartCardViewModel: ObservableObject {
 
         let currentReferenceDate = referenceDate ?? Date.today()
         let week = calendar.daysWithSameWeekOfYear(as: currentReferenceDate)
-        guard let startOfWeek = week.first?.startOfDay,
-              let endOfWeek = week.last?.endOfDay else {
+        guard let startOfWeek = week.first?.startOfDay else {
             isLoading = false
             return
         }
@@ -103,7 +102,7 @@ public final class RadarChartCardViewModel: ObservableObject {
                     return
                 }
 
-                readModel.fetchProjectCompletionScoreTotals(from: startOfWeek, to: endOfWeek) { taskResult in
+                readModel.fetchWeekChartProjection(referenceDate: currentReferenceDate) { taskResult in
                     self.computeQueue.async {
                         switch taskResult {
                         case .failure(let error):
@@ -122,11 +121,11 @@ public final class RadarChartCardViewModel: ObservableObject {
                                 self.cachedWeekStart = nil
                                 self.isLoading = false
                             }
-                        case .success(let scoreByProjectID):
+                        case .success(let projection):
                             let sortedProjects = customProjects
                                 .sorted { lhs, rhs in
-                                    let lhsScore = scoreByProjectID[lhs.id, default: 0]
-                                    let rhsScore = scoreByProjectID[rhs.id, default: 0]
+                                    let lhsScore = projection.projectScores[lhs.id, default: 0]
+                                    let rhsScore = projection.projectScores[rhs.id, default: 0]
                                     if lhsScore == rhsScore {
                                         return lhs.name.localizedCaseInsensitiveCompare(rhs.name) == .orderedAscending
                                     }
@@ -136,7 +135,7 @@ public final class RadarChartCardViewModel: ObservableObject {
 
                             let labels = sortedProjects.map(\.name)
                             let data = sortedProjects.map { project in
-                                RadarChartDataEntry(value: Double(scoreByProjectID[project.id, default: 0]))
+                                RadarChartDataEntry(value: Double(projection.projectScores[project.id, default: 0]))
                             }
                             let hasCompletedTasks = data.contains(where: { $0.value > 0 })
 

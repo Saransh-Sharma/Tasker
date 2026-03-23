@@ -101,10 +101,52 @@ class LGSearchViewModel {
         let cacheKey = makeSearchCacheKey(query: query)
 
         if let cachedResults = filteredResultsCache[cacheKey] {
-            searchResults = cachedResults
-            lastEmittedSearchCacheKey = cacheKey
-            lastEmittedSearchTaskIDs = cachedResults.map(\.id)
-            dispatchSearchResults(cachedResults, revision: revision, requestID: requestID)
+            let groupedResults = groupedResultsCache[cacheKey] ?? groupPreparedTasksByProject(prepareTasks(cachedResults))
+            commitSearchResultsIfCurrent(
+                cachedResults,
+                groupedResults: groupedResults,
+                cacheKey: cacheKey,
+                revision: revision,
+                requestID: requestID
+            )
+            return
+        }
+
+        let selectedProjectIDs = selectedProjectIDsForRepository()
+        let canUseReadModelRepository = filteredProjects.isEmpty || selectedProjectIDs.isEmpty == false
+
+        if canUseReadModelRepository, let readModelRepository = useCaseCoordinator.taskReadModelRepository {
+            let repositoryQuery = TaskRepositorySearchQuery(
+                text: query,
+                status: repositorySearchStatus(for: currentStatusFilter),
+                projectIDs: selectedProjectIDs,
+                priorities: filteredPriorities.sorted(),
+                needsTotalCount: false,
+                limit: 600,
+                offset: 0
+            )
+            readModelRepository.searchTasks(query: repositoryQuery) { [weak self] result in
+                guard let self else { return }
+                switch result {
+                case .failure(let error):
+                    logError(
+                        event: "search_task_fetch_failed",
+                        message: "Failed to fetch tasks for search",
+                        fields: ["error": error.localizedDescription]
+                    )
+                    self.clearSearchResultsIfCurrent(revision: revision, requestID: requestID)
+                case .success(let slice):
+                    let filteredTasks = slice.tasks
+                    let groupedResults = self.groupPreparedTasksByProject(self.prepareTasks(filteredTasks))
+                    self.commitSearchResultsIfCurrent(
+                        filteredTasks,
+                        groupedResults: groupedResults,
+                        cacheKey: cacheKey,
+                        revision: revision,
+                        requestID: requestID
+                    )
+                }
+            }
             return
         }
 
@@ -122,13 +164,13 @@ class LGSearchViewModel {
             ) { [weak self] filteredPreparedTasks, groupedResults in
                 guard let self else { return }
                 let filteredTasks = filteredPreparedTasks.map(\.task)
-                self.searchResults = filteredTasks
-                self.filteredResultsCache[cacheKey] = filteredTasks
-                self.groupedResultsCache[cacheKey] = groupedResults
-                self.lastEmittedSearchCacheKey = cacheKey
-                self.lastEmittedSearchTaskIDs = filteredTasks.map(\.id)
-                self.pruneCachesIfNeeded()
-                self.dispatchSearchResults(filteredTasks, revision: revision, requestID: requestID)
+                self.commitSearchResultsIfCurrent(
+                    filteredTasks,
+                    groupedResults: groupedResults,
+                    cacheKey: cacheKey,
+                    revision: revision,
+                    requestID: requestID
+                )
             }
         }
     }
@@ -509,11 +551,37 @@ class LGSearchViewModel {
         revision: Int,
         requestID: Int
     ) {
+        guard requestID == latestSearchRequestID else { return }
+        onResultsUpdated?(results)
+        onResultsUpdatedWithRevision?(revision, results)
+    }
+
+    private func clearSearchResultsIfCurrent(revision: Int, requestID: Int) {
         DispatchQueue.main.async { [weak self] in
             guard let self else { return }
             guard requestID == self.latestSearchRequestID else { return }
-            self.onResultsUpdated?(results)
-            self.onResultsUpdatedWithRevision?(revision, results)
+            self.searchResults = []
+            self.dispatchSearchResults([], revision: revision, requestID: requestID)
+        }
+    }
+
+    private func commitSearchResultsIfCurrent(
+        _ filteredTasks: [TaskDefinition],
+        groupedResults: [(project: String, tasks: [TaskDefinition])],
+        cacheKey: SearchCacheKey,
+        revision: Int,
+        requestID: Int
+    ) {
+        DispatchQueue.main.async { [weak self] in
+            guard let self else { return }
+            guard requestID == self.latestSearchRequestID else { return }
+            self.searchResults = filteredTasks
+            self.filteredResultsCache[cacheKey] = filteredTasks
+            self.groupedResultsCache[cacheKey] = groupedResults
+            self.lastEmittedSearchCacheKey = cacheKey
+            self.lastEmittedSearchTaskIDs = filteredTasks.map(\.id)
+            self.pruneCachesIfNeeded()
+            self.dispatchSearchResults(filteredTasks, revision: revision, requestID: requestID)
         }
     }
 
@@ -525,6 +593,27 @@ class LGSearchViewModel {
             normalizedProjects: filteredProjects.map { $0.lowercased() }.sorted(),
             priorities: filteredPriorities.sorted()
         )
+    }
+
+    private func selectedProjectIDsForRepository() -> [UUID] {
+        guard filteredProjects.isEmpty == false else { return [] }
+        let selectedNames = Set(filteredProjects.map { $0.lowercased() })
+        return projects
+            .filter { selectedNames.contains($0.name.lowercased()) }
+            .map(\.id)
+    }
+
+    private func repositorySearchStatus(for status: StatusFilterType) -> TaskSearchStatus {
+        switch status {
+        case .all:
+            return .all
+        case .today:
+            return .today
+        case .overdue:
+            return .overdue
+        case .completed:
+            return .completed
+        }
     }
 
     private func fetchPreparedTasksForCurrentStatusFilter(

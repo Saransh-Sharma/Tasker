@@ -67,6 +67,102 @@ public struct TaskSearchQuery: Codable, Equatable, Hashable {
     }
 }
 
+public enum TaskSearchStatus: String, Codable, Equatable, Hashable {
+    case all
+    case today
+    case overdue
+    case completed
+}
+
+public struct TaskRepositorySearchQuery: Codable, Equatable, Hashable {
+    public var text: String
+    public var status: TaskSearchStatus
+    public var projectIDs: [UUID]
+    public var priorities: [Int32]
+    public var needsTotalCount: Bool
+    public var limit: Int
+    public var offset: Int
+
+    public init(
+        text: String,
+        status: TaskSearchStatus = .all,
+        projectIDs: [UUID] = [],
+        priorities: [Int32] = [],
+        needsTotalCount: Bool = false,
+        limit: Int = 100,
+        offset: Int = 0
+    ) {
+        self.text = text
+        self.status = status
+        self.projectIDs = projectIDs
+        self.priorities = priorities
+        self.needsTotalCount = needsTotalCount
+        self.limit = max(1, limit)
+        self.offset = max(0, offset)
+    }
+}
+
+public struct HomeProjectionQuery: Codable, Equatable {
+    public var state: HomeFilterState
+    public var scope: HomeListScope
+    public var limit: Int
+    public var offset: Int
+
+    public init(
+        state: HomeFilterState,
+        scope: HomeListScope,
+        limit: Int = 400,
+        offset: Int = 0
+    ) {
+        self.state = state
+        self.scope = scope
+        self.limit = max(1, limit)
+        self.offset = max(0, offset)
+    }
+}
+
+public struct InsightsTodayTaskProjection: Codable, Equatable, Hashable {
+    public let dueWindowTasks: [TaskDefinition]
+    public let recentTasks: [TaskDefinition]
+
+    public init(dueWindowTasks: [TaskDefinition], recentTasks: [TaskDefinition]) {
+        self.dueWindowTasks = dueWindowTasks
+        self.recentTasks = recentTasks
+    }
+}
+
+public struct InsightsWeekTaskProjection: Codable, Equatable, Hashable {
+    public let recentTasks: [TaskDefinition]
+    public let dueWindowTasks: [TaskDefinition]
+    public let projectScores: [UUID: Int]
+
+    public init(
+        recentTasks: [TaskDefinition],
+        dueWindowTasks: [TaskDefinition],
+        projectScores: [UUID: Int]
+    ) {
+        self.recentTasks = recentTasks
+        self.dueWindowTasks = dueWindowTasks
+        self.projectScores = projectScores
+    }
+}
+
+public struct WeekChartProjection: Codable, Equatable, Hashable {
+    public let weekStart: Date
+    public let dayScores: [Date: Int]
+    public let projectScores: [UUID: Int]
+
+    public init(
+        weekStart: Date,
+        dayScores: [Date: Int],
+        projectScores: [UUID: Int]
+    ) {
+        self.weekStart = weekStart
+        self.dayScores = dayScores
+        self.projectScores = projectScores
+    }
+}
+
 public struct TaskDefinitionSliceResult: Codable, Equatable, Hashable {
     public var tasks: [TaskDefinition]
     public var totalCount: Int

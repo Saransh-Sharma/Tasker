@@ -38,6 +38,30 @@ final class HomeSearchStateTests: XCTestCase {
         XCTAssertEqual(engine.searchInvocations.count, 2)
         XCTAssertEqual(engine.searchInvocations.map(\.revision), [1, 2])
     }
+
+    func testOlderSearchResultsDoNotOverrideNewerRevision() {
+        let state = HomeSearchState(debounceDelay: 0)
+        let engine = MockHomeSearchEngine()
+        engine.autoEmitResults = false
+
+        state.configureIfNeeded(
+            makeEngine: { engine },
+            dataRevisionProvider: { HomeDataRevision(rawValue: 1) }
+        )
+
+        state.activate()
+        state.query = "fresh"
+        state.refresh(immediate: true)
+
+        XCTAssertEqual(engine.searchInvocations.map(\.revision), [1, 2])
+
+        engine.onResultsUpdated?(1, [makeTask(title: "Stale")])
+        XCTAssertTrue(state.sections.isEmpty)
+
+        engine.onResultsUpdated?(2, [makeTask(title: "Fresh")])
+        XCTAssertEqual(state.sections.map(\.projectName), [ProjectConstants.inboxProjectName])
+        XCTAssertEqual(state.sections.first?.tasks.map(\.title), ["Fresh"])
+    }
 }
 
 @MainActor
@@ -46,10 +70,13 @@ private final class MockHomeSearchEngine: HomeSearchEngine {
     var projects: [Project] = []
     var searchInvocations: [(query: String, revision: Int)] = []
     var invalidatedRevisions: [Int] = []
+    var autoEmitResults = true
 
     func search(query: String, revision: Int) {
         searchInvocations.append((query, revision))
-        onResultsUpdated?(revision, [])
+        if autoEmitResults {
+            onResultsUpdated?(revision, [])
+        }
     }
 
     func loadProjects(completion: (() -> Void)?) {
@@ -71,6 +98,21 @@ private final class MockHomeSearchEngine: HomeSearchEngine {
     }
 
     func groupTasksByProject(_ tasks: [TaskDefinition]) -> [(project: String, tasks: [TaskDefinition])] {
-        []
+        Dictionary(grouping: tasks) { $0.projectName ?? ProjectConstants.inboxProjectName }
+            .map { (project: $0.key, tasks: $0.value) }
+            .sorted { $0.project < $1.project }
     }
+}
+
+private func makeTask(title: String) -> TaskDefinition {
+    Task(
+        id: UUID(),
+        projectID: ProjectConstants.inboxProjectID,
+        name: title,
+        priority: .medium,
+        dueDate: Date(),
+        project: ProjectConstants.inboxProjectName,
+        isComplete: false,
+        dateCompleted: nil
+    )
 }

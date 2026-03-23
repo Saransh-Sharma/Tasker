@@ -1,6 +1,40 @@
 import CoreData
 import Foundation
 
+fileprivate enum TaskerSplitPersistentStore: CaseIterable {
+    case cloudSync
+    case localOnly
+
+    var configurationName: String {
+        switch self {
+        case .cloudSync:
+            return "CloudSync"
+        case .localOnly:
+            return "LocalOnly"
+        }
+    }
+
+    var fileName: String {
+        switch self {
+        case .cloudSync:
+            return TaskerPersistentStoreLocationService.cloudStoreFileName
+        case .localOnly:
+            return TaskerPersistentStoreLocationService.localStoreFileName
+        }
+    }
+
+    var label: String {
+        switch self {
+        case .cloudSync:
+            return "cloudsync"
+        case .localOnly:
+            return "localonly"
+        }
+    }
+}
+
+private final class TaskerPersistentStoreBootstrapServiceBundleLocator {}
+
 struct TaskerPersistentStoreLocation: Equatable {
     let canonicalDirectoryURL: URL
     let legacyDirectoryURL: URL
@@ -103,6 +137,14 @@ final class TaskerPersistentStoreLocationService {
         return v3SplitStoreFileNames().map { location.canonicalDirectoryURL.appendingPathComponent($0) }
     }
 
+    fileprivate func activeV3StoreURLs(for store: TaskerSplitPersistentStore) -> [URL] {
+        let location = resolvedV3StoreLocation()
+        return storeFileURLs(
+            forFileName: store.fileName,
+            in: location.canonicalDirectoryURL
+        )
+    }
+
     func quarantineActiveV3StoreFiles(reason: String) throws -> URL? {
         let existingURLs = activeV3StoreURLs().filter { fileManager.fileExists(atPath: $0.path) }
         guard existingURLs.isEmpty == false else {
@@ -137,6 +179,43 @@ final class TaskerPersistentStoreLocationService {
         return backupDirectory
     }
 
+    fileprivate func quarantineActiveV3StoreFiles(
+        for store: TaskerSplitPersistentStore,
+        reason: String
+    ) throws -> URL? {
+        let existingURLs = activeV3StoreURLs(for: store).filter { fileManager.fileExists(atPath: $0.path) }
+        guard existingURLs.isEmpty == false else {
+            return nil
+        }
+
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyyMMdd-HHmmss"
+        formatter.timeZone = TimeZone(secondsFromGMT: 0)
+        let timestamp = formatter.string(from: Date())
+
+        let location = resolvedV3StoreLocation()
+        let backupRoot = location.canonicalDirectoryURL.appendingPathComponent(
+            "TaskerStoreQuarantine",
+            isDirectory: true
+        )
+        let backupDirectory = backupRoot.appendingPathComponent(
+            "\(timestamp)-\(store.label)-\(sanitizePathComponent(reason))",
+            isDirectory: true
+        )
+
+        try fileManager.createDirectory(
+            at: backupDirectory,
+            withIntermediateDirectories: true,
+            attributes: nil
+        )
+        for sourceURL in existingURLs {
+            let destinationURL = backupDirectory.appendingPathComponent(sourceURL.lastPathComponent)
+            try fileManager.moveItem(at: sourceURL, to: destinationURL)
+        }
+
+        return backupDirectory
+    }
+
     func clearActiveV3StoreFiles() {
         for fileURL in activeV3StoreURLs() where fileManager.fileExists(atPath: fileURL.path) {
             do {
@@ -151,6 +230,43 @@ final class TaskerPersistentStoreLocationService {
                     ]
                 )
             }
+        }
+    }
+
+    fileprivate func clearActiveV3StoreFiles(for store: TaskerSplitPersistentStore) {
+        for fileURL in activeV3StoreURLs(for: store) where fileManager.fileExists(atPath: fileURL.path) {
+            do {
+                try fileManager.removeItem(at: fileURL)
+            } catch {
+                logWarning(
+                    event: "v3_store_clear_after_quarantine_failed",
+                    message: "Failed to clear targeted V3 split store file after quarantine",
+                    fields: [
+                        "store": store.label,
+                        "file": fileURL.lastPathComponent,
+                        "error": error.localizedDescription
+                    ]
+                )
+            }
+        }
+    }
+
+    fileprivate func replaceStoreFiles(
+        for store: TaskerSplitPersistentStore,
+        withMigratedBaseURL migratedBaseURL: URL
+    ) throws {
+        let targetURLs = activeV3StoreURLs(for: store)
+        let migratedURLs = storeFileURLs(
+            forFileName: migratedBaseURL.lastPathComponent,
+            in: migratedBaseURL.deletingLastPathComponent()
+        )
+
+        for targetURL in targetURLs where fileManager.fileExists(atPath: targetURL.path) {
+            try fileManager.removeItem(at: targetURL)
+        }
+
+        for (sourceURL, destinationURL) in zip(migratedURLs, targetURLs) where fileManager.fileExists(atPath: sourceURL.path) {
+            try fileManager.moveItem(at: sourceURL, to: destinationURL)
         }
     }
 
@@ -230,6 +346,14 @@ final class TaskerPersistentStoreLocationService {
             detectedStoreConflict: false,
             migratedFileNames: migratedFileNames.sorted()
         )
+    }
+
+    private func storeFileURLs(forFileName fileName: String, in directoryURL: URL) -> [URL] {
+        [
+            fileName,
+            "\(fileName)-wal",
+            "\(fileName)-shm"
+        ].map { directoryURL.appendingPathComponent($0).standardizedFileURL }
     }
 
     private func uniqueURLs(for fileNames: [String], directories: [URL]) -> [URL] {
@@ -802,11 +926,22 @@ struct TaskerPersistentStoreBootstrapResult {
     let shouldMarkStoreEpoch: Bool
 }
 
+private struct TaskerStoreCompatibilityReport {
+    let store: TaskerSplitPersistentStore
+    let storeURL: URL
+    let metadataSummary: String
+    let destinationCompatible: Bool
+    let sourceCompatible: Bool
+    let fileExists: Bool
+}
+
 final class TaskerPersistentStoreBootstrapService {
     static let defaultCloudKitContainerIdentifier = "iCloud.TaskerCloudKitV3"
 
     private let expectedStoreConfigurations: Set<String>
     private let localOnlyConfiguration: Set<String>
+    private let cloudKitRuntimeContextProvider: () -> CloudKitRuntimeContext
+    private let enableCloudKitContainerOptions: Bool
     let storeLocationService: TaskerPersistentStoreLocationService
     let cloudKitContainerIdentifier: String
 
@@ -814,28 +949,34 @@ final class TaskerPersistentStoreBootstrapService {
         expectedStoreConfigurations: Set<String> = ["CloudSync", "LocalOnly"],
         localOnlyConfiguration: Set<String> = ["LocalOnly"],
         storeLocationService: TaskerPersistentStoreLocationService = TaskerPersistentStoreLocationService(),
-        cloudKitContainerIdentifier: String = TaskerPersistentStoreBootstrapService.defaultCloudKitContainerIdentifier
+        cloudKitContainerIdentifier: String = TaskerPersistentStoreBootstrapService.defaultCloudKitContainerIdentifier,
+        cloudKitRuntimeContextProvider: @escaping () -> CloudKitRuntimeContext = { .current() },
+        enableCloudKitContainerOptions: Bool = true
     ) {
         self.expectedStoreConfigurations = expectedStoreConfigurations
         self.localOnlyConfiguration = localOnlyConfiguration
         self.storeLocationService = storeLocationService
         self.cloudKitContainerIdentifier = cloudKitContainerIdentifier
+        self.cloudKitRuntimeContextProvider = cloudKitRuntimeContextProvider
+        self.enableCloudKitContainerOptions = enableCloudKitContainerOptions
     }
 
     func makeV3PersistentContainer() -> NSPersistentCloudKitContainer {
         let container = NSPersistentCloudKitContainer(name: "TaskModelV3")
-        let cloudKitMode = cloudKitMirroringMode()
+        let cloudKitMode = currentCloudKitMirroringMode()
 
         let location = storeLocationService.resolvedV3StoreLocation()
         let cloudURL = location.cloudStoreURL
         let localURL = location.localStoreURL
 
         let cloudDescription = NSPersistentStoreDescription(url: cloudURL)
-        cloudDescription.configuration = "CloudSync"
+        cloudDescription.configuration = TaskerSplitPersistentStore.cloudSync.configurationName
         if case .enabled = cloudKitMode {
-            cloudDescription.cloudKitContainerOptions = NSPersistentCloudKitContainerOptions(
-                containerIdentifier: cloudKitContainerIdentifier
-            )
+            if enableCloudKitContainerOptions {
+                cloudDescription.cloudKitContainerOptions = NSPersistentCloudKitContainerOptions(
+                    containerIdentifier: cloudKitContainerIdentifier
+                )
+            }
         } else {
             logWarning(
                 event: "cloudkit_mirroring_disabled",
@@ -852,7 +993,7 @@ final class TaskerPersistentStoreBootstrapService {
         cloudDescription.setOption(true as NSNumber, forKey: NSInferMappingModelAutomaticallyOption)
 
         let localDescription = NSPersistentStoreDescription(url: localURL)
-        localDescription.configuration = "LocalOnly"
+        localDescription.configuration = TaskerSplitPersistentStore.localOnly.configurationName
         localDescription.setOption(true as NSNumber, forKey: NSPersistentHistoryTrackingKey)
         localDescription.setOption(true as NSNumber, forKey: NSPersistentStoreRemoteChangeNotificationPostOptionKey)
         localDescription.setOption(true as NSNumber, forKey: NSMigratePersistentStoresAutomaticallyOption)
@@ -870,7 +1011,7 @@ final class TaskerPersistentStoreBootstrapService {
         let location = storeLocationService.resolvedV3StoreLocation()
         let localURL = location.localStoreURL
         let localDescription = NSPersistentStoreDescription(url: localURL)
-        localDescription.configuration = "LocalOnly"
+        localDescription.configuration = TaskerSplitPersistentStore.localOnly.configurationName
         localDescription.cloudKitContainerOptions = nil
         localDescription.setOption(true as NSNumber, forKey: NSPersistentHistoryTrackingKey)
         localDescription.setOption(true as NSNumber, forKey: NSPersistentStoreRemoteChangeNotificationPostOptionKey)
@@ -904,7 +1045,11 @@ final class TaskerPersistentStoreBootstrapService {
         return .enabled
     }
 
-    func bootstrapV3PersistentContainer() -> TaskerPersistentStoreBootstrapResult {
+    private func currentCloudKitMirroringMode() -> CloudKitMirroringMode {
+        cloudKitMirroringMode(context: cloudKitRuntimeContextProvider())
+    }
+
+    func bootstrapV3PersistentContainer() async -> TaskerPersistentStoreBootstrapResult {
         do {
             let migrationResult = try storeLocationService.prepareSharedStoreLocationForBootstrap()
             if migrationResult.didMigrateLegacyStore {
@@ -935,8 +1080,20 @@ final class TaskerPersistentStoreBootstrapService {
             )
         }
 
+        do {
+            try migrateSplitStoresIfNeeded()
+        } catch {
+            logError(
+                event: "persistent_store_preflight_migration_failed",
+                message: "Split-store schema preflight migration failed before bootstrap",
+                fields: [
+                    "error": error.localizedDescription
+                ]
+            )
+        }
+
         let initialContainer = makeV3PersistentContainer()
-        let initialReport = loadPersistentStoresAndReport(container: initialContainer, phase: "initial")
+        let initialReport = await loadPersistentStoresAndReport(container: initialContainer, phase: "initial")
         let initialHealthy = initialReport.errors.isEmpty && hasExpectedConfigurations(initialReport)
 
         if initialHealthy {
@@ -958,6 +1115,20 @@ final class TaskerPersistentStoreBootstrapService {
         }
 
         let missingConfigurations = expectedStoreConfigurations.subtracting(initialReport.loadedConfigurations)
+        let cloudKitMode = currentCloudKitMirroringMode()
+
+        if shouldAttemptCloudSyncStoreRebuild(
+            initialReport: initialReport,
+            cloudKitMode: cloudKitMode
+        ) {
+            unloadPersistentStores(initialContainer)
+            if let rebuiltResult = await attemptCloudSyncStoreRebuild() {
+                return rebuiltResult
+            }
+        } else {
+            unloadPersistentStores(initialContainer)
+        }
+
         logError(
             event: "persistent_store_bootstrap_split_failed",
             message: "Split CloudSync/LocalOnly bootstrap failed; entering write-closed fallback attempt",
@@ -969,9 +1140,8 @@ final class TaskerPersistentStoreBootstrapService {
             ]
         )
 
-        unloadPersistentStores(initialContainer)
         let writeClosedContainer = makeV3LocalOnlyWriteClosedContainer()
-        let writeClosedReport = loadPersistentStoresAndReport(
+        let writeClosedReport = await loadPersistentStoresAndReport(
             container: writeClosedContainer,
             phase: "write_closed_fallback"
         )
@@ -1043,66 +1213,339 @@ final class TaskerPersistentStoreBootstrapService {
         return "unknown_cloudsync_bootstrap_failure"
     }
 
+    private func shouldAttemptCloudSyncStoreRebuild(
+        initialReport: PersistentStoreLoadReport,
+        cloudKitMode: CloudKitMirroringMode
+    ) -> Bool {
+        guard case .enabled = cloudKitMode else {
+            return false
+        }
+        guard hasLocalOnlyConfiguration(initialReport) else {
+            return false
+        }
+        return initialReport.errors.contains(where: isIncompatibleStoreError)
+    }
+
+    private func attemptCloudSyncStoreRebuild() async -> TaskerPersistentStoreBootstrapResult? {
+        do {
+            let quarantineURL = try storeLocationService.quarantineActiveV3StoreFiles(
+                for: .cloudSync,
+                reason: "cloudsync_auto_rebuild"
+            )
+            storeLocationService.clearActiveV3StoreFiles(for: .cloudSync)
+            logWarning(
+                event: "persistent_store_cloudsync_auto_rebuild_started",
+                message: "Quarantined incompatible CloudSync store and is retrying split bootstrap",
+                fields: [
+                    "quarantine_dir": quarantineURL?.path ?? "none"
+                ]
+            )
+
+            let rebuiltContainer = makeV3PersistentContainer()
+            let rebuiltReport = await loadPersistentStoresAndReport(
+                container: rebuiltContainer,
+                phase: "cloudsync_auto_rebuild"
+            )
+            let rebuiltHealthy = rebuiltReport.errors.isEmpty && hasExpectedConfigurations(rebuiltReport)
+            guard rebuiltHealthy else {
+                unloadPersistentStores(rebuiltContainer)
+                logError(
+                    event: "persistent_store_cloudsync_auto_rebuild_failed",
+                    message: "CloudSync-only store rebuild did not restore split-store bootstrap",
+                    fields: [
+                        "loaded_configurations": rebuiltReport.loadedConfigurations.sorted().joined(separator: ","),
+                        "error_count": String(rebuiltReport.errors.count),
+                        "errors": rebuiltReport.errors.map { "\($0.domain):\($0.code)" }.joined(separator: ", ")
+                    ]
+                )
+                return nil
+            }
+
+            if Self.validateRuntimeSchema(in: rebuiltContainer.managedObjectModel) != nil {
+                unloadPersistentStores(rebuiltContainer)
+                return TaskerPersistentStoreBootstrapResult(
+                    state: .failed("Tasker's data model is out of date. Please reinstall or update the app."),
+                    syncMode: .writeClosed(reason: "persistent_store_schema_invalid"),
+                    syncModeSource: "bootstrap_cloudsync_auto_rebuild_schema_invalid",
+                    shouldMarkStoreEpoch: false
+                )
+            }
+
+            logWarning(
+                event: "persistent_store_cloudsync_auto_rebuild_succeeded",
+                message: "CloudSync-only store rebuild restored split-store bootstrap",
+                fields: [
+                    "loaded_configurations": rebuiltReport.loadedConfigurations.sorted().joined(separator: ",")
+                ]
+            )
+            return TaskerPersistentStoreBootstrapResult(
+                state: .ready(rebuiltContainer),
+                syncMode: .fullSync,
+                syncModeSource: "bootstrap_cloudsync_auto_rebuild",
+                shouldMarkStoreEpoch: true
+            )
+        } catch {
+            logError(
+                event: "persistent_store_cloudsync_auto_rebuild_quarantine_failed",
+                message: "Could not quarantine the incompatible CloudSync store before retry",
+                fields: [
+                    "error": error.localizedDescription
+                ]
+            )
+            return nil
+        }
+    }
+
+    private func migrateSplitStoresIfNeeded() throws {
+        let modelBundleURL = try taskModelBundleURL()
+        let sourceModel = try compiledTaskModel(
+            named: "TaskModelV3_Gamification.mom",
+            bundleURL: modelBundleURL
+        )
+        let destinationModel = try compiledTaskModel(
+            named: "TaskModelV3_Habits.mom",
+            bundleURL: modelBundleURL
+        )
+
+        for store in TaskerSplitPersistentStore.allCases {
+            let compatibility = compatibilityReport(
+                for: store,
+                sourceModel: sourceModel,
+                destinationModel: destinationModel
+            )
+
+            if compatibility.fileExists, compatibility.destinationCompatible || compatibility.sourceCompatible {
+                logWarning(
+                    event: "persistent_store_preflight_inspected",
+                    message: "Inspected split-store compatibility before bootstrap",
+                    fields: [
+                        "store": store.label,
+                        "configuration": store.configurationName,
+                        "url": compatibility.storeURL.absoluteString,
+                        "file_exists": String(compatibility.fileExists),
+                        "destination_compatible": String(compatibility.destinationCompatible),
+                        "source_compatible": String(compatibility.sourceCompatible),
+                        "metadata": compatibility.metadataSummary
+                    ]
+                )
+            }
+
+            guard compatibility.fileExists else { continue }
+            guard compatibility.destinationCompatible == false else { continue }
+            guard compatibility.sourceCompatible else { continue }
+
+            logWarning(
+                event: "persistent_store_preflight_migration_started",
+                message: "Migrating split store to the current TaskModelV3_Habits schema before bootstrap",
+                fields: [
+                    "store": store.label,
+                    "configuration": store.configurationName,
+                    "url": compatibility.storeURL.absoluteString
+                ]
+            )
+
+            let tempURL = compatibility.storeURL.deletingLastPathComponent()
+                .appendingPathComponent("\(compatibility.storeURL.lastPathComponent).migrating")
+            removeStoreArtifacts(at: tempURL)
+
+            let mappingModel = try NSMappingModel.inferredMappingModel(
+                forSourceModel: sourceModel,
+                destinationModel: destinationModel
+            )
+            let migrationManager = NSMigrationManager(
+                sourceModel: sourceModel,
+                destinationModel: destinationModel
+            )
+
+            do {
+                try migrationManager.migrateStore(
+                    from: compatibility.storeURL,
+                    sourceType: NSSQLiteStoreType,
+                    options: nil,
+                    with: mappingModel,
+                    toDestinationURL: tempURL,
+                    destinationType: NSSQLiteStoreType,
+                    destinationOptions: nil
+                )
+                try storeLocationService.replaceStoreFiles(for: store, withMigratedBaseURL: tempURL)
+                logWarning(
+                    event: "persistent_store_preflight_migration_succeeded",
+                    message: "Migrated split store to the current TaskModelV3_Habits schema before bootstrap",
+                    fields: [
+                        "store": store.label,
+                        "configuration": store.configurationName,
+                        "url": compatibility.storeURL.absoluteString
+                    ]
+                )
+            } catch {
+                removeStoreArtifacts(at: tempURL)
+                throw error
+            }
+        }
+    }
+
+    private func compatibilityReport(
+        for store: TaskerSplitPersistentStore,
+        sourceModel: NSManagedObjectModel,
+        destinationModel: NSManagedObjectModel
+    ) -> TaskerStoreCompatibilityReport {
+        let storeURL = storeLocationService.resolvedV3StoreLocation().canonicalDirectoryURL
+            .appendingPathComponent(store.fileName)
+        guard FileManager.default.fileExists(atPath: storeURL.path) else {
+            return TaskerStoreCompatibilityReport(
+                store: store,
+                storeURL: storeURL,
+                metadataSummary: "metadata_unavailable_missing_file",
+                destinationCompatible: false,
+                sourceCompatible: false,
+                fileExists: false
+            )
+        }
+
+        do {
+            let metadata = try NSPersistentStoreCoordinator.metadataForPersistentStore(
+                ofType: NSSQLiteStoreType,
+                at: storeURL,
+                options: nil
+            )
+            let destinationCompatible = destinationModel.isConfiguration(
+                withName: store.configurationName,
+                compatibleWithStoreMetadata: metadata
+            )
+            let sourceCompatible = sourceModel.isConfiguration(
+                withName: store.configurationName,
+                compatibleWithStoreMetadata: metadata
+            )
+            return TaskerStoreCompatibilityReport(
+                store: store,
+                storeURL: storeURL,
+                metadataSummary: persistentStoreMetadataSnippet(at: storeURL),
+                destinationCompatible: destinationCompatible,
+                sourceCompatible: sourceCompatible,
+                fileExists: true
+            )
+        } catch {
+            return TaskerStoreCompatibilityReport(
+                store: store,
+                storeURL: storeURL,
+                metadataSummary: "metadata_unavailable_\(error.localizedDescription)",
+                destinationCompatible: false,
+                sourceCompatible: false,
+                fileExists: true
+            )
+        }
+    }
+
+    private func taskModelBundleURL() throws -> URL {
+        let bundles = [Bundle.main, Bundle(for: TaskerPersistentStoreBootstrapServiceBundleLocator.self)]
+        for bundle in bundles {
+            if let url = bundle.url(forResource: "TaskModelV3", withExtension: "momd") {
+                return url
+            }
+        }
+
+        throw NSError(
+            domain: "TaskerPersistentStoreBootstrapService.Model",
+            code: 2,
+            userInfo: [
+                NSLocalizedDescriptionKey: "Unable to locate TaskModelV3.momd"
+            ]
+        )
+    }
+
+    private func compiledTaskModel(
+        named fileName: String,
+        bundleURL: URL
+    ) throws -> NSManagedObjectModel {
+        let modelURL = bundleURL.appendingPathComponent(fileName)
+        guard let model = NSManagedObjectModel(contentsOf: modelURL) else {
+            throw NSError(
+                domain: "TaskerPersistentStoreBootstrapService.Model",
+                code: 3,
+                userInfo: [
+                    NSLocalizedDescriptionKey: "Unable to load compiled model \(fileName)"
+                ]
+            )
+        }
+        return model
+    }
+
+    private func removeStoreArtifacts(at baseURL: URL) {
+        let fileManager = FileManager.default
+        let candidates = [
+            baseURL,
+            URL(fileURLWithPath: baseURL.path + "-wal"),
+            URL(fileURLWithPath: baseURL.path + "-shm")
+        ]
+
+        for candidate in candidates where fileManager.fileExists(atPath: candidate.path) {
+            try? fileManager.removeItem(at: candidate)
+        }
+    }
+
     private func loadPersistentStoresAndReport(
         container: NSPersistentCloudKitContainer,
         phase: String
-    ) -> PersistentStoreLoadReport {
+    ) async -> PersistentStoreLoadReport {
         let descriptions = container.persistentStoreDescriptions
         guard descriptions.isEmpty == false else {
             return PersistentStoreLoadReport(loadedConfigurations: [], errors: [])
         }
         let expectedConfigurations = Set(descriptions.compactMap(\.configuration))
 
-        let group = DispatchGroup()
-        let lock = NSLock()
-        var loadedConfigurations = Set<String>()
-        var loadErrors: [NSError] = []
+        return await withCheckedContinuation { continuation in
+            let lock = NSLock()
+            var loadedConfigurations = Set<String>()
+            var loadErrors: [NSError] = []
+            var remainingCallbacks = descriptions.count
 
-        descriptions.forEach { _ in group.enter() }
-        container.loadPersistentStores { storeDescription, error in
-            defer { group.leave() }
+            container.loadPersistentStores { storeDescription, error in
+                var completedReport: PersistentStoreLoadReport?
 
-            lock.lock()
-            defer { lock.unlock() }
+                lock.lock()
+                if let error = error as NSError? {
+                    loadErrors.append(error)
 
-            if let error = error as NSError? {
-                loadErrors.append(error)
+                    let configuration = storeDescription.configuration ?? "unknown"
+                    let missingConfigurations = expectedConfigurations.subtracting(loadedConfigurations)
+                    let underlyingSummary = self.underlyingCoreDataErrorSummary(error)
+                    let detailedSummary = self.detailedCoreDataErrorsSummary(error)
+                    let metadataSummary = self.persistentStoreMetadataSnippet(at: storeDescription.url)
+                    logError(
+                        event: "persistent_store_load_failed",
+                        message: "V3 persistent store failed to load",
+                        fields: [
+                            "phase": phase,
+                            "url": storeDescription.url?.absoluteString ?? "unknown",
+                            "configuration": configuration,
+                            "domain": error.domain,
+                            "code": String(error.code),
+                            "error": error.localizedDescription,
+                            "underlying_error": underlyingSummary,
+                            "detailed_errors": detailedSummary,
+                            "metadata": metadataSummary,
+                            "loaded_configurations": loadedConfigurations.sorted().joined(separator: ","),
+                            "missing_configurations": missingConfigurations.sorted().joined(separator: ",")
+                        ]
+                    )
+                } else if let configuration = storeDescription.configuration {
+                    loadedConfigurations.insert(configuration)
+                }
 
-                let configuration = storeDescription.configuration ?? "unknown"
-                let missingConfigurations = expectedConfigurations.subtracting(loadedConfigurations)
-                let underlyingSummary = self.underlyingCoreDataErrorSummary(error)
-                let detailedSummary = self.detailedCoreDataErrorsSummary(error)
-                let metadataSummary = self.persistentStoreMetadataSnippet(at: storeDescription.url)
-                logError(
-                    event: "persistent_store_load_failed",
-                    message: "V3 persistent store failed to load",
-                    fields: [
-                        "phase": phase,
-                        "url": storeDescription.url?.absoluteString ?? "unknown",
-                        "configuration": configuration,
-                        "domain": error.domain,
-                        "code": String(error.code),
-                        "error": error.localizedDescription,
-                        "underlying_error": underlyingSummary,
-                        "detailed_errors": detailedSummary,
-                        "metadata": metadataSummary,
-                        "loaded_configurations": loadedConfigurations.sorted().joined(separator: ","),
-                        "missing_configurations": missingConfigurations.sorted().joined(separator: ",")
-                    ]
-                )
-                return
-            }
+                remainingCallbacks -= 1
+                if remainingCallbacks == 0 {
+                    completedReport = PersistentStoreLoadReport(
+                        loadedConfigurations: loadedConfigurations,
+                        errors: loadErrors
+                    )
+                }
+                lock.unlock()
 
-            if let configuration = storeDescription.configuration {
-                loadedConfigurations.insert(configuration)
+                if let completedReport {
+                    continuation.resume(returning: completedReport)
+                }
             }
         }
-        group.wait()
-
-        return PersistentStoreLoadReport(
-            loadedConfigurations: loadedConfigurations,
-            errors: loadErrors
-        )
     }
 
     private func persistentStoreMetadataSnippet(at url: URL?) -> String {

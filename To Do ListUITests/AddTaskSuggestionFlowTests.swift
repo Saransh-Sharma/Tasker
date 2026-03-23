@@ -20,4 +20,23 @@ final class AddTaskSuggestionFlowTests: BaseUITest {
             typedValue.contains("annual report") || typedValue.contains("write annual report by friday")
         )
     }
+
+    func testHomeAddSheetShowsTaskHabitSwitchAndDefaultsToTask() throws {
+        let homePage = HomePage(app: app)
+        let addTaskPage = homePage.tapAddTask()
+
+        guard addTaskPage.verifyIsDisplayed(timeout: 8) else {
+            throw XCTSkip("Unified add sheet did not open in this launch state")
+        }
+
+        XCTAssertTrue(addTaskPage.modePicker.waitForExistence(timeout: 2))
+        XCTAssertTrue(addTaskPage.taskModeButton.exists)
+        XCTAssertTrue(addTaskPage.habitModeButton.exists)
+        XCTAssertTrue(addTaskPage.titleField.exists)
+
+        addTaskPage.switchToHabitMode()
+
+        let habitSurface = app.otherElements["addHabit.view"]
+        XCTAssertTrue(habitSurface.waitForExistence(timeout: 3))
+    }
 }

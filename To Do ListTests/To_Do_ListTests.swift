@@ -624,6 +624,197 @@ final class HabitCoreDataSchemaRegressionTests: XCTestCase {
         unloadPersistentStores(from: migratedContainer)
     }
 
+    func testBootstrapMigratesLegacySplitStoresAndReturnsFullSync() async throws {
+        let rootURL = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
+        let appGroupURL = rootURL.appendingPathComponent("app-group", isDirectory: true)
+        let legacyURL = rootURL.appendingPathComponent("legacy", isDirectory: true)
+        try FileManager.default.createDirectory(at: appGroupURL, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: legacyURL, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: rootURL) }
+
+        let locationService = TaskerPersistentStoreLocationService(
+            fileManager: .default,
+            appGroupContainerURLProvider: { appGroupURL },
+            legacyStoreDirectoryURLProvider: { legacyURL }
+        )
+        let legacyModel = try compiledTaskModelVersion(named: "TaskModelV3_Gamification.mom")
+        let currentModel = try currentCompiledTaskModel()
+        let cloudURL = appGroupURL.appendingPathComponent(TaskerPersistentStoreLocationService.cloudStoreFileName)
+        let localURL = appGroupURL.appendingPathComponent(TaskerPersistentStoreLocationService.localStoreFileName)
+
+        let legacyCloud = try makeConfiguredContainer(
+            name: "TaskModelV3",
+            model: legacyModel,
+            storeType: NSSQLiteStoreType,
+            url: cloudURL,
+            configuration: "CloudSync"
+        )
+        legacyCloud.viewContext.performAndWait {
+            let object = NSEntityDescription.insertNewObject(forEntityName: "HabitDefinition", into: legacyCloud.viewContext)
+            object.setValue(UUID(), forKey: "id")
+            object.setValue(UUID(), forKey: "lifeAreaID")
+            object.setValue("Legacy split-store habit", forKey: "title")
+            object.setValue("check_in", forKey: "habitType")
+            object.setValue(false, forKey: "isPaused")
+            object.setValue(Int32(0), forKey: "streakCurrent")
+            object.setValue(Int32(0), forKey: "streakBest")
+            object.setValue(Date(timeIntervalSince1970: 1_704_067_200), forKey: "createdAt")
+            object.setValue(Date(timeIntervalSince1970: 1_704_067_200), forKey: "updatedAt")
+            try? legacyCloud.viewContext.save()
+        }
+        unloadPersistentStores(from: legacyCloud)
+
+        let currentLocal = try makeConfiguredContainer(
+            name: "TaskModelV3",
+            model: currentModel,
+            storeType: NSSQLiteStoreType,
+            url: localURL,
+            configuration: "LocalOnly"
+        )
+        currentLocal.viewContext.performAndWait {
+            let profile = NSEntityDescription.insertNewObject(forEntityName: "GamificationProfile", into: currentLocal.viewContext)
+            profile.setValue(UUID(), forKey: "id")
+            profile.setValue(Int64(42), forKey: "xpTotal")
+            profile.setValue(Int32(3), forKey: "level")
+            profile.setValue(Date(timeIntervalSince1970: 1_704_067_200), forKey: "updatedAt")
+            try? currentLocal.viewContext.save()
+        }
+        unloadPersistentStores(from: currentLocal)
+
+        let service = TaskerPersistentStoreBootstrapService(
+            storeLocationService: locationService,
+            cloudKitRuntimeContextProvider: { CloudKitRuntimeContext(environment: [:], arguments: [], isSimulator: false) },
+            enableCloudKitContainerOptions: false
+        )
+
+        let result = await service.bootstrapV3PersistentContainer()
+        guard case let .ready(container) = result.state else {
+            XCTFail("Expected ready persistent bootstrap state")
+            return
+        }
+
+        XCTAssertEqual(result.syncMode, .fullSync)
+
+        let habitRequest = NSFetchRequest<NSManagedObject>(entityName: "HabitDefinition")
+        XCTAssertEqual(try container.viewContext.count(for: habitRequest), 1)
+
+        let profileRequest = NSFetchRequest<NSManagedObject>(entityName: "GamificationProfile")
+        XCTAssertEqual(try container.viewContext.count(for: profileRequest), 1)
+        unloadPersistentStores(from: container)
+    }
+
+    func testBootstrapAutoRebuildsOnlyCloudSyncStoreWhenMetadataIsIncompatible() async throws {
+        let rootURL = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
+        let appGroupURL = rootURL.appendingPathComponent("app-group", isDirectory: true)
+        let legacyURL = rootURL.appendingPathComponent("legacy", isDirectory: true)
+        try FileManager.default.createDirectory(at: appGroupURL, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: legacyURL, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: rootURL) }
+
+        let locationService = TaskerPersistentStoreLocationService(
+            fileManager: .default,
+            appGroupContainerURLProvider: { appGroupURL },
+            legacyStoreDirectoryURLProvider: { legacyURL }
+        )
+        let currentModel = try currentCompiledTaskModel()
+        let cloudURL = appGroupURL.appendingPathComponent(TaskerPersistentStoreLocationService.cloudStoreFileName)
+        let localURL = appGroupURL.appendingPathComponent(TaskerPersistentStoreLocationService.localStoreFileName)
+
+        let incompatibleCloud = try makeContainer(
+            name: "TaskModelV3",
+            model: currentModel,
+            storeType: NSSQLiteStoreType,
+            url: cloudURL
+        )
+        incompatibleCloud.viewContext.performAndWait {
+            let task = NSEntityDescription.insertNewObject(forEntityName: "TaskDefinition", into: incompatibleCloud.viewContext)
+            task.setValue(UUID(), forKey: "id")
+            task.setValue("Wrong topology", forKey: "title")
+            task.setValue(Date(timeIntervalSince1970: 1_704_067_200), forKey: "createdAt")
+            task.setValue(Date(timeIntervalSince1970: 1_704_067_200), forKey: "updatedAt")
+            try? incompatibleCloud.viewContext.save()
+        }
+        unloadPersistentStores(from: incompatibleCloud)
+
+        let currentLocal = try makeConfiguredContainer(
+            name: "TaskModelV3",
+            model: currentModel,
+            storeType: NSSQLiteStoreType,
+            url: localURL,
+            configuration: "LocalOnly"
+        )
+        currentLocal.viewContext.performAndWait {
+            let profile = NSEntityDescription.insertNewObject(forEntityName: "GamificationProfile", into: currentLocal.viewContext)
+            profile.setValue(UUID(), forKey: "id")
+            profile.setValue(Int64(84), forKey: "xpTotal")
+            profile.setValue(Int32(4), forKey: "level")
+            profile.setValue(Date(timeIntervalSince1970: 1_704_067_200), forKey: "updatedAt")
+            try? currentLocal.viewContext.save()
+        }
+        unloadPersistentStores(from: currentLocal)
+
+        let service = TaskerPersistentStoreBootstrapService(
+            storeLocationService: locationService,
+            cloudKitRuntimeContextProvider: { CloudKitRuntimeContext(environment: [:], arguments: [], isSimulator: false) },
+            enableCloudKitContainerOptions: false
+        )
+
+        let result = await service.bootstrapV3PersistentContainer()
+        guard case let .ready(container) = result.state else {
+            XCTFail("Expected ready persistent bootstrap state after CloudSync rebuild")
+            return
+        }
+
+        XCTAssertEqual(result.syncMode, .fullSync)
+        let rebuiltTaskRequest = NSFetchRequest<NSManagedObject>(entityName: "TaskDefinition")
+        rebuiltTaskRequest.predicate = NSPredicate(format: "title == %@", "Wrong topology")
+        XCTAssertEqual(try container.viewContext.count(for: rebuiltTaskRequest), 0)
+        let profileRequest = NSFetchRequest<NSManagedObject>(entityName: "GamificationProfile")
+        XCTAssertEqual(try container.viewContext.count(for: profileRequest), 1)
+        XCTAssertTrue(FileManager.default.fileExists(atPath: cloudURL.path))
+        unloadPersistentStores(from: container)
+    }
+
+    func testWriteClosedLaunchSkipsStartupMutationWorkflows() throws {
+        let appDelegateSource = try workspaceFileContents("To Do List/AppDelegate.swift")
+        XCTAssertTrue(
+            appDelegateSource.contains("if shouldRunStartupMutationWorkflows {"),
+            "setupCleanArchitecture should gate startup mutation workflows behind shouldRunStartupMutationWorkflows"
+        )
+        XCTAssertTrue(
+            appDelegateSource.contains("private var shouldRunStartupMutationWorkflows: Bool"),
+            "AppDelegate should expose a dedicated write-closed startup gate"
+        )
+        XCTAssertTrue(
+            appDelegateSource.contains("guard shouldRunStartupMutationWorkflows else {"),
+            "Habit runtime maintenance should fail closed while the app is write-closed"
+        )
+    }
+
+    func testCurrentCloudSyncModelAvoidsUniquenessConstraintsOnSyncableEntities() throws {
+        let model = try currentCompiledTaskModel()
+        let constrainedEntities = ["Occurrence"]
+
+        for entityName in constrainedEntities {
+            let entity = try XCTUnwrap(
+                model.entitiesByName[entityName],
+                "Expected \(entityName) to exist in the current TaskModelV3"
+            )
+            XCTAssertTrue(
+                entity.uniquenessConstraints.isEmpty,
+                "\(entityName) must not declare uniqueness constraints because CloudSync bootstrap uses NSPersistentCloudKitContainer"
+            )
+        }
+    }
+
+    private func workspaceFileContents(_ relativePath: String) throws -> String {
+        let fileURL = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .appendingPathComponent(relativePath)
+        return try String(contentsOf: fileURL, encoding: .utf8)
+    }
+
     private func currentCompiledTaskModel() throws -> NSManagedObjectModel {
         let momdURL = try taskModelBundleURL()
         guard let model = NSManagedObjectModel(contentsOf: momdURL) else {
@@ -671,6 +862,32 @@ final class HabitCoreDataSchemaRegressionTests: XCTestCase {
         if let url {
             description.url = url
         }
+        container.persistentStoreDescriptions = [description]
+
+        var loadError: Error?
+        container.loadPersistentStores { _, error in
+            loadError = error
+        }
+        if let loadError {
+            throw loadError
+        }
+        return container
+    }
+
+    private func makeConfiguredContainer(
+        name: String,
+        model: NSManagedObjectModel,
+        storeType: String,
+        url: URL,
+        configuration: String
+    ) throws -> NSPersistentContainer {
+        let container = NSPersistentContainer(name: name, managedObjectModel: model)
+        let description = NSPersistentStoreDescription(url: url)
+        description.type = storeType
+        description.configuration = configuration
+        description.shouldAddStoreAsynchronously = false
+        description.shouldMigrateStoreAutomatically = true
+        description.shouldInferMappingModelAutomatically = true
         container.persistentStoreDescriptions = [description]
 
         var loadError: Error?

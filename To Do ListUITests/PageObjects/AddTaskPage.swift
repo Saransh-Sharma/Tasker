@@ -46,6 +46,18 @@ class AddTaskPage {
         return field
     }
 
+    var modePicker: XCUIElement {
+        app.otherElements[AccessibilityIdentifiers.AddTask.modePicker]
+    }
+
+    var taskModeButton: XCUIElement {
+        app.buttons[AccessibilityIdentifiers.AddTask.modeTask]
+    }
+
+    var habitModeButton: XCUIElement {
+        app.buttons[AccessibilityIdentifiers.AddTask.modeHabit]
+    }
+
     var descriptionField: XCUIElement {
         // Try accessibility identifier first
         var field = app.textViews[AccessibilityIdentifiers.AddTask.descriptionField]
@@ -183,6 +195,13 @@ class AddTaskPage {
         }
 
         XCTFail("Add Task title field should exist")
+    }
+
+    func switchToHabitMode() {
+        let button = habitModeButton
+        if button.waitForExistence(timeout: 3) {
+            button.tap()
+        }
     }
 
     /// Clear and enter new title
@@ -412,6 +431,12 @@ class AddTaskPage {
     /// Tap save button
     @discardableResult
     func tapSave() -> HomePage {
+        let nonKeyboardDoneButton = app.buttons
+            .matching(NSPredicate(format: "label == %@ AND identifier != %@", "Done", "Done"))
+            .firstMatch
+        let nonKeyboardSaveButton = app.buttons
+            .matching(NSPredicate(format: "label == %@ AND identifier != %@", "Save", "Save"))
+            .firstMatch
         let didDismiss: () -> Bool = {
             if self.waitForDismissal(timeout: 2) {
                 return true
@@ -432,8 +457,8 @@ class AddTaskPage {
             app.navigationBars.firstMatch.buttons["Save"],
             app.buttons["Create Task"],
             app.buttons["Create"],
-            app.buttons["Done"],
-            app.buttons["Save"],
+            nonKeyboardDoneButton,
+            nonKeyboardSaveButton,
             app.toolbars.buttons["Done"]
         ]
         let deadline = Date().addingTimeInterval(6)
@@ -699,6 +724,7 @@ class AddTaskPage {
 
         let addTaskSignals: [XCUIElement] = [
             app.otherElements[AccessibilityIdentifiers.AddTask.view],
+            app.otherElements[AccessibilityIdentifiers.AddTask.modePicker],
             app.textFields[AccessibilityIdentifiers.AddTask.descriptionField],
             app.segmentedControls[AccessibilityIdentifiers.AddTask.prioritySegmentedControl],
             app.segmentedControls[AccessibilityIdentifiers.AddTask.taskTypeSelector],

@@ -80,7 +80,7 @@ jobs:
       - name: Generate deterministic read-model benchmark snapshot
         run: |
           set -euo pipefail
-          swift scripts/perf_seed_v2.swift --tasks 20000 --occurrences 200000 --iterations 160 --output build/benchmarks/v2_readmodel.json
+          swift scripts/perf_seed_v3.swift --tasks 20000 --occurrences 200000 --iterations 160 --output build/benchmarks/v2_readmodel.json
           cat build/benchmarks/v2_readmodel.json
 
       - name: Enforce balanced SLO thresholds

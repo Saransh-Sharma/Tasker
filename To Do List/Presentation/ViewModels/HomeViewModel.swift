@@ -7,6 +7,9 @@
 
 import Foundation
 import Combine
+#if canImport(UIKit)
+import UIKit
+#endif
 #if canImport(WidgetKit)
 import WidgetKit
 #endif
@@ -373,6 +376,16 @@ public final class HomeViewModel: ObservableObject {
     private let aiSuggestionService: AISuggestionService?
     private let userDefaults: UserDefaults
     private var cancellables = Set<AnyCancellable>()
+    private lazy var retainedInsightsViewModel: InsightsViewModel = {
+        InsightsViewModel(
+            engine: useCaseCoordinator.gamificationEngine,
+            repository: useCaseCoordinator.gamificationRepository,
+            taskReadModelRepository: useCaseCoordinator.taskReadModelRepository,
+            reminderRepository: useCaseCoordinator.reminderRepository,
+            analyticsUseCase: useCaseCoordinator.calculateAnalytics
+        )
+    }()
+    private lazy var retainedHomeSearchViewModel = LGSearchViewModel(useCaseCoordinator: useCaseCoordinator)
 
     // MARK: - Persistence Keys
 
@@ -422,6 +435,8 @@ public final class HomeViewModel: ObservableObject {
     private var pendingAnalyticsCompletions: [() -> Void] = []
     private var analyticsGeneration: Int = 0
     private var pendingHomeRenderStateWorkItem: DispatchWorkItem?
+    private var homeRenderStateRefreshBatchDepth: Int = 0
+    private var needsHomeRenderStateRefresh = false
     private var currentHabitSignals: [TaskerHabitSignal] = []
     private var evaInsightsGeneration: Int = 0
 
@@ -440,6 +455,10 @@ public final class HomeViewModel: ObservableObject {
             }
             return
         }
+        if homeRenderStateRefreshBatchDepth > 0 {
+            needsHomeRenderStateRefresh = true
+            return
+        }
 
         pendingHomeRenderStateWorkItem?.cancel()
         let workItem = DispatchWorkItem { [weak self] in
@@ -447,6 +466,21 @@ public final class HomeViewModel: ObservableObject {
         }
         pendingHomeRenderStateWorkItem = workItem
         DispatchQueue.main.async(execute: workItem)
+    }
+
+    private func performHomeRenderStateBatch(_ work: () -> Void) {
+        guard Foundation.Thread.isMainThread else {
+            work()
+            return
+        }
+
+        homeRenderStateRefreshBatchDepth += 1
+        work()
+        homeRenderStateRefreshBatchDepth = max(0, homeRenderStateRefreshBatchDepth - 1)
+
+        guard homeRenderStateRefreshBatchDepth == 0, needsHomeRenderStateRefresh else { return }
+        needsHomeRenderStateRefresh = false
+        scheduleHomeRenderStateRefresh()
     }
 
     private func refreshHomeRenderStates() {
@@ -1581,7 +1615,6 @@ public final class HomeViewModel: ObservableObject {
                         self?.scheduleLedgerMutationWatchdog(trigger: "focus_session_end")
                     }
                     self?.loadDailyAnalytics(includeGamificationRefresh: false)
-                    self?.requestChartRefresh(reason: .completed)
                     completion(.success(focusResult))
                 case .failure(let error):
                     completion(.failure(error))
@@ -1611,7 +1644,6 @@ public final class HomeViewModel: ObservableObject {
                         self?.scheduleLedgerMutationWatchdog(trigger: "daily_reflection_complete")
                     }
                     self?.loadDailyAnalytics(includeGamificationRefresh: false)
-                    self?.requestChartRefresh(reason: .updated)
                     completion(.success(xpResult))
                 case .failure(let error):
                     completion(.failure(error))
@@ -1646,17 +1678,11 @@ public final class HomeViewModel: ObservableObject {
     }
 
     public func makeInsightsViewModel() -> InsightsViewModel {
-        InsightsViewModel(
-            engine: useCaseCoordinator.gamificationEngine,
-            repository: useCaseCoordinator.gamificationRepository,
-            taskReadModelRepository: useCaseCoordinator.taskReadModelRepository,
-            reminderRepository: useCaseCoordinator.reminderRepository,
-            analyticsUseCase: useCaseCoordinator.calculateAnalytics
-        )
+        retainedInsightsViewModel
     }
 
     func makeHomeSearchViewModel() -> LGSearchViewModel {
-        LGSearchViewModel(useCaseCoordinator: useCaseCoordinator)
+        retainedHomeSearchViewModel
     }
 
     public func startTriage(scope: EvaTriageScope) {
@@ -3064,19 +3090,21 @@ public final class HomeViewModel: ObservableObject {
 
                 switch result {
                 case .success(let filteredResult):
-                    self.assignIfChanged(\.quickViewCounts, filteredResult.quickViewCounts)
-                    self.assignIfChanged(\.pointsPotential, filteredResult.pointsPotential)
-                    self.applyResultToSections(filteredResult, generation: generation)
-                    self.refreshProgressState()
+                    self.performHomeRenderStateBatch {
+                        self.assignIfChanged(\.quickViewCounts, filteredResult.quickViewCounts)
+                        self.assignIfChanged(\.pointsPotential, filteredResult.pointsPotential)
+                        self.applyResultToSections(filteredResult, generation: generation)
+                        self.refreshProgressState()
 
-                    if trackAnalytics {
-                        self.trackFeatureUsage(action: "home_filter_applied", metadata: [
-                            "quick_view": self.activeScope.quickView.analyticsAction,
-                            "scope": self.scopeAnalyticsAction(self.activeScope),
-                            "project_count": self.activeFilterState.selectedProjectIDs.count,
-                            "saved_view": self.activeFilterState.selectedSavedViewID?.uuidString ?? "",
-                            "advanced_filter": self.activeFilterState.advancedFilter != nil
-                        ])
+                        if trackAnalytics {
+                            self.trackFeatureUsage(action: "home_filter_applied", metadata: [
+                                "quick_view": self.activeScope.quickView.analyticsAction,
+                                "scope": self.scopeAnalyticsAction(self.activeScope),
+                                "project_count": self.activeFilterState.selectedProjectIDs.count,
+                                "saved_view": self.activeFilterState.selectedSavedViewID?.uuidString ?? "",
+                                "advanced_filter": self.activeFilterState.advancedFilter != nil
+                            ])
+                        }
                     }
 
                 case .failure(let error):
@@ -3780,7 +3808,6 @@ public final class HomeViewModel: ObservableObject {
         let reasons = pendingReloadReasons
         let sources = pendingReloadSources
         let scopes = pendingReloadScopes
-        let taskIDs = pendingReloadTaskIDs
         let shouldInvalidate = pendingReloadInvalidateCaches
         let shouldIncludeAnalytics = pendingReloadIncludeAnalytics
         let shouldRepostEvent = pendingReloadRepostEvent
@@ -3833,10 +3860,6 @@ public final class HomeViewModel: ObservableObject {
                 tracker.completeOperation()
             }
         }
-        if (shouldRepostEvent || scopes.contains(.charts)),
-           let reason = prioritizedReloadReason(from: reasons) {
-            requestChartRefresh(reason: reason, taskID: prioritizedTaskID(from: taskIDs, for: reason))
-        }
         tracker.finishSchedulingOperations()
     }
 
@@ -3858,9 +3881,6 @@ public final class HomeViewModel: ObservableObject {
         var scopes: Set<HomeReloadScope> = [.visibleTasks]
         if includeAnalytics {
             scopes.insert(.analytics)
-        }
-        if repostEvent {
-            scopes.insert(.charts)
         }
         return scopes
     }

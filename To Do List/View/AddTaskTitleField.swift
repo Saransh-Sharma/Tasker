@@ -21,13 +21,16 @@ struct AddTaskTitleField: View {
         VStack(alignment: .leading, spacing: spacing.s4) {
             TextField(placeholder, text: $text)
                 .font(.tasker(.body))
-                .foregroundColor(Color.tasker.textPrimary)
+                .foregroundStyle(Color.tasker.textPrimary)
                 .focused($isFocused)
                 .submitLabel(.done)
                 .onSubmit(onSubmit)
                 .padding(.horizontal, spacing.s16)
                 .frame(height: spacing.buttonHeight)
-                .background(Color.tasker.surfaceSecondary)
+                .background(
+                    RoundedRectangle(cornerRadius: corner.r2, style: .continuous)
+                        .fill(isFocused ? Color.tasker.surfacePrimary : Color.tasker.surfaceSecondary)
+                )
                 .overlay(
                     RoundedRectangle(cornerRadius: corner.r2)
                         .stroke(
@@ -36,13 +39,19 @@ struct AddTaskTitleField: View {
                         )
                 )
                 .clipShape(RoundedRectangle(cornerRadius: corner.r2))
+                .shadow(
+                    color: isFocused ? Color.tasker.accentPrimary.opacity(0.12) : .clear,
+                    radius: isFocused ? 10 : 0,
+                    y: isFocused ? 6 : 0
+                )
                 .animation(TaskerAnimation.quick, value: isFocused)
                 .accessibilityIdentifier("addTask.titleField")
 
             Text(helperText)
                 .font(.tasker(.caption2))
-                .foregroundColor(Color.tasker.textQuaternary)
+                .foregroundStyle(isFocused ? Color.tasker.textSecondary : Color.tasker.textQuaternary)
                 .padding(.horizontal, spacing.s4)
+                .animation(TaskerAnimation.quick, value: isFocused)
         }
     }
 }

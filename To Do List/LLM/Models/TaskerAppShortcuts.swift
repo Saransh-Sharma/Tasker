@@ -99,17 +99,17 @@ private struct HeadlessTaskerShortcutRuntime {
 }
 
 enum TaskerShortcutDependencyResolver {
-    static func inboxTaskCaptureService() throws -> InboxTaskCaptureService {
-        let runtime = try headlessRuntime()
+    static func inboxTaskCaptureService() async throws -> InboxTaskCaptureService {
+        let runtime = try await headlessRuntime()
         return InboxTaskCaptureService(
             projectRepository: runtime.projectRepository,
             createTaskDefinitionUseCase: runtime.createTaskDefinitionUseCase
         )
     }
 
-    private static func headlessRuntime() throws -> HeadlessTaskerShortcutRuntime {
+    private static func headlessRuntime() async throws -> HeadlessTaskerShortcutRuntime {
         let bootstrapService = TaskerPersistentStoreBootstrapService()
-        let bootstrapResult = bootstrapService.bootstrapV3PersistentContainer()
+        let bootstrapResult = await bootstrapService.bootstrapV3PersistentContainer()
 
         guard case .ready(let container) = bootstrapResult.state else {
             if case .failed(let message) = bootstrapResult.state {
@@ -173,7 +173,7 @@ struct AddTaskIntent: AppIntent {
             throw $taskTitle.needsValueError(IntentDialog("What task do you want to add?"))
         }
 
-        let service = try TaskerShortcutDependencyResolver.inboxTaskCaptureService()
+        let service = try await TaskerShortcutDependencyResolver.inboxTaskCaptureService()
         let task = try await service.createTask(title: trimmedTitle, details: details)
 
         do {

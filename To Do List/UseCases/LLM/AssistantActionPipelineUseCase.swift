@@ -311,18 +311,24 @@ public final class AssistantActionPipelineUseCase {
         completion: @escaping (Result<TransactionResult, Error>) -> Void
     ) {
         _Concurrency.Task {
-            do {
-                let result = try await self.commandExecutor.enqueue {
-                    try await self.executeTransactionAsync(runID: runID, commands: commands)
-                }
-                DispatchQueue.main.async {
-                    completion(.success(result))
-                }
-            } catch {
-                DispatchQueue.main.async {
-                    completion(.failure(error))
-                }
+            let result = await self.executeTransactionResult(runID: runID, commands: commands)
+            await MainActor.run {
+                completion(result)
             }
+        }
+    }
+
+    private func executeTransactionResult(
+        runID: UUID,
+        commands: [AssistantCommand]
+    ) async -> Result<TransactionResult, Error> {
+        do {
+            let result = try await commandExecutor.enqueue {
+                try await self.executeTransactionAsync(runID: runID, commands: commands)
+            }
+            return .success(result)
+        } catch {
+            return .failure(error)
         }
     }
 
