@@ -524,26 +524,22 @@ public final class CreateHabitUseCase {
                         self.scheduleRepository.saveTemplate(template) { templateResult in
                             switch templateResult {
                             case .failure(let error):
-                                self.habitRepository.delete(id: createdHabit.id) { _ in
+                                self.rollbackFailedCreate(habitID: createdHabit.id, templateID: template.id) {
                                     completion(.failure(error))
                                 }
                             case .success:
                                 self.scheduleRepository.replaceRules(templateID: template.id, rules: rules) { rulesResult in
                                     switch rulesResult {
                                     case .failure(let error):
-                                        self.habitRepository.delete(id: createdHabit.id) { _ in
-                                            self.scheduleRepository.replaceRules(templateID: template.id, rules: []) { _ in
-                                                completion(.failure(error))
-                                            }
+                                        self.rollbackFailedCreate(habitID: createdHabit.id, templateID: template.id) {
+                                            completion(.failure(error))
                                         }
                                     case .success:
                                         self.maintainHabitRuntimeUseCase.execute(anchorDate: request.createdAt) { syncResult in
                                             switch syncResult {
                                             case .failure(let error):
-                                                self.habitRepository.delete(id: createdHabit.id) { _ in
-                                                    self.scheduleRepository.replaceRules(templateID: template.id, rules: []) { _ in
-                                                        completion(.failure(error))
-                                                    }
+                                                self.rollbackFailedCreate(habitID: createdHabit.id, templateID: template.id) {
+                                                    completion(.failure(error))
                                                 }
                                             case .success:
                                                 TaskNotificationDispatcher.postOnMain(
@@ -597,6 +593,18 @@ public final class CreateHabitUseCase {
         }
     }
 
+    private func rollbackFailedCreate(
+        habitID: UUID,
+        templateID: UUID,
+        completion: @escaping () -> Void
+    ) {
+        scheduleRepository.deleteTemplate(id: templateID) { _ in
+            self.habitRepository.delete(id: habitID) { _ in
+                completion()
+            }
+        }
+    }
+
     static func habitTypeString(kind: HabitKind, trackingMode: HabitTrackingMode) -> String {
         switch (kind, trackingMode) {
         case (.positive, _):
@@ -610,6 +618,11 @@ public final class CreateHabitUseCase {
 }
 
 public final class UpdateHabitUseCase {
+    private struct ScheduleSnapshot {
+        let template: ScheduleTemplateDefinition?
+        let rules: [ScheduleRuleDefinition]
+    }
+
     private let habitRepository: HabitRepositoryProtocol
     private let scheduleRepository: ScheduleRepositoryProtocol
     private let scheduleEngine: SchedulingEngineProtocol
@@ -647,74 +660,86 @@ public final class UpdateHabitUseCase {
                     return
                 }
                 var habit = existingHabit
-
-                self.validate(lifeAreaID: request.lifeAreaID ?? habit.lifeAreaID, projectID: request.clearProject ? nil : (request.projectID ?? habit.projectID)) { validationResult in
-                    switch validationResult {
+                self.captureScheduleSnapshot(for: existingHabit.id) { snapshotResult in
+                    switch snapshotResult {
                     case .failure(let error):
                         completion(.failure(error))
-                    case .success:
-                        if let title = request.title?.trimmingCharacters(in: .whitespacesAndNewlines), title.isEmpty == false {
-                            habit.title = title
-                        }
-                        if let lifeAreaID = request.lifeAreaID {
-                            habit.lifeAreaID = lifeAreaID
-                        }
-                        if request.clearProject {
-                            habit.projectID = nil
-                        } else if let projectID = request.projectID {
-                            habit.projectID = projectID
-                        }
-                        let resolvedKind = request.kind ?? habit.kind
-                        let resolvedTrackingMode = HabitRuntimeSupport.normalizedTrackingMode(
-                            kind: resolvedKind,
-                            trackingMode: request.trackingMode ?? habit.trackingMode
-                        )
-                        habit.kind = resolvedKind
-                        habit.trackingMode = resolvedTrackingMode
-                        if let icon = request.icon {
-                            habit.icon = icon
-                        }
-                        if let targetConfig = request.targetConfig {
-                            habit.targetConfig = targetConfig
-                            if request.notes == nil {
-                                habit.notes = targetConfig.notes
-                            }
-                        }
-                        if let metricConfig = request.metricConfig {
-                            habit.metricConfig = metricConfig
-                        }
-                        if let notes = request.notes {
-                            habit.notes = notes
-                        }
-                        habit.habitType = CreateHabitUseCase.habitTypeString(
-                            kind: habit.kind,
-                            trackingMode: habit.trackingMode
-                        )
-                        habit.updatedAt = request.updatedAt
-
-                        self.habitRepository.update(habit) { updateResult in
-                            switch updateResult {
+                    case .success(let scheduleSnapshot):
+                        self.validate(lifeAreaID: request.lifeAreaID ?? habit.lifeAreaID, projectID: request.clearProject ? nil : (request.projectID ?? habit.projectID)) { validationResult in
+                            switch validationResult {
                             case .failure(let error):
                                 completion(.failure(error))
-                            case .success(let updatedHabit):
-                                self.updateSchedule(
-                                    for: updatedHabit,
-                                    cadence: request.cadence,
-                                    reminderWindowStart: request.reminderWindowStart,
-                                    reminderWindowEnd: request.reminderWindowEnd,
-                                    updatedAt: request.updatedAt
-                                ) { scheduleResult in
-                                    switch scheduleResult {
+                            case .success:
+                                if let title = request.title?.trimmingCharacters(in: .whitespacesAndNewlines), title.isEmpty == false {
+                                    habit.title = title
+                                }
+                                if let lifeAreaID = request.lifeAreaID {
+                                    habit.lifeAreaID = lifeAreaID
+                                }
+                                if request.clearProject {
+                                    habit.projectID = nil
+                                } else if let projectID = request.projectID {
+                                    habit.projectID = projectID
+                                }
+                                let resolvedKind = request.kind ?? habit.kind
+                                let resolvedTrackingMode = HabitRuntimeSupport.normalizedTrackingMode(
+                                    kind: resolvedKind,
+                                    trackingMode: request.trackingMode ?? habit.trackingMode
+                                )
+                                habit.kind = resolvedKind
+                                habit.trackingMode = resolvedTrackingMode
+                                if let icon = request.icon {
+                                    habit.icon = icon
+                                }
+                                if let targetConfig = request.targetConfig {
+                                    habit.targetConfig = targetConfig
+                                    if request.notes == nil {
+                                        habit.notes = targetConfig.notes
+                                    }
+                                }
+                                if let metricConfig = request.metricConfig {
+                                    habit.metricConfig = metricConfig
+                                }
+                                if let notes = request.notes {
+                                    habit.notes = notes
+                                }
+                                habit.habitType = CreateHabitUseCase.habitTypeString(
+                                    kind: habit.kind,
+                                    trackingMode: habit.trackingMode
+                                )
+                                habit.updatedAt = request.updatedAt
+
+                                self.habitRepository.update(habit) { updateResult in
+                                    switch updateResult {
                                     case .failure(let error):
-                                        self.habitRepository.update(existingHabit) { _ in
-                                            completion(.failure(error))
+                                        completion(.failure(error))
+                                    case .success(let updatedHabit):
+                                        self.updateSchedule(
+                                            for: updatedHabit,
+                                            cadence: request.cadence,
+                                            reminderWindowStart: request.reminderWindowStart,
+                                            reminderWindowEnd: request.reminderWindowEnd,
+                                            updatedAt: request.updatedAt
+                                        ) { scheduleResult in
+                                            switch scheduleResult {
+                                            case .failure(let error):
+                                                self.restoreSchedule(
+                                                    scheduleSnapshot,
+                                                    for: existingHabit.id,
+                                                    effectiveFrom: request.updatedAt
+                                                ) {
+                                                    self.habitRepository.update(existingHabit) { _ in
+                                                        completion(.failure(error))
+                                                    }
+                                                }
+                                            case .success:
+                                                TaskNotificationDispatcher.postOnMain(
+                                                    name: .homeHabitMutation,
+                                                    object: updatedHabit
+                                                )
+                                                completion(.success(updatedHabit))
+                                            }
                                         }
-                                    case .success:
-                                        TaskNotificationDispatcher.postOnMain(
-                                            name: .homeHabitMutation,
-                                            object: updatedHabit
-                                        )
-                                        completion(.success(updatedHabit))
                                     }
                                 }
                             }
@@ -840,6 +865,79 @@ public final class UpdateHabitUseCase {
                     }
                 }
             }
+        }
+    }
+
+    private func captureScheduleSnapshot(
+        for habitID: UUID,
+        completion: @escaping (Result<ScheduleSnapshot, Error>) -> Void
+    ) {
+        scheduleRepository.fetchTemplates { result in
+            switch result {
+            case .failure(let error):
+                completion(.failure(error))
+            case .success(let templates):
+                let template = templates.first { $0.sourceType == .habit && $0.sourceID == habitID }
+                guard let template else {
+                    completion(.success(ScheduleSnapshot(template: nil, rules: [])))
+                    return
+                }
+                self.scheduleRepository.fetchRules(templateID: template.id) { rulesResult in
+                    switch rulesResult {
+                    case .failure(let error):
+                        completion(.failure(error))
+                    case .success(let rules):
+                        completion(.success(ScheduleSnapshot(template: template, rules: rules)))
+                    }
+                }
+            }
+        }
+    }
+
+    private func restoreSchedule(
+        _ snapshot: ScheduleSnapshot,
+        for habitID: UUID,
+        effectiveFrom: Date,
+        completion: @escaping () -> Void
+    ) {
+        scheduleRepository.fetchTemplates { result in
+            switch result {
+            case .failure:
+                completion()
+            case .success(let templates):
+                let currentTemplateIDs = templates
+                    .filter { $0.sourceType == .habit && $0.sourceID == habitID }
+                    .map(\.id)
+                let idsToDelete = currentTemplateIDs.filter { $0 != snapshot.template?.id }
+                self.deleteTemplates(idsToDelete) {
+                    guard let template = snapshot.template else {
+                        completion()
+                        return
+                    }
+                    self.scheduleRepository.saveTemplate(template) { saveResult in
+                        switch saveResult {
+                        case .failure:
+                            completion()
+                        case .success:
+                            self.scheduleRepository.replaceRules(templateID: template.id, rules: snapshot.rules) { _ in
+                                self.scheduleEngine.rebuildFutureOccurrences(templateID: template.id, effectiveFrom: effectiveFrom) { _ in
+                                    completion()
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private func deleteTemplates(_ ids: [UUID], completion: @escaping () -> Void) {
+        guard let id = ids.first else {
+            completion()
+            return
+        }
+        scheduleRepository.deleteTemplate(id: id) { _ in
+            self.deleteTemplates(Array(ids.dropFirst()), completion: completion)
         }
     }
 }
@@ -1436,10 +1534,6 @@ public final class ResolveHabitOccurrenceUseCase {
         action: HabitOccurrenceAction,
         completion: @escaping (Result<UUID, Error>) -> Void
     ) {
-        if let occurrenceID {
-            completion(.success(occurrenceID))
-            return
-        }
         let calendar = Calendar.current
         let startOfDay = calendar.startOfDay(for: date)
         let endOfDay = calendar.date(byAdding: .day, value: 1, to: startOfDay) ?? date
@@ -1448,6 +1542,18 @@ public final class ResolveHabitOccurrenceUseCase {
             case .failure(let error):
                 completion(.failure(error))
             case .success(let occurrences):
+                if let occurrenceID {
+                    guard let suppliedOccurrence = occurrences.first(where: { $0.id == occurrenceID }) else {
+                        completion(.failure(HabitRuntimeError.occurrenceNotFound))
+                        return
+                    }
+                    guard suppliedOccurrence.sourceType == .habit, suppliedOccurrence.sourceID == habit.id else {
+                        completion(.failure(HabitRuntimeError.occurrenceNotFound))
+                        return
+                    }
+                    completion(.success(occurrenceID))
+                    return
+                }
                 let matches = occurrences
                     .filter { $0.sourceType == .habit && $0.sourceID == habit.id }
                     .sorted { HabitRuntimeSupport.occurrenceDate($0) < HabitRuntimeSupport.occurrenceDate($1) }

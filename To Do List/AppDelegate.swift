@@ -109,6 +109,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
     private var cloudKitEventObserver: NSObjectProtocol?
     private var semanticTaskObservers: [NSObjectProtocol] = []
     private var lastHabitRuntimeMaintenanceAt: Date?
+    private var inFlightHabitRuntimeMaintenanceTask: Task<Void, Never>?
 
     private(set) static var persistentBootstrapFailureMessage: String?
     private(set) static var persistentSyncMode: PersistentSyncMode = .fullSync
@@ -1466,6 +1467,13 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
             return
         }
 
+        if let inFlightHabitRuntimeMaintenanceTask {
+            if inFlightHabitRuntimeMaintenanceTask.isCancelled == false {
+                return
+            }
+            self.inFlightHabitRuntimeMaintenanceTask = nil
+        }
+
         let now = Date()
         let shouldForceRepair = TaskerPersistentRuntimeInitializer.shouldRunRepair()
         if shouldForceRepair == false,
@@ -1474,37 +1482,48 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
             return
         }
 
-        lastHabitRuntimeMaintenanceAt = now
         let coordinator = PresentationDependencyContainer.shared.coordinator
-        coordinator.maintainHabitRuntime.execute(anchorDate: now) { result in
-            switch result {
-            case .failure(let error):
-                logWarning(
-                    event: "habit_runtime_maintenance_failed",
-                    message: "Habit runtime maintenance failed",
-                    fields: [
-                        "reason": reason,
-                        "error": error.localizedDescription
-                    ]
-                )
-            case .success:
-                if shouldForceRepair {
-                    coordinator.recomputeHabitStreaks.execute(referenceDate: now) { recomputeResult in
-                        switch recomputeResult {
-                        case .failure(let error):
-                            logWarning(
-                                event: "habit_runtime_repair_failed",
-                                message: "Habit streak repair failed after maintenance",
-                                fields: [
-                                    "reason": reason,
-                                    "error": error.localizedDescription
-                                ]
-                            )
-                        case .success:
-                            TaskerPersistentRuntimeInitializer.markRepairCompleted()
+        inFlightHabitRuntimeMaintenanceTask = Task { [weak self] in
+            await withCheckedContinuation { continuation in
+                coordinator.maintainHabitRuntime.execute(anchorDate: now) { result in
+                    switch result {
+                    case .failure(let error):
+                        logWarning(
+                            event: "habit_runtime_maintenance_failed",
+                            message: "Habit runtime maintenance failed",
+                            fields: [
+                                "reason": reason,
+                                "error": error.localizedDescription
+                            ]
+                        )
+                        continuation.resume()
+                    case .success:
+                        guard shouldForceRepair else {
+                            continuation.resume()
+                            return
+                        }
+                        coordinator.recomputeHabitStreaks.execute(referenceDate: now) { recomputeResult in
+                            switch recomputeResult {
+                            case .failure(let error):
+                                logWarning(
+                                    event: "habit_runtime_repair_failed",
+                                    message: "Habit streak repair failed after maintenance",
+                                    fields: [
+                                        "reason": reason,
+                                        "error": error.localizedDescription
+                                    ]
+                                )
+                            case .success:
+                                TaskerPersistentRuntimeInitializer.markRepairCompleted()
+                            }
+                            continuation.resume()
                         }
                     }
                 }
+            }
+            await MainActor.run {
+                self?.lastHabitRuntimeMaintenanceAt = now
+                self?.inFlightHabitRuntimeMaintenanceTask = nil
             }
         }
     }

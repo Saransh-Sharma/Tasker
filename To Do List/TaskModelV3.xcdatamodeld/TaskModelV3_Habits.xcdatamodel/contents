@@ -246,6 +246,11 @@
         <relationship name="templateRef" optional="YES" maxCount="1" deletionRule="Nullify" destinationEntity="ScheduleTemplate" inverseName="occurrences" inverseEntity="ScheduleTemplate"/>
         <relationship name="resolutions" optional="YES" toMany="YES" deletionRule="Cascade" destinationEntity="OccurrenceResolution" inverseName="occurrenceRef" inverseEntity="OccurrenceResolution"/>
         <relationship name="reminders" optional="YES" toMany="YES" deletionRule="Cascade" destinationEntity="Reminder" inverseName="occurrenceRef" inverseEntity="Reminder"/>
+        <uniquenessConstraints>
+            <uniquenessConstraint>
+                <constraint value="occurrenceKey"/>
+            </uniquenessConstraint>
+        </uniquenessConstraints>
         <fetchIndex name="byOccurrenceKey"><fetchIndexElement property="occurrenceKey" type="Binary" order="ascending"/></fetchIndex>
         <fetchIndex name="byTemplateScheduledState">
             <fetchIndexElement property="scheduleTemplateID" type="Binary" order="ascending"/>

@@ -385,6 +385,12 @@ final class WriteClosedScheduleRepositoryAdapter: ScheduleRepositoryProtocol {
         }
     }
 
+    func deleteTemplate(id: UUID, completion: @escaping (Result<Void, Error>) -> Void) {
+        gate.performWrite(operation: "ScheduleRepository.deleteTemplate", completion: completion) {
+            self.base.deleteTemplate(id: id, completion: completion)
+        }
+    }
+
     func replaceRules(
         templateID: UUID,
         rules: [ScheduleRuleDefinition],

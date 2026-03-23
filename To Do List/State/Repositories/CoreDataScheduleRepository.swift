@@ -105,6 +105,28 @@ public final class CoreDataScheduleRepository: ScheduleRepositoryProtocol {
                 try self.backgroundContext.save()
                 completion(.success(template))
             } catch {
+                self.backgroundContext.rollback()
+                completion(.failure(error))
+            }
+        }
+    }
+
+    /// Executes deleteTemplate.
+    public func deleteTemplate(id: UUID, completion: @escaping (Result<Void, Error>) -> Void) {
+        backgroundContext.perform {
+            do {
+                _ = try V2CoreDataRepositorySupport.requireID(id, field: "scheduleTemplate.id")
+                if let object = try V2CoreDataRepositorySupport.fetchObject(
+                    in: self.backgroundContext,
+                    entityName: "ScheduleTemplate",
+                    predicate: NSPredicate(format: "id == %@", id as CVarArg)
+                ) {
+                    self.backgroundContext.delete(object)
+                    try self.backgroundContext.save()
+                }
+                completion(.success(()))
+            } catch {
+                self.backgroundContext.rollback()
                 completion(.failure(error))
             }
         }
@@ -165,6 +187,7 @@ public final class CoreDataScheduleRepository: ScheduleRepositoryProtocol {
                 }
                 completion(.success(normalized))
             } catch {
+                self.backgroundContext.rollback()
                 completion(.failure(error))
             }
         }
@@ -259,6 +282,7 @@ public final class CoreDataScheduleRepository: ScheduleRepositoryProtocol {
                 normalized.occurrenceKey = canonicalOccurrenceKey
                 completion(.success(normalized))
             } catch {
+                self.backgroundContext.rollback()
                 completion(.failure(error))
             }
         }

@@ -105,6 +105,7 @@ public final class CoreDataOccurrenceRepository: OccurrenceRepositoryProtocol {
                 try self.backgroundContext.save()
                 completion(.success(()))
             } catch {
+                self.backgroundContext.rollback()
                 completion(.failure(error))
             }
         }
@@ -153,6 +154,7 @@ public final class CoreDataOccurrenceRepository: OccurrenceRepositoryProtocol {
                 try self.backgroundContext.save()
                 completion(.success(()))
             } catch {
+                self.backgroundContext.rollback()
                 completion(.failure(error))
             }
         }
@@ -177,6 +179,7 @@ public final class CoreDataOccurrenceRepository: OccurrenceRepositoryProtocol {
                 try self.backgroundContext.save()
                 completion(.success(()))
             } catch {
+                self.backgroundContext.rollback()
                 completion(.failure(error))
             }
         }

@@ -456,6 +456,157 @@ final class HabitCoreDataSchemaRegressionTests: XCTestCase {
         unloadPersistentStores(from: migratedContainer)
     }
 
+    func testHabitDefinitionCodableCanonicalizesDefaultsAndOmitsNilConfigs() throws {
+        let id = UUID()
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .secondsSince1970
+        let rawJSON = """
+        {
+          "id": "\(id.uuidString)",
+          "title": "Hydrate",
+          "habitType": "check_in",
+          "kindRaw": "",
+          "trackingModeRaw": "",
+          "createdAt": 0,
+          "updatedAt": 0
+        }
+        """.data(using: .utf8)!
+
+        let decoded = try decoder.decode(HabitDefinitionRecord.self, from: rawJSON)
+
+        XCTAssertEqual(decoded.kindRaw, HabitKind.positive.rawValue)
+        XCTAssertEqual(decoded.trackingModeRaw, HabitTrackingMode.dailyCheckIn.rawValue)
+        XCTAssertEqual(decoded.kind, .positive)
+        XCTAssertEqual(decoded.trackingMode, .dailyCheckIn)
+        XCTAssertEqual(Set([decoded]).count, 1)
+
+        let encoder = JSONEncoder()
+        encoder.dateEncodingStrategy = .secondsSince1970
+        let encoded = try encoder.encode(decoded)
+        let encodedJSON = try XCTUnwrap(String(data: encoded, encoding: .utf8))
+        XCTAssertFalse(encodedJSON.contains("targetConfigData"))
+        XCTAssertFalse(encodedJSON.contains("metricConfigData"))
+        XCTAssertFalse(encodedJSON.contains(":null"))
+    }
+
+    func testMigratingLegacyStoreCanonicalizesAndDeduplicatesOccurrenceKeys() throws {
+        let storeURL = temporaryStoreURL(name: "occurrence-key-migration")
+        defer { removeSQLiteArtifacts(at: storeURL) }
+
+        let defaults = UserDefaults.standard
+        defaults.removeObject(forKey: "tasker.occurrence.key_backfill.v1")
+        defer {
+            defaults.removeObject(forKey: "tasker.occurrence.key_backfill.v1")
+        }
+
+        let templateID = UUID()
+        let sourceID = UUID()
+        let keptOccurrenceID = UUID()
+        let duplicateOccurrenceID = UUID()
+        let reminderID = UUID()
+        let resolutionID = UUID()
+        let scheduledAt = Date(timeIntervalSince1970: 1_704_067_200)
+        let legacyKey = "\(templateID.uuidString)_2024-01-01T00:00"
+
+        let legacyContainer = try makeContainer(
+            name: "TaskModelV3",
+            model: try compiledTaskModelVersion(named: "TaskModelV3_Gamification.mom"),
+            storeType: NSSQLiteStoreType,
+            url: storeURL
+        )
+        legacyContainer.viewContext.performAndWait {
+            let template = NSEntityDescription.insertNewObject(forEntityName: "ScheduleTemplate", into: legacyContainer.viewContext)
+            template.setValue(templateID, forKey: "id")
+            template.setValue(ScheduleSourceType.habit.rawValue, forKey: "sourceType")
+            template.setValue(sourceID, forKey: "sourceID")
+            template.setValue("UTC", forKey: "timezoneID")
+            template.setValue(TemporalReference.anchored.rawValue, forKey: "temporalReference")
+            template.setValue(scheduledAt, forKey: "anchorAt")
+            template.setValue(true, forKey: "isActive")
+            template.setValue(scheduledAt, forKey: "createdAt")
+            template.setValue(scheduledAt, forKey: "updatedAt")
+
+            let duplicate = NSEntityDescription.insertNewObject(forEntityName: "Occurrence", into: legacyContainer.viewContext)
+            duplicate.setValue(duplicateOccurrenceID, forKey: "id")
+            duplicate.setValue(nil, forKey: "occurrenceKey")
+            duplicate.setValue(templateID, forKey: "scheduleTemplateID")
+            duplicate.setValue(ScheduleSourceType.habit.rawValue, forKey: "sourceType")
+            duplicate.setValue(sourceID, forKey: "sourceID")
+            duplicate.setValue(scheduledAt, forKey: "scheduledAt")
+            duplicate.setValue(OccurrenceState.pending.rawValue, forKey: "state")
+            duplicate.setValue(true, forKey: "isGenerated")
+            duplicate.setValue(scheduledAt, forKey: "createdAt")
+            duplicate.setValue(scheduledAt, forKey: "updatedAt")
+
+            let reminder = NSEntityDescription.insertNewObject(forEntityName: "Reminder", into: legacyContainer.viewContext)
+            reminder.setValue(reminderID, forKey: "id")
+            reminder.setValue(ScheduleSourceType.habit.rawValue, forKey: "sourceType")
+            reminder.setValue(sourceID, forKey: "sourceID")
+            reminder.setValue(duplicateOccurrenceID, forKey: "occurrenceID")
+            reminder.setValue("at_time", forKey: "policy")
+            reminder.setValue(scheduledAt, forKey: "createdAt")
+            reminder.setValue(scheduledAt, forKey: "updatedAt")
+            reminder.setValue(duplicate, forKey: "occurrenceRef")
+
+            let kept = NSEntityDescription.insertNewObject(forEntityName: "Occurrence", into: legacyContainer.viewContext)
+            kept.setValue(keptOccurrenceID, forKey: "id")
+            kept.setValue(legacyKey, forKey: "occurrenceKey")
+            kept.setValue(templateID, forKey: "scheduleTemplateID")
+            kept.setValue(ScheduleSourceType.habit.rawValue, forKey: "sourceType")
+            kept.setValue(sourceID, forKey: "sourceID")
+            kept.setValue(scheduledAt, forKey: "scheduledAt")
+            kept.setValue(OccurrenceState.completed.rawValue, forKey: "state")
+            kept.setValue(true, forKey: "isGenerated")
+            kept.setValue(scheduledAt, forKey: "createdAt")
+            kept.setValue(scheduledAt.addingTimeInterval(60), forKey: "updatedAt")
+
+            let resolution = NSEntityDescription.insertNewObject(forEntityName: "OccurrenceResolution", into: legacyContainer.viewContext)
+            resolution.setValue(resolutionID, forKey: "id")
+            resolution.setValue(duplicateOccurrenceID, forKey: "occurrenceID")
+            resolution.setValue(OccurrenceResolutionType.completed.rawValue, forKey: "resolutionType")
+            resolution.setValue(scheduledAt, forKey: "resolvedAt")
+            resolution.setValue(OccurrenceActor.user.rawValue, forKey: "actor")
+            resolution.setValue(scheduledAt, forKey: "createdAt")
+            resolution.setValue(duplicate, forKey: "occurrenceRef")
+
+            try? legacyContainer.viewContext.save()
+        }
+        unloadPersistentStores(from: legacyContainer)
+
+        let migratedContainer = try makeCloudKitContainer(
+            name: "TaskModelV3",
+            model: try currentCompiledTaskModel(),
+            url: storeURL
+        )
+
+        TaskerPersistentRuntimeInitializer().initialize(container: migratedContainer)
+
+        let occurrenceRequest = NSFetchRequest<NSManagedObject>(entityName: "Occurrence")
+        let migratedOccurrences = try migratedContainer.viewContext.fetch(occurrenceRequest)
+        XCTAssertEqual(migratedOccurrences.count, 1)
+        XCTAssertEqual(
+            migratedOccurrences.first?.value(forKey: "occurrenceKey") as? String,
+            OccurrenceKeyCodec.encode(
+                scheduleTemplateID: templateID,
+                scheduledAt: scheduledAt,
+                sourceID: sourceID
+            )
+        )
+        XCTAssertEqual(migratedOccurrences.first?.value(forKey: "id") as? UUID, keptOccurrenceID)
+
+        let reminderRequest = NSFetchRequest<NSManagedObject>(entityName: "Reminder")
+        let reminders = try migratedContainer.viewContext.fetch(reminderRequest)
+        XCTAssertEqual(reminders.count, 1)
+        XCTAssertEqual(reminders.first?.value(forKey: "occurrenceID") as? UUID, keptOccurrenceID)
+
+        let resolutionRequest = NSFetchRequest<NSManagedObject>(entityName: "OccurrenceResolution")
+        let resolutions = try migratedContainer.viewContext.fetch(resolutionRequest)
+        XCTAssertEqual(resolutions.count, 1)
+        XCTAssertEqual(resolutions.first?.value(forKey: "occurrenceID") as? UUID, keptOccurrenceID)
+
+        unloadPersistentStores(from: migratedContainer)
+    }
+
     private func currentCompiledTaskModel() throws -> NSManagedObjectModel {
         let momdURL = try taskModelBundleURL()
         guard let model = NSManagedObjectModel(contentsOf: momdURL) else {
@@ -1111,6 +1262,7 @@ private final class LegacyNoopScheduleRepository: ScheduleRepositoryProtocol {
     func fetchTemplates(completion: @escaping (Result<[ScheduleTemplateDefinition], Error>) -> Void) { completion(.success([])) }
     func fetchRules(templateID: UUID, completion: @escaping (Result<[ScheduleRuleDefinition], Error>) -> Void) { completion(.success([])) }
     func saveTemplate(_ template: ScheduleTemplateDefinition, completion: @escaping (Result<ScheduleTemplateDefinition, Error>) -> Void) { completion(.success(template)) }
+    func deleteTemplate(id: UUID, completion: @escaping (Result<Void, Error>) -> Void) { completion(.success(())) }
     func replaceRules(templateID: UUID, rules: [ScheduleRuleDefinition], completion: @escaping (Result<[ScheduleRuleDefinition], Error>) -> Void) { completion(.success(rules)) }
     func fetchExceptions(templateID: UUID, completion: @escaping (Result<[ScheduleExceptionDefinition], Error>) -> Void) { completion(.success([])) }
     func saveException(_ exception: ScheduleExceptionDefinition, completion: @escaping (Result<ScheduleExceptionDefinition, Error>) -> Void) { completion(.success(exception)) }
@@ -4551,6 +4703,13 @@ private final class InMemoryScheduleRepository: ScheduleRepositoryProtocol {
         completion(.success(template))
     }
 
+    func deleteTemplate(id: UUID, completion: @escaping (Result<Void, Error>) -> Void) {
+        templates.removeAll { $0.id == id }
+        rulesByTemplateID.removeValue(forKey: id)
+        exceptionsByTemplateID.removeValue(forKey: id)
+        completion(.success(()))
+    }
+
     func replaceRules(
         templateID: UUID,
         rules: [ScheduleRuleDefinition],
@@ -6905,8 +7064,8 @@ final class HabitRuntimeRemediationTests: XCTestCase {
 
         let expectation = expectation(description: "eva")
         var captured: EvaHomeInsights?
-        useCase.execute(openTasks: [task], focusTasks: [task], anchorDate: date, now: date) { insights in
-            captured = insights
+        useCase.execute(openTasks: [task], focusTasks: [task], anchorDate: date, now: date) { result in
+            captured = try? result.get()
             expectation.fulfill()
         }
         waitForExpectations(timeout: 2.0)
@@ -9708,8 +9867,8 @@ final class HabitAnalyticsAndInsightsIntegrationTests: XCTestCase {
 
         let expectation = expectation(description: "eva-insights")
         var captured: EvaHomeInsights?
-        useCase.execute(openTasks: [], focusTasks: [], anchorDate: anchorDate, now: anchorDate) { insights in
-            captured = insights
+        useCase.execute(openTasks: [], focusTasks: [], anchorDate: anchorDate, now: anchorDate) { result in
+            captured = try? result.get()
             expectation.fulfill()
         }
         waitForExpectations(timeout: 1.0)
