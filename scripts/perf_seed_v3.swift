@@ -133,12 +133,10 @@ func seedTasks(
             object.setValue(id, forKey: "id")
             object.setValue(id, forKey: "taskID")
             object.setValue(projectID, forKey: "projectID")
-            object.setValue("Project \(projectIDs.firstIndex(of: projectID) ?? 0)", forKey: "project")
             object.setValue(title, forKey: "title")
-            object.setValue(title, forKey: "name")
             object.setValue("Notes \(idx)", forKey: "notes")
-            object.setValue("Details \(idx)", forKey: "taskDetails")
-            object.setValue(priorityRaw, forKey: "taskPriority")
+            object.setValue("active", forKey: "status")
+            object.setValue(priorityRaw, forKey: "priority")
             object.setValue(Int32(1), forKey: "taskType")
             object.setValue(isComplete, forKey: "isComplete")
             object.setValue(isComplete ? updatedAt : nil, forKey: "dateCompleted")
@@ -227,10 +225,8 @@ func runBenchmark(
             context.performAndWait {
                 let request = NSFetchRequest<NSManagedObject>(entityName: "TaskDefinition")
                 request.predicate = NSCompoundPredicate(orPredicateWithSubpredicates: [
-                    NSPredicate(format: "name CONTAINS[cd] %@", token),
                     NSPredicate(format: "title CONTAINS[cd] %@", token),
-                    NSPredicate(format: "notes CONTAINS[cd] %@", token),
-                    NSPredicate(format: "taskDetails CONTAINS[cd] %@", token)
+                    NSPredicate(format: "notes CONTAINS[cd] %@", token)
                 ])
                 request.sortDescriptors = [
                     NSSortDescriptor(key: "title", ascending: true),

@@ -10,7 +10,14 @@ public final class ManageLifeAreasUseCase {
 
     /// Executes list.
     public func list(completion: @escaping (Result<[LifeArea], Error>) -> Void) {
-        repository.fetchAll(completion: completion)
+        repository.fetchAll { result in
+            switch result {
+            case .success(let areas):
+                completion(.success(Self.dedupedLifeAreas(areas)))
+            case .failure(let error):
+                completion(.failure(error))
+            }
+        }
     }
 
     /// Executes create.
@@ -132,5 +139,30 @@ public final class ManageLifeAreasUseCase {
     /// Executes normalizedNameKey.
     private static func normalizedNameKey(_ name: String) -> String {
         normalizedDisplayName(name).lowercased()
+    }
+
+    private static func dedupedLifeAreas(_ areas: [LifeArea]) -> [LifeArea] {
+        var chosenByKey: [String: LifeArea] = [:]
+        for area in areas {
+            let key = normalizedNameKey(area.name)
+            if let existing = chosenByKey[key] {
+                if existing.isArchived && !area.isArchived {
+                    chosenByKey[key] = area
+                }
+            } else {
+                chosenByKey[key] = area
+            }
+        }
+
+        var seenKeys = Set<String>()
+        var deduped: [LifeArea] = []
+        for area in areas {
+            let key = normalizedNameKey(area.name)
+            guard seenKeys.insert(key).inserted else { continue }
+            if let chosen = chosenByKey[key] {
+                deduped.append(chosen)
+            }
+        }
+        return deduped
     }
 }

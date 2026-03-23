@@ -428,6 +428,7 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
     private var pendingBackgroundInsightsPrewarmTask: Task<Void, Never>?
     private var pendingOnboardingEvaluationTask: Task<Void, Never>?
     private var awaitsAnalyticsFirstInteractiveFrame = false
+    private lazy var retainedHomeSearchEngine = LGHomeSearchEngine(viewModel: viewModel.makeHomeSearchViewModel())
     private var onboardingEvaluationSceneToken: Int = 1
     private var completedOnboardingEvaluationSceneToken: Int = 0
     private var lastAppliedHomeRenderTransaction: HomeRenderTransaction = .empty
@@ -585,6 +586,9 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
                 self?.trackFaceSelection(activeFace)
                 if activeFace == .tasks {
                     self?.scheduleOnboardingEvaluationIfNeeded()
+                    self?.scheduleBackgroundSurfacePrewarmIfNeeded()
+                } else {
+                    self?.cancelBackgroundSurfacePrewarm()
                 }
             }
             .store(in: &cancellables)
@@ -657,11 +661,9 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
             guard Task.isCancelled == false, self.faceCoordinator.activeFace == .analytics else { return }
 
             self.faceCoordinator.setAnalyticsSurfaceState(.loading)
-            let resolvedViewModel = self.viewModel.makeInsightsViewModel()
+            let resolvedViewModel = self.prepareInsightsViewModelIfNeeded()
             guard Task.isCancelled == false else { return }
 
-            self.insightsViewModel = resolvedViewModel
-            self.faceCoordinator.insightsViewModel = resolvedViewModel
             self.faceCoordinator.setAnalyticsSurfaceState(.ready)
             TaskerPerformanceTrace.event("HomeAnalyticsReady")
             self.emitAnalyticsFirstInteractiveFrameIfNeeded()
@@ -717,6 +719,7 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
 
     private func openAnalytics(source: String, launchDefaultInsights: Bool) {
         guard faceCoordinator.activeFace != .analytics else { return }
+        cancelBackgroundSurfacePrewarm()
         pendingOnboardingEvaluationTask?.cancel()
         pendingOnboardingEvaluationTask = nil
         awaitsAnalyticsFirstInteractiveFrame = true
@@ -808,6 +811,7 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
 
     private func openSearch(source: String) {
         guard faceCoordinator.activeFace != .search else { return }
+        cancelBackgroundSurfacePrewarm()
         pendingSearchPreparationTask?.cancel()
         pendingSearchWarmupTask?.cancel()
         pendingOnboardingEvaluationTask?.cancel()
@@ -877,7 +881,7 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
             self.faceCoordinator.setSearchSurfaceState(.preparing)
             self.searchState.configureIfNeeded(
                 makeEngine: {
-                    LGHomeSearchEngine(viewModel: self.viewModel.makeHomeSearchViewModel())
+                    self.retainedHomeSearchEngine
                 },
                 dataRevisionProvider: {
                     self.viewModel.currentDataRevision
@@ -903,9 +907,14 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
 
     private func scheduleBackgroundSurfacePrewarmIfNeeded() {
         guard faceCoordinator.shellPhase == .interactive else { return }
+        guard UIDevice.current.userInterfaceIdiom == .pad else {
+            cancelBackgroundSurfacePrewarm()
+            return
+        }
+        guard faceCoordinator.activeFace == .tasks else { return }
 
         if pendingBackgroundSearchPrewarmTask == nil {
-            pendingBackgroundSearchPrewarmTask = Task { @MainActor [weak self] in
+            pendingBackgroundSearchPrewarmTask = Task(priority: .utility) { @MainActor [weak self] in
                 defer { self?.pendingBackgroundSearchPrewarmTask = nil }
                 do {
                     try await Task.sleep(nanoseconds: 800_000_000)
@@ -916,7 +925,7 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
                 guard self.faceCoordinator.activeFace == .tasks else { return }
                 self.searchState.configureIfNeeded(
                     makeEngine: {
-                        LGHomeSearchEngine(viewModel: self.viewModel.makeHomeSearchViewModel())
+                        self.retainedHomeSearchEngine
                     },
                     dataRevisionProvider: {
                         self.viewModel.currentDataRevision
@@ -927,7 +936,7 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
         }
 
         if pendingBackgroundInsightsPrewarmTask == nil {
-            pendingBackgroundInsightsPrewarmTask = Task { @MainActor [weak self] in
+            pendingBackgroundInsightsPrewarmTask = Task(priority: .utility) { @MainActor [weak self] in
                 defer { self?.pendingBackgroundInsightsPrewarmTask = nil }
                 do {
                     try await Task.sleep(nanoseconds: 1_500_000_000)
@@ -936,13 +945,30 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
                 }
                 guard let self, Task.isCancelled == false else { return }
                 guard self.faceCoordinator.activeFace == .tasks else { return }
-                guard self.faceCoordinator.insightsViewModel == nil else { return }
-                let resolvedViewModel = self.viewModel.makeInsightsViewModel()
-                self.insightsViewModel = resolvedViewModel
-                self.faceCoordinator.insightsViewModel = resolvedViewModel
+                let resolvedViewModel = self.prepareInsightsViewModelIfNeeded()
                 resolvedViewModel.onAppear()
             }
         }
+    }
+
+    private func cancelBackgroundSurfacePrewarm() {
+        pendingBackgroundSearchPrewarmTask?.cancel()
+        pendingBackgroundSearchPrewarmTask = nil
+        pendingBackgroundInsightsPrewarmTask?.cancel()
+        pendingBackgroundInsightsPrewarmTask = nil
+    }
+
+    @discardableResult
+    private func prepareInsightsViewModelIfNeeded() -> InsightsViewModel {
+        if let existing = faceCoordinator.insightsViewModel {
+            insightsViewModel = existing
+            return existing
+        }
+
+        let resolvedViewModel = viewModel.makeInsightsViewModel()
+        insightsViewModel = resolvedViewModel
+        faceCoordinator.insightsViewModel = resolvedViewModel
+        return resolvedViewModel
     }
 
     private func scheduleInitialSearchWarmupIfNeeded() {
@@ -1905,6 +1931,7 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
                 allowedModes: [.habit],
                 selectedMode: .habit
             ),
+            modePolicy: .habitOnly,
             onHabitCreated: onHabitCreated,
             onDismissWithoutTask: onDismissWithoutTask
         )
@@ -1983,7 +2010,8 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
         let vm = presentationDependencyContainer.makeNewAddTaskViewModel()
         let sheet = AddTaskSheetView(
             viewModel: vm,
-            habitViewModel: presentationDependencyContainer.makeNewAddHabitViewModel()
+            habitViewModel: presentationDependencyContainer.makeNewAddHabitViewModel(),
+            modePolicy: .unified(defaultMode: .task)
         )
         let hostingVC = UIHostingController(rootView: sheet)
         hostingVC.modalPresentationStyle = .pageSheet
@@ -2009,7 +2037,8 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
         let vm = presentationDependencyContainer.makeNewAddTaskViewModel()
         let sheet = AddTaskSheetView(
             viewModel: vm,
-            habitViewModel: presentationDependencyContainer.makeNewAddHabitViewModel()
+            habitViewModel: presentationDependencyContainer.makeNewAddHabitViewModel(),
+            modePolicy: .unified(defaultMode: .task)
         )
         let hostingVC = UIHostingController(rootView: sheet.taskerLayoutClass(currentLayoutClass))
         hostingVC.modalPresentationStyle = .formSheet
@@ -2951,6 +2980,8 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
         if let reason {
             logDebug("🎯 HomeViewController chart refresh reason=\(reason.rawValue)")
         }
+        chartCardViewModel?.load(referenceDate: nil, force: true)
+        radarChartCardViewModel?.load(referenceDate: nil, force: true)
     }
 
     @objc private func homeTaskMutationReceived(_ notification: Notification) {
@@ -3117,7 +3148,6 @@ private struct DailySummaryModalView: View {
         formatter.unitsStyle = .short
         return formatter
     }()
-    @State private var heroMetricsAnimated = false
 
     var body: some View {
         VStack(spacing: 0) {
@@ -3147,12 +3177,6 @@ private struct DailySummaryModalView: View {
         }
         .background(Color.tasker.bgCanvas)
         .accessibilityIdentifier("home.dailySummaryModal")
-        .onAppear {
-            guard heroMetricsAnimated == false else { return }
-            withAnimation(.easeOut(duration: 0.5)) {
-                heroMetricsAnimated = true
-            }
-        }
     }
 
     @ViewBuilder
@@ -3180,12 +3204,22 @@ private struct DailySummaryModalView: View {
         return VStack(alignment: .leading, spacing: 8) {
             HStack(alignment: .top) {
                 VStack(alignment: .leading, spacing: 4) {
-                    Text(title)
-                        .font(.tasker(.title3))
-                        .foregroundColor(Color.tasker.textPrimary)
-                    Text(subtitle)
+                    HStack(spacing: 8) {
+                        Text(title)
+                            .font(.tasker(.title3))
+                            .foregroundStyle(Color.tasker.textPrimary)
+                        TaskerStatusPill(
+                            text: summaryBadgeText,
+                            systemImage: summaryBadgeSymbol,
+                            tone: summaryBadgeTone
+                        )
+                    }
+                    Text(summaryNarrative)
                         .font(.tasker(.caption1))
-                        .foregroundColor(Color.tasker.textSecondary)
+                        .foregroundStyle(Color.tasker.textSecondary)
+                    Text(subtitle)
+                        .font(.tasker(.caption2))
+                        .foregroundStyle(Color.tasker.textTertiary)
                 }
                 Spacer(minLength: 8)
                 Button("Close") {
@@ -3196,9 +3230,11 @@ private struct DailySummaryModalView: View {
             summaryHeroMetrics
         }
         .padding(16)
-        .background(
-            RoundedRectangle(cornerRadius: 16)
-                .fill(Color.tasker.surfaceSecondary)
+        .taskerPremiumSurface(
+            cornerRadius: 16,
+            fillColor: Color.tasker.surfacePrimary,
+            accentColor: headerAccentColor,
+            level: .e2
         )
     }
 
@@ -3236,7 +3272,12 @@ private struct DailySummaryModalView: View {
         case .nightly(let value):
             return AnyView(
                 HStack(spacing: 10) {
-                    metricChip(title: "Done", value: "\(value.completedCount)/\(value.totalCount)", id: "home.dailySummary.hero.completed")
+                    metricChip(
+                        title: "Done",
+                        value: "\(value.completedCount)/\(value.totalCount)",
+                        id: "home.dailySummary.hero.completed",
+                        detail: value.totalCount > 0 ? "\(Int((value.completionRate * 100).rounded()))% completion" : "No schedule recorded"
+                    )
                     metricChip(
                         title: "XP",
                         value: "\(value.xpEarned)",
@@ -3339,13 +3380,14 @@ private struct DailySummaryModalView: View {
         VStack(alignment: .leading, spacing: 10) {
             Text(title)
                 .font(.tasker(.headline))
-                .foregroundColor(Color.tasker.textPrimary)
+                .foregroundStyle(Color.tasker.textPrimary)
             content()
         }
         .padding(14)
-        .background(
-            RoundedRectangle(cornerRadius: 14)
-                .fill(Color.tasker.surfaceSecondary)
+        .taskerDenseSurface(
+            cornerRadius: 14,
+            fillColor: Color.tasker.surfaceSecondary,
+            strokeColor: Color.tasker.strokeHairline.opacity(0.72)
         )
     }
 
@@ -3409,19 +3451,11 @@ private struct DailySummaryModalView: View {
     }
 
     private func agendaPill(title: String, value: Int) -> some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text(title)
-                .font(.tasker(.caption2))
-                .foregroundColor(Color.tasker.textTertiary)
-            Text("\(value)")
-                .font(.tasker(.headline))
-                .foregroundColor(Color.tasker.textPrimary)
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(10)
-        .background(
-            RoundedRectangle(cornerRadius: 10)
-                .fill(Color.tasker.surfacePrimary)
+        TaskerHeroMetricTile(
+            title: title,
+            value: "\(value)",
+            detail: value == 0 ? "Quiet" : "Visible progress",
+            tone: value == 0 ? .neutral : .accent
         )
     }
 
@@ -3430,33 +3464,16 @@ private struct DailySummaryModalView: View {
         value: String,
         id: String,
         numericValue: Int? = nil,
-        numericSuffix: String = ""
+        numericSuffix: String = "",
+        detail: String? = nil
     ) -> some View {
-        let displayedNumericValue = heroMetricsAnimated ? (numericValue ?? 0) : 0
-        return VStack(alignment: .leading, spacing: 2) {
-            Text(title)
-                .font(.tasker(.caption2))
-                .foregroundColor(Color.tasker.textTertiary)
-            if numericValue != nil {
-                Text("\(displayedNumericValue)\(numericSuffix)")
-                    .font(.tasker(.bodyEmphasis))
-                    .foregroundColor(Color.tasker.textPrimary)
-                    .monospacedDigit()
-                    .contentTransition(.numericText())
-                    .animation(.easeOut(duration: 0.5), value: displayedNumericValue)
-            } else {
-                Text(value)
-                    .font(.tasker(.bodyEmphasis))
-                    .foregroundColor(Color.tasker.textPrimary)
-            }
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(10)
-        .background(
-            RoundedRectangle(cornerRadius: 10)
-                .fill(Color.tasker.surfacePrimary)
+        return TaskerHeroMetricTile(
+            title: title,
+            value: numericValue != nil ? "\(numericValue ?? 0)\(numericSuffix)" : value,
+            detail: detail,
+            tone: title == "Overdue" ? .warning : (title == "XP" ? .accent : .neutral),
+            accessibilityIdentifier: id
         )
-        .accessibilityIdentifier(id)
     }
 
     private var ctaBar: some View {
@@ -3472,6 +3489,7 @@ private struct DailySummaryModalView: View {
                         idleMotion: .slowLoop,
                         isEnabled: primaryCTAIdentifier == "home.dailySummary.cta.startToday"
                     )
+                    .taskerSuccessPulse(isActive: primaryCTAIdentifier == "home.dailySummary.cta.startToday")
                     .frame(maxWidth: .infinity)
                     .accessibilityIdentifier("home.dailySummary.cta.startToday")
 
@@ -3506,6 +3524,7 @@ private struct DailySummaryModalView: View {
                         idleMotion: .slowLoop,
                         isEnabled: primaryCTAIdentifier == "home.dailySummary.cta.planTomorrow"
                     )
+                    .taskerSuccessPulse(isActive: primaryCTAIdentifier == "home.dailySummary.cta.planTomorrow")
                     .frame(maxWidth: .infinity)
                     .accessibilityIdentifier("home.dailySummary.cta.planTomorrow")
 
@@ -3528,6 +3547,55 @@ private struct DailySummaryModalView: View {
                         .accessibilityIdentifier("home.dailySummary.cta.openRescue")
                 }
             }
+        }
+    }
+
+    private var summaryBadgeText: String {
+        switch summary {
+        case .morning:
+            return "Plan"
+        case .nightly:
+            return "Reflect"
+        }
+    }
+
+    private var summaryBadgeSymbol: String {
+        switch summary {
+        case .morning:
+            return "sun.max.fill"
+        case .nightly:
+            return "moon.stars.fill"
+        }
+    }
+
+    private var summaryBadgeTone: TaskerStatusPillTone {
+        switch summary {
+        case .morning:
+            return .accent
+        case .nightly:
+            return .success
+        }
+    }
+
+    private var summaryNarrative: String {
+        switch summary {
+        case .morning(let value):
+            return value.openTodayCount == 0
+                ? "You can start with one meaningful win."
+                : "Shape the day before the backlog sets the agenda."
+        case .nightly(let value):
+            return value.completedCount == 0
+                ? "Close the loop with a realistic reset for tomorrow."
+                : "Notice what moved today before deciding what rolls forward."
+        }
+    }
+
+    private var headerAccentColor: Color {
+        switch summary {
+        case .morning:
+            return Color.tasker.accentSecondary
+        case .nightly:
+            return Color.tasker.statusSuccess
         }
     }
 

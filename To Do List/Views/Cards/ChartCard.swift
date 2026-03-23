@@ -79,23 +79,6 @@ struct ChartCard: View {
         .onChange(of: referenceDate) { _, _ in
             viewModel.load(referenceDate: referenceDate)
         }
-        .onReceive(
-            NotificationCenter.default.publisher(for: .homeTaskMutation)
-                .debounce(for: .milliseconds(120), scheduler: RunLoop.main)
-        ) { notification in
-            guard let payload = HomeTaskMutationPayload(notification: notification) else {
-                viewModel.load(referenceDate: referenceDate, force: true)
-                return
-            }
-            guard ChartInvalidationPolicy.shouldRefreshLineChart(
-                for: payload,
-                referenceDate: referenceDate ?? Date.today()
-            ) else {
-                return
-            }
-            logDebug("📡 ChartCard: Received HomeTaskMutationEvent - reloading chart data")
-            viewModel.load(referenceDate: referenceDate, force: true)
-        }
     }
 
 }

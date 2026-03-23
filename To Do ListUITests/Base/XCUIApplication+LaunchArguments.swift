@@ -37,6 +37,7 @@ extension XCUIApplication {
             LaunchArgumentKey.skipOnboarding.rawValue,
             LaunchArgumentKey.disableCloudSync.rawValue
         ]
+        launchEnvironment[LaunchEnvironmentKey.performanceTest.rawValue] = "1"
         launch()
     }
 
@@ -54,6 +55,7 @@ extension XCUIApplication {
         }
 
         launchArguments = arguments
+        launchEnvironment[LaunchEnvironmentKey.performanceTest.rawValue] = "1"
         launch()
     }
 
@@ -65,6 +67,7 @@ extension XCUIApplication {
             LaunchArgumentKey.disableAnimations.rawValue,
             LaunchArgumentKey.mockDate.rawValue + ":\(dateString)"
         ]
+        launchEnvironment[LaunchEnvironmentKey.performanceTest.rawValue] = "1"
         launch()
     }
 
@@ -76,6 +79,7 @@ extension XCUIApplication {
             LaunchArgumentKey.mockNetworkFailure.rawValue,
             LaunchArgumentKey.disableCloudSync.rawValue
         ]
+        launchEnvironment[LaunchEnvironmentKey.performanceTest.rawValue] = "1"
         launch()
     }
 
@@ -87,6 +91,7 @@ extension XCUIApplication {
             LaunchArgumentKey.disableAnimations.rawValue,
             LaunchArgumentKey.enableDebugLogging.rawValue
         ]
+        launchEnvironment[LaunchEnvironmentKey.performanceTest.rawValue] = "1"
         launch()
     }
 
@@ -101,6 +106,7 @@ extension XCUIApplication {
             "\(LaunchArgumentKey.testRoute.rawValue):\(payload)"
         ]
         launchArguments.append(contentsOf: additionalArguments.map(\.rawValue))
+        launchEnvironment[LaunchEnvironmentKey.performanceTest.rawValue] = "1"
         launch()
     }
 

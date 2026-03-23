@@ -105,22 +105,6 @@ struct RadarChartCard: View {
         .onChange(of: referenceDate) { _, _ in
             viewModel.load(referenceDate: referenceDate)
         }
-        .onReceive(
-            NotificationCenter.default.publisher(for: .homeTaskMutation)
-                .debounce(for: .milliseconds(120), scheduler: RunLoop.main)
-        ) { notification in
-            guard let payload = HomeTaskMutationPayload(notification: notification) else {
-                viewModel.load(referenceDate: referenceDate, force: true)
-                return
-            }
-            guard ChartInvalidationPolicy.shouldRefreshRadarChart(
-                for: payload,
-                referenceDate: referenceDate ?? Date.today()
-            ) else {
-                return
-            }
-            viewModel.load(referenceDate: referenceDate, force: true)
-        }
     }
 
     // MARK: - Empty State View

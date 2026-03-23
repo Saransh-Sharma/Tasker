@@ -99,6 +99,48 @@ final class HomeViewModelPersistenceTests: XCTestCase {
         defaults.removePersistentDomain(forName: suiteName)
     }
 
+    func testInsightsViewModelIsRetainedAcrossRequests() {
+        let suiteName = "HomeViewModelPersistenceTests.InsightsRetention.\(UUID().uuidString)"
+        guard let defaults = UserDefaults(suiteName: suiteName) else {
+            return XCTFail("Failed to create test UserDefaults suite")
+        }
+        defaults.removePersistentDomain(forName: suiteName)
+
+        let inbox = Project.createInbox()
+        let coordinator = UseCaseCoordinator(
+            taskRepository: HomeViewModelMockTaskRepository(tasks: [makeTask(name: "Task", project: inbox)]),
+            projectRepository: HomeViewModelMockProjectRepository(projects: [inbox])
+        )
+
+        let viewModel = HomeViewModel(useCaseCoordinator: coordinator, userDefaults: defaults)
+        waitForMainQueueFlush()
+
+        XCTAssertTrue(viewModel.makeInsightsViewModel() === viewModel.makeInsightsViewModel())
+
+        defaults.removePersistentDomain(forName: suiteName)
+    }
+
+    func testSearchViewModelIsRetainedAcrossRequests() {
+        let suiteName = "HomeViewModelPersistenceTests.SearchRetention.\(UUID().uuidString)"
+        guard let defaults = UserDefaults(suiteName: suiteName) else {
+            return XCTFail("Failed to create test UserDefaults suite")
+        }
+        defaults.removePersistentDomain(forName: suiteName)
+
+        let inbox = Project.createInbox()
+        let coordinator = UseCaseCoordinator(
+            taskRepository: HomeViewModelMockTaskRepository(tasks: [makeTask(name: "Task", project: inbox)]),
+            projectRepository: HomeViewModelMockProjectRepository(projects: [inbox])
+        )
+
+        let viewModel = HomeViewModel(useCaseCoordinator: coordinator, userDefaults: defaults)
+        waitForMainQueueFlush()
+
+        XCTAssertTrue(viewModel.makeHomeSearchViewModel() === viewModel.makeHomeSearchViewModel())
+
+        defaults.removePersistentDomain(forName: suiteName)
+    }
+
     func testFocusTasksRankingPrioritizesOverdueThenDueTodayThenXP() {
         let suiteName = "HomeViewModelPersistenceTests.FocusRanking.\(UUID().uuidString)"
         guard let defaults = UserDefaults(suiteName: suiteName) else {

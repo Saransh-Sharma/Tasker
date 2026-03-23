@@ -30,6 +30,7 @@ class BaseUITest: XCTestCase {
             "-UI_TESTING",       // Flag for UI testing mode
             "-DISABLE_ANIMATIONS" // Speed up tests
         ]
+        app.launchEnvironment[XCUIApplication.LaunchEnvironmentKey.performanceTest.rawValue] = "1"
         if shouldSkipOnboarding {
             app.launchArguments.append("-SKIP_ONBOARDING")
         }

@@ -853,35 +853,11 @@ public final class InsightsViewModel: ObservableObject {
 
         if let taskReadModelRepository {
             group.enter()
-            taskReadModelRepository.fetchTasks(
-                query: TaskReadQuery(
-                    includeCompleted: true,
-                    dueDateEnd: startOfTomorrow,
-                    sortBy: .dueDateAscending,
-                    limit: Self.projectionTaskLimit,
-                    offset: 0
-                )
-            ) { result in
+            taskReadModelRepository.fetchInsightsTodayProjection(referenceDate: startOfToday) { result in
                 lock.lock()
-                if case .success(let slice) = result {
-                    dueWindowTasks = slice.tasks
-                }
-                lock.unlock()
-                group.leave()
-            }
-
-            group.enter()
-            taskReadModelRepository.fetchTasks(
-                query: TaskReadQuery(
-                    includeCompleted: true,
-                    sortBy: .updatedAtDescending,
-                    limit: Self.projectionTaskLimit,
-                    offset: 0
-                )
-            ) { result in
-                lock.lock()
-                if case .success(let slice) = result {
-                    recentTasks = slice.tasks
+                if case .success(let projection) = result {
+                    dueWindowTasks = projection.dueWindowTasks
+                    recentTasks = projection.recentTasks
                 }
                 lock.unlock()
                 group.leave()
@@ -992,45 +968,12 @@ public final class InsightsViewModel: ObservableObject {
 
         if let taskReadModelRepository {
             group.enter()
-            taskReadModelRepository.fetchTasks(
-                query: TaskReadQuery(
-                    includeCompleted: true,
-                    sortBy: .updatedAtDescending,
-                    limit: Self.projectionTaskLimit,
-                    offset: 0
-                )
-            ) { result in
+            taskReadModelRepository.fetchInsightsWeekProjection(referenceDate: today) { result in
                 lock.lock()
-                if case .success(let slice) = result {
-                    recentTasks = slice.tasks
-                }
-                lock.unlock()
-                group.leave()
-            }
-
-            group.enter()
-            taskReadModelRepository.fetchTasks(
-                query: TaskReadQuery(
-                    includeCompleted: true,
-                    dueDateEnd: startOfTomorrow,
-                    sortBy: .dueDateAscending,
-                    limit: Self.projectionTaskLimit,
-                    offset: 0
-                )
-            ) { result in
-                lock.lock()
-                if case .success(let slice) = result {
-                    dueWindowTasks = slice.tasks
-                }
-                lock.unlock()
-                group.leave()
-            }
-
-            group.enter()
-            taskReadModelRepository.fetchProjectCompletionScoreTotals(from: weekStart, to: weekEndDate) { result in
-                lock.lock()
-                if case .success(let scores) = result {
-                    projectScores = scores
+                if case .success(let projection) = result {
+                    recentTasks = projection.recentTasks
+                    dueWindowTasks = projection.dueWindowTasks
+                    projectScores = projection.projectScores
                 }
                 lock.unlock()
                 group.leave()

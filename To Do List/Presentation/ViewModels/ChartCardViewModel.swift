@@ -36,8 +36,7 @@ public final class ChartCardViewModel: ObservableObject {
 
         let currentReferenceDate = referenceDate ?? Date.today()
         let week = calendar.daysWithSameWeekOfYear(as: currentReferenceDate)
-        guard let weekStart = week.first?.startOfDay,
-              let weekEnd = week.last?.endOfDay else {
+        guard let weekStart = week.first?.startOfDay else {
             isLoading = false
             return
         }
@@ -52,20 +51,7 @@ public final class ChartCardViewModel: ObservableObject {
         isLoading = true
         let interval = TaskerPerformanceTrace.begin("ChartCardLoad")
 
-        let loadTasks: (@escaping (Result<[TaskDefinition], Error>) -> Void) -> Void = { handler in
-            readModel.fetchTasks(
-                query: TaskReadQuery(
-                    includeCompleted: true,
-                    dueDateStart: weekStart,
-                    dueDateEnd: weekEnd,
-                    sortBy: .dueDateAscending,
-                    limit: 2_000,
-                    offset: 0
-                )
-            ) { handler($0.map(\.tasks)) }
-        }
-
-        loadTasks { [weak self] result in
+        readModel.fetchWeekChartProjection(referenceDate: currentReferenceDate) { [weak self] result in
             guard let self else {
                 TaskerPerformanceTrace.end(interval)
                 return
@@ -73,21 +59,14 @@ public final class ChartCardViewModel: ObservableObject {
             self.computeQueue.async {
                 let payload: [ChartDataEntry]
                 switch result {
-                case .success(let tasks):
+                case .success(let projection):
                     let today = Date.today().startOfDay
-                    var dayScores: [Date: Int] = [:]
-                    dayScores.reserveCapacity(week.count)
-                    for task in tasks where task.isComplete {
-                        guard let completedDay = task.dateCompleted?.startOfDay else { continue }
-                        dayScores[completedDay, default: 0] += task.priority.scorePoints
-                    }
-
                     payload = week.enumerated().map { index, day in
                         let score: Int
                         if day.startOfDay > today {
                             score = 0
                         } else {
-                            score = max(0, dayScores[day.startOfDay] ?? 0)
+                            score = max(0, projection.dayScores[day.startOfDay] ?? 0)
                         }
                         return ChartDataEntry(x: Double(index), y: Double(score))
                     }
