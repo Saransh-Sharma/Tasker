@@ -30,7 +30,7 @@ final class QuickFilterChromeTests: BaseUITest {
         quickFilterButton.tap()
         XCTAssertTrue(advancedButton.waitForExistence(timeout: 3), "Quick filter menu should reopen")
 
-        let resetButton = app.buttons["Reset filters"]
+        let resetButton = app.buttons["home.focus.menu.reset"]
         XCTAssertTrue(resetButton.waitForExistence(timeout: 3), "Reset button should be visible")
         resetButton.tap()
     }

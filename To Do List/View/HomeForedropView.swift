@@ -3230,11 +3230,16 @@ struct HomeiPadSplitShellView: View {
             .background {
                 hiddenKeyboardShortcuts
             }
+            .sheet(isPresented: $showHabitLibrarySheet) {
+                HabitLibraryView(
+                    viewModel: PresentationDependencyContainer.shared.makeNewHabitLibraryViewModel()
+                )
+            }
             .onAppear {
                 if let face = shellState.destination.homeFace {
                     activeHomeFace = face
+                }
             }
-        }
         .onChange(of: shellState.destination) { _, newValue in
             if newValue.isPrimaryHomeDestination {
                 logWarning(
@@ -3284,11 +3289,6 @@ struct HomeiPadSplitShellView: View {
         }
         .sheet(isPresented: $showCompactSidebar) {
             compactSidebarSheet
-        }
-        .sheet(isPresented: $showHabitLibrarySheet) {
-            HabitLibraryView(
-                viewModel: PresentationDependencyContainer.shared.makeNewHabitLibraryViewModel()
-            )
         }
     }
 

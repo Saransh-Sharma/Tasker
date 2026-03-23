@@ -423,6 +423,7 @@ public final class HomeViewModel: ObservableObject {
     private var analyticsGeneration: Int = 0
     private var pendingHomeRenderStateWorkItem: DispatchWorkItem?
     private var currentHabitSignals: [TaskerHabitSignal] = []
+    private var evaInsightsGeneration: Int = 0
 
     deinit {
         pendingRecurringTopUpWorkItem?.cancel()
@@ -2605,6 +2606,7 @@ public final class HomeViewModel: ObservableObject {
         let group = DispatchGroup()
         var agendaHabitRows: [HomeHabitRow] = []
         var trackingHabitRows: [HomeHabitRow] = []
+        var historyByHabitID: [UUID: [HabitDayMark]] = [:]
 
         group.enter()
         buildHabitHomeProjectionUseCase.execute(date: selectedDate) { result in
@@ -2614,10 +2616,39 @@ public final class HomeViewModel: ObservableObject {
 
         group.enter()
         useCaseCoordinator.getHabitLibrary.execute(includeArchived: false) { [weak self] result in
-            defer { group.leave() }
-            guard let self else { return }
-            let libraryRows = (try? result.get()) ?? []
-            trackingHabitRows = self.trackingHomeRows(from: libraryRows, on: self.selectedDate)
+            guard let self else {
+                group.leave()
+                return
+            }
+            switch result {
+            case .failure:
+                group.leave()
+            case .success(let libraryRows):
+                guard libraryRows.isEmpty == false else {
+                    trackingHabitRows = self.trackingHomeRows(from: libraryRows, historyByHabitID: historyByHabitID, on: self.selectedDate)
+                    group.leave()
+                    return
+                }
+                group.enter()
+                self.useCaseCoordinator.getHabitHistory.execute(
+                    habitIDs: libraryRows.map(\.habitID),
+                    endingOn: self.selectedDate,
+                    dayCount: 1
+                ) { historyResult in
+                    if case .success(let windows) = historyResult {
+                        historyByHabitID = windows.reduce(into: [:]) { partialResult, window in
+                            partialResult[window.habitID] = window.marks
+                        }
+                    }
+                    trackingHabitRows = self.trackingHomeRows(
+                        from: libraryRows,
+                        historyByHabitID: historyByHabitID,
+                        on: self.selectedDate
+                    )
+                    group.leave()
+                }
+                group.leave()
+            }
         }
 
         group.notify(queue: .main) { [weak self] in
@@ -2712,6 +2743,7 @@ public final class HomeViewModel: ObservableObject {
 
     private func trackingHomeRows(
         from rows: [HabitLibraryRow],
+        historyByHabitID: [UUID: [HabitDayMark]] = [:],
         on date: Date
     ) -> [HomeHabitRow] {
         let calendar = Calendar.current
@@ -2723,7 +2755,8 @@ public final class HomeViewModel: ObservableObject {
                 return nil
             }
 
-            let todayMark = row.last14Days.first(where: { mark in
+            let marks = historyByHabitID[row.habitID] ?? row.last14Days
+            let todayMark = marks.first(where: { mark in
                 let markDate = calendar.startOfDay(for: mark.date)
                 return markDate >= startOfDay && markDate < endOfDay
             })
@@ -3289,13 +3322,25 @@ public final class HomeViewModel: ObservableObject {
         }
         let sourceOpenTasks = openTasks ?? focusOpenTasksForCurrentState()
         let anchorDate = activeScope.referenceDate
+        evaInsightsGeneration += 1
+        let requestGeneration = evaInsightsGeneration
         useCaseCoordinator.computeEvaHomeInsights.execute(
             openTasks: sourceOpenTasks,
             focusTasks: focusTasks,
             anchorDate: anchorDate
-        ) { [weak self] insights in
+        ) { [weak self] result in
             DispatchQueue.main.async {
-                self?.evaHomeInsights = insights
+                guard let self, self.evaInsightsGeneration == requestGeneration else { return }
+                switch result {
+                case .success(let insights):
+                    self.evaHomeInsights = insights
+                case .failure(let error):
+                    logWarning(
+                        event: "eva_home_insights_failed",
+                        message: "Failed to compute Eva home insights",
+                        fields: ["error": error.localizedDescription]
+                    )
+                }
             }
         }
     }

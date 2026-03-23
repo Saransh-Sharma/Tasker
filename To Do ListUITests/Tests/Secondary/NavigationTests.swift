@@ -317,7 +317,7 @@ class NavigationTests: BaseUITest {
             ("analytics", "home.ipad.detail.analytics"),
             ("addTask", "home.ipad.detail.addTask"),
             ("settings", "home.ipad.detail.settings"),
-            ("projects", "home.ipad.detail.projects")
+            ("projects", "projectManagement.view")
         ]
 
         for (destination, detailID) in destinationToDetail {

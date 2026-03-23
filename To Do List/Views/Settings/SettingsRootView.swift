@@ -195,7 +195,7 @@ struct SettingsRootView: View {
                             iconName: "cpu.fill",
                             title: "Models",
                             subtitle: "Review installed models and choose Eva’s default runtime.",
-                            trailingStatus: viewModel.aiAssistantSummary,
+                            trailingStatus: viewModel.modelsSummary,
                             tone: .accent,
                             accessibilityIdentifier: "settings.aiAssistant.models.row"
                         ),

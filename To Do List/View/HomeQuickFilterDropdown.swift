@@ -407,6 +407,7 @@ public struct HomeQuickFilterDropdown: View {
             )
         }
         .taskerPressFeedback(reduceMotion: reduceMotion)
+        .accessibilityIdentifier("home.focus.menu.reset")
         .padding(.horizontal, spacing.s20)
         .padding(.vertical, spacing.s12)
     }

@@ -154,6 +154,7 @@ public struct InsightsTabView: View {
             .buttonStyle(.plain)
             .scaleOnPress()
             .accessibilityIdentifier(accessibilityIdentifier(for: tab))
+            .accessibilityAddTraits(viewModel.selectedTab == tab ? .isSelected : [])
         }
     }
 

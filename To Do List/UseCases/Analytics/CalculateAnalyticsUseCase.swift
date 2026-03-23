@@ -65,12 +65,17 @@ public final class CalculateAnalyticsUseCase {
         habitSignals: [TaskerHabitSignal] = [],
         completion: @escaping (Result<DailyAnalytics, AnalyticsError>) -> Void
     ) {
-        resolveHabitSignalsForDay(date, suppliedSignals: habitSignals) { [weak self] resolvedSignals in
-            self?.calculateDailyAnalyticsResolved(
-                for: date,
-                habitSignals: resolvedSignals,
-                completion: completion
-            )
+        resolveHabitSignalsForDay(date, suppliedSignals: habitSignals) { [weak self] result in
+            switch result {
+            case .failure(let error):
+                completion(.failure(error))
+            case .success(let resolvedSignals):
+                self?.calculateDailyAnalyticsResolved(
+                    for: date,
+                    habitSignals: resolvedSignals,
+                    completion: completion
+                )
+            }
         }
     }
 
@@ -134,17 +139,18 @@ public final class CalculateAnalyticsUseCase {
             completion(.failure(.invalidDateRange))
             return
         }
+        let inclusiveWeekEnd = calendar.date(byAdding: .day, value: -1, to: weekInterval.end) ?? weekInterval.start
         
         calculateAnalytics(
             from: weekInterval.start,
-            to: weekInterval.end,
+            to: inclusiveWeekEnd,
             habitSignalsByDay: habitSignalsByDay
         ) { result in
             switch result {
             case .success(let periodAnalytics):
                 let weeklyAnalytics = WeeklyAnalytics(
                     weekStartDate: weekInterval.start,
-                    weekEndDate: weekInterval.end,
+                    weekEndDate: inclusiveWeekEnd,
                     dailyAnalytics: periodAnalytics.dailyBreakdown,
                     totalScore: periodAnalytics.totalScore,
                     totalTasksCompleted: periodAnalytics.totalTasksCompleted,
@@ -174,10 +180,11 @@ public final class CalculateAnalyticsUseCase {
             completion(.failure(.invalidDateRange))
             return
         }
+        let inclusiveMonthEnd = calendar.date(byAdding: .day, value: -1, to: monthInterval.end) ?? monthInterval.start
         
         calculateAnalytics(
             from: monthInterval.start,
-            to: monthInterval.end,
+            to: inclusiveMonthEnd,
             habitSignalsByDay: habitSignalsByDay
         ) { result in
             switch result {
@@ -190,7 +197,7 @@ public final class CalculateAnalyticsUseCase {
                     if let weekEnd = calendar.date(byAdding: .day, value: 6, to: currentWeekStart) {
                         let weekAnalytics = WeeklyAnalytics(
                             weekStartDate: currentWeekStart,
-                            weekEndDate: min(weekEnd, monthInterval.end),
+                            weekEndDate: min(weekEnd, inclusiveMonthEnd),
                             dailyAnalytics: periodAnalytics.dailyBreakdown.filter { analytics in
                                 analytics.date >= currentWeekStart && analytics.date <= weekEnd
                             },
@@ -241,13 +248,18 @@ public final class CalculateAnalyticsUseCase {
             from: startDate,
             to: endDate,
             suppliedSignalsByDay: habitSignalsByDay
-        ) { [weak self] resolvedSignalsByDay in
-            self?.calculateAnalyticsResolved(
-                from: startDate,
-                to: endDate,
-                habitSignalsByDay: resolvedSignalsByDay,
-                completion: completion
-            )
+        ) { [weak self] result in
+            switch result {
+            case .failure(let error):
+                completion(.failure(error))
+            case .success(let resolvedSignalsByDay):
+                self?.calculateAnalyticsResolved(
+                    from: startDate,
+                    to: endDate,
+                    habitSignalsByDay: resolvedSignalsByDay,
+                    completion: completion
+                )
+            }
         }
     }
 
@@ -451,10 +463,10 @@ public final class CalculateAnalyticsUseCase {
     private func resolveHabitSignalsForDay(
         _ date: Date,
         suppliedSignals: [TaskerHabitSignal],
-        completion: @escaping ([TaskerHabitSignal]) -> Void
+        completion: @escaping (Result<[TaskerHabitSignal], AnalyticsError>) -> Void
     ) {
         guard suppliedSignals.isEmpty, let habitRuntimeReadRepository else {
-            completion(suppliedSignals)
+            completion(.success(suppliedSignals))
             return
         }
 
@@ -462,8 +474,12 @@ public final class CalculateAnalyticsUseCase {
         let startOfDay = calendar.startOfDay(for: date)
         let endOfDay = calendar.date(byAdding: .day, value: 1, to: startOfDay) ?? date
         habitRuntimeReadRepository.fetchSignals(start: startOfDay, end: endOfDay) { result in
-            let signals = (try? result.get())?.map { TaskerHabitSignal(summary: $0, referenceDate: date) } ?? []
-            completion(signals)
+            switch result {
+            case .failure(let error):
+                completion(.failure(.repositoryError(error)))
+            case .success(let summaries):
+                completion(.success(summaries.map { TaskerHabitSignal(summary: $0, referenceDate: date) }))
+            }
         }
     }
 
@@ -471,10 +487,10 @@ public final class CalculateAnalyticsUseCase {
         from startDate: Date,
         to endDate: Date,
         suppliedSignalsByDay: [String: [TaskerHabitSignal]],
-        completion: @escaping ([String: [TaskerHabitSignal]]) -> Void
+        completion: @escaping (Result<[String: [TaskerHabitSignal]], AnalyticsError>) -> Void
     ) {
         guard suppliedSignalsByDay.isEmpty, let habitRuntimeReadRepository else {
-            completion(suppliedSignalsByDay)
+            completion(.success(suppliedSignalsByDay))
             return
         }
 
@@ -482,14 +498,18 @@ public final class CalculateAnalyticsUseCase {
         let start = calendar.startOfDay(for: startDate)
         let endExclusive = calendar.date(byAdding: .day, value: 1, to: calendar.startOfDay(for: endDate)) ?? endDate
         habitRuntimeReadRepository.fetchSignals(start: start, end: endExclusive) { result in
-            let summaries = (try? result.get()) ?? []
-            let grouped = Dictionary(grouping: summaries) { summary in
-                XPCalculationEngine.periodKey(for: calendar.startOfDay(for: summary.dueAt ?? start))
+            switch result {
+            case .failure(let error):
+                completion(.failure(.repositoryError(error)))
+            case .success(let summaries):
+                let grouped = Dictionary(grouping: summaries) { summary in
+                    XPCalculationEngine.periodKey(for: calendar.startOfDay(for: summary.dueAt ?? start))
+                }
+                let mapped = grouped.mapValues { summaries in
+                    summaries.map { TaskerHabitSignal(summary: $0, referenceDate: $0.dueAt ?? start) }
+                }
+                completion(.success(mapped))
             }
-            let mapped = grouped.mapValues { summaries in
-                summaries.map { TaskerHabitSignal(summary: $0, referenceDate: $0.dueAt ?? start) }
-            }
-            completion(mapped)
         }
     }
     

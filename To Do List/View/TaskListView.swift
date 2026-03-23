@@ -683,7 +683,13 @@ struct TaskListView: View {
         }
 
         if activeQuickView == .today {
-            return todaySections.isEmpty
+            if !todaySections.isEmpty {
+                return false
+            }
+            return morningTasks.isEmpty
+                && eveningTasks.isEmpty
+                && overdueTasks.isEmpty
+                && inlineCompletedTasks.isEmpty
         }
 
         return morningTasks.isEmpty && eveningTasks.isEmpty && overdueTasks.isEmpty

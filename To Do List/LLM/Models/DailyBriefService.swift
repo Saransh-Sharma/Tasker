@@ -104,32 +104,14 @@ final class DailyBriefService {
         completedTodayCount: Int,
         streak: Int,
         habitSignals: [TaskerHabitSignal] = []
-    ) -> String {
+    ) async -> String {
         fallbackBrief(
             todayOpenCount: todayOpenCount,
             overdueCount: overdueCount,
             completedTodayCount: completedTodayCount,
             streak: streak,
-            habitSignals: resolveHabitSignalsSynchronously(suppliedSignals: habitSignals)
+            habitSignals: await resolveHabitSignals(suppliedSignals: habitSignals)
         )
-    }
-
-    private func resolveHabitSignalsSynchronously(suppliedSignals: [TaskerHabitSignal]) -> [TaskerHabitSignal] {
-        guard suppliedSignals.isEmpty, let repository = LLMContextRepositoryProvider.habitRuntimeReadRepository else {
-            return suppliedSignals
-        }
-        let calendar = Calendar.current
-        let startOfDay = calendar.startOfDay(for: Date())
-        let endOfDay = calendar.date(byAdding: .day, value: 1, to: startOfDay) ?? Date()
-        let semaphore = DispatchSemaphore(value: 0)
-        var resolved: [TaskerHabitSignal] = []
-        repository.fetchSignals(start: startOfDay, end: endOfDay) { result in
-            let summaries = (try? result.get()) ?? []
-            resolved = summaries.map { TaskerHabitSignal(summary: $0, referenceDate: Date()) }
-            semaphore.signal()
-        }
-        _ = semaphore.wait(timeout: .now() + .seconds(2))
-        return resolved
     }
 
     private func resolveHabitSignals(suppliedSignals: [TaskerHabitSignal]) async -> [TaskerHabitSignal] {

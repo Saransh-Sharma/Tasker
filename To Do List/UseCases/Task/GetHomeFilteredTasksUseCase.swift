@@ -920,10 +920,10 @@ public final class ComputeEvaHomeInsightsUseCase {
         focusTasks: [TaskDefinition],
         anchorDate: Date = Date(),
         now: Date = Date(),
-        completion: @escaping (EvaHomeInsights) -> Void
+        completion: @escaping (Result<EvaHomeInsights, Error>) -> Void
     ) {
         guard let habitRuntimeReadRepository else {
-            completion(
+            completion(.success(
                 buildInsights(
                     openTasks: openTasks,
                     focusTasks: focusTasks,
@@ -931,7 +931,7 @@ public final class ComputeEvaHomeInsightsUseCase {
                     anchorDate: anchorDate,
                     now: now
                 )
-            )
+            ))
             return
         }
 
@@ -939,18 +939,23 @@ public final class ComputeEvaHomeInsightsUseCase {
         let startOfDay = calendar.startOfDay(for: anchorDate)
         let endOfDay = calendar.date(byAdding: .day, value: 1, to: startOfDay) ?? anchorDate
         habitRuntimeReadRepository.fetchSignals(start: startOfDay, end: endOfDay) { result in
-            let signals = ((try? result.get()) ?? []).map {
-                TaskerHabitSignal(summary: $0, referenceDate: anchorDate)
+            switch result {
+            case .failure(let error):
+                completion(.failure(error))
+            case .success(let summaries):
+                let signals = summaries.map {
+                    TaskerHabitSignal(summary: $0, referenceDate: anchorDate)
+                }
+                completion(.success(
+                    self.buildInsights(
+                        openTasks: openTasks,
+                        focusTasks: focusTasks,
+                        habitSignals: signals,
+                        anchorDate: anchorDate,
+                        now: now
+                    )
+                ))
             }
-            completion(
-                self.buildInsights(
-                    openTasks: openTasks,
-                    focusTasks: focusTasks,
-                    habitSignals: signals,
-                    anchorDate: anchorDate,
-                    now: now
-                )
-            )
         }
     }
 

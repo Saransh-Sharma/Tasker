@@ -174,6 +174,7 @@ struct ProjectManagementView: View {
             Image(systemName: "plus")
         }
         .accessibilityIdentifier("projectManagement.addProjectButton")
+        .accessibilityLabel("Add Project")
     }
 
     private func projectMetricCard(title: String, value: String) -> some View {
