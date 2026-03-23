@@ -34,46 +34,96 @@ public struct DailyReflectionView: View {
 
     public var body: some View {
         VStack(spacing: spacing.s16) {
-            Text("Daily Reflection")
-                .font(.system(size: 20, weight: .bold, design: .rounded))
-                .foregroundColor(Color.tasker.textPrimary)
+            VStack(alignment: .leading, spacing: spacing.s12) {
+                HStack(alignment: .top, spacing: spacing.s12) {
+                    ZStack {
+                        RoundedRectangle(cornerRadius: 18, style: .continuous)
+                            .fill(Color.tasker.accentWash)
+                            .frame(width: 58, height: 58)
 
-            // Stats
-            VStack(alignment: .leading, spacing: spacing.s8) {
-                Text("Today's Progress")
-                    .font(.tasker(.caption1))
-                    .foregroundColor(Color.tasker.textTertiary)
+                        Image(systemName: "sparkles.rectangle.stack.fill")
+                            .font(.system(size: 24, weight: .semibold))
+                            .foregroundStyle(Color.tasker.accentPrimary)
+                    }
 
-                statRow(icon: "checkmark.circle.fill", color: Color.tasker.statusSuccess,
-                        text: "\(tasksCompleted) tasks completed")
-                statRow(icon: "star.fill", color: Color.tasker.accentPrimary,
-                        text: "\(xpEarned) XP earned")
-                statRow(icon: "flame.fill", color: Color.tasker.statusWarning,
-                        text: "\(streakDays) day streak")
+                    VStack(alignment: .leading, spacing: spacing.s4) {
+                        HStack(spacing: spacing.s8) {
+                            Text("Daily Reflection")
+                                .font(.tasker(.title3))
+                                .foregroundStyle(Color.tasker.textPrimary)
+                            TaskerStatusPill(
+                                text: statusBadgeText,
+                                systemImage: statusBadgeSymbol,
+                                tone: statusBadgeTone
+                            )
+                        }
+
+                        Text(reflectionGuidance)
+                            .font(.tasker(.caption1))
+                            .foregroundStyle(Color.tasker.textSecondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                }
+
+                HStack(spacing: spacing.s8) {
+                    TaskerHeroMetricTile(
+                        title: "Completed",
+                        value: "\(tasksCompleted)",
+                        detail: tasksCompleted == 0 ? "A tiny restart still counts" : "Visible wins from today",
+                        tone: tasksCompleted > 0 ? .success : .neutral
+                    )
+                    TaskerHeroMetricTile(
+                        title: "XP",
+                        value: "\(xpEarned)",
+                        detail: "Momentum earned today",
+                        tone: xpEarned > 0 ? .accent : .neutral
+                    )
+                    TaskerHeroMetricTile(
+                        title: "Streak",
+                        value: "\(streakDays)d",
+                        detail: streakDays > 0 ? "Continuity stays visible" : "Ready to restart",
+                        tone: streakDays > 0 ? .warning : .neutral
+                    )
+                }
             }
-            .padding(spacing.s12)
+            .padding(spacing.s16)
+            .taskerPremiumSurface(
+                cornerRadius: TaskerTheme.CornerRadius.card,
+                fillColor: Color.tasker.surfacePrimary,
+                accentColor: Color.tasker.accentSecondary,
+                level: .e2
+            )
+            .taskerSuccessPulse(isActive: isCelebrating)
+
+            VStack(alignment: .leading, spacing: spacing.s8) {
+                Text("Today's signal")
+                    .font(.tasker(.caption1).weight(.semibold))
+                    .foregroundStyle(Color.tasker.textTertiary)
+
+                Text("\"\(motivationalQuote)\"")
+                    .font(.tasker(.bodyEmphasis))
+                    .italic()
+                    .foregroundStyle(Color.tasker.textPrimary)
+                    .multilineTextAlignment(.leading)
+
+                if let statusMessage {
+                    HStack(spacing: spacing.s8) {
+                        Image(systemName: statusBadgeSymbol)
+                            .font(.system(size: 12, weight: .semibold))
+                        Text(statusMessage.text)
+                            .font(.tasker(.caption1))
+                    }
+                    .foregroundStyle(statusMessage.color)
+                }
+            }
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(
-                RoundedRectangle(cornerRadius: 12)
-                    .fill(Color.tasker.surfacePrimary)
+            .padding(spacing.s12)
+            .taskerDenseSurface(
+                cornerRadius: TaskerTheme.CornerRadius.card,
+                fillColor: Color.tasker.surfacePrimary,
+                strokeColor: Color.tasker.strokeHairline.opacity(0.72)
             )
 
-            // Quote
-            Text("\"\(motivationalQuote)\"")
-                .font(.tasker(.bodyEmphasis))
-                .italic()
-                .foregroundColor(Color.tasker.textPrimary)
-                .multilineTextAlignment(.center)
-                .padding(.vertical, spacing.s4)
-
-            if let statusMessage {
-                Text(statusMessage.text)
-                    .font(.tasker(.caption1))
-                    .foregroundColor(statusMessage.color)
-                    .multilineTextAlignment(.center)
-            }
-
-            // Complete Button
             Button(action: {
                 guard canClaim else { return }
                 onComplete()
@@ -84,20 +134,25 @@ public struct DailyReflectionView: View {
                         .foregroundColor(Color.tasker.textInverse)
                     Text(secondaryCTA)
                         .font(.tasker(.caption2))
-                        .foregroundColor(Color.tasker.textInverse.opacity(0.8))
+                        .foregroundColor(Color.tasker.textInverse.opacity(0.82))
                 }
                 .frame(maxWidth: .infinity)
-                .frame(height: 48)
+                .frame(height: 50)
                 .background(
-                    RoundedRectangle(cornerRadius: 12)
-                        .fill(Color.tasker.accentPrimary)
+                    RoundedRectangle(cornerRadius: 14, style: .continuous)
+                        .fill(buttonFillColor)
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 14, style: .continuous)
+                        .stroke(buttonStrokeColor, lineWidth: 1)
                 )
             }
             .disabled(!canClaim)
-            .opacity(canClaim ? 1.0 : 0.6)
+            .opacity(canClaim ? 1.0 : 0.7)
         }
         .padding(.horizontal, spacing.screenHorizontal)
         .padding(.vertical, spacing.s16)
+        .background(Color.tasker.bgCanvas)
         .accessibilityElement(children: .contain)
     }
 
@@ -164,6 +219,85 @@ public struct DailyReflectionView: View {
             return ("Reflection already completed today.", Color.tasker.textSecondary)
         case .unavailable(let message):
             return (message, Color.tasker.statusDanger)
+        }
+    }
+
+    private var statusBadgeText: String {
+        switch claimState {
+        case .ready:
+            return "Ready"
+        case .submitting:
+            return "Claiming"
+        case .claimed:
+            return "Claimed"
+        case .alreadyClaimed:
+            return "Complete"
+        case .unavailable:
+            return "Retry"
+        }
+    }
+
+    private var statusBadgeTone: TaskerStatusPillTone {
+        switch claimState {
+        case .ready:
+            return .accent
+        case .submitting:
+            return .warning
+        case .claimed, .alreadyClaimed:
+            return .success
+        case .unavailable:
+            return .danger
+        }
+    }
+
+    private var statusBadgeSymbol: String {
+        switch claimState {
+        case .ready:
+            return "sparkles"
+        case .submitting:
+            return "hourglass"
+        case .claimed, .alreadyClaimed:
+            return "checkmark.circle.fill"
+        case .unavailable:
+            return "arrow.clockwise"
+        }
+    }
+
+    private var reflectionGuidance: String {
+        if tasksCompleted == 0 {
+            return "Use reflection to reset the loop without turning today into a verdict."
+        }
+        return "Close the day by noticing progress, not chasing perfection."
+    }
+
+    private var isCelebrating: Bool {
+        if case .claimed = claimState {
+            return true
+        }
+        return false
+    }
+
+    private var buttonFillColor: Color {
+        switch claimState {
+        case .ready:
+            return Color.tasker.accentPrimary
+        case .submitting:
+            return Color.tasker.accentPrimary.opacity(0.84)
+        case .claimed, .alreadyClaimed:
+            return Color.tasker.statusSuccess
+        case .unavailable:
+            return Color.tasker.statusDanger
+        }
+    }
+
+    private var buttonStrokeColor: Color {
+        switch claimState {
+        case .ready, .submitting:
+            return Color.tasker.accentPrimary.opacity(0.12)
+        case .claimed, .alreadyClaimed:
+            return Color.tasker.statusSuccess.opacity(0.2)
+        case .unavailable:
+            return Color.tasker.statusDanger.opacity(0.2)
         }
     }
 }
