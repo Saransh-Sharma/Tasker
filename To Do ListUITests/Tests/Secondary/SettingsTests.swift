@@ -40,6 +40,7 @@ class SettingsTests: BaseUITest {
         XCTAssertTrue(settingsPage.verifyIsDisplayed(), "Settings should be displayed")
 
         XCTAssertTrue(settingsPage.verifyLifeManagementRowExists(), "Life Management row should exist")
+        XCTAssertTrue(settingsPage.verifyProjectManagementRowExists(), "Projects row should exist")
         XCTAssertTrue(settingsPage.verifyAIAssistantRowExists(), "AI Assistant row should exist")
         XCTAssertTrue(app.staticTexts["Notifications & Focus"].waitForExistence(timeout: 3), "Notifications section should exist")
         XCTAssertTrue(app.buttons[AccessibilityIdentifiers.Settings.onboardingRestartButton].waitForExistence(timeout: 3), "Guided Setup row should exist")
@@ -80,6 +81,18 @@ class SettingsTests: BaseUITest {
         XCTAssertTrue(privacyRow.exists, "Data & Privacy row should exist")
 
         takeScreenshot(named: "navigate_to_ai_assistant_settings")
+    }
+
+    func testNavigateToProjectsFromSettings() throws {
+        settingsPage = homePage.tapSettings()
+        XCTAssertTrue(settingsPage.verifyIsDisplayed(), "Settings should be displayed")
+        XCTAssertTrue(settingsPage.verifyProjectManagementRowExists(), "Projects row should exist")
+
+        let projectManagementPage = settingsPage.navigateToProjectManagement()
+
+        XCTAssertTrue(projectManagementPage.verifyIsDisplayed(timeout: 5), "Projects screen should be displayed")
+        XCTAssertTrue(projectManagementPage.view.waitForExistence(timeout: 5), "Projects view should be identified")
+        XCTAssertTrue(projectManagementPage.verifyAddProjectButtonVisible(), "Add project button should be visible")
     }
 
     func testRecommendedModelIsPreselectedInInstallPicker() throws {

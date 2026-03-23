@@ -1,6 +1,6 @@
 # Tasker Usecases and Contracts (V3 Runtime)
 
-**Last validated against code on 2026-02-27**
+**Last validated against code on 2026-03-22**
 
 This document is the contract map for the current usecase layer.
 It includes active usecase inventory, dependency surfaces, side effects, and orchestration flows.
@@ -22,7 +22,7 @@ Primary source anchors:
 | Analytics | `CalculateAnalyticsUseCase.swift`, `GenerateProductivityReportUseCase.swift` |
 | Coordinator | `UseCaseCoordinator.swift` |
 | Gamification | `GamificationEngine.swift`, `FocusSessionUseCase.swift`, `MarkDailyReflectionCompleteUseCase.swift`, `RecordXPUseCase.swift` (legacy compatibility) |
-| Habit | `ManageHabitsUseCase.swift` |
+| Habit | `Habit/HabitRuntimeUseCases.swift` |
 | LLM | `AssistantActionPipelineUseCase.swift`, `AssistantCommandExecutor.swift` |
 | LifeArea | `ManageLifeAreasUseCase.swift` |
 | Project | `EnsureInboxProjectUseCase.swift`, `FilterProjectsUseCase.swift`, `GetProjectStatisticsUseCase.swift`, `ManageProjectsUseCase.swift` |
@@ -66,7 +66,7 @@ It exposes:
 | `ManageLifeAreasUseCase` | create/list/archive args | `LifeArea` values | `LifeAreaRepositoryProtocol` | life-area CRUD |
 | `ManageSectionsUseCase` | project/section IDs + names | `TaskerProjectSection` values | `SectionRepositoryProtocol` | section CRUD/rename |
 | `ManageTagsUseCase` | tag create/list/delete args | `TagDefinition` values | `TagRepositoryProtocol` | tag CRUD |
-| `ManageHabitsUseCase` | habit create/list/pause args | `HabitDefinitionRecord` values | `HabitRepositoryProtocol` | habit CRUD and status updates |
+| `CreateHabitUseCase`, `UpdateHabitUseCase`, `PauseHabitUseCase`, `ArchiveHabitUseCase`, `SyncHabitScheduleUseCase`, `ResolveHabitOccurrenceUseCase`, `GetHabitHistoryUseCase`, `GetHabitLibraryUseCase`, `BuildHabitHomeProjectionUseCase`, `RecomputeHabitStreaksUseCase` | habit definition requests, cadence/reminder changes, date queries, occurrence resolutions | habit definitions, library rows, Home rows, history windows, streak/risk repair results | `HabitRepositoryProtocol`, `HabitRuntimeReadRepositoryProtocol`, schedule and occurrence repositories, `SchedulingEngineProtocol`, analytics/gamification dependencies as needed | habit writes, schedule sync, occurrence generation/resolution, Home refresh, analytics/AI signal freshness |
 
 ### Project
 
@@ -118,6 +118,9 @@ Gamification runtime model:
 1. `CompleteTaskDefinitionUseCase` mutates task completion state.
 2. Under `V2FeatureFlags.gamificationV2Enabled`, XP mutation path is `GamificationEngine.recordEvent`.
 3. UI freshness is driven by post-commit `Notification.Name.gamificationLedgerDidMutate`, not periodic TTL refresh.
+
+Habit runtime note:
+- Deep habit orchestration, read models, invariants, and downstream projection behavior live in `docs/habits/data-model-and-runtime.md`.
 
 ## LLM Surface Services (Non-UseCase, Runtime-Owned)
 
@@ -246,6 +249,7 @@ sequenceDiagram
 
 ## Cross-Links
 
+- `docs/habits/data-model-and-runtime.md`
 - `docs/architecture/clean-architecture-v2.md`
 - `docs/architecture/data-model-v2.md`
 - `docs/architecture/state-repositories-and-services-v2.md`

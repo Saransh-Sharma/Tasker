@@ -31,6 +31,10 @@ class SettingsPage {
         return app.descendants(matching: .any)[AccessibilityIdentifiers.Settings.lifeManagementRow]
     }
 
+    var projectsRow: XCUIElement {
+        return app.descendants(matching: .any)[AccessibilityIdentifiers.Settings.projectsRow]
+    }
+
     var aiAssistantRow: XCUIElement {
         return app.descendants(matching: .any)[AccessibilityIdentifiers.Settings.aiAssistantRow]
     }
@@ -71,7 +75,7 @@ class SettingsPage {
     /// Backward-compatible alias for older tests.
     @discardableResult
     func navigateToProjectManagement() -> ProjectManagementPage {
-        navigateToLifeManagement()
+        projectsRow.tap()
         return ProjectManagementPage(app: app)
     }
 
@@ -105,7 +109,7 @@ class SettingsPage {
 
     /// Backward-compatible alias for older tests.
     func verifyProjectManagementRowExists() -> Bool {
-        return verifyLifeManagementRowExists()
+        return projectsRow.exists
     }
 
     /// Backward-compatible alias for older tests.
@@ -145,6 +149,7 @@ class SettingsPage {
     /// Backward-compatible alias for older tests.
     @discardableResult
     func waitForProjectManagement(timeout: TimeInterval = 5) -> Bool {
-        return waitForLifeManagement(timeout: timeout)
+        let projectManagementView = app.descendants(matching: .any)[AccessibilityIdentifiers.ProjectManagement.view]
+        return projectManagementView.waitForExistence(timeout: timeout)
     }
 }

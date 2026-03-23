@@ -1,8 +1,10 @@
 # Tasker V3 Risk Register and Guardrails
 
-**Last validated against code on 2026-03-18**
+**Last validated against code on 2026-03-22**
 
 This register tracks technical risks that can regress V3 runtime correctness, data integrity, and release safety.
+
+Habit-specific risk depth and accepted partials are maintained in `docs/habits/risk-register.md`.
 
 Primary source anchors:
 - `To Do List/AppDelegate.swift`
@@ -45,6 +47,7 @@ Primary source anchors:
 | `R-019` | Missed ledger mutation signal in UI observers | High | XP updates not reflected live on Home/Insights | observer not attached or event dropped during heavy churn | use ledger-mutation watchdog fallback refresh + notification-path tests |
 | `R-020` | Gamification doc/runtime drift | Medium | incidents prolonged due to incorrect runbook assumptions | runtime changed without architecture docs update | require same-PR updates for `gamification-v2-engine.md` and linked architecture docs |
 | `R-021` | Thread-scoped slash-pin drift or rollout mismatch | Medium | follow-up chat answers ignore or misapply pinned scope | async pin persistence race, write-only flag gating, or stale sidecar attachment state | verify pin follow-up behavior, keep pin-clear path explicit, and treat the sidecar as sensitive local state |
+| `R-022` | Habit subsystem correctness or doc drift | High | Home, analytics, Eva, or LLM habit behavior diverges from shipped runtime and product contract | habit runtime changes land without matching docs/tests | maintain `docs/habits/*` in the same PR and use `docs/habits/risk-register.md` as the deep habit risk source |
 
 ## Detection Signals and Containment
 
@@ -71,6 +74,7 @@ Primary source anchors:
 | `R-019` | completion/focus/reflection XP visible only after restart | inspect `gamificationLedgerDidMutate` emission/observer path and watchdog fallback logs |
 | `R-020` | stale architecture references during review/incident triage | block merge until gamification architecture docs are updated and cross-linked |
 | `R-021` | slash command result appears but next question ignores the intended pinned scope | inspect `chat_slash_pin_upserted`, pin-clear logs, and thread attachment state before release |
+| `R-022` | habit behavior changes without matching docs/tests | review `docs/habits/risk-register.md`, habit regression coverage, and architecture cross-links before release |
 
 ## AI Telemetry Signals to Watch
 
@@ -121,6 +125,7 @@ Primary source anchors:
 - [ ] Usecase contract changes reflected in `docs/architecture/usecases-v2.md`.
 - [ ] Runtime/DI/bootstrapping changes reflected in `docs/architecture/clean-architecture-v2.md`.
 - [ ] State repository/service changes reflected in `docs/architecture/state-repositories-and-services-v2.md`.
+- [ ] Habit runtime/product changes reflected in the relevant `docs/habits/*` docs.
 - [ ] LLM/assistant changes reflected in `docs/architecture/llm-assistant-stack-v2.md`.
 - [ ] Mixed audience AI behavior docs updated in `docs/architecture/llm-feature-integration-handbook.md`.
 - [ ] `docs/architecture/v3-runtime-cutover-todo.md` gate evidence updated when release-gating behavior changed.
@@ -141,6 +146,7 @@ Escalate for architecture review before merge when a change:
 - `docs/architecture/data-model-v2.md`
 - `docs/architecture/state-repositories-and-services-v2.md`
 - `docs/architecture/usecases-v2.md`
+- `docs/habits/risk-register.md`
 - `docs/architecture/llm-assistant-stack-v2.md`
 - `docs/architecture/llm-feature-integration-handbook.md`
 - `docs/architecture/v3-runtime-cutover-todo.md`

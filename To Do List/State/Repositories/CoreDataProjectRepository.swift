@@ -361,8 +361,11 @@ public final class CoreDataProjectRepository: ProjectRepositoryProtocol {
 
                     do {
                         let tasks = try self?.backgroundContext.fetch(request) ?? []
+                        let habitRequest = NSFetchRequest<NSManagedObject>(entityName: "HabitDefinition")
+                        habitRequest.predicate = NSPredicate(format: "projectID == %@", id as CVarArg)
+                        let habits = try self?.backgroundContext.fetch(habitRequest) ?? []
 
-                        logDebug("🗑️ Deleting project '\(project.name)' with \(tasks.count) tasks (deleteTasks: \(deleteTasks))")
+                        logDebug("🗑️ Deleting project '\(project.name)' with \(tasks.count) tasks and \(habits.count) habits (deleteTasks: \(deleteTasks))")
 
                         if deleteTasks {
                             // Delete all tasks in the project
@@ -381,6 +384,11 @@ public final class CoreDataProjectRepository: ProjectRepositoryProtocol {
                                 task.lifeAreaID = inboxLifeAreaID
                             }
                             logDebug("  ✅ Reassigned \(tasks.count) tasks to Inbox")
+                        }
+
+                        habits.forEach { habit in
+                            habit.setValue(nil, forKey: "projectID")
+                            habit.setValue(nil, forKey: "projectRef")
                         }
 
                         // Now delete the ProjectEntity entity itself (if it exists)

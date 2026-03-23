@@ -61,6 +61,17 @@ public final class CoreDataLifeAreaRepository: LifeAreaRepositoryProtocol {
         backgroundContext.perform {
             do {
                 _ = try V2CoreDataRepositorySupport.requireID(id, field: "lifeArea.id")
+                let habitObjects = try V2CoreDataRepositorySupport.fetchObjects(
+                    in: self.backgroundContext,
+                    entityName: "HabitDefinition",
+                    predicate: NSPredicate(format: "lifeAreaID == %@", id as CVarArg)
+                )
+                for habit in habitObjects {
+                    habit.setValue(nil, forKey: "lifeAreaID")
+                    habit.setValue(nil, forKey: "projectID")
+                    habit.setValue(nil, forKey: "lifeAreaRef")
+                    habit.setValue(nil, forKey: "projectRef")
+                }
                 if let object = try V2CoreDataRepositorySupport.fetchObject(
                     in: self.backgroundContext,
                     entityName: LifeAreaMapper.entityName,

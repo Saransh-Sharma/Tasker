@@ -89,7 +89,7 @@ struct EvaTriageSprintSheetV2: View {
     }
 
     private var triageBody: some View {
-        NavigationView {
+        NavigationStack {
             VStack(spacing: 0) {
                 VStack(alignment: .leading, spacing: spacing.s12) {
                     HStack(spacing: spacing.s8) {

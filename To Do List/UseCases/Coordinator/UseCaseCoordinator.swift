@@ -12,6 +12,7 @@ import Foundation
 public final class UseCaseCoordinator {
 
     public struct V2Dependencies {
+        public let projectRepository: ProjectRepositoryProtocol
         public let lifeAreaRepository: LifeAreaRepositoryProtocol
         public let sectionRepository: SectionRepositoryProtocol
         public let tagRepository: TagRepositoryProtocol
@@ -19,6 +20,8 @@ public final class UseCaseCoordinator {
         public let taskTagLinkRepository: TaskTagLinkRepositoryProtocol?
         public let taskDependencyRepository: TaskDependencyRepositoryProtocol?
         public let habitRepository: HabitRepositoryProtocol
+        public let habitRuntimeReadRepository: HabitRuntimeReadRepositoryProtocol
+        public let scheduleRepository: ScheduleRepositoryProtocol
         public let scheduleEngine: SchedulingEngineProtocol
         public let occurrenceRepository: OccurrenceRepositoryProtocol
         public let tombstoneRepository: TombstoneRepositoryProtocol
@@ -30,6 +33,7 @@ public final class UseCaseCoordinator {
 
         /// Initializes a new instance.
         public init(
+            projectRepository: ProjectRepositoryProtocol,
             lifeAreaRepository: LifeAreaRepositoryProtocol,
             sectionRepository: SectionRepositoryProtocol,
             tagRepository: TagRepositoryProtocol,
@@ -37,6 +41,8 @@ public final class UseCaseCoordinator {
             taskTagLinkRepository: TaskTagLinkRepositoryProtocol? = nil,
             taskDependencyRepository: TaskDependencyRepositoryProtocol? = nil,
             habitRepository: HabitRepositoryProtocol,
+            habitRuntimeReadRepository: HabitRuntimeReadRepositoryProtocol,
+            scheduleRepository: ScheduleRepositoryProtocol,
             scheduleEngine: SchedulingEngineProtocol,
             occurrenceRepository: OccurrenceRepositoryProtocol,
             tombstoneRepository: TombstoneRepositoryProtocol,
@@ -46,6 +52,7 @@ public final class UseCaseCoordinator {
             externalSyncRepository: ExternalSyncRepositoryProtocol,
             remindersProvider: AppleRemindersProviderProtocol? = nil
         ) {
+            self.projectRepository = projectRepository
             self.lifeAreaRepository = lifeAreaRepository
             self.sectionRepository = sectionRepository
             self.tagRepository = tagRepository
@@ -53,6 +60,8 @@ public final class UseCaseCoordinator {
             self.taskTagLinkRepository = taskTagLinkRepository
             self.taskDependencyRepository = taskDependencyRepository
             self.habitRepository = habitRepository
+            self.habitRuntimeReadRepository = habitRuntimeReadRepository
+            self.scheduleRepository = scheduleRepository
             self.scheduleEngine = scheduleEngine
             self.occurrenceRepository = occurrenceRepository
             self.tombstoneRepository = tombstoneRepository
@@ -94,6 +103,19 @@ public final class UseCaseCoordinator {
     public let getTaskChildren: GetTaskChildrenUseCase
     public let completeTaskDefinition: CompleteTaskDefinitionUseCase
     public let manageHabits: ManageHabitsUseCase
+    public let createHabit: CreateHabitUseCase
+    public let updateHabit: UpdateHabitUseCase
+    public let pauseHabit: PauseHabitUseCase
+    public let archiveHabit: ArchiveHabitUseCase
+    public let syncHabitSchedule: SyncHabitScheduleUseCase
+    public let maintainHabitRuntime: MaintainHabitRuntimeUseCase
+    public let resolveHabitOccurrence: ResolveHabitOccurrenceUseCase
+    public let getDueHabitsForDate: GetDueHabitsForDateUseCase
+    public let getHabitHistory: GetHabitHistoryUseCase
+    public let getHabitSignalsInRange: GetHabitSignalsInRangeUseCase
+    public let getHabitLibrary: GetHabitLibraryUseCase
+    public let recomputeHabitStreaks: RecomputeHabitStreaksUseCase
+    public let buildHabitHomeProjection: BuildHabitHomeProjectionUseCase
     public let generateOccurrences: GenerateOccurrencesUseCase
     public let resolveOccurrence: ResolveOccurrenceUseCase
     public let maintainOccurrences: MaintainOccurrencesUseCase
@@ -143,7 +165,9 @@ public final class UseCaseCoordinator {
         self.getHomeFilteredTasks = GetHomeFilteredTasksUseCase(
             readModelRepository: taskReadModelRepository
         )
-        self.computeEvaHomeInsights = ComputeEvaHomeInsightsUseCase()
+        self.computeEvaHomeInsights = ComputeEvaHomeInsightsUseCase(
+            habitRuntimeReadRepository: v2Dependencies.habitRuntimeReadRepository
+        )
         self.getInboxTriageQueue = GetInboxTriageQueueUseCase()
         self.getOverdueRescuePlan = GetOverdueRescuePlanUseCase()
         self.buildEvaBatchProposal = BuildEvaBatchProposalUseCase()
@@ -157,6 +181,7 @@ public final class UseCaseCoordinator {
         let scoringService: TaskScoringServiceProtocol = DefaultTaskScoringService()
         self.calculateAnalytics = CalculateAnalyticsUseCase(
             taskReadModelRepository: taskReadModelRepository,
+            habitRuntimeReadRepository: v2Dependencies.habitRuntimeReadRepository,
             scoringService: scoringService,
             cacheService: cacheService
         )
@@ -195,6 +220,73 @@ public final class UseCaseCoordinator {
         self.completeTaskDefinition = CompleteTaskDefinitionUseCase(
             repository: v2Dependencies.taskDefinitionRepository,
             gamification: xp,
+            gamificationEngine: engine
+        )
+        let recomputeHabitStreaks = RecomputeHabitStreaksUseCase(
+            habitRepository: v2Dependencies.habitRepository,
+            occurrenceRepository: v2Dependencies.occurrenceRepository
+        )
+        self.recomputeHabitStreaks = recomputeHabitStreaks
+        let syncHabitSchedule = SyncHabitScheduleUseCase(
+            habitRepository: v2Dependencies.habitRepository,
+            scheduleRepository: v2Dependencies.scheduleRepository,
+            scheduleEngine: v2Dependencies.scheduleEngine,
+            occurrenceRepository: v2Dependencies.occurrenceRepository,
+            recomputeHabitStreaksUseCase: recomputeHabitStreaks
+        )
+        self.syncHabitSchedule = syncHabitSchedule
+        let maintainHabitRuntime = MaintainHabitRuntimeUseCase(
+            syncHabitScheduleUseCase: syncHabitSchedule
+        )
+        self.maintainHabitRuntime = maintainHabitRuntime
+        self.createHabit = CreateHabitUseCase(
+            habitRepository: v2Dependencies.habitRepository,
+            lifeAreaRepository: v2Dependencies.lifeAreaRepository,
+            projectRepository: v2Dependencies.projectRepository,
+            scheduleRepository: v2Dependencies.scheduleRepository,
+            maintainHabitRuntimeUseCase: maintainHabitRuntime
+        )
+        self.updateHabit = UpdateHabitUseCase(
+            habitRepository: v2Dependencies.habitRepository,
+            scheduleRepository: v2Dependencies.scheduleRepository,
+            scheduleEngine: v2Dependencies.scheduleEngine,
+            projectRepository: v2Dependencies.projectRepository,
+            lifeAreaRepository: v2Dependencies.lifeAreaRepository,
+            maintainHabitRuntimeUseCase: maintainHabitRuntime
+        )
+        let pauseHabit = PauseHabitUseCase(
+            habitRepository: v2Dependencies.habitRepository,
+            scheduleRepository: v2Dependencies.scheduleRepository,
+            maintainHabitRuntimeUseCase: maintainHabitRuntime
+        )
+        self.pauseHabit = pauseHabit
+        self.archiveHabit = ArchiveHabitUseCase(
+            habitRepository: v2Dependencies.habitRepository,
+            pauseHabitUseCase: pauseHabit,
+            maintainHabitRuntimeUseCase: maintainHabitRuntime
+        )
+        self.getDueHabitsForDate = GetDueHabitsForDateUseCase(
+            readRepository: v2Dependencies.habitRuntimeReadRepository
+        )
+        self.getHabitHistory = GetHabitHistoryUseCase(
+            readRepository: v2Dependencies.habitRuntimeReadRepository
+        )
+        self.getHabitSignalsInRange = GetHabitSignalsInRangeUseCase(
+            readRepository: v2Dependencies.habitRuntimeReadRepository
+        )
+        self.getHabitLibrary = GetHabitLibraryUseCase(
+            readRepository: v2Dependencies.habitRuntimeReadRepository
+        )
+        self.buildHabitHomeProjection = BuildHabitHomeProjectionUseCase(
+            getDueHabitsForDateUseCase: self.getDueHabitsForDate
+        )
+        self.resolveHabitOccurrence = ResolveHabitOccurrenceUseCase(
+            habitRepository: v2Dependencies.habitRepository,
+            scheduleRepository: v2Dependencies.scheduleRepository,
+            occurrenceRepository: v2Dependencies.occurrenceRepository,
+            scheduleEngine: v2Dependencies.scheduleEngine,
+            maintainHabitRuntimeUseCase: maintainHabitRuntime,
+            recomputeHabitStreaksUseCase: recomputeHabitStreaks,
             gamificationEngine: engine
         )
         self.manageHabits = ManageHabitsUseCase(repository: v2Dependencies.habitRepository)

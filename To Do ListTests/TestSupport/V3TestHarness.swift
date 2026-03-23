@@ -12,6 +12,7 @@ enum V3TestHarness {
         notificationService: NotificationServiceProtocol? = nil
     ) -> UseCaseCoordinator {
         let dependencies = UseCaseCoordinator.V2Dependencies(
+            projectRepository: projectRepository,
             lifeAreaRepository: NoopLifeAreaRepository(),
             sectionRepository: NoopSectionRepository(),
             tagRepository: NoopTagRepository(),
@@ -19,6 +20,8 @@ enum V3TestHarness {
             taskTagLinkRepository: NoopTaskTagLinkRepository(),
             taskDependencyRepository: NoopTaskDependencyRepository(),
             habitRepository: NoopHabitRepository(),
+            habitRuntimeReadRepository: NoopHabitRuntimeReadRepository(),
+            scheduleRepository: NoopScheduleRepository(),
             scheduleEngine: NoopSchedulingEngine(),
             occurrenceRepository: NoopOccurrenceRepository(),
             tombstoneRepository: NoopTombstoneRepository(),
@@ -280,6 +283,39 @@ private final class NoopHabitRepository: HabitRepositoryProtocol {
     func create(_ habit: HabitDefinitionRecord, completion: @escaping (Result<HabitDefinitionRecord, Error>) -> Void) { completion(.success(habit)) }
     func update(_ habit: HabitDefinitionRecord, completion: @escaping (Result<HabitDefinitionRecord, Error>) -> Void) { completion(.success(habit)) }
     func delete(id: UUID, completion: @escaping (Result<Void, Error>) -> Void) { completion(.success(())) }
+}
+
+private final class NoopHabitRuntimeReadRepository: HabitRuntimeReadRepositoryProtocol {
+    func fetchAgendaHabits(for date: Date, completion: @escaping (Result<[HabitOccurrenceSummary], Error>) -> Void) {
+        completion(.success([]))
+    }
+
+    func fetchHistory(
+        habitIDs: [UUID],
+        endingOn date: Date,
+        dayCount: Int,
+        completion: @escaping (Result<[HabitHistoryWindow], Error>) -> Void
+    ) {
+        completion(.success([]))
+    }
+
+    func fetchSignals(start: Date, end: Date, completion: @escaping (Result<[HabitOccurrenceSummary], Error>) -> Void) {
+        completion(.success([]))
+    }
+
+    func fetchHabitLibrary(includeArchived: Bool, completion: @escaping (Result<[HabitLibraryRow], Error>) -> Void) {
+        completion(.success([]))
+    }
+}
+
+private final class NoopScheduleRepository: ScheduleRepositoryProtocol {
+    func fetchTemplates(completion: @escaping (Result<[ScheduleTemplateDefinition], Error>) -> Void) { completion(.success([])) }
+    func fetchRules(templateID: UUID, completion: @escaping (Result<[ScheduleRuleDefinition], Error>) -> Void) { completion(.success([])) }
+    func saveTemplate(_ template: ScheduleTemplateDefinition, completion: @escaping (Result<ScheduleTemplateDefinition, Error>) -> Void) { completion(.success(template)) }
+    func deleteTemplate(id: UUID, completion: @escaping (Result<Void, Error>) -> Void) { completion(.success(())) }
+    func replaceRules(templateID: UUID, rules: [ScheduleRuleDefinition], completion: @escaping (Result<[ScheduleRuleDefinition], Error>) -> Void) { completion(.success(rules)) }
+    func fetchExceptions(templateID: UUID, completion: @escaping (Result<[ScheduleExceptionDefinition], Error>) -> Void) { completion(.success([])) }
+    func saveException(_ exception: ScheduleExceptionDefinition, completion: @escaping (Result<ScheduleExceptionDefinition, Error>) -> Void) { completion(.success(exception)) }
 }
 
 private final class NoopSchedulingEngine: SchedulingEngineProtocol {

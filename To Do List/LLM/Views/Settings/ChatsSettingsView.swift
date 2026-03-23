@@ -24,10 +24,11 @@ struct ChatsSettingsView: View {
                 VStack(spacing: spacing.cardStackVertical) {
                     promptCard
 
-                    if appManager.userInterfaceIdiom == .phone {
+                    if layoutClass == .phone {
                         hapticsCard
                     }
                 }
+                .taskerReadableContent(maxWidth: layoutClass.isPad ? 860 : .infinity, alignment: .center)
                 .padding(.horizontal, spacing.screenHorizontal)
                 .padding(.top, spacing.s12)
             }
@@ -165,6 +166,7 @@ struct ChatsSettingsView: View {
 }
 
 private struct PromptEditorView: View {
+    @Environment(\.taskerLayoutClass) private var layoutClass
     @Binding var prompt: String
     let onSave: () -> Void
     let onCancel: () -> Void
@@ -178,6 +180,7 @@ private struct PromptEditorView: View {
                 .padding(16)
                 .background(Color.tasker(.surfaceSecondary))
                 .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+                .taskerReadableContent(maxWidth: layoutClass.isPad ? 900 : .infinity, alignment: .center)
                 .padding(.horizontal, TaskerSettingsMetrics.screenHorizontal)
                 .padding(.top, 16)
         }

@@ -162,6 +162,7 @@ public struct XPEventContext {
     public let category: XPActionCategory
     public let source: XPSource
     public let taskID: UUID?
+    public let habitID: UUID?
     public let occurrenceID: UUID?
     public let parentTaskID: UUID?
     public let childTaskID: UUID?
@@ -180,6 +181,7 @@ public struct XPEventContext {
         category: XPActionCategory,
         source: XPSource = .manual,
         taskID: UUID? = nil,
+        habitID: UUID? = nil,
         occurrenceID: UUID? = nil,
         parentTaskID: UUID? = nil,
         childTaskID: UUID? = nil,
@@ -193,10 +195,11 @@ public struct XPEventContext {
         focusDurationSeconds: Int? = nil,
         fromDay: String? = nil,
         toDay: String? = nil
-    ) {
+        ) {
         self.category = category
         self.source = source
         self.taskID = taskID
+        self.habitID = habitID
         self.occurrenceID = occurrenceID
         self.parentTaskID = parentTaskID
         self.childTaskID = childTaskID
@@ -230,6 +233,7 @@ public final class GamificationEngine {
         let idempotencyKey = XPCalculationEngine.idempotencyKey(
             category: context.category,
             taskID: context.taskID,
+            habitID: context.habitID,
             parentTaskID: context.parentTaskID,
             childTaskID: context.childTaskID,
             sessionID: context.sessionID,
@@ -571,6 +575,10 @@ public final class GamificationEngine {
                     base = XPCalculationEngine.focusSessionXP(durationSeconds: context.focusDurationSeconds ?? 0)
                     bonus = 0
                     weight = 1.0
+                } else if XPCalculationEngine.isHabitCategory(context.category) {
+                    base = XPCalculationEngine.baseXP(for: context.category)
+                    bonus = 0
+                    weight = 1.0
                 } else {
                     base = XPCalculationEngine.baseXP(for: context.category)
                     bonus = (context.category == .complete && XPCalculationEngine.isOnTimeCompletion(
@@ -593,7 +601,9 @@ public final class GamificationEngine {
                     dailyEarnedSoFar: dailyEarnedSoFar
                 )
 
-                guard finalXP > 0 else {
+                let shouldRecordZeroXPEvent = XPCalculationEngine.isHabitCategory(context.category)
+
+                guard finalXP > 0 || shouldRecordZeroXPEvent else {
                     // Cap reached — return current state
                     self.fetchCurrentState { stateResult in
                         switch stateResult {
@@ -955,7 +965,19 @@ public final class GamificationEngine {
         var unlocks: [AchievementUnlockDefinition] = []
         let unique = Dictionary(grouping: events, by: \.idempotencyKey)
             .compactMap { $0.value.first }
-        let completionEvents = unique.filter { $0.category == .complete || $0.reason == "task_completion" || $0.reason == "complete" }
+        let completionEvents = unique.filter {
+            $0.category == .complete
+                || $0.reason == "task_completion"
+                || $0.reason == "complete"
+        }
+        let habitSuccessEvents = unique.filter {
+            guard let category = $0.category else { return false }
+            return XPCalculationEngine.isHabitCategory(category)
+                && (category == .habitPositiveComplete
+                    || category == .habitNegativeSuccess
+                    || category == .habitRecovery
+                    || category == .habitStreakMilestone)
+        }
         let xpTotal = profile.xpTotal
 
         func tryUnlock(_ key: String, condition: Bool) {
@@ -971,6 +993,9 @@ public final class GamificationEngine {
 
         // first_step: Complete 1 task
         tryUnlock("first_step", condition: completionEvents.count >= 1)
+
+        // habit_first_success: Record a successful habit event
+        tryUnlock("habit_first_success", condition: habitSuccessEvents.isEmpty == false)
 
         // xp_100: Reach 100 XP
         tryUnlock("xp_100", condition: xpTotal >= 100)
@@ -996,6 +1021,17 @@ public final class GamificationEngine {
         // reflection_7: 7 daily reflections
         let reflectionEvents = unique.filter { $0.category == .reflection || $0.reason == "reflection" }
         tryUnlock("reflection_7", condition: reflectionEvents.count >= 7)
+
+        // habit_7_success: 7 successful habit events in the recent window
+        let sevenDaysAgo = calendar.date(byAdding: .day, value: -7, to: Date()) ?? Date()
+        let recentHabitSuccesses = habitSuccessEvents.filter { $0.createdAt >= sevenDaysAgo }
+        tryUnlock("habit_7_success", condition: recentHabitSuccesses.count >= 7)
+
+        // habit_streak_3: three habit success events on distinct days within the recent window
+        let recentHabitDays = Set(
+            recentHabitSuccesses.map { calendar.startOfDay(for: $0.createdAt).timeIntervalSinceReferenceDate }
+        )
+        tryUnlock("habit_streak_3", condition: recentHabitDays.count >= 3)
 
         // comeback_after_7_idle: Return after 7+ idle days (handled by streak logic)
         if let lastActive = profile.lastActiveDate {

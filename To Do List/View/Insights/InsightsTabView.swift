@@ -11,6 +11,7 @@ public struct InsightsTabView: View {
     let momentumGuidanceText: String
     let animateMomentumCard: Bool
     let onOpenReflection: () -> Void
+    @Environment(\.taskerLayoutClass) private var layoutClass
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var scrollTraceInterval: TaskerPerformanceInterval?
     @State private var pendingScrollTraceIdleTask: Task<Void, Never>?
@@ -35,54 +36,9 @@ public struct InsightsTabView: View {
                         .foregroundStyle(Color.tasker.textSecondary)
                 }
 
-                HStack(spacing: spacing.s8) {
-                    ForEach(InsightsViewModel.InsightsTab.allCases, id: \.self) { tab in
-                        Button(action: { viewModel.selectTab(tab) }) {
-                            VStack(alignment: .leading, spacing: spacing.s2) {
-                                Text(tab.rawValue)
-                                    .font(.tasker(.callout))
-                                    .fontWeight(.semibold)
-                                    .foregroundStyle(
-                                        viewModel.selectedTab == tab
-                                            ? Color.tasker.textPrimary
-                                            : Color.tasker.textTertiary
-                                    )
-                                Text(tabSubtitle(for: tab))
-                                    .font(.tasker(.caption2))
-                                    .foregroundStyle(
-                                        viewModel.selectedTab == tab
-                                            ? Color.tasker.textSecondary
-                                            : Color.tasker.textQuaternary
-                                    )
-                            }
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .padding(.horizontal, spacing.s12)
-                            .padding(.vertical, spacing.s12)
-                            .taskerChromeSurface(
-                                cornerRadius: 18,
-                                accentColor: accentColor(for: tab),
-                                level: .e1
-                            )
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 18, style: .continuous)
-                                    .fill(viewModel.selectedTab == tab ? accentColor(for: tab).opacity(0.14) : Color.clear)
-                            )
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 18, style: .continuous)
-                                    .stroke(
-                                        viewModel.selectedTab == tab
-                                            ? accentColor(for: tab).opacity(0.26)
-                                            : Color.clear,
-                                        lineWidth: 1
-                                    )
-                            )
-                        }
-                        .buttonStyle(.plain)
-                        .scaleOnPress()
-                        .accessibilityIdentifier(accessibilityIdentifier(for: tab))
-                    }
-                }
+                tabSelector
             }
+            .taskerReadableContent(maxWidth: layoutClass.isPad ? 980 : .infinity, alignment: .center)
             .padding(.horizontal, spacing.screenHorizontal)
             .padding(.vertical, spacing.s12)
 
@@ -111,6 +67,7 @@ public struct InsightsTabView: View {
                             .transition(contentTransition)
                     }
                 }
+                .taskerReadableContent(maxWidth: layoutClass.isPad ? 980 : .infinity, alignment: .center)
                 .padding(.bottom, spacing.s16)
             }
             .onScrollGeometryChange(
@@ -137,6 +94,67 @@ public struct InsightsTabView: View {
         .onChange(of: viewModel.selectedTab) { _, _ in
             TaskerPerformanceTrace.event("InsightsTabSwitch")
             finishScrollTraceIfNeeded()
+        }
+    }
+
+    private var tabSelector: some View {
+        ViewThatFits(in: .horizontal) {
+            HStack(spacing: spacing.s8) {
+                tabButtons
+            }
+
+            VStack(spacing: spacing.s8) {
+                tabButtons
+            }
+        }
+    }
+
+    private var tabButtons: some View {
+        ForEach(InsightsViewModel.InsightsTab.allCases, id: \.self) { tab in
+            Button(action: { viewModel.selectTab(tab) }) {
+                VStack(alignment: .leading, spacing: spacing.s2) {
+                    Text(tab.rawValue)
+                        .font(.tasker(.callout))
+                        .fontWeight(.semibold)
+                        .foregroundStyle(
+                            viewModel.selectedTab == tab
+                                ? Color.tasker.textPrimary
+                                : Color.tasker.textTertiary
+                        )
+                    Text(tabSubtitle(for: tab))
+                        .font(.tasker(.caption2))
+                        .foregroundStyle(
+                            viewModel.selectedTab == tab
+                                ? Color.tasker.textSecondary
+                                : Color.tasker.textQuaternary
+                        )
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, spacing.s12)
+                .padding(.vertical, spacing.s12)
+                .taskerChromeSurface(
+                    cornerRadius: 18,
+                    accentColor: accentColor(for: tab),
+                    level: .e1
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 18, style: .continuous)
+                        .fill(viewModel.selectedTab == tab ? accentColor(for: tab).opacity(0.14) : Color.clear)
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 18, style: .continuous)
+                        .stroke(
+                            viewModel.selectedTab == tab
+                                ? accentColor(for: tab).opacity(0.26)
+                                : Color.clear,
+                            lineWidth: 1
+                        )
+                )
+            }
+            .buttonStyle(.plain)
+            .scaleOnPress()
+            .accessibilityIdentifier(accessibilityIdentifier(for: tab))
+            .accessibilityAddTraits(viewModel.selectedTab == tab ? .isSelected : [])
         }
     }
 

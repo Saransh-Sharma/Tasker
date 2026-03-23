@@ -2,15 +2,14 @@
 //  AddTaskNavigationBar.swift
 //  Tasker
 //
-//  Navigation bar: Cancel | New Task | Done (Done disabled until valid).
+//  Navigation bar: Cancel | Title | Done (Done disabled until valid).
 //
 
 import SwiftUI
 
-// MARK: - Add Task Navigation Bar
-
 struct AddTaskNavigationBar: View {
     let containerMode: AddTaskContainerMode
+    let title: LocalizedStringKey
     let canSave: Bool
     let onCancel: () -> Void
     let onSave: () -> Void
@@ -30,7 +29,7 @@ struct AddTaskNavigationBar: View {
 
             Spacer()
 
-            Text("New Task")
+            Text(title)
                 .font(.tasker(.headline))
                 .foregroundColor(Color.tasker.textPrimary)
 

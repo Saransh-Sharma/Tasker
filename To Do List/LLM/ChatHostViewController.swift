@@ -100,15 +100,16 @@ class ChatHostViewController: UIViewController, PresentationDependencyContainerA
             .sink { [weak self] _ in
                 self?.applyTheme()
             }
+
+        if #available(iOS 17.0, *) {
+            registerForTraitChanges([UITraitHorizontalSizeClass.self, UITraitVerticalSizeClass.self]) { (self: Self, _) in
+                self.refreshLayoutClassIfNeeded()
+            }
+        }
     }
 
     override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
-        refreshLayoutClassIfNeeded()
-    }
-
-    override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
-        super.traitCollectionDidChange(previousTraitCollection)
         refreshLayoutClassIfNeeded()
     }
 
@@ -821,10 +822,10 @@ struct ChatContainerView: View {
                     .environmentObject(appManager)
                     #if os(iOS)
                     .presentationDragIndicator(.hidden)
-                    .presentationDetents(appManager.userInterfaceIdiom == .phone ? [.medium, .large] : [.large])
+                    .presentationDetents(layoutClass == .phone ? [.medium, .large] : [.large])
                     .presentationBackground(Color.tasker(.bgElevated))
                     .presentationCornerRadius(TaskerTheme.CornerRadius.modal)
-                #endif
+                    #endif
             }
         }
         .onReceive(NotificationCenter.default.publisher(for: .toggleChatHistory)) { _ in

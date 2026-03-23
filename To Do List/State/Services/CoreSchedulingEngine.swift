@@ -346,7 +346,13 @@ public final class CoreSchedulingEngine: SchedulingEngineProtocol {
         guard let endTime = parsedTime(from: template.windowEnd) else {
             return defaultDate
         }
-        return calendar.date(bySettingHour: endTime.hour ?? 23, minute: endTime.minute ?? 59, second: 0, of: day) ?? defaultDate
+        let requestedDueDate = calendar.date(
+            bySettingHour: endTime.hour ?? 23,
+            minute: endTime.minute ?? 59,
+            second: 0,
+            of: day
+        ) ?? defaultDate
+        return max(requestedDueDate, defaultDate)
     }
 
     /// Executes resolveTimeZone.

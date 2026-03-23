@@ -108,6 +108,8 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
     private var gamificationRemoteChangeCoordinator: GamificationRemoteChangeCoordinator?
     private var cloudKitEventObserver: NSObjectProtocol?
     private var semanticTaskObservers: [NSObjectProtocol] = []
+    private var lastHabitRuntimeMaintenanceAt: Date?
+    private var inFlightHabitRuntimeMaintenanceTask: Task<Void, Never>?
 
     private(set) static var persistentBootstrapFailureMessage: String?
     private(set) static var persistentSyncMode: PersistentSyncMode = .fullSync
@@ -296,6 +298,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
             LiquidMetalCTARemoteConfigService.shared.refreshIfAvailable(reason: "app_did_become_active")
         }
         TaskListWidgetSnapshotService.shared.scheduleRefresh(reason: "app_did_become_active")
+        maintainHabitRuntimeIfNeeded(reason: "app_did_become_active")
     }
 
     func application(
@@ -1381,6 +1384,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         // Seed clean-start V3 defaults.
         ensureV3Defaults()
         repairProjectIdentityIfNeeded()
+        maintainHabitRuntimeIfNeeded(reason: "clean_architecture_setup")
 
         // Reconcile gamification data on launch
         if V2FeatureFlags.gamificationV2Enabled {
@@ -1417,7 +1421,8 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
             taskReadModelRepository: stateContainer.taskReadModelRepository,
             projectRepository: stateContainer.projectRepository,
             lifeAreaRepository: stateContainer.lifeAreaRepository,
-            tagRepository: stateContainer.tagRepository
+            tagRepository: stateContainer.tagRepository,
+            habitRuntimeReadRepository: stateContainer.habitRuntimeReadRepository
         )
         configureSemanticRetrievalLifecycle(stateContainer: stateContainer)
         return true
@@ -1455,6 +1460,72 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
             deletedTaskIDs.forEach { TaskSemanticRetrievalService.shared.remove(taskID: $0) }
         }
         semanticTaskObservers.append(deleteObserver)
+    }
+
+    private func maintainHabitRuntimeIfNeeded(reason: String) {
+        guard PresentationDependencyContainer.shared.isConfiguredForRuntime else {
+            return
+        }
+
+        if let inFlightHabitRuntimeMaintenanceTask {
+            if inFlightHabitRuntimeMaintenanceTask.isCancelled == false {
+                return
+            }
+            self.inFlightHabitRuntimeMaintenanceTask = nil
+        }
+
+        let now = Date()
+        let shouldForceRepair = TaskerPersistentRuntimeInitializer.shouldRunRepair()
+        if shouldForceRepair == false,
+           let lastHabitRuntimeMaintenanceAt,
+           now.timeIntervalSince(lastHabitRuntimeMaintenanceAt) < 45 {
+            return
+        }
+
+        let coordinator = PresentationDependencyContainer.shared.coordinator
+        inFlightHabitRuntimeMaintenanceTask = Task { [weak self] in
+            await withCheckedContinuation { continuation in
+                coordinator.maintainHabitRuntime.execute(anchorDate: now) { result in
+                    switch result {
+                    case .failure(let error):
+                        logWarning(
+                            event: "habit_runtime_maintenance_failed",
+                            message: "Habit runtime maintenance failed",
+                            fields: [
+                                "reason": reason,
+                                "error": error.localizedDescription
+                            ]
+                        )
+                        continuation.resume()
+                    case .success:
+                        guard shouldForceRepair else {
+                            continuation.resume()
+                            return
+                        }
+                        coordinator.recomputeHabitStreaks.execute(referenceDate: now) { recomputeResult in
+                            switch recomputeResult {
+                            case .failure(let error):
+                                logWarning(
+                                    event: "habit_runtime_repair_failed",
+                                    message: "Habit streak repair failed after maintenance",
+                                    fields: [
+                                        "reason": reason,
+                                        "error": error.localizedDescription
+                                    ]
+                                )
+                            case .success:
+                                TaskerPersistentRuntimeInitializer.markRepairCompleted()
+                            }
+                            continuation.resume()
+                        }
+                    }
+                }
+            }
+            await MainActor.run {
+                self?.lastHabitRuntimeMaintenanceAt = now
+                self?.inFlightHabitRuntimeMaintenanceTask = nil
+            }
+        }
     }
 
     private func rebuildSemanticIndexIfPossible(stateContainer: EnhancedDependencyContainer) async {

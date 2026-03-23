@@ -139,6 +139,10 @@ final class SettingsViewModel: ObservableObject {
         currentModelDisplayName.isEmpty ? "No model" : currentModelDisplayName
     }
 
+    var modelsSummary: String {
+        currentModelDisplayName.isEmpty ? "System default" : currentModelDisplayName
+    }
+
     var aiAssistantDetail: String {
         "Manage chat behavior, models, memory, and privacy."
     }

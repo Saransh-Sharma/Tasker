@@ -256,6 +256,26 @@ final class TaskerPersistentStoreLocationService {
 }
 
 struct TaskerPersistentRuntimeInitializer {
+    private enum HabitRuntimeMigration {
+        static let fieldBackfillKey = "tasker.habit.runtime.field_backfill.v1"
+        static let repairRequiredKey = "tasker.habit.runtime.repair_required.v1"
+        static let repairCompletedKey = "tasker.habit.runtime.repair_completed.v1"
+    }
+
+    private enum OccurrenceKeyMigration {
+        static let backfillKey = "tasker.occurrence.key_backfill.v1"
+    }
+
+    static func shouldRunRepair(defaults: UserDefaults = .standard) -> Bool {
+        defaults.bool(forKey: HabitRuntimeMigration.repairRequiredKey)
+            && defaults.bool(forKey: HabitRuntimeMigration.repairCompletedKey) == false
+    }
+
+    static func markRepairCompleted(defaults: UserDefaults = .standard) {
+        defaults.set(false, forKey: HabitRuntimeMigration.repairRequiredKey)
+        defaults.set(true, forKey: HabitRuntimeMigration.repairCompletedKey)
+    }
+
     func initialize(container: NSPersistentCloudKitContainer) {
         let context = container.viewContext
         context.performAndWait {
@@ -327,6 +347,8 @@ struct TaskerPersistentRuntimeInitializer {
                 inbox.setValue(Date(), forKey: "updatedAt")
 
                 try backfillTaskLifeAreaIDsIfNeeded(in: context)
+                try backfillHabitRuntimeFieldsIfNeeded(in: context)
+                try backfillOccurrenceKeysIfNeeded(in: context)
 
                 if context.hasChanges {
                     try context.save()
@@ -400,6 +422,375 @@ struct TaskerPersistentRuntimeInitializer {
                 message: "Backfilled TaskDefinition.lifeAreaID from project linkage",
                 fields: ["updated_count": String(updated)]
             )
+        }
+    }
+
+    private func backfillHabitRuntimeFieldsIfNeeded(in context: NSManagedObjectContext) throws {
+        let defaults = UserDefaults.standard
+        guard
+            let habitEntity = NSEntityDescription.entity(forEntityName: "HabitDefinition", in: context),
+            habitEntity.attributesByName["kindRaw"] != nil,
+            habitEntity.attributesByName["trackingModeRaw"] != nil,
+            habitEntity.attributesByName["lastHistoryRollDate"] != nil
+        else {
+            return
+        }
+
+        let request = NSFetchRequest<NSManagedObject>(entityName: "HabitDefinition")
+        let habits = try context.fetch(request)
+        let fieldBackfillAlreadyMarked = defaults.bool(forKey: HabitRuntimeMigration.fieldBackfillKey)
+
+        let templateRequest = NSFetchRequest<NSManagedObject>(entityName: "ScheduleTemplate")
+        templateRequest.predicate = NSPredicate(format: "sourceType == %@", ScheduleSourceType.habit.rawValue)
+        let templates = try context.fetch(templateRequest)
+
+        let ruleRequest = NSFetchRequest<NSManagedObject>(entityName: "ScheduleRule")
+        let rules = try context.fetch(ruleRequest)
+        let rulesByTemplateID = Dictionary(grouping: rules) { $0.value(forKey: "scheduleTemplateID") as? UUID }
+
+        if fieldBackfillAlreadyMarked {
+            let hasRepairableHabit = habits.contains { habit in
+                let kindMissing = (habit.value(forKey: "kindRaw") as? String)?.isEmpty != false
+                let trackingModeMissing = (habit.value(forKey: "trackingModeRaw") as? String)?.isEmpty != false
+                let historyRollMissing = habit.value(forKey: "lastHistoryRollDate") == nil
+
+                guard
+                    let habitID = habit.value(forKey: "id") as? UUID
+                else {
+                    return kindMissing || trackingModeMissing || historyRollMissing
+                }
+
+                let template = templates.first { template in
+                    (template.value(forKey: "sourceID") as? UUID) == habitID
+                }
+                let templateID = template?.value(forKey: "id") as? UUID
+                let linkedRules = templateID.flatMap { rulesByTemplateID[$0] } ?? []
+                let hasSupportedRule = linkedRules.allSatisfy { rule in
+                    guard let ruleType = (rule.value(forKey: "ruleType") as? String)?.lowercased() else {
+                        return false
+                    }
+                    return ruleType == "daily" || ruleType == "weekly"
+                }
+                let needsPauseRepair = template == nil || linkedRules.isEmpty || hasSupportedRule == false
+                let pauseMissing = needsPauseRepair && (habit.value(forKey: "isPaused") as? Bool) != true
+
+                return kindMissing || trackingModeMissing || historyRollMissing || pauseMissing
+            }
+
+            guard hasRepairableHabit else {
+                defaults.set(false, forKey: HabitRuntimeMigration.repairRequiredKey)
+                return
+            }
+        }
+
+        var updatedCount = 0
+        let today = Calendar.current.startOfDay(for: Date())
+
+        for habit in habits {
+            guard let habitID = habit.value(forKey: "id") as? UUID else { continue }
+            let habitType = (habit.value(forKey: "habitType") as? String)?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+
+            let kindRaw: String
+            let trackingModeRaw: String
+            switch habitType {
+            case "quit":
+                kindRaw = HabitKind.negative.rawValue
+                trackingModeRaw = HabitTrackingMode.dailyCheckIn.rawValue
+            case "quit_lapse_only":
+                kindRaw = HabitKind.negative.rawValue
+                trackingModeRaw = HabitTrackingMode.lapseOnly.rawValue
+            default:
+                kindRaw = HabitKind.positive.rawValue
+                trackingModeRaw = HabitTrackingMode.dailyCheckIn.rawValue
+            }
+
+            if (habit.value(forKey: "kindRaw") as? String)?.isEmpty != false {
+                habit.setValue(kindRaw, forKey: "kindRaw")
+                updatedCount += 1
+            }
+            if (habit.value(forKey: "trackingModeRaw") as? String)?.isEmpty != false {
+                habit.setValue(trackingModeRaw, forKey: "trackingModeRaw")
+                updatedCount += 1
+            }
+            if habit.value(forKey: "lastHistoryRollDate") == nil {
+                habit.setValue(today, forKey: "lastHistoryRollDate")
+                updatedCount += 1
+            }
+
+            let template = templates.first { template in
+                (template.value(forKey: "sourceID") as? UUID) == habitID
+            }
+            let templateID = template?.value(forKey: "id") as? UUID
+            let linkedRules = templateID.flatMap { rulesByTemplateID[$0] } ?? []
+            let hasSupportedRule = linkedRules.allSatisfy { rule in
+                guard let ruleType = (rule.value(forKey: "ruleType") as? String)?.lowercased() else {
+                    return false
+                }
+                return ruleType == "daily" || ruleType == "weekly"
+            }
+
+            if template == nil || linkedRules.isEmpty || hasSupportedRule == false {
+                if (habit.value(forKey: "isPaused") as? Bool) != true {
+                    habit.setValue(true, forKey: "isPaused")
+                    updatedCount += 1
+                }
+            }
+        }
+
+        if updatedCount > 0 {
+            logWarning(
+                event: "habit_runtime_backfill_applied",
+                message: "Backfilled legacy habit runtime fields and paused unsupported schedule linkages",
+                fields: ["updated_count": String(updatedCount)]
+            )
+        }
+
+        defaults.set(true, forKey: HabitRuntimeMigration.fieldBackfillKey)
+        if updatedCount > 0 {
+            defaults.set(true, forKey: HabitRuntimeMigration.repairRequiredKey)
+            defaults.set(false, forKey: HabitRuntimeMigration.repairCompletedKey)
+        } else {
+            defaults.set(false, forKey: HabitRuntimeMigration.repairRequiredKey)
+        }
+    }
+
+    private func backfillOccurrenceKeysIfNeeded(in context: NSManagedObjectContext) throws {
+        let defaults = UserDefaults.standard
+        guard
+            let occurrenceEntity = NSEntityDescription.entity(forEntityName: "Occurrence", in: context),
+            occurrenceEntity.attributesByName["occurrenceKey"] != nil
+        else {
+            return
+        }
+
+        let templateRequest = NSFetchRequest<NSManagedObject>(entityName: "ScheduleTemplate")
+        let templates: [NSManagedObject] = try context.fetch(templateRequest)
+        let templatesByID: [UUID: NSManagedObject] = Dictionary(
+            uniqueKeysWithValues: templates.compactMap { template in
+                guard let id = template.value(forKey: "id") as? UUID else { return nil }
+                return (id, template)
+            }
+        )
+
+        let occurrenceRequest = NSFetchRequest<NSManagedObject>(entityName: "Occurrence")
+        occurrenceRequest.sortDescriptors = [
+            NSSortDescriptor(key: "scheduledAt", ascending: true),
+            NSSortDescriptor(key: "updatedAt", ascending: false),
+            NSSortDescriptor(key: "createdAt", ascending: true)
+        ]
+        let occurrences = try context.fetch(occurrenceRequest)
+
+        let exceptionRequest = NSFetchRequest<NSManagedObject>(entityName: "ScheduleException")
+        exceptionRequest.sortDescriptors = [NSSortDescriptor(key: "createdAt", ascending: true)]
+        let exceptions = try context.fetch(exceptionRequest)
+
+        let alreadyMarked = defaults.bool(forKey: OccurrenceKeyMigration.backfillKey)
+        if alreadyMarked {
+            let hasRepairableOccurrence = occurrences.contains { occurrence in
+                resolvedOccurrenceKey(for: occurrence, templatesByID: templatesByID) == nil
+            }
+            let hasRepairableException = exceptions.contains { exception in
+                resolvedScheduleExceptionKey(for: exception, templatesByID: templatesByID) == nil
+            }
+            guard hasRepairableOccurrence || hasRepairableException else {
+                return
+            }
+        }
+
+        var updatedOccurrences = 0
+        var deletedOccurrences = 0
+        var mergedOccurrences = 0
+        var updatedExceptions = 0
+        var deletedExceptions = 0
+        var keptOccurrenceByKey: [String: NSManagedObject] = [:]
+
+        for occurrence in occurrences {
+            guard let canonicalKey = resolvedOccurrenceKey(for: occurrence, templatesByID: templatesByID) else {
+                context.delete(occurrence)
+                deletedOccurrences += 1
+                continue
+            }
+
+            let existingKey = (occurrence.value(forKey: "occurrenceKey") as? String)?
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+            if existingKey != canonicalKey {
+                occurrence.setValue(canonicalKey, forKey: "occurrenceKey")
+                updatedOccurrences += 1
+            }
+
+            if let kept = keptOccurrenceByKey[canonicalKey] {
+                let preferred = preferredOccurrence(between: kept, and: occurrence)
+                let other = preferred == kept ? occurrence : kept
+                mergeOccurrence(other, into: preferred)
+                context.delete(other)
+                keptOccurrenceByKey[canonicalKey] = preferred
+                deletedOccurrences += 1
+                mergedOccurrences += 1
+                updatedOccurrences += 1
+            } else {
+                keptOccurrenceByKey[canonicalKey] = occurrence
+            }
+        }
+
+        var keptExceptionByKey: [String: NSManagedObject] = [:]
+        for exception in exceptions {
+            guard let canonicalKey = resolvedScheduleExceptionKey(for: exception, templatesByID: templatesByID) else {
+                context.delete(exception)
+                deletedExceptions += 1
+                continue
+            }
+
+            let existingKey = (exception.value(forKey: "occurrenceKey") as? String)?
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+            if existingKey != canonicalKey {
+                exception.setValue(canonicalKey, forKey: "occurrenceKey")
+                updatedExceptions += 1
+            }
+
+            let dedupeKey = [
+                (exception.value(forKey: "scheduleTemplateID") as? UUID)?.uuidString ?? "missing-template",
+                canonicalKey
+            ].joined(separator: "|")
+            if let kept = keptExceptionByKey[dedupeKey] {
+                let preferred = preferredScheduleException(between: kept, and: exception)
+                let other = preferred == kept ? exception : kept
+                context.delete(other)
+                keptExceptionByKey[dedupeKey] = preferred
+                deletedExceptions += 1
+            } else {
+                keptExceptionByKey[dedupeKey] = exception
+            }
+        }
+
+        if updatedOccurrences > 0 || deletedOccurrences > 0 || updatedExceptions > 0 || deletedExceptions > 0 {
+            logWarning(
+                event: "occurrence_key_backfill_applied",
+                message: "Canonicalized occurrence keys and removed invalid duplicate runtime rows during startup",
+                fields: [
+                    "occurrences_updated": String(updatedOccurrences),
+                    "occurrences_deleted": String(deletedOccurrences),
+                    "occurrences_merged": String(mergedOccurrences),
+                    "exceptions_updated": String(updatedExceptions),
+                    "exceptions_deleted": String(deletedExceptions)
+                ]
+            )
+        }
+
+        defaults.set(true, forKey: OccurrenceKeyMigration.backfillKey)
+    }
+
+    private func resolvedOccurrenceKey(
+        for occurrence: NSManagedObject,
+        templatesByID: [UUID: NSManagedObject]
+    ) -> String? {
+        let templateID = occurrence.value(forKey: "scheduleTemplateID") as? UUID
+            ?? (occurrence.value(forKey: "templateRef") as? NSManagedObject)?.value(forKey: "id") as? UUID
+        let sourceID = occurrence.value(forKey: "sourceID") as? UUID
+            ?? templateID.flatMap { templatesByID[$0]?.value(forKey: "sourceID") as? UUID }
+            ?? (occurrence.value(forKey: "templateRef") as? NSManagedObject)?.value(forKey: "sourceID") as? UUID
+        let scheduledAt = occurrence.value(forKey: "scheduledAt") as? Date
+        let rawKey = (occurrence.value(forKey: "occurrenceKey") as? String) ?? ""
+
+        if let canonical = OccurrenceKeyCodec.canonicalize(
+            rawKey,
+            fallbackTemplateID: templateID,
+            fallbackSourceID: sourceID
+        ) {
+            return canonical
+        }
+
+        guard let templateID, let sourceID, let scheduledAt else { return nil }
+        return OccurrenceKeyCodec.encode(
+            scheduleTemplateID: templateID,
+            scheduledAt: scheduledAt,
+            sourceID: sourceID
+        )
+    }
+
+    private func resolvedScheduleExceptionKey(
+        for exception: NSManagedObject,
+        templatesByID: [UUID: NSManagedObject]
+    ) -> String? {
+        let templateID = exception.value(forKey: "scheduleTemplateID") as? UUID
+            ?? (exception.value(forKey: "templateRef") as? NSManagedObject)?.value(forKey: "id") as? UUID
+        let sourceID = templateID.flatMap { templatesByID[$0]?.value(forKey: "sourceID") as? UUID }
+            ?? (exception.value(forKey: "templateRef") as? NSManagedObject)?.value(forKey: "sourceID") as? UUID
+        let rawKey = (exception.value(forKey: "occurrenceKey") as? String) ?? ""
+        return OccurrenceKeyCodec.canonicalize(
+            rawKey,
+            fallbackTemplateID: templateID,
+            fallbackSourceID: sourceID
+        )
+    }
+
+    private func preferredOccurrence(
+        between lhs: NSManagedObject,
+        and rhs: NSManagedObject
+    ) -> NSManagedObject {
+        let lhsRank = occurrenceStateRank(lhs.value(forKey: "state") as? String)
+        let rhsRank = occurrenceStateRank(rhs.value(forKey: "state") as? String)
+        if lhsRank != rhsRank {
+            return lhsRank >= rhsRank ? lhs : rhs
+        }
+
+        let lhsUpdatedAt = lhs.value(forKey: "updatedAt") as? Date ?? .distantPast
+        let rhsUpdatedAt = rhs.value(forKey: "updatedAt") as? Date ?? .distantPast
+        if lhsUpdatedAt != rhsUpdatedAt {
+            return lhsUpdatedAt >= rhsUpdatedAt ? lhs : rhs
+        }
+
+        let lhsCreatedAt = lhs.value(forKey: "createdAt") as? Date ?? .distantFuture
+        let rhsCreatedAt = rhs.value(forKey: "createdAt") as? Date ?? .distantFuture
+        return lhsCreatedAt <= rhsCreatedAt ? lhs : rhs
+    }
+
+    private func preferredScheduleException(
+        between lhs: NSManagedObject,
+        and rhs: NSManagedObject
+    ) -> NSManagedObject {
+        let lhsCreatedAt = lhs.value(forKey: "createdAt") as? Date ?? .distantPast
+        let rhsCreatedAt = rhs.value(forKey: "createdAt") as? Date ?? .distantPast
+        return lhsCreatedAt >= rhsCreatedAt ? lhs : rhs
+    }
+
+    private func mergeOccurrence(_ source: NSManagedObject, into destination: NSManagedObject) {
+        let sourceUpdatedAt = source.value(forKey: "updatedAt") as? Date ?? .distantPast
+        let destinationUpdatedAt = destination.value(forKey: "updatedAt") as? Date ?? .distantPast
+        if sourceUpdatedAt > destinationUpdatedAt {
+            destination.setValue(source.value(forKey: "state"), forKey: "state")
+            destination.setValue(source.value(forKey: "dueAt"), forKey: "dueAt")
+            destination.setValue(sourceUpdatedAt, forKey: "updatedAt")
+            destination.setValue(source.value(forKey: "generationWindow"), forKey: "generationWindow")
+            destination.setValue(source.value(forKey: "isGenerated"), forKey: "isGenerated")
+        }
+
+        if let resolutions = source.value(forKey: "resolutions") as? NSSet {
+            for case let resolution as NSManagedObject in resolutions {
+                resolution.setValue(destination, forKey: "occurrenceRef")
+                resolution.setValue(destination.value(forKey: "id") as? UUID, forKey: "occurrenceID")
+            }
+        }
+
+        if let reminders = source.value(forKey: "reminders") as? NSSet {
+            for case let reminder as NSManagedObject in reminders {
+                reminder.setValue(destination, forKey: "occurrenceRef")
+                reminder.setValue(destination.value(forKey: "id") as? UUID, forKey: "occurrenceID")
+            }
+        }
+    }
+
+    private func occurrenceStateRank(_ rawValue: String?) -> Int {
+        switch rawValue {
+        case OccurrenceState.completed.rawValue:
+            return 4
+        case OccurrenceState.failed.rawValue:
+            return 3
+        case OccurrenceState.missed.rawValue:
+            return 2
+        case OccurrenceState.skipped.rawValue:
+            return 1
+        default:
+            return 0
         }
     }
 }
@@ -549,6 +940,15 @@ final class TaskerPersistentStoreBootstrapService {
         let initialHealthy = initialReport.errors.isEmpty && hasExpectedConfigurations(initialReport)
 
         if initialHealthy {
+            if Self.validateRuntimeSchema(in: initialContainer.managedObjectModel) != nil {
+                unloadPersistentStores(initialContainer)
+                return TaskerPersistentStoreBootstrapResult(
+                    state: .failed("Tasker's data model is out of date. Please reinstall or update the app."),
+                    syncMode: .writeClosed(reason: "persistent_store_schema_invalid"),
+                    syncModeSource: "bootstrap_initial_schema_invalid",
+                    shouldMarkStoreEpoch: false
+                )
+            }
             return TaskerPersistentStoreBootstrapResult(
                 state: .ready(initialContainer),
                 syncMode: .fullSync,
@@ -577,6 +977,15 @@ final class TaskerPersistentStoreBootstrapService {
         )
         let writeClosedHealthy = writeClosedReport.errors.isEmpty && hasLocalOnlyConfiguration(writeClosedReport)
         if writeClosedHealthy {
+            if Self.validateRuntimeSchema(in: writeClosedContainer.managedObjectModel) != nil {
+                unloadPersistentStores(writeClosedContainer)
+                return TaskerPersistentStoreBootstrapResult(
+                    state: .failed("Tasker's data model is out of date. Please reinstall or update the app."),
+                    syncMode: .writeClosed(reason: "persistent_store_schema_invalid"),
+                    syncModeSource: "bootstrap_write_closed_schema_invalid",
+                    shouldMarkStoreEpoch: false
+                )
+            }
             let fallbackReason = makeWriteClosedReason(
                 initialReport: initialReport,
                 missingConfigurations: missingConfigurations
@@ -715,6 +1124,34 @@ final class TaskerPersistentStoreBootstrapService {
         } catch {
             return "metadata_unavailable_\(error.localizedDescription)"
         }
+    }
+
+    static func validateRuntimeSchema(in model: NSManagedObjectModel) -> NSError? {
+        if let habitSchemaError = CoreDataHabitRepository.schemaValidationError(in: model) {
+            logError(
+                event: "persistent_store_habit_schema_invalid",
+                message: "Loaded Core Data model is missing required habit runtime fields",
+                fields: [
+                    "error": habitSchemaError.localizedDescription,
+                    "missing_requirements": habitSchemaError.userInfo["missingRequirements"] as? String ?? "unknown"
+                ]
+            )
+            return habitSchemaError
+        }
+
+        if let gamificationSchemaError = CoreDataGamificationRepository.schemaValidationError(in: model) {
+            logError(
+                event: "persistent_store_gamification_schema_invalid",
+                message: "Loaded Core Data model is missing required gamification fields",
+                fields: [
+                    "error": gamificationSchemaError.localizedDescription,
+                    "missing_requirements": gamificationSchemaError.userInfo["missingRequirements"] as? String ?? "unknown"
+                ]
+            )
+            return gamificationSchemaError
+        }
+
+        return nil
     }
 
     private func underlyingCoreDataErrorSummary(_ error: NSError) -> String {

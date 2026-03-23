@@ -471,6 +471,35 @@ public extension View {
     func taskerLayoutClass(_ layoutClass: TaskerLayoutClass) -> some View {
         environment(\.taskerLayoutClass, layoutClass)
     }
+
+    /// Keeps dense content readable on iPad and Designed for iPad on Mac.
+    func taskerReadableContent(
+        maxWidth: CGFloat = 920,
+        alignment: Alignment = .center
+    ) -> some View {
+        modifier(
+            TaskerReadableContentModifier(
+                maxWidth: maxWidth,
+                alignment: alignment
+            )
+        )
+    }
+}
+
+private struct TaskerReadableContentModifier: ViewModifier {
+    @Environment(\.taskerLayoutClass) private var layoutClass
+
+    let maxWidth: CGFloat
+    let alignment: Alignment
+
+    func body(content: Content) -> some View {
+        content
+            .frame(
+                maxWidth: layoutClass.isPad ? maxWidth : .infinity,
+                alignment: .leading
+            )
+            .frame(maxWidth: .infinity, alignment: alignment)
+    }
 }
 
 public struct TaskerTextFieldStyle: TextFieldStyle {

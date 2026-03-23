@@ -63,6 +63,11 @@ public struct XPCalculationEngine {
         case .recoverReschedule: return 2
         case .reflection: return 10
         case .focus: return 0 // calculated from duration
+        case .habitPositiveComplete: return 8
+        case .habitNegativeSuccess: return 8
+        case .habitNegativeLapse: return 0
+        case .habitRecovery: return 6
+        case .habitStreakMilestone: return 25
         }
     }
 
@@ -269,6 +274,7 @@ public struct XPCalculationEngine {
     public static func idempotencyKey(
         category: XPActionCategory,
         taskID: UUID? = nil,
+        habitID: UUID? = nil,
         parentTaskID: UUID? = nil,
         childTaskID: UUID? = nil,
         sessionID: UUID? = nil,
@@ -294,6 +300,44 @@ public struct XPCalculationEngine {
         case .focus:
             guard let sessionID = sessionID else { return "focus:unknown" }
             return "focus:\(sessionID.uuidString)"
+        case .habitPositiveComplete:
+            let identifier = habitID ?? taskID
+            guard let identifier else { return "habit_positive_complete:unknown" }
+            return "habit_positive_complete:\(identifier.uuidString)"
+        case .habitNegativeSuccess:
+            let identifier = habitID ?? taskID
+            guard let identifier else { return "habit_negative_success:unknown" }
+            return "habit_negative_success:\(identifier.uuidString)"
+        case .habitNegativeLapse:
+            let identifier = habitID ?? taskID
+            guard let identifier else { return "habit_negative_lapse:unknown" }
+            return "habit_negative_lapse:\(identifier.uuidString):\(periodKey ?? self.periodKey())"
+        case .habitRecovery:
+            let identifier = habitID ?? taskID
+            guard let identifier else { return "habit_recovery:unknown" }
+            return "habit_recovery:\(identifier.uuidString):\(periodKey ?? self.periodKey())"
+        case .habitStreakMilestone:
+            let identifier = habitID ?? taskID
+            guard let identifier else { return "habit_streak_milestone:unknown" }
+            return "habit_streak_milestone:\(identifier.uuidString):\(periodKey ?? self.periodKey())"
+        }
+    }
+
+    public static func isHabitCategory(_ category: XPActionCategory) -> Bool {
+        switch category {
+        case .habitPositiveComplete,
+             .habitNegativeSuccess,
+             .habitNegativeLapse,
+             .habitRecovery,
+             .habitStreakMilestone:
+            return true
+        case .complete,
+             .start,
+             .decompose,
+             .recoverReschedule,
+             .reflection,
+             .focus:
+            return false
         }
     }
 

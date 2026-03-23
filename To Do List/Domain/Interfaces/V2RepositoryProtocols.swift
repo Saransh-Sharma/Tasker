@@ -88,6 +88,14 @@ public protocol ScheduleRepositoryProtocol {
     func fetchRules(templateID: UUID, completion: @escaping (Result<[ScheduleRuleDefinition], Error>) -> Void)
     /// Executes saveTemplate.
     func saveTemplate(_ template: ScheduleTemplateDefinition, completion: @escaping (Result<ScheduleTemplateDefinition, Error>) -> Void)
+    /// Executes deleteTemplate.
+    func deleteTemplate(id: UUID, completion: @escaping (Result<Void, Error>) -> Void)
+    /// Executes replaceRules.
+    func replaceRules(
+        templateID: UUID,
+        rules: [ScheduleRuleDefinition],
+        completion: @escaping (Result<[ScheduleRuleDefinition], Error>) -> Void
+    )
     /// Executes fetchExceptions.
     func fetchExceptions(templateID: UUID, completion: @escaping (Result<[ScheduleExceptionDefinition], Error>) -> Void)
     /// Executes saveException.

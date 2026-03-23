@@ -105,6 +105,89 @@ public final class CoreDataScheduleRepository: ScheduleRepositoryProtocol {
                 try self.backgroundContext.save()
                 completion(.success(template))
             } catch {
+                self.backgroundContext.rollback()
+                completion(.failure(error))
+            }
+        }
+    }
+
+    /// Executes deleteTemplate.
+    public func deleteTemplate(id: UUID, completion: @escaping (Result<Void, Error>) -> Void) {
+        backgroundContext.perform {
+            do {
+                _ = try V2CoreDataRepositorySupport.requireID(id, field: "scheduleTemplate.id")
+                if let object = try V2CoreDataRepositorySupport.fetchObject(
+                    in: self.backgroundContext,
+                    entityName: "ScheduleTemplate",
+                    predicate: NSPredicate(format: "id == %@", id as CVarArg)
+                ) {
+                    self.backgroundContext.delete(object)
+                    try self.backgroundContext.save()
+                }
+                completion(.success(()))
+            } catch {
+                self.backgroundContext.rollback()
+                completion(.failure(error))
+            }
+        }
+    }
+
+    /// Executes replaceRules.
+    public func replaceRules(
+        templateID: UUID,
+        rules: [ScheduleRuleDefinition],
+        completion: @escaping (Result<[ScheduleRuleDefinition], Error>) -> Void
+    ) {
+        backgroundContext.perform {
+            do {
+                _ = try V2CoreDataRepositorySupport.requireID(templateID, field: "scheduleRule.scheduleTemplateID")
+                let existing = try V2CoreDataRepositorySupport.fetchObjects(
+                    in: self.backgroundContext,
+                    entityName: "ScheduleRule",
+                    predicate: NSPredicate(format: "scheduleTemplateID == %@", templateID as CVarArg),
+                    sort: [NSSortDescriptor(key: "id", ascending: true)]
+                )
+                for object in existing {
+                    self.backgroundContext.delete(object)
+                }
+
+                for rule in rules {
+                    _ = try V2CoreDataRepositorySupport.requireID(rule.id, field: "scheduleRule.id")
+                    let object = try V2CoreDataRepositorySupport.upsertByID(
+                        in: self.backgroundContext,
+                        entityName: "ScheduleRule",
+                        id: rule.id
+                    )
+                    object.setValue(rule.id, forKey: "id")
+                    object.setValue(templateID, forKey: "scheduleTemplateID")
+                    object.setValue(rule.ruleType, forKey: "ruleType")
+                    object.setValue(Int32(rule.interval), forKey: "interval")
+                    object.setValue(rule.byDayMask.map { Int32($0) }, forKey: "byDayMask")
+                    object.setValue(rule.byMonthDay.map { Int32($0) }, forKey: "byMonthDay")
+                    object.setValue(rule.byHour.map { Int32($0) }, forKey: "byHour")
+                    object.setValue(rule.byMinute.map { Int32($0) }, forKey: "byMinute")
+                    object.setValue(rule.rawRuleData, forKey: "rawRuleData")
+                    object.setValue(rule.createdAt, forKey: "createdAt")
+                }
+
+                try self.backgroundContext.save()
+                let normalized = rules.map { rule in
+                    ScheduleRuleDefinition(
+                        id: rule.id,
+                        scheduleTemplateID: templateID,
+                        ruleType: rule.ruleType,
+                        interval: rule.interval,
+                        byDayMask: rule.byDayMask,
+                        byMonthDay: rule.byMonthDay,
+                        byHour: rule.byHour,
+                        byMinute: rule.byMinute,
+                        rawRuleData: rule.rawRuleData,
+                        createdAt: rule.createdAt
+                    )
+                }
+                completion(.success(normalized))
+            } catch {
+                self.backgroundContext.rollback()
                 completion(.failure(error))
             }
         }
@@ -199,6 +282,7 @@ public final class CoreDataScheduleRepository: ScheduleRepositoryProtocol {
                 normalized.occurrenceKey = canonicalOccurrenceKey
                 completion(.success(normalized))
             } catch {
+                self.backgroundContext.rollback()
                 completion(.failure(error))
             }
         }

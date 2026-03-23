@@ -2,51 +2,89 @@
 //  AddTaskSheetView.swift
 //  Tasker
 //
-//  V3-native Add Task sheet — Quick + Expand two-speed capture.
-//  Opens as .medium detent for lightning capture, expands to .large for planning.
+//  V3-native Add sheet. Backward compatible with task-only callers, but now
+//  scaffolded as a unified Task / Habit composer.
 //
 
 import SwiftUI
-
-// MARK: - Add Task Sheet View
 
 public enum AddTaskContainerMode: Equatable {
     case sheet
     case inspector
 }
 
+private enum AddItemSubmissionBehavior {
+    case dismiss
+    case addAnother
+}
+
 public struct AddTaskSheetView: View {
-    /// Initializes a new instance.
-    @StateObject private var viewModel: AddTaskViewModel
+    @StateObject private var viewModel: AddItemViewModel
     @Environment(\.dismiss) private var dismiss
     private let onTaskCreated: ((UUID) -> Void)?
+    private let onHabitCreated: ((UUID) -> Void)?
     private let onDismissWithoutTask: (() -> Void)?
 
     @State private var showDiscardConfirmation = false
     @State private var showAddAnother = false
     @State private var successFlash = false
     @State private var selectedDetent: PresentationDetent = .medium
-    @State private var didCreateTask = false
+    @State private var didCreateItem = false
+    @State private var pendingTaskBehavior: AddItemSubmissionBehavior?
+    @State private var successResetTask: Task<Void, Never>?
 
     public init(
         viewModel: AddTaskViewModel,
+        habitViewModel: AddHabitViewModel,
         onTaskCreated: ((UUID) -> Void)? = nil,
+        onHabitCreated: ((UUID) -> Void)? = nil,
         onDismissWithoutTask: (() -> Void)? = nil
     ) {
-        _viewModel = StateObject(wrappedValue: viewModel)
+        let allowedModes = Self.allowedModes(onTaskCreated: onTaskCreated, onHabitCreated: onHabitCreated)
+        _viewModel = StateObject(
+            wrappedValue: AddItemViewModel(
+                taskViewModel: viewModel,
+                habitViewModel: habitViewModel,
+                allowedModes: allowedModes,
+                selectedMode: allowedModes.first ?? .task
+            )
+        )
         self.onTaskCreated = onTaskCreated
+        self.onHabitCreated = onHabitCreated
+        self.onDismissWithoutTask = onDismissWithoutTask
+    }
+
+    public init(
+        itemViewModel: AddItemViewModel,
+        onTaskCreated: ((UUID) -> Void)? = nil,
+        onHabitCreated: ((UUID) -> Void)? = nil,
+        onDismissWithoutTask: (() -> Void)? = nil
+    ) {
+        let allowedModes = Self.allowedModes(onTaskCreated: onTaskCreated, onHabitCreated: onHabitCreated)
+        _viewModel = StateObject(
+            wrappedValue: AddItemViewModel(
+                taskViewModel: itemViewModel.taskViewModel,
+                habitViewModel: itemViewModel.habitViewModel,
+                allowedModes: allowedModes,
+                selectedMode: itemViewModel.selectedMode
+            )
+        )
+        self.onTaskCreated = onTaskCreated
+        self.onHabitCreated = onHabitCreated
         self.onDismissWithoutTask = onDismissWithoutTask
     }
 
     public var body: some View {
-        AddTaskForedropView(
+        AddItemComposerView(
             viewModel: viewModel,
             containerMode: .sheet,
             showAddAnother: showAddAnother,
             successFlash: $successFlash,
             onCancel: handleCancel,
-            onCreate: handleCreate,
-            onAddAnother: handleAddAnother,
+            onTaskCreate: handleTaskCreate,
+            onTaskAddAnother: handleTaskAddAnother,
+            onHabitCreate: handleHabitCreate,
+            onHabitAddAnother: handleHabitAddAnother,
             onExpandToLarge: expandToLarge
         )
         .presentationDetents([.medium, .large], selection: $selectedDetent)
@@ -66,15 +104,17 @@ public struct AddTaskSheetView: View {
             Text("You have unsaved changes that will be lost.")
         }
         .onDisappear {
-            if didCreateTask == false {
+            successResetTask?.cancel()
+            if didCreateItem == false {
                 onDismissWithoutTask?()
             }
         }
+        .onChange(of: viewModel.taskViewModel.lastCreatedTaskID) { _, taskID in
+            guard let taskID, let behavior = pendingTaskBehavior else { return }
+            handleCreatedTask(taskID, behavior: behavior)
+        }
     }
 
-    // MARK: - Actions
-
-    /// Executes handleCancel.
     private func handleCancel() {
         if viewModel.hasUnsavedChanges {
             TaskerFeedback.medium()
@@ -85,95 +125,183 @@ public struct AddTaskSheetView: View {
         }
     }
 
-    /// Executes handleCreate.
-    private func handleCreate() {
-        guard viewModel.viewState.canSubmit, !viewModel.isLoading else { return }
-        viewModel.createTask()
+    private func handleTaskCreate() {
+        guard viewModel.allowedModes.contains(.task) else { return }
+        guard viewModel.taskViewModel.viewState.canSubmit, !viewModel.taskViewModel.isLoading else { return }
+        pendingTaskBehavior = .dismiss
+        showAddAnother = false
+        viewModel.taskViewModel.createTask()
+    }
 
-        // Observe success
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-            if viewModel.isTaskCreated {
-                TaskerFeedback.success()
-                didCreateTask = true
-                if let taskID = viewModel.lastCreatedTaskID {
-                    onTaskCreated?(taskID)
-                }
-                dismiss()
+    private func handleTaskAddAnother() {
+        guard viewModel.allowedModes.contains(.task) else { return }
+        guard viewModel.taskViewModel.viewState.canSubmit, !viewModel.taskViewModel.isLoading else { return }
+        pendingTaskBehavior = .addAnother
+        showAddAnother = false
+        viewModel.taskViewModel.createTask()
+    }
+
+    private func handleHabitCreate() {
+        guard viewModel.allowedModes.contains(.habit) else { return }
+        guard viewModel.habitViewModel.canSubmit, !viewModel.habitViewModel.isSaving else { return }
+        viewModel.habitViewModel.createHabit { result in
+            guard case .success(let habit) = result else { return }
+            didCreateItem = true
+            onHabitCreated?(habit.id)
+            TaskerFeedback.success()
+            dismiss()
+        }
+    }
+
+    private func handleHabitAddAnother() {
+        guard viewModel.allowedModes.contains(.habit) else { return }
+        guard viewModel.habitViewModel.canSubmit, !viewModel.habitViewModel.isSaving else { return }
+        viewModel.habitViewModel.createHabit { result in
+            guard case .success(let habit) = result else { return }
+            didCreateItem = true
+            onHabitCreated?(habit.id)
+            runSuccessReset {
+                viewModel.habitViewModel.resetForm()
+                showAddAnother = true
+                selectedDetent = .medium
             }
         }
     }
 
-    /// Executes handleAddAnother.
-    private func handleAddAnother() {
-        guard viewModel.viewState.canSubmit, !viewModel.isLoading else { return }
-        viewModel.createTask()
-
-        // Observe success, then reset for another
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-            if viewModel.isTaskCreated {
-                TaskerFeedback.success()
-                didCreateTask = true
-                if let taskID = viewModel.lastCreatedTaskID {
-                    onTaskCreated?(taskID)
-                }
-                withAnimation(TaskerAnimation.snappy) {
-                    successFlash = true
-                }
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
-                    withAnimation(TaskerAnimation.snappy) {
-                        successFlash = false
-                        viewModel.resetForm()
-                        showAddAnother = true
-                        selectedDetent = .medium
-                    }
-                }
-            }
-        }
-    }
-
-    /// Executes expandToLarge.
     private func expandToLarge() {
         TaskerFeedback.light()
         withAnimation(TaskerAnimation.gentle) {
             selectedDetent = .large
         }
     }
+
+    private func handleCreatedTask(_ taskID: UUID, behavior: AddItemSubmissionBehavior) {
+        guard viewModel.allowedModes.contains(.task) else {
+            pendingTaskBehavior = nil
+            return
+        }
+        pendingTaskBehavior = nil
+        didCreateItem = true
+        onTaskCreated?(taskID)
+
+        switch behavior {
+        case .dismiss:
+            TaskerFeedback.success()
+            dismiss()
+        case .addAnother:
+            runSuccessReset {
+                viewModel.taskViewModel.resetForm()
+                showAddAnother = true
+                selectedDetent = .medium
+            }
+        }
+    }
+
+    private func runSuccessReset(afterReset: @escaping @MainActor () -> Void) {
+        successResetTask?.cancel()
+        TaskerFeedback.success()
+        withAnimation(TaskerAnimation.snappy) {
+            successFlash = true
+        }
+        successResetTask = Task { @MainActor in
+            try? await Task.sleep(nanoseconds: 450_000_000)
+            guard Task.isCancelled == false else { return }
+            withAnimation(TaskerAnimation.snappy) {
+                successFlash = false
+                afterReset()
+            }
+        }
+    }
+
+    private static func allowedModes(
+        onTaskCreated: ((UUID) -> Void)?,
+        onHabitCreated: ((UUID) -> Void)?
+    ) -> [AddItemMode] {
+        let taskAllowed = onTaskCreated != nil || onHabitCreated == nil
+        let habitAllowed = onHabitCreated != nil
+        let modes = AddItemMode.allCases.filter { mode in
+            switch mode {
+            case .task:
+                return taskAllowed
+            case .habit:
+                return habitAllowed
+            }
+        }
+        return modes.isEmpty ? [.task] : modes
+    }
 }
 
 struct AddTaskInspectorContainer: View {
-    @StateObject private var viewModel: AddTaskViewModel
+    @StateObject private var viewModel: AddItemViewModel
     @State private var successFlash = false
+    @State private var pendingTaskCreation = false
+    @State private var successResetTask: Task<Void, Never>?
     let onClose: () -> Void
 
-    init(viewModel: AddTaskViewModel, onClose: @escaping () -> Void) {
-        _viewModel = StateObject(wrappedValue: viewModel)
+    init(viewModel: AddTaskViewModel, habitViewModel: AddHabitViewModel, onClose: @escaping () -> Void) {
+        _viewModel = StateObject(
+            wrappedValue: AddItemViewModel(
+                taskViewModel: viewModel,
+                habitViewModel: habitViewModel
+            )
+        )
         self.onClose = onClose
     }
 
     var body: some View {
-        AddTaskForedropView(
+        AddItemComposerView(
             viewModel: viewModel,
             containerMode: .inspector,
             showAddAnother: false,
             successFlash: $successFlash,
             onCancel: onClose,
-            onCreate: handleCreate,
-            onAddAnother: handleCreate,
+            onTaskCreate: handleTaskCreate,
+            onTaskAddAnother: handleTaskCreate,
+            onHabitCreate: handleHabitCreate,
+            onHabitAddAnother: handleHabitCreate,
             onExpandToLarge: {}
         )
         .accessibilityIdentifier("home.ipad.detail.addTask")
+        .onDisappear {
+            successResetTask?.cancel()
+        }
+        .onChange(of: viewModel.taskViewModel.lastCreatedTaskID) { _, taskID in
+            guard taskID != nil, pendingTaskCreation else { return }
+            pendingTaskCreation = false
+            runInspectorSuccessReset {
+                viewModel.taskViewModel.resetForm()
+            }
+        }
     }
 
-    private func handleCreate() {
-        guard viewModel.viewState.canSubmit, !viewModel.isLoading else { return }
-        viewModel.createTask()
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-            guard viewModel.isTaskCreated else { return }
-            TaskerFeedback.success()
+    private func handleTaskCreate() {
+        guard viewModel.taskViewModel.viewState.canSubmit, !viewModel.taskViewModel.isLoading else { return }
+        pendingTaskCreation = true
+        viewModel.taskViewModel.createTask()
+    }
+
+    private func handleHabitCreate() {
+        guard viewModel.habitViewModel.canSubmit, !viewModel.habitViewModel.isSaving else { return }
+        viewModel.habitViewModel.createHabit { result in
+            guard case .success = result else { return }
+            runInspectorSuccessReset {
+                viewModel.habitViewModel.resetForm()
+            }
+        }
+    }
+
+    private func runInspectorSuccessReset(afterReset: @escaping @MainActor () -> Void) {
+        successResetTask?.cancel()
+        TaskerFeedback.success()
+        withAnimation(TaskerAnimation.snappy) {
             successFlash = true
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
+        }
+        successResetTask = Task { @MainActor in
+            try? await Task.sleep(nanoseconds: 400_000_000)
+            guard Task.isCancelled == false else { return }
+            withAnimation(TaskerAnimation.snappy) {
                 successFlash = false
-                viewModel.resetForm()
+                afterReset()
             }
         }
     }

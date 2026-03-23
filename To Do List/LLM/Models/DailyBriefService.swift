@@ -14,10 +14,15 @@ final class DailyBriefService {
     private let defaults = UserDefaults.standard
     private let cachePrefix = "assistant.daily_brief."
     private let llm: LLMEvaluator
+    private let dateProvider: () -> Date
 
     /// Initializes a new instance.
-    init(llm: LLMEvaluator? = nil) {
+    init(
+        llm: LLMEvaluator? = nil,
+        dateProvider: @escaping () -> Date = Date.init
+    ) {
         self.llm = llm ?? LLMRuntimeCoordinator.shared.evaluator
+        self.dateProvider = dateProvider
     }
 
     /// Executes cachedBrief.
@@ -35,8 +40,10 @@ final class DailyBriefService {
         todayOpenCount: Int,
         overdueCount: Int,
         completedTodayCount: Int,
-        streak: Int
+        streak: Int,
+        habitSignals: [TaskerHabitSignal] = []
     ) async -> DailyBriefOutput {
+        let resolvedHabitSignals = await resolveHabitSignals(suppliedSignals: habitSignals)
         let route = AIChatModeRouter.route(for: .dailyBrief)
         guard let modelName = route.selectedModelName else {
             return DailyBriefOutput(
@@ -44,7 +51,8 @@ final class DailyBriefService {
                     todayOpenCount: todayOpenCount,
                     overdueCount: overdueCount,
                     completedTodayCount: completedTodayCount,
-                    streak: streak
+                    streak: streak,
+                    habitSignals: resolvedHabitSignals
                 ),
                 modelName: nil,
                 routeBanner: route.bannerMessage
@@ -60,6 +68,7 @@ final class DailyBriefService {
                 overdue: \(overdueCount)
                 completed_today: \(completedTodayCount)
                 streak_days: \(streak)
+                \(habitPromptLines(from: resolvedHabitSignals))
                 """,
                 thread: thread
             )
@@ -85,7 +94,8 @@ final class DailyBriefService {
                 todayOpenCount: todayOpenCount,
                 overdueCount: overdueCount,
                 completedTodayCount: completedTodayCount,
-                streak: streak
+                streak: streak,
+                habitSignals: resolvedHabitSignals
             ),
             modelName: modelName,
             routeBanner: route.bannerMessage
@@ -97,14 +107,34 @@ final class DailyBriefService {
         todayOpenCount: Int,
         overdueCount: Int,
         completedTodayCount: Int,
-        streak: Int
-    ) -> String {
+        streak: Int,
+        habitSignals: [TaskerHabitSignal] = []
+    ) async -> String {
         fallbackBrief(
             todayOpenCount: todayOpenCount,
             overdueCount: overdueCount,
             completedTodayCount: completedTodayCount,
-            streak: streak
+            streak: streak,
+            habitSignals: await resolveHabitSignals(suppliedSignals: habitSignals)
         )
+    }
+
+    private func resolveHabitSignals(suppliedSignals: [TaskerHabitSignal]) async -> [TaskerHabitSignal] {
+        guard suppliedSignals.isEmpty, let repository = LLMContextRepositoryProvider.habitRuntimeReadRepository else {
+            return suppliedSignals
+        }
+        let calendar = Calendar.current
+        let referenceDate = dateProvider()
+        let startOfDay = calendar.startOfDay(for: referenceDate)
+        let endOfDay = calendar.date(byAdding: .day, value: 1, to: startOfDay) ?? referenceDate
+        return await withCheckedContinuation { continuation in
+            repository.fetchSignals(start: startOfDay, end: endOfDay) { result in
+                let summaries = (try? result.get()) ?? []
+                continuation.resume(
+                    returning: summaries.map { TaskerHabitSignal(summary: $0, referenceDate: referenceDate) }
+                )
+            }
+        }
     }
 
     private struct BriefEnvelope: Decodable {
@@ -148,16 +178,66 @@ final class DailyBriefService {
         todayOpenCount: Int,
         overdueCount: Int,
         completedTodayCount: Int,
-        streak: Int
+        streak: Int,
+        habitSignals: [TaskerHabitSignal] = []
     ) -> String {
-        """
+        let habitSummary = habitSummaryLines(from: habitSignals)
+        return """
         Morning brief:
         • Today open: \(todayOpenCount)
         • Overdue: \(overdueCount)
         • Completed today: \(completedTodayCount)
         • Streak: \(streak) day(s)
+        \(habitSummary)
         Next move: pick one high-impact task and start for 15 minutes.
         """
+    }
+
+    private func habitPromptLines(from habitSignals: [TaskerHabitSignal]) -> String {
+        guard habitSignals.isEmpty == false else { return "" }
+
+        let summary = summarizeHabits(habitSignals)
+        return """
+        habit_due: \(summary.dueHabits)
+        habit_success: \(summary.successes)
+        habit_lapse: \(summary.lapses)
+        habit_risk: \(summary.atRisk)
+        """
+    }
+
+    private func habitSummaryLines(from habitSignals: [TaskerHabitSignal]) -> String {
+        guard habitSignals.isEmpty == false else { return "" }
+
+        let summary = summarizeHabits(habitSignals)
+        return """
+        • Habits due: \(summary.dueHabits)
+        • Habit wins: \(summary.successes)
+        • Habit lapses: \(summary.lapses)
+        • Habit risk: \(summary.atRisk)
+        """
+    }
+
+    private func summarizeHabits(_ habitSignals: [TaskerHabitSignal]) -> HabitBriefSummary {
+        let dueSignals = habitSignals.filter { $0.isDueToday || $0.isOverdue || $0.outcomeRaw != nil }
+        let successes = dueSignals.filter { signal in
+            guard let outcome = signal.outcomeRaw?.lowercased() else { return false }
+            return ["completed", "abstained", "success", "successful"].contains(outcome)
+        }.count
+        let lapses = dueSignals.filter { signal in
+            guard let outcome = signal.outcomeRaw?.lowercased() else { return false }
+            return ["lapsed", "lapse"].contains(outcome)
+        }.count
+        let atRisk = habitSignals.filter { signal in
+            signal.isOverdue || (signal.riskStateRaw?.lowercased().contains("risk") ?? false)
+        }.count
+        return HabitBriefSummary(dueHabits: dueSignals.count, successes: successes, lapses: lapses, atRisk: atRisk)
+    }
+
+    private struct HabitBriefSummary {
+        let dueHabits: Int
+        let successes: Int
+        let lapses: Int
+        let atRisk: Int
     }
 
     /// Executes cacheKey.

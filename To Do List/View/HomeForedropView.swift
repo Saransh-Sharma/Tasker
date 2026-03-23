@@ -76,7 +76,7 @@ private struct EvaOverdueRescueSheetV2: View {
     }
 
     var body: some View {
-        NavigationView {
+        NavigationStack {
             VStack(spacing: 0) {
                 if let plan {
                     // 7B: Debt level header
@@ -1368,6 +1368,7 @@ struct HomeBackdropForedropRootView: View {
 
     @State private var showAdvancedFilters = false
     @State private var showDatePicker = false
+    @State private var showHabitLibrarySheet = false
     @State private var draftDate = Date()
     @State private var celebrationRouter = DefaultCelebrationRouter()
     @State private var showXPBurst = false
@@ -1529,7 +1530,7 @@ struct HomeBackdropForedropRootView: View {
         .accessibilityIdentifier("home.view")
         .taskerSnackbar($snackbar)
         .sheet(isPresented: $showDatePicker) {
-            NavigationView {
+            NavigationStack {
                 VStack(spacing: spacing.s16) {
                     DatePicker(
                         "Select date",
@@ -1586,6 +1587,11 @@ struct HomeBackdropForedropRootView: View {
                 onDeleteSavedView: { id in
                     viewModel.deleteSavedView(id: id)
                 }
+            )
+        }
+        .sheet(isPresented: $showHabitLibrarySheet) {
+            HabitLibraryView(
+                viewModel: PresentationDependencyContainer.shared.makeNewHabitLibraryViewModel()
             )
         }
         .onAppear {
@@ -1969,6 +1975,7 @@ struct HomeBackdropForedropRootView: View {
                 emptyStateMessage: tasksSnapshot.emptyStateMessage,
                 emptyStateActionTitle: tasksSnapshot.emptyStateActionTitle,
                 isTaskDragEnabled: tasksSnapshot.canUseManualFocusDrag,
+                todaySections: tasksSnapshot.todaySections,
                 onTaskTap: onTaskTap,
                 onToggleComplete: { task in
                     trackTaskToggle(task, source: "task_list")
@@ -1976,6 +1983,15 @@ struct HomeBackdropForedropRootView: View {
                 },
                 onDeleteTask: onDeleteTask,
                 onRescheduleTask: onRescheduleTask,
+                onCompleteHabit: { habit in
+                    viewModel.completeHabit(habit, source: "task_list")
+                },
+                onSkipHabit: { habit in
+                    viewModel.skipHabit(habit, source: "task_list")
+                },
+                onLapseHabit: { habit in
+                    viewModel.lapseHabit(habit, source: "task_list")
+                },
                 onReorderCustomProjects: onReorderCustomProjects,
                 onInboxHeaderAction: shouldShowInboxTriageAction ? {
                     viewModel.startTriage()
@@ -2284,6 +2300,9 @@ struct HomeBackdropForedropRootView: View {
                     onOpenSearch: {
                         onOpenSearch("top_nav_search")
                     },
+                    onOpenManageHabits: {
+                        showHabitLibrarySheet = true
+                    },
                     onOpenSettings: {
                         onOpenSettings()
                     }
@@ -2464,7 +2483,12 @@ struct HomeBackdropForedropRootView: View {
                     .padding(.top, spacing.s8)
             }
 
-            if tasksSnapshot.canUseManualFocusDrag || !tasksSnapshot.focusTasks.isEmpty {
+            if shouldShowDueTodayAgenda {
+                dueTodayAgendaSection
+                    .padding(.top, spacing.s12)
+            }
+
+            if tasksSnapshot.canUseManualFocusDrag || !tasksSnapshot.focusRows.isEmpty {
                 focusStrip
                     .fixedSize(horizontal: false, vertical: true)
                     .padding(.top, spacing.s2)
@@ -2490,9 +2514,105 @@ struct HomeBackdropForedropRootView: View {
         }
     }
 
+    private var shouldShowDueTodayAgenda: Bool {
+        chromeSnapshot.activeScope.quickView == .today && tasksSnapshot.dueTodaySection?.rows.isEmpty == false
+    }
+
+    @ViewBuilder
+    private var dueTodayAgendaSection: some View {
+        let rows = Array((tasksSnapshot.dueTodaySection?.rows ?? []).prefix(5))
+        let hasHabitRows = rows.contains { row in
+            if case .habit = row { return true }
+            return false
+        }
+
+        VStack(alignment: .leading, spacing: spacing.s8) {
+            HStack(alignment: .firstTextBaseline, spacing: spacing.s8) {
+                Label("Due today", systemImage: "calendar.badge.clock")
+                    .font(.tasker(.headline))
+                    .foregroundColor(Color.tasker.textPrimary)
+
+                Spacer(minLength: 0)
+
+                Text("\(tasksSnapshot.dueTodaySection?.rows.count ?? 0)")
+                    .font(.tasker(.caption2).weight(.semibold))
+                    .foregroundColor(Color.tasker.textSecondary)
+                    .padding(.horizontal, spacing.s8)
+                    .padding(.vertical, spacing.s4)
+                    .background(Color.tasker.surfaceSecondary)
+                    .clipShape(Capsule())
+            }
+
+            LazyVStack(alignment: .leading, spacing: spacing.s8) {
+                ForEach(rows) { row in
+                    dueTodayAgendaRow(row, showTypeBadge: hasHabitRows)
+                }
+            }
+        }
+        .padding(.horizontal, spacing.s16)
+        .padding(.vertical, spacing.s12)
+        .background(Color.tasker.surfaceSecondary.opacity(0.45))
+        .overlay(
+            RoundedRectangle(cornerRadius: corner.r3)
+                .stroke(Color.tasker.strokeHairline.opacity(0.55), lineWidth: 1)
+        )
+        .clipShape(RoundedRectangle(cornerRadius: corner.r3))
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("home.dueTodayAgenda.section")
+    }
+
+    @ViewBuilder
+    private func dueTodayAgendaRow(_ row: HomeTodayRow, showTypeBadge: Bool) -> some View {
+        switch row {
+        case .task(let task):
+            TaskRowView(
+                task: task,
+                showTypeBadge: showTypeBadge,
+                isInOverdueSection: task.isOverdue,
+                tagNameByID: tasksSnapshot.tagNameByID,
+                todayXPSoFar: tasksSnapshot.todayXPSoFar,
+                isGamificationV2Enabled: V2FeatureFlags.gamificationV2Enabled,
+                isTaskDragEnabled: false,
+                onTap: { onTaskTap(task) },
+                onToggleComplete: {
+                    trackTaskToggle(task, source: "due_today_agenda")
+                    onToggleComplete(task)
+                },
+                onDelete: { onDeleteTask(task) },
+                onReschedule: { onRescheduleTask(task) }
+            )
+            .equatable()
+
+        case .habit(let habit):
+            HomeHabitRowView(
+                row: habit,
+                onPrimaryAction: {
+                    switch (habit.kind, habit.trackingMode) {
+                    case (.positive, _):
+                        viewModel.completeHabit(habit, source: "due_today_agenda")
+                    case (.negative, .dailyCheckIn):
+                        viewModel.completeHabit(habit, source: "due_today_agenda")
+                    case (.negative, .lapseOnly):
+                        viewModel.lapseHabit(habit, source: "due_today_agenda")
+                    }
+                },
+                onSecondaryAction: {
+                    switch (habit.kind, habit.trackingMode) {
+                    case (.positive, _):
+                        viewModel.skipHabit(habit, source: "due_today_agenda")
+                    case (.negative, .dailyCheckIn):
+                        viewModel.lapseHabit(habit, source: "due_today_agenda")
+                    case (.negative, .lapseOnly):
+                        break
+                    }
+                }
+            )
+        }
+    }
+
     private var focusStrip: some View {
         FocusZone(
-            tasks: tasksSnapshot.focusTasks,
+            rows: tasksSnapshot.focusRows,
             canDrag: tasksSnapshot.canUseManualFocusDrag,
             shellPhase: shellPhase,
             insightForTaskID: { taskID in
@@ -2516,6 +2636,15 @@ struct HomeBackdropForedropRootView: View {
             },
             onTaskDragStarted: { task in
                 trackTaskDragStarted(task, source: "focus_strip")
+            },
+            onCompleteHabit: { habit in
+                viewModel.completeHabit(habit, source: "focus_strip")
+            },
+            onSkipHabit: { habit in
+                viewModel.skipHabit(habit, source: "focus_strip")
+            },
+            onLapseHabit: { habit in
+                viewModel.lapseHabit(habit, source: "focus_strip")
             },
             onDrop: handleFocusDrop
         )
@@ -2877,6 +3006,7 @@ enum HomeiPadDestination: String, CaseIterable, Identifiable {
     case lifeManagement
     case projects
     case chat
+    case models
 
     var id: String { rawValue }
 
@@ -2890,6 +3020,7 @@ enum HomeiPadDestination: String, CaseIterable, Identifiable {
         case .lifeManagement: return "Life Management"
         case .projects: return "Projects"
         case .chat: return "Eva"
+        case .models: return "Models"
         }
     }
 
@@ -2903,6 +3034,7 @@ enum HomeiPadDestination: String, CaseIterable, Identifiable {
         case .lifeManagement: return "square.grid.2x2"
         case .projects: return "folder"
         case .chat: return "sparkles"
+        case .models: return "cpu"
         }
     }
 
@@ -2911,7 +3043,7 @@ enum HomeiPadDestination: String, CaseIterable, Identifiable {
         case .tasks: return .tasks
         case .search: return .search
         case .analytics: return .analytics
-        case .addTask, .settings, .lifeManagement, .projects, .chat: return nil
+        case .addTask, .settings, .lifeManagement, .projects, .chat, .models: return nil
         }
     }
 
@@ -2953,9 +3085,84 @@ enum HomeiPadSidebarSection: String, CaseIterable, Identifiable {
         switch self {
         case .primary: return [.tasks, .search, .analytics]
         case .create: return [.addTask]
-        case .manage: return [.lifeManagement, .projects, .settings, .chat]
+        case .manage: return [.lifeManagement, .projects, .chat, .models, .settings]
         }
     }
+}
+
+@MainActor
+final class HomeiPadPrimarySurfaceMonitor: ObservableObject {
+    private var baselineShellEpoch: Int?
+    private var baselineHostID: UUID?
+
+    func recordAppearance(hostID: UUID, destination: HomeiPadDestination, shellEpoch: Int) {
+        if baselineShellEpoch != shellEpoch {
+            if let previousEpoch = baselineShellEpoch {
+                logWarning(
+                    event: "ipadPrimarySurfaceShellEpochReset",
+                    message: "Reset the iPad primary surface host baseline after an expected shell rebuild",
+                    fields: [
+                        "destination": destination.rawValue,
+                        "previous_epoch": String(previousEpoch),
+                        "next_epoch": String(shellEpoch)
+                    ]
+                )
+            }
+
+            baselineShellEpoch = shellEpoch
+            baselineHostID = hostID
+            logWarning(
+                event: "ipadPrimarySurfaceMounted",
+                message: "Mounted the persistent iPad primary surface host",
+                fields: [
+                    "destination": destination.rawValue,
+                    "shell_epoch": String(shellEpoch)
+                ]
+            )
+            return
+        }
+
+        if let baselineHostID {
+            if baselineHostID != hostID {
+                logWarning(
+                    event: "ipadPrimarySurfaceHostRemounted",
+                    message: "The iPad primary surface host was remounted",
+                    fields: [
+                        "destination": destination.rawValue,
+                        "shell_epoch": String(shellEpoch)
+                    ]
+                )
+                self.baselineHostID = hostID
+                return
+            }
+
+            logWarning(
+                event: "ipadPrimarySurfaceReused",
+                message: "Reused the persistent iPad primary surface host",
+                fields: [
+                    "destination": destination.rawValue,
+                    "shell_epoch": String(shellEpoch)
+                ]
+            )
+            return
+        }
+
+        baselineShellEpoch = shellEpoch
+        baselineHostID = hostID
+        logWarning(
+            event: "ipadPrimarySurfaceMounted",
+            message: "Mounted the persistent iPad primary surface host",
+            fields: [
+                "destination": destination.rawValue,
+                "shell_epoch": String(shellEpoch)
+            ]
+        )
+    }
+}
+
+@MainActor
+private final class HomeiPadPrimaryPaneLifecycle: ObservableObject {
+    let id = UUID()
 }
 
 // MARK: - iPad Split Shell
@@ -2964,37 +3171,50 @@ private struct HomeiPadPrimaryPaneHost: View {
     @Binding var activeFace: HomeForedropFace
     let layoutClass: TaskerLayoutClass
     let destination: HomeiPadDestination
+    let shellEpoch: Int
     let homeSurface: (Binding<HomeForedropFace>) -> AnyView
+    @ObservedObject var monitor: HomeiPadPrimarySurfaceMonitor
+    @StateObject private var lifecycle = HomeiPadPrimaryPaneLifecycle()
 
     var body: some View {
         homeSurface($activeFace)
             .accessibilityIdentifier("home.ipad.detail.\(destination.rawValue)")
             .onAppear {
                 guard layoutClass.isPad, V2FeatureFlags.iPadPerfPrimarySurfacePersistenceV3Enabled else { return }
-                logWarning(
-                    event: "ipadPrimarySurfaceReused",
-                    message: "Reused the persistent iPad primary surface host",
-                    fields: ["destination": destination.rawValue]
-                )
+                monitor.recordAppearance(hostID: lifecycle.id, destination: destination, shellEpoch: shellEpoch)
             }
     }
 }
 
 struct HomeiPadSplitShellView: View {
+    private enum HomeiPadShellCommand {
+        case tasks
+        case search
+        case analytics
+        case chat
+        case addTask
+        case settings
+        case dismiss
+    }
+
     let layoutClass: TaskerLayoutClass
     @ObservedObject var shellState: HomeiPadShellState
+    let shellEpoch: Int
     let homeSurface: (Binding<HomeForedropFace>) -> AnyView
     let addTaskSurface: () -> AnyView
     let settingsSurface: () -> AnyView
     let lifeManagementSurface: () -> AnyView
     let projectsSurface: () -> AnyView
     let chatSurface: () -> AnyView
+    let modelsSurface: () -> AnyView
     let inspectorSurface: (TaskDefinition) -> AnyView
     let onOpenTaskDetailSheet: (TaskDefinition) -> Void
 
     @State private var activeHomeFace: HomeForedropFace = .tasks
     @State private var showCompactSidebar = false
+    @State private var showHabitLibrarySheet = false
     @State private var columnVisibility: NavigationSplitViewVisibility = .all
+    @StateObject private var primarySurfaceMonitor = HomeiPadPrimarySurfaceMonitor()
 
     private var spacing: TaskerSpacingTokens {
         TaskerThemeManager.shared.tokens(for: layoutClass).spacing
@@ -3010,11 +3230,16 @@ struct HomeiPadSplitShellView: View {
             .background {
                 hiddenKeyboardShortcuts
             }
+            .sheet(isPresented: $showHabitLibrarySheet) {
+                HabitLibraryView(
+                    viewModel: PresentationDependencyContainer.shared.makeNewHabitLibraryViewModel()
+                )
+            }
             .onAppear {
                 if let face = shellState.destination.homeFace {
                     activeHomeFace = face
+                }
             }
-        }
         .onChange(of: shellState.destination) { _, newValue in
             if newValue.isPrimaryHomeDestination {
                 logWarning(
@@ -3104,14 +3329,22 @@ struct HomeiPadSplitShellView: View {
 
     private var hiddenKeyboardShortcuts: some View {
         Group {
-            Button("") { shellState.destination = .search }
+            Button("") { performShellCommand(.search) }
                 .keyboardShortcut("f", modifiers: .command)
-            Button("") { shellState.destination = .tasks }
+            Button("") { performShellCommand(.tasks) }
                 .keyboardShortcut("1", modifiers: .command)
-            Button("") { shellState.destination = .analytics }
+            Button("") { performShellCommand(.search) }
                 .keyboardShortcut("2", modifiers: .command)
-            Button("") { shellState.destination = .settings }
+            Button("") { performShellCommand(.analytics) }
+                .keyboardShortcut("3", modifiers: .command)
+            Button("") { performShellCommand(.chat) }
+                .keyboardShortcut("4", modifiers: .command)
+            Button("") { performShellCommand(.addTask) }
+                .keyboardShortcut("n", modifiers: .command)
+            Button("") { performShellCommand(.settings) }
                 .keyboardShortcut(",", modifiers: .command)
+            Button("") { performShellCommand(.dismiss) }
+                .keyboardShortcut(.escape, modifiers: [])
         }
         .opacity(0)
         .frame(width: 0, height: 0)
@@ -3150,16 +3383,20 @@ struct HomeiPadSplitShellView: View {
     private var detailToolbarItems: some View {
         if isPrimaryHomeDestination {
             Button {
-                if layoutClass == .padExpanded {
-                    shellState.destination = .addTask
-                } else {
-                    shellState.modalRequest = .addTask
-                }
+                showHabitLibrarySheet = true
+            } label: {
+                Image(systemName: "repeat.circle")
+            }
+            .hoverEffect(.highlight)
+            .accessibilityIdentifier("home.ipad.toolbar.manageHabits")
+            .accessibilityLabel("Manage Habits")
+
+            Button {
+                performShellCommand(.addTask)
             } label: {
                 Image(systemName: "plus")
             }
             .hoverEffect(.highlight)
-            .keyboardShortcut("n", modifiers: .command)
             .accessibilityIdentifier("home.ipad.toolbar.addTask")
             .accessibilityLabel("New Task")
         }
@@ -3270,7 +3507,9 @@ struct HomeiPadSplitShellView: View {
                 activeFace: $activeHomeFace,
                 layoutClass: layoutClass,
                 destination: shellState.destination,
-                homeSurface: homeSurface
+                shellEpoch: shellEpoch,
+                homeSurface: homeSurface,
+                monitor: primarySurfaceMonitor
             )
         case .addTask:
             if layoutClass == .padExpanded {
@@ -3281,7 +3520,9 @@ struct HomeiPadSplitShellView: View {
                     activeFace: $activeHomeFace,
                     layoutClass: layoutClass,
                     destination: .tasks,
-                    homeSurface: homeSurface
+                    shellEpoch: shellEpoch,
+                    homeSurface: homeSurface,
+                    monitor: primarySurfaceMonitor
                 )
             }
         case .settings:
@@ -3296,6 +3537,9 @@ struct HomeiPadSplitShellView: View {
         case .chat:
             chatSurface()
                 .accessibilityIdentifier("home.ipad.detail.chat")
+        case .models:
+            modelsSurface()
+                .accessibilityIdentifier("home.ipad.detail.models")
         }
     }
 
@@ -3356,6 +3600,35 @@ struct HomeiPadSplitShellView: View {
             return .analytics
         case .search:
             return .search
+        }
+    }
+
+    private func performShellCommand(_ command: HomeiPadShellCommand) {
+        switch command {
+        case .tasks:
+            shellState.destination = .tasks
+        case .search:
+            shellState.destination = .search
+        case .analytics:
+            shellState.destination = .analytics
+        case .chat:
+            shellState.destination = .chat
+        case .addTask:
+            if layoutClass == .padExpanded {
+                shellState.destination = .addTask
+            } else {
+                shellState.modalRequest = .addTask
+            }
+        case .settings:
+            shellState.destination = .settings
+        case .dismiss:
+            if shellState.selectedTask != nil {
+                shellState.selectedTask = nil
+            } else if shellState.destination != .tasks {
+                shellState.destination = .tasks
+            } else {
+                showCompactSidebar = false
+            }
         }
     }
 }

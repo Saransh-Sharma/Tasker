@@ -2,16 +2,16 @@
 //  AddTaskTitleField.swift
 //  Tasker
 //
-//  Primary task name input — auto-focus, keyboard-first, submit on Done.
+//  Primary name input — auto-focus, keyboard-first, submit on Done.
 //
 
 import SwiftUI
 
-// MARK: - Add Task Title Field
-
 struct AddTaskTitleField: View {
     @Binding var text: String
     @FocusState.Binding var isFocused: Bool
+    let placeholder: LocalizedStringKey
+    let helperText: LocalizedStringKey
     let onSubmit: () -> Void
 
     private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.currentTheme.tokens.spacing }
@@ -19,7 +19,7 @@ struct AddTaskTitleField: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: spacing.s4) {
-            TextField("What do you want to do?", text: $text)
+            TextField(placeholder, text: $text)
                 .font(.tasker(.body))
                 .foregroundColor(Color.tasker.textPrimary)
                 .focused($isFocused)
@@ -39,7 +39,7 @@ struct AddTaskTitleField: View {
                 .animation(TaskerAnimation.quick, value: isFocused)
                 .accessibilityIdentifier("addTask.titleField")
 
-            Text("Keep it short. You can clarify later.")
+            Text(helperText)
                 .font(.tasker(.caption2))
                 .foregroundColor(Color.tasker.textQuaternary)
                 .padding(.horizontal, spacing.s4)

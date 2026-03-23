@@ -341,6 +341,224 @@ struct TaskSectionView: View {
     }
 }
 
+struct HomeListRowView: View {
+    let row: HomeTodayRow
+    let tagNameByID: [UUID: String]
+    let todayXPSoFar: Int?
+    let isGamificationV2Enabled: Bool
+    let isTaskDragEnabled: Bool
+    let highlightedTaskID: UUID?
+    var onTaskTap: ((TaskDefinition) -> Void)?
+    var onToggleComplete: ((TaskDefinition) -> Void)?
+    var onDeleteTask: ((TaskDefinition) -> Void)?
+    var onRescheduleTask: ((TaskDefinition) -> Void)?
+    var onTaskDragStarted: ((TaskDefinition) -> Void)?
+    var onCompleteHabit: ((HomeHabitRow) -> Void)?
+    var onSkipHabit: ((HomeHabitRow) -> Void)?
+    var onLapseHabit: ((HomeHabitRow) -> Void)?
+
+    var body: some View {
+        switch row {
+        case .task(let task):
+            TaskRowView(
+                task: task,
+                showTypeBadge: false,
+                isInOverdueSection: row.isOverdueLike,
+                tagNameByID: tagNameByID,
+                todayXPSoFar: todayXPSoFar,
+                isGamificationV2Enabled: isGamificationV2Enabled,
+                isTaskDragEnabled: isTaskDragEnabled && !task.isComplete,
+                highlightedTaskID: highlightedTaskID,
+                onTap: { onTaskTap?(task) },
+                onToggleComplete: { onToggleComplete?(task) },
+                onDelete: { onDeleteTask?(task) },
+                onReschedule: { onRescheduleTask?(task) },
+                onTaskDragStarted: onTaskDragStarted
+            )
+            .equatable()
+
+        case .habit(let habit):
+            HomeHabitRowView(
+                row: habit,
+                onPrimaryAction: {
+                    switch (habit.kind, habit.trackingMode, habit.state) {
+                    case (_, .lapseOnly, .tracking):
+                        onLapseHabit?(habit)
+                    case (.positive, _, _):
+                        onCompleteHabit?(habit)
+                    case (.negative, .dailyCheckIn, _):
+                        onCompleteHabit?(habit)
+                    case (.negative, .lapseOnly, _):
+                        onLapseHabit?(habit)
+                    }
+                },
+                onSecondaryAction: {
+                    switch (habit.kind, habit.trackingMode) {
+                    case (.positive, _):
+                        onSkipHabit?(habit)
+                    case (.negative, .dailyCheckIn):
+                        onLapseHabit?(habit)
+                    case (.negative, .lapseOnly):
+                        break
+                    }
+                }
+            )
+        }
+    }
+}
+
+struct HomeListSectionView: View {
+    let section: HomeListSection
+    let tagNameByID: [UUID: String]
+    let todayXPSoFar: Int?
+    let isGamificationV2Enabled: Bool
+    let isTaskDragEnabled: Bool
+    let highlightedTaskID: UUID?
+    let completedCollapsed: Bool?
+    var onTaskTap: ((TaskDefinition) -> Void)?
+    var onToggleComplete: ((TaskDefinition) -> Void)?
+    var onDeleteTask: ((TaskDefinition) -> Void)?
+    var onRescheduleTask: ((TaskDefinition) -> Void)?
+    var onCompletedCollapsedChange: ((Bool, Int) -> Void)?
+    var onTaskDragStarted: ((TaskDefinition) -> Void)?
+    var onCompleteHabit: ((HomeHabitRow) -> Void)?
+    var onSkipHabit: ((HomeHabitRow) -> Void)?
+    var onLapseHabit: ((HomeHabitRow) -> Void)?
+    var headerActionTitle: String? = nil
+    var onHeaderAction: (() -> Void)? = nil
+    var headerActionAccessibilityID: String? = nil
+
+    @State private var isExpanded: Bool = true
+
+    private var openRows: [HomeTodayRow] {
+        section.rows.filter { !$0.isResolved }
+    }
+
+    private var resolvedRows: [HomeTodayRow] {
+        section.rows.filter(\.isResolved)
+    }
+
+    private var resolvedCount: Int { resolvedRows.count }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            TaskSectionHeaderRow(
+                accentColor: accentColor,
+                iconSystemName: section.anchor.iconSystemName,
+                title: section.title,
+                taskCount: section.rows.count,
+                isExpanded: isExpanded,
+                onToggle: {
+                    withAnimation(TaskerAnimation.snappy) {
+                        isExpanded.toggle()
+                    }
+                    TaskerFeedback.selection()
+                },
+                headerActionTitle: headerActionTitle,
+                onHeaderAction: onHeaderAction,
+                headerActionAccessibilityID: headerActionAccessibilityID ?? "home.mixedSection.headerAction.\(section.id)"
+            )
+
+            if isExpanded {
+                VStack(spacing: TaskerTheme.Spacing.xs) {
+                    ForEach(openRows) { row in
+                        HomeListRowView(
+                            row: row,
+                            tagNameByID: tagNameByID,
+                            todayXPSoFar: todayXPSoFar,
+                            isGamificationV2Enabled: isGamificationV2Enabled,
+                            isTaskDragEnabled: isTaskDragEnabled,
+                            highlightedTaskID: highlightedTaskID,
+                            onTaskTap: onTaskTap,
+                            onToggleComplete: onToggleComplete,
+                            onDeleteTask: onDeleteTask,
+                            onRescheduleTask: onRescheduleTask,
+                            onTaskDragStarted: onTaskDragStarted,
+                            onCompleteHabit: onCompleteHabit,
+                            onSkipHabit: onSkipHabit,
+                            onLapseHabit: onLapseHabit
+                        )
+                    }
+
+                    if resolvedCount > 0 {
+                        resolvedToggleRow
+                            .padding(.top, 2)
+
+                        if !isResolvedCollapsed {
+                            ForEach(resolvedRows) { row in
+                                HomeListRowView(
+                                    row: row,
+                                    tagNameByID: tagNameByID,
+                                    todayXPSoFar: todayXPSoFar,
+                                    isGamificationV2Enabled: isGamificationV2Enabled,
+                                    isTaskDragEnabled: false,
+                                    highlightedTaskID: highlightedTaskID,
+                                    onTaskTap: onTaskTap,
+                                    onToggleComplete: onToggleComplete,
+                                    onDeleteTask: onDeleteTask,
+                                    onRescheduleTask: onRescheduleTask,
+                                    onCompleteHabit: onCompleteHabit,
+                                    onSkipHabit: onSkipHabit,
+                                    onLapseHabit: onLapseHabit
+                                )
+                            }
+                        }
+                    }
+                }
+                .padding(.top, TaskerTheme.Spacing.xs)
+                .transition(.asymmetric(
+                    insertion: .opacity.combined(with: .move(edge: .top)).combined(with: .scale(scale: 0.98, anchor: .top)),
+                    removal: .opacity
+                ))
+            }
+        }
+        .animation(TaskerAnimation.snappy, value: isExpanded)
+    }
+
+    private var accentColor: Color {
+        section.isOverdueSection ? Color.tasker.statusDanger : Color.tasker.accentPrimary
+    }
+
+    private var isResolvedCollapsed: Bool {
+        guard resolvedCount > 2 else { return false }
+        return completedCollapsed ?? true
+    }
+
+    private var resolvedToggleRow: some View {
+        Button {
+            let nextCollapsed = !isResolvedCollapsed
+            onCompletedCollapsedChange?(nextCollapsed, resolvedCount)
+            TaskerFeedback.selection()
+        } label: {
+            HStack(spacing: TaskerTheme.Spacing.sm) {
+                Text("Resolved")
+                    .font(.tasker(.caption1))
+                    .foregroundColor(Color.tasker.textTertiary)
+
+                Text("\(resolvedCount)")
+                    .font(.tasker(.caption2))
+                    .foregroundColor(Color.tasker.textQuaternary)
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 2)
+                    .background(Color.tasker.surfaceSecondary)
+                    .clipShape(Capsule())
+
+                Spacer()
+
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundColor(Color.tasker.textQuaternary)
+                    .rotationEffect(.degrees(isResolvedCollapsed ? 0 : 90))
+                    .animation(TaskerAnimation.snappy, value: isResolvedCollapsed)
+            }
+            .padding(.horizontal, 2)
+            .padding(.vertical, 4)
+        }
+        .buttonStyle(.plain)
+        .accessibilityIdentifier("home.resolvedToggle.\(section.id)")
+    }
+}
+
 // MARK: - Preview
 
 #if DEBUG

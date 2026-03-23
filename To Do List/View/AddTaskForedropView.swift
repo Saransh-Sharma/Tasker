@@ -33,6 +33,7 @@ struct AddTaskForedropView: View {
         VStack(spacing: 0) {
             AddTaskNavigationBar(
                 containerMode: containerMode,
+                title: "New Task",
                 canSave: viewModel.viewState.canSubmit && !viewModel.isLoading
             ) {
                 onCancel()
@@ -47,6 +48,8 @@ struct AddTaskForedropView: View {
                     AddTaskTitleField(
                         text: $viewModel.taskName,
                         isFocused: $titleFieldFocused,
+                        placeholder: "What do you want to do?",
+                        helperText: "Keep it short. You can clarify later.",
                         onSubmit: submitTask
                     )
                     .enhancedStaggeredAppearance(index: 0)
@@ -207,6 +210,7 @@ struct AddTaskForedropView: View {
                 isLoading: viewModel.isLoading,
                 successFlash: successFlash,
                 showAddAnother: showAddAnother,
+                buttonTitle: "Add Task",
                 onCreateAction: submitTask,
                 onAddAnotherAction: onAddAnother
             )

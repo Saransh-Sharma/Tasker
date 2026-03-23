@@ -12,7 +12,7 @@ import SwiftUI
 
 /// Enhanced focus zone container with visual boundary.
 public struct FocusZone: View {
-    let tasks: [TaskDefinition]
+    let rows: [HomeTodayRow]
     let canDrag: Bool
     let shellPhase: HomeShellPhase
     let insightForTaskID: (UUID) -> EvaFocusTaskInsight?
@@ -22,6 +22,9 @@ public struct FocusZone: View {
     let onToggleComplete: (TaskDefinition) -> Void
     let onStartFocus: ((TaskDefinition) -> Void)?
     let onTaskDragStarted: (TaskDefinition) -> Void
+    let onCompleteHabit: (HomeHabitRow) -> Void
+    let onSkipHabit: (HomeHabitRow) -> Void
+    let onLapseHabit: (HomeHabitRow) -> Void
     let onDrop: ([NSItemProvider]) -> Bool
 
     @State private var isTargeted = false
@@ -32,7 +35,7 @@ public struct FocusZone: View {
 
     /// Initializes a new instance.
     public init(
-        tasks: [TaskDefinition],
+        rows: [HomeTodayRow],
         canDrag: Bool,
         shellPhase: HomeShellPhase = .interactive,
         insightForTaskID: @escaping (UUID) -> EvaFocusTaskInsight? = { _ in nil },
@@ -42,9 +45,12 @@ public struct FocusZone: View {
         onToggleComplete: @escaping (TaskDefinition) -> Void,
         onStartFocus: ((TaskDefinition) -> Void)? = nil,
         onTaskDragStarted: @escaping (TaskDefinition) -> Void,
+        onCompleteHabit: @escaping (HomeHabitRow) -> Void = { _ in },
+        onSkipHabit: @escaping (HomeHabitRow) -> Void = { _ in },
+        onLapseHabit: @escaping (HomeHabitRow) -> Void = { _ in },
         onDrop: @escaping ([NSItemProvider]) -> Bool
     ) {
-        self.tasks = tasks
+        self.rows = rows
         self.canDrag = canDrag
         self.shellPhase = shellPhase
         self.insightForTaskID = insightForTaskID
@@ -54,6 +60,9 @@ public struct FocusZone: View {
         self.onToggleComplete = onToggleComplete
         self.onStartFocus = onStartFocus
         self.onTaskDragStarted = onTaskDragStarted
+        self.onCompleteHabit = onCompleteHabit
+        self.onSkipHabit = onSkipHabit
+        self.onLapseHabit = onLapseHabit
         self.onDrop = onDrop
     }
 
@@ -66,7 +75,7 @@ public struct FocusZone: View {
                 .padding(.bottom, spacing.s4)
 
             // Content
-            if tasks.isEmpty {
+            if rows.isEmpty {
                 emptyState
                     .padding(.horizontal, spacing.s12)
                     .padding(.bottom, spacing.s12)
@@ -116,7 +125,7 @@ public struct FocusZone: View {
                     Image(systemName: "flame.fill")
                         .font(.system(size: 14, weight: .medium))
                         .foregroundColor(Color.tasker.accentPrimary)
-                        .symbolEffect(.pulse, options: .repeating.speed(0.5), isActive: !tasks.isEmpty && !prefersBudgetVisuals)
+                        .symbolEffect(.pulse, options: .repeating.speed(0.5), isActive: !rows.isEmpty && !prefersBudgetVisuals)
                         .modifier(FocusBreathingModifier(isEnabled: !prefersBudgetVisuals, min: 0.8, max: 1.0, duration: 2.5))
 
                     // Title
@@ -127,8 +136,8 @@ public struct FocusZone: View {
                         .foregroundColor(Color.tasker.accentPrimary)
 
                     // Count badge
-                    if !tasks.isEmpty {
-                        Text("\(tasks.count)")
+                    if !rows.isEmpty {
+                        Text("\(rows.count)")
                             .font(.tasker(.caption2))
                             .fontWeight(.medium)
                             .foregroundColor(Color.tasker.accentPrimary)
@@ -147,11 +156,11 @@ public struct FocusZone: View {
             .buttonStyle(.plain)
             .contentShape(Rectangle())
             .accessibilityIdentifier("home.focus.titleTap")
-            .accessibilityHint("Opens why Eva picked these tasks")
+            .accessibilityHint("Opens why Eva picked these items")
 
             Spacer(minLength: 0)
 
-            if !tasks.isEmpty {
+            if !rows.isEmpty {
                 actionButton(title: "Shuffle", action: onShuffle, accessibilityID: "home.focus.shuffle")
             } else if canDrag {
                 Text("Drag tasks here")
@@ -196,29 +205,64 @@ public struct FocusZone: View {
 
     private var taskList: some View {
         VStack(spacing: 0) {
-            ForEach(Array(tasks.enumerated()), id: \.element.id) { index, task in
+            ForEach(Array(rows.enumerated()), id: \.element.id) { index, row in
                 if index > 0 {
                     Divider()
                         .padding(.leading, spacing.s32)
                         .padding(.vertical, 2)
-                        .opacity(Double(tasks.count - index) / Double(tasks.count))
+                        .opacity(Double(rows.count - index) / Double(rows.count))
                 }
 
-                FocusZoneRow(
-                    task: task,
-                    insight: insightForTaskID(task.id),
-                    canDrag: canDrag,
-                    showFocusButton: onStartFocus != nil && V2FeatureFlags.gamificationFocusSessionsEnabled,
-                    onTap: { onTaskTap(task) },
-                    onToggleComplete: { onToggleComplete(task) },
-                    onStartFocus: { onStartFocus?(task) },
-                    onDragStarted: { onTaskDragStarted(task) }
-                )
-                .taskCompletionTransition(isComplete: task.isComplete)
-                .modifier(FocusStaggerModifier(isEnabled: !prefersBudgetVisuals, index: index))
+                focusRow(for: row)
+                    .modifier(FocusStaggerModifier(isEnabled: !prefersBudgetVisuals, index: index))
             }
         }
         .accessibilityIdentifier("home.focusZone.taskList")
+    }
+
+    @ViewBuilder
+    private func focusRow(for row: HomeTodayRow) -> some View {
+        switch row {
+        case .task(let task):
+            FocusZoneRow(
+                task: task,
+                insight: insightForTaskID(task.id),
+                canDrag: canDrag,
+                showFocusButton: onStartFocus != nil && V2FeatureFlags.gamificationFocusSessionsEnabled,
+                onTap: { onTaskTap(task) },
+                onToggleComplete: { onToggleComplete(task) },
+                onStartFocus: { onStartFocus?(task) },
+                onDragStarted: { onTaskDragStarted(task) }
+            )
+            .taskCompletionTransition(isComplete: task.isComplete)
+
+        case .habit(let habit):
+            HomeHabitRowView(
+                row: habit,
+                onPrimaryAction: {
+                    switch (habit.kind, habit.trackingMode, habit.state) {
+                    case (_, .lapseOnly, .tracking):
+                        onLapseHabit(habit)
+                    case (.positive, _, _):
+                        onCompleteHabit(habit)
+                    case (.negative, .dailyCheckIn, _):
+                        onCompleteHabit(habit)
+                    case (.negative, .lapseOnly, _):
+                        onLapseHabit(habit)
+                    }
+                },
+                onSecondaryAction: {
+                    switch (habit.kind, habit.trackingMode) {
+                    case (.positive, _):
+                        onSkipHabit(habit)
+                    case (.negative, .dailyCheckIn):
+                        onLapseHabit(habit)
+                    case (.negative, .lapseOnly):
+                        break
+                    }
+                }
+            )
+        }
     }
 }
 
@@ -426,7 +470,7 @@ struct FocusZone_Previews: PreviewProvider {
         VStack(spacing: 20) {
             // Empty state
             FocusZone(
-                tasks: [],
+                rows: [],
                 canDrag: true,
                 onTaskTap: { _ in },
                 onToggleComplete: { _ in },
@@ -436,9 +480,9 @@ struct FocusZone_Previews: PreviewProvider {
 
             // With tasks
             FocusZone(
-                tasks: [
-                    TaskDefinition(title: "Review pull requests", priority: .high, dueDate: Date()),
-                    TaskDefinition(title: "Design landing page", priority: .low, dueDate: Date().addingTimeInterval(7200))
+                rows: [
+                    .task(TaskDefinition(title: "Review pull requests", priority: .high, dueDate: Date())),
+                    .task(TaskDefinition(title: "Design landing page", priority: .low, dueDate: Date().addingTimeInterval(7200)))
                 ],
                 canDrag: true,
                 onTaskTap: { _ in },

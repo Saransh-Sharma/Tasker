@@ -5,7 +5,7 @@ struct EvaFocusWhySheetView: View {
     let insightProvider: (UUID) -> EvaFocusTaskInsight?
 
     var body: some View {
-        NavigationView {
+        NavigationStack {
             List {
                 ForEach(focusTasks, id: \.id) { task in
                     VStack(alignment: .leading, spacing: 6) {
@@ -58,7 +58,7 @@ private struct EvaTriageSprintSheetView: View {
     }
 
     var body: some View {
-        NavigationView {
+        NavigationStack {
             VStack(alignment: .leading, spacing: 16) {
                 Text("Triage Sprint")
                     .font(.tasker(.title3))
@@ -243,7 +243,7 @@ private struct EvaOverdueRescueSheetView: View {
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
-        NavigationView {
+        NavigationStack {
             VStack(alignment: .leading, spacing: 14) {
                 if let plan {
                     HStack {

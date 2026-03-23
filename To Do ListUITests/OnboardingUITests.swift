@@ -57,6 +57,10 @@ final class OnboardingFreshLaunchUITests: BaseUITest {
         XCTAssertTrue(projects.waitForExistence(timeout: 12))
         app.buttons[AccessibilityIdentifiers.Onboarding.useProjects].tap()
 
+        let habits = app.descendants(matching: .any)[AccessibilityIdentifiers.Onboarding.habits]
+        XCTAssertTrue(habits.waitForExistence(timeout: 12))
+        app.buttons[AccessibilityIdentifiers.Onboarding.useHabits].tap()
+
         let firstTask = app.descendants(matching: .any)[AccessibilityIdentifiers.Onboarding.firstTask]
         XCTAssertTrue(firstTask.waitForExistence(timeout: 12))
 
@@ -144,6 +148,10 @@ final class OnboardingFreshLaunchUITests: BaseUITest {
         XCTAssertTrue(projects.waitForExistence(timeout: 12))
         app.buttons[AccessibilityIdentifiers.Onboarding.useProjects].tap()
 
+        let habits = app.descendants(matching: .any)[AccessibilityIdentifiers.Onboarding.habits]
+        XCTAssertTrue(habits.waitForExistence(timeout: 12))
+        app.buttons[AccessibilityIdentifiers.Onboarding.useHabits].tap()
+
         let firstTask = app.descendants(matching: .any)[AccessibilityIdentifiers.Onboarding.firstTask]
         XCTAssertTrue(firstTask.waitForExistence(timeout: 12))
 
@@ -163,6 +171,68 @@ final class OnboardingFreshLaunchUITests: BaseUITest {
         goFinishTask.tap()
 
         XCTAssertTrue(app.descendants(matching: .any)[AccessibilityIdentifiers.Onboarding.focusRoom].waitForExistence(timeout: 12))
+    }
+
+    func testHabitStepAllowsSuggestedHabitThenContinuesToFirstTask() {
+        XCTAssertTrue(app.descendants(matching: .any)[AccessibilityIdentifiers.Onboarding.welcome].waitForExistence(timeout: 12))
+
+        app.buttons[AccessibilityIdentifiers.Onboarding.startRecommended].tap()
+
+        let lifeAreas = app.descendants(matching: .any)[AccessibilityIdentifiers.Onboarding.lifeAreas]
+        XCTAssertTrue(lifeAreas.waitForExistence(timeout: 12))
+        app.buttons[AccessibilityIdentifiers.Onboarding.useAreas].tap()
+
+        let projects = app.descendants(matching: .any)[AccessibilityIdentifiers.Onboarding.projects]
+        XCTAssertTrue(projects.waitForExistence(timeout: 12))
+        app.buttons[AccessibilityIdentifiers.Onboarding.useProjects].tap()
+
+        let habits = app.descendants(matching: .any)[AccessibilityIdentifiers.Onboarding.habits]
+        XCTAssertTrue(habits.waitForExistence(timeout: 12))
+
+        let addHabitButton = app.buttons["Add"].firstMatch
+        XCTAssertTrue(addHabitButton.waitForExistence(timeout: 12))
+        addHabitButton.tap()
+        XCTAssertTrue(app.staticTexts["1 added"].waitForExistence(timeout: 12))
+
+        let continueButton = app.buttons[AccessibilityIdentifiers.Onboarding.useHabits]
+        XCTAssertTrue(continueButton.waitForExistence(timeout: 12))
+        continueButton.tap()
+
+        XCTAssertTrue(app.descendants(matching: .any)[AccessibilityIdentifiers.Onboarding.firstTask].waitForExistence(timeout: 12))
+    }
+
+    func testCustomHabitComposerRoundTripReturnsToHabitStep() {
+        XCTAssertTrue(app.descendants(matching: .any)[AccessibilityIdentifiers.Onboarding.welcome].waitForExistence(timeout: 12))
+
+        app.buttons[AccessibilityIdentifiers.Onboarding.startRecommended].tap()
+
+        let lifeAreas = app.descendants(matching: .any)[AccessibilityIdentifiers.Onboarding.lifeAreas]
+        XCTAssertTrue(lifeAreas.waitForExistence(timeout: 12))
+        app.buttons[AccessibilityIdentifiers.Onboarding.useAreas].tap()
+
+        let projects = app.descendants(matching: .any)[AccessibilityIdentifiers.Onboarding.projects]
+        XCTAssertTrue(projects.waitForExistence(timeout: 12))
+        app.buttons[AccessibilityIdentifiers.Onboarding.useProjects].tap()
+
+        let habits = app.descendants(matching: .any)[AccessibilityIdentifiers.Onboarding.habits]
+        XCTAssertTrue(habits.waitForExistence(timeout: 12))
+
+        let customHabitButton = app.buttons["Use my own habit"].firstMatch
+        XCTAssertTrue(customHabitButton.waitForExistence(timeout: 12))
+        customHabitButton.tap()
+
+        XCTAssertTrue(app.descendants(matching: .any)["addHabit.view"].waitForExistence(timeout: 12))
+
+        let titleField = app.textFields[AccessibilityIdentifiers.AddTask.titleField]
+        XCTAssertTrue(titleField.waitForExistence(timeout: 12))
+        titleField.tap()
+        titleField.typeText("Stretch for one minute")
+
+        app.buttons["Add Habit"].firstMatch.tap()
+
+        XCTAssertTrue(app.descendants(matching: .any)[AccessibilityIdentifiers.Onboarding.habits].waitForExistence(timeout: 12))
+        XCTAssertTrue(app.staticTexts["1 added"].waitForExistence(timeout: 12))
+        XCTAssertTrue(app.buttons[AccessibilityIdentifiers.Onboarding.useHabits].exists)
     }
 }
 
@@ -193,7 +263,7 @@ final class OnboardingPromptUITests: BaseUITest {
         XCTAssertTrue(startButton.waitForExistence(timeout: 12))
         startButton.tap()
 
-        XCTAssertTrue(app.descendants(matching: .any)[AccessibilityIdentifiers.Onboarding.welcome].waitForExistence(timeout: 12))
+        XCTAssertTrue(app.descendants(matching: .any)[AccessibilityIdentifiers.Onboarding.habits].waitForExistence(timeout: 12))
     }
 
     func testEstablishedWorkspacePromptDismissalSuppressesRelaunch() {

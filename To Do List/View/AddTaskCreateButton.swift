@@ -7,13 +7,12 @@
 
 import SwiftUI
 
-// MARK: - Add Task Create Button
-
 struct AddTaskCreateButton: View {
     let isEnabled: Bool
     let isLoading: Bool
     let successFlash: Bool
     let showAddAnother: Bool
+    let buttonTitle: String
     let onCreateAction: () -> Void
     let onAddAnotherAction: () -> Void
 
@@ -22,7 +21,6 @@ struct AddTaskCreateButton: View {
 
     var body: some View {
         VStack(spacing: spacing.s8) {
-            // Primary CTA
             Button {
                 if isEnabled && !isLoading {
                     TaskerFeedback.light()
@@ -43,7 +41,7 @@ struct AddTaskCreateButton: View {
                             .font(.system(size: 16, weight: .medium))
                     }
 
-                    Text(isLoading ? "Creating..." : successFlash ? "Added!" : "Add Task")
+                    Text(isLoading ? "Creating..." : successFlash ? "Added!" : buttonTitle)
                         .font(.tasker(.button))
                         .contentTransition(.numericText())
                 }
@@ -76,7 +74,6 @@ struct AddTaskCreateButton: View {
             .animation(TaskerAnimation.quick, value: isLoading)
             .accessibilityIdentifier("addTask.createButton")
 
-            // Secondary: Add Another
             if showAddAnother {
                 Button {
                     TaskerFeedback.selection()

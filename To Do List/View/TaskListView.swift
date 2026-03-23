@@ -146,10 +146,14 @@ struct TaskListView: View {
     let emptyStateMessage: String?
     let emptyStateActionTitle: String?
     let isTaskDragEnabled: Bool
+    let todaySections: [HomeListSection]
     var onTaskTap: ((TaskDefinition) -> Void)? = nil
     var onToggleComplete: ((TaskDefinition) -> Void)? = nil
     var onDeleteTask: ((TaskDefinition) -> Void)? = nil
     var onRescheduleTask: ((TaskDefinition) -> Void)? = nil
+    var onCompleteHabit: ((HomeHabitRow) -> Void)? = nil
+    var onSkipHabit: ((HomeHabitRow) -> Void)? = nil
+    var onLapseHabit: ((HomeHabitRow) -> Void)? = nil
     var onReorderCustomProjects: (([UUID]) -> Void)? = nil
     var onInboxHeaderAction: (() -> Void)? = nil
     var inboxHeaderActionTitle: String? = nil
@@ -185,10 +189,14 @@ struct TaskListView: View {
         emptyStateMessage: String? = nil,
         emptyStateActionTitle: String? = nil,
         isTaskDragEnabled: Bool = false,
+        todaySections: [HomeListSection] = [],
         onTaskTap: ((TaskDefinition) -> Void)? = nil,
         onToggleComplete: ((TaskDefinition) -> Void)? = nil,
         onDeleteTask: ((TaskDefinition) -> Void)? = nil,
         onRescheduleTask: ((TaskDefinition) -> Void)? = nil,
+        onCompleteHabit: ((HomeHabitRow) -> Void)? = nil,
+        onSkipHabit: ((HomeHabitRow) -> Void)? = nil,
+        onLapseHabit: ((HomeHabitRow) -> Void)? = nil,
         onReorderCustomProjects: (([UUID]) -> Void)? = nil,
         onInboxHeaderAction: (() -> Void)? = nil,
         inboxHeaderActionTitle: String? = nil,
@@ -217,10 +225,14 @@ struct TaskListView: View {
         self.emptyStateMessage = emptyStateMessage
         self.emptyStateActionTitle = emptyStateActionTitle
         self.isTaskDragEnabled = isTaskDragEnabled
+        self.todaySections = todaySections
         self.onTaskTap = onTaskTap
         self.onToggleComplete = onToggleComplete
         self.onDeleteTask = onDeleteTask
         self.onRescheduleTask = onRescheduleTask
+        self.onCompleteHabit = onCompleteHabit
+        self.onSkipHabit = onSkipHabit
+        self.onLapseHabit = onLapseHabit
         self.onReorderCustomProjects = onReorderCustomProjects
         self.onInboxHeaderAction = onInboxHeaderAction
         self.inboxHeaderActionTitle = inboxHeaderActionTitle
@@ -345,115 +357,174 @@ struct TaskListView: View {
 
     @ViewBuilder
     private var todayRegularTaskContent: some View {
-        let completedByID = inlineCompletedTasks.reduce(into: [UUID: TaskDefinition]()) { partialResult, task in
-            partialResult[task.id] = task
-        }
-        let reconciledMorning = morningTasks.map { completedByID[$0.id] ?? $0 }
-        let reconciledEvening = eveningTasks.map { completedByID[$0.id] ?? $0 }
-        let reconciledOverdue = overdueTasks.map { completedByID[$0.id] ?? $0 }
+        if !todaySections.isEmpty {
+            let currentCustomOrder = todaySections.compactMap { candidate -> UUID? in
+                guard case .project(let id, _, _, let isInbox) = candidate.anchor, !isInbox, !candidate.isOverdueSection else {
+                    return nil
+                }
+                return id
+            }
 
-        let baseNonOverdue = reconciledMorning + reconciledEvening
-        let baseIDs = Set((baseNonOverdue + reconciledOverdue).map(\.id))
-        let additionalCompleted = inlineCompletedTasks.filter { !baseIDs.contains($0.id) }
-        let mergedNonOverdue = baseNonOverdue + additionalCompleted.filter { !$0.isOverdue }
-        let mergedOverdue = reconciledOverdue + additionalCompleted.filter(\.isOverdue)
+            ForEach(Array(todaySections.enumerated()), id: \.element.id) { index, section in
+                let sectionView = HomeListSectionView(
+                    section: section,
+                    tagNameByID: tagNameByID,
+                    todayXPSoFar: todayXPSoFar,
+                    isGamificationV2Enabled: isGamificationV2Enabled,
+                    isTaskDragEnabled: isTaskDragEnabled,
+                    highlightedTaskID: highlightedTaskID,
+                    completedCollapsed: isCompletedCollapsedBySection[stableSectionCollapseID(for: section)],
+                    onTaskTap: onTaskTap,
+                    onToggleComplete: onToggleComplete,
+                    onDeleteTask: onDeleteTask,
+                    onRescheduleTask: onRescheduleTask,
+                    onCompletedCollapsedChange: { collapsed, count in
+                        let sectionID = stableSectionCollapseID(for: section)
+                        isCompletedCollapsedBySection[sectionID] = collapsed
+                        onCompletedSectionToggle?(sectionID, collapsed, count)
+                    },
+                    onTaskDragStarted: onTaskDragStarted,
+                    onCompleteHabit: onCompleteHabit,
+                    onSkipHabit: onSkipHabit,
+                    onLapseHabit: onLapseHabit,
+                    headerActionTitle: headerActionTitle(for: section, index: index),
+                    onHeaderAction: headerAction(for: section, index: index),
+                    headerActionAccessibilityID: headerAccessibilityID(for: section, index: index)
+                )
+                if case .project(let id, _, _, let isInbox) = section.anchor,
+                   !isInbox,
+                   !section.isOverdueSection {
+                    sectionView
+                        .onDrag {
+                            draggingCustomProjectID = id
+                            return NSItemProvider(object: id.uuidString as NSString)
+                        }
+                        .onDrop(
+                            of: ["public.text"],
+                            delegate: CustomProjectSectionDropDelegate(
+                                targetProjectID: id,
+                                draggedProjectID: $draggingCustomProjectID,
+                                currentCustomOrder: currentCustomOrder,
+                                onReorder: { reordered in
+                                    onReorderCustomProjects?(reordered)
+                                }
+                            )
+                        )
+                } else {
+                    sectionView
+                }
+            }
+        } else {
+            let completedByID = inlineCompletedTasks.reduce(into: [UUID: TaskDefinition]()) { partialResult, task in
+                partialResult[task.id] = task
+            }
+            let reconciledMorning = morningTasks.map { completedByID[$0.id] ?? $0 }
+            let reconciledEvening = eveningTasks.map { completedByID[$0.id] ?? $0 }
+            let reconciledOverdue = overdueTasks.map { completedByID[$0.id] ?? $0 }
 
-        let layoutKey = TaskListTodayLayoutCacheKey(
-            morningTaskSignature: TaskListTodayLayoutCache.taskSignature(for: morningTasks),
-            eveningTaskSignature: TaskListTodayLayoutCache.taskSignature(for: eveningTasks),
-            overdueTaskSignature: TaskListTodayLayoutCache.taskSignature(for: overdueTasks),
-            inlineCompletedSignature: TaskListTodayLayoutCache.taskSignature(for: inlineCompletedTasks),
-            projectSignature: TaskListTodayLayoutCache.projectSignature(for: projects),
-            groupingMode: projectGroupingMode,
-            customProjectOrderIDs: customProjectOrderIDs
-        )
-        let layout = TaskListTodayLayoutCache.layout(for: layoutKey) {
-            HomeTaskSectionBuilder.buildTodayLayout(
-                mode: projectGroupingMode,
-                nonOverdueTasks: mergedNonOverdue,
-                overdueTasks: mergedOverdue,
-                projects: projects,
+            let baseNonOverdue = reconciledMorning + reconciledEvening
+            let baseIDs = Set((baseNonOverdue + reconciledOverdue).map(\.id))
+            let additionalCompleted = inlineCompletedTasks.filter { !baseIDs.contains($0.id) }
+            let mergedNonOverdue = baseNonOverdue + additionalCompleted.filter { !$0.isOverdue }
+            let mergedOverdue = reconciledOverdue + additionalCompleted.filter(\.isOverdue)
+
+            let layoutKey = TaskListTodayLayoutCacheKey(
+                morningTaskSignature: TaskListTodayLayoutCache.taskSignature(for: morningTasks),
+                eveningTaskSignature: TaskListTodayLayoutCache.taskSignature(for: eveningTasks),
+                overdueTaskSignature: TaskListTodayLayoutCache.taskSignature(for: overdueTasks),
+                inlineCompletedSignature: TaskListTodayLayoutCache.taskSignature(for: inlineCompletedTasks),
+                projectSignature: TaskListTodayLayoutCache.projectSignature(for: projects),
+                groupingMode: projectGroupingMode,
                 customProjectOrderIDs: customProjectOrderIDs
             )
-        }
-        if let inboxSection = layout.inboxSection, !inboxSection.tasks.isEmpty {
-            TaskSectionView(
-                project: inboxSection.project,
-                tasks: inboxSection.tasks,
-                tagNameByID: tagNameByID,
-                todayXPSoFar: todayXPSoFar,
-                isGamificationV2Enabled: isGamificationV2Enabled,
-                completedCollapsed: isCompletedCollapsedBySection[inboxSection.project.id],
-                isTaskDragEnabled: isTaskDragEnabled,
-                highlightedTaskID: highlightedTaskID,
-                onTaskTap: onTaskTap,
-                onToggleComplete: onToggleComplete,
-                onDeleteTask: onDeleteTask,
-                onRescheduleTask: onRescheduleTask,
-                onCompletedCollapsedChange: { collapsed, count in
-                    isCompletedCollapsedBySection[inboxSection.project.id] = collapsed
-                    onCompletedSectionToggle?(inboxSection.project.id, collapsed, count)
-                },
-                onTaskDragStarted: onTaskDragStarted,
-                headerActionTitle: inboxHeaderActionTitle,
-                onHeaderAction: onInboxHeaderAction,
-                headerActionAccessibilityID: "home.inbox.headerAction"
-            )
-        }
-
-        if projectGroupingMode == .prioritizeOverdue, !layout.overdueGroups.isEmpty {
-            OverdueGroupedSectionView(
-                groups: layout.overdueGroups,
-                tagNameByID: tagNameByID,
-                todayXPSoFar: todayXPSoFar,
-                isGamificationV2Enabled: isGamificationV2Enabled,
-                isTaskDragEnabled: isTaskDragEnabled,
-                headerActionTitle: overdueHeaderActionTitle,
-                onHeaderAction: onOverdueHeaderAction,
-                onTaskTap: onTaskTap,
-                onToggleComplete: onToggleComplete,
-                onDeleteTask: onDeleteTask,
-                onRescheduleTask: onRescheduleTask,
-                onTaskDragStarted: onTaskDragStarted
-            )
-        }
-
-        let currentCustomOrder = layout.customSections.map(\.project.id)
-        ForEach(Array(layout.customSections.enumerated()), id: \.element.id) { index, section in
-            TaskSectionView(
-                project: section.project,
-                tasks: section.tasks,
-                tagNameByID: tagNameByID,
-                todayXPSoFar: todayXPSoFar,
-                isGamificationV2Enabled: isGamificationV2Enabled,
-                completedCollapsed: isCompletedCollapsedBySection[section.project.id],
-                isTaskDragEnabled: isTaskDragEnabled,
-                highlightedTaskID: highlightedTaskID,
-                onTaskTap: onTaskTap,
-                onToggleComplete: onToggleComplete,
-                onDeleteTask: onDeleteTask,
-                onRescheduleTask: onRescheduleTask,
-                onCompletedCollapsedChange: { collapsed, count in
-                    isCompletedCollapsedBySection[section.project.id] = collapsed
-                    onCompletedSectionToggle?(section.project.id, collapsed, count)
-                },
-                onTaskDragStarted: onTaskDragStarted
-            )
-            .onDrag {
-                draggingCustomProjectID = section.project.id
-                return NSItemProvider(object: section.project.id.uuidString as NSString)
-            }
-            .onDrop(
-                of: ["public.text"],
-                delegate: CustomProjectSectionDropDelegate(
-                    targetProjectID: section.project.id,
-                    draggedProjectID: $draggingCustomProjectID,
-                    currentCustomOrder: currentCustomOrder,
-                    onReorder: { reordered in
-                        onReorderCustomProjects?(reordered)
-                    }
+            let layout = TaskListTodayLayoutCache.layout(for: layoutKey) {
+                HomeTaskSectionBuilder.buildTodayLayout(
+                    mode: projectGroupingMode,
+                    nonOverdueTasks: mergedNonOverdue,
+                    overdueTasks: mergedOverdue,
+                    projects: projects,
+                    customProjectOrderIDs: customProjectOrderIDs
                 )
-            )
+            }
+            if let inboxSection = layout.inboxSection, !inboxSection.tasks.isEmpty {
+                TaskSectionView(
+                    project: inboxSection.project,
+                    tasks: inboxSection.tasks,
+                    tagNameByID: tagNameByID,
+                    todayXPSoFar: todayXPSoFar,
+                    isGamificationV2Enabled: isGamificationV2Enabled,
+                    completedCollapsed: isCompletedCollapsedBySection[inboxSection.project.id],
+                    isTaskDragEnabled: isTaskDragEnabled,
+                    highlightedTaskID: highlightedTaskID,
+                    onTaskTap: onTaskTap,
+                    onToggleComplete: onToggleComplete,
+                    onDeleteTask: onDeleteTask,
+                    onRescheduleTask: onRescheduleTask,
+                    onCompletedCollapsedChange: { collapsed, count in
+                        isCompletedCollapsedBySection[inboxSection.project.id] = collapsed
+                        onCompletedSectionToggle?(inboxSection.project.id, collapsed, count)
+                    },
+                    onTaskDragStarted: onTaskDragStarted,
+                    headerActionTitle: inboxHeaderActionTitle,
+                    onHeaderAction: onInboxHeaderAction,
+                    headerActionAccessibilityID: "home.inbox.headerAction"
+                )
+            }
+
+            if projectGroupingMode == .prioritizeOverdue, !layout.overdueGroups.isEmpty {
+                OverdueGroupedSectionView(
+                    groups: layout.overdueGroups,
+                    tagNameByID: tagNameByID,
+                    todayXPSoFar: todayXPSoFar,
+                    isGamificationV2Enabled: isGamificationV2Enabled,
+                    isTaskDragEnabled: isTaskDragEnabled,
+                    headerActionTitle: overdueHeaderActionTitle,
+                    onHeaderAction: onOverdueHeaderAction,
+                    onTaskTap: onTaskTap,
+                    onToggleComplete: onToggleComplete,
+                    onDeleteTask: onDeleteTask,
+                    onRescheduleTask: onRescheduleTask,
+                    onTaskDragStarted: onTaskDragStarted
+                )
+            }
+
+            let currentCustomOrder = layout.customSections.map(\.project.id)
+            ForEach(Array(layout.customSections.enumerated()), id: \.element.id) { index, section in
+                TaskSectionView(
+                    project: section.project,
+                    tasks: section.tasks,
+                    tagNameByID: tagNameByID,
+                    todayXPSoFar: todayXPSoFar,
+                    isGamificationV2Enabled: isGamificationV2Enabled,
+                    completedCollapsed: isCompletedCollapsedBySection[section.project.id],
+                    isTaskDragEnabled: isTaskDragEnabled,
+                    highlightedTaskID: highlightedTaskID,
+                    onTaskTap: onTaskTap,
+                    onToggleComplete: onToggleComplete,
+                    onDeleteTask: onDeleteTask,
+                    onRescheduleTask: onRescheduleTask,
+                    onCompletedCollapsedChange: { collapsed, count in
+                        isCompletedCollapsedBySection[section.project.id] = collapsed
+                        onCompletedSectionToggle?(section.project.id, collapsed, count)
+                    },
+                    onTaskDragStarted: onTaskDragStarted
+                )
+                .onDrag {
+                    draggingCustomProjectID = section.project.id
+                    return NSItemProvider(object: section.project.id.uuidString as NSString)
+                }
+                .onDrop(
+                    of: ["public.text"],
+                    delegate: CustomProjectSectionDropDelegate(
+                        targetProjectID: section.project.id,
+                        draggedProjectID: $draggingCustomProjectID,
+                        currentCustomOrder: currentCustomOrder,
+                        onReorder: { reordered in
+                            onReorderCustomProjects?(reordered)
+                        }
+                    )
+                )
+            }
         }
     }
 
@@ -611,7 +682,72 @@ struct TaskListView: View {
             return doneTimelineTasks.isEmpty
         }
 
+        if activeQuickView == .today {
+            if !todaySections.isEmpty {
+                return false
+            }
+            return morningTasks.isEmpty
+                && eveningTasks.isEmpty
+                && overdueTasks.isEmpty
+                && inlineCompletedTasks.isEmpty
+        }
+
         return morningTasks.isEmpty && eveningTasks.isEmpty && overdueTasks.isEmpty
+    }
+
+    private func stableSectionCollapseID(for section: HomeListSection) -> UUID {
+        switch section.anchor {
+        case .project(let id, _, _, _):
+            return id
+        case .lifeArea(let id, let name, _):
+            if let id {
+                return id
+            }
+            return deterministicSectionID(for: "life_area:\(name.lowercased())")
+        case .dueTodaySummary:
+            return deterministicSectionID(for: "due_today_summary")
+        case .focusNow:
+            return deterministicSectionID(for: "focus_now")
+        }
+    }
+
+    private func headerActionTitle(for section: HomeListSection, index: Int) -> String? {
+        guard activeQuickView == .today else { return nil }
+        if section.isOverdueSection, index == 0 {
+            return overdueHeaderActionTitle
+        }
+        if section.anchor.isInboxProject {
+            return inboxHeaderActionTitle
+        }
+        return nil
+    }
+
+    private func headerAction(for section: HomeListSection, index: Int) -> (() -> Void)? {
+        guard activeQuickView == .today else { return nil }
+        if section.isOverdueSection, index == 0 {
+            return onOverdueHeaderAction
+        }
+        if section.anchor.isInboxProject {
+            return onInboxHeaderAction
+        }
+        return nil
+    }
+
+    private func headerAccessibilityID(for section: HomeListSection, index: Int) -> String? {
+        guard activeQuickView == .today else { return nil }
+        if section.isOverdueSection, index == 0 {
+            return "home.overdue.headerAction"
+        }
+        if section.anchor.isInboxProject {
+            return "home.inbox.headerAction"
+        }
+        return nil
+    }
+
+    private func deterministicSectionID(for value: String) -> UUID {
+        let hash = UInt64(bitPattern: Int64(value.hashValue))
+        let tail = String(format: "%012llx", hash & 0xFFFFFFFFFFFF)
+        return UUID(uuidString: "00000000-0000-0000-0000-\(tail)") ?? ProjectConstants.inboxProjectID
     }
 
     /// Executes normalizedTaskProjectName.

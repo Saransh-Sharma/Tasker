@@ -105,6 +105,7 @@ public final class CoreDataOccurrenceRepository: OccurrenceRepositoryProtocol {
                 try self.backgroundContext.save()
                 completion(.success(()))
             } catch {
+                self.backgroundContext.rollback()
                 completion(.failure(error))
             }
         }
@@ -144,6 +145,8 @@ public final class CoreDataOccurrenceRepository: OccurrenceRepositoryProtocol {
                         nextState = OccurrenceState.skipped.rawValue
                     case .missed:
                         nextState = OccurrenceState.missed.rawValue
+                    case .lapsed:
+                        nextState = OccurrenceState.failed.rawValue
                     }
                     occurrence.setValue(nextState, forKey: "state")
                     occurrence.setValue(resolution.resolvedAt, forKey: "updatedAt")
@@ -151,6 +154,7 @@ public final class CoreDataOccurrenceRepository: OccurrenceRepositoryProtocol {
                 try self.backgroundContext.save()
                 completion(.success(()))
             } catch {
+                self.backgroundContext.rollback()
                 completion(.failure(error))
             }
         }
@@ -175,6 +179,7 @@ public final class CoreDataOccurrenceRepository: OccurrenceRepositoryProtocol {
                 try self.backgroundContext.save()
                 completion(.success(()))
             } catch {
+                self.backgroundContext.rollback()
                 completion(.failure(error))
             }
         }

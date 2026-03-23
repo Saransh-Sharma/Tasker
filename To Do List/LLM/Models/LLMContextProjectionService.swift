@@ -48,23 +48,27 @@ enum LLMContextRepositoryProvider {
     private static var projectRepositoryStorage: ProjectRepositoryProtocol?
     private static var lifeAreaRepositoryStorage: LifeAreaRepositoryProtocol?
     private static var tagRepositoryStorage: TagRepositoryProtocol?
+    private static var habitRuntimeReadRepositoryStorage: HabitRuntimeReadRepositoryProtocol?
 
     static var taskReadModelRepository: TaskReadModelRepositoryProtocol? { taskReadModelRepositoryStorage }
     static var projectRepository: ProjectRepositoryProtocol? { projectRepositoryStorage }
     static var lifeAreaRepository: LifeAreaRepositoryProtocol? { lifeAreaRepositoryStorage }
     static var tagRepository: TagRepositoryProtocol? { tagRepositoryStorage }
+    static var habitRuntimeReadRepository: HabitRuntimeReadRepositoryProtocol? { habitRuntimeReadRepositoryStorage }
 
     /// Executes configure.
     static func configure(
         taskReadModelRepository: TaskReadModelRepositoryProtocol?,
         projectRepository: ProjectRepositoryProtocol?,
         lifeAreaRepository: LifeAreaRepositoryProtocol? = nil,
-        tagRepository: TagRepositoryProtocol? = nil
+        tagRepository: TagRepositoryProtocol? = nil,
+        habitRuntimeReadRepository: HabitRuntimeReadRepositoryProtocol? = nil
     ) {
         self.taskReadModelRepositoryStorage = taskReadModelRepository
         self.projectRepositoryStorage = projectRepository
         self.lifeAreaRepositoryStorage = lifeAreaRepository
         self.tagRepositoryStorage = tagRepository
+        self.habitRuntimeReadRepositoryStorage = habitRuntimeReadRepository
     }
 
     /// Executes makeService.
@@ -81,6 +85,7 @@ enum LLMContextRepositoryProvider {
             projectRepository: projectRepository,
             lifeAreaRepository: lifeAreaRepositoryStorage,
             tagRepository: tagRepositoryStorage,
+            habitRuntimeReadRepository: habitRuntimeReadRepositoryStorage,
             maxTasksPerSlice: maxTasksPerSlice,
             compactTaskPayload: compactTaskPayload
         )
@@ -160,6 +165,7 @@ struct LLMContextProjectionService {
     let projectRepository: ProjectRepositoryProtocol
     let lifeAreaRepository: LifeAreaRepositoryProtocol?
     let tagRepository: TagRepositoryProtocol?
+    let habitRuntimeReadRepository: HabitRuntimeReadRepositoryProtocol?
     let maxTasksPerSlice: Int
     let compactTaskPayload: Bool
 
@@ -168,6 +174,7 @@ struct LLMContextProjectionService {
         projectRepository: ProjectRepositoryProtocol,
         lifeAreaRepository: LifeAreaRepositoryProtocol? = nil,
         tagRepository: TagRepositoryProtocol?,
+        habitRuntimeReadRepository: HabitRuntimeReadRepositoryProtocol? = nil,
         maxTasksPerSlice: Int = 1_000,
         compactTaskPayload: Bool = false
     ) {
@@ -175,6 +182,7 @@ struct LLMContextProjectionService {
         self.projectRepository = projectRepository
         self.lifeAreaRepository = lifeAreaRepository
         self.tagRepository = tagRepository
+        self.habitRuntimeReadRepository = habitRuntimeReadRepository
         self.maxTasksPerSlice = max(1, maxTasksPerSlice)
         self.compactTaskPayload = compactTaskPayload
     }
@@ -185,17 +193,32 @@ struct LLMContextProjectionService {
             projectRepository: projectRepository,
             lifeAreaRepository: lifeAreaRepository,
             tagRepository: tagRepository,
+            habitRuntimeReadRepository: habitRuntimeReadRepository,
             maxTasksPerSlice: maxTasksPerSlice,
             compactTaskPayload: compactTaskPayload
         )
     }
 
-    func buildChatPlanningContext(query: String, maxChars: Int) async -> String {
+    func buildChatPlanningContext(
+        query: String,
+        maxChars: Int,
+        habitSignals: [TaskerHabitSignal]? = nil
+    ) async -> String {
         let normalizedQuery = Self.searchTerms(from: query)
         async let activeProjectsTask = fetchActiveProjects()
         async let activeLifeAreasTask = fetchActiveLifeAreas()
+        async let habitSignalsTask: [TaskerHabitSignal] = {
+            if let habitSignals {
+                return habitSignals
+            }
+            let calendar = Calendar.current
+            let start = calendar.startOfDay(for: Date())
+            let end = calendar.date(byAdding: .day, value: 14, to: start) ?? start
+            return await fetchHabitSignals(start: start, end: end)
+        }()
         let activeProjects = await activeProjectsTask
         let activeLifeAreas = await activeLifeAreasTask
+        let resolvedHabitSignals = await habitSignalsTask
         let projectNameByID = uniqueDictionary(
             activeProjects.map { ($0.id, $0.name) },
             source: "projects",
@@ -249,6 +272,10 @@ struct LLMContextProjectionService {
                 return name.isEmpty ? nil : name
             }
         )
+        let rankedHabitSignals = Self.rankHabitSignals(
+            resolvedHabitSignals,
+            queryTerms: normalizedQuery
+        )
 
         let projectSectionItems = Array((focusProjectNames + orderedProjects).prefix(4))
         let lifeAreaSectionItems = Array((focusLifeAreaNames + orderedLifeAreas).prefix(4))
@@ -268,6 +295,23 @@ struct LLMContextProjectionService {
                 let line = Self.compactTaskLine(task: task, projectNameByID: projectNameByID)
                 if accumulator.append("- \(line)") == false {
                     return accumulator.rendered
+                }
+            }
+        }
+
+        if rankedHabitSignals.isEmpty == false {
+            if let habitSection = Self.buildListSection(
+                title: "Habits",
+                items: rankedHabitSignals.map {
+                    Self.compactHabitLine(habit: $0)
+                },
+                maxChars: min(240, max(120, clampedMaxChars / 4))
+            ) {
+                _ = accumulator.append("")
+                for line in habitSection.components(separatedBy: .newlines) {
+                    if accumulator.append(line) == false {
+                        return accumulator.rendered
+                    }
                 }
             }
         }
@@ -316,12 +360,18 @@ struct LLMContextProjectionService {
     }
 
     /// Executes buildTodayJSON.
-    func buildTodayJSON() async -> String {
+    func buildTodayJSON(habitSignals: [TaskerHabitSignal]? = nil) async -> String {
         guard !Task.isCancelled else { return "{}" }
         let calendar = Calendar.current
         let startOfDay = calendar.startOfDay(for: Date())
         let startOfTomorrow = calendar.date(byAdding: .day, value: 1, to: startOfDay) ?? Date()
         let endOfDay = startOfTomorrow.addingTimeInterval(-1)
+        let resolvedHabitSignals: [TaskerHabitSignal]
+        if let habitSignals {
+            resolvedHabitSignals = habitSignals
+        } else {
+            resolvedHabitSignals = await fetchHabitSignals(start: startOfDay, end: startOfTomorrow)
+        }
 
         let tasks = await fetchTasks(
             query: TaskReadQuery(
@@ -342,10 +392,37 @@ struct LLMContextProjectionService {
         let tagNameLookup = await buildTagNameLookup()
         return Self.encode(
             tasks: scopedTasks,
+            habits: resolvedHabitSignals,
             contextType: "today",
             metadata: defaultMetadata(),
             tagNameLookup: tagNameLookup,
             compactTaskPayload: compactTaskPayload
+        )
+    }
+
+    /// Executes buildHabitJSON.
+    func buildHabitJSON(
+        habitSignals: [TaskerHabitSignal]? = nil,
+        start: Date? = nil,
+        end: Date? = nil
+    ) async -> String {
+        guard !Task.isCancelled else { return "{}" }
+        let calendar = Calendar.current
+        let rangeStart = start ?? (calendar.date(byAdding: .day, value: -13, to: calendar.startOfDay(for: Date())) ?? Date())
+        let rangeEnd = end ?? (calendar.date(byAdding: .day, value: 1, to: calendar.startOfDay(for: Date())) ?? Date())
+        let resolvedHabitSignals: [TaskerHabitSignal]
+        if let habitSignals {
+            resolvedHabitSignals = habitSignals
+        } else {
+            resolvedHabitSignals = await fetchHabitSignals(start: rangeStart, end: rangeEnd)
+        }
+        return Self.encode(
+            tasks: [],
+            habits: resolvedHabitSignals,
+            contextType: "habit",
+            metadata: defaultMetadata(),
+            tagNameLookup: [:],
+            compactTaskPayload: true
         )
     }
 
@@ -438,6 +515,18 @@ struct LLMContextProjectionService {
         }
     }
 
+    /// Executes buildHabitJSON.
+    func buildHabitJSON(
+        habitSignals: [TaskerHabitSignal]? = nil,
+        start: Date? = nil,
+        end: Date? = nil,
+        completion: @escaping (String) -> Void
+    ) {
+        Task {
+            completion(await buildHabitJSON(habitSignals: habitSignals, start: start, end: end))
+        }
+    }
+
     /// Executes buildUpcomingJSON.
     func buildUpcomingJSON(completion: @escaping (String) -> Void) {
         Task {
@@ -470,6 +559,23 @@ struct LLMContextProjectionService {
                 }
                 let tasks = (try? result.get().tasks) ?? []
                 continuation.resume(returning: tasks)
+            }
+        }
+    }
+
+    private func fetchHabitSignals(start: Date, end: Date) async -> [TaskerHabitSignal] {
+        guard let habitRuntimeReadRepository else { return [] }
+        guard !Task.isCancelled else { return [] }
+        return await withCheckedContinuation { continuation in
+            habitRuntimeReadRepository.fetchSignals(start: start, end: end) { result in
+                if Task.isCancelled {
+                    continuation.resume(returning: [])
+                    return
+                }
+                let summaries = (try? result.get()) ?? []
+                continuation.resume(
+                    returning: summaries.map { TaskerHabitSignal(summary: $0, referenceDate: $0.dueAt ?? Date()) }
+                )
             }
         }
     }
@@ -715,7 +821,7 @@ struct LLMContextProjectionService {
         [
             "timezone": TimeZone.current.identifier,
             "generated_at_iso": Date().ISO8601Format(),
-            "context_version": 3
+            "context_version": 4
         ]
     }
 
@@ -741,46 +847,74 @@ struct LLMContextProjectionService {
     /// Executes encode.
     private static func encode(
         tasks: [TaskDefinition],
+        habits: [TaskerHabitSignal] = [],
         contextType: String,
         metadata: [String: Any] = [:],
         tagNameLookup: [UUID: String] = [:],
         compactTaskPayload: Bool = false
     ) -> String {
+        let taskPayloads: [[String: Any]] = tasks.map { task in
+            let tagIDs = task.tagIDs
+                .map(\.uuidString)
+                .sorted()
+            let tagNames = task.tagIDs
+                .compactMap { tagNameLookup[$0] }
+                .sorted { $0.localizedCaseInsensitiveCompare($1) == .orderedAscending }
+            let projectName = task.projectName ?? ""
+            var projected: [String: Any] = [
+                "id": task.id.uuidString,
+                "title": task.title,
+                "is_completed": task.isComplete,
+                "project": projectName,
+                "project_id": task.projectID.uuidString,
+                "priority": task.priority.rawValue,
+                "type": task.type.rawValue,
+                "tag_names": tagNames,
+                "due_date": task.dueDate?.ISO8601Format() ?? NSNull()
+            ]
+
+            if compactTaskPayload == false {
+                projected["energy"] = task.energy.rawValue
+                projected["context"] = task.context.rawValue
+                projected["estimated_duration_minutes"] = task.estimatedDuration.map { Int($0 / 60) } ?? NSNull()
+                projected["has_dependencies"] = !task.dependencies.isEmpty
+                projected["dependency_count"] = task.dependencies.count
+                projected["tag_ids"] = tagIDs
+            }
+
+            return projected
+        }
+        let habitPayloads: [[String: Any]] = habits.map { habit in
+            [
+                "id": habit.habitID.uuidString,
+                "title": habit.title,
+                "is_positive": habit.isPositive,
+                "tracking_mode": habit.trackingModeRaw ?? "",
+                "life_area": habit.lifeAreaName ?? "",
+                "project": habit.projectName ?? "",
+                "icon_symbol": habit.iconSymbolName ?? "",
+                "icon_category": habit.iconCategoryKey ?? "",
+                "due_at": habit.dueAt?.ISO8601Format() ?? NSNull(),
+                "is_due_today": habit.isDueToday,
+                "is_overdue": habit.isOverdue,
+                "current_streak": habit.currentStreak,
+                "best_streak": habit.bestStreak,
+                "risk_state": habit.riskStateRaw ?? "",
+                "outcome": habit.outcomeRaw ?? "",
+                "occurred_at": habit.occurredAt?.ISO8601Format() ?? NSNull(),
+                "keywords": habit.keywords
+            ]
+        }
         var payload: [String: Any] = [
             "context_type": contextType,
-            "count": tasks.count,
-            "tasks": tasks.map { task in
-                let tagIDs = task.tagIDs
-                    .map(\.uuidString)
-                    .sorted()
-                let tagNames = task.tagIDs
-                    .compactMap { tagNameLookup[$0] }
-                    .sorted { $0.localizedCaseInsensitiveCompare($1) == .orderedAscending }
-                let projectName = task.projectName ?? ""
-                var projected: [String: Any] = [
-                    "id": task.id.uuidString,
-                    "title": task.title,
-                    "is_completed": task.isComplete,
-                    "project": projectName,
-                    "project_id": task.projectID.uuidString,
-                    "priority": task.priority.rawValue,
-                    "type": task.type.rawValue,
-                    "tag_names": tagNames,
-                    "due_date": task.dueDate?.ISO8601Format() ?? NSNull()
-                ]
-
-                if compactTaskPayload == false {
-                    projected["energy"] = task.energy.rawValue
-                    projected["context"] = task.context.rawValue
-                    projected["estimated_duration_minutes"] = task.estimatedDuration.map { Int($0 / 60) } ?? NSNull()
-                    projected["has_dependencies"] = !task.dependencies.isEmpty
-                    projected["dependency_count"] = task.dependencies.count
-                    projected["tag_ids"] = tagIDs
-                }
-
-                return projected
-            }
+            "count": taskPayloads.count + habitPayloads.count,
+            "task_count": taskPayloads.count,
+            "tasks": taskPayloads
         ]
+        if habitPayloads.isEmpty == false {
+            payload["habit_count"] = habitPayloads.count
+            payload["habits"] = habitPayloads
+        }
         for (key, value) in metadata {
             payload[key] = value
         }
@@ -1038,6 +1172,99 @@ struct LLMContextProjectionService {
             guard cleaned.isEmpty == false else { return false }
             return seen.insert(cleaned.lowercased()).inserted
         }
+    }
+
+    private static func rankHabitSignals(
+        _ habits: [TaskerHabitSignal],
+        queryTerms: [String]
+    ) -> [TaskerHabitSignal] {
+        habits.sorted { lhs, rhs in
+            let lhsScore = habitMatchScore(
+                lhs,
+                queryTerms: queryTerms
+            )
+            let rhsScore = habitMatchScore(
+                rhs,
+                queryTerms: queryTerms
+            )
+            if lhsScore != rhsScore {
+                return lhsScore > rhsScore
+            }
+            if lhs.isOverdue != rhs.isOverdue {
+                return lhs.isOverdue && !rhs.isOverdue
+            }
+            if lhs.currentStreak != rhs.currentStreak {
+                return lhs.currentStreak > rhs.currentStreak
+            }
+            return lhs.title.localizedCaseInsensitiveCompare(rhs.title) == .orderedAscending
+        }
+    }
+
+    private static func habitMatchScore(
+        _ habit: TaskerHabitSignal,
+        queryTerms: [String]
+    ) -> Int {
+        guard queryTerms.isEmpty == false else { return 0 }
+        let title = habit.title.lowercased()
+        let projectName = habit.projectName?.lowercased() ?? ""
+        let lifeAreaName = habit.lifeAreaName?.lowercased() ?? ""
+        let iconCategory = habit.iconCategoryKey?.lowercased() ?? ""
+        let keywords = habit.keywords.map { $0.lowercased() }
+        let riskState = habit.riskStateRaw?.lowercased() ?? ""
+        let trackingMode = habit.trackingModeRaw?.lowercased() ?? ""
+
+        var score = 0
+        for term in queryTerms {
+            if title.contains(term) {
+                score += 4
+            }
+            if projectName.contains(term) {
+                score += 2
+            }
+            if lifeAreaName.contains(term) {
+                score += 2
+            }
+            if iconCategory.contains(term) {
+                score += 2
+            }
+            if keywords.contains(where: { $0.contains(term) }) {
+                score += 1
+            }
+            if riskState.contains(term) {
+                score += 1
+            }
+            if trackingMode.contains(term) {
+                score += 1
+            }
+        }
+        return score
+    }
+
+    private static func compactHabitLine(
+        habit: TaskerHabitSignal
+    ) -> String {
+        var parts: [String] = [habit.title.trimmingCharacters(in: .whitespacesAndNewlines)]
+        if habit.isOverdue {
+            parts.append("overdue")
+        } else if habit.isDueToday {
+            parts.append("due today")
+        }
+        if let lifeArea = habit.lifeAreaName?.trimmingCharacters(in: .whitespacesAndNewlines),
+           lifeArea.isEmpty == false {
+            parts.append(lifeArea)
+        }
+        if let projectName = habit.projectName?.trimmingCharacters(in: .whitespacesAndNewlines),
+           projectName.isEmpty == false {
+            parts.append(projectName)
+        }
+        if habit.currentStreak > 0 {
+            parts.append("streak \(habit.currentStreak)")
+        }
+        if let outcome = habit.outcomeRaw?.trimmingCharacters(in: .whitespacesAndNewlines),
+           outcome.isEmpty == false {
+            parts.append(outcome)
+        }
+        return parts.joined(separator: " | ")
     }
 
     private static func rankTasks(

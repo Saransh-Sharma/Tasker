@@ -87,6 +87,13 @@ final class AppOnboardingTests: XCTestCase {
         )
     }
 
+    func testOnboardingStepOrderIncludesHabitsBetweenProjectsAndFirstTask() {
+        XCTAssertEqual(
+            OnboardingStep.allCases,
+            [.welcome, .lifeAreas, .projects, .habits, .firstTask, .focusRoom]
+        )
+    }
+
     func testCatalogReuseMatchesAliasesForExistingLifeAreasAndProjects() {
         let healthTemplate = tryUnwrap(StarterWorkspaceCatalog.lifeAreaTemplate(id: "health"))
         let existingLifeArea = LifeArea(name: "Wellness")
@@ -111,6 +118,34 @@ final class AppOnboardingTests: XCTestCase {
         )
 
         XCTAssertEqual(matchedProject?.id, existingProject.id)
+    }
+
+    func testHabitSuggestionsStayPositiveFirstWithAtMostOneNegative() {
+        let healthDraft = tryUnwrap(
+            StarterWorkspaceCatalog.defaultProjectDrafts(for: ["health"], mode: .guided).first
+        )
+        let careerDraft = tryUnwrap(
+            StarterWorkspaceCatalog.defaultProjectDrafts(for: ["career"], mode: .guided).first
+        )
+
+        let selections = [
+            ResolvedProjectSelection(
+                draft: healthDraft,
+                project: Project(name: healthDraft.name),
+                reusedExisting: false
+            ),
+            ResolvedProjectSelection(
+                draft: careerDraft,
+                project: Project(name: careerDraft.name),
+                reusedExisting: false
+            )
+        ]
+
+        let suggestions = StarterWorkspaceCatalog.habitSuggestions(for: selections, frictionProfile: .remembering)
+
+        XCTAssertFalse(suggestions.isEmpty)
+        XCTAssertTrue(suggestions.first?.isPositive == true)
+        XCTAssertLessThanOrEqual(suggestions.filter { $0.isPositive == false }.count, 1)
     }
 
     @MainActor
@@ -150,7 +185,7 @@ final class AppOnboardingTests: XCTestCase {
             StarterWorkspaceCatalog.defaultProjectDrafts(for: ["health"], mode: .guided).first
         )
         let snapshot = OnboardingJourneySnapshot(
-            step: .focusRoom,
+            step: .habits,
             mode: .guided,
             frictionProfile: .starting,
             selectedLifeAreaIDs: ["health"],
@@ -162,6 +197,15 @@ final class AppOnboardingTests: XCTestCase {
             resolvedProjects: [
                 ResolvedProjectSelection(draft: projectDraft, project: project, reusedExisting: true)
             ],
+            createdHabits: [
+                HabitDefinitionRecord(
+                    lifeAreaID: area.id,
+                    projectID: project.id,
+                    title: "Drink water after you wake up",
+                    habitType: "positive_daily_check_in"
+                )
+            ],
+            createdHabitTemplateMap: ["habit-health-water": UUID()],
             createdTasks: [task],
             createdTaskTemplateMap: ["task-health-move-clothes": task.id],
             focusTaskID: task.id,
@@ -175,10 +219,11 @@ final class AppOnboardingTests: XCTestCase {
         let viewModel = OnboardingFlowModel(stateStore: context.store)
         viewModel.prepareForPresentation(snapshot: snapshot)
 
-        XCTAssertEqual(viewModel.step, .focusRoom)
+        XCTAssertEqual(viewModel.step, .habits)
         XCTAssertEqual(viewModel.mode, .guided)
         XCTAssertEqual(viewModel.frictionProfile, .starting)
         XCTAssertEqual(viewModel.selectedLifeAreaIDs, Set(["health"]))
+        XCTAssertEqual(viewModel.createdHabits.map(\.title), ["Drink water after you wake up"])
         XCTAssertEqual(viewModel.focusTaskID, task.id)
         XCTAssertTrue(viewModel.focusIsActive)
         XCTAssertEqual(viewModel.createdTasks.map(\.id), [task.id])
@@ -202,7 +247,7 @@ final class AppOnboardingTests: XCTestCase {
             StarterWorkspaceCatalog.defaultProjectDrafts(for: ["health"], mode: .guided).first
         )
         let snapshot = OnboardingJourneySnapshot(
-            step: .projects,
+            step: .habits,
             mode: .custom,
             frictionProfile: .choosing,
             selectedLifeAreaIDs: ["health"],
@@ -215,6 +260,15 @@ final class AppOnboardingTests: XCTestCase {
             resolvedProjects: [
                 ResolvedProjectSelection(draft: projectDraft, project: project, reusedExisting: true)
             ],
+            createdHabits: [
+                HabitDefinitionRecord(
+                    lifeAreaID: area.id,
+                    projectID: project.id,
+                    title: "Put your phone on the charger before bed",
+                    habitType: "positive_daily_check_in"
+                )
+            ],
+            createdHabitTemplateMap: ["habit-health-charge": UUID()],
             createdTasks: [task],
             createdTaskTemplateMap: ["task-health-move-clothes": task.id],
             focusTaskID: task.id,
@@ -229,19 +283,44 @@ final class AppOnboardingTests: XCTestCase {
         context.store.storeJourney(snapshot)
 
         let restoredSnapshot = tryUnwrap(context.store.load().journeySnapshot)
-        XCTAssertEqual(restoredSnapshot.step, .projects)
+        XCTAssertEqual(restoredSnapshot.step, .habits)
         XCTAssertEqual(restoredSnapshot.selectedLifeAreaIDs, ["health"])
 
         let viewModel = OnboardingFlowModel(stateStore: context.store)
         viewModel.prepareForPresentation(snapshot: restoredSnapshot)
 
-        XCTAssertEqual(viewModel.step, .projects)
+        XCTAssertEqual(viewModel.step, .habits)
         XCTAssertEqual(viewModel.mode, .custom)
         XCTAssertEqual(viewModel.selectedLifeAreaIDs, Set(["health"]))
         XCTAssertTrue(viewModel.showAllLifeAreas)
         XCTAssertEqual(viewModel.projectDrafts, [projectDraft])
+        XCTAssertEqual(viewModel.createdHabits.map(\.title), ["Put your phone on the charger before bed"])
         XCTAssertEqual(viewModel.createdTasks.map(\.id), [task.id])
         XCTAssertEqual(viewModel.focusTaskID, task.id)
+    }
+
+    @MainActor
+    func testPrepareEstablishedWorkspaceEntryReusesExistingWorkspaceAndStartsAtHabits() async {
+        let context = makeStoreContext()
+        defer { context.cleanup() }
+
+        let career = LifeArea(name: "Career")
+        let home = LifeArea(name: "Home")
+        let shipProject = Project(lifeAreaID: career.id, name: "Ship one thing")
+        let homeReset = Project(lifeAreaID: home.id, name: "Home reset")
+
+        let viewModel = OnboardingFlowModel(
+            stateStore: context.store,
+            fetchLifeAreas: { [career, home] },
+            fetchProjects: { [Project.createInbox(), shipProject, homeReset] }
+        )
+
+        await viewModel.prepareEstablishedWorkspaceEntry()
+
+        XCTAssertEqual(viewModel.step, .habits)
+        XCTAssertEqual(viewModel.resolvedLifeAreas.map(\.lifeArea.name), ["Career", "Home"])
+        XCTAssertEqual(viewModel.resolvedProjects.map(\.project.name), ["Ship one thing", "Home reset"])
+        XCTAssertEqual(viewModel.selectedLifeAreaIDs, Set(["career", "home"]))
     }
 
     @MainActor

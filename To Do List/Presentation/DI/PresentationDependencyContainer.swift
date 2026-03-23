@@ -29,11 +29,14 @@ public final class PresentationDependencyContainer {
 
     private var _homeViewModel: HomeViewModel?
     private var _addTaskViewModel: AddTaskViewModel?
+    private var _addHabitViewModel: AddHabitViewModel?
+    private var _addItemViewModel: AddItemViewModel?
     private var _projectManagementViewModel: ProjectManagementViewModel?
     private var _lifeManagementViewModel: LifeManagementViewModel?
     private var _chartCardViewModel: ChartCardViewModel?
     private var _radarChartCardViewModel: RadarChartCardViewModel?
     private var _projectSelectionViewModel: ProjectSelectionViewModel?
+    private var _habitLibraryViewModel: HabitLibraryViewModel?
 
     // MARK: - Configuration State
 
@@ -170,6 +173,40 @@ public final class PresentationDependencyContainer {
         return viewModel
     }
 
+    /// Get or create AddHabitViewModel
+    @MainActor
+    public func makeAddHabitViewModel() -> AddHabitViewModel {
+        assertConfigured()
+        if let existing = _addHabitViewModel {
+            return existing
+        }
+
+        let viewModel = AddHabitViewModel(
+            createHabitUseCase: useCaseCoordinator.createHabit,
+            manageLifeAreasUseCase: useCaseCoordinator.manageLifeAreas,
+            manageProjectsUseCase: useCaseCoordinator.manageProjects,
+            iconCatalog: HabitIconCatalog.shared
+        )
+        _addHabitViewModel = viewModel
+        return viewModel
+    }
+
+    /// Get or create AddItemViewModel
+    @MainActor
+    public func makeAddItemViewModel() -> AddItemViewModel {
+        assertConfigured()
+        if let existing = _addItemViewModel {
+            return existing
+        }
+
+        let viewModel = AddItemViewModel(
+            taskViewModel: makeAddTaskViewModel(),
+            habitViewModel: makeAddHabitViewModel()
+        )
+        _addItemViewModel = viewModel
+        return viewModel
+    }
+
     /// Get or create ProjectManagementViewModel
     public func makeProjectManagementViewModel() -> ProjectManagementViewModel {
         assertConfigured()
@@ -245,6 +282,20 @@ public final class PresentationDependencyContainer {
         return viewModel
     }
 
+    @MainActor
+    public func makeHabitLibraryViewModel() -> HabitLibraryViewModel {
+        assertConfigured()
+        if let existing = _habitLibraryViewModel {
+            return existing
+        }
+
+        let viewModel = HabitLibraryViewModel(
+            getHabitLibraryUseCase: useCaseCoordinator.getHabitLibrary
+        )
+        _habitLibraryViewModel = viewModel
+        return viewModel
+    }
+
     /// Create a fresh AddTaskViewModel (for modal presentations)
     public func makeNewAddTaskViewModel() -> AddTaskViewModel {
         assertConfigured()
@@ -258,6 +309,53 @@ public final class PresentationDependencyContainer {
             manageTagsUseCase: useCaseCoordinator.manageTags,
             gamificationEngine: useCaseCoordinator.gamificationEngine,
             aiSuggestionService: MainActor.assumeIsolated { AISuggestionService.shared }
+        )
+    }
+
+    /// Create a fresh AddHabitViewModel (for modal presentations)
+    @MainActor
+    public func makeNewAddHabitViewModel() -> AddHabitViewModel {
+        assertConfigured()
+        return AddHabitViewModel(
+            createHabitUseCase: useCaseCoordinator.createHabit,
+            manageLifeAreasUseCase: useCaseCoordinator.manageLifeAreas,
+            manageProjectsUseCase: useCaseCoordinator.manageProjects,
+            iconCatalog: HabitIconCatalog.shared
+        )
+    }
+
+    /// Create a fresh AddItemViewModel (for modal presentations)
+    @MainActor
+    public func makeNewAddItemViewModel() -> AddItemViewModel {
+        assertConfigured()
+        return AddItemViewModel(
+            taskViewModel: makeNewAddTaskViewModel(),
+            habitViewModel: makeNewAddHabitViewModel()
+        )
+    }
+
+    @MainActor
+    public func makeNewHabitLibraryViewModel() -> HabitLibraryViewModel {
+        assertConfigured()
+        return HabitLibraryViewModel(
+            getHabitLibraryUseCase: useCaseCoordinator.getHabitLibrary
+        )
+    }
+
+    @MainActor
+    public func makeHabitDetailViewModel(row: HabitLibraryRow) -> HabitDetailViewModel {
+        assertConfigured()
+        return HabitDetailViewModel(
+            row: row,
+            getHabitLibraryUseCase: useCaseCoordinator.getHabitLibrary,
+            getHabitHistoryUseCase: useCaseCoordinator.getHabitHistory,
+            updateHabitUseCase: useCaseCoordinator.updateHabit,
+            pauseHabitUseCase: useCaseCoordinator.pauseHabit,
+            archiveHabitUseCase: useCaseCoordinator.archiveHabit,
+            resolveHabitOccurrenceUseCase: useCaseCoordinator.resolveHabitOccurrence,
+            manageLifeAreasUseCase: useCaseCoordinator.manageLifeAreas,
+            manageProjectsUseCase: useCaseCoordinator.manageProjects,
+            iconCatalog: HabitIconCatalog.shared
         )
     }
 

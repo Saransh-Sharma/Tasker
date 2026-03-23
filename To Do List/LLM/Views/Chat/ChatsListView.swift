@@ -10,6 +10,7 @@ import SwiftUI
 struct ChatsListView: View {
     @EnvironmentObject var appManager: AppManager
     @Environment(\.dismiss) var dismiss
+    @Environment(\.taskerLayoutClass) private var layoutClass
     @Binding var currentThread: Thread?
     @FocusState.Binding var isPromptFocused: Bool
     @Environment(\.modelContext) var modelContext
@@ -83,7 +84,7 @@ struct ChatsListView: View {
                                     Button {
                                         deleteThread(thread)
                                     } label: {
-                                        Text("delete")
+                                        Text("Delete")
                                     }
                                 }
                             #endif
@@ -106,7 +107,7 @@ struct ChatsListView: View {
                     #endif
                 }
             }
-            .navigationTitle("chats")
+            .navigationTitle("Chats")
             #if os(iOS) || os(visionOS)
                 .navigationBarTitleDisplayMode(.inline)
                 .searchable(text: $search, prompt: "search")
@@ -115,7 +116,7 @@ struct ChatsListView: View {
             #endif
                 .toolbar {
                     #if os(iOS) || os(visionOS)
-                    if appManager.userInterfaceIdiom == .phone {
+                    if layoutClass == .phone {
                         ToolbarItem(placement: .topBarLeading) {
                             Button(action: { dismiss() }) {
                                 Image(systemName: "xmark")
@@ -150,7 +151,7 @@ struct ChatsListView: View {
                             // ask for review if appropriate
                             requestReviewIfAppropriate()
                         }) {
-                            Label("new", systemImage: "plus")
+                            Label("New", systemImage: "plus")
                         }
                         .keyboardShortcut("N", modifiers: [.command])
                     }
@@ -216,12 +217,11 @@ struct ChatsListView: View {
                 }
             }
 
-            // Adding a delay fixes a crash on iOS following a deletion
-            let delay = appManager.userInterfaceIdiom == .phone ? 1.0 : 0.0
             Task { @MainActor in
-                if delay > 0 {
-                    try? await Task.sleep(nanoseconds: UInt64(delay * 1_000_000_000))
+                await MainActor.run {
+                    selection = nil
                 }
+                await Task.yield()
                 await ThreadContextAttachmentStore.shared.clear(threadID: threadID)
                 modelContext.delete(targetThread)
             }
@@ -247,7 +247,7 @@ struct ChatsListView: View {
         currentThread = thread
         isPromptFocused = true
         #if os(iOS)
-        if appManager.userInterfaceIdiom == .phone || V2FeatureFlags.iPadNativeShellEnabled == false {
+        if layoutClass == .phone || V2FeatureFlags.iPadNativeShellEnabled == false {
             dismiss()
         }
         #endif

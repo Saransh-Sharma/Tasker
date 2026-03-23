@@ -25,6 +25,7 @@ struct HomeTopChromeView: View {
     let onShowAdvancedFilters: () -> Void
     let onResetFilters: () -> Void
     let onOpenSearch: () -> Void
+    let onOpenManageHabits: () -> Void
     let onOpenSettings: () -> Void
 
     private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.currentTheme.tokens.spacing }
@@ -50,6 +51,12 @@ struct HomeTopChromeView: View {
                     accessibilityIdentifier: "home.topNav.searchButton",
                     accessibilityLabel: "Search",
                     action: onOpenSearch
+                )
+                iconButton(
+                    systemName: "repeat.circle",
+                    accessibilityIdentifier: "home.topNav.manageHabitsButton",
+                    accessibilityLabel: "Manage Habits",
+                    action: onOpenManageHabits
                 )
                 iconButton(
                     systemName: "gearshape",

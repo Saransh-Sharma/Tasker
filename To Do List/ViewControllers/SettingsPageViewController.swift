@@ -70,6 +70,9 @@ class SettingsPageViewController: UIViewController, PresentationDependencyContai
         viewModel.onNavigateToLifeManagement = { [weak self] in
             self?.navigateToLifeManagement()
         }
+        viewModel.onNavigateToProjects = { [weak self] in
+            self?.navigateToProjectManagement()
+        }
         viewModel.onNavigateToAISettings = { [weak self] in
             self?.navigateToAISettings()
         }
@@ -167,6 +170,7 @@ class SettingsPageViewController: UIViewController, PresentationDependencyContai
         }
         let viewModel = presentationDependencyContainer.makeProjectManagementViewModel()
         let view = ProjectManagementView(viewModel: viewModel)
+            .taskerLayoutClass(currentLayoutClass)
         let controller = UIHostingController(rootView: view)
         controller.title = "Projects"
         navigationController?.pushViewController(controller, animated: true)
@@ -179,6 +183,7 @@ class SettingsPageViewController: UIViewController, PresentationDependencyContai
         }
         let viewModel = presentationDependencyContainer.makeLifeManagementViewModel()
         let view = LifeManagementView(viewModel: viewModel)
+            .taskerLayoutClass(currentLayoutClass)
         let controller = UIHostingController(rootView: view)
         controller.title = "Life Management"
         navigationController?.pushViewController(controller, animated: true)

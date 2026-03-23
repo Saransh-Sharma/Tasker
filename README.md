@@ -44,6 +44,11 @@ Design intent by phase:
 - Lightning capture supports immediate task creation.
 - Clarify mode supports deeper structure such as notes, steps, tags, schedule, and dependencies.
 
+### Habits
+- First-class recurring behavior tracking for consistency and recovery loops.
+- Supports positive habits to build and negative habits to reduce or quit.
+- Includes `dailyCheckIn` and negative `lapseOnly` tracking, Home mixed agenda rows, library/detail management, streaks, and 14-day history.
+
 ### Tasks Browse And Search
 - Browse, smart views, and project-oriented navigation for backlog control.
 - Search is optimized for fast retrieval as backlog size grows.
@@ -113,6 +118,8 @@ Primary product metrics include:
 
 Full metric definitions, acceptance criteria, and requirement detail live in:
 - `PRODUCT_REQUIREMENTS_DOCUMENT.md`
+- `docs/habits/README.md`
+- `docs/habits/product-feature.md`
 
 ## Runtime Snapshot
 
@@ -212,6 +219,11 @@ xcodebuild test -workspace Tasker.xcworkspace -scheme "To Do List" -destination 
 | `PRODUCT_REQUIREMENTS_DOCUMENT.md` | Product strategy and detailed requirements | Canonical | product promise, personas, feature requirements, acceptance criteria, or roadmap changes | product, design, engineering leads |
 | `AGENTS.md` | Agent workflow instructions | Canonical | automation/agent behavior instruction changes | AI-assisted contributors |
 | `docs/README.md` | Docs top-level index | Canonical | any docs structure or ownership change | all contributors |
+| `docs/habits/README.md` | habits documentation hub, reading order, and update policy | Canonical | habit doc package structure or ownership changes | PMs, designers, engineers, QA |
+| `docs/habits/product-feature.md` | habit product contract, journeys, state semantics, and UX expectations | Canonical | habit behavior, UX, or PM/design contract changes | product, design, engineering |
+| `docs/habits/data-model-and-runtime.md` | habit data model, runtime flows, invariants, and downstream projections | Canonical | habit models, usecases, repositories, or signal consumers change | feature engineers, reviewers |
+| `docs/habits/risk-register.md` | habit-specific risk register and accepted partials | Canonical | habit risk posture, mitigations, or release gates change | tech leads, reviewers, QA |
+| `docs/habits/roadmap.md` | habits-only phased roadmap and release outcomes | Canonical | habit roadmap or sequencing changes | PMs, leads |
 | `docs/architecture/README.md` | Architecture index and update policy | Canonical | architecture doc set additions/ownership changes | engineers |
 | `docs/architecture/data-model-v2.md` | V2 schema/domain invariants | Canonical | entity/field/relationship/migration changes | backend-state and feature engineers |
 | `docs/architecture/clean-architecture-v2.md` | layering, DI/runtime, fail-closed behavior | Canonical | runtime wiring/feature-gate/bootstrapping changes | platform and feature engineers |
@@ -249,6 +261,7 @@ Legacy generated repowiki docs were moved out of active paths and are non-canoni
 - `.github/workflows/cloudkit-smoke.yml`
 - `scripts/validate_cloudkit_smoke_evidence.sh`
 5. Update both canonical LLM docs together when `/LLM` runtime behavior changes.
+6. Update the relevant `docs/habits/*` files in the same PR whenever habit product semantics, runtime behavior, analytics, or AI signal consumers change.
 
 ## Legacy Cleanup Status
 
