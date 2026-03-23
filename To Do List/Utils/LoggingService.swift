@@ -353,6 +353,7 @@ public struct TaskerPerformanceInterval {
 
 public enum TaskerPerformanceTrace {
     private static let launchArguments = Set(ProcessInfo.processInfo.arguments)
+    private static let launchEnvironment = ProcessInfo.processInfo.environment
     private static let performanceLog = OSLog(
         subsystem: Bundle.main.bundleIdentifier ?? "com.tasker",
         category: "performance"
@@ -362,7 +363,8 @@ public enum TaskerPerformanceTrace {
         category: .pointsOfInterest
     )
     private static let tracingEnabled =
-        launchArguments.contains("-TASKER_ENABLE_PERF_TRACE")
+        launchEnvironment["PERFORMANCE_TEST"] == "1"
+        || launchArguments.contains("-TASKER_ENABLE_PERF_TRACE")
         || launchArguments.contains("-TASKER_VERBOSE_PERF_TRACE")
 
     public static var isEnabled: Bool { tracingEnabled }
@@ -438,6 +440,28 @@ public func logDebug(
 ) {
     LoggingService.shared.log(
         level: .debug,
+        component: component,
+        event: event,
+        message: message,
+        fields: fields,
+        file: file,
+        function: function,
+        line: line
+    )
+}
+
+/// Executes logInfo.
+public func logInfo(
+    event: String,
+    message: String,
+    component: String? = nil,
+    fields: [String: String] = [:],
+    file: String = #file,
+    function: String = #function,
+    line: Int = #line
+) {
+    LoggingService.shared.log(
+        level: .info,
         component: component,
         event: event,
         message: message,

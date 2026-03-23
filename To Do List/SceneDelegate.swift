@@ -31,6 +31,7 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
     }
 
     var window: UIWindow?
+    private var persistentBootstrapObserver: NSObjectProtocol?
 
 
     /// Executes scene.
@@ -48,6 +49,7 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
             message: AppDelegate.persistentBootstrapFailureMessage ?? "Tasker storage is unavailable. Please relaunch the app."
         )
         renderRoot(for: rootMode)
+        installPersistentBootstrapObserver()
 
         if let notificationResponse = connectionOptions.notificationResponse {
             DispatchQueue.main.async { [weak self] in
@@ -68,13 +70,18 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
     /// Executes renderRoot.
     private func renderRoot(for rootMode: LaunchRootMode) {
         switch rootMode {
-        case .home:
+        case .loading, .home:
+            if let launchHostController = window?.rootViewController as? TaskerLaunchHostController {
+                launchHostController.refreshPendingHomeController()
+                window?.makeKeyAndVisible()
+                return
+            }
+
             let launchHostController = TaskerLaunchHostController { [weak self] in
                 self?.makeDeferredHomeRootController()
             }
             window?.rootViewController = launchHostController
             window?.makeKeyAndVisible()
-
         case .bootstrapFailure(let message):
             showBootstrapFailureRoot(message: message)
         }
@@ -83,6 +90,13 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
     private func makeDeferredHomeRootController() -> UIViewController? {
         let interval = TaskerPerformanceTrace.begin("SceneDeferredHomeAttach")
         defer { TaskerPerformanceTrace.end(interval) }
+
+        guard let appDelegate = UIApplication.shared.delegate as? AppDelegate else {
+            return nil
+        }
+        guard case .ready = appDelegate.persistentBootstrapState else {
+            return nil
+        }
 
         let storyboard = UIStoryboard(name: "Main", bundle: nil)
         guard let homeViewController = storyboard.instantiateViewController(withIdentifier: "homeScreen") as? HomeViewController else {
@@ -118,22 +132,18 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
     private func performBootstrapFailureAction(_ action: BootstrapFailureAction) {
         guard let appDelegate = UIApplication.shared.delegate as? AppDelegate else { return }
 
-        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
-            let mode: LaunchRootMode
-            switch action {
-            case .retrySync:
-                mode = appDelegate.retryPersistentStoreBootstrap()
-            case .recoverFromICloud:
-                mode = appDelegate.recoverFromCloudAuthoritativeReset()
-            }
+        let mode: LaunchRootMode
+        switch action {
+        case .retrySync:
+            mode = appDelegate.retryPersistentStoreBootstrap()
+        case .recoverFromICloud:
+            mode = appDelegate.recoverFromCloudAuthoritativeReset()
+        }
 
-            DispatchQueue.main.async {
-                self?.renderRoot(for: mode)
-                if case .bootstrapFailure(let message) = mode,
-                   let failureVC = self?.window?.rootViewController as? BootstrapFailureViewController {
-                    failureVC.setWorking(false, hint: message)
-                }
-            }
+        renderRoot(for: mode)
+        if case .bootstrapFailure(let message) = mode,
+           let failureVC = window?.rootViewController as? BootstrapFailureViewController {
+            failureVC.setWorking(false, hint: message)
         }
     }
 
@@ -143,6 +153,10 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         // This occurs shortly after the scene enters the background, or when its session is discarded.
         // Release any resources associated with this scene that can be re-created the next time the scene connects.
         // The scene may re-connect later, as its session was not neccessarily discarded (see `application:didDiscardSceneSessions` instead).
+        if let persistentBootstrapObserver {
+            NotificationCenter.default.removeObserver(persistentBootstrapObserver)
+            self.persistentBootstrapObserver = nil
+        }
     }
 
     /// Executes sceneDidBecomeActive.
@@ -276,6 +290,41 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
                 userInfo: ["taskID": taskID.uuidString]
             )
             NotificationCenter.default.post(name: .taskerProcessWidgetActionCommand, object: nil)
+            return
+        }
+    }
+
+    private func installPersistentBootstrapObserver() {
+        if let persistentBootstrapObserver {
+            NotificationCenter.default.removeObserver(persistentBootstrapObserver)
+        }
+        persistentBootstrapObserver = NotificationCenter.default.addObserver(
+            forName: .taskerPersistentBootstrapStateDidChange,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            self?.handlePersistentBootstrapStateChange()
+        }
+    }
+
+    private func handlePersistentBootstrapStateChange() {
+        guard let appDelegate = UIApplication.shared.delegate as? AppDelegate else { return }
+        let rootMode = appDelegate.makeLaunchRootMode()
+
+        switch rootMode {
+        case .loading, .home:
+            if let launchHostController = window?.rootViewController as? TaskerLaunchHostController {
+                launchHostController.refreshPendingHomeController()
+            } else {
+                renderRoot(for: rootMode)
+            }
+        case .bootstrapFailure(let message):
+            if let failureViewController = window?.rootViewController as? BootstrapFailureViewController {
+                failureViewController.setWorking(false, hint: message)
+            } else {
+                renderRoot(for: .bootstrapFailure(message: message))
+            }
+        }
     }
 }
 
@@ -374,9 +423,14 @@ private final class TaskerLaunchHostController: UIViewController {
         DispatchQueue.main.async { [weak self] in
             guard let self else { return }
             TaskerPerformanceTrace.end(firstFrameInterval)
-            self.pendingHomeController = self.resolveHomeRootController()
-            self.attachHomeIfPossible()
+            self.refreshPendingHomeController()
         }
+    }
+
+    func refreshPendingHomeController() {
+        guard attachedHomeController == nil else { return }
+        pendingHomeController = resolveHomeRootController()
+        attachHomeIfPossible()
     }
 
     private func attachHomeIfPossible() {
@@ -402,7 +456,4 @@ private final class TaskerLaunchHostController: UIViewController {
         attachedHomeController = homeController
         pendingHomeController = nil
     }
-}
-
-
 }

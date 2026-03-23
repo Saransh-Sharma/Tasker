@@ -11,14 +11,17 @@ import CoreData
 import CloudKit
 import Firebase
 import BackgroundTasks
+import MetricKit
 import UserNotifications
 
 enum PersistentBootstrapState {
+    case loading
     case ready(NSPersistentCloudKitContainer)
     case failed(String)
 }
 
 enum LaunchRootMode: Equatable {
+    case loading
     case home
     case bootstrapFailure(message: String)
 }
@@ -86,6 +89,40 @@ struct CloudKitRuntimeContext {
 
 extension Notification.Name {
     static let taskerPersistentSyncModeDidChange = Notification.Name("TaskerPersistentSyncModeDidChange")
+    static let taskerPersistentBootstrapStateDidChange = Notification.Name("TaskerPersistentBootstrapStateDidChange")
+}
+
+private final class TaskerMetricKitSubscriber: NSObject, MXMetricManagerSubscriber {
+    private let isoFormatter = ISO8601DateFormatter()
+
+    func didReceive(_ payloads: [MXMetricPayload]) {
+        for payload in payloads {
+            var fields: [String: String] = [
+                "time_start": isoFormatter.string(from: payload.timeStampBegin),
+                "time_end": isoFormatter.string(from: payload.timeStampEnd),
+                "includes_multiple_versions": payload.includesMultipleApplicationVersions ? "true" : "false",
+                "latest_application_version": payload.latestApplicationVersion
+            ]
+
+            if let animationMetrics = payload.animationMetrics {
+                fields["scroll_hitch_time_ratio"] = Self.format(animationMetrics.scrollHitchTimeRatio)
+                if #available(iOS 26.0, *) {
+                    fields["hitch_time_ratio"] = Self.format(animationMetrics.hitchTimeRatio)
+                }
+            }
+
+            logInfo(
+                event: "performance_metrickit_payload_received",
+                message: "Received MetricKit performance payload",
+                component: "performance",
+                fields: fields
+            )
+        }
+    }
+
+    private static func format(_ measurement: Measurement<Unit>) -> String {
+        String(format: "%.4f", measurement.value)
+    }
 }
 
 @UIApplicationMain
@@ -114,7 +151,13 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
     private(set) static var persistentBootstrapFailureMessage: String?
     private(set) static var persistentSyncMode: PersistentSyncMode = .fullSync
     static var isPersistentStoreReady: Bool {
-        persistentBootstrapFailureMessage == nil
+        guard let appDelegate = UIApplication.shared.delegate as? AppDelegate else {
+            return false
+        }
+        if case .ready = appDelegate.persistentBootstrapState {
+            return true
+        }
+        return false
     }
     static var isWriteClosed: Bool {
         if case .writeClosed = persistentSyncMode {
@@ -123,13 +166,18 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         return false
     }
 
-    private(set) var persistentBootstrapState: PersistentBootstrapState = .failed("Persistent store bootstrap has not run")
+    private(set) var persistentBootstrapState: PersistentBootstrapState = .loading
     private(set) var persistentContainer: NSPersistentCloudKitContainer?
     private var didScheduleDeferredLaunchServices = false
+    private let persistentBootstrapQueue = DispatchQueue(
+        label: "tasker.app.persistentBootstrap",
+        qos: .userInitiated
+    )
     private let deferredLaunchWarmupQueue = DispatchQueue(
         label: "tasker.app.launchWarmup",
         qos: .utility
     )
+    private let metricKitSubscriber = TaskerMetricKitSubscriber()
 
 
     /// Executes application.
@@ -180,8 +228,9 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         // Hard-reset cutover to V3 model/container.
         let bootstrapInterval = TaskerPerformanceTrace.begin("PersistentBootstrap")
         performV3BootstrapCutoverIfNeeded()
-        _ = applyBootstrapState(bootstrapV3PersistentContainer(), trigger: "launch")
+        beginPersistentStoreBootstrap(trigger: "launch")
         TaskerPerformanceTrace.end(bootstrapInterval)
+        registerPerformanceTelemetryIfNeeded()
         scheduleDeferredLaunchServices(
             application: application,
             shouldConfigureFirebase: shouldConfigureFirebase
@@ -282,7 +331,9 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
             }
         }
         reconcileNotifications(reason: "app_did_enter_background")
-        TaskSemanticRetrievalService.shared.persistIndex()
+        deferredLaunchWarmupQueue.async {
+            TaskSemanticRetrievalService.shared.persistIndex()
+        }
     }
 
     /// Executes applicationWillEnterForeground.
@@ -293,6 +344,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
     /// Executes applicationDidBecomeActive.
     func applicationDidBecomeActive(_ application: UIApplication) {
         reconcileNotifications(reason: "app_did_become_active")
+        guard case .ready = persistentBootstrapState else { return }
         if FirebaseApp.app() != nil {
             GamificationRemoteKillSwitchService.shared.refreshIfAvailable(reason: "app_did_become_active")
             LiquidMetalCTARemoteConfigService.shared.refreshIfAvailable(reason: "app_did_become_active")
@@ -315,6 +367,8 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
     func makeLaunchRootMode(state overrideState: PersistentBootstrapState? = nil) -> LaunchRootMode {
         let state = overrideState ?? persistentBootstrapState
         switch state {
+        case .loading:
+            return .loading
         case .ready:
             return .home
         case .failed(let message):
@@ -343,6 +397,12 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         persistentBootstrapState = state
 
         switch state {
+        case .loading:
+            AppDelegate.persistentBootstrapFailureMessage = nil
+            persistentContainer = nil
+            postPersistentBootstrapStateDidChange()
+            return .loading
+
         case .ready(let container):
             persistentContainer = container
             AppDelegate.persistentBootstrapFailureMessage = nil
@@ -405,6 +465,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
                     "trigger": trigger
                 ]
             )
+            postPersistentBootstrapStateDidChange()
             return .home
 
         case .failed(let message):
@@ -430,8 +491,34 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
                     "sync_reason": AppDelegate.persistentSyncMode.reason
                 ]
             )
+            postPersistentBootstrapStateDidChange()
             return .bootstrapFailure(message: message)
         }
+    }
+
+    private func beginPersistentStoreBootstrap(trigger: String) {
+        _ = applyBootstrapState(.loading, trigger: trigger)
+        let interval = TaskerPerformanceTrace.begin("PersistentBootstrapAsync")
+        Task.detached(priority: .userInitiated) { [weak self] in
+            guard let self else { return }
+            let state = await self.bootstrapV3PersistentContainer()
+            await MainActor.run {
+                TaskerPerformanceTrace.end(interval)
+                _ = self.applyBootstrapState(state, trigger: trigger)
+            }
+        }
+    }
+
+    private func postPersistentBootstrapStateDidChange() {
+        NotificationCenter.default.post(
+            name: .taskerPersistentBootstrapStateDidChange,
+            object: self
+        )
+    }
+
+    private func registerPerformanceTelemetryIfNeeded() {
+        guard #available(iOS 13.0, *) else { return }
+        MXMetricManager.shared.add(self.metricKitSubscriber)
     }
 
     private func installPersistentStoreObservers(container: NSPersistentCloudKitContainer) {
@@ -496,6 +583,14 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
             clearActiveV3SplitStoreFiles()
             let launchMode = rebootstrapPersistentStore(trigger: "cloud_authoritative_reset")
             switch launchMode {
+            case .loading:
+                logWarning(
+                    event: "persistent_store_recovery_rebootstrap_started",
+                    message: "Cloud-authoritative recovery started async persistent store rebootstrap",
+                    fields: [
+                        "quarantine_dir": quarantineURL?.path ?? "none"
+                    ]
+                )
             case .home:
                 logWarning(
                     event: "persistent_store_recovery_completed",
@@ -538,7 +633,8 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         }
         persistentContainer = nil
         gamificationRemoteChangeCoordinator = nil
-        return applyBootstrapState(bootstrapV3PersistentContainer(), trigger: trigger)
+        beginPersistentStoreBootstrap(trigger: trigger)
+        return .loading
     }
 
     // MARK: - UI Testing Helpers
@@ -864,8 +960,8 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
     }
 
     /// Executes bootstrapV3PersistentContainer.
-    private func bootstrapV3PersistentContainer() -> PersistentBootstrapState {
-        let result = persistentStoreBootstrapService.bootstrapV3PersistentContainer()
+    private func bootstrapV3PersistentContainer() async -> PersistentBootstrapState {
+        let result = await persistentStoreBootstrapService.bootstrapV3PersistentContainer()
         updatePersistentSyncMode(result.syncMode, source: result.syncModeSource)
         if result.shouldMarkStoreEpoch {
             markV3BootstrapEpochApplied()
@@ -887,107 +983,6 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
             return "missing_configurations_\(missingConfigurations.sorted().joined(separator: "_"))"
         }
         return "unknown_cloudsync_bootstrap_failure"
-    }
-
-    /// Executes loadPersistentStoresAndReport.
-    private func loadPersistentStoresAndReport(
-        container: NSPersistentCloudKitContainer,
-        phase: String
-    ) -> PersistentStoreLoadReport {
-        let descriptions = container.persistentStoreDescriptions
-        guard descriptions.isEmpty == false else {
-            return PersistentStoreLoadReport(loadedConfigurations: [], errors: [])
-        }
-        let expectedConfigurations = Set(descriptions.compactMap(\.configuration))
-
-        let group = DispatchGroup()
-        let lock = NSLock()
-        var loadedConfigurations = Set<String>()
-        var loadErrors: [NSError] = []
-
-        descriptions.forEach { _ in group.enter() }
-        container.loadPersistentStores { storeDescription, error in
-            defer { group.leave() }
-
-            lock.lock()
-            defer { lock.unlock() }
-
-            if let error = error as NSError? {
-                loadErrors.append(error)
-
-                let configuration = storeDescription.configuration ?? "unknown"
-                let missingConfigurations = expectedConfigurations.subtracting(loadedConfigurations)
-                let underlyingSummary = self.underlyingCoreDataErrorSummary(error)
-                let detailedSummary = self.detailedCoreDataErrorsSummary(error)
-                let metadataSummary = self.persistentStoreMetadataSnippet(at: storeDescription.url)
-                logError(
-                    event: "persistent_store_load_failed",
-                    message: "V3 persistent store failed to load",
-                    fields: [
-                        "phase": phase,
-                        "url": storeDescription.url?.absoluteString ?? "unknown",
-                        "configuration": configuration,
-                        "domain": error.domain,
-                        "code": String(error.code),
-                        "error": error.localizedDescription,
-                        "underlying_error": underlyingSummary,
-                        "detailed_errors": detailedSummary,
-                        "metadata": metadataSummary,
-                        "loaded_configurations": loadedConfigurations.sorted().joined(separator: ","),
-                        "missing_configurations": missingConfigurations.sorted().joined(separator: ",")
-                    ]
-                )
-                return
-            }
-
-            if let configuration = storeDescription.configuration {
-                loadedConfigurations.insert(configuration)
-            }
-        }
-        group.wait()
-
-        return PersistentStoreLoadReport(
-            loadedConfigurations: loadedConfigurations,
-            errors: loadErrors
-        )
-    }
-
-    private func persistentStoreMetadataSnippet(at url: URL?) -> String {
-        guard let url else { return "metadata_unavailable_no_url" }
-        guard FileManager.default.fileExists(atPath: url.path) else {
-            return "metadata_unavailable_missing_file"
-        }
-
-        do {
-            let metadata = try NSPersistentStoreCoordinator.metadataForPersistentStore(
-                ofType: NSSQLiteStoreType,
-                at: url,
-                options: nil
-            )
-            let storeUUID = metadata[NSStoreUUIDKey] as? String ?? "unknown"
-            let modelVersionIdentifiers = (metadata[NSStoreModelVersionIdentifiersKey] as? [String]) ?? []
-            let hashCount = (metadata[NSStoreModelVersionHashesKey] as? [String: Data])?.count ?? 0
-            return "uuid=\(storeUUID);model_versions=\(modelVersionIdentifiers.joined(separator: "|"));hash_count=\(hashCount)"
-        } catch {
-            return "metadata_unavailable_\(error.localizedDescription)"
-        }
-    }
-
-    private func underlyingCoreDataErrorSummary(_ error: NSError) -> String {
-        guard let underlying = error.userInfo[NSUnderlyingErrorKey] as? NSError else {
-            return "none"
-        }
-        return "\(underlying.domain):\(underlying.code):\(underlying.localizedDescription)"
-    }
-
-    private func detailedCoreDataErrorsSummary(_ error: NSError) -> String {
-        guard let detailedErrors = error.userInfo[NSDetailedErrorsKey] as? [NSError],
-              detailedErrors.isEmpty == false else {
-            return "none"
-        }
-        return detailedErrors
-            .map { "\($0.domain):\($0.code):\($0.localizedDescription)" }
-            .joined(separator: " | ")
     }
 
     /// Executes hasExpectedConfigurations.
@@ -1098,6 +1093,10 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
             return
         }
         persistentRuntimeInitializer.initialize(container: container)
+    }
+
+    private var shouldRunStartupMutationWorkflows: Bool {
+        AppDelegate.isWriteClosed == false
     }
 
     /// Executes registerBackgroundTasks.
@@ -1381,10 +1380,19 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
             return failClosedV3Runtime(reason: error.localizedDescription)
         }
 
-        // Seed clean-start V3 defaults.
-        ensureV3Defaults()
-        repairProjectIdentityIfNeeded()
-        maintainHabitRuntimeIfNeeded(reason: "clean_architecture_setup")
+        if shouldRunStartupMutationWorkflows {
+            ensureV3Defaults()
+            repairProjectIdentityIfNeeded()
+            maintainHabitRuntimeIfNeeded(reason: "clean_architecture_setup")
+        } else {
+            logWarning(
+                event: "write_closed_startup_mutations_skipped",
+                message: "Skipping startup mutation workflows while app is in write-closed sync mode",
+                fields: [
+                    "reason": AppDelegate.persistentSyncMode.reason
+                ]
+            )
+        }
 
         // Reconcile gamification data on launch
         if V2FeatureFlags.gamificationV2Enabled {
@@ -1463,6 +1471,10 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
     }
 
     private func maintainHabitRuntimeIfNeeded(reason: String) {
+        guard shouldRunStartupMutationWorkflows else {
+            return
+        }
+
         guard PresentationDependencyContainer.shared.isConfiguredForRuntime else {
             return
         }
