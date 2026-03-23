@@ -125,8 +125,10 @@ public final class TaskDetailViewModel: ObservableObject {
     private var childrenRequestID: UUID?
     private var breakdownRequestToken = UUID()
     private var hasScheduledInitialEnrichment = false
+    private var hasLoadedChildren = false
     private var pendingEditingMetadataTask: Task<Void, Never>?
     private var pendingSecondaryEnrichmentTask: Task<Void, Never>?
+    private var pendingProjectScopedRefreshWorkItem: DispatchWorkItem?
 
     /// Initializes a new instance.
     public init(
@@ -186,6 +188,7 @@ public final class TaskDetailViewModel: ObservableObject {
         autosaveWorkItem?.cancel()
         pendingEditingMetadataTask?.cancel()
         pendingSecondaryEnrichmentTask?.cancel()
+        pendingProjectScopedRefreshWorkItem?.cancel()
     }
 
     public var selectedProjectName: String {
@@ -284,7 +287,6 @@ public final class TaskDetailViewModel: ObservableObject {
             }
             guard let self, Task.isCancelled == false else { return }
             self.refreshRelationshipMetadata()
-            self.refreshChildren()
             self.pendingSecondaryEnrichmentTask = nil
         }
     }
@@ -317,11 +319,25 @@ public final class TaskDetailViewModel: ObservableObject {
     public func handleDisappear() {
         pendingEditingMetadataTask?.cancel()
         pendingSecondaryEnrichmentTask?.cancel()
+        pendingProjectScopedRefreshWorkItem?.cancel()
         pendingEditingMetadataTask = nil
         pendingSecondaryEnrichmentTask = nil
+        pendingProjectScopedRefreshWorkItem = nil
         editingMetadataRequestID = UUID()
         relationshipMetadataRequestID = UUID()
         childrenRequestID = UUID()
+        hasLoadedChildren = false
+    }
+
+    public func refreshProjectScopedMetadata() {
+        pendingProjectScopedRefreshWorkItem?.cancel()
+        let workItem = DispatchWorkItem { [weak self] in
+            guard let self else { return }
+            self.refreshMetadata()
+            self.refreshRelationshipMetadata()
+        }
+        pendingProjectScopedRefreshWorkItem = workItem
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.05, execute: workItem)
     }
 
     /// Executes refreshMetadata.
@@ -410,11 +426,17 @@ public final class TaskDetailViewModel: ObservableObject {
                     if self.childSteps != nextChildren {
                         self.childSteps = nextChildren
                     }
+                    self.hasLoadedChildren = true
                 case .failure(let error):
                     self.errorMessage = error.localizedDescription
                 }
             }
         }
+    }
+
+    public func ensureChildrenLoaded() {
+        guard hasLoadedChildren == false else { return }
+        refreshChildren()
     }
 
     /// Executes scheduleAutosave.

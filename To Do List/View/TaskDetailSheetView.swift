@@ -135,8 +135,7 @@ struct TaskDetailSheetView: View {
                 viewModel.scheduleAutosave(debounced: false)
             }
             .onChange(of: viewModel.selectedProjectID) {
-                viewModel.refreshMetadata()
-                viewModel.refreshRelationshipMetadata()
+                viewModel.refreshProjectScopedMetadata()
                 viewModel.scheduleAutosave(debounced: false)
             }
             .onChange(of: viewModel.dueDate) {
@@ -198,7 +197,6 @@ struct TaskDetailSheetView: View {
                 topBar
                 headerSection
                     .enhancedStaggeredAppearance(index: 0)
-                autosaveBanner
                 primaryActionsRow
                     .enhancedStaggeredAppearance(index: 1)
                 notesSection
@@ -339,7 +337,7 @@ struct TaskDetailSheetView: View {
     }
 
     private var headerSection: some View {
-        VStack(alignment: .leading, spacing: TaskerTheme.Spacing.sm) {
+        VStack(alignment: .leading, spacing: TaskerTheme.Spacing.md) {
             HStack(alignment: .top, spacing: TaskerTheme.Spacing.md) {
                 CompletionCheckbox(isComplete: viewModel.isComplete) {
                     viewModel.toggleRootCompletion()
@@ -355,34 +353,63 @@ struct TaskDetailSheetView: View {
                     .accessibilityIdentifier("taskDetail.titleField")
             }
 
-            HStack(spacing: TaskerTheme.Spacing.sm) {
-                PriorityBadge(priority: viewModel.selectedPriority.rawValue)
-                ScoreBadge(
-                    preview: detailXPPreview,
-                    reasonHint: XPCalculationEngine.estimateReasonHints(
-                        estimatedDuration: viewModel.estimatedDuration,
-                        isFocusSessionActive: false,
-                        isPinnedInFocusStrip: false
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: TaskerTheme.Spacing.xs) {
+                    PriorityBadge(priority: viewModel.selectedPriority.rawValue)
+                    ScoreBadge(
+                        preview: detailXPPreview,
+                        reasonHint: XPCalculationEngine.estimateReasonHints(
+                            estimatedDuration: viewModel.estimatedDuration,
+                            isFocusSessionActive: false,
+                            isPinnedInFocusStrip: false
+                        )
                     )
-                )
-
-                Spacer()
-
-                Text(viewModel.selectedProjectName)
-                    .font(.tasker(.caption1))
-                    .foregroundColor(Color.tasker.accentPrimary)
-                    .padding(.horizontal, TaskerTheme.Spacing.sm)
-                    .padding(.vertical, 4)
-                    .background(Color.tasker.accentMuted)
-                    .clipShape(Capsule())
-                    .accessibilityIdentifier("taskDetail.projectLabel")
+                    TaskerStatusPill(
+                        text: viewModel.selectedType.displayName,
+                        systemImage: typeSymbol,
+                        tone: .accent
+                    )
+                    TaskerStatusPill(
+                        text: statusText,
+                        systemImage: statusSymbol,
+                        tone: statusTone
+                    )
+                }
             }
 
-            Text(statusText)
-                .font(.tasker(.caption1))
-                .foregroundColor(Color.tasker.textTertiary)
-                .accessibilityLabel("Task status \(statusText)")
+            HStack(spacing: TaskerTheme.Spacing.sm) {
+                TaskerHeroMetricTile(
+                    title: "Project",
+                    value: viewModel.selectedProjectName,
+                    detail: viewModel.dueDate.map { "Due \($0.formatted(date: .abbreviated, time: .omitted))" } ?? "No due date",
+                    tone: .accent
+                )
+                TaskerHeroMetricTile(
+                    title: "Execution",
+                    value: estimatedDurationSummary,
+                    detail: viewModel.selectedEnergy.displayName,
+                    tone: viewModel.estimatedDuration == nil ? .warning : .neutral
+                )
+                TaskerHeroMetricTile(
+                    title: "Structure",
+                    value: viewModel.childSteps.isEmpty ? "Not broken down" : "\(viewModel.childSteps.count) steps",
+                    detail: descriptionIsEmpty ? "Notes still lean" : "Notes captured",
+                    tone: viewModel.childSteps.isEmpty ? .warning : .success
+                )
+            }
+
+            if viewModel.autosaveState != .idle {
+                autosaveBanner
+            }
         }
+        .padding(.horizontal, TaskerTheme.Spacing.screenHorizontal)
+        .padding(.vertical, TaskerTheme.Spacing.md)
+        .taskerPremiumSurface(
+            cornerRadius: TaskerTheme.CornerRadius.card,
+            fillColor: Color.tasker.surfacePrimary,
+            accentColor: priorityColor,
+            level: .e2
+        )
         .padding(.horizontal, TaskerTheme.Spacing.screenHorizontal)
     }
 
@@ -409,15 +436,26 @@ struct TaskDetailSheetView: View {
     @ViewBuilder
     private var autosaveBanner: some View {
         if viewModel.autosaveState != .idle {
-            Text(viewModel.autosaveState.label)
-                .font(.tasker(.caption2))
-                .foregroundColor(autosaveColor)
-                .padding(.horizontal, TaskerTheme.Spacing.screenHorizontal)
-                .accessibilityLabel(viewModel.autosaveState.label)
-                .transition(.asymmetric(
-                    insertion: .move(edge: .top).combined(with: .opacity),
-                    removal: .opacity
-                ))
+            HStack(spacing: TaskerTheme.Spacing.xs) {
+                Image(systemName: autosaveSymbol)
+                    .font(.system(size: 11, weight: .semibold))
+                Text(viewModel.autosaveState.label)
+                    .font(.tasker(.caption2).weight(.semibold))
+            }
+            .foregroundStyle(autosaveColor)
+            .padding(.horizontal, TaskerTheme.Spacing.sm)
+            .padding(.vertical, 6)
+            .background(autosaveFillColor)
+            .overlay(
+                Capsule()
+                    .stroke(autosaveColor.opacity(0.18), lineWidth: 1)
+            )
+            .clipShape(Capsule())
+            .accessibilityLabel(viewModel.autosaveState.label)
+            .transition(.asymmetric(
+                insertion: .move(edge: .top).combined(with: .opacity),
+                removal: .opacity
+            ))
         }
     }
 
@@ -479,20 +517,32 @@ struct TaskDetailSheetView: View {
             TaskerFeedback.selection()
             action()
         } label: {
-            HStack(spacing: 6) {
-                Image(systemName: icon)
-                Text(title)
+            HStack(spacing: 8) {
+                ZStack {
+                    Circle()
+                        .fill(tint.opacity(0.12))
+                        .frame(width: 28, height: 28)
+                    Image(systemName: icon)
+                        .font(.system(size: 13, weight: .semibold))
+                }
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(title)
+                    Text("Keeps this task moving")
+                        .font(.tasker(.caption2))
+                        .foregroundStyle(Color.tasker.textSecondary)
+                }
+                Spacer(minLength: 0)
             }
             .font(.tasker(.callout))
-            .foregroundColor(tint)
+            .foregroundStyle(tint)
             .frame(maxWidth: .infinity)
-            .padding(.vertical, 10)
-            .background(tint.opacity(0.12))
-            .overlay(
-                RoundedRectangle(cornerRadius: TaskerTheme.CornerRadius.md)
-                    .stroke(tint.opacity(0.25), lineWidth: 1)
+            .padding(.horizontal, TaskerTheme.Spacing.md)
+            .padding(.vertical, 12)
+            .taskerDenseSurface(
+                cornerRadius: TaskerTheme.CornerRadius.md,
+                fillColor: tint.opacity(0.1),
+                strokeColor: tint.opacity(0.2)
             )
-            .clipShape(RoundedRectangle(cornerRadius: TaskerTheme.CornerRadius.md))
         }
         .buttonStyle(.plain)
         .scaleOnPress()
@@ -525,19 +575,22 @@ struct TaskDetailSheetView: View {
                     if descriptionIsEmpty {
                         Text(descriptionPreview)
                             .font(.tasker(.body))
-                            .foregroundColor(Color.tasker.textQuaternary)
+                            .foregroundStyle(Color.tasker.textQuaternary)
                             .italic()
                     } else {
                         Text(descriptionPreview)
                             .font(.tasker(.body))
-                            .foregroundColor(Color.tasker.textSecondary)
+                            .foregroundStyle(Color.tasker.textSecondary)
                     }
                 }
                 .lineLimit(3)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(TaskerTheme.Spacing.md)
-                .background(Color.tasker.surfaceSecondary)
-                .clipShape(RoundedRectangle(cornerRadius: TaskerTheme.CornerRadius.md))
+                .taskerDenseSurface(
+                    cornerRadius: TaskerTheme.CornerRadius.md,
+                    fillColor: Color.tasker.surfaceSecondary,
+                    strokeColor: Color.tasker.strokeHairline.opacity(0.72)
+                )
                 .accessibilityIdentifier("taskDetail.descriptionField")
             }
         }
@@ -557,7 +610,7 @@ struct TaskDetailSheetView: View {
                     .padding(.vertical, TaskerTheme.Spacing.xs)
             }
 
-            ForEach(Array(viewModel.childSteps.enumerated()), id: \.element.id) { stepIndex, step in
+            ForEach(viewModel.childSteps, id: \.id) { step in
                 HStack(spacing: TaskerTheme.Spacing.sm) {
                     CompletionCheckbox(isComplete: step.isComplete, compact: true) {
                         viewModel.toggleStepCompletion(step)
@@ -590,10 +643,12 @@ struct TaskDetailSheetView: View {
                 }
                 .padding(.horizontal, TaskerTheme.Spacing.md)
                 .padding(.vertical, TaskerTheme.Spacing.sm)
-                .background(Color.tasker.surfaceSecondary)
-                .clipShape(RoundedRectangle(cornerRadius: TaskerTheme.CornerRadius.md))
+                .taskerDenseSurface(
+                    cornerRadius: TaskerTheme.CornerRadius.md,
+                    fillColor: Color.tasker.surfaceSecondary,
+                    strokeColor: Color.tasker.strokeHairline.opacity(0.72)
+                )
                 .taskCompletionTransition(isComplete: step.isComplete)
-                .enhancedStaggeredAppearance(index: stepIndex)
                 .accessibilityIdentifier("taskDetail.step.\(step.id.uuidString)")
             }
 
@@ -620,10 +675,16 @@ struct TaskDetailSheetView: View {
             }
             .padding(.horizontal, TaskerTheme.Spacing.md)
             .padding(.vertical, TaskerTheme.Spacing.sm)
-            .background(Color.tasker.surfaceSecondary)
-            .clipShape(RoundedRectangle(cornerRadius: TaskerTheme.CornerRadius.md))
+            .taskerDenseSurface(
+                cornerRadius: TaskerTheme.CornerRadius.md,
+                fillColor: Color.tasker.surfaceSecondary,
+                strokeColor: Color.tasker.strokeHairline.opacity(0.72)
+            )
         }
         .padding(.horizontal, TaskerTheme.Spacing.screenHorizontal)
+        .onAppear {
+            viewModel.ensureChildrenLoaded()
+        }
     }
 
     private var scheduleSection: some View {
@@ -766,7 +827,7 @@ struct TaskDetailSheetView: View {
         VStack(alignment: .leading, spacing: TaskerTheme.Spacing.sm) {
             Text("Danger zone")
                 .font(.tasker(.caption1).weight(.semibold))
-                .foregroundColor(Color.tasker.statusDanger)
+                .foregroundStyle(Color.tasker.statusDanger)
 
             Button(role: .destructive) {
                 promptDeleteTask()
@@ -781,8 +842,11 @@ struct TaskDetailSheetView: View {
             .accessibilityIdentifier("taskDetail.deleteButton")
         }
         .padding(TaskerTheme.Spacing.md)
-        .background(Color.tasker.statusDanger.opacity(0.08))
-        .clipShape(RoundedRectangle(cornerRadius: TaskerTheme.CornerRadius.md))
+        .taskerDenseSurface(
+            cornerRadius: TaskerTheme.CornerRadius.md,
+            fillColor: Color.tasker.statusDanger.opacity(0.08),
+            strokeColor: Color.tasker.statusDanger.opacity(0.16)
+        )
         .padding(.horizontal, TaskerTheme.Spacing.screenHorizontal)
     }
 
@@ -879,6 +943,32 @@ struct TaskDetailSheetView: View {
         }
     }
 
+    private var autosaveFillColor: Color {
+        switch viewModel.autosaveState {
+        case .idle:
+            return .clear
+        case .saving:
+            return Color.tasker.surfaceSecondary
+        case .saved:
+            return Color.tasker.statusSuccess.opacity(0.12)
+        case .failed:
+            return Color.tasker.statusDanger.opacity(0.12)
+        }
+    }
+
+    private var autosaveSymbol: String {
+        switch viewModel.autosaveState {
+        case .idle:
+            return "circle.fill"
+        case .saving:
+            return "arrow.triangle.2.circlepath"
+        case .saved:
+            return "checkmark.circle.fill"
+        case .failed:
+            return "exclamationmark.triangle.fill"
+        }
+    }
+
     private var priorityColor: Color {
         switch viewModel.selectedPriority {
         case .none: return Color.tasker.priorityNone
@@ -888,12 +978,57 @@ struct TaskDetailSheetView: View {
         }
     }
 
+    private var statusTone: TaskerStatusPillTone {
+        if viewModel.isComplete {
+            return .success
+        }
+        if viewModel.dueDate == nil {
+            return .quiet
+        }
+        return .warning
+    }
+
+    private var statusSymbol: String {
+        if viewModel.isComplete {
+            return "checkmark.circle.fill"
+        }
+        if viewModel.dueDate == nil {
+            return "pause.circle"
+        }
+        return "clock.fill"
+    }
+
+    private var typeSymbol: String {
+        switch viewModel.selectedType {
+        case .morning:
+            return "sun.max.fill"
+        case .evening:
+            return "moon.stars.fill"
+        case .upcoming:
+            return "arrow.right.circle.fill"
+        case .inbox:
+            return "tray.full.fill"
+        }
+    }
+
     private var descriptionIsEmpty: Bool {
         viewModel.taskDescription.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
 
     private var descriptionPreview: String {
         descriptionIsEmpty ? "Add details you'll want later (optional)." : viewModel.taskDescription
+    }
+
+    private var estimatedDurationSummary: String {
+        guard let estimatedDuration = viewModel.estimatedDuration, estimatedDuration > 0 else {
+            return "No estimate"
+        }
+
+        let minutes = max(1, Int((estimatedDuration / 60).rounded()))
+        if minutes >= 60 {
+            return String(format: "%.1fh", Double(minutes) / 60.0)
+        }
+        return "\(minutes)m"
     }
 
     /// Executes addStep.
