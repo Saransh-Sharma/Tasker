@@ -232,7 +232,6 @@ public final class AddHabitViewModel: ObservableObject {
                 self.errorMessage = loadedError.localizedDescription
             }
             self.normalizeSelection()
-            self.capturePristineState()
         }
     }
 
@@ -240,6 +239,8 @@ public final class AddHabitViewModel: ObservableObject {
         if selectedKind == .positive, selectedTrackingMode != .dailyCheckIn {
             selectedTrackingMode = .dailyCheckIn
         }
+
+        normalizeProjectSelection()
 
         if let selectedIconSymbolName,
            availableIconOptions.contains(where: { $0.symbolName == selectedIconSymbolName }) == false {
@@ -254,18 +255,26 @@ public final class AddHabitViewModel: ObservableObject {
     public func createHabit(completion: @escaping (Result<HabitDefinitionRecord, Error>) -> Void) {
         let trimmedName = habitName.trimmingCharacters(in: .whitespacesAndNewlines)
         guard trimmedName.isEmpty == false else {
-            errorMessage = "Habit name cannot be empty."
+            let error = validationError("Habit name cannot be empty.")
+            errorMessage = error.localizedDescription
+            completion(.failure(error))
             return
         }
         guard let lifeAreaID = selectedLifeAreaID else {
-            errorMessage = "Select a life area."
+            let error = validationError("Select a life area.")
+            errorMessage = error.localizedDescription
+            completion(.failure(error))
             return
         }
         if let reminderWindowValidationError {
-            errorMessage = reminderWindowValidationError
+            let error = validationError(reminderWindowValidationError)
+            errorMessage = error.localizedDescription
+            completion(.failure(error))
             return
         }
 
+        normalizeSelection()
+        normalizeProjectSelection()
         isSaving = true
         errorMessage = nil
         let normalizedStart = reminderWindowStart.nilIfBlank?.normalizedHHmm
@@ -357,6 +366,26 @@ public final class AddHabitViewModel: ObservableObject {
         pristineQuery = iconSearchQuery.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
+    private func normalizeProjectSelection() {
+        guard let selectedProjectID else { return }
+        let isProjectValid = projects.contains { projectWithStats in
+            guard projectWithStats.project.id == selectedProjectID else { return false }
+            guard let selectedLifeAreaID else { return true }
+            return projectWithStats.project.lifeAreaID == selectedLifeAreaID
+        }
+        if isProjectValid == false {
+            self.selectedProjectID = nil
+        }
+    }
+
+    private func validationError(_ message: String) -> NSError {
+        NSError(
+            domain: "AddHabitViewModel",
+            code: 422,
+            userInfo: [NSLocalizedDescriptionKey: message]
+        )
+    }
+
 }
 
 fileprivate func habitReminderWindowValidationError(start: String?, end: String?) -> String? {
@@ -370,7 +399,7 @@ fileprivate func habitReminderWindowValidationError(start: String?, end: String?
     }
     if let startMinutes = normalizedStart?.minutesSinceMidnight,
        let endMinutes = normalizedEnd?.minutesSinceMidnight,
-       endMinutes < startMinutes {
+       endMinutes <= startMinutes {
         return "Reminder end must be after the start on the same day."
     }
     return nil
@@ -671,6 +700,7 @@ public final class HabitDetailViewModel: ObservableObject {
         if draft.kind == .positive, draft.trackingMode != .dailyCheckIn {
             draft.trackingMode = .dailyCheckIn
         }
+        normalizeDraftProjectSelection()
         if let selectedIconSymbolName = draft.selectedIconSymbolName,
            availableIconOptions.contains(where: { $0.symbolName == selectedIconSymbolName }) == false {
             draft.selectedIconSymbolName = availableIconOptions.first?.symbolName
@@ -681,6 +711,7 @@ public final class HabitDetailViewModel: ObservableObject {
     }
 
     public func saveChanges(completion: (() -> Void)? = nil) {
+        normalizeDraftSelection()
         guard canSave else {
             errorMessage = editorReminderWindowValidationError ?? "Fill in the required habit details."
             return
@@ -722,6 +753,7 @@ public final class HabitDetailViewModel: ObservableObject {
     }
 
     public func togglePause(completion: (() -> Void)? = nil) {
+        guard isSaving == false else { return }
         isSaving = true
         pauseHabitUseCase.execute(id: row.habitID, isPaused: !row.isPaused) { [weak self] result in
             Task { @MainActor [weak self] in
@@ -739,6 +771,7 @@ public final class HabitDetailViewModel: ObservableObject {
     }
 
     public func archive(completion: (() -> Void)? = nil) {
+        guard isSaving == false else { return }
         isSaving = true
         archiveHabitUseCase.execute(id: row.habitID) { [weak self] result in
             Task { @MainActor [weak self] in
@@ -757,6 +790,7 @@ public final class HabitDetailViewModel: ObservableObject {
 
     public func logLapse(completion: (() -> Void)? = nil) {
         guard row.trackingMode == .lapseOnly else { return }
+        guard isSaving == false else { return }
         isSaving = true
         resolveHabitOccurrenceUseCase.execute(
             habitID: row.habitID,
@@ -780,5 +814,17 @@ public final class HabitDetailViewModel: ObservableObject {
 
     public func clearError() {
         errorMessage = nil
+    }
+
+    private func normalizeDraftProjectSelection() {
+        guard let projectID = draft.projectID else { return }
+        let isProjectValid = projects.contains { projectWithStats in
+            guard projectWithStats.project.id == projectID else { return false }
+            guard let lifeAreaID = draft.lifeAreaID else { return true }
+            return projectWithStats.project.lifeAreaID == lifeAreaID
+        }
+        if isProjectValid == false {
+            draft.projectID = nil
+        }
     }
 }

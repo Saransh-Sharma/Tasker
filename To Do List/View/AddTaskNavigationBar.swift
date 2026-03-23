@@ -9,7 +9,7 @@ import SwiftUI
 
 struct AddTaskNavigationBar: View {
     let containerMode: AddTaskContainerMode
-    let title: String
+    let title: LocalizedStringKey
     let canSave: Bool
     let onCancel: () -> Void
     let onSave: () -> Void

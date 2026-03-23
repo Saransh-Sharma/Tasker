@@ -1451,15 +1451,13 @@ private struct HabitWeekdayPickerRow: View {
 
     private var spacing: TaskerSpacingTokens { themeManager.tokens(for: layoutClass).spacing }
 
-    private let weekdays: [(day: Int, label: String)] = [
-        (1, "S"),
-        (2, "M"),
-        (3, "T"),
-        (4, "W"),
-        (5, "T"),
-        (6, "F"),
-        (7, "S"),
-    ]
+    private var weekdays: [(day: Int, label: String)] {
+        let labels = Calendar.current.veryShortWeekdaySymbols
+        return (1...7).map { day in
+            let index = labels.indices.contains(day - 1) ? day - 1 : 0
+            return (day, labels[index])
+        }
+    }
 
     var body: some View {
         HStack(spacing: spacing.s4) {

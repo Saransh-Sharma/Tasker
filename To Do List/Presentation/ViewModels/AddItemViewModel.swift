@@ -1,3 +1,4 @@
+import Combine
 import Foundation
 import SwiftUI
 
@@ -21,23 +22,33 @@ public final class AddItemViewModel: ObservableObject {
 
     public let taskViewModel: AddTaskViewModel
     public let habitViewModel: AddHabitViewModel
+    public let allowedModes: [AddItemMode]
+    private var cancellables = Set<AnyCancellable>()
 
     public init(
         taskViewModel: AddTaskViewModel,
         habitViewModel: AddHabitViewModel,
+        allowedModes: [AddItemMode] = AddItemMode.allCases,
         selectedMode: AddItemMode = .task
     ) {
         self.taskViewModel = taskViewModel
         self.habitViewModel = habitViewModel
-        self.selectedMode = selectedMode
+        self.allowedModes = allowedModes.isEmpty ? AddItemMode.allCases : allowedModes
+        self.selectedMode = self.allowedModes.contains(selectedMode) ? selectedMode : self.allowedModes[0]
+
+        taskViewModel.objectWillChange
+            .merge(with: habitViewModel.objectWillChange)
+            .sink { [weak self] _ in
+                self?.objectWillChange.send()
+            }
+            .store(in: &cancellables)
+    }
+
+    public var showsModePicker: Bool {
+        allowedModes.count > 1
     }
 
     public var hasUnsavedChanges: Bool {
-        switch selectedMode {
-        case .task:
-            return taskViewModel.hasUnsavedChanges
-        case .habit:
-            return habitViewModel.hasUnsavedChanges
-        }
+        taskViewModel.hasUnsavedChanges || habitViewModel.hasUnsavedChanges
     }
 }

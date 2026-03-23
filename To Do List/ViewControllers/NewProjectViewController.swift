@@ -167,7 +167,10 @@ class NewProjectViewController: UIViewController, UITextFieldDelegate, UseCaseCo
                                 fatalError("NewProjectViewController missing PresentationDependencyContainer")
                             }
                             let vm = presentationDependencyContainer.makeNewAddTaskViewModel()
-                            let sheet = AddTaskSheetView(viewModel: vm)
+                            let sheet = AddTaskSheetView(
+                                viewModel: vm,
+                                habitViewModel: presentationDependencyContainer.makeNewAddHabitViewModel()
+                            )
                             let hostingVC = UIHostingController(rootView: sheet)
                             hostingVC.modalPresentationStyle = .pageSheet
                             if let sheetController = hostingVC.sheetPresentationController {

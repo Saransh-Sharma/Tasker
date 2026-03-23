@@ -10,8 +10,8 @@ import SwiftUI
 struct AddTaskTitleField: View {
     @Binding var text: String
     @FocusState.Binding var isFocused: Bool
-    let placeholder: String
-    let helperText: String
+    let placeholder: LocalizedStringKey
+    let helperText: LocalizedStringKey
     let onSubmit: () -> Void
 
     private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.currentTheme.tokens.spacing }

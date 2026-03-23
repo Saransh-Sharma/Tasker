@@ -192,6 +192,7 @@ final class OnboardingFreshLaunchUITests: BaseUITest {
         let addHabitButton = app.buttons["Add"].firstMatch
         XCTAssertTrue(addHabitButton.waitForExistence(timeout: 12))
         addHabitButton.tap()
+        XCTAssertTrue(app.staticTexts["1 added"].waitForExistence(timeout: 12))
 
         let continueButton = app.buttons[AccessibilityIdentifiers.Onboarding.useHabits]
         XCTAssertTrue(continueButton.waitForExistence(timeout: 12))
@@ -230,6 +231,7 @@ final class OnboardingFreshLaunchUITests: BaseUITest {
         app.buttons["Add Habit"].firstMatch.tap()
 
         XCTAssertTrue(app.descendants(matching: .any)[AccessibilityIdentifiers.Onboarding.habits].waitForExistence(timeout: 12))
+        XCTAssertTrue(app.staticTexts["1 added"].waitForExistence(timeout: 12))
         XCTAssertTrue(app.buttons[AccessibilityIdentifiers.Onboarding.useHabits].exists)
     }
 }

@@ -25,14 +25,16 @@ struct AddItemComposerView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            Picker("Item Type", selection: $viewModel.selectedMode) {
-                ForEach(AddItemMode.allCases) { mode in
-                    Text(mode.displayName).tag(mode)
+            if viewModel.showsModePicker {
+                Picker("Item Type", selection: $viewModel.selectedMode) {
+                    ForEach(viewModel.allowedModes) { mode in
+                        Text(mode.displayName).tag(mode)
+                    }
                 }
+                .pickerStyle(.segmented)
+                .padding(.horizontal, spacing.s16)
+                .padding(.top, spacing.s8)
             }
-            .pickerStyle(.segmented)
-            .padding(.horizontal, spacing.s16)
-            .padding(.top, spacing.s8)
 
             switch viewModel.selectedMode {
             case .task:

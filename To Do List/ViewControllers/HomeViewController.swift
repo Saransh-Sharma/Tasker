@@ -1374,6 +1374,7 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
         return AnyView(
             AddTaskInspectorContainer(
                 viewModel: presentationDependencyContainer.makeNewAddTaskViewModel(),
+                habitViewModel: presentationDependencyContainer.makeNewAddHabitViewModel(),
                 onClose: { [weak self] in
                     self?.iPadShellState.destination = .tasks
                 }
@@ -1869,6 +1870,7 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
         viewModel.applyPrefill(prefill)
         let sheet = AddTaskSheetView(
             viewModel: viewModel,
+            habitViewModel: presentationDependencyContainer.makeNewAddHabitViewModel(),
             onTaskCreated: onTaskCreated,
             onDismissWithoutTask: onDismissWithoutTask
         )
@@ -1897,6 +1899,7 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
             itemViewModel: AddItemViewModel(
                 taskViewModel: taskViewModel,
                 habitViewModel: habitViewModel,
+                allowedModes: [.habit],
                 selectedMode: .habit
             ),
             onHabitCreated: onHabitCreated,
@@ -1975,7 +1978,10 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
             fatalError("HomeViewController missing PresentationDependencyContainer")
         }
         let vm = presentationDependencyContainer.makeNewAddTaskViewModel()
-        let sheet = AddTaskSheetView(viewModel: vm)
+        let sheet = AddTaskSheetView(
+            viewModel: vm,
+            habitViewModel: presentationDependencyContainer.makeNewAddHabitViewModel()
+        )
         let hostingVC = UIHostingController(rootView: sheet)
         hostingVC.modalPresentationStyle = .pageSheet
         if let sheetController = hostingVC.sheetPresentationController {
@@ -1998,7 +2004,10 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
             fatalError("HomeViewController missing PresentationDependencyContainer")
         }
         let vm = presentationDependencyContainer.makeNewAddTaskViewModel()
-        let sheet = AddTaskSheetView(viewModel: vm)
+        let sheet = AddTaskSheetView(
+            viewModel: vm,
+            habitViewModel: presentationDependencyContainer.makeNewAddHabitViewModel()
+        )
         let hostingVC = UIHostingController(rootView: sheet.taskerLayoutClass(currentLayoutClass))
         hostingVC.modalPresentationStyle = .formSheet
         hostingVC.preferredContentSize = CGSize(width: 540, height: 620)

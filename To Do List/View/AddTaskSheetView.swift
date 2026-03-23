@@ -35,14 +35,18 @@ public struct AddTaskSheetView: View {
 
     public init(
         viewModel: AddTaskViewModel,
+        habitViewModel: AddHabitViewModel,
         onTaskCreated: ((UUID) -> Void)? = nil,
         onHabitCreated: ((UUID) -> Void)? = nil,
         onDismissWithoutTask: (() -> Void)? = nil
     ) {
+        let allowedModes = Self.allowedModes(onTaskCreated: onTaskCreated, onHabitCreated: onHabitCreated)
         _viewModel = StateObject(
             wrappedValue: AddItemViewModel(
                 taskViewModel: viewModel,
-                habitViewModel: PresentationDependencyContainer.shared.makeNewAddHabitViewModel()
+                habitViewModel: habitViewModel,
+                allowedModes: allowedModes,
+                selectedMode: allowedModes.first ?? .task
             )
         )
         self.onTaskCreated = onTaskCreated
@@ -56,7 +60,15 @@ public struct AddTaskSheetView: View {
         onHabitCreated: ((UUID) -> Void)? = nil,
         onDismissWithoutTask: (() -> Void)? = nil
     ) {
-        _viewModel = StateObject(wrappedValue: itemViewModel)
+        let allowedModes = Self.allowedModes(onTaskCreated: onTaskCreated, onHabitCreated: onHabitCreated)
+        _viewModel = StateObject(
+            wrappedValue: AddItemViewModel(
+                taskViewModel: itemViewModel.taskViewModel,
+                habitViewModel: itemViewModel.habitViewModel,
+                allowedModes: allowedModes,
+                selectedMode: itemViewModel.selectedMode
+            )
+        )
         self.onTaskCreated = onTaskCreated
         self.onHabitCreated = onHabitCreated
         self.onDismissWithoutTask = onDismissWithoutTask
@@ -114,6 +126,7 @@ public struct AddTaskSheetView: View {
     }
 
     private func handleTaskCreate() {
+        guard viewModel.allowedModes.contains(.task) else { return }
         guard viewModel.taskViewModel.viewState.canSubmit, !viewModel.taskViewModel.isLoading else { return }
         pendingTaskBehavior = .dismiss
         showAddAnother = false
@@ -121,6 +134,7 @@ public struct AddTaskSheetView: View {
     }
 
     private func handleTaskAddAnother() {
+        guard viewModel.allowedModes.contains(.task) else { return }
         guard viewModel.taskViewModel.viewState.canSubmit, !viewModel.taskViewModel.isLoading else { return }
         pendingTaskBehavior = .addAnother
         showAddAnother = false
@@ -128,6 +142,7 @@ public struct AddTaskSheetView: View {
     }
 
     private func handleHabitCreate() {
+        guard viewModel.allowedModes.contains(.habit) else { return }
         guard viewModel.habitViewModel.canSubmit, !viewModel.habitViewModel.isSaving else { return }
         viewModel.habitViewModel.createHabit { result in
             guard case .success(let habit) = result else { return }
@@ -139,6 +154,7 @@ public struct AddTaskSheetView: View {
     }
 
     private func handleHabitAddAnother() {
+        guard viewModel.allowedModes.contains(.habit) else { return }
         guard viewModel.habitViewModel.canSubmit, !viewModel.habitViewModel.isSaving else { return }
         viewModel.habitViewModel.createHabit { result in
             guard case .success(let habit) = result else { return }
@@ -160,6 +176,10 @@ public struct AddTaskSheetView: View {
     }
 
     private func handleCreatedTask(_ taskID: UUID, behavior: AddItemSubmissionBehavior) {
+        guard viewModel.allowedModes.contains(.task) else {
+            pendingTaskBehavior = nil
+            return
+        }
         pendingTaskBehavior = nil
         didCreateItem = true
         onTaskCreated?(taskID)
@@ -192,6 +212,23 @@ public struct AddTaskSheetView: View {
             }
         }
     }
+
+    private static func allowedModes(
+        onTaskCreated: ((UUID) -> Void)?,
+        onHabitCreated: ((UUID) -> Void)?
+    ) -> [AddItemMode] {
+        let taskAllowed = onTaskCreated != nil || onHabitCreated == nil
+        let habitAllowed = onHabitCreated != nil
+        let modes = AddItemMode.allCases.filter { mode in
+            switch mode {
+            case .task:
+                return taskAllowed
+            case .habit:
+                return habitAllowed
+            }
+        }
+        return modes.isEmpty ? [.task] : modes
+    }
 }
 
 struct AddTaskInspectorContainer: View {
@@ -201,11 +238,11 @@ struct AddTaskInspectorContainer: View {
     @State private var successResetTask: Task<Void, Never>?
     let onClose: () -> Void
 
-    init(viewModel: AddTaskViewModel, onClose: @escaping () -> Void) {
+    init(viewModel: AddTaskViewModel, habitViewModel: AddHabitViewModel, onClose: @escaping () -> Void) {
         _viewModel = StateObject(
             wrappedValue: AddItemViewModel(
                 taskViewModel: viewModel,
-                habitViewModel: PresentationDependencyContainer.shared.makeNewAddHabitViewModel()
+                habitViewModel: habitViewModel
             )
         )
         self.onClose = onClose
