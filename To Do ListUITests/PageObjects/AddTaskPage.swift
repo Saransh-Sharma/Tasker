@@ -431,6 +431,12 @@ class AddTaskPage {
     /// Tap save button
     @discardableResult
     func tapSave() -> HomePage {
+        let nonKeyboardDoneButton = app.buttons
+            .matching(NSPredicate(format: "label == %@ AND identifier != %@", "Done", "Done"))
+            .firstMatch
+        let nonKeyboardSaveButton = app.buttons
+            .matching(NSPredicate(format: "label == %@ AND identifier != %@", "Save", "Save"))
+            .firstMatch
         let didDismiss: () -> Bool = {
             if self.waitForDismissal(timeout: 2) {
                 return true
@@ -451,8 +457,8 @@ class AddTaskPage {
             app.navigationBars.firstMatch.buttons["Save"],
             app.buttons["Create Task"],
             app.buttons["Create"],
-            app.buttons["Done"],
-            app.buttons["Save"],
+            nonKeyboardDoneButton,
+            nonKeyboardSaveButton,
             app.toolbars.buttons["Done"]
         ]
         let deadline = Date().addingTimeInterval(6)

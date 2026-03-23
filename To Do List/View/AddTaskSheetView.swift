@@ -36,18 +36,19 @@ public struct AddTaskSheetView: View {
     public init(
         viewModel: AddTaskViewModel,
         habitViewModel: AddHabitViewModel,
-        modePolicy: AddItemModePolicy = .unified(defaultMode: .task),
+        modePolicy: AddItemModePolicy? = nil,
         onTaskCreated: ((UUID) -> Void)? = nil,
         onHabitCreated: ((UUID) -> Void)? = nil,
         onDismissWithoutTask: (() -> Void)? = nil
     ) {
-        let allowedModes = modePolicy.allowedModes
+        let resolvedModePolicy = modePolicy ?? .taskOnly
+        let allowedModes = resolvedModePolicy.allowedModes
         _viewModel = StateObject(
             wrappedValue: AddItemViewModel(
                 taskViewModel: viewModel,
                 habitViewModel: habitViewModel,
                 allowedModes: allowedModes,
-                selectedMode: modePolicy.defaultMode
+                selectedMode: resolvedModePolicy.defaultMode
             )
         )
         self.onTaskCreated = onTaskCreated
@@ -57,18 +58,19 @@ public struct AddTaskSheetView: View {
 
     public init(
         itemViewModel: AddItemViewModel,
-        modePolicy: AddItemModePolicy = .unified(defaultMode: .task),
+        modePolicy: AddItemModePolicy? = nil,
         onTaskCreated: ((UUID) -> Void)? = nil,
         onHabitCreated: ((UUID) -> Void)? = nil,
         onDismissWithoutTask: (() -> Void)? = nil
     ) {
-        let allowedModes = modePolicy.allowedModes
+        let resolvedModePolicy = modePolicy ?? Self.defaultModePolicy(for: itemViewModel)
+        let allowedModes = resolvedModePolicy.allowedModes
         _viewModel = StateObject(
             wrappedValue: AddItemViewModel(
                 taskViewModel: itemViewModel.taskViewModel,
                 habitViewModel: itemViewModel.habitViewModel,
                 allowedModes: allowedModes,
-                selectedMode: allowedModes.contains(itemViewModel.selectedMode) ? itemViewModel.selectedMode : modePolicy.defaultMode
+                selectedMode: allowedModes.contains(itemViewModel.selectedMode) ? itemViewModel.selectedMode : resolvedModePolicy.defaultMode
             )
         )
         self.onTaskCreated = onTaskCreated
@@ -114,6 +116,20 @@ public struct AddTaskSheetView: View {
         .onChange(of: viewModel.taskViewModel.lastCreatedTaskID) { _, taskID in
             guard let taskID, let behavior = pendingTaskBehavior else { return }
             handleCreatedTask(taskID, behavior: behavior)
+        }
+    }
+
+    private static func defaultModePolicy(for itemViewModel: AddItemViewModel) -> AddItemModePolicy {
+        switch itemViewModel.allowedModes {
+        case [.task]:
+            return .taskOnly
+        case [.habit]:
+            return .habitOnly
+        default:
+            let defaultMode = itemViewModel.allowedModes.contains(itemViewModel.selectedMode)
+                ? itemViewModel.selectedMode
+                : itemViewModel.allowedModes.first ?? .task
+            return .unified(defaultMode: defaultMode)
         }
     }
 

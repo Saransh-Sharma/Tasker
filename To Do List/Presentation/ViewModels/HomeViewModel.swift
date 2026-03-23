@@ -2465,7 +2465,6 @@ public final class HomeViewModel: ObservableObject {
         loadProjects(generation: generation)
         loadTags(generation: generation)
         applyFocusFilters(trackAnalytics: false, generation: generation) { [weak self] in
-            guard UIDevice.current.userInterfaceIdiom != .phone else { return }
             self?.scheduleDeferredAnalyticsRefresh(
                 reason: "initial_load",
                 includeGamificationRefresh: true

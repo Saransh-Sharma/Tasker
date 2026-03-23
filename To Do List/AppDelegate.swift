@@ -147,6 +147,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
     private var semanticTaskObservers: [NSObjectProtocol] = []
     private var lastHabitRuntimeMaintenanceAt: Date?
     private var inFlightHabitRuntimeMaintenanceTask: Task<Void, Never>?
+    private var persistentBootstrapGeneration: UInt64 = 0
 
     private(set) static var persistentBootstrapFailureMessage: String?
     private(set) static var persistentSyncMode: PersistentSyncMode = .fullSync
@@ -228,6 +229,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         // Hard-reset cutover to V3 model/container.
         let bootstrapInterval = TaskerPerformanceTrace.begin("PersistentBootstrap")
         performV3BootstrapCutoverIfNeeded()
+        registerBackgroundTasks()
         beginPersistentStoreBootstrap(trigger: "launch")
         TaskerPerformanceTrace.end(bootstrapInterval)
         registerPerformanceTelemetryIfNeeded()
@@ -331,9 +333,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
             }
         }
         reconcileNotifications(reason: "app_did_enter_background")
-        deferredLaunchWarmupQueue.async {
-            TaskSemanticRetrievalService.shared.persistIndex()
-        }
+        persistSemanticIndexForBackgroundTransition(application: application)
     }
 
     /// Executes applicationWillEnterForeground.
@@ -409,6 +409,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
 
             let didConfigureRuntime = setupCleanArchitecture()
             guard didConfigureRuntime else {
+                postPersistentBootstrapStateDidChange()
                 return makeLaunchRootMode()
             }
 
@@ -436,7 +437,6 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
                 }
             )
 
-            registerBackgroundTasks()
             if AppDelegate.isWriteClosed {
                 logWarning(
                     event: "write_closed_background_mutations_skipped",
@@ -498,14 +498,45 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
 
     private func beginPersistentStoreBootstrap(trigger: String) {
         _ = applyBootstrapState(.loading, trigger: trigger)
+        persistentBootstrapGeneration &+= 1
+        let generation = persistentBootstrapGeneration
         let interval = TaskerPerformanceTrace.begin("PersistentBootstrapAsync")
         Task.detached(priority: .userInitiated) { [weak self] in
             guard let self else { return }
             let state = await self.bootstrapV3PersistentContainer()
             await MainActor.run {
+                guard self.persistentBootstrapGeneration == generation else {
+                    TaskerPerformanceTrace.end(interval)
+                    return
+                }
                 TaskerPerformanceTrace.end(interval)
                 _ = self.applyBootstrapState(state, trigger: trigger)
             }
+        }
+    }
+
+    private func persistSemanticIndexForBackgroundTransition(application: UIApplication) {
+        final class BackgroundTaskBox {
+            private let lock = NSLock()
+            var identifier: UIBackgroundTaskIdentifier = .invalid
+
+            func end(in application: UIApplication) {
+                lock.lock()
+                defer { lock.unlock() }
+                guard identifier != .invalid else { return }
+                application.endBackgroundTask(identifier)
+                identifier = .invalid
+            }
+        }
+
+        let backgroundTask = BackgroundTaskBox()
+        backgroundTask.identifier = application.beginBackgroundTask(withName: "PersistSemanticIndex") {
+            backgroundTask.end(in: application)
+        }
+
+        deferredLaunchWarmupQueue.async {
+            TaskSemanticRetrievalService.shared.persistIndex()
+            backgroundTask.end(in: application)
         }
     }
 

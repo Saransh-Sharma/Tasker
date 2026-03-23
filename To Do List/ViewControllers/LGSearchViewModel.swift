@@ -112,11 +112,14 @@ class LGSearchViewModel {
             return
         }
 
-        if let readModelRepository = useCaseCoordinator.taskReadModelRepository {
+        let selectedProjectIDs = selectedProjectIDsForRepository()
+        let canUseReadModelRepository = filteredProjects.isEmpty || selectedProjectIDs.isEmpty == false
+
+        if canUseReadModelRepository, let readModelRepository = useCaseCoordinator.taskReadModelRepository {
             let repositoryQuery = TaskRepositorySearchQuery(
                 text: query,
                 status: repositorySearchStatus(for: currentStatusFilter),
-                projectIDs: selectedProjectIDsForRepository(),
+                projectIDs: selectedProjectIDs,
                 priorities: filteredPriorities.sorted(),
                 needsTotalCount: false,
                 limit: 600,

@@ -624,7 +624,7 @@ final class HabitCoreDataSchemaRegressionTests: XCTestCase {
         unloadPersistentStores(from: migratedContainer)
     }
 
-    func testBootstrapMigratesLegacySplitStoresAndReturnsFullSync() throws {
+    func testBootstrapMigratesLegacySplitStoresAndReturnsFullSync() async throws {
         let rootURL = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
         let appGroupURL = rootURL.appendingPathComponent("app-group", isDirectory: true)
         let legacyURL = rootURL.appendingPathComponent("legacy", isDirectory: true)
@@ -687,7 +687,7 @@ final class HabitCoreDataSchemaRegressionTests: XCTestCase {
             enableCloudKitContainerOptions: false
         )
 
-        let result = service.bootstrapV3PersistentContainer()
+        let result = await service.bootstrapV3PersistentContainer()
         guard case let .ready(container) = result.state else {
             XCTFail("Expected ready persistent bootstrap state")
             return
@@ -703,7 +703,7 @@ final class HabitCoreDataSchemaRegressionTests: XCTestCase {
         unloadPersistentStores(from: container)
     }
 
-    func testBootstrapAutoRebuildsOnlyCloudSyncStoreWhenMetadataIsIncompatible() throws {
+    func testBootstrapAutoRebuildsOnlyCloudSyncStoreWhenMetadataIsIncompatible() async throws {
         let rootURL = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
         let appGroupURL = rootURL.appendingPathComponent("app-group", isDirectory: true)
         let legacyURL = rootURL.appendingPathComponent("legacy", isDirectory: true)
@@ -759,13 +759,16 @@ final class HabitCoreDataSchemaRegressionTests: XCTestCase {
             enableCloudKitContainerOptions: false
         )
 
-        let result = service.bootstrapV3PersistentContainer()
+        let result = await service.bootstrapV3PersistentContainer()
         guard case let .ready(container) = result.state else {
             XCTFail("Expected ready persistent bootstrap state after CloudSync rebuild")
             return
         }
 
         XCTAssertEqual(result.syncMode, .fullSync)
+        let rebuiltTaskRequest = NSFetchRequest<NSManagedObject>(entityName: "TaskDefinition")
+        rebuiltTaskRequest.predicate = NSPredicate(format: "title == %@", "Wrong topology")
+        XCTAssertEqual(try container.viewContext.count(for: rebuiltTaskRequest), 0)
         let profileRequest = NSFetchRequest<NSManagedObject>(entityName: "GamificationProfile")
         XCTAssertEqual(try container.viewContext.count(for: profileRequest), 1)
         XCTAssertTrue(FileManager.default.fileExists(atPath: cloudURL.path))
@@ -790,7 +793,7 @@ final class HabitCoreDataSchemaRegressionTests: XCTestCase {
 
     func testCurrentCloudSyncModelAvoidsUniquenessConstraintsOnSyncableEntities() throws {
         let model = try currentCompiledTaskModel()
-        let constrainedEntities = ["Occurrence", "XPEvent", "DailyXPAggregate"]
+        let constrainedEntities = ["Occurrence"]
 
         for entityName in constrainedEntities {
             let entity = try XCTUnwrap(

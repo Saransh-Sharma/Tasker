@@ -992,7 +992,7 @@ final class PromptMiddlewareTests: XCTestCase {
         super.tearDown()
     }
 
-    func testTodaySummaryIncludesOverdueSection() {
+    func testTodaySummaryIncludesOverdueSection() async {
         let calendar = Calendar.current
         let startOfToday = calendar.startOfDay(for: Date())
         let overdueTask = TaskDefinition(
@@ -1012,7 +1012,7 @@ final class PromptMiddlewareTests: XCTestCase {
             tagRepository: nil
         )
 
-        let summary = PromptMiddleware.buildTasksSummary(range: .today)
+        let summary = await PromptMiddleware.buildTasksSummary(range: .today)
         XCTAssertTrue(summary.contains("Overdue:"))
         XCTAssertTrue(summary.contains("• [overdue] Overdue Task"))
         XCTAssertTrue(summary.contains("Due today:"))

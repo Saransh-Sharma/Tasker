@@ -222,6 +222,7 @@ struct TaskDetailSheetView: View {
         .accessibilityIdentifier("taskDetail.view")
         .onAppear {
             viewModel.onAppear()
+            viewModel.ensureChildrenLoaded()
         }
         .onReceive(NotificationCenter.default.publisher(for: .gamificationLedgerDidMutate)) { notification in
             guard let mutation = notification.gamificationLedgerMutation else { return }
@@ -682,9 +683,6 @@ struct TaskDetailSheetView: View {
             )
         }
         .padding(.horizontal, TaskerTheme.Spacing.screenHorizontal)
-        .onAppear {
-            viewModel.ensureChildrenLoaded()
-        }
     }
 
     private var scheduleSection: some View {

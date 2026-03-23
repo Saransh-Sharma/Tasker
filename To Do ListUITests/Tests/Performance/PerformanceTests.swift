@@ -232,6 +232,7 @@ class PerformanceTests: BaseUITest {
             homePage.tapSearch()
             XCTAssertTrue(homePage.waitForSearchFaceOpen(timeout: 2), "Search face should open during perf run")
             homePage.typeSearchQuery("Search Task 25")
+            homePage.tapSearchBackChip()
         }
 
         takeScreenshot(named: "performance_search")
