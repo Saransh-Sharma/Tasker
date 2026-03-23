@@ -564,8 +564,8 @@ struct TaskerPersistentRuntimeInitializer {
         }
 
         let templateRequest = NSFetchRequest<NSManagedObject>(entityName: "ScheduleTemplate")
-        let templates = try context.fetch(templateRequest)
-        let templatesByID = Dictionary(
+        let templates: [NSManagedObject] = try context.fetch(templateRequest)
+        let templatesByID: [UUID: NSManagedObject] = Dictionary(
             uniqueKeysWithValues: templates.compactMap { template in
                 guard let id = template.value(forKey: "id") as? UUID else { return nil }
                 return (id, template)

@@ -1182,6 +1182,10 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
             hasMountedStableLayoutShell = true
             trackLayoutClassAtLaunchIfNeeded()
         }
+        let existingHostingController = homeHostingController
+        if existingHostingController != nil {
+            iPadShellEpoch += 1
+        }
         let root: HomeHostRootView
 
         if currentLayoutClass.isPad && V2FeatureFlags.iPadNativeShellEnabled {
@@ -1200,8 +1204,7 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
             )
         }
 
-        if let existingHostingController = homeHostingController {
-            iPadShellEpoch += 1
+        if let existingHostingController {
             if currentLayoutClass.isPad && V2FeatureFlags.iPadNativeShellEnabled {
                 logWarning(
                     event: "ipadPrimarySurfaceShellEpochReset",

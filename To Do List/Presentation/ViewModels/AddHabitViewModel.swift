@@ -232,6 +232,7 @@ public final class AddHabitViewModel: ObservableObject {
                 self.errorMessage = loadedError.localizedDescription
             }
             self.normalizeSelection()
+            self.capturePristineState()
         }
     }
 
@@ -253,6 +254,7 @@ public final class AddHabitViewModel: ObservableObject {
     }
 
     public func createHabit(completion: @escaping (Result<HabitDefinitionRecord, Error>) -> Void) {
+        guard isSaving == false else { return }
         let trimmedName = habitName.trimmingCharacters(in: .whitespacesAndNewlines)
         guard trimmedName.isEmpty == false else {
             let error = validationError("Habit name cannot be empty.")

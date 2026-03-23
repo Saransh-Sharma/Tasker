@@ -358,9 +358,26 @@ final class HabitCoreDataSchemaRegressionTests: XCTestCase {
         let storeURL = temporaryStoreURL(name: "habit-runtime-migration")
         defer { removeSQLiteArtifacts(at: storeURL) }
         let defaults = UserDefaults.standard
-        defaults.removeObject(forKey: "tasker.habit.runtime.field_backfill.v1")
-        defaults.removeObject(forKey: "tasker.habit.runtime.repair_required.v1")
-        defaults.removeObject(forKey: "tasker.habit.runtime.repair_completed.v1")
+        let runtimeFlagKeys = [
+            "tasker.habit.runtime.field_backfill.v1",
+            "tasker.habit.runtime.repair_required.v1",
+            "tasker.habit.runtime.repair_completed.v1"
+        ]
+        let originalRuntimeFlagValues: [String: Any?] = Dictionary(uniqueKeysWithValues: runtimeFlagKeys.map { key in
+            (key, defaults.object(forKey: key))
+        })
+        defer {
+            for key in runtimeFlagKeys {
+                if let value = originalRuntimeFlagValues[key] {
+                    defaults.set(value, forKey: key)
+                } else {
+                    defaults.removeObject(forKey: key)
+                }
+            }
+        }
+        for key in runtimeFlagKeys {
+            defaults.removeObject(forKey: key)
+        }
 
         let legacyModel = try compiledTaskModelVersion(named: "TaskModelV3_Gamification.mom")
         let legacyContainer = try makeContainer(
@@ -5703,16 +5720,17 @@ final class V2PerformanceGateTests: XCTestCase {
 #endif
         let root = workspaceRootURLForTests()
         let outputURL = root.appendingPathComponent("build/benchmarks/v2_readmodel.test.json")
-        let command = [
-            "swift",
-            "scripts/perf_seed_v3.swift",
-            "--tasks", "2000",
-            "--occurrences", "20000",
-            "--iterations", "60",
-            "--output", outputURL.path
-        ].joined(separator: " ")
-
-        let status = try runShellCommand(command, in: root)
+        let status = try runProcess(
+            executable: "/usr/bin/swift",
+            arguments: [
+                "scripts/perf_seed_v3.swift",
+                "--tasks", "2000",
+                "--occurrences", "20000",
+                "--iterations", "60",
+                "--output", outputURL.path
+            ],
+            in: root
+        )
         XCTAssertEqual(status, 0, "Benchmark harness command failed")
         XCTAssertTrue(FileManager.default.fileExists(atPath: outputURL.path))
 
@@ -5738,6 +5756,28 @@ final class FlowctlToolingTests: XCTestCase {
         let flowctlPath = root.appendingPathComponent(".flow/bin/flowctl").path
         XCTAssertTrue(FileManager.default.fileExists(atPath: flowctlPath))
         XCTAssertTrue(FileManager.default.isExecutableFile(atPath: flowctlPath))
+    }
+}
+
+final class ProcessExecutionTests: XCTestCase {
+    func testRunProcessPreservesArgumentsContainingSpaces() throws {
+#if !os(macOS)
+        throw XCTSkip("Process execution checks are only supported on macOS host tests")
+#endif
+        let tempDirectory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("tasker process helper \(UUID().uuidString)", isDirectory: true)
+        let outputURL = tempDirectory.appendingPathComponent("output file.txt")
+        try FileManager.default.createDirectory(at: tempDirectory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: tempDirectory) }
+
+        let status = try runProcess(
+            executable: "/usr/bin/touch",
+            arguments: [outputURL.path],
+            in: workspaceRootURLForTests()
+        )
+
+        XCTAssertEqual(status, 0)
+        XCTAssertTrue(FileManager.default.fileExists(atPath: outputURL.path))
     }
 }
 
@@ -7287,15 +7327,35 @@ private func workspaceRootURLForTests() -> URL {
 }
 
 @discardableResult
-private func runShellCommand(_ command: String, in directory: URL) throws -> Int32 {
+private func runProcess(
+    executable: String,
+    arguments: [String],
+    in directory: URL
+) throws -> Int32 {
 #if os(macOS)
     let process = Process()
-    process.executableURL = URL(fileURLWithPath: "/bin/zsh")
-    process.arguments = ["-lc", command]
+    process.executableURL = URL(fileURLWithPath: executable)
+    process.arguments = arguments
     process.currentDirectoryURL = directory
     try process.run()
     process.waitUntilExit()
     return process.terminationStatus
+#else
+    _ = executable
+    _ = arguments
+    _ = directory
+    throw NSError(domain: "runProcess", code: 501, userInfo: [NSLocalizedDescriptionKey: "Process execution unavailable on iOS simulator test runtime"])
+#endif
+}
+
+@discardableResult
+private func runShellCommand(_ command: String, in directory: URL) throws -> Int32 {
+#if os(macOS)
+    try runProcess(
+        executable: "/bin/zsh",
+        arguments: ["-lc", command],
+        in: directory
+    )
 #else
     _ = command
     _ = directory
@@ -9883,10 +9943,59 @@ final class HabitAnalyticsAndInsightsIntegrationTests: XCTestCase {
 
 @MainActor
 final class AddHabitViewModelValidationTests: XCTestCase {
+    func testLoadIfNeededRebaselinesAutofilledDefaults() async {
+        let (viewModel, _) = makeViewModel()
+
+        viewModel.loadIfNeeded()
+        for _ in 0..<5 {
+            await _Concurrency.Task.yield()
+        }
+
+        XCTAssertNotNil(viewModel.selectedLifeAreaID)
+        XCTAssertNotNil(viewModel.selectedIconSymbolName)
+        XCTAssertFalse(viewModel.hasUnsavedChanges)
+
+        viewModel.habitName = "Walk"
+        XCTAssertTrue(viewModel.hasUnsavedChanges)
+    }
+
+    func testCreateHabitIgnoresReentrantSubmissionWhileSaving() async {
+        let (viewModel, habitRepository) = makeViewModel(deferCreateCompletion: true)
+
+        viewModel.loadIfNeeded()
+        for _ in 0..<5 {
+            await _Concurrency.Task.yield()
+        }
+
+        viewModel.habitName = "Hydrate"
+
+        viewModel.createHabit { _ in }
+        viewModel.createHabit { _ in }
+
+        XCTAssertTrue(viewModel.isSaving)
+        XCTAssertEqual(habitRepository.createCallCount, 1)
+    }
+
     func testReminderWindowValidationRejectsEndBeforeStart() {
+        let (viewModel, _) = makeViewModel()
+        viewModel.selectedLifeAreaID = UUID()
+        viewModel.reminderWindowStart = "21:00"
+        viewModel.reminderWindowEnd = "08:00"
+
+        XCTAssertEqual(
+            viewModel.reminderWindowValidationError,
+            "Reminder end must be after the start on the same day."
+        )
+        XCTAssertFalse(viewModel.canSubmit)
+    }
+
+    private func makeViewModel(
+        deferCreateCompletion: Bool = false
+    ) -> (viewModel: AddHabitViewModel, habitRepository: InMemoryHabitRepository) {
         let anchorDate = Date(timeIntervalSince1970: 1_711_036_800)
         let lifeAreaID = UUID()
         let habitRepository = InMemoryHabitRepository()
+        habitRepository.deferCreateCompletion = deferCreateCompletion
         let scheduleRepository = InMemoryScheduleRepository()
         let occurrenceRepository = InMemoryOccurrenceRepository()
         let maintainHabitRuntimeUseCase = MaintainHabitRuntimeUseCase(
@@ -9904,33 +10013,84 @@ final class AddHabitViewModelValidationTests: XCTestCase {
                 )
             )
         )
-        let viewModel = AddHabitViewModel(
-            createHabitUseCase: CreateHabitUseCase(
-                habitRepository: habitRepository,
-                lifeAreaRepository: CapturingLifeAreaRepository(
-                    storedAreas: [LifeArea(id: lifeAreaID, name: "Health", createdAt: anchorDate, updatedAt: anchorDate)]
+        let lifeAreaRepository = CapturingLifeAreaRepository(
+            storedAreas: [LifeArea(id: lifeAreaID, name: "Health", createdAt: anchorDate, updatedAt: anchorDate)]
+        )
+
+        return (
+            AddHabitViewModel(
+                createHabitUseCase: CreateHabitUseCase(
+                    habitRepository: habitRepository,
+                    lifeAreaRepository: lifeAreaRepository,
+                    projectRepository: MockProjectRepository(projects: []),
+                    scheduleRepository: scheduleRepository,
+                    maintainHabitRuntimeUseCase: maintainHabitRuntimeUseCase
                 ),
-                projectRepository: MockProjectRepository(projects: []),
-                scheduleRepository: scheduleRepository,
-                maintainHabitRuntimeUseCase: maintainHabitRuntimeUseCase
+                manageLifeAreasUseCase: ManageLifeAreasUseCase(repository: lifeAreaRepository),
+                manageProjectsUseCase: ManageProjectsUseCase(projectRepository: MockProjectRepository(projects: []))
             ),
-            manageLifeAreasUseCase: ManageLifeAreasUseCase(
-                repository: CapturingLifeAreaRepository(
-                    storedAreas: [LifeArea(id: lifeAreaID, name: "Health", createdAt: anchorDate, updatedAt: anchorDate)]
+            habitRepository
+        )
+    }
+}
+
+@MainActor
+final class DailyBriefServiceTests: XCTestCase {
+    func testGenerateBriefUsesSingleCapturedReferenceDateForSignalResolution() async {
+        let expectedReferenceDate = Date(timeIntervalSince1970: 1_711_583_140)
+        var dateProviderCallCount = 0
+        let repository = HabitRuntimeReadRepositorySpy(
+            signalSummaries: [
+                makeHabitSummary(
+                    title: "Journal",
+                    kind: .positive,
+                    trackingMode: .dailyCheckIn,
+                    dueAt: expectedReferenceDate.addingTimeInterval(-1_800),
+                    state: .pending,
+                    riskState: .stable
                 )
-            ),
-            manageProjectsUseCase: ManageProjectsUseCase(projectRepository: MockProjectRepository(projects: []))
+            ]
+        )
+        LLMContextRepositoryProvider.configure(
+            taskReadModelRepository: nil,
+            projectRepository: nil,
+            lifeAreaRepository: nil,
+            tagRepository: nil,
+            habitRuntimeReadRepository: repository
+        )
+        defer {
+            LLMContextRepositoryProvider.configure(
+                taskReadModelRepository: nil,
+                projectRepository: nil,
+                lifeAreaRepository: nil,
+                tagRepository: nil,
+                habitRuntimeReadRepository: nil
+            )
+        }
+
+        let service = DailyBriefService(
+            llm: nil,
+            dateProvider: {
+                dateProviderCallCount += 1
+                return expectedReferenceDate
+            }
         )
 
-        viewModel.selectedLifeAreaID = lifeAreaID
-        viewModel.reminderWindowStart = "21:00"
-        viewModel.reminderWindowEnd = "08:00"
+        let brief = await service.generateBrief(
+            todayOpenCount: 3,
+            overdueCount: 1,
+            completedTodayCount: 2,
+            streak: 4
+        )
 
+        XCTAssertEqual(dateProviderCallCount, 1)
+        XCTAssertEqual(repository.fetchSignalsCallCount, 1)
+        XCTAssertEqual(repository.lastFetchSignalsStart, Calendar.current.startOfDay(for: expectedReferenceDate))
         XCTAssertEqual(
-            viewModel.reminderWindowValidationError,
-            "Reminder end must be after the start on the same day."
+            repository.lastFetchSignalsEnd,
+            Calendar.current.date(byAdding: .day, value: 1, to: Calendar.current.startOfDay(for: expectedReferenceDate))
         )
-        XCTAssertFalse(viewModel.canSubmit)
+        XCTAssertTrue(brief.contains("• Habits due: 1"))
     }
 }
 
@@ -10038,6 +10198,9 @@ private func makeHabitSummary(
 
 private final class InMemoryHabitRepository: HabitRepositoryProtocol {
     private(set) var habitsByID: [UUID: HabitDefinitionRecord]
+    private(set) var createCallCount = 0
+    var deferCreateCompletion = false
+    private var pendingCreateCompletions: [(Result<HabitDefinitionRecord, Error>) -> Void] = []
 
     init(habits: [HabitDefinitionRecord] = []) {
         self.habitsByID = Dictionary(uniqueKeysWithValues: habits.map { ($0.id, $0) })
@@ -10052,7 +10215,12 @@ private final class InMemoryHabitRepository: HabitRepositoryProtocol {
     }
 
     func create(_ habit: HabitDefinitionRecord, completion: @escaping (Result<HabitDefinitionRecord, Error>) -> Void) {
+        createCallCount += 1
         habitsByID[habit.id] = habit
+        if deferCreateCompletion {
+            pendingCreateCompletions.append(completion)
+            return
+        }
         completion(.success(habit))
     }
 
@@ -10157,6 +10325,8 @@ private final class HabitRuntimeReadRepositorySpy: HabitRuntimeReadRepositoryPro
     private(set) var fetchHistoryCallCount = 0
     private(set) var fetchSignalsCallCount = 0
     private(set) var fetchHabitLibraryCallCount = 0
+    private(set) var lastFetchSignalsStart: Date?
+    private(set) var lastFetchSignalsEnd: Date?
 
     init(
         agendaSummaries: [HabitOccurrenceSummary] = [],
@@ -10194,6 +10364,8 @@ private final class HabitRuntimeReadRepositorySpy: HabitRuntimeReadRepositoryPro
         completion: @escaping (Result<[HabitOccurrenceSummary], Error>) -> Void
     ) {
         fetchSignalsCallCount += 1
+        lastFetchSignalsStart = start
+        lastFetchSignalsEnd = end
         completion(.success(signalSummaries))
     }
 

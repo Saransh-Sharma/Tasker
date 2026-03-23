@@ -14,10 +14,15 @@ final class DailyBriefService {
     private let defaults = UserDefaults.standard
     private let cachePrefix = "assistant.daily_brief."
     private let llm: LLMEvaluator
+    private let dateProvider: () -> Date
 
     /// Initializes a new instance.
-    init(llm: LLMEvaluator? = nil) {
+    init(
+        llm: LLMEvaluator? = nil,
+        dateProvider: @escaping () -> Date = Date.init
+    ) {
         self.llm = llm ?? LLMRuntimeCoordinator.shared.evaluator
+        self.dateProvider = dateProvider
     }
 
     /// Executes cachedBrief.
@@ -119,12 +124,15 @@ final class DailyBriefService {
             return suppliedSignals
         }
         let calendar = Calendar.current
-        let startOfDay = calendar.startOfDay(for: Date())
-        let endOfDay = calendar.date(byAdding: .day, value: 1, to: startOfDay) ?? Date()
+        let referenceDate = dateProvider()
+        let startOfDay = calendar.startOfDay(for: referenceDate)
+        let endOfDay = calendar.date(byAdding: .day, value: 1, to: startOfDay) ?? referenceDate
         return await withCheckedContinuation { continuation in
             repository.fetchSignals(start: startOfDay, end: endOfDay) { result in
                 let summaries = (try? result.get()) ?? []
-                continuation.resume(returning: summaries.map { TaskerHabitSignal(summary: $0, referenceDate: Date()) })
+                continuation.resume(
+                    returning: summaries.map { TaskerHabitSignal(summary: $0, referenceDate: referenceDate) }
+                )
             }
         }
     }
