@@ -25,6 +25,7 @@ struct AddTaskForedropView: View {
     @State private var errorShakeTrigger = false
     @State private var didAutoFocusTitleField = false
     @Environment(\.taskerLayoutClass) private var layoutClass
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.tokens(for: layoutClass).spacing }
     private var corner: TaskerCornerTokens { TaskerThemeManager.shared.tokens(for: layoutClass).corner }
@@ -45,6 +46,9 @@ struct AddTaskForedropView: View {
 
             ScrollView {
                 VStack(spacing: spacing.s16) {
+                    composerHeroCard
+                        .enhancedStaggeredAppearance(index: 0)
+
                     AddTaskTitleField(
                         text: $viewModel.taskName,
                         isFocused: $titleFieldFocused,
@@ -52,7 +56,7 @@ struct AddTaskForedropView: View {
                         helperText: "Keep it short. You can clarify later.",
                         onSubmit: submitTask
                     )
-                    .enhancedStaggeredAppearance(index: 0)
+                    .enhancedStaggeredAppearance(index: 1)
 
                     if let suggestion = viewModel.aiSuggestion {
                         aiSuggestionCard(suggestion)
@@ -70,15 +74,15 @@ struct AddTaskForedropView: View {
                     }
 
                     coreDetailsDisclosure
-                        .enhancedStaggeredAppearance(index: 1)
-
-                    AddTaskDatePresetRow(dueDate: $viewModel.dueDate)
                         .enhancedStaggeredAppearance(index: 2)
 
-                    AddTaskPriorityPicker(selectedPriority: $viewModel.selectedPriority)
+                    AddTaskDatePresetRow(dueDate: $viewModel.dueDate)
                         .enhancedStaggeredAppearance(index: 3)
 
-                    sectionCard(.schedule, index: 4) {
+                    AddTaskPriorityPicker(selectedPriority: $viewModel.selectedPriority)
+                        .enhancedStaggeredAppearance(index: 4)
+
+                    sectionCard(.schedule, index: 5) {
                         VStack(alignment: .leading, spacing: spacing.s12) {
                             AddTaskReminderChip(
                                 hasReminder: $viewModel.hasReminder,
@@ -100,7 +104,7 @@ struct AddTaskForedropView: View {
                         }
                     }
 
-                    sectionCard(.organize, index: 5) {
+                    sectionCard(.organize, index: 6) {
                         VStack(alignment: .leading, spacing: spacing.s12) {
                             AddTaskProjectBar(
                                 selectedProject: $viewModel.selectedProject,
@@ -136,7 +140,7 @@ struct AddTaskForedropView: View {
                         }
                     }
 
-                    sectionCard(.execution, index: 6) {
+                    sectionCard(.execution, index: 7) {
                         VStack(alignment: .leading, spacing: spacing.s12) {
                             AddTaskDurationPicker(duration: $viewModel.estimatedDuration)
 
@@ -163,7 +167,7 @@ struct AddTaskForedropView: View {
                         }
                     }
 
-                    sectionCard(.relationships, index: 7) {
+                    sectionCard(.relationships, index: 8) {
                         VStack(alignment: .leading, spacing: spacing.s12) {
                             if !viewModel.availableParentTasks.isEmpty {
                                 AddTaskTaskPicker(
@@ -245,6 +249,85 @@ struct AddTaskForedropView: View {
 
     // MARK: - Helpers
 
+    private var composerHeroCard: some View {
+        VStack(alignment: .leading, spacing: spacing.s12) {
+            HStack(alignment: .top, spacing: spacing.s12) {
+                ZStack {
+                    RoundedRectangle(cornerRadius: corner.r3, style: .continuous)
+                        .fill(Color.tasker.accentWash)
+                        .frame(width: 56, height: 56)
+
+                    if reduceMotion {
+                        Image(systemName: heroIcon)
+                            .font(.system(size: 22, weight: .semibold))
+                            .foregroundStyle(Color.tasker.accentPrimary)
+                    } else {
+                        Image(systemName: heroIcon)
+                            .font(.system(size: 22, weight: .semibold))
+                            .foregroundStyle(Color.tasker.accentPrimary)
+                            .symbolEffect(.pulse.byLayer, value: successFlash)
+                    }
+                }
+
+                VStack(alignment: .leading, spacing: spacing.s4) {
+                    HStack(spacing: spacing.s8) {
+                        Text(heroEyebrow)
+                            .font(.tasker(.caption1).weight(.semibold))
+                            .foregroundStyle(Color.tasker.accentPrimary)
+                        TaskerStatusPill(
+                            text: heroStatusText,
+                            systemImage: heroStatusSymbol,
+                            tone: heroStatusTone
+                        )
+                    }
+
+                    Text(heroTitle)
+                        .font(.tasker(.title3))
+                        .foregroundStyle(Color.tasker.textPrimary)
+                        .lineLimit(2)
+                        .minimumScaleFactor(0.86)
+
+                    Text(heroGuidance)
+                        .font(.tasker(.caption1))
+                        .foregroundStyle(Color.tasker.textSecondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+
+                Spacer(minLength: 0)
+            }
+
+            HStack(spacing: spacing.s8) {
+                TaskerHeroMetricTile(
+                    title: "Lane",
+                    value: viewModel.selectedType.displayName,
+                    detail: viewModel.selectedPriority.displayName,
+                    tone: .accent
+                )
+                TaskerHeroMetricTile(
+                    title: "Due",
+                    value: heroDueValue,
+                    detail: heroProjectValue,
+                    tone: viewModel.dueDate == nil ? .neutral : .success
+                )
+                TaskerHeroMetricTile(
+                    title: "Depth",
+                    value: heroDepthValue,
+                    detail: viewModel.selectedEnergy.displayName,
+                    tone: viewModel.taskDetails.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? .warning : .neutral
+                )
+            }
+        }
+        .padding(spacing.s16)
+        .taskerPremiumSurface(
+            cornerRadius: TaskerTheme.CornerRadius.card,
+            fillColor: Color.tasker.surfacePrimary,
+            accentColor: Color.tasker.accentSecondary,
+            level: .e2
+        )
+        .taskerSuccessPulse(isActive: successFlash)
+        .accessibilityElement(children: .contain)
+    }
+
     private var coreDetailsDisclosure: some View {
         VStack(alignment: .leading, spacing: spacing.s8) {
             Button {
@@ -260,19 +343,32 @@ struct AddTaskForedropView: View {
                 }
             } label: {
                 HStack(alignment: .top, spacing: spacing.s12) {
-                    Image(systemName: "text.alignleft")
-                        .font(.system(size: 15, weight: .semibold))
-                        .foregroundColor(viewModel.isCoreDetailsExpanded ? Color.tasker.accentPrimary : Color.tasker.textSecondary)
-                        .frame(width: 22, height: 22)
+                    ZStack {
+                        RoundedRectangle(cornerRadius: 12, style: .continuous)
+                            .fill(viewModel.isCoreDetailsExpanded ? Color.tasker.accentWash : Color.tasker.surfacePrimary)
+                            .frame(width: 34, height: 34)
 
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(viewModel.taskDetails.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "Add details" : "Details")
-                            .font(.tasker(.callout).weight(.semibold))
-                            .foregroundColor(Color.tasker.textPrimary)
+                        Image(systemName: "text.alignleft")
+                            .font(.system(size: 15, weight: .semibold))
+                            .foregroundStyle(viewModel.isCoreDetailsExpanded ? Color.tasker.accentPrimary : Color.tasker.textSecondary)
+                    }
+
+                    VStack(alignment: .leading, spacing: spacing.s4) {
+                        HStack(spacing: spacing.s8) {
+                            Text(viewModel.taskDetails.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "Add details" : "Details")
+                                .font(.tasker(.callout).weight(.semibold))
+                                .foregroundStyle(Color.tasker.textPrimary)
+
+                            TaskerStatusPill(
+                                text: viewModel.taskDetails.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "Optional" : "Helpful",
+                                systemImage: viewModel.taskDetails.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "sparkles" : "text.justify.leading",
+                                tone: viewModel.taskDetails.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? .quiet : .accent
+                            )
+                        }
 
                         Text(coreDetailsSummary)
                             .font(.tasker(.caption1))
-                            .foregroundColor(Color.tasker.textSecondary)
+                            .foregroundStyle(Color.tasker.textSecondary)
                             .multilineTextAlignment(.leading)
                             .lineLimit(2)
                             .fixedSize(horizontal: false, vertical: true)
@@ -280,13 +376,20 @@ struct AddTaskForedropView: View {
 
                     Spacer(minLength: 0)
 
-                    Image(systemName: "chevron.right")
-                        .font(.system(size: 12, weight: .semibold))
-                        .foregroundColor(Color.tasker.textTertiary)
-                        .rotationEffect(.degrees(viewModel.isCoreDetailsExpanded ? 90 : 0))
+                    ZStack {
+                        Circle()
+                            .fill(Color.tasker.surfacePrimary.opacity(viewModel.isCoreDetailsExpanded ? 1 : 0.72))
+                            .frame(width: 28, height: 28)
+
+                        Image(systemName: "chevron.right")
+                            .font(.system(size: 12, weight: .semibold))
+                            .foregroundStyle(viewModel.isCoreDetailsExpanded ? Color.tasker.accentPrimary : Color.tasker.textTertiary)
+                            .rotationEffect(.degrees(viewModel.isCoreDetailsExpanded ? 90 : 0))
+                    }
                 }
             }
             .buttonStyle(.plain)
+            .scaleOnPress()
             .accessibilityLabel(viewModel.taskDetails.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "Add details. Keep the title short. Add context only if it will help later." : "Details. \(coreDetailsSummary)")
             .accessibilityHint(viewModel.isCoreDetailsExpanded ? "Collapse details editor" : "Expand details editor")
 
@@ -302,8 +405,12 @@ struct AddTaskForedropView: View {
             }
         }
         .padding(spacing.s12)
-        .background(Color.tasker.surfaceSecondary.opacity(0.6))
-        .clipShape(RoundedRectangle(cornerRadius: TaskerTheme.CornerRadius.md))
+        .taskerPremiumSurface(
+            cornerRadius: TaskerTheme.CornerRadius.card,
+            fillColor: viewModel.isCoreDetailsExpanded ? Color.tasker.surfacePrimary : Color.tasker.surfaceSecondary.opacity(0.72),
+            accentColor: viewModel.isCoreDetailsExpanded ? Color.tasker.accentSecondary : Color.tasker.strokeHairline,
+            level: viewModel.isCoreDetailsExpanded ? .e2 : .e1
+        )
         .animation(TaskerAnimation.snappy, value: viewModel.isCoreDetailsExpanded)
     }
 
@@ -333,6 +440,9 @@ struct AddTaskForedropView: View {
             TaskerFeedback.light()
             viewModel.toggleSection(section)
             if viewModel.isSectionExpanded(section) {
+                if section == .relationships {
+                    viewModel.loadRelationshipTaskOptionsIfNeeded()
+                }
                 onExpandToLarge()
             }
         } content: {
@@ -429,17 +539,99 @@ struct AddTaskForedropView: View {
     /// Executes suggestionChip.
     private func suggestionChip(_ text: String, action: @escaping () -> Void) -> some View {
         Button {
+            TaskerFeedback.selection()
             action()
         } label: {
             Text(text)
                 .font(.tasker(.caption1))
-                .foregroundColor(Color.tasker.accentPrimary)
+                .foregroundStyle(Color.tasker.accentPrimary)
                 .padding(.horizontal, spacing.s12)
                 .padding(.vertical, spacing.s8)
                 .background(Color.tasker.accentWash)
+                .overlay(
+                    Capsule()
+                        .stroke(Color.tasker.accentPrimary.opacity(0.18), lineWidth: 1)
+                )
                 .clipShape(Capsule())
         }
         .buttonStyle(.plain)
+        .scaleOnPress()
+    }
+
+    private var heroIcon: String {
+        switch viewModel.selectedType {
+        case .morning:
+            return "sun.max.fill"
+        case .evening:
+            return "moon.stars.fill"
+        case .upcoming:
+            return "arrow.right.circle.fill"
+        case .inbox:
+            return "tray.full.fill"
+        }
+    }
+
+    private var heroEyebrow: String {
+        if successFlash {
+            return "Task captured"
+        }
+        return viewModel.viewState.canSubmit ? "Ready to add" : "Quick capture"
+    }
+
+    private var heroStatusText: String {
+        if successFlash {
+            return "Saved"
+        }
+        if viewModel.taskName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            return "Draft"
+        }
+        return "In progress"
+    }
+
+    private var heroStatusSymbol: String {
+        if successFlash {
+            return "checkmark.circle.fill"
+        }
+        return viewModel.taskName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "pencil" : "sparkles"
+    }
+
+    private var heroStatusTone: TaskerStatusPillTone {
+        if successFlash {
+            return .success
+        }
+        return viewModel.taskName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? .quiet : .accent
+    }
+
+    private var heroTitle: String {
+        let trimmed = viewModel.taskName.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? "Shape the next step before the backlog gets louder." : trimmed
+    }
+
+    private var heroGuidance: String {
+        if let error = viewModel.errorMessage, error.isEmpty == false {
+            return error
+        }
+        if viewModel.taskDetails.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false {
+            return "The title is clear. Use the sections below to tune timing, context, and execution."
+        }
+        return "Lead with the action. Add only the structure that will help you restart quickly later."
+    }
+
+    private var heroDueValue: String {
+        guard let dueDate = viewModel.dueDate else { return "No date" }
+        return dueDate.formatted(date: .abbreviated, time: .omitted)
+    }
+
+    private var heroProjectValue: String {
+        let project = viewModel.selectedProject.trimmingCharacters(in: .whitespacesAndNewlines)
+        return project.isEmpty ? "Inbox" : project
+    }
+
+    private var heroDepthValue: String {
+        if viewModel.taskDetails.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            return "Lean"
+        }
+        return "Clarified"
     }
 }
 

@@ -240,6 +240,7 @@ public final class AddTaskViewModel: ObservableObject {
     private var suggestionRequestToken = UUID()
     private var pendingPrefillTemplate: AddTaskPrefillTemplate?
     private let suggestionDebounceMilliseconds = 650
+    private var loadedTaskMetadataProjectID: UUID?
     
     // MARK: - Initialization
     
@@ -386,12 +387,8 @@ public final class AddTaskViewModel: ObservableObject {
                     if let strongSelf = self,
                        let selectedProjectID = strongSelf.projects.first(where: { $0.name == strongSelf.selectedProject })?.id {
                         strongSelf.loadSections(projectID: selectedProjectID)
-                        strongSelf.loadTaskMetadataOptions(projectID: selectedProjectID)
                     } else {
-                        self?.availableParentTasks = []
-                        self?.availableDependencyTasks = []
-                        self?.selectedParentTaskID = nil
-                        self?.selectedDependencyTaskIDs = []
+                        self?.clearDeferredTaskMetadataOptions()
                     }
                     self?.applyPendingPrefillIfPossible()
                     
@@ -577,6 +574,15 @@ public final class AddTaskViewModel: ObservableObject {
             return relationshipsSummary
         }
     }
+
+    public func loadRelationshipTaskOptionsIfNeeded() {
+        guard let projectID = projects.first(where: { $0.name == selectedProject })?.id else {
+            clearDeferredTaskMetadataOptions()
+            return
+        }
+        guard loadedTaskMetadataProjectID != projectID else { return }
+        loadTaskMetadataOptions(projectID: projectID)
+    }
     
     /// Validate input and update validation errors
     @discardableResult
@@ -622,14 +628,16 @@ public final class AddTaskViewModel: ObservableObject {
                 guard let projectID = self.projects.first(where: { $0.name == projectName })?.id else {
                     self.sections = []
                     self.selectedSectionID = nil
-                    self.availableParentTasks = []
-                    self.availableDependencyTasks = []
-                    self.selectedParentTaskID = nil
-                    self.selectedDependencyTaskIDs = []
+                    self.clearDeferredTaskMetadataOptions()
                     return
                 }
                 self.loadSections(projectID: projectID)
-                self.loadTaskMetadataOptions(projectID: projectID)
+                if self.loadedTaskMetadataProjectID != projectID {
+                    self.clearDeferredTaskMetadataOptions()
+                    if self.expandedSections.contains(.relationships) {
+                        self.loadRelationshipTaskOptionsIfNeeded()
+                    }
+                }
             }
             .store(in: &cancellables)
 
@@ -1084,10 +1092,7 @@ public final class AddTaskViewModel: ObservableObject {
     /// Executes loadTaskMetadataOptions.
     private func loadTaskMetadataOptions(projectID: UUID) {
         guard let taskReadModelRepository else {
-            availableParentTasks = []
-            availableDependencyTasks = []
-            selectedParentTaskID = nil
-            selectedDependencyTaskIDs = []
+            clearDeferredTaskMetadataOptions()
             return
         }
 
@@ -1096,7 +1101,7 @@ public final class AddTaskViewModel: ObservableObject {
                 projectID: projectID,
                 includeCompleted: false,
                 sortBy: .dueDateAscending,
-                limit: 2_000,
+                limit: 400,
                 offset: 0
             )
         ) { [weak self] result in
@@ -1116,6 +1121,7 @@ public final class AddTaskViewModel: ObservableObject {
                         })
                     self.availableParentTasks = activeTasks
                     self.availableDependencyTasks = activeTasks
+                    self.loadedTaskMetadataProjectID = projectID
 
                     let validIDs = Set(activeTasks.map(\.id))
                     if let selectedParentTaskID = self.selectedParentTaskID, !validIDs.contains(selectedParentTaskID) {
@@ -1124,13 +1130,18 @@ public final class AddTaskViewModel: ObservableObject {
                     self.selectedDependencyTaskIDs = self.selectedDependencyTaskIDs.intersection(validIDs)
                 case .failure(let error):
                     self.errorMessage = error.localizedDescription
-                    self.availableParentTasks = []
-                    self.availableDependencyTasks = []
-                    self.selectedParentTaskID = nil
-                    self.selectedDependencyTaskIDs = []
+                    self.clearDeferredTaskMetadataOptions()
                 }
             }
         }
+    }
+
+    private func clearDeferredTaskMetadataOptions() {
+        loadedTaskMetadataProjectID = nil
+        availableParentTasks = []
+        availableDependencyTasks = []
+        selectedParentTaskID = nil
+        selectedDependencyTaskIDs = []
     }
 
     /// Executes loadCalendarTaskCounts.

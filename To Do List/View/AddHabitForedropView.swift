@@ -112,6 +112,21 @@ struct AddHabitForedropView: View {
         return pieces.joined(separator: " · ")
     }
 
+    private var trimmedWindowSummary: String {
+        let start = viewModel.reminderWindowStart.nilIfBlank
+        let end = viewModel.reminderWindowEnd.nilIfBlank
+        switch (start, end) {
+        case (.some(let start), .some(let end)):
+            return "\(start) to \(end)"
+        case (.some(let start), .none):
+            return "Starts \(start)"
+        case (.none, .some(let end)):
+            return "Until \(end)"
+        case (.none, .none):
+            return viewModel.selectedTrackingMode == .lapseOnly ? "Recovery window unset" : "Reminder window unset"
+        }
+    }
+
     var body: some View {
         VStack(spacing: 0) {
             AddTaskNavigationBar(
@@ -134,7 +149,9 @@ struct AddHabitForedropView: View {
                         modeSummary: habitModeSummary,
                         cadenceSummary: cadenceSummary,
                         ownershipSummary: ownershipSummary,
-                        isExpanded: showAdvancedSettings
+                        isExpanded: showAdvancedSettings,
+                        successFlash: successFlash,
+                        reminderSummary: trimmedWindowSummary
                     )
                     .enhancedStaggeredAppearance(index: 0)
 
@@ -204,15 +221,15 @@ struct AddHabitForedropView: View {
         }
         .background(Color.tasker.bgCanvas)
         .accessibilityIdentifier("addHabit.view")
+        .overlay(
+            Color.tasker.statusSuccess
+                .opacity(successFlash ? 0.045 : 0)
+                .animation(reduceMotion ? nil : TaskerAnimation.ctaConfirmation, value: successFlash)
+                .allowsHitTesting(false)
+        )
         .task {
             viewModel.loadIfNeeded()
-            if reduceMotion == false {
-                withAnimation(TaskerAnimation.gentle.delay(0.08)) {
-                    showAdvancedSettings = hasAdvancedContent
-                }
-            } else {
-                showAdvancedSettings = hasAdvancedContent
-            }
+            showAdvancedSettings = hasAdvancedContent
         }
     }
 
@@ -330,19 +347,32 @@ struct AddHabitForedropView: View {
         } label: {
             HStack(spacing: spacing.s12) {
                 VStack(alignment: .leading, spacing: spacing.s4) {
-                    Text(showAdvancedSettings ? "Hide advanced options" : "Refine the system")
-                        .font(.tasker(.bodyEmphasis))
-                        .foregroundColor(Color.tasker.textPrimary)
+                    HStack(spacing: spacing.s8) {
+                        Text(showAdvancedSettings ? "Hide advanced options" : "Refine the system")
+                            .font(.tasker(.bodyEmphasis))
+                            .foregroundStyle(Color.tasker.textPrimary)
+                        TaskerStatusPill(
+                            text: showAdvancedSettings ? "Open" : "Optional",
+                            systemImage: showAdvancedSettings ? "slider.horizontal.3" : "sparkles",
+                            tone: showAdvancedSettings ? .accent : .quiet
+                        )
+                    }
                     Text(advancedSummary)
                         .font(.tasker(.caption1))
-                        .foregroundColor(Color.tasker.textSecondary)
+                        .foregroundStyle(Color.tasker.textSecondary)
                 }
 
                 Spacer(minLength: 0)
 
-                Image(systemName: showAdvancedSettings ? "chevron.up.circle.fill" : "chevron.down.circle.fill")
-                    .font(.system(size: 18, weight: .semibold))
-                    .foregroundColor(Color.tasker.accentPrimary)
+                ZStack {
+                    Circle()
+                        .fill(Color.tasker.surfacePrimary)
+                        .frame(width: 30, height: 30)
+
+                    Image(systemName: showAdvancedSettings ? "chevron.up" : "chevron.down")
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(Color.tasker.accentPrimary)
+                }
             }
             .padding(spacing.s12)
             .taskerChromeSurface(cornerRadius: corner.r3, accentColor: Color.tasker.accentSecondary, level: .e1)
@@ -784,7 +814,7 @@ struct HabitLibraryView: View {
             )
         } else {
             LazyVGrid(columns: columns, spacing: spacing.s12) {
-                ForEach(Array(filteredRows.enumerated()), id: \.element.id) { index, row in
+                ForEach(filteredRows) { row in
                     Button {
                         selectedRow = row
                     } label: {
@@ -792,7 +822,6 @@ struct HabitLibraryView: View {
                     }
                     .buttonStyle(.plain)
                     .scaleOnPress()
-                    .enhancedStaggeredAppearance(index: index + 2)
                 }
             }
         }
@@ -916,13 +945,12 @@ struct HabitDetailSheetView: View {
                 iconSystemName: "waveform.path.ecg"
             ) {
                 HabitMetricGrid(metrics: [
-                    HabitMetricDisplay(title: "Current streak", value: "\(viewModel.row.currentStreak) days", tone: .accent),
-                    HabitMetricDisplay(title: "Best streak", value: "\(viewModel.row.bestStreak) days", tone: .neutral),
-                    HabitMetricDisplay(title: "Next due", value: nextDueSummary, tone: nextDueTone),
-                    HabitMetricDisplay(title: "Reminder", value: reminderSummary, tone: .neutral)
+                    HabitMetricDisplay(title: "Current streak", value: "\(viewModel.row.currentStreak) days", tone: .accent, detail: viewModel.row.currentStreak > 0 ? "Momentum is active" : "Ready to restart"),
+                    HabitMetricDisplay(title: "Best streak", value: "\(viewModel.row.bestStreak) days", tone: .neutral, detail: "History stays preserved"),
+                    HabitMetricDisplay(title: "Next due", value: nextDueSummary, tone: nextDueTone, detail: viewModel.row.isPaused ? "Paused by choice" : "Keeps the loop visible"),
+                    HabitMetricDisplay(title: "Reminder", value: reminderSummary, tone: .neutral, detail: viewModel.row.trackingMode == .lapseOnly ? "Supports recovery timing" : "Supports daily check-ins")
                 ])
             }
-            .enhancedStaggeredAppearance(index: 1)
 
             HabitSurfaceCard(
                 title: "History and recovery",
@@ -934,7 +962,6 @@ struct HabitDetailSheetView: View {
                     HabitHistoryLegend()
                 }
             }
-            .enhancedStaggeredAppearance(index: 2)
 
             HabitSurfaceCard(
                 title: "Context",
@@ -956,10 +983,8 @@ struct HabitDetailSheetView: View {
                     }
                 }
             }
-            .enhancedStaggeredAppearance(index: 3)
 
             lifecycleCard
-                .enhancedStaggeredAppearance(index: 4)
         }
     }
 
@@ -1001,7 +1026,6 @@ struct HabitDetailSheetView: View {
                     }
                 }
             }
-            .enhancedStaggeredAppearance(index: 1)
 
             HabitSurfaceCard(
                 title: "Schedule",
@@ -1039,7 +1063,6 @@ struct HabitDetailSheetView: View {
                     }
                 }
             }
-            .enhancedStaggeredAppearance(index: 2)
 
             HabitSurfaceCard(
                 title: "Organize",
@@ -1060,7 +1083,6 @@ struct HabitDetailSheetView: View {
                     )
                 }
             }
-            .enhancedStaggeredAppearance(index: 3)
 
             HabitSurfaceCard(
                 title: "Notes and Icon",
@@ -1098,10 +1120,8 @@ struct HabitDetailSheetView: View {
                     }
                 }
             }
-            .enhancedStaggeredAppearance(index: 4)
 
             lifecycleCard
-                .enhancedStaggeredAppearance(index: 5)
         }
     }
 
@@ -1331,43 +1351,78 @@ private struct HabitComposerSummaryCard: View {
     let cadenceSummary: String
     let ownershipSummary: String
     let isExpanded: Bool
+    let successFlash: Bool
+    let reminderSummary: String
 
     @Environment(\.taskerLayoutClass) private var layoutClass
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.tokens(for: layoutClass).spacing }
 
     var body: some View {
-        HStack(spacing: spacing.s12) {
-            ZStack {
-                Circle()
-                    .fill(Color.tasker.accentWash)
-                    .frame(width: 58, height: 58)
+        VStack(alignment: .leading, spacing: spacing.s12) {
+            HStack(spacing: spacing.s12) {
+                ZStack {
+                    RoundedRectangle(cornerRadius: 18, style: .continuous)
+                        .fill(Color.tasker.accentWash)
+                        .frame(width: 58, height: 58)
 
-                Image(systemName: iconSymbolName)
-                    .font(.system(size: 24, weight: .semibold))
-                    .foregroundColor(Color.tasker.accentPrimary)
+                    if reduceMotion {
+                        Image(systemName: iconSymbolName)
+                            .font(.system(size: 24, weight: .semibold))
+                            .foregroundColor(Color.tasker.accentPrimary)
+                    } else {
+                        Image(systemName: iconSymbolName)
+                            .font(.system(size: 24, weight: .semibold))
+                            .foregroundColor(Color.tasker.accentPrimary)
+                            .symbolEffect(.pulse.byLayer, value: successFlash || isExpanded)
+                    }
+                }
+
+                VStack(alignment: .leading, spacing: spacing.s4) {
+                    HStack(spacing: spacing.s8) {
+                        Text(successFlash ? "Habit captured" : "Behavior loop")
+                            .font(.tasker(.caption1).weight(.semibold))
+                            .foregroundStyle(Color.tasker.accentPrimary)
+                        TaskerStatusPill(
+                            text: isExpanded ? "Refined" : "Essentials",
+                            systemImage: isExpanded ? "slider.horizontal.3" : "sparkles",
+                            tone: isExpanded ? .accent : .quiet
+                        )
+                    }
+
+                    Text(title)
+                        .font(.tasker(.title3))
+                        .foregroundStyle(Color.tasker.textPrimary)
+                        .lineLimit(2)
+
+                    Text(modeSummary)
+                        .font(.tasker(.caption1).weight(.semibold))
+                        .foregroundStyle(Color.tasker.accentPrimary)
+                }
+
+                Spacer(minLength: 0)
+
+                TaskerStatusPill(
+                    text: successFlash ? "Saved" : (isExpanded ? "Expanded" : "Calm"),
+                    systemImage: successFlash ? "checkmark.circle.fill" : "leaf.fill",
+                    tone: successFlash ? .success : .quiet
+                )
             }
 
-            VStack(alignment: .leading, spacing: spacing.s4) {
-                Text(title)
-                    .font(.tasker(.title3))
-                    .foregroundColor(Color.tasker.textPrimary)
-                    .lineLimit(2)
-
-                Text(modeSummary)
-                    .font(.tasker(.caption1).weight(.semibold))
-                    .foregroundColor(Color.tasker.accentPrimary)
-
-                Text("\(cadenceSummary) · \(ownershipSummary)")
-                    .font(.tasker(.caption1))
-                    .foregroundColor(Color.tasker.textSecondary)
-                    .lineLimit(2)
+            HStack(spacing: spacing.s8) {
+                TaskerHeroMetricTile(
+                    title: "Cadence",
+                    value: cadenceSummary,
+                    detail: ownershipSummary,
+                    tone: .accent
+                )
+                TaskerHeroMetricTile(
+                    title: "Window",
+                    value: reminderSummary,
+                    detail: isExpanded ? "Advanced settings visible" : "Advanced stays optional",
+                    tone: reminderSummary.contains("unset") ? .warning : .neutral
+                )
             }
-
-            Spacer(minLength: 0)
-
-            Image(systemName: isExpanded ? "slider.horizontal.3.circle.fill" : "slider.horizontal.3")
-                .font(.system(size: 18, weight: .semibold))
-                .foregroundColor(Color.tasker.textSecondary)
         }
         .padding(spacing.s16)
         .taskerPremiumSurface(
@@ -1376,6 +1431,7 @@ private struct HabitComposerSummaryCard: View {
             accentColor: Color.tasker.accentSecondary,
             level: .e2
         )
+        .taskerSuccessPulse(isActive: successFlash)
     }
 }
 
@@ -1423,7 +1479,6 @@ private struct HabitSurfaceCard<Content: View>: View {
         }
         .padding(spacing.s16)
         .taskerDenseSurface(cornerRadius: TaskerTheme.CornerRadius.card, fillColor: Color.tasker.surfacePrimary)
-        .taskerElevation(.e1, cornerRadius: TaskerTheme.CornerRadius.card, includesBorder: false)
     }
 }
 
@@ -1776,7 +1831,7 @@ private struct HabitDetailHeroCard: View {
         VStack(alignment: .leading, spacing: spacing.s12) {
             HStack(alignment: .top, spacing: spacing.s12) {
                 ZStack {
-                    Circle()
+                    RoundedRectangle(cornerRadius: 18, style: .continuous)
                         .fill(toneColor.opacity(0.14))
                         .frame(width: 56, height: 56)
 
@@ -1801,6 +1856,21 @@ private struct HabitDetailHeroCard: View {
                 Spacer(minLength: 0)
             }
 
+            HStack(spacing: spacing.s8) {
+                TaskerHeroMetricTile(
+                    title: "Current streak",
+                    value: "\(row.currentStreak)d",
+                    detail: row.bestStreak > 0 ? "Best \(row.bestStreak)d" : "Fresh cycle",
+                    tone: row.currentStreak > 0 ? .success : .neutral
+                )
+                TaskerHeroMetricTile(
+                    title: "Next due",
+                    value: nextDueText,
+                    detail: ownershipText,
+                    tone: row.isPaused || row.isArchived ? .neutral : .accent
+                )
+            }
+
             HabitHistoryStripView(marks: historyMarks)
         }
         .padding(spacing.s20)
@@ -1813,6 +1883,22 @@ private struct HabitDetailHeroCard: View {
 
     private var toneColor: Color {
         row.kind == .positive ? Color.tasker.statusSuccess : Color.tasker.statusWarning
+    }
+
+    private var nextDueText: String {
+        if row.isArchived { return "Archived" }
+        if row.isPaused { return "Paused" }
+        if let nextDueAt = row.nextDueAt {
+            return nextDueAt.formatted(date: .abbreviated, time: .shortened)
+        }
+        return "Not scheduled"
+    }
+
+    private var ownershipText: String {
+        if let projectName = row.projectName, projectName.isEmpty == false {
+            return "\(row.lifeAreaName) · \(projectName)"
+        }
+        return row.lifeAreaName
     }
 }
 
@@ -1834,11 +1920,19 @@ private struct HabitMetricGrid: View {
                     Text(metric.value)
                         .font(.tasker(.bodyStrong))
                         .foregroundColor(metric.tone.textColor)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.8)
                     Text(metric.title)
                         .font(.tasker(.caption2))
                         .foregroundColor(Color.tasker.textSecondary)
+                    if let detail = metric.detail {
+                        Text(detail)
+                            .font(.tasker(.caption2))
+                            .foregroundColor(Color.tasker.textTertiary)
+                            .lineLimit(1)
+                    }
                 }
-                .frame(maxWidth: .infinity, minHeight: 72, alignment: .leading)
+                .frame(maxWidth: .infinity, minHeight: 80, alignment: .leading)
                 .padding(.horizontal, 12)
                 .padding(.vertical, 10)
                 .taskerDenseSurface(
@@ -1856,6 +1950,7 @@ private struct HabitMetricDisplay: Identifiable {
     let title: String
     let value: String
     let tone: HabitMetricTone
+    var detail: String? = nil
 }
 
 @MainActor
@@ -2078,6 +2173,11 @@ private struct HabitActionButtonStyle: ButtonStyle {
                     .stroke(borderColor, lineWidth: 1)
             )
             .clipShape(RoundedRectangle(cornerRadius: TaskerTheme.CornerRadius.md, style: .continuous))
+            .shadow(
+                color: configuration.isPressed ? borderColor.opacity(0.12) : .clear,
+                radius: configuration.isPressed ? 10 : 0,
+                y: configuration.isPressed ? 6 : 0
+            )
             .scaleEffect(configuration.isPressed ? 0.985 : 1)
             .animation(TaskerAnimation.quick, value: configuration.isPressed)
     }

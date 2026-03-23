@@ -36,17 +36,18 @@ public struct AddTaskSheetView: View {
     public init(
         viewModel: AddTaskViewModel,
         habitViewModel: AddHabitViewModel,
+        modePolicy: AddItemModePolicy = .unified(defaultMode: .task),
         onTaskCreated: ((UUID) -> Void)? = nil,
         onHabitCreated: ((UUID) -> Void)? = nil,
         onDismissWithoutTask: (() -> Void)? = nil
     ) {
-        let allowedModes = Self.allowedModes(onTaskCreated: onTaskCreated, onHabitCreated: onHabitCreated)
+        let allowedModes = modePolicy.allowedModes
         _viewModel = StateObject(
             wrappedValue: AddItemViewModel(
                 taskViewModel: viewModel,
                 habitViewModel: habitViewModel,
                 allowedModes: allowedModes,
-                selectedMode: allowedModes.first ?? .task
+                selectedMode: modePolicy.defaultMode
             )
         )
         self.onTaskCreated = onTaskCreated
@@ -56,17 +57,18 @@ public struct AddTaskSheetView: View {
 
     public init(
         itemViewModel: AddItemViewModel,
+        modePolicy: AddItemModePolicy = .unified(defaultMode: .task),
         onTaskCreated: ((UUID) -> Void)? = nil,
         onHabitCreated: ((UUID) -> Void)? = nil,
         onDismissWithoutTask: (() -> Void)? = nil
     ) {
-        let allowedModes = Self.allowedModes(onTaskCreated: onTaskCreated, onHabitCreated: onHabitCreated)
+        let allowedModes = modePolicy.allowedModes
         _viewModel = StateObject(
             wrappedValue: AddItemViewModel(
                 taskViewModel: itemViewModel.taskViewModel,
                 habitViewModel: itemViewModel.habitViewModel,
                 allowedModes: allowedModes,
-                selectedMode: itemViewModel.selectedMode
+                selectedMode: allowedModes.contains(itemViewModel.selectedMode) ? itemViewModel.selectedMode : modePolicy.defaultMode
             )
         )
         self.onTaskCreated = onTaskCreated
@@ -211,23 +213,6 @@ public struct AddTaskSheetView: View {
                 afterReset()
             }
         }
-    }
-
-    private static func allowedModes(
-        onTaskCreated: ((UUID) -> Void)?,
-        onHabitCreated: ((UUID) -> Void)?
-    ) -> [AddItemMode] {
-        let taskAllowed = onTaskCreated != nil || onHabitCreated == nil
-        let habitAllowed = onHabitCreated != nil
-        let modes = AddItemMode.allCases.filter { mode in
-            switch mode {
-            case .task:
-                return taskAllowed
-            case .habit:
-                return habitAllowed
-            }
-        }
-        return modes.isEmpty ? [.task] : modes
     }
 }
 
