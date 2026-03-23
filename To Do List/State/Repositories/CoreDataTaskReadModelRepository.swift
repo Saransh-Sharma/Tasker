@@ -72,6 +72,191 @@ public final class CoreDataTaskReadModelRepository: TaskReadModelRepositoryProto
         }
     }
 
+    public func searchTasks(query: TaskRepositorySearchQuery, completion: @escaping (Result<TaskDefinitionSliceResult, Error>) -> Void) {
+        context.perform {
+            do {
+                let predicate = self.searchPredicate(for: query, referenceDate: Date())
+                let entities = try self.fetchTaskEntities(
+                    predicate: predicate,
+                    sortDescriptors: self.sortDescriptors(for: .dueDateAscending),
+                    limit: query.limit,
+                    offset: query.offset
+                )
+                let definitions = try CoreDataTaskDefinitionRepository.mapTaskDefinitions(entities, context: self.context)
+                let totalCount = try self.totalCount(
+                    needsTotalCount: query.needsTotalCount,
+                    predicate: predicate,
+                    loadedCount: definitions.count,
+                    limit: query.limit,
+                    offset: query.offset
+                )
+                completion(.success(TaskDefinitionSliceResult(
+                    tasks: definitions,
+                    totalCount: totalCount,
+                    limit: query.limit,
+                    offset: query.offset
+                )))
+            } catch {
+                completion(.failure(error))
+            }
+        }
+    }
+
+    public func fetchHomeProjection(
+        query: HomeProjectionQuery,
+        completion: @escaping (Result<TaskDefinitionSliceResult, Error>) -> Void
+    ) {
+        context.perform {
+            do {
+                let predicate = self.homeProjectionPredicate(for: query)
+                let entities = try self.fetchTaskEntities(
+                    predicate: predicate,
+                    sortDescriptors: self.sortDescriptors(for: .dueDateAscending),
+                    limit: query.limit,
+                    offset: query.offset
+                )
+                let definitions = try CoreDataTaskDefinitionRepository.mapTaskDefinitions(entities, context: self.context)
+                let totalCount = try self.totalCount(
+                    needsTotalCount: false,
+                    predicate: predicate,
+                    loadedCount: definitions.count,
+                    limit: query.limit,
+                    offset: query.offset
+                )
+                completion(.success(TaskDefinitionSliceResult(
+                    tasks: definitions,
+                    totalCount: totalCount,
+                    limit: query.limit,
+                    offset: query.offset
+                )))
+            } catch {
+                completion(.failure(error))
+            }
+        }
+    }
+
+    public func fetchInsightsTodayProjection(
+        referenceDate: Date,
+        completion: @escaping (Result<InsightsTodayTaskProjection, Error>) -> Void
+    ) {
+        context.perform {
+            do {
+                let calendar = Calendar.current
+                let startOfToday = calendar.startOfDay(for: referenceDate)
+                let startOfTomorrow = calendar.date(byAdding: .day, value: 1, to: startOfToday) ?? referenceDate
+
+                let dueWindowEntities = try self.fetchTaskEntities(
+                    predicate: NSCompoundPredicate(andPredicateWithSubpredicates: [
+                        NSPredicate(format: "dueDate <= %@", startOfTomorrow as NSDate)
+                    ]),
+                    sortDescriptors: self.sortDescriptors(for: .dueDateAscending),
+                    limit: 600,
+                    offset: 0
+                )
+                let recentEntities = try self.fetchTaskEntities(
+                    predicate: nil,
+                    sortDescriptors: self.sortDescriptors(for: .updatedAtDescending),
+                    limit: 600,
+                    offset: 0
+                )
+
+                let dueWindowTasks = try CoreDataTaskDefinitionRepository.mapTaskDefinitions(dueWindowEntities, context: self.context)
+                let recentTasks = try CoreDataTaskDefinitionRepository.mapTaskDefinitions(recentEntities, context: self.context)
+                completion(.success(InsightsTodayTaskProjection(dueWindowTasks: dueWindowTasks, recentTasks: recentTasks)))
+            } catch {
+                completion(.failure(error))
+            }
+        }
+    }
+
+    public func fetchInsightsWeekProjection(
+        referenceDate: Date,
+        completion: @escaping (Result<InsightsWeekTaskProjection, Error>) -> Void
+    ) {
+        context.perform {
+            do {
+                let calendar = XPCalculationEngine.mondayCalendar()
+                let today = calendar.startOfDay(for: referenceDate)
+                let weekStart = XPCalculationEngine.mondayStartOfWeek(for: today, calendar: calendar)
+                let startOfTomorrow = calendar.date(byAdding: .day, value: 1, to: today) ?? today
+                let weekEnd = calendar.date(byAdding: .day, value: 6, to: weekStart) ?? weekStart
+
+                let recentEntities = try self.fetchTaskEntities(
+                    predicate: nil,
+                    sortDescriptors: self.sortDescriptors(for: .updatedAtDescending),
+                    limit: 600,
+                    offset: 0
+                )
+                let dueWindowEntities = try self.fetchTaskEntities(
+                    predicate: NSPredicate(format: "dueDate <= %@", startOfTomorrow as NSDate),
+                    sortDescriptors: self.sortDescriptors(for: .dueDateAscending),
+                    limit: 600,
+                    offset: 0
+                )
+                let recentTasks = try CoreDataTaskDefinitionRepository.mapTaskDefinitions(recentEntities, context: self.context)
+                let dueWindowTasks = try CoreDataTaskDefinitionRepository.mapTaskDefinitions(dueWindowEntities, context: self.context)
+                let projectScores = try self.projectCompletionScoreTotals(from: weekStart, to: weekEnd)
+                completion(.success(InsightsWeekTaskProjection(
+                    recentTasks: recentTasks,
+                    dueWindowTasks: dueWindowTasks,
+                    projectScores: projectScores
+                )))
+            } catch {
+                completion(.failure(error))
+            }
+        }
+    }
+
+    public func fetchWeekChartProjection(
+        referenceDate: Date,
+        completion: @escaping (Result<WeekChartProjection, Error>) -> Void
+    ) {
+        context.perform {
+            do {
+                var calendar = Calendar.autoupdatingCurrent
+                calendar.firstWeekday = 1
+                let week = calendar.daysWithSameWeekOfYear(as: referenceDate)
+                guard let weekStart = week.first?.startOfDay,
+                      let weekEnd = week.last?.endOfDay else {
+                    completion(.success(WeekChartProjection(weekStart: referenceDate.startOfDay, dayScores: [:], projectScores: [:])))
+                    return
+                }
+
+                let dayScoreRequest = NSFetchRequest<NSDictionary>(entityName: "TaskDefinition")
+                dayScoreRequest.resultType = .dictionaryResultType
+                dayScoreRequest.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
+                    NSPredicate(format: "isComplete == YES"),
+                    NSPredicate(format: "dateCompleted >= %@", weekStart as NSDate),
+                    NSPredicate(format: "dateCompleted <= %@", weekEnd as NSDate)
+                ])
+                dayScoreRequest.propertiesToFetch = ["dateCompleted", "priority"]
+
+                let rows = try self.context.fetch(dayScoreRequest)
+                var dayScores: [Date: Int] = [:]
+                var projectScores: [UUID: Int] = [:]
+                for row in rows {
+                    guard let completedAt = row["dateCompleted"] as? Date else { continue }
+                    let day = completedAt.startOfDay
+                    let priorityRaw = (row["priority"] as? NSNumber)?.int32Value
+                        ?? (row["priority"] as? Int32)
+                        ?? Int32(TaskPriority.low.rawValue)
+                    let priority = TaskPriority(rawValue: priorityRaw)
+                    dayScores[day, default: 0] += priority.scorePoints
+                }
+
+                let projectScoresResult = try self.projectCompletionScoreTotals(from: weekStart, to: weekEnd)
+                projectScores = projectScoresResult
+                completion(.success(WeekChartProjection(
+                    weekStart: weekStart,
+                    dayScores: dayScores,
+                    projectScores: projectScores
+                )))
+            } catch {
+                completion(.failure(error))
+            }
+        }
+    }
+
     /// Executes fetchProjectTaskCounts.
     public func fetchProjectTaskCounts(
         includeCompleted: Bool,
@@ -114,33 +299,7 @@ public final class CoreDataTaskReadModelRepository: TaskReadModelRepositoryProto
     ) {
         context.perform {
             do {
-                let countExpr = NSExpressionDescription()
-                countExpr.name = "taskCount"
-                countExpr.expression = NSExpression(forFunction: "count:", arguments: [NSExpression(forKeyPath: "taskID")])
-                countExpr.expressionResultType = .integer64AttributeType
-
-                let request = NSFetchRequest<NSDictionary>(entityName: "TaskDefinition")
-                request.resultType = .dictionaryResultType
-                request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
-                    NSPredicate(format: "isComplete == YES"),
-                    NSPredicate(format: "dateCompleted >= %@", startDate as NSDate),
-                    NSPredicate(format: "dateCompleted <= %@", endDate as NSDate)
-                ])
-                request.propertiesToGroupBy = ["projectID", "priority"]
-                request.propertiesToFetch = ["projectID", "priority", countExpr]
-
-                let rows = try self.context.fetch(request)
-                var totals: [UUID: Int] = [:]
-                for row in rows {
-                    guard let projectID = row["projectID"] as? UUID else { continue }
-                    let countValue = (row["taskCount"] as? NSNumber)?.intValue ?? 0
-                    let priorityRaw = (row["priority"] as? NSNumber)?.int32Value
-                        ?? (row["priority"] as? Int32)
-                        ?? Int32(TaskPriority.low.rawValue)
-                    let priority = TaskPriority(rawValue: priorityRaw)
-                    totals[projectID, default: 0] += countValue * priority.scorePoints
-                }
-                completion(.success(totals))
+                completion(.success(try self.projectCompletionScoreTotals(from: startDate, to: endDate)))
             } catch {
                 completion(.failure(error))
             }
@@ -230,6 +389,123 @@ public final class CoreDataTaskReadModelRepository: TaskReadModelRepositoryProto
         }
         guard predicates.isEmpty == false else { return nil }
         return NSCompoundPredicate(andPredicateWithSubpredicates: predicates)
+    }
+
+    private func searchPredicate(for query: TaskRepositorySearchQuery, referenceDate: Date) -> NSPredicate? {
+        var predicates: [NSPredicate] = []
+        let trimmed = query.text.trimmingCharacters(in: .whitespacesAndNewlines)
+        if trimmed.isEmpty == false {
+            predicates.append(
+                NSCompoundPredicate(orPredicateWithSubpredicates: [
+                    NSPredicate(format: "title CONTAINS[cd] %@", trimmed),
+                    NSPredicate(format: "notes CONTAINS[cd] %@", trimmed)
+                ])
+            )
+        }
+        if query.projectIDs.count == 1, let projectID = query.projectIDs.first {
+            predicates.append(NSPredicate(format: "projectID == %@", projectID as CVarArg))
+        } else if query.projectIDs.isEmpty == false {
+            predicates.append(NSPredicate(format: "projectID IN %@", query.projectIDs))
+        }
+        if query.priorities.isEmpty == false {
+            predicates.append(NSPredicate(format: "priority IN %@", query.priorities))
+        }
+
+        let calendar = Calendar.current
+        let startOfToday = calendar.startOfDay(for: referenceDate)
+        let startOfTomorrow = calendar.date(byAdding: .day, value: 1, to: startOfToday) ?? referenceDate
+        switch query.status {
+        case .all:
+            break
+        case .today:
+            predicates.append(
+                NSCompoundPredicate(orPredicateWithSubpredicates: [
+                    NSPredicate(format: "isComplete == YES AND dateCompleted >= %@ AND dateCompleted < %@", startOfToday as NSDate, startOfTomorrow as NSDate),
+                    NSPredicate(
+                        format: "isComplete == NO AND (taskType == %d OR taskType == %d OR dueDate < %@)",
+                        TaskType.morning.rawValue,
+                        TaskType.evening.rawValue,
+                        startOfTomorrow as NSDate
+                    )
+                ])
+            )
+        case .overdue:
+            predicates.append(NSPredicate(format: "isComplete == NO"))
+            predicates.append(NSPredicate(format: "dueDate < %@", startOfToday as NSDate))
+        case .completed:
+            predicates.append(NSPredicate(format: "isComplete == YES"))
+        }
+
+        guard predicates.isEmpty == false else { return nil }
+        return NSCompoundPredicate(andPredicateWithSubpredicates: predicates)
+    }
+
+    private func homeProjectionPredicate(for query: HomeProjectionQuery) -> NSPredicate? {
+        var predicates: [NSPredicate] = []
+        let state = query.state
+
+        if state.selectedProjectIDs.count == 1, let projectID = state.selectedProjectIDs.first {
+            predicates.append(NSPredicate(format: "projectID == %@", projectID as CVarArg))
+        } else if state.selectedProjectIDs.isEmpty == false {
+            predicates.append(NSPredicate(format: "projectID IN %@", state.selectedProjectIDs))
+        }
+
+        if let advanced = state.advancedFilter, !advanced.isEmpty {
+            if advanced.priorities.isEmpty == false {
+                predicates.append(NSPredicate(format: "priority IN %@", advanced.priorities.map(\.rawValue)))
+            }
+            if advanced.categories.isEmpty == false {
+                predicates.append(NSPredicate(format: "category IN %@", advanced.categories.map(\.rawValue)))
+            }
+            if advanced.contexts.isEmpty == false {
+                predicates.append(NSPredicate(format: "context IN %@", advanced.contexts.map(\.rawValue)))
+            }
+            if advanced.energyLevels.isEmpty == false {
+                predicates.append(NSPredicate(format: "energy IN %@", advanced.energyLevels.map(\.rawValue)))
+            }
+            if let dateRange = advanced.dateRange {
+                predicates.append(NSPredicate(format: "dueDate >= %@", dateRange.start as NSDate))
+                predicates.append(NSPredicate(format: "dueDate <= %@", dateRange.end as NSDate))
+            } else if advanced.requireDueDate {
+                predicates.append(NSPredicate(format: "dueDate != nil"))
+            }
+            if let hasEstimate = advanced.hasEstimate {
+                predicates.append(NSPredicate(format: hasEstimate ? "estimatedDuration != nil" : "estimatedDuration == nil"))
+            }
+        }
+
+        guard predicates.isEmpty == false else { return nil }
+        return NSCompoundPredicate(andPredicateWithSubpredicates: predicates)
+    }
+
+    private func projectCompletionScoreTotals(from startDate: Date, to endDate: Date) throws -> [UUID: Int] {
+        let countExpr = NSExpressionDescription()
+        countExpr.name = "taskCount"
+        countExpr.expression = NSExpression(forFunction: "count:", arguments: [NSExpression(forKeyPath: "taskID")])
+        countExpr.expressionResultType = .integer64AttributeType
+
+        let request = NSFetchRequest<NSDictionary>(entityName: "TaskDefinition")
+        request.resultType = .dictionaryResultType
+        request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
+            NSPredicate(format: "isComplete == YES"),
+            NSPredicate(format: "dateCompleted >= %@", startDate as NSDate),
+            NSPredicate(format: "dateCompleted <= %@", endDate as NSDate)
+        ])
+        request.propertiesToGroupBy = ["projectID", "priority"]
+        request.propertiesToFetch = ["projectID", "priority", countExpr]
+
+        let rows = try self.context.fetch(request)
+        var totals: [UUID: Int] = [:]
+        for row in rows {
+            guard let projectID = row["projectID"] as? UUID else { continue }
+            let countValue = (row["taskCount"] as? NSNumber)?.intValue ?? 0
+            let priorityRaw = (row["priority"] as? NSNumber)?.int32Value
+                ?? (row["priority"] as? Int32)
+                ?? Int32(TaskPriority.low.rawValue)
+            let priority = TaskPriority(rawValue: priorityRaw)
+            totals[projectID, default: 0] += countValue * priority.scorePoints
+        }
+        return totals
     }
 
     /// Executes sortDescriptors.
