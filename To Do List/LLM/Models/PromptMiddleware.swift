@@ -26,8 +26,8 @@ struct PromptMiddleware {
     ///   - range: Time window to filter tasks.
     ///   - projectName: Optional project name to scope tasks.
     /// - Returns: String summary, one task per line or "(no tasks)".
-    static func buildTasksSummary(range: TaskRange, projectName: String? = nil) -> String {
-        let allTasks = fetchAllTasksSync()
+    static func buildTasksSummary(range: TaskRange, projectName: String? = nil) async -> String {
+        let allTasks = await fetchAllTasks()
         let targetProject = projectName?.lowercased()
         let openTasks = allTasks.filter { task in
             guard !task.isComplete else { return false }
@@ -91,27 +91,28 @@ struct PromptMiddleware {
         }
     }
 
-    /// Executes fetchAllTasksSync.
-    private static func fetchAllTasksSync() -> [TaskDefinition] {
+    /// Executes fetchAllTasks.
+    private static func fetchAllTasks() async -> [TaskDefinition] {
         guard let repository = LLMContextRepositoryProvider.taskReadModelRepository else {
             return []
         }
-        let semaphore = DispatchSemaphore(value: 0)
-        var fetched: [TaskDefinition] = []
-        repository.fetchTasks(
-            query: TaskReadQuery(
-                includeCompleted: true,
-                sortBy: .dueDateAscending,
-                limit: 5_000,
-                offset: 0
-            )
-        ) { result in
-            if case .success(let slice) = result {
-                fetched = slice.tasks
+
+        return await withCheckedContinuation { continuation in
+            repository.fetchTasks(
+                query: TaskReadQuery(
+                    includeCompleted: true,
+                    sortBy: .dueDateAscending,
+                    limit: 5_000,
+                    offset: 0
+                )
+            ) { result in
+                switch result {
+                case .success(let slice):
+                    continuation.resume(returning: slice.tasks)
+                case .failure:
+                    continuation.resume(returning: [])
+                }
             }
-            semaphore.signal()
         }
-        _ = semaphore.wait(timeout: .now() + .seconds(3))
-        return fetched
     }
 }

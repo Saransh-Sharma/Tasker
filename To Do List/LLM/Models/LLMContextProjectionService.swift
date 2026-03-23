@@ -107,18 +107,17 @@ enum LLMContextRepositoryProvider {
     }
 
     /// Executes findProjectNameSync.
-    static func findProjectNameSync(matching query: String, timeoutSeconds: TimeInterval = 3) -> String? {
+    @available(*, deprecated, message: "Use async findProjectName(matching:) instead")
+    static func findProjectNameSync(matching query: String, timeoutSeconds: TimeInterval = 3) async -> String? {
         guard let projectRepository = projectRepositoryStorage else { return nil }
         let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
         guard trimmed.isEmpty == false else { return nil }
 
-        let semaphore = DispatchSemaphore(value: 0)
-        var projects: [Project] = []
-        projectRepository.fetchAllProjects { result in
-            projects = (try? result.get()) ?? []
-            semaphore.signal()
+        let projects = await withCheckedContinuation { continuation in
+            projectRepository.fetchAllProjects { result in
+                continuation.resume(returning: (try? result.get()) ?? [])
+            }
         }
-        _ = semaphore.wait(timeout: .now() + .milliseconds(Int(timeoutSeconds * 1_000)))
         return resolveProjectName(in: projects, query: trimmed)
     }
 
