@@ -1,11 +1,9 @@
 import SwiftUI
 
 struct HomeCompactHeaderView: View {
-    let dateText: String
-    let summaryText: String
+    let presentation: HomeHeaderPresentationModel
     let selectedQuickView: HomeQuickView
     let taskCounts: [HomeQuickView: Int]
-    let showsBackToToday: Bool
     let extraTopPadding: CGFloat
     let reduceMotion: Bool
     let onSelectQuickView: (HomeQuickView) -> Void
@@ -14,17 +12,17 @@ struct HomeCompactHeaderView: View {
     let onShowAdvancedFilters: () -> Void
     let onResetFilters: () -> Void
     let onOpenSearch: () -> Void
+    let onOpenReflection: () -> Void
     let onOpenSettings: () -> Void
 
     private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.currentTheme.tokens.spacing }
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @State private var containerWidth: CGFloat = 0
 
     init(
-        dateText: String,
-        summaryText: String,
+        presentation: HomeHeaderPresentationModel,
         selectedQuickView: HomeQuickView,
         taskCounts: [HomeQuickView: Int],
-        showsBackToToday: Bool,
         extraTopPadding: CGFloat = 0,
         reduceMotion: Bool,
         onSelectQuickView: @escaping (HomeQuickView) -> Void,
@@ -33,13 +31,12 @@ struct HomeCompactHeaderView: View {
         onShowAdvancedFilters: @escaping () -> Void,
         onResetFilters: @escaping () -> Void,
         onOpenSearch: @escaping () -> Void,
+        onOpenReflection: @escaping () -> Void,
         onOpenSettings: @escaping () -> Void
     ) {
-        self.dateText = dateText
-        self.summaryText = summaryText
+        self.presentation = presentation
         self.selectedQuickView = selectedQuickView
         self.taskCounts = taskCounts
-        self.showsBackToToday = showsBackToToday
         self.extraTopPadding = extraTopPadding
         self.reduceMotion = reduceMotion
         self.onSelectQuickView = onSelectQuickView
@@ -48,40 +45,79 @@ struct HomeCompactHeaderView: View {
         self.onShowAdvancedFilters = onShowAdvancedFilters
         self.onResetFilters = onResetFilters
         self.onOpenSearch = onOpenSearch
+        self.onOpenReflection = onOpenReflection
         self.onOpenSettings = onOpenSettings
     }
 
     var body: some View {
-        Group {
-            if showsBackToToday {
-                ViewThatFits(in: .horizontal) {
-                    inlineHeaderLayout(backButtonStyle: .label)
-                    inlineHeaderLayout(backButtonStyle: .iconOnly)
-                    if dynamicTypeSize.isAccessibilitySize {
-                        stackedHeaderLayout(backButtonStyle: .iconOnly)
-                    }
-                }
+        VStack(alignment: .leading, spacing: spacing.s8) {
+            if usesWideLayout {
+                wideHeaderLayout
             } else {
-                inlineHeaderLayout(backButtonStyle: nil)
+                compactHeaderLayout
             }
+
+            Rectangle()
+                .fill(Color.tasker.divider.opacity(0.88))
+                .frame(height: 1)
+                .accessibilityHidden(true)
         }
         .padding(.horizontal, spacing.s16)
         .padding(.top, spacing.s8 + 10 + extraTopPadding)
         .padding(.bottom, spacing.s8)
-        .animation(reduceMotion ? .easeOut(duration: 0.12) : .easeOut(duration: 0.2), value: showsBackToToday)
+        .contentShape(Rectangle())
+        .accessibilityIdentifier("home.topChrome")
+        .onGeometryChange(for: CGFloat.self) { proxy in
+            proxy.size.width
+        } action: { newWidth in
+            containerWidth = newWidth
+        }
+        .animation(reduceMotion ? .easeOut(duration: 0.12) : .easeOut(duration: 0.22), value: presentation.showsBackToToday)
     }
 
-    @ViewBuilder
-    private func inlineHeaderLayout(backButtonStyle: HomeBackToTodayButtonView.DisplayStyle?) -> some View {
-        HStack(spacing: spacing.s8) {
-            scopeMenu
-                .layoutPriority(1)
+    private var usesWideLayout: Bool {
+        containerWidth >= 700 && !dynamicTypeSize.isAccessibilitySize
+    }
 
-            if let backButtonStyle {
-                HomeBackToTodayButtonView(displayStyle: backButtonStyle, action: onBackToToday)
-                    .transition(backToTodayTransition)
-                    .fixedSize(horizontal: true, vertical: true)
+    private var compactHeaderLayout: some View {
+        VStack(alignment: .leading, spacing: spacing.s8) {
+            HStack(spacing: spacing.s8) {
+                if presentation.showsBackToToday {
+                    HomeBackToTodayButtonView(action: onBackToToday)
+                        .fixedSize(horizontal: true, vertical: true)
+                }
+
+                scopeMenu
+                    .layoutPriority(1)
+
+                Spacer(minLength: spacing.s4)
+
+                settingsButton
             }
+
+            dateLabel
+
+            metadataSection(alignment: .leading)
+        }
+    }
+
+    private var wideHeaderLayout: some View {
+        HStack(alignment: .top, spacing: spacing.s16) {
+            HStack(spacing: spacing.s8) {
+                if presentation.showsBackToToday {
+                    HomeBackToTodayButtonView(action: onBackToToday)
+                        .fixedSize(horizontal: true, vertical: true)
+                }
+
+                scopeMenu
+            }
+            .fixedSize(horizontal: true, vertical: true)
+
+            VStack(alignment: .leading, spacing: spacing.s4) {
+                dateLabel
+                metadataSection(alignment: .leading)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
 
             settingsButton
                 .fixedSize()
@@ -89,23 +125,95 @@ struct HomeCompactHeaderView: View {
     }
 
     @ViewBuilder
-    private func stackedHeaderLayout(backButtonStyle: HomeBackToTodayButtonView.DisplayStyle) -> some View {
-        VStack(alignment: .leading, spacing: spacing.s8) {
-            HStack(spacing: spacing.s8) {
-                scopeMenu
-                    .layoutPriority(1)
-                settingsButton
-                    .fixedSize()
+    private func metadataSection(alignment: HorizontalAlignment) -> some View {
+        ViewThatFits(in: .horizontal) {
+            HStack(alignment: .center, spacing: spacing.s8) {
+                metadataItemsRow
+                if presentation.showsReflectionCTA {
+                    reflectionButton
+                }
             }
 
-            HStack {
-                Spacer(minLength: 0)
-
-                HomeBackToTodayButtonView(displayStyle: backButtonStyle, action: onBackToToday)
-                    .transition(backToTodayTransition)
-                    .fixedSize(horizontal: true, vertical: true)
+            VStack(alignment: alignment, spacing: spacing.s8) {
+                metadataItemsRow
+                if presentation.showsReflectionCTA {
+                    reflectionButton
+                }
             }
         }
+    }
+
+    private var metadataItemsRow: some View {
+        HStack(alignment: .center, spacing: spacing.s8) {
+            ForEach(Array(presentation.metadataItems.enumerated()), id: \.element.id) { index, item in
+                metadataItemView(item)
+
+                if index < presentation.metadataItems.count - 1 {
+                    Text("·")
+                        .font(.tasker(.caption1))
+                        .foregroundStyle(Color.tasker.textQuaternary)
+                }
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .accessibilityElement(children: .combine)
+    }
+
+    private func metadataItemView(_ item: HomeHeaderMetadataItem) -> some View {
+        HStack(spacing: spacing.s4) {
+            if let iconSystemName = item.iconSystemName {
+                Image(systemName: iconSystemName)
+                    .font(.system(size: 12, weight: .semibold))
+            }
+
+            Text(item.text)
+                .lineLimit(1)
+                .minimumScaleFactor(0.85)
+        }
+        .font(.tasker(.caption1).weight(.medium))
+        .foregroundStyle(metadataToneColor(item.tone))
+        .fixedSize(horizontal: true, vertical: false)
+    }
+
+    private var dateLabel: some View {
+        Text(presentation.dateText)
+            .font(.tasker(.title1))
+            .foregroundStyle(Color.tasker.textPrimary)
+            .lineLimit(1)
+            .minimumScaleFactor(0.8)
+            .accessibilityIdentifier("home.topChrome.date")
+    }
+
+    private var reflectionButton: some View {
+        Button {
+            TaskerFeedback.selection()
+            onOpenReflection()
+        } label: {
+            HStack(spacing: spacing.s4) {
+                Image(systemName: "sparkles")
+                    .font(.system(size: 11, weight: .semibold))
+
+                Text(presentation.reflectionCTATitle)
+                    .font(.tasker(.caption1).weight(.semibold))
+                    .lineLimit(1)
+            }
+            .foregroundStyle(Color.tasker.accentPrimary)
+            .padding(.horizontal, spacing.s12)
+            .frame(minHeight: 36)
+            .background(
+                Capsule(style: .continuous)
+                    .fill(Color.tasker.accentWash)
+            )
+            .overlay(
+                Capsule(style: .continuous)
+                    .stroke(Color.tasker.accentPrimary.opacity(0.18), lineWidth: 1)
+            )
+        }
+        .buttonStyle(.plain)
+        .scaleOnPress()
+        .accessibilityLabel("Reflection ready")
+        .accessibilityHint("Opens the daily reflection screen")
+        .accessibilityIdentifier("home.reflectionReady.button")
     }
 
     private var scopeMenu: some View {
@@ -132,31 +240,37 @@ struct HomeCompactHeaderView: View {
                 }
             }
 
-            Section("Actions") {
+            Section("Tools") {
                 Button("Search", systemImage: "magnifyingglass", action: onOpenSearch)
                     .accessibilityIdentifier("home.focus.menu.search")
 
-                Button("Select date", systemImage: "calendar", action: onShowDatePicker)
+                Button("Pick date", systemImage: "calendar", action: onShowDatePicker)
                     .accessibilityIdentifier("home.focus.menu.datePicker")
 
-                Button("Advanced filters", systemImage: "slider.horizontal.3", action: onShowAdvancedFilters)
+                Button("More filters", systemImage: "slider.horizontal.3", action: onShowAdvancedFilters)
                     .accessibilityIdentifier("home.focus.menu.advanced")
 
                 Button(role: .destructive, action: onResetFilters) {
-                    Label("Reset filters", systemImage: "line.3.horizontal.decrease.circle")
+                    Label("Reset", systemImage: "line.3.horizontal.decrease.circle")
                 }
                 .accessibilityIdentifier("home.focus.menu.reset")
             }
         } label: {
             HomeScopeSummaryButtonView(
-                dateText: dateText,
-                summaryText: summaryText
+                viewLabel: presentation.viewLabel,
+                accentColor: selectionTint,
+                hasActiveFilters: presentation.hasActiveFilters
             )
+            .accessibilityElement(children: .combine)
+            .accessibilityIdentifier("home.focus.menu.button")
+            .accessibilityLabel(scopeMenuAccessibilityLabel)
+            .accessibilityHint("Opens quick views and tools")
+            .accessibilityAddTraits(.isButton)
         }
         .menuStyle(.borderlessButton)
         .accessibilityIdentifier("home.focus.menu.button")
-        .accessibilityLabel("Date and scope. \(dateText). \(summaryText)")
-        .accessibilityHint("Opens home view and filter options")
+        .accessibilityLabel(scopeMenuAccessibilityLabel)
+        .accessibilityHint("Opens quick views and tools")
     }
 
     private var settingsButton: some View {
@@ -165,10 +279,13 @@ struct HomeCompactHeaderView: View {
             .font(.system(size: 18, weight: .semibold))
             .foregroundStyle(Color.tasker.textSecondary)
             .frame(width: 44, height: 44)
-            .taskerChromeSurface(
-                cornerRadius: 22,
-                accentColor: Color.tasker.accentSecondary,
-                level: .e1
+            .background(
+                Circle()
+                    .fill(Color.tasker.surfaceSecondary.opacity(0.92))
+            )
+            .overlay(
+                Circle()
+                    .stroke(Color.tasker.strokeHairline.opacity(0.75), lineWidth: 1)
             )
             .buttonStyle(.plain)
             .scaleOnPress()
@@ -177,8 +294,39 @@ struct HomeCompactHeaderView: View {
             .accessibilityIdentifier("home.settingsButton")
     }
 
-    private var backToTodayTransition: AnyTransition {
-        reduceMotion ? .opacity : .move(edge: .trailing).combined(with: .opacity)
+    private var scopeMenuAccessibilityLabel: String {
+        if presentation.hasActiveFilters {
+            return "Current view, \(presentation.viewLabel), filters active"
+        }
+        return "Current view, \(presentation.viewLabel)"
+    }
+
+    private var selectionTint: Color {
+        switch selectedQuickView {
+        case .overdue:
+            return Color.tasker.statusWarning
+        case .done:
+            return Color.tasker.statusSuccess
+        case .morning:
+            return Color.tasker.accentPrimary
+        case .evening:
+            return Color.tasker.accentSecondary
+        case .today, .upcoming:
+            return Color.tasker.accentPrimary
+        }
+    }
+
+    private func metadataToneColor(_ tone: HomeHeaderMetadataItem.Tone) -> Color {
+        switch tone {
+        case .neutral:
+            return Color.tasker.textSecondary
+        case .accent:
+            return Color.tasker.accentSecondary
+        case .success:
+            return Color.tasker.statusSuccess
+        case .warning:
+            return Color.tasker.statusWarning
+        }
     }
 
     private func iconName(for quickView: HomeQuickView) -> String {

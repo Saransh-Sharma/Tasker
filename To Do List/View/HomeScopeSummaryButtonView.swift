@@ -1,40 +1,41 @@
 import SwiftUI
 
 struct HomeScopeSummaryButtonView: View {
-    let dateText: String
-    let summaryText: String
+    let viewLabel: String
+    let accentColor: Color
+    let hasActiveFilters: Bool
 
     private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.currentTheme.tokens.spacing }
 
     var body: some View {
         HStack(spacing: spacing.s8) {
-            VStack(alignment: .leading, spacing: spacing.s2) {
-                Text(dateText)
-                    .font(.tasker(.bodyEmphasis))
-                    .foregroundStyle(Color.tasker.textPrimary)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.9)
-
-                Text(summaryText)
-                    .font(.tasker(.caption1))
-                    .foregroundStyle(Color.tasker.textSecondary)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.9)
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
+            Text(viewLabel)
+                .font(.tasker(.headline))
+                .foregroundStyle(Color.tasker.textPrimary)
+                .lineLimit(1)
 
             Image(systemName: "chevron.down")
                 .font(.system(size: 11, weight: .semibold))
-                .foregroundStyle(Color.tasker.textSecondary)
+                .foregroundStyle(accentColor.opacity(0.92))
+
+            if hasActiveFilters {
+                Circle()
+                    .fill(accentColor)
+                    .frame(width: 7, height: 7)
+                    .transition(.scale.combined(with: .opacity))
+            }
         }
         .padding(.horizontal, spacing.s12)
         .padding(.vertical, spacing.s8)
         .frame(minHeight: 44)
-        .taskerChromeSurface(
-            cornerRadius: 22,
-            accentColor: Color.tasker.accentSecondary,
-            level: .e1
+        .background(
+            Capsule(style: .continuous)
+                .fill(Color.tasker.surfaceSecondary.opacity(0.9))
         )
-        .contentShape(Capsule())
+        .overlay(
+            Capsule(style: .continuous)
+                .stroke(Color.tasker.strokeHairline.opacity(0.72), lineWidth: 1)
+        )
+        .contentShape(Capsule(style: .continuous))
     }
 }

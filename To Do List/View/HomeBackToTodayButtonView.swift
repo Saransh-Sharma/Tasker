@@ -1,12 +1,6 @@
 import SwiftUI
 
 struct HomeBackToTodayButtonView: View {
-    enum DisplayStyle {
-        case label
-        case iconOnly
-    }
-
-    let displayStyle: DisplayStyle
     let action: () -> Void
 
     private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.currentTheme.tokens.spacing }
@@ -16,36 +10,36 @@ struct HomeBackToTodayButtonView: View {
             TaskerFeedback.selection()
             action()
         } label: {
-            labelContent
+            HStack(spacing: spacing.s4) {
+                Image(systemName: "chevron.left")
+                    .font(.system(size: 12, weight: .semibold))
+
+                Text("Today")
+                    .font(.tasker(.caption1).weight(.medium))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.9)
+            }
+            .foregroundStyle(Color.tasker.textSecondary)
+            .padding(.horizontal, spacing.s12)
+            .frame(minHeight: 44)
+            .background(
+                Capsule(style: .continuous)
+                    .fill(Color.tasker.surfaceSecondary.opacity(0.92))
+            )
+            .overlay(
+                Capsule(style: .continuous)
+                    .stroke(Color.tasker.strokeHairline.opacity(0.8), lineWidth: 1)
+            )
+            .accessibilityElement(children: .combine)
+            .accessibilityIdentifier("home.backToToday.button")
+            .accessibilityLabel("Back to Today")
+            .accessibilityHint("Returns to the default Today view")
+            .accessibilityAddTraits(.isButton)
         }
-        .font(.tasker(.caption1))
-        .foregroundStyle(Color.tasker.textPrimary)
-        .taskerChromeSurface(
-            cornerRadius: 20,
-            accentColor: Color.tasker.accentPrimary,
-            level: .e1
-        )
         .buttonStyle(.plain)
         .scaleOnPress()
         .accessibilityLabel("Back to Today")
         .accessibilityHint("Returns to the default Today view")
         .accessibilityIdentifier("home.backToToday.button")
-    }
-
-    @ViewBuilder
-    private var labelContent: some View {
-        switch displayStyle {
-        case .label:
-            Label("Back to Today", systemImage: "arrow.uturn.backward.circle")
-                .lineLimit(1)
-                .minimumScaleFactor(0.95)
-                .padding(.horizontal, spacing.s12)
-                .frame(minHeight: 44)
-                .fixedSize(horizontal: true, vertical: true)
-        case .iconOnly:
-            Image(systemName: "arrow.uturn.backward.circle")
-                .font(.system(size: 18, weight: .semibold))
-                .frame(width: 44, height: 44)
-        }
     }
 }

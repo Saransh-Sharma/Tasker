@@ -2271,12 +2271,12 @@ struct HomeBackdropForedropRootView: View {
             .zIndex(1)
         } else {
             VStack(alignment: .leading, spacing: spacing.s12) {
+                let headerPresentation = chromeSnapshot.homeHeaderPresentation(tasks: tasksSnapshot)
+
                 HomeCompactHeaderView(
-                    dateText: chromeSnapshot.homeHeaderDateText,
-                    summaryText: chromeSnapshot.homeHeaderSummaryText,
+                    presentation: headerPresentation,
                     selectedQuickView: chromeSnapshot.activeScope.quickView,
                     taskCounts: chromeSnapshot.quickViewCounts,
-                    showsBackToToday: chromeSnapshot.shouldShowBackToToday,
                     extraTopPadding: layoutClass.isPad ? 18 : 0,
                     reduceMotion: reduceMotion,
                     onSelectQuickView: { viewModel.setQuickView($0) },
@@ -2296,24 +2296,13 @@ struct HomeBackdropForedropRootView: View {
                     onOpenSearch: {
                         openSearch(source: "scope_menu_search")
                     },
+                    onOpenReflection: {
+                        openReflectionSheet()
+                    },
                     onOpenSettings: {
                         onOpenSettings()
                     }
                 )
-
-                if activeFace == .tasks {
-                    HomeMiniMomentumCardView(
-                        progress: chromeSnapshot.progressState,
-                        completionRate: chromeSnapshot.completionRate,
-                        reflectionEligible: reflectionEligible,
-                        animate: shellPhase == .interactive && !reduceMotion,
-                        onTap: {
-                            toggleInsights(source: "nav_xp_chart")
-                        }
-                    )
-                    .padding(.horizontal, spacing.s16)
-                    .padding(.bottom, spacing.s4)
-                }
             }
         }
     }
