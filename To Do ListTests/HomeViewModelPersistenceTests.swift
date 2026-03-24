@@ -461,6 +461,110 @@ final class HomeViewModelPersistenceTests: XCTestCase {
         defaults.removePersistentDomain(forName: suiteName)
     }
 
+    func testTodayCompletionRateIncludesOverdueTasksAfterAnalyticsRefresh() {
+        let suiteName = "HomeViewModelPersistenceTests.TodayCompletionRate.\(UUID().uuidString)"
+        guard let defaults = UserDefaults(suiteName: suiteName) else {
+            return XCTFail("Failed to create test UserDefaults suite")
+        }
+        defaults.removePersistentDomain(forName: suiteName)
+
+        let inbox = Project.createInbox()
+        let calendar = Calendar.current
+        let now = Date()
+        let startOfToday = calendar.startOfDay(for: now)
+        let overdueDate = calendar.date(byAdding: .day, value: -1, to: startOfToday)!
+        let dueToday = calendar.date(byAdding: .hour, value: 10, to: startOfToday)!
+        let completedTodayAt = calendar.date(byAdding: .hour, value: 14, to: startOfToday)!
+
+        let overdueOpen = makeTask(
+            name: "Overdue Open",
+            project: inbox,
+            dueDate: overdueDate,
+            priority: .high,
+            isComplete: false
+        )
+        let dueTodayOpen = makeTask(
+            name: "Due Today Open",
+            project: inbox,
+            dueDate: dueToday,
+            priority: .low,
+            isComplete: false
+        )
+        let completedToday = makeTask(
+            name: "Completed Today",
+            project: inbox,
+            dueDate: dueToday,
+            priority: .low,
+            isComplete: true,
+            dateCompleted: completedTodayAt
+        )
+
+        let taskRepository = HomeViewModelMockTaskRepository(tasks: [overdueOpen, dueTodayOpen, completedToday])
+        let projectRepository = HomeViewModelMockProjectRepository(projects: [inbox])
+        let coordinator = UseCaseCoordinator(taskRepository: taskRepository, projectRepository: projectRepository)
+        let viewModel = HomeViewModel(useCaseCoordinator: coordinator, userDefaults: defaults)
+
+        waitForMainQueueFlush()
+
+        XCTAssertEqual(viewModel.completionRate, 1.0 / 3.0, accuracy: 0.0001)
+        XCTAssertEqual(viewModel.homeChromeState.completionRate, 1.0 / 3.0, accuracy: 0.0001)
+
+        defaults.removePersistentDomain(forName: suiteName)
+    }
+
+    func testCustomDateCompletionRateIncludesOverdueRelativeToSelectedDate() {
+        let suiteName = "HomeViewModelPersistenceTests.CustomDateCompletionRate.\(UUID().uuidString)"
+        guard let defaults = UserDefaults(suiteName: suiteName) else {
+            return XCTFail("Failed to create test UserDefaults suite")
+        }
+        defaults.removePersistentDomain(forName: suiteName)
+
+        let inbox = Project.createInbox()
+        let calendar = Calendar.current
+        let startOfToday = calendar.startOfDay(for: Date())
+        let anchorDate = calendar.date(byAdding: .day, value: 1, to: startOfToday)!
+        let dueOnAnchor = calendar.date(byAdding: .hour, value: 9, to: anchorDate)!
+        let overdueRelativeToAnchor = calendar.date(byAdding: .day, value: -1, to: dueOnAnchor)!
+        let completedOnAnchorAt = calendar.date(byAdding: .hour, value: 15, to: anchorDate)!
+
+        let openOnAnchor = makeTask(
+            name: "Open On Anchor",
+            project: inbox,
+            dueDate: dueOnAnchor,
+            priority: .high,
+            isComplete: false
+        )
+        let overdueOpen = makeTask(
+            name: "Overdue Relative Anchor",
+            project: inbox,
+            dueDate: overdueRelativeToAnchor,
+            priority: .low,
+            isComplete: false
+        )
+        let completedOnAnchor = makeTask(
+            name: "Completed On Anchor",
+            project: inbox,
+            dueDate: dueOnAnchor,
+            priority: .low,
+            isComplete: true,
+            dateCompleted: completedOnAnchorAt
+        )
+
+        let taskRepository = HomeViewModelMockTaskRepository(tasks: [openOnAnchor, overdueOpen, completedOnAnchor])
+        let projectRepository = HomeViewModelMockProjectRepository(projects: [inbox])
+        let coordinator = UseCaseCoordinator(taskRepository: taskRepository, projectRepository: projectRepository)
+        let viewModel = HomeViewModel(useCaseCoordinator: coordinator, userDefaults: defaults)
+
+        waitForMainQueueFlush()
+        viewModel.selectDate(anchorDate)
+        waitForMainQueueFlush()
+
+        XCTAssertEqual(viewModel.completionRate, 1.0 / 3.0, accuracy: 0.0001)
+        XCTAssertEqual(viewModel.homeChromeState.completionRate, 1.0 / 3.0, accuracy: 0.0001)
+
+        defaults.removePersistentDomain(forName: suiteName)
+    }
+
     func testEvaShuffleExcludesRecentSelectionsWhenPoolIsLargeEnough() {
         let suiteName = "HomeViewModelPersistenceTests.EvaShuffle.\(UUID().uuidString)"
         guard let defaults = UserDefaults(suiteName: suiteName) else {

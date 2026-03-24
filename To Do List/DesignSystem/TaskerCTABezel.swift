@@ -694,6 +694,88 @@ extension View {
     }
 }
 
+enum TaskerBackdropNoise {
+    private static let tileSize = CGSize(width: 128, height: 128)
+    private static let seed: UInt64 = 0xD1CE_BA5E_1234_5678
+
+    static func opacity(for amount: Int) -> Double {
+        Double(V2FeatureFlags.clampedHomeBackdropNoiseAmount(amount)) / 1000.0
+    }
+
+    static let tileImage: UIImage? = makeTileImage(size: tileSize)
+
+    private static func makeTileImage(size: CGSize) -> UIImage? {
+        let width = Int(size.width)
+        let height = Int(size.height)
+        let bytesPerPixel = 1
+        let bytesPerRow = width * bytesPerPixel
+        var pixels = [UInt8](repeating: 0, count: width * height)
+        var randomState = seed
+
+        for index in pixels.indices {
+            randomState = (2862933555777941757 &* randomState) &+ 3037000493
+            pixels[index] = UInt8((randomState >> 24) & 0xFF)
+        }
+
+        guard let provider = CGDataProvider(data: Data(pixels) as CFData),
+              let cgImage = CGImage(
+                width: width,
+                height: height,
+                bitsPerComponent: 8,
+                bitsPerPixel: 8,
+                bytesPerRow: bytesPerRow,
+                space: CGColorSpaceCreateDeviceGray(),
+                bitmapInfo: CGBitmapInfo(rawValue: 0),
+                provider: provider,
+                decode: nil,
+                shouldInterpolate: false,
+                intent: .defaultIntent
+              ) else {
+            return nil
+        }
+
+        return UIImage(cgImage: cgImage)
+    }
+}
+
+final class TaskerBackdropNoiseTileView: UIView {
+    override init(frame: CGRect) {
+        super.init(frame: frame)
+        backgroundColor = .clear
+        isOpaque = false
+        isUserInteractionEnabled = false
+        isAccessibilityElement = false
+        accessibilityElementsHidden = true
+        layer.compositingFilter = "softLightBlendMode"
+    }
+
+    @available(*, unavailable)
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+
+    func update(tileImage: UIImage?, opacity: Double) {
+        backgroundColor = tileImage.map { UIColor(patternImage: $0) } ?? .clear
+        alpha = opacity
+        isHidden = opacity <= 0.0001 || tileImage == nil
+    }
+}
+
+struct TaskerBackdropNoiseOverlay: UIViewRepresentable {
+    let amount: Int
+
+    func makeUIView(context: Context) -> TaskerBackdropNoiseTileView {
+        TaskerBackdropNoiseTileView()
+    }
+
+    func updateUIView(_ uiView: TaskerBackdropNoiseTileView, context: Context) {
+        uiView.update(
+            tileImage: TaskerBackdropNoise.tileImage,
+            opacity: TaskerBackdropNoise.opacity(for: amount)
+        )
+    }
+}
+
 private struct TaskerNoisyGradientLayer: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 

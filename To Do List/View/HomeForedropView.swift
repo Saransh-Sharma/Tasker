@@ -1346,6 +1346,8 @@ struct HomeBackdropForedropRootView: View {
     let layoutClass: TaskerLayoutClass
     let forcedFace: Binding<HomeForedropFace>?
     @ObservedObject private var themeManager = TaskerThemeManager.shared
+    @AppStorage(V2FeatureFlags.homeBackdropNoiseAmountUserKey)
+    private var homeBackdropNoiseAmountStorage = V2FeatureFlags.defaultHomeBackdropNoiseAmount
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.colorScheme) private var colorScheme
 
@@ -1368,7 +1370,6 @@ struct HomeBackdropForedropRootView: View {
 
     @State private var showAdvancedFilters = false
     @State private var showDatePicker = false
-    @State private var showHabitLibrarySheet = false
     @State private var draftDate = Date()
     @State private var celebrationRouter = DefaultCelebrationRouter()
     @State private var showXPBurst = false
@@ -1380,6 +1381,12 @@ struct HomeBackdropForedropRootView: View {
     @State private var semanticCelebrationXP = 0
     @State private var showReflectionSheet = false
     @State private var reflectionClaimState: DailyReflectionClaimState = .ready
+    @State private var activeNextActionFocusSession: FocusSessionDefinition?
+    @State private var showNextActionFocusTimer = false
+    @State private var nextActionFocusSummaryResult: FocusSessionResult?
+    @State private var showNextActionFocusSummary = false
+    @State private var isNextActionFocusRequestInFlight = false
+    @State private var isNextActionFocusEnding = false
     @State private var foredropHintOffset: CGFloat = 0
     @State private var hintAnimationTask: _Concurrency.Task<Void, Never>?
     @State private var lastHintTriggerAt: Date?
@@ -1402,6 +1409,7 @@ struct HomeBackdropForedropRootView: View {
     private static let foredropHintSettleDuration: TimeInterval = 0.16
     private static let launchArguments = Set(ProcessInfo.processInfo.arguments)
     private static let searchCommitDebounceNanoseconds: UInt64 = 250_000_000
+    private static let nextActionFocusDurationSeconds = 15 * 60
 
     private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.tokens(for: layoutClass).spacing }
     private var corner: TaskerCornerTokens { TaskerThemeManager.shared.tokens(for: layoutClass).corner }
@@ -1425,6 +1433,9 @@ struct HomeBackdropForedropRootView: View {
     }
     private var isSearchOpen: Bool { activeFace == .search }
     private var isBackFaceVisible: Bool { activeFace.isBackFace }
+    private var homeBackdropNoiseAmount: Int {
+        V2FeatureFlags.clampedHomeBackdropNoiseAmount(homeBackdropNoiseAmountStorage)
+    }
     private var foredropFlipAnimation: Animation {
         let duration: TimeInterval
         if reduceMotion || isUITesting {
@@ -1442,6 +1453,9 @@ struct HomeBackdropForedropRootView: View {
     private var homeBackdropGradient: some View {
         ZStack {
             TaskerNoisyGradientBackdrop(opacity: 0.9)
+            TaskerBackdropNoiseOverlay(amount: homeBackdropNoiseAmount)
+                .allowsHitTesting(false)
+                .accessibilityHidden(true)
 
             LinearGradient(
                 colors: [
@@ -1492,7 +1506,7 @@ struct HomeBackdropForedropRootView: View {
 
                 VStack(spacing: 0) {
                     topNavigationBar()
-                        .padding(.top, layoutMetrics.safeAreaTop)
+                        .padding(.top, layoutMetrics.safeAreaTop + spacing.s8)
                         .accessibilityIdentifier("home.topNav.container")
 
                     ZStack(alignment: .top) {
@@ -1529,6 +1543,49 @@ struct HomeBackdropForedropRootView: View {
         .ignoresSafeArea(.keyboard, edges: .bottom)
         .accessibilityIdentifier("home.view")
         .taskerSnackbar($snackbar)
+        .fullScreenCover(isPresented: $showNextActionFocusTimer, onDismiss: {
+            if isNextActionFocusEnding == false {
+                activeNextActionFocusSession = nil
+            }
+        }) {
+            if let session = activeNextActionFocusSession {
+                FocusTimerView(
+                    taskTitle: resolveTaskForFocusSession(taskID: session.taskID)?.title,
+                    taskPriority: resolveTaskForFocusSession(taskID: session.taskID)?.priority.displayName,
+                    targetDurationSeconds: session.targetDurationSeconds,
+                    onComplete: { _ in
+                        finishNextActionFocusSession(sessionID: session.id, source: "next_action_module_15min_focus")
+                    },
+                    onCancel: {
+                        finishNextActionFocusSession(sessionID: session.id, source: "next_action_module_15min_focus_cancel")
+                    }
+                )
+            } else {
+                Color.clear
+                    .ignoresSafeArea()
+            }
+        }
+        .sheet(isPresented: $showNextActionFocusSummary, onDismiss: {
+            nextActionFocusSummaryResult = nil
+        }) {
+            if let result = nextActionFocusSummaryResult {
+                FocusSessionSummaryView(
+                    durationSeconds: result.session.durationSeconds,
+                    xpAwarded: result.xpResult?.awardedXP ?? result.session.xpAwarded,
+                    dailyXPSoFar: result.xpResult?.dailyXPSoFar ?? viewModel.dailyScore,
+                    dailyXPCap: GamificationTokens.dailyXPCap,
+                    onDismiss: {
+                        dismissNextActionFocusSummary()
+                    },
+                    onContinueMomentum: {
+                        viewModel.setQuickView(.today)
+                        dismissNextActionFocusSummary()
+                    }
+                )
+                .presentationDetents([.medium])
+                .presentationDragIndicator(.visible)
+            }
+        }
         .sheet(isPresented: $showDatePicker) {
             NavigationStack {
                 VStack(spacing: spacing.s16) {
@@ -1587,11 +1644,6 @@ struct HomeBackdropForedropRootView: View {
                 onDeleteSavedView: { id in
                     viewModel.deleteSavedView(id: id)
                 }
-            )
-        }
-        .sheet(isPresented: $showHabitLibrarySheet) {
-            HabitLibraryView(
-                viewModel: PresentationDependencyContainer.shared.makeNewHabitLibraryViewModel()
             )
         }
         .onAppear {
@@ -2018,7 +2070,11 @@ struct HomeBackdropForedropRootView: View {
                 onScrollChromeStateChange: { state in
                     onTaskListScrollChromeStateChange(state)
                 },
+                onPullToSearch: {
+                    openSearch(source: "task_list_pull")
+                },
                 highlightedTaskID: overlaySnapshot.guidanceState?.taskID,
+                scrollResetKey: taskListScrollResetKey,
                 bottomContentInset: taskListBottomInset
             )
             .padding(.top, spacing.s4)
@@ -2249,44 +2305,42 @@ struct HomeBackdropForedropRootView: View {
     @ViewBuilder
     private func topNavigationBar() -> some View {
         if isSearchOpen {
-            VStack(alignment: .leading, spacing: spacing.s12) {
-                HomeTopChromeTitleLaneView(title: chromeSnapshot.activeScope.quickView.title)
-                    .hidden()
-                    .accessibilityHidden(true)
-                    .allowsHitTesting(false)
-
-                HomeSearchChromeView(
-                    query: $searchDraftQuery,
-                    isFocused: $isSearchFieldFocused,
-                    onQueryChanged: { newValue in
-                        trackSearchQueryChanged(newValue)
-                        scheduleSearchCommit(for: newValue)
-                    },
-                    onSubmit: {
-                        commitDraftSearchQueryImmediately()
-                    },
-                    onClear: {
-                        cancelPendingSearchCommit()
-                        searchDraftQuery = ""
-                        searchState.clearQuery()
-                        trackSearchQueryChanged("")
-                    }
-                )
-            }
+            HomeSearchChromeView(
+                query: $searchDraftQuery,
+                isFocused: $isSearchFieldFocused,
+                onQueryChanged: { newValue in
+                    trackSearchQueryChanged(newValue)
+                    scheduleSearchCommit(for: newValue)
+                },
+                onSubmit: {
+                    commitDraftSearchQueryImmediately()
+                },
+                onClear: {
+                    cancelPendingSearchCommit()
+                    searchDraftQuery = ""
+                    searchState.clearQuery()
+                    trackSearchQueryChanged("")
+                }
+            )
             .padding(.horizontal, spacing.s16)
-            .padding(.top, spacing.s12)
+            .padding(.top, spacing.s8)
             .padding(.bottom, spacing.s8)
             .ignoresSafeArea(.keyboard)
             .zIndex(1)
         } else {
             VStack(alignment: .leading, spacing: spacing.s12) {
-                HomeTopChromeView(
-                    selectedQuickView: Binding(
-                        get: { chromeSnapshot.activeScope.quickView },
-                        set: { viewModel.setQuickView($0) }
-                    ),
+                let headerPresentation = chromeSnapshot.homeHeaderPresentation(tasks: tasksSnapshot)
+
+                HomeCompactHeaderView(
+                    presentation: headerPresentation,
+                    selectedQuickView: chromeSnapshot.activeScope.quickView,
                     taskCounts: chromeSnapshot.quickViewCounts,
-                    title: chromeSnapshot.activeScope.quickView.title,
+                    extraTopPadding: layoutClass.isPad ? 18 : 0,
+                    reduceMotion: reduceMotion,
+                    onSelectQuickView: { viewModel.setQuickView($0) },
+                    onBackToToday: {
+                        viewModel.setQuickView(.today)
+                    },
                     onShowDatePicker: {
                         draftDate = chromeSnapshot.selectedDate
                         showDatePicker = true
@@ -2298,33 +2352,15 @@ struct HomeBackdropForedropRootView: View {
                         viewModel.resetAllFilters()
                     },
                     onOpenSearch: {
-                        onOpenSearch("top_nav_search")
+                        openSearch(source: "scope_menu_search")
                     },
-                    onOpenManageHabits: {
-                        showHabitLibrarySheet = true
+                    onOpenReflection: {
+                        openReflectionSheet()
                     },
                     onOpenSettings: {
                         onOpenSettings()
                     }
                 )
-
-                if activeFace == .tasks {
-                    HomeMomentumHUDView(
-                        progress: chromeSnapshot.progressState,
-                        completionRate: chromeSnapshot.completionRate,
-                        reflectionEligible: reflectionEligible,
-                        momentumGuidanceText: momentumGuidanceText,
-                        animate: shellPhase == .interactive && !reduceMotion,
-                        onToggleInsights: {
-                            toggleInsights(source: "nav_xp_chart")
-                        },
-                        onOpenReflection: {
-                            openReflectionSheet()
-                        }
-                    )
-                    .padding(.horizontal, spacing.s16)
-                    .padding(.bottom, spacing.s8)
-                }
             }
         }
     }
@@ -2439,11 +2475,6 @@ struct HomeBackdropForedropRootView: View {
         )
     }
 
-    private var hasActiveQuickFilters: Bool {
-        !chromeSnapshot.activeFilterState.selectedProjectIDs.isEmpty
-            || chromeSnapshot.activeFilterState.advancedFilter != nil
-    }
-
     private var shouldShowInboxTriageAction: Bool {
         V2FeatureFlags.evaTriageEnabled && chromeSnapshot.activeScope.quickView == .today
     }
@@ -2452,55 +2483,43 @@ struct HomeBackdropForedropRootView: View {
         V2FeatureFlags.evaRescueEnabled && chromeSnapshot.activeScope.quickView == .today
     }
 
-    private var quickFilterPills: some View {
-        HomeQuickFilterPillsView(
-            projectName: activeProjectFilterName,
-            hasAdvancedFilter: chromeSnapshot.activeFilterState.advancedFilter != nil,
-            onClearProjectFilters: {
-                viewModel.clearProjectFilters()
-            },
-            onClearAdvancedFilters: {
-                viewModel.applyAdvancedFilter(nil, showCompletedInline: false)
-            },
-            onResetAllFilters: {
-                viewModel.resetAllFilters()
-            }
-        )
+    private var taskListHorizontalGutter: CGFloat {
+        TaskerTheme.Spacing.lg
     }
 
-    private var activeProjectFilterName: String? {
-        guard let projectFilter = chromeSnapshot.activeFilterState.selectedProjectIDs.first else {
-            return nil
-        }
-        return chromeSnapshot.projects.first(where: { $0.id == projectFilter })?.name ?? "Project"
+    private func fullBleedTaskListHeaderModule<Content: View>(
+        @ViewBuilder _ content: () -> Content
+    ) -> some View {
+        content()
+            .padding(.horizontal, -taskListHorizontalGutter)
     }
 
     @ViewBuilder
     private var taskListScrollHeader: some View {
         VStack(alignment: .leading, spacing: 0) {
-            if hasActiveQuickFilters {
-                quickFilterPills
-                    .padding(.top, spacing.s8)
-            }
-
             if shouldShowDueTodayAgenda {
                 dueTodayAgendaSection
-                    .padding(.top, spacing.s12)
             }
 
             if tasksSnapshot.canUseManualFocusDrag || !tasksSnapshot.focusRows.isEmpty {
-                focusStrip
-                    .fixedSize(horizontal: false, vertical: true)
-                    .padding(.top, spacing.s2)
-                    .accessibilityElement(children: .contain)
-                    .accessibilityIdentifier("home.focus.strip")
+                fullBleedTaskListHeaderModule {
+                    focusStrip
+                        .fixedSize(horizontal: false, vertical: true)
+                        .padding(.top, spacing.s2)
+                        .accessibilityElement(children: .contain)
+                        .accessibilityIdentifier("home.focus.strip")
+                }
             }
 
-            if tasksSnapshot.activeQuickView == .today && tasksSnapshot.pinnedFocusTaskIDs.count < 3 {
+            if tasksSnapshot.activeQuickView == .today &&
+                tasksSnapshot.pinnedFocusTaskIDs.count < 3 &&
+                tasksSnapshot.todayOpenTaskCount > 0 {
                 NextActionModule(
                     openTaskCount: tasksSnapshot.todayOpenTaskCount,
                     focusPinnedCount: tasksSnapshot.pinnedFocusTaskIDs.count,
-                    onAddTask: { onAddTask() }
+                    onStartFifteenMinuteFocus: {
+                        startNextActionFocusTimer()
+                    }
                 )
                 .fixedSize(horizontal: false, vertical: true)
                 .padding(.top, spacing.s4)
@@ -2526,39 +2545,41 @@ struct HomeBackdropForedropRootView: View {
             return false
         }
 
-        VStack(alignment: .leading, spacing: spacing.s8) {
-            HStack(alignment: .firstTextBaseline, spacing: spacing.s8) {
-                Label("Due today", systemImage: "calendar.badge.clock")
-                    .font(.tasker(.headline))
-                    .foregroundColor(Color.tasker.textPrimary)
+        fullBleedTaskListHeaderModule {
+            VStack(alignment: .leading, spacing: spacing.s8) {
+                HStack(alignment: .firstTextBaseline, spacing: spacing.s8) {
+                    Label("Due today", systemImage: "calendar.badge.clock")
+                        .font(.tasker(.headline))
+                        .foregroundColor(Color.tasker.textPrimary)
 
-                Spacer(minLength: 0)
+                    Spacer(minLength: 0)
 
-                Text("\(tasksSnapshot.dueTodaySection?.rows.count ?? 0)")
-                    .font(.tasker(.caption2).weight(.semibold))
-                    .foregroundColor(Color.tasker.textSecondary)
-                    .padding(.horizontal, spacing.s8)
-                    .padding(.vertical, spacing.s4)
-                    .background(Color.tasker.surfaceSecondary)
-                    .clipShape(Capsule())
-            }
+                    Text("\(tasksSnapshot.dueTodaySection?.rows.count ?? 0)")
+                        .font(.tasker(.caption2).weight(.semibold))
+                        .foregroundColor(Color.tasker.textSecondary)
+                        .padding(.horizontal, spacing.s8)
+                        .padding(.vertical, spacing.s4)
+                        .background(Color.tasker.surfaceSecondary)
+                        .clipShape(Capsule())
+                }
 
-            LazyVStack(alignment: .leading, spacing: spacing.s8) {
-                ForEach(rows) { row in
-                    dueTodayAgendaRow(row, showTypeBadge: hasHabitRows)
+                LazyVStack(alignment: .leading, spacing: spacing.s8) {
+                    ForEach(rows) { row in
+                        dueTodayAgendaRow(row, showTypeBadge: hasHabitRows)
+                    }
                 }
             }
+            .padding(.horizontal, spacing.s16)
+            .padding(.vertical, spacing.s12)
+            .background(Color.tasker.surfaceSecondary.opacity(0.45))
+            .overlay(
+                RoundedRectangle(cornerRadius: corner.r3)
+                    .stroke(Color.tasker.strokeHairline.opacity(0.55), lineWidth: 1)
+            )
+            .clipShape(RoundedRectangle(cornerRadius: corner.r3))
+            .accessibilityElement(children: .contain)
+            .accessibilityIdentifier("home.dueTodayAgenda.section")
         }
-        .padding(.horizontal, spacing.s16)
-        .padding(.vertical, spacing.s12)
-        .background(Color.tasker.surfaceSecondary.opacity(0.45))
-        .overlay(
-            RoundedRectangle(cornerRadius: corner.r3)
-                .stroke(Color.tasker.strokeHairline.opacity(0.55), lineWidth: 1)
-        )
-        .clipShape(RoundedRectangle(cornerRadius: corner.r3))
-        .accessibilityElement(children: .contain)
-        .accessibilityIdentifier("home.dueTodayAgenda.section")
     }
 
     @ViewBuilder
@@ -2865,6 +2886,25 @@ struct HomeBackdropForedropRootView: View {
         onOpenSearch(source)
     }
 
+    private var taskListScrollResetKey: String {
+        switch chromeSnapshot.activeScope {
+        case .today:
+            return "today"
+        case .customDate(let date):
+            return "customDate-\(Calendar.current.startOfDay(for: date).timeIntervalSince1970)"
+        case .upcoming:
+            return "upcoming"
+        case .overdue:
+            return "overdue"
+        case .done:
+            return "done"
+        case .morning:
+            return "morning"
+        case .evening:
+            return "evening"
+        }
+    }
+
     private func closeSearch(source: String) {
         onCloseSearch(source)
     }
@@ -2906,6 +2946,123 @@ struct HomeBackdropForedropRootView: View {
                 }
             ]
         )
+    }
+
+    private func startNextActionFocusTimer() {
+        guard isNextActionFocusRequestInFlight == false else { return }
+        isNextActionFocusRequestInFlight = true
+        TaskerFeedback.selection()
+        viewModel.trackHomeInteraction(
+            action: "home_next_action_focus_start_tapped",
+            metadata: [
+                "source": "next_action_module_15min_focus",
+                "target_duration_seconds": Self.nextActionFocusDurationSeconds
+            ]
+        )
+        viewModel.startFocusSession(taskID: nil, targetDurationSeconds: Self.nextActionFocusDurationSeconds) { result in
+            isNextActionFocusRequestInFlight = false
+            switch result {
+            case .success(let session):
+                activeNextActionFocusSession = session
+                showNextActionFocusTimer = true
+            case .failure(let error):
+                if let focusError = error as? FocusSessionError, case .alreadyActive = focusError {
+                    resumeNextActionFocusSession(source: "next_action_module_15min_focus")
+                } else {
+                    logWarning(
+                        event: "focus_session_start_failed",
+                        message: "Failed to start focus session from next action module",
+                        fields: [
+                            "source": "next_action_module_15min_focus",
+                            "error": error.localizedDescription
+                        ]
+                    )
+                    snackbar = SnackbarData(message: "Couldn't start focus timer")
+                }
+            }
+        }
+    }
+
+    private func resumeNextActionFocusSession(source: String) {
+        viewModel.fetchActiveFocusSession { result in
+            switch result {
+            case .success(let session):
+                guard let session else {
+                    viewModel.setQuickView(.today)
+                    logWarning(
+                        event: "focus_session_resume_missing",
+                        message: "Expected an active focus session to resume, but none was found",
+                        fields: ["source": source]
+                    )
+                    snackbar = SnackbarData(message: "No active focus timer was found")
+                    return
+                }
+                activeNextActionFocusSession = session
+                showNextActionFocusTimer = true
+            case .failure(let error):
+                logWarning(
+                    event: "focus_session_resume_failed",
+                    message: "Failed to resume active focus session",
+                    fields: [
+                        "source": source,
+                        "error": error.localizedDescription
+                    ]
+                )
+                snackbar = SnackbarData(message: "Couldn't resume focus timer")
+            }
+        }
+    }
+
+    private func finishNextActionFocusSession(sessionID: UUID, source: String) {
+        guard isNextActionFocusEnding == false else { return }
+        isNextActionFocusEnding = true
+        viewModel.endFocusSession(sessionID: sessionID) { result in
+            isNextActionFocusEnding = false
+            switch result {
+            case .success(let focusResult):
+                showNextActionFocusTimer = false
+                activeNextActionFocusSession = nil
+                viewModel.trackHomeInteraction(
+                    action: "focus_session_finished",
+                    metadata: [
+                        "source": source,
+                        "duration_seconds": focusResult.session.durationSeconds,
+                        "awarded_xp": focusResult.xpResult?.awardedXP ?? 0
+                    ]
+                )
+                DispatchQueue.main.async {
+                    nextActionFocusSummaryResult = focusResult
+                    showNextActionFocusSummary = true
+                }
+            case .failure(let error):
+                logWarning(
+                    event: "focus_session_end_failed",
+                    message: "Failed to end focus session from next action module",
+                    fields: [
+                        "source": source,
+                        "error": error.localizedDescription
+                    ]
+                )
+                snackbar = SnackbarData(message: "Couldn't finish focus timer")
+                showNextActionFocusTimer = false
+                activeNextActionFocusSession = nil
+            }
+        }
+    }
+
+    private func dismissNextActionFocusSummary() {
+        showNextActionFocusSummary = false
+        nextActionFocusSummaryResult = nil
+    }
+
+    private func resolveTaskForFocusSession(taskID: UUID?) -> TaskDefinition? {
+        guard let taskID else { return nil }
+        var candidates: [TaskDefinition] = []
+        candidates.append(contentsOf: viewModel.focusTasks)
+        candidates.append(contentsOf: viewModel.morningTasks)
+        candidates.append(contentsOf: viewModel.eveningTasks)
+        candidates.append(contentsOf: viewModel.overdueTasks)
+        return candidates.first(where: { $0.id == taskID })
     }
 
     private func refreshReflectionClaimState() {

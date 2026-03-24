@@ -129,6 +129,9 @@ struct HomeScrollChromeStateTracker {
 struct TaskListView: View {
     private static let defaultBottomContentInset: CGFloat = 80
     private static let scrollTraceIdleDelayNanoseconds: UInt64 = 250_000_000
+    private static let topAnchorID = "home.taskList.topAnchor"
+    private static let pullToSearchThreshold: CGFloat = -72
+    private static let contentHorizontalInset: CGFloat = TaskerTheme.Spacing.lg
 
     let headerContent: AnyView?
     let morningTasks: [TaskDefinition]
@@ -163,13 +166,16 @@ struct TaskListView: View {
     var onEmptyStateAction: (() -> Void)? = nil
     var onTaskDragStarted: ((TaskDefinition) -> Void)? = nil
     var onScrollChromeStateChange: ((HomeScrollChromeState) -> Void)? = nil
+    var onPullToSearch: (() -> Void)? = nil
     let highlightedTaskID: UUID?
+    let scrollResetKey: String
     let bottomContentInset: CGFloat
     @State private var draggingCustomProjectID: UUID?
     @State private var isCompletedCollapsedBySection: [UUID: Bool] = [:]
     @State private var scrollChromeStateTracker = HomeScrollChromeStateTracker()
     @State private var scrollTraceInterval: TaskerPerformanceInterval?
     @State private var pendingScrollTraceIdleTask: Task<Void, Never>?
+    @State private var hasTriggeredPullToSearch = false
 
     /// Initializes a new instance.
     init(
@@ -206,7 +212,9 @@ struct TaskListView: View {
         onEmptyStateAction: (() -> Void)? = nil,
         onTaskDragStarted: ((TaskDefinition) -> Void)? = nil,
         onScrollChromeStateChange: ((HomeScrollChromeState) -> Void)? = nil,
+        onPullToSearch: (() -> Void)? = nil,
         highlightedTaskID: UUID? = nil,
+        scrollResetKey: String = "today",
         bottomContentInset: CGFloat = TaskListView.defaultBottomContentInset
     ) {
         self.headerContent = headerContent
@@ -242,7 +250,9 @@ struct TaskListView: View {
         self.onEmptyStateAction = onEmptyStateAction
         self.onTaskDragStarted = onTaskDragStarted
         self.onScrollChromeStateChange = onScrollChromeStateChange
+        self.onPullToSearch = onPullToSearch
         self.highlightedTaskID = highlightedTaskID
+        self.scrollResetKey = scrollResetKey
         self.bottomContentInset = bottomContentInset
     }
 
@@ -250,19 +260,27 @@ struct TaskListView: View {
         ScrollViewReader { proxy in
             ScrollView(.vertical, showsIndicators: false) {
                 LazyVStack(alignment: .leading, spacing: TaskerTheme.Spacing.lg) {
+                    Color.clear
+                        .frame(height: 0)
+                        .id(Self.topAnchorID)
+
                     if let headerContent {
                         headerContent
+                            .padding(.horizontal, Self.contentHorizontalInset)
                     }
 
                     if activeQuickView == .done {
                         doneTimelineContent
+                            .padding(.horizontal, Self.contentHorizontalInset)
                     } else {
                         regularTaskContent
+                            .padding(.horizontal, Self.contentHorizontalInset)
                     }
 
                     // Empty state
                     if allTasksEmpty {
                         emptyStateView
+                            .padding(.horizontal, Self.contentHorizontalInset)
                             .enhancedStaggeredAppearance(index: 0)
                     }
 
@@ -271,7 +289,6 @@ struct TaskListView: View {
                         .frame(height: bottomContentInset)
                 }
             }
-            .padding(.horizontal, TaskerTheme.Spacing.lg)
             .onAppear {
                 scrollToHighlightedTaskIfNeeded(proxy: proxy)
                 onScrollChromeStateChange?(.nearTop)
@@ -282,13 +299,17 @@ struct TaskListView: View {
             .onChange(of: highlightedTaskID) { _, _ in
                 scrollToHighlightedTaskIfNeeded(proxy: proxy)
             }
+            .onChange(of: scrollResetKey) { _, _ in
+                scrollToTop(proxy: proxy)
+            }
             .onScrollGeometryChange(
                 for: CGFloat.self,
                 of: { geometry in
-                    max(0, geometry.contentOffset.y + geometry.contentInsets.top)
+                    geometry.contentOffset.y + geometry.contentInsets.top
                 },
                 action: { _, newOffset in
-                    handleScrollOffsetChange(newOffset)
+                    handlePullToSearchOffsetChange(newOffset)
+                    handleScrollOffsetChange(max(0, newOffset))
                 }
             )
             .accessibilityIdentifier("home.taskList.scrollView")
@@ -303,6 +324,22 @@ struct TaskListView: View {
         if let nextState = scrollChromeStateTracker.consume(offset: newOffset) {
             onScrollChromeStateChange?(nextState)
         }
+    }
+
+    private func handlePullToSearchOffsetChange(_ newOffset: CGFloat) {
+        guard let onPullToSearch else { return }
+
+        if newOffset >= -12 {
+            hasTriggeredPullToSearch = false
+            return
+        }
+
+        guard hasTriggeredPullToSearch == false, newOffset <= Self.pullToSearchThreshold else {
+            return
+        }
+
+        hasTriggeredPullToSearch = true
+        onPullToSearch()
     }
 
     private func recordScrollActivity() {
@@ -340,6 +377,14 @@ struct TaskListView: View {
         DispatchQueue.main.async {
             withAnimation(TaskerAnimation.gentle) {
                 proxy.scrollTo(highlightedTaskID, anchor: .center)
+            }
+        }
+    }
+
+    private func scrollToTop(proxy: ScrollViewProxy) {
+        DispatchQueue.main.async {
+            withAnimation(TaskerAnimation.gentle) {
+                proxy.scrollTo(Self.topAnchorID, anchor: .top)
             }
         }
     }

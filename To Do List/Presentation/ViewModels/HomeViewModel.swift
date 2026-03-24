@@ -508,7 +508,8 @@ public final class HomeViewModel: ObservableObject {
             dailyScore: dailyScore,
             completionRate: completionRate,
             projects: projects,
-            reflectionEligible: activeScope.quickView == .today && !isDailyReflectionCompletedToday(),
+            // Reflection stays tied to the default Today scope, not custom-date views.
+            reflectionEligible: activeScope == .today && !isDailyReflectionCompletedToday(),
             momentumGuidanceText: makeMomentumGuidanceText()
         )
     }
@@ -2542,13 +2543,10 @@ public final class HomeViewModel: ObservableObject {
                 useCaseCoordinator.calculateAnalytics.calculateDailyAnalytics(
                     for: Date(),
                     habitSignals: self.currentHabitSignals
-                ) { [weak self] result in
+                ) { [weak self] _ in
                     DispatchQueue.main.async {
                         defer { completionGroup.leave() }
                         guard let self, self.isCurrentAnalyticsGeneration(generation) else { return }
-                        if case .success(let analytics) = result {
-                            self.completionRate = analytics.completionRate
-                        }
                     }
                 }
                 completionGroup.notify(queue: .main) {
@@ -2595,13 +2593,10 @@ public final class HomeViewModel: ObservableObject {
         useCaseCoordinator.calculateAnalytics.calculateDailyAnalytics(
             for: Date(),
             habitSignals: currentHabitSignals
-        ) { [weak self] result in
+        ) { [weak self] _ in
             DispatchQueue.main.async {
                 defer { completionGroup.leave() }
                 guard let self, self.isCurrentAnalyticsGeneration(generation) else { return }
-                if case .success(let analytics) = result {
-                    self.completionRate = analytics.completionRate
-                }
             }
         }
 

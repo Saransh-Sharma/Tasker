@@ -18,12 +18,8 @@
 		0F67D9989E8924F5B6E2B2EE /* To Do List/State/Repositories/CoreDataLifeAreaRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = 26D9ECAA7CAE990AACBF05E5 /* To Do List/State/Repositories/CoreDataLifeAreaRepository.swift */; };
 		11B9B8EE3F64B7B3AC3E53AC /* DueSoonLeadTimeCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 267DB3EE27A6E3C161F380D5 /* DueSoonLeadTimeCard.swift */; };
 		1325F41FAECBAE30E66C3E42 /* To Do List/Domain/Interfaces/V2RepositoryProtocols.swift in Sources */ = {isa = PBXBuildFile; fileRef = 42AD2BFC988A80E8157AD2B2 /* To Do List/Domain/Interfaces/V2RepositoryProtocols.swift */; };
-		C1A100000000000000000101 /* To Do List/Domain/Interfaces/HabitRuntimeReadRepositoryProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = C1A100000000000000000001 /* To Do List/Domain/Interfaces/HabitRuntimeReadRepositoryProtocol.swift */; };
 		147231A5B5EE1AFA9351EA13 /* To Do List/Domain/Models/TagDefinition.swift in Sources */ = {isa = PBXBuildFile; fileRef = C2C66FE334854F296A4203FD /* To Do List/Domain/Models/TagDefinition.swift */; };
-		C1A100000000000000000102 /* To Do List/Domain/Models/HabitTypes.swift in Sources */ = {isa = PBXBuildFile; fileRef = C1A100000000000000000002 /* To Do List/Domain/Models/HabitTypes.swift */; };
 		166AB064CD81E7EAF6579B7E /* To Do List/State/Repositories/CoreDataSectionRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0E3799E6AD3B71C2BCAA18D /* To Do List/State/Repositories/CoreDataSectionRepository.swift */; };
-		C1A100000000000000000103 /* To Do List/UseCases/Habit/HabitRuntimeUseCases.swift in Sources */ = {isa = PBXBuildFile; fileRef = C1A100000000000000000003 /* To Do List/UseCases/Habit/HabitRuntimeUseCases.swift */; };
-		C1A100000000000000000104 /* To Do List/State/Repositories/CoreDataHabitRuntimeReadRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = C1A100000000000000000004 /* To Do List/State/Repositories/CoreDataHabitRuntimeReadRepository.swift */; };
 		1670AB6E54D82AC77EBC9B3D /* To Do List/State/Repositories/CoreDataScheduleRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = D6248E090BE231D70E41F08C /* To Do List/State/Repositories/CoreDataScheduleRepository.swift */; };
 		18C32A093ADC765E90DBA71D /* AddTaskTagMultiSelect.swift in Sources */ = {isa = PBXBuildFile; fileRef = 95932952BC5EBADE8D30791C /* AddTaskTagMultiSelect.swift */; };
 		1ACBC36A38323DB2A8E4EC02 /* CornerTokens.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8C72110A1F555F951D89BBEB /* CornerTokens.swift */; };
@@ -44,10 +40,6 @@
 		3494FE9BF173433EE0791F1B /* TypographyTokenTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 32CFD17024C4F8FF10386CE1 /* TypographyTokenTests.swift */; };
 		350E661527174B8BDEE11FCC /* TaskRowView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D379A868382E81C83D874E36 /* TaskRowView.swift */; };
 		355015C0A77A72D864F1AC64 /* HomeForedropView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BF5D7161411B42651DF00D60 /* HomeForedropView.swift */; };
-		B2E100000000000000000201 /* BuildHomeAgendaUseCase.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2E100000000000000000103 /* To Do List/UseCases/Home/BuildHomeAgendaUseCase.swift */; };
-		B2E100000000000000000202 /* HomeTodayRow.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2E100000000000000000101 /* To Do List/Presentation/Models/HomeTodayRow.swift */; };
-		B2E100000000000000000203 /* HomeHabitRow.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2E100000000000000000102 /* To Do List/Presentation/Models/HomeHabitRow.swift */; };
-		B2E100000000000000000204 /* HomeHabitRowView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2E100000000000000000104 /* To Do List/View/HomeHabitRowView.swift */; };
 		36235D01BFCF2D2001A39CCE /* To Do List/UseCases/Gamification/FocusSessionUseCase.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7CC4B584282446580AA72B44 /* To Do List/UseCases/Gamification/FocusSessionUseCase.swift */; };
 		37A2B8A6A25F06C72606019E /* To Do List/Domain/Mappers/TaskDefinitionMapper.swift in Sources */ = {isa = PBXBuildFile; fileRef = 592346DCA3C3FE56E12617C2 /* To Do List/Domain/Mappers/TaskDefinitionMapper.swift */; };
 		3A549BEBEF3902410F96971A /* To Do List/View/FocusTimerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 37E2466DBE2A76A73458F530 /* To Do List/View/FocusTimerView.swift */; };
@@ -340,6 +332,11 @@
 		A91F8E162F44420100AB11C1 /* LifeManagementFeatureTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A91F8E152F44420100AB11C1 /* LifeManagementFeatureTests.swift */; };
 		AB12CD34EF5607891234ABCE /* CoverFlipTransition.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB12CD34EF5607891234ABCD /* CoverFlipTransition.swift */; };
 		AB5F19766B9E8B7A003B9B1E /* TaskerSnackbar.swift in Sources */ = {isa = PBXBuildFile; fileRef = D7C5BD9B9BA76D61F7F044BD /* TaskerSnackbar.swift */; };
+		ABCD00000000000000000011 /* AddHabitViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = ABCD00000000000000000021 /* AddHabitViewModel.swift */; };
+		ABCD00000000000000000012 /* AddItemViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = ABCD00000000000000000022 /* AddItemViewModel.swift */; };
+		ABCD00000000000000000013 /* To Do List/Presentation/Habits/HabitIconCatalog.swift in Sources */ = {isa = PBXBuildFile; fileRef = ABCD00000000000000000023 /* To Do List/Presentation/Habits/HabitIconCatalog.swift */; };
+		ABCD00000000000000000014 /* AddHabitForedropView.swift in Sources */ = {isa = PBXBuildFile; fileRef = ABCD00000000000000000024 /* AddHabitForedropView.swift */; };
+		ABCD00000000000000000015 /* AddItemComposerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = ABCD00000000000000000025 /* AddItemComposerView.swift */; };
 		ABEDCF04774EFF887D0E6357 /* To Do List/View/Insights/InsightsWeekView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9A29C6400C2C2B7C5DD54720 /* To Do List/View/Insights/InsightsWeekView.swift */; };
 		AC7C0E8C304EF31908A6EA90 /* DailyRitualsCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 47ED06CE7EC4F74A9E373158 /* DailyRitualsCard.swift */; };
 		ACE5DE19204D2D1CDBF3A053 /* TaskReadQueries.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2856D1EE26429146B60B6633 /* TaskReadQueries.swift */; };
@@ -370,6 +367,10 @@
 		B1C2D3E52F90000100AA1001 /* TaskerWidgets/TaskWidgetHomeViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1C2D3E82F90000100AA1001 /* TaskerWidgets/TaskWidgetHomeViews.swift */; };
 		B1C2D3E62F90000100AA1001 /* TaskerWidgets/TaskWidgetAccessoryViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1C2D3E92F90000100AA1001 /* TaskerWidgets/TaskWidgetAccessoryViews.swift */; };
 		B1C2D3EA2F90000100AA1001 /* TaskerWidgets/TaskWidgetDesignSystemCompat.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1C2D3EB2F90000100AA1001 /* TaskerWidgets/TaskWidgetDesignSystemCompat.swift */; };
+		B2E100000000000000000201 /* To Do List/UseCases/Home/BuildHomeAgendaUseCase.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2E100000000000000000103 /* To Do List/UseCases/Home/BuildHomeAgendaUseCase.swift */; };
+		B2E100000000000000000202 /* To Do List/Presentation/Models/HomeTodayRow.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2E100000000000000000101 /* To Do List/Presentation/Models/HomeTodayRow.swift */; };
+		B2E100000000000000000203 /* To Do List/Presentation/Models/HomeHabitRow.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2E100000000000000000102 /* To Do List/Presentation/Models/HomeHabitRow.swift */; };
+		B2E100000000000000000204 /* To Do List/View/HomeHabitRowView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2E100000000000000000104 /* To Do List/View/HomeHabitRowView.swift */; };
 		B426403E6996E2CE8BE66FB6 /* EnhancedDependencyContainer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 017ECAA6FA89C9A7825A3E8A /* EnhancedDependencyContainer.swift */; };
 		B4D7E8213A4F5C6D7E8F9012 /* V3TestHarness.swift in Sources */ = {isa = PBXBuildFile; fileRef = B4D7E8213A4F5C6D7E8F9011 /* V3TestHarness.swift */; };
 		B77B0891A4A5B4BF8D6162DC /* TaskDetailComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = 52E1464E13744427AAFDF824 /* TaskDetailComponents.swift */; };
@@ -386,6 +387,10 @@
 		BA046E8ED5086F9E39ACB225 /* To Do List/View/DailyReflectionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E2BA3F253548BE9F1EE2AB4B /* To Do List/View/DailyReflectionView.swift */; };
 		BEB8BC780A4A962C58A77BC4 /* To Do List/Services/V2FeatureFlags.swift in Sources */ = {isa = PBXBuildFile; fileRef = 34CC91CCAA408A3ADB2D8693 /* To Do List/Services/V2FeatureFlags.swift */; };
 		C03666F6116B077DFA194278 /* SyncMergeState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 65A7A039AC9CA38845D1E44F /* SyncMergeState.swift */; };
+		C1A100000000000000000101 /* To Do List/Domain/Interfaces/HabitRuntimeReadRepositoryProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = C1A100000000000000000001 /* To Do List/Domain/Interfaces/HabitRuntimeReadRepositoryProtocol.swift */; };
+		C1A100000000000000000102 /* To Do List/Domain/Models/HabitTypes.swift in Sources */ = {isa = PBXBuildFile; fileRef = C1A100000000000000000002 /* To Do List/Domain/Models/HabitTypes.swift */; };
+		C1A100000000000000000103 /* To Do List/UseCases/Habit/HabitRuntimeUseCases.swift in Sources */ = {isa = PBXBuildFile; fileRef = C1A100000000000000000003 /* To Do List/UseCases/Habit/HabitRuntimeUseCases.swift */; };
+		C1A100000000000000000104 /* To Do List/State/Repositories/CoreDataHabitRuntimeReadRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = C1A100000000000000000004 /* To Do List/State/Repositories/CoreDataHabitRuntimeReadRepository.swift */; };
 		C1A2B3C4D5E6F70011223344 /* LLMRuntimeCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = C1A2B3C4D5E6F70011223345 /* LLMRuntimeCoordinator.swift */; };
 		C1A2B3C4D5E6F70011223346 /* LLMProjectionTimeout.swift in Sources */ = {isa = PBXBuildFile; fileRef = C1A2B3C4D5E6F70011223347 /* LLMProjectionTimeout.swift */; };
 		C1A2B3C4D5E6F70011223348 /* LLMRuntimeCoordinatorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C1A2B3C4D5E6F70011223349 /* LLMRuntimeCoordinatorTests.swift */; };
@@ -408,6 +413,14 @@
 		CD83FC6E516299A8FB19F781 /* TaskerWidgets/TodayXPWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3A74DF0E9DCAEB8A8179F375 /* TaskerWidgets/TodayXPWidget.swift */; };
 		CEA4FD3F132804749E69A4B3 /* To Do List/Domain/Mappers/SectionMapper.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6956BC00E9F0B0BC847DD7AA /* To Do List/Domain/Mappers/SectionMapper.swift */; };
 		D1855A230115C554ADB92AEA /* To Do List/Domain/Models/DailyXPAggregateDefinition.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4AF3952DBA8C2ACE185FEF0 /* To Do List/Domain/Models/DailyXPAggregateDefinition.swift */; };
+		D1A200000000000000000001 /* HomeChromeSnapshot+Presentation.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1A100000000000000000001 /* HomeChromeSnapshot+Presentation.swift */; };
+		D1A200000000000000000002 /* HomeScopeSummaryButtonView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1A100000000000000000002 /* HomeScopeSummaryButtonView.swift */; };
+		D1A200000000000000000003 /* HomeBackToTodayButtonView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1A100000000000000000003 /* HomeBackToTodayButtonView.swift */; };
+		D1A200000000000000000004 /* HomeMiniMomentumCardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1A100000000000000000004 /* HomeMiniMomentumCardView.swift */; };
+		D1A200000000000000000005 /* HomeMiniMomentumProgressBar.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1A100000000000000000005 /* HomeMiniMomentumProgressBar.swift */; };
+		D1A200000000000000000006 /* HomeCompactHeaderView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1A100000000000000000006 /* HomeCompactHeaderView.swift */; };
+		D1A200000000000000000007 /* HomeMomentumSummaryCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1A100000000000000000007 /* HomeMomentumSummaryCard.swift */; };
+		D1A200000000000000000008 /* HomeMomentumProgressBar.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1A100000000000000000008 /* HomeMomentumProgressBar.swift */; };
 		D206E9E48E0AEB00D02CED2D /* SlashCommandCatalog.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0633BF8BACC2D4FBC9508866 /* SlashCommandCatalog.swift */; };
 		D2E850DDFA592D3CFAA9C922 /* NotificationPermissionBanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = 919DB5CEED1B1E1906FF474C /* NotificationPermissionBanner.swift */; };
 		D336A787C8DCE1322AB8ADAB /* To Do List/Domain/Models/Section.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0D70DF5D3C4DE407EF935B48 /* To Do List/Domain/Models/Section.swift */; };
@@ -425,11 +438,6 @@
 		D6B2E31F4A5C7890BCDEF09A /* AddTaskSheetView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C5A1D20E3F4B6789ABCDEF09 /* AddTaskSheetView.swift */; };
 		D6B2E31F4A5C7890BCDEF0AB /* AddTaskTitleField.swift in Sources */ = {isa = PBXBuildFile; fileRef = C5A1D20E3F4B6789ABCDEF0A /* AddTaskTitleField.swift */; };
 		D6B2E31F4A5C7890BCDEF0BC /* AddTaskXPPreview.swift in Sources */ = {isa = PBXBuildFile; fileRef = C5A1D20E3F4B6789ABCDEF0B /* AddTaskXPPreview.swift */; };
-		ABCD00000000000000000011 /* AddHabitViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = ABCD00000000000000000021 /* AddHabitViewModel.swift */; };
-		ABCD00000000000000000012 /* AddItemViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = ABCD00000000000000000022 /* AddItemViewModel.swift */; };
-		ABCD00000000000000000013 /* HabitIconCatalog.swift in Sources */ = {isa = PBXBuildFile; fileRef = ABCD00000000000000000023 /* HabitIconCatalog.swift */; };
-		ABCD00000000000000000014 /* AddHabitForedropView.swift in Sources */ = {isa = PBXBuildFile; fileRef = ABCD00000000000000000024 /* AddHabitForedropView.swift */; };
-		ABCD00000000000000000015 /* AddItemComposerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = ABCD00000000000000000025 /* AddItemComposerView.swift */; };
 		D6B2E31F4A5C7890BCDEF0CD /* Device+Notch.swift in Sources */ = {isa = PBXBuildFile; fileRef = C5A1D20E3F4B6789ABCDEF0C /* Device+Notch.swift */; };
 		D6BD60E5C38CC9087DD53FC6 /* SlashCommandExecutionService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1371F4BC6B6BB7BF68747A7F /* SlashCommandExecutionService.swift */; };
 		DCC82F690B379131E60A69DA /* TaskerWidgets/TaskerWidgetBundle.swift in Sources */ = {isa = PBXBuildFile; fileRef = C1256A6FF63A60FC9D9E82C2 /* TaskerWidgets/TaskerWidgetBundle.swift */; };
@@ -479,6 +487,7 @@
 		F4A1B2C3D4E5F60718293B56 /* HomeForedropHintEligibilityTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F4A1B2C3D4E5F60718293A56 /* HomeForedropHintEligibilityTests.swift */; };
 		F5A100012F6A200100ABC001 /* TaskerAppShortcuts.swift in Sources */ = {isa = PBXBuildFile; fileRef = F5A100002F6A200100ABC001 /* TaskerAppShortcuts.swift */; };
 		F5A100032F6A200100ABC001 /* TaskerAppShortcutsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F5A100022F6A200100ABC001 /* TaskerAppShortcutsTests.swift */; };
+		F6A1B2C3D4E5F60718293B57 /* HomeChromeSnapshotPresentationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F6A1B2C3D4E5F60718293A57 /* HomeChromeSnapshotPresentationTests.swift */; };
 		F7F1A376574BECAD5FD6A5E3 /* To Do List/State/Repositories/CoreDataReminderRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = 10EE348FF84C5F729A416848 /* To Do List/State/Repositories/CoreDataReminderRepository.swift */; };
 		FA1924E817EE26D9DB798F93 /* To Do List/Domain/Models/ReminderDefinition.swift in Sources */ = {isa = PBXBuildFile; fileRef = E4F394C64907F22C89881E3A /* To Do List/Domain/Models/ReminderDefinition.swift */; };
 		FA7A583FEC8560AC162964C2 /* SettingsFooterView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 718216D68E8278668DDB49BC /* SettingsFooterView.swift */; };
@@ -604,10 +613,6 @@
 		7509A00C2F13D806009162CD /* AddTaskViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddTaskViewModel.swift; sourceTree = "<group>"; };
 		7509A00D2F13D806009162CD /* HomeViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeViewModel.swift; sourceTree = "<group>"; };
 		7509A00E2F13D806009162CD /* ProjectManagementViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProjectManagementViewModel.swift; sourceTree = "<group>"; };
-		B2E100000000000000000101 /* To Do List/Presentation/Models/HomeTodayRow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "To Do List/Presentation/Models/HomeTodayRow.swift"; sourceTree = SOURCE_ROOT; };
-		B2E100000000000000000102 /* To Do List/Presentation/Models/HomeHabitRow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "To Do List/Presentation/Models/HomeHabitRow.swift"; sourceTree = SOURCE_ROOT; };
-		B2E100000000000000000103 /* To Do List/UseCases/Home/BuildHomeAgendaUseCase.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "To Do List/UseCases/Home/BuildHomeAgendaUseCase.swift"; sourceTree = SOURCE_ROOT; };
-		B2E100000000000000000104 /* To Do List/View/HomeHabitRowView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "To Do List/View/HomeHabitRowView.swift"; sourceTree = SOURCE_ROOT; };
 		750F9EDA2685CC9500C008C4 /* This Day.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = "This Day.entitlements"; sourceTree = "<group>"; };
 		750F9EDB2685CC9F00C008C4 /* CloudKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CloudKit.framework; path = System/Library/Frameworks/CloudKit.framework; sourceTree = SDKROOT; };
 		7513BA312687C40500F8CCE0 /* SettingsBackdrop.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsBackdrop.swift; sourceTree = "<group>"; };
@@ -843,10 +848,14 @@
 		A95FD785F6B6001D9106C2B8 /* To Do List/State/Repositories/CoreDataTaskReadModelRepository.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "To Do List/State/Repositories/CoreDataTaskReadModelRepository.swift"; sourceTree = SOURCE_ROOT; };
 		A9ADCB5DB568A54708322C8E /* To Do List/Domain/Models/GamificationProfile.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "To Do List/Domain/Models/GamificationProfile.swift"; sourceTree = SOURCE_ROOT; };
 		A9C6F21138AB4C41B2D309E7 /* TaskModelV3_Gamification.xcdatamodel */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcdatamodel; path = TaskModelV3_Gamification.xcdatamodel; sourceTree = "<group>"; };
-		D4E5F6A7B8C9D0E1F2030405 /* TaskModelV3_Habits.xcdatamodel */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcdatamodel; path = TaskModelV3_Habits.xcdatamodel; sourceTree = "<group>"; };
 		A9E54F6F587FF89056E429DF /* To Do List/State/Repositories/CoreDataOccurrenceRepository.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "To Do List/State/Repositories/CoreDataOccurrenceRepository.swift"; sourceTree = SOURCE_ROOT; };
 		AAE767D2FA20060D16FE82AA /* Pods-Tasker.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Tasker.release.xcconfig"; path = "Target Support Files/Pods-Tasker/Pods-Tasker.release.xcconfig"; sourceTree = "<group>"; };
 		AB12CD34EF5607891234ABCD /* CoverFlipTransition.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = CoverFlipTransition.swift; sourceTree = "<group>"; };
+		ABCD00000000000000000021 /* AddHabitViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddHabitViewModel.swift; sourceTree = "<group>"; };
+		ABCD00000000000000000022 /* AddItemViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddItemViewModel.swift; sourceTree = "<group>"; };
+		ABCD00000000000000000023 /* To Do List/Presentation/Habits/HabitIconCatalog.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "To Do List/Presentation/Habits/HabitIconCatalog.swift"; sourceTree = SOURCE_ROOT; };
+		ABCD00000000000000000024 /* AddHabitForedropView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddHabitForedropView.swift; sourceTree = "<group>"; };
+		ABCD00000000000000000025 /* AddItemComposerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddItemComposerView.swift; sourceTree = "<group>"; };
 		AC4ABAA08D90818447AA6D03 /* To Do List/UseCases/Task/CreateTaskDefinitionUseCase.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "To Do List/UseCases/Task/CreateTaskDefinitionUseCase.swift"; sourceTree = SOURCE_ROOT; };
 		AD2798DFE7058AA45DECE737 /* To Do List/Domain/Models/FocusSessionDefinition.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "To Do List/Domain/Models/FocusSessionDefinition.swift"; sourceTree = SOURCE_ROOT; };
 		ADB62B5450F5D70EBBEC2940 /* ElevationTokens.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ElevationTokens.swift; sourceTree = "<group>"; };
@@ -869,6 +878,10 @@
 		B1C2D3E92F90000100AA1001 /* TaskerWidgets/TaskWidgetAccessoryViews.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = TaskerWidgets/TaskWidgetAccessoryViews.swift; sourceTree = SOURCE_ROOT; };
 		B1C2D3EB2F90000100AA1001 /* TaskerWidgets/TaskWidgetDesignSystemCompat.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = TaskerWidgets/TaskWidgetDesignSystemCompat.swift; sourceTree = SOURCE_ROOT; };
 		B2D4E5F6A7B8C9D0E1F2A3B4 /* KeyboardShortcutsCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeyboardShortcutsCard.swift; sourceTree = "<group>"; };
+		B2E100000000000000000101 /* To Do List/Presentation/Models/HomeTodayRow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "To Do List/Presentation/Models/HomeTodayRow.swift"; sourceTree = SOURCE_ROOT; };
+		B2E100000000000000000102 /* To Do List/Presentation/Models/HomeHabitRow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "To Do List/Presentation/Models/HomeHabitRow.swift"; sourceTree = SOURCE_ROOT; };
+		B2E100000000000000000103 /* To Do List/UseCases/Home/BuildHomeAgendaUseCase.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "To Do List/UseCases/Home/BuildHomeAgendaUseCase.swift"; sourceTree = SOURCE_ROOT; };
+		B2E100000000000000000104 /* To Do List/View/HomeHabitRowView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "To Do List/View/HomeHabitRowView.swift"; sourceTree = SOURCE_ROOT; };
 		B3A1F2C4D5E6F708 /* To Do List/Domain/Models/AchievementCatalog.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "To Do List/Domain/Models/AchievementCatalog.swift"; sourceTree = SOURCE_ROOT; };
 		B3A1F2C4D5E6F709 /* To Do List/View/BadgeGalleryView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "To Do List/View/BadgeGalleryView.swift"; sourceTree = SOURCE_ROOT; };
 		B3A1F2C4D5E6F70A /* To Do List/View/LevelUpCelebrationView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "To Do List/View/LevelUpCelebrationView.swift"; sourceTree = SOURCE_ROOT; };
@@ -892,6 +905,10 @@
 		BF5D7161411B42651DF00D60 /* HomeForedropView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HomeForedropView.swift; sourceTree = "<group>"; };
 		C1256A6FF63A60FC9D9E82C2 /* TaskerWidgets/TaskerWidgetBundle.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = TaskerWidgets/TaskerWidgetBundle.swift; sourceTree = SOURCE_ROOT; };
 		C1429E78D48CAF30D016B671 /* NotificationTypesCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationTypesCard.swift; sourceTree = "<group>"; };
+		C1A100000000000000000001 /* To Do List/Domain/Interfaces/HabitRuntimeReadRepositoryProtocol.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "To Do List/Domain/Interfaces/HabitRuntimeReadRepositoryProtocol.swift"; sourceTree = SOURCE_ROOT; };
+		C1A100000000000000000002 /* To Do List/Domain/Models/HabitTypes.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "To Do List/Domain/Models/HabitTypes.swift"; sourceTree = SOURCE_ROOT; };
+		C1A100000000000000000003 /* To Do List/UseCases/Habit/HabitRuntimeUseCases.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "To Do List/UseCases/Habit/HabitRuntimeUseCases.swift"; sourceTree = SOURCE_ROOT; };
+		C1A100000000000000000004 /* To Do List/State/Repositories/CoreDataHabitRuntimeReadRepository.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "To Do List/State/Repositories/CoreDataHabitRuntimeReadRepository.swift"; sourceTree = SOURCE_ROOT; };
 		C1A2B3C4D5E6F70011223345 /* LLMRuntimeCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LLMRuntimeCoordinator.swift; sourceTree = "<group>"; };
 		C1A2B3C4D5E6F70011223347 /* LLMProjectionTimeout.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LLMProjectionTimeout.swift; sourceTree = "<group>"; };
 		C1A2B3C4D5E6F70011223349 /* LLMRuntimeCoordinatorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LLMRuntimeCoordinatorTests.swift; sourceTree = "<group>"; };
@@ -903,10 +920,6 @@
 		C2D3E4F5061728394A5B6C7C /* DeleteTaskDefinitionUseCaseTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeleteTaskDefinitionUseCaseTests.swift; sourceTree = "<group>"; };
 		C39FDE21811FCBE733038318 /* GetHomeFilteredTasksUseCaseTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = GetHomeFilteredTasksUseCaseTests.swift; sourceTree = "<group>"; };
 		C4AF3952DBA8C2ACE185FEF0 /* To Do List/Domain/Models/DailyXPAggregateDefinition.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "To Do List/Domain/Models/DailyXPAggregateDefinition.swift"; sourceTree = SOURCE_ROOT; };
-		C1A100000000000000000001 /* To Do List/Domain/Interfaces/HabitRuntimeReadRepositoryProtocol.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "To Do List/Domain/Interfaces/HabitRuntimeReadRepositoryProtocol.swift"; sourceTree = SOURCE_ROOT; };
-		C1A100000000000000000002 /* To Do List/Domain/Models/HabitTypes.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "To Do List/Domain/Models/HabitTypes.swift"; sourceTree = SOURCE_ROOT; };
-		C1A100000000000000000003 /* To Do List/UseCases/Habit/HabitRuntimeUseCases.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "To Do List/UseCases/Habit/HabitRuntimeUseCases.swift"; sourceTree = SOURCE_ROOT; };
-		C1A100000000000000000004 /* To Do List/State/Repositories/CoreDataHabitRuntimeReadRepository.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "To Do List/State/Repositories/CoreDataHabitRuntimeReadRepository.swift"; sourceTree = SOURCE_ROOT; };
 		C4C3F70CE989FCF07417B5EE /* TaskReadModelRepositoryProtocol.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = TaskReadModelRepositoryProtocol.swift; sourceTree = "<group>"; };
 		C4D5E6F70891A2B3C4D5E6F7 /* TaskDetailSheetView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = TaskDetailSheetView.swift; sourceTree = "<group>"; };
 		C5A1D20E3F4B6789ABCDEF01 /* AddTaskCreateButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddTaskCreateButton.swift; sourceTree = "<group>"; };
@@ -921,11 +934,6 @@
 		C5A1D20E3F4B6789ABCDEF0A /* AddTaskTitleField.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddTaskTitleField.swift; sourceTree = "<group>"; };
 		C5A1D20E3F4B6789ABCDEF0B /* AddTaskXPPreview.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddTaskXPPreview.swift; sourceTree = "<group>"; };
 		C5A1D20E3F4B6789ABCDEF0C /* Device+Notch.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Device+Notch.swift"; sourceTree = "<group>"; };
-		ABCD00000000000000000021 /* AddHabitViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddHabitViewModel.swift; sourceTree = "<group>"; };
-		ABCD00000000000000000022 /* AddItemViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddItemViewModel.swift; sourceTree = "<group>"; };
-		ABCD00000000000000000023 /* To Do List/Presentation/Habits/HabitIconCatalog.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "To Do List/Presentation/Habits/HabitIconCatalog.swift"; sourceTree = SOURCE_ROOT; };
-		ABCD00000000000000000024 /* AddHabitForedropView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddHabitForedropView.swift; sourceTree = "<group>"; };
-		ABCD00000000000000000025 /* AddItemComposerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddItemComposerView.swift; sourceTree = "<group>"; };
 		C5DC4383109EA7E312BED57A /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS18.0.sdk/System/Library/Frameworks/Foundation.framework; sourceTree = DEVELOPER_DIR; };
 		C63740651E231116AA556D8F /* To Do List/UseCases/Gamification/MarkDailyReflectionCompleteUseCase.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "To Do List/UseCases/Gamification/MarkDailyReflectionCompleteUseCase.swift"; sourceTree = SOURCE_ROOT; };
 		CA35E641ED7341169B9EC48D /* TypographyTokens.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = TypographyTokens.swift; sourceTree = "<group>"; };
@@ -934,10 +942,19 @@
 		CFF019E9E7D0253D5D139030 /* WeeklyCalendarStripView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = WeeklyCalendarStripView.swift; sourceTree = "<group>"; };
 		D084008D65355970A8ECB504 /* DarkModeToggleCell.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DarkModeToggleCell.swift; sourceTree = "<group>"; };
 		D115AC1607F718EC014575BE /* To Do List/Domain/Models/XPCalculationEngine.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "To Do List/Domain/Models/XPCalculationEngine.swift"; sourceTree = SOURCE_ROOT; };
+		D1A100000000000000000001 /* HomeChromeSnapshot+Presentation.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "HomeChromeSnapshot+Presentation.swift"; sourceTree = "<group>"; };
+		D1A100000000000000000002 /* HomeScopeSummaryButtonView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HomeScopeSummaryButtonView.swift; sourceTree = "<group>"; };
+		D1A100000000000000000003 /* HomeBackToTodayButtonView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HomeBackToTodayButtonView.swift; sourceTree = "<group>"; };
+		D1A100000000000000000004 /* HomeMiniMomentumCardView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HomeMiniMomentumCardView.swift; sourceTree = "<group>"; };
+		D1A100000000000000000005 /* HomeMiniMomentumProgressBar.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HomeMiniMomentumProgressBar.swift; sourceTree = "<group>"; };
+		D1A100000000000000000006 /* HomeCompactHeaderView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HomeCompactHeaderView.swift; sourceTree = "<group>"; };
+		D1A100000000000000000007 /* HomeMomentumSummaryCard.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HomeMomentumSummaryCard.swift; sourceTree = "<group>"; };
+		D1A100000000000000000008 /* HomeMomentumProgressBar.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HomeMomentumProgressBar.swift; sourceTree = "<group>"; };
 		D32B0321DD6413CCDC888416 /* To Do List/Domain/Mappers/TagMapper.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "To Do List/Domain/Mappers/TagMapper.swift"; sourceTree = SOURCE_ROOT; };
 		D379A868382E81C83D874E36 /* TaskRowView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = TaskRowView.swift; sourceTree = "<group>"; };
 		D39BBE25D96F4BE6E41320B1 /* SpacingTokens.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SpacingTokens.swift; sourceTree = "<group>"; };
 		D48E4DB12D2E1FE5A90FC97D /* GamificationTokens.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = GamificationTokens.swift; sourceTree = "<group>"; };
+		D4E5F6A7B8C9D0E1F2030405 /* TaskModelV3_Habits.xcdatamodel */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcdatamodel; path = TaskModelV3_Habits.xcdatamodel; sourceTree = "<group>"; };
 		D5A9A2796943621DC66C4703 /* To Do List/Domain/Models/Tombstone.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "To Do List/Domain/Models/Tombstone.swift"; sourceTree = SOURCE_ROOT; };
 		D5E7A8B92F3C4D5E0067A1B2 /* DailySummaryModalTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DailySummaryModalTests.swift; sourceTree = "<group>"; };
 		D6248E090BE231D70E41F08C /* To Do List/State/Repositories/CoreDataScheduleRepository.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "To Do List/State/Repositories/CoreDataScheduleRepository.swift"; sourceTree = SOURCE_ROOT; };
@@ -997,6 +1014,7 @@
 		F4AB324AE764BB56051B2AA8 /* AddTaskEnumPicker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddTaskEnumPicker.swift; sourceTree = "<group>"; };
 		F5A100002F6A200100ABC001 /* TaskerAppShortcuts.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TaskerAppShortcuts.swift; sourceTree = "<group>"; };
 		F5A100022F6A200100ABC001 /* TaskerAppShortcutsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TaskerAppShortcutsTests.swift; sourceTree = "<group>"; };
+		F6A1B2C3D4E5F60718293A57 /* HomeChromeSnapshotPresentationTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HomeChromeSnapshotPresentationTests.swift; sourceTree = "<group>"; };
 		F9A8B91DCC93833939CAE3C6 /* TaskerWidgets.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = TaskerWidgets.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		FA1DA9F6A39882873264672B /* QuietHoursCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuietHoursCard.swift; sourceTree = "<group>"; };
 		FAF2AECE194CB6DF20940C57 /* To Do List/Domain/Models/ScheduleTemplate.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "To Do List/Domain/Models/ScheduleTemplate.swift"; sourceTree = SOURCE_ROOT; };
@@ -1456,6 +1474,7 @@
 				F2A1B2C3D4E5F60718293A54 /* HomeViewModelXPScoreRegressionTests.swift */,
 				F3A1B2C3D4E5F60718293A55 /* HomeForedropLayoutMetricsTests.swift */,
 				F4A1B2C3D4E5F60718293A56 /* HomeForedropHintEligibilityTests.swift */,
+				F6A1B2C3D4E5F60718293A57 /* HomeChromeSnapshotPresentationTests.swift */,
 				A91F8E152F44420100AB11C1 /* LifeManagementFeatureTests.swift */,
 				B8E100042F70000100A0A001 /* TaskerCTABezelResolverTests.swift */,
 				753EFCB62445A24800A739E3 /* Info.plist */,
@@ -1636,6 +1655,14 @@
 				A10000000000000000000001 /* QuickViewSelector.swift */,
 				A10000000000000000000002 /* NavPieChart.swift */,
 				B1A000000000000000000013 /* HomeChromeComponents.swift */,
+				D1A100000000000000000001 /* HomeChromeSnapshot+Presentation.swift */,
+				D1A100000000000000000006 /* HomeCompactHeaderView.swift */,
+				D1A100000000000000000002 /* HomeScopeSummaryButtonView.swift */,
+				D1A100000000000000000003 /* HomeBackToTodayButtonView.swift */,
+				D1A100000000000000000004 /* HomeMiniMomentumCardView.swift */,
+				D1A100000000000000000005 /* HomeMiniMomentumProgressBar.swift */,
+				D1A100000000000000000007 /* HomeMomentumSummaryCard.swift */,
+				D1A100000000000000000008 /* HomeMomentumProgressBar.swift */,
 				B1A000000000000000000016 /* HomeEvaLegacySheetViews.swift */,
 				B1A000000000000000000018 /* HomeEvaTriageSprintSheetV2.swift */,
 				17DC0A5BC84D9C6C792B2AB6 /* To Do List/View/HomeXPHeroView.swift */,
@@ -2762,10 +2789,10 @@
 				C2D804681AC165ADEAD7D906 /* SavedHomeView.swift in Sources */,
 				D6A192319732E9758B2D14B9 /* SavedHomeViewRepositoryProtocol.swift in Sources */,
 				50117460BC314EEA54344A9E /* GetHomeFilteredTasksUseCase.swift in Sources */,
-				B2E100000000000000000201 /* BuildHomeAgendaUseCase.swift in Sources */,
-				B2E100000000000000000202 /* HomeTodayRow.swift in Sources */,
-				B2E100000000000000000203 /* HomeHabitRow.swift in Sources */,
-				B2E100000000000000000204 /* HomeHabitRowView.swift in Sources */,
+				B2E100000000000000000201 /* To Do List/UseCases/Home/BuildHomeAgendaUseCase.swift in Sources */,
+				B2E100000000000000000202 /* To Do List/Presentation/Models/HomeTodayRow.swift in Sources */,
+				B2E100000000000000000203 /* To Do List/Presentation/Models/HomeHabitRow.swift in Sources */,
+				B2E100000000000000000204 /* To Do List/View/HomeHabitRowView.swift in Sources */,
 				6BFABA2E6D0DFA253AEC67A9 /* UserDefaultsSavedHomeViewRepository.swift in Sources */,
 				A3A6DF9571AB7FEB410EB861 /* HomeAdvancedFilterSheetView.swift in Sources */,
 				1B77769B1FFEBB2FA951419F /* AddTaskMetadataRow.swift in Sources */,
@@ -2773,6 +2800,14 @@
 				6A386E990F32D3D2DF9AE465 /* UnifiedThemePickerCell.swift in Sources */,
 				DCF44651412668651994B7BB /* DarkModeToggleCell.swift in Sources */,
 				B1A000000000000000000003 /* HomeChromeComponents.swift in Sources */,
+				D1A200000000000000000001 /* HomeChromeSnapshot+Presentation.swift in Sources */,
+				D1A200000000000000000006 /* HomeCompactHeaderView.swift in Sources */,
+				D1A200000000000000000002 /* HomeScopeSummaryButtonView.swift in Sources */,
+				D1A200000000000000000003 /* HomeBackToTodayButtonView.swift in Sources */,
+				D1A200000000000000000004 /* HomeMiniMomentumCardView.swift in Sources */,
+				D1A200000000000000000005 /* HomeMiniMomentumProgressBar.swift in Sources */,
+				D1A200000000000000000007 /* HomeMomentumSummaryCard.swift in Sources */,
+				D1A200000000000000000008 /* HomeMomentumProgressBar.swift in Sources */,
 				B1A000000000000000000006 /* HomeEvaLegacySheetViews.swift in Sources */,
 				B1A000000000000000000008 /* HomeEvaTriageSprintSheetV2.swift in Sources */,
 				355015C0A77A72D864F1AC64 /* HomeForedropView.swift in Sources */,
@@ -2807,7 +2842,7 @@
 				D6B2E31F4A5C7890BCDEF0BC /* AddTaskXPPreview.swift in Sources */,
 				ABCD00000000000000000011 /* AddHabitViewModel.swift in Sources */,
 				ABCD00000000000000000012 /* AddItemViewModel.swift in Sources */,
-				ABCD00000000000000000013 /* HabitIconCatalog.swift in Sources */,
+				ABCD00000000000000000013 /* To Do List/Presentation/Habits/HabitIconCatalog.swift in Sources */,
 				ABCD00000000000000000014 /* AddHabitForedropView.swift in Sources */,
 				ABCD00000000000000000015 /* AddItemComposerView.swift in Sources */,
 				D6B2E31F4A5C7890BCDEF0CD /* Device+Notch.swift in Sources */,
@@ -2964,6 +2999,7 @@
 				F2A1B2C3D4E5F60718293B54 /* HomeViewModelXPScoreRegressionTests.swift in Sources */,
 				F3A1B2C3D4E5F60718293B55 /* HomeForedropLayoutMetricsTests.swift in Sources */,
 				F4A1B2C3D4E5F60718293B56 /* HomeForedropHintEligibilityTests.swift in Sources */,
+				F6A1B2C3D4E5F60718293B57 /* HomeChromeSnapshotPresentationTests.swift in Sources */,
 				A91F8E162F44420100AB11C1 /* LifeManagementFeatureTests.swift in Sources */,
 				A1F0D0B52F5A100100ABC001 /* AppOnboardingTests.swift in Sources */,
 				E0A100000000000000000301 /* EvaActivationTests.swift in Sources */,
@@ -3060,7 +3096,7 @@
 				CLANG_ENABLE_OBJC_WEAK = NO;
 				CODE_SIGN_ENTITLEMENTS = TaskerWidgets/TaskerWidgets.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 5;
+				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = CJ43UNM3AR;
 				INFOPLIST_FILE = TaskerWidgets/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 18.6;
@@ -3069,7 +3105,7 @@
 					"@executable_path/Frameworks",
 					"@executable_path/../../Frameworks",
 				);
-				MARKETING_VERSION = 1.8.5;
+				MARKETING_VERSION = 1.8.6;
 				PRODUCT_BUNDLE_IDENTIFIER = "com.saransh1337.To-Do-List.TaskerWidgets";
 				PRODUCT_NAME = TaskerWidgets;
 				SDKROOT = iphoneos;
@@ -3203,7 +3239,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_ENTITLEMENTS = "This Day.entitlements";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 5;
+				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = CJ43UNM3AR;
 				INFOPLIST_FILE = "To Do List/Info.plist";
 				INFOPLIST_KEY_CFBundleDisplayName = Tasker;
@@ -3213,7 +3249,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.8.5;
+				MARKETING_VERSION = 1.8.6;
 				PRODUCT_BUNDLE_IDENTIFIER = "com.saransh1337.To-Do-List";
 				PRODUCT_MODULE_NAME = To_Do_List;
 				PRODUCT_NAME = "This Day";
@@ -3229,7 +3265,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_ENTITLEMENTS = "This Day.entitlements";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 5;
+				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = CJ43UNM3AR;
 				INFOPLIST_FILE = "To Do List/Info.plist";
 				INFOPLIST_KEY_CFBundleDisplayName = Tasker;
@@ -3239,7 +3275,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.8.5;
+				MARKETING_VERSION = 1.8.6;
 				PRODUCT_BUNDLE_IDENTIFIER = "com.saransh1337.To-Do-List";
 				PRODUCT_MODULE_NAME = To_Do_List;
 				PRODUCT_NAME = "This Day";
@@ -3343,7 +3379,7 @@
 				CLANG_ENABLE_OBJC_WEAK = NO;
 				CODE_SIGN_ENTITLEMENTS = TaskerWidgets/TaskerWidgets.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 5;
+				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = CJ43UNM3AR;
 				INFOPLIST_FILE = TaskerWidgets/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 18.6;
@@ -3352,7 +3388,7 @@
 					"@executable_path/Frameworks",
 					"@executable_path/../../Frameworks",
 				);
-				MARKETING_VERSION = 1.8.5;
+				MARKETING_VERSION = 1.8.6;
 				PRODUCT_BUNDLE_IDENTIFIER = "com.saransh1337.To-Do-List.TaskerWidgets";
 				PRODUCT_NAME = TaskerWidgets;
 				SDKROOT = iphoneos;
