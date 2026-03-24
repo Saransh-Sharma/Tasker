@@ -485,6 +485,7 @@
 		F2A1B2C3D4E5F60718293B54 /* HomeViewModelXPScoreRegressionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2A1B2C3D4E5F60718293A54 /* HomeViewModelXPScoreRegressionTests.swift */; };
 		F3A1B2C3D4E5F60718293B55 /* HomeForedropLayoutMetricsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F3A1B2C3D4E5F60718293A55 /* HomeForedropLayoutMetricsTests.swift */; };
 		F4A1B2C3D4E5F60718293B56 /* HomeForedropHintEligibilityTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F4A1B2C3D4E5F60718293A56 /* HomeForedropHintEligibilityTests.swift */; };
+		F6A1B2C3D4E5F60718293B57 /* HomeChromeSnapshotPresentationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F6A1B2C3D4E5F60718293A57 /* HomeChromeSnapshotPresentationTests.swift */; };
 		F5A100012F6A200100ABC001 /* TaskerAppShortcuts.swift in Sources */ = {isa = PBXBuildFile; fileRef = F5A100002F6A200100ABC001 /* TaskerAppShortcuts.swift */; };
 		F5A100032F6A200100ABC001 /* TaskerAppShortcutsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F5A100022F6A200100ABC001 /* TaskerAppShortcutsTests.swift */; };
 		F7F1A376574BECAD5FD6A5E3 /* To Do List/State/Repositories/CoreDataReminderRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = 10EE348FF84C5F729A416848 /* To Do List/State/Repositories/CoreDataReminderRepository.swift */; };
@@ -1010,6 +1011,7 @@
 		F3A1B2C3D4E5F60718293A55 /* HomeForedropLayoutMetricsTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HomeForedropLayoutMetricsTests.swift; sourceTree = "<group>"; };
 		F4687654CCFC97DCFDA3E695 /* To Do List/State/Repositories/CoreDataTaskDefinitionRepository.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "To Do List/State/Repositories/CoreDataTaskDefinitionRepository.swift"; sourceTree = SOURCE_ROOT; };
 		F4A1B2C3D4E5F60718293A56 /* HomeForedropHintEligibilityTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HomeForedropHintEligibilityTests.swift; sourceTree = "<group>"; };
+		F6A1B2C3D4E5F60718293A57 /* HomeChromeSnapshotPresentationTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HomeChromeSnapshotPresentationTests.swift; sourceTree = "<group>"; };
 		F4AB324AE764BB56051B2AA8 /* AddTaskEnumPicker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddTaskEnumPicker.swift; sourceTree = "<group>"; };
 		F5A100002F6A200100ABC001 /* TaskerAppShortcuts.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TaskerAppShortcuts.swift; sourceTree = "<group>"; };
 		F5A100022F6A200100ABC001 /* TaskerAppShortcutsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TaskerAppShortcutsTests.swift; sourceTree = "<group>"; };
@@ -1472,6 +1474,7 @@
 				F2A1B2C3D4E5F60718293A54 /* HomeViewModelXPScoreRegressionTests.swift */,
 				F3A1B2C3D4E5F60718293A55 /* HomeForedropLayoutMetricsTests.swift */,
 				F4A1B2C3D4E5F60718293A56 /* HomeForedropHintEligibilityTests.swift */,
+				F6A1B2C3D4E5F60718293A57 /* HomeChromeSnapshotPresentationTests.swift */,
 				A91F8E152F44420100AB11C1 /* LifeManagementFeatureTests.swift */,
 				B8E100042F70000100A0A001 /* TaskerCTABezelResolverTests.swift */,
 				753EFCB62445A24800A739E3 /* Info.plist */,
@@ -2996,6 +2999,7 @@
 				F2A1B2C3D4E5F60718293B54 /* HomeViewModelXPScoreRegressionTests.swift in Sources */,
 				F3A1B2C3D4E5F60718293B55 /* HomeForedropLayoutMetricsTests.swift in Sources */,
 				F4A1B2C3D4E5F60718293B56 /* HomeForedropHintEligibilityTests.swift in Sources */,
+				F6A1B2C3D4E5F60718293B57 /* HomeChromeSnapshotPresentationTests.swift in Sources */,
 				A91F8E162F44420100AB11C1 /* LifeManagementFeatureTests.swift in Sources */,
 				A1F0D0B52F5A100100ABC001 /* AppOnboardingTests.swift in Sources */,
 				E0A100000000000000000301 /* EvaActivationTests.swift in Sources */,

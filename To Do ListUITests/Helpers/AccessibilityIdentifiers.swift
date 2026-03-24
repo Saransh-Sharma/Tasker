@@ -34,6 +34,8 @@ enum AccessibilityIdentifiers {
         static let chatButton = "home.chatButton"
         static let inboxButton = "home.inboxButton"
         static let settingsButton = "home.settingsButton"
+        static let backToTodayButton = "home.backToToday.button"
+        static let reflectionReadyButton = "home.reflectionReady.button"
         static let projectFilterButton = "home.focus.menu.button"
         static let quickFilterMenuButton = "home.focus.menu.button"
         static let quickFilterMenuContainer = "home.focus.menu.container"

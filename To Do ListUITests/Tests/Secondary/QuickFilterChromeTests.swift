@@ -34,4 +34,36 @@ final class QuickFilterChromeTests: BaseUITest {
         XCTAssertTrue(resetButton.waitForExistence(timeout: 3), "Reset button should be visible")
         resetButton.tap()
     }
+
+    func testSwitchingAwayFromTodayShowsBackToTodayAffordance() throws {
+        let homePage = HomePage(app: app)
+        let quickFilterButton = homePage.projectFilterButton
+
+        guard quickFilterButton.waitForExistence(timeout: 3) else {
+            throw XCTSkip("Quick view trigger is not reachable in the current launch state")
+        }
+
+        quickFilterButton.tap()
+
+        let overdueButton = app.buttons["home.focus.menu.option.overdue"]
+        XCTAssertTrue(overdueButton.waitForExistence(timeout: 3), "Overdue quick view should be visible in the menu")
+        overdueButton.tap()
+
+        XCTAssertTrue(homePage.backToTodayButton.waitForExistence(timeout: 3), "Back to Today should appear outside the default Today view")
+        XCTAssertFalse(homePage.reflectionReadyButton.exists, "Reflection CTA should not be visible outside Today")
+    }
+
+    func testReflectionReadyButtonOpensReflectionSheet() throws {
+        let homePage = HomePage(app: app)
+        let reflectionButton = homePage.reflectionReadyButton
+
+        guard reflectionButton.waitForExistence(timeout: 3) else {
+            throw XCTSkip("Reflection CTA is not visible in the current Today state")
+        }
+
+        reflectionButton.tap()
+
+        let reflectionTitle = app.staticTexts["Daily Reflection"]
+        XCTAssertTrue(reflectionTitle.waitForExistence(timeout: 3), "Reflection CTA should open the existing reflection sheet")
+    }
 }

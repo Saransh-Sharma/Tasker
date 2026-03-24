@@ -75,6 +75,44 @@ class HomePage {
         ).firstMatch
     }
 
+    var backToTodayButton: XCUIElement {
+        let byButton = app.buttons[AccessibilityIdentifiers.Home.backToTodayButton]
+        if byButton.exists {
+            return byButton
+        }
+
+        let byAnyIdentifier = app.descendants(matching: .any)[AccessibilityIdentifiers.Home.backToTodayButton]
+        if byAnyIdentifier.exists {
+            return byAnyIdentifier
+        }
+
+        return app.descendants(matching: .any).matching(
+            NSPredicate(
+                format: "label CONTAINS[c] 'Back to Today' OR label == 'Today' OR identifier == %@",
+                AccessibilityIdentifiers.Home.backToTodayButton
+            )
+        ).firstMatch
+    }
+
+    var reflectionReadyButton: XCUIElement {
+        let byButton = app.buttons[AccessibilityIdentifiers.Home.reflectionReadyButton]
+        if byButton.exists {
+            return byButton
+        }
+
+        let byAnyIdentifier = app.descendants(matching: .any)[AccessibilityIdentifiers.Home.reflectionReadyButton]
+        if byAnyIdentifier.exists {
+            return byAnyIdentifier
+        }
+
+        return app.descendants(matching: .any).matching(
+            NSPredicate(
+                format: "label CONTAINS[c] 'Reflection ready' OR identifier == %@",
+                AccessibilityIdentifiers.Home.reflectionReadyButton
+            )
+        ).firstMatch
+    }
+
     var searchButton: XCUIElement {
         let legacyIdentifier = app.buttons[AccessibilityIdentifiers.Home.searchButton]
         if legacyIdentifier.exists {
