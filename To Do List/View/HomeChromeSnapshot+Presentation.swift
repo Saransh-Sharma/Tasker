@@ -14,6 +14,14 @@ struct HomeHeaderMetadataItem: Equatable, Identifiable {
     let tone: Tone
 }
 
+struct HomeHeaderXPProgressModel: Equatable {
+    let earnedXP: Int
+    let targetXP: Int
+    let progressFraction: Double
+    let isStreakSafeToday: Bool
+    let accessibilityLabel: String
+}
+
 struct HomeHeaderPresentationModel: Equatable {
     let viewLabel: String
     let centeredDateText: String?
@@ -21,6 +29,7 @@ struct HomeHeaderPresentationModel: Equatable {
     let metadataItems: [HomeHeaderMetadataItem]
     let showsReflectionCTA: Bool
     let reflectionCTATitle: String
+    let xpProgress: HomeHeaderXPProgressModel?
     let hasActiveFilters: Bool
 }
 
@@ -33,6 +42,7 @@ extension HomeChromeSnapshot {
             metadataItems: headerMetadataItems(tasks: tasks),
             showsReflectionCTA: shouldShowReflectionCTA,
             reflectionCTATitle: "Reflection ready",
+            xpProgress: headerXPProgress,
             hasActiveFilters: homeActiveFilterCount > 0
         )
     }
@@ -62,6 +72,23 @@ extension HomeChromeSnapshot {
         return false
     }
 
+    private var headerXPProgress: HomeHeaderXPProgressModel? {
+        guard case .today = activeScope else {
+            return nil
+        }
+
+        let targetXP = resolvedTodayTargetXP
+        guard targetXP > 0 else { return nil }
+
+        return HomeHeaderXPProgressModel(
+            earnedXP: progressState.earnedXP,
+            targetXP: targetXP,
+            progressFraction: min(1, Double(progressState.earnedXP) / Double(max(targetXP, 1))),
+            isStreakSafeToday: progressState.isStreakSafeToday,
+            accessibilityLabel: "XP progress, \(progressState.earnedXP) of \(targetXP) XP"
+        )
+    }
+
     private func headerMetadataItems(tasks: HomeTasksSnapshot) -> [HomeHeaderMetadataItem] {
         switch activeScope {
         case .today:
@@ -83,12 +110,10 @@ extension HomeChromeSnapshot {
 
     private var todayMetadataItems: [HomeHeaderMetadataItem] {
         let completionPercent = Int((completionRate * 100).rounded())
-        let xpText: String
-        if progressState.todayTargetXP > 0 {
-            xpText = "\(progressState.earnedXP)/\(progressState.todayTargetXP) XP"
-        } else {
-            xpText = "\(dailyScore) XP"
-        }
+        let xpTarget = resolvedTodayTargetXP
+        let xpText = xpTarget > 0
+            ? "\(progressState.earnedXP)/\(xpTarget) XP"
+            : "\(dailyScore) XP"
 
         return [
             HomeHeaderMetadataItem(
@@ -110,6 +135,16 @@ extension HomeChromeSnapshot {
                 tone: progressState.isStreakSafeToday ? .accent : .warning
             )
         ]
+    }
+
+    private var resolvedTodayTargetXP: Int {
+        if progressState.todayTargetXP > 0 {
+            return progressState.todayTargetXP
+        }
+        if V2FeatureFlags.gamificationV2Enabled {
+            return GamificationTokens.dailyXPCap
+        }
+        return 0
     }
 
     private func selectedDateMetadataItems(tasks: HomeTasksSnapshot) -> [HomeHeaderMetadataItem] {

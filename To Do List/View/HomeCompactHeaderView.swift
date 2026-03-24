@@ -59,10 +59,7 @@ struct HomeCompactHeaderView: View {
                 compactHeaderLayout
             }
 
-            Rectangle()
-                .fill(Color.tasker.divider.opacity(0.88))
-                .frame(height: 1)
-                .accessibilityHidden(true)
+            headerBottomAccent
         }
         .padding(.horizontal, spacing.s16)
         .padding(.top, spacing.s8 + 10 + extraTopPadding)
@@ -75,6 +72,37 @@ struct HomeCompactHeaderView: View {
             containerWidth = newWidth
         }
         .animation(reduceMotion ? .easeOut(duration: 0.12) : .easeOut(duration: 0.22), value: presentation.showsBackToToday)
+    }
+
+    @ViewBuilder
+    private var headerBottomAccent: some View {
+        if let xpProgress = presentation.xpProgress {
+            ZStack {
+                HomeMomentumProgressBar(
+                    progress: xpProgress.progressFraction,
+                    colors: xpProgress.isStreakSafeToday
+                        ? [Color.tasker.accentPrimary.opacity(0.78), Color.tasker.accentPrimary]
+                        : [Color.tasker.statusWarning.opacity(0.82), Color.tasker.statusWarning],
+                    trackColor: Color.tasker.surfaceSecondary.opacity(0.72),
+                    height: 4,
+                    animate: !reduceMotion
+                )
+
+                Text(xpProgress.accessibilityLabel)
+                    .font(.system(size: 1))
+                    .foregroundStyle(.clear)
+                    .frame(width: 1, height: 1)
+                    .clipped()
+                    .accessibilityIdentifier("home.topChrome.xpProgress")
+            }
+            .frame(maxWidth: .infinity)
+            .frame(height: 4)
+        } else {
+            Rectangle()
+                .fill(Color.tasker.divider.opacity(0.88))
+                .frame(height: 1)
+                .accessibilityHidden(true)
+        }
     }
 
     private var usesWideLayout: Bool {

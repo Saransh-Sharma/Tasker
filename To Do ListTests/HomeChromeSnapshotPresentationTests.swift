@@ -33,6 +33,11 @@ final class HomeChromeSnapshotPresentationTests: XCTestCase {
         XCTAssertFalse(presentation.showsBackToToday)
         XCTAssertTrue(presentation.showsReflectionCTA)
         XCTAssertEqual(presentation.metadataItems.map(\.text), ["18/250 XP", "100%", "1d"])
+        XCTAssertEqual(presentation.xpProgress?.earnedXP, 18)
+        XCTAssertEqual(presentation.xpProgress?.targetXP, 250)
+        XCTAssertEqual(presentation.xpProgress?.isStreakSafeToday, true)
+        XCTAssertEqual(presentation.xpProgress?.accessibilityLabel, "XP progress, 18 of 250 XP")
+        XCTAssertEqual(presentation.xpProgress?.progressFraction ?? -1, 18.0 / 250.0, accuracy: 0.0001)
     }
 
     func testCustomDatePresentationShowsBackToTodayAndSuppressesReflection() {
@@ -102,6 +107,7 @@ final class HomeChromeSnapshotPresentationTests: XCTestCase {
         XCTAssertTrue(presentation.showsBackToToday)
         XCTAssertFalse(presentation.showsReflectionCTA)
         XCTAssertEqual(presentation.metadataItems.map(\.text), ["1 task", "1 habit"])
+        XCTAssertNil(presentation.xpProgress)
     }
 
     func testOverduePresentationUsesTaskOnlyScopedSummary() {
@@ -154,5 +160,38 @@ final class HomeChromeSnapshotPresentationTests: XCTestCase {
         XCTAssertNil(presentation.centeredDateText)
         XCTAssertEqual(presentation.metadataItems.map(\.text), ["2 overdue tasks"])
         XCTAssertFalse(presentation.showsReflectionCTA)
+        XCTAssertNil(presentation.xpProgress)
+    }
+
+    func testTodayPresentationFallsBackToDailyCapWhenTargetIsZeroInGamificationV2() {
+        let originalGamificationV2Enabled = V2FeatureFlags.gamificationV2Enabled
+        V2FeatureFlags.gamificationV2Enabled = true
+        defer { V2FeatureFlags.gamificationV2Enabled = originalGamificationV2Enabled }
+
+        let snapshot = HomeChromeSnapshot(
+            selectedDate: Date(timeIntervalSince1970: 0),
+            activeScope: .today,
+            activeFilterState: .default,
+            savedHomeViews: [],
+            quickViewCounts: [:],
+            progressState: HomeProgressState(
+                earnedXP: 18,
+                remainingPotentialXP: 0,
+                todayTargetXP: 0,
+                streakDays: 1,
+                isStreakSafeToday: true
+            ),
+            dailyScore: 18,
+            completionRate: 1,
+            projects: [],
+            reflectionEligible: true,
+            momentumGuidanceText: ""
+        )
+
+        let presentation = snapshot.homeHeaderPresentation(tasks: .empty)
+
+        XCTAssertEqual(presentation.metadataItems.map(\.text), ["18/250 XP", "100%", "1d"])
+        XCTAssertEqual(presentation.xpProgress?.targetXP, GamificationTokens.dailyXPCap)
+        XCTAssertEqual(presentation.xpProgress?.accessibilityLabel, "XP progress, 18 of 250 XP")
     }
 }
