@@ -221,7 +221,7 @@ struct HomeCompactHeaderView: View {
 
     private var centeredDateLabel: some View {
         Text(presentation.centeredDateText ?? "")
-            .font(.tasker(.title1))
+            .font(.tasker(.display))
             .foregroundStyle(Color.tasker.textPrimary)
             .lineLimit(1)
             .minimumScaleFactor(0.8)
@@ -283,7 +283,7 @@ struct HomeCompactHeaderView: View {
         }
         .buttonStyle(.plain)
         .scaleOnPress()
-        .accessibilityLabel("Reflection ready")
+        .accessibilityLabel("Reflect")
         .accessibilityHint("Opens the daily reflection screen")
         .accessibilityIdentifier("home.reflectionReady.button")
     }
@@ -427,6 +427,9 @@ struct HomeCompactHeaderView: View {
     private func metadataForegroundColor(for item: HomeHeaderMetadataItem) -> Color {
         if item.id == "xp" {
             return Color.tasker.statusWarning
+        }
+        if item.id == "completion" {
+            return Color.white
         }
         return metadataToneColor(item.tone)
     }

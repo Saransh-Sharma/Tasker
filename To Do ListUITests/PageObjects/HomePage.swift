@@ -107,7 +107,7 @@ class HomePage {
 
         return app.descendants(matching: .any).matching(
             NSPredicate(
-                format: "label CONTAINS[c] 'Reflection ready' OR identifier == %@",
+                format: "label CONTAINS[c] 'Reflect' OR identifier == %@",
                 AccessibilityIdentifiers.Home.reflectionReadyButton
             )
         ).firstMatch

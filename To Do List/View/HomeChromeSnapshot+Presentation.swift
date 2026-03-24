@@ -41,7 +41,7 @@ extension HomeChromeSnapshot {
             showsBackToToday: shouldShowBackToToday,
             metadataItems: headerMetadataItems(tasks: tasks),
             showsReflectionCTA: shouldShowReflectionCTA,
-            reflectionCTATitle: "Reflection ready",
+            reflectionCTATitle: "Reflect",
             xpProgress: headerXPProgress,
             hasActiveFilters: homeActiveFilterCount > 0
         )

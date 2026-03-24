@@ -32,6 +32,7 @@ final class HomeChromeSnapshotPresentationTests: XCTestCase {
         )
         XCTAssertFalse(presentation.showsBackToToday)
         XCTAssertTrue(presentation.showsReflectionCTA)
+        XCTAssertEqual(presentation.reflectionCTATitle, "Reflect")
         XCTAssertEqual(presentation.metadataItems.map(\.text), ["18/250 XP", "100%", "1d"])
         XCTAssertEqual(presentation.xpProgress?.earnedXP, 18)
         XCTAssertEqual(presentation.xpProgress?.targetXP, 250)
@@ -194,7 +195,6 @@ final class HomeChromeSnapshotPresentationTests: XCTestCase {
         XCTAssertEqual(presentation.xpProgress?.targetXP, GamificationTokens.dailyXPCap)
         XCTAssertEqual(presentation.xpProgress?.accessibilityLabel, "XP progress, 18 of 250 XP")
     }
-}
 
     func testTodayPresentationRoundsCompletionPercentageForHeaderDisplay() {
         let snapshot = HomeChromeSnapshot(
@@ -221,3 +221,4 @@ final class HomeChromeSnapshotPresentationTests: XCTestCase {
 
         XCTAssertEqual(presentation.metadataItems.map(\.text), ["18/250 XP", "33%", "1d"])
     }
+}
