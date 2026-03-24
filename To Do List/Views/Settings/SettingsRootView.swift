@@ -366,20 +366,59 @@ struct SettingsRootView: View {
             topPadding: sectionTopPadding,
             includeHorizontalPadding: includeHorizontalPadding
         ) {
-            TaskerSettingsCard {
-                TaskerSettingsToggleRow(
-                    iconName: "sparkles",
-                    title: "Decorative Button Effects",
-                    subtitle: "Add visual accents to primary buttons.",
-                    isOn: Binding(
-                        get: { viewModel.decorativeButtonEffectsEnabled },
-                        set: { viewModel.setDecorativeButtonEffectsEnabled($0) }
-                    ),
-                    accessibilityIdentifier: "settings.appearance.decorativeButtonEffects.toggle"
-                )
+            VStack(spacing: spacing.cardStackVertical) {
+                TaskerSettingsCard {
+                    TaskerSettingsToggleRow(
+                        iconName: "sparkles",
+                        title: "Decorative Button Effects",
+                        subtitle: "Add visual accents to primary buttons.",
+                        isOn: Binding(
+                            get: { viewModel.decorativeButtonEffectsEnabled },
+                            set: { viewModel.setDecorativeButtonEffectsEnabled($0) }
+                        ),
+                        accessibilityIdentifier: "settings.appearance.decorativeButtonEffects.toggle"
+                    )
+                }
+                .enhancedStaggeredAppearance(index: baseIndex)
+                .accessibilityIdentifier("settings.appearance.decorativeButtonEffects.card")
+
+                TaskerSettingsFieldCard(
+                    title: "Home Background Noise",
+                    subtitle: "Add film grain above the animated home gradient.",
+                    footer: "Use 0% to disable the grain overlay.",
+                    accessibilityIdentifier: "settings.appearance.homeBackgroundNoise.card"
+                ) {
+                    VStack(alignment: .leading, spacing: spacing.s12) {
+                        HStack(spacing: spacing.s12) {
+                            Text("Amount")
+                                .font(.tasker(.caption1))
+                                .foregroundStyle(Color.tasker(.textSecondary))
+
+                            Spacer()
+
+                            Text("\(viewModel.homeBackdropNoiseAmount)%")
+                                .font(.tasker(.bodyStrong))
+                                .foregroundStyle(Color.tasker(.textPrimary))
+                                .monospacedDigit()
+                        }
+
+                        Slider(
+                            value: homeBackdropNoiseSliderBinding,
+                            in: 0...100,
+                            step: 1
+                        )
+                        .tint(Color.tasker(.accentPrimary))
+                        .accessibilityIdentifier("settings.appearance.homeBackgroundNoise.slider")
+                        .accessibilityLabel("Home Background Noise")
+                        .accessibilityValue(Text("\(viewModel.homeBackdropNoiseAmount) percent"))
+                    }
+                }
+                .enhancedStaggeredAppearance(index: baseIndex + 1)
+                .accessibilityChildren {
+                    Text("\(viewModel.homeBackdropNoiseAmount)%")
+                        .accessibilityIdentifier("settings.appearance.homeBackgroundNoise.value")
+                }
             }
-            .enhancedStaggeredAppearance(index: baseIndex)
-            .accessibilityIdentifier("settings.appearance.decorativeButtonEffects.card")
         }
     }
 
@@ -440,6 +479,13 @@ struct SettingsRootView: View {
                 .datePickerStyle(.compact)
                 .tint(Color.tasker(.accentPrimary))
         }
+    }
+
+    private var homeBackdropNoiseSliderBinding: Binding<Double> {
+        Binding(
+            get: { Double(viewModel.homeBackdropNoiseAmount) },
+            set: { viewModel.setHomeBackdropNoiseAmount(Int($0.rounded())) }
+        )
     }
 
     private var quietHoursControls: some View {

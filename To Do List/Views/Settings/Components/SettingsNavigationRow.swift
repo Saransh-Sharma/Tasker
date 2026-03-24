@@ -264,6 +264,7 @@ struct TaskerSettingsFieldCard<Content: View>: View {
     let title: String
     let subtitle: String
     var footer: String? = nil
+    var accessibilityIdentifier: String? = nil
     @ViewBuilder let content: Content
 
     @Environment(\.taskerLayoutClass) private var layoutClass
@@ -276,11 +277,13 @@ struct TaskerSettingsFieldCard<Content: View>: View {
         title: String,
         subtitle: String,
         footer: String? = nil,
+        accessibilityIdentifier: String? = nil,
         @ViewBuilder content: () -> Content
     ) {
         self.title = title
         self.subtitle = subtitle
         self.footer = footer
+        self.accessibilityIdentifier = accessibilityIdentifier
         self.content = content()
     }
 
@@ -308,6 +311,8 @@ struct TaskerSettingsFieldCard<Content: View>: View {
                 }
             }
         }
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier(accessibilityIdentifier ?? "")
     }
 }
 

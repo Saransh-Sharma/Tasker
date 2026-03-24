@@ -14,6 +14,7 @@ final class SettingsViewModel: ObservableObject {
 
     @Published var currentModelDisplayName: String
     @Published var decorativeButtonEffectsEnabled: Bool
+    @Published var homeBackdropNoiseAmount: Int
 
     // MARK: - Navigation callbacks (set by SettingsPageViewController)
 
@@ -29,6 +30,9 @@ final class SettingsViewModel: ObservableObject {
 
     private let notificationPreferencesStore: TaskerNotificationPreferencesStore
     private let appManager: AppManager
+    private var hasCustomizedAppearance: Bool {
+        decorativeButtonEffectsEnabled || homeBackdropNoiseAmount != V2FeatureFlags.defaultHomeBackdropNoiseAmount
+    }
 
     // MARK: - Morning / Nightly times as Date for DatePicker binding
 
@@ -148,13 +152,13 @@ final class SettingsViewModel: ObservableObject {
     }
 
     var setupStatusLabel: String {
-        decorativeButtonEffectsEnabled ? "Customized" : "Default"
+        hasCustomizedAppearance ? "Customized" : "Default"
     }
 
     var setupStatusDetail: String {
-        decorativeButtonEffectsEnabled
-            ? "Decorative button effects are enabled."
-            : "Using the default button appearance."
+        hasCustomizedAppearance
+            ? "Appearance effects are customized."
+            : "Using the default appearance settings."
     }
 
     var onboardingSummary: String {
@@ -206,6 +210,7 @@ final class SettingsViewModel: ObservableObject {
         self.preferences = notificationPreferencesStore.load()
         self.currentModelDisplayName = appManager.compactModelDisplayName(appManager.currentModelName ?? "")
         self.decorativeButtonEffectsEnabled = V2FeatureFlags.userDecorativeCTAEffectsEnabled
+        self.homeBackdropNoiseAmount = V2FeatureFlags.homeBackdropNoiseAmount
     }
 
     // MARK: - Notification Toggles
@@ -226,6 +231,12 @@ final class SettingsViewModel: ObservableObject {
         decorativeButtonEffectsEnabled = isEnabled
         V2FeatureFlags.userDecorativeCTAEffectsEnabled = isEnabled
         TaskerFeedback.selection()
+    }
+
+    func setHomeBackdropNoiseAmount(_ amount: Int) {
+        let clampedAmount = V2FeatureFlags.clampedHomeBackdropNoiseAmount(amount)
+        homeBackdropNoiseAmount = clampedAmount
+        V2FeatureFlags.homeBackdropNoiseAmount = clampedAmount
     }
 
     // MARK: - Permission
@@ -277,6 +288,7 @@ final class SettingsViewModel: ObservableObject {
         preferences = notificationPreferencesStore.load()
         currentModelDisplayName = appManager.compactModelDisplayName(appManager.currentModelName ?? "")
         decorativeButtonEffectsEnabled = V2FeatureFlags.userDecorativeCTAEffectsEnabled
+        homeBackdropNoiseAmount = V2FeatureFlags.homeBackdropNoiseAmount
         refreshPermissionStatus()
     }
 
