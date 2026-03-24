@@ -276,16 +276,16 @@ struct HomeCompactHeaderView: View {
                     .font(.tasker(.caption1).weight(.semibold))
                     .lineLimit(1)
             }
-            .foregroundStyle(Color.tasker.accentPrimary)
+            .foregroundStyle(Color.tasker.statusWarning)
             .padding(.horizontal, spacing.s12)
             .frame(minHeight: 36)
             .background(
                 Capsule(style: .continuous)
-                    .fill(Color.tasker.accentWash)
+                    .fill(Color.tasker.statusWarning.opacity(0.12))
             )
             .overlay(
                 Capsule(style: .continuous)
-                    .stroke(Color.tasker.accentPrimary.opacity(0.18), lineWidth: 1)
+                    .stroke(Color.tasker.statusWarning.opacity(0.22), lineWidth: 1)
             )
         }
         .buttonStyle(.plain)
