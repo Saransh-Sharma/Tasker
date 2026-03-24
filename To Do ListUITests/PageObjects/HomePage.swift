@@ -113,6 +113,24 @@ class HomePage {
         ).firstMatch
     }
 
+    var headerDateLabel: XCUIElement {
+        let byText = app.staticTexts["home.topChrome.date"]
+        if byText.exists {
+            return byText
+        }
+
+        return app.descendants(matching: .any)["home.topChrome.date"]
+    }
+
+    var quickFilterTitleLabel: XCUIElement {
+        let byText = app.staticTexts["home.focus.menu.button.title"]
+        if byText.exists {
+            return byText
+        }
+
+        return app.descendants(matching: .any)["home.focus.menu.button.title"]
+    }
+
     var searchButton: XCUIElement {
         let legacyIdentifier = app.buttons[AccessibilityIdentifiers.Home.searchButton]
         if legacyIdentifier.exists {
