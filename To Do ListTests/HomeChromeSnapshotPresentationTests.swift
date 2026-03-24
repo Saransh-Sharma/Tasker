@@ -195,3 +195,29 @@ final class HomeChromeSnapshotPresentationTests: XCTestCase {
         XCTAssertEqual(presentation.xpProgress?.accessibilityLabel, "XP progress, 18 of 250 XP")
     }
 }
+
+    func testTodayPresentationRoundsCompletionPercentageForHeaderDisplay() {
+        let snapshot = HomeChromeSnapshot(
+            selectedDate: Date(timeIntervalSince1970: 0),
+            activeScope: .today,
+            activeFilterState: .default,
+            savedHomeViews: [],
+            quickViewCounts: [:],
+            progressState: HomeProgressState(
+                earnedXP: 18,
+                remainingPotentialXP: 32,
+                todayTargetXP: 250,
+                streakDays: 1,
+                isStreakSafeToday: true
+            ),
+            dailyScore: 18,
+            completionRate: 1.0 / 3.0,
+            projects: [],
+            reflectionEligible: true,
+            momentumGuidanceText: ""
+        )
+
+        let presentation = snapshot.homeHeaderPresentation(tasks: .empty)
+
+        XCTAssertEqual(presentation.metadataItems.map(\.text), ["18/250 XP", "33%", "1d"])
+    }
