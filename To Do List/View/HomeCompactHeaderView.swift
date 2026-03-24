@@ -130,6 +130,11 @@ struct HomeCompactHeaderView: View {
             if presentation.centeredDateText == nil {
                 HStack(spacing: spacing.s8) {
                     leadingHeaderContent
+                        .background(
+                            widthReader { newWidth in
+                                measuredLeadingColumnWidth = newWidth
+                            }
+                        )
                         .layoutPriority(1)
 
                     Spacer(minLength: spacing.s4)
@@ -171,23 +176,25 @@ struct HomeCompactHeaderView: View {
     @ViewBuilder
     private func metadataSection(alignment: HorizontalAlignment) -> some View {
         ViewThatFits(in: .horizontal) {
-            HStack(alignment: .center, spacing: spacing.s8) {
-                metadataItemsRow
-                if presentation.showsReflectionCTA {
-                    reflectionButton
+            if presentation.showsReflectionCTA {
+                HStack(alignment: .center, spacing: spacing.s8) {
+                    reflectionButtonRail
+                    metadataItemsRow(alignment: .trailing)
                 }
+            } else {
+                metadataItemsRow(alignment: .leading)
             }
 
             VStack(alignment: alignment, spacing: spacing.s8) {
-                metadataItemsRow
                 if presentation.showsReflectionCTA {
-                    reflectionButton
+                    reflectionButtonRail
                 }
+                metadataItemsRow(alignment: presentation.showsReflectionCTA ? .trailing : .leading)
             }
         }
     }
 
-    private var metadataItemsRow: some View {
+    private func metadataItemsRow(alignment: Alignment) -> some View {
         HStack(alignment: .center, spacing: spacing.s8) {
             ForEach(Array(presentation.metadataItems.enumerated()), id: \.element.id) { index, item in
                 metadataItemView(item)
@@ -199,7 +206,7 @@ struct HomeCompactHeaderView: View {
                 }
             }
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
+        .frame(maxWidth: .infinity, alignment: alignment)
         .accessibilityElement(children: .combine)
     }
 
@@ -286,6 +293,17 @@ struct HomeCompactHeaderView: View {
         .accessibilityLabel("Reflect")
         .accessibilityHint("Opens the daily reflection screen")
         .accessibilityIdentifier("home.reflectionReady.button")
+    }
+
+    @ViewBuilder
+    private var reflectionButtonRail: some View {
+        if let reflectionRailWidth {
+            reflectionButton
+                .frame(width: reflectionRailWidth, alignment: .center)
+        } else {
+            reflectionButton
+                .fixedSize(horizontal: true, vertical: false)
+        }
     }
 
     private var scopeMenu: some View {
@@ -394,6 +412,14 @@ struct HomeCompactHeaderView: View {
         }
 
         return max(measuredLeadingColumnWidth, measuredTrailingColumnWidth)
+    }
+
+    private var reflectionRailWidth: CGFloat? {
+        guard presentation.showsReflectionCTA, measuredLeadingColumnWidth > 0 else {
+            return nil
+        }
+
+        return measuredLeadingColumnWidth
     }
 
     private func resetMeasuredColumnWidths() {

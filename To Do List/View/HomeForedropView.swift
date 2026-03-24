@@ -2433,6 +2433,17 @@ struct HomeBackdropForedropRootView: View {
         V2FeatureFlags.evaRescueEnabled && chromeSnapshot.activeScope.quickView == .today
     }
 
+    private var taskListHorizontalGutter: CGFloat {
+        TaskerTheme.Spacing.lg
+    }
+
+    private func fullBleedTaskListHeaderModule<Content: View>(
+        @ViewBuilder _ content: () -> Content
+    ) -> some View {
+        content()
+            .padding(.horizontal, -taskListHorizontalGutter)
+    }
+
     @ViewBuilder
     private var taskListScrollHeader: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -2441,11 +2452,13 @@ struct HomeBackdropForedropRootView: View {
             }
 
             if tasksSnapshot.canUseManualFocusDrag || !tasksSnapshot.focusRows.isEmpty {
-                focusStrip
-                    .fixedSize(horizontal: false, vertical: true)
-                    .padding(.top, spacing.s2)
-                    .accessibilityElement(children: .contain)
-                    .accessibilityIdentifier("home.focus.strip")
+                fullBleedTaskListHeaderModule {
+                    focusStrip
+                        .fixedSize(horizontal: false, vertical: true)
+                        .padding(.top, spacing.s2)
+                        .accessibilityElement(children: .contain)
+                        .accessibilityIdentifier("home.focus.strip")
+                }
             }
 
             if tasksSnapshot.activeQuickView == .today && tasksSnapshot.pinnedFocusTaskIDs.count < 3 {
@@ -2478,39 +2491,41 @@ struct HomeBackdropForedropRootView: View {
             return false
         }
 
-        VStack(alignment: .leading, spacing: spacing.s8) {
-            HStack(alignment: .firstTextBaseline, spacing: spacing.s8) {
-                Label("Due today", systemImage: "calendar.badge.clock")
-                    .font(.tasker(.headline))
-                    .foregroundColor(Color.tasker.textPrimary)
+        fullBleedTaskListHeaderModule {
+            VStack(alignment: .leading, spacing: spacing.s8) {
+                HStack(alignment: .firstTextBaseline, spacing: spacing.s8) {
+                    Label("Due today", systemImage: "calendar.badge.clock")
+                        .font(.tasker(.headline))
+                        .foregroundColor(Color.tasker.textPrimary)
 
-                Spacer(minLength: 0)
+                    Spacer(minLength: 0)
 
-                Text("\(tasksSnapshot.dueTodaySection?.rows.count ?? 0)")
-                    .font(.tasker(.caption2).weight(.semibold))
-                    .foregroundColor(Color.tasker.textSecondary)
-                    .padding(.horizontal, spacing.s8)
-                    .padding(.vertical, spacing.s4)
-                    .background(Color.tasker.surfaceSecondary)
-                    .clipShape(Capsule())
-            }
+                    Text("\(tasksSnapshot.dueTodaySection?.rows.count ?? 0)")
+                        .font(.tasker(.caption2).weight(.semibold))
+                        .foregroundColor(Color.tasker.textSecondary)
+                        .padding(.horizontal, spacing.s8)
+                        .padding(.vertical, spacing.s4)
+                        .background(Color.tasker.surfaceSecondary)
+                        .clipShape(Capsule())
+                }
 
-            LazyVStack(alignment: .leading, spacing: spacing.s8) {
-                ForEach(rows) { row in
-                    dueTodayAgendaRow(row, showTypeBadge: hasHabitRows)
+                LazyVStack(alignment: .leading, spacing: spacing.s8) {
+                    ForEach(rows) { row in
+                        dueTodayAgendaRow(row, showTypeBadge: hasHabitRows)
+                    }
                 }
             }
+            .padding(.horizontal, spacing.s16)
+            .padding(.vertical, spacing.s12)
+            .background(Color.tasker.surfaceSecondary.opacity(0.45))
+            .overlay(
+                RoundedRectangle(cornerRadius: corner.r3)
+                    .stroke(Color.tasker.strokeHairline.opacity(0.55), lineWidth: 1)
+            )
+            .clipShape(RoundedRectangle(cornerRadius: corner.r3))
+            .accessibilityElement(children: .contain)
+            .accessibilityIdentifier("home.dueTodayAgenda.section")
         }
-        .padding(.horizontal, spacing.s16)
-        .padding(.vertical, spacing.s12)
-        .background(Color.tasker.surfaceSecondary.opacity(0.45))
-        .overlay(
-            RoundedRectangle(cornerRadius: corner.r3)
-                .stroke(Color.tasker.strokeHairline.opacity(0.55), lineWidth: 1)
-        )
-        .clipShape(RoundedRectangle(cornerRadius: corner.r3))
-        .accessibilityElement(children: .contain)
-        .accessibilityIdentifier("home.dueTodayAgenda.section")
     }
 
     @ViewBuilder

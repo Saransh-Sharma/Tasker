@@ -131,6 +131,7 @@ struct TaskListView: View {
     private static let scrollTraceIdleDelayNanoseconds: UInt64 = 250_000_000
     private static let topAnchorID = "home.taskList.topAnchor"
     private static let pullToSearchThreshold: CGFloat = -72
+    private static let contentHorizontalInset: CGFloat = TaskerTheme.Spacing.lg
 
     let headerContent: AnyView?
     let morningTasks: [TaskDefinition]
@@ -265,17 +266,21 @@ struct TaskListView: View {
 
                     if let headerContent {
                         headerContent
+                            .padding(.horizontal, Self.contentHorizontalInset)
                     }
 
                     if activeQuickView == .done {
                         doneTimelineContent
+                            .padding(.horizontal, Self.contentHorizontalInset)
                     } else {
                         regularTaskContent
+                            .padding(.horizontal, Self.contentHorizontalInset)
                     }
 
                     // Empty state
                     if allTasksEmpty {
                         emptyStateView
+                            .padding(.horizontal, Self.contentHorizontalInset)
                             .enhancedStaggeredAppearance(index: 0)
                     }
 
@@ -284,7 +289,6 @@ struct TaskListView: View {
                         .frame(height: bottomContentInset)
                 }
             }
-            .padding(.horizontal, TaskerTheme.Spacing.lg)
             .onAppear {
                 scrollToHighlightedTaskIfNeeded(proxy: proxy)
                 onScrollChromeStateChange?(.nearTop)
