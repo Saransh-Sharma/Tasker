@@ -128,6 +128,13 @@ final class TaskerCTABezelResolverTests: XCTestCase {
         XCTAssertEqual(V2FeatureFlags.homeBackdropNoiseAmount, 100)
     }
 
+    func testHomeBackdropNoiseAmountReadNormalizesStoredValue() {
+        UserDefaults.standard.set(180, forKey: homeBackdropNoiseAmountKey)
+
+        XCTAssertEqual(V2FeatureFlags.homeBackdropNoiseAmount, 100)
+        XCTAssertEqual(UserDefaults.standard.integer(forKey: homeBackdropNoiseAmountKey), 100)
+    }
+
     func testHomeBackdropNoiseOpacityMappingTracksPercentage() {
         XCTAssertEqual(TaskerBackdropNoise.opacity(for: 20), 0.02, accuracy: 0.0001)
         XCTAssertEqual(TaskerBackdropNoise.opacity(for: 100), 0.10, accuracy: 0.0001)

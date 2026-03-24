@@ -30,11 +30,6 @@ struct HomeBackToTodayButtonView: View {
                 Capsule(style: .continuous)
                     .stroke(Color.tasker.strokeHairline.opacity(0.8), lineWidth: 1)
             )
-            .accessibilityElement(children: .combine)
-            .accessibilityIdentifier("home.backToToday.button")
-            .accessibilityLabel("Back to Today")
-            .accessibilityHint("Returns to the default Today view")
-            .accessibilityAddTraits(.isButton)
         }
         .buttonStyle(.plain)
         .scaleOnPress()

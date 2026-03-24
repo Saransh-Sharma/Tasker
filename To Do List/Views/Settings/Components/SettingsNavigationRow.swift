@@ -312,7 +312,7 @@ struct TaskerSettingsFieldCard<Content: View>: View {
             }
         }
         .accessibilityElement(children: .contain)
-        .accessibilityIdentifier(accessibilityIdentifier ?? "")
+        .applyOptionalAccessibilityIdentifier(accessibilityIdentifier)
     }
 }
 

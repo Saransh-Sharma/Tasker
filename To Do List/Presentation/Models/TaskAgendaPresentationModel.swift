@@ -5,11 +5,13 @@ struct TaskAgendaPresentationModelBuilder {
         task: TaskDefinition,
         showTypeBadge: Bool,
         isInOverdueSection: Bool,
-        tagNameByID: [UUID: String]
+        tagNameByID: [UUID: String],
+        now: Date = Date()
     ) -> AgendaRowPresentationModel {
         let displayModel = TaskRowDisplayModel.from(
             task: task,
             showTypeBadge: showTypeBadge,
+            now: now,
             isInOverdueSection: isInOverdueSection,
             tagNameByID: tagNameByID
         )
@@ -23,7 +25,7 @@ struct TaskAgendaPresentationModelBuilder {
                 showTypeBadge: showTypeBadge
             ),
             secondaryLine: displayModel.descriptionText,
-            primaryBadge: primaryBadge(for: task, displayModel: displayModel),
+            primaryBadge: primaryBadge(for: task, displayModel: displayModel, now: now),
             primaryActionTitle: task.isComplete ? "Reopen" : "Done",
             secondaryActionTitle: task.isComplete ? nil : "Move"
         )
@@ -70,7 +72,8 @@ struct TaskAgendaPresentationModelBuilder {
 
     private static func primaryBadge(
         for task: TaskDefinition,
-        displayModel: TaskRowDisplayModel
+        displayModel: TaskRowDisplayModel,
+        now: Date
     ) -> AgendaRowStateBadge {
         if task.isComplete {
             return AgendaRowStateBadge(text: "Done", systemImage: "checkmark.circle.fill", tone: .success)
@@ -84,7 +87,7 @@ struct TaskAgendaPresentationModelBuilder {
             return AgendaRowStateBadge(text: statusChip.text, systemImage: "clock.badge.exclamationmark", tone: .warning)
         }
 
-        if let dueDate = task.dueDate, Calendar.current.isDateInToday(dueDate) {
+        if let dueDate = task.dueDate, Calendar.current.isDate(dueDate, inSameDayAs: now) {
             return AgendaRowStateBadge(text: "Today", systemImage: "calendar", tone: .accent)
         }
 

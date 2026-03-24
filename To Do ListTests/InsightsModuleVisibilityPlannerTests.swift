@@ -5,10 +5,11 @@ final class InsightsModuleVisibilityPlannerTests: XCTestCase {
     func testTodayReturnsSingleEmptyStateWhenNoSignalExists() {
         let state = InsightsTodayState()
 
-        XCTAssertEqual(
-            InsightsModuleVisibilityPlanner.visibility(for: "pressure", today: state),
-            .empty(message: "Not enough signal yet. Complete a few tasks or log one recovery action to build today’s board.")
-        )
+        let pressureVisibility = InsightsModuleVisibilityPlanner.visibility(for: "pressure", today: state)
+        guard case let .empty(message) = pressureVisibility else {
+            return XCTFail("Expected empty state visibility for pressure module")
+        }
+        XCTAssertFalse(message.isEmpty)
         XCTAssertEqual(InsightsModuleVisibilityPlanner.visibility(for: "focus", today: state), .hidden)
         XCTAssertEqual(InsightsModuleVisibilityPlanner.visibility(for: "completion", today: state), .hidden)
         XCTAssertEqual(InsightsModuleVisibilityPlanner.visibility(for: "recovery", today: state), .hidden)

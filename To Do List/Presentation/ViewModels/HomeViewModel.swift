@@ -508,6 +508,7 @@ public final class HomeViewModel: ObservableObject {
             dailyScore: dailyScore,
             completionRate: completionRate,
             projects: projects,
+            // Reflection stays tied to the default Today scope, not custom-date views.
             reflectionEligible: activeScope == .today && !isDailyReflectionCompletedToday(),
             momentumGuidanceText: makeMomentumGuidanceText()
         )

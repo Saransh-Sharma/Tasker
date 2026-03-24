@@ -13,8 +13,11 @@ struct HomeMomentumSummaryCard: View {
     private var corner: TaskerCornerTokens { TaskerThemeManager.shared.currentTheme.tokens.corner }
 
     private var progressRatio: Double {
-        let denominator = max(1, progress.todayTargetXP)
-        return min(1, Double(progress.earnedXP) / Double(denominator))
+        min(1, Double(progress.earnedXP) / Double(safeTodayTargetXP))
+    }
+
+    private var safeTodayTargetXP: Int {
+        max(1, progress.todayTargetXP)
     }
 
     private var completionPercent: Int {
@@ -26,7 +29,7 @@ struct HomeMomentumSummaryCard: View {
             HStack(spacing: spacing.s12) {
                 NavPieChart(
                     score: progress.earnedXP,
-                    maxScore: progress.todayTargetXP,
+                    maxScore: safeTodayTargetXP,
                     accessibilityContainerID: "home.navXpPieChart",
                     accessibilityButtonID: "home.navXpPieChart.button",
                     onTap: { onChartTap?() }
@@ -39,7 +42,7 @@ struct HomeMomentumSummaryCard: View {
                 )
 
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("\(progress.earnedXP)/\(progress.todayTargetXP) XP")
+                    Text("\(progress.earnedXP)/\(safeTodayTargetXP) XP")
                         .font(.tasker(.bodyEmphasis))
                         .foregroundStyle(Color.tasker.textPrimary)
                         .accessibilityIdentifier("home.dailyScoreLabel")

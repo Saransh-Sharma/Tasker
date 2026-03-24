@@ -86,9 +86,9 @@ class HomePage {
             return byAnyIdentifier
         }
 
-        return app.descendants(matching: .any).matching(
+        return topChrome.buttons.matching(
             NSPredicate(
-                format: "label CONTAINS[c] 'Back to Today' OR label == 'Today' OR identifier == %@",
+                format: "label CONTAINS[c] 'Back to Today' OR identifier == %@",
                 AccessibilityIdentifiers.Home.backToTodayButton
             )
         ).firstMatch
@@ -145,6 +145,17 @@ class HomePage {
         let byText = app.staticTexts["home.topChrome.date"]
         if byText.exists {
             return byText
+        }
+
+        let byAnyIdentifier = app.descendants(matching: .any)["home.topChrome.date"]
+        if byAnyIdentifier.exists {
+            return byAnyIdentifier
+        }
+
+        let datePattern = NSPredicate(format: "label MATCHES %@", "^[A-Za-z]{3}, [A-Za-z]{3} [0-9]{1,2}$")
+        let topChromeDate = topChrome.staticTexts.matching(datePattern).firstMatch
+        if topChromeDate.exists {
+            return topChromeDate
         }
 
         return app.descendants(matching: .any)["home.topChrome.date"]
@@ -276,9 +287,19 @@ class HomePage {
             return quickMenu
         }
 
+        let quickMenuAny = app.descendants(matching: .any)[AccessibilityIdentifiers.Home.quickFilterMenuButton]
+        if quickMenuAny.exists {
+            return quickMenuAny
+        }
+
         let legacyProjectFilter = app.buttons["home.projectFilterButton"]
         if legacyProjectFilter.exists {
             return legacyProjectFilter
+        }
+
+        let legacyProjectFilterAny = app.descendants(matching: .any)["home.projectFilterButton"]
+        if legacyProjectFilterAny.exists {
+            return legacyProjectFilterAny
         }
 
         let navMenuButton = app.buttons["home.focus.menu.button.nav"]
@@ -286,7 +307,31 @@ class HomePage {
             return navMenuButton
         }
 
-        return app.buttons["home.focus.filterButton.nav"]
+        let navMenuAny = app.descendants(matching: .any)["home.focus.menu.button.nav"]
+        if navMenuAny.exists {
+            return navMenuAny
+        }
+
+        let filterButton = app.buttons["home.focus.filterButton.nav"]
+        if filterButton.exists {
+            return filterButton
+        }
+
+        let filterButtonAny = app.descendants(matching: .any)["home.focus.filterButton.nav"]
+        if filterButtonAny.exists {
+            return filterButtonAny
+        }
+
+        let currentViewMenu = topChrome.descendants(matching: .any).matching(
+            NSPredicate(format: "label BEGINSWITH[c] 'Current view,'")
+        ).firstMatch
+        if currentViewMenu.exists {
+            return currentViewMenu
+        }
+
+        return topChrome.buttons.matching(
+            NSPredicate(format: "label BEGINSWITH[c] 'Current view,'")
+        ).firstMatch
     }
 
     var quickFilterMenuContainer: XCUIElement {

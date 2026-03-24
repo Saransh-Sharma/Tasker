@@ -38,5 +38,6 @@ struct HomeScopeSummaryButtonView: View {
                 .stroke(Color.tasker.strokeHairline.opacity(0.72), lineWidth: 1)
         )
         .contentShape(Capsule(style: .continuous))
+        .accessibilityIdentifier("home.focus.filterButton.nav")
     }
 }

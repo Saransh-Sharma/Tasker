@@ -14,11 +14,13 @@ struct HomeMomentumProgressBar: View {
     var body: some View {
         RoundedRectangle(cornerRadius: height / 2, style: .continuous)
             .fill(trackColor)
+            .frame(height: height)
             .overlay(alignment: .leading) {
                 RoundedRectangle(cornerRadius: height / 2, style: .continuous)
                     .fill(
                         LinearGradient(colors: colors, startPoint: .leading, endPoint: .trailing)
                     )
+                    .frame(height: height)
                     .scaleEffect(x: clampedProgress, y: 1, anchor: .leading)
                     .animation(
                         animate ? .spring(response: 0.34, dampingFraction: 0.82) : .linear(duration: 0.01),

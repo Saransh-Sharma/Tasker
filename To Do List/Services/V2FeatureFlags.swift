@@ -59,7 +59,11 @@ public enum V2FeatureFlags {
             guard let storedAmount = defaults.object(forKey: homeBackdropNoiseAmountUserKey) as? NSNumber else {
                 return defaultHomeBackdropNoiseAmount
             }
-            return clampedHomeBackdropNoiseAmount(storedAmount.intValue)
+            let clamped = clampedHomeBackdropNoiseAmount(storedAmount.intValue)
+            if clamped != storedAmount.intValue {
+                defaults.set(clamped, forKey: homeBackdropNoiseAmountUserKey)
+            }
+            return clamped
         }
         set {
             defaults.set(clampedHomeBackdropNoiseAmount(newValue), forKey: homeBackdropNoiseAmountUserKey)

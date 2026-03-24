@@ -77,26 +77,20 @@ struct HomeCompactHeaderView: View {
     @ViewBuilder
     private var headerBottomAccent: some View {
         if let xpProgress = presentation.xpProgress {
-            ZStack {
-                HomeMomentumProgressBar(
-                    progress: xpProgress.progressFraction,
-                    colors: xpProgress.isStreakSafeToday
-                        ? [Color.tasker.accentPrimary.opacity(0.78), Color.tasker.accentPrimary]
-                        : [Color.tasker.statusWarning.opacity(0.82), Color.tasker.statusWarning],
-                    trackColor: Color.tasker.surfaceSecondary.opacity(0.72),
-                    height: 4,
-                    animate: !reduceMotion
-                )
-
-                Text(xpProgress.accessibilityLabel)
-                    .font(.system(size: 1))
-                    .foregroundStyle(.clear)
-                    .frame(width: 1, height: 1)
-                    .clipped()
-                    .accessibilityIdentifier("home.topChrome.xpProgress")
-            }
+            HomeMomentumProgressBar(
+                progress: xpProgress.progressFraction,
+                colors: xpProgress.isStreakSafeToday
+                    ? [Color.tasker.accentPrimary.opacity(0.78), Color.tasker.accentPrimary]
+                    : [Color.tasker.statusWarning.opacity(0.82), Color.tasker.statusWarning],
+                trackColor: Color.tasker.surfaceSecondary.opacity(0.72),
+                height: 4,
+                animate: !reduceMotion
+            )
             .frame(maxWidth: .infinity)
             .frame(height: 4)
+            .accessibilityElement()
+            .accessibilityLabel(xpProgress.accessibilityLabel)
+            .accessibilityIdentifier("home.topChrome.xpProgress")
         } else {
             Rectangle()
                 .fill(Color.tasker.divider.opacity(0.88))
@@ -233,6 +227,8 @@ struct HomeCompactHeaderView: View {
             .lineLimit(1)
             .minimumScaleFactor(0.8)
             .multilineTextAlignment(.center)
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel(presentation.centeredDateText ?? "")
             .accessibilityIdentifier("home.topChrome.date")
     }
 
@@ -351,11 +347,6 @@ struct HomeCompactHeaderView: View {
                 accentColor: selectionTint,
                 hasActiveFilters: presentation.hasActiveFilters
             )
-            .accessibilityElement(children: .combine)
-            .accessibilityIdentifier("home.focus.menu.button")
-            .accessibilityLabel(scopeMenuAccessibilityLabel)
-            .accessibilityHint("Opens quick views and tools")
-            .accessibilityAddTraits(.isButton)
         }
         .menuStyle(.borderlessButton)
         .accessibilityIdentifier("home.focus.menu.button")
@@ -455,7 +446,7 @@ struct HomeCompactHeaderView: View {
             return Color.tasker.statusWarning
         }
         if item.id == "completion" {
-            return Color.white
+            return Color.tasker.textPrimary
         }
         return metadataToneColor(item.tone)
     }

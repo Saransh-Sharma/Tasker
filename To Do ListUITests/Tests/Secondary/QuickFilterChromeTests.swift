@@ -183,7 +183,7 @@ final class QuickFilterChromeTests: BaseUITest {
                 app.staticTexts[dayLabel]
             ]
 
-            if let element = queries.first(where: \.exists) {
+            if let element = queries.first(where: { $0.exists && $0.isHittable }) {
                 element.tap()
                 return
             }
