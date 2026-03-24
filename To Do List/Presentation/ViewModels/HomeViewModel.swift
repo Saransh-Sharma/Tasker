@@ -508,7 +508,7 @@ public final class HomeViewModel: ObservableObject {
             dailyScore: dailyScore,
             completionRate: completionRate,
             projects: projects,
-            reflectionEligible: activeScope.quickView == .today && !isDailyReflectionCompletedToday(),
+            reflectionEligible: activeScope == .today && !isDailyReflectionCompletedToday(),
             momentumGuidanceText: makeMomentumGuidanceText()
         )
     }
