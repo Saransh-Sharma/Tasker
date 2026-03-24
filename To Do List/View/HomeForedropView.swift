@@ -1368,7 +1368,6 @@ struct HomeBackdropForedropRootView: View {
 
     @State private var showAdvancedFilters = false
     @State private var showDatePicker = false
-    @State private var showHabitLibrarySheet = false
     @State private var draftDate = Date()
     @State private var celebrationRouter = DefaultCelebrationRouter()
     @State private var showXPBurst = false
@@ -1492,7 +1491,7 @@ struct HomeBackdropForedropRootView: View {
 
                 VStack(spacing: 0) {
                     topNavigationBar()
-                        .padding(.top, layoutMetrics.safeAreaTop)
+                        .padding(.top, layoutMetrics.safeAreaTop + spacing.s8)
                         .accessibilityIdentifier("home.topNav.container")
 
                     ZStack(alignment: .top) {
@@ -1587,11 +1586,6 @@ struct HomeBackdropForedropRootView: View {
                 onDeleteSavedView: { id in
                     viewModel.deleteSavedView(id: id)
                 }
-            )
-        }
-        .sheet(isPresented: $showHabitLibrarySheet) {
-            HabitLibraryView(
-                viewModel: PresentationDependencyContainer.shared.makeNewHabitLibraryViewModel()
             )
         }
         .onAppear {
@@ -2018,7 +2012,11 @@ struct HomeBackdropForedropRootView: View {
                 onScrollChromeStateChange: { state in
                     onTaskListScrollChromeStateChange(state)
                 },
+                onPullToSearch: {
+                    openSearch(source: "task_list_pull")
+                },
                 highlightedTaskID: overlaySnapshot.guidanceState?.taskID,
+                scrollResetKey: taskListScrollResetKey,
                 bottomContentInset: taskListBottomInset
             )
             .padding(.top, spacing.s4)
@@ -2249,44 +2247,42 @@ struct HomeBackdropForedropRootView: View {
     @ViewBuilder
     private func topNavigationBar() -> some View {
         if isSearchOpen {
-            VStack(alignment: .leading, spacing: spacing.s12) {
-                HomeTopChromeTitleLaneView(title: chromeSnapshot.activeScope.quickView.title)
-                    .hidden()
-                    .accessibilityHidden(true)
-                    .allowsHitTesting(false)
-
-                HomeSearchChromeView(
-                    query: $searchDraftQuery,
-                    isFocused: $isSearchFieldFocused,
-                    onQueryChanged: { newValue in
-                        trackSearchQueryChanged(newValue)
-                        scheduleSearchCommit(for: newValue)
-                    },
-                    onSubmit: {
-                        commitDraftSearchQueryImmediately()
-                    },
-                    onClear: {
-                        cancelPendingSearchCommit()
-                        searchDraftQuery = ""
-                        searchState.clearQuery()
-                        trackSearchQueryChanged("")
-                    }
-                )
-            }
+            HomeSearchChromeView(
+                query: $searchDraftQuery,
+                isFocused: $isSearchFieldFocused,
+                onQueryChanged: { newValue in
+                    trackSearchQueryChanged(newValue)
+                    scheduleSearchCommit(for: newValue)
+                },
+                onSubmit: {
+                    commitDraftSearchQueryImmediately()
+                },
+                onClear: {
+                    cancelPendingSearchCommit()
+                    searchDraftQuery = ""
+                    searchState.clearQuery()
+                    trackSearchQueryChanged("")
+                }
+            )
             .padding(.horizontal, spacing.s16)
-            .padding(.top, spacing.s12)
+            .padding(.top, spacing.s8)
             .padding(.bottom, spacing.s8)
             .ignoresSafeArea(.keyboard)
             .zIndex(1)
         } else {
             VStack(alignment: .leading, spacing: spacing.s12) {
-                HomeTopChromeView(
-                    selectedQuickView: Binding(
-                        get: { chromeSnapshot.activeScope.quickView },
-                        set: { viewModel.setQuickView($0) }
-                    ),
+                HomeCompactHeaderView(
+                    dateText: chromeSnapshot.homeHeaderDateText,
+                    summaryText: chromeSnapshot.homeHeaderSummaryText,
+                    selectedQuickView: chromeSnapshot.activeScope.quickView,
                     taskCounts: chromeSnapshot.quickViewCounts,
-                    title: chromeSnapshot.activeScope.quickView.title,
+                    showsBackToToday: chromeSnapshot.shouldShowBackToToday,
+                    extraTopPadding: layoutClass.isPad ? 18 : 0,
+                    reduceMotion: reduceMotion,
+                    onSelectQuickView: { viewModel.setQuickView($0) },
+                    onBackToToday: {
+                        viewModel.setQuickView(.today)
+                    },
                     onShowDatePicker: {
                         draftDate = chromeSnapshot.selectedDate
                         showDatePicker = true
@@ -2298,10 +2294,7 @@ struct HomeBackdropForedropRootView: View {
                         viewModel.resetAllFilters()
                     },
                     onOpenSearch: {
-                        onOpenSearch("top_nav_search")
-                    },
-                    onOpenManageHabits: {
-                        showHabitLibrarySheet = true
+                        openSearch(source: "scope_menu_search")
                     },
                     onOpenSettings: {
                         onOpenSettings()
@@ -2309,21 +2302,17 @@ struct HomeBackdropForedropRootView: View {
                 )
 
                 if activeFace == .tasks {
-                    HomeMomentumHUDView(
+                    HomeMiniMomentumCardView(
                         progress: chromeSnapshot.progressState,
                         completionRate: chromeSnapshot.completionRate,
                         reflectionEligible: reflectionEligible,
-                        momentumGuidanceText: momentumGuidanceText,
                         animate: shellPhase == .interactive && !reduceMotion,
-                        onToggleInsights: {
+                        onTap: {
                             toggleInsights(source: "nav_xp_chart")
-                        },
-                        onOpenReflection: {
-                            openReflectionSheet()
                         }
                     )
                     .padding(.horizontal, spacing.s16)
-                    .padding(.bottom, spacing.s8)
+                    .padding(.bottom, spacing.s4)
                 }
             }
         }
@@ -2439,11 +2428,6 @@ struct HomeBackdropForedropRootView: View {
         )
     }
 
-    private var hasActiveQuickFilters: Bool {
-        !chromeSnapshot.activeFilterState.selectedProjectIDs.isEmpty
-            || chromeSnapshot.activeFilterState.advancedFilter != nil
-    }
-
     private var shouldShowInboxTriageAction: Bool {
         V2FeatureFlags.evaTriageEnabled && chromeSnapshot.activeScope.quickView == .today
     }
@@ -2452,40 +2436,11 @@ struct HomeBackdropForedropRootView: View {
         V2FeatureFlags.evaRescueEnabled && chromeSnapshot.activeScope.quickView == .today
     }
 
-    private var quickFilterPills: some View {
-        HomeQuickFilterPillsView(
-            projectName: activeProjectFilterName,
-            hasAdvancedFilter: chromeSnapshot.activeFilterState.advancedFilter != nil,
-            onClearProjectFilters: {
-                viewModel.clearProjectFilters()
-            },
-            onClearAdvancedFilters: {
-                viewModel.applyAdvancedFilter(nil, showCompletedInline: false)
-            },
-            onResetAllFilters: {
-                viewModel.resetAllFilters()
-            }
-        )
-    }
-
-    private var activeProjectFilterName: String? {
-        guard let projectFilter = chromeSnapshot.activeFilterState.selectedProjectIDs.first else {
-            return nil
-        }
-        return chromeSnapshot.projects.first(where: { $0.id == projectFilter })?.name ?? "Project"
-    }
-
     @ViewBuilder
     private var taskListScrollHeader: some View {
         VStack(alignment: .leading, spacing: 0) {
-            if hasActiveQuickFilters {
-                quickFilterPills
-                    .padding(.top, spacing.s8)
-            }
-
             if shouldShowDueTodayAgenda {
                 dueTodayAgendaSection
-                    .padding(.top, spacing.s12)
             }
 
             if tasksSnapshot.canUseManualFocusDrag || !tasksSnapshot.focusRows.isEmpty {
@@ -2863,6 +2818,25 @@ struct HomeBackdropForedropRootView: View {
 
     private func openSearch(source: String) {
         onOpenSearch(source)
+    }
+
+    private var taskListScrollResetKey: String {
+        switch chromeSnapshot.activeScope {
+        case .today:
+            return "today"
+        case .customDate(let date):
+            return "customDate-\(Calendar.current.startOfDay(for: date).timeIntervalSince1970)"
+        case .upcoming:
+            return "upcoming"
+        case .overdue:
+            return "overdue"
+        case .done:
+            return "done"
+        case .morning:
+            return "morning"
+        case .evening:
+            return "evening"
+        }
     }
 
     private func closeSearch(source: String) {

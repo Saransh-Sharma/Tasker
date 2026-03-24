@@ -506,6 +506,11 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
         mountBottomBarOverlayIfNeeded()
     }
 
+    override func viewSafeAreaInsetsDidChange() {
+        super.viewSafeAreaInsetsDidChange()
+        refreshLayoutMetrics()
+    }
+
     /// Executes viewWillDisappear.
     override func viewWillDisappear(_ animated: Bool) {
         super.viewWillDisappear(animated)
