@@ -1346,6 +1346,8 @@ struct HomeBackdropForedropRootView: View {
     let layoutClass: TaskerLayoutClass
     let forcedFace: Binding<HomeForedropFace>?
     @ObservedObject private var themeManager = TaskerThemeManager.shared
+    @AppStorage(V2FeatureFlags.homeBackdropNoiseAmountUserKey)
+    private var homeBackdropNoiseAmountStorage = V2FeatureFlags.defaultHomeBackdropNoiseAmount
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.colorScheme) private var colorScheme
 
@@ -1424,6 +1426,9 @@ struct HomeBackdropForedropRootView: View {
     }
     private var isSearchOpen: Bool { activeFace == .search }
     private var isBackFaceVisible: Bool { activeFace.isBackFace }
+    private var homeBackdropNoiseAmount: Int {
+        V2FeatureFlags.clampedHomeBackdropNoiseAmount(homeBackdropNoiseAmountStorage)
+    }
     private var foredropFlipAnimation: Animation {
         let duration: TimeInterval
         if reduceMotion || isUITesting {
@@ -1441,6 +1446,9 @@ struct HomeBackdropForedropRootView: View {
     private var homeBackdropGradient: some View {
         ZStack {
             TaskerNoisyGradientBackdrop(opacity: 0.9)
+            TaskerBackdropNoiseOverlay(amount: homeBackdropNoiseAmount)
+                .allowsHitTesting(false)
+                .accessibilityHidden(true)
 
             LinearGradient(
                 colors: [

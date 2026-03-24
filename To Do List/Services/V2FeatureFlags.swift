@@ -17,6 +17,8 @@ public enum V2FeatureFlags {
     private static let launchArguments = Set(ProcessInfo.processInfo.arguments)
     private static let decorativeCTAEffectsUserKey = "feature.ui.decorative_cta_effects.user_enabled"
     private static let decorativeCTAEffectsRemoteAllowKey = "feature.ui.decorative_cta_effects.remote_allowed"
+    public static let homeBackdropNoiseAmountUserKey = "feature.ui.home_backdrop_noise_amount"
+    public static let defaultHomeBackdropNoiseAmount = 20
 
     public static var remindersSyncEnabled: Bool {
         get { defaults.object(forKey: "feature.reminders.sync") as? Bool ?? true }
@@ -46,6 +48,22 @@ public enum V2FeatureFlags {
     public static var remoteDecorativeCTAEffectsAllowed: Bool {
         get { defaults.object(forKey: decorativeCTAEffectsRemoteAllowKey) as? Bool ?? true }
         set { defaults.set(newValue, forKey: decorativeCTAEffectsRemoteAllowKey) }
+    }
+
+    public static func clampedHomeBackdropNoiseAmount(_ amount: Int) -> Int {
+        min(max(amount, 0), 100)
+    }
+
+    public static var homeBackdropNoiseAmount: Int {
+        get {
+            guard let storedAmount = defaults.object(forKey: homeBackdropNoiseAmountUserKey) as? NSNumber else {
+                return defaultHomeBackdropNoiseAmount
+            }
+            return clampedHomeBackdropNoiseAmount(storedAmount.intValue)
+        }
+        set {
+            defaults.set(clampedHomeBackdropNoiseAmount(newValue), forKey: homeBackdropNoiseAmountUserKey)
+        }
     }
 
     public static var assistantApplyEnabled: Bool {
