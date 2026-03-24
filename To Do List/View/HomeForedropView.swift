@@ -1381,6 +1381,12 @@ struct HomeBackdropForedropRootView: View {
     @State private var semanticCelebrationXP = 0
     @State private var showReflectionSheet = false
     @State private var reflectionClaimState: DailyReflectionClaimState = .ready
+    @State private var activeNextActionFocusSession: FocusSessionDefinition?
+    @State private var showNextActionFocusTimer = false
+    @State private var nextActionFocusSummaryResult: FocusSessionResult?
+    @State private var showNextActionFocusSummary = false
+    @State private var isNextActionFocusRequestInFlight = false
+    @State private var isNextActionFocusEnding = false
     @State private var foredropHintOffset: CGFloat = 0
     @State private var hintAnimationTask: _Concurrency.Task<Void, Never>?
     @State private var lastHintTriggerAt: Date?
@@ -1403,6 +1409,7 @@ struct HomeBackdropForedropRootView: View {
     private static let foredropHintSettleDuration: TimeInterval = 0.16
     private static let launchArguments = Set(ProcessInfo.processInfo.arguments)
     private static let searchCommitDebounceNanoseconds: UInt64 = 250_000_000
+    private static let nextActionFocusDurationSeconds = 15 * 60
 
     private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.tokens(for: layoutClass).spacing }
     private var corner: TaskerCornerTokens { TaskerThemeManager.shared.tokens(for: layoutClass).corner }
@@ -1536,6 +1543,49 @@ struct HomeBackdropForedropRootView: View {
         .ignoresSafeArea(.keyboard, edges: .bottom)
         .accessibilityIdentifier("home.view")
         .taskerSnackbar($snackbar)
+        .fullScreenCover(isPresented: $showNextActionFocusTimer, onDismiss: {
+            if isNextActionFocusEnding == false {
+                activeNextActionFocusSession = nil
+            }
+        }) {
+            if let session = activeNextActionFocusSession {
+                FocusTimerView(
+                    taskTitle: resolveTaskForFocusSession(taskID: session.taskID)?.title,
+                    taskPriority: resolveTaskForFocusSession(taskID: session.taskID)?.priority.displayName,
+                    targetDurationSeconds: session.targetDurationSeconds,
+                    onComplete: { _ in
+                        finishNextActionFocusSession(sessionID: session.id, source: "next_action_module_15min_focus")
+                    },
+                    onCancel: {
+                        finishNextActionFocusSession(sessionID: session.id, source: "next_action_module_15min_focus_cancel")
+                    }
+                )
+            } else {
+                Color.clear
+                    .ignoresSafeArea()
+            }
+        }
+        .sheet(isPresented: $showNextActionFocusSummary, onDismiss: {
+            nextActionFocusSummaryResult = nil
+        }) {
+            if let result = nextActionFocusSummaryResult {
+                FocusSessionSummaryView(
+                    durationSeconds: result.session.durationSeconds,
+                    xpAwarded: result.xpResult?.awardedXP ?? result.session.xpAwarded,
+                    dailyXPSoFar: result.xpResult?.dailyXPSoFar ?? viewModel.dailyScore,
+                    dailyXPCap: GamificationTokens.dailyXPCap,
+                    onDismiss: {
+                        dismissNextActionFocusSummary()
+                    },
+                    onContinueMomentum: {
+                        viewModel.setQuickView(.today)
+                        dismissNextActionFocusSummary()
+                    }
+                )
+                .presentationDetents([.medium])
+                .presentationDragIndicator(.visible)
+            }
+        }
         .sheet(isPresented: $showDatePicker) {
             NavigationStack {
                 VStack(spacing: spacing.s16) {
@@ -2461,11 +2511,15 @@ struct HomeBackdropForedropRootView: View {
                 }
             }
 
-            if tasksSnapshot.activeQuickView == .today && tasksSnapshot.pinnedFocusTaskIDs.count < 3 {
+            if tasksSnapshot.activeQuickView == .today &&
+                tasksSnapshot.pinnedFocusTaskIDs.count < 3 &&
+                tasksSnapshot.todayOpenTaskCount > 0 {
                 NextActionModule(
                     openTaskCount: tasksSnapshot.todayOpenTaskCount,
                     focusPinnedCount: tasksSnapshot.pinnedFocusTaskIDs.count,
-                    onAddTask: { onAddTask() }
+                    onStartFifteenMinuteFocus: {
+                        startNextActionFocusTimer()
+                    }
                 )
                 .fixedSize(horizontal: false, vertical: true)
                 .padding(.top, spacing.s4)
@@ -2892,6 +2946,123 @@ struct HomeBackdropForedropRootView: View {
                 }
             ]
         )
+    }
+
+    private func startNextActionFocusTimer() {
+        guard isNextActionFocusRequestInFlight == false else { return }
+        isNextActionFocusRequestInFlight = true
+        TaskerFeedback.selection()
+        viewModel.trackHomeInteraction(
+            action: "home_next_action_focus_start_tapped",
+            metadata: [
+                "source": "next_action_module_15min_focus",
+                "target_duration_seconds": Self.nextActionFocusDurationSeconds
+            ]
+        )
+        viewModel.startFocusSession(taskID: nil, targetDurationSeconds: Self.nextActionFocusDurationSeconds) { result in
+            isNextActionFocusRequestInFlight = false
+            switch result {
+            case .success(let session):
+                activeNextActionFocusSession = session
+                showNextActionFocusTimer = true
+            case .failure(let error):
+                if let focusError = error as? FocusSessionError, case .alreadyActive = focusError {
+                    resumeNextActionFocusSession(source: "next_action_module_15min_focus")
+                } else {
+                    logWarning(
+                        event: "focus_session_start_failed",
+                        message: "Failed to start focus session from next action module",
+                        fields: [
+                            "source": "next_action_module_15min_focus",
+                            "error": error.localizedDescription
+                        ]
+                    )
+                    snackbar = SnackbarData(message: "Couldn't start focus timer")
+                }
+            }
+        }
+    }
+
+    private func resumeNextActionFocusSession(source: String) {
+        viewModel.fetchActiveFocusSession { result in
+            switch result {
+            case .success(let session):
+                guard let session else {
+                    viewModel.setQuickView(.today)
+                    logWarning(
+                        event: "focus_session_resume_missing",
+                        message: "Expected an active focus session to resume, but none was found",
+                        fields: ["source": source]
+                    )
+                    snackbar = SnackbarData(message: "No active focus timer was found")
+                    return
+                }
+                activeNextActionFocusSession = session
+                showNextActionFocusTimer = true
+            case .failure(let error):
+                logWarning(
+                    event: "focus_session_resume_failed",
+                    message: "Failed to resume active focus session",
+                    fields: [
+                        "source": source,
+                        "error": error.localizedDescription
+                    ]
+                )
+                snackbar = SnackbarData(message: "Couldn't resume focus timer")
+            }
+        }
+    }
+
+    private func finishNextActionFocusSession(sessionID: UUID, source: String) {
+        guard isNextActionFocusEnding == false else { return }
+        isNextActionFocusEnding = true
+        viewModel.endFocusSession(sessionID: sessionID) { result in
+            isNextActionFocusEnding = false
+            switch result {
+            case .success(let focusResult):
+                showNextActionFocusTimer = false
+                activeNextActionFocusSession = nil
+                viewModel.trackHomeInteraction(
+                    action: "focus_session_finished",
+                    metadata: [
+                        "source": source,
+                        "duration_seconds": focusResult.session.durationSeconds,
+                        "awarded_xp": focusResult.xpResult?.awardedXP ?? 0
+                    ]
+                )
+                DispatchQueue.main.async {
+                    nextActionFocusSummaryResult = focusResult
+                    showNextActionFocusSummary = true
+                }
+            case .failure(let error):
+                logWarning(
+                    event: "focus_session_end_failed",
+                    message: "Failed to end focus session from next action module",
+                    fields: [
+                        "source": source,
+                        "error": error.localizedDescription
+                    ]
+                )
+                snackbar = SnackbarData(message: "Couldn't finish focus timer")
+                showNextActionFocusTimer = false
+                activeNextActionFocusSession = nil
+            }
+        }
+    }
+
+    private func dismissNextActionFocusSummary() {
+        showNextActionFocusSummary = false
+        nextActionFocusSummaryResult = nil
+    }
+
+    private func resolveTaskForFocusSession(taskID: UUID?) -> TaskDefinition? {
+        guard let taskID else { return nil }
+        var candidates: [TaskDefinition] = []
+        candidates.append(contentsOf: viewModel.focusTasks)
+        candidates.append(contentsOf: viewModel.morningTasks)
+        candidates.append(contentsOf: viewModel.eveningTasks)
+        candidates.append(contentsOf: viewModel.overdueTasks)
+        return candidates.first(where: { $0.id == taskID })
     }
 
     private func refreshReflectionClaimState() {
