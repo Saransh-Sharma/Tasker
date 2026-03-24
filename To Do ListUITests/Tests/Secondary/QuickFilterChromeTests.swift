@@ -147,6 +147,26 @@ final class QuickFilterChromeTests: BaseUITest {
         XCTAssertTrue(reflectionTitle.waitForExistence(timeout: 3), "Reflection CTA should open the existing reflection sheet")
     }
 
+    func testTodayShowsXPStatusAndOtherQuickViewsHideIt() throws {
+        let homePage = HomePage(app: app)
+        let xpLabel = homePage.topChromeXPLabel
+
+        XCTAssertTrue(xpLabel.waitForExistence(timeout: 10), "Today view should show the top chrome XP status")
+
+        let quickFilterButton = homePage.projectFilterButton
+        guard quickFilterButton.waitForExistence(timeout: 3) else {
+            throw XCTSkip("Quick view trigger is not reachable in the current launch state")
+        }
+
+        quickFilterButton.tap()
+
+        let overdueButton = app.buttons["home.focus.menu.option.overdue"]
+        XCTAssertTrue(overdueButton.waitForExistence(timeout: 3), "Overdue quick view should be visible in the menu")
+        overdueButton.tap()
+
+        XCTAssertTrue(waitForElementToDisappear(xpLabel, timeout: 3), "Non-Today quick views should hide the top chrome XP status")
+    }
+
     private func selectVisibleFutureDate(in root: XCUIElement, preferredDate: Date) {
         let candidateDates = [
             preferredDate,

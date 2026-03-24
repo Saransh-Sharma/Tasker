@@ -113,6 +113,34 @@ class HomePage {
         ).firstMatch
     }
 
+    var topChrome: XCUIElement {
+        let byOtherElement = app.otherElements["home.topChrome"]
+        if byOtherElement.exists {
+            return byOtherElement
+        }
+
+        return app.descendants(matching: .any)["home.topChrome"]
+    }
+
+    var topChromeXPProgress: XCUIElement {
+        let byOtherElement = app.otherElements[AccessibilityIdentifiers.Home.topChromeXPProgress]
+        if byOtherElement.exists {
+            return byOtherElement
+        }
+
+        return app.descendants(matching: .any)[AccessibilityIdentifiers.Home.topChromeXPProgress]
+    }
+
+    var topChromeXPLabel: XCUIElement {
+        let predicate = NSPredicate(format: "label CONTAINS[c] 'XP'")
+        let inChrome = topChrome.staticTexts.matching(predicate).firstMatch
+        if inChrome.exists {
+            return inChrome
+        }
+
+        return app.staticTexts.matching(predicate).firstMatch
+    }
+
     var headerDateLabel: XCUIElement {
         let byText = app.staticTexts["home.topChrome.date"]
         if byText.exists {
