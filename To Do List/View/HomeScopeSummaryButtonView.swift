@@ -13,6 +13,7 @@ struct HomeScopeSummaryButtonView: View {
                 .font(.tasker(.headline))
                 .foregroundStyle(Color.tasker.textPrimary)
                 .lineLimit(1)
+                .accessibilityIdentifier("home.focus.menu.button.title")
 
             Image(systemName: "chevron.down")
                 .font(.system(size: 11, weight: .semibold))

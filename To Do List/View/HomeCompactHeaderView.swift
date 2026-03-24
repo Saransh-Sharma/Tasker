@@ -18,6 +18,8 @@ struct HomeCompactHeaderView: View {
     private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.currentTheme.tokens.spacing }
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @State private var containerWidth: CGFloat = 0
+    @State private var measuredLeadingColumnWidth: CGFloat = 0
+    @State private var measuredTrailingColumnWidth: CGFloat = 0
 
     init(
         presentation: HomeHeaderPresentationModel,
@@ -81,46 +83,60 @@ struct HomeCompactHeaderView: View {
 
     private var compactHeaderLayout: some View {
         VStack(alignment: .leading, spacing: spacing.s8) {
-            HStack(spacing: spacing.s8) {
-                if presentation.showsBackToToday {
-                    HomeBackToTodayButtonView(action: onBackToToday)
-                        .fixedSize(horizontal: true, vertical: true)
-                }
-
-                scopeMenu
-                    .layoutPriority(1)
-
-                Spacer(minLength: spacing.s4)
-
-                settingsButton
-            }
-
-            dateLabel
+            headerTopRow
 
             metadataSection(alignment: .leading)
         }
     }
 
     private var wideHeaderLayout: some View {
-        HStack(alignment: .top, spacing: spacing.s16) {
-            HStack(spacing: spacing.s8) {
-                if presentation.showsBackToToday {
-                    HomeBackToTodayButtonView(action: onBackToToday)
-                        .fixedSize(horizontal: true, vertical: true)
+        VStack(alignment: .leading, spacing: spacing.s8) {
+            headerTopRow
+
+            metadataSection(alignment: .leading)
+        }
+    }
+
+    private var headerTopRow: some View {
+        Group {
+            if presentation.centeredDateText == nil {
+                HStack(spacing: spacing.s8) {
+                    leadingHeaderContent
+                        .layoutPriority(1)
+
+                    Spacer(minLength: spacing.s4)
+
+                    trailingHeaderContent
                 }
+            } else {
+                HStack(alignment: .center, spacing: spacing.s8) {
+                    leadingMeasuredHeaderContent
+                        .background(
+                            widthReader { newWidth in
+                                measuredLeadingColumnWidth = newWidth
+                            }
+                        )
+                        .frame(width: balancedSideColumnWidth, alignment: .leading)
 
-                scopeMenu
+                    centeredDateLabel
+                        .frame(maxWidth: .infinity, alignment: .center)
+                        .layoutPriority(1)
+
+                    trailingMeasuredHeaderContent
+                        .background(
+                            widthReader { newWidth in
+                                measuredTrailingColumnWidth = newWidth
+                            }
+                        )
+                        .frame(width: balancedSideColumnWidth, alignment: .trailing)
+                }
             }
-            .fixedSize(horizontal: true, vertical: true)
-
-            VStack(alignment: .leading, spacing: spacing.s4) {
-                dateLabel
-                metadataSection(alignment: .leading)
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-
-            settingsButton
-                .fixedSize()
+        }
+        .onChange(of: presentation.centeredDateText != nil) { _, _ in
+            resetMeasuredColumnWidths()
+        }
+        .onChange(of: usesWideLayout) { _, _ in
+            resetMeasuredColumnWidths()
         }
     }
 
@@ -171,17 +187,45 @@ struct HomeCompactHeaderView: View {
                 .minimumScaleFactor(0.85)
         }
         .font(.tasker(.caption1).weight(.medium))
-        .foregroundStyle(metadataToneColor(item.tone))
+        .foregroundStyle(metadataForegroundColor(for: item))
         .fixedSize(horizontal: true, vertical: false)
     }
 
-    private var dateLabel: some View {
-        Text(presentation.dateText)
+    private var centeredDateLabel: some View {
+        Text(presentation.centeredDateText ?? "")
             .font(.tasker(.title1))
             .foregroundStyle(Color.tasker.textPrimary)
             .lineLimit(1)
             .minimumScaleFactor(0.8)
+            .multilineTextAlignment(.center)
             .accessibilityIdentifier("home.topChrome.date")
+    }
+
+    private var leadingHeaderContent: some View {
+        HStack(spacing: spacing.s8) {
+            if presentation.showsBackToToday {
+                HomeBackToTodayButtonView(action: onBackToToday)
+                    .fixedSize(horizontal: true, vertical: true)
+            }
+
+            scopeMenu
+                .layoutPriority(1)
+        }
+    }
+
+    private var trailingHeaderContent: some View {
+        settingsButton
+            .fixedSize()
+    }
+
+    private var leadingMeasuredHeaderContent: some View {
+        leadingHeaderContent
+            .fixedSize(horizontal: true, vertical: false)
+    }
+
+    private var trailingMeasuredHeaderContent: some View {
+        trailingHeaderContent
+            .fixedSize(horizontal: true, vertical: false)
     }
 
     private var reflectionButton: some View {
@@ -316,6 +360,29 @@ struct HomeCompactHeaderView: View {
         }
     }
 
+    private var balancedSideColumnWidth: CGFloat? {
+        guard measuredLeadingColumnWidth > 0, measuredTrailingColumnWidth > 0 else {
+            return nil
+        }
+
+        return max(measuredLeadingColumnWidth, measuredTrailingColumnWidth)
+    }
+
+    private func resetMeasuredColumnWidths() {
+        measuredLeadingColumnWidth = 0
+        measuredTrailingColumnWidth = 0
+    }
+
+    private func widthReader(_ action: @escaping (CGFloat) -> Void) -> some View {
+        Color.clear
+            .onGeometryChange(for: CGFloat.self) { proxy in
+                proxy.size.width
+            } action: { newWidth in
+                guard newWidth > 0 else { return }
+                action(newWidth)
+            }
+    }
+
     private func metadataToneColor(_ tone: HomeHeaderMetadataItem.Tone) -> Color {
         switch tone {
         case .neutral:
@@ -327,6 +394,13 @@ struct HomeCompactHeaderView: View {
         case .warning:
             return Color.tasker.statusWarning
         }
+    }
+
+    private func metadataForegroundColor(for item: HomeHeaderMetadataItem) -> Color {
+        if item.id == "xp" {
+            return Color.tasker.statusWarning
+        }
+        return metadataToneColor(item.tone)
     }
 
     private func iconName(for quickView: HomeQuickView) -> String {

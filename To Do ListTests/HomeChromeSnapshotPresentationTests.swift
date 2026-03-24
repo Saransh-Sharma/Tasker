@@ -26,6 +26,10 @@ final class HomeChromeSnapshotPresentationTests: XCTestCase {
         let presentation = snapshot.homeHeaderPresentation(tasks: .empty)
 
         XCTAssertEqual(presentation.viewLabel, "Today")
+        XCTAssertEqual(
+            presentation.centeredDateText,
+            Date(timeIntervalSince1970: 0).formatted(.dateTime.weekday(.abbreviated).month(.abbreviated).day())
+        )
         XCTAssertFalse(presentation.showsBackToToday)
         XCTAssertTrue(presentation.showsReflectionCTA)
         XCTAssertEqual(presentation.metadataItems.map(\.text), ["18/250 XP", "100%", "1d"])
@@ -91,6 +95,10 @@ final class HomeChromeSnapshotPresentationTests: XCTestCase {
 
         let presentation = snapshot.homeHeaderPresentation(tasks: tasks)
 
+        XCTAssertEqual(
+            presentation.centeredDateText,
+            selectedDate.formatted(.dateTime.weekday(.abbreviated).month(.abbreviated).day())
+        )
         XCTAssertTrue(presentation.showsBackToToday)
         XCTAssertFalse(presentation.showsReflectionCTA)
         XCTAssertEqual(presentation.metadataItems.map(\.text), ["1 task", "1 habit"])
@@ -143,6 +151,7 @@ final class HomeChromeSnapshotPresentationTests: XCTestCase {
         let presentation = snapshot.homeHeaderPresentation(tasks: tasks)
 
         XCTAssertEqual(presentation.viewLabel, "Overdue")
+        XCTAssertNil(presentation.centeredDateText)
         XCTAssertEqual(presentation.metadataItems.map(\.text), ["2 overdue tasks"])
         XCTAssertFalse(presentation.showsReflectionCTA)
     }

@@ -16,7 +16,7 @@ struct HomeHeaderMetadataItem: Equatable, Identifiable {
 
 struct HomeHeaderPresentationModel: Equatable {
     let viewLabel: String
-    let dateText: String
+    let centeredDateText: String?
     let showsBackToToday: Bool
     let metadataItems: [HomeHeaderMetadataItem]
     let showsReflectionCTA: Bool
@@ -28,7 +28,7 @@ extension HomeChromeSnapshot {
     func homeHeaderPresentation(tasks: HomeTasksSnapshot) -> HomeHeaderPresentationModel {
         HomeHeaderPresentationModel(
             viewLabel: activeScope.quickView.title,
-            dateText: homeHeaderDateText,
+            centeredDateText: homeHeaderCenteredDateText,
             showsBackToToday: shouldShowBackToToday,
             metadataItems: headerMetadataItems(tasks: tasks),
             showsReflectionCTA: shouldShowReflectionCTA,
@@ -37,14 +37,14 @@ extension HomeChromeSnapshot {
         )
     }
 
-    var homeHeaderDateText: String {
+    var homeHeaderCenteredDateText: String? {
         switch activeScope {
         case .today:
             return selectedDate.formatted(.dateTime.weekday(.abbreviated).month(.abbreviated).day())
         case .customDate(let date):
             return date.formatted(.dateTime.weekday(.abbreviated).month(.abbreviated).day())
         case .upcoming, .overdue, .done, .morning, .evening:
-            return Date().formatted(.dateTime.weekday(.abbreviated).month(.abbreviated).day())
+            return nil
         }
     }
 
