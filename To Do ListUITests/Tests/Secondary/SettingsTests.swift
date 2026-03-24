@@ -164,6 +164,46 @@ class SettingsTests: BaseUITest {
         XCTAssertEqual(reopenedToggle.value as? String, "1", "Decorative button effects should persist after reopening settings")
     }
 
+    func testHomeBackgroundNoiseSliderDefaultsAndPersists() throws {
+        settingsPage = homePage.tapSettings()
+        XCTAssertTrue(settingsPage.verifyIsDisplayed(), "Settings should be displayed")
+
+        let noiseCard = app.descendants(matching: .any)[AccessibilityIdentifiers.Settings.homeBackgroundNoiseCard]
+
+        for _ in 0..<4 where noiseCard.exists == false {
+            app.swipeUp()
+        }
+
+        XCTAssertTrue(noiseCard.waitForExistence(timeout: 8), "Home background noise card should exist")
+
+        let noiseValue = app.descendants(matching: .any)[AccessibilityIdentifiers.Settings.homeBackgroundNoiseValue]
+        XCTAssertTrue(noiseValue.waitForExistence(timeout: 8), "Home background noise value should exist")
+        XCTAssertEqual(noiseValue.label, "20%", "Home background noise should default to 20%")
+
+        let noiseSlider = app.sliders[AccessibilityIdentifiers.Settings.homeBackgroundNoiseSlider]
+        XCTAssertTrue(noiseSlider.waitForExistence(timeout: 8), "Home background noise slider should exist")
+
+        noiseSlider.adjust(toNormalizedSliderPosition: 0.5)
+        XCTAssertEqual(noiseValue.label, "50%", "Home background noise value should update after moving the slider")
+
+        settingsPage.tapDone()
+        XCTAssertTrue(settingsPage.waitForDismissal(timeout: 5), "Settings should dismiss after tapping Done")
+
+        settingsPage = homePage.tapSettings()
+        XCTAssertTrue(settingsPage.verifyIsDisplayed(), "Settings should be displayed after reopening")
+
+        let reopenedNoiseCard = app.descendants(matching: .any)[AccessibilityIdentifiers.Settings.homeBackgroundNoiseCard]
+        for _ in 0..<4 where reopenedNoiseCard.exists == false {
+            app.swipeUp()
+        }
+
+        XCTAssertTrue(reopenedNoiseCard.waitForExistence(timeout: 8), "Home background noise card should exist after reopening")
+
+        let reopenedNoiseValue = app.descendants(matching: .any)[AccessibilityIdentifiers.Settings.homeBackgroundNoiseValue]
+        XCTAssertTrue(reopenedNoiseValue.waitForExistence(timeout: 8), "Home background noise value should exist after reopening")
+        XCTAssertEqual(reopenedNoiseValue.label, "50%", "Home background noise value should persist after reopening settings")
+    }
+
     func testAppVersionDisplay() throws {
         settingsPage = homePage.tapSettings()
         XCTAssertTrue(settingsPage.verifyIsDisplayed(), "Settings should be displayed")

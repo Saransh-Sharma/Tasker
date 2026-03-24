@@ -4,11 +4,13 @@ import XCTest
 final class TaskerCTABezelResolverTests: XCTestCase {
     private let userDecorativeCTAEffectsKey = "feature.ui.decorative_cta_effects.user_enabled"
     private let remoteDecorativeCTAEffectsKey = "feature.ui.decorative_cta_effects.remote_allowed"
+    private let homeBackdropNoiseAmountKey = V2FeatureFlags.homeBackdropNoiseAmountUserKey
 
     override func tearDown() {
         super.tearDown()
         UserDefaults.standard.removeObject(forKey: userDecorativeCTAEffectsKey)
         UserDefaults.standard.removeObject(forKey: remoteDecorativeCTAEffectsKey)
+        UserDefaults.standard.removeObject(forKey: homeBackdropNoiseAmountKey)
     }
 
     func testOnboardingHighlightMovesPastCreatedTemplate() {
@@ -106,5 +108,28 @@ final class TaskerCTABezelResolverTests: XCTestCase {
         V2FeatureFlags.remoteDecorativeCTAEffectsAllowed = false
 
         XCTAssertFalse(V2FeatureFlags.liquidMetalCTAEnabled)
+    }
+
+    func testHomeBackdropNoiseDefaultsToTwentyPercent() {
+        UserDefaults.standard.removeObject(forKey: homeBackdropNoiseAmountKey)
+
+        XCTAssertEqual(V2FeatureFlags.homeBackdropNoiseAmount, 20)
+    }
+
+    func testHomeBackdropNoiseAmountClampsBelowZero() {
+        V2FeatureFlags.homeBackdropNoiseAmount = -12
+
+        XCTAssertEqual(V2FeatureFlags.homeBackdropNoiseAmount, 0)
+    }
+
+    func testHomeBackdropNoiseAmountClampsAboveHundred() {
+        V2FeatureFlags.homeBackdropNoiseAmount = 180
+
+        XCTAssertEqual(V2FeatureFlags.homeBackdropNoiseAmount, 100)
+    }
+
+    func testHomeBackdropNoiseOpacityMappingTracksPercentage() {
+        XCTAssertEqual(TaskerBackdropNoise.opacity(for: 20), 0.02, accuracy: 0.0001)
+        XCTAssertEqual(TaskerBackdropNoise.opacity(for: 100), 0.10, accuracy: 0.0001)
     }
 }
