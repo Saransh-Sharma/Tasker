@@ -79,6 +79,29 @@ final class HomeChromeSnapshotPresentationTests: XCTestCase {
                     ]
                 )
             ],
+            focusNowSectionState: FocusNowSectionState(rows: [], pinnedTaskIDs: []),
+            todayAgendaSectionState: TodayAgendaSectionState(
+                sections: [
+                    HomeListSection(
+                        anchor: .dueTodaySummary,
+                        rows: [
+                            .task(TaskDefinition(title: "Task")),
+                            .habit(
+                                HomeHabitRow(
+                                    habitID: UUID(),
+                                    title: "Habit",
+                                    kind: .positive,
+                                    trackingMode: .dailyCheckIn,
+                                    lifeAreaName: "General",
+                                    iconSymbolName: "repeat"
+                                )
+                            )
+                        ]
+                    )
+                ]
+            ),
+            rescueSectionState: RescueSectionState(rows: []),
+            quietTrackingSummaryState: QuietTrackingSummaryState(stableRows: []),
             inlineCompletedTasks: [],
             doneTimelineTasks: [],
             projects: [],
@@ -135,6 +158,10 @@ final class HomeChromeSnapshotPresentationTests: XCTestCase {
             ],
             dueTodaySection: tasks.dueTodaySection,
             todaySections: tasks.todaySections,
+            focusNowSectionState: tasks.focusNowSectionState,
+            todayAgendaSectionState: tasks.todayAgendaSectionState,
+            rescueSectionState: tasks.rescueSectionState,
+            quietTrackingSummaryState: tasks.quietTrackingSummaryState,
             inlineCompletedTasks: tasks.inlineCompletedTasks,
             doneTimelineTasks: tasks.doneTimelineTasks,
             projects: tasks.projects,

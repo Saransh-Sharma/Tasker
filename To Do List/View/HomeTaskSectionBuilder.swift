@@ -239,40 +239,20 @@ enum HomeTaskSectionBuilder {
 
 enum HomeMixedSectionBuilder {
     static func buildTodaySections(
-        mode: HomeProjectGroupingMode,
         taskRows: [TaskDefinition],
         habitRows: [HomeHabitRow],
         projects: [Project],
-        customProjectOrderIDs: [UUID]
+        lifeAreas: [LifeArea]
     ) -> [HomeListSection] {
         let rows = taskRows.map(HomeTodayRow.task) + habitRows.map(HomeTodayRow.habit)
         guard rows.isEmpty == false else { return [] }
 
-        switch mode {
-        case .prioritizeOverdue:
-            let overdueRows = rows.filter(\.isOverdueLike)
-            let remainingRows = rows.filter { !$0.isOverdueLike }
-            let overdueSections = buildSections(
-                rows: overdueRows,
-                projects: projects,
-                customProjectOrderIDs: customProjectOrderIDs,
-                isOverdueSection: true
-            )
-            let regularSections = buildSections(
-                rows: remainingRows,
-                projects: projects,
-                customProjectOrderIDs: customProjectOrderIDs,
-                isOverdueSection: false
-            )
-            return overdueSections + regularSections
-        case .groupByProjects:
-            return buildSections(
-                rows: rows,
-                projects: projects,
-                customProjectOrderIDs: customProjectOrderIDs,
-                isOverdueSection: false
-            )
-        }
+        return buildSections(
+            rows: rows,
+            projects: projects,
+            lifeAreas: lifeAreas,
+            isOverdueSection: false
+        )
     }
 
     static func buildDueTodaySection(rows: [HomeTodayRow]) -> HomeListSection? {
@@ -283,12 +263,12 @@ enum HomeMixedSectionBuilder {
     private static func buildSections(
         rows: [HomeTodayRow],
         projects: [Project],
-        customProjectOrderIDs: [UUID],
+        lifeAreas: [LifeArea],
         isOverdueSection: Bool
     ) -> [HomeListSection] {
         guard rows.isEmpty == false else { return [] }
 
-        let grouped = Dictionary(grouping: rows, by: { anchor(for: $0, projects: projects) })
+        let grouped = Dictionary(grouping: rows, by: { anchor(for: $0, projects: projects, lifeAreas: lifeAreas) })
         var sections = grouped.map { anchor, groupedRows in
             HomeListSection(
                 anchor: anchor,
@@ -300,51 +280,67 @@ enum HomeMixedSectionBuilder {
         sections.sort { lhs, rhs in
             compareSections(
                 lhs: lhs,
-                rhs: rhs,
-                customProjectOrderIDs: customProjectOrderIDs
+                rhs: rhs
             )
         }
         return sections
     }
 
-    private static func anchor(for row: HomeTodayRow, projects: [Project]) -> HomeSectionAnchor {
+    private static func anchor(
+        for row: HomeTodayRow,
+        projects: [Project],
+        lifeAreas: [LifeArea]
+    ) -> HomeSectionAnchor {
         switch row {
         case .task(let task):
-            let project = resolveProject(
-                projectID: task.projectID,
-                projectName: task.projectName,
-                projects: projects
-            )
+            if let lifeArea = resolveLifeArea(for: task, projects: projects, lifeAreas: lifeAreas) {
+                return .lifeArea(
+                    id: lifeArea.id,
+                    name: lifeArea.name,
+                    iconSystemName: "square.grid.2x2.fill"
+                )
+            }
             return .project(
-                id: project.id,
-                name: project.name,
-                iconSystemName: project.icon.systemImageName,
-                isInbox: isInboxProject(project)
+                id: task.projectID,
+                name: task.projectName ?? ProjectConstants.inboxProjectName,
+                iconSystemName: "tray.full.fill",
+                isInbox: task.projectID == ProjectConstants.inboxProjectID
             )
         case .habit(let habit):
-            if let projectID = habit.projectID {
-                let project = resolveProject(
-                    projectID: projectID,
-                    projectName: habit.projectName,
-                    projects: projects
-                )
-                return .project(
-                    id: project.id,
-                    name: project.name,
-                    iconSystemName: project.icon.systemImageName,
-                    isInbox: isInboxProject(project)
+            let resolvedLifeAreaName = habit.lifeAreaName.trimmingCharacters(in: .whitespacesAndNewlines)
+            if resolvedLifeAreaName.isEmpty == false {
+                return .lifeArea(
+                    id: habit.lifeAreaID,
+                    name: resolvedLifeAreaName,
+                    iconSystemName: "square.grid.2x2.fill"
                 )
             }
 
-            let lifeAreaName = habit.lifeAreaName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-                ? "Life Area"
-                : habit.lifeAreaName
             return .lifeArea(
                 id: habit.lifeAreaID,
-                name: lifeAreaName,
+                name: "Life Area",
                 iconSystemName: "square.grid.2x2.fill"
             )
         }
+    }
+
+    private static func resolveLifeArea(
+        for task: TaskDefinition,
+        projects: [Project],
+        lifeAreas: [LifeArea]
+    ) -> LifeArea? {
+        if let directID = task.lifeAreaID,
+           let direct = lifeAreas.first(where: { $0.id == directID }) {
+            return direct
+        }
+
+        if let project = projects.first(where: { $0.id == task.projectID }),
+           let projectLifeAreaID = project.lifeAreaID,
+           let lifeArea = lifeAreas.first(where: { $0.id == projectLifeAreaID }) {
+            return lifeArea
+        }
+
+        return nil
     }
 
     private static func resolveProject(
@@ -373,32 +369,22 @@ enum HomeMixedSectionBuilder {
 
     private static func compareSections(
         lhs: HomeListSection,
-        rhs: HomeListSection,
-        customProjectOrderIDs: [UUID]
+        rhs: HomeListSection
     ) -> Bool {
         let lhsAnchor = lhs.anchor
         let rhsAnchor = rhs.anchor
 
-        if lhsAnchor.isInboxProject != rhsAnchor.isInboxProject {
-            return lhsAnchor.isInboxProject
-        }
-
         switch (lhsAnchor, rhsAnchor) {
-        case let (.project(lhsID, lhsName, _, _), .project(rhsID, rhsName, _, _)):
-            let lhsRank = customProjectOrderIDs.firstIndex(of: lhsID)
-            let rhsRank = customProjectOrderIDs.firstIndex(of: rhsID)
-            if let lhsRank, let rhsRank, lhsRank != rhsRank {
-                return lhsRank < rhsRank
-            }
-            if lhsRank != nil, rhsRank == nil { return true }
-            if lhsRank == nil, rhsRank != nil { return false }
-            return lhsName.localizedCaseInsensitiveCompare(rhsName) == .orderedAscending
-
-        case (.project, .lifeArea):
-            return true
-        case (.lifeArea, .project):
-            return false
         case let (.lifeArea(_, lhsName, _), .lifeArea(_, rhsName, _)):
+            return lhsName.localizedCaseInsensitiveCompare(rhsName) == .orderedAscending
+        case (.lifeArea, .project):
+            return true
+        case (.project, .lifeArea):
+            return false
+        case let (.project(_, lhsName, _, lhsInbox), .project(_, rhsName, _, rhsInbox)):
+            if lhsInbox != rhsInbox {
+                return !lhsInbox && rhsInbox
+            }
             return lhsName.localizedCaseInsensitiveCompare(rhsName) == .orderedAscending
         default:
             return lhs.id < rhs.id
@@ -425,7 +411,7 @@ enum HomeMixedSectionBuilder {
 
     private static func sortCategory(for row: HomeTodayRow) -> Int {
         if row.isResolved {
-            return 4
+            return 6
         }
 
         if row.isOverdueLike {
@@ -434,17 +420,21 @@ enum HomeMixedSectionBuilder {
 
         switch row {
         case .task(let task):
-            return task.dueDate == nil ? 3 : 1
+            let isInbox = task.projectID == ProjectConstants.inboxProjectID
+            if isInbox, task.dueDate != nil {
+                return 2
+            }
+            return task.dueDate == nil ? 5 : 1
         case .habit(let habit):
             switch habit.state {
             case .due:
-                return 1
+                return habit.kind == .negative ? 4 : 3
             case .tracking:
-                return 2
+                return 5
             case .overdue:
                 return 0
             case .completedToday, .lapsedToday, .skippedToday:
-                return 4
+                return 6
             }
         }
     }

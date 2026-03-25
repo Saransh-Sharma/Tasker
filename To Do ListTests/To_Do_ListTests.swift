@@ -1003,7 +1003,8 @@ extension TaskDefinition {
         dateCompleted: Date? = nil,
         energy: TaskEnergy = .medium,
         category: TaskCategory = .general,
-        context: TaskContext = .anywhere
+        context: TaskContext = .anywhere,
+        updatedAt: Date = Date()
     ) {
         self.init(
             id: id,
@@ -1019,7 +1020,8 @@ extension TaskDefinition {
             dueDate: dueDate,
             isComplete: isComplete,
             dateAdded: dateAdded,
-            dateCompleted: dateCompleted
+            dateCompleted: dateCompleted,
+            updatedAt: updatedAt
         )
     }
 }

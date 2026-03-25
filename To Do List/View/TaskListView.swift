@@ -154,14 +154,13 @@ struct TaskListView: View {
     var onToggleComplete: ((TaskDefinition) -> Void)? = nil
     var onDeleteTask: ((TaskDefinition) -> Void)? = nil
     var onRescheduleTask: ((TaskDefinition) -> Void)? = nil
+    var onPromoteTaskToFocus: ((TaskDefinition) -> Void)? = nil
     var onCompleteHabit: ((HomeHabitRow) -> Void)? = nil
     var onSkipHabit: ((HomeHabitRow) -> Void)? = nil
     var onLapseHabit: ((HomeHabitRow) -> Void)? = nil
     var onReorderCustomProjects: (([UUID]) -> Void)? = nil
     var onInboxHeaderAction: (() -> Void)? = nil
     var inboxHeaderActionTitle: String? = nil
-    var onOverdueHeaderAction: (() -> Void)? = nil
-    var overdueHeaderActionTitle: String? = nil
     var onCompletedSectionToggle: ((UUID, Bool, Int) -> Void)? = nil
     var onEmptyStateAction: (() -> Void)? = nil
     var onTaskDragStarted: ((TaskDefinition) -> Void)? = nil
@@ -200,14 +199,13 @@ struct TaskListView: View {
         onToggleComplete: ((TaskDefinition) -> Void)? = nil,
         onDeleteTask: ((TaskDefinition) -> Void)? = nil,
         onRescheduleTask: ((TaskDefinition) -> Void)? = nil,
+        onPromoteTaskToFocus: ((TaskDefinition) -> Void)? = nil,
         onCompleteHabit: ((HomeHabitRow) -> Void)? = nil,
         onSkipHabit: ((HomeHabitRow) -> Void)? = nil,
         onLapseHabit: ((HomeHabitRow) -> Void)? = nil,
         onReorderCustomProjects: (([UUID]) -> Void)? = nil,
         onInboxHeaderAction: (() -> Void)? = nil,
         inboxHeaderActionTitle: String? = nil,
-        onOverdueHeaderAction: (() -> Void)? = nil,
-        overdueHeaderActionTitle: String? = nil,
         onCompletedSectionToggle: ((UUID, Bool, Int) -> Void)? = nil,
         onEmptyStateAction: (() -> Void)? = nil,
         onTaskDragStarted: ((TaskDefinition) -> Void)? = nil,
@@ -238,14 +236,13 @@ struct TaskListView: View {
         self.onToggleComplete = onToggleComplete
         self.onDeleteTask = onDeleteTask
         self.onRescheduleTask = onRescheduleTask
+        self.onPromoteTaskToFocus = onPromoteTaskToFocus
         self.onCompleteHabit = onCompleteHabit
         self.onSkipHabit = onSkipHabit
         self.onLapseHabit = onLapseHabit
         self.onReorderCustomProjects = onReorderCustomProjects
         self.onInboxHeaderAction = onInboxHeaderAction
         self.inboxHeaderActionTitle = inboxHeaderActionTitle
-        self.onOverdueHeaderAction = onOverdueHeaderAction
-        self.overdueHeaderActionTitle = overdueHeaderActionTitle
         self.onCompletedSectionToggle = onCompletedSectionToggle
         self.onEmptyStateAction = onEmptyStateAction
         self.onTaskDragStarted = onTaskDragStarted
@@ -423,6 +420,7 @@ struct TaskListView: View {
                     onToggleComplete: onToggleComplete,
                     onDeleteTask: onDeleteTask,
                     onRescheduleTask: onRescheduleTask,
+                    onPromoteTaskToFocus: onPromoteTaskToFocus,
                     onCompletedCollapsedChange: { collapsed, count in
                         let sectionID = stableSectionCollapseID(for: section)
                         isCompletedCollapsedBySection[sectionID] = collapsed
@@ -523,8 +521,6 @@ struct TaskListView: View {
                     todayXPSoFar: todayXPSoFar,
                     isGamificationV2Enabled: isGamificationV2Enabled,
                     isTaskDragEnabled: isTaskDragEnabled,
-                    headerActionTitle: overdueHeaderActionTitle,
-                    onHeaderAction: onOverdueHeaderAction,
                     onTaskTap: onTaskTap,
                     onToggleComplete: onToggleComplete,
                     onDeleteTask: onDeleteTask,
@@ -594,10 +590,7 @@ struct TaskListView: View {
                     isCompletedCollapsedBySection[overdueProject.id] = collapsed
                     onCompletedSectionToggle?(overdueProject.id, collapsed, count)
                 },
-                onTaskDragStarted: onTaskDragStarted,
-                headerActionTitle: overdueHeaderActionTitle,
-                onHeaderAction: onOverdueHeaderAction,
-                headerActionAccessibilityID: "home.overdue.headerAction"
+                onTaskDragStarted: onTaskDragStarted
             )
         }
 
@@ -758,9 +751,6 @@ struct TaskListView: View {
 
     private func headerActionTitle(for section: HomeListSection, index: Int) -> String? {
         guard activeQuickView == .today else { return nil }
-        if section.isOverdueSection, index == 0 {
-            return overdueHeaderActionTitle
-        }
         if section.anchor.isInboxProject {
             return inboxHeaderActionTitle
         }
@@ -769,9 +759,6 @@ struct TaskListView: View {
 
     private func headerAction(for section: HomeListSection, index: Int) -> (() -> Void)? {
         guard activeQuickView == .today else { return nil }
-        if section.isOverdueSection, index == 0 {
-            return onOverdueHeaderAction
-        }
         if section.anchor.isInboxProject {
             return onInboxHeaderAction
         }
@@ -780,9 +767,6 @@ struct TaskListView: View {
 
     private func headerAccessibilityID(for section: HomeListSection, index: Int) -> String? {
         guard activeQuickView == .today else { return nil }
-        if section.isOverdueSection, index == 0 {
-            return "home.overdue.headerAction"
-        }
         if section.anchor.isInboxProject {
             return "home.inbox.headerAction"
         }
@@ -882,8 +866,6 @@ private struct OverdueGroupedSectionView: View {
     let todayXPSoFar: Int?
     let isGamificationV2Enabled: Bool
     let isTaskDragEnabled: Bool
-    var headerActionTitle: String?
-    var onHeaderAction: (() -> Void)?
     var onTaskTap: ((TaskDefinition) -> Void)?
     var onToggleComplete: ((TaskDefinition) -> Void)?
     var onDeleteTask: ((TaskDefinition) -> Void)?
@@ -904,10 +886,7 @@ private struct OverdueGroupedSectionView: View {
                         isExpanded.toggle()
                     }
                     TaskerFeedback.selection()
-                },
-                headerActionTitle: headerActionTitle,
-                onHeaderAction: onHeaderAction,
-                headerActionAccessibilityID: "home.overdue.grouped.headerAction"
+                }
             )
 
             if isExpanded {

@@ -370,6 +370,7 @@
 		B2E100000000000000000201 /* To Do List/UseCases/Home/BuildHomeAgendaUseCase.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2E100000000000000000103 /* To Do List/UseCases/Home/BuildHomeAgendaUseCase.swift */; };
 		B2E100000000000000000202 /* To Do List/Presentation/Models/HomeTodayRow.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2E100000000000000000101 /* To Do List/Presentation/Models/HomeTodayRow.swift */; };
 		B2E100000000000000000203 /* To Do List/Presentation/Models/HomeHabitRow.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2E100000000000000000102 /* To Do List/Presentation/Models/HomeHabitRow.swift */; };
+		B2E100000000000000000205 /* To Do List/Presentation/Models/HomeSectionState.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2E100000000000000000105 /* To Do List/Presentation/Models/HomeSectionState.swift */; };
 		B2E100000000000000000204 /* To Do List/View/HomeHabitRowView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2E100000000000000000104 /* To Do List/View/HomeHabitRowView.swift */; };
 		B426403E6996E2CE8BE66FB6 /* EnhancedDependencyContainer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 017ECAA6FA89C9A7825A3E8A /* EnhancedDependencyContainer.swift */; };
 		B4D7E8213A4F5C6D7E8F9012 /* V3TestHarness.swift in Sources */ = {isa = PBXBuildFile; fileRef = B4D7E8213A4F5C6D7E8F9011 /* V3TestHarness.swift */; };
@@ -880,6 +881,7 @@
 		B2D4E5F6A7B8C9D0E1F2A3B4 /* KeyboardShortcutsCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeyboardShortcutsCard.swift; sourceTree = "<group>"; };
 		B2E100000000000000000101 /* To Do List/Presentation/Models/HomeTodayRow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "To Do List/Presentation/Models/HomeTodayRow.swift"; sourceTree = SOURCE_ROOT; };
 		B2E100000000000000000102 /* To Do List/Presentation/Models/HomeHabitRow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "To Do List/Presentation/Models/HomeHabitRow.swift"; sourceTree = SOURCE_ROOT; };
+		B2E100000000000000000105 /* To Do List/Presentation/Models/HomeSectionState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "To Do List/Presentation/Models/HomeSectionState.swift"; sourceTree = SOURCE_ROOT; };
 		B2E100000000000000000103 /* To Do List/UseCases/Home/BuildHomeAgendaUseCase.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "To Do List/UseCases/Home/BuildHomeAgendaUseCase.swift"; sourceTree = SOURCE_ROOT; };
 		B2E100000000000000000104 /* To Do List/View/HomeHabitRowView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "To Do List/View/HomeHabitRowView.swift"; sourceTree = SOURCE_ROOT; };
 		B3A1F2C4D5E6F708 /* To Do List/Domain/Models/AchievementCatalog.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "To Do List/Domain/Models/AchievementCatalog.swift"; sourceTree = SOURCE_ROOT; };
@@ -1334,6 +1336,7 @@
 			children = (
 				B2E100000000000000000101 /* To Do List/Presentation/Models/HomeTodayRow.swift */,
 				B2E100000000000000000102 /* To Do List/Presentation/Models/HomeHabitRow.swift */,
+				B2E100000000000000000105 /* To Do List/Presentation/Models/HomeSectionState.swift */,
 			);
 			path = Models;
 			sourceTree = "<group>";
@@ -2792,6 +2795,7 @@
 				B2E100000000000000000201 /* To Do List/UseCases/Home/BuildHomeAgendaUseCase.swift in Sources */,
 				B2E100000000000000000202 /* To Do List/Presentation/Models/HomeTodayRow.swift in Sources */,
 				B2E100000000000000000203 /* To Do List/Presentation/Models/HomeHabitRow.swift in Sources */,
+				B2E100000000000000000205 /* To Do List/Presentation/Models/HomeSectionState.swift in Sources */,
 				B2E100000000000000000204 /* To Do List/View/HomeHabitRowView.swift in Sources */,
 				6BFABA2E6D0DFA253AEC67A9 /* UserDefaultsSavedHomeViewRepository.swift in Sources */,
 				A3A6DF9571AB7FEB410EB861 /* HomeAdvancedFilterSheetView.swift in Sources */,

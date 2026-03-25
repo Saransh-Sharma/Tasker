@@ -352,6 +352,7 @@ struct HomeListRowView: View {
     var onToggleComplete: ((TaskDefinition) -> Void)?
     var onDeleteTask: ((TaskDefinition) -> Void)?
     var onRescheduleTask: ((TaskDefinition) -> Void)?
+    var onPromoteTaskToFocus: ((TaskDefinition) -> Void)? = nil
     var onTaskDragStarted: ((TaskDefinition) -> Void)?
     var onCompleteHabit: ((HomeHabitRow) -> Void)?
     var onSkipHabit: ((HomeHabitRow) -> Void)?
@@ -373,6 +374,7 @@ struct HomeListRowView: View {
                 onToggleComplete: { onToggleComplete?(task) },
                 onDelete: { onDeleteTask?(task) },
                 onReschedule: { onRescheduleTask?(task) },
+                onPromoteToFocus: { onPromoteTaskToFocus?(task) },
                 onTaskDragStarted: onTaskDragStarted
             )
             .equatable()
@@ -419,6 +421,7 @@ struct HomeListSectionView: View {
     var onToggleComplete: ((TaskDefinition) -> Void)?
     var onDeleteTask: ((TaskDefinition) -> Void)?
     var onRescheduleTask: ((TaskDefinition) -> Void)?
+    var onPromoteTaskToFocus: ((TaskDefinition) -> Void)? = nil
     var onCompletedCollapsedChange: ((Bool, Int) -> Void)?
     var onTaskDragStarted: ((TaskDefinition) -> Void)?
     var onCompleteHabit: ((HomeHabitRow) -> Void)?
@@ -473,6 +476,7 @@ struct HomeListSectionView: View {
                             onToggleComplete: onToggleComplete,
                             onDeleteTask: onDeleteTask,
                             onRescheduleTask: onRescheduleTask,
+                            onPromoteTaskToFocus: onPromoteTaskToFocus,
                             onTaskDragStarted: onTaskDragStarted,
                             onCompleteHabit: onCompleteHabit,
                             onSkipHabit: onSkipHabit,
@@ -497,6 +501,7 @@ struct HomeListSectionView: View {
                                     onToggleComplete: onToggleComplete,
                                     onDeleteTask: onDeleteTask,
                                     onRescheduleTask: onRescheduleTask,
+                                    onPromoteTaskToFocus: nil,
                                     onCompleteHabit: onCompleteHabit,
                                     onSkipHabit: onSkipHabit,
                                     onLapseHabit: onLapseHabit

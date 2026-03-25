@@ -2,26 +2,27 @@ import Foundation
 
 enum HomeBandLayoutPlanner {
     static func visibleBands(
-        hasQuickFilters: Bool,
-        hasDueTodayAgenda: Bool,
-        hasPressureTools: Bool,
-        hasSecondaryContent: Bool
+        hasPassiveTracking: Bool,
+        hasFocusHero: Bool,
+        hasTodayAgenda: Bool,
+        hasRescue: Bool,
+        hasQuietTracking: Bool
     ) -> [HomeBand] {
         var bands: [HomeBand] = []
 
-        if hasQuickFilters {
+        if hasPassiveTracking {
             bands.append(.context)
         }
 
-        if hasDueTodayAgenda {
+        if hasFocusHero || hasTodayAgenda {
             bands.append(.activeWork)
         }
 
-        if hasPressureTools {
+        if hasRescue {
             bands.append(.pressure)
         }
 
-        if hasSecondaryContent {
+        if hasQuietTracking {
             bands.append(.secondary)
         }
 

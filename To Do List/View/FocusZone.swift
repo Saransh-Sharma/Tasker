@@ -14,10 +14,13 @@ import SwiftUI
 public struct FocusZone: View {
     let rows: [HomeTodayRow]
     let canDrag: Bool
+    let pinnedTaskIDs: [UUID]
     let shellPhase: HomeShellPhase
     let insightForTaskID: (UUID) -> EvaFocusTaskInsight?
     let onShuffle: () -> Void
     let onWhy: () -> Void
+    let onPinTask: (TaskDefinition) -> Void
+    let onUnpinTask: (TaskDefinition) -> Void
     let onTaskTap: (TaskDefinition) -> Void
     let onToggleComplete: (TaskDefinition) -> Void
     let onStartFocus: ((TaskDefinition) -> Void)?
@@ -37,10 +40,13 @@ public struct FocusZone: View {
     public init(
         rows: [HomeTodayRow],
         canDrag: Bool,
+        pinnedTaskIDs: [UUID] = [],
         shellPhase: HomeShellPhase = .interactive,
         insightForTaskID: @escaping (UUID) -> EvaFocusTaskInsight? = { _ in nil },
         onShuffle: @escaping () -> Void = {},
         onWhy: @escaping () -> Void = {},
+        onPinTask: @escaping (TaskDefinition) -> Void = { _ in },
+        onUnpinTask: @escaping (TaskDefinition) -> Void = { _ in },
         onTaskTap: @escaping (TaskDefinition) -> Void,
         onToggleComplete: @escaping (TaskDefinition) -> Void,
         onStartFocus: ((TaskDefinition) -> Void)? = nil,
@@ -52,10 +58,13 @@ public struct FocusZone: View {
     ) {
         self.rows = rows
         self.canDrag = canDrag
+        self.pinnedTaskIDs = pinnedTaskIDs
         self.shellPhase = shellPhase
         self.insightForTaskID = insightForTaskID
         self.onShuffle = onShuffle
         self.onWhy = onWhy
+        self.onPinTask = onPinTask
+        self.onUnpinTask = onUnpinTask
         self.onTaskTap = onTaskTap
         self.onToggleComplete = onToggleComplete
         self.onStartFocus = onStartFocus
@@ -112,7 +121,7 @@ public struct FocusZone: View {
         .onDrop(of: ["public.text"], isTargeted: $isTargeted, perform: onDrop)
         .animation(prefersBudgetVisuals ? .linear(duration: 0.01) : .spring(response: 0.3), value: isTargeted)
         .accessibilityElement(children: .contain)
-        .accessibilityIdentifier("home.focus.dropzone")
+        .accessibilityIdentifier("home.focus.strip")
     }
 
     // MARK: - Header
@@ -129,24 +138,17 @@ public struct FocusZone: View {
                         .modifier(FocusBreathingModifier(isEnabled: !prefersBudgetVisuals, min: 0.8, max: 1.0, duration: 2.5))
 
                     // Title
-                    Text("FOCUS NOW")
+                    Text("Focus Now")
                         .font(.tasker(.buttonSmall))
                         .fontWeight(.semibold)
-                        .tracking(0.8)
                         .foregroundColor(Color.tasker.accentPrimary)
 
                     // Count badge
                     if !rows.isEmpty {
-                        Text("\(rows.count)")
+                        Text("· \(rows.count)")
                             .font(.tasker(.caption2))
                             .fontWeight(.medium)
-                            .foregroundColor(Color.tasker.accentPrimary)
-                            .padding(.horizontal, 6)
-                            .padding(.vertical, 2)
-                            .background(
-                                Capsule()
-                                    .fill(Color.tasker.accentMuted)
-                            )
+                            .foregroundColor(Color.tasker.textSecondary)
                             .transition(.scale.combined(with: .opacity))
                             .contentTransition(.numericText())
                     }
@@ -162,10 +164,6 @@ public struct FocusZone: View {
 
             if !rows.isEmpty {
                 actionButton(title: "Shuffle", action: onShuffle, accessibilityID: "home.focus.shuffle")
-            } else if canDrag {
-                Text("Drag tasks here")
-                    .font(.tasker(.caption2))
-                    .foregroundColor(Color.tasker.textTertiary)
             }
         }
     }
@@ -187,12 +185,12 @@ public struct FocusZone: View {
 
     private var emptyState: some View {
         VStack(spacing: spacing.s4) {
-            Image(systemName: "hand.point.up.left")
+            Image(systemName: "scope")
                 .font(.system(size: 24, weight: .light))
                 .foregroundColor(Color.tasker.accentPrimary.opacity(0.4))
                 .modifier(FocusBreathingModifier(isEnabled: !prefersBudgetVisuals, min: 0.3, max: 0.5, duration: 2.0))
 
-            Text("Long-press a task to pin here")
+            Text("Add a few tasks for today and Focus Now will pick the best next moves")
                 .font(.tasker(.caption1))
                 .foregroundColor(Color.tasker.textTertiary)
                 .multilineTextAlignment(.center)
@@ -229,8 +227,16 @@ public struct FocusZone: View {
                 insight: insightForTaskID(task.id),
                 canDrag: canDrag,
                 showFocusButton: onStartFocus != nil && V2FeatureFlags.gamificationFocusSessionsEnabled,
+                isPinned: pinnedTaskIDs.contains(task.id),
                 onTap: { onTaskTap(task) },
                 onToggleComplete: { onToggleComplete(task) },
+                onPinToggle: {
+                    if pinnedTaskIDs.contains(task.id) {
+                        onUnpinTask(task)
+                    } else {
+                        onPinTask(task)
+                    }
+                },
                 onStartFocus: { onStartFocus?(task) },
                 onDragStarted: { onTaskDragStarted(task) }
             )
@@ -357,8 +363,10 @@ private struct FocusZoneRow: View {
     let insight: EvaFocusTaskInsight?
     let canDrag: Bool
     let showFocusButton: Bool
+    let isPinned: Bool
     let onTap: () -> Void
     let onToggleComplete: () -> Void
+    let onPinToggle: () -> Void
     let onStartFocus: () -> Void
     let onDragStarted: () -> Void
 
@@ -368,52 +376,33 @@ private struct FocusZoneRow: View {
     }
 
     var body: some View {
-        HStack(spacing: spacing.s8) {
+        HStack(alignment: .top, spacing: spacing.s8) {
             CompletionCheckbox(isComplete: task.isComplete, compact: true) {
                 onToggleComplete()
             }
             .frame(width: 24, height: 24)
+            .padding(.top, 2)
 
-            Text(task.title)
-                .font(.tasker(.bodyEmphasis))
-                .foregroundColor(task.isComplete ? Color.tasker.textTertiary : Color.tasker.textPrimary)
-                .lineLimit(1)
+            VStack(alignment: .leading, spacing: spacing.s4) {
+                Text(task.title)
+                    .font(.tasker(.bodyEmphasis))
+                    .foregroundColor(task.isComplete ? Color.tasker.textTertiary : Color.tasker.textPrimary)
+                    .lineLimit(2)
+
+                if let secondaryLineText {
+                    Text(secondaryLineText)
+                        .font(.tasker(.caption2))
+                        .foregroundColor(Color.tasker.textSecondary)
+                        .lineLimit(1)
+                }
+            }
 
             Spacer(minLength: 0)
 
-            if showFocusButton && !task.isComplete {
-                Button(action: onStartFocus) {
-                    Image(systemName: "timer")
-                        .font(.system(size: 13, weight: .medium))
-                        .foregroundColor(Color.tasker.accentPrimary)
-                        .frame(width: 28, height: 28)
-                        .background(Color.tasker.accentPrimary.opacity(0.1))
-                        .clipShape(Circle())
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel("Start focus session")
-            }
-
-            if let statusChip {
-                Text(statusChip.text)
-                    .font(.tasker(.caption2))
-                    .fontWeight(.medium)
-                    .foregroundColor(focusStatusColor(for: statusChip))
-                    .padding(.horizontal, 5)
-                    .padding(.vertical, 3)
-                    .background(
-                        Capsule()
-                            .fill(focusStatusColor(for: statusChip).opacity(0.15))
-                    )
-                    .fixedSize()
-                    .transition(.scale.combined(with: .opacity))
-                    .animation(TaskerAnimation.bouncy, value: statusChip)
-            }
-
+            trailingControls
         }
-        .padding(.vertical, 6)
+        .padding(.vertical, 8)
         .padding(.horizontal, spacing.s4)
-        .frame(height: 36)
         .contentShape(Rectangle())
         .onTapGesture { onTap() }
         .swipeActions(edge: .leading, allowsFullSwipe: false) {
@@ -432,6 +421,85 @@ private struct FocusZoneRow: View {
         }
         .accessibilityIdentifier("home.focus.task.\(task.id.uuidString)")
         .accessibilityLabel(task.title)
+    }
+
+    private var trailingControls: some View {
+        VStack(alignment: .trailing, spacing: spacing.s8) {
+            if let statusChip {
+                statusChipBadge(statusChip)
+            }
+
+            HStack(spacing: spacing.s8) {
+                pinButton
+
+                if showFocusButton && !task.isComplete {
+                    startFocusButton
+                }
+            }
+        }
+    }
+
+    private func statusChipBadge(_ statusChip: FocusZoneStatusChip) -> some View {
+        Text(statusChip.text)
+            .font(.tasker(.caption2))
+            .fontWeight(.medium)
+            .foregroundColor(focusStatusColor(for: statusChip))
+            .padding(.horizontal, 5)
+            .padding(.vertical, 3)
+            .background(
+                Capsule()
+                    .fill(focusStatusColor(for: statusChip).opacity(0.15))
+            )
+            .fixedSize()
+            .transition(.scale.combined(with: .opacity))
+            .animation(TaskerAnimation.gentle, value: statusChip)
+    }
+
+    private var pinButton: some View {
+        Button(action: onPinToggle) {
+            Image(systemName: isPinned ? "pin.fill" : "pin")
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundColor(isPinned ? Color.tasker.accentPrimary : Color.tasker.textSecondary)
+                .frame(width: 28, height: 28)
+                .background(Color.tasker.surfaceSecondary.opacity(0.8))
+                .clipShape(Circle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityIdentifier("home.focus.pin.\(task.id.uuidString)")
+        .accessibilityLabel(isPinned ? "Unpin from Focus Now" : "Pin to Focus Now")
+    }
+
+    private var startFocusButton: some View {
+        Button(action: onStartFocus) {
+            Image(systemName: "timer")
+                .font(.system(size: 13, weight: .medium))
+                .foregroundColor(Color.tasker.accentPrimary)
+                .frame(width: 28, height: 28)
+                .background(Color.tasker.accentPrimary.opacity(0.1))
+                .clipShape(Circle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("Start focus session")
+    }
+
+    private var secondaryLineText: String? {
+        if let dueDate = task.dueDate, let lateLabel = OverdueAgeFormatter.lateLabel(dueDate: dueDate, now: Date()) {
+            return "Overdue · \(lateLabel)"
+        }
+        if let dueDate = task.dueDate, Calendar.current.isDateInToday(dueDate) {
+            let time = dueDate.formatted(date: .omitted, time: .shortened)
+            if let projectName = task.projectName?.trimmingCharacters(in: .whitespacesAndNewlines), !projectName.isEmpty {
+                return "Due today · \(time) · \(projectName)"
+            }
+            return "Due today · \(time)"
+        }
+        if task.projectID == ProjectConstants.inboxProjectID {
+            return "Inbox · promoted for today"
+        }
+        if let projectName = task.projectName?.trimmingCharacters(in: .whitespacesAndNewlines), !projectName.isEmpty {
+            return "Project · \(projectName)"
+        }
+        return nil
     }
 
     /// Executes focusStatusColor.

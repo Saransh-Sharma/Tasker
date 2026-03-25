@@ -325,6 +325,99 @@ final class HomeViewModelPersistenceTests: XCTestCase {
         defaults.removePersistentDomain(forName: suiteName)
     }
 
+    func testPromoteTaskToFocusPinsTaskWhenCapacityIsAvailable() {
+        let suiteName = "HomeViewModelPersistenceTests.PromoteAvailable.\(UUID().uuidString)"
+        guard let defaults = UserDefaults(suiteName: suiteName) else {
+            return XCTFail("Failed to create test UserDefaults suite")
+        }
+        defaults.removePersistentDomain(forName: suiteName)
+
+        let inbox = Project.createInbox()
+        let promoted = makeTask(name: "Agenda Promote", project: inbox, dueDate: Date(), priority: .low)
+        let support = makeTask(name: "Support", project: inbox, dueDate: Date(), priority: .high)
+
+        let taskRepository = HomeViewModelMockTaskRepository(tasks: [promoted, support])
+        let projectRepository = HomeViewModelMockProjectRepository(projects: [inbox])
+        let coordinator = UseCaseCoordinator(taskRepository: taskRepository, projectRepository: projectRepository)
+
+        let viewModel = HomeViewModel(useCaseCoordinator: coordinator, userDefaults: defaults)
+        waitForMainQueueFlush()
+
+        XCTAssertEqual(viewModel.promoteTaskToFocus(promoted.id), .promoted)
+        XCTAssertEqual(viewModel.pinnedFocusTaskIDs, [promoted.id])
+        let focusedTaskIDs = viewModel.focusRows.compactMap { row -> UUID? in
+            guard case .task(let task) = row else { return nil }
+            return task.id
+        }
+        XCTAssertEqual(focusedTaskIDs.first, promoted.id)
+
+        defaults.removePersistentDomain(forName: suiteName)
+    }
+
+    func testPromoteTaskToFocusRequestsReplacementWhenHeroIsFull() {
+        let suiteName = "HomeViewModelPersistenceTests.PromoteReplacePrompt.\(UUID().uuidString)"
+        guard let defaults = UserDefaults(suiteName: suiteName) else {
+            return XCTFail("Failed to create test UserDefaults suite")
+        }
+        defaults.removePersistentDomain(forName: suiteName)
+
+        let inbox = Project.createInbox()
+        let tasks = (1...4).map { index in
+            makeTask(name: "Focus \(index)", project: inbox, dueDate: Date(), priority: .high)
+        }
+
+        let taskRepository = HomeViewModelMockTaskRepository(tasks: tasks)
+        let projectRepository = HomeViewModelMockProjectRepository(projects: [inbox])
+        let coordinator = UseCaseCoordinator(taskRepository: taskRepository, projectRepository: projectRepository)
+
+        let viewModel = HomeViewModel(useCaseCoordinator: coordinator, userDefaults: defaults)
+        waitForMainQueueFlush()
+
+        XCTAssertEqual(viewModel.pinTaskToFocus(tasks[0].id), .pinned)
+        XCTAssertEqual(viewModel.pinTaskToFocus(tasks[1].id), .pinned)
+        XCTAssertEqual(viewModel.pinTaskToFocus(tasks[2].id), .pinned)
+
+        let result = viewModel.promoteTaskToFocus(tasks[3].id)
+        XCTAssertEqual(result, .replacementRequired(currentFocusTaskIDs: [tasks[0].id, tasks[1].id, tasks[2].id]))
+
+        defaults.removePersistentDomain(forName: suiteName)
+    }
+
+    func testReplaceFocusTaskSwapsVisibleHeroSelection() {
+        let suiteName = "HomeViewModelPersistenceTests.ReplaceFocus.\(UUID().uuidString)"
+        guard let defaults = UserDefaults(suiteName: suiteName) else {
+            return XCTFail("Failed to create test UserDefaults suite")
+        }
+        defaults.removePersistentDomain(forName: suiteName)
+
+        let inbox = Project.createInbox()
+        let tasks = (1...4).map { index in
+            makeTask(name: "Replace \(index)", project: inbox, dueDate: Date(), priority: .high)
+        }
+
+        let taskRepository = HomeViewModelMockTaskRepository(tasks: tasks)
+        let projectRepository = HomeViewModelMockProjectRepository(projects: [inbox])
+        let coordinator = UseCaseCoordinator(taskRepository: taskRepository, projectRepository: projectRepository)
+
+        let viewModel = HomeViewModel(useCaseCoordinator: coordinator, userDefaults: defaults)
+        waitForMainQueueFlush()
+
+        XCTAssertEqual(viewModel.pinTaskToFocus(tasks[0].id), .pinned)
+        XCTAssertEqual(viewModel.pinTaskToFocus(tasks[1].id), .pinned)
+        XCTAssertEqual(viewModel.pinTaskToFocus(tasks[2].id), .pinned)
+
+        XCTAssertEqual(viewModel.replaceFocusTask(with: tasks[3].id, replacing: tasks[1].id), .promoted)
+        XCTAssertEqual(viewModel.pinnedFocusTaskIDs, [tasks[3].id, tasks[0].id, tasks[2].id])
+        let focusedTaskIDs = viewModel.focusRows.compactMap { row -> UUID? in
+            guard case .task(let task) = row else { return nil }
+            return task.id
+        }
+        XCTAssertTrue(focusedTaskIDs.contains(tasks[3].id))
+        XCTAssertFalse(focusedTaskIDs.contains(tasks[1].id))
+
+        defaults.removePersistentDomain(forName: suiteName)
+    }
+
     func testPinnedTaskPrunesAfterCompletion() {
         let suiteName = "HomeViewModelPersistenceTests.PinPruneCompletion.\(UUID().uuidString)"
         guard let defaults = UserDefaults(suiteName: suiteName) else {
@@ -759,6 +852,209 @@ final class HomeViewModelPersistenceTests: XCTestCase {
         defaults.removePersistentDomain(forName: suiteName)
     }
 
+    func testRescueSectionIncludesOnlyTasksOlderThanTwoWeeksAndRemovesThemFromAgendaAndFocus() {
+        let suiteName = "HomeViewModelPersistenceTests.RescuePartition.\(UUID().uuidString)"
+        guard let defaults = UserDefaults(suiteName: suiteName) else {
+            return XCTFail("Failed to create test UserDefaults suite")
+        }
+        defaults.removePersistentDomain(forName: suiteName)
+
+        let now = Date()
+        let calendar = Calendar.current
+        let inbox = Project.createInbox()
+        let tasks = [
+            makeTask(
+                name: "Rescue Older",
+                project: inbox,
+                dueDate: calendar.date(byAdding: .day, value: -20, to: now),
+                priority: .high
+            ),
+            makeTask(
+                name: "Rescue Old",
+                project: inbox,
+                dueDate: calendar.date(byAdding: .day, value: -16, to: now),
+                priority: .max
+            ),
+            makeTask(
+                name: "Agenda Overdue",
+                project: inbox,
+                dueDate: calendar.date(byAdding: .day, value: -5, to: now),
+                priority: .high
+            ),
+            makeTask(
+                name: "Due Today",
+                project: inbox,
+                dueDate: calendar.date(byAdding: .hour, value: 6, to: calendar.startOfDay(for: now)),
+                priority: .low
+            ),
+            makeTask(
+                name: "Stale Important",
+                project: inbox,
+                dueDate: nil,
+                priority: .high,
+                updatedAt: calendar.date(byAdding: .day, value: -30, to: now) ?? now
+            )
+        ]
+
+        let coordinator = UseCaseCoordinator(
+            taskRepository: HomeViewModelMockTaskRepository(tasks: tasks),
+            projectRepository: HomeViewModelMockProjectRepository(projects: [inbox])
+        )
+        let viewModel = HomeViewModel(useCaseCoordinator: coordinator, userDefaults: defaults)
+        waitForMainQueueFlush()
+
+        let rescueTitles = viewModel.rescueSectionState.rows.map(\.title)
+        let agendaTitles = viewModel.todayAgendaSectionState.sections.flatMap(\.rows).map(\.title)
+        let focusTitles = viewModel.focusNowSectionState.rows.map(\.title)
+
+        XCTAssertEqual(rescueTitles, ["Rescue Older", "Rescue Old"])
+        XCTAssertTrue(agendaTitles.contains("Agenda Overdue"))
+        XCTAssertTrue(agendaTitles.contains("Due Today"))
+        XCTAssertFalse(agendaTitles.contains("Rescue Older"))
+        XCTAssertFalse(agendaTitles.contains("Rescue Old"))
+        XCTAssertFalse(agendaTitles.contains("Stale Important"))
+        XCTAssertFalse(focusTitles.contains("Rescue Older"))
+        XCTAssertFalse(focusTitles.contains("Rescue Old"))
+
+        defaults.removePersistentDomain(forName: suiteName)
+    }
+
+    func testOpenRescueBuildsPlanFromTwoWeekOverdueTasksOnly() {
+        let suiteName = "HomeViewModelPersistenceTests.RescueOpenFilters.\(UUID().uuidString)"
+        guard let defaults = UserDefaults(suiteName: suiteName) else {
+            return XCTFail("Failed to create test UserDefaults suite")
+        }
+        defaults.removePersistentDomain(forName: suiteName)
+
+        let now = Date()
+        let calendar = Calendar.current
+        let inbox = Project.createInbox()
+        let oldRescueTask = makeTask(
+            name: "Old Rescue",
+            project: inbox,
+            dueDate: calendar.date(byAdding: .day, value: -18, to: now),
+            priority: .high
+        )
+        let recentOverdueTask = makeTask(
+            name: "Recent Overdue",
+            project: inbox,
+            dueDate: calendar.date(byAdding: .day, value: -4, to: now),
+            priority: .high
+        )
+
+        let coordinator = UseCaseCoordinator(
+            taskRepository: HomeViewModelMockTaskRepository(tasks: [oldRescueTask, recentOverdueTask]),
+            projectRepository: HomeViewModelMockProjectRepository(projects: [inbox])
+        )
+        let viewModel = HomeViewModel(useCaseCoordinator: coordinator, userDefaults: defaults)
+        waitForMainQueueFlush()
+
+        viewModel.openRescue()
+        waitForMainQueueFlush()
+
+        let plan = viewModel.evaRescuePlan
+        let doTodayIDs = (plan?.doToday ?? []).map(\.taskID)
+        let moveIDs = (plan?.move ?? []).map(\.taskID)
+        let splitIDs = (plan?.split ?? []).map(\.taskID)
+        let dropIDs = (plan?.dropCandidate ?? []).map(\.taskID)
+        let recommendedTaskIDs = Set(doTodayIDs + moveIDs + splitIDs + dropIDs)
+
+        XCTAssertTrue(recommendedTaskIDs.contains(oldRescueTask.id))
+        XCTAssertFalse(recommendedTaskIDs.contains(recentOverdueTask.id))
+
+        defaults.removePersistentDomain(forName: suiteName)
+    }
+
+    func testRescueExpandsByDefaultWhenCountIsLessThanThree() {
+        let suiteName = "HomeViewModelPersistenceTests.RescueExpandSmall.\(UUID().uuidString)"
+        guard let defaults = UserDefaults(suiteName: suiteName) else {
+            return XCTFail("Failed to create test UserDefaults suite")
+        }
+        defaults.removePersistentDomain(forName: suiteName)
+
+        let now = Date()
+        let calendar = Calendar.current
+        let inbox = Project.createInbox()
+        let tasks = [
+            makeTask(name: "Rescue A", project: inbox, dueDate: calendar.date(byAdding: .day, value: -16, to: now), priority: .high),
+            makeTask(name: "Rescue B", project: inbox, dueDate: calendar.date(byAdding: .day, value: -18, to: now), priority: .low),
+            makeTask(name: "Focus Candidate", project: inbox, dueDate: now, priority: .high)
+        ]
+
+        let coordinator = UseCaseCoordinator(
+            taskRepository: HomeViewModelMockTaskRepository(tasks: tasks),
+            projectRepository: HomeViewModelMockProjectRepository(projects: [inbox])
+        )
+        let viewModel = HomeViewModel(useCaseCoordinator: coordinator, userDefaults: defaults)
+        waitForMainQueueFlush()
+
+        XCTAssertEqual(viewModel.rescueSectionState.totalCount, 2)
+        XCTAssertTrue(viewModel.rescueSectionState.isExpandedByDefault)
+
+        defaults.removePersistentDomain(forName: suiteName)
+    }
+
+    func testRescueCollapsesByDefaultWhenThreeOrMoreItemsExistAndFocusIsNotEmpty() {
+        let suiteName = "HomeViewModelPersistenceTests.RescueCollapseLarge.\(UUID().uuidString)"
+        guard let defaults = UserDefaults(suiteName: suiteName) else {
+            return XCTFail("Failed to create test UserDefaults suite")
+        }
+        defaults.removePersistentDomain(forName: suiteName)
+
+        let now = Date()
+        let calendar = Calendar.current
+        let inbox = Project.createInbox()
+        let tasks = [
+            makeTask(name: "Rescue A", project: inbox, dueDate: calendar.date(byAdding: .day, value: -16, to: now), priority: .high),
+            makeTask(name: "Rescue B", project: inbox, dueDate: calendar.date(byAdding: .day, value: -18, to: now), priority: .low),
+            makeTask(name: "Rescue C", project: inbox, dueDate: calendar.date(byAdding: .day, value: -21, to: now), priority: .max),
+            makeTask(name: "Focus Candidate", project: inbox, dueDate: now, priority: .high)
+        ]
+
+        let coordinator = UseCaseCoordinator(
+            taskRepository: HomeViewModelMockTaskRepository(tasks: tasks),
+            projectRepository: HomeViewModelMockProjectRepository(projects: [inbox])
+        )
+        let viewModel = HomeViewModel(useCaseCoordinator: coordinator, userDefaults: defaults)
+        waitForMainQueueFlush()
+
+        XCTAssertEqual(viewModel.rescueSectionState.totalCount, 3)
+        XCTAssertFalse(viewModel.rescueSectionState.isExpandedByDefault)
+        XCTAssertFalse(viewModel.focusNowSectionState.rows.isEmpty)
+
+        defaults.removePersistentDomain(forName: suiteName)
+    }
+
+    func testRescueExpandsWhenNoFocusItemsRemain() {
+        let suiteName = "HomeViewModelPersistenceTests.RescueExpandNoFocus.\(UUID().uuidString)"
+        guard let defaults = UserDefaults(suiteName: suiteName) else {
+            return XCTFail("Failed to create test UserDefaults suite")
+        }
+        defaults.removePersistentDomain(forName: suiteName)
+
+        let now = Date()
+        let calendar = Calendar.current
+        let inbox = Project.createInbox()
+        let tasks = [
+            makeTask(name: "Rescue A", project: inbox, dueDate: calendar.date(byAdding: .day, value: -16, to: now), priority: .high),
+            makeTask(name: "Rescue B", project: inbox, dueDate: calendar.date(byAdding: .day, value: -18, to: now), priority: .low),
+            makeTask(name: "Rescue C", project: inbox, dueDate: calendar.date(byAdding: .day, value: -21, to: now), priority: .max)
+        ]
+
+        let coordinator = UseCaseCoordinator(
+            taskRepository: HomeViewModelMockTaskRepository(tasks: tasks),
+            projectRepository: HomeViewModelMockProjectRepository(projects: [inbox])
+        )
+        let viewModel = HomeViewModel(useCaseCoordinator: coordinator, userDefaults: defaults)
+        waitForMainQueueFlush()
+
+        XCTAssertEqual(viewModel.rescueSectionState.totalCount, 3)
+        XCTAssertTrue(viewModel.rescueSectionState.isExpandedByDefault)
+        XCTAssertTrue(viewModel.focusNowSectionState.rows.isEmpty)
+
+        defaults.removePersistentDomain(forName: suiteName)
+    }
+
     private func waitForMainQueueFlush() {
         let expectation = expectation(description: "MainQueueFlush")
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
@@ -774,7 +1070,8 @@ final class HomeViewModelPersistenceTests: XCTestCase {
         dueDate: Date? = Date(),
         priority: TaskPriority = .low,
         isComplete: Bool = false,
-        dateCompleted: Date? = nil
+        dateCompleted: Date? = nil,
+        updatedAt: Date = Date()
     ) -> Task {
         Task(
             id: id,
@@ -784,7 +1081,8 @@ final class HomeViewModelPersistenceTests: XCTestCase {
             dueDate: dueDate,
             project: project.name,
             isComplete: isComplete,
-            dateCompleted: dateCompleted
+            dateCompleted: dateCompleted,
+            updatedAt: updatedAt
         )
     }
 

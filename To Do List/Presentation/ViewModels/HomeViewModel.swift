@@ -113,6 +113,14 @@ public enum FocusPinResult: Equatable {
     case taskIneligible
 }
 
+public enum FocusPromotionResult: Equatable {
+    case promoted
+    case alreadyPinned
+    case alreadyVisible
+    case replacementRequired(currentFocusTaskIDs: [UUID])
+    case taskIneligible
+}
+
 public extension Notification.Name {
     static let homeTaskMutation = Notification.Name("HomeTaskMutationEvent")
 }
@@ -279,6 +287,7 @@ public final class HomeViewModel: ObservableObject {
     @Published public private(set) var upcomingTasks: [TaskDefinition] = []
     @Published public private(set) var completedTasks: [TaskDefinition] = []
     @Published public private(set) var doneTimelineTasks: [TaskDefinition] = []
+    @Published public private(set) var lifeAreas: [LifeArea] = []
     @Published public private(set) var dueTodayRows: [HomeTodayRow] = [] {
         didSet { scheduleHomeRenderStateRefresh() }
     }
@@ -286,6 +295,18 @@ public final class HomeViewModel: ObservableObject {
         didSet { scheduleHomeRenderStateRefresh() }
     }
     @Published public private(set) var todaySections: [HomeListSection] = [] {
+        didSet { scheduleHomeRenderStateRefresh() }
+    }
+    @Published public private(set) var focusNowSectionState = FocusNowSectionState(rows: [], pinnedTaskIDs: []) {
+        didSet { scheduleHomeRenderStateRefresh() }
+    }
+    @Published public private(set) var todayAgendaSectionState = TodayAgendaSectionState(sections: []) {
+        didSet { scheduleHomeRenderStateRefresh() }
+    }
+    @Published public private(set) var rescueSectionState = RescueSectionState(rows: []) {
+        didSet { scheduleHomeRenderStateRefresh() }
+    }
+    @Published public private(set) var quietTrackingSummaryState = QuietTrackingSummaryState(stableRows: []) {
         didSet { scheduleHomeRenderStateRefresh() }
     }
 
@@ -532,6 +553,10 @@ public final class HomeViewModel: ObservableObject {
             overdueTasks: overdueTasks,
             dueTodaySection: dueTodaySection,
             todaySections: todaySections,
+            focusNowSectionState: focusNowSectionState,
+            todayAgendaSectionState: todayAgendaSectionState,
+            rescueSectionState: rescueSectionState,
+            quietTrackingSummaryState: quietTrackingSummaryState,
             inlineCompletedTasks: activeScope.quickView == .today ? completedTasks : [],
             doneTimelineTasks: doneTimelineTasks,
             projects: projects,
@@ -545,7 +570,7 @@ public final class HomeViewModel: ObservableObject {
             customProjectOrderIDs: activeFilterState.customProjectOrderIDs,
             emptyStateMessage: emptyStateMessage,
             emptyStateActionTitle: emptyStateActionTitle,
-            canUseManualFocusDrag: canUseManualFocusDrag,
+            canUseManualFocusDrag: false,
             focusTasks: focusTasks,
             focusRows: focusRows,
             pinnedFocusTaskIDs: pinnedFocusTaskIDs,
@@ -691,6 +716,22 @@ public final class HomeViewModel: ObservableObject {
 
     public func lapseHabit(_ row: HomeHabitRow, source: String = "habit_row_action") {
         resolveHabit(row, action: .lapsed, source: source)
+    }
+
+    public func logHabitProgress(
+        _ row: HomeHabitRow,
+        on date: Date,
+        source: String = "quiet_tracking"
+    ) {
+        resolveHabit(row, action: row.kind == .positive ? .complete : .abstained, on: date, source: source)
+    }
+
+    public func logHabitLapse(
+        _ row: HomeHabitRow,
+        on date: Date,
+        source: String = "quiet_tracking"
+    ) {
+        resolveHabit(row, action: .lapsed, on: date, source: source)
     }
 
     /// Deterministically sets completion to a desired value.
@@ -1019,13 +1060,13 @@ public final class HomeViewModel: ObservableObject {
     }
 
     public var canUseManualFocusDrag: Bool {
-        activeScope == .today
+        false
     }
 
     /// Executes pinTaskToFocus.
     @discardableResult
     public func pinTaskToFocus(_ taskID: UUID) -> FocusPinResult {
-        guard canUseManualFocusDrag else {
+        guard activeScope.quickView == .today else {
             return .taskIneligible
         }
 
@@ -1044,7 +1085,7 @@ public final class HomeViewModel: ObservableObject {
 
         pinnedFocusTaskIDs.append(taskID)
         persistPinnedFocusTaskIDs()
-        focusTasks = composedFocusTasks(from: openTasks)
+        updateFocusSelection(composedFocusTasks(from: openTasks))
         refreshEvaInsights(openTasks: openTasks)
         return .pinned
     }
@@ -1055,8 +1096,75 @@ public final class HomeViewModel: ObservableObject {
         pinnedFocusTaskIDs.removeAll { $0 == taskID }
         persistPinnedFocusTaskIDs()
         let openTasks = focusOpenTasksForCurrentState()
-        focusTasks = composedFocusTasks(from: openTasks)
+        updateFocusSelection(composedFocusTasks(from: openTasks))
         refreshEvaInsights(openTasks: openTasks)
+    }
+
+    public func promoteTaskToFocus(_ taskID: UUID) -> FocusPromotionResult {
+        guard activeScope.quickView == .today else {
+            return .taskIneligible
+        }
+
+        let openTasks = focusOpenTasksForCurrentState()
+        guard openTasks.contains(where: { $0.id == taskID }) else {
+            return .taskIneligible
+        }
+
+        if pinnedFocusTaskIDs.contains(taskID) {
+            return .alreadyPinned
+        }
+
+        let currentFocus = composedFocusTasks(from: openTasks)
+        if currentFocus.contains(where: { $0.id == taskID }) {
+            if pinnedFocusTaskIDs.count >= Self.maxPinnedFocusTasks {
+                return .alreadyVisible
+            }
+
+            pinnedFocusTaskIDs.append(taskID)
+            persistPinnedFocusTaskIDs()
+            updateFocusSelection(composedFocusTasks(from: openTasks))
+            refreshEvaInsights(openTasks: openTasks)
+            return .promoted
+        }
+
+        if pinnedFocusTaskIDs.count < Self.maxPinnedFocusTasks {
+            pinnedFocusTaskIDs.append(taskID)
+            persistPinnedFocusTaskIDs()
+            updateFocusSelection(composedFocusTasks(from: openTasks))
+            refreshEvaInsights(openTasks: openTasks)
+            return .promoted
+        }
+
+        return .replacementRequired(currentFocusTaskIDs: Array(currentFocus.prefix(Self.maxPinnedFocusTasks).map(\.id)))
+    }
+
+    public func replaceFocusTask(with taskID: UUID, replacing replacedTaskID: UUID) -> FocusPromotionResult {
+        guard activeScope.quickView == .today else {
+            return .taskIneligible
+        }
+
+        let openTasks = focusOpenTasksForCurrentState()
+        guard openTasks.contains(where: { $0.id == taskID }) else {
+            return .taskIneligible
+        }
+
+        let currentFocus = composedFocusTasks(from: openTasks)
+        guard currentFocus.contains(where: { $0.id == replacedTaskID }) else {
+            return .taskIneligible
+        }
+
+        if taskID == replacedTaskID {
+            return .alreadyVisible
+        }
+
+        let curatedFocusIDs = [taskID] + currentFocus
+            .map(\.id)
+            .filter { $0 != taskID && $0 != replacedTaskID }
+        pinnedFocusTaskIDs = normalizedPinnedFocusTaskIDs(curatedFocusIDs)
+        persistPinnedFocusTaskIDs()
+        updateFocusSelection(composedFocusTasks(from: openTasks))
+        refreshEvaInsights(openTasks: openTasks)
+        return .promoted
     }
 
     /// Change selected date.
@@ -1442,6 +1550,31 @@ public final class HomeViewModel: ObservableObject {
         }
     }
 
+    /// Executes loadLifeAreas.
+    private func loadLifeAreas(generation: Int) {
+        useCaseCoordinator.manageLifeAreas.list { [weak self] result in
+            DispatchQueue.main.async {
+                guard let self else { return }
+                guard self.isCurrentReloadGeneration(generation) else { return }
+
+                switch result {
+                case .success(let loadedLifeAreas):
+                    let sortedLifeAreas = loadedLifeAreas
+                        .filter { !$0.isArchived }
+                        .sorted {
+                            if $0.sortOrder != $1.sortOrder {
+                                return $0.sortOrder < $1.sortOrder
+                            }
+                            return $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending
+                        }
+                    self.assignIfChanged(\.lifeAreas, sortedLifeAreas)
+                case .failure(let error):
+                    self.errorMessage = error.localizedDescription
+                }
+            }
+        }
+    }
+
     /// Executes loadTags.
     private func loadTags(generation: Int) {
         let interval = TaskerPerformanceTrace.begin("HomeLoadTags")
@@ -1554,7 +1687,7 @@ public final class HomeViewModel: ObservableObject {
 
     public func shuffleFocusNow() {
         guard V2FeatureFlags.evaFocusEnabled else { return }
-        guard canUseManualFocusDrag else { return }
+        guard activeScope.quickView == .today else { return }
         guard activeScope.quickView != .done else { return }
 
         let openTasks = focusOpenTasksForCurrentState()
@@ -1572,7 +1705,7 @@ public final class HomeViewModel: ObservableObject {
         let newSelection = Array((pinned + autoFill).prefix(Self.maxPinnedFocusTasks))
         guard newSelection.isEmpty == false else { return }
 
-        focusTasks = newSelection
+        updateFocusSelection(newSelection)
         for task in newSelection {
             recentShuffledFocusTaskIDs.append(task.id)
         }
@@ -1779,6 +1912,7 @@ public final class HomeViewModel: ObservableObject {
 
     public func openRescue() {
         guard V2FeatureFlags.evaRescueEnabled else { return }
+        let referenceDate = selectedDate
         evaRescueSheetPresented = true
         useCaseCoordinator.getTasks.getOverdueTasks { [weak self] result in
             DispatchQueue.main.async {
@@ -1790,14 +1924,16 @@ public final class HomeViewModel: ObservableObject {
                 case .failure:
                     tasks = self.overdueTasks
                 }
-                let openOverdue = tasks.filter { !$0.isComplete }
+                let rescueEligibleTasks = tasks.filter {
+                    !($0.isComplete) && self.isRescueEligibleTask($0, on: referenceDate)
+                }
                 self.evaRescuePlan = self.getOverdueRescuePlanUseCase.execute(
-                    overdueTasks: openOverdue,
-                    now: Date()
+                    overdueTasks: rescueEligibleTasks,
+                    now: referenceDate
                 )
                 self.trackHomeInteraction(action: "rescue_open", metadata: [
-                    "scope": "all_overdue",
-                    "overdue_count": openOverdue.count
+                    "scope": "two_week_overdue",
+                    "overdue_count": rescueEligibleTasks.count
                 ])
             }
         }
@@ -2464,6 +2600,7 @@ public final class HomeViewModel: ObservableObject {
         loadSavedViews()
         let generation = nextReloadGeneration()
         loadProjects(generation: generation)
+        loadLifeAreas(generation: generation)
         loadTags(generation: generation)
         applyFocusFilters(trackAnalytics: false, generation: generation) { [weak self] in
             self?.scheduleDeferredAnalyticsRefresh(
@@ -2620,7 +2757,6 @@ public final class HomeViewModel: ObservableObject {
     }
 
     private func refreshDueTodayAgenda(
-        visibleTaskRows: [TaskDefinition],
         openTaskRows: [TaskDefinition],
         generation: Int
     ) {
@@ -2677,26 +2813,56 @@ public final class HomeViewModel: ObservableObject {
 
             let allHabitRows = self.mergeHabitRows(agenda: agendaHabitRows, tracking: trackingHabitRows)
             self.currentHabitSignals = self.habitSignals(from: allHabitRows)
+            let rescueEligibleTaskIDs = Set(
+                openTaskRows
+                    .filter { self.isRescueEligibleTask($0, on: self.selectedDate) }
+                    .map(\.id)
+            )
+            let agendaTaskRows = openTaskRows.filter { !rescueEligibleTaskIDs.contains($0.id) }
+            let focusTaskRows = openTaskRows.filter { !rescueEligibleTaskIDs.contains($0.id) }
 
             let agenda = self.buildHomeAgendaUseCase.execute(
                 date: self.selectedDate,
-                taskRows: openTaskRows,
+                taskRows: agendaTaskRows,
                 habitRows: agendaHabitRows
             )
 
             self.assignIfChanged(\.dueTodayRows, agenda.rows)
-            self.assignIfChanged(\.dueTodaySection, HomeMixedSectionBuilder.buildDueTodaySection(rows: agenda.rows))
+            self.assignIfChanged(\.dueTodaySection, nil)
+            let todaySections = HomeMixedSectionBuilder.buildTodaySections(
+                taskRows: agendaTaskRows,
+                habitRows: allHabitRows.filter(self.includeHabitInAgenda(_:)),
+                projects: self.projects,
+                lifeAreas: self.lifeAreas
+            )
+            self.assignIfChanged(\.todaySections, todaySections)
+
+            let focusRows = self.composeFocusRows(taskRows: focusTaskRows, habitRows: allHabitRows)
+            self.assignIfChanged(\.focusRows, focusRows)
             self.assignIfChanged(
-                \.todaySections,
-                HomeMixedSectionBuilder.buildTodaySections(
-                    mode: self.activeFilterState.projectGroupingMode,
-                    taskRows: visibleTaskRows,
-                    habitRows: allHabitRows,
-                    projects: self.projects,
-                    customProjectOrderIDs: self.activeFilterState.customProjectOrderIDs
+                \.focusNowSectionState,
+                FocusNowSectionState(
+                    rows: focusRows,
+                    pinnedTaskIDs: self.pinnedFocusTaskIDs
                 )
             )
-            self.assignIfChanged(\.focusRows, self.composeFocusRows(taskRows: openTaskRows, habitRows: allHabitRows))
+            self.assignIfChanged(
+                \.todayAgendaSectionState,
+                TodayAgendaSectionState(sections: todaySections)
+            )
+            self.assignIfChanged(
+                \.rescueSectionState,
+                self.buildRescueSectionState(
+                    rescueEligibleTasks: openTaskRows.filter { rescueEligibleTaskIDs.contains($0.id) },
+                    focusRows: focusRows
+                )
+            )
+            self.assignIfChanged(
+                \.quietTrackingSummaryState,
+                QuietTrackingSummaryState(
+                    stableRows: allHabitRows.filter(self.isStableQuietTrackingRow(_:))
+                )
+            )
 
             if Calendar.current.isDate(self.selectedDate, inSameDayAs: Date()) {
                 self.loadDailyAnalytics(includeGamificationRefresh: false)
@@ -2759,6 +2925,79 @@ public final class HomeViewModel: ObservableObject {
                 return (lhs.projectName ?? lhs.lifeAreaName).localizedCaseInsensitiveCompare(rhs.projectName ?? rhs.lifeAreaName) == .orderedAscending
             }
             return lhs.title.localizedCaseInsensitiveCompare(rhs.title) == .orderedAscending
+        }
+    }
+
+    private func includeHabitInAgenda(_ row: HomeHabitRow) -> Bool {
+        switch row.state {
+        case .overdue:
+            return true
+        case .due:
+            if row.kind == .positive {
+                return true
+            }
+            return row.riskState != .stable
+        case .tracking:
+            return false
+        case .completedToday, .lapsedToday, .skippedToday:
+            return false
+        }
+    }
+
+    private func isStableQuietTrackingRow(_ row: HomeHabitRow) -> Bool {
+        row.trackingMode == .lapseOnly
+            && row.state == .tracking
+            && row.riskState == .stable
+    }
+
+    private func buildRescueSectionState(
+        rescueEligibleTasks: [TaskDefinition],
+        focusRows: [HomeTodayRow]
+    ) -> RescueSectionState {
+        guard activeScope.quickView == .today else {
+            return RescueSectionState(rows: [])
+        }
+
+        let rows = rescueEligibleTasks
+            .map(HomeTodayRow.task)
+            .sorted(by: compareRescueRows(_:_:))
+        let isExpandedByDefault = rows.count < 3 || focusRows.isEmpty
+        return RescueSectionState(rows: rows, isExpandedByDefault: isExpandedByDefault)
+    }
+
+    private func isRescueEligibleTask(_ task: TaskDefinition, on referenceDate: Date) -> Bool {
+        guard !task.isComplete, let dueDate = task.dueDate else {
+            return false
+        }
+
+        let calendar = Calendar.current
+        let anchorDay = calendar.startOfDay(for: referenceDate)
+        let rescueCutoff = calendar.date(byAdding: .day, value: -14, to: anchorDay) ?? anchorDay
+        return dueDate < rescueCutoff
+    }
+
+    private func compareRescueRows(_ lhs: HomeTodayRow, _ rhs: HomeTodayRow) -> Bool {
+        let lhsDue = lhs.dueDate ?? .distantFuture
+        let rhsDue = rhs.dueDate ?? .distantFuture
+        if lhsDue != rhsDue {
+            return lhsDue < rhsDue
+        }
+
+        let lhsPriority = rescuePriority(for: lhs)
+        let rhsPriority = rescuePriority(for: rhs)
+        if lhsPriority != rhsPriority {
+            return lhsPriority > rhsPriority
+        }
+
+        return lhs.title.localizedCaseInsensitiveCompare(rhs.title) == .orderedAscending
+    }
+
+    private func rescuePriority(for row: HomeTodayRow) -> Int {
+        switch row {
+        case .task(let task):
+            return task.priority.scorePoints
+        case .habit:
+            return 0
         }
     }
 
@@ -2826,19 +3065,33 @@ public final class HomeViewModel: ObservableObject {
             relativeTo: activeScope
         ).map(HomeTodayRow.task)
 
-        let habitCandidates = habitRows
-            .filter { row in
-                row.trackingMode == .dailyCheckIn && (row.state == .due || row.state == .overdue)
-            }
-            .map(HomeTodayRow.habit)
-
-        let rankedMixed = (rankedTaskRows + habitCandidates)
-            .sorted(by: compareFocusRows(_:_:))
-
         var results = pinnedTaskRows
-        for row in rankedMixed where results.count < Self.maxPinnedFocusTasks && !results.contains(where: { $0.id == row.id }) {
+        for row in rankedTaskRows where results.count < Self.maxPinnedFocusTasks && !results.contains(where: { $0.id == row.id }) {
             results.append(row)
         }
+
+        if results.isEmpty {
+            let highPriorityHabits = habitRows
+                .filter { row in
+                    row.trackingMode == .dailyCheckIn
+                        && row.kind == .positive
+                        && (row.state == .overdue || row.riskState == .atRisk)
+                }
+                .sorted { lhs, rhs in
+                    if lhs.state != rhs.state {
+                        return lhs.state == .overdue
+                    }
+                    let lhsDue = lhs.dueAt ?? .distantFuture
+                    let rhsDue = rhs.dueAt ?? .distantFuture
+                    return lhsDue < rhsDue
+                }
+                .map(HomeTodayRow.habit)
+
+            for row in highPriorityHabits where results.count < 1 {
+                results.append(row)
+            }
+        }
+
         return Array(results.prefix(Self.maxPinnedFocusTasks))
     }
 
@@ -2856,6 +3109,17 @@ public final class HomeViewModel: ObservableObject {
         }
 
         return lhs.title.localizedCaseInsensitiveCompare(rhs.title) == .orderedAscending
+    }
+
+    private func updateFocusSelection(_ tasks: [TaskDefinition]) {
+        let limitedTasks = Array(tasks.prefix(Self.maxPinnedFocusTasks))
+        assignIfChanged(\.focusTasks, limitedTasks)
+        let rows = limitedTasks.map(HomeTodayRow.task)
+        assignIfChanged(\.focusRows, rows)
+        assignIfChanged(
+            \.focusNowSectionState,
+            FocusNowSectionState(rows: rows, pinnedTaskIDs: pinnedFocusTaskIDs)
+        )
     }
 
     private func focusPriority(for row: HomeTodayRow) -> Int {
@@ -2877,11 +3141,20 @@ public final class HomeViewModel: ObservableObject {
         action: HabitOccurrenceAction,
         source: String
     ) {
+        resolveHabit(row, action: action, on: selectedDate, source: source)
+    }
+
+    private func resolveHabit(
+        _ row: HomeHabitRow,
+        action: HabitOccurrenceAction,
+        on date: Date,
+        source: String
+    ) {
         useCaseCoordinator.resolveHabitOccurrence.execute(
             habitID: row.habitID,
             occurrenceID: row.occurrenceID,
             action: action,
-            on: selectedDate
+            on: date
         ) { [weak self] result in
             DispatchQueue.main.async {
                 guard let self else { return }
@@ -3130,7 +3403,7 @@ public final class HomeViewModel: ObservableObject {
             "open=\(summarizeRowState(openTasks)) done=\(summarizeRowState(doneTasks))"
         )
 
-        if canUseManualFocusDrag {
+        if activeScope.quickView == .today {
             prunePinnedFocusTaskIDs(keepingOpenTaskIDs: Set(openTasks.map(\.id)))
         }
         assignIfChanged(\.focusTasks, composedFocusTasks(from: openTasks))
@@ -3144,9 +3417,13 @@ public final class HomeViewModel: ObservableObject {
             assignIfChanged(\.dueTodayRows, [])
             assignIfChanged(\.dueTodaySection, nil)
             assignIfChanged(\.todaySections, [])
+            assignIfChanged(\.todayAgendaSectionState, TodayAgendaSectionState(sections: []))
+            assignIfChanged(\.rescueSectionState, RescueSectionState(rows: []))
+            assignIfChanged(\.quietTrackingSummaryState, QuietTrackingSummaryState(stableRows: []))
             currentHabitSignals = []
             assignIfChanged(\.focusTasks, [])
             assignIfChanged(\.focusRows, [])
+            assignIfChanged(\.focusNowSectionState, FocusNowSectionState(rows: [], pinnedTaskIDs: pinnedFocusTaskIDs))
             refreshEvaInsights(openTasks: [])
             assignIfChanged(\.upcomingTasks, [])
             assignIfChanged(\.morningTasks, [])
@@ -3163,7 +3440,6 @@ public final class HomeViewModel: ObservableObject {
         assignIfChanged(\.completedTasks, doneTasks)
         assignIfChanged(\.dailyCompletedTasks, doneTasks)
         refreshDueTodayAgenda(
-            visibleTaskRows: visibleTasks,
             openTaskRows: openTasks,
             generation: generation
         )
@@ -3547,8 +3823,7 @@ public final class HomeViewModel: ObservableObject {
     /// Executes composedFocusTasks.
     private func composedFocusTasks(from openTasks: [TaskDefinition]) -> [TaskDefinition] {
         guard !openTasks.isEmpty else { return [] }
-
-        guard canUseManualFocusDrag else {
+        guard activeScope.quickView == .today else {
             return rankedFocusTasks(from: openTasks, relativeTo: activeScope)
         }
 
@@ -3577,7 +3852,7 @@ public final class HomeViewModel: ObservableObject {
         pinnedFocusTaskIDs.removeAll { $0 == taskID }
         persistPinnedFocusTaskIDs()
         let openTasks = focusOpenTasksForCurrentState()
-        focusTasks = composedFocusTasks(from: openTasks)
+        updateFocusSelection(composedFocusTasks(from: openTasks))
         refreshEvaInsights(openTasks: openTasks)
     }
 
@@ -3613,18 +3888,16 @@ public final class HomeViewModel: ObservableObject {
     /// Executes refreshFocusTasksFromCurrentState.
     private func refreshFocusTasksFromCurrentState() {
         if activeScope.quickView == .done {
-            focusTasks = []
-            focusRows = []
+            updateFocusSelection([])
             refreshEvaInsights(openTasks: [])
             return
         }
 
         let openTasks = focusOpenTasksForCurrentState()
-        if canUseManualFocusDrag {
+        if activeScope.quickView == .today {
             prunePinnedFocusTaskIDs(keepingOpenTaskIDs: Set(openTasks.map(\.id)))
         }
-        focusTasks = composedFocusTasks(from: openTasks)
-        focusRows = focusTasks.map(HomeTodayRow.task)
+        updateFocusSelection(composedFocusTasks(from: openTasks))
         refreshEvaInsights(openTasks: openTasks)
     }
 
@@ -4561,6 +4834,10 @@ extension HomeViewModel {
             dueTodayRows: dueTodayRows,
             dueTodaySection: dueTodaySection,
             todaySections: todaySections,
+            focusNowSectionState: focusNowSectionState,
+            todayAgendaSectionState: todayAgendaSectionState,
+            rescueSectionState: rescueSectionState,
+            quietTrackingSummaryState: quietTrackingSummaryState,
             upcomingTasks: upcomingTasks,
             completedTasks: completedTasks,
             doneTimelineTasks: doneTimelineTasks,
@@ -4598,6 +4875,10 @@ public struct HomeViewState {
     public let dueTodayRows: [HomeTodayRow]
     public let dueTodaySection: HomeListSection?
     public let todaySections: [HomeListSection]
+    public let focusNowSectionState: FocusNowSectionState
+    public let todayAgendaSectionState: TodayAgendaSectionState
+    public let rescueSectionState: RescueSectionState
+    public let quietTrackingSummaryState: QuietTrackingSummaryState
     public let upcomingTasks: [TaskDefinition]
     public let completedTasks: [TaskDefinition]
     public let doneTimelineTasks: [TaskDefinition]

@@ -4,10 +4,11 @@ import XCTest
 final class HomeBandLayoutPlannerTests: XCTestCase {
     func testVisibleBandsStayInEditorialOrder() {
         let bands = HomeBandLayoutPlanner.visibleBands(
-            hasQuickFilters: true,
-            hasDueTodayAgenda: true,
-            hasPressureTools: true,
-            hasSecondaryContent: true
+            hasPassiveTracking: true,
+            hasFocusHero: true,
+            hasTodayAgenda: true,
+            hasRescue: true,
+            hasQuietTracking: true
         )
 
         XCTAssertEqual(bands, [.context, .activeWork, .pressure, .secondary])
@@ -15,10 +16,11 @@ final class HomeBandLayoutPlannerTests: XCTestCase {
 
     func testVisibleBandsSkipEmptyBandsWithoutReorderingRemainingBands() {
         let bands = HomeBandLayoutPlanner.visibleBands(
-            hasQuickFilters: false,
-            hasDueTodayAgenda: true,
-            hasPressureTools: true,
-            hasSecondaryContent: false
+            hasPassiveTracking: false,
+            hasFocusHero: false,
+            hasTodayAgenda: true,
+            hasRescue: true,
+            hasQuietTracking: false
         )
 
         XCTAssertEqual(bands, [.activeWork, .pressure])
