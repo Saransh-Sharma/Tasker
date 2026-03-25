@@ -375,336 +375,176 @@ final class CoreDataProjectRepositoryLifeAreaMutationTests: XCTestCase {
     }
 }
 
-final class LifeManagementViewModelTests: XCTestCase {
-    func testLoadGroupsProjectsByLifeAreaAndBackfillsUnassignedToGeneral() {
-        let general = LifeArea(id: UUID(), name: "General", color: "#4A6FA5", icon: "square.grid.2x2")
+final class LifeManagementProjectionTests: XCTestCase {
+    func testProjectionBuildsOverviewAndGroupsActiveEntitiesByArea() {
+        let general = LifeArea(id: UUID(), name: "General", color: "#9E5F0A", icon: "square.grid.2x2")
         let career = LifeArea(id: UUID(), name: "Career", color: "#3B82F6", icon: "briefcase.fill")
 
-        let inbox = Project(
-            id: ProjectConstants.inboxProjectID,
-            lifeAreaID: nil,
-            name: ProjectConstants.inboxProjectName,
-            projectDescription: nil,
-            isDefault: true
+        let inbox = ProjectWithStats(
+            project: Project(
+                id: ProjectConstants.inboxProjectID,
+                lifeAreaID: general.id,
+                name: ProjectConstants.inboxProjectName,
+                projectDescription: nil,
+                isDefault: true
+            ),
+            taskCount: 1,
+            completedTaskCount: 0
         )
-        let customUnassigned = Project(
-            id: UUID(),
-            lifeAreaID: nil,
-            name: "Sleep Reset",
-            projectDescription: "Night routine"
+        let roadmap = ProjectWithStats(
+            project: Project(
+                id: UUID(),
+                lifeAreaID: career.id,
+                name: "Roadmap",
+                projectDescription: "Quarter goals",
+                color: .blue,
+                icon: .flag
+            ),
+            taskCount: 0,
+            completedTaskCount: 0
         )
-        let customCareer = Project(
-            id: UUID(),
+
+        let activeHabit = HabitLibraryRow(
+            habitID: UUID(),
+            title: "Deep work",
+            kind: .positive,
+            trackingMode: .dailyCheckIn,
             lifeAreaID: career.id,
-            name: "Promotion Prep",
-            projectDescription: "Quarter goals"
+            lifeAreaName: "Career",
+            projectID: roadmap.project.id,
+            projectName: roadmap.project.name,
+            colorHex: "#3B82F6",
+            isPaused: false,
+            isArchived: false,
+            currentStreak: 6,
+            bestStreak: 9
         )
-
-        let projectRepository = ProjectRepositoryStub(
-            projects: [inbox, customUnassigned, customCareer],
-            taskCounts: [
-                inbox.id: 1,
-                customUnassigned.id: 2,
-                customCareer.id: 3
-            ]
-        )
-        let lifeAreaRepository = LifeAreaRepositoryStub(areas: [general, career])
-
-        let viewModel = LifeManagementViewModel(
-            manageLifeAreasUseCase: ManageLifeAreasUseCase(repository: lifeAreaRepository),
-            manageProjectsUseCase: ManageProjectsUseCase(projectRepository: projectRepository),
-            projectRepository: projectRepository
-        )
-
-        viewModel.loadIfNeeded()
-        waitUntil(timeout: 1.5) {
-            viewModel.isLoading == false && viewModel.sections.count == 2
-        }
-
-        let generalSection = viewModel.sections.first(where: { $0.lifeArea.id == general.id })
-        let careerSection = viewModel.sections.first(where: { $0.lifeArea.id == career.id })
-
-        XCTAssertNotNil(generalSection)
-        XCTAssertNotNil(careerSection)
-
-        XCTAssertEqual(generalSection?.projects.count, 2)
-        XCTAssertEqual(careerSection?.projects.count, 1)
-        XCTAssertTrue(generalSection?.projects.contains(where: { $0.project.id == ProjectConstants.inboxProjectID }) ?? false)
-        XCTAssertTrue(generalSection?.projects.contains(where: { $0.project.id == customUnassigned.id }) ?? false)
-        XCTAssertEqual(projectRepository.backfillCalls, [general.id])
-    }
-
-    func testVisibleSuggestionsExcludesExistingSuggestedLifeAreas() {
-        let general = LifeArea(id: UUID(), name: "General", color: nil, icon: nil)
-        let health = LifeArea(id: UUID(), name: "Health", color: nil, icon: "heart.fill")
-        let projectRepository = ProjectRepositoryStub(projects: [], taskCounts: [:])
-        let lifeAreaRepository = LifeAreaRepositoryStub(areas: [general, health])
-
-        let viewModel = LifeManagementViewModel(
-            manageLifeAreasUseCase: ManageLifeAreasUseCase(repository: lifeAreaRepository),
-            manageProjectsUseCase: ManageProjectsUseCase(projectRepository: projectRepository),
-            projectRepository: projectRepository
-        )
-
-        viewModel.loadIfNeeded()
-        waitUntil(timeout: 1.0) {
-            viewModel.isLoading == false && !viewModel.sections.isEmpty
-        }
-
-        XCTAssertFalse(viewModel.visibleSuggestions.contains(where: { $0.name == "Health" }))
-        XCTAssertTrue(viewModel.visibleSuggestions.contains(where: { $0.name == "Career" }))
-    }
-
-    func testPerformDropMovesProjectAcrossSectionsAndClearsDragState() {
-        let general = LifeArea(id: UUID(), name: "General", color: "#4A6FA5", icon: "square.grid.2x2")
-        let career = LifeArea(id: UUID(), name: "Career", color: "#3B82F6", icon: "briefcase.fill")
-
-        let project = Project(
-            id: UUID(),
-            lifeAreaID: career.id,
-            name: "Promotion Prep",
-            projectDescription: "Quarter goals"
-        )
-
-        let projectRepository = ProjectRepositoryStub(
-            projects: [project],
-            taskCounts: [project.id: 3]
-        )
-        let lifeAreaRepository = LifeAreaRepositoryStub(areas: [general, career])
-
-        let viewModel = LifeManagementViewModel(
-            manageLifeAreasUseCase: ManageLifeAreasUseCase(repository: lifeAreaRepository),
-            manageProjectsUseCase: ManageProjectsUseCase(projectRepository: projectRepository),
-            projectRepository: projectRepository
-        )
-
-        viewModel.loadIfNeeded()
-        waitUntil(timeout: 1.0) {
-            viewModel.isLoading == false && viewModel.sections.count == 2
-        }
-
-        viewModel.beginDrag(projectID: project.id)
-        viewModel.dropEntered(targetLifeAreaID: general.id)
-        XCTAssertEqual(viewModel.activeDropLifeAreaID, general.id)
-
-        let handled = viewModel.performDrop(providers: [], targetLifeAreaID: general.id)
-        XCTAssertTrue(handled)
-
-        waitUntil(timeout: 1.0) {
-            let generalContainsProject = viewModel.sections.first(where: { $0.lifeArea.id == general.id })?
-                .projects
-                .contains(where: { $0.project.id == project.id }) ?? false
-            return generalContainsProject
-                && viewModel.draggingProjectID == nil
-                && viewModel.activeDropLifeAreaID == nil
-                && viewModel.isMutating == false
-        }
-
-        XCTAssertEqual(projectRepository.moveProjectCalls.count, 1)
-    }
-
-    func testCreateProjectFromDraftAssignsSelectedLifeArea() {
-        let general = LifeArea(id: UUID(), name: "General", color: "#4A6FA5", icon: "square.grid.2x2")
-        let career = LifeArea(id: UUID(), name: "Career", color: "#3B82F6", icon: "briefcase.fill")
-        let projectRepository = ProjectRepositoryStub(projects: [], taskCounts: [:])
-        let lifeAreaRepository = LifeAreaRepositoryStub(areas: [general, career])
-
-        let viewModel = LifeManagementViewModel(
-            manageLifeAreasUseCase: ManageLifeAreasUseCase(repository: lifeAreaRepository),
-            manageProjectsUseCase: ManageProjectsUseCase(projectRepository: projectRepository),
-            projectRepository: projectRepository
-        )
-
-        viewModel.loadIfNeeded()
-        waitUntil(timeout: 1.0) {
-            viewModel.isLoading == false && viewModel.sections.count == 2
-        }
-
-        viewModel.draftProjectName = "Promotion Prep"
-        viewModel.draftProjectDescription = "Q2 milestones"
-        viewModel.draftProjectLifeAreaID = career.id
-        viewModel.createProjectFromDraft()
-
-        waitUntil(timeout: 1.0) {
-            projectRepository.projects.contains(where: {
-                $0.name == "Promotion Prep" && $0.lifeAreaID == career.id
-            })
-        }
-
-        XCTAssertTrue(projectRepository.projects.contains(where: {
-            $0.name == "Promotion Prep" && $0.lifeAreaID == career.id
-        }))
-    }
-
-    func testArchiveLifeAreaMovesSectionToArchivedGroupAndExposesWarningCounts() {
-        let general = LifeArea(id: UUID(), name: "General", color: "#4A6FA5", icon: "square.grid.2x2")
-        let career = LifeArea(id: UUID(), name: "Career", color: "#3B82F6", icon: "briefcase.fill")
-
-        let project = Project(
-            id: UUID(),
-            lifeAreaID: career.id,
-            name: "Promotion Prep",
-            projectDescription: "Quarter goals"
-        )
-
-        let projectRepository = ProjectRepositoryStub(projects: [project], taskCounts: [project.id: 3])
-        let lifeAreaRepository = LifeAreaRepositoryStub(areas: [general, career])
-
-        let viewModel = LifeManagementViewModel(
-            manageLifeAreasUseCase: ManageLifeAreasUseCase(repository: lifeAreaRepository),
-            manageProjectsUseCase: ManageProjectsUseCase(projectRepository: projectRepository),
-            projectRepository: projectRepository
-        )
-
-        viewModel.loadIfNeeded()
-        waitUntil(timeout: 1.0) {
-            viewModel.isLoading == false && viewModel.sections.count == 2
-        }
-
-        viewModel.requestArchiveLifeArea(career.id)
-        XCTAssertEqual(viewModel.lifeAreaArchivePreview?.projectCount, 1)
-        XCTAssertEqual(viewModel.lifeAreaArchivePreview?.taskCount, 3)
-
-        viewModel.confirmLifeAreaArchive()
-        waitUntil(timeout: 1.0) {
-            viewModel.isMutating == false &&
-            viewModel.archivedLifeAreaSections.contains(where: { $0.lifeArea.id == career.id }) &&
-            viewModel.sections.contains(where: { $0.lifeArea.id == career.id }) == false
-        }
-    }
-
-    func testArchiveProjectMovesToArchivedProjectsAndUnarchiveRestoresActiveList() {
-        let general = LifeArea(id: UUID(), name: "General", color: "#4A6FA5", icon: "square.grid.2x2")
-        let career = LifeArea(id: UUID(), name: "Career", color: "#3B82F6", icon: "briefcase.fill")
-
-        let project = Project(
-            id: UUID(),
-            lifeAreaID: career.id,
-            name: "Promotion Prep",
-            projectDescription: "Quarter goals"
-        )
-
-        let projectRepository = ProjectRepositoryStub(projects: [project], taskCounts: [project.id: 3])
-        let lifeAreaRepository = LifeAreaRepositoryStub(areas: [general, career])
-
-        let viewModel = LifeManagementViewModel(
-            manageLifeAreasUseCase: ManageLifeAreasUseCase(repository: lifeAreaRepository),
-            manageProjectsUseCase: ManageProjectsUseCase(projectRepository: projectRepository),
-            projectRepository: projectRepository
-        )
-
-        viewModel.loadIfNeeded()
-        waitUntil(timeout: 1.0) {
-            viewModel.isLoading == false && viewModel.sections.count == 2
-        }
-
-        viewModel.requestArchiveProject(project.id)
-        XCTAssertEqual(viewModel.projectArchivePreview?.taskCount, 3)
-
-        viewModel.confirmProjectArchive()
-        waitUntil(timeout: 1.0) {
-            let activeContains = viewModel.sections.first(where: { $0.lifeArea.id == career.id })?
-                .projects
-                .contains(where: { $0.project.id == project.id }) ?? false
-            let archivedContains = viewModel.archivedProjectGroups
-                .flatMap(\.projects)
-                .contains(where: { $0.project.id == project.id })
-            return viewModel.isMutating == false && !activeContains && archivedContains
-        }
-
-        viewModel.unarchiveProject(project.id)
-        waitUntil(timeout: 1.0) {
-            let activeContains = viewModel.sections.first(where: { $0.lifeArea.id == career.id })?
-                .projects
-                .contains(where: { $0.project.id == project.id }) ?? false
-            let archivedContains = viewModel.archivedProjectGroups
-                .flatMap(\.projects)
-                .contains(where: { $0.project.id == project.id })
-            return viewModel.isMutating == false && activeContains && !archivedContains
-        }
-    }
-
-    func testCanDropProjectRejectsArchivedLifeAreaTarget() {
-        let general = LifeArea(id: UUID(), name: "General", color: "#4A6FA5", icon: "square.grid.2x2")
-        let archived = LifeArea(id: UUID(), name: "Career", color: "#3B82F6", icon: "briefcase.fill", isArchived: true)
-        let project = Project(
-            id: UUID(),
+        let pausedHabit = HabitLibraryRow(
+            habitID: UUID(),
+            title: "No late caffeine",
+            kind: .negative,
+            trackingMode: .lapseOnly,
             lifeAreaID: general.id,
-            name: "Inbox Zero",
-            projectDescription: nil
+            lifeAreaName: "General",
+            colorHex: "#9E5F0A",
+            isPaused: true,
+            isArchived: false,
+            currentStreak: 0,
+            bestStreak: 4
         )
 
-        let projectRepository = ProjectRepositoryStub(projects: [project], taskCounts: [project.id: 1])
-        let lifeAreaRepository = LifeAreaRepositoryStub(areas: [general, archived])
-
-        let viewModel = LifeManagementViewModel(
-            manageLifeAreasUseCase: ManageLifeAreasUseCase(repository: lifeAreaRepository),
-            manageProjectsUseCase: ManageProjectsUseCase(projectRepository: projectRepository),
-            projectRepository: projectRepository
+        let snapshot = LifeManagementProjection.build(
+            lifeAreas: [general, career],
+            projectStats: [inbox, roadmap],
+            habitRows: [activeHabit, pausedHabit],
+            selectedScope: .overview,
+            selectedHabitFilter: .all,
+            searchQuery: "",
+            generalLifeAreaID: general.id
         )
 
-        viewModel.loadIfNeeded()
-        waitUntil(timeout: 1.0) {
-            viewModel.isLoading == false && viewModel.sections.count == 1
-        }
-
-        viewModel.beginDrag(projectID: project.id)
-        XCTAssertFalse(viewModel.canDropProject(on: archived.id))
-        viewModel.dropEntered(targetLifeAreaID: archived.id)
-        XCTAssertNil(viewModel.activeDropLifeAreaID)
+        XCTAssertEqual(snapshot.overview.stats.map(\.value), ["2", "2", "2"])
+        XCTAssertEqual(snapshot.areaRows.count, 2)
+        XCTAssertEqual(snapshot.projectGroups.count, 2)
+        XCTAssertEqual(snapshot.habitGroups.count, 2)
+        XCTAssertTrue(snapshot.overview.attentionItems.contains(where: { $0.title.contains("empty project") }))
+        XCTAssertTrue(snapshot.overview.attentionItems.contains(where: { $0.title.contains("paused habit") }))
+        XCTAssertEqual(snapshot.projectGroups.first(where: { $0.title == "Career" })?.rows.first?.linkedHabitCount, 1)
+        XCTAssertEqual(snapshot.habitGroups.first(where: { $0.title == "Career" })?.rows.first?.row.colorHex, "#3B82F6")
     }
 
-    func testEditLifeAreaAndIconUpdateRenderedSection() {
-        let general = LifeArea(id: UUID(), name: "General", color: "#4A6FA5", icon: "square.grid.2x2")
-        let career = LifeArea(id: UUID(), name: "Career", color: "#3B82F6", icon: "briefcase.fill")
-        let projectRepository = ProjectRepositoryStub(projects: [], taskCounts: [:])
-        let lifeAreaRepository = LifeAreaRepositoryStub(areas: [general, career])
+    func testProjectionSearchesArchivedEntitiesSeparately() {
+        let general = LifeArea(id: UUID(), name: "General", color: "#9E5F0A", icon: "square.grid.2x2")
+        let archivedArea = LifeArea(id: UUID(), name: "Travel", color: "#0EA5A3", icon: "airplane", isArchived: true)
 
-        let viewModel = LifeManagementViewModel(
-            manageLifeAreasUseCase: ManageLifeAreasUseCase(repository: lifeAreaRepository),
-            manageProjectsUseCase: ManageProjectsUseCase(projectRepository: projectRepository),
-            projectRepository: projectRepository
+        let archivedProject = ProjectWithStats(
+            project: Project(
+                id: UUID(),
+                lifeAreaID: archivedArea.id,
+                name: "Japan trip",
+                projectDescription: "Archived trip plan",
+                color: .teal,
+                icon: .travel,
+                isArchived: true
+            ),
+            taskCount: 2,
+            completedTaskCount: 0
         )
 
-        viewModel.loadIfNeeded()
-        waitUntil(timeout: 1.0) {
-            viewModel.isLoading == false && viewModel.sections.count == 2
-        }
+        let archivedHabit = HabitLibraryRow(
+            habitID: UUID(),
+            title: "Pack bags",
+            kind: .positive,
+            trackingMode: .dailyCheckIn,
+            lifeAreaID: archivedArea.id,
+            lifeAreaName: archivedArea.name,
+            projectID: archivedProject.project.id,
+            projectName: archivedProject.project.name,
+            colorHex: "#0EA5A3",
+            isPaused: true,
+            isArchived: true,
+            currentStreak: 0,
+            bestStreak: 2
+        )
 
-        viewModel.beginEditLifeArea(career.id)
-        viewModel.saveLifeAreaEdit(name: "Work", colorHex: "#112233")
-        waitUntil(timeout: 1.0) {
-            viewModel.sections.contains(where: { $0.lifeArea.id == career.id && $0.lifeArea.name == "Work" })
-        }
+        let snapshot = LifeManagementProjection.build(
+            lifeAreas: [general, archivedArea],
+            projectStats: [archivedProject],
+            habitRows: [archivedHabit],
+            selectedScope: .archive,
+            selectedHabitFilter: .all,
+            searchQuery: "japan",
+            generalLifeAreaID: general.id
+        )
 
-        viewModel.showIconPicker(for: career.id)
-        viewModel.applyIconSelection("flag.fill")
-        waitUntil(timeout: 1.0) {
-            viewModel.sections.contains(where: { $0.lifeArea.id == career.id && $0.lifeArea.icon == "flag.fill" })
-        }
+        XCTAssertEqual(snapshot.searchResults.areas.count, 0)
+        XCTAssertEqual(snapshot.searchResults.projects.map(\.project.name), ["Japan trip"])
+        XCTAssertEqual(snapshot.searchResults.habits.count, 0)
+        XCTAssertEqual(snapshot.archiveSections.areas.count, 1)
+        XCTAssertEqual(snapshot.archiveSections.projects.first?.rows.count, 1)
+        XCTAssertEqual(snapshot.archiveSections.habits.first?.rows.count, 1)
     }
 
-    private func waitUntil(timeout: TimeInterval, condition: @escaping () -> Bool) {
-        let expectation = expectation(description: "wait-until")
-        let deadline = Date().addingTimeInterval(timeout)
+    func testProjectionAppliesPausedHabitFilter() {
+        let general = LifeArea(id: UUID(), name: "General", color: "#9E5F0A", icon: "square.grid.2x2")
 
-        func poll() {
-            if condition() {
-                expectation.fulfill()
-                return
-            }
-            if Date() >= deadline {
-                XCTFail("Timed out waiting for condition.")
-                expectation.fulfill()
-                return
-            }
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.02) {
-                poll()
-            }
-        }
+        let activeHabit = HabitLibraryRow(
+            habitID: UUID(),
+            title: "Read",
+            kind: .positive,
+            trackingMode: .dailyCheckIn,
+            lifeAreaID: general.id,
+            lifeAreaName: general.name,
+            isPaused: false,
+            isArchived: false,
+            currentStreak: 3,
+            bestStreak: 5
+        )
+        let pausedHabit = HabitLibraryRow(
+            habitID: UUID(),
+            title: "No sugar",
+            kind: .negative,
+            trackingMode: .lapseOnly,
+            lifeAreaID: general.id,
+            lifeAreaName: general.name,
+            isPaused: true,
+            isArchived: false,
+            currentStreak: 0,
+            bestStreak: 7
+        )
 
-        poll()
-        waitForExpectations(timeout: timeout + 0.3)
+        let snapshot = LifeManagementProjection.build(
+            lifeAreas: [general],
+            projectStats: [],
+            habitRows: [activeHabit, pausedHabit],
+            selectedScope: .habits,
+            selectedHabitFilter: .paused,
+            searchQuery: "",
+            generalLifeAreaID: general.id
+        )
+
+        XCTAssertEqual(snapshot.habitGroups.count, 1)
+        XCTAssertEqual(snapshot.habitGroups.first?.rows.map(\.row.title), ["No sugar"])
     }
 }
 

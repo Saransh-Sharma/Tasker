@@ -124,6 +124,7 @@ final class HabitCoreDataSchemaRegressionTests: XCTestCase {
             "trackingModeRaw",
             "iconSymbolName",
             "iconCategoryKey",
+            "colorHex",
             "notes",
             "archivedAt",
             "successMask14Raw",
