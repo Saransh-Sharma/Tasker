@@ -148,9 +148,9 @@ function Landing() {
             Tasker.
           </div>
           <div className="hidden md:flex items-center gap-10">
-            <a href="#focus" className="text-sm font-medium text-gray-400 hover:text-white hover:-translate-y-0.5 transition-all duration-300">Focus</a>
-            <a href="#flow" className="text-sm font-medium text-gray-400 hover:text-white hover:-translate-y-0.5 transition-all duration-300">Flow</a>
-            <a href="#clarity" className="text-sm font-medium text-gray-400 hover:text-white hover:-translate-y-0.5 transition-all duration-300">Clarity</a>
+            <a href="#focus" className="text-sm font-medium text-gray-400 hover:text-white hover:-translate-y-0.5 transition-all duration-300">Audience</a>
+            <a href="#flow" className="text-sm font-medium text-gray-400 hover:text-white hover:-translate-y-0.5 transition-all duration-300">The Loop</a>
+            <a href="#surfaces" className="text-sm font-medium text-gray-400 hover:text-white hover:-translate-y-0.5 transition-all duration-300">Surfaces</a>
           </div>
           <div>
             <button className="liquid-glass rounded-full px-6 py-2.5 text-sm font-medium text-white hover:bg-white/10 hover:shadow-[0_0_20px_rgba(255,255,255,0.15)] active:scale-95 transition-all duration-300">
@@ -173,16 +173,15 @@ function Landing() {
         </video>
         
         {/* Adjusted Video Overlay */}
-        <div className="absolute inset-0 bg-[#030305]/20 z-[1]"></div>
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,transparent_0%,#030305_100%)] opacity-70 z-[2]"></div>
+        <div className="absolute inset-0 bg-[#030305]/60 z-[1]"></div>
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,transparent_0%,#030305_100%)] opacity-80 z-[2]"></div>
         
-        <div className="relative z-10 text-center px-6 flex flex-col items-center justify-center h-full pt-16 w-full max-w-4xl mx-auto">
+        <div className="relative z-10 text-center px-6 flex flex-col items-center justify-center h-full pt-16 w-full max-w-5xl mx-auto">
           <h1 className="font-serif text-6xl md:text-[7.5rem] leading-[0.9] text-white animate-fade-rise drop-shadow-2xl tracking-tight">
-            Silence the noise.
+            Intent to Action.
           </h1>
-          <p className="text-gray-300 text-lg md:text-xl md:leading-relaxed mt-8 max-w-xl mx-auto tracking-wide animate-fade-rise-delay font-light drop-shadow-md">
-            Your life's work deserves a sanctuary.<br/>
-            Execute with pure focus.
+          <p className="text-gray-300 text-lg md:text-2xl md:leading-relaxed mt-10 max-w-3xl mx-auto tracking-wide animate-fade-rise-delay font-light drop-shadow-md">
+            An ADHD-focused life-management app built for low-friction planning, fast execution, and momentum-preserving follow-through.
           </p>
           <button className="liquid-glass rounded-full px-12 py-4 mt-12 text-white font-medium hover:bg-white/10 hover:shadow-[0_0_30px_rgba(255,255,255,0.15)] active:scale-[0.97] transition-all duration-300 animate-fade-rise-delay-2 flex items-center gap-3 group">
             <span>Enter Tasker</span>
@@ -193,7 +192,7 @@ function Landing() {
         </div>
       </section>
 
-      {/* Section 2: The Feature Video Reveal */}
+      {/* Section 2: Audience Context */}
       <section id="focus" className="relative w-full min-h-screen">
         <video 
           autoPlay 
@@ -213,28 +212,28 @@ function Landing() {
         <div className="relative z-10 max-w-7xl mx-auto px-8 py-32 flex flex-col justify-center h-full min-h-screen">
           <div className="max-w-xl">
             <h2 className="scroll-reveal opacity-0 translate-y-6 font-serif text-5xl md:text-7xl mb-16 text-white leading-tight drop-shadow-xl">
-              Chaos, <span className="text-gray-400 italic">organized.</span>
+              Execution, <span className="text-gray-400 italic">unlocked.</span>
             </h2>
             
             <div className="flex flex-col gap-10">
               <div className="scroll-reveal opacity-0 translate-y-6 group cursor-default" style={{ animationDelay: '100ms' }}>
                 <div className="pl-6 border-l w-full border-white/10 group-hover:border-white/50 transition-colors duration-500">
-                  <h3 className="font-medium text-white/80 group-hover:text-white text-xl md:text-2xl transition-colors duration-500">Zero Friction.</h3>
-                  <p className="text-gray-400 group-hover:text-gray-300 mt-2 text-base md:text-lg font-light transition-colors duration-500">Thought to task in a heartbeat.</p>
+                  <h3 className="font-medium text-white/80 group-hover:text-white text-xl md:text-2xl transition-colors duration-500">No Shame-Based Pressure.</h3>
+                  <p className="text-gray-400 group-hover:text-gray-300 mt-2 text-base md:text-lg font-light transition-colors duration-500">Gentle restart paths for low-energy and burnout-prone minds. Recover from interruptions gracefully.</p>
                 </div>
               </div>
               
               <div className="scroll-reveal opacity-0 translate-y-6 group cursor-default" style={{ animationDelay: '200ms' }}>
                 <div className="pl-6 border-l border-white/10 group-hover:border-white/50 transition-colors duration-500">
-                  <h3 className="font-medium text-white/80 group-hover:text-white text-xl md:text-2xl transition-colors duration-500">Deep Work Mode.</h3>
-                  <p className="text-gray-400 group-hover:text-gray-300 mt-2 text-base md:text-lg font-light transition-colors duration-500">Block distractions. Build momentum.</p>
+                  <h3 className="font-medium text-white/80 group-hover:text-white text-xl md:text-2xl transition-colors duration-500">High Context Load.</h3>
+                  <p className="text-gray-400 group-hover:text-gray-300 mt-2 text-base md:text-lg font-light transition-colors duration-500">Adults and students facing deadlines are supported by bounded 'Now' lists and intelligent Quick Views.</p>
                 </div>
               </div>
               
               <div className="scroll-reveal opacity-0 translate-y-6 group cursor-default" style={{ animationDelay: '300ms' }}>
                 <div className="pl-6 border-l border-white/10 group-hover:border-white/50 transition-colors duration-500">
-                  <h3 className="font-medium text-white/80 group-hover:text-white text-xl md:text-2xl transition-colors duration-500">Encrypted Sync.</h3>
-                  <p className="text-gray-400 group-hover:text-gray-300 mt-2 text-base md:text-lg font-light transition-colors duration-500">Your thoughts, mathematically yours alone.</p>
+                  <h3 className="font-medium text-white/80 group-hover:text-white text-xl md:text-2xl transition-colors duration-500">Behavior Consistency.</h3>
+                  <p className="text-gray-400 group-hover:text-gray-300 mt-2 text-base md:text-lg font-light transition-colors duration-500">Habit-oriented users can build structure and momentum securely, without the stress of perfection.</p>
                 </div>
               </div>
             </div>
@@ -242,49 +241,82 @@ function Landing() {
         </div>
       </section>
 
-      {/* Section 3: The iOS Application Showcase */}
-      <section id="clarity" className="bg-[#030305] pt-32 pb-40 px-8 relative overflow-hidden">
+      {/* Section 3: The 5-Phase Loop Showcase */}
+      <section id="flow" className="bg-[#030305] pt-32 pb-40 px-8 relative overflow-hidden">
         <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full max-w-2xl h-[400px] bg-indigo-500/5 blur-[120px] rounded-full pointer-events-none"></div>
 
-        <h2 className="scroll-reveal opacity-0 translate-y-6 font-serif text-5xl md:text-6xl text-white md:mb-24 mb-16 text-center relative z-10">
-          The perfection <br className="md:hidden" />is in the details.
+        <h2 className="scroll-reveal opacity-0 translate-y-6 font-serif text-5xl md:text-6xl text-white md:mb-8 mb-6 text-center relative z-10">
+          The Five-Phase Loop.
         </h2>
+        <p className="scroll-reveal opacity-0 translate-y-6 text-center text-gray-400 max-w-2xl mx-auto mb-24 text-lg font-light">Tasker intentionally structures your execution lifecycle to reduce friction at every single critical transition.</p>
         
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-5xl mx-auto relative z-10">
-          <div className="scroll-reveal opacity-0 translate-y-6 group relative cursor-pointer overflow-hidden transition-all duration-700 ease-[cubic-bezier(0.16,1,0.3,1)] hover:-translate-y-4 hover:shadow-[0_20px_40px_rgba(0,0,0,0.4)] bg-[#0A0A0E] rounded-[3rem] border border-white/5 hover:border-white/20 aspect-[9/19.5]">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 max-w-7xl mx-auto relative z-10">
+          
+          <div className="scroll-reveal opacity-0 translate-y-6 group relative cursor-pointer overflow-hidden transition-all duration-700 ease-[cubic-bezier(0.16,1,0.3,1)] hover:-translate-y-4 hover:shadow-[0_20px_40px_rgba(0,0,0,0.4)] bg-[#0A0A0E] rounded-[2.5rem] border border-white/5 hover:border-white/20 p-8 py-10 aspect-square lg:aspect-[3/4] xl:aspect-[4/5] flex flex-col justify-end">
             <div className="absolute inset-0 bg-gradient-to-b from-white/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-700 pointer-events-none" />
-            <div className="flex flex-col items-center justify-center h-full translate-y-4 group-hover:translate-y-0 transition-transform duration-700 ease-[cubic-bezier(0.16,1,0.3,1)] px-8">
-              <h3 className="font-serif text-3xl md:text-4xl text-white">Capture.</h3>
-              <p className="text-sm md:text-base text-gray-400 mt-4 text-center opacity-0 group-hover:opacity-100 transition-opacity duration-700 ease-out font-light">
-                Fleeting thoughts, pinned down in milliseconds.
-              </p>
-            </div>
+            <div className="text-indigo-400/20 font-serif text-6xl absolute top-8 right-8 group-hover:scale-110 group-hover:text-indigo-400/40 transition-all duration-500">1</div>
+            <h3 className="font-serif text-3xl text-white relative z-10">Capture.</h3>
+            <p className="text-sm md:text-base text-gray-500 mt-3 font-light relative z-10 group-hover:text-gray-300 transition-colors">Lightning fast input. Minimal required fields with specialized Clarify modes.</p>
           </div>
 
-          <div className="scroll-reveal opacity-0 translate-y-6 group relative cursor-pointer overflow-hidden transition-all duration-700 ease-[cubic-bezier(0.16,1,0.3,1)] hover:-translate-y-4 hover:shadow-[0_20px_40px_rgba(0,0,0,0.4)] bg-[#0A0A0E] rounded-[3rem] border border-white/5 hover:border-white/20 aspect-[9/19.5]" style={{ animationDelay: '100ms' }}>
+          <div className="scroll-reveal opacity-0 translate-y-6 group relative cursor-pointer overflow-hidden transition-all duration-700 ease-[cubic-bezier(0.16,1,0.3,1)] hover:-translate-y-4 hover:shadow-[0_20px_40px_rgba(0,0,0,0.4)] bg-[#0A0A0E] rounded-[2.5rem] border border-white/5 hover:border-white/20 p-8 py-10 aspect-square lg:aspect-[3/4] xl:aspect-[4/5] flex flex-col justify-end" style={{ animationDelay: '100ms' }}>
             <div className="absolute inset-0 bg-gradient-to-b from-white/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-700 pointer-events-none" />
-            <div className="flex flex-col items-center justify-center h-full translate-y-4 group-hover:translate-y-0 transition-transform duration-700 ease-[cubic-bezier(0.16,1,0.3,1)] px-8">
-              <h3 className="font-serif text-3xl md:text-4xl text-white">Flow.</h3>
-              <p className="text-sm md:text-base text-gray-400 mt-4 text-center opacity-0 group-hover:opacity-100 transition-opacity duration-700 ease-out font-light">
-                Seamless gestures. Zero UI clutter. Just your work.
-              </p>
-            </div>
+            <div className="text-indigo-400/20 font-serif text-6xl absolute top-8 right-8 group-hover:scale-110 group-hover:text-indigo-400/40 transition-all duration-500">2</div>
+            <h3 className="font-serif text-3xl text-white relative z-10">Decide.</h3>
+            <p className="text-sm md:text-base text-gray-500 mt-3 font-light relative z-10 group-hover:text-gray-300 transition-colors">Narrow your focus to actionable choices now using a bounded "Now" list.</p>
           </div>
 
-          <div className="scroll-reveal opacity-0 translate-y-6 group relative cursor-pointer overflow-hidden transition-all duration-700 ease-[cubic-bezier(0.16,1,0.3,1)] hover:-translate-y-4 hover:shadow-[0_20px_40px_rgba(0,0,0,0.4)] bg-[#0A0A0E] rounded-[3rem] border border-white/5 hover:border-white/20 aspect-[9/19.5]" style={{ animationDelay: '200ms' }}>
+          <div className="scroll-reveal opacity-0 translate-y-6 group relative cursor-pointer overflow-hidden transition-all duration-700 ease-[cubic-bezier(0.16,1,0.3,1)] hover:-translate-y-4 hover:shadow-[0_20px_40px_rgba(0,0,0,0.4)] bg-[#0A0A0E] rounded-[2.5rem] border border-white/5 hover:border-white/20 p-8 py-10 aspect-square lg:aspect-[3/4] xl:aspect-[4/5] flex flex-col justify-end" style={{ animationDelay: '200ms' }}>
             <div className="absolute inset-0 bg-gradient-to-b from-white/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-700 pointer-events-none" />
-            <div className="flex flex-col items-center justify-center h-full translate-y-4 group-hover:translate-y-0 transition-transform duration-700 ease-[cubic-bezier(0.16,1,0.3,1)] px-8">
-              <h3 className="font-serif text-3xl md:text-4xl text-white">Clarity.</h3>
-              <p className="text-sm md:text-base text-gray-400 mt-4 text-center opacity-0 group-hover:opacity-100 transition-opacity duration-700 ease-out font-light">
-                See only what matters today. The noise is gone.
-              </p>
+            <div className="text-indigo-400/20 font-serif text-6xl absolute top-8 right-8 group-hover:scale-110 group-hover:text-indigo-400/40 transition-all duration-500">3</div>
+            <h3 className="font-serif text-3xl text-white relative z-10">Start.</h3>
+            <p className="text-sm md:text-base text-gray-500 mt-3 font-light relative z-10 group-hover:text-gray-300 transition-colors">Minimize transition costs from planning to action. No UI clutter just your work.</p>
+          </div>
+
+          <div className="scroll-reveal opacity-0 translate-y-6 group relative cursor-pointer overflow-hidden transition-all duration-700 ease-[cubic-bezier(0.16,1,0.3,1)] hover:-translate-y-4 hover:shadow-[0_20px_40px_rgba(0,0,0,0.4)] bg-[#0A0A0E] rounded-[2.5rem] border border-white/5 hover:border-white/20 p-8 py-10 aspect-square lg:aspect-[3/4] xl:aspect-[4/5] flex flex-col justify-end" style={{ animationDelay: '300ms' }}>
+            <div className="absolute inset-0 bg-gradient-to-b from-white/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-700 pointer-events-none" />
+            <div className="text-indigo-400/20 font-serif text-6xl absolute top-8 right-8 group-hover:scale-110 group-hover:text-indigo-400/40 transition-all duration-500">4</div>
+            <h3 className="font-serif text-3xl text-white relative z-10">Resume.</h3>
+            <p className="text-sm md:text-base text-gray-500 mt-3 font-light relative z-10 group-hover:text-gray-300 transition-colors">Keep context instantly available after interruptions with intelligent resume cues.</p>
+          </div>
+
+          <div className="scroll-reveal opacity-0 translate-y-6 group relative cursor-pointer overflow-hidden transition-all duration-700 ease-[cubic-bezier(0.16,1,0.3,1)] hover:-translate-y-4 hover:shadow-[0_20px_40px_rgba(0,0,0,0.4)] bg-[#0A0A0E] rounded-[2.5rem] border border-white/5 hover:border-white/20 p-8 py-10 aspect-square lg:aspect-[3/4] xl:aspect-[4/5] flex flex-col justify-end" style={{ animationDelay: '400ms' }}>
+            <div className="absolute inset-0 bg-gradient-to-b from-white/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-700 pointer-events-none" />
+            <div className="text-indigo-400/20 font-serif text-6xl absolute top-8 right-8 group-hover:scale-110 group-hover:text-indigo-400/40 transition-all duration-500">5</div>
+            <h3 className="font-serif text-3xl text-white relative z-10">Reflect.</h3>
+            <p className="text-sm md:text-base text-gray-500 mt-3 font-light relative z-10 group-hover:text-gray-300 transition-colors">A lightweight done timeline to encourage continuity and healthy recovery loops.</p>
+          </div>
+          
+        </div>
+      </section>
+
+      {/* Experience Surfaces Section */}
+      <section id="surfaces" className="bg-[#0A0A0E] py-32 px-8 relative border-y border-white/5">
+        <div className="max-w-6xl mx-auto">
+          <h2 className="scroll-reveal opacity-0 translate-y-6 font-serif text-5xl md:text-6xl text-white mb-20 text-center">Safety. Rules. Intelligence.</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-y-16 gap-x-12">
+            <div className="scroll-reveal opacity-0 translate-y-6 group">
+              <h3 className="text-3xl font-serif text-white mb-4 group-hover:text-indigo-400 transition-colors duration-300">First-Class Habits</h3>
+              <p className="text-gray-400 font-light leading-relaxed">Integrated tracking for positive and negative behaviors. Build resilience with 14-day histories, daily check-ins, and realistic recovery loops.</p>
+            </div>
+            <div className="scroll-reveal opacity-0 translate-y-6 group" style={{ animationDelay: '100ms' }}>
+              <h3 className="text-3xl font-serif text-white mb-4 group-hover:text-indigo-400 transition-colors duration-300">Safe Assistant</h3>
+              <p className="text-gray-400 font-light leading-relaxed">An intelligent partner in Ask, Plan, or Apply modes. It strictly abides by trust guardrails: confirmation prompts, bounded undo, and zero silent mutations.</p>
+            </div>
+            <div className="scroll-reveal opacity-0 translate-y-6 group" style={{ animationDelay: '200ms' }}>
+              <h3 className="text-3xl font-serif text-white mb-4 group-hover:text-indigo-400 transition-colors duration-300">Momentum Insights</h3>
+              <p className="text-gray-400 font-light leading-relaxed">Systematic analytics dissect your focus pulse, completion mix, and priority patterns. No toxic gamification—just objective progression visibility.</p>
+            </div>
+            <div className="scroll-reveal opacity-0 translate-y-6 group" style={{ animationDelay: '300ms' }}>
+              <h3 className="text-3xl font-serif text-white mb-4 group-hover:text-indigo-400 transition-colors duration-300">Notification Boundaries</h3>
+              <p className="text-gray-400 font-light leading-relaxed">Relevance over volume. Tasker avoids stale prompts, focusing on actionable cues that frame your day naturally without overwhelming noise.</p>
             </div>
           </div>
         </div>
       </section>
 
-      {/* Section 4: The Manifesto */}
-      <section className="bg-[#030305] py-32 md:py-48 px-8 relative border-t border-white/5">
+      {/* The Manifesto */}
+      <section className="bg-[#030305] py-32 md:py-48 px-8 relative">
         <div className="max-w-3xl mx-auto text-center">
           <h2 className="scroll-reveal opacity-0 translate-y-6 font-serif text-4xl md:text-5xl text-white mb-8 leading-tight">
             Software as an extension<br/>of the mind.
@@ -294,7 +326,7 @@ function Landing() {
               Most tools today are built to harvest your attention. They are loud, complex, and designed for engagement metrics over human output.
             </p>
             <p>
-              Tasker is built differently. It's a quiet sanctuary for your life's work. We believe in zero friction, absolute privacy, and the undeniable power of deep focus. No ads. No addictive loops.
+              Tasker is built differently. It's a quiet sanctuary for your life's work. We believe in reducing execution friction, absolute privacy, and the undeniable power of deep focus. No ads. No addictive loops.
             </p>
           </div>
           <div className="scroll-reveal opacity-0 translate-y-6 mt-16" style={{ animationDelay: '200ms' }}>
