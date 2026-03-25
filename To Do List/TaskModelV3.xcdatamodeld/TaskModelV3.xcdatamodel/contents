@@ -176,6 +176,16 @@
         <attribute name="lastGeneratedDate" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
         <attribute name="streakCurrent" optional="YES" attributeType="Integer 32" defaultValueString="0" usesScalarValueType="YES"/>
         <attribute name="streakBest" optional="YES" attributeType="Integer 32" defaultValueString="0" usesScalarValueType="YES"/>
+        <attribute name="kindRaw" optional="YES" attributeType="String"/>
+        <attribute name="trackingModeRaw" optional="YES" attributeType="String"/>
+        <attribute name="iconSymbolName" optional="YES" attributeType="String"/>
+        <attribute name="iconCategoryKey" optional="YES" attributeType="String"/>
+        <attribute name="colorHex" optional="YES" attributeType="String"/>
+        <attribute name="notes" optional="YES" attributeType="String"/>
+        <attribute name="archivedAt" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
+        <attribute name="successMask14Raw" optional="YES" attributeType="Integer 16" defaultValueString="0" usesScalarValueType="YES"/>
+        <attribute name="failureMask14Raw" optional="YES" attributeType="Integer 16" defaultValueString="0" usesScalarValueType="YES"/>
+        <attribute name="lastHistoryRollDate" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
         <attribute name="createdAt" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
         <attribute name="updatedAt" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
         <relationship name="lifeAreaRef" optional="YES" maxCount="1" deletionRule="Nullify" destinationEntity="LifeArea" inverseName="habits" inverseEntity="LifeArea"/>

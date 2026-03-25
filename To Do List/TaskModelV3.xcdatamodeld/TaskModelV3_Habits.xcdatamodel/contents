@@ -170,6 +170,7 @@
         <attribute name="trackingModeRaw" optional="YES" attributeType="String"/>
         <attribute name="iconSymbolName" optional="YES" attributeType="String"/>
         <attribute name="iconCategoryKey" optional="YES" attributeType="String"/>
+        <attribute name="colorHex" optional="YES" attributeType="String"/>
         <attribute name="notes" optional="YES" attributeType="String"/>
         <attribute name="archivedAt" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
         <attribute name="successMask14Raw" optional="YES" attributeType="Integer 16" defaultValueString="0" usesScalarValueType="YES"/>

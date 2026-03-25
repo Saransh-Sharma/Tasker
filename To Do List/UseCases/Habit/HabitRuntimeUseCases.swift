@@ -35,6 +35,7 @@ public struct CreateHabitRequest: Codable, Equatable, Hashable {
     public var kind: HabitKind
     public var trackingMode: HabitTrackingMode
     public var icon: HabitIconMetadata
+    public var colorHex: String?
     public var targetConfig: HabitTargetConfig
     public var metricConfig: HabitMetricConfig
     public var cadence: HabitCadenceDraft
@@ -50,6 +51,7 @@ public struct CreateHabitRequest: Codable, Equatable, Hashable {
         kind: HabitKind,
         trackingMode: HabitTrackingMode,
         icon: HabitIconMetadata,
+        colorHex: String? = nil,
         targetConfig: HabitTargetConfig = .init(),
         metricConfig: HabitMetricConfig = .init(),
         cadence: HabitCadenceDraft = .daily(),
@@ -64,6 +66,7 @@ public struct CreateHabitRequest: Codable, Equatable, Hashable {
         self.kind = kind
         self.trackingMode = trackingMode
         self.icon = icon
+        self.colorHex = colorHex
         self.targetConfig = targetConfig
         self.metricConfig = metricConfig
         self.cadence = cadence
@@ -82,6 +85,7 @@ public struct UpdateHabitRequest: Codable, Equatable, Hashable {
     public var kind: HabitKind?
     public var trackingMode: HabitTrackingMode?
     public var icon: HabitIconMetadata?
+    public var colorHex: String?
     public var targetConfig: HabitTargetConfig?
     public var metricConfig: HabitMetricConfig?
     public var cadence: HabitCadenceDraft?
@@ -99,6 +103,7 @@ public struct UpdateHabitRequest: Codable, Equatable, Hashable {
         kind: HabitKind? = nil,
         trackingMode: HabitTrackingMode? = nil,
         icon: HabitIconMetadata? = nil,
+        colorHex: String? = nil,
         targetConfig: HabitTargetConfig? = nil,
         metricConfig: HabitMetricConfig? = nil,
         cadence: HabitCadenceDraft? = nil,
@@ -115,6 +120,7 @@ public struct UpdateHabitRequest: Codable, Equatable, Hashable {
         self.kind = kind
         self.trackingMode = trackingMode
         self.icon = icon
+        self.colorHex = colorHex
         self.targetConfig = targetConfig
         self.metricConfig = metricConfig
         self.cadence = cadence
@@ -485,6 +491,7 @@ public final class CreateHabitUseCase {
                     trackingModeRaw: trackingMode.rawValue,
                     iconSymbolName: request.icon.symbolName,
                     iconCategoryKey: request.icon.categoryKey,
+                    colorHex: request.colorHex,
                     targetConfigData: HabitRuntimeSupport.encode(request.targetConfig),
                     metricConfigData: HabitRuntimeSupport.encode(request.metricConfig),
                     notes: request.targetConfig.notes,
@@ -690,6 +697,9 @@ public final class UpdateHabitUseCase {
                                 habit.trackingMode = resolvedTrackingMode
                                 if let icon = request.icon {
                                     habit.icon = icon
+                                }
+                                if let colorHex = request.colorHex {
+                                    habit.colorHex = colorHex
                                 }
                                 if let targetConfig = request.targetConfig {
                                     habit.targetConfig = targetConfig
@@ -1078,6 +1088,151 @@ public final class ArchiveHabitUseCase {
                         }
                     }
                 }
+            }
+        }
+    }
+}
+
+public final class SetHabitArchivedUseCase {
+    private let habitRepository: HabitRepositoryProtocol
+    private let pauseHabitUseCase: PauseHabitUseCase
+    private let maintainHabitRuntimeUseCase: MaintainHabitRuntimeUseCase
+
+    public init(
+        habitRepository: HabitRepositoryProtocol,
+        pauseHabitUseCase: PauseHabitUseCase,
+        maintainHabitRuntimeUseCase: MaintainHabitRuntimeUseCase
+    ) {
+        self.habitRepository = habitRepository
+        self.pauseHabitUseCase = pauseHabitUseCase
+        self.maintainHabitRuntimeUseCase = maintainHabitRuntimeUseCase
+    }
+
+    public func execute(
+        id: UUID,
+        isArchived: Bool,
+        completion: @escaping (Result<HabitDefinitionRecord, Error>) -> Void
+    ) {
+        habitRepository.fetchAll { result in
+            switch result {
+            case .failure(let error):
+                completion(.failure(error))
+            case .success(let habits):
+                guard let existingHabit = habits.first(where: { $0.id == id }) else {
+                    completion(.failure(HabitRuntimeError.habitNotFound))
+                    return
+                }
+
+                var habit = existingHabit
+                habit.archivedAt = isArchived ? Date() : nil
+                habit.isPaused = isArchived
+                habit.updatedAt = Date()
+
+                self.habitRepository.update(habit) { updateResult in
+                    switch updateResult {
+                    case .failure(let error):
+                        completion(.failure(error))
+                    case .success(let updatedHabit):
+                        self.pauseHabitUseCase.execute(id: id, isPaused: isArchived) { pauseResult in
+                            switch pauseResult {
+                            case .failure(let error):
+                                self.habitRepository.update(existingHabit) { _ in
+                                    completion(.failure(error))
+                                }
+                            case .success:
+                                TaskNotificationDispatcher.postOnMain(name: .homeHabitMutation, object: updatedHabit)
+                                completion(.success(updatedHabit))
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+public final class DeleteHabitUseCase {
+    private let habitRepository: HabitRepositoryProtocol
+    private let scheduleRepository: ScheduleRepositoryProtocol
+    private let maintainHabitRuntimeUseCase: MaintainHabitRuntimeUseCase
+
+    public init(
+        habitRepository: HabitRepositoryProtocol,
+        scheduleRepository: ScheduleRepositoryProtocol,
+        maintainHabitRuntimeUseCase: MaintainHabitRuntimeUseCase
+    ) {
+        self.habitRepository = habitRepository
+        self.scheduleRepository = scheduleRepository
+        self.maintainHabitRuntimeUseCase = maintainHabitRuntimeUseCase
+    }
+
+    public func execute(
+        id: UUID,
+        completion: @escaping (Result<Void, Error>) -> Void
+    ) {
+        habitRepository.fetchAll { result in
+            switch result {
+            case .failure(let error):
+                completion(.failure(error))
+            case .success(let habits):
+                guard let habit = habits.first(where: { $0.id == id }) else {
+                    completion(.success(()))
+                    return
+                }
+
+                self.scheduleRepository.fetchTemplates { templateResult in
+                    switch templateResult {
+                    case .failure(let error):
+                        completion(.failure(error))
+                    case .success(let templates):
+                        let habitTemplateIDs = templates
+                            .filter { $0.sourceType == .habit && $0.sourceID == id }
+                            .map(\.id)
+
+                        self.deleteTemplates(Array(habitTemplateIDs)) { deleteTemplateResult in
+                            switch deleteTemplateResult {
+                            case .failure(let error):
+                                completion(.failure(error))
+                            case .success:
+                                self.habitRepository.delete(id: id) { deleteHabitResult in
+                                    switch deleteHabitResult {
+                                    case .failure(let error):
+                                        completion(.failure(error))
+                                    case .success:
+                                        self.maintainHabitRuntimeUseCase.execute(anchorDate: Date()) { maintainResult in
+                                            switch maintainResult {
+                                            case .failure(let error):
+                                                completion(.failure(error))
+                                            case .success:
+                                                TaskNotificationDispatcher.postOnMain(name: .homeHabitMutation, object: habit)
+                                                completion(.success(()))
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private func deleteTemplates(
+        _ ids: [UUID],
+        completion: @escaping (Result<Void, Error>) -> Void
+    ) {
+        guard let id = ids.first else {
+            completion(.success(()))
+            return
+        }
+
+        scheduleRepository.deleteTemplate(id: id) { result in
+            switch result {
+            case .failure(let error):
+                completion(.failure(error))
+            case .success:
+                self.deleteTemplates(Array(ids.dropFirst()), completion: completion)
             }
         }
     }

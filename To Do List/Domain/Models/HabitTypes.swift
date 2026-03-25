@@ -163,6 +163,7 @@ public struct HabitLibraryRow: Codable, Equatable, Hashable, Identifiable {
     public let projectID: UUID?
     public let projectName: String?
     public let icon: HabitIconMetadata?
+    public let colorHex: String?
     public let isPaused: Bool
     public let isArchived: Bool
     public let currentStreak: Int
@@ -187,6 +188,7 @@ public struct HabitLibraryRow: Codable, Equatable, Hashable, Identifiable {
         projectID: UUID? = nil,
         projectName: String? = nil,
         icon: HabitIconMetadata? = nil,
+        colorHex: String? = nil,
         isPaused: Bool,
         isArchived: Bool,
         currentStreak: Int,
@@ -208,6 +210,7 @@ public struct HabitLibraryRow: Codable, Equatable, Hashable, Identifiable {
         self.projectID = projectID
         self.projectName = projectName
         self.icon = icon
+        self.colorHex = colorHex
         self.isPaused = isPaused
         self.isArchived = isArchived
         self.currentStreak = currentStreak
