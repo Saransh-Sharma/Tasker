@@ -431,12 +431,10 @@ class AddTaskPage {
     /// Tap save button
     @discardableResult
     func tapSave() -> HomePage {
-        let nonKeyboardDoneButton = app.buttons
-            .matching(NSPredicate(format: "label == %@ AND identifier != %@", "Done", "Done"))
-            .firstMatch
-        let nonKeyboardSaveButton = app.buttons
-            .matching(NSPredicate(format: "label == %@ AND identifier != %@", "Save", "Save"))
-            .firstMatch
+        let addTaskContainer = view
+        let navBar = app.navigationBars.firstMatch
+        let nonKeyboardDoneButton = navBar.buttons.matching(NSPredicate(format: "label == %@", "Done")).firstMatch
+        let nonKeyboardSaveButton = navBar.buttons.matching(NSPredicate(format: "label == %@", "Save")).firstMatch
         let didDismiss: () -> Bool = {
             if self.waitForDismissal(timeout: 2) {
                 return true
@@ -448,43 +446,39 @@ class AddTaskPage {
 
         let candidates: [XCUIElement] = [
             app.buttons[AccessibilityIdentifiers.AddTask.saveButton],
-            app.buttons["addTask.createButton"],
+            addTaskContainer.buttons[AccessibilityIdentifiers.AddTask.saveButton],
+            addTaskContainer.buttons["addTask.createButton"],
+            addTaskContainer.descendants(matching: .button)[AccessibilityIdentifiers.AddTask.saveButton],
+            addTaskContainer.descendants(matching: .button)["addTask.createButton"],
+            addTaskContainer.descendants(matching: .any)["addTask.createButton"],
             app.descendants(matching: .any)[AccessibilityIdentifiers.AddTask.saveButton],
-            app.descendants(matching: .any)["addTask.createButton"],
-            app.navigationBars.buttons[AccessibilityIdentifiers.AddTask.saveButton],
-            app.navigationBars.firstMatch.buttons["Done"],
-            app.navigationBars.firstMatch.buttons["Create"],
-            app.navigationBars.firstMatch.buttons["Save"],
-            app.buttons["Create Task"],
-            app.buttons["Create"],
+            navBar.buttons[AccessibilityIdentifiers.AddTask.saveButton],
+            navBar.buttons["Done"],
+            navBar.buttons["Create"],
+            navBar.buttons["Save"],
             nonKeyboardDoneButton,
             nonKeyboardSaveButton,
             app.toolbars.buttons["Done"]
         ]
-        let deadline = Date().addingTimeInterval(6)
+        waitForSubmitActionToBecomeEnabled(candidates: candidates, timeout: 2.5)
+        let deadline = Date().addingTimeInterval(8)
         repeat {
-            let navigationBar = app.navigationBars.firstMatch
-            if navigationBar.exists {
+            if navBar.exists {
                 let preferredNavButtons: [XCUIElement] = [
-                    navigationBar.buttons[AccessibilityIdentifiers.AddTask.saveButton],
-                    navigationBar.buttons["Done"],
-                    navigationBar.buttons["Save"],
-                    navigationBar.buttons["Create"],
-                    navigationBar.buttons.firstMatch
+                    navBar.buttons[AccessibilityIdentifiers.AddTask.saveButton],
+                    navBar.buttons["Done"],
+                    navBar.buttons["Save"],
+                    navBar.buttons["Create"]
                 ]
 
                 for navButton in preferredNavButtons where navButton.exists {
-                    if navButton.isHittable {
-                        navButton.tap()
-                    } else {
-                        navButton.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
-                    }
+                    tapElementCenter(navButton)
                     if didDismiss() {
                         return HomePage(app: app)
                     }
                 }
 
-                let navFrame = navigationBar.frame
+                let navFrame = navBar.frame
                 if navFrame.width > 0 && navFrame.height > 0 {
                     let doneCoordinate = app.coordinate(withNormalizedOffset: CGVector(dx: 0, dy: 0))
                         .withOffset(CGVector(dx: navFrame.maxX - 24, dy: navFrame.midY))
@@ -496,11 +490,13 @@ class AddTaskPage {
             }
 
             for candidate in candidates where candidate.exists {
-                if candidate.isHittable {
-                    candidate.tap()
-                } else {
-                    candidate.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+                tapElementCenter(candidate)
+                if didDismiss() {
+                    return HomePage(app: app)
                 }
+            }
+
+            if tapComposerCreateCTA(in: addTaskContainer) {
                 if didDismiss() {
                     return HomePage(app: app)
                 }
@@ -526,6 +522,7 @@ class AddTaskPage {
         } while Date() < deadline
 
         if submitReturnFromFocusedTextField() {
+            waitForSubmitActionToBecomeEnabled(candidates: candidates, timeout: 1.0)
             if didDismiss() {
                 return HomePage(app: app)
             }
@@ -533,6 +530,7 @@ class AddTaskPage {
 
         let primaryTitleField = app.textFields[AccessibilityIdentifiers.AddTask.titleField]
         if focusAndSubmitReturn(primaryTitleField) {
+            waitForSubmitActionToBecomeEnabled(candidates: candidates, timeout: 1.0)
             if didDismiss() {
                 return HomePage(app: app)
             }
@@ -540,6 +538,7 @@ class AddTaskPage {
 
         let fallbackTitleField = app.textFields.firstMatch
         if focusAndSubmitReturn(fallbackTitleField) {
+            waitForSubmitActionToBecomeEnabled(candidates: candidates, timeout: 1.0)
             if didDismiss() {
                 return HomePage(app: app)
             }
@@ -599,6 +598,45 @@ class AddTaskPage {
 
     private func hasKeyboardFocus(_ field: XCUIElement) -> Bool {
         return (field.value(forKey: "hasKeyboardFocus") as? Bool) == true
+    }
+
+    private func waitForSubmitActionToBecomeEnabled(candidates: [XCUIElement], timeout: TimeInterval) {
+        let deadline = Date().addingTimeInterval(timeout)
+        repeat {
+            if candidates.contains(where: { $0.exists && $0.isEnabled }) {
+                return
+            }
+            RunLoop.current.run(until: Date().addingTimeInterval(0.1))
+        } while Date() < deadline
+    }
+
+    private func tapComposerCreateCTA(in container: XCUIElement) -> Bool {
+        guard container.exists else { return false }
+        let frame = container.frame
+        guard frame.width > 0, frame.height > 0 else { return false }
+
+        let target = app.coordinate(withNormalizedOffset: CGVector(dx: 0, dy: 0)).withOffset(
+            CGVector(
+                dx: frame.midX,
+                dy: frame.maxY - min(42, max(20, frame.height * 0.08))
+            )
+        )
+        target.tap()
+        return true
+    }
+
+    private func tapElementCenter(_ element: XCUIElement) {
+        if element.isHittable {
+            element.tap()
+            return
+        }
+
+        let frame = element.frame
+        guard frame.width > 0, frame.height > 0 else { return }
+        let coordinate = app.coordinate(withNormalizedOffset: CGVector(dx: 0, dy: 0)).withOffset(
+            CGVector(dx: frame.midX, dy: frame.midY)
+        )
+        coordinate.tap()
     }
 
     /// Tap cancel button

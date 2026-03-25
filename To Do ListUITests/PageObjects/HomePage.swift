@@ -370,6 +370,52 @@ class HomePage {
         return app.descendants(matching: .any)[AccessibilityIdentifiers.Home.focusTitleTap]
     }
 
+    var focusShuffleButton: XCUIElement {
+        app.buttons["home.focus.shuffle"]
+    }
+
+    var rescueSection: XCUIElement {
+        let byOther = app.otherElements[AccessibilityIdentifiers.Home.rescueSection]
+        if byOther.exists {
+            return byOther
+        }
+        return app.descendants(matching: .any)[AccessibilityIdentifiers.Home.rescueSection]
+    }
+
+    var rescueHeader: XCUIElement {
+        let byAny = app.descendants(matching: .any)[AccessibilityIdentifiers.Home.rescueHeader]
+        if byAny.exists {
+            return byAny
+        }
+        return app.staticTexts["Rescue"]
+    }
+
+    var rescueStartButton: XCUIElement {
+        let byButton = app.buttons[AccessibilityIdentifiers.Home.rescueStart]
+        if byButton.exists {
+            return byButton
+        }
+        return app.buttons["Start rescue"]
+    }
+
+    var rescueExpandButton: XCUIElement {
+        let byButton = app.buttons[AccessibilityIdentifiers.Home.rescueExpand]
+        if byButton.exists {
+            return byButton
+        }
+        return app.buttons.matching(
+            NSPredicate(format: "label == 'Expand Rescue' OR label == 'Collapse Rescue'")
+        ).firstMatch
+    }
+
+    var rescueSheet: XCUIElement {
+        let byOther = app.otherElements[AccessibilityIdentifiers.Home.rescueSheet]
+        if byOther.exists {
+            return byOther
+        }
+        return app.navigationBars["Rescue"]
+    }
+
     var listDropZone: XCUIElement {
         let predicate = NSPredicate(
             format: "identifier == %@ OR identifier == %@",
@@ -811,11 +857,102 @@ class HomePage {
     }
 
     func focusTaskCard(containingTitle title: String) -> XCUIElement {
-        let predicate = NSPredicate(
-            format: "identifier BEGINSWITH 'home.focus.task.' AND label CONTAINS[c] %@",
-            title
+        let rowsContainingTitle = app.descendants(matching: .any).matching(
+            NSPredicate(format: "identifier BEGINSWITH 'home.focus.task.'")
+        ).containing(.staticText, identifier: title)
+        if let hittableRow = firstHittableElement(in: rowsContainingTitle) {
+            return hittableRow
+        }
+
+        let firstMatch = rowsContainingTitle.firstMatch
+        if firstMatch.exists {
+            return firstMatch
+        }
+
+        let rowByLabel = app.descendants(matching: .any).matching(
+            NSPredicate(format: "identifier BEGINSWITH 'home.focus.task.' AND label CONTAINS[c] %@", title)
+        ).firstMatch
+        if rowByLabel.exists {
+            return rowByLabel
+        }
+
+        let rows = app.descendants(matching: .any).matching(
+            NSPredicate(format: "identifier BEGINSWITH 'home.focus.task.'")
         )
-        return app.descendants(matching: .any).matching(predicate).firstMatch
+        for index in 0..<rows.count {
+            let row = rows.element(boundBy: index)
+            if rowMatchesTitle(row, title: title) {
+                return row
+            }
+        }
+
+        return rows.firstMatch
+    }
+
+    func focusTaskCard(taskID: UUID) -> XCUIElement {
+        app.descendants(matching: .any)["home.focus.task.\(taskID.uuidString)"]
+    }
+
+    func focusPinButton(taskID: UUID) -> XCUIElement {
+        app.buttons["home.focus.pin.\(taskID.uuidString)"]
+    }
+
+    func focusPinButton(containingTitle title: String) -> XCUIElement {
+        let card = focusTaskCard(containingTitle: title)
+        let pinButton = card.descendants(matching: .button).matching(
+            NSPredicate(format: "identifier BEGINSWITH 'home.focus.pin.'")
+        ).firstMatch
+        if pinButton.exists {
+            return pinButton
+        }
+
+        let buttons = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'home.focus.pin.'"))
+        for index in 0..<buttons.count {
+            let candidate = buttons.element(boundBy: index)
+            if candidate.exists && card.exists && candidate.frame.intersects(card.frame) {
+                return candidate
+            }
+        }
+
+        return buttons.firstMatch
+    }
+
+    func rescueRow(containingTitle title: String) -> XCUIElement {
+        let rowsContainingTitle = rescueSection.descendants(matching: .any).matching(
+            NSPredicate(format: "identifier BEGINSWITH 'home.taskRow.'")
+        ).containing(.staticText, identifier: title)
+        if let hittableRow = firstHittableElement(in: rowsContainingTitle) {
+            return hittableRow
+        }
+
+        let firstMatch = rowsContainingTitle.firstMatch
+        if firstMatch.exists {
+            return firstMatch
+        }
+
+        let rowByLabel = rescueSection.descendants(matching: .any).matching(
+            NSPredicate(format: "identifier BEGINSWITH 'home.taskRow.' AND label CONTAINS[c] %@", title)
+        ).firstMatch
+        if rowByLabel.exists {
+            return rowByLabel
+        }
+
+        let visibleText = rescueSection.staticTexts[title]
+        if visibleText.exists {
+            return visibleText
+        }
+
+        return rescueSection.descendants(matching: .any).matching(
+            NSPredicate(format: "label CONTAINS[c] %@", title)
+        ).firstMatch
+    }
+
+    func tapRescueExpand() {
+        tapElement(rescueExpandButton)
+    }
+
+    func tapStartRescue() {
+        tapElement(rescueStartButton)
     }
 
     @discardableResult

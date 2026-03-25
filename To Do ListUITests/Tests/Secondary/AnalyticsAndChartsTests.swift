@@ -327,103 +327,108 @@ class AnalyticsAndChartsTests: BaseUITest {
         XCTAssertLessThanOrEqual(focusCards.count, 3, "Focus strip should show at most 3 tasks")
     }
 
-    // MARK: - Test 60F: Drag Task Into Focus Adds Focus Card
+    // MARK: - Test 60F: Visible Focus Task Can Be Pinned
 
-    func testDragTaskToFocusAddsPinnedCard() throws {
-        let rankedTitles = ["Ranked A", "Ranked B", "Ranked C"]
+    func testVisibleFocusTaskCanBePinned() throws {
+        let rankedTitles = ["Pin Candidate", "Ranked A", "Ranked B"]
         for title in rankedTitles {
             let addTaskPage = homePage.tapAddTask()
-            addTaskPage.createTask(title: title, priority: .high, taskType: .morning)
+            addTaskPage.createTask(title: title, priority: .max, taskType: .morning)
             _ = homePage.waitForTask(withTitle: title, timeout: 5)
         }
 
         let pinCandidate = "Pin Candidate"
-        let addTaskPage = homePage.tapAddTask()
-        addTaskPage.createTask(title: pinCandidate, priority: .low, taskType: .morning)
-        _ = homePage.waitForTask(withTitle: pinCandidate, timeout: 5)
-
-        guard homePage.dragTaskToFocus(title: pinCandidate) else {
-            throw XCTSkip("Focus dropzone is unavailable; skipping drag-to-focus verification")
-        }
-        waitForAnimations(duration: 1.0)
-
         let pinnedCard = homePage.focusTaskCard(containingTitle: pinCandidate)
         guard pinnedCard.waitForExistence(timeout: 3) else {
-            throw XCTSkip("Pinned focus card is not exposed with stable accessibility identifiers")
+            throw XCTSkip("Focus card is not exposed with stable accessibility identifiers")
         }
+
+        let pinButton = homePage.focusPinButton(containingTitle: pinCandidate)
+        guard pinButton.waitForExistence(timeout: 3) else {
+            throw XCTSkip("Focus pin button is not exposed with stable accessibility identifiers")
+        }
+
+        pinButton.tap()
+        waitForAnimations(duration: 0.8)
+
+        XCTAssertTrue(
+            pinnedCard.waitForExistence(timeout: 3),
+            "Pinned focus card should remain visible in the strip"
+        )
+        XCTAssertEqual(pinButton.label, "Unpin from Focus Now")
     }
 
-    // MARK: - Test 60G: Drag Focus Card Out Keeps Task In List
+    // MARK: - Test 60G: Unpinning Keeps Task In List
 
-    func testDragFocusTaskToListRemovesPinnedCardAndKeepsRow() throws {
+    func testUnpinningFocusTaskKeepsTaskInList() throws {
+        let pinCandidate = "Unpin Candidate"
+        let addCandidatePage = homePage.tapAddTask()
+        addCandidatePage.createTask(title: pinCandidate, priority: .max, taskType: .morning)
+        _ = homePage.waitForTask(withTitle: pinCandidate, timeout: 5)
+
+        guard homePage.focusTaskCard(containingTitle: pinCandidate).waitForExistence(timeout: 3) else {
+            throw XCTSkip("Focus card is not exposed; skipping unpin verification")
+        }
+
+        let pinButton = homePage.focusPinButton(containingTitle: pinCandidate)
+        guard pinButton.waitForExistence(timeout: 3) else {
+            throw XCTSkip("Focus pin button is not exposed; skipping unpin verification")
+        }
+
+        pinButton.tap()
+        waitForAnimations(duration: 0.8)
+        XCTAssertEqual(pinButton.label, "Unpin from Focus Now")
+
         let rankedTitles = ["Keep Rank A", "Keep Rank B", "Keep Rank C"]
         for title in rankedTitles {
             let addTaskPage = homePage.tapAddTask()
-            addTaskPage.createTask(title: title, priority: .high, taskType: .morning)
+            addTaskPage.createTask(title: title, priority: .max, taskType: .morning)
             _ = homePage.waitForTask(withTitle: title, timeout: 5)
         }
 
-        let pinCandidate = "Unpin Candidate"
-        let addTaskPage = homePage.tapAddTask()
-        addTaskPage.createTask(title: pinCandidate, priority: .low, taskType: .morning)
-        _ = homePage.waitForTask(withTitle: pinCandidate, timeout: 5)
+        pinButton.tap()
+        waitForAnimations(duration: 0.8)
 
-        guard homePage.dragTaskToFocus(title: pinCandidate) else {
-            throw XCTSkip("Focus dropzone is unavailable; skipping drag-to-focus verification")
-        }
-        waitForAnimations(duration: 1.0)
-        guard homePage.focusTaskCard(containingTitle: pinCandidate).waitForExistence(timeout: 3) else {
-            throw XCTSkip("Pinned focus card is not exposed; skipping drag-back verification")
-        }
-
-        guard homePage.dragFocusTaskToList(title: pinCandidate) else {
-            throw XCTSkip("List dropzone is unavailable; skipping drag-back verification")
-        }
-        waitForAnimations(duration: 1.0)
-
-        XCTAssertFalse(homePage.focusTaskCard(containingTitle: pinCandidate).exists, "Pinned card should be removed from focus strip")
+        XCTAssertEqual(pinButton.label, "Pin to Focus Now")
         XCTAssertTrue(homePage.taskRow(containingTitle: pinCandidate).exists, "Task should remain in task list after unpin")
     }
 
-    // MARK: - Test 60H: Fourth Pin Is Rejected
+    // MARK: - Test 60H: Three Pinned Cards Occupy Focus Capacity
 
-    func testFourthFocusPinIsRejected() throws {
-        let rankedTitles = ["Rank Base A", "Rank Base B", "Rank Base C"]
-        for title in rankedTitles {
-            let addTaskPage = homePage.tapAddTask()
-            addTaskPage.createTask(title: title, priority: .high, taskType: .morning)
-            _ = homePage.waitForTask(withTitle: title, timeout: 5)
-        }
-
+    func testThreePinnedFocusCardsOccupyVisibleCapacity() throws {
         let pinCandidates = ["Pin 1", "Pin 2", "Pin 3", "Pin 4"]
         for title in pinCandidates {
             let addTaskPage = homePage.tapAddTask()
-            addTaskPage.createTask(title: title, priority: .low, taskType: .morning)
+            addTaskPage.createTask(title: title, priority: .max, taskType: .morning)
             _ = homePage.waitForTask(withTitle: title, timeout: 5)
         }
 
-        guard homePage.dragTaskToFocus(title: "Pin 1"),
-              homePage.dragTaskToFocus(title: "Pin 2"),
-              homePage.dragTaskToFocus(title: "Pin 3") else {
-            throw XCTSkip("Focus dropzone is unavailable; skipping fourth-pin capacity verification")
-        }
-        waitForAnimations(duration: 1.2)
+        let visibleCandidates = ["Pin 1", "Pin 2", "Pin 3"]
+        for title in visibleCandidates {
+            guard homePage.focusTaskCard(containingTitle: title).waitForExistence(timeout: 3) else {
+                throw XCTSkip("Expected focus card \(title) is not exposed; skipping pin-capacity verification")
+            }
 
-        guard homePage.focusTaskCard(containingTitle: "Pin 1").waitForExistence(timeout: 3),
-              homePage.focusTaskCard(containingTitle: "Pin 2").waitForExistence(timeout: 3),
-              homePage.focusTaskCard(containingTitle: "Pin 3").waitForExistence(timeout: 3) else {
-            throw XCTSkip("Pinned focus cards are not exposed; skipping fourth-pin capacity verification")
+            let pinButton = homePage.focusPinButton(containingTitle: title)
+            guard pinButton.waitForExistence(timeout: 3) else {
+                throw XCTSkip("Focus pin button for \(title) is not exposed; skipping pin-capacity verification")
+            }
+
+            pinButton.tap()
+            waitForAnimations(duration: 0.5)
         }
 
-        guard homePage.dragTaskToFocus(title: "Pin 4") else {
-            throw XCTSkip("Focus dropzone is unavailable; skipping fourth-pin capacity verification")
+        let shuffleButton = homePage.focusShuffleButton
+        guard shuffleButton.waitForExistence(timeout: 3) else {
+            throw XCTSkip("Shuffle button is not exposed; skipping pin-capacity verification")
         }
+        shuffleButton.tap()
         waitForAnimations(duration: 1.0)
 
-        XCTAssertFalse(
-            homePage.focusTaskCard(containingTitle: "Pin 4").exists,
-            "Fourth pin should be rejected when manual focus capacity is full"
-        )
+        XCTAssertTrue(homePage.focusTaskCard(containingTitle: "Pin 1").exists, "Pinned task should stay visible after shuffle")
+        XCTAssertTrue(homePage.focusTaskCard(containingTitle: "Pin 2").exists, "Pinned task should stay visible after shuffle")
+        XCTAssertTrue(homePage.focusTaskCard(containingTitle: "Pin 3").exists, "Pinned task should stay visible after shuffle")
+        XCTAssertFalse(homePage.focusTaskCard(containingTitle: "Pin 4").exists, "A fourth task should not displace three pinned focus cards")
     }
 
     // MARK: - Test 60D: Completed Group Toggle Appears When Completed Rows Grow

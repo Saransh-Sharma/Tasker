@@ -26,6 +26,7 @@ struct AddTaskNavigationBar: View {
                     .foregroundColor(Color.tasker.textSecondary)
             }
             .buttonStyle(.plain)
+            .accessibilityIdentifier("addTask.cancelButton")
 
             Spacer()
 
@@ -47,6 +48,7 @@ struct AddTaskNavigationBar: View {
             }
             .buttonStyle(.plain)
             .disabled(!canSave)
+            .accessibilityIdentifier("addTask.saveButton")
         }
         .padding(.vertical, spacing.s8)
     }
