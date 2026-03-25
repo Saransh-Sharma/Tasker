@@ -183,7 +183,10 @@ function Landing() {
           <p className="text-gray-300 text-lg md:text-2xl md:leading-relaxed mt-10 max-w-3xl mx-auto tracking-wide animate-fade-rise-delay font-light drop-shadow-md">
             An ADHD-focused life-management app built for low-friction planning, fast execution, and momentum-preserving follow-through.
           </p>
-          <button className="liquid-glass rounded-full px-12 py-4 mt-12 text-white font-medium hover:bg-white/10 hover:shadow-[0_0_30px_rgba(255,255,255,0.15)] active:scale-[0.97] transition-all duration-300 animate-fade-rise-delay-2 flex items-center gap-3 group">
+          <button 
+            onClick={() => document.getElementById('focus')?.scrollIntoView({ behavior: 'smooth' })}
+            className="liquid-glass rounded-full px-12 py-4 mt-12 text-white font-medium hover:bg-white/10 hover:shadow-[0_0_30px_rgba(255,255,255,0.15)] active:scale-[0.97] transition-all duration-300 animate-fade-rise-delay-2 flex items-center gap-3 group"
+          >
             <span>Enter Tasker</span>
             <svg className="w-4 h-4 opacity-50 group-hover:opacity-100 group-hover:translate-x-1 transition-all duration-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" />
@@ -330,7 +333,7 @@ function Landing() {
             </p>
           </div>
           <div className="scroll-reveal opacity-0 translate-y-6 mt-16" style={{ animationDelay: '200ms' }}>
-            <p className="text-white/80 font-serif italic text-2xl">— The Developer</p>
+            <p className="text-white/80 font-serif italic text-2xl">— Saransh</p>
           </div>
         </div>
       </section>
