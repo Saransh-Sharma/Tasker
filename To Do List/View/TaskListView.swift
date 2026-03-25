@@ -503,6 +503,7 @@ struct TaskListView: View {
                     onToggleComplete: onToggleComplete,
                     onDeleteTask: onDeleteTask,
                     onRescheduleTask: onRescheduleTask,
+                    onPromoteTaskToFocus: onPromoteTaskToFocus,
                     onCompletedCollapsedChange: { collapsed, count in
                         isCompletedCollapsedBySection[inboxSection.project.id] = collapsed
                         onCompletedSectionToggle?(inboxSection.project.id, collapsed, count)
@@ -525,6 +526,7 @@ struct TaskListView: View {
                     onToggleComplete: onToggleComplete,
                     onDeleteTask: onDeleteTask,
                     onRescheduleTask: onRescheduleTask,
+                    onPromoteTaskToFocus: onPromoteTaskToFocus,
                     onTaskDragStarted: onTaskDragStarted
                 )
             }
@@ -622,9 +624,9 @@ struct TaskListView: View {
         let grouped = groupedDoneTimeline
 
         ForEach(Array(grouped.enumerated()), id: \.element.id) { index, group in
-            TaskSectionView(
-                project: group.project,
-                tasks: group.tasks,
+                    TaskSectionView(
+                        project: group.project,
+                        tasks: group.tasks,
                 isOverdueSection: false,
                 tagNameByID: tagNameByID,
                 todayXPSoFar: todayXPSoFar,
@@ -632,13 +634,14 @@ struct TaskListView: View {
                 completedCollapsed: isCompletedCollapsedBySection[group.project.id],
                 isTaskDragEnabled: false,
                 highlightedTaskID: highlightedTaskID,
-                onTaskTap: onTaskTap,
-                onToggleComplete: onToggleComplete,
-                onDeleteTask: onDeleteTask,
-                onRescheduleTask: onRescheduleTask,
-                onCompletedCollapsedChange: { collapsed, count in
-                    isCompletedCollapsedBySection[group.project.id] = collapsed
-                    onCompletedSectionToggle?(group.project.id, collapsed, count)
+                        onTaskTap: onTaskTap,
+                        onToggleComplete: onToggleComplete,
+                        onDeleteTask: onDeleteTask,
+                        onRescheduleTask: onRescheduleTask,
+                        onPromoteTaskToFocus: onPromoteTaskToFocus,
+                        onCompletedCollapsedChange: { collapsed, count in
+                            isCompletedCollapsedBySection[group.project.id] = collapsed
+                            onCompletedSectionToggle?(group.project.id, collapsed, count)
                 }
             )
         }
@@ -870,6 +873,7 @@ private struct OverdueGroupedSectionView: View {
     var onToggleComplete: ((TaskDefinition) -> Void)?
     var onDeleteTask: ((TaskDefinition) -> Void)?
     var onRescheduleTask: ((TaskDefinition) -> Void)?
+    var onPromoteTaskToFocus: ((TaskDefinition) -> Void)?
     var onTaskDragStarted: ((TaskDefinition) -> Void)?
     @State private var isExpanded: Bool = true
 
@@ -910,6 +914,9 @@ private struct OverdueGroupedSectionView: View {
                                 onToggleComplete: { onToggleComplete?(task) },
                                 onDelete: { onDeleteTask?(task) },
                                 onReschedule: { onRescheduleTask?(task) },
+                                onPromoteToFocus: onPromoteTaskToFocus.map { handler in
+                                    { handler(task) }
+                                },
                                 onTaskDragStarted: onTaskDragStarted
                             )
                         }

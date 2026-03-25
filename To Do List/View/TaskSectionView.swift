@@ -136,6 +136,7 @@ struct TaskSectionView: View {
     var onToggleComplete: ((TaskDefinition) -> Void)?
     var onDeleteTask: ((TaskDefinition) -> Void)?
     var onRescheduleTask: ((TaskDefinition) -> Void)?
+    var onPromoteTaskToFocus: ((TaskDefinition) -> Void)?
     var onCompletedCollapsedChange: ((Bool, Int) -> Void)?
     var onTaskDragStarted: ((TaskDefinition) -> Void)?
     var headerActionTitle: String?
@@ -164,6 +165,7 @@ struct TaskSectionView: View {
         onToggleComplete: ((TaskDefinition) -> Void)? = nil,
         onDeleteTask: ((TaskDefinition) -> Void)? = nil,
         onRescheduleTask: ((TaskDefinition) -> Void)? = nil,
+        onPromoteTaskToFocus: ((TaskDefinition) -> Void)? = nil,
         onCompletedCollapsedChange: ((Bool, Int) -> Void)? = nil,
         onTaskDragStarted: ((TaskDefinition) -> Void)? = nil,
         headerActionTitle: String? = nil,
@@ -184,6 +186,7 @@ struct TaskSectionView: View {
         self.onToggleComplete = onToggleComplete
         self.onDeleteTask = onDeleteTask
         self.onRescheduleTask = onRescheduleTask
+        self.onPromoteTaskToFocus = onPromoteTaskToFocus
         self.onCompletedCollapsedChange = onCompletedCollapsedChange
         self.onTaskDragStarted = onTaskDragStarted
         self.headerActionTitle = headerActionTitle
@@ -246,6 +249,9 @@ struct TaskSectionView: View {
                     onToggleComplete: { onToggleComplete?(item.task) },
                     onDelete: { onDeleteTask?(item.task) },
                     onReschedule: { onRescheduleTask?(item.task) },
+                    onPromoteToFocus: onPromoteTaskToFocus.map { handler in
+                        { handler(item.task) }
+                    },
                     onTaskDragStarted: onTaskDragStarted
                 )
                 .equatable()
@@ -269,7 +275,8 @@ struct TaskSectionView: View {
                             onTap: { onTaskTap?(item.task) },
                             onToggleComplete: { onToggleComplete?(item.task) },
                             onDelete: { onDeleteTask?(item.task) },
-                            onReschedule: { onRescheduleTask?(item.task) }
+                            onReschedule: { onRescheduleTask?(item.task) },
+                            onPromoteToFocus: nil
                         )
                         .equatable()
                     }
@@ -374,7 +381,9 @@ struct HomeListRowView: View {
                 onToggleComplete: { onToggleComplete?(task) },
                 onDelete: { onDeleteTask?(task) },
                 onReschedule: { onRescheduleTask?(task) },
-                onPromoteToFocus: { onPromoteTaskToFocus?(task) },
+                onPromoteToFocus: onPromoteTaskToFocus.map { handler in
+                    { handler(task) }
+                },
                 onTaskDragStarted: onTaskDragStarted
             )
             .equatable()

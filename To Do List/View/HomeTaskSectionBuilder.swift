@@ -300,11 +300,16 @@ enum HomeMixedSectionBuilder {
                     iconSystemName: "square.grid.2x2.fill"
                 )
             }
+            let project = resolveProject(
+                projectID: task.projectID,
+                projectName: task.projectName,
+                projects: projects
+            )
             return .project(
-                id: task.projectID,
-                name: task.projectName ?? ProjectConstants.inboxProjectName,
+                id: project.id,
+                name: project.name,
                 iconSystemName: "tray.full.fill",
-                isInbox: task.projectID == ProjectConstants.inboxProjectID
+                isInbox: project.isInbox || project.id == ProjectConstants.inboxProjectID
             )
         case .habit(let habit):
             let resolvedLifeAreaName = habit.lifeAreaName.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -312,6 +317,14 @@ enum HomeMixedSectionBuilder {
                 return .lifeArea(
                     id: habit.lifeAreaID,
                     name: resolvedLifeAreaName,
+                    iconSystemName: "square.grid.2x2.fill"
+                )
+            }
+
+            if let canonicalLifeArea = lifeAreas.first(where: { $0.id == habit.lifeAreaID }) {
+                return .lifeArea(
+                    id: canonicalLifeArea.id,
+                    name: canonicalLifeArea.name,
                     iconSystemName: "square.grid.2x2.fill"
                 )
             }
