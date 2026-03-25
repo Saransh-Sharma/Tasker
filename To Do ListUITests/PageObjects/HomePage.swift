@@ -13,6 +13,10 @@ class HomePage {
 
     private let app: XCUIApplication
 
+    private func missingElement(_ identifier: String) -> XCUIElement {
+        app.descendants(matching: .any)["missing.\(identifier)"]
+    }
+
     // MARK: - Elements
 
     var view: XCUIElement {
@@ -375,10 +379,28 @@ class HomePage {
     }
 
     var rescueSection: XCUIElement {
-        let byOther = app.otherElements[AccessibilityIdentifiers.Home.rescueSection]
-        if byOther.exists {
-            return byOther
+        let identifiedSections = app.descendants(matching: .any).matching(
+            NSPredicate(format: "identifier == %@", AccessibilityIdentifiers.Home.rescueSection)
+        )
+        for index in 0..<identifiedSections.count {
+            let candidate = identifiedSections.element(boundBy: index)
+            guard candidate.exists else { continue }
+
+            let actionButtons = candidate.descendants(matching: .button).matching(
+                NSPredicate(format: "label CONTAINS[c] 'Start' OR label CONTAINS[c] 'Expand' OR label CONTAINS[c] 'Collapse'")
+            )
+            if actionButtons.count > 0 {
+                return candidate
+            }
+
+            let headerText = candidate.descendants(matching: .staticText).matching(
+                NSPredicate(format: "label == 'Rescue'")
+            )
+            if headerText.count > 0 {
+                return candidate
+            }
         }
+
         return app.descendants(matching: .any)[AccessibilityIdentifiers.Home.rescueSection]
     }
 
@@ -387,7 +409,22 @@ class HomePage {
         if byAny.exists {
             return byAny
         }
-        return app.staticTexts["Rescue"]
+
+        let exactLabel = app.staticTexts["Rescue"]
+        if exactLabel.exists {
+            return exactLabel
+        }
+
+        let fallback = app.descendants(matching: .staticText).matching(
+            NSPredicate(
+                format: "identifier == %@ AND label CONTAINS[c] 'Rescue' AND NOT label MATCHES '^[0-9]+$' AND NOT label BEGINSWITH 'Task:'",
+                AccessibilityIdentifiers.Home.rescueSection
+            )
+        ).firstMatch
+        if fallback.exists {
+            return fallback
+        }
+        return missingElement(AccessibilityIdentifiers.Home.rescueHeader)
     }
 
     var rescueStartButton: XCUIElement {
@@ -395,7 +432,19 @@ class HomePage {
         if byButton.exists {
             return byButton
         }
-        return app.buttons["Start rescue"]
+
+        let fallback = app.buttons.matching(
+            NSPredicate(
+                format: "(identifier == %@ OR identifier == %@) AND label CONTAINS[c] 'Start'",
+                AccessibilityIdentifiers.Home.rescueStart,
+                AccessibilityIdentifiers.Home.rescueSection
+            )
+        ).firstMatch
+        if fallback.exists {
+            return fallback
+        }
+
+        return missingElement(AccessibilityIdentifiers.Home.rescueStart)
     }
 
     var rescueExpandButton: XCUIElement {
@@ -403,9 +452,19 @@ class HomePage {
         if byButton.exists {
             return byButton
         }
-        return app.buttons.matching(
-            NSPredicate(format: "label == 'Expand Rescue' OR label == 'Collapse Rescue'")
+
+        let fallback = app.buttons.matching(
+            NSPredicate(
+                format: "(identifier == %@ OR identifier == %@) AND (label CONTAINS[c] 'Expand' OR label CONTAINS[c] 'Collapse')",
+                AccessibilityIdentifiers.Home.rescueExpand,
+                AccessibilityIdentifiers.Home.rescueSection
+            )
         ).firstMatch
+        if fallback.exists {
+            return fallback
+        }
+
+        return missingElement(AccessibilityIdentifiers.Home.rescueExpand)
     }
 
     var rescueSheet: XCUIElement {
@@ -413,7 +472,15 @@ class HomePage {
         if byOther.exists {
             return byOther
         }
-        return app.navigationBars["Rescue"]
+
+        let fallback = app.descendants(matching: .any).matching(
+            NSPredicate(format: "identifier == %@ OR label CONTAINS[c] 'Rescue'", AccessibilityIdentifiers.Home.rescueSheet)
+        ).firstMatch
+        if fallback.exists {
+            return fallback
+        }
+
+        return missingElement(AccessibilityIdentifiers.Home.rescueSheet)
     }
 
     var listDropZone: XCUIElement {
@@ -851,14 +918,28 @@ class HomePage {
             return fallbackByLabel
         }
 
-        return app.descendants(matching: .any).matching(
-            NSPredicate(format: "identifier BEGINSWITH 'home.taskRow.'")
-        ).firstMatch
+        return missingElement("home.taskRow.\(title)")
     }
 
     func focusTaskCard(containingTitle title: String) -> XCUIElement {
+        let explicitButton = focusStrip.buttons[title]
+        if explicitButton.exists {
+            return explicitButton
+        }
+
+        let explicitAny = focusStrip.descendants(matching: .any).matching(
+            NSPredicate(
+                format: "identifier BEGINSWITH 'home.focus.task.' OR identifier == 'home.focusZone.taskList'"
+            )
+        ).containing(.staticText, identifier: title)
+        if let hittableExplicitAny = firstHittableElement(in: explicitAny) {
+            return hittableExplicitAny
+        }
+
         let rowsContainingTitle = app.descendants(matching: .any).matching(
-            NSPredicate(format: "identifier BEGINSWITH 'home.focus.task.'")
+            NSPredicate(
+                format: "identifier BEGINSWITH 'home.focus.task.' OR identifier == 'home.focusZone.taskList'"
+            )
         ).containing(.staticText, identifier: title)
         if let hittableRow = firstHittableElement(in: rowsContainingTitle) {
             return hittableRow
@@ -870,14 +951,19 @@ class HomePage {
         }
 
         let rowByLabel = app.descendants(matching: .any).matching(
-            NSPredicate(format: "identifier BEGINSWITH 'home.focus.task.' AND label CONTAINS[c] %@", title)
+            NSPredicate(
+                format: "(identifier BEGINSWITH 'home.focus.task.' OR identifier == 'home.focusZone.taskList') AND label CONTAINS[c] %@",
+                title
+            )
         ).firstMatch
         if rowByLabel.exists {
             return rowByLabel
         }
 
         let rows = app.descendants(matching: .any).matching(
-            NSPredicate(format: "identifier BEGINSWITH 'home.focus.task.'")
+            NSPredicate(
+                format: "identifier BEGINSWITH 'home.focus.task.' OR identifier == 'home.focusZone.taskList'"
+            )
         )
         for index in 0..<rows.count {
             let row = rows.element(boundBy: index)
@@ -886,7 +972,7 @@ class HomePage {
             }
         }
 
-        return rows.firstMatch
+        return missingElement("home.focus.task.\(title)")
     }
 
     func focusTaskCard(taskID: UUID) -> XCUIElement {
@@ -914,7 +1000,7 @@ class HomePage {
             }
         }
 
-        return buttons.firstMatch
+        return missingElement("home.focus.pin.\(title)")
     }
 
     func rescueRow(containingTitle title: String) -> XCUIElement {
@@ -942,9 +1028,7 @@ class HomePage {
             return visibleText
         }
 
-        return rescueSection.descendants(matching: .any).matching(
-            NSPredicate(format: "label CONTAINS[c] %@", title)
-        ).firstMatch
+        return missingElement("home.rescue.row.\(title)")
     }
 
     func tapRescueExpand() {

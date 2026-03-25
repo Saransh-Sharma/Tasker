@@ -361,11 +361,16 @@ class AnalyticsAndChartsTests: BaseUITest {
     // MARK: - Test 60G: Unpinning Keeps Task In List
 
     func testUnpinningFocusTaskKeepsTaskInList() throws {
+        let calendar = Calendar.current
+        let baseDueDate = calendar.date(byAdding: .day, value: 1, to: calendar.startOfDay(for: Date()))!
         let pinCandidate = "Unpin Candidate"
         let addCandidatePage = homePage.tapAddTask()
-        addCandidatePage.createTask(title: pinCandidate, priority: .max, taskType: .morning)
-        _ = homePage.waitForTask(withTitle: pinCandidate, timeout: 5)
-
+        addCandidatePage.createTask(
+            title: pinCandidate,
+            priority: .max,
+            taskType: .morning,
+            dueDate: baseDueDate
+        )
         guard homePage.focusTaskCard(containingTitle: pinCandidate).waitForExistence(timeout: 3) else {
             throw XCTSkip("Focus card is not exposed; skipping unpin verification")
         }
@@ -379,11 +384,19 @@ class AnalyticsAndChartsTests: BaseUITest {
         waitForAnimations(duration: 0.8)
         XCTAssertEqual(pinButton.label, "Unpin from Focus Now")
 
-        let rankedTitles = ["Keep Rank A", "Keep Rank B", "Keep Rank C"]
-        for title in rankedTitles {
+        let rankedTitles = [
+            ("Keep Rank A", 1),
+            ("Keep Rank B", 2),
+            ("Keep Rank C", 3)
+        ]
+        for (title, dayOffset) in rankedTitles {
             let addTaskPage = homePage.tapAddTask()
-            addTaskPage.createTask(title: title, priority: .max, taskType: .morning)
-            _ = homePage.waitForTask(withTitle: title, timeout: 5)
+            addTaskPage.createTask(
+                title: title,
+                priority: .max,
+                taskType: .morning,
+                dueDate: calendar.date(byAdding: .day, value: dayOffset, to: baseDueDate)!
+            )
         }
 
         pinButton.tap()
@@ -396,11 +409,22 @@ class AnalyticsAndChartsTests: BaseUITest {
     // MARK: - Test 60H: Three Pinned Cards Occupy Focus Capacity
 
     func testThreePinnedFocusCardsOccupyVisibleCapacity() throws {
-        let pinCandidates = ["Pin 1", "Pin 2", "Pin 3", "Pin 4"]
-        for title in pinCandidates {
+        let calendar = Calendar.current
+        let baseDueDate = calendar.date(byAdding: .day, value: 1, to: calendar.startOfDay(for: Date()))!
+        let pinCandidates = [
+            ("Pin 1", 0),
+            ("Pin 2", 1),
+            ("Pin 3", 2),
+            ("Pin 4", 3)
+        ]
+        for (title, dayOffset) in pinCandidates {
             let addTaskPage = homePage.tapAddTask()
-            addTaskPage.createTask(title: title, priority: .max, taskType: .morning)
-            _ = homePage.waitForTask(withTitle: title, timeout: 5)
+            addTaskPage.createTask(
+                title: title,
+                priority: .max,
+                taskType: .morning,
+                dueDate: calendar.date(byAdding: .day, value: dayOffset, to: baseDueDate)!
+            )
         }
 
         let visibleCandidates = ["Pin 1", "Pin 2", "Pin 3"]

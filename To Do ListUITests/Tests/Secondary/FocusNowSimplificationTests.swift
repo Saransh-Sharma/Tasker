@@ -1,9 +1,8 @@
 import XCTest
 
 final class FocusNowSimplificationTests: BaseUITest {
-    private enum SeededFocusTaskID {
-        static let detail = UUID(uuidString: "10000000-0000-0000-0000-000000000001")!
-        static let pinnedA = UUID(uuidString: "10000000-0000-0000-0000-000000000002")!
+    private enum SeededFocusTitle {
+        static let detail = "Focus Row Opens Detail"
     }
 
     private var homePage: HomePage!
@@ -59,7 +58,7 @@ final class FocusNowSimplificationTests: BaseUITest {
     func testFocusTaskRowTapStillOpensTaskDetails() throws {
         relaunchWithFocusSeed()
 
-        let focusCard = homePage.focusTaskCard(taskID: SeededFocusTaskID.detail)
+        let focusCard = homePage.focusTaskCard(containingTitle: SeededFocusTitle.detail)
         XCTAssertTrue(focusCard.waitForExistence(timeout: 5), "Seeded focus task row should be exposed")
 
         if focusCard.isHittable {
@@ -77,20 +76,22 @@ final class FocusNowSimplificationTests: BaseUITest {
     func testVisibleFocusTaskCanBePinnedAndSurvivesShuffle() throws {
         relaunchWithFocusSeed()
 
-        let focusCard = homePage.focusTaskCard(taskID: SeededFocusTaskID.pinnedA)
+        let focusCard = homePage.focusTaskCard(containingTitle: SeededFocusTitle.detail)
         XCTAssertTrue(focusCard.waitForExistence(timeout: 5), "Focus strip should show the expected seeded task")
 
-        let pinButton = homePage.focusPinButton(taskID: SeededFocusTaskID.pinnedA)
+        let pinButton = homePage.focusPinButton(containingTitle: SeededFocusTitle.detail)
         XCTAssertTrue(pinButton.waitForExistence(timeout: 3), "Focus pin button should be exposed")
 
         pinButton.tap()
+        waitForAnimations(duration: 0.5)
+        XCTAssertEqual(pinButton.label, "Unpin from Focus Now", "Pin state should update before shuffle")
 
         let shuffleButton = homePage.focusShuffleButton
         XCTAssertTrue(shuffleButton.waitForExistence(timeout: 3), "Shuffle button should be exposed")
         shuffleButton.tap()
 
         XCTAssertTrue(
-            homePage.focusTaskCard(taskID: SeededFocusTaskID.pinnedA).waitForExistence(timeout: 3),
+            homePage.focusTaskCard(containingTitle: SeededFocusTitle.detail).waitForExistence(timeout: 3),
             "Pinned focus task should remain visible after shuffle"
         )
     }
