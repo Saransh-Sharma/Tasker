@@ -87,6 +87,34 @@ final class AppDelegateCloudKitPreflightTests: XCTestCase {
     }
 }
 
+final class HomeSectionStateRegressionTests: XCTestCase {
+    func testFocusNowSectionStateClampsNegativeMaxVisibleCount() {
+        let state = FocusNowSectionState(
+            rows: [.task(TaskDefinition(title: "Pinned candidate"))],
+            pinnedTaskIDs: [],
+            maxVisibleCount: -1
+        )
+
+        XCTAssertEqual(state.maxVisibleCount, 0)
+        XCTAssertEqual(state.rows, [])
+        XCTAssertEqual(state.visibleCount, 0)
+    }
+
+    func testRescueSectionStateClampsNegativePreviewCount() {
+        let state = RescueSectionState(
+            rows: [
+                .task(TaskDefinition(title: "Rescue 1")),
+                .task(TaskDefinition(title: "Rescue 2"))
+            ],
+            previewCount: -2
+        )
+
+        XCTAssertEqual(state.previewCount, 0)
+        XCTAssertEqual(state.previewRows, [])
+        XCTAssertEqual(state.totalCount, 2)
+    }
+}
+
 final class HabitCoreDataSchemaRegressionTests: XCTestCase {
     func testCurrentCompiledTaskModelIncludesHabitRuntimeAndGamificationSchema() throws {
         let model = try currentCompiledTaskModel()

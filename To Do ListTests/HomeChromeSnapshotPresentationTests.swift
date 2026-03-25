@@ -65,17 +65,9 @@ final class HomeChromeSnapshotPresentationTests: XCTestCase {
                 HomeListSection(
                     anchor: .dueTodaySummary,
                     rows: [
-                        .task(TaskDefinition(title: "Task")),
-                        .habit(
-                            HomeHabitRow(
-                                habitID: UUID(),
-                                title: "Habit",
-                                kind: .positive,
-                                trackingMode: .dailyCheckIn,
-                                lifeAreaName: "General",
-                                iconSymbolName: "repeat"
-                            )
-                        )
+                        .task(TaskDefinition(title: "Legacy Task")),
+                        .task(TaskDefinition(title: "Legacy Task 2")),
+                        .task(TaskDefinition(title: "Legacy Task 3"))
                     ]
                 )
             ],

@@ -25,4 +25,16 @@ final class HomeBandLayoutPlannerTests: XCTestCase {
 
         XCTAssertEqual(bands, [.activeWork, .pressure])
     }
+
+    func testVisibleBandsShowsActiveWorkWhenOnlyFocusHeroIsEnabled() {
+        let bands = HomeBandLayoutPlanner.visibleBands(
+            hasPassiveTracking: false,
+            hasFocusHero: true,
+            hasTodayAgenda: false,
+            hasRescue: true,
+            hasQuietTracking: false
+        )
+
+        XCTAssertEqual(bands, [.activeWork, .pressure])
+    }
 }
