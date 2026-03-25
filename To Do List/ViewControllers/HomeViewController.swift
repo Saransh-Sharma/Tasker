@@ -126,6 +126,10 @@ struct HomeTasksSnapshot: Equatable {
     let overdueTasks: [TaskDefinition]
     let dueTodaySection: HomeListSection?
     let todaySections: [HomeListSection]
+    let focusNowSectionState: FocusNowSectionState
+    let todayAgendaSectionState: TodayAgendaSectionState
+    let rescueSectionState: RescueSectionState
+    let quietTrackingSummaryState: QuietTrackingSummaryState
     let inlineCompletedTasks: [TaskDefinition]
     let doneTimelineTasks: [TaskDefinition]
     let projects: [Project]
@@ -151,6 +155,10 @@ struct HomeTasksSnapshot: Equatable {
         overdueTasks: [],
         dueTodaySection: nil,
         todaySections: [],
+        focusNowSectionState: FocusNowSectionState(rows: [], pinnedTaskIDs: []),
+        todayAgendaSectionState: TodayAgendaSectionState(sections: []),
+        rescueSectionState: RescueSectionState(rows: []),
+        quietTrackingSummaryState: QuietTrackingSummaryState(stableRows: []),
         inlineCompletedTasks: [],
         doneTimelineTasks: [],
         projects: [],
@@ -175,8 +183,10 @@ struct HomeTasksSnapshot: Equatable {
         !morningTasks.isEmpty
             || !eveningTasks.isEmpty
             || !overdueTasks.isEmpty
-            || dueTodaySection != nil
-            || !todaySections.isEmpty
+            || !focusNowSectionState.rows.isEmpty
+            || !todayAgendaSectionState.sections.isEmpty
+            || !rescueSectionState.isEmpty
+            || quietTrackingSummaryState.isVisible
             || !inlineCompletedTasks.isEmpty
             || !doneTimelineTasks.isEmpty
             || rendersDefaultTodayEmptyState
@@ -188,8 +198,10 @@ struct HomeTasksSnapshot: Equatable {
             && morningTasks.isEmpty
             && eveningTasks.isEmpty
             && overdueTasks.isEmpty
-            && dueTodaySection == nil
-            && todaySections.isEmpty
+            && focusNowSectionState.rows.isEmpty
+            && todayAgendaSectionState.sections.isEmpty
+            && rescueSectionState.isEmpty
+            && !quietTrackingSummaryState.isVisible
             && inlineCompletedTasks.isEmpty
             && doneTimelineTasks.isEmpty
     }
@@ -381,6 +393,8 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
     private static var hasConsumedUITestRoute = false
     private static var hasConsumedUITestOpenSettings = false
     private static var hasSeededUITestEstablishedWorkspace = false
+    private static var hasSeededUITestRescueWorkspace = false
+    private static var hasSeededUITestFocusWorkspace = false
 
     // MARK: - Dependencies
 
@@ -493,7 +507,12 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
         processPendingWidgetActionCommand()
         processPendingIPadModalRequest()
         seedUITestEstablishedWorkspaceIfNeeded { [weak self] in
-            self?.scheduleOnboardingEvaluationIfNeeded()
+            self?.seedUITestRescueWorkspaceIfNeeded {
+                self?.seedUITestFocusWorkspaceIfNeeded {
+                    self?.viewModel.loadTodayTasks()
+                    self?.scheduleOnboardingEvaluationIfNeeded()
+                }
+            }
         }
     }
 
@@ -1874,6 +1893,240 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
                 logError(
                     event: "ui_test_onboarding_workspace_seed_failed",
                     message: "Failed to seed established workspace for onboarding UI test",
+                    fields: ["error": error.localizedDescription]
+                )
+            }
+
+            completion()
+        }
+    }
+
+    private func seedUITestRescueWorkspaceIfNeeded(completion: @escaping () -> Void) {
+        guard ProcessInfo.processInfo.arguments.contains("-TASKER_TEST_SEED_RESCUE_WORKSPACE") else {
+            completion()
+            return
+        }
+        guard Self.hasSeededUITestRescueWorkspace == false else {
+            completion()
+            return
+        }
+        guard let presentationDependencyContainer else {
+            completion()
+            return
+        }
+
+        Self.hasSeededUITestRescueWorkspace = true
+
+        Task { @MainActor in
+            do {
+                let manageLifeAreas = presentationDependencyContainer.coordinator.manageLifeAreas
+                let manageProjects = presentationDependencyContainer.coordinator.manageProjects
+                let createTaskDefinition = presentationDependencyContainer.coordinator.createTaskDefinition
+
+                let calendar = Calendar.current
+                let now = Date()
+                let anchorDay = calendar.startOfDay(for: now)
+
+                let lifeArea = try await manageLifeAreas.createAsync(
+                    name: "Operations",
+                    color: "#624A2E",
+                    icon: "shippingbox.fill"
+                )
+                let project = try await manageProjects.createProjectAsync(
+                    request: CreateProjectRequest(
+                        name: "Recovery Queue",
+                        description: "UI test rescue seed",
+                        lifeAreaID: lifeArea.id
+                    )
+                )
+
+                let requests = [
+                    CreateTaskDefinitionRequest(
+                        title: "Rescue oldest",
+                        details: "UI test rescue seed",
+                        projectID: project.id,
+                        projectName: project.name,
+                        lifeAreaID: lifeArea.id,
+                        dueDate: calendar.date(byAdding: .day, value: -20, to: anchorDay),
+                        priority: .max,
+                        createdAt: now
+                    ),
+                    CreateTaskDefinitionRequest(
+                        title: "Rescue middle",
+                        details: "UI test rescue seed",
+                        projectID: project.id,
+                        projectName: project.name,
+                        lifeAreaID: lifeArea.id,
+                        dueDate: calendar.date(byAdding: .day, value: -18, to: anchorDay),
+                        priority: .high,
+                        createdAt: now
+                    ),
+                    CreateTaskDefinitionRequest(
+                        title: "Rescue newest",
+                        details: "UI test rescue seed",
+                        projectID: project.id,
+                        projectName: project.name,
+                        lifeAreaID: lifeArea.id,
+                        dueDate: calendar.date(byAdding: .day, value: -16, to: anchorDay),
+                        priority: .low,
+                        createdAt: now
+                    ),
+                    CreateTaskDefinitionRequest(
+                        title: "Rescue hidden",
+                        details: "UI test rescue seed",
+                        projectID: project.id,
+                        projectName: project.name,
+                        lifeAreaID: lifeArea.id,
+                        dueDate: calendar.date(byAdding: .day, value: -15, to: anchorDay),
+                        priority: .high,
+                        createdAt: now
+                    ),
+                    CreateTaskDefinitionRequest(
+                        title: "Today focus seed",
+                        details: "UI test rescue seed",
+                        projectID: project.id,
+                        projectName: project.name,
+                        lifeAreaID: lifeArea.id,
+                        dueDate: calendar.date(byAdding: .hour, value: 10, to: anchorDay),
+                        priority: .high,
+                        createdAt: now
+                    )
+                ]
+
+                for request in requests {
+                    _ = try await createTaskDefinition.executeAsync(request: request)
+                }
+            } catch {
+                logError(
+                    event: "ui_test_rescue_workspace_seed_failed",
+                    message: "Failed to seed rescue workspace for Home UI tests",
+                    fields: ["error": error.localizedDescription]
+                )
+            }
+
+            completion()
+        }
+    }
+
+    private func seedUITestFocusWorkspaceIfNeeded(completion: @escaping () -> Void) {
+        guard ProcessInfo.processInfo.arguments.contains("-TASKER_TEST_SEED_FOCUS_WORKSPACE") else {
+            completion()
+            return
+        }
+        guard Self.hasSeededUITestFocusWorkspace == false else {
+            completion()
+            return
+        }
+        guard let presentationDependencyContainer else {
+            completion()
+            return
+        }
+
+        Self.hasSeededUITestFocusWorkspace = true
+
+        Task { @MainActor in
+            do {
+                let manageLifeAreas = presentationDependencyContainer.coordinator.manageLifeAreas
+                let manageProjects = presentationDependencyContainer.coordinator.manageProjects
+                let createTaskDefinition = presentationDependencyContainer.coordinator.createTaskDefinition
+
+                let lifeArea = try await manageLifeAreas.createAsync(
+                    name: "Focus Systems",
+                    color: "#5A3121",
+                    icon: "scope"
+                )
+                let project = try await manageProjects.createProjectAsync(
+                    request: CreateProjectRequest(
+                        name: "Today Focus",
+                        description: "UI test focus seed",
+                        lifeAreaID: lifeArea.id
+                    )
+                )
+
+                let anchor = DatePreset.today.resolvedDueDate() ?? Date()
+                let calendar = Calendar.current
+                let startOfDay = calendar.startOfDay(for: anchor)
+                let focusRowID = UUID(uuidString: "10000000-0000-0000-0000-000000000001") ?? UUID()
+                let focusAID = UUID(uuidString: "10000000-0000-0000-0000-000000000002") ?? UUID()
+                let focusBID = UUID(uuidString: "10000000-0000-0000-0000-000000000003") ?? UUID()
+                let focusCID = UUID(uuidString: "10000000-0000-0000-0000-000000000004") ?? UUID()
+                let focusDID = UUID(uuidString: "10000000-0000-0000-0000-000000000005") ?? UUID()
+                let requests = [
+                    CreateTaskDefinitionRequest(
+                        id: focusRowID,
+                        title: "Focus Row Opens Detail",
+                        details: "UI test focus seed",
+                        projectID: project.id,
+                        projectName: project.name,
+                        lifeAreaID: lifeArea.id,
+                        dueDate: calendar.date(byAdding: .hour, value: 8, to: startOfDay),
+                        priority: .high,
+                        estimatedDuration: 900,
+                        createdAt: Date()
+                    ),
+                    CreateTaskDefinitionRequest(
+                        id: focusAID,
+                        title: "Pinned Focus A",
+                        details: "UI test focus seed",
+                        projectID: project.id,
+                        projectName: project.name,
+                        lifeAreaID: lifeArea.id,
+                        dueDate: calendar.date(byAdding: .hour, value: 9, to: startOfDay),
+                        priority: .high,
+                        estimatedDuration: 900,
+                        createdAt: Date()
+                    ),
+                    CreateTaskDefinitionRequest(
+                        id: focusBID,
+                        title: "Pinned Focus B",
+                        details: "UI test focus seed",
+                        projectID: project.id,
+                        projectName: project.name,
+                        lifeAreaID: lifeArea.id,
+                        dueDate: calendar.date(byAdding: .hour, value: 10, to: startOfDay),
+                        priority: .high,
+                        estimatedDuration: 1_200,
+                        createdAt: Date()
+                    ),
+                    CreateTaskDefinitionRequest(
+                        id: focusCID,
+                        title: "Pinned Focus C",
+                        details: "UI test focus seed",
+                        projectID: project.id,
+                        projectName: project.name,
+                        lifeAreaID: lifeArea.id,
+                        dueDate: calendar.date(byAdding: .hour, value: 11, to: startOfDay),
+                        priority: .high,
+                        estimatedDuration: 2_400,
+                        createdAt: Date()
+                    ),
+                    CreateTaskDefinitionRequest(
+                        id: focusDID,
+                        title: "Pinned Focus D",
+                        details: "UI test focus seed",
+                        projectID: project.id,
+                        projectName: project.name,
+                        lifeAreaID: lifeArea.id,
+                        dueDate: calendar.date(byAdding: .hour, value: 12, to: startOfDay),
+                        priority: .high,
+                        estimatedDuration: 2_400,
+                        createdAt: Date()
+                    )
+                ]
+
+                for request in requests {
+                    _ = try await createTaskDefinition.executeAsync(request: request)
+                }
+
+                UserDefaults.standard.set(
+                    [focusRowID.uuidString],
+                    forKey: "home.focus.pinnedTaskIDs.v2"
+                )
+                UserDefaults.standard.removeObject(forKey: "home.eva.recentShuffleTaskIDs.v1")
+            } catch {
+                logError(
+                    event: "ui_test_focus_workspace_seed_failed",
+                    message: "Failed to seed focus workspace for Home UI tests",
                     fields: ["error": error.localizedDescription]
                 )
             }

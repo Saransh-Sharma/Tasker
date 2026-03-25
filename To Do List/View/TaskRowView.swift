@@ -30,7 +30,7 @@ struct TaskRowDisplayModel: Equatable {
         tagNameByID: [UUID: String] = [:]
     ) -> TaskRowDisplayModel {
         let _ = showTypeBadge
-        let descriptionText = smartDescription(for: task)
+        let descriptionText = smartDescription(for: task, now: now)
         let metadataText = metadataText(
             for: task,
             now: now,
@@ -49,7 +49,8 @@ struct TaskRowDisplayModel: Equatable {
 
     /// Executes dueSoonStatus.
     private static func dueSoonStatus(for task: TaskDefinition, now: Date) -> TaskRowStatusChip? {
-        guard !task.isComplete, !task.isOverdue, let dueDate = task.dueDate else { return nil }
+        guard !task.isComplete, let dueDate = task.dueDate else { return nil }
+        guard OverdueAgeFormatter.lateLabel(dueDate: dueDate, now: now) == nil else { return nil }
         let remaining = dueDate.timeIntervalSince(now)
         guard remaining > 0, remaining <= (2 * 60 * 60) else { return nil }
         return .dueSoon
@@ -63,25 +64,46 @@ struct TaskRowDisplayModel: Equatable {
         tagNameByID: [UUID: String]
     ) -> String? {
         var tokens: [String] = []
+        let calendar = Calendar.current
 
-        if !task.isComplete, let dueDate = task.dueDate, let lateLabel = OverdueAgeFormatter.lateLabel(dueDate: dueDate, now: now) {
-            tokens.append(lateLabel)
-            if isInOverdueSection {
-                if let recurrence = compactRecurrenceToken(for: task.repeatPattern) {
-                    tokens.append(recurrence)
-                }
-                if let tagName = firstTagName(for: task, tagNameByID: tagNameByID) {
-                    tokens.append(tagName)
-                }
+        if !task.isComplete, let dueDate = task.dueDate {
+            if let lateLabel = OverdueAgeFormatter.lateLabel(dueDate: dueDate, now: now) {
+                tokens.append(lateLabel)
+            } else if calendar.isDate(dueDate, inSameDayAs: now) {
+                tokens.append(dueDate.formatted(date: .omitted, time: .shortened))
             }
-            return tokens.joined(separator: " • ").nilIfEmpty
+        }
+
+        if let projectToken = projectToken(for: task) {
+            tokens.append(projectToken)
         }
 
         if let recurrence = compactRecurrenceToken(for: task.repeatPattern) {
             tokens.append(recurrence)
         }
 
+        if isInOverdueSection, let tagName = firstTagName(for: task, tagNameByID: tagNameByID) {
+            tokens.append(tagName)
+        }
+
         return tokens.joined(separator: " • ").nilIfEmpty
+    }
+
+    /// Executes projectToken.
+    private static func projectToken(for task: TaskDefinition) -> String? {
+        let trimmedProjectName = task.projectName?
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .nilIfEmpty
+
+        if let trimmedProjectName {
+            return trimmedProjectName
+        }
+
+        if task.projectID == ProjectConstants.inboxProjectID {
+            return ProjectConstants.inboxProjectName
+        }
+
+        return nil
     }
 
     /// Executes firstTagName.
@@ -113,7 +135,7 @@ struct TaskRowDisplayModel: Equatable {
     }
 
     /// Executes smartDescription.
-    private static func smartDescription(for task: TaskDefinition) -> String? {
+    private static func smartDescription(for task: TaskDefinition, now: Date) -> String? {
         guard !task.isComplete else { return nil }
         guard let description = task.details?.trimmingCharacters(in: .whitespacesAndNewlines).nilIfEmpty else {
             return nil
@@ -122,7 +144,10 @@ struct TaskRowDisplayModel: Equatable {
             return nil
         }
 
-        let hasStrongSignal = task.isOverdue
+        let isOverdueRelativeToNow = task.dueDate.map {
+            OverdueAgeFormatter.lateLabel(dueDate: $0, now: now) != nil
+        } ?? false
+        let hasStrongSignal = isOverdueRelativeToNow
             || task.priority.isHighPriority
             || !task.dependencies.isEmpty
             || !task.subtasks.isEmpty
@@ -194,6 +219,7 @@ private struct TaskRowDerivedStateCacheKey: Hashable {
     let hasToggleAction: Bool
     let hasDeleteAction: Bool
     let hasRescheduleAction: Bool
+    let hasPromoteAction: Bool
     let tagDisplaySignature: [String]
 }
 
@@ -214,7 +240,8 @@ private enum TaskRowDerivedStateCache {
         hasTapAction: Bool,
         hasToggleAction: Bool,
         hasDeleteAction: Bool,
-        hasRescheduleAction: Bool
+        hasRescheduleAction: Bool,
+        hasPromoteAction: Bool
     ) -> TaskRowDerivedState {
         let tagDisplaySignature = task.tagIDs.compactMap { tagNameByID[$0] }.sorted()
         let key = TaskRowDerivedStateCacheKey(
@@ -236,6 +263,7 @@ private enum TaskRowDerivedStateCache {
             hasToggleAction: hasToggleAction,
             hasDeleteAction: hasDeleteAction,
             hasRescheduleAction: hasRescheduleAction,
+            hasPromoteAction: hasPromoteAction,
             tagDisplaySignature: tagDisplaySignature
         )
 
@@ -300,6 +328,9 @@ private enum TaskRowDerivedStateCache {
         if hasDeleteAction || hasRescheduleAction {
             hintParts.append("Swipe for actions")
         }
+        if hasPromoteAction {
+            hintParts.append("Move to Focus Now available")
+        }
         if isTaskDragEnabled {
             hintParts.append("Long press and drag to move task to Focus")
         }
@@ -339,6 +370,7 @@ struct TaskRowView: View, Equatable {
     var onToggleComplete: (() -> Void)? = nil
     var onDelete: (() -> Void)? = nil
     var onReschedule: (() -> Void)? = nil
+    var onPromoteToFocus: (() -> Void)? = nil
     var onTaskDragStarted: ((TaskDefinition) -> Void)? = nil
 
     @Environment(\.taskerLayoutClass) private var layoutClass
@@ -359,6 +391,7 @@ struct TaskRowView: View, Equatable {
         onToggleComplete: (() -> Void)? = nil,
         onDelete: (() -> Void)? = nil,
         onReschedule: (() -> Void)? = nil,
+        onPromoteToFocus: (() -> Void)? = nil,
         onTaskDragStarted: ((TaskDefinition) -> Void)? = nil
     ) {
         self.task = task
@@ -380,12 +413,14 @@ struct TaskRowView: View, Equatable {
             hasTapAction: onTap != nil,
             hasToggleAction: onToggleComplete != nil,
             hasDeleteAction: onDelete != nil,
-            hasRescheduleAction: onReschedule != nil
+            hasRescheduleAction: onReschedule != nil,
+            hasPromoteAction: onPromoteToFocus != nil
         )
         self.onTap = onTap
         self.onToggleComplete = onToggleComplete
         self.onDelete = onDelete
         self.onReschedule = onReschedule
+        self.onPromoteToFocus = onPromoteToFocus
         self.onTaskDragStarted = onTaskDragStarted
     }
 
@@ -424,9 +459,27 @@ struct TaskRowView: View, Equatable {
                     Label(task.isComplete ? "Reopen" : "Complete", systemImage: task.isComplete ? "arrow.uturn.backward" : "checkmark")
                 }
                 .tint(task.isComplete ? Color.tasker.accentSecondary : Color.tasker.statusSuccess)
+
+                if !task.isComplete, let onPromoteToFocus {
+                    Button {
+                        onPromoteToFocus()
+                    } label: {
+                        Label("Focus", systemImage: "scope")
+                    }
+                    .tint(Color.tasker.accentPrimary)
+                }
             }
             .swipeActions(edge: .trailing, allowsFullSwipe: false) {
                 if !task.isComplete {
+                    if let onPromoteToFocus {
+                        Button {
+                            onPromoteToFocus()
+                        } label: {
+                            Label("Move to Focus Now", systemImage: "scope")
+                        }
+                        .tint(Color.tasker.accentPrimary)
+                    }
+
                     Button {
                         onReschedule?()
                     } label: {
@@ -473,6 +526,14 @@ struct TaskRowView: View, Equatable {
                 }
 
                 if !task.isComplete {
+                    if let onPromoteToFocus {
+                        Button {
+                            onPromoteToFocus()
+                        } label: {
+                            Label("Move to Focus Now", systemImage: "scope")
+                        }
+                    }
+
                     Button {
                         onReschedule?()
                     } label: {

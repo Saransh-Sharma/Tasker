@@ -24,6 +24,9 @@ extension XCUIApplication {
         case mockInboxTasks = "-MOCK_INBOX_TASKS"
         case disableLLM = "-DISABLE_LLM"
         case testRoute = "-TASKER_TEST_ROUTE"
+        case testSeedEstablishedWorkspace = "-TASKER_TEST_SEED_ESTABLISHED_WORKSPACE"
+        case testSeedRescueWorkspace = "-TASKER_TEST_SEED_RESCUE_WORKSPACE"
+        case testSeedFocusWorkspace = "-TASKER_TEST_SEED_FOCUS_WORKSPACE"
     }
 
     // MARK: - Convenience Launch Methods

@@ -87,6 +87,37 @@ class AddTaskPage {
         return app.datePickers[AccessibilityIdentifiers.AddTask.dueDatePicker]
     }
 
+    var customDateChip: XCUIElement {
+        let byButton = app.buttons[AccessibilityIdentifiers.DatePickerSheet.customDateChip]
+        if byButton.exists {
+            return byButton
+        }
+
+        let byAny = app.descendants(matching: .any)[AccessibilityIdentifiers.DatePickerSheet.customDateChip]
+        if byAny.exists {
+            return byAny
+        }
+
+        let pickDateButton = app.buttons["Pick date"]
+        if pickDateButton.exists {
+            return pickDateButton
+        }
+
+        return app.staticTexts["Pick date"]
+    }
+
+    var customDateSheet: XCUIElement {
+        return app.otherElements[AccessibilityIdentifiers.DatePickerSheet.sheet]
+    }
+
+    var customDateCalendar: XCUIElement {
+        return app.datePickers[AccessibilityIdentifiers.DatePickerSheet.calendar]
+    }
+
+    var customDateConfirmButton: XCUIElement {
+        return app.buttons[AccessibilityIdentifiers.DatePickerSheet.confirmButton]
+    }
+
     var taskTypeSelector: XCUIElement {
         return app.segmentedControls[AccessibilityIdentifiers.AddTask.taskTypeSelector]
     }
@@ -302,62 +333,45 @@ class AddTaskPage {
 
     /// Set due date
     func setDueDate(_ date: Date) {
-        // The app uses FSCalendar which is always visible, not a UIDatePicker
-        // Wait for calendar to appear
-        if dueDatePicker.waitForExistence(timeout: 2) {
-            let calendar = Calendar.current
-            let dayNumber = calendar.component(.day, from: date)
+        let calendar = Calendar.current
+        let targetDay = calendar.startOfDay(for: date)
+        let today = calendar.startOfDay(for: Date())
 
-            // Method 1: Try to find the date number as a button (FSCalendar typically exposes cells as buttons)
-            let dateButton = dueDatePicker.buttons["\(dayNumber)"].firstMatch
-            if dateButton.exists {
-                dateButton.tap()
-                print("📅 Tapped date button: \(dayNumber)")
-                Thread.sleep(forTimeInterval: 0.5)
-                return
-            }
-
-            // Method 2: Try to find as static text
-            let dateText = dueDatePicker.staticTexts["\(dayNumber)"].firstMatch
-            if dateText.exists {
-                dateText.tap()
-                print("📅 Tapped date text: \(dayNumber)")
-                Thread.sleep(forTimeInterval: 0.5)
-                return
-            }
-
-            // Method 3: Fallback - Find "Today" and tap next cell
-            let todayLabel = app.staticTexts.matching(NSPredicate(format: "label CONTAINS[c] 'today'")).firstMatch
-            let tomorrow = calendar.date(byAdding: .day, value: 1, to: Date())!
-
-            if todayLabel.exists && calendar.isDate(date, inSameDayAs: tomorrow) {
-                let todayFrame = todayLabel.frame
-                let dayWidth = dueDatePicker.frame.width / 7.0
-
-                // Tap one cell to the right (tomorrow)
-                let tomorrowCoordinate = app.coordinate(withNormalizedOffset: CGVector(dx: 0, dy: 0))
-                    .withOffset(CGVector(dx: todayFrame.midX + dayWidth, dy: todayFrame.midY))
-                tomorrowCoordinate.tap()
-
-                print("📅 Tapped tomorrow (next to Today cell)")
-                Thread.sleep(forTimeInterval: 0.5)
-                return
-            }
-
-            // Method 4: Last resort - coordinate-based tapping
-            let dayOfWeek = calendar.component(.weekday, from: date)
-            let calendarFrame = dueDatePicker.frame
-            let dayWidth = calendarFrame.width / 7.0
-            let xOffset = (CGFloat(dayOfWeek) - 0.5) * dayWidth
-            let yOffset = calendarFrame.height * 0.7 // Increased from 0.6 to 0.7 for better accuracy
-
-            let tapCoordinate = dueDatePicker.coordinate(withNormalizedOffset: CGVector(dx: 0, dy: 0))
-                .withOffset(CGVector(dx: xOffset, dy: yOffset))
-            tapCoordinate.tap()
-
-            print("📅 Fallback: Tapped date \(dayNumber) at coordinates x:\(xOffset), y:\(yOffset)")
-            Thread.sleep(forTimeInterval: 0.5)
+        if calendar.isDate(targetDay, inSameDayAs: today) {
+            tapDatePreset(label: "Today")
+            return
         }
+
+        if let tomorrow = calendar.date(byAdding: .day, value: 1, to: today),
+           calendar.isDate(targetDay, inSameDayAs: tomorrow) {
+            tapDatePreset(label: "Tomorrow")
+            return
+        }
+
+        guard openCustomDatePicker() else { return }
+
+        guard customDateSheet.waitForExistence(timeout: 2) || customDateCalendar.waitForExistence(timeout: 2) else {
+            return
+        }
+
+        let dayNumber = calendar.component(.day, from: targetDay)
+        let calendarRoot = customDateCalendar.waitForExistence(timeout: 1) ? customDateCalendar : customDateSheet
+
+        let dateButton = calendarRoot.buttons["\(dayNumber)"].firstMatch
+        if dateButton.exists {
+            tapElementCenter(dateButton)
+        } else {
+            let dateText = calendarRoot.staticTexts["\(dayNumber)"].firstMatch
+            if dateText.exists {
+                tapElementCenter(dateText)
+            }
+        }
+
+        if customDateConfirmButton.waitForExistence(timeout: 1) {
+            tapElementCenter(customDateConfirmButton)
+        }
+
+        Thread.sleep(forTimeInterval: 0.3)
     }
 
     /// Select project
@@ -431,12 +445,9 @@ class AddTaskPage {
     /// Tap save button
     @discardableResult
     func tapSave() -> HomePage {
-        let nonKeyboardDoneButton = app.buttons
-            .matching(NSPredicate(format: "label == %@ AND identifier != %@", "Done", "Done"))
-            .firstMatch
-        let nonKeyboardSaveButton = app.buttons
-            .matching(NSPredicate(format: "label == %@ AND identifier != %@", "Save", "Save"))
-            .firstMatch
+        let addTaskContainer = view
+        let navBar = app.navigationBars.firstMatch
+        let toolbar = app.toolbars.firstMatch
         let didDismiss: () -> Bool = {
             if self.waitForDismissal(timeout: 2) {
                 return true
@@ -448,47 +459,54 @@ class AddTaskPage {
 
         let candidates: [XCUIElement] = [
             app.buttons[AccessibilityIdentifiers.AddTask.saveButton],
-            app.buttons["addTask.createButton"],
+            addTaskContainer.buttons[AccessibilityIdentifiers.AddTask.saveButton],
+            addTaskContainer.buttons["addTask.createButton"],
+            addTaskContainer.descendants(matching: .button)[AccessibilityIdentifiers.AddTask.saveButton],
+            addTaskContainer.descendants(matching: .button)["addTask.createButton"],
+            addTaskContainer.descendants(matching: .any)["addTask.createButton"],
             app.descendants(matching: .any)[AccessibilityIdentifiers.AddTask.saveButton],
-            app.descendants(matching: .any)["addTask.createButton"],
-            app.navigationBars.buttons[AccessibilityIdentifiers.AddTask.saveButton],
-            app.navigationBars.firstMatch.buttons["Done"],
-            app.navigationBars.firstMatch.buttons["Create"],
-            app.navigationBars.firstMatch.buttons["Save"],
-            app.buttons["Create Task"],
-            app.buttons["Create"],
-            nonKeyboardDoneButton,
-            nonKeyboardSaveButton,
-            app.toolbars.buttons["Done"]
+            navBar.buttons[AccessibilityIdentifiers.AddTask.saveButton],
+            toolbar.buttons[AccessibilityIdentifiers.AddTask.saveButton],
+            navBar.buttons["Done"],
+            navBar.buttons["Create"],
+            navBar.buttons["Save"],
+            toolbar.buttons["Done"],
+            toolbar.buttons["Create"],
+            toolbar.buttons["Save"]
         ]
-        let deadline = Date().addingTimeInterval(6)
+        waitForSubmitActionToBecomeEnabled(candidates: candidates, timeout: 2.5)
+        let deadline = Date().addingTimeInterval(8)
         repeat {
-            let navigationBar = app.navigationBars.firstMatch
-            if navigationBar.exists {
+            if didDismiss() {
+                return HomePage(app: app)
+            }
+
+            if navBar.exists {
                 let preferredNavButtons: [XCUIElement] = [
-                    navigationBar.buttons[AccessibilityIdentifiers.AddTask.saveButton],
-                    navigationBar.buttons["Done"],
-                    navigationBar.buttons["Save"],
-                    navigationBar.buttons["Create"],
-                    navigationBar.buttons.firstMatch
+                    navBar.buttons[AccessibilityIdentifiers.AddTask.saveButton],
+                    navBar.buttons["Done"],
+                    navBar.buttons["Save"],
+                    navBar.buttons["Create"]
                 ]
 
                 for navButton in preferredNavButtons where navButton.exists {
-                    if navButton.isHittable {
-                        navButton.tap()
-                    } else {
-                        navButton.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
-                    }
+                    tapElementCenter(navButton)
                     if didDismiss() {
                         return HomePage(app: app)
                     }
                 }
+            }
 
-                let navFrame = navigationBar.frame
-                if navFrame.width > 0 && navFrame.height > 0 {
-                    let doneCoordinate = app.coordinate(withNormalizedOffset: CGVector(dx: 0, dy: 0))
-                        .withOffset(CGVector(dx: navFrame.maxX - 24, dy: navFrame.midY))
-                    doneCoordinate.tap()
+            if toolbar.exists {
+                let preferredToolbarButtons: [XCUIElement] = [
+                    toolbar.buttons[AccessibilityIdentifiers.AddTask.saveButton],
+                    toolbar.buttons["Done"],
+                    toolbar.buttons["Save"],
+                    toolbar.buttons["Create"]
+                ]
+
+                for toolbarButton in preferredToolbarButtons where toolbarButton.exists {
+                    tapElementCenter(toolbarButton)
                     if didDismiss() {
                         return HomePage(app: app)
                     }
@@ -496,11 +514,13 @@ class AddTaskPage {
             }
 
             for candidate in candidates where candidate.exists {
-                if candidate.isHittable {
-                    candidate.tap()
-                } else {
-                    candidate.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+                tapElementCenter(candidate)
+                if didDismiss() {
+                    return HomePage(app: app)
                 }
+            }
+
+            if tapComposerCreateCTA(in: addTaskContainer) {
                 if didDismiss() {
                     return HomePage(app: app)
                 }
@@ -526,6 +546,7 @@ class AddTaskPage {
         } while Date() < deadline
 
         if submitReturnFromFocusedTextField() {
+            waitForSubmitActionToBecomeEnabled(candidates: candidates, timeout: 1.0)
             if didDismiss() {
                 return HomePage(app: app)
             }
@@ -533,6 +554,7 @@ class AddTaskPage {
 
         let primaryTitleField = app.textFields[AccessibilityIdentifiers.AddTask.titleField]
         if focusAndSubmitReturn(primaryTitleField) {
+            waitForSubmitActionToBecomeEnabled(candidates: candidates, timeout: 1.0)
             if didDismiss() {
                 return HomePage(app: app)
             }
@@ -540,6 +562,7 @@ class AddTaskPage {
 
         let fallbackTitleField = app.textFields.firstMatch
         if focusAndSubmitReturn(fallbackTitleField) {
+            waitForSubmitActionToBecomeEnabled(candidates: candidates, timeout: 1.0)
             if didDismiss() {
                 return HomePage(app: app)
             }
@@ -599,6 +622,84 @@ class AddTaskPage {
 
     private func hasKeyboardFocus(_ field: XCUIElement) -> Bool {
         return (field.value(forKey: "hasKeyboardFocus") as? Bool) == true
+    }
+
+    private func waitForSubmitActionToBecomeEnabled(candidates: [XCUIElement], timeout: TimeInterval) {
+        let deadline = Date().addingTimeInterval(timeout)
+        repeat {
+            if candidates.contains(where: { $0.exists && $0.isEnabled }) {
+                return
+            }
+            RunLoop.current.run(until: Date().addingTimeInterval(0.1))
+        } while Date() < deadline
+    }
+
+    private func tapComposerCreateCTA(in container: XCUIElement) -> Bool {
+        let candidates: [XCUIElement] = [
+            container.buttons["addTask.createButton"],
+            container.descendants(matching: .button)["addTask.createButton"],
+            container.descendants(matching: .any)["addTask.createButton"],
+            app.buttons["addTask.createButton"],
+            app.descendants(matching: .button)["addTask.createButton"],
+            app.descendants(matching: .any)["addTask.createButton"]
+        ]
+
+        for candidate in candidates where candidate.exists {
+            tapElementCenter(candidate)
+            return true
+        }
+
+        return false
+    }
+
+    private func tapDatePreset(label: String) {
+        let candidates: [XCUIElement] = [
+            app.buttons[label],
+            view.buttons[label],
+            view.descendants(matching: .button)[label]
+        ]
+
+        for candidate in candidates where candidate.exists {
+            tapElementCenter(candidate)
+            Thread.sleep(forTimeInterval: 0.2)
+            return
+        }
+    }
+
+    @discardableResult
+    private func openCustomDatePicker() -> Bool {
+        for _ in 0..<3 {
+            let candidate = customDateChip
+            if candidate.waitForExistence(timeout: 1) {
+                let frame = candidate.frame
+                if frame.width > 0, frame.height > 0 {
+                    if candidate.debugDescription.contains("offscreen: true") {
+                        view.swipeLeft()
+                        Thread.sleep(forTimeInterval: 0.2)
+                        continue
+                    }
+                    tapElementCenter(candidate)
+                    return true
+                }
+            }
+
+            view.swipeLeft()
+            Thread.sleep(forTimeInterval: 0.2)
+        }
+
+        return false
+    }
+
+    private func tapElementCenter(_ element: XCUIElement) {
+        let frame = element.frame
+        guard frame.width > 0, frame.height > 0 else {
+            return
+        }
+
+        let coordinate = app.coordinate(withNormalizedOffset: CGVector(dx: 0, dy: 0)).withOffset(
+            CGVector(dx: frame.midX, dy: frame.midY)
+        )
+        coordinate.tap()
     }
 
     /// Tap cancel button

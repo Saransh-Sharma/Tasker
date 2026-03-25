@@ -202,7 +202,7 @@ extension HomeChromeSnapshot {
 
 private extension HomeTasksSnapshot {
     var selectedDateMixedCounts: (taskCount: Int, habitCount: Int) {
-        let todayRows = todaySections.flatMap(\.rows)
+        let todayRows = todayAgendaSectionState.sections.flatMap(\.rows)
         let rows = todayRows.isEmpty
             ? (dueTodaySection?.rows ?? [])
             : todayRows

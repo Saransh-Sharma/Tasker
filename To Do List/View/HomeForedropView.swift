@@ -35,6 +35,20 @@ private enum EvaRescueMoveChoice: String, CaseIterable {
     }
 }
 
+private enum QuietTrackingOutcome: String, CaseIterable, Identifiable {
+    case progress
+    case lapse
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .progress: return "Log progress"
+        case .lapse: return "Log lapse"
+        }
+    }
+}
+
 private struct EvaRescueSplitComposerState {
     var isOpen = false
     var childTitles: [String] = ["", ""]
@@ -1400,6 +1414,13 @@ struct HomeBackdropForedropRootView: View {
     @State private var pendingSearchCommitTask: Task<Void, Never>?
     @State private var hasMountedSearchSurface = false
     @State private var hasMountedAnalyticsSurface = false
+    @State private var rescueExpansionOverride: Bool?
+    @State private var isQuietTrackingComposerPresented = false
+    @State private var selectedQuietTrackingHabitID: String?
+    @State private var quietTrackingDate = Date()
+    @State private var quietTrackingOutcome: QuietTrackingOutcome = .lapse
+    @State private var pendingFocusPromotionTask: TaskDefinition?
+    @State private var focusReplacementOptions: [TaskDefinition] = []
 
     private static let foredropHintLaunchDelay: TimeInterval = 0.10
     private static let foredropHintPeekDistance: CGFloat = 24
@@ -1435,6 +1456,16 @@ struct HomeBackdropForedropRootView: View {
     private var isBackFaceVisible: Bool { activeFace.isBackFace }
     private var homeBackdropNoiseAmount: Int {
         V2FeatureFlags.clampedHomeBackdropNoiseAmount(homeBackdropNoiseAmountStorage)
+    }
+    private var isRescueEnabled: Bool { V2FeatureFlags.evaRescueEnabled }
+    private var rescueExpansionResetKey: String {
+        let selectedDay = Calendar.current.startOfDay(for: chromeSnapshot.selectedDate).timeIntervalSince1970
+        return [
+            String(Int(selectedDay)),
+            String(tasksSnapshot.rescueSectionState.totalCount),
+            String(tasksSnapshot.focusNowSectionState.visibleCount),
+            isRescueEnabled ? "1" : "0"
+        ].joined(separator: ":")
     }
     private var foredropFlipAnimation: Animation {
         let duration: TimeInterval
@@ -1543,6 +1574,32 @@ struct HomeBackdropForedropRootView: View {
         .ignoresSafeArea(.keyboard, edges: .bottom)
         .accessibilityIdentifier("home.view")
         .taskerSnackbar($snackbar)
+        .confirmationDialog(
+            "Replace a Focus Now item",
+            isPresented: Binding(
+                get: { pendingFocusPromotionTask != nil && focusReplacementOptions.isEmpty == false },
+                set: { isPresented in
+                    if !isPresented {
+                        clearPendingFocusReplacement()
+                    }
+                }
+            ),
+            titleVisibility: .visible
+        ) {
+            ForEach(focusReplacementOptions, id: \.id) { focusTask in
+                Button("Replace \(focusTask.title)") {
+                    if let promotedTask = pendingFocusPromotionTask {
+                        replaceFocusTask(promotedTask, replacing: focusTask)
+                    }
+                }
+            }
+
+            Button("Cancel", role: .cancel) {
+                clearPendingFocusReplacement()
+            }
+        } message: {
+            Text("Focus Now already has 3 items. Choose which one to swap out.")
+        }
         .fullScreenCover(isPresented: $showNextActionFocusTimer, onDismiss: {
             if isNextActionFocusEnding == false {
                 activeNextActionFocusSession = nil
@@ -1703,6 +1760,9 @@ struct HomeBackdropForedropRootView: View {
             guard state != nil, activeFace != .tasks else { return }
             setActiveFace(.tasks, animated: true)
         }
+        .onChange(of: rescueExpansionResetKey) { _, _ in
+            rescueExpansionOverride = nil
+        }
         .onChange(of: forcedFaceValue) { _, newValue in
             guard let newValue, newValue != activeFace else { return }
             setActiveFace(newValue, animated: true)
@@ -1787,6 +1847,7 @@ struct HomeBackdropForedropRootView: View {
                     viewModel.trackHomeInteraction(action: action, metadata: metadata)
                 }
             )
+            .accessibilityIdentifier("home.rescue.sheet")
         }
         .sheet(isPresented: $showReflectionSheet) {
             DailyReflectionView(
@@ -2026,8 +2087,8 @@ struct HomeBackdropForedropRootView: View {
                 customProjectOrderIDs: tasksSnapshot.customProjectOrderIDs,
                 emptyStateMessage: tasksSnapshot.emptyStateMessage,
                 emptyStateActionTitle: tasksSnapshot.emptyStateActionTitle,
-                isTaskDragEnabled: tasksSnapshot.canUseManualFocusDrag,
-                todaySections: tasksSnapshot.todaySections,
+                isTaskDragEnabled: false,
+                todaySections: tasksSnapshot.todayAgendaSectionState.sections,
                 onTaskTap: onTaskTap,
                 onToggleComplete: { task in
                     trackTaskToggle(task, source: "task_list")
@@ -2035,6 +2096,9 @@ struct HomeBackdropForedropRootView: View {
                 },
                 onDeleteTask: onDeleteTask,
                 onRescheduleTask: onRescheduleTask,
+                onPromoteTaskToFocus: { task in
+                    promoteAgendaTaskToFocus(task)
+                },
                 onCompleteHabit: { habit in
                     viewModel.completeHabit(habit, source: "task_list")
                 },
@@ -2049,10 +2113,6 @@ struct HomeBackdropForedropRootView: View {
                     viewModel.startTriage()
                 } : nil,
                 inboxHeaderActionTitle: shouldShowInboxTriageAction ? "Start triage" : nil,
-                onOverdueHeaderAction: shouldShowOverdueRescueAction ? {
-                    viewModel.openRescue()
-                } : nil,
-                overdueHeaderActionTitle: shouldShowOverdueRescueAction ? "Rescue" : nil,
                 onCompletedSectionToggle: { sectionID, collapsed, count in
                     viewModel.trackHomeInteraction(
                         action: "home_completed_group_toggled",
@@ -2080,6 +2140,9 @@ struct HomeBackdropForedropRootView: View {
             .padding(.top, spacing.s4)
             .onDrop(of: ["public.text"], isTargeted: nil, perform: handleListDrop)
             .accessibilityIdentifier("home.list.dropzone")
+            .sheet(isPresented: $isQuietTrackingComposerPresented) {
+                quietTrackingComposerSheet
+            }
         }
     }
 
@@ -2479,10 +2542,6 @@ struct HomeBackdropForedropRootView: View {
         V2FeatureFlags.evaTriageEnabled && chromeSnapshot.activeScope.quickView == .today
     }
 
-    private var shouldShowOverdueRescueAction: Bool {
-        V2FeatureFlags.evaRescueEnabled && chromeSnapshot.activeScope.quickView == .today
-    }
-
     private var taskListHorizontalGutter: CGFloat {
         TaskerTheme.Spacing.lg
     }
@@ -2496,12 +2555,15 @@ struct HomeBackdropForedropRootView: View {
 
     @ViewBuilder
     private var taskListScrollHeader: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            if shouldShowDueTodayAgenda {
-                dueTodayAgendaSection
+        VStack(alignment: .leading, spacing: spacing.s12) {
+            if passiveTrackingRailRows.isEmpty == false {
+                fullBleedTaskListHeaderModule {
+                    passiveTrackingRail
+                        .padding(.top, spacing.s2)
+                }
             }
 
-            if tasksSnapshot.canUseManualFocusDrag || !tasksSnapshot.focusRows.isEmpty {
+            if !tasksSnapshot.focusNowSectionState.rows.isEmpty {
                 fullBleedTaskListHeaderModule {
                     focusStrip
                         .fixedSize(horizontal: false, vertical: true)
@@ -2512,17 +2574,25 @@ struct HomeBackdropForedropRootView: View {
             }
 
             if tasksSnapshot.activeQuickView == .today &&
-                tasksSnapshot.pinnedFocusTaskIDs.count < 3 &&
-                tasksSnapshot.todayOpenTaskCount > 0 {
-                NextActionModule(
-                    openTaskCount: tasksSnapshot.todayOpenTaskCount,
-                    focusPinnedCount: tasksSnapshot.pinnedFocusTaskIDs.count,
-                    onStartFifteenMinuteFocus: {
-                        startNextActionFocusTimer()
-                    }
-                )
-                .fixedSize(horizontal: false, vertical: true)
-                .padding(.top, spacing.s4)
+                tasksSnapshot.todayAgendaSectionState.totalCount > 0 {
+                fullBleedTaskListHeaderModule {
+                    todayAgendaHeader
+                }
+            }
+
+            if isRescueEnabled &&
+                tasksSnapshot.activeQuickView == .today &&
+                !tasksSnapshot.rescueSectionState.isEmpty {
+                fullBleedTaskListHeaderModule {
+                    rescueSectionCard
+                }
+            }
+
+            if tasksSnapshot.activeQuickView == .today &&
+                tasksSnapshot.quietTrackingSummaryState.isVisible {
+                fullBleedTaskListHeaderModule {
+                    quietTrackingSummaryCard
+                }
             }
 
             if let guidanceState = overlaySnapshot.guidanceState {
@@ -2535,6 +2605,232 @@ struct HomeBackdropForedropRootView: View {
 
     private var shouldShowDueTodayAgenda: Bool {
         chromeSnapshot.activeScope.quickView == .today && tasksSnapshot.dueTodaySection?.rows.isEmpty == false
+    }
+
+    private var passiveTrackingRailRows: [HomeHabitRow] {
+        Array(tasksSnapshot.quietTrackingSummaryState.stableRows.prefix(3))
+    }
+
+    private var passiveTrackingRail: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: spacing.s8) {
+                ForEach(passiveTrackingRailRows) { row in
+                    HStack(spacing: spacing.s4) {
+                        Image(systemName: row.iconSymbolName)
+                            .font(.system(size: 11, weight: .semibold))
+                        Text(row.title)
+                            .font(.tasker(.caption2).weight(.semibold))
+                            .lineLimit(1)
+                    }
+                    .foregroundColor(Color.tasker.textSecondary)
+                    .padding(.horizontal, spacing.s12)
+                    .padding(.vertical, spacing.s8)
+                    .background(Color.tasker.surfaceSecondary.opacity(0.9))
+                    .overlay(
+                        Capsule()
+                            .stroke(Color.tasker.strokeHairline.opacity(0.8), lineWidth: 1)
+                    )
+                    .clipShape(Capsule())
+                }
+            }
+            .padding(.horizontal, spacing.s16)
+        }
+        .accessibilityIdentifier("home.passiveTracking.rail")
+    }
+
+    private var todayAgendaHeader: some View {
+        HStack(alignment: .center, spacing: spacing.s8) {
+            Label("Today Agenda", systemImage: "list.bullet.rectangle.portrait")
+                .font(.tasker(.headline))
+                .foregroundStyle(Color.tasker.textPrimary)
+            Spacer(minLength: 0)
+            Text("\(tasksSnapshot.todayAgendaSectionState.totalCount)")
+                .font(.tasker(.caption2).weight(.semibold))
+                .foregroundStyle(Color.tasker.textSecondary)
+                .padding(.horizontal, spacing.s8)
+                .padding(.vertical, spacing.s4)
+                .background(Color.tasker.surfaceSecondary)
+                .clipShape(Capsule())
+        }
+        .padding(.horizontal, spacing.s16)
+        .padding(.top, spacing.s4)
+        .accessibilityIdentifier("home.todayAgenda.header")
+    }
+
+    private var rescueSectionCard: some View {
+        let state = tasksSnapshot.rescueSectionState
+        let isExpanded = rescueExpansionOverride ?? state.isExpandedByDefault
+        let rows = isExpanded ? state.rows : state.previewRows
+
+        return VStack(alignment: .leading, spacing: spacing.s8) {
+            HStack(alignment: .center, spacing: spacing.s8) {
+                Label {
+                    Text(LocalizedStringKey("Rescue"))
+                } icon: {
+                    Image(systemName: "lifepreserver")
+                }
+                    .font(.tasker(.headline))
+                    .foregroundStyle(Color.tasker.textPrimary)
+                    .accessibilityIdentifier("home.rescue.header")
+                Spacer(minLength: 0)
+                Text("\(state.totalCount)")
+                    .font(.tasker(.caption2).weight(.semibold))
+                    .foregroundStyle(Color.tasker.textSecondary)
+                    .padding(.horizontal, spacing.s8)
+                    .padding(.vertical, spacing.s4)
+                    .background(Color.tasker.surfaceSecondary)
+                    .clipShape(Capsule())
+                Button(action: {
+                    viewModel.openRescue()
+                }) {
+                    Text(LocalizedStringKey("Start rescue"))
+                }
+                .font(.tasker(.caption1).weight(.semibold))
+                .foregroundStyle(Color.tasker.accentPrimary)
+                .buttonStyle(.plain)
+                .accessibilityIdentifier("home.rescue.start")
+                Button {
+                    withAnimation(reduceMotion ? .linear(duration: 0.01) : TaskerAnimation.gentle) {
+                        rescueExpansionOverride = !isExpanded
+                    }
+                } label: {
+                    Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(Color.tasker.textSecondary)
+                        .frame(width: 32, height: 32)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(Text(isExpanded ? "Collapse Rescue" : "Expand Rescue"))
+                .accessibilityIdentifier("home.rescue.expand")
+            }
+
+            VStack(spacing: spacing.s8) {
+                ForEach(rows) { row in
+                    HomeListRowView(
+                        row: row,
+                        tagNameByID: tasksSnapshot.tagNameByID,
+                        todayXPSoFar: tasksSnapshot.todayXPSoFar,
+                        isGamificationV2Enabled: V2FeatureFlags.gamificationV2Enabled,
+                        isTaskDragEnabled: false,
+                        highlightedTaskID: nil,
+                        onTaskTap: onTaskTap,
+                        onToggleComplete: { task in
+                            trackTaskToggle(task, source: "rescue_preview")
+                            onToggleComplete(task)
+                        },
+                        onDeleteTask: onDeleteTask,
+                        onRescheduleTask: onRescheduleTask,
+                        onCompleteHabit: { _ in },
+                        onSkipHabit: { _ in },
+                        onLapseHabit: { _ in }
+                    )
+                }
+            }
+        }
+        .padding(.horizontal, spacing.s16)
+        .padding(.vertical, spacing.s12)
+        .background(Color.tasker.surfaceSecondary.opacity(0.4))
+        .overlay(
+            RoundedRectangle(cornerRadius: corner.r3)
+                .stroke(Color.tasker.strokeHairline.opacity(0.55), lineWidth: 1)
+        )
+        .clipShape(RoundedRectangle(cornerRadius: corner.r3))
+        .accessibilityIdentifier("home.rescue.section")
+    }
+
+    private var quietTrackingSummaryCard: some View {
+        Button {
+            quietTrackingDate = chromeSnapshot.selectedDate
+            selectedQuietTrackingHabitID = tasksSnapshot.quietTrackingSummaryState.stableRows.first?.id
+            quietTrackingOutcome = .lapse
+            isQuietTrackingComposerPresented = true
+        } label: {
+            HStack(spacing: spacing.s12) {
+                Image(systemName: "heart.text.square.fill")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(Color.tasker.accentSecondary)
+                VStack(alignment: .leading, spacing: spacing.s4) {
+                    Text("Quiet Tracking")
+                        .font(.tasker(.caption1).weight(.semibold))
+                        .foregroundStyle(Color.tasker.textPrimary)
+                    Text(tasksSnapshot.quietTrackingSummaryState.summaryText)
+                        .font(.tasker(.caption2))
+                        .foregroundStyle(Color.tasker.textSecondary)
+                }
+                Spacer(minLength: 0)
+                Text("Log")
+                    .font(.tasker(.caption1).weight(.semibold))
+                    .foregroundStyle(Color.tasker.accentPrimary)
+            }
+            .padding(.horizontal, spacing.s12)
+            .padding(.vertical, spacing.s12)
+            .background(Color.tasker.surfaceSecondary.opacity(0.28))
+            .overlay(
+                RoundedRectangle(cornerRadius: corner.r3)
+                    .stroke(Color.tasker.strokeHairline.opacity(0.55), lineWidth: 1)
+            )
+            .clipShape(RoundedRectangle(cornerRadius: corner.r3))
+        }
+        .buttonStyle(.plain)
+        .accessibilityIdentifier("home.quietTracking.summary")
+    }
+
+    private var quietTrackingComposerSheet: some View {
+        NavigationStack {
+            Form {
+                Picker(
+                    "Habit",
+                    selection: Binding(
+                        get: { selectedQuietTrackingHabitID ?? "" },
+                        set: { selectedQuietTrackingHabitID = $0 }
+                    )
+                ) {
+                    ForEach(tasksSnapshot.quietTrackingSummaryState.stableRows) { row in
+                        Text(row.title).tag(row.id)
+                    }
+                }
+
+                DatePicker("Day", selection: $quietTrackingDate, displayedComponents: .date)
+
+                Picker("Outcome", selection: $quietTrackingOutcome) {
+                    ForEach(QuietTrackingOutcome.allCases) { outcome in
+                        Text(outcome.title).tag(outcome)
+                    }
+                }
+                .pickerStyle(.segmented)
+            }
+            .navigationTitle("Log Tracking")
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") {
+                        isQuietTrackingComposerPresented = false
+                    }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Save") {
+                        saveQuietTrackingEntry()
+                    }
+                    .disabled(selectedQuietTrackingRow == nil)
+                }
+            }
+        }
+    }
+
+    private var selectedQuietTrackingRow: HomeHabitRow? {
+        guard let selectedQuietTrackingHabitID else { return nil }
+        return tasksSnapshot.quietTrackingSummaryState.stableRows.first(where: { $0.id == selectedQuietTrackingHabitID })
+    }
+
+    private func saveQuietTrackingEntry() {
+        guard let row = selectedQuietTrackingRow else { return }
+        switch quietTrackingOutcome {
+        case .progress:
+            viewModel.logHabitProgress(row, on: quietTrackingDate)
+        case .lapse:
+            viewModel.logHabitLapse(row, on: quietTrackingDate)
+        }
+        isQuietTrackingComposerPresented = false
     }
 
     @ViewBuilder
@@ -2600,7 +2896,8 @@ struct HomeBackdropForedropRootView: View {
                     onToggleComplete(task)
                 },
                 onDelete: { onDeleteTask(task) },
-                onReschedule: { onRescheduleTask(task) }
+                onReschedule: { onRescheduleTask(task) },
+                onPromoteToFocus: { promoteAgendaTaskToFocus(task) }
             )
             .equatable()
 
@@ -2633,8 +2930,9 @@ struct HomeBackdropForedropRootView: View {
 
     private var focusStrip: some View {
         FocusZone(
-            rows: tasksSnapshot.focusRows,
-            canDrag: tasksSnapshot.canUseManualFocusDrag,
+            rows: tasksSnapshot.focusNowSectionState.rows,
+            canDrag: false,
+            pinnedTaskIDs: tasksSnapshot.focusNowSectionState.pinnedTaskIDs,
             shellPhase: shellPhase,
             insightForTaskID: { taskID in
                 viewModel.evaFocusInsight(for: taskID)
@@ -2644,6 +2942,12 @@ struct HomeBackdropForedropRootView: View {
             },
             onWhy: {
                 viewModel.openFocusWhy()
+            },
+            onPinTask: { task in
+                pinFocusTask(task)
+            },
+            onUnpinTask: { task in
+                unpinFocusTask(task)
             },
             onTaskTap: { task in
                 onTaskTap(task)
@@ -2698,6 +3002,96 @@ struct HomeBackdropForedropRootView: View {
             action: "home_focus_drag_started",
             metadata: metadata
         )
+    }
+
+    /// Executes pinFocusTask.
+    private func pinFocusTask(_ task: TaskDefinition) {
+        let result = viewModel.pinTaskToFocus(task.id)
+        var metadata = focusScopeMetadata(source: "focus_strip_pin", taskID: task.id)
+        metadata["pinned_count"] = viewModel.pinnedFocusTaskIDs.count
+
+        switch result {
+        case .pinned:
+            TaskerFeedback.success()
+            viewModel.trackHomeInteraction(action: "home_focus_pin", metadata: metadata)
+        case .alreadyPinned:
+            TaskerFeedback.selection()
+        case .capacityReached(let limit):
+            TaskerFeedback.light()
+            metadata["limit"] = limit
+            viewModel.trackHomeInteraction(action: "home_focus_pin_rejected_capacity", metadata: metadata)
+        case .taskIneligible:
+            TaskerFeedback.selection()
+        }
+    }
+
+    private func promoteAgendaTaskToFocus(_ task: TaskDefinition) {
+        let result = viewModel.promoteTaskToFocus(task.id)
+        var metadata = focusScopeMetadata(source: "today_agenda_promote", taskID: task.id)
+        metadata["visible_count"] = viewModel.focusNowSectionState.visibleCount
+        metadata["pinned_count"] = viewModel.pinnedFocusTaskIDs.count
+
+        switch result {
+        case .promoted:
+            TaskerFeedback.success()
+            viewModel.trackHomeInteraction(action: "home_focus_promote", metadata: metadata)
+        case .alreadyPinned:
+            TaskerFeedback.selection()
+            viewModel.trackHomeInteraction(action: "home_focus_promote_already_pinned", metadata: metadata)
+        case .alreadyVisible:
+            TaskerFeedback.selection()
+            viewModel.trackHomeInteraction(action: "home_focus_promote_already_visible", metadata: metadata)
+        case .replacementRequired(let currentFocusTaskIDs):
+            pendingFocusPromotionTask = task
+            focusReplacementOptions = currentFocusTaskIDs.compactMap(viewModel.taskSnapshot(for:))
+            TaskerFeedback.light()
+            metadata["replacement_count"] = focusReplacementOptions.count
+            viewModel.trackHomeInteraction(action: "home_focus_promote_replace_prompt", metadata: metadata)
+        case .taskIneligible:
+            TaskerFeedback.selection()
+            viewModel.trackHomeInteraction(action: "home_focus_promote_rejected_ineligible", metadata: metadata)
+        }
+    }
+
+    private func replaceFocusTask(_ promotedTask: TaskDefinition, replacing focusTask: TaskDefinition) {
+        let result = viewModel.replaceFocusTask(with: promotedTask.id, replacing: focusTask.id)
+        var metadata = focusScopeMetadata(source: "today_agenda_replace", taskID: promotedTask.id)
+        metadata["replaced_task_id"] = focusTask.id.uuidString
+
+        switch result {
+        case .promoted:
+            TaskerFeedback.success()
+            viewModel.trackHomeInteraction(action: "home_focus_replace", metadata: metadata)
+        case .alreadyVisible:
+            TaskerFeedback.selection()
+            viewModel.trackHomeInteraction(action: "home_focus_replace_already_visible", metadata: metadata)
+        case .alreadyPinned:
+            TaskerFeedback.selection()
+            viewModel.trackHomeInteraction(action: "home_focus_replace_already_pinned", metadata: metadata)
+        case .replacementRequired:
+            TaskerFeedback.light()
+        case .taskIneligible:
+            TaskerFeedback.selection()
+            viewModel.trackHomeInteraction(action: "home_focus_replace_rejected_ineligible", metadata: metadata)
+        }
+
+        clearPendingFocusReplacement()
+    }
+
+    private func clearPendingFocusReplacement() {
+        pendingFocusPromotionTask = nil
+        focusReplacementOptions = []
+    }
+
+    /// Executes unpinFocusTask.
+    private func unpinFocusTask(_ task: TaskDefinition) {
+        guard viewModel.pinnedFocusTaskIDs.contains(task.id) else { return }
+        viewModel.unpinTaskFromFocus(task.id)
+        TaskerFeedback.selection()
+
+        var metadata = focusScopeMetadata(source: "focus_strip_unpin", taskID: task.id)
+        metadata["pinned_count"] = viewModel.pinnedFocusTaskIDs.count
+        viewModel.trackHomeInteraction(action: "home_focus_unpin", metadata: metadata)
     }
 
     /// Executes handleFocusDrop.

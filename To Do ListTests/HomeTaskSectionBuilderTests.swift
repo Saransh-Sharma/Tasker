@@ -449,7 +449,7 @@ final class HomeTaskSectionBuilderTests: XCTestCase {
         XCTAssertEqual(canonical.morning.map(\.isComplete), [false, true])
     }
 
-    func testTaskRowDisplayModelShowsOverdueAgeRecurrenceAndFirstTagInOverdueSection() {
+    func testTaskRowDisplayModelShowsOverdueProjectRecurrenceAndFirstTagInOverdueSection() {
         let now = Calendar.current.date(from: DateComponents(year: 2026, month: 2, day: 24, hour: 9, minute: 0))!
         var task = TaskDefinition(
             projectID: ProjectConstants.inboxProjectID,
@@ -471,25 +471,25 @@ final class HomeTaskSectionBuilderTests: XCTestCase {
             tagNameByID: [tagID: "Client"]
         )
 
-        XCTAssertEqual(model.metadataText, "1w late • Daily • Client")
+        XCTAssertEqual(model.metadataText, "1w late • Inbox • Daily • Client")
         XCTAssertEqual(model.statusChip, nil)
     }
 
-    func testTaskRowDisplayModelRemovesTodayAndOverdueBadgesFromMainRows() {
+    func testTaskRowDisplayModelShowsInlineDueTimeAndProjectMetadataOnMainRows() {
         let now = Calendar.current.date(from: DateComponents(year: 2026, month: 2, day: 24, hour: 9, minute: 0))!
         let dueToday = Calendar.current.date(byAdding: .hour, value: 6, to: now)!
         let overdue = Calendar.current.date(byAdding: .day, value: -2, to: now)!
 
-        let dueTodayTask = TaskDefinition(title: "Due later", priority: .low, dueDate: dueToday)
-        let overdueTask = TaskDefinition(title: "Late task", priority: .low, dueDate: overdue)
+        let dueTodayTask = TaskDefinition(projectName: "Ops", title: "Due later", priority: .low, dueDate: dueToday)
+        let overdueTask = TaskDefinition(projectName: "Ops", title: "Late task", priority: .low, dueDate: overdue)
 
         let todayModel = TaskRowDisplayModel.from(task: dueTodayTask, showTypeBadge: false, now: now)
         let overdueModel = TaskRowDisplayModel.from(task: overdueTask, showTypeBadge: false, now: now)
 
         XCTAssertNil(todayModel.statusChip)
-        XCTAssertNil(todayModel.metadataText)
+        XCTAssertEqual(todayModel.metadataText, "\(dueToday.formatted(date: .omitted, time: .shortened)) • Ops")
         XCTAssertNil(overdueModel.statusChip)
-        XCTAssertEqual(overdueModel.metadataText, "2d late")
+        XCTAssertEqual(overdueModel.metadataText, "2d late • Ops")
     }
 
     func testTaskRowDisplayModelShowsDueSoonChipOnlyInsideWindow() {
@@ -550,16 +550,17 @@ final class HomeTaskSectionBuilderTests: XCTestCase {
         XCTAssertNil(plainModel.descriptionText)
     }
 
-    func testMixedTodaySectionsPlaceProjectHabitInsideProjectSection() {
+    func testMixedTodaySectionsGroupTaskAndHabitInsideLifeAreaSection() {
         let inbox = Project.createInbox()
-        let work = Project(id: UUID(), name: "Work", icon: .work)
+        let career = LifeArea(id: UUID(), name: "Career", color: nil, sortOrder: 0)
+        let work = Project(id: UUID(), lifeAreaID: career.id, name: "Work", icon: .work)
         let task = makeTask(name: "Send recap", project: work, dueDate: Date())
         let habit = HomeHabitRow(
             habitID: UUID(),
             title: "Daily planning",
             kind: .positive,
             trackingMode: .dailyCheckIn,
-            lifeAreaID: UUID(),
+            lifeAreaID: career.id,
             lifeAreaName: "Career",
             projectID: work.id,
             projectName: work.name,
@@ -569,18 +570,17 @@ final class HomeTaskSectionBuilderTests: XCTestCase {
         )
 
         let sections = HomeMixedSectionBuilder.buildTodaySections(
-            mode: .groupByProjects,
             taskRows: [task],
             habitRows: [habit],
             projects: [inbox, work],
-            customProjectOrderIDs: [work.id]
+            lifeAreas: [career]
         )
 
         XCTAssertEqual(sections.count, 1)
-        XCTAssertEqual(sections.first?.anchor.title, "Work")
+        XCTAssertEqual(sections.first?.anchor.title, "Career")
         XCTAssertEqual(sections.first?.rows.count, 2)
-        XCTAssertTrue(sections.first?.rows.contains(.task(task)) ?? false)
-        XCTAssertTrue(sections.first?.rows.contains(.habit(habit)) ?? false)
+        XCTAssertTrue(sections.first?.rows.contains(HomeTodayRow.task(task)) ?? false)
+        XCTAssertTrue(sections.first?.rows.contains(HomeTodayRow.habit(habit)) ?? false)
     }
 
     func testMixedTodaySectionsPlaceProjectlessLapseOnlyHabitInLifeAreaSection() {
@@ -602,11 +602,10 @@ final class HomeTaskSectionBuilderTests: XCTestCase {
         )
 
         let sections = HomeMixedSectionBuilder.buildTodaySections(
-            mode: .groupByProjects,
             taskRows: [],
             habitRows: [lapseOnly],
             projects: [inbox],
-            customProjectOrderIDs: []
+            lifeAreas: []
         )
 
         XCTAssertEqual(sections.count, 1)
@@ -615,7 +614,8 @@ final class HomeTaskSectionBuilderTests: XCTestCase {
     }
 
     func testMixedTodaySectionsKeepResolvedRowsAtBottomOfSection() {
-        let work = Project(id: UUID(), name: "Work", icon: .work)
+        let mind = LifeArea(name: "Mind")
+        let work = Project(id: UUID(), lifeAreaID: mind.id, name: "Work", icon: .work)
         let openTask = makeTask(name: "Ship note", project: work, dueDate: Date(), isComplete: false)
         let completedTask = makeTask(
             name: "Closed loop",
@@ -629,8 +629,8 @@ final class HomeTaskSectionBuilderTests: XCTestCase {
             title: "Journal",
             kind: .positive,
             trackingMode: .dailyCheckIn,
-            lifeAreaID: UUID(),
-            lifeAreaName: "Mind",
+            lifeAreaID: mind.id,
+            lifeAreaName: mind.name,
             projectID: work.id,
             projectName: work.name,
             iconSymbolName: "book.closed",
@@ -639,11 +639,10 @@ final class HomeTaskSectionBuilderTests: XCTestCase {
         )
 
         let sections = HomeMixedSectionBuilder.buildTodaySections(
-            mode: .groupByProjects,
             taskRows: [completedTask, openTask],
             habitRows: [completedHabit],
             projects: [work],
-            customProjectOrderIDs: [work.id]
+            lifeAreas: [mind]
         )
 
         XCTAssertEqual(sections.first?.rows.first?.title, "Ship note")
