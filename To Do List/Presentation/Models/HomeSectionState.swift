@@ -10,9 +10,10 @@ public struct FocusNowSectionState: Equatable {
         pinnedTaskIDs: [UUID],
         maxVisibleCount: Int = 3
     ) {
-        self.rows = Array(rows.prefix(maxVisibleCount))
+        let clampedMaxVisibleCount = max(0, maxVisibleCount)
+        self.rows = Array(rows.prefix(clampedMaxVisibleCount))
         self.pinnedTaskIDs = pinnedTaskIDs
-        self.maxVisibleCount = maxVisibleCount
+        self.maxVisibleCount = clampedMaxVisibleCount
     }
 
     public var visibleCount: Int { rows.count }
@@ -43,7 +44,7 @@ public struct RescueSectionState: Equatable {
     ) {
         self.rows = rows
         self.isExpandedByDefault = isExpandedByDefault
-        self.previewCount = previewCount
+        self.previewCount = max(0, previewCount)
     }
 
     public var totalCount: Int { rows.count }

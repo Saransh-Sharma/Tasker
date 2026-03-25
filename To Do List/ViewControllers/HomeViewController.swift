@@ -200,6 +200,8 @@ struct HomeTasksSnapshot: Equatable {
             && overdueTasks.isEmpty
             && focusNowSectionState.rows.isEmpty
             && todayAgendaSectionState.sections.isEmpty
+            && rescueSectionState.isEmpty
+            && !quietTrackingSummaryState.isVisible
             && inlineCompletedTasks.isEmpty
             && doneTimelineTasks.isEmpty
     }

@@ -138,7 +138,7 @@ public struct FocusZone: View {
                         .modifier(FocusBreathingModifier(isEnabled: !prefersBudgetVisuals, min: 0.8, max: 1.0, duration: 2.5))
 
                     // Title
-                    Text("Focus Now")
+                    Text(LocalizedStringKey("Focus Now"))
                         .font(.tasker(.buttonSmall))
                         .fontWeight(.semibold)
                         .foregroundColor(Color.tasker.accentPrimary)
@@ -190,7 +190,7 @@ public struct FocusZone: View {
                 .foregroundColor(Color.tasker.accentPrimary.opacity(0.4))
                 .modifier(FocusBreathingModifier(isEnabled: !prefersBudgetVisuals, min: 0.3, max: 0.5, duration: 2.0))
 
-            Text("Add a few tasks for today and Focus Now will pick the best next moves")
+            Text(LocalizedStringKey("Add a few tasks for today and Focus Now will pick the best next moves"))
                 .font(.tasker(.caption1))
                 .foregroundColor(Color.tasker.textTertiary)
                 .multilineTextAlignment(.center)
@@ -383,28 +383,32 @@ private struct FocusZoneRow: View {
             .frame(width: 24, height: 24)
             .padding(.top, 2)
 
-            VStack(alignment: .leading, spacing: spacing.s4) {
-                Text(task.title)
-                    .font(.tasker(.bodyEmphasis))
-                    .foregroundColor(task.isComplete ? Color.tasker.textTertiary : Color.tasker.textPrimary)
-                    .lineLimit(2)
+            Button(action: onTap) {
+                VStack(alignment: .leading, spacing: spacing.s4) {
+                    Text(task.title)
+                        .font(.tasker(.bodyEmphasis))
+                        .foregroundColor(task.isComplete ? Color.tasker.textTertiary : Color.tasker.textPrimary)
+                        .lineLimit(2)
 
-                if let secondaryLineText {
-                    Text(secondaryLineText)
-                        .font(.tasker(.caption2))
-                        .foregroundColor(Color.tasker.textSecondary)
-                        .lineLimit(1)
+                    if let secondaryLineText {
+                        Text(secondaryLineText)
+                            .font(.tasker(.caption2))
+                            .foregroundColor(Color.tasker.textSecondary)
+                            .lineLimit(1)
+                    }
                 }
+                .frame(maxWidth: .infinity, alignment: .leading)
             }
-
-            Spacer(minLength: 0)
+            .buttonStyle(.plain)
+            .contentShape(Rectangle())
+            .accessibilityIdentifier("home.focus.task.\(task.id.uuidString)")
+            .accessibilityLabel(task.title)
 
             trailingControls
         }
         .padding(.vertical, 8)
         .padding(.horizontal, spacing.s4)
         .contentShape(Rectangle())
-        .onTapGesture { onTap() }
         .swipeActions(edge: .leading, allowsFullSwipe: false) {
             Button {
                 onToggleComplete()
@@ -419,8 +423,7 @@ private struct FocusZoneRow: View {
                 return NSItemProvider(object: task.id.uuidString as NSString)
             }
         }
-        .accessibilityIdentifier("home.focus.task.\(task.id.uuidString)")
-        .accessibilityLabel(task.title)
+        .accessibilityElement(children: .contain)
     }
 
     private var trailingControls: some View {
@@ -463,6 +466,8 @@ private struct FocusZoneRow: View {
                 .frame(width: 28, height: 28)
                 .background(Color.tasker.surfaceSecondary.opacity(0.8))
                 .clipShape(Circle())
+                .frame(width: 44, height: 44)
+                .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
         .accessibilityIdentifier("home.focus.pin.\(task.id.uuidString)")
@@ -477,12 +482,17 @@ private struct FocusZoneRow: View {
                 .frame(width: 28, height: 28)
                 .background(Color.tasker.accentPrimary.opacity(0.1))
                 .clipShape(Circle())
+                .frame(width: 44, height: 44)
+                .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
         .accessibilityLabel("Start focus session")
     }
 
     private var secondaryLineText: String? {
+        if case .late = FocusZoneStatusChipResolver.resolve(task: task, insight: nil) {
+            return projectContextText
+        }
         if let dueDate = task.dueDate, let lateLabel = OverdueAgeFormatter.lateLabel(dueDate: dueDate, now: Date()) {
             return "Overdue · \(lateLabel)"
         }
@@ -493,6 +503,10 @@ private struct FocusZoneRow: View {
             }
             return "Due today · \(time)"
         }
+        return projectContextText
+    }
+
+    private var projectContextText: String? {
         if task.projectID == ProjectConstants.inboxProjectID {
             return "Inbox · promoted for today"
         }

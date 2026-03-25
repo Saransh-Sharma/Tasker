@@ -2664,7 +2664,11 @@ struct HomeBackdropForedropRootView: View {
 
         return VStack(alignment: .leading, spacing: spacing.s8) {
             HStack(alignment: .center, spacing: spacing.s8) {
-                Label("Rescue", systemImage: "lifepreserver")
+                Label {
+                    Text(LocalizedStringKey("Rescue"))
+                } icon: {
+                    Image(systemName: "lifepreserver")
+                }
                     .font(.tasker(.headline))
                     .foregroundStyle(Color.tasker.textPrimary)
                     .accessibilityIdentifier("home.rescue.header")
@@ -2676,8 +2680,10 @@ struct HomeBackdropForedropRootView: View {
                     .padding(.vertical, spacing.s4)
                     .background(Color.tasker.surfaceSecondary)
                     .clipShape(Capsule())
-                Button("Start rescue") {
+                Button(action: {
                     viewModel.openRescue()
+                }) {
+                    Text(LocalizedStringKey("Start rescue"))
                 }
                 .font(.tasker(.caption1).weight(.semibold))
                 .foregroundStyle(Color.tasker.accentPrimary)
@@ -2695,7 +2701,7 @@ struct HomeBackdropForedropRootView: View {
                         .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
-                .accessibilityLabel(isExpanded ? "Collapse Rescue" : "Expand Rescue")
+                .accessibilityLabel(Text(isExpanded ? "Collapse Rescue" : "Expand Rescue"))
                 .accessibilityIdentifier("home.rescue.expand")
             }
 
@@ -3051,7 +3057,6 @@ struct HomeBackdropForedropRootView: View {
         let result = viewModel.replaceFocusTask(with: promotedTask.id, replacing: focusTask.id)
         var metadata = focusScopeMetadata(source: "today_agenda_replace", taskID: promotedTask.id)
         metadata["replaced_task_id"] = focusTask.id.uuidString
-        metadata["replaced_task_title"] = focusTask.title
 
         switch result {
         case .promoted:
