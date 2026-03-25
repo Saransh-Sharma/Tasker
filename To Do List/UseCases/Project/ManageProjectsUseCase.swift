@@ -53,7 +53,9 @@ public final class ManageProjectsUseCase {
                     projectDescription: request.description,
                     createdDate: Date(),
                     modifiedDate: Date(),
-                    isDefault: false
+                    isDefault: false,
+                    color: request.color ?? .blue,
+                    icon: request.icon ?? .folder
                 )
                 
                 // Validate the project
@@ -126,6 +128,16 @@ public final class ManageProjectsUseCase {
                             }
                             
                             project.name = newName
+                            if let newDescription = request.description {
+                                project.projectDescription = newDescription
+                            }
+                            if let color = request.color {
+                                project.color = color
+                            }
+                            if let icon = request.icon {
+                                project.icon = icon
+                            }
+                            project.modifiedDate = Date()
                             self?.performProjectUpdate(project: project, completion: completion)
                             
                         case .failure(let error):
@@ -136,6 +148,12 @@ public final class ManageProjectsUseCase {
                     // Just update description
                     if let newDescription = request.description {
                         project.projectDescription = newDescription
+                    }
+                    if let color = request.color {
+                        project.color = color
+                    }
+                    if let icon = request.icon {
+                        project.icon = icon
                     }
                     project.modifiedDate = Date()
                     self?.performProjectUpdate(project: project, completion: completion)
@@ -562,23 +580,42 @@ public struct CreateProjectRequest {
     public let name: String
     public let description: String?
     public let lifeAreaID: UUID?
+    public let color: ProjectColor?
+    public let icon: ProjectIcon?
     
     /// Initializes a new instance.
-    public init(name: String, description: String? = nil, lifeAreaID: UUID? = nil) {
+    public init(
+        name: String,
+        description: String? = nil,
+        lifeAreaID: UUID? = nil,
+        color: ProjectColor? = nil,
+        icon: ProjectIcon? = nil
+    ) {
         self.name = name
         self.description = description
         self.lifeAreaID = lifeAreaID
+        self.color = color
+        self.icon = icon
     }
 }
 
 public struct UpdateProjectRequest {
     public let name: String?
     public let description: String?
+    public let color: ProjectColor?
+    public let icon: ProjectIcon?
     
     /// Initializes a new instance.
-    public init(name: String? = nil, description: String? = nil) {
+    public init(
+        name: String? = nil,
+        description: String? = nil,
+        color: ProjectColor? = nil,
+        icon: ProjectIcon? = nil
+    ) {
         self.name = name
         self.description = description
+        self.color = color
+        self.icon = icon
     }
 }
 

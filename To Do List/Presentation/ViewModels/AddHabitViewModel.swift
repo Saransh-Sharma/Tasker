@@ -94,6 +94,7 @@ public final class AddHabitViewModel: ObservableObject {
     @Published public var reminderWindowEnd: String = ""
     @Published public var iconSearchQuery: String = ""
     @Published public var selectedIconSymbolName: String?
+    @Published public var selectedColorHex: String = ""
 
     private let createHabitUseCase: CreateHabitUseCase
     private let manageLifeAreasUseCase: ManageLifeAreasUseCase
@@ -108,6 +109,7 @@ public final class AddHabitViewModel: ObservableObject {
     private var pristineReminderWindowStart: String = ""
     private var pristineReminderWindowEnd: String = ""
     private var pristineIconSymbolName: String?
+    private var pristineColorHex: String = ""
     private var pristineQuery: String = ""
     private var pristineName: String = ""
     private var pristineNotes: String = ""
@@ -166,6 +168,7 @@ public final class AddHabitViewModel: ObservableObject {
             || reminderWindowStart.trimmingCharacters(in: .whitespacesAndNewlines) != pristineReminderWindowStart
             || reminderWindowEnd.trimmingCharacters(in: .whitespacesAndNewlines) != pristineReminderWindowEnd
             || selectedIconSymbolName != pristineIconSymbolName
+            || selectedColorHex.trimmingCharacters(in: .whitespacesAndNewlines) != pristineColorHex
             || iconSearchQuery.trimmingCharacters(in: .whitespacesAndNewlines) != pristineQuery
     }
 
@@ -294,6 +297,7 @@ public final class AddHabitViewModel: ObservableObject {
             kind: selectedKind == .positive ? .positive : .negative,
             trackingMode: selectedTrackingMode == .dailyCheckIn ? .dailyCheckIn : .lapseOnly,
             icon: icon,
+            colorHex: selectedColorHex.nilIfBlank,
             targetConfig: HabitTargetConfig(notes: habitNotes.nilIfBlank, targetCountPerDay: 1),
             metricConfig: HabitMetricConfig(
                 unitLabel: nil,
@@ -330,6 +334,7 @@ public final class AddHabitViewModel: ObservableObject {
         selectedCadence = template.cadence
         reminderWindowStart = template.reminderWindowStart ?? ""
         reminderWindowEnd = template.reminderWindowEnd ?? ""
+        selectedColorHex = ""
         if let iconSymbolName = template.iconSymbolName {
             selectedIconSymbolName = iconSymbolName
         }
@@ -348,6 +353,7 @@ public final class AddHabitViewModel: ObservableObject {
         reminderWindowEnd = ""
         iconSearchQuery = ""
         selectedIconSymbolName = availableIconOptions.first?.symbolName
+        selectedColorHex = ""
         isHabitCreated = false
         lastCreatedHabitID = nil
         errorMessage = nil
@@ -365,6 +371,7 @@ public final class AddHabitViewModel: ObservableObject {
         pristineReminderWindowStart = reminderWindowStart.trimmingCharacters(in: .whitespacesAndNewlines)
         pristineReminderWindowEnd = reminderWindowEnd.trimmingCharacters(in: .whitespacesAndNewlines)
         pristineIconSymbolName = selectedIconSymbolName
+        pristineColorHex = selectedColorHex.trimmingCharacters(in: .whitespacesAndNewlines)
         pristineQuery = iconSearchQuery.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
@@ -503,6 +510,7 @@ public struct HabitEditorDraft: Equatable {
     public var reminderWindowEnd: String
     public var iconSearchQuery: String
     public var selectedIconSymbolName: String?
+    public var colorHex: String
 
     public init(row: HabitLibraryRow) {
         title = row.title
@@ -516,6 +524,7 @@ public struct HabitEditorDraft: Equatable {
         reminderWindowEnd = row.reminderWindowEnd ?? ""
         iconSearchQuery = ""
         selectedIconSymbolName = row.icon?.symbolName
+        colorHex = row.colorHex ?? ""
     }
 }
 
@@ -730,6 +739,7 @@ public final class HabitDetailViewModel: ObservableObject {
             kind: draft.kind == .positive ? .positive : .negative,
             trackingMode: draft.trackingMode == .dailyCheckIn ? .dailyCheckIn : .lapseOnly,
             icon: selectedIconOption.map { HabitIconMetadata(symbolName: $0.symbolName, categoryKey: $0.categoryKey) },
+            colorHex: draft.colorHex.nilIfBlank,
             targetConfig: HabitTargetConfig(notes: draft.notes.nilIfBlank, targetCountPerDay: 1),
             metricConfig: HabitMetricConfig(unitLabel: nil, showNotesOnCompletion: draft.notes.nilIfBlank != nil),
             cadence: draft.cadence,

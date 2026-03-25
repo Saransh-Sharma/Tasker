@@ -107,6 +107,9 @@ public final class UseCaseCoordinator {
     public let updateHabit: UpdateHabitUseCase
     public let pauseHabit: PauseHabitUseCase
     public let archiveHabit: ArchiveHabitUseCase
+    public let setHabitArchived: SetHabitArchivedUseCase
+    public let deleteHabit: DeleteHabitUseCase
+    public let lifeManagementDestructiveFlow: LifeManagementDestructiveFlowCoordinator
     public let syncHabitSchedule: SyncHabitScheduleUseCase
     public let maintainHabitRuntime: MaintainHabitRuntimeUseCase
     public let resolveHabitOccurrence: ResolveHabitOccurrenceUseCase
@@ -264,6 +267,22 @@ public final class UseCaseCoordinator {
             habitRepository: v2Dependencies.habitRepository,
             pauseHabitUseCase: pauseHabit,
             maintainHabitRuntimeUseCase: maintainHabitRuntime
+        )
+        self.setHabitArchived = SetHabitArchivedUseCase(
+            habitRepository: v2Dependencies.habitRepository,
+            pauseHabitUseCase: pauseHabit,
+            maintainHabitRuntimeUseCase: maintainHabitRuntime
+        )
+        self.deleteHabit = DeleteHabitUseCase(
+            habitRepository: v2Dependencies.habitRepository,
+            scheduleRepository: v2Dependencies.scheduleRepository,
+            maintainHabitRuntimeUseCase: maintainHabitRuntime
+        )
+        self.lifeManagementDestructiveFlow = LifeManagementDestructiveFlowCoordinator(
+            manageProjectsUseCase: self.manageProjects,
+            updateHabitUseCase: self.updateHabit,
+            projectRepository: v2Dependencies.projectRepository,
+            lifeAreaRepository: v2Dependencies.lifeAreaRepository
         )
         self.getDueHabitsForDate = GetDueHabitsForDateUseCase(
             readRepository: v2Dependencies.habitRuntimeReadRepository

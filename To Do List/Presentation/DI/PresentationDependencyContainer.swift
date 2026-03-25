@@ -223,6 +223,7 @@ public final class PresentationDependencyContainer {
     }
 
     /// Get or create LifeManagementViewModel
+    @MainActor
     public func makeLifeManagementViewModel() -> LifeManagementViewModel {
         assertConfigured()
         if let existing = _lifeManagementViewModel {
@@ -230,8 +231,7 @@ public final class PresentationDependencyContainer {
         }
 
         let viewModel = LifeManagementViewModel(
-            manageLifeAreasUseCase: useCaseCoordinator.manageLifeAreas,
-            manageProjectsUseCase: useCaseCoordinator.manageProjects,
+            useCaseCoordinator: useCaseCoordinator,
             projectRepository: projectRepository
         )
         _lifeManagementViewModel = viewModel
