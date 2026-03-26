@@ -546,6 +546,80 @@ final class LifeManagementProjectionTests: XCTestCase {
         XCTAssertEqual(snapshot.habitGroups.count, 1)
         XCTAssertEqual(snapshot.habitGroups.first?.rows.map(\.row.title), ["No sugar"])
     }
+
+    func testPreparedContextBuildsDetailSnapshotsAndPrecomputedCounts() {
+        let general = LifeArea(id: UUID(), name: "General", color: "#9E5F0A", icon: "square.grid.2x2")
+        let career = LifeArea(id: UUID(), name: "Career", color: "#3B82F6", icon: "briefcase.fill")
+
+        let inbox = ProjectWithStats(
+            project: Project(
+                id: ProjectConstants.inboxProjectID,
+                lifeAreaID: general.id,
+                name: ProjectConstants.inboxProjectName,
+                projectDescription: nil,
+                isDefault: true
+            ),
+            taskCount: 1,
+            completedTaskCount: 0
+        )
+        let roadmap = ProjectWithStats(
+            project: Project(
+                id: UUID(),
+                lifeAreaID: career.id,
+                name: "Roadmap",
+                projectDescription: "Quarter goals",
+                color: .blue,
+                icon: .flag
+            ),
+            taskCount: 0,
+            completedTaskCount: 0
+        )
+
+        let activeHabit = HabitLibraryRow(
+            habitID: UUID(),
+            title: "Deep work",
+            kind: .positive,
+            trackingMode: .dailyCheckIn,
+            lifeAreaID: career.id,
+            lifeAreaName: "Career",
+            projectID: roadmap.project.id,
+            projectName: roadmap.project.name,
+            colorHex: "#3B82F6",
+            isPaused: false,
+            isArchived: false,
+            currentStreak: 6,
+            bestStreak: 9
+        )
+        let archivedHabit = HabitLibraryRow(
+            habitID: UUID(),
+            title: "Old review ritual",
+            kind: .positive,
+            trackingMode: .dailyCheckIn,
+            lifeAreaID: career.id,
+            lifeAreaName: "Career",
+            projectID: roadmap.project.id,
+            projectName: roadmap.project.name,
+            colorHex: "#3B82F6",
+            isPaused: false,
+            isArchived: true,
+            currentStreak: 0,
+            bestStreak: 4
+        )
+
+        let context = LifeManagementProjection.prepare(
+            lifeAreas: [general, career],
+            projectStats: [inbox, roadmap],
+            habitRows: [activeHabit, archivedHabit],
+            generalLifeAreaID: general.id
+        )
+
+        XCTAssertEqual(context.allProjectCountByAreaID[career.id], 1)
+        XCTAssertEqual(context.allHabitCountByAreaID[career.id], 2)
+        XCTAssertEqual(context.allLinkedHabitCountByProjectID[roadmap.project.id], 2)
+        XCTAssertEqual(context.areaDetailByID[career.id]?.activeProjects.map(\.project.name), ["Roadmap"])
+        XCTAssertEqual(context.areaDetailByID[career.id]?.activeHabits.map(\.row.title), ["Deep work"])
+        XCTAssertEqual(context.projectDetailByID[roadmap.project.id]?.activeLinkedHabits.map(\.row.title), ["Deep work"])
+    }
 }
 
 final class WriteClosedProjectRepositoryAdapterLifeAreaTests: XCTestCase {
@@ -656,9 +730,7 @@ final class LifeManagementDestructiveFlowCoordinatorTests: XCTestCase {
         coordinator.deleteLifeArea(
             request: DeleteLifeAreaRequest(
                 areaID: areaID,
-                destinationLifeAreaID: areaID,
-                projects: [],
-                habits: []
+                destinationLifeAreaID: areaID
             )
         ) { result in
             switch result {
@@ -723,8 +795,7 @@ final class LifeManagementDestructiveFlowCoordinatorTests: XCTestCase {
         coordinator.deleteProject(
             request: DeleteProjectRequest(
                 projectID: sourceProjectID,
-                destinationProjectID: destinationProjectID,
-                linkedHabitIDs: []
+                destinationProjectID: destinationProjectID
             )
         ) { result in
             XCTAssertNoThrow(try result.get())
@@ -785,9 +856,7 @@ final class LifeManagementDestructiveFlowCoordinatorTests: XCTestCase {
         coordinator.deleteLifeArea(
             request: DeleteLifeAreaRequest(
                 areaID: sourceAreaID,
-                destinationLifeAreaID: destinationAreaID,
-                projects: [],
-                habits: []
+                destinationLifeAreaID: destinationAreaID
             )
         ) { result in
             switch result {
