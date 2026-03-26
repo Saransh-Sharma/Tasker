@@ -3,35 +3,26 @@ import Foundation
 public struct DeleteLifeAreaRequest: Equatable {
     public let areaID: UUID
     public let destinationLifeAreaID: UUID
-    public let projects: [Project]
-    public let habits: [HabitLibraryRow]
 
     public init(
         areaID: UUID,
-        destinationLifeAreaID: UUID,
-        projects: [Project],
-        habits: [HabitLibraryRow]
+        destinationLifeAreaID: UUID
     ) {
         self.areaID = areaID
         self.destinationLifeAreaID = destinationLifeAreaID
-        self.projects = projects
-        self.habits = habits
     }
 }
 
 public struct DeleteProjectRequest: Equatable {
     public let projectID: UUID
     public let destinationProjectID: UUID
-    public let linkedHabitIDs: [UUID]
 
     public init(
         projectID: UUID,
-        destinationProjectID: UUID,
-        linkedHabitIDs: [UUID]
+        destinationProjectID: UUID
     ) {
         self.projectID = projectID
         self.destinationProjectID = destinationProjectID
-        self.linkedHabitIDs = linkedHabitIDs
     }
 }
 

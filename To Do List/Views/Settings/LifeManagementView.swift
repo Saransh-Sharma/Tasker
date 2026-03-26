@@ -177,24 +177,46 @@ struct LifeManagementView: View {
             switch destination {
             case .area(let areaID):
                 LifeManagementAreaDetailView(
-                    viewModel: viewModel,
-                    areaID: areaID,
+                    snapshot: viewModel.areaDetailSnapshot(for: areaID),
                     onOpenHabit: { row in
                         selectedHabitRow = row
                     },
                     onCreateHabit: { template in
                         presentHabitComposer(prefill: template)
+                    },
+                    onArchiveArea: { areaID in
+                        viewModel.archiveLifeArea(areaID)
+                    },
+                    onRestoreArea: { areaID in
+                        viewModel.restoreLifeArea(areaID)
+                    },
+                    onDeleteArea: { areaID in
+                        viewModel.beginDeleteArea(areaID)
+                    },
+                    onBeginCreateProject: { areaID in
+                        viewModel.beginCreateProject(prefillLifeAreaID: areaID)
                     }
                 )
             case .project(let projectID):
                 LifeManagementProjectDetailView(
-                    viewModel: viewModel,
-                    projectID: projectID,
+                    snapshot: viewModel.projectDetailSnapshot(for: projectID),
                     onOpenHabit: { row in
                         selectedHabitRow = row
                     },
                     onCreateHabit: { template in
                         presentHabitComposer(prefill: template)
+                    },
+                    onBeginMoveProject: { projectID in
+                        viewModel.beginMoveProject(projectID)
+                    },
+                    onArchiveProject: { projectID in
+                        viewModel.archiveProject(projectID)
+                    },
+                    onRestoreProject: { projectID in
+                        viewModel.restoreProject(projectID)
+                    },
+                    onDeleteProject: { projectID in
+                        viewModel.beginDeleteProject(projectID)
                     }
                 )
             }
@@ -1395,10 +1417,13 @@ private struct InlineToneBadge: View {
 }
 
 private struct LifeManagementAreaDetailView: View {
-    @ObservedObject var viewModel: LifeManagementViewModel
-    let areaID: UUID
+    let snapshot: LifeManagementAreaDetailSnapshot?
     let onOpenHabit: (HabitLibraryRow) -> Void
     let onCreateHabit: (AddHabitPrefillTemplate) -> Void
+    let onArchiveArea: (UUID) -> Void
+    let onRestoreArea: (UUID) -> Void
+    let onDeleteArea: (UUID) -> Void
+    let onBeginCreateProject: (UUID) -> Void
 
     @Environment(\.taskerLayoutClass) private var layoutClass
 
@@ -1408,7 +1433,8 @@ private struct LifeManagementAreaDetailView: View {
 
     var body: some View {
         Group {
-            if let row = viewModel.areaRow(for: areaID) {
+            if let snapshot {
+                let row = snapshot.row
                 ScrollView {
                     VStack(spacing: spacing.s16) {
                         TaskerSettingsCard {
@@ -1429,7 +1455,7 @@ private struct LifeManagementAreaDetailView: View {
                                         sectionTitle("Projects")
                                         Spacer()
                                         Button("Add Project") {
-                                            viewModel.beginCreateProject(prefillLifeAreaID: row.id)
+                                            onBeginCreateProject(row.id)
                                         }
                                         .buttonStyle(.bordered)
                                     }
@@ -1437,21 +1463,20 @@ private struct LifeManagementAreaDetailView: View {
                                     VStack(alignment: .leading, spacing: spacing.s8) {
                                         sectionTitle("Projects")
                                         Button("Add Project") {
-                                            viewModel.beginCreateProject(prefillLifeAreaID: row.id)
+                                            onBeginCreateProject(row.id)
                                         }
                                         .buttonStyle(.bordered)
                                     }
                                     .frame(maxWidth: .infinity, alignment: .leading)
                                 }
 
-                                let projects = viewModel.projects(inLifeArea: row.id).filter { $0.project.isArchived == false }
-                                if projects.isEmpty {
+                                if snapshot.activeProjects.isEmpty {
                                     Text("No projects in this area yet.")
                                         .font(.tasker(.callout))
                                         .foregroundStyle(Color.tasker(.textSecondary))
                                 } else {
                                     VStack(spacing: spacing.chipSpacing) {
-                                        ForEach(projects) { projectRow in
+                                        ForEach(snapshot.activeProjects) { projectRow in
                                             NavigationLink(value: LifeManagementDestination.project(projectRow.id)) {
                                                 ProjectSummaryRow(row: projectRow)
                                             }
@@ -1494,14 +1519,13 @@ private struct LifeManagementAreaDetailView: View {
                                     .frame(maxWidth: .infinity, alignment: .leading)
                                 }
 
-                                let habits = viewModel.habits(inLifeArea: row.id).filter { $0.row.isArchived == false }
-                                if habits.isEmpty {
+                                if snapshot.activeHabits.isEmpty {
                                     Text("No habits in this area yet.")
                                         .font(.tasker(.callout))
                                         .foregroundStyle(Color.tasker(.textSecondary))
                                 } else {
                                     VStack(spacing: spacing.chipSpacing) {
-                                        ForEach(habits) { habitRow in
+                                        ForEach(snapshot.activeHabits) { habitRow in
                                             HabitSummaryRow(row: habitRow) {
                                                 onOpenHabit(habitRow.row)
                                             }
@@ -1556,19 +1580,19 @@ private struct LifeManagementAreaDetailView: View {
     private func areaActionButtons(row: LifeManagementAreaRow) -> some View {
         if row.lifeArea.isArchived {
             Button("Restore") {
-                viewModel.restoreLifeArea(row.id)
+                onRestoreArea(row.id)
             }
             .buttonStyle(.borderedProminent)
         } else if row.isGeneral == false {
             Button("Archive Area") {
-                viewModel.archiveLifeArea(row.id)
+                onArchiveArea(row.id)
             }
             .buttonStyle(.bordered)
         }
 
         if row.isGeneral == false {
             Button("Delete Area", role: .destructive) {
-                viewModel.beginDeleteArea(row.id)
+                onDeleteArea(row.id)
             }
             .buttonStyle(.bordered)
         }
@@ -1576,10 +1600,13 @@ private struct LifeManagementAreaDetailView: View {
 }
 
 private struct LifeManagementProjectDetailView: View {
-    @ObservedObject var viewModel: LifeManagementViewModel
-    let projectID: UUID
+    let snapshot: LifeManagementProjectDetailSnapshot?
     let onOpenHabit: (HabitLibraryRow) -> Void
     let onCreateHabit: (AddHabitPrefillTemplate) -> Void
+    let onBeginMoveProject: (UUID) -> Void
+    let onArchiveProject: (UUID) -> Void
+    let onRestoreProject: (UUID) -> Void
+    let onDeleteProject: (UUID) -> Void
 
     @Environment(\.taskerLayoutClass) private var layoutClass
 
@@ -1589,7 +1616,8 @@ private struct LifeManagementProjectDetailView: View {
 
     var body: some View {
         Group {
-            if let row = viewModel.projectRow(for: projectID) {
+            if let snapshot {
+                let row = snapshot.row
                 ScrollView {
                     VStack(spacing: spacing.s16) {
                         TaskerSettingsCard {
@@ -1612,7 +1640,7 @@ private struct LifeManagementProjectDetailView: View {
 
                                 detailLine(title: "Area", value: row.lifeArea?.name ?? "No Area")
                                 detailLine(title: "Open tasks", value: "\(row.taskCount)")
-                                detailLine(title: "Linked habits", value: "\(viewModel.projectHabits(projectID: projectID).filter { $0.row.isArchived == false }.count)")
+                                detailLine(title: "Linked habits", value: "\(snapshot.activeLinkedHabits.count)")
                             }
                         }
 
@@ -1654,14 +1682,13 @@ private struct LifeManagementProjectDetailView: View {
                                     .frame(maxWidth: .infinity, alignment: .leading)
                                 }
 
-                                let habits = viewModel.projectHabits(projectID: projectID).filter { $0.row.isArchived == false }
-                                if habits.isEmpty {
+                                if snapshot.activeLinkedHabits.isEmpty {
                                     Text("No habits are linked to this project.")
                                         .font(.tasker(.callout))
                                         .foregroundStyle(Color.tasker(.textSecondary))
                                 } else {
                                     VStack(spacing: spacing.chipSpacing) {
-                                        ForEach(habits) { habitRow in
+                                        ForEach(snapshot.activeLinkedHabits) { habitRow in
                                             HabitSummaryRow(row: habitRow) {
                                                 onOpenHabit(habitRow.row)
                                             }
@@ -1724,26 +1751,26 @@ private struct LifeManagementProjectDetailView: View {
     private func projectActionButtons(row: LifeManagementProjectRow) -> some View {
         if row.isMoveLocked == false {
             Button("Move Project") {
-                viewModel.beginMoveProject(row.id)
+                onBeginMoveProject(row.id)
             }
             .buttonStyle(.bordered)
         }
 
         if row.project.isArchived {
             Button("Restore") {
-                viewModel.restoreProject(row.id)
+                onRestoreProject(row.id)
             }
             .buttonStyle(.borderedProminent)
         } else if row.isInbox == false {
             Button("Archive Project") {
-                viewModel.archiveProject(row.id)
+                onArchiveProject(row.id)
             }
             .buttonStyle(.bordered)
         }
 
         if row.project.isDefault == false {
             Button("Delete Project", role: .destructive) {
-                viewModel.beginDeleteProject(row.id)
+                onDeleteProject(row.id)
             }
             .buttonStyle(.bordered)
         }

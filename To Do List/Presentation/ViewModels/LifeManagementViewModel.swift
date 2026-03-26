@@ -32,7 +32,7 @@ public enum LifeManagementScope: String, CaseIterable, Identifiable {
     }
 }
 
-public enum LifeManagementHabitFilter: String, CaseIterable, Identifiable {
+public enum LifeManagementHabitFilter: String, CaseIterable, Identifiable, Hashable {
     case all
     case build
     case quit
@@ -279,6 +279,17 @@ private enum LifeManagementUndoAction {
     case habit(UUID)
 }
 
+struct LifeManagementAreaDetailSnapshot: Equatable {
+    let row: LifeManagementAreaRow
+    let activeProjects: [LifeManagementProjectRow]
+    let activeHabits: [LifeManagementHabitRow]
+}
+
+struct LifeManagementProjectDetailSnapshot: Equatable {
+    let row: LifeManagementProjectRow
+    let activeLinkedHabits: [LifeManagementHabitRow]
+}
+
 struct LifeManagementProjection {
     struct Snapshot: Equatable {
         let overview: LifeManagementOverview
@@ -289,16 +300,95 @@ struct LifeManagementProjection {
         let searchResults: LifeManagementSearchResults
     }
 
-    static func build(
+    struct Context: Equatable {
+        let overview: LifeManagementOverview
+        let activeAreaRows: [LifeManagementAreaRow]
+        let activeProjects: [LifeManagementProjectRow]
+        let archivedProjects: [LifeManagementProjectRow]
+        let activeHabits: [LifeManagementHabitRow]
+        let archivedHabits: [LifeManagementHabitRow]
+        let activeProjectGroups: [LifeManagementProjectGroup]
+        let activeHabitGroupsByFilter: [LifeManagementHabitFilter: [LifeManagementHabitGroup]]
+        let archiveSections: LifeManagementArchiveSections
+        let areaRowsByID: [UUID: LifeManagementAreaRow]
+        let projectRowsByID: [UUID: LifeManagementProjectRow]
+        let habitRowsByID: [UUID: LifeManagementHabitRow]
+        let areaDetailByID: [UUID: LifeManagementAreaDetailSnapshot]
+        let projectDetailByID: [UUID: LifeManagementProjectDetailSnapshot]
+        let allProjectCountByAreaID: [UUID: Int]
+        let allHabitCountByAreaID: [UUID: Int]
+        let allLinkedHabitCountByProjectID: [UUID: Int]
+
+        static let empty = Context(
+            overview: .empty,
+            activeAreaRows: [],
+            activeProjects: [],
+            archivedProjects: [],
+            activeHabits: [],
+            archivedHabits: [],
+            activeProjectGroups: [],
+            activeHabitGroupsByFilter: Dictionary(
+                uniqueKeysWithValues: LifeManagementHabitFilter.allCases.map { ($0, []) }
+            ),
+            archiveSections: .empty,
+            areaRowsByID: [:],
+            projectRowsByID: [:],
+            habitRowsByID: [:],
+            areaDetailByID: [:],
+            projectDetailByID: [:],
+            allProjectCountByAreaID: [:],
+            allHabitCountByAreaID: [:],
+            allLinkedHabitCountByProjectID: [:]
+        )
+
+        func snapshot(
+            selectedScope: LifeManagementScope,
+            selectedHabitFilter: LifeManagementHabitFilter,
+            searchQuery: String
+        ) -> Snapshot {
+            let habitGroups = activeHabitGroupsByFilter[selectedHabitFilter] ?? []
+            let searchResults: LifeManagementSearchResults
+            if searchQuery.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                searchResults = .empty
+            } else if selectedScope == .archive {
+                searchResults = LifeManagementSearchResults(
+                    areas: archiveSections.areas.filter { LifeManagementProjection.matchesSearch(areaRow: $0, query: searchQuery) },
+                    projects: archivedProjects.filter { LifeManagementProjection.matchesSearch(projectRow: $0, query: searchQuery) },
+                    habits: archivedHabits.filter { LifeManagementProjection.matchesSearch(habitRow: $0, query: searchQuery) }
+                )
+            } else {
+                searchResults = LifeManagementSearchResults(
+                    areas: activeAreaRows.filter { LifeManagementProjection.matchesSearch(areaRow: $0, query: searchQuery) },
+                    projects: activeProjects.filter { LifeManagementProjection.matchesSearch(projectRow: $0, query: searchQuery) },
+                    habits: activeHabits.filter { LifeManagementProjection.matchesSearch(habitRow: $0, query: searchQuery) }
+                )
+            }
+
+            return Snapshot(
+                overview: overview,
+                areaRows: activeAreaRows,
+                projectGroups: activeProjectGroups,
+                habitGroups: habitGroups,
+                archiveSections: archiveSections,
+                searchResults: searchResults
+            )
+        }
+    }
+
+    static func prepare(
         lifeAreas: [LifeArea],
         projectStats: [ProjectWithStats],
         habitRows: [HabitLibraryRow],
-        selectedScope: LifeManagementScope,
-        selectedHabitFilter: LifeManagementHabitFilter,
-        searchQuery: String,
         generalLifeAreaID: UUID?
-    ) -> Snapshot {
+    ) -> Context {
         let areasByID = Dictionary(uniqueKeysWithValues: lifeAreas.map { ($0.id, $0) })
+        let activeLinkedHabitCountByProjectID = Dictionary(
+            habitRows.lazy.compactMap { row -> (UUID, Int)? in
+                guard let projectID = row.projectID, row.isArchived == false else { return nil }
+                return (projectID, 1)
+            },
+            uniquingKeysWith: +
+        )
 
         let projectRows = projectStats.map { entry in
             let resolvedAreaID = entry.project.lifeAreaID ?? generalLifeAreaID
@@ -306,9 +396,10 @@ struct LifeManagementProjection {
                 project: entry.project,
                 taskCount: entry.taskCount,
                 lifeArea: resolvedAreaID.flatMap { areasByID[$0] },
-                linkedHabitCount: habitRows.filter { $0.projectID == entry.project.id && $0.isArchived == false }.count
+                linkedHabitCount: activeLinkedHabitCountByProjectID[entry.project.id] ?? 0
             )
         }
+        let projectRowsByID = Dictionary(uniqueKeysWithValues: projectRows.map { ($0.id, $0) })
 
         let projectsByID = Dictionary(uniqueKeysWithValues: projectRows.map { ($0.project.id, $0.project) })
         let habitViewRows = habitRows.map { row in
@@ -318,12 +409,40 @@ struct LifeManagementProjection {
                 project: row.projectID.flatMap { projectsByID[$0] }
             )
         }
+        let habitRowsByID = Dictionary(uniqueKeysWithValues: habitViewRows.map { ($0.id, $0) })
+
+        let projectRowsByAreaID = Dictionary(grouping: projectRows.compactMap { row -> (UUID, LifeManagementProjectRow)? in
+            guard let lifeAreaID = row.lifeArea?.id else { return nil }
+            return (lifeAreaID, row)
+        }, by: \.0)
+            .mapValues { entries in entries.map(\.1) }
+        let habitRowsByAreaID = Dictionary(grouping: habitViewRows.compactMap { row -> (UUID, LifeManagementHabitRow)? in
+            guard let lifeAreaID = row.lifeArea?.id else { return nil }
+            return (lifeAreaID, row)
+        }, by: \.0)
+            .mapValues { entries in entries.map(\.1) }
+        let habitRowsByProjectID = Dictionary(grouping: habitViewRows.compactMap { row -> (UUID, LifeManagementHabitRow)? in
+            guard let projectID = row.project?.id else { return nil }
+            return (projectID, row)
+        }, by: \.0)
+            .mapValues { entries in entries.map(\.1) }
 
         let activeAreas = sortAreas(lifeAreas.filter { $0.isArchived == false })
         let archivedAreas = sortAreas(lifeAreas.filter(\.isArchived))
 
         let activeAreaRows = activeAreas.map { area in
-            buildAreaRow(area: area, projectRows: projectRows, habitRows: habitViewRows)
+            buildAreaRow(
+                area: area,
+                projectRows: projectRowsByAreaID[area.id] ?? [],
+                habitRows: habitRowsByAreaID[area.id] ?? []
+            )
+        }
+        let archivedAreaRows = archivedAreas.map { area in
+            buildAreaRow(
+                area: area,
+                projectRows: projectRowsByAreaID[area.id] ?? [],
+                habitRows: habitRowsByAreaID[area.id] ?? []
+            )
         }
 
         let activeProjects = sortProjectRows(projectRows.filter { row in
@@ -339,12 +458,21 @@ struct LifeManagementProjection {
             row.row.isArchived || row.lifeArea?.isArchived == true
         })
 
-        let filteredActiveHabits = filteredHabits(activeHabits, filter: selectedHabitFilter)
-        let projectGroups = groupProjects(activeProjects, activeAreas: activeAreas)
-        let habitGroups = groupHabits(filteredActiveHabits, activeAreas: activeAreas)
+        let activeProjectGroups = groupProjects(activeProjects, activeAreas: activeAreas)
+        let activeHabitGroupsByFilter = Dictionary(
+            uniqueKeysWithValues: LifeManagementHabitFilter.allCases.map { filter in
+                (
+                    filter,
+                    groupHabits(
+                        filteredHabits(activeHabits, filter: filter),
+                        activeAreas: activeAreas
+                    )
+                )
+            }
+        )
 
         let archiveSections = LifeManagementArchiveSections(
-            areas: archivedAreas.map { buildAreaRow(area: $0, projectRows: projectRows, habitRows: habitViewRows) },
+            areas: archivedAreaRows,
             projects: groupProjects(archivedProjects, activeAreas: sortAreas(lifeAreas)),
             habits: groupHabits(archivedHabits, activeAreas: sortAreas(lifeAreas))
         )
@@ -358,30 +486,87 @@ struct LifeManagementProjection {
             archivedHabits: archivedHabits
         )
 
-        let searchResults: LifeManagementSearchResults
-        if searchQuery.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-            searchResults = .empty
-        } else if selectedScope == .archive {
-            searchResults = LifeManagementSearchResults(
-                areas: archiveSections.areas.filter { matchesSearch(areaRow: $0, query: searchQuery) },
-                projects: archivedProjects.filter { matchesSearch(projectRow: $0, query: searchQuery) },
-                habits: archivedHabits.filter { matchesSearch(habitRow: $0, query: searchQuery) }
+        let areaRowsByID = Dictionary(
+            uniqueKeysWithValues: (activeAreaRows + archivedAreaRows).map { ($0.id, $0) }
+        )
+        let areaDetailByID = Dictionary(uniqueKeysWithValues: areaRowsByID.values.map { row in
+            let activeProjects = sortProjectRows(
+                (projectRowsByAreaID[row.id] ?? []).filter { $0.project.isArchived == false }
             )
-        } else {
-            searchResults = LifeManagementSearchResults(
-                areas: activeAreaRows.filter { matchesSearch(areaRow: $0, query: searchQuery) },
-                projects: activeProjects.filter { matchesSearch(projectRow: $0, query: searchQuery) },
-                habits: activeHabits.filter { matchesSearch(habitRow: $0, query: searchQuery) }
+            let activeHabits = sortHabitRows(
+                (habitRowsByAreaID[row.id] ?? []).filter { $0.row.isArchived == false }
             )
-        }
+            return (
+                row.id,
+                LifeManagementAreaDetailSnapshot(
+                    row: row,
+                    activeProjects: activeProjects,
+                    activeHabits: activeHabits
+                )
+            )
+        })
+        let projectDetailByID = Dictionary(uniqueKeysWithValues: projectRows.map { row in
+            (
+                row.id,
+                LifeManagementProjectDetailSnapshot(
+                    row: row,
+                    activeLinkedHabits: sortHabitRows(
+                        (habitRowsByProjectID[row.id] ?? []).filter { $0.row.isArchived == false }
+                    )
+                )
+            )
+        })
 
-        return Snapshot(
+        let allProjectCountByAreaID = Dictionary(
+            uniqueKeysWithValues: lifeAreas.map { ($0.id, (projectRowsByAreaID[$0.id] ?? []).count) }
+        )
+        let allHabitCountByAreaID = Dictionary(
+            uniqueKeysWithValues: lifeAreas.map { ($0.id, (habitRowsByAreaID[$0.id] ?? []).count) }
+        )
+        let allLinkedHabitCountByProjectID = Dictionary(
+            uniqueKeysWithValues: projectRows.map { ($0.id, (habitRowsByProjectID[$0.id] ?? []).count) }
+        )
+
+        return Context(
             overview: overview,
-            areaRows: activeAreaRows,
-            projectGroups: projectGroups,
-            habitGroups: habitGroups,
+            activeAreaRows: activeAreaRows,
+            activeProjects: activeProjects,
+            archivedProjects: archivedProjects,
+            activeHabits: activeHabits,
+            archivedHabits: archivedHabits,
+            activeProjectGroups: activeProjectGroups,
+            activeHabitGroupsByFilter: activeHabitGroupsByFilter,
             archiveSections: archiveSections,
-            searchResults: searchResults
+            areaRowsByID: areaRowsByID,
+            projectRowsByID: projectRowsByID,
+            habitRowsByID: habitRowsByID,
+            areaDetailByID: areaDetailByID,
+            projectDetailByID: projectDetailByID,
+            allProjectCountByAreaID: allProjectCountByAreaID,
+            allHabitCountByAreaID: allHabitCountByAreaID,
+            allLinkedHabitCountByProjectID: allLinkedHabitCountByProjectID
+        )
+    }
+
+    static func build(
+        lifeAreas: [LifeArea],
+        projectStats: [ProjectWithStats],
+        habitRows: [HabitLibraryRow],
+        selectedScope: LifeManagementScope,
+        selectedHabitFilter: LifeManagementHabitFilter,
+        searchQuery: String,
+        generalLifeAreaID: UUID?
+    ) -> Snapshot {
+        prepare(
+            lifeAreas: lifeAreas,
+            projectStats: projectStats,
+            habitRows: habitRows,
+            generalLifeAreaID: generalLifeAreaID
+        )
+        .snapshot(
+            selectedScope: selectedScope,
+            selectedHabitFilter: selectedHabitFilter,
+            searchQuery: searchQuery
         )
     }
 
@@ -457,13 +642,11 @@ struct LifeManagementProjection {
         projectRows: [LifeManagementProjectRow],
         habitRows: [LifeManagementHabitRow]
     ) -> LifeManagementAreaRow {
-        let areaProjects = projectRows.filter { $0.project.lifeAreaID == area.id }
-        let areaHabits = habitRows.filter { $0.row.lifeAreaID == area.id }
         return LifeManagementAreaRow(
             lifeArea: area,
-            projectCount: areaProjects.filter { $0.project.isArchived == false }.count,
-            habitCount: areaHabits.filter { $0.row.isArchived == false }.count,
-            taskCount: areaProjects.filter { $0.project.isArchived == false }.reduce(0) { $0 + $1.taskCount },
+            projectCount: projectRows.filter { $0.project.isArchived == false }.count,
+            habitCount: habitRows.filter { $0.row.isArchived == false }.count,
+            taskCount: projectRows.filter { $0.project.isArchived == false }.reduce(0) { $0 + $1.taskCount },
             isGeneral: normalizedAreaName(area.name) == LifeManagementConstants.generalNormalizedName
         )
     }
@@ -677,8 +860,7 @@ public final class LifeManagementViewModel: ObservableObject {
     private let lifeAreaRepository: LifeAreaRepositoryProtocol
 
     private var sourceLifeAreas: [LifeArea] = []
-    private var sourceProjectStats: [ProjectWithStats] = []
-    private var sourceHabitRows: [HabitLibraryRow] = []
+    private var projectionContext: LifeManagementProjection.Context = .empty
     private var generalLifeAreaID: UUID?
     private var hasLoadedOnce = false
     private var hasPerformedBackfill = false
@@ -972,8 +1154,8 @@ public final class LifeManagementViewModel: ObservableObject {
             id: UUID(),
             areaID: area.id,
             areaName: area.name,
-            projectCount: projects(inLifeArea: area.id).count,
-            habitCount: habits(inLifeArea: area.id).count,
+            projectCount: projectionContext.allProjectCountByAreaID[area.id] ?? 0,
+            habitCount: projectionContext.allHabitCountByAreaID[area.id] ?? 0,
             destinationLifeAreaID: defaultTarget
         )
     }
@@ -999,9 +1181,7 @@ public final class LifeManagementViewModel: ObservableObject {
                 self.destructiveFlowCoordinator.deleteLifeArea(
                     request: DeleteLifeAreaRequest(
                         areaID: draft.areaID,
-                        destinationLifeAreaID: destinationLifeAreaID,
-                        projects: self.projects(inLifeArea: draft.areaID).map(\.project),
-                        habits: self.habits(inLifeArea: draft.areaID).map(\.row)
+                        destinationLifeAreaID: destinationLifeAreaID
                     ),
                     completion: completion
                 )
@@ -1020,7 +1200,7 @@ public final class LifeManagementViewModel: ObservableObject {
             projectID: projectID,
             projectName: row.project.name,
             taskCount: row.taskCount,
-            linkedHabitCount: projectHabits(projectID: projectID).count,
+            linkedHabitCount: projectionContext.allLinkedHabitCountByProjectID[projectID] ?? 0,
             destinationProjectID: fallbackProjectID
         )
     }
@@ -1046,8 +1226,7 @@ public final class LifeManagementViewModel: ObservableObject {
                 self.destructiveFlowCoordinator.deleteProject(
                     request: DeleteProjectRequest(
                         projectID: draft.projectID,
-                        destinationProjectID: destinationProjectID,
-                        linkedHabitIDs: self.projectHabits(projectID: draft.projectID).map(\.row.habitID)
+                        destinationProjectID: destinationProjectID
                     ),
                     completion: completion
                 )
@@ -1174,74 +1353,25 @@ public final class LifeManagementViewModel: ObservableObject {
 
     /// Executes areaRow.
     public func areaRow(for lifeAreaID: UUID) -> LifeManagementAreaRow? {
-        areaRows.first(where: { $0.id == lifeAreaID }) ??
-        archiveSections.areas.first(where: { $0.id == lifeAreaID })
+        projectionContext.areaRowsByID[lifeAreaID]
     }
 
     /// Executes projectRow.
     public func projectRow(for projectID: UUID) -> LifeManagementProjectRow? {
-        for group in projectGroups where group.rows.contains(where: { $0.id == projectID }) {
-            return group.rows.first(where: { $0.id == projectID })
-        }
-        for group in archiveSections.projects where group.rows.contains(where: { $0.id == projectID }) {
-            return group.rows.first(where: { $0.id == projectID })
-        }
-        return nil
+        projectionContext.projectRowsByID[projectID]
     }
 
     /// Executes habitRow.
     public func habitRow(for habitID: UUID) -> LifeManagementHabitRow? {
-        for group in habitGroups where group.rows.contains(where: { $0.id == habitID }) {
-            return group.rows.first(where: { $0.id == habitID })
-        }
-        for group in archiveSections.habits where group.rows.contains(where: { $0.id == habitID }) {
-            return group.rows.first(where: { $0.id == habitID })
-        }
-        return nil
+        projectionContext.habitRowsByID[habitID]
     }
 
-    /// Executes projectsInArea.
-    public func projects(inLifeArea lifeAreaID: UUID) -> [LifeManagementProjectRow] {
-        sourceProjectStats.compactMap { entry in
-            guard (entry.project.lifeAreaID ?? generalLifeAreaID) == lifeAreaID else { return nil }
-            let lifeArea = sourceLifeAreas.first(where: { $0.id == lifeAreaID })
-            return LifeManagementProjectRow(
-                project: entry.project,
-                taskCount: entry.taskCount,
-                lifeArea: lifeArea,
-                linkedHabitCount: sourceHabitRows.filter { $0.projectID == entry.project.id && $0.isArchived == false }.count
-            )
-        }.sorted { lhs, rhs in
-            lhs.project.name.localizedCaseInsensitiveCompare(rhs.project.name) == .orderedAscending
-        }
+    func areaDetailSnapshot(for lifeAreaID: UUID) -> LifeManagementAreaDetailSnapshot? {
+        projectionContext.areaDetailByID[lifeAreaID]
     }
 
-    /// Executes habitsInArea.
-    public func habits(inLifeArea lifeAreaID: UUID) -> [LifeManagementHabitRow] {
-        sourceHabitRows.compactMap { row in
-            guard row.lifeAreaID == lifeAreaID else { return nil }
-            return LifeManagementHabitRow(
-                row: row,
-                lifeArea: sourceLifeAreas.first(where: { $0.id == lifeAreaID }),
-                project: row.projectID.flatMap { self.projectRow(for: $0)?.project }
-            )
-        }.sorted { lhs, rhs in
-            lhs.row.title.localizedCaseInsensitiveCompare(rhs.row.title) == .orderedAscending
-        }
-    }
-
-    /// Executes projectHabits.
-    public func projectHabits(projectID: UUID) -> [LifeManagementHabitRow] {
-        sourceHabitRows.compactMap { row in
-            guard row.projectID == projectID else { return nil }
-            return LifeManagementHabitRow(
-                row: row,
-                lifeArea: row.lifeAreaID.flatMap { id in sourceLifeAreas.first(where: { $0.id == id }) },
-                project: projectRow(for: projectID)?.project
-            )
-        }.sorted { lhs, rhs in
-            lhs.row.title.localizedCaseInsensitiveCompare(rhs.row.title) == .orderedAscending
-        }
+    func projectDetailSnapshot(for projectID: UUID) -> LifeManagementProjectDetailSnapshot? {
+        projectionContext.projectDetailByID[projectID]
     }
 
     /// Executes availableAreaTargets.
@@ -1306,14 +1436,10 @@ public final class LifeManagementViewModel: ObservableObject {
     }
 
     private func rebuildDerivedState() {
-        let snapshot = LifeManagementProjection.build(
-            lifeAreas: sourceLifeAreas,
-            projectStats: sourceProjectStats,
-            habitRows: sourceHabitRows,
+        let snapshot = projectionContext.snapshot(
             selectedScope: selectedScope,
             selectedHabitFilter: selectedHabitFilter,
-            searchQuery: searchQuery,
-            generalLifeAreaID: generalLifeAreaID
+            searchQuery: searchQuery
         )
         overview = snapshot.overview
         areaRows = snapshot.areaRows
@@ -1389,9 +1515,13 @@ public final class LifeManagementViewModel: ObservableObject {
             }
 
             sourceLifeAreas = mergedAreas
-            sourceProjectStats = projectStats
-            sourceHabitRows = habitRows
             generalLifeAreaID = generalArea.id
+            projectionContext = LifeManagementProjection.prepare(
+                lifeAreas: mergedAreas,
+                projectStats: projectStats,
+                habitRows: habitRows,
+                generalLifeAreaID: generalArea.id
+            )
             rebuildDerivedState()
         } catch {
             errorMessage = error.localizedDescription
