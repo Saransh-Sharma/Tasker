@@ -282,7 +282,8 @@ public final class UseCaseCoordinator {
             manageProjectsUseCase: self.manageProjects,
             updateHabitUseCase: self.updateHabit,
             projectRepository: v2Dependencies.projectRepository,
-            lifeAreaRepository: v2Dependencies.lifeAreaRepository
+            lifeAreaRepository: v2Dependencies.lifeAreaRepository,
+            habitRuntimeReadRepository: v2Dependencies.habitRuntimeReadRepository
         )
         self.getDueHabitsForDate = GetDueHabitsForDateUseCase(
             readRepository: v2Dependencies.habitRuntimeReadRepository

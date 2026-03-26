@@ -18,11 +18,16 @@ public enum LifeManagementScope: String, CaseIterable, Identifiable {
 
     public var title: String {
         switch self {
-        case .overview: return "Overview"
-        case .areas: return "Areas"
-        case .projects: return "Projects"
-        case .habits: return "Habits"
-        case .archive: return "Archive"
+        case .overview:
+            return String(localized: "Overview", defaultValue: "Overview")
+        case .areas:
+            return String(localized: "Areas", defaultValue: "Areas")
+        case .projects:
+            return String(localized: "Projects", defaultValue: "Projects")
+        case .habits:
+            return String(localized: "Habits", defaultValue: "Habits")
+        case .archive:
+            return String(localized: "Archive", defaultValue: "Archive")
         }
     }
 }
@@ -73,15 +78,23 @@ public struct LifeManagementOverviewStat: Identifiable, Equatable {
     }
 }
 
+public enum LifeManagementAttentionItemKind: String, Equatable {
+    case emptyProject = "empty_project"
+    case pausedHabit = "paused_habit"
+    case archivedItem = "archived_item"
+}
+
 public struct LifeManagementAttentionItem: Identifiable, Equatable {
+    public let kind: LifeManagementAttentionItemKind
     public let title: String
     public let detail: String
     public let symbolName: String
 
-    public var id: String { "\(title)-\(detail)" }
+    public var id: String { kind.rawValue }
 
     /// Initializes a new instance.
-    public init(title: String, detail: String, symbolName: String) {
+    public init(kind: LifeManagementAttentionItemKind, title: String, detail: String, symbolName: String) {
+        self.kind = kind
         self.title = title
         self.detail = detail
         self.symbolName = symbolName
@@ -386,6 +399,7 @@ struct LifeManagementProjection {
         if emptyProjects.isEmpty == false {
             attentionItems.append(
                 LifeManagementAttentionItem(
+                    kind: .emptyProject,
                     title: "\(emptyProjects.count) empty project\(emptyProjects.count == 1 ? "" : "s")",
                     detail: "Projects with no open tasks are easiest to clean up here.",
                     symbolName: "tray"
@@ -397,6 +411,7 @@ struct LifeManagementProjection {
         if pausedHabits.isEmpty == false {
             attentionItems.append(
                 LifeManagementAttentionItem(
+                    kind: .pausedHabit,
                     title: "\(pausedHabits.count) paused habit\(pausedHabits.count == 1 ? "" : "s")",
                     detail: "Paused habits stay recoverable, but still need a structural decision.",
                     symbolName: "pause.circle"
@@ -408,6 +423,7 @@ struct LifeManagementProjection {
         if archivedCount > 0 {
             attentionItems.append(
                 LifeManagementAttentionItem(
+                    kind: .archivedItem,
                     title: "\(archivedCount) archived item\(archivedCount == 1 ? "" : "s")",
                     detail: "Restore what still matters. Delete what is finished for good.",
                     symbolName: "archivebox"
@@ -821,6 +837,19 @@ public final class LifeManagementViewModel: ObservableObject {
 
             let description = draft.description.trimmingCharacters(in: .whitespacesAndNewlines).nilIfBlank
             if let existingID = draft.existingID {
+                let originalProject = try await self.awaitResult { completion in
+                    self.projectRepository.fetchProject(withId: existingID) { result in
+                        completion(result)
+                    }
+                }
+                guard let originalProject else {
+                    throw NSError(
+                        domain: "LifeManagementViewModel",
+                        code: 404,
+                        userInfo: [NSLocalizedDescriptionKey: "The project could not be found."]
+                    )
+                }
+
                 _ = try await self.awaitProjectResult { completion in
                     self.manageProjectsUseCase.updateProject(
                         projectId: existingID,
@@ -834,14 +863,54 @@ public final class LifeManagementViewModel: ObservableObject {
                     )
                 }
 
-                let currentLifeAreaID = self.projectRow(for: existingID)?.project.lifeAreaID ?? self.generalLifeAreaID
+                let currentLifeAreaID = originalProject.lifeAreaID ?? self.generalLifeAreaID
                 if draft.lifeAreaID != currentLifeAreaID, let targetAreaID = draft.lifeAreaID {
-                    _ = try await self.awaitProjectResult { completion in
-                        self.manageProjectsUseCase.moveProjectToLifeArea(
-                            projectId: existingID,
-                            lifeAreaID: targetAreaID,
-                            completion: completion
-                        )
+                    do {
+                        _ = try await self.awaitProjectResult { completion in
+                            self.manageProjectsUseCase.moveProjectToLifeArea(
+                                projectId: existingID,
+                                lifeAreaID: targetAreaID,
+                                completion: completion
+                            )
+                        }
+                    } catch {
+                        do {
+                            _ = try await self.awaitProjectResult { completion in
+                                self.manageProjectsUseCase.updateProject(
+                                    projectId: existingID,
+                                    request: UpdateProjectRequest(
+                                        name: originalProject.name,
+                                        description: originalProject.projectDescription,
+                                        color: originalProject.color,
+                                        icon: originalProject.icon
+                                    ),
+                                    completion: completion
+                                )
+                            }
+
+                            let currentProject = try await self.awaitResult { completion in
+                                self.projectRepository.fetchProject(withId: existingID) { result in
+                                    completion(result)
+                                }
+                            }
+                            if let originalLifeAreaID = originalProject.lifeAreaID,
+                               currentProject?.lifeAreaID != originalLifeAreaID {
+                                _ = try await self.awaitProjectResult { completion in
+                                    self.manageProjectsUseCase.moveProjectToLifeArea(
+                                        projectId: existingID,
+                                        lifeAreaID: originalLifeAreaID,
+                                        completion: completion
+                                    )
+                                }
+                            }
+                        } catch let rollbackError {
+                            throw LifeManagementMutationError.projectMoveRollbackFailed(
+                                moveError: error,
+                                rollbackError: rollbackError
+                            )
+                        }
+
+                        throw LifeManagementMutationError.projectMoveRolledBack(moveError: error)
                     }
                 }
             } else {
@@ -1419,6 +1488,20 @@ public final class LifeManagementViewModel: ObservableObject {
         _ body: (@escaping (Result<Void, Error>) -> Void) -> Void
     ) async throws {
         _ = try await awaitResult(body)
+    }
+}
+
+private enum LifeManagementMutationError: LocalizedError {
+    case projectMoveRolledBack(moveError: Error)
+    case projectMoveRollbackFailed(moveError: Error, rollbackError: Error)
+
+    var errorDescription: String? {
+        switch self {
+        case .projectMoveRolledBack:
+            return "Project details were restored because moving the project to the selected area failed."
+        case .projectMoveRollbackFailed:
+            return "Project updates could not be safely rolled back after the move failed."
+        }
     }
 }
 

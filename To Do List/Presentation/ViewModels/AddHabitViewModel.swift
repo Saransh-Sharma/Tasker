@@ -297,7 +297,7 @@ public final class AddHabitViewModel: ObservableObject {
             kind: selectedKind == .positive ? .positive : .negative,
             trackingMode: selectedTrackingMode == .dailyCheckIn ? .dailyCheckIn : .lapseOnly,
             icon: icon,
-            colorHex: selectedColorHex.nilIfBlank,
+            colorHex: TaskerHexColor.normalized(selectedColorHex.nilIfBlank),
             targetConfig: HabitTargetConfig(notes: habitNotes.nilIfBlank, targetCountPerDay: 1),
             metricConfig: HabitMetricConfig(
                 unitLabel: nil,
@@ -739,7 +739,7 @@ public final class HabitDetailViewModel: ObservableObject {
             kind: draft.kind == .positive ? .positive : .negative,
             trackingMode: draft.trackingMode == .dailyCheckIn ? .dailyCheckIn : .lapseOnly,
             icon: selectedIconOption.map { HabitIconMetadata(symbolName: $0.symbolName, categoryKey: $0.categoryKey) },
-            colorHex: draft.colorHex.nilIfBlank,
+            colorHex: TaskerHexColor.normalized(draft.colorHex.nilIfBlank),
             targetConfig: HabitTargetConfig(notes: draft.notes.nilIfBlank, targetCountPerDay: 1),
             metricConfig: HabitMetricConfig(unitLabel: nil, showNotesOnCompletion: draft.notes.nilIfBlank != nil),
             cadence: draft.cadence,

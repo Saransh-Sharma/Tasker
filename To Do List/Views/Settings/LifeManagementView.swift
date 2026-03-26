@@ -561,7 +561,7 @@ struct LifeManagementView: View {
                                     )
                                 }
                                 if row.isGeneral == false {
-                                    Button("Archive", systemImage: "archivebox") {
+                                    Button(String(localized: "Archive", defaultValue: "Archive"), systemImage: "archivebox") {
                                         viewModel.archiveLifeArea(row.id)
                                     }
                                     Button("Delete", systemImage: "trash", role: .destructive) {
@@ -1077,7 +1077,7 @@ private struct LifeManagementAppearanceLine: View {
 }
 
 private func lifeManagementHabitStatusText(_ row: HabitLibraryRow) -> String {
-    if row.isArchived { return "Archived" }
+    if row.isArchived { return String(localized: "Archived", defaultValue: "Archived") }
     if row.isPaused { return "Paused" }
     if row.currentStreak > 0 { return "\(row.currentStreak)d streak" }
     return lifeManagementHabitCadenceLabel(row.cadence)
@@ -1194,7 +1194,7 @@ private struct ProjectListRow: View {
                     }
                 }
                 if let onArchive {
-                    Button("Archive", systemImage: "archivebox") {
+                    Button(String(localized: "Archive", defaultValue: "Archive"), systemImage: "archivebox") {
                         onArchive()
                     }
                 }
@@ -1289,7 +1289,7 @@ private struct HabitListRow: View {
                 Button(row.row.isPaused ? "Resume" : "Pause", systemImage: row.row.isPaused ? "play.fill" : "pause.fill") {
                     onTogglePause()
                 }
-                Button("Archive", systemImage: "archivebox") {
+                Button(String(localized: "Archive", defaultValue: "Archive"), systemImage: "archivebox") {
                     onArchive()
                 }
             } label: {
