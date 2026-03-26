@@ -447,8 +447,8 @@ final class LifeManagementProjectionTests: XCTestCase {
         XCTAssertEqual(snapshot.areaRows.count, 2)
         XCTAssertEqual(snapshot.projectGroups.count, 2)
         XCTAssertEqual(snapshot.habitGroups.count, 2)
-        XCTAssertTrue(snapshot.overview.attentionItems.contains(where: { $0.title.contains("empty project") }))
-        XCTAssertTrue(snapshot.overview.attentionItems.contains(where: { $0.title.contains("paused habit") }))
+        XCTAssertEqual(snapshot.overview.attentionItems.filter { $0.kind == .emptyProject }.count, 1)
+        XCTAssertEqual(snapshot.overview.attentionItems.filter { $0.kind == .pausedHabit }.count, 1)
         XCTAssertEqual(snapshot.projectGroups.first(where: { $0.title == "Career" })?.rows.first?.linkedHabitCount, 1)
         XCTAssertEqual(snapshot.habitGroups.first(where: { $0.title == "Career" })?.rows.first?.row.colorHex, "#3B82F6")
     }
@@ -644,12 +644,175 @@ final class LifeAreaProjectDropValidationTests: XCTestCase {
     }
 }
 
+final class LifeManagementDestructiveFlowCoordinatorTests: XCTestCase {
+    func testDeleteLifeAreaRejectsSameDestinationBeforeMutation() {
+        let areaID = UUID()
+        let repositories = makeCoordinatorDependencies(
+            lifeAreas: [LifeArea(id: areaID, name: "Career", color: nil, icon: nil)]
+        )
+        let coordinator = makeCoordinator(dependencies: repositories)
+        let expectation = expectation(description: "same area rejected")
+
+        coordinator.deleteLifeArea(
+            request: DeleteLifeAreaRequest(
+                areaID: areaID,
+                destinationLifeAreaID: areaID,
+                projects: [],
+                habits: []
+            )
+        ) { result in
+            switch result {
+            case .success:
+                XCTFail("Expected no-op rejection")
+            case .failure(let error):
+                XCTAssertEqual(
+                    error.localizedDescription,
+                    "Choose a different destination area before deleting this area."
+                )
+            }
+            expectation.fulfill()
+        }
+
+        waitForExpectations(timeout: 1.0)
+        XCTAssertTrue(repositories.projectRepository.moveProjectCalls.isEmpty)
+        XCTAssertEqual(repositories.habitRepository.updateCallCount, 0)
+    }
+
+    func testDeleteProjectUsesCurrentLinkedHabitsInsteadOfRequestSnapshot() {
+        let sourceProjectID = UUID()
+        let destinationProjectID = UUID()
+        let areaID = UUID()
+        let linkedHabitID = UUID()
+        let linkedHabit = HabitDefinitionRecord(
+            id: linkedHabitID,
+            lifeAreaID: areaID,
+            projectID: sourceProjectID,
+            title: "Hydrate",
+            habitType: "check_in",
+            createdAt: Date(timeIntervalSince1970: 1_704_067_200),
+            updatedAt: Date(timeIntervalSince1970: 1_704_067_200)
+        )
+        let repositories = makeCoordinatorDependencies(
+            lifeAreas: [LifeArea(id: areaID, name: "Health", color: nil, icon: nil)],
+            projects: [
+                Project(id: sourceProjectID, lifeAreaID: areaID, name: "Source", projectDescription: nil),
+                Project(id: destinationProjectID, lifeAreaID: areaID, name: "Destination", projectDescription: nil)
+            ],
+            habits: [linkedHabit],
+            habitRows: [
+                HabitLibraryRow(
+                    habitID: linkedHabitID,
+                    title: "Hydrate",
+                    kind: .positive,
+                    trackingMode: .dailyCheckIn,
+                    lifeAreaID: areaID,
+                    lifeAreaName: "Health",
+                    projectID: sourceProjectID,
+                    projectName: "Source",
+                    colorHex: nil,
+                    isPaused: false,
+                    isArchived: false,
+                    currentStreak: 0,
+                    bestStreak: 0
+                )
+            ]
+        )
+        let coordinator = makeCoordinator(dependencies: repositories)
+        let expectation = expectation(description: "linked habits refetched")
+
+        coordinator.deleteProject(
+            request: DeleteProjectRequest(
+                projectID: sourceProjectID,
+                destinationProjectID: destinationProjectID,
+                linkedHabitIDs: []
+            )
+        ) { result in
+            XCTAssertNoThrow(try result.get())
+            expectation.fulfill()
+        }
+
+        waitForExpectations(timeout: 1.0)
+        XCTAssertEqual(repositories.habitReadRepository.fetchHabitLibraryCallCount, 1)
+        XCTAssertNil(repositories.habitRepository.habitsByID[linkedHabitID]?.projectID)
+    }
+
+    func testDeleteLifeAreaRollsBackMovedChildrenWhenAreaDeleteFails() {
+        let sourceAreaID = UUID()
+        let destinationAreaID = UUID()
+        let projectID = UUID()
+        let habitID = UUID()
+        let repositories = makeCoordinatorDependencies(
+            lifeAreas: [
+                LifeArea(id: sourceAreaID, name: "Career", color: nil, icon: nil),
+                LifeArea(id: destinationAreaID, name: "Health", color: nil, icon: nil)
+            ],
+            projects: [
+                Project(id: projectID, lifeAreaID: sourceAreaID, name: "Roadmap", projectDescription: nil)
+            ],
+            habits: [
+                HabitDefinitionRecord(
+                    id: habitID,
+                    lifeAreaID: sourceAreaID,
+                    projectID: projectID,
+                    title: "Ship weekly review",
+                    habitType: "check_in",
+                    createdAt: Date(timeIntervalSince1970: 1_704_067_200),
+                    updatedAt: Date(timeIntervalSince1970: 1_704_067_200)
+                )
+            ],
+            habitRows: [
+                HabitLibraryRow(
+                    habitID: habitID,
+                    title: "Ship weekly review",
+                    kind: .positive,
+                    trackingMode: .dailyCheckIn,
+                    lifeAreaID: sourceAreaID,
+                    lifeAreaName: "Career",
+                    projectID: projectID,
+                    projectName: "Roadmap",
+                    colorHex: nil,
+                    isPaused: false,
+                    isArchived: false,
+                    currentStreak: 0,
+                    bestStreak: 0
+                )
+            ]
+        )
+        repositories.lifeAreaRepository.deleteError = NSError(domain: "LifeAreaRepositoryStub", code: 500)
+        let coordinator = makeCoordinator(dependencies: repositories)
+        let expectation = expectation(description: "area rollback")
+
+        coordinator.deleteLifeArea(
+            request: DeleteLifeAreaRequest(
+                areaID: sourceAreaID,
+                destinationLifeAreaID: destinationAreaID,
+                projects: [],
+                habits: []
+            )
+        ) { result in
+            switch result {
+            case .success:
+                XCTFail("Expected delete failure")
+            case .failure:
+                XCTAssertEqual(repositories.projectRepository.projects.first?.lifeAreaID, sourceAreaID)
+                XCTAssertEqual(repositories.habitRepository.habitsByID[habitID]?.lifeAreaID, sourceAreaID)
+                XCTAssertEqual(repositories.habitRepository.habitsByID[habitID]?.projectID, projectID)
+            }
+            expectation.fulfill()
+        }
+
+        waitForExpectations(timeout: 1.0)
+    }
+}
+
 private final class ProjectRepositoryStub: ProjectRepositoryProtocol {
     var projects: [Project]
     var taskCounts: [UUID: Int]
 
     var moveProjectCalls: [(projectID: UUID, lifeAreaID: UUID)] = []
     var backfillCalls: [UUID] = []
+    var moveTasksCalls: [(sourceProjectId: UUID, targetProjectId: UUID)] = []
+    var deleteProjectCalls: [(id: UUID, deleteTasks: Bool)] = []
 
     /// Initializes a new instance.
     init(projects: [Project] = [], taskCounts: [UUID: Int] = [:]) {
@@ -729,6 +892,7 @@ private final class ProjectRepositoryStub: ProjectRepositoryProtocol {
     }
 
     func deleteProject(withId id: UUID, deleteTasks: Bool, completion: @escaping (Result<Void, Error>) -> Void) {
+        deleteProjectCalls.append((id: id, deleteTasks: deleteTasks))
         projects.removeAll { $0.id == id }
         taskCounts[id] = nil
         completion(.success(()))
@@ -739,6 +903,7 @@ private final class ProjectRepositoryStub: ProjectRepositoryProtocol {
     }
 
     func moveTasks(from sourceProjectId: UUID, to targetProjectId: UUID, completion: @escaping (Result<Void, Error>) -> Void) {
+        moveTasksCalls.append((sourceProjectId: sourceProjectId, targetProjectId: targetProjectId))
         let moved = taskCounts[sourceProjectId] ?? 0
         taskCounts[sourceProjectId] = 0
         taskCounts[targetProjectId, default: 0] += moved
@@ -807,6 +972,7 @@ private final class ProjectRepositoryStub: ProjectRepositoryProtocol {
 
 private final class LifeAreaRepositoryStub: LifeAreaRepositoryProtocol {
     var areas: [LifeArea]
+    var deleteError: Error?
 
     /// Initializes a new instance.
     init(areas: [LifeArea]) {
@@ -830,9 +996,230 @@ private final class LifeAreaRepositoryStub: LifeAreaRepositoryProtocol {
     }
 
     func delete(id: UUID, completion: @escaping (Result<Void, Error>) -> Void) {
+        if let deleteError {
+            completion(.failure(deleteError))
+            return
+        }
         areas.removeAll { $0.id == id }
         completion(.success(()))
     }
+}
+
+private final class CoordinatorHabitRepositoryStub: HabitRepositoryProtocol {
+    var habitsByID: [UUID: HabitDefinitionRecord]
+    var updateCallCount = 0
+
+    init(habits: [HabitDefinitionRecord] = []) {
+        self.habitsByID = Dictionary(uniqueKeysWithValues: habits.map { ($0.id, $0) })
+    }
+
+    func fetchAll(completion: @escaping (Result<[HabitDefinitionRecord], Error>) -> Void) {
+        completion(.success(Array(habitsByID.values)))
+    }
+
+    func create(_ habit: HabitDefinitionRecord, completion: @escaping (Result<HabitDefinitionRecord, Error>) -> Void) {
+        habitsByID[habit.id] = habit
+        completion(.success(habit))
+    }
+
+    func update(_ habit: HabitDefinitionRecord, completion: @escaping (Result<HabitDefinitionRecord, Error>) -> Void) {
+        updateCallCount += 1
+        habitsByID[habit.id] = habit
+        completion(.success(habit))
+    }
+
+    func delete(id: UUID, completion: @escaping (Result<Void, Error>) -> Void) {
+        habitsByID.removeValue(forKey: id)
+        completion(.success(()))
+    }
+}
+
+private final class CoordinatorScheduleRepositoryStub: ScheduleRepositoryProtocol {
+    func fetchTemplates(completion: @escaping (Result<[ScheduleTemplateDefinition], Error>) -> Void) {
+        completion(.success([]))
+    }
+
+    func fetchRules(templateID: UUID, completion: @escaping (Result<[ScheduleRuleDefinition], Error>) -> Void) {
+        completion(.success([]))
+    }
+
+    func saveTemplate(_ template: ScheduleTemplateDefinition, completion: @escaping (Result<ScheduleTemplateDefinition, Error>) -> Void) {
+        completion(.success(template))
+    }
+
+    func deleteTemplate(id: UUID, completion: @escaping (Result<Void, Error>) -> Void) {
+        completion(.success(()))
+    }
+
+    func replaceRules(
+        templateID: UUID,
+        rules: [ScheduleRuleDefinition],
+        completion: @escaping (Result<[ScheduleRuleDefinition], Error>) -> Void
+    ) {
+        completion(.success(rules))
+    }
+
+    func fetchExceptions(templateID: UUID, completion: @escaping (Result<[ScheduleExceptionDefinition], Error>) -> Void) {
+        completion(.success([]))
+    }
+
+    func saveException(_ exception: ScheduleExceptionDefinition, completion: @escaping (Result<ScheduleExceptionDefinition, Error>) -> Void) {
+        completion(.success(exception))
+    }
+}
+
+private final class CoordinatorOccurrenceRepositoryStub: OccurrenceRepositoryProtocol {
+    func fetchInRange(start: Date, end: Date, completion: @escaping (Result<[OccurrenceDefinition], Error>) -> Void) {
+        completion(.success([]))
+    }
+
+    func saveOccurrences(_ occurrences: [OccurrenceDefinition], completion: @escaping (Result<Void, Error>) -> Void) {
+        completion(.success(()))
+    }
+
+    func resolve(_ resolution: OccurrenceResolutionDefinition, completion: @escaping (Result<Void, Error>) -> Void) {
+        completion(.success(()))
+    }
+
+    func deleteOccurrences(ids: [UUID], completion: @escaping (Result<Void, Error>) -> Void) {
+        completion(.success(()))
+    }
+}
+
+private final class CoordinatorSchedulingEngineStub: SchedulingEngineProtocol {
+    func generateOccurrences(
+        windowStart: Date,
+        windowEnd: Date,
+        sourceFilter: ScheduleSourceType?,
+        completion: @escaping (Result<[OccurrenceDefinition], Error>) -> Void
+    ) {
+        completion(.success([]))
+    }
+
+    func resolveOccurrence(
+        id: UUID,
+        resolution: OccurrenceResolutionType,
+        actor: OccurrenceActor,
+        completion: @escaping (Result<Void, Error>) -> Void
+    ) {
+        completion(.success(()))
+    }
+
+    func rebuildFutureOccurrences(
+        templateID: UUID,
+        effectiveFrom: Date,
+        completion: @escaping (Result<Void, Error>) -> Void
+    ) {
+        completion(.success(()))
+    }
+
+    func applyScheduleException(
+        templateID: UUID,
+        occurrenceKey: String,
+        action: ScheduleExceptionAction,
+        completion: @escaping (Result<Void, Error>) -> Void
+    ) {
+        completion(.success(()))
+    }
+}
+
+private final class CoordinatorHabitRuntimeReadRepositoryStub: HabitRuntimeReadRepositoryProtocol {
+    var libraryRows: [HabitLibraryRow]
+    private(set) var fetchHabitLibraryCallCount = 0
+
+    init(libraryRows: [HabitLibraryRow] = []) {
+        self.libraryRows = libraryRows
+    }
+
+    func fetchAgendaHabits(
+        for date: Date,
+        completion: @escaping (Result<[HabitOccurrenceSummary], Error>) -> Void
+    ) {
+        completion(.success([]))
+    }
+
+    func fetchHistory(
+        habitIDs: [UUID],
+        endingOn date: Date,
+        dayCount: Int,
+        completion: @escaping (Result<[HabitHistoryWindow], Error>) -> Void
+    ) {
+        completion(.success([]))
+    }
+
+    func fetchSignals(
+        start: Date,
+        end: Date,
+        completion: @escaping (Result<[HabitOccurrenceSummary], Error>) -> Void
+    ) {
+        completion(.success([]))
+    }
+
+    func fetchHabitLibrary(
+        includeArchived: Bool,
+        completion: @escaping (Result<[HabitLibraryRow], Error>) -> Void
+    ) {
+        fetchHabitLibraryCallCount += 1
+        completion(.success(libraryRows))
+    }
+}
+
+private struct CoordinatorDependencies {
+    let projectRepository: ProjectRepositoryStub
+    let lifeAreaRepository: LifeAreaRepositoryStub
+    let habitRepository: CoordinatorHabitRepositoryStub
+    let habitReadRepository: CoordinatorHabitRuntimeReadRepositoryStub
+    let scheduleRepository: CoordinatorScheduleRepositoryStub
+    let occurrenceRepository: CoordinatorOccurrenceRepositoryStub
+    let schedulingEngine: CoordinatorSchedulingEngineStub
+}
+
+private func makeCoordinatorDependencies(
+    lifeAreas: [LifeArea] = [],
+    projects: [Project] = [],
+    habits: [HabitDefinitionRecord] = [],
+    habitRows: [HabitLibraryRow] = []
+) -> CoordinatorDependencies {
+    CoordinatorDependencies(
+        projectRepository: ProjectRepositoryStub(projects: projects),
+        lifeAreaRepository: LifeAreaRepositoryStub(areas: lifeAreas),
+        habitRepository: CoordinatorHabitRepositoryStub(habits: habits),
+        habitReadRepository: CoordinatorHabitRuntimeReadRepositoryStub(libraryRows: habitRows),
+        scheduleRepository: CoordinatorScheduleRepositoryStub(),
+        occurrenceRepository: CoordinatorOccurrenceRepositoryStub(),
+        schedulingEngine: CoordinatorSchedulingEngineStub()
+    )
+}
+
+private func makeCoordinator(dependencies: CoordinatorDependencies) -> LifeManagementDestructiveFlowCoordinator {
+    let recompute = RecomputeHabitStreaksUseCase(
+        habitRepository: dependencies.habitRepository,
+        occurrenceRepository: dependencies.occurrenceRepository
+    )
+    let sync = SyncHabitScheduleUseCase(
+        habitRepository: dependencies.habitRepository,
+        scheduleRepository: dependencies.scheduleRepository,
+        scheduleEngine: dependencies.schedulingEngine,
+        occurrenceRepository: dependencies.occurrenceRepository,
+        recomputeHabitStreaksUseCase: recompute
+    )
+    let maintain = MaintainHabitRuntimeUseCase(syncHabitScheduleUseCase: sync)
+    let updateHabit = UpdateHabitUseCase(
+        habitRepository: dependencies.habitRepository,
+        scheduleRepository: dependencies.scheduleRepository,
+        scheduleEngine: dependencies.schedulingEngine,
+        projectRepository: dependencies.projectRepository,
+        lifeAreaRepository: dependencies.lifeAreaRepository,
+        maintainHabitRuntimeUseCase: maintain
+    )
+
+    return LifeManagementDestructiveFlowCoordinator(
+        manageProjectsUseCase: ManageProjectsUseCase(projectRepository: dependencies.projectRepository),
+        updateHabitUseCase: updateHabit,
+        projectRepository: dependencies.projectRepository,
+        lifeAreaRepository: dependencies.lifeAreaRepository,
+        habitRuntimeReadRepository: dependencies.habitReadRepository
+    )
 }
 
 private extension CoreDataProjectRepositoryLifeAreaMutationTests {

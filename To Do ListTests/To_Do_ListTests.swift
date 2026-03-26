@@ -137,6 +137,33 @@ final class HabitCoreDataSchemaRegressionTests: XCTestCase {
         XCTAssertNil(CoreDataGamificationRepository.schemaValidationError(in: model))
     }
 
+    func testLegacyCompiledTaskModelExcludesHabitRuntimeOnlyFields() throws {
+        let legacyModel = try compiledTaskModelVersion(named: "TaskModelV3.mom")
+        let habitEntity = try XCTUnwrap(legacyModel.entitiesByName["HabitDefinition"])
+        let legacyFields = Set(habitEntity.attributesByName.keys)
+
+        XCTAssertFalse(legacyFields.contains("kindRaw"))
+        XCTAssertFalse(legacyFields.contains("trackingModeRaw"))
+        XCTAssertFalse(legacyFields.contains("iconSymbolName"))
+        XCTAssertFalse(legacyFields.contains("iconCategoryKey"))
+        XCTAssertFalse(legacyFields.contains("colorHex"))
+        XCTAssertFalse(legacyFields.contains("notes"))
+        XCTAssertFalse(legacyFields.contains("archivedAt"))
+        XCTAssertFalse(legacyFields.contains("successMask14Raw"))
+        XCTAssertFalse(legacyFields.contains("failureMask14Raw"))
+        XCTAssertFalse(legacyFields.contains("lastHistoryRollDate"))
+    }
+
+    func testTaskModelCurrentVersionPointsToHabitsSourceModel() throws {
+        let currentVersionFile = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .appendingPathComponent("To Do List/TaskModelV3.xcdatamodeld/.xccurrentversion")
+        let contents = try String(contentsOf: currentVersionFile, encoding: .utf8)
+
+        XCTAssertTrue(contents.contains("TaskModelV3_Habits.xcdatamodel"))
+    }
+
     func testBootstrapSchemaValidationRejectsMissingHabitRuntimeFields() {
         let model = makeInvalidHabitSchemaModel()
 
@@ -10235,6 +10262,50 @@ final class AddHabitViewModelValidationTests: XCTestCase {
             "Reminder end must be after the start on the same day."
         )
         XCTAssertFalse(viewModel.canSubmit)
+    }
+
+    func testCreateHabitNormalizesSixDigitHexColor() async {
+        let (viewModel, habitRepository) = makeViewModel()
+
+        viewModel.loadIfNeeded()
+        for _ in 0..<5 {
+            await _Concurrency.Task.yield()
+        }
+
+        viewModel.habitName = "Hydrate"
+        viewModel.selectedColorHex = "3b82f6"
+
+        let expectation = expectation(description: "create normalized color")
+        viewModel.createHabit { result in
+            XCTAssertNoThrow(try result.get())
+            expectation.fulfill()
+        }
+        waitForExpectations(timeout: 1.0)
+
+        let createdHabit = try XCTUnwrap(habitRepository.habitsByID.values.first)
+        XCTAssertEqual(createdHabit.colorHex, "#3B82F6")
+    }
+
+    func testCreateHabitDropsInvalidHexColor() async {
+        let (viewModel, habitRepository) = makeViewModel()
+
+        viewModel.loadIfNeeded()
+        for _ in 0..<5 {
+            await _Concurrency.Task.yield()
+        }
+
+        viewModel.habitName = "Journal"
+        viewModel.selectedColorHex = "blue"
+
+        let expectation = expectation(description: "create invalid color")
+        viewModel.createHabit { result in
+            XCTAssertNoThrow(try result.get())
+            expectation.fulfill()
+        }
+        waitForExpectations(timeout: 1.0)
+
+        let createdHabit = try XCTUnwrap(habitRepository.habitsByID.values.first)
+        XCTAssertNil(createdHabit.colorHex)
     }
 
     private func makeViewModel(
