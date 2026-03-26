@@ -728,7 +728,7 @@ public final class LifeManagementViewModel: ObservableObject {
         lifeAreaDraft = LifeManagementLifeAreaDraft(
             existingID: area.id,
             name: area.name,
-            colorHex: area.color ?? LifeAreaConstants.generalSeedColor,
+            colorHex: area.color ?? "",
             iconSymbolName: area.icon ?? "square.grid.2x2"
         )
     }
@@ -772,6 +772,7 @@ public final class LifeManagementViewModel: ObservableObject {
                 }
             }
             self.lifeAreaDraft = nil
+            self.snackbar = SnackbarData(message: draft.isNew ? "Area added" : "Area updated")
         }
     }
 
@@ -858,6 +859,7 @@ public final class LifeManagementViewModel: ObservableObject {
                 }
             }
             self.projectDraft = nil
+            self.snackbar = SnackbarData(message: draft.isNew ? "Project added" : "Project updated")
         }
     }
 

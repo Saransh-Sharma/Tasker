@@ -7,6 +7,20 @@ private enum LifeManagementDestination: Hashable {
     case project(UUID)
 }
 
+private enum LifeManagementComposerRoute: Identifiable, Equatable {
+    case area(LifeManagementLifeAreaDraft)
+    case project(LifeManagementProjectDraft)
+
+    var id: UUID {
+        switch self {
+        case .area(let draft):
+            return draft.id
+        case .project(let draft):
+            return draft.id
+        }
+    }
+}
+
 struct LifeManagementView: View {
     @StateObject private var viewModel: LifeManagementViewModel
     @StateObject private var habitComposerViewModel = PresentationDependencyContainer.shared.makeNewAddHabitViewModel()
@@ -35,6 +49,55 @@ struct LifeManagementView: View {
         viewModel.projectGroups.isEmpty &&
         viewModel.habitGroups.isEmpty &&
         viewModel.archiveSections.hasContent == false
+    }
+
+    private var activeComposerRoute: Binding<LifeManagementComposerRoute?> {
+        Binding(
+            get: {
+                if let draft = viewModel.lifeAreaDraft {
+                    return .area(draft)
+                }
+                if let draft = viewModel.projectDraft {
+                    return .project(draft)
+                }
+                return nil
+            },
+            set: { newValue in
+                switch newValue {
+                case .area(let draft):
+                    viewModel.lifeAreaDraft = draft
+                    viewModel.projectDraft = nil
+                case .project(let draft):
+                    viewModel.projectDraft = draft
+                    viewModel.lifeAreaDraft = nil
+                case nil:
+                    viewModel.dismissLifeAreaDraft()
+                    viewModel.dismissProjectDraft()
+                }
+            }
+        )
+    }
+
+    private var compactComposerRoute: Binding<LifeManagementComposerRoute?> {
+        Binding(
+            get: {
+                layoutClass == .phone ? activeComposerRoute.wrappedValue : nil
+            },
+            set: { newValue in
+                activeComposerRoute.wrappedValue = newValue
+            }
+        )
+    }
+
+    private var regularComposerRoute: Binding<LifeManagementComposerRoute?> {
+        Binding(
+            get: {
+                layoutClass == .phone ? nil : activeComposerRoute.wrappedValue
+            },
+            set: { newValue in
+                activeComposerRoute.wrappedValue = newValue
+            }
+        )
     }
 
     var body: some View {
@@ -136,34 +199,16 @@ struct LifeManagementView: View {
                 )
             }
         }
-        .sheet(item: $viewModel.lifeAreaDraft) { draft in
-            LifeAreaEditorSheet(
-                draft: draft,
-                iconOptions: viewModel.lifeAreaIconCatalog,
-                isSaving: viewModel.isMutating,
-                onSave: { updatedDraft in
-                    viewModel.lifeAreaDraft = updatedDraft
-                    viewModel.saveLifeAreaDraft()
-                },
-                onCancel: {
-                    viewModel.dismissLifeAreaDraft()
-                }
-            )
+        .fullScreenCover(item: compactComposerRoute) { route in
+            composerDestination(for: route, containerMode: .sheet)
         }
-        .sheet(item: $viewModel.projectDraft) { draft in
-            ProjectEditorSheet(
-                draft: draft,
-                lifeAreas: viewModel.availableAreaTargets(excluding: nil),
-                fallbackAreaRows: viewModel.areaRows,
-                isSaving: viewModel.isMutating,
-                onSave: { updatedDraft in
-                    viewModel.projectDraft = updatedDraft
-                    viewModel.saveProjectDraft()
-                },
-                onCancel: {
-                    viewModel.dismissProjectDraft()
-                }
-            )
+        .sheet(item: regularComposerRoute) { route in
+            composerDestination(for: route, containerMode: .inspector)
+                .presentationDetents([.large])
+                .presentationDragIndicator(.visible)
+                .presentationCornerRadius(28)
+                .presentationBackground(Color.tasker(.bgElevated))
+                .interactiveDismissDisabled(viewModel.isMutating)
         }
         .sheet(item: $viewModel.moveProjectDraft) { draft in
             ProjectMoveSheet(
@@ -232,6 +277,43 @@ struct LifeManagementView: View {
                 viewModel: PresentationDependencyContainer.shared.makeHabitDetailViewModel(row: row),
                 onMutation: {
                     viewModel.reload()
+                }
+            )
+        }
+    }
+
+    @ViewBuilder
+    private func composerDestination(for route: LifeManagementComposerRoute, containerMode: AddTaskContainerMode) -> some View {
+        switch route {
+        case .area(let draft):
+            LifeManagementAreaComposerView(
+                draft: draft,
+                iconOptions: viewModel.lifeAreaIconCatalog,
+                containerMode: containerMode,
+                isSaving: viewModel.isMutating,
+                errorMessage: viewModel.errorMessage,
+                onSave: { updatedDraft in
+                    viewModel.lifeAreaDraft = updatedDraft
+                    viewModel.saveLifeAreaDraft()
+                },
+                onCancel: {
+                    viewModel.dismissLifeAreaDraft()
+                }
+            )
+        case .project(let draft):
+            LifeManagementProjectComposerView(
+                draft: draft,
+                lifeAreas: viewModel.availableAreaTargets(excluding: nil),
+                fallbackAreaRows: viewModel.areaRows,
+                containerMode: containerMode,
+                isSaving: viewModel.isMutating,
+                errorMessage: viewModel.errorMessage,
+                onSave: { updatedDraft in
+                    viewModel.projectDraft = updatedDraft
+                    viewModel.saveProjectDraft()
+                },
+                onCancel: {
+                    viewModel.dismissProjectDraft()
                 }
             )
         }
@@ -1668,132 +1750,908 @@ private struct LifeManagementProjectDetailView: View {
     }
 }
 
-private struct LifeAreaEditorSheet: View {
+private struct LifeManagementAreaComposerView: View {
     @State private var draft: LifeManagementLifeAreaDraft
+    @State private var showCustomColorField: Bool
+    @State private var errorShakeTrigger = false
+    @FocusState private var titleFieldFocused: Bool
+
     let iconOptions: [LifeAreaIconOption]
+    let containerMode: AddTaskContainerMode
     let isSaving: Bool
+    let errorMessage: String?
     let onSave: (LifeManagementLifeAreaDraft) -> Void
     let onCancel: () -> Void
+
+    @Environment(\.taskerLayoutClass) private var layoutClass
+
+    private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.tokens(for: layoutClass).spacing }
+    private var readableWidth: CGFloat {
+        switch containerMode {
+        case .inspector:
+            return layoutClass.isPad ? 860 : 760
+        case .sheet:
+            return 720
+        }
+    }
 
     init(
         draft: LifeManagementLifeAreaDraft,
         iconOptions: [LifeAreaIconOption],
+        containerMode: AddTaskContainerMode,
         isSaving: Bool,
+        errorMessage: String?,
         onSave: @escaping (LifeManagementLifeAreaDraft) -> Void,
         onCancel: @escaping () -> Void
     ) {
         _draft = State(initialValue: draft)
+        _showCustomColorField = State(initialValue: lifeManagementAreaPaletteMatch(for: draft.colorHex) == nil && draft.colorHex.nilIfBlank != nil)
         self.iconOptions = iconOptions
+        self.containerMode = containerMode
         self.isSaving = isSaving
+        self.errorMessage = errorMessage
         self.onSave = onSave
         self.onCancel = onCancel
     }
 
+    private var canSave: Bool {
+        draft.name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false && !isSaving
+    }
+
+    private var selectedColorTitle: String {
+        if showCustomColorField {
+            return draft.colorHex.nilIfBlank == nil ? "Custom" : "Custom hex"
+        }
+        return lifeManagementAreaPaletteMatch(for: draft.colorHex)?.title ?? "Default"
+    }
+
+    private var selectedIconTitle: String {
+        lifeManagementAreaIconLabel(for: draft.iconSymbolName, options: iconOptions)
+    }
+
     var body: some View {
-        NavigationStack {
-            Form {
-                Section("Basics") {
-                    TextField("Area name", text: $draft.name)
-                    TextField("Accent color (hex)", text: $draft.colorHex)
-                    Picker("Icon", selection: $draft.iconSymbolName) {
-                        ForEach(iconOptions) { option in
-                            Label(option.keywords.first?.capitalized ?? option.symbolName, systemImage: option.symbolName)
-                                .tag(option.symbolName)
+        VStack(spacing: 0) {
+            AddTaskNavigationBar(
+                containerMode: containerMode,
+                title: draft.isNew ? "New Area" : "Edit Area",
+                canSave: canSave
+            ) {
+                onCancel()
+            } onSave: {
+                commit()
+            }
+            .padding(.horizontal, spacing.s16)
+            .padding(.top, spacing.s8)
+
+            ScrollView {
+                VStack(spacing: spacing.s16) {
+                    LifeManagementComposerPreviewCard(
+                        eyebrow: draft.isNew ? "Create area" : "Edit area",
+                        title: draft.name.nilIfBlank ?? "New area",
+                        subtitle: "Define the bucket that holds related projects and habits.",
+                        iconName: draft.iconSymbolName,
+                        accentColor: lifeManagementResolvedColor(hex: draft.colorHex, fallback: Color.tasker.accentPrimary),
+                        metrics: [
+                            LifeManagementComposerPreviewMetric(title: "Accent", value: selectedColorTitle),
+                            LifeManagementComposerPreviewMetric(title: "Icon", value: selectedIconTitle)
+                        ]
+                    )
+                    .enhancedStaggeredAppearance(index: 0)
+
+                    AddTaskTitleField(
+                        text: $draft.name,
+                        isFocused: $titleFieldFocused,
+                        placeholder: "Name this area",
+                        helperText: "Use a clear bucket like Health, Career, or Home.",
+                        onSubmit: commit
+                    )
+                    .enhancedStaggeredAppearance(index: 1)
+
+                    LifeManagementComposerSectionCard(
+                        title: "Appearance",
+                        subtitle: "Pick an accent and icon so the area is easy to spot across the app.",
+                        iconSystemName: "paintpalette.fill"
+                    ) {
+                        VStack(alignment: .leading, spacing: spacing.s16) {
+                            LifeManagementComposerFieldLabel(
+                                title: "Accent",
+                                detail: "Start with the Tasker palette, or switch to a custom hex when you need one."
+                            )
+
+                            LifeManagementAreaSwatchPicker(
+                                selectedHex: $draft.colorHex,
+                                showCustomField: $showCustomColorField
+                            )
+
+                            LifeManagementComposerFieldLabel(
+                                title: "Icon",
+                                detail: "Choose the symbol that best represents this part of your life."
+                            )
+
+                            LifeManagementAreaIconPicker(
+                                iconOptions: iconOptions,
+                                selectedSymbolName: $draft.iconSymbolName
+                            )
                         }
                     }
+                    .enhancedStaggeredAppearance(index: 2)
+
+                    if showCustomColorField {
+                        LifeManagementComposerSectionCard(
+                            title: "Custom accent",
+                            subtitle: "Paste a hex code to keep an existing area color or use a one-off accent.",
+                            iconSystemName: "eyedropper.halffull"
+                        ) {
+                            TextField("Accent hex", text: $draft.colorHex)
+                                .textFieldStyle(TaskerTextFieldStyle())
+                                .textInputAutocapitalization(.never)
+                                .autocorrectionDisabled()
+                        }
+                        .enhancedStaggeredAppearance(index: 3)
+                    }
+
+                    if let errorMessage {
+                        LifeManagementComposerInlineMessage(
+                            title: "Couldn’t save area",
+                            message: errorMessage
+                        )
+                        .bellShake(trigger: $errorShakeTrigger)
+                        .enhancedStaggeredAppearance(index: 4)
+                    }
                 }
+                .padding(.horizontal, spacing.s16)
+                .padding(.top, spacing.s8)
+                .padding(.bottom, spacing.s24)
             }
-            .navigationTitle(draft.isNew ? "Add Area" : "Edit Area")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") {
-                        onCancel()
-                    }
-                }
-                ToolbarItem(placement: .confirmationAction) {
-                    Button(draft.isNew ? "Save" : "Update") {
-                        onSave(draft)
-                    }
-                    .disabled(isSaving || draft.name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-                }
+
+            AddTaskCreateButton(
+                isEnabled: canSave,
+                isLoading: isSaving,
+                successFlash: false,
+                showAddAnother: false,
+                buttonTitle: draft.isNew ? "Add Area" : "Save Area",
+                onCreateAction: commit,
+                onAddAnotherAction: {}
+            )
+            .padding(.horizontal, spacing.s16)
+            .padding(.bottom, spacing.s16)
+        }
+        .background(Color.tasker.bgCanvas)
+        .taskerReadableContent(maxWidth: readableWidth, alignment: .center)
+        .accessibilityIdentifier("settings.lifeManagement.areaComposer")
+        .onAppear {
+            guard containerMode == .sheet else { return }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
+                titleFieldFocused = true
+            }
+        }
+        .onChange(of: errorMessage) { _, newValue in
+            if newValue != nil {
+                errorShakeTrigger.toggle()
             }
         }
     }
+
+    private func commit() {
+        guard canSave else { return }
+        onSave(draft)
+    }
 }
 
-private struct ProjectEditorSheet: View {
+private struct LifeManagementProjectComposerView: View {
     @State private var draft: LifeManagementProjectDraft
+    @State private var errorShakeTrigger = false
+    @FocusState private var titleFieldFocused: Bool
+
     let lifeAreas: [LifeManagementAreaRow]
     let fallbackAreaRows: [LifeManagementAreaRow]
+    let containerMode: AddTaskContainerMode
     let isSaving: Bool
+    let errorMessage: String?
     let onSave: (LifeManagementProjectDraft) -> Void
     let onCancel: () -> Void
+
+    @Environment(\.taskerLayoutClass) private var layoutClass
+
+    private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.tokens(for: layoutClass).spacing }
+    private var readableWidth: CGFloat {
+        switch containerMode {
+        case .inspector:
+            return layoutClass.isPad ? 860 : 760
+        case .sheet:
+            return 720
+        }
+    }
+
+    private var availableAreas: [LifeManagementAreaRow] {
+        lifeAreas.isEmpty ? fallbackAreaRows : lifeAreas
+    }
+
+    private var canSave: Bool {
+        draft.name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false && !isSaving
+    }
 
     init(
         draft: LifeManagementProjectDraft,
         lifeAreas: [LifeManagementAreaRow],
         fallbackAreaRows: [LifeManagementAreaRow],
+        containerMode: AddTaskContainerMode,
         isSaving: Bool,
+        errorMessage: String?,
         onSave: @escaping (LifeManagementProjectDraft) -> Void,
         onCancel: @escaping () -> Void
     ) {
         _draft = State(initialValue: draft)
         self.lifeAreas = lifeAreas
         self.fallbackAreaRows = fallbackAreaRows
+        self.containerMode = containerMode
         self.isSaving = isSaving
+        self.errorMessage = errorMessage
         self.onSave = onSave
         self.onCancel = onCancel
     }
 
+    private var selectedAreaName: String {
+        availableAreas.first(where: { $0.id == draft.lifeAreaID })?.lifeArea.name ?? "No area yet"
+    }
+
     var body: some View {
-        let availableAreas = lifeAreas.isEmpty ? fallbackAreaRows : lifeAreas
-        NavigationStack {
-            Form {
-                Section("Basics") {
-                    TextField("Project name", text: $draft.name)
-                    TextField("Description", text: $draft.description, axis: .vertical)
-                        .lineLimit(3, reservesSpace: true)
-                }
+        VStack(spacing: 0) {
+            AddTaskNavigationBar(
+                containerMode: containerMode,
+                title: draft.isNew ? "New Project" : "Edit Project",
+                canSave: canSave
+            ) {
+                onCancel()
+            } onSave: {
+                commit()
+            }
+            .padding(.horizontal, spacing.s16)
+            .padding(.top, spacing.s8)
 
-                Section("Area") {
-                    Picker("Area", selection: $draft.lifeAreaID) {
-                        ForEach(availableAreas) { row in
-                            Text(row.lifeArea.name).tag(Optional(row.id))
+            ScrollView {
+                VStack(spacing: spacing.s16) {
+                    LifeManagementComposerPreviewCard(
+                        eyebrow: draft.isNew ? "Create project" : "Edit project",
+                        title: draft.name.nilIfBlank ?? "New project",
+                        subtitle: draft.description.nilIfBlank ?? "Projects group related tasks inside an area.",
+                        iconName: draft.icon.systemImageName,
+                        accentColor: lifeManagementResolvedColor(hex: draft.color.hexString, fallback: Color.tasker.accentPrimary),
+                        metrics: [
+                            LifeManagementComposerPreviewMetric(title: "Area", value: selectedAreaName),
+                            LifeManagementComposerPreviewMetric(title: "Accent", value: draft.color.displayName)
+                        ]
+                    )
+                    .enhancedStaggeredAppearance(index: 0)
+
+                    AddTaskTitleField(
+                        text: $draft.name,
+                        isFocused: $titleFieldFocused,
+                        placeholder: "Name this project",
+                        helperText: "Keep it specific enough that it still makes sense later.",
+                        onSubmit: commit
+                    )
+                    .enhancedStaggeredAppearance(index: 1)
+
+                    LifeManagementComposerSectionCard(
+                        title: "Essentials",
+                        subtitle: "Set the project’s name, a short description, and where it belongs.",
+                        iconSystemName: "text.alignleft"
+                    ) {
+                        VStack(alignment: .leading, spacing: spacing.s16) {
+                            VStack(alignment: .leading, spacing: spacing.s8) {
+                                LifeManagementComposerFieldLabel(
+                                    title: "Description",
+                                    detail: "Optional, but useful when the project name needs context."
+                                )
+
+                                TextField("What is this project for?", text: $draft.description, axis: .vertical)
+                                    .textFieldStyle(TaskerTextFieldStyle())
+                                    .lineLimit(3, reservesSpace: true)
+                            }
+
+                            AddTaskEntityPicker(
+                                label: "Area",
+                                items: availableAreas.map { (id: $0.id, name: $0.lifeArea.name, icon: $0.lifeArea.icon) },
+                                selectedID: $draft.lifeAreaID
+                            )
                         }
                     }
-                }
+                    .enhancedStaggeredAppearance(index: 2)
 
-                Section("Appearance") {
-                    Picker("Color", selection: $draft.color) {
-                        ForEach(ProjectColor.allCases, id: \.rawValue) { color in
-                            Text(color.displayName).tag(color)
+                    LifeManagementComposerSectionCard(
+                        title: "Appearance",
+                        subtitle: "Choose an accent and icon that make this project easy to scan in lists.",
+                        iconSystemName: "paintbrush.pointed.fill"
+                    ) {
+                        VStack(alignment: .leading, spacing: spacing.s16) {
+                            LifeManagementComposerFieldLabel(
+                                title: "Accent",
+                                detail: "Project colors already map to the app’s built-in palette."
+                            )
+
+                            LifeManagementProjectColorPicker(selectedColor: $draft.color)
+
+                            LifeManagementComposerFieldLabel(
+                                title: "Icon",
+                                detail: "Pick the symbol that fits this project best."
+                            )
+
+                            LifeManagementProjectIconPicker(selectedIcon: $draft.icon)
                         }
                     }
-                    Picker("Icon", selection: $draft.icon) {
-                        ForEach(ProjectIcon.allCases, id: \.rawValue) { icon in
-                            Label(icon.displayName, systemImage: icon.systemImageName).tag(icon)
+                    .enhancedStaggeredAppearance(index: 3)
+
+                    if let errorMessage {
+                        LifeManagementComposerInlineMessage(
+                            title: "Couldn’t save project",
+                            message: errorMessage
+                        )
+                        .bellShake(trigger: $errorShakeTrigger)
+                        .enhancedStaggeredAppearance(index: 4)
+                    }
+                }
+                .padding(.horizontal, spacing.s16)
+                .padding(.top, spacing.s8)
+                .padding(.bottom, spacing.s24)
+            }
+
+            AddTaskCreateButton(
+                isEnabled: canSave,
+                isLoading: isSaving,
+                successFlash: false,
+                showAddAnother: false,
+                buttonTitle: draft.isNew ? "Add Project" : "Save Project",
+                onCreateAction: commit,
+                onAddAnotherAction: {}
+            )
+            .padding(.horizontal, spacing.s16)
+            .padding(.bottom, spacing.s16)
+        }
+        .background(Color.tasker.bgCanvas)
+        .taskerReadableContent(maxWidth: readableWidth, alignment: .center)
+        .accessibilityIdentifier("settings.lifeManagement.projectComposer")
+        .onAppear {
+            guard containerMode == .sheet else { return }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
+                titleFieldFocused = true
+            }
+        }
+        .onChange(of: errorMessage) { _, newValue in
+            if newValue != nil {
+                errorShakeTrigger.toggle()
+            }
+        }
+    }
+
+    private func commit() {
+        guard canSave else { return }
+        onSave(draft)
+    }
+}
+
+private struct LifeManagementComposerPreviewMetric: Identifiable, Equatable {
+    let title: String
+    let value: String
+
+    var id: String { title }
+}
+
+private struct LifeManagementAreaPaletteOption: Identifiable, Equatable {
+    let id: String
+    let title: String
+    let hex: String
+    let systemImage: String?
+}
+
+private struct LifeManagementComposerPreviewCard: View {
+    let eyebrow: String
+    let title: String
+    let subtitle: String
+    let iconName: String
+    let accentColor: Color
+    let metrics: [LifeManagementComposerPreviewMetric]
+
+    @Environment(\.taskerLayoutClass) private var layoutClass
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.tokens(for: layoutClass).spacing }
+
+    private var previewSignature: String {
+        "\(title)-\(subtitle)-\(iconName)-\(metrics.map(\.value).joined(separator: "|"))"
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: spacing.s12) {
+            HStack(alignment: .top, spacing: spacing.s12) {
+                ZStack {
+                    RoundedRectangle(cornerRadius: 18, style: .continuous)
+                        .fill(Color.white.opacity(0.18))
+                        .frame(width: 58, height: 58)
+
+                    Group {
+                        if reduceMotion {
+                            Image(systemName: iconName)
+                        } else {
+                            Image(systemName: iconName)
+                                .symbolEffect(.bounce, value: previewSignature)
+                        }
+                    }
+                    .font(.system(size: 24, weight: .semibold))
+                    .foregroundStyle(Color.white)
+                }
+                .accessibilityHidden(true)
+
+                VStack(alignment: .leading, spacing: spacing.s4) {
+                    Text(eyebrow)
+                        .font(.tasker(.eyebrow))
+                        .foregroundStyle(Color.white.opacity(0.78))
+
+                    Text(title)
+                        .font(.tasker(.title2).weight(.semibold))
+                        .foregroundStyle(Color.white)
+                        .contentTransition(.opacity)
+                        .lineLimit(2)
+
+                    Text(subtitle)
+                        .font(.tasker(.callout))
+                        .foregroundStyle(Color.white.opacity(0.84))
+                        .contentTransition(.opacity)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+
+            if metrics.isEmpty == false {
+                ViewThatFits(in: .horizontal) {
+                    HStack(spacing: spacing.s8) {
+                        ForEach(metrics) { metric in
+                            LifeManagementComposerMetricTile(metric: metric)
+                        }
+                    }
+
+                    VStack(spacing: spacing.s8) {
+                        ForEach(metrics) { metric in
+                            LifeManagementComposerMetricTile(metric: metric)
                         }
                     }
                 }
             }
-            .navigationTitle(draft.isNew ? "Add Project" : "Edit Project")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") {
-                        onCancel()
+        }
+        .padding(spacing.s16)
+        .background(
+            LinearGradient(
+                colors: [
+                    accentColor.opacity(0.92),
+                    accentColor.opacity(0.58),
+                    Color.tasker.surfacePrimary
+                ],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+        )
+        .overlay(
+            LinearGradient(
+                colors: [
+                    Color.black.opacity(0.10),
+                    Color.black.opacity(0.03),
+                    Color.white.opacity(0.08)
+                ],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+        )
+        .taskerPremiumSurface(
+            cornerRadius: TaskerTheme.CornerRadius.card,
+            fillColor: .clear,
+            strokeColor: Color.white.opacity(0.16),
+            accentColor: accentColor,
+            level: .e2
+        )
+        .animation(reduceMotion ? nil : TaskerAnimation.heroEmphasis, value: previewSignature)
+    }
+}
+
+private struct LifeManagementComposerMetricTile: View {
+    let metric: LifeManagementComposerPreviewMetric
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(metric.title)
+                .font(.tasker(.caption2))
+                .foregroundStyle(Color.white.opacity(0.72))
+
+            Text(metric.value)
+                .font(.tasker(.callout).weight(.semibold))
+                .foregroundStyle(Color.white)
+                .lineLimit(1)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 10)
+        .background(
+            RoundedRectangle(cornerRadius: TaskerTheme.CornerRadius.md, style: .continuous)
+                .fill(Color.white.opacity(0.12))
+        )
+    }
+}
+
+private struct LifeManagementComposerSectionCard<Content: View>: View {
+    let title: String
+    let subtitle: String
+    let iconSystemName: String
+    let content: Content
+
+    @Environment(\.taskerLayoutClass) private var layoutClass
+
+    private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.tokens(for: layoutClass).spacing }
+
+    init(
+        title: String,
+        subtitle: String,
+        iconSystemName: String,
+        @ViewBuilder content: () -> Content
+    ) {
+        self.title = title
+        self.subtitle = subtitle
+        self.iconSystemName = iconSystemName
+        self.content = content()
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: spacing.s12) {
+            HStack(alignment: .top, spacing: spacing.s8) {
+                Image(systemName: iconSystemName)
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundStyle(Color.tasker.accentPrimary)
+                    .frame(width: 24, height: 24)
+
+                VStack(alignment: .leading, spacing: spacing.s4) {
+                    Text(title)
+                        .font(.tasker(.headline))
+                        .foregroundStyle(Color.tasker.textPrimary)
+
+                    Text(subtitle)
+                        .font(.tasker(.caption1))
+                        .foregroundStyle(Color.tasker.textSecondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+
+            content
+        }
+        .padding(spacing.s16)
+        .taskerDenseSurface(cornerRadius: TaskerTheme.CornerRadius.card, fillColor: Color.tasker.surfacePrimary)
+    }
+}
+
+private struct LifeManagementComposerFieldLabel: View {
+    let title: String
+    let detail: String
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(title)
+                .font(.tasker(.caption1).weight(.semibold))
+                .foregroundStyle(Color.tasker.textPrimary)
+
+            Text(detail)
+                .font(.tasker(.caption2))
+                .foregroundStyle(Color.tasker.textSecondary)
+        }
+    }
+}
+
+private struct LifeManagementComposerInlineMessage: View {
+    let title: String
+    let message: String
+
+    @Environment(\.taskerLayoutClass) private var layoutClass
+    private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.tokens(for: layoutClass).spacing }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: spacing.s4) {
+            Text(title)
+                .font(.tasker(.caption1).weight(.semibold))
+                .foregroundStyle(Color.tasker.statusDanger)
+
+            Text(message)
+                .font(.tasker(.caption2))
+                .foregroundStyle(Color.tasker.textSecondary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .padding(spacing.s12)
+        .taskerDenseSurface(
+            cornerRadius: TaskerTheme.CornerRadius.md,
+            fillColor: Color.tasker.statusDanger.opacity(0.08),
+            strokeColor: Color.tasker.statusDanger.opacity(0.18)
+        )
+    }
+}
+
+private struct LifeManagementAreaSwatchPicker: View {
+    @Binding var selectedHex: String
+    @Binding var showCustomField: Bool
+
+    @Environment(\.taskerLayoutClass) private var layoutClass
+
+    private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.tokens(for: layoutClass).spacing }
+
+    var body: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: spacing.s8) {
+                ForEach(lifeManagementAreaPaletteOptions()) { option in
+                    LifeManagementColorSwatchButton(
+                        title: option.title,
+                        color: option.hex.nilIfBlank.flatMap { _ in lifeManagementResolvedColor(hex: option.hex, fallback: Color.tasker.surfaceSecondary) },
+                        systemImage: option.systemImage,
+                        isSelected: lifeManagementNormalizedHex(selectedHex) == lifeManagementNormalizedHex(option.hex) && showCustomField == false
+                    ) {
+                        withAnimation(TaskerAnimation.snappy) {
+                            selectedHex = option.hex
+                            showCustomField = false
+                        }
                     }
                 }
-                ToolbarItem(placement: .confirmationAction) {
-                    Button(draft.isNew ? "Save" : "Update") {
-                        onSave(draft)
+
+                LifeManagementColorSwatchButton(
+                    title: "Custom",
+                    color: nil,
+                    systemImage: "eyedropper.halffull",
+                    isSelected: showCustomField
+                ) {
+                    withAnimation(TaskerAnimation.snappy) {
+                        showCustomField = true
                     }
-                    .disabled(isSaving || draft.name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                }
+            }
+            .padding(.vertical, 2)
+        }
+    }
+}
+
+private struct LifeManagementProjectColorPicker: View {
+    @Binding var selectedColor: ProjectColor
+
+    @Environment(\.taskerLayoutClass) private var layoutClass
+
+    private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.tokens(for: layoutClass).spacing }
+
+    var body: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: spacing.s8) {
+                ForEach(ProjectColor.allCases, id: \.rawValue) { color in
+                    LifeManagementColorSwatchButton(
+                        title: color.displayName,
+                        color: lifeManagementResolvedColor(hex: color.hexString, fallback: Color.tasker.accentPrimary),
+                        systemImage: nil,
+                        isSelected: selectedColor == color
+                    ) {
+                        withAnimation(TaskerAnimation.snappy) {
+                            selectedColor = color
+                        }
+                    }
+                }
+            }
+            .padding(.vertical, 2)
+        }
+    }
+}
+
+private struct LifeManagementColorSwatchButton: View {
+    let title: String
+    let color: Color?
+    let systemImage: String?
+    let isSelected: Bool
+    let action: () -> Void
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    var body: some View {
+        Button {
+            TaskerFeedback.selection()
+            action()
+        } label: {
+            VStack(spacing: 8) {
+                ZStack {
+                    Circle()
+                        .fill(color ?? Color.tasker.surfaceSecondary)
+                        .frame(width: 26, height: 26)
+
+                    if let systemImage {
+                        Image(systemName: systemImage)
+                            .font(.system(size: 11, weight: .semibold))
+                            .foregroundStyle(color == nil ? Color.tasker.textSecondary : Color.white)
+                    }
+                }
+                .overlay(
+                    Circle()
+                        .stroke(isSelected ? Color.tasker.accentPrimary : Color.tasker.strokeHairline, lineWidth: isSelected ? 2 : 1)
+                )
+
+                Text(title)
+                    .font(.tasker(.caption2))
+                    .foregroundStyle(isSelected ? Color.tasker.textPrimary : Color.tasker.textSecondary)
+                    .lineLimit(1)
+            }
+            .frame(width: 74)
+            .frame(minHeight: 76)
+            .padding(.vertical, 8)
+            .background(
+                RoundedRectangle(cornerRadius: TaskerTheme.CornerRadius.md, style: .continuous)
+                    .fill(isSelected ? Color.tasker.accentWash : Color.tasker.surfaceSecondary)
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: TaskerTheme.CornerRadius.md, style: .continuous)
+                    .stroke(isSelected ? Color.tasker.accentMuted : Color.tasker.strokeHairline.opacity(0.72), lineWidth: 1)
+            )
+        }
+        .buttonStyle(.plain)
+        .scaleOnPress()
+        .animation(reduceMotion ? nil : TaskerAnimation.quick, value: isSelected)
+        .accessibilityLabel(title)
+        .accessibilityAddTraits(isSelected ? [.isSelected] : [])
+    }
+}
+
+private struct LifeManagementAreaIconPicker: View {
+    let iconOptions: [LifeAreaIconOption]
+    @Binding var selectedSymbolName: String
+
+    @Environment(\.taskerLayoutClass) private var layoutClass
+
+    private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.tokens(for: layoutClass).spacing }
+
+    var body: some View {
+        LazyVGrid(
+            columns: [GridItem(.adaptive(minimum: layoutClass.isPad ? 88 : 74), spacing: spacing.s8)],
+            spacing: spacing.s8
+        ) {
+            ForEach(iconOptions) { option in
+                LifeManagementIconTile(
+                    systemImage: option.symbolName,
+                    title: option.keywords.first?.capitalized ?? option.symbolName,
+                    isSelected: selectedSymbolName == option.symbolName
+                ) {
+                    withAnimation(TaskerAnimation.snappy) {
+                        selectedSymbolName = option.symbolName
+                    }
                 }
             }
         }
     }
+}
+
+private struct LifeManagementProjectIconPicker: View {
+    @Binding var selectedIcon: ProjectIcon
+
+    @Environment(\.taskerLayoutClass) private var layoutClass
+
+    private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.tokens(for: layoutClass).spacing }
+
+    var body: some View {
+        LazyVGrid(
+            columns: [GridItem(.adaptive(minimum: layoutClass.isPad ? 88 : 74), spacing: spacing.s8)],
+            spacing: spacing.s8
+        ) {
+            ForEach(ProjectIcon.allCases, id: \.rawValue) { icon in
+                LifeManagementIconTile(
+                    systemImage: icon.systemImageName,
+                    title: icon.displayName,
+                    isSelected: selectedIcon == icon
+                ) {
+                    withAnimation(TaskerAnimation.snappy) {
+                        selectedIcon = icon
+                    }
+                }
+            }
+        }
+    }
+}
+
+private struct LifeManagementIconTile: View {
+    let systemImage: String
+    let title: String
+    let isSelected: Bool
+    let action: () -> Void
+
+    var body: some View {
+        Button {
+            TaskerFeedback.selection()
+            action()
+        } label: {
+            VStack(spacing: 8) {
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .fill(isSelected ? Color.tasker.accentWash : Color.tasker.surfaceSecondary)
+                    .frame(height: 46)
+                    .overlay {
+                        Image(systemName: systemImage)
+                            .font(.system(size: 18, weight: .semibold))
+                            .foregroundStyle(isSelected ? Color.tasker.accentPrimary : Color.tasker.textSecondary)
+                    }
+
+                Text(title)
+                    .font(.tasker(.caption2))
+                    .foregroundStyle(isSelected ? Color.tasker.textPrimary : Color.tasker.textSecondary)
+                    .lineLimit(2)
+                    .multilineTextAlignment(.center)
+                    .frame(maxWidth: .infinity)
+            }
+            .padding(8)
+            .frame(minHeight: 96)
+            .background(
+                RoundedRectangle(cornerRadius: TaskerTheme.CornerRadius.md, style: .continuous)
+                    .fill(Color.tasker.surfacePrimary)
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: TaskerTheme.CornerRadius.md, style: .continuous)
+                    .stroke(isSelected ? Color.tasker.accentPrimary.opacity(0.34) : Color.tasker.strokeHairline.opacity(0.72), lineWidth: isSelected ? 1.5 : 1)
+            )
+        }
+        .buttonStyle(.plain)
+        .scaleOnPress()
+        .accessibilityLabel(title)
+        .accessibilityAddTraits(isSelected ? [.isSelected] : [])
+    }
+}
+
+@MainActor
+private func lifeManagementAreaPaletteOptions() -> [LifeManagementAreaPaletteOption] {
+    let palette = TaskerThemeManager.shared.currentTheme.palette
+    return [
+        LifeManagementAreaPaletteOption(id: "default", title: "Default", hex: "", systemImage: "circle.dashed"),
+        LifeManagementAreaPaletteOption(id: "sandstone", title: "Sandstone", hex: lifeManagementHexString(from: palette.brandSandstone), systemImage: nil),
+        LifeManagementAreaPaletteOption(id: "emerald", title: "Emerald", hex: lifeManagementHexString(from: palette.brandEmerald), systemImage: nil),
+        LifeManagementAreaPaletteOption(id: "magenta", title: "Magenta", hex: lifeManagementHexString(from: palette.brandMagenta), systemImage: nil),
+        LifeManagementAreaPaletteOption(id: "marigold", title: "Marigold", hex: lifeManagementHexString(from: palette.brandMarigold), systemImage: nil),
+        LifeManagementAreaPaletteOption(id: "red", title: "Red", hex: lifeManagementHexString(from: palette.brandRed), systemImage: nil)
+    ]
+}
+
+@MainActor
+private func lifeManagementAreaPaletteMatch(for hex: String) -> LifeManagementAreaPaletteOption? {
+    let normalizedHex = lifeManagementNormalizedHex(hex)
+    return lifeManagementAreaPaletteOptions().first { option in
+        lifeManagementNormalizedHex(option.hex) == normalizedHex
+    }
+}
+
+private func lifeManagementResolvedColor(hex: String?, fallback: Color) -> Color {
+    guard let normalizedHex = lifeManagementResolvedHex(hex) else { return fallback }
+    return Color(uiColor: UIColor(taskerHex: normalizedHex))
+}
+
+private func lifeManagementResolvedHex(_ hex: String?) -> String? {
+    let normalized = lifeManagementNormalizedHex(hex ?? "")
+    guard normalized.isEmpty == false, normalized.count == 6 || normalized.count == 8 else {
+        return nil
+    }
+    return normalized
+}
+
+private func lifeManagementHexString(from color: UIColor) -> String {
+    var red: CGFloat = 0
+    var green: CGFloat = 0
+    var blue: CGFloat = 0
+    var alpha: CGFloat = 0
+
+    guard color.getRed(&red, green: &green, blue: &blue, alpha: &alpha) else {
+        return ""
+    }
+
+    let redValue = Int(round(red * 255))
+    let greenValue = Int(round(green * 255))
+    let blueValue = Int(round(blue * 255))
+    return String(format: "%02X%02X%02X", redValue, greenValue, blueValue)
+}
+
+private func lifeManagementNormalizedHex(_ hex: String) -> String {
+    hex.trimmingCharacters(in: .whitespacesAndNewlines)
+        .replacingOccurrences(of: "#", with: "")
+        .uppercased()
+}
+
+private func lifeManagementAreaIconLabel(for symbolName: String, options: [LifeAreaIconOption]) -> String {
+    options.first(where: { $0.symbolName == symbolName })?.keywords.first?.capitalized ?? symbolName
 }
 
 private struct ProjectMoveSheet: View {
