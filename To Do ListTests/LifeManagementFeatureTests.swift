@@ -375,336 +375,250 @@ final class CoreDataProjectRepositoryLifeAreaMutationTests: XCTestCase {
     }
 }
 
-final class LifeManagementViewModelTests: XCTestCase {
-    func testLoadGroupsProjectsByLifeAreaAndBackfillsUnassignedToGeneral() {
-        let general = LifeArea(id: UUID(), name: "General", color: "#4A6FA5", icon: "square.grid.2x2")
+final class LifeManagementProjectionTests: XCTestCase {
+    func testProjectionBuildsOverviewAndGroupsActiveEntitiesByArea() {
+        let general = LifeArea(id: UUID(), name: "General", color: "#9E5F0A", icon: "square.grid.2x2")
         let career = LifeArea(id: UUID(), name: "Career", color: "#3B82F6", icon: "briefcase.fill")
 
-        let inbox = Project(
-            id: ProjectConstants.inboxProjectID,
-            lifeAreaID: nil,
-            name: ProjectConstants.inboxProjectName,
-            projectDescription: nil,
-            isDefault: true
+        let inbox = ProjectWithStats(
+            project: Project(
+                id: ProjectConstants.inboxProjectID,
+                lifeAreaID: general.id,
+                name: ProjectConstants.inboxProjectName,
+                projectDescription: nil,
+                isDefault: true
+            ),
+            taskCount: 1,
+            completedTaskCount: 0
         )
-        let customUnassigned = Project(
-            id: UUID(),
-            lifeAreaID: nil,
-            name: "Sleep Reset",
-            projectDescription: "Night routine"
+        let roadmap = ProjectWithStats(
+            project: Project(
+                id: UUID(),
+                lifeAreaID: career.id,
+                name: "Roadmap",
+                projectDescription: "Quarter goals",
+                color: .blue,
+                icon: .flag
+            ),
+            taskCount: 0,
+            completedTaskCount: 0
         )
-        let customCareer = Project(
-            id: UUID(),
+
+        let activeHabit = HabitLibraryRow(
+            habitID: UUID(),
+            title: "Deep work",
+            kind: .positive,
+            trackingMode: .dailyCheckIn,
             lifeAreaID: career.id,
-            name: "Promotion Prep",
-            projectDescription: "Quarter goals"
+            lifeAreaName: "Career",
+            projectID: roadmap.project.id,
+            projectName: roadmap.project.name,
+            colorHex: "#3B82F6",
+            isPaused: false,
+            isArchived: false,
+            currentStreak: 6,
+            bestStreak: 9
         )
-
-        let projectRepository = ProjectRepositoryStub(
-            projects: [inbox, customUnassigned, customCareer],
-            taskCounts: [
-                inbox.id: 1,
-                customUnassigned.id: 2,
-                customCareer.id: 3
-            ]
-        )
-        let lifeAreaRepository = LifeAreaRepositoryStub(areas: [general, career])
-
-        let viewModel = LifeManagementViewModel(
-            manageLifeAreasUseCase: ManageLifeAreasUseCase(repository: lifeAreaRepository),
-            manageProjectsUseCase: ManageProjectsUseCase(projectRepository: projectRepository),
-            projectRepository: projectRepository
-        )
-
-        viewModel.loadIfNeeded()
-        waitUntil(timeout: 1.5) {
-            viewModel.isLoading == false && viewModel.sections.count == 2
-        }
-
-        let generalSection = viewModel.sections.first(where: { $0.lifeArea.id == general.id })
-        let careerSection = viewModel.sections.first(where: { $0.lifeArea.id == career.id })
-
-        XCTAssertNotNil(generalSection)
-        XCTAssertNotNil(careerSection)
-
-        XCTAssertEqual(generalSection?.projects.count, 2)
-        XCTAssertEqual(careerSection?.projects.count, 1)
-        XCTAssertTrue(generalSection?.projects.contains(where: { $0.project.id == ProjectConstants.inboxProjectID }) ?? false)
-        XCTAssertTrue(generalSection?.projects.contains(where: { $0.project.id == customUnassigned.id }) ?? false)
-        XCTAssertEqual(projectRepository.backfillCalls, [general.id])
-    }
-
-    func testVisibleSuggestionsExcludesExistingSuggestedLifeAreas() {
-        let general = LifeArea(id: UUID(), name: "General", color: nil, icon: nil)
-        let health = LifeArea(id: UUID(), name: "Health", color: nil, icon: "heart.fill")
-        let projectRepository = ProjectRepositoryStub(projects: [], taskCounts: [:])
-        let lifeAreaRepository = LifeAreaRepositoryStub(areas: [general, health])
-
-        let viewModel = LifeManagementViewModel(
-            manageLifeAreasUseCase: ManageLifeAreasUseCase(repository: lifeAreaRepository),
-            manageProjectsUseCase: ManageProjectsUseCase(projectRepository: projectRepository),
-            projectRepository: projectRepository
-        )
-
-        viewModel.loadIfNeeded()
-        waitUntil(timeout: 1.0) {
-            viewModel.isLoading == false && !viewModel.sections.isEmpty
-        }
-
-        XCTAssertFalse(viewModel.visibleSuggestions.contains(where: { $0.name == "Health" }))
-        XCTAssertTrue(viewModel.visibleSuggestions.contains(where: { $0.name == "Career" }))
-    }
-
-    func testPerformDropMovesProjectAcrossSectionsAndClearsDragState() {
-        let general = LifeArea(id: UUID(), name: "General", color: "#4A6FA5", icon: "square.grid.2x2")
-        let career = LifeArea(id: UUID(), name: "Career", color: "#3B82F6", icon: "briefcase.fill")
-
-        let project = Project(
-            id: UUID(),
-            lifeAreaID: career.id,
-            name: "Promotion Prep",
-            projectDescription: "Quarter goals"
-        )
-
-        let projectRepository = ProjectRepositoryStub(
-            projects: [project],
-            taskCounts: [project.id: 3]
-        )
-        let lifeAreaRepository = LifeAreaRepositoryStub(areas: [general, career])
-
-        let viewModel = LifeManagementViewModel(
-            manageLifeAreasUseCase: ManageLifeAreasUseCase(repository: lifeAreaRepository),
-            manageProjectsUseCase: ManageProjectsUseCase(projectRepository: projectRepository),
-            projectRepository: projectRepository
-        )
-
-        viewModel.loadIfNeeded()
-        waitUntil(timeout: 1.0) {
-            viewModel.isLoading == false && viewModel.sections.count == 2
-        }
-
-        viewModel.beginDrag(projectID: project.id)
-        viewModel.dropEntered(targetLifeAreaID: general.id)
-        XCTAssertEqual(viewModel.activeDropLifeAreaID, general.id)
-
-        let handled = viewModel.performDrop(providers: [], targetLifeAreaID: general.id)
-        XCTAssertTrue(handled)
-
-        waitUntil(timeout: 1.0) {
-            let generalContainsProject = viewModel.sections.first(where: { $0.lifeArea.id == general.id })?
-                .projects
-                .contains(where: { $0.project.id == project.id }) ?? false
-            return generalContainsProject
-                && viewModel.draggingProjectID == nil
-                && viewModel.activeDropLifeAreaID == nil
-                && viewModel.isMutating == false
-        }
-
-        XCTAssertEqual(projectRepository.moveProjectCalls.count, 1)
-    }
-
-    func testCreateProjectFromDraftAssignsSelectedLifeArea() {
-        let general = LifeArea(id: UUID(), name: "General", color: "#4A6FA5", icon: "square.grid.2x2")
-        let career = LifeArea(id: UUID(), name: "Career", color: "#3B82F6", icon: "briefcase.fill")
-        let projectRepository = ProjectRepositoryStub(projects: [], taskCounts: [:])
-        let lifeAreaRepository = LifeAreaRepositoryStub(areas: [general, career])
-
-        let viewModel = LifeManagementViewModel(
-            manageLifeAreasUseCase: ManageLifeAreasUseCase(repository: lifeAreaRepository),
-            manageProjectsUseCase: ManageProjectsUseCase(projectRepository: projectRepository),
-            projectRepository: projectRepository
-        )
-
-        viewModel.loadIfNeeded()
-        waitUntil(timeout: 1.0) {
-            viewModel.isLoading == false && viewModel.sections.count == 2
-        }
-
-        viewModel.draftProjectName = "Promotion Prep"
-        viewModel.draftProjectDescription = "Q2 milestones"
-        viewModel.draftProjectLifeAreaID = career.id
-        viewModel.createProjectFromDraft()
-
-        waitUntil(timeout: 1.0) {
-            projectRepository.projects.contains(where: {
-                $0.name == "Promotion Prep" && $0.lifeAreaID == career.id
-            })
-        }
-
-        XCTAssertTrue(projectRepository.projects.contains(where: {
-            $0.name == "Promotion Prep" && $0.lifeAreaID == career.id
-        }))
-    }
-
-    func testArchiveLifeAreaMovesSectionToArchivedGroupAndExposesWarningCounts() {
-        let general = LifeArea(id: UUID(), name: "General", color: "#4A6FA5", icon: "square.grid.2x2")
-        let career = LifeArea(id: UUID(), name: "Career", color: "#3B82F6", icon: "briefcase.fill")
-
-        let project = Project(
-            id: UUID(),
-            lifeAreaID: career.id,
-            name: "Promotion Prep",
-            projectDescription: "Quarter goals"
-        )
-
-        let projectRepository = ProjectRepositoryStub(projects: [project], taskCounts: [project.id: 3])
-        let lifeAreaRepository = LifeAreaRepositoryStub(areas: [general, career])
-
-        let viewModel = LifeManagementViewModel(
-            manageLifeAreasUseCase: ManageLifeAreasUseCase(repository: lifeAreaRepository),
-            manageProjectsUseCase: ManageProjectsUseCase(projectRepository: projectRepository),
-            projectRepository: projectRepository
-        )
-
-        viewModel.loadIfNeeded()
-        waitUntil(timeout: 1.0) {
-            viewModel.isLoading == false && viewModel.sections.count == 2
-        }
-
-        viewModel.requestArchiveLifeArea(career.id)
-        XCTAssertEqual(viewModel.lifeAreaArchivePreview?.projectCount, 1)
-        XCTAssertEqual(viewModel.lifeAreaArchivePreview?.taskCount, 3)
-
-        viewModel.confirmLifeAreaArchive()
-        waitUntil(timeout: 1.0) {
-            viewModel.isMutating == false &&
-            viewModel.archivedLifeAreaSections.contains(where: { $0.lifeArea.id == career.id }) &&
-            viewModel.sections.contains(where: { $0.lifeArea.id == career.id }) == false
-        }
-    }
-
-    func testArchiveProjectMovesToArchivedProjectsAndUnarchiveRestoresActiveList() {
-        let general = LifeArea(id: UUID(), name: "General", color: "#4A6FA5", icon: "square.grid.2x2")
-        let career = LifeArea(id: UUID(), name: "Career", color: "#3B82F6", icon: "briefcase.fill")
-
-        let project = Project(
-            id: UUID(),
-            lifeAreaID: career.id,
-            name: "Promotion Prep",
-            projectDescription: "Quarter goals"
-        )
-
-        let projectRepository = ProjectRepositoryStub(projects: [project], taskCounts: [project.id: 3])
-        let lifeAreaRepository = LifeAreaRepositoryStub(areas: [general, career])
-
-        let viewModel = LifeManagementViewModel(
-            manageLifeAreasUseCase: ManageLifeAreasUseCase(repository: lifeAreaRepository),
-            manageProjectsUseCase: ManageProjectsUseCase(projectRepository: projectRepository),
-            projectRepository: projectRepository
-        )
-
-        viewModel.loadIfNeeded()
-        waitUntil(timeout: 1.0) {
-            viewModel.isLoading == false && viewModel.sections.count == 2
-        }
-
-        viewModel.requestArchiveProject(project.id)
-        XCTAssertEqual(viewModel.projectArchivePreview?.taskCount, 3)
-
-        viewModel.confirmProjectArchive()
-        waitUntil(timeout: 1.0) {
-            let activeContains = viewModel.sections.first(where: { $0.lifeArea.id == career.id })?
-                .projects
-                .contains(where: { $0.project.id == project.id }) ?? false
-            let archivedContains = viewModel.archivedProjectGroups
-                .flatMap(\.projects)
-                .contains(where: { $0.project.id == project.id })
-            return viewModel.isMutating == false && !activeContains && archivedContains
-        }
-
-        viewModel.unarchiveProject(project.id)
-        waitUntil(timeout: 1.0) {
-            let activeContains = viewModel.sections.first(where: { $0.lifeArea.id == career.id })?
-                .projects
-                .contains(where: { $0.project.id == project.id }) ?? false
-            let archivedContains = viewModel.archivedProjectGroups
-                .flatMap(\.projects)
-                .contains(where: { $0.project.id == project.id })
-            return viewModel.isMutating == false && activeContains && !archivedContains
-        }
-    }
-
-    func testCanDropProjectRejectsArchivedLifeAreaTarget() {
-        let general = LifeArea(id: UUID(), name: "General", color: "#4A6FA5", icon: "square.grid.2x2")
-        let archived = LifeArea(id: UUID(), name: "Career", color: "#3B82F6", icon: "briefcase.fill", isArchived: true)
-        let project = Project(
-            id: UUID(),
+        let pausedHabit = HabitLibraryRow(
+            habitID: UUID(),
+            title: "No late caffeine",
+            kind: .negative,
+            trackingMode: .lapseOnly,
             lifeAreaID: general.id,
-            name: "Inbox Zero",
-            projectDescription: nil
+            lifeAreaName: "General",
+            colorHex: "#9E5F0A",
+            isPaused: true,
+            isArchived: false,
+            currentStreak: 0,
+            bestStreak: 4
         )
 
-        let projectRepository = ProjectRepositoryStub(projects: [project], taskCounts: [project.id: 1])
-        let lifeAreaRepository = LifeAreaRepositoryStub(areas: [general, archived])
-
-        let viewModel = LifeManagementViewModel(
-            manageLifeAreasUseCase: ManageLifeAreasUseCase(repository: lifeAreaRepository),
-            manageProjectsUseCase: ManageProjectsUseCase(projectRepository: projectRepository),
-            projectRepository: projectRepository
+        let snapshot = LifeManagementProjection.build(
+            lifeAreas: [general, career],
+            projectStats: [inbox, roadmap],
+            habitRows: [activeHabit, pausedHabit],
+            selectedScope: .overview,
+            selectedHabitFilter: .all,
+            searchQuery: "",
+            generalLifeAreaID: general.id
         )
 
-        viewModel.loadIfNeeded()
-        waitUntil(timeout: 1.0) {
-            viewModel.isLoading == false && viewModel.sections.count == 1
-        }
-
-        viewModel.beginDrag(projectID: project.id)
-        XCTAssertFalse(viewModel.canDropProject(on: archived.id))
-        viewModel.dropEntered(targetLifeAreaID: archived.id)
-        XCTAssertNil(viewModel.activeDropLifeAreaID)
+        XCTAssertEqual(snapshot.overview.stats.map(\.value), ["2", "2", "2"])
+        XCTAssertEqual(snapshot.areaRows.count, 2)
+        XCTAssertEqual(snapshot.projectGroups.count, 2)
+        XCTAssertEqual(snapshot.habitGroups.count, 2)
+        XCTAssertEqual(snapshot.overview.attentionItems.filter { $0.kind == .emptyProject }.count, 1)
+        XCTAssertEqual(snapshot.overview.attentionItems.filter { $0.kind == .pausedHabit }.count, 1)
+        XCTAssertEqual(snapshot.projectGroups.first(where: { $0.title == "Career" })?.rows.first?.linkedHabitCount, 1)
+        XCTAssertEqual(snapshot.habitGroups.first(where: { $0.title == "Career" })?.rows.first?.row.colorHex, "#3B82F6")
     }
 
-    func testEditLifeAreaAndIconUpdateRenderedSection() {
-        let general = LifeArea(id: UUID(), name: "General", color: "#4A6FA5", icon: "square.grid.2x2")
+    func testProjectionSearchesArchivedEntitiesSeparately() {
+        let general = LifeArea(id: UUID(), name: "General", color: "#9E5F0A", icon: "square.grid.2x2")
+        let archivedArea = LifeArea(id: UUID(), name: "Travel", color: "#0EA5A3", icon: "airplane", isArchived: true)
+
+        let archivedProject = ProjectWithStats(
+            project: Project(
+                id: UUID(),
+                lifeAreaID: archivedArea.id,
+                name: "Japan trip",
+                projectDescription: "Archived trip plan",
+                color: .teal,
+                icon: .travel,
+                isArchived: true
+            ),
+            taskCount: 2,
+            completedTaskCount: 0
+        )
+
+        let archivedHabit = HabitLibraryRow(
+            habitID: UUID(),
+            title: "Pack bags",
+            kind: .positive,
+            trackingMode: .dailyCheckIn,
+            lifeAreaID: archivedArea.id,
+            lifeAreaName: archivedArea.name,
+            projectID: archivedProject.project.id,
+            projectName: archivedProject.project.name,
+            colorHex: "#0EA5A3",
+            isPaused: true,
+            isArchived: true,
+            currentStreak: 0,
+            bestStreak: 2
+        )
+
+        let snapshot = LifeManagementProjection.build(
+            lifeAreas: [general, archivedArea],
+            projectStats: [archivedProject],
+            habitRows: [archivedHabit],
+            selectedScope: .archive,
+            selectedHabitFilter: .all,
+            searchQuery: "japan",
+            generalLifeAreaID: general.id
+        )
+
+        XCTAssertEqual(snapshot.searchResults.areas.count, 0)
+        XCTAssertEqual(snapshot.searchResults.projects.map(\.project.name), ["Japan trip"])
+        XCTAssertEqual(snapshot.searchResults.habits.count, 0)
+        XCTAssertEqual(snapshot.archiveSections.areas.count, 1)
+        XCTAssertEqual(snapshot.archiveSections.projects.first?.rows.count, 1)
+        XCTAssertEqual(snapshot.archiveSections.habits.first?.rows.count, 1)
+    }
+
+    func testProjectionAppliesPausedHabitFilter() {
+        let general = LifeArea(id: UUID(), name: "General", color: "#9E5F0A", icon: "square.grid.2x2")
+
+        let activeHabit = HabitLibraryRow(
+            habitID: UUID(),
+            title: "Read",
+            kind: .positive,
+            trackingMode: .dailyCheckIn,
+            lifeAreaID: general.id,
+            lifeAreaName: general.name,
+            isPaused: false,
+            isArchived: false,
+            currentStreak: 3,
+            bestStreak: 5
+        )
+        let pausedHabit = HabitLibraryRow(
+            habitID: UUID(),
+            title: "No sugar",
+            kind: .negative,
+            trackingMode: .lapseOnly,
+            lifeAreaID: general.id,
+            lifeAreaName: general.name,
+            isPaused: true,
+            isArchived: false,
+            currentStreak: 0,
+            bestStreak: 7
+        )
+
+        let snapshot = LifeManagementProjection.build(
+            lifeAreas: [general],
+            projectStats: [],
+            habitRows: [activeHabit, pausedHabit],
+            selectedScope: .habits,
+            selectedHabitFilter: .paused,
+            searchQuery: "",
+            generalLifeAreaID: general.id
+        )
+
+        XCTAssertEqual(snapshot.habitGroups.count, 1)
+        XCTAssertEqual(snapshot.habitGroups.first?.rows.map(\.row.title), ["No sugar"])
+    }
+
+    func testPreparedContextBuildsDetailSnapshotsAndPrecomputedCounts() {
+        let general = LifeArea(id: UUID(), name: "General", color: "#9E5F0A", icon: "square.grid.2x2")
         let career = LifeArea(id: UUID(), name: "Career", color: "#3B82F6", icon: "briefcase.fill")
-        let projectRepository = ProjectRepositoryStub(projects: [], taskCounts: [:])
-        let lifeAreaRepository = LifeAreaRepositoryStub(areas: [general, career])
 
-        let viewModel = LifeManagementViewModel(
-            manageLifeAreasUseCase: ManageLifeAreasUseCase(repository: lifeAreaRepository),
-            manageProjectsUseCase: ManageProjectsUseCase(projectRepository: projectRepository),
-            projectRepository: projectRepository
+        let inbox = ProjectWithStats(
+            project: Project(
+                id: ProjectConstants.inboxProjectID,
+                lifeAreaID: general.id,
+                name: ProjectConstants.inboxProjectName,
+                projectDescription: nil,
+                isDefault: true
+            ),
+            taskCount: 1,
+            completedTaskCount: 0
+        )
+        let roadmap = ProjectWithStats(
+            project: Project(
+                id: UUID(),
+                lifeAreaID: career.id,
+                name: "Roadmap",
+                projectDescription: "Quarter goals",
+                color: .blue,
+                icon: .flag
+            ),
+            taskCount: 0,
+            completedTaskCount: 0
         )
 
-        viewModel.loadIfNeeded()
-        waitUntil(timeout: 1.0) {
-            viewModel.isLoading == false && viewModel.sections.count == 2
-        }
+        let activeHabit = HabitLibraryRow(
+            habitID: UUID(),
+            title: "Deep work",
+            kind: .positive,
+            trackingMode: .dailyCheckIn,
+            lifeAreaID: career.id,
+            lifeAreaName: "Career",
+            projectID: roadmap.project.id,
+            projectName: roadmap.project.name,
+            colorHex: "#3B82F6",
+            isPaused: false,
+            isArchived: false,
+            currentStreak: 6,
+            bestStreak: 9
+        )
+        let archivedHabit = HabitLibraryRow(
+            habitID: UUID(),
+            title: "Old review ritual",
+            kind: .positive,
+            trackingMode: .dailyCheckIn,
+            lifeAreaID: career.id,
+            lifeAreaName: "Career",
+            projectID: roadmap.project.id,
+            projectName: roadmap.project.name,
+            colorHex: "#3B82F6",
+            isPaused: false,
+            isArchived: true,
+            currentStreak: 0,
+            bestStreak: 4
+        )
 
-        viewModel.beginEditLifeArea(career.id)
-        viewModel.saveLifeAreaEdit(name: "Work", colorHex: "#112233")
-        waitUntil(timeout: 1.0) {
-            viewModel.sections.contains(where: { $0.lifeArea.id == career.id && $0.lifeArea.name == "Work" })
-        }
+        let context = LifeManagementProjection.prepare(
+            lifeAreas: [general, career],
+            projectStats: [inbox, roadmap],
+            habitRows: [activeHabit, archivedHabit],
+            generalLifeAreaID: general.id
+        )
 
-        viewModel.showIconPicker(for: career.id)
-        viewModel.applyIconSelection("flag.fill")
-        waitUntil(timeout: 1.0) {
-            viewModel.sections.contains(where: { $0.lifeArea.id == career.id && $0.lifeArea.icon == "flag.fill" })
-        }
-    }
-
-    private func waitUntil(timeout: TimeInterval, condition: @escaping () -> Bool) {
-        let expectation = expectation(description: "wait-until")
-        let deadline = Date().addingTimeInterval(timeout)
-
-        func poll() {
-            if condition() {
-                expectation.fulfill()
-                return
-            }
-            if Date() >= deadline {
-                XCTFail("Timed out waiting for condition.")
-                expectation.fulfill()
-                return
-            }
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.02) {
-                poll()
-            }
-        }
-
-        poll()
-        waitForExpectations(timeout: timeout + 0.3)
+        XCTAssertEqual(context.allProjectCountByAreaID[career.id], 1)
+        XCTAssertEqual(context.allHabitCountByAreaID[career.id], 2)
+        XCTAssertEqual(context.allLinkedHabitCountByProjectID[roadmap.project.id], 2)
+        XCTAssertEqual(context.areaDetailByID[career.id]?.activeProjects.map(\.project.name), ["Roadmap"])
+        XCTAssertEqual(context.areaDetailByID[career.id]?.activeHabits.map(\.row.title), ["Deep work"])
+        XCTAssertEqual(context.projectDetailByID[roadmap.project.id]?.activeLinkedHabits.map(\.row.title), ["Deep work"])
     }
 }
 
@@ -804,12 +718,394 @@ final class LifeAreaProjectDropValidationTests: XCTestCase {
     }
 }
 
+@MainActor
+final class LifeManagementViewModelInteractionTests: XCTestCase {
+    func testHandleProjectDropResetsDragStateWhenMoveFails() async {
+        let sourceAreaID = UUID()
+        let destinationAreaID = UUID()
+        let projectID = UUID()
+        let repositories = makeCoordinatorDependencies(
+            lifeAreas: [
+                LifeArea(id: sourceAreaID, name: "Career", color: nil, icon: nil),
+                LifeArea(id: destinationAreaID, name: "Health", color: nil, icon: nil)
+            ],
+            projects: [
+                Project(id: projectID, lifeAreaID: sourceAreaID, name: "Roadmap", projectDescription: nil)
+            ]
+        )
+        repositories.projectRepository.moveProjectToLifeAreaError = NSError(
+            domain: "ProjectRepositoryStub",
+            code: 500,
+            userInfo: [NSLocalizedDescriptionKey: "Move failed"]
+        )
+        let viewModel = makeLifeManagementViewModel(dependencies: repositories)
+
+        let provider = viewModel.beginProjectDrag(projectID)
+        viewModel.setDropTarget(destinationAreaID)
+
+        XCTAssertTrue(viewModel.handleProjectDrop(providers: [provider], targetLifeAreaID: destinationAreaID))
+
+        await waitUntil {
+            viewModel.isMutating == false &&
+            viewModel.draggingProjectID == nil &&
+            viewModel.activeDropLifeAreaID == nil
+        }
+
+        XCTAssertEqual(viewModel.errorMessage, "Move failed")
+    }
+
+    func testMergeLifeAreasPrefersResolvedActiveGeneralOverArchivedDuplicate() {
+        let archivedGeneral = LifeArea(
+            id: UUID(),
+            name: " General ",
+            color: nil,
+            icon: nil,
+            isArchived: true,
+            createdAt: Date(timeIntervalSince1970: 10),
+            updatedAt: Date(timeIntervalSince1970: 10)
+        )
+        let resolvedGeneral = LifeArea(
+            id: UUID(),
+            name: "General",
+            color: nil,
+            icon: nil,
+            isArchived: false,
+            createdAt: Date(timeIntervalSince1970: 20),
+            updatedAt: Date(timeIntervalSince1970: 20)
+        )
+
+        let merged = LifeManagementViewModel.mergeLifeAreas([archivedGeneral], generalArea: resolvedGeneral)
+        let generalRows = merged.filter { $0.name.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() == "general" }
+
+        XCTAssertEqual(generalRows.count, 1)
+        XCTAssertEqual(generalRows.first?.id, resolvedGeneral.id)
+        XCTAssertFalse(generalRows.first?.isArchived ?? true)
+    }
+
+    private func waitUntil(
+        timeoutNanoseconds: UInt64 = 1_000_000_000,
+        pollIntervalNanoseconds: UInt64 = 10_000_000,
+        condition: @escaping @MainActor () -> Bool
+    ) async {
+        let start = ContinuousClock.now
+        let timeout = Duration.nanoseconds(Int64(timeoutNanoseconds))
+        let pollInterval = Duration.nanoseconds(Int64(pollIntervalNanoseconds))
+
+        while condition() == false {
+            if ContinuousClock.now - start >= timeout {
+                XCTFail("Timed out waiting for condition")
+                return
+            }
+            try? await Task.sleep(for: pollInterval)
+        }
+    }
+}
+
+final class LifeManagementDestructiveFlowCoordinatorTests: XCTestCase {
+    func testDeleteLifeAreaRejectsSameDestinationBeforeMutation() {
+        let areaID = UUID()
+        let repositories = makeCoordinatorDependencies(
+            lifeAreas: [LifeArea(id: areaID, name: "Career", color: nil, icon: nil)]
+        )
+        let coordinator = makeCoordinator(dependencies: repositories)
+        let expectation = expectation(description: "same area rejected")
+
+        coordinator.deleteLifeArea(
+            request: DeleteLifeAreaRequest(
+                areaID: areaID,
+                destinationLifeAreaID: areaID
+            )
+        ) { result in
+            switch result {
+            case .success:
+                XCTFail("Expected no-op rejection")
+            case .failure(let error):
+                XCTAssertEqual(
+                    error.localizedDescription,
+                    "Choose a different destination area before deleting this area."
+                )
+            }
+            expectation.fulfill()
+        }
+
+        waitForExpectations(timeout: 1.0)
+        XCTAssertTrue(repositories.projectRepository.moveProjectCalls.isEmpty)
+        XCTAssertEqual(repositories.habitRepository.updateCallCount, 0)
+    }
+
+    func testDeleteProjectUsesCurrentLinkedHabitsInsteadOfRequestSnapshot() {
+        let sourceProjectID = UUID()
+        let destinationProjectID = UUID()
+        let areaID = UUID()
+        let linkedHabitID = UUID()
+        let linkedHabit = HabitDefinitionRecord(
+            id: linkedHabitID,
+            lifeAreaID: areaID,
+            projectID: sourceProjectID,
+            title: "Hydrate",
+            habitType: "check_in",
+            createdAt: Date(timeIntervalSince1970: 1_704_067_200),
+            updatedAt: Date(timeIntervalSince1970: 1_704_067_200)
+        )
+        let repositories = makeCoordinatorDependencies(
+            lifeAreas: [LifeArea(id: areaID, name: "Health", color: nil, icon: nil)],
+            projects: [
+                Project(id: sourceProjectID, lifeAreaID: areaID, name: "Source", projectDescription: nil),
+                Project(id: destinationProjectID, lifeAreaID: areaID, name: "Destination", projectDescription: nil)
+            ],
+            habits: [linkedHabit],
+            habitRows: [
+                HabitLibraryRow(
+                    habitID: linkedHabitID,
+                    title: "Hydrate",
+                    kind: .positive,
+                    trackingMode: .dailyCheckIn,
+                    lifeAreaID: areaID,
+                    lifeAreaName: "Health",
+                    projectID: sourceProjectID,
+                    projectName: "Source",
+                    colorHex: nil,
+                    isPaused: false,
+                    isArchived: false,
+                    currentStreak: 0,
+                    bestStreak: 0
+                )
+            ]
+        )
+        let coordinator = makeCoordinator(dependencies: repositories)
+        let expectation = expectation(description: "linked habits refetched")
+
+        coordinator.deleteProject(
+            request: DeleteProjectRequest(
+                projectID: sourceProjectID,
+                destinationProjectID: destinationProjectID
+            )
+        ) { result in
+            XCTAssertNoThrow(try result.get())
+            expectation.fulfill()
+        }
+
+        waitForExpectations(timeout: 1.0)
+        XCTAssertEqual(repositories.habitReadRepository.fetchHabitLibraryCallCount, 1)
+        XCTAssertNil(repositories.habitRepository.habitsByID[linkedHabitID]?.projectID)
+    }
+
+    func testDeleteProjectRollsBackMovedTasksAndHabitLinksWhenDeleteFails() {
+        let sourceProjectID = UUID()
+        let destinationProjectID = UUID()
+        let areaID = UUID()
+        let linkedHabitID = UUID()
+        let movedTaskID = UUID()
+        let existingDestinationTaskID = UUID()
+        let linkedHabit = HabitDefinitionRecord(
+            id: linkedHabitID,
+            lifeAreaID: areaID,
+            projectID: sourceProjectID,
+            title: "Hydrate",
+            habitType: "check_in",
+            createdAt: Date(timeIntervalSince1970: 1_704_067_200),
+            updatedAt: Date(timeIntervalSince1970: 1_704_067_200)
+        )
+        let repositories = makeCoordinatorDependencies(
+            lifeAreas: [LifeArea(id: areaID, name: "Health", color: nil, icon: nil)],
+            projects: [
+                Project(id: sourceProjectID, lifeAreaID: areaID, name: "Source", projectDescription: nil),
+                Project(id: destinationProjectID, lifeAreaID: areaID, name: "Destination", projectDescription: nil)
+            ],
+            tasks: [
+                TaskDefinition(id: movedTaskID, projectID: sourceProjectID, projectName: "Source", lifeAreaID: areaID, title: "Task to move"),
+                TaskDefinition(id: existingDestinationTaskID, projectID: destinationProjectID, projectName: "Destination", lifeAreaID: areaID, title: "Existing destination task")
+            ],
+            habits: [linkedHabit],
+            habitRows: [
+                HabitLibraryRow(
+                    habitID: linkedHabitID,
+                    title: "Hydrate",
+                    kind: .positive,
+                    trackingMode: .dailyCheckIn,
+                    lifeAreaID: areaID,
+                    lifeAreaName: "Health",
+                    projectID: sourceProjectID,
+                    projectName: "Source",
+                    colorHex: nil,
+                    isPaused: false,
+                    isArchived: false,
+                    currentStreak: 0,
+                    bestStreak: 0
+                )
+            ]
+        )
+        repositories.projectRepository.deleteError = NSError(domain: "ProjectRepositoryStub", code: 500)
+        let coordinator = makeCoordinator(dependencies: repositories)
+        let expectation = expectation(description: "project rollback")
+
+        coordinator.deleteProject(
+            request: DeleteProjectRequest(
+                projectID: sourceProjectID,
+                destinationProjectID: destinationProjectID
+            )
+        ) { result in
+            switch result {
+            case .success:
+                XCTFail("Expected delete failure")
+            case .failure:
+                XCTAssertEqual(repositories.taskDefinitionRepository.tasksByID[movedTaskID]?.projectID, sourceProjectID)
+                XCTAssertEqual(repositories.taskDefinitionRepository.tasksByID[existingDestinationTaskID]?.projectID, destinationProjectID)
+                XCTAssertEqual(repositories.habitRepository.habitsByID[linkedHabitID]?.projectID, sourceProjectID)
+            }
+            expectation.fulfill()
+        }
+
+        waitForExpectations(timeout: 1.0)
+        XCTAssertEqual(repositories.taskDefinitionRepository.updateRequests.count, 2)
+        XCTAssertEqual(repositories.habitRepository.updateCallCount, 2)
+    }
+
+    func testDeleteProjectSurfacesRollbackFailure() {
+        let sourceProjectID = UUID()
+        let destinationProjectID = UUID()
+        let areaID = UUID()
+        let linkedHabitID = UUID()
+        let linkedHabit = HabitDefinitionRecord(
+            id: linkedHabitID,
+            lifeAreaID: areaID,
+            projectID: sourceProjectID,
+            title: "Hydrate",
+            habitType: "check_in",
+            createdAt: Date(timeIntervalSince1970: 1_704_067_200),
+            updatedAt: Date(timeIntervalSince1970: 1_704_067_200)
+        )
+        let repositories = makeCoordinatorDependencies(
+            lifeAreas: [LifeArea(id: areaID, name: "Health", color: nil, icon: nil)],
+            projects: [
+                Project(id: sourceProjectID, lifeAreaID: areaID, name: "Source", projectDescription: nil),
+                Project(id: destinationProjectID, lifeAreaID: areaID, name: "Destination", projectDescription: nil)
+            ],
+            habits: [linkedHabit],
+            habitRows: [
+                HabitLibraryRow(
+                    habitID: linkedHabitID,
+                    title: "Hydrate",
+                    kind: .positive,
+                    trackingMode: .dailyCheckIn,
+                    lifeAreaID: areaID,
+                    lifeAreaName: "Health",
+                    projectID: sourceProjectID,
+                    projectName: "Source",
+                    colorHex: nil,
+                    isPaused: false,
+                    isArchived: false,
+                    currentStreak: 0,
+                    bestStreak: 0
+                )
+            ]
+        )
+        repositories.projectRepository.deleteError = NSError(domain: "ProjectRepositoryStub", code: 500)
+        repositories.habitRepository.queuedUpdateErrors = [NSError(domain: "CoordinatorHabitRepositoryStub", code: 501)]
+        let coordinator = makeCoordinator(dependencies: repositories)
+        let expectation = expectation(description: "project rollback failure")
+
+        coordinator.deleteProject(
+            request: DeleteProjectRequest(
+                projectID: sourceProjectID,
+                destinationProjectID: destinationProjectID
+            )
+        ) { result in
+            switch result {
+            case .success:
+                XCTFail("Expected delete failure")
+            case .failure(let error):
+                guard case let LifeManagementDestructiveFlowError.rollbackFailed(underlying, rollbackError) = error else {
+                    return XCTFail("Expected rollbackFailed, got \(error)")
+                }
+                XCTAssertEqual((underlying as NSError).code, 500)
+                XCTAssertEqual((rollbackError as NSError).code, 501)
+            }
+            expectation.fulfill()
+        }
+
+        waitForExpectations(timeout: 1.0)
+    }
+
+    func testDeleteLifeAreaRollsBackMovedChildrenWhenAreaDeleteFails() {
+        let sourceAreaID = UUID()
+        let destinationAreaID = UUID()
+        let projectID = UUID()
+        let habitID = UUID()
+        let repositories = makeCoordinatorDependencies(
+            lifeAreas: [
+                LifeArea(id: sourceAreaID, name: "Career", color: nil, icon: nil),
+                LifeArea(id: destinationAreaID, name: "Health", color: nil, icon: nil)
+            ],
+            projects: [
+                Project(id: projectID, lifeAreaID: sourceAreaID, name: "Roadmap", projectDescription: nil)
+            ],
+            habits: [
+                HabitDefinitionRecord(
+                    id: habitID,
+                    lifeAreaID: sourceAreaID,
+                    projectID: projectID,
+                    title: "Ship weekly review",
+                    habitType: "check_in",
+                    createdAt: Date(timeIntervalSince1970: 1_704_067_200),
+                    updatedAt: Date(timeIntervalSince1970: 1_704_067_200)
+                )
+            ],
+            habitRows: [
+                HabitLibraryRow(
+                    habitID: habitID,
+                    title: "Ship weekly review",
+                    kind: .positive,
+                    trackingMode: .dailyCheckIn,
+                    lifeAreaID: sourceAreaID,
+                    lifeAreaName: "Career",
+                    projectID: projectID,
+                    projectName: "Roadmap",
+                    colorHex: nil,
+                    isPaused: false,
+                    isArchived: false,
+                    currentStreak: 0,
+                    bestStreak: 0
+                )
+            ]
+        )
+        repositories.lifeAreaRepository.deleteError = NSError(domain: "LifeAreaRepositoryStub", code: 500)
+        let coordinator = makeCoordinator(dependencies: repositories)
+        let expectation = expectation(description: "area rollback")
+
+        coordinator.deleteLifeArea(
+            request: DeleteLifeAreaRequest(
+                areaID: sourceAreaID,
+                destinationLifeAreaID: destinationAreaID
+            )
+        ) { result in
+            switch result {
+            case .success:
+                XCTFail("Expected delete failure")
+            case .failure:
+                XCTAssertEqual(repositories.projectRepository.projects.first?.lifeAreaID, sourceAreaID)
+                XCTAssertEqual(repositories.habitRepository.habitsByID[habitID]?.lifeAreaID, sourceAreaID)
+                XCTAssertEqual(repositories.habitRepository.habitsByID[habitID]?.projectID, projectID)
+            }
+            expectation.fulfill()
+        }
+
+        waitForExpectations(timeout: 1.0)
+        XCTAssertEqual(repositories.projectRepository.moveProjectCalls.count, 2)
+        XCTAssertEqual(repositories.habitRepository.updateCallCount, 2)
+    }
+}
+
 private final class ProjectRepositoryStub: ProjectRepositoryProtocol {
     var projects: [Project]
     var taskCounts: [UUID: Int]
+    var deleteError: Error?
+    var moveProjectToLifeAreaError: Error?
 
     var moveProjectCalls: [(projectID: UUID, lifeAreaID: UUID)] = []
     var backfillCalls: [UUID] = []
+    var moveTasksCalls: [(sourceProjectId: UUID, targetProjectId: UUID)] = []
+    var deleteProjectCalls: [(id: UUID, deleteTasks: Bool)] = []
 
     /// Initializes a new instance.
     init(projects: [Project] = [], taskCounts: [UUID: Int] = [:]) {
@@ -889,8 +1185,15 @@ private final class ProjectRepositoryStub: ProjectRepositoryProtocol {
     }
 
     func deleteProject(withId id: UUID, deleteTasks: Bool, completion: @escaping (Result<Void, Error>) -> Void) {
+        deleteProjectCalls.append((id: id, deleteTasks: deleteTasks))
+        if let deleteError {
+            completion(.failure(deleteError))
+            return
+        }
         projects.removeAll { $0.id == id }
-        taskCounts[id] = nil
+        if deleteTasks {
+            taskCounts[id] = nil
+        }
         completion(.success(()))
     }
 
@@ -899,6 +1202,7 @@ private final class ProjectRepositoryStub: ProjectRepositoryProtocol {
     }
 
     func moveTasks(from sourceProjectId: UUID, to targetProjectId: UUID, completion: @escaping (Result<Void, Error>) -> Void) {
+        moveTasksCalls.append((sourceProjectId: sourceProjectId, targetProjectId: targetProjectId))
         let moved = taskCounts[sourceProjectId] ?? 0
         taskCounts[sourceProjectId] = 0
         taskCounts[targetProjectId, default: 0] += moved
@@ -911,6 +1215,10 @@ private final class ProjectRepositoryStub: ProjectRepositoryProtocol {
         completion: @escaping (Result<ProjectLifeAreaMoveResult, Error>) -> Void
     ) {
         moveProjectCalls.append((projectID: projectID, lifeAreaID: lifeAreaID))
+        if let moveProjectToLifeAreaError {
+            completion(.failure(moveProjectToLifeAreaError))
+            return
+        }
         guard let index = projects.firstIndex(where: { $0.id == projectID }) else {
             completion(.failure(NSError(domain: "ProjectRepositoryStub", code: 404)))
             return
@@ -967,6 +1275,7 @@ private final class ProjectRepositoryStub: ProjectRepositoryProtocol {
 
 private final class LifeAreaRepositoryStub: LifeAreaRepositoryProtocol {
     var areas: [LifeArea]
+    var deleteError: Error?
 
     /// Initializes a new instance.
     init(areas: [LifeArea]) {
@@ -990,9 +1299,398 @@ private final class LifeAreaRepositoryStub: LifeAreaRepositoryProtocol {
     }
 
     func delete(id: UUID, completion: @escaping (Result<Void, Error>) -> Void) {
+        if let deleteError {
+            completion(.failure(deleteError))
+            return
+        }
         areas.removeAll { $0.id == id }
         completion(.success(()))
     }
+}
+
+private final class CoordinatorHabitRepositoryStub: HabitRepositoryProtocol {
+    var habitsByID: [UUID: HabitDefinitionRecord]
+    var updateCallCount = 0
+    var queuedUpdateErrors: [Error] = []
+
+    init(habits: [HabitDefinitionRecord] = []) {
+        self.habitsByID = Dictionary(uniqueKeysWithValues: habits.map { ($0.id, $0) })
+    }
+
+    func fetchAll(completion: @escaping (Result<[HabitDefinitionRecord], Error>) -> Void) {
+        completion(.success(Array(habitsByID.values)))
+    }
+
+    func create(_ habit: HabitDefinitionRecord, completion: @escaping (Result<HabitDefinitionRecord, Error>) -> Void) {
+        habitsByID[habit.id] = habit
+        completion(.success(habit))
+    }
+
+    func update(_ habit: HabitDefinitionRecord, completion: @escaping (Result<HabitDefinitionRecord, Error>) -> Void) {
+        updateCallCount += 1
+        if queuedUpdateErrors.isEmpty == false {
+            completion(.failure(queuedUpdateErrors.removeFirst()))
+            return
+        }
+        habitsByID[habit.id] = habit
+        completion(.success(habit))
+    }
+
+    func delete(id: UUID, completion: @escaping (Result<Void, Error>) -> Void) {
+        habitsByID.removeValue(forKey: id)
+        completion(.success(()))
+    }
+}
+
+private final class CoordinatorTaskDefinitionRepositoryStub: TaskDefinitionRepositoryProtocol {
+    var tasksByID: [UUID: TaskDefinition]
+    private(set) var updateRequests: [UpdateTaskDefinitionRequest] = []
+    var queuedUpdateErrors: [Error] = []
+
+    init(tasks: [TaskDefinition] = []) {
+        self.tasksByID = Dictionary(uniqueKeysWithValues: tasks.map { ($0.id, $0) })
+    }
+
+    func fetchAll(completion: @escaping (Result<[TaskDefinition], Error>) -> Void) {
+        completion(.success(Array(tasksByID.values)))
+    }
+
+    func fetchAll(query: TaskDefinitionQuery?, completion: @escaping (Result<[TaskDefinition], Error>) -> Void) {
+        completion(.success(Array(tasksByID.values)))
+    }
+
+    func fetchTaskDefinition(id: UUID, completion: @escaping (Result<TaskDefinition?, Error>) -> Void) {
+        completion(.success(tasksByID[id]))
+    }
+
+    func create(_ task: TaskDefinition, completion: @escaping (Result<TaskDefinition, Error>) -> Void) {
+        tasksByID[task.id] = task
+        completion(.success(task))
+    }
+
+    func create(request: CreateTaskDefinitionRequest, completion: @escaping (Result<TaskDefinition, Error>) -> Void) {
+        let task = request.toTaskDefinition(projectName: request.projectName)
+        tasksByID[task.id] = task
+        completion(.success(task))
+    }
+
+    func update(_ task: TaskDefinition, completion: @escaping (Result<TaskDefinition, Error>) -> Void) {
+        tasksByID[task.id] = task
+        completion(.success(task))
+    }
+
+    func update(request: UpdateTaskDefinitionRequest, completion: @escaping (Result<TaskDefinition, Error>) -> Void) {
+        updateRequests.append(request)
+        if queuedUpdateErrors.isEmpty == false {
+            completion(.failure(queuedUpdateErrors.removeFirst()))
+            return
+        }
+        guard var current = tasksByID[request.id] else {
+            completion(.failure(NSError(domain: "CoordinatorTaskDefinitionRepositoryStub", code: 404)))
+            return
+        }
+        if let projectID = request.projectID {
+            current.projectID = projectID
+        }
+        if request.clearLifeArea {
+            current.lifeAreaID = nil
+        } else if let lifeAreaID = request.lifeAreaID {
+            current.lifeAreaID = lifeAreaID
+        }
+        tasksByID[current.id] = current
+        completion(.success(current))
+    }
+
+    func fetchChildren(parentTaskID: UUID, completion: @escaping (Result<[TaskDefinition], Error>) -> Void) {
+        completion(.success([]))
+    }
+
+    func delete(id: UUID, completion: @escaping (Result<Void, Error>) -> Void) {
+        tasksByID.removeValue(forKey: id)
+        completion(.success(()))
+    }
+}
+
+private final class CoordinatorScheduleRepositoryStub: ScheduleRepositoryProtocol {
+    func fetchTemplates(completion: @escaping (Result<[ScheduleTemplateDefinition], Error>) -> Void) {
+        completion(.success([]))
+    }
+
+    func fetchRules(templateID: UUID, completion: @escaping (Result<[ScheduleRuleDefinition], Error>) -> Void) {
+        completion(.success([]))
+    }
+
+    func saveTemplate(_ template: ScheduleTemplateDefinition, completion: @escaping (Result<ScheduleTemplateDefinition, Error>) -> Void) {
+        completion(.success(template))
+    }
+
+    func deleteTemplate(id: UUID, completion: @escaping (Result<Void, Error>) -> Void) {
+        completion(.success(()))
+    }
+
+    func replaceRules(
+        templateID: UUID,
+        rules: [ScheduleRuleDefinition],
+        completion: @escaping (Result<[ScheduleRuleDefinition], Error>) -> Void
+    ) {
+        completion(.success(rules))
+    }
+
+    func fetchExceptions(templateID: UUID, completion: @escaping (Result<[ScheduleExceptionDefinition], Error>) -> Void) {
+        completion(.success([]))
+    }
+
+    func saveException(_ exception: ScheduleExceptionDefinition, completion: @escaping (Result<ScheduleExceptionDefinition, Error>) -> Void) {
+        completion(.success(exception))
+    }
+}
+
+private final class CoordinatorOccurrenceRepositoryStub: OccurrenceRepositoryProtocol {
+    func fetchInRange(start: Date, end: Date, completion: @escaping (Result<[OccurrenceDefinition], Error>) -> Void) {
+        completion(.success([]))
+    }
+
+    func saveOccurrences(_ occurrences: [OccurrenceDefinition], completion: @escaping (Result<Void, Error>) -> Void) {
+        completion(.success(()))
+    }
+
+    func resolve(_ resolution: OccurrenceResolutionDefinition, completion: @escaping (Result<Void, Error>) -> Void) {
+        completion(.success(()))
+    }
+
+    func deleteOccurrences(ids: [UUID], completion: @escaping (Result<Void, Error>) -> Void) {
+        completion(.success(()))
+    }
+}
+
+private final class CoordinatorSchedulingEngineStub: SchedulingEngineProtocol {
+    func generateOccurrences(
+        windowStart: Date,
+        windowEnd: Date,
+        sourceFilter: ScheduleSourceType?,
+        completion: @escaping (Result<[OccurrenceDefinition], Error>) -> Void
+    ) {
+        completion(.success([]))
+    }
+
+    func resolveOccurrence(
+        id: UUID,
+        resolution: OccurrenceResolutionType,
+        actor: OccurrenceActor,
+        completion: @escaping (Result<Void, Error>) -> Void
+    ) {
+        completion(.success(()))
+    }
+
+    func rebuildFutureOccurrences(
+        templateID: UUID,
+        effectiveFrom: Date,
+        completion: @escaping (Result<Void, Error>) -> Void
+    ) {
+        completion(.success(()))
+    }
+
+    func applyScheduleException(
+        templateID: UUID,
+        occurrenceKey: String,
+        action: ScheduleExceptionAction,
+        completion: @escaping (Result<Void, Error>) -> Void
+    ) {
+        completion(.success(()))
+    }
+}
+
+private final class CoordinatorHabitRuntimeReadRepositoryStub: HabitRuntimeReadRepositoryProtocol {
+    var libraryRows: [HabitLibraryRow]
+    private(set) var fetchHabitLibraryCallCount = 0
+
+    init(libraryRows: [HabitLibraryRow] = []) {
+        self.libraryRows = libraryRows
+    }
+
+    func fetchAgendaHabits(
+        for date: Date,
+        completion: @escaping (Result<[HabitOccurrenceSummary], Error>) -> Void
+    ) {
+        completion(.success([]))
+    }
+
+    func fetchHistory(
+        habitIDs: [UUID],
+        endingOn date: Date,
+        dayCount: Int,
+        completion: @escaping (Result<[HabitHistoryWindow], Error>) -> Void
+    ) {
+        completion(.success([]))
+    }
+
+    func fetchSignals(
+        start: Date,
+        end: Date,
+        completion: @escaping (Result<[HabitOccurrenceSummary], Error>) -> Void
+    ) {
+        completion(.success([]))
+    }
+
+    func fetchHabitLibrary(
+        includeArchived: Bool,
+        completion: @escaping (Result<[HabitLibraryRow], Error>) -> Void
+    ) {
+        fetchHabitLibraryCallCount += 1
+        completion(.success(libraryRows))
+    }
+}
+
+private struct CoordinatorDependencies {
+    let projectRepository: ProjectRepositoryStub
+    let lifeAreaRepository: LifeAreaRepositoryStub
+    let taskDefinitionRepository: CoordinatorTaskDefinitionRepositoryStub
+    let habitRepository: CoordinatorHabitRepositoryStub
+    let habitReadRepository: CoordinatorHabitRuntimeReadRepositoryStub
+    let scheduleRepository: CoordinatorScheduleRepositoryStub
+    let occurrenceRepository: CoordinatorOccurrenceRepositoryStub
+    let schedulingEngine: CoordinatorSchedulingEngineStub
+}
+
+private func makeCoordinatorDependencies(
+    lifeAreas: [LifeArea] = [],
+    projects: [Project] = [],
+    tasks: [TaskDefinition] = [],
+    habits: [HabitDefinitionRecord] = [],
+    habitRows: [HabitLibraryRow] = []
+) -> CoordinatorDependencies {
+    CoordinatorDependencies(
+        projectRepository: ProjectRepositoryStub(projects: projects),
+        lifeAreaRepository: LifeAreaRepositoryStub(areas: lifeAreas),
+        taskDefinitionRepository: CoordinatorTaskDefinitionRepositoryStub(tasks: tasks),
+        habitRepository: CoordinatorHabitRepositoryStub(habits: habits),
+        habitReadRepository: CoordinatorHabitRuntimeReadRepositoryStub(libraryRows: habitRows),
+        scheduleRepository: CoordinatorScheduleRepositoryStub(),
+        occurrenceRepository: CoordinatorOccurrenceRepositoryStub(),
+        schedulingEngine: CoordinatorSchedulingEngineStub()
+    )
+}
+
+private func makeCoordinator(dependencies: CoordinatorDependencies) -> LifeManagementDestructiveFlowCoordinator {
+    let recompute = RecomputeHabitStreaksUseCase(
+        habitRepository: dependencies.habitRepository,
+        occurrenceRepository: dependencies.occurrenceRepository
+    )
+    let sync = SyncHabitScheduleUseCase(
+        habitRepository: dependencies.habitRepository,
+        scheduleRepository: dependencies.scheduleRepository,
+        scheduleEngine: dependencies.schedulingEngine,
+        occurrenceRepository: dependencies.occurrenceRepository,
+        recomputeHabitStreaksUseCase: recompute
+    )
+    let maintain = MaintainHabitRuntimeUseCase(syncHabitScheduleUseCase: sync)
+    let updateHabit = UpdateHabitUseCase(
+        habitRepository: dependencies.habitRepository,
+        scheduleRepository: dependencies.scheduleRepository,
+        scheduleEngine: dependencies.schedulingEngine,
+        projectRepository: dependencies.projectRepository,
+        lifeAreaRepository: dependencies.lifeAreaRepository,
+        maintainHabitRuntimeUseCase: maintain
+    )
+
+    return LifeManagementDestructiveFlowCoordinator(
+        manageProjectsUseCase: ManageProjectsUseCase(projectRepository: dependencies.projectRepository),
+        updateHabitUseCase: updateHabit,
+        projectRepository: dependencies.projectRepository,
+        taskDefinitionRepository: dependencies.taskDefinitionRepository,
+        lifeAreaRepository: dependencies.lifeAreaRepository,
+        habitRuntimeReadRepository: dependencies.habitReadRepository
+    )
+}
+
+private func makeLifeManagementViewModel(dependencies: CoordinatorDependencies) -> LifeManagementViewModel {
+    let v2Dependencies = UseCaseCoordinator.V2Dependencies(
+        projectRepository: dependencies.projectRepository,
+        lifeAreaRepository: dependencies.lifeAreaRepository,
+        sectionRepository: NoOpSectionRepositoryStub(),
+        tagRepository: NoOpTagRepositoryStub(),
+        taskDefinitionRepository: dependencies.taskDefinitionRepository,
+        habitRepository: dependencies.habitRepository,
+        habitRuntimeReadRepository: dependencies.habitReadRepository,
+        scheduleRepository: dependencies.scheduleRepository,
+        scheduleEngine: dependencies.schedulingEngine,
+        occurrenceRepository: dependencies.occurrenceRepository,
+        tombstoneRepository: NoOpTombstoneRepositoryStub(),
+        reminderRepository: NoOpReminderRepositoryStub(),
+        gamificationRepository: NoOpGamificationRepositoryStub(),
+        assistantActionRepository: NoOpAssistantActionRepositoryStub(),
+        externalSyncRepository: NoOpExternalSyncRepositoryStub()
+    )
+    let coordinator = UseCaseCoordinator(
+        projectRepository: dependencies.projectRepository,
+        v2Dependencies: v2Dependencies
+    )
+    return LifeManagementViewModel(useCaseCoordinator: coordinator)
+}
+
+private final class NoOpSectionRepositoryStub: SectionRepositoryProtocol {
+    func fetchSections(projectID: UUID, completion: @escaping (Result<[TaskerProjectSection], Error>) -> Void) { completion(.success([])) }
+    func create(_ section: TaskerProjectSection, completion: @escaping (Result<TaskerProjectSection, Error>) -> Void) { completion(.success(section)) }
+    func update(_ section: TaskerProjectSection, completion: @escaping (Result<TaskerProjectSection, Error>) -> Void) { completion(.success(section)) }
+    func delete(id: UUID, completion: @escaping (Result<Void, Error>) -> Void) { completion(.success(())) }
+}
+
+private final class NoOpTagRepositoryStub: TagRepositoryProtocol {
+    func fetchAll(completion: @escaping (Result<[TagDefinition], Error>) -> Void) { completion(.success([])) }
+    func create(_ tag: TagDefinition, completion: @escaping (Result<TagDefinition, Error>) -> Void) { completion(.success(tag)) }
+    func delete(id: UUID, completion: @escaping (Result<Void, Error>) -> Void) { completion(.success(())) }
+}
+
+private final class NoOpTombstoneRepositoryStub: TombstoneRepositoryProtocol {
+    func create(_ tombstone: TombstoneDefinition, completion: @escaping (Result<Void, Error>) -> Void) { completion(.success(())) }
+    func fetchExpired(before date: Date, completion: @escaping (Result<[TombstoneDefinition], Error>) -> Void) { completion(.success([])) }
+    func delete(ids: [UUID], completion: @escaping (Result<Void, Error>) -> Void) { completion(.success(())) }
+}
+
+private final class NoOpReminderRepositoryStub: ReminderRepositoryProtocol {
+    func fetchReminders(completion: @escaping (Result<[ReminderDefinition], Error>) -> Void) { completion(.success([])) }
+    func saveReminder(_ reminder: ReminderDefinition, completion: @escaping (Result<ReminderDefinition, Error>) -> Void) { completion(.success(reminder)) }
+    func fetchTriggers(reminderID: UUID, completion: @escaping (Result<[ReminderTriggerDefinition], Error>) -> Void) { completion(.success([])) }
+    func saveTrigger(_ trigger: ReminderTriggerDefinition, completion: @escaping (Result<ReminderTriggerDefinition, Error>) -> Void) { completion(.success(trigger)) }
+    func fetchDeliveries(reminderID: UUID, completion: @escaping (Result<[ReminderDeliveryDefinition], Error>) -> Void) { completion(.success([])) }
+    func saveDelivery(_ delivery: ReminderDeliveryDefinition, completion: @escaping (Result<ReminderDeliveryDefinition, Error>) -> Void) { completion(.success(delivery)) }
+    func updateDelivery(_ delivery: ReminderDeliveryDefinition, completion: @escaping (Result<ReminderDeliveryDefinition, Error>) -> Void) { completion(.success(delivery)) }
+}
+
+private final class NoOpGamificationRepositoryStub: GamificationRepositoryProtocol {
+    func fetchProfile(completion: @escaping (Result<GamificationSnapshot?, Error>) -> Void) { completion(.success(nil)) }
+    func saveProfile(_ profile: GamificationSnapshot, completion: @escaping (Result<Void, Error>) -> Void) { completion(.success(())) }
+    func fetchXPEvents(completion: @escaping (Result<[XPEventDefinition], Error>) -> Void) { completion(.success([])) }
+    func fetchXPEvents(from startDate: Date, to endDate: Date, completion: @escaping (Result<[XPEventDefinition], Error>) -> Void) { completion(.success([])) }
+    func saveXPEvent(_ event: XPEventDefinition, completion: @escaping (Result<Void, Error>) -> Void) { completion(.success(())) }
+    func hasXPEvent(idempotencyKey: String, completion: @escaping (Result<Bool, Error>) -> Void) { completion(.success(false)) }
+    func fetchAchievementUnlocks(completion: @escaping (Result<[AchievementUnlockDefinition], Error>) -> Void) { completion(.success([])) }
+    func saveAchievementUnlock(_ unlock: AchievementUnlockDefinition, completion: @escaping (Result<Void, Error>) -> Void) { completion(.success(())) }
+    func fetchDailyAggregate(dateKey: String, completion: @escaping (Result<DailyXPAggregateDefinition?, Error>) -> Void) { completion(.success(nil)) }
+    func saveDailyAggregate(_ aggregate: DailyXPAggregateDefinition, completion: @escaping (Result<Void, Error>) -> Void) { completion(.success(())) }
+    func fetchDailyAggregates(from startDateKey: String, to endDateKey: String, completion: @escaping (Result<[DailyXPAggregateDefinition], Error>) -> Void) { completion(.success([])) }
+    func createFocusSession(_ session: FocusSessionDefinition, completion: @escaping (Result<Void, Error>) -> Void) { completion(.success(())) }
+    func updateFocusSession(_ session: FocusSessionDefinition, completion: @escaping (Result<Void, Error>) -> Void) { completion(.success(())) }
+    func fetchFocusSessions(from startDate: Date, to endDate: Date, completion: @escaping (Result<[FocusSessionDefinition], Error>) -> Void) { completion(.success([])) }
+}
+
+private final class NoOpAssistantActionRepositoryStub: AssistantActionRepositoryProtocol {
+    func createRun(_ run: AssistantActionRunDefinition, completion: @escaping (Result<AssistantActionRunDefinition, Error>) -> Void) { completion(.success(run)) }
+    func updateRun(_ run: AssistantActionRunDefinition, completion: @escaping (Result<AssistantActionRunDefinition, Error>) -> Void) { completion(.success(run)) }
+    func fetchRun(id: UUID, completion: @escaping (Result<AssistantActionRunDefinition?, Error>) -> Void) { completion(.success(nil)) }
+}
+
+private final class NoOpExternalSyncRepositoryStub: ExternalSyncRepositoryProtocol {
+    func fetchContainerMappings(completion: @escaping (Result<[ExternalContainerMapDefinition], Error>) -> Void) { completion(.success([])) }
+    func saveContainerMapping(_ mapping: ExternalContainerMapDefinition, completion: @escaping (Result<Void, Error>) -> Void) { completion(.success(())) }
+    func fetchContainerMapping(provider: String, projectID: UUID, completion: @escaping (Result<ExternalContainerMapDefinition?, Error>) -> Void) { completion(.success(nil)) }
+    func upsertContainerMapping(provider: String, projectID: UUID, mutate: @escaping (ExternalContainerMapDefinition?) -> ExternalContainerMapDefinition, completion: @escaping (Result<ExternalContainerMapDefinition, Error>) -> Void) { completion(.success(mutate(nil))) }
+    func fetchItemMappings(completion: @escaping (Result<[ExternalItemMapDefinition], Error>) -> Void) { completion(.success([])) }
+    func saveItemMapping(_ mapping: ExternalItemMapDefinition, completion: @escaping (Result<Void, Error>) -> Void) { completion(.success(())) }
+    func upsertItemMappingByLocalKey(provider: String, localEntityType: String, localEntityID: UUID, mutate: @escaping (ExternalItemMapDefinition?) -> ExternalItemMapDefinition, completion: @escaping (Result<ExternalItemMapDefinition, Error>) -> Void) { completion(.success(mutate(nil))) }
+    func upsertItemMappingByExternalKey(provider: String, externalItemID: String, mutate: @escaping (ExternalItemMapDefinition?) -> ExternalItemMapDefinition, completion: @escaping (Result<ExternalItemMapDefinition, Error>) -> Void) { completion(.success(mutate(nil))) }
+    func fetchItemMapping(provider: String, localEntityType: String, localEntityID: UUID, completion: @escaping (Result<ExternalItemMapDefinition?, Error>) -> Void) { completion(.success(nil)) }
+    func fetchItemMapping(provider: String, externalItemID: String, completion: @escaping (Result<ExternalItemMapDefinition?, Error>) -> Void) { completion(.success(nil)) }
 }
 
 private extension CoreDataProjectRepositoryLifeAreaMutationTests {

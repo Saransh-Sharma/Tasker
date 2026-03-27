@@ -251,6 +251,7 @@ public final class CoreDataHabitRuntimeReadRepository: HabitRuntimeReadRepositor
                         projectID: habit.projectID,
                         projectName: ownership?.projectName,
                         icon: habit.icon,
+                        colorHex: habit.colorHex,
                         isPaused: habit.isPaused,
                         isArchived: habit.isArchived,
                         currentStreak: habit.streakCurrent,

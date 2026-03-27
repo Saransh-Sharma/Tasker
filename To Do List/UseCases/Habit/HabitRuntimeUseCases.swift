@@ -27,6 +27,17 @@ public enum HabitRuntimeError: LocalizedError {
     }
 }
 
+enum HabitDeleteCompensationError: LocalizedError {
+    case restoreFailed(underlying: Error, restoreError: Error)
+
+    var errorDescription: String? {
+        switch self {
+        case .restoreFailed:
+            return "Deleting the habit failed and the rollback could not fully restore the previous state."
+        }
+    }
+}
+
 public struct CreateHabitRequest: Codable, Equatable, Hashable {
     public let id: UUID
     public var title: String
@@ -35,6 +46,7 @@ public struct CreateHabitRequest: Codable, Equatable, Hashable {
     public var kind: HabitKind
     public var trackingMode: HabitTrackingMode
     public var icon: HabitIconMetadata
+    public var colorHex: String?
     public var targetConfig: HabitTargetConfig
     public var metricConfig: HabitMetricConfig
     public var cadence: HabitCadenceDraft
@@ -50,6 +62,7 @@ public struct CreateHabitRequest: Codable, Equatable, Hashable {
         kind: HabitKind,
         trackingMode: HabitTrackingMode,
         icon: HabitIconMetadata,
+        colorHex: String? = nil,
         targetConfig: HabitTargetConfig = .init(),
         metricConfig: HabitMetricConfig = .init(),
         cadence: HabitCadenceDraft = .daily(),
@@ -64,6 +77,7 @@ public struct CreateHabitRequest: Codable, Equatable, Hashable {
         self.kind = kind
         self.trackingMode = trackingMode
         self.icon = icon
+        self.colorHex = colorHex
         self.targetConfig = targetConfig
         self.metricConfig = metricConfig
         self.cadence = cadence
@@ -82,6 +96,7 @@ public struct UpdateHabitRequest: Codable, Equatable, Hashable {
     public var kind: HabitKind?
     public var trackingMode: HabitTrackingMode?
     public var icon: HabitIconMetadata?
+    public var colorHex: String?
     public var targetConfig: HabitTargetConfig?
     public var metricConfig: HabitMetricConfig?
     public var cadence: HabitCadenceDraft?
@@ -99,6 +114,7 @@ public struct UpdateHabitRequest: Codable, Equatable, Hashable {
         kind: HabitKind? = nil,
         trackingMode: HabitTrackingMode? = nil,
         icon: HabitIconMetadata? = nil,
+        colorHex: String? = nil,
         targetConfig: HabitTargetConfig? = nil,
         metricConfig: HabitMetricConfig? = nil,
         cadence: HabitCadenceDraft? = nil,
@@ -115,6 +131,7 @@ public struct UpdateHabitRequest: Codable, Equatable, Hashable {
         self.kind = kind
         self.trackingMode = trackingMode
         self.icon = icon
+        self.colorHex = colorHex
         self.targetConfig = targetConfig
         self.metricConfig = metricConfig
         self.cadence = cadence
@@ -485,6 +502,7 @@ public final class CreateHabitUseCase {
                     trackingModeRaw: trackingMode.rawValue,
                     iconSymbolName: request.icon.symbolName,
                     iconCategoryKey: request.icon.categoryKey,
+                    colorHex: request.colorHex,
                     targetConfigData: HabitRuntimeSupport.encode(request.targetConfig),
                     metricConfigData: HabitRuntimeSupport.encode(request.metricConfig),
                     notes: request.targetConfig.notes,
@@ -690,6 +708,9 @@ public final class UpdateHabitUseCase {
                                 habit.trackingMode = resolvedTrackingMode
                                 if let icon = request.icon {
                                     habit.icon = icon
+                                }
+                                if let colorHex = request.colorHex {
+                                    habit.colorHex = colorHex
                                 }
                                 if let targetConfig = request.targetConfig {
                                     habit.targetConfig = targetConfig
@@ -1078,6 +1099,340 @@ public final class ArchiveHabitUseCase {
                         }
                     }
                 }
+            }
+        }
+    }
+}
+
+public final class SetHabitArchivedUseCase {
+    private let habitRepository: HabitRepositoryProtocol
+    private let pauseHabitUseCase: PauseHabitUseCase
+    private let maintainHabitRuntimeUseCase: MaintainHabitRuntimeUseCase
+
+    public init(
+        habitRepository: HabitRepositoryProtocol,
+        pauseHabitUseCase: PauseHabitUseCase,
+        maintainHabitRuntimeUseCase: MaintainHabitRuntimeUseCase
+    ) {
+        self.habitRepository = habitRepository
+        self.pauseHabitUseCase = pauseHabitUseCase
+        self.maintainHabitRuntimeUseCase = maintainHabitRuntimeUseCase
+    }
+
+    public func execute(
+        id: UUID,
+        isArchived: Bool,
+        completion: @escaping (Result<HabitDefinitionRecord, Error>) -> Void
+    ) {
+        habitRepository.fetchAll { result in
+            switch result {
+            case .failure(let error):
+                completion(.failure(error))
+            case .success(let habits):
+                guard let existingHabit = habits.first(where: { $0.id == id }) else {
+                    completion(.failure(HabitRuntimeError.habitNotFound))
+                    return
+                }
+
+                var habit = existingHabit
+                habit.archivedAt = isArchived ? Date() : nil
+                habit.isPaused = isArchived
+                habit.updatedAt = Date()
+
+                self.habitRepository.update(habit) { updateResult in
+                    switch updateResult {
+                    case .failure(let error):
+                        completion(.failure(error))
+                    case .success(let updatedHabit):
+                        self.pauseHabitUseCase.execute(id: id, isPaused: isArchived) { pauseResult in
+                            switch pauseResult {
+                            case .failure(let error):
+                                self.habitRepository.update(existingHabit) { _ in
+                                    completion(.failure(error))
+                                }
+                            case .success:
+                                TaskNotificationDispatcher.postOnMain(name: .homeHabitMutation, object: updatedHabit)
+                                completion(.success(updatedHabit))
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+public final class DeleteHabitUseCase {
+    private struct ScheduleTemplateSnapshot {
+        let template: ScheduleTemplateDefinition
+        let rules: [ScheduleRuleDefinition]
+        let exceptions: [ScheduleExceptionDefinition]
+    }
+
+    private let habitRepository: HabitRepositoryProtocol
+    private let scheduleRepository: ScheduleRepositoryProtocol
+    private let maintainHabitRuntimeUseCase: MaintainHabitRuntimeUseCase
+
+    public init(
+        habitRepository: HabitRepositoryProtocol,
+        scheduleRepository: ScheduleRepositoryProtocol,
+        maintainHabitRuntimeUseCase: MaintainHabitRuntimeUseCase
+    ) {
+        self.habitRepository = habitRepository
+        self.scheduleRepository = scheduleRepository
+        self.maintainHabitRuntimeUseCase = maintainHabitRuntimeUseCase
+    }
+
+    public func execute(
+        id: UUID,
+        completion: @escaping (Result<Void, Error>) -> Void
+    ) {
+        habitRepository.fetchAll { result in
+            switch result {
+            case .failure(let error):
+                completion(.failure(error))
+            case .success(let habits):
+                guard let habit = habits.first(where: { $0.id == id }) else {
+                    completion(.success(()))
+                    return
+                }
+
+                self.captureScheduleSnapshots(for: id) { snapshotResult in
+                    switch snapshotResult {
+                    case .failure(let error):
+                        completion(.failure(error))
+                    case .success(let snapshots):
+                        self.habitRepository.delete(id: id) { deleteHabitResult in
+                            switch deleteHabitResult {
+                            case .failure(let error):
+                                completion(.failure(error))
+                            case .success:
+                                let habitTemplateIDs = snapshots.map(\.template.id)
+                                self.deleteTemplates(habitTemplateIDs) { deleteTemplateResult in
+                                    switch deleteTemplateResult {
+                                    case .failure(let error):
+                                        self.completeWithRestoreAttempt(
+                                            habit: habit,
+                                            scheduleSnapshots: snapshots,
+                                            underlyingError: error,
+                                            completion: completion
+                                        )
+                                    case .success:
+                                        self.maintainHabitRuntimeUseCase.execute(anchorDate: Date()) { maintainResult in
+                                            switch maintainResult {
+                                            case .failure(let error):
+                                                self.completeWithRestoreAttempt(
+                                                    habit: habit,
+                                                    scheduleSnapshots: snapshots,
+                                                    underlyingError: error,
+                                                    completion: completion
+                                                )
+                                            case .success:
+                                                TaskNotificationDispatcher.postOnMain(name: .homeHabitMutation, object: habit)
+                                                completion(.success(()))
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private func completeWithRestoreAttempt(
+        habit: HabitDefinitionRecord,
+        scheduleSnapshots: [ScheduleTemplateSnapshot],
+        underlyingError: Error,
+        completion: @escaping (Result<Void, Error>) -> Void
+    ) {
+        restoreDeletedHabit(habit, scheduleSnapshots: scheduleSnapshots) { restoreResult in
+            switch restoreResult {
+            case .success:
+                completion(.failure(underlyingError))
+            case .failure(let restoreError):
+                completion(.failure(HabitDeleteCompensationError.restoreFailed(
+                    underlying: underlyingError,
+                    restoreError: restoreError
+                )))
+            }
+        }
+    }
+
+    private func captureScheduleSnapshots(
+        for habitID: UUID,
+        completion: @escaping (Result<[ScheduleTemplateSnapshot], Error>) -> Void
+    ) {
+        scheduleRepository.fetchTemplates { result in
+            switch result {
+            case .failure(let error):
+                completion(.failure(error))
+            case .success(let templates):
+                let habitTemplates = templates.filter { $0.sourceType == .habit && $0.sourceID == habitID }
+                self.captureSnapshots(for: habitTemplates, collected: [], completion: completion)
+            }
+        }
+    }
+
+    private func captureSnapshots(
+        for templates: [ScheduleTemplateDefinition],
+        collected: [ScheduleTemplateSnapshot],
+        completion: @escaping (Result<[ScheduleTemplateSnapshot], Error>) -> Void
+    ) {
+        guard let template = templates.first else {
+            completion(.success(collected))
+            return
+        }
+
+        scheduleRepository.fetchRules(templateID: template.id) { rulesResult in
+            switch rulesResult {
+            case .failure(let error):
+                completion(.failure(error))
+            case .success(let rules):
+                self.scheduleRepository.fetchExceptions(templateID: template.id) { exceptionsResult in
+                    switch exceptionsResult {
+                    case .failure(let error):
+                        completion(.failure(error))
+                    case .success(let exceptions):
+                        let snapshot = ScheduleTemplateSnapshot(
+                            template: template,
+                            rules: rules,
+                            exceptions: exceptions
+                        )
+                        self.captureSnapshots(
+                            for: Array(templates.dropFirst()),
+                            collected: collected + [snapshot],
+                            completion: completion
+                        )
+                    }
+                }
+            }
+        }
+    }
+
+    private func deleteTemplates(
+        _ ids: [UUID],
+        completion: @escaping (Result<Void, Error>) -> Void
+    ) {
+        guard let id = ids.first else {
+            completion(.success(()))
+            return
+        }
+
+        scheduleRepository.deleteTemplate(id: id) { result in
+            switch result {
+            case .failure(let error):
+                completion(.failure(error))
+            case .success:
+                self.deleteTemplates(Array(ids.dropFirst()), completion: completion)
+            }
+        }
+    }
+
+    private func restoreDeletedHabit(
+        _ habit: HabitDefinitionRecord,
+        scheduleSnapshots: [ScheduleTemplateSnapshot],
+        completion: @escaping (Result<Void, Error>) -> Void
+    ) {
+        habitRepository.create(habit) { createResult in
+            switch createResult {
+            case .failure(let error):
+                completion(.failure(error))
+            case .success:
+                self.deleteCurrentTemplates(for: habit.id) { deleteTemplatesResult in
+                    switch deleteTemplatesResult {
+                    case .failure(let error):
+                        completion(.failure(error))
+                    case .success:
+                        self.restoreScheduleSnapshots(scheduleSnapshots) { restoreResult in
+                            switch restoreResult {
+                            case .failure(let error):
+                                completion(.failure(error))
+                            case .success:
+                                self.maintainHabitRuntimeUseCase.execute(anchorDate: Date()) { maintainResult in
+                                    completion(maintainResult.map { _ in () })
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private func deleteCurrentTemplates(
+        for habitID: UUID,
+        completion: @escaping (Result<Void, Error>) -> Void
+    ) {
+        scheduleRepository.fetchTemplates { result in
+            switch result {
+            case .failure(let error):
+                completion(.failure(error))
+            case .success(let templates):
+                let currentTemplateIDs = templates
+                    .filter { $0.sourceType == .habit && $0.sourceID == habitID }
+                    .map(\.id)
+                self.deleteTemplates(currentTemplateIDs, completion: completion)
+            }
+        }
+    }
+
+    private func restoreScheduleSnapshots(
+        _ snapshots: [ScheduleTemplateSnapshot],
+        completion: @escaping (Result<Void, Error>) -> Void
+    ) {
+        guard let snapshot = snapshots.first else {
+            completion(.success(()))
+            return
+        }
+
+        scheduleRepository.saveTemplate(snapshot.template) { templateResult in
+            switch templateResult {
+            case .failure(let error):
+                completion(.failure(error))
+            case .success:
+                self.scheduleRepository.replaceRules(templateID: snapshot.template.id, rules: snapshot.rules) { rulesResult in
+                    switch rulesResult {
+                    case .failure(let error):
+                        completion(.failure(error))
+                    case .success:
+                        self.restoreExceptions(
+                            snapshot.exceptions,
+                            templateID: snapshot.template.id
+                        ) { exceptionsResult in
+                            switch exceptionsResult {
+                            case .failure(let error):
+                                completion(.failure(error))
+                            case .success:
+                                self.restoreScheduleSnapshots(Array(snapshots.dropFirst()), completion: completion)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private func restoreExceptions(
+        _ exceptions: [ScheduleExceptionDefinition],
+        templateID: UUID,
+        completion: @escaping (Result<Void, Error>) -> Void
+    ) {
+        guard let exception = exceptions.first else {
+            completion(.success(()))
+            return
+        }
+
+        var restored = exception
+        restored.scheduleTemplateID = templateID
+        scheduleRepository.saveException(restored) { result in
+            switch result {
+            case .failure(let error):
+                completion(.failure(error))
+            case .success:
+                self.restoreExceptions(Array(exceptions.dropFirst()), templateID: templateID, completion: completion)
             }
         }
     }

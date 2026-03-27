@@ -114,6 +114,7 @@ public final class CoreDataHabitRepository: HabitRepositoryProtocol {
             "trackingModeRaw",
             "iconSymbolName",
             "iconCategoryKey",
+            "colorHex",
             "notes",
             "archivedAt",
             "successMask14Raw",

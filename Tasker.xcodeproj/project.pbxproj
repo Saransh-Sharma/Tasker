@@ -213,6 +213,7 @@
 		75E929F32E8C7B6B00207270 /* TaskEvents.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75E929E72E8C7B6B00207270 /* TaskEvents.swift */; };
 		75E929F42E8C7B6B00207270 /* ProjectEvents.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75E929E62E8C7B6B00207270 /* ProjectEvents.swift */; };
 		75E92A402E8C82BD00207270 /* UseCaseCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75E929F82E8C82BD00207270 /* UseCaseCoordinator.swift */; };
+		C1B2C3D4E5F60718293A4B5D /* LifeManagementDestructiveFlowCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = C1B2C3D4E5F60718293A4B5C /* LifeManagementDestructiveFlowCoordinator.swift */; };
 		75E92A422E8C82BD00207270 /* GenerateProductivityReportUseCase.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75E929F62E8C82BD00207270 /* GenerateProductivityReportUseCase.swift */; };
 		75E92A432E8C82BD00207270 /* GetProjectStatisticsUseCase.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75E929FB2E8C82BD00207270 /* GetProjectStatisticsUseCase.swift */; };
 		75E92A492E8C82BD00207270 /* FilterProjectsUseCase.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75E929FA2E8C82BD00207270 /* FilterProjectsUseCase.swift */; };
@@ -725,6 +726,7 @@
 		75E929F52E8C82BD00207270 /* CalculateAnalyticsUseCase.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalculateAnalyticsUseCase.swift; sourceTree = "<group>"; };
 		75E929F62E8C82BD00207270 /* GenerateProductivityReportUseCase.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GenerateProductivityReportUseCase.swift; sourceTree = "<group>"; };
 		75E929F82E8C82BD00207270 /* UseCaseCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UseCaseCoordinator.swift; sourceTree = "<group>"; };
+		C1B2C3D4E5F60718293A4B5C /* LifeManagementDestructiveFlowCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LifeManagementDestructiveFlowCoordinator.swift; sourceTree = "<group>"; };
 		75E929FA2E8C82BD00207270 /* FilterProjectsUseCase.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FilterProjectsUseCase.swift; sourceTree = "<group>"; };
 		75E929FB2E8C82BD00207270 /* GetProjectStatisticsUseCase.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GetProjectStatisticsUseCase.swift; sourceTree = "<group>"; };
 		75E929FC2E8C82BD00207270 /* ManageProjectsUseCase.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ManageProjectsUseCase.swift; sourceTree = "<group>"; };
@@ -1991,6 +1993,7 @@
 		75E929F92E8C82BD00207270 /* Coordinator */ = {
 			isa = PBXGroup;
 			children = (
+				C1B2C3D4E5F60718293A4B5C /* LifeManagementDestructiveFlowCoordinator.swift */,
 				75E929F82E8C82BD00207270 /* UseCaseCoordinator.swift */,
 			);
 			path = Coordinator;
@@ -2664,6 +2667,7 @@
 				B1A1C1D1E1F1020304050613 /* ChartCardViewModel.swift in Sources */,
 				B1A1C1D1E1F1020304050614 /* RadarChartCardViewModel.swift in Sources */,
 				B1A1C1D1E1F1020304050615 /* ProjectSelectionViewModel.swift in Sources */,
+				C1B2C3D4E5F60718293A4B5D /* LifeManagementDestructiveFlowCoordinator.swift in Sources */,
 				75E92A402E8C82BD00207270 /* UseCaseCoordinator.swift in Sources */,
 				75E92A422E8C82BD00207270 /* GenerateProductivityReportUseCase.swift in Sources */,
 				75E92A432E8C82BD00207270 /* GetProjectStatisticsUseCase.swift in Sources */,

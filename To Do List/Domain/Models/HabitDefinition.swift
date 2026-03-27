@@ -10,6 +10,7 @@ public struct HabitDefinitionRecord: Codable, Equatable, Hashable {
     public var trackingModeRaw: String?
     public var iconSymbolName: String?
     public var iconCategoryKey: String?
+    public var colorHex: String?
     public var targetConfigData: Data?
     public var metricConfigData: Data?
     public var notes: String?
@@ -34,6 +35,7 @@ public struct HabitDefinitionRecord: Codable, Equatable, Hashable {
         case trackingModeRaw
         case iconSymbolName
         case iconCategoryKey
+        case colorHex
         case targetConfigData
         case metricConfigData
         case notes
@@ -60,6 +62,7 @@ public struct HabitDefinitionRecord: Codable, Equatable, Hashable {
         trackingModeRaw: String? = HabitTrackingMode.dailyCheckIn.rawValue,
         iconSymbolName: String? = nil,
         iconCategoryKey: String? = nil,
+        colorHex: String? = nil,
         targetConfigData: Data? = nil,
         metricConfigData: Data? = nil,
         notes: String? = nil,
@@ -83,6 +86,7 @@ public struct HabitDefinitionRecord: Codable, Equatable, Hashable {
         self.trackingModeRaw = Self.canonicalTrackingModeRaw(trackingModeRaw)
         self.iconSymbolName = iconSymbolName
         self.iconCategoryKey = iconCategoryKey
+        self.colorHex = colorHex
         self.targetConfigData = targetConfigData
         self.metricConfigData = metricConfigData
         self.notes = notes
@@ -110,6 +114,7 @@ public struct HabitDefinitionRecord: Codable, Equatable, Hashable {
             trackingModeRaw: Self.canonicalTrackingModeRaw(try container.decodeIfPresent(String.self, forKey: .trackingModeRaw)),
             iconSymbolName: try container.decodeIfPresent(String.self, forKey: .iconSymbolName),
             iconCategoryKey: try container.decodeIfPresent(String.self, forKey: .iconCategoryKey),
+            colorHex: try container.decodeIfPresent(String.self, forKey: .colorHex),
             targetConfigData: try container.decodeIfPresent(Data.self, forKey: .targetConfigData),
             metricConfigData: try container.decodeIfPresent(Data.self, forKey: .metricConfigData),
             notes: try container.decodeIfPresent(String.self, forKey: .notes),
@@ -137,6 +142,7 @@ public struct HabitDefinitionRecord: Codable, Equatable, Hashable {
         try container.encode(Self.canonicalTrackingModeRaw(trackingModeRaw), forKey: .trackingModeRaw)
         try container.encodeIfPresent(iconSymbolName, forKey: .iconSymbolName)
         try container.encodeIfPresent(iconCategoryKey, forKey: .iconCategoryKey)
+        try container.encodeIfPresent(colorHex, forKey: .colorHex)
         try container.encodeIfPresent(targetConfigData, forKey: .targetConfigData)
         try container.encodeIfPresent(metricConfigData, forKey: .metricConfigData)
         try container.encodeIfPresent(notes, forKey: .notes)

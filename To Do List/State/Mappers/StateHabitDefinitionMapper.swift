@@ -16,6 +16,7 @@ enum StateHabitDefinitionMapper {
             trackingModeRaw: object.value(forKey: "trackingModeRaw") as? String,
             iconSymbolName: object.value(forKey: "iconSymbolName") as? String,
             iconCategoryKey: object.value(forKey: "iconCategoryKey") as? String,
+            colorHex: object.value(forKey: "colorHex") as? String,
             targetConfigData: object.value(forKey: "targetConfigData") as? Data,
             metricConfigData: object.value(forKey: "metricConfigData") as? Data,
             notes: object.value(forKey: "notes") as? String,
@@ -44,6 +45,7 @@ enum StateHabitDefinitionMapper {
         object.setValue(model.trackingModeRaw, forKey: "trackingModeRaw")
         object.setValue(model.iconSymbolName, forKey: "iconSymbolName")
         object.setValue(model.iconCategoryKey, forKey: "iconCategoryKey")
+        object.setValue(model.colorHex, forKey: "colorHex")
         object.setValue(model.targetConfigData, forKey: "targetConfigData")
         object.setValue(model.metricConfigData, forKey: "metricConfigData")
         object.setValue(model.notes, forKey: "notes")
