@@ -27,6 +27,17 @@ public enum HabitRuntimeError: LocalizedError {
     }
 }
 
+enum HabitDeleteCompensationError: LocalizedError {
+    case restoreFailed(underlying: Error, restoreError: Error)
+
+    var errorDescription: String? {
+        switch self {
+        case .restoreFailed:
+            return "Deleting the habit failed and the rollback could not fully restore the previous state."
+        }
+    }
+}
+
 public struct CreateHabitRequest: Codable, Equatable, Hashable {
     public let id: UUID
     public var title: String
@@ -1200,16 +1211,22 @@ public final class DeleteHabitUseCase {
                                 self.deleteTemplates(habitTemplateIDs) { deleteTemplateResult in
                                     switch deleteTemplateResult {
                                     case .failure(let error):
-                                        self.restoreDeletedHabit(habit, scheduleSnapshots: snapshots) { _ in
-                                            completion(.failure(error))
-                                        }
+                                        self.completeWithRestoreAttempt(
+                                            habit: habit,
+                                            scheduleSnapshots: snapshots,
+                                            underlyingError: error,
+                                            completion: completion
+                                        )
                                     case .success:
                                         self.maintainHabitRuntimeUseCase.execute(anchorDate: Date()) { maintainResult in
                                             switch maintainResult {
                                             case .failure(let error):
-                                                self.restoreDeletedHabit(habit, scheduleSnapshots: snapshots) { _ in
-                                                    completion(.failure(error))
-                                                }
+                                                self.completeWithRestoreAttempt(
+                                                    habit: habit,
+                                                    scheduleSnapshots: snapshots,
+                                                    underlyingError: error,
+                                                    completion: completion
+                                                )
                                             case .success:
                                                 TaskNotificationDispatcher.postOnMain(name: .homeHabitMutation, object: habit)
                                                 completion(.success(()))
@@ -1221,6 +1238,25 @@ public final class DeleteHabitUseCase {
                         }
                     }
                 }
+            }
+        }
+    }
+
+    private func completeWithRestoreAttempt(
+        habit: HabitDefinitionRecord,
+        scheduleSnapshots: [ScheduleTemplateSnapshot],
+        underlyingError: Error,
+        completion: @escaping (Result<Void, Error>) -> Void
+    ) {
+        restoreDeletedHabit(habit, scheduleSnapshots: scheduleSnapshots) { restoreResult in
+            switch restoreResult {
+            case .success:
+                completion(.failure(underlyingError))
+            case .failure(let restoreError):
+                completion(.failure(HabitDeleteCompensationError.restoreFailed(
+                    underlying: underlyingError,
+                    restoreError: restoreError
+                )))
             }
         }
     }

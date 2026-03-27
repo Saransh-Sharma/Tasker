@@ -4980,6 +4980,7 @@ private final class InMemoryScheduleRepository: ScheduleRepositoryProtocol {
     var templates: [ScheduleTemplateDefinition] = []
     var rulesByTemplateID: [UUID: [ScheduleRuleDefinition]] = [:]
     var exceptionsByTemplateID: [UUID: [ScheduleExceptionDefinition]] = [:]
+    var deleteTemplateErrorsByID: [UUID: Error] = [:]
 
     func fetchTemplates(completion: @escaping (Result<[ScheduleTemplateDefinition], Error>) -> Void) {
         completion(.success(templates))
@@ -4996,6 +4997,10 @@ private final class InMemoryScheduleRepository: ScheduleRepositoryProtocol {
     }
 
     func deleteTemplate(id: UUID, completion: @escaping (Result<Void, Error>) -> Void) {
+        if let error = deleteTemplateErrorsByID[id] {
+            completion(.failure(error))
+            return
+        }
         templates.removeAll { $0.id == id }
         rulesByTemplateID.removeValue(forKey: id)
         exceptionsByTemplateID.removeValue(forKey: id)
@@ -10222,9 +10227,7 @@ final class AddHabitViewModelValidationTests: XCTestCase {
         let (viewModel, _) = makeViewModel()
 
         viewModel.loadIfNeeded()
-        for _ in 0..<5 {
-            await _Concurrency.Task.yield()
-        }
+        await waitUntil { viewModel.isLoading == false }
 
         XCTAssertNotNil(viewModel.selectedLifeAreaID)
         XCTAssertNotNil(viewModel.selectedIconSymbolName)
@@ -10238,9 +10241,7 @@ final class AddHabitViewModelValidationTests: XCTestCase {
         let (viewModel, habitRepository) = makeViewModel(deferCreateCompletion: true)
 
         viewModel.loadIfNeeded()
-        for _ in 0..<5 {
-            await _Concurrency.Task.yield()
-        }
+        await waitUntil { viewModel.isLoading == false }
 
         viewModel.habitName = "Hydrate"
 
@@ -10268,9 +10269,7 @@ final class AddHabitViewModelValidationTests: XCTestCase {
         let (viewModel, habitRepository) = makeViewModel()
 
         viewModel.loadIfNeeded()
-        for _ in 0..<5 {
-            await _Concurrency.Task.yield()
-        }
+        await waitUntil { viewModel.isLoading == false }
 
         viewModel.habitName = "Hydrate"
         viewModel.selectedColorHex = "3b82f6"
@@ -10280,7 +10279,7 @@ final class AddHabitViewModelValidationTests: XCTestCase {
             XCTAssertNoThrow(try result.get())
             expectation.fulfill()
         }
-        waitForExpectations(timeout: 1.0)
+        await fulfillment(of: [expectation], timeout: 1.0)
 
         let createdHabit = try XCTUnwrap(habitRepository.habitsByID.values.first)
         XCTAssertEqual(createdHabit.colorHex, "#3B82F6")
@@ -10290,9 +10289,7 @@ final class AddHabitViewModelValidationTests: XCTestCase {
         let (viewModel, habitRepository) = makeViewModel()
 
         viewModel.loadIfNeeded()
-        for _ in 0..<5 {
-            await _Concurrency.Task.yield()
-        }
+        await waitUntil { viewModel.isLoading == false }
 
         viewModel.habitName = "Journal"
         viewModel.selectedColorHex = "blue"
@@ -10302,10 +10299,28 @@ final class AddHabitViewModelValidationTests: XCTestCase {
             XCTAssertNoThrow(try result.get())
             expectation.fulfill()
         }
-        waitForExpectations(timeout: 1.0)
+        await fulfillment(of: [expectation], timeout: 1.0)
 
         let createdHabit = try XCTUnwrap(habitRepository.habitsByID.values.first)
         XCTAssertNil(createdHabit.colorHex)
+    }
+
+    private func waitUntil(
+        timeoutNanoseconds: UInt64 = 1_000_000_000,
+        pollIntervalNanoseconds: UInt64 = 10_000_000,
+        condition: @escaping @MainActor () -> Bool
+    ) async {
+        let start = ContinuousClock.now
+        let timeout = Duration.nanoseconds(Int64(timeoutNanoseconds))
+        let pollInterval = Duration.nanoseconds(Int64(pollIntervalNanoseconds))
+
+        while condition() == false {
+            if ContinuousClock.now - start >= timeout {
+                XCTFail("Timed out waiting for condition")
+                return
+            }
+            try? await Task.sleep(for: pollInterval)
+        }
     }
 
     private func makeViewModel(
@@ -10349,6 +10364,135 @@ final class AddHabitViewModelValidationTests: XCTestCase {
                 manageProjectsUseCase: ManageProjectsUseCase(projectRepository: MockProjectRepository(projects: []))
             ),
             habitRepository
+        )
+    }
+}
+
+final class DeleteHabitUseCaseCompensationTests: XCTestCase {
+    func testDeleteHabitReturnsOriginalErrorWhenRestoreSucceeds() {
+        let habitID = UUID()
+        let templateID = UUID()
+        let habit = HabitDefinitionRecord(
+            id: habitID,
+            lifeAreaID: UUID(),
+            title: "Hydrate",
+            habitType: "check_in",
+            createdAt: Date(timeIntervalSince1970: 1_711_036_800),
+            updatedAt: Date(timeIntervalSince1970: 1_711_036_800)
+        )
+        let habitRepository = InMemoryHabitRepository(habits: [habit])
+        let scheduleRepository = InMemoryScheduleRepository()
+        scheduleRepository.templates = [
+            ScheduleTemplateDefinition(
+                id: templateID,
+                sourceType: .habit,
+                sourceID: habitID,
+                timezoneID: "UTC",
+                temporalReference: .anchored,
+                anchorAt: Date(timeIntervalSince1970: 1_711_036_800),
+                isActive: true,
+                createdAt: Date(timeIntervalSince1970: 1_711_036_800),
+                updatedAt: Date(timeIntervalSince1970: 1_711_036_800)
+            )
+        ]
+        let templateDeleteError = NSError(domain: "InMemoryScheduleRepository", code: 501)
+        scheduleRepository.deleteTemplateErrorsByID[templateID] = templateDeleteError
+        let useCase = makeDeleteHabitUseCase(
+            habitRepository: habitRepository,
+            scheduleRepository: scheduleRepository
+        )
+
+        let expectation = expectation(description: "delete habit returns original error")
+        useCase.execute(id: habitID) { result in
+            switch result {
+            case .success:
+                XCTFail("Expected delete failure")
+            case .failure(let error):
+                XCTAssertEqual((error as NSError).code, 501)
+                XCTAssertNotNil(habitRepository.habitsByID[habitID])
+                XCTAssertEqual(scheduleRepository.templates.first?.id, templateID)
+            }
+            expectation.fulfill()
+        }
+
+        waitForExpectations(timeout: 1.0)
+    }
+
+    func testDeleteHabitReturnsCompensationErrorWhenRestoreFails() {
+        let habitID = UUID()
+        let templateID = UUID()
+        let habit = HabitDefinitionRecord(
+            id: habitID,
+            lifeAreaID: UUID(),
+            title: "Hydrate",
+            habitType: "check_in",
+            createdAt: Date(timeIntervalSince1970: 1_711_036_800),
+            updatedAt: Date(timeIntervalSince1970: 1_711_036_800)
+        )
+        let habitRepository = InMemoryHabitRepository(habits: [habit])
+        habitRepository.createError = NSError(domain: "InMemoryHabitRepository", code: 502)
+        let scheduleRepository = InMemoryScheduleRepository()
+        scheduleRepository.templates = [
+            ScheduleTemplateDefinition(
+                id: templateID,
+                sourceType: .habit,
+                sourceID: habitID,
+                timezoneID: "UTC",
+                temporalReference: .anchored,
+                anchorAt: Date(timeIntervalSince1970: 1_711_036_800),
+                isActive: true,
+                createdAt: Date(timeIntervalSince1970: 1_711_036_800),
+                updatedAt: Date(timeIntervalSince1970: 1_711_036_800)
+            )
+        ]
+        scheduleRepository.deleteTemplateErrorsByID[templateID] = NSError(domain: "InMemoryScheduleRepository", code: 501)
+        let useCase = makeDeleteHabitUseCase(
+            habitRepository: habitRepository,
+            scheduleRepository: scheduleRepository
+        )
+
+        let expectation = expectation(description: "delete habit returns compensation error")
+        useCase.execute(id: habitID) { result in
+            switch result {
+            case .success:
+                XCTFail("Expected delete failure")
+            case .failure(let error):
+                guard case let HabitDeleteCompensationError.restoreFailed(underlying, restoreError) = error else {
+                    return XCTFail("Expected restoreFailed, got \(error)")
+                }
+                XCTAssertEqual((underlying as NSError).code, 501)
+                XCTAssertEqual((restoreError as NSError).code, 502)
+                XCTAssertNil(habitRepository.habitsByID[habitID])
+            }
+            expectation.fulfill()
+        }
+
+        waitForExpectations(timeout: 1.0)
+    }
+
+    private func makeDeleteHabitUseCase(
+        habitRepository: InMemoryHabitRepository,
+        scheduleRepository: InMemoryScheduleRepository
+    ) -> DeleteHabitUseCase {
+        let occurrenceRepository = InMemoryOccurrenceRepository()
+        let recompute = RecomputeHabitStreaksUseCase(
+            habitRepository: habitRepository,
+            occurrenceRepository: occurrenceRepository
+        )
+        let engine = RecordingSchedulingEngine(occurrenceRepository: occurrenceRepository)
+        let maintain = MaintainHabitRuntimeUseCase(
+            syncHabitScheduleUseCase: SyncHabitScheduleUseCase(
+                habitRepository: habitRepository,
+                scheduleRepository: scheduleRepository,
+                scheduleEngine: engine,
+                occurrenceRepository: occurrenceRepository,
+                recomputeHabitStreaksUseCase: recompute
+            )
+        )
+        return DeleteHabitUseCase(
+            habitRepository: habitRepository,
+            scheduleRepository: scheduleRepository,
+            maintainHabitRuntimeUseCase: maintain
         )
     }
 }
@@ -10519,6 +10663,7 @@ private final class InMemoryHabitRepository: HabitRepositoryProtocol {
     private(set) var habitsByID: [UUID: HabitDefinitionRecord]
     private(set) var createCallCount = 0
     var deferCreateCompletion = false
+    var createError: Error?
     private var pendingCreateCompletions: [(Result<HabitDefinitionRecord, Error>) -> Void] = []
 
     init(habits: [HabitDefinitionRecord] = []) {
@@ -10535,6 +10680,10 @@ private final class InMemoryHabitRepository: HabitRepositoryProtocol {
 
     func create(_ habit: HabitDefinitionRecord, completion: @escaping (Result<HabitDefinitionRecord, Error>) -> Void) {
         createCallCount += 1
+        if let createError {
+            completion(.failure(createError))
+            return
+        }
         habitsByID[habit.id] = habit
         if deferCreateCompletion {
             pendingCreateCompletions.append(completion)
