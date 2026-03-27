@@ -282,6 +282,7 @@ public final class UseCaseCoordinator {
             manageProjectsUseCase: self.manageProjects,
             updateHabitUseCase: self.updateHabit,
             projectRepository: v2Dependencies.projectRepository,
+            taskDefinitionRepository: v2Dependencies.taskDefinitionRepository,
             lifeAreaRepository: v2Dependencies.lifeAreaRepository,
             habitRuntimeReadRepository: v2Dependencies.habitRuntimeReadRepository
         )

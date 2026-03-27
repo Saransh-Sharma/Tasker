@@ -1420,7 +1420,8 @@ public final class LifeManagementViewModel: ObservableObject {
                 return
             }
             Task { @MainActor in
-                self.performMutation {
+                let started = self.performMutation {
+                    defer { self.resetDragState() }
                     _ = try await self.awaitProjectResult { completion in
                         self.manageProjectsUseCase.moveProjectToLifeArea(
                             projectId: projectID,
@@ -1428,6 +1429,8 @@ public final class LifeManagementViewModel: ObservableObject {
                             completion: completion
                         )
                     }
+                }
+                if started == false {
                     self.resetDragState()
                 }
             }
@@ -1461,8 +1464,9 @@ public final class LifeManagementViewModel: ObservableObject {
         )
     }
 
-    private func performMutation(_ operation: @escaping () async throws -> Void) {
-        guard isMutating == false else { return }
+    @discardableResult
+    private func performMutation(_ operation: @escaping () async throws -> Void) -> Bool {
+        guard isMutating == false else { return false }
         isMutating = true
         errorMessage = nil
 
@@ -1477,6 +1481,8 @@ public final class LifeManagementViewModel: ObservableObject {
                 self.errorMessage = error.localizedDescription
             }
         }
+
+        return true
     }
 
     private func load(runBackfill: Bool, showsLoading: Bool) async {
@@ -1489,8 +1495,7 @@ public final class LifeManagementViewModel: ObservableObject {
             let listedAreas = try await awaitResult { completion in
                 self.manageLifeAreasUseCase.list(completion: completion)
             }
-            let dedupedAreas = dedupeLifeAreasByNormalizedName(listedAreas)
-            let generalArea = try await resolveGeneralLifeArea(from: dedupedAreas.filter { $0.isArchived == false })
+            let generalArea = try await resolveGeneralLifeArea(from: listedAreas.filter { $0.isArchived == false })
 
             if runBackfill || hasPerformedBackfill == false {
                 _ = try? await awaitProjectResult { completion in
@@ -1509,10 +1514,7 @@ public final class LifeManagementViewModel: ObservableObject {
                 self.useCaseCoordinator.getHabitLibrary.execute(includeArchived: true, completion: completion)
             }
 
-            var mergedAreas = dedupedAreas
-            if mergedAreas.contains(where: { $0.id == generalArea.id }) == false {
-                mergedAreas.append(generalArea)
-            }
+            let mergedAreas = Self.mergeLifeAreas(listedAreas, generalArea: generalArea)
 
             sourceLifeAreas = mergedAreas
             generalLifeAreaID = generalArea.id
@@ -1557,13 +1559,26 @@ public final class LifeManagementViewModel: ObservableObject {
         }
     }
 
-    private func dedupeLifeAreasByNormalizedName(_ lifeAreas: [LifeArea]) -> [LifeArea] {
+    static func mergeLifeAreas(_ lifeAreas: [LifeArea], generalArea: LifeArea) -> [LifeArea] {
+        dedupeLifeAreasByNormalizedName(
+            lifeAreas.contains(where: { $0.id == generalArea.id }) ? lifeAreas : lifeAreas + [generalArea],
+            preferredGeneralID: generalArea.id
+        )
+    }
+
+    private static func dedupeLifeAreasByNormalizedName(
+        _ lifeAreas: [LifeArea],
+        preferredGeneralID: UUID?
+    ) -> [LifeArea] {
         var chosenByName: [String: LifeArea] = [:]
         for lifeArea in lifeAreas {
             let normalizedName = normalizedLifeAreaName(lifeArea.name)
             if let existing = chosenByName[normalizedName] {
-                let keepExisting = existing.createdAt <= lifeArea.createdAt
-                chosenByName[normalizedName] = keepExisting ? existing : lifeArea
+                chosenByName[normalizedName] = preferredLifeArea(
+                    between: existing,
+                    and: lifeArea,
+                    preferredGeneralID: preferredGeneralID
+                )
             } else {
                 chosenByName[normalizedName] = lifeArea
             }
@@ -1580,9 +1595,37 @@ public final class LifeManagementViewModel: ObservableObject {
         return deduped
     }
 
-    private func normalizedLifeAreaName(_ name: String) -> String {
+    private static func preferredLifeArea(
+        between existing: LifeArea,
+        and candidate: LifeArea,
+        preferredGeneralID: UUID?
+    ) -> LifeArea {
+        if let preferredGeneralID {
+            let existingIsPreferredGeneral = existing.id == preferredGeneralID
+            let candidateIsPreferredGeneral = candidate.id == preferredGeneralID
+            if existingIsPreferredGeneral != candidateIsPreferredGeneral {
+                return existingIsPreferredGeneral ? existing : candidate
+            }
+        }
+
+        if existing.isArchived != candidate.isArchived {
+            return existing.isArchived ? candidate : existing
+        }
+
+        if existing.createdAt != candidate.createdAt {
+            return existing.createdAt <= candidate.createdAt ? existing : candidate
+        }
+
+        return existing.updatedAt <= candidate.updatedAt ? existing : candidate
+    }
+
+    private static func normalizedLifeAreaName(_ name: String) -> String {
         let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
         return (trimmed.isEmpty ? LifeManagementConstants.generalDisplayName : trimmed).lowercased()
+    }
+
+    private func normalizedLifeAreaName(_ name: String) -> String {
+        Self.normalizedLifeAreaName(name)
     }
 
     private func isGeneralArea(_ area: LifeArea) -> Bool {

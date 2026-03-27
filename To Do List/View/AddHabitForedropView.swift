@@ -985,7 +985,7 @@ struct HabitDetailSheetView: View {
                         HabitDefinitionLine(label: "Project", value: projectName)
                     }
                     HabitDefinitionLine(label: "Cadence", value: cadenceSummary(viewModel.row.cadence))
-                    HabitDefinitionLine(label: "Accent", value: viewModel.row.colorHex?.nilIfBlank == nil ? "Uses area color" : "Custom accent")
+                    HabitDefinitionLine(label: "Accent", value: viewModel.row.colorHex?.nilIfBlank == nil ? "Uses habit kind color" : "Custom accent")
                     if let notes = viewModel.row.notes, notes.isEmpty == false {
                         HabitActionMessageCard(
                             title: "Why this matters",

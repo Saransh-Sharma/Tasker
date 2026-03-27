@@ -55,9 +55,21 @@ public final class LifeManagementDestructiveFlowCoordinator {
         let projectID: UUID?
     }
 
+    private struct ProjectTaskSnapshot {
+        let taskID: UUID
+        let projectID: UUID
+        let lifeAreaID: UUID?
+    }
+
+    private struct ProjectHabitSnapshot {
+        let habitID: UUID
+        let projectID: UUID?
+    }
+
     private let manageProjectsUseCase: ManageProjectsUseCase
     private let updateHabitUseCase: UpdateHabitUseCase
     private let projectRepository: ProjectRepositoryProtocol
+    private let taskDefinitionRepository: TaskDefinitionRepositoryProtocol
     private let lifeAreaRepository: LifeAreaRepositoryProtocol
     private let habitRuntimeReadRepository: HabitRuntimeReadRepositoryProtocol
 
@@ -65,12 +77,14 @@ public final class LifeManagementDestructiveFlowCoordinator {
         manageProjectsUseCase: ManageProjectsUseCase,
         updateHabitUseCase: UpdateHabitUseCase,
         projectRepository: ProjectRepositoryProtocol,
+        taskDefinitionRepository: TaskDefinitionRepositoryProtocol,
         lifeAreaRepository: LifeAreaRepositoryProtocol,
         habitRuntimeReadRepository: HabitRuntimeReadRepositoryProtocol
     ) {
         self.manageProjectsUseCase = manageProjectsUseCase
         self.updateHabitUseCase = updateHabitUseCase
         self.projectRepository = projectRepository
+        self.taskDefinitionRepository = taskDefinitionRepository
         self.lifeAreaRepository = lifeAreaRepository
         self.habitRuntimeReadRepository = habitRuntimeReadRepository
     }
@@ -167,14 +181,32 @@ public final class LifeManagementDestructiveFlowCoordinator {
         }
 
         Task {
+            var movedTasks: [ProjectTaskSnapshot] = []
+            var updatedHabits: [ProjectHabitSnapshot] = []
+
             do {
+                let destinationProject = try await fetchProject(id: request.destinationProjectID)
+                let tasks = try await fetchTasks(inProject: request.projectID)
                 let linkedHabitIDs = try await fetchLinkedHabitIDs(projectID: request.projectID)
 
-                try await awaitVoid { completion in
-                    self.projectRepository.moveTasks(
-                        from: request.projectID,
-                        to: request.destinationProjectID,
-                        completion: completion
+                for task in tasks {
+                    _ = try await awaitTaskResult { completion in
+                        self.taskDefinitionRepository.update(
+                            request: UpdateTaskDefinitionRequest(
+                                id: task.id,
+                                projectID: request.destinationProjectID,
+                                lifeAreaID: destinationProject.lifeAreaID,
+                                clearLifeArea: destinationProject.lifeAreaID == nil
+                            ),
+                            completion: completion
+                        )
+                    }
+                    movedTasks.append(
+                        ProjectTaskSnapshot(
+                            taskID: task.id,
+                            projectID: task.projectID,
+                            lifeAreaID: task.lifeAreaID
+                        )
                     )
                 }
 
@@ -185,6 +217,12 @@ public final class LifeManagementDestructiveFlowCoordinator {
                             completion: completion
                         )
                     }
+                    updatedHabits.append(
+                        ProjectHabitSnapshot(
+                            habitID: habitID,
+                            projectID: request.projectID
+                        )
+                    )
                 }
 
                 _ = try await awaitProjectResult { completion in
@@ -199,6 +237,16 @@ public final class LifeManagementDestructiveFlowCoordinator {
                     completion(.success(()))
                 }
             } catch {
+                if let rollbackError = await rollbackProjectDeletion(
+                    updatedHabits: updatedHabits,
+                    movedTasks: movedTasks
+                ) {
+                    await MainActor.run {
+                        completion(.failure(LifeManagementDestructiveFlowError.rollbackFailed(underlying: error, rollbackError: rollbackError)))
+                    }
+                    return
+                }
+
                 await MainActor.run {
                     completion(.failure(error))
                 }
@@ -206,11 +254,32 @@ public final class LifeManagementDestructiveFlowCoordinator {
         }
     }
 
+    private func fetchProject(id: UUID) async throws -> Project {
+        let project = try await awaitResult { completion in
+            projectRepository.fetchProject(withId: id, completion: completion)
+        }
+        guard let project else {
+            throw NSError(
+                domain: "LifeManagementDestructiveFlowCoordinator",
+                code: 404,
+                userInfo: [NSLocalizedDescriptionKey: "The selected destination project no longer exists."]
+            )
+        }
+        return project
+    }
+
     private func fetchProjects(inLifeArea lifeAreaID: UUID) async throws -> [Project] {
         let projects = try await awaitResult { completion in
             projectRepository.fetchAllProjects(completion: completion)
         }
         return projects.filter { $0.lifeAreaID == lifeAreaID }
+    }
+
+    private func fetchTasks(inProject projectID: UUID) async throws -> [TaskDefinition] {
+        let tasks = try await awaitResult { completion in
+            taskDefinitionRepository.fetchAll(query: nil, completion: completion)
+        }
+        return tasks.filter { $0.projectID == projectID }
     }
 
     private func fetchHabits(inLifeArea lifeAreaID: UUID) async throws -> [HabitLibraryRow] {
@@ -268,6 +337,48 @@ public final class LifeManagementDestructiveFlowCoordinator {
         return nil
     }
 
+    private func rollbackProjectDeletion(
+        updatedHabits: [ProjectHabitSnapshot],
+        movedTasks: [ProjectTaskSnapshot]
+    ) async -> Error? {
+        for habit in updatedHabits.reversed() {
+            do {
+                _ = try await awaitHabitResult { completion in
+                    self.updateHabitUseCase.execute(
+                        request: UpdateHabitRequest(
+                            id: habit.habitID,
+                            projectID: habit.projectID,
+                            clearProject: habit.projectID == nil
+                        ),
+                        completion: completion
+                    )
+                }
+            } catch {
+                return error
+            }
+        }
+
+        for task in movedTasks.reversed() {
+            do {
+                _ = try await awaitTaskResult { completion in
+                    self.taskDefinitionRepository.update(
+                        request: UpdateTaskDefinitionRequest(
+                            id: task.taskID,
+                            projectID: task.projectID,
+                            lifeAreaID: task.lifeAreaID,
+                            clearLifeArea: task.lifeAreaID == nil
+                        ),
+                        completion: completion
+                    )
+                }
+            } catch {
+                return error
+            }
+        }
+
+        return nil
+    }
+
     private func awaitResult<T>(
         _ operation: @escaping (@escaping (Result<T, Error>) -> Void) -> Void
     ) async throws -> T {
@@ -289,6 +400,16 @@ public final class LifeManagementDestructiveFlowCoordinator {
     }
 
     private func awaitHabitResult<T>(
+        _ operation: @escaping (@escaping (Result<T, Error>) -> Void) -> Void
+    ) async throws -> T {
+        try await withCheckedThrowingContinuation { continuation in
+            operation { result in
+                continuation.resume(with: result)
+            }
+        }
+    }
+
+    private func awaitTaskResult<T>(
         _ operation: @escaping (@escaping (Result<T, Error>) -> Void) -> Void
     ) async throws -> T {
         try await withCheckedThrowingContinuation { continuation in
