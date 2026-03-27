@@ -150,6 +150,7 @@
 		7551DA0224880DAC005CF826 /* AddTaskForedropView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7551DA0124880DAC005CF826 /* AddTaskForedropView.swift */; };
 		7551DA0624882E94005CF826 /* ToDoFont.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7551DA0524882E94005CF826 /* ToDoFont.swift */; };
 		7551DA09248832BE005CF826 /* ToDoTimeUtils.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7551DA08248832BE005CF826 /* ToDoTimeUtils.swift */; };
+		8E9F0A1B2C3D4E5F60718293 /* TaskerHexColor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8E9F0A1B2C3D4E5F60718292 /* TaskerHexColor.swift */; };
 		75573CAF2DE88A8000F5A873 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75573CAE2DE88A8000F5A873 /* SettingsView.swift */; };
 		75573CB42DE8954500F5A873 /* ProjectManagementView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75573CB22DE8954500F5A873 /* ProjectManagementView.swift */; };
 		755FE8DC2479220700A71A75 /* LineChart.swift in Sources */ = {isa = PBXBuildFile; fileRef = 755FE8DB2479220700A71A75 /* LineChart.swift */; };
@@ -674,6 +675,7 @@
 		7551DA0124880DAC005CF826 /* AddTaskForedropView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddTaskForedropView.swift; sourceTree = "<group>"; };
 		7551DA0524882E94005CF826 /* ToDoFont.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ToDoFont.swift; sourceTree = "<group>"; };
 		7551DA08248832BE005CF826 /* ToDoTimeUtils.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ToDoTimeUtils.swift; sourceTree = "<group>"; };
+		8E9F0A1B2C3D4E5F60718292 /* TaskerHexColor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TaskerHexColor.swift; sourceTree = "<group>"; };
 		75573CAE2DE88A8000F5A873 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		75573CB22DE8954500F5A873 /* ProjectManagementView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProjectManagementView.swift; sourceTree = "<group>"; };
 		755FE8DB2479220700A71A75 /* LineChart.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LineChart.swift; sourceTree = "<group>"; };
@@ -1591,6 +1593,7 @@
 			isa = PBXGroup;
 			children = (
 				7551DA08248832BE005CF826 /* ToDoTimeUtils.swift */,
+				8E9F0A1B2C3D4E5F60718292 /* TaskerHexColor.swift */,
 				75DFF2D32DF22FC300EB8850 /* DateUtils.swift */,
 				B7C8D9E0F1A2233445566778 /* OverdueAgeFormatter.swift */,
 				75DFF2D42DF22FC300EB8850 /* LoggingService.swift */,
@@ -2610,6 +2613,7 @@
 				75DFF2D72DF22FC300EB8850 /* LoggingService.swift in Sources */,
 				75DFF2D82DF22FC300EB8850 /* DateUtils.swift in Sources */,
 				B7C8D9E0F1A2233445566779 /* OverdueAgeFormatter.swift in Sources */,
+				8E9F0A1B2C3D4E5F60718293 /* TaskerHexColor.swift in Sources */,
 				75F18102245C99CD004D9A69 /* TaskModelV3.xcdatamodeld in Sources */,
 				7529F6F82DFDE9F0000CBE36 /* View+IfModifier.swift in Sources */,
 				758D4D7C24A940C300AB57A8 /* ProjectEntity+CoreDataClass.swift in Sources */,

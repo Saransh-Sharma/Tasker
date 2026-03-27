@@ -256,7 +256,7 @@ public final class LifeManagementDestructiveFlowCoordinator {
 
     private func fetchProject(id: UUID) async throws -> Project {
         let project = try await awaitResult { completion in
-            projectRepository.fetchProject(withId: id, completion: completion)
+            self.projectRepository.fetchProject(withId: id, completion: completion)
         }
         guard let project else {
             throw NSError(
@@ -270,28 +270,28 @@ public final class LifeManagementDestructiveFlowCoordinator {
 
     private func fetchProjects(inLifeArea lifeAreaID: UUID) async throws -> [Project] {
         let projects = try await awaitResult { completion in
-            projectRepository.fetchAllProjects(completion: completion)
+            self.projectRepository.fetchAllProjects(completion: completion)
         }
         return projects.filter { $0.lifeAreaID == lifeAreaID }
     }
 
     private func fetchTasks(inProject projectID: UUID) async throws -> [TaskDefinition] {
         let tasks = try await awaitResult { completion in
-            taskDefinitionRepository.fetchAll(query: nil, completion: completion)
+            self.taskDefinitionRepository.fetchAll(query: nil, completion: completion)
         }
         return tasks.filter { $0.projectID == projectID }
     }
 
     private func fetchHabits(inLifeArea lifeAreaID: UUID) async throws -> [HabitLibraryRow] {
         let habits = try await awaitResult { completion in
-            habitRuntimeReadRepository.fetchHabitLibrary(includeArchived: true, completion: completion)
+            self.habitRuntimeReadRepository.fetchHabitLibrary(includeArchived: true, completion: completion)
         }
         return habits.filter { $0.lifeAreaID == lifeAreaID }
     }
 
     private func fetchLinkedHabitIDs(projectID: UUID) async throws -> [UUID] {
         let habits = try await awaitResult { completion in
-            habitRuntimeReadRepository.fetchHabitLibrary(includeArchived: true, completion: completion)
+            self.habitRuntimeReadRepository.fetchHabitLibrary(includeArchived: true, completion: completion)
         }
         return habits
             .filter { $0.projectID == projectID }
