@@ -47,6 +47,12 @@ node_modules
 dist
 dist-ssr
 *.local
+.vite/
+
+# Local Claude/Codex artifacts
+.claude/worktrees/
+.claude/settings.local.json
+.claude/**/__pycache__/
 
 # Editor directories and files
 .vscode/*
