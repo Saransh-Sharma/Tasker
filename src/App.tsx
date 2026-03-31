@@ -780,7 +780,7 @@ function Landing() {
             Built to last
           </SlideUpText>
           <h2 className="type-section-title mb-8">
-            Serious productivity without <HighlightedText from="bottom" inView>attention extraction</HighlightedText>.
+            Serious productivity without <HighlightedText from="bottom" inView delay={0.48}>attention extraction</HighlightedText>.
           </h2>
           <div className="type-body-lg scroll-reveal mx-auto flex max-w-[42rem] flex-col gap-6 opacity-0 translate-y-6" style={delayStyle(100)}>
             <p>Most productivity software optimizes for return visits, not completed work. It gets louder as the day gets harder.</p>
@@ -794,8 +794,10 @@ function Landing() {
                 text="Saransh"
                 color="rgba(255, 255, 255, 0.88)"
                 fontSize={72}
-                duration={1.25}
-                className="h-auto w-[14rem] md:w-[18rem] drop-shadow-[0_0_24px_rgba(255,255,255,0.08)]"
+                duration={2.2}
+                delay={0.32}
+                inView
+                className="h-auto w-[18rem] max-w-full md:w-[24rem] drop-shadow-[0_0_24px_rgba(255,255,255,0.08)]"
               />
             </div>
           </div>

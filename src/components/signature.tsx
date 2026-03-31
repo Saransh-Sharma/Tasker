@@ -36,7 +36,12 @@ declare global {
   }
 }
 
-const SIGNATURE_HEIGHT = 100;
+const DEFAULT_VIEWBOX = {
+  minX: 0,
+  minY: 0,
+  width: 300,
+  height: 100,
+};
 
 function getAssetUrl(fileName: string) {
   return new URL(`${import.meta.env.BASE_URL}${fileName}`, window.location.origin).toString();
@@ -101,7 +106,7 @@ export function Signature({
   once = true,
 }: SignatureProps) {
   const [paths, setPaths] = useState<string[]>([]);
-  const [width, setWidth] = useState(300);
+  const [viewBox, setViewBox] = useState(DEFAULT_VIEWBOX);
   const [lengths, setLengths] = useState<number[]>([]);
   const [hasFallback, setHasFallback] = useState(false);
   const [isVisible, setIsVisible] = useState(!inView);
@@ -109,9 +114,8 @@ export function Signature({
   const pathRefs = useRef<Array<SVGPathElement | null>>([]);
   const maskId = `signature-reveal-${useId().replace(/:/g, '')}`;
 
-  const horizontalPadding = fontSize * 0.1;
-  const topMargin = Math.max(5, (SIGNATURE_HEIGHT - fontSize) / 2);
-  const baseline = Math.min(SIGNATURE_HEIGHT - 5, topMargin + fontSize);
+  const horizontalPadding = fontSize * 0.18;
+  const baseline = fontSize;
 
   useEffect(() => {
     if (!inView) {
@@ -187,14 +191,24 @@ export function Signature({
 
         if (!cancelled) {
           setPaths(nextPaths);
-          setWidth(x + horizontalPadding);
+          setViewBox({
+            minX: 0,
+            minY: 0,
+            width: x + horizontalPadding * 2.8,
+            height: fontSize * 2.15,
+          });
           setHasFallback(false);
         }
       } catch {
         if (!cancelled) {
           setPaths([]);
           setLengths([]);
-          setWidth(text.length * fontSize * 0.66);
+          setViewBox({
+            minX: 0,
+            minY: 0,
+            width: text.length * fontSize * 0.86,
+            height: fontSize * 1.95,
+          });
           setHasFallback(true);
         }
       }
@@ -212,9 +226,50 @@ export function Signature({
       return;
     }
 
-    const nextLengths = pathRefs.current.slice(0, paths.length).map((path) => path?.getTotalLength() ?? 0);
-    setLengths(nextLengths);
-  }, [paths]);
+    const frameId = window.requestAnimationFrame(() => {
+      const visiblePaths = pathRefs.current.slice(0, paths.length).filter((path): path is SVGPathElement => path !== null);
+
+      if (!visiblePaths.length) {
+        return;
+      }
+
+      let minX = Number.POSITIVE_INFINITY;
+      let minY = Number.POSITIVE_INFINITY;
+      let maxX = Number.NEGATIVE_INFINITY;
+      let maxY = Number.NEGATIVE_INFINITY;
+
+      const nextLengths = visiblePaths.map((path) => {
+        const box = path.getBBox();
+        minX = Math.min(minX, box.x);
+        minY = Math.min(minY, box.y);
+        maxX = Math.max(maxX, box.x + box.width);
+        maxY = Math.max(maxY, box.y + box.height);
+        return path.getTotalLength();
+      });
+
+      setLengths(nextLengths);
+
+      if (
+        Number.isFinite(minX) &&
+        Number.isFinite(minY) &&
+        Number.isFinite(maxX) &&
+        Number.isFinite(maxY)
+      ) {
+        const paddingX = fontSize * 0.34;
+        const paddingTop = fontSize * 0.64;
+        const paddingBottom = fontSize * 0.5;
+
+        setViewBox({
+          minX: minX - paddingX,
+          minY: minY - paddingTop,
+          width: maxX - minX + paddingX * 2,
+          height: maxY - minY + paddingTop + paddingBottom,
+        });
+      }
+    });
+
+    return () => window.cancelAnimationFrame(frameId);
+  }, [fontSize, paths]);
 
   if (hasFallback) {
     return (
@@ -237,9 +292,9 @@ export function Signature({
   return (
     <svg
       ref={svgRef}
-      width={width}
-      height={SIGNATURE_HEIGHT}
-      viewBox={`0 0 ${width} ${SIGNATURE_HEIGHT}`}
+      width={viewBox.width}
+      height={viewBox.height}
+      viewBox={`${viewBox.minX} ${viewBox.minY} ${viewBox.width} ${viewBox.height}`}
       fill="none"
       className={className}
       preserveAspectRatio="xMinYMid meet"
@@ -250,7 +305,7 @@ export function Signature({
         <mask id={maskId} maskUnits="userSpaceOnUse">
           {paths.map((path, index) => {
             const pathLength = lengths[index] ?? 0;
-            const stepDelay = delay + index * 0.2;
+            const stepDelay = delay + index * 0.14;
 
             return (
               <path
@@ -279,7 +334,7 @@ export function Signature({
 
       {paths.map((path, index) => {
         const pathLength = lengths[index] ?? 0;
-        const stepDelay = delay + index * 0.2;
+        const stepDelay = delay + index * 0.14;
 
         return (
           <path
