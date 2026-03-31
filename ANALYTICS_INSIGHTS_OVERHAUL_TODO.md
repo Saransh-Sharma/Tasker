@@ -1,8 +1,0 @@
-- [x] Wire `InsightsViewModel` to task, reminder, and analytics dependencies.
-- [x] Add rich projection models for Today, Week, and Systems analytics.
-- [x] Redesign `InsightsTodayView` with richer cards, charts, and action-first copy.
-- [x] Redesign `InsightsWeekView` with momentum, mix, leaderboard, and trend modules.
-- [x] Redesign `InsightsSystemsView` with system-health modules and progression framing.
-- [x] Update Home/DI integration for the new insights dependencies.
-- [x] Expand unit coverage for projections and refresh behavior.
-- [ ] Run targeted tests for insights and validate build health.
