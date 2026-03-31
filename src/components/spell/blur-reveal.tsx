@@ -17,8 +17,8 @@ export function BlurReveal({
   inView = false,
   once = true,
   as,
-  speedReveal = 1.5,
-  speedSegment = 0.5,
+  speedReveal = 0.85,
+  speedSegment = 0.32,
   letterSpacing,
   style,
 }: BlurRevealProps) {

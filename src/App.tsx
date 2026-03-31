@@ -103,7 +103,7 @@ const surfaceStories: StoryContent[] = [
     id: 'assistant',
     title: (
       <>
-        LLM <HighlightedText from="left" inView>chief of staff</HighlightedText>
+        LLM <HighlightedText from="left" inView delay={0.55}>chief of staff</HighlightedText>
       </>
     ),
     description: 'Ask, plan, and apply with diff previews, confirmation gates, model control, visible undo, and no silent mutations.',
@@ -112,7 +112,7 @@ const surfaceStories: StoryContent[] = [
     id: 'momentum',
     title: (
       <>
-        <HighlightedText from="bottom" inView>XP</HighlightedText>-powered momentum
+        <HighlightedText from="bottom" inView delay={0.42}>XP</HighlightedText>-powered momentum
       </>
     ),
     description: 'Levels, milestones, streak resilience, and recovery-aware loops reward real progress without punishing misses.',
@@ -121,7 +121,7 @@ const surfaceStories: StoryContent[] = [
     id: 'analytics',
     title: (
       <>
-        <HighlightedText from="bottom" inView>Today. Week. Systems.</HighlightedText>
+        <HighlightedText from="bottom" inView delay={0.5}>Today. Week. Systems.</HighlightedText>
       </>
     ),
     description: 'Decision-ready analytics surface pace, pressure, focus health, and recovery patterns so reflection leads to action.',
@@ -255,7 +255,7 @@ const showcaseStories: ShowcaseStory[] = [
     ),
     title: (
       <>
-        A <HighlightedText from="bottom" inView>personal chief of staff</HighlightedText> that proposes before it acts.
+        A <HighlightedText from="bottom" inView delay={0.56}>personal chief of staff</HighlightedText> that proposes before it acts.
       </>
     ),
     description: (
@@ -301,8 +301,8 @@ const showcaseStories: ShowcaseStory[] = [
     eyebrow: 'Momentum analytics',
     title: (
       <>
-        See pace, <HighlightedText from="bottom" inView>XP</HighlightedText>, and recovery across{' '}
-        <HighlightedText from="left" inView>Today. Week. Systems.</HighlightedText>
+        See pace, <HighlightedText from="bottom" inView delay={0.42}>XP</HighlightedText>, and recovery across{' '}
+        <HighlightedText from="left" inView delay={0.64}>Today. Week. Systems.</HighlightedText>
       </>
     ),
     description:
@@ -631,12 +631,16 @@ function Landing() {
           </SpecialText>
           <WordsStagger
             as="h1"
+            stagger={0.1}
+            duration={0.74}
             className="type-display-hero mt-8 drop-shadow-2xl"
           >
             The execution OS for everything on your plate.
           </WordsStagger>
           <BlurReveal
             as="p"
+            speedReveal={1}
+            speedSegment={0.38}
             className="type-body-lg mt-10 max-w-[46rem] drop-shadow-md"
           >
             Tasks, habits, AI planning, XP-driven momentum, and Today, Week, and Systems analytics in one product built to turn intent into follow-through.
@@ -674,7 +678,7 @@ function Landing() {
               Why Tasker
             </SlideUpText>
             <h2 className="type-section-title mb-16 drop-shadow-xl">
-              Built for <HighlightedText from="bottom" inView>real workload</HighlightedText>, not ideal conditions.
+              Built for <HighlightedText from="bottom" inView delay={0.46}>real workload</HighlightedText>, not ideal conditions.
             </h2>
 
             <div className="flex flex-col gap-10">

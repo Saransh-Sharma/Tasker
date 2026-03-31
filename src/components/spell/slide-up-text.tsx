@@ -18,8 +18,8 @@ export function SlideUpText({
   once = true,
   as,
   split = 'words',
-  stagger = 0.08,
-  duration = 0.45,
+  stagger = 0.12,
+  duration = 0.68,
   style,
 }: SlideUpTextProps) {
   const Component = (as ?? 'span') as ElementType;

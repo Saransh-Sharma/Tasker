@@ -31,7 +31,7 @@ export function RandomizedText({
   }, [children, split]);
 
   const randomizedDelays = useMemo(
-    () => elements.map(() => delay + Math.random() * 0.2 + Math.random() * 0.03),
+    () => elements.map(() => delay + Math.random() * 0.32 + Math.random() * 0.06),
     [delay, elements],
   );
 

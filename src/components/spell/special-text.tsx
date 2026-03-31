@@ -24,7 +24,7 @@ export function SpecialText({
   delay = 0,
   inView = false,
   once = true,
-  speed = 20,
+  speed = 38,
 }: SpecialTextProps) {
   const { ref, isActive, prefersReducedMotion } = useAnimatedInView<HTMLSpanElement>({ inView, once });
   const [displayText, setDisplayText] = useState(() => children);

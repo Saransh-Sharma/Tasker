@@ -16,8 +16,8 @@ export function WordsStagger({
   inView = false,
   once = true,
   as,
-  stagger = 0.1,
-  duration = 0.55,
+  stagger = 0.14,
+  duration = 0.82,
   style,
 }: WordsStaggerProps) {
   const Component = (as ?? 'span') as ElementType;
