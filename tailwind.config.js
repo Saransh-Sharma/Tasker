@@ -7,8 +7,8 @@ export default {
   theme: {
     extend: {
       fontFamily: {
-        sans: ['Inter', 'sans-serif'],
-        serif: ['Instrument Serif', 'serif'],
+        sans: ['Geist', 'ui-sans-serif', 'system-ui', 'sans-serif'],
+        serif: ['Instrument Serif', 'Iowan Old Style', 'Georgia', 'serif'],
       },
       colors: {
         border: "hsl(var(--border))",

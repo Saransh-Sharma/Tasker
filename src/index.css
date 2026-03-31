@@ -58,7 +58,75 @@
     @apply border-border;
   }
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background font-sans text-foreground antialiased;
+    text-rendering: optimizeLegibility;
+    font-feature-settings: "rlig" 1, "calt" 1;
+  }
+}
+
+@layer components {
+  .type-brand {
+    @apply font-serif text-[1.85rem] leading-none tracking-[-0.04em] text-white;
+  }
+
+  .type-display-hero {
+    @apply font-serif text-5xl md:text-[7rem] leading-[0.88] tracking-[-0.045em] text-white;
+  }
+
+  .type-section-title {
+    @apply font-serif text-4xl md:text-6xl leading-[0.94] tracking-[-0.04em] text-white;
+  }
+
+  .type-story-title {
+    @apply font-serif text-3xl md:text-[3.25rem] leading-[0.98] tracking-[-0.03em] text-white;
+  }
+
+  .type-eyebrow {
+    @apply font-sans text-[0.72rem] font-medium uppercase tracking-[0.26em] text-white/42;
+  }
+
+  .type-body-lg {
+    @apply font-sans text-[1.03rem] md:text-[1.22rem] font-normal leading-[1.72] tracking-[0.01em] text-white/72;
+  }
+
+  .type-body {
+    @apply font-sans text-[0.98rem] md:text-[1.05rem] font-normal leading-[1.74] tracking-[0.01em] text-white/68;
+  }
+
+  .type-nav {
+    @apply font-sans text-[0.76rem] font-medium uppercase tracking-[0.18em] text-white/56;
+  }
+
+  .type-footer {
+    @apply font-sans text-[0.76rem] font-medium uppercase tracking-[0.16em] text-white/44;
+  }
+
+  .type-meta {
+    @apply font-sans text-[0.74rem] font-medium uppercase tracking-[0.2em] text-white/38;
+  }
+
+  .type-legal-title {
+    @apply font-serif text-4xl md:text-6xl leading-[0.96] tracking-[-0.04em] text-white;
+  }
+
+  .type-legal-heading {
+    @apply font-serif text-[2rem] md:text-[2.35rem] leading-[1.02] tracking-[-0.03em] text-white;
+  }
+
+  .type-legal-body {
+    @apply font-sans text-[1rem] md:text-[1.05rem] font-normal leading-[1.82] tracking-[0.01em] text-white/72;
+  }
+
+  .type-question {
+    @apply font-sans text-[1.05rem] md:text-[1.18rem] font-medium leading-[1.4] tracking-[-0.015em] text-white;
+  }
+
+  .measure-reading {
+    max-width: 65ch;
+  }
+
+  .measure-legal {
+    max-width: 68ch;
   }
 }
 
@@ -112,5 +180,35 @@
     animation: fade-rise 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
     animation-delay: 0.4s;
     opacity: 0;
+  }
+
+  @keyframes signature-draw {
+    to {
+      stroke-dashoffset: 0;
+    }
+  }
+
+  @keyframes signature-show {
+    to {
+      opacity: 1;
+    }
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html:focus-within {
+    scroll-behavior: auto;
+  }
+
+  .scroll-reveal,
+  .animate-fade-rise,
+  .animate-fade-rise-delay,
+  .animate-fade-rise-delay-2,
+  .signature-path,
+  .signature-mask-path {
+    animation: none !important;
+    opacity: 1 !important;
+    transform: none !important;
+    stroke-dashoffset: 0 !important;
   }
 }
