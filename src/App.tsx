@@ -5,6 +5,12 @@ import builtInAI from './assets/marketing-screens/built-in-ai.png';
 import homeScreen from './assets/marketing-screens/home.png';
 import privateAI from './assets/marketing-screens/private-ai.png';
 import tasksHabits from './assets/marketing-screens/tasks-habits.png';
+import { BlurReveal } from './components/spell/blur-reveal';
+import { HighlightedText } from './components/spell/highlighted-text';
+import { RandomizedText } from './components/spell/randomized-text';
+import { SlideUpText } from './components/spell/slide-up-text';
+import { SpecialText } from './components/spell/special-text';
+import { WordsStagger } from './components/spell/words-stagger';
 import { Signature } from './components/signature';
 
 type TextSection = {
@@ -12,10 +18,17 @@ type TextSection = {
   content: ReactNode;
 };
 
+type StoryContent = {
+  id: string;
+  title: ReactNode;
+  description: ReactNode;
+};
+
 type ShowcaseStory = {
-  eyebrow: string;
-  title: string;
-  description: string;
+  id: string;
+  eyebrow: ReactNode;
+  title: ReactNode;
+  description: ReactNode;
   layoutVariant: 'image-left' | 'image-right' | 'paired-right';
   images: Array<{
     src: string;
@@ -24,69 +37,94 @@ type ShowcaseStory = {
   }>;
 };
 
-const audienceNotes = [
+const audienceNotes: StoryContent[] = [
   {
-    title: 'No punishment loops.',
+    id: 'decide-faster',
+    title: 'Decide faster.',
     description:
-      'Gentle restart paths keep low-energy days and interruption-heavy weeks recoverable instead of shame-loaded.',
+      'Home collapses your workload into a bounded next move so you spend less energy negotiating with the backlog.',
   },
   {
-    title: 'High context load.',
+    id: 'restart-faster',
+    title: 'Restart faster.',
     description:
-      'Bounded Now lists and quick views keep deadlines visible without turning the day into a wall of choices.',
+      'Quick views, resume cues, and due pressure make it easier to get moving again after interruptions instead of starting from zero.',
   },
   {
-    title: 'Structure that holds.',
+    id: 'momentum-survives',
+    title: 'Keep momentum through imperfect days.',
     description:
-      'Tasks and habits can live together without perfection logic, brittle streaks, or all-or-nothing resets.',
+      'Tasks, habits, XP, and streak-safe recovery loops keep progress alive even when the week is messy.',
   },
 ];
 
-const loopPhases = [
+const loopPhases: Array<{ step: string; title: ReactNode; description: ReactNode }> = [
   {
     step: '1',
     title: 'Capture.',
-    description: 'Capture quickly with almost no required structure, then clarify when you have more bandwidth.',
+    description: 'Capture work before it disappears, then add structure only when you actually need it.',
   },
   {
     step: '2',
     title: 'Decide.',
-    description: 'Reduce the field to a bounded Now list with choices you can actually act on.',
+    description: 'Turn scattered inputs into a bounded now list with choices you can immediately act on.',
   },
   {
     step: '3',
     title: 'Start.',
-    description: 'Move from plan to action without a noisy interface slowing the handoff.',
+    description: 'Move from plan to action with less setup drag and a cleaner handoff into real work.',
   },
   {
     step: '4',
     title: 'Resume.',
-    description: 'Return after interruptions with just enough context to restart quickly.',
+    description: 'Recover after interruptions with enough context, cues, and timing signals to restart fast.',
   },
   {
     step: '5',
     title: 'Reflect.',
-    description: 'Review completion and recovery patterns without streak pressure or punishment framing.',
+    description: 'Use XP, insights, and recovery signals to improve the system without punishment framing.',
   },
 ];
 
-const surfaceStories = [
+const surfaceStories: StoryContent[] = [
   {
-    title: 'First-class habits',
+    id: 'capture',
+    title: 'Capture at the speed of thought',
     description:
-      'Track supportive and harmful behaviors with check-ins, 14-day history, and recovery-aware loops.',
+      'Fast entry keeps ideas, tasks, and obligations from vanishing while deeper clarify tools stay optional.',
   },
   {
-    title: 'Safe assistant',
-    description: 'Ask, plan, and apply with explicit confirmation, visible undo, and no silent changes.',
+    id: 'tasks-habits',
+    title: 'Tasks and habits in one system',
+    description:
+      'Plan finite work and recurring behavior together without brittle streak logic or a split-brain workflow.',
   },
   {
-    title: 'Momentum insights',
-    description: 'See pace, focus health, completion mix, and return patterns without gamified pressure.',
+    id: 'assistant',
+    title: (
+      <>
+        LLM <HighlightedText from="left" inView>chief of staff</HighlightedText>
+      </>
+    ),
+    description: 'Ask, plan, and apply with diff previews, confirmation gates, model control, visible undo, and no silent mutations.',
   },
   {
-    title: 'Notification boundaries',
-    description: 'Only actionable cues. Tasker cuts stale reminders and keeps prompts proportional to the day.',
+    id: 'momentum',
+    title: (
+      <>
+        <HighlightedText from="bottom" inView>XP</HighlightedText>-powered momentum
+      </>
+    ),
+    description: 'Levels, milestones, streak resilience, and recovery-aware loops reward real progress without punishing misses.',
+  },
+  {
+    id: 'analytics',
+    title: (
+      <>
+        <HighlightedText from="bottom" inView>Today. Week. Systems.</HighlightedText>
+      </>
+    ),
+    description: 'Decision-ready analytics surface pace, pressure, focus health, and recovery patterns so reflection leads to action.',
   },
 ];
 
@@ -181,9 +219,11 @@ const supportFaqs = [
 
 const showcaseStories: ShowcaseStory[] = [
   {
+    id: 'home',
     eyebrow: 'Bounded focus',
-    title: 'Keep now legible.',
-    description: 'Home narrows the active choice set so the next step stays visible without rebuilding context.',
+    title: 'One home for what matters today.',
+    description:
+      'Daily focus, due pressure, and quick views keep the next move visible without forcing you to rebuild context first.',
     layoutVariant: 'image-right',
     images: [
       {
@@ -193,9 +233,11 @@ const showcaseStories: ShowcaseStory[] = [
     ],
   },
   {
-    eyebrow: 'Distinct loops',
-    title: 'Tasks meet habits.',
-    description: 'The day surface can hold both while keeping recurring habits distinct from finite task work.',
+    id: 'tasks-habits',
+    eyebrow: 'Structure that holds',
+    title: 'Tasks and habits, one operating system.',
+    description:
+      'Finite work and recurring behavior live in the same execution system while keeping habits analytically distinct and recovery-aware.',
     layoutVariant: 'image-left',
     images: [
       {
@@ -205,9 +247,26 @@ const showcaseStories: ShowcaseStory[] = [
     ],
   },
   {
-    eyebrow: 'Assistant trust',
-    title: 'Ask, plan, apply.',
-    description: 'Assistant actions propose first, confirm before change, and keep undo visible when a run lands.',
+    id: 'assistant',
+    eyebrow: (
+      <RandomizedText split="chars" inView className="tracking-[0.24em]">
+        CHIEF OF STAFF
+      </RandomizedText>
+    ),
+    title: (
+      <>
+        A <HighlightedText from="bottom" inView>personal chief of staff</HighlightedText> that proposes before it acts.
+      </>
+    ),
+    description: (
+      <>
+        Tasker lets you ask, plan, and apply changes with confirmation gates, diff previews, and bounded undo instead
+        of blind automation.
+        <div className="mt-4 type-system-label text-white/58">
+          <RandomizedText inView>Ask. Plan. Apply.</RandomizedText>
+        </div>
+      </>
+    ),
     layoutVariant: 'image-right',
     images: [
       {
@@ -217,9 +276,18 @@ const showcaseStories: ShowcaseStory[] = [
     ],
   },
   {
-    eyebrow: 'Privacy posture',
-    title: 'Keep control explicit.',
-    description: 'Model choice, privacy posture, and history clearing stay visible so sensitive work never feels ambiguous.',
+    id: 'privacy',
+    eyebrow: 'User-controlled AI',
+    title: 'Model choice and privacy posture stay explicit.',
+    description: (
+      <>
+        Sensitive work never disappears behind vague AI settings. History clearing, model control, and privacy posture
+        stay visible and user-owned.
+        <div className="mt-4 type-system-label text-white/58">
+          <SpecialText inView>NO SILENT MUTATIONS</SpecialText>
+        </div>
+      </>
+    ),
     layoutVariant: 'image-left',
     images: [
       {
@@ -229,9 +297,16 @@ const showcaseStories: ShowcaseStory[] = [
     ],
   },
   {
-    eyebrow: 'Shame-free insights',
-    title: 'Measure recovery, too.',
-    description: 'Today, Week, and Systems surfaces show pace, focus health, and return behavior without punishment framing.',
+    id: 'analytics',
+    eyebrow: 'Momentum analytics',
+    title: (
+      <>
+        See pace, <HighlightedText from="bottom" inView>XP</HighlightedText>, and recovery across{' '}
+        <HighlightedText from="left" inView>Today. Week. Systems.</HighlightedText>
+      </>
+    ),
+    description:
+      'Tasker turns your history into decision support with streak resilience, level progression, focus health, and recovery signals that stay actionable instead of judgmental.',
     layoutVariant: 'paired-right',
     images: [
       {
@@ -261,6 +336,10 @@ function cx(...parts: Array<string | false | null | undefined>) {
 
 function delayStyle(delay: number): CSSProperties {
   return { animationDelay: `${delay}ms` };
+}
+
+function scrollToId(id: string) {
+  document.getElementById(id)?.scrollIntoView({ behavior: 'smooth' });
 }
 
 function useScrollReveal() {
@@ -433,13 +512,24 @@ function ProductShowcase() {
       <div className="pointer-events-none absolute bottom-24 left-0 h-72 w-72 rounded-full bg-[radial-gradient(circle,rgba(255,255,255,0.06),transparent_68%)] blur-3xl" />
 
       <div className="relative z-10 mx-auto max-w-6xl">
-        <div className="scroll-reveal mb-20 max-w-3xl opacity-0 translate-y-6 md:mb-28">
-          <p className="type-eyebrow mb-5">Inside Tasker</p>
-          <h2 className="type-section-title">Proof, not promises.</h2>
-          <p className="type-body-lg measure-reading mt-6">
-            These are the product surfaces designed to clarify the next step, shorten restart time, and preserve
-            momentum without shame loops.
-          </p>
+        <div className="mb-20 max-w-3xl md:mb-28">
+          <SlideUpText inView className="type-eyebrow mb-5 inline-flex">
+            Inside
+          </SlideUpText>
+          <WordsStagger
+            as="h2"
+            inView
+            className="type-section-title"
+          >
+            Proof for every promise.
+          </WordsStagger>
+          <BlurReveal
+            as="p"
+            inView
+            className="type-body-lg measure-reading mt-6"
+          >
+            These product surfaces show how Tasker turns tasks, habits, AI planning, and analytics into a single execution system that keeps momentum alive.
+          </BlurReveal>
         </div>
 
         <div className="space-y-24 md:space-y-32">
@@ -453,7 +543,7 @@ function ProductShowcase() {
 
             return (
               <article
-                key={story.title}
+                key={story.id}
                 className="grid grid-cols-1 items-center gap-10 md:grid-cols-[minmax(0,0.88fr)_minmax(0,1.12fr)] md:gap-16"
               >
                 <div
@@ -466,7 +556,7 @@ function ProductShowcase() {
                 >
                   <p className="type-eyebrow mb-4">{story.eyebrow}</p>
                   <h3 className="type-story-title">{story.title}</h3>
-                  <p className="type-body measure-reading mt-5">{story.description}</p>
+                  <div className="type-body measure-reading mt-5 space-y-3">{story.description}</div>
                 </div>
 
                 <div
@@ -478,7 +568,7 @@ function ProductShowcase() {
                     <div className={mediaLayoutClass}>
                       {story.images.map((image, imageIndex) => (
                         <ScreenshotFrame
-                          key={`${story.title}-${imageIndex}`}
+                          key={`${story.id}-${imageIndex}`}
                           src={image.src}
                           alt={image.alt}
                           className={image.className}
@@ -508,14 +598,17 @@ function Landing() {
             Tasker.
           </div>
           <div className="hidden items-center gap-10 md:flex">
-            <a href="#focus" className="type-nav transition-all duration-300 hover:-translate-y-0.5 hover:text-white">Audience</a>
-            <a href="#flow" className="type-nav transition-all duration-300 hover:-translate-y-0.5 hover:text-white">The Loop</a>
+            <a href="#focus" className="type-nav transition-all duration-300 hover:-translate-y-0.5 hover:text-white">Why Tasker</a>
+            <a href="#flow" className="type-nav transition-all duration-300 hover:-translate-y-0.5 hover:text-white">How It Works</a>
             <a href="#inside" className="type-nav transition-all duration-300 hover:-translate-y-0.5 hover:text-white">Inside</a>
-            <a href="#surfaces" className="type-nav transition-all duration-300 hover:-translate-y-0.5 hover:text-white">Surfaces</a>
+            <a href="#surfaces" className="type-nav transition-all duration-300 hover:-translate-y-0.5 hover:text-white">Standouts</a>
           </div>
           <div>
-            <button className="liquid-glass rounded-full px-6 py-2.5 text-sm font-medium text-white transition-all duration-300 hover:bg-white/10 hover:shadow-[0_0_20px_rgba(255,255,255,0.15)] active:scale-95">
-              Begin
+            <button
+              onClick={() => scrollToId('inside')}
+              className="liquid-glass rounded-full px-6 py-2.5 text-sm font-medium text-white transition-all duration-300 hover:bg-white/10 hover:shadow-[0_0_20px_rgba(255,255,255,0.15)] active:scale-95"
+            >
+              <SlideUpText split="characters">See the system</SlideUpText>
             </button>
           </div>
         </div>
@@ -533,20 +626,33 @@ function Landing() {
         <div className="absolute inset-0 z-[2] bg-[radial-gradient(circle_at_center,transparent_0%,#030305_100%)] opacity-80" />
 
         <div className="relative z-10 mx-auto flex h-full w-full max-w-5xl flex-col items-center justify-center px-6 pt-16 text-center">
-          <h1 className="type-display-hero animate-fade-rise drop-shadow-2xl">Intent to Action.</h1>
-          <p className="type-body-lg mt-10 max-w-[42rem] animate-fade-rise-delay drop-shadow-md">
-            An ADHD-aware planning system for low-friction capture, clearer next actions, and restart-friendly
-            follow-through.
-          </p>
+          <SpecialText className="type-system-label animate-fade-rise text-white/62">
+            PERSONAL CHIEF OF STAFF FOR THE DAY
+          </SpecialText>
+          <WordsStagger
+            as="h1"
+            className="type-display-hero mt-8 drop-shadow-2xl"
+          >
+            The execution OS for everything on your plate.
+          </WordsStagger>
+          <BlurReveal
+            as="p"
+            className="type-body-lg mt-10 max-w-[46rem] drop-shadow-md"
+          >
+            Tasks, habits, AI planning, XP-driven momentum, and Today, Week, and Systems analytics in one product built to turn intent into follow-through.
+          </BlurReveal>
           <button
-            onClick={() => document.getElementById('focus')?.scrollIntoView({ behavior: 'smooth' })}
+            onClick={() => scrollToId('focus')}
             className="liquid-glass group mt-12 flex items-center gap-3 rounded-full px-12 py-4 text-white transition-all duration-300 hover:bg-white/10 hover:shadow-[0_0_30px_rgba(255,255,255,0.15)] active:scale-[0.97] animate-fade-rise-delay-2"
           >
-            <span>Enter Tasker</span>
+            <SlideUpText split="characters">Explore the system</SlideUpText>
             <svg className="h-4 w-4 opacity-50 transition-all duration-300 group-hover:translate-x-1 group-hover:opacity-100" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" />
             </svg>
           </button>
+          <div className="mt-6 type-system-label text-white/54 animate-fade-rise-delay-2">
+            <RandomizedText>Ask. Plan. Apply.</RandomizedText>
+          </div>
         </div>
       </section>
 
@@ -564,14 +670,17 @@ function Landing() {
 
         <div className="relative z-10 mx-auto flex h-full min-h-screen max-w-7xl flex-col justify-center px-8 py-32">
           <div className="max-w-xl">
-            <h2 className="type-section-title scroll-reveal mb-16 opacity-0 translate-y-6 drop-shadow-xl">
-              Execution, <span className="text-gray-400 italic">unlocked.</span>
+            <SlideUpText inView className="type-eyebrow mb-5 inline-flex">
+              Why Tasker
+            </SlideUpText>
+            <h2 className="type-section-title mb-16 drop-shadow-xl">
+              Built for <HighlightedText from="bottom" inView>real workload</HighlightedText>, not ideal conditions.
             </h2>
 
             <div className="flex flex-col gap-10">
               {audienceNotes.map((note, index) => (
                 <div
-                  key={note.title}
+                  key={note.id}
                   className="scroll-reveal group cursor-default opacity-0 translate-y-6"
                   style={delayStyle((index + 1) * 100)}
                 >
@@ -593,12 +702,19 @@ function Landing() {
       <section id="flow" className="relative overflow-hidden bg-[#030305] px-8 pb-40 pt-32">
         <div className="pointer-events-none absolute left-1/2 top-0 h-[400px] w-full max-w-2xl -translate-x-1/2 rounded-full bg-indigo-500/5 blur-[120px]" />
 
-        <h2 className="type-section-title scroll-reveal relative z-10 mb-6 text-center opacity-0 translate-y-6 md:mb-8">
+        <SlideUpText inView className="type-eyebrow relative z-10 mb-5 inline-flex w-full justify-center">
+          How It Works
+        </SlideUpText>
+        <h2 className="type-section-title relative z-10 mb-6 text-center md:mb-8">
           The Five-Phase Loop.
         </h2>
-        <p className="type-body-lg scroll-reveal mx-auto mb-24 max-w-[42rem] text-center opacity-0 translate-y-6">
-          Tasker shapes the execution cycle so every handoff, from capture to recovery, asks less from your brain.
-        </p>
+        <BlurReveal
+          as="p"
+          inView
+          className="type-body-lg mx-auto mb-24 max-w-[44rem] text-center"
+        >
+          Tasker turns capture, decision-making, starting, resuming, and reflection into one operating model for reliable follow-through.
+        </BlurReveal>
 
         <div className="relative z-10 mx-auto grid max-w-7xl grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-5">
           {loopPhases.map((phase, index) => (
@@ -624,13 +740,23 @@ function Landing() {
 
       <section id="surfaces" className="relative border-y border-white/5 bg-[#0A0A0E] px-8 py-32">
         <div className="mx-auto max-w-6xl">
-          <h2 className="type-section-title scroll-reveal mb-20 text-center opacity-0 translate-y-6">
-            Safety. Rules. Intelligence.
+          <SlideUpText inView className="type-eyebrow mb-5 inline-flex w-full justify-center">
+            Standouts
+          </SlideUpText>
+          <h2 className="type-section-title mb-6 text-center">
+            Everything your execution system should do.
           </h2>
-          <div className="grid grid-cols-1 gap-x-12 gap-y-16 md:grid-cols-2">
+          <BlurReveal
+            as="p"
+            inView
+            className="type-body-lg mx-auto mb-20 max-w-[48rem] text-center"
+          >
+            Tasker combines capture speed, habit structure, chief-of-staff AI, XP momentum, and decision-ready analytics without sacrificing privacy, trust, or clarity.
+          </BlurReveal>
+          <div className="grid grid-cols-1 gap-x-12 gap-y-16 md:grid-cols-2 xl:grid-cols-5">
             {surfaceStories.map((story, index) => (
               <div
-                key={story.title}
+                key={story.id}
                 className="scroll-reveal group opacity-0 translate-y-6"
                 style={delayStyle(index * 100)}
               >
@@ -646,16 +772,16 @@ function Landing() {
 
       <section className="relative bg-[#030305] px-8 py-32 md:py-48">
         <div className="mx-auto max-w-3xl text-center">
-          <h2 className="type-section-title scroll-reveal mb-8 opacity-0 translate-y-6">
-            Software as an extension
-            <br />
-            of the mind.
+          <SlideUpText inView className="type-eyebrow mb-5 inline-flex">
+            Built to last
+          </SlideUpText>
+          <h2 className="type-section-title mb-8">
+            Serious productivity without <HighlightedText from="bottom" inView>attention extraction</HighlightedText>.
           </h2>
           <div className="type-body-lg scroll-reveal mx-auto flex max-w-[42rem] flex-col gap-6 opacity-0 translate-y-6" style={delayStyle(100)}>
-            <p>Most productivity software is built to capture attention. It gets louder as your bandwidth gets thinner.</p>
+            <p>Most productivity software optimizes for return visits, not completed work. It gets louder as the day gets harder.</p>
             <p>
-              Tasker is the opposite: a quieter operating layer for work that has to survive real energy, real
-              interruptions, and real privacy constraints. No ads. No addictive loops.
+              Tasker is built as execution infrastructure: a quieter system for deciding, starting, recovering, and improving without ads, shame loops, or ambiguous AI behavior.
             </p>
           </div>
           <div className="scroll-reveal mt-16 opacity-0 translate-y-6" style={delayStyle(200)}>

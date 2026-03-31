@@ -66,59 +66,118 @@
 
 @layer components {
   .type-brand {
-    @apply font-serif text-[1.85rem] leading-none tracking-[-0.04em] text-white;
+    @apply font-serif;
+    font-size: 1.85rem;
+    line-height: 1;
+    letter-spacing: -0.04em;
+    color: rgb(255 255 255);
   }
 
   .type-display-hero {
-    @apply font-serif text-5xl md:text-[7rem] leading-[0.88] tracking-[-0.045em] text-white;
+    @apply font-serif;
+    font-size: 3rem;
+    line-height: 0.88;
+    letter-spacing: -0.045em;
+    color: rgb(255 255 255);
   }
 
   .type-section-title {
-    @apply font-serif text-4xl md:text-6xl leading-[0.94] tracking-[-0.04em] text-white;
+    @apply font-serif;
+    font-size: 2.25rem;
+    line-height: 0.94;
+    letter-spacing: -0.04em;
+    color: rgb(255 255 255);
   }
 
   .type-story-title {
-    @apply font-serif text-3xl md:text-[3.25rem] leading-[0.98] tracking-[-0.03em] text-white;
+    @apply font-serif;
+    font-size: 1.875rem;
+    line-height: 0.98;
+    letter-spacing: -0.03em;
+    color: rgb(255 255 255);
   }
 
   .type-eyebrow {
-    @apply font-sans text-[0.72rem] font-medium uppercase tracking-[0.26em] text-white/42;
+    @apply font-sans font-medium uppercase;
+    font-size: 0.72rem;
+    letter-spacing: 0.26em;
+    color: rgb(255 255 255 / 0.42);
   }
 
   .type-body-lg {
-    @apply font-sans text-[1.03rem] md:text-[1.22rem] font-normal leading-[1.72] tracking-[0.01em] text-white/72;
+    @apply font-sans font-normal;
+    font-size: 1.03rem;
+    line-height: 1.72;
+    letter-spacing: 0.01em;
+    color: rgb(255 255 255 / 0.72);
   }
 
   .type-body {
-    @apply font-sans text-[0.98rem] md:text-[1.05rem] font-normal leading-[1.74] tracking-[0.01em] text-white/68;
+    @apply font-sans font-normal;
+    font-size: 0.98rem;
+    line-height: 1.74;
+    letter-spacing: 0.01em;
+    color: rgb(255 255 255 / 0.68);
   }
 
   .type-nav {
-    @apply font-sans text-[0.76rem] font-medium uppercase tracking-[0.18em] text-white/56;
+    @apply font-sans font-medium uppercase;
+    font-size: 0.76rem;
+    letter-spacing: 0.18em;
+    color: rgb(255 255 255 / 0.56);
   }
 
   .type-footer {
-    @apply font-sans text-[0.76rem] font-medium uppercase tracking-[0.16em] text-white/44;
+    @apply font-sans font-medium uppercase;
+    font-size: 0.76rem;
+    letter-spacing: 0.16em;
+    color: rgb(255 255 255 / 0.44);
   }
 
   .type-meta {
-    @apply font-sans text-[0.74rem] font-medium uppercase tracking-[0.2em] text-white/38;
+    @apply font-sans font-medium uppercase;
+    font-size: 0.74rem;
+    letter-spacing: 0.2em;
+    color: rgb(255 255 255 / 0.38);
   }
 
   .type-legal-title {
-    @apply font-serif text-4xl md:text-6xl leading-[0.96] tracking-[-0.04em] text-white;
+    @apply font-serif;
+    font-size: 2.25rem;
+    line-height: 0.96;
+    letter-spacing: -0.04em;
+    color: rgb(255 255 255);
   }
 
   .type-legal-heading {
-    @apply font-serif text-[2rem] md:text-[2.35rem] leading-[1.02] tracking-[-0.03em] text-white;
+    @apply font-serif;
+    font-size: 2rem;
+    line-height: 1.02;
+    letter-spacing: -0.03em;
+    color: rgb(255 255 255);
   }
 
   .type-legal-body {
-    @apply font-sans text-[1rem] md:text-[1.05rem] font-normal leading-[1.82] tracking-[0.01em] text-white/72;
+    @apply font-sans font-normal;
+    font-size: 1rem;
+    line-height: 1.82;
+    letter-spacing: 0.01em;
+    color: rgb(255 255 255 / 0.72);
   }
 
   .type-question {
-    @apply font-sans text-[1.05rem] md:text-[1.18rem] font-medium leading-[1.4] tracking-[-0.015em] text-white;
+    @apply font-sans font-medium;
+    font-size: 1.05rem;
+    line-height: 1.4;
+    letter-spacing: -0.015em;
+    color: rgb(255 255 255);
+  }
+
+  .type-system-label {
+    @apply font-mono font-medium uppercase;
+    font-size: 0.72rem;
+    letter-spacing: 0.22em;
+    color: rgb(255 255 255 / 0.48);
   }
 
   .measure-reading {
@@ -127,6 +186,44 @@
 
   .measure-legal {
     max-width: 68ch;
+  }
+}
+
+@media (min-width: 768px) {
+  .type-display-hero {
+    font-size: 7rem;
+  }
+
+  .type-section-title {
+    font-size: 3.75rem;
+  }
+
+  .type-story-title {
+    font-size: 3.25rem;
+  }
+
+  .type-body-lg {
+    font-size: 1.22rem;
+  }
+
+  .type-body {
+    font-size: 1.05rem;
+  }
+
+  .type-legal-title {
+    font-size: 3.75rem;
+  }
+
+  .type-legal-heading {
+    font-size: 2.35rem;
+  }
+
+  .type-legal-body {
+    font-size: 1.05rem;
+  }
+
+  .type-question {
+    font-size: 1.18rem;
   }
 }
 
@@ -182,6 +279,88 @@
     opacity: 0;
   }
 
+  @keyframes spell-word-stagger {
+    from {
+      opacity: 0;
+      transform: translateY(0.55em);
+      filter: blur(12px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+      filter: blur(0);
+    }
+  }
+
+  @keyframes spell-blur-reveal {
+    from {
+      opacity: 0;
+      transform: translateY(0.35em);
+      filter: blur(12px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+      filter: blur(0);
+    }
+  }
+
+  @keyframes spell-slide-up {
+    from {
+      transform: translateY(110%);
+    }
+    to {
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes spell-randomized-fade {
+    from {
+      opacity: 0;
+      filter: blur(10px);
+    }
+    to {
+      opacity: 1;
+      filter: blur(0);
+    }
+  }
+
+  @keyframes spell-highlight-slide-left {
+    from {
+      transform: translateX(-100%);
+    }
+    to {
+      transform: translateX(0);
+    }
+  }
+
+  @keyframes spell-highlight-slide-right {
+    from {
+      transform: translateX(100%);
+    }
+    to {
+      transform: translateX(0);
+    }
+  }
+
+  @keyframes spell-highlight-slide-top {
+    from {
+      transform: translateY(-100%);
+    }
+    to {
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes spell-highlight-slide-bottom {
+    from {
+      transform: translateY(100%);
+    }
+    to {
+      transform: translateY(0);
+    }
+  }
+
   @keyframes signature-draw {
     to {
       stroke-dashoffset: 0;
@@ -192,6 +371,117 @@
     to {
       opacity: 1;
     }
+  }
+
+  .spell-words-stagger {
+    display: block;
+  }
+
+  .spell-word-stagger-item {
+    display: inline-block;
+    opacity: 0;
+    transform: translateY(0.55em);
+    filter: blur(12px);
+    will-change: transform, opacity, filter;
+  }
+
+  .spell-word-stagger-item-active {
+    animation-name: spell-word-stagger;
+    animation-fill-mode: forwards;
+    animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  .spell-blur-reveal {
+    display: block;
+  }
+
+  .spell-blur-char {
+    display: inline-block;
+    opacity: 0;
+    transform: translateY(0.35em);
+    filter: blur(12px);
+    will-change: transform, opacity, filter;
+  }
+
+  .spell-blur-char-active {
+    animation-name: spell-blur-reveal;
+    animation-fill-mode: forwards;
+    animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  .spell-highlight {
+    position: relative;
+    display: inline-flex;
+    overflow: hidden;
+    vertical-align: baseline;
+  }
+
+  .spell-highlight-fill {
+    position: absolute;
+    inset: 0;
+    left: -0.15em;
+    right: -0.18em;
+    z-index: 0;
+    background: rgba(255, 255, 255, 0.96);
+    animation-duration: 0.55s;
+    animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
+    animation-fill-mode: forwards;
+  }
+
+  .spell-highlight-content {
+    position: relative;
+    z-index: 1;
+    padding-left: 0.15em;
+    padding-right: 0.18em;
+    color: #fff;
+    mix-blend-mode: difference;
+  }
+
+  .spell-slide-up {
+    display: inline-flex;
+    flex-wrap: wrap;
+    white-space: pre-wrap;
+  }
+
+  .spell-slide-up-clip {
+    position: relative;
+    display: inline-block;
+    overflow: hidden;
+  }
+
+  .spell-slide-up-unit {
+    display: inline-block;
+    transform: translateY(110%);
+    will-change: transform;
+  }
+
+  .spell-slide-up-unit-active {
+    animation-name: spell-slide-up;
+    animation-fill-mode: forwards;
+    animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  .spell-randomized-text {
+    display: inline-block;
+    word-break: break-word;
+  }
+
+  .spell-randomized-unit {
+    display: inline-block;
+    opacity: 0;
+    filter: blur(10px);
+  }
+
+  .spell-randomized-unit-active {
+    animation: spell-randomized-fade 1.2s forwards;
+    animation-timing-function: cubic-bezier(0.19, 1, 0.22, 1);
+  }
+
+  .spell-special-text {
+    display: inline-flex;
+    min-height: 1lh;
+    align-items: center;
+    white-space: nowrap;
   }
 }
 
@@ -204,11 +494,21 @@
   .animate-fade-rise,
   .animate-fade-rise-delay,
   .animate-fade-rise-delay-2,
+  .spell-word-stagger-item,
+  .spell-word-stagger-item-active,
+  .spell-blur-char,
+  .spell-blur-char-active,
+  .spell-slide-up-unit,
+  .spell-slide-up-unit-active,
+  .spell-randomized-unit,
+  .spell-randomized-unit-active,
+  .spell-highlight-fill,
   .signature-path,
   .signature-mask-path {
     animation: none !important;
     opacity: 1 !important;
     transform: none !important;
     stroke-dashoffset: 0 !important;
+    filter: none !important;
   }
 }
