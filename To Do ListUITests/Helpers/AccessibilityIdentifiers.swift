@@ -203,6 +203,8 @@ enum AccessibilityIdentifiers {
         static let useAreas = "onboarding.cta.useAreas"
         static let useProjects = "onboarding.cta.useProjects"
         static let useHabits = "onboarding.cta.useHabits"
+        static let customHabit = "onboarding.cta.customHabit"
+        static let customTask = "onboarding.cta.customTask"
         static let goFinishTask = "onboarding.cta.goFinishTask"
         static let focusPrimary = "onboarding.cta.focusPrimary"
         static let markComplete = "onboarding.cta.markComplete"

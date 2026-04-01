@@ -187,6 +187,7 @@ final class AppOnboardingTests: XCTestCase {
         let snapshot = OnboardingJourneySnapshot(
             step: .habits,
             mode: .guided,
+            entryContext: .establishedWorkspace,
             frictionProfile: .starting,
             selectedLifeAreaIDs: ["health"],
             showAllLifeAreas: false,
@@ -220,6 +221,7 @@ final class AppOnboardingTests: XCTestCase {
         viewModel.prepareForPresentation(snapshot: snapshot)
 
         XCTAssertEqual(viewModel.step, .habits)
+        XCTAssertEqual(viewModel.entryContext, .establishedWorkspace)
         XCTAssertEqual(viewModel.mode, .guided)
         XCTAssertEqual(viewModel.frictionProfile, .starting)
         XCTAssertEqual(viewModel.selectedLifeAreaIDs, Set(["health"]))
@@ -249,6 +251,7 @@ final class AppOnboardingTests: XCTestCase {
         let snapshot = OnboardingJourneySnapshot(
             step: .habits,
             mode: .custom,
+            entryContext: .establishedWorkspace,
             frictionProfile: .choosing,
             selectedLifeAreaIDs: ["health"],
             showAllLifeAreas: true,
@@ -284,12 +287,14 @@ final class AppOnboardingTests: XCTestCase {
 
         let restoredSnapshot = tryUnwrap(context.store.load().journeySnapshot)
         XCTAssertEqual(restoredSnapshot.step, .habits)
+        XCTAssertEqual(restoredSnapshot.entryContext, .establishedWorkspace)
         XCTAssertEqual(restoredSnapshot.selectedLifeAreaIDs, ["health"])
 
         let viewModel = OnboardingFlowModel(stateStore: context.store)
         viewModel.prepareForPresentation(snapshot: restoredSnapshot)
 
         XCTAssertEqual(viewModel.step, .habits)
+        XCTAssertEqual(viewModel.entryContext, .establishedWorkspace)
         XCTAssertEqual(viewModel.mode, .custom)
         XCTAssertEqual(viewModel.selectedLifeAreaIDs, Set(["health"]))
         XCTAssertTrue(viewModel.showAllLifeAreas)
@@ -297,6 +302,60 @@ final class AppOnboardingTests: XCTestCase {
         XCTAssertEqual(viewModel.createdHabits.map(\.title), ["Put your phone on the charger before bed"])
         XCTAssertEqual(viewModel.createdTasks.map(\.id), [task.id])
         XCTAssertEqual(viewModel.focusTaskID, task.id)
+    }
+
+    @MainActor
+    func testPrepareForPresentationWithoutSnapshotDefaultsEntryContextToFreshFlow() {
+        let context = makeStoreContext()
+        defer { context.cleanup() }
+
+        let viewModel = OnboardingFlowModel(stateStore: context.store)
+        viewModel.prepareForPresentation(snapshot: nil)
+
+        XCTAssertEqual(viewModel.step, .welcome)
+        XCTAssertEqual(viewModel.entryContext, .freshFlow)
+    }
+
+    func testJourneySnapshotDecodeDefaultsMissingEntryContextToFreshFlow() throws {
+        let snapshot = OnboardingJourneySnapshot(
+            step: .projects,
+            mode: .guided,
+            selectedLifeAreaIDs: ["health"],
+            showAllLifeAreas: false,
+            projectDrafts: [],
+            resolvedLifeAreas: [],
+            resolvedProjects: [],
+            createdTasks: [],
+            createdTaskTemplateMap: [:],
+            focusIsActive: false,
+            hasSeenSuccess: false
+        )
+
+        let encoded = try JSONEncoder().encode(snapshot)
+        let object = try XCTUnwrap(JSONSerialization.jsonObject(with: encoded) as? [String: Any])
+        var legacyObject = object
+        legacyObject.removeValue(forKey: "entryContext")
+        let legacyData = try JSONSerialization.data(withJSONObject: legacyObject)
+
+        let decoded = try JSONDecoder().decode(OnboardingJourneySnapshot.self, from: legacyData)
+        XCTAssertEqual(decoded.entryContext, .freshFlow)
+    }
+
+    @MainActor
+    func testSelectFrictionUpdatesProfileAndLifeAreaDefaults() {
+        let context = makeStoreContext()
+        defer { context.cleanup() }
+
+        let viewModel = OnboardingFlowModel(stateStore: context.store)
+        viewModel.prepareForPresentation(snapshot: nil)
+
+        viewModel.selectFriction(.remembering)
+
+        XCTAssertEqual(viewModel.frictionProfile, .remembering)
+        XCTAssertEqual(
+            viewModel.selectedLifeAreaIDs,
+            Set(StarterWorkspaceCatalog.defaultLifeAreaSelectionIDs(for: .remembering, mode: .guided))
+        )
     }
 
     @MainActor
@@ -318,6 +377,7 @@ final class AppOnboardingTests: XCTestCase {
         await viewModel.prepareEstablishedWorkspaceEntry()
 
         XCTAssertEqual(viewModel.step, .habits)
+        XCTAssertEqual(viewModel.entryContext, .establishedWorkspace)
         XCTAssertEqual(viewModel.resolvedLifeAreas.map(\.lifeArea.name), ["Career", "Home"])
         XCTAssertEqual(viewModel.resolvedProjects.map(\.project.name), ["Ship one thing", "Home reset"])
         XCTAssertEqual(viewModel.selectedLifeAreaIDs, Set(["career", "home"]))
@@ -457,6 +517,7 @@ final class AppOnboardingTests: XCTestCase {
         viewModel.resetForReplay()
 
         XCTAssertEqual(viewModel.step, .welcome)
+        XCTAssertEqual(viewModel.entryContext, .freshFlow)
         XCTAssertEqual(viewModel.mode, .guided)
         XCTAssertNil(viewModel.frictionProfile)
         XCTAssertTrue(viewModel.selectedLifeAreaIDs.isEmpty)
