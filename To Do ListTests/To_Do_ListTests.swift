@@ -10276,12 +10276,20 @@ final class AddHabitViewModelValidationTests: XCTestCase {
 
         let expectation = expectation(description: "create normalized color")
         viewModel.createHabit { result in
-            XCTAssertNoThrow(try result.get())
+            switch result {
+            case .success:
+                break
+            case .failure(let error):
+                XCTFail("Expected habit creation to succeed, got error: \(error)")
+            }
             expectation.fulfill()
         }
         await fulfillment(of: [expectation], timeout: 1.0)
 
-        let createdHabit = try XCTUnwrap(habitRepository.habitsByID.values.first)
+        guard let createdHabit = habitRepository.habitsByID.values.first else {
+            XCTFail("Expected created habit to be stored")
+            return
+        }
         XCTAssertEqual(createdHabit.colorHex, "#3B82F6")
     }
 
@@ -10296,12 +10304,20 @@ final class AddHabitViewModelValidationTests: XCTestCase {
 
         let expectation = expectation(description: "create invalid color")
         viewModel.createHabit { result in
-            XCTAssertNoThrow(try result.get())
+            switch result {
+            case .success:
+                break
+            case .failure(let error):
+                XCTFail("Expected habit creation to succeed, got error: \(error)")
+            }
             expectation.fulfill()
         }
         await fulfillment(of: [expectation], timeout: 1.0)
 
-        let createdHabit = try XCTUnwrap(habitRepository.habitsByID.values.first)
+        guard let createdHabit = habitRepository.habitsByID.values.first else {
+            XCTFail("Expected created habit to be stored")
+            return
+        }
         XCTAssertNil(createdHabit.colorHex)
     }
 
@@ -10319,7 +10335,7 @@ final class AddHabitViewModelValidationTests: XCTestCase {
                 XCTFail("Timed out waiting for condition")
                 return
             }
-            try? await Task.sleep(for: pollInterval)
+            try? await _Concurrency.Task.sleep(for: pollInterval)
         }
     }
 
