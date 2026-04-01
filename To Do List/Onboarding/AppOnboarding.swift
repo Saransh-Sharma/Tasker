@@ -22,6 +22,8 @@ enum AppOnboardingAccessibilityID {
     static let useAreas = "onboarding.cta.useAreas"
     static let useProjects = "onboarding.cta.useProjects"
     static let useHabits = "onboarding.cta.useHabits"
+    static let customHabit = "onboarding.cta.customHabit"
+    static let customTask = "onboarding.cta.customTask"
     static let goFinishTask = "onboarding.cta.goFinishTask"
     static let focusPrimary = "onboarding.cta.focusPrimary"
     static let markComplete = "onboarding.cta.markComplete"
@@ -83,13 +85,13 @@ enum OnboardingStep: Int, CaseIterable, Codable {
     var progressSubtitle: String {
         switch self {
         case .welcome:
-            return "Start with a small system that works."
+            return "Start with a setup you can keep."
         case .lifeAreas:
             return "Choose your starting areas"
         case .projects:
             return "Confirm your starter projects"
         case .habits:
-            return "Set one rhythm that helps tomorrow feel easier."
+            return "Add one rhythm that makes tomorrow easier."
         case .firstTask:
             return "Pick one tiny task you can finish today."
         case .focusRoom:
@@ -117,13 +119,13 @@ enum OnboardingStep: Int, CaseIterable, Codable {
     var outcomeLabel: String {
         switch self {
         case .welcome:
-            return "Tasker will set up a few areas, suggest one tiny task, and help you finish it."
+            return "Tasker will set up a few core areas, suggest one small first task, and help you finish it."
         case .lifeAreas:
             return "Pick 1–3 areas to start with. We preselected a few good options."
         case .projects:
-            return "We picked one simple project for each area. Change only what feels off."
+            return "Tasker matched one starter project to each area. Adjust only what feels off."
         case .habits:
-            return "Add one helpful habit now, or keep moving and set it up later."
+            return "Add one gentle habit now, or keep moving and come back later."
         case .firstTask:
             return "Start with something that should take two minutes or less."
         case .focusRoom:
@@ -161,30 +163,30 @@ enum OnboardingFrictionProfile: String, CaseIterable, Codable, Identifiable {
     var title: String {
         switch self {
         case .starting:
-            return "Starting"
+            return "Getting started"
         case .choosing:
-            return "Choosing"
+            return "Too many options"
         case .remembering:
-            return "Remembering"
+            return "Keeping track"
         case .finishing:
-            return "Finishing"
+            return "Following through"
         case .overwhelmed:
-            return "Overwhelmed"
+            return "Too much at once"
         }
     }
 
     var helperCopy: String {
         switch self {
         case .starting:
-            return "We’ll suggest the easiest first step."
+            return "Tasker will narrow things to the easiest place to begin."
         case .choosing:
-            return "We’ll reduce options and pick a default."
+            return "Tasker will cut decisions down and pick sensible defaults."
         case .remembering:
-            return "We’ll bring things back at the right time."
+            return "Tasker will bring the next step back when it matters."
         case .finishing:
-            return "We’ll favor tasks with a clear done state."
+            return "Tasker will favor steps with an obvious finish line."
         case .overwhelmed:
-            return "We’ll keep the first setup extra small."
+            return "Tasker will keep the setup light and low-pressure."
         }
     }
 }
@@ -192,6 +194,11 @@ enum OnboardingFrictionProfile: String, CaseIterable, Codable, Identifiable {
 enum OnboardingMode: String, Codable, Equatable {
     case guided
     case custom
+}
+
+enum OnboardingEntryContext: String, Codable, Equatable {
+    case freshFlow
+    case establishedWorkspace
 }
 
 enum OnboardingTaskTemplateState: Equatable {
@@ -347,9 +354,10 @@ struct ResolvedProjectSelection: Codable, Equatable {
 }
 
 struct OnboardingJourneySnapshot: Codable, Equatable {
-    var schemaVersion: Int = 2
+    var schemaVersion: Int = 3
     var step: OnboardingStep
     var mode: OnboardingMode
+    var entryContext: OnboardingEntryContext = .freshFlow
     var frictionProfile: OnboardingFrictionProfile?
     var selectedLifeAreaIDs: [String]
     var showAllLifeAreas: Bool
@@ -375,6 +383,7 @@ extension OnboardingJourneySnapshot {
         case schemaVersion
         case step
         case mode
+        case entryContext
         case frictionProfile
         case selectedLifeAreaIDs
         case showAllLifeAreas
@@ -400,6 +409,7 @@ extension OnboardingJourneySnapshot {
         schemaVersion = try container.decodeIfPresent(Int.self, forKey: .schemaVersion) ?? 2
         step = try container.decode(OnboardingStep.self, forKey: .step)
         mode = try container.decode(OnboardingMode.self, forKey: .mode)
+        entryContext = try container.decodeIfPresent(OnboardingEntryContext.self, forKey: .entryContext) ?? .freshFlow
         frictionProfile = try container.decodeIfPresent(OnboardingFrictionProfile.self, forKey: .frictionProfile)
         selectedLifeAreaIDs = try container.decode([String].self, forKey: .selectedLifeAreaIDs)
         showAllLifeAreas = try container.decode(Bool.self, forKey: .showAllLifeAreas)
@@ -1662,6 +1672,7 @@ final class OnboardingFlowModel: ObservableObject {
 
     @Published var step: OnboardingStep = .welcome
     @Published var mode: OnboardingMode = .guided
+    @Published private(set) var entryContext: OnboardingEntryContext = .freshFlow
     @Published var frictionProfile: OnboardingFrictionProfile?
     @Published var selectedLifeAreaIDs: Set<String> = []
     @Published var showAllLifeAreas = false
@@ -1879,6 +1890,7 @@ final class OnboardingFlowModel: ObservableObject {
 
         guard let snapshot else {
             applyDefaults(mode: .guided, frictionProfile: frictionProfile)
+            entryContext = .freshFlow
             step = .welcome
             successSummary = nil
             persistJourney()
@@ -1887,6 +1899,7 @@ final class OnboardingFlowModel: ObservableObject {
 
         step = snapshot.step
         mode = snapshot.mode
+        entryContext = snapshot.entryContext
         frictionProfile = snapshot.frictionProfile
         selectedLifeAreaIDs = Set(snapshot.selectedLifeAreaIDs)
         showAllLifeAreas = snapshot.showAllLifeAreas
@@ -1920,6 +1933,7 @@ final class OnboardingFlowModel: ObservableObject {
     func resetForReplay() {
         step = .welcome
         mode = .guided
+        entryContext = .freshFlow
         frictionProfile = nil
         selectedLifeAreaIDs = []
         showAllLifeAreas = false
@@ -1964,6 +1978,7 @@ final class OnboardingFlowModel: ObservableObject {
 
     func begin(mode: OnboardingMode) {
         self.mode = mode
+        entryContext = .freshFlow
         applyDefaults(mode: mode, frictionProfile: frictionProfile)
         clearDownstreamState()
         step = .lifeAreas
@@ -2170,6 +2185,7 @@ final class OnboardingFlowModel: ObservableObject {
             }
 
             mode = .guided
+            entryContext = .establishedWorkspace
             selectedLifeAreaIDs = Set(selectedAreaIDs)
             showAllLifeAreas = false
             resolvedLifeAreas = selectedAreas
@@ -2656,6 +2672,7 @@ final class OnboardingFlowModel: ObservableObject {
         let snapshot = OnboardingJourneySnapshot(
             step: step,
             mode: mode,
+            entryContext: entryContext,
             frictionProfile: frictionProfile,
             selectedLifeAreaIDs: StarterWorkspaceCatalog.orderedLifeAreas(for: frictionProfile)
                 .map(\.id)
@@ -3084,6 +3101,22 @@ struct AppOnboardingJourneyView: View {
         layoutClass.isPad ? 1120 : .infinity
     }
 
+    private var isEstablishedWorkspaceEntry: Bool {
+        viewModel.entryContext == .establishedWorkspace
+    }
+
+    private var habitsTitle: String {
+        isEstablishedWorkspaceEntry
+            ? "Your matched setup is ready for its first rhythm."
+            : "Add one rhythm that makes tomorrow easier."
+    }
+
+    private var habitsSubtitle: String {
+        isEstablishedWorkspaceEntry
+            ? "Tasker matched your current areas and projects. Add one habit if it helps, then move into a real first win."
+            : "Add one gentle habit now, or keep moving and come back later."
+    }
+
     var body: some View {
         ZStack {
             AppOnboardingBackground()
@@ -3155,7 +3188,7 @@ struct AppOnboardingJourneyView: View {
                             .font(.tasker(.buttonSmall))
                             .foregroundStyle(OnboardingTheme.textPrimary)
                     }
-                    .buttonStyle(.plain)
+                    .onboardingSecondaryButtonStyle(accent: OnboardingTheme.textPrimary)
                 }
 
                 Spacer()
@@ -3167,9 +3200,7 @@ struct AppOnboardingJourneyView: View {
                             await viewModel.skipToFocusRoom()
                         }
                     }
-                    .font(.tasker(.buttonSmall))
-                    .foregroundStyle(OnboardingTheme.textSecondary)
-                    .buttonStyle(.plain)
+                    .onboardingSecondaryButtonStyle(accent: OnboardingTheme.textSecondary)
                     .accessibilityIdentifier(AppOnboardingAccessibilityID.skipButton)
                 }
             }
@@ -3246,30 +3277,18 @@ struct AppOnboardingJourneyView: View {
             Text("What usually gets in your way?")
                 .font(.tasker(.headline))
                 .foregroundStyle(OnboardingTheme.textPrimary)
-            Text("We’ll tune your first setup so the first step feels easier.")
+            Text("Pick the blocker that sounds most familiar. Tasker will shape the setup around it.")
                 .font(.tasker(.caption1))
                 .foregroundStyle(OnboardingTheme.textSecondary)
 
-            OnboardingChipRail(isAccessibilitySize: dynamicTypeSize.isAccessibilitySize) {
-                ForEach(OnboardingFrictionProfile.allCases) { profile in
-                    OnboardingChoiceChip(
-                        title: profile.title,
-                        isSelected: viewModel.frictionProfile == profile,
-                        allowsMultiline: dynamicTypeSize.isAccessibilitySize
-                    ) {
-                        feedbackController.selection()
-                        viewModel.selectFriction(profile)
-                    }
-                    .frame(maxWidth: dynamicTypeSize.isAccessibilitySize ? .infinity : nil, alignment: .leading)
+            OnboardingFrictionSelector(
+                selectedProfile: viewModel.frictionProfile,
+                isAccessibilitySize: dynamicTypeSize.isAccessibilitySize,
+                onSelect: { profile in
+                    feedbackController.selection()
+                    viewModel.selectFriction(profile)
                 }
-            }
-
-            if let profile = viewModel.frictionProfile {
-                Text(profile.helperCopy)
-                    .font(.tasker(.caption1))
-                    .foregroundStyle(OnboardingTheme.textPrimary)
-                    .padding(.top, spacing.s4)
-            }
+            )
         }
         .padding(spacing.s16)
         .background(OnboardingTheme.surfaceElevated, in: RoundedRectangle(cornerRadius: 28, style: .continuous))
@@ -3293,10 +3312,8 @@ struct AppOnboardingJourneyView: View {
                     viewModel.showAllAreas()
                 } label: {
                     Label("Browse all areas", systemImage: "square.grid.2x2")
-                        .font(.tasker(.buttonSmall))
-                        .foregroundStyle(OnboardingTheme.accent)
                 }
-                .buttonStyle(.plain)
+                .onboardingSecondaryButtonStyle(accent: OnboardingTheme.accent)
             }
 
             LazyVGrid(
@@ -3324,7 +3341,7 @@ struct AppOnboardingJourneyView: View {
         VStack(alignment: .leading, spacing: spacing.sectionGap) {
             OnboardingSectionHeader(
                 title: "Confirm your starter projects",
-                subtitle: "We picked one simple project for each area. Change only what feels off."
+                subtitle: "Tasker matched one starter project to each area. Adjust only what feels off."
             )
 
             ForEach(viewModel.selectedLifeAreas, id: \.id) { area in
@@ -3353,8 +3370,8 @@ struct AppOnboardingJourneyView: View {
     private var habitsStep: some View {
         VStack(alignment: .leading, spacing: spacing.sectionGap) {
             OnboardingSectionHeader(
-                title: "Set one rhythm that helps tomorrow feel easier.",
-                subtitle: "Add one helpful habit now, or keep moving and set it up later.",
+                title: habitsTitle,
+                subtitle: habitsSubtitle,
                 detail: viewModel.createdHabits.isEmpty ? nil : "\(viewModel.createdHabits.count) added"
             )
 
@@ -3379,8 +3396,8 @@ struct AppOnboardingJourneyView: View {
                 }
             } else {
                 OnboardingSelectionSummaryCard(
-                    title: "No starter habit picked for you",
-                    message: "You can keep moving and add your own habit instead."
+                    title: "Keep the setup light",
+                    message: "Skip the starter habit for now and add your own when it feels useful."
                 )
             }
 
@@ -3420,8 +3437,6 @@ struct AppOnboardingJourneyView: View {
                     .padding(.top, spacing.s8)
                 } label: {
                     Text("More ideas")
-                        .font(.tasker(.buttonSmall))
-                        .foregroundStyle(OnboardingTheme.textPrimary)
                 }
                 .padding(spacing.s16)
                 .background(OnboardingTheme.surfaceElevated, in: RoundedRectangle(cornerRadius: 24, style: .continuous))
@@ -3445,10 +3460,10 @@ struct AppOnboardingJourneyView: View {
                     Image(systemName: "repeat.circle")
                         .foregroundStyle(OnboardingTheme.accent)
                     VStack(alignment: .leading, spacing: 2) {
-                        Text("Use my own habit")
+                        Text("Create my own habit")
                             .font(.tasker(.bodyEmphasis))
                             .foregroundStyle(OnboardingTheme.textPrimary)
-                        Text("Start with a rhythm that already makes sense to you.")
+                        Text("Start with a habit that already fits your life.")
                             .font(.tasker(.caption1))
                             .foregroundStyle(OnboardingTheme.textSecondary)
                     }
@@ -3464,6 +3479,9 @@ struct AppOnboardingJourneyView: View {
                 )
             }
             .buttonStyle(.plain)
+            .accessibilityElement(children: .combine)
+            .accessibilityIdentifier(AppOnboardingAccessibilityID.customHabit)
+            .accessibilityLabel("Create my own habit")
         }
     }
 
@@ -3531,8 +3549,6 @@ struct AppOnboardingJourneyView: View {
                     .padding(.top, spacing.s8)
                 } label: {
                     Text("More ideas")
-                        .font(.tasker(.buttonSmall))
-                        .foregroundStyle(OnboardingTheme.textPrimary)
                 }
                 .padding(spacing.s16)
                 .background(OnboardingTheme.surfaceElevated, in: RoundedRectangle(cornerRadius: 24, style: .continuous))
@@ -3570,10 +3586,10 @@ struct AppOnboardingJourneyView: View {
                     Image(systemName: "square.and.pencil")
                         .foregroundStyle(OnboardingTheme.accent)
                     VStack(alignment: .leading, spacing: 2) {
-                        Text("Use my own step")
+                        Text("Create my own first task")
                             .font(.tasker(.bodyEmphasis))
                             .foregroundStyle(OnboardingTheme.textPrimary)
-                        Text("Use your own exact first step.")
+                        Text("Write the exact first task you want to start with.")
                             .font(.tasker(.caption1))
                             .foregroundStyle(OnboardingTheme.textSecondary)
                     }
@@ -3589,6 +3605,9 @@ struct AppOnboardingJourneyView: View {
                 )
             }
             .buttonStyle(.plain)
+            .accessibilityElement(children: .combine)
+            .accessibilityIdentifier(AppOnboardingAccessibilityID.customTask)
+            .accessibilityLabel("Create my own first task")
         }
     }
 
@@ -3836,9 +3855,7 @@ struct AppOnboardingJourneyView: View {
                             feedbackController.light()
                             viewModel.continueWithNextTask()
                         }
-                        .font(.tasker(.buttonSmall))
-                        .foregroundStyle(OnboardingTheme.accent)
-                        .buttonStyle(.plain)
+                        .onboardingSecondaryButtonStyle(accent: OnboardingTheme.accent)
                         .accessibilityIdentifier(AppOnboardingAccessibilityID.breakdownNext)
                     }
                 }
@@ -3850,19 +3867,17 @@ struct AppOnboardingJourneyView: View {
                             feedbackController.medium()
                             viewModel.begin(mode: .guided)
                         } label: {
-                            Text("Start setup")
+                            Text("Start recommended setup")
                                 .frame(maxWidth: .infinity)
                         }
                         .onboardingPrimaryButton()
                         .accessibilityIdentifier(AppOnboardingAccessibilityID.startRecommended)
 
-                        Button("Set it up myself") {
+                        Button("Customize setup") {
                             feedbackController.light()
                             viewModel.begin(mode: .custom)
                         }
-                        .font(.tasker(.buttonSmall))
-                        .foregroundStyle(OnboardingTheme.accent)
-                        .buttonStyle(.plain)
+                        .onboardingSecondaryButtonStyle(accent: OnboardingTheme.accent)
                         .accessibilityIdentifier(AppOnboardingAccessibilityID.customize)
                     }
                 case .lifeAreas:
@@ -3987,21 +4002,21 @@ struct AppOnboardingPromptSheetView: View {
 
     private var promptActionCard: some View {
         VStack(alignment: .leading, spacing: spacing.s16) {
-            Text("What happens")
+            Text("What Tasker will reuse")
                 .font(.tasker(.bodyEmphasis))
                 .foregroundStyle(OnboardingTheme.textPrimary)
             OnboardingChecklistCard(items: [
-                "Reuse matching life areas and starter projects where possible.",
-                "Suggest one helpful habit that supports tomorrow without adding pressure.",
-                "Suggest one tiny task so you can get a real completion quickly.",
-                "No duplicate clutter and no destructive edits to what you already have."
+                "Keep the areas and projects that already fit.",
+                "Suggest one light habit only if it improves tomorrow.",
+                "Guide you into one small completion without duplicate clutter.",
+                "Leave your existing setup intact while you review the next layer."
             ])
 
             VStack(spacing: spacing.s12) {
                 Button {
                     onStart()
                 } label: {
-                    Text("Start")
+                    Text("Review matched setup")
                         .frame(maxWidth: .infinity)
                 }
                 .onboardingPrimaryButton()
@@ -4010,9 +4025,7 @@ struct AppOnboardingPromptSheetView: View {
                 Button("Not now") {
                     onNotNow()
                 }
-                .font(.tasker(.buttonSmall))
-                .foregroundStyle(OnboardingTheme.accent)
-                .buttonStyle(.plain)
+                .onboardingSecondaryButtonStyle(accent: OnboardingTheme.accent)
                 .accessibilityIdentifier(AppOnboardingAccessibilityID.promptDismiss)
             }
         }
@@ -4067,30 +4080,21 @@ private enum OnboardingTheme {
 
 private struct AppOnboardingBackground: View {
     var body: some View {
-        ZStack {
-            LinearGradient(
-                colors: [OnboardingTheme.canvas.opacity(0.96), OnboardingTheme.canvasSecondary.opacity(0.98), OnboardingTheme.canvasElevated.opacity(0.94)],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
-                .overlay(alignment: .center) {
-                    TaskerNoisyGradientBackdrop(opacity: 0.28)
-                        .ignoresSafeArea()
-                }
-
-            RoundedRectangle(cornerRadius: 44, style: .continuous)
-                .fill(OnboardingTheme.accent.opacity(0.04))
-                .frame(width: 380, height: 220)
-                .blur(radius: 42)
-                .rotationEffect(.degrees(12))
-                .offset(x: -128, y: -230)
-
-            RoundedRectangle(cornerRadius: 56, style: .continuous)
-                .fill(OnboardingTheme.accentSecondary.opacity(0.04))
-                .frame(width: 340, height: 240)
-                .blur(radius: 46)
-                .rotationEffect(.degrees(-18))
-                .offset(x: 112, y: 320)
+        LinearGradient(
+            colors: [
+                OnboardingTheme.canvas.opacity(0.98),
+                OnboardingTheme.canvasSecondary.opacity(0.99),
+                OnboardingTheme.canvasElevated.opacity(0.97)
+            ],
+            startPoint: .topLeading,
+            endPoint: .bottomTrailing
+        )
+        .overlay(alignment: .topLeading) {
+            RoundedRectangle(cornerRadius: 80, style: .continuous)
+                .fill(OnboardingTheme.accent.opacity(0.035))
+                .frame(width: 320, height: 220)
+                .blur(radius: 56)
+                .offset(x: -96, y: -84)
         }
     }
 }
@@ -4186,17 +4190,17 @@ private struct OnboardingTrustRow: View {
 private struct OnboardingWelcomeValueStack: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
-            Text("Start with a small system that works.")
+            Text("Start with a setup you can keep.")
                 .font(.tasker(.display))
                 .foregroundStyle(OnboardingTheme.textPrimary)
                 .fixedSize(horizontal: false, vertical: true)
 
-            Text("Tasker will set up a few areas, suggest one tiny task, and help you finish it.")
+            Text("Tasker will set up a few core areas, suggest one small first task, and help you finish it.")
                 .font(.tasker(.body))
                 .foregroundStyle(OnboardingTheme.textSecondary)
                 .fixedSize(horizontal: false, vertical: true)
 
-            Text("You can also add one starter habit so tomorrow begins with less friction.")
+            Text("You can add one starter habit too, so tomorrow feels easier without adding more overhead.")
                 .font(.tasker(.body))
                 .foregroundStyle(OnboardingTheme.textSecondary)
                 .fixedSize(horizontal: false, vertical: true)
@@ -4212,46 +4216,58 @@ private struct OnboardingWelcomeValueStack: View {
     }
 }
 
-private struct OnboardingChipRail<Content: View>: View {
+private struct OnboardingFrictionSelector: View {
+    let selectedProfile: OnboardingFrictionProfile?
     let isAccessibilitySize: Bool
-    let content: Content
+    let onSelect: (OnboardingFrictionProfile) -> Void
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
-    init(isAccessibilitySize: Bool, @ViewBuilder content: () -> Content) {
-        self.isAccessibilitySize = isAccessibilitySize
-        self.content = content()
-    }
+    private let columns = [
+        GridItem(.flexible(minimum: 0), spacing: 10),
+        GridItem(.flexible(minimum: 0), spacing: 10)
+    ]
 
     var body: some View {
-        if isAccessibilitySize {
-            VStack(alignment: .leading, spacing: 8) {
-                content
-            }
-        } else {
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 8) {
-                    content
+        VStack(alignment: .leading, spacing: 12) {
+            if isAccessibilitySize {
+                VStack(alignment: .leading, spacing: 10) {
+                    optionCards
                 }
-                .padding(.horizontal, 2)
-                .padding(.vertical, 2)
+            } else {
+                LazyVGrid(columns: columns, spacing: 10) {
+                    optionCards
+                }
             }
-            .overlay(alignment: .leading) {
-                LinearGradient(
-                    colors: [OnboardingTheme.surfaceElevated, OnboardingTheme.surfaceElevated.opacity(0)],
-                    startPoint: .leading,
-                    endPoint: .trailing
-                )
-                .frame(width: 14)
-                .allowsHitTesting(false)
+
+            HStack(alignment: .center, spacing: 8) {
+                Image(systemName: selectedProfile == nil ? "sparkles" : "checkmark.circle.fill")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(selectedProfile == nil ? OnboardingTheme.textSecondary : OnboardingTheme.accent)
+
+                Text(selectedProfile?.helperCopy ?? "Tasker will shape the setup around whichever blocker feels most familiar.")
+                    .font(.tasker(.caption1))
+                    .foregroundStyle(OnboardingTheme.textPrimary)
+                    .lineLimit(isAccessibilitySize ? nil : 1)
+                    .contentTransition(.opacity)
+                    .id(selectedProfile?.id ?? "none")
             }
-            .overlay(alignment: .trailing) {
-                LinearGradient(
-                    colors: [OnboardingTheme.surfaceElevated.opacity(0), OnboardingTheme.surfaceElevated],
-                    startPoint: .leading,
-                    endPoint: .trailing
-                )
-                .frame(width: 14)
-                .allowsHitTesting(false)
-            }
+            .frame(maxWidth: .infinity, minHeight: 20, alignment: .leading)
+            .padding(.top, 2)
+            .animation(reduceMotion ? .none : .easeOut(duration: 0.2), value: selectedProfile)
+        }
+    }
+
+    @ViewBuilder
+    private var optionCards: some View {
+        ForEach(OnboardingFrictionProfile.allCases) { profile in
+            OnboardingFrictionOptionCard(
+                title: profile.title,
+                isSelected: selectedProfile == profile,
+                action: {
+                    onSelect(profile)
+                }
+            )
+            .accessibilityHint(profile.helperCopy)
         }
     }
 }
@@ -4261,16 +4277,23 @@ private struct OnboardingPromptValueCard: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            Text("Start with what you already have.")
+            Text("Start from what already fits.")
                 .font(.tasker(.title2))
                 .foregroundStyle(OnboardingTheme.textPrimary)
                 .fixedSize(horizontal: false, vertical: true)
-            Text("Tasker can reuse what already fits, avoid duplicate clutter, suggest one helpful habit, and guide you into one real completion.")
+            Text("Tasker can reuse what is already working, keep the setup clean, and guide you into one small win without replaying the whole intro.")
                 .font(.tasker(.body))
                 .foregroundStyle(OnboardingTheme.textSecondary)
                 .fixedSize(horizontal: false, vertical: true)
 
-            Text("Current workspace: \(snapshot.customLifeAreaCount) areas, \(snapshot.customProjectCount) projects, \(snapshot.taskCount) tasks")
+            Text(
+                String.localizedStringWithFormat(
+                    String(localized: "Already in place: %lld areas, %lld projects, %lld tasks"),
+                    snapshot.customLifeAreaCount,
+                    snapshot.customProjectCount,
+                    snapshot.taskCount
+                )
+            )
                 .font(.tasker(.caption1))
                 .foregroundStyle(OnboardingTheme.textSecondary)
         }
@@ -4365,8 +4388,6 @@ private struct OnboardingChecklistCard: View {
 private struct OnboardingHeroAccent: View {
     let title: String
     let subtitle: String
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @State private var glow = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
@@ -4374,7 +4395,7 @@ private struct OnboardingHeroAccent: View {
 
             HStack(spacing: 14) {
                 Circle()
-                    .fill(OnboardingTheme.accent.opacity(glow ? 0.18 : 0.12))
+                    .fill(OnboardingTheme.accent.opacity(0.14))
                     .frame(width: 52, height: 52)
                     .overlay(
                         Image(systemName: "sparkles")
@@ -4399,51 +4420,41 @@ private struct OnboardingHeroAccent: View {
         }
         .padding(22)
         .onboardingHeroPanel(cornerRadius: 32)
-        .onAppear {
-            guard reduceMotion == false else { return }
-            withAnimation(.easeInOut(duration: 2.2).repeatForever(autoreverses: true)) {
-                glow = true
-            }
-        }
     }
 }
 
-private struct OnboardingChoiceChip: View {
+private struct OnboardingFrictionOptionCard: View {
     let title: String
     let isSelected: Bool
-    let allowsMultiline: Bool
     let action: () -> Void
-
-    init(title: String, isSelected: Bool, allowsMultiline: Bool = false, action: @escaping () -> Void) {
-        self.title = title
-        self.isSelected = isSelected
-        self.allowsMultiline = allowsMultiline
-        self.action = action
-    }
 
     var body: some View {
         Button(action: action) {
-            HStack(spacing: 8) {
-                if isSelected {
-                    Image(systemName: "checkmark")
-                        .foregroundStyle(OnboardingTheme.accent)
-                }
+            HStack(alignment: .center, spacing: 12) {
                 Text(title)
                     .font(.tasker(.buttonSmall))
                     .foregroundStyle(isSelected ? OnboardingTheme.textPrimary : OnboardingTheme.textSecondary)
-                    .lineLimit(allowsMultiline ? 2 : 1)
-                    .fixedSize(horizontal: allowsMultiline == false, vertical: allowsMultiline)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.84)
                     .layoutPriority(1)
+                Spacer(minLength: 8)
+                Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
+                    .font(.system(size: 18, weight: .semibold))
+                    .foregroundStyle(isSelected ? OnboardingTheme.accent : OnboardingTheme.border)
             }
             .padding(.horizontal, 16)
-            .padding(.vertical, 11)
-            .background(isSelected ? OnboardingTheme.accent.opacity(0.10) : OnboardingTheme.surfaceMuted, in: Capsule())
+            .padding(.vertical, 14)
+            .frame(maxWidth: .infinity, minHeight: 58, alignment: .leading)
+            .background(
+                isSelected ? OnboardingTheme.accent.opacity(0.10) : OnboardingTheme.surfaceMuted,
+                in: RoundedRectangle(cornerRadius: 18, style: .continuous)
+            )
             .overlay(
-                Capsule()
-                    .stroke(isSelected ? OnboardingTheme.accent.opacity(0.18) : OnboardingTheme.borderSoft, lineWidth: 1)
+                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                    .stroke(isSelected ? OnboardingTheme.accent.opacity(0.34) : OnboardingTheme.borderSoft, lineWidth: isSelected ? 1.5 : 1)
             )
         }
-        .buttonStyle(.plain)
+        .buttonStyle(OnboardingPressScaleButtonStyle())
         .accessibilityLabel(title)
         .accessibilityValue(isSelected ? "Selected" : "Not selected")
         .accessibilityAddTraits(isSelected ? .isSelected : [])
@@ -4601,11 +4612,21 @@ private struct OnboardingHabitRecommendationCard: View {
                     .transition(.opacity)
             }
 
-            HStack(spacing: 8) {
-                infoChip(ownershipLine)
-                infoChip(cadenceLine)
-                Spacer(minLength: 8)
-                actionButton
+            ViewThatFits(in: .horizontal) {
+                HStack(spacing: 8) {
+                    infoChip(ownershipLine)
+                    infoChip(cadenceLine)
+                    Spacer(minLength: 8)
+                    actionButton
+                }
+
+                VStack(alignment: .leading, spacing: 10) {
+                    HStack(spacing: 8) {
+                        infoChip(ownershipLine)
+                        infoChip(cadenceLine)
+                    }
+                    actionButton
+                }
             }
         }
         .padding(12)
@@ -4629,26 +4650,16 @@ private struct OnboardingHabitRecommendationCard: View {
                     Label(buttonTitle, systemImage: buttonIcon)
                         .labelStyle(.titleAndIcon)
                         .font(.tasker(.buttonSmall))
-                        .padding(.horizontal, guidanceUsesOuterShell ? 13 : 12)
-                        .padding(.vertical, guidanceUsesOuterShell ? 9 : 8)
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 10)
                         .background(buttonBackground, in: Capsule())
                         .overlay {
-                            if guidanceUsesOuterShell == false {
-                                Capsule()
-                                    .stroke(buttonBorder, lineWidth: 1)
-                            }
+                            Capsule()
+                                .stroke(buttonBorder, lineWidth: 1)
                         }
                 }
-                .taskerCTABezel(
-                    style: .pill,
-                    palette: template.isPositive ? .copper : .titanium,
-                    idleMotion: .slowLoop,
-                    isEnabled: state != .creating && isSelectionEnabled,
-                    isBusy: state == .creating,
-                    isPrimarySuggestion: isGuidanceHighlighted
-                )
                 .buttonStyle(OnboardingPressScaleButtonStyle())
-                .foregroundStyle(state == .creating || isSelectionEnabled == false ? OnboardingTheme.textSecondary : OnboardingTheme.accent)
+                .foregroundStyle(state == .creating || isSelectionEnabled == false ? OnboardingTheme.textSecondary : OnboardingTheme.textPrimary)
                 .disabled(state == .creating || isSelectionEnabled == false)
             }
         }
@@ -4709,16 +4720,9 @@ private struct OnboardingHabitRecommendationCard: View {
         }
     }
 
-    private var guidanceUsesOuterShell: Bool {
-        isGuidanceHighlighted && V2FeatureFlags.liquidMetalCTAEnabled && state == .idle
-    }
-
     private var buttonBackground: Color {
         if isSelectionEnabled == false {
             return OnboardingTheme.surfaceMuted
-        }
-        if guidanceUsesOuterShell {
-            return OnboardingTheme.accent.opacity(0.16)
         }
         switch state {
         case .creating:
@@ -4731,14 +4735,13 @@ private struct OnboardingHabitRecommendationCard: View {
     }
 
     private var buttonBorder: Color {
-        if guidanceUsesOuterShell {
-            return .clear
-        }
         switch state {
         case .failed:
             return OnboardingTheme.danger.opacity(0.6)
+        case .creating:
+            return OnboardingTheme.borderSoft
         default:
-            return OnboardingTheme.accent.opacity(0.3)
+            return isGuidanceHighlighted ? OnboardingTheme.accent.opacity(0.42) : OnboardingTheme.borderSoft
         }
     }
 
@@ -4832,24 +4835,21 @@ private struct OnboardingTaskRecommendationCard: View {
                     .transition(.opacity)
             }
 
-            HStack(spacing: 8) {
-                Text("\(template.durationMinutes) min")
-                    .font(.tasker(.caption2))
-                    .foregroundStyle(OnboardingTheme.textSecondary)
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 6)
-                    .background(OnboardingTheme.surfaceMuted, in: Capsule())
+            ViewThatFits(in: .horizontal) {
+                HStack(spacing: 8) {
+                    metaChip("\(template.durationMinutes) min")
+                    metaChip("+\(XPCalculationEngine.completionXPIfCompletedNow(priorityRaw: template.priority.rawValue, estimatedDuration: TimeInterval(template.durationMinutes * 60), dueDate: DatePreset.today.resolvedDueDate(), dailyEarnedSoFar: 0, isGamificationV2Enabled: V2FeatureFlags.gamificationV2Enabled).awardedXP) XP")
+                    Spacer()
+                    actionButton
+                }
 
-                Text("+\(XPCalculationEngine.completionXPIfCompletedNow(priorityRaw: template.priority.rawValue, estimatedDuration: TimeInterval(template.durationMinutes * 60), dueDate: DatePreset.today.resolvedDueDate(), dailyEarnedSoFar: 0, isGamificationV2Enabled: V2FeatureFlags.gamificationV2Enabled).awardedXP) XP")
-                    .font(.tasker(.caption2))
-                    .foregroundStyle(OnboardingTheme.textSecondary)
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 6)
-                    .background(OnboardingTheme.surfaceMuted, in: Capsule())
-
-                Spacer()
-
-                actionButton
+                VStack(alignment: .leading, spacing: 10) {
+                    HStack(spacing: 8) {
+                        metaChip("\(template.durationMinutes) min")
+                        metaChip("+\(XPCalculationEngine.completionXPIfCompletedNow(priorityRaw: template.priority.rawValue, estimatedDuration: TimeInterval(template.durationMinutes * 60), dueDate: DatePreset.today.resolvedDueDate(), dailyEarnedSoFar: 0, isGamificationV2Enabled: V2FeatureFlags.gamificationV2Enabled).awardedXP) XP")
+                    }
+                    actionButton
+                }
             }
         }
         .padding(12)
@@ -4873,26 +4873,16 @@ private struct OnboardingTaskRecommendationCard: View {
                     Label(buttonTitle, systemImage: buttonIcon)
                         .labelStyle(.titleAndIcon)
                         .font(.tasker(.buttonSmall))
-                        .padding(.horizontal, guidanceUsesOuterShell ? 13 : 12)
-                        .padding(.vertical, guidanceUsesOuterShell ? 9 : 8)
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 10)
                         .background(buttonBackground, in: Capsule())
                         .overlay {
-                            if guidanceUsesOuterShell == false {
-                                Capsule()
-                                    .stroke(buttonBorder, lineWidth: 1)
-                            }
+                            Capsule()
+                                .stroke(buttonBorder, lineWidth: 1)
                         }
                 }
-                .taskerCTABezel(
-                    style: .pill,
-                    palette: .copper,
-                    idleMotion: .slowLoop,
-                    isEnabled: state != .creating,
-                    isBusy: state == .creating,
-                    isPrimarySuggestion: isGuidanceHighlighted
-                )
                 .buttonStyle(OnboardingPressScaleButtonStyle())
-                .foregroundStyle(state == .creating ? OnboardingTheme.textSecondary : OnboardingTheme.accent)
+                .foregroundStyle(state == .creating ? OnboardingTheme.textSecondary : OnboardingTheme.textPrimary)
                 .disabled(state == .creating)
             }
         }
@@ -4912,9 +4902,6 @@ private struct OnboardingTaskRecommendationCard: View {
     }
 
     private var buttonBackground: Color {
-        if guidanceUsesOuterShell {
-            return OnboardingTheme.accent.opacity(0.16)
-        }
         switch state {
         case .creating:
             return OnboardingTheme.surfaceMuted
@@ -4926,19 +4913,14 @@ private struct OnboardingTaskRecommendationCard: View {
     }
 
     private var buttonBorder: Color {
-        if guidanceUsesOuterShell {
-            return .clear
-        }
         switch state {
         case .failed:
             return OnboardingTheme.danger.opacity(0.6)
+        case .creating:
+            return OnboardingTheme.borderSoft
         default:
-            return OnboardingTheme.accent.opacity(0.3)
+            return isGuidanceHighlighted ? OnboardingTheme.accent.opacity(0.42) : OnboardingTheme.borderSoft
         }
-    }
-
-    private var guidanceUsesOuterShell: Bool {
-        isGuidanceHighlighted && V2FeatureFlags.liquidMetalCTAEnabled && state == .idle
     }
 
     private var buttonTitle: String {
@@ -5011,6 +4993,15 @@ private struct OnboardingTaskRecommendationCard: View {
             }
         }
     }
+
+    private func metaChip(_ title: String) -> some View {
+        Text(title)
+            .font(.tasker(.caption2))
+            .foregroundStyle(OnboardingTheme.textSecondary)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 6)
+            .background(OnboardingTheme.surfaceMuted, in: Capsule())
+    }
 }
 
 private struct OnboardingPressScaleButtonStyle: ButtonStyle {
@@ -5056,11 +5047,21 @@ private struct OnboardingFocusHeroCard: View {
                 .font(.tasker(.body))
                 .foregroundStyle(OnboardingTheme.textSecondary)
 
-            HStack(spacing: 10) {
-                pill(projectName, accent: OnboardingTheme.textSecondary)
-                pill(durationText, accent: OnboardingTheme.textSecondary)
-                pill("+\(xpAward) XP", accent: OnboardingTheme.textSecondary)
-                Spacer()
+            ViewThatFits(in: .horizontal) {
+                HStack(spacing: 10) {
+                    pill(projectName, accent: OnboardingTheme.textSecondary)
+                    pill(durationText, accent: OnboardingTheme.textSecondary)
+                    pill("+\(xpAward) XP", accent: OnboardingTheme.textSecondary)
+                    Spacer()
+                }
+
+                VStack(alignment: .leading, spacing: 8) {
+                    HStack(spacing: 10) {
+                        pill(projectName, accent: OnboardingTheme.textSecondary)
+                        pill(durationText, accent: OnboardingTheme.textSecondary)
+                    }
+                    pill("+\(xpAward) XP", accent: OnboardingTheme.textSecondary)
+                }
             }
 
             Text(task.title)
@@ -5085,12 +5086,10 @@ private struct OnboardingFocusHeroCard: View {
                 .accessibilityIdentifier(isActive ? AppOnboardingAccessibilityID.markComplete : AppOnboardingAccessibilityID.focusPrimary)
                 .accessibilityLabel(isActive ? "Mark complete" : "Start focus")
 
-                Button("Need a smaller step?") {
+                Button("Break this into smaller steps") {
                     onBreakDown()
                 }
-                .font(.tasker(.buttonSmall))
-                .foregroundStyle(OnboardingTheme.textSecondary)
-                .buttonStyle(.plain)
+                .onboardingSecondaryButtonStyle(accent: OnboardingTheme.textSecondary)
                 .accessibilityIdentifier(AppOnboardingAccessibilityID.breakDown)
             }
         }
@@ -5199,11 +5198,11 @@ private struct OnboardingSuccessHero: View {
                 Spacer()
             }
 
-            Text("Your first win is done.")
+            Text("Your first win is complete.")
                 .font(.tasker(.display))
                 .foregroundStyle(OnboardingTheme.textPrimary)
 
-            Text("You set up your first system, finished your first task, and now Tasker is ready to help you keep moving.")
+            Text("You finished a real first task. Tasker now has enough structure to help you keep moving without rebuilding tomorrow.")
                 .font(.tasker(.body))
                 .foregroundStyle(OnboardingTheme.textSecondary)
                 .lineLimit(3)
@@ -5228,7 +5227,7 @@ private struct OnboardingSuccessSummaryCard: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            Text("What’s ready")
+            Text("What’s now in place")
                 .font(.tasker(.headline))
                 .foregroundStyle(OnboardingTheme.textPrimary)
 
@@ -5343,27 +5342,37 @@ private struct OnboardingReminderCard: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text("Want gentle reminders when momentum drops?")
+            Text("Want Tasker to bring this back at the right time?")
                 .font(.tasker(.headline))
                 .foregroundStyle(OnboardingTheme.textPrimary)
-            Text("Tasker can bring things back at the right time, without asking before you’ve seen value.")
+            Text("You can keep going without reminders, or let Tasker quietly surface the next step when momentum drops.")
                 .font(.tasker(.body))
                 .foregroundStyle(OnboardingTheme.textSecondary)
 
-            HStack(spacing: 12) {
-                Button(state == .openSettings ? "Open Settings" : "Turn on reminders") {
-                    onPrimary()
-                }
-                .buttonStyle(.plain)
-                .font(.tasker(.buttonSmall))
-                .foregroundStyle(OnboardingTheme.accent)
+            ViewThatFits(in: .horizontal) {
+                HStack(spacing: 12) {
+                    Button(state == .openSettings ? "Open Settings" : "Enable gentle reminders") {
+                        onPrimary()
+                    }
+                    .onboardingSecondaryButtonStyle(accent: OnboardingTheme.accent)
 
-                Button("Not now") {
-                    onSecondary()
+                    Button("Not now") {
+                        onSecondary()
+                    }
+                    .onboardingSecondaryButtonStyle(accent: OnboardingTheme.textSecondary)
                 }
-                .buttonStyle(.plain)
-                .font(.tasker(.buttonSmall))
-                .foregroundStyle(OnboardingTheme.textSecondary)
+
+                VStack(alignment: .leading, spacing: 10) {
+                    Button(state == .openSettings ? "Open Settings" : "Enable gentle reminders") {
+                        onPrimary()
+                    }
+                    .onboardingSecondaryButtonStyle(accent: OnboardingTheme.accent)
+
+                    Button("Not now") {
+                        onSecondary()
+                    }
+                    .onboardingSecondaryButtonStyle(accent: OnboardingTheme.textSecondary)
+                }
             }
         }
         .padding(18)
@@ -5377,21 +5386,21 @@ private struct OnboardingReminderCard: View {
 
 private extension View {
     func onboardingHeroPanel(cornerRadius: CGFloat) -> some View {
-        background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
+        background(OnboardingTheme.surfaceElevated, in: RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
             .overlay(
                 RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                    .stroke(Color.white.opacity(0.32), lineWidth: 1)
+                    .stroke(OnboardingTheme.borderSoft.opacity(0.95), lineWidth: 1)
             )
-            .shadow(color: Color.black.opacity(0.08), radius: 28, y: 10)
+            .shadow(color: Color.black.opacity(0.05), radius: 18, y: 8)
     }
 
     func onboardingGlassPanel(cornerRadius: CGFloat, shadowOpacity: Double = 0.06) -> some View {
-        background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
+        background(OnboardingTheme.surfaceElevated, in: RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
             .overlay(
                 RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                    .stroke(Color.white.opacity(0.42), lineWidth: 1)
+                    .stroke(OnboardingTheme.borderSoft, lineWidth: 1)
             )
-            .shadow(color: Color.black.opacity(shadowOpacity), radius: 18, y: 8)
+            .shadow(color: Color.black.opacity(shadowOpacity), radius: 14, y: 6)
     }
 
     func onboardingPrimaryButton(disabled: Bool = false) -> some View {
@@ -5409,6 +5418,16 @@ private extension View {
                     .stroke(disabled ? .clear : Color.white.opacity(0.14), lineWidth: 1)
             )
             .disabled(disabled)
+            .buttonStyle(.plain)
+    }
+
+    func onboardingSecondaryButtonStyle(accent: Color) -> some View {
+        self
+            .font(.tasker(.buttonSmall))
+            .foregroundStyle(accent)
+            .frame(minHeight: 44)
+            .padding(.horizontal, 8)
+            .contentShape(Rectangle())
             .buttonStyle(.plain)
     }
 }
