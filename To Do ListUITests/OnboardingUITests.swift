@@ -12,6 +12,8 @@ final class OnboardingFreshLaunchUITests: BaseUITest {
         XCTAssertTrue(introCard.waitForExistence(timeout: 6))
         XCTAssertLessThan(introCard.frame.midY, app.windows.firstMatch.frame.height * 0.35)
 
+        assertCinematicBackdrop(in: app, grain: "25%")
+
         let introCTA = app.buttons[AccessibilityIdentifiers.Onboarding.welcomeIntroContinue]
         XCTAssertTrue(introCTA.waitForExistence(timeout: 12))
         XCTAssertEqual(introCTA.label, "Get your days back under control")
@@ -31,6 +33,7 @@ final class OnboardingFreshLaunchUITests: BaseUITest {
 
         let heroVideo = app.descendants(matching: .any)[AccessibilityIdentifiers.Onboarding.welcomeHeroVideo]
         XCTAssertTrue(heroVideo.waitForExistence(timeout: 12))
+        assertCinematicBackdrop(in: app, grain: "100%")
 
         let title = app.staticTexts["Get your day back under control."]
         XCTAssertTrue(title.exists)
@@ -58,6 +61,7 @@ final class OnboardingFreshLaunchUITests: BaseUITest {
         XCTAssertTrue(welcome.waitForExistence(timeout: 4))
         XCTAssertFalse(introOverlay.exists)
         XCTAssertTrue(app.buttons[AccessibilityIdentifiers.Onboarding.startRecommended].exists)
+        assertCinematicBackdrop(in: app, grain: "100%")
     }
 
     func testWelcomePrimaryCTARespondsToEdgeTap() {
@@ -77,6 +81,7 @@ final class OnboardingFreshLaunchUITests: BaseUITest {
 
         let blocker = app.descendants(matching: .any)[AccessibilityIdentifiers.Onboarding.blocker]
         XCTAssertTrue(blocker.waitForExistence(timeout: 12))
+        assertCinematicBackdrop(in: app, grain: "100%")
 
         let keepingTrack = app.buttons["Keeping track"]
         XCTAssertTrue(keepingTrack.waitForExistence(timeout: 12))
@@ -96,6 +101,7 @@ final class OnboardingFreshLaunchUITests: BaseUITest {
         app.buttons[AccessibilityIdentifiers.Onboarding.skipBlocker].tap()
 
         XCTAssertTrue(app.descendants(matching: .any)[AccessibilityIdentifiers.Onboarding.lifeAreas].waitForExistence(timeout: 12))
+        assertCinematicBackdrop(in: app, grain: "100%")
     }
 
     func testBlockerPrimaryCTARespondsToEdgeTap() {
@@ -110,6 +116,7 @@ final class OnboardingFreshLaunchUITests: BaseUITest {
         tapInsideEdge(of: continueButton, normalizedX: 0.08)
 
         XCTAssertTrue(app.descendants(matching: .any)[AccessibilityIdentifiers.Onboarding.lifeAreas].waitForExistence(timeout: 12))
+        assertCinematicBackdrop(in: app, grain: "100%")
     }
 
     func testLifeAreasShowCoreAreasFirstThenRevealOptionalAreas() {
@@ -169,13 +176,16 @@ final class OnboardingFreshLaunchUITests: BaseUITest {
         app.buttons[AccessibilityIdentifiers.Onboarding.continueFromBlocker].tap()
 
         XCTAssertTrue(app.descendants(matching: .any)[AccessibilityIdentifiers.Onboarding.lifeAreas].waitForExistence(timeout: 12))
+        assertCinematicBackdrop(in: app, grain: "100%")
         app.buttons[AccessibilityIdentifiers.Onboarding.useAreas].tap()
 
         XCTAssertTrue(app.descendants(matching: .any)[AccessibilityIdentifiers.Onboarding.projects].waitForExistence(timeout: 12))
+        assertCinematicBackdrop(in: app, grain: "100%")
         app.buttons[AccessibilityIdentifiers.Onboarding.useProjects].tap()
 
         let firstTask = app.descendants(matching: .any)[AccessibilityIdentifiers.Onboarding.firstTask]
         XCTAssertTrue(firstTask.waitForExistence(timeout: 12))
+        assertCinematicBackdrop(in: app, grain: "100%")
 
         let chooseButton = app.buttons["Choose"].firstMatch
         XCTAssertTrue(chooseButton.waitForExistence(timeout: 12))
@@ -187,7 +197,12 @@ final class OnboardingFreshLaunchUITests: BaseUITest {
 
         let habits = app.descendants(matching: .any)[AccessibilityIdentifiers.Onboarding.habits]
         XCTAssertTrue(habits.waitForExistence(timeout: 12))
+        assertCinematicBackdrop(in: app, grain: "100%")
         app.buttons[AccessibilityIdentifiers.Onboarding.useHabits].tap()
+
+        let focusRoom = app.descendants(matching: .any)[AccessibilityIdentifiers.Onboarding.focusRoom]
+        XCTAssertTrue(focusRoom.waitForExistence(timeout: 12))
+        assertCinematicBackdrop(in: app, grain: "100%")
 
         let focusPrimary = app.buttons["Start focus"].firstMatch
         XCTAssertTrue(focusPrimary.waitForExistence(timeout: 12))
@@ -199,6 +214,7 @@ final class OnboardingFreshLaunchUITests: BaseUITest {
 
         let success = app.descendants(matching: .any)[AccessibilityIdentifiers.Onboarding.success]
         XCTAssertTrue(success.waitForExistence(timeout: 12))
+        assertCinematicBackdrop(in: app, grain: "100%")
 
         let goHome = app.buttons[AccessibilityIdentifiers.Onboarding.goHome]
         XCTAssertTrue(goHome.waitForExistence(timeout: 12))
@@ -400,6 +416,7 @@ final class OnboardingPromptUITests: BaseUITest {
     func testEstablishedWorkspacePromptCanStartFullOnboarding() {
         let prompt = app.descendants(matching: .any)[AccessibilityIdentifiers.Onboarding.prompt]
         XCTAssertTrue(prompt.waitForExistence(timeout: 12))
+        assertCinematicBackdropIsAbsent(in: app)
 
         let startButton = app.buttons["Review matched setup"].firstMatch
         XCTAssertTrue(startButton.waitForExistence(timeout: 12))
@@ -409,11 +426,13 @@ final class OnboardingPromptUITests: BaseUITest {
         let blocker = app.descendants(matching: .any)[AccessibilityIdentifiers.Onboarding.blocker]
         XCTAssertTrue(blocker.waitForExistence(timeout: 12))
         XCTAssertTrue(app.staticTexts["What usually gets in your way?"].waitForExistence(timeout: 12))
+        assertCinematicBackdrop(in: app, grain: "100%")
     }
 
     func testEstablishedWorkspacePromptResumeRestoresBlockerContinuity() {
         let prompt = app.descendants(matching: .any)[AccessibilityIdentifiers.Onboarding.prompt]
         XCTAssertTrue(prompt.waitForExistence(timeout: 12))
+        assertCinematicBackdropIsAbsent(in: app)
 
         let startButton = app.buttons["Review matched setup"].firstMatch
         XCTAssertTrue(startButton.waitForExistence(timeout: 12))
@@ -421,6 +440,7 @@ final class OnboardingPromptUITests: BaseUITest {
 
         let blocker = app.descendants(matching: .any)[AccessibilityIdentifiers.Onboarding.blocker]
         XCTAssertTrue(blocker.waitForExistence(timeout: 12))
+        assertCinematicBackdrop(in: app, grain: "100%")
 
         app.terminate()
         app = relaunchPromptAppWithoutReset()
@@ -428,11 +448,13 @@ final class OnboardingPromptUITests: BaseUITest {
         let resumedBlocker = app.descendants(matching: .any)[AccessibilityIdentifiers.Onboarding.blocker]
         XCTAssertTrue(resumedBlocker.waitForExistence(timeout: 12))
         XCTAssertTrue(app.staticTexts["What usually gets in your way?"].waitForExistence(timeout: 12))
+        assertCinematicBackdrop(in: app, grain: "100%")
     }
 
     func testEstablishedWorkspacePromptDismissalSuppressesRelaunch() {
         let prompt = app.descendants(matching: .any)[AccessibilityIdentifiers.Onboarding.prompt]
         XCTAssertTrue(prompt.waitForExistence(timeout: 12))
+        assertCinematicBackdropIsAbsent(in: app)
 
         let dismissButton = app.buttons["Not now"].firstMatch
         XCTAssertTrue(dismissButton.waitForExistence(timeout: 12))
@@ -493,6 +515,7 @@ private func advanceToSteadyWelcome(in app: XCUIApplication) {
 
     let introCard = app.descendants(matching: .any)[AccessibilityIdentifiers.Onboarding.welcomeIntroTitleCard]
     XCTAssertTrue(introCard.waitForExistence(timeout: 8))
+    assertCinematicBackdrop(in: app, grain: "25%")
 
     let introCTA = app.buttons[AccessibilityIdentifiers.Onboarding.welcomeIntroContinue]
     XCTAssertTrue(introCTA.waitForExistence(timeout: 12))
@@ -506,6 +529,24 @@ private func advanceToSteadyWelcome(in app: XCUIApplication) {
     let welcome = app.descendants(matching: .any)[AccessibilityIdentifiers.Onboarding.welcome]
     XCTAssertTrue(welcome.waitForExistence(timeout: 12))
     XCTAssertFalse(introOverlay.exists)
+    assertCinematicBackdrop(in: app, grain: "100%")
+}
+
+private func assertCinematicBackdrop(in app: XCUIApplication, grain expectedValue: String, file: StaticString = #file, line: UInt = #line) {
+    let video = app.descendants(matching: .any)[AccessibilityIdentifiers.Onboarding.backdropVideo]
+    XCTAssertTrue(video.waitForExistence(timeout: 8), "Expected cinematic backdrop video marker to exist", file: file, line: line)
+
+    let grain = app.descendants(matching: .any)[AccessibilityIdentifiers.Onboarding.backdropGrain]
+    XCTAssertTrue(grain.waitForExistence(timeout: 8), "Expected cinematic backdrop grain marker to exist", file: file, line: line)
+    XCTAssertEqual(grain.value as? String, expectedValue, "Unexpected onboarding video grain amount", file: file, line: line)
+}
+
+private func assertCinematicBackdropIsAbsent(in app: XCUIApplication, file: StaticString = #file, line: UInt = #line) {
+    let video = app.descendants(matching: .any)[AccessibilityIdentifiers.Onboarding.backdropVideo]
+    XCTAssertFalse(video.exists, "Expected cinematic backdrop video marker to be absent", file: file, line: line)
+
+    let grain = app.descendants(matching: .any)[AccessibilityIdentifiers.Onboarding.backdropGrain]
+    XCTAssertFalse(grain.exists, "Expected cinematic backdrop grain marker to be absent", file: file, line: line)
 }
 
 private extension OnboardingPromptUITests {

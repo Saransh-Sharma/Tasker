@@ -10,8 +10,11 @@ extension Notification.Name {
 
 enum AppOnboardingAccessibilityID {
     static let flow = "onboarding.flow"
+    static let backdropVideo = "onboarding.backdrop.video"
+    static let backdropGrain = "onboarding.backdrop.grain"
     static let welcome = "onboarding.welcome"
     static let welcomeHeroVideo = "onboarding.welcome.heroVideo"
+    static let welcomeVideoGrain = "onboarding.welcome.videoGrain"
     static let welcomeIntroOverlay = "onboarding.welcome.introOverlay"
     static let welcomeIntroTitleCard = "onboarding.welcome.introTitleCard"
     static let welcomeIntroContinue = "onboarding.welcome.introContinue"
@@ -5669,7 +5672,7 @@ private struct OnboardingEyebrowLabel: View {
     var body: some View {
         Text(title.uppercased())
             .font(.tasker(.caption2))
-            .foregroundStyle(OnboardingTheme.accent)
+            .foregroundStyle(OnboardingTheme.headerAccent)
             .tracking(0.8)
     }
 }
@@ -5756,47 +5759,181 @@ private enum OnboardingHeroMediaAsset {
     static let welcomeVideoName = "HeroWelcomeHighCompressMb"
 }
 
-private struct OnboardingWelcomeBackdrop: View {
+private struct OnboardingCinematicBackdrop: View {
+    enum Mode {
+        case intro(WelcomeIntroPhase)
+        case steady
+
+        var grainAmount: Int {
+            switch self {
+            case .intro(let phase):
+                phase.videoGrainAmount
+            case .steady:
+                100
+            }
+        }
+
+        var dimOpacity: Double {
+            switch self {
+            case .intro(let phase):
+                phase.backdropDimOpacity
+            case .steady:
+                WelcomeIntroPhase.welcomeReady.backdropDimOpacity
+            }
+        }
+
+        var blurOpacity: Double {
+            switch self {
+            case .intro(let phase):
+                phase.backdropBlurOpacity
+            case .steady:
+                WelcomeIntroPhase.welcomeReady.backdropBlurOpacity
+            }
+        }
+
+        var topGradientOpacity: Double {
+            switch self {
+            case .intro(let phase):
+                phase.showsWelcomeChrome ? 0.32 : 0.08
+            case .steady:
+                0.32
+            }
+        }
+
+        var bottomGradientOpacity: Double {
+            switch self {
+            case .intro(let phase):
+                phase.showsWelcomeChrome ? 0.42 : 0.16
+            case .steady:
+                0.42
+            }
+        }
+    }
+
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
 
-    let phase: WelcomeIntroPhase
+    let mode: Mode
+    let includeWelcomeAccessibilityMarkers: Bool
+
+    private var shouldExposeGrainMarkerForUITests: Bool {
+        ProcessInfo.processInfo.arguments.contains("-UI_TESTING")
+    }
 
     var body: some View {
         ZStack {
             OnboardingHeroVideoView(
                 videoName: OnboardingHeroMediaAsset.welcomeVideoName,
-                accessibilityIdentifier: AppOnboardingAccessibilityID.welcomeHeroVideo
+                accessibilityIdentifier: "onboarding.backdrop.video.host"
             )
             .ignoresSafeArea()
 
+            TaskerBackdropNoiseOverlay(amount: mode.grainAmount)
+                .allowsHitTesting(false)
+                .accessibilityHidden(true)
+                .ignoresSafeArea()
+
             Rectangle()
-                .fill(Color.black.opacity(phase.backdropDimOpacity))
+                .fill(Color.black.opacity(mode.dimOpacity))
                 .ignoresSafeArea()
 
             if reduceTransparency {
                 Rectangle()
-                    .fill(OnboardingTheme.canvas.opacity(phase.backdropBlurOpacity * 0.78))
+                    .fill(OnboardingTheme.canvas.opacity(mode.blurOpacity * 0.78))
                     .ignoresSafeArea()
             } else {
                 Rectangle()
                     .fill(.ultraThinMaterial)
-                    .opacity(phase.backdropBlurOpacity)
+                    .opacity(mode.blurOpacity)
                     .ignoresSafeArea()
             }
 
             LinearGradient(
                 colors: [
-                    Color.black.opacity(phase.showsWelcomeChrome ? 0.32 : 0.08),
+                    Color.black.opacity(mode.topGradientOpacity),
                     Color.clear,
-                    Color.black.opacity(phase.showsWelcomeChrome ? 0.42 : 0.16)
+                    Color.black.opacity(mode.bottomGradientOpacity)
                 ],
                 startPoint: .top,
                 endPoint: .bottom
             )
             .ignoresSafeArea()
+
+            if shouldExposeGrainMarkerForUITests {
+                OnboardingAccessibilityMarker(
+                    identifier: AppOnboardingAccessibilityID.backdropGrain,
+                    label: "Onboarding cinematic backdrop grain",
+                    value: "\(mode.grainAmount)%"
+                )
+                    .allowsHitTesting(false)
+                    .frame(width: 1, height: 1)
+
+                OnboardingAccessibilityMarker(
+                    identifier: AppOnboardingAccessibilityID.backdropVideo,
+                    label: "Onboarding cinematic backdrop video",
+                    value: nil
+                )
+                .allowsHitTesting(false)
+                .frame(width: 1, height: 1)
+
+                if includeWelcomeAccessibilityMarkers {
+                    OnboardingAccessibilityMarker(
+                        identifier: AppOnboardingAccessibilityID.welcomeHeroVideo,
+                        label: "Welcome video",
+                        value: nil
+                    )
+                    .allowsHitTesting(false)
+                    .frame(width: 1, height: 1)
+
+                    OnboardingAccessibilityMarker(
+                        identifier: AppOnboardingAccessibilityID.welcomeVideoGrain,
+                        label: "Onboarding welcome video grain",
+                        value: "\(mode.grainAmount)%"
+                    )
+                    .allowsHitTesting(false)
+                    .frame(width: 1, height: 1)
+                }
+            }
         }
     }
 }
+
+#if os(iOS) || os(visionOS)
+private struct OnboardingAccessibilityMarker: UIViewRepresentable {
+    let identifier: String
+    let label: String
+    let value: String?
+
+    func makeUIView(context: Context) -> OnboardingAccessibilityMarkerView {
+        OnboardingAccessibilityMarkerView()
+    }
+
+    func updateUIView(_ uiView: OnboardingAccessibilityMarkerView, context: Context) {
+        uiView.update(identifier: identifier, label: label, value: value)
+    }
+}
+
+private final class OnboardingAccessibilityMarkerView: UIView {
+    override init(frame: CGRect) {
+        super.init(frame: frame)
+        isAccessibilityElement = true
+        accessibilityTraits = .staticText
+        isUserInteractionEnabled = false
+        backgroundColor = .clear
+        alpha = 0.01
+    }
+
+    @available(*, unavailable)
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+
+    func update(identifier: String, label: String, value: String?) {
+        accessibilityIdentifier = identifier
+        accessibilityLabel = label
+        accessibilityValue = value
+    }
+}
+#endif
 
 private struct OnboardingWelcomeCinematicOverlay: View {
     @Environment(\.taskerLayoutClass) private var layoutClass
@@ -6020,9 +6157,9 @@ private final class OnboardingLoopingPlayerView: UIView {
     init(videoName: String, accessibilityIdentifier: String) {
         super.init(frame: .zero)
         self.accessibilityIdentifier = accessibilityIdentifier
-        accessibilityLabel = "Welcome video"
         backgroundColor = .black
-        isAccessibilityElement = true
+        isAccessibilityElement = false
+        accessibilityElementsHidden = true
         isUserInteractionEnabled = false
 
         layer.addSublayer(playerLayer)
