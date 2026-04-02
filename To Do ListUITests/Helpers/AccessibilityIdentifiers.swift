@@ -191,6 +191,11 @@ enum AccessibilityIdentifiers {
     enum Onboarding {
         static let flow = "onboarding.flow"
         static let welcome = "onboarding.welcome"
+        static let welcomeHeroVideo = "onboarding.welcome.heroVideo"
+        static let welcomeIntroOverlay = "onboarding.welcome.introOverlay"
+        static let welcomeIntroTitleCard = "onboarding.welcome.introTitleCard"
+        static let welcomeIntroContinue = "onboarding.welcome.introContinue"
+        static let welcomeReady = "onboarding.welcome.ready"
         static let blocker = "onboarding.blocker"
         static let lifeAreas = "onboarding.lifeAreas"
         static let projects = "onboarding.projects"
