@@ -461,6 +461,7 @@
 		E0A10000000000000000000A /* EvaMediaView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E0A10000000000000000010A /* EvaMediaView.swift */; };
 		E0A10000000000000000000B /* EvaIntroVideo.mp4 in Resources */ = {isa = PBXBuildFile; fileRef = E0A10000000000000000010B /* EvaIntroVideo.mp4 */; };
 		E0A10000000000000000000C /* EvaLottie00-lite.json in Resources */ = {isa = PBXBuildFile; fileRef = E0A10000000000000000010C /* EvaLottie00-lite.json */; };
+		E0A10000000000000000000E /* HeroWelcomeHighCompressMb.mp4 in Resources */ = {isa = PBXBuildFile; fileRef = E0A10000000000000000010E /* HeroWelcomeHighCompressMb.mp4 */; };
 		E0A10000000000000000000D /* EvaActivationComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = E0A10000000000000000010D /* EvaActivationComponents.swift */; };
 		E0A100000000000000000301 /* EvaActivationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E0A100000000000000000302 /* EvaActivationTests.swift */; };
 		E15729081BE877C1AF53C8C8 /* To Do List/Domain/Models/ExternalSyncModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3CAA3A6573B0FE5C495C67AC /* To Do List/Domain/Models/ExternalSyncModels.swift */; };
@@ -981,6 +982,7 @@
 		E0A10000000000000000010A /* EvaMediaView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EvaMediaView.swift; sourceTree = "<group>"; };
 		E0A10000000000000000010B /* EvaIntroVideo.mp4 */ = {isa = PBXFileReference; lastKnownFileType = file; path = EvaIntroVideo.mp4; sourceTree = SOURCE_ROOT; };
 		E0A10000000000000000010C /* EvaLottie00-lite.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = "EvaLottie00-lite.json"; sourceTree = "<group>"; };
+		E0A10000000000000000010E /* HeroWelcomeHighCompressMb.mp4 */ = {isa = PBXFileReference; lastKnownFileType = file; path = HeroWelcomeHighCompressMb.mp4; sourceTree = SOURCE_ROOT; };
 		E0A10000000000000000010D /* EvaActivationComponents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EvaActivationComponents.swift; sourceTree = "<group>"; };
 		E0A100000000000000000302 /* EvaActivationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EvaActivationTests.swift; sourceTree = "<group>"; };
 		E1C5A4B1D2E3F4012345678C /* To Do List/UseCases/Task/UpdateTaskDefinitionUseCase.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "To Do List/UseCases/Task/UpdateTaskDefinitionUseCase.swift"; sourceTree = SOURCE_ROOT; };
@@ -2152,6 +2154,7 @@
 				7529F6F72DFDE9F0000CBE36 /* Extensions */,
 				E0A10000000000000000010B /* EvaIntroVideo.mp4 */,
 				E0A10000000000000000010C /* EvaLottie00-lite.json */,
+				E0A10000000000000000010E /* HeroWelcomeHighCompressMb.mp4 */,
 				7529F7032DFDF7E3000CBE36 /* loading-animation.json */,
 			);
 			path = LLM;
@@ -2429,6 +2432,7 @@
 				753EFCA52445A24500A739E3 /* Main.storyboard in Resources */,
 				E0A10000000000000000000B /* EvaIntroVideo.mp4 in Resources */,
 				E0A10000000000000000000C /* EvaLottie00-lite.json in Resources */,
+				E0A10000000000000000000E /* HeroWelcomeHighCompressMb.mp4 in Resources */,
 				7529F7052DFDF7E3000CBE36 /* loading-animation.json in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
