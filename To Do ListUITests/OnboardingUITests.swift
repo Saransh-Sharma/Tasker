@@ -67,6 +67,29 @@ final class OnboardingFreshLaunchUITests: BaseUITest {
         XCTAssertTrue(app.descendants(matching: .any)[AccessibilityIdentifiers.Onboarding.lifeAreas].waitForExistence(timeout: 12))
     }
 
+    func testLifeAreasShowCoreAreasFirstThenRevealOptionalAreas() {
+        XCTAssertTrue(app.descendants(matching: .any)[AccessibilityIdentifiers.Onboarding.welcome].waitForExistence(timeout: 12))
+        app.buttons[AccessibilityIdentifiers.Onboarding.startRecommended].tap()
+        app.buttons[AccessibilityIdentifiers.Onboarding.continueFromBlocker].tap()
+
+        let lifeAreas = app.descendants(matching: .any)[AccessibilityIdentifiers.Onboarding.lifeAreas]
+        XCTAssertTrue(lifeAreas.waitForExistence(timeout: 12))
+
+        XCTAssertTrue(app.descendants(matching: .any)["onboarding.lifeArea.work-career"].exists)
+        XCTAssertTrue(app.descendants(matching: .any)["onboarding.lifeArea.life-admin"].exists)
+        XCTAssertTrue(app.descendants(matching: .any)["onboarding.lifeArea.health-self"].exists)
+        XCTAssertFalse(app.descendants(matching: .any)["onboarding.lifeArea.relationships"].exists)
+
+        let showMoreAreas = app.buttons["Show more areas"]
+        XCTAssertTrue(showMoreAreas.waitForExistence(timeout: 12))
+        showMoreAreas.tap()
+
+        XCTAssertTrue(app.descendants(matching: .any)["onboarding.lifeArea.relationships"].waitForExistence(timeout: 12))
+        XCTAssertTrue(app.descendants(matching: .any)["onboarding.lifeArea.learning-growth"].exists)
+        XCTAssertTrue(app.descendants(matching: .any)["onboarding.lifeArea.creativity-fun"].exists)
+        XCTAssertTrue(app.descendants(matching: .any)["onboarding.lifeArea.money"].exists)
+    }
+
     func testSkipSeedsStarterTaskAndRunsFocusRoomFlow() {
         XCTAssertTrue(app.descendants(matching: .any)[AccessibilityIdentifiers.Onboarding.welcome].waitForExistence(timeout: 12))
 
@@ -183,9 +206,9 @@ final class OnboardingFreshLaunchUITests: BaseUITest {
         let lifeAreas = app.descendants(matching: .any)[AccessibilityIdentifiers.Onboarding.lifeAreas]
         XCTAssertTrue(lifeAreas.waitForExistence(timeout: 12))
 
-        let homeArea = app.descendants(matching: .any)["onboarding.lifeArea.home"]
-        XCTAssertTrue(homeArea.waitForExistence(timeout: 12))
-        homeArea.tap()
+        let lifeAdminArea = app.descendants(matching: .any)["onboarding.lifeArea.life-admin"]
+        XCTAssertTrue(lifeAdminArea.waitForExistence(timeout: 12))
+        lifeAdminArea.tap()
 
         let useAreas = app.buttons[AccessibilityIdentifiers.Onboarding.useAreas]
         XCTAssertTrue(useAreas.waitForExistence(timeout: 12))
