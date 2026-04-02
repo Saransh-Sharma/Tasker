@@ -284,6 +284,19 @@ enum WelcomeIntroPhase: Int, Equatable {
         }
     }
 
+    var videoGrainAmount: Int {
+        switch self {
+        case .introVideoOnly,
+             .introTitleReveal,
+             .introSubtitleReveal,
+             .introCardHold,
+             .introCTAReady:
+            return 25
+        case .transitionToWelcome, .welcomeReady:
+            return 100
+        }
+    }
+
     var introCardOpacity: Double {
         switch self {
         case .introTitleReveal, .introSubtitleReveal, .introCardHold, .introCTAReady:
@@ -4445,6 +4458,13 @@ struct AppOnboardingJourneyView: View {
         return viewModel.successSummary != nil || viewModel.step != .focusRoom || viewModel.errorMessage != nil
     }
 
+    private var onboardingBackdropMode: OnboardingCinematicBackdrop.Mode {
+        if shouldShowWelcomeExperience {
+            return .intro(welcomeIntroPhase)
+        }
+        return .steady
+    }
+
     var body: some View {
         ZStack {
             backgroundLayer
@@ -4512,11 +4532,10 @@ struct AppOnboardingJourneyView: View {
 
     @ViewBuilder
     private var backgroundLayer: some View {
-        if shouldShowWelcomeExperience {
-            OnboardingWelcomeBackdrop(phase: welcomeIntroPhase)
-        } else {
-            AppOnboardingBackground()
-        }
+        OnboardingCinematicBackdrop(
+            mode: onboardingBackdropMode,
+            includeWelcomeAccessibilityMarkers: shouldShowWelcomeExperience
+        )
     }
 
     @ViewBuilder
@@ -4713,11 +4732,11 @@ struct AppOnboardingJourneyView: View {
                 }
 
                 Capsule()
-                    .fill(OnboardingTheme.accent.opacity(0.08))
+                    .fill(OnboardingTheme.headerAccent.opacity(0.08))
                     .overlay(alignment: .leading) {
                         GeometryReader { proxy in
                             Capsule()
-                                .fill(OnboardingTheme.accent.opacity(0.9))
+                                .fill(OnboardingTheme.headerAccent.opacity(0.9))
                                 .frame(width: proxy.size.width * (CGFloat(viewModel.step.progressIndex) / CGFloat(OnboardingStep.orderedFlow.count)))
                         }
                     }
@@ -5458,39 +5477,21 @@ struct AppOnboardingJourneyView: View {
             }
         }
 
-        return Group {
-            if shouldShowWelcomeExperience {
-                dockContent
-                    .padding(14)
-                    .taskerPremiumSurface(
-                        cornerRadius: 30,
-                        fillColor: OnboardingTheme.surfaceElevated.opacity(0.72),
-                        strokeColor: OnboardingTheme.borderSoft.opacity(0.82),
-                        accentColor: OnboardingTheme.accentSecondary,
-                        level: .e2,
-                        useNativeGlass: true
-                    )
-                    .padding(.horizontal, horizontalPadding)
-                    .padding(.top, spacing.s12)
-                    .padding(.bottom, max(spacing.s8, 8))
-            } else {
-                dockContent
-                    .padding(.horizontal, horizontalPadding)
-                    .padding(.top, spacing.s12)
-                    .padding(.bottom, max(spacing.s8, 8))
-                    .background(
-                        OnboardingTheme.canvas
-                            .opacity(0.98)
-                            .overlay(alignment: .top) {
-                                Rectangle()
-                                    .fill(OnboardingTheme.borderSoft.opacity(0.8))
-                                    .frame(height: 1)
-                            }
-                            .background(.ultraThinMaterial)
-                            .ignoresSafeArea(edges: .bottom)
-                    )
-            }
-        }
+        let fillOpacity = shouldShowWelcomeExperience ? 0.72 : 0.82
+
+        return dockContent
+            .padding(14)
+            .taskerPremiumSurface(
+                cornerRadius: 30,
+                fillColor: OnboardingTheme.surfaceElevated.opacity(fillOpacity),
+                strokeColor: OnboardingTheme.borderSoft.opacity(0.82),
+                accentColor: OnboardingTheme.accentSecondary,
+                level: .e2,
+                useNativeGlass: true
+            )
+            .padding(.horizontal, horizontalPadding)
+            .padding(.top, spacing.s12)
+            .padding(.bottom, max(spacing.s8, 8))
     }
 }
 
@@ -5606,6 +5607,7 @@ private enum OnboardingTheme {
     static let textTertiary = Color.tasker(.textTertiary)
     static let accent = Color.tasker(.brandSecondary)
     static let accentSecondary = Color.tasker(.brandHighlight)
+    static let headerAccent = Color.tasker(.brandHighlight)
     static let success = Color.tasker(.statusSuccess)
     static let danger = Color.tasker(.statusDanger)
 }
