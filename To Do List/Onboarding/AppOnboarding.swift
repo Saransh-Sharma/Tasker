@@ -176,6 +176,21 @@ enum OnboardingFrictionProfile: String, CaseIterable, Codable, Identifiable {
         }
     }
 
+    var symbolName: String {
+        switch self {
+        case .starting:
+            return "sparkles"
+        case .choosing:
+            return "slider.horizontal.3"
+        case .remembering:
+            return "bookmark"
+        case .finishing:
+            return "flag"
+        case .overwhelmed:
+            return "circle.grid.2x2"
+        }
+    }
+
     var helperCopy: String {
         switch self {
         case .starting:
@@ -4222,6 +4237,7 @@ private struct OnboardingFrictionSelector: View {
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var availableWidth: CGFloat = 0
+    @Namespace private var selectionAnimation
 
     private let columns = [
         GridItem(.flexible(minimum: 0), spacing: 10),
@@ -4233,7 +4249,6 @@ private struct OnboardingFrictionSelector: View {
             for: availableWidth,
             dynamicTypeSize: dynamicTypeSize
         )
-        let helperCopy = selectedProfile?.helperCopy ?? "Tasker will shape the setup around whichever blocker feels most familiar."
         VStack(alignment: .leading, spacing: 14) {
             if layout == .stacked {
                 VStack(alignment: .leading, spacing: 10) {
@@ -4245,34 +4260,12 @@ private struct OnboardingFrictionSelector: View {
                 }
             }
 
-            HStack(alignment: .top, spacing: 10) {
-                Image(systemName: selectedProfile == nil ? "sparkles" : "checkmark.circle.fill")
-                    .font(.system(size: 13, weight: .semibold))
-                    .foregroundStyle(selectedProfile == nil ? OnboardingTheme.textSecondary : OnboardingTheme.accent)
-                    .padding(.top, 2)
-
-                Text(helperCopy)
-                    .font(.tasker(.caption1))
-                    .foregroundStyle(OnboardingTheme.textPrimary)
-                    .lineLimit(dynamicTypeSize.isAccessibilitySize ? nil : 2)
-                    .fixedSize(horizontal: false, vertical: true)
-                    .contentTransition(.opacity)
-                    .id(selectedProfile?.id ?? "none")
-                    .accessibilityIdentifier(AppOnboardingAccessibilityID.frictionHelper)
-            }
-            .frame(
-                maxWidth: .infinity,
-                minHeight: dynamicTypeSize.isAccessibilitySize ? 0 : 48,
-                alignment: .leading
+            OnboardingFrictionHelperPanel(
+                selectedProfile: selectedProfile,
+                layout: layout,
+                allowsUnlimitedLines: dynamicTypeSize.isAccessibilitySize,
+                reduceMotion: reduceMotion
             )
-            .padding(.horizontal, 14)
-            .padding(.vertical, 12)
-            .background(OnboardingTheme.surfaceMuted, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
-            .overlay(
-                RoundedRectangle(cornerRadius: 18, style: .continuous)
-                    .stroke(OnboardingTheme.borderSoft, lineWidth: 1)
-            )
-            .animation(reduceMotion ? .none : .easeOut(duration: 0.2), value: selectedProfile)
         }
         .background(
             GeometryReader { proxy in
@@ -4295,8 +4288,10 @@ private struct OnboardingFrictionSelector: View {
         ForEach(OnboardingFrictionProfile.allCases) { profile in
             OnboardingFrictionOptionCard(
                 title: profile.title,
+                symbolName: profile.symbolName,
                 isSelected: selectedProfile == profile,
                 layout: layout,
+                selectionAnimation: selectionAnimation,
                 action: {
                     onSelect(profile)
                 }
@@ -4480,45 +4475,199 @@ private struct OnboardingHeroAccent: View {
 
 private struct OnboardingFrictionOptionCard: View {
     let title: String
+    let symbolName: String
     let isSelected: Bool
     let layout: OnboardingFrictionSelectorLayout
+    let selectionAnimation: Namespace.ID
     let action: () -> Void
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         Button(action: action) {
-            HStack(alignment: .top, spacing: 10) {
+            HStack(alignment: .center, spacing: 12) {
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .fill(isSelected ? OnboardingTheme.accent.opacity(0.14) : OnboardingTheme.surfaceElevated.opacity(0.92))
+                    .frame(width: 36, height: 36)
+                    .overlay(
+                        Image(systemName: symbolName)
+                            .font(.system(size: 15, weight: .semibold))
+                            .foregroundStyle(isSelected ? OnboardingTheme.accent : OnboardingTheme.textSecondary)
+                            .contentTransition(.symbolEffect(.replace))
+                    )
+
                 Text(title)
                     .font(.tasker(.buttonSmall))
-                    .foregroundStyle(isSelected ? OnboardingTheme.textPrimary : OnboardingTheme.textSecondary)
+                    .foregroundStyle(OnboardingTheme.textPrimary)
+                    .multilineTextAlignment(.leading)
                     .lineLimit(layout == .twoColumn ? 2 : nil)
                     .fixedSize(horizontal: false, vertical: true)
                     .layoutPriority(1)
-                Spacer(minLength: 6)
-                Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
-                    .font(.system(size: 18, weight: .semibold))
-                    .foregroundStyle(isSelected ? OnboardingTheme.accent : OnboardingTheme.border)
-                    .padding(.top, 1)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+
+                ZStack {
+                    Circle()
+                        .fill(isSelected ? OnboardingTheme.accent : .clear)
+                        .overlay(
+                            Circle()
+                                .stroke(isSelected ? OnboardingTheme.accent : OnboardingTheme.border, lineWidth: 1.5)
+                        )
+                        .frame(width: 22, height: 22)
+
+                    if isSelected {
+                        Image(systemName: "checkmark")
+                            .font(.system(size: 11, weight: .bold))
+                            .foregroundStyle(Color.white)
+                            .transition(.scale.combined(with: .opacity))
+                    }
+                }
+                .contentTransition(.symbolEffect(.replace))
             }
             .padding(.horizontal, layout == .stacked ? 14 : 16)
-            .padding(.vertical, layout == .stacked ? 13 : 14)
+            .padding(.vertical, layout == .stacked ? 14 : 16)
             .frame(
                 maxWidth: .infinity,
-                minHeight: layout == .twoColumn ? 72 : 56,
+                minHeight: layout == .twoColumn ? 86 : 74,
                 alignment: .leading
             )
-            .background(
-                isSelected ? OnboardingTheme.accent.opacity(0.10) : OnboardingTheme.surfaceMuted,
-                in: RoundedRectangle(cornerRadius: 18, style: .continuous)
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: 18, style: .continuous)
-                    .stroke(isSelected ? OnboardingTheme.accent.opacity(0.34) : OnboardingTheme.borderSoft, lineWidth: isSelected ? 1.5 : 1)
+            .background(cardBackground)
+            .overlay(cardBorder)
+            .shadow(
+                color: isSelected ? OnboardingTheme.accent.opacity(reduceMotion ? 0.0 : 0.10) : .clear,
+                radius: isSelected ? 14 : 0,
+                x: 0,
+                y: isSelected ? 8 : 0
             )
         }
         .buttonStyle(OnboardingPressScaleButtonStyle())
         .accessibilityLabel(title)
         .accessibilityValue(isSelected ? "Selected" : "Not selected")
         .accessibilityAddTraits(isSelected ? .isSelected : [])
+        .animation(reduceMotion ? .none : .easeOut(duration: 0.22), value: isSelected)
+    }
+
+    @ViewBuilder
+    private var cardBackground: some View {
+        RoundedRectangle(cornerRadius: 20, style: .continuous)
+            .fill(OnboardingTheme.surfaceMuted)
+            .overlay {
+                if isSelected {
+                    if reduceMotion {
+                        RoundedRectangle(cornerRadius: 20, style: .continuous)
+                            .fill(OnboardingTheme.accent.opacity(0.10))
+                    } else {
+                        RoundedRectangle(cornerRadius: 20, style: .continuous)
+                            .fill(OnboardingTheme.accent.opacity(0.10))
+                            .matchedGeometryEffect(id: "onboarding.friction.selectionFill", in: selectionAnimation)
+                    }
+                }
+            }
+    }
+
+    @ViewBuilder
+    private var cardBorder: some View {
+        RoundedRectangle(cornerRadius: 20, style: .continuous)
+            .stroke(isSelected ? OnboardingTheme.accent.opacity(0.20) : OnboardingTheme.borderSoft, lineWidth: isSelected ? 1.5 : 1)
+            .overlay {
+                if isSelected {
+                    if reduceMotion == false {
+                        RoundedRectangle(cornerRadius: 20, style: .continuous)
+                            .stroke(OnboardingTheme.accent.opacity(0.34), lineWidth: 1.5)
+                            .matchedGeometryEffect(id: "onboarding.friction.selectionStroke", in: selectionAnimation)
+                    }
+                }
+            }
+    }
+}
+
+private struct OnboardingFrictionHelperPanel: View {
+    let selectedProfile: OnboardingFrictionProfile?
+    let layout: OnboardingFrictionSelectorLayout
+    let allowsUnlimitedLines: Bool
+    let reduceMotion: Bool
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            ViewThatFits(in: .horizontal) {
+                HStack(alignment: .center, spacing: 12) {
+                    headerCopy
+                    Spacer(minLength: 8)
+                    if selectedProfile != nil {
+                        selectionBadge
+                    }
+                }
+
+                VStack(alignment: .leading, spacing: 10) {
+                    headerCopy
+                    if selectedProfile != nil {
+                        selectionBadge
+                    }
+                }
+            }
+
+            Text(selectedProfile?.helperCopy ?? "Tasker will shape the setup around whichever blocker feels most familiar.")
+                .font(.tasker(.caption1))
+                .foregroundStyle(OnboardingTheme.textPrimary)
+                .lineLimit(allowsUnlimitedLines ? nil : (layout == .stacked ? 3 : 2))
+                .fixedSize(horizontal: false, vertical: true)
+                .contentTransition(.opacity)
+                .id(selectedProfile?.id ?? "none")
+                .accessibilityIdentifier(AppOnboardingAccessibilityID.frictionHelper)
+        }
+        .frame(
+            maxWidth: .infinity,
+            minHeight: allowsUnlimitedLines ? 0 : (layout == .stacked ? 88 : 80),
+            alignment: .leading
+        )
+        .padding(.horizontal, 14)
+        .padding(.vertical, 13)
+        .background(OnboardingTheme.surfaceMuted, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 20, style: .continuous)
+                .stroke(OnboardingTheme.borderSoft, lineWidth: 1)
+        )
+        .animation(reduceMotion ? .none : .easeOut(duration: 0.24), value: selectedProfile)
+    }
+
+    private var leadingAccent: Color {
+        selectedProfile == nil ? OnboardingTheme.textSecondary : OnboardingTheme.accent
+    }
+
+    private var headerCopy: some View {
+        HStack(alignment: .center, spacing: 12) {
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .fill(leadingAccent.opacity(selectedProfile == nil ? 0.08 : 0.14))
+                .frame(width: 36, height: 36)
+                .overlay(
+                    Image(systemName: selectedProfile?.symbolName ?? "sparkles")
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundStyle(leadingAccent)
+                        .contentTransition(.symbolEffect(.replace))
+                )
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(selectedProfile?.title ?? "Choose what usually slows you down")
+                    .font(.tasker(.bodyEmphasis))
+                    .foregroundStyle(OnboardingTheme.textPrimary)
+                    .lineLimit(allowsUnlimitedLines ? nil : 2)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                Text(selectedProfile == nil ? "Tasker will tailor the setup once you pick one." : "Tasker is shaping the setup around this.")
+                    .font(.tasker(.caption2))
+                    .foregroundStyle(OnboardingTheme.textSecondary)
+                    .lineLimit(allowsUnlimitedLines ? nil : 2)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+    }
+
+    private var selectionBadge: some View {
+        Text("Selected")
+            .font(.tasker(.caption2))
+            .foregroundStyle(OnboardingTheme.accent)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 6)
+            .background(OnboardingTheme.accent.opacity(0.10), in: Capsule())
+            .transition(.opacity.combined(with: .scale(scale: 0.96)))
     }
 }
 
