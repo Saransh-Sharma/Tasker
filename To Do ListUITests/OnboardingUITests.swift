@@ -18,15 +18,27 @@ final class OnboardingFreshLaunchUITests: BaseUITest {
         XCTAssertTrue(app.buttons["Too much at once"].exists)
     }
 
-    func testWelcomeFrictionSelectionUpdatesSharedHelperText() {
+    func testWelcomeFrictionSelectionKeepsWelcomeFlowUsable() {
         let welcome = app.descendants(matching: .any)[AccessibilityIdentifiers.Onboarding.welcome]
         XCTAssertTrue(welcome.waitForExistence(timeout: 12))
 
         let keepingTrack = app.buttons["Keeping track"]
         XCTAssertTrue(keepingTrack.waitForExistence(timeout: 12))
         keepingTrack.tap()
+        XCTAssertTrue(app.buttons[AccessibilityIdentifiers.Onboarding.startRecommended].exists)
+    }
 
-        XCTAssertTrue(app.staticTexts["Tasker will bring the next step back when it matters."].waitForExistence(timeout: 12))
+    func testWelcomeFrictionSelectorKeepsBottomOptionUsableOnCompactLayout() {
+        let welcome = app.descendants(matching: .any)[AccessibilityIdentifiers.Onboarding.welcome]
+        XCTAssertTrue(welcome.waitForExistence(timeout: 12))
+
+        let tooMuchAtOnce = app.buttons["Too much at once"]
+        XCTAssertTrue(tooMuchAtOnce.waitForExistence(timeout: 12))
+        let scrollView = app.scrollViews.firstMatch
+        XCTAssertTrue(scrollView.waitForExistence(timeout: 12))
+        XCTAssertTrue(scrollToElement(tooMuchAtOnce, in: scrollView, maxSwipes: 4))
+        tooMuchAtOnce.tap()
+        XCTAssertEqual(tooMuchAtOnce.value as? String, "Selected")
     }
 
     func testSkipSeedsStarterTaskAndRunsFocusRoomFlow() {

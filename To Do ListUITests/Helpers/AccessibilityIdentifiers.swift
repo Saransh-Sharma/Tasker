@@ -198,6 +198,7 @@ enum AccessibilityIdentifiers {
         static let focusRoom = "onboarding.focusRoom"
         static let success = "onboarding.success"
         static let skipButton = "onboarding.skipButton"
+        static let frictionHelper = "onboarding.friction.helper"
         static let startRecommended = "onboarding.cta.startRecommended"
         static let customize = "onboarding.cta.customize"
         static let useAreas = "onboarding.cta.useAreas"

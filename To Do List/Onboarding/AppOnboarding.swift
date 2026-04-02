@@ -17,6 +17,7 @@ enum AppOnboardingAccessibilityID {
     static let focusRoom = "onboarding.focusRoom"
     static let success = "onboarding.success"
     static let skipButton = "onboarding.skipButton"
+    static let frictionHelper = "onboarding.friction.helper"
     static let startRecommended = "onboarding.cta.startRecommended"
     static let customize = "onboarding.cta.customize"
     static let useAreas = "onboarding.cta.useAreas"
@@ -3283,7 +3284,6 @@ struct AppOnboardingJourneyView: View {
 
             OnboardingFrictionSelector(
                 selectedProfile: viewModel.frictionProfile,
-                isAccessibilitySize: dynamicTypeSize.isAccessibilitySize,
                 onSelect: { profile in
                     feedbackController.selection()
                     viewModel.selectFriction(profile)
@@ -4218,9 +4218,10 @@ private struct OnboardingWelcomeValueStack: View {
 
 private struct OnboardingFrictionSelector: View {
     let selectedProfile: OnboardingFrictionProfile?
-    let isAccessibilitySize: Bool
     let onSelect: (OnboardingFrictionProfile) -> Void
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var availableWidth: CGFloat = 0
 
     private let columns = [
         GridItem(.flexible(minimum: 0), spacing: 10),
@@ -4228,8 +4229,13 @@ private struct OnboardingFrictionSelector: View {
     ]
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            if isAccessibilitySize {
+        let layout = OnboardingFrictionSelectorLayout.preferredLayout(
+            for: availableWidth,
+            dynamicTypeSize: dynamicTypeSize
+        )
+        let helperCopy = selectedProfile?.helperCopy ?? "Tasker will shape the setup around whichever blocker feels most familiar."
+        VStack(alignment: .leading, spacing: 14) {
+            if layout == .stacked {
                 VStack(alignment: .leading, spacing: 10) {
                     optionCards
                 }
@@ -4239,36 +4245,85 @@ private struct OnboardingFrictionSelector: View {
                 }
             }
 
-            HStack(alignment: .center, spacing: 8) {
+            HStack(alignment: .top, spacing: 10) {
                 Image(systemName: selectedProfile == nil ? "sparkles" : "checkmark.circle.fill")
                     .font(.system(size: 13, weight: .semibold))
                     .foregroundStyle(selectedProfile == nil ? OnboardingTheme.textSecondary : OnboardingTheme.accent)
+                    .padding(.top, 2)
 
-                Text(selectedProfile?.helperCopy ?? "Tasker will shape the setup around whichever blocker feels most familiar.")
+                Text(helperCopy)
                     .font(.tasker(.caption1))
                     .foregroundStyle(OnboardingTheme.textPrimary)
-                    .lineLimit(isAccessibilitySize ? nil : 1)
+                    .lineLimit(dynamicTypeSize.isAccessibilitySize ? nil : 2)
+                    .fixedSize(horizontal: false, vertical: true)
                     .contentTransition(.opacity)
                     .id(selectedProfile?.id ?? "none")
+                    .accessibilityIdentifier(AppOnboardingAccessibilityID.frictionHelper)
             }
-            .frame(maxWidth: .infinity, minHeight: 20, alignment: .leading)
-            .padding(.top, 2)
+            .frame(
+                maxWidth: .infinity,
+                minHeight: dynamicTypeSize.isAccessibilitySize ? 0 : 48,
+                alignment: .leading
+            )
+            .padding(.horizontal, 14)
+            .padding(.vertical, 12)
+            .background(OnboardingTheme.surfaceMuted, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                    .stroke(OnboardingTheme.borderSoft, lineWidth: 1)
+            )
             .animation(reduceMotion ? .none : .easeOut(duration: 0.2), value: selectedProfile)
+        }
+        .background(
+            GeometryReader { proxy in
+                Color.clear
+                    .preference(key: OnboardingFrictionSelectorWidthPreferenceKey.self, value: proxy.size.width)
+            }
+        )
+        .onPreferenceChange(OnboardingFrictionSelectorWidthPreferenceKey.self) { width in
+            availableWidth = width
         }
     }
 
     @ViewBuilder
     private var optionCards: some View {
+        let layout = OnboardingFrictionSelectorLayout.preferredLayout(
+            for: availableWidth,
+            dynamicTypeSize: dynamicTypeSize
+        )
+
         ForEach(OnboardingFrictionProfile.allCases) { profile in
             OnboardingFrictionOptionCard(
                 title: profile.title,
                 isSelected: selectedProfile == profile,
+                layout: layout,
                 action: {
                     onSelect(profile)
                 }
             )
             .accessibilityHint(profile.helperCopy)
         }
+    }
+}
+
+enum OnboardingFrictionSelectorLayout: Equatable {
+    case stacked
+    case twoColumn
+
+    static func preferredLayout(for availableWidth: CGFloat, dynamicTypeSize: DynamicTypeSize) -> Self {
+        if dynamicTypeSize.isAccessibilitySize || availableWidth < 500 {
+            return .stacked
+        }
+
+        return .twoColumn
+    }
+}
+
+private struct OnboardingFrictionSelectorWidthPreferenceKey: PreferenceKey {
+    static var defaultValue: CGFloat = 0
+
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+        value = nextValue()
     }
 }
 
@@ -4426,25 +4481,31 @@ private struct OnboardingHeroAccent: View {
 private struct OnboardingFrictionOptionCard: View {
     let title: String
     let isSelected: Bool
+    let layout: OnboardingFrictionSelectorLayout
     let action: () -> Void
 
     var body: some View {
         Button(action: action) {
-            HStack(alignment: .center, spacing: 12) {
+            HStack(alignment: .top, spacing: 10) {
                 Text(title)
                     .font(.tasker(.buttonSmall))
                     .foregroundStyle(isSelected ? OnboardingTheme.textPrimary : OnboardingTheme.textSecondary)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.84)
+                    .lineLimit(layout == .twoColumn ? 2 : nil)
+                    .fixedSize(horizontal: false, vertical: true)
                     .layoutPriority(1)
-                Spacer(minLength: 8)
+                Spacer(minLength: 6)
                 Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
                     .font(.system(size: 18, weight: .semibold))
                     .foregroundStyle(isSelected ? OnboardingTheme.accent : OnboardingTheme.border)
+                    .padding(.top, 1)
             }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 14)
-            .frame(maxWidth: .infinity, minHeight: 58, alignment: .leading)
+            .padding(.horizontal, layout == .stacked ? 14 : 16)
+            .padding(.vertical, layout == .stacked ? 13 : 14)
+            .frame(
+                maxWidth: .infinity,
+                minHeight: layout == .twoColumn ? 72 : 56,
+                alignment: .leading
+            )
             .background(
                 isSelected ? OnboardingTheme.accent.opacity(0.10) : OnboardingTheme.surfaceMuted,
                 in: RoundedRectangle(cornerRadius: 18, style: .continuous)

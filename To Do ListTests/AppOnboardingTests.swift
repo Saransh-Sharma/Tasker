@@ -1,5 +1,6 @@
 import XCTest
 import UserNotifications
+import SwiftUI
 @testable import To_Do_List
 
 final class AppOnboardingTests: XCTestCase {
@@ -355,6 +356,36 @@ final class AppOnboardingTests: XCTestCase {
         XCTAssertEqual(
             viewModel.selectedLifeAreaIDs,
             Set(StarterWorkspaceCatalog.defaultLifeAreaSelectionIDs(for: .remembering, mode: .guided))
+        )
+    }
+
+    func testFrictionSelectorUsesStackedLayoutOnCompactWidth() {
+        XCTAssertEqual(
+            OnboardingFrictionSelectorLayout.preferredLayout(
+                for: 393,
+                dynamicTypeSize: .large
+            ),
+            .stacked
+        )
+    }
+
+    func testFrictionSelectorUsesStackedLayoutForAccessibilitySizes() {
+        XCTAssertEqual(
+            OnboardingFrictionSelectorLayout.preferredLayout(
+                for: 430,
+                dynamicTypeSize: .accessibility3
+            ),
+            .stacked
+        )
+    }
+
+    func testFrictionSelectorUsesTwoColumnLayoutOnWideStandardWidth() {
+        XCTAssertEqual(
+            OnboardingFrictionSelectorLayout.preferredLayout(
+                for: 700,
+                dynamicTypeSize: .large
+            ),
+            .twoColumn
         )
     }
 
