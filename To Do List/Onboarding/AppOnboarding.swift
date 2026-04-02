@@ -2,6 +2,7 @@ import SwiftUI
 import UIKit
 import Combine
 import CoreHaptics
+import AVFoundation
 
 extension Notification.Name {
     static let taskerStartOnboardingRequested = Notification.Name("TaskerStartOnboardingRequested")
@@ -10,6 +11,11 @@ extension Notification.Name {
 enum AppOnboardingAccessibilityID {
     static let flow = "onboarding.flow"
     static let welcome = "onboarding.welcome"
+    static let welcomeHeroVideo = "onboarding.welcome.heroVideo"
+    static let welcomeIntroOverlay = "onboarding.welcome.introOverlay"
+    static let welcomeIntroTitleCard = "onboarding.welcome.introTitleCard"
+    static let welcomeIntroContinue = "onboarding.welcome.introContinue"
+    static let welcomeReady = "onboarding.welcome.ready"
     static let blocker = "onboarding.blocker"
     static let lifeAreas = "onboarding.lifeAreas"
     static let projects = "onboarding.projects"
@@ -221,6 +227,73 @@ enum OnboardingReminderPromptState: Equatable {
     case hidden
     case prompt
     case openSettings
+}
+
+enum WelcomeIntroPhase: Int, Equatable {
+    case introVideoOnly
+    case introTitleReveal
+    case introSubtitleReveal
+    case introCardHold
+    case introCTAReady
+    case transitionToWelcome
+    case welcomeReady
+
+    var showsIntroOverlay: Bool {
+        self != .welcomeReady
+    }
+
+    var showsIntroCard: Bool {
+        rawValue >= Self.introTitleReveal.rawValue && rawValue <= Self.transitionToWelcome.rawValue
+    }
+
+    var showsTitle: Bool {
+        rawValue >= Self.introTitleReveal.rawValue
+    }
+
+    var showsSubtitle: Bool {
+        rawValue >= Self.introSubtitleReveal.rawValue
+    }
+
+    var showsIntroCTA: Bool {
+        self == .introCTAReady
+    }
+
+    var showsWelcomeChrome: Bool {
+        rawValue >= Self.transitionToWelcome.rawValue
+    }
+
+    var backdropBlurOpacity: Double {
+        switch self {
+        case .transitionToWelcome:
+            return 0.52
+        case .welcomeReady:
+            return 0.58
+        default:
+            return 0
+        }
+    }
+
+    var backdropDimOpacity: Double {
+        switch self {
+        case .transitionToWelcome:
+            return 0.18
+        case .welcomeReady:
+            return 0.32
+        default:
+            return 0
+        }
+    }
+
+    var introCardOpacity: Double {
+        switch self {
+        case .introTitleReveal, .introSubtitleReveal, .introCardHold, .introCTAReady:
+            return 1
+        case .transitionToWelcome:
+            return 0
+        default:
+            return 0
+        }
+    }
 }
 
 struct OnboardingWorkspaceSnapshot: Equatable {
@@ -4323,6 +4396,9 @@ struct AppOnboardingJourneyView: View {
     @State private var showsMoreIdeas = false
     @State private var showsMoreHabitIdeas = false
     @State private var hasPlayedSuccess = false
+    @State private var welcomeIntroPhase: WelcomeIntroPhase = .welcomeReady
+    @State private var hasCompletedWelcomeIntro = false
+    @State private var welcomeIntroRunID = UUID()
 
     private var spacing: TaskerSpacingTokens {
         TaskerThemeManager.shared.tokens(for: layoutClass).spacing
@@ -4352,28 +4428,41 @@ struct AppOnboardingJourneyView: View {
             : "Pick one now, or add one later."
     }
 
+    private var shouldShowWelcomeExperience: Bool {
+        viewModel.successSummary == nil && viewModel.step == .welcome
+    }
+
+    private var isWelcomeIntroActive: Bool {
+        shouldShowWelcomeExperience && welcomeIntroPhase.showsIntroOverlay
+    }
+
+    private var shouldShowWelcomeChrome: Bool {
+        shouldShowWelcomeExperience && welcomeIntroPhase.showsWelcomeChrome
+    }
+
+    private var shouldShowBottomDock: Bool {
+        guard isWelcomeIntroActive == false else { return false }
+        return viewModel.successSummary != nil || viewModel.step != .focusRoom || viewModel.errorMessage != nil
+    }
+
     var body: some View {
         ZStack {
-            AppOnboardingBackground()
+            backgroundLayer
                 .ignoresSafeArea()
 
-            ScrollView(showsIndicators: false) {
-                VStack(alignment: .leading, spacing: spacing.sectionGap) {
-                    if let summary = viewModel.successSummary {
-                        successView(summary: summary)
-                    } else {
-                        stepHeader
-                        stepBody
-                    }
-                }
-                .frame(maxWidth: contentWidth, alignment: .leading)
-                .padding(.horizontal, horizontalPadding)
-                .padding(.top, spacing.s16)
-                .padding(.bottom, 120)
+            contentLayer
+                .allowsHitTesting(isWelcomeIntroActive == false)
+
+            if isWelcomeIntroActive {
+                OnboardingWelcomeCinematicOverlay(
+                    phase: welcomeIntroPhase,
+                    onContinue: continueFromWelcomeIntro
+                )
+                    .accessibilityIdentifier(AppOnboardingAccessibilityID.welcomeIntroOverlay)
             }
         }
         .safeAreaInset(edge: .bottom) {
-            if viewModel.successSummary != nil || viewModel.step != .focusRoom || viewModel.errorMessage != nil {
+            if shouldShowBottomDock {
                 bottomDock
             }
         }
@@ -4401,14 +4490,188 @@ struct AppOnboardingJourneyView: View {
         .animation(reduceMotion ? .none : .easeOut(duration: 0.22), value: viewModel.successSummary != nil)
         .onAppear {
             feedbackController.prepare()
+            scheduleWelcomeIntroIfNeeded()
+        }
+        .onChange(of: viewModel.step) { _, _ in
+            scheduleWelcomeIntroIfNeeded()
+        }
+        .onChange(of: viewModel.successSummary != nil) { _, _ in
+            scheduleWelcomeIntroIfNeeded()
         }
         .onChange(of: viewModel.successSummary != nil) { _, isShowingSuccess in
             guard isShowingSuccess, hasPlayedSuccess == false else { return }
             hasPlayedSuccess = true
             feedbackController.successSignature()
         }
+        .task(id: welcomeIntroRunID) {
+            await runWelcomeIntroSequenceIfNeeded()
+        }
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier(AppOnboardingAccessibilityID.flow)
+    }
+
+    @ViewBuilder
+    private var backgroundLayer: some View {
+        if shouldShowWelcomeExperience {
+            OnboardingWelcomeBackdrop(phase: welcomeIntroPhase)
+        } else {
+            AppOnboardingBackground()
+        }
+    }
+
+    @ViewBuilder
+    private var contentLayer: some View {
+        if let summary = viewModel.successSummary {
+            ScrollView(showsIndicators: false) {
+                VStack(alignment: .leading, spacing: spacing.sectionGap) {
+                    successView(summary: summary)
+                }
+                .frame(maxWidth: contentWidth, alignment: .leading)
+                .padding(.horizontal, horizontalPadding)
+                .padding(.top, spacing.s16)
+                .padding(.bottom, 120)
+            }
+        } else if shouldShowWelcomeExperience {
+            welcomeExperienceContent
+        } else {
+            ScrollView(showsIndicators: false) {
+                VStack(alignment: .leading, spacing: spacing.sectionGap) {
+                    stepHeader
+                    stepBody
+                }
+                .frame(maxWidth: contentWidth, alignment: .leading)
+                .padding(.horizontal, horizontalPadding)
+                .padding(.top, spacing.s16)
+                .padding(.bottom, 120)
+            }
+        }
+    }
+
+    private var welcomeExperienceContent: some View {
+        VStack(alignment: .leading, spacing: spacing.sectionGap) {
+            if shouldShowWelcomeChrome {
+                stepHeader
+                    .transition(.opacity.combined(with: .move(edge: .top)))
+            }
+
+            Spacer(minLength: spacing.s20)
+
+            welcomeStep
+                .frame(maxWidth: layoutClass.isPad ? 620 : .infinity)
+                .frame(maxWidth: .infinity)
+
+            Spacer()
+        }
+        .padding(.horizontal, horizontalPadding)
+        .padding(.top, spacing.s16)
+        .padding(.bottom, 120)
+    }
+
+    private func scheduleWelcomeIntroIfNeeded() {
+        guard shouldShowWelcomeExperience else {
+            welcomeIntroPhase = .welcomeReady
+            return
+        }
+
+        if hasCompletedWelcomeIntro {
+            welcomeIntroPhase = .welcomeReady
+        } else {
+            welcomeIntroRunID = UUID()
+        }
+    }
+
+    private func runWelcomeIntroSequenceIfNeeded() async {
+        guard shouldShowWelcomeExperience, hasCompletedWelcomeIntro == false else { return }
+
+        if reduceMotion {
+            await MainActor.run {
+                welcomeIntroPhase = .introVideoOnly
+            }
+
+            guard await sleepIfNeeded(milliseconds: 2500) else { return }
+
+            await MainActor.run {
+                withAnimation(.easeOut(duration: 0.36)) {
+                    welcomeIntroPhase = .introCardHold
+                }
+            }
+
+            guard await sleepIfNeeded(milliseconds: 2000) else { return }
+
+            await MainActor.run {
+                withAnimation(.easeOut(duration: 0.24)) {
+                    welcomeIntroPhase = .introCTAReady
+                }
+            }
+            return
+        }
+
+        await MainActor.run {
+            welcomeIntroPhase = .introVideoOnly
+        }
+
+        guard await sleepIfNeeded(milliseconds: 2500) else { return }
+
+        await MainActor.run {
+            withAnimation(.timingCurve(0.16, 0.92, 0.24, 1, duration: 1.15)) {
+                welcomeIntroPhase = .introTitleReveal
+            }
+        }
+
+        guard await sleepIfNeeded(milliseconds: 550) else { return }
+
+        await MainActor.run {
+            withAnimation(.timingCurve(0.16, 0.92, 0.24, 1, duration: 1.15)) {
+                welcomeIntroPhase = .introSubtitleReveal
+            }
+        }
+
+        guard await sleepIfNeeded(milliseconds: 1350) else { return }
+
+        await MainActor.run {
+            welcomeIntroPhase = .introCardHold
+        }
+
+        guard await sleepIfNeeded(milliseconds: 2000) else { return }
+
+        await MainActor.run {
+            withAnimation(.timingCurve(0.16, 1, 0.3, 1, duration: 0.5)) {
+                welcomeIntroPhase = .introCTAReady
+            }
+        }
+    }
+
+    private func continueFromWelcomeIntro() {
+        guard shouldShowWelcomeExperience,
+              hasCompletedWelcomeIntro == false,
+              welcomeIntroPhase == .introCTAReady
+        else { return }
+
+        feedbackController.medium()
+
+        Task {
+            await MainActor.run {
+                withAnimation(.timingCurve(0.16, 1, 0.3, 1, duration: 0.5)) {
+                    welcomeIntroPhase = .transitionToWelcome
+                }
+            }
+
+            guard await sleepIfNeeded(milliseconds: reduceMotion ? 200 : 500) else { return }
+
+            await MainActor.run {
+                welcomeIntroPhase = .welcomeReady
+                hasCompletedWelcomeIntro = true
+            }
+        }
+    }
+
+    private func sleepIfNeeded(milliseconds: Int) async -> Bool {
+        do {
+            try await Task.sleep(nanoseconds: UInt64(milliseconds) * 1_000_000)
+            return Task.isCancelled == false
+        } catch {
+            return false
+        }
     }
 
     private var stepHeader: some View {
@@ -4428,7 +4691,7 @@ struct AppOnboardingJourneyView: View {
 
                 Spacer()
 
-                if viewModel.step == .welcome {
+                if viewModel.step == .welcome, welcomeIntroPhase == .welcomeReady {
                     Button("Skip") {
                         feedbackController.light()
                         Task {
@@ -4493,9 +4756,23 @@ struct AppOnboardingJourneyView: View {
     }
 
     private var welcomeStep: some View {
-        OnboardingWelcomeValueStack()
-            .enhancedStaggeredAppearance(index: 0)
-        .accessibilityIdentifier(AppOnboardingAccessibilityID.welcome)
+        let baseCard = OnboardingWelcomeValueStack()
+            .opacity(shouldShowWelcomeChrome ? 1 : 0)
+            .offset(y: welcomeIntroPhase == .transitionToWelcome ? 10 : 0)
+            .animation(reduceMotion ? .none : .timingCurve(0.16, 1, 0.3, 1, duration: 0.5), value: welcomeIntroPhase)
+
+        return Group {
+            if welcomeIntroPhase == .welcomeReady {
+                ZStack {
+                    baseCard
+                        .accessibilityIdentifier(AppOnboardingAccessibilityID.welcome)
+                }
+                .accessibilityElement(children: .contain)
+                .accessibilityIdentifier(AppOnboardingAccessibilityID.welcomeReady)
+            } else {
+                baseCard
+            }
+        }
     }
 
     private var blockerStep: some View {
@@ -5044,9 +5321,8 @@ struct AppOnboardingJourneyView: View {
         .presentationDetents([.medium, .large])
     }
 
-    @ViewBuilder
     private var bottomDock: some View {
-        VStack(spacing: spacing.s12) {
+        let dockContent = VStack(spacing: spacing.s12) {
             if let errorMessage = viewModel.errorMessage, errorMessage.isEmpty == false {
                 Text(errorMessage)
                     .font(.tasker(.caption1))
@@ -5181,20 +5457,40 @@ struct AppOnboardingJourneyView: View {
                 }
             }
         }
-        .padding(.horizontal, horizontalPadding)
-        .padding(.top, spacing.s12)
-        .padding(.bottom, max(spacing.s8, 8))
-        .background(
-            OnboardingTheme.canvas
-                .opacity(0.98)
-                .overlay(alignment: .top) {
-                    Rectangle()
-                        .fill(OnboardingTheme.borderSoft.opacity(0.8))
-                        .frame(height: 1)
-                }
-                .background(.ultraThinMaterial)
-                .ignoresSafeArea(edges: .bottom)
-        )
+
+        return Group {
+            if shouldShowWelcomeExperience {
+                dockContent
+                    .padding(14)
+                    .taskerPremiumSurface(
+                        cornerRadius: 30,
+                        fillColor: OnboardingTheme.surfaceElevated.opacity(0.72),
+                        strokeColor: OnboardingTheme.borderSoft.opacity(0.82),
+                        accentColor: OnboardingTheme.accentSecondary,
+                        level: .e2,
+                        useNativeGlass: true
+                    )
+                    .padding(.horizontal, horizontalPadding)
+                    .padding(.top, spacing.s12)
+                    .padding(.bottom, max(spacing.s8, 8))
+            } else {
+                dockContent
+                    .padding(.horizontal, horizontalPadding)
+                    .padding(.top, spacing.s12)
+                    .padding(.bottom, max(spacing.s8, 8))
+                    .background(
+                        OnboardingTheme.canvas
+                            .opacity(0.98)
+                            .overlay(alignment: .top) {
+                                Rectangle()
+                                    .fill(OnboardingTheme.borderSoft.opacity(0.8))
+                                    .frame(height: 1)
+                            }
+                            .background(.ultraThinMaterial)
+                            .ignoresSafeArea(edges: .bottom)
+                    )
+            }
+        }
     }
 }
 
@@ -5442,10 +5738,358 @@ private struct OnboardingWelcomeValueStack: View {
                 ("arrow.uturn.backward.circle", "Easy to change later")
             ])
         }
-        .padding(22)
-        .onboardingHeroPanel(cornerRadius: 32)
+        .padding(24)
+        .taskerPremiumSurface(
+            cornerRadius: 32,
+            fillColor: OnboardingTheme.surfaceElevated.opacity(0.74),
+            strokeColor: OnboardingTheme.borderSoft.opacity(0.82),
+            accentColor: OnboardingTheme.accentSecondary,
+            level: .e3,
+            useNativeGlass: true
+        )
     }
 }
+
+private enum OnboardingHeroMediaAsset {
+    static let welcomeVideoName = "HeroWelcomeHighCompressMb"
+}
+
+private struct OnboardingWelcomeBackdrop: View {
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+
+    let phase: WelcomeIntroPhase
+
+    var body: some View {
+        ZStack {
+            OnboardingHeroVideoView(
+                videoName: OnboardingHeroMediaAsset.welcomeVideoName,
+                accessibilityIdentifier: AppOnboardingAccessibilityID.welcomeHeroVideo
+            )
+            .ignoresSafeArea()
+
+            Rectangle()
+                .fill(Color.black.opacity(phase.backdropDimOpacity))
+                .ignoresSafeArea()
+
+            if reduceTransparency {
+                Rectangle()
+                    .fill(OnboardingTheme.canvas.opacity(phase.backdropBlurOpacity * 0.78))
+                    .ignoresSafeArea()
+            } else {
+                Rectangle()
+                    .fill(.ultraThinMaterial)
+                    .opacity(phase.backdropBlurOpacity)
+                    .ignoresSafeArea()
+            }
+
+            LinearGradient(
+                colors: [
+                    Color.black.opacity(phase.showsWelcomeChrome ? 0.32 : 0.08),
+                    Color.clear,
+                    Color.black.opacity(phase.showsWelcomeChrome ? 0.42 : 0.16)
+                ],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+            .ignoresSafeArea()
+        }
+    }
+}
+
+private struct OnboardingWelcomeCinematicOverlay: View {
+    @Environment(\.taskerLayoutClass) private var layoutClass
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+
+    let phase: WelcomeIntroPhase
+    let onContinue: () -> Void
+
+    private var topInset: CGFloat {
+        layoutClass.isPad ? 56 : 28
+    }
+
+    private var titleVisible: Bool {
+        phase.showsTitle
+    }
+
+    var body: some View {
+        VStack(spacing: 0) {
+            if phase.showsIntroCard {
+                cinematicCard
+                    .padding(.top, topInset)
+                    .padding(.horizontal, layoutClass.isPad ? 56 : 24)
+                    .transition(
+                        .asymmetric(
+                            insertion: .offset(y: -220).combined(with: .opacity),
+                            removal: .opacity
+                        )
+                    )
+            }
+
+            Spacer(minLength: 0)
+
+            if phase.showsIntroCTA {
+                Button {
+                    onContinue()
+                } label: {
+                    Text("Get your days back under control")
+                        .frame(maxWidth: .infinity)
+                }
+                .onboardingPrimaryButton()
+                .accessibilityIdentifier(AppOnboardingAccessibilityID.welcomeIntroContinue)
+                .padding(.horizontal, layoutClass.isPad ? 56 : 24)
+                .padding(.bottom, layoutClass.isPad ? 32 : 24)
+                .transition(.move(edge: .bottom).combined(with: .opacity))
+            }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        .background(Color.black.opacity(0.001))
+        .contentShape(Rectangle())
+    }
+
+    private var cinematicCard: some View {
+        VStack(spacing: 18) {
+            OnboardingWelcomeIntroLine(
+                text: "Welcome to Tasker",
+                style: .display,
+                isVisible: titleVisible,
+                secondary: false
+            )
+        }
+        .multilineTextAlignment(.center)
+        .padding(.horizontal, 26)
+        .padding(.vertical, 28)
+        .frame(maxWidth: layoutClass.isPad ? 520 : 420)
+        .taskerPremiumSurface(
+            cornerRadius: 34,
+            fillColor: reduceTransparency
+                ? OnboardingTheme.surfaceElevated.opacity(0.94)
+                : .clear,
+            strokeColor: OnboardingTheme.borderSoft.opacity(0.8),
+            accentColor: reduceTransparency ? OnboardingTheme.accentSecondary : .clear,
+            level: .e3,
+            useNativeGlass: true
+        )
+        .shadow(color: Color.black.opacity(0.14), radius: 32, y: 18)
+        .scaleEffect(phase == .transitionToWelcome ? 0.98 : 1)
+        .opacity(phase.introCardOpacity)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("Welcome to Tasker.")
+        .accessibilityIdentifier(AppOnboardingAccessibilityID.welcomeIntroTitleCard)
+    }
+}
+
+private struct OnboardingWelcomeIntroLine: View {
+    let text: String
+    let style: TaskerTextStyle
+    let isVisible: Bool
+    let secondary: Bool
+
+    var body: some View {
+        Text(text)
+            .font(.tasker(style))
+            .foregroundStyle(secondary ? OnboardingTheme.textSecondary : OnboardingTheme.textPrimary)
+            .fixedSize(horizontal: false, vertical: true)
+            .blur(radius: isVisible ? 0 : 18)
+            .opacity(isVisible ? 1 : 0)
+            .offset(y: isVisible ? 0 : 14)
+            .animation(.timingCurve(0.16, 0.92, 0.24, 1, duration: 1.15), value: isVisible)
+    }
+}
+
+private struct OnboardingWelcomeHeroSection: View {
+    @Environment(\.taskerLayoutClass) private var layoutClass
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    let horizontalPadding: CGFloat
+
+    @State private var availableWidth: CGFloat = 0
+
+    var body: some View {
+        let contentWidth = max(availableWidth, layoutClass.isPad ? 720 : 320)
+        let heroWidth = layoutClass.isPad ? contentWidth : contentWidth + (horizontalPadding * 2)
+        let heroHeight = OnboardingWelcomeHeroMetrics.height(
+            for: heroWidth,
+            isPad: layoutClass.isPad,
+            dynamicTypeSize: dynamicTypeSize
+        )
+
+        return heroMedia
+            .frame(height: heroHeight)
+            .frame(maxWidth: .infinity)
+            .background(
+                GeometryReader { proxy in
+                    Color.clear
+                        .preference(
+                            key: OnboardingWelcomeHeroWidthPreferenceKey.self,
+                            value: proxy.size.width
+                        )
+                }
+            )
+            .onPreferenceChange(OnboardingWelcomeHeroWidthPreferenceKey.self) { width in
+                availableWidth = width
+            }
+            .accessibilityIdentifier(AppOnboardingAccessibilityID.welcomeHeroVideo)
+            .padding(.horizontal, layoutClass.isPad ? 0 : -horizontalPadding)
+    }
+
+    @ViewBuilder
+    private var heroMedia: some View {
+        if reduceMotion {
+            ZStack {
+                LinearGradient(
+                    colors: [
+                        OnboardingTheme.surfaceElevated,
+                        OnboardingTheme.accent.opacity(0.18),
+                        OnboardingTheme.surfaceElevated
+                    ],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
+
+                Image(systemName: "play.rectangle.fill")
+                    .font(.system(size: 54, weight: .semibold))
+                    .foregroundStyle(OnboardingTheme.accent)
+            }
+        } else {
+            OnboardingHeroVideoView(
+                videoName: OnboardingHeroMediaAsset.welcomeVideoName,
+                accessibilityIdentifier: AppOnboardingAccessibilityID.welcomeHeroVideo
+            )
+            .overlay {
+                LinearGradient(
+                    colors: [
+                        Color.black.opacity(0.04),
+                        Color.black.opacity(0.12),
+                        Color.black.opacity(0.18)
+                    ],
+                    startPoint: .top,
+                    endPoint: .bottom
+                )
+            }
+        }
+    }
+}
+
+private enum OnboardingWelcomeHeroMetrics {
+    static func height(for width: CGFloat, isPad: Bool, dynamicTypeSize: DynamicTypeSize) -> CGFloat {
+        let minimumHeight: CGFloat = isPad ? 360 : 300
+        let maximumHeight: CGFloat = isPad ? 620 : 460
+        let aspectRatio: CGFloat = dynamicTypeSize.isAccessibilitySize
+            ? (isPad ? 0.44 : 0.72)
+            : (isPad ? 0.5 : 0.9)
+
+        return min(max(width * aspectRatio, minimumHeight), maximumHeight)
+    }
+}
+
+private struct OnboardingWelcomeHeroWidthPreferenceKey: PreferenceKey {
+    static var defaultValue: CGFloat = 0
+
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+        value = nextValue()
+    }
+}
+
+#if os(iOS) || os(visionOS)
+private struct OnboardingHeroVideoView: UIViewRepresentable {
+    let videoName: String
+    let accessibilityIdentifier: String
+
+    func makeUIView(context: Context) -> OnboardingLoopingPlayerView {
+        OnboardingLoopingPlayerView(
+            videoName: videoName,
+            accessibilityIdentifier: accessibilityIdentifier
+        )
+    }
+
+    func updateUIView(_ uiView: OnboardingLoopingPlayerView, context: Context) {
+        uiView.accessibilityIdentifier = accessibilityIdentifier
+        uiView.update(videoName: videoName)
+    }
+}
+
+private final class OnboardingLoopingPlayerView: UIView {
+    private let playerLayer = AVPlayerLayer()
+    private let player = AVQueuePlayer()
+    private var playerLooper: AVPlayerLooper?
+    private var currentVideoName: String?
+
+    init(videoName: String, accessibilityIdentifier: String) {
+        super.init(frame: .zero)
+        self.accessibilityIdentifier = accessibilityIdentifier
+        accessibilityLabel = "Welcome video"
+        backgroundColor = .black
+        isAccessibilityElement = true
+        isUserInteractionEnabled = false
+
+        layer.addSublayer(playerLayer)
+        playerLayer.player = player
+        playerLayer.videoGravity = .resizeAspectFill
+
+        player.isMuted = true
+        player.actionAtItemEnd = .none
+
+        update(videoName: videoName)
+    }
+
+    @available(*, unavailable)
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+
+    deinit {
+        player.pause()
+        player.removeAllItems()
+        playerLooper = nil
+    }
+
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        playerLayer.frame = bounds
+    }
+
+    override func didMoveToWindow() {
+        super.didMoveToWindow()
+
+        if window == nil {
+            player.pause()
+        } else {
+            player.play()
+        }
+    }
+
+    func update(videoName: String) {
+        guard currentVideoName != videoName else {
+            if window != nil {
+                player.play()
+            }
+            return
+        }
+
+        guard let path = Bundle.main.path(forResource: videoName, ofType: "mp4") else {
+            player.pause()
+            player.removeAllItems()
+            playerLooper = nil
+            currentVideoName = nil
+            assertionFailure("Missing onboarding hero asset: \(videoName).mp4")
+            logWarning(
+                event: "onboarding_missing_video_asset",
+                message: "Missing bundled onboarding hero asset",
+                fields: ["video_name": videoName]
+            )
+            return
+        }
+
+        currentVideoName = videoName
+        let url = URL(fileURLWithPath: path)
+        let item = AVPlayerItem(asset: AVURLAsset(url: url))
+        player.removeAllItems()
+        playerLooper = AVPlayerLooper(player: player, templateItem: item)
+        player.play()
+    }
+}
+#endif
 
 private struct OnboardingFrictionSelector: View {
     let selectedProfile: OnboardingFrictionProfile?
