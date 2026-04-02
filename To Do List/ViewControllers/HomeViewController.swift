@@ -3044,17 +3044,25 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
 
         let presentSummary: (DailySummaryModalData) -> Void = { [weak self] summary in
             guard let self else { return }
+            let dismissSummary: (@escaping () -> Void) -> Void = { [weak self] completion in
+                self?.dismiss(animated: true) {
+                    self?.scheduleOnboardingEvaluationIfNeeded()
+                    self?.onboardingCoordinator?.drainPendingPresentationIfPossible()
+                    completion()
+                }
+            }
+
             let summaryView = DailySummaryModalView(
                 summary: summary,
-                onDismiss: { [weak self] in
-                    self?.dismiss(animated: true)
+                onDismiss: {
+                    dismissSummary {}
                 },
                 onStartToday: { [weak self] in
                     guard let self else { return }
                     self.viewModel.trackDailySummaryCTA(kind: kind, cta: "start_today", countsSnapshot: summary.analyticsSnapshot)
                     self.viewModel.setQuickView(.today)
                     self.viewModel.trackDailySummaryActionResult(cta: "start_today", success: true, error: nil)
-                    self.dismiss(animated: true)
+                    dismissSummary {}
                 },
                 onCompleteMorningRoutine: { [weak self] in
                     guard let self else { return }
@@ -3075,7 +3083,7 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
                             )
                         }
                     }
-                    self.dismiss(animated: true)
+                    dismissSummary {}
                 },
                 onStartTriage: { [weak self] in
                     guard let self else { return }
@@ -3083,7 +3091,7 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
                     self.viewModel.setQuickView(.today)
                     self.viewModel.startTriage(scope: .visible)
                     self.viewModel.trackDailySummaryActionResult(cta: "start_triage", success: true, error: nil)
-                    self.dismiss(animated: true)
+                    dismissSummary {}
                 },
                 onRescueOverdue: { [weak self] in
                     guard let self else { return }
@@ -3091,13 +3099,13 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
                     self.viewModel.setQuickView(.today)
                     self.viewModel.openRescue()
                     self.viewModel.trackDailySummaryActionResult(cta: "rescue_overdue", success: true, error: nil)
-                    self.dismiss(animated: true)
+                    dismissSummary {}
                 },
                 onAddTask: { [weak self] in
                     guard let self else { return }
                     self.viewModel.trackDailySummaryCTA(kind: kind, cta: "add_task", countsSnapshot: summary.analyticsSnapshot)
                     self.viewModel.trackDailySummaryActionResult(cta: "add_task", success: true, error: nil)
-                    self.dismiss(animated: true) {
+                    dismissSummary {
                         self.AddTaskAction()
                     }
                 },
@@ -3112,14 +3120,14 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
                             self.viewModel.trackDailySummaryActionResult(cta: "plan_tomorrow", success: false, error: error)
                         }
                     }
-                    self.dismiss(animated: true)
+                    dismissSummary {}
                 },
                 onReviewDone: { [weak self] in
                     guard let self else { return }
                     self.viewModel.trackDailySummaryCTA(kind: kind, cta: "review_done", countsSnapshot: summary.analyticsSnapshot)
                     self.viewModel.setQuickView(.done)
                     self.viewModel.trackDailySummaryActionResult(cta: "review_done", success: true, error: nil)
-                    self.dismiss(animated: true)
+                    dismissSummary {}
                 },
                 onRescheduleOverdue: { [weak self] in
                     guard let self else { return }
@@ -3141,7 +3149,7 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
                             )
                         }
                     }
-                    self.dismiss(animated: true)
+                    dismissSummary {}
                 },
                 onOpenRescue: { [weak self] in
                     guard let self else { return }
@@ -3149,7 +3157,7 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
                     self.viewModel.setQuickView(.today)
                     self.viewModel.openRescue()
                     self.viewModel.trackDailySummaryActionResult(cta: "open_rescue", success: true, error: nil)
-                    self.dismiss(animated: true)
+                    dismissSummary {}
                 }
             )
 
@@ -3157,6 +3165,7 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
             hostingController.view.backgroundColor = TaskerThemeManager.shared.currentTheme.tokens.color.bgCanvas
             hostingController.view.accessibilityIdentifier = "home.dailySummaryModal"
             hostingController.modalPresentationStyle = .pageSheet
+            hostingController.presentationController?.delegate = self
 
             if let sheet = hostingController.sheetPresentationController {
                 sheet.detents = [.large()]
@@ -3919,6 +3928,8 @@ extension HomeViewController {
     func presentationControllerDidDismiss(_ presentationController: UIPresentationController) {
         resetPendingIPadModalWaitState()
         processPendingIPadModalRequest()
+        scheduleOnboardingEvaluationIfNeeded()
+        onboardingCoordinator?.drainPendingPresentationIfPossible()
     }
 }
 
