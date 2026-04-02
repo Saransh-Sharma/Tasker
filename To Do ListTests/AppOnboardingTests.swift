@@ -88,11 +88,21 @@ final class AppOnboardingTests: XCTestCase {
         )
     }
 
-    func testOnboardingStepOrderIncludesHabitsBetweenProjectsAndFirstTask() {
+    func testOnboardingStepOrderUsesExplicitReorderedFlow() {
         XCTAssertEqual(
-            OnboardingStep.allCases,
-            [.welcome, .lifeAreas, .projects, .habits, .firstTask, .focusRoom]
+            OnboardingStep.orderedFlow,
+            [.welcome, .blocker, .lifeAreas, .projects, .firstTask, .habits, .focusRoom]
         )
+    }
+
+    func testLegacyRawValuesStillDecodeExistingStepOrder() {
+        XCTAssertEqual(OnboardingStep(rawValue: 0), .welcome)
+        XCTAssertEqual(OnboardingStep(rawValue: 1), .lifeAreas)
+        XCTAssertEqual(OnboardingStep(rawValue: 2), .projects)
+        XCTAssertEqual(OnboardingStep(rawValue: 3), .habits)
+        XCTAssertEqual(OnboardingStep(rawValue: 4), .firstTask)
+        XCTAssertEqual(OnboardingStep(rawValue: 5), .focusRoom)
+        XCTAssertEqual(OnboardingStep(rawValue: 6), .blocker)
     }
 
     func testCatalogReuseMatchesAliasesForExistingLifeAreasAndProjects() {
@@ -349,6 +359,7 @@ final class AppOnboardingTests: XCTestCase {
 
         let viewModel = OnboardingFlowModel(stateStore: context.store)
         viewModel.prepareForPresentation(snapshot: nil)
+        viewModel.begin(mode: .guided)
 
         viewModel.selectFriction(.remembering)
 
@@ -390,7 +401,7 @@ final class AppOnboardingTests: XCTestCase {
     }
 
     @MainActor
-    func testPrepareEstablishedWorkspaceEntryReusesExistingWorkspaceAndStartsAtHabits() async {
+    func testPrepareEstablishedWorkspaceEntryReusesExistingWorkspaceAndStartsAtBlocker() async {
         let context = makeStoreContext()
         defer { context.cleanup() }
 
@@ -407,7 +418,7 @@ final class AppOnboardingTests: XCTestCase {
 
         await viewModel.prepareEstablishedWorkspaceEntry()
 
-        XCTAssertEqual(viewModel.step, .habits)
+        XCTAssertEqual(viewModel.step, .blocker)
         XCTAssertEqual(viewModel.entryContext, .establishedWorkspace)
         XCTAssertEqual(viewModel.resolvedLifeAreas.map(\.lifeArea.name), ["Career", "Home"])
         XCTAssertEqual(viewModel.resolvedProjects.map(\.project.name), ["Ship one thing", "Home reset"])

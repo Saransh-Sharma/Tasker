@@ -191,6 +191,7 @@ enum AccessibilityIdentifiers {
     enum Onboarding {
         static let flow = "onboarding.flow"
         static let welcome = "onboarding.welcome"
+        static let blocker = "onboarding.blocker"
         static let lifeAreas = "onboarding.lifeAreas"
         static let projects = "onboarding.projects"
         static let habits = "onboarding.habits"
@@ -201,6 +202,8 @@ enum AccessibilityIdentifiers {
         static let frictionHelper = "onboarding.friction.helper"
         static let startRecommended = "onboarding.cta.startRecommended"
         static let customize = "onboarding.cta.customize"
+        static let continueFromBlocker = "onboarding.cta.continueFromBlocker"
+        static let skipBlocker = "onboarding.cta.skipBlocker"
         static let useAreas = "onboarding.cta.useAreas"
         static let useProjects = "onboarding.cta.useProjects"
         static let useHabits = "onboarding.cta.useHabits"
