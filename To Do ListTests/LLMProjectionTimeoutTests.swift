@@ -671,6 +671,24 @@ final class LLMPromptHistoryFormattingTests: XCTestCase {
         XCTAssertEqual(options.effectiveModelType, .reasoning)
     }
 
+    func testBonsaiInteractiveChatRequestOptionsEnableVisibleThinking() {
+        let options = LLMGenerationRequestOptions.interactiveChat(for: .bonsai_1_7b_mlx_1bit)
+
+        XCTAssertTrue(options.allowThinking)
+        XCTAssertTrue(options.isReasoningEnabled)
+        XCTAssertTrue(options.showsVisibleThinking)
+        XCTAssertTrue(options.templateContext.isEmpty)
+    }
+
+    func testBonsaiStructuredOutputRequestOptionsDisableThinkingViaTemplateContext() {
+        let options = LLMGenerationRequestOptions.structuredOutput(for: .bonsai_1_7b_mlx_1bit)
+
+        XCTAssertFalse(options.allowThinking)
+        XCTAssertFalse(options.isReasoningEnabled)
+        XCTAssertEqual(options.templateContext["enable_thinking"] as? Bool, false)
+        XCTAssertEqual(options.effectiveModelType, .regular)
+    }
+
     func testChatProfileUsesModelSpecificVisibleThinkingTuning() {
         let model = ModelConfiguration.qwen_3_5_0_8b_claude_4_6_opus_reasoning_distilled_4bit
         let options = LLMGenerationRequestOptions.interactiveChat(for: model)
@@ -683,6 +701,22 @@ final class LLMPromptHistoryFormattingTests: XCTestCase {
         XCTAssertEqual(profile.temperature, 0.5)
         XCTAssertEqual(profile.topP, 0.95)
         XCTAssertEqual(profile.repetitionPenalty, 1.02)
+    }
+
+    func testBonsaiChatProfileUsesDedicatedVisibleThinkingTuning() {
+        let model = ModelConfiguration.bonsai_1_7b_mlx_1bit
+        let options = LLMGenerationRequestOptions.interactiveChat(for: model)
+        let profile = LLMGenerationProfile.chatProfile(for: model, requestOptions: options)
+
+        XCTAssertTrue(profile.preservesVisibleThinking)
+        XCTAssertEqual(profile.regularMaxRawTokens, 448)
+        XCTAssertEqual(profile.reasoningMaxRawTokens, 896)
+        XCTAssertEqual(profile.regularMinAnswerTokensAfterAnswerPhase, 192)
+        XCTAssertEqual(profile.reasoningMinAnswerTokensAfterAnswerPhase, 192)
+        XCTAssertEqual(profile.maxVisibleCharacters, 4_000)
+        XCTAssertEqual(profile.temperature, 0.5)
+        XCTAssertEqual(profile.topP, 0.85)
+        XCTAssertNil(profile.repetitionPenalty)
     }
 }
 
@@ -902,6 +936,18 @@ final class LLMChatQualityGateTests: XCTestCase {
     func testAnswerCompletionRetryDisablesVisibleThinkingForSupportedModel() {
         let options = LLMGenerationRequestOptions.answerCompletionRetry(
             for: .qwen_3_0_6b_4bit
+        )
+
+        XCTAssertFalse(options.allowThinking)
+        XCTAssertFalse(options.isReasoningEnabled)
+        XCTAssertFalse(options.showsVisibleThinking)
+        XCTAssertEqual(options.templateContext["enable_thinking"] as? Bool, false)
+        XCTAssertEqual(options.effectiveModelType, .regular)
+    }
+
+    func testAnswerCompletionRetryDisablesVisibleThinkingForBonsai() {
+        let options = LLMGenerationRequestOptions.answerCompletionRetry(
+            for: .bonsai_1_7b_mlx_1bit
         )
 
         XCTAssertFalse(options.allowThinking)

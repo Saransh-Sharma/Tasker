@@ -278,6 +278,7 @@ public extension ModelConfiguration {
     enum ModelFamily {
         case qwen3
         case qwen3_5Text
+        case bonsai
     }
 
     enum ModelDistribution {
@@ -303,6 +304,7 @@ public extension ModelConfiguration {
     }
 
     struct ProductMetadata {
+        let modelType: ModelType
         let displayName: String
         let shortDescription: String
         let onboardingBadgeTitle: String
@@ -314,24 +316,20 @@ public extension ModelConfiguration {
         let distribution: ModelDistribution
         let sourceModelID: String?
         let supportsVisibleThinking: Bool
+        let supportsThinkingToggleInTemplateContext: Bool
         let thinkingFormat: ThinkingFormat
         let chatTuningProfile: ChatTuningProfile
     }
 
     var modelType: ModelType {
-        switch self {
-        case .qwen_3_0_6b_4bit: .reasoning
-        case .qwen_3_5_0_8b_optiq_4bit: .reasoning
-        case .qwen_3_5_0_8b_nexveridian_4bit: .reasoning
-        case .qwen_3_5_0_8b_claude_4_6_opus_reasoning_distilled_4bit: .reasoning
-        default: .regular
-        }
+        metadata.modelType
     }
 
     var metadata: ProductMetadata {
         switch self {
         case .qwen_3_0_6b_4bit:
             return ProductMetadata(
+                modelType: .reasoning,
                 displayName: "Qwen3 0.6B 4bit",
                 shortDescription: "Faster, lighter, default for all devices.",
                 onboardingBadgeTitle: "Default",
@@ -352,6 +350,7 @@ public extension ModelConfiguration {
                 distribution: .mlx,
                 sourceModelID: nil,
                 supportsVisibleThinking: true,
+                supportsThinkingToggleInTemplateContext: true,
                 thinkingFormat: .taggedThinkBlocks,
                 chatTuningProfile: ChatTuningProfile(
                     answerOnlyMaxRawTokens: 384,
@@ -366,6 +365,7 @@ public extension ModelConfiguration {
             )
         case .qwen_3_5_0_8b_optiq_4bit:
             return ProductMetadata(
+                modelType: .reasoning,
                 displayName: "Qwen3.5 0.8B OptiQ 4bit",
                 shortDescription: "Smarter, slightly heavier, better answers with more RAM cost.",
                 onboardingBadgeTitle: "Smarter",
@@ -386,6 +386,7 @@ public extension ModelConfiguration {
                 distribution: .mlx,
                 sourceModelID: nil,
                 supportsVisibleThinking: true,
+                supportsThinkingToggleInTemplateContext: true,
                 thinkingFormat: .taggedThinkBlocks,
                 chatTuningProfile: ChatTuningProfile(
                     answerOnlyMaxRawTokens: 512,
@@ -400,6 +401,7 @@ public extension ModelConfiguration {
             )
         case .qwen_3_5_0_8b_nexveridian_4bit:
             return ProductMetadata(
+                modelType: .reasoning,
                 displayName: "Qwen3.5 0.8B NexVeridian 4bit",
                 shortDescription: "Alternative Qwen 3.5 text model with the same lightweight footprint.",
                 onboardingBadgeTitle: "Experimental",
@@ -420,6 +422,7 @@ public extension ModelConfiguration {
                 distribution: .mlx,
                 sourceModelID: nil,
                 supportsVisibleThinking: true,
+                supportsThinkingToggleInTemplateContext: true,
                 thinkingFormat: .taggedThinkBlocks,
                 chatTuningProfile: ChatTuningProfile(
                     answerOnlyMaxRawTokens: 512,
@@ -434,6 +437,7 @@ public extension ModelConfiguration {
             )
         case .qwen_3_5_0_8b_claude_4_6_opus_reasoning_distilled_4bit:
             return ProductMetadata(
+                modelType: .reasoning,
                 displayName: "Qwen3.5 0.8B Claude 4.6 Distilled 4bit",
                 shortDescription: "Reasoning-distilled MLX equivalent of the requested Claude-style fine-tune.",
                 onboardingBadgeTitle: "Experimental",
@@ -454,6 +458,7 @@ public extension ModelConfiguration {
                 distribution: .mlx,
                 sourceModelID: "Ishant06/Qwen3.5-0.8B-Claude-4.6-Opus-Reasoning-Distilled",
                 supportsVisibleThinking: true,
+                supportsThinkingToggleInTemplateContext: true,
                 thinkingFormat: .plainTextPreamble,
                 chatTuningProfile: ChatTuningProfile(
                     answerOnlyMaxRawTokens: 640,
@@ -466,8 +471,45 @@ public extension ModelConfiguration {
                     outputTokenStride: 16
                 )
             )
+        case .bonsai_1_7b_mlx_1bit:
+            return ProductMetadata(
+                modelType: .reasoning,
+                displayName: "Bonsai 1.7B 1-bit",
+                shortDescription: "Experimental 1-bit reasoning model with a very small local footprint.",
+                onboardingBadgeTitle: "Experimental",
+                onboardingSubtitle: "Tiny 1-bit MLX model for experimenting with Bonsai's local reasoning behavior.",
+                tier: .experimental,
+                approximateSizeGB: Decimal(string: "0.27") ?? 0.27,
+                tokenBudget: LLMTokenBudget(
+                    inputTokens: 2_048,
+                    reservedOutputTokens: 512,
+                    systemPromptTokens: 256,
+                    personalMemoryTokens: 128,
+                    executiveContextTokens: 192,
+                    taskContextTokens: 704,
+                    slashContextTokens: 192,
+                    historyMessageLimit: 8
+                ),
+                family: .bonsai,
+                distribution: .mlx,
+                sourceModelID: nil,
+                supportsVisibleThinking: true,
+                supportsThinkingToggleInTemplateContext: true,
+                thinkingFormat: .taggedThinkBlocks,
+                chatTuningProfile: ChatTuningProfile(
+                    answerOnlyMaxRawTokens: 448,
+                    thinkingMaxRawTokens: 896,
+                    minAnswerTokensAfterAnswerPhase: 192,
+                    maxVisibleCharacters: 4_000,
+                    temperature: 0.5,
+                    topP: 0.85,
+                    repetitionPenalty: nil,
+                    outputTokenStride: 16
+                )
+            )
         default:
             return ProductMetadata(
+                modelType: .regular,
                 displayName: name,
                 shortDescription: "",
                 onboardingBadgeTitle: "",
@@ -488,6 +530,7 @@ public extension ModelConfiguration {
                 distribution: .mlx,
                 sourceModelID: nil,
                 supportsVisibleThinking: false,
+                supportsThinkingToggleInTemplateContext: false,
                 thinkingFormat: .none,
                 chatTuningProfile: ChatTuningProfile(
                     answerOnlyMaxRawTokens: 384,
@@ -512,6 +555,7 @@ public extension ModelConfiguration {
     var distribution: ModelDistribution { metadata.distribution }
     var sourceModelID: String? { metadata.sourceModelID }
     var supportsVisibleThinking: Bool { metadata.supportsVisibleThinking }
+    var supportsThinkingToggleInTemplateContext: Bool { metadata.supportsThinkingToggleInTemplateContext }
     var thinkingFormat: ThinkingFormat { metadata.thinkingFormat }
     var chatTuningProfile: ChatTuningProfile { metadata.chatTuningProfile }
 }
@@ -691,11 +735,16 @@ public extension ModelConfiguration {
         extraEOSTokens: LLMModelStopTokenRegistry.qwenStyle
     )
 
+    static let bonsai_1_7b_mlx_1bit = ModelConfiguration(
+        id: "prism-ml/Bonsai-1.7B-mlx-1bit"
+    )
+
     static var availableModels: [ModelConfiguration] = [
         qwen_3_0_6b_4bit,
         qwen_3_5_0_8b_optiq_4bit,
         qwen_3_5_0_8b_nexveridian_4bit,
         qwen_3_5_0_8b_claude_4_6_opus_reasoning_distilled_4bit,
+        bonsai_1_7b_mlx_1bit,
     ]
 
     static var defaultModel: ModelConfiguration {
@@ -923,6 +972,7 @@ public extension ModelConfiguration {
         case .qwen_3_5_0_8b_optiq_4bit: return metadata.approximateSizeGB
         case .qwen_3_5_0_8b_nexveridian_4bit: return metadata.approximateSizeGB
         case .qwen_3_5_0_8b_claude_4_6_opus_reasoning_distilled_4bit: return metadata.approximateSizeGB
+        case .bonsai_1_7b_mlx_1bit: return metadata.approximateSizeGB
         default: return nil
         }
     }

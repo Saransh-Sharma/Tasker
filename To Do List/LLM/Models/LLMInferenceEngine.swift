@@ -52,7 +52,7 @@ struct LLMGenerationRequestOptions {
     static func structuredOutput(for model: ModelConfiguration) -> Self {
         Self(
             allowThinking: false,
-            templateContext: model.metadata.family == .qwen3 || model.metadata.family == .qwen3_5Text
+            templateContext: model.supportsThinkingToggleInTemplateContext
                 ? ["enable_thinking": false]
                 : [:],
             effectiveModelType: .regular,
@@ -73,8 +73,7 @@ struct LLMGenerationRequestOptions {
 
     static func interactiveChat(for model: ModelConfiguration) -> Self {
         let shouldShowThinking = model.supportsVisibleThinking
-        let shouldDisableThinking = shouldShowThinking == false &&
-            (model.metadata.family == .qwen3 || model.metadata.family == .qwen3_5Text)
+        let shouldDisableThinking = shouldShowThinking == false && model.supportsThinkingToggleInTemplateContext
         return Self(
             allowThinking: shouldShowThinking,
             templateContext: shouldDisableThinking ? ["enable_thinking": false] : [:],
@@ -87,7 +86,7 @@ struct LLMGenerationRequestOptions {
     static func answerCompletionRetry(for model: ModelConfiguration) -> Self {
         Self(
             allowThinking: false,
-            templateContext: model.metadata.family == .qwen3 || model.metadata.family == .qwen3_5Text
+            templateContext: model.supportsThinkingToggleInTemplateContext
                 ? ["enable_thinking": false]
                 : [:],
             effectiveModelType: .regular,

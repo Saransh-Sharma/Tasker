@@ -307,7 +307,7 @@ struct ModelsSettingsView: View {
         case .availableNow:
             return "Install another local model."
         case .additionalTextModels:
-            return "Other lightweight text models."
+            return "Alternative and experimental local models."
         }
     }
 
@@ -321,6 +321,8 @@ struct ModelsSettingsView: View {
             return "More capable, slightly slower, and uses more RAM."
         case .qwen_3_5_0_8b_nexveridian_4bit:
             return "Lightweight alternative with a different response style."
+        case .bonsai_1_7b_mlx_1bit:
+            return "Experimental 1-bit model with a tiny download and visible reasoning."
         default:
             return model.shortDescription
         }
