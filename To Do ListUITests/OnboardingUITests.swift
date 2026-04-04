@@ -18,69 +18,67 @@ final class OnboardingFreshLaunchUITests: BaseUITest {
         XCTAssertTrue(introCTA.waitForExistence(timeout: 12))
         XCTAssertEqual(introCTA.label, "Get your days back under control")
 
-        let setupDuringIntro = app.buttons[AccessibilityIdentifiers.Onboarding.startRecommended]
-        XCTAssertFalse(app.descendants(matching: .any)[AccessibilityIdentifiers.Onboarding.welcomeReady].exists)
-        XCTAssertFalse(app.buttons[AccessibilityIdentifiers.Onboarding.skipButton].exists)
-        XCTAssertFalse(setupDuringIntro.exists && setupDuringIntro.isHittable)
+        XCTAssertTrue(app.buttons[AccessibilityIdentifiers.Onboarding.skipButton].exists)
+        XCTAssertTrue(app.descendants(matching: .any)[AccessibilityIdentifiers.Onboarding.welcome].waitForExistence(timeout: 12))
+        XCTAssertTrue(app.staticTexts["Real setup"].exists)
+        XCTAssertTrue(app.staticTexts["~2 min"].exists)
+        XCTAssertTrue(app.staticTexts["Easy to change later"].exists)
 
         introCTA.tap()
-
-        let welcomeReady = app.descendants(matching: .any)[AccessibilityIdentifiers.Onboarding.welcomeReady]
-        XCTAssertTrue(welcomeReady.waitForExistence(timeout: 8))
-        let welcome = app.descendants(matching: .any)[AccessibilityIdentifiers.Onboarding.welcome]
-        XCTAssertTrue(welcome.waitForExistence(timeout: 12))
+        waitForBlockerIntroCard(in: app)
+        waitForBlockerReady(in: app)
         XCTAssertFalse(introOverlay.exists)
 
         let heroVideo = app.descendants(matching: .any)[AccessibilityIdentifiers.Onboarding.welcomeHeroVideo]
         XCTAssertTrue(heroVideo.waitForExistence(timeout: 12))
         assertCinematicBackdrop(in: app, grain: "100%")
 
-        let title = app.staticTexts["Get your day back under control."]
-        XCTAssertTrue(title.exists)
-        XCTAssertEqual(app.buttons[AccessibilityIdentifiers.Onboarding.startRecommended].label, "Set up Tasker")
-        XCTAssertEqual(app.buttons[AccessibilityIdentifiers.Onboarding.customize].label, "Customize it")
         XCTAssertTrue(app.buttons[AccessibilityIdentifiers.Onboarding.skipButton].exists)
-        XCTAssertFalse(app.buttons["Getting started"].exists)
+        XCTAssertTrue(app.staticTexts["Step 1 of 6"].waitForExistence(timeout: 12))
     }
 
-    func testWelcomeIntroDoesNotReplayWhenNavigatingBackToWelcome() {
+    func testWelcomeOverlayTapSkipsDelayToIntroCTA() {
+        let introOverlay = app.descendants(matching: .any)[AccessibilityIdentifiers.Onboarding.welcomeIntroOverlay]
+        XCTAssertTrue(introOverlay.waitForExistence(timeout: 4))
+
+        let introCTA = app.buttons[AccessibilityIdentifiers.Onboarding.welcomeIntroContinue]
+        XCTAssertFalse(introCTA.exists)
+
+        tapCenter(of: introOverlay)
+
+        XCTAssertTrue(introCTA.waitForExistence(timeout: 3))
+        XCTAssertTrue(app.descendants(matching: .any)[AccessibilityIdentifiers.Onboarding.welcome].waitForExistence(timeout: 3))
+        XCTAssertTrue(app.buttons[AccessibilityIdentifiers.Onboarding.skipButton].exists)
+
+        introCTA.tap()
+        waitForBlockerReady(in: app)
+    }
+
+    func testWelcomeActsAsPrestepAndBlockerStartsNumberedFlow() {
         let introOverlay = app.descendants(matching: .any)[AccessibilityIdentifiers.Onboarding.welcomeIntroOverlay]
         XCTAssertTrue(introOverlay.waitForExistence(timeout: 4))
         advanceThroughWelcomeIntro()
 
-        app.buttons[AccessibilityIdentifiers.Onboarding.startRecommended].tap()
+        app.buttons[AccessibilityIdentifiers.Onboarding.welcomeIntroContinue].tap()
+        waitForBlockerIntroCard(in: app)
+        waitForBlockerReady(in: app)
 
-        let blocker = app.descendants(matching: .any)[AccessibilityIdentifiers.Onboarding.blocker]
-        XCTAssertTrue(blocker.waitForExistence(timeout: 12))
-
-        let back = app.buttons["Back"]
-        XCTAssertTrue(back.waitForExistence(timeout: 12))
-        back.tap()
-
-        let welcome = app.descendants(matching: .any)[AccessibilityIdentifiers.Onboarding.welcome]
-        XCTAssertTrue(welcome.waitForExistence(timeout: 4))
+        XCTAssertFalse(app.buttons["Back"].exists)
+        XCTAssertTrue(app.staticTexts["Step 1 of 6"].waitForExistence(timeout: 12))
         XCTAssertFalse(introOverlay.exists)
-        XCTAssertTrue(app.buttons[AccessibilityIdentifiers.Onboarding.startRecommended].exists)
-        assertCinematicBackdrop(in: app, grain: "100%")
     }
 
     func testWelcomePrimaryCTARespondsToEdgeTap() {
         advanceThroughWelcomeIntro()
 
-        let setup = app.buttons[AccessibilityIdentifiers.Onboarding.startRecommended]
+        let setup = app.buttons[AccessibilityIdentifiers.Onboarding.welcomeIntroContinue]
         XCTAssertTrue(setup.waitForExistence(timeout: 12))
         tapInsideEdge(of: setup, normalizedX: 0.92)
-
-        let blocker = app.descendants(matching: .any)[AccessibilityIdentifiers.Onboarding.blocker]
-        XCTAssertTrue(blocker.waitForExistence(timeout: 12))
+        waitForBlockerReady(in: app)
     }
 
     func testBlockerSelectionShowsInlineHelperOnly() {
-        advanceThroughWelcomeIntro()
-        app.buttons[AccessibilityIdentifiers.Onboarding.startRecommended].tap()
-
-        let blocker = app.descendants(matching: .any)[AccessibilityIdentifiers.Onboarding.blocker]
-        XCTAssertTrue(blocker.waitForExistence(timeout: 12))
+        startGuidedOnboarding()
         assertCinematicBackdrop(in: app, grain: "100%")
 
         let keepingTrack = app.buttons["Keeping track"]
@@ -92,12 +90,7 @@ final class OnboardingFreshLaunchUITests: BaseUITest {
     }
 
     func testBlockerSkipForNowContinuesToAreas() {
-        advanceThroughWelcomeIntro()
-        app.buttons[AccessibilityIdentifiers.Onboarding.startRecommended].tap()
-
-        let blocker = app.descendants(matching: .any)[AccessibilityIdentifiers.Onboarding.blocker]
-        XCTAssertTrue(blocker.waitForExistence(timeout: 12))
-
+        startGuidedOnboarding()
         app.buttons[AccessibilityIdentifiers.Onboarding.skipBlocker].tap()
 
         XCTAssertTrue(app.descendants(matching: .any)[AccessibilityIdentifiers.Onboarding.lifeAreas].waitForExistence(timeout: 12))
@@ -105,12 +98,7 @@ final class OnboardingFreshLaunchUITests: BaseUITest {
     }
 
     func testBlockerPrimaryCTARespondsToEdgeTap() {
-        advanceThroughWelcomeIntro()
-        app.buttons[AccessibilityIdentifiers.Onboarding.startRecommended].tap()
-
-        let blocker = app.descendants(matching: .any)[AccessibilityIdentifiers.Onboarding.blocker]
-        XCTAssertTrue(blocker.waitForExistence(timeout: 12))
-
+        startGuidedOnboarding()
         let continueButton = app.buttons[AccessibilityIdentifiers.Onboarding.continueFromBlocker]
         XCTAssertTrue(continueButton.waitForExistence(timeout: 12))
         tapInsideEdge(of: continueButton, normalizedX: 0.08)
@@ -119,9 +107,26 @@ final class OnboardingFreshLaunchUITests: BaseUITest {
         assertCinematicBackdrop(in: app, grain: "100%")
     }
 
-    func testLifeAreasShowCoreAreasFirstThenRevealOptionalAreas() {
+    func testReturningToBlockerDoesNotReplaySetupIntro() {
         advanceThroughWelcomeIntro()
-        app.buttons[AccessibilityIdentifiers.Onboarding.startRecommended].tap()
+        app.buttons[AccessibilityIdentifiers.Onboarding.welcomeIntroContinue].tap()
+        waitForBlockerIntroCard(in: app)
+        waitForBlockerReady(in: app)
+
+        app.buttons[AccessibilityIdentifiers.Onboarding.continueFromBlocker].tap()
+        XCTAssertTrue(app.descendants(matching: .any)[AccessibilityIdentifiers.Onboarding.lifeAreas].waitForExistence(timeout: 12))
+
+        let back = app.buttons["Back"]
+        XCTAssertTrue(back.waitForExistence(timeout: 12))
+        back.tap()
+
+        waitForBlockerReady(in: app)
+        XCTAssertFalse(app.descendants(matching: .any)[AccessibilityIdentifiers.Onboarding.blockerSetupIntro].exists)
+        XCTAssertTrue(app.staticTexts["Step 1 of 6"].exists)
+    }
+
+    func testLifeAreasShowCoreAreasFirstThenRevealOptionalAreas() {
+        startGuidedOnboarding()
         app.buttons[AccessibilityIdentifiers.Onboarding.continueFromBlocker].tap()
 
         let lifeAreas = app.descendants(matching: .any)[AccessibilityIdentifiers.Onboarding.lifeAreas]
@@ -145,6 +150,7 @@ final class OnboardingFreshLaunchUITests: BaseUITest {
     func testSkipSeedsStarterTaskAndRunsFocusRoomFlow() {
         advanceThroughWelcomeIntro()
 
+        XCTAssertTrue(app.buttons[AccessibilityIdentifiers.Onboarding.skipButton].exists)
         app.buttons[AccessibilityIdentifiers.Onboarding.skipButton].tap()
 
         let focusRoom = app.descendants(matching: .any)[AccessibilityIdentifiers.Onboarding.focusRoom]
@@ -168,11 +174,27 @@ final class OnboardingFreshLaunchUITests: BaseUITest {
         XCTAssertTrue(app.descendants(matching: .any)[AccessibilityIdentifiers.Home.view].waitForExistence(timeout: 12))
     }
 
-    func testGuidedFlowCompletesSingleTaskAndRevealsHome() {
-        advanceThroughWelcomeIntro()
+    func testGlobalSkipRemainsAvailableFromProjectsStep() {
+        startGuidedOnboarding()
+        XCTAssertTrue(app.buttons[AccessibilityIdentifiers.Onboarding.skipButton].exists)
 
-        app.buttons[AccessibilityIdentifiers.Onboarding.startRecommended].tap()
-        XCTAssertTrue(app.descendants(matching: .any)[AccessibilityIdentifiers.Onboarding.blocker].waitForExistence(timeout: 12))
+        app.buttons[AccessibilityIdentifiers.Onboarding.continueFromBlocker].tap()
+        XCTAssertTrue(app.descendants(matching: .any)[AccessibilityIdentifiers.Onboarding.lifeAreas].waitForExistence(timeout: 12))
+        XCTAssertTrue(app.buttons[AccessibilityIdentifiers.Onboarding.skipButton].exists)
+
+        app.buttons[AccessibilityIdentifiers.Onboarding.useAreas].tap()
+        XCTAssertTrue(app.descendants(matching: .any)[AccessibilityIdentifiers.Onboarding.projects].waitForExistence(timeout: 12))
+        XCTAssertTrue(app.buttons[AccessibilityIdentifiers.Onboarding.skipButton].exists)
+
+        app.buttons[AccessibilityIdentifiers.Onboarding.skipButton].tap()
+
+        let focusRoom = app.descendants(matching: .any)[AccessibilityIdentifiers.Onboarding.focusRoom]
+        XCTAssertTrue(focusRoom.waitForExistence(timeout: 12))
+        XCTAssertTrue(app.buttons[AccessibilityIdentifiers.Onboarding.skipButton].exists)
+    }
+
+    func testGuidedFlowCompletesSingleTaskAndRevealsHome() {
+        startGuidedOnboarding()
         app.buttons[AccessibilityIdentifiers.Onboarding.continueFromBlocker].tap()
 
         XCTAssertTrue(app.descendants(matching: .any)[AccessibilityIdentifiers.Onboarding.lifeAreas].waitForExistence(timeout: 12))
@@ -224,22 +246,18 @@ final class OnboardingFreshLaunchUITests: BaseUITest {
     }
 
     func testOnboardingRestoresBlockerStepAfterRelaunch() {
-        advanceThroughWelcomeIntro()
-
-        app.buttons[AccessibilityIdentifiers.Onboarding.startRecommended].tap()
-        XCTAssertTrue(app.descendants(matching: .any)[AccessibilityIdentifiers.Onboarding.blocker].waitForExistence(timeout: 12))
+        startGuidedOnboarding()
 
         app.terminate()
         app = relaunchAppWithoutReset()
 
-        XCTAssertTrue(app.descendants(matching: .any)[AccessibilityIdentifiers.Onboarding.blocker].waitForExistence(timeout: 12))
+        waitForBlockerReady(in: app)
+        XCTAssertFalse(app.descendants(matching: .any)[AccessibilityIdentifiers.Onboarding.blockerSetupIntro].exists)
         XCTAssertTrue(app.buttons[AccessibilityIdentifiers.Onboarding.continueFromBlocker].exists)
     }
 
     func testOnboardingRestoresProjectsStepAfterRelaunch() {
-        advanceThroughWelcomeIntro()
-
-        app.buttons[AccessibilityIdentifiers.Onboarding.startRecommended].tap()
+        startGuidedOnboarding()
         app.buttons[AccessibilityIdentifiers.Onboarding.continueFromBlocker].tap()
 
         let lifeAreas = app.descendants(matching: .any)[AccessibilityIdentifiers.Onboarding.lifeAreas]
@@ -257,11 +275,8 @@ final class OnboardingFreshLaunchUITests: BaseUITest {
         XCTAssertTrue(app.buttons[AccessibilityIdentifiers.Onboarding.useProjects].exists)
     }
 
-    func testCustomPathAllowsManualAreaEditingBeforeContinuing() {
-        advanceThroughWelcomeIntro()
-
-        app.buttons[AccessibilityIdentifiers.Onboarding.customize].tap()
-        XCTAssertTrue(app.descendants(matching: .any)[AccessibilityIdentifiers.Onboarding.blocker].waitForExistence(timeout: 12))
+    func testGuidedPathAllowsManualAreaEditingBeforeContinuing() {
+        startGuidedOnboarding()
         app.buttons[AccessibilityIdentifiers.Onboarding.skipBlocker].tap()
 
         let lifeAreas = app.descendants(matching: .any)[AccessibilityIdentifiers.Onboarding.lifeAreas]
@@ -279,9 +294,7 @@ final class OnboardingFreshLaunchUITests: BaseUITest {
     }
 
     func testCustomTaskComposerRoundTripReturnsToFirstTaskThenHabitsAndFocusRoom() {
-        advanceThroughWelcomeIntro()
-
-        app.buttons[AccessibilityIdentifiers.Onboarding.startRecommended].tap()
+        startGuidedOnboarding()
         app.buttons[AccessibilityIdentifiers.Onboarding.continueFromBlocker].tap()
 
         XCTAssertTrue(app.descendants(matching: .any)[AccessibilityIdentifiers.Onboarding.lifeAreas].waitForExistence(timeout: 12))
@@ -317,9 +330,7 @@ final class OnboardingFreshLaunchUITests: BaseUITest {
     }
 
     func testHabitStepAllowsSuggestedHabitThenContinuesToFocusRoom() {
-        advanceThroughWelcomeIntro()
-
-        app.buttons[AccessibilityIdentifiers.Onboarding.startRecommended].tap()
+        startGuidedOnboarding()
         app.buttons[AccessibilityIdentifiers.Onboarding.continueFromBlocker].tap()
 
         XCTAssertTrue(app.descendants(matching: .any)[AccessibilityIdentifiers.Onboarding.lifeAreas].waitForExistence(timeout: 12))
@@ -348,9 +359,7 @@ final class OnboardingFreshLaunchUITests: BaseUITest {
     }
 
     func testCustomHabitComposerRoundTripReturnsToHabitStep() {
-        advanceThroughWelcomeIntro()
-
-        app.buttons[AccessibilityIdentifiers.Onboarding.startRecommended].tap()
+        startGuidedOnboarding()
         app.buttons[AccessibilityIdentifiers.Onboarding.continueFromBlocker].tap()
 
         XCTAssertTrue(app.descendants(matching: .any)[AccessibilityIdentifiers.Onboarding.lifeAreas].waitForExistence(timeout: 12))
@@ -407,6 +416,11 @@ private extension OnboardingFreshLaunchUITests {
         XCTAssertTrue(waitForElementToBeHittable(element, timeout: 12))
         element.coordinate(withNormalizedOffset: CGVector(dx: normalizedX, dy: 0.5)).tap()
     }
+
+    func tapCenter(of element: XCUIElement) {
+        XCTAssertTrue(element.waitForExistence(timeout: 12))
+        element.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+    }
 }
 
 final class OnboardingPromptUITests: BaseUITest {
@@ -423,8 +437,8 @@ final class OnboardingPromptUITests: BaseUITest {
         XCTAssertEqual(startButton.label, "Review matched setup")
         startButton.tap()
 
-        let blocker = app.descendants(matching: .any)[AccessibilityIdentifiers.Onboarding.blocker]
-        XCTAssertTrue(blocker.waitForExistence(timeout: 12))
+        waitForBlockerReady(in: app)
+        XCTAssertFalse(app.descendants(matching: .any)[AccessibilityIdentifiers.Onboarding.blockerSetupIntro].exists)
         XCTAssertTrue(app.staticTexts["What usually gets in your way?"].waitForExistence(timeout: 12))
         assertCinematicBackdrop(in: app, grain: "100%")
     }
@@ -438,15 +452,14 @@ final class OnboardingPromptUITests: BaseUITest {
         XCTAssertTrue(startButton.waitForExistence(timeout: 12))
         startButton.tap()
 
-        let blocker = app.descendants(matching: .any)[AccessibilityIdentifiers.Onboarding.blocker]
-        XCTAssertTrue(blocker.waitForExistence(timeout: 12))
+        waitForBlockerReady(in: app)
         assertCinematicBackdrop(in: app, grain: "100%")
 
         app.terminate()
         app = relaunchPromptAppWithoutReset()
 
-        let resumedBlocker = app.descendants(matching: .any)[AccessibilityIdentifiers.Onboarding.blocker]
-        XCTAssertTrue(resumedBlocker.waitForExistence(timeout: 12))
+        waitForBlockerReady(in: app)
+        XCTAssertFalse(app.descendants(matching: .any)[AccessibilityIdentifiers.Onboarding.blockerSetupIntro].exists)
         XCTAssertTrue(app.staticTexts["What usually gets in your way?"].waitForExistence(timeout: 12))
         assertCinematicBackdrop(in: app, grain: "100%")
     }
@@ -498,6 +511,12 @@ private extension OnboardingFreshLaunchUITests {
         advanceToSteadyWelcome(in: app)
     }
 
+    func startGuidedOnboarding() {
+        advanceThroughWelcomeIntro()
+        app.buttons[AccessibilityIdentifiers.Onboarding.welcomeIntroContinue].tap()
+        waitForBlockerReady(in: app)
+    }
+
     func relaunchAppWithoutReset() -> XCUIApplication {
         let relaunchedApp = XCUIApplication()
         relaunchedApp.launchArguments = [
@@ -519,17 +538,25 @@ private func advanceToSteadyWelcome(in app: XCUIApplication) {
 
     let introCTA = app.buttons[AccessibilityIdentifiers.Onboarding.welcomeIntroContinue]
     XCTAssertTrue(introCTA.waitForExistence(timeout: 12))
-    XCTAssertFalse(app.descendants(matching: .any)[AccessibilityIdentifiers.Onboarding.welcomeReady].exists)
-
-    introCTA.tap()
-
-    let welcomeReady = app.descendants(matching: .any)[AccessibilityIdentifiers.Onboarding.welcomeReady]
-    XCTAssertTrue(welcomeReady.waitForExistence(timeout: 8))
-
     let welcome = app.descendants(matching: .any)[AccessibilityIdentifiers.Onboarding.welcome]
     XCTAssertTrue(welcome.waitForExistence(timeout: 12))
-    XCTAssertFalse(introOverlay.exists)
-    assertCinematicBackdrop(in: app, grain: "100%")
+    XCTAssertTrue(app.buttons[AccessibilityIdentifiers.Onboarding.skipButton].exists)
+    XCTAssertTrue(app.staticTexts["Real setup"].exists)
+    XCTAssertTrue(app.staticTexts["~2 min"].exists)
+    XCTAssertTrue(app.staticTexts["Easy to change later"].exists)
+}
+
+private func waitForBlockerIntroCard(in app: XCUIApplication, file: StaticString = #file, line: UInt = #line) {
+    let intro = app.descendants(matching: .any)[AccessibilityIdentifiers.Onboarding.blockerSetupIntro]
+    XCTAssertTrue(intro.waitForExistence(timeout: 8), "Expected blocker intro card marker to exist", file: file, line: line)
+}
+
+private func waitForBlockerReady(in app: XCUIApplication, file: StaticString = #file, line: UInt = #line) {
+    let ready = app.descendants(matching: .any)[AccessibilityIdentifiers.Onboarding.blockerContentReady]
+    XCTAssertTrue(ready.waitForExistence(timeout: 12), "Expected blocker content ready marker to exist", file: file, line: line)
+
+    let blocker = app.descendants(matching: .any)[AccessibilityIdentifiers.Onboarding.blocker]
+    XCTAssertTrue(blocker.waitForExistence(timeout: 12), "Expected blocker content to exist", file: file, line: line)
 }
 
 private func assertCinematicBackdrop(in app: XCUIApplication, grain expectedValue: String, file: StaticString = #file, line: UInt = #line) {

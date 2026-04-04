@@ -18,8 +18,9 @@ enum AppOnboardingAccessibilityID {
     static let welcomeIntroOverlay = "onboarding.welcome.introOverlay"
     static let welcomeIntroTitleCard = "onboarding.welcome.introTitleCard"
     static let welcomeIntroContinue = "onboarding.welcome.introContinue"
-    static let welcomeReady = "onboarding.welcome.ready"
     static let blocker = "onboarding.blocker"
+    static let blockerSetupIntro = "onboarding.blocker.setupIntro"
+    static let blockerContentReady = "onboarding.blocker.contentReady"
     static let lifeAreas = "onboarding.lifeAreas"
     static let projects = "onboarding.projects"
     static let habits = "onboarding.habits"
@@ -28,8 +29,6 @@ enum AppOnboardingAccessibilityID {
     static let success = "onboarding.success"
     static let skipButton = "onboarding.skipButton"
     static let frictionHelper = "onboarding.friction.helper"
-    static let startRecommended = "onboarding.cta.startRecommended"
-    static let customize = "onboarding.cta.customize"
     static let continueFromBlocker = "onboarding.cta.continueFromBlocker"
     static let skipBlocker = "onboarding.cta.skipBlocker"
     static let useAreas = "onboarding.cta.useAreas"
@@ -91,7 +90,6 @@ enum OnboardingStep: Int, CaseIterable, Codable {
     case blocker = 6
 
     static let orderedFlow: [OnboardingStep] = [
-        .welcome,
         .blocker,
         .lifeAreas,
         .projects,
@@ -101,11 +99,12 @@ enum OnboardingStep: Int, CaseIterable, Codable {
     ]
 
     var progressIndex: Int {
-        Self.orderedFlow.firstIndex(of: self).map { $0 + 1 } ?? 1
+        Self.orderedFlow.firstIndex(of: self).map { $0 + 1 } ?? 0
     }
 
     var progressLabel: String {
-        "Step \(progressIndex) of \(Self.orderedFlow.count)"
+        guard progressIndex > 0 else { return "" }
+        return "Step \(progressIndex) of \(Self.orderedFlow.count)"
     }
 
     var eyebrowTitle: String {
@@ -130,19 +129,35 @@ enum OnboardingStep: Int, CaseIterable, Codable {
     var accessibilitySummary: String {
         switch self {
         case .welcome:
-            return "Welcome. Step 1 of 7."
+            return "Welcome setup."
         case .blocker:
-            return "Choose your blocker. Step 2 of 7."
+            return "Choose your blocker. Step 1 of 6."
         case .lifeAreas:
-            return "Choose life areas. Step 3 of 7."
+            return "Choose life areas. Step 2 of 6."
         case .projects:
-            return "Confirm starter projects. Step 4 of 7."
+            return "Confirm starter projects. Step 3 of 6."
         case .firstTask:
-            return "Pick your first tiny task. Step 5 of 7."
+            return "Pick your first tiny task. Step 4 of 6."
         case .habits:
-            return "Add a starter habit. Step 6 of 7."
+            return "Add a starter habit. Step 5 of 6."
         case .focusRoom:
-            return "Finish your first win. Step 7 of 7."
+            return "Finish your first win. Step 6 of 6."
+        }
+    }
+}
+
+enum BlockerIntroPhase: Equatable {
+    case hidden
+    case introCardVisible
+    case introCardExiting
+    case blockerContentVisible
+
+    var showsIntroCard: Bool {
+        switch self {
+        case .introCardVisible, .introCardExiting:
+            return true
+        case .hidden, .blockerContentVisible:
+            return false
         }
     }
 }
@@ -238,15 +253,13 @@ enum WelcomeIntroPhase: Int, Equatable {
     case introSubtitleReveal
     case introCardHold
     case introCTAReady
-    case transitionToWelcome
-    case welcomeReady
 
     var showsIntroOverlay: Bool {
-        self != .welcomeReady
+        true
     }
 
     var showsIntroCard: Bool {
-        rawValue >= Self.introTitleReveal.rawValue && rawValue <= Self.transitionToWelcome.rawValue
+        rawValue >= Self.introTitleReveal.rawValue
     }
 
     var showsTitle: Bool {
@@ -262,29 +275,15 @@ enum WelcomeIntroPhase: Int, Equatable {
     }
 
     var showsWelcomeChrome: Bool {
-        rawValue >= Self.transitionToWelcome.rawValue
+        false
     }
 
     var backdropBlurOpacity: Double {
-        switch self {
-        case .transitionToWelcome:
-            return 0.52
-        case .welcomeReady:
-            return 0.58
-        default:
-            return 0
-        }
+        0
     }
 
     var backdropDimOpacity: Double {
-        switch self {
-        case .transitionToWelcome:
-            return 0.18
-        case .welcomeReady:
-            return 0.32
-        default:
-            return 0
-        }
+        0
     }
 
     var videoGrainAmount: Int {
@@ -295,8 +294,6 @@ enum WelcomeIntroPhase: Int, Equatable {
              .introCardHold,
              .introCTAReady:
             return 25
-        case .transitionToWelcome, .welcomeReady:
-            return 100
         }
     }
 
@@ -304,8 +301,6 @@ enum WelcomeIntroPhase: Int, Equatable {
         switch self {
         case .introTitleReveal, .introSubtitleReveal, .introCardHold, .introCTAReady:
             return 1
-        case .transitionToWelcome:
-            return 0
         default:
             return 0
         }
@@ -3124,7 +3119,7 @@ final class OnboardingFlowModel: ObservableObject {
     }
 
     var canGoBack: Bool {
-        successSummary == nil && step != .welcome
+        successSummary == nil && previousStep(before: step) != nil
     }
 
     var focusTask: TaskDefinition? {
@@ -3848,13 +3843,41 @@ final class OnboardingFlowModel: ObservableObject {
 
     func skipToFocusRoom() async {
         mode = .guided
-        applyDefaults(mode: .guided, frictionProfile: frictionProfile)
-        await continueFromLifeAreas()
-        guard errorMessage == nil else { return }
-        await continueFromProjects()
-        guard errorMessage == nil else { return }
+        errorMessage = nil
+
+        if selectedLifeAreaIDs.isEmpty {
+            let selection = StarterWorkspaceCatalog.defaultLifeAreaSelectionIDs(for: frictionProfile, mode: .guided)
+            selectedLifeAreaIDs = Set(selection)
+        }
+
+        if projectDrafts.isEmpty || selectedProjectDrafts.isEmpty {
+            projectDrafts = mergedProjectDrafts(for: selectedLifeAreas.map(\.id))
+        }
+
+        let shouldResolveLifeAreas = step == .welcome || step == .blocker || step == .lifeAreas || resolvedLifeAreas.isEmpty
+        if shouldResolveLifeAreas {
+            await continueFromLifeAreas()
+            guard errorMessage == nil else { return }
+        }
+
+        let shouldResolveProjects = step == .welcome || step == .blocker || step == .lifeAreas || step == .projects || resolvedProjects.isEmpty
+        if shouldResolveProjects {
+            if selectedProjectDrafts.isEmpty {
+                projectDrafts = mergedProjectDrafts(for: selectedLifeAreas.map(\.id))
+            }
+            await continueFromProjects()
+            guard errorMessage == nil else { return }
+        }
+
+        if let existingTask = createdTasks.first(where: { $0.isComplete == false }) ?? createdTasks.first {
+            focusTaskID = existingTask.id
+            step = .focusRoom
+            persistJourney()
+            return
+        }
+
         guard let firstTemplate = primaryTaskSuggestions.first ?? taskSuggestions.first,
-              let resolvedProject = resolvedProjects.first(where: { $0.draft.templateID == firstTemplate.projectTemplateID })
+              let resolvedProject = resolvedProjects.first(where: { $0.draft.templateID == firstTemplate.projectTemplateID }) ?? resolvedProjects.first
         else {
             errorMessage = "Tasker could not build a starter task right now."
             return
@@ -4412,9 +4435,16 @@ struct AppOnboardingJourneyView: View {
     @State private var showsMoreIdeas = false
     @State private var showsMoreHabitIdeas = false
     @State private var hasPlayedSuccess = false
-    @State private var welcomeIntroPhase: WelcomeIntroPhase = .welcomeReady
+    @State private var welcomeIntroPhase: WelcomeIntroPhase = .introVideoOnly
     @State private var hasCompletedWelcomeIntro = false
+    @State private var hasSkippedWelcomeIntroDelay = false
     @State private var welcomeIntroRunID = UUID()
+    @State private var blockerIntroPhase: BlockerIntroPhase = .hidden
+    @State private var blockerIntroRunID = UUID()
+    @State private var hasCompletedBlockerIntro = false
+    @State private var showsInlineReducedMotionBlockerIntro = false
+    @State private var isBlockerHeaderVisible = true
+    @State private var isBlockerSelectorVisible = true
 
     private var spacing: TaskerSpacingTokens {
         TaskerThemeManager.shared.tokens(for: layoutClass).spacing
@@ -4452,13 +4482,59 @@ struct AppOnboardingJourneyView: View {
         shouldShowWelcomeExperience && welcomeIntroPhase.showsIntroOverlay
     }
 
-    private var shouldShowWelcomeChrome: Bool {
-        shouldShowWelcomeExperience && welcomeIntroPhase.showsWelcomeChrome
+    private var shouldShowBlockerExperience: Bool {
+        viewModel.successSummary == nil && viewModel.step == .blocker
+    }
+
+    private var isBlockerIntroAnimating: Bool {
+        shouldShowBlockerExperience
+            && reduceMotion == false
+            && (
+                blockerIntroPhase != .blockerContentVisible
+                    || isBlockerHeaderVisible == false
+                    || isBlockerSelectorVisible == false
+            )
+    }
+
+    private var shouldShowBlockerSetupCard: Bool {
+        shouldShowBlockerExperience && (
+            showsInlineReducedMotionBlockerIntro
+                || blockerIntroPhase.showsIntroCard
+                || (reduceMotion == false
+                    && hasCompletedBlockerIntro == false
+                    && isBlockerHeaderVisible == false
+                    && isBlockerSelectorVisible == false)
+        )
+    }
+
+    private var isBlockerContentReady: Bool {
+        shouldShowBlockerExperience
+            && blockerIntroPhase == .blockerContentVisible
+            && isBlockerHeaderVisible
+            && isBlockerSelectorVisible
+    }
+
+    private var shouldRenderBlockerContent: Bool {
+        shouldShowBlockerExperience && blockerIntroPhase == .blockerContentVisible
+    }
+
+    private var shouldExposeUITestMarkers: Bool {
+        ProcessInfo.processInfo.arguments.contains("-UI_TESTING")
     }
 
     private var shouldShowBottomDock: Bool {
+        guard viewModel.step != .welcome else { return false }
         guard isWelcomeIntroActive == false else { return false }
+        guard isBlockerIntroAnimating == false else { return false }
         return viewModel.successSummary != nil || viewModel.step != .focusRoom || viewModel.errorMessage != nil
+    }
+
+    private var shouldShowGlobalSkipButton: Bool {
+        viewModel.successSummary == nil
+    }
+
+    private var skipTopPadding: CGFloat {
+        layoutClass.isPad ? 28 : 18
     }
 
     private var onboardingBackdropMode: OnboardingCinematicBackdrop.Mode {
@@ -4479,9 +4555,18 @@ struct AppOnboardingJourneyView: View {
             if isWelcomeIntroActive {
                 OnboardingWelcomeCinematicOverlay(
                     phase: welcomeIntroPhase,
-                    onContinue: continueFromWelcomeIntro
+                    onContinue: continueFromWelcomeIntro,
+                    onSkipDelay: skipWelcomeIntroDelay
                 )
                     .accessibilityIdentifier(AppOnboardingAccessibilityID.welcomeIntroOverlay)
+            }
+
+            if shouldShowGlobalSkipButton {
+                globalSkipButton
+                    .padding(.top, skipTopPadding)
+                    .padding(.trailing, horizontalPadding)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
+                    .zIndex(2)
             }
         }
         .safeAreaInset(edge: .bottom) {
@@ -4514,9 +4599,11 @@ struct AppOnboardingJourneyView: View {
         .onAppear {
             feedbackController.prepare()
             scheduleWelcomeIntroIfNeeded()
+            scheduleBlockerIntroIfNeeded(from: nil, to: viewModel.step)
         }
-        .onChange(of: viewModel.step) { _, _ in
+        .onChange(of: viewModel.step) { oldStep, newStep in
             scheduleWelcomeIntroIfNeeded()
+            scheduleBlockerIntroIfNeeded(from: oldStep, to: newStep)
         }
         .onChange(of: viewModel.successSummary != nil) { _, _ in
             scheduleWelcomeIntroIfNeeded()
@@ -4528,6 +4615,9 @@ struct AppOnboardingJourneyView: View {
         }
         .task(id: welcomeIntroRunID) {
             await runWelcomeIntroSequenceIfNeeded()
+        }
+        .task(id: blockerIntroRunID) {
+            await runBlockerIntroSequenceIfNeeded()
         }
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier(AppOnboardingAccessibilityID.flow)
@@ -4555,6 +4645,8 @@ struct AppOnboardingJourneyView: View {
             }
         } else if shouldShowWelcomeExperience {
             welcomeExperienceContent
+        } else if shouldShowBlockerExperience {
+            blockerExperienceContent
         } else {
             ScrollView(showsIndicators: false) {
                 VStack(alignment: .leading, spacing: spacing.sectionGap) {
@@ -4570,40 +4662,163 @@ struct AppOnboardingJourneyView: View {
     }
 
     private var welcomeExperienceContent: some View {
-        VStack(alignment: .leading, spacing: spacing.sectionGap) {
-            if shouldShowWelcomeChrome {
-                stepHeader
-                    .transition(.opacity.combined(with: .move(edge: .top)))
+        Color.clear
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    private var blockerExperienceContent: some View {
+        ScrollView(showsIndicators: false) {
+            VStack(alignment: .leading, spacing: spacing.sectionGap) {
+                if shouldShowBlockerSetupCard, reduceMotion {
+                    blockerSetupIntroCard
+                        .frame(maxWidth: layoutClass.isPad ? 560 : .infinity, alignment: .leading)
+                }
+
+                if shouldRenderBlockerContent {
+                    stepHeader
+                        .opacity(isBlockerHeaderVisible ? 1 : 0)
+                        .offset(y: isBlockerHeaderVisible ? 0 : -26)
+
+                    blockerStep
+                        .opacity(isBlockerSelectorVisible ? 1 : 0)
+                        .offset(y: isBlockerSelectorVisible ? 0 : -18)
+                        .accessibilityIdentifier(AppOnboardingAccessibilityID.blocker)
+
+                    if shouldExposeUITestMarkers {
+                        OnboardingAccessibilityMarker(
+                            identifier: AppOnboardingAccessibilityID.blockerContentReady,
+                            label: "Onboarding blocker content ready",
+                            value: "true"
+                        )
+                        .allowsHitTesting(false)
+                        .frame(width: 1, height: 1)
+                    }
+                } else if shouldShowBlockerSetupCard {
+                    blockerSetupIntroCard
+                        .frame(maxWidth: layoutClass.isPad ? 560 : .infinity, alignment: .leading)
+                        .padding(.top, layoutClass.isPad ? spacing.s24 : spacing.s12)
+                }
+
+                Spacer(minLength: spacing.s24)
             }
-
-            Spacer(minLength: spacing.s20)
-
-            welcomeStep
-                .frame(maxWidth: layoutClass.isPad ? 620 : .infinity)
-                .frame(maxWidth: .infinity)
-
-            Spacer()
+            .frame(maxWidth: contentWidth, alignment: .leading)
+            .padding(.horizontal, horizontalPadding)
+            .padding(.top, spacing.s16)
+            .padding(.bottom, 120)
         }
-        .padding(.horizontal, horizontalPadding)
-        .padding(.top, spacing.s16)
-        .padding(.bottom, 120)
+    }
+
+    private var globalSkipButton: some View {
+        Button("Skip") {
+            feedbackController.light()
+            Task {
+                await viewModel.skipToFocusRoom()
+            }
+        }
+        .onboardingSecondaryButtonStyle(accent: OnboardingTheme.textSecondary)
+        .accessibilityIdentifier(AppOnboardingAccessibilityID.skipButton)
+    }
+
+    private var blockerSetupIntroCard: some View {
+        VStack(alignment: .leading, spacing: spacing.s12) {
+            Text("This setup takes about 2 minutes")
+                .font(.tasker(.headline))
+                .foregroundStyle(OnboardingTheme.textPrimary)
+                .fixedSize(horizontal: false, vertical: true)
+
+            Text("We’ll set up your life areas, habits, projects, and starter tasks. Everything is easy to change later.")
+                .font(.tasker(.body))
+                .foregroundStyle(OnboardingTheme.textSecondary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .padding(24)
+        .frame(maxWidth: layoutClass.isPad ? 560 : .infinity, alignment: .leading)
+        .taskerPremiumSurface(
+            cornerRadius: 30,
+            fillColor: OnboardingTheme.surfaceElevated.opacity(0.78),
+            strokeColor: OnboardingTheme.borderSoft.opacity(0.84),
+            accentColor: OnboardingTheme.accentSecondary,
+            level: .e3,
+            useNativeGlass: true
+        )
+        .shadow(color: Color.black.opacity(0.16), radius: 30, y: 16)
+        .opacity(blockerIntroPhase == .hidden || blockerIntroPhase == .introCardExiting ? 0 : 1)
+        .offset(y: blockerIntroPhase == .introCardVisible ? 0 : (blockerIntroPhase == .introCardExiting ? -220 : -160))
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("This setup takes about 2 minutes. We’ll set up your life areas, habits, projects, and starter tasks. Everything is easy to change later.")
+        .overlay {
+            if shouldExposeUITestMarkers, blockerIntroPhase != .hidden {
+                OnboardingAccessibilityMarker(
+                    identifier: AppOnboardingAccessibilityID.blockerSetupIntro,
+                    label: "Onboarding blocker setup intro",
+                    value: "visible"
+                )
+                .allowsHitTesting(false)
+                .frame(width: 1, height: 1)
+            }
+        }
     }
 
     private func scheduleWelcomeIntroIfNeeded() {
         guard shouldShowWelcomeExperience else {
-            welcomeIntroPhase = .welcomeReady
+            welcomeIntroPhase = .introCTAReady
+            hasSkippedWelcomeIntroDelay = false
             return
         }
 
         if hasCompletedWelcomeIntro {
-            welcomeIntroPhase = .welcomeReady
+            welcomeIntroPhase = .introCTAReady
+            hasSkippedWelcomeIntroDelay = false
         } else {
             welcomeIntroRunID = UUID()
         }
     }
 
+    @MainActor
+    private func scheduleBlockerIntroIfNeeded(from previousStep: OnboardingStep?, to newStep: OnboardingStep) {
+        guard viewModel.successSummary == nil else {
+            blockerIntroPhase = .hidden
+            showsInlineReducedMotionBlockerIntro = false
+            isBlockerHeaderVisible = true
+            isBlockerSelectorVisible = true
+            return
+        }
+
+        guard newStep == .blocker else {
+            blockerIntroPhase = .hidden
+            showsInlineReducedMotionBlockerIntro = false
+            isBlockerHeaderVisible = true
+            isBlockerSelectorVisible = true
+            return
+        }
+
+        guard previousStep == .welcome, hasCompletedBlockerIntro == false else {
+            blockerIntroPhase = .blockerContentVisible
+            showsInlineReducedMotionBlockerIntro = false
+            revealBlockerContent(animated: false)
+            return
+        }
+
+        if reduceMotion {
+            blockerIntroPhase = .blockerContentVisible
+            showsInlineReducedMotionBlockerIntro = true
+            hasCompletedBlockerIntro = true
+            revealBlockerContent(animated: false)
+            return
+        }
+
+        showsInlineReducedMotionBlockerIntro = false
+        blockerIntroPhase = .hidden
+        isBlockerHeaderVisible = false
+        isBlockerSelectorVisible = false
+        blockerIntroRunID = UUID()
+    }
+
     private func runWelcomeIntroSequenceIfNeeded() async {
-        guard shouldShowWelcomeExperience, hasCompletedWelcomeIntro == false else { return }
+        guard shouldShowWelcomeExperience,
+              hasCompletedWelcomeIntro == false,
+              hasSkippedWelcomeIntroDelay == false
+        else { return }
 
         if reduceMotion {
             await MainActor.run {
@@ -4663,6 +4878,76 @@ struct AppOnboardingJourneyView: View {
         }
     }
 
+    @MainActor
+    private func skipWelcomeIntroDelay() {
+        guard shouldShowWelcomeExperience,
+              hasCompletedWelcomeIntro == false,
+              welcomeIntroPhase.rawValue < WelcomeIntroPhase.introCTAReady.rawValue
+        else { return }
+
+        hasSkippedWelcomeIntroDelay = true
+        welcomeIntroRunID = UUID()
+
+        if reduceMotion {
+            welcomeIntroPhase = .introCTAReady
+        } else {
+            withAnimation(.timingCurve(0.16, 1, 0.3, 1, duration: 0.5)) {
+                welcomeIntroPhase = .introCTAReady
+            }
+        }
+    }
+
+    private func runBlockerIntroSequenceIfNeeded() async {
+        guard shouldShowBlockerExperience,
+              hasCompletedBlockerIntro == false,
+              reduceMotion == false,
+              blockerIntroPhase == .hidden
+        else { return }
+
+        await MainActor.run {
+            withAnimation(.timingCurve(0.16, 1, 0.3, 1, duration: 0.52)) {
+                blockerIntroPhase = .introCardVisible
+            }
+        }
+
+        guard await sleepIfNeeded(milliseconds: 2000) else { return }
+
+        await MainActor.run {
+            withAnimation(.timingCurve(0.3, 0, 0.8, 0.15, duration: 0.38)) {
+                blockerIntroPhase = .introCardExiting
+            }
+        }
+
+        guard await sleepIfNeeded(milliseconds: 380) else { return }
+
+        await MainActor.run {
+            blockerIntroPhase = .blockerContentVisible
+            hasCompletedBlockerIntro = true
+        }
+        revealBlockerContent(animated: true)
+    }
+
+    @MainActor
+    private func revealBlockerContent(animated: Bool) {
+        if animated, reduceMotion == false {
+            withAnimation(.timingCurve(0.16, 1, 0.3, 1, duration: 0.42)) {
+                isBlockerHeaderVisible = true
+            }
+
+            Task {
+                guard await sleepIfNeeded(milliseconds: 100) else { return }
+                await MainActor.run {
+                    withAnimation(.timingCurve(0.16, 1, 0.3, 1, duration: 0.44)) {
+                        isBlockerSelectorVisible = true
+                    }
+                }
+            }
+        } else {
+            isBlockerHeaderVisible = true
+            isBlockerSelectorVisible = true
+        }
+    }
+
     private func continueFromWelcomeIntro() {
         guard shouldShowWelcomeExperience,
               hasCompletedWelcomeIntro == false,
@@ -4670,21 +4955,9 @@ struct AppOnboardingJourneyView: View {
         else { return }
 
         feedbackController.medium()
-
-        Task {
-            await MainActor.run {
-                withAnimation(.timingCurve(0.16, 1, 0.3, 1, duration: 0.5)) {
-                    welcomeIntroPhase = .transitionToWelcome
-                }
-            }
-
-            guard await sleepIfNeeded(milliseconds: reduceMotion ? 200 : 500) else { return }
-
-            await MainActor.run {
-                welcomeIntroPhase = .welcomeReady
-                hasCompletedWelcomeIntro = true
-            }
-        }
+        hasCompletedWelcomeIntro = true
+        hasSkippedWelcomeIntroDelay = false
+        viewModel.begin(mode: .guided)
     }
 
     private func sleepIfNeeded(milliseconds: Int) async -> Bool {
@@ -4712,17 +4985,6 @@ struct AppOnboardingJourneyView: View {
                 }
 
                 Spacer()
-
-                if viewModel.step == .welcome, welcomeIntroPhase == .welcomeReady {
-                    Button("Skip") {
-                        feedbackController.light()
-                        Task {
-                            await viewModel.skipToFocusRoom()
-                        }
-                    }
-                    .onboardingSecondaryButtonStyle(accent: OnboardingTheme.textSecondary)
-                    .accessibilityIdentifier(AppOnboardingAccessibilityID.skipButton)
-                }
             }
 
             VStack(alignment: .leading, spacing: spacing.s12) {
@@ -4755,7 +5017,7 @@ struct AppOnboardingJourneyView: View {
     private var stepBody: some View {
         switch viewModel.step {
         case .welcome:
-            welcomeStep
+            EmptyView()
         case .blocker:
             blockerStep
                 .accessibilityIdentifier(AppOnboardingAccessibilityID.blocker)
@@ -4774,26 +5036,6 @@ struct AppOnboardingJourneyView: View {
         case .focusRoom:
             focusRoomStep
                 .accessibilityIdentifier(AppOnboardingAccessibilityID.focusRoom)
-        }
-    }
-
-    private var welcomeStep: some View {
-        let baseCard = OnboardingWelcomeValueStack()
-            .opacity(shouldShowWelcomeChrome ? 1 : 0)
-            .offset(y: welcomeIntroPhase == .transitionToWelcome ? 10 : 0)
-            .animation(reduceMotion ? .none : .timingCurve(0.16, 1, 0.3, 1, duration: 0.5), value: welcomeIntroPhase)
-
-        return Group {
-            if welcomeIntroPhase == .welcomeReady {
-                ZStack {
-                    baseCard
-                        .accessibilityIdentifier(AppOnboardingAccessibilityID.welcome)
-                }
-                .accessibilityElement(children: .contain)
-                .accessibilityIdentifier(AppOnboardingAccessibilityID.welcomeReady)
-            } else {
-                baseCard
-            }
         }
     }
 
@@ -4864,7 +5106,7 @@ struct AppOnboardingJourneyView: View {
                 VStack(alignment: .leading, spacing: spacing.s12) {
                     Text(area.name)
                         .font(.tasker(.headline))
-                        .foregroundStyle(OnboardingTheme.textPrimary)
+                        .foregroundStyle(OnboardingTheme.headerAccent)
 
                     if let featuredDraft = viewModel.projectDrafts.first(where: { $0.lifeAreaTemplateID == area.id }) {
                         OnboardingProjectDraftCard(
@@ -5377,24 +5619,7 @@ struct AppOnboardingJourneyView: View {
             } else {
                 switch viewModel.step {
                 case .welcome:
-                    VStack(spacing: spacing.s8) {
-                        Button {
-                            feedbackController.medium()
-                            viewModel.begin(mode: .guided)
-                        } label: {
-                            Text("Set up Tasker")
-                                .frame(maxWidth: .infinity)
-                        }
-                        .onboardingPrimaryButton()
-                        .accessibilityIdentifier(AppOnboardingAccessibilityID.startRecommended)
-
-                        Button("Customize it") {
-                            feedbackController.light()
-                            viewModel.begin(mode: .custom)
-                        }
-                        .onboardingSecondaryButtonStyle(accent: OnboardingTheme.accent)
-                        .accessibilityIdentifier(AppOnboardingAccessibilityID.customize)
-                    }
+                    EmptyView()
                 case .blocker:
                     VStack(spacing: spacing.s8) {
                         Button {
@@ -5724,37 +5949,6 @@ private struct OnboardingTrustRow: View {
     }
 }
 
-private struct OnboardingWelcomeValueStack: View {
-    var body: some View {
-        VStack(alignment: .leading, spacing: 18) {
-            Text("Get your day back under control.")
-                .font(.tasker(.display))
-                .foregroundStyle(OnboardingTheme.textPrimary)
-                .fixedSize(horizontal: false, vertical: true)
-
-            Text("Tasker cuts through the noise and gives you a clear place to start.")
-                .font(.tasker(.body))
-                .foregroundStyle(OnboardingTheme.textSecondary)
-                .fixedSize(horizontal: false, vertical: true)
-
-            OnboardingTrustRow(items: [
-                ("sparkles.rectangle.stack", "Real setup"),
-                ("clock", "~2 min"),
-                ("arrow.uturn.backward.circle", "Easy to change later")
-            ])
-        }
-        .padding(24)
-        .taskerPremiumSurface(
-            cornerRadius: 32,
-            fillColor: OnboardingTheme.surfaceElevated.opacity(0.74),
-            strokeColor: OnboardingTheme.borderSoft.opacity(0.82),
-            accentColor: OnboardingTheme.accentSecondary,
-            level: .e3,
-            useNativeGlass: true
-        )
-    }
-}
-
 private enum OnboardingHeroMediaAsset {
     static let welcomeVideoName = "HeroWelcomeHighCompressMb"
 }
@@ -5778,7 +5972,7 @@ private struct OnboardingCinematicBackdrop: View {
             case .intro(let phase):
                 phase.backdropDimOpacity
             case .steady:
-                WelcomeIntroPhase.welcomeReady.backdropDimOpacity
+                0.32
             }
         }
 
@@ -5787,7 +5981,7 @@ private struct OnboardingCinematicBackdrop: View {
             case .intro(let phase):
                 phase.backdropBlurOpacity
             case .steady:
-                WelcomeIntroPhase.welcomeReady.backdropBlurOpacity
+                0.58
             }
         }
 
@@ -5941,6 +6135,13 @@ private struct OnboardingWelcomeCinematicOverlay: View {
 
     let phase: WelcomeIntroPhase
     let onContinue: () -> Void
+    let onSkipDelay: () -> Void
+
+    private let trustItems = [
+        ("sparkles.rectangle.stack", "Real setup"),
+        ("clock", "~2 min"),
+        ("arrow.uturn.backward.circle", "Easy to change later")
+    ]
 
     private var topInset: CGFloat {
         layoutClass.isPad ? 56 : 28
@@ -5967,14 +6168,21 @@ private struct OnboardingWelcomeCinematicOverlay: View {
             Spacer(minLength: 0)
 
             if phase.showsIntroCTA {
-                Button {
-                    onContinue()
-                } label: {
-                    Text("Get your days back under control")
-                        .frame(maxWidth: .infinity)
+                VStack(spacing: 14) {
+                    Button {
+                        onContinue()
+                    } label: {
+                        Text("Get your days back under control")
+                            .frame(maxWidth: .infinity)
+                    }
+                    .onboardingPrimaryButton()
+                    .accessibilityIdentifier(AppOnboardingAccessibilityID.welcomeIntroContinue)
+
+                    OnboardingTrustRow(items: trustItems)
+                        .frame(maxWidth: .infinity, alignment: .center)
                 }
-                .onboardingPrimaryButton()
-                .accessibilityIdentifier(AppOnboardingAccessibilityID.welcomeIntroContinue)
+                .accessibilityElement(children: .contain)
+                .accessibilityIdentifier(AppOnboardingAccessibilityID.welcome)
                 .padding(.horizontal, layoutClass.isPad ? 56 : 24)
                 .padding(.bottom, layoutClass.isPad ? 32 : 24)
                 .transition(.move(edge: .bottom).combined(with: .opacity))
@@ -5983,6 +6191,9 @@ private struct OnboardingWelcomeCinematicOverlay: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .background(Color.black.opacity(0.001))
         .contentShape(Rectangle())
+        .onTapGesture {
+            onSkipDelay()
+        }
     }
 
     private var cinematicCard: some View {
@@ -6009,7 +6220,6 @@ private struct OnboardingWelcomeCinematicOverlay: View {
             useNativeGlass: true
         )
         .shadow(color: Color.black.opacity(0.14), radius: 32, y: 18)
-        .scaleEffect(phase == .transitionToWelcome ? 0.98 : 1)
         .opacity(phase.introCardOpacity)
         .accessibilityElement(children: .combine)
         .accessibilityLabel("Welcome to Tasker.")
@@ -6499,10 +6709,10 @@ private struct OnboardingFrictionOptionCard: View {
 
                     ZStack {
                         Circle()
-                            .fill(isSelected ? OnboardingTheme.accent : .clear)
+                            .fill(isSelected ? OnboardingTheme.headerAccent : .clear)
                             .overlay(
                                 Circle()
-                                    .stroke(isSelected ? OnboardingTheme.accent : OnboardingTheme.border, lineWidth: 1.5)
+                                    .stroke(isSelected ? OnboardingTheme.headerAccent : OnboardingTheme.border, lineWidth: 1.5)
                             )
                             .frame(width: 22, height: 22)
 
@@ -6590,10 +6800,10 @@ private struct OnboardingSelectableCard: View {
                     Spacer()
                     ZStack {
                         Circle()
-                            .fill(isSelected ? OnboardingTheme.accent : .clear)
+                            .fill(isSelected ? OnboardingTheme.headerAccent : .clear)
                             .overlay(
                                 Circle()
-                                    .stroke(isSelected ? OnboardingTheme.accent : OnboardingTheme.border, lineWidth: 1.5)
+                                    .stroke(isSelected ? OnboardingTheme.headerAccent : OnboardingTheme.border, lineWidth: 1.5)
                             )
                             .frame(width: 22, height: 22)
 
@@ -6617,10 +6827,10 @@ private struct OnboardingSelectableCard: View {
             }
             .padding(14)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(isSelected ? OnboardingTheme.accent.opacity(0.10) : OnboardingTheme.surfaceMuted, in: RoundedRectangle(cornerRadius: 24, style: .continuous))
+            .background(isSelected ? OnboardingTheme.headerAccent.opacity(0.10) : OnboardingTheme.surfaceMuted, in: RoundedRectangle(cornerRadius: 24, style: .continuous))
             .overlay(
                 RoundedRectangle(cornerRadius: 24, style: .continuous)
-                    .stroke(isSelected ? OnboardingTheme.accent.opacity(0.18) : OnboardingTheme.borderSoft, lineWidth: 1)
+                    .stroke(isSelected ? OnboardingTheme.headerAccent.opacity(0.18) : OnboardingTheme.borderSoft, lineWidth: 1)
             )
         }
         .buttonStyle(.plain)
@@ -6641,37 +6851,40 @@ private struct OnboardingProjectDraftCard: View {
 
     var body: some View {
         Button(action: onChange) {
-            VStack(alignment: .leading, spacing: 12) {
-                HStack(alignment: .center, spacing: 10) {
-                    ZStack {
-                        Circle()
-                            .fill(Color(uiColor: UIColor(taskerHex: colorHex)).opacity(0.12))
-                            .frame(width: 34, height: 34)
-                        Image(systemName: icon)
-                            .foregroundStyle(Color(uiColor: UIColor(taskerHex: colorHex)))
-                    }
+            HStack(alignment: .top, spacing: 10) {
+                ZStack {
+                    Circle()
+                        .fill(Color(uiColor: UIColor(taskerHex: colorHex)).opacity(0.12))
+                        .frame(width: 34, height: 34)
+                    Image(systemName: icon)
+                        .foregroundStyle(Color(uiColor: UIColor(taskerHex: colorHex)))
+                }
 
-                    VStack(alignment: .leading, spacing: 4) {
+                VStack(alignment: .leading, spacing: 4) {
+                    HStack(alignment: .firstTextBaseline, spacing: 10) {
                         Text(draft.name)
                             .font(.tasker(.bodyEmphasis))
                             .foregroundStyle(OnboardingTheme.textPrimary)
-                        Text(draft.summary)
-                            .font(.tasker(.caption1))
-                            .foregroundStyle(OnboardingTheme.textSecondary)
-                            .fixedSize(horizontal: false, vertical: true)
+                            .layoutPriority(1)
+
+                        Spacer(minLength: 8)
+
+                        HStack(spacing: 6) {
+                            Text(actionTitle)
+                                .font(.tasker(.buttonSmall))
+                            Image(systemName: "chevron.right")
+                                .font(.system(size: 11, weight: .semibold))
+                        }
+                        .foregroundStyle(OnboardingTheme.accent)
+                        .fixedSize()
+                        .accessibilityHidden(true)
                     }
 
-                    Spacer()
+                    Text(draft.summary)
+                        .font(.tasker(.caption1))
+                        .foregroundStyle(OnboardingTheme.textSecondary)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
-
-                HStack(spacing: 6) {
-                    Text(actionTitle)
-                        .font(.tasker(.buttonSmall))
-                    Image(systemName: "chevron.right")
-                        .font(.system(size: 11, weight: .semibold))
-                }
-                .foregroundStyle(OnboardingTheme.accent)
-                .accessibilityHidden(true)
             }
             .padding(18)
             .background(OnboardingTheme.surfaceElevated, in: RoundedRectangle(cornerRadius: 24, style: .continuous))
