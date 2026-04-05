@@ -2,6 +2,7 @@ import SwiftUI
 import UIKit
 import Combine
 import CoreHaptics
+import AVFoundation
 
 extension Notification.Name {
     static let taskerStartOnboardingRequested = Notification.Name("TaskerStartOnboardingRequested")
@@ -9,7 +10,17 @@ extension Notification.Name {
 
 enum AppOnboardingAccessibilityID {
     static let flow = "onboarding.flow"
+    static let backdropVideo = "onboarding.backdrop.video"
+    static let backdropGrain = "onboarding.backdrop.grain"
     static let welcome = "onboarding.welcome"
+    static let welcomeHeroVideo = "onboarding.welcome.heroVideo"
+    static let welcomeVideoGrain = "onboarding.welcome.videoGrain"
+    static let welcomeIntroOverlay = "onboarding.welcome.introOverlay"
+    static let welcomeIntroTitleCard = "onboarding.welcome.introTitleCard"
+    static let welcomeIntroContinue = "onboarding.welcome.introContinue"
+    static let blocker = "onboarding.blocker"
+    static let blockerSetupIntro = "onboarding.blocker.setupIntro"
+    static let blockerContentReady = "onboarding.blocker.contentReady"
     static let lifeAreas = "onboarding.lifeAreas"
     static let projects = "onboarding.projects"
     static let habits = "onboarding.habits"
@@ -17,11 +28,14 @@ enum AppOnboardingAccessibilityID {
     static let focusRoom = "onboarding.focusRoom"
     static let success = "onboarding.success"
     static let skipButton = "onboarding.skipButton"
-    static let startRecommended = "onboarding.cta.startRecommended"
-    static let customize = "onboarding.cta.customize"
+    static let frictionHelper = "onboarding.friction.helper"
+    static let continueFromBlocker = "onboarding.cta.continueFromBlocker"
+    static let skipBlocker = "onboarding.cta.skipBlocker"
     static let useAreas = "onboarding.cta.useAreas"
     static let useProjects = "onboarding.cta.useProjects"
     static let useHabits = "onboarding.cta.useHabits"
+    static let customHabit = "onboarding.cta.customHabit"
+    static let customTask = "onboarding.cta.customTask"
     static let goFinishTask = "onboarding.cta.goFinishTask"
     static let focusPrimary = "onboarding.cta.focusPrimary"
     static let markComplete = "onboarding.cta.markComplete"
@@ -67,39 +81,37 @@ enum OnboardingOutcome: String, Codable, Equatable {
 }
 
 enum OnboardingStep: Int, CaseIterable, Codable {
-    case welcome
-    case lifeAreas
-    case projects
-    case habits
-    case firstTask
-    case focusRoom
+    case welcome = 0
+    case lifeAreas = 1
+    case projects = 2
+    case habits = 3
+    case firstTask = 4
+    case focusRoom = 5
+    case blocker = 6
 
-    var progressIndex: Int { rawValue + 1 }
+    static let orderedFlow: [OnboardingStep] = [
+        .blocker,
+        .lifeAreas,
+        .projects,
+        .firstTask,
+        .habits,
+        .focusRoom
+    ]
 
-    var progressLabel: String {
-        "Step \(progressIndex) of \(Self.allCases.count)"
+    var progressIndex: Int {
+        Self.orderedFlow.firstIndex(of: self).map { $0 + 1 } ?? 0
     }
 
-    var progressSubtitle: String {
-        switch self {
-        case .welcome:
-            return "Start with a small system that works."
-        case .lifeAreas:
-            return "Choose your starting areas"
-        case .projects:
-            return "Confirm your starter projects"
-        case .habits:
-            return "Set one rhythm that helps tomorrow feel easier."
-        case .firstTask:
-            return "Pick one tiny task you can finish today."
-        case .focusRoom:
-            return "Finish your first win"
-        }
+    var progressLabel: String {
+        guard progressIndex > 0 else { return "" }
+        return "Step \(progressIndex) of \(Self.orderedFlow.count)"
     }
 
     var eyebrowTitle: String {
         switch self {
         case .welcome:
+            return "Setup"
+        case .blocker:
             return "Setup"
         case .lifeAreas:
             return "Areas"
@@ -114,37 +126,38 @@ enum OnboardingStep: Int, CaseIterable, Codable {
         }
     }
 
-    var outcomeLabel: String {
-        switch self {
-        case .welcome:
-            return "Tasker will set up a few areas, suggest one tiny task, and help you finish it."
-        case .lifeAreas:
-            return "Pick 1–3 areas to start with. We preselected a few good options."
-        case .projects:
-            return "We picked one simple project for each area. Change only what feels off."
-        case .habits:
-            return "Add one helpful habit now, or keep moving and set it up later."
-        case .firstTask:
-            return "Start with something that should take two minutes or less."
-        case .focusRoom:
-            return "This should only take a moment."
-        }
-    }
-
     var accessibilitySummary: String {
         switch self {
         case .welcome:
-            return "Welcome. Step 1 of 6."
+            return "Welcome setup."
+        case .blocker:
+            return "Choose your blocker. Step 1 of 6."
         case .lifeAreas:
             return "Choose life areas. Step 2 of 6."
         case .projects:
             return "Confirm starter projects. Step 3 of 6."
-        case .habits:
-            return "Add starter habits. Step 4 of 6."
         case .firstTask:
-            return "Pick your first tiny task. Step 5 of 6."
+            return "Pick your first tiny task. Step 4 of 6."
+        case .habits:
+            return "Add a starter habit. Step 5 of 6."
         case .focusRoom:
             return "Finish your first win. Step 6 of 6."
+        }
+    }
+}
+
+enum BlockerIntroPhase: Equatable {
+    case hidden
+    case introCardVisible
+    case introCardExiting
+    case blockerContentVisible
+
+    var showsIntroCard: Bool {
+        switch self {
+        case .introCardVisible, .introCardExiting:
+            return true
+        case .hidden, .blockerContentVisible:
+            return false
         }
     }
 }
@@ -161,30 +174,45 @@ enum OnboardingFrictionProfile: String, CaseIterable, Codable, Identifiable {
     var title: String {
         switch self {
         case .starting:
-            return "Starting"
+            return "Getting started"
         case .choosing:
-            return "Choosing"
+            return "Too many options"
         case .remembering:
-            return "Remembering"
+            return "Keeping track"
         case .finishing:
-            return "Finishing"
+            return "Following through"
         case .overwhelmed:
-            return "Overwhelmed"
+            return "Too much at once"
+        }
+    }
+
+    var symbolName: String {
+        switch self {
+        case .starting:
+            return "sparkles"
+        case .choosing:
+            return "slider.horizontal.3"
+        case .remembering:
+            return "bookmark"
+        case .finishing:
+            return "flag"
+        case .overwhelmed:
+            return "circle.grid.2x2"
         }
     }
 
     var helperCopy: String {
         switch self {
         case .starting:
-            return "We’ll suggest the easiest first step."
+            return "We’ll narrow things to the easiest place to begin."
         case .choosing:
-            return "We’ll reduce options and pick a default."
+            return "We’ll keep decisions light and use good defaults."
         case .remembering:
-            return "We’ll bring things back at the right time."
+            return "We’ll bring the next step back when it matters."
         case .finishing:
-            return "We’ll favor tasks with a clear done state."
+            return "We’ll favor steps with a clear finish line."
         case .overwhelmed:
-            return "We’ll keep the first setup extra small."
+            return "We’ll keep the setup light and low-pressure."
         }
     }
 }
@@ -192,6 +220,11 @@ enum OnboardingFrictionProfile: String, CaseIterable, Codable, Identifiable {
 enum OnboardingMode: String, Codable, Equatable {
     case guided
     case custom
+}
+
+enum OnboardingEntryContext: String, Codable, Equatable {
+    case freshFlow
+    case establishedWorkspace
 }
 
 enum OnboardingTaskTemplateState: Equatable {
@@ -212,6 +245,66 @@ enum OnboardingReminderPromptState: Equatable {
     case hidden
     case prompt
     case openSettings
+}
+
+enum WelcomeIntroPhase: Int, Equatable {
+    case introVideoOnly
+    case introTitleReveal
+    case introSubtitleReveal
+    case introCardHold
+    case introCTAReady
+
+    var showsIntroOverlay: Bool {
+        true
+    }
+
+    var showsIntroCard: Bool {
+        rawValue >= Self.introTitleReveal.rawValue
+    }
+
+    var showsTitle: Bool {
+        rawValue >= Self.introTitleReveal.rawValue
+    }
+
+    var showsSubtitle: Bool {
+        rawValue >= Self.introSubtitleReveal.rawValue
+    }
+
+    var showsIntroCTA: Bool {
+        self == .introCTAReady
+    }
+
+    var showsWelcomeChrome: Bool {
+        false
+    }
+
+    var backdropBlurOpacity: Double {
+        0
+    }
+
+    var backdropDimOpacity: Double {
+        0
+    }
+
+    var videoGrainAmount: Int {
+        switch self {
+        case .introVideoOnly,
+             .introTitleReveal,
+             .introSubtitleReveal,
+             .introCardHold,
+             .introCTAReady:
+            return 25
+        }
+    }
+
+    var introCardOpacity: Double {
+        switch self {
+        case .introTitleReveal, .introSubtitleReveal, .introCardHold, .introCTAReady:
+            return 1
+        default:
+            return 0
+        }
+    }
 }
 
 struct OnboardingWorkspaceSnapshot: Equatable {
@@ -347,9 +440,10 @@ struct ResolvedProjectSelection: Codable, Equatable {
 }
 
 struct OnboardingJourneySnapshot: Codable, Equatable {
-    var schemaVersion: Int = 2
+    var schemaVersion: Int = 3
     var step: OnboardingStep
     var mode: OnboardingMode
+    var entryContext: OnboardingEntryContext = .freshFlow
     var frictionProfile: OnboardingFrictionProfile?
     var selectedLifeAreaIDs: [String]
     var showAllLifeAreas: Bool
@@ -375,6 +469,7 @@ extension OnboardingJourneySnapshot {
         case schemaVersion
         case step
         case mode
+        case entryContext
         case frictionProfile
         case selectedLifeAreaIDs
         case showAllLifeAreas
@@ -400,6 +495,7 @@ extension OnboardingJourneySnapshot {
         schemaVersion = try container.decodeIfPresent(Int.self, forKey: .schemaVersion) ?? 2
         step = try container.decode(OnboardingStep.self, forKey: .step)
         mode = try container.decode(OnboardingMode.self, forKey: .mode)
+        entryContext = try container.decodeIfPresent(OnboardingEntryContext.self, forKey: .entryContext) ?? .freshFlow
         frictionProfile = try container.decodeIfPresent(OnboardingFrictionProfile.self, forKey: .frictionProfile)
         selectedLifeAreaIDs = try container.decode([String].self, forKey: .selectedLifeAreaIDs)
         showAllLifeAreas = try container.decode(Bool.self, forKey: .showAllLifeAreas)
@@ -539,6 +635,10 @@ struct StarterTaskTemplate: Identifiable, Equatable {
     let priority: TaskPriority
     let type: TaskType
     let energy: TaskEnergy
+    let category: TaskCategory
+    let context: TaskContext
+    let dueDateIntent: AddTaskPrefillDueIntent
+    let isQuickWin: Bool
     let clearDoneState: Bool
     let recommendedProfiles: Set<OnboardingFrictionProfile>
 
@@ -551,11 +651,11 @@ struct StarterTaskTemplate: Identifiable, Equatable {
             lifeAreaID: project.lifeAreaID,
             priority: priority,
             type: type,
-            dueDateIntent: .today,
+            dueDateIntent: dueDateIntent,
             estimatedDuration: TimeInterval(durationMinutes * 60),
             energy: energy,
-            category: .general,
-            context: .anywhere,
+            category: category,
+            context: context,
             showMoreDetails: false,
             showAdvancedPlanning: false
         )
@@ -568,12 +668,12 @@ struct StarterTaskTemplate: Identifiable, Equatable {
             projectID: project.id,
             projectName: project.name,
             lifeAreaID: project.lifeAreaID,
-            dueDate: DatePreset.today.resolvedDueDate(),
+            dueDate: dueDateIntent.resolvedDate(),
             priority: priority,
             type: type,
             energy: energy,
-            category: .general,
-            context: .anywhere,
+            category: category,
+            context: context,
             estimatedDuration: TimeInterval(durationMinutes * 60),
             createdAt: Date()
         )
@@ -645,439 +745,1221 @@ struct StarterLifeAreaTemplate: Identifiable, Equatable {
 }
 
 enum StarterWorkspaceCatalog {
+    static let coreLifeAreaIDs = ["work-career", "life-admin", "health-self"]
+    static let optionalLifeAreaIDs = ["relationships", "learning-growth", "creativity-fun", "money"]
+
+    private static let legacyLifeAreaIDMap: [String: String] = [
+        "career": "work-career",
+        "home": "life-admin",
+        "health": "health-self",
+        "learning": "learning-growth",
+        "money": "money"
+    ]
+
+    private static let legacyProjectIDMap: [String: String] = [
+        "career-ship": "work-ship",
+        "career-followups": "work-followups",
+        "career-admin": "work-admin",
+        "home-reset": "life-home-reset",
+        "home-laundry": "life-home-reset",
+        "home-errands": "life-errands",
+        "health-meal": "health-meals"
+    ]
+
+    private static let legacyTaskIDMap: [String: String] = [
+        "task-home-laundry-basket": "task-home-reset-five",
+        "task-learning-read-page": "task-health-reflect-page",
+        "task-learning-read-takeaway": "task-health-reflect-takeaway"
+    ]
+
+    private static let legacyHabitIDMap: [String: String] = [
+        "habit-home-laundry": "habit-home-reset",
+        "habit-learning-page": "habit-health-read-page"
+    ]
+
+    private static let defaultProjectByFriction: [OnboardingFrictionProfile: [String: String]] = [
+        .starting: [
+            "work-career": "work-ship",
+            "life-admin": "life-home-reset",
+            "health-self": "health-move"
+        ],
+        .choosing: [
+            "work-career": "work-followups",
+            "life-admin": "life-bills-money",
+            "health-self": "health-meals"
+        ],
+        .remembering: [
+            "work-career": "work-followups",
+            "life-admin": "life-appointments-paperwork",
+            "health-self": "health-sleep"
+        ],
+        .finishing: [
+            "work-career": "work-ship",
+            "life-admin": "life-home-reset",
+            "health-self": "health-recovery"
+        ],
+        .overwhelmed: [
+            "work-career": "work-admin",
+            "life-admin": "life-home-reset",
+            "health-self": "health-recovery"
+        ]
+    ]
+
+    private static let primaryTaskIDByFriction: [OnboardingFrictionProfile: String] = [
+        .starting: "task-career-ship-draft",
+        .choosing: "task-money-bills-date",
+        .remembering: "task-life-appointments-calendar",
+        .finishing: "task-home-reset-surface",
+        .overwhelmed: "task-home-reset-five"
+    ]
+
+    private static let primaryHabitIDByFriction: [OnboardingFrictionProfile: String] = [
+        .starting: "habit-health-water",
+        .choosing: "habit-career-plan",
+        .remembering: "habit-life-appointments-check",
+        .finishing: "habit-work-must-move",
+        .overwhelmed: "habit-health-reset-after-work"
+    ]
+
     static let allLifeAreas: [StarterLifeAreaTemplate] = [
-        StarterLifeAreaTemplate(
-            id: "health",
-            name: "Health",
-            subtitle: "Energy, movement, and recovery",
-            icon: "heart.fill",
-            colorHex: "#293A18",
-            aliases: ["wellness", "fitness", "body"],
-            projects: [
-                StarterProjectTemplate(
-                    id: "health-move",
-                    lifeAreaTemplateID: "health",
-                    name: "Move your body",
-                    summary: "Small movement that gets the day unstuck.",
-                    aliases: ["movement", "exercise", "workout"],
-                    taskTemplates: [
-                        StarterTaskTemplate(
-                            id: "task-health-move-clothes",
-                            projectTemplateID: "health-move",
-                            title: "Put on workout clothes",
-                            reason: "It is small enough to begin and makes the next move easier.",
-                            durationMinutes: 1,
-                            priority: .low,
-                            type: .morning,
-                            energy: .low,
-                            clearDoneState: true,
-                            recommendedProfiles: [.starting, .overwhelmed]
-                        ),
-                        StarterTaskTemplate(
-                            id: "task-health-move-water",
-                            projectTemplateID: "health-move",
-                            title: "Fill your water bottle",
-                            reason: "It gives you an instant win with a clear done state.",
-                            durationMinutes: 1,
-                            priority: .low,
-                            type: .morning,
-                            energy: .low,
-                            clearDoneState: true,
-                            recommendedProfiles: [.starting, .remembering]
-                        ),
-                        StarterTaskTemplate(
-                            id: "task-health-move-walk",
-                            projectTemplateID: "health-move",
-                            title: "Walk for 10 minutes",
-                            reason: "A good backup option when you want a little more movement.",
-                            durationMinutes: 10,
-                            priority: .low,
-                            type: .morning,
-                            energy: .medium,
-                            clearDoneState: true,
-                            recommendedProfiles: []
-                        )
-                    ]
-                ),
-                StarterProjectTemplate(
-                    id: "health-meal",
-                    lifeAreaTemplateID: "health",
-                    name: "Meal reset",
-                    summary: "Reduce food friction before it gets loud.",
-                    aliases: ["food", "meals", "nutrition"],
-                    taskTemplates: [
-                        StarterTaskTemplate(
-                            id: "task-health-meal-snack",
-                            projectTemplateID: "health-meal",
-                            title: "Put one easy snack where you can see it",
-                            reason: "This lowers the energy needed to make the next decent choice.",
-                            durationMinutes: 2,
-                            priority: .low,
-                            type: .morning,
-                            energy: .low,
-                            clearDoneState: true,
-                            recommendedProfiles: [.overwhelmed, .remembering]
-                        ),
-                        StarterTaskTemplate(
-                            id: "task-health-meal-list",
-                            projectTemplateID: "health-meal",
-                            title: "Write one meal idea for tonight",
-                            reason: "One concrete choice beats carrying the whole problem around.",
-                            durationMinutes: 2,
-                            priority: .low,
-                            type: .morning,
-                            energy: .low,
-                            clearDoneState: true,
-                            recommendedProfiles: [.choosing]
-                        )
-                    ]
-                ),
-                StarterProjectTemplate(
-                    id: "health-sleep",
-                    lifeAreaTemplateID: "health",
-                    name: "Sleep wind-down",
-                    summary: "Tiny cues that make stopping easier later.",
-                    aliases: ["sleep", "rest", "bedtime"],
-                    taskTemplates: [
-                        StarterTaskTemplate(
-                            id: "task-health-sleep-charge",
-                            projectTemplateID: "health-sleep",
-                            title: "Put your phone on the charger",
-                            reason: "One visible action can mark the start of winding down.",
-                            durationMinutes: 1,
-                            priority: .low,
-                            type: .evening,
-                            energy: .low,
-                            clearDoneState: true,
-                            recommendedProfiles: [.remembering, .finishing]
-                        )
-                    ]
-                )
-            ]
-        ),
-        StarterLifeAreaTemplate(
-            id: "career",
-            name: "Career",
-            subtitle: "Ship work without drowning in it",
+        area(
+            id: "work-career",
+            name: "Work & Career",
+            subtitle: "Ship work, close loops, and stay ahead of drift",
             icon: "briefcase.fill",
             colorHex: "#B1205F",
-            aliases: ["work", "job", "business"],
+            aliases: ["work", "career", "job", "office", "professional"],
             projects: [
-                StarterProjectTemplate(
-                    id: "career-ship",
-                    lifeAreaTemplateID: "career",
-                    name: "Ship one thing",
+                project(
+                    id: "work-ship",
+                    lifeAreaID: "work-career",
+                    name: "Ship something",
                     summary: "Keep the next visible output moving.",
-                    aliases: ["shipping", "deliverable", "work output"],
-                    taskTemplates: [
-                        StarterTaskTemplate(
+                    aliases: ["ship one thing", "deliverable", "work output"],
+                    tasks: [
+                        task(
                             id: "task-career-ship-draft",
-                            projectTemplateID: "career-ship",
+                            projectID: "work-ship",
                             title: "Open the draft and write 3 lines",
                             reason: "It removes the hard part: getting started.",
-                            durationMinutes: 2,
-                            priority: .low,
+                            minutes: 2,
                             type: .morning,
                             energy: .low,
-                            clearDoneState: true,
-                            recommendedProfiles: [.starting, .overwhelmed]
+                            category: .work,
+                            context: .computer,
+                            recommendedProfiles: [.starting]
                         ),
-                        StarterTaskTemplate(
-                            id: "task-career-ship-message",
-                            projectTemplateID: "career-ship",
-                            title: "Send one unblocker message",
-                            reason: "One message can restart stalled work fast.",
-                            durationMinutes: 2,
-                            priority: .low,
+                        task(
+                            id: "task-work-ship-bullet",
+                            projectID: "work-ship",
+                            title: "Write the first bullet of the spec",
+                            reason: "A small visible output makes the next pass easier.",
+                            minutes: 2,
                             type: .morning,
                             energy: .low,
-                            clearDoneState: true,
-                            recommendedProfiles: [.finishing, .choosing]
+                            category: .work,
+                            context: .computer,
+                            recommendedProfiles: [.finishing]
+                        ),
+                        task(
+                            id: "task-work-ship-stub",
+                            projectID: "work-ship",
+                            title: "Rename the file and create the document stub",
+                            reason: "This creates a place for the work to land.",
+                            minutes: 2,
+                            type: .morning,
+                            energy: .low,
+                            category: .work,
+                            context: .computer,
+                            recommendedProfiles: [.starting, .choosing]
                         )
                     ]
                 ),
-                StarterProjectTemplate(
-                    id: "career-admin",
-                    lifeAreaTemplateID: "career",
-                    name: "Work admin reset",
-                    summary: "Reduce drag from tiny work chores.",
-                    aliases: ["admin", "ops", "cleanup"],
-                    taskTemplates: [
-                        StarterTaskTemplate(
-                            id: "task-career-admin-email",
-                            projectTemplateID: "career-admin",
-                            title: "Archive one stale thread",
-                            reason: "It closes a loop with almost no setup cost.",
-                            durationMinutes: 2,
-                            priority: .low,
-                            type: .morning,
-                            energy: .low,
-                            clearDoneState: true,
-                            recommendedProfiles: [.finishing, .remembering]
-                        )
-                    ]
-                ),
-                StarterProjectTemplate(
-                    id: "career-followups",
-                    lifeAreaTemplateID: "career",
+                project(
+                    id: "work-followups",
+                    lifeAreaID: "work-career",
                     name: "Follow-ups",
                     summary: "Keep important loose ends from disappearing.",
                     aliases: ["followups", "follow up", "replies"],
-                    taskTemplates: [
-                        StarterTaskTemplate(
+                    tasks: [
+                        task(
                             id: "task-career-followups-note",
-                            projectTemplateID: "career-followups",
+                            projectID: "work-followups",
                             title: "Write the name of one person to follow up with",
                             reason: "Capture first, decide the full message second.",
-                            durationMinutes: 1,
-                            priority: .low,
+                            minutes: 1,
                             type: .morning,
                             energy: .low,
-                            clearDoneState: true,
-                            recommendedProfiles: [.remembering, .overwhelmed]
-                        )
-                    ]
-                )
-            ]
-        ),
-        StarterLifeAreaTemplate(
-            id: "home",
-            name: "Home",
-            subtitle: "Keep your space calm and usable",
-            icon: "house.fill",
-            colorHex: "#FEBF2B",
-            aliases: ["household", "space", "apartment"],
-            projects: [
-                StarterProjectTemplate(
-                    id: "home-reset",
-                    lifeAreaTemplateID: "home",
-                    name: "Home reset",
-                    summary: "Quick wins that make your environment easier to re-enter.",
-                    aliases: ["reset", "tidy", "cleanup"],
-                    taskTemplates: [
-                        StarterTaskTemplate(
-                            id: "task-home-reset-five",
-                            projectTemplateID: "home-reset",
-                            title: "Put away 5 things",
-                            reason: "It is concrete, finite, and hard to overthink.",
-                            durationMinutes: 2,
-                            priority: .low,
-                            type: .evening,
-                            energy: .low,
-                            clearDoneState: true,
-                            recommendedProfiles: [.starting, .overwhelmed]
+                            category: .work,
+                            context: .phone,
+                            recommendedProfiles: [.remembering]
                         ),
-                        StarterTaskTemplate(
-                            id: "task-home-reset-surface",
-                            projectTemplateID: "home-reset",
-                            title: "Clear one surface",
-                            reason: "One visible patch of calm counts immediately.",
-                            durationMinutes: 2,
-                            priority: .low,
-                            type: .evening,
-                            energy: .low,
-                            clearDoneState: true,
-                            recommendedProfiles: [.finishing, .choosing]
-                        )
-                    ]
-                ),
-                StarterProjectTemplate(
-                    id: "home-laundry",
-                    lifeAreaTemplateID: "home",
-                    name: "Laundry / clothes",
-                    summary: "Prevent clothes from becoming ambient stress.",
-                    aliases: ["laundry", "clothes", "wardrobe"],
-                    taskTemplates: [
-                        StarterTaskTemplate(
-                            id: "task-home-laundry-basket",
-                            projectTemplateID: "home-laundry",
-                            title: "Put clothes in one basket",
-                            reason: "Gathering counts. Sorting can happen later.",
-                            durationMinutes: 2,
-                            priority: .low,
-                            type: .evening,
-                            energy: .low,
-                            clearDoneState: true,
-                            recommendedProfiles: [.overwhelmed, .remembering]
-                        )
-                    ]
-                ),
-                StarterProjectTemplate(
-                    id: "home-errands",
-                    lifeAreaTemplateID: "home",
-                    name: "Errands",
-                    summary: "Move one outside-the-house loose end forward.",
-                    aliases: ["shopping", "pickup", "store"],
-                    taskTemplates: [
-                        StarterTaskTemplate(
-                            id: "task-home-errands-note",
-                            projectTemplateID: "home-errands",
-                            title: "Write one errand in one place",
-                            reason: "This gets it out of your head before it vanishes again.",
-                            durationMinutes: 1,
-                            priority: .low,
+                        task(
+                            id: "task-career-ship-message",
+                            projectID: "work-followups",
+                            title: "Send one unblocker message",
+                            reason: "One message can restart stalled work fast.",
+                            minutes: 2,
                             type: .morning,
                             energy: .low,
-                            clearDoneState: true,
+                            category: .work,
+                            context: .phone,
+                            recommendedProfiles: [.choosing, .finishing]
+                        ),
+                        task(
+                            id: "task-work-followups-reply",
+                            projectID: "work-followups",
+                            title: "Reply to one pending thread",
+                            reason: "A single reply closes a real loop.",
+                            minutes: 2,
+                            type: .morning,
+                            energy: .low,
+                            category: .work,
+                            context: .computer,
                             recommendedProfiles: [.remembering]
                         )
                     ]
-                )
-            ]
-        ),
-        StarterLifeAreaTemplate(
-            id: "learning",
-            name: "Learning",
-            subtitle: "Study, read, and make it stick",
-            icon: "book.fill",
-            colorHex: "#9E5F0A",
-            aliases: ["study", "reading", "practice"],
-            projects: [
-                StarterProjectTemplate(
-                    id: "learning-read",
-                    lifeAreaTemplateID: "learning",
-                    name: "Read and capture",
-                    summary: "Turn a small reading moment into something retained.",
-                    aliases: ["read", "reading", "capture"],
-                    taskTemplates: [
-                        StarterTaskTemplate(
-                            id: "task-learning-read-page",
-                            projectTemplateID: "learning-read",
-                            title: "Open the book and read 1 page",
-                            reason: "The commitment is tiny, but it still counts as re-entry.",
-                            durationMinutes: 2,
-                            priority: .low,
+                ),
+                project(
+                    id: "work-meetings",
+                    lifeAreaID: "work-career",
+                    name: "Meetings & decisions",
+                    summary: "Turn meetings into next actions, not memory burden.",
+                    aliases: ["meetings", "decisions", "agendas"],
+                    tasks: [
+                        task(
+                            id: "task-work-meetings-agenda",
+                            projectID: "work-meetings",
+                            title: "Write one agenda point for today's meeting",
+                            reason: "One agenda note keeps the meeting from becoming drift.",
+                            minutes: 2,
                             type: .morning,
                             energy: .low,
-                            clearDoneState: true,
-                            recommendedProfiles: [.starting, .overwhelmed]
+                            category: .work,
+                            context: .meeting
                         ),
-                        StarterTaskTemplate(
-                            id: "task-learning-read-takeaway",
-                            projectTemplateID: "learning-read",
-                            title: "Write 1 takeaway from yesterday",
-                            reason: "One sentence closes the loop on previous effort.",
-                            durationMinutes: 2,
-                            priority: .low,
-                            type: .morning,
+                        task(
+                            id: "task-work-meetings-decision",
+                            projectID: "work-meetings",
+                            title: "Capture one decision from the last meeting",
+                            reason: "Writing it down stops the decision from dissolving.",
+                            minutes: 2,
+                            type: .upcoming,
                             energy: .low,
-                            clearDoneState: true,
-                            recommendedProfiles: [.finishing]
+                            category: .work,
+                            context: .computer
+                        ),
+                        task(
+                            id: "task-work-meetings-next-action",
+                            projectID: "work-meetings",
+                            title: "Write one next action from the call",
+                            reason: "A meeting only helps when it becomes action.",
+                            minutes: 2,
+                            type: .upcoming,
+                            energy: .low,
+                            category: .work,
+                            context: .computer
                         )
                     ]
                 ),
-                StarterProjectTemplate(
-                    id: "learning-study",
-                    lifeAreaTemplateID: "learning",
-                    name: "Study session",
-                    summary: "Short, bounded study bursts.",
-                    aliases: ["study session", "course", "class"],
-                    taskTemplates: [
-                        StarterTaskTemplate(
-                            id: "task-learning-study-open",
-                            projectTemplateID: "learning-study",
-                            title: "Open the study doc",
-                            reason: "Opening the material is often the actual activation barrier.",
-                            durationMinutes: 1,
-                            priority: .low,
+                project(
+                    id: "work-admin",
+                    lifeAreaID: "work-career",
+                    name: "Work admin",
+                    summary: "Reduce drag from small but persistent work chores.",
+                    aliases: ["work admin reset", "admin", "ops", "cleanup"],
+                    tasks: [
+                        task(
+                            id: "task-career-admin-email",
+                            projectID: "work-admin",
+                            title: "Archive one stale thread",
+                            reason: "It closes a loop with almost no setup cost.",
+                            minutes: 2,
                             type: .morning,
                             energy: .low,
-                            clearDoneState: true,
+                            category: .work,
+                            context: .computer,
+                            recommendedProfiles: [.overwhelmed]
+                        ),
+                        task(
+                            id: "task-work-admin-downloads",
+                            projectID: "work-admin",
+                            title: "Clean one desktop/downloads item",
+                            reason: "A tiny cleanup lowers the visual tax immediately.",
+                            minutes: 2,
+                            type: .upcoming,
+                            energy: .low,
+                            category: .maintenance,
+                            context: .computer,
+                            recommendedProfiles: [.overwhelmed]
+                        ),
+                        task(
+                            id: "task-work-admin-title",
+                            projectID: "work-admin",
+                            title: "Update one task title so it is actionable",
+                            reason: "Clear wording makes the next step easier to trust.",
+                            minutes: 2,
+                            type: .upcoming,
+                            energy: .low,
+                            category: .work,
+                            context: .computer
+                        )
+                    ]
+                ),
+                project(
+                    id: "work-growth",
+                    lifeAreaID: "work-career",
+                    name: "Career growth",
+                    summary: "Keep long-term growth visible without turning it into homework.",
+                    aliases: ["growth", "career growth", "skills"],
+                    tasks: [
+                        task(
+                            id: "task-work-growth-idea",
+                            projectID: "work-growth",
+                            title: "Save one growth idea",
+                            reason: "Capturing one idea keeps it from vanishing.",
+                            minutes: 2,
+                            type: .upcoming,
+                            energy: .low,
+                            category: .learning,
+                            context: .computer
+                        ),
+                        task(
+                            id: "task-work-growth-gap",
+                            projectID: "work-growth",
+                            title: "Write one note about a skill gap",
+                            reason: "Naming it makes future practice easier to choose.",
+                            minutes: 2,
+                            type: .upcoming,
+                            energy: .low,
+                            category: .learning,
+                            context: .computer
+                        ),
+                        task(
+                            id: "task-work-growth-open-resource",
+                            projectID: "work-growth",
+                            title: "Open one saved learning resource",
+                            reason: "Re-entry counts even when you only open the tab.",
+                            minutes: 2,
+                            type: .upcoming,
+                            energy: .low,
+                            category: .learning,
+                            context: .computer
+                        )
+                    ]
+                )
+            ]
+        ),
+        area(
+            id: "life-admin",
+            name: "Life & Admin",
+            subtitle: "Home, errands, paperwork, and money without the background stress",
+            icon: "house.fill",
+            colorHex: "#5C6AC4",
+            aliases: ["life", "admin", "home", "paperwork", "errands", "personal admin"],
+            projects: [
+                project(
+                    id: "life-home-reset",
+                    lifeAreaID: "life-admin",
+                    name: "Home reset",
+                    summary: "Quick wins that make your space easier to re-enter.",
+                    aliases: ["home reset", "reset", "tidy", "cleanup"],
+                    tasks: [
+                        task(
+                            id: "task-home-reset-five",
+                            projectID: "life-home-reset",
+                            title: "Put away 5 things",
+                            reason: "It is concrete, finite, and hard to overthink.",
+                            minutes: 2,
+                            type: .evening,
+                            energy: .low,
+                            category: .maintenance,
+                            context: .home,
+                            recommendedProfiles: [.overwhelmed]
+                        ),
+                        task(
+                            id: "task-home-reset-surface",
+                            projectID: "life-home-reset",
+                            title: "Clear one surface",
+                            reason: "One visible patch of calm counts immediately.",
+                            minutes: 2,
+                            type: .evening,
+                            energy: .low,
+                            category: .maintenance,
+                            context: .home,
+                            recommendedProfiles: [.finishing]
+                        ),
+                        task(
+                            id: "task-life-home-reset-trash",
+                            projectID: "life-home-reset",
+                            title: "Throw away obvious trash for 2 minutes",
+                            reason: "A short sweep makes the room easier to re-enter.",
+                            minutes: 2,
+                            type: .evening,
+                            energy: .low,
+                            category: .maintenance,
+                            context: .home,
                             recommendedProfiles: [.starting]
                         )
                     ]
                 ),
-                StarterProjectTemplate(
-                    id: "learning-practice",
-                    lifeAreaTemplateID: "learning",
-                    name: "Practice block",
-                    summary: "Build repetition without needing a huge block of time.",
-                    aliases: ["practice", "reps", "drills"],
-                    taskTemplates: [
-                        StarterTaskTemplate(
-                            id: "task-learning-practice-minute",
-                            projectTemplateID: "learning-practice",
-                            title: "Do one 2-minute practice round",
-                            reason: "You only need enough momentum to begin.",
-                            durationMinutes: 2,
-                            priority: .low,
-                            type: .morning,
+                project(
+                    id: "life-appointments-paperwork",
+                    lifeAreaID: "life-admin",
+                    name: "Appointments & paperwork",
+                    summary: "Track appointments, forms, and admin before they become stress.",
+                    aliases: ["appointments", "paperwork", "forms", "admin"],
+                    tasks: [
+                        task(
+                            id: "task-life-appointments-book",
+                            projectID: "life-appointments-paperwork",
+                            title: "Book one appointment",
+                            reason: "Booking is often the only real blocker.",
+                            minutes: 2,
+                            type: .upcoming,
                             energy: .low,
-                            clearDoneState: true,
+                            category: .personal,
+                            context: .phone
+                        ),
+                        task(
+                            id: "task-life-appointments-calendar",
+                            projectID: "life-appointments-paperwork",
+                            title: "Add one appointment to calendar",
+                            reason: "Putting it where you will see it prevents it from vanishing again.",
+                            minutes: 2,
+                            type: .upcoming,
+                            energy: .low,
+                            category: .personal,
+                            context: .phone,
+                            recommendedProfiles: [.remembering]
+                        ),
+                        task(
+                            id: "task-life-appointments-document",
+                            projectID: "life-appointments-paperwork",
+                            title: "Photograph one document",
+                            reason: "Capturing the document now lowers later friction.",
+                            minutes: 2,
+                            type: .upcoming,
+                            energy: .low,
+                            category: .personal,
+                            context: .phone
+                        ),
+                        task(
+                            id: "task-life-appointments-form",
+                            projectID: "life-appointments-paperwork",
+                            title: "Fill one field on a form",
+                            reason: "A tiny slice keeps the admin loop moving.",
+                            minutes: 2,
+                            type: .upcoming,
+                            energy: .low,
+                            category: .personal,
+                            context: .computer
+                        )
+                    ]
+                ),
+                project(
+                    id: "life-errands",
+                    lifeAreaID: "life-admin",
+                    name: "Errands & shopping",
+                    summary: "Move outside-the-house loose ends forward.",
+                    aliases: ["errands", "shopping", "pickup", "store"],
+                    tasks: [
+                        task(
+                            id: "task-home-errands-note",
+                            projectID: "life-errands",
+                            title: "Write one errand in one place",
+                            reason: "This gets it out of your head before it vanishes again.",
+                            minutes: 1,
+                            type: .upcoming,
+                            energy: .low,
+                            category: .shopping,
+                            context: .errands
+                        ),
+                        task(
+                            id: "task-life-errands-group",
+                            projectID: "life-errands",
+                            title: "Group two errands into one trip",
+                            reason: "Bundling lowers the activation cost later.",
+                            minutes: 2,
+                            type: .upcoming,
+                            energy: .low,
+                            category: .shopping,
+                            context: .errands
+                        ),
+                        task(
+                            id: "task-life-errands-hours",
+                            projectID: "life-errands",
+                            title: "Check store hours for one stop",
+                            reason: "Knowing the constraint turns it into a real plan.",
+                            minutes: 2,
+                            type: .upcoming,
+                            energy: .low,
+                            category: .shopping,
+                            context: .phone
+                        )
+                    ]
+                ),
+                project(
+                    id: "life-bills-money",
+                    lifeAreaID: "life-admin",
+                    name: "Bills & money check-ins",
+                    summary: "Remove uncertainty around bills and basic money upkeep.",
+                    aliases: ["bills", "money", "finance", "due dates"],
+                    tasks: [
+                        task(
+                            id: "task-money-bills-date",
+                            projectID: "life-bills-money",
+                            title: "Open one bill and check the due date",
+                            reason: "Knowing the date is a real win and lowers dread.",
+                            minutes: 2,
+                            type: .upcoming,
+                            energy: .low,
+                            category: .finance,
+                            context: .computer,
                             recommendedProfiles: [.choosing]
+                        ),
+                        task(
+                            id: "task-life-bills-reminder",
+                            projectID: "life-bills-money",
+                            title: "Add one due date to reminders",
+                            reason: "One reminder is enough to stop carrying it in your head.",
+                            minutes: 2,
+                            type: .upcoming,
+                            energy: .low,
+                            category: .finance,
+                            context: .phone
+                        ),
+                        task(
+                            id: "task-life-bills-charge",
+                            projectID: "life-bills-money",
+                            title: "Check one recent charge",
+                            reason: "One quick glance reduces uncertainty fast.",
+                            minutes: 2,
+                            type: .upcoming,
+                            energy: .low,
+                            category: .finance,
+                            context: .computer
+                        )
+                    ]
+                ),
+                project(
+                    id: "life-digital-reset",
+                    lifeAreaID: "life-admin",
+                    name: "Digital reset",
+                    summary: "Reduce digital clutter that silently taxes attention.",
+                    aliases: ["digital reset", "inbox", "files", "cleanup"],
+                    tasks: [
+                        task(
+                            id: "task-life-digital-unsubscribe",
+                            projectID: "life-digital-reset",
+                            title: "Unsubscribe from one email",
+                            reason: "Removing one future interruption is a real win.",
+                            minutes: 2,
+                            type: .upcoming,
+                            energy: .low,
+                            category: .maintenance,
+                            context: .computer
+                        ),
+                        task(
+                            id: "task-life-digital-rename",
+                            projectID: "life-digital-reset",
+                            title: "Rename one file so it is searchable",
+                            reason: "Future-you benefits from one clean label.",
+                            minutes: 2,
+                            type: .upcoming,
+                            energy: .low,
+                            category: .maintenance,
+                            context: .computer
+                        ),
+                        task(
+                            id: "task-life-digital-delete",
+                            projectID: "life-digital-reset",
+                            title: "Delete one useless screenshot batch",
+                            reason: "A tiny cleanup cuts visual noise quickly.",
+                            minutes: 2,
+                            type: .upcoming,
+                            energy: .low,
+                            category: .maintenance,
+                            context: .phone
                         )
                     ]
                 )
             ]
         ),
-        StarterLifeAreaTemplate(
+        area(
+            id: "health-self",
+            name: "Health & Self",
+            subtitle: "Protect energy, movement, sleep, and recovery without pressure",
+            icon: "heart.fill",
+            colorHex: "#293A18",
+            aliases: ["health", "self", "wellness", "energy", "recovery", "body"],
+            projects: [
+                project(
+                    id: "health-move",
+                    lifeAreaID: "health-self",
+                    name: "Move your body",
+                    summary: "Small movement that gets the day unstuck.",
+                    aliases: ["movement", "exercise", "workout"],
+                    tasks: [
+                        task(
+                            id: "task-health-move-clothes",
+                            projectID: "health-move",
+                            title: "Put on workout clothes",
+                            reason: "It is small enough to begin and makes the next move easier.",
+                            minutes: 1,
+                            type: .morning,
+                            energy: .low,
+                            category: .health,
+                            context: .home
+                        ),
+                        task(
+                            id: "task-health-move-water",
+                            projectID: "health-move",
+                            title: "Fill your water bottle",
+                            reason: "It gives you an instant win with a clear done state.",
+                            minutes: 1,
+                            type: .morning,
+                            energy: .low,
+                            category: .health,
+                            context: .home
+                        ),
+                        task(
+                            id: "task-health-move-walk",
+                            projectID: "health-move",
+                            title: "Walk for 10 minutes",
+                            reason: "A good backup option when you want a little more movement.",
+                            minutes: 10,
+                            type: .morning,
+                            energy: .medium,
+                            category: .health,
+                            context: .outdoor
+                        )
+                    ]
+                ),
+                project(
+                    id: "health-sleep",
+                    lifeAreaID: "health-self",
+                    name: "Sleep wind-down",
+                    summary: "Tiny cues that make stopping easier later.",
+                    aliases: ["sleep", "rest", "bedtime"],
+                    tasks: [
+                        task(
+                            id: "task-health-sleep-charge",
+                            projectID: "health-sleep",
+                            title: "Put your phone on the charger",
+                            reason: "One visible action can mark the start of winding down.",
+                            minutes: 1,
+                            type: .evening,
+                            energy: .low,
+                            category: .health,
+                            context: .home,
+                            recommendedProfiles: [.remembering]
+                        ),
+                        task(
+                            id: "task-health-sleep-night-mode",
+                            projectID: "health-sleep",
+                            title: "Turn on night mode",
+                            reason: "A small cue makes the later stop easier.",
+                            minutes: 1,
+                            type: .evening,
+                            energy: .low,
+                            category: .health,
+                            context: .phone
+                        ),
+                        task(
+                            id: "task-health-sleep-tomorrow",
+                            projectID: "health-sleep",
+                            title: "Set out what you need for tomorrow morning",
+                            reason: "Lowering tomorrow's startup cost also helps you stop tonight.",
+                            minutes: 2,
+                            type: .evening,
+                            energy: .low,
+                            category: .health,
+                            context: .home
+                        )
+                    ]
+                ),
+                project(
+                    id: "health-meals",
+                    lifeAreaID: "health-self",
+                    name: "Meal reset",
+                    summary: "Reduce food friction before it gets loud.",
+                    aliases: ["food", "meals", "nutrition"],
+                    tasks: [
+                        task(
+                            id: "task-health-meal-snack",
+                            projectID: "health-meals",
+                            title: "Put one easy snack where you can see it",
+                            reason: "This lowers the energy needed to make the next decent choice.",
+                            minutes: 2,
+                            type: .morning,
+                            energy: .low,
+                            category: .health,
+                            context: .home
+                        ),
+                        task(
+                            id: "task-health-meal-list",
+                            projectID: "health-meals",
+                            title: "Write one meal idea for tonight",
+                            reason: "One concrete choice beats carrying the whole problem around.",
+                            minutes: 2,
+                            type: .morning,
+                            energy: .low,
+                            category: .health,
+                            context: .anywhere,
+                            recommendedProfiles: [.choosing]
+                        ),
+                        task(
+                            id: "task-health-meal-prep",
+                            projectID: "health-meals",
+                            title: "Prep one simple ingredient",
+                            reason: "One small prep step lowers the cost of the whole meal later.",
+                            minutes: 5,
+                            type: .upcoming,
+                            energy: .low,
+                            category: .health,
+                            context: .home
+                        )
+                    ]
+                ),
+                project(
+                    id: "health-recovery",
+                    lifeAreaID: "health-self",
+                    name: "Recovery & calm",
+                    summary: "Make rest and reset visible instead of optional.",
+                    aliases: ["recovery", "calm", "rest", "reset"],
+                    tasks: [
+                        task(
+                            id: "task-health-recovery-reset",
+                            projectID: "health-recovery",
+                            title: "Sit down for a 2-minute reset",
+                            reason: "A tiny pause is enough to interrupt the spiral.",
+                            minutes: 2,
+                            type: .evening,
+                            energy: .low,
+                            category: .health,
+                            context: .home,
+                            recommendedProfiles: [.overwhelmed]
+                        ),
+                        task(
+                            id: "task-health-recovery-outside",
+                            projectID: "health-recovery",
+                            title: "Step outside for 5 minutes",
+                            reason: "A short reset can change the whole feel of the next hour.",
+                            minutes: 5,
+                            type: .upcoming,
+                            energy: .low,
+                            category: .health,
+                            context: .outdoor
+                        ),
+                        task(
+                            id: "task-health-recovery-breaths",
+                            projectID: "health-recovery",
+                            title: "Fill your glass and take 5 breaths",
+                            reason: "It is concrete, finite, and calming.",
+                            minutes: 2,
+                            type: .upcoming,
+                            energy: .low,
+                            category: .health,
+                            context: .home
+                        )
+                    ]
+                ),
+                project(
+                    id: "health-reflect",
+                    lifeAreaID: "health-self",
+                    name: "Read & reflect",
+                    summary: "A light self-renewal loop for people who need mental reset, not just productivity.",
+                    aliases: ["read", "reflect", "renewal"],
+                    tasks: [
+                        task(
+                            id: "task-health-reflect-page",
+                            projectID: "health-reflect",
+                            title: "Read 1 page",
+                            reason: "A tiny reading dose is easier to keep than waiting for the perfect block.",
+                            minutes: 2,
+                            type: .evening,
+                            energy: .low,
+                            category: .learning,
+                            context: .anywhere
+                        ),
+                        task(
+                            id: "task-health-reflect-takeaway",
+                            projectID: "health-reflect",
+                            title: "Write 1 takeaway from yesterday",
+                            reason: "One sentence closes the loop on the day.",
+                            minutes: 2,
+                            type: .evening,
+                            energy: .low,
+                            category: .learning,
+                            context: .anywhere
+                        ),
+                        task(
+                            id: "task-health-reflect-idea",
+                            projectID: "health-reflect",
+                            title: "Save one idea you do not want to lose",
+                            reason: "Capturing the idea is enough for today.",
+                            minutes: 2,
+                            type: .evening,
+                            energy: .low,
+                            category: .learning,
+                            context: .phone
+                        )
+                    ]
+                )
+            ]
+        ),
+        area(
+            id: "relationships",
+            name: "Relationships",
+            subtitle: "Keep important people from slipping into the background",
+            icon: "person.2.fill",
+            colorHex: "#A53E6D",
+            aliases: ["relationships", "friends", "family", "social"],
+            projects: [
+                project(
+                    id: "relationships-partner-family",
+                    lifeAreaID: "relationships",
+                    name: "Partner / family",
+                    summary: "Keep close relationships visible in a low-pressure way.",
+                    aliases: ["partner", "family", "home people"],
+                    tasks: [
+                        task(
+                            id: "task-relationships-family-text",
+                            projectID: "relationships-partner-family",
+                            title: "Send one check-in text",
+                            reason: "One small touch counts.",
+                            minutes: 2,
+                            type: .upcoming,
+                            energy: .low,
+                            category: .social,
+                            context: .phone
+                        ),
+                        task(
+                            id: "task-relationships-family-calendar",
+                            projectID: "relationships-partner-family",
+                            title: "Add one family date to calendar",
+                            reason: "Putting it on the calendar keeps it real.",
+                            minutes: 2,
+                            type: .upcoming,
+                            energy: .low,
+                            category: .social,
+                            context: .phone
+                        ),
+                        task(
+                            id: "task-relationships-family-question",
+                            projectID: "relationships-partner-family",
+                            title: "Write one thing you want to ask about",
+                            reason: "A prompt makes the next conversation easier.",
+                            minutes: 2,
+                            type: .upcoming,
+                            energy: .low,
+                            category: .social,
+                            context: .anywhere
+                        )
+                    ]
+                ),
+                project(
+                    id: "relationships-friends",
+                    lifeAreaID: "relationships",
+                    name: "Friends",
+                    summary: "Keep friendship maintenance light and visible.",
+                    aliases: ["friends", "friendships"],
+                    tasks: [
+                        task(
+                            id: "task-relationships-friends-reply",
+                            projectID: "relationships-friends",
+                            title: "Reply to one personal message",
+                            reason: "One reply keeps the thread alive.",
+                            minutes: 2,
+                            type: .upcoming,
+                            energy: .low,
+                            category: .social,
+                            context: .phone
+                        ),
+                        task(
+                            id: "task-relationships-friends-plan",
+                            projectID: "relationships-friends",
+                            title: "Suggest one plan to a friend",
+                            reason: "A specific suggestion is easier to act on than a vague intention.",
+                            minutes: 2,
+                            type: .upcoming,
+                            energy: .low,
+                            category: .social,
+                            context: .phone
+                        ),
+                        task(
+                            id: "task-relationships-friends-list",
+                            projectID: "relationships-friends",
+                            title: "Write down one friend to check in with",
+                            reason: "One name gives you a clear next move.",
+                            minutes: 1,
+                            type: .upcoming,
+                            energy: .low,
+                            category: .social,
+                            context: .anywhere
+                        )
+                    ]
+                ),
+                project(
+                    id: "relationships-social-plans",
+                    lifeAreaID: "relationships",
+                    name: "Social plans",
+                    summary: "Turn vague social intentions into one small plan.",
+                    aliases: ["social plans", "weekend plans", "hangouts"],
+                    tasks: [
+                        task(
+                            id: "task-relationships-social-idea",
+                            projectID: "relationships-social-plans",
+                            title: "Write one idea for the weekend",
+                            reason: "One idea is enough to get plans unstuck.",
+                            minutes: 2,
+                            type: .upcoming,
+                            energy: .low,
+                            category: .social,
+                            context: .anywhere
+                        ),
+                        task(
+                            id: "task-relationships-social-invite",
+                            projectID: "relationships-social-plans",
+                            title: "Text one invite",
+                            reason: "The send matters more than the perfect wording.",
+                            minutes: 2,
+                            type: .upcoming,
+                            energy: .low,
+                            category: .social,
+                            context: .phone
+                        ),
+                        task(
+                            id: "task-relationships-social-place",
+                            projectID: "relationships-social-plans",
+                            title: "Pick one time and place",
+                            reason: "Specific plans are easier to finish.",
+                            minutes: 2,
+                            type: .upcoming,
+                            energy: .low,
+                            category: .social,
+                            context: .phone
+                        )
+                    ]
+                )
+            ]
+        ),
+        area(
+            id: "learning-growth",
+            name: "Learning & Growth",
+            subtitle: "Study, practice, and keep growth visible without turning it into homework",
+            icon: "book.fill",
+            colorHex: "#9E5F0A",
+            aliases: ["learning", "growth", "study", "practice"],
+            projects: [
+                project(
+                    id: "learning-read",
+                    lifeAreaID: "learning-growth",
+                    name: "Read and capture",
+                    summary: "Turn a small reading moment into something retained.",
+                    aliases: ["read", "reading", "capture"],
+                    tasks: [
+                        task(
+                            id: "task-learning-read-page",
+                            projectID: "learning-read",
+                            title: "Open the book and read 1 page",
+                            reason: "The commitment is tiny, but it still counts as re-entry.",
+                            minutes: 2,
+                            type: .evening,
+                            energy: .low,
+                            category: .learning,
+                            context: .anywhere
+                        ),
+                        task(
+                            id: "task-learning-read-takeaway",
+                            projectID: "learning-read",
+                            title: "Write 1 takeaway from yesterday",
+                            reason: "One sentence closes the loop on previous effort.",
+                            minutes: 2,
+                            type: .evening,
+                            energy: .low,
+                            category: .learning,
+                            context: .anywhere
+                        ),
+                        task(
+                            id: "task-learning-read-save",
+                            projectID: "learning-read",
+                            title: "Save one idea you want to revisit",
+                            reason: "Capturing the idea counts as progress.",
+                            minutes: 2,
+                            type: .upcoming,
+                            energy: .low,
+                            category: .learning,
+                            context: .phone
+                        )
+                    ]
+                ),
+                project(
+                    id: "learning-study",
+                    lifeAreaID: "learning-growth",
+                    name: "Study session",
+                    summary: "Short, bounded study bursts.",
+                    aliases: ["study session", "course", "class"],
+                    tasks: [
+                        task(
+                            id: "task-learning-study-open",
+                            projectID: "learning-study",
+                            title: "Open the study doc",
+                            reason: "Opening the material is often the actual activation barrier.",
+                            minutes: 1,
+                            type: .upcoming,
+                            energy: .low,
+                            category: .learning,
+                            context: .computer
+                        ),
+                        task(
+                            id: "task-learning-study-question",
+                            projectID: "learning-study",
+                            title: "Write one question you want to answer",
+                            reason: "A question gives the study block shape immediately.",
+                            minutes: 2,
+                            type: .upcoming,
+                            energy: .low,
+                            category: .learning,
+                            context: .computer
+                        )
+                    ]
+                ),
+                project(
+                    id: "learning-practice",
+                    lifeAreaID: "learning-growth",
+                    name: "Practice block",
+                    summary: "Build repetition without needing a huge block of time.",
+                    aliases: ["practice", "reps", "drills"],
+                    tasks: [
+                        task(
+                            id: "task-learning-practice-minute",
+                            projectID: "learning-practice",
+                            title: "Do one 2-minute practice round",
+                            reason: "You only need enough momentum to begin.",
+                            minutes: 2,
+                            type: .upcoming,
+                            energy: .low,
+                            category: .learning,
+                            context: .anywhere
+                        ),
+                        task(
+                            id: "task-learning-practice-step",
+                            projectID: "learning-practice",
+                            title: "Write the next tiny thing to practice",
+                            reason: "The next rep is easier when it is already named.",
+                            minutes: 2,
+                            type: .upcoming,
+                            energy: .low,
+                            category: .learning,
+                            context: .anywhere
+                        )
+                    ]
+                )
+            ]
+        ),
+        area(
+            id: "creativity-fun",
+            name: "Creativity & Fun",
+            subtitle: "Make room for hobbies, play, and expression",
+            icon: "paintpalette.fill",
+            colorHex: "#D97706",
+            aliases: ["creativity", "fun", "hobby", "creative"],
+            projects: [
+                project(
+                    id: "creativity-writing",
+                    lifeAreaID: "creativity-fun",
+                    name: "Personal writing",
+                    summary: "Keep creative output warm with tiny starts.",
+                    aliases: ["writing", "journal", "notes"],
+                    tasks: [
+                        task(
+                            id: "task-creativity-writing-lines",
+                            projectID: "creativity-writing",
+                            title: "Write 2 lines",
+                            reason: "A tiny opening sentence is enough for re-entry.",
+                            minutes: 2,
+                            type: .evening,
+                            energy: .low,
+                            category: .creative,
+                            context: .anywhere
+                        ),
+                        task(
+                            id: "task-creativity-writing-title",
+                            projectID: "creativity-writing",
+                            title: "Open the note and title the idea",
+                            reason: "Naming the idea lowers the cost of coming back.",
+                            minutes: 2,
+                            type: .upcoming,
+                            energy: .low,
+                            category: .creative,
+                            context: .phone
+                        )
+                    ]
+                ),
+                project(
+                    id: "creativity-hobby",
+                    lifeAreaID: "creativity-fun",
+                    name: "Hobby practice",
+                    summary: "Keep the hobby visible without demanding a full session.",
+                    aliases: ["hobby", "practice", "creative practice"],
+                    tasks: [
+                        task(
+                            id: "task-creativity-hobby-materials",
+                            projectID: "creativity-hobby",
+                            title: "Put the materials where you can reach them",
+                            reason: "Reducing setup friction makes the hobby more likely to happen.",
+                            minutes: 2,
+                            type: .upcoming,
+                            energy: .low,
+                            category: .creative,
+                            context: .home
+                        ),
+                        task(
+                            id: "task-creativity-hobby-five",
+                            projectID: "creativity-hobby",
+                            title: "Do 5 minutes of practice",
+                            reason: "A short block keeps the loop alive.",
+                            minutes: 5,
+                            type: .upcoming,
+                            energy: .low,
+                            category: .creative,
+                            context: .home
+                        )
+                    ]
+                ),
+                project(
+                    id: "creativity-weekend",
+                    lifeAreaID: "creativity-fun",
+                    name: "Weekend ideas",
+                    summary: "Capture fun before the week consumes it.",
+                    aliases: ["weekend", "fun plans", "ideas"],
+                    tasks: [
+                        task(
+                            id: "task-creativity-weekend-idea",
+                            projectID: "creativity-weekend",
+                            title: "Write one fun idea for this week",
+                            reason: "A single idea gives the week more shape.",
+                            minutes: 2,
+                            type: .upcoming,
+                            energy: .low,
+                            category: .creative,
+                            context: .anywhere
+                        ),
+                        task(
+                            id: "task-creativity-weekend-save",
+                            projectID: "creativity-weekend",
+                            title: "Save one place or event to try",
+                            reason: "Saving it now keeps it from dissolving.",
+                            minutes: 2,
+                            type: .upcoming,
+                            energy: .low,
+                            category: .creative,
+                            context: .phone
+                        )
+                    ]
+                )
+            ]
+        ),
+        area(
             id: "money",
             name: "Money",
-            subtitle: "Bills, budgeting, and fewer surprise fires",
+            subtitle: "Give money its own lane when you want deeper visibility",
             icon: "dollarsign.circle.fill",
-            colorHex: "#C11317",
+            colorHex: "#2E8B57",
             aliases: ["finance", "finances", "budget"],
             projects: [
-                StarterProjectTemplate(
+                project(
                     id: "money-bills",
-                    lifeAreaTemplateID: "money",
+                    lifeAreaID: "money",
                     name: "Bills this week",
                     summary: "Remove uncertainty before it starts compounding.",
                     aliases: ["bills", "payments", "due dates"],
-                    taskTemplates: [
-                        StarterTaskTemplate(
-                            id: "task-money-bills-date",
-                            projectTemplateID: "money-bills",
+                    tasks: [
+                        task(
+                            id: "task-money-standalone-bills-date",
+                            projectID: "money-bills",
                             title: "Open one bill and check the due date",
-                            reason: "Knowing the date is a real win and lowers dread.",
-                            durationMinutes: 2,
-                            priority: .low,
-                            type: .morning,
+                            reason: "Knowing the date lowers dread immediately.",
+                            minutes: 2,
+                            type: .upcoming,
                             energy: .low,
-                            clearDoneState: true,
-                            recommendedProfiles: [.choosing, .overwhelmed]
+                            category: .finance,
+                            context: .computer
+                        ),
+                        task(
+                            id: "task-money-standalone-reminder",
+                            projectID: "money-bills",
+                            title: "Add one due date to reminders",
+                            reason: "One reminder removes the need to hold it in memory.",
+                            minutes: 2,
+                            type: .upcoming,
+                            energy: .low,
+                            category: .finance,
+                            context: .phone
                         )
                     ]
                 ),
-                StarterProjectTemplate(
+                project(
                     id: "money-budget",
-                    lifeAreaTemplateID: "money",
+                    lifeAreaID: "money",
                     name: "Budget reset",
                     summary: "Lightweight money awareness without a full planning session.",
                     aliases: ["budget", "spending", "plan"],
-                    taskTemplates: [
-                        StarterTaskTemplate(
+                    tasks: [
+                        task(
                             id: "task-money-budget-receipt",
-                            projectTemplateID: "money-budget",
+                            projectID: "money-budget",
                             title: "Move one receipt into one place",
                             reason: "Organizing one input is easier than fixing the whole system.",
-                            durationMinutes: 1,
-                            priority: .low,
-                            type: .morning,
+                            minutes: 1,
+                            type: .upcoming,
                             energy: .low,
-                            clearDoneState: true,
-                            recommendedProfiles: [.remembering]
+                            category: .finance,
+                            context: .phone
+                        ),
+                        task(
+                            id: "task-money-budget-charge",
+                            projectID: "money-budget",
+                            title: "Check one recent charge",
+                            reason: "One quick review reduces uncertainty fast.",
+                            minutes: 2,
+                            type: .upcoming,
+                            energy: .low,
+                            category: .finance,
+                            context: .computer
                         )
                     ]
                 ),
-                StarterProjectTemplate(
+                project(
                     id: "money-errands",
-                    lifeAreaTemplateID: "money",
+                    lifeAreaID: "money",
                     name: "Financial errands",
                     summary: "Small admin that prevents surprise problems later.",
                     aliases: ["financial errands", "bank", "paperwork"],
-                    taskTemplates: [
-                        StarterTaskTemplate(
+                    tasks: [
+                        task(
                             id: "task-money-errands-note",
-                            projectTemplateID: "money-errands",
+                            projectID: "money-errands",
                             title: "Write the one money errand you need",
                             reason: "Capturing it now keeps it from turning into background stress.",
-                            durationMinutes: 1,
-                            priority: .low,
-                            type: .morning,
+                            minutes: 1,
+                            type: .upcoming,
                             energy: .low,
-                            clearDoneState: true,
-                            recommendedProfiles: [.remembering, .overwhelmed]
+                            category: .finance,
+                            context: .anywhere
+                        ),
+                        task(
+                            id: "task-money-errands-hours",
+                            projectID: "money-errands",
+                            title: "Check the hours for one money errand",
+                            reason: "Knowing the constraint makes it easier to finish.",
+                            minutes: 2,
+                            type: .upcoming,
+                            energy: .low,
+                            category: .finance,
+                            context: .phone
                         )
                     ]
                 )
@@ -1086,137 +1968,417 @@ enum StarterWorkspaceCatalog {
     ]
 
     static let allHabitTemplates: [StarterHabitTemplate] = [
-        StarterHabitTemplate(
-            id: "habit-health-water",
-            lifeAreaTemplateID: "health",
-            projectTemplateID: "health-move",
-            title: "Drink water after you wake up",
-            reason: "It is easy to remember, takes seconds, and creates a clean start signal.",
-            kind: .positive,
-            trackingMode: .dailyCheckIn,
-            cadence: .daily(hour: 8, minute: 0),
-            icon: HabitIconMetadata(symbolName: "drop.fill", categoryKey: "health"),
-            notes: "Use a tiny win that helps the next healthy choice happen.",
-            recommendedProfiles: [.starting, .remembering, .overwhelmed]
+        positiveHabit(
+            id: "habit-career-plan",
+            lifeAreaID: "work-career",
+            projectID: "work-ship",
+            title: "Choose tomorrow's first work step",
+            reason: "Deciding before you stop makes tomorrow easier to begin.",
+            cadence: .daily(hour: 17, minute: 30),
+            symbol: "briefcase.fill",
+            categoryKey: "work",
+            notes: "Keep it to one specific next step.",
+            recommendedProfiles: [.choosing]
         ),
-        StarterHabitTemplate(
-            id: "habit-health-charge",
-            lifeAreaTemplateID: "health",
-            projectTemplateID: "health-sleep",
-            title: "Put your phone on the charger before bed",
-            reason: "A visible bedtime cue is easier to keep than a full evening routine.",
-            kind: .positive,
-            trackingMode: .dailyCheckIn,
-            cadence: .daily(hour: 21, minute: 30),
-            icon: HabitIconMetadata(symbolName: "bed.double.fill", categoryKey: "health"),
-            notes: "Make the stop signal obvious.",
+        positiveHabit(
+            id: "habit-work-must-move",
+            lifeAreaID: "work-career",
+            projectID: "work-ship",
+            title: "End the day by naming one \"must move\" item",
+            reason: "One named item keeps tomorrow from starting blank.",
+            cadence: .daily(hour: 17, minute: 45),
+            symbol: "flag.fill",
+            categoryKey: "work",
+            notes: "Pick one thing, not a full list.",
+            recommendedProfiles: [.finishing]
+        ),
+        positiveHabit(
+            id: "habit-career-followups",
+            lifeAreaID: "work-career",
+            projectID: "work-followups",
+            title: "Check follow-ups every weekday",
+            reason: "A light weekday sweep keeps important threads from disappearing.",
+            cadence: .weekly(daysOfWeek: [2, 3, 4, 5, 6], hour: 16, minute: 0),
+            symbol: "tray.full.fill",
+            categoryKey: "work",
+            notes: "You are maintaining visibility, not clearing everything.",
+            recommendedProfiles: [.remembering]
+        ),
+        positiveHabit(
+            id: "habit-work-waiting-on",
+            lifeAreaID: "work-career",
+            projectID: "work-followups",
+            title: "Review waiting-on items before signing off",
+            reason: "One short pass keeps important loose ends visible.",
+            cadence: .weekly(daysOfWeek: [2, 3, 4, 5, 6], hour: 17, minute: 0),
+            symbol: "clock.badge.checkmark.fill",
+            categoryKey: "work",
+            notes: "A short review is enough.",
             recommendedProfiles: [.remembering, .finishing]
         ),
-        StarterHabitTemplate(
+
+        positiveHabit(
+            id: "habit-home-reset",
+            lifeAreaID: "life-admin",
+            projectID: "life-home-reset",
+            title: "Do a 2-minute home reset",
+            reason: "Short resets lower the cost of coming back to your space later.",
+            cadence: .daily(hour: 20, minute: 0),
+            symbol: "house.fill",
+            categoryKey: "life",
+            notes: "Stop after two minutes even if more is possible.",
+            recommendedProfiles: [.starting]
+        ),
+        positiveHabit(
+            id: "habit-life-surface",
+            lifeAreaID: "life-admin",
+            projectID: "life-home-reset",
+            title: "Reset one visible surface every evening",
+            reason: "One visible patch of calm is easier to sustain than a full cleanup.",
+            cadence: .daily(hour: 20, minute: 30),
+            symbol: "sparkles",
+            categoryKey: "life",
+            notes: "Pick just one surface.",
+            recommendedProfiles: [.finishing]
+        ),
+        positiveHabit(
+            id: "habit-life-appointments-check",
+            lifeAreaID: "life-admin",
+            projectID: "life-appointments-paperwork",
+            title: "Check appointments twice a week",
+            reason: "A light review is enough to keep appointments from surprising you.",
+            cadence: .weekly(daysOfWeek: [2, 5], hour: 18, minute: 0),
+            symbol: "calendar.badge.clock",
+            categoryKey: "life",
+            notes: "Check what is coming, not everything at once.",
+            recommendedProfiles: [.remembering]
+        ),
+        positiveHabit(
+            id: "habit-life-paperwork-capture",
+            lifeAreaID: "life-admin",
+            projectID: "life-appointments-paperwork",
+            title: "Put paperwork in one capture place",
+            reason: "One place lowers the mental cost of admin.",
+            cadence: .weekly(daysOfWeek: [2, 4, 6], hour: 18, minute: 30),
+            symbol: "tray.and.arrow.down.fill",
+            categoryKey: "life",
+            notes: "Do not sort it yet.",
+            recommendedProfiles: [.remembering]
+        ),
+        positiveHabit(
+            id: "habit-life-errands-review",
+            lifeAreaID: "life-admin",
+            projectID: "life-errands",
+            title: "Review errands before leaving home",
+            reason: "A quick glance makes the trip more useful.",
+            cadence: .weekly(daysOfWeek: [2, 3, 4, 5, 6, 7], hour: 9, minute: 0),
+            symbol: "car.fill",
+            categoryKey: "life",
+            notes: "Check only when it helps.",
+            recommendedProfiles: [.choosing]
+        ),
+        positiveHabit(
+            id: "habit-life-bill-check",
+            lifeAreaID: "life-admin",
+            projectID: "life-bills-money",
+            title: "Friday bill check",
+            reason: "One weekly glance removes uncertainty without turning into a finance project.",
+            cadence: .weekly(daysOfWeek: [6], hour: 11, minute: 0),
+            symbol: "creditcard.fill",
+            categoryKey: "life",
+            notes: "This is about awareness, not perfection.",
+            recommendedProfiles: [.choosing]
+        ),
+        positiveHabit(
+            id: "habit-money-check",
+            lifeAreaID: "life-admin",
+            projectID: "life-bills-money",
+            title: "Weekly account glance",
+            reason: "A short weekly glance is easier to keep than a full budget session.",
+            cadence: .weekly(daysOfWeek: [6], hour: 12, minute: 0),
+            symbol: "dollarsign.circle.fill",
+            categoryKey: "life",
+            notes: "You are checking in, not judging.",
+            recommendedProfiles: [.choosing, .remembering]
+        ),
+        positiveHabit(
+            id: "habit-life-digital-cleanup",
+            lifeAreaID: "life-admin",
+            projectID: "life-digital-reset",
+            title: "5-minute inbox cleanup once a week",
+            reason: "One short cleanup keeps digital clutter from silently growing.",
+            cadence: .weekly(daysOfWeek: [7], hour: 18, minute: 0),
+            symbol: "envelope.badge.fill",
+            categoryKey: "life",
+            notes: "Five minutes is enough.",
+            recommendedProfiles: [.overwhelmed]
+        ),
+
+        positiveHabit(
+            id: "habit-health-water",
+            lifeAreaID: "health-self",
+            projectID: "health-move",
+            title: "Drink water after you wake up",
+            reason: "It is easy to remember, takes seconds, and creates a clean start signal.",
+            cadence: .daily(hour: 8, minute: 0),
+            symbol: "drop.fill",
+            categoryKey: "health",
+            notes: "Use a tiny win that helps the next healthy choice happen.",
+            recommendedProfiles: [.starting]
+        ),
+        positiveHabit(
+            id: "habit-health-move-five",
+            lifeAreaID: "health-self",
+            projectID: "health-move",
+            title: "Move for 5 minutes each morning",
+            reason: "A tiny movement block is easier to keep than a full routine.",
+            cadence: .daily(hour: 8, minute: 30),
+            symbol: "figure.walk",
+            categoryKey: "health",
+            notes: "Five minutes is enough.",
+            recommendedProfiles: [.starting]
+        ),
+        positiveHabit(
+            id: "habit-health-charge",
+            lifeAreaID: "health-self",
+            projectID: "health-sleep",
+            title: "Put your phone on the charger before bed",
+            reason: "A visible bedtime cue is easier to keep than a full evening routine.",
+            cadence: .daily(hour: 21, minute: 30),
+            symbol: "bed.double.fill",
+            categoryKey: "health",
+            notes: "Make the stop signal obvious.",
+            recommendedProfiles: [.remembering]
+        ),
+        negativeHabit(
             id: "habit-health-no-phone-bed",
-            lifeAreaTemplateID: "health",
-            projectTemplateID: "health-sleep",
+            lifeAreaID: "health-self",
+            projectID: "health-sleep",
             title: "Keep your phone out of bed",
             reason: "This supports better wind-down without asking for a perfect night.",
-            kind: .negative,
-            trackingMode: .dailyCheckIn,
             cadence: .daily(hour: 22, minute: 0),
-            icon: HabitIconMetadata(symbolName: "moon.zzz.fill", categoryKey: "health"),
+            symbol: "moon.zzz.fill",
+            categoryKey: "health",
             notes: "Recovery matters more than streak perfection.",
             recommendedProfiles: [.remembering, .overwhelmed]
         ),
-        StarterHabitTemplate(
-            id: "habit-career-plan",
-            lifeAreaTemplateID: "career",
-            projectTemplateID: "career-ship",
-            title: "Choose tomorrow's first work step",
-            reason: "Deciding before you stop makes tomorrow easier to begin.",
-            kind: .positive,
-            trackingMode: .dailyCheckIn,
-            cadence: .daily(hour: 17, minute: 30),
-            icon: HabitIconMetadata(symbolName: "briefcase.fill", categoryKey: "career"),
-            notes: "Keep it to one specific next step.",
-            recommendedProfiles: [.choosing, .finishing]
-        ),
-        StarterHabitTemplate(
-            id: "habit-career-followups",
-            lifeAreaTemplateID: "career",
-            projectTemplateID: "career-followups",
-            title: "Check follow-ups every weekday",
-            reason: "A light weekday sweep keeps important threads from disappearing.",
-            kind: .positive,
-            trackingMode: .dailyCheckIn,
-            cadence: .weekly(daysOfWeek: [2, 3, 4, 5, 6], hour: 16, minute: 0),
-            icon: HabitIconMetadata(symbolName: "tray.full.fill", categoryKey: "career"),
-            notes: "You are maintaining visibility, not clearing everything.",
-            recommendedProfiles: [.remembering, .finishing]
-        ),
-        StarterHabitTemplate(
-            id: "habit-home-reset",
-            lifeAreaTemplateID: "home",
-            projectTemplateID: "home-reset",
-            title: "Do a 2-minute home reset",
-            reason: "Short resets lower the cost of coming back to your space later.",
-            kind: .positive,
-            trackingMode: .dailyCheckIn,
-            cadence: .daily(hour: 20, minute: 0),
-            icon: HabitIconMetadata(symbolName: "house.fill", categoryKey: "home"),
-            notes: "Stop after two minutes even if more is possible.",
-            recommendedProfiles: [.starting, .overwhelmed]
-        ),
-        StarterHabitTemplate(
-            id: "habit-home-laundry",
-            lifeAreaTemplateID: "home",
-            projectTemplateID: "home-laundry",
-            title: "Put clothes in one basket each night",
-            reason: "One small reset prevents tomorrow's clutter from starting louder.",
-            kind: .positive,
-            trackingMode: .dailyCheckIn,
+        positiveHabit(
+            id: "habit-health-same-wind-down",
+            lifeAreaID: "health-self",
+            projectID: "health-sleep",
+            title: "Start wind-down at the same time each night",
+            reason: "A consistent cue makes stopping easier later.",
             cadence: .daily(hour: 21, minute: 0),
-            icon: HabitIconMetadata(symbolName: "tshirt.fill", categoryKey: "home"),
-            notes: "Gathering counts. Sorting can stay separate.",
-            recommendedProfiles: [.remembering, .overwhelmed]
+            symbol: "moon.stars.fill",
+            categoryKey: "health",
+            notes: "It does not have to be perfect.",
+            recommendedProfiles: [.remembering]
         ),
-        StarterHabitTemplate(
-            id: "habit-money-check",
-            lifeAreaTemplateID: "money",
-            projectTemplateID: "money-budget",
-            title: "Check your spending once a week",
-            reason: "A short weekly glance is easier to keep than a full budget session.",
-            kind: .positive,
-            trackingMode: .dailyCheckIn,
-            cadence: .weekly(daysOfWeek: [6], hour: 11, minute: 0),
-            icon: HabitIconMetadata(symbolName: "dollarsign.circle.fill", categoryKey: "money"),
-            notes: "This is for awareness, not judgment.",
-            recommendedProfiles: [.choosing, .remembering]
+        positiveHabit(
+            id: "habit-health-lunch",
+            lifeAreaID: "health-self",
+            projectID: "health-meals",
+            title: "Decide lunch before noon",
+            reason: "One small decision lowers food friction before it gets loud.",
+            cadence: .weekly(daysOfWeek: [2, 3, 4, 5, 6], hour: 11, minute: 0),
+            symbol: "fork.knife",
+            categoryKey: "health",
+            notes: "A rough decision counts.",
+            recommendedProfiles: [.choosing]
         ),
-        StarterHabitTemplate(
-            id: "habit-learning-page",
-            lifeAreaTemplateID: "learning",
-            projectTemplateID: "learning-practice",
-            title: "Read one page",
+        positiveHabit(
+            id: "habit-health-snack",
+            lifeAreaID: "health-self",
+            projectID: "health-meals",
+            title: "Eat one protein-first snack daily",
+            reason: "A small reliable snack lowers the cost of better food choices.",
+            cadence: .daily(hour: 15, minute: 0),
+            symbol: "leaf.fill",
+            categoryKey: "health",
+            notes: "Keep it simple.",
+            recommendedProfiles: [.choosing]
+        ),
+        positiveHabit(
+            id: "habit-health-reset-after-work",
+            lifeAreaID: "health-self",
+            projectID: "health-recovery",
+            title: "Do a 2-minute reset after work",
+            reason: "A short reset creates recovery without demanding a full routine.",
+            cadence: .weekly(daysOfWeek: [2, 3, 4, 5, 6], hour: 18, minute: 0),
+            symbol: "figure.mind.and.body",
+            categoryKey: "health",
+            notes: "Two minutes is enough to count.",
+            recommendedProfiles: [.overwhelmed]
+        ),
+        positiveHabit(
+            id: "habit-health-check-energy",
+            lifeAreaID: "health-self",
+            projectID: "health-recovery",
+            title: "Check energy before taking on more",
+            reason: "A quick check helps you stop borrowing from later.",
+            cadence: .daily(hour: 14, minute: 0),
+            symbol: "bolt.heart.fill",
+            categoryKey: "health",
+            notes: "Pause before saying yes.",
+            recommendedProfiles: [.overwhelmed]
+        ),
+        positiveHabit(
+            id: "habit-health-read-page",
+            lifeAreaID: "health-self",
+            projectID: "health-reflect",
+            title: "Read one page each evening",
             reason: "A tiny daily dose is easier to keep than waiting for a deep session.",
-            kind: .positive,
-            trackingMode: .dailyCheckIn,
-            cadence: .daily(hour: 19, minute: 0),
-            icon: HabitIconMetadata(symbolName: "book.fill", categoryKey: "learning"),
+            cadence: .daily(hour: 20, minute: 30),
+            symbol: "book.fill",
+            categoryKey: "health",
             notes: "Stop after one page if that is all you have today.",
-            recommendedProfiles: [.starting, .overwhelmed]
+            recommendedProfiles: [.starting]
+        ),
+        positiveHabit(
+            id: "habit-health-takeaway",
+            lifeAreaID: "health-self",
+            projectID: "health-reflect",
+            title: "Capture one takeaway before bed",
+            reason: "One takeaway helps the day feel finished.",
+            cadence: .daily(hour: 21, minute: 15),
+            symbol: "text.quote",
+            categoryKey: "health",
+            notes: "One sentence is enough.",
+            recommendedProfiles: [.finishing]
+        ),
+
+        positiveHabit(
+            id: "habit-relationships-check-in",
+            lifeAreaID: "relationships",
+            projectID: "relationships-friends",
+            title: "Check in with one person each week",
+            reason: "One short check-in keeps relationships from drifting into the background.",
+            cadence: .weekly(daysOfWeek: [7], hour: 16, minute: 0),
+            symbol: "person.crop.circle.badge.plus",
+            categoryKey: "relationships",
+            notes: "One person is enough.",
+            recommendedProfiles: []
+        ),
+        positiveHabit(
+            id: "habit-learning-capture",
+            lifeAreaID: "learning-growth",
+            projectID: "learning-read",
+            title: "Capture one thing you learned",
+            reason: "A small capture helps learning stick.",
+            cadence: .daily(hour: 20, minute: 0),
+            symbol: "graduationcap.fill",
+            categoryKey: "learning",
+            notes: "One idea is enough.",
+            recommendedProfiles: []
+        ),
+        positiveHabit(
+            id: "habit-creativity-make",
+            lifeAreaID: "creativity-fun",
+            projectID: "creativity-hobby",
+            title: "Make something for 10 minutes twice a week",
+            reason: "A short playful block is easier to keep than waiting for a perfect creative window.",
+            cadence: .weekly(daysOfWeek: [3, 7], hour: 19, minute: 0),
+            symbol: "paintbrush.pointed.fill",
+            categoryKey: "creativity",
+            notes: "Stop at ten minutes if you want.",
+            recommendedProfiles: []
+        ),
+        positiveHabit(
+            id: "habit-money-glance",
+            lifeAreaID: "money",
+            projectID: "money-budget",
+            title: "Weekly account glance",
+            reason: "A short check-in keeps money visible without turning it into a project.",
+            cadence: .weekly(daysOfWeek: [7], hour: 12, minute: 0),
+            symbol: "banknote.fill",
+            categoryKey: "money",
+            notes: "Awareness beats avoidance.",
+            recommendedProfiles: []
         )
     ]
 
+    static func normalizeLifeAreaTemplateID(_ id: String) -> String {
+        legacyLifeAreaIDMap[id] ?? id
+    }
+
+    static func normalizeProjectTemplateID(_ id: String) -> String {
+        legacyProjectIDMap[id] ?? id
+    }
+
+    static func normalizeTaskTemplateID(_ id: String) -> String {
+        legacyTaskIDMap[id] ?? id
+    }
+
+    static func normalizeHabitTemplateID(_ id: String) -> String {
+        legacyHabitIDMap[id] ?? id
+    }
+
+    static func normalizedProjectDraft(_ draft: OnboardingProjectDraft) -> OnboardingProjectDraft {
+        let normalizedAreaID = normalizeLifeAreaTemplateID(draft.lifeAreaTemplateID)
+        let normalizedTemplateID = normalizeProjectTemplateID(draft.templateID)
+        let normalizedSuggestions = draft.suggestionTemplateIDs
+            .map(normalizeProjectTemplateID)
+            .reduce(into: [String]()) { partialResult, id in
+                guard partialResult.contains(id) == false else { return }
+                partialResult.append(id)
+            }
+        let matchedIndex = normalizedSuggestions.firstIndex(of: normalizedTemplateID) ?? 0
+        let template = projectTemplate(id: normalizedTemplateID)
+        return OnboardingProjectDraft(
+            id: draft.id,
+            lifeAreaTemplateID: normalizedAreaID,
+            templateID: normalizedTemplateID,
+            name: draft.name.isEmpty ? (template?.name ?? draft.name) : draft.name,
+            summary: draft.summary.isEmpty ? (template?.summary ?? draft.summary) : draft.summary,
+            suggestionTemplateIDs: normalizedSuggestions,
+            suggestionIndex: matchedIndex,
+            isSelected: draft.isSelected
+        )
+    }
+
+    static func normalizedLifeAreaSelection(_ selection: ResolvedLifeAreaSelection) -> ResolvedLifeAreaSelection {
+        ResolvedLifeAreaSelection(
+            templateID: normalizeLifeAreaTemplateID(selection.templateID),
+            lifeArea: selection.lifeArea,
+            reusedExisting: selection.reusedExisting
+        )
+    }
+
+    static func normalizedProjectSelection(_ selection: ResolvedProjectSelection) -> ResolvedProjectSelection {
+        ResolvedProjectSelection(
+            draft: normalizedProjectDraft(selection.draft),
+            project: selection.project,
+            reusedExisting: selection.reusedExisting
+        )
+    }
+
+    static func normalizedTaskTemplateMap(_ map: [String: UUID]) -> [String: UUID] {
+        map.reduce(into: [:]) { partialResult, entry in
+            partialResult[normalizeTaskTemplateID(entry.key)] = entry.value
+        }
+    }
+
+    static func normalizedHabitTemplateMap(_ map: [String: UUID]) -> [String: UUID] {
+        map.reduce(into: [:]) { partialResult, entry in
+            partialResult[normalizeHabitTemplateID(entry.key)] = entry.value
+        }
+    }
+
     static func lifeAreaTemplate(id: String) -> StarterLifeAreaTemplate? {
-        allLifeAreas.first(where: { $0.id == id })
+        let normalizedID = normalizeLifeAreaTemplateID(id)
+        return allLifeAreas.first(where: { $0.id == normalizedID })
     }
 
     static func projectTemplate(id: String) -> StarterProjectTemplate? {
-        allLifeAreas
+        let normalizedID = normalizeProjectTemplateID(id)
+        return allLifeAreas
             .flatMap(\.projects)
-            .first(where: { $0.id == id })
+            .first(where: { $0.id == normalizedID })
     }
 
     static func habitTemplate(id: String) -> StarterHabitTemplate? {
-        allHabitTemplates.first(where: { $0.id == id })
+        let normalizedID = normalizeHabitTemplateID(id)
+        return allHabitTemplates.first(where: { $0.id == normalizedID })
     }
 
     static func defaultLifeAreaSelectionIDs(
@@ -1226,17 +2388,17 @@ enum StarterWorkspaceCatalog {
         let guided: [String]
         switch frictionProfile {
         case .starting:
-            guided = ["health", "career", "home"]
+            guided = ["work-career", "health-self", "life-admin"]
         case .choosing:
-            guided = ["career", "home", "health"]
+            guided = ["work-career", "life-admin", "health-self"]
         case .remembering:
-            guided = ["home", "career", "money"]
+            guided = ["life-admin", "work-career", "health-self"]
         case .finishing:
-            guided = ["career", "home", "money"]
+            guided = ["work-career", "life-admin", "health-self"]
         case .overwhelmed:
-            guided = ["home", "health"]
+            guided = ["life-admin", "health-self", "work-career"]
         case .none:
-            guided = ["health", "career", "home"]
+            guided = ["work-career", "life-admin", "health-self"]
         }
 
         if mode == .custom {
@@ -1246,23 +2408,8 @@ enum StarterWorkspaceCatalog {
     }
 
     static func orderedLifeAreas(for frictionProfile: OnboardingFrictionProfile?) -> [StarterLifeAreaTemplate] {
-        let preferredIDs: [String]
-        switch frictionProfile {
-        case .choosing:
-            preferredIDs = ["career", "home", "health", "money", "learning"]
-        case .remembering:
-            preferredIDs = ["home", "career", "money", "health", "learning"]
-        case .finishing:
-            preferredIDs = ["career", "home", "money", "health", "learning"]
-        case .overwhelmed:
-            preferredIDs = ["home", "health", "career", "money", "learning"]
-        case .starting:
-            preferredIDs = ["health", "career", "home", "learning", "money"]
-        case .none:
-            preferredIDs = allLifeAreas.map(\.id)
-        }
-
-        return preferredIDs.compactMap(lifeAreaTemplate(id:))
+        let coreIDs = defaultLifeAreaSelectionIDs(for: frictionProfile, mode: .guided)
+        return (coreIDs + optionalLifeAreaIDs).compactMap(lifeAreaTemplate(id:))
     }
 
     static func visibleLifeAreas(
@@ -1270,34 +2417,39 @@ enum StarterWorkspaceCatalog {
         showAll: Bool
     ) -> [StarterLifeAreaTemplate] {
         let ordered = orderedLifeAreas(for: frictionProfile)
-        let shouldCollapse = frictionProfile == .choosing || frictionProfile == .overwhelmed
-        guard shouldCollapse, showAll == false else { return ordered }
-        return Array(ordered.prefix(4))
+        guard showAll == false else { return ordered }
+        return Array(ordered.prefix(coreLifeAreaIDs.count))
     }
 
     static func defaultProjectDrafts(
         for selectedLifeAreaIDs: [String],
+        mode: OnboardingMode
+    ) -> [OnboardingProjectDraft] {
+        defaultProjectDrafts(for: selectedLifeAreaIDs, frictionProfile: nil, mode: mode)
+    }
+
+    static func defaultProjectDrafts(
+        for selectedLifeAreaIDs: [String],
+        frictionProfile: OnboardingFrictionProfile?,
         mode _: OnboardingMode
     ) -> [OnboardingProjectDraft] {
-        var drafts: [OnboardingProjectDraft] = []
-        for areaID in selectedLifeAreaIDs {
-            guard let area = lifeAreaTemplate(id: areaID),
-                  let project = area.projects.first
-            else { continue }
-
-            drafts.append(
-                OnboardingProjectDraft(
-                    lifeAreaTemplateID: area.id,
-                    templateID: project.id,
-                    name: project.name,
-                    summary: project.summary,
-                    suggestionTemplateIDs: area.projects.map(\.id),
-                    suggestionIndex: 0,
-                    isSelected: true
-                )
+        selectedLifeAreaIDs.compactMap { selectedID in
+            guard let area = lifeAreaTemplate(id: selectedID) else { return nil }
+            let preferredProjectID = frictionProfile.flatMap { defaultProjectByFriction[$0]?[area.id] }
+            let project = preferredProjectID.flatMap(projectTemplate(id:)) ?? area.projects.first
+            guard let project else { return nil }
+            let suggestionIDs = area.projects.map(\.id)
+            let suggestionIndex = suggestionIDs.firstIndex(of: project.id) ?? 0
+            return OnboardingProjectDraft(
+                lifeAreaTemplateID: area.id,
+                templateID: project.id,
+                name: project.name,
+                summary: project.summary,
+                suggestionTemplateIDs: suggestionIDs,
+                suggestionIndex: suggestionIndex,
+                isSelected: true
             )
         }
-        return drafts
     }
 
     static func taskSuggestions(
@@ -1317,8 +2469,8 @@ enum StarterWorkspaceCatalog {
         for projects: [ResolvedProjectSelection],
         frictionProfile: OnboardingFrictionProfile?
     ) -> [StarterHabitTemplate] {
-        let selectedAreaIDs = Set(projects.map { $0.draft.lifeAreaTemplateID })
-        let selectedProjectTemplateIDs = Set(projects.map { $0.draft.templateID })
+        let selectedAreaIDs = Set(projects.map { normalizeLifeAreaTemplateID($0.draft.lifeAreaTemplateID) })
+        let selectedProjectTemplateIDs = Set(projects.map { normalizeProjectTemplateID($0.draft.templateID) })
         let ranked = allHabitTemplates
             .filter { selectedAreaIDs.contains($0.lifeAreaTemplateID) }
             .filter { template in
@@ -1342,14 +2494,18 @@ enum StarterWorkspaceCatalog {
 
     static func defaultFallbackTaskTemplate(for projectTemplateID: String) -> StarterTaskTemplate {
         StarterTaskTemplate(
-            id: "fallback-\(projectTemplateID)",
-            projectTemplateID: projectTemplateID,
+            id: "fallback-\(normalizeProjectTemplateID(projectTemplateID))",
+            projectTemplateID: normalizeProjectTemplateID(projectTemplateID),
             title: "Open this project and pick one next step",
             reason: "A tiny orienting action still counts as motion.",
             durationMinutes: 2,
             priority: .low,
             type: .morning,
             energy: .low,
+            category: .general,
+            context: .anywhere,
+            dueDateIntent: .today,
+            isQuickWin: true,
             clearDoneState: true,
             recommendedProfiles: []
         )
@@ -1368,8 +2524,12 @@ enum StarterWorkspaceCatalog {
         lifeAreaID: UUID?,
         in existing: [Project]
     ) -> Project? {
-        let template = projectTemplate(id: draft.templateID)
-        let candidateNames = Set(([draft.name] + (template?.aliases ?? []) + [template?.name].compactMap { $0 }).map(normalizedName))
+        let normalizedDraft = normalizedProjectDraft(draft)
+        let template = projectTemplate(id: normalizedDraft.templateID)
+        let candidateNames = Set(
+            ([normalizedDraft.name] + (template?.aliases ?? []) + [template?.name].compactMap { $0 })
+                .map(normalizedName)
+        )
         let candidates = existing.filter { candidateNames.contains(normalizedName($0.name)) }
         if let preferred = candidates.first(where: { $0.lifeAreaID == lifeAreaID }) {
             return preferred
@@ -1395,25 +2555,19 @@ enum StarterWorkspaceCatalog {
 
     private static func score(task: StarterTaskTemplate, frictionProfile: OnboardingFrictionProfile?) -> Int {
         var score = 0
-        score += task.durationMinutes <= 2 ? 40 : 18
-        score += task.clearDoneState ? 25 : 0
+        score += task.isQuickWin ? 40 : 18
+        score += task.clearDoneState ? 22 : 0
         score += task.durationMinutes <= 5 ? 10 : 0
         if let frictionProfile, task.recommendedProfiles.contains(frictionProfile) {
-            score += 15
+            score += 18
         }
-        switch frictionProfile {
-        case .starting:
-            score += task.durationMinutes <= 2 ? 8 : 0
-        case .choosing:
-            score += task.clearDoneState ? 8 : 0
-        case .remembering:
-            score += task.title.localizedCaseInsensitiveContains("write") ? 8 : 0
-        case .finishing:
-            score += task.title.localizedCaseInsensitiveContains("send") ? 6 : 0
-            score += task.title.localizedCaseInsensitiveContains("clear") ? 6 : 0
-        case .overwhelmed:
-            score += task.durationMinutes <= 2 ? 10 : 0
-        case .none:
+        if let frictionProfile, primaryTaskIDByFriction[frictionProfile] == task.id {
+            score += 120
+        }
+        switch task.context {
+        case .computer, .phone, .home, .anywhere:
+            score += 4
+        default:
             break
         }
         return score
@@ -1429,9 +2583,11 @@ enum StarterWorkspaceCatalog {
            selectedProjectTemplateIDs.contains(projectTemplateID) {
             score += 18
         }
-        if let frictionProfile,
-           habit.recommendedProfiles.contains(frictionProfile) {
+        if let frictionProfile, habit.recommendedProfiles.contains(frictionProfile) {
             score += 14
+        }
+        if let frictionProfile, primaryHabitIDByFriction[frictionProfile] == habit.id {
+            score += 120
         }
         switch habit.cadence {
         case .daily:
@@ -1441,10 +2597,137 @@ enum StarterWorkspaceCatalog {
         }
         if habit.reason.localizedCaseInsensitiveContains("easy")
             || habit.reason.localizedCaseInsensitiveContains("seconds")
-            || habit.reason.localizedCaseInsensitiveContains("tiny") {
+            || habit.reason.localizedCaseInsensitiveContains("tiny")
+            || habit.reason.localizedCaseInsensitiveContains("short") {
             score += 6
         }
         return score
+    }
+
+    private static func area(
+        id: String,
+        name: String,
+        subtitle: String,
+        icon: String,
+        colorHex: String,
+        aliases: [String],
+        projects: [StarterProjectTemplate]
+    ) -> StarterLifeAreaTemplate {
+        StarterLifeAreaTemplate(
+            id: id,
+            name: name,
+            subtitle: subtitle,
+            icon: icon,
+            colorHex: colorHex,
+            aliases: aliases,
+            projects: projects
+        )
+    }
+
+    private static func project(
+        id: String,
+        lifeAreaID: String,
+        name: String,
+        summary: String,
+        aliases: [String],
+        tasks: [StarterTaskTemplate]
+    ) -> StarterProjectTemplate {
+        StarterProjectTemplate(
+            id: id,
+            lifeAreaTemplateID: lifeAreaID,
+            name: name,
+            summary: summary,
+            aliases: aliases,
+            taskTemplates: tasks
+        )
+    }
+
+    private static func task(
+        id: String,
+        projectID: String,
+        title: String,
+        reason: String,
+        minutes: Int,
+        priority: TaskPriority = .low,
+        type: TaskType,
+        energy: TaskEnergy,
+        category: TaskCategory,
+        context: TaskContext,
+        dueDateIntent: AddTaskPrefillDueIntent = .today,
+        isQuickWin: Bool? = nil,
+        clearDoneState: Bool = true,
+        recommendedProfiles: [OnboardingFrictionProfile] = []
+    ) -> StarterTaskTemplate {
+        StarterTaskTemplate(
+            id: id,
+            projectTemplateID: projectID,
+            title: title,
+            reason: reason,
+            durationMinutes: minutes,
+            priority: priority,
+            type: type,
+            energy: energy,
+            category: category,
+            context: context,
+            dueDateIntent: dueDateIntent,
+            isQuickWin: isQuickWin ?? (minutes <= 5),
+            clearDoneState: clearDoneState,
+            recommendedProfiles: Set(recommendedProfiles)
+        )
+    }
+
+    private static func positiveHabit(
+        id: String,
+        lifeAreaID: String,
+        projectID: String?,
+        title: String,
+        reason: String,
+        cadence: HabitCadenceDraft,
+        symbol: String,
+        categoryKey: String,
+        notes: String?,
+        recommendedProfiles: [OnboardingFrictionProfile]
+    ) -> StarterHabitTemplate {
+        StarterHabitTemplate(
+            id: id,
+            lifeAreaTemplateID: lifeAreaID,
+            projectTemplateID: projectID,
+            title: title,
+            reason: reason,
+            kind: .positive,
+            trackingMode: .dailyCheckIn,
+            cadence: cadence,
+            icon: HabitIconMetadata(symbolName: symbol, categoryKey: categoryKey),
+            notes: notes,
+            recommendedProfiles: Set(recommendedProfiles)
+        )
+    }
+
+    private static func negativeHabit(
+        id: String,
+        lifeAreaID: String,
+        projectID: String?,
+        title: String,
+        reason: String,
+        cadence: HabitCadenceDraft,
+        symbol: String,
+        categoryKey: String,
+        notes: String?,
+        recommendedProfiles: [OnboardingFrictionProfile]
+    ) -> StarterHabitTemplate {
+        StarterHabitTemplate(
+            id: id,
+            lifeAreaTemplateID: lifeAreaID,
+            projectTemplateID: projectID,
+            title: title,
+            reason: reason,
+            kind: .negative,
+            trackingMode: .dailyCheckIn,
+            cadence: cadence,
+            icon: HabitIconMetadata(symbolName: symbol, categoryKey: categoryKey),
+            notes: notes,
+            recommendedProfiles: Set(recommendedProfiles)
+        )
     }
 }
 
@@ -1662,6 +2945,7 @@ final class OnboardingFlowModel: ObservableObject {
 
     @Published var step: OnboardingStep = .welcome
     @Published var mode: OnboardingMode = .guided
+    @Published private(set) var entryContext: OnboardingEntryContext = .freshFlow
     @Published var frictionProfile: OnboardingFrictionProfile?
     @Published var selectedLifeAreaIDs: Set<String> = []
     @Published var showAllLifeAreas = false
@@ -1835,7 +3119,7 @@ final class OnboardingFlowModel: ObservableObject {
     }
 
     var canGoBack: Bool {
-        successSummary == nil && step != .welcome
+        successSummary == nil && previousStep(before: step) != nil
     }
 
     var focusTask: TaskDefinition? {
@@ -1865,7 +3149,23 @@ final class OnboardingFlowModel: ObservableObject {
     }
 
     var allowsShowAllAreas: Bool {
-        frictionProfile == .choosing || frictionProfile == .overwhelmed
+        StarterWorkspaceCatalog.orderedLifeAreas(for: frictionProfile).count > StarterWorkspaceCatalog.coreLifeAreaIDs.count
+    }
+
+    private func nextStep(after step: OnboardingStep) -> OnboardingStep? {
+        guard let index = OnboardingStep.orderedFlow.firstIndex(of: step),
+              index + 1 < OnboardingStep.orderedFlow.count else {
+            return nil
+        }
+        return OnboardingStep.orderedFlow[index + 1]
+    }
+
+    private func previousStep(before step: OnboardingStep) -> OnboardingStep? {
+        guard let index = OnboardingStep.orderedFlow.firstIndex(of: step),
+              index > 0 else {
+            return nil
+        }
+        return OnboardingStep.orderedFlow[index - 1]
     }
 
     func prepareForPresentation(snapshot: OnboardingJourneySnapshot?) {
@@ -1879,30 +3179,39 @@ final class OnboardingFlowModel: ObservableObject {
 
         guard let snapshot else {
             applyDefaults(mode: .guided, frictionProfile: frictionProfile)
+            entryContext = .freshFlow
             step = .welcome
             successSummary = nil
             persistJourney()
             return
         }
 
+        let normalizedSelectedLifeAreaIDs = snapshot.selectedLifeAreaIDs.map(StarterWorkspaceCatalog.normalizeLifeAreaTemplateID)
+        let normalizedProjectDrafts = snapshot.projectDrafts.map(StarterWorkspaceCatalog.normalizedProjectDraft)
+        let normalizedResolvedLifeAreas = snapshot.resolvedLifeAreas.map(StarterWorkspaceCatalog.normalizedLifeAreaSelection)
+        let normalizedResolvedProjects = snapshot.resolvedProjects.map(StarterWorkspaceCatalog.normalizedProjectSelection)
+        let normalizedHabitTemplateMap = StarterWorkspaceCatalog.normalizedHabitTemplateMap(snapshot.createdHabitTemplateMap)
+        let normalizedTaskTemplateMap = StarterWorkspaceCatalog.normalizedTaskTemplateMap(snapshot.createdTaskTemplateMap)
+
         step = snapshot.step
         mode = snapshot.mode
+        entryContext = snapshot.entryContext
         frictionProfile = snapshot.frictionProfile
-        selectedLifeAreaIDs = Set(snapshot.selectedLifeAreaIDs)
+        selectedLifeAreaIDs = Set(normalizedSelectedLifeAreaIDs)
         showAllLifeAreas = snapshot.showAllLifeAreas
-        projectDrafts = snapshot.projectDrafts
+        projectDrafts = normalizedProjectDrafts
         expandedProjectIDs = Set(snapshot.expandedProjectIDs)
         reminderPromptDismissed = snapshot.reminderPromptDismissed
-        resolvedLifeAreas = snapshot.resolvedLifeAreas
-        resolvedProjects = snapshot.resolvedProjects
+        resolvedLifeAreas = normalizedResolvedLifeAreas
+        resolvedProjects = normalizedResolvedProjects
         createdHabits = snapshot.createdHabits
-        createdHabitTemplateMap = snapshot.createdHabitTemplateMap
-        habitTemplateStates = snapshot.createdHabitTemplateMap.reduce(into: [:]) { partialResult, entry in
+        createdHabitTemplateMap = normalizedHabitTemplateMap
+        habitTemplateStates = normalizedHabitTemplateMap.reduce(into: [:]) { partialResult, entry in
             partialResult[entry.key] = .created(entry.value)
         }
         createdTasks = snapshot.createdTasks
-        createdTaskTemplateMap = snapshot.createdTaskTemplateMap
-        taskTemplateStates = snapshot.createdTaskTemplateMap.reduce(into: [:]) { partialResult, entry in
+        createdTaskTemplateMap = normalizedTaskTemplateMap
+        taskTemplateStates = normalizedTaskTemplateMap.reduce(into: [:]) { partialResult, entry in
             partialResult[entry.key] = .created(entry.value)
         }
         focusTaskID = snapshot.focusTaskID
@@ -1920,6 +3229,7 @@ final class OnboardingFlowModel: ObservableObject {
     func resetForReplay() {
         step = .welcome
         mode = .guided
+        entryContext = .freshFlow
         frictionProfile = nil
         selectedLifeAreaIDs = []
         showAllLifeAreas = false
@@ -1955,7 +3265,7 @@ final class OnboardingFlowModel: ObservableObject {
         if let nextProfile {
             logOnboardingInfo(event: "friction_type_selected", fields: ["profile": nextProfile.rawValue])
         }
-        if step == .welcome {
+        if step == .blocker, entryContext == .freshFlow {
             applyDefaults(mode: mode, frictionProfile: frictionProfile)
             clearDownstreamState()
         }
@@ -1964,11 +3274,27 @@ final class OnboardingFlowModel: ObservableObject {
 
     func begin(mode: OnboardingMode) {
         self.mode = mode
+        entryContext = .freshFlow
         applyDefaults(mode: mode, frictionProfile: frictionProfile)
         clearDownstreamState()
+        step = .blocker
+        errorMessage = nil
+        persistJourney()
+    }
+
+    func continueFromBlocker() {
         step = .lifeAreas
         errorMessage = nil
         persistJourney()
+    }
+
+    func skipBlocker() {
+        frictionProfile = nil
+        if entryContext == .freshFlow {
+            applyDefaults(mode: mode, frictionProfile: nil)
+            clearDownstreamState()
+        }
+        continueFromBlocker()
     }
 
     func toggleLifeArea(_ templateID: String) {
@@ -1984,7 +3310,13 @@ final class OnboardingFlowModel: ObservableObject {
             .map(\.id)
             .filter { selectedLifeAreaIDs.contains($0) }
         let missingAreas = selectedIDsInOrder.filter { existingAreaIDs.contains($0) == false }
-        nextDrafts.append(contentsOf: StarterWorkspaceCatalog.defaultProjectDrafts(for: missingAreas, mode: mode))
+        nextDrafts.append(
+            contentsOf: StarterWorkspaceCatalog.defaultProjectDrafts(
+                for: missingAreas,
+                frictionProfile: frictionProfile,
+                mode: mode
+            )
+        )
         projectDrafts = nextDrafts
         errorMessage = nil
         persistJourney()
@@ -2108,7 +3440,7 @@ final class OnboardingFlowModel: ObservableObject {
             }
             resolvedProjects = selections
             clearHabitsAndTasks()
-            step = .habits
+            step = .firstTask
             persistJourney()
         } catch {
             errorMessage = error.localizedDescription
@@ -2142,7 +3474,11 @@ final class OnboardingFlowModel: ObservableObject {
             let selectedAreaIDs = selectedAreas.map(\.templateID)
             let resolvedProjectSelections: [ResolvedProjectSelection] = selectedAreas.compactMap { selection in
                 guard let areaTemplate = StarterWorkspaceCatalog.lifeAreaTemplate(id: selection.templateID) else { return nil }
-                let defaultDraft = StarterWorkspaceCatalog.defaultProjectDrafts(for: [selection.templateID], mode: .guided).first
+                let defaultDraft = StarterWorkspaceCatalog.defaultProjectDrafts(
+                    for: [selection.templateID],
+                    frictionProfile: frictionProfile,
+                    mode: .guided
+                ).first
                 let candidates = existingProjects.filter { $0.lifeAreaID == selection.lifeArea.id }
                 let fallbackProject = candidates.first
                 let matchedProject = defaultDraft.flatMap { draft in
@@ -2170,6 +3506,7 @@ final class OnboardingFlowModel: ObservableObject {
             }
 
             mode = .guided
+            entryContext = .establishedWorkspace
             selectedLifeAreaIDs = Set(selectedAreaIDs)
             showAllLifeAreas = false
             resolvedLifeAreas = selectedAreas
@@ -2179,7 +3516,7 @@ final class OnboardingFlowModel: ObservableObject {
             createdHabitTemplateMap = [:]
             habitTemplateStates = [:]
             clearTasksAndFocus()
-            step = .habits
+            step = .blocker
             persistJourney()
         } catch {
             errorMessage = error.localizedDescription
@@ -2234,7 +3571,7 @@ final class OnboardingFlowModel: ObservableObject {
     }
 
     func continueFromHabits() {
-        step = .firstTask
+        step = .focusRoom
         errorMessage = nil
         persistJourney()
     }
@@ -2306,10 +3643,10 @@ final class OnboardingFlowModel: ObservableObject {
         }
     }
 
-    func continueToFocus() {
+    func continueFromFirstTask() {
         guard canContinueToFocus else { return }
         focusTaskID = createdTasks.first(where: { $0.isComplete == false })?.id ?? createdTasks.first?.id
-        step = .focusRoom
+        step = .habits
         errorMessage = nil
         persistJourney()
     }
@@ -2506,14 +3843,41 @@ final class OnboardingFlowModel: ObservableObject {
 
     func skipToFocusRoom() async {
         mode = .guided
-        applyDefaults(mode: .guided, frictionProfile: frictionProfile)
-        await continueFromLifeAreas()
-        guard errorMessage == nil else { return }
-        await continueFromProjects()
-        guard errorMessage == nil else { return }
-        continueFromHabits()
+        errorMessage = nil
+
+        if selectedLifeAreaIDs.isEmpty {
+            let selection = StarterWorkspaceCatalog.defaultLifeAreaSelectionIDs(for: frictionProfile, mode: .guided)
+            selectedLifeAreaIDs = Set(selection)
+        }
+
+        if projectDrafts.isEmpty || selectedProjectDrafts.isEmpty {
+            projectDrafts = mergedProjectDrafts(for: selectedLifeAreas.map(\.id))
+        }
+
+        let shouldResolveLifeAreas = step == .welcome || step == .blocker || step == .lifeAreas || resolvedLifeAreas.isEmpty
+        if shouldResolveLifeAreas {
+            await continueFromLifeAreas()
+            guard errorMessage == nil else { return }
+        }
+
+        let shouldResolveProjects = step == .welcome || step == .blocker || step == .lifeAreas || step == .projects || resolvedProjects.isEmpty
+        if shouldResolveProjects {
+            if selectedProjectDrafts.isEmpty {
+                projectDrafts = mergedProjectDrafts(for: selectedLifeAreas.map(\.id))
+            }
+            await continueFromProjects()
+            guard errorMessage == nil else { return }
+        }
+
+        if let existingTask = createdTasks.first(where: { $0.isComplete == false }) ?? createdTasks.first {
+            focusTaskID = existingTask.id
+            step = .focusRoom
+            persistJourney()
+            return
+        }
+
         guard let firstTemplate = primaryTaskSuggestions.first ?? taskSuggestions.first,
-              let resolvedProject = resolvedProjects.first(where: { $0.draft.templateID == firstTemplate.projectTemplateID })
+              let resolvedProject = resolvedProjects.first(where: { $0.draft.templateID == firstTemplate.projectTemplateID }) ?? resolvedProjects.first
         else {
             errorMessage = "Tasker could not build a starter task right now."
             return
@@ -2541,19 +3905,8 @@ final class OnboardingFlowModel: ObservableObject {
             return
         }
 
-        switch step {
-        case .welcome:
-            break
-        case .lifeAreas:
-            step = .welcome
-        case .projects:
-            step = .lifeAreas
-        case .habits:
-            step = .projects
-        case .firstTask:
-            step = .habits
-        case .focusRoom:
-            step = .firstTask
+        if let previous = previousStep(before: step) {
+            step = previous
         }
         persistJourney()
     }
@@ -2561,7 +3914,11 @@ final class OnboardingFlowModel: ObservableObject {
     private func applyDefaults(mode: OnboardingMode, frictionProfile: OnboardingFrictionProfile?) {
         let selection = StarterWorkspaceCatalog.defaultLifeAreaSelectionIDs(for: frictionProfile, mode: mode)
         selectedLifeAreaIDs = Set(selection)
-        projectDrafts = StarterWorkspaceCatalog.defaultProjectDrafts(for: selection, mode: mode)
+        projectDrafts = StarterWorkspaceCatalog.defaultProjectDrafts(
+            for: selection,
+            frictionProfile: frictionProfile,
+            mode: mode
+        )
         expandedProjectIDs = []
         reminderPromptDismissed = false
         showAllLifeAreas = false
@@ -2614,7 +3971,13 @@ final class OnboardingFlowModel: ObservableObject {
             if let draft {
                 merged.append(draft)
             } else {
-                merged.append(contentsOf: StarterWorkspaceCatalog.defaultProjectDrafts(for: [areaID], mode: mode))
+                merged.append(
+                    contentsOf: StarterWorkspaceCatalog.defaultProjectDrafts(
+                        for: [areaID],
+                        frictionProfile: frictionProfile,
+                        mode: mode
+                    )
+                )
             }
         }
         return merged
@@ -2656,6 +4019,7 @@ final class OnboardingFlowModel: ObservableObject {
         let snapshot = OnboardingJourneySnapshot(
             step: step,
             mode: mode,
+            entryContext: entryContext,
             frictionProfile: frictionProfile,
             selectedLifeAreaIDs: StarterWorkspaceCatalog.orderedLifeAreas(for: frictionProfile)
                 .map(\.id)
@@ -3071,6 +4435,16 @@ struct AppOnboardingJourneyView: View {
     @State private var showsMoreIdeas = false
     @State private var showsMoreHabitIdeas = false
     @State private var hasPlayedSuccess = false
+    @State private var welcomeIntroPhase: WelcomeIntroPhase = .introVideoOnly
+    @State private var hasCompletedWelcomeIntro = false
+    @State private var hasSkippedWelcomeIntroDelay = false
+    @State private var welcomeIntroRunID = UUID()
+    @State private var blockerIntroPhase: BlockerIntroPhase = .hidden
+    @State private var blockerIntroRunID = UUID()
+    @State private var hasCompletedBlockerIntro = false
+    @State private var showsInlineReducedMotionBlockerIntro = false
+    @State private var isBlockerHeaderVisible = true
+    @State private var isBlockerSelectorVisible = true
 
     private var spacing: TaskerSpacingTokens {
         TaskerThemeManager.shared.tokens(for: layoutClass).spacing
@@ -3084,28 +4458,119 @@ struct AppOnboardingJourneyView: View {
         layoutClass.isPad ? 1120 : .infinity
     }
 
+    private var isEstablishedWorkspaceEntry: Bool {
+        viewModel.entryContext == .establishedWorkspace
+    }
+
+    private var habitsTitle: String {
+        isEstablishedWorkspaceEntry
+            ? "Add one habit for tomorrow"
+            : "Add one habit for tomorrow"
+    }
+
+    private var habitsSubtitle: String {
+        isEstablishedWorkspaceEntry
+            ? "Pick one now, or add one later."
+            : "Pick one now, or add one later."
+    }
+
+    private var shouldShowWelcomeExperience: Bool {
+        viewModel.successSummary == nil && viewModel.step == .welcome
+    }
+
+    private var isWelcomeIntroActive: Bool {
+        shouldShowWelcomeExperience && welcomeIntroPhase.showsIntroOverlay
+    }
+
+    private var shouldShowBlockerExperience: Bool {
+        viewModel.successSummary == nil && viewModel.step == .blocker
+    }
+
+    private var isBlockerIntroAnimating: Bool {
+        shouldShowBlockerExperience
+            && reduceMotion == false
+            && (
+                blockerIntroPhase != .blockerContentVisible
+                    || isBlockerHeaderVisible == false
+                    || isBlockerSelectorVisible == false
+            )
+    }
+
+    private var shouldShowBlockerSetupCard: Bool {
+        shouldShowBlockerExperience && (
+            showsInlineReducedMotionBlockerIntro
+                || blockerIntroPhase.showsIntroCard
+                || (reduceMotion == false
+                    && hasCompletedBlockerIntro == false
+                    && isBlockerHeaderVisible == false
+                    && isBlockerSelectorVisible == false)
+        )
+    }
+
+    private var isBlockerContentReady: Bool {
+        shouldShowBlockerExperience
+            && blockerIntroPhase == .blockerContentVisible
+            && isBlockerHeaderVisible
+            && isBlockerSelectorVisible
+    }
+
+    private var shouldRenderBlockerContent: Bool {
+        shouldShowBlockerExperience && blockerIntroPhase == .blockerContentVisible
+    }
+
+    private var shouldExposeUITestMarkers: Bool {
+        ProcessInfo.processInfo.arguments.contains("-UI_TESTING")
+    }
+
+    private var shouldShowBottomDock: Bool {
+        guard viewModel.step != .welcome else { return false }
+        guard isWelcomeIntroActive == false else { return false }
+        guard isBlockerIntroAnimating == false else { return false }
+        return viewModel.successSummary != nil || viewModel.step != .focusRoom || viewModel.errorMessage != nil
+    }
+
+    private var shouldShowGlobalSkipButton: Bool {
+        viewModel.successSummary == nil
+    }
+
+    private var skipTopPadding: CGFloat {
+        layoutClass.isPad ? 28 : 18
+    }
+
+    private var onboardingBackdropMode: OnboardingCinematicBackdrop.Mode {
+        if shouldShowWelcomeExperience {
+            return .intro(welcomeIntroPhase)
+        }
+        return .steady
+    }
+
     var body: some View {
         ZStack {
-            AppOnboardingBackground()
+            backgroundLayer
                 .ignoresSafeArea()
 
-            ScrollView(showsIndicators: false) {
-                VStack(alignment: .leading, spacing: spacing.sectionGap) {
-                    if let summary = viewModel.successSummary {
-                        successView(summary: summary)
-                    } else {
-                        stepHeader
-                        stepBody
-                    }
-                }
-                .frame(maxWidth: contentWidth, alignment: .leading)
-                .padding(.horizontal, horizontalPadding)
-                .padding(.top, spacing.s16)
-                .padding(.bottom, 120)
+            contentLayer
+                .allowsHitTesting(isWelcomeIntroActive == false)
+
+            if isWelcomeIntroActive {
+                OnboardingWelcomeCinematicOverlay(
+                    phase: welcomeIntroPhase,
+                    onContinue: continueFromWelcomeIntro,
+                    onSkipDelay: skipWelcomeIntroDelay
+                )
+                    .accessibilityIdentifier(AppOnboardingAccessibilityID.welcomeIntroOverlay)
+            }
+
+            if shouldShowGlobalSkipButton {
+                globalSkipButton
+                    .padding(.top, skipTopPadding)
+                    .padding(.trailing, horizontalPadding)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
+                    .zIndex(2)
             }
         }
         .safeAreaInset(edge: .bottom) {
-            if viewModel.successSummary != nil || viewModel.step != .focusRoom || viewModel.errorMessage != nil {
+            if shouldShowBottomDock {
                 bottomDock
             }
         }
@@ -3133,14 +4598,375 @@ struct AppOnboardingJourneyView: View {
         .animation(reduceMotion ? .none : .easeOut(duration: 0.22), value: viewModel.successSummary != nil)
         .onAppear {
             feedbackController.prepare()
+            scheduleWelcomeIntroIfNeeded()
+            scheduleBlockerIntroIfNeeded(from: nil, to: viewModel.step)
+        }
+        .onChange(of: viewModel.step) { oldStep, newStep in
+            scheduleWelcomeIntroIfNeeded()
+            scheduleBlockerIntroIfNeeded(from: oldStep, to: newStep)
+        }
+        .onChange(of: viewModel.successSummary != nil) { _, _ in
+            scheduleWelcomeIntroIfNeeded()
         }
         .onChange(of: viewModel.successSummary != nil) { _, isShowingSuccess in
             guard isShowingSuccess, hasPlayedSuccess == false else { return }
             hasPlayedSuccess = true
             feedbackController.successSignature()
         }
+        .task(id: welcomeIntroRunID) {
+            await runWelcomeIntroSequenceIfNeeded()
+        }
+        .task(id: blockerIntroRunID) {
+            await runBlockerIntroSequenceIfNeeded()
+        }
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier(AppOnboardingAccessibilityID.flow)
+    }
+
+    @ViewBuilder
+    private var backgroundLayer: some View {
+        OnboardingCinematicBackdrop(
+            mode: onboardingBackdropMode,
+            includeWelcomeAccessibilityMarkers: shouldShowWelcomeExperience
+        )
+    }
+
+    @ViewBuilder
+    private var contentLayer: some View {
+        if let summary = viewModel.successSummary {
+            ScrollView(showsIndicators: false) {
+                VStack(alignment: .leading, spacing: spacing.sectionGap) {
+                    successView(summary: summary)
+                }
+                .frame(maxWidth: contentWidth, alignment: .leading)
+                .padding(.horizontal, horizontalPadding)
+                .padding(.top, spacing.s16)
+                .padding(.bottom, 120)
+            }
+        } else if shouldShowWelcomeExperience {
+            welcomeExperienceContent
+        } else if shouldShowBlockerExperience {
+            blockerExperienceContent
+        } else {
+            ScrollView(showsIndicators: false) {
+                VStack(alignment: .leading, spacing: spacing.sectionGap) {
+                    stepHeader
+                    stepBody
+                }
+                .frame(maxWidth: contentWidth, alignment: .leading)
+                .padding(.horizontal, horizontalPadding)
+                .padding(.top, spacing.s16)
+                .padding(.bottom, 120)
+            }
+        }
+    }
+
+    private var welcomeExperienceContent: some View {
+        Color.clear
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    private var blockerExperienceContent: some View {
+        ScrollView(showsIndicators: false) {
+            VStack(alignment: .leading, spacing: spacing.sectionGap) {
+                if shouldShowBlockerSetupCard, reduceMotion {
+                    blockerSetupIntroCard
+                        .frame(maxWidth: layoutClass.isPad ? 560 : .infinity, alignment: .leading)
+                }
+
+                if shouldRenderBlockerContent {
+                    stepHeader
+                        .opacity(isBlockerHeaderVisible ? 1 : 0)
+                        .offset(y: isBlockerHeaderVisible ? 0 : -26)
+
+                    blockerStep
+                        .opacity(isBlockerSelectorVisible ? 1 : 0)
+                        .offset(y: isBlockerSelectorVisible ? 0 : -18)
+                        .accessibilityIdentifier(AppOnboardingAccessibilityID.blocker)
+
+                    if shouldExposeUITestMarkers {
+                        OnboardingAccessibilityMarker(
+                            identifier: AppOnboardingAccessibilityID.blockerContentReady,
+                            label: "Onboarding blocker content ready",
+                            value: "true"
+                        )
+                        .allowsHitTesting(false)
+                        .frame(width: 1, height: 1)
+                    }
+                } else if shouldShowBlockerSetupCard {
+                    blockerSetupIntroCard
+                        .frame(maxWidth: layoutClass.isPad ? 560 : .infinity, alignment: .leading)
+                        .padding(.top, layoutClass.isPad ? spacing.s24 : spacing.s12)
+                }
+
+                Spacer(minLength: spacing.s24)
+            }
+            .frame(maxWidth: contentWidth, alignment: .leading)
+            .padding(.horizontal, horizontalPadding)
+            .padding(.top, spacing.s16)
+            .padding(.bottom, 120)
+        }
+    }
+
+    private var globalSkipButton: some View {
+        Button("Skip") {
+            feedbackController.light()
+            Task {
+                await viewModel.skipToFocusRoom()
+            }
+        }
+        .onboardingSecondaryButtonStyle(accent: OnboardingTheme.textSecondary)
+        .accessibilityIdentifier(AppOnboardingAccessibilityID.skipButton)
+    }
+
+    private var blockerSetupIntroCard: some View {
+        VStack(alignment: .leading, spacing: spacing.s12) {
+            Text("This setup takes about 2 minutes")
+                .font(.tasker(.headline))
+                .foregroundStyle(OnboardingTheme.textPrimary)
+                .fixedSize(horizontal: false, vertical: true)
+
+            Text("We’ll set up your life areas, habits, projects, and starter tasks. Everything is easy to change later.")
+                .font(.tasker(.body))
+                .foregroundStyle(OnboardingTheme.textSecondary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .padding(24)
+        .frame(maxWidth: layoutClass.isPad ? 560 : .infinity, alignment: .leading)
+        .taskerPremiumSurface(
+            cornerRadius: 30,
+            fillColor: OnboardingTheme.surfaceElevated.opacity(0.78),
+            strokeColor: OnboardingTheme.borderSoft.opacity(0.84),
+            accentColor: OnboardingTheme.accentSecondary,
+            level: .e3,
+            useNativeGlass: true
+        )
+        .shadow(color: Color.black.opacity(0.16), radius: 30, y: 16)
+        .opacity(blockerIntroPhase == .hidden || blockerIntroPhase == .introCardExiting ? 0 : 1)
+        .offset(y: blockerIntroPhase == .introCardVisible ? 0 : (blockerIntroPhase == .introCardExiting ? -220 : -160))
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("This setup takes about 2 minutes. We’ll set up your life areas, habits, projects, and starter tasks. Everything is easy to change later.")
+        .overlay {
+            if shouldExposeUITestMarkers, blockerIntroPhase != .hidden {
+                OnboardingAccessibilityMarker(
+                    identifier: AppOnboardingAccessibilityID.blockerSetupIntro,
+                    label: "Onboarding blocker setup intro",
+                    value: "visible"
+                )
+                .allowsHitTesting(false)
+                .frame(width: 1, height: 1)
+            }
+        }
+    }
+
+    private func scheduleWelcomeIntroIfNeeded() {
+        guard shouldShowWelcomeExperience else {
+            welcomeIntroPhase = .introCTAReady
+            hasSkippedWelcomeIntroDelay = false
+            return
+        }
+
+        if hasCompletedWelcomeIntro {
+            welcomeIntroPhase = .introCTAReady
+            hasSkippedWelcomeIntroDelay = false
+        } else {
+            welcomeIntroRunID = UUID()
+        }
+    }
+
+    @MainActor
+    private func scheduleBlockerIntroIfNeeded(from previousStep: OnboardingStep?, to newStep: OnboardingStep) {
+        guard viewModel.successSummary == nil else {
+            blockerIntroPhase = .hidden
+            showsInlineReducedMotionBlockerIntro = false
+            isBlockerHeaderVisible = true
+            isBlockerSelectorVisible = true
+            return
+        }
+
+        guard newStep == .blocker else {
+            blockerIntroPhase = .hidden
+            showsInlineReducedMotionBlockerIntro = false
+            isBlockerHeaderVisible = true
+            isBlockerSelectorVisible = true
+            return
+        }
+
+        guard previousStep == .welcome, hasCompletedBlockerIntro == false else {
+            blockerIntroPhase = .blockerContentVisible
+            showsInlineReducedMotionBlockerIntro = false
+            revealBlockerContent(animated: false)
+            return
+        }
+
+        if reduceMotion {
+            blockerIntroPhase = .blockerContentVisible
+            showsInlineReducedMotionBlockerIntro = true
+            hasCompletedBlockerIntro = true
+            revealBlockerContent(animated: false)
+            return
+        }
+
+        showsInlineReducedMotionBlockerIntro = false
+        blockerIntroPhase = .hidden
+        isBlockerHeaderVisible = false
+        isBlockerSelectorVisible = false
+        blockerIntroRunID = UUID()
+    }
+
+    private func runWelcomeIntroSequenceIfNeeded() async {
+        guard shouldShowWelcomeExperience,
+              hasCompletedWelcomeIntro == false,
+              hasSkippedWelcomeIntroDelay == false
+        else { return }
+
+        if reduceMotion {
+            await MainActor.run {
+                welcomeIntroPhase = .introVideoOnly
+            }
+
+            guard await sleepIfNeeded(milliseconds: 2500) else { return }
+
+            await MainActor.run {
+                withAnimation(.easeOut(duration: 0.36)) {
+                    welcomeIntroPhase = .introCardHold
+                }
+            }
+
+            guard await sleepIfNeeded(milliseconds: 2000) else { return }
+
+            await MainActor.run {
+                withAnimation(.easeOut(duration: 0.24)) {
+                    welcomeIntroPhase = .introCTAReady
+                }
+            }
+            return
+        }
+
+        await MainActor.run {
+            welcomeIntroPhase = .introVideoOnly
+        }
+
+        guard await sleepIfNeeded(milliseconds: 2500) else { return }
+
+        await MainActor.run {
+            withAnimation(.timingCurve(0.16, 0.92, 0.24, 1, duration: 1.15)) {
+                welcomeIntroPhase = .introTitleReveal
+            }
+        }
+
+        guard await sleepIfNeeded(milliseconds: 550) else { return }
+
+        await MainActor.run {
+            withAnimation(.timingCurve(0.16, 0.92, 0.24, 1, duration: 1.15)) {
+                welcomeIntroPhase = .introSubtitleReveal
+            }
+        }
+
+        guard await sleepIfNeeded(milliseconds: 1350) else { return }
+
+        await MainActor.run {
+            welcomeIntroPhase = .introCardHold
+        }
+
+        guard await sleepIfNeeded(milliseconds: 2000) else { return }
+
+        await MainActor.run {
+            withAnimation(.timingCurve(0.16, 1, 0.3, 1, duration: 0.5)) {
+                welcomeIntroPhase = .introCTAReady
+            }
+        }
+    }
+
+    @MainActor
+    private func skipWelcomeIntroDelay() {
+        guard shouldShowWelcomeExperience,
+              hasCompletedWelcomeIntro == false,
+              welcomeIntroPhase.rawValue < WelcomeIntroPhase.introCTAReady.rawValue
+        else { return }
+
+        hasSkippedWelcomeIntroDelay = true
+        welcomeIntroRunID = UUID()
+
+        if reduceMotion {
+            welcomeIntroPhase = .introCTAReady
+        } else {
+            withAnimation(.timingCurve(0.16, 1, 0.3, 1, duration: 0.5)) {
+                welcomeIntroPhase = .introCTAReady
+            }
+        }
+    }
+
+    private func runBlockerIntroSequenceIfNeeded() async {
+        guard shouldShowBlockerExperience,
+              hasCompletedBlockerIntro == false,
+              reduceMotion == false,
+              blockerIntroPhase == .hidden
+        else { return }
+
+        await MainActor.run {
+            withAnimation(.timingCurve(0.16, 1, 0.3, 1, duration: 0.52)) {
+                blockerIntroPhase = .introCardVisible
+            }
+        }
+
+        guard await sleepIfNeeded(milliseconds: 2000) else { return }
+
+        await MainActor.run {
+            withAnimation(.timingCurve(0.3, 0, 0.8, 0.15, duration: 0.38)) {
+                blockerIntroPhase = .introCardExiting
+            }
+        }
+
+        guard await sleepIfNeeded(milliseconds: 380) else { return }
+
+        await MainActor.run {
+            blockerIntroPhase = .blockerContentVisible
+            hasCompletedBlockerIntro = true
+        }
+        revealBlockerContent(animated: true)
+    }
+
+    @MainActor
+    private func revealBlockerContent(animated: Bool) {
+        if animated, reduceMotion == false {
+            withAnimation(.timingCurve(0.16, 1, 0.3, 1, duration: 0.42)) {
+                isBlockerHeaderVisible = true
+            }
+
+            Task {
+                guard await sleepIfNeeded(milliseconds: 100) else { return }
+                await MainActor.run {
+                    withAnimation(.timingCurve(0.16, 1, 0.3, 1, duration: 0.44)) {
+                        isBlockerSelectorVisible = true
+                    }
+                }
+            }
+        } else {
+            isBlockerHeaderVisible = true
+            isBlockerSelectorVisible = true
+        }
+    }
+
+    private func continueFromWelcomeIntro() {
+        guard shouldShowWelcomeExperience,
+              hasCompletedWelcomeIntro == false,
+              welcomeIntroPhase == .introCTAReady
+        else { return }
+
+        feedbackController.medium()
+        hasCompletedWelcomeIntro = true
+        hasSkippedWelcomeIntroDelay = false
+        viewModel.begin(mode: .guided)
+    }
+
+    private func sleepIfNeeded(milliseconds: Int) async -> Bool {
+        do {
+            try await Task.sleep(nanoseconds: UInt64(milliseconds) * 1_000_000)
+            return Task.isCancelled == false
+        } catch {
+            return false
+        }
     }
 
     private var stepHeader: some View {
@@ -3155,23 +4981,10 @@ struct AppOnboardingJourneyView: View {
                             .font(.tasker(.buttonSmall))
                             .foregroundStyle(OnboardingTheme.textPrimary)
                     }
-                    .buttonStyle(.plain)
+                    .onboardingSecondaryButtonStyle(accent: OnboardingTheme.textPrimary)
                 }
 
                 Spacer()
-
-                if viewModel.step == .welcome {
-                    Button("Skip") {
-                        feedbackController.light()
-                        Task {
-                            await viewModel.skipToFocusRoom()
-                        }
-                    }
-                    .font(.tasker(.buttonSmall))
-                    .foregroundStyle(OnboardingTheme.textSecondary)
-                    .buttonStyle(.plain)
-                    .accessibilityIdentifier(AppOnboardingAccessibilityID.skipButton)
-                }
             }
 
             VStack(alignment: .leading, spacing: spacing.s12) {
@@ -3184,12 +4997,12 @@ struct AppOnboardingJourneyView: View {
                 }
 
                 Capsule()
-                    .fill(OnboardingTheme.accent.opacity(0.08))
+                    .fill(OnboardingTheme.headerAccent.opacity(0.08))
                     .overlay(alignment: .leading) {
                         GeometryReader { proxy in
                             Capsule()
-                                .fill(OnboardingTheme.accent.opacity(0.9))
-                                .frame(width: proxy.size.width * (CGFloat(viewModel.step.progressIndex) / CGFloat(OnboardingStep.allCases.count)))
+                                .fill(OnboardingTheme.headerAccent.opacity(0.9))
+                                .frame(width: proxy.size.width * (CGFloat(viewModel.step.progressIndex) / CGFloat(OnboardingStep.orderedFlow.count)))
                         }
                     }
                     .frame(height: 7)
@@ -3204,7 +5017,10 @@ struct AppOnboardingJourneyView: View {
     private var stepBody: some View {
         switch viewModel.step {
         case .welcome:
-            welcomeStep
+            EmptyView()
+        case .blocker:
+            blockerStep
+                .accessibilityIdentifier(AppOnboardingAccessibilityID.blocker)
         case .lifeAreas:
             lifeAreasStep
                 .accessibilityIdentifier(AppOnboardingAccessibilityID.lifeAreas)
@@ -3223,67 +5039,28 @@ struct AppOnboardingJourneyView: View {
         }
     }
 
-    private var welcomeStep: some View {
-        Group {
-            if layoutClass.isPad {
-                HStack(alignment: .top, spacing: spacing.s20) {
-                    OnboardingWelcomeValueStack()
-                        .frame(maxWidth: 320, alignment: .leading)
-                    welcomeCustomizationCard
-                }
-            } else {
-                VStack(alignment: .leading, spacing: spacing.sectionGap) {
-                    OnboardingWelcomeValueStack()
-                    welcomeCustomizationCard
-                }
-            }
-        }
-        .accessibilityIdentifier(AppOnboardingAccessibilityID.welcome)
-    }
-
-    private var welcomeCustomizationCard: some View {
+    private var blockerStep: some View {
         VStack(alignment: .leading, spacing: spacing.s16) {
-            Text("What usually gets in your way?")
-                .font(.tasker(.headline))
-                .foregroundStyle(OnboardingTheme.textPrimary)
-            Text("We’ll tune your first setup so the first step feels easier.")
-                .font(.tasker(.caption1))
-                .foregroundStyle(OnboardingTheme.textSecondary)
+            OnboardingSectionHeader(
+                title: "What usually gets in your way?",
+                subtitle: "We’ll tailor the setup to help with it."
+            )
 
-            OnboardingChipRail(isAccessibilitySize: dynamicTypeSize.isAccessibilitySize) {
-                ForEach(OnboardingFrictionProfile.allCases) { profile in
-                    OnboardingChoiceChip(
-                        title: profile.title,
-                        isSelected: viewModel.frictionProfile == profile,
-                        allowsMultiline: dynamicTypeSize.isAccessibilitySize
-                    ) {
-                        feedbackController.selection()
-                        viewModel.selectFriction(profile)
-                    }
-                    .frame(maxWidth: dynamicTypeSize.isAccessibilitySize ? .infinity : nil, alignment: .leading)
+            OnboardingFrictionSelector(
+                selectedProfile: viewModel.frictionProfile,
+                onSelect: { profile in
+                    feedbackController.selection()
+                    viewModel.selectFriction(profile)
                 }
-            }
-
-            if let profile = viewModel.frictionProfile {
-                Text(profile.helperCopy)
-                    .font(.tasker(.caption1))
-                    .foregroundStyle(OnboardingTheme.textPrimary)
-                    .padding(.top, spacing.s4)
-            }
+            )
         }
-        .padding(spacing.s16)
-        .background(OnboardingTheme.surfaceElevated, in: RoundedRectangle(cornerRadius: 28, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: 28, style: .continuous)
-                .stroke(OnboardingTheme.borderSoft, lineWidth: 1)
-        )
     }
 
     private var lifeAreasStep: some View {
         VStack(alignment: .leading, spacing: spacing.s16) {
             OnboardingSectionHeader(
-                title: "Choose your starting areas",
-                subtitle: "Pick 1–3 areas to start with. We preselected a few good options.",
+                title: "Choose where to start",
+                subtitle: "Pick up to 3 areas to focus on first.",
                 detail: "\(viewModel.selectedLifeAreaIDs.count) selected"
             )
 
@@ -3292,11 +5069,9 @@ struct AppOnboardingJourneyView: View {
                     feedbackController.light()
                     viewModel.showAllAreas()
                 } label: {
-                    Label("Browse all areas", systemImage: "square.grid.2x2")
-                        .font(.tasker(.buttonSmall))
-                        .foregroundStyle(OnboardingTheme.accent)
+                    Label("Show more areas", systemImage: "square.grid.2x2")
                 }
-                .buttonStyle(.plain)
+                .onboardingSecondaryButtonStyle(accent: OnboardingTheme.accent)
             }
 
             LazyVGrid(
@@ -3323,15 +5098,15 @@ struct AppOnboardingJourneyView: View {
     private var projectsStep: some View {
         VStack(alignment: .leading, spacing: spacing.sectionGap) {
             OnboardingSectionHeader(
-                title: "Confirm your starter projects",
-                subtitle: "We picked one simple project for each area. Change only what feels off."
+                title: "Your first projects",
+                subtitle: "We matched one project to each area. Change only what feels off."
             )
 
             ForEach(viewModel.selectedLifeAreas, id: \.id) { area in
                 VStack(alignment: .leading, spacing: spacing.s12) {
                     Text(area.name)
                         .font(.tasker(.headline))
-                        .foregroundStyle(OnboardingTheme.textPrimary)
+                        .foregroundStyle(OnboardingTheme.headerAccent)
 
                     if let featuredDraft = viewModel.projectDrafts.first(where: { $0.lifeAreaTemplateID == area.id }) {
                         OnboardingProjectDraftCard(
@@ -3353,8 +5128,8 @@ struct AppOnboardingJourneyView: View {
     private var habitsStep: some View {
         VStack(alignment: .leading, spacing: spacing.sectionGap) {
             OnboardingSectionHeader(
-                title: "Set one rhythm that helps tomorrow feel easier.",
-                subtitle: "Add one helpful habit now, or keep moving and set it up later.",
+                title: habitsTitle,
+                subtitle: habitsSubtitle,
                 detail: viewModel.createdHabits.isEmpty ? nil : "\(viewModel.createdHabits.count) added"
             )
 
@@ -3379,8 +5154,8 @@ struct AppOnboardingJourneyView: View {
                 }
             } else {
                 OnboardingSelectionSummaryCard(
-                    title: "No starter habit picked for you",
-                    message: "You can keep moving and add your own habit instead."
+                    title: "Keep the setup light",
+                    message: "Skip the starter habit for now and add your own when it feels useful."
                 )
             }
 
@@ -3420,8 +5195,6 @@ struct AppOnboardingJourneyView: View {
                     .padding(.top, spacing.s8)
                 } label: {
                     Text("More ideas")
-                        .font(.tasker(.buttonSmall))
-                        .foregroundStyle(OnboardingTheme.textPrimary)
                 }
                 .padding(spacing.s16)
                 .background(OnboardingTheme.surfaceElevated, in: RoundedRectangle(cornerRadius: 24, style: .continuous))
@@ -3445,10 +5218,10 @@ struct AppOnboardingJourneyView: View {
                     Image(systemName: "repeat.circle")
                         .foregroundStyle(OnboardingTheme.accent)
                     VStack(alignment: .leading, spacing: 2) {
-                        Text("Use my own habit")
+                        Text("Create my own habit")
                             .font(.tasker(.bodyEmphasis))
                             .foregroundStyle(OnboardingTheme.textPrimary)
-                        Text("Start with a rhythm that already makes sense to you.")
+                        Text("Start with a habit that already fits your day.")
                             .font(.tasker(.caption1))
                             .foregroundStyle(OnboardingTheme.textSecondary)
                     }
@@ -3464,6 +5237,9 @@ struct AppOnboardingJourneyView: View {
                 )
             }
             .buttonStyle(.plain)
+            .accessibilityElement(children: .combine)
+            .accessibilityIdentifier(AppOnboardingAccessibilityID.customHabit)
+            .accessibilityLabel("Create my own habit")
         }
     }
 
@@ -3475,8 +5251,8 @@ struct AppOnboardingJourneyView: View {
 
         return VStack(alignment: .leading, spacing: spacing.sectionGap) {
             OnboardingSectionHeader(
-                title: "Pick one tiny task you can finish today.",
-                subtitle: "Start with something that should take two minutes or less."
+                title: "Pick one small win for today",
+                subtitle: "Start with something you can finish in two minutes or less."
             )
 
             VStack(alignment: .leading, spacing: spacing.s12) {
@@ -3531,8 +5307,6 @@ struct AppOnboardingJourneyView: View {
                     .padding(.top, spacing.s8)
                 } label: {
                     Text("More ideas")
-                        .font(.tasker(.buttonSmall))
-                        .foregroundStyle(OnboardingTheme.textPrimary)
                 }
                 .padding(spacing.s16)
                 .background(OnboardingTheme.surfaceElevated, in: RoundedRectangle(cornerRadius: 24, style: .continuous))
@@ -3570,10 +5344,10 @@ struct AppOnboardingJourneyView: View {
                     Image(systemName: "square.and.pencil")
                         .foregroundStyle(OnboardingTheme.accent)
                     VStack(alignment: .leading, spacing: 2) {
-                        Text("Use my own step")
+                        Text("Create my own first task")
                             .font(.tasker(.bodyEmphasis))
                             .foregroundStyle(OnboardingTheme.textPrimary)
-                        Text("Use your own exact first step.")
+                        Text("Write the exact first task you want to start with.")
                             .font(.tasker(.caption1))
                             .foregroundStyle(OnboardingTheme.textSecondary)
                     }
@@ -3589,6 +5363,9 @@ struct AppOnboardingJourneyView: View {
                 )
             }
             .buttonStyle(.plain)
+            .accessibilityElement(children: .combine)
+            .accessibilityIdentifier(AppOnboardingAccessibilityID.customTask)
+            .accessibilityLabel("Create my own first task")
         }
     }
 
@@ -3808,9 +5585,8 @@ struct AppOnboardingJourneyView: View {
         .presentationDetents([.medium, .large])
     }
 
-    @ViewBuilder
     private var bottomDock: some View {
-        VStack(spacing: spacing.s12) {
+        let dockContent = VStack(spacing: spacing.s12) {
             if let errorMessage = viewModel.errorMessage, errorMessage.isEmpty == false {
                 Text(errorMessage)
                     .font(.tasker(.caption1))
@@ -3836,34 +5612,32 @@ struct AppOnboardingJourneyView: View {
                             feedbackController.light()
                             viewModel.continueWithNextTask()
                         }
-                        .font(.tasker(.buttonSmall))
-                        .foregroundStyle(OnboardingTheme.accent)
-                        .buttonStyle(.plain)
+                        .onboardingSecondaryButtonStyle(accent: OnboardingTheme.accent)
                         .accessibilityIdentifier(AppOnboardingAccessibilityID.breakdownNext)
                     }
                 }
             } else {
                 switch viewModel.step {
                 case .welcome:
+                    EmptyView()
+                case .blocker:
                     VStack(spacing: spacing.s8) {
                         Button {
                             feedbackController.medium()
-                            viewModel.begin(mode: .guided)
+                            viewModel.continueFromBlocker()
                         } label: {
-                            Text("Start setup")
+                            Text("Continue")
                                 .frame(maxWidth: .infinity)
                         }
                         .onboardingPrimaryButton()
-                        .accessibilityIdentifier(AppOnboardingAccessibilityID.startRecommended)
+                        .accessibilityIdentifier(AppOnboardingAccessibilityID.continueFromBlocker)
 
-                        Button("Set it up myself") {
+                        Button("Skip for now") {
                             feedbackController.light()
-                            viewModel.begin(mode: .custom)
+                            viewModel.skipBlocker()
                         }
-                        .font(.tasker(.buttonSmall))
-                        .foregroundStyle(OnboardingTheme.accent)
-                        .buttonStyle(.plain)
-                        .accessibilityIdentifier(AppOnboardingAccessibilityID.customize)
+                        .onboardingSecondaryButtonStyle(accent: OnboardingTheme.accent)
+                        .accessibilityIdentifier(AppOnboardingAccessibilityID.skipBlocker)
                     }
                 case .lifeAreas:
                     VStack(spacing: spacing.s8) {
@@ -3907,7 +5681,7 @@ struct AppOnboardingJourneyView: View {
                             feedbackController.medium()
                             viewModel.continueFromHabits()
                         } label: {
-                            Text("Continue to first task")
+                            Text("Finish setup")
                                 .frame(maxWidth: .infinity)
                         }
                         .onboardingPrimaryButton()
@@ -3917,9 +5691,9 @@ struct AppOnboardingJourneyView: View {
                     VStack(spacing: spacing.s8) {
                         Button {
                             feedbackController.medium()
-                            viewModel.continueToFocus()
+                            viewModel.continueFromFirstTask()
                         } label: {
-                            Text(viewModel.canContinueToFocus ? "Start this first win" : "Choose a first win")
+                            Text(viewModel.canContinueToFocus ? "Continue with this first win" : "Choose a first win")
                                 .frame(maxWidth: .infinity)
                         }
                         .onboardingPrimaryButton(disabled: viewModel.canContinueToFocus == false || viewModel.isWorking)
@@ -3930,20 +5704,22 @@ struct AppOnboardingJourneyView: View {
                 }
             }
         }
-        .padding(.horizontal, horizontalPadding)
-        .padding(.top, spacing.s12)
-        .padding(.bottom, max(spacing.s8, 8))
-        .background(
-            OnboardingTheme.canvas
-                .opacity(0.98)
-                .overlay(alignment: .top) {
-                    Rectangle()
-                        .fill(OnboardingTheme.borderSoft.opacity(0.8))
-                        .frame(height: 1)
-                }
-                .background(.ultraThinMaterial)
-                .ignoresSafeArea(edges: .bottom)
-        )
+
+        let fillOpacity = shouldShowWelcomeExperience ? 0.72 : 0.82
+
+        return dockContent
+            .padding(14)
+            .taskerPremiumSurface(
+                cornerRadius: 30,
+                fillColor: OnboardingTheme.surfaceElevated.opacity(fillOpacity),
+                strokeColor: OnboardingTheme.borderSoft.opacity(0.82),
+                accentColor: OnboardingTheme.accentSecondary,
+                level: .e2,
+                useNativeGlass: true
+            )
+            .padding(.horizontal, horizontalPadding)
+            .padding(.top, spacing.s12)
+            .padding(.bottom, max(spacing.s8, 8))
     }
 }
 
@@ -3987,21 +5763,21 @@ struct AppOnboardingPromptSheetView: View {
 
     private var promptActionCard: some View {
         VStack(alignment: .leading, spacing: spacing.s16) {
-            Text("What happens")
+            Text("What Tasker will reuse")
                 .font(.tasker(.bodyEmphasis))
                 .foregroundStyle(OnboardingTheme.textPrimary)
             OnboardingChecklistCard(items: [
-                "Reuse matching life areas and starter projects where possible.",
-                "Suggest one helpful habit that supports tomorrow without adding pressure.",
-                "Suggest one tiny task so you can get a real completion quickly.",
-                "No duplicate clutter and no destructive edits to what you already have."
+                "Keep the areas and projects that already fit.",
+                "Suggest one light habit only if it improves tomorrow.",
+                "Guide you into one small completion without duplicate clutter.",
+                "Leave your existing setup intact while you review the next layer."
             ])
 
             VStack(spacing: spacing.s12) {
                 Button {
                     onStart()
                 } label: {
-                    Text("Start")
+                    Text("Review matched setup")
                         .frame(maxWidth: .infinity)
                 }
                 .onboardingPrimaryButton()
@@ -4010,9 +5786,7 @@ struct AppOnboardingPromptSheetView: View {
                 Button("Not now") {
                     onNotNow()
                 }
-                .font(.tasker(.buttonSmall))
-                .foregroundStyle(OnboardingTheme.accent)
-                .buttonStyle(.plain)
+                .onboardingSecondaryButtonStyle(accent: OnboardingTheme.accent)
                 .accessibilityIdentifier(AppOnboardingAccessibilityID.promptDismiss)
             }
         }
@@ -4061,36 +5835,28 @@ private enum OnboardingTheme {
     static let textTertiary = Color.tasker(.textTertiary)
     static let accent = Color.tasker(.brandSecondary)
     static let accentSecondary = Color.tasker(.brandHighlight)
+    static let headerAccent = Color.tasker(.brandHighlight)
     static let success = Color.tasker(.statusSuccess)
     static let danger = Color.tasker(.statusDanger)
 }
 
 private struct AppOnboardingBackground: View {
     var body: some View {
-        ZStack {
-            LinearGradient(
-                colors: [OnboardingTheme.canvas.opacity(0.96), OnboardingTheme.canvasSecondary.opacity(0.98), OnboardingTheme.canvasElevated.opacity(0.94)],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
-                .overlay(alignment: .center) {
-                    TaskerNoisyGradientBackdrop(opacity: 0.28)
-                        .ignoresSafeArea()
-                }
-
-            RoundedRectangle(cornerRadius: 44, style: .continuous)
-                .fill(OnboardingTheme.accent.opacity(0.04))
-                .frame(width: 380, height: 220)
-                .blur(radius: 42)
-                .rotationEffect(.degrees(12))
-                .offset(x: -128, y: -230)
-
-            RoundedRectangle(cornerRadius: 56, style: .continuous)
-                .fill(OnboardingTheme.accentSecondary.opacity(0.04))
-                .frame(width: 340, height: 240)
-                .blur(radius: 46)
-                .rotationEffect(.degrees(-18))
-                .offset(x: 112, y: 320)
+        LinearGradient(
+            colors: [
+                OnboardingTheme.canvas.opacity(0.98),
+                OnboardingTheme.canvasSecondary.opacity(0.99),
+                OnboardingTheme.canvasElevated.opacity(0.97)
+            ],
+            startPoint: .topLeading,
+            endPoint: .bottomTrailing
+        )
+        .overlay(alignment: .topLeading) {
+            RoundedRectangle(cornerRadius: 80, style: .continuous)
+                .fill(OnboardingTheme.accent.opacity(0.035))
+                .frame(width: 320, height: 220)
+                .blur(radius: 56)
+                .offset(x: -96, y: -84)
         }
     }
 }
@@ -4131,7 +5897,7 @@ private struct OnboardingEyebrowLabel: View {
     var body: some View {
         Text(title.uppercased())
             .font(.tasker(.caption2))
-            .foregroundStyle(OnboardingTheme.accent)
+            .foregroundStyle(OnboardingTheme.headerAccent)
             .tracking(0.8)
     }
 }
@@ -4183,76 +5949,576 @@ private struct OnboardingTrustRow: View {
     }
 }
 
-private struct OnboardingWelcomeValueStack: View {
-    var body: some View {
-        VStack(alignment: .leading, spacing: 18) {
-            Text("Start with a small system that works.")
-                .font(.tasker(.display))
-                .foregroundStyle(OnboardingTheme.textPrimary)
-                .fixedSize(horizontal: false, vertical: true)
+private enum OnboardingHeroMediaAsset {
+    static let welcomeVideoName = "HeroWelcomeHighCompressMb"
+}
 
-            Text("Tasker will set up a few areas, suggest one tiny task, and help you finish it.")
-                .font(.tasker(.body))
-                .foregroundStyle(OnboardingTheme.textSecondary)
-                .fixedSize(horizontal: false, vertical: true)
+private struct OnboardingCinematicBackdrop: View {
+    enum Mode {
+        case intro(WelcomeIntroPhase)
+        case steady
 
-            Text("You can also add one starter habit so tomorrow begins with less friction.")
-                .font(.tasker(.body))
-                .foregroundStyle(OnboardingTheme.textSecondary)
-                .fixedSize(horizontal: false, vertical: true)
-
-            OnboardingTrustRow(items: [
-                ("sparkles.rectangle.stack", "Real setup"),
-                ("clock", "~2 min"),
-                ("arrow.uturn.backward.circle", "Reversible")
-            ])
+        var grainAmount: Int {
+            switch self {
+            case .intro(let phase):
+                phase.videoGrainAmount
+            case .steady:
+                100
+            }
         }
-        .padding(22)
-        .onboardingHeroPanel(cornerRadius: 32)
+
+        var dimOpacity: Double {
+            switch self {
+            case .intro(let phase):
+                phase.backdropDimOpacity
+            case .steady:
+                0.32
+            }
+        }
+
+        var blurOpacity: Double {
+            switch self {
+            case .intro(let phase):
+                phase.backdropBlurOpacity
+            case .steady:
+                0.58
+            }
+        }
+
+        var topGradientOpacity: Double {
+            switch self {
+            case .intro(let phase):
+                phase.showsWelcomeChrome ? 0.32 : 0.08
+            case .steady:
+                0.32
+            }
+        }
+
+        var bottomGradientOpacity: Double {
+            switch self {
+            case .intro(let phase):
+                phase.showsWelcomeChrome ? 0.42 : 0.16
+            case .steady:
+                0.42
+            }
+        }
+    }
+
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+
+    let mode: Mode
+    let includeWelcomeAccessibilityMarkers: Bool
+
+    private var shouldExposeGrainMarkerForUITests: Bool {
+        ProcessInfo.processInfo.arguments.contains("-UI_TESTING")
+    }
+
+    var body: some View {
+        ZStack {
+            OnboardingHeroVideoView(
+                videoName: OnboardingHeroMediaAsset.welcomeVideoName,
+                accessibilityIdentifier: "onboarding.backdrop.video.host"
+            )
+            .ignoresSafeArea()
+
+            TaskerBackdropNoiseOverlay(amount: mode.grainAmount)
+                .allowsHitTesting(false)
+                .accessibilityHidden(true)
+                .ignoresSafeArea()
+
+            Rectangle()
+                .fill(Color.black.opacity(mode.dimOpacity))
+                .ignoresSafeArea()
+
+            if reduceTransparency {
+                Rectangle()
+                    .fill(OnboardingTheme.canvas.opacity(mode.blurOpacity * 0.78))
+                    .ignoresSafeArea()
+            } else {
+                Rectangle()
+                    .fill(.ultraThinMaterial)
+                    .opacity(mode.blurOpacity)
+                    .ignoresSafeArea()
+            }
+
+            LinearGradient(
+                colors: [
+                    Color.black.opacity(mode.topGradientOpacity),
+                    Color.clear,
+                    Color.black.opacity(mode.bottomGradientOpacity)
+                ],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+            .ignoresSafeArea()
+
+            if shouldExposeGrainMarkerForUITests {
+                OnboardingAccessibilityMarker(
+                    identifier: AppOnboardingAccessibilityID.backdropGrain,
+                    label: "Onboarding cinematic backdrop grain",
+                    value: "\(mode.grainAmount)%"
+                )
+                    .allowsHitTesting(false)
+                    .frame(width: 1, height: 1)
+
+                OnboardingAccessibilityMarker(
+                    identifier: AppOnboardingAccessibilityID.backdropVideo,
+                    label: "Onboarding cinematic backdrop video",
+                    value: nil
+                )
+                .allowsHitTesting(false)
+                .frame(width: 1, height: 1)
+
+                if includeWelcomeAccessibilityMarkers {
+                    OnboardingAccessibilityMarker(
+                        identifier: AppOnboardingAccessibilityID.welcomeHeroVideo,
+                        label: "Welcome video",
+                        value: nil
+                    )
+                    .allowsHitTesting(false)
+                    .frame(width: 1, height: 1)
+
+                    OnboardingAccessibilityMarker(
+                        identifier: AppOnboardingAccessibilityID.welcomeVideoGrain,
+                        label: "Onboarding welcome video grain",
+                        value: "\(mode.grainAmount)%"
+                    )
+                    .allowsHitTesting(false)
+                    .frame(width: 1, height: 1)
+                }
+            }
+        }
     }
 }
 
-private struct OnboardingChipRail<Content: View>: View {
-    let isAccessibilitySize: Bool
-    let content: Content
+#if os(iOS) || os(visionOS)
+private struct OnboardingAccessibilityMarker: UIViewRepresentable {
+    let identifier: String
+    let label: String
+    let value: String?
 
-    init(isAccessibilitySize: Bool, @ViewBuilder content: () -> Content) {
-        self.isAccessibilitySize = isAccessibilitySize
-        self.content = content()
+    func makeUIView(context: Context) -> OnboardingAccessibilityMarkerView {
+        OnboardingAccessibilityMarkerView()
+    }
+
+    func updateUIView(_ uiView: OnboardingAccessibilityMarkerView, context: Context) {
+        uiView.update(identifier: identifier, label: label, value: value)
+    }
+}
+
+private final class OnboardingAccessibilityMarkerView: UIView {
+    override init(frame: CGRect) {
+        super.init(frame: frame)
+        isAccessibilityElement = true
+        accessibilityTraits = .staticText
+        isUserInteractionEnabled = false
+        backgroundColor = .clear
+        alpha = 0.01
+    }
+
+    @available(*, unavailable)
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+
+    func update(identifier: String, label: String, value: String?) {
+        accessibilityIdentifier = identifier
+        accessibilityLabel = label
+        accessibilityValue = value
+    }
+}
+#endif
+
+private struct OnboardingWelcomeCinematicOverlay: View {
+    @Environment(\.taskerLayoutClass) private var layoutClass
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+
+    let phase: WelcomeIntroPhase
+    let onContinue: () -> Void
+    let onSkipDelay: () -> Void
+
+    private let trustItems = [
+        ("sparkles.rectangle.stack", "Real setup"),
+        ("clock", "~2 min"),
+        ("arrow.uturn.backward.circle", "Easy to change later")
+    ]
+
+    private var topInset: CGFloat {
+        layoutClass.isPad ? 56 : 28
+    }
+
+    private var titleVisible: Bool {
+        phase.showsTitle
     }
 
     var body: some View {
-        if isAccessibilitySize {
-            VStack(alignment: .leading, spacing: 8) {
-                content
+        VStack(spacing: 0) {
+            if phase.showsIntroCard {
+                cinematicCard
+                    .padding(.top, topInset)
+                    .padding(.horizontal, layoutClass.isPad ? 56 : 24)
+                    .transition(
+                        .asymmetric(
+                            insertion: .offset(y: -220).combined(with: .opacity),
+                            removal: .opacity
+                        )
+                    )
             }
-        } else {
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 8) {
-                    content
+
+            Spacer(minLength: 0)
+
+            if phase.showsIntroCTA {
+                VStack(spacing: 14) {
+                    Button {
+                        onContinue()
+                    } label: {
+                        Text("Get your days back under control")
+                            .frame(maxWidth: .infinity)
+                    }
+                    .onboardingPrimaryButton()
+                    .accessibilityIdentifier(AppOnboardingAccessibilityID.welcomeIntroContinue)
+
+                    OnboardingTrustRow(items: trustItems)
+                        .frame(maxWidth: .infinity, alignment: .center)
                 }
-                .padding(.horizontal, 2)
-                .padding(.vertical, 2)
-            }
-            .overlay(alignment: .leading) {
-                LinearGradient(
-                    colors: [OnboardingTheme.surfaceElevated, OnboardingTheme.surfaceElevated.opacity(0)],
-                    startPoint: .leading,
-                    endPoint: .trailing
-                )
-                .frame(width: 14)
-                .allowsHitTesting(false)
-            }
-            .overlay(alignment: .trailing) {
-                LinearGradient(
-                    colors: [OnboardingTheme.surfaceElevated.opacity(0), OnboardingTheme.surfaceElevated],
-                    startPoint: .leading,
-                    endPoint: .trailing
-                )
-                .frame(width: 14)
-                .allowsHitTesting(false)
+                .accessibilityElement(children: .contain)
+                .accessibilityIdentifier(AppOnboardingAccessibilityID.welcome)
+                .padding(.horizontal, layoutClass.isPad ? 56 : 24)
+                .padding(.bottom, layoutClass.isPad ? 32 : 24)
+                .transition(.move(edge: .bottom).combined(with: .opacity))
             }
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        .background(Color.black.opacity(0.001))
+        .contentShape(Rectangle())
+        .onTapGesture {
+            onSkipDelay()
+        }
+    }
+
+    private var cinematicCard: some View {
+        VStack(spacing: 18) {
+            OnboardingWelcomeIntroLine(
+                text: "Welcome to Tasker",
+                style: .display,
+                isVisible: titleVisible,
+                secondary: false
+            )
+        }
+        .multilineTextAlignment(.center)
+        .padding(.horizontal, 26)
+        .padding(.vertical, 28)
+        .frame(maxWidth: layoutClass.isPad ? 520 : 420)
+        .taskerPremiumSurface(
+            cornerRadius: 34,
+            fillColor: reduceTransparency
+                ? OnboardingTheme.surfaceElevated.opacity(0.94)
+                : .clear,
+            strokeColor: OnboardingTheme.borderSoft.opacity(0.8),
+            accentColor: reduceTransparency ? OnboardingTheme.accentSecondary : .clear,
+            level: .e3,
+            useNativeGlass: true
+        )
+        .shadow(color: Color.black.opacity(0.14), radius: 32, y: 18)
+        .opacity(phase.introCardOpacity)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("Welcome to Tasker.")
+        .accessibilityIdentifier(AppOnboardingAccessibilityID.welcomeIntroTitleCard)
+    }
+}
+
+private struct OnboardingWelcomeIntroLine: View {
+    let text: String
+    let style: TaskerTextStyle
+    let isVisible: Bool
+    let secondary: Bool
+
+    var body: some View {
+        Text(text)
+            .font(.tasker(style))
+            .foregroundStyle(secondary ? OnboardingTheme.textSecondary : OnboardingTheme.textPrimary)
+            .fixedSize(horizontal: false, vertical: true)
+            .blur(radius: isVisible ? 0 : 18)
+            .opacity(isVisible ? 1 : 0)
+            .offset(y: isVisible ? 0 : 14)
+            .animation(.timingCurve(0.16, 0.92, 0.24, 1, duration: 1.15), value: isVisible)
+    }
+}
+
+private struct OnboardingWelcomeHeroSection: View {
+    @Environment(\.taskerLayoutClass) private var layoutClass
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    let horizontalPadding: CGFloat
+
+    @State private var availableWidth: CGFloat = 0
+
+    var body: some View {
+        let contentWidth = max(availableWidth, layoutClass.isPad ? 720 : 320)
+        let heroWidth = layoutClass.isPad ? contentWidth : contentWidth + (horizontalPadding * 2)
+        let heroHeight = OnboardingWelcomeHeroMetrics.height(
+            for: heroWidth,
+            isPad: layoutClass.isPad,
+            dynamicTypeSize: dynamicTypeSize
+        )
+
+        return heroMedia
+            .frame(height: heroHeight)
+            .frame(maxWidth: .infinity)
+            .background(
+                GeometryReader { proxy in
+                    Color.clear
+                        .preference(
+                            key: OnboardingWelcomeHeroWidthPreferenceKey.self,
+                            value: proxy.size.width
+                        )
+                }
+            )
+            .onPreferenceChange(OnboardingWelcomeHeroWidthPreferenceKey.self) { width in
+                availableWidth = width
+            }
+            .accessibilityIdentifier(AppOnboardingAccessibilityID.welcomeHeroVideo)
+            .padding(.horizontal, layoutClass.isPad ? 0 : -horizontalPadding)
+    }
+
+    @ViewBuilder
+    private var heroMedia: some View {
+        if reduceMotion {
+            ZStack {
+                LinearGradient(
+                    colors: [
+                        OnboardingTheme.surfaceElevated,
+                        OnboardingTheme.accent.opacity(0.18),
+                        OnboardingTheme.surfaceElevated
+                    ],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
+
+                Image(systemName: "play.rectangle.fill")
+                    .font(.system(size: 54, weight: .semibold))
+                    .foregroundStyle(OnboardingTheme.accent)
+            }
+        } else {
+            OnboardingHeroVideoView(
+                videoName: OnboardingHeroMediaAsset.welcomeVideoName,
+                accessibilityIdentifier: AppOnboardingAccessibilityID.welcomeHeroVideo
+            )
+            .overlay {
+                LinearGradient(
+                    colors: [
+                        Color.black.opacity(0.04),
+                        Color.black.opacity(0.12),
+                        Color.black.opacity(0.18)
+                    ],
+                    startPoint: .top,
+                    endPoint: .bottom
+                )
+            }
+        }
+    }
+}
+
+private enum OnboardingWelcomeHeroMetrics {
+    static func height(for width: CGFloat, isPad: Bool, dynamicTypeSize: DynamicTypeSize) -> CGFloat {
+        let minimumHeight: CGFloat = isPad ? 360 : 300
+        let maximumHeight: CGFloat = isPad ? 620 : 460
+        let aspectRatio: CGFloat = dynamicTypeSize.isAccessibilitySize
+            ? (isPad ? 0.44 : 0.72)
+            : (isPad ? 0.5 : 0.9)
+
+        return min(max(width * aspectRatio, minimumHeight), maximumHeight)
+    }
+}
+
+private struct OnboardingWelcomeHeroWidthPreferenceKey: PreferenceKey {
+    static var defaultValue: CGFloat = 0
+
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+        value = nextValue()
+    }
+}
+
+#if os(iOS) || os(visionOS)
+private struct OnboardingHeroVideoView: UIViewRepresentable {
+    let videoName: String
+    let accessibilityIdentifier: String
+
+    func makeUIView(context: Context) -> OnboardingLoopingPlayerView {
+        OnboardingLoopingPlayerView(
+            videoName: videoName,
+            accessibilityIdentifier: accessibilityIdentifier
+        )
+    }
+
+    func updateUIView(_ uiView: OnboardingLoopingPlayerView, context: Context) {
+        uiView.accessibilityIdentifier = accessibilityIdentifier
+        uiView.update(videoName: videoName)
+    }
+}
+
+private final class OnboardingLoopingPlayerView: UIView {
+    private let playerLayer = AVPlayerLayer()
+    private let player = AVQueuePlayer()
+    private var playerLooper: AVPlayerLooper?
+    private var currentVideoName: String?
+
+    init(videoName: String, accessibilityIdentifier: String) {
+        super.init(frame: .zero)
+        self.accessibilityIdentifier = accessibilityIdentifier
+        backgroundColor = .black
+        isAccessibilityElement = false
+        accessibilityElementsHidden = true
+        isUserInteractionEnabled = false
+
+        layer.addSublayer(playerLayer)
+        playerLayer.player = player
+        playerLayer.videoGravity = .resizeAspectFill
+
+        player.isMuted = true
+        player.actionAtItemEnd = .none
+
+        update(videoName: videoName)
+    }
+
+    @available(*, unavailable)
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+
+    deinit {
+        player.pause()
+        player.removeAllItems()
+        playerLooper = nil
+    }
+
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        playerLayer.frame = bounds
+    }
+
+    override func didMoveToWindow() {
+        super.didMoveToWindow()
+
+        if window == nil {
+            player.pause()
+        } else {
+            player.play()
+        }
+    }
+
+    func update(videoName: String) {
+        guard currentVideoName != videoName else {
+            if window != nil {
+                player.play()
+            }
+            return
+        }
+
+        guard let path = Bundle.main.path(forResource: videoName, ofType: "mp4") else {
+            player.pause()
+            player.removeAllItems()
+            playerLooper = nil
+            currentVideoName = nil
+            assertionFailure("Missing onboarding hero asset: \(videoName).mp4")
+            logWarning(
+                event: "onboarding_missing_video_asset",
+                message: "Missing bundled onboarding hero asset",
+                fields: ["video_name": videoName]
+            )
+            return
+        }
+
+        currentVideoName = videoName
+        let url = URL(fileURLWithPath: path)
+        let item = AVPlayerItem(asset: AVURLAsset(url: url))
+        player.removeAllItems()
+        playerLooper = AVPlayerLooper(player: player, templateItem: item)
+        player.play()
+    }
+}
+#endif
+
+private struct OnboardingFrictionSelector: View {
+    let selectedProfile: OnboardingFrictionProfile?
+    let onSelect: (OnboardingFrictionProfile) -> Void
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @State private var availableWidth: CGFloat = 0
+
+    private let columns = [
+        GridItem(.flexible(minimum: 0), spacing: 10),
+        GridItem(.flexible(minimum: 0), spacing: 10)
+    ]
+
+    var body: some View {
+        let layout = OnboardingFrictionSelectorLayout.preferredLayout(
+            for: availableWidth,
+            dynamicTypeSize: dynamicTypeSize
+        )
+        VStack(alignment: .leading, spacing: 14) {
+            if layout == .stacked {
+                VStack(alignment: .leading, spacing: 10) {
+                    optionCards
+                }
+            } else {
+                LazyVGrid(columns: columns, spacing: 10) {
+                    optionCards
+                }
+            }
+        }
+        .background(
+            GeometryReader { proxy in
+                Color.clear
+                    .preference(key: OnboardingFrictionSelectorWidthPreferenceKey.self, value: proxy.size.width)
+            }
+        )
+        .onPreferenceChange(OnboardingFrictionSelectorWidthPreferenceKey.self) { width in
+            availableWidth = width
+        }
+    }
+
+    @ViewBuilder
+    private var optionCards: some View {
+        let layout = OnboardingFrictionSelectorLayout.preferredLayout(
+            for: availableWidth,
+            dynamicTypeSize: dynamicTypeSize
+        )
+
+        ForEach(OnboardingFrictionProfile.allCases) { profile in
+            OnboardingFrictionOptionCard(
+                title: profile.title,
+                symbolName: profile.symbolName,
+                helperCopy: profile.helperCopy,
+                isSelected: selectedProfile == profile,
+                layout: layout,
+                action: {
+                    onSelect(profile)
+                }
+            )
+            .accessibilityHint(profile.helperCopy)
+        }
+    }
+}
+
+enum OnboardingFrictionSelectorLayout: Equatable {
+    case stacked
+    case twoColumn
+
+    static func preferredLayout(for availableWidth: CGFloat, dynamicTypeSize: DynamicTypeSize) -> Self {
+        if dynamicTypeSize.isAccessibilitySize || availableWidth < 500 {
+            return .stacked
+        }
+
+        return .twoColumn
+    }
+}
+
+private struct OnboardingFrictionSelectorWidthPreferenceKey: PreferenceKey {
+    static var defaultValue: CGFloat = 0
+
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+        value = nextValue()
     }
 }
 
@@ -4261,16 +6527,23 @@ private struct OnboardingPromptValueCard: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            Text("Start with what you already have.")
+            Text("Start from what already fits.")
                 .font(.tasker(.title2))
                 .foregroundStyle(OnboardingTheme.textPrimary)
                 .fixedSize(horizontal: false, vertical: true)
-            Text("Tasker can reuse what already fits, avoid duplicate clutter, suggest one helpful habit, and guide you into one real completion.")
+            Text("Tasker can reuse what is already working, keep the setup clean, and guide you into one small win without replaying the whole intro.")
                 .font(.tasker(.body))
                 .foregroundStyle(OnboardingTheme.textSecondary)
                 .fixedSize(horizontal: false, vertical: true)
 
-            Text("Current workspace: \(snapshot.customLifeAreaCount) areas, \(snapshot.customProjectCount) projects, \(snapshot.taskCount) tasks")
+            Text(
+                String.localizedStringWithFormat(
+                    String(localized: "Already in place: %lld areas, %lld projects, %lld tasks"),
+                    snapshot.customLifeAreaCount,
+                    snapshot.customProjectCount,
+                    snapshot.taskCount
+                )
+            )
                 .font(.tasker(.caption1))
                 .foregroundStyle(OnboardingTheme.textSecondary)
         }
@@ -4323,6 +6596,8 @@ private struct OnboardingSplitSupportCard: View {
         switch step {
         case .welcome:
             return "This is a real setup session. The goal is to make the app feel lighter before you ever hit Home."
+        case .blocker:
+            return "A quick blocker choice helps Tasker lower friction without turning setup into a questionnaire."
         case .lifeAreas:
             return "A smaller starter scope reduces drag. You are defining where Tasker should help first, not forever."
         case .projects:
@@ -4365,8 +6640,6 @@ private struct OnboardingChecklistCard: View {
 private struct OnboardingHeroAccent: View {
     let title: String
     let subtitle: String
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @State private var glow = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
@@ -4374,7 +6647,7 @@ private struct OnboardingHeroAccent: View {
 
             HStack(spacing: 14) {
                 Circle()
-                    .fill(OnboardingTheme.accent.opacity(glow ? 0.18 : 0.12))
+                    .fill(OnboardingTheme.accent.opacity(0.14))
                     .frame(width: 52, height: 52)
                     .overlay(
                         Image(systemName: "sparkles")
@@ -4399,54 +6672,107 @@ private struct OnboardingHeroAccent: View {
         }
         .padding(22)
         .onboardingHeroPanel(cornerRadius: 32)
-        .onAppear {
-            guard reduceMotion == false else { return }
-            withAnimation(.easeInOut(duration: 2.2).repeatForever(autoreverses: true)) {
-                glow = true
-            }
-        }
     }
 }
 
-private struct OnboardingChoiceChip: View {
+private struct OnboardingFrictionOptionCard: View {
     let title: String
+    let symbolName: String
+    let helperCopy: String
     let isSelected: Bool
-    let allowsMultiline: Bool
+    let layout: OnboardingFrictionSelectorLayout
     let action: () -> Void
-
-    init(title: String, isSelected: Bool, allowsMultiline: Bool = false, action: @escaping () -> Void) {
-        self.title = title
-        self.isSelected = isSelected
-        self.allowsMultiline = allowsMultiline
-        self.action = action
-    }
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         Button(action: action) {
-            HStack(spacing: 8) {
-                if isSelected {
-                    Image(systemName: "checkmark")
-                        .foregroundStyle(OnboardingTheme.accent)
+            VStack(alignment: .leading, spacing: 10) {
+                HStack(alignment: .center, spacing: 12) {
+                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                        .fill(isSelected ? OnboardingTheme.accent.opacity(0.14) : OnboardingTheme.surfaceElevated.opacity(0.92))
+                        .frame(width: 36, height: 36)
+                        .overlay(
+                            Image(systemName: symbolName)
+                                .font(.system(size: 15, weight: .semibold))
+                                .foregroundStyle(isSelected ? OnboardingTheme.accent : OnboardingTheme.textSecondary)
+                                .contentTransition(.symbolEffect(.replace))
+                        )
+
+                    Text(title)
+                        .font(.tasker(.buttonSmall))
+                        .foregroundStyle(OnboardingTheme.textPrimary)
+                        .multilineTextAlignment(.leading)
+                        .lineLimit(layout == .twoColumn ? 2 : nil)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .layoutPriority(1)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+
+                    ZStack {
+                        Circle()
+                            .fill(isSelected ? OnboardingTheme.headerAccent : .clear)
+                            .overlay(
+                                Circle()
+                                    .stroke(isSelected ? OnboardingTheme.headerAccent : OnboardingTheme.border, lineWidth: 1.5)
+                            )
+                            .frame(width: 22, height: 22)
+
+                        if isSelected {
+                            Image(systemName: "checkmark")
+                                .font(.system(size: 11, weight: .bold))
+                                .foregroundStyle(Color.white)
+                                .transition(.scale.combined(with: .opacity))
+                        }
+                    }
                 }
-                Text(title)
-                    .font(.tasker(.buttonSmall))
-                    .foregroundStyle(isSelected ? OnboardingTheme.textPrimary : OnboardingTheme.textSecondary)
-                    .lineLimit(allowsMultiline ? 2 : 1)
-                    .fixedSize(horizontal: allowsMultiline == false, vertical: allowsMultiline)
-                    .layoutPriority(1)
+
+                if isSelected {
+                    Text(helperCopy)
+                        .font(.tasker(.caption1))
+                        .foregroundStyle(OnboardingTheme.textSecondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .accessibilityIdentifier(AppOnboardingAccessibilityID.frictionHelper)
+                        .transition(.opacity.combined(with: .move(edge: .top)))
+                }
             }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 11)
-            .background(isSelected ? OnboardingTheme.accent.opacity(0.10) : OnboardingTheme.surfaceMuted, in: Capsule())
-            .overlay(
-                Capsule()
-                    .stroke(isSelected ? OnboardingTheme.accent.opacity(0.18) : OnboardingTheme.borderSoft, lineWidth: 1)
+            .padding(.horizontal, layout == .stacked ? 14 : 16)
+            .padding(.vertical, layout == .stacked ? 14 : 16)
+            .frame(
+                maxWidth: .infinity,
+                minHeight: layout == .twoColumn ? 86 : 74,
+                alignment: .leading
+            )
+            .background(cardBackground)
+            .overlay(cardBorder)
+            .shadow(
+                color: isSelected ? OnboardingTheme.accent.opacity(reduceMotion ? 0.0 : 0.10) : .clear,
+                radius: isSelected ? 14 : 0,
+                x: 0,
+                y: isSelected ? 8 : 0
             )
         }
-        .buttonStyle(.plain)
+        .buttonStyle(OnboardingPressScaleButtonStyle())
         .accessibilityLabel(title)
         .accessibilityValue(isSelected ? "Selected" : "Not selected")
         .accessibilityAddTraits(isSelected ? .isSelected : [])
+        .animation(reduceMotion ? .none : .easeOut(duration: 0.22), value: isSelected)
+    }
+
+    @ViewBuilder
+    private var cardBackground: some View {
+        RoundedRectangle(cornerRadius: 20, style: .continuous)
+            .fill(OnboardingTheme.surfaceMuted)
+            .overlay {
+                if isSelected {
+                    RoundedRectangle(cornerRadius: 20, style: .continuous)
+                        .fill(OnboardingTheme.accent.opacity(0.10))
+                }
+            }
+    }
+
+    @ViewBuilder
+    private var cardBorder: some View {
+        RoundedRectangle(cornerRadius: 20, style: .continuous)
+            .stroke(isSelected ? OnboardingTheme.accent.opacity(0.20) : OnboardingTheme.borderSoft, lineWidth: isSelected ? 1.5 : 1)
     }
 }
 
@@ -4474,10 +6800,10 @@ private struct OnboardingSelectableCard: View {
                     Spacer()
                     ZStack {
                         Circle()
-                            .fill(isSelected ? OnboardingTheme.accent : .clear)
+                            .fill(isSelected ? OnboardingTheme.headerAccent : .clear)
                             .overlay(
                                 Circle()
-                                    .stroke(isSelected ? OnboardingTheme.accent : OnboardingTheme.border, lineWidth: 1.5)
+                                    .stroke(isSelected ? OnboardingTheme.headerAccent : OnboardingTheme.border, lineWidth: 1.5)
                             )
                             .frame(width: 22, height: 22)
 
@@ -4501,10 +6827,10 @@ private struct OnboardingSelectableCard: View {
             }
             .padding(14)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(isSelected ? OnboardingTheme.accent.opacity(0.10) : OnboardingTheme.surfaceMuted, in: RoundedRectangle(cornerRadius: 24, style: .continuous))
+            .background(isSelected ? OnboardingTheme.headerAccent.opacity(0.10) : OnboardingTheme.surfaceMuted, in: RoundedRectangle(cornerRadius: 24, style: .continuous))
             .overlay(
                 RoundedRectangle(cornerRadius: 24, style: .continuous)
-                    .stroke(isSelected ? OnboardingTheme.accent.opacity(0.18) : OnboardingTheme.borderSoft, lineWidth: 1)
+                    .stroke(isSelected ? OnboardingTheme.headerAccent.opacity(0.18) : OnboardingTheme.borderSoft, lineWidth: 1)
             )
         }
         .buttonStyle(.plain)
@@ -4525,37 +6851,40 @@ private struct OnboardingProjectDraftCard: View {
 
     var body: some View {
         Button(action: onChange) {
-            VStack(alignment: .leading, spacing: 12) {
-                HStack(alignment: .center, spacing: 10) {
-                    ZStack {
-                        Circle()
-                            .fill(Color(uiColor: UIColor(taskerHex: colorHex)).opacity(0.12))
-                            .frame(width: 34, height: 34)
-                        Image(systemName: icon)
-                            .foregroundStyle(Color(uiColor: UIColor(taskerHex: colorHex)))
-                    }
+            HStack(alignment: .top, spacing: 10) {
+                ZStack {
+                    Circle()
+                        .fill(Color(uiColor: UIColor(taskerHex: colorHex)).opacity(0.12))
+                        .frame(width: 34, height: 34)
+                    Image(systemName: icon)
+                        .foregroundStyle(Color(uiColor: UIColor(taskerHex: colorHex)))
+                }
 
-                    VStack(alignment: .leading, spacing: 4) {
+                VStack(alignment: .leading, spacing: 4) {
+                    HStack(alignment: .firstTextBaseline, spacing: 10) {
                         Text(draft.name)
                             .font(.tasker(.bodyEmphasis))
                             .foregroundStyle(OnboardingTheme.textPrimary)
-                        Text(draft.summary)
-                            .font(.tasker(.caption1))
-                            .foregroundStyle(OnboardingTheme.textSecondary)
-                            .fixedSize(horizontal: false, vertical: true)
+                            .layoutPriority(1)
+
+                        Spacer(minLength: 8)
+
+                        HStack(spacing: 6) {
+                            Text(actionTitle)
+                                .font(.tasker(.buttonSmall))
+                            Image(systemName: "chevron.right")
+                                .font(.system(size: 11, weight: .semibold))
+                        }
+                        .foregroundStyle(OnboardingTheme.accent)
+                        .fixedSize()
+                        .accessibilityHidden(true)
                     }
 
-                    Spacer()
+                    Text(draft.summary)
+                        .font(.tasker(.caption1))
+                        .foregroundStyle(OnboardingTheme.textSecondary)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
-
-                HStack(spacing: 6) {
-                    Text(actionTitle)
-                        .font(.tasker(.buttonSmall))
-                    Image(systemName: "chevron.right")
-                        .font(.system(size: 11, weight: .semibold))
-                }
-                .foregroundStyle(OnboardingTheme.accent)
-                .accessibilityHidden(true)
             }
             .padding(18)
             .background(OnboardingTheme.surfaceElevated, in: RoundedRectangle(cornerRadius: 24, style: .continuous))
@@ -4601,11 +6930,21 @@ private struct OnboardingHabitRecommendationCard: View {
                     .transition(.opacity)
             }
 
-            HStack(spacing: 8) {
-                infoChip(ownershipLine)
-                infoChip(cadenceLine)
-                Spacer(minLength: 8)
-                actionButton
+            ViewThatFits(in: .horizontal) {
+                HStack(spacing: 8) {
+                    infoChip(ownershipLine)
+                    infoChip(cadenceLine)
+                    Spacer(minLength: 8)
+                    actionButton
+                }
+
+                VStack(alignment: .leading, spacing: 10) {
+                    HStack(spacing: 8) {
+                        infoChip(ownershipLine)
+                        infoChip(cadenceLine)
+                    }
+                    actionButton
+                }
             }
         }
         .padding(12)
@@ -4629,26 +6968,16 @@ private struct OnboardingHabitRecommendationCard: View {
                     Label(buttonTitle, systemImage: buttonIcon)
                         .labelStyle(.titleAndIcon)
                         .font(.tasker(.buttonSmall))
-                        .padding(.horizontal, guidanceUsesOuterShell ? 13 : 12)
-                        .padding(.vertical, guidanceUsesOuterShell ? 9 : 8)
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 10)
                         .background(buttonBackground, in: Capsule())
                         .overlay {
-                            if guidanceUsesOuterShell == false {
-                                Capsule()
-                                    .stroke(buttonBorder, lineWidth: 1)
-                            }
+                            Capsule()
+                                .stroke(buttonBorder, lineWidth: 1)
                         }
                 }
-                .taskerCTABezel(
-                    style: .pill,
-                    palette: template.isPositive ? .copper : .titanium,
-                    idleMotion: .slowLoop,
-                    isEnabled: state != .creating && isSelectionEnabled,
-                    isBusy: state == .creating,
-                    isPrimarySuggestion: isGuidanceHighlighted
-                )
                 .buttonStyle(OnboardingPressScaleButtonStyle())
-                .foregroundStyle(state == .creating || isSelectionEnabled == false ? OnboardingTheme.textSecondary : OnboardingTheme.accent)
+                .foregroundStyle(state == .creating || isSelectionEnabled == false ? OnboardingTheme.textSecondary : OnboardingTheme.textPrimary)
                 .disabled(state == .creating || isSelectionEnabled == false)
             }
         }
@@ -4709,16 +7038,9 @@ private struct OnboardingHabitRecommendationCard: View {
         }
     }
 
-    private var guidanceUsesOuterShell: Bool {
-        isGuidanceHighlighted && V2FeatureFlags.liquidMetalCTAEnabled && state == .idle
-    }
-
     private var buttonBackground: Color {
         if isSelectionEnabled == false {
             return OnboardingTheme.surfaceMuted
-        }
-        if guidanceUsesOuterShell {
-            return OnboardingTheme.accent.opacity(0.16)
         }
         switch state {
         case .creating:
@@ -4731,14 +7053,13 @@ private struct OnboardingHabitRecommendationCard: View {
     }
 
     private var buttonBorder: Color {
-        if guidanceUsesOuterShell {
-            return .clear
-        }
         switch state {
         case .failed:
             return OnboardingTheme.danger.opacity(0.6)
+        case .creating:
+            return OnboardingTheme.borderSoft
         default:
-            return OnboardingTheme.accent.opacity(0.3)
+            return isGuidanceHighlighted ? OnboardingTheme.accent.opacity(0.42) : OnboardingTheme.borderSoft
         }
     }
 
@@ -4832,24 +7153,21 @@ private struct OnboardingTaskRecommendationCard: View {
                     .transition(.opacity)
             }
 
-            HStack(spacing: 8) {
-                Text("\(template.durationMinutes) min")
-                    .font(.tasker(.caption2))
-                    .foregroundStyle(OnboardingTheme.textSecondary)
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 6)
-                    .background(OnboardingTheme.surfaceMuted, in: Capsule())
+            ViewThatFits(in: .horizontal) {
+                HStack(spacing: 8) {
+                    metaChip("\(template.durationMinutes) min")
+                    metaChip("+\(XPCalculationEngine.completionXPIfCompletedNow(priorityRaw: template.priority.rawValue, estimatedDuration: TimeInterval(template.durationMinutes * 60), dueDate: DatePreset.today.resolvedDueDate(), dailyEarnedSoFar: 0, isGamificationV2Enabled: V2FeatureFlags.gamificationV2Enabled).awardedXP) XP")
+                    Spacer()
+                    actionButton
+                }
 
-                Text("+\(XPCalculationEngine.completionXPIfCompletedNow(priorityRaw: template.priority.rawValue, estimatedDuration: TimeInterval(template.durationMinutes * 60), dueDate: DatePreset.today.resolvedDueDate(), dailyEarnedSoFar: 0, isGamificationV2Enabled: V2FeatureFlags.gamificationV2Enabled).awardedXP) XP")
-                    .font(.tasker(.caption2))
-                    .foregroundStyle(OnboardingTheme.textSecondary)
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 6)
-                    .background(OnboardingTheme.surfaceMuted, in: Capsule())
-
-                Spacer()
-
-                actionButton
+                VStack(alignment: .leading, spacing: 10) {
+                    HStack(spacing: 8) {
+                        metaChip("\(template.durationMinutes) min")
+                        metaChip("+\(XPCalculationEngine.completionXPIfCompletedNow(priorityRaw: template.priority.rawValue, estimatedDuration: TimeInterval(template.durationMinutes * 60), dueDate: DatePreset.today.resolvedDueDate(), dailyEarnedSoFar: 0, isGamificationV2Enabled: V2FeatureFlags.gamificationV2Enabled).awardedXP) XP")
+                    }
+                    actionButton
+                }
             }
         }
         .padding(12)
@@ -4873,26 +7191,16 @@ private struct OnboardingTaskRecommendationCard: View {
                     Label(buttonTitle, systemImage: buttonIcon)
                         .labelStyle(.titleAndIcon)
                         .font(.tasker(.buttonSmall))
-                        .padding(.horizontal, guidanceUsesOuterShell ? 13 : 12)
-                        .padding(.vertical, guidanceUsesOuterShell ? 9 : 8)
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 10)
                         .background(buttonBackground, in: Capsule())
                         .overlay {
-                            if guidanceUsesOuterShell == false {
-                                Capsule()
-                                    .stroke(buttonBorder, lineWidth: 1)
-                            }
+                            Capsule()
+                                .stroke(buttonBorder, lineWidth: 1)
                         }
                 }
-                .taskerCTABezel(
-                    style: .pill,
-                    palette: .copper,
-                    idleMotion: .slowLoop,
-                    isEnabled: state != .creating,
-                    isBusy: state == .creating,
-                    isPrimarySuggestion: isGuidanceHighlighted
-                )
                 .buttonStyle(OnboardingPressScaleButtonStyle())
-                .foregroundStyle(state == .creating ? OnboardingTheme.textSecondary : OnboardingTheme.accent)
+                .foregroundStyle(state == .creating ? OnboardingTheme.textSecondary : OnboardingTheme.textPrimary)
                 .disabled(state == .creating)
             }
         }
@@ -4912,9 +7220,6 @@ private struct OnboardingTaskRecommendationCard: View {
     }
 
     private var buttonBackground: Color {
-        if guidanceUsesOuterShell {
-            return OnboardingTheme.accent.opacity(0.16)
-        }
         switch state {
         case .creating:
             return OnboardingTheme.surfaceMuted
@@ -4926,19 +7231,14 @@ private struct OnboardingTaskRecommendationCard: View {
     }
 
     private var buttonBorder: Color {
-        if guidanceUsesOuterShell {
-            return .clear
-        }
         switch state {
         case .failed:
             return OnboardingTheme.danger.opacity(0.6)
+        case .creating:
+            return OnboardingTheme.borderSoft
         default:
-            return OnboardingTheme.accent.opacity(0.3)
+            return isGuidanceHighlighted ? OnboardingTheme.accent.opacity(0.42) : OnboardingTheme.borderSoft
         }
-    }
-
-    private var guidanceUsesOuterShell: Bool {
-        isGuidanceHighlighted && V2FeatureFlags.liquidMetalCTAEnabled && state == .idle
     }
 
     private var buttonTitle: String {
@@ -5011,6 +7311,15 @@ private struct OnboardingTaskRecommendationCard: View {
             }
         }
     }
+
+    private func metaChip(_ title: String) -> some View {
+        Text(title)
+            .font(.tasker(.caption2))
+            .foregroundStyle(OnboardingTheme.textSecondary)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 6)
+            .background(OnboardingTheme.surfaceMuted, in: Capsule())
+    }
 }
 
 private struct OnboardingPressScaleButtonStyle: ButtonStyle {
@@ -5019,6 +7328,32 @@ private struct OnboardingPressScaleButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .scaleEffect(configuration.isPressed && reduceMotion == false ? 0.98 : 1)
+            .animation(reduceMotion ? .none : .easeOut(duration: 0.18), value: configuration.isPressed)
+    }
+}
+
+private struct OnboardingPrimaryCTAButtonStyle: ButtonStyle {
+    let disabled: Bool
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    func makeBody(configuration: Configuration) -> some View {
+        let shape = RoundedRectangle(cornerRadius: 20, style: .continuous)
+
+        return configuration.label
+            .font(.tasker(.button))
+            .foregroundStyle(Color.white)
+            .frame(maxWidth: .infinity, minHeight: 52)
+            .padding(.horizontal, 18)
+            .background(
+                disabled ? OnboardingTheme.textSecondary.opacity(0.4) : OnboardingTheme.accent,
+                in: shape
+            )
+            .overlay(
+                shape
+                    .stroke(disabled ? .clear : Color.white.opacity(0.14), lineWidth: 1)
+            )
+            .contentShape(shape)
+            .scaleEffect(configuration.isPressed && disabled == false && reduceMotion == false ? 0.98 : 1)
             .animation(reduceMotion ? .none : .easeOut(duration: 0.18), value: configuration.isPressed)
     }
 }
@@ -5056,11 +7391,21 @@ private struct OnboardingFocusHeroCard: View {
                 .font(.tasker(.body))
                 .foregroundStyle(OnboardingTheme.textSecondary)
 
-            HStack(spacing: 10) {
-                pill(projectName, accent: OnboardingTheme.textSecondary)
-                pill(durationText, accent: OnboardingTheme.textSecondary)
-                pill("+\(xpAward) XP", accent: OnboardingTheme.textSecondary)
-                Spacer()
+            ViewThatFits(in: .horizontal) {
+                HStack(spacing: 10) {
+                    pill(projectName, accent: OnboardingTheme.textSecondary)
+                    pill(durationText, accent: OnboardingTheme.textSecondary)
+                    pill("+\(xpAward) XP", accent: OnboardingTheme.textSecondary)
+                    Spacer()
+                }
+
+                VStack(alignment: .leading, spacing: 8) {
+                    HStack(spacing: 10) {
+                        pill(projectName, accent: OnboardingTheme.textSecondary)
+                        pill(durationText, accent: OnboardingTheme.textSecondary)
+                    }
+                    pill("+\(xpAward) XP", accent: OnboardingTheme.textSecondary)
+                }
             }
 
             Text(task.title)
@@ -5085,12 +7430,10 @@ private struct OnboardingFocusHeroCard: View {
                 .accessibilityIdentifier(isActive ? AppOnboardingAccessibilityID.markComplete : AppOnboardingAccessibilityID.focusPrimary)
                 .accessibilityLabel(isActive ? "Mark complete" : "Start focus")
 
-                Button("Need a smaller step?") {
+                Button("Break this into smaller steps") {
                     onBreakDown()
                 }
-                .font(.tasker(.buttonSmall))
-                .foregroundStyle(OnboardingTheme.textSecondary)
-                .buttonStyle(.plain)
+                .onboardingSecondaryButtonStyle(accent: OnboardingTheme.textSecondary)
                 .accessibilityIdentifier(AppOnboardingAccessibilityID.breakDown)
             }
         }
@@ -5199,11 +7542,11 @@ private struct OnboardingSuccessHero: View {
                 Spacer()
             }
 
-            Text("Your first win is done.")
+            Text("Your first win is complete.")
                 .font(.tasker(.display))
                 .foregroundStyle(OnboardingTheme.textPrimary)
 
-            Text("You set up your first system, finished your first task, and now Tasker is ready to help you keep moving.")
+            Text("You finished a real first task. Tasker now has enough structure to help you keep moving without rebuilding tomorrow.")
                 .font(.tasker(.body))
                 .foregroundStyle(OnboardingTheme.textSecondary)
                 .lineLimit(3)
@@ -5228,7 +7571,7 @@ private struct OnboardingSuccessSummaryCard: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            Text("What’s ready")
+            Text("What’s now in place")
                 .font(.tasker(.headline))
                 .foregroundStyle(OnboardingTheme.textPrimary)
 
@@ -5343,27 +7686,37 @@ private struct OnboardingReminderCard: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text("Want gentle reminders when momentum drops?")
+            Text("Want Tasker to bring this back at the right time?")
                 .font(.tasker(.headline))
                 .foregroundStyle(OnboardingTheme.textPrimary)
-            Text("Tasker can bring things back at the right time, without asking before you’ve seen value.")
+            Text("You can keep going without reminders, or let Tasker quietly surface the next step when momentum drops.")
                 .font(.tasker(.body))
                 .foregroundStyle(OnboardingTheme.textSecondary)
 
-            HStack(spacing: 12) {
-                Button(state == .openSettings ? "Open Settings" : "Turn on reminders") {
-                    onPrimary()
-                }
-                .buttonStyle(.plain)
-                .font(.tasker(.buttonSmall))
-                .foregroundStyle(OnboardingTheme.accent)
+            ViewThatFits(in: .horizontal) {
+                HStack(spacing: 12) {
+                    Button(state == .openSettings ? "Open Settings" : "Enable gentle reminders") {
+                        onPrimary()
+                    }
+                    .onboardingSecondaryButtonStyle(accent: OnboardingTheme.accent)
 
-                Button("Not now") {
-                    onSecondary()
+                    Button("Not now") {
+                        onSecondary()
+                    }
+                    .onboardingSecondaryButtonStyle(accent: OnboardingTheme.textSecondary)
                 }
-                .buttonStyle(.plain)
-                .font(.tasker(.buttonSmall))
-                .foregroundStyle(OnboardingTheme.textSecondary)
+
+                VStack(alignment: .leading, spacing: 10) {
+                    Button(state == .openSettings ? "Open Settings" : "Enable gentle reminders") {
+                        onPrimary()
+                    }
+                    .onboardingSecondaryButtonStyle(accent: OnboardingTheme.accent)
+
+                    Button("Not now") {
+                        onSecondary()
+                    }
+                    .onboardingSecondaryButtonStyle(accent: OnboardingTheme.textSecondary)
+                }
             }
         }
         .padding(18)
@@ -5377,38 +7730,36 @@ private struct OnboardingReminderCard: View {
 
 private extension View {
     func onboardingHeroPanel(cornerRadius: CGFloat) -> some View {
-        background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
+        background(OnboardingTheme.surfaceElevated, in: RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
             .overlay(
                 RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                    .stroke(Color.white.opacity(0.32), lineWidth: 1)
+                    .stroke(OnboardingTheme.borderSoft.opacity(0.95), lineWidth: 1)
             )
-            .shadow(color: Color.black.opacity(0.08), radius: 28, y: 10)
+            .shadow(color: Color.black.opacity(0.05), radius: 18, y: 8)
     }
 
     func onboardingGlassPanel(cornerRadius: CGFloat, shadowOpacity: Double = 0.06) -> some View {
-        background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
+        background(OnboardingTheme.surfaceElevated, in: RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
             .overlay(
                 RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                    .stroke(Color.white.opacity(0.42), lineWidth: 1)
+                    .stroke(OnboardingTheme.borderSoft, lineWidth: 1)
             )
-            .shadow(color: Color.black.opacity(shadowOpacity), radius: 18, y: 8)
+            .shadow(color: Color.black.opacity(shadowOpacity), radius: 14, y: 6)
     }
 
     func onboardingPrimaryButton(disabled: Bool = false) -> some View {
         self
-            .font(.tasker(.button))
-            .foregroundStyle(Color.white)
-            .frame(minHeight: 52)
-            .padding(.horizontal, 18)
-            .background(
-                disabled ? OnboardingTheme.textSecondary.opacity(0.4) : OnboardingTheme.accent,
-                in: RoundedRectangle(cornerRadius: 20, style: .continuous)
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: 20, style: .continuous)
-                    .stroke(disabled ? .clear : Color.white.opacity(0.14), lineWidth: 1)
-            )
             .disabled(disabled)
+            .buttonStyle(OnboardingPrimaryCTAButtonStyle(disabled: disabled))
+    }
+
+    func onboardingSecondaryButtonStyle(accent: Color) -> some View {
+        self
+            .font(.tasker(.buttonSmall))
+            .foregroundStyle(accent)
+            .frame(minHeight: 44)
+            .padding(.horizontal, 8)
+            .contentShape(Rectangle())
             .buttonStyle(.plain)
     }
 }

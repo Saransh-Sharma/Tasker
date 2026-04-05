@@ -130,7 +130,7 @@ struct OnboardingInstallModelView: View {
                         Text("choose your local models")
                             .font(.tasker(.title1))
                             .foregroundStyle(Color.tasker(.textPrimary))
-                        Text("install one or more text models for local chat. qwen3 0.6b stays the default, and qwen 3.5 models are available for higher quality responses.")
+                        Text("install one or more local models for chat. qwen3 0.6b stays the default, qwen 3.5 improves quality, and bonsai 1.7b 1-bit is available as an experimental tiny-footprint option.")
                             .font(.tasker(.callout))
                             .foregroundStyle(Color.tasker(.textSecondary))
                             .multilineTextAlignment(.center)

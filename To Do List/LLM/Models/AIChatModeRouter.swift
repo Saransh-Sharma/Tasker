@@ -128,7 +128,7 @@ struct AIChatModeRouter {
             selectedModelSizeGB: nil,
             shouldPromptDownload: installed.isEmpty,
             bannerMessage: installed.isEmpty
-                ? "Install a Qwen model to use AI features."
+                ? "Install a local model to use AI features."
                 : "Installed models are unavailable on this device."
         )
     }
@@ -176,5 +176,6 @@ struct AIChatModeRouter {
                 .replacingOccurrences(of: "mlx-community/", with: "", options: .caseInsensitive)
                 .replacingOccurrences(of: "NexVeridian/", with: "", options: .caseInsensitive)
                 .replacingOccurrences(of: "Jackrong/", with: "", options: .caseInsensitive)
+                .replacingOccurrences(of: "Prism-ML/", with: "", options: .caseInsensitive)
     }
 }

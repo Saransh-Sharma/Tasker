@@ -9,6 +9,7 @@ final class LLMModelRegistryTests: XCTestCase {
     private let qwenOptiQName = "mlx-community/Qwen3.5-0.8B-OptiQ-4bit"
     private let qwenNexVeridianName = "NexVeridian/Qwen3.5-0.8B-4bit"
     private let qwenClaudeDistilledName = "Jackrong/MLX-Qwen3.5-0.8B-Claude-4.6-Opus-Reasoning-Distilled-4bit"
+    private let bonsaiName = "prism-ml/Bonsai-1.7B-mlx-1bit"
     private var originalContextStrategy: LLMChatContextStrategy = .bounded
 
     override func setUp() {
@@ -21,7 +22,7 @@ final class LLMModelRegistryTests: XCTestCase {
         super.tearDown()
     }
 
-    func testAvailableModelsContainsExpandedQwenCatalog() {
+    func testAvailableModelsContainsExpandedLocalModelCatalog() {
         let modelNames = ModelConfiguration.availableModels.map(\.name)
         XCTAssertEqual(
             modelNames,
@@ -29,7 +30,8 @@ final class LLMModelRegistryTests: XCTestCase {
                 qwenPointSixName,
                 qwenOptiQName,
                 qwenNexVeridianName,
-                qwenClaudeDistilledName
+                qwenClaudeDistilledName,
+                bonsaiName
             ]
         )
     }
@@ -51,12 +53,45 @@ final class LLMModelRegistryTests: XCTestCase {
         XCTAssertEqual(model.sourceModelID, "Ishant06/Qwen3.5-0.8B-Claude-4.6-Opus-Reasoning-Distilled")
     }
 
+    func testBonsaiMetadataUsesDedicatedBudgetAndTuning() throws {
+        let model = try XCTUnwrap(ModelConfiguration.getModelByName(bonsaiName))
+
+        XCTAssertEqual(model.displayName, "Bonsai 1.7B 1-bit")
+        XCTAssertEqual(model.onboardingBadgeTitle, "Experimental")
+        XCTAssertEqual(model.family, .bonsai)
+        XCTAssertEqual(model.modelType, .reasoning)
+        XCTAssertEqual(model.modelSize, Decimal(string: "0.27"))
+        XCTAssertEqual(model.tokenBudget.inputTokens, 2_048)
+        XCTAssertEqual(model.tokenBudget.reservedOutputTokens, 512)
+        XCTAssertEqual(model.tokenBudget.systemPromptTokens, 256)
+        XCTAssertEqual(model.tokenBudget.personalMemoryTokens, 128)
+        XCTAssertEqual(model.tokenBudget.executiveContextTokens, 192)
+        XCTAssertEqual(model.tokenBudget.taskContextTokens, 704)
+        XCTAssertEqual(model.tokenBudget.slashContextTokens, 192)
+        XCTAssertEqual(model.tokenBudget.historyMessageLimit, 8)
+        XCTAssertEqual(model.chatTuningProfile.answerOnlyMaxRawTokens, 448)
+        XCTAssertEqual(model.chatTuningProfile.thinkingMaxRawTokens, 896)
+        XCTAssertEqual(model.chatTuningProfile.minAnswerTokensAfterAnswerPhase, 192)
+        XCTAssertEqual(model.chatTuningProfile.maxVisibleCharacters, 4_000)
+        XCTAssertEqual(model.chatTuningProfile.temperature, 0.5)
+        XCTAssertEqual(model.chatTuningProfile.topP, 0.85)
+        XCTAssertNil(model.chatTuningProfile.repetitionPenalty)
+        XCTAssertEqual(model.chatTuningProfile.outputTokenStride, 16)
+    }
+
+    func testBonsaiUsesNoExtraStopTokens() throws {
+        let model = try XCTUnwrap(ModelConfiguration.getModelByName(bonsaiName))
+
+        XCTAssertTrue(model.extraEOSTokens.isEmpty)
+    }
+
     func testCompatibilityMarksAllTextModelsAsSupported() throws {
         for modelName in [
             qwenPointSixName,
             qwenOptiQName,
             qwenNexVeridianName,
-            qwenClaudeDistilledName
+            qwenClaudeDistilledName,
+            bonsaiName
         ] {
             XCTAssertEqual(
                 LLMRuntimeSupportMatrix.compatibility(for: try XCTUnwrap(ModelConfiguration.getModelByName(modelName))).availability,
@@ -86,6 +121,14 @@ final class LLMModelRegistryTests: XCTestCase {
         XCTAssertEqual(optiQBudget.maxContextTokens, 520)
         XCTAssertEqual(optiQBudget.executiveContextTokens, 180)
         XCTAssertGreaterThan(optiQBudget.maxPromptTokens, ModelConfiguration.defaultModel.tokenBudget.inputTokens)
+    }
+
+    func testResolvedBudgetUsesDedicatedBonsaiTokenBudget() throws {
+        let bonsaiBudget = LLMChatBudgets.active.resolved(for: try XCTUnwrap(ModelConfiguration.getModelByName(bonsaiName)))
+
+        XCTAssertEqual(bonsaiBudget.maxPromptTokens, 2_048)
+        XCTAssertEqual(bonsaiBudget.maxContextTokens, 704)
+        XCTAssertEqual(bonsaiBudget.executiveContextTokens, 192)
     }
 
     func testAIChatModeRouterDoesNotMarkIdealSelectionAsFallback() {
@@ -121,10 +164,26 @@ final class LLMModelRegistryTests: XCTestCase {
         XCTAssertEqual(route.bannerMessage, "Installed models are unavailable on this device.")
     }
 
+    func testAIChatModeRouterUsesGenericInstallBannerWhenNoModelsAreInstalled() {
+        let route = AIChatModeRouter.route(
+            for: .planMode,
+            snapshot: AIRuntimeSnapshot(
+                selectedModelName: nil,
+                installedModels: [],
+                availableMemoryGB: 8,
+                userInterfaceIdiom: .phone
+            )
+        )
+
+        XCTAssertTrue(route.shouldPromptDownload)
+        XCTAssertEqual(route.bannerMessage, "Install a local model to use AI features.")
+    }
+
     func testAIChatModeRouterDisplayNameStripsProviderPrefixesCaseInsensitively() {
         XCTAssertEqual(AIChatModeRouter.displayName(for: "jackrong/Model"), "Model")
         XCTAssertEqual(AIChatModeRouter.displayName(for: "NEXVERIDIAN/Model"), "Model")
         XCTAssertEqual(AIChatModeRouter.displayName(for: "MLX-COMMUNITY/Model"), "Model")
+        XCTAssertEqual(AIChatModeRouter.displayName(for: "PRISM-ML/Model"), "Model")
     }
 
     func testInstallCatalogGroupsTextModelsBySection() {
@@ -134,10 +193,17 @@ final class LLMModelRegistryTests: XCTestCase {
 
         XCTAssertEqual(
             catalog.selectableModels.map(\.name),
-            [qwenPointSixName, qwenOptiQName, qwenNexVeridianName, qwenClaudeDistilledName]
+            [qwenPointSixName, qwenOptiQName, qwenNexVeridianName, qwenClaudeDistilledName, bonsaiName]
         )
         XCTAssertEqual(catalog.sections.first?.kind, .availableNow)
         XCTAssertEqual(catalog.sections.last?.kind, .additionalTextModels)
+    }
+
+    func testCompactModelDisplayNameSupportsBonsaiProviderPrefix() {
+        let appManager = AppManager()
+
+        XCTAssertEqual(appManager.compactModelDisplayName(bonsaiName), "bonsai 1.7B")
+        XCTAssertEqual(appManager.compactModelDisplayName("PRISM-ML/Custom-Bonsai"), "custom-bonsai")
     }
 
     func testPersistedModelNormalizationRemovesUnsupportedLegacyModels() throws {
@@ -197,7 +263,8 @@ final class LLMModelRegistryTests: XCTestCase {
             qwenPointSixName,
             qwenOptiQName,
             qwenNexVeridianName,
-            qwenClaudeDistilledName
+            qwenClaudeDistilledName,
+            bonsaiName
         ] {
             XCTAssertEqual(
                 LLMRuntimeSmokeTester.classify(model: try XCTUnwrap(ModelConfiguration.getModelByName(modelName))).status,

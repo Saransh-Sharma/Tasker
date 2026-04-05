@@ -599,16 +599,12 @@ class AppManager: ObservableObject {
         if let model = ModelConfiguration.getModelByName(modelName) {
             return model.displayName.lowercased()
         }
-        return modelName.replacingOccurrences(of: "mlx-community/", with: "").lowercased()
+        return strippedModelProviderPrefix(modelName).lowercased()
     }
 
     func compactModelDisplayName(_ modelName: String) -> String {
         guard let model = ModelConfiguration.getModelByName(modelName) else {
-            return modelName
-                .replacingOccurrences(of: "mlx-community/", with: "")
-                .replacingOccurrences(of: "nexveridian/", with: "")
-                .replacingOccurrences(of: "jackrong/", with: "")
-                .lowercased()
+            return strippedModelProviderPrefix(modelName).lowercased()
         }
 
         switch model {
@@ -620,12 +616,22 @@ class AppManager: ObservableObject {
             return "qwen3.5 0.8B"
         case .qwen_3_5_0_8b_claude_4_6_opus_reasoning_distilled_4bit:
             return "qwen3.5 0.8B"
+        case .bonsai_1_7b_mlx_1bit:
+            return "bonsai 1.7B"
         default:
             return model.displayName
                 .replacingOccurrences(of: " 4bit", with: "")
                 .replacingOccurrences(of: " 4-bit", with: "")
                 .lowercased()
         }
+    }
+
+    private func strippedModelProviderPrefix(_ modelName: String) -> String {
+        modelName
+            .replacingOccurrences(of: "mlx-community/", with: "", options: .caseInsensitive)
+            .replacingOccurrences(of: "nexveridian/", with: "", options: .caseInsensitive)
+            .replacingOccurrences(of: "jackrong/", with: "", options: .caseInsensitive)
+            .replacingOccurrences(of: "prism-ml/", with: "", options: .caseInsensitive)
     }
     
     /// Executes getMoonPhaseIcon.
