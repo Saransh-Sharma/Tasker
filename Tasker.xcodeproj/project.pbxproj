@@ -381,6 +381,7 @@
 		B7C8D9E0F1A2233445566779 /* OverdueAgeFormatter.swift in Sources */ = {isa = PBXBuildFile; fileRef = B7C8D9E0F1A2233445566778 /* OverdueAgeFormatter.swift */; };
 		B7C8D9E0F1A223344556677B /* OverdueAgeFormatterTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B7C8D9E0F1A223344556677A /* OverdueAgeFormatterTests.swift */; };
 		B7C8D9E0F1A223344556677D /* FocusZoneStatusTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B7C8D9E0F1A223344556677C /* FocusZoneStatusTests.swift */; };
+		B7C8D9E0F1A223344556677F /* FocusZonePresentationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B7C8D9E0F1A223344556677E /* FocusZonePresentationTests.swift */; };
 		B7C8D9E22F6A100100ABC123 /* Localizable.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = B7C8D9E32F6A100100ABC123 /* Localizable.xcstrings */; };
 		B8E100012F70000100A0A001 /* TaskerCTABezel.swift in Sources */ = {isa = PBXBuildFile; fileRef = B8E100002F70000100A0A001 /* TaskerCTABezel.swift */; };
 		B8E100032F70000100A0A001 /* Effects/TaskerCTABezel.metal in Sources */ = {isa = PBXBuildFile; fileRef = B8E100022F70000100A0A001 /* Effects/TaskerCTABezel.metal */; };
@@ -899,6 +900,7 @@
 		B7C8D9E0F1A2233445566778 /* OverdueAgeFormatter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OverdueAgeFormatter.swift; sourceTree = "<group>"; };
 		B7C8D9E0F1A223344556677A /* OverdueAgeFormatterTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = OverdueAgeFormatterTests.swift; sourceTree = "<group>"; };
 		B7C8D9E0F1A223344556677C /* FocusZoneStatusTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = FocusZoneStatusTests.swift; sourceTree = "<group>"; };
+		B7C8D9E0F1A223344556677E /* FocusZonePresentationTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = FocusZonePresentationTests.swift; sourceTree = "<group>"; };
 		B7C8D9E12F6A100100ABC123 /* ChatPlanApplyUndoTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatPlanApplyUndoTests.swift; sourceTree = "<group>"; };
 		B7C8D9E32F6A100100ABC123 /* Localizable.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = Localizable.xcstrings; sourceTree = "<group>"; };
 		B812E7A0B879607C95C0571B /* ColorTokens.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ColorTokens.swift; sourceTree = "<group>"; };
@@ -1478,6 +1480,7 @@
 				F0A1B2C3D4E5F60718293A4E /* HomeTaskSectionBuilderTests.swift */,
 				B7C8D9E0F1A223344556677A /* OverdueAgeFormatterTests.swift */,
 				B7C8D9E0F1A223344556677C /* FocusZoneStatusTests.swift */,
+				B7C8D9E0F1A223344556677E /* FocusZonePresentationTests.swift */,
 				F0A1B2C3D4E5F60718293A4F /* HomeViewModelPersistenceTests.swift */,
 				F2A1B2C3D4E5F60718293A53 /* HomeBottomBarStateTests.swift */,
 				F2A1B2C3D4E5F60718293A54 /* HomeViewModelXPScoreRegressionTests.swift */,
@@ -3010,6 +3013,7 @@
 				F0A1B2C3D4E5F60718293B4E /* HomeTaskSectionBuilderTests.swift in Sources */,
 				B7C8D9E0F1A223344556677B /* OverdueAgeFormatterTests.swift in Sources */,
 				B7C8D9E0F1A223344556677D /* FocusZoneStatusTests.swift in Sources */,
+				B7C8D9E0F1A223344556677F /* FocusZonePresentationTests.swift in Sources */,
 				F0A1B2C3D4E5F60718293B4F /* HomeViewModelPersistenceTests.swift in Sources */,
 				F2A1B2C3D4E5F60718293B53 /* HomeBottomBarStateTests.swift in Sources */,
 				F2A1B2C3D4E5F60718293B54 /* HomeViewModelXPScoreRegressionTests.swift in Sources */,
