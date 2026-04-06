@@ -1697,6 +1697,11 @@ public final class HomeViewModel: ObservableObject {
         return candidates
     }
 
+    private func refreshFocusWhyCandidatesIfPresented() {
+        guard evaFocusWhySheetPresented else { return }
+        assignIfChanged(\.focusWhyShuffleCandidates, computeFocusWhyShuffleCandidates())
+    }
+
     public func shuffleFocusNow() {
         guard V2FeatureFlags.evaFocusEnabled else { return }
         guard activeScope.quickView == .today else { return }
@@ -3133,9 +3138,7 @@ public final class HomeViewModel: ObservableObject {
             FocusNowSectionState(rows: rows, pinnedTaskIDs: pinnedFocusTaskIDs)
         )
 
-        if evaFocusWhySheetPresented {
-            assignIfChanged(\.focusWhyShuffleCandidates, computeFocusWhyShuffleCandidates())
-        }
+        refreshFocusWhyCandidatesIfPresented()
     }
 
     private func computeFocusWhyShuffleCandidates() -> [TaskDefinition] {
@@ -3442,6 +3445,7 @@ public final class HomeViewModel: ObservableObject {
         }
         assignIfChanged(\.focusTasks, composedFocusTasks(from: openTasks))
         assignIfChanged(\.focusRows, composedFocusTasks(from: openTasks).map(HomeTodayRow.task))
+        refreshFocusWhyCandidatesIfPresented()
         refreshEvaInsights(openTasks: openTasks)
 
         if activeScope == .done {
@@ -3458,6 +3462,7 @@ public final class HomeViewModel: ObservableObject {
             assignIfChanged(\.focusTasks, [])
             assignIfChanged(\.focusRows, [])
             assignIfChanged(\.focusNowSectionState, FocusNowSectionState(rows: [], pinnedTaskIDs: pinnedFocusTaskIDs))
+            refreshFocusWhyCandidatesIfPresented()
             refreshEvaInsights(openTasks: [])
             assignIfChanged(\.upcomingTasks, [])
             assignIfChanged(\.morningTasks, [])

@@ -1421,8 +1421,6 @@ struct HomeBackdropForedropRootView: View {
     @State private var quietTrackingOutcome: QuietTrackingOutcome = .lapse
     @State private var pendingFocusPromotionTask: TaskDefinition?
     @State private var focusReplacementOptions: [TaskDefinition] = []
-    @State private var focusWhyShuffleCandidates: [TaskDefinition] = []
-
     private static let foredropHintLaunchDelay: TimeInterval = 0.10
     private static let foredropHintPeekDistance: CGFloat = 24
     private static let foredropHintPeekDuration: TimeInterval = 0.10
@@ -1590,7 +1588,7 @@ struct HomeBackdropForedropRootView: View {
             ForEach(focusReplacementOptions, id: \.id) { focusTask in
                 Button("Replace \(focusTask.title)") {
                     if let promotedTask = pendingFocusPromotionTask {
-                        replaceFocusTask(promotedTask, replacing: focusTask)
+                        replaceFocusTask(promotedTask, replacing: focusTask, source: "today_agenda_replace")
                     }
                 }
             }
@@ -1777,7 +1775,7 @@ struct HomeBackdropForedropRootView: View {
         )) {
             EvaFocusWhySheetView(
                 focusTasks: tasksSnapshot.focusTasks,
-                shuffleCandidates: focusWhyShuffleCandidates,
+                shuffleCandidates: viewModel.focusWhyShuffleCandidates,
                 insightProvider: { taskID in
                     viewModel.evaFocusInsight(for: taskID)
                 },
@@ -1795,18 +1793,6 @@ struct HomeBackdropForedropRootView: View {
                     replaceFocusTaskFromWhySheet(candidate, replacing: replacing)
                 }
             )
-        }
-        .onChange(of: overlaySnapshot.focusWhyPresented) { isPresented in
-            if isPresented {
-                focusWhyShuffleCandidates = viewModel.refreshFocusWhyShuffleCandidates()
-            } else {
-                focusWhyShuffleCandidates = []
-            }
-        }
-        .onChange(of: tasksSnapshot.focusTasks.map(\.id)) { _ in
-            if overlaySnapshot.focusWhyPresented {
-                focusWhyShuffleCandidates = viewModel.refreshFocusWhyShuffleCandidates()
-            }
         }
         .sheet(isPresented: Binding(
             get: { overlaySnapshot.triagePresented },
@@ -2876,7 +2862,7 @@ struct HomeBackdropForedropRootView: View {
         for row: HomeHabitRow,
         preferredOutcome: QuietTrackingOutcome
     ) {
-        quietTrackingDate = chromeSnapshot.selectedDate
+        quietTrackingDate = min(chromeSnapshot.selectedDate, Date())
         selectedQuietTrackingHabitID = row.id
         quietTrackingOutcome = preferredOutcome
         isQuietTrackingComposerPresented = true
@@ -2990,7 +2976,6 @@ struct HomeBackdropForedropRootView: View {
                 viewModel.shuffleFocusNow()
             },
             onWhy: {
-                focusWhyShuffleCandidates = viewModel.refreshFocusWhyShuffleCandidates()
                 viewModel.openFocusWhy()
             },
             onPinTask: { task in
@@ -3103,9 +3088,13 @@ struct HomeBackdropForedropRootView: View {
         }
     }
 
-    private func replaceFocusTask(_ promotedTask: TaskDefinition, replacing focusTask: TaskDefinition) {
+    private func replaceFocusTask(
+        _ promotedTask: TaskDefinition,
+        replacing focusTask: TaskDefinition,
+        source: String
+    ) {
         let result = viewModel.replaceFocusTask(with: promotedTask.id, replacing: focusTask.id)
-        var metadata = focusScopeMetadata(source: "today_agenda_replace", taskID: promotedTask.id)
+        var metadata = focusScopeMetadata(source: source, taskID: promotedTask.id)
         metadata["replaced_task_id"] = focusTask.id.uuidString
 
         switch result {
@@ -3134,13 +3123,13 @@ struct HomeBackdropForedropRootView: View {
     }
 
     private func refreshFocusWhyShuffleCandidates() {
-        focusWhyShuffleCandidates = viewModel.refreshFocusWhyShuffleCandidates()
+        _ = viewModel.refreshFocusWhyShuffleCandidates()
         TaskerFeedback.selection()
     }
 
     private func replaceFocusTaskFromWhySheet(_ candidate: TaskDefinition, replacing focusTask: TaskDefinition) {
-        replaceFocusTask(candidate, replacing: focusTask)
-        focusWhyShuffleCandidates = viewModel.refreshFocusWhyShuffleCandidates()
+        replaceFocusTask(candidate, replacing: focusTask, source: "focus_why_replace")
+        _ = viewModel.refreshFocusWhyShuffleCandidates()
     }
 
     /// Executes unpinFocusTask.
