@@ -18,6 +18,12 @@ struct EvaFocusWhySheetView: View {
         guard let selectedCandidateID else { return nil }
         return shuffleCandidates.first(where: { $0.id == selectedCandidateID })
     }
+    private var shuffleSubtitleText: String {
+        if selectedCandidate == nil {
+            return String(localized: "Preview fresh replacements without changing Focus Now yet.")
+        }
+        return String(localized: "Pick which Focus Now task should be swapped out.")
+    }
 
     var body: some View {
         NavigationStack {
@@ -36,13 +42,13 @@ struct EvaFocusWhySheetView: View {
                 .padding(.top, spacing.s12)
                 .padding(.bottom, spacing.s20)
             }
-            .navigationTitle("Why Eva Picked These")
+            .navigationTitle(String(localized: "Why Eva Picked These"))
             .navigationBarTitleDisplayMode(.inline)
         }
         .presentationDetents([.medium, .large])
         .presentationDragIndicator(.visible)
-        .onChange(of: shuffleCandidates.map(\.id)) { availableIDs in
-            if let selectedCandidateID, availableIDs.contains(selectedCandidateID) == false {
+        .onChange(of: shuffleCandidates.map(\.id)) { _, newIDs in
+            if let selectedCandidateID, newIDs.contains(selectedCandidateID) == false {
                 self.selectedCandidateID = nil
             }
         }
@@ -50,11 +56,11 @@ struct EvaFocusWhySheetView: View {
 
     private var headerCard: some View {
         VStack(alignment: .leading, spacing: spacing.s8) {
-            Text("Why Eva Picked These")
+            Text(String(localized: "Why Eva Picked These"))
                 .font(.tasker(.title3).weight(.semibold))
                 .foregroundColor(Color.tasker.textPrimary)
 
-            Text("Focus Now stays small on Home. This sheet explains the picks, lets you complete them, start a timer, and preview alternatives before swapping anything out.")
+            Text(String(localized: "Focus Now stays small on Home. This sheet explains the picks, lets you complete them, start a timer, and preview alternatives before swapping anything out."))
                 .font(.tasker(.callout))
                 .foregroundColor(Color.tasker.textSecondary)
                 .fixedSize(horizontal: false, vertical: true)
@@ -68,13 +74,11 @@ struct EvaFocusWhySheetView: View {
         VStack(alignment: .leading, spacing: spacing.s8) {
             HStack(alignment: .center, spacing: spacing.s8) {
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("Shuffle View")
+                    Text(String(localized: "Shuffle View"))
                         .font(.tasker(.callout).weight(.semibold))
                         .foregroundColor(Color.tasker.textPrimary)
 
-                    Text(selectedCandidate == nil
-                         ? "Preview fresh replacements without changing Focus Now yet."
-                         : "Pick which Focus Now task should be swapped out.")
+                    Text(shuffleSubtitleText)
                         .font(.tasker(.caption1))
                         .foregroundColor(Color.tasker.textSecondary)
                 }
@@ -85,7 +89,7 @@ struct EvaFocusWhySheetView: View {
                     selectedCandidateID = nil
                     onShuffleCandidates()
                 }) {
-                    Text("Shuffle Again")
+                    Text(String(localized: "Shuffle Again"))
                         .font(.tasker(.caption1).weight(.medium))
                         .foregroundColor(Color.tasker.accentPrimary)
                         .padding(.horizontal, 10)
@@ -99,7 +103,7 @@ struct EvaFocusWhySheetView: View {
             }
 
             if shuffleCandidates.isEmpty {
-                Text("No new candidates are available right now. Finish or shuffle Focus Now on Home to refresh the pool.")
+                Text(String(localized: "No new candidates are available right now. Finish or shuffle Focus Now on Home to refresh the pool."))
                     .font(.tasker(.caption1))
                     .foregroundColor(Color.tasker.textSecondary)
                     .padding(.top, spacing.s2)
@@ -130,7 +134,7 @@ struct EvaFocusWhySheetView: View {
                     .overlay(Color.tasker.strokeHairline.opacity(0.8))
                     .padding(.vertical, spacing.s2)
 
-                Text("Replace With \(selectedCandidate.title)")
+                Text(String(format: String(localized: "Replace With %@"), locale: Locale.current, selectedCandidate.title))
                     .font(.tasker(.caption1).weight(.semibold))
                     .foregroundColor(Color.tasker.textPrimary)
 
@@ -148,7 +152,7 @@ struct EvaFocusWhySheetView: View {
                     }
                 }
 
-                Button("Cancel Replacement") {
+                Button(String(localized: "Cancel Replacement")) {
                     withAnimation(.spring(response: 0.28, dampingFraction: 0.86)) {
                         selectedCandidateID = nil
                     }
@@ -166,12 +170,12 @@ struct EvaFocusWhySheetView: View {
 
     private var currentFocusSection: some View {
         VStack(alignment: .leading, spacing: spacing.s8) {
-            Text("Current Focus Now")
+            Text(String(localized: "Current Focus Now"))
                 .font(.tasker(.callout).weight(.semibold))
                 .foregroundColor(Color.tasker.textPrimary)
 
             if focusTasks.isEmpty {
-                Text("Focus Now is empty right now.")
+                Text(String(localized: "Focus Now is empty right now."))
                     .font(.tasker(.caption1))
                     .foregroundColor(Color.tasker.textSecondary)
                     .padding(spacing.s12)
@@ -270,7 +274,7 @@ struct EvaFocusWhyTaskCardPresentation: Equatable {
     static func make(task: TaskDefinition, insight: EvaFocusTaskInsight?) -> EvaFocusWhyTaskCardPresentation {
         let metadata = FocusZoneSecondaryLineResolver.resolve(task: task)
         let rationale = insight?.rationale.map(\.label).filter { !$0.isEmpty } ?? []
-        let summaryText = rationale.first ?? "Eva selected this using urgency and effort balance."
+        let summaryText = rationale.first ?? String(localized: "Eva selected this using urgency and effort balance.")
 
         return EvaFocusWhyTaskCardPresentation(
             title: task.title,
@@ -289,7 +293,7 @@ struct EvaFocusWhyCandidatePresentation: Equatable {
 
     static func make(task: TaskDefinition, insight: EvaFocusTaskInsight?) -> EvaFocusWhyCandidatePresentation {
         let metadata = FocusZoneSecondaryLineResolver.resolve(task: task)
-        let summaryText = insight?.rationale.first?.label ?? "Swap into Focus Now"
+        let summaryText = insight?.rationale.first?.label ?? String(localized: "Swap into Focus Now")
 
         return EvaFocusWhyCandidatePresentation(
             title: task.title,
@@ -346,7 +350,7 @@ private struct EvaFocusWhyTaskCard: View {
                 }
                 .buttonStyle(.plain)
                 .disabled(presentation.isComplete)
-                .accessibilityLabel("Start focus session")
+                .accessibilityLabel(Text(String(localized: "Start focus session")))
             }
 
             Button(action: onToggleExpanded) {
@@ -362,7 +366,7 @@ private struct EvaFocusWhyTaskCard: View {
 
                     Spacer(minLength: 0)
 
-                    Text(isExpanded ? "Less" : "More")
+                    Text(isExpanded ? String(localized: "Less") : String(localized: "More"))
                         .font(.tasker(.caption2).weight(.semibold))
                         .foregroundColor(Color.tasker.accentPrimary)
                 }
