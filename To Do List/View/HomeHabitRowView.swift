@@ -25,6 +25,14 @@ struct HomeHabitRowView: View {
         }
     }
 
+    private var hasPrimaryAction: Bool {
+        isResolved == false && compactPrimaryActionTitle != nil && onPrimaryAction != nil
+    }
+
+    private var hasSecondaryAction: Bool {
+        isResolved == false && compactSecondaryActionTitle != nil && onSecondaryAction != nil
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: spacing.s8) {
             collapsedRail
@@ -60,6 +68,14 @@ struct HomeHabitRowView: View {
         .animation(reduceMotion ? .linear(duration: 0.01) : TaskerAnimation.stateChange, value: row.state)
         .animation(reduceMotion ? .linear(duration: 0.01) : TaskerAnimation.feedbackFast, value: row.riskState)
         .animation(reduceMotion ? .linear(duration: 0.01) : TaskerAnimation.panelIn, value: isExpanded)
+        .onChange(of: row.state) { _, newState in
+            switch newState {
+            case .completedToday, .lapsedToday, .skippedToday:
+                isExpanded = false
+            case .due, .overdue, .tracking:
+                break
+            }
+        }
     }
 
     private var collapsedRail: some View {
@@ -96,7 +112,7 @@ struct HomeHabitRowView: View {
 
                 Spacer(minLength: spacing.s8)
 
-                if let compactSecondaryActionTitle, let onSecondaryAction, isResolved == false {
+                if hasSecondaryAction, let compactSecondaryActionTitle, let onSecondaryAction {
                     compactSecondaryButton(
                         title: compactSecondaryActionTitle,
                         accessibilityLabel: secondaryActionAccessibilityLabel ?? compactSecondaryActionTitle,
@@ -129,7 +145,7 @@ struct HomeHabitRowView: View {
     private var quickActionSlot: some View {
         if isResolved {
             resolvedStateToken
-        } else if let compactPrimaryActionTitle, let onPrimaryAction {
+        } else if hasPrimaryAction, let compactPrimaryActionTitle, let onPrimaryAction {
             compactPrimaryButton(
                 title: compactPrimaryActionTitle,
                 accessibilityLabel: primaryActionAccessibilityLabel ?? compactPrimaryActionTitle,
@@ -477,9 +493,9 @@ struct HomeHabitRowView: View {
     }
 
     private var accessibilityHint: String {
-        if let primaryActionAccessibilityLabel, isResolved == false {
+        if hasPrimaryAction, let primaryActionAccessibilityLabel {
             var hint = "Primary action \(primaryActionAccessibilityLabel)."
-            if let secondaryActionAccessibilityLabel {
+            if hasSecondaryAction, let secondaryActionAccessibilityLabel {
                 hint += " Expand for secondary action \(secondaryActionAccessibilityLabel) and history."
             } else {
                 hint += " Expand for history."
