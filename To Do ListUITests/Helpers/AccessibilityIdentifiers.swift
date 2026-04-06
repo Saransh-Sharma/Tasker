@@ -190,6 +190,7 @@ enum AccessibilityIdentifiers {
 
     enum Onboarding {
         static let flow = "onboarding.flow"
+        static let progress = "onboarding.header.progress"
         static let backdropVideo = "onboarding.backdrop.video"
         static let backdropGrain = "onboarding.backdrop.grain"
         static let welcome = "onboarding.welcome"
@@ -199,7 +200,6 @@ enum AccessibilityIdentifiers {
         static let welcomeIntroTitleCard = "onboarding.welcome.introTitleCard"
         static let welcomeIntroContinue = "onboarding.welcome.introContinue"
         static let blocker = "onboarding.blocker"
-        static let blockerSetupIntro = "onboarding.blocker.setupIntro"
         static let blockerContentReady = "onboarding.blocker.contentReady"
         static let lifeAreas = "onboarding.lifeAreas"
         static let projects = "onboarding.projects"

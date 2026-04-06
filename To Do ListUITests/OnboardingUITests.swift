@@ -18,14 +18,13 @@ final class OnboardingFreshLaunchUITests: BaseUITest {
         XCTAssertTrue(introCTA.waitForExistence(timeout: 12))
         XCTAssertEqual(introCTA.label, "Get your days back under control")
 
-        XCTAssertTrue(app.buttons[AccessibilityIdentifiers.Onboarding.skipButton].exists)
+        XCTAssertFalse(app.buttons[AccessibilityIdentifiers.Onboarding.skipButton].exists)
         XCTAssertTrue(app.descendants(matching: .any)[AccessibilityIdentifiers.Onboarding.welcome].waitForExistence(timeout: 12))
         XCTAssertTrue(app.staticTexts["Real setup"].exists)
         XCTAssertTrue(app.staticTexts["~2 min"].exists)
         XCTAssertTrue(app.staticTexts["Easy to change later"].exists)
 
         introCTA.tap()
-        waitForBlockerIntroCard(in: app)
         waitForBlockerReady(in: app)
         XCTAssertFalse(introOverlay.exists)
 
@@ -48,7 +47,7 @@ final class OnboardingFreshLaunchUITests: BaseUITest {
 
         XCTAssertTrue(introCTA.waitForExistence(timeout: 3))
         XCTAssertTrue(app.descendants(matching: .any)[AccessibilityIdentifiers.Onboarding.welcome].waitForExistence(timeout: 3))
-        XCTAssertTrue(app.buttons[AccessibilityIdentifiers.Onboarding.skipButton].exists)
+        XCTAssertFalse(app.buttons[AccessibilityIdentifiers.Onboarding.skipButton].exists)
 
         introCTA.tap()
         waitForBlockerReady(in: app)
@@ -60,7 +59,6 @@ final class OnboardingFreshLaunchUITests: BaseUITest {
         advanceThroughWelcomeIntro()
 
         app.buttons[AccessibilityIdentifiers.Onboarding.welcomeIntroContinue].tap()
-        waitForBlockerIntroCard(in: app)
         waitForBlockerReady(in: app)
 
         XCTAssertFalse(app.buttons["Back"].exists)
@@ -107,10 +105,39 @@ final class OnboardingFreshLaunchUITests: BaseUITest {
         assertCinematicBackdrop(in: app, grain: "100%")
     }
 
+    func testBlockerTopChromeMatchesLifeAreasLayout() {
+        startGuidedOnboarding()
+
+        let blockerChrome = captureOnboardingTopChrome(in: app, stepLabel: "Step 1 of 6")
+        XCTAssertGreaterThan(
+            blockerChrome.stepLabel.minY,
+            blockerChrome.skipButton.maxY,
+            "Expected blocker step label to sit below the global skip button."
+        )
+
+        app.buttons[AccessibilityIdentifiers.Onboarding.continueFromBlocker].tap()
+        XCTAssertTrue(app.descendants(matching: .any)[AccessibilityIdentifiers.Onboarding.lifeAreas].waitForExistence(timeout: 12))
+
+        let lifeAreasChrome = captureOnboardingTopChrome(in: app, stepLabel: "Step 2 of 6")
+        let tolerance: CGFloat = 2
+
+        XCTAssertEqual(
+            blockerChrome.stepLabel.minY,
+            lifeAreasChrome.stepLabel.minY,
+            accuracy: tolerance,
+            "Expected blocker step label to align with later onboarding steps."
+        )
+        XCTAssertEqual(
+            blockerChrome.progress.minY,
+            lifeAreasChrome.progress.minY,
+            accuracy: tolerance,
+            "Expected blocker progress bar to align with later onboarding steps."
+        )
+    }
+
     func testReturningToBlockerDoesNotReplaySetupIntro() {
         advanceThroughWelcomeIntro()
         app.buttons[AccessibilityIdentifiers.Onboarding.welcomeIntroContinue].tap()
-        waitForBlockerIntroCard(in: app)
         waitForBlockerReady(in: app)
 
         app.buttons[AccessibilityIdentifiers.Onboarding.continueFromBlocker].tap()
@@ -121,7 +148,6 @@ final class OnboardingFreshLaunchUITests: BaseUITest {
         back.tap()
 
         waitForBlockerReady(in: app)
-        XCTAssertFalse(app.descendants(matching: .any)[AccessibilityIdentifiers.Onboarding.blockerSetupIntro].exists)
         XCTAssertTrue(app.staticTexts["Step 1 of 6"].exists)
     }
 
@@ -150,6 +176,8 @@ final class OnboardingFreshLaunchUITests: BaseUITest {
     func testSkipSeedsStarterTaskAndRunsFocusRoomFlow() {
         advanceThroughWelcomeIntro()
 
+        app.buttons[AccessibilityIdentifiers.Onboarding.welcomeIntroContinue].tap()
+        waitForBlockerReady(in: app)
         XCTAssertTrue(app.buttons[AccessibilityIdentifiers.Onboarding.skipButton].exists)
         app.buttons[AccessibilityIdentifiers.Onboarding.skipButton].tap()
 
@@ -252,7 +280,6 @@ final class OnboardingFreshLaunchUITests: BaseUITest {
         app = relaunchAppWithoutReset()
 
         waitForBlockerReady(in: app)
-        XCTAssertFalse(app.descendants(matching: .any)[AccessibilityIdentifiers.Onboarding.blockerSetupIntro].exists)
         XCTAssertTrue(app.buttons[AccessibilityIdentifiers.Onboarding.continueFromBlocker].exists)
     }
 
@@ -438,7 +465,6 @@ final class OnboardingPromptUITests: BaseUITest {
         startButton.tap()
 
         waitForBlockerReady(in: app)
-        XCTAssertFalse(app.descendants(matching: .any)[AccessibilityIdentifiers.Onboarding.blockerSetupIntro].exists)
         XCTAssertTrue(app.staticTexts["What usually gets in your way?"].waitForExistence(timeout: 12))
         assertCinematicBackdrop(in: app, grain: "100%")
     }
@@ -459,7 +485,6 @@ final class OnboardingPromptUITests: BaseUITest {
         app = relaunchPromptAppWithoutReset()
 
         waitForBlockerReady(in: app)
-        XCTAssertFalse(app.descendants(matching: .any)[AccessibilityIdentifiers.Onboarding.blockerSetupIntro].exists)
         XCTAssertTrue(app.staticTexts["What usually gets in your way?"].waitForExistence(timeout: 12))
         assertCinematicBackdrop(in: app, grain: "100%")
     }
@@ -540,15 +565,10 @@ private func advanceToSteadyWelcome(in app: XCUIApplication) {
     XCTAssertTrue(introCTA.waitForExistence(timeout: 12))
     let welcome = app.descendants(matching: .any)[AccessibilityIdentifiers.Onboarding.welcome]
     XCTAssertTrue(welcome.waitForExistence(timeout: 12))
-    XCTAssertTrue(app.buttons[AccessibilityIdentifiers.Onboarding.skipButton].exists)
+    XCTAssertFalse(app.buttons[AccessibilityIdentifiers.Onboarding.skipButton].exists)
     XCTAssertTrue(app.staticTexts["Real setup"].exists)
     XCTAssertTrue(app.staticTexts["~2 min"].exists)
     XCTAssertTrue(app.staticTexts["Easy to change later"].exists)
-}
-
-private func waitForBlockerIntroCard(in app: XCUIApplication, file: StaticString = #file, line: UInt = #line) {
-    let intro = app.descendants(matching: .any)[AccessibilityIdentifiers.Onboarding.blockerSetupIntro]
-    XCTAssertTrue(intro.waitForExistence(timeout: 8), "Expected blocker intro card marker to exist", file: file, line: line)
 }
 
 private func waitForBlockerReady(in app: XCUIApplication, file: StaticString = #file, line: UInt = #line) {
@@ -557,6 +577,34 @@ private func waitForBlockerReady(in app: XCUIApplication, file: StaticString = #
 
     let blocker = app.descendants(matching: .any)[AccessibilityIdentifiers.Onboarding.blocker]
     XCTAssertTrue(blocker.waitForExistence(timeout: 12), "Expected blocker content to exist", file: file, line: line)
+}
+
+private struct OnboardingTopChromeFrames {
+    let skipButton: CGRect
+    let stepLabel: CGRect
+    let progress: CGRect
+}
+
+private func captureOnboardingTopChrome(
+    in app: XCUIApplication,
+    stepLabel: String,
+    file: StaticString = #file,
+    line: UInt = #line
+) -> OnboardingTopChromeFrames {
+    let skipButton = app.buttons[AccessibilityIdentifiers.Onboarding.skipButton]
+    XCTAssertTrue(skipButton.waitForExistence(timeout: 12), "Expected onboarding skip button to exist", file: file, line: line)
+
+    let stepLabelElement = app.staticTexts[stepLabel]
+    XCTAssertTrue(stepLabelElement.waitForExistence(timeout: 12), "Expected onboarding step label to exist", file: file, line: line)
+
+    let progress = app.descendants(matching: .any)[AccessibilityIdentifiers.Onboarding.progress]
+    XCTAssertTrue(progress.waitForExistence(timeout: 12), "Expected onboarding progress bar to exist", file: file, line: line)
+
+    return OnboardingTopChromeFrames(
+        skipButton: skipButton.frame,
+        stepLabel: stepLabelElement.frame,
+        progress: progress.frame
+    )
 }
 
 private func assertCinematicBackdrop(in app: XCUIApplication, grain expectedValue: String, file: StaticString = #file, line: UInt = #line) {
