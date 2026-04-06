@@ -33,6 +33,14 @@ public struct FocusZone: View {
     private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.currentTheme.tokens.spacing }
     private var corner: TaskerCornerTokens { TaskerThemeManager.shared.currentTheme.tokens.corner }
     private var prefersBudgetVisuals: Bool { shellPhase != .interactive }
+    private var taskRows: [TaskDefinition] {
+        rows.compactMap { row in
+            guard case .task(let task) = row else { return nil }
+            return task
+        }
+    }
+    private var taskCount: Int { taskRows.count }
+    private var hasTaskRows: Bool { taskCount > 0 }
 
     public init(
         rows: [HomeTodayRow],
@@ -119,42 +127,50 @@ public struct FocusZone: View {
 
     private var focusHeader: some View {
         HStack(spacing: spacing.s8) {
-            Button(action: onWhy) {
-                HStack(spacing: spacing.s4) {
-                    Image(systemName: "flame.fill")
-                        .font(.system(size: 12, weight: .semibold))
-                        .foregroundColor(Color.tasker.accentPrimary.opacity(rows.isEmpty ? 0.65 : 0.92))
-
-                    Text(LocalizedStringKey("Focus Now"))
-                        .font(.tasker(.callout).weight(.semibold))
-                        .foregroundColor(Color.tasker.textPrimary)
-
-                    if !rows.isEmpty {
-                        Text("\(rows.count)")
-                            .font(.tasker(.caption2).weight(.semibold))
-                            .foregroundColor(Color.tasker.textSecondary)
-                            .padding(.horizontal, 6)
-                            .padding(.vertical, 2)
-                            .background(
-                                Capsule()
-                                    .fill(Color.tasker.surfaceSecondary)
-                            )
-                            .contentTransition(.numericText())
-                    }
+            if hasTaskRows {
+                Button(action: onWhy) {
+                    focusHeaderLabel
                 }
-                .frame(minHeight: 36, alignment: .leading)
+                .buttonStyle(.plain)
+                .contentShape(Rectangle())
+                .accessibilityIdentifier("home.focus.titleTap")
+                .accessibilityHint("Opens why Eva picked these items")
+            } else {
+                focusHeaderLabel
             }
-            .buttonStyle(.plain)
-            .contentShape(Rectangle())
-            .accessibilityIdentifier("home.focus.titleTap")
-            .accessibilityHint("Opens why Eva picked these items")
 
             Spacer(minLength: 0)
 
-            if !rows.isEmpty {
+            if hasTaskRows {
                 actionButton(title: "Shuffle", action: onShuffle, accessibilityID: "home.focus.shuffle")
             }
         }
+    }
+
+    private var focusHeaderLabel: some View {
+        HStack(spacing: spacing.s4) {
+            Image(systemName: "flame.fill")
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundColor(Color.tasker.accentPrimary.opacity(hasTaskRows ? 0.92 : 0.65))
+
+            Text(LocalizedStringKey("Focus Now"))
+                .font(.tasker(.callout).weight(.semibold))
+                .foregroundColor(Color.tasker.textPrimary)
+
+            if hasTaskRows {
+                Text("\(taskCount)")
+                    .font(.tasker(.caption2).weight(.semibold))
+                    .foregroundColor(Color.tasker.textSecondary)
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 2)
+                    .background(
+                        Capsule()
+                            .fill(Color.tasker.surfaceSecondary)
+                    )
+                    .contentTransition(.numericText())
+            }
+        }
+        .frame(minHeight: 36, alignment: .leading)
     }
 
     private func actionButton(title: String, action: @escaping () -> Void, accessibilityID: String) -> some View {
@@ -324,7 +340,7 @@ enum FocusZoneTimePressureResolver {
             return FocusZoneBadgePresentation(text: "Due soon", tone: .warning)
         }
 
-        guard let dueDate = task.dueDate, Calendar.current.isDateInToday(dueDate) else {
+        guard let dueDate = task.dueDate, Calendar.current.isDate(dueDate, inSameDayAs: now) else {
             return nil
         }
 

@@ -47,6 +47,27 @@ final class FocusZonePresentationTests: XCTestCase {
         XCTAssertEqual(presentation.visibleBadge?.text, "Due soon")
     }
 
+    func testDueBadgeUsesInjectedNowForSameDayComparison() {
+        let calendar = Calendar.current
+        let now = calendar.date(from: DateComponents(year: 2026, month: 2, day: 24, hour: 9, minute: 0))!
+        let dueDate = calendar.date(from: DateComponents(year: 2026, month: 2, day: 24, hour: 18, minute: 0))!
+        let task = makeTask(
+            title: "Deterministic due today",
+            projectName: "M26",
+            dueDate: dueDate
+        )
+
+        let presentation = FocusZoneRowPresentation.make(task: task, insight: nil, now: now)
+
+        XCTAssertEqual(
+            presentation.visibleBadge,
+            FocusZoneBadgePresentation(
+                text: "Due \(dueDate.formatted(date: .omitted, time: .shortened))",
+                tone: .warning
+            )
+        )
+    }
+
     func testQuickWinDoesNotRenderWithoutTimePressure() {
         let now = Date()
         let task = makeTask(
@@ -162,7 +183,7 @@ final class EvaFocusWhySheetPresentationTests: XCTestCase {
 
         let presentation = EvaFocusWhyTaskCardPresentation.make(task: task, insight: nil)
 
-        XCTAssertEqual(presentation.summaryText, "Eva selected this using urgency and effort balance.")
+        XCTAssertEqual(presentation.summaryText, String(localized: "Eva selected this using urgency and effort balance."))
         XCTAssertEqual(presentation.reasonLines, [])
         XCTAssertNil(presentation.contextText)
         XCTAssertTrue(presentation.isComplete)
@@ -175,7 +196,7 @@ final class EvaFocusWhySheetPresentationTests: XCTestCase {
 
         XCTAssertEqual(presentation.title, task.title)
         XCTAssertEqual(presentation.contextText, "Inbox")
-        XCTAssertEqual(presentation.summaryText, "Swap into Focus Now")
+        XCTAssertEqual(presentation.summaryText, String(localized: "Swap into Focus Now"))
     }
 
     private func makeTask(
