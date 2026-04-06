@@ -774,6 +774,108 @@ final class HomeViewModelPersistenceTests: XCTestCase {
         defaults.removePersistentDomain(forName: suiteName)
     }
 
+    func testOpenFocusWhyPopulatesShuffleCandidatesFromNonFocusedTasks() {
+        let suiteName = "HomeViewModelPersistenceTests.EvaWhyCandidates.\(UUID().uuidString)"
+        guard let defaults = UserDefaults(suiteName: suiteName) else {
+            return XCTFail("Failed to create test UserDefaults suite")
+        }
+        defaults.removePersistentDomain(forName: suiteName)
+
+        let now = Date()
+        let inbox = Project.createInbox()
+        let tasks = [
+            makeTask(name: "Focus A", project: inbox, dueDate: now, priority: .high, updatedAt: now),
+            makeTask(name: "Focus B", project: inbox, dueDate: Calendar.current.date(byAdding: .minute, value: 30, to: now), priority: .high, updatedAt: now),
+            makeTask(name: "Focus C", project: inbox, dueDate: Calendar.current.date(byAdding: .hour, value: 1, to: now), priority: .high, updatedAt: now),
+            makeTask(name: "Candidate D", project: inbox, dueDate: Calendar.current.date(byAdding: .hour, value: 3, to: now), priority: .low, updatedAt: now)
+        ]
+
+        let taskRepository = HomeViewModelMockTaskRepository(tasks: tasks)
+        let projectRepository = HomeViewModelMockProjectRepository(projects: [inbox])
+        let coordinator = UseCaseCoordinator(taskRepository: taskRepository, projectRepository: projectRepository)
+        let viewModel = HomeViewModel(useCaseCoordinator: coordinator, userDefaults: defaults)
+        waitForMainQueueFlush()
+
+        let visibleFocusIDs = Set(viewModel.focusTasks.map(\.id))
+
+        viewModel.openFocusWhy()
+
+        XCTAssertTrue(viewModel.evaFocusWhySheetPresented)
+        XCTAssertFalse(viewModel.focusWhyShuffleCandidates.isEmpty)
+        XCTAssertTrue(viewModel.focusWhyShuffleCandidates.allSatisfy { !visibleFocusIDs.contains($0.id) })
+
+        defaults.removePersistentDomain(forName: suiteName)
+    }
+
+    func testRefreshingWhyShuffleCandidatesDoesNotMutateFocusSelection() {
+        let suiteName = "HomeViewModelPersistenceTests.EvaWhyRefresh.\(UUID().uuidString)"
+        guard let defaults = UserDefaults(suiteName: suiteName) else {
+            return XCTFail("Failed to create test UserDefaults suite")
+        }
+        defaults.removePersistentDomain(forName: suiteName)
+
+        let now = Date()
+        let inbox = Project.createInbox()
+        let tasks = [
+            makeTask(name: "Pinned One", project: inbox, dueDate: now, priority: .high, updatedAt: now),
+            makeTask(name: "Pinned Two", project: inbox, dueDate: Calendar.current.date(byAdding: .minute, value: 20, to: now), priority: .high, updatedAt: now),
+            makeTask(name: "Pinned Three", project: inbox, dueDate: Calendar.current.date(byAdding: .minute, value: 40, to: now), priority: .high, updatedAt: now),
+            makeTask(name: "Swap Candidate", project: inbox, dueDate: Calendar.current.date(byAdding: .hour, value: 2, to: now), priority: .low, updatedAt: now),
+            makeTask(name: "Swap Candidate Two", project: inbox, dueDate: Calendar.current.date(byAdding: .hour, value: 4, to: now), priority: .low, updatedAt: now)
+        ]
+
+        let taskRepository = HomeViewModelMockTaskRepository(tasks: tasks)
+        let projectRepository = HomeViewModelMockProjectRepository(projects: [inbox])
+        let coordinator = UseCaseCoordinator(taskRepository: taskRepository, projectRepository: projectRepository)
+        let viewModel = HomeViewModel(useCaseCoordinator: coordinator, userDefaults: defaults)
+        waitForMainQueueFlush()
+
+        let originalFocusIDs = viewModel.focusTasks.map(\.id)
+        let candidates = viewModel.refreshFocusWhyShuffleCandidates()
+
+        XCTAssertEqual(viewModel.focusTasks.map(\.id), originalFocusIDs)
+        XCTAssertEqual(viewModel.focusWhyShuffleCandidates.map(\.id), candidates.map(\.id))
+        XCTAssertTrue(candidates.allSatisfy { originalFocusIDs.contains($0.id) == false })
+
+        defaults.removePersistentDomain(forName: suiteName)
+    }
+
+    func testFocusWhyCandidatesRefreshWhenOpenTaskPoolChangesWhileSheetIsPresented() {
+        let suiteName = "HomeViewModelPersistenceTests.EvaWhyRefreshWhilePresented.\(UUID().uuidString)"
+        guard let defaults = UserDefaults(suiteName: suiteName) else {
+            return XCTFail("Failed to create test UserDefaults suite")
+        }
+        defaults.removePersistentDomain(forName: suiteName)
+
+        let now = Date()
+        let inbox = Project.createInbox()
+        let tasks = [
+            makeTask(name: "Pinned One", project: inbox, dueDate: now, priority: .high, updatedAt: now),
+            makeTask(name: "Pinned Two", project: inbox, dueDate: Calendar.current.date(byAdding: .minute, value: 20, to: now), priority: .high, updatedAt: now),
+            makeTask(name: "Pinned Three", project: inbox, dueDate: Calendar.current.date(byAdding: .minute, value: 40, to: now), priority: .high, updatedAt: now),
+            makeTask(name: "Swap Candidate", project: inbox, dueDate: Calendar.current.date(byAdding: .hour, value: 2, to: now), priority: .low, updatedAt: now)
+        ]
+
+        let taskRepository = HomeViewModelMockTaskRepository(tasks: tasks)
+        let projectRepository = HomeViewModelMockProjectRepository(projects: [inbox])
+        let coordinator = UseCaseCoordinator(taskRepository: taskRepository, projectRepository: projectRepository)
+        let viewModel = HomeViewModel(useCaseCoordinator: coordinator, userDefaults: defaults)
+        waitForMainQueueFlush()
+
+        viewModel.openFocusWhy()
+        guard let candidate = viewModel.focusWhyShuffleCandidates.first else {
+            defaults.removePersistentDomain(forName: suiteName)
+            return XCTFail("Expected a shuffle candidate before mutating the open-task pool")
+        }
+
+        viewModel.toggleTaskCompletion(candidate)
+        waitForMainQueueFlush()
+
+        XCTAssertFalse(viewModel.focusWhyShuffleCandidates.contains(where: { $0.id == candidate.id }))
+
+        defaults.removePersistentDomain(forName: suiteName)
+    }
+
     func testGroupedOverlayStateCoalescesSynchronousMutationsIntoSinglePublish() {
         let suiteName = "HomeViewModelPersistenceTests.GroupedOverlayCoalescing.\(UUID().uuidString)"
         guard let defaults = UserDefaults(suiteName: suiteName) else {

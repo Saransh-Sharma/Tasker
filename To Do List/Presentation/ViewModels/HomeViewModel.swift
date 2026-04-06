@@ -321,6 +321,7 @@ public final class HomeViewModel: ObservableObject {
     @Published public private(set) var pointsPotential: Int = 0
     @Published public private(set) var progressState: HomeProgressState = .empty
     @Published public private(set) var focusTasks: [TaskDefinition] = []
+    @Published public private(set) var focusWhyShuffleCandidates: [TaskDefinition] = []
     @Published public private(set) var focusRows: [HomeTodayRow] = [] {
         didSet { scheduleHomeRenderStateRefresh() }
     }
@@ -1669,6 +1670,9 @@ public final class HomeViewModel: ObservableObject {
 
     public func setEvaFocusWhyPresented(_ value: Bool) {
         evaFocusWhySheetPresented = value
+        if value == false {
+            assignIfChanged(\.focusWhyShuffleCandidates, [])
+        }
     }
 
     public func setEvaTriagePresented(_ value: Bool) {
@@ -1681,8 +1685,21 @@ public final class HomeViewModel: ObservableObject {
 
     public func openFocusWhy() {
         guard V2FeatureFlags.evaFocusEnabled else { return }
+        refreshFocusWhyShuffleCandidates()
         evaFocusWhySheetPresented = true
         trackHomeInteraction(action: "focus_now_why_open", metadata: [:])
+    }
+
+    @discardableResult
+    public func refreshFocusWhyShuffleCandidates() -> [TaskDefinition] {
+        let candidates = computeFocusWhyShuffleCandidates()
+        assignIfChanged(\.focusWhyShuffleCandidates, candidates)
+        return candidates
+    }
+
+    private func refreshFocusWhyCandidatesIfPresented() {
+        guard evaFocusWhySheetPresented else { return }
+        assignIfChanged(\.focusWhyShuffleCandidates, computeFocusWhyShuffleCandidates())
     }
 
     public func shuffleFocusNow() {
@@ -3120,6 +3137,26 @@ public final class HomeViewModel: ObservableObject {
             \.focusNowSectionState,
             FocusNowSectionState(rows: rows, pinnedTaskIDs: pinnedFocusTaskIDs)
         )
+
+        refreshFocusWhyCandidatesIfPresented()
+    }
+
+    private func computeFocusWhyShuffleCandidates() -> [TaskDefinition] {
+        guard V2FeatureFlags.evaFocusEnabled else { return [] }
+        guard activeScope.quickView == .today else { return [] }
+
+        let openTasks = focusOpenTasksForCurrentState()
+        let currentFocusIDs = Set(focusTasks.filter { !$0.isComplete }.prefix(Self.maxPinnedFocusTasks).map(\.id))
+        guard currentFocusIDs.isEmpty == false else { return [] }
+
+        let candidates = openTasks.filter { !currentFocusIDs.contains($0.id) }
+        guard candidates.isEmpty == false else { return [] }
+
+        let excluded = Set(recentShuffledFocusTaskIDs.suffix(shuffleExclusionWindow))
+        let preferred = candidates.filter { !excluded.contains($0.id) }
+        let effective = preferred.isEmpty ? candidates : preferred
+        let ranked = rankedFocusTasks(from: effective, relativeTo: activeScope)
+        return Array(ranked.prefix(Self.maxPinnedFocusTasks))
     }
 
     private func focusPriority(for row: HomeTodayRow) -> Int {
@@ -3408,6 +3445,7 @@ public final class HomeViewModel: ObservableObject {
         }
         assignIfChanged(\.focusTasks, composedFocusTasks(from: openTasks))
         assignIfChanged(\.focusRows, composedFocusTasks(from: openTasks).map(HomeTodayRow.task))
+        refreshFocusWhyCandidatesIfPresented()
         refreshEvaInsights(openTasks: openTasks)
 
         if activeScope == .done {
@@ -3424,6 +3462,7 @@ public final class HomeViewModel: ObservableObject {
             assignIfChanged(\.focusTasks, [])
             assignIfChanged(\.focusRows, [])
             assignIfChanged(\.focusNowSectionState, FocusNowSectionState(rows: [], pinnedTaskIDs: pinnedFocusTaskIDs))
+            refreshFocusWhyCandidatesIfPresented()
             refreshEvaInsights(openTasks: [])
             assignIfChanged(\.upcomingTasks, [])
             assignIfChanged(\.morningTasks, [])

@@ -1421,7 +1421,6 @@ struct HomeBackdropForedropRootView: View {
     @State private var quietTrackingOutcome: QuietTrackingOutcome = .lapse
     @State private var pendingFocusPromotionTask: TaskDefinition?
     @State private var focusReplacementOptions: [TaskDefinition] = []
-
     private static let foredropHintLaunchDelay: TimeInterval = 0.10
     private static let foredropHintPeekDistance: CGFloat = 24
     private static let foredropHintPeekDuration: TimeInterval = 0.10
@@ -1589,7 +1588,7 @@ struct HomeBackdropForedropRootView: View {
             ForEach(focusReplacementOptions, id: \.id) { focusTask in
                 Button("Replace \(focusTask.title)") {
                     if let promotedTask = pendingFocusPromotionTask {
-                        replaceFocusTask(promotedTask, replacing: focusTask)
+                        replaceFocusTask(promotedTask, replacing: focusTask, source: "today_agenda_replace")
                     }
                 }
             }
@@ -1776,8 +1775,22 @@ struct HomeBackdropForedropRootView: View {
         )) {
             EvaFocusWhySheetView(
                 focusTasks: tasksSnapshot.focusTasks,
+                shuffleCandidates: viewModel.focusWhyShuffleCandidates,
                 insightProvider: { taskID in
                     viewModel.evaFocusInsight(for: taskID)
+                },
+                onToggleComplete: { task in
+                    trackTaskToggle(task, source: "focus_why_sheet")
+                    onToggleComplete(task)
+                },
+                onStartFocus: { task in
+                    onStartFocus(task)
+                },
+                onShuffleCandidates: {
+                    refreshFocusWhyShuffleCandidates()
+                },
+                onReplaceFocusTask: { candidate, replacing in
+                    replaceFocusTaskFromWhySheet(candidate, replacing: replacing)
                 }
             )
         }
@@ -2615,27 +2628,64 @@ struct HomeBackdropForedropRootView: View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: spacing.s8) {
                 ForEach(passiveTrackingRailRows) { row in
-                    HStack(spacing: spacing.s4) {
-                        Image(systemName: row.iconSymbolName)
-                            .font(.system(size: 11, weight: .semibold))
-                        Text(row.title)
-                            .font(.tasker(.caption2).weight(.semibold))
-                            .lineLimit(1)
-                    }
-                    .foregroundColor(Color.tasker.textSecondary)
-                    .padding(.horizontal, spacing.s12)
-                    .padding(.vertical, spacing.s8)
-                    .background(Color.tasker.surfaceSecondary.opacity(0.9))
-                    .overlay(
-                        Capsule()
-                            .stroke(Color.tasker.strokeHairline.opacity(0.8), lineWidth: 1)
-                    )
-                    .clipShape(Capsule())
+                    passiveTrackingRailButton(for: row)
                 }
             }
             .padding(.horizontal, spacing.s16)
         }
         .accessibilityIdentifier("home.passiveTracking.rail")
+    }
+
+    private func passiveTrackingRailButton(for row: HomeHabitRow) -> some View {
+        Button {
+            presentQuietTrackingComposer(for: row, preferredOutcome: .lapse)
+        } label: {
+            passiveTrackingRailChip(for: row)
+        }
+        .buttonStyle(.plain)
+        .scaleOnPress()
+        .accessibilityHint("Opens quiet tracking logging for \(row.title)")
+    }
+
+    private func passiveTrackingRailChip(for row: HomeHabitRow) -> some View {
+        HStack(spacing: spacing.s8) {
+            ZStack {
+                Circle()
+                    .fill(Color.tasker.accentSecondary.opacity(0.14))
+                    .frame(width: 22, height: 22)
+
+                Image(systemName: row.iconSymbolName)
+                    .font(.system(size: 10, weight: .semibold))
+                    .foregroundStyle(Color.tasker.accentSecondary)
+            }
+
+            Text(row.title)
+                .font(.tasker(.caption1).weight(.semibold))
+                .foregroundColor(Color.tasker.textPrimary)
+                .lineLimit(1)
+
+            if row.currentStreak > 0 {
+                passiveTrackingStreakPill(for: row)
+            }
+        }
+        .padding(.horizontal, spacing.s12)
+        .padding(.vertical, spacing.s8)
+        .background(Color.tasker.surfaceSecondary.opacity(0.9))
+        .overlay(
+            Capsule()
+                .stroke(Color.tasker.strokeHairline.opacity(0.8), lineWidth: 1)
+        )
+        .clipShape(Capsule())
+    }
+
+    private func passiveTrackingStreakPill(for row: HomeHabitRow) -> some View {
+        Text("\(row.currentStreak)d")
+            .font(.tasker(.caption2).weight(.semibold))
+            .foregroundColor(Color.tasker.accentSecondary)
+            .padding(.horizontal, spacing.s8)
+            .padding(.vertical, 3)
+            .background(Color.tasker.accentSecondary.opacity(0.10))
+            .clipShape(Capsule())
     }
 
     private var todayAgendaHeader: some View {
@@ -2741,10 +2791,8 @@ struct HomeBackdropForedropRootView: View {
 
     private var quietTrackingSummaryCard: some View {
         Button {
-            quietTrackingDate = chromeSnapshot.selectedDate
-            selectedQuietTrackingHabitID = tasksSnapshot.quietTrackingSummaryState.stableRows.first?.id
-            quietTrackingOutcome = .lapse
-            isQuietTrackingComposerPresented = true
+            guard let row = tasksSnapshot.quietTrackingSummaryState.stableRows.first else { return }
+            presentQuietTrackingComposer(for: row, preferredOutcome: .lapse)
         } label: {
             HStack(spacing: spacing.s12) {
                 Image(systemName: "heart.text.square.fill")
@@ -2777,44 +2825,21 @@ struct HomeBackdropForedropRootView: View {
     }
 
     private var quietTrackingComposerSheet: some View {
-        NavigationStack {
-            Form {
-                Picker(
-                    "Habit",
-                    selection: Binding(
-                        get: { selectedQuietTrackingHabitID ?? "" },
-                        set: { selectedQuietTrackingHabitID = $0 }
-                    )
-                ) {
-                    ForEach(tasksSnapshot.quietTrackingSummaryState.stableRows) { row in
-                        Text(row.title).tag(row.id)
-                    }
-                }
-
-                DatePicker("Day", selection: $quietTrackingDate, displayedComponents: .date)
-
-                Picker("Outcome", selection: $quietTrackingOutcome) {
-                    ForEach(QuietTrackingOutcome.allCases) { outcome in
-                        Text(outcome.title).tag(outcome)
-                    }
-                }
-                .pickerStyle(.segmented)
+        QuietTrackingComposerView(
+            rows: tasksSnapshot.quietTrackingSummaryState.stableRows,
+            selectedHabitID: Binding(
+                get: { selectedQuietTrackingHabitID },
+                set: { selectedQuietTrackingHabitID = $0 }
+            ),
+            selectedDate: $quietTrackingDate,
+            outcome: $quietTrackingOutcome,
+            onClose: {
+                isQuietTrackingComposerPresented = false
+            },
+            onSave: {
+                saveQuietTrackingEntry()
             }
-            .navigationTitle("Log Tracking")
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") {
-                        isQuietTrackingComposerPresented = false
-                    }
-                }
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Save") {
-                        saveQuietTrackingEntry()
-                    }
-                    .disabled(selectedQuietTrackingRow == nil)
-                }
-            }
-        }
+        )
     }
 
     private var selectedQuietTrackingRow: HomeHabitRow? {
@@ -2831,6 +2856,16 @@ struct HomeBackdropForedropRootView: View {
             viewModel.logHabitLapse(row, on: quietTrackingDate)
         }
         isQuietTrackingComposerPresented = false
+    }
+
+    private func presentQuietTrackingComposer(
+        for row: HomeHabitRow,
+        preferredOutcome: QuietTrackingOutcome
+    ) {
+        quietTrackingDate = min(chromeSnapshot.selectedDate, Date())
+        selectedQuietTrackingHabitID = row.id
+        quietTrackingOutcome = preferredOutcome
+        isQuietTrackingComposerPresented = true
     }
 
     @ViewBuilder
@@ -3053,9 +3088,13 @@ struct HomeBackdropForedropRootView: View {
         }
     }
 
-    private func replaceFocusTask(_ promotedTask: TaskDefinition, replacing focusTask: TaskDefinition) {
+    private func replaceFocusTask(
+        _ promotedTask: TaskDefinition,
+        replacing focusTask: TaskDefinition,
+        source: String
+    ) {
         let result = viewModel.replaceFocusTask(with: promotedTask.id, replacing: focusTask.id)
-        var metadata = focusScopeMetadata(source: "today_agenda_replace", taskID: promotedTask.id)
+        var metadata = focusScopeMetadata(source: source, taskID: promotedTask.id)
         metadata["replaced_task_id"] = focusTask.id.uuidString
 
         switch result {
@@ -3081,6 +3120,16 @@ struct HomeBackdropForedropRootView: View {
     private func clearPendingFocusReplacement() {
         pendingFocusPromotionTask = nil
         focusReplacementOptions = []
+    }
+
+    private func refreshFocusWhyShuffleCandidates() {
+        _ = viewModel.refreshFocusWhyShuffleCandidates()
+        TaskerFeedback.selection()
+    }
+
+    private func replaceFocusTaskFromWhySheet(_ candidate: TaskDefinition, replacing focusTask: TaskDefinition) {
+        replaceFocusTask(candidate, replacing: focusTask, source: "focus_why_replace")
+        _ = viewModel.refreshFocusWhyShuffleCandidates()
     }
 
     /// Executes unpinFocusTask.
@@ -4181,6 +4230,407 @@ struct HomeiPadSplitShellView: View {
                 showCompactSidebar = false
             }
         }
+    }
+}
+
+private struct QuietTrackingComposerView: View {
+    let rows: [HomeHabitRow]
+    @Binding var selectedHabitID: String?
+    @Binding var selectedDate: Date
+    @Binding var outcome: QuietTrackingOutcome
+    let onClose: () -> Void
+    let onSave: () -> Void
+
+    @Environment(\.taskerLayoutClass) private var layoutClass
+
+    private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.tokens(for: layoutClass).spacing }
+    private var selectedRow: HomeHabitRow? {
+        guard let selectedHabitID else { return nil }
+        return rows.first(where: { $0.id == selectedHabitID })
+    }
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(spacing: spacing.s16) {
+                    heroCard
+                        .enhancedStaggeredAppearance(index: 0)
+
+                    pickerCard
+                        .enhancedStaggeredAppearance(index: 1)
+
+                    outcomeCard
+                        .enhancedStaggeredAppearance(index: 2)
+
+                    dateCard
+                        .enhancedStaggeredAppearance(index: 3)
+                }
+                .padding(.horizontal, spacing.s16)
+                .padding(.top, spacing.s12)
+                .padding(.bottom, spacing.s24)
+            }
+            .background(Color.tasker.bgCanvas)
+            .navigationTitle("Quiet Tracking")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") {
+                        onClose()
+                    }
+                }
+            }
+            .onAppear {
+                if selectedHabitID == nil {
+                    selectedHabitID = rows.first?.id
+                }
+            }
+            .safeAreaInset(edge: .bottom) {
+                footerBar
+            }
+        }
+        .presentationDetents([.fraction(0.72), .large])
+        .presentationDragIndicator(.visible)
+        .presentationCornerRadius(TaskerTheme.CornerRadius.xl)
+    }
+
+    private var heroCard: some View {
+        VStack(alignment: .leading, spacing: spacing.s12) {
+            HStack(alignment: .top, spacing: spacing.s12) {
+                ZStack {
+                    RoundedRectangle(cornerRadius: TaskerTheme.CornerRadius.lg, style: .continuous)
+                        .fill(Color.tasker.accentSecondary.opacity(0.12))
+                        .frame(width: 48, height: 48)
+
+                    Image(systemName: selectedRow?.iconSymbolName ?? "heart.text.square.fill")
+                        .font(.system(size: 20, weight: .semibold))
+                        .foregroundColor(Color.tasker.accentSecondary)
+                }
+
+                VStack(alignment: .leading, spacing: spacing.s4) {
+                    Text(selectedRow?.title ?? "Choose a habit")
+                        .font(.tasker(.title3))
+                        .foregroundColor(Color.tasker.textPrimary)
+                        .lineLimit(2)
+
+                    Text(heroSubtitle)
+                        .font(.tasker(.caption1))
+                        .foregroundColor(Color.tasker.textSecondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+
+                Spacer(minLength: 0)
+            }
+
+            if let selectedRow {
+                HStack(spacing: spacing.s8) {
+                    HabitHistoryStripView(marks: selectedRow.last14Days)
+
+                    Spacer(minLength: 0)
+
+                    Text("\(selectedRow.currentStreak)d streak")
+                        .font(.tasker(.caption1).weight(.semibold))
+                        .foregroundColor(Color.tasker.accentSecondary)
+                        .padding(.horizontal, spacing.s8)
+                        .padding(.vertical, spacing.s4)
+                        .background(Color.tasker.accentSecondary.opacity(0.10))
+                        .clipShape(Capsule())
+                }
+            }
+        }
+        .padding(spacing.s16)
+        .taskerDenseSurface(
+            cornerRadius: TaskerTheme.CornerRadius.card,
+            fillColor: Color.tasker.surfacePrimary
+        )
+    }
+
+    private var pickerCard: some View {
+        QuietTrackingSectionCard(
+            title: "Habit",
+            subtitle: "Quiet habits stay out of the main list until you need to log the day.",
+            iconSystemName: "square.stack.3d.up"
+        ) {
+            VStack(spacing: spacing.s8) {
+                ForEach(rows) { row in
+                    Button {
+                        selectedHabitID = row.id
+                    } label: {
+                        HStack(spacing: spacing.s12) {
+                            ZStack {
+                                Circle()
+                                    .fill(Color.tasker.accentSecondary.opacity(selectedHabitID == row.id ? 0.18 : 0.10))
+                                    .frame(width: 34, height: 34)
+
+                                Image(systemName: row.iconSymbolName)
+                                    .font(.system(size: 14, weight: .semibold))
+                                    .foregroundColor(Color.tasker.accentSecondary)
+                            }
+
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(row.title)
+                                    .font(.tasker(.callout).weight(.semibold))
+                                    .foregroundColor(Color.tasker.textPrimary)
+                                    .lineLimit(2)
+                                Text(row.lifeAreaName)
+                                    .font(.tasker(.caption2))
+                                    .foregroundColor(Color.tasker.textSecondary)
+                                    .lineLimit(1)
+                            }
+
+                            Spacer(minLength: 0)
+
+                            if row.currentStreak > 0 {
+                                Text("\(row.currentStreak)d")
+                                    .font(.tasker(.caption2).weight(.semibold))
+                                    .foregroundColor(Color.tasker.accentSecondary)
+                            }
+
+                            Image(systemName: selectedHabitID == row.id ? "checkmark.circle.fill" : "circle")
+                                .font(.system(size: 17, weight: .semibold))
+                                .foregroundColor(selectedHabitID == row.id ? Color.tasker.accentPrimary : Color.tasker.strokeHairline)
+                        }
+                        .padding(spacing.s12)
+                        .taskerDenseSurface(
+                            cornerRadius: TaskerTheme.CornerRadius.md,
+                            fillColor: selectedHabitID == row.id ? Color.tasker.accentWash.opacity(0.75) : Color.tasker.surfacePrimary,
+                            strokeColor: selectedHabitID == row.id ? Color.tasker.accentPrimary.opacity(0.32) : Color.tasker.strokeHairline.opacity(0.75)
+                        )
+                    }
+                    .buttonStyle(.plain)
+                    .scaleOnPress()
+                }
+            }
+        }
+    }
+
+    private var outcomeCard: some View {
+        QuietTrackingSectionCard(
+            title: "Outcome",
+            subtitle: "Use the clean state for a stable day, or record the lapse on the day it happened.",
+            iconSystemName: "checkmark.circle.badge.questionmark"
+        ) {
+            HStack(spacing: spacing.s8) {
+                outcomeButton(.progress, title: progressTitle, detail: progressDetail)
+                outcomeButton(.lapse, title: "Lapsed", detail: "Record the slip for the selected day.")
+            }
+        }
+    }
+
+    private var dateCard: some View {
+        QuietTrackingSectionCard(
+            title: "Day",
+            subtitle: "Default to today, but you can repair the timeline for another date when needed.",
+            iconSystemName: "calendar"
+        ) {
+            VStack(alignment: .leading, spacing: spacing.s8) {
+                HStack(spacing: spacing.s8) {
+                    dateShortcutButton("Today", date: Date())
+                    dateShortcutButton("Yesterday", date: Calendar.current.date(byAdding: .day, value: -1, to: Date()) ?? Date())
+                }
+
+                HStack(spacing: spacing.s8) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Selected day")
+                            .font(.tasker(.caption2))
+                            .foregroundColor(Color.tasker.textSecondary)
+                        Text(selectedDate.formatted(.dateTime.weekday(.wide).month(.abbreviated).day()))
+                            .font(.tasker(.callout).weight(.semibold))
+                            .foregroundColor(Color.tasker.textPrimary)
+                    }
+
+                    Spacer(minLength: 0)
+
+                    DatePicker("", selection: $selectedDate, in: ...Date(), displayedComponents: .date)
+                        .environment(\.timeZone, .current)
+                        .datePickerStyle(.compact)
+                        .labelsHidden()
+                }
+                .padding(spacing.s12)
+                .taskerDenseSurface(
+                    cornerRadius: TaskerTheme.CornerRadius.md,
+                    fillColor: Color.tasker.surfacePrimary
+                )
+            }
+        }
+    }
+
+    private var footerBar: some View {
+        VStack(spacing: spacing.s8) {
+            Divider()
+
+            HStack(spacing: spacing.s12) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(footerTitle)
+                        .font(.tasker(.caption1).weight(.semibold))
+                        .foregroundColor(Color.tasker.textPrimary)
+                    Text(selectedDate.formatted(.dateTime.month(.abbreviated).day()))
+                        .font(.tasker(.caption2))
+                        .foregroundColor(Color.tasker.textSecondary)
+                }
+
+                Spacer(minLength: 0)
+
+                Button(action: onSave) {
+                    Text("Save")
+                        .font(.tasker(.body).weight(.semibold))
+                        .foregroundColor(Color.tasker.textPrimary)
+                        .padding(.horizontal, spacing.s16)
+                        .frame(height: 48)
+                        .background(Color.tasker.accentPrimary)
+                        .clipShape(RoundedRectangle(cornerRadius: TaskerTheme.CornerRadius.md, style: .continuous))
+                }
+                .buttonStyle(.plain)
+                .scaleOnPress()
+                .disabled(selectedRow == nil)
+                .opacity(selectedRow == nil ? 0.45 : 1)
+            }
+            .padding(.horizontal, spacing.s16)
+            .padding(.top, spacing.s8)
+            .padding(.bottom, spacing.s12)
+        }
+        .background(.ultraThinMaterial)
+    }
+
+    private func outcomeButton(
+        _ candidate: QuietTrackingOutcome,
+        title: String,
+        detail: String
+    ) -> some View {
+        Button {
+            outcome = candidate
+        } label: {
+            VStack(alignment: .leading, spacing: spacing.s8) {
+                HStack(spacing: spacing.s4) {
+                    Image(systemName: outcome == candidate ? "checkmark.circle.fill" : "circle")
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundColor(outcome == candidate ? Color.tasker.accentPrimary : Color.tasker.strokeHairline)
+                    Text(title)
+                        .font(.tasker(.callout).weight(.semibold))
+                        .foregroundColor(Color.tasker.textPrimary)
+                }
+
+                Text(detail)
+                    .font(.tasker(.caption2))
+                    .foregroundColor(Color.tasker.textSecondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(spacing.s12)
+            .taskerDenseSurface(
+                cornerRadius: TaskerTheme.CornerRadius.md,
+                fillColor: outcome == candidate ? Color.tasker.accentWash.opacity(0.75) : Color.tasker.surfacePrimary,
+                strokeColor: outcome == candidate ? Color.tasker.accentPrimary.opacity(0.34) : Color.tasker.strokeHairline.opacity(0.75)
+            )
+        }
+        .buttonStyle(.plain)
+        .scaleOnPress()
+    }
+
+    private func dateShortcutButton(_ title: String, date: Date) -> some View {
+        let isSelected = Calendar.current.isDate(selectedDate, inSameDayAs: date)
+
+        return Button {
+            selectedDate = date
+        } label: {
+            Text(title)
+                .font(.tasker(.caption1).weight(.semibold))
+                .foregroundColor(isSelected ? Color.tasker.accentPrimary : Color.tasker.textSecondary)
+                .padding(.horizontal, spacing.s12)
+                .frame(height: 34)
+                .background(isSelected ? Color.tasker.accentWash.opacity(0.88) : Color.tasker.surfacePrimary)
+                .overlay(
+                    Capsule(style: .continuous)
+                        .stroke(
+                            isSelected ? Color.tasker.accentPrimary.opacity(0.30) : Color.tasker.strokeHairline.opacity(0.8),
+                            lineWidth: 1
+                        )
+                )
+                .clipShape(Capsule())
+        }
+        .buttonStyle(.plain)
+        .scaleOnPress()
+    }
+
+    private var heroSubtitle: String {
+        guard let selectedRow else {
+            return "Choose a quiet habit and repair the day without pushing it back into your main task list."
+        }
+
+        if selectedRow.kind == .negative {
+            return "Keep the streak honest. Confirm a clean day or record the lapse on the exact date it happened."
+        }
+
+        return "Log the day quietly while keeping the main list focused on active work."
+    }
+
+    private var progressTitle: String {
+        selectedRow?.kind == .negative ? "Stayed clean" : "Done"
+    }
+
+    private var progressDetail: String {
+        selectedRow?.kind == .negative
+            ? "Use this when the day stayed clean."
+            : "Use this when the habit happened without needing a full task."
+    }
+
+    private var footerTitle: String {
+        outcome == .lapse ? "Record lapse" : progressTitle
+    }
+}
+
+private struct QuietTrackingSectionCard<Content: View>: View {
+    let title: String
+    let subtitle: String
+    let iconSystemName: String
+    let content: Content
+
+    init(
+        title: String,
+        subtitle: String,
+        iconSystemName: String,
+        @ViewBuilder content: () -> Content
+    ) {
+        self.title = title
+        self.subtitle = subtitle
+        self.iconSystemName = iconSystemName
+        self.content = content()
+    }
+
+    @Environment(\.taskerLayoutClass) private var layoutClass
+
+    private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.tokens(for: layoutClass).spacing }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: spacing.s12) {
+            HStack(alignment: .top, spacing: spacing.s8) {
+                ZStack {
+                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                        .fill(Color.tasker.accentSecondary.opacity(0.10))
+                        .frame(width: 32, height: 32)
+
+                    Image(systemName: iconSystemName)
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundColor(Color.tasker.accentSecondary)
+                }
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(title)
+                        .font(.tasker(.headline))
+                        .foregroundColor(Color.tasker.textPrimary)
+                    Text(subtitle)
+                        .font(.tasker(.caption1))
+                        .foregroundColor(Color.tasker.textSecondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+
+            content
+        }
+        .padding(spacing.s16)
+        .taskerDenseSurface(
+            cornerRadius: TaskerTheme.CornerRadius.card,
+            fillColor: Color.tasker.surfacePrimary
+        )
     }
 }
 

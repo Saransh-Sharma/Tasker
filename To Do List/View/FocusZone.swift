@@ -2,15 +2,13 @@
 //  FocusZone.swift
 //  Tasker
 //
-//  Redesigned focus zone with clear visual boundary.
-//  Accent-tinted background, rounded container, elevation.
+//  Compact, low-noise Focus Now surface for the Home screen.
 //
 
 import SwiftUI
 
 // MARK: - Focus Zone
 
-/// Enhanced focus zone container with visual boundary.
 public struct FocusZone: View {
     let rows: [HomeTodayRow]
     let canDrag: Bool
@@ -35,8 +33,15 @@ public struct FocusZone: View {
     private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.currentTheme.tokens.spacing }
     private var corner: TaskerCornerTokens { TaskerThemeManager.shared.currentTheme.tokens.corner }
     private var prefersBudgetVisuals: Bool { shellPhase != .interactive }
+    private var taskRows: [TaskDefinition] {
+        rows.compactMap { row in
+            guard case .task(let task) = row else { return nil }
+            return task
+        }
+    }
+    private var taskCount: Int { taskRows.count }
+    private var hasTaskRows: Bool { taskCount > 0 }
 
-    /// Initializes a new instance.
     public init(
         rows: [HomeTodayRow],
         canDrag: Bool,
@@ -77,17 +82,15 @@ public struct FocusZone: View {
 
     public var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            // Header
             focusHeader
                 .padding(.horizontal, spacing.s12)
                 .padding(.top, spacing.s8)
-                .padding(.bottom, spacing.s4)
+                .padding(.bottom, spacing.s2)
 
-            // Content
             if rows.isEmpty {
                 emptyState
                     .padding(.horizontal, spacing.s12)
-                    .padding(.bottom, spacing.s12)
+                    .padding(.bottom, spacing.s8)
             } else {
                 taskList
                     .padding(.horizontal, spacing.s8)
@@ -95,120 +98,117 @@ public struct FocusZone: View {
             }
         }
         .background(
-            RoundedRectangle(cornerRadius: corner.r3)
-                .fill(
-                    LinearGradient(
-                        colors: [
-                            Color.tasker.accentPrimary.opacity(0.08),
-                            Color.tasker.accentPrimary.opacity(0.03)
-                        ],
-                        startPoint: .top,
-                        endPoint: .bottom
-                    )
-                )
+            RoundedRectangle(cornerRadius: corner.r2, style: .continuous)
+                .fill(Color.tasker.surfacePrimary.opacity(0.96))
         )
         .overlay(
-            RoundedRectangle(cornerRadius: corner.r3)
+            RoundedRectangle(cornerRadius: corner.r2, style: .continuous)
                 .stroke(
                     isTargeted
-                        ? Color.tasker.accentPrimary.opacity(0.5)
-                        : Color.tasker.accentPrimary.opacity(0.15),
+                        ? Color.tasker.accentPrimary.opacity(0.30)
+                        : Color.tasker.strokeHairline.opacity(0.92),
                     lineWidth: 1
                 )
         )
-        .scaleEffect(prefersBudgetVisuals ? 1.0 : (isTargeted ? 1.01 : 1.0))
-        .brightness(prefersBudgetVisuals ? 0 : (isTargeted ? 0.02 : 0))
+        .overlay(alignment: .topLeading) {
+            RoundedRectangle(cornerRadius: 999, style: .continuous)
+                .fill(Color.tasker.accentPrimary.opacity(rows.isEmpty ? 0.18 : 0.34))
+                .frame(width: 44, height: 3)
+                .padding(.horizontal, spacing.s12)
+                .padding(.top, 1)
+        }
+        .scaleEffect(prefersBudgetVisuals ? 1.0 : (isTargeted ? 1.005 : 1.0))
+        .brightness(prefersBudgetVisuals ? 0 : (isTargeted ? 0.01 : 0))
         .onDrop(of: ["public.text"], isTargeted: $isTargeted, perform: onDrop)
-        .animation(prefersBudgetVisuals ? .linear(duration: 0.01) : .spring(response: 0.3), value: isTargeted)
+        .animation(prefersBudgetVisuals ? .linear(duration: 0.01) : .spring(response: 0.26, dampingFraction: 0.88), value: isTargeted)
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("home.focus.strip")
     }
 
-    // MARK: - Header
-
     private var focusHeader: some View {
         HStack(spacing: spacing.s8) {
-            Button(action: onWhy) {
-                HStack(spacing: spacing.s8) {
-                    // Flame icon with animation
-                    Image(systemName: "flame.fill")
-                        .font(.system(size: 14, weight: .medium))
-                        .foregroundColor(Color.tasker.accentPrimary)
-                        .symbolEffect(.pulse, options: .repeating.speed(0.5), isActive: !rows.isEmpty && !prefersBudgetVisuals)
-                        .modifier(FocusBreathingModifier(isEnabled: !prefersBudgetVisuals, min: 0.8, max: 1.0, duration: 2.5))
-
-                    // Title
-                    Text(LocalizedStringKey("Focus Now"))
-                        .font(.tasker(.buttonSmall))
-                        .fontWeight(.semibold)
-                        .foregroundColor(Color.tasker.accentPrimary)
-
-                    // Count badge
-                    if !rows.isEmpty {
-                        Text("· \(rows.count)")
-                            .font(.tasker(.caption2))
-                            .fontWeight(.medium)
-                            .foregroundColor(Color.tasker.textSecondary)
-                            .transition(.scale.combined(with: .opacity))
-                            .contentTransition(.numericText())
-                    }
+            if hasTaskRows {
+                Button(action: onWhy) {
+                    focusHeaderLabel
                 }
-                .frame(minHeight: 44, alignment: .leading)
+                .buttonStyle(.plain)
+                .contentShape(Rectangle())
+                .accessibilityIdentifier("home.focus.titleTap")
+                .accessibilityHint("Opens why Eva picked these items")
+            } else {
+                focusHeaderLabel
             }
-            .buttonStyle(.plain)
-            .contentShape(Rectangle())
-            .accessibilityIdentifier("home.focus.titleTap")
-            .accessibilityHint("Opens why Eva picked these items")
 
             Spacer(minLength: 0)
 
-            if !rows.isEmpty {
+            if hasTaskRows {
                 actionButton(title: "Shuffle", action: onShuffle, accessibilityID: "home.focus.shuffle")
             }
         }
     }
 
+    private var focusHeaderLabel: some View {
+        HStack(spacing: spacing.s4) {
+            Image(systemName: "flame.fill")
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundColor(Color.tasker.accentPrimary.opacity(hasTaskRows ? 0.92 : 0.65))
+
+            Text(LocalizedStringKey("Focus Now"))
+                .font(.tasker(.callout).weight(.semibold))
+                .foregroundColor(Color.tasker.textPrimary)
+
+            if hasTaskRows {
+                Text("\(taskCount)")
+                    .font(.tasker(.caption2).weight(.semibold))
+                    .foregroundColor(Color.tasker.textSecondary)
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 2)
+                    .background(
+                        Capsule()
+                            .fill(Color.tasker.surfaceSecondary)
+                    )
+                    .contentTransition(.numericText())
+            }
+        }
+        .frame(minHeight: 36, alignment: .leading)
+    }
+
     private func actionButton(title: String, action: @escaping () -> Void, accessibilityID: String) -> some View {
         Button(action: action) {
             Text(title)
-                .font(.tasker(.caption1))
+                .font(.tasker(.caption1).weight(.medium))
                 .foregroundColor(Color.tasker.accentPrimary)
-                .padding(.horizontal, 8)
-                .frame(minHeight: 44)
+                .padding(.horizontal, 4)
+                .frame(minHeight: 36)
         }
         .buttonStyle(.plain)
         .contentShape(Rectangle())
         .accessibilityIdentifier(accessibilityID)
     }
 
-    // MARK: - Empty State
-
     private var emptyState: some View {
         VStack(spacing: spacing.s4) {
             Image(systemName: "scope")
-                .font(.system(size: 24, weight: .light))
-                .foregroundColor(Color.tasker.accentPrimary.opacity(0.4))
-                .modifier(FocusBreathingModifier(isEnabled: !prefersBudgetVisuals, min: 0.3, max: 0.5, duration: 2.0))
+                .font(.system(size: 20, weight: .regular))
+                .foregroundColor(Color.tasker.accentPrimary.opacity(0.42))
 
             Text(LocalizedStringKey("Add a few tasks for today and Focus Now will pick the best next moves"))
                 .font(.tasker(.caption1))
-                .foregroundColor(Color.tasker.textTertiary)
+                .foregroundColor(Color.tasker.textSecondary)
                 .multilineTextAlignment(.center)
         }
         .frame(maxWidth: .infinity)
-        .frame(height: 56)
+        .frame(height: 52)
     }
-
-    // MARK: - Task List
 
     private var taskList: some View {
         VStack(spacing: 0) {
             ForEach(Array(rows.enumerated()), id: \.element.id) { index, row in
                 if index > 0 {
                     Divider()
-                        .padding(.leading, spacing.s32)
-                        .padding(.vertical, 2)
-                        .opacity(Double(rows.count - index) / Double(rows.count))
+                        .padding(.leading, 32)
+                        .padding(.vertical, 1)
+                        .opacity(0.72)
                 }
 
                 focusRow(for: row)
@@ -226,8 +226,8 @@ public struct FocusZone: View {
                 task: task,
                 insight: insightForTaskID(task.id),
                 canDrag: canDrag,
-                showFocusButton: onStartFocus != nil && V2FeatureFlags.gamificationFocusSessionsEnabled,
                 isPinned: pinnedTaskIDs.contains(task.id),
+                showStartFocusAction: onStartFocus != nil && V2FeatureFlags.gamificationFocusSessionsEnabled,
                 onTap: { onTaskTap(task) },
                 onToggleComplete: { onToggleComplete(task) },
                 onPinToggle: {
@@ -272,21 +272,6 @@ public struct FocusZone: View {
     }
 }
 
-private struct FocusBreathingModifier: ViewModifier {
-    let isEnabled: Bool
-    let min: Double
-    let max: Double
-    let duration: Double
-
-    func body(content: Content) -> some View {
-        if isEnabled {
-            content.breathingPulse(min: min, max: max, duration: duration)
-        } else {
-            content
-        }
-    }
-}
-
 private struct FocusStaggerModifier: ViewModifier {
     let isEnabled: Bool
     let index: Int
@@ -300,70 +285,108 @@ private struct FocusStaggerModifier: ViewModifier {
     }
 }
 
-// MARK: - Focus Zone Row
+enum FocusZoneBadgeTone: Equatable {
+    case danger
+    case warning
+    case success
 
-enum FocusZoneStatusChip: Equatable {
-    case late(String)
-    case dueSoon
-    case quickWin
-    case unblocked
-
-    var text: String {
+    @MainActor
+    var foregroundColor: Color {
         switch self {
-        case .late(let value): return value
-        case .dueSoon: return "Due soon"
-        case .quickWin: return "Quick win"
-        case .unblocked: return "Unblocked"
+        case .danger:
+            return Color.tasker.statusDanger
+        case .warning:
+            return Color.tasker.statusWarning
+        case .success:
+            return Color.tasker.statusSuccess
         }
     }
 }
 
-enum FocusZoneStatusChipResolver {
-    /// Executes resolve.
-    static func resolve(task: TaskDefinition, insight: EvaFocusTaskInsight?, now: Date = Date()) -> FocusZoneStatusChip? {
+struct FocusZoneBadgePresentation: Equatable {
+    let text: String
+    let tone: FocusZoneBadgeTone
+}
+
+struct FocusZoneRowPresentation: Equatable {
+    let title: String
+    let secondaryLineText: String?
+    let visibleBadge: FocusZoneBadgePresentation?
+    let priorityCode: String?
+
+    static func make(task: TaskDefinition, insight: EvaFocusTaskInsight?, now: Date = Date()) -> FocusZoneRowPresentation {
+        _ = insight
+        let timePressure = FocusZoneTimePressureResolver.resolve(task: task, now: now)
+        let metadata = FocusZoneSecondaryLineResolver.resolve(task: task)
+
+        return FocusZoneRowPresentation(
+            title: task.title,
+            secondaryLineText: metadata.text,
+            visibleBadge: timePressure,
+            priorityCode: metadata.priorityCode
+        )
+    }
+}
+
+enum FocusZoneTimePressureResolver {
+    static func resolve(task: TaskDefinition, now: Date = Date()) -> FocusZoneBadgePresentation? {
         guard !task.isComplete else { return nil }
 
         if let dueDate = task.dueDate, let lateLabel = OverdueAgeFormatter.lateLabel(dueDate: dueDate, now: now) {
-            return .late(lateLabel)
+            return FocusZoneBadgePresentation(text: lateLabel, tone: .danger)
         }
 
         if isDueSoon(task: task, now: now) {
-            return .dueSoon
+            return FocusZoneBadgePresentation(text: "Due soon", tone: .warning)
         }
 
-        if isQuickWin(task: task, insight: insight) {
-            return .quickWin
+        guard let dueDate = task.dueDate, Calendar.current.isDate(dueDate, inSameDayAs: now) else {
+            return nil
         }
 
-        return task.dependencies.isEmpty ? .unblocked : nil
+        return FocusZoneBadgePresentation(
+            text: "Due \(dueDate.formatted(date: .omitted, time: .shortened))",
+            tone: .warning
+        )
     }
 
-    /// Executes isDueSoon.
     private static func isDueSoon(task: TaskDefinition, now: Date) -> Bool {
-        guard let dueDate = task.dueDate, !task.isOverdue else { return false }
+        guard let dueDate = task.dueDate, dueDate > now else { return false }
         let remaining = dueDate.timeIntervalSince(now)
         return remaining > 0 && remaining <= (2 * 60 * 60)
     }
+}
 
-    /// Executes isQuickWin.
-    private static func isQuickWin(task: TaskDefinition, insight: EvaFocusTaskInsight?) -> Bool {
-        let insightBadge = insight?.badge?.lowercased() ?? ""
-        let insightRationale = insight?.rationale.map { $0.label.lowercased() } ?? []
-        let insightMentionsQuickWin = insightBadge.contains("quick win")
-            || insightRationale.contains(where: { $0.contains("quick win") })
+struct FocusZoneSecondaryLine: Equatable {
+    let text: String?
+    let priorityCode: String?
+}
 
-        let taskIsQuickWin = (task.estimatedDuration ?? 0) > 0 && (task.estimatedDuration ?? 0) <= 1_800
-        return insightMentionsQuickWin || taskIsQuickWin
+enum FocusZoneSecondaryLineResolver {
+    static func resolve(task: TaskDefinition) -> FocusZoneSecondaryLine {
+        let priorityCode = task.priority == .none ? nil : task.priority.code
+
+        if task.projectID == ProjectConstants.inboxProjectID {
+            return FocusZoneSecondaryLine(text: "Inbox", priorityCode: priorityCode)
+        }
+
+        let projectName = task.projectName?
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+
+        if let projectName, !projectName.isEmpty {
+            return FocusZoneSecondaryLine(text: projectName, priorityCode: priorityCode)
+        }
+
+        return FocusZoneSecondaryLine(text: nil, priorityCode: priorityCode)
     }
 }
 
-/// Compact row for focus zone tasks.
 private struct FocusZoneRow: View {
     let task: TaskDefinition
     let insight: EvaFocusTaskInsight?
     let canDrag: Bool
-    let showFocusButton: Bool
     let isPinned: Bool
+    let showStartFocusAction: Bool
     let onTap: () -> Void
     let onToggleComplete: () -> Void
     let onPinToggle: () -> Void
@@ -371,8 +394,8 @@ private struct FocusZoneRow: View {
     let onDragStarted: () -> Void
 
     private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.currentTheme.tokens.spacing }
-    private var statusChip: FocusZoneStatusChip? {
-        FocusZoneStatusChipResolver.resolve(task: task, insight: insight)
+    private var presentation: FocusZoneRowPresentation {
+        FocusZoneRowPresentation.make(task: task, insight: insight)
     }
 
     var body: some View {
@@ -384,17 +407,32 @@ private struct FocusZoneRow: View {
             .padding(.top, 2)
 
             Button(action: onTap) {
-                VStack(alignment: .leading, spacing: spacing.s4) {
-                    Text(task.title)
-                        .font(.tasker(.bodyEmphasis))
-                        .foregroundColor(task.isComplete ? Color.tasker.textTertiary : Color.tasker.textPrimary)
+                VStack(alignment: .leading, spacing: spacing.s2) {
+                    Text(presentation.title)
+                        .font(.tasker(.callout).weight(.semibold))
+                        .foregroundColor(task.isComplete ? Color.tasker.textSecondary : Color.tasker.textPrimary)
                         .lineLimit(2)
+                        .multilineTextAlignment(.leading)
 
-                    if let secondaryLineText {
-                        Text(secondaryLineText)
-                            .font(.tasker(.caption2))
-                            .foregroundColor(Color.tasker.textSecondary)
-                            .lineLimit(1)
+                    HStack(spacing: spacing.s4) {
+                        if let priorityCode = presentation.priorityCode {
+                            Text(priorityCode)
+                                .font(.tasker(.caption1).weight(.semibold))
+                                .foregroundColor(priorityColor)
+                        }
+
+                        if let secondaryLineText = presentation.secondaryLineText {
+                            if presentation.priorityCode != nil {
+                                Text("·")
+                                    .font(.tasker(.caption1))
+                                    .foregroundColor(Color.tasker.textSecondary.opacity(0.8))
+                            }
+
+                            Text(secondaryLineText)
+                                .font(.tasker(.caption1))
+                                .foregroundColor(Color.tasker.textSecondary)
+                                .lineLimit(1)
+                        }
                     }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -404,9 +442,12 @@ private struct FocusZoneRow: View {
             .accessibilityIdentifier("home.focus.task.\(task.id.uuidString)")
             .accessibilityLabel(task.title)
 
-            trailingControls
+            if let visibleBadge = presentation.visibleBadge {
+                statusChipBadge(visibleBadge)
+                    .frame(minWidth: 68, alignment: .trailing)
+            }
         }
-        .padding(.vertical, 8)
+        .padding(.vertical, 6)
         .padding(.horizontal, spacing.s4)
         .contentShape(Rectangle())
         .swipeActions(edge: .leading, allowsFullSwipe: false) {
@@ -417,6 +458,38 @@ private struct FocusZoneRow: View {
             }
             .tint(task.isComplete ? Color.tasker.accentSecondary : Color.tasker.statusSuccess)
         }
+        .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+            if showStartFocusAction && !task.isComplete {
+                Button {
+                    onStartFocus()
+                } label: {
+                    Label("Start focus session", systemImage: "timer")
+                }
+                .tint(Color.tasker.accentPrimary)
+            }
+
+            Button {
+                onPinToggle()
+            } label: {
+                Label(isPinned ? "Remove from Focus Now" : "Keep in Focus Now", systemImage: isPinned ? "pin.slash" : "pin")
+            }
+            .tint(isPinned ? Color.tasker.textSecondary : Color.tasker.accentPrimary)
+        }
+        .contextMenu {
+            Button {
+                onPinToggle()
+            } label: {
+                Label(isPinned ? "Remove from Focus Now" : "Keep in Focus Now", systemImage: isPinned ? "pin.slash" : "pin")
+            }
+
+            if showStartFocusAction && !task.isComplete {
+                Button {
+                    onStartFocus()
+                } label: {
+                    Label("Start focus session", systemImage: "timer")
+                }
+            }
+        }
         .ifLet(canDrag ? task : nil) { view, _ in
             view.onDrag {
                 onDragStarted()
@@ -426,112 +499,33 @@ private struct FocusZoneRow: View {
         .accessibilityElement(children: .contain)
     }
 
-    private var trailingControls: some View {
-        VStack(alignment: .trailing, spacing: spacing.s8) {
-            if let statusChip {
-                statusChipBadge(statusChip)
-            }
-
-            HStack(spacing: spacing.s8) {
-                pinButton
-
-                if showFocusButton && !task.isComplete {
-                    startFocusButton
-                }
-            }
-        }
-    }
-
-    private func statusChipBadge(_ statusChip: FocusZoneStatusChip) -> some View {
-        Text(statusChip.text)
-            .font(.tasker(.caption2))
-            .fontWeight(.medium)
-            .foregroundColor(focusStatusColor(for: statusChip))
-            .padding(.horizontal, 5)
+    private func statusChipBadge(_ badge: FocusZoneBadgePresentation) -> some View {
+        Text(badge.text)
+            .font(.tasker(.caption2).weight(.semibold))
+            .foregroundColor(badge.tone.foregroundColor)
+            .padding(.horizontal, 6)
             .padding(.vertical, 3)
             .background(
                 Capsule()
-                    .fill(focusStatusColor(for: statusChip).opacity(0.15))
+                    .fill(badge.tone.foregroundColor.opacity(0.12))
             )
             .fixedSize()
-            .transition(.scale.combined(with: .opacity))
-            .animation(TaskerAnimation.gentle, value: statusChip)
+            .transition(.opacity.combined(with: .scale(scale: 0.96)))
     }
 
-    private var pinButton: some View {
-        Button(action: onPinToggle) {
-            Image(systemName: isPinned ? "pin.fill" : "pin")
-                .font(.system(size: 12, weight: .semibold))
-                .foregroundColor(isPinned ? Color.tasker.accentPrimary : Color.tasker.textSecondary)
-                .frame(width: 28, height: 28)
-                .background(Color.tasker.surfaceSecondary.opacity(0.8))
-                .clipShape(Circle())
-                .frame(width: 44, height: 44)
-                .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-        .accessibilityIdentifier("home.focus.pin.\(task.id.uuidString)")
-        .accessibilityLabel(isPinned ? "Unpin from Focus Now" : "Pin to Focus Now")
-    }
-
-    private var startFocusButton: some View {
-        Button(action: onStartFocus) {
-            Image(systemName: "timer")
-                .font(.system(size: 13, weight: .medium))
-                .foregroundColor(Color.tasker.accentPrimary)
-                .frame(width: 28, height: 28)
-                .background(Color.tasker.accentPrimary.opacity(0.1))
-                .clipShape(Circle())
-                .frame(width: 44, height: 44)
-                .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-        .accessibilityLabel("Start focus session")
-    }
-
-    private var secondaryLineText: String? {
-        if case .late = FocusZoneStatusChipResolver.resolve(task: task, insight: nil) {
-            return projectContextText
-        }
-        if let dueDate = task.dueDate, let lateLabel = OverdueAgeFormatter.lateLabel(dueDate: dueDate, now: Date()) {
-            return "Overdue · \(lateLabel)"
-        }
-        if let dueDate = task.dueDate, Calendar.current.isDateInToday(dueDate) {
-            let time = dueDate.formatted(date: .omitted, time: .shortened)
-            if let projectName = task.projectName?.trimmingCharacters(in: .whitespacesAndNewlines), !projectName.isEmpty {
-                return "Due today · \(time) · \(projectName)"
-            }
-            return "Due today · \(time)"
-        }
-        return projectContextText
-    }
-
-    private var projectContextText: String? {
-        if task.projectID == ProjectConstants.inboxProjectID {
-            return "Inbox · promoted for today"
-        }
-        if let projectName = task.projectName?.trimmingCharacters(in: .whitespacesAndNewlines), !projectName.isEmpty {
-            return "Project · \(projectName)"
-        }
-        return nil
-    }
-
-    /// Executes focusStatusColor.
-    private func focusStatusColor(for statusChip: FocusZoneStatusChip) -> Color {
-        switch statusChip {
-        case .late:
+    private var priorityColor: Color {
+        switch task.priority {
+        case .max:
             return Color.tasker.statusDanger
-        case .dueSoon:
+        case .high:
             return Color.tasker.statusWarning
-        case .quickWin:
-            return Color.tasker.statusSuccess
-        case .unblocked:
-            return Color.tasker.statusSuccess
+        case .low:
+            return Color.tasker.accentPrimary
+        case .none:
+            return Color.tasker.textSecondary
         }
     }
 }
-
-// MARK: - View Extension
 
 extension View {
     @ViewBuilder
@@ -544,13 +538,10 @@ extension View {
     }
 }
 
-// MARK: - Preview
-
 #if DEBUG
 struct FocusZone_Previews: PreviewProvider {
     static var previews: some View {
         VStack(spacing: 20) {
-            // Empty state
             FocusZone(
                 rows: [],
                 canDrag: true,
@@ -560,13 +551,13 @@ struct FocusZone_Previews: PreviewProvider {
                 onDrop: { _ in false }
             )
 
-            // With tasks
             FocusZone(
                 rows: [
-                    .task(TaskDefinition(title: "Review pull requests", priority: .high, dueDate: Date())),
-                    .task(TaskDefinition(title: "Design landing page", priority: .low, dueDate: Date().addingTimeInterval(7200)))
+                    .task(TaskDefinition(title: "Review pull requests", priority: .high, dueDate: Date(), estimatedDuration: 900)),
+                    .task(TaskDefinition(projectName: "Website", title: "Design landing page", priority: .low, dueDate: Date().addingTimeInterval(7_200)))
                 ],
                 canDrag: true,
+                pinnedTaskIDs: [],
                 onTaskTap: { _ in },
                 onToggleComplete: { _ in },
                 onTaskDragStarted: { _ in },

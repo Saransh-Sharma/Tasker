@@ -2,37 +2,454 @@ import SwiftUI
 
 struct EvaFocusWhySheetView: View {
     let focusTasks: [TaskDefinition]
+    let shuffleCandidates: [TaskDefinition]
     let insightProvider: (UUID) -> EvaFocusTaskInsight?
+    let onToggleComplete: (TaskDefinition) -> Void
+    let onStartFocus: (TaskDefinition) -> Void
+    let onShuffleCandidates: () -> Void
+    let onReplaceFocusTask: (TaskDefinition, TaskDefinition) -> Void
+
+    @State private var expandedTaskIDs = Set<UUID>()
+    @State private var selectedCandidateID: UUID?
+
+    private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.currentTheme.tokens.spacing }
+    private var corner: TaskerCornerTokens { TaskerThemeManager.shared.currentTheme.tokens.corner }
+    private var selectedCandidate: TaskDefinition? {
+        guard let selectedCandidateID else { return nil }
+        return shuffleCandidates.first(where: { $0.id == selectedCandidateID })
+    }
+    private var shuffleSubtitleText: String {
+        if selectedCandidate == nil {
+            return String(localized: "Preview fresh replacements without changing Focus Now yet.")
+        }
+        return String(localized: "Pick which Focus Now task should be swapped out.")
+    }
 
     var body: some View {
         NavigationStack {
-            List {
-                ForEach(focusTasks, id: \.id) { task in
-                    VStack(alignment: .leading, spacing: 6) {
-                        Text(task.title)
-                            .font(.tasker(.bodyEmphasis))
-                            .foregroundColor(Color.tasker.textPrimary)
-                        let rationale = insightProvider(task.id)?.rationale ?? []
-                        if rationale.isEmpty {
-                            Text("Eva selected this using urgency and effort balance.")
-                                .font(.tasker(.caption1))
-                                .foregroundColor(Color.tasker.textSecondary)
-                        } else {
-                            ForEach(rationale, id: \.factor) { reason in
-                                Text("• \(reason.label)")
-                                    .font(.tasker(.caption1))
-                                    .foregroundColor(Color.tasker.textSecondary)
-                            }
-                        }
+            ZStack {
+                Color.tasker.bgCanvas
+                    .ignoresSafeArea()
+
+                ScrollView(showsIndicators: false) {
+                    VStack(alignment: .leading, spacing: spacing.s16) {
+                        headerCard
+                        shuffleTrayCard
+                        currentFocusSection
                     }
-                    .padding(.vertical, 4)
                 }
+                .padding(.horizontal, spacing.s12)
+                .padding(.top, spacing.s12)
+                .padding(.bottom, spacing.s20)
             }
-            .navigationTitle("Why Eva Picked These")
+            .navigationTitle(String(localized: "Why Eva Picked These"))
             .navigationBarTitleDisplayMode(.inline)
         }
         .presentationDetents([.medium, .large])
         .presentationDragIndicator(.visible)
+        .onChange(of: shuffleCandidates.map(\.id)) { _, newIDs in
+            if let selectedCandidateID, newIDs.contains(selectedCandidateID) == false {
+                self.selectedCandidateID = nil
+            }
+        }
+    }
+
+    private var headerCard: some View {
+        VStack(alignment: .leading, spacing: spacing.s8) {
+            Text(String(localized: "Why Eva Picked These"))
+                .font(.tasker(.title3).weight(.semibold))
+                .foregroundColor(Color.tasker.textPrimary)
+
+            Text(String(localized: "Focus Now stays small on Home. This sheet explains the picks, lets you complete them, start a timer, and preview alternatives before swapping anything out."))
+                .font(.tasker(.callout))
+                .foregroundColor(Color.tasker.textSecondary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .padding(spacing.s12)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(cardBackground(accentOpacity: 0.18))
+    }
+
+    private var shuffleTrayCard: some View {
+        VStack(alignment: .leading, spacing: spacing.s8) {
+            HStack(alignment: .center, spacing: spacing.s8) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(String(localized: "Shuffle View"))
+                        .font(.tasker(.callout).weight(.semibold))
+                        .foregroundColor(Color.tasker.textPrimary)
+
+                    Text(shuffleSubtitleText)
+                        .font(.tasker(.caption1))
+                        .foregroundColor(Color.tasker.textSecondary)
+                }
+
+                Spacer(minLength: 0)
+
+                Button(action: {
+                    selectedCandidateID = nil
+                    onShuffleCandidates()
+                }) {
+                    Text(String(localized: "Shuffle Again"))
+                        .font(.tasker(.caption1).weight(.medium))
+                        .foregroundColor(Color.tasker.accentPrimary)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 8)
+                        .background(
+                            Capsule()
+                                .fill(Color.tasker.surfaceSecondary)
+                        )
+                }
+                .buttonStyle(.plain)
+            }
+
+            if shuffleCandidates.isEmpty {
+                Text(String(localized: "No new candidates are available right now. Finish or shuffle Focus Now on Home to refresh the pool."))
+                    .font(.tasker(.caption1))
+                    .foregroundColor(Color.tasker.textSecondary)
+                    .padding(.top, spacing.s2)
+            } else {
+                VStack(spacing: spacing.s8) {
+                    ForEach(shuffleCandidates, id: \.id) { candidate in
+                        let presentation = EvaFocusWhyCandidatePresentation.make(
+                            task: candidate,
+                            insight: insightProvider(candidate.id)
+                        )
+                        Button {
+                            withAnimation(.spring(response: 0.28, dampingFraction: 0.86)) {
+                                selectedCandidateID = candidate.id
+                            }
+                        } label: {
+                            EvaFocusShuffleCandidateRow(
+                                presentation: presentation,
+                                isSelected: selectedCandidateID == candidate.id
+                            )
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+            }
+
+            if let selectedCandidate {
+                Divider()
+                    .overlay(Color.tasker.strokeHairline.opacity(0.8))
+                    .padding(.vertical, spacing.s2)
+
+                Text(String(format: String(localized: "Replace With %@"), locale: Locale.current, selectedCandidate.title))
+                    .font(.tasker(.caption1).weight(.semibold))
+                    .foregroundColor(Color.tasker.textPrimary)
+
+                VStack(spacing: spacing.s8) {
+                    ForEach(focusTasks, id: \.id) { focusTask in
+                        Button {
+                            onReplaceFocusTask(selectedCandidate, focusTask)
+                            withAnimation(.spring(response: 0.28, dampingFraction: 0.86)) {
+                                selectedCandidateID = nil
+                            }
+                        } label: {
+                            replaceTargetRow(for: focusTask)
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+
+                Button(String(localized: "Cancel Replacement")) {
+                    withAnimation(.spring(response: 0.28, dampingFraction: 0.86)) {
+                        selectedCandidateID = nil
+                    }
+                }
+                .font(.tasker(.caption1).weight(.medium))
+                .foregroundColor(Color.tasker.textSecondary)
+                .buttonStyle(.plain)
+                .padding(.top, spacing.s2)
+            }
+        }
+        .padding(spacing.s12)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(cardBackground(accentOpacity: 0.12))
+    }
+
+    private var currentFocusSection: some View {
+        VStack(alignment: .leading, spacing: spacing.s8) {
+            Text(String(localized: "Current Focus Now"))
+                .font(.tasker(.callout).weight(.semibold))
+                .foregroundColor(Color.tasker.textPrimary)
+
+            if focusTasks.isEmpty {
+                Text(String(localized: "Focus Now is empty right now."))
+                    .font(.tasker(.caption1))
+                    .foregroundColor(Color.tasker.textSecondary)
+                    .padding(spacing.s12)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(cardBackground(accentOpacity: 0.10))
+            } else {
+                VStack(spacing: spacing.s8) {
+                    ForEach(focusTasks, id: \.id) { task in
+                        EvaFocusWhyTaskCard(
+                            presentation: EvaFocusWhyTaskCardPresentation.make(
+                                task: task,
+                                insight: insightProvider(task.id)
+                            ),
+                            isExpanded: expandedTaskIDs.contains(task.id),
+                            onToggleComplete: { onToggleComplete(task) },
+                            onStartFocus: { onStartFocus(task) },
+                            onToggleExpanded: {
+                                withAnimation(.spring(response: 0.28, dampingFraction: 0.88)) {
+                                    if expandedTaskIDs.contains(task.id) {
+                                        expandedTaskIDs.remove(task.id)
+                                    } else {
+                                        expandedTaskIDs.insert(task.id)
+                                    }
+                                }
+                            }
+                        )
+                    }
+                }
+            }
+        }
+    }
+
+    private func replaceTargetRow(for task: TaskDefinition) -> some View {
+        let metadata = FocusZoneSecondaryLineResolver.resolve(task: task)
+
+        return HStack(alignment: .center, spacing: spacing.s8) {
+            VStack(alignment: .leading, spacing: 4) {
+                Text(task.title)
+                    .font(.tasker(.callout).weight(.semibold))
+                    .foregroundColor(Color.tasker.textPrimary)
+                    .lineLimit(2)
+                    .multilineTextAlignment(.leading)
+
+                if let context = metadata.text {
+                    Text(context)
+                        .font(.tasker(.caption1))
+                        .foregroundColor(Color.tasker.textSecondary)
+                        .lineLimit(1)
+                }
+            }
+
+            Spacer(minLength: 0)
+
+            Image(systemName: "arrow.left.arrow.right")
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundColor(Color.tasker.accentPrimary)
+                .frame(width: 30, height: 30)
+                .background(
+                    Circle()
+                        .fill(Color.tasker.surfaceSecondary)
+                )
+        }
+        .padding(.horizontal, spacing.s8)
+        .padding(.vertical, spacing.s8)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(
+            RoundedRectangle(cornerRadius: corner.r1, style: .continuous)
+                .fill(Color.tasker.surfaceSecondary.opacity(0.66))
+        )
+    }
+
+    private func cardBackground(accentOpacity: Double) -> some View {
+        RoundedRectangle(cornerRadius: corner.r2, style: .continuous)
+            .fill(Color.tasker.surfacePrimary.opacity(0.96))
+            .overlay(
+                RoundedRectangle(cornerRadius: corner.r2, style: .continuous)
+                    .stroke(Color.tasker.strokeHairline.opacity(0.92), lineWidth: 1)
+            )
+            .overlay(alignment: .topLeading) {
+                RoundedRectangle(cornerRadius: 999, style: .continuous)
+                    .fill(Color.tasker.accentPrimary.opacity(accentOpacity))
+                    .frame(width: 40, height: 3)
+                    .padding(.horizontal, spacing.s12)
+                    .padding(.top, 1)
+            }
+    }
+}
+
+struct EvaFocusWhyTaskCardPresentation: Equatable {
+    let title: String
+    let contextText: String?
+    let summaryText: String
+    let reasonLines: [String]
+    let isComplete: Bool
+
+    static func make(task: TaskDefinition, insight: EvaFocusTaskInsight?) -> EvaFocusWhyTaskCardPresentation {
+        let metadata = FocusZoneSecondaryLineResolver.resolve(task: task)
+        let rationale = insight?.rationale.map(\.label).filter { !$0.isEmpty } ?? []
+        let summaryText = rationale.first ?? String(localized: "Eva selected this using urgency and effort balance.")
+
+        return EvaFocusWhyTaskCardPresentation(
+            title: task.title,
+            contextText: metadata.text,
+            summaryText: summaryText,
+            reasonLines: rationale,
+            isComplete: task.isComplete
+        )
+    }
+}
+
+struct EvaFocusWhyCandidatePresentation: Equatable {
+    let title: String
+    let contextText: String?
+    let summaryText: String
+
+    static func make(task: TaskDefinition, insight: EvaFocusTaskInsight?) -> EvaFocusWhyCandidatePresentation {
+        let metadata = FocusZoneSecondaryLineResolver.resolve(task: task)
+        let summaryText = insight?.rationale.first?.label ?? String(localized: "Swap into Focus Now")
+
+        return EvaFocusWhyCandidatePresentation(
+            title: task.title,
+            contextText: metadata.text,
+            summaryText: summaryText
+        )
+    }
+}
+
+private struct EvaFocusWhyTaskCard: View {
+    let presentation: EvaFocusWhyTaskCardPresentation
+    let isExpanded: Bool
+    let onToggleComplete: () -> Void
+    let onStartFocus: () -> Void
+    let onToggleExpanded: () -> Void
+
+    private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.currentTheme.tokens.spacing }
+    private var corner: TaskerCornerTokens { TaskerThemeManager.shared.currentTheme.tokens.corner }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: spacing.s8) {
+            HStack(alignment: .top, spacing: spacing.s8) {
+                CompletionCheckbox(isComplete: presentation.isComplete, compact: true) {
+                    onToggleComplete()
+                }
+                .padding(.top, 1)
+
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(presentation.title)
+                        .font(.tasker(.callout).weight(.semibold))
+                        .foregroundColor(presentation.isComplete ? Color.tasker.textSecondary : Color.tasker.textPrimary)
+                        .lineLimit(2)
+                        .multilineTextAlignment(.leading)
+
+                    if let contextText = presentation.contextText {
+                        Text(contextText)
+                            .font(.tasker(.caption1))
+                            .foregroundColor(Color.tasker.textSecondary)
+                            .lineLimit(1)
+                    }
+                }
+
+                Spacer(minLength: 0)
+
+                Button(action: onStartFocus) {
+                    Image(systemName: "timer")
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundColor(presentation.isComplete ? Color.tasker.textTertiary : Color.tasker.accentPrimary)
+                        .frame(width: 32, height: 32)
+                        .background(
+                            Circle()
+                                .fill(Color.tasker.surfaceSecondary)
+                        )
+                }
+                .buttonStyle(.plain)
+                .disabled(presentation.isComplete)
+                .accessibilityLabel(Text(String(localized: "Start focus session")))
+            }
+
+            Button(action: onToggleExpanded) {
+                HStack(alignment: .center, spacing: spacing.s4) {
+                    Image(systemName: "sparkles")
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundColor(Color.tasker.accentPrimary.opacity(0.85))
+
+                    Text(presentation.summaryText)
+                        .font(.tasker(.caption1))
+                        .foregroundColor(Color.tasker.textSecondary)
+                        .lineLimit(1)
+
+                    Spacer(minLength: 0)
+
+                    Text(isExpanded ? String(localized: "Less") : String(localized: "More"))
+                        .font(.tasker(.caption2).weight(.semibold))
+                        .foregroundColor(Color.tasker.accentPrimary)
+                }
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+
+            if isExpanded {
+                VStack(alignment: .leading, spacing: 6) {
+                    ForEach(presentation.reasonLines.isEmpty ? [presentation.summaryText] : presentation.reasonLines, id: \.self) { line in
+                        Text("• \(line)")
+                            .font(.tasker(.caption1))
+                            .foregroundColor(Color.tasker.textSecondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                }
+                .transition(.opacity.combined(with: .move(edge: .top)))
+            }
+        }
+        .padding(.horizontal, spacing.s8)
+        .padding(.vertical, spacing.s8)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(
+            RoundedRectangle(cornerRadius: corner.r1, style: .continuous)
+                .fill(Color.tasker.surfacePrimary.opacity(0.94))
+                .overlay(
+                    RoundedRectangle(cornerRadius: corner.r1, style: .continuous)
+                        .stroke(Color.tasker.strokeHairline.opacity(0.9), lineWidth: 1)
+                )
+        )
+        .opacity(presentation.isComplete ? 0.68 : 1)
+    }
+}
+
+private struct EvaFocusShuffleCandidateRow: View {
+    let presentation: EvaFocusWhyCandidatePresentation
+    let isSelected: Bool
+
+    private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.currentTheme.tokens.spacing }
+    private var corner: TaskerCornerTokens { TaskerThemeManager.shared.currentTheme.tokens.corner }
+
+    var body: some View {
+        HStack(alignment: .center, spacing: spacing.s8) {
+            VStack(alignment: .leading, spacing: 4) {
+                Text(presentation.title)
+                    .font(.tasker(.callout).weight(.semibold))
+                    .foregroundColor(Color.tasker.textPrimary)
+                    .lineLimit(2)
+                    .multilineTextAlignment(.leading)
+
+                if let contextText = presentation.contextText {
+                    Text(contextText)
+                        .font(.tasker(.caption1))
+                        .foregroundColor(Color.tasker.textSecondary)
+                        .lineLimit(1)
+                }
+
+                Text(presentation.summaryText)
+                    .font(.tasker(.caption2))
+                    .foregroundColor(Color.tasker.textSecondary)
+                    .lineLimit(1)
+            }
+
+            Spacer(minLength: 0)
+
+            Image(systemName: isSelected ? "checkmark.circle.fill" : "arrow.triangle.2.circlepath")
+                .font(.system(size: 15, weight: .semibold))
+                .foregroundColor(isSelected ? Color.tasker.accentPrimary : Color.tasker.textSecondary)
+        }
+        .padding(.horizontal, spacing.s8)
+        .padding(.vertical, spacing.s8)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(
+            RoundedRectangle(cornerRadius: corner.r1, style: .continuous)
+                .fill(isSelected ? Color.tasker.surfaceSecondary.opacity(0.9) : Color.tasker.surfaceSecondary.opacity(0.55))
+                .overlay(
+                    RoundedRectangle(cornerRadius: corner.r1, style: .continuous)
+                        .stroke(
+                            isSelected ? Color.tasker.accentPrimary.opacity(0.28) : Color.tasker.strokeHairline.opacity(0.82),
+                            lineWidth: 1
+                        )
+                )
+        )
     }
 }
 
