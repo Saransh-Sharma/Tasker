@@ -306,6 +306,9 @@ public final class HomeViewModel: ObservableObject {
     @Published public private(set) var rescueSectionState = RescueSectionState(rows: []) {
         didSet { scheduleHomeRenderStateRefresh() }
     }
+    @Published public private(set) var habitHomeSectionState = HabitHomeSectionState(primaryRows: [], recoveryRows: []) {
+        didSet { scheduleHomeRenderStateRefresh() }
+    }
     @Published public private(set) var quietTrackingSummaryState = QuietTrackingSummaryState(stableRows: []) {
         didSet { scheduleHomeRenderStateRefresh() }
     }
@@ -557,6 +560,7 @@ public final class HomeViewModel: ObservableObject {
             focusNowSectionState: focusNowSectionState,
             todayAgendaSectionState: todayAgendaSectionState,
             rescueSectionState: rescueSectionState,
+            habitHomeSectionState: habitHomeSectionState,
             quietTrackingSummaryState: quietTrackingSummaryState,
             inlineCompletedTasks: activeScope.quickView == .today ? completedTasks : [],
             doneTimelineTasks: doneTimelineTasks,
@@ -2829,6 +2833,7 @@ public final class HomeViewModel: ObservableObject {
             guard let self, self.isCurrentReloadGeneration(generation) else { return }
 
             let allHabitRows = self.mergeHabitRows(agenda: agendaHabitRows, tracking: trackingHabitRows)
+            let splitHabitRows = HabitBoardPresentationBuilder.splitHomeRows(allHabitRows)
             self.currentHabitSignals = self.habitSignals(from: allHabitRows)
             let rescueEligibleTaskIDs = Set(
                 openTaskRows
@@ -2848,7 +2853,7 @@ public final class HomeViewModel: ObservableObject {
             self.assignIfChanged(\.dueTodaySection, nil)
             let todaySections = HomeMixedSectionBuilder.buildTodaySections(
                 taskRows: agendaTaskRows,
-                habitRows: allHabitRows.filter(self.includeHabitInAgenda(_:)),
+                habitRows: [],
                 projects: self.projects,
                 lifeAreas: self.lifeAreas
             )
@@ -2875,9 +2880,16 @@ public final class HomeViewModel: ObservableObject {
                 )
             )
             self.assignIfChanged(
+                \.habitHomeSectionState,
+                HabitHomeSectionState(
+                    primaryRows: splitHabitRows.primary,
+                    recoveryRows: splitHabitRows.recovery
+                )
+            )
+            self.assignIfChanged(
                 \.quietTrackingSummaryState,
                 QuietTrackingSummaryState(
-                    stableRows: allHabitRows.filter(self.isStableQuietTrackingRow(_:))
+                    stableRows: splitHabitRows.quiet
                 )
             )
 
@@ -3045,6 +3057,14 @@ public final class HomeViewModel: ObservableObject {
                 state = .tracking
             }
 
+            let compactCells = HabitBoardPresentationBuilder.buildCells(
+                marks: marks,
+                cadence: row.cadence,
+                referenceDate: date,
+                dayCount: 14,
+                calendar: calendar
+            )
+
             return HomeHabitRow(
                 habitID: row.habitID,
                 title: row.title,
@@ -3055,12 +3075,18 @@ public final class HomeViewModel: ObservableObject {
                 projectID: row.projectID,
                 projectName: row.projectName,
                 iconSymbolName: row.icon?.symbolName ?? "circle.dashed",
+                accentHex: row.colorHex,
+                cadence: row.cadence,
+                cadenceLabel: HabitBoardPresentationBuilder.cadenceLabel(for: row.cadence, calendar: calendar),
                 dueAt: row.nextDueAt,
                 state: state,
                 currentStreak: row.currentStreak,
                 bestStreak: row.bestStreak,
-                last14Days: row.last14Days,
-                riskState: todayMark?.state == .failure ? .broken : .stable
+                last14Days: marks,
+                boardCellsCompact: compactCells,
+                boardCellsExpanded: compactCells,
+                riskState: todayMark?.state == .failure ? .broken : .stable,
+                helperText: HabitBoardPresentationBuilder.cadenceLabel(for: row.cadence, calendar: calendar)
             )
         }
     }
@@ -3457,6 +3483,7 @@ public final class HomeViewModel: ObservableObject {
             assignIfChanged(\.todaySections, [])
             assignIfChanged(\.todayAgendaSectionState, TodayAgendaSectionState(sections: []))
             assignIfChanged(\.rescueSectionState, RescueSectionState(rows: []))
+            assignIfChanged(\.habitHomeSectionState, HabitHomeSectionState(primaryRows: [], recoveryRows: []))
             assignIfChanged(\.quietTrackingSummaryState, QuietTrackingSummaryState(stableRows: []))
             currentHabitSignals = []
             assignIfChanged(\.focusTasks, [])
@@ -4876,6 +4903,7 @@ extension HomeViewModel {
             focusNowSectionState: focusNowSectionState,
             todayAgendaSectionState: todayAgendaSectionState,
             rescueSectionState: rescueSectionState,
+            habitHomeSectionState: habitHomeSectionState,
             quietTrackingSummaryState: quietTrackingSummaryState,
             upcomingTasks: upcomingTasks,
             completedTasks: completedTasks,
@@ -4917,6 +4945,7 @@ public struct HomeViewState {
     public let focusNowSectionState: FocusNowSectionState
     public let todayAgendaSectionState: TodayAgendaSectionState
     public let rescueSectionState: RescueSectionState
+    public let habitHomeSectionState: HabitHomeSectionState
     public let quietTrackingSummaryState: QuietTrackingSummaryState
     public let upcomingTasks: [TaskDefinition]
     public let completedTasks: [TaskDefinition]

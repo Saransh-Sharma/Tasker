@@ -31,6 +31,7 @@ public final class CoreDataHabitRuntimeReadRepository: HabitRuntimeReadRepositor
 
                 let habitIDs = Set(activeHabits.map(\.id))
                 let names = try self.fetchOwnershipLookups(habits: activeHabits)
+                let scheduleMetadata = try self.fetchHabitScheduleMetadata(habitIDs: habitIDs)
                 let startOfDay = calendar.startOfDay(for: date)
                 let endOfDay = calendar.date(byAdding: .day, value: 1, to: startOfDay) ?? date
                 let windowStart = calendar.date(byAdding: .day, value: -45, to: startOfDay) ?? startOfDay
@@ -73,7 +74,8 @@ public final class CoreDataHabitRuntimeReadRepository: HabitRuntimeReadRepositor
                         occurrence: chosenOccurrence,
                         date: date,
                         last14Days: marks,
-                        ownership: names
+                        ownership: names,
+                        cadence: scheduleMetadata[habit.id]?.cadence ?? .daily()
                     )
                 }
 
@@ -146,6 +148,7 @@ public final class CoreDataHabitRuntimeReadRepository: HabitRuntimeReadRepositor
                     return
                 }
                 let names = try self.fetchOwnershipLookups(habits: habits)
+                let scheduleMetadata = try self.fetchHabitScheduleMetadata(habitIDs: habitIDs)
                 let occurrences = try self.fetchHabitOccurrences(
                     start: start,
                     end: end,
@@ -176,7 +179,8 @@ public final class CoreDataHabitRuntimeReadRepository: HabitRuntimeReadRepositor
                         occurrence: occurrence,
                         date: self.occurrenceDate(occurrence),
                         last14Days: last14Days,
-                        ownership: names
+                        ownership: names,
+                        cadence: scheduleMetadata[habit.id]?.cadence ?? .daily()
                     )
                 }
 
@@ -413,7 +417,8 @@ public final class CoreDataHabitRuntimeReadRepository: HabitRuntimeReadRepositor
         occurrence: OccurrenceDefinition,
         date: Date,
         last14Days: [HabitDayMark],
-        ownership: [UUID: (lifeAreaName: String?, projectName: String?)]
+        ownership: [UUID: (lifeAreaName: String?, projectName: String?)],
+        cadence: HabitCadenceDraft
     ) -> HabitOccurrenceSummary {
         let names = ownership[habit.id]
         return HabitOccurrenceSummary(
@@ -427,6 +432,8 @@ public final class CoreDataHabitRuntimeReadRepository: HabitRuntimeReadRepositor
             projectID: habit.projectID,
             projectName: names?.projectName,
             icon: habit.icon,
+            colorHex: habit.colorHex,
+            cadence: cadence,
             dueAt: occurrenceDate(occurrence),
             state: occurrence.state,
             currentStreak: habit.streakCurrent,

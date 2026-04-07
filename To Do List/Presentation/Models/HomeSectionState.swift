@@ -74,3 +74,23 @@ public struct QuietTrackingSummaryState: Equatable {
         }
     }
 }
+
+public struct HabitHomeSectionState: Equatable {
+    public let primaryRows: [HomeHabitRow]
+    public let recoveryRows: [HomeHabitRow]
+
+    public init(
+        primaryRows: [HomeHabitRow],
+        recoveryRows: [HomeHabitRow]
+    ) {
+        self.primaryRows = primaryRows
+        self.recoveryRows = recoveryRows
+    }
+
+    public var totalCount: Int { primaryRows.count + recoveryRows.count }
+    public var onStreakCount: Int {
+        (primaryRows + recoveryRows).filter { $0.currentStreak > 0 }.count
+    }
+    public var atRiskCount: Int { recoveryRows.count }
+    public var isVisible: Bool { totalCount > 0 }
+}

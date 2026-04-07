@@ -406,11 +406,18 @@ enum HabitRuntimeSupport {
         var best = 0
         var run = 0
         for occurrence in ordered {
-            let isSuccess = occurrence.state == .completed
-            if isSuccess {
+            switch occurrence.state {
+            case .completed:
                 run += 1
                 best = max(best, run)
-            } else {
+            case .skipped:
+                continue
+            case .pending:
+                if calendar.isDate(occurrenceDate(occurrence), inSameDayAs: referenceDate) {
+                    continue
+                }
+                run = 0
+            case .failed, .missed:
                 run = 0
             }
         }
@@ -421,9 +428,12 @@ enum HabitRuntimeSupport {
                calendar.isDate(occurrenceDate(occurrence), inSameDayAs: referenceDate) {
                 continue
             }
-            if occurrence.state == .completed {
+            switch occurrence.state {
+            case .completed:
                 current += 1
-            } else {
+            case .skipped:
+                continue
+            case .pending, .failed, .missed:
                 break
             }
         }
@@ -2165,7 +2175,13 @@ public final class BuildHabitHomeProjectionUseCase {
                 completion(.failure(error))
             case .success(let summaries):
                 let rows = summaries.map { summary in
-                    HomeHabitRow(
+                    let compactCells = HabitBoardPresentationBuilder.buildCells(
+                        marks: summary.last14Days,
+                        cadence: summary.cadence,
+                        referenceDate: date,
+                        dayCount: 14
+                    )
+                    return HomeHabitRow(
                         habitID: summary.habitID,
                         occurrenceID: summary.occurrenceID,
                         title: summary.title,
@@ -2176,12 +2192,18 @@ public final class BuildHabitHomeProjectionUseCase {
                         projectID: summary.projectID,
                         projectName: summary.projectName,
                         iconSymbolName: summary.icon?.symbolName ?? "circle.dashed",
+                        accentHex: summary.colorHex,
+                        cadence: summary.cadence,
+                        cadenceLabel: HabitBoardPresentationBuilder.cadenceLabel(for: summary.cadence),
                         dueAt: summary.dueAt,
                         state: HabitRuntimeSupport.homeState(for: summary, on: date),
                         currentStreak: summary.currentStreak,
                         bestStreak: summary.bestStreak,
                         last14Days: summary.last14Days,
-                        riskState: summary.riskState
+                        boardCellsCompact: compactCells,
+                        boardCellsExpanded: compactCells,
+                        riskState: summary.riskState,
+                        helperText: nil
                     )
                 }
                 completion(.success(rows))

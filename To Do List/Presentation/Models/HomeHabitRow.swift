@@ -29,12 +29,18 @@ public struct HomeHabitRow: Equatable, Identifiable {
     public let projectID: UUID?
     public let projectName: String?
     public let iconSymbolName: String
+    public let accentHex: String?
+    public let cadence: HabitCadenceDraft
+    public let cadenceLabel: String
     public let dueAt: Date?
     public let state: HomeHabitRowState
     public let currentStreak: Int
     public let bestStreak: Int
     public let last14Days: [HabitDayMark]
+    public let boardCellsCompact: [HabitBoardCell]
+    public let boardCellsExpanded: [HabitBoardCell]
     public let riskState: HabitRiskState
+    public let helperText: String?
 
     public init(
         habitID: UUID,
@@ -47,12 +53,18 @@ public struct HomeHabitRow: Equatable, Identifiable {
         projectID: UUID? = nil,
         projectName: String? = nil,
         iconSymbolName: String,
+        accentHex: String? = nil,
+        cadence: HabitCadenceDraft = .daily(),
+        cadenceLabel: String = "Every day",
         dueAt: Date? = nil,
         state: HomeHabitRowState = .due,
         currentStreak: Int = 0,
         bestStreak: Int = 0,
         last14Days: [HabitDayMark] = [],
-        riskState: HabitRiskState = .stable
+        boardCellsCompact: [HabitBoardCell] = [],
+        boardCellsExpanded: [HabitBoardCell] = [],
+        riskState: HabitRiskState = .stable,
+        helperText: String? = nil
     ) {
         self.habitID = habitID
         self.occurrenceID = occurrenceID
@@ -64,12 +76,18 @@ public struct HomeHabitRow: Equatable, Identifiable {
         self.projectID = projectID
         self.projectName = projectName
         self.iconSymbolName = iconSymbolName
+        self.accentHex = accentHex
+        self.cadence = cadence
+        self.cadenceLabel = cadenceLabel
         self.dueAt = dueAt
         self.state = state
         self.currentStreak = currentStreak
         self.bestStreak = bestStreak
         self.last14Days = last14Days
+        self.boardCellsCompact = boardCellsCompact
+        self.boardCellsExpanded = boardCellsExpanded
         self.riskState = riskState
+        self.helperText = helperText
     }
 
     public var id: String {

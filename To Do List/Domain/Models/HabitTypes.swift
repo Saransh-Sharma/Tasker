@@ -85,6 +85,116 @@ public struct HabitDayMark: Codable, Equatable, Hashable {
     }
 }
 
+public enum HabitBoardCellState: Equatable, Hashable {
+    case success(runDepth: Int)
+    case failure
+    case scheduledOff
+    case skipped
+    case none
+    case future
+}
+
+public struct HabitBoardCell: Equatable, Hashable {
+    public let date: Date
+    public let state: HabitBoardCellState
+    public let isToday: Bool
+    public let isWeekend: Bool
+
+    public init(
+        date: Date,
+        state: HabitBoardCellState,
+        isToday: Bool,
+        isWeekend: Bool
+    ) {
+        self.date = date
+        self.state = state
+        self.isToday = isToday
+        self.isWeekend = isWeekend
+    }
+}
+
+public enum HabitBoardSummaryMode: String, Codable, CaseIterable, Hashable {
+    case streaks
+    case counts
+}
+
+public struct HabitBoardAggregateDay: Equatable, Hashable {
+    public let date: Date
+    public let completedCount: Int
+    public let habitCount: Int
+    public let isToday: Bool
+
+    public init(
+        date: Date,
+        completedCount: Int,
+        habitCount: Int,
+        isToday: Bool
+    ) {
+        self.date = date
+        self.completedCount = completedCount
+        self.habitCount = habitCount
+        self.isToday = isToday
+    }
+}
+
+public struct HabitBoardRowMetrics: Equatable, Hashable {
+    public let currentStreak: Int
+    public let bestStreak: Int
+    public let totalCount: Int
+    public let weekCount: Int
+    public let monthCount: Int
+    public let yearCount: Int
+
+    public init(
+        currentStreak: Int,
+        bestStreak: Int,
+        totalCount: Int,
+        weekCount: Int,
+        monthCount: Int,
+        yearCount: Int
+    ) {
+        self.currentStreak = currentStreak
+        self.bestStreak = bestStreak
+        self.totalCount = totalCount
+        self.weekCount = weekCount
+        self.monthCount = monthCount
+        self.yearCount = yearCount
+    }
+}
+
+public struct HabitBoardRowPresentation: Equatable, Hashable, Identifiable {
+    public let habitID: UUID
+    public let title: String
+    public let iconSymbolName: String
+    public let accentHex: String?
+    public let currentStreak: Int
+    public let bestStreak: Int
+    public let cells: [HabitBoardCell]
+    public let metrics: HabitBoardRowMetrics
+
+    public var id: UUID { habitID }
+
+    public init(
+        habitID: UUID,
+        title: String,
+        iconSymbolName: String,
+        accentHex: String?,
+        currentStreak: Int,
+        bestStreak: Int,
+        cells: [HabitBoardCell],
+        metrics: HabitBoardRowMetrics
+    ) {
+        self.habitID = habitID
+        self.title = title
+        self.iconSymbolName = iconSymbolName
+        self.accentHex = accentHex
+        self.currentStreak = currentStreak
+        self.bestStreak = bestStreak
+        self.cells = cells
+        self.metrics = metrics
+    }
+}
+
 public struct HabitOccurrenceSummary: Codable, Equatable, Hashable, Identifiable {
     public let habitID: UUID
     public let occurrenceID: UUID?
@@ -96,6 +206,8 @@ public struct HabitOccurrenceSummary: Codable, Equatable, Hashable, Identifiable
     public var projectID: UUID?
     public var projectName: String?
     public var icon: HabitIconMetadata?
+    public var colorHex: String?
+    public var cadence: HabitCadenceDraft
     public var dueAt: Date?
     public var state: OccurrenceState
     public var currentStreak: Int
@@ -116,6 +228,8 @@ public struct HabitOccurrenceSummary: Codable, Equatable, Hashable, Identifiable
         projectID: UUID? = nil,
         projectName: String? = nil,
         icon: HabitIconMetadata? = nil,
+        colorHex: String? = nil,
+        cadence: HabitCadenceDraft = .daily(),
         dueAt: Date? = nil,
         state: OccurrenceState = .pending,
         currentStreak: Int = 0,
@@ -133,6 +247,8 @@ public struct HabitOccurrenceSummary: Codable, Equatable, Hashable, Identifiable
         self.projectID = projectID
         self.projectName = projectName
         self.icon = icon
+        self.colorHex = colorHex
+        self.cadence = cadence
         self.dueAt = dueAt
         self.state = state
         self.currentStreak = currentStreak

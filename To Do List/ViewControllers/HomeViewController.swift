@@ -129,6 +129,7 @@ struct HomeTasksSnapshot: Equatable {
     let focusNowSectionState: FocusNowSectionState
     let todayAgendaSectionState: TodayAgendaSectionState
     let rescueSectionState: RescueSectionState
+    let habitHomeSectionState: HabitHomeSectionState
     let quietTrackingSummaryState: QuietTrackingSummaryState
     let inlineCompletedTasks: [TaskDefinition]
     let doneTimelineTasks: [TaskDefinition]
@@ -158,6 +159,7 @@ struct HomeTasksSnapshot: Equatable {
         focusNowSectionState: FocusNowSectionState(rows: [], pinnedTaskIDs: []),
         todayAgendaSectionState: TodayAgendaSectionState(sections: []),
         rescueSectionState: RescueSectionState(rows: []),
+        habitHomeSectionState: HabitHomeSectionState(primaryRows: [], recoveryRows: []),
         quietTrackingSummaryState: QuietTrackingSummaryState(stableRows: []),
         inlineCompletedTasks: [],
         doneTimelineTasks: [],
@@ -186,6 +188,7 @@ struct HomeTasksSnapshot: Equatable {
             || !focusNowSectionState.rows.isEmpty
             || !todayAgendaSectionState.sections.isEmpty
             || !rescueSectionState.isEmpty
+            || habitHomeSectionState.isVisible
             || quietTrackingSummaryState.isVisible
             || !inlineCompletedTasks.isEmpty
             || !doneTimelineTasks.isEmpty
@@ -201,6 +204,7 @@ struct HomeTasksSnapshot: Equatable {
             && focusNowSectionState.rows.isEmpty
             && todayAgendaSectionState.sections.isEmpty
             && rescueSectionState.isEmpty
+            && !habitHomeSectionState.isVisible
             && !quietTrackingSummaryState.isVisible
             && inlineCompletedTasks.isEmpty
             && doneTimelineTasks.isEmpty
