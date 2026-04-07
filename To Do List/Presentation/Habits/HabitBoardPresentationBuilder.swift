@@ -40,7 +40,7 @@ enum HabitBoardPresentationBuilder {
         let endDay = calendar.startOfDay(for: referenceDate)
         let startDay = calendar.date(byAdding: .day, value: -(dayCount - 1), to: endDay) ?? endDay
 
-        let preliminary = (0..<dayCount).compactMap { offset -> HabitBoardCell? in
+        var preliminary = (0..<dayCount).compactMap { offset -> HabitBoardCell? in
             guard let day = calendar.date(byAdding: .day, value: offset, to: startDay) else { return nil }
             let dayStart = calendar.startOfDay(for: day)
             let isFuture = dayStart > endDay
@@ -52,9 +52,9 @@ enum HabitBoardPresentationBuilder {
             } else if let mark = marksByDay[dayStart] {
                 state = boardState(for: mark.state, day: dayStart, cadence: cadence, referenceDay: endDay, calendar: calendar)
             } else if shouldOccur(on: dayStart, cadence: cadence, calendar: calendar) {
-                state = .none
+                state = calendar.isDate(dayStart, inSameDayAs: endDay) ? .todayPending : .missed
             } else {
-                state = .scheduledOff
+                state = .bridge(kind: .single, source: .notScheduled)
             }
 
             return HabitBoardCell(
@@ -65,26 +65,27 @@ enum HabitBoardPresentationBuilder {
             )
         }
 
-        var frozenRunDepth = 0
-        return preliminary.map { cell in
-            switch cell.state {
-            case .success:
-                frozenRunDepth += 1
-                return HabitBoardCell(
-                    date: cell.date,
-                    state: .success(runDepth: min(frozenRunDepth, 5)),
-                    isToday: cell.isToday,
-                    isWeekend: cell.isWeekend
+        var streakDepth = 0
+        for index in preliminary.indices {
+            switch preliminary[index].state {
+            case .done:
+                streakDepth += 1
+                preliminary[index] = HabitBoardCell(
+                    date: preliminary[index].date,
+                    state: .done(depth: min(streakDepth, 8)),
+                    isToday: preliminary[index].isToday,
+                    isWeekend: preliminary[index].isWeekend
                 )
-            case .skipped, .scheduledOff:
-                return cell
-            case .failure, .none:
-                frozenRunDepth = 0
-                return cell
+            case .bridge, .todayPending:
+                continue
+            case .missed:
+                streakDepth = 0
             case .future:
-                return cell
+                continue
             }
         }
+
+        return classifyBridgeKinds(in: preliminary)
     }
 
     static func metrics(
@@ -165,18 +166,21 @@ enum HabitBoardPresentationBuilder {
     ) -> HabitBoardCellState {
         switch markState {
         case .success:
-            return .success(runDepth: 1)
+            return .done(depth: 1)
         case .failure:
-            return .failure
+            return .missed
         case .skipped:
-            return .skipped
+            return .bridge(kind: .single, source: .skipped)
         case .future:
             return .future
         case .none:
             if day > referenceDay {
                 return .future
             }
-            return shouldOccur(on: day, cadence: cadence, calendar: calendar) ? .none : .scheduledOff
+            if shouldOccur(on: day, cadence: cadence, calendar: calendar) {
+                return calendar.isDate(day, inSameDayAs: referenceDay) ? .todayPending : .missed
+            }
+            return .bridge(kind: .single, source: .notScheduled)
         }
     }
 
@@ -200,11 +204,11 @@ enum HabitBoardPresentationBuilder {
             switch cell.state {
             case .future:
                 continue
-            case .success:
+            case .done:
                 streak += 1
-            case .scheduledOff, .skipped:
+            case .bridge, .todayPending:
                 continue
-            case .failure, .none:
+            case .missed:
                 return streak
             }
         }
@@ -217,12 +221,12 @@ enum HabitBoardPresentationBuilder {
 
         for cell in cells {
             switch cell.state {
-            case .success:
+            case .done:
                 streak += 1
                 best = max(best, streak)
-            case .scheduledOff, .skipped:
+            case .bridge, .todayPending:
                 continue
-            case .failure, .none:
+            case .missed:
                 streak = 0
             case .future:
                 continue
@@ -241,11 +245,96 @@ enum HabitBoardPresentationBuilder {
         }
         return lhs.title.localizedCaseInsensitiveCompare(rhs.title) == .orderedAscending
     }
+
+    private static func classifyBridgeKinds(in cells: [HabitBoardCell]) -> [HabitBoardCell] {
+        var resolved = cells
+        var index = 0
+
+        while index < resolved.count {
+            guard case let .bridge(_, source) = resolved[index].state else {
+                index += 1
+                continue
+            }
+
+            let start = index
+            var end = index
+            while end + 1 < resolved.count {
+                guard case .bridge = resolved[end + 1].state else { break }
+                end += 1
+            }
+
+            let previousDone = nearestDoneState(in: resolved, before: start)
+            let nextDone = nearestDoneState(in: resolved, after: end)
+            let count = (start...end).count
+
+            for current in start...end {
+                let kind: HabitBridgeKind
+                if count == 1 {
+                    if previousDone && nextDone {
+                        kind = .single
+                    } else if previousDone {
+                        kind = .start
+                    } else if nextDone {
+                        kind = .end
+                    } else {
+                        kind = .middle
+                    }
+                } else if current == start {
+                    kind = previousDone ? .start : .middle
+                } else if current == end {
+                    kind = nextDone ? .end : .middle
+                } else {
+                    kind = .middle
+                }
+
+                resolved[current] = HabitBoardCell(
+                    date: resolved[current].date,
+                    state: .bridge(kind: kind, source: source),
+                    isToday: resolved[current].isToday,
+                    isWeekend: resolved[current].isWeekend
+                )
+            }
+
+            index = end + 1
+        }
+
+        return resolved
+    }
+
+    private static func nearestDoneState(in cells: [HabitBoardCell], before index: Int) -> Bool {
+        guard index > 0 else { return false }
+        for cursor in stride(from: index - 1, through: 0, by: -1) {
+            switch cells[cursor].state {
+            case .done:
+                return true
+            case .bridge, .todayPending:
+                continue
+            case .missed, .future:
+                return false
+            }
+        }
+        return false
+    }
+
+    private static func nearestDoneState(in cells: [HabitBoardCell], after index: Int) -> Bool {
+        guard index < cells.count - 1 else { return false }
+        for cursor in (index + 1)..<cells.count {
+            switch cells[cursor].state {
+            case .done:
+                return true
+            case .bridge, .todayPending:
+                continue
+            case .missed, .future:
+                return false
+            }
+        }
+        return false
+    }
 }
 
 private extension HabitBoardCell {
     var isSuccess: Bool {
-        if case .success = state {
+        if case .done = state {
             return true
         }
         return false

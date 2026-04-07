@@ -121,6 +121,7 @@ public final class HabitBoardViewModel: ObservableObject {
                 title: row.title,
                 iconSymbolName: row.icon?.symbolName ?? "circle.dashed",
                 accentHex: row.colorHex,
+                colorFamily: HabitColorFamily.family(for: row.colorHex, fallback: row.kind == .positive ? .green : .coral),
                 currentStreak: metrics.currentStreak,
                 bestStreak: metrics.bestStreak,
                 cells: visibleCells,

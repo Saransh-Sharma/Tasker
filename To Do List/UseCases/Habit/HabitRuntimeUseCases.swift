@@ -2179,8 +2179,20 @@ public final class BuildHabitHomeProjectionUseCase {
                         marks: summary.last14Days,
                         cadence: summary.cadence,
                         referenceDate: date,
-                        dayCount: 14
+                        dayCount: 10
                     )
+                    let expandedCells = HabitBoardPresentationBuilder.buildCells(
+                        marks: summary.last14Days,
+                        cadence: summary.cadence,
+                        referenceDate: date,
+                        dayCount: 30
+                    )
+                    let metrics = HabitBoardPresentationBuilder.metrics(for: expandedCells)
+                    let rowState = HabitRuntimeSupport.homeState(for: summary, on: date)
+                    let calendar = Calendar.current
+                    let todayMark = summary.last14Days.first { mark in
+                        calendar.isDate(mark.date, inSameDayAs: date)
+                    }
                     return HomeHabitRow(
                         habitID: summary.habitID,
                         occurrenceID: summary.occurrenceID,
@@ -2196,13 +2208,13 @@ public final class BuildHabitHomeProjectionUseCase {
                         cadence: summary.cadence,
                         cadenceLabel: HabitBoardPresentationBuilder.cadenceLabel(for: summary.cadence),
                         dueAt: summary.dueAt,
-                        state: HabitRuntimeSupport.homeState(for: summary, on: date),
-                        currentStreak: summary.currentStreak,
-                        bestStreak: summary.bestStreak,
+                        state: rowState,
+                        currentStreak: metrics.currentStreak,
+                        bestStreak: metrics.bestStreak,
                         last14Days: summary.last14Days,
                         boardCellsCompact: compactCells,
-                        boardCellsExpanded: compactCells,
-                        riskState: summary.riskState,
+                        boardCellsExpanded: expandedCells,
+                        riskState: todayMark?.state == .failure ? .broken : .stable,
                         helperText: nil
                     )
                 }

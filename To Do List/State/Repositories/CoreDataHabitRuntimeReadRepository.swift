@@ -66,7 +66,7 @@ public final class CoreDataHabitRuntimeReadRepository: HabitRuntimeReadRepositor
                     let marks = HabitRuntimeSupport.dayMarks(
                         from: history,
                         endingOn: date,
-                        dayCount: 14,
+                        dayCount: 30,
                         calendar: calendar
                     )
                     return self.buildSummary(

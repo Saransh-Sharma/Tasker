@@ -2811,7 +2811,7 @@ public final class HomeViewModel: ObservableObject {
                 self.useCaseCoordinator.getHabitHistory.execute(
                     habitIDs: libraryRows.map(\.habitID),
                     endingOn: self.selectedDate,
-                    dayCount: 1
+                    dayCount: 30
                 ) { historyResult in
                     if case .success(let windows) = historyResult {
                         historyByHabitID = windows.reduce(into: [:]) { partialResult, window in
@@ -3061,9 +3061,17 @@ public final class HomeViewModel: ObservableObject {
                 marks: marks,
                 cadence: row.cadence,
                 referenceDate: date,
-                dayCount: 14,
+                dayCount: 10,
                 calendar: calendar
             )
+            let expandedCells = HabitBoardPresentationBuilder.buildCells(
+                marks: marks,
+                cadence: row.cadence,
+                referenceDate: date,
+                dayCount: 30,
+                calendar: calendar
+            )
+            let metrics = HabitBoardPresentationBuilder.metrics(for: expandedCells)
 
             return HomeHabitRow(
                 habitID: row.habitID,
@@ -3080,11 +3088,11 @@ public final class HomeViewModel: ObservableObject {
                 cadenceLabel: HabitBoardPresentationBuilder.cadenceLabel(for: row.cadence, calendar: calendar),
                 dueAt: row.nextDueAt,
                 state: state,
-                currentStreak: row.currentStreak,
-                bestStreak: row.bestStreak,
+                currentStreak: metrics.currentStreak,
+                bestStreak: metrics.bestStreak,
                 last14Days: marks,
                 boardCellsCompact: compactCells,
-                boardCellsExpanded: compactCells,
+                boardCellsExpanded: expandedCells,
                 riskState: todayMark?.state == .failure ? .broken : .stable,
                 helperText: HabitBoardPresentationBuilder.cadenceLabel(for: row.cadence, calendar: calendar)
             )

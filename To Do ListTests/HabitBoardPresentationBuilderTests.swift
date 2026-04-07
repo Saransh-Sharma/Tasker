@@ -20,11 +20,11 @@ final class HabitBoardPresentationBuilderTests: XCTestCase {
         )
 
         XCTAssertEqual(cells.map(\.state), [
-            .success(runDepth: 1),
-            .success(runDepth: 2),
-            .skipped,
-            .success(runDepth: 3),
-            .success(runDepth: 4),
+            .done(depth: 1),
+            .done(depth: 2),
+            .bridge(kind: .single, source: .skipped),
+            .done(depth: 3),
+            .done(depth: 4),
         ])
         XCTAssertTrue(cells.last?.isToday ?? false)
     }
@@ -47,21 +47,21 @@ final class HabitBoardPresentationBuilderTests: XCTestCase {
             calendar: Self.calendar
         )
 
-        XCTAssertEqual(cells.map(\.state), [.none, .scheduledOff, .none])
+        XCTAssertEqual(cells.map(\.state), [.missed, .bridge(kind: .middle, source: .notScheduled), .todayPending])
         XCTAssertEqual(cells[1].date, date("2026-04-07"))
     }
 
     func testMetricsTreatSkipAndScheduledOffAsFrozenNotBroken() {
         let cells = [
-            makeCell("2026-04-01", .success(runDepth: 1)),
-            makeCell("2026-04-02", .success(runDepth: 2)),
-            makeCell("2026-04-03", .skipped),
-            makeCell("2026-04-04", .success(runDepth: 3)),
-            makeCell("2026-04-05", .success(runDepth: 4)),
-            makeCell("2026-04-06", .failure),
-            makeCell("2026-04-07", .success(runDepth: 1)),
-            makeCell("2026-04-08", .scheduledOff),
-            makeCell("2026-04-09", .success(runDepth: 2), isToday: true),
+            makeCell("2026-04-01", .done(depth: 1)),
+            makeCell("2026-04-02", .done(depth: 2)),
+            makeCell("2026-04-03", .bridge(kind: .single, source: .skipped)),
+            makeCell("2026-04-04", .done(depth: 3)),
+            makeCell("2026-04-05", .done(depth: 4)),
+            makeCell("2026-04-06", .missed),
+            makeCell("2026-04-07", .done(depth: 1)),
+            makeCell("2026-04-08", .bridge(kind: .single, source: .notScheduled)),
+            makeCell("2026-04-09", .done(depth: 2), isToday: true),
         ]
 
         let metrics = HabitBoardPresentationBuilder.metrics(for: cells)
@@ -76,14 +76,14 @@ final class HabitBoardPresentationBuilderTests: XCTestCase {
 
     func testAggregateDaysSummarizesVisibleCompletionsByColumn() {
         let firstRowCells = [
-            makeCell("2026-04-01", .success(runDepth: 1)),
-            makeCell("2026-04-02", .success(runDepth: 2)),
-            makeCell("2026-04-03", .none, isToday: true),
+            makeCell("2026-04-01", .done(depth: 1)),
+            makeCell("2026-04-02", .done(depth: 2)),
+            makeCell("2026-04-03", .todayPending, isToday: true),
         ]
         let secondRowCells = [
-            makeCell("2026-04-01", .none),
-            makeCell("2026-04-02", .success(runDepth: 1)),
-            makeCell("2026-04-03", .success(runDepth: 2)),
+            makeCell("2026-04-01", .missed),
+            makeCell("2026-04-02", .done(depth: 1)),
+            makeCell("2026-04-03", .done(depth: 2)),
         ]
 
         let aggregate = HabitBoardPresentationBuilder.aggregateDays(
@@ -93,6 +93,7 @@ final class HabitBoardPresentationBuilderTests: XCTestCase {
                     title: "Journal",
                     iconSymbolName: "book",
                     accentHex: "#4E9A2F",
+                    colorFamily: .green,
                     currentStreak: 2,
                     bestStreak: 2,
                     cells: firstRowCells,
@@ -103,6 +104,7 @@ final class HabitBoardPresentationBuilderTests: XCTestCase {
                     title: "Walk",
                     iconSymbolName: "figure.walk",
                     accentHex: "#4A86E8",
+                    colorFamily: .blue,
                     currentStreak: 1,
                     bestStreak: 1,
                     cells: secondRowCells,
@@ -129,6 +131,32 @@ final class HabitBoardPresentationBuilderTests: XCTestCase {
         XCTAssertEqual(split.primary.map(\.title), ["Stretch", "Meditate"])
         XCTAssertEqual(split.recovery.map(\.title), ["Sleep", "Read"])
         XCTAssertEqual(split.quiet.map(\.title), ["No Sugar"])
+    }
+
+    func testColorFamilyNormalizesExistingAccentHex() {
+        XCTAssertEqual(HabitColorFamily.family(for: "#4A86E8"), .blue)
+        XCTAssertEqual(HabitColorFamily.family(for: "#E94C3D"), .coral)
+        XCTAssertEqual(HabitColorFamily.family(for: "#5AA7A4"), .teal)
+    }
+
+    func testBridgeKindClassifiesLongNotScheduledRun() {
+        let referenceDate = date("2026-04-06")
+        let cadence = HabitCadenceDraft.weekly(daysOfWeek: [1, 4])
+
+        let cells = HabitBoardPresentationBuilder.buildCells(
+            marks: [
+                HabitDayMark(date: date("2026-04-01"), state: .success),
+                HabitDayMark(date: date("2026-04-05"), state: .success)
+            ],
+            cadence: cadence,
+            referenceDate: referenceDate,
+            dayCount: 6,
+            calendar: Self.calendar
+        )
+
+        XCTAssertEqual(cells[1].state, .bridge(kind: .start, source: .notScheduled))
+        XCTAssertEqual(cells[2].state, .bridge(kind: .middle, source: .notScheduled))
+        XCTAssertEqual(cells[3].state, .bridge(kind: .end, source: .notScheduled))
     }
 
     private func makeRow(
