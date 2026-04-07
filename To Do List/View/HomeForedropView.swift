@@ -4401,7 +4401,14 @@ private struct QuietTrackingComposerView: View {
 
             if let selectedRow {
                 HStack(spacing: spacing.s8) {
-                    HabitHistoryStripView(marks: selectedRow.last14Days)
+                    HabitHistoryStripView(
+                        marks: selectedRow.last14Days,
+                        cadence: selectedRow.cadence,
+                        family: HabitColorFamily.family(
+                            for: selectedRow.accentHex,
+                            fallback: selectedRow.kind == .positive ? .green : .coral
+                        )
+                    )
 
                     Spacer(minLength: 0)
 

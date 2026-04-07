@@ -93,7 +93,12 @@ struct AddHabitForedropView: View {
     }
 
     private var composerAccentColor: Color {
-        TaskerHexColor.color(viewModel.selectedColorHex.nilIfBlank, fallback: Color.tasker.accentPrimary)
+        HabitEverydayPalette.familyPreview(
+            HabitColorFamily.family(
+                for: viewModel.selectedColorHex,
+                fallback: viewModel.selectedKind == .positive ? .green : .coral
+            )
+        )
     }
 
     private var composerAccentWash: Color {
@@ -101,7 +106,10 @@ struct AddHabitForedropView: View {
     }
 
     private var selectedComposerAccentTitle: String {
-        habitAccentPresetMatch(for: viewModel.selectedColorHex)?.title ?? "Custom"
+        habitAccentPresetMatch(for: viewModel.selectedColorHex)?.title ?? HabitColorFamily.family(
+            for: viewModel.selectedColorHex,
+            fallback: viewModel.selectedKind == .positive ? .green : .coral
+        ).title
     }
 
     private var advancedSummary: String {
@@ -467,7 +475,11 @@ struct AddHabitForedropView: View {
                     HabitAccentPaletteField(
                         selectedHex: $viewModel.selectedColorHex,
                         selectedTitle: selectedComposerAccentTitle,
-                        previewColor: composerAccentColor
+                        previewColor: composerAccentColor,
+                        previewFamily: HabitColorFamily.family(
+                            for: viewModel.selectedColorHex,
+                            fallback: viewModel.selectedKind == .positive ? .green : .coral
+                        )
                     )
 
                     let options = Array(viewModel.availableIconOptions.prefix(layoutClass.isPad ? 24 : 16))
@@ -976,7 +988,14 @@ struct HabitDetailSheetView: View {
                 iconSystemName: "clock.arrow.circlepath"
             ) {
                 VStack(alignment: .leading, spacing: spacing.s12) {
-                    HabitHistoryStripView(marks: viewModel.historyMarks)
+                    HabitHistoryStripView(
+                        marks: viewModel.historyMarks,
+                        cadence: viewModel.row.cadence,
+                        family: HabitColorFamily.family(
+                            for: viewModel.row.colorHex,
+                            fallback: viewModel.row.kind == .positive ? .green : .coral
+                        )
+                    )
                     HabitHistoryLegend()
                 }
             }
@@ -1122,6 +1141,10 @@ struct HabitDetailSheetView: View {
                         previewColor: TaskerHexColor.color(
                             viewModel.draft.colorHex.nilIfBlank,
                             fallback: viewModel.row.kind == .positive ? Color.tasker.statusSuccess : Color.tasker.statusWarning
+                        ),
+                        previewFamily: HabitColorFamily.family(
+                            for: viewModel.draft.colorHex,
+                            fallback: viewModel.row.kind == .positive ? .green : .coral
                         )
                     )
 
@@ -1373,32 +1396,25 @@ struct HabitDetailSheetView: View {
 }
 
 private struct HabitAccentPreset: Identifiable {
-    let id: String
-    let title: String
-    let hex: String
+    let family: HabitColorFamily
+
+    var id: String { family.rawValue }
+    var title: String { family.title }
+    var hex: String { family.canonicalHex }
 }
 
-private let habitAccentPresets: [HabitAccentPreset] = [
-    HabitAccentPreset(id: "green", title: "Leaf", hex: "#4E9A2F"),
-    HabitAccentPreset(id: "blue", title: "Sky", hex: "#4A86E8"),
-    HabitAccentPreset(id: "amber", title: "Glow", hex: "#F5B23C"),
-    HabitAccentPreset(id: "red", title: "Spark", hex: "#E94C3D"),
-    HabitAccentPreset(id: "purple", title: "Plum", hex: "#8A46B5"),
-    HabitAccentPreset(id: "gray", title: "Stone", hex: "#8C8E94"),
-    HabitAccentPreset(id: "teal", title: "Wave", hex: "#5AA7A4")
-]
+private let habitAccentPresets: [HabitAccentPreset] = HabitColorFamily.allCases.map(HabitAccentPreset.init)
 
 private func habitAccentPresetMatch(for hex: String?) -> HabitAccentPreset? {
-    guard let normalized = TaskerHexColor.normalized(hex?.nilIfBlank) else {
-        return nil
-    }
-    return habitAccentPresets.first { TaskerHexColor.normalized($0.hex) == normalized }
+    let family = HabitColorFamily.family(for: hex, fallback: .green)
+    return habitAccentPresets.first { $0.family == family }
 }
 
 private struct HabitAccentPaletteField: View {
     @Binding var selectedHex: String
     let selectedTitle: String
     let previewColor: Color
+    let previewFamily: HabitColorFamily
 
     @Environment(\.taskerLayoutClass) private var layoutClass
 
@@ -1407,11 +1423,11 @@ private struct HabitAccentPaletteField: View {
     var body: some View {
         VStack(alignment: .leading, spacing: spacing.s12) {
             HStack(spacing: spacing.s8) {
-                Circle()
+                RoundedRectangle(cornerRadius: 4, style: .continuous)
                     .fill(previewColor)
-                    .frame(width: 12, height: 12)
+                    .frame(width: 14, height: 14)
 
-                Text("Accent")
+                Text("Streak family")
                     .font(.tasker(.caption1).weight(.semibold))
                     .foregroundStyle(Color.tasker.textPrimary)
 
@@ -1431,6 +1447,12 @@ private struct HabitAccentPaletteField: View {
                 }
             }
 
+            HabitBoardStripView(
+                cells: previewCells,
+                family: previewFamily,
+                mode: .expanded
+            )
+
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: spacing.s8) {
                     ForEach(habitAccentPresets) { preset in
@@ -1445,11 +1467,29 @@ private struct HabitAccentPaletteField: View {
                 .padding(.vertical, 2)
             }
 
-            TextField("Accent color (hex, optional)", text: $selectedHex)
-                .textFieldStyle(TaskerTextFieldStyle())
-                .textInputAutocapitalization(.never)
-                .autocorrectionDisabled()
+            DisclosureGroup("Advanced custom hex") {
+                TextField("Accent color (hex, optional)", text: $selectedHex)
+                    .textFieldStyle(TaskerTextFieldStyle())
+                    .textInputAutocapitalization(.never)
+                    .autocorrectionDisabled()
+                    .padding(.top, 8)
+            }
+            .font(.tasker(.caption1))
+            .foregroundStyle(Color.tasker.textSecondary)
         }
+    }
+
+    private var previewCells: [HabitBoardCell] {
+        [
+            HabitBoardCell(date: Date(), state: .done(depth: 1), isToday: false, isWeekend: false),
+            HabitBoardCell(date: Date(), state: .done(depth: 2), isToday: false, isWeekend: false),
+            HabitBoardCell(date: Date(), state: .done(depth: 3), isToday: false, isWeekend: false),
+            HabitBoardCell(date: Date(), state: .bridge(kind: .single, source: .skipped), isToday: false, isWeekend: false),
+            HabitBoardCell(date: Date(), state: .done(depth: 4), isToday: false, isWeekend: false),
+            HabitBoardCell(date: Date(), state: .done(depth: 5), isToday: false, isWeekend: false),
+            HabitBoardCell(date: Date(), state: .missed, isToday: false, isWeekend: false),
+            HabitBoardCell(date: Date(), state: .done(depth: 1), isToday: true, isWeekend: false)
+        ]
     }
 }
 
@@ -1866,7 +1906,14 @@ private struct HabitLibraryCard: View {
                 .foregroundColor(Color.tasker.textSecondary)
                 .lineLimit(2)
 
-            HabitHistoryStripView(marks: row.last14Days)
+            HabitHistoryStripView(
+                marks: row.last14Days,
+                cadence: row.cadence,
+                family: HabitColorFamily.family(
+                    for: row.colorHex,
+                    fallback: row.kind == .positive ? .green : .coral
+                )
+            )
 
             HStack(spacing: spacing.s8) {
                 HabitMiniMetric(title: "Current", value: "\(row.currentStreak)d")
@@ -2035,7 +2082,14 @@ private struct HabitDetailHeroCard: View {
                 }
             }
 
-            HabitHistoryStripView(marks: historyMarks)
+            HabitHistoryStripView(
+                marks: historyMarks,
+                cadence: row.cadence,
+                family: HabitColorFamily.family(
+                    for: row.colorHex,
+                    fallback: row.kind == .positive ? .green : .coral
+                )
+            )
         }
         .padding(spacing.s20)
         .taskerPremiumSurface(

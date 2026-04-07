@@ -12,12 +12,12 @@ struct HomeHabitRowView: View {
 
     private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.tokens(for: layoutClass).spacing }
 
-    private var accentColor: Color {
-        TaskerHexColor.color(row.accentHex, fallback: row.kind == .positive ? Color.tasker.statusSuccess : Color.tasker.accentSecondary)
+    private var family: HabitColorFamily {
+        HabitColorFamily.family(for: row.accentHex, fallback: row.kind == .positive ? .green : .coral)
     }
 
-    private var boardFallbackColor: Color {
-        row.kind == .positive ? Color.tasker.statusSuccess : Color.tasker.accentSecondary
+    private var accentColor: Color {
+        HabitEverydayPalette.familyPreview(family)
     }
 
     private var isResolved: Bool {
@@ -30,7 +30,7 @@ struct HomeHabitRowView: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: spacing.s12) {
+        VStack(alignment: .leading, spacing: 10) {
             collapsedRow
 
             if isExpanded {
@@ -43,16 +43,15 @@ struct HomeHabitRowView: View {
                     )
             }
         }
-        .padding(.horizontal, spacing.s16)
-        .padding(.vertical, isExpanded ? 14 : spacing.s12)
+        .padding(.horizontal, spacing.s12)
+        .padding(.vertical, 12)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .frame(minHeight: isExpanded ? 156 : 88)
         .background(backgroundColor)
         .overlay(
-            RoundedRectangle(cornerRadius: 20)
-                .stroke(borderColor, lineWidth: row.state == .overdue || row.riskState != .stable ? 1.2 : 1)
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .stroke(borderColor, lineWidth: 1)
         )
-        .clipShape(RoundedRectangle(cornerRadius: 20))
+        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
         .animation(reduceMotion ? .linear(duration: 0.01) : TaskerAnimation.stateChange, value: isExpanded)
         .animation(reduceMotion ? .linear(duration: 0.01) : TaskerAnimation.feedbackFast, value: row.state)
         .accessibilityElement(children: .contain)
@@ -60,45 +59,48 @@ struct HomeHabitRowView: View {
     }
 
     private var collapsedRow: some View {
-        HStack(alignment: .top, spacing: spacing.s12) {
-            leadingIdentity
-                .frame(maxWidth: 124, alignment: .leading)
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(alignment: .top, spacing: 8) {
+                leadingIdentity
+                Spacer(minLength: 0)
+                expandButton
+            }
 
-            VStack(alignment: .trailing, spacing: spacing.s8) {
-                HabitBoardStripView(
-                    cells: boardCells,
-                    accentHex: row.accentHex,
-                    fallbackColor: boardFallbackColor,
-                    mode: .compact
+            HabitBoardStripView(
+                cells: boardCells,
+                family: family,
+                mode: .compact
+            )
+
+            HStack(alignment: .center, spacing: 8) {
+                HabitStatBadgeView(
+                    value: "\(row.currentStreak)",
+                    family: family,
+                    highlighted: row.currentStreak > 0 && row.currentStreak == row.bestStreak
+                )
+                HabitStatBadgeView(
+                    value: "\(row.bestStreak)",
+                    family: family,
+                    highlighted: row.bestStreak > 0 && row.currentStreak == row.bestStreak
                 )
 
-                HStack(spacing: spacing.s8) {
-                    streakSummary
-                    Spacer(minLength: 0)
-                    quickActionSlot
-                }
-            }
-            .frame(maxWidth: .infinity, alignment: .trailing)
+                Text(row.bestStreak > 0 ? "best" : stateText.lowercased())
+                    .font(.tasker(.caption1))
+                    .foregroundStyle(Color.tasker.textSecondary)
 
-            expandButton
+                Spacer(minLength: 0)
+
+                quickActionSlot
+            }
         }
     }
 
     private var expandedContent: some View {
-        VStack(alignment: .leading, spacing: spacing.s12) {
-            HStack(alignment: .top, spacing: spacing.s12) {
-                iconTile(size: 36)
-
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(row.title)
-                        .font(.tasker(.headline))
-                        .foregroundStyle(Color.tasker.textPrimary)
-                        .lineLimit(2)
-
-                    Text(row.cadenceLabel)
-                        .font(.tasker(.caption1))
-                        .foregroundStyle(Color.tasker.textSecondary)
-                }
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(alignment: .center, spacing: 8) {
+                Text(row.cadenceLabel.uppercased())
+                    .font(.tasker(.caption2).weight(.semibold))
+                    .foregroundStyle(Color.tasker.textSecondary)
 
                 Spacer(minLength: 0)
 
@@ -107,18 +109,17 @@ struct HomeHabitRowView: View {
 
             HabitBoardStripView(
                 cells: row.boardCellsExpanded.isEmpty ? boardCells : row.boardCellsExpanded,
-                accentHex: row.accentHex,
-                fallbackColor: boardFallbackColor,
+                family: family,
                 mode: .expanded
             )
 
-            HStack(spacing: spacing.s12) {
-                statCard(title: "Current", value: "\(row.currentStreak)")
-                statCard(title: "Best", value: "\(row.bestStreak)")
+            HStack(spacing: 10) {
+                metricCluster(title: "Current", value: "\(row.currentStreak)", highlighted: row.currentStreak > 0 && row.currentStreak == row.bestStreak)
+                metricCluster(title: "Longest", value: "\(row.bestStreak)", highlighted: row.bestStreak > 0 && row.currentStreak == row.bestStreak)
                 Spacer(minLength: 0)
             }
 
-            HStack(spacing: spacing.s8) {
+            HStack(spacing: 8) {
                 if let primaryActionTitle, let onPrimaryAction {
                     actionButton(
                         title: primaryActionTitle,
@@ -143,51 +144,23 @@ struct HomeHabitRowView: View {
     }
 
     private var leadingIdentity: some View {
-        VStack(alignment: .leading, spacing: spacing.s8) {
-            HStack(spacing: spacing.s8) {
-                Circle()
-                    .fill(accentColor)
-                    .frame(width: 8, height: 8)
-
-                iconTile(size: 34)
-            }
+        HStack(alignment: .top, spacing: 8) {
+            Image(systemName: row.iconSymbolName)
+                .font(.system(size: 11, weight: .semibold))
+                .foregroundStyle(accentColor)
+                .frame(width: 16, alignment: .center)
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(row.title)
-                    .font(.tasker(.caption1).weight(.semibold))
+                    .font(.tasker(.bodyEmphasis))
                     .foregroundStyle(Color.tasker.textPrimary)
-                    .lineLimit(2)
+                    .lineLimit(1)
 
                 Text(metadataLine)
                     .font(.tasker(.caption1))
                     .foregroundStyle(Color.tasker.textSecondary)
-                    .lineLimit(2)
+                    .lineLimit(1)
             }
-        }
-    }
-
-    private func iconTile(size: CGFloat) -> some View {
-        ZStack {
-            RoundedRectangle(cornerRadius: 12)
-                .fill(accentColor.opacity(0.12))
-                .frame(width: size, height: size)
-
-            Image(systemName: row.iconSymbolName)
-                .font(.system(size: size * 0.42, weight: .semibold))
-                .foregroundStyle(accentColor)
-        }
-        .frame(width: size, height: size)
-    }
-
-    private var streakSummary: some View {
-        VStack(alignment: .trailing, spacing: 1) {
-            Text("\(row.currentStreak)d")
-                .font(.tasker(.caption1).weight(.semibold))
-                .foregroundStyle(Color.tasker.textPrimary)
-
-            Text(row.bestStreak > 0 ? "best \(row.bestStreak)" : stateText)
-                .font(.tasker(.caption1))
-                .foregroundStyle(Color.tasker.textSecondary)
         }
     }
 
@@ -203,11 +176,17 @@ struct HomeHabitRowView: View {
                 onPrimaryAction()
             }
             .font(.tasker(.caption1).weight(.semibold))
-            .foregroundStyle(accentColor)
+            .foregroundStyle(Color.tasker.textPrimary)
             .padding(.horizontal, 10)
             .padding(.vertical, 6)
-            .background(accentColor.opacity(0.10))
-            .clipShape(Capsule())
+            .background(
+                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    .fill(Color.white.opacity(0.82))
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    .stroke(accentColor.opacity(0.18), lineWidth: 1)
+            )
             .buttonStyle(.plain)
             .scaleOnPress()
         }
@@ -220,17 +199,16 @@ struct HomeHabitRowView: View {
                 isExpanded.toggle()
             }
         } label: {
-            Label(
-                isExpanded ? "Collapse habit details" : "Expand habit details",
-                systemImage: isExpanded ? "chevron.up" : "chevron.down"
-            )
-            .labelStyle(.iconOnly)
-            .font(.system(size: 13, weight: .semibold))
-            .foregroundStyle(Color.tasker.textSecondary)
-            .frame(width: 44, height: 44)
-            .background(Color.tasker.surfaceSecondary)
-            .clipShape(RoundedRectangle(cornerRadius: 12))
+            Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
+                .font(.system(size: 11, weight: .semibold))
+                .foregroundStyle(Color.tasker.textSecondary)
+                .frame(width: 28, height: 28)
+                .background(Color.white.opacity(0.7))
+                .clipShape(Circle())
+                .overlay(Circle().stroke(Color.tasker.strokeHairline.opacity(0.55), lineWidth: 1))
         }
+        .frame(width: 44, height: 44)
+        .contentShape(Rectangle())
         .buttonStyle(.plain)
     }
 
@@ -240,24 +218,29 @@ struct HomeHabitRowView: View {
             .foregroundStyle(stateChipForeground)
             .padding(.horizontal, 10)
             .padding(.vertical, 6)
-            .background(stateChipBackground)
-            .clipShape(Capsule())
+            .background(
+                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    .fill(stateChipBackground)
+            )
     }
 
-    private func statCard(title: String, value: String) -> some View {
+    private func metricCluster(title: String, value: String, highlighted: Bool) -> some View {
         VStack(alignment: .leading, spacing: 4) {
             Text(title)
                 .font(.tasker(.caption1))
                 .foregroundStyle(Color.tasker.textSecondary)
-            Text(value)
-                .font(.tasker(.metric))
-                .foregroundStyle(accentColor)
-                .contentTransition(.numericText())
+            HabitStatBadgeView(value: value, family: family, highlighted: highlighted)
         }
-        .padding(.horizontal, spacing.s12)
-        .padding(.vertical, spacing.s8)
-        .background(Color.tasker.surfaceSecondary.opacity(0.88))
-        .clipShape(RoundedRectangle(cornerRadius: 14))
+        .padding(.horizontal, 10)
+        .padding(.vertical, 8)
+        .background(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .fill(Color.white.opacity(0.58))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .stroke(Color.tasker.strokeHairline.opacity(0.45), lineWidth: 1)
+        )
     }
 
     private func actionButton(
@@ -271,10 +254,16 @@ struct HomeHabitRowView: View {
         }
         .font(.tasker(.buttonSmall))
         .foregroundStyle(isPrimary ? Color.white : Color.tasker.textPrimary)
-        .frame(minHeight: 44)
+        .frame(minHeight: 40)
         .frame(maxWidth: .infinity)
-        .background(isPrimary ? accentColor : Color.tasker.surfaceSecondary)
-        .clipShape(RoundedRectangle(cornerRadius: 14))
+        .background(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .fill(isPrimary ? accentColor : Color.white.opacity(0.7))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .stroke(isPrimary ? accentColor.opacity(0.12) : Color.tasker.strokeHairline.opacity(0.52), lineWidth: 1)
+        )
         .buttonStyle(.plain)
         .scaleOnPress()
     }
@@ -307,28 +296,15 @@ struct HomeHabitRowView: View {
     }
 
     private var backgroundColor: Color {
-        switch row.state {
-        case .overdue, .lapsedToday:
-            return Color(uiColor: UIColor(taskerHex: "#FFF9F7"))
-        case .tracking:
-            return Color(uiColor: UIColor(taskerHex: "#FCFCF8"))
-        case .completedToday:
-            return Color(uiColor: UIColor(taskerHex: "#FBFCF7"))
-        case .skippedToday:
-            return Color(uiColor: UIColor(taskerHex: "#FBFBF8"))
-        case .due:
-            return Color(uiColor: UIColor(taskerHex: "#FFFDF9"))
-        }
+        Color(uiColor: UIColor(taskerHex: "#FCFAF4"))
     }
 
     private var borderColor: Color {
         switch row.state {
         case .overdue, .lapsedToday:
-            return Color(uiColor: UIColor(taskerHex: "#E2B3A8"))
-        case .due:
-            return accentColor.opacity(0.22)
-        case .tracking, .completedToday, .skippedToday:
-            return Color.tasker.strokeHairline.opacity(0.75)
+            return Color(uiColor: UIColor(taskerHex: "#D8BAAF"))
+        default:
+            return Color.tasker.strokeHairline.opacity(0.52)
         }
     }
 
@@ -354,7 +330,7 @@ struct HomeHabitRowView: View {
         case .lapsedToday:
             return "Lapse logged today"
         case .skippedToday:
-            return "Skipped without breaking the streak"
+            return "Skipped without breaking the chain"
         case .tracking:
             return row.trackingMode == .lapseOnly ? "Tracking quietly" : row.cadenceLabel
         }
@@ -381,11 +357,9 @@ struct HomeHabitRowView: View {
         switch row.state {
         case .overdue, .lapsedToday:
             return Color.tasker.statusDanger
-        case .completedToday:
-            return accentColor
         case .skippedToday:
             return Color.tasker.textSecondary
-        case .due, .tracking:
+        case .completedToday, .due, .tracking:
             return accentColor
         }
     }
@@ -395,8 +369,8 @@ struct HomeHabitRowView: View {
         case .overdue, .lapsedToday:
             return Color.tasker.statusDanger.opacity(0.10)
         case .skippedToday:
-            return Color.tasker.surfaceSecondary
-        case .due, .tracking, .completedToday:
+            return Color.white.opacity(0.62)
+        case .completedToday, .due, .tracking:
             return accentColor.opacity(0.10)
         }
     }
@@ -407,7 +381,7 @@ struct HomeHabitRowView: View {
                 marks: row.last14Days,
                 cadence: row.cadence,
                 referenceDate: row.dueAt ?? Date(),
-                dayCount: 14
+                dayCount: 10
             )
         }
         return row.boardCellsCompact
