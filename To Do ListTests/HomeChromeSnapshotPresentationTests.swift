@@ -33,7 +33,7 @@ final class HomeChromeSnapshotPresentationTests: XCTestCase {
         XCTAssertFalse(presentation.showsBackToToday)
         XCTAssertTrue(presentation.showsReflectionCTA)
         XCTAssertEqual(presentation.reflectionCTATitle, "Reflect")
-        XCTAssertEqual(presentation.metadataItems.map(\.text), ["18/250 XP", "100%", "1d"])
+        XCTAssertEqual(presentation.metadataItems.map { $0.text }, ["18/250 XP", "100%", "1d"])
         XCTAssertEqual(presentation.xpProgress?.earnedXP, 18)
         XCTAssertEqual(presentation.xpProgress?.targetXP, 250)
         XCTAssertEqual(presentation.xpProgress?.isStreakSafeToday, true)
@@ -93,6 +93,7 @@ final class HomeChromeSnapshotPresentationTests: XCTestCase {
                 ]
             ),
             rescueSectionState: RescueSectionState(rows: []),
+            habitHomeSectionState: HabitHomeSectionState(primaryRows: [], recoveryRows: []),
             quietTrackingSummaryState: QuietTrackingSummaryState(stableRows: []),
             inlineCompletedTasks: [],
             doneTimelineTasks: [],
@@ -122,7 +123,7 @@ final class HomeChromeSnapshotPresentationTests: XCTestCase {
         )
         XCTAssertTrue(presentation.showsBackToToday)
         XCTAssertFalse(presentation.showsReflectionCTA)
-        XCTAssertEqual(presentation.metadataItems.map(\.text), ["1 task", "1 habit"])
+        XCTAssertEqual(presentation.metadataItems.map { $0.text }, ["1 task", "1 habit"])
         XCTAssertNil(presentation.xpProgress)
     }
 
@@ -153,6 +154,7 @@ final class HomeChromeSnapshotPresentationTests: XCTestCase {
             focusNowSectionState: tasks.focusNowSectionState,
             todayAgendaSectionState: tasks.todayAgendaSectionState,
             rescueSectionState: tasks.rescueSectionState,
+            habitHomeSectionState: tasks.habitHomeSectionState,
             quietTrackingSummaryState: tasks.quietTrackingSummaryState,
             inlineCompletedTasks: tasks.inlineCompletedTasks,
             doneTimelineTasks: tasks.doneTimelineTasks,
@@ -178,7 +180,7 @@ final class HomeChromeSnapshotPresentationTests: XCTestCase {
 
         XCTAssertEqual(presentation.viewLabel, "Overdue")
         XCTAssertNil(presentation.centeredDateText)
-        XCTAssertEqual(presentation.metadataItems.map(\.text), ["2 overdue tasks"])
+        XCTAssertEqual(presentation.metadataItems.map { $0.text }, ["2 overdue tasks"])
         XCTAssertFalse(presentation.showsReflectionCTA)
         XCTAssertNil(presentation.xpProgress)
     }
@@ -210,7 +212,7 @@ final class HomeChromeSnapshotPresentationTests: XCTestCase {
 
         let presentation = snapshot.homeHeaderPresentation(tasks: .empty)
 
-        XCTAssertEqual(presentation.metadataItems.map(\.text), ["18/250 XP", "100%", "1d"])
+        XCTAssertEqual(presentation.metadataItems.map { $0.text }, ["18/250 XP", "100%", "1d"])
         XCTAssertEqual(presentation.xpProgress?.targetXP, GamificationTokens.dailyXPCap)
         XCTAssertEqual(presentation.xpProgress?.accessibilityLabel, "XP progress, 18 of 250 XP")
     }
@@ -238,6 +240,6 @@ final class HomeChromeSnapshotPresentationTests: XCTestCase {
 
         let presentation = snapshot.homeHeaderPresentation(tasks: .empty)
 
-        XCTAssertEqual(presentation.metadataItems.map(\.text), ["18/250 XP", "33%", "1d"])
+        XCTAssertEqual(presentation.metadataItems.map { $0.text }, ["18/250 XP", "33%", "1d"])
     }
 }

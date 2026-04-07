@@ -1415,6 +1415,7 @@ struct HomeBackdropForedropRootView: View {
     @State private var hasMountedSearchSurface = false
     @State private var hasMountedAnalyticsSurface = false
     @State private var rescueExpansionOverride: Bool?
+    @State private var showHabitBoardPresented = false
     @State private var isQuietTrackingComposerPresented = false
     @State private var selectedQuietTrackingHabitID: String?
     @State private var quietTrackingDate = Date()
@@ -2156,6 +2157,11 @@ struct HomeBackdropForedropRootView: View {
             .sheet(isPresented: $isQuietTrackingComposerPresented) {
                 quietTrackingComposerSheet
             }
+            .sheet(isPresented: $showHabitBoardPresented) {
+                HabitBoardScreen(
+                    viewModel: PresentationDependencyContainer.shared.makeHabitBoardViewModel()
+                )
+            }
         }
     }
 
@@ -2602,6 +2608,20 @@ struct HomeBackdropForedropRootView: View {
             }
 
             if tasksSnapshot.activeQuickView == .today &&
+                !tasksSnapshot.habitHomeSectionState.primaryRows.isEmpty {
+                fullBleedTaskListHeaderModule {
+                    habitsSectionCard
+                }
+            }
+
+            if tasksSnapshot.activeQuickView == .today &&
+                !tasksSnapshot.habitHomeSectionState.recoveryRows.isEmpty {
+                fullBleedTaskListHeaderModule {
+                    recoveryHabitsSectionCard
+                }
+            }
+
+            if tasksSnapshot.activeQuickView == .today &&
                 tasksSnapshot.quietTrackingSummaryState.isVisible {
                 fullBleedTaskListHeaderModule {
                     quietTrackingSummaryCard
@@ -2705,6 +2725,64 @@ struct HomeBackdropForedropRootView: View {
         .padding(.horizontal, spacing.s16)
         .padding(.top, spacing.s4)
         .accessibilityIdentifier("home.todayAgenda.header")
+    }
+
+    private var habitsSectionCard: some View {
+        HabitHomeSectionCard(
+            title: "Habits",
+            subtitle: "Consistency this week",
+            rows: tasksSnapshot.habitHomeSectionState.primaryRows,
+            countValue: "\(tasksSnapshot.habitHomeSectionState.totalCount) active",
+            secondaryValue: "\(tasksSnapshot.habitHomeSectionState.onStreakCount) on streak",
+            tertiaryValue: "\(tasksSnapshot.habitHomeSectionState.atRiskCount) at risk",
+            onOpenBoard: {
+                showHabitBoardPresented = true
+            },
+            onPrimaryAction: handleHabitPrimaryAction(_:),
+            onSecondaryAction: handleHabitSecondaryAction(_:)
+        )
+        .accessibilityIdentifier("home.habits.section")
+    }
+
+    private var recoveryHabitsSectionCard: some View {
+        HabitHomeSectionCard(
+            title: "Recovery",
+            subtitle: "Broken or at-risk habits stay visible until the geometry recovers.",
+            rows: tasksSnapshot.habitHomeSectionState.recoveryRows,
+            countValue: "\(tasksSnapshot.habitHomeSectionState.recoveryRows.count) in recovery",
+            secondaryValue: "streaks",
+            tertiaryValue: "need care",
+            onOpenBoard: {
+                showHabitBoardPresented = true
+            },
+            onPrimaryAction: handleHabitPrimaryAction(_:),
+            onSecondaryAction: handleHabitSecondaryAction(_:)
+        )
+        .accessibilityIdentifier("home.habits.recovery")
+    }
+
+    private func handleHabitPrimaryAction(_ habit: HomeHabitRow) {
+        switch (habit.kind, habit.trackingMode) {
+        case (_, .lapseOnly):
+            viewModel.lapseHabit(habit, source: "habit_home")
+        case (.positive, _):
+            viewModel.completeHabit(habit, source: "habit_home")
+        case (.negative, .dailyCheckIn):
+            viewModel.completeHabit(habit, source: "habit_home")
+        case (.negative, .lapseOnly):
+            viewModel.lapseHabit(habit, source: "habit_home")
+        }
+    }
+
+    private func handleHabitSecondaryAction(_ habit: HomeHabitRow) {
+        switch (habit.kind, habit.trackingMode) {
+        case (.positive, _):
+            viewModel.skipHabit(habit, source: "habit_home")
+        case (.negative, .dailyCheckIn):
+            viewModel.lapseHabit(habit, source: "habit_home")
+        case (.negative, .lapseOnly):
+            break
+        }
     }
 
     private var rescueSectionCard: some View {

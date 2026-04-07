@@ -100,6 +100,10 @@ struct AddHabitForedropView: View {
         composerAccentColor.opacity(0.14)
     }
 
+    private var selectedComposerAccentTitle: String {
+        habitAccentPresetMatch(for: viewModel.selectedColorHex)?.title ?? "Custom"
+    }
+
     private var advancedSummary: String {
         var pieces: [String] = []
         if viewModel.selectedProjectID != nil {
@@ -460,8 +464,11 @@ struct AddHabitForedropView: View {
                             .textFieldStyle(TaskerTextFieldStyle())
                     }
 
-                    TextField("Accent color (hex, optional)", text: $viewModel.selectedColorHex)
-                        .textFieldStyle(TaskerTextFieldStyle())
+                    HabitAccentPaletteField(
+                        selectedHex: $viewModel.selectedColorHex,
+                        selectedTitle: selectedComposerAccentTitle,
+                        previewColor: composerAccentColor
+                    )
 
                     let options = Array(viewModel.availableIconOptions.prefix(layoutClass.isPad ? 24 : 16))
                     LazyVGrid(columns: [GridItem(.adaptive(minimum: layoutClass.isPad ? 84 : 72), spacing: spacing.s8)], spacing: spacing.s8) {
@@ -1109,8 +1116,14 @@ struct HabitDetailSheetView: View {
                         .padding(.vertical, spacing.s8)
                         .taskerDenseSurface(cornerRadius: TaskerTheme.CornerRadius.md, fillColor: Color.tasker.surfacePrimary)
 
-                    TextField("Accent color (hex, optional)", text: $viewModel.draft.colorHex)
-                        .textFieldStyle(TaskerTextFieldStyle())
+                    HabitAccentPaletteField(
+                        selectedHex: $viewModel.draft.colorHex,
+                        selectedTitle: habitAccentPresetMatch(for: viewModel.draft.colorHex)?.title ?? "Custom",
+                        previewColor: TaskerHexColor.color(
+                            viewModel.draft.colorHex.nilIfBlank,
+                            fallback: viewModel.row.kind == .positive ? Color.tasker.statusSuccess : Color.tasker.statusWarning
+                        )
+                    )
 
                     TextField("Search icons", text: $viewModel.draft.iconSearchQuery)
                         .textFieldStyle(TaskerTextFieldStyle())
@@ -1356,6 +1369,119 @@ struct HabitDetailSheetView: View {
     private func trimmedReminderValue(_ value: String?) -> String? {
         let trimmed = value?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
         return trimmed.isEmpty ? nil : trimmed
+    }
+}
+
+private struct HabitAccentPreset: Identifiable {
+    let id: String
+    let title: String
+    let hex: String
+}
+
+private let habitAccentPresets: [HabitAccentPreset] = [
+    HabitAccentPreset(id: "green", title: "Leaf", hex: "#4E9A2F"),
+    HabitAccentPreset(id: "blue", title: "Sky", hex: "#4A86E8"),
+    HabitAccentPreset(id: "amber", title: "Glow", hex: "#F5B23C"),
+    HabitAccentPreset(id: "red", title: "Spark", hex: "#E94C3D"),
+    HabitAccentPreset(id: "purple", title: "Plum", hex: "#8A46B5"),
+    HabitAccentPreset(id: "gray", title: "Stone", hex: "#8C8E94"),
+    HabitAccentPreset(id: "teal", title: "Wave", hex: "#5AA7A4")
+]
+
+private func habitAccentPresetMatch(for hex: String?) -> HabitAccentPreset? {
+    guard let normalized = TaskerHexColor.normalized(hex?.nilIfBlank) else {
+        return nil
+    }
+    return habitAccentPresets.first { TaskerHexColor.normalized($0.hex) == normalized }
+}
+
+private struct HabitAccentPaletteField: View {
+    @Binding var selectedHex: String
+    let selectedTitle: String
+    let previewColor: Color
+
+    @Environment(\.taskerLayoutClass) private var layoutClass
+
+    private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.tokens(for: layoutClass).spacing }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: spacing.s12) {
+            HStack(spacing: spacing.s8) {
+                Circle()
+                    .fill(previewColor)
+                    .frame(width: 12, height: 12)
+
+                Text("Accent")
+                    .font(.tasker(.caption1).weight(.semibold))
+                    .foregroundStyle(Color.tasker.textPrimary)
+
+                Text(selectedTitle)
+                    .font(.tasker(.caption1))
+                    .foregroundStyle(Color.tasker.textSecondary)
+
+                Spacer(minLength: 0)
+
+                if selectedHex.nilIfBlank != nil {
+                    Button("Clear") {
+                        selectedHex = ""
+                    }
+                    .font(.tasker(.caption1).weight(.semibold))
+                    .foregroundStyle(Color.tasker.textSecondary)
+                    .buttonStyle(.plain)
+                }
+            }
+
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: spacing.s8) {
+                    ForEach(habitAccentPresets) { preset in
+                        HabitAccentSwatchButton(
+                            preset: preset,
+                            isSelected: TaskerHexColor.normalized(selectedHex.nilIfBlank) == TaskerHexColor.normalized(preset.hex)
+                        ) {
+                            selectedHex = preset.hex
+                        }
+                    }
+                }
+                .padding(.vertical, 2)
+            }
+
+            TextField("Accent color (hex, optional)", text: $selectedHex)
+                .textFieldStyle(TaskerTextFieldStyle())
+                .textInputAutocapitalization(.never)
+                .autocorrectionDisabled()
+        }
+    }
+}
+
+private struct HabitAccentSwatchButton: View {
+    let preset: HabitAccentPreset
+    let isSelected: Bool
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .fill(Color(uiColor: UIColor(taskerHex: preset.hex)))
+                .frame(width: 42, height: 42)
+                .overlay {
+                    if isSelected {
+                        RoundedRectangle(cornerRadius: 12, style: .continuous)
+                            .stroke(Color.white.opacity(0.95), lineWidth: 2)
+                            .padding(2)
+                    }
+                }
+                .overlay {
+                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                        .stroke(
+                            isSelected ? Color.tasker.textPrimary.opacity(0.4) : Color.tasker.strokeHairline.opacity(0.45),
+                            lineWidth: 1
+                        )
+                }
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(Text(preset.title))
+        .accessibilityAddTraits(isSelected ? .isSelected : [])
+        .scaleOnPress()
     }
 }
 

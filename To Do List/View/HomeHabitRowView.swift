@@ -7,14 +7,18 @@ struct HomeHabitRowView: View {
 
     @State private var isExpanded = false
 
-    @ObservedObject private var themeManager = TaskerThemeManager.shared
     @Environment(\.taskerLayoutClass) private var layoutClass
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @Environment(\.colorScheme) private var colorScheme
 
-    private var spacing: TaskerSpacingTokens { themeManager.tokens(for: layoutClass).spacing }
-    private var corner: TaskerCornerTokens { themeManager.tokens(for: layoutClass).corner }
-    private var colorTokens: TaskerColorTokens { themeManager.tokens(for: layoutClass).color }
+    private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.tokens(for: layoutClass).spacing }
+
+    private var accentColor: Color {
+        TaskerHexColor.color(row.accentHex, fallback: row.kind == .positive ? Color.tasker.statusSuccess : Color.tasker.accentSecondary)
+    }
+
+    private var boardFallbackColor: Color {
+        row.kind == .positive ? Color.tasker.statusSuccess : Color.tasker.accentSecondary
+    }
 
     private var isResolved: Bool {
         switch row.state {
@@ -25,197 +29,188 @@ struct HomeHabitRowView: View {
         }
     }
 
-    private var hasPrimaryAction: Bool {
-        isResolved == false && compactPrimaryActionTitle != nil && onPrimaryAction != nil
-    }
-
-    private var hasSecondaryAction: Bool {
-        isResolved == false && compactSecondaryActionTitle != nil && onSecondaryAction != nil
-    }
-
     var body: some View {
-        VStack(alignment: .leading, spacing: spacing.s8) {
-            collapsedRail
+        VStack(alignment: .leading, spacing: spacing.s12) {
+            collapsedRow
 
             if isExpanded {
-                expandedBand
+                expandedContent
                     .transition(
                         .asymmetric(
-                            insertion: .opacity.combined(with: .move(edge: .top)),
+                            insertion: .move(edge: .top).combined(with: .opacity),
                             removal: .opacity
                         )
                     )
             }
         }
-        .padding(.horizontal, spacing.s8)
-        .padding(.vertical, isExpanded ? spacing.s8 : spacing.s4)
-        .frame(minHeight: isExpanded ? 94 : 56)
-        .background(cardFill)
-        .overlay(cardBorder)
-        .clipShape(RoundedRectangle(cornerRadius: corner.r2, style: .continuous))
-        .overlay(alignment: .topLeading) {
-            Capsule(style: .continuous)
-                .fill(primaryTone.opacity(isResolved ? 0.52 : 0.84))
-                .frame(width: isExpanded ? 28 : 20, height: 2)
-                .padding(.horizontal, spacing.s8)
-                .padding(.top, 1)
-        }
+        .padding(.horizontal, spacing.s16)
+        .padding(.vertical, isExpanded ? 14 : spacing.s12)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .frame(minHeight: isExpanded ? 156 : 88)
+        .background(backgroundColor)
+        .overlay(
+            RoundedRectangle(cornerRadius: 20)
+                .stroke(borderColor, lineWidth: row.state == .overdue || row.riskState != .stable ? 1.2 : 1)
+        )
+        .clipShape(RoundedRectangle(cornerRadius: 20))
+        .animation(reduceMotion ? .linear(duration: 0.01) : TaskerAnimation.stateChange, value: isExpanded)
+        .animation(reduceMotion ? .linear(duration: 0.01) : TaskerAnimation.feedbackFast, value: row.state)
         .accessibilityElement(children: .contain)
-        .accessibilityLabel(accessibilityLabel)
-        .accessibilityValue(accessibilityValue)
-        .accessibilityHint(accessibilityHint)
         .accessibilityIdentifier("home.habitRow.\(row.id)")
-        .animation(reduceMotion ? .linear(duration: 0.01) : TaskerAnimation.stateChange, value: row.state)
-        .animation(reduceMotion ? .linear(duration: 0.01) : TaskerAnimation.feedbackFast, value: row.riskState)
-        .animation(reduceMotion ? .linear(duration: 0.01) : TaskerAnimation.panelIn, value: isExpanded)
-        .onChange(of: row.state) { _, newState in
-            switch newState {
-            case .completedToday, .lapsedToday, .skippedToday:
-                isExpanded = false
-            case .due, .overdue, .tracking:
-                break
-            }
-        }
     }
 
-    private var collapsedRail: some View {
-        HStack(spacing: spacing.s8) {
-            compactIconTile
+    private var collapsedRow: some View {
+        HStack(alignment: .top, spacing: spacing.s12) {
+            leadingIdentity
+                .frame(maxWidth: 124, alignment: .leading)
 
-            Text(row.title)
-                .font(.tasker(.caption1).weight(.semibold))
-                .foregroundColor(textPrimaryColor)
-                .lineLimit(1)
-                .truncationMode(.tail)
-                .frame(maxWidth: .infinity, alignment: .leading)
+            VStack(alignment: .trailing, spacing: spacing.s8) {
+                HabitBoardStripView(
+                    cells: boardCells,
+                    accentHex: row.accentHex,
+                    fallbackColor: boardFallbackColor,
+                    mode: .compact
+                )
 
-            streakToken
-                .fixedSize(horizontal: true, vertical: false)
-
-            quickActionSlot
-                .fixedSize(horizontal: true, vertical: false)
+                HStack(spacing: spacing.s8) {
+                    streakSummary
+                    Spacer(minLength: 0)
+                    quickActionSlot
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .trailing)
 
             expandButton
-                .fixedSize(horizontal: true, vertical: false)
         }
-        .frame(minHeight: 44)
     }
 
-    private var expandedBand: some View {
-        VStack(alignment: .leading, spacing: spacing.s4) {
-            HStack(alignment: .center, spacing: spacing.s8) {
-                Text(expandedMetaText)
-                    .font(.tasker(.caption1))
-                    .foregroundColor(textSecondaryColor)
-                    .lineLimit(1)
-                    .truncationMode(.tail)
+    private var expandedContent: some View {
+        VStack(alignment: .leading, spacing: spacing.s12) {
+            HStack(alignment: .top, spacing: spacing.s12) {
+                iconTile(size: 36)
 
-                Spacer(minLength: spacing.s8)
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(row.title)
+                        .font(.tasker(.headline))
+                        .foregroundStyle(Color.tasker.textPrimary)
+                        .lineLimit(2)
 
-                if hasSecondaryAction, let compactSecondaryActionTitle, let onSecondaryAction {
-                    compactSecondaryButton(
-                        title: compactSecondaryActionTitle,
-                        accessibilityLabel: secondaryActionAccessibilityLabel ?? compactSecondaryActionTitle,
+                    Text(row.cadenceLabel)
+                        .font(.tasker(.caption1))
+                        .foregroundStyle(Color.tasker.textSecondary)
+                }
+
+                Spacer(minLength: 0)
+
+                stateChip
+            }
+
+            HabitBoardStripView(
+                cells: row.boardCellsExpanded.isEmpty ? boardCells : row.boardCellsExpanded,
+                accentHex: row.accentHex,
+                fallbackColor: boardFallbackColor,
+                mode: .expanded
+            )
+
+            HStack(spacing: spacing.s12) {
+                statCard(title: "Current", value: "\(row.currentStreak)")
+                statCard(title: "Best", value: "\(row.bestStreak)")
+                Spacer(minLength: 0)
+            }
+
+            HStack(spacing: spacing.s8) {
+                if let primaryActionTitle, let onPrimaryAction {
+                    actionButton(
+                        title: primaryActionTitle,
+                        isPrimary: true,
+                        action: onPrimaryAction
+                    )
+                }
+
+                if let secondaryActionTitle, let onSecondaryAction {
+                    actionButton(
+                        title: secondaryActionTitle,
+                        isPrimary: false,
                         action: onSecondaryAction
                     )
                 }
             }
 
-            HabitHistoryStripView(marks: displayMarks)
+            Text(expandedHelperText)
+                .font(.tasker(.caption1))
+                .foregroundStyle(Color.tasker.textSecondary)
         }
-        .padding(.top, 1)
     }
 
-    private var streakToken: some View {
-        Text("\(row.currentStreak)d")
-            .font(.tasker(.caption1).weight(.semibold))
-            .foregroundColor(primaryTone)
-            .padding(.horizontal, spacing.s8)
-            .frame(height: 28)
-            .background(primaryTone.opacity(colorSchemeIsDark ? 0.16 : 0.09))
-            .overlay(
-                Capsule(style: .continuous)
-                    .stroke(primaryTone.opacity(colorSchemeIsDark ? 0.30 : 0.18), lineWidth: 1)
-            )
-            .clipShape(Capsule())
-            .accessibilityLabel("Current streak \(row.currentStreak) days")
+    private var leadingIdentity: some View {
+        VStack(alignment: .leading, spacing: spacing.s8) {
+            HStack(spacing: spacing.s8) {
+                Circle()
+                    .fill(accentColor)
+                    .frame(width: 8, height: 8)
+
+                iconTile(size: 34)
+            }
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(row.title)
+                    .font(.tasker(.caption1).weight(.semibold))
+                    .foregroundStyle(Color.tasker.textPrimary)
+                    .lineLimit(2)
+
+                Text(metadataLine)
+                    .font(.tasker(.caption1))
+                    .foregroundStyle(Color.tasker.textSecondary)
+                    .lineLimit(2)
+            }
+        }
+    }
+
+    private func iconTile(size: CGFloat) -> some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: 12)
+                .fill(accentColor.opacity(0.12))
+                .frame(width: size, height: size)
+
+            Image(systemName: row.iconSymbolName)
+                .font(.system(size: size * 0.42, weight: .semibold))
+                .foregroundStyle(accentColor)
+        }
+        .frame(width: size, height: size)
+    }
+
+    private var streakSummary: some View {
+        VStack(alignment: .trailing, spacing: 1) {
+            Text("\(row.currentStreak)d")
+                .font(.tasker(.caption1).weight(.semibold))
+                .foregroundStyle(Color.tasker.textPrimary)
+
+            Text(row.bestStreak > 0 ? "best \(row.bestStreak)" : stateText)
+                .font(.tasker(.caption1))
+                .foregroundStyle(Color.tasker.textSecondary)
+        }
     }
 
     @ViewBuilder
     private var quickActionSlot: some View {
         if isResolved {
-            resolvedStateToken
-        } else if hasPrimaryAction, let compactPrimaryActionTitle, let onPrimaryAction {
-            compactPrimaryButton(
-                title: compactPrimaryActionTitle,
-                accessibilityLabel: primaryActionAccessibilityLabel ?? compactPrimaryActionTitle,
-                action: onPrimaryAction
-            )
-        }
-    }
-
-    private func compactPrimaryButton(
-        title: String,
-        accessibilityLabel: String,
-        action: @escaping () -> Void
-    ) -> some View {
-        Button {
-            TaskerFeedback.light()
-            action()
-        } label: {
-            Text(title)
+            Text(stateText)
                 .font(.tasker(.caption1).weight(.semibold))
-                .foregroundColor(primaryTone)
-                .frame(minWidth: 58, minHeight: 44)
-                .background(primaryTone.opacity(colorSchemeIsDark ? 0.18 : 0.10))
-                .overlay(
-                    RoundedRectangle(cornerRadius: corner.r1, style: .continuous)
-                        .stroke(primaryTone.opacity(colorSchemeIsDark ? 0.34 : 0.22), lineWidth: 1)
-                )
-                .clipShape(RoundedRectangle(cornerRadius: corner.r1, style: .continuous))
-        }
-        .buttonStyle(.plain)
-        .scaleOnPress()
-        .accessibilityLabel(accessibilityLabel)
-    }
-
-    private func compactSecondaryButton(
-        title: String,
-        accessibilityLabel: String,
-        action: @escaping () -> Void
-    ) -> some View {
-        Button {
-            TaskerFeedback.light()
-            action()
-        } label: {
-            Text(title)
-                .font(.tasker(.caption1).weight(.semibold))
-                .foregroundColor(textSecondaryColor)
-                .frame(minWidth: 58, minHeight: 44)
-                .background(surfaceSecondaryColor.opacity(0.9))
-                .overlay(
-                    RoundedRectangle(cornerRadius: corner.r1, style: .continuous)
-                        .stroke(strokeHairlineColor.opacity(0.9), lineWidth: 1)
-                )
-                .clipShape(RoundedRectangle(cornerRadius: corner.r1, style: .continuous))
-        }
-        .buttonStyle(.plain)
-        .scaleOnPress()
-        .accessibilityLabel(accessibilityLabel)
-    }
-
-    private var resolvedStateToken: some View {
-        Text(resolvedCompactStateText)
+                .foregroundStyle(accentColor)
+        } else if let primaryActionTitle, let onPrimaryAction {
+            Button(primaryActionTitle) {
+                TaskerFeedback.light()
+                onPrimaryAction()
+            }
             .font(.tasker(.caption1).weight(.semibold))
-            .foregroundColor(primaryTone)
-            .frame(minWidth: 58, minHeight: 44)
-            .background(primaryTone.opacity(colorSchemeIsDark ? 0.14 : 0.08))
-            .overlay(
-                RoundedRectangle(cornerRadius: corner.r1, style: .continuous)
-                    .stroke(primaryTone.opacity(colorSchemeIsDark ? 0.26 : 0.16), lineWidth: 1)
-            )
-            .clipShape(RoundedRectangle(cornerRadius: corner.r1, style: .continuous))
-            .accessibilityLabel("Status \(resolvedCompactStateText)")
+            .foregroundStyle(accentColor)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 6)
+            .background(accentColor.opacity(0.10))
+            .clipShape(Capsule())
+            .buttonStyle(.plain)
+            .scaleOnPress()
+        }
     }
 
     private var expandButton: some View {
@@ -225,75 +220,70 @@ struct HomeHabitRowView: View {
                 isExpanded.toggle()
             }
         } label: {
-            Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
-                .font(.system(size: 11, weight: .semibold))
-                .foregroundColor(textSecondaryColor)
-                .frame(width: 44, height: 44)
-                .background(surfaceSecondaryColor.opacity(0.72))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 12, style: .continuous)
-                        .stroke(strokeHairlineColor.opacity(0.8), lineWidth: 1)
-                )
-                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+            Label(
+                isExpanded ? "Collapse habit details" : "Expand habit details",
+                systemImage: isExpanded ? "chevron.up" : "chevron.down"
+            )
+            .labelStyle(.iconOnly)
+            .font(.system(size: 13, weight: .semibold))
+            .foregroundStyle(Color.tasker.textSecondary)
+            .frame(width: 44, height: 44)
+            .background(Color.tasker.surfaceSecondary)
+            .clipShape(RoundedRectangle(cornerRadius: 12))
         }
         .buttonStyle(.plain)
+    }
+
+    private var stateChip: some View {
+        Text(stateText)
+            .font(.tasker(.caption1).weight(.semibold))
+            .foregroundStyle(stateChipForeground)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 6)
+            .background(stateChipBackground)
+            .clipShape(Capsule())
+    }
+
+    private func statCard(title: String, value: String) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(title)
+                .font(.tasker(.caption1))
+                .foregroundStyle(Color.tasker.textSecondary)
+            Text(value)
+                .font(.tasker(.metric))
+                .foregroundStyle(accentColor)
+                .contentTransition(.numericText())
+        }
+        .padding(.horizontal, spacing.s12)
+        .padding(.vertical, spacing.s8)
+        .background(Color.tasker.surfaceSecondary.opacity(0.88))
+        .clipShape(RoundedRectangle(cornerRadius: 14))
+    }
+
+    private func actionButton(
+        title: String,
+        isPrimary: Bool,
+        action: @escaping () -> Void
+    ) -> some View {
+        Button(title) {
+            TaskerFeedback.light()
+            action()
+        }
+        .font(.tasker(.buttonSmall))
+        .foregroundStyle(isPrimary ? Color.white : Color.tasker.textPrimary)
+        .frame(minHeight: 44)
+        .frame(maxWidth: .infinity)
+        .background(isPrimary ? accentColor : Color.tasker.surfaceSecondary)
+        .clipShape(RoundedRectangle(cornerRadius: 14))
+        .buttonStyle(.plain)
         .scaleOnPress()
-        .accessibilityLabel(isExpanded ? "Collapse habit details" : "Expand habit details")
-        .accessibilityHint("Shows history and secondary action")
     }
 
-    private var compactIconTile: some View {
-        ZStack {
-            RoundedRectangle(cornerRadius: 10, style: .continuous)
-                .fill(primaryTone.opacity(isResolved ? 0.10 : 0.14))
-                .frame(width: 30, height: 30)
-
-            Image(systemName: row.iconSymbolName)
-                .font(.system(size: 13, weight: .semibold))
-                .foregroundColor(primaryTone)
-        }
-        .frame(width: 30, height: 30)
-    }
-
-    private var compactPrimaryActionTitle: String? {
-        guard isResolved == false else { return nil }
-
-        if row.trackingMode == .lapseOnly {
-            return row.state == .tracking ? "Lapse" : nil
-        }
-
-        switch (row.kind, row.trackingMode) {
-        case (.positive, _):
-            return "Done"
-        case (.negative, .dailyCheckIn):
-            return "Clean"
-        case (.negative, .lapseOnly):
-            return nil
-        }
-    }
-
-    private var compactSecondaryActionTitle: String? {
-        guard isResolved == false else { return nil }
-
-        if row.trackingMode == .lapseOnly {
-            return nil
-        }
-
-        switch (row.kind, row.trackingMode) {
-        case (.positive, _):
-            return "Skip"
-        case (.negative, .dailyCheckIn):
-            return "Lapse"
-        case (.negative, .lapseOnly):
-            return nil
-        }
-    }
-
-    private var primaryActionAccessibilityLabel: String? {
+    private var primaryActionTitle: String? {
+        guard !isResolved else { return nil }
         if row.trackingMode == .lapseOnly {
             return "Log lapse"
         }
-
         switch (row.kind, row.trackingMode) {
         case (.positive, _):
             return "Done"
@@ -304,75 +294,78 @@ struct HomeHabitRowView: View {
         }
     }
 
-    private var secondaryActionAccessibilityLabel: String? {
-        if row.trackingMode == .lapseOnly {
-            return nil
-        }
-
+    private var secondaryActionTitle: String? {
+        guard !isResolved, row.trackingMode != .lapseOnly else { return nil }
         switch (row.kind, row.trackingMode) {
         case (.positive, _):
             return "Skip"
         case (.negative, .dailyCheckIn):
-            return "Log lapse"
+            return "Lapsed"
         case (.negative, .lapseOnly):
             return nil
         }
     }
 
-    private var resolvedCompactStateText: String {
+    private var backgroundColor: Color {
         switch row.state {
-        case .completedToday:
-            return "Done"
-        case .skippedToday:
-            return "Skip"
-        case .lapsedToday:
-            return "Lapse"
-        case .due, .overdue, .tracking:
-            return stateText
-        }
-    }
-
-    private var ownershipLine: String {
-        var parts: [String] = [row.lifeAreaName]
-        if let projectName = row.projectName, projectName.isEmpty == false {
-            parts.append(projectName)
-        }
-        return parts.joined(separator: " · ")
-    }
-
-    private var dueText: String {
-        guard let dueAt = row.dueAt else {
-            switch row.state {
-            case .tracking:
-                return "Open today"
-            case .overdue:
-                return "Overdue"
-            case .due:
-                return "Due today"
-            case .completedToday, .lapsedToday, .skippedToday:
-                return "Today"
-            }
-        }
-
-        let time = dueAt.formatted(date: .omitted, time: .shortened)
-        switch row.state {
-        case .overdue:
-            return "Overdue since \(time)"
-        case .due:
-            return "Due \(time)"
+        case .overdue, .lapsedToday:
+            return Color(uiColor: UIColor(taskerHex: "#FFF9F7"))
         case .tracking:
-            return "Open until \(time)"
-        case .completedToday, .lapsedToday, .skippedToday:
-            return time
+            return Color(uiColor: UIColor(taskerHex: "#FCFCF8"))
+        case .completedToday:
+            return Color(uiColor: UIColor(taskerHex: "#FBFCF7"))
+        case .skippedToday:
+            return Color(uiColor: UIColor(taskerHex: "#FBFBF8"))
+        case .due:
+            return Color(uiColor: UIColor(taskerHex: "#FFFDF9"))
+        }
+    }
+
+    private var borderColor: Color {
+        switch row.state {
+        case .overdue, .lapsedToday:
+            return Color(uiColor: UIColor(taskerHex: "#E2B3A8"))
+        case .due:
+            return accentColor.opacity(0.22)
+        case .tracking, .completedToday, .skippedToday:
+            return Color.tasker.strokeHairline.opacity(0.75)
+        }
+    }
+
+    private var metadataLine: String {
+        if row.state == .tracking {
+            return row.helperText ?? row.cadenceLabel
+        }
+
+        if let projectName = row.projectName, projectName.isEmpty == false {
+            return "\(row.lifeAreaName) · \(projectName)"
+        }
+        return row.lifeAreaName
+    }
+
+    private var expandedHelperText: String {
+        switch row.state {
+        case .due:
+            return "Due today"
+        case .overdue:
+            return "Recovery needed"
+        case .completedToday:
+            return "Completed today"
+        case .lapsedToday:
+            return "Lapse logged today"
+        case .skippedToday:
+            return "Skipped without breaking the streak"
+        case .tracking:
+            return row.trackingMode == .lapseOnly ? "Tracking quietly" : row.cadenceLabel
         }
     }
 
     private var stateText: String {
         switch row.state {
         case .due:
-            return "Due"
+            return "Due today"
         case .overdue:
-            return "Overdue"
+            return "Recovery"
         case .completedToday:
             return "Done"
         case .lapsedToday:
@@ -380,168 +373,43 @@ struct HomeHabitRowView: View {
         case .skippedToday:
             return "Skipped"
         case .tracking:
-            return row.trackingMode == .lapseOnly ? "Quiet" : "Open"
+            return row.trackingMode == .lapseOnly ? "Quiet" : "On track"
         }
     }
 
-    private var riskText: String {
-        switch row.riskState {
-        case .stable:
-            return row.state == .tracking ? "Open" : "On track"
-        case .atRisk:
-            return "At risk"
-        case .broken:
-            return "Recovery"
-        }
-    }
-
-    private var primaryTone: Color {
+    private var stateChipForeground: Color {
         switch row.state {
-        case .due:
-            return accentPrimaryColor
         case .overdue, .lapsedToday:
-            return statusDangerColor
+            return Color.tasker.statusDanger
         case .completedToday:
-            return statusSuccessColor
+            return accentColor
         case .skippedToday:
-            return textTertiaryColor
-        case .tracking:
-            return row.riskState == .broken ? statusDangerColor : accentSecondaryColor
+            return Color.tasker.textSecondary
+        case .due, .tracking:
+            return accentColor
         }
     }
 
-    private var expandedMetaText: String {
+    private var stateChipBackground: Color {
         switch row.state {
-        case .completedToday:
-            return "Completed today"
+        case .overdue, .lapsedToday:
+            return Color.tasker.statusDanger.opacity(0.10)
         case .skippedToday:
-            return "Skipped today"
-        case .lapsedToday:
-            return "Lapsed today"
-        case .due, .overdue, .tracking:
-            var parts = [dueText]
-            if row.riskState != .stable {
-                parts.append(riskText)
-            }
-            return parts.joined(separator: " · ")
+            return Color.tasker.surfaceSecondary
+        case .due, .tracking, .completedToday:
+            return accentColor.opacity(0.10)
         }
     }
 
-    private var displayMarks: [HomeHabitDayMark] {
-        if row.last14Days.isEmpty {
-            return Array(repeating: HomeHabitDayMark(date: row.dueAt ?? Date(), state: .none), count: 14)
+    private var boardCells: [HabitBoardCell] {
+        if row.boardCellsCompact.isEmpty {
+            return HabitBoardPresentationBuilder.buildCells(
+                marks: row.last14Days,
+                cadence: row.cadence,
+                referenceDate: row.dueAt ?? Date(),
+                dayCount: 14
+            )
         }
-        return row.last14Days
-    }
-
-    private var cardFill: Color {
-        switch row.state {
-        case .overdue:
-            return statusDangerColor.opacity(colorSchemeIsDark ? 0.12 : 0.05)
-        case .due:
-            return accentPrimaryColor.opacity(colorSchemeIsDark ? 0.10 : 0.04)
-        case .tracking:
-            return accentSecondaryColor.opacity(colorSchemeIsDark ? 0.09 : 0.035)
-        case .completedToday:
-            return statusSuccessColor.opacity(colorSchemeIsDark ? 0.10 : 0.04)
-        case .lapsedToday:
-            return statusDangerColor.opacity(colorSchemeIsDark ? 0.11 : 0.05)
-        case .skippedToday:
-            return surfaceSecondaryColor.opacity(0.88)
-        }
-    }
-
-    private var cardBorder: some View {
-        RoundedRectangle(cornerRadius: corner.r2, style: .continuous)
-            .stroke(borderColor, lineWidth: 1)
-    }
-
-    private var borderColor: Color {
-        switch row.state {
-        case .overdue:
-            return statusDangerColor.opacity(0.20)
-        case .due:
-            return accentPrimaryColor.opacity(0.16)
-        case .tracking:
-            return accentSecondaryColor.opacity(0.14)
-        case .completedToday:
-            return statusSuccessColor.opacity(0.16)
-        case .lapsedToday:
-            return statusDangerColor.opacity(0.18)
-        case .skippedToday:
-            return strokeHairlineColor.opacity(0.82)
-        }
-    }
-
-    private var textPrimaryColor: Color { Color(uiColor: colorTokens.textPrimary) }
-    private var textSecondaryColor: Color { Color(uiColor: colorTokens.textSecondary) }
-    private var surfaceSecondaryColor: Color { Color(uiColor: colorTokens.surfaceSecondary) }
-    private var strokeHairlineColor: Color { Color(uiColor: colorTokens.strokeHairline) }
-    private var accentPrimaryColor: Color { Color(uiColor: colorTokens.accentPrimary) }
-    private var accentSecondaryColor: Color { Color(uiColor: colorTokens.accentSecondary) }
-    private var statusDangerColor: Color { Color(uiColor: colorTokens.statusDanger) }
-    private var statusSuccessColor: Color { Color(uiColor: colorTokens.statusSuccess) }
-    private var textTertiaryColor: Color { Color(uiColor: colorTokens.textTertiary) }
-    private var colorSchemeIsDark: Bool { colorScheme == .dark }
-
-    private var accessibilityLabel: String {
-        "\(row.title), \(stateText), \(ownershipLine)"
-    }
-
-    private var accessibilityValue: String {
-        "Current streak \(row.currentStreak) days, \(expandedMetaText)"
-    }
-
-    private var accessibilityHint: String {
-        if hasPrimaryAction, let primaryActionAccessibilityLabel {
-            var hint = "Primary action \(primaryActionAccessibilityLabel)."
-            if hasSecondaryAction, let secondaryActionAccessibilityLabel {
-                hint += " Expand for secondary action \(secondaryActionAccessibilityLabel) and history."
-            } else {
-                hint += " Expand for history."
-            }
-            return hint
-        }
-        return "Expand for history and status details."
-    }
-}
-
-struct HabitHistoryStripView: View {
-    let marks: [HomeHabitDayMark]
-
-    @ObservedObject private var themeManager = TaskerThemeManager.shared
-
-    private var colorTokens: TaskerColorTokens { themeManager.currentTheme.tokens.color }
-    private var statusSuccessColor: Color { Color(uiColor: colorTokens.statusSuccess) }
-    private var statusDangerColor: Color { Color(uiColor: colorTokens.statusDanger) }
-    private var textQuaternaryColor: Color { Color(uiColor: colorTokens.textQuaternary) }
-    private var strokeHairlineColor: Color { Color(uiColor: colorTokens.strokeHairline) }
-    private var accentMutedColor: Color { Color(uiColor: colorTokens.accentMuted) }
-
-    var body: some View {
-        HStack(spacing: 4) {
-            ForEach(Array(marks.prefix(14).enumerated()), id: \.offset) { _, mark in
-                Capsule(style: .continuous)
-                    .fill(color(for: mark.state))
-                    .frame(width: 10, height: 6)
-            }
-        }
-        .accessibilityHidden(true)
-        .animation(TaskerAnimation.feedbackFast, value: marks)
-    }
-
-    private func color(for state: HabitDayState) -> Color {
-        switch state {
-        case .success:
-            return statusSuccessColor
-        case .failure:
-            return statusDangerColor
-        case .skipped:
-            return textQuaternaryColor
-        case .none:
-            return strokeHairlineColor
-        case .future:
-            return accentMutedColor
-        }
+        return row.boardCellsCompact
     }
 }

@@ -306,6 +306,7 @@
 		A3A6DF9571AB7FEB410EB861 /* HomeAdvancedFilterSheetView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 594ECD331C0135DA36357314 /* HomeAdvancedFilterSheetView.swift */; };
 		A4C2E9F12B7D4C5581AA0001 /* To Do List/Domain/Models/HomeTaskMutationPayload.swift in Sources */ = {isa = PBXBuildFile; fileRef = A4C2E9F12B7D4C5581AA0003 /* To Do List/Domain/Models/HomeTaskMutationPayload.swift */; };
 		A4C2E9F12B7D4C5581AA0002 /* HomeTaskMutationPayloadTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A4C2E9F12B7D4C5581AA0004 /* HomeTaskMutationPayloadTests.swift */; };
+		A7B8C9D0E1F20123456789A2 /* HabitBoardPresentationBuilderTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A7B8C9D0E1F20123456789A1 /* HabitBoardPresentationBuilderTests.swift */; };
 		A4E8C9D12F9A4C3600A1B2C3 /* To Do List/State/Integrity/LifeAreaIdentityRepair.swift in Sources */ = {isa = PBXBuildFile; fileRef = A4E8C9D22F9A4C3600A1B2C3 /* To Do List/State/Integrity/LifeAreaIdentityRepair.swift */; };
 		A6D5E0EA942DF95EA0C175B8 /* GamificationTokens.swift in Sources */ = {isa = PBXBuildFile; fileRef = D48E4DB12D2E1FE5A90FC97D /* GamificationTokens.swift */; };
 		A6E1D3F42F3C100100B1C2D3 /* AISuggestionService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A6E1D3F52F3C100100B1C2D3 /* AISuggestionService.swift */; };
@@ -395,6 +396,9 @@
 		C1A100000000000000000102 /* To Do List/Domain/Models/HabitTypes.swift in Sources */ = {isa = PBXBuildFile; fileRef = C1A100000000000000000002 /* To Do List/Domain/Models/HabitTypes.swift */; };
 		C1A100000000000000000103 /* To Do List/UseCases/Habit/HabitRuntimeUseCases.swift in Sources */ = {isa = PBXBuildFile; fileRef = C1A100000000000000000003 /* To Do List/UseCases/Habit/HabitRuntimeUseCases.swift */; };
 		C1A100000000000000000104 /* To Do List/State/Repositories/CoreDataHabitRuntimeReadRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = C1A100000000000000000004 /* To Do List/State/Repositories/CoreDataHabitRuntimeReadRepository.swift */; };
+		C1B100000000000000000102 /* To Do List/Presentation/Habits/HabitBoardPresentationBuilder.swift in Sources */ = {isa = PBXBuildFile; fileRef = C1B100000000000000000101 /* To Do List/Presentation/Habits/HabitBoardPresentationBuilder.swift */; };
+		C1B100000000000000000104 /* To Do List/Presentation/ViewModels/HabitBoardViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = C1B100000000000000000103 /* To Do List/Presentation/ViewModels/HabitBoardViewModel.swift */; };
+		C1B100000000000000000106 /* To Do List/View/HabitBoardViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = C1B100000000000000000105 /* To Do List/View/HabitBoardViews.swift */; };
 		C1A2B3C4D5E6F70011223344 /* LLMRuntimeCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = C1A2B3C4D5E6F70011223345 /* LLMRuntimeCoordinator.swift */; };
 		C1A2B3C4D5E6F70011223346 /* LLMProjectionTimeout.swift in Sources */ = {isa = PBXBuildFile; fileRef = C1A2B3C4D5E6F70011223347 /* LLMProjectionTimeout.swift */; };
 		C1A2B3C4D5E6F70011223348 /* LLMRuntimeCoordinatorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C1A2B3C4D5E6F70011223349 /* LLMRuntimeCoordinatorTests.swift */; };
@@ -829,6 +833,7 @@
 		A41487F741A541AD1CB7DD2E /* Pods_Tasker.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_Tasker.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		A4C2E9F12B7D4C5581AA0003 /* To Do List/Domain/Models/HomeTaskMutationPayload.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "To Do List/Domain/Models/HomeTaskMutationPayload.swift"; sourceTree = SOURCE_ROOT; };
 		A4C2E9F12B7D4C5581AA0004 /* HomeTaskMutationPayloadTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HomeTaskMutationPayloadTests.swift; sourceTree = "<group>"; };
+		A7B8C9D0E1F20123456789A1 /* HabitBoardPresentationBuilderTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HabitBoardPresentationBuilderTests.swift; sourceTree = "<group>"; };
 		A4E8C9D22F9A4C3600A1B2C3 /* To Do List/State/Integrity/LifeAreaIdentityRepair.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "To Do List/State/Integrity/LifeAreaIdentityRepair.swift"; sourceTree = SOURCE_ROOT; };
 		A6E1D3F52F3C100100B1C2D3 /* AISuggestionService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AISuggestionService.swift; sourceTree = "<group>"; };
 		A6E1D3F72F3C100100B1C2D3 /* AssistantCardPayload.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AssistantCardPayload.swift; sourceTree = "<group>"; };
@@ -918,6 +923,9 @@
 		C1A100000000000000000002 /* To Do List/Domain/Models/HabitTypes.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "To Do List/Domain/Models/HabitTypes.swift"; sourceTree = SOURCE_ROOT; };
 		C1A100000000000000000003 /* To Do List/UseCases/Habit/HabitRuntimeUseCases.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "To Do List/UseCases/Habit/HabitRuntimeUseCases.swift"; sourceTree = SOURCE_ROOT; };
 		C1A100000000000000000004 /* To Do List/State/Repositories/CoreDataHabitRuntimeReadRepository.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "To Do List/State/Repositories/CoreDataHabitRuntimeReadRepository.swift"; sourceTree = SOURCE_ROOT; };
+		C1B100000000000000000101 /* To Do List/Presentation/Habits/HabitBoardPresentationBuilder.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "To Do List/Presentation/Habits/HabitBoardPresentationBuilder.swift"; sourceTree = SOURCE_ROOT; };
+		C1B100000000000000000103 /* To Do List/Presentation/ViewModels/HabitBoardViewModel.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "To Do List/Presentation/ViewModels/HabitBoardViewModel.swift"; sourceTree = SOURCE_ROOT; };
+		C1B100000000000000000105 /* To Do List/View/HabitBoardViews.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "To Do List/View/HabitBoardViews.swift"; sourceTree = SOURCE_ROOT; };
 		C1A2B3C4D5E6F70011223345 /* LLMRuntimeCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LLMRuntimeCoordinator.swift; sourceTree = "<group>"; };
 		C1A2B3C4D5E6F70011223347 /* LLMProjectionTimeout.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LLMProjectionTimeout.swift; sourceTree = "<group>"; };
 		C1A2B3C4D5E6F70011223349 /* LLMRuntimeCoordinatorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LLMRuntimeCoordinatorTests.swift; sourceTree = "<group>"; };
@@ -1317,8 +1325,10 @@
 				ABCD00000000000000000021 /* AddHabitViewModel.swift */,
 				ABCD00000000000000000022 /* AddItemViewModel.swift */,
 				ABCD00000000000000000023 /* To Do List/Presentation/Habits/HabitIconCatalog.swift */,
+				C1B100000000000000000101 /* To Do List/Presentation/Habits/HabitBoardPresentationBuilder.swift */,
 				A1B2C3D62F90000100AA1001 /* TaskEditorSection.swift */,
 				7509A00D2F13D806009162CD /* HomeViewModel.swift */,
+				C1B100000000000000000103 /* To Do List/Presentation/ViewModels/HabitBoardViewModel.swift */,
 				A7B8C9D12F13D806009162CD /* TaskDetailViewModel.swift */,
 				7509A00E2F13D806009162CD /* ProjectManagementViewModel.swift */,
 				A91F8E142F44420100AB11C1 /* LifeManagementViewModel.swift */,
@@ -1494,6 +1504,7 @@
 				B4D7E8213A4F5C6D7E8F9013 /* TestSupport */,
 				C39FDE21811FCBE733038318 /* GetHomeFilteredTasksUseCaseTests.swift */,
 				A4C2E9F12B7D4C5581AA0004 /* HomeTaskMutationPayloadTests.swift */,
+				A7B8C9D0E1F20123456789A1 /* HabitBoardPresentationBuilderTests.swift */,
 			);
 			path = "To Do ListTests";
 			sourceTree = "<group>";
@@ -1664,6 +1675,7 @@
 				E526F0CB3E9299C87861646E /* TaskListView.swift */,
 				F0A1B2C3D4E5F60718293A4C /* HomeTaskSectionBuilder.swift */,
 				B2E100000000000000000104 /* To Do List/View/HomeHabitRowView.swift */,
+				C1B100000000000000000105 /* To Do List/View/HabitBoardViews.swift */,
 				594ECD331C0135DA36357314 /* HomeAdvancedFilterSheetView.swift */,
 				A10000000000000000000001 /* QuickViewSelector.swift */,
 				A10000000000000000000002 /* NavPieChart.swift */,
@@ -2812,6 +2824,9 @@
 				B2E100000000000000000203 /* To Do List/Presentation/Models/HomeHabitRow.swift in Sources */,
 				B2E100000000000000000205 /* To Do List/Presentation/Models/HomeSectionState.swift in Sources */,
 				B2E100000000000000000204 /* To Do List/View/HomeHabitRowView.swift in Sources */,
+				C1B100000000000000000106 /* To Do List/View/HabitBoardViews.swift in Sources */,
+				C1B100000000000000000104 /* To Do List/Presentation/ViewModels/HabitBoardViewModel.swift in Sources */,
+				C1B100000000000000000102 /* To Do List/Presentation/Habits/HabitBoardPresentationBuilder.swift in Sources */,
 				6BFABA2E6D0DFA253AEC67A9 /* UserDefaultsSavedHomeViewRepository.swift in Sources */,
 				A3A6DF9571AB7FEB410EB861 /* HomeAdvancedFilterSheetView.swift in Sources */,
 				1B77769B1FFEBB2FA951419F /* AddTaskMetadataRow.swift in Sources */,
@@ -3009,6 +3024,7 @@
 				A8F1D2035E9C44A100112233 /* DeviceOrientationPolicyResolverTests.swift in Sources */,
 				600B7F6D47A6091946016C7A /* GetHomeFilteredTasksUseCaseTests.swift in Sources */,
 				A4C2E9F12B7D4C5581AA0002 /* HomeTaskMutationPayloadTests.swift in Sources */,
+				A7B8C9D0E1F20123456789A2 /* HabitBoardPresentationBuilderTests.swift in Sources */,
 				F0A1B2C3D4E5F60718293B4D /* HomeFilterStateTests.swift in Sources */,
 				F0A1B2C3D4E5F60718293B4E /* HomeTaskSectionBuilderTests.swift in Sources */,
 				B7C8D9E0F1A223344556677B /* OverdueAgeFormatterTests.swift in Sources */,
