@@ -1,16 +1,116 @@
 import SwiftUI
 import UIKit
 
-private enum HabitBoardLayout {
-    static let railWidth: CGFloat = 106
-    static let rowSpacing: CGFloat = 10
+struct HabitBoardLayoutMetrics: Equatable {
+    let leadingRailWidth: CGFloat
+    let railTrailingPadding: CGFloat
+    let iconSlotWidth: CGFloat
+    let iconToTextSpacing: CGFloat
+    let dayColumnWidth: CGFloat
+    let cellHeight: CGFloat
+    let rowHeight: CGFloat
+    let headerHeight: CGFloat
+    let boardPadding: CGFloat
+    let cellGap: CGFloat
+    let cellCornerRadius: CGFloat
+    let visibleColumns: Int
+    let historySpan: Int
+    let showsFullWeekday: Bool
 
-    static func contentWidth(dayCount: Int) -> CGFloat {
-        (railWidth * 2) + (rowSpacing * 2) + (CGFloat(dayCount) * HabitBoardStripMode.board.columnWidth)
+    var pinnedRailWidth: CGFloat {
+        leadingRailWidth + railTrailingPadding
+    }
+
+    var titleLeadingInset: CGFloat {
+        iconSlotWidth + iconToTextSpacing
+    }
+
+    var gridViewportWidth: CGFloat {
+        contentWidth(dayCount: visibleColumns)
+    }
+
+    func contentWidth(dayCount: Int) -> CGFloat {
+        guard dayCount > 0 else { return 0 }
+        return (CGFloat(dayCount) * dayColumnWidth) + (CGFloat(max(0, dayCount - 1)) * cellGap)
+    }
+
+    static func forContainerWidth(_ width: CGFloat, dynamicTypeSize: DynamicTypeSize) -> HabitBoardLayoutMetrics {
+        let expandedType = dynamicTypeSize >= .accessibility1
+
+        if width < 390 {
+            return HabitBoardLayoutMetrics(
+                leadingRailWidth: expandedType ? 146 : 140,
+                railTrailingPadding: 10,
+                iconSlotWidth: 22,
+                iconToTextSpacing: 10,
+                dayColumnWidth: expandedType ? 34 : 32,
+                cellHeight: expandedType ? 38 : 36,
+                rowHeight: expandedType ? 60 : 56,
+                headerHeight: expandedType ? 64 : 60,
+                boardPadding: 16,
+                cellGap: 0,
+                cellCornerRadius: 2,
+                visibleColumns: 7,
+                historySpan: 28,
+                showsFullWeekday: false
+            )
+        }
+
+        if width < 600 {
+            return HabitBoardLayoutMetrics(
+                leadingRailWidth: expandedType ? 148 : 144,
+                railTrailingPadding: 10,
+                iconSlotWidth: 22,
+                iconToTextSpacing: 10,
+                dayColumnWidth: expandedType ? 36 : 34,
+                cellHeight: expandedType ? 38 : 36,
+                rowHeight: expandedType ? 60 : 56,
+                headerHeight: expandedType ? 64 : 60,
+                boardPadding: 16,
+                cellGap: 0,
+                cellCornerRadius: 2,
+                visibleColumns: 8,
+                historySpan: 28,
+                showsFullWeekday: false
+            )
+        }
+
+        let fullRegularWidth = width >= 900
+        return HabitBoardLayoutMetrics(
+            leadingRailWidth: expandedType ? 152 : 148,
+            railTrailingPadding: 12,
+            iconSlotWidth: 22,
+            iconToTextSpacing: 10,
+            dayColumnWidth: expandedType ? 38 : 36,
+            cellHeight: expandedType ? 40 : 38,
+            rowHeight: expandedType ? 62 : 58,
+            headerHeight: expandedType ? 68 : 64,
+            boardPadding: 18,
+            cellGap: 0,
+            cellCornerRadius: 2,
+            visibleColumns: fullRegularWidth ? 12 : 10,
+            historySpan: 42,
+            showsFullWeekday: fullRegularWidth
+        )
     }
 }
 
-enum HabitBoardStripMode {
+private enum HabitBoardAccessibilityID {
+    static let view = "habitBoard.view"
+    static let rangeTitle = "habitBoard.rangeTitle"
+    static let previousWindow = "habitBoard.window.previous"
+    static let nextWindow = "habitBoard.window.next"
+    static let pinnedHeader = "habitBoard.pinned.header"
+    static let homeOpenBoard = "home.habits.openBoard"
+    static func row(_ habitID: UUID) -> String { "habitBoard.row.\(habitID.uuidString)" }
+    static func pinnedTitle(_ habitID: UUID) -> String { "habitBoard.pinnedTitle.\(habitID.uuidString)" }
+    static func dayHeader(_ date: Date) -> String { "habitBoard.dayHeader.\(date.habitBoardAccessibilityStamp)" }
+    static func dayCell(_ habitID: UUID, date: Date) -> String {
+        "habitBoard.cell.\(habitID.uuidString).\(date.habitBoardAccessibilityStamp)"
+    }
+}
+
+enum HabitBoardStripMode: Equatable {
     case compact
     case expanded
     case board
@@ -48,6 +148,11 @@ struct HabitBoardStripView: View {
     let cells: [HabitBoardCell]
     let family: HabitColorFamily
     let mode: HabitBoardStripMode
+    var cellSizeOverride: CGFloat? = nil
+
+    private var resolvedCellSize: CGFloat {
+        cellSizeOverride ?? mode.cellSize
+    }
 
     var body: some View {
         HStack(spacing: mode.spacing) {
@@ -55,7 +160,8 @@ struct HabitBoardStripView: View {
                 HabitBoardCellView(
                     cell: cell,
                     family: family,
-                    mode: mode
+                    mode: mode,
+                    cellSizeOverride: resolvedCellSize
                 )
             }
         }
@@ -120,8 +226,8 @@ struct HabitHomeSectionCard: View {
                     Button("Board") { onOpenBoard() }
                         .font(.tasker(.caption1).weight(.semibold))
                         .foregroundStyle(Color.tasker.textPrimary)
+                        .frame(minWidth: 56, minHeight: 44)
                         .padding(.horizontal, 10)
-                        .padding(.vertical, 6)
                         .background(
                             RoundedRectangle(cornerRadius: 10, style: .continuous)
                                 .fill(Color.white.opacity(0.7))
@@ -131,6 +237,8 @@ struct HabitHomeSectionCard: View {
                                 .stroke(Color.tasker.strokeHairline.opacity(0.55), lineWidth: 1)
                         )
                         .buttonStyle(.plain)
+                        .accessibilityIdentifier(HabitBoardAccessibilityID.homeOpenBoard)
+                        .accessibilityLabel("Open Habit Board")
                 }
             }
 
@@ -211,13 +319,19 @@ struct HabitHomeSectionCard: View {
 struct HabitBoardScreen: View {
     @ObservedObject var viewModel: HabitBoardViewModel
     @State private var selectedHabitRow: HabitLibraryRow?
+    @State private var measuredBoardWidth: CGFloat = 0
     @Environment(\.dismiss) private var dismiss
     @Environment(\.taskerLayoutClass) private var layoutClass
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.tokens(for: layoutClass).spacing }
-    private var preferredDayCount: Int {
-        layoutClass == .padRegular || layoutClass == .padExpanded ? 28 : 14
+    private var layoutMetrics: HabitBoardLayoutMetrics {
+        HabitBoardLayoutMetrics.forContainerWidth(resolvedBoardWidth, dynamicTypeSize: dynamicTypeSize)
+    }
+    private var resolvedBoardWidth: CGFloat {
+        let fallback = max(UIScreen.main.bounds.width - (spacing.s16 * 2), 320)
+        return measuredBoardWidth > 1 ? measuredBoardWidth : fallback
     }
 
     var body: some View {
@@ -244,6 +358,7 @@ struct HabitBoardScreen: View {
                 .padding(.bottom, spacing.s24)
             }
             .background(Color.tasker.bgCanvas)
+            .accessibilityIdentifier(HabitBoardAccessibilityID.view)
             .navigationTitle("Habit Board")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -251,12 +366,9 @@ struct HabitBoardScreen: View {
                     Button("Close") { dismiss() }
                 }
             }
-            .task {
-                viewModel.setVisibleDayCount(preferredDayCount)
+            .task(id: layoutMetrics) {
+                viewModel.configureViewport(columnCount: layoutMetrics.visibleColumns, historySpan: layoutMetrics.historySpan)
                 viewModel.loadIfNeeded()
-            }
-            .onChange(of: preferredDayCount) { _, newValue in
-                viewModel.setVisibleDayCount(newValue)
             }
             .sheet(item: $selectedHabitRow) { row in
                 HabitDetailSheetView(
@@ -269,58 +381,49 @@ struct HabitBoardScreen: View {
 
     private var boardToolbarCard: some View {
         VStack(alignment: .leading, spacing: spacing.s12) {
-            HStack(spacing: 10) {
-                boardPagerButton(systemName: "chevron.left") {
-                    viewModel.moveWindow(byDays: -viewModel.visibleDayCount)
+            HStack(alignment: .center, spacing: spacing.s12) {
+                boardPagerButton(
+                    systemName: "chevron.left",
+                    accessibilityIdentifier: HabitBoardAccessibilityID.previousWindow,
+                    accessibilityLabel: "Show previous \(viewModel.viewportColumnCount) days"
+                ) {
+                    viewModel.moveWindow(byDays: -viewModel.viewportColumnCount)
                 }
 
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("Habit board")
-                        .font(.tasker(.headline))
-                        .foregroundStyle(Color.tasker.textPrimary)
+                VStack(alignment: .leading, spacing: 4) {
                     Text(rangeTitle)
-                        .font(.tasker(.caption1))
+                        .font(.tasker(.bodyStrong))
+                        .foregroundStyle(Color.tasker.textPrimary)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.88)
+                        .accessibilityIdentifier(HabitBoardAccessibilityID.rangeTitle)
+
+                    Text("\(viewModel.viewportColumnCount)-day matrix window")
+                        .font(.tasker(.caption2))
                         .foregroundStyle(Color.tasker.textSecondary)
+                        .lineLimit(1)
                 }
+                .frame(maxWidth: .infinity, alignment: .leading)
 
-                Spacer(minLength: 0)
-
-                HStack(spacing: 6) {
-                    boardModeButton(title: "Streaks", mode: .streaks)
-                    boardModeButton(title: "Counts", mode: .counts)
+                boardPagerButton(
+                    systemName: "chevron.right",
+                    accessibilityIdentifier: HabitBoardAccessibilityID.nextWindow,
+                    accessibilityLabel: "Show next \(viewModel.viewportColumnCount) days"
+                ) {
+                    viewModel.moveWindow(byDays: viewModel.viewportColumnCount)
                 }
-
-                boardPagerButton(systemName: "chevron.right") {
-                    viewModel.moveWindow(byDays: viewModel.visibleDayCount)
-                }
-            }
-
-            HStack(spacing: 10) {
-                Text("Visible days")
-                    .font(.tasker(.caption1))
-                    .foregroundStyle(Color.tasker.textSecondary)
-
-                Slider(
-                    value: Binding(
-                        get: { Double(viewModel.visibleDayCount) },
-                        set: { viewModel.setVisibleDayCount(Int($0.rounded())) }
-                    ),
-                    in: 14...28,
-                    step: 1
-                )
-                .tint(Color.tasker.textSecondary.opacity(0.72))
-
-                Text("\(viewModel.visibleDayCount)")
-                    .font(.tasker(.caption1).weight(.semibold))
-                    .foregroundStyle(Color.tasker.textPrimary)
-                    .frame(minWidth: 24, alignment: .trailing)
             }
         }
-        .padding(14)
-        .background(HabitBoardSurfaceBackground(cornerRadius: 20))
+        .padding(16)
+        .background(HabitBoardFlatSurfaceBackground(cornerRadius: 18))
     }
 
-    private func boardPagerButton(systemName: String, action: @escaping () -> Void) -> some View {
+    private func boardPagerButton(
+        systemName: String,
+        accessibilityIdentifier: String,
+        accessibilityLabel: String,
+        action: @escaping () -> Void
+    ) -> some View {
         Button {
             withAnimation(reduceMotion ? .linear(duration: 0.01) : TaskerAnimation.stateChange) {
                 action()
@@ -328,247 +431,312 @@ struct HabitBoardScreen: View {
         } label: {
             Image(systemName: systemName)
                 .font(.system(size: 13, weight: .semibold))
-                .foregroundStyle(Color.tasker.textSecondary)
-                .frame(width: 32, height: 32)
-                .background(Color.white.opacity(0.72))
+                .foregroundStyle(Color.tasker.textPrimary)
+                .frame(width: 44, height: 44)
+                .background(Color.tasker.surfacePrimary.opacity(0.98))
                 .clipShape(Circle())
                 .overlay(Circle().stroke(Color.tasker.strokeHairline.opacity(0.55), lineWidth: 1))
         }
         .buttonStyle(.plain)
-    }
-
-    private func boardModeButton(title: String, mode: HabitBoardSummaryMode) -> some View {
-        Button(title) {
-            withAnimation(reduceMotion ? .linear(duration: 0.01) : TaskerAnimation.quick) {
-                viewModel.summaryMode = mode
-            }
-        }
-        .font(.tasker(.caption1).weight(viewModel.summaryMode == mode ? .semibold : .regular))
-        .foregroundStyle(viewModel.summaryMode == mode ? Color.tasker.textPrimary : Color.tasker.textSecondary)
-        .padding(.horizontal, 10)
-        .padding(.vertical, 6)
-        .background(
-            RoundedRectangle(cornerRadius: 10, style: .continuous)
-                .fill(viewModel.summaryMode == mode ? Color.white.opacity(0.84) : Color.clear)
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 10, style: .continuous)
-                .stroke(viewModel.summaryMode == mode ? Color.tasker.strokeHairline.opacity(0.6) : Color.clear, lineWidth: 1)
-        )
-        .buttonStyle(.plain)
+        .accessibilityIdentifier(accessibilityIdentifier)
+        .accessibilityLabel(accessibilityLabel)
     }
 
     private var boardCard: some View {
-        VStack(alignment: .leading, spacing: spacing.s12) {
-            ScrollView(.horizontal, showsIndicators: true) {
-                VStack(alignment: .leading, spacing: spacing.s12) {
-                    boardHeader
+        HStack(alignment: .top, spacing: 0) {
+            VStack(alignment: .leading, spacing: 0) {
+                HabitBoardPinnedColumnHeader(layoutMetrics: layoutMetrics)
 
-                    VStack(spacing: 0) {
-                        ForEach(viewModel.boardRows) { row in
-                            Button {
+                Divider()
+                    .overlay(Color.tasker.strokeHairline.opacity(0.28))
+
+                LazyVStack(spacing: 0) {
+                    ForEach(viewModel.boardRows) { row in
+                        HabitBoardPinnedRowView(
+                            row: row,
+                            layoutMetrics: layoutMetrics,
+                            onSelect: {
                                 if let libraryRow = viewModel.row(for: row.habitID) {
                                     selectedHabitRow = libraryRow
                                 }
-                            } label: {
-                                HabitBoardGridRowView(
-                                    row: row,
-                                    summaryMode: viewModel.summaryMode
-                                )
                             }
-                            .buttonStyle(.plain)
+                        )
+
+                        Divider()
+                            .overlay(Color.tasker.strokeHairline.opacity(0.22))
+                    }
+                }
+            }
+            .frame(width: layoutMetrics.pinnedRailWidth, alignment: .leading)
+
+            ScrollView(.horizontal, showsIndicators: false) {
+                VStack(alignment: .leading, spacing: 0) {
+                    HabitBoardDayHeaderRow(days: viewModel.aggregateDays, layoutMetrics: layoutMetrics)
+
+                    Divider()
+                        .overlay(Color.tasker.strokeHairline.opacity(0.28))
+
+                    LazyVStack(spacing: 0) {
+                        ForEach(viewModel.boardRows) { row in
+                            HabitBoardMatrixRowView(
+                                row: row,
+                                layoutMetrics: layoutMetrics
+                            )
 
                             Divider()
-                                .overlay(Color.tasker.strokeHairline.opacity(0.42))
+                                .overlay(Color.tasker.strokeHairline.opacity(0.22))
                         }
-
-                        HabitBoardTotalsFooterView(days: viewModel.aggregateDays)
                     }
                 }
                 .frame(
-                    minWidth: HabitBoardLayout.contentWidth(dayCount: viewModel.aggregateDays.count),
+                    minWidth: max(layoutMetrics.gridViewportWidth, layoutMetrics.contentWidth(dayCount: viewModel.aggregateDays.count)),
                     alignment: .leading
                 )
             }
+            .frame(width: layoutMetrics.gridViewportWidth, alignment: .leading)
             .scrollBounceBehavior(.basedOnSize, axes: .horizontal)
         }
-        .padding(14)
-        .background(HabitBoardSurfaceBackground(cornerRadius: 24))
-    }
-
-    private var boardHeader: some View {
-        HStack(alignment: .bottom, spacing: 10) {
-            Text("HABITS")
-                .font(.tasker(.caption2).weight(.semibold))
-                .foregroundStyle(Color.tasker.textSecondary)
-                .frame(width: HabitBoardLayout.railWidth, alignment: .leading)
-
-            HStack(spacing: HabitBoardStripMode.board.spacing) {
-                ForEach(viewModel.aggregateDays, id: \.date) { day in
-                    HabitBoardHeaderDayCell(day: day)
-                }
-            }
-
-            summaryHeader
-                .frame(width: HabitBoardLayout.railWidth, alignment: .leading)
-        }
-    }
-
-    @ViewBuilder
-    private var summaryHeader: some View {
-        switch viewModel.summaryMode {
-        case .streaks:
-            HStack(spacing: 6) {
-                Text("current")
-                Text("longest")
-                Text("total")
-            }
-            .font(.tasker(.caption2))
-            .foregroundStyle(Color.tasker.textSecondary)
-        case .counts:
-            HStack(spacing: 6) {
-                Text("week")
-                Text("month")
-                Text("year")
-            }
-            .font(.tasker(.caption2))
-            .foregroundStyle(Color.tasker.textSecondary)
+        .padding(layoutMetrics.boardPadding)
+        .background(HabitBoardFlatSurfaceBackground(cornerRadius: 24))
+        .background(HabitBoardWidthReader())
+        .onPreferenceChange(HabitBoardWidthPreferenceKey.self) { width in
+            guard width > 1 else { return }
+            measuredBoardWidth = width
         }
     }
 
     private var rangeTitle: String {
         guard let start = viewModel.aggregateDays.first?.date,
               let end = viewModel.aggregateDays.last?.date else {
-            return "Last \(viewModel.visibleDayCount) days"
+            return "Last \(viewModel.viewportColumnCount) days"
         }
         return "\(start.formatted(date: .abbreviated, time: .omitted)) - \(end.formatted(date: .abbreviated, time: .omitted))"
     }
 }
 
-struct HabitBoardGridRowView: View {
+private struct HabitBoardPinnedRowView: View {
     let row: HabitBoardRowPresentation
-    let summaryMode: HabitBoardSummaryMode
+    let layoutMetrics: HabitBoardLayoutMetrics
+    let onSelect: () -> Void
 
     var body: some View {
-        HStack(alignment: .center, spacing: HabitBoardLayout.rowSpacing) {
-            HStack(spacing: 6) {
-                Image(systemName: row.iconSymbolName)
-                    .font(.system(size: 10, weight: .semibold))
-                    .foregroundStyle(HabitEverydayPalette.familyPreview(row.colorFamily))
-                    .frame(width: 14, alignment: .center)
+        HStack(alignment: .center, spacing: layoutMetrics.iconToTextSpacing) {
+            Image(systemName: row.iconSymbolName)
+                .font(.system(size: 15, weight: .medium))
+                .foregroundStyle(HabitEverydayPalette.familyPreview(row.colorFamily))
+                .frame(width: layoutMetrics.iconSlotWidth, height: layoutMetrics.rowHeight, alignment: .center)
 
-                Text(row.title)
-                    .font(.tasker(.caption1))
-                    .foregroundStyle(Color.tasker.textPrimary)
-                    .lineLimit(1)
-            }
-            .frame(width: HabitBoardLayout.railWidth, alignment: .leading)
-
-            HabitBoardStripView(
-                cells: row.cells,
-                family: row.colorFamily,
-                mode: .board
-            )
-
-            HabitBoardSummaryRailView(row: row, summaryMode: summaryMode)
-                .frame(width: HabitBoardLayout.railWidth, alignment: .leading)
+            Text(row.title)
+                .font(.tasker(.body))
+                .foregroundStyle(Color.tasker.textPrimary)
+                .lineLimit(2)
+                .truncationMode(.tail)
+                .multilineTextAlignment(.leading)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .accessibilityIdentifier(HabitBoardAccessibilityID.pinnedTitle(row.habitID))
         }
-        .padding(.vertical, 6)
+        .frame(width: layoutMetrics.leadingRailWidth, alignment: .leading)
+        .frame(minHeight: layoutMetrics.rowHeight, alignment: .center)
+        .padding(.trailing, layoutMetrics.railTrailingPadding)
+        .overlay(alignment: .trailing) {
+            Rectangle()
+                .fill(Color.tasker.strokeHairline.opacity(0.32))
+                .frame(width: 1)
+        }
+        .contentShape(Rectangle())
+        .onTapGesture(perform: onSelect)
+        .accessibilityIdentifier(HabitBoardAccessibilityID.row(row.habitID))
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel(row.title)
+        .accessibilityHint("Opens habit details")
+        .accessibilityAction(named: Text("Open habit")) {
+            onSelect()
+        }
     }
 }
 
-struct HabitBoardSummaryRailView: View {
+private struct HabitBoardMatrixRowView: View {
     let row: HabitBoardRowPresentation
-    let summaryMode: HabitBoardSummaryMode
+    let layoutMetrics: HabitBoardLayoutMetrics
 
     var body: some View {
-        HStack(spacing: 6) {
-            switch summaryMode {
-            case .streaks:
-                HabitStatBadgeView(
-                    value: "\(row.metrics.currentStreak)",
+        HStack(spacing: layoutMetrics.cellGap) {
+            ForEach(Array(row.cells.enumerated()), id: \.element.date) { index, cell in
+                HabitBoardCellView(
+                    cell: cell,
                     family: row.colorFamily,
-                    highlighted: row.metrics.currentStreak > 0 && row.metrics.currentStreak == row.metrics.bestStreak
+                    mode: .board,
+                    cellWidthOverride: layoutMetrics.dayColumnWidth,
+                    cellHeightOverride: layoutMetrics.cellHeight,
+                    bridgeDepthHint: bridgeDepthHint(at: index)
                 )
-                HabitStatBadgeView(
-                    value: "\(row.metrics.bestStreak)",
-                    family: row.colorFamily,
-                    highlighted: row.metrics.bestStreak > 0 && row.metrics.currentStreak == row.metrics.bestStreak
-                )
-                plainMetric("\(row.metrics.totalCount)")
-            case .counts:
-                plainMetric("\(row.metrics.weekCount)")
-                plainMetric("\(row.metrics.monthCount)")
-                plainMetric("\(row.metrics.yearCount)")
+                .accessibilityElement(children: .ignore)
+                .accessibilityIdentifier(HabitBoardAccessibilityID.dayCell(row.habitID, date: cell.date))
+                .accessibilityLabel(cellAccessibilityLabel(for: cell))
+                .accessibilityValue(cellAccessibilityValue(for: cell))
             }
         }
+        .frame(height: layoutMetrics.rowHeight, alignment: .center)
     }
 
-    private func plainMetric(_ value: String) -> some View {
-        Text(value)
-            .font(.tasker(.caption1))
-            .foregroundStyle(Color.tasker.textSecondary)
-            .frame(minWidth: 28, alignment: .leading)
+    private func bridgeDepthHint(at index: Int) -> Int? {
+        guard case .bridge = row.cells[index].state else { return nil }
+        let previousDepth = nearestDoneDepth(before: index)
+        let nextDepth = nearestDoneDepth(after: index)
+        let resolvedDepth = max(previousDepth ?? 0, nextDepth ?? 0)
+        return resolvedDepth > 0 ? resolvedDepth : nil
+    }
+
+    private func nearestDoneDepth(before index: Int) -> Int? {
+        guard index > 0 else { return nil }
+        for cursor in stride(from: index - 1, through: 0, by: -1) {
+            switch row.cells[cursor].state {
+            case .done(let depth):
+                return depth
+            case .bridge, .todayPending:
+                continue
+            case .missed, .future:
+                return nil
+            }
+        }
+        return nil
+    }
+
+    private func nearestDoneDepth(after index: Int) -> Int? {
+        guard index < row.cells.count - 1 else { return nil }
+        for cursor in (index + 1)..<row.cells.count {
+            switch row.cells[cursor].state {
+            case .done(let depth):
+                return depth
+            case .bridge, .todayPending:
+                continue
+            case .missed, .future:
+                return nil
+            }
+        }
+        return nil
+    }
+
+    private func cellAccessibilityLabel(for cell: HabitBoardCell) -> String {
+        "\(row.title), \(cell.date.formatted(date: .complete, time: .omitted))"
+    }
+
+    private func cellAccessibilityValue(for cell: HabitBoardCell) -> String {
+        switch cell.state {
+        case .done:
+            return "Completed"
+        case .missed:
+            return "Missed"
+        case .todayPending:
+            return "Due today"
+        case .future:
+            return "Future day"
+        case .bridge(let kind, let source):
+            let sourceLabel = source == .skipped ? "Skipped" : "Not scheduled"
+            return "\(sourceLabel), transition \(kind.accessibilityLabel)"
+        }
     }
 }
 
-struct HabitBoardTotalsFooterView: View {
-    let days: [HabitBoardAggregateDay]
+private struct HabitBoardPinnedColumnHeader: View {
+    let layoutMetrics: HabitBoardLayoutMetrics
 
     var body: some View {
-        HStack(alignment: .top, spacing: HabitBoardLayout.rowSpacing) {
-            Text("Totals")
-                .font(.tasker(.caption1))
+        HStack(spacing: 0) {
+            Color.clear
+                .frame(width: layoutMetrics.titleLeadingInset, height: 1)
+
+            Text("HABITS")
+                .font(.system(size: 13, weight: .semibold, design: .default))
                 .foregroundStyle(Color.tasker.textSecondary)
-                .frame(width: HabitBoardLayout.railWidth, alignment: .leading)
-
-            HStack(spacing: HabitBoardStripMode.board.spacing) {
-                ForEach(days, id: \.date) { day in
-                    Text("\(day.completedCount)")
-                        .font(.tasker(.caption1).weight(day.isToday ? .semibold : .regular))
-                        .foregroundStyle(day.isToday ? Color.tasker.textPrimary : Color.tasker.textSecondary)
-                        .frame(width: HabitBoardStripMode.board.cellSize, alignment: .center)
-                }
-            }
-
-            Spacer(minLength: 0)
+                .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .padding(.top, 10)
+        .frame(width: layoutMetrics.leadingRailWidth, height: layoutMetrics.headerHeight, alignment: .bottomLeading)
+        .padding(.trailing, layoutMetrics.railTrailingPadding)
+        .overlay(alignment: .trailing) {
+            Rectangle()
+                .fill(Color.tasker.strokeHairline.opacity(0.32))
+                .frame(width: 1)
+        }
+        .accessibilityIdentifier(HabitBoardAccessibilityID.pinnedHeader)
+    }
+}
+
+private struct HabitBoardDayHeaderRow: View {
+    let days: [HabitBoardAggregateDay]
+    let layoutMetrics: HabitBoardLayoutMetrics
+
+    var body: some View {
+        HStack(spacing: layoutMetrics.cellGap) {
+            ForEach(Array(days.enumerated()), id: \.element.date) { index, day in
+                HabitBoardHeaderDayCell(
+                    day: day,
+                    showsMonthMarker: index == 0 || !Calendar.current.isDate(day.date, equalTo: days[index - 1].date, toGranularity: .month),
+                    layoutMetrics: layoutMetrics
+                )
+            }
+        }
+        .frame(height: layoutMetrics.headerHeight, alignment: .bottom)
     }
 }
 
 private struct HabitBoardHeaderDayCell: View {
     let day: HabitBoardAggregateDay
+    let showsMonthMarker: Bool
+    let layoutMetrics: HabitBoardLayoutMetrics
+
+    private var weekdayLabel: String {
+        let symbol = day.date.formatted(.dateTime.weekday(layoutMetrics.showsFullWeekday ? .abbreviated : .wide))
+        return layoutMetrics.showsFullWeekday ? symbol.uppercased() : String(symbol.prefix(3)).uppercased()
+    }
 
     var body: some View {
-        VStack(spacing: 1) {
-            Text(day.date.formatted(.dateTime.month(.abbreviated)))
-                .font(.tasker(.caption2))
+        VStack(spacing: 4) {
+            Text(showsMonthMarker ? day.date.formatted(.dateTime.month(.abbreviated)) : " ")
+                .font(.system(size: 11, weight: .medium, design: .default))
                 .foregroundStyle(Color.tasker.textSecondary)
+                .frame(maxWidth: .infinity, alignment: .center)
 
-            if day.isToday {
-                VStack(spacing: 0) {
-                    Text(day.date.formatted(.dateTime.day()))
-                        .font(.tasker(.headline))
-                    Text(day.date.formatted(.dateTime.weekday(.abbreviated)).uppercased())
-                        .font(.tasker(.caption2).weight(.semibold))
-                }
-                .foregroundStyle(Color.white)
-                .frame(width: 40, height: 40)
-                .background(Color(uiColor: UIColor(taskerHex: "#5CAA31")))
-                .overlay(Circle().stroke(Color.white.opacity(0.6), lineWidth: 1))
-                .clipShape(Circle())
-            } else {
-                Text(day.date.formatted(.dateTime.day()))
-                    .font(.tasker(.headline))
-                    .foregroundStyle(Color.tasker.textPrimary)
+            Text(day.date.formatted(.dateTime.day()))
+                .font(.system(size: 22, weight: .semibold, design: .default))
+                .monospacedDigit()
+                .foregroundStyle(day.isToday ? Color.tasker.textPrimary : Color.tasker.textPrimary)
+                .frame(maxWidth: .infinity, minHeight: 28)
+                .background(todayBackground)
 
-                Text(day.date.formatted(.dateTime.weekday(.abbreviated)).uppercased())
-                    .font(.tasker(.caption2).weight(.semibold))
-                    .foregroundStyle(Color.tasker.textSecondary)
-            }
+            Text(weekdayLabel)
+                .font(.system(size: 11, weight: .semibold, design: .default))
+                .foregroundStyle(Color.tasker.textSecondary)
+                .lineLimit(1)
+                .minimumScaleFactor(0.8)
         }
-        .frame(width: HabitBoardStripMode.board.columnWidth, alignment: .center)
+        .frame(width: layoutMetrics.dayColumnWidth, height: layoutMetrics.headerHeight, alignment: .bottom)
+        .padding(.vertical, 6)
+        .background(headerBackground)
+        .accessibilityElement(children: .ignore)
+        .accessibilityIdentifier(HabitBoardAccessibilityID.dayHeader(day.date))
+        .accessibilityLabel(day.date.formatted(date: .complete, time: .omitted))
+        .accessibilityValue(day.isToday ? "Today" : "")
+    }
+
+    @ViewBuilder
+    private var todayBackground: some View {
+        if day.isToday {
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .fill(Color.tasker.surfacePrimary)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                        .stroke(Color.tasker.statusSuccess.opacity(0.85), lineWidth: 1.4)
+                )
+                .padding(.horizontal, 1)
+        } else {
+            Color.clear
+        }
+    }
+
+    private var headerBackground: some View {
+        RoundedRectangle(cornerRadius: layoutMetrics.cellCornerRadius, style: .continuous)
+            .fill(Calendar.current.isDateInWeekend(day.date) ? Color.tasker.surfaceSecondary.opacity(0.55) : Color.clear)
     }
 }
 
@@ -584,7 +752,7 @@ struct HabitStatBadgeView: View {
                     .font(.tasker(.caption1).weight(.semibold))
                     .foregroundStyle(HabitEverydayPalette.familyPreview(family))
                     .frame(width: 28, height: 28)
-                    .background(Color.white.opacity(0.94))
+                    .background(Color.tasker.surfacePrimary.opacity(0.94))
                     .overlay(
                         Circle()
                             .stroke(HabitEverydayPalette.familyPreview(family), lineWidth: 2)
@@ -600,12 +768,25 @@ struct HabitStatBadgeView: View {
     }
 }
 
+private struct HabitBoardFlatSurfaceBackground: View {
+    let cornerRadius: CGFloat
+
+    var body: some View {
+        RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+            .fill(Color.tasker.surfacePrimary.opacity(0.98))
+            .overlay(
+                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                    .stroke(Color.tasker.strokeHairline.opacity(0.46), lineWidth: 1)
+            )
+    }
+}
+
 private struct HabitBoardSurfaceBackground: View {
     let cornerRadius: CGFloat
 
     var body: some View {
         RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-            .fill(Color(uiColor: UIColor(taskerHex: "#FCFAF4")))
+            .fill(Color.tasker.surfacePrimary.opacity(0.96))
             .overlay(
                 RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
                     .stroke(Color.tasker.strokeHairline.opacity(0.58), lineWidth: 1)
@@ -614,6 +795,23 @@ private struct HabitBoardSurfaceBackground: View {
                 PaperGrainOverlay()
                     .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
             )
+    }
+}
+
+private struct HabitBoardWidthReader: View {
+    var body: some View {
+        GeometryReader { proxy in
+            Color.clear
+                .preference(key: HabitBoardWidthPreferenceKey.self, value: proxy.size.width)
+        }
+    }
+}
+
+private struct HabitBoardWidthPreferenceKey: PreferenceKey {
+    static var defaultValue: CGFloat = 0
+
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+        value = nextValue()
     }
 }
 
@@ -645,9 +843,39 @@ private struct HabitBoardCellView: View {
     let cell: HabitBoardCell
     let family: HabitColorFamily
     let mode: HabitBoardStripMode
+    let cellSizeOverride: CGFloat?
+    let cellWidthOverride: CGFloat?
+    let cellHeightOverride: CGFloat?
+    let bridgeDepthHint: Int?
 
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.accessibilityDifferentiateWithoutColor) private var differentiateWithoutColor
+
+    init(
+        cell: HabitBoardCell,
+        family: HabitColorFamily,
+        mode: HabitBoardStripMode,
+        cellSizeOverride: CGFloat? = nil,
+        cellWidthOverride: CGFloat? = nil,
+        cellHeightOverride: CGFloat? = nil,
+        bridgeDepthHint: Int? = nil
+    ) {
+        self.cell = cell
+        self.family = family
+        self.mode = mode
+        self.cellSizeOverride = cellSizeOverride
+        self.cellWidthOverride = cellWidthOverride
+        self.cellHeightOverride = cellHeightOverride
+        self.bridgeDepthHint = bridgeDepthHint
+    }
+
+    private var resolvedCellWidth: CGFloat {
+        cellWidthOverride ?? cellSizeOverride ?? mode.cellSize
+    }
+
+    private var resolvedCellHeight: CGFloat {
+        cellHeightOverride ?? cellSizeOverride ?? mode.cellSize
+    }
 
     var body: some View {
         ZStack {
@@ -658,7 +886,8 @@ private struct HabitBoardCellView: View {
                     source: source,
                     family: family,
                     mode: mode,
-                    colorScheme: colorScheme
+                    colorScheme: colorScheme,
+                    depthHint: bridgeDepthHint
                 )
             default:
                 baseFill
@@ -668,9 +897,9 @@ private struct HabitBoardCellView: View {
                 differentiateOverlay
             }
         }
-        .frame(width: mode.cellSize, height: mode.cellSize)
+        .frame(width: resolvedCellWidth, height: resolvedCellHeight)
         .overlay {
-            if cell.isToday {
+            if cell.isToday, mode != .board {
                 RoundedRectangle(cornerRadius: mode.cornerRadius, style: .continuous)
                     .stroke(HabitEverydayPalette.todayStroke(colorScheme: colorScheme), lineWidth: 1.2)
             }
@@ -683,7 +912,7 @@ private struct HabitBoardCellView: View {
         case .missed:
             Rectangle()
                 .fill(Color.tasker.textSecondary.opacity(0.22))
-                .frame(width: mode.cellSize * 0.45, height: 1)
+                .frame(width: resolvedCellWidth * 0.45, height: 1)
         case .bridge:
             Circle()
                 .fill(Color.tasker.textSecondary)
@@ -718,16 +947,20 @@ private struct HabitBoardCellView: View {
     private var doneGrainOverlay: some View {
         switch cell.state {
         case .done:
-            Canvas { context, size in
-                for index in 0..<6 {
-                    var path = Path()
-                    let x = CGFloat((index * 7) % 11) / 11 * size.width
-                    let y = CGFloat((index * 11) % 13) / 13 * size.height
-                    path.addEllipse(in: CGRect(x: x, y: y, width: 0.6, height: 0.6))
-                    context.fill(path, with: .color(Color.white.opacity(0.12)))
+            if mode == .board {
+                EmptyView()
+            } else {
+                Canvas { context, size in
+                    for index in 0..<6 {
+                        var path = Path()
+                        let x = CGFloat((index * 7) % 11) / 11 * size.width
+                        let y = CGFloat((index * 11) % 13) / 13 * size.height
+                        path.addEllipse(in: CGRect(x: x, y: y, width: 0.6, height: 0.6))
+                        context.fill(path, with: .color(Color.white.opacity(0.12)))
+                    }
                 }
+                .clipShape(RoundedRectangle(cornerRadius: mode.cornerRadius, style: .continuous))
             }
-            .clipShape(RoundedRectangle(cornerRadius: mode.cornerRadius, style: .continuous))
         default:
             EmptyView()
         }
@@ -740,6 +973,7 @@ private struct HabitBridgeTileView: View {
     let family: HabitColorFamily
     let mode: HabitBoardStripMode
     let colorScheme: ColorScheme
+    let depthHint: Int?
 
     var body: some View {
         ZStack {
@@ -749,22 +983,26 @@ private struct HabitBridgeTileView: View {
             switch kind {
             case .single:
                 DualCornerBridgeFill()
-                    .fill(HabitEverydayPalette.bridgeTint(for: family, colorScheme: colorScheme))
+                    .fill(HabitEverydayPalette.bridgeTint(for: family, depth: depthHint, colorScheme: colorScheme))
             case .start:
                 LeadingBridgeFill()
-                    .fill(HabitEverydayPalette.bridgeTint(for: family, colorScheme: colorScheme))
+                    .fill(HabitEverydayPalette.bridgeTint(for: family, depth: depthHint, colorScheme: colorScheme))
             case .middle:
                 DiagonalBridgeBand()
-                    .fill(HabitEverydayPalette.bridgeTint(for: family, colorScheme: colorScheme))
+                    .fill(HabitEverydayPalette.bridgeTint(for: family, depth: depthHint, colorScheme: colorScheme))
             case .end:
                 TrailingBridgeFill()
-                    .fill(HabitEverydayPalette.bridgeTint(for: family, colorScheme: colorScheme))
+                    .fill(HabitEverydayPalette.bridgeTint(for: family, depth: depthHint, colorScheme: colorScheme))
             }
         }
         .overlay(
             RoundedRectangle(cornerRadius: mode.cornerRadius, style: .continuous)
                 .stroke(
-                    source == .skipped ? HabitEverydayPalette.bridgeTint(for: family, colorScheme: colorScheme).opacity(0.18) : .clear,
+                    mode == .board ? .clear : (
+                        source == .skipped
+                            ? HabitEverydayPalette.bridgeTint(for: family, depth: depthHint, colorScheme: colorScheme).opacity(0.18)
+                            : .clear
+                    ),
                     lineWidth: 0.5
                 )
         )
@@ -832,27 +1070,38 @@ enum HabitEverydayPalette {
         Color(uiColor: UIColor(taskerHex: lightRamps[family]?[4] ?? family.canonicalHex))
     }
 
-    static func bridgeTint(for family: HabitColorFamily, colorScheme: ColorScheme) -> Color {
-        let ramp = colorScheme == .dark ? darkRamps : lightRamps
-        return Color(uiColor: UIColor(taskerHex: ramp[family]?[2] ?? family.canonicalHex))
+    static func bridgeTint(for family: HabitColorFamily, depth: Int?, colorScheme: ColorScheme) -> Color {
+        guard let depth else {
+            let ramp = colorScheme == .dark ? darkRamps : lightRamps
+            return Color(uiColor: UIColor(taskerHex: ramp[family]?[2] ?? family.canonicalHex))
+        }
+
+        let bridgeDepth = max(1, min(depth - 1, 7))
+        return depthColor(for: family, depth: bridgeDepth, colorScheme: colorScheme)
+    }
+
+    static func gridStroke(colorScheme: ColorScheme) -> Color {
+        colorScheme == .dark
+            ? Color.white.opacity(0.07)
+            : Color.black.opacity(0.04)
     }
 
     static func paperFill(colorScheme: ColorScheme) -> Color {
         colorScheme == .dark
-            ? Color(uiColor: UIColor(taskerHex: "#221D18"))
-            : Color(uiColor: UIColor(taskerHex: "#F7F3EB"))
+            ? Color(uiColor: UIColor(taskerHex: "#14181E"))
+            : Color(uiColor: UIColor(taskerHex: "#F8FAFC"))
     }
 
     static func missedFill(colorScheme: ColorScheme) -> Color {
         colorScheme == .dark
-            ? Color(uiColor: UIColor(taskerHex: "#2A241E"))
-            : Color(uiColor: UIColor(taskerHex: "#ECE7DD"))
+            ? Color(uiColor: UIColor(taskerHex: "#1B2027"))
+            : Color(uiColor: UIColor(taskerHex: "#EEF2F6"))
     }
 
     static func futureFill(colorScheme: ColorScheme) -> Color {
         colorScheme == .dark
-            ? Color(uiColor: UIColor(taskerHex: "#1C1713"))
-            : Color(uiColor: UIColor(taskerHex: "#F1EEE8"))
+            ? Color(uiColor: UIColor(taskerHex: "#101419"))
+            : Color(uiColor: UIColor(taskerHex: "#F3F6F9"))
     }
 
     static func todayStroke(colorScheme: ColorScheme) -> Color {
@@ -889,4 +1138,36 @@ private extension HabitBoardCell {
         }
         return false
     }
+}
+
+private extension HabitBridgeKind {
+    var accessibilityLabel: String {
+        switch self {
+        case .single:
+            return "single"
+        case .start:
+            return "start"
+        case .middle:
+            return "middle"
+        case .end:
+            return "end"
+        }
+    }
+}
+
+private extension Date {
+    var habitBoardAccessibilityStamp: String {
+        HabitBoardDateFormatter.accessibilityStamp.string(from: self)
+    }
+}
+
+private enum HabitBoardDateFormatter {
+    static let accessibilityStamp: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.calendar = Calendar(identifier: .gregorian)
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.timeZone = Calendar.current.timeZone
+        formatter.dateFormat = "yyyy-MM-dd"
+        return formatter
+    }()
 }

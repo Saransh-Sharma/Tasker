@@ -7,13 +7,12 @@ public final class HabitBoardViewModel: ObservableObject {
     @Published public private(set) var libraryRows: [HabitLibraryRow] = []
     @Published public private(set) var isLoading = false
     @Published public private(set) var errorMessage: String?
-    @Published public var summaryMode: HabitBoardSummaryMode = .streaks
     @Published public private(set) var endingOn: Date
-    @Published public private(set) var visibleDayCount: Int
+    @Published public private(set) var viewportColumnCount: Int
+    @Published public private(set) var historySpan: Int
 
     private let getHabitLibraryUseCase: GetHabitLibraryUseCase
     private let getHabitHistoryUseCase: GetHabitHistoryUseCase
-    private let historyDayCount = 365
     private var hasLoadedOnce = false
     private var latestHistoryByHabitID: [UUID: [HabitDayMark]] = [:]
 
@@ -21,12 +20,15 @@ public final class HabitBoardViewModel: ObservableObject {
         getHabitLibraryUseCase: GetHabitLibraryUseCase,
         getHabitHistoryUseCase: GetHabitHistoryUseCase,
         endingOn: Date = Date(),
-        visibleDayCount: Int = 14
+        viewportColumnCount: Int = 7,
+        historySpan: Int = 28
     ) {
         self.getHabitLibraryUseCase = getHabitLibraryUseCase
         self.getHabitHistoryUseCase = getHabitHistoryUseCase
         self.endingOn = endingOn
-        self.visibleDayCount = visibleDayCount
+        let resolvedViewport = max(1, viewportColumnCount)
+        self.viewportColumnCount = resolvedViewport
+        self.historySpan = max(historySpan, resolvedViewport)
     }
 
     public func loadIfNeeded() {
@@ -61,11 +63,17 @@ public final class HabitBoardViewModel: ObservableObject {
         refresh()
     }
 
-    public func setVisibleDayCount(_ dayCount: Int) {
-        let clamped = max(14, min(dayCount, 28))
-        guard visibleDayCount != clamped else { return }
-        visibleDayCount = clamped
-        rebuildPresentations(using: latestHistoryByHabitID)
+    public func configureViewport(columnCount: Int, historySpan: Int) {
+        let resolvedViewport = max(1, columnCount)
+        let resolvedHistorySpan = max(historySpan, resolvedViewport)
+        let changed = viewportColumnCount != resolvedViewport || self.historySpan != resolvedHistorySpan
+        guard changed else { return }
+
+        viewportColumnCount = resolvedViewport
+        self.historySpan = resolvedHistorySpan
+
+        guard hasLoadedOnce else { return }
+        refresh()
     }
 
     public func row(for habitID: UUID) -> HabitLibraryRow? {
@@ -83,7 +91,7 @@ public final class HabitBoardViewModel: ObservableObject {
         getHabitHistoryUseCase.execute(
             habitIDs: rows.map(\.habitID),
             endingOn: endingOn,
-            dayCount: historyDayCount
+            dayCount: historySpan
         ) { [weak self] result in
             Task { @MainActor [weak self] in
                 guard let self else { return }
@@ -107,15 +115,17 @@ public final class HabitBoardViewModel: ObservableObject {
         let calendar = Calendar.current
         let presentations = libraryRows.map { row -> HabitBoardRowPresentation in
             let marks = historyByHabitID[row.habitID] ?? row.last14Days
-            let allCells = HabitBoardPresentationBuilder.buildCells(
+            let historyCells = HabitBoardPresentationBuilder.buildCells(
                 marks: marks,
                 cadence: row.cadence,
                 referenceDate: endingOn,
-                dayCount: max(marks.count, visibleDayCount),
+                dayCount: max(historySpan, viewportColumnCount),
                 calendar: calendar
             )
-            let metrics = HabitBoardPresentationBuilder.metrics(for: allCells)
-            let visibleCells = Array(allCells.suffix(visibleDayCount))
+            let metrics = HabitBoardPresentationBuilder.metrics(for: historyCells)
+            let visibleCells = HabitBoardPresentationBuilder.remapVisibleDisplayDepths(
+                in: Array(historyCells.suffix(viewportColumnCount))
+            )
             return HabitBoardRowPresentation(
                 habitID: row.habitID,
                 title: row.title,
@@ -138,7 +148,7 @@ public final class HabitBoardViewModel: ObservableObject {
         boardRows = presentations
         aggregateDays = HabitBoardPresentationBuilder.aggregateDays(
             from: presentations,
-            dayCount: visibleDayCount
+            dayCount: viewportColumnCount
         )
     }
 }

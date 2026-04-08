@@ -108,6 +108,32 @@ enum HabitBoardPresentationBuilder {
         )
     }
 
+    static func remapVisibleDisplayDepths(
+        in cells: [HabitBoardCell]
+    ) -> [HabitBoardCell] {
+        var resolved = cells
+        var visibleRunDepth = 0
+
+        for index in resolved.indices {
+            switch resolved[index].state {
+            case .done:
+                visibleRunDepth += 1
+                resolved[index] = HabitBoardCell(
+                    date: resolved[index].date,
+                    state: .done(depth: min(visibleRunDepth, 8)),
+                    isToday: resolved[index].isToday,
+                    isWeekend: resolved[index].isWeekend
+                )
+            case .bridge, .todayPending:
+                continue
+            case .missed, .future:
+                visibleRunDepth = 0
+            }
+        }
+
+        return resolved
+    }
+
     static func aggregateDays(
         from rows: [HabitBoardRowPresentation],
         dayCount: Int
