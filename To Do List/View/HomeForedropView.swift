@@ -1416,6 +1416,7 @@ struct HomeBackdropForedropRootView: View {
     @State private var hasMountedAnalyticsSurface = false
     @State private var rescueExpansionOverride: Bool?
     @State private var showHabitBoardPresented = false
+    @State private var hasPresentedUITestHabitBoard = false
     @State private var isQuietTrackingComposerPresented = false
     @State private var selectedQuietTrackingHabitID: String?
     @State private var quietTrackingDate = Date()
@@ -1445,6 +1446,9 @@ struct HomeBackdropForedropRootView: View {
     private var layoutMetrics: HomeLayoutMetrics { faceCoordinator.layoutMetrics }
     private var isUITesting: Bool {
         Self.launchArguments.contains("-UI_TESTING") || Self.launchArguments.contains("-DISABLE_ANIMATIONS")
+    }
+    private var shouldPresentHabitBoardForUITests: Bool {
+        Self.launchArguments.contains("-TASKER_TEST_PRESENT_HABIT_BOARD")
     }
     private var isForedropHintAnimationEnabled: Bool {
         Self.launchArguments.contains("-ENABLE_FOREDROP_HINT_ANIMATION")
@@ -1714,6 +1718,7 @@ struct HomeBackdropForedropRootView: View {
             hasMountedAnalyticsSurface = activeFace == .analytics
             refreshReflectionClaimState()
             triggerForedropHintIfEligible()
+            presentHabitBoardIfRequestedForUITests()
         }
         .onDisappear {
             isHomeVisible = false
@@ -1721,6 +1726,29 @@ struct HomeBackdropForedropRootView: View {
             cancelPendingSearchCommit()
             searchState.deactivate()
             isSearchFieldFocused = false
+        }
+        .overlay(alignment: .topTrailing) {
+            if shouldPresentHabitBoardForUITests {
+                Button {
+                    showHabitBoardPresented = true
+                } label: {
+                    Text("Board")
+                        .font(.tasker(.caption2).weight(.semibold))
+                        .frame(width: 44, height: 44)
+                }
+                .buttonStyle(.plain)
+                .padding(.top, spacing.s8)
+                .padding(.trailing, spacing.s8)
+                .contentShape(Rectangle())
+                .accessibilityIdentifier("home.habits.openBoard")
+                .accessibilityLabel("Open Habit Board")
+                .opacity(0.02)
+            }
+        }
+        .sheet(isPresented: $showHabitBoardPresented) {
+            HabitBoardScreen(
+                viewModel: PresentationDependencyContainer.shared.makeHabitBoardViewModel()
+            )
         }
         .onChange(of: activeFace) { _, newValue in
             forcedFace?.wrappedValue = newValue
@@ -2157,11 +2185,6 @@ struct HomeBackdropForedropRootView: View {
             .sheet(isPresented: $isQuietTrackingComposerPresented) {
                 quietTrackingComposerSheet
             }
-            .sheet(isPresented: $showHabitBoardPresented) {
-                HabitBoardScreen(
-                    viewModel: PresentationDependencyContainer.shared.makeHabitBoardViewModel()
-                )
-            }
         }
     }
 
@@ -2219,6 +2242,18 @@ struct HomeBackdropForedropRootView: View {
             .frame(maxHeight: .infinity, alignment: .top)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+    }
+
+    private func presentHabitBoardIfRequestedForUITests() {
+        guard shouldPresentHabitBoardForUITests, hasPresentedUITestHabitBoard == false else { return }
+        hasPresentedUITestHabitBoard = true
+
+        Task { @MainActor in
+            setActiveFace(.tasks, animated: false)
+            await Task.yield()
+            await Task.yield()
+            showHabitBoardPresented = true
+        }
     }
 
     private func foredropSearchFace(taskListBottomInset: CGFloat) -> some View {

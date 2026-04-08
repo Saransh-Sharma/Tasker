@@ -73,6 +73,8 @@ enum AccessibilityIdentifiers {
         static let insightsContentToday = "home.insights.content.today"
         static let insightsContentWeek = "home.insights.content.week"
         static let insightsContentSystems = "home.insights.content.systems"
+        static let habitsSection = "home.habits.section"
+        static let habitsOpenBoard = "home.habits.openBoard"
 
         // Task Cell
         static func taskCell(index: Int) -> String { "home.taskCell.\(index)" }
@@ -257,6 +259,18 @@ enum AccessibilityIdentifiers {
 
         // Validation
         static let nameError = "newProject.nameError"
+    }
+
+    enum HabitBoard {
+        static let view = "habitBoard.view"
+        static let rangeTitle = "habitBoard.rangeTitle"
+        static let previousWindow = "habitBoard.window.previous"
+        static let nextWindow = "habitBoard.window.next"
+        static let pinnedHeader = "habitBoard.pinned.header"
+        static func row(_ habitID: String) -> String { "habitBoard.row.\(habitID)" }
+        static func pinnedTitle(_ habitID: String) -> String { "habitBoard.pinnedTitle.\(habitID)" }
+        static func dayHeader(_ dateStamp: String) -> String { "habitBoard.dayHeader.\(dateStamp)" }
+        static func dayCell(_ habitID: String, dateStamp: String) -> String { "habitBoard.cell.\(habitID).\(dateStamp)" }
     }
 
     // MARK: - Search Screen

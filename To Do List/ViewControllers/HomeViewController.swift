@@ -399,6 +399,7 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
     private static var hasSeededUITestEstablishedWorkspace = false
     private static var hasSeededUITestRescueWorkspace = false
     private static var hasSeededUITestFocusWorkspace = false
+    private static var hasSeededUITestHabitBoardWorkspace = false
 
     // MARK: - Dependencies
 
@@ -513,8 +514,10 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
         seedUITestEstablishedWorkspaceIfNeeded { [weak self] in
             self?.seedUITestRescueWorkspaceIfNeeded {
                 self?.seedUITestFocusWorkspaceIfNeeded {
-                    self?.viewModel.loadTodayTasks()
-                    self?.scheduleOnboardingEvaluationIfNeeded()
+                    self?.seedUITestHabitBoardWorkspaceIfNeeded {
+                        self?.viewModel.loadTodayTasks()
+                        self?.scheduleOnboardingEvaluationIfNeeded()
+                    }
                 }
             }
         }
@@ -2131,6 +2134,92 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
                 logError(
                     event: "ui_test_focus_workspace_seed_failed",
                     message: "Failed to seed focus workspace for Home UI tests",
+                    fields: ["error": error.localizedDescription]
+                )
+            }
+
+            completion()
+        }
+    }
+
+    private func seedUITestHabitBoardWorkspaceIfNeeded(completion: @escaping () -> Void) {
+        guard ProcessInfo.processInfo.arguments.contains("-TASKER_TEST_SEED_HABIT_BOARD_WORKSPACE") else {
+            completion()
+            return
+        }
+        guard Self.hasSeededUITestHabitBoardWorkspace == false else {
+            completion()
+            return
+        }
+        guard let presentationDependencyContainer else {
+            completion()
+            return
+        }
+
+        Self.hasSeededUITestHabitBoardWorkspace = true
+
+        Task { @MainActor in
+            do {
+                let manageLifeAreas = presentationDependencyContainer.coordinator.manageLifeAreas
+                let manageProjects = presentationDependencyContainer.coordinator.manageProjects
+                let createHabit = presentationDependencyContainer.coordinator.createHabit
+
+                let lifeArea = try await manageLifeAreas.createAsync(
+                    name: "Health",
+                    color: "#4E9A2F",
+                    icon: "heart.fill"
+                )
+                let project = try await manageProjects.createProjectAsync(
+                    request: CreateProjectRequest(
+                        name: "Daily Rhythm",
+                        description: "UI test habit board seed",
+                        lifeAreaID: lifeArea.id
+                    )
+                )
+
+                let requests = [
+                    CreateHabitRequest(
+                        title: "Drink water after breakfast",
+                        lifeAreaID: lifeArea.id,
+                        projectID: project.id,
+                        kind: .positive,
+                        trackingMode: .dailyCheckIn,
+                        icon: HabitIconMetadata(symbolName: "drop.fill", categoryKey: "health"),
+                        colorHex: HabitColorFamily.green.canonicalHex,
+                        targetConfig: HabitTargetConfig(targetCountPerDay: 1),
+                        cadence: .daily()
+                    ),
+                    CreateHabitRequest(
+                        title: "Choose tomorrow's top priority before bed",
+                        lifeAreaID: lifeArea.id,
+                        projectID: project.id,
+                        kind: .positive,
+                        trackingMode: .dailyCheckIn,
+                        icon: HabitIconMetadata(symbolName: "moon.stars.fill", categoryKey: "planning"),
+                        colorHex: HabitColorFamily.blue.canonicalHex,
+                        targetConfig: HabitTargetConfig(targetCountPerDay: 1),
+                        cadence: .daily()
+                    ),
+                    CreateHabitRequest(
+                        title: "No phone in bed",
+                        lifeAreaID: lifeArea.id,
+                        projectID: project.id,
+                        kind: .negative,
+                        trackingMode: .dailyCheckIn,
+                        icon: HabitIconMetadata(symbolName: "bed.double.fill", categoryKey: "sleep"),
+                        colorHex: HabitColorFamily.coral.canonicalHex,
+                        targetConfig: HabitTargetConfig(targetCountPerDay: 1),
+                        cadence: .daily()
+                    )
+                ]
+
+                for request in requests {
+                    _ = try await createHabit.executeAsync(request: request)
+                }
+            } catch {
+                logError(
+                    event: "ui_test_habit_board_seed_failed",
+                    message: "Failed to seed habits for Habit Board UI tests",
                     fields: ["error": error.localizedDescription]
                 )
             }
