@@ -158,6 +158,7 @@ struct TaskListView: View {
     var onCompleteHabit: ((HomeHabitRow) -> Void)? = nil
     var onSkipHabit: ((HomeHabitRow) -> Void)? = nil
     var onLapseHabit: ((HomeHabitRow) -> Void)? = nil
+    var onOpenHabit: ((HomeHabitRow) -> Void)? = nil
     var onReorderCustomProjects: (([UUID]) -> Void)? = nil
     var onInboxHeaderAction: (() -> Void)? = nil
     var inboxHeaderActionTitle: String? = nil
@@ -203,6 +204,7 @@ struct TaskListView: View {
         onCompleteHabit: ((HomeHabitRow) -> Void)? = nil,
         onSkipHabit: ((HomeHabitRow) -> Void)? = nil,
         onLapseHabit: ((HomeHabitRow) -> Void)? = nil,
+        onOpenHabit: ((HomeHabitRow) -> Void)? = nil,
         onReorderCustomProjects: (([UUID]) -> Void)? = nil,
         onInboxHeaderAction: (() -> Void)? = nil,
         inboxHeaderActionTitle: String? = nil,
@@ -240,6 +242,7 @@ struct TaskListView: View {
         self.onCompleteHabit = onCompleteHabit
         self.onSkipHabit = onSkipHabit
         self.onLapseHabit = onLapseHabit
+        self.onOpenHabit = onOpenHabit
         self.onReorderCustomProjects = onReorderCustomProjects
         self.onInboxHeaderAction = onInboxHeaderAction
         self.inboxHeaderActionTitle = inboxHeaderActionTitle
@@ -430,6 +433,7 @@ struct TaskListView: View {
                     onCompleteHabit: onCompleteHabit,
                     onSkipHabit: onSkipHabit,
                     onLapseHabit: onLapseHabit,
+                    onOpenHabit: onOpenHabit,
                     headerActionTitle: headerActionTitle(for: section, index: index),
                     onHeaderAction: headerAction(for: section, index: index),
                     headerActionAccessibilityID: headerAccessibilityID(for: section, index: index)

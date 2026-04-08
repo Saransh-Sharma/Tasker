@@ -1416,6 +1416,7 @@ struct HomeBackdropForedropRootView: View {
     @State private var hasMountedAnalyticsSurface = false
     @State private var rescueExpansionOverride: Bool?
     @State private var showHabitBoardPresented = false
+    @State private var selectedHomeHabitRow: HabitLibraryRow?
     @State private var hasPresentedUITestHabitBoard = false
     @State private var isQuietTrackingComposerPresented = false
     @State private var selectedQuietTrackingHabitID: String?
@@ -1748,6 +1749,14 @@ struct HomeBackdropForedropRootView: View {
         .sheet(isPresented: $showHabitBoardPresented) {
             HabitBoardScreen(
                 viewModel: PresentationDependencyContainer.shared.makeHabitBoardViewModel()
+            )
+        }
+        .sheet(item: $selectedHomeHabitRow) { row in
+            HabitDetailSheetView(
+                viewModel: PresentationDependencyContainer.shared.makeHabitDetailViewModel(row: row),
+                onMutation: {
+                    viewModel.loadTasksForSelectedDate()
+                }
             )
         }
         .onChange(of: activeFace) { _, newValue in
@@ -2149,6 +2158,9 @@ struct HomeBackdropForedropRootView: View {
                 },
                 onLapseHabit: { habit in
                     viewModel.lapseHabit(habit, source: "task_list")
+                },
+                onOpenHabit: { habit in
+                    openHabitDetail(habit)
                 },
                 onReorderCustomProjects: onReorderCustomProjects,
                 onInboxHeaderAction: shouldShowInboxTriageAction ? {
@@ -2774,7 +2786,8 @@ struct HomeBackdropForedropRootView: View {
                 showHabitBoardPresented = true
             },
             onPrimaryAction: handleHabitPrimaryAction(_:),
-            onSecondaryAction: handleHabitSecondaryAction(_:)
+            onSecondaryAction: handleHabitSecondaryAction(_:),
+            onOpenHabit: openHabitDetail
         )
         .accessibilityIdentifier("home.habits.section")
     }
@@ -2791,7 +2804,8 @@ struct HomeBackdropForedropRootView: View {
                 showHabitBoardPresented = true
             },
             onPrimaryAction: handleHabitPrimaryAction(_:),
-            onSecondaryAction: handleHabitSecondaryAction(_:)
+            onSecondaryAction: handleHabitSecondaryAction(_:),
+            onOpenHabit: openHabitDetail
         )
         .accessibilityIdentifier("home.habits.recovery")
     }
@@ -2818,6 +2832,11 @@ struct HomeBackdropForedropRootView: View {
         case (.negative, .lapseOnly):
             break
         }
+    }
+
+    private func openHabitDetail(_ habit: HomeHabitRow) {
+        guard let row = viewModel.habitLibraryRow(for: habit.habitID) else { return }
+        selectedHomeHabitRow = row
     }
 
     private var rescueSectionCard: some View {
@@ -2886,7 +2905,8 @@ struct HomeBackdropForedropRootView: View {
                         onRescheduleTask: onRescheduleTask,
                         onCompleteHabit: { _ in },
                         onSkipHabit: { _ in },
-                        onLapseHabit: { _ in }
+                        onLapseHabit: { _ in },
+                        onOpenHabit: openHabitDetail
                     )
                 }
             }
@@ -3071,6 +3091,9 @@ struct HomeBackdropForedropRootView: View {
                     case (.negative, .lapseOnly):
                         break
                     }
+                },
+                onOpenDetail: {
+                    openHabitDetail(habit)
                 }
             )
         }
@@ -3118,6 +3141,9 @@ struct HomeBackdropForedropRootView: View {
             },
             onLapseHabit: { habit in
                 viewModel.lapseHabit(habit, source: "focus_strip")
+            },
+            onOpenHabit: { habit in
+                openHabitDetail(habit)
             },
             onDrop: handleFocusDrop
         )

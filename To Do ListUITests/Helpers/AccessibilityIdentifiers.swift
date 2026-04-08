@@ -75,6 +75,9 @@ enum AccessibilityIdentifiers {
         static let insightsContentSystems = "home.insights.content.systems"
         static let habitsSection = "home.habits.section"
         static let habitsOpenBoard = "home.habits.openBoard"
+        static func habitRow(_ id: String) -> String { "home.habitRow.\(id)" }
+        static func habitRowTitle(_ id: String) -> String { "home.habitRow.title.\(id)" }
+        static func habitRowStrip(_ id: String) -> String { "home.habitRow.strip.\(id)" }
 
         // Task Cell
         static func taskCell(index: Int) -> String { "home.taskCell.\(index)" }

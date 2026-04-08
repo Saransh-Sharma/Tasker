@@ -364,6 +364,7 @@ struct HomeListRowView: View {
     var onCompleteHabit: ((HomeHabitRow) -> Void)?
     var onSkipHabit: ((HomeHabitRow) -> Void)?
     var onLapseHabit: ((HomeHabitRow) -> Void)?
+    var onOpenHabit: ((HomeHabitRow) -> Void)?
 
     var body: some View {
         switch row {
@@ -412,6 +413,9 @@ struct HomeListRowView: View {
                     case (.negative, .lapseOnly):
                         break
                     }
+                },
+                onOpenDetail: {
+                    onOpenHabit?(habit)
                 }
             )
         }
@@ -436,6 +440,7 @@ struct HomeListSectionView: View {
     var onCompleteHabit: ((HomeHabitRow) -> Void)?
     var onSkipHabit: ((HomeHabitRow) -> Void)?
     var onLapseHabit: ((HomeHabitRow) -> Void)?
+    var onOpenHabit: ((HomeHabitRow) -> Void)?
     var headerActionTitle: String? = nil
     var onHeaderAction: (() -> Void)? = nil
     var headerActionAccessibilityID: String? = nil
@@ -489,7 +494,8 @@ struct HomeListSectionView: View {
                             onTaskDragStarted: onTaskDragStarted,
                             onCompleteHabit: onCompleteHabit,
                             onSkipHabit: onSkipHabit,
-                            onLapseHabit: onLapseHabit
+                            onLapseHabit: onLapseHabit,
+                            onOpenHabit: onOpenHabit
                         )
                     }
 
@@ -513,7 +519,8 @@ struct HomeListSectionView: View {
                                     onPromoteTaskToFocus: nil,
                                     onCompleteHabit: onCompleteHabit,
                                     onSkipHabit: onSkipHabit,
-                                    onLapseHabit: onLapseHabit
+                                    onLapseHabit: onLapseHabit,
+                                    onOpenHabit: onOpenHabit
                                 )
                             }
                         }

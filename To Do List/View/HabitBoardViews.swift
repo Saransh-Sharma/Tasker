@@ -114,12 +114,23 @@ enum HabitBoardStripMode: Equatable {
     case compact
     case expanded
     case board
+    case homeList
+
+    var isMatrixLike: Bool {
+        switch self {
+        case .board, .homeList:
+            return true
+        case .compact, .expanded:
+            return false
+        }
+    }
 
     var cellSize: CGFloat {
         switch self {
         case .compact: return 14
         case .expanded: return 15
         case .board: return 16
+        case .homeList: return 15
         }
     }
 
@@ -128,6 +139,7 @@ enum HabitBoardStripMode: Equatable {
         case .compact: return 0
         case .expanded: return 0
         case .board: return 0
+        case .homeList: return 0
         }
     }
 
@@ -136,6 +148,7 @@ enum HabitBoardStripMode: Equatable {
         case .compact: return 2
         case .expanded: return 1
         case .board: return 1
+        case .homeList: return 1
         }
     }
 
@@ -202,10 +215,35 @@ struct HabitHomeSectionCard: View {
     let onOpenBoard: (() -> Void)?
     let onPrimaryAction: (HomeHabitRow) -> Void
     let onSecondaryAction: (HomeHabitRow) -> Void
+    let onOpenHabit: ((HomeHabitRow) -> Void)?
 
     @Environment(\.taskerLayoutClass) private var layoutClass
 
     private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.tokens(for: layoutClass).spacing }
+
+    init(
+        title: String,
+        subtitle: String,
+        rows: [HomeHabitRow],
+        countValue: String,
+        secondaryValue: String,
+        tertiaryValue: String,
+        onOpenBoard: (() -> Void)?,
+        onPrimaryAction: @escaping (HomeHabitRow) -> Void,
+        onSecondaryAction: @escaping (HomeHabitRow) -> Void,
+        onOpenHabit: ((HomeHabitRow) -> Void)? = nil
+    ) {
+        self.title = title
+        self.subtitle = subtitle
+        self.rows = rows
+        self.countValue = countValue
+        self.secondaryValue = secondaryValue
+        self.tertiaryValue = tertiaryValue
+        self.onOpenBoard = onOpenBoard
+        self.onPrimaryAction = onPrimaryAction
+        self.onSecondaryAction = onSecondaryAction
+        self.onOpenHabit = onOpenHabit
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: spacing.s12) {
@@ -264,13 +302,21 @@ struct HabitHomeSectionCard: View {
                     .foregroundStyle(Color.tasker.textSecondary)
             }
 
-            VStack(spacing: spacing.s8) {
-                ForEach(rows) { row in
+            VStack(spacing: 0) {
+                ForEach(Array(rows.enumerated()), id: \.element.id) { index, row in
                     HomeHabitRowView(
                         row: row,
                         onPrimaryAction: { onPrimaryAction(row) },
-                        onSecondaryAction: { onSecondaryAction(row) }
+                        onSecondaryAction: { onSecondaryAction(row) },
+                        onOpenDetail: {
+                            onOpenHabit?(row)
+                        }
                     )
+
+                    if index < rows.count - 1 {
+                        Divider()
+                            .padding(.leading, spacing.s12)
+                    }
                 }
             }
         }
@@ -899,7 +945,7 @@ private struct HabitBoardCellView: View {
         }
         .frame(width: resolvedCellWidth, height: resolvedCellHeight)
         .overlay {
-            if cell.isToday, mode != .board {
+            if cell.isToday, !mode.isMatrixLike {
                 RoundedRectangle(cornerRadius: mode.cornerRadius, style: .continuous)
                     .stroke(HabitEverydayPalette.todayStroke(colorScheme: colorScheme), lineWidth: 1.2)
             }
@@ -916,7 +962,7 @@ private struct HabitBoardCellView: View {
         case .bridge:
             Circle()
                 .fill(Color.tasker.textSecondary)
-                .frame(width: mode == .board ? 5 : 4, height: mode == .board ? 5 : 4)
+                .frame(width: mode.isMatrixLike ? 5 : 4, height: mode.isMatrixLike ? 5 : 4)
         case .done, .todayPending, .future:
             EmptyView()
         }
@@ -947,7 +993,7 @@ private struct HabitBoardCellView: View {
     private var doneGrainOverlay: some View {
         switch cell.state {
         case .done:
-            if mode == .board {
+            if mode.isMatrixLike {
                 EmptyView()
             } else {
                 Canvas { context, size in
@@ -998,7 +1044,7 @@ private struct HabitBridgeTileView: View {
         .overlay(
             RoundedRectangle(cornerRadius: mode.cornerRadius, style: .continuous)
                 .stroke(
-                    mode == .board ? .clear : (
+                    mode.isMatrixLike ? .clear : (
                         source == .skipped
                             ? HabitEverydayPalette.bridgeTint(for: family, depth: depthHint, colorScheme: colorScheme).opacity(0.18)
                             : .clear

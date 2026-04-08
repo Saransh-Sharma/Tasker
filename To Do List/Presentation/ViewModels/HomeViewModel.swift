@@ -463,6 +463,7 @@ public final class HomeViewModel: ObservableObject {
     private var homeRenderStateRefreshBatchDepth: Int = 0
     private var needsHomeRenderStateRefresh = false
     private var currentHabitSignals: [TaskerHabitSignal] = []
+    private var habitLibraryRowsByID: [UUID: HabitLibraryRow] = [:]
     private var evaInsightsGeneration: Int = 0
 
     deinit {
@@ -471,6 +472,10 @@ public final class HomeViewModel: ObservableObject {
 
     var currentDataRevision: HomeDataRevision {
         dataRevision
+    }
+
+    public func habitLibraryRow(for habitID: UUID) -> HabitLibraryRow? {
+        habitLibraryRowsByID[habitID]
     }
 
     private func scheduleHomeRenderStateRefresh() {
@@ -2785,6 +2790,7 @@ public final class HomeViewModel: ObservableObject {
         var agendaHabitRows: [HomeHabitRow] = []
         var trackingHabitRows: [HomeHabitRow] = []
         var historyByHabitID: [UUID: [HabitDayMark]] = [:]
+        var libraryRowsByID: [UUID: HabitLibraryRow] = [:]
 
         group.enter()
         buildHabitHomeProjectionUseCase.execute(date: selectedDate) { result in
@@ -2800,8 +2806,10 @@ public final class HomeViewModel: ObservableObject {
             }
             switch result {
             case .failure:
+                libraryRowsByID = [:]
                 group.leave()
             case .success(let libraryRows):
+                libraryRowsByID = Dictionary(uniqueKeysWithValues: libraryRows.map { ($0.habitID, $0) })
                 guard libraryRows.isEmpty == false else {
                     trackingHabitRows = self.trackingHomeRows(from: libraryRows, historyByHabitID: historyByHabitID, on: self.selectedDate)
                     group.leave()
@@ -2835,6 +2843,7 @@ public final class HomeViewModel: ObservableObject {
             let allHabitRows = self.mergeHabitRows(agenda: agendaHabitRows, tracking: trackingHabitRows)
             let splitHabitRows = HabitBoardPresentationBuilder.splitHomeRows(allHabitRows)
             self.currentHabitSignals = self.habitSignals(from: allHabitRows)
+            self.habitLibraryRowsByID = libraryRowsByID
             let rescueEligibleTaskIDs = Set(
                 openTaskRows
                     .filter { self.isRescueEligibleTask($0, on: self.selectedDate) }
