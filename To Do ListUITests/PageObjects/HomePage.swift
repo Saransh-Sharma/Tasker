@@ -443,6 +443,50 @@ class HomePage {
         return missingElement(AccessibilityIdentifiers.Home.rescueStart)
     }
 
+    var quietTrackingSummary: XCUIElement {
+        let button = app.buttons[AccessibilityIdentifiers.Home.quietTrackingSummary]
+        if button.exists {
+            return button
+        }
+        return app.descendants(matching: .any)[AccessibilityIdentifiers.Home.quietTrackingSummary]
+    }
+
+    var quietTrackingSheet: XCUIElement {
+        let otherElement = app.otherElements[AccessibilityIdentifiers.Home.quietTrackingSheet]
+        if otherElement.exists {
+            return otherElement
+        }
+        return app.descendants(matching: .any)[AccessibilityIdentifiers.Home.quietTrackingSheet]
+    }
+
+    var quietTrackingSheetScroll: XCUIElement {
+        let scrollView = app.scrollViews[AccessibilityIdentifiers.Home.quietTrackingSheetScroll]
+        if scrollView.exists {
+            return scrollView
+        }
+        return app.otherElements[AccessibilityIdentifiers.Home.quietTrackingSheetScroll]
+    }
+
+    var quietTrackingSheetSaveButton: XCUIElement {
+        app.buttons[AccessibilityIdentifiers.Home.quietTrackingSheetSave]
+    }
+
+    var quietTrackingSheetOutcomeLapseButton: XCUIElement {
+        app.buttons[AccessibilityIdentifiers.Home.quietTrackingSheetOutcomeLapse]
+    }
+
+    var quietTrackingSheetOutcomeProgressButton: XCUIElement {
+        app.buttons[AccessibilityIdentifiers.Home.quietTrackingSheetOutcomeProgress]
+    }
+
+    var quietTrackingSheetTodayButton: XCUIElement {
+        app.buttons[AccessibilityIdentifiers.Home.quietTrackingSheetDateToday]
+    }
+
+    var quietTrackingSheetYesterdayButton: XCUIElement {
+        app.buttons[AccessibilityIdentifiers.Home.quietTrackingSheetDateYesterday]
+    }
+
     var rescueExpandButton: XCUIElement {
         let byButton = app.buttons[AccessibilityIdentifiers.Home.rescueExpand]
         if byButton.exists {

@@ -28,6 +28,7 @@ extension XCUIApplication {
         case testSeedRescueWorkspace = "-TASKER_TEST_SEED_RESCUE_WORKSPACE"
         case testSeedFocusWorkspace = "-TASKER_TEST_SEED_FOCUS_WORKSPACE"
         case testSeedHabitBoardWorkspace = "-TASKER_TEST_SEED_HABIT_BOARD_WORKSPACE"
+        case testSeedQuietTrackingWorkspace = "-TASKER_TEST_SEED_QUIET_TRACKING_WORKSPACE"
         case testPresentHabitBoard = "-TASKER_TEST_PRESENT_HABIT_BOARD"
     }
 

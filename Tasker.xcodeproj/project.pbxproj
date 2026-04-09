@@ -42,6 +42,7 @@
 		355015C0A77A72D864F1AC64 /* HomeForedropView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BF5D7161411B42651DF00D60 /* HomeForedropView.swift */; };
 		D2A100000000000000000002 /* To Do List/Presentation/Models/QuietTrackingComposerSnapshot.swift in Sources */ = {isa = PBXBuildFile; fileRef = D2A100000000000000000001 /* To Do List/Presentation/Models/QuietTrackingComposerSnapshot.swift */; };
 		D2A100000000000000000004 /* To Do List/View/QuietTrackingComposerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D2A100000000000000000003 /* To Do List/View/QuietTrackingComposerView.swift */; };
+		D2A100000000000000000006 /* QuietTrackingUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D2A100000000000000000005 /* QuietTrackingUITests.swift */; };
 		36235D01BFCF2D2001A39CCE /* To Do List/UseCases/Gamification/FocusSessionUseCase.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7CC4B584282446580AA72B44 /* To Do List/UseCases/Gamification/FocusSessionUseCase.swift */; };
 		37A2B8A6A25F06C72606019E /* To Do List/Domain/Mappers/TaskDefinitionMapper.swift in Sources */ = {isa = PBXBuildFile; fileRef = 592346DCA3C3FE56E12617C2 /* To Do List/Domain/Mappers/TaskDefinitionMapper.swift */; };
 		3A549BEBEF3902410F96971A /* To Do List/View/FocusTimerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 37E2466DBE2A76A73458F530 /* To Do List/View/FocusTimerView.swift */; };
@@ -933,6 +934,7 @@
 		BF5D7161411B42651DF00D60 /* HomeForedropView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HomeForedropView.swift; sourceTree = "<group>"; };
 		D2A100000000000000000001 /* To Do List/Presentation/Models/QuietTrackingComposerSnapshot.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "To Do List/Presentation/Models/QuietTrackingComposerSnapshot.swift"; sourceTree = SOURCE_ROOT; };
 		D2A100000000000000000003 /* To Do List/View/QuietTrackingComposerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "To Do List/View/QuietTrackingComposerView.swift"; sourceTree = SOURCE_ROOT; };
+		D2A100000000000000000005 /* QuietTrackingUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuietTrackingUITests.swift; sourceTree = "<group>"; };
 		C1256A6FF63A60FC9D9E82C2 /* TaskerWidgets/TaskerWidgetBundle.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = TaskerWidgets/TaskerWidgetBundle.swift; sourceTree = SOURCE_ROOT; };
 		C1429E78D48CAF30D016B671 /* NotificationTypesCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationTypesCard.swift; sourceTree = "<group>"; };
 		C1A100000000000000000001 /* To Do List/Domain/Interfaces/HabitRuntimeReadRepositoryProtocol.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "To Do List/Domain/Interfaces/HabitRuntimeReadRepositoryProtocol.swift"; sourceTree = SOURCE_ROOT; };
@@ -1614,6 +1616,7 @@
 				7B3C9A7D2F2B0F1A00D4C112 /* FocusNowSimplificationTests.swift */,
 				D5E7A8B92F3C4D5E0067A1B2 /* DailySummaryModalTests.swift */,
 				C8A4F1023D6E4B7A91C2D303 /* HabitBoardUITests.swift */,
+				D2A100000000000000000005 /* QuietTrackingUITests.swift */,
 			);
 			path = Secondary;
 			sourceTree = "<group>";
@@ -3112,6 +3115,7 @@
 				B7C8D9E02F6A100100ABC123 /* ChatPlanApplyUndoTests.swift in Sources */,
 				D5E7A8BA2F3C4D5E0067A1B2 /* DailySummaryModalTests.swift in Sources */,
 				C8A4F1023D6E4B7A91C2D304 /* HabitBoardUITests.swift in Sources */,
+				D2A100000000000000000006 /* QuietTrackingUITests.swift in Sources */,
 				753EFCC02445A24800A739E3 /* To_Do_ListUITests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

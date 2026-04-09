@@ -74,6 +74,20 @@ enum AccessibilityIdentifiers {
         static let insightsContentSystems = "home.insights.content.systems"
         static let habitsSection = "home.habits.section"
         static let habitsOpenBoard = "home.habits.openBoard"
+        static let quietTrackingSummary = "home.quietTracking.summary"
+        static let quietTrackingSheet = "home.quietTracking.sheet"
+        static let quietTrackingSheetScroll = "home.quietTracking.sheet.scroll"
+        static let quietTrackingSheetCancel = "home.quietTracking.sheet.cancel"
+        static let quietTrackingSheetSave = "home.quietTracking.sheet.save"
+        static let quietTrackingSheetHabitList = "home.quietTracking.sheet.habitList"
+        static let quietTrackingSheetOutcomeProgress = "home.quietTracking.sheet.outcome.progress"
+        static let quietTrackingSheetOutcomeLapse = "home.quietTracking.sheet.outcome.lapse"
+        static let quietTrackingSheetDateToday = "home.quietTracking.sheet.date.today"
+        static let quietTrackingSheetDateYesterday = "home.quietTracking.sheet.date.yesterday"
+        static let quietTrackingSheetSelectedDate = "home.quietTracking.sheet.date.selected"
+        static let quietTrackingSheetDatePicker = "home.quietTracking.sheet.datePicker"
+        static func passiveTrackingCard(_ id: String) -> String { "home.passiveTracking.card.\(id)" }
+        static func quietTrackingSheetHabit(_ id: String) -> String { "home.quietTracking.sheet.habit.\(id)" }
         static func habitRow(_ id: String) -> String { "home.habitRow.\(id)" }
         static func habitRowIcon(_ id: String) -> String { "home.habitRow.icon.\(id)" }
         static func habitRowTitle(_ id: String) -> String { "home.habitRow.title.\(id)" }
