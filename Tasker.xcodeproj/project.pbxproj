@@ -40,6 +40,8 @@
 		3494FE9BF173433EE0791F1B /* TypographyTokenTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 32CFD17024C4F8FF10386CE1 /* TypographyTokenTests.swift */; };
 		350E661527174B8BDEE11FCC /* TaskRowView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D379A868382E81C83D874E36 /* TaskRowView.swift */; };
 		355015C0A77A72D864F1AC64 /* HomeForedropView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BF5D7161411B42651DF00D60 /* HomeForedropView.swift */; };
+		D2A100000000000000000002 /* To Do List/Presentation/Models/QuietTrackingComposerSnapshot.swift in Sources */ = {isa = PBXBuildFile; fileRef = D2A100000000000000000001 /* To Do List/Presentation/Models/QuietTrackingComposerSnapshot.swift */; };
+		D2A100000000000000000004 /* To Do List/View/QuietTrackingComposerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D2A100000000000000000003 /* To Do List/View/QuietTrackingComposerView.swift */; };
 		36235D01BFCF2D2001A39CCE /* To Do List/UseCases/Gamification/FocusSessionUseCase.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7CC4B584282446580AA72B44 /* To Do List/UseCases/Gamification/FocusSessionUseCase.swift */; };
 		37A2B8A6A25F06C72606019E /* To Do List/Domain/Mappers/TaskDefinitionMapper.swift in Sources */ = {isa = PBXBuildFile; fileRef = 592346DCA3C3FE56E12617C2 /* To Do List/Domain/Mappers/TaskDefinitionMapper.swift */; };
 		3A549BEBEF3902410F96971A /* To Do List/View/FocusTimerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 37E2466DBE2A76A73458F530 /* To Do List/View/FocusTimerView.swift */; };
@@ -929,6 +931,8 @@
 		BC92DC6157EF1B9AAB1422D9 /* SettingsRootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsRootView.swift; sourceTree = "<group>"; };
 		BCD0B9C7DEE094DB1B55D5BD /* SettingsViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsViewModel.swift; sourceTree = "<group>"; };
 		BF5D7161411B42651DF00D60 /* HomeForedropView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HomeForedropView.swift; sourceTree = "<group>"; };
+		D2A100000000000000000001 /* To Do List/Presentation/Models/QuietTrackingComposerSnapshot.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "To Do List/Presentation/Models/QuietTrackingComposerSnapshot.swift"; sourceTree = SOURCE_ROOT; };
+		D2A100000000000000000003 /* To Do List/View/QuietTrackingComposerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "To Do List/View/QuietTrackingComposerView.swift"; sourceTree = SOURCE_ROOT; };
 		C1256A6FF63A60FC9D9E82C2 /* TaskerWidgets/TaskerWidgetBundle.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = TaskerWidgets/TaskerWidgetBundle.swift; sourceTree = SOURCE_ROOT; };
 		C1429E78D48CAF30D016B671 /* NotificationTypesCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationTypesCard.swift; sourceTree = "<group>"; };
 		C1A100000000000000000001 /* To Do List/Domain/Interfaces/HabitRuntimeReadRepositoryProtocol.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "To Do List/Domain/Interfaces/HabitRuntimeReadRepositoryProtocol.swift"; sourceTree = SOURCE_ROOT; };
@@ -1368,6 +1372,7 @@
 				B2E100000000000000000102 /* To Do List/Presentation/Models/HomeHabitRow.swift */,
 				B2E100000000000000000106 /* To Do List/Presentation/Models/HomeHabitLastCellInteraction.swift */,
 				B2E100000000000000000105 /* To Do List/Presentation/Models/HomeSectionState.swift */,
+				D2A100000000000000000001 /* To Do List/Presentation/Models/QuietTrackingComposerSnapshot.swift */,
 			);
 			path = Models;
 			sourceTree = "<group>";
@@ -1710,6 +1715,7 @@
 				B1A000000000000000000018 /* HomeEvaTriageSprintSheetV2.swift */,
 				17DC0A5BC84D9C6C792B2AB6 /* To Do List/View/HomeXPHeroView.swift */,
 				BF5D7161411B42651DF00D60 /* HomeForedropView.swift */,
+				D2A100000000000000000003 /* To Do List/View/QuietTrackingComposerView.swift */,
 				F2A1B2C3D4E5F60718293A50 /* HomeBottomBarItem.swift */,
 				F2A1B2C3D4E5F60718293A51 /* HomeBottomBarState.swift */,
 				F2A1B2C3D4E5F60718293A52 /* HomeGlassBottomBar.swift */,
@@ -2842,6 +2848,7 @@
 				B2E100000000000000000203 /* To Do List/Presentation/Models/HomeHabitRow.swift in Sources */,
 				B2E100000000000000000206 /* To Do List/Presentation/Models/HomeHabitLastCellInteraction.swift in Sources */,
 				B2E100000000000000000205 /* To Do List/Presentation/Models/HomeSectionState.swift in Sources */,
+				D2A100000000000000000002 /* To Do List/Presentation/Models/QuietTrackingComposerSnapshot.swift in Sources */,
 				B2E100000000000000000204 /* To Do List/View/HomeHabitRowView.swift in Sources */,
 				C1B100000000000000000106 /* To Do List/View/HabitBoardViews.swift in Sources */,
 				C1B100000000000000000104 /* To Do List/Presentation/ViewModels/HabitBoardViewModel.swift in Sources */,
@@ -2864,6 +2871,7 @@
 				B1A000000000000000000006 /* HomeEvaLegacySheetViews.swift in Sources */,
 				B1A000000000000000000008 /* HomeEvaTriageSprintSheetV2.swift in Sources */,
 				355015C0A77A72D864F1AC64 /* HomeForedropView.swift in Sources */,
+				D2A100000000000000000004 /* To Do List/View/QuietTrackingComposerView.swift in Sources */,
 				F2A1B2C3D4E5F60718293B50 /* HomeBottomBarItem.swift in Sources */,
 				F2A1B2C3D4E5F60718293B51 /* HomeBottomBarState.swift in Sources */,
 				F2A1B2C3D4E5F60718293B52 /* HomeGlassBottomBar.swift in Sources */,
