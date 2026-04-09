@@ -5,9 +5,25 @@ struct HomeHabitRowView: View {
     var onPrimaryAction: (() -> Void)? = nil
     var onSecondaryAction: (() -> Void)? = nil
     var onOpenDetail: (() -> Void)? = nil
+    var onLastCellAction: (() -> Void)? = nil
+
+    init(
+        row: HomeHabitRow,
+        onPrimaryAction: (() -> Void)? = nil,
+        onSecondaryAction: (() -> Void)? = nil,
+        onOpenDetail: (() -> Void)? = nil,
+        onLastCellAction: (() -> Void)? = nil
+    ) {
+        self.row = row
+        self.onPrimaryAction = onPrimaryAction
+        self.onSecondaryAction = onSecondaryAction
+        self.onOpenDetail = onOpenDetail
+        self.onLastCellAction = onLastCellAction
+    }
 
     @Environment(\.taskerLayoutClass) private var layoutClass
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @Environment(\.colorScheme) private var colorScheme
 
     private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.tokens(for: layoutClass).spacing }
 
@@ -40,14 +56,16 @@ struct HomeHabitRowView: View {
         }
     }
 
+    private var lastCellInteraction: HomeHabitLastCellInteraction? {
+        HomeHabitLastCellInteraction.resolve(for: row)
+    }
+
     var body: some View {
         rowBase
-            .contentShape(Rectangle())
-            .onTapGesture {
-                guard let onOpenDetail else { return }
-                TaskerFeedback.selection()
-                onOpenDetail()
+            .overlay {
+                rowInteractionOverlay
             }
+            .accessibilityIdentifier("home.habitRow.\(row.id)")
             .swipeActions(edge: .leading, allowsFullSwipe: primaryActionTitle != nil) {
                 if let primaryActionTitle, let onPrimaryAction {
                     Button {
@@ -95,11 +113,6 @@ struct HomeHabitRowView: View {
                     }
                 }
             }
-            .accessibilityElement(children: .ignore)
-            .accessibilityIdentifier("home.habitRow.\(row.id)")
-            .accessibilityLabel(row.title)
-            .accessibilityValue(accessibilityValue)
-            .accessibilityHint(accessibilityHint)
             .hoverEffect(.highlight)
     }
 
@@ -153,6 +166,7 @@ struct HomeHabitRowView: View {
             .truncationMode(.tail)
             .frame(maxWidth: .infinity, alignment: .leading)
             .accessibilityIdentifier("home.habitRow.title.\(row.id)")
+            .accessibilityHidden(true)
     }
 
     private var stretchedStrip: some View {
@@ -194,6 +208,61 @@ struct HomeHabitRowView: View {
     private func stretchedCellWidth(for totalWidth: CGFloat) -> CGFloat {
         let count = CGFloat(max(boardCells.count, 1))
         return max(totalWidth / count, 1)
+    }
+
+    private func lastCellWidth(for totalWidth: CGFloat) -> CGFloat {
+        let stripWidth = max(totalWidth - iconTileWidth, 1)
+        return stretchedCellWidth(for: stripWidth)
+    }
+
+    private var rowInteractionOverlay: some View {
+        GeometryReader { proxy in
+            let lastCellWidth = lastCellInteraction == nil ? 0 : lastCellWidth(for: proxy.size.width)
+
+            HStack(spacing: 0) {
+                if let onOpenDetail {
+                    Button {
+                        TaskerFeedback.selection()
+                        onOpenDetail()
+                    } label: {
+                        Color.clear
+                    }
+                    .buttonStyle(.plain)
+                    .frame(width: max(proxy.size.width - lastCellWidth, 0))
+                    .frame(maxHeight: .infinity)
+                    .contentShape(Rectangle())
+                    .accessibilityLabel(row.title)
+                    .accessibilityValue(accessibilityValue)
+                    .accessibilityHint(accessibilityHint)
+                } else {
+                    Color.clear
+                        .frame(width: max(proxy.size.width - lastCellWidth, 0))
+                }
+
+                if let interaction = lastCellInteraction,
+                   let onLastCellAction {
+                    Button {
+                        TaskerFeedback.selection()
+                        onLastCellAction()
+                    } label: {
+                        RoundedRectangle(cornerRadius: 1, style: .continuous)
+                            .stroke(HabitEverydayPalette.todayStroke(colorScheme: colorScheme), lineWidth: 1.2)
+                            .background(Color.clear)
+                    }
+                    .buttonStyle(.plain)
+                    .frame(width: lastCellWidth)
+                    .frame(maxHeight: .infinity)
+                    .contentShape(Rectangle())
+                    .accessibilityIdentifier("home.habitRow.lastCell.\(row.id)")
+                    .accessibilityLabel("\(row.title) status")
+                    .accessibilityValue("\(interaction.currentStateText). Next: \(interaction.nextActionText).")
+                    .accessibilityHint("Cycles the last habit cell for the selected date.")
+                } else {
+                    Color.clear
+                        .frame(width: lastCellWidth)
+                }
+            }
+        }
     }
 
     private var primaryActionTitle: String? {
@@ -268,7 +337,7 @@ struct HomeHabitRowView: View {
     }
 
     private var accessibilityHint: String {
-        if primaryActionTitle != nil || secondaryActionTitle != nil {
+        if primaryActionTitle != nil || secondaryActionTitle != nil || lastCellInteraction != nil {
             return "Opens habit details. Swipe for quick actions."
         }
         return "Opens habit details."
@@ -297,7 +366,7 @@ struct HomeHabitRowView: View {
                 marks: row.last14Days,
                 cadence: row.cadence,
                 referenceDate: row.dueAt ?? Date(),
-                dayCount: 10
+                dayCount: 7
             )
         }
         return row.boardCellsCompact

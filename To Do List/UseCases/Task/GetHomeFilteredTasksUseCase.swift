@@ -10,10 +10,11 @@ import Foundation
 public struct HomeFilteredTasksResult {
     public let visibleOpenTasks: [TaskDefinition]
     public let visibleDoneTimelineTasks: [TaskDefinition]
-    public let openTasks: [TaskDefinition]
-    public let doneTimelineTasks: [TaskDefinition]
     public let quickViewCounts: [HomeQuickView: Int]
     public let pointsPotential: Int
+
+    public var openTasks: [TaskDefinition] { visibleOpenTasks }
+    public var doneTimelineTasks: [TaskDefinition] { visibleDoneTimelineTasks }
 
     public init(
         visibleOpenTasks: [TaskDefinition],
@@ -23,8 +24,6 @@ public struct HomeFilteredTasksResult {
     ) {
         self.visibleOpenTasks = visibleOpenTasks
         self.visibleDoneTimelineTasks = visibleDoneTimelineTasks
-        self.openTasks = visibleOpenTasks
-        self.doneTimelineTasks = visibleDoneTimelineTasks
         self.quickViewCounts = quickViewCounts
         self.pointsPotential = pointsPotential
     }
@@ -47,6 +46,16 @@ public final class GetHomeFilteredTasksUseCase {
     private let cacheLock = NSLock()
     private var resultCache: [String: HomeFilteredTasksResult] = [:]
     private let exactProjectionPageSize = 400
+
+    private struct ProjectionAccumulator {
+        let scope: HomeListScope
+        let state: HomeFilterState
+        let windowLimit: Int
+        var quickViewCounts = Dictionary(uniqueKeysWithValues: HomeQuickView.allCases.map { ($0, 0) })
+        var pointsPotential = 0
+        var openTasks: [TaskDefinition] = []
+        var doneTimelineTasks: [TaskDefinition] = []
+    }
 
     /// Initializes a new instance.
     public init(
@@ -101,38 +110,18 @@ public final class GetHomeFilteredTasksUseCase {
             }
 
             switch result {
-            case .success(let facetedTasks):
-                let quickCounts = self.computeQuickViewCounts(from: facetedTasks, scope: scope)
-                let filtered = self.applyScope(scope, to: facetedTasks)
-                var pointsPotential = 0
-                var openTasks: [TaskDefinition] = []
-                var doneTimelineTasks: [TaskDefinition] = []
-                openTasks.reserveCapacity(filtered.count)
-                doneTimelineTasks.reserveCapacity(min(filtered.count, 64))
-
-                for task in filtered {
-                    if task.isComplete {
-                        doneTimelineTasks.append(task)
-                    } else {
-                        openTasks.append(task)
-                        pointsPotential += task.priority.scorePoints
-                    }
-                }
-
-                openTasks.sort(by: self.sortByPriorityThenDue)
-                doneTimelineTasks.sort(by: self.sortDoneTimeline)
+            case .success(let accumulator):
                 let visibleTasks = self.makeVisibleTaskWindow(
                     state: state,
-                    openTasks: openTasks,
-                    doneTimelineTasks: doneTimelineTasks,
+                    openTasks: accumulator.openTasks,
+                    doneTimelineTasks: accumulator.doneTimelineTasks,
                     scope: scope
                 )
-
                 let payload = HomeFilteredTasksResult(
                     visibleOpenTasks: visibleTasks.openTasks,
                     visibleDoneTimelineTasks: visibleTasks.doneTimelineTasks,
-                    quickViewCounts: quickCounts,
-                    pointsPotential: pointsPotential
+                    quickViewCounts: accumulator.quickViewCounts,
+                    pointsPotential: accumulator.pointsPotential
                 )
                 self.cacheLock.lock()
                 self.resultCache[cacheKey] = payload
@@ -157,9 +146,13 @@ public final class GetHomeFilteredTasksUseCase {
         state: HomeFilterState,
         scope: HomeListScope,
         readModel: TaskReadModelRepositoryProtocol,
-        completion: @escaping (Result<[TaskDefinition], Error>) -> Void
+        completion: @escaping (Result<ProjectionAccumulator, Error>) -> Void
     ) {
-        var accumulatedTasks: [TaskDefinition] = []
+        var accumulator = ProjectionAccumulator(
+            scope: scope,
+            state: state,
+            windowLimit: homeWindowLimit(for: state, scope: scope)
+        )
 
         func loadPage(offset: Int) {
             readModel.fetchHomeProjection(
@@ -173,12 +166,31 @@ public final class GetHomeFilteredTasksUseCase {
                 switch result {
                 case .success(let slice):
                     let facetedBatch = self.applyResidualAdvancedFacets(slice.tasks, state: state)
-                    accumulatedTasks.append(contentsOf: facetedBatch)
+                    for task in facetedBatch {
+                        self.updateQuickViewCounts(&accumulator.quickViewCounts, for: task, scope: scope)
+                        guard self.matchesScope(scope, task: task) else { continue }
+                        if task.isComplete {
+                            self.insertBoundedSortedTask(
+                                task,
+                                into: &accumulator.doneTimelineTasks,
+                                limit: accumulator.windowLimit,
+                                by: self.sortDoneTimeline
+                            )
+                        } else {
+                            accumulator.pointsPotential += task.priority.scorePoints
+                            self.insertBoundedSortedTask(
+                                task,
+                                into: &accumulator.openTasks,
+                                limit: accumulator.windowLimit,
+                                by: self.sortByPriorityThenDue
+                            )
+                        }
+                    }
 
                     let nextOffset = offset + slice.tasks.count
                     let loadedAllTasks = nextOffset >= slice.totalCount || slice.tasks.isEmpty
                     if loadedAllTasks {
-                        completion(.success(accumulatedTasks))
+                        completion(.success(accumulator))
                     } else {
                         loadPage(offset: nextOffset)
                     }
@@ -192,9 +204,11 @@ public final class GetHomeFilteredTasksUseCase {
         loadPage(offset: 0)
     }
 
-    /// Executes computeQuickViewCounts.
-    private func computeQuickViewCounts(from tasks: [TaskDefinition], scope: HomeListScope) -> [HomeQuickView: Int] {
-        var counts = Dictionary(uniqueKeysWithValues: HomeQuickView.allCases.map { ($0, 0) })
+    private func updateQuickViewCounts(
+        _ counts: inout [HomeQuickView: Int],
+        for task: TaskDefinition,
+        scope: HomeListScope
+    ) {
         let anchorDate = scope.referenceDate
         let calendar = Calendar.current
         let startOfAnchorDay = calendar.startOfDay(for: anchorDate)
@@ -203,35 +217,31 @@ public final class GetHomeFilteredTasksUseCase {
         let doneWindowStart = calendar.date(byAdding: .day, value: -30, to: startOfAnchorDay) ?? Date.distantPast
         let doneWindowEnd = calendar.date(byAdding: .day, value: 1, to: startOfAnchorDay) ?? anchorDate
 
-        for task in tasks {
-            if matchesToday(task, startOfAnchorDay: startOfAnchorDay, startOfNextDay: startOfNextDay) {
-                counts[.today, default: 0] += 1
-            }
-            if let dueDate = task.dueDate,
-               dueDate >= startOfNextDay,
-               dueDate <= endOfUpcomingWindow {
-                counts[.upcoming, default: 0] += 1
-            }
-            if task.isComplete == false,
-               let dueDate = task.dueDate,
-               dueDate < startOfAnchorDay {
-                counts[.overdue, default: 0] += 1
-            }
-            if task.isComplete,
-               let completionDate = task.dateCompleted,
-               completionDate >= doneWindowStart,
-               completionDate < doneWindowEnd {
-                counts[.done, default: 0] += 1
-            }
-            if isMorningTaskHybrid(task) {
-                counts[.morning, default: 0] += 1
-            }
-            if isEveningTaskHybrid(task) {
-                counts[.evening, default: 0] += 1
-            }
+        if matchesToday(task, startOfAnchorDay: startOfAnchorDay, startOfNextDay: startOfNextDay) {
+            counts[.today, default: 0] += 1
         }
-
-        return counts
+        if let dueDate = task.dueDate,
+           dueDate >= startOfNextDay,
+           dueDate <= endOfUpcomingWindow {
+            counts[.upcoming, default: 0] += 1
+        }
+        if task.isComplete == false,
+           let dueDate = task.dueDate,
+           dueDate < startOfAnchorDay {
+            counts[.overdue, default: 0] += 1
+        }
+        if task.isComplete,
+           let completionDate = task.dateCompleted,
+           completionDate >= doneWindowStart,
+           completionDate < doneWindowEnd {
+            counts[.done, default: 0] += 1
+        }
+        if isMorningTaskHybrid(task) {
+            counts[.morning, default: 0] += 1
+        }
+        if isEveningTaskHybrid(task) {
+            counts[.evening, default: 0] += 1
+        }
     }
 
     private func matchesToday(
@@ -306,6 +316,52 @@ public final class GetHomeFilteredTasksUseCase {
         let payload = Payload(state: state, scope: scope, revision: revision.rawValue)
         let data = (try? encoder.encode(payload)) ?? Data()
         return data.base64EncodedString()
+    }
+
+    private func matchesScope(_ scope: HomeListScope, task: TaskDefinition) -> Bool {
+        let calendar = Calendar.current
+        let anchorDate = scope.referenceDate
+        let startOfAnchorDay = calendar.startOfDay(for: anchorDate)
+        let startOfNextDay = calendar.date(byAdding: .day, value: 1, to: startOfAnchorDay) ?? anchorDate
+        let endOfUpcomingWindow = calendar.date(byAdding: .day, value: 14, to: startOfAnchorDay) ?? anchorDate
+        let doneWindowStart = calendar.date(byAdding: .day, value: -30, to: startOfAnchorDay) ?? Date.distantPast
+        let doneWindowEnd = calendar.date(byAdding: .day, value: 1, to: startOfAnchorDay) ?? anchorDate
+
+        switch scope.quickView {
+        case .today:
+            return matchesToday(task, startOfAnchorDay: startOfAnchorDay, startOfNextDay: startOfNextDay)
+        case .upcoming:
+            guard let dueDate = task.dueDate else { return false }
+            return dueDate >= startOfNextDay && dueDate <= endOfUpcomingWindow
+        case .overdue:
+            guard task.isComplete == false, let dueDate = task.dueDate else { return false }
+            return dueDate < startOfAnchorDay
+        case .done:
+            guard task.isComplete, let completionDate = task.dateCompleted else { return false }
+            return completionDate >= doneWindowStart && completionDate < doneWindowEnd
+        case .morning:
+            return isMorningTaskHybrid(task)
+        case .evening:
+            return isEveningTaskHybrid(task)
+        }
+    }
+
+    private func insertBoundedSortedTask(
+        _ task: TaskDefinition,
+        into tasks: inout [TaskDefinition],
+        limit: Int,
+        by areInIncreasingOrder: (TaskDefinition, TaskDefinition) -> Bool
+    ) {
+        guard limit > 0 else { return }
+        let insertionIndex = tasks.firstIndex { !areInIncreasingOrder($0, task) } ?? tasks.endIndex
+        if insertionIndex < limit {
+            tasks.insert(task, at: insertionIndex)
+            if tasks.count > limit {
+                tasks.removeLast(tasks.count - limit)
+            }
+        } else if tasks.count < limit {
+            tasks.append(task)
+        }
     }
 
     /// Executes applyResidualAdvancedFacets.

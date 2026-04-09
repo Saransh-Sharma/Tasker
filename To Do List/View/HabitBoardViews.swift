@@ -219,6 +219,7 @@ struct HabitHomeSectionCard: View {
     let onOpenBoard: (() -> Void)?
     let onPrimaryAction: (HomeHabitRow) -> Void
     let onSecondaryAction: (HomeHabitRow) -> Void
+    let onLastCellAction: (HomeHabitRow) -> Void
     let onOpenHabit: ((HomeHabitRow) -> Void)?
 
     @Environment(\.taskerLayoutClass) private var layoutClass
@@ -235,6 +236,7 @@ struct HabitHomeSectionCard: View {
         onOpenBoard: (() -> Void)?,
         onPrimaryAction: @escaping (HomeHabitRow) -> Void,
         onSecondaryAction: @escaping (HomeHabitRow) -> Void,
+        onLastCellAction: @escaping (HomeHabitRow) -> Void,
         onOpenHabit: ((HomeHabitRow) -> Void)? = nil
     ) {
         self.title = title
@@ -246,6 +248,7 @@ struct HabitHomeSectionCard: View {
         self.onOpenBoard = onOpenBoard
         self.onPrimaryAction = onPrimaryAction
         self.onSecondaryAction = onSecondaryAction
+        self.onLastCellAction = onLastCellAction
         self.onOpenHabit = onOpenHabit
     }
 
@@ -314,7 +317,8 @@ struct HabitHomeSectionCard: View {
                         onSecondaryAction: { onSecondaryAction(row) },
                         onOpenDetail: {
                             onOpenHabit?(row)
-                        }
+                        },
+                        onLastCellAction: { onLastCellAction(row) }
                     )
 
                     if index < rows.count - 1 {

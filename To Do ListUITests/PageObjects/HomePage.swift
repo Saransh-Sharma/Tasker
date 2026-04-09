@@ -33,10 +33,6 @@ class HomePage {
         return app.descendants(matching: .any).matching(predicate).firstMatch
     }
 
-    var foredropHandle: XCUIElement {
-        return app.descendants(matching: .any)[AccessibilityIdentifiers.Home.foredropHandle]
-    }
-
     var foredropCollapseHint: XCUIElement {
         let byIdentifier = app.buttons[AccessibilityIdentifiers.Home.foredropCollapseHint]
         if byIdentifier.exists {

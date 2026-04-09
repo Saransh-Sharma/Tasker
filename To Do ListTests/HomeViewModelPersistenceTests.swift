@@ -130,6 +130,31 @@ final class HomeViewModelPersistenceTests: XCTestCase {
         defaults.removePersistentDomain(forName: suiteName)
     }
 
+    func testInsightsViewModelIsReleasedWhenSurfaceCloses() {
+        let suiteName = "HomeViewModelPersistenceTests.InsightsRelease.\(UUID().uuidString)"
+        guard let defaults = UserDefaults(suiteName: suiteName) else {
+            return XCTFail("Failed to create test UserDefaults suite")
+        }
+        defaults.removePersistentDomain(forName: suiteName)
+
+        let inbox = Project.createInbox()
+        let coordinator = UseCaseCoordinator(
+            taskRepository: HomeViewModelMockTaskRepository(tasks: [makeTask(name: "Task", project: inbox)]),
+            projectRepository: HomeViewModelMockProjectRepository(projects: [inbox])
+        )
+
+        let viewModel = HomeViewModel(useCaseCoordinator: coordinator, userDefaults: defaults)
+        waitForMainQueueFlush()
+
+        let first = viewModel.makeInsightsViewModel()
+        viewModel.releaseInsightsViewModel()
+        let second = viewModel.makeInsightsViewModel()
+
+        XCTAssertFalse(first === second)
+
+        defaults.removePersistentDomain(forName: suiteName)
+    }
+
     func testSearchViewModelIsRetainedAcrossRequests() {
         let suiteName = "HomeViewModelPersistenceTests.SearchRetention.\(UUID().uuidString)"
         guard let defaults = UserDefaults(suiteName: suiteName) else {
@@ -147,6 +172,31 @@ final class HomeViewModelPersistenceTests: XCTestCase {
         waitForMainQueueFlush()
 
         XCTAssertTrue(viewModel.makeHomeSearchViewModel() === viewModel.makeHomeSearchViewModel())
+
+        defaults.removePersistentDomain(forName: suiteName)
+    }
+
+    func testSearchViewModelIsReleasedWhenSurfaceCloses() {
+        let suiteName = "HomeViewModelPersistenceTests.SearchRelease.\(UUID().uuidString)"
+        guard let defaults = UserDefaults(suiteName: suiteName) else {
+            return XCTFail("Failed to create test UserDefaults suite")
+        }
+        defaults.removePersistentDomain(forName: suiteName)
+
+        let inbox = Project.createInbox()
+        let coordinator = UseCaseCoordinator(
+            taskRepository: HomeViewModelMockTaskRepository(tasks: [makeTask(name: "Task", project: inbox)]),
+            projectRepository: HomeViewModelMockProjectRepository(projects: [inbox])
+        )
+
+        let viewModel = HomeViewModel(useCaseCoordinator: coordinator, userDefaults: defaults)
+        waitForMainQueueFlush()
+
+        let first = viewModel.makeHomeSearchViewModel()
+        viewModel.releaseHomeSearchViewModel()
+        let second = viewModel.makeHomeSearchViewModel()
+
+        XCTAssertFalse(first === second)
 
         defaults.removePersistentDomain(forName: suiteName)
     }

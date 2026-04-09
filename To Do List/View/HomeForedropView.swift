@@ -2130,20 +2130,8 @@ struct HomeBackdropForedropRootView: View {
             .zIndex(isVisible ? 1 : 0)
     }
 
-    private var handleBar: some View {
-        VStack(spacing: spacing.s4) {
-            Capsule()
-                .fill(Color.tasker.textQuaternary.opacity(0.4))
-                .frame(width: 44, height: 5)
-                .accessibilityIdentifier("home.foredrop.handle")
-        }
-    }
-
     private func foredropFrontFace(taskListBottomInset: CGFloat) -> some View {
         VStack(spacing: 0) {
-            handleBar
-                .padding(.top, spacing.s8)
-
             TaskListView(
                 headerContent: AnyView(taskListScrollHeader),
                 morningTasks: tasksSnapshot.morningTasks,
@@ -2655,7 +2643,7 @@ struct HomeBackdropForedropRootView: View {
     @ViewBuilder
     private var taskListScrollHeader: some View {
         VStack(alignment: .leading, spacing: spacing.s12) {
-            if passiveTrackingRailRows.isEmpty == false {
+            if passiveTrackingRailCards.isEmpty == false {
                 fullBleedTaskListHeaderModule {
                     passiveTrackingRail
                         .padding(.top, spacing.s2)
@@ -2720,15 +2708,15 @@ struct HomeBackdropForedropRootView: View {
         chromeSnapshot.activeScope.quickView == .today && tasksSnapshot.dueTodaySection?.rows.isEmpty == false
     }
 
-    private var passiveTrackingRailRows: [HomeHabitRow] {
-        Array(tasksSnapshot.quietTrackingSummaryState.stableRows.prefix(3))
+    private var passiveTrackingRailCards: [QuietTrackingRailCardPresentation] {
+        Array(tasksSnapshot.quietTrackingSummaryState.railCards.prefix(3))
     }
 
     private var passiveTrackingRail: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: spacing.s8) {
-                ForEach(passiveTrackingRailRows) { row in
-                    passiveTrackingRailButton(for: row)
+                ForEach(passiveTrackingRailCards) { card in
+                    passiveTrackingRailButton(for: card)
                 }
             }
             .padding(.horizontal, spacing.s16)
@@ -2736,56 +2724,16 @@ struct HomeBackdropForedropRootView: View {
         .accessibilityIdentifier("home.passiveTracking.rail")
     }
 
-    private func passiveTrackingRailButton(for row: HomeHabitRow) -> some View {
+    private func passiveTrackingRailButton(for card: QuietTrackingRailCardPresentation) -> some View {
         Button {
+            guard let row = tasksSnapshot.quietTrackingSummaryState.stableRows.first(where: { $0.id == card.id }) else { return }
             presentQuietTrackingComposer(for: row, preferredOutcome: .lapse)
         } label: {
-            passiveTrackingRailChip(for: row)
+            QuietTrackingRailStreakWidget(card: card)
         }
         .buttonStyle(.plain)
         .scaleOnPress()
-        .accessibilityHint("Opens quiet tracking logging for \(row.title)")
-    }
-
-    private func passiveTrackingRailChip(for row: HomeHabitRow) -> some View {
-        HStack(spacing: spacing.s8) {
-            ZStack {
-                Circle()
-                    .fill(Color.tasker.accentSecondary.opacity(0.14))
-                    .frame(width: 22, height: 22)
-
-                Image(systemName: row.iconSymbolName)
-                    .font(.system(size: 10, weight: .semibold))
-                    .foregroundStyle(Color.tasker.accentSecondary)
-            }
-
-            Text(row.title)
-                .font(.tasker(.caption1).weight(.semibold))
-                .foregroundColor(Color.tasker.textPrimary)
-                .lineLimit(1)
-
-            if row.currentStreak > 0 {
-                passiveTrackingStreakPill(for: row)
-            }
-        }
-        .padding(.horizontal, spacing.s12)
-        .padding(.vertical, spacing.s8)
-        .background(Color.tasker.surfaceSecondary.opacity(0.9))
-        .overlay(
-            Capsule()
-                .stroke(Color.tasker.strokeHairline.opacity(0.8), lineWidth: 1)
-        )
-        .clipShape(Capsule())
-    }
-
-    private func passiveTrackingStreakPill(for row: HomeHabitRow) -> some View {
-        Text("\(row.currentStreak)d")
-            .font(.tasker(.caption2).weight(.semibold))
-            .foregroundColor(Color.tasker.accentSecondary)
-            .padding(.horizontal, spacing.s8)
-            .padding(.vertical, 3)
-            .background(Color.tasker.accentSecondary.opacity(0.10))
-            .clipShape(Capsule())
+        .accessibilityHint("Opens quiet tracking logging for \(card.title)")
     }
 
     private var todayAgendaHeader: some View {
@@ -2820,6 +2768,7 @@ struct HomeBackdropForedropRootView: View {
             },
             onPrimaryAction: handleHabitPrimaryAction(_:),
             onSecondaryAction: handleHabitSecondaryAction(_:),
+            onLastCellAction: handleHabitLastCellAction(_:),
             onOpenHabit: openHabitDetail
         )
         .accessibilityIdentifier("home.habits.section")
@@ -2838,6 +2787,7 @@ struct HomeBackdropForedropRootView: View {
             },
             onPrimaryAction: handleHabitPrimaryAction(_:),
             onSecondaryAction: handleHabitSecondaryAction(_:),
+            onLastCellAction: handleHabitLastCellAction(_:),
             onOpenHabit: openHabitDetail
         )
         .accessibilityIdentifier("home.habits.recovery")
@@ -2863,6 +2813,10 @@ struct HomeBackdropForedropRootView: View {
         case (.negative, .lapseOnly):
             break
         }
+    }
+
+    private func handleHabitLastCellAction(_ habit: HomeHabitRow) {
+        viewModel.performHabitLastCellAction(habit, source: "habit_home_last_cell")
     }
 
     private func openHabitDetail(_ habit: HomeHabitRow) {
@@ -4400,6 +4354,64 @@ struct HomeiPadSplitShellView: View {
                 showCompactSidebar = false
             }
         }
+    }
+}
+
+private struct QuietTrackingRailStreakWidget: View {
+    let card: QuietTrackingRailCardPresentation
+
+    @Environment(\.taskerLayoutClass) private var layoutClass
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+
+    private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.tokens(for: layoutClass).spacing }
+
+    private var isExpandedType: Bool {
+        dynamicTypeSize >= .accessibility1
+    }
+
+    private var widgetVerticalPadding: CGFloat {
+        isExpandedType ? 6 : spacing.s4
+    }
+
+    private var stripWidth: CGFloat {
+        let mode = HabitBoardStripMode.compact
+        let cellCount = CGFloat(card.cells.count)
+        let gaps = CGFloat(max(0, card.cells.count - 1))
+        return (cellCount * mode.columnWidth) + (gaps * mode.spacing)
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: spacing.s8) {
+            HabitBoardStripView(
+                cells: card.cells,
+                family: card.colorFamily,
+                mode: .compact
+            )
+            .accessibilityHidden(true)
+
+            HStack(alignment: .firstTextBaseline, spacing: 6) {
+                Image(systemName: card.iconSymbolName)
+                    .font(.system(size: 10, weight: .semibold))
+                    .symbolRenderingMode(.hierarchical)
+                    .foregroundStyle(Color.tasker.textSecondary.opacity(0.82))
+                    .accessibilityHidden(true)
+
+                Text(card.title)
+                    .font(.tasker(.caption2).weight(.medium))
+                    .foregroundStyle(Color.tasker.textSecondary)
+                    .lineLimit(isExpandedType ? 2 : 1)
+                    .multilineTextAlignment(.leading)
+                    .accessibilityHidden(true)
+            }
+        }
+        .frame(width: stripWidth, alignment: .leading)
+        .frame(minHeight: 44, alignment: .topLeading)
+        .padding(.horizontal, spacing.s2)
+        .padding(.vertical, widgetVerticalPadding)
+        .contentShape(Rectangle())
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(card.accessibilityLabel)
+        .accessibilityValue(card.accessibilityValue)
     }
 }
 

@@ -113,6 +113,40 @@ final class HabitBoardUITests: BaseUITest {
         XCTAssertTrue(app.buttons["Edit"].waitForExistence(timeout: 3), "Habit detail should expose the edit action")
     }
 
+    func testHomeHabitLastCellCyclesThroughThreeStates() {
+        let row = firstHomeHabitRow()
+
+        XCTAssertTrue(row.waitForExistence(timeout: 5), "A home habit row should exist in the seeded workspace")
+
+        let rowID = row.identifier.replacingOccurrences(of: "home.habitRow.", with: "")
+        let lastCell = app.buttons[AccessibilityIdentifiers.Home.habitRowLastCell(rowID)]
+
+        XCTAssertTrue(lastCell.waitForExistence(timeout: 5), "Eligible home habit rows should expose a tappable last-cell button")
+        XCTAssertTrue(waitForElementToBeHittable(lastCell, timeout: 3))
+
+        XCTAssertEqual(lastCell.value as? String, "Empty. Next: Mark done.")
+
+        lastCell.tap()
+        XCTAssertTrue(waitForLastCellValue(lastCell, expected: "Done. Next: Mark skipped."))
+
+        lastCell.tap()
+        XCTAssertTrue(waitForLastCellValue(lastCell, expected: "Skipped. Next: Clear to empty."))
+
+        lastCell.tap()
+        XCTAssertTrue(waitForLastCellValue(lastCell, expected: "Empty. Next: Mark done."))
+    }
+
+    func testHomeHabitRowTapOutsideLastCellStillOpensDetail() {
+        let row = firstHomeHabitRow()
+
+        XCTAssertTrue(row.waitForExistence(timeout: 5), "A home habit row should exist in the seeded workspace")
+
+        let coordinate = row.coordinate(withNormalizedOffset: CGVector(dx: 0.2, dy: 0.5))
+        coordinate.tap()
+
+        XCTAssertTrue(app.staticTexts["Drink water after breakfast"].waitForExistence(timeout: 5), "Tapping outside the last cell should still open habit detail")
+    }
+
     private func openHabitBoard(file: StaticString = #file, line: UInt = #line) {
         let board = app.otherElements[AccessibilityIdentifiers.HabitBoard.view]
         if board.waitForExistence(timeout: 6) {
@@ -166,5 +200,12 @@ final class HabitBoardUITests: BaseUITest {
 
         XCTAssertTrue(firstRow.waitForExistence(timeout: 2), "Expected to find a home habit row after scrolling", file: file, line: line)
         return firstRow
+    }
+
+    @discardableResult
+    private func waitForLastCellValue(_ element: XCUIElement, expected: String, timeout: TimeInterval = 5) -> Bool {
+        let predicate = NSPredicate(format: "value == %@", expected)
+        let expectation = XCTNSPredicateExpectation(predicate: predicate, object: element)
+        return XCTWaiter.wait(for: [expectation], timeout: timeout) == .completed
     }
 }

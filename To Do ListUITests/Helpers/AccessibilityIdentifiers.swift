@@ -15,7 +15,6 @@ enum AccessibilityIdentifiers {
     enum Home {
         static let view = "home.view"
         static let foredropSurface = "home.foredrop.surface"
-        static let foredropHandle = "home.foredrop.handle"
         static let foredropCollapseHint = "home.foredrop.collapseHint"
         static let addTaskButton = "home.addTaskButton"
         static let morningTasksList = "home.morningTasksList"
@@ -79,6 +78,7 @@ enum AccessibilityIdentifiers {
         static func habitRowIcon(_ id: String) -> String { "home.habitRow.icon.\(id)" }
         static func habitRowTitle(_ id: String) -> String { "home.habitRow.title.\(id)" }
         static func habitRowStrip(_ id: String) -> String { "home.habitRow.strip.\(id)" }
+        static func habitRowLastCell(_ id: String) -> String { "home.habitRow.lastCell.\(id)" }
 
         // Task Cell
         static func taskCell(index: Int) -> String { "home.taskCell.\(index)" }
