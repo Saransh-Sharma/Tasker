@@ -113,6 +113,7 @@ public final class UseCaseCoordinator {
     public let syncHabitSchedule: SyncHabitScheduleUseCase
     public let maintainHabitRuntime: MaintainHabitRuntimeUseCase
     public let resolveHabitOccurrence: ResolveHabitOccurrenceUseCase
+    public let resetHabitOccurrence: ResetHabitOccurrenceUseCase
     public let getDueHabitsForDate: GetDueHabitsForDateUseCase
     public let getHabitHistory: GetHabitHistoryUseCase
     public let getHabitSignalsInRange: GetHabitSignalsInRangeUseCase
@@ -308,6 +309,12 @@ public final class UseCaseCoordinator {
             scheduleEngine: v2Dependencies.scheduleEngine,
             maintainHabitRuntimeUseCase: maintainHabitRuntime,
             recomputeHabitStreaksUseCase: recomputeHabitStreaks,
+            gamificationEngine: engine
+        )
+        self.resetHabitOccurrence = ResetHabitOccurrenceUseCase(
+            habitRepository: v2Dependencies.habitRepository,
+            occurrenceRepository: v2Dependencies.occurrenceRepository,
+            maintainHabitRuntimeUseCase: maintainHabitRuntime,
             gamificationEngine: engine
         )
         self.manageHabits = ManageHabitsUseCase(repository: v2Dependencies.habitRepository)

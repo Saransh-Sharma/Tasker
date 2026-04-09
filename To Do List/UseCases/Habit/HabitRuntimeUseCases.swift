@@ -1874,6 +1874,7 @@ public final class ResolveHabitOccurrenceUseCase {
                                             habit: habit,
                                             occurrenceID: resolvedOccurrenceID,
                                             action: action,
+                                            completedAt: date,
                                             completion: { _ in
                                                 TaskNotificationDispatcher.postOnMain(
                                                     name: .homeHabitMutation,
@@ -2059,6 +2060,7 @@ public final class ResolveHabitOccurrenceUseCase {
         habit: HabitDefinitionRecord,
         occurrenceID: UUID,
         action: HabitOccurrenceAction,
+        completedAt: Date,
         completion: @escaping (Result<Void, Error>) -> Void
     ) {
         let category: XPActionCategory
@@ -2080,7 +2082,174 @@ public final class ResolveHabitOccurrenceUseCase {
                 source: .habit,
                 habitID: habit.id,
                 occurrenceID: occurrenceID,
-                completedAt: Date()
+                completedAt: completedAt
+            )
+        ) { result in
+            switch result {
+            case .failure(let error):
+                completion(.failure(error))
+            case .success:
+                completion(.success(()))
+            }
+        }
+    }
+}
+
+public final class ResetHabitOccurrenceUseCase {
+    private let habitRepository: HabitRepositoryProtocol
+    private let occurrenceRepository: OccurrenceRepositoryProtocol
+    private let maintainHabitRuntimeUseCase: MaintainHabitRuntimeUseCase
+    private let gamificationEngine: GamificationEngine
+
+    public init(
+        habitRepository: HabitRepositoryProtocol,
+        occurrenceRepository: OccurrenceRepositoryProtocol,
+        maintainHabitRuntimeUseCase: MaintainHabitRuntimeUseCase,
+        gamificationEngine: GamificationEngine
+    ) {
+        self.habitRepository = habitRepository
+        self.occurrenceRepository = occurrenceRepository
+        self.maintainHabitRuntimeUseCase = maintainHabitRuntimeUseCase
+        self.gamificationEngine = gamificationEngine
+    }
+
+    public func execute(
+        habitID: UUID,
+        occurrenceID: UUID? = nil,
+        on date: Date = Date(),
+        completion: @escaping (Result<Void, Error>) -> Void
+    ) {
+        habitRepository.fetchAll { result in
+            switch result {
+            case .failure(let error):
+                completion(.failure(error))
+            case .success(let habits):
+                guard let habit = habits.first(where: { $0.id == habitID }) else {
+                    completion(.failure(HabitRuntimeError.habitNotFound))
+                    return
+                }
+
+                self.resolveOccurrence(
+                    for: habit,
+                    occurrenceID: occurrenceID,
+                    on: date
+                ) { occurrenceResult in
+                    switch occurrenceResult {
+                    case .failure(let error):
+                        completion(.failure(error))
+                    case .success(let occurrence):
+                        let previousState = occurrence.state
+                        var resetOccurrence = occurrence
+                        resetOccurrence.state = .pending
+                        resetOccurrence.updatedAt = Date()
+
+                        self.occurrenceRepository.saveOccurrences([resetOccurrence]) { saveResult in
+                            switch saveResult {
+                            case .failure(let error):
+                                completion(.failure(error))
+                            case .success:
+                                self.maintainHabitRuntimeUseCase.execute(anchorDate: date) { maintainResult in
+                                    switch maintainResult {
+                                    case .failure(let error):
+                                        completion(.failure(error))
+                                    case .success:
+                                        self.compensateIfNeeded(
+                                            habit: habit,
+                                            occurrenceID: resetOccurrence.id,
+                                            previousState: previousState,
+                                            completedAt: date
+                                        ) { compensationResult in
+                                            switch compensationResult {
+                                            case .failure(let error):
+                                                completion(.failure(error))
+                                            case .success:
+                                                TaskNotificationDispatcher.postOnMain(
+                                                    name: .homeHabitMutation,
+                                                    object: habitID
+                                                )
+                                                completion(.success(()))
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private func resolveOccurrence(
+        for habit: HabitDefinitionRecord,
+        occurrenceID: UUID?,
+        on date: Date,
+        completion: @escaping (Result<OccurrenceDefinition, Error>) -> Void
+    ) {
+        let calendar = Calendar.current
+        let startOfDay = calendar.startOfDay(for: date)
+        let endOfDay = calendar.date(byAdding: .day, value: 1, to: startOfDay) ?? date
+        occurrenceRepository.fetchInRange(start: startOfDay, end: endOfDay) { result in
+            switch result {
+            case .failure(let error):
+                completion(.failure(error))
+            case .success(let occurrences):
+                if let occurrenceID {
+                    guard let suppliedOccurrence = occurrences.first(where: { $0.id == occurrenceID }) else {
+                        completion(.failure(HabitRuntimeError.occurrenceNotFound))
+                        return
+                    }
+                    guard suppliedOccurrence.sourceType == .habit, suppliedOccurrence.sourceID == habit.id else {
+                        completion(.failure(HabitRuntimeError.occurrenceNotFound))
+                        return
+                    }
+                    completion(.success(suppliedOccurrence))
+                    return
+                }
+
+                let matches = occurrences
+                    .filter { $0.sourceType == .habit && $0.sourceID == habit.id }
+                    .sorted { HabitRuntimeSupport.occurrenceDate($0) < HabitRuntimeSupport.occurrenceDate($1) }
+
+                guard let occurrence = matches.last else {
+                    completion(.failure(HabitRuntimeError.occurrenceNotFound))
+                    return
+                }
+
+                completion(.success(occurrence))
+            }
+        }
+    }
+
+    private func compensateIfNeeded(
+        habit: HabitDefinitionRecord,
+        occurrenceID: UUID,
+        previousState: OccurrenceState,
+        completedAt: Date,
+        completion: @escaping (Result<Void, Error>) -> Void
+    ) {
+        let category: XPActionCategory?
+        switch (habit.kind, previousState) {
+        case (.positive, .completed):
+            category = .habitPositiveCompleteUndo
+        case (.negative, .completed):
+            category = .habitNegativeSuccessUndo
+        default:
+            category = nil
+        }
+
+        guard let category else {
+            completion(.success(()))
+            return
+        }
+
+        gamificationEngine.recordCompensationEvent(
+            context: XPEventContext(
+                category: category,
+                source: .habit,
+                habitID: habit.id,
+                occurrenceID: occurrenceID,
+                completedAt: completedAt
             )
         ) { result in
             switch result {
@@ -2179,7 +2348,7 @@ public final class BuildHabitHomeProjectionUseCase {
                         marks: summary.last14Days,
                         cadence: summary.cadence,
                         referenceDate: date,
-                        dayCount: 10
+                        dayCount: 7
                     )
                     let expandedCells = HabitBoardPresentationBuilder.buildCells(
                         marks: summary.last14Days,

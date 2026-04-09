@@ -1,5 +1,49 @@
 import Foundation
 
+struct QuietTrackingRailCardPresentation: Equatable, Identifiable {
+    let id: String
+    let title: String
+    let iconSymbolName: String
+    let colorFamily: HabitColorFamily
+    let cells: [HabitBoardCell]
+    let accessibilityLabel: String
+    let accessibilityValue: String
+
+    init(row: HomeHabitRow) {
+        let resolvedColorFamily = HabitColorFamily.family(
+            for: row.accentHex,
+            fallback: row.kind == .positive ? .green : .coral
+        )
+
+        self.id = row.id
+        self.title = row.title
+        self.iconSymbolName = row.iconSymbolName
+        self.colorFamily = resolvedColorFamily
+        self.cells = Self.resolveCells(for: row)
+        self.accessibilityLabel = row.title
+        self.accessibilityValue = "Current streak \(row.currentStreak) days. Last 7 days shown."
+    }
+
+    private static func resolveCells(for row: HomeHabitRow) -> [HabitBoardCell] {
+        if row.boardCellsExpanded.count >= 7 {
+            return Array(row.boardCellsExpanded.suffix(7))
+        }
+
+        let referenceDate = row.boardCellsExpanded.last?.date
+            ?? row.boardCellsCompact.last?.date
+            ?? row.last14Days.last?.date
+            ?? row.dueAt
+            ?? Date()
+
+        return HabitBoardPresentationBuilder.buildCells(
+            marks: row.last14Days,
+            cadence: row.cadence,
+            referenceDate: referenceDate,
+            dayCount: 7
+        )
+    }
+}
+
 public struct FocusNowSectionState: Equatable {
     public let rows: [HomeTodayRow]
     public let pinnedTaskIDs: [UUID]
@@ -62,6 +106,9 @@ public struct QuietTrackingSummaryState: Equatable {
 
     public var stableCount: Int { stableRows.count }
     public var isVisible: Bool { stableRows.isEmpty == false }
+    var railCards: [QuietTrackingRailCardPresentation] {
+        stableRows.map(QuietTrackingRailCardPresentation.init(row:))
+    }
 
     public var summaryText: String {
         switch stableCount {

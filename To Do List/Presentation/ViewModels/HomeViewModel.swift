@@ -393,6 +393,7 @@ public final class HomeViewModel: ObservableObject {
     private let getDailySummaryModalUseCase: GetDailySummaryModalUseCase
     private let buildHomeAgendaUseCase: BuildHomeAgendaUseCase
     private let buildHabitHomeProjectionUseCase: BuildHabitHomeProjectionUseCase
+    private let resetHabitOccurrenceUseCase: ResetHabitOccurrenceUseCase
     private let savedHomeViewRepository: SavedHomeViewRepositoryProtocol
     private let analyticsService: AnalyticsServiceProtocol?
     private let aiSuggestionService: AISuggestionService?
@@ -614,6 +615,7 @@ public final class HomeViewModel: ObservableObject {
         self.buildEvaBatchProposalUseCase = useCaseCoordinator.buildEvaBatchProposal
         self.buildHomeAgendaUseCase = BuildHomeAgendaUseCase()
         self.buildHabitHomeProjectionUseCase = useCaseCoordinator.buildHabitHomeProjection
+        self.resetHabitOccurrenceUseCase = useCaseCoordinator.resetHabitOccurrence
         self.getDailySummaryModalUseCase = GetDailySummaryModalUseCase(
             getTasksUseCase: useCaseCoordinator.getTasks,
             analyticsUseCase: useCaseCoordinator.calculateAnalytics
@@ -708,6 +710,24 @@ public final class HomeViewModel: ObservableObject {
 
     public func lapseHabit(_ row: HomeHabitRow, source: String = "habit_row_action") {
         resolveHabit(row, action: .lapsed, source: source)
+    }
+
+    public func performHabitLastCellAction(
+        _ row: HomeHabitRow,
+        source: String = "habit_home_last_cell"
+    ) {
+        guard let interaction = HomeHabitLastCellInteraction.resolve(for: row) else { return }
+
+        switch interaction.action {
+        case .complete:
+            completeHabit(row, source: source)
+        case .skip:
+            skipHabit(row, source: source)
+        case .lapse:
+            lapseHabit(row, source: source)
+        case .clear:
+            resetHabit(row, source: source)
+        }
     }
 
     public func logHabitProgress(
@@ -2608,8 +2628,13 @@ public final class HomeViewModel: ObservableObject {
 
     /// Executes currentTaskSnapshot.
     private func currentTaskSnapshot(for id: UUID) -> TaskDefinition? {
-        let candidates = morningTasks + eveningTasks + overdueTasks + dailyCompletedTasks + upcomingTasks + completedTasks + doneTimelineTasks
-        return candidates.first(where: { $0.id == id })
+        if let task = morningTasks.first(where: { $0.id == id }) { return task }
+        if let task = eveningTasks.first(where: { $0.id == id }) { return task }
+        if let task = overdueTasks.first(where: { $0.id == id }) { return task }
+        if let task = dailyCompletedTasks.first(where: { $0.id == id }) { return task }
+        if let task = upcomingTasks.first(where: { $0.id == id }) { return task }
+        if let task = completedTasks.first(where: { $0.id == id }) { return task }
+        return doneTimelineTasks.first(where: { $0.id == id })
     }
 
     /// Executes mutationReason.
@@ -2655,11 +2680,17 @@ public final class HomeViewModel: ObservableObject {
                     "overdue_count": self?.overdueTasks.count ?? 0
                 ]
             )
-            self?.scheduleDeferredAnalyticsRefresh(
-                reason: "initial_load",
-                includeGamificationRefresh: true
-            )
+            self?.scheduleInitialDeferredAnalyticsRefreshIfNeeded()
         }
+    }
+
+    private func scheduleInitialDeferredAnalyticsRefreshIfNeeded() {
+        guard activeScope.quickView == .today else { return }
+        scheduleDeferredAnalyticsRefresh(
+            reason: "initial_load",
+            includeGamificationRefresh: true,
+            delayMilliseconds: 1_500
+        )
     }
 
     /// Executes loadDailyAnalytics.
@@ -3096,7 +3127,7 @@ public final class HomeViewModel: ObservableObject {
                 marks: marks,
                 cadence: row.cadence,
                 referenceDate: date,
-                dayCount: 10,
+                dayCount: 7,
                 calendar: calendar
             )
             let expandedCells = HabitBoardPresentationBuilder.buildCells(
@@ -3261,6 +3292,33 @@ public final class HomeViewModel: ObservableObject {
             occurrenceID: row.occurrenceID,
             action: action,
             on: date
+        ) { [weak self] result in
+            DispatchQueue.main.async {
+                guard let self else { return }
+                switch result {
+                case .failure(let error):
+                    self.errorMessage = error.localizedDescription
+                case .success:
+                    self.enqueueReload(
+                        source: source,
+                        reason: .updated,
+                        invalidateCaches: false,
+                        includeAnalytics: true,
+                        repostEvent: false
+                    )
+                }
+            }
+        }
+    }
+
+    private func resetHabit(
+        _ row: HomeHabitRow,
+        source: String
+    ) {
+        resetHabitOccurrenceUseCase.execute(
+            habitID: row.habitID,
+            occurrenceID: row.occurrenceID,
+            on: selectedDate
         ) { [weak self] result in
             DispatchQueue.main.async {
                 guard let self else { return }
@@ -5128,14 +5186,20 @@ final class TaskListWidgetSnapshotService {
     static let shared = TaskListWidgetSnapshotService()
 
     private let queue = DispatchQueue(label: "tasker.tasklist.widget.snapshot", qos: .utility)
-    private let debounceDelay: TimeInterval = 0.25
+    private let debounceDelay: TimeInterval = 0.75
     private var pendingWorkItem: DispatchWorkItem?
+    private var refreshInFlight = false
+    private var queuedReasonAfterRefresh: String?
 
     private init() {}
 
     func scheduleRefresh(reason: String) {
         queue.async { [weak self] in
             guard let self else { return }
+            if self.refreshInFlight {
+                self.queuedReasonAfterRefresh = reason
+                return
+            }
             self.pendingWorkItem?.cancel()
             let workItem = DispatchWorkItem { [weak self] in
                 self?.refreshNow(reason: reason)
@@ -5148,6 +5212,12 @@ final class TaskListWidgetSnapshotService {
     private func refreshNow(reason: String) {
         guard V2FeatureFlags.taskListWidgetsEnabled else { return }
         guard let coordinator = currentCoordinator() else { return }
+        if refreshInFlight {
+            queuedReasonAfterRefresh = reason
+            return
+        }
+        refreshInFlight = true
+        pendingWorkItem = nil
         TaskerMemoryDiagnostics.checkpoint(
             event: "widget_snapshot_refresh_started",
             message: "Refreshing task list widget snapshot",
@@ -5166,6 +5236,7 @@ final class TaskListWidgetSnapshotService {
                         "error": error.localizedDescription
                     ]
                 )
+                self.finishRefresh()
             case .success(let tasks):
                 TaskerMemoryDiagnostics.checkpoint(
                     event: "widget_snapshot_refresh_loaded",
@@ -5175,7 +5246,18 @@ final class TaskListWidgetSnapshotService {
                 )
                 let snapshot = self.buildSnapshot(tasks: tasks)
                 self.persistIfChanged(snapshot: snapshot, reason: reason)
+                self.finishRefresh()
             }
+        }
+    }
+
+    private func finishRefresh() {
+        queue.async { [weak self] in
+            guard let self else { return }
+            self.refreshInFlight = false
+            guard let queuedReason = self.queuedReasonAfterRefresh else { return }
+            self.queuedReasonAfterRefresh = nil
+            self.scheduleRefresh(reason: queuedReason)
         }
     }
 

@@ -309,6 +309,9 @@
 		A4C2E9F12B7D4C5581AA0001 /* To Do List/Domain/Models/HomeTaskMutationPayload.swift in Sources */ = {isa = PBXBuildFile; fileRef = A4C2E9F12B7D4C5581AA0003 /* To Do List/Domain/Models/HomeTaskMutationPayload.swift */; };
 		A4C2E9F12B7D4C5581AA0002 /* HomeTaskMutationPayloadTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A4C2E9F12B7D4C5581AA0004 /* HomeTaskMutationPayloadTests.swift */; };
 		A7B8C9D0E1F20123456789A2 /* HabitBoardPresentationBuilderTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A7B8C9D0E1F20123456789A1 /* HabitBoardPresentationBuilderTests.swift */; };
+		A7B8C9D0E1F20123456789A4 /* HomeHabitLastCellInteractionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A7B8C9D0E1F20123456789A3 /* HomeHabitLastCellInteractionTests.swift */; };
+		A7B8C9D0E1F20123456789A6 /* HabitLastCellRuntimeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A7B8C9D0E1F20123456789A5 /* HabitLastCellRuntimeTests.swift */; };
+		A7B8C9D0E1F20123456789A8 /* QuietTrackingRailPresentationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A7B8C9D0E1F20123456789A7 /* QuietTrackingRailPresentationTests.swift */; };
 		A4E8C9D12F9A4C3600A1B2C3 /* To Do List/State/Integrity/LifeAreaIdentityRepair.swift in Sources */ = {isa = PBXBuildFile; fileRef = A4E8C9D22F9A4C3600A1B2C3 /* To Do List/State/Integrity/LifeAreaIdentityRepair.swift */; };
 		A6D5E0EA942DF95EA0C175B8 /* GamificationTokens.swift in Sources */ = {isa = PBXBuildFile; fileRef = D48E4DB12D2E1FE5A90FC97D /* GamificationTokens.swift */; };
 		A6E1D3F42F3C100100B1C2D3 /* AISuggestionService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A6E1D3F52F3C100100B1C2D3 /* AISuggestionService.swift */; };
@@ -375,6 +378,7 @@
 		B2E100000000000000000201 /* To Do List/UseCases/Home/BuildHomeAgendaUseCase.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2E100000000000000000103 /* To Do List/UseCases/Home/BuildHomeAgendaUseCase.swift */; };
 		B2E100000000000000000202 /* To Do List/Presentation/Models/HomeTodayRow.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2E100000000000000000101 /* To Do List/Presentation/Models/HomeTodayRow.swift */; };
 		B2E100000000000000000203 /* To Do List/Presentation/Models/HomeHabitRow.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2E100000000000000000102 /* To Do List/Presentation/Models/HomeHabitRow.swift */; };
+		B2E100000000000000000206 /* To Do List/Presentation/Models/HomeHabitLastCellInteraction.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2E100000000000000000106 /* To Do List/Presentation/Models/HomeHabitLastCellInteraction.swift */; };
 		B2E100000000000000000205 /* To Do List/Presentation/Models/HomeSectionState.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2E100000000000000000105 /* To Do List/Presentation/Models/HomeSectionState.swift */; };
 		B2E100000000000000000204 /* To Do List/View/HomeHabitRowView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2E100000000000000000104 /* To Do List/View/HomeHabitRowView.swift */; };
 		B426403E6996E2CE8BE66FB6 /* EnhancedDependencyContainer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 017ECAA6FA89C9A7825A3E8A /* EnhancedDependencyContainer.swift */; };
@@ -836,6 +840,9 @@
 		A4C2E9F12B7D4C5581AA0003 /* To Do List/Domain/Models/HomeTaskMutationPayload.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "To Do List/Domain/Models/HomeTaskMutationPayload.swift"; sourceTree = SOURCE_ROOT; };
 		A4C2E9F12B7D4C5581AA0004 /* HomeTaskMutationPayloadTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HomeTaskMutationPayloadTests.swift; sourceTree = "<group>"; };
 		A7B8C9D0E1F20123456789A1 /* HabitBoardPresentationBuilderTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HabitBoardPresentationBuilderTests.swift; sourceTree = "<group>"; };
+		A7B8C9D0E1F20123456789A3 /* HomeHabitLastCellInteractionTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HomeHabitLastCellInteractionTests.swift; sourceTree = "<group>"; };
+		A7B8C9D0E1F20123456789A5 /* HabitLastCellRuntimeTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HabitLastCellRuntimeTests.swift; sourceTree = "<group>"; };
+		A7B8C9D0E1F20123456789A7 /* QuietTrackingRailPresentationTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = QuietTrackingRailPresentationTests.swift; sourceTree = "<group>"; };
 		C8A4F1023D6E4B7A91C2D301 /* HabitBoardViewModelTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HabitBoardViewModelTests.swift; sourceTree = "<group>"; };
 		C8A4F1023D6E4B7A91C2D303 /* HabitBoardUITests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HabitBoardUITests.swift; sourceTree = "<group>"; };
 		A4E8C9D22F9A4C3600A1B2C3 /* To Do List/State/Integrity/LifeAreaIdentityRepair.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "To Do List/State/Integrity/LifeAreaIdentityRepair.swift"; sourceTree = SOURCE_ROOT; };
@@ -896,6 +903,7 @@
 		B2D4E5F6A7B8C9D0E1F2A3B4 /* KeyboardShortcutsCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeyboardShortcutsCard.swift; sourceTree = "<group>"; };
 		B2E100000000000000000101 /* To Do List/Presentation/Models/HomeTodayRow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "To Do List/Presentation/Models/HomeTodayRow.swift"; sourceTree = SOURCE_ROOT; };
 		B2E100000000000000000102 /* To Do List/Presentation/Models/HomeHabitRow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "To Do List/Presentation/Models/HomeHabitRow.swift"; sourceTree = SOURCE_ROOT; };
+		B2E100000000000000000106 /* To Do List/Presentation/Models/HomeHabitLastCellInteraction.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "To Do List/Presentation/Models/HomeHabitLastCellInteraction.swift"; sourceTree = SOURCE_ROOT; };
 		B2E100000000000000000105 /* To Do List/Presentation/Models/HomeSectionState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "To Do List/Presentation/Models/HomeSectionState.swift"; sourceTree = SOURCE_ROOT; };
 		B2E100000000000000000103 /* To Do List/UseCases/Home/BuildHomeAgendaUseCase.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "To Do List/UseCases/Home/BuildHomeAgendaUseCase.swift"; sourceTree = SOURCE_ROOT; };
 		B2E100000000000000000104 /* To Do List/View/HomeHabitRowView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "To Do List/View/HomeHabitRowView.swift"; sourceTree = SOURCE_ROOT; };
@@ -1358,6 +1366,7 @@
 			children = (
 				B2E100000000000000000101 /* To Do List/Presentation/Models/HomeTodayRow.swift */,
 				B2E100000000000000000102 /* To Do List/Presentation/Models/HomeHabitRow.swift */,
+				B2E100000000000000000106 /* To Do List/Presentation/Models/HomeHabitLastCellInteraction.swift */,
 				B2E100000000000000000105 /* To Do List/Presentation/Models/HomeSectionState.swift */,
 			);
 			path = Models;
@@ -1509,6 +1518,9 @@
 				C39FDE21811FCBE733038318 /* GetHomeFilteredTasksUseCaseTests.swift */,
 				A4C2E9F12B7D4C5581AA0004 /* HomeTaskMutationPayloadTests.swift */,
 				A7B8C9D0E1F20123456789A1 /* HabitBoardPresentationBuilderTests.swift */,
+				A7B8C9D0E1F20123456789A3 /* HomeHabitLastCellInteractionTests.swift */,
+				A7B8C9D0E1F20123456789A5 /* HabitLastCellRuntimeTests.swift */,
+				A7B8C9D0E1F20123456789A7 /* QuietTrackingRailPresentationTests.swift */,
 				C8A4F1023D6E4B7A91C2D301 /* HabitBoardViewModelTests.swift */,
 			);
 			path = "To Do ListTests";
@@ -2828,6 +2840,7 @@
 				B2E100000000000000000201 /* To Do List/UseCases/Home/BuildHomeAgendaUseCase.swift in Sources */,
 				B2E100000000000000000202 /* To Do List/Presentation/Models/HomeTodayRow.swift in Sources */,
 				B2E100000000000000000203 /* To Do List/Presentation/Models/HomeHabitRow.swift in Sources */,
+				B2E100000000000000000206 /* To Do List/Presentation/Models/HomeHabitLastCellInteraction.swift in Sources */,
 				B2E100000000000000000205 /* To Do List/Presentation/Models/HomeSectionState.swift in Sources */,
 				B2E100000000000000000204 /* To Do List/View/HomeHabitRowView.swift in Sources */,
 				C1B100000000000000000106 /* To Do List/View/HabitBoardViews.swift in Sources */,
@@ -3031,6 +3044,9 @@
 				600B7F6D47A6091946016C7A /* GetHomeFilteredTasksUseCaseTests.swift in Sources */,
 				A4C2E9F12B7D4C5581AA0002 /* HomeTaskMutationPayloadTests.swift in Sources */,
 				A7B8C9D0E1F20123456789A2 /* HabitBoardPresentationBuilderTests.swift in Sources */,
+				A7B8C9D0E1F20123456789A4 /* HomeHabitLastCellInteractionTests.swift in Sources */,
+				A7B8C9D0E1F20123456789A6 /* HabitLastCellRuntimeTests.swift in Sources */,
+				A7B8C9D0E1F20123456789A8 /* QuietTrackingRailPresentationTests.swift in Sources */,
 				C8A4F1023D6E4B7A91C2D302 /* HabitBoardViewModelTests.swift in Sources */,
 				F0A1B2C3D4E5F60718293B4D /* HomeFilterStateTests.swift in Sources */,
 				F0A1B2C3D4E5F60718293B4E /* HomeTaskSectionBuilderTests.swift in Sources */,

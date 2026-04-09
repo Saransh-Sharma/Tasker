@@ -66,6 +66,8 @@ public struct XPCalculationEngine {
         case .habitPositiveComplete: return 8
         case .habitNegativeSuccess: return 8
         case .habitNegativeLapse: return 0
+        case .habitPositiveCompleteUndo: return -8
+        case .habitNegativeSuccessUndo: return -8
         case .habitRecovery: return 6
         case .habitStreakMilestone: return 25
         }
@@ -303,15 +305,23 @@ public struct XPCalculationEngine {
         case .habitPositiveComplete:
             let identifier = habitID ?? taskID
             guard let identifier else { return "habit_positive_complete:unknown" }
-            return "habit_positive_complete:\(identifier.uuidString)"
+            return "habit_positive_complete:\(identifier.uuidString):\(periodKey ?? self.periodKey())"
         case .habitNegativeSuccess:
             let identifier = habitID ?? taskID
             guard let identifier else { return "habit_negative_success:unknown" }
-            return "habit_negative_success:\(identifier.uuidString)"
+            return "habit_negative_success:\(identifier.uuidString):\(periodKey ?? self.periodKey())"
         case .habitNegativeLapse:
             let identifier = habitID ?? taskID
             guard let identifier else { return "habit_negative_lapse:unknown" }
             return "habit_negative_lapse:\(identifier.uuidString):\(periodKey ?? self.periodKey())"
+        case .habitPositiveCompleteUndo:
+            let identifier = habitID ?? taskID
+            guard let identifier else { return "habit_positive_complete_undo:unknown" }
+            return "habit_positive_complete_undo:\(identifier.uuidString):\(periodKey ?? self.periodKey())"
+        case .habitNegativeSuccessUndo:
+            let identifier = habitID ?? taskID
+            guard let identifier else { return "habit_negative_success_undo:unknown" }
+            return "habit_negative_success_undo:\(identifier.uuidString):\(periodKey ?? self.periodKey())"
         case .habitRecovery:
             let identifier = habitID ?? taskID
             guard let identifier else { return "habit_recovery:unknown" }
@@ -328,6 +338,8 @@ public struct XPCalculationEngine {
         case .habitPositiveComplete,
              .habitNegativeSuccess,
              .habitNegativeLapse,
+             .habitPositiveCompleteUndo,
+             .habitNegativeSuccessUndo,
              .habitRecovery,
              .habitStreakMilestone:
             return true

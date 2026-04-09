@@ -10,6 +10,8 @@ public enum XPActionCategory: String, Codable, CaseIterable {
     case habitPositiveComplete
     case habitNegativeSuccess
     case habitNegativeLapse
+    case habitPositiveCompleteUndo
+    case habitNegativeSuccessUndo
     case habitRecovery
     case habitStreakMilestone
 }
