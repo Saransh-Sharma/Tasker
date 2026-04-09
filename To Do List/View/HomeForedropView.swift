@@ -1008,6 +1008,7 @@ protocol HomeSearchEngine: AnyObject {
     func togglePriorityFilter(_ priority: Int32)
     func setStatusFilter(_ filter: HomeSearchStatusFilter)
     func invalidateSearchCache(revision: Int)
+    func releaseResources()
     func groupTasksByProject(_ tasks: [TaskDefinition]) -> [(project: String, tasks: [TaskDefinition])]
 }
 
@@ -1064,6 +1065,11 @@ final class LGHomeSearchEngine: HomeSearchEngine {
         viewModel.invalidateSearchCache(revision: revision)
     }
 
+    func releaseResources() {
+        viewModel.purgeCaches()
+        viewModel.onResultsUpdatedWithRevision = nil
+    }
+
     func groupTasksByProject(_ tasks: [TaskDefinition]) -> [(project: String, tasks: [TaskDefinition])] {
         viewModel.groupTasksByProject(tasks)
     }
@@ -1101,7 +1107,9 @@ final class SearchRefreshCoordinator {
                 return
             }
             guard !Task.isCancelled else { return }
-            await perform(requestGeneration)
+            await MainActor.run {
+                perform(requestGeneration)
+            }
         }
         return requestGeneration
     }
@@ -1196,6 +1204,20 @@ final class HomeSearchState: ObservableObject {
     func deactivate() {
         refreshCoordinator.cancel()
         isLoading = false
+    }
+
+    func releaseResources() {
+        refreshCoordinator.cancel()
+        engine?.releaseResources()
+        engine = nil
+        sharedDataRevisionProvider = nil
+        latestIssuedSearchRevision = 0
+        needsRefreshOnNextActivation = false
+        lastExecutedSignature = nil
+        isLoading = false
+        hasLoaded = false
+        sections = []
+        availableProjects = []
     }
 
     func updateQuery(_ newValue: String) {
@@ -1880,7 +1902,7 @@ struct HomeBackdropForedropRootView: View {
         )) {
             EvaOverdueRescueSheetV2(
                 plan: overlaySnapshot.rescuePlan,
-                tasksByID: tasksSnapshot.rescueTasksByID,
+                tasksByID: rescueTasksByID,
                 lastBatchRunID: overlaySnapshot.lastBatchRunID,
                 onApply: { mutations, completion in
                     viewModel.applyRescuePlan(mutations: mutations, completion: completion)
@@ -2550,13 +2572,24 @@ struct HomeBackdropForedropRootView: View {
     }
 
     private func searchProject(for name: String) -> Project {
-        if let resolved = tasksSnapshot.projectsByName[name] {
+        if let resolved = tasksSnapshot.projects.first(where: { $0.name == name }) {
             return resolved
         }
         if name == ProjectConstants.inboxProjectName {
             return Project.createInbox()
         }
         return Project(name: name)
+    }
+
+    private var rescueTasksByID: [UUID: TaskDefinition] {
+        Dictionary(
+            uniqueKeysWithValues: (
+                tasksSnapshot.overdueTasks
+                + tasksSnapshot.morningTasks
+                + tasksSnapshot.eveningTasks
+                + overlaySnapshot.triageQueue.map(\.task)
+            ).map { ($0.id, $0) }
+        )
     }
 
     private func searchIdentifierToken(_ rawValue: String) -> String {
@@ -2818,8 +2851,6 @@ struct HomeBackdropForedropRootView: View {
             viewModel.completeHabit(habit, source: "habit_home")
         case (.negative, .dailyCheckIn):
             viewModel.completeHabit(habit, source: "habit_home")
-        case (.negative, .lapseOnly):
-            viewModel.lapseHabit(habit, source: "habit_home")
         }
     }
 

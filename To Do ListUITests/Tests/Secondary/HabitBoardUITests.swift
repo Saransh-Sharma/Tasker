@@ -9,6 +9,37 @@ final class HabitBoardUITests: BaseUITest {
         ]
     }
 
+    func testHomeHabitRowUsesHybridOverlayLayout() {
+        let row = firstHomeHabitRow()
+
+        XCTAssertTrue(row.waitForExistence(timeout: 5), "A home habit row should exist in the seeded workspace")
+        XCTAssertTrue(waitForElementToBeHittable(row, timeout: 3))
+
+        let rowID = row.identifier.replacingOccurrences(of: "home.habitRow.", with: "")
+        let icon = app.otherElements[AccessibilityIdentifiers.Home.habitRowIcon(rowID)]
+        let strip = app.otherElements[AccessibilityIdentifiers.Home.habitRowStrip(rowID)]
+        let title = app.staticTexts[AccessibilityIdentifiers.Home.habitRowTitle(rowID)]
+
+        XCTAssertTrue(icon.waitForExistence(timeout: 3), "Expected the habit row icon tile to exist")
+        XCTAssertTrue(strip.waitForExistence(timeout: 3), "Expected the habit row streak surface to exist")
+        XCTAssertTrue(title.waitForExistence(timeout: 3), "Expected the habit row title overlay to exist")
+
+        XCTAssertGreaterThanOrEqual(icon.frame.height, row.frame.height * 0.8, "Icon tile should fill most of the row height")
+        XCTAssertGreaterThanOrEqual(strip.frame.height, row.frame.height * 0.8, "Streak surface should fill most of the row height")
+        XCTAssertGreaterThan(strip.frame.width, row.frame.width * 0.45, "Streak surface should occupy the majority of the row width")
+        XCTAssertLessThanOrEqual(abs(icon.frame.minX - row.frame.minX), 2, "Icon tile should begin at the row's leading edge")
+        XCTAssertLessThanOrEqual(abs(icon.frame.minY - row.frame.minY), 2, "Icon tile should begin at the row's top edge")
+        XCTAssertLessThanOrEqual(abs(icon.frame.maxY - row.frame.maxY), 2, "Icon tile should extend to the row's bottom edge")
+        XCTAssertLessThanOrEqual(abs(strip.frame.minX - icon.frame.maxX), 2, "Streak surface should begin flush at the icon separator")
+        XCTAssertLessThanOrEqual(abs(strip.frame.minY - row.frame.minY), 2, "Streak surface should begin at the row's top edge")
+        XCTAssertLessThanOrEqual(abs(strip.frame.maxY - row.frame.maxY), 2, "Streak surface should extend to the row's bottom edge")
+        XCTAssertLessThanOrEqual(abs(strip.frame.maxX - row.frame.maxX), 2, "Streak surface should extend to the row's trailing edge")
+        XCTAssertGreaterThan(title.frame.minX, icon.frame.maxX, "Title overlay should start to the right of the icon tile")
+        XCTAssertGreaterThanOrEqual(title.frame.minX, strip.frame.minX, "Title overlay should sit within the streak surface")
+        XCTAssertLessThan(title.frame.maxX, strip.frame.maxX + 1, "Title overlay should remain inside the streak surface")
+        XCTAssertGreaterThanOrEqual(title.frame.minY, strip.frame.minY, "Title overlay should be vertically inside the streak surface")
+    }
+
     func testHabitBoardShowsSevenDayMatrixAndPages() {
         openHabitBoard()
 
@@ -111,5 +142,29 @@ final class HabitBoardUITests: BaseUITest {
         XCTAssertTrue(waitForElementToBeHittable(openBoardButton, timeout: 3, file: file, line: line))
         openBoardButton.tap()
         XCTAssertTrue(board.waitForExistence(timeout: 5), "Habit Board should appear after tapping the Home entry point", file: file, line: line)
+    }
+
+    private func firstHomeHabitRow(file: StaticString = #file, line: UInt = #line) -> XCUIElement {
+        let backToTodayButton = app.buttons[AccessibilityIdentifiers.Home.backToTodayButton]
+        if backToTodayButton.waitForExistence(timeout: 2) && backToTodayButton.isHittable {
+            backToTodayButton.tap()
+        }
+
+        let rowQuery = app.otherElements.matching(NSPredicate(format: "identifier MATCHES %@", #"^home\.habitRow\.[A-Za-z0-9-]+$"#))
+        let firstRow = rowQuery.firstMatch
+
+        if firstRow.waitForExistence(timeout: 3) && firstRow.isHittable {
+            return firstRow
+        }
+
+        for _ in 0..<8 {
+            app.swipeUp()
+            if firstRow.exists && firstRow.isHittable {
+                break
+            }
+        }
+
+        XCTAssertTrue(firstRow.waitForExistence(timeout: 2), "Expected to find a home habit row after scrolling", file: file, line: line)
+        return firstRow
     }
 }

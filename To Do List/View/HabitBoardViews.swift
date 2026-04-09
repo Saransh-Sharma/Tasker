@@ -162,6 +162,8 @@ struct HabitBoardStripView: View {
     let family: HabitColorFamily
     let mode: HabitBoardStripMode
     var cellSizeOverride: CGFloat? = nil
+    var cellWidthOverride: CGFloat? = nil
+    var cellHeightOverride: CGFloat? = nil
 
     private var resolvedCellSize: CGFloat {
         cellSizeOverride ?? mode.cellSize
@@ -174,7 +176,9 @@ struct HabitBoardStripView: View {
                     cell: cell,
                     family: family,
                     mode: mode,
-                    cellSizeOverride: resolvedCellSize
+                    cellSizeOverride: resolvedCellSize,
+                    cellWidthOverride: cellWidthOverride,
+                    cellHeightOverride: cellHeightOverride
                 )
             }
         }

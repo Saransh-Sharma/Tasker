@@ -19,6 +19,18 @@ struct HomeHabitRowView: View {
         HabitEverydayPalette.familyPreview(family)
     }
 
+    private var usesExpandedTitle: Bool {
+        dynamicTypeSize >= .accessibility1
+    }
+
+    private var rowMinHeight: CGFloat {
+        usesExpandedTitle ? 88 : 64
+    }
+
+    private var iconTileWidth: CGFloat {
+        usesExpandedTitle ? 72 : 64
+    }
+
     private var isResolved: Bool {
         switch row.state {
         case .completedToday, .lapsedToday, .skippedToday:
@@ -26,10 +38,6 @@ struct HomeHabitRowView: View {
         case .due, .overdue, .tracking:
             return false
         }
-    }
-
-    private var stripWidth: CGFloat {
-        CGFloat(boardCells.count) * HabitBoardStripMode.homeList.columnWidth
     }
 
     var body: some View {
@@ -96,52 +104,96 @@ struct HomeHabitRowView: View {
     }
 
     private var rowBase: some View {
-        ViewThatFits(in: .horizontal) {
-            horizontalLayout
-            verticalLayout
+        HStack(spacing: 0) {
+            iconTile
+            streakSurface
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .frame(minHeight: 52, alignment: .center)
-        .padding(.horizontal, spacing.s12)
-        .padding(.vertical, spacing.s8)
+        .frame(minHeight: rowMinHeight, alignment: .center)
     }
 
-    private var horizontalLayout: some View {
-        HStack(alignment: .center, spacing: spacing.s12) {
-            titleView(lineLimit: 1)
+    private var iconTile: some View {
+        ZStack {
+            accentColor.opacity(0.14)
 
-            Spacer(minLength: spacing.s8)
-
-            streakStrip
-                .frame(width: stripWidth, alignment: .trailing)
+            Image(systemName: row.iconSymbolName)
+                .font(.system(size: usesExpandedTitle ? 20 : 18, weight: .semibold))
+                .foregroundStyle(accentColor)
+                .symbolRenderingMode(.hierarchical)
         }
+        .frame(width: iconTileWidth)
+        .frame(maxHeight: .infinity)
+        .overlay(alignment: .trailing) {
+            Rectangle()
+                .fill(Color.tasker.strokeHairline.opacity(0.55))
+                .frame(width: 1)
+        }
+        .accessibilityHidden(true)
+        .accessibilityIdentifier("home.habitRow.icon.\(row.id)")
     }
 
-    private var verticalLayout: some View {
-        VStack(alignment: .leading, spacing: spacing.s8) {
-            titleView(lineLimit: dynamicTypeSize >= .accessibility1 ? 2 : 1)
-            streakStrip
+    private var streakSurface: some View {
+        ZStack(alignment: .topLeading) {
+            stretchedStrip
+            titleReadabilityScrim
+            titleView(lineLimit: usesExpandedTitle ? 2 : 1)
+                .padding(.horizontal, usesExpandedTitle ? spacing.s12 : spacing.s8)
+                .padding(.vertical, usesExpandedTitle ? spacing.s12 : spacing.s8)
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .accessibilityIdentifier("home.habitRow.strip.\(row.id)")
     }
 
     private func titleView(lineLimit: Int) -> some View {
         Text(row.title)
-            .font(.tasker(dynamicTypeSize >= .accessibility1 ? .bodyStrong : .body))
+            .font(.tasker(usesExpandedTitle ? .bodyStrong : .body))
             .foregroundStyle(Color.tasker.textPrimary)
             .lineLimit(lineLimit)
             .multilineTextAlignment(.leading)
+            .truncationMode(.tail)
             .frame(maxWidth: .infinity, alignment: .leading)
             .accessibilityIdentifier("home.habitRow.title.\(row.id)")
     }
 
-    private var streakStrip: some View {
-        HabitBoardStripView(
-            cells: boardCells,
-            family: family,
-            mode: .homeList
+    private var stretchedStrip: some View {
+        GeometryReader { proxy in
+            HabitBoardStripView(
+                cells: boardCells,
+                family: family,
+                mode: .homeList,
+                cellWidthOverride: stretchedCellWidth(for: proxy.size.width),
+                cellHeightOverride: max(proxy.size.height, 1)
+            )
+            .frame(width: proxy.size.width, height: proxy.size.height, alignment: .leading)
+        }
+        .clipped()
+    }
+
+    private var titleReadabilityScrim: some View {
+        LinearGradient(
+            colors: [
+                Color.tasker.surfacePrimary.opacity(0.82),
+                Color.tasker.surfacePrimary.opacity(0.56),
+                Color.tasker.surfacePrimary.opacity(0.12),
+                .clear
+            ],
+            startPoint: .leading,
+            endPoint: .trailing
         )
-        .frame(minHeight: HabitBoardStripMode.homeList.cellSize)
-        .accessibilityIdentifier("home.habitRow.strip.\(row.id)")
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .mask(
+            LinearGradient(
+                colors: [.white, .white, .black.opacity(0.65), .clear],
+                startPoint: .leading,
+                endPoint: .trailing
+            )
+        )
+        .allowsHitTesting(false)
+    }
+
+    private func stretchedCellWidth(for totalWidth: CGFloat) -> CGFloat {
+        let count = CGFloat(max(boardCells.count, 1))
+        return max(totalWidth / count, 1)
     }
 
     private var primaryActionTitle: String? {
