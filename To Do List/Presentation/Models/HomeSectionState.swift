@@ -5,9 +5,9 @@ struct QuietTrackingRailCardPresentation: Equatable, Identifiable {
     let title: String
     let iconSymbolName: String
     let colorFamily: HabitColorFamily
-    let cells: [HabitBoardCell]
+    let historyCells: [HabitBoardCell]
+    let currentStreak: Int
     let accessibilityLabel: String
-    let accessibilityValue: String
 
     init(row: HomeHabitRow) {
         let resolvedColorFamily = HabitColorFamily.family(
@@ -19,14 +19,23 @@ struct QuietTrackingRailCardPresentation: Equatable, Identifiable {
         self.title = row.title
         self.iconSymbolName = row.iconSymbolName
         self.colorFamily = resolvedColorFamily
-        self.cells = Self.resolveCells(for: row)
+        self.historyCells = Self.resolveHistoryCells(for: row)
+        self.currentStreak = row.currentStreak
         self.accessibilityLabel = row.title
-        self.accessibilityValue = "Current streak \(row.currentStreak) days. Last 7 days shown."
     }
 
-    private static func resolveCells(for row: HomeHabitRow) -> [HabitBoardCell] {
-        if row.boardCellsExpanded.count >= 7 {
-            return Array(row.boardCellsExpanded.suffix(7))
+    func visibleCells(dayCount: Int) -> [HabitBoardCell] {
+        guard dayCount > 0 else { return [] }
+        return Array(historyCells.suffix(dayCount))
+    }
+
+    func accessibilityValue(visibleDayCount: Int) -> String {
+        "Current streak \(currentStreak) days. Last \(visibleDayCount) days shown."
+    }
+
+    private static func resolveHistoryCells(for row: HomeHabitRow) -> [HabitBoardCell] {
+        if row.boardCellsExpanded.count >= 30 {
+            return row.boardCellsExpanded
         }
 
         let referenceDate = row.boardCellsExpanded.last?.date
@@ -39,7 +48,50 @@ struct QuietTrackingRailCardPresentation: Equatable, Identifiable {
             marks: row.last14Days,
             cadence: row.cadence,
             referenceDate: referenceDate,
-            dayCount: 7
+            dayCount: 30
+        )
+    }
+}
+
+struct QuietTrackingRailLayoutSpec: Equatable {
+    let visibleColumnCount: Int
+    let slotWidth: CGFloat
+    let visibleDayCount: Int
+    let shouldScroll: Bool
+
+    static func resolve(
+        viewportWidth: CGFloat,
+        totalCardCount: Int,
+        historyCellCount: Int,
+        compactColumnWidth: CGFloat = HabitBoardStripMode.compact.columnWidth,
+        compactSpacing: CGFloat = HabitBoardStripMode.compact.spacing,
+        interItemSpacing: CGFloat,
+        maxVisibleColumns: Int = 3
+    ) -> QuietTrackingRailLayoutSpec {
+        let resolvedCardCount = max(totalCardCount, 1)
+        let visibleColumnCount = min(resolvedCardCount, maxVisibleColumns)
+        let totalInterItemSpacing = interItemSpacing * CGFloat(max(0, visibleColumnCount - 1))
+        let measuredSlotWidth = floor(max(viewportWidth - totalInterItemSpacing, 0) / CGFloat(visibleColumnCount))
+
+        let fallbackDayCount = max(1, min(historyCellCount, 7))
+        let fallbackSlotWidth =
+            (CGFloat(fallbackDayCount) * compactColumnWidth)
+            + (CGFloat(max(0, fallbackDayCount - 1)) * compactSpacing)
+        let slotWidth = measuredSlotWidth > 0 ? measuredSlotWidth : fallbackSlotWidth
+
+        let visibleDayCapacity: Int
+        if historyCellCount > 0 {
+            let widthPerCell = max(compactColumnWidth + compactSpacing, 1)
+            visibleDayCapacity = max(1, Int(floor((slotWidth + compactSpacing) / widthPerCell)))
+        } else {
+            visibleDayCapacity = 0
+        }
+
+        return QuietTrackingRailLayoutSpec(
+            visibleColumnCount: visibleColumnCount,
+            slotWidth: slotWidth,
+            visibleDayCount: historyCellCount > 0 ? min(historyCellCount, visibleDayCapacity) : 0,
+            shouldScroll: totalCardCount > visibleColumnCount
         )
     }
 }

@@ -1444,6 +1444,7 @@ struct HomeBackdropForedropRootView: View {
     @State private var selectedQuietTrackingHabitID: String?
     @State private var quietTrackingDate = Date()
     @State private var quietTrackingOutcome: QuietTrackingOutcome = .lapse
+    @State private var passiveTrackingRailViewportWidth: CGFloat = 0
     @State private var pendingFocusPromotionTask: TaskDefinition?
     @State private var focusReplacementOptions: [TaskDefinition] = []
     private static let foredropHintLaunchDelay: TimeInterval = 0.10
@@ -2709,27 +2710,54 @@ struct HomeBackdropForedropRootView: View {
     }
 
     private var passiveTrackingRailCards: [QuietTrackingRailCardPresentation] {
-        Array(tasksSnapshot.quietTrackingSummaryState.railCards.prefix(3))
+        tasksSnapshot.quietTrackingSummaryState.railCards
+    }
+
+    private var passiveTrackingRailLayout: QuietTrackingRailLayoutSpec {
+        QuietTrackingRailLayoutSpec.resolve(
+            viewportWidth: passiveTrackingRailViewportWidth,
+            totalCardCount: passiveTrackingRailCards.count,
+            historyCellCount: passiveTrackingRailCards.map(\.historyCells.count).max() ?? 0,
+            interItemSpacing: spacing.s8
+        )
     }
 
     private var passiveTrackingRail: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
+        let layout = passiveTrackingRailLayout
+
+        return ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: spacing.s8) {
                 ForEach(passiveTrackingRailCards) { card in
-                    passiveTrackingRailButton(for: card)
+                    passiveTrackingRailButton(for: card, layout: layout)
+                        .frame(width: layout.slotWidth, alignment: .leading)
                 }
             }
             .padding(.horizontal, spacing.s16)
         }
+        .onGeometryChange(for: CGFloat.self) { proxy in
+            max(proxy.size.width - (spacing.s16 * 2), 0)
+        } action: { newWidth in
+            guard abs(newWidth - passiveTrackingRailViewportWidth) > 0.5 else { return }
+            passiveTrackingRailViewportWidth = newWidth
+        }
         .accessibilityIdentifier("home.passiveTracking.rail")
     }
 
-    private func passiveTrackingRailButton(for card: QuietTrackingRailCardPresentation) -> some View {
-        Button {
+    private func passiveTrackingRailButton(
+        for card: QuietTrackingRailCardPresentation,
+        layout: QuietTrackingRailLayoutSpec
+    ) -> some View {
+        let visibleDayCount = min(layout.visibleDayCount, card.historyCells.count)
+
+        return Button {
             guard let row = tasksSnapshot.quietTrackingSummaryState.stableRows.first(where: { $0.id == card.id }) else { return }
             presentQuietTrackingComposer(for: row, preferredOutcome: .lapse)
         } label: {
-            QuietTrackingRailStreakWidget(card: card)
+            QuietTrackingRailStreakWidget(
+                card: card,
+                slotWidth: layout.slotWidth,
+                visibleDayCount: visibleDayCount
+            )
         }
         .buttonStyle(.plain)
         .scaleOnPress()
@@ -4359,6 +4387,8 @@ struct HomeiPadSplitShellView: View {
 
 private struct QuietTrackingRailStreakWidget: View {
     let card: QuietTrackingRailCardPresentation
+    let slotWidth: CGFloat
+    let visibleDayCount: Int
 
     @Environment(\.taskerLayoutClass) private var layoutClass
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
@@ -4373,20 +4403,18 @@ private struct QuietTrackingRailStreakWidget: View {
         isExpandedType ? 6 : spacing.s4
     }
 
-    private var stripWidth: CGFloat {
-        let mode = HabitBoardStripMode.compact
-        let cellCount = CGFloat(card.cells.count)
-        let gaps = CGFloat(max(0, card.cells.count - 1))
-        return (cellCount * mode.columnWidth) + (gaps * mode.spacing)
+    private var visibleCells: [HabitBoardCell] {
+        card.visibleCells(dayCount: visibleDayCount)
     }
 
     var body: some View {
         VStack(alignment: .leading, spacing: spacing.s8) {
             HabitBoardStripView(
-                cells: card.cells,
+                cells: visibleCells,
                 family: card.colorFamily,
                 mode: .compact
             )
+            .frame(maxWidth: .infinity, alignment: .leading)
             .accessibilityHidden(true)
 
             HStack(alignment: .firstTextBaseline, spacing: 6) {
@@ -4401,17 +4429,18 @@ private struct QuietTrackingRailStreakWidget: View {
                     .foregroundStyle(Color.tasker.textSecondary)
                     .lineLimit(isExpandedType ? 2 : 1)
                     .multilineTextAlignment(.leading)
+                    .frame(maxWidth: .infinity, alignment: .leading)
                     .accessibilityHidden(true)
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .frame(width: stripWidth, alignment: .leading)
+        .frame(width: slotWidth, alignment: .leading)
         .frame(minHeight: 44, alignment: .topLeading)
-        .padding(.horizontal, spacing.s2)
         .padding(.vertical, widgetVerticalPadding)
         .contentShape(Rectangle())
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(card.accessibilityLabel)
-        .accessibilityValue(card.accessibilityValue)
+        .accessibilityValue(card.accessibilityValue(visibleDayCount: visibleDayCount))
     }
 }
 
