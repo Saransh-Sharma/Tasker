@@ -65,6 +65,120 @@ final class QuietTrackingRailPresentationTests: XCTestCase {
         XCTAssertEqual(card.historyCells.map(\.date), expectedDates)
     }
 
+    func testComposerSnapshotDefaultsToFirstHabitWhenNothingPreselected() {
+        let firstRow = makeRow(
+            title: "No smoking",
+            currentStreak: 10,
+            expandedCells: makeCells(count: 30, startingAt: Date(timeIntervalSince1970: 0))
+        )
+        let secondRow = makeRow(
+            title: "No doomscrolling",
+            currentStreak: 4,
+            expandedCells: makeCells(count: 30, startingAt: Date(timeIntervalSince1970: 86_400))
+        )
+
+        let snapshot = QuietTrackingComposerSnapshot(
+            rows: [firstRow, secondRow],
+            initialSelectedHabitID: nil,
+            initialDate: Date(timeIntervalSince1970: 100),
+            initialOutcome: .lapse
+        )
+
+        XCTAssertEqual(snapshot.initialSelectedHabitID, firstRow.id)
+        XCTAssertEqual(snapshot.entry(for: nil)?.id, firstRow.id)
+    }
+
+    func testComposerSnapshotResolvesSelectedRowByIdentifier() {
+        let firstRow = makeRow(
+            title: "No smoking",
+            currentStreak: 10,
+            expandedCells: makeCells(count: 30, startingAt: Date(timeIntervalSince1970: 0))
+        )
+        let secondRow = makeRow(
+            title: "No doomscrolling",
+            currentStreak: 4,
+            expandedCells: makeCells(count: 30, startingAt: Date(timeIntervalSince1970: 86_400))
+        )
+
+        let snapshot = QuietTrackingComposerSnapshot(
+            rows: [firstRow, secondRow],
+            initialSelectedHabitID: secondRow.id,
+            initialDate: Date(timeIntervalSince1970: 100),
+            initialOutcome: .progress
+        )
+
+        XCTAssertEqual(snapshot.entry(for: secondRow.id)?.title, "No doomscrolling")
+        XCTAssertEqual(snapshot.resolvedSelectedHabitID(secondRow.id), secondRow.id)
+    }
+
+    func testComposerSnapshotBuildsHeroAndFooterCopyFromSelectedOutcome() {
+        let negativeRow = makeRow(
+            title: "No smoking",
+            currentStreak: 10,
+            expandedCells: makeCells(count: 30, startingAt: Date(timeIntervalSince1970: 0))
+        )
+        let positiveRow = HomeHabitRow(
+            habitID: UUID(),
+            title: "Morning stretch",
+            kind: .positive,
+            trackingMode: .dailyCheckIn,
+            lifeAreaID: UUID(),
+            lifeAreaName: "Health",
+            projectID: nil,
+            projectName: nil,
+            iconSymbolName: "figure.cooldown",
+            accentHex: "#4E9A2F",
+            cadence: .daily(),
+            cadenceLabel: "Every day",
+            dueAt: Date(),
+            state: .tracking,
+            currentStreak: 3,
+            bestStreak: 5,
+            last14Days: makeMarks(count: 14, startingAt: Date(timeIntervalSince1970: 0)),
+            boardCellsCompact: [],
+            boardCellsExpanded: makeCells(count: 30, startingAt: Date(timeIntervalSince1970: 0)),
+            riskState: .stable,
+            helperText: nil
+        )
+
+        let negativeSnapshot = QuietTrackingComposerSnapshot(
+            rows: [negativeRow],
+            initialSelectedHabitID: negativeRow.id,
+            initialDate: Date(),
+            initialOutcome: .progress
+        )
+        let positiveSnapshot = QuietTrackingComposerSnapshot(
+            rows: [positiveRow],
+            initialSelectedHabitID: positiveRow.id,
+            initialDate: Date(),
+            initialOutcome: .progress
+        )
+
+        XCTAssertTrue(negativeSnapshot.heroSubtitle(for: negativeSnapshot.entry(for: negativeRow.id)).contains("Keep the streak honest"))
+        XCTAssertEqual(negativeSnapshot.footerTitle(for: negativeSnapshot.entry(for: negativeRow.id), outcome: .progress), "Stayed clean")
+        XCTAssertEqual(negativeSnapshot.footerTitle(for: negativeSnapshot.entry(for: negativeRow.id), outcome: .lapse), "Record lapse")
+        XCTAssertEqual(positiveSnapshot.footerTitle(for: positiveSnapshot.entry(for: positiveRow.id), outcome: .progress), "Done")
+    }
+
+    func testComposerSnapshotReusesExpandedHistoryCellsWhenAvailable() {
+        let expandedCells = makeCells(count: 30, startingAt: Date(timeIntervalSince1970: 0))
+        let row = makeRow(
+            title: "No sugar",
+            currentStreak: 7,
+            expandedCells: expandedCells
+        )
+
+        let snapshot = QuietTrackingComposerSnapshot(
+            rows: [row],
+            initialSelectedHabitID: row.id,
+            initialDate: Date(),
+            initialOutcome: .lapse
+        )
+
+        XCTAssertEqual(snapshot.entries[0].historyCells.count, 14)
+        XCTAssertEqual(snapshot.entries[0].historyCells.map(\.date), Array(expandedCells.suffix(14)).map(\.date))
+    }
+
     func testRailLayoutUsesFullWidthForSingleCard() {
         let spec = QuietTrackingRailLayoutSpec.resolve(
             viewportWidth: 300,
