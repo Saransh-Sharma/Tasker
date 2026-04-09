@@ -27,6 +27,10 @@ struct PlayerView: UIViewRepresentable {
     func makeUIView(context _: Context) -> UIView {
         return LoopingPlayerUIView(videoName: videoName)
     }
+
+    static func dismantleUIView(_ uiView: UIView, coordinator: ()) {
+        (uiView as? LoopingPlayerUIView)?.tearDownPlayback()
+    }
 }
 
 class LoopingPlayerUIView: UIView {
@@ -86,6 +90,17 @@ class LoopingPlayerUIView: UIView {
         super.layoutSubviews()
         playerLayer.frame = bounds
     }
+
+    deinit {
+        tearDownPlayback()
+    }
+
+    func tearDownPlayback() {
+        player.pause()
+        player.removeAllItems()
+        playerLooper = nil
+        playerLayer.player = nil
+    }
 }
 #endif
 
@@ -106,6 +121,10 @@ struct PlayerView: NSViewRepresentable {
     /// Executes makeNSView.
     func makeNSView(context: Context) -> NSView {
         return LoopingPlayerNSView(videoName: videoName)
+    }
+
+    static func dismantleNSView(_ nsView: NSView, coordinator: ()) {
+        (nsView as? LoopingPlayerNSView)?.tearDownPlayback()
     }
 }
 
@@ -150,6 +169,17 @@ class LoopingPlayerNSView: NSView {
         super.layout()
         playerLayer.frame = self.bounds
     }
+
+    deinit {
+        tearDownPlayback()
+    }
+
+    func tearDownPlayback() {
+        player.pause()
+        player.removeAllItems()
+        playerLooper = nil
+        playerLayer.player = nil
+    }
 }
 #endif
 
@@ -172,6 +202,10 @@ struct LottieView: UIViewRepresentable {
     /// Executes updateUIView.
     func updateUIView(_ uiView: LottieAnimationView, context: Context) {
         // No dynamic updates needed yet
+    }
+
+    static func dismantleUIView(_ uiView: LottieAnimationView, coordinator: ()) {
+        uiView.stop()
     }
 }
 #endif
