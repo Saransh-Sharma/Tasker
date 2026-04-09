@@ -87,6 +87,16 @@ final class LLMRuntimeCoordinator {
 
     func enterChatScreen(trigger: String) {
         acquireSession(reason: "chat_host_visible")
+        TaskerMemoryDiagnostics.checkpoint(
+            event: "llm_chat_entry",
+            message: "Entering chat surface",
+            fields: ["trigger": trigger]
+        )
+        if let appDelegate = UIApplication.shared.delegate as? AppDelegate {
+            Task {
+                await appDelegate.activateSemanticRetrievalIfNeeded(trigger: trigger)
+            }
+        }
         requestChatEntryPrewarm(trigger: trigger, delaySeconds: 0)
     }
 
@@ -477,6 +487,11 @@ final class LLMRuntimeCoordinator {
         cancelIdleUnload()
         await unloadHandler(reason)
         activeModelName = nil
+        TaskerMemoryDiagnostics.checkpoint(
+            event: "llm_runtime_unloaded",
+            message: "Unloaded LLM runtime resources",
+            fields: ["reason": reason]
+        )
         logWarning(
             event: "chat_model_unloaded",
             message: "Unloaded chat model from runtime coordinator",

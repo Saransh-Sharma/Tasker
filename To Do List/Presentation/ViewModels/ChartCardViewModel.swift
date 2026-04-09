@@ -96,4 +96,11 @@ public final class ChartCardViewModel: ObservableObject {
             }
         }
     }
+
+    func unload() {
+        loadGeneration &+= 1
+        chartData = []
+        cachedWeekStart = nil
+        isLoading = false
+    }
 }

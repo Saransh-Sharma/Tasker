@@ -111,6 +111,10 @@ private final class TaskerMetricKitSubscriber: NSObject, MXMetricManagerSubscrib
                 }
             }
 
+            if let applicationExitMetrics = payload.applicationExitMetrics {
+                Self.appendExitMetricFields(from: applicationExitMetrics, into: &fields)
+            }
+
             logInfo(
                 event: "performance_metrickit_payload_received",
                 message: "Received MetricKit performance payload",
@@ -122,6 +126,45 @@ private final class TaskerMetricKitSubscriber: NSObject, MXMetricManagerSubscrib
 
     private static func format(_ measurement: Measurement<Unit>) -> String {
         String(format: "%.4f", measurement.value)
+    }
+
+    private static func appendExitMetricFields(from metrics: Any, into fields: inout [String: String]) {
+        flattenMirrorFields(prefix: "exit", value: metrics, into: &fields)
+    }
+
+    private static func flattenMirrorFields(prefix: String, value: Any, into fields: inout [String: String]) {
+        let mirror = Mirror(reflecting: value)
+        guard mirror.children.isEmpty == false else {
+            fields[prefix] = String(describing: value)
+            return
+        }
+
+        for child in mirror.children {
+            guard let rawLabel = child.label, rawLabel.isEmpty == false else { continue }
+            let childPrefix = "\(prefix)_\(sanitizeKey(rawLabel))"
+            let childMirror = Mirror(reflecting: child.value)
+            if childMirror.displayStyle == .optional {
+                if let optionalChild = childMirror.children.first {
+                    flattenMirrorFields(prefix: childPrefix, value: optionalChild.value, into: &fields)
+                }
+                continue
+            }
+
+            if childMirror.children.isEmpty {
+                fields[childPrefix] = String(describing: child.value)
+            } else {
+                flattenMirrorFields(prefix: childPrefix, value: child.value, into: &fields)
+            }
+        }
+    }
+
+    private static func sanitizeKey(_ key: String) -> String {
+        key
+            .unicodeScalars
+            .map { CharacterSet.alphanumerics.contains($0) ? String($0).lowercased() : "_" }
+            .joined()
+            .replacingOccurrences(of: "_+", with: "_", options: .regularExpression)
+            .trimmingCharacters(in: CharacterSet(charactersIn: "_"))
     }
 }
 
@@ -145,6 +188,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
     private var gamificationRemoteChangeCoordinator: GamificationRemoteChangeCoordinator?
     private var cloudKitEventObserver: NSObjectProtocol?
     private var semanticTaskObservers: [NSObjectProtocol] = []
+    private var semanticStateContainer: EnhancedDependencyContainer?
     private var lastHabitRuntimeMaintenanceAt: Date?
     private var inFlightHabitRuntimeMaintenanceTask: Task<Void, Never>?
     private var persistentBootstrapGeneration: UInt64 = 0
@@ -516,6 +560,8 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
     }
 
     private func persistSemanticIndexForBackgroundTransition(application: UIApplication) {
+        guard TaskSemanticRetrievalService.shared.shouldPersistOnBackgroundTransition else { return }
+
         final class BackgroundTaskBox {
             private let lock = NSLock()
             var identifier: UIBackgroundTaskIdentifier = .invalid
@@ -535,7 +581,13 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         }
 
         deferredLaunchWarmupQueue.async {
+            TaskerMemoryDiagnostics.checkpoint(
+                event: "semantic_persist_background_started",
+                message: "Persisting semantic index before background suspension",
+                counts: ["semantic_items": TaskSemanticRetrievalService.shared.itemCount]
+            )
             TaskSemanticRetrievalService.shared.persistIndex()
+            TaskSemanticRetrievalService.shared.releaseInMemoryResources()
             backgroundTask.end(in: application)
         }
     }
@@ -1468,10 +1520,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
     }
 
     private func configureSemanticRetrievalLifecycle(stateContainer: EnhancedDependencyContainer) {
-        TaskSemanticRetrievalService.shared.loadPersistedIndex()
-        Task { [weak self] in
-            await self?.rebuildSemanticIndexIfPossible(stateContainer: stateContainer)
-        }
+        semanticStateContainer = stateContainer
 
         semanticTaskObservers.forEach(NotificationCenter.default.removeObserver)
         semanticTaskObservers.removeAll()
@@ -1485,9 +1534,19 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         for name in upsertNames {
             let observer = center.addObserver(forName: name, object: nil, queue: .main) { notification in
                 guard let task = notification.object as? TaskDefinition else { return }
+                guard TaskSemanticRetrievalService.shared.isActivated else {
+                    TaskSemanticRetrievalService.shared.markIndexOutdated()
+                    return
+                }
                 Task { [weak self] in
                     let tagLookup = await self?.semanticTagNameLookup(stateContainer: stateContainer) ?? [:]
                     TaskSemanticRetrievalService.shared.index(tasks: [task], tagNameLookup: tagLookup)
+                    TaskerMemoryDiagnostics.checkpoint(
+                        event: "semantic_index_upsert",
+                        message: "Updated semantic index for task mutation",
+                        fields: ["notification": name.rawValue],
+                        counts: ["task_count": 1]
+                    )
                 }
             }
             semanticTaskObservers.append(observer)
@@ -1496,9 +1555,26 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         let deleteObserver = center.addObserver(forName: NSNotification.Name("TaskDeleted"), object: nil, queue: .main) { [weak self] notification in
             let deletedTaskIDs = self?.deletedSemanticTaskIDs(from: notification) ?? []
             guard deletedTaskIDs.isEmpty == false else { return }
+            guard TaskSemanticRetrievalService.shared.isActivated else {
+                TaskSemanticRetrievalService.shared.markIndexOutdated()
+                return
+            }
             deletedTaskIDs.forEach { TaskSemanticRetrievalService.shared.remove(taskID: $0) }
         }
         semanticTaskObservers.append(deleteObserver)
+    }
+
+    func activateSemanticRetrievalIfNeeded(trigger: String) async {
+        guard let semanticStateContainer else { return }
+        TaskerMemoryDiagnostics.checkpoint(
+            event: "semantic_activation_requested",
+            message: "Received semantic retrieval activation request",
+            fields: ["trigger": trigger]
+        )
+        await TaskSemanticRetrievalService.shared.activateIfNeeded { [weak self] in
+            guard let self else { return }
+            await self.rebuildSemanticIndexIfPossible(stateContainer: semanticStateContainer)
+        }
     }
 
     private func maintainHabitRuntimeIfNeeded(reason: String) {
@@ -1573,6 +1649,10 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
 
     private func rebuildSemanticIndexIfPossible(stateContainer: EnhancedDependencyContainer) async {
         guard let repository = stateContainer.taskDefinitionRepository else { return }
+        TaskerMemoryDiagnostics.checkpoint(
+            event: "semantic_rebuild_started",
+            message: "Starting semantic index rebuild"
+        )
         let tasks = await withCheckedContinuation { continuation in
             repository.fetchAll { result in
                 continuation.resume(returning: (try? result.get()) ?? [])
@@ -1582,6 +1662,11 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         let tagLookup = await semanticTagNameLookup(stateContainer: stateContainer)
 
         TaskSemanticRetrievalService.shared.rebuildIndex(tasks: tasks, tagNameLookup: tagLookup)
+        TaskerMemoryDiagnostics.checkpoint(
+            event: "semantic_rebuild_finished",
+            message: "Finished semantic index rebuild",
+            counts: ["task_count": tasks.count]
+        )
     }
 
     private func semanticTagNameLookup(stateContainer: EnhancedDependencyContainer) async -> [UUID: String] {

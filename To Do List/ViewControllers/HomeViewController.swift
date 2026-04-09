@@ -135,9 +135,7 @@ struct HomeTasksSnapshot: Equatable {
     let doneTimelineTasks: [TaskDefinition]
     let projects: [Project]
     let projectsByID: [UUID: Project]
-    let projectsByName: [String: Project]
     let tagNameByID: [UUID: String]
-    let rescueTasksByID: [UUID: TaskDefinition]
     let activeQuickView: HomeQuickView
     let todayXPSoFar: Int?
     let projectGroupingMode: HomeProjectGroupingMode
@@ -165,9 +163,7 @@ struct HomeTasksSnapshot: Equatable {
         doneTimelineTasks: [],
         projects: [],
         projectsByID: [:],
-        projectsByName: [:],
         tagNameByID: [:],
-        rescueTasksByID: [:],
         activeQuickView: .today,
         todayXPSoFar: nil,
         projectGroupingMode: .defaultMode,
@@ -447,7 +443,7 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
     private var pendingBackgroundInsightsPrewarmTask: Task<Void, Never>?
     private var pendingOnboardingEvaluationTask: Task<Void, Never>?
     private var awaitsAnalyticsFirstInteractiveFrame = false
-    private lazy var retainedHomeSearchEngine = LGHomeSearchEngine(viewModel: viewModel.makeHomeSearchViewModel())
+    private var retainedHomeSearchEngine: LGHomeSearchEngine?
     private var onboardingEvaluationSceneToken: Int = 1
     private var completedOnboardingEvaluationSceneToken: Int = 0
     private var lastAppliedHomeRenderTransaction: HomeRenderTransaction = .empty
@@ -551,6 +547,7 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
         pendingBackgroundSearchPrewarmTask?.cancel()
         pendingBackgroundInsightsPrewarmTask?.cancel()
         pendingOnboardingEvaluationTask?.cancel()
+        retainedHomeSearchEngine = nil
         notificationCenter.removeObserver(self)
     }
 
@@ -600,7 +597,7 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
             .receive(on: RunLoop.main)
             .sink { [weak self] _ in
                 guard let self else { return }
-                self.applyOverlayState(self.viewModel.homeOverlayState)
+                self.applyOverlayState(self.viewModel.homeRenderTransaction.overlay)
             }
             .store(in: &cancellables)
 
@@ -692,7 +689,7 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
             guard Task.isCancelled == false, self.faceCoordinator.activeFace == .analytics else { return }
 
             self.faceCoordinator.setAnalyticsSurfaceState(.loading)
-            let resolvedViewModel = self.prepareInsightsViewModelIfNeeded()
+            _ = self.prepareInsightsViewModelIfNeeded()
             guard Task.isCancelled == false else { return }
 
             self.faceCoordinator.setAnalyticsSurfaceState(.ready)
@@ -755,6 +752,11 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
         pendingOnboardingEvaluationTask = nil
         awaitsAnalyticsFirstInteractiveFrame = true
         TaskerPerformanceTrace.event("HomeFaceSwitch")
+        TaskerMemoryDiagnostics.checkpoint(
+            event: "home_insights_open",
+            message: "Opening insights surface",
+            fields: ["source": source]
+        )
         faceCoordinator.setActiveFace(.analytics)
         faceCoordinator.setAnalyticsSurfaceState(faceCoordinator.insightsViewModel == nil ? .placeholder : .ready)
         if launchDefaultInsights {
@@ -824,6 +826,14 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
         }
         awaitsAnalyticsFirstInteractiveFrame = false
         TaskerPerformanceTrace.event("HomeFaceSwitch")
+        faceCoordinator.insightsViewModel = nil
+        insightsViewModel = nil
+        viewModel.releaseInsightsViewModel()
+        TaskerMemoryDiagnostics.checkpoint(
+            event: "home_insights_close",
+            message: "Closing insights surface",
+            fields: ["source": source]
+        )
         faceCoordinator.setActiveFace(.tasks)
         faceCoordinator.setAnalyticsSurfaceState(.idle)
         viewModel.trackHomeInteraction(
@@ -848,6 +858,11 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
         pendingOnboardingEvaluationTask?.cancel()
         pendingOnboardingEvaluationTask = nil
         TaskerPerformanceTrace.event("HomeFaceSwitch")
+        TaskerMemoryDiagnostics.checkpoint(
+            event: "home_search_open",
+            message: "Opening search surface",
+            fields: ["source": source]
+        )
         faceCoordinator.setActiveFace(.search)
         faceCoordinator.setSearchSurfaceState(.presenting)
         TaskerPerformanceTrace.event("HomeSearchTapped")
@@ -864,9 +879,16 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
         pendingSearchWarmupTask?.cancel()
         pendingSearchMutationRefreshTask?.cancel()
         TaskerPerformanceTrace.event("HomeFaceSwitch")
+        searchState.releaseResources()
+        retainedHomeSearchEngine = nil
+        viewModel.releaseHomeSearchViewModel()
+        TaskerMemoryDiagnostics.checkpoint(
+            event: "home_search_close",
+            message: "Closing search surface",
+            fields: ["source": source]
+        )
         faceCoordinator.setActiveFace(.tasks)
         faceCoordinator.setSearchSurfaceState(.idle)
-        searchState.deactivate()
         viewModel.trackHomeInteraction(
             action: "home_search_flip_close",
             metadata: ["source": source]
@@ -912,7 +934,7 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
             self.faceCoordinator.setSearchSurfaceState(.preparing)
             self.searchState.configureIfNeeded(
                 makeEngine: {
-                    self.retainedHomeSearchEngine
+                    self.resolveHomeSearchEngine()
                 },
                 dataRevisionProvider: {
                     self.viewModel.currentDataRevision
@@ -956,7 +978,7 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
                 guard self.faceCoordinator.activeFace == .tasks else { return }
                 self.searchState.configureIfNeeded(
                     makeEngine: {
-                        self.retainedHomeSearchEngine
+                        self.resolveHomeSearchEngine()
                     },
                     dataRevisionProvider: {
                         self.viewModel.currentDataRevision
@@ -1000,6 +1022,15 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
         insightsViewModel = resolvedViewModel
         faceCoordinator.insightsViewModel = resolvedViewModel
         return resolvedViewModel
+    }
+
+    private func resolveHomeSearchEngine() -> LGHomeSearchEngine {
+        if let retainedHomeSearchEngine {
+            return retainedHomeSearchEngine
+        }
+        let engine = LGHomeSearchEngine(viewModel: viewModel.makeHomeSearchViewModel())
+        retainedHomeSearchEngine = engine
+        return engine
     }
 
     private func scheduleInitialSearchWarmupIfNeeded() {

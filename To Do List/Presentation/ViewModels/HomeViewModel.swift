@@ -364,9 +364,6 @@ public final class HomeViewModel: ObservableObject {
         didSet { scheduleHomeRenderStateRefresh() }
     }
 
-    private(set) var homeChromeState: HomeChromeState = .empty
-    private(set) var homeTasksState: HomeTasksState = .empty
-    private(set) var homeOverlayState: HomeOverlayState = .empty
     @Published private(set) var homeRenderTransaction: HomeRenderTransaction = .empty
 
     // Next Action Module: total open tasks for today
@@ -401,16 +398,8 @@ public final class HomeViewModel: ObservableObject {
     private let aiSuggestionService: AISuggestionService?
     private let userDefaults: UserDefaults
     private var cancellables = Set<AnyCancellable>()
-    private lazy var retainedInsightsViewModel: InsightsViewModel = {
-        InsightsViewModel(
-            engine: useCaseCoordinator.gamificationEngine,
-            repository: useCaseCoordinator.gamificationRepository,
-            taskReadModelRepository: useCaseCoordinator.taskReadModelRepository,
-            reminderRepository: useCaseCoordinator.reminderRepository,
-            analyticsUseCase: useCaseCoordinator.calculateAnalytics
-        )
-    }()
-    private lazy var retainedHomeSearchViewModel = LGSearchViewModel(useCaseCoordinator: useCaseCoordinator)
+    private var retainedInsightsViewModel: InsightsViewModel?
+    private var retainedHomeSearchViewModel: LGSearchViewModel?
 
     // MARK: - Persistence Keys
 
@@ -420,6 +409,7 @@ public final class HomeViewModel: ObservableObject {
     private static let maxPinnedFocusTasks = 3
     private static let maxShuffleHistorySize = 10
     private static let defaultShuffleExclusionWindow = 3
+    private static let maxInlineCompletedRetention = 24
 
     // MARK: - Session State
 
@@ -465,6 +455,7 @@ public final class HomeViewModel: ObservableObject {
     private var currentHabitSignals: [TaskerHabitSignal] = []
     private var habitLibraryRowsByID: [UUID: HabitLibraryRow] = [:]
     private var evaInsightsGeneration: Int = 0
+    private var lastTaskListSnapshotRevision: HomeDataRevision?
 
     deinit {
         pendingRecurringTopUpWorkItem?.cancel()
@@ -521,9 +512,6 @@ public final class HomeViewModel: ObservableObject {
         )
         guard homeRenderTransaction != transaction else { return }
 
-        homeChromeState = transaction.chrome
-        homeTasksState = transaction.tasks
-        homeOverlayState = transaction.overlay
         homeRenderTransaction = transaction
     }
 
@@ -546,11 +534,7 @@ public final class HomeViewModel: ObservableObject {
 
     private func buildHomeTasksState() -> HomeTasksState {
         let projectByID = Dictionary(uniqueKeysWithValues: projects.map { ($0.id, $0) })
-        var projectByName = Dictionary(uniqueKeysWithValues: projects.map { ($0.name, $0) })
-        projectByName[ProjectConstants.inboxProjectName] = Project.createInbox()
         let tagNameByID = Dictionary(uniqueKeysWithValues: tags.map { ($0.id, $0.name) })
-        let rescueTasks = overdueTasks + morningTasks + eveningTasks + evaTriageQueue.map(\.task)
-        let rescueTasksByID = Dictionary(uniqueKeysWithValues: rescueTasks.map { ($0.id, $0) })
         let todayXPSoFar: Int? =
             (V2FeatureFlags.gamificationV2Enabled && progressState.todayTargetXP <= 0)
             ? nil
@@ -571,9 +555,7 @@ public final class HomeViewModel: ObservableObject {
             doneTimelineTasks: doneTimelineTasks,
             projects: projects,
             projectsByID: projectByID,
-            projectsByName: projectByName,
             tagNameByID: tagNameByID,
-            rescueTasksByID: rescueTasksByID,
             activeQuickView: activeScope.quickView,
             todayXPSoFar: todayXPSoFar,
             projectGroupingMode: activeFilterState.projectGroupingMode,
@@ -1838,11 +1820,38 @@ public final class HomeViewModel: ObservableObject {
     }
 
     public func makeInsightsViewModel() -> InsightsViewModel {
-        retainedInsightsViewModel
+        if let retainedInsightsViewModel {
+            return retainedInsightsViewModel
+        }
+
+        let resolvedViewModel = InsightsViewModel(
+            engine: useCaseCoordinator.gamificationEngine,
+            repository: useCaseCoordinator.gamificationRepository,
+            taskReadModelRepository: useCaseCoordinator.taskReadModelRepository,
+            reminderRepository: useCaseCoordinator.reminderRepository,
+            analyticsUseCase: useCaseCoordinator.calculateAnalytics
+        )
+        retainedInsightsViewModel = resolvedViewModel
+        return resolvedViewModel
     }
 
     func makeHomeSearchViewModel() -> LGSearchViewModel {
-        retainedHomeSearchViewModel
+        if let retainedHomeSearchViewModel {
+            return retainedHomeSearchViewModel
+        }
+
+        let resolvedViewModel = LGSearchViewModel(useCaseCoordinator: useCaseCoordinator)
+        retainedHomeSearchViewModel = resolvedViewModel
+        return resolvedViewModel
+    }
+
+    func releaseInsightsViewModel() {
+        retainedInsightsViewModel = nil
+    }
+
+    func releaseHomeSearchViewModel() {
+        retainedHomeSearchViewModel?.purgeCaches()
+        retainedHomeSearchViewModel = nil
     }
 
     public func startTriage(scope: EvaTriageScope) {
@@ -2623,12 +2632,29 @@ public final class HomeViewModel: ObservableObject {
         if case .today = activeScope {
             selectedDate = Date()
         }
+        TaskerMemoryDiagnostics.checkpoint(
+            event: "home_initial_load_started",
+            message: "Starting home initial load",
+            counts: [
+                "saved_view_count": savedHomeViews.count,
+                "pinned_focus_count": pinnedFocusTaskIDs.count
+            ]
+        )
         loadSavedViews()
         let generation = nextReloadGeneration()
         loadProjects(generation: generation)
         loadLifeAreas(generation: generation)
         loadTags(generation: generation)
         applyFocusFilters(trackAnalytics: false, generation: generation) { [weak self] in
+            TaskerMemoryDiagnostics.checkpoint(
+                event: "home_initial_load_finished",
+                message: "Finished home initial load",
+                counts: [
+                    "morning_count": self?.morningTasks.count ?? 0,
+                    "evening_count": self?.eveningTasks.count ?? 0,
+                    "overdue_count": self?.overdueTasks.count ?? 0
+                ]
+            )
             self?.scheduleDeferredAnalyticsRefresh(
                 reason: "initial_load",
                 includeGamificationRefresh: true
@@ -3986,6 +4012,21 @@ public final class HomeViewModel: ObservableObject {
 
     private func writeTaskListWidgetSnapshot(reason: String = "home_event") {
         guard V2FeatureFlags.taskListWidgetsEnabled else { return }
+        if reason.hasPrefix("apply_result_"), lastTaskListSnapshotRevision == dataRevision {
+            return
+        }
+        lastTaskListSnapshotRevision = dataRevision
+        TaskerMemoryDiagnostics.checkpoint(
+            event: "widget_snapshot_scheduled",
+            message: "Scheduling task list widget snapshot refresh",
+            fields: ["reason": reason],
+            counts: [
+                "morning_count": morningTasks.count,
+                "evening_count": eveningTasks.count,
+                "overdue_count": overdueTasks.count,
+                "focus_count": focusTasks.count
+            ]
+        )
         TaskListWidgetSnapshotService.shared.scheduleRefresh(reason: reason)
     }
 
@@ -4734,12 +4775,16 @@ public final class HomeViewModel: ObservableObject {
         let retainedPriorDone = completedTasks.filter { task in
             !openIDs.contains(task.id) && isTaskCompletedOnActiveScopeDay(task)
         }
+        .prefix(Self.maxInlineCompletedRetention)
 
         var merged: [TaskDefinition] = []
         var seen = Set<UUID>()
         for task in incomingDoneTasks + retainedPriorDone where task.isComplete && isTaskCompletedOnActiveScopeDay(task) {
             if seen.insert(task.id).inserted {
                 merged.append(task)
+            }
+            if merged.count >= Self.maxInlineCompletedRetention {
+                break
             }
         }
         return merged
@@ -5103,6 +5148,11 @@ final class TaskListWidgetSnapshotService {
     private func refreshNow(reason: String) {
         guard V2FeatureFlags.taskListWidgetsEnabled else { return }
         guard let coordinator = currentCoordinator() else { return }
+        TaskerMemoryDiagnostics.checkpoint(
+            event: "widget_snapshot_refresh_started",
+            message: "Refreshing task list widget snapshot",
+            fields: ["reason": reason]
+        )
 
         coordinator.getTasks.searchTasks(query: "", in: .all) { [weak self] result in
             guard let self else { return }
@@ -5117,6 +5167,12 @@ final class TaskListWidgetSnapshotService {
                     ]
                 )
             case .success(let tasks):
+                TaskerMemoryDiagnostics.checkpoint(
+                    event: "widget_snapshot_refresh_loaded",
+                    message: "Loaded task list widget source data",
+                    fields: ["reason": reason],
+                    counts: ["task_count": tasks.count]
+                )
                 let snapshot = self.buildSnapshot(tasks: tasks)
                 self.persistIfChanged(snapshot: snapshot, reason: reason)
             }

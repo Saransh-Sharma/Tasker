@@ -155,4 +155,12 @@ public final class RadarChartCardViewModel: ObservableObject {
             }
         }
     }
+
+    func unload() {
+        loadGeneration &+= 1
+        chartData = []
+        chartLabels = []
+        cachedWeekStart = nil
+        isLoading = false
+    }
 }

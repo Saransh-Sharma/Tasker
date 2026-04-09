@@ -226,6 +226,17 @@ class LGSearchViewModel {
         }
     }
 
+    func purgeCaches() {
+        activeCacheRevision &+= 1
+        latestSearchRequestID &+= 1
+        corpusCache.removeAll(keepingCapacity: false)
+        filteredResultsCache.removeAll(keepingCapacity: false)
+        groupedResultsCache.removeAll(keepingCapacity: false)
+        lastEmittedSearchCacheKey = nil
+        lastEmittedSearchTaskIDs = []
+        searchResults = []
+    }
+
     /// Executes fetchTodayXPSoFar.
     func fetchTodayXPSoFar(completion: @escaping (Int?) -> Void) {
         guard V2FeatureFlags.gamificationV2Enabled else {
