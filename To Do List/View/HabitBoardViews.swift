@@ -85,7 +85,7 @@ struct HabitBoardLayoutMetrics: Equatable {
             iconSlotWidth: 22,
             iconToTextSpacing: 10,
             dayColumnWidth: expandedType ? 38 : 36,
-            cellHeight: expandedType ? 40 : 38,
+            cellHeight: expandedType ? 62 : 58,
             rowHeight: expandedType ? 62 : 58,
             headerHeight: expandedType ? 80 : 74,
             boardPadding: 18,
