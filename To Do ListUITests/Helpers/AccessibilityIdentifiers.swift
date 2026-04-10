@@ -47,6 +47,7 @@ enum AccessibilityIdentifiers {
         static let focusTitleTap = "home.focus.titleTap"
         static let rescueSection = "home.rescue.section"
         static let rescueHeader = "home.rescue.header"
+        static let rescueOpen = "home.rescue.open"
         static let rescueStart = "home.rescue.start"
         static let rescueExpand = "home.rescue.expand"
         static let rescueSheet = "home.rescue.sheet"

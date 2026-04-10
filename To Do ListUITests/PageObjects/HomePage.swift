@@ -423,6 +423,22 @@ class HomePage {
         return missingElement(AccessibilityIdentifiers.Home.rescueHeader)
     }
 
+    var rescueOpenButton: XCUIElement {
+        let byButton = app.buttons[AccessibilityIdentifiers.Home.rescueOpen]
+        if byButton.exists {
+            return byButton
+        }
+
+        let fallback = rescueSection.buttons.matching(
+            NSPredicate(format: "identifier == %@ OR label == 'Rescue'", AccessibilityIdentifiers.Home.rescueOpen)
+        ).firstMatch
+        if fallback.exists {
+            return fallback
+        }
+
+        return missingElement(AccessibilityIdentifiers.Home.rescueOpen)
+    }
+
     var rescueStartButton: XCUIElement {
         let byButton = app.buttons[AccessibilityIdentifiers.Home.rescueStart]
         if byButton.exists {
@@ -1073,6 +1089,10 @@ class HomePage {
 
     func tapRescueExpand() {
         tapElement(rescueExpandButton)
+    }
+
+    func tapRescueOpen() {
+        tapElement(rescueOpenButton)
     }
 
     func tapStartRescue() {
