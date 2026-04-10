@@ -1,4 +1,5 @@
 import Foundation
+import Combine
 import SwiftUI
 
 public enum AddHabitKind: String, CaseIterable, Identifiable {
@@ -100,6 +101,7 @@ public final class AddHabitViewModel: ObservableObject {
     private let manageLifeAreasUseCase: ManageLifeAreasUseCase
     private let manageProjectsUseCase: ManageProjectsUseCase
     private let iconCatalog: HabitIconCatalog
+    private var cancellables = Set<AnyCancellable>()
     private var hasLoadedOnce = false
     private var pristineKind: AddHabitKind = .positive
     private var pristineTrackingMode: AddHabitTrackingMode = .dailyCheckIn
@@ -124,6 +126,7 @@ public final class AddHabitViewModel: ObservableObject {
         self.manageLifeAreasUseCase = manageLifeAreasUseCase
         self.manageProjectsUseCase = manageProjectsUseCase
         self.iconCatalog = iconCatalog
+        setupSelectionObservers()
     }
 
     public var availableIconOptions: [HabitIconOption] {
@@ -143,6 +146,13 @@ public final class AddHabitViewModel: ObservableObject {
     public var selectedIconOption: HabitIconOption? {
         guard let selectedIconSymbolName else { return nil }
         return iconCatalog.all.first(where: { $0.symbolName == selectedIconSymbolName })
+    }
+
+    public var filteredProjectsForSelectedLifeArea: [ProjectWithStats] {
+        projects.filter { projectWithStats in
+            guard let selectedLifeAreaID else { return true }
+            return projectWithStats.project.lifeAreaID == selectedLifeAreaID
+        }
     }
 
     public var canSubmit: Bool {
@@ -228,9 +238,6 @@ public final class AddHabitViewModel: ObservableObject {
             if self.selectedLifeAreaID == nil {
                 self.selectedLifeAreaID = loadedLifeAreas.first?.id
             }
-            if self.selectedIconSymbolName == nil {
-                self.selectedIconSymbolName = self.availableIconOptions.first?.symbolName
-            }
             if let loadedError {
                 self.errorMessage = loadedError.localizedDescription
             }
@@ -248,11 +255,15 @@ public final class AddHabitViewModel: ObservableObject {
 
         if let selectedIconSymbolName,
            availableIconOptions.contains(where: { $0.symbolName == selectedIconSymbolName }) == false {
-            self.selectedIconSymbolName = availableIconOptions.first?.symbolName
+            self.selectedIconSymbolName = randomIconOption()?.symbolName
         }
 
         if selectedIconSymbolName == nil {
-            selectedIconSymbolName = availableIconOptions.first?.symbolName
+            selectedIconSymbolName = randomIconOption()?.symbolName
+        }
+
+        if selectedColorHex.nilIfBlank == nil {
+            selectedColorHex = randomColorHex()
         }
     }
 
@@ -282,14 +293,15 @@ public final class AddHabitViewModel: ObservableObject {
         normalizeProjectSelection()
         isSaving = true
         errorMessage = nil
+        if selectedIconSymbolName == nil {
+            selectedIconSymbolName = randomIconOption()?.symbolName
+        }
+        if selectedColorHex.nilIfBlank == nil {
+            selectedColorHex = randomColorHex()
+        }
         let normalizedStart = reminderWindowStart.nilIfBlank?.normalizedHHmm
         let normalizedEnd = reminderWindowEnd.nilIfBlank?.normalizedHHmm
-        let icon = selectedIconOption.map {
-            HabitIconMetadata(symbolName: $0.symbolName, categoryKey: $0.categoryKey)
-        } ?? HabitIconMetadata(
-            symbolName: selectedIconSymbolName ?? "circle.dashed",
-            categoryKey: "general"
-        )
+        let icon = resolvedCreateIconMetadata()
         let request = CreateHabitRequest(
             title: trimmedName,
             lifeAreaID: lifeAreaID,
@@ -335,6 +347,7 @@ public final class AddHabitViewModel: ObservableObject {
         reminderWindowStart = template.reminderWindowStart ?? ""
         reminderWindowEnd = template.reminderWindowEnd ?? ""
         selectedColorHex = ""
+        selectedIconSymbolName = nil
         if let iconSymbolName = template.iconSymbolName {
             selectedIconSymbolName = iconSymbolName
         }
@@ -352,8 +365,9 @@ public final class AddHabitViewModel: ObservableObject {
         reminderWindowStart = ""
         reminderWindowEnd = ""
         iconSearchQuery = ""
-        selectedIconSymbolName = availableIconOptions.first?.symbolName
-        selectedColorHex = ""
+        selectedIconSymbolName = nil
+        selectedColorHex = randomColorHex()
+        normalizeSelection()
         isHabitCreated = false
         lastCreatedHabitID = nil
         errorMessage = nil
@@ -373,6 +387,66 @@ public final class AddHabitViewModel: ObservableObject {
         pristineIconSymbolName = selectedIconSymbolName
         pristineColorHex = selectedColorHex.trimmingCharacters(in: .whitespacesAndNewlines)
         pristineQuery = iconSearchQuery.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private func randomIconOption() -> HabitIconOption? {
+        availableIconOptions.randomElement()
+    }
+
+    private func randomColorHex() -> String {
+        HabitColorFamily.allCases.randomElement()?.canonicalHex ?? HabitColorFamily.green.canonicalHex
+    }
+
+    private func resolvedCreateIconMetadata() -> HabitIconMetadata {
+        if let selectedIconOption {
+            return HabitIconMetadata(
+                symbolName: selectedIconOption.symbolName,
+                categoryKey: selectedIconOption.categoryKey
+            )
+        }
+
+        if let symbolName = selectedIconSymbolName,
+           let matchingOption = iconCatalog.all.first(where: { $0.symbolName == symbolName }) {
+            return HabitIconMetadata(
+                symbolName: matchingOption.symbolName,
+                categoryKey: matchingOption.categoryKey
+            )
+        }
+
+        if let randomOption = randomIconOption() {
+            selectedIconSymbolName = randomOption.symbolName
+            return HabitIconMetadata(
+                symbolName: randomOption.symbolName,
+                categoryKey: randomOption.categoryKey
+            )
+        }
+
+        return HabitIconMetadata(
+            symbolName: selectedIconSymbolName ?? "circle.dashed",
+            categoryKey: "general"
+        )
+    }
+
+    private func setupSelectionObservers() {
+        $selectedLifeAreaID
+            .removeDuplicates { $0 == $1 }
+            .sink { [weak self] _ in
+                self?.normalizeProjectSelection()
+            }
+            .store(in: &cancellables)
+
+        $selectedProjectID
+            .removeDuplicates { $0 == $1 }
+            .sink { [weak self] selectedProjectID in
+                guard let self,
+                      let selectedProjectID,
+                      let projectLifeAreaID = self.projects.first(where: { $0.project.id == selectedProjectID })?.project.lifeAreaID,
+                      self.selectedLifeAreaID != projectLifeAreaID else {
+                    return
+                }
+                self.selectedLifeAreaID = projectLifeAreaID
+            }
+            .store(in: &cancellables)
     }
 
     private func normalizeProjectSelection() {

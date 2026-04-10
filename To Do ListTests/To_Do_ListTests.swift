@@ -10233,10 +10233,29 @@ final class AddHabitViewModelValidationTests: XCTestCase {
 
         XCTAssertNotNil(viewModel.selectedLifeAreaID)
         XCTAssertNotNil(viewModel.selectedIconSymbolName)
+        XCTAssertNotNil(TaskerHexColor.normalized(viewModel.selectedColorHex))
         XCTAssertFalse(viewModel.hasUnsavedChanges)
 
         viewModel.habitName = "Walk"
         XCTAssertTrue(viewModel.hasUnsavedChanges)
+    }
+
+    func testResetFormSeedsFreshAppearanceDefaults() async {
+        let (viewModel, _) = makeViewModel()
+
+        viewModel.loadIfNeeded()
+        await waitUntil { viewModel.isLoading == false }
+
+        viewModel.habitName = "Read"
+        viewModel.selectedColorHex = ""
+        viewModel.selectedIconSymbolName = nil
+
+        viewModel.resetForm()
+
+        XCTAssertEqual(viewModel.habitName, "")
+        XCTAssertNotNil(viewModel.selectedIconSymbolName)
+        XCTAssertNotNil(TaskerHexColor.normalized(viewModel.selectedColorHex))
+        XCTAssertFalse(viewModel.hasUnsavedChanges)
     }
 
     func testCreateHabitIgnoresReentrantSubmissionWhileSaving() async {
@@ -10295,6 +10314,132 @@ final class AddHabitViewModelValidationTests: XCTestCase {
         XCTAssertEqual(createdHabit.colorHex, "#3B82F6")
     }
 
+    func testApplyPrefillWithExplicitIconRandomizesMissingColor() async {
+        let (viewModel, _) = makeViewModel()
+
+        viewModel.loadIfNeeded()
+        await waitUntil { viewModel.isLoading == false }
+
+        let explicitIcon = "book.fill"
+        viewModel.applyPrefill(
+            AddHabitPrefillTemplate(
+                title: "Read",
+                lifeAreaID: viewModel.selectedLifeAreaID,
+                iconSymbolName: explicitIcon
+            )
+        )
+
+        XCTAssertEqual(viewModel.selectedIconSymbolName, explicitIcon)
+        XCTAssertNotNil(TaskerHexColor.normalized(viewModel.selectedColorHex))
+    }
+
+    func testCreateHabitRandomizesMissingAppearance() async {
+        let (viewModel, habitRepository) = makeViewModel()
+
+        viewModel.loadIfNeeded()
+        await waitUntil { viewModel.isLoading == false }
+
+        viewModel.habitName = "Hydrate"
+        viewModel.selectedIconSymbolName = nil
+        viewModel.selectedColorHex = ""
+
+        let expectation = expectation(description: "create randomized appearance")
+        viewModel.createHabit { result in
+            if case .failure(let error) = result {
+                XCTFail("Expected habit creation to succeed, got error: \(error)")
+            }
+            expectation.fulfill()
+        }
+        await fulfillment(of: [expectation], timeout: 1.0)
+
+        guard let createdHabit = habitRepository.habitsByID.values.first else {
+            XCTFail("Expected created habit to be stored")
+            return
+        }
+        assertHabitAppearanceAssigned(createdHabit)
+    }
+
+    func testCreateHabitHonorsExplicitIconAndColor() async {
+        let (viewModel, habitRepository) = makeViewModel()
+
+        viewModel.loadIfNeeded()
+        await waitUntil { viewModel.isLoading == false }
+
+        viewModel.habitName = "Journal"
+        viewModel.selectedIconSymbolName = "book.fill"
+        viewModel.selectedColorHex = "#5AA7A4"
+
+        let expectation = expectation(description: "create explicit appearance")
+        viewModel.createHabit { result in
+            if case .failure(let error) = result {
+                XCTFail("Expected habit creation to succeed, got error: \(error)")
+            }
+            expectation.fulfill()
+        }
+        await fulfillment(of: [expectation], timeout: 1.0)
+
+        guard let createdHabit = habitRepository.habitsByID.values.first else {
+            XCTFail("Expected created habit to be stored")
+            return
+        }
+        XCTAssertEqual(createdHabit.iconSymbolName, "book.fill")
+        XCTAssertEqual(createdHabit.colorHex, "#5AA7A4")
+    }
+
+    func testCreateHabitHonorsExplicitIconWhileRandomizingMissingColor() async {
+        let (viewModel, habitRepository) = makeViewModel()
+
+        viewModel.loadIfNeeded()
+        await waitUntil { viewModel.isLoading == false }
+
+        viewModel.habitName = "Meditate"
+        viewModel.selectedIconSymbolName = "sparkles"
+        viewModel.selectedColorHex = ""
+
+        let expectation = expectation(description: "create explicit icon only")
+        viewModel.createHabit { result in
+            if case .failure(let error) = result {
+                XCTFail("Expected habit creation to succeed, got error: \(error)")
+            }
+            expectation.fulfill()
+        }
+        await fulfillment(of: [expectation], timeout: 1.0)
+
+        guard let createdHabit = habitRepository.habitsByID.values.first else {
+            XCTFail("Expected created habit to be stored")
+            return
+        }
+        XCTAssertEqual(createdHabit.iconSymbolName, "sparkles")
+        XCTAssertNotNil(createdHabit.colorHex)
+    }
+
+    func testCreateHabitHonorsExplicitColorWhileRandomizingMissingIcon() async {
+        let (viewModel, habitRepository) = makeViewModel()
+
+        viewModel.loadIfNeeded()
+        await waitUntil { viewModel.isLoading == false }
+
+        viewModel.habitName = "Stretch"
+        viewModel.selectedIconSymbolName = nil
+        viewModel.selectedColorHex = "#8A46B5"
+
+        let expectation = expectation(description: "create explicit color only")
+        viewModel.createHabit { result in
+            if case .failure(let error) = result {
+                XCTFail("Expected habit creation to succeed, got error: \(error)")
+            }
+            expectation.fulfill()
+        }
+        await fulfillment(of: [expectation], timeout: 1.0)
+
+        guard let createdHabit = habitRepository.habitsByID.values.first else {
+            XCTFail("Expected created habit to be stored")
+            return
+        }
+        XCTAssertNotNil(createdHabit.iconSymbolName)
+        XCTAssertEqual(createdHabit.colorHex, "#8A46B5")
+    }
+
     func testCreateHabitDropsInvalidHexColor() async {
         let (viewModel, habitRepository) = makeViewModel()
 
@@ -10321,6 +10466,12 @@ final class AddHabitViewModelValidationTests: XCTestCase {
             return
         }
         XCTAssertNil(createdHabit.colorHex)
+    }
+
+    private func assertHabitAppearanceAssigned(_ habit: HabitDefinitionRecord) {
+        XCTAssertNotNil(habit.iconSymbolName)
+        XCTAssertNotNil(habit.colorHex)
+        XCTAssertNotNil(TaskerHexColor.normalized(habit.colorHex))
     }
 
     private func waitUntil(
