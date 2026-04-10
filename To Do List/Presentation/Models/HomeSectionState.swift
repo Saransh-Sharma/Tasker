@@ -128,25 +128,43 @@ public struct TodayAgendaSectionState: Equatable {
     }
 }
 
-public struct RescueSectionState: Equatable {
+public enum RescueTailMode: Equatable {
+    case compact
+    case expanded
+}
+
+public struct RescueTailState: Equatable {
     public let rows: [HomeTodayRow]
-    public let isExpandedByDefault: Bool
-    public let previewCount: Int
+    public let mode: RescueTailMode
+    public let isInlineExpanded: Bool
+    public let subtitle: String
 
     public init(
         rows: [HomeTodayRow],
-        isExpandedByDefault: Bool = false,
-        previewCount: Int = 3
+        mode: RescueTailMode,
+        isInlineExpanded: Bool,
+        subtitle: String
     ) {
         self.rows = rows
-        self.isExpandedByDefault = isExpandedByDefault
-        self.previewCount = max(0, previewCount)
+        self.mode = mode
+        self.isInlineExpanded = isInlineExpanded
+        self.subtitle = subtitle
     }
 
     public var totalCount: Int { rows.count }
-    public var previewRows: [HomeTodayRow] { Array(rows.prefix(previewCount)) }
-    public var isEmpty: Bool { rows.isEmpty }
-    public var isCollapsedByDefault: Bool { !isExpandedByDefault }
+    public var previewRows: [HomeTodayRow] { rows }
+    public var isCompact: Bool { mode == .compact }
+}
+
+public enum HomeAgendaTailItem: Equatable, Identifiable {
+    case rescue(RescueTailState)
+
+    public var id: String {
+        switch self {
+        case .rescue:
+            return "rescue"
+        }
+    }
 }
 
 public struct QuietTrackingSummaryState: Equatable {

@@ -650,7 +650,7 @@ final class HomeViewModelPersistenceTests: XCTestCase {
         waitForMainQueueFlush()
 
         XCTAssertEqual(viewModel.completionRate, 1.0 / 3.0, accuracy: 0.0001)
-        XCTAssertEqual(viewModel.homeChromeState.completionRate, 1.0 / 3.0, accuracy: 0.0001)
+        XCTAssertEqual(viewModel.viewState.completionRate, 1.0 / 3.0, accuracy: 0.0001)
 
         defaults.removePersistentDomain(forName: suiteName)
     }
@@ -703,7 +703,7 @@ final class HomeViewModelPersistenceTests: XCTestCase {
         waitForMainQueueFlush()
 
         XCTAssertEqual(viewModel.completionRate, 1.0 / 3.0, accuracy: 0.0001)
-        XCTAssertEqual(viewModel.homeChromeState.completionRate, 1.0 / 3.0, accuracy: 0.0001)
+        XCTAssertEqual(viewModel.viewState.completionRate, 1.0 / 3.0, accuracy: 0.0001)
 
         defaults.removePersistentDomain(forName: suiteName)
     }
@@ -997,14 +997,13 @@ final class HomeViewModelPersistenceTests: XCTestCase {
         viewModel.setCustomProjectOrder([beta.id, alpha.id])
         waitForMainQueueFlush()
 
-        XCTAssertEqual(viewModel.homeChromeState.activeFilterState.projectGroupingMode, .groupByProjects)
-        XCTAssertEqual(viewModel.homeTasksState.projectGroupingMode, .groupByProjects)
-        XCTAssertEqual(Array(viewModel.homeTasksState.customProjectOrderIDs.prefix(2)), [beta.id, alpha.id])
+        XCTAssertEqual(viewModel.activeFilterState.projectGroupingMode, .groupByProjects)
+        XCTAssertEqual(Array(viewModel.activeFilterState.customProjectOrderIDs.prefix(2)), [beta.id, alpha.id])
 
         defaults.removePersistentDomain(forName: suiteName)
     }
 
-    func testRescueSectionIncludesOnlyTasksOlderThanTwoWeeksAndRemovesThemFromAgendaAndFocus() {
+    func testRescueTailIncludesOnlyTasksOlderThanTwoWeeksAndRemovesThemFromAgendaAndFocus() {
         let suiteName = "HomeViewModelPersistenceTests.RescuePartition.\(UUID().uuidString)"
         guard let defaults = UserDefaults(suiteName: suiteName) else {
             return XCTFail("Failed to create test UserDefaults suite")
@@ -1055,7 +1054,7 @@ final class HomeViewModelPersistenceTests: XCTestCase {
         let viewModel = HomeViewModel(useCaseCoordinator: coordinator, userDefaults: defaults)
         waitForMainQueueFlush()
 
-        let rescueTitles = viewModel.rescueSectionState.rows.map(\.title)
+        let rescueTitles = rescueTailState(from: viewModel)?.rows.map(\.title)
         let agendaTitles = viewModel.todayAgendaSectionState.sections.flatMap(\.rows).map(\.title)
         let focusTitles = viewModel.focusNowSectionState.rows.map(\.title)
 
@@ -1117,7 +1116,7 @@ final class HomeViewModelPersistenceTests: XCTestCase {
         defaults.removePersistentDomain(forName: suiteName)
     }
 
-    func testRescueExpandsByDefaultWhenCountIsLessThanThree() {
+    func testRescueTailUsesCompactModeForOneToThreeItems() {
         let suiteName = "HomeViewModelPersistenceTests.RescueExpandSmall.\(UUID().uuidString)"
         guard let defaults = UserDefaults(suiteName: suiteName) else {
             return XCTFail("Failed to create test UserDefaults suite")
@@ -1140,13 +1139,19 @@ final class HomeViewModelPersistenceTests: XCTestCase {
         let viewModel = HomeViewModel(useCaseCoordinator: coordinator, userDefaults: defaults)
         waitForMainQueueFlush()
 
-        XCTAssertEqual(viewModel.rescueSectionState.totalCount, 2)
-        XCTAssertTrue(viewModel.rescueSectionState.isExpandedByDefault)
+        guard let rescueTail = rescueTailState(from: viewModel) else {
+            return XCTFail("Expected Rescue tail state")
+        }
+
+        XCTAssertEqual(rescueTail.totalCount, 2)
+        XCTAssertEqual(rescueTail.mode, .compact)
+        XCTAssertFalse(rescueTail.isInlineExpanded)
+        XCTAssertEqual(rescueTail.subtitle, "2 tasks are 2+ weeks overdue")
 
         defaults.removePersistentDomain(forName: suiteName)
     }
 
-    func testRescueCollapsesByDefaultWhenThreeOrMoreItemsExistAndFocusIsNotEmpty() {
+    func testRescueTailUsesCompactModeForThreeItems() {
         let suiteName = "HomeViewModelPersistenceTests.RescueCollapseLarge.\(UUID().uuidString)"
         guard let defaults = UserDefaults(suiteName: suiteName) else {
             return XCTFail("Failed to create test UserDefaults suite")
@@ -1170,14 +1175,19 @@ final class HomeViewModelPersistenceTests: XCTestCase {
         let viewModel = HomeViewModel(useCaseCoordinator: coordinator, userDefaults: defaults)
         waitForMainQueueFlush()
 
-        XCTAssertEqual(viewModel.rescueSectionState.totalCount, 3)
-        XCTAssertFalse(viewModel.rescueSectionState.isExpandedByDefault)
+        guard let rescueTail = rescueTailState(from: viewModel) else {
+            return XCTFail("Expected Rescue tail state")
+        }
+
+        XCTAssertEqual(rescueTail.totalCount, 3)
+        XCTAssertEqual(rescueTail.mode, .compact)
+        XCTAssertFalse(rescueTail.isInlineExpanded)
         XCTAssertFalse(viewModel.focusNowSectionState.rows.isEmpty)
 
         defaults.removePersistentDomain(forName: suiteName)
     }
 
-    func testRescueExpandsWhenNoFocusItemsRemain() {
+    func testRescueTailUsesExpandedModeForMoreThanThreeItems() {
         let suiteName = "HomeViewModelPersistenceTests.RescueExpandNoFocus.\(UUID().uuidString)"
         guard let defaults = UserDefaults(suiteName: suiteName) else {
             return XCTFail("Failed to create test UserDefaults suite")
@@ -1190,7 +1200,8 @@ final class HomeViewModelPersistenceTests: XCTestCase {
         let tasks = [
             makeTask(name: "Rescue A", project: inbox, dueDate: calendar.date(byAdding: .day, value: -16, to: now), priority: .high),
             makeTask(name: "Rescue B", project: inbox, dueDate: calendar.date(byAdding: .day, value: -18, to: now), priority: .low),
-            makeTask(name: "Rescue C", project: inbox, dueDate: calendar.date(byAdding: .day, value: -21, to: now), priority: .max)
+            makeTask(name: "Rescue C", project: inbox, dueDate: calendar.date(byAdding: .day, value: -21, to: now), priority: .max),
+            makeTask(name: "Rescue D", project: inbox, dueDate: calendar.date(byAdding: .day, value: -23, to: now), priority: .high)
         ]
 
         let coordinator = UseCaseCoordinator(
@@ -1200,11 +1211,51 @@ final class HomeViewModelPersistenceTests: XCTestCase {
         let viewModel = HomeViewModel(useCaseCoordinator: coordinator, userDefaults: defaults)
         waitForMainQueueFlush()
 
-        XCTAssertEqual(viewModel.rescueSectionState.totalCount, 3)
-        XCTAssertTrue(viewModel.rescueSectionState.isExpandedByDefault)
+        guard let rescueTail = rescueTailState(from: viewModel) else {
+            return XCTFail("Expected Rescue tail state")
+        }
+
+        XCTAssertEqual(rescueTail.totalCount, 4)
+        XCTAssertEqual(rescueTail.mode, .expanded)
+        XCTAssertTrue(rescueTail.isInlineExpanded)
         XCTAssertTrue(viewModel.focusNowSectionState.rows.isEmpty)
 
         defaults.removePersistentDomain(forName: suiteName)
+    }
+
+    func testRescueTailIsAbsentWhenNoRescueItemsExist() {
+        let suiteName = "HomeViewModelPersistenceTests.RescueAbsent.\(UUID().uuidString)"
+        guard let defaults = UserDefaults(suiteName: suiteName) else {
+            return XCTFail("Failed to create test UserDefaults suite")
+        }
+        defaults.removePersistentDomain(forName: suiteName)
+
+        let now = Date()
+        let calendar = Calendar.current
+        let inbox = Project.createInbox()
+        let tasks = [
+            makeTask(name: "Due Today", project: inbox, dueDate: now, priority: .high),
+            makeTask(name: "Recent Overdue", project: inbox, dueDate: calendar.date(byAdding: .day, value: -4, to: now), priority: .low)
+        ]
+
+        let coordinator = UseCaseCoordinator(
+            taskRepository: HomeViewModelMockTaskRepository(tasks: tasks),
+            projectRepository: HomeViewModelMockProjectRepository(projects: [inbox])
+        )
+        let viewModel = HomeViewModel(useCaseCoordinator: coordinator, userDefaults: defaults)
+        waitForMainQueueFlush()
+
+        XCTAssertNil(rescueTailState(from: viewModel))
+        XCTAssertTrue(viewModel.agendaTailItems.isEmpty)
+
+        defaults.removePersistentDomain(forName: suiteName)
+    }
+
+    private func rescueTailState(from viewModel: HomeViewModel) -> RescueTailState? {
+        viewModel.agendaTailItems.compactMap { item in
+            guard case .rescue(let state) = item else { return nil }
+            return state
+        }.first
     }
 
     private func waitForMainQueueFlush() {

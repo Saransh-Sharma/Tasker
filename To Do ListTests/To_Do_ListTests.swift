@@ -100,18 +100,20 @@ final class HomeSectionStateRegressionTests: XCTestCase {
         XCTAssertEqual(state.visibleCount, 0)
     }
 
-    func testRescueSectionStateClampsNegativePreviewCount() {
-        let state = RescueSectionState(
+    func testRescueTailStateUsesAllRowsForPreview() {
+        let state = RescueTailState(
             rows: [
                 .task(TaskDefinition(title: "Rescue 1")),
                 .task(TaskDefinition(title: "Rescue 2"))
             ],
-            previewCount: -2
+            mode: .compact,
+            isInlineExpanded: false,
+            subtitle: "2 tasks are 2+ weeks overdue"
         )
 
-        XCTAssertEqual(state.previewCount, 0)
-        XCTAssertEqual(state.previewRows, [])
+        XCTAssertEqual(state.previewRows.count, 2)
         XCTAssertEqual(state.totalCount, 2)
+        XCTAssertTrue(state.isCompact)
     }
 }
 

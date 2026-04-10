@@ -128,7 +128,7 @@ struct HomeTasksSnapshot: Equatable {
     let todaySections: [HomeListSection]
     let focusNowSectionState: FocusNowSectionState
     let todayAgendaSectionState: TodayAgendaSectionState
-    let rescueSectionState: RescueSectionState
+    let agendaTailItems: [HomeAgendaTailItem]
     let habitHomeSectionState: HabitHomeSectionState
     let quietTrackingSummaryState: QuietTrackingSummaryState
     let inlineCompletedTasks: [TaskDefinition]
@@ -156,7 +156,7 @@ struct HomeTasksSnapshot: Equatable {
         todaySections: [],
         focusNowSectionState: FocusNowSectionState(rows: [], pinnedTaskIDs: []),
         todayAgendaSectionState: TodayAgendaSectionState(sections: []),
-        rescueSectionState: RescueSectionState(rows: []),
+        agendaTailItems: [],
         habitHomeSectionState: HabitHomeSectionState(primaryRows: [], recoveryRows: []),
         quietTrackingSummaryState: QuietTrackingSummaryState(stableRows: []),
         inlineCompletedTasks: [],
@@ -183,7 +183,7 @@ struct HomeTasksSnapshot: Equatable {
             || !overdueTasks.isEmpty
             || !focusNowSectionState.rows.isEmpty
             || !todayAgendaSectionState.sections.isEmpty
-            || !rescueSectionState.isEmpty
+            || !agendaTailItems.isEmpty
             || habitHomeSectionState.isVisible
             || quietTrackingSummaryState.isVisible
             || !inlineCompletedTasks.isEmpty
@@ -199,7 +199,7 @@ struct HomeTasksSnapshot: Equatable {
             && overdueTasks.isEmpty
             && focusNowSectionState.rows.isEmpty
             && todayAgendaSectionState.sections.isEmpty
-            && rescueSectionState.isEmpty
+            && agendaTailItems.isEmpty
             && !habitHomeSectionState.isVisible
             && !quietTrackingSummaryState.isVisible
             && inlineCompletedTasks.isEmpty
@@ -1943,7 +1943,10 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
     }
 
     private func seedUITestRescueWorkspaceIfNeeded(completion: @escaping () -> Void) {
-        guard ProcessInfo.processInfo.arguments.contains("-TASKER_TEST_SEED_RESCUE_WORKSPACE") else {
+        let arguments = ProcessInfo.processInfo.arguments
+        let shouldSeedExpandedRescue = arguments.contains("-TASKER_TEST_SEED_RESCUE_WORKSPACE")
+        let shouldSeedCompactRescue = arguments.contains("-TASKER_TEST_SEED_COMPACT_RESCUE_WORKSPACE")
+        guard shouldSeedExpandedRescue || shouldSeedCompactRescue else {
             completion()
             return
         }
@@ -1967,6 +1970,7 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
                 let calendar = Calendar.current
                 let now = Date()
                 let anchorDay = calendar.startOfDay(for: now)
+                let includeHiddenRescueRow = shouldSeedExpandedRescue
 
                 let lifeArea = try await manageLifeAreas.createAsync(
                     name: "Operations",
@@ -1981,7 +1985,7 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
                     )
                 )
 
-                let requests = [
+                var requests = [
                     CreateTaskDefinitionRequest(
                         title: "Rescue oldest",
                         details: "UI test rescue seed",
@@ -2013,16 +2017,6 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
                         createdAt: now
                     ),
                     CreateTaskDefinitionRequest(
-                        title: "Rescue hidden",
-                        details: "UI test rescue seed",
-                        projectID: project.id,
-                        projectName: project.name,
-                        lifeAreaID: lifeArea.id,
-                        dueDate: calendar.date(byAdding: .day, value: -15, to: anchorDay),
-                        priority: .high,
-                        createdAt: now
-                    ),
-                    CreateTaskDefinitionRequest(
                         title: "Today focus seed",
                         details: "UI test rescue seed",
                         projectID: project.id,
@@ -2033,6 +2027,22 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
                         createdAt: now
                     )
                 ]
+
+                if includeHiddenRescueRow {
+                    requests.insert(
+                        CreateTaskDefinitionRequest(
+                            title: "Rescue hidden",
+                            details: "UI test rescue seed",
+                            projectID: project.id,
+                            projectName: project.name,
+                            lifeAreaID: lifeArea.id,
+                            dueDate: calendar.date(byAdding: .day, value: -15, to: anchorDay),
+                            priority: .high,
+                            createdAt: now
+                        ),
+                        at: 3
+                    )
+                }
 
                 for request in requests {
                     _ = try await createTaskDefinition.executeAsync(request: request)

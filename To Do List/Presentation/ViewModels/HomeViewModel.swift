@@ -303,7 +303,7 @@ public final class HomeViewModel: ObservableObject {
     @Published public private(set) var todayAgendaSectionState = TodayAgendaSectionState(sections: []) {
         didSet { scheduleHomeRenderStateRefresh() }
     }
-    @Published public private(set) var rescueSectionState = RescueSectionState(rows: []) {
+    @Published public private(set) var agendaTailItems: [HomeAgendaTailItem] = [] {
         didSet { scheduleHomeRenderStateRefresh() }
     }
     @Published public private(set) var habitHomeSectionState = HabitHomeSectionState(primaryRows: [], recoveryRows: []) {
@@ -549,7 +549,7 @@ public final class HomeViewModel: ObservableObject {
             todaySections: todaySections,
             focusNowSectionState: focusNowSectionState,
             todayAgendaSectionState: todayAgendaSectionState,
-            rescueSectionState: rescueSectionState,
+            agendaTailItems: agendaTailItems,
             habitHomeSectionState: habitHomeSectionState,
             quietTrackingSummaryState: quietTrackingSummaryState,
             inlineCompletedTasks: activeScope.quickView == .today ? completedTasks : [],
@@ -2901,11 +2901,13 @@ public final class HomeViewModel: ObservableObject {
             let splitHabitRows = HabitBoardPresentationBuilder.splitHomeRows(allHabitRows)
             self.currentHabitSignals = self.habitSignals(from: allHabitRows)
             self.habitLibraryRowsByID = libraryRowsByID
-            let rescueEligibleTaskIDs = Set(
-                openTaskRows
-                    .filter { self.isRescueEligibleTask($0, on: self.selectedDate) }
-                    .map(\.id)
-            )
+            let rescueEligibleTaskIDs = V2FeatureFlags.evaRescueEnabled
+                ? Set(
+                    openTaskRows
+                        .filter { self.isRescueEligibleTask($0, on: self.selectedDate) }
+                        .map(\.id)
+                )
+                : Set<UUID>()
             let agendaTaskRows = openTaskRows.filter { !rescueEligibleTaskIDs.contains($0.id) }
             let focusTaskRows = openTaskRows.filter { !rescueEligibleTaskIDs.contains($0.id) }
 
@@ -2939,10 +2941,9 @@ public final class HomeViewModel: ObservableObject {
                 TodayAgendaSectionState(sections: todaySections)
             )
             self.assignIfChanged(
-                \.rescueSectionState,
-                self.buildRescueSectionState(
-                    rescueEligibleTasks: openTaskRows.filter { rescueEligibleTaskIDs.contains($0.id) },
-                    focusRows: focusRows
+                \.agendaTailItems,
+                self.buildAgendaTailItems(
+                    rescueEligibleTasks: openTaskRows.filter { rescueEligibleTaskIDs.contains($0.id) }
                 )
             )
             self.assignIfChanged(
@@ -3045,19 +3046,38 @@ public final class HomeViewModel: ObservableObject {
             && row.riskState == .stable
     }
 
-    private func buildRescueSectionState(
-        rescueEligibleTasks: [TaskDefinition],
-        focusRows: [HomeTodayRow]
-    ) -> RescueSectionState {
-        guard activeScope.quickView == .today else {
-            return RescueSectionState(rows: [])
+    private func buildAgendaTailItems(
+        rescueEligibleTasks: [TaskDefinition]
+    ) -> [HomeAgendaTailItem] {
+        guard activeScope.quickView == .today, V2FeatureFlags.evaRescueEnabled else {
+            return []
         }
 
         let rows = rescueEligibleTasks
             .map(HomeTodayRow.task)
             .sorted(by: compareRescueRows(_:_:))
-        let isExpandedByDefault = rows.count < 3 || focusRows.isEmpty
-        return RescueSectionState(rows: rows, isExpandedByDefault: isExpandedByDefault)
+        guard rows.isEmpty == false else {
+            return []
+        }
+
+        let mode: RescueTailMode = rows.count <= 3 ? .compact : .expanded
+        let subtitle: String
+        if rows.count == 1 {
+            subtitle = "1 task is 2+ weeks overdue"
+        } else {
+            subtitle = "\(rows.count) tasks are 2+ weeks overdue"
+        }
+
+        return [
+            .rescue(
+                RescueTailState(
+                    rows: rows,
+                    mode: mode,
+                    isInlineExpanded: mode == .expanded,
+                    subtitle: subtitle
+                )
+            )
+        ]
     }
 
     private func isRescueEligibleTask(_ task: TaskDefinition, on referenceDate: Date) -> Bool {
@@ -3583,7 +3603,7 @@ public final class HomeViewModel: ObservableObject {
             assignIfChanged(\.dueTodaySection, nil)
             assignIfChanged(\.todaySections, [])
             assignIfChanged(\.todayAgendaSectionState, TodayAgendaSectionState(sections: []))
-            assignIfChanged(\.rescueSectionState, RescueSectionState(rows: []))
+            assignIfChanged(\.agendaTailItems, [])
             assignIfChanged(\.habitHomeSectionState, HabitHomeSectionState(primaryRows: [], recoveryRows: []))
             assignIfChanged(\.quietTrackingSummaryState, QuietTrackingSummaryState(stableRows: []))
             currentHabitSignals = []
@@ -5022,7 +5042,7 @@ extension HomeViewModel {
             todaySections: todaySections,
             focusNowSectionState: focusNowSectionState,
             todayAgendaSectionState: todayAgendaSectionState,
-            rescueSectionState: rescueSectionState,
+            agendaTailItems: agendaTailItems,
             habitHomeSectionState: habitHomeSectionState,
             quietTrackingSummaryState: quietTrackingSummaryState,
             upcomingTasks: upcomingTasks,
@@ -5064,7 +5084,7 @@ public struct HomeViewState {
     public let todaySections: [HomeListSection]
     public let focusNowSectionState: FocusNowSectionState
     public let todayAgendaSectionState: TodayAgendaSectionState
-    public let rescueSectionState: RescueSectionState
+    public let agendaTailItems: [HomeAgendaTailItem]
     public let habitHomeSectionState: HabitHomeSectionState
     public let quietTrackingSummaryState: QuietTrackingSummaryState
     public let upcomingTasks: [TaskDefinition]
