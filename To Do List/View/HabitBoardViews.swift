@@ -16,6 +16,7 @@ struct HabitBoardLayoutMetrics: Equatable {
     let visibleColumns: Int
     let historySpan: Int
     let showsFullWeekday: Bool
+    let usesCompressedWeekday: Bool
 
     var pinnedRailWidth: CGFloat {
         leadingRailWidth + railTrailingPadding
@@ -46,13 +47,14 @@ struct HabitBoardLayoutMetrics: Equatable {
                 dayColumnWidth: expandedType ? 34 : 32,
                 cellHeight: expandedType ? 38 : 36,
                 rowHeight: expandedType ? 60 : 56,
-                headerHeight: expandedType ? 64 : 60,
+                headerHeight: expandedType ? 74 : 70,
                 boardPadding: 16,
                 cellGap: 0,
                 cellCornerRadius: 2,
                 visibleColumns: 7,
                 historySpan: 28,
-                showsFullWeekday: false
+                showsFullWeekday: false,
+                usesCompressedWeekday: true
             )
         }
 
@@ -65,13 +67,14 @@ struct HabitBoardLayoutMetrics: Equatable {
                 dayColumnWidth: expandedType ? 36 : 34,
                 cellHeight: expandedType ? 38 : 36,
                 rowHeight: expandedType ? 60 : 56,
-                headerHeight: expandedType ? 64 : 60,
+                headerHeight: expandedType ? 76 : 72,
                 boardPadding: 16,
                 cellGap: 0,
                 cellCornerRadius: 2,
                 visibleColumns: 8,
                 historySpan: 28,
-                showsFullWeekday: false
+                showsFullWeekday: false,
+                usesCompressedWeekday: true
             )
         }
 
@@ -84,13 +87,14 @@ struct HabitBoardLayoutMetrics: Equatable {
             dayColumnWidth: expandedType ? 38 : 36,
             cellHeight: expandedType ? 40 : 38,
             rowHeight: expandedType ? 62 : 58,
-            headerHeight: expandedType ? 68 : 64,
+            headerHeight: expandedType ? 80 : 74,
             boardPadding: 18,
             cellGap: 0,
             cellCornerRadius: 2,
             visibleColumns: fullRegularWidth ? 12 : 10,
             historySpan: 42,
-            showsFullWeekday: fullRegularWidth
+            showsFullWeekday: fullRegularWidth,
+            usesCompressedWeekday: !fullRegularWidth
         )
     }
 }
@@ -147,7 +151,7 @@ enum HabitBoardStripMode: Equatable {
         switch self {
         case .compact: return 2
         case .expanded: return 1
-        case .board: return 1
+        case .board: return 3
         case .homeList: return 1
         }
     }
@@ -391,22 +395,8 @@ struct HabitBoardScreen: View {
     var body: some View {
         NavigationStack {
             ScrollView {
-                VStack(alignment: .leading, spacing: spacing.s16) {
-                    boardToolbarCard
-                        .enhancedStaggeredAppearance(index: 0)
-
-                    if viewModel.boardRows.isEmpty, !viewModel.isLoading {
-                        ContentUnavailableView(
-                            "No habits yet",
-                            systemImage: "square.grid.3x3.topleft.filled",
-                            description: Text("Create a habit to start building a board.")
-                        )
-                        .padding(.top, spacing.s16)
-                    } else {
-                        boardCard
-                            .enhancedStaggeredAppearance(index: 1)
-                    }
-                }
+                boardSurface
+                    .enhancedStaggeredAppearance(index: 0)
                 .padding(.horizontal, spacing.s16)
                 .padding(.top, spacing.s12)
                 .padding(.bottom, spacing.s24)
@@ -433,43 +423,33 @@ struct HabitBoardScreen: View {
         }
     }
 
-    private var boardToolbarCard: some View {
-        VStack(alignment: .leading, spacing: spacing.s12) {
-            HStack(alignment: .center, spacing: spacing.s12) {
-                boardPagerButton(
-                    systemName: "chevron.left",
-                    accessibilityIdentifier: HabitBoardAccessibilityID.previousWindow,
-                    accessibilityLabel: "Show previous \(viewModel.viewportColumnCount) days"
-                ) {
-                    viewModel.moveWindow(byDays: -viewModel.viewportColumnCount)
-                }
+    private var boardSurface: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            boardHeader
 
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(rangeTitle)
-                        .font(.tasker(.bodyStrong))
-                        .foregroundStyle(Color.tasker.textPrimary)
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.88)
-                        .accessibilityIdentifier(HabitBoardAccessibilityID.rangeTitle)
+            Rectangle()
+                .fill(Color.tasker.strokeHairline.opacity(0.16))
+                .frame(height: 1)
 
-                    Text("\(viewModel.viewportColumnCount)-day matrix window")
-                        .font(.tasker(.caption2))
-                        .foregroundStyle(Color.tasker.textSecondary)
-                        .lineLimit(1)
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
-
-                boardPagerButton(
-                    systemName: "chevron.right",
-                    accessibilityIdentifier: HabitBoardAccessibilityID.nextWindow,
-                    accessibilityLabel: "Show next \(viewModel.viewportColumnCount) days"
-                ) {
-                    viewModel.moveWindow(byDays: viewModel.viewportColumnCount)
-                }
+            if viewModel.boardRows.isEmpty, !viewModel.isLoading {
+                ContentUnavailableView(
+                    "No habits yet",
+                    systemImage: "square.grid.3x3.topleft.filled",
+                    description: Text("Create a habit to start building a board.")
+                )
+                .frame(maxWidth: .infinity)
+                .padding(.horizontal, spacing.s16)
+                .padding(.vertical, spacing.s24)
+            } else {
+                boardMatrix
             }
         }
-        .padding(16)
-        .background(HabitBoardFlatSurfaceBackground(cornerRadius: 18))
+        .background(HabitBoardFlatSurfaceBackground(cornerRadius: 24))
+        .background(HabitBoardWidthReader())
+        .onPreferenceChange(HabitBoardWidthPreferenceKey.self) { width in
+            guard width > 1 else { return }
+            measuredBoardWidth = width
+        }
     }
 
     private func boardPagerButton(
@@ -496,13 +476,64 @@ struct HabitBoardScreen: View {
         .accessibilityLabel(accessibilityLabel)
     }
 
-    private var boardCard: some View {
+    private var boardHeader: some View {
+        HStack(alignment: .center, spacing: spacing.s12) {
+            boardPagerButton(
+                systemName: "chevron.left",
+                accessibilityIdentifier: HabitBoardAccessibilityID.previousWindow,
+                accessibilityLabel: "Show previous \(viewModel.viewportColumnCount) days"
+            ) {
+                viewModel.moveWindow(byDays: -viewModel.viewportColumnCount)
+            }
+
+            HStack(alignment: .center, spacing: spacing.s8) {
+                Text(rangeTitle)
+                    .font(.tasker(.bodyStrong))
+                    .foregroundStyle(Color.tasker.textPrimary)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.88)
+                    .accessibilityIdentifier(HabitBoardAccessibilityID.rangeTitle)
+
+                boardWindowBadge
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+
+            boardPagerButton(
+                systemName: "chevron.right",
+                accessibilityIdentifier: HabitBoardAccessibilityID.nextWindow,
+                accessibilityLabel: "Show next \(viewModel.viewportColumnCount) days"
+            ) {
+                viewModel.moveWindow(byDays: viewModel.viewportColumnCount)
+            }
+        }
+        .padding(.horizontal, spacing.s16)
+        .padding(.vertical, spacing.s12)
+    }
+
+    private var boardWindowBadge: some View {
+        Text("\(viewModel.viewportColumnCount) DAYS")
+            .font(.system(size: 11, weight: .semibold, design: .default))
+            .foregroundStyle(Color.tasker.textSecondary)
+            .padding(.horizontal, 8)
+            .padding(.vertical, 5)
+            .background(
+                Capsule(style: .continuous)
+                    .fill(Color.tasker.surfaceSecondary.opacity(0.9))
+            )
+            .overlay(
+                Capsule(style: .continuous)
+                    .stroke(Color.tasker.strokeHairline.opacity(0.22), lineWidth: 1)
+            )
+            .fixedSize()
+    }
+
+    private var boardMatrix: some View {
         HStack(alignment: .top, spacing: 0) {
             VStack(alignment: .leading, spacing: 0) {
                 HabitBoardPinnedColumnHeader(layoutMetrics: layoutMetrics)
 
                 Divider()
-                    .overlay(Color.tasker.strokeHairline.opacity(0.28))
+                    .overlay(Color.tasker.strokeHairline.opacity(0.12))
 
                 LazyVStack(spacing: 0) {
                     ForEach(viewModel.boardRows) { row in
@@ -517,10 +548,11 @@ struct HabitBoardScreen: View {
                         )
 
                         Divider()
-                            .overlay(Color.tasker.strokeHairline.opacity(0.22))
+                            .overlay(Color.tasker.strokeHairline.opacity(0.1))
                     }
                 }
             }
+            .background(Color.tasker.surfaceSecondary.opacity(0.26))
             .frame(width: layoutMetrics.pinnedRailWidth, alignment: .leading)
 
             ScrollView(.horizontal, showsIndicators: false) {
@@ -528,7 +560,7 @@ struct HabitBoardScreen: View {
                     HabitBoardDayHeaderRow(days: viewModel.aggregateDays, layoutMetrics: layoutMetrics)
 
                     Divider()
-                        .overlay(Color.tasker.strokeHairline.opacity(0.28))
+                        .overlay(Color.tasker.strokeHairline.opacity(0.12))
 
                     LazyVStack(spacing: 0) {
                         ForEach(viewModel.boardRows) { row in
@@ -538,7 +570,7 @@ struct HabitBoardScreen: View {
                             )
 
                             Divider()
-                                .overlay(Color.tasker.strokeHairline.opacity(0.22))
+                                .overlay(Color.tasker.strokeHairline.opacity(0.1))
                         }
                     }
                 }
@@ -551,12 +583,6 @@ struct HabitBoardScreen: View {
             .scrollBounceBehavior(.basedOnSize, axes: .horizontal)
         }
         .padding(layoutMetrics.boardPadding)
-        .background(HabitBoardFlatSurfaceBackground(cornerRadius: 24))
-        .background(HabitBoardWidthReader())
-        .onPreferenceChange(HabitBoardWidthPreferenceKey.self) { width in
-            guard width > 1 else { return }
-            measuredBoardWidth = width
-        }
     }
 
     private var rangeTitle: String {
@@ -576,14 +602,14 @@ private struct HabitBoardPinnedRowView: View {
     var body: some View {
         HStack(alignment: .center, spacing: layoutMetrics.iconToTextSpacing) {
             Image(systemName: row.iconSymbolName)
-                .font(.system(size: 15, weight: .medium))
+                .font(.system(size: 14, weight: .semibold))
                 .foregroundStyle(HabitEverydayPalette.familyPreview(row.colorFamily))
                 .frame(width: layoutMetrics.iconSlotWidth, height: layoutMetrics.rowHeight, alignment: .center)
 
             Text(row.title)
-                .font(.tasker(.body))
+                .font(.tasker(.caption1).weight(.medium))
                 .foregroundStyle(Color.tasker.textPrimary)
-                .lineLimit(2)
+                .lineLimit(2, reservesSpace: true)
                 .truncationMode(.tail)
                 .multilineTextAlignment(.leading)
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -591,10 +617,11 @@ private struct HabitBoardPinnedRowView: View {
         }
         .frame(width: layoutMetrics.leadingRailWidth, alignment: .leading)
         .frame(minHeight: layoutMetrics.rowHeight, alignment: .center)
+        .padding(.leading, 2)
         .padding(.trailing, layoutMetrics.railTrailingPadding)
         .overlay(alignment: .trailing) {
             Rectangle()
-                .fill(Color.tasker.strokeHairline.opacity(0.32))
+                .fill(Color.tasker.strokeHairline.opacity(0.16))
                 .frame(width: 1)
         }
         .contentShape(Rectangle())
@@ -696,20 +723,18 @@ private struct HabitBoardPinnedColumnHeader: View {
     let layoutMetrics: HabitBoardLayoutMetrics
 
     var body: some View {
-        HStack(spacing: 0) {
-            Color.clear
-                .frame(width: layoutMetrics.titleLeadingInset, height: 1)
-
-            Text("HABITS")
-                .font(.system(size: 13, weight: .semibold, design: .default))
+        ZStack {
+            Text("Habits")
+                .font(.system(size: 14, weight: .semibold, design: .default))
                 .foregroundStyle(Color.tasker.textSecondary)
-                .frame(maxWidth: .infinity, alignment: .leading)
+                .tracking(0.1)
+                .frame(maxWidth: .infinity, alignment: .center)
         }
-        .frame(width: layoutMetrics.leadingRailWidth, height: layoutMetrics.headerHeight, alignment: .bottomLeading)
+        .frame(width: layoutMetrics.leadingRailWidth, height: layoutMetrics.headerHeight, alignment: .center)
         .padding(.trailing, layoutMetrics.railTrailingPadding)
         .overlay(alignment: .trailing) {
             Rectangle()
-                .fill(Color.tasker.strokeHairline.opacity(0.32))
+                .fill(Color.tasker.strokeHairline.opacity(0.16))
                 .frame(width: 1)
         }
         .accessibilityIdentifier(HabitBoardAccessibilityID.pinnedHeader)
@@ -738,34 +763,36 @@ private struct HabitBoardHeaderDayCell: View {
     let day: HabitBoardAggregateDay
     let showsMonthMarker: Bool
     let layoutMetrics: HabitBoardLayoutMetrics
+    @Environment(\.colorScheme) private var colorScheme
 
     private var weekdayLabel: String {
         let symbol = day.date.formatted(.dateTime.weekday(layoutMetrics.showsFullWeekday ? .abbreviated : .wide))
+        if layoutMetrics.usesCompressedWeekday {
+            return String(symbol.prefix(1)).uppercased()
+        }
         return layoutMetrics.showsFullWeekday ? symbol.uppercased() : String(symbol.prefix(3)).uppercased()
     }
 
     var body: some View {
-        VStack(spacing: 4) {
-            Text(showsMonthMarker ? day.date.formatted(.dateTime.month(.abbreviated)) : " ")
-                .font(.system(size: 11, weight: .medium, design: .default))
-                .foregroundStyle(Color.tasker.textSecondary)
+        VStack(spacing: 3) {
+            monthMarker
                 .frame(maxWidth: .infinity, alignment: .center)
 
             Text(day.date.formatted(.dateTime.day()))
                 .font(.system(size: 22, weight: .semibold, design: .default))
                 .monospacedDigit()
-                .foregroundStyle(day.isToday ? Color.tasker.textPrimary : Color.tasker.textPrimary)
+                .foregroundStyle(day.isToday ? HabitEverydayPalette.todayStroke(colorScheme: colorScheme) : Color.tasker.textPrimary)
                 .frame(maxWidth: .infinity, minHeight: 28)
                 .background(todayBackground)
 
             Text(weekdayLabel)
                 .font(.system(size: 11, weight: .semibold, design: .default))
-                .foregroundStyle(Color.tasker.textSecondary)
+                .foregroundStyle(day.isToday ? Color.tasker.textPrimary : Color.tasker.textSecondary)
                 .lineLimit(1)
                 .minimumScaleFactor(0.8)
         }
         .frame(width: layoutMetrics.dayColumnWidth, height: layoutMetrics.headerHeight, alignment: .bottom)
-        .padding(.vertical, 6)
+        .padding(.vertical, 10)
         .background(headerBackground)
         .accessibilityElement(children: .ignore)
         .accessibilityIdentifier(HabitBoardAccessibilityID.dayHeader(day.date))
@@ -780,8 +807,9 @@ private struct HabitBoardHeaderDayCell: View {
                 .fill(Color.tasker.surfacePrimary)
                 .overlay(
                     RoundedRectangle(cornerRadius: 10, style: .continuous)
-                        .stroke(Color.tasker.statusSuccess.opacity(0.85), lineWidth: 1.4)
+                        .stroke(HabitEverydayPalette.todayStroke(colorScheme: colorScheme), lineWidth: 1.4)
                 )
+                .shadow(color: HabitEverydayPalette.todayStroke(colorScheme: colorScheme).opacity(0.12), radius: 8, y: 2)
                 .padding(.horizontal, 1)
         } else {
             Color.clear
@@ -790,7 +818,21 @@ private struct HabitBoardHeaderDayCell: View {
 
     private var headerBackground: some View {
         RoundedRectangle(cornerRadius: layoutMetrics.cellCornerRadius, style: .continuous)
-            .fill(Calendar.current.isDateInWeekend(day.date) ? Color.tasker.surfaceSecondary.opacity(0.55) : Color.clear)
+            .fill(day.isToday ? Color.tasker.surfaceSecondary.opacity(0.42) : (Calendar.current.isDateInWeekend(day.date) ? Color.tasker.surfaceSecondary.opacity(0.3) : Color.clear))
+    }
+
+    @ViewBuilder
+    private var monthMarker: some View {
+        if showsMonthMarker {
+            Text(day.date.formatted(.dateTime.month(.abbreviated)).uppercased())
+                .font(.system(size: 11, weight: .semibold, design: .default))
+                .foregroundStyle(Color.tasker.textSecondary)
+                .lineLimit(1)
+                .minimumScaleFactor(0.9)
+        } else {
+            Color.clear
+                .frame(height: 13)
+        }
     }
 }
 
@@ -830,8 +872,14 @@ private struct HabitBoardFlatSurfaceBackground: View {
             .fill(Color.tasker.surfacePrimary.opacity(0.98))
             .overlay(
                 RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                    .stroke(Color.tasker.strokeHairline.opacity(0.46), lineWidth: 1)
+                    .fill(Color.tasker.surfaceSecondary.opacity(0.18))
+                    .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
             )
+            .overlay(
+                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                    .stroke(Color.tasker.strokeHairline.opacity(0.24), lineWidth: 1)
+            )
+            .shadow(color: Color.black.opacity(0.03), radius: 14, y: 8)
     }
 }
 
@@ -953,10 +1001,7 @@ private struct HabitBoardCellView: View {
         }
         .frame(width: resolvedCellWidth, height: resolvedCellHeight)
         .overlay {
-            if cell.isToday, !mode.isMatrixLike {
-                RoundedRectangle(cornerRadius: mode.cornerRadius, style: .continuous)
-                    .stroke(HabitEverydayPalette.todayStroke(colorScheme: colorScheme), lineWidth: 1.2)
-            }
+            todayOverlay
         }
     }
 
@@ -980,6 +1025,15 @@ private struct HabitBoardCellView: View {
         RoundedRectangle(cornerRadius: mode.cornerRadius, style: .continuous)
             .fill(fillColor)
             .overlay(doneGrainOverlay)
+    }
+
+    @ViewBuilder
+    private var todayOverlay: some View {
+        if cell.isToday {
+            RoundedRectangle(cornerRadius: mode.cornerRadius, style: .continuous)
+                .stroke(HabitEverydayPalette.todayStroke(colorScheme: colorScheme), lineWidth: mode.isMatrixLike ? 1.35 : 1.2)
+                .padding(mode.isMatrixLike ? 0.5 : 0)
+        }
     }
 
     private var fillColor: Color {
