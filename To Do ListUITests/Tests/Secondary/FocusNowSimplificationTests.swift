@@ -38,16 +38,24 @@ final class FocusNowSimplificationTests: BaseUITest {
         homePage = HomePage(app: app)
     }
 
-    func testFocusNowTitleTapOpensWhyAndLegacyActionsAreRemoved() throws {
+    func testFocusNowTitleTapOpensDetailAndHomeStripStaysCompact() throws {
         relaunchWithFocusSeed()
         XCTAssertTrue(homePage.focusStrip.waitForExistence(timeout: 5), "Focus strip should exist with focus seed")
 
         XCTAssertFalse(app.buttons["home.focus.why"].exists, "Legacy Why button should be removed")
         XCTAssertFalse(app.buttons["home.focus.plan15"].exists, "Plan next 15m button should be removed")
         XCTAssertFalse(app.staticTexts["home.focus.summary"].exists, "Focus summary subtitle should be removed")
+        XCTAssertFalse(homePage.focusShuffleButton.exists, "Home Focus Now should no longer expose shuffle")
 
         let titleTap = homePage.focusTitleTap
         XCTAssertTrue(titleTap.waitForExistence(timeout: 3), "Focus title tap target should exist")
+        XCTAssertEqual(titleTap.label, "Focus Now", "Home Focus Now title should not include a count badge")
+
+        let focusStripText = homePage.focusStrip.staticTexts
+        XCTAssertFalse(focusStripText["P1"].exists, "Compact Focus Now should not show priority chips")
+        XCTAssertFalse(focusStripText["P2"].exists, "Compact Focus Now should not show priority chips")
+        XCTAssertFalse(focusStripText["P3"].exists, "Compact Focus Now should not show priority chips")
+        XCTAssertFalse(focusStripText["P0"].exists, "Compact Focus Now should not show priority chips")
 
         if titleTap.isHittable {
             titleTap.tap()
@@ -56,8 +64,8 @@ final class FocusNowSimplificationTests: BaseUITest {
         }
 
         XCTAssertTrue(
-            app.navigationBars.staticTexts["Why Eva Picked These"].waitForExistence(timeout: 3),
-            "Tapping focus title should open Why sheet"
+            app.navigationBars.staticTexts["Focus Now"].waitForExistence(timeout: 3),
+            "Tapping focus title should open the Focus Now detail sheet"
         )
     }
 
@@ -79,7 +87,7 @@ final class FocusNowSimplificationTests: BaseUITest {
         )
     }
 
-    func testVisibleFocusTaskCanBePinnedAndSurvivesShuffle() throws {
+    func testVisibleFocusTaskCanBePinnedAndSurvivesDetailShuffle() throws {
         relaunchWithFocusSeed()
 
         let focusCard = homePage.focusTaskCard(containingTitle: SeededFocusTitle.detail)
@@ -92,8 +100,16 @@ final class FocusNowSimplificationTests: BaseUITest {
         waitForAnimations(duration: 0.5)
         XCTAssertEqual(pinButton.label, "Unpin from Focus Now", "Pin state should update before shuffle")
 
-        let shuffleButton = homePage.focusShuffleButton
-        XCTAssertTrue(shuffleButton.waitForExistence(timeout: 3), "Shuffle button should be exposed")
+        let titleTap = homePage.focusTitleTap
+        XCTAssertTrue(titleTap.waitForExistence(timeout: 3), "Focus title tap target should exist")
+        if titleTap.isHittable {
+            titleTap.tap()
+        } else {
+            titleTap.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+        }
+
+        let shuffleButton = homePage.focusDetailShuffleButton
+        XCTAssertTrue(shuffleButton.waitForExistence(timeout: 3), "Detail sheet should expose shuffle")
         shuffleButton.tap()
 
         XCTAssertTrue(

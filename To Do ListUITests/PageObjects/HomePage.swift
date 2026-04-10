@@ -374,6 +374,10 @@ class HomePage {
         app.buttons["home.focus.shuffle"]
     }
 
+    var focusDetailShuffleButton: XCUIElement {
+        app.buttons["home.focus.detail.shuffle"]
+    }
+
     var rescueSection: XCUIElement {
         let identifiedSections = app.descendants(matching: .any).matching(
             NSPredicate(format: "identifier == %@", AccessibilityIdentifiers.Home.rescueSection)
