@@ -1422,7 +1422,7 @@ struct HomeBackdropForedropRootView: View {
     @State private var pendingSearchCommitTask: Task<Void, Never>?
     @State private var hasMountedSearchSurface = false
     @State private var hasMountedAnalyticsSurface = false
-    @State private var rescueExpansionOverride: Bool?
+    @State private var expandedAgendaTailItemIDs = Set<String>()
     @State private var showHabitBoardPresented = false
     @State private var selectedHomeHabitRow: HabitLibraryRow?
     @State private var hasPresentedUITestHabitBoard = false
@@ -1469,14 +1469,21 @@ struct HomeBackdropForedropRootView: View {
         V2FeatureFlags.clampedHomeBackdropNoiseAmount(homeBackdropNoiseAmountStorage)
     }
     private var isRescueEnabled: Bool { V2FeatureFlags.evaRescueEnabled }
-    private var rescueExpansionResetKey: String {
+    private var visibleAgendaTailItems: [HomeAgendaTailItem] {
+        isRescueEnabled ? tasksSnapshot.agendaTailItems : []
+    }
+    private var agendaTailExpansionResetKey: String {
         let selectedDay = Calendar.current.startOfDay(for: chromeSnapshot.selectedDate).timeIntervalSince1970
-        return [
-            String(Int(selectedDay)),
-            String(tasksSnapshot.rescueSectionState.totalCount),
-            String(tasksSnapshot.focusNowSectionState.visibleCount),
-            isRescueEnabled ? "1" : "0"
-        ].joined(separator: ":")
+        let compactTailSignature = visibleAgendaTailItems.compactMap { item -> String? in
+            switch item {
+            case .rescue(let state):
+                guard state.mode == .compact else { return nil }
+                let rowIDs = state.rows.map(\.id).joined(separator: ",")
+                return "\(item.id):\(rowIDs):\(state.subtitle)"
+            }
+        }.joined(separator: "|")
+
+        return [String(Int(selectedDay)), compactTailSignature, isRescueEnabled ? "1" : "0"].joined(separator: ":")
     }
     private var foredropFlipAnimation: Animation {
         let duration: TimeInterval
@@ -1803,8 +1810,8 @@ struct HomeBackdropForedropRootView: View {
             guard state != nil, activeFace != .tasks else { return }
             setActiveFace(.tasks, animated: true)
         }
-        .onChange(of: rescueExpansionResetKey) { _, _ in
-            rescueExpansionOverride = nil
+        .onChange(of: agendaTailExpansionResetKey) { _, _ in
+            expandedAgendaTailItemIDs.removeAll()
         }
         .onChange(of: forcedFaceValue) { _, newValue in
             guard let newValue, newValue != activeFace else { return }
@@ -2134,6 +2141,8 @@ struct HomeBackdropForedropRootView: View {
                 emptyStateActionTitle: tasksSnapshot.emptyStateActionTitle,
                 isTaskDragEnabled: false,
                 todaySections: tasksSnapshot.todayAgendaSectionState.sections,
+                agendaTailItems: visibleAgendaTailItems,
+                expandedAgendaTailItemIDs: expandedAgendaTailItemIDs,
                 onTaskTap: onTaskTap,
                 onToggleComplete: { task in
                     trackTaskToggle(task, source: "task_list")
@@ -2172,6 +2181,16 @@ struct HomeBackdropForedropRootView: View {
                     )
                 },
                 onEmptyStateAction: { onAddTask() },
+                onToggleAgendaTailItemExpansion: { itemID in
+                    if expandedAgendaTailItemIDs.contains(itemID) {
+                        expandedAgendaTailItemIDs.remove(itemID)
+                    } else {
+                        expandedAgendaTailItemIDs.insert(itemID)
+                    }
+                },
+                onOpenRescue: isRescueEnabled ? {
+                    viewModel.openRescue()
+                } : nil,
                 onTaskDragStarted: { task in
                     trackTaskDragStarted(task, source: "task_list")
                 },
@@ -2659,14 +2678,6 @@ struct HomeBackdropForedropRootView: View {
                 }
             }
 
-            if isRescueEnabled &&
-                tasksSnapshot.activeQuickView == .today &&
-                !tasksSnapshot.rescueSectionState.isEmpty {
-                fullBleedTaskListHeaderModule {
-                    rescueSectionCard
-                }
-            }
-
             if tasksSnapshot.activeQuickView == .today &&
                 !tasksSnapshot.habitHomeSectionState.primaryRows.isEmpty {
                 fullBleedTaskListHeaderModule {
@@ -2842,89 +2853,6 @@ struct HomeBackdropForedropRootView: View {
     private func openHabitDetail(_ habit: HomeHabitRow) {
         guard let row = viewModel.habitLibraryRow(for: habit.habitID) else { return }
         selectedHomeHabitRow = row
-    }
-
-    private var rescueSectionCard: some View {
-        let state = tasksSnapshot.rescueSectionState
-        let isExpanded = rescueExpansionOverride ?? state.isExpandedByDefault
-        let rows = isExpanded ? state.rows : state.previewRows
-
-        return VStack(alignment: .leading, spacing: spacing.s8) {
-            HStack(alignment: .center, spacing: spacing.s8) {
-                Label {
-                    Text(LocalizedStringKey("Rescue"))
-                } icon: {
-                    Image(systemName: "lifepreserver")
-                }
-                    .font(.tasker(.headline))
-                    .foregroundStyle(Color.tasker.textPrimary)
-                    .accessibilityIdentifier("home.rescue.header")
-                Spacer(minLength: 0)
-                Text("\(state.totalCount)")
-                    .font(.tasker(.caption2).weight(.semibold))
-                    .foregroundStyle(Color.tasker.textSecondary)
-                    .padding(.horizontal, spacing.s8)
-                    .padding(.vertical, spacing.s4)
-                    .background(Color.tasker.surfaceSecondary)
-                    .clipShape(Capsule())
-                Button(action: {
-                    viewModel.openRescue()
-                }) {
-                    Text(LocalizedStringKey("Start rescue"))
-                }
-                .font(.tasker(.caption1).weight(.semibold))
-                .foregroundStyle(Color.tasker.accentPrimary)
-                .buttonStyle(.plain)
-                .accessibilityIdentifier("home.rescue.start")
-                Button {
-                    withAnimation(reduceMotion ? .linear(duration: 0.01) : TaskerAnimation.gentle) {
-                        rescueExpansionOverride = !isExpanded
-                    }
-                } label: {
-                    Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
-                        .font(.system(size: 13, weight: .semibold))
-                        .foregroundStyle(Color.tasker.textSecondary)
-                        .frame(width: 32, height: 32)
-                        .contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel(Text(isExpanded ? "Collapse Rescue" : "Expand Rescue"))
-                .accessibilityIdentifier("home.rescue.expand")
-            }
-
-            VStack(spacing: spacing.s8) {
-                ForEach(rows) { row in
-                    HomeListRowView(
-                        row: row,
-                        tagNameByID: tasksSnapshot.tagNameByID,
-                        todayXPSoFar: tasksSnapshot.todayXPSoFar,
-                        isGamificationV2Enabled: V2FeatureFlags.gamificationV2Enabled,
-                        isTaskDragEnabled: false,
-                        highlightedTaskID: nil,
-                        onTaskTap: onTaskTap,
-                        onToggleComplete: { task in
-                            trackTaskToggle(task, source: "rescue_preview")
-                            onToggleComplete(task)
-                        },
-                        onDeleteTask: onDeleteTask,
-                        onRescheduleTask: onRescheduleTask,
-                        onCompleteHabit: { _ in },
-                        onSkipHabit: { _ in },
-                        onLapseHabit: { _ in },
-                        onOpenHabit: openHabitDetail
-                    )
-                }
-            }
-        }
-        .padding(.horizontal, spacing.s16)
-        .padding(.vertical, spacing.s12)
-        .background(Color.tasker.surfaceSecondary.opacity(0.4))
-        .overlay(
-            RoundedRectangle(cornerRadius: corner.r3)
-                .stroke(Color.tasker.strokeHairline.opacity(0.55), lineWidth: 1)
-        )
-        .clipShape(RoundedRectangle(cornerRadius: corner.r3))
-        .accessibilityIdentifier("home.rescue.section")
     }
 
     private var quietTrackingSummaryCard: some View {
