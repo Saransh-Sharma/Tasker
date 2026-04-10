@@ -222,6 +222,18 @@ public final class AddTaskViewModel: ObservableObject {
         }
         return parts.isEmpty ? "No linked tasks" : parts.joined(separator: ", ")
     }
+
+    public var inboxProject: Project? {
+        projects.first(where: { $0.id == ProjectConstants.inboxProjectID })
+    }
+
+    public var filteredProjectsForSelectedLifeArea: [Project] {
+        projects.filter { project in
+            guard project.id != ProjectConstants.inboxProjectID else { return false }
+            guard let selectedLifeAreaID else { return true }
+            return project.lifeAreaID == selectedLifeAreaID
+        }
+    }
     
     // MARK: - Dependencies
     
@@ -625,6 +637,12 @@ public final class AddTaskViewModel: ObservableObject {
             .removeDuplicates()
             .sink { [weak self] projectName in
                 guard let self else { return }
+                if let project = self.projects.first(where: { $0.name == projectName }),
+                   project.id != ProjectConstants.inboxProjectID,
+                   let projectLifeAreaID = project.lifeAreaID,
+                   self.selectedLifeAreaID != projectLifeAreaID {
+                    self.selectedLifeAreaID = projectLifeAreaID
+                }
                 guard let projectID = self.projects.first(where: { $0.name == projectName })?.id else {
                     self.sections = []
                     self.selectedSectionID = nil
@@ -638,6 +656,13 @@ public final class AddTaskViewModel: ObservableObject {
                         self.loadRelationshipTaskOptionsIfNeeded()
                     }
                 }
+            }
+            .store(in: &cancellables)
+
+        $selectedLifeAreaID
+            .removeDuplicates { $0 == $1 }
+            .sink { [weak self] _ in
+                self?.normalizeProjectSelectionForSelectedLifeArea()
             }
             .store(in: &cancellables)
 
@@ -1052,6 +1077,18 @@ public final class AddTaskViewModel: ObservableObject {
     private func hasNonEmptyProjectName(_ template: AddTaskPrefillTemplate) -> Bool {
         guard let projectName = template.projectName else { return false }
         return projectName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false
+    }
+
+    private func normalizeProjectSelectionForSelectedLifeArea() {
+        guard selectedProject != ProjectConstants.inboxProjectName else { return }
+        guard let selectedProjectModel = projects.first(where: { $0.name == selectedProject }) else {
+            selectedProject = ProjectConstants.inboxProjectName
+            return
+        }
+        guard let selectedLifeAreaID else { return }
+        if selectedProjectModel.lifeAreaID != selectedLifeAreaID {
+            selectedProject = ProjectConstants.inboxProjectName
+        }
     }
 
     /// Executes loadSections.

@@ -18,7 +18,11 @@ struct AddTaskTitleField: View {
     private var corner: TaskerCornerTokens { TaskerThemeManager.shared.currentTheme.tokens.corner }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: spacing.s4) {
+        VStack(alignment: .leading, spacing: spacing.s8) {
+            Text("Title")
+                .font(.tasker(.callout).weight(.semibold))
+                .foregroundStyle(Color.tasker.textPrimary)
+
             TextField(placeholder, text: $text)
                 .font(.tasker(.body))
                 .foregroundStyle(Color.tasker.textPrimary)
@@ -35,21 +39,16 @@ struct AddTaskTitleField: View {
                     RoundedRectangle(cornerRadius: corner.r2)
                         .stroke(
                             isFocused ? Color.tasker.accentRing : Color.tasker.strokeHairline,
-                            lineWidth: isFocused ? 2 : 1
+                            lineWidth: isFocused ? 1.5 : 1
                         )
                 )
                 .clipShape(RoundedRectangle(cornerRadius: corner.r2))
-                .shadow(
-                    color: isFocused ? Color.tasker.accentPrimary.opacity(0.12) : .clear,
-                    radius: isFocused ? 10 : 0,
-                    y: isFocused ? 6 : 0
-                )
                 .animation(TaskerAnimation.quick, value: isFocused)
                 .accessibilityIdentifier("addTask.titleField")
 
             Text(helperText)
-                .font(.tasker(.caption2))
-                .foregroundStyle(isFocused ? Color.tasker.textSecondary : Color.tasker.textQuaternary)
+                .font(.tasker(.meta))
+                .foregroundStyle(isFocused ? Color.tasker.textSecondary : Color.tasker.textTertiary)
                 .padding(.horizontal, spacing.s4)
                 .animation(TaskerAnimation.quick, value: isFocused)
         }

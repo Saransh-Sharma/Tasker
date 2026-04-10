@@ -25,7 +25,6 @@ struct AddTaskMetadataChip: View {
             HStack(spacing: 6) {
                 Image(systemName: icon)
                     .font(.system(size: 14, weight: .medium))
-                    .symbolEffect(.bounce, value: isActive)
 
                 Text(text)
                     .font(.tasker(.callout))
