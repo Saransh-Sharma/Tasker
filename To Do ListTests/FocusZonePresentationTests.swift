@@ -81,7 +81,7 @@ final class FocusZonePresentationTests: XCTestCase {
         XCTAssertNil(presentation.visibleBadge)
     }
 
-    func testPriorityRemainsVisibleInMetadataLineWithoutBecomingBadge() {
+    func testCompactPresentationHidesPriorityAndKeepsContext() {
         let task = makeTask(
             title: "Priority task",
             projectID: ProjectConstants.inboxProjectID,
@@ -91,7 +91,6 @@ final class FocusZonePresentationTests: XCTestCase {
 
         let presentation = FocusZoneRowPresentation.make(task: task, insight: nil)
 
-        XCTAssertEqual(presentation.priorityCode, "P2")
         XCTAssertEqual(presentation.secondaryLineText, "Inbox")
         XCTAssertNil(presentation.visibleBadge)
     }

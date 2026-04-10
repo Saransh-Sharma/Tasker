@@ -3023,9 +3023,6 @@ struct HomeBackdropForedropRootView: View {
             insightForTaskID: { taskID in
                 viewModel.evaFocusInsight(for: taskID)
             },
-            onShuffle: {
-                viewModel.shuffleFocusNow()
-            },
             onWhy: {
                 viewModel.openFocusWhy()
             },
