@@ -76,6 +76,12 @@ public struct AddHabitPrefillTemplate: Equatable {
 
 @MainActor
 public final class AddHabitViewModel: ObservableObject {
+    private struct IconSearchCacheKey: Equatable {
+        let query: String
+        let kind: AddHabitKind
+        let lifeAreaID: UUID?
+    }
+
     @Published public private(set) var lifeAreas: [LifeArea] = []
     @Published public private(set) var projects: [ProjectWithStats] = []
     @Published public private(set) var isLoading = false
@@ -103,6 +109,7 @@ public final class AddHabitViewModel: ObservableObject {
     private let iconCatalog: HabitIconCatalog
     private var cancellables = Set<AnyCancellable>()
     private var hasLoadedOnce = false
+    private var iconOptionsCache: (key: IconSearchCacheKey, options: [HabitIconOption])?
     private var pristineKind: AddHabitKind = .positive
     private var pristineTrackingMode: AddHabitTrackingMode = .dailyCheckIn
     private var pristineCadence: HabitCadenceDraft = .daily()
@@ -130,17 +137,28 @@ public final class AddHabitViewModel: ObservableObject {
     }
 
     public var availableIconOptions: [HabitIconOption] {
+        let cacheKey = IconSearchCacheKey(
+            query: iconSearchQuery.trimmingCharacters(in: .whitespacesAndNewlines).lowercased(),
+            kind: selectedKind,
+            lifeAreaID: selectedLifeAreaID
+        )
+        if let iconOptionsCache, iconOptionsCache.key == cacheKey {
+            return iconOptionsCache.options
+        }
+
         let preferredLifeAreaName: String?
         if let selectedLifeAreaID {
             preferredLifeAreaName = lifeAreas.first(where: { $0.id == selectedLifeAreaID })?.name
         } else {
             preferredLifeAreaName = nil
         }
-        return iconCatalog.search(
+        let options = iconCatalog.search(
             query: iconSearchQuery,
             habitKind: selectedKind,
             preferredLifeAreaName: preferredLifeAreaName
         )
+        iconOptionsCache = (cacheKey, options)
+        return options
     }
 
     public var selectedIconOption: HabitIconOption? {
@@ -607,6 +625,12 @@ public struct HabitEditorDraft: Equatable {
 
 @MainActor
 public final class HabitDetailViewModel: ObservableObject {
+    private struct IconSearchCacheKey: Equatable {
+        let query: String
+        let kind: AddHabitKind
+        let lifeAreaID: UUID?
+    }
+
     @Published public private(set) var row: HabitLibraryRow
     @Published public private(set) var historyMarks: [HabitDayMark]
     @Published public private(set) var lifeAreas: [LifeArea] = []
@@ -627,6 +651,7 @@ public final class HabitDetailViewModel: ObservableObject {
     private let manageProjectsUseCase: ManageProjectsUseCase
     private let iconCatalog: HabitIconCatalog
     private var hasLoadedOnce = false
+    private var iconOptionsCache: (key: IconSearchCacheKey, options: [HabitIconOption])?
 
     public init(
         row: HabitLibraryRow,
@@ -655,12 +680,23 @@ public final class HabitDetailViewModel: ObservableObject {
     }
 
     public var availableIconOptions: [HabitIconOption] {
+        let cacheKey = IconSearchCacheKey(
+            query: draft.iconSearchQuery.trimmingCharacters(in: .whitespacesAndNewlines).lowercased(),
+            kind: draft.kind,
+            lifeAreaID: draft.lifeAreaID
+        )
+        if let iconOptionsCache, iconOptionsCache.key == cacheKey {
+            return iconOptionsCache.options
+        }
+
         let preferredLifeAreaName = lifeAreas.first(where: { $0.id == draft.lifeAreaID })?.name
-        return iconCatalog.search(
+        let options = iconCatalog.search(
             query: draft.iconSearchQuery,
             habitKind: draft.kind,
             preferredLifeAreaName: preferredLifeAreaName
         )
+        iconOptionsCache = (cacheKey, options)
+        return options
     }
 
     public var selectedIconOption: HabitIconOption? {
