@@ -29,14 +29,33 @@ final class QuietTrackingUITests: BaseUITest {
         let selectedDateLabel = app.staticTexts[AccessibilityIdentifiers.Home.quietTrackingSheetSelectedDate]
         XCTAssertTrue(selectedDateLabel.waitForExistence(timeout: 3))
         let initialDateLabel = selectedDateLabel.label
+        let formatStyle = Date.FormatStyle.dateTime.weekday(.wide).month(.abbreviated).day()
+        let yesterdayLabel = (Calendar.current.date(byAdding: .day, value: -1, to: Date()) ?? Date()).formatted(formatStyle)
+        let todayLabel = Date().formatted(formatStyle)
 
         let scrollView = homePage.quietTrackingSheetScroll
         scrollView.swipeUp()
         scrollView.swipeDown()
 
-        XCTAssertTrue(waitForElementToBeHittable(homePage.quietTrackingSheetYesterdayButton, timeout: 3))
-        homePage.quietTrackingSheetYesterdayButton.tap()
-        XCTAssertNotEqual(selectedDateLabel.label, initialDateLabel, "Changing the selected day should update the visible day label")
+        let targetLabel: String
+        let targetButton: XCUIElement
+        if initialDateLabel == yesterdayLabel {
+            targetLabel = todayLabel
+            targetButton = homePage.quietTrackingSheetTodayButton
+        } else {
+            targetLabel = yesterdayLabel
+            targetButton = homePage.quietTrackingSheetYesterdayButton
+        }
+
+        XCTAssertTrue(waitForElementToBeHittable(targetButton, timeout: 3))
+        targetButton.tap()
+        let changedPredicate = NSPredicate(format: "label == %@", targetLabel)
+        let changedExpectation = XCTNSPredicateExpectation(predicate: changedPredicate, object: selectedDateLabel)
+        XCTAssertEqual(
+            XCTWaiter.wait(for: [changedExpectation], timeout: 3),
+            .completed,
+            "Changing the selected day should update the visible day label"
+        )
 
         XCTAssertTrue(waitForElementToBeHittable(homePage.quietTrackingSheetOutcomeLapseButton, timeout: 3))
         homePage.quietTrackingSheetOutcomeLapseButton.tap()

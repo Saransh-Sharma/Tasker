@@ -102,9 +102,6 @@ struct RadarChartCard: View {
         .onAppear {
             viewModel.load(referenceDate: referenceDate)
         }
-        .onDisappear {
-            viewModel.unload()
-        }
         .onChange(of: referenceDate) { _, _ in
             viewModel.load(referenceDate: referenceDate)
         }

@@ -286,6 +286,14 @@ class AddTaskPage {
             if descriptionField.waitForExistence(timeout: 1.5) {
                 return
             }
+            let refreshedDisclosure = candidate.identifier.isEmpty
+                ? detailsDisclosure
+                : app.buttons[candidate.identifier]
+            if refreshedDisclosure.waitForExistence(timeout: 1) {
+                refreshedDisclosure.tap()
+                _ = descriptionField.waitForExistence(timeout: 1.5)
+            }
+            return
         }
     }
 

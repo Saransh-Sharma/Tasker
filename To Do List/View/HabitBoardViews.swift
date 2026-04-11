@@ -600,39 +600,37 @@ private struct HabitBoardPinnedRowView: View {
     let onSelect: () -> Void
 
     var body: some View {
-        HStack(alignment: .center, spacing: layoutMetrics.iconToTextSpacing) {
-            Image(systemName: row.iconSymbolName)
-                .font(.system(size: 14, weight: .semibold))
-                .foregroundStyle(HabitEverydayPalette.familyPreview(row.colorFamily))
-                .frame(width: layoutMetrics.iconSlotWidth, height: layoutMetrics.rowHeight, alignment: .center)
+        Button(action: onSelect) {
+            HStack(alignment: .center, spacing: layoutMetrics.iconToTextSpacing) {
+                Image(systemName: row.iconSymbolName)
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(HabitEverydayPalette.familyPreview(row.colorFamily))
+                    .frame(width: layoutMetrics.iconSlotWidth, height: layoutMetrics.rowHeight, alignment: .center)
 
-            Text(row.title)
-                .font(.tasker(.caption1).weight(.medium))
-                .foregroundStyle(Color.tasker.textPrimary)
-                .lineLimit(2, reservesSpace: true)
-                .truncationMode(.tail)
-                .multilineTextAlignment(.leading)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .accessibilityIdentifier(HabitBoardAccessibilityID.pinnedTitle(row.habitID))
+                Text(row.title)
+                    .font(.tasker(.caption1).weight(.medium))
+                    .foregroundStyle(Color.tasker.textPrimary)
+                    .lineLimit(2, reservesSpace: true)
+                    .truncationMode(.tail)
+                    .multilineTextAlignment(.leading)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .accessibilityIdentifier(HabitBoardAccessibilityID.pinnedTitle(row.habitID))
+            }
+            .frame(width: layoutMetrics.leadingRailWidth, alignment: .leading)
+            .frame(minHeight: layoutMetrics.rowHeight, alignment: .center)
+            .padding(.leading, 2)
+            .padding(.trailing, layoutMetrics.railTrailingPadding)
+            .overlay(alignment: .trailing) {
+                Rectangle()
+                    .fill(Color.tasker.strokeHairline.opacity(0.16))
+                    .frame(width: 1)
+            }
+            .contentShape(Rectangle())
         }
-        .frame(width: layoutMetrics.leadingRailWidth, alignment: .leading)
-        .frame(minHeight: layoutMetrics.rowHeight, alignment: .center)
-        .padding(.leading, 2)
-        .padding(.trailing, layoutMetrics.railTrailingPadding)
-        .overlay(alignment: .trailing) {
-            Rectangle()
-                .fill(Color.tasker.strokeHairline.opacity(0.16))
-                .frame(width: 1)
-        }
-        .contentShape(Rectangle())
-        .onTapGesture(perform: onSelect)
+        .buttonStyle(.plain)
         .accessibilityIdentifier(HabitBoardAccessibilityID.row(row.habitID))
-        .accessibilityElement(children: .contain)
         .accessibilityLabel(row.title)
         .accessibilityHint("Opens habit details")
-        .accessibilityAction(named: Text("Open habit")) {
-            onSelect()
-        }
     }
 }
 
