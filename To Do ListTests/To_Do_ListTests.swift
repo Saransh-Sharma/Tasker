@@ -6657,11 +6657,56 @@ final class AddTaskViewModelLifeAreaDedupeTests: XCTestCase {
 
         let expectation = expectation(description: "life areas loaded")
         deferredRepository.completePendingFetch()
+        func assertWhenLoaded(attemptsRemaining: Int = 20) {
+            if viewModel.lifeAreas.count == 2 {
+                XCTAssertNil(viewModel.selectedLifeAreaID)
+                let normalizedNames = Set(viewModel.lifeAreas.map { LifeAreaIdentityRepair.normalizedNameKey($0.name) })
+                XCTAssertEqual(normalizedNames, Set(["general", "health"]))
+                expectation.fulfill()
+                return
+            }
+
+            guard attemptsRemaining > 0 else {
+                XCTFail("Timed out waiting for deduped life areas to load")
+                expectation.fulfill()
+                return
+            }
+
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+                assertWhenLoaded(attemptsRemaining: attemptsRemaining - 1)
+            }
+        }
+
         DispatchQueue.main.async {
-            XCTAssertEqual(viewModel.lifeAreas.count, 2)
-            XCTAssertEqual(viewModel.selectedLifeAreaID, duplicateGeneralB.id)
-            let normalizedNames = Set(viewModel.lifeAreas.map { LifeAreaIdentityRepair.normalizedNameKey($0.name) })
-            XCTAssertEqual(normalizedNames, Set(["general", "health"]))
+            assertWhenLoaded()
+        }
+
+        waitForExpectations(timeout: 1.0)
+    }
+
+    func testAddTaskViewModelStartsInAnyAreaStateAfterLifeAreasLoad() {
+        let health = LifeArea(id: UUID(), name: "Health", color: "#00AA00", icon: "heart")
+        let repository = CapturingLifeAreaRepository(storedAreas: [health])
+        let viewModel = AddTaskViewModel(
+            taskReadModelRepository: nil,
+            manageProjectsUseCase: ManageProjectsUseCase(
+                projectRepository: MockProjectRepository(projects: [Project.createInbox()])
+            ),
+            createTaskDefinitionUseCase: CreateTaskDefinitionUseCase(
+                repository: NoopTaskDefinitionRepository(),
+                taskTagLinkRepository: nil,
+                taskDependencyRepository: nil
+            ),
+            rescheduleTaskDefinitionUseCase: nil,
+            manageLifeAreasUseCase: ManageLifeAreasUseCase(repository: repository),
+            manageSectionsUseCase: nil,
+            manageTagsUseCase: nil
+        )
+
+        let expectation = expectation(description: "life areas loaded")
+        DispatchQueue.main.async {
+            XCTAssertEqual(viewModel.lifeAreas.map(\.name), ["Health"])
+            XCTAssertNil(viewModel.selectedLifeAreaID)
             expectation.fulfill()
         }
 
@@ -10310,6 +10355,7 @@ final class AddHabitViewModelValidationTests: XCTestCase {
         await waitUntil { viewModel.isLoading == false }
 
         let explicitIcon = "book.fill"
+        viewModel.selectedColorHex = ""
         viewModel.applyPrefill(
             AddHabitPrefillTemplate(
                 title: "Read",
@@ -10320,6 +10366,29 @@ final class AddHabitViewModelValidationTests: XCTestCase {
 
         XCTAssertEqual(viewModel.selectedIconSymbolName, explicitIcon)
         XCTAssertNotNil(TaskerHexColor.normalized(viewModel.selectedColorHex))
+    }
+
+    func testLoadIfNeededBackfillsLifeAreaFromPrefilledProjectSelection() async {
+        let lifeAreaID = UUID()
+        let project = Project(
+            id: UUID(),
+            lifeAreaID: lifeAreaID,
+            name: "Deep Work",
+            createdDate: Date(),
+            modifiedDate: Date(),
+            isArchived: false
+        )
+        let (viewModel, _) = makeViewModel(
+            lifeAreas: [LifeArea(id: lifeAreaID, name: "Work", createdAt: Date(), updatedAt: Date())],
+            projects: [project]
+        )
+        viewModel.selectedProjectID = project.id
+
+        viewModel.loadIfNeeded()
+        await waitUntil { viewModel.isLoading == false }
+
+        XCTAssertEqual(viewModel.selectedProjectID, project.id)
+        XCTAssertEqual(viewModel.selectedLifeAreaID, lifeAreaID)
     }
 
     func testCreateHabitRandomizesMissingAppearance() async {
@@ -10482,7 +10551,9 @@ final class AddHabitViewModelValidationTests: XCTestCase {
     }
 
     private func makeViewModel(
-        deferCreateCompletion: Bool = false
+        deferCreateCompletion: Bool = false,
+        lifeAreas: [LifeArea]? = nil,
+        projects: [Project] = []
     ) -> (viewModel: AddHabitViewModel, habitRepository: InMemoryHabitRepository) {
         let anchorDate = Date(timeIntervalSince1970: 1_711_036_800)
         let lifeAreaID = UUID()
@@ -10506,20 +10577,21 @@ final class AddHabitViewModelValidationTests: XCTestCase {
             )
         )
         let lifeAreaRepository = CapturingLifeAreaRepository(
-            storedAreas: [LifeArea(id: lifeAreaID, name: "Health", createdAt: anchorDate, updatedAt: anchorDate)]
+            storedAreas: lifeAreas ?? [LifeArea(id: lifeAreaID, name: "Health", createdAt: anchorDate, updatedAt: anchorDate)]
         )
+        let projectRepository = MockProjectRepository(projects: projects)
 
         return (
             AddHabitViewModel(
                 createHabitUseCase: CreateHabitUseCase(
                     habitRepository: habitRepository,
                     lifeAreaRepository: lifeAreaRepository,
-                    projectRepository: MockProjectRepository(projects: []),
+                    projectRepository: projectRepository,
                     scheduleRepository: scheduleRepository,
                     maintainHabitRuntimeUseCase: maintainHabitRuntimeUseCase
                 ),
                 manageLifeAreasUseCase: ManageLifeAreasUseCase(repository: lifeAreaRepository),
-                manageProjectsUseCase: ManageProjectsUseCase(projectRepository: MockProjectRepository(projects: []))
+                manageProjectsUseCase: ManageProjectsUseCase(projectRepository: projectRepository)
             ),
             habitRepository
         )

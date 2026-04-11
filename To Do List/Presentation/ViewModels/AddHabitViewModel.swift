@@ -235,7 +235,10 @@ public final class AddHabitViewModel: ObservableObject {
             self.isLoading = false
             self.lifeAreas = loadedLifeAreas
             self.projects = loadedProjects
-            if self.selectedLifeAreaID == nil {
+            if let selectedProjectID = self.selectedProjectID,
+               let projectLifeAreaID = loadedProjects.first(where: { $0.project.id == selectedProjectID })?.project.lifeAreaID {
+                self.selectedLifeAreaID = projectLifeAreaID
+            } else if self.selectedLifeAreaID == nil {
                 self.selectedLifeAreaID = loadedLifeAreas.first?.id
             }
             if let loadedError {

@@ -107,7 +107,10 @@ struct AddHabitForedropView: View {
     }
 
     private var selectedComposerAccentTitle: String {
-        habitAccentPresetMatch(for: viewModel.selectedColorHex)?.title ?? HabitColorFamily.family(
+        habitAccentPresetMatch(
+            for: viewModel.selectedColorHex,
+            fallback: viewModel.selectedKind == .positive ? .green : .coral
+        )?.title ?? HabitColorFamily.family(
             for: viewModel.selectedColorHex,
             fallback: viewModel.selectedKind == .positive ? .green : .coral
         ).title
@@ -1127,14 +1130,17 @@ struct HabitDetailSheetView: View {
 
                     HabitAccentPaletteField(
                         selectedHex: $viewModel.draft.colorHex,
-                        selectedTitle: habitAccentPresetMatch(for: viewModel.draft.colorHex)?.title ?? "Custom",
+                        selectedTitle: habitAccentPresetMatch(
+                            for: viewModel.draft.colorHex,
+                            fallback: viewModel.draft.kind == .positive ? .green : .coral
+                        )?.title ?? "Custom",
                         previewColor: TaskerHexColor.color(
                             viewModel.draft.colorHex.nilIfBlank,
-                            fallback: viewModel.row.kind == .positive ? Color.tasker.statusSuccess : Color.tasker.statusWarning
+                            fallback: viewModel.draft.kind == .positive ? Color.tasker.statusSuccess : Color.tasker.statusWarning
                         ),
                         previewFamily: HabitColorFamily.family(
                             for: viewModel.draft.colorHex,
-                            fallback: viewModel.row.kind == .positive ? .green : .coral
+                            fallback: viewModel.draft.kind == .positive ? .green : .coral
                         )
                     )
 
@@ -1395,8 +1401,11 @@ private struct HabitAccentPreset: Identifiable {
 
 private let habitAccentPresets: [HabitAccentPreset] = HabitColorFamily.allCases.map(HabitAccentPreset.init)
 
-private func habitAccentPresetMatch(for hex: String?) -> HabitAccentPreset? {
-    let family = HabitColorFamily.family(for: hex, fallback: .green)
+private func habitAccentPresetMatch(
+    for hex: String?,
+    fallback: HabitColorFamily
+) -> HabitAccentPreset? {
+    let family = HabitColorFamily.family(for: hex, fallback: fallback)
     return habitAccentPresets.first { $0.family == family }
 }
 
