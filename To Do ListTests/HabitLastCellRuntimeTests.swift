@@ -23,7 +23,7 @@ final class HabitLastCellRuntimeTests: XCTestCase {
         let useCase = ResetHabitOccurrenceUseCase(
             habitRepository: habitRepository,
             occurrenceRepository: occurrenceRepository,
-            maintainHabitRuntimeUseCase: Self.makeMaintainHabitRuntimeUseCase(
+            recomputeHabitStreaksUseCase: RecomputeHabitStreaksUseCase(
                 habitRepository: habitRepository,
                 occurrenceRepository: occurrenceRepository
             ),
@@ -74,7 +74,7 @@ final class HabitLastCellRuntimeTests: XCTestCase {
         let useCase = ResetHabitOccurrenceUseCase(
             habitRepository: habitRepository,
             occurrenceRepository: occurrenceRepository,
-            maintainHabitRuntimeUseCase: Self.makeMaintainHabitRuntimeUseCase(
+            recomputeHabitStreaksUseCase: RecomputeHabitStreaksUseCase(
                 habitRepository: habitRepository,
                 occurrenceRepository: occurrenceRepository
             ),

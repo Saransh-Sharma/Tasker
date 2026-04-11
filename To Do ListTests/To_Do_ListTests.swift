@@ -7565,7 +7565,6 @@ final class HabitRuntimeRemediationTests: XCTestCase {
                 scheduleRepository: scheduleRepository,
                 occurrenceRepository: occurrenceRepository,
                 scheduleEngine: schedulingEngine,
-                maintainHabitRuntimeUseCase: maintainHabitRuntimeUseCase,
                 recomputeHabitStreaksUseCase: recomputeHabitStreaksUseCase,
                 gamificationEngine: gamificationEngine
             )
@@ -10080,22 +10079,12 @@ final class HabitRuntimeMaintenanceTests: XCTestCase {
             occurrenceRepository: occurrenceRepository
         )
         let engine = RecordingSchedulingEngine(occurrenceRepository: occurrenceRepository)
-        let maintain = MaintainHabitRuntimeUseCase(
-            syncHabitScheduleUseCase: SyncHabitScheduleUseCase(
-                habitRepository: habitRepository,
-                scheduleRepository: scheduleRepository,
-                scheduleEngine: engine,
-                occurrenceRepository: occurrenceRepository,
-                recomputeHabitStreaksUseCase: recompute
-            )
-        )
         let gamificationRepository = InMemoryGamificationEngineRepository()
         let useCase = ResolveHabitOccurrenceUseCase(
             habitRepository: habitRepository,
             scheduleRepository: scheduleRepository,
             occurrenceRepository: occurrenceRepository,
             scheduleEngine: engine,
-            maintainHabitRuntimeUseCase: maintain,
             recomputeHabitStreaksUseCase: recompute,
             gamificationEngine: GamificationEngine(repository: gamificationRepository)
         )

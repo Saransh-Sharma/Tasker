@@ -1251,11 +1251,255 @@ final class HomeViewModelPersistenceTests: XCTestCase {
         defaults.removePersistentDomain(forName: suiteName)
     }
 
+    func testHabitLastCellActionAppliesOptimisticStateImmediately() {
+        let harness = makeHabitMutationHarness()
+        waitForMainQueueFlush()
+
+        let loadedRows = harness.viewModel.habitHomeSectionState.primaryRows
+            + harness.viewModel.habitHomeSectionState.recoveryRows
+        guard let row = loadedRows.first else {
+            return XCTFail("Expected habit row after initial load")
+        }
+
+        harness.schedulingEngine.deferResolveCompletion = true
+        harness.viewModel.performHabitLastCellAction(row, source: "test")
+
+        XCTAssertEqual(harness.viewModel.habitHomeSectionState.primaryRows.first?.state, .completedToday)
+    }
+
+    func testHabitMutationRollsBackOptimisticStateOnFailure() {
+        let harness = makeHabitMutationHarness()
+        waitForMainQueueFlush()
+
+        guard let row = harness.viewModel.habitHomeSectionState.primaryRows.first else {
+            return XCTFail("Expected habit row after initial load")
+        }
+
+        harness.schedulingEngine.deferResolveCompletion = true
+        harness.viewModel.performHabitLastCellAction(row, source: "test")
+        XCTAssertEqual(harness.viewModel.habitHomeSectionState.primaryRows.first?.state, .completedToday)
+
+        harness.schedulingEngine.completePendingResolve(with: .failure(NSError(domain: "HabitMutation", code: 1)))
+        waitForMainQueueFlush()
+
+        XCTAssertEqual(harness.viewModel.habitHomeSectionState.primaryRows.first?.state, .due)
+    }
+
+    func testHabitMutationTriggersSingleHabitScopedReload() {
+        let harness = makeHabitMutationHarness()
+        waitForMainQueueFlush()
+
+        guard let row = harness.viewModel.habitHomeSectionState.primaryRows.first else {
+            return XCTFail("Expected habit row after initial load")
+        }
+
+        let initialAgendaFetches = harness.habitReadRepository.fetchAgendaCallCount
+        let initialTargetedAgendaFetches = harness.habitReadRepository.fetchAgendaHabitCallCount
+        let initialBroadLibraryFetches = harness.habitReadRepository.fetchHabitLibraryCallCount
+        let initialFilteredLibraryFetches = harness.habitReadRepository.fetchFilteredHabitLibraryCallCount
+
+        harness.schedulingEngine.deferResolveCompletion = true
+        harness.viewModel.performHabitLastCellAction(row, source: "test")
+        harness.schedulingEngine.completePendingResolve(with: .success(()))
+        waitForMainQueueFlush(seconds: 0.45)
+
+        XCTAssertEqual(harness.habitReadRepository.fetchAgendaCallCount, initialAgendaFetches)
+        XCTAssertEqual(harness.habitReadRepository.fetchAgendaHabitCallCount, initialTargetedAgendaFetches + 1)
+        XCTAssertEqual(harness.habitReadRepository.fetchHabitLibraryCallCount, initialBroadLibraryFetches)
+        XCTAssertEqual(
+            harness.habitReadRepository.fetchFilteredHabitLibraryCallCount,
+            initialFilteredLibraryFetches + 1
+        )
+    }
+
+    func testHabitMutationDoesNotTriggerFullTaskProjectionReload() {
+        let harness = makeHabitMutationHarness()
+        waitForMainQueueFlush()
+
+        guard let row = harness.viewModel.habitHomeSectionState.primaryRows.first else {
+            return XCTFail("Expected habit row after initial load")
+        }
+
+        let initialProjectionFetches = harness.taskReadRepository.fetchHomeProjectionCallCount
+
+        harness.schedulingEngine.deferResolveCompletion = true
+        harness.viewModel.performHabitLastCellAction(row, source: "test")
+        harness.schedulingEngine.completePendingResolve(with: .success(()))
+        waitForMainQueueFlush(seconds: 0.45)
+
+        XCTAssertEqual(harness.taskReadRepository.fetchHomeProjectionCallCount, initialProjectionFetches)
+    }
+
+    func testHabitMutationDoesNotChangeTaskBackedFocusNow() {
+        let now = Date()
+        let harness = makeHabitMutationHarness(
+            tasks: [
+                TaskDefinition(
+                    title: "Deep Work",
+                    priority: .high,
+                    dueDate: now
+                )
+            ]
+        )
+        waitForMainQueueFlush()
+
+        guard let row = harness.viewModel.habitHomeSectionState.primaryRows.first else {
+            return XCTFail("Expected habit row after initial load")
+        }
+
+        let initialFocusRows = harness.viewModel.focusNowSectionState.rows
+        XCTAssertFalse(initialFocusRows.isEmpty)
+        XCTAssertTrue(initialFocusRows.allSatisfy { !$0.isHabit })
+
+        harness.schedulingEngine.deferResolveCompletion = true
+        harness.viewModel.performHabitLastCellAction(row, source: "test")
+        XCTAssertEqual(harness.viewModel.focusNowSectionState.rows, initialFocusRows)
+
+        harness.schedulingEngine.completePendingResolve(with: .success(()))
+        waitForMainQueueFlush(seconds: 0.45)
+
+        XCTAssertEqual(harness.viewModel.focusNowSectionState.rows, initialFocusRows)
+    }
+
     private func rescueTailState(from viewModel: HomeViewModel) -> RescueTailState? {
         viewModel.agendaTailItems.compactMap { item in
             guard case .rescue(let state) = item else { return nil }
             return state
         }.first
+    }
+
+    private func makeHabitMutationHarness(
+        tasks: [TaskDefinition] = [],
+        habitID: UUID = UUID(),
+        occurrenceID: UUID = UUID(),
+        agendaSummaries: [HabitOccurrenceSummary]? = nil
+    ) -> HomeHabitMutationHarness {
+        let now = Date()
+        let lifeAreaID = UUID()
+        let last14Days = HabitRuntimeSupport.dayMarks(from: [], endingOn: now, dayCount: 30)
+
+        let taskReadRepository = HomeHabitTaskReadRepositorySpy(tasks: tasks)
+        let projectRepository = HomeViewModelMockProjectRepository(projects: [Project.createInbox()])
+        let habitRepository = HomeHabitRepositoryStub(
+            habits: [
+                HabitDefinitionRecord(
+                    id: habitID,
+                    lifeAreaID: lifeAreaID,
+                    title: "Hydrate",
+                    habitType: "positive_daily",
+                    kindRaw: HabitKind.positive.rawValue,
+                    trackingModeRaw: HabitTrackingMode.dailyCheckIn.rawValue,
+                    iconSymbolName: "drop.fill",
+                    createdAt: now,
+                    updatedAt: now
+                )
+            ]
+        )
+        let occurrenceRepository = HomeHabitOccurrenceRepositoryStub(
+            occurrences: [
+                OccurrenceDefinition(
+                    id: occurrenceID,
+                    occurrenceKey: "habit-\(habitID.uuidString)",
+                    scheduleTemplateID: UUID(),
+                    sourceType: .habit,
+                    sourceID: habitID,
+                    scheduledAt: now,
+                    dueAt: now,
+                    state: .pending,
+                    isGenerated: true,
+                    generationWindow: "test",
+                    createdAt: now,
+                    updatedAt: now
+                )
+            ]
+        )
+        let schedulingEngine = HomeHabitDeferredResolveSchedulingEngine()
+        let resolvedAgendaSummaries = agendaSummaries ?? [
+            HabitOccurrenceSummary(
+                habitID: habitID,
+                occurrenceID: occurrenceID,
+                title: "Hydrate",
+                kind: .positive,
+                trackingMode: .dailyCheckIn,
+                lifeAreaID: lifeAreaID,
+                lifeAreaName: "Health",
+                icon: HabitIconMetadata(symbolName: "drop.fill", categoryKey: "health"),
+                cadence: .daily(),
+                dueAt: now,
+                state: .pending,
+                currentStreak: 0,
+                bestStreak: 3,
+                riskState: .stable,
+                last14Days: last14Days
+            )
+        ]
+        let libraryRows = resolvedAgendaSummaries.map { summary in
+            HabitLibraryRow(
+                habitID: summary.habitID,
+                title: summary.title,
+                kind: summary.kind,
+                trackingMode: summary.trackingMode,
+                cadence: summary.cadence,
+                lifeAreaID: summary.lifeAreaID,
+                lifeAreaName: summary.lifeAreaName,
+                projectID: summary.projectID,
+                projectName: summary.projectName,
+                icon: summary.icon,
+                colorHex: summary.colorHex,
+                isPaused: false,
+                isArchived: false,
+                currentStreak: summary.currentStreak,
+                bestStreak: summary.bestStreak,
+                last14Days: summary.last14Days,
+                nextDueAt: summary.dueAt,
+                lastCompletedAt: nil
+            )
+        }
+        let habitReadRepository = HomeHabitRuntimeReadRepositorySpy(
+            agendaSummaries: resolvedAgendaSummaries,
+            historyWindows: resolvedAgendaSummaries.map {
+                HabitHistoryWindow(habitID: $0.habitID, marks: $0.last14Days)
+            },
+            libraryRows: libraryRows
+        )
+        schedulingEngine.onResolve = { occurrenceID, resolution in
+            habitReadRepository.applyResolution(
+                occurrenceID: occurrenceID,
+                resolution: resolution
+            )
+        }
+        occurrenceRepository.onSave = { occurrences in
+            habitReadRepository.applySavedOccurrences(occurrences)
+        }
+
+        let coordinator = V3TestHarness.makeCoordinator(
+            taskDefinitionRepository: InMemoryTaskDefinitionRepositoryStub(seed: []),
+            taskReadModelRepository: taskReadRepository,
+            projectRepository: projectRepository,
+            habitRepository: habitRepository,
+            habitRuntimeReadRepository: habitReadRepository,
+            scheduleRepository: HomeHabitScheduleRepositoryStub(),
+            scheduleEngine: schedulingEngine,
+            occurrenceRepository: occurrenceRepository
+        )
+
+        let suiteName = "HomeViewModelPersistenceTests.HabitMutation.\(UUID().uuidString)"
+        guard let defaults = UserDefaults(suiteName: suiteName) else {
+            fatalError("Failed to create test UserDefaults suite")
+        }
+        defaults.removePersistentDomain(forName: suiteName)
+
+        let viewModel = HomeViewModel(
+            useCaseCoordinator: coordinator,
+            userDefaults: defaults
+        )
+
+        return HomeHabitMutationHarness(
+            viewModel: viewModel,
+            taskReadRepository: taskReadRepository,
+            habitReadRepository: habitReadRepository,
+            schedulingEngine: schedulingEngine
+        )
     }
 
     private func waitForMainQueueFlush() {
@@ -1264,6 +1508,14 @@ final class HomeViewModelPersistenceTests: XCTestCase {
             expectation.fulfill()
         }
         wait(for: [expectation], timeout: 1.0)
+    }
+
+    private func waitForMainQueueFlush(seconds: TimeInterval) {
+        let expectation = expectation(description: "MainQueueFlushCustom")
+        DispatchQueue.main.asyncAfter(deadline: .now() + seconds) {
+            expectation.fulfill()
+        }
+        wait(for: [expectation], timeout: seconds + 1.0)
     }
 
     private func makeTask(
@@ -1447,4 +1699,353 @@ private final class HomeViewModelMockTaskRepository: LegacyTaskRepositoryShim {
     func fetchTasksWithoutProject(completion: @escaping (Result<[Task], Error>) -> Void) { completion(.success([])) }
     func assignTasksToProject(taskIDs: [UUID], projectID: UUID, completion: @escaping (Result<Void, Error>) -> Void) { completion(.success(())) }
     func fetchInboxTasks(completion: @escaping (Result<[Task], Error>) -> Void) { completion(.success(tasks.filter { $0.projectID == ProjectConstants.inboxProjectID })) }
+}
+
+private struct HomeHabitMutationHarness {
+    let viewModel: HomeViewModel
+    let taskReadRepository: HomeHabitTaskReadRepositorySpy
+    let habitReadRepository: HomeHabitRuntimeReadRepositorySpy
+    let schedulingEngine: HomeHabitDeferredResolveSchedulingEngine
+}
+
+private final class HomeHabitDeferredResolveSchedulingEngine: SchedulingEngineProtocol {
+    var deferResolveCompletion = false
+    var onResolve: ((UUID, OccurrenceResolutionType) -> Void)?
+    private var pendingResolveCompletions: [(id: UUID, resolution: OccurrenceResolutionType, completion: (Result<Void, Error>) -> Void)] = []
+
+    func generateOccurrences(
+        windowStart: Date,
+        windowEnd: Date,
+        sourceFilter: ScheduleSourceType?,
+        completion: @escaping (Result<[OccurrenceDefinition], Error>) -> Void
+    ) {
+        completion(.success([]))
+    }
+
+    func resolveOccurrence(
+        id: UUID,
+        resolution: OccurrenceResolutionType,
+        actor: OccurrenceActor,
+        completion: @escaping (Result<Void, Error>) -> Void
+    ) {
+        if deferResolveCompletion {
+            pendingResolveCompletions.append((id: id, resolution: resolution, completion: completion))
+            return
+        }
+        onResolve?(id, resolution)
+        completion(.success(()))
+    }
+
+    func rebuildFutureOccurrences(
+        templateID: UUID,
+        effectiveFrom: Date,
+        completion: @escaping (Result<Void, Error>) -> Void
+    ) {
+        completion(.success(()))
+    }
+
+    func applyScheduleException(
+        templateID: UUID,
+        occurrenceKey: String,
+        action: ScheduleExceptionAction,
+        completion: @escaping (Result<Void, Error>) -> Void
+    ) {
+        completion(.success(()))
+    }
+
+    func completePendingResolve(with result: Result<Void, Error>) {
+        let completions = pendingResolveCompletions
+        pendingResolveCompletions.removeAll()
+        completions.forEach { pending in
+            if case .success = result {
+                onResolve?(pending.id, pending.resolution)
+            }
+            pending.completion(result)
+        }
+    }
+}
+
+private final class HomeHabitRepositoryStub: HabitRepositoryProtocol {
+    private let habits: [HabitDefinitionRecord]
+
+    init(habits: [HabitDefinitionRecord]) {
+        self.habits = habits
+    }
+
+    func fetchAll(completion: @escaping (Result<[HabitDefinitionRecord], Error>) -> Void) {
+        completion(.success(habits))
+    }
+
+    func create(_ habit: HabitDefinitionRecord, completion: @escaping (Result<HabitDefinitionRecord, Error>) -> Void) {
+        completion(.success(habit))
+    }
+
+    func update(_ habit: HabitDefinitionRecord, completion: @escaping (Result<HabitDefinitionRecord, Error>) -> Void) {
+        completion(.success(habit))
+    }
+
+    func delete(id: UUID, completion: @escaping (Result<Void, Error>) -> Void) {
+        completion(.success(()))
+    }
+}
+
+private final class HomeHabitScheduleRepositoryStub: ScheduleRepositoryProtocol {
+    func fetchTemplates(completion: @escaping (Result<[ScheduleTemplateDefinition], Error>) -> Void) { completion(.success([])) }
+    func fetchRules(templateID: UUID, completion: @escaping (Result<[ScheduleRuleDefinition], Error>) -> Void) { completion(.success([])) }
+    func saveTemplate(_ template: ScheduleTemplateDefinition, completion: @escaping (Result<ScheduleTemplateDefinition, Error>) -> Void) { completion(.success(template)) }
+    func deleteTemplate(id: UUID, completion: @escaping (Result<Void, Error>) -> Void) { completion(.success(())) }
+    func replaceRules(templateID: UUID, rules: [ScheduleRuleDefinition], completion: @escaping (Result<[ScheduleRuleDefinition], Error>) -> Void) { completion(.success(rules)) }
+    func fetchExceptions(templateID: UUID, completion: @escaping (Result<[ScheduleExceptionDefinition], Error>) -> Void) { completion(.success([])) }
+    func saveException(_ exception: ScheduleExceptionDefinition, completion: @escaping (Result<ScheduleExceptionDefinition, Error>) -> Void) { completion(.success(exception)) }
+}
+
+private final class HomeHabitOccurrenceRepositoryStub: OccurrenceRepositoryProtocol {
+    var onSave: (([OccurrenceDefinition]) -> Void)?
+    private(set) var occurrences: [OccurrenceDefinition]
+
+    init(occurrences: [OccurrenceDefinition]) {
+        self.occurrences = occurrences
+    }
+
+    func fetchInRange(start: Date, end: Date, completion: @escaping (Result<[OccurrenceDefinition], Error>) -> Void) {
+        completion(.success(occurrences))
+    }
+
+    func saveOccurrences(_ occurrences: [OccurrenceDefinition], completion: @escaping (Result<Void, Error>) -> Void) {
+        for occurrence in occurrences {
+            if let index = self.occurrences.firstIndex(where: { $0.id == occurrence.id }) {
+                self.occurrences[index] = occurrence
+            } else {
+                self.occurrences.append(occurrence)
+            }
+        }
+        onSave?(occurrences)
+        completion(.success(()))
+    }
+
+    func resolve(_ resolution: OccurrenceResolutionDefinition, completion: @escaping (Result<Void, Error>) -> Void) {
+        completion(.success(()))
+    }
+
+    func deleteOccurrences(ids: [UUID], completion: @escaping (Result<Void, Error>) -> Void) {
+        completion(.success(()))
+    }
+}
+
+private final class HomeHabitTaskReadRepositorySpy: TaskReadModelRepositoryProtocol {
+    let tasks: [TaskDefinition]
+    private(set) var fetchHomeProjectionCallCount = 0
+
+    init(tasks: [TaskDefinition]) {
+        self.tasks = tasks
+    }
+
+    func fetchTasks(query: TaskReadQuery, completion: @escaping (Result<TaskDefinitionSliceResult, Error>) -> Void) {
+        completion(.success(TaskDefinitionSliceResult(tasks: tasks, totalCount: tasks.count, limit: max(query.limit, 1), offset: query.offset)))
+    }
+
+    func searchTasks(query: TaskSearchQuery, completion: @escaping (Result<TaskDefinitionSliceResult, Error>) -> Void) {
+        completion(.success(TaskDefinitionSliceResult(tasks: tasks, totalCount: tasks.count, limit: max(query.limit, 1), offset: query.offset)))
+    }
+
+    func searchTasks(query: TaskRepositorySearchQuery, completion: @escaping (Result<TaskDefinitionSliceResult, Error>) -> Void) {
+        completion(.success(TaskDefinitionSliceResult(tasks: tasks, totalCount: tasks.count, limit: max(query.limit, 1), offset: query.offset)))
+    }
+
+    func fetchHomeProjection(query: HomeProjectionQuery, completion: @escaping (Result<TaskDefinitionSliceResult, Error>) -> Void) {
+        fetchHomeProjectionCallCount += 1
+        completion(.success(TaskDefinitionSliceResult(tasks: tasks, totalCount: tasks.count, limit: max(query.limit, 1), offset: query.offset)))
+    }
+
+    func fetchInsightsTodayProjection(referenceDate: Date, completion: @escaping (Result<InsightsTodayTaskProjection, Error>) -> Void) {
+        completion(.success(InsightsTodayTaskProjection(dueWindowTasks: tasks, recentTasks: tasks)))
+    }
+
+    func fetchInsightsWeekProjection(referenceDate: Date, completion: @escaping (Result<InsightsWeekTaskProjection, Error>) -> Void) {
+        completion(.success(InsightsWeekTaskProjection(recentTasks: tasks, dueWindowTasks: tasks, projectScores: [:])))
+    }
+
+    func fetchWeekChartProjection(referenceDate: Date, completion: @escaping (Result<WeekChartProjection, Error>) -> Void) {
+        completion(.success(WeekChartProjection(weekStart: referenceDate, dayScores: [:], projectScores: [:])))
+    }
+
+    func fetchProjectTaskCounts(includeCompleted: Bool, completion: @escaping (Result<[UUID: Int], Error>) -> Void) {
+        completion(.success([:]))
+    }
+
+    func fetchProjectCompletionScoreTotals(from startDate: Date, to endDate: Date, completion: @escaping (Result<[UUID: Int], Error>) -> Void) {
+        completion(.success([:]))
+    }
+}
+
+private final class HomeHabitRuntimeReadRepositorySpy: HabitRuntimeReadRepositoryProtocol {
+    private var agendaSummaries: [HabitOccurrenceSummary]
+    private let historyWindows: [HabitHistoryWindow]
+    private let libraryRows: [HabitLibraryRow]
+    private(set) var fetchAgendaCallCount = 0
+    private(set) var fetchAgendaHabitCallCount = 0
+    private(set) var fetchHistoryCallCount = 0
+    private(set) var fetchHabitLibraryCallCount = 0
+    private(set) var fetchFilteredHabitLibraryCallCount = 0
+
+    init(
+        agendaSummaries: [HabitOccurrenceSummary],
+        historyWindows: [HabitHistoryWindow] = [],
+        libraryRows: [HabitLibraryRow] = []
+    ) {
+        self.agendaSummaries = agendaSummaries
+        self.historyWindows = historyWindows
+        self.libraryRows = libraryRows
+    }
+
+    func fetchAgendaHabits(
+        for date: Date,
+        completion: @escaping (Result<[HabitOccurrenceSummary], Error>) -> Void
+    ) {
+        fetchAgendaCallCount += 1
+        completion(.success(agendaSummaries))
+    }
+
+    func fetchAgendaHabit(
+        habitID: UUID,
+        for date: Date,
+        completion: @escaping (Result<HabitOccurrenceSummary?, Error>) -> Void
+    ) {
+        fetchAgendaHabitCallCount += 1
+        completion(.success(agendaSummaries.first(where: { $0.habitID == habitID })))
+    }
+
+    func fetchHistory(
+        habitIDs: [UUID],
+        endingOn date: Date,
+        dayCount: Int,
+        completion: @escaping (Result<[HabitHistoryWindow], Error>) -> Void
+    ) {
+        fetchHistoryCallCount += 1
+        let requestedIDs = Set(habitIDs)
+        completion(.success(historyWindows.filter { requestedIDs.contains($0.habitID) }))
+    }
+
+    func fetchSignals(
+        start: Date,
+        end: Date,
+        completion: @escaping (Result<[HabitOccurrenceSummary], Error>) -> Void
+    ) {
+        completion(.success([]))
+    }
+
+    func fetchHabitLibrary(
+        includeArchived: Bool,
+        completion: @escaping (Result<[HabitLibraryRow], Error>) -> Void
+    ) {
+        fetchHabitLibraryCallCount += 1
+        completion(.success(libraryRows))
+    }
+
+    func fetchHabitLibrary(
+        habitIDs: [UUID]?,
+        includeArchived: Bool,
+        completion: @escaping (Result<[HabitLibraryRow], Error>) -> Void
+    ) {
+        fetchFilteredHabitLibraryCallCount += 1
+        let requestedIDs = habitIDs.map(Set.init)
+        completion(.success(
+            libraryRows.filter { row in
+                guard let requestedIDs else { return true }
+                return requestedIDs.contains(row.habitID)
+            }
+        ))
+    }
+
+    func applyResolution(
+        occurrenceID: UUID,
+        resolution: OccurrenceResolutionType
+    ) {
+        guard let index = agendaSummaries.firstIndex(where: { $0.occurrenceID == occurrenceID }) else {
+            return
+        }
+        var summary = agendaSummaries[index]
+        summary.state = mapOccurrenceState(from: resolution)
+        summary.riskState = resolution == .lapsed ? .broken : .stable
+        summary.last14Days = updatingMarks(summary.last14Days, for: summary.dueAt ?? Date(), state: mapDayState(from: resolution))
+        agendaSummaries[index] = summary
+    }
+
+    func applySavedOccurrences(_ occurrences: [OccurrenceDefinition]) {
+        for occurrence in occurrences {
+            guard let index = agendaSummaries.firstIndex(where: { $0.occurrenceID == occurrence.id }) else {
+                continue
+            }
+            var summary = agendaSummaries[index]
+            summary.state = occurrence.state
+            summary.riskState = occurrence.state == .failed ? .broken : .stable
+            summary.last14Days = updatingMarks(
+                summary.last14Days,
+                for: occurrence.dueAt ?? occurrence.scheduledAt,
+                state: mapDayState(from: occurrence.state)
+            )
+            agendaSummaries[index] = summary
+        }
+    }
+
+    private func updatingMarks(
+        _ marks: [HabitDayMark],
+        for date: Date,
+        state: HabitDayState
+    ) -> [HabitDayMark] {
+        var updatedMarks = marks
+        let calendar = Calendar.current
+        if let index = updatedMarks.firstIndex(where: { calendar.isDate($0.date, inSameDayAs: date) }) {
+            updatedMarks[index] = HabitDayMark(date: updatedMarks[index].date, state: state)
+        } else {
+            updatedMarks.append(HabitDayMark(date: calendar.startOfDay(for: date), state: state))
+            updatedMarks.sort { $0.date < $1.date }
+        }
+        return updatedMarks
+    }
+
+    private func mapOccurrenceState(from resolution: OccurrenceResolutionType) -> OccurrenceState {
+        switch resolution {
+        case .completed:
+            return .completed
+        case .skipped:
+            return .skipped
+        case .missed:
+            return .missed
+        case .deferred:
+            return .pending
+        case .lapsed:
+            return .failed
+        }
+    }
+
+    private func mapDayState(from resolution: OccurrenceResolutionType) -> HabitDayState {
+        switch resolution {
+        case .completed:
+            return .success
+        case .skipped:
+            return .skipped
+        case .missed:
+            return .failure
+        case .deferred:
+            return .none
+        case .lapsed:
+            return .failure
+        }
+    }
+
+    private func mapDayState(from occurrenceState: OccurrenceState) -> HabitDayState {
+        switch occurrenceState {
+        case .completed:
+            return .success
+        case .skipped:
+            return .skipped
+        case .missed:
+            return .failure
+        case .failed:
+            return .failure
+        case .pending:
+            return .none
+        }
+    }
 }
