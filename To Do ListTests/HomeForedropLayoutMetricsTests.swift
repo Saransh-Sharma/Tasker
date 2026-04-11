@@ -184,6 +184,7 @@ final class HomeForedropLayoutMetricsTests: XCTestCase {
         let queries = await MainActor.run { engine.searchQueries }
         XCTAssertEqual(queries.count, 2, "A data mutation should force one additional refresh")
     }
+
 }
 
 @MainActor

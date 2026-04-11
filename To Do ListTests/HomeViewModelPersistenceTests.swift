@@ -1267,6 +1267,34 @@ final class HomeViewModelPersistenceTests: XCTestCase {
         XCTAssertEqual(harness.viewModel.habitHomeSectionState.primaryRows.first?.state, .completedToday)
     }
 
+    func testHabitLastCellActionUpdatesVisibleStreakAndTrailingCellImmediately() {
+        let harness = makeHabitMutationHarness()
+        waitForMainQueueFlush()
+
+        guard let row = harness.viewModel.habitHomeSectionState.primaryRows.first else {
+            return XCTFail("Expected habit row after initial load")
+        }
+
+        harness.schedulingEngine.deferResolveCompletion = true
+        harness.viewModel.performHabitLastCellAction(row, source: "test")
+
+        guard let updatedRow = harness.viewModel.habitHomeSectionState.primaryRows.first else {
+            return XCTFail("Expected updated habit row")
+        }
+
+        XCTAssertEqual(updatedRow.currentStreak, 1)
+        if case .done = updatedRow.boardCellsCompact.last?.state {
+            XCTAssertTrue(true)
+        } else {
+            XCTFail("Expected compact trailing cell to render as done immediately")
+        }
+        if case .done = updatedRow.boardCellsExpanded.last?.state {
+            XCTAssertTrue(true)
+        } else {
+            XCTFail("Expected expanded trailing cell to render as done immediately")
+        }
+    }
+
     func testHabitMutationRollsBackOptimisticStateOnFailure() {
         let harness = makeHabitMutationHarness()
         waitForMainQueueFlush()
@@ -1361,6 +1389,65 @@ final class HomeViewModelPersistenceTests: XCTestCase {
         XCTAssertEqual(harness.viewModel.focusNowSectionState.rows, initialFocusRows)
     }
 
+    func testHabitMutationKeepsTodayAgendaShellStableWhenOnlyHabitRowChanges() {
+        let now = Date()
+        let inbox = Project.createInbox()
+        let harness = makeHabitMutationHarness(
+            tasks: [
+                makeTask(name: "Agenda Task", project: inbox, dueDate: now, priority: .high)
+            ]
+        )
+        waitForMainQueueFlush()
+
+        guard let row = harness.viewModel.habitHomeSectionState.primaryRows.first else {
+            return XCTFail("Expected habit row after initial load")
+        }
+
+        let initialTodaySections = harness.viewModel.todaySections
+        let initialTodayAgendaSectionState = harness.viewModel.todayAgendaSectionState
+        let initialAgendaTailItems = harness.viewModel.agendaTailItems
+
+        harness.schedulingEngine.deferResolveCompletion = true
+        harness.viewModel.performHabitLastCellAction(row, source: "test")
+
+        XCTAssertEqual(harness.viewModel.todaySections, initialTodaySections)
+        XCTAssertEqual(harness.viewModel.todayAgendaSectionState, initialTodayAgendaSectionState)
+        XCTAssertEqual(harness.viewModel.agendaTailItems, initialAgendaTailItems)
+
+        harness.schedulingEngine.completePendingResolve(with: .success(()))
+        waitForMainQueueFlush(seconds: 0.45)
+
+        XCTAssertEqual(harness.viewModel.todaySections, initialTodaySections)
+        XCTAssertEqual(harness.viewModel.todayAgendaSectionState, initialTodayAgendaSectionState)
+        XCTAssertEqual(harness.viewModel.agendaTailItems, initialAgendaTailItems)
+    }
+
+    func testHabitMutationOptimisticallyRemovesResolvedHabitFromAgendaWithoutTouchingTasks() {
+        let now = Date()
+        let inbox = Project.createInbox()
+        let harness = makeHabitMutationHarness(
+            tasks: [
+                makeTask(name: "Keep Me", project: inbox, dueDate: now, priority: .low)
+            ]
+        )
+        waitForMainQueueFlush()
+
+        guard let row = harness.viewModel.habitHomeSectionState.primaryRows.first else {
+            return XCTFail("Expected habit row after initial load")
+        }
+
+        let initialAgendaTitles = harness.viewModel.dueTodayRows.map { $0.title }
+        XCTAssertTrue(initialAgendaTitles.contains("Hydrate"))
+        XCTAssertTrue(initialAgendaTitles.contains("Keep Me"))
+
+        harness.schedulingEngine.deferResolveCompletion = true
+        harness.viewModel.performHabitLastCellAction(row, source: "test")
+
+        let optimisticAgendaTitles = harness.viewModel.dueTodayRows.map { $0.title }
+        XCTAssertFalse(optimisticAgendaTitles.contains("Hydrate"))
+        XCTAssertTrue(optimisticAgendaTitles.contains("Keep Me"))
+    }
+
     func testHabitMutationPreservesStableHomeOrdering() {
         let now = Date()
         let firstHabitID = UUID()
@@ -1420,6 +1507,72 @@ final class HomeViewModelPersistenceTests: XCTestCase {
         harness.schedulingEngine.completePendingResolve(with: .success(()))
         waitForMainQueueFlush(seconds: 0.45)
         XCTAssertEqual(harness.viewModel.habitHomeSectionState.primaryRows.map(\.title), ["Alpha", "Bravo"])
+    }
+
+    func testHabitMutationKeepsRecoveryRowInPlaceWhenStateBecomesStable() {
+        let now = Date()
+        let habitID = UUID()
+        let occurrenceID = UUID()
+        let lifeAreaID = UUID()
+        let marks = HabitRuntimeSupport.dayMarks(from: [], endingOn: now, dayCount: 30)
+        let harness = makeHabitMutationHarness(
+            agendaSummaries: [
+                HabitOccurrenceSummary(
+                    habitID: habitID,
+                    occurrenceID: occurrenceID,
+                    title: "Recovery Habit",
+                    kind: .positive,
+                    trackingMode: .dailyCheckIn,
+                    lifeAreaID: lifeAreaID,
+                    lifeAreaName: "Health",
+                    cadence: .daily(),
+                    dueAt: now,
+                    state: .pending,
+                    currentStreak: 0,
+                    bestStreak: 3,
+                    riskState: .atRisk,
+                    last14Days: marks
+                ),
+                HabitOccurrenceSummary(
+                    habitID: UUID(),
+                    occurrenceID: UUID(),
+                    title: "Stable Habit",
+                    kind: .positive,
+                    trackingMode: .dailyCheckIn,
+                    lifeAreaID: lifeAreaID,
+                    lifeAreaName: "Health",
+                    cadence: .daily(),
+                    dueAt: now,
+                    state: .pending,
+                    currentStreak: 4,
+                    bestStreak: 4,
+                    riskState: .stable,
+                    last14Days: marks
+                )
+            ]
+        )
+        waitForMainQueueFlush()
+
+        XCTAssertEqual(harness.viewModel.habitHomeSectionState.recoveryRows.map(\.title), ["Recovery Habit"])
+        XCTAssertEqual(harness.viewModel.habitHomeSectionState.primaryRows.map(\.title), ["Stable Habit"])
+
+        guard let row = harness.viewModel.habitHomeSectionState.recoveryRows.first else {
+            return XCTFail("Expected a visible recovery habit row")
+        }
+
+        harness.schedulingEngine.deferResolveCompletion = true
+        harness.viewModel.performHabitLastCellAction(row, source: "test")
+
+        XCTAssertEqual(harness.viewModel.habitHomeSectionState.recoveryRows.map(\.title), ["Recovery Habit"])
+        XCTAssertEqual(harness.viewModel.habitHomeSectionState.recoveryRows.first?.state, .completedToday)
+        XCTAssertEqual(harness.viewModel.habitHomeSectionState.primaryRows.map(\.title), ["Stable Habit"])
+
+        harness.schedulingEngine.completePendingResolve(with: .success(()))
+        waitForMainQueueFlush(seconds: 0.45)
+
+        XCTAssertEqual(harness.viewModel.habitHomeSectionState.recoveryRows.map(\.title), ["Recovery Habit"])
+        XCTAssertEqual(harness.viewModel.habitHomeSectionState.recoveryRows.first?.state, .completedToday)
+        XCTAssertEqual(harness.viewModel.habitHomeSectionState.primaryRows.map(\.title), ["Stable Habit"])
     }
 
     func testHabitMutationKeepsRescueTasksOutOfAgendaAndFocus() {

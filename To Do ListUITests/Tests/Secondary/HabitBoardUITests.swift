@@ -136,6 +136,38 @@ final class HabitBoardUITests: BaseUITest {
         XCTAssertTrue(waitForLastCellValue(lastCell, expected: "Empty. Next: Mark done."))
     }
 
+    func testHomeHabitContextMenuStillCommitsMutation() {
+        let row = firstHomeHabitRow()
+
+        XCTAssertTrue(row.waitForExistence(timeout: 5), "A home habit row should exist in the seeded workspace")
+
+        let rowID = row.identifier.replacingOccurrences(of: "home.habitRow.", with: "")
+        let lastCell = app.buttons[AccessibilityIdentifiers.Home.habitRowLastCell(rowID)]
+
+        XCTAssertTrue(lastCell.waitForExistence(timeout: 5), "Eligible home habit rows should expose a tappable last-cell button")
+        XCTAssertEqual(lastCell.value as? String, "Empty. Next: Mark done.")
+
+        row.press(forDuration: 1.1)
+
+        let positiveAction = app.buttons["Done"]
+        let abstainAction = app.buttons["Stayed clean"]
+        let lapseAction = app.buttons["Log lapse"]
+
+        let actionButton: XCUIElement
+        if positiveAction.waitForExistence(timeout: 2) {
+            actionButton = positiveAction
+        } else if abstainAction.waitForExistence(timeout: 1) {
+            actionButton = abstainAction
+        } else {
+            actionButton = lapseAction
+        }
+
+        XCTAssertTrue(actionButton.waitForExistence(timeout: 2), "Context menu should expose a primary mutation action")
+        actionButton.tap()
+
+        XCTAssertNotEqual(lastCell.value as? String, "Empty. Next: Mark done.")
+    }
+
     func testHomeHabitRowTapOutsideLastCellStillOpensDetail() {
         let row = firstHomeHabitRow()
 

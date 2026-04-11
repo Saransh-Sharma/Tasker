@@ -57,6 +57,42 @@ final class HomeHabitLastCellInteractionTests: XCTestCase {
         XCTAssertNil(HomeHabitLastCellInteraction.resolve(for: row))
     }
 
+    func testHitTargetMetricsExpandTrailingInteractionWidthForFatFingerTap() {
+        let metrics = HomeHabitRowHitTargetMetrics(
+            stripWidth: 210,
+            cellCount: 7,
+            hasLastCellInteraction: true
+        )
+
+        XCTAssertEqual(metrics.visualLastCellWidth, 30, accuracy: 0.001)
+        XCTAssertEqual(metrics.interactiveLastCellWidth, 64, accuracy: 0.001)
+        XCTAssertEqual(metrics.detailRegionWidth, 146, accuracy: 0.001)
+    }
+
+    func testHitTargetMetricsCapExpandedInteractionWidthOnWideRows() {
+        let metrics = HomeHabitRowHitTargetMetrics(
+            stripWidth: 560,
+            cellCount: 7,
+            hasLastCellInteraction: true
+        )
+
+        XCTAssertEqual(metrics.visualLastCellWidth, 80, accuracy: 0.001)
+        XCTAssertEqual(metrics.interactiveLastCellWidth, 80, accuracy: 0.001)
+        XCTAssertEqual(metrics.detailRegionWidth, 480, accuracy: 0.001)
+    }
+
+    func testHitTargetMetricsUseFullStripWhenTrailingActionIsUnavailable() {
+        let metrics = HomeHabitRowHitTargetMetrics(
+            stripWidth: 210,
+            cellCount: 7,
+            hasLastCellInteraction: false
+        )
+
+        XCTAssertEqual(metrics.visualLastCellWidth, 0, accuracy: 0.001)
+        XCTAssertEqual(metrics.interactiveLastCellWidth, 0, accuracy: 0.001)
+        XCTAssertEqual(metrics.detailRegionWidth, 210, accuracy: 0.001)
+    }
+
     private func makeRow(kind: HabitKind, state: HomeHabitRowState) -> HomeHabitRow {
         HomeHabitRow(
             habitID: UUID(),

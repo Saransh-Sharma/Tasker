@@ -26,6 +26,15 @@ class PerformanceTests: BaseUITest {
             app.launch()
         }
 
+        app.terminate()
+        let launchDuration = PerformanceMetrics.measureExecutionTime(
+            named: "App Launch Budget",
+            testCase: self
+        ) {
+            app.launch()
+        }
+        PerformanceMetrics.assertAppLaunchTime(launchDuration, testCase: self)
+
         // Verify app launched successfully
         homePage = HomePage(app: app)
         XCTAssertTrue(homePage.verifyIsDisplayed(), "App should launch successfully")
@@ -101,6 +110,17 @@ class PerformanceTests: BaseUITest {
         takeScreenshot(named: "performance_task_creation")
     }
 
+    func testAddTaskSheetPresentationPerformance() throws {
+        let options = XCTMeasureOptions()
+        options.iterationCount = 3
+
+        measure(metrics: [PerformanceMetrics.signpostMetric(named: "AddTaskSheetOpen")], options: options) {
+            let addTaskPage = homePage.tapAddTask()
+            _ = addTaskPage.verifyIsDisplayed()
+            addTaskPage.tapCancel()
+        }
+    }
+
     // MARK: - Test 69: Task Completion Performance
 
     func testTaskCompletionPerformance() throws {
@@ -127,6 +147,31 @@ class PerformanceTests: BaseUITest {
         }
 
         takeScreenshot(named: "performance_task_completion")
+    }
+
+    func testHomeHabitLastCellTapPerformance() throws {
+        relaunchForHomeHabitPerformance()
+
+        let row = firstHomeHabitRow()
+        XCTAssertTrue(row.waitForExistence(timeout: 5), "A home habit row should exist in the seeded workspace")
+
+        let rowID = row.identifier.replacingOccurrences(of: "home.habitRow.", with: "")
+        let lastCell = app.buttons[AccessibilityIdentifiers.Home.habitRowLastCell(rowID)]
+
+        XCTAssertTrue(lastCell.waitForExistence(timeout: 5), "Eligible home habit rows should expose a tappable last-cell button")
+        XCTAssertTrue(waitForElementToBeHittable(lastCell, timeout: 3))
+
+        let options = XCTMeasureOptions()
+        options.iterationCount = 3
+
+        measure(metrics: [PerformanceMetrics.signpostMetric(named: "HomeHabitLastCellTap")], options: options) {
+            let previousValue = (lastCell.value as? String) ?? ""
+            lastCell.tap()
+
+            let predicate = NSPredicate(format: "value != %@", previousValue)
+            let expectation = XCTNSPredicateExpectation(predicate: predicate, object: lastCell)
+            XCTAssertEqual(XCTWaiter.wait(for: [expectation], timeout: 5), .completed)
+        }
     }
 
     // MARK: - Test 70: Chart Rendering Performance
@@ -163,6 +208,42 @@ class PerformanceTests: BaseUITest {
         }
 
         takeScreenshot(named: "performance_chart_render")
+    }
+
+    private func relaunchForHomeHabitPerformance() {
+        app.terminate()
+        app = XCUIApplication()
+        app.launchArguments = [
+            "-RESET_APP_STATE",
+            "-UI_TESTING",
+            "-DISABLE_ANIMATIONS",
+            "-SKIP_ONBOARDING",
+            XCUIApplication.LaunchArgumentKey.disableCloudSync.rawValue,
+            XCUIApplication.LaunchArgumentKey.testSeedHabitBoardWorkspace.rawValue
+        ]
+        app.launchEnvironment[XCUIApplication.LaunchEnvironmentKey.performanceTest.rawValue] = "1"
+        app.launch()
+        waitForAppLaunch()
+        homePage = HomePage(app: app)
+    }
+
+    private func firstHomeHabitRow(file: StaticString = #file, line: UInt = #line) -> XCUIElement {
+        let rowQuery = app.otherElements.matching(NSPredicate(format: "identifier MATCHES %@", #"^home\.habitRow\.[A-Za-z0-9-]+$"#))
+        let firstRow = rowQuery.firstMatch
+
+        if firstRow.waitForExistence(timeout: 3) && firstRow.isHittable {
+            return firstRow
+        }
+
+        for _ in 0..<8 {
+            app.swipeUp()
+            if firstRow.exists && firstRow.isHittable {
+                break
+            }
+        }
+
+        XCTAssertTrue(firstRow.waitForExistence(timeout: 2), "Expected to find a home habit row after scrolling", file: file, line: line)
+        return firstRow
     }
 
     // MARK: - Test 71: Memory Usage with Many Tasks
@@ -392,6 +473,24 @@ class PerformanceTests: BaseUITest {
             _ = homePage.scrollInsightsTab(.today, swipeCount: 4)
             _ = homePage.scrollInsightsTab(.week, swipeCount: 4)
             _ = homePage.scrollInsightsTab(.systems, swipeCount: 4)
+        }
+    }
+
+    func testChatOpenPerformance() throws {
+        let composer = app.otherElements["chat.composer.container"]
+        let emptyState = app.otherElements["chat.emptyState.container"]
+
+        let options = XCTMeasureOptions()
+        options.iterationCount = 3
+        measure(metrics: [PerformanceMetrics.signpostMetric(named: "ChatOpenToFirstTranscriptRender")], options: options) {
+            homePage.tapChat()
+            XCTAssertTrue(
+                composer.waitForExistence(timeout: 4) || emptyState.waitForExistence(timeout: 4),
+                "Chat should present a composer or empty state during perf run"
+            )
+            if app.navigationBars.buttons.element(boundBy: 0).exists {
+                app.navigationBars.buttons.element(boundBy: 0).tap()
+            }
         }
     }
 

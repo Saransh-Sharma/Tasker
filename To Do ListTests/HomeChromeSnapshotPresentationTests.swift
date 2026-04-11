@@ -2,6 +2,80 @@ import XCTest
 @testable import To_Do_List
 
 final class HomeChromeSnapshotPresentationTests: XCTestCase {
+    func testHomeTasksSnapshotEqualityIgnoresHabitOnlyMutations() {
+        let row = HomeHabitRow(
+            habitID: UUID(),
+            title: "Hydrate",
+            kind: .positive,
+            trackingMode: .dailyCheckIn,
+            lifeAreaName: "Health",
+            iconSymbolName: "drop.fill"
+        )
+        let quietRow = HomeHabitRow(
+            habitID: UUID(),
+            title: "Steps",
+            kind: .positive,
+            trackingMode: .lapseOnly,
+            lifeAreaName: "Health",
+            iconSymbolName: "figure.walk"
+        )
+
+        let lhs = HomeTasksSnapshot.empty
+        let rhs = HomeTasksSnapshot(
+            morningTasks: lhs.morningTasks,
+            eveningTasks: lhs.eveningTasks,
+            overdueTasks: lhs.overdueTasks,
+            dueTodaySection: lhs.dueTodaySection,
+            todaySections: lhs.todaySections,
+            focusNowSectionState: lhs.focusNowSectionState,
+            todayAgendaSectionState: lhs.todayAgendaSectionState,
+            agendaTailItems: lhs.agendaTailItems,
+            habitHomeSectionState: HabitHomeSectionState(primaryRows: [row], recoveryRows: []),
+            quietTrackingSummaryState: QuietTrackingSummaryState(stableRows: [quietRow]),
+            inlineCompletedTasks: lhs.inlineCompletedTasks,
+            doneTimelineTasks: lhs.doneTimelineTasks,
+            projects: lhs.projects,
+            projectsByID: lhs.projectsByID,
+            tagNameByID: lhs.tagNameByID,
+            activeQuickView: lhs.activeQuickView,
+            todayXPSoFar: lhs.todayXPSoFar,
+            projectGroupingMode: lhs.projectGroupingMode,
+            customProjectOrderIDs: lhs.customProjectOrderIDs,
+            emptyStateMessage: lhs.emptyStateMessage,
+            emptyStateActionTitle: lhs.emptyStateActionTitle,
+            canUseManualFocusDrag: lhs.canUseManualFocusDrag,
+            focusTasks: lhs.focusTasks,
+            focusRows: lhs.focusRows,
+            pinnedFocusTaskIDs: lhs.pinnedFocusTaskIDs,
+            todayOpenTaskCount: lhs.todayOpenTaskCount
+        )
+
+        XCTAssertEqual(lhs, rhs)
+    }
+
+    func testHomeRenderTransactionCountsHabitSliceSeparately() {
+        let habitRow = HomeHabitRow(
+            habitID: UUID(),
+            title: "Hydrate",
+            kind: .positive,
+            trackingMode: .dailyCheckIn,
+            lifeAreaName: "Health",
+            iconSymbolName: "drop.fill"
+        )
+        let previous = HomeRenderTransaction.empty
+        let current = HomeRenderTransaction(
+            chrome: previous.chrome,
+            tasks: previous.tasks,
+            habits: HomeHabitsSnapshot(
+                habitHomeSectionState: HabitHomeSectionState(primaryRows: [habitRow], recoveryRows: []),
+                quietTrackingSummaryState: .init(stableRows: [])
+            ),
+            overlay: previous.overlay
+        )
+
+        XCTAssertEqual(current.changedSliceCount(comparedTo: previous), 1)
+    }
+
     func testTodayPresentationBuildsXPCompletionAndStreakMetadata() {
         let snapshot = HomeChromeSnapshot(
             selectedDate: Date(timeIntervalSince1970: 0),
