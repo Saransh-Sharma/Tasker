@@ -1356,10 +1356,50 @@ final class HomeSearchState: ObservableObject {
     }
 }
 
+private enum HomePerformanceSignposts {
+    private static let habitMutationIntervalName: StaticString = "HomeHabitMutationLatency"
+    private static let lastCellTapIntervalName: StaticString = "HomeHabitLastCellTap"
+
+    // Points-of-interest signposts emit automatically while profiling with
+    // Instruments. The verbose performance log still honors the explicit
+    // Tasker performance flags.
+
+    static func lastCellTapAccepted() {
+        TaskerPerformanceTrace.event("home.lastCellTap.accepted")
+    }
+
+    static func beginLastCellTap() -> TaskerPerformanceInterval {
+        TaskerPerformanceTrace.event("home.lastCellTap.begin")
+        return TaskerPerformanceTrace.begin(lastCellTapIntervalName)
+    }
+
+    static func endLastCellTap(_ interval: TaskerPerformanceInterval?) {
+        guard let interval else { return }
+        TaskerPerformanceTrace.end(interval)
+        TaskerPerformanceTrace.event("home.lastCellTap.end")
+    }
+
+    static func beginHabitMutation() -> TaskerPerformanceInterval {
+        TaskerPerformanceTrace.event("home.habitMutation.begin")
+        return TaskerPerformanceTrace.begin(habitMutationIntervalName)
+    }
+
+    static func endHabitMutation(_ interval: TaskerPerformanceInterval?) {
+        guard let interval else { return }
+        TaskerPerformanceTrace.end(interval)
+        TaskerPerformanceTrace.event("home.habitMutation.end")
+    }
+
+    static func openDetailTap() {
+        TaskerPerformanceTrace.event("home.openDetail.tap")
+    }
+}
+
 struct HomeBackdropForedropRootView: View {
     let viewModel: HomeViewModel
     @ObservedObject var chromeStore: HomeChromeStore
     @ObservedObject var tasksStore: HomeTasksStore
+    @ObservedObject var habitsStore: HomeHabitsStore
     @ObservedObject var overlayStore: HomeOverlayStore
     @ObservedObject var faceCoordinator: HomeFaceCoordinator
     @ObservedObject var searchState: HomeSearchState
@@ -1430,6 +1470,8 @@ struct HomeBackdropForedropRootView: View {
     @State private var passiveTrackingRailViewportWidth: CGFloat = 0
     @State private var pendingFocusPromotionTask: TaskDefinition?
     @State private var focusReplacementOptions: [TaskDefinition] = []
+    @State private var activeHabitMutationInterval: TaskerPerformanceInterval?
+    @State private var activeLastCellTapInterval: TaskerPerformanceInterval?
     private static let foredropHintLaunchDelay: TimeInterval = 0.10
     private static let foredropHintPeekDistance: CGFloat = 24
     private static let foredropHintPeekDuration: TimeInterval = 0.10
@@ -1445,6 +1487,7 @@ struct HomeBackdropForedropRootView: View {
     private var forcedFaceValue: HomeForedropFace? { forcedFace?.wrappedValue }
     private var chromeSnapshot: HomeChromeSnapshot { chromeStore.snapshot }
     private var tasksSnapshot: HomeTasksSnapshot { tasksStore.snapshot }
+    private var habitsSnapshot: HomeHabitsSnapshot { habitsStore.snapshot }
     private var overlaySnapshot: HomeOverlaySnapshot { overlayStore.snapshot }
     private var activeFace: HomeForedropFace { faceCoordinator.activeFace }
     private var shellPhase: HomeShellPhase { faceCoordinator.shellPhase }
@@ -1484,6 +1527,12 @@ struct HomeBackdropForedropRootView: View {
         }.joined(separator: "|")
 
         return [String(Int(selectedDay)), compactTailSignature, isRescueEnabled ? "1" : "0"].joined(separator: ":")
+    }
+    private var habitRenderSignature: String {
+        let primary = habitsSnapshot.habitHomeSectionState.primaryRows.map { "\($0.id):\($0.state.rawValue)" }.joined(separator: "|")
+        let recovery = habitsSnapshot.habitHomeSectionState.recoveryRows.map { "\($0.id):\($0.state.rawValue)" }.joined(separator: "|")
+        let quiet = habitsSnapshot.quietTrackingSummaryState.stableRows.map { "\($0.id):\($0.state.rawValue)" }.joined(separator: "|")
+        return "\(primary)#\(recovery)#\(quiet)"
     }
     private var foredropFlipAnimation: Animation {
         let duration: TimeInterval
@@ -1592,6 +1641,12 @@ struct HomeBackdropForedropRootView: View {
         .ignoresSafeArea(.keyboard, edges: .bottom)
         .accessibilityIdentifier("home.view")
         .taskerSnackbar($snackbar)
+        .onChange(of: habitRenderSignature) { _, _ in
+            HomePerformanceSignposts.endHabitMutation(activeHabitMutationInterval)
+            activeHabitMutationInterval = nil
+            HomePerformanceSignposts.endLastCellTap(activeLastCellTapInterval)
+            activeLastCellTapInterval = nil
+        }
         .confirmationDialog(
             "Replace a Focus Now item",
             isPresented: Binding(
@@ -1735,6 +1790,10 @@ struct HomeBackdropForedropRootView: View {
             presentHabitBoardIfRequestedForUITests()
         }
         .onDisappear {
+            HomePerformanceSignposts.endHabitMutation(activeHabitMutationInterval)
+            activeHabitMutationInterval = nil
+            HomePerformanceSignposts.endLastCellTap(activeLastCellTapInterval)
+            activeLastCellTapInterval = nil
             isHomeVisible = false
             cancelForedropHintAnimation()
             cancelPendingSearchCommit()
@@ -2679,21 +2738,21 @@ struct HomeBackdropForedropRootView: View {
             }
 
             if tasksSnapshot.activeQuickView == .today &&
-                !tasksSnapshot.habitHomeSectionState.primaryRows.isEmpty {
+                !habitsSnapshot.habitHomeSectionState.primaryRows.isEmpty {
                 fullBleedTaskListHeaderModule {
                     habitsSectionCard
                 }
             }
 
             if tasksSnapshot.activeQuickView == .today &&
-                !tasksSnapshot.habitHomeSectionState.recoveryRows.isEmpty {
+                !habitsSnapshot.habitHomeSectionState.recoveryRows.isEmpty {
                 fullBleedTaskListHeaderModule {
                     recoveryHabitsSectionCard
                 }
             }
 
             if tasksSnapshot.activeQuickView == .today &&
-                tasksSnapshot.quietTrackingSummaryState.isVisible {
+                habitsSnapshot.quietTrackingSummaryState.isVisible {
                 fullBleedTaskListHeaderModule {
                     quietTrackingSummaryCard
                 }
@@ -2712,7 +2771,7 @@ struct HomeBackdropForedropRootView: View {
     }
 
     private var passiveTrackingRailCards: [QuietTrackingRailCardPresentation] {
-        tasksSnapshot.quietTrackingSummaryState.railCards
+        habitsSnapshot.quietTrackingSummaryState.railCards
     }
 
     private var passiveTrackingRailLayout: QuietTrackingRailLayoutSpec {
@@ -2752,7 +2811,7 @@ struct HomeBackdropForedropRootView: View {
         let visibleDayCount = min(layout.visibleDayCount, card.historyCells.count)
 
         return Button {
-            guard let row = tasksSnapshot.quietTrackingSummaryState.stableRows.first(where: { $0.id == card.id }) else { return }
+            guard let row = habitsSnapshot.quietTrackingSummaryState.stableRows.first(where: { $0.id == card.id }) else { return }
             presentQuietTrackingComposer(for: row, preferredOutcome: .lapse)
         } label: {
             QuietTrackingRailStreakWidget(
@@ -2790,10 +2849,10 @@ struct HomeBackdropForedropRootView: View {
         HabitHomeSectionCard(
             title: "Habits",
             subtitle: "Consistency this week",
-            rows: tasksSnapshot.habitHomeSectionState.primaryRows,
-            countValue: "\(tasksSnapshot.habitHomeSectionState.totalCount) active",
-            secondaryValue: "\(tasksSnapshot.habitHomeSectionState.onStreakCount) on streak",
-            tertiaryValue: "\(tasksSnapshot.habitHomeSectionState.atRiskCount) at risk",
+            rows: habitsSnapshot.habitHomeSectionState.primaryRows,
+            countValue: "\(habitsSnapshot.habitHomeSectionState.totalCount) active",
+            secondaryValue: "\(habitsSnapshot.habitHomeSectionState.onStreakCount) on streak",
+            tertiaryValue: "\(habitsSnapshot.habitHomeSectionState.atRiskCount) at risk",
             onOpenBoard: {
                 showHabitBoardPresented = true
             },
@@ -2809,8 +2868,8 @@ struct HomeBackdropForedropRootView: View {
         HabitHomeSectionCard(
             title: "Recovery",
             subtitle: "Broken or at-risk habits stay visible until the geometry recovers.",
-            rows: tasksSnapshot.habitHomeSectionState.recoveryRows,
-            countValue: "\(tasksSnapshot.habitHomeSectionState.recoveryRows.count) in recovery",
+            rows: habitsSnapshot.habitHomeSectionState.recoveryRows,
+            countValue: "\(habitsSnapshot.habitHomeSectionState.recoveryRows.count) in recovery",
             secondaryValue: "streaks",
             tertiaryValue: "need care",
             onOpenBoard: {
@@ -2825,39 +2884,66 @@ struct HomeBackdropForedropRootView: View {
     }
 
     private func handleHabitPrimaryAction(_ habit: HomeHabitRow) {
-        switch (habit.kind, habit.trackingMode) {
-        case (_, .lapseOnly):
-            viewModel.lapseHabit(habit, source: "habit_home")
-        case (.positive, _):
-            viewModel.completeHabit(habit, source: "habit_home")
-        case (.negative, .dailyCheckIn):
-            viewModel.completeHabit(habit, source: "habit_home")
-        }
+        performHabitPrimaryAction(habit, source: "habit_home")
     }
 
     private func handleHabitSecondaryAction(_ habit: HomeHabitRow) {
+        performHabitSecondaryAction(habit, source: "habit_home")
+    }
+
+    private func handleHabitLastCellAction(_ habit: HomeHabitRow) {
+        performHabitLastCellAction(habit, source: "habit_home_last_cell")
+    }
+
+    private func openHabitDetail(_ habit: HomeHabitRow) {
+        HomePerformanceSignposts.openDetailTap()
+        guard let row = viewModel.habitLibraryRow(for: habit.habitID) else { return }
+        selectedHomeHabitRow = row
+    }
+
+    private func beginHabitMutationSignpost(trackLastCellTap: Bool = false) {
+        HomePerformanceSignposts.endHabitMutation(activeHabitMutationInterval)
+        activeHabitMutationInterval = HomePerformanceSignposts.beginHabitMutation()
+
+        if trackLastCellTap {
+            HomePerformanceSignposts.endLastCellTap(activeLastCellTapInterval)
+            activeLastCellTapInterval = HomePerformanceSignposts.beginLastCellTap()
+        }
+    }
+
+    private func performHabitPrimaryAction(_ habit: HomeHabitRow, source: String) {
+        beginHabitMutationSignpost()
+        switch (habit.kind, habit.trackingMode) {
+        case (_, .lapseOnly):
+            viewModel.lapseHabit(habit, source: source)
+        case (.positive, _):
+            viewModel.completeHabit(habit, source: source)
+        case (.negative, .dailyCheckIn):
+            viewModel.completeHabit(habit, source: source)
+        }
+    }
+
+    private func performHabitSecondaryAction(_ habit: HomeHabitRow, source: String) {
+        beginHabitMutationSignpost()
         switch (habit.kind, habit.trackingMode) {
         case (.positive, _):
-            viewModel.skipHabit(habit, source: "habit_home")
+            viewModel.skipHabit(habit, source: source)
         case (.negative, .dailyCheckIn):
-            viewModel.lapseHabit(habit, source: "habit_home")
+            viewModel.lapseHabit(habit, source: source)
         case (.negative, .lapseOnly):
             break
         }
     }
 
-    private func handleHabitLastCellAction(_ habit: HomeHabitRow) {
-        viewModel.performHabitLastCellAction(habit, source: "habit_home_last_cell")
-    }
-
-    private func openHabitDetail(_ habit: HomeHabitRow) {
-        guard let row = viewModel.habitLibraryRow(for: habit.habitID) else { return }
-        selectedHomeHabitRow = row
+    private func performHabitLastCellAction(_ habit: HomeHabitRow, source: String) {
+        HomePerformanceSignposts.lastCellTapAccepted()
+        beginHabitMutationSignpost(trackLastCellTap: true)
+        viewModel.performHabitLastCellAction(habit, source: source)
     }
 
     private var quietTrackingSummaryCard: some View {
         Button {
-            guard let row = tasksSnapshot.quietTrackingSummaryState.stableRows.first else { return }
+            guard let row = habitsSnapshot.quietTrackingSummaryState.stableRows.first else { return }
             presentQuietTrackingComposer(for: row, preferredOutcome: .lapse)
         } label: {
             HStack(spacing: spacing.s12) {
@@ -2868,7 +2954,7 @@ struct HomeBackdropForedropRootView: View {
                     Text("Quiet Tracking")
                         .font(.tasker(.caption1).weight(.semibold))
                         .foregroundStyle(Color.tasker.textPrimary)
-                    Text(tasksSnapshot.quietTrackingSummaryState.summaryText)
+                    Text(habitsSnapshot.quietTrackingSummaryState.summaryText)
                         .font(.tasker(.caption2))
                         .foregroundStyle(Color.tasker.textSecondary)
                 }
@@ -2909,7 +2995,7 @@ struct HomeBackdropForedropRootView: View {
         preferredOutcome: QuietTrackingOutcome
     ) {
         quietTrackingComposerSnapshot = QuietTrackingComposerSnapshot(
-            rows: tasksSnapshot.quietTrackingSummaryState.stableRows,
+            rows: habitsSnapshot.quietTrackingSummaryState.stableRows,
             initialSelectedHabitID: row.id,
             initialDate: min(chromeSnapshot.selectedDate, Date()),
             initialOutcome: preferredOutcome
@@ -2988,24 +3074,10 @@ struct HomeBackdropForedropRootView: View {
             HomeHabitRowView(
                 row: habit,
                 onPrimaryAction: {
-                    switch (habit.kind, habit.trackingMode) {
-                    case (.positive, _):
-                        viewModel.completeHabit(habit, source: "due_today_agenda")
-                    case (.negative, .dailyCheckIn):
-                        viewModel.completeHabit(habit, source: "due_today_agenda")
-                    case (.negative, .lapseOnly):
-                        viewModel.lapseHabit(habit, source: "due_today_agenda")
-                    }
+                    performHabitPrimaryAction(habit, source: "due_today_agenda")
                 },
                 onSecondaryAction: {
-                    switch (habit.kind, habit.trackingMode) {
-                    case (.positive, _):
-                        viewModel.skipHabit(habit, source: "due_today_agenda")
-                    case (.negative, .dailyCheckIn):
-                        viewModel.lapseHabit(habit, source: "due_today_agenda")
-                    case (.negative, .lapseOnly):
-                        break
-                    }
+                    performHabitSecondaryAction(habit, source: "due_today_agenda")
                 },
                 onOpenDetail: {
                     openHabitDetail(habit)

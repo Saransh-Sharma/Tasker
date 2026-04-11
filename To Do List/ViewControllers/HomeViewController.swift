@@ -69,11 +69,13 @@ typealias HomeOverlayState = HomeOverlaySnapshot
 struct HomeRenderTransaction: Equatable {
     let chrome: HomeChromeState
     let tasks: HomeTasksState
+    let habits: HomeHabitsSnapshot
     let overlay: HomeOverlayState
 
     static let empty = HomeRenderTransaction(
         chrome: .empty,
         tasks: .empty,
+        habits: .empty,
         overlay: .empty
     )
 
@@ -83,6 +85,9 @@ struct HomeRenderTransaction: Equatable {
             count += 1
         }
         if tasks != previous.tasks {
+            count += 1
+        }
+        if habits != previous.habits {
             count += 1
         }
         if overlay != previous.overlay {
@@ -205,6 +210,43 @@ struct HomeTasksSnapshot: Equatable {
             && inlineCompletedTasks.isEmpty
             && doneTimelineTasks.isEmpty
     }
+
+    static func == (lhs: HomeTasksSnapshot, rhs: HomeTasksSnapshot) -> Bool {
+        lhs.morningTasks == rhs.morningTasks
+            && lhs.eveningTasks == rhs.eveningTasks
+            && lhs.overdueTasks == rhs.overdueTasks
+            && lhs.dueTodaySection == rhs.dueTodaySection
+            && lhs.todaySections == rhs.todaySections
+            && lhs.focusNowSectionState == rhs.focusNowSectionState
+            && lhs.todayAgendaSectionState == rhs.todayAgendaSectionState
+            && lhs.agendaTailItems == rhs.agendaTailItems
+            && lhs.inlineCompletedTasks == rhs.inlineCompletedTasks
+            && lhs.doneTimelineTasks == rhs.doneTimelineTasks
+            && lhs.projects == rhs.projects
+            && lhs.projectsByID == rhs.projectsByID
+            && lhs.tagNameByID == rhs.tagNameByID
+            && lhs.activeQuickView == rhs.activeQuickView
+            && lhs.todayXPSoFar == rhs.todayXPSoFar
+            && lhs.projectGroupingMode == rhs.projectGroupingMode
+            && lhs.customProjectOrderIDs == rhs.customProjectOrderIDs
+            && lhs.emptyStateMessage == rhs.emptyStateMessage
+            && lhs.emptyStateActionTitle == rhs.emptyStateActionTitle
+            && lhs.canUseManualFocusDrag == rhs.canUseManualFocusDrag
+            && lhs.focusTasks == rhs.focusTasks
+            && lhs.focusRows == rhs.focusRows
+            && lhs.pinnedFocusTaskIDs == rhs.pinnedFocusTaskIDs
+            && lhs.todayOpenTaskCount == rhs.todayOpenTaskCount
+    }
+}
+
+struct HomeHabitsSnapshot: Equatable {
+    let habitHomeSectionState: HabitHomeSectionState
+    let quietTrackingSummaryState: QuietTrackingSummaryState
+
+    static let empty = HomeHabitsSnapshot(
+        habitHomeSectionState: HabitHomeSectionState(primaryRows: [], recoveryRows: []),
+        quietTrackingSummaryState: QuietTrackingSummaryState(stableRows: [])
+    )
 }
 
 struct HomeOverlaySnapshot: Equatable {
@@ -264,6 +306,16 @@ final class HomeTasksStore: ObservableObject {
     @Published private(set) var snapshot: HomeTasksSnapshot = .empty
 
     func apply(_ snapshot: HomeTasksSnapshot) {
+        guard self.snapshot != snapshot else { return }
+        self.snapshot = snapshot
+    }
+}
+
+@MainActor
+final class HomeHabitsStore: ObservableObject {
+    @Published private(set) var snapshot: HomeHabitsSnapshot = .empty
+
+    func apply(_ snapshot: HomeHabitsSnapshot) {
         guard self.snapshot != snapshot else { return }
         self.snapshot = snapshot
     }
@@ -413,6 +465,7 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
     private let searchState = HomeSearchState()
     private let chromeStore = HomeChromeStore()
     private let tasksStore = HomeTasksStore()
+    private let habitsStore = HomeHabitsStore()
     private let overlayStore = HomeOverlayStore()
     private let faceCoordinator = HomeFaceCoordinator()
 
@@ -1170,6 +1223,10 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
             tasksStore.apply(transaction.tasks)
             updateInteractivePhaseIfNeeded()
         }
+        if transaction.habits != lastAppliedHomeRenderTransaction.habits {
+            habitsStore.apply(transaction.habits)
+            TaskerPerformanceTrace.event("home.render.habitsCommitted")
+        }
         if transaction.overlay != lastAppliedHomeRenderTransaction.overlay {
             applyOverlayState(transaction.overlay)
         }
@@ -1346,6 +1403,7 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
             viewModel: viewModel,
             chromeStore: chromeStore,
             tasksStore: tasksStore,
+            habitsStore: habitsStore,
             overlayStore: overlayStore,
             faceCoordinator: faceCoordinator,
             searchState: searchState,

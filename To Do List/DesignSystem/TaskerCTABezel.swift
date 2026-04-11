@@ -779,33 +779,27 @@ struct TaskerBackdropNoiseOverlay: UIViewRepresentable {
 private struct TaskerNoisyGradientLayer: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
+    private func noisyGradientFrame(time: Float) -> some View {
+        Color.black
+            .layerEffect(
+                Shader(
+                    function: ShaderFunction(library: .default, name: "TaskerNoisyGradient"),
+                    arguments: [
+                        .boundingRect,
+                        .float(time)
+                    ]
+                ),
+                maxSampleOffset: .zero
+            )
+    }
+
     var body: some View {
         if reduceMotion {
-            Color.black
-                .layerEffect(
-                    Shader(
-                        function: ShaderFunction(library: .default, name: "TaskerNoisyGradient"),
-                        arguments: [
-                            .boundingRect,
-                            .float(0)
-                        ]
-                    ),
-                    maxSampleOffset: .zero
-                )
+            noisyGradientFrame(time: 0)
         } else {
             TimelineView(.animation) { context in
                 let time = Float(context.date.timeIntervalSinceReferenceDate.truncatingRemainder(dividingBy: 100))
-                Color.black
-                    .layerEffect(
-                        Shader(
-                            function: ShaderFunction(library: .default, name: "TaskerNoisyGradient"),
-                            arguments: [
-                                .boundingRect,
-                                .float(time)
-                            ]
-                        ),
-                        maxSampleOffset: .zero
-                    )
+                noisyGradientFrame(time: time)
             }
         }
     }

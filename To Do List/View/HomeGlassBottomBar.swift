@@ -125,8 +125,6 @@ private struct BottomToolCluster: View {
     let shellPhase: HomeShellPhase
     let onTap: (HomeBottomBarItem) -> Void
 
-    @Namespace private var selectionNamespace
-    @State private var pressedItem: HomeBottomBarItem?
     @Environment(\.colorScheme) private var colorScheme
 
     private let buttonWidth: CGFloat = 54
@@ -164,12 +162,7 @@ private struct BottomToolCluster: View {
             ForEach(Self.tools) { tool in
                 ZStack {
                     if selectedItem == tool.item {
-                        if prefersReducedMotion {
-                            selectionHighlight
-                        } else {
-                            selectionHighlight
-                                .matchedGeometryEffect(id: "home.bottomBar.selection", in: selectionNamespace)
-                        }
+                        selectionHighlight
                     }
 
                     Button {
@@ -181,29 +174,20 @@ private struct BottomToolCluster: View {
                             .foregroundStyle(selectedItem == tool.item ? Color.tasker.textPrimary : Color.tasker.textSecondary)
                             .contentShape(Rectangle())
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(BottomToolPressStyle(prefersReducedMotion: prefersReducedMotion))
                     .accessibilityIdentifier(tool.accessibilityID)
                     .accessibilityLabel(tool.accessibilityLabel)
                     .accessibilityValue(selectedItem == tool.item ? "selected" : "unselected")
-                    .simultaneousGesture(
-                        DragGesture(minimumDistance: 0)
-                            .onChanged { _ in
-                                if pressedItem != tool.item {
-                                    pressedItem = tool.item
-                                }
-                            }
-                            .onEnded { _ in
-                                pressedItem = nil
-                            }
-                    )
                 }
                 .frame(width: buttonWidth, height: buttonHeight)
-                .scaleEffect(prefersReducedMotion ? 1.0 : (pressedItem == tool.item ? 0.96 : 1.0))
-                .animation(prefersReducedMotion ? .linear(duration: 0.01) : .spring(response: 0.22, dampingFraction: 0.85), value: pressedItem == tool.item)
             }
         }
         .padding(.horizontal, clusterHorizontalPadding)
         .padding(.vertical, clusterVerticalPadding)
+        .animation(
+            prefersReducedMotion ? .easeOut(duration: 0.14) : .spring(response: 0.22, dampingFraction: 0.88),
+            value: selectedItem
+        )
     }
 
     private var selectionHighlight: some View {
@@ -223,7 +207,6 @@ private struct BottomAddTaskCTA: View {
 
     @Environment(\.colorScheme) private var colorScheme
 
-    @State private var isPressed = false
     private var prefersReducedMotion: Bool { shellPhase != .interactive }
 
     var body: some View {
@@ -236,25 +219,13 @@ private struct BottomAddTaskCTA: View {
                 .taskerCTABezel(
                     style: .fab,
                     palette: .roseGold,
-                    idleMotion: .slowLoop,
+                    idleMotion: .staticIdle,
                     isEnabled: true,
                     isBusy: false,
-                    isPressed: isPressed
+                    isPressed: false
                 )
         }
-        .buttonStyle(.plain)
-        .scaleEffect(prefersReducedMotion ? 1.0 : (isPressed ? 0.975 : 1.0))
-        .brightness(prefersReducedMotion ? 0 : (isPressed ? 0.03 : 0))
-        .animation(prefersReducedMotion ? .linear(duration: 0.01) : .spring(response: 0.22, dampingFraction: 0.85), value: isPressed)
-        .simultaneousGesture(
-            DragGesture(minimumDistance: 0)
-                .onChanged { _ in
-                    isPressed = true
-                }
-                .onEnded { _ in
-                    isPressed = false
-                }
-        )
+        .buttonStyle(BottomCTAPressStyle(prefersReducedMotion: prefersReducedMotion))
         .accessibilityIdentifier("home.addTaskButton")
         .accessibilityLabel("Add Task")
     }
@@ -273,5 +244,32 @@ private struct BottomAddTaskCTA: View {
             .font(.system(size: 18, weight: .bold))
             .foregroundStyle(Color.tasker.textPrimary)
             .frame(width: 56, height: 56)
+    }
+}
+
+private struct BottomToolPressStyle: ButtonStyle {
+    let prefersReducedMotion: Bool
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .scaleEffect(prefersReducedMotion ? 1.0 : (configuration.isPressed ? 0.96 : 1.0))
+            .animation(
+                prefersReducedMotion ? .linear(duration: 0.01) : .spring(response: 0.18, dampingFraction: 0.88),
+                value: configuration.isPressed
+            )
+    }
+}
+
+private struct BottomCTAPressStyle: ButtonStyle {
+    let prefersReducedMotion: Bool
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .scaleEffect(prefersReducedMotion ? 1.0 : (configuration.isPressed ? 0.975 : 1.0))
+            .brightness(prefersReducedMotion ? 0 : (configuration.isPressed ? 0.02 : 0))
+            .animation(
+                prefersReducedMotion ? .linear(duration: 0.01) : .spring(response: 0.18, dampingFraction: 0.88),
+                value: configuration.isPressed
+            )
     }
 }

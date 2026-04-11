@@ -369,39 +369,60 @@ public enum TaskerPerformanceTrace {
         launchEnvironment["PERFORMANCE_TEST"] == "1"
         || launchArguments.contains("-TASKER_ENABLE_PERF_TRACE")
         || launchArguments.contains("-TASKER_VERBOSE_PERF_TRACE")
+    private static let pointsOfInterestEnabled =
+        tracingEnabled
+        || launchEnvironment["OS_ACTIVITY_TOOLS_PRIVACY"] == "YES"
+        || launchEnvironment["OS_LOG_DT_HOOK_MODE"] != nil
 
     public static var isEnabled: Bool { tracingEnabled }
+    public static var isPointsOfInterestEnabled: Bool { pointsOfInterestEnabled }
 
     /// Begins a signposted interval for Instruments correlation.
     public static func begin(_ name: StaticString) -> TaskerPerformanceInterval {
-        guard tracingEnabled else {
+        guard tracingEnabled || pointsOfInterestEnabled else {
             return TaskerPerformanceInterval(name: name, signpostID: nil, isEnabled: false)
         }
         let signpostID = OSSignpostID(log: performanceLog)
-        os_signpost(.begin, log: performanceLog, name: name, signpostID: signpostID)
-        os_signpost(.begin, log: pointsOfInterestLog, name: name, signpostID: signpostID)
+        if tracingEnabled {
+            os_signpost(.begin, log: performanceLog, name: name, signpostID: signpostID)
+        }
+        if pointsOfInterestEnabled {
+            os_signpost(.begin, log: pointsOfInterestLog, name: name, signpostID: signpostID)
+        }
         return TaskerPerformanceInterval(name: name, signpostID: signpostID, isEnabled: true)
     }
 
     /// Ends a previously started signposted interval.
     public static func end(_ interval: TaskerPerformanceInterval) {
         guard interval.isEnabled, let signpostID = interval.signpostID else { return }
-        os_signpost(.end, log: performanceLog, name: interval.name, signpostID: signpostID)
-        os_signpost(.end, log: pointsOfInterestLog, name: interval.name, signpostID: signpostID)
+        if tracingEnabled {
+            os_signpost(.end, log: performanceLog, name: interval.name, signpostID: signpostID)
+        }
+        if pointsOfInterestEnabled {
+            os_signpost(.end, log: pointsOfInterestLog, name: interval.name, signpostID: signpostID)
+        }
     }
 
     /// Emits a point-in-time event to the performance log.
     public static func event(_ name: StaticString) {
-        guard tracingEnabled else { return }
-        os_signpost(.event, log: performanceLog, name: name)
-        os_signpost(.event, log: pointsOfInterestLog, name: name)
+        guard tracingEnabled || pointsOfInterestEnabled else { return }
+        if tracingEnabled {
+            os_signpost(.event, log: performanceLog, name: name)
+        }
+        if pointsOfInterestEnabled {
+            os_signpost(.event, log: pointsOfInterestLog, name: name)
+        }
     }
 
     /// Emits a point-in-time event with a numeric payload for quick Instruments correlation.
     public static func event(_ name: StaticString, value: Int) {
-        guard tracingEnabled else { return }
-        os_signpost(.event, log: performanceLog, name: name, "%{public}ld", value)
-        os_signpost(.event, log: pointsOfInterestLog, name: name, "%{public}ld", value)
+        guard tracingEnabled || pointsOfInterestEnabled else { return }
+        if tracingEnabled {
+            os_signpost(.event, log: performanceLog, name: name, "%{public}ld", value)
+        }
+        if pointsOfInterestEnabled {
+            os_signpost(.event, log: pointsOfInterestLog, name: name, "%{public}ld", value)
+        }
     }
 }
 

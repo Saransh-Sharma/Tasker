@@ -1,5 +1,109 @@
 import SwiftUI
 
+struct HomeHabitRowHitTargetMetrics: Equatable {
+    let detailRegionWidth: CGFloat
+    let visualLastCellWidth: CGFloat
+    let interactiveLastCellWidth: CGFloat
+
+    init(stripWidth: CGFloat, cellCount: Int, hasLastCellInteraction: Bool) {
+        let resolvedStripWidth = max(stripWidth, 1)
+        let resolvedCellCount = max(cellCount, 1)
+        let trailingCellWidth = hasLastCellInteraction
+            ? max(resolvedStripWidth / CGFloat(resolvedCellCount), 1)
+            : 0
+        let interactiveTrailingCellWidth = hasLastCellInteraction
+            ? min(max(trailingCellWidth * 2, 64), 80)
+            : 0
+
+        self.visualLastCellWidth = trailingCellWidth
+        self.interactiveLastCellWidth = min(max(interactiveTrailingCellWidth, trailingCellWidth), resolvedStripWidth)
+        self.detailRegionWidth = max(resolvedStripWidth - interactiveLastCellWidth, 0)
+    }
+}
+
+private struct HomeHabitRowInteractiveButton<Label: View>: View {
+    let action: () -> Void
+    @ViewBuilder let label: () -> Label
+
+    var body: some View {
+        Button {
+            TaskerFeedback.selection()
+            action()
+        } label: {
+            label()
+        }
+        .buttonStyle(.plain)
+        .contentShape(Rectangle())
+    }
+}
+
+private struct HomeHabitRowInteractiveSurface: View {
+    let row: HomeHabitRow
+    let boardCellCount: Int
+    let colorScheme: ColorScheme
+    let lastCellInteraction: HomeHabitLastCellInteraction?
+    let accessibilityValue: String
+    let accessibilityHint: String
+    let onOpenDetail: (() -> Void)?
+    let onLastCellAction: (() -> Void)?
+
+    var body: some View {
+        GeometryReader { proxy in
+            let metrics = HomeHabitRowHitTargetMetrics(
+                stripWidth: proxy.size.width,
+                cellCount: boardCellCount,
+                hasLastCellInteraction: lastCellInteraction != nil && onLastCellAction != nil
+            )
+
+            HStack(spacing: 0) {
+                if let onOpenDetail {
+                    HomeHabitRowInteractiveButton(
+                        action: onOpenDetail
+                    ) {
+                        Color.clear
+                    }
+                    .frame(width: metrics.detailRegionWidth)
+                    .frame(maxHeight: .infinity)
+                    .accessibilityLabel(row.title)
+                    .accessibilityValue(accessibilityValue)
+                    .accessibilityHint(accessibilityHint)
+                } else if metrics.detailRegionWidth > 0 {
+                    Color.clear
+                        .frame(width: metrics.detailRegionWidth)
+                }
+
+                if let interaction = lastCellInteraction,
+                   let onLastCellAction,
+                   metrics.interactiveLastCellWidth > 0 {
+                    HomeHabitRowInteractiveButton(
+                        action: onLastCellAction
+                    ) {
+                        ZStack(alignment: .trailing) {
+                            Color.clear
+
+                            RoundedRectangle(cornerRadius: 1, style: .continuous)
+                                .stroke(HabitEverydayPalette.todayStroke(colorScheme: colorScheme), lineWidth: 1.2)
+                                .frame(width: metrics.visualLastCellWidth)
+                        }
+                    }
+                    .frame(width: metrics.interactiveLastCellWidth)
+                    .frame(maxHeight: .infinity)
+                    .contentShape(Rectangle())
+                    .accessibilityIdentifier("home.habitRow.lastCell.\(row.id)")
+                    .accessibilityLabel("\(row.title) status")
+                    .accessibilityValue("\(interaction.currentStateText). Next: \(interaction.nextActionText).")
+                    .accessibilityHint("Cycles the last habit cell for the selected date.")
+                    .zIndex(1)
+                } else if metrics.interactiveLastCellWidth > 0 {
+                    Color.clear
+                        .frame(width: metrics.interactiveLastCellWidth)
+                }
+            }
+            .frame(width: proxy.size.width, height: proxy.size.height, alignment: .leading)
+        }
+    }
+}
+
 struct HomeHabitRowView: View {
     let row: HomeHabitRow
     var onPrimaryAction: (() -> Void)? = nil
@@ -47,6 +151,10 @@ struct HomeHabitRowView: View {
         usesExpandedTitle ? 72 : 64
     }
 
+    private var boardCellCount: Int {
+        max(boardCells.count, 1)
+    }
+
     private var isResolved: Bool {
         switch row.state {
         case .completedToday, .lapsedToday, .skippedToday:
@@ -62,9 +170,6 @@ struct HomeHabitRowView: View {
 
     var body: some View {
         rowBase
-            .overlay {
-                rowInteractionOverlay
-            }
             .accessibilityIdentifier("home.habitRow.\(row.id)")
             .swipeActions(edge: .leading, allowsFullSwipe: primaryActionTitle != nil) {
                 if let primaryActionTitle, let onPrimaryAction {
@@ -125,7 +230,21 @@ struct HomeHabitRowView: View {
         .frame(minHeight: rowMinHeight, alignment: .center)
     }
 
+    @ViewBuilder
     private var iconTile: some View {
+        if let onOpenDetail {
+            HomeHabitRowInteractiveButton(
+                action: onOpenDetail
+            ) {
+                iconTileVisual
+            }
+            .accessibilityHidden(true)
+        } else {
+            iconTileVisual
+        }
+    }
+
+    private var iconTileVisual: some View {
         ZStack {
             accentColor.opacity(0.14)
 
@@ -147,14 +266,32 @@ struct HomeHabitRowView: View {
 
     private var streakSurface: some View {
         ZStack(alignment: .topLeading) {
+            streakSurfaceVisual
+                .allowsHitTesting(false)
+
+            HomeHabitRowInteractiveSurface(
+                row: row,
+                boardCellCount: boardCellCount,
+                colorScheme: colorScheme,
+                lastCellInteraction: lastCellInteraction,
+                accessibilityValue: accessibilityValue,
+                accessibilityHint: accessibilityHint,
+                onOpenDetail: onOpenDetail,
+                onLastCellAction: onLastCellAction
+            )
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .accessibilityIdentifier("home.habitRow.strip.\(row.id)")
+    }
+
+    private var streakSurfaceVisual: some View {
+        ZStack(alignment: .topLeading) {
             stretchedStrip
             titleReadabilityScrim
             titleView(lineLimit: usesExpandedTitle ? 2 : 1)
                 .padding(.horizontal, usesExpandedTitle ? spacing.s12 : spacing.s8)
                 .padding(.vertical, usesExpandedTitle ? spacing.s12 : spacing.s8)
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        .accessibilityIdentifier("home.habitRow.strip.\(row.id)")
     }
 
     private func titleView(lineLimit: Int) -> some View {
@@ -167,6 +304,7 @@ struct HomeHabitRowView: View {
             .frame(maxWidth: .infinity, alignment: .leading)
             .accessibilityIdentifier("home.habitRow.title.\(row.id)")
             .accessibilityHidden(true)
+            .allowsHitTesting(false)
     }
 
     private var stretchedStrip: some View {
@@ -181,6 +319,7 @@ struct HomeHabitRowView: View {
             .frame(width: proxy.size.width, height: proxy.size.height, alignment: .leading)
         }
         .clipped()
+        .allowsHitTesting(false)
     }
 
     private var titleReadabilityScrim: some View {
@@ -206,63 +345,7 @@ struct HomeHabitRowView: View {
     }
 
     private func stretchedCellWidth(for totalWidth: CGFloat) -> CGFloat {
-        let count = CGFloat(max(boardCells.count, 1))
-        return max(totalWidth / count, 1)
-    }
-
-    private func lastCellWidth(for totalWidth: CGFloat) -> CGFloat {
-        let stripWidth = max(totalWidth - iconTileWidth, 1)
-        return stretchedCellWidth(for: stripWidth)
-    }
-
-    private var rowInteractionOverlay: some View {
-        GeometryReader { proxy in
-            let lastCellWidth = lastCellInteraction == nil ? 0 : lastCellWidth(for: proxy.size.width)
-
-            HStack(spacing: 0) {
-                if let onOpenDetail {
-                    Button {
-                        TaskerFeedback.selection()
-                        onOpenDetail()
-                    } label: {
-                        Color.clear
-                    }
-                    .buttonStyle(.plain)
-                    .frame(width: max(proxy.size.width - lastCellWidth, 0))
-                    .frame(maxHeight: .infinity)
-                    .contentShape(Rectangle())
-                    .accessibilityLabel(row.title)
-                    .accessibilityValue(accessibilityValue)
-                    .accessibilityHint(accessibilityHint)
-                } else {
-                    Color.clear
-                        .frame(width: max(proxy.size.width - lastCellWidth, 0))
-                }
-
-                if let interaction = lastCellInteraction,
-                   let onLastCellAction {
-                    Button {
-                        TaskerFeedback.selection()
-                        onLastCellAction()
-                    } label: {
-                        RoundedRectangle(cornerRadius: 1, style: .continuous)
-                            .stroke(HabitEverydayPalette.todayStroke(colorScheme: colorScheme), lineWidth: 1.2)
-                            .background(Color.clear)
-                    }
-                    .buttonStyle(.plain)
-                    .frame(width: lastCellWidth)
-                    .frame(maxHeight: .infinity)
-                    .contentShape(Rectangle())
-                    .accessibilityIdentifier("home.habitRow.lastCell.\(row.id)")
-                    .accessibilityLabel("\(row.title) status")
-                    .accessibilityValue("\(interaction.currentStateText). Next: \(interaction.nextActionText).")
-                    .accessibilityHint("Cycles the last habit cell for the selected date.")
-                } else {
-                    Color.clear
-                        .frame(width: lastCellWidth)
-                }
-            }
-        }
+        max(totalWidth / CGFloat(boardCellCount), 1)
     }
 
     private var primaryActionTitle: String? {
