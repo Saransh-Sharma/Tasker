@@ -86,6 +86,79 @@ public final class CoreDataHabitRuntimeReadRepository: HabitRuntimeReadRepositor
         }
     }
 
+    public func fetchAgendaHabit(
+        habitID: UUID,
+        for date: Date,
+        completion: @escaping (Result<HabitOccurrenceSummary?, Error>) -> Void
+    ) {
+        context.perform {
+            do {
+                let calendar = Calendar.current
+                guard let habit = try self.fetchHabits(
+                    predicate: NSCompoundPredicate(andPredicateWithSubpredicates: [
+                        NSPredicate(format: "id == %@", habitID as CVarArg),
+                        NSPredicate(format: "archivedAt == nil"),
+                        NSPredicate(format: "isPaused == NO"),
+                        NSPredicate(format: "lifeAreaID != nil")
+                    ])
+                ).first, habit.trackingMode == .dailyCheckIn else {
+                    completion(.success(nil))
+                    return
+                }
+
+                let habitIDs = Set([habit.id])
+                let names = try self.fetchOwnershipLookups(habits: [habit])
+                let scheduleMetadata = try self.fetchHabitScheduleMetadata(habitIDs: habitIDs)
+                let startOfDay = calendar.startOfDay(for: date)
+                let endOfDay = calendar.date(byAdding: .day, value: 1, to: startOfDay) ?? date
+                let windowStart = calendar.date(byAdding: .day, value: -45, to: startOfDay) ?? startOfDay
+                let history = try self.fetchHabitOccurrences(
+                    start: windowStart,
+                    end: endOfDay,
+                    sourceIDs: habitIDs,
+                    includeFuture: false
+                )
+                let todayOccurrence = history
+                    .filter { occurrence in
+                        let occurrenceDate = self.occurrenceDate(occurrence)
+                        return occurrenceDate >= startOfDay && occurrenceDate < endOfDay
+                    }
+                    .sorted(by: { self.occurrenceDate($0) < self.occurrenceDate($1) })
+                    .last
+                let overdueOccurrence = history
+                    .filter { occurrence in
+                        occurrence.state == .pending && self.occurrenceDate(occurrence) < startOfDay
+                    }
+                    .sorted(by: { self.occurrenceDate($0) < self.occurrenceDate($1) })
+                    .last
+
+                guard let chosenOccurrence = todayOccurrence ?? overdueOccurrence else {
+                    completion(.success(nil))
+                    return
+                }
+
+                let marks = HabitRuntimeSupport.dayMarks(
+                    from: history,
+                    endingOn: date,
+                    dayCount: 30,
+                    calendar: calendar
+                )
+                completion(.success(
+                    self.buildSummary(
+                        habit: habit,
+                        occurrence: chosenOccurrence,
+                        date: date,
+                        last14Days: marks,
+                        ownership: names,
+                        cadence: scheduleMetadata[habit.id]?.cadence ?? .daily()
+                    )
+                ))
+            } catch {
+                completion(.failure(error))
+            }
+        }
+    }
+
     public func fetchHistory(
         habitIDs: [UUID],
         endingOn date: Date,
@@ -222,6 +295,107 @@ public final class CoreDataHabitRuntimeReadRepository: HabitRuntimeReadRepositor
                     start: start,
                     end: end,
                     sourceIDs: habitIDs,
+                    includeFuture: true
+                )
+                let occurrencesByHabitID = Dictionary(grouping: occurrences, by: \.sourceID)
+
+                let rows = habits.map { habit in
+                    let history = occurrencesByHabitID[habit.id] ?? []
+                    let last14Days = HabitRuntimeSupport.dayMarks(
+                        from: history,
+                        endingOn: Date(),
+                        dayCount: 14,
+                        calendar: calendar
+                    )
+                    let nextDueAt = history
+                        .filter { self.occurrenceDate($0) >= calendar.startOfDay(for: Date()) && $0.state == .pending }
+                        .map(self.occurrenceDate(_:))
+                        .min()
+                    let lastCompletedAt = history
+                        .filter { $0.state == .completed }
+                        .map(self.occurrenceDate(_:))
+                        .max()
+                    let ownership = names[habit.id]
+                    let schedule = scheduleMetadata[habit.id]
+                    return HabitLibraryRow(
+                        habitID: habit.id,
+                        title: habit.title,
+                        kind: habit.kind,
+                        trackingMode: habit.trackingMode,
+                        cadence: schedule?.cadence ?? .daily(),
+                        lifeAreaID: habit.lifeAreaID,
+                        lifeAreaName: ownership?.lifeAreaName ?? "Needs Repair",
+                        projectID: habit.projectID,
+                        projectName: ownership?.projectName,
+                        icon: habit.icon,
+                        colorHex: habit.colorHex,
+                        isPaused: habit.isPaused,
+                        isArchived: habit.isArchived,
+                        currentStreak: habit.streakCurrent,
+                        bestStreak: habit.streakBest,
+                        last14Days: last14Days,
+                        nextDueAt: nextDueAt,
+                        lastCompletedAt: lastCompletedAt,
+                        reminderWindowStart: schedule?.reminderWindowStart,
+                        reminderWindowEnd: schedule?.reminderWindowEnd,
+                        notes: habit.notes
+                    )
+                }
+
+                completion(.success(rows.sorted(by: self.compareLibraryRow(_:_:))))
+            } catch {
+                completion(.failure(error))
+            }
+        }
+    }
+
+    public func fetchHabitLibrary(
+        habitIDs: [UUID]?,
+        includeArchived: Bool,
+        completion: @escaping (Result<[HabitLibraryRow], Error>) -> Void
+    ) {
+        context.perform {
+            do {
+                let requestedIDs = habitIDs.map(Set.init)
+                if let requestedIDs, requestedIDs.isEmpty {
+                    completion(.success([]))
+                    return
+                }
+
+                let calendar = Calendar.current
+                var predicates: [NSPredicate] = []
+                if includeArchived == false {
+                    predicates.append(NSPredicate(format: "archivedAt == nil"))
+                }
+                if let requestedIDs, requestedIDs.isEmpty == false {
+                    predicates.append(NSPredicate(format: "id IN %@", Array(requestedIDs)))
+                }
+
+                let predicate: NSPredicate?
+                switch predicates.count {
+                case 0:
+                    predicate = nil
+                case 1:
+                    predicate = predicates[0]
+                default:
+                    predicate = NSCompoundPredicate(andPredicateWithSubpredicates: predicates)
+                }
+
+                let habits = try self.fetchHabits(predicate: predicate)
+                guard !habits.isEmpty else {
+                    completion(.success([]))
+                    return
+                }
+
+                let resolvedHabitIDs = Set(habits.map(\.id))
+                let names = try self.fetchOwnershipLookups(habits: habits)
+                let scheduleMetadata = try self.fetchHabitScheduleMetadata(habitIDs: resolvedHabitIDs)
+                let start = calendar.date(byAdding: .day, value: -30, to: calendar.startOfDay(for: Date())) ?? Date()
+                let end = calendar.date(byAdding: .day, value: 30, to: calendar.startOfDay(for: Date())) ?? Date()
+                let occurrences = try self.fetchHabitOccurrences(
+                    start: start,
+                    end: end,
+                    sourceIDs: resolvedHabitIDs,
                     includeFuture: true
                 )
                 let occurrencesByHabitID = Dictionary(grouping: occurrences, by: \.sourceID)

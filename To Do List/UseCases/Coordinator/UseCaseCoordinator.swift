@@ -307,14 +307,13 @@ public final class UseCaseCoordinator {
             scheduleRepository: v2Dependencies.scheduleRepository,
             occurrenceRepository: v2Dependencies.occurrenceRepository,
             scheduleEngine: v2Dependencies.scheduleEngine,
-            maintainHabitRuntimeUseCase: maintainHabitRuntime,
             recomputeHabitStreaksUseCase: recomputeHabitStreaks,
             gamificationEngine: engine
         )
         self.resetHabitOccurrence = ResetHabitOccurrenceUseCase(
             habitRepository: v2Dependencies.habitRepository,
             occurrenceRepository: v2Dependencies.occurrenceRepository,
-            maintainHabitRuntimeUseCase: maintainHabitRuntime,
+            recomputeHabitStreaksUseCase: recomputeHabitStreaks,
             gamificationEngine: engine
         )
         self.manageHabits = ManageHabitsUseCase(repository: v2Dependencies.habitRepository)
