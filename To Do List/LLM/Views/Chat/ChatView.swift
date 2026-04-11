@@ -2,6 +2,7 @@
 //  ChatView.swift
 //
 
+import Combine
 import MarkdownUI
 import MLXLMCommon
 import SwiftData
@@ -37,9 +38,13 @@ struct ChatView: View {
     @State private var projectLookupTask: _Concurrency.Task<Void, Never>?
     @State private var generationTask: _Concurrency.Task<Void, Never>?
     @State private var activationFocusTask: _Concurrency.Task<Void, Never>?
+    @State private var contextInvalidationTask: _Concurrency.Task<Void, Never>?
     @State private var generationRunID: UUID?
     @State private var transcriptSnapshot: ChatTranscriptSnapshot = .empty
     @State private var pendingResponsePhase: ChatPendingResponsePhase = .idle
+    @State private var chatOpenTraceInterval: TaskerPerformanceInterval?
+    @State private var promptSubmitTraceInterval: TaskerPerformanceInterval?
+    @State private var hasCompletedInitialTranscriptRender = false
     @StateObject private var contextCoordinator = ChatContextCoordinator()
     @FocusState private var isProjectFieldFocused: Bool
 
@@ -209,6 +214,17 @@ struct ChatView: View {
         )
     }
 
+    private var contextInvalidationPublisher: AnyPublisher<Notification, Never> {
+        Publishers.MergeMany(
+            NotificationCenter.default.publisher(for: NSNotification.Name("TaskCreated")).eraseToAnyPublisher(),
+            NotificationCenter.default.publisher(for: NSNotification.Name("TaskUpdated")).eraseToAnyPublisher(),
+            NotificationCenter.default.publisher(for: NSNotification.Name("TaskDeleted")).eraseToAnyPublisher(),
+            NotificationCenter.default.publisher(for: NSNotification.Name("TaskCompletionChanged")).eraseToAnyPublisher(),
+            NotificationCenter.default.publisher(for: Notification.Name("HomeTaskMutationEvent")).eraseToAnyPublisher()
+        )
+        .eraseToAnyPublisher()
+    }
+
     var body: some View {
         ChatScaffoldView(
             currentThread: $currentThread,
@@ -293,20 +309,8 @@ struct ChatView: View {
         .onDisappear {
             handleChatViewDisappear()
         }
-        .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("TaskCreated"))) { _ in
-            invalidateContextCacheForCurrentThread()
-        }
-        .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("TaskUpdated"))) { _ in
-            invalidateContextCacheForCurrentThread()
-        }
-        .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("TaskDeleted"))) { _ in
-            invalidateContextCacheForCurrentThread()
-        }
-        .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("TaskCompletionChanged"))) { _ in
-            invalidateContextCacheForCurrentThread()
-        }
-        .onReceive(NotificationCenter.default.publisher(for: Notification.Name("HomeTaskMutationEvent"))) { _ in
-            invalidateContextCacheForCurrentThread()
+        .onReceive(contextInvalidationPublisher) { _ in
+            scheduleContextInvalidationForCurrentThread()
         }
         .onReceive(NotificationCenter.default.publisher(for: .taskerEvaChatLaunchRequestDidChange)) { _ in
             consumePendingChatLaunchRequest()
@@ -357,6 +361,8 @@ struct ChatView: View {
 
     @MainActor
     private func handleChatViewAppear() {
+        hasCompletedInitialTranscriptRender = false
+        chatOpenTraceInterval = TaskerPerformanceTrace.begin("ChatOpenToFirstTranscriptRender")
         refreshTranscriptSnapshot()
         contextCoordinator.loadAttachments(for: currentThread?.id)
         consumePendingChatLaunchRequest()
@@ -384,6 +390,12 @@ struct ChatView: View {
         activationFocusTask?.cancel()
         activationFocusTask = nil
         projectLookupTask?.cancel()
+        contextInvalidationTask?.cancel()
+        contextInvalidationTask = nil
+        if let chatOpenTraceInterval {
+            TaskerPerformanceTrace.end(chatOpenTraceInterval)
+            self.chatOpenTraceInterval = nil
+        }
         LLMRuntimeCoordinator.shared.cancelDeferredPrewarm(reason: "chat_view_disappear")
         cancelActiveGeneration(reason: "chat_view_disappear")
         LLMRuntimeCoordinator.shared.releaseSession(reason: "chat_prompt_focus")
@@ -395,6 +407,8 @@ struct ChatView: View {
         activationFocusTask?.cancel()
         activationFocusTask = nil
         projectLookupTask?.cancel()
+        contextInvalidationTask?.cancel()
+        contextInvalidationTask = nil
         cancelActiveGeneration(reason: "thread_changed")
         refreshTranscriptSnapshot()
         contextCoordinator.loadAttachments(for: currentThread?.id)
@@ -661,6 +675,7 @@ struct ChatView: View {
         }
         let runID = UUID()
         generationRunID = runID
+        promptSubmitTraceInterval = TaskerPerformanceTrace.begin("ChatPromptSubmitToFirstStateChange")
         generationTask = _Concurrency.Task {
             await runStandardGeneration(message: message, thread: thread, runID: runID)
         }
@@ -791,7 +806,7 @@ struct ChatView: View {
         }
 
         await MainActor.run {
-            pendingResponsePhase = .buildingContext
+            updatePendingResponsePhase(.buildingContext, for: runID)
             prompt = ""
             appManager.playHaptic()
             sendMessage(Message(role: .user, content: message, thread: thread))
@@ -1336,6 +1351,10 @@ struct ChatView: View {
         generationTask = nil
         generationRunID = nil
         generatingThreadID = nil
+        if let promptSubmitTraceInterval {
+            TaskerPerformanceTrace.end(promptSubmitTraceInterval)
+            self.promptSubmitTraceInterval = nil
+        }
         pendingResponsePhase = .idle
         llm.isThinking = false
         llm.cancelGeneration(reason: reason)
@@ -1345,6 +1364,11 @@ struct ChatView: View {
     @MainActor
     private func updatePendingResponsePhase(_ phase: ChatPendingResponsePhase, for runID: UUID) {
         guard generationRunID == runID else { return }
+        if phase.isActive, let promptSubmitTraceInterval {
+            TaskerPerformanceTrace.end(promptSubmitTraceInterval)
+            self.promptSubmitTraceInterval = nil
+            TaskerPerformanceTrace.event("ChatPromptStateTransition")
+        }
         pendingResponsePhase = phase
     }
 
@@ -1489,17 +1513,48 @@ struct ChatView: View {
         return (built.payload, built.usedTimeoutFallback, false)
     }
 
-    private func invalidateContextCacheForCurrentThread() {
+    @MainActor
+    private func scheduleContextInvalidationForCurrentThread() {
         guard let threadID = currentThread?.id else { return }
-        Task {
+        contextInvalidationTask?.cancel()
+        contextInvalidationTask = Task {
+            let interval = TaskerPerformanceTrace.begin("ChatContextInvalidation")
+            do {
+                try await _Concurrency.Task.sleep(nanoseconds: 150_000_000)
+            } catch {
+                TaskerPerformanceTrace.end(interval)
+                return
+            }
             await ChatView.contextInjectionTracker.clear(threadID: threadID)
             await EvaExecutiveContextService.invalidateCache()
+            TaskerPerformanceTrace.end(interval)
         }
     }
 
     @MainActor
     private func refreshTranscriptSnapshot(for thread: Thread? = nil) {
-        transcriptSnapshot = ChatTranscriptSnapshot(thread: thread ?? currentThread)
+        let snapshot = ChatTranscriptSnapshot(thread: thread ?? currentThread)
+        guard transcriptSnapshot != snapshot else {
+            if hasCompletedInitialTranscriptRender == false {
+                hasCompletedInitialTranscriptRender = true
+                if let chatOpenTraceInterval {
+                    TaskerPerformanceTrace.end(chatOpenTraceInterval)
+                    self.chatOpenTraceInterval = nil
+                    TaskerPerformanceTrace.event("ChatTranscriptFirstRender")
+                }
+            }
+            return
+        }
+
+        transcriptSnapshot = snapshot
+        if hasCompletedInitialTranscriptRender == false {
+            hasCompletedInitialTranscriptRender = true
+            if let chatOpenTraceInterval {
+                TaskerPerformanceTrace.end(chatOpenTraceInterval)
+                self.chatOpenTraceInterval = nil
+                TaskerPerformanceTrace.event("ChatTranscriptFirstRender")
+            }
+        }
     }
 
     private func composeChatSystemPrompt(

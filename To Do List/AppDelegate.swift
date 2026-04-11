@@ -292,7 +292,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         guard didScheduleDeferredLaunchServices == false else { return }
         didScheduleDeferredLaunchServices = true
 
-        DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(250)) { [weak self] in
+        DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(700)) { [weak self] in
             guard let self else { return }
             self.runDeferredLaunchPostFirstFrameMain(application: application)
             self.deferredLaunchWarmupQueue.async { [weak self] in
@@ -1466,7 +1466,6 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         if shouldRunStartupMutationWorkflows {
             ensureV3Defaults()
             repairProjectIdentityIfNeeded()
-            maintainHabitRuntimeIfNeeded(reason: "clean_architecture_setup")
         } else {
             logWarning(
                 event: "write_closed_startup_mutations_skipped",
@@ -1478,34 +1477,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         }
 
         // Reconcile gamification data on launch
-        if V2FeatureFlags.gamificationV2Enabled {
-            let engine = stateContainer.useCaseCoordinator.gamificationEngine
-            engine.fullReconciliation { result in
-                switch result {
-                case .success:
-                    engine.writeWidgetSnapshot()
-                    engine.updateStreak { streakResult in
-                        if case .failure(let error) = streakResult {
-                            logError(
-                                event: "gamification_startup_streak_update_failed",
-                                message: "Gamification startup streak update failed after successful reconciliation",
-                                fields: [
-                                    "error": error.localizedDescription
-                                ]
-                            )
-                        }
-                    }
-                case .failure(let error):
-                    logError(
-                        event: "gamification_startup_reconciliation_failed",
-                        message: "Gamification startup reconciliation failed; skipping startup follow-up updates",
-                        fields: [
-                            "error": error.localizedDescription
-                        ]
-                    )
-                }
-            }
-        }
+        scheduleDeferredStartupReconciliation(stateContainer: stateContainer)
 
         // Configure LLM access through repositories (no direct Core Data context pulls).
         LLMContextRepositoryProvider.configure(
@@ -1517,6 +1489,48 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         )
         configureSemanticRetrievalLifecycle(stateContainer: stateContainer)
         return true
+    }
+
+    private func scheduleDeferredStartupReconciliation(stateContainer: EnhancedDependencyContainer) {
+        deferredLaunchWarmupQueue.asyncAfter(deadline: .now() + .seconds(1)) { [weak self] in
+            guard let self else { return }
+
+            if self.shouldRunStartupMutationWorkflows {
+                DispatchQueue.main.async { [weak self] in
+                    self?.maintainHabitRuntimeIfNeeded(reason: "launch_deferred_warmup")
+                }
+            }
+
+            guard V2FeatureFlags.gamificationV2Enabled else { return }
+            let engine = stateContainer.useCaseCoordinator.gamificationEngine
+            let interval = TaskerPerformanceTrace.begin("LaunchDeferredGamificationReconciliation")
+            engine.fullReconciliation { result in
+                defer { TaskerPerformanceTrace.end(interval) }
+                switch result {
+                case .success:
+                    engine.writeWidgetSnapshot()
+                    engine.updateStreak { streakResult in
+                        if case .failure(let error) = streakResult {
+                            logError(
+                                event: "gamification_startup_streak_update_failed",
+                                message: "Gamification startup streak update failed after deferred reconciliation",
+                                fields: [
+                                    "error": error.localizedDescription
+                                ]
+                            )
+                        }
+                    }
+                case .failure(let error):
+                    logError(
+                        event: "gamification_startup_reconciliation_failed",
+                        message: "Gamification deferred startup reconciliation failed",
+                        fields: [
+                            "error": error.localizedDescription
+                        ]
+                    )
+                }
+            }
+        }
     }
 
     private func configureSemanticRetrievalLifecycle(stateContainer: EnhancedDependencyContainer) {
