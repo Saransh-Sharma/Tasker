@@ -1361,6 +1361,163 @@ final class HomeViewModelPersistenceTests: XCTestCase {
         XCTAssertEqual(harness.viewModel.focusNowSectionState.rows, initialFocusRows)
     }
 
+    func testHabitMutationPreservesStableHomeOrdering() {
+        let now = Date()
+        let firstHabitID = UUID()
+        let secondHabitID = UUID()
+        let firstOccurrenceID = UUID()
+        let secondOccurrenceID = UUID()
+        let lifeAreaID = UUID()
+        let marks = HabitRuntimeSupport.dayMarks(from: [], endingOn: now, dayCount: 30)
+        let harness = makeHabitMutationHarness(
+            agendaSummaries: [
+                HabitOccurrenceSummary(
+                    habitID: firstHabitID,
+                    occurrenceID: firstOccurrenceID,
+                    title: "Alpha",
+                    kind: .positive,
+                    trackingMode: .dailyCheckIn,
+                    lifeAreaID: lifeAreaID,
+                    lifeAreaName: "Health",
+                    cadence: .daily(),
+                    dueAt: now,
+                    state: .pending,
+                    currentStreak: 1,
+                    bestStreak: 3,
+                    riskState: .stable,
+                    last14Days: marks
+                ),
+                HabitOccurrenceSummary(
+                    habitID: secondHabitID,
+                    occurrenceID: secondOccurrenceID,
+                    title: "Bravo",
+                    kind: .positive,
+                    trackingMode: .dailyCheckIn,
+                    lifeAreaID: lifeAreaID,
+                    lifeAreaName: "Health",
+                    cadence: .daily(),
+                    dueAt: now,
+                    state: .pending,
+                    currentStreak: 20,
+                    bestStreak: 20,
+                    riskState: .stable,
+                    last14Days: marks
+                )
+            ]
+        )
+        waitForMainQueueFlush()
+
+        XCTAssertEqual(harness.viewModel.habitHomeSectionState.primaryRows.map(\.title), ["Alpha", "Bravo"])
+
+        guard let row = harness.viewModel.habitHomeSectionState.primaryRows.first(where: { $0.title == "Alpha" }) else {
+            return XCTFail("Expected Alpha habit row")
+        }
+
+        harness.schedulingEngine.deferResolveCompletion = true
+        harness.viewModel.performHabitLastCellAction(row, source: "test")
+        XCTAssertEqual(harness.viewModel.habitHomeSectionState.primaryRows.map(\.title), ["Alpha", "Bravo"])
+
+        harness.schedulingEngine.completePendingResolve(with: .success(()))
+        waitForMainQueueFlush(seconds: 0.45)
+        XCTAssertEqual(harness.viewModel.habitHomeSectionState.primaryRows.map(\.title), ["Alpha", "Bravo"])
+    }
+
+    func testHabitMutationKeepsRescueTasksOutOfAgendaAndFocus() {
+        let now = Date()
+        let calendar = Calendar.current
+        let inbox = Project.createInbox()
+        let harness = makeHabitMutationHarness(
+            tasks: [
+                makeTask(
+                    name: "Rescue Old",
+                    project: inbox,
+                    dueDate: calendar.date(byAdding: .day, value: -18, to: now),
+                    priority: .high
+                ),
+                makeTask(
+                    name: "Focus Candidate",
+                    project: inbox,
+                    dueDate: now,
+                    priority: .high
+                )
+            ]
+        )
+        waitForMainQueueFlush()
+
+        guard let row = harness.viewModel.habitHomeSectionState.primaryRows.first else {
+            return XCTFail("Expected habit row after initial load")
+        }
+
+        harness.schedulingEngine.deferResolveCompletion = true
+        harness.viewModel.performHabitLastCellAction(row, source: "test")
+
+        let agendaTitles = harness.viewModel.dueTodayRows.map(\.title)
+        let focusTitles = harness.viewModel.focusNowSectionState.rows.map(\.title)
+        let rescueTitles = rescueTailState(from: harness.viewModel)?.rows.map(\.title)
+
+        XCTAssertFalse(agendaTitles.contains("Rescue Old"))
+        XCTAssertFalse(focusTitles.contains("Rescue Old"))
+        XCTAssertEqual(rescueTitles, ["Rescue Old"])
+    }
+
+    func testHabitMutationRecomputesHabitBackedFocusFallback() {
+        let now = Date()
+        let calendar = Calendar.current
+        let firstHabitID = UUID()
+        let secondHabitID = UUID()
+        let firstOccurrenceID = UUID()
+        let secondOccurrenceID = UUID()
+        let lifeAreaID = UUID()
+        let marks = HabitRuntimeSupport.dayMarks(from: [], endingOn: now, dayCount: 30)
+        let harness = makeHabitMutationHarness(
+            agendaSummaries: [
+                HabitOccurrenceSummary(
+                    habitID: firstHabitID,
+                    occurrenceID: firstOccurrenceID,
+                    title: "Overdue A",
+                    kind: .positive,
+                    trackingMode: .dailyCheckIn,
+                    lifeAreaID: lifeAreaID,
+                    lifeAreaName: "Health",
+                    cadence: .daily(),
+                    dueAt: calendar.date(byAdding: .day, value: -3, to: now),
+                    state: .pending,
+                    currentStreak: 2,
+                    bestStreak: 4,
+                    riskState: .stable,
+                    last14Days: marks
+                ),
+                HabitOccurrenceSummary(
+                    habitID: secondHabitID,
+                    occurrenceID: secondOccurrenceID,
+                    title: "Overdue B",
+                    kind: .positive,
+                    trackingMode: .dailyCheckIn,
+                    lifeAreaID: lifeAreaID,
+                    lifeAreaName: "Health",
+                    cadence: .daily(),
+                    dueAt: calendar.date(byAdding: .day, value: -2, to: now),
+                    state: .pending,
+                    currentStreak: 1,
+                    bestStreak: 3,
+                    riskState: .stable,
+                    last14Days: marks
+                )
+            ]
+        )
+        waitForMainQueueFlush()
+
+        XCTAssertEqual(harness.viewModel.focusNowSectionState.rows.map(\.title), ["Overdue A"])
+
+        guard let row = harness.viewModel.habitHomeSectionState.recoveryRows.first(where: { $0.title == "Overdue A" }) else {
+            return XCTFail("Expected Overdue A habit row")
+        }
+
+        harness.schedulingEngine.deferResolveCompletion = true
+        harness.viewModel.performHabitLastCellAction(row, source: "test")
+        XCTAssertEqual(harness.viewModel.focusNowSectionState.rows.map(\.title), ["Overdue B"])
+    }
+
     private func rescueTailState(from viewModel: HomeViewModel) -> RescueTailState? {
         viewModel.agendaTailItems.compactMap { item in
             guard case .rescue(let state) = item else { return nil }
@@ -1377,43 +1534,6 @@ final class HomeViewModelPersistenceTests: XCTestCase {
         let now = Date()
         let lifeAreaID = UUID()
         let last14Days = HabitRuntimeSupport.dayMarks(from: [], endingOn: now, dayCount: 30)
-
-        let taskReadRepository = HomeHabitTaskReadRepositorySpy(tasks: tasks)
-        let projectRepository = HomeViewModelMockProjectRepository(projects: [Project.createInbox()])
-        let habitRepository = HomeHabitRepositoryStub(
-            habits: [
-                HabitDefinitionRecord(
-                    id: habitID,
-                    lifeAreaID: lifeAreaID,
-                    title: "Hydrate",
-                    habitType: "positive_daily",
-                    kindRaw: HabitKind.positive.rawValue,
-                    trackingModeRaw: HabitTrackingMode.dailyCheckIn.rawValue,
-                    iconSymbolName: "drop.fill",
-                    createdAt: now,
-                    updatedAt: now
-                )
-            ]
-        )
-        let occurrenceRepository = HomeHabitOccurrenceRepositoryStub(
-            occurrences: [
-                OccurrenceDefinition(
-                    id: occurrenceID,
-                    occurrenceKey: "habit-\(habitID.uuidString)",
-                    scheduleTemplateID: UUID(),
-                    sourceType: .habit,
-                    sourceID: habitID,
-                    scheduledAt: now,
-                    dueAt: now,
-                    state: .pending,
-                    isGenerated: true,
-                    generationWindow: "test",
-                    createdAt: now,
-                    updatedAt: now
-                )
-            ]
-        )
-        let schedulingEngine = HomeHabitDeferredResolveSchedulingEngine()
         let resolvedAgendaSummaries = agendaSummaries ?? [
             HabitOccurrenceSummary(
                 habitID: habitID,
@@ -1433,6 +1553,52 @@ final class HomeViewModelPersistenceTests: XCTestCase {
                 last14Days: last14Days
             )
         ]
+
+        let taskReadRepository = HomeHabitTaskReadRepositorySpy(tasks: tasks)
+        let projectRepository = HomeViewModelMockProjectRepository(projects: [Project.createInbox()])
+        let habitRepository = HomeHabitRepositoryStub(
+            habits: resolvedAgendaSummaries.map { summary in
+                HabitDefinitionRecord(
+                    id: summary.habitID,
+                    lifeAreaID: summary.lifeAreaID,
+                    projectID: summary.projectID,
+                    title: summary.title,
+                    habitType: summary.kind == .positive ? "positive_daily" : "negative_daily",
+                    kindRaw: summary.kind.rawValue,
+                    trackingModeRaw: summary.trackingMode.rawValue,
+                    iconSymbolName: summary.icon?.symbolName ?? "drop.fill",
+                    iconCategoryKey: summary.icon?.categoryKey,
+                    colorHex: summary.colorHex,
+                    isPaused: false,
+                    archivedAt: nil,
+                    streakCurrent: summary.currentStreak,
+                    streakBest: summary.bestStreak,
+                    createdAt: now,
+                    updatedAt: now
+                )
+            }
+        )
+        let occurrenceRepository = HomeHabitOccurrenceRepositoryStub(
+            occurrences: resolvedAgendaSummaries.compactMap { summary in
+                guard let resolvedOccurrenceID = summary.occurrenceID else { return nil }
+                let dueAt = summary.dueAt ?? now
+                return OccurrenceDefinition(
+                    id: resolvedOccurrenceID,
+                    occurrenceKey: "habit-\(summary.habitID.uuidString)",
+                    scheduleTemplateID: UUID(),
+                    sourceType: .habit,
+                    sourceID: summary.habitID,
+                    scheduledAt: dueAt,
+                    dueAt: dueAt,
+                    state: summary.state,
+                    isGenerated: true,
+                    generationWindow: "test",
+                    createdAt: now,
+                    updatedAt: now
+                )
+            }
+        )
+        let schedulingEngine = HomeHabitDeferredResolveSchedulingEngine()
         let libraryRows = resolvedAgendaSummaries.map { summary in
             HabitLibraryRow(
                 habitID: summary.habitID,

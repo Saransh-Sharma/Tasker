@@ -177,9 +177,9 @@ enum HabitBoardPresentationBuilder {
         }
 
         return (
-            primary.sorted(by: homeRowSort),
-            recovery.sorted(by: homeRowSort),
-            quiet.sorted(by: homeRowSort)
+            primary,
+            recovery,
+            quiet
         )
     }
 
@@ -260,16 +260,6 @@ enum HabitBoardPresentationBuilder {
         }
 
         return best
-    }
-
-    private static func homeRowSort(_ lhs: HomeHabitRow, _ rhs: HomeHabitRow) -> Bool {
-        if lhs.currentStreak != rhs.currentStreak {
-            return lhs.currentStreak > rhs.currentStreak
-        }
-        if lhs.riskState != rhs.riskState {
-            return lhs.riskState.rawValue < rhs.riskState.rawValue
-        }
-        return lhs.title.localizedCaseInsensitiveCompare(rhs.title) == .orderedAscending
     }
 
     private static func classifyBridgeKinds(in cells: [HabitBoardCell]) -> [HabitBoardCell] {

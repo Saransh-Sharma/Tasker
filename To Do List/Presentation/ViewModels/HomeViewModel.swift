@@ -2960,6 +2960,7 @@ public final class HomeViewModel: ObservableObject {
         completion: (() -> Void)? = nil
     ) {
         let group = DispatchGroup()
+        let stateLock = NSLock()
         var agendaHabitRows: [HomeHabitRow] = []
         var trackingHabitRows: [HomeHabitRow] = []
         var historyByHabitID: [UUID: [HabitDayMark]] = [:]
@@ -2967,7 +2968,9 @@ public final class HomeViewModel: ObservableObject {
 
         group.enter()
         buildHabitHomeProjectionUseCase.execute(date: selectedDate) { result in
+            stateLock.lock()
             agendaHabitRows = (try? result.get()) ?? []
+            stateLock.unlock()
             group.leave()
         }
 
@@ -2979,12 +2982,23 @@ public final class HomeViewModel: ObservableObject {
             }
             switch result {
             case .failure:
+                stateLock.lock()
                 libraryRowsByID = [:]
+                stateLock.unlock()
                 group.leave()
             case .success(let libraryRows):
+                stateLock.lock()
                 libraryRowsByID = Dictionary(uniqueKeysWithValues: libraryRows.map { ($0.habitID, $0) })
+                stateLock.unlock()
                 guard libraryRows.isEmpty == false else {
-                    trackingHabitRows = self.trackingHomeRows(from: libraryRows, historyByHabitID: historyByHabitID, on: self.selectedDate)
+                    stateLock.lock()
+                    let lockedHistory = historyByHabitID
+                    trackingHabitRows = self.trackingHomeRows(
+                        from: libraryRows,
+                        historyByHabitID: lockedHistory,
+                        on: self.selectedDate
+                    )
+                    stateLock.unlock()
                     group.leave()
                     return
                 }
@@ -2994,16 +3008,21 @@ public final class HomeViewModel: ObservableObject {
                     endingOn: self.selectedDate,
                     dayCount: 30
                 ) { historyResult in
+                    var resolvedHistoryByHabitID: [UUID: [HabitDayMark]] = [:]
                     if case .success(let windows) = historyResult {
-                        historyByHabitID = windows.reduce(into: [:]) { partialResult, window in
+                        resolvedHistoryByHabitID = windows.reduce(into: [:]) { partialResult, window in
                             partialResult[window.habitID] = window.marks
                         }
                     }
-                    trackingHabitRows = self.trackingHomeRows(
+                    let resolvedTrackingRows = self.trackingHomeRows(
                         from: libraryRows,
-                        historyByHabitID: historyByHabitID,
+                        historyByHabitID: resolvedHistoryByHabitID,
                         on: self.selectedDate
                     )
+                    stateLock.lock()
+                    historyByHabitID = resolvedHistoryByHabitID
+                    trackingHabitRows = resolvedTrackingRows
+                    stateLock.unlock()
                     group.leave()
                 }
                 group.leave()
@@ -3014,37 +3033,38 @@ public final class HomeViewModel: ObservableObject {
             defer { completion?() }
             guard let self, self.isCurrentReloadGeneration(generation) else { return }
 
-            let allHabitRows = self.mergeHabitRows(agenda: agendaHabitRows, tracking: trackingHabitRows)
+            stateLock.lock()
+            let resolvedAgendaHabitRows = agendaHabitRows
+            let resolvedTrackingHabitRows = trackingHabitRows
+            let resolvedLibraryRowsByID = libraryRowsByID
+            stateLock.unlock()
+
+            let allHabitRows = self.mergeHabitRows(
+                agenda: resolvedAgendaHabitRows,
+                tracking: resolvedTrackingHabitRows
+            )
             let splitHabitRows = HabitBoardPresentationBuilder.splitHomeRows(allHabitRows)
             self.currentHabitSignals = self.habitSignals(from: allHabitRows)
-            self.habitLibraryRowsByID = libraryRowsByID
-            let rescueEligibleTaskIDs = V2FeatureFlags.evaRescueEnabled
-                ? Set(
-                    openTaskRows
-                        .filter { self.isRescueEligibleTask($0, on: self.selectedDate) }
-                        .map(\.id)
-                )
-                : Set<UUID>()
-            let agendaTaskRows = openTaskRows.filter { !rescueEligibleTaskIDs.contains($0.id) }
-            let focusTaskRows = openTaskRows.filter { !rescueEligibleTaskIDs.contains($0.id) }
+            self.habitLibraryRowsByID = resolvedLibraryRowsByID
+            let rescueSplit = self.splitRescueEligibleTasks(from: openTaskRows, on: self.selectedDate)
 
             let agenda = self.buildHomeAgendaUseCase.execute(
                 date: self.selectedDate,
-                taskRows: agendaTaskRows,
-                habitRows: agendaHabitRows
+                taskRows: rescueSplit.agendaTaskRows,
+                habitRows: resolvedAgendaHabitRows
             )
 
             self.assignIfChanged(\.dueTodayRows, agenda.rows)
             self.assignIfChanged(\.dueTodaySection, nil)
             let todaySections = HomeMixedSectionBuilder.buildTodaySections(
-                taskRows: agendaTaskRows,
+                taskRows: rescueSplit.agendaTaskRows,
                 habitRows: [],
                 projects: self.projects,
                 lifeAreas: self.lifeAreas
             )
             self.assignIfChanged(\.todaySections, todaySections)
 
-            let focusRows = self.composeFocusRows(taskRows: focusTaskRows, habitRows: allHabitRows)
+            let focusRows = self.composeFocusRows(taskRows: rescueSplit.focusTaskRows, habitRows: allHabitRows)
             self.assignIfChanged(\.focusRows, focusRows)
             self.assignIfChanged(
                 \.focusNowSectionState,
@@ -3060,7 +3080,7 @@ public final class HomeViewModel: ObservableObject {
             self.assignIfChanged(
                 \.agendaTailItems,
                 self.buildAgendaTailItems(
-                    rescueEligibleTasks: openTaskRows.filter { rescueEligibleTaskIDs.contains($0.id) }
+                    rescueEligibleTasks: rescueSplit.rescueEligibleTasks
                 )
             )
             self.assignIfChanged(
@@ -3095,6 +3115,7 @@ public final class HomeViewModel: ObservableObject {
         completion: @escaping (Result<CanonicalHabitMutationState, Error>) -> Void
     ) {
         let group = DispatchGroup()
+        let stateLock = NSLock()
         var projectionRow: HomeHabitRow?
         var libraryRow: HabitLibraryRow?
         var historyByHabitID: [UUID: [HabitDayMark]] = [:]
@@ -3104,9 +3125,13 @@ public final class HomeViewModel: ObservableObject {
         buildHabitHomeProjectionUseCase.execute(date: date, habitID: habitID) { result in
             switch result {
             case .failure(let error):
+                stateLock.lock()
                 reconciliationError = reconciliationError ?? error
+                stateLock.unlock()
             case .success(let row):
+                stateLock.lock()
                 projectionRow = row
+                stateLock.unlock()
             }
             group.leave()
         }
@@ -3119,11 +3144,16 @@ public final class HomeViewModel: ObservableObject {
             }
             switch result {
             case .failure(let error):
+                stateLock.lock()
                 reconciliationError = reconciliationError ?? error
+                stateLock.unlock()
                 group.leave()
             case .success(let rows):
+                stateLock.lock()
                 libraryRow = rows.first
-                guard libraryRow != nil else {
+                let hasLibraryRow = libraryRow != nil
+                stateLock.unlock()
+                guard hasLibraryRow else {
                     group.leave()
                     return
                 }
@@ -3135,11 +3165,15 @@ public final class HomeViewModel: ObservableObject {
                 ) { historyResult in
                     switch historyResult {
                     case .failure(let error):
+                        stateLock.lock()
                         reconciliationError = reconciliationError ?? error
+                        stateLock.unlock()
                     case .success(let windows):
+                        stateLock.lock()
                         historyByHabitID = windows.reduce(into: [:]) { partialResult, window in
                             partialResult[window.habitID] = window.marks
                         }
+                        stateLock.unlock()
                     }
                     group.leave()
                 }
@@ -3148,16 +3182,23 @@ public final class HomeViewModel: ObservableObject {
         }
 
         group.notify(queue: .main) { [weak self] in
-            if let reconciliationError {
-                completion(.failure(reconciliationError))
+            stateLock.lock()
+            let resolvedProjectionRow = projectionRow
+            let resolvedLibraryRow = libraryRow
+            let resolvedHistoryByHabitID = historyByHabitID
+            let resolvedError = reconciliationError
+            stateLock.unlock()
+
+            if let resolvedError {
+                completion(.failure(resolvedError))
                 return
             }
 
             let trackingRow: HomeHabitRow?
-            if let libraryRow, let strongSelf = self {
+            if let resolvedLibraryRow, let strongSelf = self {
                 trackingRow = strongSelf.trackingHomeRows(
-                    from: [libraryRow],
-                    historyByHabitID: historyByHabitID,
+                    from: [resolvedLibraryRow],
+                    historyByHabitID: resolvedHistoryByHabitID,
                     on: date
                 ).first
             } else {
@@ -3165,14 +3206,14 @@ public final class HomeViewModel: ObservableObject {
             }
 
             let canonicalRow = self?.mergeHabitRows(
-                agenda: projectionRow.map { [$0] } ?? [],
+                agenda: resolvedProjectionRow.map { [$0] } ?? [],
                 tracking: trackingRow.map { [$0] } ?? []
             ).first
 
             completion(.success(
                 CanonicalHabitMutationState(
                     row: canonicalRow,
-                    libraryRow: libraryRow
+                    libraryRow: resolvedLibraryRow
                 )
             ))
         }
@@ -3207,10 +3248,17 @@ public final class HomeViewModel: ObservableObject {
                     )
                     let splitRows = HabitBoardPresentationBuilder.splitHomeRows(allHabitRows)
                     let openTaskRows = self.openTaskRowsForHabitReconciliation()
+                    let rescueSplit = self.splitRescueEligibleTasks(from: openTaskRows, on: self.selectedDate)
                     let agenda = self.buildHomeAgendaUseCase.execute(
                         date: self.selectedDate,
-                        taskRows: openTaskRows,
+                        taskRows: rescueSplit.agendaTaskRows,
                         habitRows: allHabitRows.filter { self.includeHabitInAgenda($0) }
+                    )
+                    let todaySections = HomeMixedSectionBuilder.buildTodaySections(
+                        taskRows: rescueSplit.agendaTaskRows,
+                        habitRows: [],
+                        projects: self.projects,
+                        lifeAreas: self.lifeAreas
                     )
                     let dueTodaySection = self.dueTodaySection.map { section in
                         HomeListSection(
@@ -3223,6 +3271,13 @@ public final class HomeViewModel: ObservableObject {
                     self.performHomeRenderStateBatch {
                         self.assignIfChanged(\.dueTodayRows, agenda.rows)
                         self.assignIfChanged(\.dueTodaySection, dueTodaySection)
+                        self.assignIfChanged(\.todaySections, todaySections)
+                        self.assignIfChanged(
+                            \.agendaTailItems,
+                            self.buildAgendaTailItems(
+                                rescueEligibleTasks: rescueSplit.rescueEligibleTasks
+                            )
+                        )
                         self.assignIfChanged(
                             \.habitHomeSectionState,
                             HabitHomeSectionState(
@@ -3234,9 +3289,21 @@ public final class HomeViewModel: ObservableObject {
                             \.quietTrackingSummaryState,
                             QuietTrackingSummaryState(stableRows: splitRows.quiet)
                         )
-                        self.reconcileFocusFallbackIfNeeded(
-                            for: habitID,
-                            canonicalRow: canonicalState.row
+                        let focusRows = self.composeFocusRows(
+                            taskRows: rescueSplit.focusTaskRows,
+                            habitRows: allHabitRows
+                        )
+                        self.assignIfChanged(\.focusRows, focusRows)
+                        self.assignIfChanged(
+                            \.todayAgendaSectionState,
+                            TodayAgendaSectionState(sections: todaySections)
+                        )
+                        self.assignIfChanged(
+                            \.focusNowSectionState,
+                            FocusNowSectionState(
+                                rows: focusRows,
+                                pinnedTaskIDs: self.pinnedFocusTaskIDs
+                            )
                         )
                         self.currentHabitSignals = self.habitSignals(from: allHabitRows)
                     }
@@ -3451,7 +3518,6 @@ public final class HomeViewModel: ObservableObject {
                 dayCount: 30,
                 calendar: calendar
             )
-            let metrics = HabitBoardPresentationBuilder.metrics(for: expandedCells)
 
             return HomeHabitRow(
                 habitID: row.habitID,
@@ -3468,8 +3534,8 @@ public final class HomeViewModel: ObservableObject {
                 cadenceLabel: HabitBoardPresentationBuilder.cadenceLabel(for: row.cadence, calendar: calendar),
                 dueAt: row.nextDueAt,
                 state: state,
-                currentStreak: metrics.currentStreak,
-                bestStreak: metrics.bestStreak,
+                currentStreak: row.currentStreak,
+                bestStreak: row.bestStreak,
                 last14Days: marks,
                 boardCellsCompact: compactCells,
                 boardCellsExpanded: expandedCells,
@@ -3502,23 +3568,7 @@ public final class HomeViewModel: ObservableObject {
         }
 
         if results.isEmpty {
-            let highPriorityHabits = habitRows
-                .filter { row in
-                    row.trackingMode == .dailyCheckIn
-                        && row.kind == .positive
-                        && (row.state == .overdue || row.riskState == .atRisk)
-                }
-                .sorted { lhs, rhs in
-                    if lhs.state != rhs.state {
-                        return lhs.state == .overdue
-                    }
-                    let lhsDue = lhs.dueAt ?? .distantFuture
-                    let rhsDue = rhs.dueAt ?? .distantFuture
-                    return lhsDue < rhsDue
-                }
-                .map(HomeTodayRow.habit)
-
-            for row in highPriorityHabits where results.count < 1 {
+            for row in habitFocusFallbackRows(from: habitRows) where results.count < 1 {
                 results.append(row)
             }
         }
@@ -3738,10 +3788,17 @@ public final class HomeViewModel: ObservableObject {
             }
             : (existingRows + [updatedRow]))
         let splitRows = HabitBoardPresentationBuilder.splitHomeRows(allHabitRows)
+        let rescueSplit = splitRescueEligibleTasks(from: openTaskRows, on: selectedDate)
         let agenda = buildHomeAgendaUseCase.execute(
             date: selectedDate,
-            taskRows: openTaskRows,
+            taskRows: rescueSplit.agendaTaskRows,
             habitRows: allHabitRows.filter(includeHabitInAgenda(_:))
+        )
+        let todaySections = HomeMixedSectionBuilder.buildTodaySections(
+            taskRows: rescueSplit.agendaTaskRows,
+            habitRows: [],
+            projects: projects,
+            lifeAreas: lifeAreas
         )
         let dueTodaySection = dueTodaySection.map { section in
             HomeListSection(
@@ -3754,6 +3811,13 @@ public final class HomeViewModel: ObservableObject {
         performHomeRenderStateBatch {
             assignIfChanged(\.dueTodayRows, agenda.rows)
             assignIfChanged(\.dueTodaySection, dueTodaySection)
+            assignIfChanged(\.todaySections, todaySections)
+            assignIfChanged(
+                \.agendaTailItems,
+                buildAgendaTailItems(
+                    rescueEligibleTasks: rescueSplit.rescueEligibleTasks
+                )
+            )
             assignIfChanged(
                 \.todayAgendaSectionState,
                 TodayAgendaSectionState(sections: todaySections)
@@ -3768,6 +3832,18 @@ public final class HomeViewModel: ObservableObject {
             assignIfChanged(
                 \.quietTrackingSummaryState,
                 QuietTrackingSummaryState(stableRows: splitRows.quiet)
+            )
+            let focusRows = composeFocusRows(
+                taskRows: rescueSplit.focusTaskRows,
+                habitRows: allHabitRows
+            )
+            assignIfChanged(\.focusRows, focusRows)
+            assignIfChanged(
+                \.focusNowSectionState,
+                FocusNowSectionState(
+                    rows: focusRows,
+                    pinnedTaskIDs: pinnedFocusTaskIDs
+                )
             )
             reconcileFocusFallbackIfNeeded(for: row.habitID, canonicalRow: updatedRow)
             currentHabitSignals = habitSignals(from: allHabitRows)
@@ -3786,6 +3862,26 @@ public final class HomeViewModel: ObservableObject {
             rowsByID[row.id] = row
         }
         return sortHabitRows(Array(rowsByID.values))
+    }
+
+    private func splitRescueEligibleTasks(
+        from openTaskRows: [TaskDefinition],
+        on date: Date
+    ) -> (agendaTaskRows: [TaskDefinition], focusTaskRows: [TaskDefinition], rescueEligibleTasks: [TaskDefinition]) {
+        let rescueEligibleTaskIDs = V2FeatureFlags.evaRescueEnabled
+            ? Set(
+                openTaskRows
+                    .filter { isRescueEligibleTask($0, on: date) }
+                    .map(\.id)
+            )
+            : Set<UUID>()
+        let rescueEligibleTasks = openTaskRows.filter { rescueEligibleTaskIDs.contains($0.id) }
+        let remainingTaskRows = openTaskRows.filter { !rescueEligibleTaskIDs.contains($0.id) }
+        return (
+            agendaTaskRows: remainingTaskRows,
+            focusTaskRows: remainingTaskRows,
+            rescueEligibleTasks: rescueEligibleTasks
+        )
     }
 
     private func isEligibleForHabitFocusFallback(_ row: HomeHabitRow) -> Bool {
@@ -3814,19 +3910,14 @@ public final class HomeViewModel: ObservableObject {
             return
         }
 
-        let updatedRows: [HomeTodayRow]
-        if let canonicalRow, isEligibleForHabitFocusFallback(canonicalRow) {
-            updatedRows = focusNowSectionState.rows.map { row in
-                guard case .habit(let currentRow) = row, currentRow.habitID == habitID else {
-                    return row
-                }
-                return .habit(canonicalRow)
-            }
-        } else {
-            updatedRows = focusNowSectionState.rows.filter { row in
-                guard case .habit(let currentRow) = row else { return true }
-                return currentRow.habitID != habitID
-            }
+        let allHabitRows = sortHabitRows(
+            currentAllHabitRows().filter { $0.habitID != habitID }
+                + (canonicalRow.map { [$0] } ?? [])
+        )
+        let updatedRows = habitFocusFallbackRows(from: allHabitRows)
+
+        if updatedRows == focusNowSectionState.rows {
+            return
         }
 
         assignIfChanged(\.focusRows, updatedRows)
@@ -3837,6 +3928,25 @@ public final class HomeViewModel: ObservableObject {
                 pinnedTaskIDs: pinnedFocusTaskIDs
             )
         )
+    }
+
+    private func habitFocusFallbackRows(from habitRows: [HomeHabitRow]) -> [HomeTodayRow] {
+        let highPriorityHabits = habitRows
+            .filter(isEligibleForHabitFocusFallback(_:))
+            .sorted { lhs, rhs in
+                if lhs.state != rhs.state {
+                    return lhs.state == .overdue
+                }
+                let lhsDue = lhs.dueAt ?? .distantFuture
+                let rhsDue = rhs.dueAt ?? .distantFuture
+                if lhsDue != rhsDue {
+                    return lhsDue < rhsDue
+                }
+                return compareFocusRows(.habit(lhs), .habit(rhs))
+            }
+            .map(HomeTodayRow.habit)
+
+        return Array(highPriorityHabits.prefix(1))
     }
 
     private func optimisticHabitRow(
@@ -3875,7 +3985,6 @@ public final class HomeViewModel: ObservableObject {
             referenceDate: referenceDate,
             dayCount: 30
         )
-        let metrics = HabitBoardPresentationBuilder.metrics(for: expandedCells)
         let occurrenceState = optimisticOccurrenceState(for: request)
         let state = optimisticHomeHabitState(
             for: row,
@@ -3905,8 +4014,8 @@ public final class HomeViewModel: ObservableObject {
             cadenceLabel: row.cadenceLabel,
             dueAt: row.dueAt,
             state: state,
-            currentStreak: metrics.currentStreak,
-            bestStreak: max(row.bestStreak, metrics.bestStreak),
+            currentStreak: row.currentStreak,
+            bestStreak: row.bestStreak,
             last14Days: marks,
             boardCellsCompact: compactCells,
             boardCellsExpanded: expandedCells,

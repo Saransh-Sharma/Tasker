@@ -129,7 +129,7 @@ final class HabitBoardPresentationBuilderTests: XCTestCase {
         ])
 
         XCTAssertEqual(split.primary.map(\.title), ["Stretch", "Meditate"])
-        XCTAssertEqual(split.recovery.map(\.title), ["Sleep", "Read"])
+        XCTAssertEqual(split.recovery.map(\.title), ["Read", "Sleep"])
         XCTAssertEqual(split.quiet.map(\.title), ["No Sugar"])
     }
 
