@@ -86,6 +86,77 @@ final class HabitBoardViewModelTests: XCTestCase {
         )
     }
 
+    func testRefreshFiltersPausedHabitsFromBoardRows() {
+        let activeHabitID = UUID()
+        let pausedHabitID = UUID()
+        let repository = HabitBoardReadRepositoryStub()
+        repository.libraryRows = [
+            makeLibraryRow(habitID: activeHabitID, title: "Active Habit", isPaused: false),
+            makeLibraryRow(habitID: pausedHabitID, title: "Paused Habit", isPaused: true)
+        ]
+        repository.historyWindows = [
+            HabitHistoryWindow(
+                habitID: activeHabitID,
+                marks: [HabitDayMark(date: Self.date("2026-04-08"), state: .success)]
+            )
+        ]
+        let viewModel = HabitBoardViewModel(
+            getHabitLibraryUseCase: GetHabitLibraryUseCase(readRepository: repository),
+            getHabitHistoryUseCase: GetHabitHistoryUseCase(readRepository: repository),
+            endingOn: Self.date("2026-04-14")
+        )
+
+        viewModel.refresh()
+        waitUntil { !viewModel.libraryRows.isEmpty && !viewModel.boardRows.isEmpty }
+
+        XCTAssertEqual(viewModel.libraryRows.map(\.title), ["Active Habit"])
+        XCTAssertEqual(viewModel.boardRows.map(\.title), ["Active Habit"])
+    }
+
+    func testRefreshIgnoresStaleCallbacksFromOlderRequests() {
+        let repository = HabitBoardReadRepositoryStub()
+        let habitID = UUID()
+        repository.libraryRows = [makeLibraryRow(habitID: habitID, title: "Hydrate", isPaused: false)]
+        repository.deferLibraryCompletion = true
+        repository.deferHistoryCompletion = true
+        repository.queuedHistoryResults = [
+            .success([
+                HabitHistoryWindow(
+                    habitID: habitID,
+                    marks: [HabitDayMark(date: Self.date("2026-04-01"), state: .success)]
+                )
+            ]),
+            .success([
+                HabitHistoryWindow(
+                    habitID: habitID,
+                    marks: [HabitDayMark(date: Self.date("2026-04-08"), state: .success)]
+                )
+            ])
+        ]
+        let viewModel = HabitBoardViewModel(
+            getHabitLibraryUseCase: GetHabitLibraryUseCase(readRepository: repository),
+            getHabitHistoryUseCase: GetHabitHistoryUseCase(readRepository: repository),
+            endingOn: Self.date("2026-04-07")
+        )
+
+        viewModel.refresh()
+        viewModel.moveWindow(byDays: 7)
+        XCTAssertEqual(repository.pendingLibraryCount, 2)
+
+        repository.completePendingLibrary(at: 1)
+        pumpMainQueue()
+        XCTAssertEqual(repository.pendingHistoryCount, 1)
+        repository.completePendingHistory(at: 0)
+        pumpMainQueue()
+        repository.completePendingLibrary(at: 0)
+        pumpMainQueue()
+        XCTAssertEqual(repository.pendingHistoryCount, 0)
+
+        XCTAssertEqual(viewModel.endingOn, Self.date("2026-04-14"))
+        XCTAssertEqual(viewModel.boardRows.count, 1)
+        XCTAssertNil(viewModel.errorMessage)
+    }
+
     private func makeViewModel(endingOn: Date = Date()) -> HabitBoardViewModel {
         let repository = HabitBoardReadRepositoryStub()
         return HabitBoardViewModel(
@@ -105,6 +176,28 @@ final class HabitBoardViewModelTests: XCTestCase {
         )
     }
 
+    private func makeLibraryRow(
+        habitID: UUID,
+        title: String,
+        isPaused: Bool
+    ) -> HabitLibraryRow {
+        HabitLibraryRow(
+            habitID: habitID,
+            title: title,
+            kind: .positive,
+            trackingMode: .dailyCheckIn,
+            cadence: .daily(),
+            lifeAreaID: UUID(),
+            lifeAreaName: "Health",
+            icon: HabitIconMetadata(symbolName: "drop.fill", categoryKey: "health"),
+            isPaused: isPaused,
+            isArchived: false,
+            currentStreak: 3,
+            bestStreak: 7,
+            last14Days: []
+        )
+    }
+
     private static func date(_ value: String) -> Date {
         let formatter = DateFormatter()
         formatter.calendar = calendar
@@ -120,9 +213,39 @@ final class HabitBoardViewModelTests: XCTestCase {
         calendar.locale = Locale(identifier: "en_US_POSIX")
         return calendar
     }
+
+    private func waitUntil(
+        timeout: TimeInterval = 1.0,
+        pollInterval: TimeInterval = 0.02,
+        condition: @escaping () -> Bool
+    ) {
+        let deadline = Date().addingTimeInterval(timeout)
+        while condition() == false && Date() < deadline {
+            RunLoop.current.run(until: Date().addingTimeInterval(pollInterval))
+        }
+        XCTAssertTrue(condition(), "Timed out waiting for condition")
+    }
+
+    private func pumpMainQueue(timeout: TimeInterval = 1.0) {
+        let expectation = expectation(description: "main queue pump")
+        DispatchQueue.main.async {
+            expectation.fulfill()
+        }
+        wait(for: [expectation], timeout: timeout)
+    }
 }
 
 private final class HabitBoardReadRepositoryStub: HabitRuntimeReadRepositoryProtocol {
+    var libraryRows: [HabitLibraryRow] = []
+    var historyWindows: [HabitHistoryWindow] = []
+    var queuedHistoryResults: [Result<[HabitHistoryWindow], Error>] = []
+    var deferLibraryCompletion = false
+    var deferHistoryCompletion = false
+    private var pendingLibraryResponses: [() -> Void] = []
+    private var pendingHistoryResponses: [() -> Void] = []
+    var pendingLibraryCount: Int { pendingLibraryResponses.count }
+    var pendingHistoryCount: Int { pendingHistoryResponses.count }
+
     func fetchAgendaHabits(for date: Date, completion: @escaping (Result<[HabitOccurrenceSummary], Error>) -> Void) {
         completion(.success([]))
     }
@@ -133,7 +256,13 @@ private final class HabitBoardReadRepositoryStub: HabitRuntimeReadRepositoryProt
         dayCount: Int,
         completion: @escaping (Result<[HabitHistoryWindow], Error>) -> Void
     ) {
-        completion(.success([]))
+        let result = queuedHistoryResults.isEmpty ? Result.success(historyWindows) : queuedHistoryResults.removeFirst()
+        let response = { completion(result) }
+        if deferHistoryCompletion {
+            pendingHistoryResponses.append(response)
+        } else {
+            response()
+        }
     }
 
     func fetchSignals(start: Date, end: Date, completion: @escaping (Result<[HabitOccurrenceSummary], Error>) -> Void) {
@@ -141,6 +270,21 @@ private final class HabitBoardReadRepositoryStub: HabitRuntimeReadRepositoryProt
     }
 
     func fetchHabitLibrary(includeArchived: Bool, completion: @escaping (Result<[HabitLibraryRow], Error>) -> Void) {
-        completion(.success([]))
+        let response = { completion(.success(self.libraryRows)) }
+        if deferLibraryCompletion {
+            pendingLibraryResponses.append(response)
+        } else {
+            response()
+        }
+    }
+
+    func completePendingLibrary(at index: Int) {
+        let response = pendingLibraryResponses.remove(at: index)
+        response()
+    }
+
+    func completePendingHistory(at index: Int) {
+        let response = pendingHistoryResponses.remove(at: index)
+        response()
     }
 }

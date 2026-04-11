@@ -2268,6 +2268,8 @@ public final class ResetHabitOccurrenceUseCase {
             category = .habitPositiveCompleteUndo
         case (.negative, .completed):
             category = .habitNegativeSuccessUndo
+        case (.negative, .failed):
+            category = .habitNegativeSuccessUndo
         default:
             category = nil
         }
@@ -2431,7 +2433,6 @@ public final class BuildHabitHomeProjectionUseCase {
             referenceDate: date,
             dayCount: 30
         )
-        let metrics = HabitBoardPresentationBuilder.metrics(for: expandedCells)
         let rowState = HabitRuntimeSupport.homeState(for: summary, on: date)
         let calendar = Calendar.current
         let todayMark = summary.last14Days.first { mark in
@@ -2453,8 +2454,8 @@ public final class BuildHabitHomeProjectionUseCase {
             cadenceLabel: HabitBoardPresentationBuilder.cadenceLabel(for: summary.cadence),
             dueAt: summary.dueAt,
             state: rowState,
-            currentStreak: metrics.currentStreak,
-            bestStreak: metrics.bestStreak,
+            currentStreak: summary.currentStreak,
+            bestStreak: summary.bestStreak,
             last14Days: summary.last14Days,
             boardCellsCompact: compactCells,
             boardCellsExpanded: expandedCells,

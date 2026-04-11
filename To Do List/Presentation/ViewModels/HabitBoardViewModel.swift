@@ -15,6 +15,7 @@ public final class HabitBoardViewModel: ObservableObject {
     private let getHabitHistoryUseCase: GetHabitHistoryUseCase
     private var hasLoadedOnce = false
     private var latestHistoryByHabitID: [UUID: [HabitDayMark]] = [:]
+    private var refreshGeneration = 0
 
     public init(
         getHabitLibraryUseCase: GetHabitLibraryUseCase,
@@ -38,20 +39,23 @@ public final class HabitBoardViewModel: ObservableObject {
     }
 
     public func refresh() {
+        refreshGeneration += 1
+        let generation = refreshGeneration
         isLoading = true
         errorMessage = nil
 
         getHabitLibraryUseCase.execute(includeArchived: false) { [weak self] result in
             Task { @MainActor [weak self] in
                 guard let self else { return }
+                guard generation == self.refreshGeneration else { return }
                 switch result {
                 case .failure(let error):
                     self.isLoading = false
                     self.errorMessage = error.localizedDescription
                 case .success(let rows):
-                    let activeRows = rows.filter { !$0.isArchived }
+                    let activeRows = rows.filter { !$0.isArchived && !$0.isPaused }
                     self.libraryRows = activeRows
-                    self.loadHistory(for: activeRows)
+                    self.loadHistory(for: activeRows, generation: generation)
                 }
             }
         }
@@ -80,7 +84,7 @@ public final class HabitBoardViewModel: ObservableObject {
         libraryRows.first(where: { $0.habitID == habitID })
     }
 
-    private func loadHistory(for rows: [HabitLibraryRow]) {
+    private func loadHistory(for rows: [HabitLibraryRow], generation: Int) {
         guard rows.isEmpty == false else {
             boardRows = []
             aggregateDays = []
@@ -95,6 +99,7 @@ public final class HabitBoardViewModel: ObservableObject {
         ) { [weak self] result in
             Task { @MainActor [weak self] in
                 guard let self else { return }
+                guard generation == self.refreshGeneration else { return }
                 self.isLoading = false
                 switch result {
                 case .failure(let error):

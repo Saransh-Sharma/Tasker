@@ -824,7 +824,7 @@ public final class GamificationEngine {
                 case .failure(let error):
                     completion(.failure(error))
                 case .success:
-                    self.fetchCurrentState { stateResult in
+                    self.fetchCurrentState(for: context.completedAt) { stateResult in
                         switch stateResult {
                         case .failure(let error):
                             completion(.failure(error))
@@ -1284,20 +1284,33 @@ public final class GamificationEngine {
     }
 
     private func habitSuccessCompensationPrefix(for context: XPEventContext) -> String? {
-        guard let habitID = context.habitID else { return nil }
+        guard let identifier = context.habitID ?? context.taskID else { return nil }
 
         switch context.category {
         case .habitPositiveComplete:
-            return "habit_positive_complete_undo:\(habitID.uuidString):\(XPCalculationEngine.periodKey(for: context.completedAt))"
+            return "habit_positive_complete_undo:\(identifier.uuidString):\(XPCalculationEngine.periodKey(for: context.completedAt))"
         case .habitNegativeSuccess:
-            return "habit_negative_success_undo:\(habitID.uuidString):\(XPCalculationEngine.periodKey(for: context.completedAt))"
+            return "habit_negative_success_undo:\(identifier.uuidString):\(XPCalculationEngine.periodKey(for: context.completedAt))"
         default:
             return nil
         }
     }
 
     private func fetchCurrentState(completion: @escaping (Result<(GamificationSnapshot, Int), Error>) -> Void) {
-        let dateKey = XPCalculationEngine.periodKey()
+        fetchCurrentState(forDateKey: XPCalculationEngine.periodKey(), completion: completion)
+    }
+
+    private func fetchCurrentState(
+        for date: Date,
+        completion: @escaping (Result<(GamificationSnapshot, Int), Error>) -> Void
+    ) {
+        fetchCurrentState(forDateKey: XPCalculationEngine.periodKey(for: date), completion: completion)
+    }
+
+    private func fetchCurrentState(
+        forDateKey dateKey: String,
+        completion: @escaping (Result<(GamificationSnapshot, Int), Error>) -> Void
+    ) {
         repository.fetchProfile { [weak self] profileResult in
             guard let self = self else { return }
             switch profileResult {

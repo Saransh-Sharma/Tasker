@@ -44,7 +44,7 @@ final class HabitLastCellRuntimeTests: XCTestCase {
         XCTAssertEqual(gamificationRepository.events.first?.delta, -8)
     }
 
-    func testResetHabitOccurrenceReturnsSkippedAndFailedOccurrencesToPendingWithoutCompensation() {
+    func testResetHabitOccurrenceReturnsSkippedAndFailedOccurrencesToPendingAndCompensatesNegativeFailure() {
         let date = Self.date("2026-04-09")
 
         let skippedHabitID = UUID()
@@ -102,7 +102,8 @@ final class HabitLastCellRuntimeTests: XCTestCase {
         let statesByID = Dictionary(uniqueKeysWithValues: occurrenceRepository.occurrences.map { ($0.id, $0.state) })
         XCTAssertEqual(statesByID[skippedOccurrenceID], .pending)
         XCTAssertEqual(statesByID[failedOccurrenceID], .pending)
-        XCTAssertTrue(gamificationRepository.events.isEmpty)
+        XCTAssertEqual(gamificationRepository.events.map(\.category), [.habitNegativeSuccessUndo])
+        XCTAssertEqual(gamificationRepository.events.first?.delta, -8)
     }
 
     func testGamificationCompensationAllowsSameDayHabitSuccessReaward() {
@@ -178,6 +179,130 @@ final class HabitLastCellRuntimeTests: XCTestCase {
         ])
         XCTAssertTrue(repository.events[0].idempotencyKey.hasSuffix("cycle0"))
         XCTAssertTrue(repository.events[2].idempotencyKey.hasSuffix("cycle1"))
+    }
+
+    func testGamificationCompensationAllowsSameDayHabitSuccessReawardWhenIdentifiedByTaskID() {
+        let taskID = UUID()
+        let date = Self.date("2026-04-09")
+        let repository = InMemoryGamificationRepositoryStub()
+        let engine = GamificationEngine(repository: repository)
+
+        let firstResult = expectation(description: "first award by task")
+        engine.recordEvent(
+            context: XPEventContext(
+                category: .habitPositiveComplete,
+                source: .habit,
+                taskID: taskID,
+                completedAt: date
+            )
+        ) { result in
+            if case .failure(let error) = result {
+                XCTFail("Expected first award to succeed: \(error)")
+            }
+            firstResult.fulfill()
+        }
+        wait(for: [firstResult], timeout: 2)
+
+        let compensationResult = expectation(description: "compensation by task")
+        engine.recordCompensationEvent(
+            context: XPEventContext(
+                category: .habitPositiveCompleteUndo,
+                source: .habit,
+                taskID: taskID,
+                completedAt: date
+            )
+        ) { result in
+            if case .failure(let error) = result {
+                XCTFail("Expected compensation to succeed: \(error)")
+            }
+            compensationResult.fulfill()
+        }
+        wait(for: [compensationResult], timeout: 2)
+
+        let secondResult = expectation(description: "second award by task")
+        engine.recordEvent(
+            context: XPEventContext(
+                category: .habitPositiveComplete,
+                source: .habit,
+                taskID: taskID,
+                completedAt: date
+            )
+        ) { result in
+            if case .failure(let error) = result {
+                XCTFail("Expected second award to succeed: \(error)")
+            }
+            secondResult.fulfill()
+        }
+        wait(for: [secondResult], timeout: 2)
+
+        XCTAssertEqual(repository.profile?.xpTotal, 8)
+        XCTAssertTrue(repository.events[0].idempotencyKey.hasSuffix("cycle0"))
+        XCTAssertTrue(repository.events[2].idempotencyKey.hasSuffix("cycle1"))
+    }
+
+    func testHistoricalCompensationUsesHistoricalDailyAggregate() {
+        let habitID = UUID()
+        let historicalDate = Self.date("2026-04-09")
+        let repository = InMemoryGamificationRepositoryStub()
+        let engine = GamificationEngine(repository: repository)
+
+        let historicalAward = expectation(description: "historical award")
+        engine.recordEvent(
+            context: XPEventContext(
+                category: .habitPositiveComplete,
+                source: .habit,
+                habitID: habitID,
+                completedAt: historicalDate
+            )
+        ) { result in
+            if case .failure(let error) = result {
+                XCTFail("Expected historical award to succeed: \(error)")
+            }
+            historicalAward.fulfill()
+        }
+        wait(for: [historicalAward], timeout: 2)
+
+        let todayAward = expectation(description: "today award")
+        engine.recordEvent(
+            context: XPEventContext(
+                category: .focus,
+                source: .manual,
+                taskID: UUID(),
+                completedAt: Date()
+            )
+        ) { result in
+            if case .failure(let error) = result {
+                XCTFail("Expected today award to succeed: \(error)")
+            }
+            todayAward.fulfill()
+        }
+        wait(for: [todayAward], timeout: 2)
+
+        let compensation = expectation(description: "historical compensation")
+        var resultPayload: XPEventResult?
+        engine.recordCompensationEvent(
+            context: XPEventContext(
+                category: .habitPositiveCompleteUndo,
+                source: .habit,
+                habitID: habitID,
+                completedAt: historicalDate
+            )
+        ) { result in
+            switch result {
+            case .failure(let error):
+                XCTFail("Expected historical compensation to succeed: \(error)")
+            case .success(let payload):
+                resultPayload = payload
+            }
+            compensation.fulfill()
+        }
+        wait(for: [compensation], timeout: 2)
+
+        XCTAssertEqual(resultPayload?.dailyXPSoFar, 0)
+        XCTAssertEqual(
+            repository.dailyAggregates[XPCalculationEngine.periodKey(for: historicalDate)]?.totalXP,
+            resultPayload?.dailyXPSoFar
+        )
     }
 
     private static func makeMaintainHabitRuntimeUseCase(
