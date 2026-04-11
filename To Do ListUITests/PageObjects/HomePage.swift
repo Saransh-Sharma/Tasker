@@ -33,10 +33,6 @@ class HomePage {
         return app.descendants(matching: .any).matching(predicate).firstMatch
     }
 
-    var foredropHandle: XCUIElement {
-        return app.descendants(matching: .any)[AccessibilityIdentifiers.Home.foredropHandle]
-    }
-
     var foredropCollapseHint: XCUIElement {
         let byIdentifier = app.buttons[AccessibilityIdentifiers.Home.foredropCollapseHint]
         if byIdentifier.exists {
@@ -378,6 +374,10 @@ class HomePage {
         app.buttons["home.focus.shuffle"]
     }
 
+    var focusDetailShuffleButton: XCUIElement {
+        app.buttons["home.focus.detail.shuffle"]
+    }
+
     var rescueSection: XCUIElement {
         let identifiedSections = app.descendants(matching: .any).matching(
             NSPredicate(format: "identifier == %@", AccessibilityIdentifiers.Home.rescueSection)
@@ -427,6 +427,22 @@ class HomePage {
         return missingElement(AccessibilityIdentifiers.Home.rescueHeader)
     }
 
+    var rescueOpenButton: XCUIElement {
+        let byButton = app.buttons[AccessibilityIdentifiers.Home.rescueOpen]
+        if byButton.exists {
+            return byButton
+        }
+
+        let fallback = rescueSection.buttons.matching(
+            NSPredicate(format: "identifier == %@ OR label == 'Rescue'", AccessibilityIdentifiers.Home.rescueOpen)
+        ).firstMatch
+        if fallback.exists {
+            return fallback
+        }
+
+        return missingElement(AccessibilityIdentifiers.Home.rescueOpen)
+    }
+
     var rescueStartButton: XCUIElement {
         let byButton = app.buttons[AccessibilityIdentifiers.Home.rescueStart]
         if byButton.exists {
@@ -445,6 +461,50 @@ class HomePage {
         }
 
         return missingElement(AccessibilityIdentifiers.Home.rescueStart)
+    }
+
+    var quietTrackingSummary: XCUIElement {
+        let button = app.buttons[AccessibilityIdentifiers.Home.quietTrackingSummary]
+        if button.exists {
+            return button
+        }
+        return app.descendants(matching: .any)[AccessibilityIdentifiers.Home.quietTrackingSummary]
+    }
+
+    var quietTrackingSheet: XCUIElement {
+        let otherElement = app.otherElements[AccessibilityIdentifiers.Home.quietTrackingSheet]
+        if otherElement.exists {
+            return otherElement
+        }
+        return app.descendants(matching: .any)[AccessibilityIdentifiers.Home.quietTrackingSheet]
+    }
+
+    var quietTrackingSheetScroll: XCUIElement {
+        let scrollView = app.scrollViews[AccessibilityIdentifiers.Home.quietTrackingSheetScroll]
+        if scrollView.exists {
+            return scrollView
+        }
+        return app.otherElements[AccessibilityIdentifiers.Home.quietTrackingSheetScroll]
+    }
+
+    var quietTrackingSheetSaveButton: XCUIElement {
+        app.buttons[AccessibilityIdentifiers.Home.quietTrackingSheetSave]
+    }
+
+    var quietTrackingSheetOutcomeLapseButton: XCUIElement {
+        app.buttons[AccessibilityIdentifiers.Home.quietTrackingSheetOutcomeLapse]
+    }
+
+    var quietTrackingSheetOutcomeProgressButton: XCUIElement {
+        app.buttons[AccessibilityIdentifiers.Home.quietTrackingSheetOutcomeProgress]
+    }
+
+    var quietTrackingSheetTodayButton: XCUIElement {
+        app.buttons[AccessibilityIdentifiers.Home.quietTrackingSheetDateToday]
+    }
+
+    var quietTrackingSheetYesterdayButton: XCUIElement {
+        app.buttons[AccessibilityIdentifiers.Home.quietTrackingSheetDateYesterday]
     }
 
     var rescueExpandButton: XCUIElement {
@@ -1033,6 +1093,10 @@ class HomePage {
 
     func tapRescueExpand() {
         tapElement(rescueExpandButton)
+    }
+
+    func tapRescueOpen() {
+        tapElement(rescueOpenButton)
     }
 
     func tapStartRescue() {

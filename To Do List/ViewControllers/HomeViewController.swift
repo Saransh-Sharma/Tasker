@@ -128,15 +128,14 @@ struct HomeTasksSnapshot: Equatable {
     let todaySections: [HomeListSection]
     let focusNowSectionState: FocusNowSectionState
     let todayAgendaSectionState: TodayAgendaSectionState
-    let rescueSectionState: RescueSectionState
+    let agendaTailItems: [HomeAgendaTailItem]
+    let habitHomeSectionState: HabitHomeSectionState
     let quietTrackingSummaryState: QuietTrackingSummaryState
     let inlineCompletedTasks: [TaskDefinition]
     let doneTimelineTasks: [TaskDefinition]
     let projects: [Project]
     let projectsByID: [UUID: Project]
-    let projectsByName: [String: Project]
     let tagNameByID: [UUID: String]
-    let rescueTasksByID: [UUID: TaskDefinition]
     let activeQuickView: HomeQuickView
     let todayXPSoFar: Int?
     let projectGroupingMode: HomeProjectGroupingMode
@@ -157,15 +156,14 @@ struct HomeTasksSnapshot: Equatable {
         todaySections: [],
         focusNowSectionState: FocusNowSectionState(rows: [], pinnedTaskIDs: []),
         todayAgendaSectionState: TodayAgendaSectionState(sections: []),
-        rescueSectionState: RescueSectionState(rows: []),
+        agendaTailItems: [],
+        habitHomeSectionState: HabitHomeSectionState(primaryRows: [], recoveryRows: []),
         quietTrackingSummaryState: QuietTrackingSummaryState(stableRows: []),
         inlineCompletedTasks: [],
         doneTimelineTasks: [],
         projects: [],
         projectsByID: [:],
-        projectsByName: [:],
         tagNameByID: [:],
-        rescueTasksByID: [:],
         activeQuickView: .today,
         todayXPSoFar: nil,
         projectGroupingMode: .defaultMode,
@@ -185,7 +183,8 @@ struct HomeTasksSnapshot: Equatable {
             || !overdueTasks.isEmpty
             || !focusNowSectionState.rows.isEmpty
             || !todayAgendaSectionState.sections.isEmpty
-            || !rescueSectionState.isEmpty
+            || !agendaTailItems.isEmpty
+            || habitHomeSectionState.isVisible
             || quietTrackingSummaryState.isVisible
             || !inlineCompletedTasks.isEmpty
             || !doneTimelineTasks.isEmpty
@@ -200,7 +199,8 @@ struct HomeTasksSnapshot: Equatable {
             && overdueTasks.isEmpty
             && focusNowSectionState.rows.isEmpty
             && todayAgendaSectionState.sections.isEmpty
-            && rescueSectionState.isEmpty
+            && agendaTailItems.isEmpty
+            && !habitHomeSectionState.isVisible
             && !quietTrackingSummaryState.isVisible
             && inlineCompletedTasks.isEmpty
             && doneTimelineTasks.isEmpty
@@ -395,6 +395,8 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
     private static var hasSeededUITestEstablishedWorkspace = false
     private static var hasSeededUITestRescueWorkspace = false
     private static var hasSeededUITestFocusWorkspace = false
+    private static var hasSeededUITestHabitBoardWorkspace = false
+    private static var hasSeededUITestQuietTrackingWorkspace = false
 
     // MARK: - Dependencies
 
@@ -442,7 +444,7 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
     private var pendingBackgroundInsightsPrewarmTask: Task<Void, Never>?
     private var pendingOnboardingEvaluationTask: Task<Void, Never>?
     private var awaitsAnalyticsFirstInteractiveFrame = false
-    private lazy var retainedHomeSearchEngine = LGHomeSearchEngine(viewModel: viewModel.makeHomeSearchViewModel())
+    private var retainedHomeSearchEngine: LGHomeSearchEngine?
     private var onboardingEvaluationSceneToken: Int = 1
     private var completedOnboardingEvaluationSceneToken: Int = 0
     private var lastAppliedHomeRenderTransaction: HomeRenderTransaction = .empty
@@ -509,8 +511,12 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
         seedUITestEstablishedWorkspaceIfNeeded { [weak self] in
             self?.seedUITestRescueWorkspaceIfNeeded {
                 self?.seedUITestFocusWorkspaceIfNeeded {
-                    self?.viewModel.loadTodayTasks()
-                    self?.scheduleOnboardingEvaluationIfNeeded()
+                    self?.seedUITestHabitBoardWorkspaceIfNeeded {
+                        self?.seedUITestQuietTrackingWorkspaceIfNeeded {
+                            self?.viewModel.loadTodayTasks()
+                            self?.scheduleOnboardingEvaluationIfNeeded()
+                        }
+                    }
                 }
             }
         }
@@ -544,6 +550,7 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
         pendingBackgroundSearchPrewarmTask?.cancel()
         pendingBackgroundInsightsPrewarmTask?.cancel()
         pendingOnboardingEvaluationTask?.cancel()
+        retainedHomeSearchEngine = nil
         notificationCenter.removeObserver(self)
     }
 
@@ -593,7 +600,7 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
             .receive(on: RunLoop.main)
             .sink { [weak self] _ in
                 guard let self else { return }
-                self.applyOverlayState(self.viewModel.homeOverlayState)
+                self.applyOverlayState(self.viewModel.homeRenderTransaction.overlay)
             }
             .store(in: &cancellables)
 
@@ -685,7 +692,7 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
             guard Task.isCancelled == false, self.faceCoordinator.activeFace == .analytics else { return }
 
             self.faceCoordinator.setAnalyticsSurfaceState(.loading)
-            let resolvedViewModel = self.prepareInsightsViewModelIfNeeded()
+            _ = self.prepareInsightsViewModelIfNeeded()
             guard Task.isCancelled == false else { return }
 
             self.faceCoordinator.setAnalyticsSurfaceState(.ready)
@@ -748,6 +755,11 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
         pendingOnboardingEvaluationTask = nil
         awaitsAnalyticsFirstInteractiveFrame = true
         TaskerPerformanceTrace.event("HomeFaceSwitch")
+        TaskerMemoryDiagnostics.checkpoint(
+            event: "home_insights_open",
+            message: "Opening insights surface",
+            fields: ["source": source]
+        )
         faceCoordinator.setActiveFace(.analytics)
         faceCoordinator.setAnalyticsSurfaceState(faceCoordinator.insightsViewModel == nil ? .placeholder : .ready)
         if launchDefaultInsights {
@@ -817,6 +829,14 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
         }
         awaitsAnalyticsFirstInteractiveFrame = false
         TaskerPerformanceTrace.event("HomeFaceSwitch")
+        faceCoordinator.insightsViewModel = nil
+        insightsViewModel = nil
+        viewModel.releaseInsightsViewModel()
+        TaskerMemoryDiagnostics.checkpoint(
+            event: "home_insights_close",
+            message: "Closing insights surface",
+            fields: ["source": source]
+        )
         faceCoordinator.setActiveFace(.tasks)
         faceCoordinator.setAnalyticsSurfaceState(.idle)
         viewModel.trackHomeInteraction(
@@ -841,6 +861,11 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
         pendingOnboardingEvaluationTask?.cancel()
         pendingOnboardingEvaluationTask = nil
         TaskerPerformanceTrace.event("HomeFaceSwitch")
+        TaskerMemoryDiagnostics.checkpoint(
+            event: "home_search_open",
+            message: "Opening search surface",
+            fields: ["source": source]
+        )
         faceCoordinator.setActiveFace(.search)
         faceCoordinator.setSearchSurfaceState(.presenting)
         TaskerPerformanceTrace.event("HomeSearchTapped")
@@ -857,9 +882,16 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
         pendingSearchWarmupTask?.cancel()
         pendingSearchMutationRefreshTask?.cancel()
         TaskerPerformanceTrace.event("HomeFaceSwitch")
+        searchState.releaseResources()
+        retainedHomeSearchEngine = nil
+        viewModel.releaseHomeSearchViewModel()
+        TaskerMemoryDiagnostics.checkpoint(
+            event: "home_search_close",
+            message: "Closing search surface",
+            fields: ["source": source]
+        )
         faceCoordinator.setActiveFace(.tasks)
         faceCoordinator.setSearchSurfaceState(.idle)
-        searchState.deactivate()
         viewModel.trackHomeInteraction(
             action: "home_search_flip_close",
             metadata: ["source": source]
@@ -905,7 +937,7 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
             self.faceCoordinator.setSearchSurfaceState(.preparing)
             self.searchState.configureIfNeeded(
                 makeEngine: {
-                    self.retainedHomeSearchEngine
+                    self.resolveHomeSearchEngine()
                 },
                 dataRevisionProvider: {
                     self.viewModel.currentDataRevision
@@ -949,7 +981,7 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
                 guard self.faceCoordinator.activeFace == .tasks else { return }
                 self.searchState.configureIfNeeded(
                     makeEngine: {
-                        self.retainedHomeSearchEngine
+                        self.resolveHomeSearchEngine()
                     },
                     dataRevisionProvider: {
                         self.viewModel.currentDataRevision
@@ -993,6 +1025,15 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
         insightsViewModel = resolvedViewModel
         faceCoordinator.insightsViewModel = resolvedViewModel
         return resolvedViewModel
+    }
+
+    private func resolveHomeSearchEngine() -> LGHomeSearchEngine {
+        if let retainedHomeSearchEngine {
+            return retainedHomeSearchEngine
+        }
+        let engine = LGHomeSearchEngine(viewModel: viewModel.makeHomeSearchViewModel())
+        retainedHomeSearchEngine = engine
+        return engine
     }
 
     private func scheduleInitialSearchWarmupIfNeeded() {
@@ -1902,7 +1943,10 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
     }
 
     private func seedUITestRescueWorkspaceIfNeeded(completion: @escaping () -> Void) {
-        guard ProcessInfo.processInfo.arguments.contains("-TASKER_TEST_SEED_RESCUE_WORKSPACE") else {
+        let arguments = ProcessInfo.processInfo.arguments
+        let shouldSeedExpandedRescue = arguments.contains("-TASKER_TEST_SEED_RESCUE_WORKSPACE")
+        let shouldSeedCompactRescue = arguments.contains("-TASKER_TEST_SEED_COMPACT_RESCUE_WORKSPACE")
+        guard shouldSeedExpandedRescue || shouldSeedCompactRescue else {
             completion()
             return
         }
@@ -1926,6 +1970,7 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
                 let calendar = Calendar.current
                 let now = Date()
                 let anchorDay = calendar.startOfDay(for: now)
+                let includeHiddenRescueRow = shouldSeedExpandedRescue
 
                 let lifeArea = try await manageLifeAreas.createAsync(
                     name: "Operations",
@@ -1940,7 +1985,7 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
                     )
                 )
 
-                let requests = [
+                var requests = [
                     CreateTaskDefinitionRequest(
                         title: "Rescue oldest",
                         details: "UI test rescue seed",
@@ -1972,16 +2017,6 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
                         createdAt: now
                     ),
                     CreateTaskDefinitionRequest(
-                        title: "Rescue hidden",
-                        details: "UI test rescue seed",
-                        projectID: project.id,
-                        projectName: project.name,
-                        lifeAreaID: lifeArea.id,
-                        dueDate: calendar.date(byAdding: .day, value: -15, to: anchorDay),
-                        priority: .high,
-                        createdAt: now
-                    ),
-                    CreateTaskDefinitionRequest(
                         title: "Today focus seed",
                         details: "UI test rescue seed",
                         projectID: project.id,
@@ -1992,6 +2027,22 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
                         createdAt: now
                     )
                 ]
+
+                if includeHiddenRescueRow {
+                    requests.insert(
+                        CreateTaskDefinitionRequest(
+                            title: "Rescue hidden",
+                            details: "UI test rescue seed",
+                            projectID: project.id,
+                            projectName: project.name,
+                            lifeAreaID: lifeArea.id,
+                            dueDate: calendar.date(byAdding: .day, value: -15, to: anchorDay),
+                            priority: .high,
+                            createdAt: now
+                        ),
+                        at: 3
+                    )
+                }
 
                 for request in requests {
                     _ = try await createTaskDefinition.executeAsync(request: request)
@@ -2127,6 +2178,167 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
                 logError(
                     event: "ui_test_focus_workspace_seed_failed",
                     message: "Failed to seed focus workspace for Home UI tests",
+                    fields: ["error": error.localizedDescription]
+                )
+            }
+
+            completion()
+        }
+    }
+
+    private func seedUITestHabitBoardWorkspaceIfNeeded(completion: @escaping () -> Void) {
+        guard ProcessInfo.processInfo.arguments.contains("-TASKER_TEST_SEED_HABIT_BOARD_WORKSPACE") else {
+            completion()
+            return
+        }
+        guard Self.hasSeededUITestHabitBoardWorkspace == false else {
+            completion()
+            return
+        }
+        guard let presentationDependencyContainer else {
+            completion()
+            return
+        }
+
+        Self.hasSeededUITestHabitBoardWorkspace = true
+
+        Task { @MainActor in
+            do {
+                let manageLifeAreas = presentationDependencyContainer.coordinator.manageLifeAreas
+                let manageProjects = presentationDependencyContainer.coordinator.manageProjects
+                let createHabit = presentationDependencyContainer.coordinator.createHabit
+
+                let lifeArea = try await manageLifeAreas.createAsync(
+                    name: "Health",
+                    color: "#4E9A2F",
+                    icon: "heart.fill"
+                )
+                let project = try await manageProjects.createProjectAsync(
+                    request: CreateProjectRequest(
+                        name: "Daily Rhythm",
+                        description: "UI test habit board seed",
+                        lifeAreaID: lifeArea.id
+                    )
+                )
+
+                let requests = [
+                    CreateHabitRequest(
+                        title: "Drink water after breakfast",
+                        lifeAreaID: lifeArea.id,
+                        projectID: project.id,
+                        kind: .positive,
+                        trackingMode: .dailyCheckIn,
+                        icon: HabitIconMetadata(symbolName: "drop.fill", categoryKey: "health"),
+                        colorHex: HabitColorFamily.green.canonicalHex,
+                        targetConfig: HabitTargetConfig(targetCountPerDay: 1),
+                        cadence: .daily()
+                    ),
+                    CreateHabitRequest(
+                        title: "Choose tomorrow's top priority before bed",
+                        lifeAreaID: lifeArea.id,
+                        projectID: project.id,
+                        kind: .positive,
+                        trackingMode: .dailyCheckIn,
+                        icon: HabitIconMetadata(symbolName: "moon.stars.fill", categoryKey: "planning"),
+                        colorHex: HabitColorFamily.blue.canonicalHex,
+                        targetConfig: HabitTargetConfig(targetCountPerDay: 1),
+                        cadence: .daily()
+                    ),
+                    CreateHabitRequest(
+                        title: "No phone in bed",
+                        lifeAreaID: lifeArea.id,
+                        projectID: project.id,
+                        kind: .negative,
+                        trackingMode: .dailyCheckIn,
+                        icon: HabitIconMetadata(symbolName: "bed.double.fill", categoryKey: "sleep"),
+                        colorHex: HabitColorFamily.coral.canonicalHex,
+                        targetConfig: HabitTargetConfig(targetCountPerDay: 1),
+                        cadence: .daily()
+                    )
+                ]
+
+                for request in requests {
+                    _ = try await createHabit.executeAsync(request: request)
+                }
+            } catch {
+                logError(
+                    event: "ui_test_habit_board_seed_failed",
+                    message: "Failed to seed habits for Habit Board UI tests",
+                    fields: ["error": error.localizedDescription]
+                )
+            }
+
+            completion()
+        }
+    }
+
+    private func seedUITestQuietTrackingWorkspaceIfNeeded(completion: @escaping () -> Void) {
+        guard ProcessInfo.processInfo.arguments.contains("-TASKER_TEST_SEED_QUIET_TRACKING_WORKSPACE") else {
+            completion()
+            return
+        }
+        guard Self.hasSeededUITestQuietTrackingWorkspace == false else {
+            completion()
+            return
+        }
+        guard let presentationDependencyContainer else {
+            completion()
+            return
+        }
+
+        Self.hasSeededUITestQuietTrackingWorkspace = true
+
+        Task { @MainActor in
+            do {
+                let manageLifeAreas = presentationDependencyContainer.coordinator.manageLifeAreas
+                let manageProjects = presentationDependencyContainer.coordinator.manageProjects
+                let createHabit = presentationDependencyContainer.coordinator.createHabit
+
+                let lifeArea = try await manageLifeAreas.createAsync(
+                    name: "Recovery",
+                    color: "#D26A5C",
+                    icon: "bandage.fill"
+                )
+                let project = try await manageProjects.createProjectAsync(
+                    request: CreateProjectRequest(
+                        name: "Quiet Tracking Seed",
+                        description: "UI test quiet tracking seed",
+                        lifeAreaID: lifeArea.id
+                    )
+                )
+
+                let requests = [
+                    CreateHabitRequest(
+                        title: "No phone in bed",
+                        lifeAreaID: lifeArea.id,
+                        projectID: project.id,
+                        kind: .negative,
+                        trackingMode: .lapseOnly,
+                        icon: HabitIconMetadata(symbolName: "bed.double.fill", categoryKey: "sleep"),
+                        colorHex: HabitColorFamily.coral.canonicalHex,
+                        targetConfig: HabitTargetConfig(targetCountPerDay: 1),
+                        cadence: .daily()
+                    ),
+                    CreateHabitRequest(
+                        title: "No doomscrolling after dinner",
+                        lifeAreaID: lifeArea.id,
+                        projectID: project.id,
+                        kind: .negative,
+                        trackingMode: .lapseOnly,
+                        icon: HabitIconMetadata(symbolName: "moon.zzz.fill", categoryKey: "recovery"),
+                        colorHex: HabitColorFamily.blue.canonicalHex,
+                        targetConfig: HabitTargetConfig(targetCountPerDay: 1),
+                        cadence: .daily()
+                    )
+                ]
+
+                for request in requests {
+                    _ = try await createHabit.executeAsync(request: request)
+                }
+            } catch {
+                logError(
+                    event: "ui_test_quiet_tracking_workspace_seed_failed",
+                    message: "Failed to seed quiet tracking workspace for Home UI tests",
                     fields: ["error": error.localizedDescription]
                 )
             }

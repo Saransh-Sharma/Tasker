@@ -42,7 +42,7 @@ struct EvaFocusWhySheetView: View {
                 .padding(.top, spacing.s12)
                 .padding(.bottom, spacing.s20)
             }
-            .navigationTitle(String(localized: "Why Eva Picked These"))
+            .navigationTitle("Focus Now")
             .navigationBarTitleDisplayMode(.inline)
         }
         .presentationDetents([.medium, .large])
@@ -56,11 +56,7 @@ struct EvaFocusWhySheetView: View {
 
     private var headerCard: some View {
         VStack(alignment: .leading, spacing: spacing.s8) {
-            Text(String(localized: "Why Eva Picked These"))
-                .font(.tasker(.title3).weight(.semibold))
-                .foregroundColor(Color.tasker.textPrimary)
-
-            Text(String(localized: "Focus Now stays small on Home. This sheet explains the picks, lets you complete them, start a timer, and preview alternatives before swapping anything out."))
+            Text("Review why these tasks are in Focus Now, start a timer, or swap in a better fit.")
                 .font(.tasker(.callout))
                 .foregroundColor(Color.tasker.textSecondary)
                 .fixedSize(horizontal: false, vertical: true)
@@ -100,10 +96,11 @@ struct EvaFocusWhySheetView: View {
                         )
                 }
                 .buttonStyle(.plain)
+                .accessibilityIdentifier("home.focus.detail.shuffle")
             }
 
             if shuffleCandidates.isEmpty {
-                Text(String(localized: "No new candidates are available right now. Finish or shuffle Focus Now on Home to refresh the pool."))
+                Text("No new candidates are available right now. Finish a focus task and try again.")
                     .font(.tasker(.caption1))
                     .foregroundColor(Color.tasker.textSecondary)
                     .padding(.top, spacing.s2)

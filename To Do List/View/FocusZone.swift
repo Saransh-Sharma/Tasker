@@ -15,7 +15,6 @@ public struct FocusZone: View {
     let pinnedTaskIDs: [UUID]
     let shellPhase: HomeShellPhase
     let insightForTaskID: (UUID) -> EvaFocusTaskInsight?
-    let onShuffle: () -> Void
     let onWhy: () -> Void
     let onPinTask: (TaskDefinition) -> Void
     let onUnpinTask: (TaskDefinition) -> Void
@@ -26,6 +25,7 @@ public struct FocusZone: View {
     let onCompleteHabit: (HomeHabitRow) -> Void
     let onSkipHabit: (HomeHabitRow) -> Void
     let onLapseHabit: (HomeHabitRow) -> Void
+    let onOpenHabit: (HomeHabitRow) -> Void
     let onDrop: ([NSItemProvider]) -> Bool
 
     @State private var isTargeted = false
@@ -39,8 +39,7 @@ public struct FocusZone: View {
             return task
         }
     }
-    private var taskCount: Int { taskRows.count }
-    private var hasTaskRows: Bool { taskCount > 0 }
+    private var hasTaskRows: Bool { !taskRows.isEmpty }
 
     public init(
         rows: [HomeTodayRow],
@@ -48,7 +47,6 @@ public struct FocusZone: View {
         pinnedTaskIDs: [UUID] = [],
         shellPhase: HomeShellPhase = .interactive,
         insightForTaskID: @escaping (UUID) -> EvaFocusTaskInsight? = { _ in nil },
-        onShuffle: @escaping () -> Void = {},
         onWhy: @escaping () -> Void = {},
         onPinTask: @escaping (TaskDefinition) -> Void = { _ in },
         onUnpinTask: @escaping (TaskDefinition) -> Void = { _ in },
@@ -59,6 +57,7 @@ public struct FocusZone: View {
         onCompleteHabit: @escaping (HomeHabitRow) -> Void = { _ in },
         onSkipHabit: @escaping (HomeHabitRow) -> Void = { _ in },
         onLapseHabit: @escaping (HomeHabitRow) -> Void = { _ in },
+        onOpenHabit: @escaping (HomeHabitRow) -> Void = { _ in },
         onDrop: @escaping ([NSItemProvider]) -> Bool
     ) {
         self.rows = rows
@@ -66,7 +65,6 @@ public struct FocusZone: View {
         self.pinnedTaskIDs = pinnedTaskIDs
         self.shellPhase = shellPhase
         self.insightForTaskID = insightForTaskID
-        self.onShuffle = onShuffle
         self.onWhy = onWhy
         self.onPinTask = onPinTask
         self.onUnpinTask = onUnpinTask
@@ -77,6 +75,7 @@ public struct FocusZone: View {
         self.onCompleteHabit = onCompleteHabit
         self.onSkipHabit = onSkipHabit
         self.onLapseHabit = onLapseHabit
+        self.onOpenHabit = onOpenHabit
         self.onDrop = onDrop
     }
 
@@ -133,17 +132,14 @@ public struct FocusZone: View {
                 }
                 .buttonStyle(.plain)
                 .contentShape(Rectangle())
+                .accessibilityLabel("Focus Now")
                 .accessibilityIdentifier("home.focus.titleTap")
-                .accessibilityHint("Opens why Eva picked these items")
+                .accessibilityHint("Opens Focus Now details")
             } else {
                 focusHeaderLabel
             }
 
             Spacer(minLength: 0)
-
-            if hasTaskRows {
-                actionButton(title: "Shuffle", action: onShuffle, accessibilityID: "home.focus.shuffle")
-            }
         }
     }
 
@@ -156,34 +152,8 @@ public struct FocusZone: View {
             Text(LocalizedStringKey("Focus Now"))
                 .font(.tasker(.callout).weight(.semibold))
                 .foregroundColor(Color.tasker.textPrimary)
-
-            if hasTaskRows {
-                Text("\(taskCount)")
-                    .font(.tasker(.caption2).weight(.semibold))
-                    .foregroundColor(Color.tasker.textSecondary)
-                    .padding(.horizontal, 6)
-                    .padding(.vertical, 2)
-                    .background(
-                        Capsule()
-                            .fill(Color.tasker.surfaceSecondary)
-                    )
-                    .contentTransition(.numericText())
-            }
         }
         .frame(minHeight: 36, alignment: .leading)
-    }
-
-    private func actionButton(title: String, action: @escaping () -> Void, accessibilityID: String) -> some View {
-        Button(action: action) {
-            Text(title)
-                .font(.tasker(.caption1).weight(.medium))
-                .foregroundColor(Color.tasker.accentPrimary)
-                .padding(.horizontal, 4)
-                .frame(minHeight: 36)
-        }
-        .buttonStyle(.plain)
-        .contentShape(Rectangle())
-        .accessibilityIdentifier(accessibilityID)
     }
 
     private var emptyState: some View {
@@ -266,6 +236,9 @@ public struct FocusZone: View {
                     case (.negative, .lapseOnly):
                         break
                     }
+                },
+                onOpenDetail: {
+                    onOpenHabit(habit)
                 }
             )
         }
@@ -312,7 +285,6 @@ struct FocusZoneRowPresentation: Equatable {
     let title: String
     let secondaryLineText: String?
     let visibleBadge: FocusZoneBadgePresentation?
-    let priorityCode: String?
 
     static func make(task: TaskDefinition, insight: EvaFocusTaskInsight?, now: Date = Date()) -> FocusZoneRowPresentation {
         _ = insight
@@ -322,8 +294,7 @@ struct FocusZoneRowPresentation: Equatable {
         return FocusZoneRowPresentation(
             title: task.title,
             secondaryLineText: metadata.text,
-            visibleBadge: timePressure,
-            priorityCode: metadata.priorityCode
+            visibleBadge: timePressure
         )
     }
 }
@@ -359,25 +330,22 @@ enum FocusZoneTimePressureResolver {
 
 struct FocusZoneSecondaryLine: Equatable {
     let text: String?
-    let priorityCode: String?
 }
 
 enum FocusZoneSecondaryLineResolver {
     static func resolve(task: TaskDefinition) -> FocusZoneSecondaryLine {
-        let priorityCode = task.priority == .none ? nil : task.priority.code
-
         if task.projectID == ProjectConstants.inboxProjectID {
-            return FocusZoneSecondaryLine(text: "Inbox", priorityCode: priorityCode)
+            return FocusZoneSecondaryLine(text: "Inbox")
         }
 
         let projectName = task.projectName?
             .trimmingCharacters(in: .whitespacesAndNewlines)
 
         if let projectName, !projectName.isEmpty {
-            return FocusZoneSecondaryLine(text: projectName, priorityCode: priorityCode)
+            return FocusZoneSecondaryLine(text: projectName)
         }
 
-        return FocusZoneSecondaryLine(text: nil, priorityCode: priorityCode)
+        return FocusZoneSecondaryLine(text: nil)
     }
 }
 
@@ -414,25 +382,11 @@ private struct FocusZoneRow: View {
                         .lineLimit(2)
                         .multilineTextAlignment(.leading)
 
-                    HStack(spacing: spacing.s4) {
-                        if let priorityCode = presentation.priorityCode {
-                            Text(priorityCode)
-                                .font(.tasker(.caption1).weight(.semibold))
-                                .foregroundColor(priorityColor)
-                        }
-
-                        if let secondaryLineText = presentation.secondaryLineText {
-                            if presentation.priorityCode != nil {
-                                Text("·")
-                                    .font(.tasker(.caption1))
-                                    .foregroundColor(Color.tasker.textSecondary.opacity(0.8))
-                            }
-
-                            Text(secondaryLineText)
-                                .font(.tasker(.caption1))
-                                .foregroundColor(Color.tasker.textSecondary)
-                                .lineLimit(1)
-                        }
+                    if let secondaryLineText = presentation.secondaryLineText {
+                        Text(secondaryLineText)
+                            .font(.tasker(.caption1))
+                            .foregroundColor(Color.tasker.textSecondary)
+                            .lineLimit(1)
                     }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -513,18 +467,6 @@ private struct FocusZoneRow: View {
             .transition(.opacity.combined(with: .scale(scale: 0.96)))
     }
 
-    private var priorityColor: Color {
-        switch task.priority {
-        case .max:
-            return Color.tasker.statusDanger
-        case .high:
-            return Color.tasker.statusWarning
-        case .low:
-            return Color.tasker.accentPrimary
-        case .none:
-            return Color.tasker.textSecondary
-        }
-    }
 }
 
 extension View {

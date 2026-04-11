@@ -16,6 +16,15 @@ final class TaskSemanticRetrievalService {
 
     private let embeddingEngine: TaskEmbeddingEngine
     private let indexStore: TaskSemanticIndexStore
+    private let activationStateQueue = DispatchQueue(label: "TaskSemanticRetrievalService.activationState")
+    private var activationState: SemanticActivationState = .inactive
+    private var needsFullRebuild = false
+
+    private enum SemanticActivationState {
+        case inactive
+        case activating
+        case active
+    }
 
     /// Initializes a new instance.
     init(
@@ -26,6 +35,24 @@ final class TaskSemanticRetrievalService {
         self.indexStore = indexStore
     }
 
+    var isActivated: Bool {
+        activationStateQueue.sync {
+            activationState == .active
+        }
+    }
+
+    var shouldPersistOnBackgroundTransition: Bool {
+        isActivated && indexStore.hasDirtyChanges
+    }
+
+    var hasPersistedIndex: Bool {
+        indexStore.hasPersistedIndex
+    }
+
+    var itemCount: Int {
+        indexStore.itemCount
+    }
+
     /// Executes loadPersistedIndex.
     func loadPersistedIndex() {
         indexStore.loadPersisted()
@@ -34,6 +61,61 @@ final class TaskSemanticRetrievalService {
     /// Executes persistIndex.
     func persistIndex() {
         indexStore.persist()
+    }
+
+    func markIndexOutdated() {
+        activationStateQueue.sync {
+            needsFullRebuild = true
+        }
+    }
+
+    func releaseInMemoryResources() {
+        indexStore.unloadFromMemory()
+        activationStateQueue.sync {
+            activationState = .inactive
+        }
+    }
+
+    func activateIfNeeded(rebuildIfMissing: @escaping () async -> Void) async {
+        let activationDecision = activationStateQueue.sync { () -> (shouldLoadPersisted: Bool, shouldRebuild: Bool)? in
+            switch activationState {
+            case .activating, .active:
+                return nil
+            case .inactive:
+                activationState = .activating
+                let shouldLoadPersisted = indexStore.hasPersistedIndex
+                let shouldRebuild = needsFullRebuild || shouldLoadPersisted == false
+                return (shouldLoadPersisted, shouldRebuild)
+            }
+        }
+        guard let activationDecision else { return }
+
+        TaskerMemoryDiagnostics.checkpoint(
+            event: "semantic_activation_started",
+            message: "Activating semantic retrieval resources",
+            fields: [
+                "has_persisted_index": activationDecision.shouldLoadPersisted ? "true" : "false",
+                "should_rebuild": activationDecision.shouldRebuild ? "true" : "false"
+            ],
+            counts: ["semantic_items": indexStore.itemCount]
+        )
+
+        if activationDecision.shouldRebuild {
+            await rebuildIfMissing()
+        } else if activationDecision.shouldLoadPersisted {
+            indexStore.loadPersisted()
+        }
+
+        activationStateQueue.sync {
+            activationState = .active
+            needsFullRebuild = false
+        }
+
+        TaskerMemoryDiagnostics.checkpoint(
+            event: "semantic_activation_finished",
+            message: "Semantic retrieval resources are ready",
+            counts: ["semantic_items": indexStore.itemCount]
+        )
     }
 
     /// Executes index.
@@ -53,6 +135,9 @@ final class TaskSemanticRetrievalService {
             return (task.id, text, vector)
         }
         indexStore.replaceAll(items)
+        activationStateQueue.sync {
+            needsFullRebuild = false
+        }
     }
 
     /// Executes remove.

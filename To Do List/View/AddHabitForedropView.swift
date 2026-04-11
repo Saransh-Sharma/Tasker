@@ -49,6 +49,7 @@ struct AddHabitForedropView: View {
     @State private var errorShakeTrigger = false
     @State private var showAdvancedSettings = false
     @Environment(\.taskerLayoutClass) private var layoutClass
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.tokens(for: layoutClass).spacing }
@@ -93,18 +94,30 @@ struct AddHabitForedropView: View {
     }
 
     private var composerAccentColor: Color {
-        TaskerHexColor.color(viewModel.selectedColorHex.nilIfBlank, fallback: Color.tasker.accentPrimary)
+        HabitEverydayPalette.familyPreview(
+            HabitColorFamily.family(
+                for: viewModel.selectedColorHex,
+                fallback: viewModel.selectedKind == .positive ? .green : .coral
+            )
+        )
     }
 
     private var composerAccentWash: Color {
         composerAccentColor.opacity(0.14)
     }
 
+    private var selectedComposerAccentTitle: String {
+        habitAccentPresetMatch(
+            for: viewModel.selectedColorHex,
+            fallback: viewModel.selectedKind == .positive ? .green : .coral
+        )?.title ?? HabitColorFamily.family(
+            for: viewModel.selectedColorHex,
+            fallback: viewModel.selectedKind == .positive ? .green : .coral
+        ).title
+    }
+
     private var advancedSummary: String {
         var pieces: [String] = []
-        if viewModel.selectedProjectID != nil {
-            pieces.append("Project")
-        }
         if viewModel.reminderWindowStart.nilIfBlank != nil || viewModel.reminderWindowEnd.nilIfBlank != nil {
             pieces.append("Window")
         }
@@ -115,7 +128,7 @@ struct AddHabitForedropView: View {
             pieces.append("Icon")
         }
         if pieces.isEmpty {
-            return "Project, notes, icon, and reminder details"
+            return "Type, reminders, notes, and appearance"
         }
         return pieces.joined(separator: " · ")
     }
@@ -151,19 +164,6 @@ struct AddHabitForedropView: View {
 
             ScrollView {
                 VStack(spacing: spacing.s16) {
-                    HabitComposerSummaryCard(
-                        iconSymbolName: viewModel.selectedIconSymbolName ?? "circle.dashed",
-                        title: viewModel.habitName.nilIfBlank ?? "Your habit",
-                        modeSummary: habitModeSummary,
-                        cadenceSummary: cadenceSummary,
-                        ownershipSummary: ownershipSummary,
-                        accentColor: composerAccentColor,
-                        isExpanded: showAdvancedSettings,
-                        successFlash: successFlash,
-                        reminderSummary: trimmedWindowSummary
-                    )
-                    .enhancedStaggeredAppearance(index: 0)
-
                     AddTaskTitleField(
                         text: $viewModel.habitName,
                         isFocused: $titleFieldFocused,
@@ -171,24 +171,13 @@ struct AddHabitForedropView: View {
                         helperText: "Start with the behavior. Add the why and the details later.",
                         onSubmit: onCreate
                     )
-                    .enhancedStaggeredAppearance(index: 1)
+                    .enhancedStaggeredAppearance(index: 0)
 
-                    HabitSurfaceCard(
-                        title: "Essentials",
-                        subtitle: "Set the core behavior first.",
-                        iconSystemName: "sparkles"
-                    ) {
-                        VStack(alignment: .leading, spacing: spacing.s16) {
-                            habitKindPicker
-                            trackingModeSection
-                            cadenceSection
-                            ownershipSection
-                        }
-                    }
-                    .enhancedStaggeredAppearance(index: 2)
+                    baseComposerSections
+                        .enhancedStaggeredAppearance(index: 1)
 
                     advancedDisclosure
-                        .enhancedStaggeredAppearance(index: 3)
+                        .enhancedStaggeredAppearance(index: 2)
 
                     if showAdvancedSettings {
                         advancedSections
@@ -242,9 +231,34 @@ struct AddHabitForedropView: View {
         }
     }
 
+    private var baseComposerSections: some View {
+        Group {
+            if dynamicTypeSize.isAccessibilitySize {
+                VStack(spacing: spacing.s16) {
+                    cadenceSection
+                    ownershipSection
+                }
+            } else {
+                ViewThatFits(in: .horizontal) {
+                    HStack(alignment: .top, spacing: spacing.s16) {
+                        cadenceSection
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                        ownershipSection
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+
+                    VStack(spacing: spacing.s16) {
+                        cadenceSection
+                        ownershipSection
+                    }
+                }
+            }
+        }
+    }
+
     private var habitKindPicker: some View {
         VStack(alignment: .leading, spacing: spacing.s8) {
-            HabitSectionLabel(title: "Direction", detail: "Build momentum or protect against a slip.")
+            HabitSectionLabel(title: "Habit type", detail: "Switch this only when the habit is about avoiding a slip.")
 
             Picker("Habit kind", selection: $viewModel.selectedKind) {
                 ForEach(AddHabitKind.allCases) { kind in
@@ -265,7 +279,7 @@ struct AddHabitForedropView: View {
     private var trackingModeSection: some View {
         if viewModel.selectedKind == .negative {
             VStack(alignment: .leading, spacing: spacing.s8) {
-                HabitSectionLabel(title: "Support style", detail: "Choose whether this needs a daily check-in or only lapse logging.")
+                HabitSectionLabel(title: "Support style", detail: "Choose daily accountability or only log slips.")
 
                 Picker("Tracking mode", selection: $viewModel.selectedTrackingMode) {
                     ForEach(AddHabitTrackingMode.allCases) { mode in
@@ -291,7 +305,7 @@ struct AddHabitForedropView: View {
 
     private var cadenceSection: some View {
         VStack(alignment: .leading, spacing: spacing.s12) {
-            HabitSectionLabel(title: "Cadence", detail: "Keep it predictable enough that it is easy to restart.")
+            HabitSectionLabel(title: "Cadence", detail: "Pick a rhythm you can restart easily.")
 
             Picker("Cadence", selection: cadencePresetBinding) {
                 ForEach(HabitCadencePreset.allCases) { cadence in
@@ -324,25 +338,51 @@ struct AddHabitForedropView: View {
 
     private var ownershipSection: some View {
         VStack(alignment: .leading, spacing: spacing.s12) {
-            HabitSectionLabel(title: "Area", detail: "Every habit needs a home.")
+            TaskerComposerOptionGrid(
+                title: "Life Area",
+                helperText: "Every habit needs a home.",
+                options: viewModel.lifeAreas.map { TaskerComposerOption(id: $0.id, title: $0.name, icon: $0.icon) },
+                selectedID: viewModel.selectedLifeAreaID,
+                noneOptionTitle: nil,
+                emptyStateText: viewModel.lifeAreas.isEmpty ? "No life areas yet." : nil,
+                accessibilityIdentifier: "addHabit.lifeAreaSelector"
+            ) { selectedID in
+                withAnimation(TaskerAnimation.snappy) {
+                    viewModel.selectedLifeAreaID = selectedID
+                }
+            }
 
-            AddTaskEntityPicker(
-                label: "Area",
-                items: viewModel.lifeAreas.map { (id: $0.id, name: $0.name, icon: $0.icon) },
-                selectedID: $viewModel.selectedLifeAreaID
-            )
+            TaskerComposerOptionGrid(
+                title: "Project",
+                helperText: "Optional. Filtered to the selected area.",
+                options: viewModel.filteredProjectsForSelectedLifeArea.map {
+                    TaskerComposerOption(id: $0.project.id, title: $0.project.name, icon: nil)
+                },
+                selectedID: viewModel.selectedProjectID,
+                noneOptionTitle: "No project",
+                emptyStateText: viewModel.filteredProjectsForSelectedLifeArea.isEmpty ? "No projects in this area." : nil,
+                accessibilityIdentifier: "addHabit.projectSelector"
+            ) { selectedID in
+                withAnimation(TaskerAnimation.snappy) {
+                    viewModel.selectedProjectID = selectedID
+                }
+            }
 
             if viewModel.selectedLifeAreaID == nil {
                 Text("Pick an area before saving.")
-                    .font(.tasker(.caption2))
-                    .foregroundColor(Color.tasker.statusWarning)
+                    .font(.tasker(.meta))
+                    .foregroundStyle(Color.tasker.statusWarning)
             }
         }
     }
 
     private var advancedDisclosure: some View {
-        Button {
-            TaskerFeedback.selection()
+        TaskerComposerDisclosureRow(
+            title: "Add details",
+            summary: advancedSummary,
+            isExpanded: showAdvancedSettings,
+            accessibilityIdentifier: "addHabit.detailsDisclosure"
+        ) {
             if reduceMotion {
                 showAdvancedSettings.toggle()
             } else {
@@ -353,46 +393,24 @@ struct AddHabitForedropView: View {
             if showAdvancedSettings == false {
                 titleFieldFocused = false
             }
-        } label: {
-            HStack(spacing: spacing.s12) {
-                VStack(alignment: .leading, spacing: spacing.s4) {
-                    HStack(spacing: spacing.s8) {
-                        Text(showAdvancedSettings ? "Hide extra details" : "Add more detail")
-                            .font(.tasker(.bodyEmphasis))
-                            .foregroundStyle(Color.tasker.textPrimary)
-                        TaskerStatusPill(
-                            text: showAdvancedSettings ? "Open" : "Optional",
-                            systemImage: showAdvancedSettings ? "slider.horizontal.3" : "sparkles",
-                            tone: showAdvancedSettings ? .accent : .quiet
-                        )
-                    }
-                    Text(advancedSummary)
-                        .font(.tasker(.caption1))
-                        .foregroundStyle(Color.tasker.textSecondary)
-                }
-
-                Spacer(minLength: 0)
-
-                ZStack {
-                    Circle()
-                        .fill(Color.tasker.surfacePrimary)
-                        .frame(width: 30, height: 30)
-
-                    Image(systemName: showAdvancedSettings ? "chevron.up" : "chevron.down")
-                        .font(.system(size: 13, weight: .semibold))
-                        .foregroundStyle(Color.tasker.accentPrimary)
-                }
-            }
-            .padding(spacing.s12)
-            .taskerChromeSurface(cornerRadius: corner.r3, accentColor: Color.tasker.accentSecondary, level: .e1)
         }
-        .buttonStyle(.plain)
-        .scaleOnPress()
     }
 
     @ViewBuilder
     private var advancedSections: some View {
         VStack(spacing: spacing.s16) {
+            HabitSurfaceCard(
+                title: "Behavior setup",
+                subtitle: "Only change the habit type when this is about resisting a slip.",
+                iconSystemName: "slider.horizontal.3"
+            ) {
+                VStack(alignment: .leading, spacing: spacing.s16) {
+                    habitKindPicker
+                    trackingModeSection
+                }
+            }
+            .enhancedStaggeredAppearance(index: 3)
+
             HabitSurfaceCard(
                 title: reminderLabel,
                 subtitle: "Helpful when timing matters more than perfection.",
@@ -415,29 +433,16 @@ struct AddHabitForedropView: View {
 
                     if let reminderError = viewModel.reminderWindowValidationError {
                         Text(reminderError)
-                            .font(.tasker(.caption2))
-                            .foregroundColor(Color.tasker.statusWarning)
+                            .font(.tasker(.meta))
+                            .foregroundStyle(Color.tasker.statusWarning)
                     } else {
                         Text(viewModel.selectedTrackingMode == .lapseOnly ? "Use a recovery window when slips usually show up." : "Use this if you want the habit to nudge inside a deliberate part of the day.")
-                            .font(.tasker(.caption2))
-                            .foregroundColor(Color.tasker.textSecondary)
+                            .font(.tasker(.meta))
+                            .foregroundStyle(Color.tasker.textSecondary)
                     }
                 }
             }
             .enhancedStaggeredAppearance(index: 4)
-
-            HabitSurfaceCard(
-                title: "Context",
-                subtitle: "Optional if this habit belongs to a project too.",
-                iconSystemName: "tray.full"
-            ) {
-                AddTaskEntityPicker(
-                    label: "Project",
-                    items: viewModel.projects.map { (id: $0.project.id, name: $0.project.name, icon: nil as String?) },
-                    selectedID: $viewModel.selectedProjectID
-                )
-            }
-            .enhancedStaggeredAppearance(index: 5)
 
             HabitSurfaceCard(
                 title: "Appearance",
@@ -460,8 +465,15 @@ struct AddHabitForedropView: View {
                             .textFieldStyle(TaskerTextFieldStyle())
                     }
 
-                    TextField("Accent color (hex, optional)", text: $viewModel.selectedColorHex)
-                        .textFieldStyle(TaskerTextFieldStyle())
+                    HabitAccentPaletteField(
+                        selectedHex: $viewModel.selectedColorHex,
+                        selectedTitle: selectedComposerAccentTitle,
+                        previewColor: composerAccentColor,
+                        previewFamily: HabitColorFamily.family(
+                            for: viewModel.selectedColorHex,
+                            fallback: viewModel.selectedKind == .positive ? .green : .coral
+                        )
+                    )
 
                     let options = Array(viewModel.availableIconOptions.prefix(layoutClass.isPad ? 24 : 16))
                     LazyVGrid(columns: [GridItem(.adaptive(minimum: layoutClass.isPad ? 84 : 72), spacing: spacing.s8)], spacing: spacing.s8) {
@@ -471,7 +483,7 @@ struct AddHabitForedropView: View {
                     }
                 }
             }
-            .enhancedStaggeredAppearance(index: 6)
+            .enhancedStaggeredAppearance(index: 5)
 
             HabitSurfaceCard(
                 title: "Why this matters",
@@ -485,16 +497,16 @@ struct AddHabitForedropView: View {
                     .padding(.vertical, spacing.s8)
                     .taskerDenseSurface(cornerRadius: corner.r2, fillColor: Color.tasker.surfacePrimary)
             }
-            .enhancedStaggeredAppearance(index: 7)
+            .enhancedStaggeredAppearance(index: 6)
         }
     }
 
     private var hasAdvancedContent: Bool {
-        viewModel.selectedProjectID != nil
-            || viewModel.reminderWindowStart.nilIfBlank != nil
+        viewModel.reminderWindowStart.nilIfBlank != nil
             || viewModel.reminderWindowEnd.nilIfBlank != nil
             || viewModel.habitNotes.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false
             || viewModel.iconSearchQuery.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false
+            || viewModel.selectedKind == .negative
     }
 
     private func expandAdvancedIfNeeded() {
@@ -623,8 +635,8 @@ struct AddHabitForedropView: View {
                     .clipShape(RoundedRectangle(cornerRadius: 11, style: .continuous))
 
                 Text(option.displayName)
-                    .font(.tasker(.caption2))
-                    .foregroundColor(Color.tasker.textSecondary)
+                    .font(.tasker(.meta))
+                    .foregroundStyle(Color.tasker.textSecondary)
                     .lineLimit(1)
                     .minimumScaleFactor(0.78)
             }
@@ -651,8 +663,8 @@ struct AddHabitForedropView: View {
     ) -> some View {
         VStack(alignment: .leading, spacing: spacing.s8) {
             Text(title)
-                .font(.tasker(.caption2))
-                .foregroundColor(Color.tasker.textTertiary)
+                .font(.tasker(.meta))
+                .foregroundStyle(Color.tasker.textTertiary)
 
             TextField(placeholder, text: text)
                 .font(.tasker(.body))
@@ -969,7 +981,14 @@ struct HabitDetailSheetView: View {
                 iconSystemName: "clock.arrow.circlepath"
             ) {
                 VStack(alignment: .leading, spacing: spacing.s12) {
-                    HabitHistoryStripView(marks: viewModel.historyMarks)
+                    HabitHistoryStripView(
+                        marks: viewModel.historyMarks,
+                        cadence: viewModel.row.cadence,
+                        family: HabitColorFamily.family(
+                            for: viewModel.row.colorHex,
+                            fallback: viewModel.row.kind == .positive ? .green : .coral
+                        )
+                    )
                     HabitHistoryLegend()
                 }
             }
@@ -1109,8 +1128,21 @@ struct HabitDetailSheetView: View {
                         .padding(.vertical, spacing.s8)
                         .taskerDenseSurface(cornerRadius: TaskerTheme.CornerRadius.md, fillColor: Color.tasker.surfacePrimary)
 
-                    TextField("Accent color (hex, optional)", text: $viewModel.draft.colorHex)
-                        .textFieldStyle(TaskerTextFieldStyle())
+                    HabitAccentPaletteField(
+                        selectedHex: $viewModel.draft.colorHex,
+                        selectedTitle: habitAccentPresetMatch(
+                            for: viewModel.draft.colorHex,
+                            fallback: viewModel.draft.kind == .positive ? .green : .coral
+                        )?.title ?? "Custom",
+                        previewColor: TaskerHexColor.color(
+                            viewModel.draft.colorHex.nilIfBlank,
+                            fallback: viewModel.draft.kind == .positive ? Color.tasker.statusSuccess : Color.tasker.statusWarning
+                        ),
+                        previewFamily: HabitColorFamily.family(
+                            for: viewModel.draft.colorHex,
+                            fallback: viewModel.draft.kind == .positive ? .green : .coral
+                        )
+                    )
 
                     TextField("Search icons", text: $viewModel.draft.iconSearchQuery)
                         .textFieldStyle(TaskerTextFieldStyle())
@@ -1359,6 +1391,139 @@ struct HabitDetailSheetView: View {
     }
 }
 
+private struct HabitAccentPreset: Identifiable {
+    let family: HabitColorFamily
+
+    var id: String { family.rawValue }
+    var title: String { family.title }
+    var hex: String { family.canonicalHex }
+}
+
+private let habitAccentPresets: [HabitAccentPreset] = HabitColorFamily.allCases.map(HabitAccentPreset.init)
+
+private func habitAccentPresetMatch(
+    for hex: String?,
+    fallback: HabitColorFamily
+) -> HabitAccentPreset? {
+    let family = HabitColorFamily.family(for: hex, fallback: fallback)
+    return habitAccentPresets.first { $0.family == family }
+}
+
+private struct HabitAccentPaletteField: View {
+    @Binding var selectedHex: String
+    let selectedTitle: String
+    let previewColor: Color
+    let previewFamily: HabitColorFamily
+
+    @Environment(\.taskerLayoutClass) private var layoutClass
+
+    private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.tokens(for: layoutClass).spacing }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: spacing.s12) {
+            HStack(spacing: spacing.s8) {
+                RoundedRectangle(cornerRadius: 4, style: .continuous)
+                    .fill(previewColor)
+                    .frame(width: 14, height: 14)
+
+                Text("Streak family")
+                    .font(.tasker(.caption1).weight(.semibold))
+                    .foregroundStyle(Color.tasker.textPrimary)
+
+                Text(selectedTitle)
+                    .font(.tasker(.caption1))
+                    .foregroundStyle(Color.tasker.textSecondary)
+
+                Spacer(minLength: 0)
+
+                if selectedHex.nilIfBlank != nil {
+                    Button("Clear") {
+                        selectedHex = ""
+                    }
+                    .font(.tasker(.caption1).weight(.semibold))
+                    .foregroundStyle(Color.tasker.textSecondary)
+                    .buttonStyle(.plain)
+                }
+            }
+
+            HabitBoardStripView(
+                cells: previewCells,
+                family: previewFamily,
+                mode: .expanded
+            )
+
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: spacing.s8) {
+                    ForEach(habitAccentPresets) { preset in
+                        HabitAccentSwatchButton(
+                            preset: preset,
+                            isSelected: TaskerHexColor.normalized(selectedHex.nilIfBlank) == TaskerHexColor.normalized(preset.hex)
+                        ) {
+                            selectedHex = preset.hex
+                        }
+                    }
+                }
+                .padding(.vertical, 2)
+            }
+
+            DisclosureGroup("Advanced custom hex") {
+                TextField("Accent color (hex, optional)", text: $selectedHex)
+                    .textFieldStyle(TaskerTextFieldStyle())
+                    .textInputAutocapitalization(.never)
+                    .autocorrectionDisabled()
+                    .padding(.top, 8)
+            }
+            .font(.tasker(.caption1))
+            .foregroundStyle(Color.tasker.textSecondary)
+        }
+    }
+
+    private var previewCells: [HabitBoardCell] {
+        [
+            HabitBoardCell(date: Date(), state: .done(depth: 1), isToday: false, isWeekend: false),
+            HabitBoardCell(date: Date(), state: .done(depth: 2), isToday: false, isWeekend: false),
+            HabitBoardCell(date: Date(), state: .done(depth: 3), isToday: false, isWeekend: false),
+            HabitBoardCell(date: Date(), state: .bridge(kind: .single, source: .skipped), isToday: false, isWeekend: false),
+            HabitBoardCell(date: Date(), state: .done(depth: 4), isToday: false, isWeekend: false),
+            HabitBoardCell(date: Date(), state: .done(depth: 5), isToday: false, isWeekend: false),
+            HabitBoardCell(date: Date(), state: .missed, isToday: false, isWeekend: false),
+            HabitBoardCell(date: Date(), state: .done(depth: 1), isToday: true, isWeekend: false)
+        ]
+    }
+}
+
+private struct HabitAccentSwatchButton: View {
+    let preset: HabitAccentPreset
+    let isSelected: Bool
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .fill(Color(uiColor: UIColor(taskerHex: preset.hex)))
+                .frame(width: 42, height: 42)
+                .overlay {
+                    if isSelected {
+                        RoundedRectangle(cornerRadius: 12, style: .continuous)
+                            .stroke(Color.white.opacity(0.95), lineWidth: 2)
+                            .padding(2)
+                    }
+                }
+                .overlay {
+                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                        .stroke(
+                            isSelected ? Color.tasker.textPrimary.opacity(0.4) : Color.tasker.strokeHairline.opacity(0.45),
+                            lineWidth: 1
+                        )
+                }
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(Text(preset.title))
+        .accessibilityAddTraits(isSelected ? .isSelected : [])
+        .scaleOnPress()
+    }
+}
+
 private struct HabitComposerSummaryCard: View {
     let iconSymbolName: String
     let title: String
@@ -1505,11 +1670,11 @@ private struct HabitSectionLabel: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
             Text(title)
-                .font(.tasker(.caption1).weight(.semibold))
-                .foregroundColor(Color.tasker.textPrimary)
+                .font(.tasker(.callout).weight(.semibold))
+                .foregroundStyle(Color.tasker.textPrimary)
             Text(detail)
-                .font(.tasker(.caption2))
-                .foregroundColor(Color.tasker.textSecondary)
+                .font(.tasker(.meta))
+                .foregroundStyle(Color.tasker.textSecondary)
         }
     }
 }
@@ -1740,7 +1905,14 @@ private struct HabitLibraryCard: View {
                 .foregroundColor(Color.tasker.textSecondary)
                 .lineLimit(2)
 
-            HabitHistoryStripView(marks: row.last14Days)
+            HabitHistoryStripView(
+                marks: row.last14Days,
+                cadence: row.cadence,
+                family: HabitColorFamily.family(
+                    for: row.colorHex,
+                    fallback: row.kind == .positive ? .green : .coral
+                )
+            )
 
             HStack(spacing: spacing.s8) {
                 HabitMiniMetric(title: "Current", value: "\(row.currentStreak)d")
@@ -1909,7 +2081,14 @@ private struct HabitDetailHeroCard: View {
                 }
             }
 
-            HabitHistoryStripView(marks: historyMarks)
+            HabitHistoryStripView(
+                marks: historyMarks,
+                cadence: row.cadence,
+                family: HabitColorFamily.family(
+                    for: row.colorHex,
+                    fallback: row.kind == .positive ? .green : .coral
+                )
+            )
         }
         .padding(spacing.s20)
         .taskerPremiumSurface(

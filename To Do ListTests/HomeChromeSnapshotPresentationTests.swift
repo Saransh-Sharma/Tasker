@@ -33,7 +33,7 @@ final class HomeChromeSnapshotPresentationTests: XCTestCase {
         XCTAssertFalse(presentation.showsBackToToday)
         XCTAssertTrue(presentation.showsReflectionCTA)
         XCTAssertEqual(presentation.reflectionCTATitle, "Reflect")
-        XCTAssertEqual(presentation.metadataItems.map(\.text), ["18/250 XP", "100%", "1d"])
+        XCTAssertEqual(presentation.metadataItems.map { $0.text }, ["18/250 XP", "100%", "1d"])
         XCTAssertEqual(presentation.xpProgress?.earnedXP, 18)
         XCTAssertEqual(presentation.xpProgress?.targetXP, 250)
         XCTAssertEqual(presentation.xpProgress?.isStreakSafeToday, true)
@@ -92,15 +92,14 @@ final class HomeChromeSnapshotPresentationTests: XCTestCase {
                     )
                 ]
             ),
-            rescueSectionState: RescueSectionState(rows: []),
+            agendaTailItems: [],
+            habitHomeSectionState: HabitHomeSectionState(primaryRows: [], recoveryRows: []),
             quietTrackingSummaryState: QuietTrackingSummaryState(stableRows: []),
             inlineCompletedTasks: [],
             doneTimelineTasks: [],
             projects: [],
             projectsByID: [:],
-            projectsByName: [:],
             tagNameByID: [:],
-            rescueTasksByID: [:],
             activeQuickView: .today,
             todayXPSoFar: nil,
             projectGroupingMode: .defaultMode,
@@ -122,7 +121,7 @@ final class HomeChromeSnapshotPresentationTests: XCTestCase {
         )
         XCTAssertTrue(presentation.showsBackToToday)
         XCTAssertFalse(presentation.showsReflectionCTA)
-        XCTAssertEqual(presentation.metadataItems.map(\.text), ["1 task", "1 habit"])
+        XCTAssertEqual(presentation.metadataItems.map { $0.text }, ["1 task", "1 habit"])
         XCTAssertNil(presentation.xpProgress)
     }
 
@@ -152,15 +151,14 @@ final class HomeChromeSnapshotPresentationTests: XCTestCase {
             todaySections: tasks.todaySections,
             focusNowSectionState: tasks.focusNowSectionState,
             todayAgendaSectionState: tasks.todayAgendaSectionState,
-            rescueSectionState: tasks.rescueSectionState,
+            agendaTailItems: tasks.agendaTailItems,
+            habitHomeSectionState: tasks.habitHomeSectionState,
             quietTrackingSummaryState: tasks.quietTrackingSummaryState,
             inlineCompletedTasks: tasks.inlineCompletedTasks,
             doneTimelineTasks: tasks.doneTimelineTasks,
             projects: tasks.projects,
             projectsByID: tasks.projectsByID,
-            projectsByName: tasks.projectsByName,
             tagNameByID: tasks.tagNameByID,
-            rescueTasksByID: tasks.rescueTasksByID,
             activeQuickView: .overdue,
             todayXPSoFar: tasks.todayXPSoFar,
             projectGroupingMode: tasks.projectGroupingMode,
@@ -178,7 +176,7 @@ final class HomeChromeSnapshotPresentationTests: XCTestCase {
 
         XCTAssertEqual(presentation.viewLabel, "Overdue")
         XCTAssertNil(presentation.centeredDateText)
-        XCTAssertEqual(presentation.metadataItems.map(\.text), ["2 overdue tasks"])
+        XCTAssertEqual(presentation.metadataItems.map { $0.text }, ["2 overdue tasks"])
         XCTAssertFalse(presentation.showsReflectionCTA)
         XCTAssertNil(presentation.xpProgress)
     }
@@ -210,7 +208,7 @@ final class HomeChromeSnapshotPresentationTests: XCTestCase {
 
         let presentation = snapshot.homeHeaderPresentation(tasks: .empty)
 
-        XCTAssertEqual(presentation.metadataItems.map(\.text), ["18/250 XP", "100%", "1d"])
+        XCTAssertEqual(presentation.metadataItems.map { $0.text }, ["18/250 XP", "100%", "1d"])
         XCTAssertEqual(presentation.xpProgress?.targetXP, GamificationTokens.dailyXPCap)
         XCTAssertEqual(presentation.xpProgress?.accessibilityLabel, "XP progress, 18 of 250 XP")
     }
@@ -238,6 +236,6 @@ final class HomeChromeSnapshotPresentationTests: XCTestCase {
 
         let presentation = snapshot.homeHeaderPresentation(tasks: .empty)
 
-        XCTAssertEqual(presentation.metadataItems.map(\.text), ["18/250 XP", "33%", "1d"])
+        XCTAssertEqual(presentation.metadataItems.map { $0.text }, ["18/250 XP", "33%", "1d"])
     }
 }

@@ -343,6 +343,15 @@ public final class PresentationDependencyContainer {
     }
 
     @MainActor
+    public func makeHabitBoardViewModel() -> HabitBoardViewModel {
+        assertConfigured()
+        return HabitBoardViewModel(
+            getHabitLibraryUseCase: useCaseCoordinator.getHabitLibrary,
+            getHabitHistoryUseCase: useCaseCoordinator.getHabitHistory
+        )
+    }
+
+    @MainActor
     public func makeHabitDetailViewModel(row: HabitLibraryRow) -> HabitDetailViewModel {
         assertConfigured()
         return HabitDetailViewModel(

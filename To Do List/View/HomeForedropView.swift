@@ -35,20 +35,6 @@ private enum EvaRescueMoveChoice: String, CaseIterable {
     }
 }
 
-private enum QuietTrackingOutcome: String, CaseIterable, Identifiable {
-    case progress
-    case lapse
-
-    var id: String { rawValue }
-
-    var title: String {
-        switch self {
-        case .progress: return "Log progress"
-        case .lapse: return "Log lapse"
-        }
-    }
-}
-
 private struct EvaRescueSplitComposerState {
     var isOpen = false
     var childTitles: [String] = ["", ""]
@@ -1008,6 +994,7 @@ protocol HomeSearchEngine: AnyObject {
     func togglePriorityFilter(_ priority: Int32)
     func setStatusFilter(_ filter: HomeSearchStatusFilter)
     func invalidateSearchCache(revision: Int)
+    func releaseResources()
     func groupTasksByProject(_ tasks: [TaskDefinition]) -> [(project: String, tasks: [TaskDefinition])]
 }
 
@@ -1064,6 +1051,11 @@ final class LGHomeSearchEngine: HomeSearchEngine {
         viewModel.invalidateSearchCache(revision: revision)
     }
 
+    func releaseResources() {
+        viewModel.purgeCaches()
+        viewModel.onResultsUpdatedWithRevision = nil
+    }
+
     func groupTasksByProject(_ tasks: [TaskDefinition]) -> [(project: String, tasks: [TaskDefinition])] {
         viewModel.groupTasksByProject(tasks)
     }
@@ -1101,7 +1093,9 @@ final class SearchRefreshCoordinator {
                 return
             }
             guard !Task.isCancelled else { return }
-            await perform(requestGeneration)
+            await MainActor.run {
+                perform(requestGeneration)
+            }
         }
         return requestGeneration
     }
@@ -1196,6 +1190,20 @@ final class HomeSearchState: ObservableObject {
     func deactivate() {
         refreshCoordinator.cancel()
         isLoading = false
+    }
+
+    func releaseResources() {
+        refreshCoordinator.cancel()
+        engine?.releaseResources()
+        engine = nil
+        sharedDataRevisionProvider = nil
+        latestIssuedSearchRevision = 0
+        needsRefreshOnNextActivation = false
+        lastExecutedSignature = nil
+        isLoading = false
+        hasLoaded = false
+        sections = []
+        availableProjects = []
     }
 
     func updateQuery(_ newValue: String) {
@@ -1414,11 +1422,12 @@ struct HomeBackdropForedropRootView: View {
     @State private var pendingSearchCommitTask: Task<Void, Never>?
     @State private var hasMountedSearchSurface = false
     @State private var hasMountedAnalyticsSurface = false
-    @State private var rescueExpansionOverride: Bool?
-    @State private var isQuietTrackingComposerPresented = false
-    @State private var selectedQuietTrackingHabitID: String?
-    @State private var quietTrackingDate = Date()
-    @State private var quietTrackingOutcome: QuietTrackingOutcome = .lapse
+    @State private var expandedAgendaTailItemIDs = Set<String>()
+    @State private var showHabitBoardPresented = false
+    @State private var selectedHomeHabitRow: HabitLibraryRow?
+    @State private var hasPresentedUITestHabitBoard = false
+    @State private var quietTrackingComposerSnapshot: QuietTrackingComposerSnapshot?
+    @State private var passiveTrackingRailViewportWidth: CGFloat = 0
     @State private var pendingFocusPromotionTask: TaskDefinition?
     @State private var focusReplacementOptions: [TaskDefinition] = []
     private static let foredropHintLaunchDelay: TimeInterval = 0.10
@@ -1445,6 +1454,9 @@ struct HomeBackdropForedropRootView: View {
     private var isUITesting: Bool {
         Self.launchArguments.contains("-UI_TESTING") || Self.launchArguments.contains("-DISABLE_ANIMATIONS")
     }
+    private var shouldPresentHabitBoardForUITests: Bool {
+        Self.launchArguments.contains("-TASKER_TEST_PRESENT_HABIT_BOARD")
+    }
     private var isForedropHintAnimationEnabled: Bool {
         Self.launchArguments.contains("-ENABLE_FOREDROP_HINT_ANIMATION")
     }
@@ -1457,14 +1469,21 @@ struct HomeBackdropForedropRootView: View {
         V2FeatureFlags.clampedHomeBackdropNoiseAmount(homeBackdropNoiseAmountStorage)
     }
     private var isRescueEnabled: Bool { V2FeatureFlags.evaRescueEnabled }
-    private var rescueExpansionResetKey: String {
+    private var visibleAgendaTailItems: [HomeAgendaTailItem] {
+        isRescueEnabled ? tasksSnapshot.agendaTailItems : []
+    }
+    private var agendaTailExpansionResetKey: String {
         let selectedDay = Calendar.current.startOfDay(for: chromeSnapshot.selectedDate).timeIntervalSince1970
-        return [
-            String(Int(selectedDay)),
-            String(tasksSnapshot.rescueSectionState.totalCount),
-            String(tasksSnapshot.focusNowSectionState.visibleCount),
-            isRescueEnabled ? "1" : "0"
-        ].joined(separator: ":")
+        let compactTailSignature = visibleAgendaTailItems.compactMap { item -> String? in
+            switch item {
+            case .rescue(let state):
+                guard state.mode == .compact else { return nil }
+                let rowIDs = state.rows.map(\.id).joined(separator: ",")
+                return "\(item.id):\(rowIDs):\(state.subtitle)"
+            }
+        }.joined(separator: "|")
+
+        return [String(Int(selectedDay)), compactTailSignature, isRescueEnabled ? "1" : "0"].joined(separator: ":")
     }
     private var foredropFlipAnimation: Animation {
         let duration: TimeInterval
@@ -1713,6 +1732,7 @@ struct HomeBackdropForedropRootView: View {
             hasMountedAnalyticsSurface = activeFace == .analytics
             refreshReflectionClaimState()
             triggerForedropHintIfEligible()
+            presentHabitBoardIfRequestedForUITests()
         }
         .onDisappear {
             isHomeVisible = false
@@ -1720,6 +1740,37 @@ struct HomeBackdropForedropRootView: View {
             cancelPendingSearchCommit()
             searchState.deactivate()
             isSearchFieldFocused = false
+        }
+        .overlay(alignment: .topTrailing) {
+            if shouldPresentHabitBoardForUITests {
+                Button {
+                    showHabitBoardPresented = true
+                } label: {
+                    Text("Board")
+                        .font(.tasker(.caption2).weight(.semibold))
+                        .frame(width: 44, height: 44)
+                }
+                .buttonStyle(.plain)
+                .padding(.top, spacing.s8)
+                .padding(.trailing, spacing.s8)
+                .contentShape(Rectangle())
+                .accessibilityIdentifier("home.habits.openBoard")
+                .accessibilityLabel("Open Habit Board")
+                .opacity(0.02)
+            }
+        }
+        .sheet(isPresented: $showHabitBoardPresented) {
+            HabitBoardScreen(
+                viewModel: PresentationDependencyContainer.shared.makeHabitBoardViewModel()
+            )
+        }
+        .sheet(item: $selectedHomeHabitRow) { row in
+            HabitDetailSheetView(
+                viewModel: PresentationDependencyContainer.shared.makeHabitDetailViewModel(row: row),
+                onMutation: {
+                    viewModel.loadTasksForSelectedDate()
+                }
+            )
         }
         .onChange(of: activeFace) { _, newValue in
             forcedFace?.wrappedValue = newValue
@@ -1759,8 +1810,8 @@ struct HomeBackdropForedropRootView: View {
             guard state != nil, activeFace != .tasks else { return }
             setActiveFace(.tasks, animated: true)
         }
-        .onChange(of: rescueExpansionResetKey) { _, _ in
-            rescueExpansionOverride = nil
+        .onChange(of: agendaTailExpansionResetKey) { _, _ in
+            expandedAgendaTailItemIDs.removeAll()
         }
         .onChange(of: forcedFaceValue) { _, newValue in
             guard let newValue, newValue != activeFace else { return }
@@ -1842,7 +1893,7 @@ struct HomeBackdropForedropRootView: View {
         )) {
             EvaOverdueRescueSheetV2(
                 plan: overlaySnapshot.rescuePlan,
-                tasksByID: tasksSnapshot.rescueTasksByID,
+                tasksByID: rescueTasksByID,
                 lastBatchRunID: overlaySnapshot.lastBatchRunID,
                 onApply: { mutations, completion in
                     viewModel.applyRescuePlan(mutations: mutations, completion: completion)
@@ -2070,20 +2121,8 @@ struct HomeBackdropForedropRootView: View {
             .zIndex(isVisible ? 1 : 0)
     }
 
-    private var handleBar: some View {
-        VStack(spacing: spacing.s4) {
-            Capsule()
-                .fill(Color.tasker.textQuaternary.opacity(0.4))
-                .frame(width: 44, height: 5)
-                .accessibilityIdentifier("home.foredrop.handle")
-        }
-    }
-
     private func foredropFrontFace(taskListBottomInset: CGFloat) -> some View {
         VStack(spacing: 0) {
-            handleBar
-                .padding(.top, spacing.s8)
-
             TaskListView(
                 headerContent: AnyView(taskListScrollHeader),
                 morningTasks: tasksSnapshot.morningTasks,
@@ -2102,6 +2141,8 @@ struct HomeBackdropForedropRootView: View {
                 emptyStateActionTitle: tasksSnapshot.emptyStateActionTitle,
                 isTaskDragEnabled: false,
                 todaySections: tasksSnapshot.todayAgendaSectionState.sections,
+                agendaTailItems: visibleAgendaTailItems,
+                expandedAgendaTailItemIDs: expandedAgendaTailItemIDs,
                 onTaskTap: onTaskTap,
                 onToggleComplete: { task in
                     trackTaskToggle(task, source: "task_list")
@@ -2121,6 +2162,9 @@ struct HomeBackdropForedropRootView: View {
                 onLapseHabit: { habit in
                     viewModel.lapseHabit(habit, source: "task_list")
                 },
+                onOpenHabit: { habit in
+                    openHabitDetail(habit)
+                },
                 onReorderCustomProjects: onReorderCustomProjects,
                 onInboxHeaderAction: shouldShowInboxTriageAction ? {
                     viewModel.startTriage()
@@ -2137,6 +2181,16 @@ struct HomeBackdropForedropRootView: View {
                     )
                 },
                 onEmptyStateAction: { onAddTask() },
+                onToggleAgendaTailItemExpansion: { itemID in
+                    if expandedAgendaTailItemIDs.contains(itemID) {
+                        expandedAgendaTailItemIDs.remove(itemID)
+                    } else {
+                        expandedAgendaTailItemIDs.insert(itemID)
+                    }
+                },
+                onOpenRescue: isRescueEnabled ? {
+                    viewModel.openRescue()
+                } : nil,
                 onTaskDragStarted: { task in
                     trackTaskDragStarted(task, source: "task_list")
                 },
@@ -2153,8 +2207,16 @@ struct HomeBackdropForedropRootView: View {
             .padding(.top, spacing.s4)
             .onDrop(of: ["public.text"], isTargeted: nil, perform: handleListDrop)
             .accessibilityIdentifier("home.list.dropzone")
-            .sheet(isPresented: $isQuietTrackingComposerPresented) {
-                quietTrackingComposerSheet
+            .sheet(item: $quietTrackingComposerSnapshot) { snapshot in
+                QuietTrackingComposerView(
+                    snapshot: snapshot,
+                    onClose: {
+                        quietTrackingComposerSnapshot = nil
+                    },
+                    onSave: { request in
+                        saveQuietTrackingEntry(request, snapshot: snapshot)
+                    }
+                )
             }
         }
     }
@@ -2213,6 +2275,18 @@ struct HomeBackdropForedropRootView: View {
             .frame(maxHeight: .infinity, alignment: .top)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+    }
+
+    private func presentHabitBoardIfRequestedForUITests() {
+        guard shouldPresentHabitBoardForUITests, hasPresentedUITestHabitBoard == false else { return }
+        hasPresentedUITestHabitBoard = true
+
+        Task { @MainActor in
+            setActiveFace(.tasks, animated: false)
+            await Task.yield()
+            await Task.yield()
+            showHabitBoardPresented = true
+        }
     }
 
     private func foredropSearchFace(taskListBottomInset: CGFloat) -> some View {
@@ -2497,13 +2571,24 @@ struct HomeBackdropForedropRootView: View {
     }
 
     private func searchProject(for name: String) -> Project {
-        if let resolved = tasksSnapshot.projectsByName[name] {
+        if let resolved = tasksSnapshot.projects.first(where: { $0.name == name }) {
             return resolved
         }
         if name == ProjectConstants.inboxProjectName {
             return Project.createInbox()
         }
         return Project(name: name)
+    }
+
+    private var rescueTasksByID: [UUID: TaskDefinition] {
+        Dictionary(
+            uniqueKeysWithValues: (
+                tasksSnapshot.overdueTasks
+                + tasksSnapshot.morningTasks
+                + tasksSnapshot.eveningTasks
+                + overlaySnapshot.triageQueue.map(\.task)
+            ).map { ($0.id, $0) }
+        )
     }
 
     private func searchIdentifierToken(_ rawValue: String) -> String {
@@ -2569,7 +2654,7 @@ struct HomeBackdropForedropRootView: View {
     @ViewBuilder
     private var taskListScrollHeader: some View {
         VStack(alignment: .leading, spacing: spacing.s12) {
-            if passiveTrackingRailRows.isEmpty == false {
+            if passiveTrackingRailCards.isEmpty == false {
                 fullBleedTaskListHeaderModule {
                     passiveTrackingRail
                         .padding(.top, spacing.s2)
@@ -2593,11 +2678,17 @@ struct HomeBackdropForedropRootView: View {
                 }
             }
 
-            if isRescueEnabled &&
-                tasksSnapshot.activeQuickView == .today &&
-                !tasksSnapshot.rescueSectionState.isEmpty {
+            if tasksSnapshot.activeQuickView == .today &&
+                !tasksSnapshot.habitHomeSectionState.primaryRows.isEmpty {
                 fullBleedTaskListHeaderModule {
-                    rescueSectionCard
+                    habitsSectionCard
+                }
+            }
+
+            if tasksSnapshot.activeQuickView == .today &&
+                !tasksSnapshot.habitHomeSectionState.recoveryRows.isEmpty {
+                fullBleedTaskListHeaderModule {
+                    recoveryHabitsSectionCard
                 }
             }
 
@@ -2620,72 +2711,60 @@ struct HomeBackdropForedropRootView: View {
         chromeSnapshot.activeScope.quickView == .today && tasksSnapshot.dueTodaySection?.rows.isEmpty == false
     }
 
-    private var passiveTrackingRailRows: [HomeHabitRow] {
-        Array(tasksSnapshot.quietTrackingSummaryState.stableRows.prefix(3))
+    private var passiveTrackingRailCards: [QuietTrackingRailCardPresentation] {
+        tasksSnapshot.quietTrackingSummaryState.railCards
+    }
+
+    private var passiveTrackingRailLayout: QuietTrackingRailLayoutSpec {
+        QuietTrackingRailLayoutSpec.resolve(
+            viewportWidth: passiveTrackingRailViewportWidth,
+            totalCardCount: passiveTrackingRailCards.count,
+            historyCellCount: passiveTrackingRailCards.map(\.historyCells.count).max() ?? 0,
+            interItemSpacing: spacing.s8
+        )
     }
 
     private var passiveTrackingRail: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
+        let layout = passiveTrackingRailLayout
+
+        return ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: spacing.s8) {
-                ForEach(passiveTrackingRailRows) { row in
-                    passiveTrackingRailButton(for: row)
+                ForEach(passiveTrackingRailCards) { card in
+                    passiveTrackingRailButton(for: card, layout: layout)
+                        .frame(width: layout.slotWidth, alignment: .leading)
                 }
             }
             .padding(.horizontal, spacing.s16)
         }
+        .onGeometryChange(for: CGFloat.self) { proxy in
+            max(proxy.size.width - (spacing.s16 * 2), 0)
+        } action: { newWidth in
+            guard abs(newWidth - passiveTrackingRailViewportWidth) > 0.5 else { return }
+            passiveTrackingRailViewportWidth = newWidth
+        }
         .accessibilityIdentifier("home.passiveTracking.rail")
     }
 
-    private func passiveTrackingRailButton(for row: HomeHabitRow) -> some View {
-        Button {
+    private func passiveTrackingRailButton(
+        for card: QuietTrackingRailCardPresentation,
+        layout: QuietTrackingRailLayoutSpec
+    ) -> some View {
+        let visibleDayCount = min(layout.visibleDayCount, card.historyCells.count)
+
+        return Button {
+            guard let row = tasksSnapshot.quietTrackingSummaryState.stableRows.first(where: { $0.id == card.id }) else { return }
             presentQuietTrackingComposer(for: row, preferredOutcome: .lapse)
         } label: {
-            passiveTrackingRailChip(for: row)
+            QuietTrackingRailStreakWidget(
+                card: card,
+                slotWidth: layout.slotWidth,
+                visibleDayCount: visibleDayCount
+            )
         }
         .buttonStyle(.plain)
         .scaleOnPress()
-        .accessibilityHint("Opens quiet tracking logging for \(row.title)")
-    }
-
-    private func passiveTrackingRailChip(for row: HomeHabitRow) -> some View {
-        HStack(spacing: spacing.s8) {
-            ZStack {
-                Circle()
-                    .fill(Color.tasker.accentSecondary.opacity(0.14))
-                    .frame(width: 22, height: 22)
-
-                Image(systemName: row.iconSymbolName)
-                    .font(.system(size: 10, weight: .semibold))
-                    .foregroundStyle(Color.tasker.accentSecondary)
-            }
-
-            Text(row.title)
-                .font(.tasker(.caption1).weight(.semibold))
-                .foregroundColor(Color.tasker.textPrimary)
-                .lineLimit(1)
-
-            if row.currentStreak > 0 {
-                passiveTrackingStreakPill(for: row)
-            }
-        }
-        .padding(.horizontal, spacing.s12)
-        .padding(.vertical, spacing.s8)
-        .background(Color.tasker.surfaceSecondary.opacity(0.9))
-        .overlay(
-            Capsule()
-                .stroke(Color.tasker.strokeHairline.opacity(0.8), lineWidth: 1)
-        )
-        .clipShape(Capsule())
-    }
-
-    private func passiveTrackingStreakPill(for row: HomeHabitRow) -> some View {
-        Text("\(row.currentStreak)d")
-            .font(.tasker(.caption2).weight(.semibold))
-            .foregroundColor(Color.tasker.accentSecondary)
-            .padding(.horizontal, spacing.s8)
-            .padding(.vertical, 3)
-            .background(Color.tasker.accentSecondary.opacity(0.10))
-            .clipShape(Capsule())
+        .accessibilityIdentifier("home.passiveTracking.card.\(card.id)")
+        .accessibilityHint("Opens quiet tracking logging for \(card.title)")
     }
 
     private var todayAgendaHeader: some View {
@@ -2707,86 +2786,73 @@ struct HomeBackdropForedropRootView: View {
         .accessibilityIdentifier("home.todayAgenda.header")
     }
 
-    private var rescueSectionCard: some View {
-        let state = tasksSnapshot.rescueSectionState
-        let isExpanded = rescueExpansionOverride ?? state.isExpandedByDefault
-        let rows = isExpanded ? state.rows : state.previewRows
-
-        return VStack(alignment: .leading, spacing: spacing.s8) {
-            HStack(alignment: .center, spacing: spacing.s8) {
-                Label {
-                    Text(LocalizedStringKey("Rescue"))
-                } icon: {
-                    Image(systemName: "lifepreserver")
-                }
-                    .font(.tasker(.headline))
-                    .foregroundStyle(Color.tasker.textPrimary)
-                    .accessibilityIdentifier("home.rescue.header")
-                Spacer(minLength: 0)
-                Text("\(state.totalCount)")
-                    .font(.tasker(.caption2).weight(.semibold))
-                    .foregroundStyle(Color.tasker.textSecondary)
-                    .padding(.horizontal, spacing.s8)
-                    .padding(.vertical, spacing.s4)
-                    .background(Color.tasker.surfaceSecondary)
-                    .clipShape(Capsule())
-                Button(action: {
-                    viewModel.openRescue()
-                }) {
-                    Text(LocalizedStringKey("Start rescue"))
-                }
-                .font(.tasker(.caption1).weight(.semibold))
-                .foregroundStyle(Color.tasker.accentPrimary)
-                .buttonStyle(.plain)
-                .accessibilityIdentifier("home.rescue.start")
-                Button {
-                    withAnimation(reduceMotion ? .linear(duration: 0.01) : TaskerAnimation.gentle) {
-                        rescueExpansionOverride = !isExpanded
-                    }
-                } label: {
-                    Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
-                        .font(.system(size: 13, weight: .semibold))
-                        .foregroundStyle(Color.tasker.textSecondary)
-                        .frame(width: 32, height: 32)
-                        .contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel(Text(isExpanded ? "Collapse Rescue" : "Expand Rescue"))
-                .accessibilityIdentifier("home.rescue.expand")
-            }
-
-            VStack(spacing: spacing.s8) {
-                ForEach(rows) { row in
-                    HomeListRowView(
-                        row: row,
-                        tagNameByID: tasksSnapshot.tagNameByID,
-                        todayXPSoFar: tasksSnapshot.todayXPSoFar,
-                        isGamificationV2Enabled: V2FeatureFlags.gamificationV2Enabled,
-                        isTaskDragEnabled: false,
-                        highlightedTaskID: nil,
-                        onTaskTap: onTaskTap,
-                        onToggleComplete: { task in
-                            trackTaskToggle(task, source: "rescue_preview")
-                            onToggleComplete(task)
-                        },
-                        onDeleteTask: onDeleteTask,
-                        onRescheduleTask: onRescheduleTask,
-                        onCompleteHabit: { _ in },
-                        onSkipHabit: { _ in },
-                        onLapseHabit: { _ in }
-                    )
-                }
-            }
-        }
-        .padding(.horizontal, spacing.s16)
-        .padding(.vertical, spacing.s12)
-        .background(Color.tasker.surfaceSecondary.opacity(0.4))
-        .overlay(
-            RoundedRectangle(cornerRadius: corner.r3)
-                .stroke(Color.tasker.strokeHairline.opacity(0.55), lineWidth: 1)
+    private var habitsSectionCard: some View {
+        HabitHomeSectionCard(
+            title: "Habits",
+            subtitle: "Consistency this week",
+            rows: tasksSnapshot.habitHomeSectionState.primaryRows,
+            countValue: "\(tasksSnapshot.habitHomeSectionState.totalCount) active",
+            secondaryValue: "\(tasksSnapshot.habitHomeSectionState.onStreakCount) on streak",
+            tertiaryValue: "\(tasksSnapshot.habitHomeSectionState.atRiskCount) at risk",
+            onOpenBoard: {
+                showHabitBoardPresented = true
+            },
+            onPrimaryAction: handleHabitPrimaryAction(_:),
+            onSecondaryAction: handleHabitSecondaryAction(_:),
+            onLastCellAction: handleHabitLastCellAction(_:),
+            onOpenHabit: openHabitDetail
         )
-        .clipShape(RoundedRectangle(cornerRadius: corner.r3))
-        .accessibilityIdentifier("home.rescue.section")
+        .accessibilityIdentifier("home.habits.section")
+    }
+
+    private var recoveryHabitsSectionCard: some View {
+        HabitHomeSectionCard(
+            title: "Recovery",
+            subtitle: "Broken or at-risk habits stay visible until the geometry recovers.",
+            rows: tasksSnapshot.habitHomeSectionState.recoveryRows,
+            countValue: "\(tasksSnapshot.habitHomeSectionState.recoveryRows.count) in recovery",
+            secondaryValue: "streaks",
+            tertiaryValue: "need care",
+            onOpenBoard: {
+                showHabitBoardPresented = true
+            },
+            onPrimaryAction: handleHabitPrimaryAction(_:),
+            onSecondaryAction: handleHabitSecondaryAction(_:),
+            onLastCellAction: handleHabitLastCellAction(_:),
+            onOpenHabit: openHabitDetail
+        )
+        .accessibilityIdentifier("home.habits.recovery")
+    }
+
+    private func handleHabitPrimaryAction(_ habit: HomeHabitRow) {
+        switch (habit.kind, habit.trackingMode) {
+        case (_, .lapseOnly):
+            viewModel.lapseHabit(habit, source: "habit_home")
+        case (.positive, _):
+            viewModel.completeHabit(habit, source: "habit_home")
+        case (.negative, .dailyCheckIn):
+            viewModel.completeHabit(habit, source: "habit_home")
+        }
+    }
+
+    private func handleHabitSecondaryAction(_ habit: HomeHabitRow) {
+        switch (habit.kind, habit.trackingMode) {
+        case (.positive, _):
+            viewModel.skipHabit(habit, source: "habit_home")
+        case (.negative, .dailyCheckIn):
+            viewModel.lapseHabit(habit, source: "habit_home")
+        case (.negative, .lapseOnly):
+            break
+        }
+    }
+
+    private func handleHabitLastCellAction(_ habit: HomeHabitRow) {
+        viewModel.performHabitLastCellAction(habit, source: "habit_home_last_cell")
+    }
+
+    private func openHabitDetail(_ habit: HomeHabitRow) {
+        guard let row = viewModel.habitLibraryRow(for: habit.habitID) else { return }
+        selectedHomeHabitRow = row
     }
 
     private var quietTrackingSummaryCard: some View {
@@ -2824,48 +2890,30 @@ struct HomeBackdropForedropRootView: View {
         .accessibilityIdentifier("home.quietTracking.summary")
     }
 
-    private var quietTrackingComposerSheet: some View {
-        QuietTrackingComposerView(
-            rows: tasksSnapshot.quietTrackingSummaryState.stableRows,
-            selectedHabitID: Binding(
-                get: { selectedQuietTrackingHabitID },
-                set: { selectedQuietTrackingHabitID = $0 }
-            ),
-            selectedDate: $quietTrackingDate,
-            outcome: $quietTrackingOutcome,
-            onClose: {
-                isQuietTrackingComposerPresented = false
-            },
-            onSave: {
-                saveQuietTrackingEntry()
-            }
-        )
-    }
-
-    private var selectedQuietTrackingRow: HomeHabitRow? {
-        guard let selectedQuietTrackingHabitID else { return nil }
-        return tasksSnapshot.quietTrackingSummaryState.stableRows.first(where: { $0.id == selectedQuietTrackingHabitID })
-    }
-
-    private func saveQuietTrackingEntry() {
-        guard let row = selectedQuietTrackingRow else { return }
-        switch quietTrackingOutcome {
+    private func saveQuietTrackingEntry(
+        _ request: QuietTrackingComposerSaveRequest,
+        snapshot: QuietTrackingComposerSnapshot
+    ) {
+        guard let entry = snapshot.entry(for: request.habitID) else { return }
+        switch request.outcome {
         case .progress:
-            viewModel.logHabitProgress(row, on: quietTrackingDate)
+            viewModel.logHabitProgress(entry.sourceRow, on: request.date)
         case .lapse:
-            viewModel.logHabitLapse(row, on: quietTrackingDate)
+            viewModel.logHabitLapse(entry.sourceRow, on: request.date)
         }
-        isQuietTrackingComposerPresented = false
+        quietTrackingComposerSnapshot = nil
     }
 
     private func presentQuietTrackingComposer(
         for row: HomeHabitRow,
         preferredOutcome: QuietTrackingOutcome
     ) {
-        quietTrackingDate = min(chromeSnapshot.selectedDate, Date())
-        selectedQuietTrackingHabitID = row.id
-        quietTrackingOutcome = preferredOutcome
-        isQuietTrackingComposerPresented = true
+        quietTrackingComposerSnapshot = QuietTrackingComposerSnapshot(
+            rows: tasksSnapshot.quietTrackingSummaryState.stableRows,
+            initialSelectedHabitID: row.id,
+            initialDate: min(chromeSnapshot.selectedDate, Date()),
+            initialOutcome: preferredOutcome
+        )
     }
 
     @ViewBuilder
@@ -2958,6 +3006,9 @@ struct HomeBackdropForedropRootView: View {
                     case (.negative, .lapseOnly):
                         break
                     }
+                },
+                onOpenDetail: {
+                    openHabitDetail(habit)
                 }
             )
         }
@@ -2971,9 +3022,6 @@ struct HomeBackdropForedropRootView: View {
             shellPhase: shellPhase,
             insightForTaskID: { taskID in
                 viewModel.evaFocusInsight(for: taskID)
-            },
-            onShuffle: {
-                viewModel.shuffleFocusNow()
             },
             onWhy: {
                 viewModel.openFocusWhy()
@@ -3005,6 +3053,9 @@ struct HomeBackdropForedropRootView: View {
             },
             onLapseHabit: { habit in
                 viewModel.lapseHabit(habit, source: "focus_strip")
+            },
+            onOpenHabit: { habit in
+                openHabitDetail(habit)
             },
             onDrop: handleFocusDrop
         )
@@ -4233,404 +4284,62 @@ struct HomeiPadSplitShellView: View {
     }
 }
 
-private struct QuietTrackingComposerView: View {
-    let rows: [HomeHabitRow]
-    @Binding var selectedHabitID: String?
-    @Binding var selectedDate: Date
-    @Binding var outcome: QuietTrackingOutcome
-    let onClose: () -> Void
-    let onSave: () -> Void
+private struct QuietTrackingRailStreakWidget: View {
+    let card: QuietTrackingRailCardPresentation
+    let slotWidth: CGFloat
+    let visibleDayCount: Int
 
     @Environment(\.taskerLayoutClass) private var layoutClass
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.tokens(for: layoutClass).spacing }
-    private var selectedRow: HomeHabitRow? {
-        guard let selectedHabitID else { return nil }
-        return rows.first(where: { $0.id == selectedHabitID })
+
+    private var isExpandedType: Bool {
+        dynamicTypeSize >= .accessibility1
+    }
+
+    private var widgetVerticalPadding: CGFloat {
+        isExpandedType ? 6 : spacing.s4
+    }
+
+    private var visibleCells: [HabitBoardCell] {
+        card.visibleCells(dayCount: visibleDayCount)
     }
 
     var body: some View {
-        NavigationStack {
-            ScrollView {
-                VStack(spacing: spacing.s16) {
-                    heroCard
-                        .enhancedStaggeredAppearance(index: 0)
+        VStack(alignment: .leading, spacing: spacing.s8) {
+            HabitBoardStripView(
+                cells: visibleCells,
+                family: card.colorFamily,
+                mode: .compact
+            )
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .accessibilityHidden(true)
 
-                    pickerCard
-                        .enhancedStaggeredAppearance(index: 1)
+            HStack(alignment: .firstTextBaseline, spacing: 6) {
+                Image(systemName: card.iconSymbolName)
+                    .font(.system(size: 10, weight: .semibold))
+                    .symbolRenderingMode(.hierarchical)
+                    .foregroundStyle(Color.tasker.textSecondary.opacity(0.82))
+                    .accessibilityHidden(true)
 
-                    outcomeCard
-                        .enhancedStaggeredAppearance(index: 2)
-
-                    dateCard
-                        .enhancedStaggeredAppearance(index: 3)
-                }
-                .padding(.horizontal, spacing.s16)
-                .padding(.top, spacing.s12)
-                .padding(.bottom, spacing.s24)
-            }
-            .background(Color.tasker.bgCanvas)
-            .navigationTitle("Quiet Tracking")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") {
-                        onClose()
-                    }
-                }
-            }
-            .onAppear {
-                if selectedHabitID == nil {
-                    selectedHabitID = rows.first?.id
-                }
-            }
-            .safeAreaInset(edge: .bottom) {
-                footerBar
-            }
-        }
-        .presentationDetents([.fraction(0.72), .large])
-        .presentationDragIndicator(.visible)
-        .presentationCornerRadius(TaskerTheme.CornerRadius.xl)
-    }
-
-    private var heroCard: some View {
-        VStack(alignment: .leading, spacing: spacing.s12) {
-            HStack(alignment: .top, spacing: spacing.s12) {
-                ZStack {
-                    RoundedRectangle(cornerRadius: TaskerTheme.CornerRadius.lg, style: .continuous)
-                        .fill(Color.tasker.accentSecondary.opacity(0.12))
-                        .frame(width: 48, height: 48)
-
-                    Image(systemName: selectedRow?.iconSymbolName ?? "heart.text.square.fill")
-                        .font(.system(size: 20, weight: .semibold))
-                        .foregroundColor(Color.tasker.accentSecondary)
-                }
-
-                VStack(alignment: .leading, spacing: spacing.s4) {
-                    Text(selectedRow?.title ?? "Choose a habit")
-                        .font(.tasker(.title3))
-                        .foregroundColor(Color.tasker.textPrimary)
-                        .lineLimit(2)
-
-                    Text(heroSubtitle)
-                        .font(.tasker(.caption1))
-                        .foregroundColor(Color.tasker.textSecondary)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-
-                Spacer(minLength: 0)
-            }
-
-            if let selectedRow {
-                HStack(spacing: spacing.s8) {
-                    HabitHistoryStripView(marks: selectedRow.last14Days)
-
-                    Spacer(minLength: 0)
-
-                    Text("\(selectedRow.currentStreak)d streak")
-                        .font(.tasker(.caption1).weight(.semibold))
-                        .foregroundColor(Color.tasker.accentSecondary)
-                        .padding(.horizontal, spacing.s8)
-                        .padding(.vertical, spacing.s4)
-                        .background(Color.tasker.accentSecondary.opacity(0.10))
-                        .clipShape(Capsule())
-                }
-            }
-        }
-        .padding(spacing.s16)
-        .taskerDenseSurface(
-            cornerRadius: TaskerTheme.CornerRadius.card,
-            fillColor: Color.tasker.surfacePrimary
-        )
-    }
-
-    private var pickerCard: some View {
-        QuietTrackingSectionCard(
-            title: "Habit",
-            subtitle: "Quiet habits stay out of the main list until you need to log the day.",
-            iconSystemName: "square.stack.3d.up"
-        ) {
-            VStack(spacing: spacing.s8) {
-                ForEach(rows) { row in
-                    Button {
-                        selectedHabitID = row.id
-                    } label: {
-                        HStack(spacing: spacing.s12) {
-                            ZStack {
-                                Circle()
-                                    .fill(Color.tasker.accentSecondary.opacity(selectedHabitID == row.id ? 0.18 : 0.10))
-                                    .frame(width: 34, height: 34)
-
-                                Image(systemName: row.iconSymbolName)
-                                    .font(.system(size: 14, weight: .semibold))
-                                    .foregroundColor(Color.tasker.accentSecondary)
-                            }
-
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text(row.title)
-                                    .font(.tasker(.callout).weight(.semibold))
-                                    .foregroundColor(Color.tasker.textPrimary)
-                                    .lineLimit(2)
-                                Text(row.lifeAreaName)
-                                    .font(.tasker(.caption2))
-                                    .foregroundColor(Color.tasker.textSecondary)
-                                    .lineLimit(1)
-                            }
-
-                            Spacer(minLength: 0)
-
-                            if row.currentStreak > 0 {
-                                Text("\(row.currentStreak)d")
-                                    .font(.tasker(.caption2).weight(.semibold))
-                                    .foregroundColor(Color.tasker.accentSecondary)
-                            }
-
-                            Image(systemName: selectedHabitID == row.id ? "checkmark.circle.fill" : "circle")
-                                .font(.system(size: 17, weight: .semibold))
-                                .foregroundColor(selectedHabitID == row.id ? Color.tasker.accentPrimary : Color.tasker.strokeHairline)
-                        }
-                        .padding(spacing.s12)
-                        .taskerDenseSurface(
-                            cornerRadius: TaskerTheme.CornerRadius.md,
-                            fillColor: selectedHabitID == row.id ? Color.tasker.accentWash.opacity(0.75) : Color.tasker.surfacePrimary,
-                            strokeColor: selectedHabitID == row.id ? Color.tasker.accentPrimary.opacity(0.32) : Color.tasker.strokeHairline.opacity(0.75)
-                        )
-                    }
-                    .buttonStyle(.plain)
-                    .scaleOnPress()
-                }
-            }
-        }
-    }
-
-    private var outcomeCard: some View {
-        QuietTrackingSectionCard(
-            title: "Outcome",
-            subtitle: "Use the clean state for a stable day, or record the lapse on the day it happened.",
-            iconSystemName: "checkmark.circle.badge.questionmark"
-        ) {
-            HStack(spacing: spacing.s8) {
-                outcomeButton(.progress, title: progressTitle, detail: progressDetail)
-                outcomeButton(.lapse, title: "Lapsed", detail: "Record the slip for the selected day.")
-            }
-        }
-    }
-
-    private var dateCard: some View {
-        QuietTrackingSectionCard(
-            title: "Day",
-            subtitle: "Default to today, but you can repair the timeline for another date when needed.",
-            iconSystemName: "calendar"
-        ) {
-            VStack(alignment: .leading, spacing: spacing.s8) {
-                HStack(spacing: spacing.s8) {
-                    dateShortcutButton("Today", date: Date())
-                    dateShortcutButton("Yesterday", date: Calendar.current.date(byAdding: .day, value: -1, to: Date()) ?? Date())
-                }
-
-                HStack(spacing: spacing.s8) {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("Selected day")
-                            .font(.tasker(.caption2))
-                            .foregroundColor(Color.tasker.textSecondary)
-                        Text(selectedDate.formatted(.dateTime.weekday(.wide).month(.abbreviated).day()))
-                            .font(.tasker(.callout).weight(.semibold))
-                            .foregroundColor(Color.tasker.textPrimary)
-                    }
-
-                    Spacer(minLength: 0)
-
-                    DatePicker("", selection: $selectedDate, in: ...Date(), displayedComponents: .date)
-                        .environment(\.timeZone, .current)
-                        .datePickerStyle(.compact)
-                        .labelsHidden()
-                }
-                .padding(spacing.s12)
-                .taskerDenseSurface(
-                    cornerRadius: TaskerTheme.CornerRadius.md,
-                    fillColor: Color.tasker.surfacePrimary
-                )
-            }
-        }
-    }
-
-    private var footerBar: some View {
-        VStack(spacing: spacing.s8) {
-            Divider()
-
-            HStack(spacing: spacing.s12) {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(footerTitle)
-                        .font(.tasker(.caption1).weight(.semibold))
-                        .foregroundColor(Color.tasker.textPrimary)
-                    Text(selectedDate.formatted(.dateTime.month(.abbreviated).day()))
-                        .font(.tasker(.caption2))
-                        .foregroundColor(Color.tasker.textSecondary)
-                }
-
-                Spacer(minLength: 0)
-
-                Button(action: onSave) {
-                    Text("Save")
-                        .font(.tasker(.body).weight(.semibold))
-                        .foregroundColor(Color.tasker.textPrimary)
-                        .padding(.horizontal, spacing.s16)
-                        .frame(height: 48)
-                        .background(Color.tasker.accentPrimary)
-                        .clipShape(RoundedRectangle(cornerRadius: TaskerTheme.CornerRadius.md, style: .continuous))
-                }
-                .buttonStyle(.plain)
-                .scaleOnPress()
-                .disabled(selectedRow == nil)
-                .opacity(selectedRow == nil ? 0.45 : 1)
-            }
-            .padding(.horizontal, spacing.s16)
-            .padding(.top, spacing.s8)
-            .padding(.bottom, spacing.s12)
-        }
-        .background(.ultraThinMaterial)
-    }
-
-    private func outcomeButton(
-        _ candidate: QuietTrackingOutcome,
-        title: String,
-        detail: String
-    ) -> some View {
-        Button {
-            outcome = candidate
-        } label: {
-            VStack(alignment: .leading, spacing: spacing.s8) {
-                HStack(spacing: spacing.s4) {
-                    Image(systemName: outcome == candidate ? "checkmark.circle.fill" : "circle")
-                        .font(.system(size: 16, weight: .semibold))
-                        .foregroundColor(outcome == candidate ? Color.tasker.accentPrimary : Color.tasker.strokeHairline)
-                    Text(title)
-                        .font(.tasker(.callout).weight(.semibold))
-                        .foregroundColor(Color.tasker.textPrimary)
-                }
-
-                Text(detail)
-                    .font(.tasker(.caption2))
-                    .foregroundColor(Color.tasker.textSecondary)
-                    .fixedSize(horizontal: false, vertical: true)
+                Text(card.title)
+                    .font(.tasker(.caption2).weight(.medium))
+                    .foregroundStyle(Color.tasker.textSecondary)
+                    .lineLimit(isExpandedType ? 2 : 1)
+                    .multilineTextAlignment(.leading)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .accessibilityHidden(true)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(spacing.s12)
-            .taskerDenseSurface(
-                cornerRadius: TaskerTheme.CornerRadius.md,
-                fillColor: outcome == candidate ? Color.tasker.accentWash.opacity(0.75) : Color.tasker.surfacePrimary,
-                strokeColor: outcome == candidate ? Color.tasker.accentPrimary.opacity(0.34) : Color.tasker.strokeHairline.opacity(0.75)
-            )
         }
-        .buttonStyle(.plain)
-        .scaleOnPress()
-    }
-
-    private func dateShortcutButton(_ title: String, date: Date) -> some View {
-        let isSelected = Calendar.current.isDate(selectedDate, inSameDayAs: date)
-
-        return Button {
-            selectedDate = date
-        } label: {
-            Text(title)
-                .font(.tasker(.caption1).weight(.semibold))
-                .foregroundColor(isSelected ? Color.tasker.accentPrimary : Color.tasker.textSecondary)
-                .padding(.horizontal, spacing.s12)
-                .frame(height: 34)
-                .background(isSelected ? Color.tasker.accentWash.opacity(0.88) : Color.tasker.surfacePrimary)
-                .overlay(
-                    Capsule(style: .continuous)
-                        .stroke(
-                            isSelected ? Color.tasker.accentPrimary.opacity(0.30) : Color.tasker.strokeHairline.opacity(0.8),
-                            lineWidth: 1
-                        )
-                )
-                .clipShape(Capsule())
-        }
-        .buttonStyle(.plain)
-        .scaleOnPress()
-    }
-
-    private var heroSubtitle: String {
-        guard let selectedRow else {
-            return "Choose a quiet habit and repair the day without pushing it back into your main task list."
-        }
-
-        if selectedRow.kind == .negative {
-            return "Keep the streak honest. Confirm a clean day or record the lapse on the exact date it happened."
-        }
-
-        return "Log the day quietly while keeping the main list focused on active work."
-    }
-
-    private var progressTitle: String {
-        selectedRow?.kind == .negative ? "Stayed clean" : "Done"
-    }
-
-    private var progressDetail: String {
-        selectedRow?.kind == .negative
-            ? "Use this when the day stayed clean."
-            : "Use this when the habit happened without needing a full task."
-    }
-
-    private var footerTitle: String {
-        outcome == .lapse ? "Record lapse" : progressTitle
-    }
-}
-
-private struct QuietTrackingSectionCard<Content: View>: View {
-    let title: String
-    let subtitle: String
-    let iconSystemName: String
-    let content: Content
-
-    init(
-        title: String,
-        subtitle: String,
-        iconSystemName: String,
-        @ViewBuilder content: () -> Content
-    ) {
-        self.title = title
-        self.subtitle = subtitle
-        self.iconSystemName = iconSystemName
-        self.content = content()
-    }
-
-    @Environment(\.taskerLayoutClass) private var layoutClass
-
-    private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.tokens(for: layoutClass).spacing }
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: spacing.s12) {
-            HStack(alignment: .top, spacing: spacing.s8) {
-                ZStack {
-                    RoundedRectangle(cornerRadius: 12, style: .continuous)
-                        .fill(Color.tasker.accentSecondary.opacity(0.10))
-                        .frame(width: 32, height: 32)
-
-                    Image(systemName: iconSystemName)
-                        .font(.system(size: 13, weight: .semibold))
-                        .foregroundColor(Color.tasker.accentSecondary)
-                }
-
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(title)
-                        .font(.tasker(.headline))
-                        .foregroundColor(Color.tasker.textPrimary)
-                    Text(subtitle)
-                        .font(.tasker(.caption1))
-                        .foregroundColor(Color.tasker.textSecondary)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-            }
-
-            content
-        }
-        .padding(spacing.s16)
-        .taskerDenseSurface(
-            cornerRadius: TaskerTheme.CornerRadius.card,
-            fillColor: Color.tasker.surfacePrimary
-        )
+        .frame(width: slotWidth, alignment: .leading)
+        .frame(minHeight: 44, alignment: .topLeading)
+        .padding(.vertical, widgetVerticalPadding)
+        .contentShape(Rectangle())
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(card.accessibilityLabel)
+        .accessibilityValue(card.accessibilityValue(visibleDayCount: visibleDayCount))
     }
 }
 

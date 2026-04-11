@@ -23,6 +23,10 @@ struct EvaLoopingVideoView: UIViewRepresentable {
     func updateUIView(_ uiView: EvaLoopingPlayerUIView, context: Context) {
         uiView.update(videoName: videoName)
     }
+
+    static func dismantleUIView(_ uiView: EvaLoopingPlayerUIView, coordinator: ()) {
+        uiView.tearDownPlayback()
+    }
 }
 
 final class EvaLoopingPlayerUIView: UIView {
@@ -49,6 +53,10 @@ final class EvaLoopingPlayerUIView: UIView {
         playerLayer.frame = bounds
     }
 
+    deinit {
+        tearDownPlayback()
+    }
+
     func update(videoName: String) {
         guard currentVideoName != videoName else { return }
         guard let path = Bundle.main.path(forResource: videoName, ofType: "mp4") else {
@@ -71,6 +79,14 @@ final class EvaLoopingPlayerUIView: UIView {
         playerLooper = AVPlayerLooper(player: player, templateItem: item)
         player.play()
     }
+
+    func tearDownPlayback() {
+        player.pause()
+        player.removeAllItems()
+        playerLooper = nil
+        playerLayer.player = nil
+        currentVideoName = nil
+    }
 }
 
 struct EvaLoopingLottieView: UIViewRepresentable {
@@ -90,6 +106,10 @@ struct EvaLoopingLottieView: UIViewRepresentable {
             uiView.play()
         }
     }
+
+    static func dismantleUIView(_ uiView: LottieAnimationView, coordinator: ()) {
+        uiView.stop()
+    }
 }
 #elseif os(macOS)
 struct EvaLoopingVideoView: NSViewRepresentable {
@@ -101,6 +121,10 @@ struct EvaLoopingVideoView: NSViewRepresentable {
 
     func updateNSView(_ nsView: EvaLoopingPlayerNSView, context: Context) {
         nsView.update(videoName: videoName)
+    }
+
+    static func dismantleNSView(_ nsView: EvaLoopingPlayerNSView, coordinator: ()) {
+        nsView.tearDownPlayback()
     }
 }
 
@@ -133,6 +157,10 @@ final class EvaLoopingPlayerNSView: NSView {
         playerLayer.frame = bounds
     }
 
+    deinit {
+        tearDownPlayback()
+    }
+
     func update(videoName: String) {
         guard currentVideoName != videoName else { return }
         guard let path = Bundle.main.path(forResource: videoName, ofType: "mp4") else {
@@ -154,6 +182,14 @@ final class EvaLoopingPlayerNSView: NSView {
         player.removeAllItems()
         playerLooper = AVPlayerLooper(player: player, templateItem: item)
         player.play()
+    }
+
+    func tearDownPlayback() {
+        player.pause()
+        player.removeAllItems()
+        playerLooper = nil
+        playerLayer.player = nil
+        currentVideoName = nil
     }
 }
 #endif

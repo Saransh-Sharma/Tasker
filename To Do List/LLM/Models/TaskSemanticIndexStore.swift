@@ -11,6 +11,8 @@ final class TaskSemanticIndexStore {
     private var textByTaskID: [UUID: String] = [:]
     private let lock = NSLock()
     private let fileURL: URL
+    private var didAttemptLoadPersisted = false
+    private var isDirty = false
 
     /// Initializes a new instance.
     init(fileName: String = "tasker-semantic-index-v1.bin") {
@@ -19,24 +21,46 @@ final class TaskSemanticIndexStore {
         self.fileURL = appSupport.appendingPathComponent(fileName)
     }
 
+    var itemCount: Int {
+        ensureLoadedIfNeeded()
+        lock.lock()
+        defer { lock.unlock() }
+        return vectorsByTaskID.count
+    }
+
+    var hasPersistedIndex: Bool {
+        FileManager.default.fileExists(atPath: fileURL.path)
+    }
+
+    var hasDirtyChanges: Bool {
+        lock.lock()
+        defer { lock.unlock() }
+        return isDirty
+    }
+
     /// Executes upsert.
     func upsert(taskID: UUID, text: String, vector: [Double]) {
+        ensureLoadedIfNeeded()
         lock.lock()
         vectorsByTaskID[taskID] = vector
         textByTaskID[taskID] = text
+        isDirty = true
         lock.unlock()
     }
 
     /// Executes remove.
     func remove(taskID: UUID) {
+        ensureLoadedIfNeeded()
         lock.lock()
         vectorsByTaskID.removeValue(forKey: taskID)
         textByTaskID.removeValue(forKey: taskID)
+        isDirty = true
         lock.unlock()
     }
 
     /// Executes snapshot.
     func snapshot() -> [(taskID: UUID, text: String, vector: [Double])] {
+        ensureLoadedIfNeeded()
         lock.lock()
         defer { lock.unlock() }
         return vectorsByTaskID.compactMap { taskID, vector in
@@ -50,11 +74,14 @@ final class TaskSemanticIndexStore {
         lock.lock()
         vectorsByTaskID = Dictionary(uniqueKeysWithValues: items.map { ($0.taskID, $0.vector) })
         textByTaskID = Dictionary(uniqueKeysWithValues: items.map { ($0.taskID, $0.text) })
+        didAttemptLoadPersisted = true
+        isDirty = true
         lock.unlock()
     }
 
     /// Executes persist.
     func persist() {
+        ensureLoadedIfNeeded()
         lock.lock()
         let payload = PersistedIndex(
             vectorsByTaskID: Dictionary(uniqueKeysWithValues: vectorsByTaskID.map { ($0.key.uuidString, $0.value) }),
@@ -67,6 +94,10 @@ final class TaskSemanticIndexStore {
             try FileManager.default.createDirectory(at: fileURL.deletingLastPathComponent(), withIntermediateDirectories: true)
             let data = try JSONEncoder().encode(payload)
             try data.write(to: fileURL, options: [.atomic])
+            lock.lock()
+            didAttemptLoadPersisted = true
+            isDirty = false
+            lock.unlock()
         } catch {
             logWarning(
                 event: "assistant_semantic_index_persist_failed",
@@ -78,6 +109,35 @@ final class TaskSemanticIndexStore {
 
     /// Executes loadPersisted.
     func loadPersisted() {
+        loadPersistedIfAvailable(forceReload: true)
+    }
+
+    func unloadFromMemory() {
+        lock.lock()
+        vectorsByTaskID = [:]
+        textByTaskID = [:]
+        didAttemptLoadPersisted = false
+        lock.unlock()
+    }
+
+    private func ensureLoadedIfNeeded() {
+        lock.lock()
+        let shouldLoad = didAttemptLoadPersisted == false
+        if shouldLoad {
+            didAttemptLoadPersisted = true
+        }
+        lock.unlock()
+
+        guard shouldLoad else { return }
+        loadPersistedIfAvailable(forceReload: false)
+    }
+
+    private func loadPersistedIfAvailable(forceReload: Bool) {
+        if forceReload {
+            lock.lock()
+            didAttemptLoadPersisted = true
+            lock.unlock()
+        }
         guard let data = try? Data(contentsOf: fileURL) else { return }
         guard let payload = try? JSONDecoder().decode(PersistedIndex.self, from: data) else { return }
 
@@ -92,6 +152,7 @@ final class TaskSemanticIndexStore {
                 partial[id] = pair.value
             }
         }
+        isDirty = false
         lock.unlock()
     }
 }

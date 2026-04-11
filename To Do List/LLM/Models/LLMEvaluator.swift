@@ -103,6 +103,11 @@ class LLMEvaluator {
         }
 
         modelConfiguration = model
+        TaskerMemoryDiagnostics.checkpoint(
+            event: "llm_prepare_started",
+            message: "Preparing LLM model",
+            fields: ["model_name": modelName]
+        )
         let prepareResult = try await inferenceEngine.prepare(modelName: modelName) { [weak self] fractionCompleted in
             Task { @MainActor [weak self] in
                 guard let self else { return }
@@ -113,6 +118,11 @@ class LLMEvaluator {
         loadedModelName = modelName
         modelInfo = prepareResult.modelInfo
         progress = 1.0
+        TaskerMemoryDiagnostics.checkpoint(
+            event: "llm_prepare_finished",
+            message: "Prepared LLM model",
+            fields: ["model_name": modelName]
+        )
         return PrepareResult(wasAlreadyLoaded: prepareResult.wasAlreadyLoaded)
     }
 
@@ -123,8 +133,14 @@ class LLMEvaluator {
     }
 
     func unloadNow() async {
+        let previousModelName = loadedModelName
         await inferenceEngine.unload()
         resetRuntimeStateForUnload()
+        TaskerMemoryDiagnostics.checkpoint(
+            event: "llm_unload_finished",
+            message: "Released evaluator model state",
+            fields: ["model_name": previousModelName ?? "none"]
+        )
     }
 
     func cancelGeneration(reason: String = "unknown") {

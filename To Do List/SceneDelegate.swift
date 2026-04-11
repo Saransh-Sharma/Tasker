@@ -94,19 +94,36 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         guard let appDelegate = UIApplication.shared.delegate as? AppDelegate else {
             return nil
         }
-        guard case .ready = appDelegate.persistentBootstrapState else {
+        return makeDeferredHomeRootController(
+            bootstrapState: appDelegate.persistentBootstrapState,
+            failureMessage: AppDelegate.persistentBootstrapFailureMessage,
+            instantiateHomeViewController: {
+                let storyboard = UIStoryboard(name: "Main", bundle: nil)
+                return storyboard.instantiateViewController(withIdentifier: "homeScreen") as? HomeViewController
+            },
+            tryInject: { PresentationDependencyContainer.shared.tryInject(into: $0) }
+        )
+    }
+
+    @discardableResult
+    func makeDeferredHomeRootController(
+        bootstrapState: PersistentBootstrapState,
+        failureMessage: String?,
+        instantiateHomeViewController: () -> HomeViewController?,
+        tryInject: (HomeViewController) -> Bool
+    ) -> UIViewController? {
+        guard case .ready = bootstrapState else {
             return nil
         }
 
-        let storyboard = UIStoryboard(name: "Main", bundle: nil)
-        guard let homeViewController = storyboard.instantiateViewController(withIdentifier: "homeScreen") as? HomeViewController else {
+        guard let homeViewController = instantiateHomeViewController() else {
             showBootstrapFailureRoot(message: "Tasker could not load the home screen.")
             return nil
         }
 
-        guard PresentationDependencyContainer.shared.tryInject(into: homeViewController) else {
+        guard tryInject(homeViewController) else {
             showBootstrapFailureRoot(
-                message: AppDelegate.persistentBootstrapFailureMessage ?? "Tasker could not initialize dependencies."
+                message: failureMessage ?? "Tasker could not initialize dependencies."
             )
             return nil
         }

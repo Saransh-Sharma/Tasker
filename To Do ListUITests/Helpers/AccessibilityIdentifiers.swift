@@ -15,7 +15,6 @@ enum AccessibilityIdentifiers {
     enum Home {
         static let view = "home.view"
         static let foredropSurface = "home.foredrop.surface"
-        static let foredropHandle = "home.foredrop.handle"
         static let foredropCollapseHint = "home.foredrop.collapseHint"
         static let addTaskButton = "home.addTaskButton"
         static let morningTasksList = "home.morningTasksList"
@@ -48,6 +47,7 @@ enum AccessibilityIdentifiers {
         static let focusTitleTap = "home.focus.titleTap"
         static let rescueSection = "home.rescue.section"
         static let rescueHeader = "home.rescue.header"
+        static let rescueOpen = "home.rescue.open"
         static let rescueStart = "home.rescue.start"
         static let rescueExpand = "home.rescue.expand"
         static let rescueSheet = "home.rescue.sheet"
@@ -73,6 +73,27 @@ enum AccessibilityIdentifiers {
         static let insightsContentToday = "home.insights.content.today"
         static let insightsContentWeek = "home.insights.content.week"
         static let insightsContentSystems = "home.insights.content.systems"
+        static let habitsSection = "home.habits.section"
+        static let habitsOpenBoard = "home.habits.openBoard"
+        static let quietTrackingSummary = "home.quietTracking.summary"
+        static let quietTrackingSheet = "home.quietTracking.sheet"
+        static let quietTrackingSheetScroll = "home.quietTracking.sheet.scroll"
+        static let quietTrackingSheetCancel = "home.quietTracking.sheet.cancel"
+        static let quietTrackingSheetSave = "home.quietTracking.sheet.save"
+        static let quietTrackingSheetHabitList = "home.quietTracking.sheet.habitList"
+        static let quietTrackingSheetOutcomeProgress = "home.quietTracking.sheet.outcome.progress"
+        static let quietTrackingSheetOutcomeLapse = "home.quietTracking.sheet.outcome.lapse"
+        static let quietTrackingSheetDateToday = "home.quietTracking.sheet.date.today"
+        static let quietTrackingSheetDateYesterday = "home.quietTracking.sheet.date.yesterday"
+        static let quietTrackingSheetSelectedDate = "home.quietTracking.sheet.date.selected"
+        static let quietTrackingSheetDatePicker = "home.quietTracking.sheet.datePicker"
+        static func passiveTrackingCard(_ id: String) -> String { "home.passiveTracking.card.\(id)" }
+        static func quietTrackingSheetHabit(_ id: String) -> String { "home.quietTracking.sheet.habit.\(id)" }
+        static func habitRow(_ id: String) -> String { "home.habitRow.\(id)" }
+        static func habitRowIcon(_ id: String) -> String { "home.habitRow.icon.\(id)" }
+        static func habitRowTitle(_ id: String) -> String { "home.habitRow.title.\(id)" }
+        static func habitRowStrip(_ id: String) -> String { "home.habitRow.strip.\(id)" }
+        static func habitRowLastCell(_ id: String) -> String { "home.habitRow.lastCell.\(id)" }
 
         // Task Cell
         static func taskCell(index: Int) -> String { "home.taskCell.\(index)" }
@@ -100,6 +121,9 @@ enum AccessibilityIdentifiers {
         static let morningButton = "addTask.morningButton"
         static let eveningButton = "addTask.eveningButton"
         static let upcomingButton = "addTask.upcomingButton"
+        static let lifeAreaSelector = "addTask.lifeAreaSelector"
+        static let projectSelector = "addTask.projectSelector"
+        static let detailsDisclosure = "addTask.detailsDisclosure"
         static let reminderToggle = "addTask.reminderToggle"
         static let reminderTimePicker = "addTask.reminderTimePicker"
         static let saveButton = "addTask.saveButton"
@@ -257,6 +281,18 @@ enum AccessibilityIdentifiers {
 
         // Validation
         static let nameError = "newProject.nameError"
+    }
+
+    enum HabitBoard {
+        static let view = "habitBoard.view"
+        static let rangeTitle = "habitBoard.rangeTitle"
+        static let previousWindow = "habitBoard.window.previous"
+        static let nextWindow = "habitBoard.window.next"
+        static let pinnedHeader = "habitBoard.pinned.header"
+        static func row(_ habitID: String) -> String { "habitBoard.row.\(habitID)" }
+        static func pinnedTitle(_ habitID: String) -> String { "habitBoard.pinnedTitle.\(habitID)" }
+        static func dayHeader(_ dateStamp: String) -> String { "habitBoard.dayHeader.\(dateStamp)" }
+        static func dayCell(_ habitID: String, dateStamp: String) -> String { "habitBoard.cell.\(habitID).\(dateStamp)" }
     }
 
     // MARK: - Search Screen

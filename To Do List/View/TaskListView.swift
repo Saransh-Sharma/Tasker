@@ -150,6 +150,8 @@ struct TaskListView: View {
     let emptyStateActionTitle: String?
     let isTaskDragEnabled: Bool
     let todaySections: [HomeListSection]
+    let agendaTailItems: [HomeAgendaTailItem]
+    let expandedAgendaTailItemIDs: Set<String>
     var onTaskTap: ((TaskDefinition) -> Void)? = nil
     var onToggleComplete: ((TaskDefinition) -> Void)? = nil
     var onDeleteTask: ((TaskDefinition) -> Void)? = nil
@@ -158,11 +160,14 @@ struct TaskListView: View {
     var onCompleteHabit: ((HomeHabitRow) -> Void)? = nil
     var onSkipHabit: ((HomeHabitRow) -> Void)? = nil
     var onLapseHabit: ((HomeHabitRow) -> Void)? = nil
+    var onOpenHabit: ((HomeHabitRow) -> Void)? = nil
     var onReorderCustomProjects: (([UUID]) -> Void)? = nil
     var onInboxHeaderAction: (() -> Void)? = nil
     var inboxHeaderActionTitle: String? = nil
     var onCompletedSectionToggle: ((UUID, Bool, Int) -> Void)? = nil
     var onEmptyStateAction: (() -> Void)? = nil
+    var onToggleAgendaTailItemExpansion: ((String) -> Void)? = nil
+    var onOpenRescue: (() -> Void)? = nil
     var onTaskDragStarted: ((TaskDefinition) -> Void)? = nil
     var onScrollChromeStateChange: ((HomeScrollChromeState) -> Void)? = nil
     var onPullToSearch: (() -> Void)? = nil
@@ -195,6 +200,8 @@ struct TaskListView: View {
         emptyStateActionTitle: String? = nil,
         isTaskDragEnabled: Bool = false,
         todaySections: [HomeListSection] = [],
+        agendaTailItems: [HomeAgendaTailItem] = [],
+        expandedAgendaTailItemIDs: Set<String> = [],
         onTaskTap: ((TaskDefinition) -> Void)? = nil,
         onToggleComplete: ((TaskDefinition) -> Void)? = nil,
         onDeleteTask: ((TaskDefinition) -> Void)? = nil,
@@ -203,11 +210,14 @@ struct TaskListView: View {
         onCompleteHabit: ((HomeHabitRow) -> Void)? = nil,
         onSkipHabit: ((HomeHabitRow) -> Void)? = nil,
         onLapseHabit: ((HomeHabitRow) -> Void)? = nil,
+        onOpenHabit: ((HomeHabitRow) -> Void)? = nil,
         onReorderCustomProjects: (([UUID]) -> Void)? = nil,
         onInboxHeaderAction: (() -> Void)? = nil,
         inboxHeaderActionTitle: String? = nil,
         onCompletedSectionToggle: ((UUID, Bool, Int) -> Void)? = nil,
         onEmptyStateAction: (() -> Void)? = nil,
+        onToggleAgendaTailItemExpansion: ((String) -> Void)? = nil,
+        onOpenRescue: (() -> Void)? = nil,
         onTaskDragStarted: ((TaskDefinition) -> Void)? = nil,
         onScrollChromeStateChange: ((HomeScrollChromeState) -> Void)? = nil,
         onPullToSearch: (() -> Void)? = nil,
@@ -232,6 +242,8 @@ struct TaskListView: View {
         self.emptyStateActionTitle = emptyStateActionTitle
         self.isTaskDragEnabled = isTaskDragEnabled
         self.todaySections = todaySections
+        self.agendaTailItems = agendaTailItems
+        self.expandedAgendaTailItemIDs = expandedAgendaTailItemIDs
         self.onTaskTap = onTaskTap
         self.onToggleComplete = onToggleComplete
         self.onDeleteTask = onDeleteTask
@@ -240,11 +252,14 @@ struct TaskListView: View {
         self.onCompleteHabit = onCompleteHabit
         self.onSkipHabit = onSkipHabit
         self.onLapseHabit = onLapseHabit
+        self.onOpenHabit = onOpenHabit
         self.onReorderCustomProjects = onReorderCustomProjects
         self.onInboxHeaderAction = onInboxHeaderAction
         self.inboxHeaderActionTitle = inboxHeaderActionTitle
         self.onCompletedSectionToggle = onCompletedSectionToggle
         self.onEmptyStateAction = onEmptyStateAction
+        self.onToggleAgendaTailItemExpansion = onToggleAgendaTailItemExpansion
+        self.onOpenRescue = onOpenRescue
         self.onTaskDragStarted = onTaskDragStarted
         self.onScrollChromeStateChange = onScrollChromeStateChange
         self.onPullToSearch = onPullToSearch
@@ -430,6 +445,7 @@ struct TaskListView: View {
                     onCompleteHabit: onCompleteHabit,
                     onSkipHabit: onSkipHabit,
                     onLapseHabit: onLapseHabit,
+                    onOpenHabit: onOpenHabit,
                     headerActionTitle: headerActionTitle(for: section, index: index),
                     onHeaderAction: headerAction(for: section, index: index),
                     headerActionAccessibilityID: headerAccessibilityID(for: section, index: index)
@@ -567,6 +583,12 @@ struct TaskListView: View {
                         }
                     )
                 )
+            }
+        }
+
+        if !agendaTailItems.isEmpty {
+            ForEach(agendaTailItems) { item in
+                agendaTailItemView(item)
             }
         }
     }
@@ -727,6 +749,9 @@ struct TaskListView: View {
             if !todaySections.isEmpty {
                 return false
             }
+            if !agendaTailItems.isEmpty {
+                return false
+            }
             return morningTasks.isEmpty
                 && eveningTasks.isEmpty
                 && overdueTasks.isEmpty
@@ -780,6 +805,126 @@ struct TaskListView: View {
         let hash = UInt64(bitPattern: Int64(value.hashValue))
         let tail = String(format: "%012llx", hash & 0xFFFFFFFFFFFF)
         return UUID(uuidString: "00000000-0000-0000-0000-\(tail)") ?? ProjectConstants.inboxProjectID
+    }
+
+    @ViewBuilder
+    private func agendaTailItemView(_ item: HomeAgendaTailItem) -> some View {
+        switch item {
+        case .rescue(let state):
+            rescueTailItemView(state, itemID: item.id)
+        }
+    }
+
+    private func rescueTailItemView(_ state: RescueTailState, itemID: String) -> some View {
+        let isExpanded = state.mode == .expanded || expandedAgendaTailItemIDs.contains(itemID)
+
+        return VStack(alignment: .leading, spacing: TaskerTheme.Spacing.sm) {
+            if state.mode == .compact {
+                HStack(alignment: .center, spacing: TaskerTheme.Spacing.sm) {
+                    Button {
+                        onOpenRescue?()
+                    } label: {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Rescue")
+                                .font(.tasker(.headline))
+                                .foregroundStyle(Color.tasker.textPrimary)
+                                .accessibilityIdentifier("home.rescue.header")
+
+                            Text(state.subtitle)
+                                .font(.tasker(.caption1))
+                                .foregroundStyle(Color.tasker.textSecondary)
+                                .multilineTextAlignment(.leading)
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityIdentifier("home.rescue.open")
+
+                    Button {
+                        withAnimation(TaskerAnimation.gentle) {
+                            onToggleAgendaTailItemExpansion?(itemID)
+                        }
+                    } label: {
+                        Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
+                            .font(.system(size: 13, weight: .semibold))
+                            .foregroundStyle(Color.tasker.textSecondary)
+                            .frame(width: 32, height: 32)
+                            .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel(Text(isExpanded ? "Collapse Rescue" : "Expand Rescue"))
+                    .accessibilityIdentifier("home.rescue.expand")
+                }
+            } else {
+                HStack(alignment: .top, spacing: TaskerTheme.Spacing.sm) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Rescue")
+                            .font(.tasker(.headline))
+                            .foregroundStyle(Color.tasker.textPrimary)
+                            .accessibilityIdentifier("home.rescue.header")
+
+                        Text(state.subtitle)
+                            .font(.tasker(.caption1))
+                            .foregroundStyle(Color.tasker.textSecondary)
+                            .multilineTextAlignment(.leading)
+                    }
+
+                    Spacer(minLength: 0)
+
+                    Text("\(state.totalCount)")
+                        .font(.tasker(.caption2).weight(.semibold))
+                        .foregroundStyle(Color.tasker.textSecondary)
+                        .padding(.horizontal, TaskerTheme.Spacing.sm)
+                        .padding(.vertical, TaskerTheme.Spacing.xs)
+                        .background(Color.tasker.surfaceSecondary)
+                        .clipShape(Capsule())
+
+                    Button("Start rescue") {
+                        onOpenRescue?()
+                    }
+                    .font(.tasker(.caption1).weight(.semibold))
+                    .foregroundStyle(Color.tasker.textSecondary)
+                    .buttonStyle(.plain)
+                    .accessibilityIdentifier("home.rescue.start")
+                }
+            }
+
+            if isExpanded {
+                VStack(spacing: TaskerTheme.Spacing.xs) {
+                    ForEach(state.rows) { row in
+                        HomeListRowView(
+                            row: row,
+                            tagNameByID: tagNameByID,
+                            todayXPSoFar: todayXPSoFar,
+                            isGamificationV2Enabled: isGamificationV2Enabled,
+                            isTaskDragEnabled: false,
+                            highlightedTaskID: highlightedTaskID,
+                            onTaskTap: onTaskTap,
+                            onToggleComplete: { task in
+                                onToggleComplete?(task)
+                            },
+                            onDeleteTask: onDeleteTask,
+                            onRescheduleTask: onRescheduleTask,
+                            onCompleteHabit: onCompleteHabit,
+                            onSkipHabit: onSkipHabit,
+                            onLapseHabit: onLapseHabit,
+                            onOpenHabit: onOpenHabit
+                        )
+                    }
+                }
+            }
+        }
+        .padding(.horizontal, TaskerTheme.Spacing.md)
+        .padding(.vertical, TaskerTheme.Spacing.sm)
+        .background(Color.tasker.surfaceSecondary.opacity(state.mode == .compact ? 0.22 : 0.34))
+        .overlay(
+            RoundedRectangle(cornerRadius: 18)
+                .stroke(Color.tasker.strokeHairline.opacity(0.55), lineWidth: 1)
+        )
+        .clipShape(RoundedRectangle(cornerRadius: 18))
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("home.rescue.section")
     }
 
     /// Executes normalizedTaskProjectName.

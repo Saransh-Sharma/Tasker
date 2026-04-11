@@ -30,6 +30,7 @@ public enum HomeTaskMutationEvent: String, Codable, CaseIterable {
 
 public enum HomeReloadScope: String, CaseIterable, Hashable {
     case visibleTasks
+    case habits
     case facets
     case analytics
     case charts
@@ -104,6 +105,27 @@ private extension NSLock {
         defer { unlock() }
         return work()
     }
+}
+
+private enum HomeHabitMutationRequest {
+    case resolve(HabitOccurrenceAction)
+    case reset
+}
+
+private struct HomeHabitMutationKey: Hashable {
+    let habitID: UUID
+    let day: Date
+}
+
+private struct HomeHabitMutationSnapshot {
+    let dueTodayRows: [HomeTodayRow]
+    let dueTodaySection: HomeListSection?
+    let todayAgendaSectionState: TodayAgendaSectionState
+    let habitHomeSectionState: HabitHomeSectionState
+    let quietTrackingSummaryState: QuietTrackingSummaryState
+    let focusRows: [HomeTodayRow]
+    let focusNowSectionState: FocusNowSectionState
+    let currentHabitSignals: [TaskerHabitSignal]
 }
 
 public enum FocusPinResult: Equatable {
@@ -303,7 +325,10 @@ public final class HomeViewModel: ObservableObject {
     @Published public private(set) var todayAgendaSectionState = TodayAgendaSectionState(sections: []) {
         didSet { scheduleHomeRenderStateRefresh() }
     }
-    @Published public private(set) var rescueSectionState = RescueSectionState(rows: []) {
+    @Published public private(set) var agendaTailItems: [HomeAgendaTailItem] = [] {
+        didSet { scheduleHomeRenderStateRefresh() }
+    }
+    @Published public private(set) var habitHomeSectionState = HabitHomeSectionState(primaryRows: [], recoveryRows: []) {
         didSet { scheduleHomeRenderStateRefresh() }
     }
     @Published public private(set) var quietTrackingSummaryState = QuietTrackingSummaryState(stableRows: []) {
@@ -361,9 +386,6 @@ public final class HomeViewModel: ObservableObject {
         didSet { scheduleHomeRenderStateRefresh() }
     }
 
-    private(set) var homeChromeState: HomeChromeState = .empty
-    private(set) var homeTasksState: HomeTasksState = .empty
-    private(set) var homeOverlayState: HomeOverlayState = .empty
     @Published private(set) var homeRenderTransaction: HomeRenderTransaction = .empty
 
     // Next Action Module: total open tasks for today
@@ -393,21 +415,14 @@ public final class HomeViewModel: ObservableObject {
     private let getDailySummaryModalUseCase: GetDailySummaryModalUseCase
     private let buildHomeAgendaUseCase: BuildHomeAgendaUseCase
     private let buildHabitHomeProjectionUseCase: BuildHabitHomeProjectionUseCase
+    private let resetHabitOccurrenceUseCase: ResetHabitOccurrenceUseCase
     private let savedHomeViewRepository: SavedHomeViewRepositoryProtocol
     private let analyticsService: AnalyticsServiceProtocol?
     private let aiSuggestionService: AISuggestionService?
     private let userDefaults: UserDefaults
     private var cancellables = Set<AnyCancellable>()
-    private lazy var retainedInsightsViewModel: InsightsViewModel = {
-        InsightsViewModel(
-            engine: useCaseCoordinator.gamificationEngine,
-            repository: useCaseCoordinator.gamificationRepository,
-            taskReadModelRepository: useCaseCoordinator.taskReadModelRepository,
-            reminderRepository: useCaseCoordinator.reminderRepository,
-            analyticsUseCase: useCaseCoordinator.calculateAnalytics
-        )
-    }()
-    private lazy var retainedHomeSearchViewModel = LGSearchViewModel(useCaseCoordinator: useCaseCoordinator)
+    private var retainedInsightsViewModel: InsightsViewModel?
+    private var retainedHomeSearchViewModel: LGSearchViewModel?
 
     // MARK: - Persistence Keys
 
@@ -417,12 +432,16 @@ public final class HomeViewModel: ObservableObject {
     private static let maxPinnedFocusTasks = 3
     private static let maxShuffleHistorySize = 10
     private static let defaultShuffleExclusionWindow = 3
+    private static let maxInlineCompletedRetention = 24
 
     // MARK: - Session State
 
     private var homeOpenedAt: Date = Date()
     private var didTrackFirstCompletionLatency = false
     private var completionOverrides: [UUID: Bool] = [:]
+    private var pendingHabitMutationKeys: Set<HomeHabitMutationKey> = []
+    private var pendingHabitMutationSnapshots: [HomeHabitMutationKey: HomeHabitMutationSnapshot] = [:]
+    private var selfOriginatedHabitMutationContextIDs: Set<UUID> = []
     private var reloadGeneration: Int = 0
     private var dataRevision: HomeDataRevision = .zero
     private var suppressCompletionReloadUntil: Date?
@@ -460,7 +479,9 @@ public final class HomeViewModel: ObservableObject {
     private var homeRenderStateRefreshBatchDepth: Int = 0
     private var needsHomeRenderStateRefresh = false
     private var currentHabitSignals: [TaskerHabitSignal] = []
+    private var habitLibraryRowsByID: [UUID: HabitLibraryRow] = [:]
     private var evaInsightsGeneration: Int = 0
+    private var lastTaskListSnapshotRevision: HomeDataRevision?
 
     deinit {
         pendingRecurringTopUpWorkItem?.cancel()
@@ -468,6 +489,80 @@ public final class HomeViewModel: ObservableObject {
 
     var currentDataRevision: HomeDataRevision {
         dataRevision
+    }
+
+    public func habitLibraryRow(for habitID: UUID) -> HabitLibraryRow? {
+        habitLibraryRowsByID[habitID]
+    }
+
+    private func habitMutationKey(for row: HomeHabitRow, on date: Date) -> HomeHabitMutationKey {
+        HomeHabitMutationKey(
+            habitID: row.habitID,
+            day: Calendar.current.startOfDay(for: date)
+        )
+    }
+
+    private func captureHabitMutationSnapshot() -> HomeHabitMutationSnapshot {
+        HomeHabitMutationSnapshot(
+            dueTodayRows: dueTodayRows,
+            dueTodaySection: dueTodaySection,
+            todayAgendaSectionState: todayAgendaSectionState,
+            habitHomeSectionState: habitHomeSectionState,
+            quietTrackingSummaryState: quietTrackingSummaryState,
+            focusRows: focusRows,
+            focusNowSectionState: focusNowSectionState,
+            currentHabitSignals: currentHabitSignals
+        )
+    }
+
+    private func restoreHabitMutationSnapshot(_ snapshot: HomeHabitMutationSnapshot) {
+        performHomeRenderStateBatch {
+            assignIfChanged(\.dueTodayRows, snapshot.dueTodayRows)
+            assignIfChanged(\.dueTodaySection, snapshot.dueTodaySection)
+            assignIfChanged(\.todayAgendaSectionState, snapshot.todayAgendaSectionState)
+            assignIfChanged(\.habitHomeSectionState, snapshot.habitHomeSectionState)
+            assignIfChanged(\.quietTrackingSummaryState, snapshot.quietTrackingSummaryState)
+            assignIfChanged(\.focusRows, snapshot.focusRows)
+            assignIfChanged(\.focusNowSectionState, snapshot.focusNowSectionState)
+            currentHabitSignals = snapshot.currentHabitSignals
+        }
+    }
+
+    private func isHabitMutationPending(for key: HomeHabitMutationKey) -> Bool {
+        pendingHabitMutationKeys.contains(key)
+    }
+
+    private func registerSelfOriginatedHabitMutationContext(_ context: HabitMutationContext) {
+        selfOriginatedHabitMutationContextIDs.insert(context.mutationID)
+    }
+
+    private func removeSelfOriginatedHabitMutationContext(_ context: HabitMutationContext) {
+        selfOriginatedHabitMutationContextIDs.remove(context.mutationID)
+    }
+
+    private func consumeSelfOriginatedHabitMutationContext(_ context: HabitMutationContext?) -> Bool {
+        guard let context else {
+            return false
+        }
+        if selfOriginatedHabitMutationContextIDs.remove(context.mutationID) != nil {
+            let interval = TaskerPerformanceTrace.begin("HomeHabitNotificationSuppressed")
+            TaskerPerformanceTrace.end(interval)
+            return true
+        }
+        return false
+    }
+
+    private func habitMutationNotification(from notificationObject: Any?) -> HomeHabitMutationNotification? {
+        if let notification = notificationObject as? HomeHabitMutationNotification {
+            return notification
+        }
+        if let habitID = notificationObject as? UUID {
+            return HomeHabitMutationNotification(habitID: habitID)
+        }
+        if let habit = notificationObject as? HabitDefinitionRecord {
+            return HomeHabitMutationNotification(habitID: habit.id)
+        }
+        return nil
     }
 
     private func scheduleHomeRenderStateRefresh() {
@@ -513,9 +608,6 @@ public final class HomeViewModel: ObservableObject {
         )
         guard homeRenderTransaction != transaction else { return }
 
-        homeChromeState = transaction.chrome
-        homeTasksState = transaction.tasks
-        homeOverlayState = transaction.overlay
         homeRenderTransaction = transaction
     }
 
@@ -538,11 +630,7 @@ public final class HomeViewModel: ObservableObject {
 
     private func buildHomeTasksState() -> HomeTasksState {
         let projectByID = Dictionary(uniqueKeysWithValues: projects.map { ($0.id, $0) })
-        var projectByName = Dictionary(uniqueKeysWithValues: projects.map { ($0.name, $0) })
-        projectByName[ProjectConstants.inboxProjectName] = Project.createInbox()
         let tagNameByID = Dictionary(uniqueKeysWithValues: tags.map { ($0.id, $0.name) })
-        let rescueTasks = overdueTasks + morningTasks + eveningTasks + evaTriageQueue.map(\.task)
-        let rescueTasksByID = Dictionary(uniqueKeysWithValues: rescueTasks.map { ($0.id, $0) })
         let todayXPSoFar: Int? =
             (V2FeatureFlags.gamificationV2Enabled && progressState.todayTargetXP <= 0)
             ? nil
@@ -556,15 +644,14 @@ public final class HomeViewModel: ObservableObject {
             todaySections: todaySections,
             focusNowSectionState: focusNowSectionState,
             todayAgendaSectionState: todayAgendaSectionState,
-            rescueSectionState: rescueSectionState,
+            agendaTailItems: agendaTailItems,
+            habitHomeSectionState: habitHomeSectionState,
             quietTrackingSummaryState: quietTrackingSummaryState,
             inlineCompletedTasks: activeScope.quickView == .today ? completedTasks : [],
             doneTimelineTasks: doneTimelineTasks,
             projects: projects,
             projectsByID: projectByID,
-            projectsByName: projectByName,
             tagNameByID: tagNameByID,
-            rescueTasksByID: rescueTasksByID,
             activeQuickView: activeScope.quickView,
             todayXPSoFar: todayXPSoFar,
             projectGroupingMode: activeFilterState.projectGroupingMode,
@@ -623,6 +710,7 @@ public final class HomeViewModel: ObservableObject {
         self.buildEvaBatchProposalUseCase = useCaseCoordinator.buildEvaBatchProposal
         self.buildHomeAgendaUseCase = BuildHomeAgendaUseCase()
         self.buildHabitHomeProjectionUseCase = useCaseCoordinator.buildHabitHomeProjection
+        self.resetHabitOccurrenceUseCase = useCaseCoordinator.resetHabitOccurrence
         self.getDailySummaryModalUseCase = GetDailySummaryModalUseCase(
             getTasksUseCase: useCaseCoordinator.getTasks,
             analyticsUseCase: useCaseCoordinator.calculateAnalytics
@@ -717,6 +805,24 @@ public final class HomeViewModel: ObservableObject {
 
     public func lapseHabit(_ row: HomeHabitRow, source: String = "habit_row_action") {
         resolveHabit(row, action: .lapsed, source: source)
+    }
+
+    public func performHabitLastCellAction(
+        _ row: HomeHabitRow,
+        source: String = "habit_home_last_cell"
+    ) {
+        guard let interaction = HomeHabitLastCellInteraction.resolve(for: row) else { return }
+
+        switch interaction.action {
+        case .complete:
+            completeHabit(row, source: source)
+        case .skip:
+            skipHabit(row, source: source)
+        case .lapse:
+            lapseHabit(row, source: source)
+        case .clear:
+            resetHabit(row, source: source)
+        }
     }
 
     public func logHabitProgress(
@@ -1829,11 +1935,38 @@ public final class HomeViewModel: ObservableObject {
     }
 
     public func makeInsightsViewModel() -> InsightsViewModel {
-        retainedInsightsViewModel
+        if let retainedInsightsViewModel {
+            return retainedInsightsViewModel
+        }
+
+        let resolvedViewModel = InsightsViewModel(
+            engine: useCaseCoordinator.gamificationEngine,
+            repository: useCaseCoordinator.gamificationRepository,
+            taskReadModelRepository: useCaseCoordinator.taskReadModelRepository,
+            reminderRepository: useCaseCoordinator.reminderRepository,
+            analyticsUseCase: useCaseCoordinator.calculateAnalytics
+        )
+        retainedInsightsViewModel = resolvedViewModel
+        return resolvedViewModel
     }
 
     func makeHomeSearchViewModel() -> LGSearchViewModel {
-        retainedHomeSearchViewModel
+        if let retainedHomeSearchViewModel {
+            return retainedHomeSearchViewModel
+        }
+
+        let resolvedViewModel = LGSearchViewModel(useCaseCoordinator: useCaseCoordinator)
+        retainedHomeSearchViewModel = resolvedViewModel
+        return resolvedViewModel
+    }
+
+    func releaseInsightsViewModel() {
+        retainedInsightsViewModel = nil
+    }
+
+    func releaseHomeSearchViewModel() {
+        retainedHomeSearchViewModel?.purgeCaches()
+        retainedHomeSearchViewModel = nil
     }
 
     public func startTriage(scope: EvaTriageScope) {
@@ -2510,14 +2643,16 @@ public final class HomeViewModel: ObservableObject {
 
         NotificationCenter.default.publisher(for: .homeHabitMutation)
             .receive(on: RunLoop.main)
-            .sink { [weak self] _ in
-                self?.enqueueReload(
-                    source: "notification_habit_mutation",
-                    reason: .updated,
-                    invalidateCaches: true,
-                    includeAnalytics: true,
-                    repostEvent: false
-                )
+            .sink { [weak self] notification in
+                guard let self else { return }
+                guard let mutation = self.habitMutationNotification(from: notification.object) else {
+                    return
+                }
+                if self.consumeSelfOriginatedHabitMutationContext(mutation.context) {
+                    logDebug("HOME_HABIT_STATE vm.notification_suppressed id=\(mutation.habitID.uuidString)")
+                    return
+                }
+                self.reconcileHabitMutation(habitID: mutation.habitID, on: self.selectedDate)
             }
             .store(in: &cancellables)
     }
@@ -2590,8 +2725,13 @@ public final class HomeViewModel: ObservableObject {
 
     /// Executes currentTaskSnapshot.
     private func currentTaskSnapshot(for id: UUID) -> TaskDefinition? {
-        let candidates = morningTasks + eveningTasks + overdueTasks + dailyCompletedTasks + upcomingTasks + completedTasks + doneTimelineTasks
-        return candidates.first(where: { $0.id == id })
+        if let task = morningTasks.first(where: { $0.id == id }) { return task }
+        if let task = eveningTasks.first(where: { $0.id == id }) { return task }
+        if let task = overdueTasks.first(where: { $0.id == id }) { return task }
+        if let task = dailyCompletedTasks.first(where: { $0.id == id }) { return task }
+        if let task = upcomingTasks.first(where: { $0.id == id }) { return task }
+        if let task = completedTasks.first(where: { $0.id == id }) { return task }
+        return doneTimelineTasks.first(where: { $0.id == id })
     }
 
     /// Executes mutationReason.
@@ -2614,17 +2754,40 @@ public final class HomeViewModel: ObservableObject {
         if case .today = activeScope {
             selectedDate = Date()
         }
+        TaskerMemoryDiagnostics.checkpoint(
+            event: "home_initial_load_started",
+            message: "Starting home initial load",
+            counts: [
+                "saved_view_count": savedHomeViews.count,
+                "pinned_focus_count": pinnedFocusTaskIDs.count
+            ]
+        )
         loadSavedViews()
         let generation = nextReloadGeneration()
         loadProjects(generation: generation)
         loadLifeAreas(generation: generation)
         loadTags(generation: generation)
         applyFocusFilters(trackAnalytics: false, generation: generation) { [weak self] in
-            self?.scheduleDeferredAnalyticsRefresh(
-                reason: "initial_load",
-                includeGamificationRefresh: true
+            TaskerMemoryDiagnostics.checkpoint(
+                event: "home_initial_load_finished",
+                message: "Finished home initial load",
+                counts: [
+                    "morning_count": self?.morningTasks.count ?? 0,
+                    "evening_count": self?.eveningTasks.count ?? 0,
+                    "overdue_count": self?.overdueTasks.count ?? 0
+                ]
             )
+            self?.scheduleInitialDeferredAnalyticsRefreshIfNeeded()
         }
+    }
+
+    private func scheduleInitialDeferredAnalyticsRefreshIfNeeded() {
+        guard activeScope.quickView == .today else { return }
+        scheduleDeferredAnalyticsRefresh(
+            reason: "initial_load",
+            includeGamificationRefresh: true,
+            delayMilliseconds: 1_500
+        )
     }
 
     /// Executes loadDailyAnalytics.
@@ -2773,18 +2936,41 @@ public final class HomeViewModel: ObservableObject {
         }
     }
 
+    private func openTaskRowsForHabitReconciliation() -> [TaskDefinition] {
+        switch activeScope.quickView {
+        case .done:
+            return []
+        case .upcoming:
+            return upcomingTasks.filter { !$0.isComplete }
+        case .overdue:
+            return overdueTasks.filter { !$0.isComplete }
+        case .morning:
+            return morningTasks.filter { !$0.isComplete }
+        case .evening:
+            return eveningTasks.filter { !$0.isComplete }
+        case .today:
+            return uniqueTasks((morningTasks + eveningTasks + overdueTasks).filter { !$0.isComplete })
+        }
+    }
+
     private func refreshDueTodayAgenda(
         openTaskRows: [TaskDefinition],
-        generation: Int
+        generation: Int,
+        includeAnalyticsRefresh: Bool = true,
+        completion: (() -> Void)? = nil
     ) {
         let group = DispatchGroup()
+        let stateLock = NSLock()
         var agendaHabitRows: [HomeHabitRow] = []
         var trackingHabitRows: [HomeHabitRow] = []
         var historyByHabitID: [UUID: [HabitDayMark]] = [:]
+        var libraryRowsByID: [UUID: HabitLibraryRow] = [:]
 
         group.enter()
         buildHabitHomeProjectionUseCase.execute(date: selectedDate) { result in
+            stateLock.lock()
             agendaHabitRows = (try? result.get()) ?? []
+            stateLock.unlock()
             group.leave()
         }
 
@@ -2796,10 +2982,23 @@ public final class HomeViewModel: ObservableObject {
             }
             switch result {
             case .failure:
+                stateLock.lock()
+                libraryRowsByID = [:]
+                stateLock.unlock()
                 group.leave()
             case .success(let libraryRows):
+                stateLock.lock()
+                libraryRowsByID = Dictionary(uniqueKeysWithValues: libraryRows.map { ($0.habitID, $0) })
+                stateLock.unlock()
                 guard libraryRows.isEmpty == false else {
-                    trackingHabitRows = self.trackingHomeRows(from: libraryRows, historyByHabitID: historyByHabitID, on: self.selectedDate)
+                    stateLock.lock()
+                    let lockedHistory = historyByHabitID
+                    trackingHabitRows = self.trackingHomeRows(
+                        from: libraryRows,
+                        historyByHabitID: lockedHistory,
+                        on: self.selectedDate
+                    )
+                    stateLock.unlock()
                     group.leave()
                     return
                 }
@@ -2807,18 +3006,23 @@ public final class HomeViewModel: ObservableObject {
                 self.useCaseCoordinator.getHabitHistory.execute(
                     habitIDs: libraryRows.map(\.habitID),
                     endingOn: self.selectedDate,
-                    dayCount: 1
+                    dayCount: 30
                 ) { historyResult in
+                    var resolvedHistoryByHabitID: [UUID: [HabitDayMark]] = [:]
                     if case .success(let windows) = historyResult {
-                        historyByHabitID = windows.reduce(into: [:]) { partialResult, window in
+                        resolvedHistoryByHabitID = windows.reduce(into: [:]) { partialResult, window in
                             partialResult[window.habitID] = window.marks
                         }
                     }
-                    trackingHabitRows = self.trackingHomeRows(
+                    let resolvedTrackingRows = self.trackingHomeRows(
                         from: libraryRows,
-                        historyByHabitID: historyByHabitID,
+                        historyByHabitID: resolvedHistoryByHabitID,
                         on: self.selectedDate
                     )
+                    stateLock.lock()
+                    historyByHabitID = resolvedHistoryByHabitID
+                    trackingHabitRows = resolvedTrackingRows
+                    stateLock.unlock()
                     group.leave()
                 }
                 group.leave()
@@ -2826,35 +3030,41 @@ public final class HomeViewModel: ObservableObject {
         }
 
         group.notify(queue: .main) { [weak self] in
+            defer { completion?() }
             guard let self, self.isCurrentReloadGeneration(generation) else { return }
 
-            let allHabitRows = self.mergeHabitRows(agenda: agendaHabitRows, tracking: trackingHabitRows)
-            self.currentHabitSignals = self.habitSignals(from: allHabitRows)
-            let rescueEligibleTaskIDs = Set(
-                openTaskRows
-                    .filter { self.isRescueEligibleTask($0, on: self.selectedDate) }
-                    .map(\.id)
+            stateLock.lock()
+            let resolvedAgendaHabitRows = agendaHabitRows
+            let resolvedTrackingHabitRows = trackingHabitRows
+            let resolvedLibraryRowsByID = libraryRowsByID
+            stateLock.unlock()
+
+            let allHabitRows = self.mergeHabitRows(
+                agenda: resolvedAgendaHabitRows,
+                tracking: resolvedTrackingHabitRows
             )
-            let agendaTaskRows = openTaskRows.filter { !rescueEligibleTaskIDs.contains($0.id) }
-            let focusTaskRows = openTaskRows.filter { !rescueEligibleTaskIDs.contains($0.id) }
+            let splitHabitRows = HabitBoardPresentationBuilder.splitHomeRows(allHabitRows)
+            self.currentHabitSignals = self.habitSignals(from: allHabitRows)
+            self.habitLibraryRowsByID = resolvedLibraryRowsByID
+            let rescueSplit = self.splitRescueEligibleTasks(from: openTaskRows, on: self.selectedDate)
 
             let agenda = self.buildHomeAgendaUseCase.execute(
                 date: self.selectedDate,
-                taskRows: agendaTaskRows,
-                habitRows: agendaHabitRows
+                taskRows: rescueSplit.agendaTaskRows,
+                habitRows: resolvedAgendaHabitRows
             )
 
             self.assignIfChanged(\.dueTodayRows, agenda.rows)
             self.assignIfChanged(\.dueTodaySection, nil)
             let todaySections = HomeMixedSectionBuilder.buildTodaySections(
-                taskRows: agendaTaskRows,
-                habitRows: allHabitRows.filter(self.includeHabitInAgenda(_:)),
+                taskRows: rescueSplit.agendaTaskRows,
+                habitRows: [],
                 projects: self.projects,
                 lifeAreas: self.lifeAreas
             )
             self.assignIfChanged(\.todaySections, todaySections)
 
-            let focusRows = self.composeFocusRows(taskRows: focusTaskRows, habitRows: allHabitRows)
+            let focusRows = self.composeFocusRows(taskRows: rescueSplit.focusTaskRows, habitRows: allHabitRows)
             self.assignIfChanged(\.focusRows, focusRows)
             self.assignIfChanged(
                 \.focusNowSectionState,
@@ -2868,21 +3078,242 @@ public final class HomeViewModel: ObservableObject {
                 TodayAgendaSectionState(sections: todaySections)
             )
             self.assignIfChanged(
-                \.rescueSectionState,
-                self.buildRescueSectionState(
-                    rescueEligibleTasks: openTaskRows.filter { rescueEligibleTaskIDs.contains($0.id) },
-                    focusRows: focusRows
+                \.agendaTailItems,
+                self.buildAgendaTailItems(
+                    rescueEligibleTasks: rescueSplit.rescueEligibleTasks
+                )
+            )
+            self.assignIfChanged(
+                \.habitHomeSectionState,
+                HabitHomeSectionState(
+                    primaryRows: splitHabitRows.primary,
+                    recoveryRows: splitHabitRows.recovery
                 )
             )
             self.assignIfChanged(
                 \.quietTrackingSummaryState,
                 QuietTrackingSummaryState(
-                    stableRows: allHabitRows.filter(self.isStableQuietTrackingRow(_:))
+                    stableRows: splitHabitRows.quiet
                 )
             )
 
-            if Calendar.current.isDate(self.selectedDate, inSameDayAs: Date()) {
+            if includeAnalyticsRefresh,
+               Calendar.current.isDate(self.selectedDate, inSameDayAs: Date()) {
                 self.loadDailyAnalytics(includeGamificationRefresh: false)
+            }
+        }
+    }
+
+    private struct CanonicalHabitMutationState {
+        let row: HomeHabitRow?
+        let libraryRow: HabitLibraryRow?
+    }
+
+    private func fetchCanonicalHabitMutationState(
+        habitID: UUID,
+        on date: Date,
+        completion: @escaping (Result<CanonicalHabitMutationState, Error>) -> Void
+    ) {
+        let group = DispatchGroup()
+        let stateLock = NSLock()
+        var projectionRow: HomeHabitRow?
+        var libraryRow: HabitLibraryRow?
+        var historyByHabitID: [UUID: [HabitDayMark]] = [:]
+        var reconciliationError: Error?
+
+        group.enter()
+        buildHabitHomeProjectionUseCase.execute(date: date, habitID: habitID) { result in
+            switch result {
+            case .failure(let error):
+                stateLock.lock()
+                reconciliationError = reconciliationError ?? error
+                stateLock.unlock()
+            case .success(let row):
+                stateLock.lock()
+                projectionRow = row
+                stateLock.unlock()
+            }
+            group.leave()
+        }
+
+        group.enter()
+        useCaseCoordinator.getHabitLibrary.execute(habitIDs: [habitID], includeArchived: false) { [weak self] result in
+            guard let self else {
+                group.leave()
+                return
+            }
+            switch result {
+            case .failure(let error):
+                stateLock.lock()
+                reconciliationError = reconciliationError ?? error
+                stateLock.unlock()
+                group.leave()
+            case .success(let rows):
+                stateLock.lock()
+                libraryRow = rows.first
+                let hasLibraryRow = libraryRow != nil
+                stateLock.unlock()
+                guard hasLibraryRow else {
+                    group.leave()
+                    return
+                }
+                group.enter()
+                self.useCaseCoordinator.getHabitHistory.execute(
+                    habitIDs: [habitID],
+                    endingOn: date,
+                    dayCount: 30
+                ) { historyResult in
+                    switch historyResult {
+                    case .failure(let error):
+                        stateLock.lock()
+                        reconciliationError = reconciliationError ?? error
+                        stateLock.unlock()
+                    case .success(let windows):
+                        stateLock.lock()
+                        historyByHabitID = windows.reduce(into: [:]) { partialResult, window in
+                            partialResult[window.habitID] = window.marks
+                        }
+                        stateLock.unlock()
+                    }
+                    group.leave()
+                }
+                group.leave()
+            }
+        }
+
+        group.notify(queue: .main) { [weak self] in
+            stateLock.lock()
+            let resolvedProjectionRow = projectionRow
+            let resolvedLibraryRow = libraryRow
+            let resolvedHistoryByHabitID = historyByHabitID
+            let resolvedError = reconciliationError
+            stateLock.unlock()
+
+            if let resolvedError {
+                completion(.failure(resolvedError))
+                return
+            }
+
+            let trackingRow: HomeHabitRow?
+            if let resolvedLibraryRow, let strongSelf = self {
+                trackingRow = strongSelf.trackingHomeRows(
+                    from: [resolvedLibraryRow],
+                    historyByHabitID: resolvedHistoryByHabitID,
+                    on: date
+                ).first
+            } else {
+                trackingRow = nil
+            }
+
+            let canonicalRow = self?.mergeHabitRows(
+                agenda: resolvedProjectionRow.map { [$0] } ?? [],
+                tracking: trackingRow.map { [$0] } ?? []
+            ).first
+
+            completion(.success(
+                CanonicalHabitMutationState(
+                    row: canonicalRow,
+                    libraryRow: resolvedLibraryRow
+                )
+            ))
+        }
+    }
+
+    private func reconcileHabitMutation(
+        habitID: UUID,
+        on date: Date
+    ) {
+        let interval = TaskerPerformanceTrace.begin("HomeHabitRowReconcile")
+        fetchCanonicalHabitMutationState(habitID: habitID, on: date) { [weak self] result in
+            DispatchQueue.main.async {
+                defer { TaskerPerformanceTrace.end(interval) }
+                guard let self else { return }
+                guard Calendar.current.isDate(date, inSameDayAs: self.selectedDate) else { return }
+
+                switch result {
+                case .failure(let error):
+                    logWarning(
+                        event: "home_habit_reconcile_failed",
+                        message: "Failed to reconcile canonical habit state after mutation",
+                        fields: [
+                            "habit_id": habitID.uuidString,
+                            "error": error.localizedDescription
+                        ]
+                    )
+
+                case .success(let canonicalState):
+                    let survivingRows = self.currentAllHabitRows().filter { $0.habitID != habitID }
+                    let allHabitRows = self.sortHabitRows(
+                        survivingRows + (canonicalState.row.map { [$0] } ?? [])
+                    )
+                    let splitRows = HabitBoardPresentationBuilder.splitHomeRows(allHabitRows)
+                    let openTaskRows = self.openTaskRowsForHabitReconciliation()
+                    let rescueSplit = self.splitRescueEligibleTasks(from: openTaskRows, on: self.selectedDate)
+                    let agenda = self.buildHomeAgendaUseCase.execute(
+                        date: self.selectedDate,
+                        taskRows: rescueSplit.agendaTaskRows,
+                        habitRows: allHabitRows.filter { self.includeHabitInAgenda($0) }
+                    )
+                    let todaySections = HomeMixedSectionBuilder.buildTodaySections(
+                        taskRows: rescueSplit.agendaTaskRows,
+                        habitRows: [],
+                        projects: self.projects,
+                        lifeAreas: self.lifeAreas
+                    )
+                    let dueTodaySection = self.dueTodaySection.map { section in
+                        HomeListSection(
+                            anchor: section.anchor,
+                            rows: agenda.rows,
+                            isOverdueSection: section.isOverdueSection
+                        )
+                    }
+
+                    self.performHomeRenderStateBatch {
+                        self.assignIfChanged(\.dueTodayRows, agenda.rows)
+                        self.assignIfChanged(\.dueTodaySection, dueTodaySection)
+                        self.assignIfChanged(\.todaySections, todaySections)
+                        self.assignIfChanged(
+                            \.agendaTailItems,
+                            self.buildAgendaTailItems(
+                                rescueEligibleTasks: rescueSplit.rescueEligibleTasks
+                            )
+                        )
+                        self.assignIfChanged(
+                            \.habitHomeSectionState,
+                            HabitHomeSectionState(
+                                primaryRows: splitRows.primary,
+                                recoveryRows: splitRows.recovery
+                            )
+                        )
+                        self.assignIfChanged(
+                            \.quietTrackingSummaryState,
+                            QuietTrackingSummaryState(stableRows: splitRows.quiet)
+                        )
+                        let focusRows = self.composeFocusRows(
+                            taskRows: rescueSplit.focusTaskRows,
+                            habitRows: allHabitRows
+                        )
+                        self.assignIfChanged(\.focusRows, focusRows)
+                        self.assignIfChanged(
+                            \.todayAgendaSectionState,
+                            TodayAgendaSectionState(sections: todaySections)
+                        )
+                        self.assignIfChanged(
+                            \.focusNowSectionState,
+                            FocusNowSectionState(
+                                rows: focusRows,
+                                pinnedTaskIDs: self.pinnedFocusTaskIDs
+                            )
+                        )
+                        self.currentHabitSignals = self.habitSignals(from: allHabitRows)
+                    }
+
+                    if let libraryRow = canonicalState.libraryRow {
+                        self.habitLibraryRowsByID[habitID] = libraryRow
+                    } else {
+                        self.habitLibraryRowsByID.removeValue(forKey: habitID)
+                    }
+                }
             }
         }
     }
@@ -2945,6 +3376,15 @@ public final class HomeViewModel: ObservableObject {
         }
     }
 
+    private func sortHabitRows(_ rows: [HomeHabitRow]) -> [HomeHabitRow] {
+        rows.sorted { lhs, rhs in
+            if lhs.projectName != rhs.projectName {
+                return (lhs.projectName ?? lhs.lifeAreaName).localizedCaseInsensitiveCompare(rhs.projectName ?? rhs.lifeAreaName) == .orderedAscending
+            }
+            return lhs.title.localizedCaseInsensitiveCompare(rhs.title) == .orderedAscending
+        }
+    }
+
     private func includeHabitInAgenda(_ row: HomeHabitRow) -> Bool {
         switch row.state {
         case .overdue:
@@ -2967,19 +3407,38 @@ public final class HomeViewModel: ObservableObject {
             && row.riskState == .stable
     }
 
-    private func buildRescueSectionState(
-        rescueEligibleTasks: [TaskDefinition],
-        focusRows: [HomeTodayRow]
-    ) -> RescueSectionState {
-        guard activeScope.quickView == .today else {
-            return RescueSectionState(rows: [])
+    private func buildAgendaTailItems(
+        rescueEligibleTasks: [TaskDefinition]
+    ) -> [HomeAgendaTailItem] {
+        guard activeScope.quickView == .today, V2FeatureFlags.evaRescueEnabled else {
+            return []
         }
 
         let rows = rescueEligibleTasks
             .map(HomeTodayRow.task)
             .sorted(by: compareRescueRows(_:_:))
-        let isExpandedByDefault = rows.count < 3 || focusRows.isEmpty
-        return RescueSectionState(rows: rows, isExpandedByDefault: isExpandedByDefault)
+        guard rows.isEmpty == false else {
+            return []
+        }
+
+        let mode: RescueTailMode = rows.count <= 3 ? .compact : .expanded
+        let subtitle: String
+        if rows.count == 1 {
+            subtitle = "1 task is 2+ weeks overdue"
+        } else {
+            subtitle = "\(rows.count) tasks are 2+ weeks overdue"
+        }
+
+        return [
+            .rescue(
+                RescueTailState(
+                    rows: rows,
+                    mode: mode,
+                    isInlineExpanded: mode == .expanded,
+                    subtitle: subtitle
+                )
+            )
+        ]
     }
 
     private func isRescueEligibleTask(_ task: TaskDefinition, on referenceDate: Date) -> Bool {
@@ -3045,6 +3504,21 @@ public final class HomeViewModel: ObservableObject {
                 state = .tracking
             }
 
+            let compactCells = HabitBoardPresentationBuilder.buildCells(
+                marks: marks,
+                cadence: row.cadence,
+                referenceDate: date,
+                dayCount: 7,
+                calendar: calendar
+            )
+            let expandedCells = HabitBoardPresentationBuilder.buildCells(
+                marks: marks,
+                cadence: row.cadence,
+                referenceDate: date,
+                dayCount: 30,
+                calendar: calendar
+            )
+
             return HomeHabitRow(
                 habitID: row.habitID,
                 title: row.title,
@@ -3055,12 +3529,18 @@ public final class HomeViewModel: ObservableObject {
                 projectID: row.projectID,
                 projectName: row.projectName,
                 iconSymbolName: row.icon?.symbolName ?? "circle.dashed",
+                accentHex: row.colorHex,
+                cadence: row.cadence,
+                cadenceLabel: HabitBoardPresentationBuilder.cadenceLabel(for: row.cadence, calendar: calendar),
                 dueAt: row.nextDueAt,
                 state: state,
                 currentStreak: row.currentStreak,
                 bestStreak: row.bestStreak,
-                last14Days: row.last14Days,
-                riskState: todayMark?.state == .failure ? .broken : .stable
+                last14Days: marks,
+                boardCellsCompact: compactCells,
+                boardCellsExpanded: expandedCells,
+                riskState: todayMark?.state == .failure ? .broken : .stable,
+                helperText: HabitBoardPresentationBuilder.cadenceLabel(for: row.cadence, calendar: calendar)
             )
         }
     }
@@ -3088,23 +3568,7 @@ public final class HomeViewModel: ObservableObject {
         }
 
         if results.isEmpty {
-            let highPriorityHabits = habitRows
-                .filter { row in
-                    row.trackingMode == .dailyCheckIn
-                        && row.kind == .positive
-                        && (row.state == .overdue || row.riskState == .atRisk)
-                }
-                .sorted { lhs, rhs in
-                    if lhs.state != rhs.state {
-                        return lhs.state == .overdue
-                    }
-                    let lhsDue = lhs.dueAt ?? .distantFuture
-                    let rhsDue = rhs.dueAt ?? .distantFuture
-                    return lhsDue < rhsDue
-                }
-                .map(HomeTodayRow.habit)
-
-            for row in highPriorityHabits where results.count < 1 {
+            for row in habitFocusFallbackRows(from: habitRows) where results.count < 1 {
                 results.append(row)
             }
         }
@@ -3187,27 +3651,425 @@ public final class HomeViewModel: ObservableObject {
         on date: Date,
         source: String
     ) {
-        useCaseCoordinator.resolveHabitOccurrence.execute(
-            habitID: row.habitID,
-            occurrenceID: row.occurrenceID,
-            action: action,
-            on: date
-        ) { [weak self] result in
-            DispatchQueue.main.async {
-                guard let self else { return }
-                switch result {
-                case .failure(let error):
-                    self.errorMessage = error.localizedDescription
-                case .success:
-                    self.enqueueReload(
-                        source: source,
-                        reason: .updated,
-                        invalidateCaches: false,
-                        includeAnalytics: true,
-                        repostEvent: false
+        performHabitMutation(
+            row,
+            request: .resolve(action),
+            on: date,
+            source: source
+        )
+    }
+
+    private func resetHabit(
+        _ row: HomeHabitRow,
+        source: String
+    ) {
+        performHabitMutation(
+            row,
+            request: .reset,
+            on: selectedDate,
+            source: source
+        )
+    }
+
+    private func performHabitMutation(
+        _ row: HomeHabitRow,
+        request: HomeHabitMutationRequest,
+        on date: Date,
+        source: String
+    ) {
+        let key = habitMutationKey(for: row, on: date)
+        guard !isHabitMutationPending(for: key) else {
+            logDebug("HOME_HABIT_STATE vm.mutation_ignored_pending id=\(row.habitID.uuidString)")
+            return
+        }
+
+        pendingHabitMutationKeys.insert(key)
+        if Calendar.current.isDate(date, inSameDayAs: selectedDate) {
+            pendingHabitMutationSnapshots[key] = captureHabitMutationSnapshot()
+
+            let applyInterval = TaskerPerformanceTrace.begin("HomeHabitOptimisticApply")
+            let didApplyOptimisticUpdate = applyOptimisticHabitMutation(
+                row,
+                request: request,
+                on: date
+            )
+            TaskerPerformanceTrace.end(applyInterval)
+
+            guard didApplyOptimisticUpdate else {
+                pendingHabitMutationKeys.remove(key)
+                pendingHabitMutationSnapshots.removeValue(forKey: key)
+                return
+            }
+        }
+
+        let mutationContext = HabitMutationContext(source: source)
+        registerSelfOriginatedHabitMutationContext(mutationContext)
+
+        switch request {
+        case .resolve(let action):
+            useCaseCoordinator.resolveHabitOccurrence.execute(
+                habitID: row.habitID,
+                occurrenceID: row.occurrenceID,
+                action: action,
+                on: date,
+                mutationContext: mutationContext
+            ) { [weak self] result in
+                DispatchQueue.main.async {
+                    self?.handleHabitMutationResult(
+                        result,
+                        key: key,
+                        habitID: row.habitID,
+                        date: date,
+                        mutationContext: mutationContext
                     )
                 }
             }
+
+        case .reset:
+            resetHabitOccurrenceUseCase.execute(
+                habitID: row.habitID,
+                occurrenceID: row.occurrenceID,
+                on: date,
+                mutationContext: mutationContext
+            ) { [weak self] result in
+                DispatchQueue.main.async {
+                    self?.handleHabitMutationResult(
+                        result,
+                        key: key,
+                        habitID: row.habitID,
+                        date: date,
+                        mutationContext: mutationContext
+                    )
+                }
+            }
+        }
+    }
+
+    private func handleHabitMutationResult(
+        _ result: Result<Void, Error>,
+        key: HomeHabitMutationKey,
+        habitID: UUID,
+        date: Date,
+        mutationContext: HabitMutationContext
+    ) {
+        switch result {
+        case .failure(let error):
+            removeSelfOriginatedHabitMutationContext(mutationContext)
+            if let snapshot = pendingHabitMutationSnapshots[key] {
+                restoreHabitMutationSnapshot(snapshot)
+            }
+            pendingHabitMutationSnapshots.removeValue(forKey: key)
+            pendingHabitMutationKeys.remove(key)
+            errorMessage = error.localizedDescription
+
+        case .success:
+            pendingHabitMutationSnapshots.removeValue(forKey: key)
+            pendingHabitMutationKeys.remove(key)
+            guard Calendar.current.isDate(date, inSameDayAs: selectedDate) else { return }
+            reconcileHabitMutation(habitID: habitID, on: date)
+        }
+    }
+
+    private func applyOptimisticHabitMutation(
+        _ row: HomeHabitRow,
+        request: HomeHabitMutationRequest,
+        on date: Date
+    ) -> Bool {
+        guard let updatedRow = optimisticHabitRow(from: row, request: request, on: date) else {
+            return false
+        }
+
+        let openTaskRows = openTaskRowsForHabitReconciliation()
+        let existingRows = currentAllHabitRows()
+        let containsRow = existingRows.contains(where: { $0.id == updatedRow.id })
+        let allHabitRows = (containsRow
+            ? existingRows.map { existingRow in
+                existingRow.id == updatedRow.id ? updatedRow : existingRow
+            }
+            : (existingRows + [updatedRow]))
+        let splitRows = HabitBoardPresentationBuilder.splitHomeRows(allHabitRows)
+        let rescueSplit = splitRescueEligibleTasks(from: openTaskRows, on: selectedDate)
+        let agenda = buildHomeAgendaUseCase.execute(
+            date: selectedDate,
+            taskRows: rescueSplit.agendaTaskRows,
+            habitRows: allHabitRows.filter(includeHabitInAgenda(_:))
+        )
+        let todaySections = HomeMixedSectionBuilder.buildTodaySections(
+            taskRows: rescueSplit.agendaTaskRows,
+            habitRows: [],
+            projects: projects,
+            lifeAreas: lifeAreas
+        )
+        let dueTodaySection = dueTodaySection.map { section in
+            HomeListSection(
+                anchor: section.anchor,
+                rows: agenda.rows,
+                isOverdueSection: section.isOverdueSection
+            )
+        }
+
+        performHomeRenderStateBatch {
+            assignIfChanged(\.dueTodayRows, agenda.rows)
+            assignIfChanged(\.dueTodaySection, dueTodaySection)
+            assignIfChanged(\.todaySections, todaySections)
+            assignIfChanged(
+                \.agendaTailItems,
+                buildAgendaTailItems(
+                    rescueEligibleTasks: rescueSplit.rescueEligibleTasks
+                )
+            )
+            assignIfChanged(
+                \.todayAgendaSectionState,
+                TodayAgendaSectionState(sections: todaySections)
+            )
+            assignIfChanged(
+                \.habitHomeSectionState,
+                HabitHomeSectionState(
+                    primaryRows: splitRows.primary,
+                    recoveryRows: splitRows.recovery
+                )
+            )
+            assignIfChanged(
+                \.quietTrackingSummaryState,
+                QuietTrackingSummaryState(stableRows: splitRows.quiet)
+            )
+            let focusRows = composeFocusRows(
+                taskRows: rescueSplit.focusTaskRows,
+                habitRows: allHabitRows
+            )
+            assignIfChanged(\.focusRows, focusRows)
+            assignIfChanged(
+                \.focusNowSectionState,
+                FocusNowSectionState(
+                    rows: focusRows,
+                    pinnedTaskIDs: pinnedFocusTaskIDs
+                )
+            )
+            reconcileFocusFallbackIfNeeded(for: row.habitID, canonicalRow: updatedRow)
+            currentHabitSignals = habitSignals(from: allHabitRows)
+        }
+
+        logDebug(
+            "HOME_HABIT_STATE vm.local_apply id=\(row.habitID.uuidString) " +
+            "state=\(updatedRow.state.rawValue) source_rows=\(allHabitRows.count)"
+        )
+        return true
+    }
+
+    private func currentAllHabitRows() -> [HomeHabitRow] {
+        var rowsByID: [String: HomeHabitRow] = [:]
+        for row in habitHomeSectionState.primaryRows + habitHomeSectionState.recoveryRows + quietTrackingSummaryState.stableRows {
+            rowsByID[row.id] = row
+        }
+        return sortHabitRows(Array(rowsByID.values))
+    }
+
+    private func splitRescueEligibleTasks(
+        from openTaskRows: [TaskDefinition],
+        on date: Date
+    ) -> (agendaTaskRows: [TaskDefinition], focusTaskRows: [TaskDefinition], rescueEligibleTasks: [TaskDefinition]) {
+        let rescueEligibleTaskIDs = V2FeatureFlags.evaRescueEnabled
+            ? Set(
+                openTaskRows
+                    .filter { isRescueEligibleTask($0, on: date) }
+                    .map(\.id)
+            )
+            : Set<UUID>()
+        let rescueEligibleTasks = openTaskRows.filter { rescueEligibleTaskIDs.contains($0.id) }
+        let remainingTaskRows = openTaskRows.filter { !rescueEligibleTaskIDs.contains($0.id) }
+        return (
+            agendaTaskRows: remainingTaskRows,
+            focusTaskRows: remainingTaskRows,
+            rescueEligibleTasks: rescueEligibleTasks
+        )
+    }
+
+    private func isEligibleForHabitFocusFallback(_ row: HomeHabitRow) -> Bool {
+        row.trackingMode == .dailyCheckIn
+            && row.kind == .positive
+            && (row.state == .overdue || row.riskState == .atRisk)
+    }
+
+    private func isShowingHabitBackedFocusFallback() -> Bool {
+        let rows = focusNowSectionState.rows
+        guard rows.isEmpty == false else { return false }
+        guard focusTasks.isEmpty else { return false }
+        return rows.allSatisfy(\.isHabit)
+    }
+
+    private func reconcileFocusFallbackIfNeeded(
+        for habitID: UUID,
+        canonicalRow: HomeHabitRow?
+    ) {
+        guard isShowingHabitBackedFocusFallback() else { return }
+        let displayedHabitRows = focusNowSectionState.rows.compactMap { row -> HomeHabitRow? in
+            guard case .habit(let habitRow) = row else { return nil }
+            return habitRow
+        }
+        guard displayedHabitRows.contains(where: { $0.habitID == habitID }) else {
+            return
+        }
+
+        let allHabitRows = sortHabitRows(
+            currentAllHabitRows().filter { $0.habitID != habitID }
+                + (canonicalRow.map { [$0] } ?? [])
+        )
+        let updatedRows = habitFocusFallbackRows(from: allHabitRows)
+
+        if updatedRows == focusNowSectionState.rows {
+            return
+        }
+
+        assignIfChanged(\.focusRows, updatedRows)
+        assignIfChanged(
+            \.focusNowSectionState,
+            FocusNowSectionState(
+                rows: updatedRows,
+                pinnedTaskIDs: pinnedFocusTaskIDs
+            )
+        )
+    }
+
+    private func habitFocusFallbackRows(from habitRows: [HomeHabitRow]) -> [HomeTodayRow] {
+        let highPriorityHabits = habitRows
+            .filter(isEligibleForHabitFocusFallback(_:))
+            .sorted { lhs, rhs in
+                if lhs.state != rhs.state {
+                    return lhs.state == .overdue
+                }
+                let lhsDue = lhs.dueAt ?? .distantFuture
+                let rhsDue = rhs.dueAt ?? .distantFuture
+                if lhsDue != rhsDue {
+                    return lhsDue < rhsDue
+                }
+                return compareFocusRows(.habit(lhs), .habit(rhs))
+            }
+            .map(HomeTodayRow.habit)
+
+        return Array(highPriorityHabits.prefix(1))
+    }
+
+    private func optimisticHabitRow(
+        from row: HomeHabitRow,
+        request: HomeHabitMutationRequest,
+        on date: Date
+    ) -> HomeHabitRow? {
+        let optimisticDayState = optimisticHabitDayState(for: request)
+        var marks = row.last14Days
+        if marks.isEmpty {
+            marks = HabitRuntimeSupport.dayMarks(
+                from: [],
+                endingOn: date,
+                dayCount: 30
+            )
+        }
+
+        let day = Calendar.current.startOfDay(for: date)
+        if let index = marks.firstIndex(where: { Calendar.current.isDate($0.date, inSameDayAs: day) }) {
+            marks[index] = HabitDayMark(date: marks[index].date, state: optimisticDayState)
+        } else {
+            marks.append(HabitDayMark(date: day, state: optimisticDayState))
+            marks.sort { $0.date < $1.date }
+        }
+
+        let referenceDate = Calendar.current.startOfDay(for: date)
+        let compactCells = HabitBoardPresentationBuilder.buildCells(
+            marks: marks,
+            cadence: row.cadence,
+            referenceDate: referenceDate,
+            dayCount: 7
+        )
+        let expandedCells = HabitBoardPresentationBuilder.buildCells(
+            marks: marks,
+            cadence: row.cadence,
+            referenceDate: referenceDate,
+            dayCount: 30
+        )
+        let occurrenceState = optimisticOccurrenceState(for: request)
+        let state = optimisticHomeHabitState(
+            for: row,
+            request: request,
+            on: referenceDate
+        )
+        let riskState = HabitRuntimeSupport.riskState(
+            for: marks,
+            dueAt: row.dueAt,
+            occurrenceState: occurrenceState,
+            referenceDate: referenceDate
+        )
+
+        return HomeHabitRow(
+            habitID: row.habitID,
+            occurrenceID: row.occurrenceID,
+            title: row.title,
+            kind: row.kind,
+            trackingMode: row.trackingMode,
+            lifeAreaID: row.lifeAreaID,
+            lifeAreaName: row.lifeAreaName,
+            projectID: row.projectID,
+            projectName: row.projectName,
+            iconSymbolName: row.iconSymbolName,
+            accentHex: row.accentHex,
+            cadence: row.cadence,
+            cadenceLabel: row.cadenceLabel,
+            dueAt: row.dueAt,
+            state: state,
+            currentStreak: row.currentStreak,
+            bestStreak: row.bestStreak,
+            last14Days: marks,
+            boardCellsCompact: compactCells,
+            boardCellsExpanded: expandedCells,
+            riskState: riskState,
+            helperText: row.helperText
+        )
+    }
+
+    private func optimisticHabitDayState(for request: HomeHabitMutationRequest) -> HabitDayState {
+        switch request {
+        case .resolve(.complete), .resolve(.abstained):
+            return .success
+        case .resolve(.skip):
+            return .skipped
+        case .resolve(.lapsed):
+            return .failure
+        case .reset:
+            return .none
+        }
+    }
+
+    private func optimisticOccurrenceState(for request: HomeHabitMutationRequest) -> OccurrenceState {
+        switch request {
+        case .resolve(.complete), .resolve(.abstained):
+            return .completed
+        case .resolve(.skip):
+            return .skipped
+        case .resolve(.lapsed):
+            return .failed
+        case .reset:
+            return .pending
+        }
+    }
+
+    private func optimisticHomeHabitState(
+        for row: HomeHabitRow,
+        request: HomeHabitMutationRequest,
+        on date: Date
+    ) -> HomeHabitRowState {
+        switch request {
+        case .resolve(.complete), .resolve(.abstained):
+            return .completedToday
+        case .resolve(.skip):
+            return .skippedToday
+        case .resolve(.lapsed):
+            return .lapsedToday
+        case .reset:
+            if row.trackingMode == .lapseOnly {
+                return .tracking
+            }
+            if let dueAt = row.dueAt, dueAt < Calendar.current.startOfDay(for: date) {
+                return .overdue
+            }
+            return .due
         }
     }
 
@@ -3335,7 +4197,8 @@ public final class HomeViewModel: ObservableObject {
     private func applyReloadScopes(
         _ scopes: Set<HomeReloadScope>,
         generation: Int,
-        visibleTasksCompletion: (() -> Void)? = nil
+        visibleTasksCompletion: (() -> Void)? = nil,
+        habitsCompletion: (() -> Void)? = nil
     ) {
         if scopes.contains(.savedViews) {
             loadSavedViews()
@@ -3349,6 +4212,18 @@ public final class HomeViewModel: ObservableObject {
                 trackAnalytics: false,
                 generation: generation,
                 completion: visibleTasksCompletion
+            )
+        }
+        if scopes.contains(.habits) {
+            let interval = TaskerPerformanceTrace.begin("HomeHabitScopedReload")
+            refreshDueTodayAgenda(
+                openTaskRows: openTaskRowsForHabitReconciliation(),
+                generation: generation,
+                includeAnalyticsRefresh: false,
+                completion: {
+                    TaskerPerformanceTrace.end(interval)
+                    habitsCompletion?()
+                }
             )
         }
     }
@@ -3456,7 +4331,8 @@ public final class HomeViewModel: ObservableObject {
             assignIfChanged(\.dueTodaySection, nil)
             assignIfChanged(\.todaySections, [])
             assignIfChanged(\.todayAgendaSectionState, TodayAgendaSectionState(sections: []))
-            assignIfChanged(\.rescueSectionState, RescueSectionState(rows: []))
+            assignIfChanged(\.agendaTailItems, [])
+            assignIfChanged(\.habitHomeSectionState, HabitHomeSectionState(primaryRows: [], recoveryRows: []))
             assignIfChanged(\.quietTrackingSummaryState, QuietTrackingSummaryState(stableRows: []))
             currentHabitSignals = []
             assignIfChanged(\.focusTasks, [])
@@ -3942,6 +4818,21 @@ public final class HomeViewModel: ObservableObject {
 
     private func writeTaskListWidgetSnapshot(reason: String = "home_event") {
         guard V2FeatureFlags.taskListWidgetsEnabled else { return }
+        if reason.hasPrefix("apply_result_"), lastTaskListSnapshotRevision == dataRevision {
+            return
+        }
+        lastTaskListSnapshotRevision = dataRevision
+        TaskerMemoryDiagnostics.checkpoint(
+            event: "widget_snapshot_scheduled",
+            message: "Scheduling task list widget snapshot refresh",
+            fields: ["reason": reason],
+            counts: [
+                "morning_count": morningTasks.count,
+                "evening_count": eveningTasks.count,
+                "overdue_count": overdueTasks.count,
+                "focus_count": focusTasks.count
+            ]
+        )
         TaskListWidgetSnapshotService.shared.scheduleRefresh(reason: reason)
     }
 
@@ -4078,15 +4969,15 @@ public final class HomeViewModel: ObservableObject {
         taskID: UUID? = nil,
         invalidateCaches: Bool,
         includeAnalytics: Bool,
-        repostEvent: Bool
+        repostEvent: Bool,
+        overrideScopes: Set<HomeReloadScope>? = nil
     ) {
         pendingReloadSources.insert(source)
         if let reason {
             pendingReloadReasons.insert(reason)
         }
-        pendingReloadScopes.formUnion(
-            reloadScopes(for: reason, includeAnalytics: includeAnalytics, repostEvent: repostEvent)
-        )
+        let scopes = overrideScopes ?? reloadScopes(for: reason, includeAnalytics: includeAnalytics, repostEvent: repostEvent)
+        pendingReloadScopes.formUnion(scopes)
         if let taskID {
             pendingReloadTaskIDs.insert(taskID)
         }
@@ -4155,11 +5046,24 @@ public final class HomeViewModel: ObservableObject {
         if scopes.contains(.visibleTasks) {
             tracker.registerOperation()
         }
+        if scopes.contains(.habits) {
+            tracker.registerOperation()
+        }
         applyReloadScopes(
             scopes,
             generation: generation,
-            visibleTasksCompletion: scopes.contains(.visibleTasks) ? { tracker.completeOperation() } : nil
+            visibleTasksCompletion: scopes.contains(.visibleTasks) ? { tracker.completeOperation() } : nil,
+            habitsCompletion: scopes.contains(.habits) ? { tracker.completeOperation() } : nil
         )
+
+        if scopes.contains(.habits),
+           !scopes.contains(.analytics),
+           Calendar.current.isDate(selectedDate, inSameDayAs: Date()) {
+            scheduleDeferredAnalyticsRefresh(
+                reason: "habit_reload_scope",
+                includeGamificationRefresh: false
+            )
+        }
 
         if shouldIncludeAnalytics || scopes.contains(.analytics) {
             tracker.registerOperation()
@@ -4690,12 +5594,16 @@ public final class HomeViewModel: ObservableObject {
         let retainedPriorDone = completedTasks.filter { task in
             !openIDs.contains(task.id) && isTaskCompletedOnActiveScopeDay(task)
         }
+        .prefix(Self.maxInlineCompletedRetention)
 
         var merged: [TaskDefinition] = []
         var seen = Set<UUID>()
         for task in incomingDoneTasks + retainedPriorDone where task.isComplete && isTaskCompletedOnActiveScopeDay(task) {
             if seen.insert(task.id).inserted {
                 merged.append(task)
+            }
+            if merged.count >= Self.maxInlineCompletedRetention {
+                break
             }
         }
         return merged
@@ -4875,7 +5783,8 @@ extension HomeViewModel {
             todaySections: todaySections,
             focusNowSectionState: focusNowSectionState,
             todayAgendaSectionState: todayAgendaSectionState,
-            rescueSectionState: rescueSectionState,
+            agendaTailItems: agendaTailItems,
+            habitHomeSectionState: habitHomeSectionState,
             quietTrackingSummaryState: quietTrackingSummaryState,
             upcomingTasks: upcomingTasks,
             completedTasks: completedTasks,
@@ -4916,7 +5825,8 @@ public struct HomeViewState {
     public let todaySections: [HomeListSection]
     public let focusNowSectionState: FocusNowSectionState
     public let todayAgendaSectionState: TodayAgendaSectionState
-    public let rescueSectionState: RescueSectionState
+    public let agendaTailItems: [HomeAgendaTailItem]
+    public let habitHomeSectionState: HabitHomeSectionState
     public let quietTrackingSummaryState: QuietTrackingSummaryState
     public let upcomingTasks: [TaskDefinition]
     public let completedTasks: [TaskDefinition]
@@ -5037,14 +5947,20 @@ final class TaskListWidgetSnapshotService {
     static let shared = TaskListWidgetSnapshotService()
 
     private let queue = DispatchQueue(label: "tasker.tasklist.widget.snapshot", qos: .utility)
-    private let debounceDelay: TimeInterval = 0.25
+    private let debounceDelay: TimeInterval = 0.75
     private var pendingWorkItem: DispatchWorkItem?
+    private var refreshInFlight = false
+    private var queuedReasonAfterRefresh: String?
 
     private init() {}
 
     func scheduleRefresh(reason: String) {
         queue.async { [weak self] in
             guard let self else { return }
+            if self.refreshInFlight {
+                self.queuedReasonAfterRefresh = reason
+                return
+            }
             self.pendingWorkItem?.cancel()
             let workItem = DispatchWorkItem { [weak self] in
                 self?.refreshNow(reason: reason)
@@ -5057,6 +5973,17 @@ final class TaskListWidgetSnapshotService {
     private func refreshNow(reason: String) {
         guard V2FeatureFlags.taskListWidgetsEnabled else { return }
         guard let coordinator = currentCoordinator() else { return }
+        if refreshInFlight {
+            queuedReasonAfterRefresh = reason
+            return
+        }
+        refreshInFlight = true
+        pendingWorkItem = nil
+        TaskerMemoryDiagnostics.checkpoint(
+            event: "widget_snapshot_refresh_started",
+            message: "Refreshing task list widget snapshot",
+            fields: ["reason": reason]
+        )
 
         coordinator.getTasks.searchTasks(query: "", in: .all) { [weak self] result in
             guard let self else { return }
@@ -5070,10 +5997,28 @@ final class TaskListWidgetSnapshotService {
                         "error": error.localizedDescription
                     ]
                 )
+                self.finishRefresh()
             case .success(let tasks):
+                TaskerMemoryDiagnostics.checkpoint(
+                    event: "widget_snapshot_refresh_loaded",
+                    message: "Loaded task list widget source data",
+                    fields: ["reason": reason],
+                    counts: ["task_count": tasks.count]
+                )
                 let snapshot = self.buildSnapshot(tasks: tasks)
                 self.persistIfChanged(snapshot: snapshot, reason: reason)
+                self.finishRefresh()
             }
+        }
+    }
+
+    private func finishRefresh() {
+        queue.async { [weak self] in
+            guard let self else { return }
+            self.refreshInFlight = false
+            guard let queuedReason = self.queuedReasonAfterRefresh else { return }
+            self.queuedReasonAfterRefresh = nil
+            self.scheduleRefresh(reason: queuedReason)
         }
     }
 

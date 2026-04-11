@@ -4,6 +4,29 @@ public extension Notification.Name {
     static let homeHabitMutation = Notification.Name("HomeHabitMutationEvent")
 }
 
+public struct HabitMutationContext: Codable, Equatable, Hashable {
+    public let mutationID: UUID
+    public let source: String
+
+    public init(mutationID: UUID = UUID(), source: String) {
+        self.mutationID = mutationID
+        self.source = source
+    }
+}
+
+public struct HomeHabitMutationNotification: Codable, Equatable, Hashable {
+    public let habitID: UUID
+    public let context: HabitMutationContext?
+
+    public init(
+        habitID: UUID,
+        context: HabitMutationContext? = nil
+    ) {
+        self.habitID = habitID
+        self.context = context
+    }
+}
+
 public enum HabitRuntimeError: LocalizedError {
     case invalidLifeArea
     case invalidProject
@@ -406,11 +429,18 @@ enum HabitRuntimeSupport {
         var best = 0
         var run = 0
         for occurrence in ordered {
-            let isSuccess = occurrence.state == .completed
-            if isSuccess {
+            switch occurrence.state {
+            case .completed:
                 run += 1
                 best = max(best, run)
-            } else {
+            case .skipped:
+                continue
+            case .pending:
+                if calendar.isDate(occurrenceDate(occurrence), inSameDayAs: referenceDate) {
+                    continue
+                }
+                run = 0
+            case .failed, .missed:
                 run = 0
             }
         }
@@ -421,9 +451,12 @@ enum HabitRuntimeSupport {
                calendar.isDate(occurrenceDate(occurrence), inSameDayAs: referenceDate) {
                 continue
             }
-            if occurrence.state == .completed {
+            switch occurrence.state {
+            case .completed:
                 current += 1
-            } else {
+            case .skipped:
+                continue
+            case .pending, .failed, .missed:
                 break
             }
         }
@@ -1802,7 +1835,6 @@ public final class ResolveHabitOccurrenceUseCase {
     private let scheduleRepository: ScheduleRepositoryProtocol
     private let occurrenceRepository: OccurrenceRepositoryProtocol
     private let scheduleEngine: SchedulingEngineProtocol
-    private let maintainHabitRuntimeUseCase: MaintainHabitRuntimeUseCase
     private let recomputeHabitStreaksUseCase: RecomputeHabitStreaksUseCase
     private let gamificationEngine: GamificationEngine
 
@@ -1811,7 +1843,6 @@ public final class ResolveHabitOccurrenceUseCase {
         scheduleRepository: ScheduleRepositoryProtocol,
         occurrenceRepository: OccurrenceRepositoryProtocol,
         scheduleEngine: SchedulingEngineProtocol,
-        maintainHabitRuntimeUseCase: MaintainHabitRuntimeUseCase,
         recomputeHabitStreaksUseCase: RecomputeHabitStreaksUseCase,
         gamificationEngine: GamificationEngine
     ) {
@@ -1819,7 +1850,6 @@ public final class ResolveHabitOccurrenceUseCase {
         self.scheduleRepository = scheduleRepository
         self.occurrenceRepository = occurrenceRepository
         self.scheduleEngine = scheduleEngine
-        self.maintainHabitRuntimeUseCase = maintainHabitRuntimeUseCase
         self.recomputeHabitStreaksUseCase = recomputeHabitStreaksUseCase
         self.gamificationEngine = gamificationEngine
     }
@@ -1829,6 +1859,7 @@ public final class ResolveHabitOccurrenceUseCase {
         occurrenceID: UUID? = nil,
         action: HabitOccurrenceAction,
         on date: Date = Date(),
+        mutationContext: HabitMutationContext? = nil,
         completion: @escaping (Result<Void, Error>) -> Void
     ) {
         habitRepository.fetchAll { result in
@@ -1855,8 +1886,11 @@ public final class ResolveHabitOccurrenceUseCase {
                             case .failure(let error):
                                 completion(.failure(error))
                             case .success:
-                                self.maintainHabitRuntimeUseCase.execute(anchorDate: date) { maintainResult in
-                                    switch maintainResult {
+                                self.recomputeHabitStreaksUseCase.execute(
+                                    habitIDs: [habit.id],
+                                    referenceDate: date
+                                ) { recomputeResult in
+                                    switch recomputeResult {
                                     case .failure(let error):
                                         completion(.failure(error))
                                     case .success:
@@ -1864,10 +1898,14 @@ public final class ResolveHabitOccurrenceUseCase {
                                             habit: habit,
                                             occurrenceID: resolvedOccurrenceID,
                                             action: action,
+                                            completedAt: date,
                                             completion: { _ in
                                                 TaskNotificationDispatcher.postOnMain(
                                                     name: .homeHabitMutation,
-                                                    object: habitID
+                                                    object: HomeHabitMutationNotification(
+                                                        habitID: habitID,
+                                                        context: mutationContext
+                                                    )
                                                 )
                                                 completion(.success(()))
                                             }
@@ -2049,6 +2087,7 @@ public final class ResolveHabitOccurrenceUseCase {
         habit: HabitDefinitionRecord,
         occurrenceID: UUID,
         action: HabitOccurrenceAction,
+        completedAt: Date,
         completion: @escaping (Result<Void, Error>) -> Void
     ) {
         let category: XPActionCategory
@@ -2070,7 +2109,183 @@ public final class ResolveHabitOccurrenceUseCase {
                 source: .habit,
                 habitID: habit.id,
                 occurrenceID: occurrenceID,
-                completedAt: Date()
+                completedAt: completedAt
+            )
+        ) { result in
+            switch result {
+            case .failure(let error):
+                completion(.failure(error))
+            case .success:
+                completion(.success(()))
+            }
+        }
+    }
+}
+
+public final class ResetHabitOccurrenceUseCase {
+    private let habitRepository: HabitRepositoryProtocol
+    private let occurrenceRepository: OccurrenceRepositoryProtocol
+    private let recomputeHabitStreaksUseCase: RecomputeHabitStreaksUseCase
+    private let gamificationEngine: GamificationEngine
+
+    public init(
+        habitRepository: HabitRepositoryProtocol,
+        occurrenceRepository: OccurrenceRepositoryProtocol,
+        recomputeHabitStreaksUseCase: RecomputeHabitStreaksUseCase,
+        gamificationEngine: GamificationEngine
+    ) {
+        self.habitRepository = habitRepository
+        self.occurrenceRepository = occurrenceRepository
+        self.recomputeHabitStreaksUseCase = recomputeHabitStreaksUseCase
+        self.gamificationEngine = gamificationEngine
+    }
+
+    public func execute(
+        habitID: UUID,
+        occurrenceID: UUID? = nil,
+        on date: Date = Date(),
+        mutationContext: HabitMutationContext? = nil,
+        completion: @escaping (Result<Void, Error>) -> Void
+    ) {
+        habitRepository.fetchAll { result in
+            switch result {
+            case .failure(let error):
+                completion(.failure(error))
+            case .success(let habits):
+                guard let habit = habits.first(where: { $0.id == habitID }) else {
+                    completion(.failure(HabitRuntimeError.habitNotFound))
+                    return
+                }
+
+                self.resolveOccurrence(
+                    for: habit,
+                    occurrenceID: occurrenceID,
+                    on: date
+                ) { occurrenceResult in
+                    switch occurrenceResult {
+                    case .failure(let error):
+                        completion(.failure(error))
+                    case .success(let occurrence):
+                        let previousState = occurrence.state
+                        var resetOccurrence = occurrence
+                        resetOccurrence.state = .pending
+                        resetOccurrence.updatedAt = Date()
+
+                        self.occurrenceRepository.saveOccurrences([resetOccurrence]) { saveResult in
+                            switch saveResult {
+                            case .failure(let error):
+                                completion(.failure(error))
+                            case .success:
+                                self.recomputeHabitStreaksUseCase.execute(
+                                    habitIDs: [habit.id],
+                                    referenceDate: date
+                                ) { recomputeResult in
+                                    switch recomputeResult {
+                                    case .failure(let error):
+                                        completion(.failure(error))
+                                    case .success:
+                                        self.compensateIfNeeded(
+                                            habit: habit,
+                                            occurrenceID: resetOccurrence.id,
+                                            previousState: previousState,
+                                            completedAt: date
+                                        ) { compensationResult in
+                                            switch compensationResult {
+                                            case .failure(let error):
+                                                completion(.failure(error))
+                                            case .success:
+                                                TaskNotificationDispatcher.postOnMain(
+                                                    name: .homeHabitMutation,
+                                                    object: HomeHabitMutationNotification(
+                                                        habitID: habitID,
+                                                        context: mutationContext
+                                                    )
+                                                )
+                                                completion(.success(()))
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private func resolveOccurrence(
+        for habit: HabitDefinitionRecord,
+        occurrenceID: UUID?,
+        on date: Date,
+        completion: @escaping (Result<OccurrenceDefinition, Error>) -> Void
+    ) {
+        let calendar = Calendar.current
+        let startOfDay = calendar.startOfDay(for: date)
+        let endOfDay = calendar.date(byAdding: .day, value: 1, to: startOfDay) ?? date
+        occurrenceRepository.fetchInRange(start: startOfDay, end: endOfDay) { result in
+            switch result {
+            case .failure(let error):
+                completion(.failure(error))
+            case .success(let occurrences):
+                if let occurrenceID {
+                    guard let suppliedOccurrence = occurrences.first(where: { $0.id == occurrenceID }) else {
+                        completion(.failure(HabitRuntimeError.occurrenceNotFound))
+                        return
+                    }
+                    guard suppliedOccurrence.sourceType == .habit, suppliedOccurrence.sourceID == habit.id else {
+                        completion(.failure(HabitRuntimeError.occurrenceNotFound))
+                        return
+                    }
+                    completion(.success(suppliedOccurrence))
+                    return
+                }
+
+                let matches = occurrences
+                    .filter { $0.sourceType == .habit && $0.sourceID == habit.id }
+                    .sorted { HabitRuntimeSupport.occurrenceDate($0) < HabitRuntimeSupport.occurrenceDate($1) }
+
+                guard let occurrence = matches.last else {
+                    completion(.failure(HabitRuntimeError.occurrenceNotFound))
+                    return
+                }
+
+                completion(.success(occurrence))
+            }
+        }
+    }
+
+    private func compensateIfNeeded(
+        habit: HabitDefinitionRecord,
+        occurrenceID: UUID,
+        previousState: OccurrenceState,
+        completedAt: Date,
+        completion: @escaping (Result<Void, Error>) -> Void
+    ) {
+        let category: XPActionCategory?
+        switch (habit.kind, previousState) {
+        case (.positive, .completed):
+            category = .habitPositiveCompleteUndo
+        case (.negative, .completed):
+            category = .habitNegativeSuccessUndo
+        case (.negative, .failed):
+            category = .habitNegativeSuccessUndo
+        default:
+            category = nil
+        }
+
+        guard let category else {
+            completion(.success(()))
+            return
+        }
+
+        gamificationEngine.recordCompensationEvent(
+            context: XPEventContext(
+                category: category,
+                source: .habit,
+                habitID: habit.id,
+                occurrenceID: occurrenceID,
+                completedAt: completedAt
             )
         ) { result in
             switch result {
@@ -2095,6 +2310,14 @@ public final class GetDueHabitsForDateUseCase {
         completion: @escaping (Result<[HabitOccurrenceSummary], Error>) -> Void
     ) {
         readRepository.fetchAgendaHabits(for: date, completion: completion)
+    }
+
+    public func execute(
+        date: Date,
+        habitID: UUID,
+        completion: @escaping (Result<HabitOccurrenceSummary?, Error>) -> Void
+    ) {
+        readRepository.fetchAgendaHabit(habitID: habitID, for: date, completion: completion)
     }
 }
 
@@ -2144,6 +2367,18 @@ public final class GetHabitLibraryUseCase {
     ) {
         readRepository.fetchHabitLibrary(includeArchived: includeArchived, completion: completion)
     }
+
+    public func execute(
+        habitIDs: [UUID]?,
+        includeArchived: Bool = true,
+        completion: @escaping (Result<[HabitLibraryRow], Error>) -> Void
+    ) {
+        readRepository.fetchHabitLibrary(
+            habitIDs: habitIDs,
+            includeArchived: includeArchived,
+            completion: completion
+        )
+    }
 }
 
 public final class BuildHabitHomeProjectionUseCase {
@@ -2164,28 +2399,68 @@ public final class BuildHabitHomeProjectionUseCase {
             case .failure(let error):
                 completion(.failure(error))
             case .success(let summaries):
-                let rows = summaries.map { summary in
-                    HomeHabitRow(
-                        habitID: summary.habitID,
-                        occurrenceID: summary.occurrenceID,
-                        title: summary.title,
-                        kind: summary.kind,
-                        trackingMode: summary.trackingMode,
-                        lifeAreaID: summary.lifeAreaID,
-                        lifeAreaName: summary.lifeAreaName,
-                        projectID: summary.projectID,
-                        projectName: summary.projectName,
-                        iconSymbolName: summary.icon?.symbolName ?? "circle.dashed",
-                        dueAt: summary.dueAt,
-                        state: HabitRuntimeSupport.homeState(for: summary, on: date),
-                        currentStreak: summary.currentStreak,
-                        bestStreak: summary.bestStreak,
-                        last14Days: summary.last14Days,
-                        riskState: summary.riskState
-                    )
-                }
+                let rows = summaries.map { Self.makeHomeRow(summary: $0, date: date) }
                 completion(.success(rows))
             }
         }
+    }
+
+    public func execute(
+        date: Date,
+        habitID: UUID,
+        completion: @escaping (Result<HomeHabitRow?, Error>) -> Void
+    ) {
+        getDueHabitsForDateUseCase.execute(date: date, habitID: habitID) { result in
+            completion(result.map { summary in
+                summary.map { Self.makeHomeRow(summary: $0, date: date) }
+            })
+        }
+    }
+
+    private static func makeHomeRow(
+        summary: HabitOccurrenceSummary,
+        date: Date
+    ) -> HomeHabitRow {
+        let compactCells = HabitBoardPresentationBuilder.buildCells(
+            marks: summary.last14Days,
+            cadence: summary.cadence,
+            referenceDate: date,
+            dayCount: 7
+        )
+        let expandedCells = HabitBoardPresentationBuilder.buildCells(
+            marks: summary.last14Days,
+            cadence: summary.cadence,
+            referenceDate: date,
+            dayCount: 30
+        )
+        let rowState = HabitRuntimeSupport.homeState(for: summary, on: date)
+        let calendar = Calendar.current
+        let todayMark = summary.last14Days.first { mark in
+            calendar.isDate(mark.date, inSameDayAs: date)
+        }
+        return HomeHabitRow(
+            habitID: summary.habitID,
+            occurrenceID: summary.occurrenceID,
+            title: summary.title,
+            kind: summary.kind,
+            trackingMode: summary.trackingMode,
+            lifeAreaID: summary.lifeAreaID,
+            lifeAreaName: summary.lifeAreaName,
+            projectID: summary.projectID,
+            projectName: summary.projectName,
+            iconSymbolName: summary.icon?.symbolName ?? "circle.dashed",
+            accentHex: summary.colorHex,
+            cadence: summary.cadence,
+            cadenceLabel: HabitBoardPresentationBuilder.cadenceLabel(for: summary.cadence),
+            dueAt: summary.dueAt,
+            state: rowState,
+            currentStreak: summary.currentStreak,
+            bestStreak: summary.bestStreak,
+            last14Days: summary.last14Days,
+            boardCellsCompact: compactCells,
+            boardCellsExpanded: expandedCells,
+            riskState: todayMark?.state == .failure ? .broken : .stable,
+            helperText: nil
+        )
     }
 }

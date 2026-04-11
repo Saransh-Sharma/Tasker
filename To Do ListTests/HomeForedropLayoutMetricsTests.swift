@@ -245,6 +245,8 @@ private final class MockHomeSearchEngine: HomeSearchEngine {
         _ = revision
     }
 
+    func releaseResources() {}
+
     func groupTasksByProject(_ tasks: [TaskDefinition]) -> [(project: String, tasks: [TaskDefinition])] {
         let grouped = Dictionary(grouping: tasks) { $0.projectName ?? "Inbox" }
         return grouped.map { ($0.key, $0.value) }.sorted { $0.project < $1.project }

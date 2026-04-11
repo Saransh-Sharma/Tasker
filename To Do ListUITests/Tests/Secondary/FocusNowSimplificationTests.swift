@@ -12,11 +12,17 @@ final class FocusNowSimplificationTests: BaseUITest {
         homePage = HomePage(app: app)
     }
 
-    private func relaunchWithRescueSeed() {
+    private func relaunchWithRescueSeed(compact: Bool = false) {
         app.terminate()
-        if !app.launchArguments.contains(XCUIApplication.LaunchArgumentKey.testSeedRescueWorkspace.rawValue) {
-            app.launchArguments.append(XCUIApplication.LaunchArgumentKey.testSeedRescueWorkspace.rawValue)
+        app.launchArguments.removeAll {
+            $0 == XCUIApplication.LaunchArgumentKey.testSeedRescueWorkspace.rawValue
+                || $0 == XCUIApplication.LaunchArgumentKey.testSeedCompactRescueWorkspace.rawValue
         }
+        app.launchArguments.append(
+            compact
+                ? XCUIApplication.LaunchArgumentKey.testSeedCompactRescueWorkspace.rawValue
+                : XCUIApplication.LaunchArgumentKey.testSeedRescueWorkspace.rawValue
+        )
         app.launch()
         waitForAppLaunch()
         homePage = HomePage(app: app)
@@ -32,16 +38,24 @@ final class FocusNowSimplificationTests: BaseUITest {
         homePage = HomePage(app: app)
     }
 
-    func testFocusNowTitleTapOpensWhyAndLegacyActionsAreRemoved() throws {
+    func testFocusNowTitleTapOpensDetailAndHomeStripStaysCompact() throws {
         relaunchWithFocusSeed()
         XCTAssertTrue(homePage.focusStrip.waitForExistence(timeout: 5), "Focus strip should exist with focus seed")
 
         XCTAssertFalse(app.buttons["home.focus.why"].exists, "Legacy Why button should be removed")
         XCTAssertFalse(app.buttons["home.focus.plan15"].exists, "Plan next 15m button should be removed")
         XCTAssertFalse(app.staticTexts["home.focus.summary"].exists, "Focus summary subtitle should be removed")
+        XCTAssertFalse(homePage.focusShuffleButton.exists, "Home Focus Now should no longer expose shuffle")
 
         let titleTap = homePage.focusTitleTap
         XCTAssertTrue(titleTap.waitForExistence(timeout: 3), "Focus title tap target should exist")
+        XCTAssertEqual(titleTap.label, "Focus Now", "Home Focus Now title should not include a count badge")
+
+        let focusStripText = homePage.focusStrip.staticTexts
+        XCTAssertFalse(focusStripText["P1"].exists, "Compact Focus Now should not show priority chips")
+        XCTAssertFalse(focusStripText["P2"].exists, "Compact Focus Now should not show priority chips")
+        XCTAssertFalse(focusStripText["P3"].exists, "Compact Focus Now should not show priority chips")
+        XCTAssertFalse(focusStripText["P0"].exists, "Compact Focus Now should not show priority chips")
 
         if titleTap.isHittable {
             titleTap.tap()
@@ -50,8 +64,8 @@ final class FocusNowSimplificationTests: BaseUITest {
         }
 
         XCTAssertTrue(
-            app.navigationBars.staticTexts["Why Eva Picked These"].waitForExistence(timeout: 3),
-            "Tapping focus title should open Why sheet"
+            app.navigationBars.staticTexts["Focus Now"].waitForExistence(timeout: 3),
+            "Tapping focus title should open the Focus Now detail sheet"
         )
     }
 
@@ -73,7 +87,7 @@ final class FocusNowSimplificationTests: BaseUITest {
         )
     }
 
-    func testVisibleFocusTaskCanBePinnedAndSurvivesShuffle() throws {
+    func testVisibleFocusTaskCanBePinnedAndSurvivesDetailShuffle() throws {
         relaunchWithFocusSeed()
 
         let focusCard = homePage.focusTaskCard(containingTitle: SeededFocusTitle.detail)
@@ -86,8 +100,16 @@ final class FocusNowSimplificationTests: BaseUITest {
         waitForAnimations(duration: 0.5)
         XCTAssertEqual(pinButton.label, "Unpin from Focus Now", "Pin state should update before shuffle")
 
-        let shuffleButton = homePage.focusShuffleButton
-        XCTAssertTrue(shuffleButton.waitForExistence(timeout: 3), "Shuffle button should be exposed")
+        let titleTap = homePage.focusTitleTap
+        XCTAssertTrue(titleTap.waitForExistence(timeout: 3), "Focus title tap target should exist")
+        if titleTap.isHittable {
+            titleTap.tap()
+        } else {
+            titleTap.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+        }
+
+        let shuffleButton = homePage.focusDetailShuffleButton
+        XCTAssertTrue(shuffleButton.waitForExistence(timeout: 3), "Detail sheet should expose shuffle")
         shuffleButton.tap()
 
         XCTAssertTrue(
@@ -96,7 +118,7 @@ final class FocusNowSimplificationTests: BaseUITest {
         )
     }
 
-    func testRescueHeaderShowsPersistentStartActionWhenRescueItemsExist() throws {
+    func testExpandedRescueTailShowsPersistentStartActionWithoutChevron() throws {
         relaunchWithRescueSeed()
 
         XCTAssertTrue(
@@ -105,35 +127,55 @@ final class FocusNowSimplificationTests: BaseUITest {
         )
         XCTAssertTrue(homePage.rescueHeader.exists, "Rescue header should remain visible")
         XCTAssertTrue(homePage.rescueStartButton.exists, "Start rescue button should remain visible in header")
+        XCTAssertFalse(homePage.rescueExpandButton.exists, "Expanded Rescue tail should not expose a chevron")
+        XCTAssertTrue(homePage.rescueRow(containingTitle: "Rescue hidden").exists, "Expanded Rescue tail should render all rescue rows inline")
     }
 
-    func testCollapsedRescueShowsPreviewRowsAndExpandKeepsStartActionVisible() throws {
-        relaunchWithRescueSeed()
+    func testCompactRescueTailExpandsInlinePreview() throws {
+        relaunchWithRescueSeed(compact: true)
 
         XCTAssertTrue(homePage.rescueSection.waitForExistence(timeout: 5), "Rescue section should exist")
-        XCTAssertTrue(homePage.rescueRow(containingTitle: "Rescue oldest").exists, "Collapsed Rescue should show oldest preview row")
-        XCTAssertTrue(homePage.rescueRow(containingTitle: "Rescue middle").exists, "Collapsed Rescue should show second preview row")
-        XCTAssertTrue(homePage.rescueRow(containingTitle: "Rescue newest").exists, "Collapsed Rescue should show third preview row")
-        XCTAssertFalse(homePage.rescueRow(containingTitle: "Rescue hidden").exists, "Collapsed Rescue should hide rows beyond preview limit")
+        XCTAssertTrue(homePage.rescueOpenButton.exists, "Compact Rescue should expose a main row button")
+        XCTAssertTrue(homePage.rescueExpandButton.exists, "Compact Rescue should expose a chevron")
+        XCTAssertFalse(homePage.rescueStartButton.exists, "Compact Rescue should not expose the expanded Start rescue button")
+        XCTAssertFalse(homePage.rescueRow(containingTitle: "Rescue oldest").exists, "Collapsed compact Rescue should hide inline preview rows")
 
         homePage.tapRescueExpand()
 
+        XCTAssertTrue(homePage.rescueRow(containingTitle: "Rescue oldest").waitForExistence(timeout: 3), "Expanded compact Rescue should reveal the oldest rescue row")
+        XCTAssertTrue(homePage.rescueRow(containingTitle: "Rescue middle").exists, "Expanded compact Rescue should reveal the middle rescue row")
         XCTAssertTrue(
-            homePage.rescueRow(containingTitle: "Rescue hidden").waitForExistence(timeout: 3),
-            "Expanded Rescue should reveal rows beyond preview limit"
+            homePage.rescueRow(containingTitle: "Rescue newest").exists,
+            "Expanded compact Rescue should reveal all compact rescue rows"
         )
-        XCTAssertTrue(homePage.rescueStartButton.exists, "Start rescue should remain visible after expanding")
     }
 
-    func testStartRescueOpensRescueSheet() throws {
-        relaunchWithRescueSeed()
+    func testCompactRescueMainRowOpensSheetAndRendersAtTail() throws {
+        relaunchWithRescueSeed(compact: true)
 
         XCTAssertTrue(homePage.rescueSection.waitForExistence(timeout: 5), "Rescue section should exist")
-        homePage.tapStartRescue()
+        let focusRow = homePage.taskRow(containingTitle: "Today focus seed")
+        XCTAssertTrue(focusRow.waitForExistence(timeout: 5), "Expected seeded Today task row")
+        XCTAssertGreaterThan(homePage.rescueSection.frame.minY, focusRow.frame.maxY, "Rescue tail should render after visible Today rows")
+
+        homePage.tapRescueOpen()
 
         XCTAssertTrue(
             homePage.rescueSheet.waitForExistence(timeout: 5),
-            "Start rescue should open the Rescue sheet"
+            "Compact Rescue main row should open the Rescue sheet"
         )
+    }
+
+    func testZeroRescueStateDoesNotRenderRescueTail() throws {
+        app.terminate()
+        app.launchArguments.removeAll {
+            $0 == XCUIApplication.LaunchArgumentKey.testSeedRescueWorkspace.rawValue
+                || $0 == XCUIApplication.LaunchArgumentKey.testSeedCompactRescueWorkspace.rawValue
+        }
+        app.launch()
+        waitForAppLaunch()
+        homePage = HomePage(app: app)
+
+        XCTAssertFalse(homePage.rescueSection.waitForExistence(timeout: 2), "Rescue tail should not render without rescue items")
     }
 }

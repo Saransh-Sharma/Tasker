@@ -68,15 +68,6 @@ struct AddTaskCreateButton: View {
                 )
             }
             .buttonStyle(.plain)
-            .taskerCTABezel(
-                style: .primaryWide,
-                palette: .roseGold,
-                idleMotion: .slowLoop,
-                isEnabled: isEnabled,
-                isBusy: isLoading || successFlash,
-                showsWhenDisabled: false
-            )
-            .taskerSuccessPulse(isActive: successFlash)
             .scaleOnPress()
             .disabled(!isEnabled || isLoading)
             .animation(TaskerAnimation.quick, value: isEnabled)

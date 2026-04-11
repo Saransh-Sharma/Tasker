@@ -1,6 +1,9 @@
 import Foundation
 import os.log
 import os.signpost
+#if canImport(Darwin)
+import Darwin
+#endif
 
 /// Log level enumeration
 public enum LogLevel: Int {
@@ -400,6 +403,92 @@ public enum TaskerPerformanceTrace {
         os_signpost(.event, log: performanceLog, name: name, "%{public}ld", value)
         os_signpost(.event, log: pointsOfInterestLog, name: name, "%{public}ld", value)
     }
+}
+
+enum TaskerMemoryDiagnostics {
+    #if DEBUG
+    private static let byteFormatter: ByteCountFormatter = {
+        let formatter = ByteCountFormatter()
+        formatter.allowedUnits = [.useMB]
+        formatter.countStyle = .memory
+        formatter.includesUnit = true
+        formatter.isAdaptive = true
+        return formatter
+    }()
+    #endif
+
+    static func checkpoint(
+        event: String,
+        message: String,
+        component: String = "memory",
+        fields: [String: String] = [:],
+        counts: [String: Int] = [:]
+    ) {
+        #if DEBUG
+        var resolvedFields = fields
+        if let residentBytes = residentFootprintBytes() {
+            resolvedFields["resident_mb"] = String(format: "%.1f", Double(residentBytes) / 1_048_576)
+            resolvedFields["resident_human"] = byteFormatter.string(fromByteCount: Int64(residentBytes))
+        }
+        if let physFootprintBytes = physicalFootprintBytes() {
+            resolvedFields["phys_footprint_mb"] = String(format: "%.1f", Double(physFootprintBytes) / 1_048_576)
+            resolvedFields["phys_footprint_human"] = byteFormatter.string(fromByteCount: Int64(physFootprintBytes))
+        }
+        for key in counts.keys.sorted() {
+            resolvedFields[key] = String(counts[key] ?? 0)
+        }
+
+        LoggingService.shared.log(
+            level: .debug,
+            component: component,
+            event: event,
+            message: message,
+            fields: resolvedFields
+        )
+        #else
+        _ = event
+        _ = message
+        _ = component
+        _ = fields
+        _ = counts
+        #endif
+    }
+
+    #if DEBUG
+    private static func residentFootprintBytes() -> UInt64? {
+        var info = mach_task_basic_info()
+        var count = mach_msg_type_number_t(MemoryLayout<mach_task_basic_info>.size / MemoryLayout<natural_t>.size)
+        let result = withUnsafeMutablePointer(to: &info) { pointer in
+            pointer.withMemoryRebound(to: integer_t.self, capacity: Int(count)) { integerPointer in
+                task_info(
+                    mach_task_self_,
+                    task_flavor_t(MACH_TASK_BASIC_INFO),
+                    integerPointer,
+                    &count
+                )
+            }
+        }
+        guard result == KERN_SUCCESS else { return nil }
+        return UInt64(info.resident_size)
+    }
+
+    private static func physicalFootprintBytes() -> UInt64? {
+        var info = task_vm_info_data_t()
+        var count = mach_msg_type_number_t(MemoryLayout<task_vm_info_data_t>.size / MemoryLayout<natural_t>.size)
+        let result = withUnsafeMutablePointer(to: &info) { pointer in
+            pointer.withMemoryRebound(to: integer_t.self, capacity: Int(count)) { integerPointer in
+                task_info(
+                    mach_task_self_,
+                    task_flavor_t(TASK_VM_INFO),
+                    integerPointer,
+                    &count
+                )
+            }
+        }
+        guard result == KERN_SUCCESS else { return nil }
+        return info.phys_footprint
+    }
+    #endif
 }
 
 // MARK: - Global Convenience Functions

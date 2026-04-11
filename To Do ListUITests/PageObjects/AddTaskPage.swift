@@ -75,6 +75,18 @@ class AddTaskPage {
         return field
     }
 
+    var detailsDisclosure: XCUIElement {
+        app.buttons[AccessibilityIdentifiers.AddTask.detailsDisclosure]
+    }
+
+    var lifeAreaSelector: XCUIElement {
+        app.otherElements[AccessibilityIdentifiers.AddTask.lifeAreaSelector]
+    }
+
+    var projectSelector: XCUIElement {
+        app.otherElements[AccessibilityIdentifiers.AddTask.projectSelector]
+    }
+
     var prioritySegmentedControl: XCUIElement {
         return app.segmentedControls[AccessibilityIdentifiers.AddTask.prioritySegmentedControl]
     }
@@ -253,12 +265,41 @@ class AddTaskPage {
 
     /// Enter task description
     func enterDescription(_ description: String) {
+        expandDetailsIfNeeded()
         descriptionField.tap()
         descriptionField.typeText(description)
     }
 
+    func expandDetailsIfNeeded() {
+        if descriptionField.waitForExistence(timeout: 0.5) {
+            return
+        }
+
+        let candidates: [XCUIElement] = [
+            detailsDisclosure,
+            app.buttons["Add details"],
+            app.buttons["Details"]
+        ]
+
+        for candidate in candidates where candidate.waitForExistence(timeout: 1) {
+            candidate.tap()
+            if descriptionField.waitForExistence(timeout: 1.5) {
+                return
+            }
+            let refreshedDisclosure = candidate.identifier.isEmpty
+                ? detailsDisclosure
+                : app.buttons[candidate.identifier]
+            if refreshedDisclosure.waitForExistence(timeout: 1) {
+                refreshedDisclosure.tap()
+                _ = descriptionField.waitForExistence(timeout: 1.5)
+            }
+            return
+        }
+    }
+
     /// Select priority by name
     func selectPriority(_ priority: TestDataFactory.TaskPriority) {
+        expandDetailsIfNeeded()
         // Map priority to actual UI buttons (UI changed from 5 to 4 priorities)
         // Current UI has: "None", "Low", "High", "Max"
         // Map .medium → "Low" since Medium was removed
@@ -306,6 +347,7 @@ class AddTaskPage {
 
     /// Select task type
     func selectTaskType(_ taskType: TestDataFactory.TaskType) {
+        expandDetailsIfNeeded()
         switch taskType {
         case .morning:
             if morningButton.exists {
@@ -380,6 +422,18 @@ class AddTaskPage {
         // Pills may not be exposed as standard buttons in accessibility hierarchy
 
         // Method 1: Try direct button access
+        let scopedProjectButton = projectSelector.buttons[projectName]
+        if scopedProjectButton.exists {
+            scopedProjectButton.tap()
+            return
+        }
+
+        let scopedProjectLabel = projectSelector.staticTexts[projectName]
+        if scopedProjectLabel.exists {
+            scopedProjectLabel.tap()
+            return
+        }
+
         let projectButton = app.buttons[projectName]
         if projectButton.exists {
             projectButton.tap()
@@ -417,6 +471,22 @@ class AddTaskPage {
         }
 
         print("⚠️ Warning: Could not find project named '\(projectName)' - project selection skipped")
+    }
+
+    func selectLifeArea(named lifeAreaName: String) {
+        let scopedCandidates: [XCUIElement] = [
+            lifeAreaSelector.buttons[lifeAreaName],
+            lifeAreaSelector.staticTexts[lifeAreaName],
+            app.buttons[lifeAreaName],
+            app.staticTexts[lifeAreaName]
+        ]
+
+        for candidate in scopedCandidates where candidate.waitForExistence(timeout: 1) {
+            candidate.tap()
+            return
+        }
+
+        print("⚠️ Warning: Could not find life area named '\(lifeAreaName)' - life area selection skipped")
     }
 
     /// Enable reminder
@@ -826,9 +896,9 @@ class AddTaskPage {
         let addTaskSignals: [XCUIElement] = [
             app.otherElements[AccessibilityIdentifiers.AddTask.view],
             app.otherElements[AccessibilityIdentifiers.AddTask.modePicker],
-            app.textFields[AccessibilityIdentifiers.AddTask.descriptionField],
-            app.segmentedControls[AccessibilityIdentifiers.AddTask.prioritySegmentedControl],
-            app.segmentedControls[AccessibilityIdentifiers.AddTask.taskTypeSelector],
+            app.otherElements[AccessibilityIdentifiers.AddTask.lifeAreaSelector],
+            app.otherElements[AccessibilityIdentifiers.AddTask.projectSelector],
+            app.buttons[AccessibilityIdentifiers.AddTask.detailsDisclosure],
             app.buttons[AccessibilityIdentifiers.AddTask.saveButton]
         ]
         let perSignalTimeout = min(1.0, max(0.25, timeout / Double(max(1, addTaskSignals.count))))

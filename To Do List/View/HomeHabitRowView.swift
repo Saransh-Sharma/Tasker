@@ -4,17 +4,48 @@ struct HomeHabitRowView: View {
     let row: HomeHabitRow
     var onPrimaryAction: (() -> Void)? = nil
     var onSecondaryAction: (() -> Void)? = nil
+    var onOpenDetail: (() -> Void)? = nil
+    var onLastCellAction: (() -> Void)? = nil
 
-    @State private var isExpanded = false
+    init(
+        row: HomeHabitRow,
+        onPrimaryAction: (() -> Void)? = nil,
+        onSecondaryAction: (() -> Void)? = nil,
+        onOpenDetail: (() -> Void)? = nil,
+        onLastCellAction: (() -> Void)? = nil
+    ) {
+        self.row = row
+        self.onPrimaryAction = onPrimaryAction
+        self.onSecondaryAction = onSecondaryAction
+        self.onOpenDetail = onOpenDetail
+        self.onLastCellAction = onLastCellAction
+    }
 
-    @ObservedObject private var themeManager = TaskerThemeManager.shared
     @Environment(\.taskerLayoutClass) private var layoutClass
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Environment(\.colorScheme) private var colorScheme
 
-    private var spacing: TaskerSpacingTokens { themeManager.tokens(for: layoutClass).spacing }
-    private var corner: TaskerCornerTokens { themeManager.tokens(for: layoutClass).corner }
-    private var colorTokens: TaskerColorTokens { themeManager.tokens(for: layoutClass).color }
+    private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.tokens(for: layoutClass).spacing }
+
+    private var family: HabitColorFamily {
+        HabitColorFamily.family(for: row.accentHex, fallback: row.kind == .positive ? .green : .coral)
+    }
+
+    private var accentColor: Color {
+        HabitEverydayPalette.familyPreview(family)
+    }
+
+    private var usesExpandedTitle: Bool {
+        dynamicTypeSize >= .accessibility1
+    }
+
+    private var rowMinHeight: CGFloat {
+        usesExpandedTitle ? 88 : 64
+    }
+
+    private var iconTileWidth: CGFloat {
+        usesExpandedTitle ? 72 : 64
+    }
 
     private var isResolved: Bool {
         switch row.state {
@@ -25,275 +56,220 @@ struct HomeHabitRowView: View {
         }
     }
 
-    private var hasPrimaryAction: Bool {
-        isResolved == false && compactPrimaryActionTitle != nil && onPrimaryAction != nil
-    }
-
-    private var hasSecondaryAction: Bool {
-        isResolved == false && compactSecondaryActionTitle != nil && onSecondaryAction != nil
+    private var lastCellInteraction: HomeHabitLastCellInteraction? {
+        HomeHabitLastCellInteraction.resolve(for: row)
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: spacing.s8) {
-            collapsedRail
-
-            if isExpanded {
-                expandedBand
-                    .transition(
-                        .asymmetric(
-                            insertion: .opacity.combined(with: .move(edge: .top)),
-                            removal: .opacity
-                        )
-                    )
+        rowBase
+            .overlay {
+                rowInteractionOverlay
             }
-        }
-        .padding(.horizontal, spacing.s8)
-        .padding(.vertical, isExpanded ? spacing.s8 : spacing.s4)
-        .frame(minHeight: isExpanded ? 94 : 56)
-        .background(cardFill)
-        .overlay(cardBorder)
-        .clipShape(RoundedRectangle(cornerRadius: corner.r2, style: .continuous))
-        .overlay(alignment: .topLeading) {
-            Capsule(style: .continuous)
-                .fill(primaryTone.opacity(isResolved ? 0.52 : 0.84))
-                .frame(width: isExpanded ? 28 : 20, height: 2)
-                .padding(.horizontal, spacing.s8)
-                .padding(.top, 1)
-        }
-        .accessibilityElement(children: .contain)
-        .accessibilityLabel(accessibilityLabel)
-        .accessibilityValue(accessibilityValue)
-        .accessibilityHint(accessibilityHint)
-        .accessibilityIdentifier("home.habitRow.\(row.id)")
-        .animation(reduceMotion ? .linear(duration: 0.01) : TaskerAnimation.stateChange, value: row.state)
-        .animation(reduceMotion ? .linear(duration: 0.01) : TaskerAnimation.feedbackFast, value: row.riskState)
-        .animation(reduceMotion ? .linear(duration: 0.01) : TaskerAnimation.panelIn, value: isExpanded)
-        .onChange(of: row.state) { _, newState in
-            switch newState {
-            case .completedToday, .lapsedToday, .skippedToday:
-                isExpanded = false
-            case .due, .overdue, .tracking:
-                break
-            }
-        }
-    }
-
-    private var collapsedRail: some View {
-        HStack(spacing: spacing.s8) {
-            compactIconTile
-
-            Text(row.title)
-                .font(.tasker(.caption1).weight(.semibold))
-                .foregroundColor(textPrimaryColor)
-                .lineLimit(1)
-                .truncationMode(.tail)
-                .frame(maxWidth: .infinity, alignment: .leading)
-
-            streakToken
-                .fixedSize(horizontal: true, vertical: false)
-
-            quickActionSlot
-                .fixedSize(horizontal: true, vertical: false)
-
-            expandButton
-                .fixedSize(horizontal: true, vertical: false)
-        }
-        .frame(minHeight: 44)
-    }
-
-    private var expandedBand: some View {
-        VStack(alignment: .leading, spacing: spacing.s4) {
-            HStack(alignment: .center, spacing: spacing.s8) {
-                Text(expandedMetaText)
-                    .font(.tasker(.caption1))
-                    .foregroundColor(textSecondaryColor)
-                    .lineLimit(1)
-                    .truncationMode(.tail)
-
-                Spacer(minLength: spacing.s8)
-
-                if hasSecondaryAction, let compactSecondaryActionTitle, let onSecondaryAction {
-                    compactSecondaryButton(
-                        title: compactSecondaryActionTitle,
-                        accessibilityLabel: secondaryActionAccessibilityLabel ?? compactSecondaryActionTitle,
-                        action: onSecondaryAction
-                    )
+            .accessibilityIdentifier("home.habitRow.\(row.id)")
+            .swipeActions(edge: .leading, allowsFullSwipe: primaryActionTitle != nil) {
+                if let primaryActionTitle, let onPrimaryAction {
+                    Button {
+                        TaskerFeedback.light()
+                        onPrimaryAction()
+                    } label: {
+                        Label(primaryActionTitle, systemImage: primaryActionSymbolName)
+                    }
+                    .tint(primaryActionTint)
                 }
             }
-
-            HabitHistoryStripView(marks: displayMarks)
-        }
-        .padding(.top, 1)
-    }
-
-    private var streakToken: some View {
-        Text("\(row.currentStreak)d")
-            .font(.tasker(.caption1).weight(.semibold))
-            .foregroundColor(primaryTone)
-            .padding(.horizontal, spacing.s8)
-            .frame(height: 28)
-            .background(primaryTone.opacity(colorSchemeIsDark ? 0.16 : 0.09))
-            .overlay(
-                Capsule(style: .continuous)
-                    .stroke(primaryTone.opacity(colorSchemeIsDark ? 0.30 : 0.18), lineWidth: 1)
-            )
-            .clipShape(Capsule())
-            .accessibilityLabel("Current streak \(row.currentStreak) days")
-    }
-
-    @ViewBuilder
-    private var quickActionSlot: some View {
-        if isResolved {
-            resolvedStateToken
-        } else if hasPrimaryAction, let compactPrimaryActionTitle, let onPrimaryAction {
-            compactPrimaryButton(
-                title: compactPrimaryActionTitle,
-                accessibilityLabel: primaryActionAccessibilityLabel ?? compactPrimaryActionTitle,
-                action: onPrimaryAction
-            )
-        }
-    }
-
-    private func compactPrimaryButton(
-        title: String,
-        accessibilityLabel: String,
-        action: @escaping () -> Void
-    ) -> some View {
-        Button {
-            TaskerFeedback.light()
-            action()
-        } label: {
-            Text(title)
-                .font(.tasker(.caption1).weight(.semibold))
-                .foregroundColor(primaryTone)
-                .frame(minWidth: 58, minHeight: 44)
-                .background(primaryTone.opacity(colorSchemeIsDark ? 0.18 : 0.10))
-                .overlay(
-                    RoundedRectangle(cornerRadius: corner.r1, style: .continuous)
-                        .stroke(primaryTone.opacity(colorSchemeIsDark ? 0.34 : 0.22), lineWidth: 1)
-                )
-                .clipShape(RoundedRectangle(cornerRadius: corner.r1, style: .continuous))
-        }
-        .buttonStyle(.plain)
-        .scaleOnPress()
-        .accessibilityLabel(accessibilityLabel)
-    }
-
-    private func compactSecondaryButton(
-        title: String,
-        accessibilityLabel: String,
-        action: @escaping () -> Void
-    ) -> some View {
-        Button {
-            TaskerFeedback.light()
-            action()
-        } label: {
-            Text(title)
-                .font(.tasker(.caption1).weight(.semibold))
-                .foregroundColor(textSecondaryColor)
-                .frame(minWidth: 58, minHeight: 44)
-                .background(surfaceSecondaryColor.opacity(0.9))
-                .overlay(
-                    RoundedRectangle(cornerRadius: corner.r1, style: .continuous)
-                        .stroke(strokeHairlineColor.opacity(0.9), lineWidth: 1)
-                )
-                .clipShape(RoundedRectangle(cornerRadius: corner.r1, style: .continuous))
-        }
-        .buttonStyle(.plain)
-        .scaleOnPress()
-        .accessibilityLabel(accessibilityLabel)
-    }
-
-    private var resolvedStateToken: some View {
-        Text(resolvedCompactStateText)
-            .font(.tasker(.caption1).weight(.semibold))
-            .foregroundColor(primaryTone)
-            .frame(minWidth: 58, minHeight: 44)
-            .background(primaryTone.opacity(colorSchemeIsDark ? 0.14 : 0.08))
-            .overlay(
-                RoundedRectangle(cornerRadius: corner.r1, style: .continuous)
-                    .stroke(primaryTone.opacity(colorSchemeIsDark ? 0.26 : 0.16), lineWidth: 1)
-            )
-            .clipShape(RoundedRectangle(cornerRadius: corner.r1, style: .continuous))
-            .accessibilityLabel("Status \(resolvedCompactStateText)")
-    }
-
-    private var expandButton: some View {
-        Button {
-            TaskerFeedback.selection()
-            withAnimation(reduceMotion ? .linear(duration: 0.01) : TaskerAnimation.stateChange) {
-                isExpanded.toggle()
+            .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                if let secondaryActionTitle, let onSecondaryAction {
+                    Button {
+                        TaskerFeedback.light()
+                        onSecondaryAction()
+                    } label: {
+                        Label(secondaryActionTitle, systemImage: secondaryActionSymbolName)
+                    }
+                    .tint(secondaryActionTint)
+                }
             }
-        } label: {
-            Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
-                .font(.system(size: 11, weight: .semibold))
-                .foregroundColor(textSecondaryColor)
-                .frame(width: 44, height: 44)
-                .background(surfaceSecondaryColor.opacity(0.72))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 12, style: .continuous)
-                        .stroke(strokeHairlineColor.opacity(0.8), lineWidth: 1)
-                )
-                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-        }
-        .buttonStyle(.plain)
-        .scaleOnPress()
-        .accessibilityLabel(isExpanded ? "Collapse habit details" : "Expand habit details")
-        .accessibilityHint("Shows history and secondary action")
+            .contextMenu {
+                if let onOpenDetail {
+                    Button {
+                        onOpenDetail()
+                    } label: {
+                        Label("Open details", systemImage: "arrow.up.right.square")
+                    }
+                }
+
+                if let primaryActionTitle, let onPrimaryAction {
+                    Button {
+                        onPrimaryAction()
+                    } label: {
+                        Label(primaryActionTitle, systemImage: primaryActionSymbolName)
+                    }
+                }
+
+                if let secondaryActionTitle, let onSecondaryAction {
+                    Button {
+                        onSecondaryAction()
+                    } label: {
+                        Label(secondaryActionTitle, systemImage: secondaryActionSymbolName)
+                    }
+                }
+            }
+            .hoverEffect(.highlight)
     }
 
-    private var compactIconTile: some View {
+    private var rowBase: some View {
+        HStack(spacing: 0) {
+            iconTile
+            streakSurface
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .frame(minHeight: rowMinHeight, alignment: .center)
+    }
+
+    private var iconTile: some View {
         ZStack {
-            RoundedRectangle(cornerRadius: 10, style: .continuous)
-                .fill(primaryTone.opacity(isResolved ? 0.10 : 0.14))
-                .frame(width: 30, height: 30)
+            accentColor.opacity(0.14)
 
             Image(systemName: row.iconSymbolName)
-                .font(.system(size: 13, weight: .semibold))
-                .foregroundColor(primaryTone)
+                .font(.system(size: usesExpandedTitle ? 20 : 18, weight: .semibold))
+                .foregroundStyle(accentColor)
+                .symbolRenderingMode(.hierarchical)
         }
-        .frame(width: 30, height: 30)
+        .frame(width: iconTileWidth)
+        .frame(maxHeight: .infinity)
+        .overlay(alignment: .trailing) {
+            Rectangle()
+                .fill(Color.tasker.strokeHairline.opacity(0.55))
+                .frame(width: 1)
+        }
+        .accessibilityHidden(true)
+        .accessibilityIdentifier("home.habitRow.icon.\(row.id)")
     }
 
-    private var compactPrimaryActionTitle: String? {
-        guard isResolved == false else { return nil }
-
-        if row.trackingMode == .lapseOnly {
-            return row.state == .tracking ? "Lapse" : nil
+    private var streakSurface: some View {
+        ZStack(alignment: .topLeading) {
+            stretchedStrip
+            titleReadabilityScrim
+            titleView(lineLimit: usesExpandedTitle ? 2 : 1)
+                .padding(.horizontal, usesExpandedTitle ? spacing.s12 : spacing.s8)
+                .padding(.vertical, usesExpandedTitle ? spacing.s12 : spacing.s8)
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .accessibilityIdentifier("home.habitRow.strip.\(row.id)")
+    }
 
-        switch (row.kind, row.trackingMode) {
-        case (.positive, _):
-            return "Done"
-        case (.negative, .dailyCheckIn):
-            return "Clean"
-        case (.negative, .lapseOnly):
-            return nil
+    private func titleView(lineLimit: Int) -> some View {
+        Text(row.title)
+            .font(.tasker(usesExpandedTitle ? .bodyStrong : .body))
+            .foregroundStyle(Color.tasker.textPrimary)
+            .lineLimit(lineLimit)
+            .multilineTextAlignment(.leading)
+            .truncationMode(.tail)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .accessibilityIdentifier("home.habitRow.title.\(row.id)")
+            .accessibilityHidden(true)
+    }
+
+    private var stretchedStrip: some View {
+        GeometryReader { proxy in
+            HabitBoardStripView(
+                cells: boardCells,
+                family: family,
+                mode: .homeList,
+                cellWidthOverride: stretchedCellWidth(for: proxy.size.width),
+                cellHeightOverride: max(proxy.size.height, 1)
+            )
+            .frame(width: proxy.size.width, height: proxy.size.height, alignment: .leading)
+        }
+        .clipped()
+    }
+
+    private var titleReadabilityScrim: some View {
+        LinearGradient(
+            colors: [
+                Color.tasker.surfacePrimary.opacity(0.82),
+                Color.tasker.surfacePrimary.opacity(0.56),
+                Color.tasker.surfacePrimary.opacity(0.12),
+                .clear
+            ],
+            startPoint: .leading,
+            endPoint: .trailing
+        )
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .mask(
+            LinearGradient(
+                colors: [.white, .white, .black.opacity(0.65), .clear],
+                startPoint: .leading,
+                endPoint: .trailing
+            )
+        )
+        .allowsHitTesting(false)
+    }
+
+    private func stretchedCellWidth(for totalWidth: CGFloat) -> CGFloat {
+        let count = CGFloat(max(boardCells.count, 1))
+        return max(totalWidth / count, 1)
+    }
+
+    private func lastCellWidth(for totalWidth: CGFloat) -> CGFloat {
+        let stripWidth = max(totalWidth - iconTileWidth, 1)
+        return stretchedCellWidth(for: stripWidth)
+    }
+
+    private var rowInteractionOverlay: some View {
+        GeometryReader { proxy in
+            let lastCellWidth = lastCellInteraction == nil ? 0 : lastCellWidth(for: proxy.size.width)
+
+            HStack(spacing: 0) {
+                if let onOpenDetail {
+                    Button {
+                        TaskerFeedback.selection()
+                        onOpenDetail()
+                    } label: {
+                        Color.clear
+                    }
+                    .buttonStyle(.plain)
+                    .frame(width: max(proxy.size.width - lastCellWidth, 0))
+                    .frame(maxHeight: .infinity)
+                    .contentShape(Rectangle())
+                    .accessibilityLabel(row.title)
+                    .accessibilityValue(accessibilityValue)
+                    .accessibilityHint(accessibilityHint)
+                } else {
+                    Color.clear
+                        .frame(width: max(proxy.size.width - lastCellWidth, 0))
+                }
+
+                if let interaction = lastCellInteraction,
+                   let onLastCellAction {
+                    Button {
+                        TaskerFeedback.selection()
+                        onLastCellAction()
+                    } label: {
+                        RoundedRectangle(cornerRadius: 1, style: .continuous)
+                            .stroke(HabitEverydayPalette.todayStroke(colorScheme: colorScheme), lineWidth: 1.2)
+                            .background(Color.clear)
+                    }
+                    .buttonStyle(.plain)
+                    .frame(width: lastCellWidth)
+                    .frame(maxHeight: .infinity)
+                    .contentShape(Rectangle())
+                    .accessibilityIdentifier("home.habitRow.lastCell.\(row.id)")
+                    .accessibilityLabel("\(row.title) status")
+                    .accessibilityValue("\(interaction.currentStateText). Next: \(interaction.nextActionText).")
+                    .accessibilityHint("Cycles the last habit cell for the selected date.")
+                } else {
+                    Color.clear
+                        .frame(width: lastCellWidth)
+                }
+            }
         }
     }
 
-    private var compactSecondaryActionTitle: String? {
-        guard isResolved == false else { return nil }
-
-        if row.trackingMode == .lapseOnly {
-            return nil
-        }
-
-        switch (row.kind, row.trackingMode) {
-        case (.positive, _):
-            return "Skip"
-        case (.negative, .dailyCheckIn):
-            return "Lapse"
-        case (.negative, .lapseOnly):
-            return nil
-        }
-    }
-
-    private var primaryActionAccessibilityLabel: String? {
+    private var primaryActionTitle: String? {
+        guard !isResolved else { return nil }
         if row.trackingMode == .lapseOnly {
             return "Log lapse"
         }
-
         switch (row.kind, row.trackingMode) {
         case (.positive, _):
             return "Done"
@@ -304,244 +280,95 @@ struct HomeHabitRowView: View {
         }
     }
 
-    private var secondaryActionAccessibilityLabel: String? {
-        if row.trackingMode == .lapseOnly {
-            return nil
-        }
-
+    private var secondaryActionTitle: String? {
+        guard !isResolved, row.trackingMode != .lapseOnly else { return nil }
         switch (row.kind, row.trackingMode) {
         case (.positive, _):
             return "Skip"
         case (.negative, .dailyCheckIn):
-            return "Log lapse"
+            return "Lapsed"
         case (.negative, .lapseOnly):
             return nil
         }
     }
 
-    private var resolvedCompactStateText: String {
-        switch row.state {
-        case .completedToday:
-            return "Done"
-        case .skippedToday:
-            return "Skip"
-        case .lapsedToday:
-            return "Lapse"
-        case .due, .overdue, .tracking:
-            return stateText
+    private var primaryActionSymbolName: String {
+        if row.trackingMode == .lapseOnly {
+            return "exclamationmark.circle"
+        }
+        switch (row.kind, row.trackingMode) {
+        case (.positive, _):
+            return "checkmark.circle"
+        case (.negative, .dailyCheckIn):
+            return "checkmark.shield"
+        case (.negative, .lapseOnly):
+            return "checkmark.circle"
         }
     }
 
-    private var ownershipLine: String {
-        var parts: [String] = [row.lifeAreaName]
-        if let projectName = row.projectName, projectName.isEmpty == false {
-            parts.append(projectName)
+    private var secondaryActionSymbolName: String {
+        switch (row.kind, row.trackingMode) {
+        case (.positive, _):
+            return "forward.circle"
+        case (.negative, .dailyCheckIn):
+            return "xmark.circle"
+        case (.negative, .lapseOnly):
+            return "xmark.circle"
         }
-        return parts.joined(separator: " · ")
     }
 
-    private var dueText: String {
-        guard let dueAt = row.dueAt else {
-            switch row.state {
-            case .tracking:
-                return "Open today"
-            case .overdue:
-                return "Overdue"
-            case .due:
-                return "Due today"
-            case .completedToday, .lapsedToday, .skippedToday:
-                return "Today"
-            }
-        }
+    private var primaryActionTint: Color {
+        row.trackingMode == .lapseOnly ? Color.tasker.statusDanger : accentColor
+    }
 
-        let time = dueAt.formatted(date: .omitted, time: .shortened)
-        switch row.state {
-        case .overdue:
-            return "Overdue since \(time)"
-        case .due:
-            return "Due \(time)"
-        case .tracking:
-            return "Open until \(time)"
-        case .completedToday, .lapsedToday, .skippedToday:
-            return time
+    private var secondaryActionTint: Color {
+        switch (row.kind, row.trackingMode) {
+        case (.positive, _):
+            return Color.tasker.textSecondary
+        case (.negative, .dailyCheckIn):
+            return Color.tasker.statusDanger
+        case (.negative, .lapseOnly):
+            return Color.tasker.textSecondary
         }
+    }
+
+    private var accessibilityValue: String {
+        "\(stateText). Current streak \(row.currentStreak) days. Best streak \(row.bestStreak) days."
+    }
+
+    private var accessibilityHint: String {
+        if primaryActionTitle != nil || secondaryActionTitle != nil || lastCellInteraction != nil {
+            return "Opens habit details. Swipe for quick actions."
+        }
+        return "Opens habit details."
     }
 
     private var stateText: String {
         switch row.state {
         case .due:
-            return "Due"
+            return "Due today"
         case .overdue:
-            return "Overdue"
-        case .completedToday:
-            return "Done"
-        case .lapsedToday:
-            return "Lapsed"
-        case .skippedToday:
-            return "Skipped"
-        case .tracking:
-            return row.trackingMode == .lapseOnly ? "Quiet" : "Open"
-        }
-    }
-
-    private var riskText: String {
-        switch row.riskState {
-        case .stable:
-            return row.state == .tracking ? "Open" : "On track"
-        case .atRisk:
-            return "At risk"
-        case .broken:
-            return "Recovery"
-        }
-    }
-
-    private var primaryTone: Color {
-        switch row.state {
-        case .due:
-            return accentPrimaryColor
-        case .overdue, .lapsedToday:
-            return statusDangerColor
-        case .completedToday:
-            return statusSuccessColor
-        case .skippedToday:
-            return textTertiaryColor
-        case .tracking:
-            return row.riskState == .broken ? statusDangerColor : accentSecondaryColor
-        }
-    }
-
-    private var expandedMetaText: String {
-        switch row.state {
+            return "Recovery needed"
         case .completedToday:
             return "Completed today"
+        case .lapsedToday:
+            return "Lapse logged today"
         case .skippedToday:
             return "Skipped today"
-        case .lapsedToday:
-            return "Lapsed today"
-        case .due, .overdue, .tracking:
-            var parts = [dueText]
-            if row.riskState != .stable {
-                parts.append(riskText)
-            }
-            return parts.joined(separator: " · ")
-        }
-    }
-
-    private var displayMarks: [HomeHabitDayMark] {
-        if row.last14Days.isEmpty {
-            return Array(repeating: HomeHabitDayMark(date: row.dueAt ?? Date(), state: .none), count: 14)
-        }
-        return row.last14Days
-    }
-
-    private var cardFill: Color {
-        switch row.state {
-        case .overdue:
-            return statusDangerColor.opacity(colorSchemeIsDark ? 0.12 : 0.05)
-        case .due:
-            return accentPrimaryColor.opacity(colorSchemeIsDark ? 0.10 : 0.04)
         case .tracking:
-            return accentSecondaryColor.opacity(colorSchemeIsDark ? 0.09 : 0.035)
-        case .completedToday:
-            return statusSuccessColor.opacity(colorSchemeIsDark ? 0.10 : 0.04)
-        case .lapsedToday:
-            return statusDangerColor.opacity(colorSchemeIsDark ? 0.11 : 0.05)
-        case .skippedToday:
-            return surfaceSecondaryColor.opacity(0.88)
+            return row.trackingMode == .lapseOnly ? "Tracking quietly" : "On track"
         }
     }
 
-    private var cardBorder: some View {
-        RoundedRectangle(cornerRadius: corner.r2, style: .continuous)
-            .stroke(borderColor, lineWidth: 1)
-    }
-
-    private var borderColor: Color {
-        switch row.state {
-        case .overdue:
-            return statusDangerColor.opacity(0.20)
-        case .due:
-            return accentPrimaryColor.opacity(0.16)
-        case .tracking:
-            return accentSecondaryColor.opacity(0.14)
-        case .completedToday:
-            return statusSuccessColor.opacity(0.16)
-        case .lapsedToday:
-            return statusDangerColor.opacity(0.18)
-        case .skippedToday:
-            return strokeHairlineColor.opacity(0.82)
+    private var boardCells: [HabitBoardCell] {
+        if row.boardCellsCompact.isEmpty {
+            return HabitBoardPresentationBuilder.buildCells(
+                marks: row.last14Days,
+                cadence: row.cadence,
+                referenceDate: row.dueAt ?? Date(),
+                dayCount: 7
+            )
         }
-    }
-
-    private var textPrimaryColor: Color { Color(uiColor: colorTokens.textPrimary) }
-    private var textSecondaryColor: Color { Color(uiColor: colorTokens.textSecondary) }
-    private var surfaceSecondaryColor: Color { Color(uiColor: colorTokens.surfaceSecondary) }
-    private var strokeHairlineColor: Color { Color(uiColor: colorTokens.strokeHairline) }
-    private var accentPrimaryColor: Color { Color(uiColor: colorTokens.accentPrimary) }
-    private var accentSecondaryColor: Color { Color(uiColor: colorTokens.accentSecondary) }
-    private var statusDangerColor: Color { Color(uiColor: colorTokens.statusDanger) }
-    private var statusSuccessColor: Color { Color(uiColor: colorTokens.statusSuccess) }
-    private var textTertiaryColor: Color { Color(uiColor: colorTokens.textTertiary) }
-    private var colorSchemeIsDark: Bool { colorScheme == .dark }
-
-    private var accessibilityLabel: String {
-        "\(row.title), \(stateText), \(ownershipLine)"
-    }
-
-    private var accessibilityValue: String {
-        "Current streak \(row.currentStreak) days, \(expandedMetaText)"
-    }
-
-    private var accessibilityHint: String {
-        if hasPrimaryAction, let primaryActionAccessibilityLabel {
-            var hint = "Primary action \(primaryActionAccessibilityLabel)."
-            if hasSecondaryAction, let secondaryActionAccessibilityLabel {
-                hint += " Expand for secondary action \(secondaryActionAccessibilityLabel) and history."
-            } else {
-                hint += " Expand for history."
-            }
-            return hint
-        }
-        return "Expand for history and status details."
-    }
-}
-
-struct HabitHistoryStripView: View {
-    let marks: [HomeHabitDayMark]
-
-    @ObservedObject private var themeManager = TaskerThemeManager.shared
-
-    private var colorTokens: TaskerColorTokens { themeManager.currentTheme.tokens.color }
-    private var statusSuccessColor: Color { Color(uiColor: colorTokens.statusSuccess) }
-    private var statusDangerColor: Color { Color(uiColor: colorTokens.statusDanger) }
-    private var textQuaternaryColor: Color { Color(uiColor: colorTokens.textQuaternary) }
-    private var strokeHairlineColor: Color { Color(uiColor: colorTokens.strokeHairline) }
-    private var accentMutedColor: Color { Color(uiColor: colorTokens.accentMuted) }
-
-    var body: some View {
-        HStack(spacing: 4) {
-            ForEach(Array(marks.prefix(14).enumerated()), id: \.offset) { _, mark in
-                Capsule(style: .continuous)
-                    .fill(color(for: mark.state))
-                    .frame(width: 10, height: 6)
-            }
-        }
-        .accessibilityHidden(true)
-        .animation(TaskerAnimation.feedbackFast, value: marks)
-    }
-
-    private func color(for state: HabitDayState) -> Color {
-        switch state {
-        case .success:
-            return statusSuccessColor
-        case .failure:
-            return statusDangerColor
-        case .skipped:
-            return textQuaternaryColor
-        case .none:
-            return strokeHairlineColor
-        case .future:
-            return accentMutedColor
-        }
+        return row.boardCellsCompact
     }
 }

@@ -23,7 +23,7 @@ struct AddTaskNavigationBar: View {
             } label: {
                 Text(containerMode == .inspector ? "Close" : "Cancel")
                     .font(.tasker(.callout))
-                    .foregroundColor(Color.tasker.textSecondary)
+                    .foregroundStyle(Color.tasker.textSecondary)
             }
             .buttonStyle(.plain)
             .accessibilityIdentifier("addTask.cancelButton")
@@ -32,7 +32,7 @@ struct AddTaskNavigationBar: View {
 
             Text(title)
                 .font(.tasker(.headline))
-                .foregroundColor(Color.tasker.textPrimary)
+                .foregroundStyle(Color.tasker.textPrimary)
 
             Spacer()
 
@@ -44,7 +44,7 @@ struct AddTaskNavigationBar: View {
             } label: {
                 Text("Done")
                     .font(.tasker(.callout).weight(.semibold))
-                    .foregroundColor(canSave ? Color.tasker.accentPrimary : Color.tasker.textQuaternary)
+                    .foregroundStyle(canSave ? Color.tasker.accentPrimary : Color.tasker.textQuaternary)
             }
             .buttonStyle(.plain)
             .disabled(!canSave)

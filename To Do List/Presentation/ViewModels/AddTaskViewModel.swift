@@ -150,7 +150,7 @@ public final class AddTaskViewModel: ObservableObject {
         || selectedType != .morning
         || selectedProject != "Inbox"
         || hasReminder
-        || selectedLifeAreaID != lifeAreas.first?.id
+        || selectedLifeAreaID != nil
         || selectedTagIDs.isEmpty == false
         || selectedParentTaskID != nil
         || selectedDependencyTaskIDs.isEmpty == false
@@ -180,7 +180,6 @@ public final class AddTaskViewModel: ObservableObject {
     public var organizeSummary: String {
         var parts = [selectedProject]
         if let selectedLifeAreaID,
-           selectedLifeAreaID != lifeAreas.first?.id,
            let lifeArea = lifeAreas.first(where: { $0.id == selectedLifeAreaID }) {
             parts.append(lifeArea.name)
         }
@@ -221,6 +220,18 @@ public final class AddTaskViewModel: ObservableObject {
             parts.append(selectedDependencyTaskIDs.count == 1 ? "1 dependency" : "\(selectedDependencyTaskIDs.count) dependencies")
         }
         return parts.isEmpty ? "No linked tasks" : parts.joined(separator: ", ")
+    }
+
+    public var inboxProject: Project? {
+        projects.first(where: { $0.id == ProjectConstants.inboxProjectID })
+    }
+
+    public var filteredProjectsForSelectedLifeArea: [Project] {
+        projects.filter { project in
+            guard project.id != ProjectConstants.inboxProjectID else { return false }
+            guard let selectedLifeAreaID else { return true }
+            return project.lifeAreaID == selectedLifeAreaID
+        }
     }
     
     // MARK: - Dependencies
@@ -505,7 +516,7 @@ public final class AddTaskViewModel: ObservableObject {
         selectedPriority = .low
         selectedType = .morning
         selectedProject = "Inbox"
-        selectedLifeAreaID = lifeAreas.first?.id
+        selectedLifeAreaID = nil
         selectedSectionID = nil
         selectedTagIDs = []
         selectedParentTaskID = nil
@@ -625,6 +636,12 @@ public final class AddTaskViewModel: ObservableObject {
             .removeDuplicates()
             .sink { [weak self] projectName in
                 guard let self else { return }
+                if let project = self.projects.first(where: { $0.name == projectName }),
+                   project.id != ProjectConstants.inboxProjectID,
+                   let projectLifeAreaID = project.lifeAreaID,
+                   self.selectedLifeAreaID != projectLifeAreaID {
+                    self.selectedLifeAreaID = projectLifeAreaID
+                }
                 guard let projectID = self.projects.first(where: { $0.name == projectName })?.id else {
                     self.sections = []
                     self.selectedSectionID = nil
@@ -638,6 +655,13 @@ public final class AddTaskViewModel: ObservableObject {
                         self.loadRelationshipTaskOptionsIfNeeded()
                     }
                 }
+            }
+            .store(in: &cancellables)
+
+        $selectedLifeAreaID
+            .removeDuplicates { $0 == $1 }
+            .sink { [weak self] _ in
+                self?.normalizeProjectSelectionForSelectedLifeArea()
             }
             .store(in: &cancellables)
 
@@ -874,8 +898,14 @@ public final class AddTaskViewModel: ObservableObject {
                     if let selectedLifeAreaID = self.selectedLifeAreaID,
                        dedupedAreas.contains(where: { $0.id == selectedLifeAreaID }) {
                         // Keep existing selection when the selected life-area survives dedupe.
+                    } else if let selectedLifeAreaID = self.selectedLifeAreaID,
+                              let selectedArea = activeAreas.first(where: { $0.id == selectedLifeAreaID }) {
+                        let normalizedName = self.normalizedLifeAreaName(selectedArea.name)
+                        self.selectedLifeAreaID = dedupedAreas.first(where: {
+                            self.normalizedLifeAreaName($0.name) == normalizedName
+                        })?.id
                     } else {
-                        self.selectedLifeAreaID = dedupedAreas.first?.id
+                        self.selectedLifeAreaID = nil
                     }
                     self.applyPendingPrefillIfPossible()
                 case .failure(let error):
@@ -992,7 +1022,7 @@ public final class AddTaskViewModel: ObservableObject {
         }
 
         if selectedProject != ProjectConstants.inboxProjectName
-            || selectedLifeAreaID != lifeAreas.first?.id
+            || selectedLifeAreaID != nil
             || selectedSectionID != nil
             || selectedTagIDs.isEmpty == false {
             sections.insert(.organize)
@@ -1052,6 +1082,18 @@ public final class AddTaskViewModel: ObservableObject {
     private func hasNonEmptyProjectName(_ template: AddTaskPrefillTemplate) -> Bool {
         guard let projectName = template.projectName else { return false }
         return projectName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false
+    }
+
+    private func normalizeProjectSelectionForSelectedLifeArea() {
+        guard selectedProject != ProjectConstants.inboxProjectName else { return }
+        guard let selectedProjectModel = projects.first(where: { $0.name == selectedProject }) else {
+            selectedProject = ProjectConstants.inboxProjectName
+            return
+        }
+        guard let selectedLifeAreaID else { return }
+        if selectedProjectModel.lifeAreaID != selectedLifeAreaID {
+            selectedProject = ProjectConstants.inboxProjectName
+        }
     }
 
     /// Executes loadSections.

@@ -230,21 +230,44 @@ public final class GamificationEngine {
     // MARK: - Record Event
 
     public func recordEvent(context: XPEventContext, completion: @escaping (Result<XPEventResult, Error>) -> Void) {
-        let idempotencyKey = XPCalculationEngine.idempotencyKey(
-            category: context.category,
-            taskID: context.taskID,
-            habitID: context.habitID,
-            parentTaskID: context.parentTaskID,
-            childTaskID: context.childTaskID,
-            sessionID: context.sessionID,
-            fromDay: context.fromDay,
-            toDay: context.toDay,
-            periodKey: XPCalculationEngine.periodKey(for: context.completedAt)
-        )
+        resolveIdempotencyKey(for: context) { [weak self] keyResult in
+            guard let self else { return }
+            switch keyResult {
+            case .failure(let error):
+                completion(.failure(error))
+            case .success(let idempotencyKey):
+                // Step 1: Check idempotency
+                self.repository.hasXPEvent(idempotencyKey: idempotencyKey) { result in
+                    switch result {
+                    case .failure(let error):
+                        completion(.failure(error))
+                    case .success(let exists):
+                        if exists {
+                            self.completeIdempotentReplay(context: context, completion: completion)
+                            return
+                        }
 
-        // Step 1: Check idempotency
+                        // Step 2: Calculate XP
+                        self.calculateAndRecord(context: context, idempotencyKey: idempotencyKey, completion: completion)
+                    }
+                }
+            }
+        }
+    }
+
+    public func recordCompensationEvent(
+        context: XPEventContext,
+        completion: @escaping (Result<XPEventResult, Error>) -> Void
+    ) {
+        let delta = XPCalculationEngine.baseXP(for: context.category)
+        guard delta < 0 else {
+            recordEvent(context: context, completion: completion)
+            return
+        }
+
+        let idempotencyKey = self.idempotencyKey(for: context)
         repository.hasXPEvent(idempotencyKey: idempotencyKey) { [weak self] result in
-            guard let self = self else { return }
+            guard let self else { return }
             switch result {
             case .failure(let error):
                 completion(.failure(error))
@@ -254,8 +277,12 @@ public final class GamificationEngine {
                     return
                 }
 
-                // Step 2: Calculate XP
-                self.calculateAndRecord(context: context, idempotencyKey: idempotencyKey, completion: completion)
+                self.saveCompensationEvent(
+                    context: context,
+                    delta: delta,
+                    idempotencyKey: idempotencyKey,
+                    completion: completion
+                )
             }
         }
     }
@@ -759,6 +786,80 @@ public final class GamificationEngine {
         }
     }
 
+    private func saveCompensationEvent(
+        context: XPEventContext,
+        delta: Int,
+        idempotencyKey: String,
+        completion: @escaping (Result<XPEventResult, Error>) -> Void
+    ) {
+        let periodKey = XPCalculationEngine.periodKey(for: context.completedAt)
+        let event = XPEventDefinition(
+            id: UUID(),
+            occurrenceID: context.occurrenceID,
+            taskID: context.taskID,
+            delta: delta,
+            reason: context.category.rawValue,
+            idempotencyKey: idempotencyKey,
+            createdAt: context.completedAt,
+            category: context.category,
+            source: context.source,
+            qualityWeight: 1.0,
+            periodKey: periodKey
+        )
+
+        repository.saveXPEvent(event) { [weak self] saveResult in
+            guard let self else { return }
+
+            if case .failure(let error) = saveResult {
+                if self.isIdempotentReplayError(error) {
+                    self.completeIdempotentReplay(context: context, completion: completion)
+                } else {
+                    completion(.failure(error))
+                }
+                return
+            }
+
+            self.fullReconciliation { reconcileResult in
+                switch reconcileResult {
+                case .failure(let error):
+                    completion(.failure(error))
+                case .success:
+                    self.fetchCurrentState(for: context.completedAt) { stateResult in
+                        switch stateResult {
+                        case .failure(let error):
+                            completion(.failure(error))
+                        case .success(let (profile, dailyXP)):
+                            let levelInfo = XPCalculationEngine.levelForXP(profile.xpTotal)
+                            let previousXP = profile.xpTotal - Int64(delta)
+                            let previousLevel = XPCalculationEngine.levelForXP(previousXP).level
+                            let result = XPEventResult(
+                                awardedXP: delta,
+                                totalXP: profile.xpTotal,
+                                level: levelInfo.level,
+                                previousLevel: previousLevel,
+                                currentStreak: profile.currentStreak,
+                                didLevelUp: false,
+                                dailyXPSoFar: dailyXP,
+                                dailyCap: XPCalculationEngine.dailyCap,
+                                unlockedAchievements: [],
+                                crossedMilestone: nil,
+                                celebration: nil
+                            )
+                            self.writeWidgetSnapshot()
+                            self.emitLedgerMutation(
+                                context: context,
+                                result: result,
+                                didChange: true,
+                                originatingEventID: event.id
+                            )
+                            completion(.success(result))
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     private func recoverAfterPersistedEvent(
         context: XPEventContext,
         awardedXP: Int,
@@ -1141,8 +1242,75 @@ public final class GamificationEngine {
         return false
     }
 
+    private func idempotencyKey(for context: XPEventContext) -> String {
+        XPCalculationEngine.idempotencyKey(
+            category: context.category,
+            taskID: context.taskID,
+            habitID: context.habitID,
+            parentTaskID: context.parentTaskID,
+            childTaskID: context.childTaskID,
+            sessionID: context.sessionID,
+            fromDay: context.fromDay,
+            toDay: context.toDay,
+            periodKey: XPCalculationEngine.periodKey(for: context.completedAt)
+        )
+    }
+
+    private func resolveIdempotencyKey(
+        for context: XPEventContext,
+        completion: @escaping (Result<String, Error>) -> Void
+    ) {
+        let baseKey = idempotencyKey(for: context)
+        guard let compensationPrefix = habitSuccessCompensationPrefix(for: context) else {
+            completion(.success(baseKey))
+            return
+        }
+
+        let calendar = Calendar.current
+        let startOfDay = calendar.startOfDay(for: context.completedAt)
+        let endOfDay = calendar.date(byAdding: .day, value: 1, to: startOfDay) ?? context.completedAt
+
+        repository.fetchXPEvents(from: startOfDay, to: endOfDay) { result in
+            switch result {
+            case .failure(let error):
+                completion(.failure(error))
+            case .success(let events):
+                let compensationCount = events.filter { event in
+                    event.idempotencyKey.hasPrefix(compensationPrefix)
+                }.count
+                completion(.success("\(baseKey):cycle\(compensationCount)"))
+            }
+        }
+    }
+
+    private func habitSuccessCompensationPrefix(for context: XPEventContext) -> String? {
+        guard let identifier = context.habitID ?? context.taskID else { return nil }
+
+        switch context.category {
+        case .habitPositiveComplete:
+            return "habit_positive_complete_undo:\(identifier.uuidString):\(XPCalculationEngine.periodKey(for: context.completedAt))"
+        case .habitNegativeSuccess:
+            return "habit_negative_success_undo:\(identifier.uuidString):\(XPCalculationEngine.periodKey(for: context.completedAt))"
+        default:
+            return nil
+        }
+    }
+
     private func fetchCurrentState(completion: @escaping (Result<(GamificationSnapshot, Int), Error>) -> Void) {
-        let dateKey = XPCalculationEngine.periodKey()
+        fetchCurrentState(forDateKey: XPCalculationEngine.periodKey(), completion: completion)
+    }
+
+    private func fetchCurrentState(
+        for date: Date,
+        completion: @escaping (Result<(GamificationSnapshot, Int), Error>) -> Void
+    ) {
+        fetchCurrentState(forDateKey: XPCalculationEngine.periodKey(for: date), completion: completion)
+    }
+
+    private func fetchCurrentState(
+        forDateKey dateKey: String,
+        completion: @escaping (Result<(GamificationSnapshot, Int), Error>) -> Void
+    ) {
         repository.fetchProfile { [weak self] profileResult in
             guard let self = self else { return }
             switch profileResult {

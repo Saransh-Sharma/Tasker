@@ -6,6 +6,9 @@
 //
 
 import Foundation
+#if canImport(UIKit)
+import UIKit
+#endif
 
 /// Use case for calculating analytics and productivity metrics
 public final class CalculateAnalyticsUseCase {
@@ -16,17 +19,24 @@ public final class CalculateAnalyticsUseCase {
     private let habitRuntimeReadRepository: HabitRuntimeReadRepositoryProtocol?
     private let scoringService: TaskScoringServiceProtocol
     private let cacheService: CacheServiceProtocol?
-    private let analyticsWindowLimit = 4_000
-    private let analyticsDayWindowLimit = 1_200
+    private let analyticsWindowLimit = 2_000
+    private let analyticsDayWindowLimit = 600
+    private let dailyAnalyticsCacheLimit = 4
+    private let periodAnalyticsCacheLimit = 3
     private let analyticsCacheLock = NSLock()
     private var dailyAnalyticsCache: [String: DailyAnalytics] = [:]
     private var periodAnalyticsCache: [String: PeriodAnalytics] = [:]
+    private var dailyAnalyticsCacheOrder: [String] = []
+    private var periodAnalyticsCacheOrder: [String] = []
     private var cachedProductivityScore: ProductivityScore?
     private var cachedStreakInfo: StreakInfo?
     private let analyticsComputeQueue = DispatchQueue(
         label: "tasker.analytics.compute",
         qos: .userInitiated
     )
+#if canImport(UIKit)
+    private var memoryWarningObserver: NSObjectProtocol?
+#endif
     
     // MARK: - Initialization
     
@@ -41,15 +51,38 @@ public final class CalculateAnalyticsUseCase {
         self.habitRuntimeReadRepository = habitRuntimeReadRepository
         self.scoringService = scoringService ?? DefaultTaskScoringService()
         self.cacheService = cacheService
+#if canImport(UIKit)
+        memoryWarningObserver = NotificationCenter.default.addObserver(
+            forName: UIApplication.didReceiveMemoryWarningNotification,
+            object: nil,
+            queue: nil
+        ) { [weak self] _ in
+            self?.invalidateCaches()
+            TaskerMemoryDiagnostics.checkpoint(
+                event: "analytics_cache_memory_warning",
+                message: "Cleared analytics caches after memory warning"
+            )
+        }
+#endif
     }
 
     public func invalidateCaches() {
         analyticsCacheLock.lock()
         dailyAnalyticsCache.removeAll()
         periodAnalyticsCache.removeAll()
+        dailyAnalyticsCacheOrder.removeAll()
+        periodAnalyticsCacheOrder.removeAll()
         cachedProductivityScore = nil
         cachedStreakInfo = nil
         analyticsCacheLock.unlock()
+    }
+
+    deinit {
+#if canImport(UIKit)
+        if let memoryWarningObserver {
+            NotificationCenter.default.removeObserver(memoryWarningObserver)
+        }
+#endif
     }
     
     // MARK: - Daily Analytics
@@ -89,6 +122,7 @@ public final class CalculateAnalyticsUseCase {
         if canUseCache {
             analyticsCacheLock.lock()
             if let cached = dailyAnalyticsCache[cacheKey] {
+                touchCacheKeyLocked(cacheKey, order: &dailyAnalyticsCacheOrder)
                 analyticsCacheLock.unlock()
                 completion(.success(cached))
                 return
@@ -113,7 +147,7 @@ public final class CalculateAnalyticsUseCase {
                     )
                     if canUseCache {
                         self.analyticsCacheLock.lock()
-                        self.dailyAnalyticsCache[cacheKey] = analytics
+                        self.storeDailyAnalyticsLocked(analytics, for: cacheKey)
                         self.analyticsCacheLock.unlock()
                     }
                     TaskerPerformanceTrace.end(interval)
@@ -280,6 +314,7 @@ public final class CalculateAnalyticsUseCase {
         if canUseCache {
             analyticsCacheLock.lock()
             if let cached = periodAnalyticsCache[cacheKey] {
+                touchCacheKeyLocked(cacheKey, order: &periodAnalyticsCacheOrder)
                 analyticsCacheLock.unlock()
                 completion(.success(cached))
                 return
@@ -316,7 +351,7 @@ public final class CalculateAnalyticsUseCase {
                     )
                     if canUseCache {
                         self.analyticsCacheLock.lock()
-                        self.periodAnalyticsCache[cacheKey] = analytics
+                        self.storePeriodAnalyticsLocked(analytics, for: cacheKey)
                         self.analyticsCacheLock.unlock()
                     }
                     TaskerPerformanceTrace.end(interval)
@@ -457,6 +492,36 @@ public final class CalculateAnalyticsUseCase {
 
         taskReadModelRepository.fetchTasks(query: query) { result in
             completion(result.map(\.tasks))
+        }
+    }
+
+    private func storeDailyAnalyticsLocked(_ analytics: DailyAnalytics, for key: String) {
+        dailyAnalyticsCache[key] = analytics
+        touchCacheKeyLocked(key, order: &dailyAnalyticsCacheOrder)
+        trimCacheLocked(cache: &dailyAnalyticsCache, order: &dailyAnalyticsCacheOrder, limit: dailyAnalyticsCacheLimit)
+    }
+
+    private func storePeriodAnalyticsLocked(_ analytics: PeriodAnalytics, for key: String) {
+        periodAnalyticsCache[key] = analytics
+        touchCacheKeyLocked(key, order: &periodAnalyticsCacheOrder)
+        trimCacheLocked(cache: &periodAnalyticsCache, order: &periodAnalyticsCacheOrder, limit: periodAnalyticsCacheLimit)
+    }
+
+    private func touchCacheKeyLocked(_ key: String, order: inout [String]) {
+        if let existingIndex = order.firstIndex(of: key) {
+            order.remove(at: existingIndex)
+        }
+        order.append(key)
+    }
+
+    private func trimCacheLocked<Value>(
+        cache: inout [String: Value],
+        order: inout [String],
+        limit: Int
+    ) {
+        while order.count > limit {
+            let evictedKey = order.removeFirst()
+            cache.removeValue(forKey: evictedKey)
         }
     }
 

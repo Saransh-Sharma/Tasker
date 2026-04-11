@@ -102,3 +102,14 @@ Source: `XP_LIVE_UPDATE_CORE_DATA_V5_TODO.md`
 - [ ] Manual smoke: verify no WAL checkpoint flood during idle/normal completion flow.
 - [ ] Add remote-change coordinator unit tests (author filter + token progression + coalescing).
 - [ ] Add end-to-end UI launch regression for simulator/test runtime CloudKit-disabled path.
+
+## Habit Board Rehaul V1
+
+- [x] Add board-specific habit presentation models and streak semantics
+- [x] Rebuild Home habit rows around board-first collapsed and expanded layouts
+- [x] Add Home habit section header cards with Recovery and Quiet Tracking grouping
+- [x] Add full-screen Habit Board surface with streak/count summary modes
+- [x] Upgrade habit appearance editing with palette-first accent selection
+- [x] Add focused unit coverage for board mapping semantics
+- [ ] Add dedicated UI automation for board rows and Habit Board interactions
+- [x] Run targeted build and test verification for Habit Board surfaces

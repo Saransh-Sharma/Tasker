@@ -100,18 +100,20 @@ final class HomeSectionStateRegressionTests: XCTestCase {
         XCTAssertEqual(state.visibleCount, 0)
     }
 
-    func testRescueSectionStateClampsNegativePreviewCount() {
-        let state = RescueSectionState(
+    func testRescueTailStateUsesAllRowsForPreview() {
+        let state = RescueTailState(
             rows: [
                 .task(TaskDefinition(title: "Rescue 1")),
                 .task(TaskDefinition(title: "Rescue 2"))
             ],
-            previewCount: -2
+            mode: .compact,
+            isInlineExpanded: false,
+            subtitle: "2 tasks are 2+ weeks overdue"
         )
 
-        XCTAssertEqual(state.previewCount, 0)
-        XCTAssertEqual(state.previewRows, [])
+        XCTAssertEqual(state.previewRows.count, 2)
         XCTAssertEqual(state.totalCount, 2)
+        XCTAssertTrue(state.isCompact)
     }
 }
 
@@ -6655,11 +6657,56 @@ final class AddTaskViewModelLifeAreaDedupeTests: XCTestCase {
 
         let expectation = expectation(description: "life areas loaded")
         deferredRepository.completePendingFetch()
+        func assertWhenLoaded(attemptsRemaining: Int = 20) {
+            if viewModel.lifeAreas.count == 2 {
+                XCTAssertNil(viewModel.selectedLifeAreaID)
+                let normalizedNames = Set(viewModel.lifeAreas.map { LifeAreaIdentityRepair.normalizedNameKey($0.name) })
+                XCTAssertEqual(normalizedNames, Set(["general", "health"]))
+                expectation.fulfill()
+                return
+            }
+
+            guard attemptsRemaining > 0 else {
+                XCTFail("Timed out waiting for deduped life areas to load")
+                expectation.fulfill()
+                return
+            }
+
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+                assertWhenLoaded(attemptsRemaining: attemptsRemaining - 1)
+            }
+        }
+
         DispatchQueue.main.async {
-            XCTAssertEqual(viewModel.lifeAreas.count, 2)
-            XCTAssertEqual(viewModel.selectedLifeAreaID, duplicateGeneralB.id)
-            let normalizedNames = Set(viewModel.lifeAreas.map { LifeAreaIdentityRepair.normalizedNameKey($0.name) })
-            XCTAssertEqual(normalizedNames, Set(["general", "health"]))
+            assertWhenLoaded()
+        }
+
+        waitForExpectations(timeout: 1.0)
+    }
+
+    func testAddTaskViewModelStartsInAnyAreaStateAfterLifeAreasLoad() {
+        let health = LifeArea(id: UUID(), name: "Health", color: "#00AA00", icon: "heart")
+        let repository = CapturingLifeAreaRepository(storedAreas: [health])
+        let viewModel = AddTaskViewModel(
+            taskReadModelRepository: nil,
+            manageProjectsUseCase: ManageProjectsUseCase(
+                projectRepository: MockProjectRepository(projects: [Project.createInbox()])
+            ),
+            createTaskDefinitionUseCase: CreateTaskDefinitionUseCase(
+                repository: NoopTaskDefinitionRepository(),
+                taskTagLinkRepository: nil,
+                taskDependencyRepository: nil
+            ),
+            rescheduleTaskDefinitionUseCase: nil,
+            manageLifeAreasUseCase: ManageLifeAreasUseCase(repository: repository),
+            manageSectionsUseCase: nil,
+            manageTagsUseCase: nil
+        )
+
+        let expectation = expectation(description: "life areas loaded")
+        DispatchQueue.main.async {
+            XCTAssertEqual(viewModel.lifeAreas.map(\.name), ["Health"])
+            XCTAssertNil(viewModel.selectedLifeAreaID)
             expectation.fulfill()
         }
 
@@ -7563,7 +7610,6 @@ final class HabitRuntimeRemediationTests: XCTestCase {
                 scheduleRepository: scheduleRepository,
                 occurrenceRepository: occurrenceRepository,
                 scheduleEngine: schedulingEngine,
-                maintainHabitRuntimeUseCase: maintainHabitRuntimeUseCase,
                 recomputeHabitStreaksUseCase: recomputeHabitStreaksUseCase,
                 gamificationEngine: gamificationEngine
             )
@@ -10078,22 +10124,12 @@ final class HabitRuntimeMaintenanceTests: XCTestCase {
             occurrenceRepository: occurrenceRepository
         )
         let engine = RecordingSchedulingEngine(occurrenceRepository: occurrenceRepository)
-        let maintain = MaintainHabitRuntimeUseCase(
-            syncHabitScheduleUseCase: SyncHabitScheduleUseCase(
-                habitRepository: habitRepository,
-                scheduleRepository: scheduleRepository,
-                scheduleEngine: engine,
-                occurrenceRepository: occurrenceRepository,
-                recomputeHabitStreaksUseCase: recompute
-            )
-        )
         let gamificationRepository = InMemoryGamificationEngineRepository()
         let useCase = ResolveHabitOccurrenceUseCase(
             habitRepository: habitRepository,
             scheduleRepository: scheduleRepository,
             occurrenceRepository: occurrenceRepository,
             scheduleEngine: engine,
-            maintainHabitRuntimeUseCase: maintain,
             recomputeHabitStreaksUseCase: recompute,
             gamificationEngine: GamificationEngine(repository: gamificationRepository)
         )
@@ -10231,10 +10267,29 @@ final class AddHabitViewModelValidationTests: XCTestCase {
 
         XCTAssertNotNil(viewModel.selectedLifeAreaID)
         XCTAssertNotNil(viewModel.selectedIconSymbolName)
+        XCTAssertNotNil(TaskerHexColor.normalized(viewModel.selectedColorHex))
         XCTAssertFalse(viewModel.hasUnsavedChanges)
 
         viewModel.habitName = "Walk"
         XCTAssertTrue(viewModel.hasUnsavedChanges)
+    }
+
+    func testResetFormSeedsFreshAppearanceDefaults() async {
+        let (viewModel, _) = makeViewModel()
+
+        viewModel.loadIfNeeded()
+        await waitUntil { viewModel.isLoading == false }
+
+        viewModel.habitName = "Read"
+        viewModel.selectedColorHex = ""
+        viewModel.selectedIconSymbolName = nil
+
+        viewModel.resetForm()
+
+        XCTAssertEqual(viewModel.habitName, "")
+        XCTAssertNotNil(viewModel.selectedIconSymbolName)
+        XCTAssertNotNil(TaskerHexColor.normalized(viewModel.selectedColorHex))
+        XCTAssertFalse(viewModel.hasUnsavedChanges)
     }
 
     func testCreateHabitIgnoresReentrantSubmissionWhileSaving() async {
@@ -10293,6 +10348,156 @@ final class AddHabitViewModelValidationTests: XCTestCase {
         XCTAssertEqual(createdHabit.colorHex, "#3B82F6")
     }
 
+    func testApplyPrefillWithExplicitIconRandomizesMissingColor() async {
+        let (viewModel, _) = makeViewModel()
+
+        viewModel.loadIfNeeded()
+        await waitUntil { viewModel.isLoading == false }
+
+        let explicitIcon = "book.fill"
+        viewModel.selectedColorHex = ""
+        viewModel.applyPrefill(
+            AddHabitPrefillTemplate(
+                title: "Read",
+                lifeAreaID: viewModel.selectedLifeAreaID,
+                iconSymbolName: explicitIcon
+            )
+        )
+
+        XCTAssertEqual(viewModel.selectedIconSymbolName, explicitIcon)
+        XCTAssertNotNil(TaskerHexColor.normalized(viewModel.selectedColorHex))
+    }
+
+    func testLoadIfNeededBackfillsLifeAreaFromPrefilledProjectSelection() async {
+        let lifeAreaID = UUID()
+        let project = Project(
+            id: UUID(),
+            lifeAreaID: lifeAreaID,
+            name: "Deep Work",
+            createdDate: Date(),
+            modifiedDate: Date(),
+            isArchived: false
+        )
+        let (viewModel, _) = makeViewModel(
+            lifeAreas: [LifeArea(id: lifeAreaID, name: "Work", createdAt: Date(), updatedAt: Date())],
+            projects: [project]
+        )
+        viewModel.selectedProjectID = project.id
+
+        viewModel.loadIfNeeded()
+        await waitUntil { viewModel.isLoading == false }
+
+        XCTAssertEqual(viewModel.selectedProjectID, project.id)
+        XCTAssertEqual(viewModel.selectedLifeAreaID, lifeAreaID)
+    }
+
+    func testCreateHabitRandomizesMissingAppearance() async {
+        let (viewModel, habitRepository) = makeViewModel()
+
+        viewModel.loadIfNeeded()
+        await waitUntil { viewModel.isLoading == false }
+
+        viewModel.habitName = "Hydrate"
+        viewModel.selectedIconSymbolName = nil
+        viewModel.selectedColorHex = ""
+
+        let expectation = expectation(description: "create randomized appearance")
+        viewModel.createHabit { result in
+            if case .failure(let error) = result {
+                XCTFail("Expected habit creation to succeed, got error: \(error)")
+            }
+            expectation.fulfill()
+        }
+        await fulfillment(of: [expectation], timeout: 1.0)
+
+        guard let createdHabit = habitRepository.habitsByID.values.first else {
+            XCTFail("Expected created habit to be stored")
+            return
+        }
+        assertHabitAppearanceAssigned(createdHabit)
+    }
+
+    func testCreateHabitHonorsExplicitIconAndColor() async {
+        let (viewModel, habitRepository) = makeViewModel()
+
+        viewModel.loadIfNeeded()
+        await waitUntil { viewModel.isLoading == false }
+
+        viewModel.habitName = "Journal"
+        viewModel.selectedIconSymbolName = "book.fill"
+        viewModel.selectedColorHex = "#5AA7A4"
+
+        let expectation = expectation(description: "create explicit appearance")
+        viewModel.createHabit { result in
+            if case .failure(let error) = result {
+                XCTFail("Expected habit creation to succeed, got error: \(error)")
+            }
+            expectation.fulfill()
+        }
+        await fulfillment(of: [expectation], timeout: 1.0)
+
+        guard let createdHabit = habitRepository.habitsByID.values.first else {
+            XCTFail("Expected created habit to be stored")
+            return
+        }
+        XCTAssertEqual(createdHabit.iconSymbolName, "book.fill")
+        XCTAssertEqual(createdHabit.colorHex, "#5AA7A4")
+    }
+
+    func testCreateHabitHonorsExplicitIconWhileRandomizingMissingColor() async {
+        let (viewModel, habitRepository) = makeViewModel()
+
+        viewModel.loadIfNeeded()
+        await waitUntil { viewModel.isLoading == false }
+
+        viewModel.habitName = "Meditate"
+        viewModel.selectedIconSymbolName = "sparkles"
+        viewModel.selectedColorHex = ""
+
+        let expectation = expectation(description: "create explicit icon only")
+        viewModel.createHabit { result in
+            if case .failure(let error) = result {
+                XCTFail("Expected habit creation to succeed, got error: \(error)")
+            }
+            expectation.fulfill()
+        }
+        await fulfillment(of: [expectation], timeout: 1.0)
+
+        guard let createdHabit = habitRepository.habitsByID.values.first else {
+            XCTFail("Expected created habit to be stored")
+            return
+        }
+        XCTAssertEqual(createdHabit.iconSymbolName, "sparkles")
+        XCTAssertNotNil(createdHabit.colorHex)
+    }
+
+    func testCreateHabitHonorsExplicitColorWhileRandomizingMissingIcon() async {
+        let (viewModel, habitRepository) = makeViewModel()
+
+        viewModel.loadIfNeeded()
+        await waitUntil { viewModel.isLoading == false }
+
+        viewModel.habitName = "Stretch"
+        viewModel.selectedIconSymbolName = nil
+        viewModel.selectedColorHex = "#8A46B5"
+
+        let expectation = expectation(description: "create explicit color only")
+        viewModel.createHabit { result in
+            if case .failure(let error) = result {
+                XCTFail("Expected habit creation to succeed, got error: \(error)")
+            }
+            expectation.fulfill()
+        }
+        await fulfillment(of: [expectation], timeout: 1.0)
+
+        guard let createdHabit = habitRepository.habitsByID.values.first else {
+            XCTFail("Expected created habit to be stored")
+            return
+        }
+        XCTAssertNotNil(createdHabit.iconSymbolName)
+        XCTAssertEqual(createdHabit.colorHex, "#8A46B5")
+    }
+
     func testCreateHabitDropsInvalidHexColor() async {
         let (viewModel, habitRepository) = makeViewModel()
 
@@ -10321,6 +10526,12 @@ final class AddHabitViewModelValidationTests: XCTestCase {
         XCTAssertNil(createdHabit.colorHex)
     }
 
+    private func assertHabitAppearanceAssigned(_ habit: HabitDefinitionRecord) {
+        XCTAssertNotNil(habit.iconSymbolName)
+        XCTAssertNotNil(habit.colorHex)
+        XCTAssertNotNil(TaskerHexColor.normalized(habit.colorHex))
+    }
+
     private func waitUntil(
         timeoutNanoseconds: UInt64 = 1_000_000_000,
         pollIntervalNanoseconds: UInt64 = 10_000_000,
@@ -10340,7 +10551,9 @@ final class AddHabitViewModelValidationTests: XCTestCase {
     }
 
     private func makeViewModel(
-        deferCreateCompletion: Bool = false
+        deferCreateCompletion: Bool = false,
+        lifeAreas: [LifeArea]? = nil,
+        projects: [Project] = []
     ) -> (viewModel: AddHabitViewModel, habitRepository: InMemoryHabitRepository) {
         let anchorDate = Date(timeIntervalSince1970: 1_711_036_800)
         let lifeAreaID = UUID()
@@ -10364,20 +10577,21 @@ final class AddHabitViewModelValidationTests: XCTestCase {
             )
         )
         let lifeAreaRepository = CapturingLifeAreaRepository(
-            storedAreas: [LifeArea(id: lifeAreaID, name: "Health", createdAt: anchorDate, updatedAt: anchorDate)]
+            storedAreas: lifeAreas ?? [LifeArea(id: lifeAreaID, name: "Health", createdAt: anchorDate, updatedAt: anchorDate)]
         )
+        let projectRepository = MockProjectRepository(projects: projects)
 
         return (
             AddHabitViewModel(
                 createHabitUseCase: CreateHabitUseCase(
                     habitRepository: habitRepository,
                     lifeAreaRepository: lifeAreaRepository,
-                    projectRepository: MockProjectRepository(projects: []),
+                    projectRepository: projectRepository,
                     scheduleRepository: scheduleRepository,
                     maintainHabitRuntimeUseCase: maintainHabitRuntimeUseCase
                 ),
                 manageLifeAreasUseCase: ManageLifeAreasUseCase(repository: lifeAreaRepository),
-                manageProjectsUseCase: ManageProjectsUseCase(projectRepository: MockProjectRepository(projects: []))
+                manageProjectsUseCase: ManageProjectsUseCase(projectRepository: projectRepository)
             ),
             habitRepository
         )

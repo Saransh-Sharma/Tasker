@@ -85,6 +85,208 @@ public struct HabitDayMark: Codable, Equatable, Hashable {
     }
 }
 
+public enum HabitColorFamily: String, Codable, CaseIterable, Hashable {
+    case green
+    case blue
+    case orange
+    case coral
+    case purple
+    case teal
+    case gray
+
+    public var title: String {
+        switch self {
+        case .green: return "Leaf"
+        case .blue: return "Sky"
+        case .orange: return "Glow"
+        case .coral: return "Spark"
+        case .purple: return "Plum"
+        case .teal: return "Wave"
+        case .gray: return "Stone"
+        }
+    }
+
+    public var canonicalHex: String {
+        switch self {
+        case .green: return "#4E9A2F"
+        case .blue: return "#4A86E8"
+        case .orange: return "#F5B23C"
+        case .coral: return "#E94C3D"
+        case .purple: return "#8A46B5"
+        case .gray: return "#8C8E94"
+        case .teal: return "#5AA7A4"
+        }
+    }
+
+    public static func family(for hex: String?, fallback: HabitColorFamily = .green) -> HabitColorFamily {
+        guard let normalized = normalizeHex(hex) else {
+            return fallback
+        }
+
+        let canonicalMatch = Self.allCases.first { family in
+            normalizeHex(family.canonicalHex) == normalized
+        }
+        if let canonicalMatch {
+            return canonicalMatch
+        }
+
+        switch normalized {
+        case "#4E9A2F", "#30A511", "#43C618", "#63DF2E", "#8EEA5D":
+            return .green
+        case "#4A86E8", "#287FFF", "#1E5EEA", "#102DA5", "#3EA5FF":
+            return .blue
+        case "#F5B23C", "#F4A70F", "#E98A08", "#D96A05":
+            return .orange
+        case "#E94C3D", "#DE6250", "#CA5342", "#B04638":
+            return .coral
+        case "#8A46B5", "#A250C2", "#701E92", "#450D5D":
+            return .purple
+        case "#5AA7A4", "#3A9EA0", "#2D8285", "#194F51":
+            return .teal
+        case "#8C8E94", "#AEAEAE", "#787878", "#4D4D4D":
+            return .gray
+        default:
+            return fallback
+        }
+    }
+
+    private static func normalizeHex(_ value: String?) -> String? {
+        guard let value else { return nil }
+        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard trimmed.isEmpty == false else { return nil }
+        let rawHex = trimmed.hasPrefix("#") ? String(trimmed.dropFirst()) : trimmed
+        guard rawHex.count == 6 else { return nil }
+        let normalized = rawHex.uppercased()
+        let allowed = CharacterSet(charactersIn: "0123456789ABCDEF")
+        guard normalized.unicodeScalars.allSatisfy(allowed.contains) else { return nil }
+        return "#\(normalized)"
+    }
+}
+
+public enum HabitBridgeSource: String, Codable, Hashable {
+    case skipped
+    case notScheduled
+}
+
+public enum HabitBridgeKind: String, Codable, Hashable {
+    case single
+    case start
+    case middle
+    case end
+}
+
+public enum HabitBoardCellState: Equatable, Hashable {
+    case done(depth: Int)
+    case missed
+    case bridge(kind: HabitBridgeKind, source: HabitBridgeSource)
+    case todayPending
+    case future
+}
+
+public struct HabitBoardCell: Equatable, Hashable {
+    public let date: Date
+    public let state: HabitBoardCellState
+    public let isToday: Bool
+    public let isWeekend: Bool
+
+    public init(
+        date: Date,
+        state: HabitBoardCellState,
+        isToday: Bool,
+        isWeekend: Bool
+    ) {
+        self.date = date
+        self.state = state
+        self.isToday = isToday
+        self.isWeekend = isWeekend
+    }
+}
+
+public enum HabitBoardSummaryMode: String, Codable, CaseIterable, Hashable {
+    case streaks
+    case counts
+}
+
+public struct HabitBoardAggregateDay: Equatable, Hashable {
+    public let date: Date
+    public let completedCount: Int
+    public let habitCount: Int
+    public let isToday: Bool
+
+    public init(
+        date: Date,
+        completedCount: Int,
+        habitCount: Int,
+        isToday: Bool
+    ) {
+        self.date = date
+        self.completedCount = completedCount
+        self.habitCount = habitCount
+        self.isToday = isToday
+    }
+}
+
+public struct HabitBoardRowMetrics: Equatable, Hashable {
+    public let currentStreak: Int
+    public let bestStreak: Int
+    public let totalCount: Int
+    public let weekCount: Int
+    public let monthCount: Int
+    public let yearCount: Int
+
+    public init(
+        currentStreak: Int,
+        bestStreak: Int,
+        totalCount: Int,
+        weekCount: Int,
+        monthCount: Int,
+        yearCount: Int
+    ) {
+        self.currentStreak = currentStreak
+        self.bestStreak = bestStreak
+        self.totalCount = totalCount
+        self.weekCount = weekCount
+        self.monthCount = monthCount
+        self.yearCount = yearCount
+    }
+}
+
+public struct HabitBoardRowPresentation: Equatable, Hashable, Identifiable {
+    public let habitID: UUID
+    public let title: String
+    public let iconSymbolName: String
+    public let accentHex: String?
+    public let colorFamily: HabitColorFamily
+    public let currentStreak: Int
+    public let bestStreak: Int
+    public let cells: [HabitBoardCell]
+    public let metrics: HabitBoardRowMetrics
+
+    public var id: UUID { habitID }
+
+    public init(
+        habitID: UUID,
+        title: String,
+        iconSymbolName: String,
+        accentHex: String?,
+        colorFamily: HabitColorFamily,
+        currentStreak: Int,
+        bestStreak: Int,
+        cells: [HabitBoardCell],
+        metrics: HabitBoardRowMetrics
+    ) {
+        self.habitID = habitID
+        self.title = title
+        self.iconSymbolName = iconSymbolName
+        self.accentHex = accentHex
+        self.colorFamily = colorFamily
+        self.currentStreak = currentStreak
+        self.bestStreak = bestStreak
+        self.cells = cells
+        self.metrics = metrics
+    }
+}
+
 public struct HabitOccurrenceSummary: Codable, Equatable, Hashable, Identifiable {
     public let habitID: UUID
     public let occurrenceID: UUID?
@@ -96,6 +298,8 @@ public struct HabitOccurrenceSummary: Codable, Equatable, Hashable, Identifiable
     public var projectID: UUID?
     public var projectName: String?
     public var icon: HabitIconMetadata?
+    public var colorHex: String?
+    public var cadence: HabitCadenceDraft
     public var dueAt: Date?
     public var state: OccurrenceState
     public var currentStreak: Int
@@ -116,6 +320,8 @@ public struct HabitOccurrenceSummary: Codable, Equatable, Hashable, Identifiable
         projectID: UUID? = nil,
         projectName: String? = nil,
         icon: HabitIconMetadata? = nil,
+        colorHex: String? = nil,
+        cadence: HabitCadenceDraft = .daily(),
         dueAt: Date? = nil,
         state: OccurrenceState = .pending,
         currentStreak: Int = 0,
@@ -133,6 +339,8 @@ public struct HabitOccurrenceSummary: Codable, Equatable, Hashable, Identifiable
         self.projectID = projectID
         self.projectName = projectName
         self.icon = icon
+        self.colorHex = colorHex
+        self.cadence = cadence
         self.dueAt = dueAt
         self.state = state
         self.currentStreak = currentStreak
