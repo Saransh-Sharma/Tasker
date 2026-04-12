@@ -81,7 +81,7 @@ public final class ReflectionNoteComposerViewModel: ObservableObject {
                 case .failure(let error):
                     self.errorMessage = error.localizedDescription
                 case .success(let savedNote):
-                    self.saveMessage = "Reflection saved"
+                    self.saveMessage = WeeklyCopy.reflectionSaveSuccess
                     completion?(savedNote)
                 }
             }

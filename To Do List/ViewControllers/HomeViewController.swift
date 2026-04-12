@@ -2641,7 +2641,7 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
         hostingController.modalPresentationStyle = currentLayoutClass.isPad ? .formSheet : .pageSheet
         hostingController.preferredContentSize = CGSize(width: 620, height: 780)
         if let sheet = hostingController.sheetPresentationController {
-            sheet.detents = currentLayoutClass.isPad ? [.large()] : [.medium(), .large()]
+            sheet.detents = [.large()]
             sheet.prefersGrabberVisible = true
             sheet.prefersScrollingExpandsWhenScrolledToEdge = false
         }
@@ -2666,7 +2666,7 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
         hostingController.modalPresentationStyle = currentLayoutClass.isPad ? .formSheet : .pageSheet
         hostingController.preferredContentSize = CGSize(width: 620, height: 780)
         if let sheet = hostingController.sheetPresentationController {
-            sheet.detents = currentLayoutClass.isPad ? [.large()] : [.medium(), .large()]
+            sheet.detents = [.large()]
             sheet.prefersGrabberVisible = true
             sheet.prefersScrollingExpandsWhenScrolledToEdge = false
         }

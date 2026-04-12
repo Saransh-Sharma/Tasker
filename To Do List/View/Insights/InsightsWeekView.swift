@@ -9,6 +9,11 @@ struct InsightsWeekView: View {
 
     private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.currentTheme.tokens.spacing }
     private var state: InsightsWeekState { viewModel.weekState }
+    private var weekRangeText: String {
+        let calendar = XPCalculationEngine.mondayCalendar()
+        let weekStart = XPCalculationEngine.mondayStartOfWeek(for: Date(), calendar: calendar)
+        return WeeklyCopy.weekRangeText(for: weekStart)
+    }
 
     private var maxBarXP: Int {
         let personalMax = max(state.weeklyBars.map(\.xp).max() ?? 1, 1)
@@ -66,7 +71,7 @@ struct InsightsWeekView: View {
                 VStack(alignment: .leading, spacing: spacing.s12) {
                     HStack(alignment: .firstTextBaseline) {
                         VStack(alignment: .leading, spacing: spacing.s4) {
-                            Text("Weekly operating layer")
+                            Text("Review this week")
                                 .font(.tasker(.caption1))
                                 .foregroundColor(Color.tasker.textTertiary)
                             Text("\(weeklyOperating.momentumScore)")
@@ -84,15 +89,9 @@ struct InsightsWeekView: View {
                         .foregroundColor(Color.tasker.textPrimary)
 
                     VStack(alignment: .leading, spacing: spacing.s8) {
-                        Text(weeklyOperating.carryOverSummary)
-                            .font(.tasker(.callout))
-                            .foregroundColor(Color.tasker.textSecondary)
-                        Text(weeklyOperating.contributionSummary)
-                            .font(.tasker(.callout))
-                            .foregroundColor(Color.tasker.textSecondary)
-                        Text(weeklyOperating.reflectionSummary)
-                            .font(.tasker(.callout))
-                            .foregroundColor(Color.tasker.textSecondary)
+                        insightsSummaryRow(title: "What still needs a decision", body: weeklyOperating.carryOverSummary)
+                        insightsSummaryRow(title: "Weekly outcomes", body: weeklyOperating.contributionSummary)
+                        insightsSummaryRow(title: "Reflection", body: weeklyOperating.reflectionSummary)
                     }
 
                     VStack(alignment: .leading, spacing: spacing.s8) {
@@ -125,9 +124,17 @@ struct InsightsWeekView: View {
     private var heroCard: some View {
         insightsCard {
             VStack(alignment: .leading, spacing: spacing.s12) {
-                Text("Week")
-                    .font(.tasker(.caption1))
-                    .foregroundColor(Color.tasker.textTertiary)
+                HStack(alignment: .center, spacing: spacing.s8) {
+                    Text("This Week")
+                        .font(.tasker(.caption1))
+                        .foregroundColor(Color.tasker.textTertiary)
+
+                    TaskerStatusPill(
+                        text: weekRangeText,
+                        systemImage: "calendar",
+                        tone: .quiet
+                    )
+                }
 
                 Text(state.heroTitle)
                     .font(.tasker(.title2))
@@ -194,7 +201,7 @@ struct InsightsWeekView: View {
                     }
                 }
 
-                Text("Bottom labels show completions. Bars show XP intensity.")
+                Text("Bottom labels show completions. Bars show XP intensity across the week.")
                     .font(.tasker(.caption2))
                     .foregroundColor(Color.tasker.textQuaternary)
             }
@@ -246,7 +253,7 @@ struct InsightsWeekView: View {
                     .foregroundColor(Color.tasker.textTertiary)
 
                 if state.projectLeaderboard.isEmpty {
-                    Text("Weekly project signal appears once completions cluster around named projects.")
+                    Text("Project signal appears once completed work clusters around named projects.")
                         .font(.tasker(.callout))
                         .foregroundColor(Color.tasker.textSecondary)
                 } else {
@@ -301,7 +308,7 @@ struct InsightsWeekView: View {
                     .foregroundColor(Color.tasker.textPrimary)
 
                 if items.isEmpty {
-                    Text("This module unlocks after the week accumulates completed work.")
+                    Text("This view fills in after the week accumulates completed work.")
                         .font(.tasker(.callout))
                         .foregroundColor(Color.tasker.textSecondary)
                 } else {
@@ -373,6 +380,18 @@ struct InsightsWeekView: View {
             RoundedRectangle(cornerRadius: 18, style: .continuous)
                 .stroke(toneColor(metric.tone).opacity(0.14), lineWidth: 1)
         )
+    }
+
+    private func insightsSummaryRow(title: String, body: String) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(title)
+                .font(.tasker(.caption2))
+                .foregroundColor(Color.tasker.textTertiary)
+            Text(body)
+                .font(.tasker(.callout))
+                .foregroundColor(Color.tasker.textSecondary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
     }
 
     private func module<Content: View>(index: Int, @ViewBuilder content: () -> Content) -> some View {

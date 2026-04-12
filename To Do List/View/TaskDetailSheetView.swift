@@ -994,56 +994,12 @@ struct TaskDetailSheetView: View {
 
     private var planningSection: some View {
         VStack(alignment: .leading, spacing: TaskerTheme.Spacing.sm) {
-            AddTaskEnumChipRow(
-                label: "Weekly bucket",
-                displayName: { $0.displayName },
-                icon: { $0.systemImageName },
-                selected: $viewModel.selectedPlanningBucket
+            WeeklyPlanningPlacementSection(
+                selectedPlanningBucket: $viewModel.selectedPlanningBucket,
+                selectedWeeklyOutcomeID: $viewModel.selectedWeeklyOutcomeID,
+                availableWeeklyOutcomes: viewModel.weeklyOutcomes
             )
             .accessibilityIdentifier("taskDetail.weeklyBucketPicker")
-
-            if viewModel.weeklyOutcomes.isEmpty == false {
-                VStack(alignment: .leading, spacing: TaskerTheme.Spacing.xs) {
-                    Text("Linked outcome")
-                        .font(.tasker(.caption1))
-                        .foregroundColor(Color.tasker.textTertiary)
-
-                    Menu {
-                        Button("None") {
-                            viewModel.selectedWeeklyOutcomeID = nil
-                        }
-                        ForEach(viewModel.weeklyOutcomes, id: \.id) { outcome in
-                            Button(outcome.title) {
-                                viewModel.selectedWeeklyOutcomeID = outcome.id
-                            }
-                        }
-                    } label: {
-                        HStack(spacing: TaskerTheme.Spacing.sm) {
-                            Image(systemName: "scope")
-                                .foregroundStyle(Color.tasker.accentPrimary)
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text(selectedWeeklyOutcomeTitle)
-                                    .font(.tasker(.callout))
-                                    .foregroundColor(Color.tasker.textPrimary)
-                                Text("Outcome connection only stays active in This Week.")
-                                    .font(.tasker(.caption2))
-                                    .foregroundColor(Color.tasker.textTertiary)
-                            }
-                            Spacer()
-                            Image(systemName: "chevron.up.chevron.down")
-                                .font(.caption)
-                                .foregroundStyle(Color.tasker.textTertiary)
-                        }
-                        .padding(TaskerTheme.Spacing.sm)
-                        .taskerDenseSurface(
-                            cornerRadius: TaskerTheme.CornerRadius.md,
-                            fillColor: Color.tasker.surfaceSecondary,
-                            strokeColor: Color.tasker.strokeHairline
-                        )
-                    }
-                    .accessibilityIdentifier("taskDetail.weeklyOutcomeMenu")
-                }
-            }
         }
     }
 
@@ -1128,18 +1084,6 @@ struct TaskDetailSheetView: View {
                 .foregroundColor(Color.tasker.textPrimary)
                 .fixedSize(horizontal: false, vertical: true)
         }
-    }
-
-    private var selectedWeeklyOutcomeTitle: String {
-        guard let selectedWeeklyOutcomeID else {
-            return "No linked outcome"
-        }
-        return viewModel.weeklyOutcomes.first(where: { $0.id == selectedWeeklyOutcomeID })?.title
-            ?? "No linked outcome"
-    }
-
-    private var selectedWeeklyOutcomeID: UUID? {
-        viewModel.selectedWeeklyOutcomeID
     }
 
     private var autosaveFillColor: Color {

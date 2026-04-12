@@ -299,7 +299,7 @@ public final class ProjectManagementViewModel: ObservableObject {
                 if case .success(let saved) = result {
                     self?.recentReflectionNotes.insert(saved, at: 0)
                     self?.recentReflectionNotes = Array(self?.recentReflectionNotes.prefix(6) ?? [])
-                    self?.saveMessage = "Reflection saved"
+                    self?.saveMessage = WeeklyCopy.reflectionSaveSuccess
                     self?.awardReflectionCaptureXP(linkedTaskID: saved.linkedTaskID, linkedHabitID: saved.linkedHabitID)
                 } else if case .failure(let error) = result {
                     self?.errorMessage = error.localizedDescription

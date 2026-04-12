@@ -99,6 +99,42 @@ public final class WeeklyPlannerViewModel: ObservableObject {
         max(0, thisWeekTasks.filter { !$0.isComplete }.count - targetCapacity)
     }
 
+    public var weekRangeText: String {
+        WeeklyCopy.weekRangeText(for: weekStartDate)
+    }
+
+    public var trimmedFocusStatement: String {
+        focusStatement.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    public var activeOutcomeDraftCount: Int {
+        outcomeDrafts.filter { !$0.title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }.count
+    }
+
+    public var stagedTaskCount: Int {
+        thisWeekTasks.count + nextWeekTasks.count + laterTasks.count
+    }
+
+    var plannerSteps: [WeeklyRitualStep] {
+        [
+            WeeklyRitualStep(id: 0, title: WeeklyCopy.plannerSteps[0], isComplete: !trimmedFocusStatement.isEmpty || minimumViableWeekEnabled),
+            WeeklyRitualStep(id: 1, title: WeeklyCopy.plannerSteps[1], isComplete: activeOutcomeDraftCount > 0),
+            WeeklyRitualStep(id: 2, title: WeeklyCopy.plannerSteps[2], isComplete: stagedTaskCount > 0),
+            WeeklyRitualStep(id: 3, title: WeeklyCopy.plannerSteps[3], isComplete: activeOutcomeDraftCount > 0 || !trimmedFocusStatement.isEmpty || stagedTaskCount > 0)
+        ]
+    }
+
+    public var reviewSummaryText: String {
+        let habitCount = selectedHabitIDs.count
+        let outcomeCount = activeOutcomeDraftCount
+        let thisWeekCount = thisWeekTasks.count
+        return "\(outcomeCount) outcomes, \(thisWeekCount) tasks in This Week, \(habitCount) habits supporting the week."
+    }
+
+    public var outcomeTitlesByID: [UUID: String] {
+        weeklyOutcomeTitlesByID
+    }
+
     public func load() {
         isLoading = true
         errorMessage = nil
@@ -226,7 +262,11 @@ public final class WeeklyPlannerViewModel: ObservableObject {
 
     public func moveTask(_ taskID: UUID, to bucket: TaskPlanningBucket) {
         let allTasks = thisWeekTasks + nextWeekTasks + laterTasks
-        guard let task = allTasks.first(where: { $0.id == taskID }) else { return }
+        guard var task = allTasks.first(where: { $0.id == taskID }) else { return }
+
+        if bucket != .thisWeek {
+            task.weeklyOutcomeID = nil
+        }
 
         thisWeekTasks.removeAll { $0.id == taskID }
         nextWeekTasks.removeAll { $0.id == taskID }
@@ -262,7 +302,7 @@ public final class WeeklyPlannerViewModel: ObservableObject {
                 case .failure(let error):
                     self.errorMessage = error.localizedDescription
                 case .success:
-                    self.saveMessage = "Week saved"
+                    self.saveMessage = WeeklyCopy.plannerSaveSuccess
                     self.awardWeeklyPlanningXPIfNeeded()
                     self.load()
                     completion?()
@@ -361,7 +401,7 @@ public final class WeeklyPlannerViewModel: ObservableObject {
                     }
                 case .success:
                     self.proposalState = nil
-                    self.saveMessage = "Eva applied the weekly proposal"
+                    self.saveMessage = WeeklyCopy.evaApplySuccess
                     self.load()
                     completion?()
                 }

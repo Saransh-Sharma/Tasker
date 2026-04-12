@@ -306,19 +306,19 @@ struct ProjectManagementView: View {
             }
 
             motivationEditor(
-                title: "Why now",
+                title: "Why this matters now",
                 text: $viewModel.motivationWhyDraft,
                 prompt: project.isInbox ? "Inbox does not use weekly motivation." : "Why does this project matter right now?"
             )
 
             motivationEditor(
-                title: "Success looks like",
+                title: "What progress looks like",
                 text: $viewModel.motivationSuccessLooksLikeDraft,
                 prompt: "What would a meaningful weekly win look like?"
             )
 
             motivationEditor(
-                title: "If ignored",
+                title: "What slips if it waits",
                 text: $viewModel.motivationCostOfNeglectDraft,
                 prompt: "What pressure builds if this slips?"
             )
@@ -330,7 +330,7 @@ struct ProjectManagementView: View {
     private var projectTasksSection: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
-                Text("Project tasks")
+                Text("Weekly planning")
                     .font(.headline)
                 Spacer()
                 if viewModel.hasSelectedTasks {
@@ -342,7 +342,7 @@ struct ProjectManagementView: View {
             }
 
             if viewModel.selectedProjectTasks.isEmpty {
-                Text("Tasks in this project will appear here for weekly planning moves.")
+                Text(WeeklyCopy.noProjectTasks)
                     .font(.footnote)
                     .foregroundStyle(.secondary)
             } else {
@@ -362,7 +362,7 @@ struct ProjectManagementView: View {
                                     HStack(spacing: 8) {
                                         planningBucketChip(task.planningBucket)
                                         if task.weeklyOutcomeID != nil {
-                                            statusChip("Outcome", tint: Color.tasker.statusSuccess)
+                                            statusChip(WeeklyCopy.weeklyOutcomeLabel, tint: Color.tasker.statusSuccess)
                                         }
                                         if task.isComplete {
                                             statusChip("Done", tint: Color.tasker.textSecondary)
@@ -384,10 +384,10 @@ struct ProjectManagementView: View {
     private var recentReflectionSection: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
-                Text("Recent reflections")
+                Text("Project reflections")
                     .font(.headline)
                 Spacer()
-                Button("Capture reflection") {
+                Button(WeeklyCopy.addReflection) {
                     showingReflectionComposer = true
                 }
                 .font(.caption.weight(.semibold))

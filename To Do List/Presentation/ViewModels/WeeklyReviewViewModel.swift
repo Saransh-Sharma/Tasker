@@ -54,6 +54,28 @@ public final class WeeklyReviewViewModel: ObservableObject {
         snapshot?.thisWeekTasks.filter(\.isComplete) ?? []
     }
 
+    public var weekRangeText: String {
+        WeeklyCopy.weekRangeText(for: weekStartDate)
+    }
+
+    var reviewSteps: [WeeklyRitualStep] {
+        [
+            WeeklyRitualStep(id: 0, title: WeeklyCopy.reviewSteps[0], isComplete: snapshot != nil),
+            WeeklyRitualStep(id: 1, title: WeeklyCopy.reviewSteps[1], isComplete: outcomeStatusesByID.isEmpty == false || snapshot?.outcomes.isEmpty == true),
+            WeeklyRitualStep(id: 2, title: WeeklyCopy.reviewSteps[2], isComplete: unfinishedTasks.allSatisfy { taskDecisions[$0.id] != nil }),
+            WeeklyRitualStep(id: 3, title: WeeklyCopy.reviewSteps[3], isComplete: reviewReflectionIsFilled)
+        ]
+    }
+
+    public var completionSummaryText: String {
+        "\(completedTasks.count) done, \(unfinishedTasks.count) still needing a decision, \(reflectionNotes.count) reflections captured."
+    }
+
+    public var reviewReflectionIsFilled: Bool {
+        [wins, blockers, lessons, nextWeekPrepNotes]
+            .contains { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
+    }
+
     public func load() {
         isLoading = true
         errorMessage = nil
@@ -117,6 +139,13 @@ public final class WeeklyReviewViewModel: ObservableObject {
 
     public func setOutcomeStatus(_ status: WeeklyOutcomeStatus, for outcomeID: UUID) {
         outcomeStatusesByID[outcomeID] = status
+        scheduleDraftAutosave()
+    }
+
+    public func applyDecisionToAllUnfinished(_ disposition: WeeklyReviewTaskDisposition) {
+        unfinishedTasks.forEach { task in
+            taskDecisions[task.id] = disposition
+        }
         scheduleDraftAutosave()
     }
 
@@ -184,7 +213,7 @@ public final class WeeklyReviewViewModel: ObservableObject {
                     self.errorMessage = error.localizedDescription
                 case .success:
                     self.persistCompletionLocalState(decisions: decisions) {
-                        self.saveMessage = "Review completed"
+                        self.saveMessage = WeeklyCopy.reviewSaveSuccess
                         self.awardWeeklyReviewXP(using: decisions)
                         self.load()
                         completion?()

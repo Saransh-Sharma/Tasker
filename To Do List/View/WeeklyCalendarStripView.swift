@@ -160,20 +160,45 @@ struct WeeklyCalendarStripView: View {
     }
 
     private var weekStripRow: some View {
-        HStack(spacing: 0) {
-            ForEach(daysOfWeek, id: \.timeIntervalSince1970) { date in
-                dayCell(date: date)
-                    .frame(maxWidth: .infinity)
-                    .contentShape(Rectangle())
-                    .onTapGesture {
+        HStack(spacing: spacing.s8) {
+            calendarNavButton(systemImage: "chevron.left", label: "Previous week") {
+                advanceWeek(by: -1)
+            }
+
+            HStack(spacing: 0) {
+                ForEach(daysOfWeek, id: \.timeIntervalSince1970) { date in
+                    Button {
                         withAnimation(TaskerAnimation.snappy) {
                             selectedDate = date
                         }
                         TaskerFeedback.selection()
+                    } label: {
+                        dayCell(date: date)
+                            .frame(maxWidth: .infinity)
+                            .contentShape(Rectangle())
                     }
+                    .buttonStyle(.plain)
+                }
+            }
+            .gesture(weekSwipeGesture)
+
+            calendarNavButton(systemImage: "chevron.right", label: "Next week") {
+                advanceWeek(by: 1)
             }
         }
         .padding(.vertical, spacing.s8)
+    }
+
+    private func calendarNavButton(systemImage: String, label: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Image(systemName: systemImage)
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundStyle(Color.tasker.textSecondary)
+                .frame(width: 30, height: 30)
+                .background(Color.tasker.surfaceSecondary, in: Circle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(label)
     }
 
     /// Executes dayCell.
