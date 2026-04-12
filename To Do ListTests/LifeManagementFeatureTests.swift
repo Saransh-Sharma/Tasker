@@ -1605,6 +1605,12 @@ private func makeLifeManagementViewModel(dependencies: CoordinatorDependencies) 
         occurrenceRepository: dependencies.occurrenceRepository,
         tombstoneRepository: NoOpTombstoneRepositoryStub(),
         reminderRepository: NoOpReminderRepositoryStub(),
+        weeklyPlanRepository: NoOpWeeklyPlanRepositoryStub(),
+        weeklyOutcomeRepository: NoOpWeeklyOutcomeRepositoryStub(),
+        weeklyReviewRepository: NoOpWeeklyReviewRepositoryStub(),
+        weeklyReviewMutationRepository: NoOpWeeklyReviewMutationRepositoryStub(),
+        weeklyReviewDraftStore: NoOpWeeklyReviewDraftStoreStub(),
+        reflectionNoteRepository: NoOpReflectionNoteRepositoryStub(),
         gamificationRepository: NoOpGamificationRepositoryStub(),
         assistantActionRepository: NoOpAssistantActionRepositoryStub(),
         externalSyncRepository: NoOpExternalSyncRepositoryStub()
@@ -1660,6 +1666,69 @@ private final class NoOpGamificationRepositoryStub: GamificationRepositoryProtoc
     func createFocusSession(_ session: FocusSessionDefinition, completion: @escaping (Result<Void, Error>) -> Void) { completion(.success(())) }
     func updateFocusSession(_ session: FocusSessionDefinition, completion: @escaping (Result<Void, Error>) -> Void) { completion(.success(())) }
     func fetchFocusSessions(from startDate: Date, to endDate: Date, completion: @escaping (Result<[FocusSessionDefinition], Error>) -> Void) { completion(.success([])) }
+}
+
+private final class NoOpWeeklyPlanRepositoryStub: WeeklyPlanRepositoryProtocol {
+    func fetchPlan(id: UUID, completion: @escaping (Result<WeeklyPlan?, Error>) -> Void) { completion(.success(nil)) }
+    func fetchPlan(forWeekStarting weekStartDate: Date, completion: @escaping (Result<WeeklyPlan?, Error>) -> Void) { completion(.success(nil)) }
+    func fetchPlans(from startDate: Date, to endDate: Date, completion: @escaping (Result<[WeeklyPlan], Error>) -> Void) { completion(.success([])) }
+    func savePlan(_ plan: WeeklyPlan, completion: @escaping (Result<WeeklyPlan, Error>) -> Void) { completion(.success(plan)) }
+}
+
+private final class NoOpWeeklyOutcomeRepositoryStub: WeeklyOutcomeRepositoryProtocol {
+    func fetchOutcomes(weeklyPlanID: UUID, completion: @escaping (Result<[WeeklyOutcome], Error>) -> Void) { completion(.success([])) }
+    func saveOutcome(_ outcome: WeeklyOutcome, completion: @escaping (Result<WeeklyOutcome, Error>) -> Void) { completion(.success(outcome)) }
+    func replaceOutcomes(weeklyPlanID: UUID, outcomes: [WeeklyOutcome], completion: @escaping (Result<[WeeklyOutcome], Error>) -> Void) { completion(.success(outcomes)) }
+    func deleteOutcome(id: UUID, completion: @escaping (Result<Void, Error>) -> Void) { completion(.success(())) }
+}
+
+private final class NoOpWeeklyReviewRepositoryStub: WeeklyReviewRepositoryProtocol {
+    func fetchReview(weeklyPlanID: UUID, completion: @escaping (Result<WeeklyReview?, Error>) -> Void) { completion(.success(nil)) }
+    func saveReview(_ review: WeeklyReview, completion: @escaping (Result<WeeklyReview, Error>) -> Void) { completion(.success(review)) }
+}
+
+private final class NoOpWeeklyReviewMutationRepositoryStub: WeeklyReviewMutationRepositoryProtocol {
+    func finalizeReview(
+        request: CompleteWeeklyReviewRequest,
+        completion: @escaping (Result<WeeklyReview, Error>) -> Void
+    ) {
+        completion(.failure(NSError(domain: "NoOpWeeklyReviewMutationRepositoryStub", code: 1)))
+    }
+}
+
+private final class NoOpWeeklyReviewDraftStoreStub: WeeklyReviewDraftStoreProtocol {
+    func fetchDraft(weekStartDate: Date, completion: @escaping (Result<WeeklyReviewDraft?, Error>) -> Void) {
+        completion(.success(nil))
+    }
+
+    func saveDraft(_ draft: WeeklyReviewDraft, completion: @escaping (Result<WeeklyReviewDraft, Error>) -> Void) {
+        completion(.success(draft))
+    }
+
+    func clearDraft(weekStartDate: Date, completion: @escaping (Result<Void, Error>) -> Void) {
+        completion(.success(()))
+    }
+
+    func fetchCompletedTaskDecisions(
+        weekStartDate: Date,
+        completion: @escaping (Result<[WeeklyReviewTaskDecision], Error>) -> Void
+    ) {
+        completion(.success([]))
+    }
+
+    func saveCompletedTaskDecisions(
+        _ decisions: [WeeklyReviewTaskDecision],
+        weekStartDate: Date,
+        completion: @escaping (Result<[WeeklyReviewTaskDecision], Error>) -> Void
+    ) {
+        completion(.success(decisions))
+    }
+}
+
+private final class NoOpReflectionNoteRepositoryStub: ReflectionNoteRepositoryProtocol {
+    func fetchNotes(query: ReflectionNoteQuery, completion: @escaping (Result<[ReflectionNote], Error>) -> Void) { completion(.success([])) }
+    func saveNote(_ note: ReflectionNote, completion: @escaping (Result<ReflectionNote, Error>) -> Void) { completion(.success(note)) }
+    func deleteNote(id: UUID, completion: @escaping (Result<Void, Error>) -> Void) { completion(.success(())) }
 }
 
 private final class NoOpAssistantActionRepositoryStub: AssistantActionRepositoryProtocol {

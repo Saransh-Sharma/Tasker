@@ -156,14 +156,14 @@ final class HabitCoreDataSchemaRegressionTests: XCTestCase {
         XCTAssertFalse(legacyFields.contains("lastHistoryRollDate"))
     }
 
-    func testTaskModelCurrentVersionPointsToHabitsSourceModel() throws {
+    func testTaskModelCurrentVersionPointsToWeeklyPlanningSourceModel() throws {
         let currentVersionFile = URL(fileURLWithPath: #filePath)
             .deletingLastPathComponent()
             .deletingLastPathComponent()
             .appendingPathComponent("To Do List/TaskModelV3.xcdatamodeld/.xccurrentversion")
         let contents = try String(contentsOf: currentVersionFile, encoding: .utf8)
 
-        XCTAssertTrue(contents.contains("TaskModelV3_Habits.xcdatamodel"))
+        XCTAssertTrue(contents.contains("TaskModelV3_WeeklyPlanning.xcdatamodel"))
     }
 
     func testBootstrapSchemaValidationRejectsMissingHabitRuntimeFields() {
@@ -1592,6 +1592,69 @@ private final class LegacyNoopReminderRepository: ReminderRepositoryProtocol {
     func updateDelivery(_ delivery: ReminderDeliveryDefinition, completion: @escaping (Result<ReminderDeliveryDefinition, Error>) -> Void) { completion(.success(delivery)) }
 }
 
+private final class LegacyNoopWeeklyPlanRepository: WeeklyPlanRepositoryProtocol {
+    func fetchPlan(id: UUID, completion: @escaping (Result<WeeklyPlan?, Error>) -> Void) { completion(.success(nil)) }
+    func fetchPlan(forWeekStarting weekStartDate: Date, completion: @escaping (Result<WeeklyPlan?, Error>) -> Void) { completion(.success(nil)) }
+    func fetchPlans(from startDate: Date, to endDate: Date, completion: @escaping (Result<[WeeklyPlan], Error>) -> Void) { completion(.success([])) }
+    func savePlan(_ plan: WeeklyPlan, completion: @escaping (Result<WeeklyPlan, Error>) -> Void) { completion(.success(plan)) }
+}
+
+private final class LegacyNoopWeeklyOutcomeRepository: WeeklyOutcomeRepositoryProtocol {
+    func fetchOutcomes(weeklyPlanID: UUID, completion: @escaping (Result<[WeeklyOutcome], Error>) -> Void) { completion(.success([])) }
+    func saveOutcome(_ outcome: WeeklyOutcome, completion: @escaping (Result<WeeklyOutcome, Error>) -> Void) { completion(.success(outcome)) }
+    func replaceOutcomes(weeklyPlanID: UUID, outcomes: [WeeklyOutcome], completion: @escaping (Result<[WeeklyOutcome], Error>) -> Void) { completion(.success(outcomes)) }
+    func deleteOutcome(id: UUID, completion: @escaping (Result<Void, Error>) -> Void) { completion(.success(())) }
+}
+
+private final class LegacyNoopWeeklyReviewRepository: WeeklyReviewRepositoryProtocol {
+    func fetchReview(weeklyPlanID: UUID, completion: @escaping (Result<WeeklyReview?, Error>) -> Void) { completion(.success(nil)) }
+    func saveReview(_ review: WeeklyReview, completion: @escaping (Result<WeeklyReview, Error>) -> Void) { completion(.success(review)) }
+}
+
+private final class LegacyNoopWeeklyReviewMutationRepository: WeeklyReviewMutationRepositoryProtocol {
+    func finalizeReview(
+        request: CompleteWeeklyReviewRequest,
+        completion: @escaping (Result<WeeklyReview, Error>) -> Void
+    ) {
+        completion(.failure(NSError(domain: "LegacyNoopWeeklyReviewMutationRepository", code: 1)))
+    }
+}
+
+private final class LegacyNoopWeeklyReviewDraftStore: WeeklyReviewDraftStoreProtocol {
+    func fetchDraft(weekStartDate: Date, completion: @escaping (Result<WeeklyReviewDraft?, Error>) -> Void) {
+        completion(.success(nil))
+    }
+
+    func saveDraft(_ draft: WeeklyReviewDraft, completion: @escaping (Result<WeeklyReviewDraft, Error>) -> Void) {
+        completion(.success(draft))
+    }
+
+    func clearDraft(weekStartDate: Date, completion: @escaping (Result<Void, Error>) -> Void) {
+        completion(.success(()))
+    }
+
+    func fetchCompletedTaskDecisions(
+        weekStartDate: Date,
+        completion: @escaping (Result<[WeeklyReviewTaskDecision], Error>) -> Void
+    ) {
+        completion(.success([]))
+    }
+
+    func saveCompletedTaskDecisions(
+        _ decisions: [WeeklyReviewTaskDecision],
+        weekStartDate: Date,
+        completion: @escaping (Result<[WeeklyReviewTaskDecision], Error>) -> Void
+    ) {
+        completion(.success(decisions))
+    }
+}
+
+private final class LegacyNoopReflectionNoteRepository: ReflectionNoteRepositoryProtocol {
+    func fetchNotes(query: ReflectionNoteQuery, completion: @escaping (Result<[ReflectionNote], Error>) -> Void) { completion(.success([])) }
+    func saveNote(_ note: ReflectionNote, completion: @escaping (Result<ReflectionNote, Error>) -> Void) { completion(.success(note)) }
+    func deleteNote(id: UUID, completion: @escaping (Result<Void, Error>) -> Void) { completion(.success(())) }
+}
+
 private final class LegacyNoopGamificationRepository: GamificationRepositoryProtocol {
     func fetchProfile(completion: @escaping (Result<GamificationSnapshot?, Error>) -> Void) { completion(.success(nil)) }
     func saveProfile(_ profile: GamificationSnapshot, completion: @escaping (Result<Void, Error>) -> Void) { completion(.success(())) }
@@ -1678,6 +1741,12 @@ extension UseCaseCoordinator {
             occurrenceRepository: LegacyNoopOccurrenceRepository(),
             tombstoneRepository: LegacyNoopTombstoneRepository(),
             reminderRepository: LegacyNoopReminderRepository(),
+            weeklyPlanRepository: LegacyNoopWeeklyPlanRepository(),
+            weeklyOutcomeRepository: LegacyNoopWeeklyOutcomeRepository(),
+            weeklyReviewRepository: LegacyNoopWeeklyReviewRepository(),
+            weeklyReviewMutationRepository: LegacyNoopWeeklyReviewMutationRepository(),
+            weeklyReviewDraftStore: LegacyNoopWeeklyReviewDraftStore(),
+            reflectionNoteRepository: LegacyNoopReflectionNoteRepository(),
             gamificationRepository: gamificationRepository,
             assistantActionRepository: LegacyNoopAssistantActionRepository(),
             externalSyncRepository: LegacyNoopExternalSyncRepository(),
@@ -10254,6 +10323,551 @@ final class HabitAnalyticsAndInsightsIntegrationTests: XCTestCase {
             captured?.focus.summaryLine,
             "Habits: 1 due, 1 at risk, 1 lapsed"
         )
+    }
+}
+
+final class SaveWeeklyPlanUseCaseTests: XCTestCase {
+    func testExecutePreservesExistingOutcomeStatusAndUpdatesAssignments() throws {
+        let calendar = XPCalculationEngine.mondayCalendar()
+        let referenceDate = Date(timeIntervalSince1970: 1_720_224_000)
+        let weekStart = XPCalculationEngine.mondayStartOfWeek(for: referenceDate, calendar: calendar)
+        let taskID = UUID()
+        let outcomeID = UUID()
+        let existingPlan = WeeklyPlan(
+            id: UUID(),
+            weekStartDate: weekStart,
+            weekEndDate: Calendar(identifier: .gregorian).date(byAdding: .day, value: 6, to: weekStart) ?? weekStart,
+            focusStatement: "Ship the week",
+            selectedHabitIDs: [],
+            targetCapacity: 3,
+            minimumViableWeekEnabled: false,
+            reviewStatus: .ready,
+            createdAt: weekStart,
+            updatedAt: weekStart
+        )
+        let existingOutcome = WeeklyOutcome(
+            id: outcomeID,
+            weeklyPlanID: existingPlan.id,
+            title: "Close the loop",
+            status: .completed,
+            orderIndex: 0,
+            createdAt: weekStart,
+            updatedAt: weekStart
+        )
+        let taskRepository = InMemoryTaskDefinitionRepositoryStub(seed: [
+            TaskDefinition(
+                id: taskID,
+                title: "Wrap launch checklist",
+                planningBucket: .later,
+                weeklyOutcomeID: nil,
+                createdAt: weekStart,
+                updatedAt: weekStart
+            )
+        ])
+        let planRepository = InMemoryWeeklyPlanRepositoryStub(seed: [existingPlan])
+        let outcomeRepository = InMemoryWeeklyOutcomeRepositoryStub(seed: [existingPlan.id: [existingOutcome]])
+        let useCase = SaveWeeklyPlanUseCase(
+            weeklyPlanRepository: planRepository,
+            weeklyOutcomeRepository: outcomeRepository,
+            updateTaskDefinitionUseCase: UpdateTaskDefinitionUseCase(repository: taskRepository),
+            taskDefinitionRepository: taskRepository
+        )
+
+        let savedPlan = try awaitResult { completion in
+            useCase.execute(
+                request: SaveWeeklyPlanRequest(
+                    weekStartDate: weekStart,
+                    focusStatement: "Ship the week cleanly",
+                    selectedHabitIDs: [],
+                    targetCapacity: 4,
+                    minimumViableWeekEnabled: true,
+                    outcomes: [
+                        SaveWeeklyPlanOutcomeInput(
+                            id: outcomeID,
+                            title: "Close the loop harder",
+                            whyItMatters: "Reduces drag",
+                            successDefinition: "All follow-through done"
+                        )
+                    ],
+                    taskAssignments: [
+                        SaveWeeklyPlanTaskAssignment(
+                            task: taskRepository.byID[taskID]!,
+                            planningBucket: .thisWeek,
+                            weeklyOutcomeID: outcomeID
+                        )
+                    ],
+                    savedAt: weekStart.addingTimeInterval(3600)
+                ),
+                completion: completion
+            )
+        }
+
+        XCTAssertEqual(savedPlan.id, existingPlan.id)
+        XCTAssertEqual(savedPlan.targetCapacity, 4)
+        XCTAssertTrue(savedPlan.minimumViableWeekEnabled)
+
+        let persistedOutcome = try XCTUnwrap(outcomeRepository.outcomesByPlanID[existingPlan.id]?.first)
+        XCTAssertEqual(persistedOutcome.status, .completed)
+        XCTAssertEqual(persistedOutcome.title, "Close the loop harder")
+
+        let updatedTask = try XCTUnwrap(taskRepository.byID[taskID])
+        XCTAssertEqual(updatedTask.planningBucket, .thisWeek)
+        XCTAssertEqual(updatedTask.weeklyOutcomeID, outcomeID)
+    }
+
+    func testExecuteFailsWhenTaskUpdateFailsAndLeavesTaskUnchanged() {
+        let weekStart = XPCalculationEngine.mondayStartOfWeek(
+            for: Date(timeIntervalSince1970: 1_720_224_000),
+            calendar: XPCalculationEngine.mondayCalendar()
+        )
+        let taskID = UUID()
+        let task = TaskDefinition(
+            id: taskID,
+            title: "Failing assignment",
+            planningBucket: .later,
+            createdAt: weekStart,
+            updatedAt: weekStart
+        )
+        let baseRepository = InMemoryTaskDefinitionRepositoryStub(seed: [task])
+        let taskRepository = FailingTaskDefinitionRepositoryStub(base: baseRepository, failingIDs: [taskID])
+        let planRepository = InMemoryWeeklyPlanRepositoryStub()
+        let outcomeRepository = InMemoryWeeklyOutcomeRepositoryStub()
+        let useCase = SaveWeeklyPlanUseCase(
+            weeklyPlanRepository: planRepository,
+            weeklyOutcomeRepository: outcomeRepository,
+            updateTaskDefinitionUseCase: UpdateTaskDefinitionUseCase(repository: taskRepository),
+            taskDefinitionRepository: taskRepository
+        )
+
+        do {
+            let _: WeeklyPlan = try awaitResult { completion in
+                useCase.execute(
+                    request: SaveWeeklyPlanRequest(
+                        weekStartDate: weekStart,
+                        focusStatement: "Should fail",
+                        selectedHabitIDs: [],
+                        targetCapacity: 2,
+                        minimumViableWeekEnabled: false,
+                        outcomes: [],
+                        taskAssignments: [
+                            SaveWeeklyPlanTaskAssignment(
+                                task: task,
+                                planningBucket: .thisWeek,
+                                weeklyOutcomeID: nil
+                            )
+                        ],
+                        savedAt: weekStart
+                    ),
+                    completion: completion
+                )
+            }
+            XCTFail("Expected weekly plan save to fail")
+        } catch {
+            XCTAssertEqual((error as NSError).domain, "FailingTaskDefinitionRepositoryStub")
+        }
+
+        XCTAssertEqual(baseRepository.byID[taskID]?.planningBucket, .later)
+    }
+}
+
+final class WeeklyReviewDraftStoreTests: XCTestCase {
+    func testRoundTripsDraftAndCompletedTaskDecisions() throws {
+        let suiteName = "WeeklyReviewDraftStoreTests.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        let storageKey = "tasker.weekly.review.localstate.tests"
+        let store = UserDefaultsWeeklyReviewDraftStore(defaults: defaults, storageKey: storageKey)
+        let weekStart = XPCalculationEngine.mondayStartOfWeek(
+            for: Date(timeIntervalSince1970: 1_720_224_000),
+            calendar: XPCalculationEngine.mondayCalendar()
+        )
+        let taskID = UUID()
+        let outcomeID = UUID()
+        let draft = WeeklyReviewDraft(
+            weekStartDate: weekStart,
+            wins: "Won the week",
+            blockers: "One blocker",
+            lessons: "Keep scope tighter",
+            nextWeekPrepNotes: "Start Monday with admin",
+            perceivedWeekRating: 4,
+            taskDecisions: [taskID: .carry],
+            outcomeStatuses: [outcomeID: .completed],
+            updatedAt: weekStart.addingTimeInterval(60)
+        )
+        defer {
+            defaults.removePersistentDomain(forName: suiteName)
+        }
+
+        let savedDraft = try awaitResult { completion in
+            store.saveDraft(draft, completion: completion)
+        }
+        XCTAssertEqual(savedDraft.wins, "Won the week")
+
+        let fetchedDraft = try awaitResult { completion in
+            store.fetchDraft(weekStartDate: weekStart, completion: completion)
+        }
+        XCTAssertEqual(fetchedDraft?.taskDecisions[taskID], .carry)
+        XCTAssertEqual(fetchedDraft?.outcomeStatuses[outcomeID], .completed)
+
+        let decisions = [
+            WeeklyReviewTaskDecision(taskID: taskID, disposition: .later)
+        ]
+        let savedDecisions = try awaitResult { completion in
+            store.saveCompletedTaskDecisions(decisions, weekStartDate: weekStart, completion: completion)
+        }
+        XCTAssertEqual(savedDecisions, decisions)
+
+        let fetchedDecisions = try awaitResult { completion in
+            store.fetchCompletedTaskDecisions(weekStartDate: weekStart, completion: completion)
+        }
+        XCTAssertEqual(fetchedDecisions, decisions)
+
+        let _: Void = try awaitResult { completion in
+            store.clearDraft(weekStartDate: weekStart, completion: completion)
+        }
+        let clearedDraft = try awaitResult { completion in
+            store.fetchDraft(weekStartDate: weekStart, completion: completion)
+        }
+        XCTAssertNil(clearedDraft)
+    }
+}
+
+final class BuildRecoveryInsightsUseCaseTests: XCTestCase {
+    func testExecuteBuildsRecoveryNarrativeFromTaskDecisions() {
+        let useCase = BuildRecoveryInsightsUseCase()
+
+        let insights = useCase.execute(decisions: [
+            WeeklyReviewTaskDecision(taskID: UUID(), disposition: .carry),
+            WeeklyReviewTaskDecision(taskID: UUID(), disposition: .carry),
+            WeeklyReviewTaskDecision(taskID: UUID(), disposition: .drop)
+        ])
+
+        XCTAssertEqual(insights.carryForwardCount, 2)
+        XCTAssertEqual(insights.laterCount, 0)
+        XCTAssertEqual(insights.droppedCount, 1)
+        XCTAssertEqual(insights.headline, "Next week is inheriting some pressure.")
+        XCTAssertEqual(insights.narrative, "2 carried, 0 moved later, 1 consciously dropped.")
+    }
+}
+
+final class CoreDataWeeklyReviewMutationRepositoryTests: XCTestCase {
+    func testFinalizeReviewAppliesTaskDecisionOutcomeStatusAndPlanCompletion() throws {
+        let container = try makeWeeklyContainer()
+        let taskRepository = CoreDataTaskDefinitionRepository(container: container)
+        let planRepository = CoreDataWeeklyPlanRepository(container: container)
+        let outcomeRepository = CoreDataWeeklyOutcomeRepository(container: container)
+        let reviewRepository = CoreDataWeeklyReviewRepository(container: container)
+        let mutationRepository = CoreDataWeeklyReviewMutationRepository(container: container)
+        let weekStart = XPCalculationEngine.mondayStartOfWeek(
+            for: Date(timeIntervalSince1970: 1_720_224_000),
+            calendar: XPCalculationEngine.mondayCalendar()
+        )
+        let plan = WeeklyPlan(
+            weekStartDate: weekStart,
+            weekEndDate: Calendar(identifier: .gregorian).date(byAdding: .day, value: 6, to: weekStart) ?? weekStart,
+            reviewStatus: .ready,
+            createdAt: weekStart,
+            updatedAt: weekStart
+        )
+        let savedPlan = try awaitResult { completion in
+            planRepository.savePlan(plan, completion: completion)
+        }
+        let outcome = WeeklyOutcome(
+            weeklyPlanID: savedPlan.id,
+            title: "Close launch",
+            status: .planned,
+            orderIndex: 0,
+            createdAt: weekStart,
+            updatedAt: weekStart
+        )
+        _ = try awaitResult { completion in
+            outcomeRepository.replaceOutcomes(weeklyPlanID: savedPlan.id, outcomes: [outcome], completion: completion)
+        }
+        let task = TaskDefinition(
+            title: "Finalize postmortem",
+            planningBucket: .thisWeek,
+            weeklyOutcomeID: outcome.id,
+            createdAt: weekStart,
+            updatedAt: weekStart
+        )
+        let savedTask = try awaitResult { completion in
+            taskRepository.create(task, completion: completion)
+        }
+
+        let review = try awaitResult { completion in
+            mutationRepository.finalizeReview(
+                request: CompleteWeeklyReviewRequest(
+                    weeklyPlanID: savedPlan.id,
+                    wins: "Wrapped",
+                    blockers: "None",
+                    lessons: "Keep the finish line visible",
+                    nextWeekPrepNotes: "Start with cleanup",
+                    perceivedWeekRating: 4,
+                    taskDecisions: [
+                        WeeklyReviewTaskDecision(taskID: savedTask.id, disposition: .later)
+                    ],
+                    outcomeStatusesByOutcomeID: [outcome.id: .completed],
+                    completedAt: weekStart.addingTimeInterval(3600)
+                ),
+                completion: completion
+            )
+        }
+
+        XCTAssertEqual(review.weeklyPlanID, savedPlan.id)
+        XCTAssertEqual(review.wins, "Wrapped")
+
+        let updatedTask = try XCTUnwrap(try awaitResult { completion in
+            taskRepository.fetchTaskDefinition(id: savedTask.id, completion: completion)
+        })
+        XCTAssertEqual(updatedTask.planningBucket, .later)
+        XCTAssertNil(updatedTask.weeklyOutcomeID)
+        XCTAssertEqual(updatedTask.deferredFromWeekStart, weekStart)
+        XCTAssertEqual(updatedTask.deferredCount, 0)
+
+        let updatedOutcomes = try awaitResult { completion in
+            outcomeRepository.fetchOutcomes(weeklyPlanID: savedPlan.id, completion: completion)
+        }
+        let updatedOutcome = try XCTUnwrap(updatedOutcomes.first)
+        XCTAssertEqual(updatedOutcome.status, .completed)
+
+        let completedPlan = try XCTUnwrap(try awaitResult { completion in
+            planRepository.fetchPlan(id: savedPlan.id, completion: completion)
+        })
+        XCTAssertEqual(completedPlan.reviewStatus, .completed)
+
+        let persistedReview = try awaitResult { completion in
+            reviewRepository.fetchReview(weeklyPlanID: savedPlan.id, completion: completion)
+        }
+        XCTAssertEqual(persistedReview?.wins, "Wrapped")
+    }
+
+    func testFinalizeReviewFailureRollsBackWhenReviewedTaskIsMissing() throws {
+        let container = try makeWeeklyContainer()
+        let taskRepository = CoreDataTaskDefinitionRepository(container: container)
+        let planRepository = CoreDataWeeklyPlanRepository(container: container)
+        let outcomeRepository = CoreDataWeeklyOutcomeRepository(container: container)
+        let reviewRepository = CoreDataWeeklyReviewRepository(container: container)
+        let mutationRepository = CoreDataWeeklyReviewMutationRepository(container: container)
+        let weekStart = XPCalculationEngine.mondayStartOfWeek(
+            for: Date(timeIntervalSince1970: 1_720_224_000),
+            calendar: XPCalculationEngine.mondayCalendar()
+        )
+        let plan = WeeklyPlan(
+            weekStartDate: weekStart,
+            weekEndDate: Calendar(identifier: .gregorian).date(byAdding: .day, value: 6, to: weekStart) ?? weekStart,
+            reviewStatus: .ready,
+            createdAt: weekStart,
+            updatedAt: weekStart
+        )
+        let savedPlan = try awaitResult { completion in
+            planRepository.savePlan(plan, completion: completion)
+        }
+        let outcome = WeeklyOutcome(
+            weeklyPlanID: savedPlan.id,
+            title: "Keep pressure low",
+            status: .planned,
+            orderIndex: 0,
+            createdAt: weekStart,
+            updatedAt: weekStart
+        )
+        _ = try awaitResult { completion in
+            outcomeRepository.replaceOutcomes(weeklyPlanID: savedPlan.id, outcomes: [outcome], completion: completion)
+        }
+        let task = TaskDefinition(
+            title: "Legit weekly task",
+            planningBucket: .thisWeek,
+            weeklyOutcomeID: outcome.id,
+            createdAt: weekStart,
+            updatedAt: weekStart
+        )
+        let savedTask = try awaitResult { completion in
+            taskRepository.create(task, completion: completion)
+        }
+
+        do {
+            let _: WeeklyReview = try awaitResult { completion in
+                mutationRepository.finalizeReview(
+                    request: CompleteWeeklyReviewRequest(
+                        weeklyPlanID: savedPlan.id,
+                        taskDecisions: [
+                            WeeklyReviewTaskDecision(taskID: UUID(), disposition: .drop)
+                        ],
+                        outcomeStatusesByOutcomeID: [outcome.id: .completed],
+                        completedAt: weekStart.addingTimeInterval(7200)
+                    ),
+                    completion: completion
+                )
+            }
+            XCTFail("Expected transaction failure for missing reviewed task")
+        } catch {
+            XCTAssertEqual((error as NSError).domain, "CoreDataWeeklyReviewMutationRepository")
+        }
+
+        let unchangedTask = try XCTUnwrap(try awaitResult { completion in
+            taskRepository.fetchTaskDefinition(id: savedTask.id, completion: completion)
+        })
+        XCTAssertEqual(unchangedTask.planningBucket, .thisWeek)
+        XCTAssertEqual(unchangedTask.weeklyOutcomeID, outcome.id)
+
+        let unchangedOutcomes = try awaitResult { completion in
+            outcomeRepository.fetchOutcomes(weeklyPlanID: savedPlan.id, completion: completion)
+        }
+        let unchangedOutcome = try XCTUnwrap(unchangedOutcomes.first)
+        XCTAssertEqual(unchangedOutcome.status, .planned)
+
+        let persistedReview = try awaitResult { completion in
+            reviewRepository.fetchReview(weeklyPlanID: savedPlan.id, completion: completion)
+        }
+        XCTAssertNil(persistedReview)
+
+        let planAfterFailure = try XCTUnwrap(try awaitResult { completion in
+            planRepository.fetchPlan(id: savedPlan.id, completion: completion)
+        })
+        XCTAssertEqual(planAfterFailure.reviewStatus, .ready)
+    }
+
+    private func makeWeeklyContainer() throws -> NSPersistentContainer {
+        let bundles = [Bundle.main, Bundle(for: type(of: self))]
+        guard let modelURL = bundles.compactMap({ $0.url(forResource: "TaskModelV3", withExtension: "momd") }).first,
+              let model = NSManagedObjectModel(contentsOf: modelURL) else {
+            throw NSError(
+                domain: "CoreDataWeeklyReviewMutationRepositoryTests",
+                code: 1,
+                userInfo: [NSLocalizedDescriptionKey: "Unable to load compiled TaskModelV3 model"]
+            )
+        }
+
+        let container = NSPersistentContainer(name: "TaskModelV3", managedObjectModel: model)
+        let description = NSPersistentStoreDescription()
+        description.type = NSInMemoryStoreType
+        description.shouldAddStoreAsynchronously = false
+        description.shouldMigrateStoreAutomatically = true
+        description.shouldInferMappingModelAutomatically = true
+        container.persistentStoreDescriptions = [description]
+
+        var loadError: Error?
+        container.loadPersistentStores { _, error in
+            loadError = error
+        }
+        if let loadError {
+            throw loadError
+        }
+        return container
+    }
+}
+
+private final class InMemoryWeeklyPlanRepositoryStub: WeeklyPlanRepositoryProtocol {
+    private(set) var plansByID: [UUID: WeeklyPlan]
+
+    init(seed: [WeeklyPlan] = []) {
+        self.plansByID = Dictionary(uniqueKeysWithValues: seed.map { ($0.id, $0) })
+    }
+
+    func fetchPlan(id: UUID, completion: @escaping (Result<WeeklyPlan?, Error>) -> Void) {
+        completion(.success(plansByID[id]))
+    }
+
+    func fetchPlan(forWeekStarting weekStartDate: Date, completion: @escaping (Result<WeeklyPlan?, Error>) -> Void) {
+        completion(.success(plansByID.values.first(where: { Calendar(identifier: .gregorian).isDate($0.weekStartDate, inSameDayAs: weekStartDate) })))
+    }
+
+    func fetchPlans(from startDate: Date, to endDate: Date, completion: @escaping (Result<[WeeklyPlan], Error>) -> Void) {
+        completion(.success(plansByID.values.filter { $0.weekStartDate >= startDate && $0.weekStartDate <= endDate }))
+    }
+
+    func savePlan(_ plan: WeeklyPlan, completion: @escaping (Result<WeeklyPlan, Error>) -> Void) {
+        plansByID[plan.id] = plan
+        completion(.success(plan))
+    }
+}
+
+private final class InMemoryWeeklyOutcomeRepositoryStub: WeeklyOutcomeRepositoryProtocol {
+    fileprivate(set) var outcomesByPlanID: [UUID: [WeeklyOutcome]]
+
+    init(seed: [UUID: [WeeklyOutcome]] = [:]) {
+        self.outcomesByPlanID = seed
+    }
+
+    func fetchOutcomes(weeklyPlanID: UUID, completion: @escaping (Result<[WeeklyOutcome], Error>) -> Void) {
+        completion(.success(outcomesByPlanID[weeklyPlanID] ?? []))
+    }
+
+    func saveOutcome(_ outcome: WeeklyOutcome, completion: @escaping (Result<WeeklyOutcome, Error>) -> Void) {
+        var outcomes = outcomesByPlanID[outcome.weeklyPlanID] ?? []
+        outcomes.removeAll { $0.id == outcome.id }
+        outcomes.append(outcome)
+        outcomes.sort { $0.orderIndex < $1.orderIndex }
+        outcomesByPlanID[outcome.weeklyPlanID] = outcomes
+        completion(.success(outcome))
+    }
+
+    func replaceOutcomes(
+        weeklyPlanID: UUID,
+        outcomes: [WeeklyOutcome],
+        completion: @escaping (Result<[WeeklyOutcome], Error>) -> Void
+    ) {
+        outcomesByPlanID[weeklyPlanID] = outcomes.sorted { $0.orderIndex < $1.orderIndex }
+        completion(.success(outcomesByPlanID[weeklyPlanID] ?? []))
+    }
+
+    func deleteOutcome(id: UUID, completion: @escaping (Result<Void, Error>) -> Void) {
+        for key in outcomesByPlanID.keys {
+            outcomesByPlanID[key]?.removeAll { $0.id == id }
+        }
+        completion(.success(()))
+    }
+}
+
+private final class FailingTaskDefinitionRepositoryStub: TaskDefinitionRepositoryProtocol {
+    let base: InMemoryTaskDefinitionRepositoryStub
+    let failingIDs: Set<UUID>
+
+    init(base: InMemoryTaskDefinitionRepositoryStub, failingIDs: Set<UUID>) {
+        self.base = base
+        self.failingIDs = failingIDs
+    }
+
+    func fetchAll(completion: @escaping (Result<[TaskDefinition], Error>) -> Void) {
+        base.fetchAll(completion: completion)
+    }
+
+    func fetchAll(query: TaskDefinitionQuery?, completion: @escaping (Result<[TaskDefinition], Error>) -> Void) {
+        base.fetchAll(query: query, completion: completion)
+    }
+
+    func fetchTaskDefinition(id: UUID, completion: @escaping (Result<TaskDefinition?, Error>) -> Void) {
+        base.fetchTaskDefinition(id: id, completion: completion)
+    }
+
+    func create(_ task: TaskDefinition, completion: @escaping (Result<TaskDefinition, Error>) -> Void) {
+        base.create(task, completion: completion)
+    }
+
+    func create(request: CreateTaskDefinitionRequest, completion: @escaping (Result<TaskDefinition, Error>) -> Void) {
+        base.create(request: request, completion: completion)
+    }
+
+    func update(_ task: TaskDefinition, completion: @escaping (Result<TaskDefinition, Error>) -> Void) {
+        if failingIDs.contains(task.id) {
+            completion(.failure(NSError(domain: "FailingTaskDefinitionRepositoryStub", code: 1)))
+            return
+        }
+        base.update(task, completion: completion)
+    }
+
+    func update(request: UpdateTaskDefinitionRequest, completion: @escaping (Result<TaskDefinition, Error>) -> Void) {
+        if failingIDs.contains(request.id) {
+            completion(.failure(NSError(domain: "FailingTaskDefinitionRepositoryStub", code: 1)))
+            return
+        }
+        base.update(request: request, completion: completion)
+    }
+
+    func fetchChildren(parentTaskID: UUID, completion: @escaping (Result<[TaskDefinition], Error>) -> Void) {
+        base.fetchChildren(parentTaskID: parentTaskID, completion: completion)
+    }
+
+    func delete(id: UUID, completion: @escaping (Result<Void, Error>) -> Void) {
+        base.delete(id: id, completion: completion)
     }
 }
 

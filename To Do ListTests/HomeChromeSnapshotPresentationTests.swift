@@ -92,12 +92,13 @@ final class HomeChromeSnapshotPresentationTests: XCTestCase {
             ),
             dailyScore: 18,
             completionRate: 1,
+            weeklySummary: nil,
             projects: [],
             reflectionEligible: true,
             momentumGuidanceText: ""
         )
 
-        let presentation = snapshot.homeHeaderPresentation(tasks: .empty)
+        let presentation = snapshot.homeHeaderPresentation(tasks: HomeTasksSnapshot.empty)
 
         XCTAssertEqual(presentation.viewLabel, "Today")
         XCTAssertEqual(
@@ -126,6 +127,7 @@ final class HomeChromeSnapshotPresentationTests: XCTestCase {
             progressState: .empty,
             dailyScore: 0,
             completionRate: 0,
+            weeklySummary: nil,
             projects: [],
             reflectionEligible: true,
             momentumGuidanceText: ""
@@ -209,6 +211,7 @@ final class HomeChromeSnapshotPresentationTests: XCTestCase {
             progressState: .empty,
             dailyScore: 0,
             completionRate: 0,
+            weeklySummary: nil,
             projects: [],
             reflectionEligible: false,
             momentumGuidanceText: ""
@@ -275,12 +278,13 @@ final class HomeChromeSnapshotPresentationTests: XCTestCase {
             ),
             dailyScore: 18,
             completionRate: 1,
+            weeklySummary: nil,
             projects: [],
             reflectionEligible: true,
             momentumGuidanceText: ""
         )
 
-        let presentation = snapshot.homeHeaderPresentation(tasks: .empty)
+        let presentation = snapshot.homeHeaderPresentation(tasks: HomeTasksSnapshot.empty)
 
         XCTAssertEqual(presentation.metadataItems.map { $0.text }, ["18/250 XP", "100%", "1d"])
         XCTAssertEqual(presentation.xpProgress?.targetXP, GamificationTokens.dailyXPCap)
@@ -303,12 +307,13 @@ final class HomeChromeSnapshotPresentationTests: XCTestCase {
             ),
             dailyScore: 18,
             completionRate: 1.0 / 3.0,
+            weeklySummary: nil,
             projects: [],
             reflectionEligible: true,
             momentumGuidanceText: ""
         )
 
-        let presentation = snapshot.homeHeaderPresentation(tasks: .empty)
+        let presentation = snapshot.homeHeaderPresentation(tasks: HomeTasksSnapshot.empty)
 
         XCTAssertEqual(presentation.metadataItems.map { $0.text }, ["18/250 XP", "33%", "1d"])
     }

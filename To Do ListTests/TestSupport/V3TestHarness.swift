@@ -32,6 +32,12 @@ enum V3TestHarness {
             occurrenceRepository: occurrenceRepository,
             tombstoneRepository: NoopTombstoneRepository(),
             reminderRepository: NoopReminderRepository(),
+            weeklyPlanRepository: NoopWeeklyPlanRepository(),
+            weeklyOutcomeRepository: NoopWeeklyOutcomeRepository(),
+            weeklyReviewRepository: NoopWeeklyReviewRepository(),
+            weeklyReviewMutationRepository: NoopWeeklyReviewMutationRepository(),
+            weeklyReviewDraftStore: NoopWeeklyReviewDraftStore(),
+            reflectionNoteRepository: NoopReflectionNoteRepository(),
             gamificationRepository: gamificationRepository,
             assistantActionRepository: NoopAssistantActionRepository(),
             externalSyncRepository: NoopExternalSyncRepository(),
@@ -158,6 +164,20 @@ final class InMemoryTaskDefinitionRepositoryStub: TaskDefinitionRepositoryProtoc
             current.estimatedDuration = estimatedDuration
         }
         if let actualDuration = request.actualDuration { current.actualDuration = actualDuration }
+        if let planningBucket = request.planningBucket { current.planningBucket = planningBucket }
+        if request.clearWeeklyOutcomeLink {
+            current.weeklyOutcomeID = nil
+        } else if let weeklyOutcomeID = request.weeklyOutcomeID {
+            current.weeklyOutcomeID = weeklyOutcomeID
+        }
+        if request.clearDeferredFromWeekStart {
+            current.deferredFromWeekStart = nil
+        } else if let deferredFromWeekStart = request.deferredFromWeekStart {
+            current.deferredFromWeekStart = deferredFromWeekStart
+        }
+        if let deferredCount = request.deferredCount {
+            current.deferredCount = deferredCount
+        }
         if request.clearRepeatPattern {
             current.repeatPattern = nil
         } else if let repeatPattern = request.repeatPattern {
@@ -197,6 +217,12 @@ final class InMemoryTaskReadModelRepositoryStub: TaskReadModelRepositoryProtocol
                 guard let dueDate = task.dueDate, dueDate <= end else { return false }
             }
             if let updatedAfter = query.updatedAfter, task.updatedAt < updatedAfter { return false }
+            if query.planningBuckets.isEmpty == false && !query.planningBuckets.contains(task.planningBucket) {
+                return false
+            }
+            if let weeklyOutcomeID = query.weeklyOutcomeID, task.weeklyOutcomeID != weeklyOutcomeID {
+                return false
+            }
             return true
         }
 
@@ -217,6 +243,12 @@ final class InMemoryTaskReadModelRepositoryStub: TaskReadModelRepositoryProtocol
         let filtered = tasks.filter { task in
             if let projectID = query.projectID, task.projectID != projectID { return false }
             if !query.includeCompleted && task.isComplete { return false }
+            if query.planningBuckets.isEmpty == false && !query.planningBuckets.contains(task.planningBucket) {
+                return false
+            }
+            if let weeklyOutcomeID = query.weeklyOutcomeID, task.weeklyOutcomeID != weeklyOutcomeID {
+                return false
+            }
             if needle.isEmpty { return true }
             let inTitle = task.title.lowercased().contains(needle)
             let inDetails = task.details?.lowercased().contains(needle) ?? false
@@ -352,6 +384,69 @@ private final class NoopReminderRepository: ReminderRepositoryProtocol {
     func fetchDeliveries(reminderID: UUID, completion: @escaping (Result<[ReminderDeliveryDefinition], Error>) -> Void) { completion(.success([])) }
     func saveDelivery(_ delivery: ReminderDeliveryDefinition, completion: @escaping (Result<ReminderDeliveryDefinition, Error>) -> Void) { completion(.success(delivery)) }
     func updateDelivery(_ delivery: ReminderDeliveryDefinition, completion: @escaping (Result<ReminderDeliveryDefinition, Error>) -> Void) { completion(.success(delivery)) }
+}
+
+private final class NoopWeeklyPlanRepository: WeeklyPlanRepositoryProtocol {
+    func fetchPlan(id: UUID, completion: @escaping (Result<WeeklyPlan?, Error>) -> Void) { completion(.success(nil)) }
+    func fetchPlan(forWeekStarting weekStartDate: Date, completion: @escaping (Result<WeeklyPlan?, Error>) -> Void) { completion(.success(nil)) }
+    func fetchPlans(from startDate: Date, to endDate: Date, completion: @escaping (Result<[WeeklyPlan], Error>) -> Void) { completion(.success([])) }
+    func savePlan(_ plan: WeeklyPlan, completion: @escaping (Result<WeeklyPlan, Error>) -> Void) { completion(.success(plan)) }
+}
+
+private final class NoopWeeklyOutcomeRepository: WeeklyOutcomeRepositoryProtocol {
+    func fetchOutcomes(weeklyPlanID: UUID, completion: @escaping (Result<[WeeklyOutcome], Error>) -> Void) { completion(.success([])) }
+    func saveOutcome(_ outcome: WeeklyOutcome, completion: @escaping (Result<WeeklyOutcome, Error>) -> Void) { completion(.success(outcome)) }
+    func replaceOutcomes(weeklyPlanID: UUID, outcomes: [WeeklyOutcome], completion: @escaping (Result<[WeeklyOutcome], Error>) -> Void) { completion(.success(outcomes)) }
+    func deleteOutcome(id: UUID, completion: @escaping (Result<Void, Error>) -> Void) { completion(.success(())) }
+}
+
+private final class NoopWeeklyReviewRepository: WeeklyReviewRepositoryProtocol {
+    func fetchReview(weeklyPlanID: UUID, completion: @escaping (Result<WeeklyReview?, Error>) -> Void) { completion(.success(nil)) }
+    func saveReview(_ review: WeeklyReview, completion: @escaping (Result<WeeklyReview, Error>) -> Void) { completion(.success(review)) }
+}
+
+private final class NoopWeeklyReviewMutationRepository: WeeklyReviewMutationRepositoryProtocol {
+    func finalizeReview(
+        request: CompleteWeeklyReviewRequest,
+        completion: @escaping (Result<WeeklyReview, Error>) -> Void
+    ) {
+        completion(.failure(NSError(domain: "NoopWeeklyReviewMutationRepository", code: 1)))
+    }
+}
+
+private final class NoopWeeklyReviewDraftStore: WeeklyReviewDraftStoreProtocol {
+    func fetchDraft(weekStartDate: Date, completion: @escaping (Result<WeeklyReviewDraft?, Error>) -> Void) {
+        completion(.success(nil))
+    }
+
+    func saveDraft(_ draft: WeeklyReviewDraft, completion: @escaping (Result<WeeklyReviewDraft, Error>) -> Void) {
+        completion(.success(draft))
+    }
+
+    func clearDraft(weekStartDate: Date, completion: @escaping (Result<Void, Error>) -> Void) {
+        completion(.success(()))
+    }
+
+    func fetchCompletedTaskDecisions(
+        weekStartDate: Date,
+        completion: @escaping (Result<[WeeklyReviewTaskDecision], Error>) -> Void
+    ) {
+        completion(.success([]))
+    }
+
+    func saveCompletedTaskDecisions(
+        _ decisions: [WeeklyReviewTaskDecision],
+        weekStartDate: Date,
+        completion: @escaping (Result<[WeeklyReviewTaskDecision], Error>) -> Void
+    ) {
+        completion(.success(decisions))
+    }
+}
+
+private final class NoopReflectionNoteRepository: ReflectionNoteRepositoryProtocol {
+    func fetchNotes(query: ReflectionNoteQuery, completion: @escaping (Result<[ReflectionNote], Error>) -> Void) { completion(.success([])) }
+    func saveNote(_ note: ReflectionNote, completion: @escaping (Result<ReflectionNote, Error>) -> Void) { completion(.success(note)) }
+    func deleteNote(id: UUID, completion: @escaping (Result<Void, Error>) -> Void) { completion(.success(())) }
 }
 
 private final class NoopGamificationRepository: GamificationRepositoryProtocol {
