@@ -38,6 +38,12 @@ public final class EnhancedDependencyContainer {
     public private(set) var scheduleRepository: ScheduleRepositoryProtocol?
     public private(set) var occurrenceRepository: OccurrenceRepositoryProtocol?
     public private(set) var reminderRepository: ReminderRepositoryProtocol?
+    public private(set) var weeklyPlanRepository: WeeklyPlanRepositoryProtocol?
+    public private(set) var weeklyOutcomeRepository: WeeklyOutcomeRepositoryProtocol?
+    public private(set) var weeklyReviewRepository: WeeklyReviewRepositoryProtocol?
+    public private(set) var weeklyReviewMutationRepository: WeeklyReviewMutationRepositoryProtocol?
+    public private(set) var weeklyReviewDraftStore: WeeklyReviewDraftStoreProtocol?
+    public private(set) var reflectionNoteRepository: ReflectionNoteRepositoryProtocol?
     public private(set) var gamificationRepository: GamificationRepositoryProtocol?
     public private(set) var assistantActionRepository: AssistantActionRepositoryProtocol?
     public private(set) var externalSyncRepository: ExternalSyncRepositoryProtocol?
@@ -89,6 +95,12 @@ public final class EnhancedDependencyContainer {
         let baseScheduleRepository = CoreDataScheduleRepository(container: container)
         let baseOccurrenceRepository = CoreDataOccurrenceRepository(container: container)
         let baseReminderRepository = CoreDataReminderRepository(container: container)
+        let baseWeeklyPlanRepository = CoreDataWeeklyPlanRepository(container: container)
+        let baseWeeklyOutcomeRepository = CoreDataWeeklyOutcomeRepository(container: container)
+        let baseWeeklyReviewRepository = CoreDataWeeklyReviewRepository(container: container)
+        let baseWeeklyReviewMutationRepository = CoreDataWeeklyReviewMutationRepository(container: container)
+        let baseWeeklyReviewDraftStore = UserDefaultsWeeklyReviewDraftStore()
+        let baseReflectionNoteRepository = CoreDataReflectionNoteRepository(container: container)
         let baseGamificationRepository = CoreDataGamificationRepository(container: container)
         let baseAssistantActionRepository = CoreDataAssistantActionRepository(container: container)
         let baseExternalSyncRepository = CoreDataExternalSyncRepository(container: container)
@@ -140,6 +152,27 @@ public final class EnhancedDependencyContainer {
             base: baseReminderRepository,
             gate: writeGate
         )
+        self.weeklyPlanRepository = WriteClosedWeeklyPlanRepositoryAdapter(
+            base: baseWeeklyPlanRepository,
+            gate: writeGate
+        )
+        self.weeklyOutcomeRepository = WriteClosedWeeklyOutcomeRepositoryAdapter(
+            base: baseWeeklyOutcomeRepository,
+            gate: writeGate
+        )
+        self.weeklyReviewRepository = WriteClosedWeeklyReviewRepositoryAdapter(
+            base: baseWeeklyReviewRepository,
+            gate: writeGate
+        )
+        self.weeklyReviewMutationRepository = WriteClosedWeeklyReviewMutationRepositoryAdapter(
+            base: baseWeeklyReviewMutationRepository,
+            gate: writeGate
+        )
+        self.weeklyReviewDraftStore = baseWeeklyReviewDraftStore
+        self.reflectionNoteRepository = WriteClosedReflectionNoteRepositoryAdapter(
+            base: baseReflectionNoteRepository,
+            gate: writeGate
+        )
         self.gamificationRepository = WriteClosedGamificationRepositoryAdapter(
             base: baseGamificationRepository,
             gate: writeGate
@@ -175,6 +208,12 @@ public final class EnhancedDependencyContainer {
               let occurrenceRepository,
               let tombstoneRepository,
               let reminderRepository,
+              let weeklyPlanRepository,
+              let weeklyOutcomeRepository,
+              let weeklyReviewRepository,
+              let weeklyReviewMutationRepository,
+              let weeklyReviewDraftStore,
+              let reflectionNoteRepository,
               let gamificationRepository,
               let assistantActionRepository,
               let externalSyncRepository else {
@@ -202,6 +241,12 @@ public final class EnhancedDependencyContainer {
             occurrenceRepository: occurrenceRepository,
             tombstoneRepository: tombstoneRepository,
             reminderRepository: reminderRepository,
+            weeklyPlanRepository: weeklyPlanRepository,
+            weeklyOutcomeRepository: weeklyOutcomeRepository,
+            weeklyReviewRepository: weeklyReviewRepository,
+            weeklyReviewMutationRepository: weeklyReviewMutationRepository,
+            weeklyReviewDraftStore: weeklyReviewDraftStore,
+            reflectionNoteRepository: reflectionNoteRepository,
             gamificationRepository: gamificationRepository,
             assistantActionRepository: assistantActionRepository,
             externalSyncRepository: externalSyncRepository,

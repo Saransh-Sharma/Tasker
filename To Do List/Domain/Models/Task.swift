@@ -34,6 +34,10 @@ public struct TaskDefinition: Codable, Equatable, Hashable {
     public var actualDuration: TimeInterval?
     public var subtasks: [UUID]
     public var repeatPattern: TaskRepeatPattern?
+    public var planningBucket: TaskPlanningBucket
+    public var weeklyOutcomeID: UUID?
+    public var deferredFromWeekStart: Date?
+    public var deferredCount: Int
     public var createdAt: Date
     public var updatedAt: Date
 
@@ -65,6 +69,10 @@ public struct TaskDefinition: Codable, Equatable, Hashable {
         actualDuration: TimeInterval? = nil,
         subtasks: [UUID] = [],
         repeatPattern: TaskRepeatPattern? = nil,
+        planningBucket: TaskPlanningBucket = .thisWeek,
+        weeklyOutcomeID: UUID? = nil,
+        deferredFromWeekStart: Date? = nil,
+        deferredCount: Int = 0,
         createdAt: Date = Date(),
         updatedAt: Date = Date()
     ) {
@@ -94,6 +102,10 @@ public struct TaskDefinition: Codable, Equatable, Hashable {
         self.actualDuration = actualDuration
         self.subtasks = subtasks
         self.repeatPattern = repeatPattern
+        self.planningBucket = planningBucket
+        self.weeklyOutcomeID = weeklyOutcomeID
+        self.deferredFromWeekStart = deferredFromWeekStart
+        self.deferredCount = deferredCount
         self.createdAt = createdAt
         self.updatedAt = updatedAt
     }
@@ -222,6 +234,79 @@ public struct TaskDefinition: Codable, Equatable, Hashable {
     }
 }
 
+extension TaskDefinition {
+    private enum CodingKeys: String, CodingKey {
+        case id
+        case recurrenceSeriesID
+        case projectID
+        case projectName
+        case lifeAreaID
+        case sectionID
+        case parentTaskID
+        case title
+        case details
+        case priority
+        case type
+        case energy
+        case category
+        case context
+        case dueDate
+        case isComplete
+        case dateAdded
+        case dateCompleted
+        case isEveningTask
+        case alertReminderTime
+        case tagIDs
+        case dependencies
+        case estimatedDuration
+        case actualDuration
+        case subtasks
+        case repeatPattern
+        case planningBucket
+        case weeklyOutcomeID
+        case deferredFromWeekStart
+        case deferredCount
+        case createdAt
+        case updatedAt
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.id = try container.decodeIfPresent(UUID.self, forKey: .id) ?? UUID()
+        self.recurrenceSeriesID = try container.decodeIfPresent(UUID.self, forKey: .recurrenceSeriesID)
+        self.projectID = try container.decodeIfPresent(UUID.self, forKey: .projectID) ?? ProjectConstants.inboxProjectID
+        self.projectName = try container.decodeIfPresent(String.self, forKey: .projectName)
+        self.lifeAreaID = try container.decodeIfPresent(UUID.self, forKey: .lifeAreaID)
+        self.sectionID = try container.decodeIfPresent(UUID.self, forKey: .sectionID)
+        self.parentTaskID = try container.decodeIfPresent(UUID.self, forKey: .parentTaskID)
+        self.title = try container.decode(String.self, forKey: .title)
+        self.details = try container.decodeIfPresent(String.self, forKey: .details)
+        self.priority = try container.decodeIfPresent(TaskPriority.self, forKey: .priority) ?? .low
+        self.type = try container.decodeIfPresent(TaskType.self, forKey: .type) ?? .morning
+        self.energy = try container.decodeIfPresent(TaskEnergy.self, forKey: .energy) ?? .medium
+        self.category = try container.decodeIfPresent(TaskCategory.self, forKey: .category) ?? .general
+        self.context = try container.decodeIfPresent(TaskContext.self, forKey: .context) ?? .anywhere
+        self.dueDate = try container.decodeIfPresent(Date.self, forKey: .dueDate)
+        self.isComplete = try container.decodeIfPresent(Bool.self, forKey: .isComplete) ?? false
+        self.dateAdded = try container.decodeIfPresent(Date.self, forKey: .dateAdded) ?? Date()
+        self.dateCompleted = try container.decodeIfPresent(Date.self, forKey: .dateCompleted)
+        self.isEveningTask = try container.decodeIfPresent(Bool.self, forKey: .isEveningTask) ?? false
+        self.alertReminderTime = try container.decodeIfPresent(Date.self, forKey: .alertReminderTime)
+        self.tagIDs = try container.decodeIfPresent([UUID].self, forKey: .tagIDs) ?? []
+        self.dependencies = try container.decodeIfPresent([TaskDependencyLinkDefinition].self, forKey: .dependencies) ?? []
+        self.estimatedDuration = try container.decodeIfPresent(TimeInterval.self, forKey: .estimatedDuration)
+        self.actualDuration = try container.decodeIfPresent(TimeInterval.self, forKey: .actualDuration)
+        self.subtasks = try container.decodeIfPresent([UUID].self, forKey: .subtasks) ?? []
+        self.repeatPattern = try container.decodeIfPresent(TaskRepeatPattern.self, forKey: .repeatPattern)
+        self.planningBucket = try container.decodeIfPresent(TaskPlanningBucket.self, forKey: .planningBucket) ?? .thisWeek
+        self.weeklyOutcomeID = try container.decodeIfPresent(UUID.self, forKey: .weeklyOutcomeID)
+        self.deferredFromWeekStart = try container.decodeIfPresent(Date.self, forKey: .deferredFromWeekStart)
+        self.deferredCount = try container.decodeIfPresent(Int.self, forKey: .deferredCount) ?? 0
+        self.createdAt = try container.decodeIfPresent(Date.self, forKey: .createdAt) ?? self.dateAdded
+        self.updatedAt = try container.decodeIfPresent(Date.self, forKey: .updatedAt) ?? self.createdAt
+    }
+}
+
 public enum TaskDependencyKind: String, Codable, CaseIterable {
     case blocks
     case related
@@ -292,6 +377,10 @@ public struct CreateTaskDefinitionRequest: Codable, Equatable, Hashable {
     public var alertReminderTime: Date?
     public var estimatedDuration: TimeInterval?
     public var repeatPattern: TaskRepeatPattern?
+    public var planningBucket: TaskPlanningBucket
+    public var weeklyOutcomeID: UUID?
+    public var deferredFromWeekStart: Date?
+    public var deferredCount: Int
     public var createdAt: Date
 
     /// Initializes a new instance.
@@ -317,6 +406,10 @@ public struct CreateTaskDefinitionRequest: Codable, Equatable, Hashable {
         alertReminderTime: Date? = nil,
         estimatedDuration: TimeInterval? = nil,
         repeatPattern: TaskRepeatPattern? = nil,
+        planningBucket: TaskPlanningBucket = .thisWeek,
+        weeklyOutcomeID: UUID? = nil,
+        deferredFromWeekStart: Date? = nil,
+        deferredCount: Int = 0,
         createdAt: Date = Date()
     ) {
         self.id = id
@@ -340,6 +433,10 @@ public struct CreateTaskDefinitionRequest: Codable, Equatable, Hashable {
         self.alertReminderTime = alertReminderTime
         self.estimatedDuration = estimatedDuration
         self.repeatPattern = repeatPattern
+        self.planningBucket = planningBucket
+        self.weeklyOutcomeID = weeklyOutcomeID
+        self.deferredFromWeekStart = deferredFromWeekStart
+        self.deferredCount = deferredCount
         self.createdAt = createdAt
     }
 
@@ -372,6 +469,10 @@ public struct CreateTaskDefinitionRequest: Codable, Equatable, Hashable {
             actualDuration: nil,
             subtasks: [],
             repeatPattern: repeatPattern,
+            planningBucket: planningBucket,
+            weeklyOutcomeID: weeklyOutcomeID,
+            deferredFromWeekStart: deferredFromWeekStart,
+            deferredCount: deferredCount,
             createdAt: createdAt,
             updatedAt: createdAt
         )
@@ -408,6 +509,12 @@ public struct UpdateTaskDefinitionRequest: Codable, Equatable, Hashable {
     public var actualDuration: TimeInterval?
     public var repeatPattern: TaskRepeatPattern?
     public var clearRepeatPattern: Bool
+    public var planningBucket: TaskPlanningBucket?
+    public var weeklyOutcomeID: UUID?
+    public var clearWeeklyOutcomeLink: Bool
+    public var deferredFromWeekStart: Date?
+    public var clearDeferredFromWeekStart: Bool
+    public var deferredCount: Int?
     public var updatedAt: Date
 
     /// Initializes a new instance.
@@ -441,6 +548,12 @@ public struct UpdateTaskDefinitionRequest: Codable, Equatable, Hashable {
         actualDuration: TimeInterval? = nil,
         repeatPattern: TaskRepeatPattern? = nil,
         clearRepeatPattern: Bool = false,
+        planningBucket: TaskPlanningBucket? = nil,
+        weeklyOutcomeID: UUID? = nil,
+        clearWeeklyOutcomeLink: Bool = false,
+        deferredFromWeekStart: Date? = nil,
+        clearDeferredFromWeekStart: Bool = false,
+        deferredCount: Int? = nil,
         updatedAt: Date = Date()
     ) {
         self.id = id
@@ -472,6 +585,12 @@ public struct UpdateTaskDefinitionRequest: Codable, Equatable, Hashable {
         self.actualDuration = actualDuration
         self.repeatPattern = repeatPattern
         self.clearRepeatPattern = clearRepeatPattern
+        self.planningBucket = planningBucket
+        self.weeklyOutcomeID = weeklyOutcomeID
+        self.clearWeeklyOutcomeLink = clearWeeklyOutcomeLink
+        self.deferredFromWeekStart = deferredFromWeekStart
+        self.clearDeferredFromWeekStart = clearDeferredFromWeekStart
+        self.deferredCount = deferredCount
         self.updatedAt = updatedAt
     }
 }
@@ -485,6 +604,8 @@ public struct TaskDefinitionQuery: Codable, Equatable, Hashable {
     public var dueDateEnd: Date?
     public var updatedAfter: Date?
     public var searchText: String?
+    public var planningBuckets: [TaskPlanningBucket]
+    public var weeklyOutcomeID: UUID?
     public var limit: Int?
     public var offset: Int?
 
@@ -498,6 +619,8 @@ public struct TaskDefinitionQuery: Codable, Equatable, Hashable {
         dueDateEnd: Date? = nil,
         updatedAfter: Date? = nil,
         searchText: String? = nil,
+        planningBuckets: [TaskPlanningBucket] = [],
+        weeklyOutcomeID: UUID? = nil,
         limit: Int? = nil,
         offset: Int? = nil
     ) {
@@ -509,6 +632,8 @@ public struct TaskDefinitionQuery: Codable, Equatable, Hashable {
         self.dueDateEnd = dueDateEnd
         self.updatedAfter = updatedAfter
         self.searchText = searchText
+        self.planningBuckets = planningBuckets
+        self.weeklyOutcomeID = weeklyOutcomeID
         self.limit = limit
         self.offset = offset
     }

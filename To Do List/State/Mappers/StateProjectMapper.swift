@@ -50,7 +50,10 @@ public enum StateProjectMapper {
             estimatedTaskCount: entity.estimatedTaskCount > 0 ? Int(entity.estimatedTaskCount) : nil,
             isArchived: entity.isArchived,
             templateId: entity.templateID,
-            settings: ProjectSettings()
+            settings: ProjectSettings(),
+            motivationWhy: entity.value(forKey: "motivationWhy") as? String,
+            motivationSuccessLooksLike: entity.value(forKey: "motivationSuccessLooksLike") as? String,
+            motivationCostOfNeglect: entity.value(forKey: "motivationCostOfNeglect") as? String
         )
     }
 
@@ -93,6 +96,9 @@ public enum StateProjectMapper {
         entity.estimatedTaskCount = Int32(project.estimatedTaskCount ?? 0)
         entity.isArchived = project.isArchived
         entity.templateID = project.templateId
+        entity.setValue(project.motivationWhy, forKey: "motivationWhy")
+        entity.setValue(project.motivationSuccessLooksLike, forKey: "motivationSuccessLooksLike")
+        entity.setValue(project.motivationCostOfNeglect, forKey: "motivationCostOfNeglect")
     }
 
     /// Find an existing ProjectEntity entity by UUID

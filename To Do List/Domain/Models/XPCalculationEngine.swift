@@ -62,7 +62,11 @@ public struct XPCalculationEngine {
         case .decompose: return 2
         case .recoverReschedule: return 2
         case .reflection: return 10
+        case .reflectionCapture: return 4
         case .focus: return 0 // calculated from duration
+        case .weeklyPlan: return 8
+        case .weeklyReview: return 10
+        case .weeklyCarryCleanup: return 4
         case .habitPositiveComplete: return 8
         case .habitNegativeSuccess: return 8
         case .habitNegativeLapse: return 0
@@ -299,9 +303,21 @@ public struct XPCalculationEngine {
             return "recover_reschedule:\(taskID.uuidString):\(fromDay ?? ""):\(toDay ?? "")"
         case .reflection:
             return "reflection:\(periodKey ?? self.periodKey())"
+        case .reflectionCapture:
+            let identifier = taskID ?? habitID
+            if let identifier {
+                return "reflection_capture:\(identifier.uuidString):\(periodKey ?? self.periodKey())"
+            }
+            return "reflection_capture:\(periodKey ?? self.periodKey())"
         case .focus:
             guard let sessionID = sessionID else { return "focus:unknown" }
             return "focus:\(sessionID.uuidString)"
+        case .weeklyPlan:
+            return "weekly_plan:\(fromDay ?? periodKey ?? self.periodKey())"
+        case .weeklyReview:
+            return "weekly_review:\(fromDay ?? periodKey ?? self.periodKey())"
+        case .weeklyCarryCleanup:
+            return "weekly_carry_cleanup:\(fromDay ?? periodKey ?? self.periodKey())"
         case .habitPositiveComplete:
             let identifier = habitID ?? taskID
             guard let identifier else { return "habit_positive_complete:unknown" }
@@ -348,7 +364,12 @@ public struct XPCalculationEngine {
              .decompose,
              .recoverReschedule,
              .reflection,
+             .reflectionCapture,
              .focus:
+            return false
+        case .weeklyPlan,
+             .weeklyReview,
+             .weeklyCarryCleanup:
             return false
         }
     }

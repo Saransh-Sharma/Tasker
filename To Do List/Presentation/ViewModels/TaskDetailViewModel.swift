@@ -5,14 +5,20 @@ import SwiftUI
 public struct TaskDetailMetadataPayload {
     public let projects: [Project]
     public let sections: [TaskerProjectSection]
+    public let weeklyOutcomes: [WeeklyOutcome]
+    public let projectMotivation: ProjectWeeklyMotivation?
 
     /// Initializes a new instance.
     public init(
         projects: [Project],
-        sections: [TaskerProjectSection]
+        sections: [TaskerProjectSection],
+        weeklyOutcomes: [WeeklyOutcome] = [],
+        projectMotivation: ProjectWeeklyMotivation? = nil
     ) {
         self.projects = projects
         self.sections = sections
+        self.weeklyOutcomes = weeklyOutcomes
+        self.projectMotivation = projectMotivation
     }
 }
 
@@ -20,15 +26,40 @@ public struct TaskDetailRelationshipMetadataPayload {
     public let lifeAreas: [LifeArea]
     public let tags: [TagDefinition]
     public let availableTasks: [TaskDefinition]
+    public let recentReflectionNotes: [ReflectionNote]
 
     public init(
         lifeAreas: [LifeArea],
         tags: [TagDefinition],
-        availableTasks: [TaskDefinition]
+        availableTasks: [TaskDefinition],
+        recentReflectionNotes: [ReflectionNote] = []
     ) {
         self.lifeAreas = lifeAreas
         self.tags = tags
         self.availableTasks = availableTasks
+        self.recentReflectionNotes = recentReflectionNotes
+    }
+}
+
+public struct ProjectWeeklyMotivation: Equatable {
+    public let why: String?
+    public let successLooksLike: String?
+    public let costOfNeglect: String?
+
+    public init(
+        why: String? = nil,
+        successLooksLike: String? = nil,
+        costOfNeglect: String? = nil
+    ) {
+        self.why = why
+        self.successLooksLike = successLooksLike
+        self.costOfNeglect = costOfNeglect
+    }
+
+    public var isEmpty: Bool {
+        [why, successLooksLike, costOfNeglect]
+            .compactMap { $0?.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .allSatisfy(\.isEmpty)
     }
 }
 
@@ -72,6 +103,9 @@ public final class TaskDetailViewModel: ObservableObject {
     @Published public private(set) var tags: [TagDefinition] = []
     @Published public private(set) var availableTasks: [TaskDefinition] = []
     @Published public private(set) var childSteps: [TaskDefinition] = []
+    @Published public private(set) var weeklyOutcomes: [WeeklyOutcome] = []
+    @Published public private(set) var projectMotivation: ProjectWeeklyMotivation?
+    @Published public private(set) var recentReflectionNotes: [ReflectionNote] = []
     @Published public private(set) var displayProjectName: String
 
     @Published public var taskName: String
@@ -93,6 +127,8 @@ public final class TaskDetailViewModel: ObservableObject {
     @Published public var selectedEnergy: TaskEnergy
     @Published public var selectedCategory: TaskCategory
     @Published public var selectedContext: TaskContext
+    @Published public var selectedPlanningBucket: TaskPlanningBucket
+    @Published public var selectedWeeklyOutcomeID: UUID?
     @Published public var estimatedDuration: TimeInterval?
     @Published public var repeatPattern: TaskRepeatPattern?
 
@@ -167,6 +203,8 @@ public final class TaskDetailViewModel: ObservableObject {
         self.selectedEnergy = task.energy
         self.selectedCategory = task.category
         self.selectedContext = task.context
+        self.selectedPlanningBucket = task.planningBucket
+        self.selectedWeeklyOutcomeID = task.weeklyOutcomeID
         self.estimatedDuration = task.estimatedDuration
         self.repeatPattern = task.repeatPattern
         self.displayProjectName = task.projectName ?? ProjectConstants.inboxProjectName
@@ -251,6 +289,12 @@ public final class TaskDetailViewModel: ObservableObject {
         }
         if selectedCategory != .general {
             parts.append(selectedCategory.displayName)
+        }
+        if selectedPlanningBucket != .today {
+            parts.append(selectedPlanningBucket.displayName)
+        }
+        if selectedWeeklyOutcomeID != nil {
+            parts.append("Linked to outcome")
         }
         return parts.joined(separator: ", ")
     }
@@ -361,6 +405,12 @@ public final class TaskDetailViewModel: ObservableObject {
                     if self.sections != nextSections {
                         self.sections = nextSections
                     }
+                    if self.weeklyOutcomes != payload.weeklyOutcomes {
+                        self.weeklyOutcomes = payload.weeklyOutcomes
+                    }
+                    if self.projectMotivation != payload.projectMotivation {
+                        self.projectMotivation = payload.projectMotivation?.isEmpty == true ? nil : payload.projectMotivation
+                    }
                     self.refreshDisplayProjectName()
                     self.reconcileSelectionAfterMetadataRefresh()
                 case .failure(let error):
@@ -401,6 +451,9 @@ public final class TaskDetailViewModel: ObservableObject {
                     }
                     if self.availableTasks != nextAvailableTasks {
                         self.availableTasks = nextAvailableTasks
+                    }
+                    if self.recentReflectionNotes != payload.recentReflectionNotes {
+                        self.recentReflectionNotes = payload.recentReflectionNotes
                     }
                     self.reconcileSelectionAfterMetadataRefresh()
                 case .failure(let error):
@@ -840,6 +893,9 @@ public final class TaskDetailViewModel: ObservableObject {
         var energy: TaskEnergy?
         var category: TaskCategory?
         var context: TaskContext?
+        var planningBucket: TaskPlanningBucket?
+        var weeklyOutcomeID: UUID?
+        var clearWeeklyOutcomeLink = false
         var reminderTimeChange: Date?
         var clearReminderTime = false
         var estimatedDurationChange: TimeInterval?
@@ -931,6 +987,18 @@ public final class TaskDetailViewModel: ObservableObject {
             context = selectedContext
         }
 
+        if selectedPlanningBucket != persistedTask.planningBucket {
+            planningBucket = selectedPlanningBucket
+        }
+
+        if selectedWeeklyOutcomeID != persistedTask.weeklyOutcomeID {
+            if let selectedWeeklyOutcomeID {
+                weeklyOutcomeID = selectedWeeklyOutcomeID
+            } else if persistedTask.weeklyOutcomeID != nil {
+                clearWeeklyOutcomeLink = true
+            }
+        }
+
         if areDatesDifferent(reminderTime, persistedTask.alertReminderTime) {
             if let reminderTime {
                 reminderTimeChange = reminderTime
@@ -974,6 +1042,9 @@ public final class TaskDetailViewModel: ObservableObject {
             energy != nil ||
             category != nil ||
             context != nil ||
+            planningBucket != nil ||
+            weeklyOutcomeID != nil ||
+            clearWeeklyOutcomeLink ||
             reminderTimeChange != nil ||
             clearReminderTime ||
             estimatedDurationChange != nil ||
@@ -1008,7 +1079,11 @@ public final class TaskDetailViewModel: ObservableObject {
             estimatedDuration: estimatedDurationChange,
             clearEstimatedDuration: clearEstimatedDuration,
             repeatPattern: repeatPatternChange,
-            clearRepeatPattern: clearRepeatPattern
+            clearRepeatPattern: clearRepeatPattern,
+            planningBucket: planningBucket,
+            weeklyOutcomeID: weeklyOutcomeID,
+            clearWeeklyOutcomeLink: clearWeeklyOutcomeLink,
+            updatedAt: Date()
         )
     }
 
@@ -1036,6 +1111,8 @@ public final class TaskDetailViewModel: ObservableObject {
         selectedEnergy = updatedTask.energy
         selectedCategory = updatedTask.category
         selectedContext = updatedTask.context
+        selectedPlanningBucket = updatedTask.planningBucket
+        selectedWeeklyOutcomeID = updatedTask.weeklyOutcomeID
         estimatedDuration = updatedTask.estimatedDuration
         repeatPattern = updatedTask.repeatPattern
         refreshDisplayProjectName()
@@ -1092,6 +1169,14 @@ public final class TaskDetailViewModel: ObservableObject {
         selectedDependencyTaskIDs = selectedDependencyTaskIDs.intersection(validTaskIDs)
         if let selectedParentTaskID {
             selectedDependencyTaskIDs.remove(selectedParentTaskID)
+        }
+
+        let validOutcomeIDs = Set(weeklyOutcomes.map(\.id))
+        if let selectedWeeklyOutcomeID, !validOutcomeIDs.contains(selectedWeeklyOutcomeID) {
+            self.selectedWeeklyOutcomeID = nil
+        }
+        if selectedWeeklyOutcomeID != nil && selectedPlanningBucket != .thisWeek {
+            selectedPlanningBucket = .thisWeek
         }
     }
 

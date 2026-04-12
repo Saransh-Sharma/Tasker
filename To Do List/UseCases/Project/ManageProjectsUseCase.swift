@@ -55,7 +55,10 @@ public final class ManageProjectsUseCase {
                     modifiedDate: Date(),
                     isDefault: false,
                     color: request.color ?? .blue,
-                    icon: request.icon ?? .folder
+                    icon: request.icon ?? .folder,
+                    motivationWhy: request.motivationWhy,
+                    motivationSuccessLooksLike: request.motivationSuccessLooksLike,
+                    motivationCostOfNeglect: request.motivationCostOfNeglect
                 )
                 
                 // Validate the project
@@ -137,6 +140,15 @@ public final class ManageProjectsUseCase {
                             if let icon = request.icon {
                                 project.icon = icon
                             }
+                            if let motivationWhy = request.motivationWhy {
+                                project.motivationWhy = motivationWhy
+                            }
+                            if let motivationSuccessLooksLike = request.motivationSuccessLooksLike {
+                                project.motivationSuccessLooksLike = motivationSuccessLooksLike
+                            }
+                            if let motivationCostOfNeglect = request.motivationCostOfNeglect {
+                                project.motivationCostOfNeglect = motivationCostOfNeglect
+                            }
                             project.modifiedDate = Date()
                             self?.performProjectUpdate(project: project, completion: completion)
                             
@@ -154,6 +166,15 @@ public final class ManageProjectsUseCase {
                     }
                     if let icon = request.icon {
                         project.icon = icon
+                    }
+                    if let motivationWhy = request.motivationWhy {
+                        project.motivationWhy = motivationWhy
+                    }
+                    if let motivationSuccessLooksLike = request.motivationSuccessLooksLike {
+                        project.motivationSuccessLooksLike = motivationSuccessLooksLike
+                    }
+                    if let motivationCostOfNeglect = request.motivationCostOfNeglect {
+                        project.motivationCostOfNeglect = motivationCostOfNeglect
                     }
                     project.modifiedDate = Date()
                     self?.performProjectUpdate(project: project, completion: completion)
@@ -582,6 +603,9 @@ public struct CreateProjectRequest {
     public let lifeAreaID: UUID?
     public let color: ProjectColor?
     public let icon: ProjectIcon?
+    public let motivationWhy: String?
+    public let motivationSuccessLooksLike: String?
+    public let motivationCostOfNeglect: String?
     
     /// Initializes a new instance.
     public init(
@@ -589,13 +613,19 @@ public struct CreateProjectRequest {
         description: String? = nil,
         lifeAreaID: UUID? = nil,
         color: ProjectColor? = nil,
-        icon: ProjectIcon? = nil
+        icon: ProjectIcon? = nil,
+        motivationWhy: String? = nil,
+        motivationSuccessLooksLike: String? = nil,
+        motivationCostOfNeglect: String? = nil
     ) {
         self.name = name
         self.description = description
         self.lifeAreaID = lifeAreaID
         self.color = color
         self.icon = icon
+        self.motivationWhy = motivationWhy
+        self.motivationSuccessLooksLike = motivationSuccessLooksLike
+        self.motivationCostOfNeglect = motivationCostOfNeglect
     }
 }
 
@@ -604,18 +634,27 @@ public struct UpdateProjectRequest {
     public let description: String?
     public let color: ProjectColor?
     public let icon: ProjectIcon?
+    public let motivationWhy: String?
+    public let motivationSuccessLooksLike: String?
+    public let motivationCostOfNeglect: String?
     
     /// Initializes a new instance.
     public init(
         name: String? = nil,
         description: String? = nil,
         color: ProjectColor? = nil,
-        icon: ProjectIcon? = nil
+        icon: ProjectIcon? = nil,
+        motivationWhy: String? = nil,
+        motivationSuccessLooksLike: String? = nil,
+        motivationCostOfNeglect: String? = nil
     ) {
         self.name = name
         self.description = description
         self.color = color
         self.icon = icon
+        self.motivationWhy = motivationWhy
+        self.motivationSuccessLooksLike = motivationSuccessLooksLike
+        self.motivationCostOfNeglect = motivationCostOfNeglect
     }
 }
 

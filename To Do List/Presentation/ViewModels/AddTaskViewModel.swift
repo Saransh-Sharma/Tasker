@@ -104,6 +104,7 @@ public final class AddTaskViewModel: ObservableObject {
     @Published public private(set) var isTaskCreated: Bool = false
     @Published public private(set) var validationErrors: [ValidationError] = []
     @Published public private(set) var todayXPSoFar: Int? = nil
+    @Published public private(set) var availableWeeklyOutcomes: [WeeklyOutcome] = []
     @Published var aiSuggestion: TaskFieldSuggestion?
     @Published var isGeneratingSuggestion: Bool = false
     @Published public private(set) var aiSuggestionIsRefined: Bool = false
@@ -132,6 +133,14 @@ public final class AddTaskViewModel: ObservableObject {
     @Published public var selectedContext: TaskContext = .anywhere
     @Published public var estimatedDuration: TimeInterval? = nil
     @Published public var repeatPattern: TaskRepeatPattern? = nil
+    @Published public var selectedPlanningBucket: TaskPlanningBucket = .thisWeek
+    @Published public var selectedWeeklyOutcomeID: UUID? {
+        didSet {
+            if selectedWeeklyOutcomeID != nil {
+                selectedPlanningBucket = .thisWeek
+            }
+        }
+    }
 
     // UI state
     @Published public var expandedSections: Set<TaskEditorSection> = []
@@ -156,6 +165,8 @@ public final class AddTaskViewModel: ObservableObject {
         || selectedDependencyTaskIDs.isEmpty == false
         || estimatedDuration != nil
         || repeatPattern != nil
+        || selectedPlanningBucket != .thisWeek
+        || selectedWeeklyOutcomeID != nil
     }
 
     public var scheduleSummary: String {
@@ -207,6 +218,9 @@ public final class AddTaskViewModel: ObservableObject {
         if selectedCategory != .general {
             parts.append(selectedCategory.displayName)
         }
+        if selectedPlanningBucket != .thisWeek || selectedWeeklyOutcomeID != nil {
+            parts.append(selectedPlanningBucket.rawValue.replacingOccurrences(of: "Week", with: " Week").capitalized)
+        }
         return parts.joined(separator: ", ")
     }
 
@@ -239,6 +253,7 @@ public final class AddTaskViewModel: ObservableObject {
     private let taskReadModelRepository: TaskReadModelRepositoryProtocol?
     private let manageProjectsUseCase: ManageProjectsUseCase
     private let createTaskDefinitionUseCase: CreateTaskDefinitionUseCase
+    private let buildWeeklyPlanSnapshotUseCase: BuildWeeklyPlanSnapshotUseCase?
     private let rescheduleTaskDefinitionUseCase: RescheduleTaskDefinitionUseCase?
     private let manageLifeAreasUseCase: ManageLifeAreasUseCase?
     private let manageSectionsUseCase: ManageSectionsUseCase?
@@ -260,6 +275,7 @@ public final class AddTaskViewModel: ObservableObject {
         taskReadModelRepository: TaskReadModelRepositoryProtocol? = nil,
         manageProjectsUseCase: ManageProjectsUseCase,
         createTaskDefinitionUseCase: CreateTaskDefinitionUseCase,
+        buildWeeklyPlanSnapshotUseCase: BuildWeeklyPlanSnapshotUseCase? = nil,
         rescheduleTaskDefinitionUseCase: RescheduleTaskDefinitionUseCase? = nil,
         manageLifeAreasUseCase: ManageLifeAreasUseCase? = nil,
         manageSectionsUseCase: ManageSectionsUseCase? = nil,
@@ -271,6 +287,7 @@ public final class AddTaskViewModel: ObservableObject {
         self.taskReadModelRepository = taskReadModelRepository
         self.manageProjectsUseCase = manageProjectsUseCase
         self.createTaskDefinitionUseCase = createTaskDefinitionUseCase
+        self.buildWeeklyPlanSnapshotUseCase = buildWeeklyPlanSnapshotUseCase
         self.rescheduleTaskDefinitionUseCase = rescheduleTaskDefinitionUseCase
         self.manageLifeAreasUseCase = manageLifeAreasUseCase
         self.manageSectionsUseCase = manageSectionsUseCase
@@ -288,6 +305,7 @@ public final class AddTaskViewModel: ObservableObject {
         loadProjects()
         loadLifeAreas()
         loadTags()
+        loadWeeklyPlanningOptions()
     }
 
     deinit {
@@ -338,7 +356,9 @@ public final class AddTaskViewModel: ObservableObject {
             isEveningTask: selectedType == .evening,
             alertReminderTime: hasReminder ? reminderTime : nil,
             estimatedDuration: estimatedDuration,
-            repeatPattern: repeatPattern
+            repeatPattern: repeatPattern,
+            planningBucket: selectedPlanningBucket,
+            weeklyOutcomeID: selectedWeeklyOutcomeID
         )
 
         createTaskDefinitionUseCase.execute(
@@ -527,6 +547,8 @@ public final class AddTaskViewModel: ObservableObject {
         selectedContext = .anywhere
         estimatedDuration = nil
         repeatPattern = nil
+        selectedPlanningBucket = .thisWeek
+        selectedWeeklyOutcomeID = nil
         dueDate = Date()
         hasReminder = false
         reminderTime = Date()
@@ -540,6 +562,19 @@ public final class AddTaskViewModel: ObservableObject {
         aiSuggestion = nil
         isGeneratingSuggestion = false
         aiSuggestionIsRefined = false
+    }
+
+    private func loadWeeklyPlanningOptions() {
+        buildWeeklyPlanSnapshotUseCase?.execute(referenceDate: Date()) { [weak self] result in
+            DispatchQueue.main.async {
+                switch result {
+                case .success(let snapshot):
+                    self?.availableWeeklyOutcomes = snapshot.outcomes
+                case .failure:
+                    self?.availableWeeklyOutcomes = []
+                }
+            }
+        }
     }
 
     /// Executes applyAISuggestion.

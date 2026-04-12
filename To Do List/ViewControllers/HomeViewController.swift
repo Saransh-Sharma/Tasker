@@ -106,6 +106,7 @@ struct HomeChromeSnapshot: Equatable {
     let progressState: HomeProgressState
     let dailyScore: Int
     let completionRate: Double
+    let weeklySummary: HomeWeeklySummary?
     let projects: [Project]
     let reflectionEligible: Bool
     let momentumGuidanceText: String
@@ -119,6 +120,7 @@ struct HomeChromeSnapshot: Equatable {
         progressState: .empty,
         dailyScore: 0,
         completionRate: 0,
+        weeklySummary: nil,
         projects: [],
         reflectionEligible: false,
         momentumGuidanceText: ""
@@ -1454,6 +1456,12 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
                     self?.onMenuButtonTapped()
                 }
             },
+            onOpenWeeklyPlanner: { [weak self] in
+                self?.presentWeeklyPlanner()
+            },
+            onOpenWeeklyReview: { [weak self] in
+                self?.presentWeeklyReview()
+            },
             onOpenAnalytics: { [weak self] source, launchDefaultInsights in
                 self?.openAnalytics(source: source, launchDefaultInsights: launchDefaultInsights)
             },
@@ -2615,6 +2623,56 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
         present(navController, animated: true)
     }
 
+    @MainActor
+    private func presentWeeklyPlanner() {
+        guard let presentationDependencyContainer else {
+            fatalError("HomeViewController missing PresentationDependencyContainer")
+        }
+
+        let plannerView = WeeklyPlannerView(
+            viewModel: presentationDependencyContainer.makeWeeklyPlannerViewModel(referenceDate: Date()),
+            onClose: { [weak self] in
+                self?.dismiss(animated: true)
+            }
+        )
+        .taskerLayoutClass(currentLayoutClass)
+
+        let hostingController = UIHostingController(rootView: plannerView)
+        hostingController.modalPresentationStyle = currentLayoutClass.isPad ? .formSheet : .pageSheet
+        hostingController.preferredContentSize = CGSize(width: 620, height: 780)
+        if let sheet = hostingController.sheetPresentationController {
+            sheet.detents = currentLayoutClass.isPad ? [.large()] : [.medium(), .large()]
+            sheet.prefersGrabberVisible = true
+            sheet.prefersScrollingExpandsWhenScrolledToEdge = false
+        }
+        present(hostingController, animated: true)
+    }
+
+    @MainActor
+    private func presentWeeklyReview() {
+        guard let presentationDependencyContainer else {
+            fatalError("HomeViewController missing PresentationDependencyContainer")
+        }
+
+        let reviewView = WeeklyReviewView(
+            viewModel: presentationDependencyContainer.makeWeeklyReviewViewModel(referenceDate: Date()),
+            onClose: { [weak self] in
+                self?.dismiss(animated: true)
+            }
+        )
+        .taskerLayoutClass(currentLayoutClass)
+
+        let hostingController = UIHostingController(rootView: reviewView)
+        hostingController.modalPresentationStyle = currentLayoutClass.isPad ? .formSheet : .pageSheet
+        hostingController.preferredContentSize = CGSize(width: 620, height: 780)
+        if let sheet = hostingController.sheetPresentationController {
+            sheet.detents = currentLayoutClass.isPad ? [.large()] : [.medium(), .large()]
+            sheet.prefersGrabberVisible = true
+            sheet.prefersScrollingExpandsWhenScrolledToEdge = false
+        }
+        present(hostingController, animated: true)
+    }
+
     /// Executes searchButtonTapped.
     @objc func searchButtonTapped() {
         if isUsingIPadNativeShell {
@@ -2895,6 +2953,17 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
                     return
                 }
                 viewModel.createProjectForTaskDetail(name: name, completion: completion)
+            },
+            onSaveReflectionNote: { [weak self] note, completion in
+                guard let self, let viewModel = self.viewModel else {
+                    completion(.failure(NSError(
+                        domain: "HomeViewController",
+                        code: 10,
+                        userInfo: [NSLocalizedDescriptionKey: "HomeViewModel unavailable"]
+                    )))
+                    return
+                }
+                viewModel.saveReflectionNote(note, completion: completion)
             }
         )
     }

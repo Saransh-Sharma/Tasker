@@ -20,6 +20,12 @@ public enum StateTaskDefinitionMapper {
         }()
         let estimatedDuration = entity.estimatedDuration > 0 ? entity.estimatedDuration : nil
         let actualDuration = entity.actualDuration > 0 ? entity.actualDuration : nil
+        let planningBucket = TaskPlanningBucket(
+            rawValue: (entity.value(forKey: "planningBucketRaw") as? String) ?? ""
+        ) ?? .thisWeek
+        let weeklyOutcomeID = entity.value(forKey: "weeklyOutcomeID") as? UUID
+        let deferredFromWeekStart = entity.value(forKey: "deferredFromWeekStart") as? Date
+        let deferredCount = max(0, (entity.value(forKey: "deferredCount") as? Int32).map(Int.init) ?? 0)
 
         return TaskDefinition(
             id: taskID,
@@ -47,6 +53,10 @@ public enum StateTaskDefinitionMapper {
             estimatedDuration: estimatedDuration,
             actualDuration: actualDuration,
             repeatPattern: repeatPattern,
+            planningBucket: planningBucket,
+            weeklyOutcomeID: weeklyOutcomeID,
+            deferredFromWeekStart: deferredFromWeekStart,
+            deferredCount: deferredCount,
             createdAt: createdAt,
             updatedAt: updatedAt
         )
@@ -79,6 +89,10 @@ public enum StateTaskDefinitionMapper {
         entity.estimatedDuration = model.estimatedDuration ?? 0
         entity.actualDuration = model.actualDuration ?? 0
         entity.repeatPatternData = model.repeatPattern.flatMap { try? JSONEncoder().encode($0) }
+        entity.setValue(model.planningBucket.rawValue, forKey: "planningBucketRaw")
+        entity.setValue(model.weeklyOutcomeID, forKey: "weeklyOutcomeID")
+        entity.setValue(model.deferredFromWeekStart, forKey: "deferredFromWeekStart")
+        entity.setValue(Int32(model.deferredCount), forKey: "deferredCount")
         entity.source = entity.source ?? "user"
         entity.createdBy = entity.createdBy ?? "user"
         entity.createdAt = model.createdAt

@@ -1422,6 +1422,8 @@ struct HomeBackdropForedropRootView: View {
     let onOpenChat: () -> Void
     let onOpenProjectCreator: () -> Void
     let onOpenSettings: () -> Void
+    let onOpenWeeklyPlanner: () -> Void
+    let onOpenWeeklyReview: () -> Void
     let onOpenAnalytics: (String, Bool) -> Void
     let onCloseAnalytics: (String) -> Void
     let onOpenSearch: (String) -> Void
@@ -1971,6 +1973,22 @@ struct HomeBackdropForedropRootView: View {
                 }
             )
             .accessibilityIdentifier("home.rescue.sheet")
+        }
+        .sheet(item: Binding(
+            get: { viewModel.habitRecoveryReflectionPrompt },
+            set: { if $0 == nil { viewModel.clearHabitRecoveryReflectionPrompt() } }
+        )) { prompt in
+            ReflectionNoteComposerView(
+                viewModel: ReflectionNoteComposerViewModel(
+                    title: "Recovery note",
+                    kind: .habitRecovery,
+                    linkedHabitID: prompt.habitID,
+                    prompt: "What helped \(prompt.habitTitle) recover today?",
+                    saveNoteHandler: { note, completion in
+                        viewModel.saveReflectionNote(note, completion: completion)
+                    }
+                )
+            )
         }
         .sheet(isPresented: $showReflectionSheet) {
             DailyReflectionView(
@@ -2731,6 +2749,13 @@ struct HomeBackdropForedropRootView: View {
             }
 
             if tasksSnapshot.activeQuickView == .today &&
+                chromeSnapshot.weeklySummary != nil {
+                fullBleedTaskListHeaderModule {
+                    weeklySummaryCard
+                }
+            }
+
+            if tasksSnapshot.activeQuickView == .today &&
                 tasksSnapshot.todayAgendaSectionState.totalCount > 0 {
                 fullBleedTaskListHeaderModule {
                     todayAgendaHeader
@@ -2764,6 +2789,22 @@ struct HomeBackdropForedropRootView: View {
                     .modifier(HomeStaggerModifier(isEnabled: shellPhase == .interactive, index: 3))
             }
         }
+    }
+
+    private var weeklySummaryCard: some View {
+        HomeWeeklySummaryCard(
+            summary: chromeSnapshot.weeklySummary,
+            onPrimaryAction: {
+                guard let summary = chromeSnapshot.weeklySummary else { return }
+                switch summary.ctaState {
+                case .planWeek:
+                    onOpenWeeklyPlanner()
+                case .reviewWeek:
+                    onOpenWeeklyReview()
+                }
+            }
+        )
+        .accessibilityIdentifier("home.weeklySummary.card")
     }
 
     private var shouldShowDueTodayAgenda: Bool {

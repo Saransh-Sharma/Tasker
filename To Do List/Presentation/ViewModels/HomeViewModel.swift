@@ -50,6 +50,22 @@ public struct HomeDataRevision: Equatable, Hashable {
     }
 }
 
+public struct HabitRecoveryReflectionPrompt: Equatable, Identifiable {
+    public let habitID: UUID
+    public let habitTitle: String
+    public let date: Date
+
+    public init(habitID: UUID, habitTitle: String, date: Date) {
+        self.habitID = habitID
+        self.habitTitle = habitTitle
+        self.date = date
+    }
+
+    public var id: String {
+        "\(habitID.uuidString):\(date.timeIntervalSince1970)"
+    }
+}
+
 private final class HomeReloadBatchTracker {
     private let lock = NSLock()
     private let onComplete: () -> Void
@@ -324,6 +340,9 @@ public final class HomeViewModel: ObservableObject {
     @Published public private(set) var dailyScore: Int = 0
     @Published public private(set) var streak: Int = 0
     @Published public private(set) var completionRate: Double = 0.0
+    @Published public private(set) var weeklySummary: HomeWeeklySummary? {
+        didSet { scheduleHomeRenderStateRefresh() }
+    }
 
     // Gamification v2
     @Published public private(set) var currentLevel: Int = 1
@@ -335,6 +354,7 @@ public final class HomeViewModel: ObservableObject {
     }
     @Published public private(set) var insightsLaunchRequest: InsightsLaunchRequest?
     @Published public private(set) var insightsLaunchToken: UUID?
+    @Published public private(set) var habitRecoveryReflectionPrompt: HabitRecoveryReflectionPrompt?
 
     // TaskDefinition lists by category
     @Published public private(set) var morningTasks: [TaskDefinition] = []
@@ -662,6 +682,7 @@ public final class HomeViewModel: ObservableObject {
             progressState: progressState,
             dailyScore: dailyScore,
             completionRate: completionRate,
+            weeklySummary: weeklySummary,
             projects: projects,
             // Reflection stays tied to the default Today scope, not custom-date views.
             reflectionEligible: activeScope == .today && !isDailyReflectionCompletedToday(),
@@ -768,6 +789,7 @@ public final class HomeViewModel: ObservableObject {
     private func keyPathTriggersHomeRenderRefreshViaDidSet(_ keyPath: AnyKeyPath) -> Bool {
         switch keyPath {
         case \HomeViewModel.selectedDate,
+             \HomeViewModel.weeklySummary,
              \HomeViewModel.lastXPResult,
              \HomeViewModel.dueTodayRows,
              \HomeViewModel.dueTodaySection,
@@ -1085,6 +1107,7 @@ public final class HomeViewModel: ObservableObject {
 
         var loadedProjects: [Project] = projects
         var loadedSections: [TaskerProjectSection] = []
+        var weeklyOutcomes: [WeeklyOutcome] = []
 
         func record(_ error: Error) {
             lock.lock()
@@ -1116,14 +1139,34 @@ public final class HomeViewModel: ObservableObject {
             }
         }
 
+        group.enter()
+        useCaseCoordinator.buildWeeklyPlanSnapshot.execute(referenceDate: Date()) { result in
+            defer { group.leave() }
+            switch result {
+            case .success(let snapshot):
+                weeklyOutcomes = snapshot.outcomes.sorted { $0.orderIndex < $1.orderIndex }
+            case .failure(let error):
+                record(error)
+            }
+        }
+
         group.notify(queue: .main) {
             if let firstError {
                 completion(.failure(firstError))
                 return
             }
+            let projectMotivation = loadedProjects.first(where: { $0.id == projectID }).map {
+                ProjectWeeklyMotivation(
+                    why: $0.motivationWhy,
+                    successLooksLike: $0.motivationSuccessLooksLike,
+                    costOfNeglect: $0.motivationCostOfNeglect
+                )
+            }
             completion(.success(TaskDetailMetadataPayload(
                 projects: loadedProjects,
-                sections: loadedSections
+                sections: loadedSections,
+                weeklyOutcomes: weeklyOutcomes,
+                projectMotivation: projectMotivation
             )))
         }
     }
@@ -1139,6 +1182,7 @@ public final class HomeViewModel: ObservableObject {
         var loadedLifeAreas: [LifeArea] = []
         var loadedTags: [TagDefinition] = []
         var availableTasks: [TaskDefinition] = []
+        var recentReflectionNotes: [ReflectionNote] = []
 
         /// Executes record.
         func record(_ error: Error) {
@@ -1182,6 +1226,19 @@ public final class HomeViewModel: ObservableObject {
             }
         }
 
+        group.enter()
+        useCaseCoordinator.reflectionNoteRepository.fetchNotes(
+            query: ReflectionNoteQuery(linkedProjectID: projectID, limit: 6)
+        ) { result in
+            defer { group.leave() }
+            switch result {
+            case .success(let notes):
+                recentReflectionNotes = notes
+            case .failure(let error):
+                record(error)
+            }
+        }
+
         group.notify(queue: .main) {
             if let firstError {
                 completion(.failure(firstError))
@@ -1190,9 +1247,39 @@ public final class HomeViewModel: ObservableObject {
             completion(.success(TaskDetailRelationshipMetadataPayload(
                 lifeAreas: loadedLifeAreas,
                 tags: loadedTags,
-                availableTasks: availableTasks
+                availableTasks: availableTasks,
+                recentReflectionNotes: recentReflectionNotes
             )))
         }
+    }
+
+    public func saveReflectionNote(
+        _ note: ReflectionNote,
+        completion: @escaping (Result<ReflectionNote, Error>) -> Void
+    ) {
+        useCaseCoordinator.reflectionNoteRepository.saveNote(note) { [weak self] result in
+            guard let self else { return }
+
+            if case .success(let savedNote) = result {
+                self.useCaseCoordinator.gamificationEngine.recordEvent(
+                    context: XPEventContext(
+                        category: .reflectionCapture,
+                        source: .manual,
+                        taskID: savedNote.linkedTaskID,
+                        habitID: savedNote.linkedHabitID,
+                        completedAt: savedNote.createdAt
+                    )
+                ) { _ in }
+            }
+
+            DispatchQueue.main.async {
+                completion(result)
+            }
+        }
+    }
+
+    public func clearHabitRecoveryReflectionPrompt() {
+        habitRecoveryReflectionPrompt = nil
     }
 
     /// Executes loadTaskChildren.
@@ -2048,7 +2135,11 @@ public final class HomeViewModel: ObservableObject {
             repository: useCaseCoordinator.gamificationRepository,
             taskReadModelRepository: useCaseCoordinator.taskReadModelRepository,
             reminderRepository: useCaseCoordinator.reminderRepository,
-            analyticsUseCase: useCaseCoordinator.calculateAnalytics
+            analyticsUseCase: useCaseCoordinator.calculateAnalytics,
+            buildWeeklyPlanSnapshotUseCase: useCaseCoordinator.buildWeeklyPlanSnapshot,
+            calculateWeeklyMomentumUseCase: useCaseCoordinator.calculateWeeklyMomentum,
+            buildRecoveryInsightsUseCase: useCaseCoordinator.buildRecoveryInsights,
+            weeklyReviewDraftStore: useCaseCoordinator.weeklyReviewDraftStore
         )
         retainedInsightsViewModel = resolvedViewModel
         return resolvedViewModel
@@ -3777,6 +3868,7 @@ public final class HomeViewModel: ObservableObject {
 
         let mutationContext = HabitMutationContext(source: source)
         registerSelfOriginatedHabitMutationContext(mutationContext)
+        let recoveryReflectionPrompt = recoveryReflectionPromptIfNeeded(for: row, request: request, on: date)
 
         switch request {
         case .resolve(let action):
@@ -3793,7 +3885,8 @@ public final class HomeViewModel: ObservableObject {
                         key: key,
                         habitID: row.habitID,
                         date: date,
-                        mutationContext: mutationContext
+                        mutationContext: mutationContext,
+                        recoveryReflectionPrompt: recoveryReflectionPrompt
                     )
                 }
             }
@@ -3811,7 +3904,8 @@ public final class HomeViewModel: ObservableObject {
                         key: key,
                         habitID: row.habitID,
                         date: date,
-                        mutationContext: mutationContext
+                        mutationContext: mutationContext,
+                        recoveryReflectionPrompt: recoveryReflectionPrompt
                     )
                 }
             }
@@ -3823,7 +3917,8 @@ public final class HomeViewModel: ObservableObject {
         key: HomeHabitMutationKey,
         habitID: UUID,
         date: Date,
-        mutationContext: HabitMutationContext
+        mutationContext: HabitMutationContext,
+        recoveryReflectionPrompt: HabitRecoveryReflectionPrompt?
     ) {
         defer {
             if let interval = pendingHabitMutationIntervals.removeValue(forKey: key) {
@@ -3845,9 +3940,40 @@ public final class HomeViewModel: ObservableObject {
             TaskerPerformanceTrace.event("HomeUserMutationPersistenceComplete")
             pendingHabitMutationSnapshots.removeValue(forKey: key)
             pendingHabitMutationKeys.remove(key)
+            if let recoveryReflectionPrompt {
+                habitRecoveryReflectionPrompt = recoveryReflectionPrompt
+            }
             guard Calendar.current.isDate(date, inSameDayAs: selectedDate) else { return }
             reconcileHabitMutation(habitID: habitID, on: date)
         }
+    }
+
+    private func recoveryReflectionPromptIfNeeded(
+        for row: HomeHabitRow,
+        request: HomeHabitMutationRequest,
+        on date: Date
+    ) -> HabitRecoveryReflectionPrompt? {
+        guard Calendar.current.isDate(date, inSameDayAs: selectedDate) else { return nil }
+        guard isRecoveryHabitRow(row) else { return nil }
+        switch request {
+        case .reset:
+            return nil
+        case .resolve(let action):
+            switch action {
+            case .complete, .abstained:
+                return HabitRecoveryReflectionPrompt(
+                    habitID: row.habitID,
+                    habitTitle: row.title,
+                    date: date
+                )
+            case .skip, .lapsed:
+                return nil
+            }
+        }
+    }
+
+    private func isRecoveryHabitRow(_ row: HomeHabitRow) -> Bool {
+        row.state == .overdue || row.state == .lapsedToday || row.riskState != .stable
     }
 
     private func applyOptimisticHabitMutation(
@@ -4657,6 +4783,7 @@ public final class HomeViewModel: ObservableObject {
                         self.assignIfChanged(\.pointsPotential, filteredResult.pointsPotential)
                         self.applyResultToSections(filteredResult, generation: generation)
                         self.refreshProgressState()
+                        self.refreshWeeklySummary()
 
                         if trackAnalytics {
                             self.trackFeatureUsage(action: "home_filter_applied", metadata: [
@@ -4823,6 +4950,24 @@ public final class HomeViewModel: ObservableObject {
             streakDays: streakDays,
             isStreakSafeToday: earnedXP > 0
         ))
+    }
+
+    private func refreshWeeklySummary() {
+        useCaseCoordinator.getWeeklySummary.execute(referenceDate: Date()) { [weak self] result in
+            DispatchQueue.main.async {
+                guard let self else { return }
+                switch result {
+                case .success(let summary):
+                    self.assignIfChanged(\.weeklySummary, summary)
+                case .failure(let error):
+                    logWarning(
+                        event: "home_weekly_summary_refresh_failed",
+                        message: "Failed to refresh weekly summary",
+                        fields: ["error": error.localizedDescription]
+                    )
+                }
+            }
+        }
     }
 
     /// Executes persistLastFilterState.

@@ -34,6 +34,9 @@ public struct Project: Codable {
     public var isArchived: Bool
     public var templateId: UUID?
     public var settings: ProjectSettings
+    public var motivationWhy: String?
+    public var motivationSuccessLooksLike: String?
+    public var motivationCostOfNeglect: String?
     
     // MARK: - Initialization
     
@@ -57,7 +60,10 @@ public struct Project: Codable {
         estimatedTaskCount: Int? = nil,
         isArchived: Bool = false,
         templateId: UUID? = nil,
-        settings: ProjectSettings = ProjectSettings()
+        settings: ProjectSettings = ProjectSettings(),
+        motivationWhy: String? = nil,
+        motivationSuccessLooksLike: String? = nil,
+        motivationCostOfNeglect: String? = nil
     ) {
         self.id = id
         self.lifeAreaID = lifeAreaID
@@ -78,6 +84,9 @@ public struct Project: Codable {
         self.isArchived = isArchived
         self.templateId = templateId
         self.settings = settings
+        self.motivationWhy = motivationWhy
+        self.motivationSuccessLooksLike = motivationSuccessLooksLike
+        self.motivationCostOfNeglect = motivationCostOfNeglect
     }
     
     // MARK: - Factory Methods
@@ -239,5 +248,58 @@ extension Project: Hashable {
     /// Executes hash.
     public func hash(into hasher: inout Hasher) {
         hasher.combine(id)
+    }
+}
+
+extension Project {
+    private enum CodingKeys: String, CodingKey {
+        case id
+        case lifeAreaID
+        case name
+        case projectDescription
+        case createdDate
+        case modifiedDate
+        case isDefault
+        case color
+        case icon
+        case status
+        case priority
+        case parentProjectId
+        case subprojectIds
+        case tags
+        case dueDate
+        case estimatedTaskCount
+        case isArchived
+        case templateId
+        case settings
+        case motivationWhy
+        case motivationSuccessLooksLike
+        case motivationCostOfNeglect
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.id = try container.decodeIfPresent(UUID.self, forKey: .id) ?? UUID()
+        self.lifeAreaID = try container.decodeIfPresent(UUID.self, forKey: .lifeAreaID)
+        self.name = try container.decode(String.self, forKey: .name)
+        self.projectDescription = try container.decodeIfPresent(String.self, forKey: .projectDescription)
+        self.createdDate = try container.decodeIfPresent(Date.self, forKey: .createdDate) ?? Date()
+        self.modifiedDate = try container.decodeIfPresent(Date.self, forKey: .modifiedDate) ?? self.createdDate
+        self.isDefault = try container.decodeIfPresent(Bool.self, forKey: .isDefault) ?? false
+        self.color = try container.decodeIfPresent(ProjectColor.self, forKey: .color) ?? .blue
+        self.icon = try container.decodeIfPresent(ProjectIcon.self, forKey: .icon) ?? .folder
+        self.status = try container.decodeIfPresent(ProjectStatus.self, forKey: .status) ?? .active
+        self.priority = try container.decodeIfPresent(ProjectPriority.self, forKey: .priority) ?? .medium
+        self.parentProjectId = try container.decodeIfPresent(UUID.self, forKey: .parentProjectId)
+        self.subprojectIds = try container.decodeIfPresent([UUID].self, forKey: .subprojectIds) ?? []
+        self.tags = try container.decodeIfPresent([String].self, forKey: .tags) ?? []
+        self.dueDate = try container.decodeIfPresent(Date.self, forKey: .dueDate)
+        self.estimatedTaskCount = try container.decodeIfPresent(Int.self, forKey: .estimatedTaskCount)
+        self.isArchived = try container.decodeIfPresent(Bool.self, forKey: .isArchived) ?? false
+        self.templateId = try container.decodeIfPresent(UUID.self, forKey: .templateId)
+        self.settings = try container.decodeIfPresent(ProjectSettings.self, forKey: .settings) ?? ProjectSettings()
+        self.motivationWhy = try container.decodeIfPresent(String.self, forKey: .motivationWhy)
+        self.motivationSuccessLooksLike = try container.decodeIfPresent(String.self, forKey: .motivationSuccessLooksLike)
+        self.motivationCostOfNeglect = try container.decodeIfPresent(String.self, forKey: .motivationCostOfNeglect)
     }
 }

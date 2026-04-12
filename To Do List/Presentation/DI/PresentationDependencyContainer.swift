@@ -162,6 +162,7 @@ public final class PresentationDependencyContainer {
             taskReadModelRepository: taskReadModelRepository,
             manageProjectsUseCase: useCaseCoordinator.manageProjects,
             createTaskDefinitionUseCase: useCaseCoordinator.createTaskDefinition,
+            buildWeeklyPlanSnapshotUseCase: useCaseCoordinator.buildWeeklyPlanSnapshot,
             rescheduleTaskDefinitionUseCase: useCaseCoordinator.rescheduleTaskDefinition,
             manageLifeAreasUseCase: useCaseCoordinator.manageLifeAreas,
             manageSectionsUseCase: useCaseCoordinator.manageSections,
@@ -216,10 +217,45 @@ public final class PresentationDependencyContainer {
 
         let viewModel = ProjectManagementViewModel(
             manageProjectsUseCase: useCaseCoordinator.manageProjects,
-            getTasksUseCase: useCaseCoordinator.getTasks
+            getTasksUseCase: useCaseCoordinator.getTasks,
+            buildWeeklyPlanSnapshotUseCase: useCaseCoordinator.buildWeeklyPlanSnapshot,
+            updateTaskDefinitionUseCase: useCaseCoordinator.updateTaskDefinition,
+            reflectionNoteRepository: useCaseCoordinator.reflectionNoteRepository,
+            gamificationEngine: useCaseCoordinator.gamificationEngine
         )
         _projectManagementViewModel = viewModel
         return viewModel
+    }
+
+    @MainActor
+    public func makeWeeklyPlannerViewModel(referenceDate: Date = Date()) -> WeeklyPlannerViewModel {
+        assertConfigured()
+        return WeeklyPlannerViewModel(
+            referenceDate: referenceDate,
+            buildWeeklyPlanSnapshot: useCaseCoordinator.buildWeeklyPlanSnapshot,
+            estimateWeeklyCapacity: useCaseCoordinator.estimateWeeklyCapacity,
+            getHabitLibraryUseCase: useCaseCoordinator.getHabitLibrary,
+            projectRepository: useCaseCoordinator.projectRepository,
+            saveWeeklyPlanUseCase: useCaseCoordinator.saveWeeklyPlan,
+            homeAIActionCoordinator: HomeAIActionCoordinator(
+                pipeline: useCaseCoordinator.assistantActionPipeline
+            ),
+            gamificationEngine: useCaseCoordinator.gamificationEngine
+        )
+    }
+
+    @MainActor
+    public func makeWeeklyReviewViewModel(referenceDate: Date = Date()) -> WeeklyReviewViewModel {
+        assertConfigured()
+        return WeeklyReviewViewModel(
+            referenceDate: referenceDate,
+            buildWeeklyPlanSnapshot: useCaseCoordinator.buildWeeklyPlanSnapshot,
+            getHabitLibraryUseCase: useCaseCoordinator.getHabitLibrary,
+            completeWeeklyReviewUseCase: useCaseCoordinator.completeWeeklyReview,
+            draftStore: useCaseCoordinator.weeklyReviewDraftStore,
+            reflectionNoteRepository: useCaseCoordinator.reflectionNoteRepository,
+            gamificationEngine: useCaseCoordinator.gamificationEngine
+        )
     }
 
     /// Get or create LifeManagementViewModel
@@ -303,6 +339,7 @@ public final class PresentationDependencyContainer {
             taskReadModelRepository: taskReadModelRepository,
             manageProjectsUseCase: useCaseCoordinator.manageProjects,
             createTaskDefinitionUseCase: useCaseCoordinator.createTaskDefinition,
+            buildWeeklyPlanSnapshotUseCase: useCaseCoordinator.buildWeeklyPlanSnapshot,
             rescheduleTaskDefinitionUseCase: useCaseCoordinator.rescheduleTaskDefinition,
             manageLifeAreasUseCase: useCaseCoordinator.manageLifeAreas,
             manageSectionsUseCase: useCaseCoordinator.manageSections,

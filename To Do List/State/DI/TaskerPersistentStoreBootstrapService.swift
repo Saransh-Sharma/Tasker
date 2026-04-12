@@ -473,6 +473,7 @@ struct TaskerPersistentRuntimeInitializer {
                 try backfillTaskLifeAreaIDsIfNeeded(in: context)
                 try backfillHabitRuntimeFieldsIfNeeded(in: context)
                 try backfillOccurrenceKeysIfNeeded(in: context)
+                try backfillWeeklyPlanningBucketsIfNeeded(in: context)
 
                 if context.hasChanges {
                     try context.save()
@@ -903,6 +904,36 @@ struct TaskerPersistentRuntimeInitializer {
         }
     }
 
+    private func backfillWeeklyPlanningBucketsIfNeeded(in context: NSManagedObjectContext) throws {
+        guard
+            let taskEntity = NSEntityDescription.entity(forEntityName: "TaskDefinition", in: context),
+            taskEntity.attributesByName["planningBucketRaw"] != nil
+        else {
+            return
+        }
+
+        let request = NSFetchRequest<NSManagedObject>(entityName: "TaskDefinition")
+        request.predicate = NSCompoundPredicate(orPredicateWithSubpredicates: [
+            NSPredicate(format: "planningBucketRaw == nil"),
+            NSPredicate(format: "planningBucketRaw == ''")
+        ])
+
+        let tasks = try context.fetch(request)
+        guard tasks.isEmpty == false else {
+            return
+        }
+
+        for task in tasks {
+            task.setValue(TaskPlanningBucket.thisWeek.rawValue, forKey: "planningBucketRaw")
+        }
+
+        logWarning(
+            event: "weekly_planning_bucket_backfill_applied",
+            message: "Backfilled TaskDefinition.planningBucketRaw for legacy rows",
+            fields: ["updated_count": String(tasks.count)]
+        )
+    }
+
     private func occurrenceStateRank(_ rawValue: String?) -> Int {
         switch rawValue {
         case OccurrenceState.completed.rawValue:
@@ -1299,11 +1330,11 @@ final class TaskerPersistentStoreBootstrapService {
     private func migrateSplitStoresIfNeeded() throws {
         let modelBundleURL = try taskModelBundleURL()
         let sourceModel = try compiledTaskModel(
-            named: "TaskModelV3_Gamification.mom",
+            named: "TaskModelV3_Habits.mom",
             bundleURL: modelBundleURL
         )
         let destinationModel = try compiledTaskModel(
-            named: "TaskModelV3_Habits.mom",
+            named: "TaskModelV3_WeeklyPlanning.mom",
             bundleURL: modelBundleURL
         )
 
@@ -1336,7 +1367,7 @@ final class TaskerPersistentStoreBootstrapService {
 
             logWarning(
                 event: "persistent_store_preflight_migration_started",
-                message: "Migrating split store to the current TaskModelV3_Habits schema before bootstrap",
+                message: "Migrating split store to the current TaskModelV3_WeeklyPlanning schema before bootstrap",
                 fields: [
                     "store": store.label,
                     "configuration": store.configurationName,
@@ -1370,7 +1401,7 @@ final class TaskerPersistentStoreBootstrapService {
                 try storeLocationService.replaceStoreFiles(for: store, withMigratedBaseURL: tempURL)
                 logWarning(
                     event: "persistent_store_preflight_migration_succeeded",
-                    message: "Migrated split store to the current TaskModelV3_Habits schema before bootstrap",
+                    message: "Migrated split store to the current TaskModelV3_WeeklyPlanning schema before bootstrap",
                     fields: [
                         "store": store.label,
                         "configuration": store.configurationName,
@@ -1570,6 +1601,18 @@ final class TaskerPersistentStoreBootstrapService {
     }
 
     static func validateRuntimeSchema(in model: NSManagedObjectModel) -> NSError? {
+        if let weeklyPlanningSchemaError = weeklyPlanningSchemaValidationError(in: model) {
+            logError(
+                event: "persistent_store_weekly_planning_schema_invalid",
+                message: "Loaded Core Data model is missing required weekly planning fields",
+                fields: [
+                    "error": weeklyPlanningSchemaError.localizedDescription,
+                    "missing_requirements": weeklyPlanningSchemaError.userInfo["missingRequirements"] as? String ?? "unknown"
+                ]
+            )
+            return weeklyPlanningSchemaError
+        }
+
         if let habitSchemaError = CoreDataHabitRepository.schemaValidationError(in: model) {
             logError(
                 event: "persistent_store_habit_schema_invalid",
@@ -1595,6 +1638,87 @@ final class TaskerPersistentStoreBootstrapService {
         }
 
         return nil
+    }
+
+    private static func weeklyPlanningSchemaValidationError(in model: NSManagedObjectModel) -> NSError? {
+        var missingRequirements: [String] = []
+
+        func requireAttributes(entityName: String, attributes: [String]) {
+            guard let entity = model.entitiesByName[entityName] else {
+                missingRequirements.append("entity:\(entityName)")
+                return
+            }
+
+            for attribute in attributes where entity.attributesByName[attribute] == nil {
+                missingRequirements.append("\(entityName).\(attribute)")
+            }
+        }
+
+        requireAttributes(
+            entityName: "TaskDefinition",
+            attributes: [
+                "planningBucketRaw",
+                "weeklyOutcomeID",
+                "deferredFromWeekStart",
+                "deferredCount"
+            ]
+        )
+        requireAttributes(
+            entityName: "Project",
+            attributes: [
+                "motivationWhy",
+                "motivationSuccessLooksLike",
+                "motivationCostOfNeglect"
+            ]
+        )
+        requireAttributes(
+            entityName: "WeeklyPlan",
+            attributes: [
+                "id",
+                "weekStartDate",
+                "reviewStatus"
+            ]
+        )
+        requireAttributes(
+            entityName: "WeeklyOutcome",
+            attributes: [
+                "id",
+                "weeklyPlanID",
+                "title",
+                "status",
+                "orderIndex"
+            ]
+        )
+        requireAttributes(
+            entityName: "WeeklyReview",
+            attributes: [
+                "id",
+                "weeklyPlanID",
+                "completedAt"
+            ]
+        )
+        requireAttributes(
+            entityName: "ReflectionNote",
+            attributes: [
+                "id",
+                "kind",
+                "noteText",
+                "createdAt"
+            ]
+        )
+
+        guard missingRequirements.isEmpty == false else {
+            return nil
+        }
+
+        return NSError(
+            domain: "TaskerPersistentStoreBootstrapService",
+            code: 301,
+            userInfo: [
+                NSLocalizedDescriptionKey: "The loaded Core Data model is missing required weekly planning schema.",
+                "missingRequirements": missingRequirements.sorted().joined(separator: ",")
+            ]
+        )
     }
 
     private func underlyingCoreDataErrorSummary(_ error: NSError) -> String {

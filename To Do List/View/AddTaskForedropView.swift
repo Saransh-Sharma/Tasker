@@ -286,6 +286,21 @@ struct AddTaskForedropView: View {
                         icon: { $0.emoji.isEmpty ? "mappin" : $0.emoji },
                         selected: $viewModel.selectedContext
                     )
+
+                    Picker("Planning bucket", selection: $viewModel.selectedPlanningBucket) {
+                        Text("This Week").tag(TaskPlanningBucket.thisWeek)
+                        Text("Next Week").tag(TaskPlanningBucket.nextWeek)
+                        Text("Later").tag(TaskPlanningBucket.later)
+                    }
+
+                    if !viewModel.availableWeeklyOutcomes.isEmpty {
+                        Picker("Weekly outcome", selection: $viewModel.selectedWeeklyOutcomeID) {
+                            Text("None").tag(UUID?.none)
+                            ForEach(viewModel.availableWeeklyOutcomes, id: \.id) { outcome in
+                                Text(outcome.title).tag(Optional(outcome.id))
+                            }
+                        }
+                    }
                 }
             }
 
