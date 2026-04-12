@@ -26,22 +26,25 @@ struct InsightsWeekView: View {
                 heroCard
             }
             module(index: 1) {
-                weeklyMomentumCard
+                weeklyOperatingCard
             }
             module(index: 2) {
-                weeklyPatternCard
+                weeklyMomentumCard
             }
             module(index: 3) {
-                leaderboardCard
+                weeklyPatternCard
             }
             module(index: 4) {
+                leaderboardCard
+            }
+            module(index: 5) {
                 mixCard(
                     eyebrow: "Priority mix",
                     title: "What kind of work actually got finished",
                     items: state.priorityMix
                 )
             }
-            module(index: 5) {
+            module(index: 6) {
                 mixCard(
                     eyebrow: "Task-type mix",
                     title: "When that work tends to land",
@@ -53,6 +56,69 @@ struct InsightsWeekView: View {
         .padding(.bottom, spacing.s16)
         .onAppear {
             didAppear = true
+        }
+    }
+
+    @ViewBuilder
+    private var weeklyOperatingCard: some View {
+        if let weeklyOperating = state.weeklyOperating {
+            insightsCard {
+                VStack(alignment: .leading, spacing: spacing.s12) {
+                    HStack(alignment: .firstTextBaseline) {
+                        VStack(alignment: .leading, spacing: spacing.s4) {
+                            Text("Weekly operating layer")
+                                .font(.tasker(.caption1))
+                                .foregroundColor(Color.tasker.textTertiary)
+                            Text("\(weeklyOperating.momentumScore)")
+                                .font(.system(size: 28, weight: .bold, design: .rounded))
+                                .foregroundColor(Color.tasker.textPrimary)
+                        }
+                        Spacer()
+                        Text(weeklyOperating.reviewStatusTitle)
+                            .font(.tasker(.caption1))
+                            .foregroundColor(Color.tasker.textSecondary)
+                    }
+
+                    Text(weeklyOperating.momentumNarrative)
+                        .font(.tasker(.headline))
+                        .foregroundColor(Color.tasker.textPrimary)
+
+                    VStack(alignment: .leading, spacing: spacing.s8) {
+                        Text(weeklyOperating.carryOverSummary)
+                            .font(.tasker(.callout))
+                            .foregroundColor(Color.tasker.textSecondary)
+                        Text(weeklyOperating.contributionSummary)
+                            .font(.tasker(.callout))
+                            .foregroundColor(Color.tasker.textSecondary)
+                        Text(weeklyOperating.reflectionSummary)
+                            .font(.tasker(.callout))
+                            .foregroundColor(Color.tasker.textSecondary)
+                    }
+
+                    VStack(alignment: .leading, spacing: spacing.s8) {
+                        Text(weeklyOperating.recoveryHeadline)
+                            .font(.tasker(.callout))
+                            .foregroundColor(Color.tasker.textPrimary)
+                        Text(weeklyOperating.recoverySummary)
+                            .font(.tasker(.caption1))
+                            .foregroundColor(Color.tasker.textSecondary)
+                        Text(weeklyOperating.recoveryNarrative)
+                            .font(.tasker(.caption1))
+                            .foregroundColor(Color.tasker.textSecondary)
+                    }
+
+                    if weeklyOperating.momentumDrivers.isEmpty == false {
+                        LazyVGrid(columns: [
+                            GridItem(.flexible(), spacing: 12),
+                            GridItem(.flexible(), spacing: 12)
+                        ], spacing: spacing.s8) {
+                            ForEach(weeklyOperating.momentumDrivers) { metric in
+                                metricCard(metric)
+                            }
+                        }
+                    }
+                }
+            }
         }
     }
 
