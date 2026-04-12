@@ -877,6 +877,15 @@ public final class HomeViewModel: ObservableObject {
         loadTodayTasks(generation: nextReloadGeneration())
     }
 
+    public func refreshWeeklySummaryNow() {
+        refreshWeeklySummary()
+    }
+
+    public func refreshAfterWeeklyReviewCompletion() {
+        refreshWeeklySummary()
+        reloadCurrentModeTasks()
+    }
+
     /// Executes loadTodayTasks.
     private func loadTodayTasks(generation: Int) {
         scheduleRecurringTopUpIfNeeded()

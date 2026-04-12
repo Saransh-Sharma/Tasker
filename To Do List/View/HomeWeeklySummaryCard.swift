@@ -6,6 +6,28 @@ struct HomeWeeklySummaryCard: View {
 
     private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.currentTheme.tokens.spacing }
 
+    private func ctaTitle(for summary: HomeWeeklySummary) -> String {
+        switch summary.ctaState {
+        case .planThisWeek:
+            return "Plan this week"
+        case .planUpcomingWeek:
+            return "Plan upcoming week"
+        case .reviewWeek:
+            return "Review this week"
+        }
+    }
+
+    private func headline(for summary: HomeWeeklySummary) -> String {
+        switch summary.ctaState {
+        case .planThisWeek:
+            return "Plan this week before the backlog plans it for you."
+        case .planUpcomingWeek:
+            return "Set up next week before it starts."
+        case .reviewWeek:
+            return "Review this week while it's still fresh."
+        }
+    }
+
     var body: some View {
         Group {
             if let summary {
@@ -17,7 +39,7 @@ struct HomeWeeklySummaryCard: View {
                                 .foregroundStyle(Color.tasker.textSecondary)
                                 .tracking(0.8)
 
-                            Text(summary.ctaState == .reviewWeek ? "Review this week while it's still fresh." : "Plan this week before the backlog plans it for you.")
+                            Text(headline(for: summary))
                                 .font(.tasker(.title2))
                                 .foregroundStyle(Color.tasker.textPrimary)
                                 .fixedSize(horizontal: false, vertical: true)
@@ -29,7 +51,7 @@ struct HomeWeeklySummaryCard: View {
                                     tone: .quiet
                                 )
                                 TaskerStatusPill(
-                                    text: summary.ctaState == .reviewWeek ? "Review this week" : "Plan this week",
+                                    text: ctaTitle(for: summary),
                                     systemImage: summary.ctaState == .reviewWeek ? "checklist" : "scope",
                                     tone: summary.ctaState == .reviewWeek ? .accent : .quiet
                                 )
@@ -38,7 +60,7 @@ struct HomeWeeklySummaryCard: View {
 
                         Spacer(minLength: spacing.s8)
 
-                        Button(summary.ctaState == .reviewWeek ? "Review this week" : "Plan this week") {
+                        Button(ctaTitle(for: summary)) {
                             onPrimaryAction()
                         }
                         .buttonStyle(.borderedProminent)

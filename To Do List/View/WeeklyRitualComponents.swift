@@ -1,13 +1,11 @@
 import SwiftUI
 
 enum WeeklyCopy {
-    static let plannerTitle = "Plan this week"
     static let plannerSubtitle = "Set direction, choose a few real outcomes, and place work where it belongs."
     static let reviewTitle = "Review this week"
     static let reviewSubtitle = "Look at what happened, resolve unfinished work, and capture what future-you should remember."
     static let reflectionTitle = "Add reflection"
 
-    static let plannerErrorTitle = "We couldn't load this week"
     static let reviewErrorTitle = "We couldn't load this review"
     static let reflectionErrorTitle = "We couldn't save that reflection"
 
@@ -84,8 +82,47 @@ enum WeeklyCopy {
         "Capture what to carry forward"
     ]
 
+    static func plannerTitle(for presentation: WeeklyPlannerPresentationMode) -> String {
+        switch presentation {
+        case .thisWeek:
+            return "Plan this week"
+        case .upcomingWeek:
+            return "Plan upcoming week"
+        }
+    }
+
+    static func plannerErrorTitle(for presentation: WeeklyPlannerPresentationMode) -> String {
+        switch presentation {
+        case .thisWeek:
+            return "We couldn't load this week"
+        case .upcomingWeek:
+            return "We couldn't load the upcoming week"
+        }
+    }
+
+    static func prompt(for step: WeeklyPlannerStep, presentation: WeeklyPlannerPresentationMode) -> String {
+        switch (step, presentation) {
+        case (.direction, .thisWeek):
+            return directionPrompt
+        case (.direction, .upcomingWeek):
+            return "What should next week really be about?"
+        case (.outcomes, .thisWeek):
+            return outcomesPrompt
+        case (.outcomes, .upcomingWeek):
+            return "Choose up to three results worth protecting next week."
+        case (.tasks, .thisWeek):
+            return tasksPrompt
+        case (.tasks, .upcomingWeek):
+            return "Decide where each task belongs so next week starts clear."
+        case (.review, .thisWeek):
+            return reviewPrompt
+        case (.review, .upcomingWeek):
+            return "Check that next week matches what you actually want to carry."
+        }
+    }
+
     static func weekRangeText(for weekStartDate: Date) -> String {
-        let calendar = XPCalculationEngine.mondayCalendar()
+        let calendar = Calendar.autoupdatingCurrent
         let weekEnd = calendar.date(byAdding: .day, value: 6, to: weekStartDate) ?? weekStartDate
         let formatter = DateIntervalFormatter()
         formatter.calendar = calendar
@@ -125,6 +162,7 @@ enum WeeklyCopy {
 struct WeeklyWizardScaffold<Content: View, Footer: View>: View {
     let weekRange: String
     let currentStep: WeeklyPlannerStep
+    let currentPrompt: String
     let showsBack: Bool
     let onBack: (() -> Void)?
     let content: Content
@@ -137,6 +175,7 @@ struct WeeklyWizardScaffold<Content: View, Footer: View>: View {
     init(
         weekRange: String,
         currentStep: WeeklyPlannerStep,
+        currentPrompt: String,
         showsBack: Bool,
         onBack: (() -> Void)? = nil,
         @ViewBuilder content: () -> Content,
@@ -144,6 +183,7 @@ struct WeeklyWizardScaffold<Content: View, Footer: View>: View {
     ) {
         self.weekRange = weekRange
         self.currentStep = currentStep
+        self.currentPrompt = currentPrompt
         self.showsBack = showsBack
         self.onBack = onBack
         self.content = content()
@@ -156,6 +196,7 @@ struct WeeklyWizardScaffold<Content: View, Footer: View>: View {
                 WeeklyWizardHeader(
                     weekRange: weekRange,
                     currentStep: currentStep,
+                    currentPrompt: currentPrompt,
                     showsBack: showsBack,
                     onBack: onBack
                 )
@@ -182,6 +223,7 @@ struct WeeklyWizardScaffold<Content: View, Footer: View>: View {
 private struct WeeklyWizardHeader: View {
     let weekRange: String
     let currentStep: WeeklyPlannerStep
+    let currentPrompt: String
     let showsBack: Bool
     let onBack: (() -> Void)?
 
@@ -219,8 +261,8 @@ private struct WeeklyWizardHeader: View {
                     .font(.tasker(.title1))
                     .foregroundStyle(Color.tasker.textPrimary)
 
-                Text(currentStep.prompt)
-                    .font(.tasker(.support))
+                Text(currentPrompt)
+                    .font(.tasker(.body))
                     .foregroundStyle(Color.tasker.textSecondary)
                     .fixedSize(horizontal: false, vertical: true)
             }

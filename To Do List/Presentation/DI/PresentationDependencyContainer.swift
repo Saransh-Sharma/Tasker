@@ -228,10 +228,14 @@ public final class PresentationDependencyContainer {
     }
 
     @MainActor
-    public func makeWeeklyPlannerViewModel(referenceDate: Date = Date()) -> WeeklyPlannerViewModel {
+    public func makeWeeklyPlannerViewModel(
+        referenceDate: Date = Date(),
+        plannerPresentation: WeeklyPlannerPresentationMode = .thisWeek
+    ) -> WeeklyPlannerViewModel {
         assertConfigured()
         return WeeklyPlannerViewModel(
             referenceDate: referenceDate,
+            plannerPresentation: plannerPresentation,
             buildWeeklyPlanSnapshot: useCaseCoordinator.buildWeeklyPlanSnapshot,
             estimateWeeklyCapacity: useCaseCoordinator.estimateWeeklyCapacity,
             getHabitLibraryUseCase: useCaseCoordinator.getHabitLibrary,

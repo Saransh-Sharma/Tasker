@@ -20,6 +20,7 @@ struct WeeklyPlannerView: View {
             WeeklyWizardScaffold(
                 weekRange: viewModel.weekRangeText,
                 currentStep: viewModel.currentStep,
+                currentPrompt: viewModel.currentStepPrompt,
                 showsBack: viewModel.currentStep != .direction,
                 onBack: viewModel.moveBackward
             ) {
@@ -35,7 +36,7 @@ struct WeeklyPlannerView: View {
                     footerActions
                 }
             }
-            .navigationTitle(WeeklyCopy.plannerTitle)
+            .navigationTitle(viewModel.navigationTitle)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
@@ -47,7 +48,7 @@ struct WeeklyPlannerView: View {
                     viewModel.load()
                 }
             }
-            .alert(WeeklyCopy.plannerErrorTitle, isPresented: Binding(
+            .alert(viewModel.errorTitle, isPresented: Binding(
                 get: { viewModel.errorMessage != nil },
                 set: { if !$0 { viewModel.clearError() } }
             )) {

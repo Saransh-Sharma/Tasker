@@ -8,6 +8,7 @@ final class SettingsViewModel: ObservableObject {
     // MARK: - Notifications
 
     @Published var preferences: TaskerNotificationPreferences
+    @Published var workspacePreferences: TaskerWorkspacePreferences
     @Published var permissionStatus: TaskerNotificationAuthorizationStatus = .notDetermined
 
     // MARK: - LLM
@@ -29,6 +30,7 @@ final class SettingsViewModel: ObservableObject {
     // MARK: - Dependencies
 
     private let notificationPreferencesStore: TaskerNotificationPreferencesStore
+    private let workspacePreferencesStore: TaskerWorkspacePreferencesStore
     private let appManager: AppManager
     private var hasCustomizedAppearance: Bool {
         decorativeButtonEffectsEnabled || homeBackdropNoiseAmount != V2FeatureFlags.defaultHomeBackdropNoiseAmount
@@ -199,15 +201,22 @@ final class SettingsViewModel: ObservableObject {
         return "\(formattedTime(hour: preferences.quietHoursStartHour, minute: preferences.quietHoursStartMinute))–\(formattedTime(hour: preferences.quietHoursEndHour, minute: preferences.quietHoursEndMinute))"
     }
 
+    var weekStartsOnSummary: String {
+        workspacePreferences.weekStartsOn.displayTitle
+    }
+
     // MARK: - Init
 
     init(
         appManager: AppManager = AppManager(),
-        notificationPreferencesStore: TaskerNotificationPreferencesStore = .shared
+        notificationPreferencesStore: TaskerNotificationPreferencesStore = .shared,
+        workspacePreferencesStore: TaskerWorkspacePreferencesStore = .shared
     ) {
         self.appManager = appManager
         self.notificationPreferencesStore = notificationPreferencesStore
+        self.workspacePreferencesStore = workspacePreferencesStore
         self.preferences = notificationPreferencesStore.load()
+        self.workspacePreferences = workspacePreferencesStore.load()
         self.currentModelDisplayName = appManager.compactModelDisplayName(appManager.currentModelName ?? "")
         self.decorativeButtonEffectsEnabled = V2FeatureFlags.userDecorativeCTAEffectsEnabled
         self.homeBackdropNoiseAmount = V2FeatureFlags.homeBackdropNoiseAmount
@@ -225,6 +234,12 @@ final class SettingsViewModel: ObservableObject {
         preferences.dueSoonLeadMinutes = minutes
         saveAndReconcile()
         TaskerFeedback.selection()
+    }
+
+    func updateWeekStartsOn(_ weekday: Weekday) {
+        guard workspacePreferences.weekStartsOn != weekday else { return }
+        workspacePreferences.weekStartsOn = weekday
+        workspacePreferencesStore.save(workspacePreferences)
     }
 
     func setDecorativeButtonEffectsEnabled(_ isEnabled: Bool) {
@@ -286,6 +301,7 @@ final class SettingsViewModel: ObservableObject {
 
     func reload() {
         preferences = notificationPreferencesStore.load()
+        workspacePreferences = workspacePreferencesStore.load()
         currentModelDisplayName = appManager.compactModelDisplayName(appManager.currentModelName ?? "")
         decorativeButtonEffectsEnabled = V2FeatureFlags.userDecorativeCTAEffectsEnabled
         homeBackdropNoiseAmount = V2FeatureFlags.homeBackdropNoiseAmount

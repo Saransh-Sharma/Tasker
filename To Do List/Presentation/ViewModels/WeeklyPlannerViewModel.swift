@@ -374,6 +374,8 @@ public final class WeeklyPlannerViewModel: ObservableObject {
     }
 
     public let weekStartDate: Date
+    public let plannerPresentation: WeeklyPlannerPresentationMode
+    public let weekStartsOn: Weekday
 
     private let buildWeeklyPlanSnapshot: BuildWeeklyPlanSnapshotUseCase
     private let estimateWeeklyCapacity: EstimateWeeklyCapacityUseCase
@@ -391,6 +393,8 @@ public final class WeeklyPlannerViewModel: ObservableObject {
 
     init(
         referenceDate: Date = Date(),
+        plannerPresentation: WeeklyPlannerPresentationMode = .thisWeek,
+        weekStartsOn: Weekday = TaskerWorkspacePreferencesStore.shared.load().weekStartsOn,
         buildWeeklyPlanSnapshot: BuildWeeklyPlanSnapshotUseCase,
         estimateWeeklyCapacity: EstimateWeeklyCapacityUseCase,
         getHabitLibraryUseCase: GetHabitLibraryUseCase,
@@ -400,8 +404,12 @@ public final class WeeklyPlannerViewModel: ObservableObject {
         homeAIActionCoordinator: HomeAIActionCoordinator? = nil,
         gamificationEngine: GamificationEngine? = nil
     ) {
-        let calendar = XPCalculationEngine.mondayCalendar()
-        self.weekStartDate = XPCalculationEngine.mondayStartOfWeek(for: referenceDate, calendar: calendar)
+        self.plannerPresentation = plannerPresentation
+        self.weekStartsOn = weekStartsOn
+        self.weekStartDate = XPCalculationEngine.startOfWeek(
+            for: referenceDate,
+            startingOn: weekStartsOn
+        )
         self.buildWeeklyPlanSnapshot = buildWeeklyPlanSnapshot
         self.estimateWeeklyCapacity = estimateWeeklyCapacity
         self.getHabitLibraryUseCase = getHabitLibraryUseCase
@@ -422,6 +430,18 @@ public final class WeeklyPlannerViewModel: ObservableObject {
 
     public var weekRangeText: String {
         WeeklyCopy.weekRangeText(for: weekStartDate)
+    }
+
+    public var navigationTitle: String {
+        WeeklyCopy.plannerTitle(for: plannerPresentation)
+    }
+
+    public var errorTitle: String {
+        WeeklyCopy.plannerErrorTitle(for: plannerPresentation)
+    }
+
+    public var currentStepPrompt: String {
+        WeeklyCopy.prompt(for: currentStep, presentation: plannerPresentation)
     }
 
     public var trimmedFocusStatement: String {

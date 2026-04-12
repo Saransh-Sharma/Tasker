@@ -24,6 +24,10 @@ struct SettingsRootView: View {
         (120, "2h"),
     ]
 
+    private let weekStartOptions: [(value: Weekday, label: String)] = Weekday.allCases.map {
+        ($0, $0.displayTitle)
+    }
+
     private var spacing: TaskerSpacingTokens {
         TaskerThemeManager.shared.tokens(for: layoutClass).spacing
     }
@@ -161,6 +165,27 @@ struct SettingsRootView: View {
                     )
                 }
                 .enhancedStaggeredAppearance(index: baseIndex + 1)
+
+                TaskerSettingsCard {
+                    VStack(alignment: .leading, spacing: TaskerSettingsMetrics.cardInnerPadding) {
+                        TaskerSettingsInfoRow(
+                            iconName: "calendar",
+                            title: "Start of week",
+                            subtitle: "This sets when weekly planning rolls over and when upcoming-week planning appears.",
+                            value: viewModel.weekStartsOnSummary,
+                            accessibilityIdentifier: "settings.workspace.weekStart.row"
+                        )
+
+                        SettingsChipSelector(
+                            title: "Week starts on",
+                            options: weekStartOptions,
+                            selectedValue: viewModel.workspacePreferences.weekStartsOn,
+                            onSelect: viewModel.updateWeekStartsOn,
+                            accessibilityIdentifier: "settings.workspace.weekStart.selector"
+                        )
+                    }
+                }
+                .enhancedStaggeredAppearance(index: baseIndex + 2)
             }
         }
     }
