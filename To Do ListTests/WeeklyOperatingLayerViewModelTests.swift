@@ -3,7 +3,7 @@ import XCTest
 
 final class WeeklyOperatingLayerViewModelTests: XCTestCase {
     @MainActor
-    func testPlannerDerivedProgressAndSummaryReflectCurrentInputs() {
+    func testPlannerCompactSummaryReflectsWizardInputs() {
         let viewModel = makePlannerViewModel()
         let habitID = UUID()
         let outcomeID = UUID()
@@ -31,10 +31,126 @@ final class WeeklyOperatingLayerViewModelTests: XCTestCase {
         ]
 
         XCTAssertEqual(viewModel.plannerSteps.map(\.isComplete), [true, true, true, true])
-        XCTAssertEqual(
-            viewModel.reviewSummaryText,
-            "1 outcomes, 1 tasks in This Week, 1 habits supporting the week."
+        XCTAssertEqual(viewModel.reviewSummary.compactSummary, "1 outcomes · 1 this week · 1 habits")
+    }
+
+    @MainActor
+    func testPlannerLoadPreselectsHabitsAndSeedsTriageQueue() {
+        let habitOne = HabitLibraryRow(
+            habitID: UUID(),
+            title: "Morning reset",
+            kind: .positive,
+            trackingMode: .dailyCheckIn,
+            lifeAreaID: UUID(),
+            lifeAreaName: "Health",
+            icon: HabitIconMetadata(symbolName: "sun.max", categoryKey: "health"),
+            colorHex: "#FFAA00",
+            isPaused: false,
+            isArchived: false,
+            currentStreak: 5,
+            bestStreak: 8,
+            lastCompletedAt: fixedWeekStart
         )
+        let habitTwo = HabitLibraryRow(
+            habitID: UUID(),
+            title: "Inbox sweep",
+            kind: .positive,
+            trackingMode: .dailyCheckIn,
+            lifeAreaID: UUID(),
+            lifeAreaName: "Work",
+            icon: HabitIconMetadata(symbolName: "tray.full", categoryKey: "work"),
+            colorHex: "#3366FF",
+            isPaused: false,
+            isArchived: false,
+            currentStreak: 2,
+            bestStreak: 4,
+            lastCompletedAt: fixedWeekStart
+        )
+        let openTask = TaskDefinition(
+            id: UUID(),
+            title: "Finalize roadmap notes",
+            priority: .high,
+            dueDate: fixedWeekStart,
+            planningBucket: .later
+        )
+
+        let viewModel = makePlannerViewModel(
+            seedTasks: [openTask],
+            habitRows: [habitOne, habitTwo]
+        )
+
+        loadPlanner(viewModel)
+
+        XCTAssertEqual(viewModel.currentStep, .direction)
+        XCTAssertEqual(viewModel.selectedHabitIDs, Set([habitOne.habitID, habitTwo.habitID]))
+        XCTAssertEqual(viewModel.currentTriageTask?.id, openTask.id)
+        XCTAssertEqual(viewModel.triageSnapshot.cardModel?.task.id, openTask.id)
+        XCTAssertEqual(viewModel.taskSourceSnapshot(for: .weeklyCandidates).tasks.first?.id, openTask.id)
+    }
+
+    @MainActor
+    func testPlannerStepGatingAndNavigationFollowWizardFlow() {
+        let openTask = TaskDefinition(
+            id: UUID(),
+            title: "Ship weekly launch draft",
+            priority: .high,
+            dueDate: fixedWeekStart,
+            planningBucket: .later
+        )
+        let viewModel = makePlannerViewModel(seedTasks: [openTask])
+
+        loadPlanner(viewModel)
+
+        XCTAssertFalse(viewModel.canMoveForward)
+
+        viewModel.minimumViableWeekEnabled = true
+        XCTAssertTrue(viewModel.canMoveForward)
+
+        viewModel.moveForward()
+        XCTAssertEqual(viewModel.currentStep, .outcomes)
+        XCTAssertFalse(viewModel.canMoveForward)
+
+        viewModel.outcomeDrafts[0].title = "Ship the weekly launch draft"
+        XCTAssertTrue(viewModel.canMoveForward)
+
+        viewModel.moveForward()
+        XCTAssertEqual(viewModel.currentStep, .tasks)
+        XCTAssertFalse(viewModel.canMoveForward)
+
+        _ = viewModel.assignCurrentTriageTask(to: .thisWeek)
+        XCTAssertTrue(viewModel.canMoveForward)
+
+        viewModel.moveForward()
+        XCTAssertEqual(viewModel.currentStep, .review)
+    }
+
+    @MainActor
+    func testPlannerTriageUndoRestoresQueueAndBucketState() {
+        let task = TaskDefinition(
+            id: UUID(),
+            title: "Follow up on design review",
+            priority: .high,
+            dueDate: fixedWeekStart,
+            planningBucket: .later
+        )
+        let viewModel = makePlannerViewModel(seedTasks: [task])
+
+        loadPlanner(viewModel)
+
+        let decision = viewModel.assignCurrentTriageTask(to: .nextWeek)
+
+        XCTAssertEqual(decision?.task.id, task.id)
+        XCTAssertNil(viewModel.currentTriageTask)
+        XCTAssertEqual(viewModel.triageReviewedCount, 1)
+        XCTAssertEqual(viewModel.nextWeekTasks.map(\.id), [task.id])
+
+        let undone = viewModel.undoLastTriageDecision()
+
+        XCTAssertEqual(undone?.task.id, task.id)
+        XCTAssertEqual(viewModel.currentTriageTask?.id, task.id)
+        XCTAssertEqual(viewModel.triageReviewedCount, 0)
+        XCTAssertTrue(viewModel.nextWeekTasks.isEmpty)
+        XCTAssertEqual(viewModel.triageSnapshot.cardModel?.task.id, task.id)
     }
 
     @MainActor
@@ -51,6 +167,85 @@ final class WeeklyOperatingLayerViewModelTests: XCTestCase {
         ]
 
         XCTAssertEqual(viewModel.overloadCount, 1)
+    }
+
+    @MainActor
+    func testPlannerOutcomeAndTaskSourceSnapshotsRefreshWhenPlanChanges() {
+        let task = TaskDefinition(
+            id: UUID(),
+            title: "Finalize roadmap notes",
+            priority: .high,
+            dueDate: fixedWeekStart,
+            planningBucket: .later
+        )
+        let projectID = UUID()
+        let viewModel = makePlannerViewModel(
+            seedTasks: [task],
+            projects: [Project(id: projectID, name: "Roadmap", color: .blue)]
+        )
+
+        loadPlanner(viewModel)
+
+        viewModel.outcomeDrafts[0].title = "Protect roadmap clarity"
+        viewModel.outcomeDrafts[0].sourceProjectID = projectID
+        _ = viewModel.assignCurrentTriageTask(to: TaskPlanningBucket.thisWeek)
+        viewModel.assignWeeklyOutcome(viewModel.outcomeDrafts[0].id, to: task.id)
+
+        XCTAssertEqual(viewModel.reviewSummary.outcomes.first?.projectName, "Roadmap")
+        XCTAssertEqual(viewModel.reviewSummary.outcomes.first?.linkedTaskCount, 1)
+        XCTAssertTrue(viewModel.taskSourceSnapshot(for: WeeklyTaskSourceMode.suggested).tasks.isEmpty)
+    }
+
+    @MainActor
+    func testPlannerHabitSnapshotAndFooterRefreshWhenHabitSelectionChanges() {
+        let habitOne = HabitLibraryRow(
+            habitID: UUID(),
+            title: "Morning reset",
+            kind: .positive,
+            trackingMode: .dailyCheckIn,
+            lifeAreaID: UUID(),
+            lifeAreaName: "Health",
+            icon: HabitIconMetadata(symbolName: "sun.max", categoryKey: "health"),
+            colorHex: "#FFAA00",
+            isPaused: false,
+            isArchived: false,
+            currentStreak: 5,
+            bestStreak: 8,
+            lastCompletedAt: fixedWeekStart
+        )
+        let viewModel = makePlannerViewModel(habitRows: [habitOne])
+
+        loadPlanner(viewModel)
+
+        XCTAssertEqual(viewModel.selectedHabits.count, 1)
+
+        viewModel.toggleHabit(habitOne.habitID)
+
+        XCTAssertTrue(viewModel.selectedHabits.isEmpty)
+        XCTAssertEqual(viewModel.footerSnapshot.title, WeeklyPlannerStep.direction.stepLabel)
+    }
+
+    @MainActor
+    func testPlannerWarmCacheReadsStayStable() {
+        let task = TaskDefinition(
+            id: UUID(),
+            title: "Draft launch note",
+            priority: .high,
+            dueDate: fixedWeekStart,
+            planningBucket: .later
+        )
+        let viewModel = makePlannerViewModel(seedTasks: [task])
+
+        loadPlanner(viewModel)
+        viewModel.focusStatement = "Protect launch week"
+        viewModel.outcomeDrafts[0].title = "Ship launch prep"
+
+        measure(metrics: [XCTClockMetric(), XCTMemoryMetric()]) {
+            _ = viewModel.reviewSummary
+            _ = viewModel.taskSourceSnapshot(for: .weeklyCandidates)
+            _ = viewModel.currentTriageTask
+            _ = viewModel.currentTriagePlacementText
+        }
     }
 
     @MainActor
@@ -141,8 +336,12 @@ final class WeeklyOperatingLayerViewModelTests: XCTestCase {
     }
 
     @MainActor
-    private func makePlannerViewModel() -> WeeklyPlannerViewModel {
-        let taskRepository = InMemoryTaskDefinitionRepositoryStub()
+    private func makePlannerViewModel(
+        seedTasks: [TaskDefinition] = [],
+        habitRows: [HabitLibraryRow] = [],
+        projects: [Project] = []
+    ) -> WeeklyPlannerViewModel {
+        let taskRepository = InMemoryTaskDefinitionRepositoryStub(seed: seedTasks)
         let buildSnapshot = BuildWeeklyPlanSnapshotUseCase(
             weeklyPlanRepository: StubWeeklyPlanRepository(),
             weeklyOutcomeRepository: StubWeeklyOutcomeRepository(),
@@ -151,7 +350,9 @@ final class WeeklyOperatingLayerViewModelTests: XCTestCase {
             taskDefinitionRepository: taskRepository
         )
         let estimateCapacity = EstimateWeeklyCapacityUseCase(taskDefinitionRepository: taskRepository)
-        let getHabitLibrary = GetHabitLibraryUseCase(readRepository: StubHabitRuntimeReadRepository())
+        let getHabitLibrary = GetHabitLibraryUseCase(
+            readRepository: StubHabitRuntimeReadRepository(libraryRows: habitRows)
+        )
         let updateTask = UpdateTaskDefinitionUseCase(repository: taskRepository)
         let savePlan = SaveWeeklyPlanUseCase(
             weeklyPlanRepository: StubWeeklyPlanRepository(),
@@ -165,9 +366,30 @@ final class WeeklyOperatingLayerViewModelTests: XCTestCase {
             buildWeeklyPlanSnapshot: buildSnapshot,
             estimateWeeklyCapacity: estimateCapacity,
             getHabitLibraryUseCase: getHabitLibrary,
-            projectRepository: StubProjectRepository(),
+            projectRepository: StubProjectRepository(customProjects: projects),
+            taskDefinitionRepository: taskRepository,
             saveWeeklyPlanUseCase: savePlan
         )
+    }
+
+    @MainActor
+    private func loadPlanner(_ viewModel: WeeklyPlannerViewModel) {
+        let loaded = expectation(description: "weekly planner loaded")
+
+        viewModel.load()
+
+        func waitForLoad() {
+            if viewModel.isLoading == false {
+                loaded.fulfill()
+            } else {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.01) {
+                    waitForLoad()
+                }
+            }
+        }
+
+        DispatchQueue.main.async(execute: waitForLoad)
+        wait(for: [loaded], timeout: 1.0)
     }
 
     @MainActor
@@ -431,6 +653,11 @@ private final class StubHabitRuntimeReadRepository: HabitRuntimeReadRepositoryPr
 
 private final class StubProjectRepository: ProjectRepositoryProtocol {
     private let inbox = Project.createInbox()
+    private let customProjects: [Project]
+
+    init(customProjects: [Project] = []) {
+        self.customProjects = customProjects
+    }
 
     func fetchAllProjects(completion: @escaping (Result<[Project], Error>) -> Void) {
         completion(.success([inbox]))
@@ -449,7 +676,7 @@ private final class StubProjectRepository: ProjectRepositoryProtocol {
     }
 
     func fetchCustomProjects(completion: @escaping (Result<[Project], Error>) -> Void) {
-        completion(.success([]))
+        completion(.success(customProjects))
     }
 
     func createProject(_ project: Project, completion: @escaping (Result<Project, Error>) -> Void) {
