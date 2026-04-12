@@ -236,6 +236,7 @@ public final class PresentationDependencyContainer {
             estimateWeeklyCapacity: useCaseCoordinator.estimateWeeklyCapacity,
             getHabitLibraryUseCase: useCaseCoordinator.getHabitLibrary,
             projectRepository: useCaseCoordinator.projectRepository,
+            taskDefinitionRepository: useCaseCoordinator.taskDefinitionRepository,
             saveWeeklyPlanUseCase: useCaseCoordinator.saveWeeklyPlan,
             homeAIActionCoordinator: HomeAIActionCoordinator(
                 pipeline: useCaseCoordinator.assistantActionPipeline

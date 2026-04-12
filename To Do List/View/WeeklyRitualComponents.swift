@@ -23,6 +23,35 @@ enum WeeklyCopy {
     static let addReflection = "Add reflection"
     static let savePlan = "Save plan"
     static let finishReview = "Finish review"
+    static let back = "Back"
+    static let edit = "Edit"
+    static let editHabits = "Edit habits"
+    static let continueToOutcomes = "Continue to outcomes"
+    static let continueToTasks = "Continue to tasks"
+    static let reviewPlan = "Review plan"
+    static let chooseTasks = "Choose tasks"
+    static let findMoreTasks = "Find more tasks"
+    static let addTaskToReview = "Add to review"
+    static let addedToReview = "Added"
+    static let attachOutcomeQuestion = "Attach to a weekly outcome?"
+    static let noOutcome = "No outcome"
+    static let tasksCompleteTitle = "Task decisions are done"
+    static let tasksCompleteSubtitle = "You can review the week, or bring more tasks into the queue."
+    static let includedThisWeek = "Included this week"
+    static let weeklyCandidates = "Weekly candidates"
+    static let suggestedTasks = "Suggested"
+    static let allOpenTasks = "All open"
+    static let directionPrompt = "What is this week really about?"
+    static let outcomesPrompt = "Choose up to three results worth protecting this week."
+    static let tasksPrompt = "Decide where each task belongs. Keep This Week believable."
+    static let reviewPrompt = "Check that this week matches what you actually want to carry."
+    static let reviewDirectionFallback = "No direction written yet"
+    static let noTasksQueuedForReview = "No tasks are waiting for a decision. Bring in more work only if it still deserves attention."
+    static let noTasksInPlan = "Nothing is placed here yet."
+    static let reviewDirectionTitle = "Direction"
+    static let reviewHabitsTitle = "Habits included"
+    static let reviewPlacedWorkTitle = "Planned work"
+    static let currentlyPlacedIn = "Currently in"
 
     static let noHabits = "No active habits are available right now. You can still plan the week without them."
     static let noTasksInLane = "Nothing is placed here yet."
@@ -89,6 +118,121 @@ enum WeeklyCopy {
             return "Move it out of the active week without losing it."
         case .drop:
             return "Use this when the work should stop creating pressure."
+        }
+    }
+}
+
+struct WeeklyWizardScaffold<Content: View, Footer: View>: View {
+    let weekRange: String
+    let currentStep: WeeklyPlannerStep
+    let showsBack: Bool
+    let onBack: (() -> Void)?
+    let content: Content
+    let footer: Footer
+
+    @Environment(\.taskerLayoutClass) private var layoutClass
+
+    private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.tokens(for: layoutClass).spacing }
+
+    init(
+        weekRange: String,
+        currentStep: WeeklyPlannerStep,
+        showsBack: Bool,
+        onBack: (() -> Void)? = nil,
+        @ViewBuilder content: () -> Content,
+        @ViewBuilder footer: () -> Footer
+    ) {
+        self.weekRange = weekRange
+        self.currentStep = currentStep
+        self.showsBack = showsBack
+        self.onBack = onBack
+        self.content = content()
+        self.footer = footer()
+    }
+
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: spacing.s20) {
+                WeeklyWizardHeader(
+                    weekRange: weekRange,
+                    currentStep: currentStep,
+                    showsBack: showsBack,
+                    onBack: onBack
+                )
+
+                content
+            }
+            .padding(.horizontal, spacing.screenHorizontal)
+            .padding(.top, spacing.s12)
+            .padding(.bottom, spacing.s40)
+            .taskerReadableContent()
+        }
+        .scrollIndicators(.hidden)
+        .background(Color.tasker.bgCanvas.ignoresSafeArea())
+        .safeAreaInset(edge: .bottom) {
+            footer
+                .padding(.horizontal, spacing.screenHorizontal)
+                .padding(.top, spacing.s8)
+                .padding(.bottom, spacing.s8)
+                .background(Color.tasker.bgCanvas.opacity(0.96))
+        }
+    }
+}
+
+private struct WeeklyWizardHeader: View {
+    let weekRange: String
+    let currentStep: WeeklyPlannerStep
+    let showsBack: Bool
+    let onBack: (() -> Void)?
+
+    @Environment(\.taskerLayoutClass) private var layoutClass
+
+    private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.tokens(for: layoutClass).spacing }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: spacing.s12) {
+            HStack(alignment: .center, spacing: spacing.s12) {
+                if showsBack, let onBack {
+                    Button(action: onBack) {
+                        Label(WeeklyCopy.back, systemImage: "chevron.left")
+                            .font(.tasker(.buttonSmall))
+                    }
+                    .buttonStyle(.bordered)
+                }
+
+                Spacer()
+
+                TaskerStatusPill(
+                    text: weekRange,
+                    systemImage: "calendar",
+                    tone: .quiet
+                )
+            }
+
+            VStack(alignment: .leading, spacing: spacing.s8) {
+                Text(currentStep.stepLabel.uppercased())
+                    .font(.tasker(.eyebrow))
+                    .tracking(0.8)
+                    .foregroundStyle(Color.tasker.textSecondary)
+
+                Text(currentStep.title)
+                    .font(.tasker(.title1))
+                    .foregroundStyle(Color.tasker.textPrimary)
+
+                Text(currentStep.prompt)
+                    .font(.tasker(.support))
+                    .foregroundStyle(Color.tasker.textSecondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            HStack(spacing: spacing.s8) {
+                ForEach(WeeklyPlannerStep.allCases) { step in
+                    Capsule(style: .continuous)
+                        .fill(step.rawValue <= currentStep.rawValue ? Color.tasker.accentPrimary : Color.tasker.surfaceTertiary)
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 6)
+                }
+            }
         }
     }
 }
@@ -353,7 +497,7 @@ struct WeeklyStickyActionBar<Leading: View, Trailing: View>: View {
             trailing
         }
         .padding(.horizontal, spacing.s16)
-        .padding(.vertical, spacing.s12)
+        .padding(.vertical, spacing.s8)
         .taskerPremiumSurface(
             cornerRadius: 22,
             fillColor: Color.tasker.surfacePrimary.opacity(0.98),
@@ -370,54 +514,108 @@ struct WeeklyCapacityCard: View {
     let overloadCount: Int
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            HStack(alignment: .center, spacing: 14) {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(alignment: .center, spacing: 12) {
                 VStack(alignment: .leading, spacing: 4) {
                     Text("Planned pace")
                         .font(.tasker(.caption1))
                         .foregroundStyle(Color.tasker.textSecondary)
-                    Text("\(targetCapacity)")
-                        .font(.tasker(.metric))
-                        .foregroundStyle(Color.tasker.textPrimary)
-                    Text("tasks you still want to own this week")
-                        .font(.tasker(.caption1))
+                    HStack(alignment: .firstTextBaseline, spacing: 6) {
+                        Text("\(targetCapacity)")
+                            .font(.tasker(.title1))
+                            .foregroundStyle(Color.tasker.textPrimary)
+                        Text("tasks")
+                            .font(.tasker(.caption1))
+                            .foregroundStyle(Color.tasker.textSecondary)
+                    }
+                    Text("Keep only work you would still choose midweek.")
+                        .font(.tasker(.caption2))
                         .foregroundStyle(Color.tasker.textSecondary)
                 }
 
                 Spacer()
 
-                HStack(spacing: 10) {
+                HStack(spacing: 8) {
                     Button {
                         targetCapacity = max(1, targetCapacity - 1)
                     } label: {
                         Image(systemName: "minus")
-                            .frame(width: 44, height: 44)
+                            .frame(width: 36, height: 36)
                     }
                     .buttonStyle(.plain)
-                    .taskerDenseSurface(cornerRadius: 14, fillColor: Color.tasker.surfaceSecondary)
+                    .taskerDenseSurface(cornerRadius: 12, fillColor: Color.tasker.surfaceSecondary)
 
                     Button {
                         targetCapacity = min(30, targetCapacity + 1)
                     } label: {
                         Image(systemName: "plus")
-                            .frame(width: 44, height: 44)
+                            .frame(width: 36, height: 36)
                     }
                     .buttonStyle(.plain)
-                    .taskerDenseSurface(cornerRadius: 14, fillColor: Color.tasker.surfaceSecondary)
+                    .taskerDenseSurface(cornerRadius: 12, fillColor: Color.tasker.surfaceSecondary)
                 }
             }
 
             Text(WeeklyCopy.capacityHelper(target: targetCapacity, estimate: estimatedCapacity))
-                .font(.tasker(.support))
+                .font(.tasker(.caption1))
                 .foregroundStyle(Color.tasker.textSecondary)
                 .fixedSize(horizontal: false, vertical: true)
 
-            HStack(spacing: 10) {
-                TaskerStatusPill(text: "Suggested pace \(estimatedCapacity)", systemImage: "figure.walk", tone: .quiet)
+            HStack(spacing: 8) {
+                TaskerStatusPill(text: "Suggested \(estimatedCapacity)", systemImage: "figure.walk", tone: .quiet)
                 if overloadCount > 0 {
                     TaskerStatusPill(text: "\(overloadCount) over pace", systemImage: "exclamationmark.triangle.fill", tone: .warning)
                 }
             }
+        }
+    }
+}
+
+@MainActor
+extension TaskPlanningBucket {
+    var conciseDisplayTitle: String {
+        switch self {
+        case .today:
+            return "Today"
+        case .thisWeek:
+            return WeeklyCopy.thisWeek
+        case .nextWeek:
+            return WeeklyCopy.nextWeek
+        case .later:
+            return WeeklyCopy.later
+        case .someday:
+            return "Someday"
+        }
+    }
+}
+
+@MainActor
+private extension TaskPlanningBucket {
+    var copyLabel: String {
+        switch self {
+        case .thisWeek:
+            return WeeklyCopy.keepInThisWeek
+        case .nextWeek:
+            return WeeklyCopy.moveToNextWeek
+        case .later:
+            return WeeklyCopy.moveToLater
+        case .today:
+            return "Move to Today"
+        case .someday:
+            return "Move to Someday"
+        }
+    }
+
+    var tintColor: Color {
+        switch self {
+        case .today:
+            return Color.tasker.statusSuccess
+        case .thisWeek:
+            return Color.tasker.accentPrimary
+        case .nextWeek:
+            return Color.tasker.accentSecondary
+        case .later, .someday:
+            return Color.tasker.textSecondary
         }
     }
 }
@@ -683,37 +881,6 @@ struct WeeklyDecisionRow: View {
         }
         .padding(14)
         .taskerDenseSurface(cornerRadius: 18, fillColor: Color.tasker.surfacePrimary)
-    }
-}
-
-@MainActor
-private extension TaskPlanningBucket {
-    var copyLabel: String {
-        switch self {
-        case .thisWeek:
-            return WeeklyCopy.keepInThisWeek
-        case .nextWeek:
-            return WeeklyCopy.moveToNextWeek
-        case .later:
-            return WeeklyCopy.moveToLater
-        case .today:
-            return "Move to Today"
-        case .someday:
-            return "Move to Someday"
-        }
-    }
-
-    var tintColor: Color {
-        switch self {
-        case .today:
-            return Color.tasker.statusSuccess
-        case .thisWeek:
-            return Color.tasker.accentPrimary
-        case .nextWeek:
-            return Color.tasker.accentSecondary
-        case .later, .someday:
-            return Color.tasker.textSecondary
-        }
     }
 }
 
