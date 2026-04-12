@@ -342,6 +342,38 @@ class HomePage {
         return app.buttons[AccessibilityIdentifiers.Home.quickFilterMenuAdvancedButton]
     }
 
+    var primaryWidgetRail: XCUIElement {
+        let rail = app.otherElements[AccessibilityIdentifiers.Home.primaryWidgetRail]
+        if rail.exists {
+            return rail
+        }
+        return app.descendants(matching: .any)[AccessibilityIdentifiers.Home.primaryWidgetRail]
+    }
+
+    var primaryWidgetIndicator: XCUIElement {
+        let indicator = app.otherElements[AccessibilityIdentifiers.Home.primaryWidgetIndicator]
+        if indicator.exists {
+            return indicator
+        }
+        return app.descendants(matching: .any)[AccessibilityIdentifiers.Home.primaryWidgetIndicator]
+    }
+
+    var primaryWidgetPageFocusNow: XCUIElement {
+        app.descendants(matching: .any)[AccessibilityIdentifiers.Home.primaryWidgetPageFocusNow]
+    }
+
+    var primaryWidgetPageWeeklyOperating: XCUIElement {
+        app.descendants(matching: .any)[AccessibilityIdentifiers.Home.primaryWidgetPageWeeklyOperating]
+    }
+
+    var primaryWidgetIndicatorFocusNow: XCUIElement {
+        app.buttons[AccessibilityIdentifiers.Home.primaryWidgetIndicatorFocusNow]
+    }
+
+    var primaryWidgetIndicatorWeeklyOperating: XCUIElement {
+        app.buttons[AccessibilityIdentifiers.Home.primaryWidgetIndicatorWeeklyOperating]
+    }
+
     var focusStrip: XCUIElement {
         let predicate = NSPredicate(
             format: "identifier == %@ OR identifier == %@ OR identifier == %@",
@@ -376,6 +408,14 @@ class HomePage {
 
     var focusDetailShuffleButton: XCUIElement {
         app.buttons["home.focus.detail.shuffle"]
+    }
+
+    func swipePrimaryWidgetRailLeft() {
+        primaryWidgetRail.swipeLeft()
+    }
+
+    func swipePrimaryWidgetRailRight() {
+        primaryWidgetRail.swipeRight()
     }
 
     var rescueSection: XCUIElement {

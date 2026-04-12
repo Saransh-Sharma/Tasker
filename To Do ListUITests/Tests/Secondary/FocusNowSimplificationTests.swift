@@ -69,6 +69,49 @@ final class FocusNowSimplificationTests: BaseUITest {
         )
     }
 
+    func testPrimaryWidgetRailDefaultsToFocusNowAndAllowsPagingToWeeklyOperating() throws {
+        relaunchWithFocusSeed()
+
+        XCTAssertTrue(homePage.primaryWidgetRail.waitForExistence(timeout: 5), "Primary widget rail should render on Home")
+        XCTAssertTrue(homePage.primaryWidgetIndicator.waitForExistence(timeout: 3), "Primary widget indicator should render")
+        XCTAssertTrue(homePage.primaryWidgetIndicatorFocusNow.waitForExistence(timeout: 3), "Focus indicator should be present")
+        XCTAssertEqual(homePage.primaryWidgetIndicatorFocusNow.value as? String, "selected", "Focus Now should be the default rail selection")
+
+        homePage.swipePrimaryWidgetRailLeft()
+
+        XCTAssertTrue(
+            homePage.primaryWidgetIndicatorWeeklyOperating.waitForExistence(timeout: 3),
+            "Weekly Operating indicator should be present after paging"
+        )
+        XCTAssertEqual(
+            homePage.primaryWidgetIndicatorWeeklyOperating.value as? String,
+            "selected",
+            "Weekly Operating should become active after swiping the rail"
+        )
+    }
+
+    func testPrimaryWidgetRailKeepsUserSelectionWithinSession() throws {
+        relaunchWithFocusSeed()
+
+        XCTAssertTrue(homePage.primaryWidgetRail.waitForExistence(timeout: 5), "Primary widget rail should render on Home")
+        homePage.swipePrimaryWidgetRailLeft()
+        XCTAssertEqual(homePage.primaryWidgetIndicatorWeeklyOperating.value as? String, "selected")
+
+        XCTAssertTrue(homePage.searchButton.waitForExistence(timeout: 3), "Search entry point should exist")
+        homePage.searchButton.tap()
+        XCTAssertTrue(homePage.searchView.waitForExistence(timeout: 3), "Search should open")
+
+        XCTAssertTrue(homePage.searchBackChip.waitForExistence(timeout: 3), "Back to tasks should be exposed in search")
+        homePage.searchBackChip.tap()
+
+        XCTAssertTrue(homePage.primaryWidgetRail.waitForExistence(timeout: 3), "Primary widget rail should still exist after returning from search")
+        XCTAssertEqual(
+            homePage.primaryWidgetIndicatorWeeklyOperating.value as? String,
+            "selected",
+            "The session should preserve the last user-selected primary widget"
+        )
+    }
+
     func testFocusTaskRowTapStillOpensTaskDetails() throws {
         relaunchWithFocusSeed()
 

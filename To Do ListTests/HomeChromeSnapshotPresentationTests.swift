@@ -317,4 +317,129 @@ final class HomeChromeSnapshotPresentationTests: XCTestCase {
 
         XCTAssertEqual(presentation.metadataItems.map { $0.text }, ["18/250 XP", "33%", "1d"])
     }
+
+    func testPrimaryWidgetDefaultPolicyPrefersFocusNowWhenAvailable() {
+        let resolved = HomePrimaryWidgetDefaultPolicy.resolve(
+            availableWidgets: [.weeklyOperating, .focusNow],
+            currentSelection: nil,
+            userHasInteracted: false
+        )
+
+        XCTAssertEqual(resolved, .focusNow)
+    }
+
+    func testPrimaryWidgetDefaultPolicyFallsBackToWeeklyWhenFocusNowUnavailable() {
+        let resolved = HomePrimaryWidgetDefaultPolicy.resolve(
+            availableWidgets: [.weeklyOperating],
+            currentSelection: nil,
+            userHasInteracted: false
+        )
+
+        XCTAssertEqual(resolved, .weeklyOperating)
+    }
+
+    func testPrimaryWidgetDefaultPolicyResolvesMissingManualSelectionBackToDefault() {
+        let resolved = HomePrimaryWidgetDefaultPolicy.resolve(
+            availableWidgets: [.focusNow],
+            currentSelection: .weeklyOperating,
+            userHasInteracted: true
+        )
+
+        XCTAssertEqual(resolved, .focusNow)
+    }
+
+    func testPrimaryWidgetRailStateShowsBothWidgetsOnTodayWhenWeeklySummaryExists() {
+        let tasks = makePrimaryWidgetTasksSnapshot(
+            activeQuickView: .today,
+            focusRows: [.task(TaskDefinition(title: "Focus"))]
+        )
+        let chrome = makePrimaryWidgetChromeSnapshot(weeklySummary: makeWeeklySummary())
+
+        let state = HomePrimaryWidgetRailState.build(
+            tasksSnapshot: tasks,
+            chromeSnapshot: chrome
+        )
+
+        XCTAssertEqual(state.widgets, [.focusNow, .weeklyOperating])
+    }
+
+    func testPrimaryWidgetRailStateHidesWeeklyWidgetOutsideTodayQuickView() {
+        let tasks = makePrimaryWidgetTasksSnapshot(
+            activeQuickView: .overdue,
+            focusRows: [.task(TaskDefinition(title: "Focus"))]
+        )
+        let chrome = makePrimaryWidgetChromeSnapshot(weeklySummary: makeWeeklySummary())
+
+        let state = HomePrimaryWidgetRailState.build(
+            tasksSnapshot: tasks,
+            chromeSnapshot: chrome
+        )
+
+        XCTAssertEqual(state.widgets, [.focusNow])
+    }
+
+    private func makePrimaryWidgetTasksSnapshot(
+        activeQuickView: HomeQuickView,
+        focusRows: [HomeTodayRow]
+    ) -> HomeTasksSnapshot {
+        let empty = HomeTasksSnapshot.empty
+        return HomeTasksSnapshot(
+            morningTasks: empty.morningTasks,
+            eveningTasks: empty.eveningTasks,
+            overdueTasks: empty.overdueTasks,
+            dueTodaySection: empty.dueTodaySection,
+            todaySections: empty.todaySections,
+            focusNowSectionState: FocusNowSectionState(rows: focusRows, pinnedTaskIDs: []),
+            todayAgendaSectionState: empty.todayAgendaSectionState,
+            agendaTailItems: empty.agendaTailItems,
+            habitHomeSectionState: empty.habitHomeSectionState,
+            quietTrackingSummaryState: empty.quietTrackingSummaryState,
+            inlineCompletedTasks: empty.inlineCompletedTasks,
+            doneTimelineTasks: empty.doneTimelineTasks,
+            projects: empty.projects,
+            projectsByID: empty.projectsByID,
+            tagNameByID: empty.tagNameByID,
+            activeQuickView: activeQuickView,
+            todayXPSoFar: empty.todayXPSoFar,
+            projectGroupingMode: empty.projectGroupingMode,
+            customProjectOrderIDs: empty.customProjectOrderIDs,
+            emptyStateMessage: empty.emptyStateMessage,
+            emptyStateActionTitle: empty.emptyStateActionTitle,
+            canUseManualFocusDrag: empty.canUseManualFocusDrag,
+            focusTasks: empty.focusTasks,
+            focusRows: empty.focusRows,
+            pinnedFocusTaskIDs: empty.pinnedFocusTaskIDs,
+            todayOpenTaskCount: empty.todayOpenTaskCount
+        )
+    }
+
+    private func makePrimaryWidgetChromeSnapshot(weeklySummary: HomeWeeklySummary?) -> HomeChromeSnapshot {
+        HomeChromeSnapshot(
+            selectedDate: Date(timeIntervalSince1970: 0),
+            activeScope: .today,
+            activeFilterState: .default,
+            savedHomeViews: [],
+            quickViewCounts: [:],
+            progressState: .empty,
+            dailyScore: 0,
+            completionRate: 0,
+            weeklySummary: weeklySummary,
+            projects: [],
+            reflectionEligible: false,
+            momentumGuidanceText: ""
+        )
+    }
+
+    private func makeWeeklySummary() -> HomeWeeklySummary {
+        HomeWeeklySummary(
+            weekStartDate: Date(timeIntervalSince1970: 0),
+            ctaState: .planThisWeek,
+            plannerPresentation: .thisWeek,
+            outcomeCount: 1,
+            thisWeekTaskCount: 2,
+            completedThisWeekTaskCount: 0,
+            overCapacityCount: 0,
+            reviewCompleted: false
+        )
+    }
 }
