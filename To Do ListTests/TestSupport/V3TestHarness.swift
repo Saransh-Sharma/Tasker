@@ -408,7 +408,7 @@ private final class NoopWeeklyReviewRepository: WeeklyReviewRepositoryProtocol {
 private final class NoopWeeklyReviewMutationRepository: WeeklyReviewMutationRepositoryProtocol {
     func finalizeReview(
         request: CompleteWeeklyReviewRequest,
-        completion: @escaping (Result<WeeklyReview, Error>) -> Void
+        completion: @escaping (Result<CompleteWeeklyReviewResult, Error>) -> Void
     ) {
         completion(.failure(NSError(domain: "NoopWeeklyReviewMutationRepository", code: 1)))
     }

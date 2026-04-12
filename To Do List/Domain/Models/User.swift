@@ -279,7 +279,7 @@ public enum AvailabilityStatus: String, CaseIterable {
     }
 }
 
-public enum Weekday: String, CaseIterable {
+public enum Weekday: String, CaseIterable, Codable {
     case sunday = "sunday"
     case monday = "monday"
     case tuesday = "tuesday"
@@ -297,6 +297,18 @@ public enum Weekday: String, CaseIterable {
         case .thursday: return 5
         case .friday: return 6
         case .saturday: return 7
+        }
+    }
+
+    public var displayTitle: String {
+        switch self {
+        case .sunday: return "Sunday"
+        case .monday: return "Monday"
+        case .tuesday: return "Tuesday"
+        case .wednesday: return "Wednesday"
+        case .thursday: return "Thursday"
+        case .friday: return "Friday"
+        case .saturday: return "Saturday"
         }
     }
 }

@@ -1690,7 +1690,7 @@ private final class NoOpWeeklyReviewRepositoryStub: WeeklyReviewRepositoryProtoc
 private final class NoOpWeeklyReviewMutationRepositoryStub: WeeklyReviewMutationRepositoryProtocol {
     func finalizeReview(
         request: CompleteWeeklyReviewRequest,
-        completion: @escaping (Result<WeeklyReview, Error>) -> Void
+        completion: @escaping (Result<CompleteWeeklyReviewResult, Error>) -> Void
     ) {
         completion(.failure(NSError(domain: "NoOpWeeklyReviewMutationRepositoryStub", code: 1)))
     }

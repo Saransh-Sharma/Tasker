@@ -589,7 +589,7 @@ final class WriteClosedWeeklyReviewMutationRepositoryAdapter: WeeklyReviewMutati
 
     func finalizeReview(
         request: CompleteWeeklyReviewRequest,
-        completion: @escaping (Result<WeeklyReview, Error>) -> Void
+        completion: @escaping (Result<CompleteWeeklyReviewResult, Error>) -> Void
     ) {
         gate.performWrite(operation: "WeeklyReviewMutationRepository.finalizeReview", completion: completion) {
             self.base.finalizeReview(request: request, completion: completion)

@@ -1614,7 +1614,7 @@ private final class LegacyNoopWeeklyReviewRepository: WeeklyReviewRepositoryProt
 private final class LegacyNoopWeeklyReviewMutationRepository: WeeklyReviewMutationRepositoryProtocol {
     func finalizeReview(
         request: CompleteWeeklyReviewRequest,
-        completion: @escaping (Result<WeeklyReview, Error>) -> Void
+        completion: @escaping (Result<CompleteWeeklyReviewResult, Error>) -> Void
     ) {
         completion(.failure(NSError(domain: "LegacyNoopWeeklyReviewMutationRepository", code: 1)))
     }
@@ -10593,7 +10593,7 @@ final class CoreDataWeeklyReviewMutationRepositoryTests: XCTestCase {
             taskRepository.create(task, completion: completion)
         }
 
-        let review = try awaitResult { completion in
+        let result = try awaitResult { completion in
             mutationRepository.finalizeReview(
                 request: CompleteWeeklyReviewRequest(
                     weeklyPlanID: savedPlan.id,
@@ -10612,8 +10612,10 @@ final class CoreDataWeeklyReviewMutationRepositoryTests: XCTestCase {
             )
         }
 
-        XCTAssertEqual(review.weeklyPlanID, savedPlan.id)
-        XCTAssertEqual(review.wins, "Wrapped")
+        XCTAssertEqual(result.review.weeklyPlanID, savedPlan.id)
+        XCTAssertEqual(result.review.wins, "Wrapped")
+        XCTAssertTrue(result.skippedTaskIDs.isEmpty)
+        XCTAssertTrue(result.skippedOutcomeIDs.isEmpty)
 
         let updatedTask = try XCTUnwrap(try awaitResult { completion in
             taskRepository.fetchTaskDefinition(id: savedTask.id, completion: completion)
@@ -10640,7 +10642,7 @@ final class CoreDataWeeklyReviewMutationRepositoryTests: XCTestCase {
         XCTAssertEqual(persistedReview?.wins, "Wrapped")
     }
 
-    func testFinalizeReviewFailureRollsBackWhenReviewedTaskIsMissing() throws {
+    func testFinalizeReviewSkipsMissingReviewedTaskAndPersistsRemainingChanges() throws {
         let container = try makeWeeklyContainer()
         let taskRepository = CoreDataTaskDefinitionRepository(container: container)
         let planRepository = CoreDataWeeklyPlanRepository(container: container)
@@ -10683,46 +10685,110 @@ final class CoreDataWeeklyReviewMutationRepositoryTests: XCTestCase {
             taskRepository.create(task, completion: completion)
         }
 
-        do {
-            let _: WeeklyReview = try awaitResult { completion in
-                mutationRepository.finalizeReview(
-                    request: CompleteWeeklyReviewRequest(
-                        weeklyPlanID: savedPlan.id,
-                        taskDecisions: [
-                            WeeklyReviewTaskDecision(taskID: UUID(), disposition: .drop)
-                        ],
-                        outcomeStatusesByOutcomeID: [outcome.id: .completed],
-                        completedAt: weekStart.addingTimeInterval(7200)
-                    ),
-                    completion: completion
-                )
-            }
-            XCTFail("Expected transaction failure for missing reviewed task")
-        } catch {
-            XCTAssertEqual((error as NSError).domain, "CoreDataWeeklyReviewMutationRepository")
+        let result = try awaitResult { completion in
+            mutationRepository.finalizeReview(
+                request: CompleteWeeklyReviewRequest(
+                    weeklyPlanID: savedPlan.id,
+                    taskDecisions: [
+                        WeeklyReviewTaskDecision(taskID: UUID(), disposition: .drop),
+                        WeeklyReviewTaskDecision(taskID: savedTask.id, disposition: .later)
+                    ],
+                    outcomeStatusesByOutcomeID: [outcome.id: .completed],
+                    completedAt: weekStart.addingTimeInterval(7200)
+                ),
+                completion: completion
+            )
         }
+
+        XCTAssertEqual(result.review.weeklyPlanID, savedPlan.id)
+        XCTAssertEqual(result.skippedTaskIDs.count, 1)
+        XCTAssertTrue(result.skippedOutcomeIDs.isEmpty)
 
         let unchangedTask = try XCTUnwrap(try awaitResult { completion in
             taskRepository.fetchTaskDefinition(id: savedTask.id, completion: completion)
         })
-        XCTAssertEqual(unchangedTask.planningBucket, .thisWeek)
-        XCTAssertEqual(unchangedTask.weeklyOutcomeID, outcome.id)
+        XCTAssertEqual(unchangedTask.planningBucket, .later)
+        XCTAssertNil(unchangedTask.weeklyOutcomeID)
 
         let unchangedOutcomes = try awaitResult { completion in
             outcomeRepository.fetchOutcomes(weeklyPlanID: savedPlan.id, completion: completion)
         }
         let unchangedOutcome = try XCTUnwrap(unchangedOutcomes.first)
-        XCTAssertEqual(unchangedOutcome.status, .planned)
+        XCTAssertEqual(unchangedOutcome.status, .completed)
 
         let persistedReview = try awaitResult { completion in
             reviewRepository.fetchReview(weeklyPlanID: savedPlan.id, completion: completion)
         }
-        XCTAssertNil(persistedReview)
+        XCTAssertEqual(persistedReview?.weeklyPlanID, savedPlan.id)
 
         let planAfterFailure = try XCTUnwrap(try awaitResult { completion in
             planRepository.fetchPlan(id: savedPlan.id, completion: completion)
         })
-        XCTAssertEqual(planAfterFailure.reviewStatus, .ready)
+        XCTAssertEqual(planAfterFailure.reviewStatus, .completed)
+    }
+
+    func testFinalizeReviewSkipsMissingOutcomeStatusWithoutBlockingCompletion() throws {
+        let container = try makeWeeklyContainer()
+        let taskRepository = CoreDataTaskDefinitionRepository(container: container)
+        let planRepository = CoreDataWeeklyPlanRepository(container: container)
+        let outcomeRepository = CoreDataWeeklyOutcomeRepository(container: container)
+        let mutationRepository = CoreDataWeeklyReviewMutationRepository(container: container)
+        let weekStart = XPCalculationEngine.mondayStartOfWeek(
+            for: Date(timeIntervalSince1970: 1_720_224_000),
+            calendar: XPCalculationEngine.mondayCalendar()
+        )
+        let plan = WeeklyPlan(
+            weekStartDate: weekStart,
+            weekEndDate: Calendar(identifier: .gregorian).date(byAdding: .day, value: 6, to: weekStart) ?? weekStart,
+            reviewStatus: .ready,
+            createdAt: weekStart,
+            updatedAt: weekStart
+        )
+        let savedPlan = try awaitResult { completion in
+            planRepository.savePlan(plan, completion: completion)
+        }
+        let outcome = WeeklyOutcome(
+            weeklyPlanID: savedPlan.id,
+            title: "Keep pressure low",
+            status: .planned,
+            orderIndex: 0,
+            createdAt: weekStart,
+            updatedAt: weekStart
+        )
+        _ = try awaitResult { completion in
+            outcomeRepository.replaceOutcomes(weeklyPlanID: savedPlan.id, outcomes: [outcome], completion: completion)
+        }
+        let task = TaskDefinition(
+            title: "Legit weekly task",
+            planningBucket: .thisWeek,
+            weeklyOutcomeID: outcome.id,
+            createdAt: weekStart,
+            updatedAt: weekStart
+        )
+        _ = try awaitResult { completion in
+            taskRepository.create(task, completion: completion)
+        }
+
+        let result = try awaitResult { completion in
+            mutationRepository.finalizeReview(
+                request: CompleteWeeklyReviewRequest(
+                    weeklyPlanID: savedPlan.id,
+                    taskDecisions: [],
+                    outcomeStatusesByOutcomeID: [
+                        UUID(): .completed,
+                        outcome.id: .dropped
+                    ],
+                    completedAt: weekStart.addingTimeInterval(7200)
+                ),
+                completion: completion
+            )
+        }
+
+        XCTAssertEqual(result.skippedOutcomeIDs.count, 1)
+        let outcomes = try awaitResult { completion in
+            outcomeRepository.fetchOutcomes(weeklyPlanID: savedPlan.id, completion: completion)
+        }
+        XCTAssertEqual(outcomes.first?.status, .dropped)
     }
 
     private func makeWeeklyContainer() throws -> NSPersistentContainer {

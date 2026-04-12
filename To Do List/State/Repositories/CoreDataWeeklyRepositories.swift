@@ -3,14 +3,14 @@ import Foundation
 
 private enum WeeklyRepositoryCalendar {
     static func normalizedWeekStart(for date: Date) -> Date {
-        let calendar = XPCalculationEngine.mondayCalendar()
-        return XPCalculationEngine.mondayStartOfWeek(for: date, calendar: calendar)
+        let weekStartsOn = TaskerWorkspacePreferencesStore.shared.load().weekStartsOn
+        return XPCalculationEngine.startOfWeek(for: date, startingOn: weekStartsOn)
     }
 
     static func normalizedWeekEnd(for weekStartDate: Date) -> Date {
-        let calendar = XPCalculationEngine.mondayCalendar()
-        return calendar.date(byAdding: .day, value: 6, to: normalizedWeekStart(for: weekStartDate))
-            ?? normalizedWeekStart(for: weekStartDate)
+        let weekStartsOn = TaskerWorkspacePreferencesStore.shared.load().weekStartsOn
+        let normalizedStart = normalizedWeekStart(for: weekStartDate)
+        return XPCalculationEngine.endOfWeek(for: normalizedStart, startingOn: weekStartsOn)
     }
 }
 
@@ -471,7 +471,7 @@ public final class CoreDataWeeklyReviewMutationRepository: WeeklyReviewMutationR
 
     public func finalizeReview(
         request: CompleteWeeklyReviewRequest,
-        completion: @escaping (Result<WeeklyReview, Error>) -> Void
+        completion: @escaping (Result<CompleteWeeklyReviewResult, Error>) -> Void
     ) {
         backgroundContext.perform {
             do {
@@ -492,13 +492,22 @@ public final class CoreDataWeeklyReviewMutationRepository: WeeklyReviewMutationR
                 let weekStartDate = ((planObject.value(forKey: "weekStartDate") as? Date).map(WeeklyRepositoryCalendar.normalizedWeekStart))
                     ?? WeeklyRepositoryCalendar.normalizedWeekStart(for: request.completedAt)
 
+                let taskResolution = try self.resolveTaskDecisions(
+                    request.taskDecisions.sorted { $0.taskID.uuidString < $1.taskID.uuidString }
+                )
                 try self.applyTaskDecisions(
-                    request.taskDecisions.sorted { $0.taskID.uuidString < $1.taskID.uuidString },
+                    taskResolution.validDecisions,
+                    taskObjectsByID: taskResolution.taskObjectsByID,
                     weekStartDate: weekStartDate
                 )
-                try self.applyOutcomeStatuses(
+
+                let outcomeResolution = try self.resolveOutcomeStatuses(
                     request.outcomeStatusesByOutcomeID,
                     weeklyPlanID: request.weeklyPlanID
+                )
+                self.applyOutcomeStatuses(
+                    outcomeResolution.validStatusesByOutcomeID,
+                    outcomeObjectsByID: outcomeResolution.outcomeObjectsByID
                 )
 
                 let existingReview = try V2CoreDataRepositorySupport.canonicalObject(
@@ -521,34 +530,74 @@ public final class CoreDataWeeklyReviewMutationRepository: WeeklyReviewMutationR
                 self.viewContext.perform {
                     self.viewContext.refreshAllObjects()
                 }
-                completion(.success(Self.mapReview(review)))
+                completion(.success(
+                    CompleteWeeklyReviewResult(
+                        review: Self.mapReview(review),
+                        skippedTaskIDs: taskResolution.skippedTaskIDs,
+                        skippedOutcomeIDs: outcomeResolution.skippedOutcomeIDs
+                    )
+                ))
             } catch {
                 self.backgroundContext.rollback()
-                completion(.failure(error))
+                completion(.failure(Self.mapFinalizeError(error)))
             }
         }
     }
 
+    private struct ResolvedTaskDecisions {
+        let validDecisions: [WeeklyReviewTaskDecision]
+        let taskObjectsByID: [UUID: NSManagedObject]
+        let skippedTaskIDs: [UUID]
+    }
+
+    private struct ResolvedOutcomeStatuses {
+        let validStatusesByOutcomeID: [UUID: WeeklyOutcomeStatus]
+        let outcomeObjectsByID: [UUID: NSManagedObject]
+        let skippedOutcomeIDs: [UUID]
+    }
+
+    private func resolveTaskDecisions(
+        _ decisions: [WeeklyReviewTaskDecision],
+    ) throws -> ResolvedTaskDecisions {
+        guard decisions.isEmpty == false else {
+            return ResolvedTaskDecisions(validDecisions: [], taskObjectsByID: [:], skippedTaskIDs: [])
+        }
+
+        let taskIDs = decisions.map(\.taskID)
+        let taskObjects = try V2CoreDataRepositorySupport.fetchObjects(
+            in: backgroundContext,
+            entityName: "TaskDefinition",
+            predicate: NSPredicate(format: "taskID IN %@", taskIDs),
+            sort: [
+                NSSortDescriptor(key: "taskID", ascending: true),
+                NSSortDescriptor(key: "id", ascending: true)
+            ]
+        )
+        var taskObjectsByID: [UUID: NSManagedObject] = [:]
+        for object in taskObjects {
+            guard let taskID = object.value(forKey: "taskID") as? UUID,
+                  taskObjectsByID[taskID] == nil else {
+                continue
+            }
+            taskObjectsByID[taskID] = object
+        }
+        let skippedTaskIDs = taskIDs.filter { taskObjectsByID[$0] == nil }
+        let validDecisions = decisions.filter { taskObjectsByID[$0.taskID] != nil }
+
+        return ResolvedTaskDecisions(
+            validDecisions: validDecisions,
+            taskObjectsByID: taskObjectsByID,
+            skippedTaskIDs: skippedTaskIDs
+        )
+    }
+
     private func applyTaskDecisions(
         _ decisions: [WeeklyReviewTaskDecision],
+        taskObjectsByID: [UUID: NSManagedObject],
         weekStartDate: Date
     ) throws {
         for decision in decisions {
-            guard let taskObject = try V2CoreDataRepositorySupport.canonicalObject(
-                in: backgroundContext,
-                entityName: "TaskDefinition",
-                predicate: NSPredicate(format: "taskID == %@", decision.taskID as CVarArg),
-                sort: [
-                    NSSortDescriptor(key: "taskID", ascending: true),
-                    NSSortDescriptor(key: "id", ascending: true)
-                ]
-            ) else {
-                throw NSError(
-                    domain: "CoreDataWeeklyReviewMutationRepository",
-                    code: 404,
-                    userInfo: [NSLocalizedDescriptionKey: "Task missing during weekly review finalization."]
-                )
-            }
+            guard let taskObject = taskObjectsByID[decision.taskID] else { continue }
 
             let existingDeferredCount = max(0, Int((taskObject.value(forKey: "deferredCount") as? Int32) ?? 0))
             let updateRequest = UpdateTaskDefinitionRequest(
@@ -572,21 +621,45 @@ public final class CoreDataWeeklyReviewMutationRepository: WeeklyReviewMutationR
         }
     }
 
-    private func applyOutcomeStatuses(
+    private func resolveOutcomeStatuses(
         _ statusesByOutcomeID: [UUID: WeeklyOutcomeStatus],
         weeklyPlanID: UUID
-    ) throws {
-        guard statusesByOutcomeID.isEmpty == false else { return }
+    ) throws -> ResolvedOutcomeStatuses {
+        guard statusesByOutcomeID.isEmpty == false else {
+            return ResolvedOutcomeStatuses(validStatusesByOutcomeID: [:], outcomeObjectsByID: [:], skippedOutcomeIDs: [])
+        }
+
+        let requestedOutcomeIDs = Array(statusesByOutcomeID.keys)
         let outcomeObjects = try V2CoreDataRepositorySupport.fetchObjects(
             in: backgroundContext,
             entityName: "WeeklyOutcome",
-            predicate: NSPredicate(format: "weeklyPlanID == %@", weeklyPlanID as CVarArg)
+            predicate: NSCompoundPredicate(andPredicateWithSubpredicates: [
+                NSPredicate(format: "weeklyPlanID == %@", weeklyPlanID as CVarArg),
+                NSPredicate(format: "id IN %@", requestedOutcomeIDs)
+            ])
         )
+        var outcomeObjectsByID: [UUID: NSManagedObject] = [:]
         for object in outcomeObjects {
-            guard let outcomeID = object.value(forKey: "id") as? UUID,
-                  let status = statusesByOutcomeID[outcomeID] else {
-                continue
-            }
+            guard let outcomeID = object.value(forKey: "id") as? UUID else { continue }
+            outcomeObjectsByID[outcomeID] = object
+        }
+        let skippedOutcomeIDs = requestedOutcomeIDs.filter { outcomeObjectsByID[$0] == nil }
+        let validStatusesByOutcomeID = statusesByOutcomeID.filter { outcomeObjectsByID[$0.key] != nil }
+
+        return ResolvedOutcomeStatuses(
+            validStatusesByOutcomeID: validStatusesByOutcomeID,
+            outcomeObjectsByID: outcomeObjectsByID,
+            skippedOutcomeIDs: skippedOutcomeIDs
+        )
+    }
+
+    private func applyOutcomeStatuses(
+        _ statusesByOutcomeID: [UUID: WeeklyOutcomeStatus],
+        outcomeObjectsByID: [UUID: NSManagedObject]
+    ) {
+        guard statusesByOutcomeID.isEmpty == false else { return }
+        for (outcomeID, status) in statusesByOutcomeID {
+            guard let object = outcomeObjectsByID[outcomeID] else { continue }
             object.setValue(status.rawValue, forKey: "status")
             object.setValue(Date(), forKey: "updatedAt")
         }
@@ -621,6 +694,22 @@ public final class CoreDataWeeklyReviewMutationRepository: WeeklyReviewMutationR
             createdAt: (object.value(forKey: "createdAt") as? Date) ?? Date(),
             updatedAt: (object.value(forKey: "updatedAt") as? Date) ?? Date(),
             completedAt: object.value(forKey: "completedAt") as? Date
+        )
+    }
+
+    private static func mapFinalizeError(_ error: Error) -> Error {
+        let nsError = error as NSError
+        guard nsError.domain != "CoreDataWeeklyReviewMutationRepository" else {
+            return error
+        }
+
+        return NSError(
+            domain: "CoreDataWeeklyReviewMutationRepository",
+            code: 500,
+            userInfo: [
+                NSLocalizedDescriptionKey: "Weekly review couldn't be saved right now.",
+                NSUnderlyingErrorKey: error
+            ]
         )
     }
 }

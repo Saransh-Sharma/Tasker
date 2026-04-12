@@ -156,7 +156,7 @@ public protocol WeeklyReviewRepositoryProtocol {
 public protocol WeeklyReviewMutationRepositoryProtocol {
     func finalizeReview(
         request: CompleteWeeklyReviewRequest,
-        completion: @escaping (Result<WeeklyReview, Error>) -> Void
+        completion: @escaping (Result<CompleteWeeklyReviewResult, Error>) -> Void
     )
 }
 

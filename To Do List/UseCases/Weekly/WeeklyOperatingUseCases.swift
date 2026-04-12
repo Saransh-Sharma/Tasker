@@ -1,20 +1,75 @@
 import Foundation
 
 private enum WeeklyUseCaseCalendar {
-    static func normalizedWeekStart(for date: Date) -> Date {
-        let calendar = XPCalculationEngine.mondayCalendar()
-        return XPCalculationEngine.mondayStartOfWeek(for: date, calendar: calendar)
+    static func configuredWeekStartDay(
+        preferencesStore: TaskerWorkspacePreferencesStore = .shared
+    ) -> Weekday {
+        preferencesStore.load().weekStartsOn
+    }
+
+    static func normalizedWeekStart(
+        for date: Date,
+        preferencesStore: TaskerWorkspacePreferencesStore = .shared
+    ) -> Date {
+        XPCalculationEngine.startOfWeek(
+            for: date,
+            startingOn: configuredWeekStartDay(preferencesStore: preferencesStore)
+        )
+    }
+
+    static func normalizedWeekEnd(
+        for weekStartDate: Date,
+        preferencesStore: TaskerWorkspacePreferencesStore = .shared
+    ) -> Date {
+        XPCalculationEngine.endOfWeek(
+            for: weekStartDate,
+            startingOn: configuredWeekStartDay(preferencesStore: preferencesStore)
+        )
+    }
+
+    static func nextWeekStart(
+        after date: Date,
+        preferencesStore: TaskerWorkspacePreferencesStore = .shared
+    ) -> Date {
+        XPCalculationEngine.upcomingWeekStart(
+            after: date,
+            startingOn: configuredWeekStartDay(preferencesStore: preferencesStore)
+        )
+    }
+
+    static func isInUpcomingPlanningWindow(
+        referenceDate: Date,
+        preferencesStore: TaskerWorkspacePreferencesStore = .shared
+    ) -> Bool {
+        let weekStartsOn = configuredWeekStartDay(preferencesStore: preferencesStore)
+        let calendar = XPCalculationEngine.weekCalendar(startingOn: weekStartsOn)
+        let currentWeekStart = XPCalculationEngine.startOfWeek(
+            for: referenceDate,
+            startingOn: weekStartsOn,
+            calendar: calendar
+        )
+        let nextWeekStart = calendar.date(byAdding: .day, value: 7, to: currentWeekStart) ?? currentWeekStart
+        let planningWindowStart = calendar.date(byAdding: .day, value: -2, to: nextWeekStart) ?? currentWeekStart
+        let day = calendar.startOfDay(for: referenceDate)
+        return day >= planningWindowStart && day < nextWeekStart
     }
 }
 
 public enum WeeklyHomeCTAState: String, Equatable {
-    case planWeek
+    case planThisWeek
+    case planUpcomingWeek
     case reviewWeek
+}
+
+public enum WeeklyPlannerPresentationMode: String, Equatable {
+    case thisWeek
+    case upcomingWeek
 }
 
 public struct HomeWeeklySummary: Equatable {
     public let weekStartDate: Date
     public let ctaState: WeeklyHomeCTAState
+    public let plannerPresentation: WeeklyPlannerPresentationMode
     public let outcomeCount: Int
     public let thisWeekTaskCount: Int
     public let completedThisWeekTaskCount: Int
@@ -24,6 +79,7 @@ public struct HomeWeeklySummary: Equatable {
     public init(
         weekStartDate: Date,
         ctaState: WeeklyHomeCTAState,
+        plannerPresentation: WeeklyPlannerPresentationMode,
         outcomeCount: Int,
         thisWeekTaskCount: Int,
         completedThisWeekTaskCount: Int,
@@ -32,6 +88,7 @@ public struct HomeWeeklySummary: Equatable {
     ) {
         self.weekStartDate = weekStartDate
         self.ctaState = ctaState
+        self.plannerPresentation = plannerPresentation
         self.outcomeCount = outcomeCount
         self.thisWeekTaskCount = thisWeekTaskCount
         self.completedThisWeekTaskCount = completedThisWeekTaskCount
@@ -143,6 +200,22 @@ public struct CompleteWeeklyReviewRequest: Equatable {
     }
 }
 
+public struct CompleteWeeklyReviewResult: Equatable {
+    public let review: WeeklyReview
+    public let skippedTaskIDs: [UUID]
+    public let skippedOutcomeIDs: [UUID]
+
+    public init(
+        review: WeeklyReview,
+        skippedTaskIDs: [UUID] = [],
+        skippedOutcomeIDs: [UUID] = []
+    ) {
+        self.review = review
+        self.skippedTaskIDs = skippedTaskIDs
+        self.skippedOutcomeIDs = skippedOutcomeIDs
+    }
+}
+
 public struct SaveWeeklyPlanOutcomeInput: Equatable, Hashable, Identifiable {
     public let id: UUID
     public var title: String
@@ -212,6 +285,12 @@ public struct SaveWeeklyPlanRequest: Equatable {
     }
 }
 
+private struct WeeklyHomeSurfaceResolution {
+    let weekStartDate: Date
+    let ctaState: WeeklyHomeCTAState
+    let plannerPresentation: WeeklyPlannerPresentationMode
+}
+
 public final class BuildWeeklyPlanSnapshotUseCase {
     private let weeklyPlanRepository: WeeklyPlanRepositoryProtocol
     private let weeklyOutcomeRepository: WeeklyOutcomeRepositoryProtocol
@@ -219,6 +298,7 @@ public final class BuildWeeklyPlanSnapshotUseCase {
     private let reflectionNoteRepository: ReflectionNoteRepositoryProtocol
     private let taskReadModelRepository: TaskReadModelRepositoryProtocol?
     private let taskDefinitionRepository: TaskDefinitionRepositoryProtocol
+    private let workspacePreferencesStore: TaskerWorkspacePreferencesStore
 
     public init(
         weeklyPlanRepository: WeeklyPlanRepositoryProtocol,
@@ -226,7 +306,8 @@ public final class BuildWeeklyPlanSnapshotUseCase {
         weeklyReviewRepository: WeeklyReviewRepositoryProtocol,
         reflectionNoteRepository: ReflectionNoteRepositoryProtocol,
         taskReadModelRepository: TaskReadModelRepositoryProtocol? = nil,
-        taskDefinitionRepository: TaskDefinitionRepositoryProtocol
+        taskDefinitionRepository: TaskDefinitionRepositoryProtocol,
+        workspacePreferencesStore: TaskerWorkspacePreferencesStore = .shared
     ) {
         self.weeklyPlanRepository = weeklyPlanRepository
         self.weeklyOutcomeRepository = weeklyOutcomeRepository
@@ -234,13 +315,17 @@ public final class BuildWeeklyPlanSnapshotUseCase {
         self.reflectionNoteRepository = reflectionNoteRepository
         self.taskReadModelRepository = taskReadModelRepository
         self.taskDefinitionRepository = taskDefinitionRepository
+        self.workspacePreferencesStore = workspacePreferencesStore
     }
 
     public func execute(
         referenceDate: Date = Date(),
         completion: @escaping (Result<WeeklyPlanSnapshot, Error>) -> Void
     ) {
-        let weekStart = WeeklyUseCaseCalendar.normalizedWeekStart(for: referenceDate)
+        let weekStart = WeeklyUseCaseCalendar.normalizedWeekStart(
+            for: referenceDate,
+            preferencesStore: workspacePreferencesStore
+        )
         weeklyPlanRepository.fetchPlan(forWeekStarting: weekStart) { planResult in
             switch planResult {
             case .failure(let error):
@@ -378,18 +463,26 @@ public final class BuildWeeklyPlanSnapshotUseCase {
 public final class EstimateWeeklyCapacityUseCase {
     private let taskReadModelRepository: TaskReadModelRepositoryProtocol?
     private let taskDefinitionRepository: TaskDefinitionRepositoryProtocol
+    private let workspacePreferencesStore: TaskerWorkspacePreferencesStore
 
     public init(
         taskReadModelRepository: TaskReadModelRepositoryProtocol? = nil,
-        taskDefinitionRepository: TaskDefinitionRepositoryProtocol
+        taskDefinitionRepository: TaskDefinitionRepositoryProtocol,
+        workspacePreferencesStore: TaskerWorkspacePreferencesStore = .shared
     ) {
         self.taskReadModelRepository = taskReadModelRepository
         self.taskDefinitionRepository = taskDefinitionRepository
+        self.workspacePreferencesStore = workspacePreferencesStore
     }
 
     public func execute(referenceDate: Date = Date(), completion: @escaping (Result<Int, Error>) -> Void) {
-        let calendar = XPCalculationEngine.mondayCalendar()
-        let currentWeekStart = XPCalculationEngine.mondayStartOfWeek(for: referenceDate, calendar: calendar)
+        let weekStartsOn = WeeklyUseCaseCalendar.configuredWeekStartDay(preferencesStore: workspacePreferencesStore)
+        let calendar = XPCalculationEngine.weekCalendar(startingOn: weekStartsOn)
+        let currentWeekStart = XPCalculationEngine.startOfWeek(
+            for: referenceDate,
+            startingOn: weekStartsOn,
+            calendar: calendar
+        )
         let windowStart = calendar.date(byAdding: .day, value: -28, to: currentWeekStart) ?? currentWeekStart
 
         fetchRecentTasks(updatedAfter: windowStart) { result in
@@ -440,56 +533,106 @@ public final class EstimateWeeklyCapacityUseCase {
 public final class GetWeeklySummaryUseCase {
     private let buildWeeklyPlanSnapshot: BuildWeeklyPlanSnapshotUseCase
     private let estimateWeeklyCapacity: EstimateWeeklyCapacityUseCase
+    private let workspacePreferencesStore: TaskerWorkspacePreferencesStore
 
     public init(
         buildWeeklyPlanSnapshot: BuildWeeklyPlanSnapshotUseCase,
-        estimateWeeklyCapacity: EstimateWeeklyCapacityUseCase
+        estimateWeeklyCapacity: EstimateWeeklyCapacityUseCase,
+        workspacePreferencesStore: TaskerWorkspacePreferencesStore = .shared
     ) {
         self.buildWeeklyPlanSnapshot = buildWeeklyPlanSnapshot
         self.estimateWeeklyCapacity = estimateWeeklyCapacity
+        self.workspacePreferencesStore = workspacePreferencesStore
     }
 
     public func execute(
         referenceDate: Date = Date(),
         completion: @escaping (Result<HomeWeeklySummary, Error>) -> Void
     ) {
-        buildWeeklyPlanSnapshot.execute(referenceDate: referenceDate) { snapshotResult in
+        let currentWeekStart = WeeklyUseCaseCalendar.normalizedWeekStart(
+            for: referenceDate,
+            preferencesStore: workspacePreferencesStore
+        )
+
+        buildWeeklyPlanSnapshot.execute(referenceDate: currentWeekStart) { snapshotResult in
             switch snapshotResult {
             case .failure(let error):
                 completion(.failure(error))
-            case .success(let snapshot):
-                self.estimateWeeklyCapacity.execute(referenceDate: referenceDate) { capacityResult in
-                    switch capacityResult {
+            case .success(let currentSnapshot):
+                let resolution = self.resolveHomeSurface(
+                    currentSnapshot: currentSnapshot,
+                    referenceDate: referenceDate
+                )
+
+                self.buildWeeklyPlanSnapshot.execute(referenceDate: resolution.weekStartDate) { targetSnapshotResult in
+                    switch targetSnapshotResult {
                     case .failure(let error):
                         completion(.failure(error))
-                    case .success(let estimatedCapacity):
-                        let completedCount = snapshot.thisWeekTasks.filter(\.isComplete).count
-                        let openCount = snapshot.thisWeekTasks.filter { !$0.isComplete }.count
-                        let overCapacityCount = max(0, openCount - estimatedCapacity)
-                        let reviewCompleted = snapshot.review?.completedAt != nil || snapshot.plan?.reviewStatus == .completed
-                        let ctaState: WeeklyHomeCTAState = {
-                            if let plan = snapshot.plan {
-                                if reviewCompleted == false && referenceDate >= plan.weekEndDate {
-                                    return .reviewWeek
-                                }
-                                return .planWeek
-                            }
-                            return .planWeek
-                        }()
+                    case .success(let targetSnapshot):
+                        self.estimateWeeklyCapacity.execute(referenceDate: resolution.weekStartDate) { capacityResult in
+                            switch capacityResult {
+                            case .failure(let error):
+                                completion(.failure(error))
+                            case .success(let estimatedCapacity):
+                                let completedCount = targetSnapshot.thisWeekTasks.filter(\.isComplete).count
+                                let openCount = targetSnapshot.thisWeekTasks.filter { !$0.isComplete }.count
+                                let overCapacityCount = max(0, openCount - estimatedCapacity)
+                                let reviewCompleted = targetSnapshot.review?.completedAt != nil
+                                    || targetSnapshot.plan?.reviewStatus == .completed
 
-                        completion(.success(HomeWeeklySummary(
-                            weekStartDate: snapshot.weekStartDate,
-                            ctaState: ctaState,
-                            outcomeCount: snapshot.outcomes.count,
-                            thisWeekTaskCount: openCount,
-                            completedThisWeekTaskCount: completedCount,
-                            overCapacityCount: overCapacityCount,
-                            reviewCompleted: reviewCompleted
-                        )))
+                                completion(.success(HomeWeeklySummary(
+                                    weekStartDate: targetSnapshot.weekStartDate,
+                                    ctaState: resolution.ctaState,
+                                    plannerPresentation: resolution.plannerPresentation,
+                                    outcomeCount: targetSnapshot.outcomes.count,
+                                    thisWeekTaskCount: openCount,
+                                    completedThisWeekTaskCount: completedCount,
+                                    overCapacityCount: overCapacityCount,
+                                    reviewCompleted: reviewCompleted
+                                )))
+                            }
+                        }
                     }
                 }
             }
         }
+    }
+
+    private func resolveHomeSurface(
+        currentSnapshot: WeeklyPlanSnapshot,
+        referenceDate: Date
+    ) -> WeeklyHomeSurfaceResolution {
+        let reviewCompleted = currentSnapshot.review?.completedAt != nil
+            || currentSnapshot.plan?.reviewStatus == .completed
+        let inUpcomingPlanningWindow = WeeklyUseCaseCalendar.isInUpcomingPlanningWindow(
+            referenceDate: referenceDate,
+            preferencesStore: workspacePreferencesStore
+        )
+
+        if inUpcomingPlanningWindow {
+            if currentSnapshot.plan != nil, reviewCompleted == false {
+                return WeeklyHomeSurfaceResolution(
+                    weekStartDate: currentSnapshot.weekStartDate,
+                    ctaState: .reviewWeek,
+                    plannerPresentation: .thisWeek
+                )
+            }
+
+            return WeeklyHomeSurfaceResolution(
+                weekStartDate: WeeklyUseCaseCalendar.nextWeekStart(
+                    after: referenceDate,
+                    preferencesStore: workspacePreferencesStore
+                ),
+                ctaState: .planUpcomingWeek,
+                plannerPresentation: .upcomingWeek
+            )
+        }
+
+        return WeeklyHomeSurfaceResolution(
+            weekStartDate: currentSnapshot.weekStartDate,
+            ctaState: .planThisWeek,
+            plannerPresentation: .thisWeek
+        )
     }
 }
 
@@ -498,24 +641,30 @@ public final class SaveWeeklyPlanUseCase {
     private let weeklyOutcomeRepository: WeeklyOutcomeRepositoryProtocol
     private let updateTaskDefinitionUseCase: UpdateTaskDefinitionUseCase
     private let taskDefinitionRepository: TaskDefinitionRepositoryProtocol
+    private let workspacePreferencesStore: TaskerWorkspacePreferencesStore
 
     public init(
         weeklyPlanRepository: WeeklyPlanRepositoryProtocol,
         weeklyOutcomeRepository: WeeklyOutcomeRepositoryProtocol,
         updateTaskDefinitionUseCase: UpdateTaskDefinitionUseCase,
-        taskDefinitionRepository: TaskDefinitionRepositoryProtocol
+        taskDefinitionRepository: TaskDefinitionRepositoryProtocol,
+        workspacePreferencesStore: TaskerWorkspacePreferencesStore = .shared
     ) {
         self.weeklyPlanRepository = weeklyPlanRepository
         self.weeklyOutcomeRepository = weeklyOutcomeRepository
         self.updateTaskDefinitionUseCase = updateTaskDefinitionUseCase
         self.taskDefinitionRepository = taskDefinitionRepository
+        self.workspacePreferencesStore = workspacePreferencesStore
     }
 
     public func execute(
         request: SaveWeeklyPlanRequest,
         completion: @escaping (Result<WeeklyPlan, Error>) -> Void
     ) {
-        let normalizedWeekStart = WeeklyUseCaseCalendar.normalizedWeekStart(for: request.weekStartDate)
+        let normalizedWeekStart = WeeklyUseCaseCalendar.normalizedWeekStart(
+            for: request.weekStartDate,
+            preferencesStore: workspacePreferencesStore
+        )
         weeklyPlanRepository.fetchPlan(forWeekStarting: normalizedWeekStart) { planResult in
             switch planResult {
             case .failure(let error):
@@ -537,10 +686,14 @@ public final class SaveWeeklyPlanUseCase {
         request: SaveWeeklyPlanRequest,
         completion: @escaping (Result<WeeklyPlan, Error>) -> Void
     ) {
+        let normalizedWeekEnd = WeeklyUseCaseCalendar.normalizedWeekEnd(
+            for: weekStartDate,
+            preferencesStore: workspacePreferencesStore
+        )
         let plan = WeeklyPlan(
             id: existingPlan?.id ?? UUID(),
             weekStartDate: weekStartDate,
-            weekEndDate: Calendar.current.date(byAdding: .day, value: 6, to: weekStartDate) ?? weekStartDate,
+            weekEndDate: normalizedWeekEnd,
             focusStatement: request.focusStatement,
             selectedHabitIDs: Array(Set(request.selectedHabitIDs)).sorted { $0.uuidString < $1.uuidString },
             targetCapacity: request.targetCapacity,
@@ -821,7 +974,7 @@ public final class CompleteWeeklyReviewUseCase {
 
     public func execute(
         request: CompleteWeeklyReviewRequest,
-        completion: @escaping (Result<WeeklyReview, Error>) -> Void
+        completion: @escaping (Result<CompleteWeeklyReviewResult, Error>) -> Void
     ) {
         reviewMutationRepository.finalizeReview(request: request, completion: completion)
     }
