@@ -2,6 +2,73 @@ import XCTest
 @testable import To_Do_List
 
 final class WeeklyOperatingLayerViewModelTests: XCTestCase {
+    func testWorkspacePreferencesStoreRoundTripsWeekStartDay() {
+        let defaults = UserDefaults(suiteName: "weekly.workspace.preferences.\(UUID().uuidString)")!
+        let store = TaskerWorkspacePreferencesStore(defaults: defaults)
+
+        store.save(TaskerWorkspacePreferences(weekStartsOn: .wednesday))
+
+        XCTAssertEqual(store.load().weekStartsOn, .wednesday)
+    }
+
+    func testWeeklySummaryUsesConfiguredTwoDayUpcomingWindow() {
+        let weekStartsOn: Weekday = .wednesday
+        let workspaceStore = makeWorkspacePreferencesStore(weekStartsOn: weekStartsOn)
+        let summaryUseCase = makeWeeklySummaryUseCase(workspaceStore: workspaceStore)
+        let completion = expectation(description: "weekly summary resolved")
+        let referenceDate = makeDate(year: 2024, month: 4, day: 8) // Monday before a Wednesday week start
+        let expectedUpcomingWeekStart = XPCalculationEngine.upcomingWeekStart(
+            after: referenceDate,
+            startingOn: weekStartsOn
+        )
+        var resolvedSummary: HomeWeeklySummary?
+
+        summaryUseCase.execute(referenceDate: referenceDate) { result in
+            resolvedSummary = try? result.get()
+            completion.fulfill()
+        }
+
+        wait(for: [completion], timeout: 1.0)
+        XCTAssertEqual(resolvedSummary?.ctaState, .planUpcomingWeek)
+        XCTAssertEqual(resolvedSummary?.plannerPresentation, .upcomingWeek)
+        XCTAssertEqual(resolvedSummary?.weekStartDate, expectedUpcomingWeekStart)
+    }
+
+    func testWeeklySummaryPrefersReviewDuringUpcomingWindow() {
+        let weekStartsOn: Weekday = .monday
+        let workspaceStore = makeWorkspacePreferencesStore(weekStartsOn: weekStartsOn)
+        let referenceDate = makeDate(year: 2024, month: 4, day: 6) // Saturday in Monday-start preview window
+        let currentWeekStart = XPCalculationEngine.startOfWeek(
+            for: referenceDate,
+            startingOn: weekStartsOn
+        )
+        let plan = WeeklyPlan(
+            id: UUID(),
+            weekStartDate: currentWeekStart,
+            weekEndDate: XPCalculationEngine.endOfWeek(
+                for: currentWeekStart,
+                startingOn: weekStartsOn
+            ),
+            reviewStatus: .ready
+        )
+        let summaryUseCase = makeWeeklySummaryUseCase(
+            plan: plan,
+            workspaceStore: workspaceStore
+        )
+        let completion = expectation(description: "weekly summary resolved")
+        var resolvedSummary: HomeWeeklySummary?
+
+        summaryUseCase.execute(referenceDate: referenceDate) { result in
+            resolvedSummary = try? result.get()
+            completion.fulfill()
+        }
+
+        wait(for: [completion], timeout: 1.0)
+        XCTAssertEqual(resolvedSummary?.ctaState, .reviewWeek)
+        XCTAssertEqual(resolvedSummary?.plannerPresentation, .thisWeek)
+        XCTAssertEqual(resolvedSummary?.weekStartDate, currentWeekStart)
+    }
+
     @MainActor
     func testPlannerCompactSummaryReflectsWizardInputs() {
         let viewModel = makePlannerViewModel()
@@ -336,20 +403,180 @@ final class WeeklyOperatingLayerViewModelTests: XCTestCase {
     }
 
     @MainActor
+    func testReviewLoadDoesNotAutosaveDuringHydration() {
+        let draftStore = RecordingWeeklyReviewDraftStore()
+        let snapshot = WeeklyPlanSnapshot(
+            weekStartDate: fixedWeekStart,
+            plan: WeeklyPlan(
+                weekStartDate: fixedWeekStart,
+                weekEndDate: Calendar(identifier: .gregorian).date(byAdding: .day, value: 6, to: fixedWeekStart) ?? fixedWeekStart,
+                reviewStatus: .ready
+            ),
+            outcomes: [],
+            review: nil,
+            thisWeekTasks: [],
+            nextWeekTasks: [],
+            laterTasks: [],
+            reflectionNotes: []
+        )
+        let viewModel = makeReviewViewModel(snapshot: snapshot, draftStore: draftStore)
+
+        loadReview(viewModel)
+
+        XCTAssertEqual(draftStore.savedDrafts.count, 0)
+    }
+
+    @MainActor
+    func testReviewCompletionInvokesCompletionClosureAndPersistsMessage() {
+        let planID = UUID()
+        let snapshot = WeeklyPlanSnapshot(
+            weekStartDate: fixedWeekStart,
+            plan: WeeklyPlan(
+                id: planID,
+                weekStartDate: fixedWeekStart,
+                weekEndDate: Calendar(identifier: .gregorian).date(byAdding: .day, value: 6, to: fixedWeekStart) ?? fixedWeekStart,
+                reviewStatus: .ready
+            ),
+            outcomes: [],
+            review: nil,
+            thisWeekTasks: [],
+            nextWeekTasks: [],
+            laterTasks: [],
+            reflectionNotes: []
+        )
+        let mutationRepository = StubWeeklyReviewMutationRepository(
+            result: .success(
+                CompleteWeeklyReviewResult(
+                    review: WeeklyReview(weeklyPlanID: planID, completedAt: fixedWeekStart)
+                )
+            )
+        )
+        let viewModel = makeReviewViewModel(snapshot: snapshot, mutationRepository: mutationRepository)
+
+        loadReview(viewModel)
+
+        let completed = expectation(description: "review completion callback fired")
+        viewModel.completeReview { message in
+            XCTAssertEqual(message, WeeklyCopy.reviewSaveSuccess)
+            completed.fulfill()
+        }
+        wait(for: [completed], timeout: 1.0)
+
+        XCTAssertFalse(viewModel.isSaving)
+        XCTAssertEqual(viewModel.saveMessage, WeeklyCopy.reviewSaveSuccess)
+    }
+
+    @MainActor
+    func testReviewCompletionSkipsPersistingStaleTaskDecisions() {
+        let staleTaskID = UUID()
+        let validTaskID = UUID()
+        let planID = UUID()
+        let snapshot = WeeklyPlanSnapshot(
+            weekStartDate: fixedWeekStart,
+            plan: WeeklyPlan(
+                id: planID,
+                weekStartDate: fixedWeekStart,
+                weekEndDate: Calendar(identifier: .gregorian).date(byAdding: .day, value: 6, to: fixedWeekStart) ?? fixedWeekStart,
+                reviewStatus: .ready
+            ),
+            outcomes: [],
+            review: nil,
+            thisWeekTasks: [
+                TaskDefinition(id: staleTaskID, title: "Stale"),
+                TaskDefinition(id: validTaskID, title: "Valid")
+            ],
+            nextWeekTasks: [],
+            laterTasks: [],
+            reflectionNotes: []
+        )
+        let draftStore = RecordingWeeklyReviewDraftStore()
+        let mutationRepository = StubWeeklyReviewMutationRepository(
+            result: .success(
+                CompleteWeeklyReviewResult(
+                    review: WeeklyReview(weeklyPlanID: planID, completedAt: fixedWeekStart),
+                    skippedTaskIDs: [staleTaskID]
+                )
+            )
+        )
+        let viewModel = makeReviewViewModel(
+            snapshot: snapshot,
+            mutationRepository: mutationRepository,
+            draftStore: draftStore
+        )
+
+        loadReview(viewModel)
+        viewModel.taskDecisions = [
+            staleTaskID: .later,
+            validTaskID: .drop
+        ]
+
+        let completed = expectation(description: "review completion finished")
+        viewModel.completeReview { message in
+            XCTAssertEqual(message, "Review saved. 1 stale item was skipped.")
+            completed.fulfill()
+        }
+        wait(for: [completed], timeout: 1.0)
+
+        XCTAssertEqual(draftStore.savedCompletedDecisionBatches.last, [
+            WeeklyReviewTaskDecision(taskID: validTaskID, disposition: .drop)
+        ])
+    }
+
+    @MainActor
+    func testReviewWarmCacheSummaryReadsAreStable() {
+        let snapshot = WeeklyPlanSnapshot(
+            weekStartDate: fixedWeekStart,
+            plan: WeeklyPlan(
+                weekStartDate: fixedWeekStart,
+                weekEndDate: Calendar(identifier: .gregorian).date(byAdding: .day, value: 6, to: fixedWeekStart) ?? fixedWeekStart,
+                reviewStatus: .ready
+            ),
+            outcomes: [],
+            review: nil,
+            thisWeekTasks: [
+                TaskDefinition(title: "One", isComplete: true),
+                TaskDefinition(title: "Two", isComplete: false)
+            ],
+            nextWeekTasks: [],
+            laterTasks: [],
+            reflectionNotes: []
+        )
+        let viewModel = makeReviewViewModel(snapshot: snapshot)
+
+        loadReview(viewModel)
+
+        measure(metrics: [XCTClockMetric(), XCTMemoryMetric()]) {
+            for _ in 0..<1_000 {
+                _ = viewModel.completionSummaryText
+                _ = viewModel.reviewSnapshot?.completionSummaryText
+                _ = viewModel.footerSnapshot.completionSummaryText
+            }
+        }
+    }
+
+    @MainActor
     private func makePlannerViewModel(
         seedTasks: [TaskDefinition] = [],
         habitRows: [HabitLibraryRow] = [],
-        projects: [Project] = []
+        projects: [Project] = [],
+        plannerPresentation: WeeklyPlannerPresentationMode = .thisWeek,
+        weekStartsOn: Weekday = .monday,
+        referenceDate: Date? = nil
     ) -> WeeklyPlannerViewModel {
+        let workspaceStore = makeWorkspacePreferencesStore(weekStartsOn: weekStartsOn)
         let taskRepository = InMemoryTaskDefinitionRepositoryStub(seed: seedTasks)
         let buildSnapshot = BuildWeeklyPlanSnapshotUseCase(
             weeklyPlanRepository: StubWeeklyPlanRepository(),
             weeklyOutcomeRepository: StubWeeklyOutcomeRepository(),
             weeklyReviewRepository: StubWeeklyReviewRepository(),
             reflectionNoteRepository: StubReflectionNoteRepository(),
-            taskDefinitionRepository: taskRepository
+            taskDefinitionRepository: taskRepository,
+            workspacePreferencesStore: workspaceStore
         )
-        let estimateCapacity = EstimateWeeklyCapacityUseCase(taskDefinitionRepository: taskRepository)
+        let estimateCapacity = EstimateWeeklyCapacityUseCase(
+            taskDefinitionRepository: taskRepository,
+            workspacePreferencesStore: workspaceStore
+        )
         let getHabitLibrary = GetHabitLibraryUseCase(
             readRepository: StubHabitRuntimeReadRepository(libraryRows: habitRows)
         )
@@ -358,11 +585,14 @@ final class WeeklyOperatingLayerViewModelTests: XCTestCase {
             weeklyPlanRepository: StubWeeklyPlanRepository(),
             weeklyOutcomeRepository: StubWeeklyOutcomeRepository(),
             updateTaskDefinitionUseCase: updateTask,
-            taskDefinitionRepository: taskRepository
+            taskDefinitionRepository: taskRepository,
+            workspacePreferencesStore: workspaceStore
         )
 
         return WeeklyPlannerViewModel(
-            referenceDate: fixedWeekStart,
+            referenceDate: referenceDate ?? fixedWeekStart,
+            plannerPresentation: plannerPresentation,
+            weekStartsOn: weekStartsOn,
             buildWeeklyPlanSnapshot: buildSnapshot,
             estimateWeeklyCapacity: estimateCapacity,
             getHabitLibraryUseCase: getHabitLibrary,
@@ -393,13 +623,19 @@ final class WeeklyOperatingLayerViewModelTests: XCTestCase {
     }
 
     @MainActor
-    private func makeReviewViewModel(snapshot: WeeklyPlanSnapshot) -> WeeklyReviewViewModel {
+    private func makeReviewViewModel(
+        snapshot: WeeklyPlanSnapshot,
+        mutationRepository: StubWeeklyReviewMutationRepository = StubWeeklyReviewMutationRepository(),
+        draftStore: WeeklyReviewDraftStoreProtocol = StubWeeklyReviewDraftStore()
+    ) -> WeeklyReviewViewModel {
+        let workspaceStore = makeWorkspacePreferencesStore(weekStartsOn: .monday)
         let buildSnapshot = BuildWeeklyPlanSnapshotUseCase(
             weeklyPlanRepository: StubWeeklyPlanRepository(plan: snapshot.plan),
             weeklyOutcomeRepository: StubWeeklyOutcomeRepository(outcomesByPlanID: snapshot.plan.map { [$0.id: snapshot.outcomes] } ?? [:]),
             weeklyReviewRepository: StubWeeklyReviewRepository(review: snapshot.review),
             reflectionNoteRepository: StubReflectionNoteRepository(notes: snapshot.reflectionNotes),
-            taskDefinitionRepository: InMemoryTaskDefinitionRepositoryStub(seed: snapshot.thisWeekTasks + snapshot.nextWeekTasks + snapshot.laterTasks)
+            taskDefinitionRepository: InMemoryTaskDefinitionRepositoryStub(seed: snapshot.thisWeekTasks + snapshot.nextWeekTasks + snapshot.laterTasks),
+            workspacePreferencesStore: workspaceStore
         )
         let getHabitLibrary = GetHabitLibraryUseCase(
             readRepository: StubHabitRuntimeReadRepository(
@@ -425,18 +661,81 @@ final class WeeklyOperatingLayerViewModelTests: XCTestCase {
 
         return WeeklyReviewViewModel(
             referenceDate: fixedWeekStart,
+            weekStartsOn: .monday,
             buildWeeklyPlanSnapshot: buildSnapshot,
             getHabitLibraryUseCase: getHabitLibrary,
             completeWeeklyReviewUseCase: CompleteWeeklyReviewUseCase(
-                reviewMutationRepository: StubWeeklyReviewMutationRepository()
+                reviewMutationRepository: mutationRepository
             ),
-            draftStore: StubWeeklyReviewDraftStore(),
+            draftStore: draftStore,
             reflectionNoteRepository: StubReflectionNoteRepository(notes: snapshot.reflectionNotes)
         )
     }
 
+    @MainActor
+    private func loadReview(_ viewModel: WeeklyReviewViewModel) {
+        let loaded = expectation(description: "weekly review loaded")
+
+        viewModel.load()
+
+        func waitForLoad() {
+            if viewModel.isLoading == false {
+                loaded.fulfill()
+            } else {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.01) {
+                    waitForLoad()
+                }
+            }
+        }
+
+        DispatchQueue.main.async(execute: waitForLoad)
+        wait(for: [loaded], timeout: 1.0)
+    }
+
     private var fixedWeekStart: Date {
         Date(timeIntervalSince1970: 1_712_592_000) // 2024-04-01 Monday UTC
+    }
+
+    private func makeWorkspacePreferencesStore(weekStartsOn: Weekday) -> TaskerWorkspacePreferencesStore {
+        let defaults = UserDefaults(suiteName: "weekly.workspace.preferences.\(UUID().uuidString)")!
+        let store = TaskerWorkspacePreferencesStore(defaults: defaults)
+        store.save(TaskerWorkspacePreferences(weekStartsOn: weekStartsOn))
+        return store
+    }
+
+    private func makeWeeklySummaryUseCase(
+        plan: WeeklyPlan? = nil,
+        workspaceStore: TaskerWorkspacePreferencesStore
+    ) -> GetWeeklySummaryUseCase {
+        let taskRepository = InMemoryTaskDefinitionRepositoryStub(seed: [])
+        let buildSnapshot = BuildWeeklyPlanSnapshotUseCase(
+            weeklyPlanRepository: StubWeeklyPlanRepository(plan: plan),
+            weeklyOutcomeRepository: StubWeeklyOutcomeRepository(),
+            weeklyReviewRepository: StubWeeklyReviewRepository(),
+            reflectionNoteRepository: StubReflectionNoteRepository(),
+            taskDefinitionRepository: taskRepository,
+            workspacePreferencesStore: workspaceStore
+        )
+        let estimateCapacity = EstimateWeeklyCapacityUseCase(
+            taskDefinitionRepository: taskRepository,
+            workspacePreferencesStore: workspaceStore
+        )
+
+        return GetWeeklySummaryUseCase(
+            buildWeeklyPlanSnapshot: buildSnapshot,
+            estimateWeeklyCapacity: estimateCapacity,
+            workspacePreferencesStore: workspaceStore
+        )
+    }
+
+    private func makeDate(year: Int, month: Int, day: Int) -> Date {
+        var components = DateComponents()
+        components.calendar = Calendar(identifier: .gregorian)
+        components.timeZone = TimeZone(secondsFromGMT: 0)
+        components.year = year
+        components.month = month
+        components.day = day
+        return components.date ?? fixedWeekStart
     }
 }
 
@@ -524,11 +823,43 @@ private final class StubWeeklyReviewRepository: WeeklyReviewRepositoryProtocol {
 }
 
 private final class StubWeeklyReviewMutationRepository: WeeklyReviewMutationRepositoryProtocol {
+    let result: Result<CompleteWeeklyReviewResult, Error>
+
+    init(
+        result: Result<CompleteWeeklyReviewResult, Error> = .success(
+            CompleteWeeklyReviewResult(review: WeeklyReview(weeklyPlanID: UUID()))
+        )
+    ) {
+        self.result = result
+    }
+
     func finalizeReview(
         request: CompleteWeeklyReviewRequest,
-        completion: @escaping (Result<WeeklyReview, Error>) -> Void
+        completion: @escaping (Result<CompleteWeeklyReviewResult, Error>) -> Void
     ) {
-        completion(.success(WeeklyReview(weeklyPlanID: request.weeklyPlanID, completedAt: request.completedAt)))
+        switch result {
+        case .failure(let error):
+            completion(.failure(error))
+        case .success(let result):
+            completion(.success(
+                CompleteWeeklyReviewResult(
+                    review: WeeklyReview(
+                        id: result.review.id,
+                        weeklyPlanID: request.weeklyPlanID,
+                        wins: result.review.wins,
+                        blockers: result.review.blockers,
+                        lessons: result.review.lessons,
+                        nextWeekPrepNotes: result.review.nextWeekPrepNotes,
+                        perceivedWeekRating: result.review.perceivedWeekRating,
+                        createdAt: result.review.createdAt,
+                        updatedAt: result.review.updatedAt,
+                        completedAt: request.completedAt
+                    ),
+                    skippedTaskIDs: result.skippedTaskIDs,
+                    skippedOutcomeIDs: result.skippedOutcomeIDs
+                )
+            ))
+        }
     }
 }
 
@@ -566,6 +897,52 @@ private final class StubWeeklyReviewDraftStore: WeeklyReviewDraftStoreProtocol {
         weekStartDate: Date,
         completion: @escaping (Result<[WeeklyReviewTaskDecision], Error>) -> Void
     ) {
+        completion(.success(decisions))
+    }
+}
+
+private final class RecordingWeeklyReviewDraftStore: WeeklyReviewDraftStoreProtocol {
+    var draft: WeeklyReviewDraft?
+    var savedDrafts: [WeeklyReviewDraft] = []
+    var savedCompletedDecisionBatches: [[WeeklyReviewTaskDecision]] = []
+
+    func fetchDraft(
+        weekStartDate: Date,
+        completion: @escaping (Result<WeeklyReviewDraft?, Error>) -> Void
+    ) {
+        completion(.success(draft))
+    }
+
+    func saveDraft(
+        _ draft: WeeklyReviewDraft,
+        completion: @escaping (Result<WeeklyReviewDraft, Error>) -> Void
+    ) {
+        self.draft = draft
+        savedDrafts.append(draft)
+        completion(.success(draft))
+    }
+
+    func clearDraft(
+        weekStartDate: Date,
+        completion: @escaping (Result<Void, Error>) -> Void
+    ) {
+        draft = nil
+        completion(.success(()))
+    }
+
+    func fetchCompletedTaskDecisions(
+        weekStartDate: Date,
+        completion: @escaping (Result<[WeeklyReviewTaskDecision], Error>) -> Void
+    ) {
+        completion(.success(savedCompletedDecisionBatches.last ?? []))
+    }
+
+    func saveCompletedTaskDecisions(
+        _ decisions: [WeeklyReviewTaskDecision],
+        weekStartDate: Date,
+        completion: @escaping (Result<[WeeklyReviewTaskDecision], Error>) -> Void
+    ) {
+        savedCompletedDecisionBatches.append(decisions)
         completion(.success(decisions))
     }
 }
