@@ -3,45 +3,83 @@ import SwiftUI
 struct WeeklyReviewView: View {
     @ObservedObject var viewModel: WeeklyReviewViewModel
     let onClose: () -> Void
+    let onCompleted: (String) -> Void
 
     @Environment(\.taskerLayoutClass) private var layoutClass
     @State private var showingReflectionComposer = false
 
-    private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.tokens(for: layoutClass).spacing }
+    init(
+        viewModel: WeeklyReviewViewModel,
+        onClose: @escaping () -> Void,
+        onCompleted: @escaping (String) -> Void = { _ in }
+    ) {
+        self.viewModel = viewModel
+        self.onClose = onClose
+        self.onCompleted = onCompleted
+    }
 
     var body: some View {
-        NavigationStack {
+        let renderedSnapshot = viewModel.reviewSnapshot
+
+        return NavigationStack {
             WeeklyRitualScaffold(
                 eyebrow: "Weekly review",
                 title: WeeklyCopy.reviewTitle,
                 subtitle: WeeklyCopy.reviewSubtitle,
                 weekRange: viewModel.weekRangeText,
-                steps: viewModel.reviewSteps,
+                steps: renderedSnapshot?.reviewSteps ?? viewModel.reviewSteps,
                 message: viewModel.saveMessage,
                 messageTone: .accent
             ) {
-                realityCheckSection
-                outcomesSection
-                cleanupSection
-                reflectionSection
-                notesSection
+                if let renderedSnapshot {
+                    WeeklyReviewRealityStep(
+                        completedTasks: renderedSnapshot.completedTasks,
+                        unfinishedTasks: renderedSnapshot.unfinishedTasks,
+                        reflectionCount: renderedSnapshot.reflectionNotes.count,
+                        selectedHabits: renderedSnapshot.selectedHabits,
+                        selectedHabitIDs: viewModel.snapshot?.plan?.selectedHabitIDs ?? []
+                    )
+                    WeeklyReviewOutcomesStep(
+                        outcomeSnapshots: renderedSnapshot.outcomeSnapshots,
+                        onSelectStatus: viewModel.setOutcomeStatus(_:for:)
+                    )
+                    WeeklyReviewCleanupStep(
+                        unfinishedTasks: renderedSnapshot.unfinishedTasks,
+                        taskDecisions: viewModel.taskDecisions,
+                        onSelectDisposition: viewModel.setDecision(_:for:),
+                        onApplyToAll: viewModel.applyDecisionToAllUnfinished(_:)
+                    )
+                    WeeklyReviewReflectionStep(
+                        wins: $viewModel.wins,
+                        blockers: $viewModel.blockers,
+                        lessons: $viewModel.lessons,
+                        nextWeekPrepNotes: $viewModel.nextWeekPrepNotes,
+                        perceivedWeekRating: $viewModel.perceivedWeekRating
+                    )
+                    WeeklyReviewNotesStep(
+                        reflectionNotes: renderedSnapshot.reflectionNotes,
+                        onAddReflection: { showingReflectionComposer = true }
+                    )
+                }
             } footer: {
                 WeeklyStickyActionBar {
                     VStack(alignment: .leading, spacing: 2) {
                         Text("Review status")
                             .font(.tasker(.caption1))
                             .foregroundStyle(Color.tasker.textSecondary)
-                        Text(viewModel.completionSummaryText)
+                        Text(viewModel.footerSnapshot.completionSummaryText)
                             .font(.tasker(.caption2))
                             .foregroundStyle(Color.tasker.textSecondary)
                             .fixedSize(horizontal: false, vertical: true)
                     }
                 } trailing: {
                     Button(viewModel.isSaving ? "Saving..." : WeeklyCopy.finishReview) {
-                        viewModel.completeReview()
+                        viewModel.completeReview { message in
+                            onCompleted(message)
+                        }
                     }
                     .buttonStyle(.borderedProminent)
-                    .disabled(viewModel.isSaving || viewModel.snapshot?.plan == nil)
+                    .disabled(viewModel.isSaving || !viewModel.footerSnapshot.canFinishReview)
                 }
             }
             .navigationTitle(WeeklyCopy.reviewTitle)
@@ -55,21 +93,6 @@ struct WeeklyReviewView: View {
                 if viewModel.snapshot == nil && !viewModel.isLoading {
                     viewModel.load()
                 }
-            }
-            .onChange(of: viewModel.wins) { _, _ in
-                viewModel.scheduleDraftAutosave()
-            }
-            .onChange(of: viewModel.blockers) { _, _ in
-                viewModel.scheduleDraftAutosave()
-            }
-            .onChange(of: viewModel.lessons) { _, _ in
-                viewModel.scheduleDraftAutosave()
-            }
-            .onChange(of: viewModel.nextWeekPrepNotes) { _, _ in
-                viewModel.scheduleDraftAutosave()
-            }
-            .onChange(of: viewModel.perceivedWeekRating) { _, _ in
-                viewModel.scheduleDraftAutosave()
             }
             .alert(WeeklyCopy.reviewErrorTitle, isPresented: Binding(
                 get: { viewModel.errorMessage != nil },
@@ -96,17 +119,29 @@ struct WeeklyReviewView: View {
             }
         }
     }
+}
 
-    private var realityCheckSection: some View {
+private struct WeeklyReviewRealityStep: View {
+    let completedTasks: [TaskDefinition]
+    let unfinishedTasks: [TaskDefinition]
+    let reflectionCount: Int
+    let selectedHabits: [HabitLibraryRow]
+    let selectedHabitIDs: [UUID]
+
+    @Environment(\.taskerLayoutClass) private var layoutClass
+
+    private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.tokens(for: layoutClass).spacing }
+
+    var body: some View {
         WeeklySectionCard(
             title: WeeklyCopy.reviewSteps[0],
             detail: "Start with the facts before deciding what the week means."
         ) {
             VStack(alignment: .leading, spacing: spacing.s16) {
                 HStack(spacing: spacing.s8) {
-                    metricPill(value: "\(viewModel.completedTasks.count)", label: "Done")
-                    metricPill(value: "\(viewModel.unfinishedTasks.count)", label: "To resolve")
-                    metricPill(value: "\(viewModel.reflectionNotes.count)", label: "Reflections")
+                    metricPill(value: "\(completedTasks.count)", label: "Done")
+                    metricPill(value: "\(unfinishedTasks.count)", label: "To resolve")
+                    metricPill(value: "\(reflectionCount)", label: "Reflections")
                 }
 
                 VStack(alignment: .leading, spacing: spacing.s8) {
@@ -114,16 +149,16 @@ struct WeeklyReviewView: View {
                         .font(.tasker(.headline))
                         .foregroundStyle(Color.tasker.textPrimary)
 
-                    if let plan = viewModel.snapshot?.plan, plan.selectedHabitIDs.isEmpty {
+                    if selectedHabitIDs.isEmpty {
                         Text("No habits were intentionally carried into this week.")
                             .font(.tasker(.support))
                             .foregroundStyle(Color.tasker.textSecondary)
-                    } else if viewModel.selectedHabits.isEmpty {
+                    } else if selectedHabits.isEmpty {
                         Text("Habit details will appear here after the review reloads current streaks.")
                             .font(.tasker(.support))
                             .foregroundStyle(Color.tasker.textSecondary)
                     } else {
-                        ForEach(viewModel.selectedHabits, id: \.habitID) { habit in
+                        ForEach(selectedHabits, id: \.habitID) { habit in
                             HStack {
                                 VStack(alignment: .leading, spacing: 4) {
                                     Text(habit.title)
@@ -139,189 +174,16 @@ struct WeeklyReviewView: View {
                                 TaskerStatusPill(
                                     text: "\(habit.currentStreak)d streak",
                                     systemImage: "flame.fill",
-                                    tone: .quiet
+                                    tone: .accent
                                 )
                             }
-                            .padding(12)
-                            .taskerDenseSurface(cornerRadius: 16, fillColor: Color.tasker.surfaceSecondary)
-                        }
-                    }
-                }
-
-                VStack(alignment: .leading, spacing: spacing.s8) {
-                    Text("What got done")
-                        .font(.tasker(.headline))
-                        .foregroundStyle(Color.tasker.textPrimary)
-
-                    if viewModel.completedTasks.isEmpty {
-                        Text(WeeklyCopy.noCompletedWork)
-                            .font(.tasker(.support))
-                            .foregroundStyle(Color.tasker.textSecondary)
-                    } else {
-                        ForEach(viewModel.completedTasks, id: \.id) { task in
-                            Label(task.title, systemImage: "checkmark.circle.fill")
-                                .font(.tasker(.support))
-                                .foregroundStyle(Color.tasker.accentPrimary)
+                            .padding(14)
+                            .taskerDenseSurface(cornerRadius: 18, fillColor: Color.tasker.surfaceSecondary.opacity(0.84))
                         }
                     }
                 }
             }
         }
-    }
-
-    private var outcomesSection: some View {
-        WeeklySectionCard(
-            title: WeeklyCopy.reviewSteps[1],
-            detail: "Mark what really happened so momentum stays based on reality."
-        ) {
-            if let snapshot = viewModel.snapshot, snapshot.outcomes.isEmpty == false {
-                VStack(alignment: .leading, spacing: spacing.s12) {
-                    ForEach(snapshot.outcomes, id: \.id) { outcome in
-                        WeeklyOutcomeReviewRow(
-                            outcome: outcome,
-                            selectedStatus: viewModel.outcomeStatusesByID[outcome.id, default: .planned]
-                        ) { status in
-                            viewModel.setOutcomeStatus(status, for: outcome.id)
-                        }
-                    }
-                }
-            } else {
-                Text(WeeklyCopy.noOutcomes)
-                    .font(.tasker(.support))
-                    .foregroundStyle(Color.tasker.textSecondary)
-            }
-        }
-    }
-
-    private var cleanupSection: some View {
-        WeeklySectionCard(
-            title: WeeklyCopy.reviewSteps[2],
-            detail: "Every unfinished item needs a clean decision: keep it active, move it out, or let it go."
-        ) {
-            VStack(alignment: .leading, spacing: spacing.s12) {
-                if viewModel.unfinishedTasks.isEmpty {
-                    Text(WeeklyCopy.noUnfinishedWork)
-                        .font(.tasker(.support))
-                        .foregroundStyle(Color.tasker.textSecondary)
-                } else {
-                    HStack(spacing: spacing.s8) {
-                        bulkDecisionButton(title: "Carry all", disposition: .carry)
-                        bulkDecisionButton(title: "Move all later", disposition: .later)
-                        bulkDecisionButton(title: "Drop all", disposition: .drop)
-                    }
-
-                    ForEach(viewModel.unfinishedTasks, id: \.id) { task in
-                        WeeklyDecisionRow(
-                            task: task,
-                            selectedDisposition: viewModel.taskDecisions[task.id] ?? .carry
-                        ) { decision in
-                            viewModel.setDecision(decision, for: task.id)
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    private var reflectionSection: some View {
-        WeeklySectionCard(
-            title: WeeklyCopy.reviewSteps[3],
-            detail: "Use short notes. Clear reflection is more useful than perfect reflection."
-        ) {
-            VStack(alignment: .leading, spacing: spacing.s12) {
-                reflectionField(
-                    title: "What worked?",
-                    helper: "Name the wins you want to repeat.",
-                    text: $viewModel.wins
-                )
-                reflectionField(
-                    title: "What got in the way?",
-                    helper: "Describe the pressure, friction, or mismatch that mattered most.",
-                    text: $viewModel.blockers
-                )
-                reflectionField(
-                    title: "What did this week teach you?",
-                    helper: "Write the lesson plainly enough that you would believe it next week.",
-                    text: $viewModel.lessons
-                )
-                reflectionField(
-                    title: "How should next week start?",
-                    helper: "Capture the setup that would make Monday easier.",
-                    text: $viewModel.nextWeekPrepNotes
-                )
-
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("How did this week feel?")
-                        .font(.tasker(.caption1))
-                        .foregroundStyle(Color.tasker.textSecondary)
-
-                    HStack(spacing: 8) {
-                        ForEach(1...5, id: \.self) { rating in
-                            Button {
-                                viewModel.perceivedWeekRating = rating
-                            } label: {
-                                Text("\(rating)")
-                                    .font(.tasker(.bodyEmphasis))
-                                    .foregroundStyle(viewModel.perceivedWeekRating == rating ? Color.tasker.accentOnPrimary : Color.tasker.textPrimary)
-                                    .frame(maxWidth: .infinity)
-                                    .padding(.vertical, 10)
-                                    .background(
-                                        RoundedRectangle(cornerRadius: 14, style: .continuous)
-                                            .fill(viewModel.perceivedWeekRating == rating ? Color.tasker.accentPrimary : Color.tasker.surfaceSecondary)
-                                    )
-                            }
-                            .buttonStyle(.plain)
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    private var notesSection: some View {
-        WeeklySectionCard(
-            title: "Weekly reflections",
-            detail: "These notes help later reviews stay grounded in what actually happened."
-        ) {
-            VStack(alignment: .leading, spacing: spacing.s12) {
-                Button(WeeklyCopy.addReflection) {
-                    showingReflectionComposer = true
-                }
-                .buttonStyle(.bordered)
-
-                if viewModel.reflectionNotes.isEmpty {
-                    Text(WeeklyCopy.noWeeklyNotes)
-                        .font(.tasker(.support))
-                        .foregroundStyle(Color.tasker.textSecondary)
-                } else {
-                    ForEach(viewModel.reflectionNotes, id: \.id) { note in
-                        VStack(alignment: .leading, spacing: 6) {
-                            if let prompt = note.prompt, prompt.isEmpty == false {
-                                Text(prompt)
-                                    .font(.tasker(.caption1))
-                                    .foregroundStyle(Color.tasker.textSecondary)
-                            }
-                            Text(note.noteText)
-                                .font(.tasker(.support))
-                                .foregroundStyle(Color.tasker.textPrimary)
-                            Text(note.createdAt.formatted(date: .abbreviated, time: .shortened))
-                                .font(.tasker(.caption2))
-                                .foregroundStyle(Color.tasker.textSecondary)
-                        }
-                        .padding(14)
-                        .taskerDenseSurface(cornerRadius: 18, fillColor: Color.tasker.surfaceSecondary.opacity(0.84))
-                    }
-                }
-            }
-        }
-    }
-
-    private func bulkDecisionButton(title: String, disposition: WeeklyReviewTaskDisposition) -> some View {
-        Button(title) {
-            viewModel.applyDecisionToAllUnfinished(disposition)
-        }
-        .buttonStyle(.bordered)
-        .tint(disposition.tintColor)
     }
 
     private func metricPill(value: String, label: String) -> some View {
@@ -337,6 +199,145 @@ struct WeeklyReviewView: View {
         .padding(.horizontal, spacing.s12)
         .padding(.vertical, spacing.s8)
         .background(Color.tasker.surfaceSecondary, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+    }
+}
+
+private struct WeeklyReviewOutcomesStep: View {
+    let outcomeSnapshots: [WeeklyReviewOutcomeSnapshot]
+    let onSelectStatus: (WeeklyOutcomeStatus, UUID) -> Void
+
+    var body: some View {
+        WeeklySectionCard(
+            title: WeeklyCopy.reviewSteps[1],
+            detail: "Check outcomes before deciding what unfinished work should mean."
+        ) {
+            if outcomeSnapshots.isEmpty {
+                Text(WeeklyCopy.noOutcomes)
+                    .font(.tasker(.support))
+                    .foregroundStyle(Color.tasker.textSecondary)
+            } else {
+                VStack(alignment: .leading, spacing: 12) {
+                    ForEach(Array(outcomeSnapshots.enumerated()), id: \.element.id) { index, snapshot in
+                        WeeklyOutcomeReviewRow(
+                            outcomeSnapshot: snapshot,
+                            displayIndex: index + 1,
+                            onSelect: { onSelectStatus($0, snapshot.id) }
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+private struct WeeklyReviewCleanupStep: View {
+    let unfinishedTasks: [TaskDefinition]
+    let taskDecisions: [UUID: WeeklyReviewTaskDisposition]
+    let onSelectDisposition: (WeeklyReviewTaskDisposition, UUID) -> Void
+    let onApplyToAll: (WeeklyReviewTaskDisposition) -> Void
+
+    var body: some View {
+        WeeklySectionCard(
+            title: WeeklyCopy.reviewSteps[2],
+            detail: "Give every unfinished task a clear next home."
+        ) {
+            VStack(alignment: .leading, spacing: 12) {
+                HStack(spacing: 8) {
+                    bulkDecisionButton(title: "Carry all", disposition: .carry)
+                    bulkDecisionButton(title: "Move all later", disposition: .later)
+                    bulkDecisionButton(title: "Drop all", disposition: .drop)
+                }
+
+                if unfinishedTasks.isEmpty {
+                    Text(WeeklyCopy.noUnfinishedWork)
+                        .font(.tasker(.support))
+                        .foregroundStyle(Color.tasker.textSecondary)
+                } else {
+                    ForEach(unfinishedTasks, id: \.id) { task in
+                        WeeklyDecisionRow(
+                            task: task,
+                            selectedDisposition: taskDecisions[task.id] ?? .carry,
+                            onSelect: { onSelectDisposition($0, task.id) }
+                        )
+                    }
+                }
+            }
+        }
+    }
+
+    private func bulkDecisionButton(title: String, disposition: WeeklyReviewTaskDisposition) -> some View {
+        Button(title) {
+            onApplyToAll(disposition)
+        }
+        .buttonStyle(.bordered)
+        .tint(disposition.tintColor)
+    }
+}
+
+private struct WeeklyReviewReflectionStep: View {
+    @Binding var wins: String
+    @Binding var blockers: String
+    @Binding var lessons: String
+    @Binding var nextWeekPrepNotes: String
+    @Binding var perceivedWeekRating: Int
+
+    @Environment(\.taskerLayoutClass) private var layoutClass
+
+    private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.tokens(for: layoutClass).spacing }
+
+    var body: some View {
+        WeeklySectionCard(
+            title: WeeklyCopy.reviewSteps[3],
+            detail: "Capture only the signals that will help next week start sharper."
+        ) {
+            VStack(alignment: .leading, spacing: spacing.s16) {
+                reflectionField(
+                    title: "What got done",
+                    helper: "Name the few things that genuinely moved forward.",
+                    text: $wins
+                )
+                reflectionField(
+                    title: "What got in the way",
+                    helper: "Keep it factual so you can act on it later.",
+                    text: $blockers
+                )
+                reflectionField(
+                    title: "What should you repeat or change",
+                    helper: "One clear lesson is more useful than a long retrospective.",
+                    text: $lessons
+                )
+                reflectionField(
+                    title: "Set up next week",
+                    helper: "Leave a short note that makes Monday easier to start.",
+                    text: $nextWeekPrepNotes
+                )
+
+                VStack(alignment: .leading, spacing: spacing.s8) {
+                    Text("How did the week feel?")
+                        .font(.tasker(.caption1))
+                        .foregroundStyle(Color.tasker.textSecondary)
+
+                    HStack(spacing: spacing.s8) {
+                        ForEach(1...5, id: \.self) { rating in
+                            Button {
+                                perceivedWeekRating = rating
+                            } label: {
+                                Text("\(rating)")
+                                    .font(.tasker(.bodyEmphasis))
+                                    .foregroundStyle(perceivedWeekRating == rating ? Color.tasker.accentOnPrimary : Color.tasker.textPrimary)
+                                    .frame(maxWidth: .infinity)
+                                    .padding(.vertical, 10)
+                                    .background(
+                                        RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                            .fill(perceivedWeekRating == rating ? Color.tasker.accentPrimary : Color.tasker.surfaceSecondary)
+                                    )
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+                }
+            }
+        }
     }
 
     private func reflectionField(title: String, helper: String, text: Binding<String>) -> some View {
@@ -358,21 +359,77 @@ struct WeeklyReviewView: View {
     }
 }
 
+private struct WeeklyReviewNotesStep: View {
+    let reflectionNotes: [ReflectionNote]
+    let onAddReflection: () -> Void
+
+    var body: some View {
+        WeeklySectionCard(
+            title: "Weekly reflections",
+            detail: "These notes help later reviews stay grounded in what actually happened."
+        ) {
+            VStack(alignment: .leading, spacing: 12) {
+                Button(WeeklyCopy.addReflection) {
+                    onAddReflection()
+                }
+                .buttonStyle(.bordered)
+
+                if reflectionNotes.isEmpty {
+                    Text(WeeklyCopy.noWeeklyNotes)
+                        .font(.tasker(.support))
+                        .foregroundStyle(Color.tasker.textSecondary)
+                } else {
+                    ForEach(reflectionNotes, id: \.id) { note in
+                        VStack(alignment: .leading, spacing: 6) {
+                            if let prompt = note.prompt, prompt.isEmpty == false {
+                                Text(prompt)
+                                    .font(.tasker(.caption1))
+                                    .foregroundStyle(Color.tasker.textSecondary)
+                            }
+                            Text(note.noteText)
+                                .font(.tasker(.support))
+                                .foregroundStyle(Color.tasker.textPrimary)
+                            Text(note.createdAt.formatted(date: .abbreviated, time: .shortened))
+                                .font(.tasker(.caption2))
+                                .foregroundStyle(Color.tasker.textSecondary)
+                        }
+                        .padding(14)
+                        .taskerDenseSurface(cornerRadius: 18, fillColor: Color.tasker.surfaceSecondary.opacity(0.84))
+                    }
+                }
+            }
+        }
+    }
+}
+
 private struct WeeklyOutcomeReviewRow: View {
-    let outcome: WeeklyOutcome
-    let selectedStatus: WeeklyOutcomeStatus
+    let outcomeSnapshot: WeeklyReviewOutcomeSnapshot
+    let displayIndex: Int
     let onSelect: (WeeklyOutcomeStatus) -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text(outcome.title)
-                .font(.tasker(.bodyEmphasis))
-                .foregroundStyle(Color.tasker.textPrimary)
-
-            if let successDefinition = outcome.successDefinition, successDefinition.isEmpty == false {
-                Text(successDefinition)
+            HStack(alignment: .top, spacing: 10) {
+                Text("\(displayIndex).")
                     .font(.tasker(.caption1))
                     .foregroundStyle(Color.tasker.textSecondary)
+                VStack(alignment: .leading, spacing: 6) {
+                    Text(outcomeSnapshot.outcome.title)
+                        .font(.tasker(.bodyEmphasis))
+                        .foregroundStyle(Color.tasker.textPrimary)
+
+                    if let successDefinition = outcomeSnapshot.outcome.successDefinition, successDefinition.isEmpty == false {
+                        Text(successDefinition)
+                            .font(.tasker(.caption1))
+                            .foregroundStyle(Color.tasker.textSecondary)
+                    }
+
+                    if outcomeSnapshot.linkedTaskCount > 0 {
+                        Text("\(outcomeSnapshot.linkedTaskCount) linked task\(outcomeSnapshot.linkedTaskCount == 1 ? "" : "s")")
+                            .font(.tasker(.caption2))
+                            .foregroundStyle(Color.tasker.textSecondary)
+                    }
+                }
             }
 
             HStack(spacing: 8) {
@@ -386,7 +443,7 @@ private struct WeeklyOutcomeReviewRow: View {
     }
 
     private func statusButton(_ status: WeeklyOutcomeStatus) -> some View {
-        let isSelected = selectedStatus == status
+        let isSelected = outcomeSnapshot.selectedStatus == status
         let tint = status.tintColor
 
         return Button {
