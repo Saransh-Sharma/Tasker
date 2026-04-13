@@ -1406,7 +1406,7 @@ enum HomePrimaryWidgetKind: String, Equatable, CaseIterable, Identifiable {
         case .focusNow:
             return "Focus Now"
         case .weeklyOperating:
-            return "Weekly Operating Layer"
+            return "This week"
         }
     }
 
@@ -2035,8 +2035,6 @@ struct HomeBackdropForedropRootView: View {
     @State private var hasPresentedUITestHabitBoard = false
     @State private var quietTrackingComposerSnapshot: QuietTrackingComposerSnapshot?
     @State private var passiveTrackingRailViewportWidth: CGFloat = 0
-    @State private var selectedPrimaryWidgetKind: HomePrimaryWidgetKind?
-    @State private var didManuallySelectPrimaryWidget = false
     @State private var pendingFocusPromotionTask: TaskDefinition?
     @State private var focusReplacementOptions: [TaskDefinition] = []
     @State private var activeHabitMutationInterval: TaskerPerformanceInterval?
@@ -2082,7 +2080,8 @@ struct HomeBackdropForedropRootView: View {
     }
     private var isRescueEnabled: Bool { V2FeatureFlags.evaRescueEnabled }
     private var visibleAgendaTailItems: [HomeAgendaTailItem] {
-        isRescueEnabled ? tasksSnapshot.agendaTailItems : []
+        guard isRescueEnabled else { return [] }
+        return tasksSnapshot.agendaTailItems
     }
     private var agendaTailExpansionResetKey: String {
         let selectedDay = Calendar.current.startOfDay(for: chromeSnapshot.selectedDate).timeIntervalSince1970
@@ -2769,6 +2768,7 @@ struct HomeBackdropForedropRootView: View {
         VStack(spacing: 0) {
             TaskListView(
                 headerContent: AnyView(taskListScrollHeader),
+                footerContent: taskListFooterContent,
                 morningTasks: tasksSnapshot.morningTasks,
                 eveningTasks: tasksSnapshot.eveningTasks,
                 overdueTasks: tasksSnapshot.overdueTasks,
@@ -3298,44 +3298,14 @@ struct HomeBackdropForedropRootView: View {
     @ViewBuilder
     private var taskListScrollHeader: some View {
         VStack(alignment: .leading, spacing: spacing.s12) {
-            if passiveTrackingRailCards.isEmpty == false {
+            if tasksSnapshot.activeQuickView == .today {
                 fullBleedTaskListHeaderModule {
-                    passiveTrackingRail
-                        .padding(.top, spacing.s2)
-                }
-            }
-
-            if primaryWidgetRailState.isVisible {
-                fullBleedTaskListHeaderModule {
-                    primaryWidgetRail
-                }
-            }
-
-            if tasksSnapshot.activeQuickView == .today &&
-                tasksSnapshot.todayAgendaSectionState.totalCount > 0 {
-                fullBleedTaskListHeaderModule {
-                    todayAgendaHeader
-                }
-            }
-
-            if tasksSnapshot.activeQuickView == .today &&
-                !habitsSnapshot.habitHomeSectionState.primaryRows.isEmpty {
-                fullBleedTaskListHeaderModule {
-                    habitsSectionCard
-                }
-            }
-
-            if tasksSnapshot.activeQuickView == .today &&
-                !habitsSnapshot.habitHomeSectionState.recoveryRows.isEmpty {
-                fullBleedTaskListHeaderModule {
-                    recoveryHabitsSectionCard
-                }
-            }
-
-            if tasksSnapshot.activeQuickView == .today &&
-                habitsSnapshot.quietTrackingSummaryState.isVisible {
-                fullBleedTaskListHeaderModule {
-                    quietTrackingSummaryCard
+                    VStack(alignment: .leading, spacing: spacing.s12) {
+                        if habitsSnapshot.quietTrackingSummaryState.isVisible {
+                            passiveTrackingRail
+                        }
+                        focusStrip
+                    }
                 }
             }
 
@@ -3363,68 +3333,30 @@ struct HomeBackdropForedropRootView: View {
         .accessibilityIdentifier("home.weeklySummary.card")
     }
 
-    private var primaryWidgetRailState: HomePrimaryWidgetRailState {
-        HomePrimaryWidgetRailState.build(
-            tasksSnapshot: tasksSnapshot,
-            chromeSnapshot: chromeSnapshot
-        )
-    }
+    private var taskListFooterContent: AnyView? {
+        guard tasksSnapshot.activeQuickView == .today else { return nil }
 
-    private var resolvedPrimaryWidgetKind: HomePrimaryWidgetKind? {
-        HomePrimaryWidgetDefaultPolicy.resolve(
-            availableWidgets: primaryWidgetRailState.widgets,
-            currentSelection: selectedPrimaryWidgetKind,
-            userHasInteracted: didManuallySelectPrimaryWidget
-        )
-    }
+        let hasPrimaryHabits = habitsSnapshot.habitHomeSectionState.primaryRows.isEmpty == false
+        let hasRecoveryHabits = habitsSnapshot.habitHomeSectionState.recoveryRows.isEmpty == false
+        let hasWeeklySummary = chromeSnapshot.weeklySummary != nil
 
-    private var primaryWidgetPages: [HomePrimaryWidgetPage] {
-        primaryWidgetRailState.widgets.compactMap { kind in
-            switch kind {
-            case .focusNow:
-                return HomePrimaryWidgetPage(kind: .focusNow, content: AnyView(focusStrip))
-            case .weeklyOperating:
-                guard chromeSnapshot.weeklySummary != nil else { return nil }
-                return HomePrimaryWidgetPage(kind: .weeklyOperating, content: AnyView(weeklySummaryCard))
+        guard hasPrimaryHabits || hasRecoveryHabits || hasWeeklySummary else { return nil }
+
+        return AnyView(
+            VStack(alignment: .leading, spacing: spacing.s12) {
+                if hasPrimaryHabits {
+                    habitsSectionCard
+                }
+
+                if hasRecoveryHabits {
+                    recoveryHabitsSectionCard
+                }
+
+                if hasWeeklySummary {
+                    weeklySummaryCard
+                }
             }
-        }
-    }
-
-    private var primaryWidgetRail: some View {
-        HomePrimaryWidgetRail(
-            pages: primaryWidgetPages,
-            selectedKind: resolvedPrimaryWidgetKind,
-            onSelectionChange: handlePrimaryWidgetSelection(_:userInitiated:)
         )
-        .padding(.top, spacing.s2)
-        .onAppear {
-            reconcilePrimaryWidgetSelection()
-        }
-        .onChange(of: primaryWidgetRailState.widgets) { _, _ in
-            reconcilePrimaryWidgetSelection()
-        }
-    }
-
-    private func handlePrimaryWidgetSelection(_ kind: HomePrimaryWidgetKind, userInitiated: Bool) {
-        selectedPrimaryWidgetKind = kind
-        if userInitiated {
-            didManuallySelectPrimaryWidget = true
-        }
-    }
-
-    private func reconcilePrimaryWidgetSelection() {
-        guard let selectedPrimaryWidgetKind else {
-            if primaryWidgetRailState.widgets.isEmpty {
-                didManuallySelectPrimaryWidget = false
-            }
-            return
-        }
-
-        guard primaryWidgetRailState.widgets.contains(selectedPrimaryWidgetKind) else {
-            self.selectedPrimaryWidgetKind = nil
-            didManuallySelectPrimaryWidget = false
-            return
-        }
     }
 
     private var shouldShowDueTodayAgenda: Bool {
@@ -3509,7 +3441,7 @@ struct HomeBackdropForedropRootView: View {
     private var habitsSectionCard: some View {
         HabitHomeSectionCard(
             title: "Habits",
-            subtitle: "Consistency this week",
+            subtitle: "Habits that need attention stay here.",
             rows: habitsSnapshot.habitHomeSectionState.primaryRows,
             countValue: "\(habitsSnapshot.habitHomeSectionState.totalCount) active",
             secondaryValue: "\(habitsSnapshot.habitHomeSectionState.onStreakCount) on streak",
@@ -3528,7 +3460,7 @@ struct HomeBackdropForedropRootView: View {
     private var recoveryHabitsSectionCard: some View {
         HabitHomeSectionCard(
             title: "Recovery",
-            subtitle: "Broken or at-risk habits stay visible until the geometry recovers.",
+            subtitle: "Habits that need attention stay here.",
             rows: habitsSnapshot.habitHomeSectionState.recoveryRows,
             countValue: "\(habitsSnapshot.habitHomeSectionState.recoveryRows.count) in recovery",
             secondaryValue: "streaks",
@@ -3600,41 +3532,6 @@ struct HomeBackdropForedropRootView: View {
         HomePerformanceSignposts.lastCellTapAccepted()
         beginHabitMutationSignpost(trackLastCellTap: true)
         viewModel.performHabitLastCellAction(habit, source: source)
-    }
-
-    private var quietTrackingSummaryCard: some View {
-        Button {
-            guard let row = habitsSnapshot.quietTrackingSummaryState.stableRows.first else { return }
-            presentQuietTrackingComposer(for: row, preferredOutcome: .lapse)
-        } label: {
-            HStack(spacing: spacing.s12) {
-                Image(systemName: "heart.text.square.fill")
-                    .font(.system(size: 14, weight: .semibold))
-                    .foregroundStyle(Color.tasker.accentSecondary)
-                VStack(alignment: .leading, spacing: spacing.s4) {
-                    Text("Quiet Tracking")
-                        .font(.tasker(.caption1).weight(.semibold))
-                        .foregroundStyle(Color.tasker.textPrimary)
-                    Text(habitsSnapshot.quietTrackingSummaryState.summaryText)
-                        .font(.tasker(.caption2))
-                        .foregroundStyle(Color.tasker.textSecondary)
-                }
-                Spacer(minLength: 0)
-                Text("Log")
-                    .font(.tasker(.caption1).weight(.semibold))
-                    .foregroundStyle(Color.tasker.accentPrimary)
-            }
-            .padding(.horizontal, spacing.s12)
-            .padding(.vertical, spacing.s12)
-            .background(Color.tasker.surfaceSecondary.opacity(0.28))
-            .overlay(
-                RoundedRectangle(cornerRadius: corner.r3)
-                    .stroke(Color.tasker.strokeHairline.opacity(0.55), lineWidth: 1)
-            )
-            .clipShape(RoundedRectangle(cornerRadius: corner.r3))
-        }
-        .buttonStyle(.plain)
-        .accessibilityIdentifier("home.quietTracking.summary")
     }
 
     private func saveQuietTrackingEntry(
@@ -3750,6 +3647,7 @@ struct HomeBackdropForedropRootView: View {
     private var focusStrip: some View {
         FocusZone(
             rows: tasksSnapshot.focusNowSectionState.rows,
+            maxVisibleRows: 3,
             canDrag: false,
             pinnedTaskIDs: tasksSnapshot.focusNowSectionState.pinnedTaskIDs,
             shellPhase: shellPhase,

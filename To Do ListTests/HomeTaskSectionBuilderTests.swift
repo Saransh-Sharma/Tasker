@@ -653,6 +653,63 @@ final class HomeTaskSectionBuilderTests: XCTestCase {
         )
     }
 
+    func testAdaptiveDayGroupingKeepsUnifiedPlainListWhenNoProjectCrossesThreshold() {
+        let inbox = Project.createInbox()
+        let alpha = Project(id: UUID(), name: "Alpha", icon: .folder)
+        let beta = Project(id: UUID(), name: "Beta", icon: .folder)
+
+        let sections = HomeMixedSectionBuilder.buildTodaySections(
+            taskRows: [
+                makeTask(name: "Alpha 1", project: alpha, dueDate: Date()),
+                makeTask(name: "Inbox 1", project: inbox, dueDate: Date()),
+                makeTask(name: "Beta 1", project: beta, dueDate: Date())
+            ],
+            habitRows: [],
+            projects: [inbox, alpha, beta],
+            lifeAreas: [],
+            useAdaptiveDayGrouping: true
+        )
+
+        XCTAssertEqual(sections.count, 1)
+        XCTAssertEqual(sections.first?.displayStyle, .plain)
+        XCTAssertEqual(sections.first?.rows.map(\.title), ["Alpha 1", "Inbox 1", "Beta 1"])
+    }
+
+    func testAdaptiveDayGroupingEmitsQualifiedProjectSectionsInFirstOccurrenceOrder() {
+        let inbox = Project.createInbox()
+        let alpha = Project(id: UUID(), name: "Alpha", icon: .folder)
+        let beta = Project(id: UUID(), name: "Beta", icon: .folder)
+
+        let sections = HomeMixedSectionBuilder.buildTodaySections(
+            taskRows: [
+                makeTask(name: "Beta 1", project: beta, dueDate: Date()),
+                makeTask(name: "Alpha 1", project: alpha, dueDate: Date()),
+                makeTask(name: "Beta 2", project: beta, dueDate: Date()),
+                makeTask(name: "Inbox 1", project: inbox, dueDate: Date()),
+                makeTask(name: "Alpha 2", project: alpha, dueDate: Date()),
+                makeTask(name: "Inbox 2", project: inbox, dueDate: Date()),
+                makeTask(name: "Alpha 3", project: alpha, dueDate: Date()),
+                makeTask(name: "Inbox 3", project: inbox, dueDate: Date()),
+                makeTask(name: "Alpha 4", project: alpha, dueDate: Date()),
+                makeTask(name: "Inbox 4", project: inbox, dueDate: Date())
+            ],
+            habitRows: [],
+            projects: [inbox, alpha, beta],
+            lifeAreas: [],
+            useAdaptiveDayGrouping: true
+        )
+
+        XCTAssertEqual(sections.count, 4)
+        XCTAssertEqual(sections[0].displayStyle, .plain)
+        XCTAssertEqual(sections[0].rows.map(\.title), ["Beta 1"])
+        XCTAssertEqual(sections[1].anchor.title, "Alpha")
+        XCTAssertEqual(sections[1].rows.map(\.title), ["Alpha 1", "Alpha 2", "Alpha 3", "Alpha 4"])
+        XCTAssertEqual(sections[2].displayStyle, .plain)
+        XCTAssertEqual(sections[2].rows.map(\.title), ["Beta 2"])
+        XCTAssertTrue(sections[3].anchor.isInboxProject)
+        XCTAssertEqual(sections[3].rows.map(\.title), ["Inbox 1", "Inbox 2", "Inbox 3", "Inbox 4"])
+    }
+
     private func makeTask(
         id: UUID = UUID(),
         name: String,

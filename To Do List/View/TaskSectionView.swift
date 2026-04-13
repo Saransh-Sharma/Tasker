@@ -459,81 +459,87 @@ struct HomeListSectionView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            TaskSectionHeaderRow(
-                accentColor: accentColor,
-                iconSystemName: section.anchor.iconSystemName,
-                title: section.title,
-                taskCount: section.rows.count,
-                isExpanded: isExpanded,
-                onToggle: {
-                    withAnimation(TaskerAnimation.snappy) {
-                        isExpanded.toggle()
-                    }
-                    TaskerFeedback.selection()
-                },
-                headerActionTitle: headerActionTitle,
-                onHeaderAction: onHeaderAction,
-                headerActionAccessibilityID: headerActionAccessibilityID ?? "home.mixedSection.headerAction.\(section.id)"
-            )
+            if section.showsHeader {
+                TaskSectionHeaderRow(
+                    accentColor: accentColor,
+                    iconSystemName: section.anchor.iconSystemName,
+                    title: section.title,
+                    taskCount: section.rows.count,
+                    isExpanded: isExpanded,
+                    onToggle: {
+                        withAnimation(TaskerAnimation.snappy) {
+                            isExpanded.toggle()
+                        }
+                        TaskerFeedback.selection()
+                    },
+                    headerActionTitle: headerActionTitle,
+                    onHeaderAction: onHeaderAction,
+                    headerActionAccessibilityID: headerActionAccessibilityID ?? "home.mixedSection.headerAction.\(section.id)"
+                )
+            }
 
-            if isExpanded {
-                VStack(spacing: TaskerTheme.Spacing.xs) {
-                    ForEach(openRows) { row in
+            if section.showsHeader == false || isExpanded {
+                rowsContent
+            }
+        }
+        .animation(TaskerAnimation.snappy, value: isExpanded)
+    }
+
+    private var rowsContent: some View {
+        VStack(spacing: TaskerTheme.Spacing.xs) {
+            ForEach(openRows) { row in
+                HomeListRowView(
+                    row: row,
+                    tagNameByID: tagNameByID,
+                    todayXPSoFar: todayXPSoFar,
+                    isGamificationV2Enabled: isGamificationV2Enabled,
+                    isTaskDragEnabled: isTaskDragEnabled,
+                    highlightedTaskID: highlightedTaskID,
+                    onTaskTap: onTaskTap,
+                    onToggleComplete: onToggleComplete,
+                    onDeleteTask: onDeleteTask,
+                    onRescheduleTask: onRescheduleTask,
+                    onPromoteTaskToFocus: onPromoteTaskToFocus,
+                    onTaskDragStarted: onTaskDragStarted,
+                    onCompleteHabit: onCompleteHabit,
+                    onSkipHabit: onSkipHabit,
+                    onLapseHabit: onLapseHabit,
+                    onOpenHabit: onOpenHabit
+                )
+            }
+
+            if resolvedCount > 0 {
+                resolvedToggleRow
+                    .padding(.top, 2)
+
+                if !isResolvedCollapsed {
+                    ForEach(resolvedRows) { row in
                         HomeListRowView(
                             row: row,
                             tagNameByID: tagNameByID,
                             todayXPSoFar: todayXPSoFar,
                             isGamificationV2Enabled: isGamificationV2Enabled,
-                            isTaskDragEnabled: isTaskDragEnabled,
+                            isTaskDragEnabled: false,
                             highlightedTaskID: highlightedTaskID,
                             onTaskTap: onTaskTap,
                             onToggleComplete: onToggleComplete,
                             onDeleteTask: onDeleteTask,
                             onRescheduleTask: onRescheduleTask,
-                            onPromoteTaskToFocus: onPromoteTaskToFocus,
-                            onTaskDragStarted: onTaskDragStarted,
+                            onPromoteTaskToFocus: nil,
                             onCompleteHabit: onCompleteHabit,
                             onSkipHabit: onSkipHabit,
                             onLapseHabit: onLapseHabit,
                             onOpenHabit: onOpenHabit
                         )
                     }
-
-                    if resolvedCount > 0 {
-                        resolvedToggleRow
-                            .padding(.top, 2)
-
-                        if !isResolvedCollapsed {
-                            ForEach(resolvedRows) { row in
-                                HomeListRowView(
-                                    row: row,
-                                    tagNameByID: tagNameByID,
-                                    todayXPSoFar: todayXPSoFar,
-                                    isGamificationV2Enabled: isGamificationV2Enabled,
-                                    isTaskDragEnabled: false,
-                                    highlightedTaskID: highlightedTaskID,
-                                    onTaskTap: onTaskTap,
-                                    onToggleComplete: onToggleComplete,
-                                    onDeleteTask: onDeleteTask,
-                                    onRescheduleTask: onRescheduleTask,
-                                    onPromoteTaskToFocus: nil,
-                                    onCompleteHabit: onCompleteHabit,
-                                    onSkipHabit: onSkipHabit,
-                                    onLapseHabit: onLapseHabit,
-                                    onOpenHabit: onOpenHabit
-                                )
-                            }
-                        }
-                    }
                 }
-                .padding(.top, TaskerTheme.Spacing.xs)
-                .transition(.asymmetric(
-                    insertion: .opacity.combined(with: .move(edge: .top)).combined(with: .scale(scale: 0.98, anchor: .top)),
-                    removal: .opacity
-                ))
             }
         }
-        .animation(TaskerAnimation.snappy, value: isExpanded)
+        .padding(.top, section.showsHeader ? TaskerTheme.Spacing.xs : 0)
+        .transition(.asymmetric(
+            insertion: .opacity.combined(with: .move(edge: .top)).combined(with: .scale(scale: 0.98, anchor: .top)),
+            removal: .opacity
+        ))
     }
 
     private var accentColor: Color {

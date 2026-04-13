@@ -11,6 +11,7 @@ import SwiftUI
 
 public struct FocusZone: View {
     let rows: [HomeTodayRow]
+    let maxVisibleRows: Int?
     let canDrag: Bool
     let pinnedTaskIDs: [UUID]
     let shellPhase: HomeShellPhase
@@ -39,10 +40,15 @@ public struct FocusZone: View {
             return task
         }
     }
+    private var displayedRows: [HomeTodayRow] {
+        guard let maxVisibleRows else { return rows }
+        return Array(rows.prefix(maxVisibleRows))
+    }
     private var hasTaskRows: Bool { !taskRows.isEmpty }
 
     public init(
         rows: [HomeTodayRow],
+        maxVisibleRows: Int? = nil,
         canDrag: Bool,
         pinnedTaskIDs: [UUID] = [],
         shellPhase: HomeShellPhase = .interactive,
@@ -61,6 +67,7 @@ public struct FocusZone: View {
         onDrop: @escaping ([NSItemProvider]) -> Bool
     ) {
         self.rows = rows
+        self.maxVisibleRows = maxVisibleRows
         self.canDrag = canDrag
         self.pinnedTaskIDs = pinnedTaskIDs
         self.shellPhase = shellPhase
@@ -86,7 +93,7 @@ public struct FocusZone: View {
                 .padding(.top, spacing.s8)
                 .padding(.bottom, spacing.s2)
 
-            if rows.isEmpty {
+            if displayedRows.isEmpty {
                 emptyState
                     .padding(.horizontal, spacing.s12)
                     .padding(.bottom, spacing.s8)
@@ -162,7 +169,7 @@ public struct FocusZone: View {
                 .font(.system(size: 20, weight: .regular))
                 .foregroundColor(Color.tasker.accentPrimary.opacity(0.42))
 
-            Text(LocalizedStringKey("Add a few tasks for today and Focus Now will pick the best next moves"))
+            Text(LocalizedStringKey("Add tasks for today to see your next 3."))
                 .font(.tasker(.caption1))
                 .foregroundColor(Color.tasker.textSecondary)
                 .multilineTextAlignment(.center)
@@ -173,7 +180,7 @@ public struct FocusZone: View {
 
     private var taskList: some View {
         VStack(spacing: 0) {
-            ForEach(Array(rows.enumerated()), id: \.element.id) { index, row in
+            ForEach(Array(displayedRows.enumerated()), id: \.element.id) { index, row in
                 if index > 0 {
                     Divider()
                         .padding(.leading, 32)
@@ -185,7 +192,6 @@ public struct FocusZone: View {
                     .modifier(FocusStaggerModifier(isEnabled: !prefersBudgetVisuals, index: index))
             }
         }
-        .accessibilityIdentifier("home.focusZone.taskList")
     }
 
     @ViewBuilder
@@ -196,17 +202,9 @@ public struct FocusZone: View {
                 task: task,
                 insight: insightForTaskID(task.id),
                 canDrag: canDrag,
-                isPinned: pinnedTaskIDs.contains(task.id),
                 showStartFocusAction: onStartFocus != nil && V2FeatureFlags.gamificationFocusSessionsEnabled,
                 onTap: { onTaskTap(task) },
                 onToggleComplete: { onToggleComplete(task) },
-                onPinToggle: {
-                    if pinnedTaskIDs.contains(task.id) {
-                        onUnpinTask(task)
-                    } else {
-                        onPinTask(task)
-                    }
-                },
                 onStartFocus: { onStartFocus?(task) },
                 onDragStarted: { onTaskDragStarted(task) }
             )
@@ -281,20 +279,52 @@ struct FocusZoneBadgePresentation: Equatable {
     let tone: FocusZoneBadgeTone
 }
 
+struct FocusZoneSecondarySegment: Equatable {
+    enum Kind: Equatable {
+        case urgency(FocusZoneBadgeTone)
+        case metadata
+    }
+
+    let text: String
+    let kind: Kind
+}
+
 struct FocusZoneRowPresentation: Equatable {
     let title: String
-    let secondaryLineText: String?
-    let visibleBadge: FocusZoneBadgePresentation?
+    let secondarySegments: [FocusZoneSecondarySegment]
+
+    var secondaryLineText: String? {
+        guard secondarySegments.isEmpty == false else { return nil }
+        return secondarySegments.map(\.text).joined(separator: " · ")
+    }
 
     static func make(task: TaskDefinition, insight: EvaFocusTaskInsight?, now: Date = Date()) -> FocusZoneRowPresentation {
         _ = insight
         let timePressure = FocusZoneTimePressureResolver.resolve(task: task, now: now)
         let metadata = FocusZoneSecondaryLineResolver.resolve(task: task)
+        var secondarySegments: [FocusZoneSecondarySegment] = []
+
+        if let timePressure {
+            secondarySegments.append(
+                FocusZoneSecondarySegment(
+                    text: timePressure.text,
+                    kind: .urgency(timePressure.tone)
+                )
+            )
+        }
+
+        if let metadataText = metadata.text, metadataText.isEmpty == false {
+            secondarySegments.append(
+                FocusZoneSecondarySegment(
+                    text: metadataText,
+                    kind: .metadata
+                )
+            )
+        }
 
         return FocusZoneRowPresentation(
             title: task.title,
-            secondaryLineText: metadata.text,
-            visibleBadge: timePressure
+            secondarySegments: secondarySegments
         )
     }
 }
@@ -304,7 +334,8 @@ enum FocusZoneTimePressureResolver {
         guard !task.isComplete else { return nil }
 
         if let dueDate = task.dueDate, let lateLabel = OverdueAgeFormatter.lateLabel(dueDate: dueDate, now: now) {
-            return FocusZoneBadgePresentation(text: lateLabel, tone: .danger)
+            let normalizedLateLabel = lateLabel.replacingOccurrences(of: " late", with: "")
+            return FocusZoneBadgePresentation(text: "Late by \(normalizedLateLabel)", tone: .danger)
         }
 
         if isDueSoon(task: task, now: now) {
@@ -353,11 +384,9 @@ private struct FocusZoneRow: View {
     let task: TaskDefinition
     let insight: EvaFocusTaskInsight?
     let canDrag: Bool
-    let isPinned: Bool
     let showStartFocusAction: Bool
     let onTap: () -> Void
     let onToggleComplete: () -> Void
-    let onPinToggle: () -> Void
     let onStartFocus: () -> Void
     let onDragStarted: () -> Void
 
@@ -374,7 +403,7 @@ private struct FocusZoneRow: View {
             .frame(width: 24, height: 24)
             .padding(.top, 2)
 
-            Button(action: onTap) {
+            HStack(alignment: .top, spacing: spacing.s8) {
                 VStack(alignment: .leading, spacing: spacing.s2) {
                     Text(presentation.title)
                         .font(.tasker(.callout).weight(.semibold))
@@ -382,28 +411,18 @@ private struct FocusZoneRow: View {
                         .lineLimit(2)
                         .multilineTextAlignment(.leading)
 
-                    if let secondaryLineText = presentation.secondaryLineText {
-                        Text(secondaryLineText)
-                            .font(.tasker(.caption1))
-                            .foregroundColor(Color.tasker.textSecondary)
-                            .lineLimit(1)
-                    }
+                    secondaryLineView
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
-            .buttonStyle(.plain)
-            .contentShape(Rectangle())
-            .accessibilityIdentifier("home.focus.task.\(task.id.uuidString)")
-            .accessibilityLabel(task.title)
-
-            if let visibleBadge = presentation.visibleBadge {
-                statusChipBadge(visibleBadge)
-                    .frame(minWidth: 68, alignment: .trailing)
-            }
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
         .padding(.vertical, 6)
         .padding(.horizontal, spacing.s4)
         .contentShape(Rectangle())
+        .onTapGesture {
+            onTap()
+        }
         .swipeActions(edge: .leading, allowsFullSwipe: false) {
             Button {
                 onToggleComplete()
@@ -421,21 +440,8 @@ private struct FocusZoneRow: View {
                 }
                 .tint(Color.tasker.accentPrimary)
             }
-
-            Button {
-                onPinToggle()
-            } label: {
-                Label(isPinned ? "Remove from Focus Now" : "Keep in Focus Now", systemImage: isPinned ? "pin.slash" : "pin")
-            }
-            .tint(isPinned ? Color.tasker.textSecondary : Color.tasker.accentPrimary)
         }
         .contextMenu {
-            Button {
-                onPinToggle()
-            } label: {
-                Label(isPinned ? "Remove from Focus Now" : "Keep in Focus Now", systemImage: isPinned ? "pin.slash" : "pin")
-            }
-
             if showStartFocusAction && !task.isComplete {
                 Button {
                     onStartFocus()
@@ -451,22 +457,49 @@ private struct FocusZoneRow: View {
             }
         }
         .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("home.focus.task.\(task.id.uuidString)")
+        .accessibilityLabel(task.title)
+        .accessibilityHint("Opens task details")
+        .accessibilityAddTraits(.isButton)
+        .accessibilityAction {
+            onTap()
+        }
     }
 
-    private func statusChipBadge(_ badge: FocusZoneBadgePresentation) -> some View {
-        Text(badge.text)
-            .font(.tasker(.caption2).weight(.semibold))
-            .foregroundColor(badge.tone.foregroundColor)
-            .padding(.horizontal, 6)
-            .padding(.vertical, 3)
-            .background(
-                Capsule()
-                    .fill(badge.tone.foregroundColor.opacity(0.12))
+    @ViewBuilder
+    private var secondaryLineView: some View {
+        if presentation.secondarySegments.isEmpty == false {
+            (
+                presentation.secondarySegments.enumerated().reduce(Text("")) { partialResult, entry in
+                    let segmentText = styledSecondaryText(for: entry.element)
+                    if entry.offset == 0 {
+                        return partialResult + segmentText
+                    }
+                    return partialResult
+                        + Text(" · ")
+                            .font(.tasker(.caption1))
+                            .foregroundColor(Color.tasker.textTertiary)
+                        + segmentText
+                }
             )
-            .fixedSize()
-            .transition(.opacity.combined(with: .scale(scale: 0.96)))
+            .font(.tasker(.caption1))
+            .lineLimit(1)
+        }
     }
 
+    @MainActor
+    private func styledSecondaryText(for segment: FocusZoneSecondarySegment) -> Text {
+        switch segment.kind {
+        case .urgency(let tone):
+            return Text(segment.text)
+                .font(.tasker(.caption1))
+                .foregroundColor(tone.foregroundColor)
+        case .metadata:
+            return Text(segment.text)
+                .font(.tasker(.caption1))
+                .foregroundColor(Color.tasker.textSecondary)
+        }
+    }
 }
 
 extension View {
@@ -486,6 +519,7 @@ struct FocusZone_Previews: PreviewProvider {
         VStack(spacing: 20) {
             FocusZone(
                 rows: [],
+                maxVisibleRows: 3,
                 canDrag: true,
                 onTaskTap: { _ in },
                 onToggleComplete: { _ in },
@@ -498,6 +532,7 @@ struct FocusZone_Previews: PreviewProvider {
                     .task(TaskDefinition(title: "Review pull requests", priority: .high, dueDate: Date(), estimatedDuration: 900)),
                     .task(TaskDefinition(projectName: "Website", title: "Design landing page", priority: .low, dueDate: Date().addingTimeInterval(7_200)))
                 ],
+                maxVisibleRows: 3,
                 canDrag: true,
                 pinnedTaskIDs: [],
                 onTaskTap: { _ in },

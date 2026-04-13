@@ -2155,6 +2155,7 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
                 let manageLifeAreas = presentationDependencyContainer.coordinator.manageLifeAreas
                 let manageProjects = presentationDependencyContainer.coordinator.manageProjects
                 let createTaskDefinition = presentationDependencyContainer.coordinator.createTaskDefinition
+                let createHabit = presentationDependencyContainer.coordinator.createHabit
 
                 let lifeArea = try await manageLifeAreas.createAsync(
                     name: "Focus Systems",
@@ -2242,6 +2243,35 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
 
                 for request in requests {
                     _ = try await createTaskDefinition.executeAsync(request: request)
+                }
+
+                let habitRequests = [
+                    CreateHabitRequest(
+                        title: "Reset desk before shutdown",
+                        lifeAreaID: lifeArea.id,
+                        projectID: project.id,
+                        kind: .positive,
+                        trackingMode: .dailyCheckIn,
+                        icon: HabitIconMetadata(symbolName: "sparkles", categoryKey: "focus"),
+                        colorHex: HabitColorFamily.blue.canonicalHex,
+                        targetConfig: HabitTargetConfig(targetCountPerDay: 1),
+                        cadence: .daily()
+                    ),
+                    CreateHabitRequest(
+                        title: "No doomscrolling after dinner",
+                        lifeAreaID: lifeArea.id,
+                        projectID: project.id,
+                        kind: .negative,
+                        trackingMode: .lapseOnly,
+                        icon: HabitIconMetadata(symbolName: "moon.zzz.fill", categoryKey: "recovery"),
+                        colorHex: HabitColorFamily.coral.canonicalHex,
+                        targetConfig: HabitTargetConfig(targetCountPerDay: 1),
+                        cadence: .daily()
+                    )
+                ]
+
+                for request in habitRequests {
+                    _ = try await createHabit.executeAsync(request: request)
                 }
 
                 UserDefaults.standard.set(

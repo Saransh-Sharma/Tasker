@@ -134,6 +134,7 @@ struct TaskListView: View {
     private static let contentHorizontalInset: CGFloat = TaskerTheme.Spacing.lg
 
     let headerContent: AnyView?
+    let footerContent: AnyView?
     let morningTasks: [TaskDefinition]
     let eveningTasks: [TaskDefinition]
     let overdueTasks: [TaskDefinition]
@@ -184,6 +185,7 @@ struct TaskListView: View {
     /// Initializes a new instance.
     init(
         headerContent: AnyView? = nil,
+        footerContent: AnyView? = nil,
         morningTasks: [TaskDefinition],
         eveningTasks: [TaskDefinition],
         overdueTasks: [TaskDefinition],
@@ -226,6 +228,7 @@ struct TaskListView: View {
         bottomContentInset: CGFloat = TaskListView.defaultBottomContentInset
     ) {
         self.headerContent = headerContent
+        self.footerContent = footerContent
         self.morningTasks = morningTasks
         self.eveningTasks = eveningTasks
         self.overdueTasks = overdueTasks
@@ -287,6 +290,20 @@ struct TaskListView: View {
                     } else {
                         regularTaskContent
                             .padding(.horizontal, Self.contentHorizontalInset)
+
+                        if let footerContent {
+                            footerContent
+                                .padding(.horizontal, Self.contentHorizontalInset)
+                        }
+
+                        if !agendaTailItems.isEmpty {
+                            VStack(alignment: .leading, spacing: TaskerTheme.Spacing.lg) {
+                                ForEach(agendaTailItems) { item in
+                                    agendaTailItemView(item)
+                                }
+                            }
+                            .padding(.horizontal, Self.contentHorizontalInset)
+                        }
                     }
 
                     // Empty state
@@ -586,11 +603,6 @@ struct TaskListView: View {
             }
         }
 
-        if !agendaTailItems.isEmpty {
-            ForEach(agendaTailItems) { item in
-                agendaTailItemView(item)
-            }
-        }
     }
 
     @ViewBuilder
@@ -752,6 +764,9 @@ struct TaskListView: View {
             if !agendaTailItems.isEmpty {
                 return false
             }
+            if footerContent != nil {
+                return false
+            }
             return morningTasks.isEmpty
                 && eveningTasks.isEmpty
                 && overdueTasks.isEmpty
@@ -762,6 +777,10 @@ struct TaskListView: View {
     }
 
     private func stableSectionCollapseID(for section: HomeListSection) -> UUID {
+        if section.showsHeader == false {
+            return deterministicSectionID(for: section.id)
+        }
+
         switch section.anchor {
         case .project(let id, _, _, _):
             return id
@@ -774,12 +793,14 @@ struct TaskListView: View {
             return deterministicSectionID(for: "due_today_summary")
         case .focusNow:
             return deterministicSectionID(for: "focus_now")
+        case .plainList(let id):
+            return deterministicSectionID(for: "plain_list:\(id)")
         }
     }
 
     private func headerActionTitle(for section: HomeListSection, index: Int) -> String? {
         guard activeQuickView == .today else { return nil }
-        if section.anchor.isInboxProject {
+        if section.showsHeader, section.anchor.isInboxProject {
             return inboxHeaderActionTitle
         }
         return nil
@@ -787,7 +808,7 @@ struct TaskListView: View {
 
     private func headerAction(for section: HomeListSection, index: Int) -> (() -> Void)? {
         guard activeQuickView == .today else { return nil }
-        if section.anchor.isInboxProject {
+        if section.showsHeader, section.anchor.isInboxProject {
             return onInboxHeaderAction
         }
         return nil
@@ -795,7 +816,7 @@ struct TaskListView: View {
 
     private func headerAccessibilityID(for section: HomeListSection, index: Int) -> String? {
         guard activeQuickView == .today else { return nil }
-        if section.anchor.isInboxProject {
+        if section.showsHeader, section.anchor.isInboxProject {
             return "home.inbox.headerAction"
         }
         return nil

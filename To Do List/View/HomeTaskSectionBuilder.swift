@@ -242,8 +242,16 @@ enum HomeMixedSectionBuilder {
         taskRows: [TaskDefinition],
         habitRows: [HomeHabitRow],
         projects: [Project],
-        lifeAreas: [LifeArea]
+        lifeAreas: [LifeArea],
+        useAdaptiveDayGrouping: Bool = false
     ) -> [HomeListSection] {
+        if useAdaptiveDayGrouping, habitRows.isEmpty {
+            return buildAdaptiveDayTaskSections(
+                taskRows: taskRows,
+                projects: projects
+            )
+        }
+
         let rows = taskRows.map(HomeTodayRow.task) + habitRows.map(HomeTodayRow.habit)
         guard rows.isEmpty == false else { return [] }
 
@@ -258,6 +266,98 @@ enum HomeMixedSectionBuilder {
     static func buildDueTodaySection(rows: [HomeTodayRow]) -> HomeListSection? {
         guard rows.isEmpty == false else { return nil }
         return HomeListSection(anchor: .dueTodaySummary, rows: rows, isOverdueSection: false)
+    }
+
+    private static func buildAdaptiveDayTaskSections(
+        taskRows: [TaskDefinition],
+        projects: [Project]
+    ) -> [HomeListSection] {
+        guard taskRows.isEmpty == false else { return [] }
+
+        var rowsByProjectID: [UUID: [HomeTodayRow]] = [:]
+        var projectByID: [UUID: Project] = [:]
+
+        for task in taskRows {
+            let project = resolveProject(
+                projectID: task.projectID,
+                projectName: task.projectName,
+                projects: projects
+            )
+            projectByID[project.id] = project
+            rowsByProjectID[project.id, default: []].append(.task(task))
+        }
+
+        let qualifyingProjectIDs = Set(
+            rowsByProjectID.compactMap { projectID, rows in
+                rows.count >= 4 ? projectID : nil
+            }
+        )
+
+        guard qualifyingProjectIDs.isEmpty == false else {
+            return [
+                HomeListSection(
+                    anchor: .plainList(id: "day_plain_0"),
+                    rows: taskRows.map(HomeTodayRow.task),
+                    displayStyle: .plain,
+                    identifier: "day_plain_0"
+                )
+            ]
+        }
+
+        var sections: [HomeListSection] = []
+        var emittedQualifiedProjectIDs = Set<UUID>()
+        var pendingPlainRows: [HomeTodayRow] = []
+        var plainIndex = 0
+
+        func flushPlainRows() {
+            guard pendingPlainRows.isEmpty == false else { return }
+            let identifier = "day_plain_\(plainIndex)"
+            sections.append(
+                HomeListSection(
+                    anchor: .plainList(id: identifier),
+                    rows: pendingPlainRows,
+                    displayStyle: .plain,
+                    identifier: identifier
+                )
+            )
+            plainIndex += 1
+            pendingPlainRows.removeAll(keepingCapacity: true)
+        }
+
+        for task in taskRows {
+            let project = resolveProject(
+                projectID: task.projectID,
+                projectName: task.projectName,
+                projects: projects
+            )
+
+            guard qualifyingProjectIDs.contains(project.id) else {
+                pendingPlainRows.append(.task(task))
+                continue
+            }
+
+            guard emittedQualifiedProjectIDs.contains(project.id) == false else {
+                continue
+            }
+
+            flushPlainRows()
+            emittedQualifiedProjectIDs.insert(project.id)
+
+            sections.append(
+                HomeListSection(
+                    anchor: .project(
+                        id: project.id,
+                        name: project.name,
+                        iconSystemName: "tray.full.fill",
+                        isInbox: isInboxProject(project)
+                    ),
+                    rows: rowsByProjectID[project.id] ?? []
+                )
+            )
+        }
+
+        flushPlainRows()
+        return sections
     }
 
     private static func buildSections(

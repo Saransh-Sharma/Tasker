@@ -12,8 +12,7 @@ final class FocusZonePresentationTests: XCTestCase {
 
         let presentation = FocusZoneRowPresentation.make(task: overdueTask, insight: nil, now: now)
 
-        XCTAssertEqual(presentation.visibleBadge?.text, "2d late")
-        XCTAssertEqual(presentation.visibleBadge?.tone, .danger)
+        XCTAssertEqual(presentation.secondaryLineText, "Late by 2d · Inbox")
     }
 
     func testDueTodayTimingShowsWhenTaskIsNotDueSoon() {
@@ -32,7 +31,7 @@ final class FocusZonePresentationTests: XCTestCase {
 
         let expectedTime = (Calendar.current.date(byAdding: .hour, value: 8, to: now) ?? now)
             .formatted(date: .omitted, time: .shortened)
-        XCTAssertEqual(presentation.visibleBadge?.text, "Due \(expectedTime)")
+        XCTAssertEqual(presentation.secondaryLineText, "Due \(expectedTime) · Inbox")
     }
 
     func testDueSoonPrimaryBadgeSuppressesDueTodayTiming() {
@@ -44,7 +43,7 @@ final class FocusZonePresentationTests: XCTestCase {
 
         let presentation = FocusZoneRowPresentation.make(task: dueSoonTask, insight: nil, now: now)
 
-        XCTAssertEqual(presentation.visibleBadge?.text, "Due soon")
+        XCTAssertEqual(presentation.secondaryLineText, "Due soon · Inbox")
     }
 
     func testDueBadgeUsesInjectedNowForSameDayComparison() {
@@ -59,13 +58,7 @@ final class FocusZonePresentationTests: XCTestCase {
 
         let presentation = FocusZoneRowPresentation.make(task: task, insight: nil, now: now)
 
-        XCTAssertEqual(
-            presentation.visibleBadge,
-            FocusZoneBadgePresentation(
-                text: "Due \(dueDate.formatted(date: .omitted, time: .shortened))",
-                tone: .warning
-            )
-        )
+        XCTAssertEqual(presentation.secondaryLineText, "Due \(dueDate.formatted(date: .omitted, time: .shortened)) · Inbox")
     }
 
     func testQuickWinDoesNotRenderWithoutTimePressure() {
@@ -78,7 +71,7 @@ final class FocusZonePresentationTests: XCTestCase {
 
         let presentation = FocusZoneRowPresentation.make(task: task, insight: nil, now: now)
 
-        XCTAssertNil(presentation.visibleBadge)
+        XCTAssertEqual(presentation.secondaryLineText, "Inbox")
     }
 
     func testCompactPresentationHidesPriorityAndKeepsContext() {
@@ -92,7 +85,6 @@ final class FocusZonePresentationTests: XCTestCase {
         let presentation = FocusZoneRowPresentation.make(task: task, insight: nil)
 
         XCTAssertEqual(presentation.secondaryLineText, "Inbox")
-        XCTAssertNil(presentation.visibleBadge)
     }
 
     func testDependencyFreeTaskDoesNotShowUnblockedBadge() {
@@ -103,7 +95,7 @@ final class FocusZonePresentationTests: XCTestCase {
 
         let presentation = FocusZoneRowPresentation.make(task: task, insight: nil)
 
-        XCTAssertNil(presentation.visibleBadge)
+        XCTAssertEqual(presentation.secondaryLineText, "Inbox")
     }
 
     func testBlockedTaskDoesNotShowVisibleBadgeWithoutUrgency() {
@@ -123,7 +115,7 @@ final class FocusZonePresentationTests: XCTestCase {
 
         let presentation = FocusZoneRowPresentation.make(task: blockedTask, insight: nil)
 
-        XCTAssertNil(presentation.visibleBadge)
+        XCTAssertEqual(presentation.secondaryLineText, "Inbox")
     }
 
     private func makeTask(
