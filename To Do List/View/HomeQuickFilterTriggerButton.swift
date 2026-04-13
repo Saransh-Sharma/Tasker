@@ -64,12 +64,10 @@ public struct HomeQuickFilterTriggerButton: View {
                         .lineLimit(1)
                 }
 
-                // Chevron indicator
-                Image(systemName: "chevron.down")
+                // Filter indicator
+                Image(systemName: "line.3.horizontal.decrease")
                     .font(.system(size: 12, weight: .medium))
                     .foregroundColor(Color.tasker.textSecondary)
-                    .rotationEffect(.degrees(isOpen ? 180 : 0))
-                    .animation(reduceMotion ? nil : TaskerAnimation.quick, value: isOpen)
             }
             .padding(.horizontal, spacing.s12)
             .padding(.vertical, spacing.s8)

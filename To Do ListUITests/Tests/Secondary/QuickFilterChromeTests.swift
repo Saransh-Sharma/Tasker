@@ -1,23 +1,24 @@
 import XCTest
 
 final class QuickFilterChromeTests: BaseUITest {
-    private let quickFilterMinimumExpandedWidth: CGFloat = 84
+    private let quickFilterMaximumIconWidth: CGFloat = 44
 
-    func testTodayQuickFilterShowsTitleOnColdLaunchAndAfterReturningFromOtherViews() throws {
+    func testTodayQuickFilterShowsIconOnlyOnColdLaunchAndAfterReturningFromOtherViews() throws {
         let homePage = HomePage(app: app)
         let quickFilterButton = homePage.projectFilterButton
-        let quickFilterTitleLabel = homePage.quickFilterTitleLabel
 
         guard quickFilterButton.waitForExistence(timeout: 3) else {
             throw XCTSkip("Quick view trigger is not reachable in the current launch state")
         }
 
-        XCTAssertTrue(quickFilterTitleLabel.waitForExistence(timeout: 3), "Today quick filter should show its title on cold launch")
-        XCTAssertEqual(quickFilterTitleLabel.label, "Today", "Today quick filter should render the Today title on cold launch")
-        XCTAssertGreaterThan(
+        XCTAssertFalse(
+            homePage.topChrome.staticTexts["Today"].exists,
+            "Home scope trigger should not render a visible Today title on cold launch"
+        )
+        XCTAssertLessThanOrEqual(
             quickFilterButton.frame.width,
-            quickFilterMinimumExpandedWidth,
-            "Today quick filter should be wider than an icon-only pill on cold launch"
+            quickFilterMaximumIconWidth,
+            "Today quick filter should stay icon-sized on cold launch"
         )
 
         quickFilterButton.tap()
@@ -34,12 +35,14 @@ final class QuickFilterChromeTests: BaseUITest {
         XCTAssertTrue(todayButton.waitForExistence(timeout: 3), "Today quick view should be visible in the menu")
         todayButton.tap()
 
-        XCTAssertTrue(quickFilterTitleLabel.waitForExistence(timeout: 3), "Today quick filter should still show its title after returning from another quick view")
-        XCTAssertEqual(quickFilterTitleLabel.label, "Today", "Today quick filter should restore the Today title after returning from another quick view")
-        XCTAssertGreaterThan(
+        XCTAssertFalse(
+            homePage.topChrome.staticTexts["Today"].exists,
+            "Home scope trigger should remain icon-only after returning to Today"
+        )
+        XCTAssertLessThanOrEqual(
             quickFilterButton.frame.width,
-            quickFilterMinimumExpandedWidth,
-            "Today quick filter should stay wider than an icon-only pill after returning from another quick view"
+            quickFilterMaximumIconWidth,
+            "Today quick filter should remain icon-sized after returning to Today"
         )
     }
 
