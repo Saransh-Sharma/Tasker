@@ -239,6 +239,7 @@ struct HomeCompactHeaderView: View {
                 .lineLimit(1)
                 .minimumScaleFactor(0.6)
                 .textCase(.uppercase)
+                .offset(y: 10)
         }
         .frame(maxWidth: .infinity)
         .frame(height: 36)
