@@ -225,7 +225,7 @@ struct HomeCompactHeaderView: View {
     private var layeredDateLabel: some View {
         ZStack {
             Text(presentation.backgroundDateText ?? "")
-                .font(.system(size: 60, weight: .heavy, design: .rounded))
+                .font(.system(size: 80, weight: .heavy, design: .rounded))
                 .tracking(-0.4)
                 .foregroundStyle(watermarkDateColor)
                 .lineLimit(1)
@@ -258,9 +258,9 @@ struct HomeCompactHeaderView: View {
     private var watermarkDateColor: Color {
         switch colorScheme {
         case .dark:
-            return Color.tasker.statusWarning.opacity(0.21)
+            return Color.tasker.statusWarning.opacity(0.40)
         default:
-            return Color.tasker.statusWarning.opacity(0.12)
+            return Color.tasker.statusWarning.opacity(0.30)
         }
     }
 
