@@ -258,18 +258,18 @@ struct HomeCompactHeaderView: View {
     private var watermarkDateColor: Color {
         switch colorScheme {
         case .dark:
-            return Color(red: 0.29, green: 0.33, blue: 0.41).opacity(0.24)
+            return Color.tasker.statusWarning.opacity(0.21)
         default:
-            return Color(red: 0.40, green: 0.45, blue: 0.55).opacity(0.14)
+            return Color.tasker.statusWarning.opacity(0.12)
         }
     }
 
     private var foregroundDateColor: Color {
         switch colorScheme {
         case .dark:
-            return Color.white.opacity(0.98)
+            return Color.white.opacity(0.955)
         default:
-            return Color.tasker.textPrimary.opacity(0.94)
+            return Color.tasker.textPrimary.opacity(0.87)
         }
     }
 
