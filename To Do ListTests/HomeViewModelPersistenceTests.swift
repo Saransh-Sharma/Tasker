@@ -404,6 +404,172 @@ final class HomeViewModelPersistenceTests: XCTestCase {
         defaults.removePersistentDomain(forName: suiteName)
     }
 
+    func testTodayHomeExcludesPinnedFocusTasksFromAgendaAndSections() {
+        let suiteName = "HomeViewModelPersistenceTests.FocusDedupPinned.\(UUID().uuidString)"
+        guard let defaults = UserDefaults(suiteName: suiteName) else {
+            return XCTFail("Failed to create test UserDefaults suite")
+        }
+        defaults.removePersistentDomain(forName: suiteName)
+
+        let inbox = Project.createInbox()
+        let pinnedLow = makeTask(name: "Pinned Low", project: inbox, dueDate: Date(), priority: .low)
+        let highA = makeTask(name: "High A", project: inbox, dueDate: Date(), priority: .high)
+        let highB = makeTask(name: "High B", project: inbox, dueDate: Date(), priority: .high)
+        let backlog = makeTask(name: "Backlog", project: inbox, dueDate: Date(), priority: .low)
+
+        let taskRepository = HomeViewModelMockTaskRepository(tasks: [pinnedLow, highA, highB, backlog])
+        let projectRepository = HomeViewModelMockProjectRepository(projects: [inbox])
+        let coordinator = UseCaseCoordinator(taskRepository: taskRepository, projectRepository: projectRepository)
+
+        let viewModel = HomeViewModel(useCaseCoordinator: coordinator, userDefaults: defaults)
+        waitForMainQueueFlush()
+
+        XCTAssertEqual(viewModel.pinTaskToFocus(pinnedLow.id), .pinned)
+        waitForMainQueueFlush()
+
+        let focusTaskIDs = visibleFocusTaskIDs(in: viewModel.focusRows)
+        XCTAssertTrue(focusTaskIDs.contains(pinnedLow.id))
+
+        let agendaTaskIDs = taskIDs(in: viewModel.todaySections)
+        let dueTodayTaskIDs = taskIDs(in: viewModel.dueTodayRows)
+
+        XCTAssertFalse(agendaTaskIDs.contains(pinnedLow.id))
+        XCTAssertFalse(dueTodayTaskIDs.contains(pinnedLow.id))
+        XCTAssertTrue(agendaTaskIDs.isDisjoint(with: focusTaskIDs))
+        XCTAssertTrue(dueTodayTaskIDs.isDisjoint(with: focusTaskIDs))
+
+        defaults.removePersistentDomain(forName: suiteName)
+    }
+
+    func testTodayHomeExcludesAllVisibleFocusTasksFromAgenda() {
+        let suiteName = "HomeViewModelPersistenceTests.FocusDedupAllVisible.\(UUID().uuidString)"
+        guard let defaults = UserDefaults(suiteName: suiteName) else {
+            return XCTFail("Failed to create test UserDefaults suite")
+        }
+        defaults.removePersistentDomain(forName: suiteName)
+
+        let inbox = Project.createInbox()
+        let tasks = [
+            makeTask(name: "Focus A", project: inbox, dueDate: Date(), priority: .high),
+            makeTask(name: "Focus B", project: inbox, dueDate: Date(), priority: .high),
+            makeTask(name: "Focus C", project: inbox, dueDate: Date(), priority: .high),
+            makeTask(name: "List A", project: inbox, dueDate: Date(), priority: .low),
+            makeTask(name: "List B", project: inbox, dueDate: Date(), priority: .low)
+        ]
+
+        let taskRepository = HomeViewModelMockTaskRepository(tasks: tasks)
+        let projectRepository = HomeViewModelMockProjectRepository(projects: [inbox])
+        let coordinator = UseCaseCoordinator(taskRepository: taskRepository, projectRepository: projectRepository)
+
+        let viewModel = HomeViewModel(useCaseCoordinator: coordinator, userDefaults: defaults)
+        waitForMainQueueFlush()
+
+        let focusTaskIDs = visibleFocusTaskIDs(in: viewModel.focusRows)
+        let agendaTaskIDs = taskIDs(in: viewModel.todaySections)
+        let dueTodayTaskIDs = taskIDs(in: viewModel.dueTodayRows)
+
+        XCTAssertEqual(focusTaskIDs.count, 3)
+        XCTAssertTrue(agendaTaskIDs.isDisjoint(with: focusTaskIDs))
+        XCTAssertTrue(dueTodayTaskIDs.isDisjoint(with: focusTaskIDs))
+        XCTAssertEqual(agendaTaskIDs.count, 2)
+        XCTAssertEqual(dueTodayTaskIDs.count, 2)
+
+        defaults.removePersistentDomain(forName: suiteName)
+    }
+
+    func testTodayHomeDropsProjectSectionWhenFocusDedupLeavesOnlyThreeTasks() {
+        let suiteName = "HomeViewModelPersistenceTests.FocusDedupProjectThreshold.\(UUID().uuidString)"
+        guard let defaults = UserDefaults(suiteName: suiteName) else {
+            return XCTFail("Failed to create test UserDefaults suite")
+        }
+        defaults.removePersistentDomain(forName: suiteName)
+
+        let inbox = Project.createInbox()
+        let work = Project(id: UUID(), name: "Work", icon: .work)
+        let side = Project(id: UUID(), name: "Side", icon: .creative)
+
+        let pinnedWork = makeTask(name: "Work 1", project: work, dueDate: Date(), priority: .low)
+        let work2 = makeTask(name: "Work 2", project: work, dueDate: Date(), priority: .low)
+        let work3 = makeTask(name: "Work 3", project: work, dueDate: Date(), priority: .low)
+        let work4 = makeTask(name: "Work 4", project: work, dueDate: Date(), priority: .low)
+        let inboxHigh = makeTask(name: "Inbox High", project: inbox, dueDate: Date(), priority: .high)
+        let sideHigh = makeTask(name: "Side High", project: side, dueDate: Date(), priority: .high)
+
+        let taskRepository = HomeViewModelMockTaskRepository(tasks: [pinnedWork, work2, work3, work4, inboxHigh, sideHigh])
+        let projectRepository = HomeViewModelMockProjectRepository(projects: [inbox, work, side])
+        let coordinator = UseCaseCoordinator(taskRepository: taskRepository, projectRepository: projectRepository)
+
+        let viewModel = HomeViewModel(useCaseCoordinator: coordinator, userDefaults: defaults)
+        waitForMainQueueFlush()
+
+        XCTAssertEqual(viewModel.pinTaskToFocus(pinnedWork.id), .pinned)
+        waitForMainQueueFlush()
+
+        XCTAssertEqual(viewModel.todaySections.count, 1)
+        XCTAssertFalse(viewModel.todaySections[0].showsHeader)
+        XCTAssertEqual(taskTitles(in: viewModel.todaySections), ["Work 2", "Work 3", "Work 4"])
+
+        defaults.removePersistentDomain(forName: suiteName)
+    }
+
+    func testTodayHomeDropsInboxSectionWhenFocusDedupLeavesOnlyThreeInboxTasks() {
+        let suiteName = "HomeViewModelPersistenceTests.FocusDedupInboxThreshold.\(UUID().uuidString)"
+        guard let defaults = UserDefaults(suiteName: suiteName) else {
+            return XCTFail("Failed to create test UserDefaults suite")
+        }
+        defaults.removePersistentDomain(forName: suiteName)
+
+        let inbox = Project.createInbox()
+        let work = Project(id: UUID(), name: "Work", icon: .work)
+        let side = Project(id: UUID(), name: "Side", icon: .creative)
+
+        let pinnedInbox = makeTask(name: "Inbox 1", project: inbox, dueDate: Date(), priority: .low)
+        let inbox2 = makeTask(name: "Inbox 2", project: inbox, dueDate: Date(), priority: .low)
+        let inbox3 = makeTask(name: "Inbox 3", project: inbox, dueDate: Date(), priority: .low)
+        let inbox4 = makeTask(name: "Inbox 4", project: inbox, dueDate: Date(), priority: .low)
+        let workHigh = makeTask(name: "Work High", project: work, dueDate: Date(), priority: .high)
+        let sideHigh = makeTask(name: "Side High", project: side, dueDate: Date(), priority: .high)
+
+        let taskRepository = HomeViewModelMockTaskRepository(tasks: [pinnedInbox, inbox2, inbox3, inbox4, workHigh, sideHigh])
+        let projectRepository = HomeViewModelMockProjectRepository(projects: [inbox, work, side])
+        let coordinator = UseCaseCoordinator(taskRepository: taskRepository, projectRepository: projectRepository)
+
+        let viewModel = HomeViewModel(useCaseCoordinator: coordinator, userDefaults: defaults)
+        waitForMainQueueFlush()
+
+        XCTAssertEqual(viewModel.pinTaskToFocus(pinnedInbox.id), .pinned)
+        waitForMainQueueFlush()
+
+        XCTAssertFalse(viewModel.todaySections.contains { $0.showsHeader && $0.anchor.isInboxProject })
+        XCTAssertEqual(taskTitles(in: viewModel.todaySections), ["Inbox 2", "Inbox 3", "Inbox 4"])
+
+        defaults.removePersistentDomain(forName: suiteName)
+    }
+
+    func testVisibleFocusTaskExclusionIgnoresHabitRows() {
+        let inbox = Project.createInbox()
+        let task = makeTask(name: "Task", project: inbox, dueDate: Date(), priority: .low)
+        let habit = HomeHabitRow(
+            habitID: UUID(),
+            title: "Habit",
+            kind: .positive,
+            trackingMode: .dailyCheckIn,
+            lifeAreaName: "Health",
+            projectID: inbox.id,
+            projectName: inbox.name,
+            iconSymbolName: "drop.fill",
+            dueAt: Date(),
+            state: .overdue
+        )
+
+        let filtered = HomeViewModel.excludingVisibleFocusTasks(
+            from: [task],
+            focusRows: [.habit(habit)]
+        )
+
+        XCTAssertEqual(filtered.map(\.id), [task.id])
+    }
+
     func testPromoteTaskToFocusRequestsReplacementWhenHeroIsFull() {
         let suiteName = "HomeViewModelPersistenceTests.PromoteReplacePrompt.\(UUID().uuidString)"
         guard let defaults = UserDefaults(suiteName: suiteName) else {
@@ -1835,6 +2001,34 @@ final class HomeViewModelPersistenceTests: XCTestCase {
             expectation.fulfill()
         }
         wait(for: [expectation], timeout: seconds + 1.0)
+    }
+
+    private func visibleFocusTaskIDs(in rows: [HomeTodayRow]) -> Set<UUID> {
+        Set(rows.compactMap { row in
+            guard case .task(let task) = row else { return nil }
+            return task.id
+        })
+    }
+
+    private func taskIDs(in sections: [HomeListSection]) -> Set<UUID> {
+        Set(sections.flatMap(\.rows).compactMap { row in
+            guard case .task(let task) = row else { return nil }
+            return task.id
+        })
+    }
+
+    private func taskIDs(in rows: [HomeTodayRow]) -> Set<UUID> {
+        Set(rows.compactMap { row in
+            guard case .task(let task) = row else { return nil }
+            return task.id
+        })
+    }
+
+    private func taskTitles(in sections: [HomeListSection]) -> [String] {
+        sections.flatMap(\.rows).compactMap { row in
+            guard case .task(let task) = row else { return nil }
+            return task.title
+        }
     }
 
     private func makeTask(

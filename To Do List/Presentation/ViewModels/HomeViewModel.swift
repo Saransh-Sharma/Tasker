@@ -1393,6 +1393,7 @@ public final class HomeViewModel: ObservableObject {
         pinnedFocusTaskIDs.append(taskID)
         persistPinnedFocusTaskIDs()
         updateFocusSelection(composedFocusTasks(from: openTasks))
+        refreshTodayAgendaForCurrentFocusSelection()
         refreshEvaInsights(openTasks: openTasks)
         return .pinned
     }
@@ -1404,6 +1405,7 @@ public final class HomeViewModel: ObservableObject {
         persistPinnedFocusTaskIDs()
         let openTasks = focusOpenTasksForCurrentState()
         updateFocusSelection(composedFocusTasks(from: openTasks))
+        refreshTodayAgendaForCurrentFocusSelection()
         refreshEvaInsights(openTasks: openTasks)
     }
 
@@ -1430,6 +1432,7 @@ public final class HomeViewModel: ObservableObject {
             pinnedFocusTaskIDs.append(taskID)
             persistPinnedFocusTaskIDs()
             updateFocusSelection(composedFocusTasks(from: openTasks))
+            refreshTodayAgendaForCurrentFocusSelection()
             refreshEvaInsights(openTasks: openTasks)
             return .promoted
         }
@@ -1438,6 +1441,7 @@ public final class HomeViewModel: ObservableObject {
             pinnedFocusTaskIDs.append(taskID)
             persistPinnedFocusTaskIDs()
             updateFocusSelection(composedFocusTasks(from: openTasks))
+            refreshTodayAgendaForCurrentFocusSelection()
             refreshEvaInsights(openTasks: openTasks)
             return .promoted
         }
@@ -1470,6 +1474,7 @@ public final class HomeViewModel: ObservableObject {
         pinnedFocusTaskIDs = normalizedPinnedFocusTaskIDs(curatedFocusIDs)
         persistPinnedFocusTaskIDs()
         updateFocusSelection(composedFocusTasks(from: openTasks))
+        refreshTodayAgendaForCurrentFocusSelection()
         refreshEvaInsights(openTasks: openTasks)
         return .promoted
     }
@@ -3266,23 +3271,29 @@ public final class HomeViewModel: ObservableObject {
             self.habitLibraryRowsByID = resolvedLibraryRowsByID
             let rescueSplit = self.splitRescueEligibleTasks(from: openTaskRows, on: self.selectedDate)
 
+            let focusRows = self.composeFocusRows(taskRows: rescueSplit.focusTaskRows, habitRows: allHabitRows)
+            let agendaTaskRows =
+                self.activeScope.quickView == .today
+                ? Self.excludingVisibleFocusTasks(from: rescueSplit.agendaTaskRows, focusRows: focusRows)
+                : rescueSplit.agendaTaskRows
+
             let agenda = self.buildHomeAgendaUseCase.execute(
                 date: self.selectedDate,
-                taskRows: rescueSplit.agendaTaskRows,
+                taskRows: agendaTaskRows,
                 habitRows: resolvedAgendaHabitRows
             )
 
             self.assignIfChanged(\.dueTodayRows, agenda.rows)
             self.assignIfChanged(\.dueTodaySection, nil)
             let todaySections = HomeMixedSectionBuilder.buildTodaySections(
-                taskRows: rescueSplit.agendaTaskRows,
+                taskRows: agendaTaskRows,
                 habitRows: [],
                 projects: self.projects,
-                lifeAreas: self.lifeAreas
+                lifeAreas: self.lifeAreas,
+                useAdaptiveDayGrouping: true
             )
             self.assignIfChanged(\.todaySections, todaySections)
 
-            let focusRows = self.composeFocusRows(taskRows: rescueSplit.focusTaskRows, habitRows: allHabitRows)
             self.assignIfChanged(\.focusRows, focusRows)
             self.assignIfChanged(
                 \.focusNowSectionState,
@@ -4054,6 +4065,29 @@ public final class HomeViewModel: ObservableObject {
             focusTaskRows: remainingTaskRows,
             rescueEligibleTasks: rescueEligibleTasks
         )
+    }
+
+    private func refreshTodayAgendaForCurrentFocusSelection() {
+        guard activeScope.quickView == .today else { return }
+        refreshDueTodayAgenda(
+            openTaskRows: focusOpenTasksForCurrentState(),
+            generation: reloadGeneration,
+            includeAnalyticsRefresh: false
+        )
+    }
+
+    static func excludingVisibleFocusTasks(
+        from agendaTaskRows: [TaskDefinition],
+        focusRows: [HomeTodayRow]
+    ) -> [TaskDefinition] {
+        let visibleFocusTaskIDs = Set(
+            focusRows.compactMap { row -> UUID? in
+                guard case .task(let task) = row else { return nil }
+                return task.id
+            }
+        )
+        guard visibleFocusTaskIDs.isEmpty == false else { return agendaTaskRows }
+        return agendaTaskRows.filter { !visibleFocusTaskIDs.contains($0.id) }
     }
 
     private func isEligibleForHabitFocusFallback(_ row: HomeHabitRow) -> Bool {
