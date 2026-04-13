@@ -109,6 +109,7 @@ struct HomeCompactHeaderView: View {
                 ZStack {
                     layeredDateLabel
                         .padding(.horizontal, dateHeroHorizontalInset)
+                        .offset(y: 10)
 
                     HStack(alignment: .center, spacing: spacing.s8) {
                         leadingHeaderContent
