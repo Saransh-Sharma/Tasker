@@ -47,6 +47,30 @@ final class TaskAgendaPresentationModelTests: XCTestCase {
         XCTAssertTrue(presentation.metadataLine?.contains("Deep Work") == true)
     }
 
+    func testAgendaMetadataStillKeepsDueTodayTimeAndSuppressesInboxProject() {
+        let calendar = Calendar.current
+        let now = calendar.date(from: DateComponents(year: 2026, month: 2, day: 24, hour: 9, minute: 0))!
+        let dueDate = calendar.date(from: DateComponents(year: 2026, month: 2, day: 24, hour: 18, minute: 0))!
+        let task = TaskDefinition(
+            projectID: ProjectConstants.inboxProjectID,
+            projectName: ProjectConstants.inboxProjectName,
+            title: "Inbox follow-up",
+            priority: .medium,
+            type: .morning,
+            dueDate: dueDate
+        )
+
+        let presentation = TaskAgendaPresentationModelBuilder.build(
+            task: task,
+            showTypeBadge: false,
+            isInOverdueSection: false,
+            tagNameByID: [:],
+            now: now
+        )
+
+        XCTAssertEqual(presentation.metadataLine, dueDate.formatted(date: .omitted, time: .shortened))
+    }
+
     func testCompletedTaskMapsToSuccessBadgeAndReopenAction() {
         var task = TaskDefinition(
             title: "Log weekly review",
