@@ -14,7 +14,7 @@ final class FocusZoneStatusTests: XCTestCase {
 
         let presentation = FocusZoneRowPresentation.make(task: task, insight: insight, now: now)
 
-        XCTAssertEqual(presentation.secondaryLineText, "Late by 3d · Inbox")
+        XCTAssertEqual(presentation.secondaryLineText, "Late by 3d")
     }
 
     func testFocusZoneRowPresentationMakeShowsDueSoonWhenTaskIsApproachingDeadline() {
@@ -28,7 +28,7 @@ final class FocusZoneStatusTests: XCTestCase {
 
         let presentation = FocusZoneRowPresentation.make(task: task, insight: insight, now: now)
 
-        XCTAssertEqual(presentation.secondaryLineText, "Due soon · Inbox")
+        XCTAssertEqual(presentation.secondaryLineText, "Due soon")
     }
 
     func testFocusZoneRowPresentationMakeDoesNotSurfaceQuickWinWithoutUrgency() {
@@ -42,7 +42,7 @@ final class FocusZoneStatusTests: XCTestCase {
 
         let presentation = FocusZoneRowPresentation.make(task: task, insight: insight, now: now)
 
-        XCTAssertEqual(presentation.secondaryLineText, "Inbox")
+        XCTAssertNil(presentation.secondaryLineText)
     }
 
     func testFocusZoneRowPresentationMakeDoesNotSurfaceUnblockedWithoutUrgency() {
@@ -55,7 +55,7 @@ final class FocusZoneStatusTests: XCTestCase {
 
         let presentation = FocusZoneRowPresentation.make(task: task, insight: nil, now: now)
 
-        XCTAssertEqual(presentation.secondaryLineText, "Inbox")
+        XCTAssertNil(presentation.secondaryLineText)
     }
 
     func testFocusZoneRowPresentationMakeReturnsNilForCompletedTask() {
@@ -69,7 +69,7 @@ final class FocusZoneStatusTests: XCTestCase {
 
         let presentation = FocusZoneRowPresentation.make(task: task, insight: nil, now: now)
 
-        XCTAssertEqual(presentation.secondaryLineText, "Inbox")
+        XCTAssertNil(presentation.secondaryLineText)
     }
 
     private func makeTask(
