@@ -290,6 +290,7 @@ struct HabitHomeSectionCard: View {
                         .accessibilityLabel("Open Habit Board")
                 }
             }
+            .padding(.horizontal, spacing.s16)
 
             HStack(spacing: spacing.s8) {
                 HabitBoardStripView(
@@ -312,6 +313,7 @@ struct HabitHomeSectionCard: View {
                     .font(.tasker(.caption1))
                     .foregroundStyle(Color.tasker.textSecondary)
             }
+            .padding(.horizontal, spacing.s16)
 
             VStack(spacing: 0) {
                 ForEach(Array(rows.enumerated()), id: \.element.id) { index, row in
@@ -327,15 +329,14 @@ struct HabitHomeSectionCard: View {
 
                     if index < rows.count - 1 {
                         Divider()
-                            .padding(.leading, spacing.s12)
+                            .padding(.leading, spacing.s16)
                     }
                 }
             }
         }
-        .padding(.horizontal, spacing.s16)
         .padding(.vertical, spacing.s12)
-        .background(HabitBoardSurfaceBackground(cornerRadius: TaskerTheme.CornerRadius.card))
-        .clipShape(RoundedRectangle(cornerRadius: TaskerTheme.CornerRadius.card, style: .continuous))
+        .background(HabitBoardSurfaceBackground(cornerRadius: 0))
+        .clipShape(RoundedRectangle(cornerRadius: 0, style: .continuous))
     }
 
     private var aggregatePreviewCells: [HabitBoardCell] {

@@ -3346,10 +3346,12 @@ struct HomeBackdropForedropRootView: View {
             VStack(alignment: .leading, spacing: spacing.s12) {
                 if hasPrimaryHabits {
                     habitsSectionCard
+                        .padding(.horizontal, -taskListHorizontalGutter)
                 }
 
                 if hasRecoveryHabits {
                     recoveryHabitsSectionCard
+                        .padding(.horizontal, -taskListHorizontalGutter)
                 }
 
                 if hasWeeklySummary {
