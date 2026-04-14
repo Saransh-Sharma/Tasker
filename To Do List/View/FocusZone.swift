@@ -45,6 +45,12 @@ public struct FocusZone: View {
         return Array(rows.prefix(maxVisibleRows))
     }
     private var hasTaskRows: Bool { !taskRows.isEmpty }
+    static func emptyStateMessage(maxVisibleRows: Int?) -> String {
+        if let maxVisibleRows {
+            return "Add tasks for today to see your next \(maxVisibleRows)."
+        }
+        return "Add tasks for today to see your upcoming tasks."
+    }
 
     public init(
         rows: [HomeTodayRow],
@@ -168,7 +174,7 @@ public struct FocusZone: View {
                 .font(.system(size: 20, weight: .regular))
                 .foregroundColor(Color.tasker.accentPrimary.opacity(0.42))
 
-            Text(LocalizedStringKey("Add tasks for today to see your next 3."))
+            Text(LocalizedStringKey(Self.emptyStateMessage(maxVisibleRows: maxVisibleRows)))
                 .font(.tasker(.caption1))
                 .foregroundColor(Color.tasker.textSecondary)
                 .multilineTextAlignment(.center)
@@ -288,13 +294,17 @@ struct FocusZoneSecondarySegment: Equatable {
     let kind: Kind
 }
 
+private enum FocusZoneSecondaryFormatting {
+    static let separator = " · "
+}
+
 struct FocusZoneRowPresentation: Equatable {
     let title: String
     let secondarySegments: [FocusZoneSecondarySegment]
 
     var secondaryLineText: String? {
         guard secondarySegments.isEmpty == false else { return nil }
-        return secondarySegments.map(\.text).joined(separator: " · ")
+        return secondarySegments.map(\.text).joined(separator: FocusZoneSecondaryFormatting.separator)
     }
 
     static func make(task: TaskDefinition, insight: EvaFocusTaskInsight?, now: Date = Date()) -> FocusZoneRowPresentation {
@@ -343,9 +353,8 @@ enum FocusZoneTimePressureResolver {
     ) -> FocusZoneBadgePresentation? {
         guard !task.isComplete else { return nil }
 
-        if let dueDate = task.dueDate, let lateLabel = OverdueAgeFormatter.lateLabel(dueDate: dueDate, now: now) {
-            let normalizedLateLabel = lateLabel.replacingOccurrences(of: " late", with: "")
-            return FocusZoneBadgePresentation(text: "Late by \(normalizedLateLabel)", tone: .danger)
+        if let dueDate = task.dueDate, let lateAgeToken = OverdueAgeFormatter.lateAgeToken(dueDate: dueDate, now: now) {
+            return FocusZoneBadgePresentation(text: "Late by \(lateAgeToken)", tone: .danger)
         }
 
         if isDueSoon(task: task, now: now) {
@@ -494,7 +503,7 @@ private struct FocusZoneRow: View {
                         return partialResult + segmentText
                     }
                     return partialResult
-                        + Text(" · ")
+                        + Text(FocusZoneSecondaryFormatting.separator)
                             .font(.tasker(.caption1))
                             .foregroundColor(Color.tasker.textTertiary)
                         + segmentText

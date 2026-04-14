@@ -15,6 +15,35 @@ final class FocusZonePresentationTests: XCTestCase {
         XCTAssertEqual(presentation.secondaryLineText, "Late by 2d")
     }
 
+    func testSecondaryLineUsesSingleSharedSeparatorForUrgencyAndMetadata() {
+        let now = Date()
+        let overdueProjectTask = makeTask(
+            title: "Overdue with project",
+            projectID: UUID(),
+            projectName: "Project Alpha",
+            dueDate: Calendar.current.date(byAdding: .day, value: -2, to: now),
+            estimatedDuration: 600
+        )
+
+        let presentation = FocusZoneRowPresentation.make(task: overdueProjectTask, insight: nil, now: now)
+
+        XCTAssertEqual(presentation.secondaryLineText, "Late by 2d · Project Alpha")
+    }
+
+    func testEmptyStateMessageUsesGenericCopyWhenVisibleRowLimitIsNil() {
+        XCTAssertEqual(
+            FocusZone.emptyStateMessage(maxVisibleRows: nil),
+            "Add tasks for today to see your upcoming tasks."
+        )
+    }
+
+    func testEmptyStateMessageInterpolatesConfiguredVisibleRowLimit() {
+        XCTAssertEqual(
+            FocusZone.emptyStateMessage(maxVisibleRows: 5),
+            "Add tasks for today to see your next 5."
+        )
+    }
+
     func testDueTodayTimingIsHiddenForInboxTasksInUnifiedList() {
         let now = Calendar.current.startOfDay(for: Date())
         let dueTodayTask = makeTask(
