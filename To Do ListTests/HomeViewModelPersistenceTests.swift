@@ -473,6 +473,7 @@ final class HomeViewModelPersistenceTests: XCTestCase {
         XCTAssertTrue(dueTodayTaskIDs.isDisjoint(with: focusTaskIDs))
         XCTAssertEqual(agendaTaskIDs.count, 2)
         XCTAssertEqual(dueTodayTaskIDs.count, 2)
+        XCTAssertEqual(viewModel.todayOpenTaskCount, 5)
 
         defaults.removePersistentDomain(forName: suiteName)
     }

@@ -446,10 +446,16 @@ public final class HomeViewModel: ObservableObject {
     // Next Action Module: total open tasks for today
     public var todayOpenTaskCount: Int {
         if activeScope.quickView == .today, !todaySections.isEmpty {
-            return todaySections
-                .flatMap(\.rows)
-                .filter(\.isOpenForHomeCount)
-                .count
+            let agendaOpenTaskIDs = Set(
+                todaySections
+                    .flatMap(\.rows)
+                    .compactMap(Self.openTaskID(for:))
+            )
+            let visibleFocusOpenTaskIDs = Set(
+                focusRows
+                    .compactMap(Self.openTaskID(for:))
+            )
+            return agendaOpenTaskIDs.union(visibleFocusOpenTaskIDs).count
         }
         return (morningTasks + eveningTasks).filter { !$0.isComplete }.count
     }
@@ -531,6 +537,7 @@ public final class HomeViewModel: ObservableObject {
     private var pendingAnalyticsIncludeGamificationRefresh = false
     private var pendingAnalyticsCompletions: [() -> Void] = []
     private var analyticsGeneration: Int = 0
+    private var weeklySummaryGeneration: Int = 0
     private var pendingHomeRenderStateWorkItem: DispatchWorkItem?
     private var homeRenderStateRefreshBatchDepth: Int = 0
     private var needsHomeRenderStateRefresh = false
@@ -1155,7 +1162,11 @@ public final class HomeViewModel: ObservableObject {
             case .success(let snapshot):
                 weeklyOutcomes = snapshot.outcomes.sorted { $0.orderIndex < $1.orderIndex }
             case .failure(let error):
-                record(error)
+                logWarning(
+                    event: "task_detail_metadata_weekly_snapshot_failed",
+                    message: "Weekly snapshot unavailable while loading task detail metadata",
+                    fields: ["error": error.localizedDescription]
+                )
             }
         }
 
@@ -1244,7 +1255,11 @@ public final class HomeViewModel: ObservableObject {
             case .success(let notes):
                 recentReflectionNotes = notes
             case .failure(let error):
-                record(error)
+                logWarning(
+                    event: "task_detail_relationship_metadata_reflections_failed",
+                    message: "Reflection notes unavailable while loading task relationship metadata",
+                    fields: ["error": error.localizedDescription]
+                )
             }
         }
 
@@ -3960,10 +3975,11 @@ public final class HomeViewModel: ObservableObject {
             TaskerPerformanceTrace.event("HomeUserMutationPersistenceComplete")
             pendingHabitMutationSnapshots.removeValue(forKey: key)
             pendingHabitMutationKeys.remove(key)
-            if let recoveryReflectionPrompt {
+            let isSelectedDayMutation = Calendar.current.isDate(date, inSameDayAs: selectedDate)
+            if isSelectedDayMutation {
                 habitRecoveryReflectionPrompt = recoveryReflectionPrompt
             }
-            guard Calendar.current.isDate(date, inSameDayAs: selectedDate) else { return }
+            guard isSelectedDayMutation else { return }
             reconcileHabitMutation(habitID: habitID, on: date)
         }
     }
@@ -4088,6 +4104,11 @@ public final class HomeViewModel: ObservableObject {
         )
         guard visibleFocusTaskIDs.isEmpty == false else { return agendaTaskRows }
         return agendaTaskRows.filter { !visibleFocusTaskIDs.contains($0.id) }
+    }
+
+    private static func openTaskID(for row: HomeTodayRow) -> UUID? {
+        guard case .task(let task) = row, !task.isComplete else { return nil }
+        return task.id
     }
 
     private func isEligibleForHabitFocusFallback(_ row: HomeHabitRow) -> Bool {
@@ -4996,9 +5017,14 @@ public final class HomeViewModel: ObservableObject {
     }
 
     private func refreshWeeklySummary() {
+        let generation = nextWeeklySummaryGeneration()
         useCaseCoordinator.getWeeklySummary.execute(referenceDate: Date()) { [weak self] result in
             DispatchQueue.main.async {
                 guard let self else { return }
+                guard self.isCurrentWeeklySummaryGeneration(generation) else {
+                    logDebug("HOME_WEEKLY_SUMMARY vm.drop_stale generation=\(generation)")
+                    return
+                }
                 switch result {
                 case .success(let summary):
                     self.assignIfChanged(\.weeklySummary, summary)
@@ -6218,6 +6244,12 @@ public final class HomeViewModel: ObservableObject {
         return analyticsGeneration
     }
 
+    @discardableResult
+    private func nextWeeklySummaryGeneration() -> Int {
+        weeklySummaryGeneration += 1
+        return weeklySummaryGeneration
+    }
+
     /// Executes isCurrentReloadGeneration.
     private func isCurrentReloadGeneration(_ generation: Int) -> Bool {
         generation == reloadGeneration
@@ -6225,6 +6257,10 @@ public final class HomeViewModel: ObservableObject {
 
     private func isCurrentAnalyticsGeneration(_ generation: Int) -> Bool {
         generation == analyticsGeneration
+    }
+
+    private func isCurrentWeeklySummaryGeneration(_ generation: Int) -> Bool {
+        generation == weeklySummaryGeneration
     }
 
     private func assignIfChanged<Value: Equatable>(

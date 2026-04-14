@@ -529,14 +529,14 @@ public final class CoreDataWeeklyReviewMutationRepository: WeeklyReviewMutationR
                 try self.backgroundContext.save()
                 self.viewContext.perform {
                     self.viewContext.refreshAllObjects()
+                    completion(.success(
+                        CompleteWeeklyReviewResult(
+                            review: Self.mapReview(review),
+                            skippedTaskIDs: taskResolution.skippedTaskIDs,
+                            skippedOutcomeIDs: outcomeResolution.skippedOutcomeIDs
+                        )
+                    ))
                 }
-                completion(.success(
-                    CompleteWeeklyReviewResult(
-                        review: Self.mapReview(review),
-                        skippedTaskIDs: taskResolution.skippedTaskIDs,
-                        skippedOutcomeIDs: outcomeResolution.skippedOutcomeIDs
-                    )
-                ))
             } catch {
                 self.backgroundContext.rollback()
                 completion(.failure(Self.mapFinalizeError(error)))

@@ -1038,23 +1038,31 @@ public final class InsightsViewModel: ObservableObject {
         if let buildWeeklyPlanSnapshotUseCase {
             group.enter()
             buildWeeklyPlanSnapshotUseCase.execute(referenceDate: today) { result in
+                var reviewDecisionsWeekStart: Date?
+                var reviewDraftStore: WeeklyReviewDraftStoreProtocol?
                 lock.lock()
                 if case .success(let snapshot) = result {
                     weeklySnapshot = snapshot
-                    if snapshot.review?.completedAt != nil,
-                       let weeklyReviewDraftStore = self.weeklyReviewDraftStore {
-                        group.enter()
-                        weeklyReviewDraftStore.fetchCompletedTaskDecisions(weekStartDate: snapshot.weekStartDate) { decisionResult in
-                            lock.lock()
-                            if case .success(let decisions) = decisionResult {
-                                recoveryDecisions = decisions
-                            }
-                            lock.unlock()
-                            group.leave()
-                        }
+                    if snapshot.review?.completedAt != nil {
+                        reviewDecisionsWeekStart = snapshot.weekStartDate
+                        reviewDraftStore = self.weeklyReviewDraftStore
                     }
                 }
                 lock.unlock()
+
+                if let reviewDecisionsWeekStart,
+                   let reviewDraftStore {
+                    group.enter()
+                    reviewDraftStore.fetchCompletedTaskDecisions(weekStartDate: reviewDecisionsWeekStart) { decisionResult in
+                        lock.lock()
+                        if case .success(let decisions) = decisionResult {
+                            recoveryDecisions = decisions
+                        }
+                        lock.unlock()
+                        group.leave()
+                    }
+                }
+
                 group.leave()
             }
         }
