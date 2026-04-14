@@ -38,9 +38,8 @@ final class QuietTrackingUITests: BaseUITest {
         scrollView.swipeUp()
         scrollView.swipeDown()
 
-        XCTAssertEqual(
-            homePage.quietTrackingSheetTodayButton.value as? String,
-            "Selected",
+        XCTAssertTrue(
+            homePage.quietTrackingSheetTodayButton.isSelected,
             "Quiet tracking should default to today"
         )
 
