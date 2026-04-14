@@ -300,8 +300,15 @@ struct FocusZoneRowPresentation: Equatable {
 
     static func make(task: TaskDefinition, insight: EvaFocusTaskInsight?, now: Date = Date()) -> FocusZoneRowPresentation {
         _ = insight
-        let timePressure = FocusZoneTimePressureResolver.resolve(task: task, now: now)
-        let metadata = FocusZoneSecondaryLineResolver.resolve(task: task)
+        let timePressure = FocusZoneTimePressureResolver.resolve(
+            task: task,
+            now: now,
+            showDueTodayTime: false
+        )
+        let metadata = FocusZoneSecondaryLineResolver.resolve(
+            task: task,
+            showInboxProjectName: false
+        )
         var secondarySegments: [FocusZoneSecondarySegment] = []
 
         if let timePressure {
@@ -330,7 +337,11 @@ struct FocusZoneRowPresentation: Equatable {
 }
 
 enum FocusZoneTimePressureResolver {
-    static func resolve(task: TaskDefinition, now: Date = Date()) -> FocusZoneBadgePresentation? {
+    static func resolve(
+        task: TaskDefinition,
+        now: Date = Date(),
+        showDueTodayTime: Bool = true
+    ) -> FocusZoneBadgePresentation? {
         guard !task.isComplete else { return nil }
 
         if let dueDate = task.dueDate, let lateLabel = OverdueAgeFormatter.lateLabel(dueDate: dueDate, now: now) {
@@ -341,6 +352,8 @@ enum FocusZoneTimePressureResolver {
         if isDueSoon(task: task, now: now) {
             return FocusZoneBadgePresentation(text: "Due soon", tone: .warning)
         }
+
+        guard showDueTodayTime else { return nil }
 
         guard let dueDate = task.dueDate, Calendar.current.isDate(dueDate, inSameDayAs: now) else {
             return nil
@@ -364,8 +377,14 @@ struct FocusZoneSecondaryLine: Equatable {
 }
 
 enum FocusZoneSecondaryLineResolver {
-    static func resolve(task: TaskDefinition) -> FocusZoneSecondaryLine {
+    static func resolve(
+        task: TaskDefinition,
+        showInboxProjectName: Bool = true
+    ) -> FocusZoneSecondaryLine {
         if task.projectID == ProjectConstants.inboxProjectID {
+            guard showInboxProjectName else {
+                return FocusZoneSecondaryLine(text: nil)
+            }
             return FocusZoneSecondaryLine(text: "Inbox")
         }
 
