@@ -7,6 +7,21 @@
 
 import SwiftUI
 
+struct TaskRowMetadataPolicy: Equatable {
+    let showDueTodayTime: Bool
+    let showInboxProject: Bool
+
+    static let `default` = TaskRowMetadataPolicy(
+        showDueTodayTime: true,
+        showInboxProject: true
+    )
+
+    static let homeUnifiedList = TaskRowMetadataPolicy(
+        showDueTodayTime: false,
+        showInboxProject: false
+    )
+}
+
 struct TaskRowDisplayModel: Equatable {
     let xpValue: Int
     let descriptionText: String?
@@ -27,7 +42,8 @@ struct TaskRowDisplayModel: Equatable {
         showTypeBadge: Bool,
         now: Date = Date(),
         isInOverdueSection: Bool = false,
-        tagNameByID: [UUID: String] = [:]
+        tagNameByID: [UUID: String] = [:],
+        metadataPolicy: TaskRowMetadataPolicy = .default
     ) -> TaskRowDisplayModel {
         let _ = showTypeBadge
         let descriptionText = smartDescription(for: task, now: now)
@@ -35,7 +51,8 @@ struct TaskRowDisplayModel: Equatable {
             for: task,
             now: now,
             isInOverdueSection: isInOverdueSection,
-            tagNameByID: tagNameByID
+            tagNameByID: tagNameByID,
+            metadataPolicy: metadataPolicy
         )
         let statusChip: TaskRowStatusChip? = dueSoonStatus(for: task, now: now)
 
@@ -61,7 +78,8 @@ struct TaskRowDisplayModel: Equatable {
         for task: TaskDefinition,
         now: Date,
         isInOverdueSection: Bool,
-        tagNameByID: [UUID: String]
+        tagNameByID: [UUID: String],
+        metadataPolicy: TaskRowMetadataPolicy
     ) -> String? {
         var tokens: [String] = []
         let calendar = Calendar.current
@@ -69,12 +87,12 @@ struct TaskRowDisplayModel: Equatable {
         if !task.isComplete, let dueDate = task.dueDate {
             if let lateLabel = OverdueAgeFormatter.lateLabel(dueDate: dueDate, now: now) {
                 tokens.append(lateLabel)
-            } else if calendar.isDate(dueDate, inSameDayAs: now) {
+            } else if metadataPolicy.showDueTodayTime && calendar.isDate(dueDate, inSameDayAs: now) {
                 tokens.append(dueDate.formatted(date: .omitted, time: .shortened))
             }
         }
 
-        if let projectToken = projectToken(for: task) {
+        if let projectToken = projectToken(for: task, metadataPolicy: metadataPolicy) {
             tokens.append(projectToken)
         }
 
@@ -90,16 +108,20 @@ struct TaskRowDisplayModel: Equatable {
     }
 
     /// Executes projectToken.
-    private static func projectToken(for task: TaskDefinition) -> String? {
+    private static func projectToken(for task: TaskDefinition, metadataPolicy: TaskRowMetadataPolicy) -> String? {
         let trimmedProjectName = task.projectName?
             .trimmingCharacters(in: .whitespacesAndNewlines)
             .nilIfEmpty
 
         if let trimmedProjectName {
+            if !metadataPolicy.showInboxProject,
+               trimmedProjectName.caseInsensitiveCompare(ProjectConstants.inboxProjectName) == .orderedSame {
+                return nil
+            }
             return trimmedProjectName
         }
 
-        if task.projectID == ProjectConstants.inboxProjectID {
+        if metadataPolicy.showInboxProject, task.projectID == ProjectConstants.inboxProjectID {
             return ProjectConstants.inboxProjectName
         }
 
@@ -220,6 +242,8 @@ private struct TaskRowDerivedStateCacheKey: Hashable {
     let hasDeleteAction: Bool
     let hasRescheduleAction: Bool
     let hasPromoteAction: Bool
+    let showDueTodayTime: Bool
+    let showInboxProject: Bool
     let tagDisplaySignature: [String]
 }
 
@@ -241,7 +265,8 @@ private enum TaskRowDerivedStateCache {
         hasToggleAction: Bool,
         hasDeleteAction: Bool,
         hasRescheduleAction: Bool,
-        hasPromoteAction: Bool
+        hasPromoteAction: Bool,
+        metadataPolicy: TaskRowMetadataPolicy
     ) -> TaskRowDerivedState {
         let tagDisplaySignature = task.tagIDs.compactMap { tagNameByID[$0] }.sorted()
         let key = TaskRowDerivedStateCacheKey(
@@ -264,6 +289,8 @@ private enum TaskRowDerivedStateCache {
             hasDeleteAction: hasDeleteAction,
             hasRescheduleAction: hasRescheduleAction,
             hasPromoteAction: hasPromoteAction,
+            showDueTodayTime: metadataPolicy.showDueTodayTime,
+            showInboxProject: metadataPolicy.showInboxProject,
             tagDisplaySignature: tagDisplaySignature
         )
 
@@ -278,7 +305,8 @@ private enum TaskRowDerivedStateCache {
             task: task,
             showTypeBadge: showTypeBadge,
             isInOverdueSection: isInOverdueSection,
-            tagNameByID: tagNameByID
+            tagNameByID: tagNameByID,
+            metadataPolicy: metadataPolicy
         )
         let xpPreview: XPCompletionPreview?
         if isGamificationV2Enabled {
@@ -414,7 +442,8 @@ struct TaskRowView: View, Equatable {
             hasToggleAction: onToggleComplete != nil,
             hasDeleteAction: onDelete != nil,
             hasRescheduleAction: onReschedule != nil,
-            hasPromoteAction: onPromoteToFocus != nil
+            hasPromoteAction: onPromoteToFocus != nil,
+            metadataPolicy: .homeUnifiedList
         )
         self.onTap = onTap
         self.onToggleComplete = onToggleComplete
