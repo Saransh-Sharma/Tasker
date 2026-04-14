@@ -6,6 +6,8 @@ public struct TaskReadQuery: Codable, Equatable, Hashable {
     public var dueDateStart: Date?
     public var dueDateEnd: Date?
     public var updatedAfter: Date?
+    public var planningBuckets: [TaskPlanningBucket]
+    public var weeklyOutcomeID: UUID?
     public var sortBy: TaskReadSort
     public var needsTotalCount: Bool
     public var limit: Int
@@ -18,6 +20,8 @@ public struct TaskReadQuery: Codable, Equatable, Hashable {
         dueDateStart: Date? = nil,
         dueDateEnd: Date? = nil,
         updatedAfter: Date? = nil,
+        planningBuckets: [TaskPlanningBucket] = [],
+        weeklyOutcomeID: UUID? = nil,
         sortBy: TaskReadSort = .dueDateAscending,
         needsTotalCount: Bool = false,
         limit: Int = 200,
@@ -28,6 +32,8 @@ public struct TaskReadQuery: Codable, Equatable, Hashable {
         self.dueDateStart = dueDateStart
         self.dueDateEnd = dueDateEnd
         self.updatedAfter = updatedAfter
+        self.planningBuckets = planningBuckets
+        self.weeklyOutcomeID = weeklyOutcomeID
         self.sortBy = sortBy
         self.needsTotalCount = needsTotalCount
         self.limit = max(1, limit)
@@ -45,6 +51,8 @@ public struct TaskSearchQuery: Codable, Equatable, Hashable {
     public var text: String
     public var projectID: UUID?
     public var includeCompleted: Bool
+    public var planningBuckets: [TaskPlanningBucket]
+    public var weeklyOutcomeID: UUID?
     public var needsTotalCount: Bool
     public var limit: Int
     public var offset: Int
@@ -54,6 +62,8 @@ public struct TaskSearchQuery: Codable, Equatable, Hashable {
         text: String,
         projectID: UUID? = nil,
         includeCompleted: Bool = true,
+        planningBuckets: [TaskPlanningBucket] = [],
+        weeklyOutcomeID: UUID? = nil,
         needsTotalCount: Bool = false,
         limit: Int = 100,
         offset: Int = 0
@@ -61,6 +71,8 @@ public struct TaskSearchQuery: Codable, Equatable, Hashable {
         self.text = text
         self.projectID = projectID
         self.includeCompleted = includeCompleted
+        self.planningBuckets = planningBuckets
+        self.weeklyOutcomeID = weeklyOutcomeID
         self.needsTotalCount = needsTotalCount
         self.limit = max(1, limit)
         self.offset = max(0, offset)
@@ -79,6 +91,8 @@ public struct TaskRepositorySearchQuery: Codable, Equatable, Hashable {
     public var status: TaskSearchStatus
     public var projectIDs: [UUID]
     public var priorities: [Int32]
+    public var planningBuckets: [TaskPlanningBucket]
+    public var weeklyOutcomeID: UUID?
     public var needsTotalCount: Bool
     public var limit: Int
     public var offset: Int
@@ -88,6 +102,8 @@ public struct TaskRepositorySearchQuery: Codable, Equatable, Hashable {
         status: TaskSearchStatus = .all,
         projectIDs: [UUID] = [],
         priorities: [Int32] = [],
+        planningBuckets: [TaskPlanningBucket] = [],
+        weeklyOutcomeID: UUID? = nil,
         needsTotalCount: Bool = false,
         limit: Int = 100,
         offset: Int = 0
@@ -96,6 +112,8 @@ public struct TaskRepositorySearchQuery: Codable, Equatable, Hashable {
         self.status = status
         self.projectIDs = projectIDs
         self.priorities = priorities
+        self.planningBuckets = planningBuckets
+        self.weeklyOutcomeID = weeklyOutcomeID
         self.needsTotalCount = needsTotalCount
         self.limit = max(1, limit)
         self.offset = max(0, offset)

@@ -12,6 +12,7 @@ public enum HomeSectionAnchor: Equatable, Hashable {
     case lifeArea(id: UUID?, name: String, iconSystemName: String)
     case dueTodaySummary
     case focusNow
+    case plainList(id: String)
 
     public var id: String {
         switch self {
@@ -26,6 +27,8 @@ public enum HomeSectionAnchor: Equatable, Hashable {
             return "due_today_summary"
         case .focusNow:
             return "focus_now"
+        case .plainList(let id):
+            return "plain_list:\(id)"
         }
     }
 
@@ -39,6 +42,8 @@ public enum HomeSectionAnchor: Equatable, Hashable {
             return "Due today"
         case .focusNow:
             return "Focus now"
+        case .plainList:
+            return ""
         }
     }
 
@@ -52,6 +57,8 @@ public enum HomeSectionAnchor: Equatable, Hashable {
             return "calendar.badge.clock"
         case .focusNow:
             return "flame.fill"
+        case .plainList:
+            return "list.bullet"
         }
     }
 
@@ -64,27 +71,46 @@ public enum HomeSectionAnchor: Equatable, Hashable {
 }
 
 public struct HomeListSection: Equatable, Identifiable {
+    public enum DisplayStyle: Equatable {
+        case sectioned
+        case plain
+    }
+
+    public let identifier: String
     public let anchor: HomeSectionAnchor
     public let rows: [HomeTodayRow]
     public let isOverdueSection: Bool
+    public let displayStyle: DisplayStyle
 
     public init(
         anchor: HomeSectionAnchor,
         rows: [HomeTodayRow],
-        isOverdueSection: Bool = false
+        isOverdueSection: Bool = false,
+        displayStyle: DisplayStyle = .sectioned,
+        identifier: String? = nil
     ) {
+        self.identifier = identifier ?? Self.defaultIdentifier(anchor: anchor, isOverdueSection: isOverdueSection)
         self.anchor = anchor
         self.rows = rows
         self.isOverdueSection = isOverdueSection
+        self.displayStyle = displayStyle
     }
 
     public var id: String {
-        isOverdueSection ? "overdue:\(anchor.id)" : anchor.id
+        identifier
     }
 
     public var title: String {
         guard isOverdueSection else { return anchor.title }
         return "Overdue · \(anchor.title)"
+    }
+
+    public var showsHeader: Bool {
+        displayStyle == .sectioned
+    }
+
+    private static func defaultIdentifier(anchor: HomeSectionAnchor, isOverdueSection: Bool) -> String {
+        isOverdueSection ? "overdue:\(anchor.id)" : anchor.id
     }
 }
 

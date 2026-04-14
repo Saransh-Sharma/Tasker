@@ -43,6 +43,9 @@
         <attribute name="tags" optional="YES" attributeType="Transformable" valueTransformerName="NSSecureUnarchiveFromDataTransformer" customClassName="NSArray"/>
         <attribute name="templateID" optional="YES" attributeType="UUID" usesScalarValueType="NO"/>
         <attribute name="estimatedTaskCount" optional="YES" attributeType="Integer 32" usesScalarValueType="YES"/>
+        <attribute name="motivationWhy" optional="YES" attributeType="String"/>
+        <attribute name="motivationSuccessLooksLike" optional="YES" attributeType="String"/>
+        <attribute name="motivationCostOfNeglect" optional="YES" attributeType="String"/>
         <relationship name="lifeAreaRef" optional="YES" maxCount="1" deletionRule="Nullify" destinationEntity="LifeArea" inverseName="projects" inverseEntity="LifeArea"/>
         <relationship name="sections" optional="YES" toMany="YES" deletionRule="Cascade" destinationEntity="ProjectSection" inverseName="projectRef" inverseEntity="ProjectSection"/>
         <relationship name="tasks" optional="YES" toMany="YES" deletionRule="Cascade" destinationEntity="TaskDefinition" inverseName="projectRef" inverseEntity="TaskDefinition"/>
@@ -107,6 +110,10 @@
         <attribute name="taskType" optional="YES" attributeType="Integer 32" defaultValueString="1" usesScalarValueType="YES"/>
         <attribute name="isEveningTask" optional="YES" attributeType="Boolean" defaultValueString="NO" usesScalarValueType="YES"/>
         <attribute name="alertReminderTime" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
+        <attribute name="planningBucketRaw" optional="YES" attributeType="String"/>
+        <attribute name="weeklyOutcomeID" optional="YES" attributeType="UUID" usesScalarValueType="NO"/>
+        <attribute name="deferredFromWeekStart" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
+        <attribute name="deferredCount" optional="YES" attributeType="Integer 32" defaultValueString="0" usesScalarValueType="YES"/>
         <relationship name="projectRef" optional="YES" maxCount="1" deletionRule="Nullify" destinationEntity="Project" inverseName="tasks" inverseEntity="Project"/>
         <relationship name="sectionRef" optional="YES" maxCount="1" deletionRule="Nullify" destinationEntity="ProjectSection" inverseName="tasks" inverseEntity="ProjectSection"/>
         <relationship name="parentTaskRef" optional="YES" maxCount="1" deletionRule="Nullify" destinationEntity="TaskDefinition" inverseName="childTasks" inverseEntity="TaskDefinition"/>
@@ -124,6 +131,12 @@
         </fetchIndex>
         <fetchIndex name="byParentTaskID"><fetchIndexElement property="parentTaskID" type="Binary" order="ascending"/></fetchIndex>
         <fetchIndex name="byUpdatedAt"><fetchIndexElement property="updatedAt" type="Binary" order="ascending"/></fetchIndex>
+        <fetchIndex name="byPlanningBucket">
+            <fetchIndexElement property="planningBucketRaw" type="Binary" order="ascending"/>
+            <fetchIndexElement property="isComplete" type="Binary" order="ascending"/>
+            <fetchIndexElement property="dueDate" type="Binary" order="ascending"/>
+        </fetchIndex>
+        <fetchIndex name="byWeeklyOutcomeID"><fetchIndexElement property="weeklyOutcomeID" type="Binary" order="ascending"/></fetchIndex>
     </entity>
 
     <entity name="TaskDependency" representedClassName="TaskDependency" codeGenerationType="class" syncable="YES">
@@ -152,6 +165,71 @@
             <fetchIndexElement property="taskID" type="Binary" order="ascending"/>
             <fetchIndexElement property="tagID" type="Binary" order="ascending"/>
         </fetchIndex>
+    </entity>
+
+    <entity name="WeeklyPlan" representedClassName="WeeklyPlanEntity" codeGenerationType="class" syncable="YES">
+        <attribute name="id" optional="YES" attributeType="UUID" usesScalarValueType="NO"/>
+        <attribute name="weekStartDate" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
+        <attribute name="weekEndDate" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
+        <attribute name="focusStatement" optional="YES" attributeType="String"/>
+        <attribute name="selectedHabitIDs" optional="YES" attributeType="Transformable" valueTransformerName="NSSecureUnarchiveFromDataTransformer" customClassName="NSArray"/>
+        <attribute name="targetCapacity" optional="YES" attributeType="Integer 32" usesScalarValueType="YES"/>
+        <attribute name="minimumViableWeekEnabled" optional="YES" attributeType="Boolean" defaultValueString="NO" usesScalarValueType="YES"/>
+        <attribute name="reviewStatus" optional="YES" attributeType="String" defaultValueString="notStarted"/>
+        <attribute name="createdAt" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
+        <attribute name="updatedAt" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
+        <fetchIndex name="byWeekStartDate"><fetchIndexElement property="weekStartDate" type="Binary" order="ascending"/></fetchIndex>
+        <fetchIndex name="byReviewStatus"><fetchIndexElement property="reviewStatus" type="Binary" order="ascending"/></fetchIndex>
+    </entity>
+
+    <entity name="WeeklyOutcome" representedClassName="WeeklyOutcomeEntity" codeGenerationType="class" syncable="YES">
+        <attribute name="id" optional="YES" attributeType="UUID" usesScalarValueType="NO"/>
+        <attribute name="weeklyPlanID" optional="YES" attributeType="UUID" usesScalarValueType="NO"/>
+        <attribute name="sourceProjectID" optional="YES" attributeType="UUID" usesScalarValueType="NO"/>
+        <attribute name="title" optional="YES" attributeType="String"/>
+        <attribute name="whyItMatters" optional="YES" attributeType="String"/>
+        <attribute name="successDefinition" optional="YES" attributeType="String"/>
+        <attribute name="status" optional="YES" attributeType="String" defaultValueString="planned"/>
+        <attribute name="orderIndex" optional="YES" attributeType="Integer 32" defaultValueString="0" usesScalarValueType="YES"/>
+        <attribute name="createdAt" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
+        <attribute name="updatedAt" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
+        <fetchIndex name="byPlanOrder">
+            <fetchIndexElement property="weeklyPlanID" type="Binary" order="ascending"/>
+            <fetchIndexElement property="orderIndex" type="Binary" order="ascending"/>
+        </fetchIndex>
+    </entity>
+
+    <entity name="WeeklyReview" representedClassName="WeeklyReviewEntity" codeGenerationType="class" syncable="YES">
+        <attribute name="id" optional="YES" attributeType="UUID" usesScalarValueType="NO"/>
+        <attribute name="weeklyPlanID" optional="YES" attributeType="UUID" usesScalarValueType="NO"/>
+        <attribute name="wins" optional="YES" attributeType="String"/>
+        <attribute name="blockers" optional="YES" attributeType="String"/>
+        <attribute name="lessons" optional="YES" attributeType="String"/>
+        <attribute name="nextWeekPrepNotes" optional="YES" attributeType="String"/>
+        <attribute name="perceivedWeekRating" optional="YES" attributeType="Integer 32" usesScalarValueType="YES"/>
+        <attribute name="createdAt" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
+        <attribute name="updatedAt" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
+        <attribute name="completedAt" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
+        <fetchIndex name="byReviewPlanID"><fetchIndexElement property="weeklyPlanID" type="Binary" order="ascending"/></fetchIndex>
+    </entity>
+
+    <entity name="ReflectionNote" representedClassName="ReflectionNoteEntity" codeGenerationType="class" syncable="YES">
+        <attribute name="id" optional="YES" attributeType="UUID" usesScalarValueType="NO"/>
+        <attribute name="kind" optional="YES" attributeType="String" defaultValueString="freeform"/>
+        <attribute name="linkedTaskID" optional="YES" attributeType="UUID" usesScalarValueType="NO"/>
+        <attribute name="linkedProjectID" optional="YES" attributeType="UUID" usesScalarValueType="NO"/>
+        <attribute name="linkedHabitID" optional="YES" attributeType="UUID" usesScalarValueType="NO"/>
+        <attribute name="linkedWeeklyPlanID" optional="YES" attributeType="UUID" usesScalarValueType="NO"/>
+        <attribute name="energy" optional="YES" attributeType="Integer 16" usesScalarValueType="YES"/>
+        <attribute name="mood" optional="YES" attributeType="Integer 16" usesScalarValueType="YES"/>
+        <attribute name="prompt" optional="YES" attributeType="String"/>
+        <attribute name="noteText" optional="YES" attributeType="String"/>
+        <attribute name="createdAt" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
+        <attribute name="updatedAt" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
+        <fetchIndex name="byLinkedTaskID"><fetchIndexElement property="linkedTaskID" type="Binary" order="ascending"/></fetchIndex>
+        <fetchIndex name="byLinkedProjectID"><fetchIndexElement property="linkedProjectID" type="Binary" order="ascending"/></fetchIndex>
+        <fetchIndex name="byLinkedWeeklyPlanID"><fetchIndexElement property="linkedWeeklyPlanID" type="Binary" order="ascending"/></fetchIndex>
+        <fetchIndex name="byCreatedAt"><fetchIndexElement property="createdAt" type="Binary" order="ascending"/></fetchIndex>
     </entity>
 
     <entity name="HabitDefinition" representedClassName="HabitDefinition" codeGenerationType="class" syncable="YES">
@@ -448,6 +526,10 @@
         <memberEntity name="TaskDefinition"/>
         <memberEntity name="TaskDependency"/>
         <memberEntity name="TaskTagLink"/>
+        <memberEntity name="WeeklyPlan"/>
+        <memberEntity name="WeeklyOutcome"/>
+        <memberEntity name="WeeklyReview"/>
+        <memberEntity name="ReflectionNote"/>
         <memberEntity name="HabitDefinition"/>
         <memberEntity name="ScheduleTemplate"/>
         <memberEntity name="ScheduleRule"/>

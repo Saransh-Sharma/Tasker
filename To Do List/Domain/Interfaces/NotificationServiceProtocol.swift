@@ -442,6 +442,14 @@ public struct TaskerNotificationPreferences: Codable, Equatable {
     }
 }
 
+public struct TaskerWorkspacePreferences: Codable, Equatable {
+    public var weekStartsOn: Weekday
+
+    public init(weekStartsOn: Weekday = .monday) {
+        self.weekStartsOn = weekStartsOn
+    }
+}
+
 public final class TaskerNotificationPreferencesStore {
     public static let shared = TaskerNotificationPreferencesStore()
 
@@ -476,6 +484,40 @@ public final class TaskerNotificationPreferencesStore {
     }
 
     public func update(_ mutate: (inout TaskerNotificationPreferences) -> Void) {
+        var current = load()
+        mutate(&current)
+        save(current)
+    }
+}
+
+public final class TaskerWorkspacePreferencesStore {
+    public static let shared = TaskerWorkspacePreferencesStore()
+    public static let didChangeNotification = Notification.Name("tasker.workspacePreferences.didChange")
+
+    private let defaults: UserDefaults
+    private let key = "tasker.workspace.preferences.v1"
+    private let encoder = JSONEncoder()
+    private let decoder = JSONDecoder()
+
+    public init(defaults: UserDefaults = .standard) {
+        self.defaults = defaults
+    }
+
+    public func load() -> TaskerWorkspacePreferences {
+        guard let data = defaults.data(forKey: key),
+              let preferences = try? decoder.decode(TaskerWorkspacePreferences.self, from: data) else {
+            return TaskerWorkspacePreferences()
+        }
+        return preferences
+    }
+
+    public func save(_ preferences: TaskerWorkspacePreferences) {
+        guard let data = try? encoder.encode(preferences) else { return }
+        defaults.set(data, forKey: key)
+        NotificationCenter.default.post(name: Self.didChangeNotification, object: preferences)
+    }
+
+    public func update(_ mutate: (inout TaskerWorkspacePreferences) -> Void) {
         var current = load()
         mutate(&current)
         save(current)

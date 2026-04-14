@@ -43,6 +43,8 @@ public extension TaskReadModelRepositoryProtocol {
             text: query.text,
             projectID: query.projectIDs.count == 1 ? query.projectIDs.first : nil,
             includeCompleted: query.status != .overdue,
+            planningBuckets: query.planningBuckets,
+            weeklyOutcomeID: query.weeklyOutcomeID,
             needsTotalCount: query.needsTotalCount,
             limit: query.limit,
             offset: query.offset

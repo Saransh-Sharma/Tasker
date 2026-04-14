@@ -286,6 +286,12 @@ struct AddTaskForedropView: View {
                         icon: { $0.emoji.isEmpty ? "mappin" : $0.emoji },
                         selected: $viewModel.selectedContext
                     )
+
+                    WeeklyPlanningPlacementSection(
+                        selectedPlanningBucket: $viewModel.selectedPlanningBucket,
+                        selectedWeeklyOutcomeID: $viewModel.selectedWeeklyOutcomeID,
+                        availableWeeklyOutcomes: viewModel.availableWeeklyOutcomes
+                    )
                 }
             }
 

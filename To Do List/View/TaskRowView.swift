@@ -7,6 +7,26 @@
 
 import SwiftUI
 
+struct TaskRowMetadataPolicy: Equatable {
+    let showDueTodayTime: Bool
+    let showInboxProject: Bool
+
+    static let `default` = TaskRowMetadataPolicy(
+        showDueTodayTime: true,
+        showInboxProject: true
+    )
+
+    static let homeUnifiedList = TaskRowMetadataPolicy(
+        showDueTodayTime: false,
+        showInboxProject: false
+    )
+}
+
+enum TaskRowChromeStyle: Equatable {
+    case card
+    case flatHomeList
+}
+
 struct TaskRowDisplayModel: Equatable {
     let xpValue: Int
     let descriptionText: String?
@@ -27,7 +47,8 @@ struct TaskRowDisplayModel: Equatable {
         showTypeBadge: Bool,
         now: Date = Date(),
         isInOverdueSection: Bool = false,
-        tagNameByID: [UUID: String] = [:]
+        tagNameByID: [UUID: String] = [:],
+        metadataPolicy: TaskRowMetadataPolicy = .default
     ) -> TaskRowDisplayModel {
         let _ = showTypeBadge
         let descriptionText = smartDescription(for: task, now: now)
@@ -35,7 +56,8 @@ struct TaskRowDisplayModel: Equatable {
             for: task,
             now: now,
             isInOverdueSection: isInOverdueSection,
-            tagNameByID: tagNameByID
+            tagNameByID: tagNameByID,
+            metadataPolicy: metadataPolicy
         )
         let statusChip: TaskRowStatusChip? = dueSoonStatus(for: task, now: now)
 
@@ -61,7 +83,8 @@ struct TaskRowDisplayModel: Equatable {
         for task: TaskDefinition,
         now: Date,
         isInOverdueSection: Bool,
-        tagNameByID: [UUID: String]
+        tagNameByID: [UUID: String],
+        metadataPolicy: TaskRowMetadataPolicy
     ) -> String? {
         var tokens: [String] = []
         let calendar = Calendar.current
@@ -69,12 +92,12 @@ struct TaskRowDisplayModel: Equatable {
         if !task.isComplete, let dueDate = task.dueDate {
             if let lateLabel = OverdueAgeFormatter.lateLabel(dueDate: dueDate, now: now) {
                 tokens.append(lateLabel)
-            } else if calendar.isDate(dueDate, inSameDayAs: now) {
+            } else if metadataPolicy.showDueTodayTime && calendar.isDate(dueDate, inSameDayAs: now) {
                 tokens.append(dueDate.formatted(date: .omitted, time: .shortened))
             }
         }
 
-        if let projectToken = projectToken(for: task) {
+        if let projectToken = projectToken(for: task, metadataPolicy: metadataPolicy) {
             tokens.append(projectToken)
         }
 
@@ -90,16 +113,20 @@ struct TaskRowDisplayModel: Equatable {
     }
 
     /// Executes projectToken.
-    private static func projectToken(for task: TaskDefinition) -> String? {
+    private static func projectToken(for task: TaskDefinition, metadataPolicy: TaskRowMetadataPolicy) -> String? {
         let trimmedProjectName = task.projectName?
             .trimmingCharacters(in: .whitespacesAndNewlines)
             .nilIfEmpty
 
         if let trimmedProjectName {
+            if !metadataPolicy.showInboxProject,
+               trimmedProjectName.caseInsensitiveCompare(ProjectConstants.inboxProjectName) == .orderedSame {
+                return nil
+            }
             return trimmedProjectName
         }
 
-        if task.projectID == ProjectConstants.inboxProjectID {
+        if metadataPolicy.showInboxProject, task.projectID == ProjectConstants.inboxProjectID {
             return ProjectConstants.inboxProjectName
         }
 
@@ -220,6 +247,8 @@ private struct TaskRowDerivedStateCacheKey: Hashable {
     let hasDeleteAction: Bool
     let hasRescheduleAction: Bool
     let hasPromoteAction: Bool
+    let showDueTodayTime: Bool
+    let showInboxProject: Bool
     let tagDisplaySignature: [String]
 }
 
@@ -241,7 +270,8 @@ private enum TaskRowDerivedStateCache {
         hasToggleAction: Bool,
         hasDeleteAction: Bool,
         hasRescheduleAction: Bool,
-        hasPromoteAction: Bool
+        hasPromoteAction: Bool,
+        metadataPolicy: TaskRowMetadataPolicy
     ) -> TaskRowDerivedState {
         let tagDisplaySignature = task.tagIDs.compactMap { tagNameByID[$0] }.sorted()
         let key = TaskRowDerivedStateCacheKey(
@@ -264,6 +294,8 @@ private enum TaskRowDerivedStateCache {
             hasDeleteAction: hasDeleteAction,
             hasRescheduleAction: hasRescheduleAction,
             hasPromoteAction: hasPromoteAction,
+            showDueTodayTime: metadataPolicy.showDueTodayTime,
+            showInboxProject: metadataPolicy.showInboxProject,
             tagDisplaySignature: tagDisplaySignature
         )
 
@@ -278,7 +310,8 @@ private enum TaskRowDerivedStateCache {
             task: task,
             showTypeBadge: showTypeBadge,
             isInOverdueSection: isInOverdueSection,
-            tagNameByID: tagNameByID
+            tagNameByID: tagNameByID,
+            metadataPolicy: metadataPolicy
         )
         let xpPreview: XPCompletionPreview?
         if isGamificationV2Enabled {
@@ -365,6 +398,8 @@ struct TaskRowView: View, Equatable {
     let isGamificationV2Enabled: Bool
     let isTaskDragEnabled: Bool
     let highlightedTaskID: UUID?
+    let metadataPolicy: TaskRowMetadataPolicy
+    let chromeStyle: TaskRowChromeStyle
     private let derivedState: TaskRowDerivedState
     var onTap: (() -> Void)? = nil
     var onToggleComplete: (() -> Void)? = nil
@@ -387,6 +422,8 @@ struct TaskRowView: View, Equatable {
         isGamificationV2Enabled: Bool = V2FeatureFlags.gamificationV2Enabled,
         isTaskDragEnabled: Bool,
         highlightedTaskID: UUID? = nil,
+        metadataPolicy: TaskRowMetadataPolicy = .default,
+        chromeStyle: TaskRowChromeStyle = .card,
         onTap: (() -> Void)? = nil,
         onToggleComplete: (() -> Void)? = nil,
         onDelete: (() -> Void)? = nil,
@@ -402,6 +439,8 @@ struct TaskRowView: View, Equatable {
         self.isGamificationV2Enabled = isGamificationV2Enabled
         self.isTaskDragEnabled = isTaskDragEnabled
         self.highlightedTaskID = highlightedTaskID
+        self.metadataPolicy = metadataPolicy
+        self.chromeStyle = chromeStyle
         self.derivedState = TaskRowDerivedStateCache.resolve(
             task: task,
             showTypeBadge: showTypeBadge,
@@ -414,7 +453,8 @@ struct TaskRowView: View, Equatable {
             hasToggleAction: onToggleComplete != nil,
             hasDeleteAction: onDelete != nil,
             hasRescheduleAction: onReschedule != nil,
-            hasPromoteAction: onPromoteToFocus != nil
+            hasPromoteAction: onPromoteToFocus != nil,
+            metadataPolicy: metadataPolicy
         )
         self.onTap = onTap
         self.onToggleComplete = onToggleComplete
@@ -442,6 +482,8 @@ struct TaskRowView: View, Equatable {
         lhs.todayXPSoFar == rhs.todayXPSoFar &&
         lhs.isTaskDragEnabled == rhs.isTaskDragEnabled &&
         lhs.highlightedTaskID == rhs.highlightedTaskID &&
+        lhs.metadataPolicy == rhs.metadataPolicy &&
+        lhs.chromeStyle == rhs.chromeStyle &&
         lhs.derivedState == rhs.derivedState
     }
 
@@ -494,13 +536,12 @@ struct TaskRowView: View, Equatable {
                     Label("Delete", systemImage: "trash")
                 }
             }
-            .clipShape(RoundedRectangle(cornerRadius: TaskerTheme.CornerRadius.md))
-            .taskerDenseSurface(
-                cornerRadius: TaskerTheme.CornerRadius.md,
-                fillColor: rowBackground,
-                strokeColor: highlightStrokeColor,
-                lineWidth: isOnboardingHighlighted ? 2 : 1
-            )
+            .modifier(TaskRowChromeModifier(
+                chromeStyle: chromeStyle,
+                rowBackground: rowBackground,
+                highlightStrokeColor: highlightStrokeColor,
+                isOnboardingHighlighted: isOnboardingHighlighted
+            ))
             .taskCompletionTransition(isComplete: task.isComplete)
             .scaleEffect(isOnboardingHighlighted && !reduceMotion ? (highlightPulse ? 1.01 : 0.992) : 1)
             .accessibilityElement(children: .contain)
@@ -632,7 +673,7 @@ struct TaskRowView: View, Equatable {
         .animation(TaskerAnimation.quick, value: task.isComplete)
         .overlay {
             if isOnboardingHighlighted {
-                RoundedRectangle(cornerRadius: TaskerTheme.CornerRadius.md)
+                taskRowHighlightShape
                     .fill(Color.tasker.accentPrimary.opacity(reduceMotion ? 0.08 : (highlightPulse ? 0.12 : 0.04)))
                     .padding(1)
                     .allowsHitTesting(false)
@@ -678,14 +719,9 @@ struct TaskRowView: View, Equatable {
 
     @ViewBuilder
     private var priorityStripe: some View {
-        let stripe = UnevenRoundedRectangle(
-            topLeadingRadius: TaskerTheme.CornerRadius.md,
-            bottomLeadingRadius: TaskerTheme.CornerRadius.md,
-            bottomTrailingRadius: 0,
-            topTrailingRadius: 0
-        )
-        .fill(stripeFill)
-        .frame(width: 4)
+        let stripe = priorityStripeShape
+            .fill(stripeFill)
+            .frame(width: 4)
 
         if !task.isComplete && !task.isOverdue && task.priority == .max {
             stripe.breathingPulse(min: 0.75, max: 1.0)
@@ -749,6 +785,31 @@ struct TaskRowView: View, Equatable {
         derivedState.accessibilityStateValue
     }
 
+    private var taskRowHighlightShape: AnyShape {
+        switch chromeStyle {
+        case .card:
+            return AnyShape(RoundedRectangle(cornerRadius: TaskerTheme.CornerRadius.md))
+        case .flatHomeList:
+            return AnyShape(Rectangle())
+        }
+    }
+
+    private var priorityStripeShape: AnyShape {
+        switch chromeStyle {
+        case .card:
+            return AnyShape(
+                UnevenRoundedRectangle(
+                    topLeadingRadius: TaskerTheme.CornerRadius.md,
+                    bottomLeadingRadius: TaskerTheme.CornerRadius.md,
+                    bottomTrailingRadius: 0,
+                    topTrailingRadius: 0
+                )
+            )
+        case .flatHomeList:
+            return AnyShape(Rectangle())
+        }
+    }
+
     /// Executes statusChipView.
     @ViewBuilder
     private func statusChipView(_ statusChip: TaskRowStatusChip) -> some View {
@@ -788,6 +849,37 @@ struct TaskRowView: View, Equatable {
             .accessibilityHint(
                 "Reward factors: \(XPCalculationEngine.estimateReasonHints(estimatedDuration: task.estimatedDuration, isFocusSessionActive: false, isPinnedInFocusStrip: false))"
             )
+    }
+}
+
+private struct TaskRowChromeModifier: ViewModifier {
+    let chromeStyle: TaskRowChromeStyle
+    let rowBackground: Color
+    let highlightStrokeColor: Color
+    let isOnboardingHighlighted: Bool
+
+    @ViewBuilder
+    func body(content: Content) -> some View {
+        switch chromeStyle {
+        case .card:
+            content
+                .clipShape(RoundedRectangle(cornerRadius: TaskerTheme.CornerRadius.md))
+                .taskerDenseSurface(
+                    cornerRadius: TaskerTheme.CornerRadius.md,
+                    fillColor: rowBackground,
+                    strokeColor: highlightStrokeColor,
+                    lineWidth: isOnboardingHighlighted ? 2 : 1
+                )
+        case .flatHomeList:
+            content
+                .background(rowBackground)
+                .overlay {
+                    if isOnboardingHighlighted {
+                        Rectangle()
+                            .stroke(highlightStrokeColor, lineWidth: 2)
+                    }
+                }
+        }
     }
 }
 

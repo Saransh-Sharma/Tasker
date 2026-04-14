@@ -11,6 +11,65 @@ import SwiftUI
 
 // MARK: - Task List View
 
+@MainActor
+enum TaskListLayoutStyle: Equatable {
+    case inset
+    case edgeToEdgeHome
+
+    var taskContentHorizontalInset: CGFloat {
+        switch self {
+        case .inset:
+            return TaskerTheme.Spacing.lg
+        case .edgeToEdgeHome:
+            return 0
+        }
+    }
+
+    var supportingContentHorizontalInset: CGFloat {
+        TaskerTheme.Spacing.lg
+    }
+
+    var rowSpacing: CGFloat {
+        switch self {
+        case .inset:
+            return TaskerTheme.Spacing.xs
+        case .edgeToEdgeHome:
+            return 0
+        }
+    }
+
+    var showsRowDividers: Bool {
+        self == .edgeToEdgeHome
+    }
+
+    var headerHorizontalPadding: CGFloat {
+        switch self {
+        case .inset:
+            return 0
+        case .edgeToEdgeHome:
+            return TaskerTheme.Spacing.md
+        }
+    }
+
+    var taskChromeStyle: TaskRowChromeStyle {
+        switch self {
+        case .inset:
+            return .card
+        case .edgeToEdgeHome:
+            return .flatHomeList
+        }
+    }
+
+    var taskMetadataPolicy: TaskRowMetadataPolicy {
+        switch self {
+        case .inset:
+            return .default
+        case .edgeToEdgeHome:
+            return .homeUnifiedList
+        }
+    }
+}
+
 private struct TaskListTodayLayoutCacheKey: Equatable {
     let morningTaskSignature: [String]
     let eveningTaskSignature: [String]
@@ -131,9 +190,9 @@ struct TaskListView: View {
     private static let scrollTraceIdleDelayNanoseconds: UInt64 = 250_000_000
     private static let topAnchorID = "home.taskList.topAnchor"
     private static let pullToSearchThreshold: CGFloat = -72
-    private static let contentHorizontalInset: CGFloat = TaskerTheme.Spacing.lg
 
     let headerContent: AnyView?
+    let footerContent: AnyView?
     let morningTasks: [TaskDefinition]
     let eveningTasks: [TaskDefinition]
     let overdueTasks: [TaskDefinition]
@@ -152,6 +211,7 @@ struct TaskListView: View {
     let todaySections: [HomeListSection]
     let agendaTailItems: [HomeAgendaTailItem]
     let expandedAgendaTailItemIDs: Set<String>
+    let layoutStyle: TaskListLayoutStyle
     var onTaskTap: ((TaskDefinition) -> Void)? = nil
     var onToggleComplete: ((TaskDefinition) -> Void)? = nil
     var onDeleteTask: ((TaskDefinition) -> Void)? = nil
@@ -184,6 +244,7 @@ struct TaskListView: View {
     /// Initializes a new instance.
     init(
         headerContent: AnyView? = nil,
+        footerContent: AnyView? = nil,
         morningTasks: [TaskDefinition],
         eveningTasks: [TaskDefinition],
         overdueTasks: [TaskDefinition],
@@ -202,6 +263,7 @@ struct TaskListView: View {
         todaySections: [HomeListSection] = [],
         agendaTailItems: [HomeAgendaTailItem] = [],
         expandedAgendaTailItemIDs: Set<String> = [],
+        layoutStyle: TaskListLayoutStyle = .inset,
         onTaskTap: ((TaskDefinition) -> Void)? = nil,
         onToggleComplete: ((TaskDefinition) -> Void)? = nil,
         onDeleteTask: ((TaskDefinition) -> Void)? = nil,
@@ -226,6 +288,7 @@ struct TaskListView: View {
         bottomContentInset: CGFloat = TaskListView.defaultBottomContentInset
     ) {
         self.headerContent = headerContent
+        self.footerContent = footerContent
         self.morningTasks = morningTasks
         self.eveningTasks = eveningTasks
         self.overdueTasks = overdueTasks
@@ -244,6 +307,7 @@ struct TaskListView: View {
         self.todaySections = todaySections
         self.agendaTailItems = agendaTailItems
         self.expandedAgendaTailItemIDs = expandedAgendaTailItemIDs
+        self.layoutStyle = layoutStyle
         self.onTaskTap = onTaskTap
         self.onToggleComplete = onToggleComplete
         self.onDeleteTask = onDeleteTask
@@ -278,21 +342,35 @@ struct TaskListView: View {
 
                     if let headerContent {
                         headerContent
-                            .padding(.horizontal, Self.contentHorizontalInset)
+                            .padding(.horizontal, layoutStyle.supportingContentHorizontalInset)
                     }
 
                     if activeQuickView == .done {
                         doneTimelineContent
-                            .padding(.horizontal, Self.contentHorizontalInset)
+                            .padding(.horizontal, layoutStyle.supportingContentHorizontalInset)
                     } else {
                         regularTaskContent
-                            .padding(.horizontal, Self.contentHorizontalInset)
+                            .padding(.horizontal, layoutStyle.taskContentHorizontalInset)
+
+                        if let footerContent {
+                            footerContent
+                                .padding(.horizontal, layoutStyle.supportingContentHorizontalInset)
+                        }
+
+                        if !agendaTailItems.isEmpty {
+                            VStack(alignment: .leading, spacing: TaskerTheme.Spacing.lg) {
+                                ForEach(agendaTailItems) { item in
+                                    agendaTailItemView(item)
+                                }
+                            }
+                            .padding(.horizontal, layoutStyle.taskContentHorizontalInset)
+                        }
                     }
 
                     // Empty state
                     if allTasksEmpty {
                         emptyStateView
-                            .padding(.horizontal, Self.contentHorizontalInset)
+                            .padding(.horizontal, layoutStyle.supportingContentHorizontalInset)
                             .enhancedStaggeredAppearance(index: 0)
                     }
 
@@ -431,6 +509,7 @@ struct TaskListView: View {
                     isTaskDragEnabled: isTaskDragEnabled,
                     highlightedTaskID: highlightedTaskID,
                     completedCollapsed: isCompletedCollapsedBySection[stableSectionCollapseID(for: section)],
+                    layoutStyle: layoutStyle,
                     onTaskTap: onTaskTap,
                     onToggleComplete: onToggleComplete,
                     onDeleteTask: onDeleteTask,
@@ -515,6 +594,7 @@ struct TaskListView: View {
                     completedCollapsed: isCompletedCollapsedBySection[inboxSection.project.id],
                     isTaskDragEnabled: isTaskDragEnabled,
                     highlightedTaskID: highlightedTaskID,
+                    layoutStyle: layoutStyle,
                     onTaskTap: onTaskTap,
                     onToggleComplete: onToggleComplete,
                     onDeleteTask: onDeleteTask,
@@ -538,6 +618,7 @@ struct TaskListView: View {
                     todayXPSoFar: todayXPSoFar,
                     isGamificationV2Enabled: isGamificationV2Enabled,
                     isTaskDragEnabled: isTaskDragEnabled,
+                    layoutStyle: layoutStyle,
                     onTaskTap: onTaskTap,
                     onToggleComplete: onToggleComplete,
                     onDeleteTask: onDeleteTask,
@@ -558,6 +639,7 @@ struct TaskListView: View {
                     completedCollapsed: isCompletedCollapsedBySection[section.project.id],
                     isTaskDragEnabled: isTaskDragEnabled,
                     highlightedTaskID: highlightedTaskID,
+                    layoutStyle: layoutStyle,
                     onTaskTap: onTaskTap,
                     onToggleComplete: onToggleComplete,
                     onDeleteTask: onDeleteTask,
@@ -586,11 +668,6 @@ struct TaskListView: View {
             }
         }
 
-        if !agendaTailItems.isEmpty {
-            ForEach(agendaTailItems) { item in
-                agendaTailItemView(item)
-            }
-        }
     }
 
     @ViewBuilder
@@ -752,6 +829,9 @@ struct TaskListView: View {
             if !agendaTailItems.isEmpty {
                 return false
             }
+            if footerContent != nil {
+                return false
+            }
             return morningTasks.isEmpty
                 && eveningTasks.isEmpty
                 && overdueTasks.isEmpty
@@ -762,6 +842,10 @@ struct TaskListView: View {
     }
 
     private func stableSectionCollapseID(for section: HomeListSection) -> UUID {
+        if section.showsHeader == false {
+            return deterministicSectionID(for: section.id)
+        }
+
         switch section.anchor {
         case .project(let id, _, _, _):
             return id
@@ -774,12 +858,14 @@ struct TaskListView: View {
             return deterministicSectionID(for: "due_today_summary")
         case .focusNow:
             return deterministicSectionID(for: "focus_now")
+        case .plainList(let id):
+            return deterministicSectionID(for: "plain_list:\(id)")
         }
     }
 
     private func headerActionTitle(for section: HomeListSection, index: Int) -> String? {
         guard activeQuickView == .today else { return nil }
-        if section.anchor.isInboxProject {
+        if section.showsHeader, section.anchor.isInboxProject {
             return inboxHeaderActionTitle
         }
         return nil
@@ -787,7 +873,7 @@ struct TaskListView: View {
 
     private func headerAction(for section: HomeListSection, index: Int) -> (() -> Void)? {
         guard activeQuickView == .today else { return nil }
-        if section.anchor.isInboxProject {
+        if section.showsHeader, section.anchor.isInboxProject {
             return onInboxHeaderAction
         }
         return nil
@@ -795,7 +881,7 @@ struct TaskListView: View {
 
     private func headerAccessibilityID(for section: HomeListSection, index: Int) -> String? {
         guard activeQuickView == .today else { return nil }
-        if section.anchor.isInboxProject {
+        if section.showsHeader, section.anchor.isInboxProject {
             return "home.inbox.headerAction"
         }
         return nil
@@ -891,8 +977,8 @@ struct TaskListView: View {
             }
 
             if isExpanded {
-                VStack(spacing: TaskerTheme.Spacing.xs) {
-                    ForEach(state.rows) { row in
+                VStack(spacing: layoutStyle.rowSpacing) {
+                    ForEach(Array(state.rows.enumerated()), id: \.element.id) { index, row in
                         HomeListRowView(
                             row: row,
                             tagNameByID: tagNameByID,
@@ -900,6 +986,8 @@ struct TaskListView: View {
                             isGamificationV2Enabled: isGamificationV2Enabled,
                             isTaskDragEnabled: false,
                             highlightedTaskID: highlightedTaskID,
+                            taskChromeStyle: layoutStyle.taskChromeStyle,
+                            taskMetadataPolicy: layoutStyle.taskMetadataPolicy,
                             onTaskTap: onTaskTap,
                             onToggleComplete: { task in
                                 onToggleComplete?(task)
@@ -911,18 +999,28 @@ struct TaskListView: View {
                             onLapseHabit: onLapseHabit,
                             onOpenHabit: onOpenHabit
                         )
+
+                        if layoutStyle.showsRowDividers && index < state.rows.count - 1 {
+                            HomeTaskRowDivider()
+                        }
                     }
                 }
             }
         }
-        .padding(.horizontal, TaskerTheme.Spacing.md)
         .padding(.vertical, TaskerTheme.Spacing.sm)
-        .background(Color.tasker.surfaceSecondary.opacity(state.mode == .compact ? 0.22 : 0.34))
-        .overlay(
-            RoundedRectangle(cornerRadius: 18)
-                .stroke(Color.tasker.strokeHairline.opacity(0.55), lineWidth: 1)
-        )
-        .clipShape(RoundedRectangle(cornerRadius: 18))
+        .padding(.horizontal, layoutStyle.headerHorizontalPadding)
+        .background {
+            if layoutStyle == .inset {
+                Color.tasker.surfaceSecondary.opacity(state.mode == .compact ? 0.22 : 0.34)
+            }
+        }
+        .overlay {
+            if layoutStyle == .inset {
+                RoundedRectangle(cornerRadius: 18)
+                    .stroke(Color.tasker.strokeHairline.opacity(0.55), lineWidth: 1)
+            }
+        }
+        .clipShape(layoutStyle == .inset ? AnyShape(RoundedRectangle(cornerRadius: 18)) : AnyShape(Rectangle()))
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("home.rescue.section")
     }
@@ -1014,6 +1112,7 @@ private struct OverdueGroupedSectionView: View {
     let todayXPSoFar: Int?
     let isGamificationV2Enabled: Bool
     let isTaskDragEnabled: Bool
+    let layoutStyle: TaskListLayoutStyle
     var onTaskTap: ((TaskDefinition) -> Void)?
     var onToggleComplete: ((TaskDefinition) -> Void)?
     var onDeleteTask: ((TaskDefinition) -> Void)?
@@ -1037,6 +1136,7 @@ private struct OverdueGroupedSectionView: View {
                     TaskerFeedback.selection()
                 }
             )
+            .padding(.horizontal, layoutStyle.headerHorizontalPadding)
 
             if isExpanded {
                 ForEach(Array(groups.enumerated()), id: \.element.project.id) { index, group in
@@ -1044,9 +1144,11 @@ private struct OverdueGroupedSectionView: View {
                         Text(group.project.name)
                             .font(.tasker(.caption1))
                             .foregroundColor(Color.tasker.textSecondary)
+                            .padding(.horizontal, layoutStyle.headerHorizontalPadding)
                             .padding(.top, index == 0 ? 0 : TaskerTheme.Spacing.sm)
 
-                        ForEach(Array(group.tasks.enumerated()), id: \.element.id) { taskIndex, task in
+                        VStack(spacing: layoutStyle.rowSpacing) {
+                            ForEach(Array(group.tasks.enumerated()), id: \.element.id) { taskIndex, task in
                             TaskRowView(
                                 task: task,
                                 showTypeBadge: false,
@@ -1055,6 +1157,8 @@ private struct OverdueGroupedSectionView: View {
                                 todayXPSoFar: todayXPSoFar,
                                 isGamificationV2Enabled: isGamificationV2Enabled,
                                 isTaskDragEnabled: isTaskDragEnabled,
+                                metadataPolicy: layoutStyle.taskMetadataPolicy,
+                                chromeStyle: layoutStyle.taskChromeStyle,
                                 onTap: { onTaskTap?(task) },
                                 onToggleComplete: { onToggleComplete?(task) },
                                 onDelete: { onDeleteTask?(task) },
@@ -1064,6 +1168,11 @@ private struct OverdueGroupedSectionView: View {
                                 },
                                 onTaskDragStarted: onTaskDragStarted
                             )
+
+                                if layoutStyle.showsRowDividers && taskIndex < group.tasks.count - 1 {
+                                    HomeTaskRowDivider()
+                                }
+                            }
                         }
                     }
                 }

@@ -23,6 +23,7 @@ struct TaskDetailSheetView: View {
     typealias CreateTaskHandler = (CreateTaskDefinitionRequest, @escaping (Result<TaskDefinition, Error>) -> Void) -> Void
     typealias CreateTagHandler = (String, @escaping (Result<TagDefinition, Error>) -> Void) -> Void
     typealias CreateProjectHandler = (String, @escaping (Result<Project, Error>) -> Void) -> Void
+    typealias SaveReflectionNoteHandler = (ReflectionNote, @escaping (Result<ReflectionNote, Error>) -> Void) -> Void
 
     /// Initializes a new instance.
     @Environment(\.dismiss) private var dismiss
@@ -35,12 +36,14 @@ struct TaskDetailSheetView: View {
     @State private var newStepTitle = ""
     @State private var showBreakdownSheet = false
     @State private var selectedBreakdownSteps: Set<String> = []
+    @State private var showingReflectionComposer = false
 
     @FocusState private var titleFocused: Bool
     @FocusState private var stepFocused: Bool
     @FocusState private var descriptionFocused: Bool
     private let isGamificationV2Enabled: Bool
     private let containerMode: TaskDetailContainerMode
+    private let onSaveReflectionNote: SaveReflectionNoteHandler
     private var readableContentWidth: CGFloat {
         switch containerMode {
         case .sheet:
@@ -65,11 +68,19 @@ struct TaskDetailSheetView: View {
         onLoadChildren: @escaping ChildrenHandler,
         onCreateTask: @escaping CreateTaskHandler,
         onCreateTag: @escaping CreateTagHandler,
-        onCreateProject: @escaping CreateProjectHandler
+        onCreateProject: @escaping CreateProjectHandler,
+        onSaveReflectionNote: @escaping SaveReflectionNoteHandler = { _, completion in
+            completion(.failure(NSError(
+                domain: "TaskDetailSheetView",
+                code: 501,
+                userInfo: [NSLocalizedDescriptionKey: "Reflection notes are unavailable in this context."]
+            )))
+        }
     ) {
         self._liveTodayXPSoFar = State(initialValue: todayXPSoFar)
         self.isGamificationV2Enabled = isGamificationV2Enabled
         self.containerMode = containerMode
+        self.onSaveReflectionNote = onSaveReflectionNote
         _viewModel = StateObject(wrappedValue: TaskDetailViewModel(
             task: task,
             projects: projects,
@@ -109,6 +120,9 @@ struct TaskDetailSheetView: View {
             }
             .sheet(isPresented: $showBreakdownSheet) {
                 breakdownSheetContent
+            }
+            .sheet(isPresented: $showingReflectionComposer) {
+                reflectionComposerSheet
             }
     }
 
@@ -182,6 +196,18 @@ struct TaskDetailSheetView: View {
                 viewModel.scheduleAutosave(debounced: false)
             }
             .onChange(of: viewModel.repeatPattern) {
+                viewModel.scheduleAutosave(debounced: false)
+            }
+            .onChange(of: viewModel.selectedPlanningBucket) {
+                if viewModel.selectedPlanningBucket != .thisWeek && viewModel.selectedWeeklyOutcomeID != nil {
+                    viewModel.selectedWeeklyOutcomeID = nil
+                }
+                viewModel.scheduleAutosave(debounced: false)
+            }
+            .onChange(of: viewModel.selectedWeeklyOutcomeID) { _, newValue in
+                if newValue != nil && viewModel.selectedPlanningBucket != .thisWeek {
+                    viewModel.selectedPlanningBucket = .thisWeek
+                }
                 viewModel.scheduleAutosave(debounced: false)
             }
     }
@@ -757,6 +783,12 @@ struct TaskDetailSheetView: View {
                         viewModel.createTag(name: name, completion: completion)
                     }
                 )
+
+                planningSection
+
+                if let motivation = viewModel.projectMotivation, !motivation.isEmpty {
+                    projectMotivationCard(motivation)
+                }
             }
         }
     }
@@ -793,6 +825,8 @@ struct TaskDetailSheetView: View {
                     selected: $viewModel.selectedContext
                 )
                 .accessibilityIdentifier("taskDetail.contextPicker")
+
+                recentReflectionsCard
             }
         }
     }
@@ -938,6 +972,117 @@ struct TaskDetailSheetView: View {
             return Color.tasker.statusSuccess
         case .failed:
             return Color.tasker.statusDanger
+        }
+    }
+
+    private var reflectionComposerSheet: some View {
+        ReflectionNoteComposerView(
+            viewModel: ReflectionNoteComposerViewModel(
+                title: "Task Reflection",
+                kind: viewModel.isComplete ? .taskCompletion : .freeform,
+                linkedTaskID: viewModel.persistedTask.id,
+                linkedProjectID: viewModel.selectedProjectID,
+                prompt: viewModel.isComplete
+                    ? "What helped this task finish cleanly?"
+                    : "What is changing about this task right now?",
+                saveNoteHandler: onSaveReflectionNote
+            )
+        ) { _ in
+            viewModel.refreshRelationshipMetadata()
+        }
+    }
+
+    private var planningSection: some View {
+        VStack(alignment: .leading, spacing: TaskerTheme.Spacing.sm) {
+            WeeklyPlanningPlacementSection(
+                selectedPlanningBucket: $viewModel.selectedPlanningBucket,
+                selectedWeeklyOutcomeID: $viewModel.selectedWeeklyOutcomeID,
+                availableWeeklyOutcomes: viewModel.weeklyOutcomes
+            )
+            .accessibilityIdentifier("taskDetail.weeklyBucketPicker")
+        }
+    }
+
+    private var recentReflectionsCard: some View {
+        VStack(alignment: .leading, spacing: TaskerTheme.Spacing.sm) {
+            HStack {
+                Text("Recent reflection")
+                    .font(.tasker(.caption1))
+                    .foregroundColor(Color.tasker.textTertiary)
+                Spacer()
+                Button(viewModel.isComplete ? "Capture completion note" : "Capture note") {
+                    showingReflectionComposer = true
+                }
+                .font(.tasker(.caption1))
+                .buttonStyle(.plain)
+                .foregroundStyle(Color.tasker.accentPrimary)
+            }
+
+            if viewModel.recentReflectionNotes.isEmpty {
+                Text("Recent task and project reflections appear here once you capture them.")
+                    .font(.tasker(.caption1))
+                    .foregroundColor(Color.tasker.textSecondary)
+            } else {
+                VStack(alignment: .leading, spacing: TaskerTheme.Spacing.xs) {
+                    ForEach(viewModel.recentReflectionNotes.prefix(3), id: \.id) { note in
+                        VStack(alignment: .leading, spacing: 4) {
+                            if let prompt = note.prompt, prompt.isEmpty == false {
+                                Text(prompt)
+                                    .font(.tasker(.caption2))
+                                    .foregroundColor(Color.tasker.textTertiary)
+                            }
+                            Text(note.noteText)
+                                .font(.tasker(.callout))
+                                .foregroundColor(Color.tasker.textPrimary)
+                            Text(DateUtils.formatDateTime(note.createdAt))
+                                .font(.tasker(.caption2))
+                                .foregroundColor(Color.tasker.textQuaternary)
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(TaskerTheme.Spacing.sm)
+                        .background(
+                            RoundedRectangle(cornerRadius: TaskerTheme.CornerRadius.md, style: .continuous)
+                                .fill(Color.tasker.surfaceSecondary)
+                        )
+                    }
+                }
+            }
+        }
+    }
+
+    private func projectMotivationCard(_ motivation: ProjectWeeklyMotivation) -> some View {
+        VStack(alignment: .leading, spacing: TaskerTheme.Spacing.sm) {
+            Text("Project motivation")
+                .font(.tasker(.caption1))
+                .foregroundColor(Color.tasker.textTertiary)
+
+            if let why = motivation.why, why.isEmpty == false {
+                motivationRow(title: "Why now", value: why)
+            }
+            if let successLooksLike = motivation.successLooksLike, successLooksLike.isEmpty == false {
+                motivationRow(title: "Success looks like", value: successLooksLike)
+            }
+            if let costOfNeglect = motivation.costOfNeglect, costOfNeglect.isEmpty == false {
+                motivationRow(title: "If ignored", value: costOfNeglect)
+            }
+        }
+        .padding(TaskerTheme.Spacing.sm)
+        .taskerDenseSurface(
+            cornerRadius: TaskerTheme.CornerRadius.md,
+            fillColor: Color.tasker.accentPrimary.opacity(0.08),
+            strokeColor: Color.tasker.accentPrimary.opacity(0.12)
+        )
+    }
+
+    private func motivationRow(title: String, value: String) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(title)
+                .font(.tasker(.caption2))
+                .foregroundColor(Color.tasker.textTertiary)
+            Text(value)
+                .font(.tasker(.callout))
+                .foregroundColor(Color.tasker.textPrimary)
+                .fixedSize(horizontal: false, vertical: true)
         }
     }
 

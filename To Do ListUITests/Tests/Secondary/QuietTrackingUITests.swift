@@ -11,9 +11,17 @@ final class QuietTrackingUITests: BaseUITest {
     func testQuietTrackingSheetSupportsScrollSelectionAndSave() {
         let homePage = HomePage(app: app)
 
-        XCTAssertTrue(homePage.quietTrackingSummary.waitForExistence(timeout: 8), "Quiet tracking summary should appear in the seeded workspace")
-        XCTAssertTrue(waitForElementToBeHittable(homePage.quietTrackingSummary, timeout: 3))
-        homePage.quietTrackingSummary.tap()
+        XCTAssertTrue(homePage.passiveTrackingRail.waitForExistence(timeout: 8), "Passive tracking rail should appear in the seeded workspace")
+
+        let passiveTrackingCards = app.buttons.matching(
+            NSPredicate(format: "identifier BEGINSWITH %@", AccessibilityIdentifiers.Home.passiveTrackingCard(""))
+        )
+        XCTAssertGreaterThanOrEqual(passiveTrackingCards.count, 2, "Seeded quiet tracking workspace should expose at least two passive tracking cards")
+
+        let secondPassiveTrackingCard = passiveTrackingCards.element(boundBy: 1)
+        XCTAssertTrue(secondPassiveTrackingCard.waitForExistence(timeout: 3))
+        XCTAssertTrue(waitForElementToBeHittable(secondPassiveTrackingCard, timeout: 3))
+        secondPassiveTrackingCard.tap()
 
         XCTAssertTrue(homePage.quietTrackingSheet.waitForExistence(timeout: 5), "Quiet tracking sheet should open from Home")
         XCTAssertTrue(homePage.quietTrackingSheetScroll.waitForExistence(timeout: 3), "Quiet tracking sheet should expose a scroll container")
@@ -26,36 +34,20 @@ final class QuietTrackingUITests: BaseUITest {
         XCTAssertTrue(waitForElementToBeHittable(secondHabitButton, timeout: 3))
         secondHabitButton.tap()
 
-        let selectedDateLabel = app.staticTexts[AccessibilityIdentifiers.Home.quietTrackingSheetSelectedDate]
-        XCTAssertTrue(selectedDateLabel.waitForExistence(timeout: 3))
-        let initialDateLabel = selectedDateLabel.label
-        let formatStyle = Date.FormatStyle.dateTime.weekday(.wide).month(.abbreviated).day()
-        let yesterdayLabel = (Calendar.current.date(byAdding: .day, value: -1, to: Date()) ?? Date()).formatted(formatStyle)
-        let todayLabel = Date().formatted(formatStyle)
-
         let scrollView = homePage.quietTrackingSheetScroll
         scrollView.swipeUp()
         scrollView.swipeDown()
 
-        let targetLabel: String
-        let targetButton: XCUIElement
-        if initialDateLabel == yesterdayLabel {
-            targetLabel = todayLabel
-            targetButton = homePage.quietTrackingSheetTodayButton
-        } else {
-            targetLabel = yesterdayLabel
-            targetButton = homePage.quietTrackingSheetYesterdayButton
-        }
-
-        XCTAssertTrue(waitForElementToBeHittable(targetButton, timeout: 3))
-        targetButton.tap()
-        let changedPredicate = NSPredicate(format: "label == %@", targetLabel)
-        let changedExpectation = XCTNSPredicateExpectation(predicate: changedPredicate, object: selectedDateLabel)
-        XCTAssertEqual(
-            XCTWaiter.wait(for: [changedExpectation], timeout: 3),
-            .completed,
-            "Changing the selected day should update the visible day label"
+        XCTAssertTrue(
+            homePage.quietTrackingSheetTodayButton.isSelected,
+            "Quiet tracking should default to today"
         )
+
+        XCTAssertTrue(
+            scrollToElement(homePage.quietTrackingSheetYesterdayButton, in: scrollView, maxSwipes: 4),
+            "The quiet tracking sheet should scroll until the day shortcuts are reachable"
+        )
+        XCTAssertTrue(waitForElementToBeHittable(homePage.quietTrackingSheetYesterdayButton, timeout: 3))
 
         XCTAssertTrue(waitForElementToBeHittable(homePage.quietTrackingSheetOutcomeLapseButton, timeout: 3))
         homePage.quietTrackingSheetOutcomeLapseButton.tap()

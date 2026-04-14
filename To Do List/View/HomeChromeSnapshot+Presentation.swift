@@ -22,11 +22,30 @@ struct HomeHeaderXPProgressModel: Equatable {
     let accessibilityLabel: String
 }
 
+struct HomeHeaderTodayStatusModel: Equatable {
+    let xpText: String
+    let completionText: String
+    let streakText: String
+    let streakAccessibilityLabel: String
+
+    var displayText: String {
+        [xpText, completionText, streakText].joined(separator: " · ")
+    }
+
+    var accessibilityLabel: String {
+        "\(xpText), \(completionText), \(streakAccessibilityLabel)"
+    }
+}
+
 struct HomeHeaderPresentationModel: Equatable {
     let viewLabel: String
-    let centeredDateText: String?
+    let compactDateText: String?
+    let backgroundDateText: String?
+    let foregroundRelativeLabel: String?
+    let dateAccessibilityLabel: String?
     let showsBackToToday: Bool
-    let metadataItems: [HomeHeaderMetadataItem]
+    let statusText: String?
+    let todayStatus: HomeHeaderTodayStatusModel?
     let showsReflectionCTA: Bool
     let reflectionCTATitle: String
     let xpProgress: HomeHeaderXPProgressModel?
@@ -35,11 +54,16 @@ struct HomeHeaderPresentationModel: Equatable {
 
 extension HomeChromeSnapshot {
     func homeHeaderPresentation(tasks: HomeTasksSnapshot) -> HomeHeaderPresentationModel {
-        HomeHeaderPresentationModel(
+        let datePresentation = homeHeaderDatePresentation
+        return HomeHeaderPresentationModel(
             viewLabel: activeScope.quickView.title,
-            centeredDateText: homeHeaderCenteredDateText,
+            compactDateText: datePresentation?.compactDateText,
+            backgroundDateText: datePresentation?.backgroundDateText,
+            foregroundRelativeLabel: datePresentation?.foregroundRelativeLabel,
+            dateAccessibilityLabel: datePresentation?.dateAccessibilityLabel,
             showsBackToToday: shouldShowBackToToday,
-            metadataItems: headerMetadataItems(tasks: tasks),
+            statusText: headerStatusText(tasks: tasks),
+            todayStatus: headerTodayStatus,
             showsReflectionCTA: shouldShowReflectionCTA,
             reflectionCTATitle: "Reflect",
             xpProgress: headerXPProgress,
@@ -47,12 +71,12 @@ extension HomeChromeSnapshot {
         )
     }
 
-    var homeHeaderCenteredDateText: String? {
+    private var homeHeaderDatePresentation: HomeHeaderDatePresentation? {
         switch activeScope {
         case .today:
-            return selectedDate.formatted(.dateTime.weekday(.abbreviated).month(.abbreviated).day())
+            return makeHomeHeaderDatePresentation(for: selectedDate)
         case .customDate(let date):
-            return date.formatted(.dateTime.weekday(.abbreviated).month(.abbreviated).day())
+            return makeHomeHeaderDatePresentation(for: date)
         case .upcoming, .overdue, .done, .morning, .evening:
             return nil
         }
@@ -90,52 +114,40 @@ extension HomeChromeSnapshot {
         )
     }
 
-    private func headerMetadataItems(tasks: HomeTasksSnapshot) -> [HomeHeaderMetadataItem] {
+    private func headerStatusText(tasks: HomeTasksSnapshot) -> String? {
         switch activeScope {
         case .today:
-            return todayMetadataItems
+            return headerTodayStatus?.displayText
         case .customDate:
-            return selectedDateMetadataItems(tasks: tasks)
+            return selectedDateStatusText(tasks: tasks)
         case .upcoming:
-            return [scopedCountItem(id: "upcoming", count: quickViewCounts[.upcoming] ?? 0, noun: "upcoming task", iconSystemName: "calendar.badge.clock", tone: .accent)]
+            return quantified(quickViewCounts[.upcoming] ?? 0, singular: "upcoming task", plural: "upcoming tasks")
         case .overdue:
-            return [scopedCountItem(id: "overdue", count: tasks.overdueTasks.count, noun: "overdue task", iconSystemName: "flame.fill", tone: .warning)]
+            return quantified(tasks.overdueTasks.count, singular: "overdue task", plural: "overdue tasks")
         case .done:
-            return [scopedCountItem(id: "done", count: tasks.doneTimelineTasks.count, noun: "completed task", iconSystemName: "checkmark.circle.fill", tone: .success)]
+            return quantified(tasks.doneTimelineTasks.count, singular: "completed task", plural: "completed tasks")
         case .morning:
-            return [scopedCountItem(id: "morning", count: tasks.morningTasks.count, noun: "morning task", iconSystemName: "sunrise.fill", tone: .accent)]
+            return quantified(tasks.morningTasks.count, singular: "morning task", plural: "morning tasks")
         case .evening:
-            return [scopedCountItem(id: "evening", count: tasks.eveningTasks.count, noun: "evening task", iconSystemName: "moon.stars.fill", tone: .accent)]
+            return quantified(tasks.eveningTasks.count, singular: "evening task", plural: "evening tasks")
         }
     }
 
-    private var todayMetadataItems: [HomeHeaderMetadataItem] {
+    private var headerTodayStatus: HomeHeaderTodayStatusModel? {
+        guard case .today = activeScope else { return nil }
+
         let completionPercent = Int((completionRate * 100).rounded())
         let xpTarget = resolvedTodayTargetXP
         let xpText = xpTarget > 0
             ? "\(progressState.earnedXP)/\(xpTarget) XP"
             : "\(dailyScore) XP"
 
-        return [
-            HomeHeaderMetadataItem(
-                id: "xp",
-                text: xpText,
-                iconSystemName: nil,
-                tone: .accent
-            ),
-            HomeHeaderMetadataItem(
-                id: "completion",
-                text: "\(completionPercent)%",
-                iconSystemName: "checkmark.circle.fill",
-                tone: .success
-            ),
-            HomeHeaderMetadataItem(
-                id: "streak",
-                text: "\(progressState.streakDays)d",
-                iconSystemName: "flame.fill",
-                tone: progressState.isStreakSafeToday ? .accent : .warning
-            )
-        ]
+        return HomeHeaderTodayStatusModel(
+            xpText: xpText,
+            completionText: "\(completionPercent)%",
+            streakText: "\(progressState.streakDays)d",
+            streakAccessibilityLabel: "\(progressState.streakDays) day streak"
+        )
     }
 
     private var resolvedTodayTargetXP: Int {
@@ -148,41 +160,62 @@ extension HomeChromeSnapshot {
         return 0
     }
 
-    private func selectedDateMetadataItems(tasks: HomeTasksSnapshot) -> [HomeHeaderMetadataItem] {
+    private func selectedDateStatusText(tasks: HomeTasksSnapshot) -> String {
         let counts = tasks.selectedDateMixedCounts
         return [
-            HomeHeaderMetadataItem(
-                id: "selected-date-tasks",
-                text: quantified(counts.taskCount, singular: "task", plural: "tasks"),
-                iconSystemName: "checklist",
-                tone: .neutral
-            ),
-            HomeHeaderMetadataItem(
-                id: "selected-date-habits",
-                text: quantified(counts.habitCount, singular: "habit", plural: "habits"),
-                iconSystemName: "repeat",
-                tone: .neutral
-            )
-        ]
-    }
-
-    private func scopedCountItem(
-        id: String,
-        count: Int,
-        noun: String,
-        iconSystemName: String,
-        tone: HomeHeaderMetadataItem.Tone
-    ) -> HomeHeaderMetadataItem {
-        HomeHeaderMetadataItem(
-            id: id,
-            text: quantified(count, singular: noun, plural: noun + "s"),
-            iconSystemName: iconSystemName,
-            tone: tone
-        )
+            quantified(counts.taskCount, singular: "task", plural: "tasks"),
+            quantified(counts.habitCount, singular: "habit", plural: "habits")
+        ].joined(separator: " · ")
     }
 
     private func quantified(_ count: Int, singular: String, plural: String) -> String {
         "\(count) \(count == 1 ? singular : plural)"
+    }
+
+    private func makeHomeHeaderDatePresentation(for date: Date) -> HomeHeaderDatePresentation {
+        let calendar = Calendar.current
+        let dayOffset = calendar.dateComponents(
+            [.day],
+            from: calendar.startOfDay(for: Date()),
+            to: calendar.startOfDay(for: date)
+        ).day ?? 0
+
+        return HomeHeaderDatePresentation(
+            compactDateText: date.formatted(.dateTime.weekday(.abbreviated).month(.abbreviated).day()),
+            backgroundDateText: date.formatted(.dateTime.month(.wide).day()),
+            foregroundRelativeLabel: relativeDateHeaderLabel(for: dayOffset),
+            dateAccessibilityLabel: "\(relativeDateAccessibilityLabel(for: dayOffset)), \(date.formatted(.dateTime.month(.wide).day()))"
+        )
+    }
+
+    private func relativeDateHeaderLabel(for dayOffset: Int) -> String {
+        switch dayOffset {
+        case ..<(-1):
+            return "\(-dayOffset) DAYS AGO"
+        case -1:
+            return "YESTERDAY"
+        case 0:
+            return "TODAY"
+        case 1:
+            return "TOMORROW"
+        default:
+            return "IN \(dayOffset) DAYS"
+        }
+    }
+
+    private func relativeDateAccessibilityLabel(for dayOffset: Int) -> String {
+        switch dayOffset {
+        case ..<(-1):
+            return "\(-dayOffset) days ago"
+        case -1:
+            return "Yesterday"
+        case 0:
+            return "Today"
+        case 1:
+            return "Tomorrow"
+        default:
+            return "In \(dayOffset) days"
+        }
     }
 
     private var homeActiveFilterCount: Int {
@@ -198,6 +231,13 @@ extension HomeChromeSnapshot {
         }
         return count
     }
+}
+
+private struct HomeHeaderDatePresentation: Equatable {
+    let compactDateText: String
+    let backgroundDateText: String
+    let foregroundRelativeLabel: String
+    let dateAccessibilityLabel: String
 }
 
 private extension HomeTasksSnapshot {

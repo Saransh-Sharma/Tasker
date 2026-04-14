@@ -161,24 +161,15 @@ class HomePage {
         return app.descendants(matching: .any)["home.topChrome.date"]
     }
 
-    var quickFilterTitleLabel: XCUIElement {
-        let byText = app.staticTexts["home.focus.menu.button.title"]
-        if byText.exists {
-            return byText
-        }
-
-        return app.descendants(matching: .any)["home.focus.menu.button.title"]
-    }
-
     var searchButton: XCUIElement {
-        let legacyIdentifier = app.buttons[AccessibilityIdentifiers.Home.searchButton]
-        if legacyIdentifier.exists {
-            return legacyIdentifier
-        }
-
         let topNavIdentifier = app.buttons[AccessibilityIdentifiers.Home.topNavSearchButton]
         if topNavIdentifier.exists {
             return topNavIdentifier
+        }
+
+        let legacyIdentifier = app.buttons[AccessibilityIdentifiers.Home.searchButton]
+        if legacyIdentifier.exists {
+            return legacyIdentifier
         }
 
         let topSearchByLabel = app.buttons.matching(
@@ -342,6 +333,62 @@ class HomePage {
         return app.buttons[AccessibilityIdentifiers.Home.quickFilterMenuAdvancedButton]
     }
 
+    var primaryWidgetRail: XCUIElement {
+        let rail = app.otherElements[AccessibilityIdentifiers.Home.primaryWidgetRail]
+        if rail.exists {
+            return rail
+        }
+        return app.descendants(matching: .any)[AccessibilityIdentifiers.Home.primaryWidgetRail]
+    }
+
+    var primaryWidgetIndicator: XCUIElement {
+        let indicator = app.otherElements[AccessibilityIdentifiers.Home.primaryWidgetIndicator]
+        if indicator.exists {
+            return indicator
+        }
+        return app.descendants(matching: .any)[AccessibilityIdentifiers.Home.primaryWidgetIndicator]
+    }
+
+    var primaryWidgetPageFocusNow: XCUIElement {
+        app.descendants(matching: .any)[AccessibilityIdentifiers.Home.primaryWidgetPageFocusNow]
+    }
+
+    var primaryWidgetPageWeeklyOperating: XCUIElement {
+        app.descendants(matching: .any)[AccessibilityIdentifiers.Home.primaryWidgetPageWeeklyOperating]
+    }
+
+    var primaryWidgetIndicatorFocusNow: XCUIElement {
+        app.buttons[AccessibilityIdentifiers.Home.primaryWidgetIndicatorFocusNow]
+    }
+
+    var primaryWidgetIndicatorWeeklyOperating: XCUIElement {
+        app.buttons[AccessibilityIdentifiers.Home.primaryWidgetIndicatorWeeklyOperating]
+    }
+
+    var weeklySummaryCard: XCUIElement {
+        let card = app.otherElements.matching(
+            NSPredicate(format: "identifier == %@", AccessibilityIdentifiers.Home.weeklySummaryCard)
+        ).firstMatch
+        if card.exists {
+            return card
+        }
+        return app.descendants(matching: .any).matching(
+            NSPredicate(format: "identifier == %@", AccessibilityIdentifiers.Home.weeklySummaryCard)
+        ).firstMatch
+    }
+
+    var passiveTrackingRail: XCUIElement {
+        let rail = app.otherElements.matching(
+            NSPredicate(format: "identifier == %@", AccessibilityIdentifiers.Home.passiveTrackingRail)
+        ).firstMatch
+        if rail.exists {
+            return rail
+        }
+        return app.descendants(matching: .any).matching(
+            NSPredicate(format: "identifier == %@", AccessibilityIdentifiers.Home.passiveTrackingRail)
+        ).firstMatch
+    }
+
     var focusStrip: XCUIElement {
         let predicate = NSPredicate(
             format: "identifier == %@ OR identifier == %@ OR identifier == %@",
@@ -376,6 +423,14 @@ class HomePage {
 
     var focusDetailShuffleButton: XCUIElement {
         app.buttons["home.focus.detail.shuffle"]
+    }
+
+    func swipePrimaryWidgetRailLeft() {
+        primaryWidgetRail.swipeLeft()
+    }
+
+    func swipePrimaryWidgetRailRight() {
+        primaryWidgetRail.swipeRight()
     }
 
     var rescueSection: XCUIElement {
@@ -469,6 +524,34 @@ class HomePage {
             return button
         }
         return app.descendants(matching: .any)[AccessibilityIdentifiers.Home.quietTrackingSummary]
+    }
+
+    var habitsSection: XCUIElement {
+        let section = app.otherElements.matching(
+            NSPredicate(format: "identifier == %@", AccessibilityIdentifiers.Home.habitsSection)
+        ).firstMatch
+        if section.exists {
+            return section
+        }
+        return app.descendants(matching: .any).matching(
+            NSPredicate(format: "identifier == %@", AccessibilityIdentifiers.Home.habitsSection)
+        ).firstMatch
+    }
+
+    var habitsRecoverySection: XCUIElement {
+        let section = app.otherElements.matching(
+            NSPredicate(format: "identifier == %@", AccessibilityIdentifiers.Home.habitsRecoverySection)
+        ).firstMatch
+        if section.exists {
+            return section
+        }
+        return app.descendants(matching: .any).matching(
+            NSPredicate(format: "identifier == %@", AccessibilityIdentifiers.Home.habitsRecoverySection)
+        ).firstMatch
+    }
+
+    var habitsSectionAction: XCUIElement {
+        app.buttons[AccessibilityIdentifiers.Home.habitsSectionAction]
     }
 
     var quietTrackingSheet: XCUIElement {
@@ -987,22 +1070,25 @@ class HomePage {
             return explicitButton
         }
 
-        let explicitAny = focusStrip.descendants(matching: .any).matching(
-            NSPredicate(
-                format: "identifier BEGINSWITH 'home.focus.task.' OR identifier == 'home.focusZone.taskList'"
-            )
+        let explicitRows = focusStrip.descendants(matching: .any).matching(
+            NSPredicate(format: "identifier BEGINSWITH 'home.focus.task.'")
         ).containing(.staticText, identifier: title)
-        if let hittableExplicitAny = firstHittableElement(in: explicitAny) {
-            return hittableExplicitAny
+        if let hittableExplicitRow = firstHittableElement(in: explicitRows) {
+            return hittableExplicitRow
         }
 
         let rowsContainingTitle = app.descendants(matching: .any).matching(
-            NSPredicate(
-                format: "identifier BEGINSWITH 'home.focus.task.' OR identifier == 'home.focusZone.taskList'"
-            )
+            NSPredicate(format: "identifier BEGINSWITH 'home.focus.task.'")
         ).containing(.staticText, identifier: title)
         if let hittableRow = firstHittableElement(in: rowsContainingTitle) {
             return hittableRow
+        }
+
+        let labeledCompactRows = focusStrip.otherElements.matching(
+            NSPredicate(format: "identifier == 'home.focusZone.taskList' AND label CONTAINS[c] %@", title)
+        )
+        if let hittableCompactRow = firstHittableElement(in: labeledCompactRows) {
+            return hittableCompactRow
         }
 
         let firstMatch = rowsContainingTitle.firstMatch
@@ -1012,7 +1098,7 @@ class HomePage {
 
         let rowByLabel = app.descendants(matching: .any).matching(
             NSPredicate(
-                format: "(identifier BEGINSWITH 'home.focus.task.' OR identifier == 'home.focusZone.taskList') AND label CONTAINS[c] %@",
+                format: "identifier BEGINSWITH 'home.focus.task.' AND label CONTAINS[c] %@",
                 title
             )
         ).firstMatch
@@ -1021,9 +1107,7 @@ class HomePage {
         }
 
         let rows = app.descendants(matching: .any).matching(
-            NSPredicate(
-                format: "identifier BEGINSWITH 'home.focus.task.' OR identifier == 'home.focusZone.taskList'"
-            )
+            NSPredicate(format: "identifier BEGINSWITH 'home.focus.task.'")
         )
         for index in 0..<rows.count {
             let row = rows.element(boundBy: index)
@@ -1032,11 +1116,25 @@ class HomePage {
             }
         }
 
+        let compactRowFallback = labeledCompactRows.firstMatch
+        if compactRowFallback.exists {
+            return compactRowFallback
+        }
+
         return missingElement("home.focus.task.\(title)")
     }
 
     func focusTaskCard(taskID: UUID) -> XCUIElement {
         app.descendants(matching: .any)["home.focus.task.\(taskID.uuidString)"]
+    }
+
+    func passiveTrackingCard(id: String) -> XCUIElement {
+        let identifier = AccessibilityIdentifiers.Home.passiveTrackingCard(id)
+        let button = app.buttons[identifier]
+        if button.exists {
+            return button
+        }
+        return app.descendants(matching: .any)[identifier]
     }
 
     func focusPinButton(taskID: UUID) -> XCUIElement {

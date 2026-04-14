@@ -365,6 +365,15 @@ public final class CoreDataTaskReadModelRepository: TaskReadModelRepositoryProto
         if let updatedAfter = query.updatedAfter {
             predicates.append(NSPredicate(format: "updatedAt >= %@", updatedAfter as NSDate))
         }
+        if query.planningBuckets.isEmpty == false {
+            predicates.append(NSPredicate(
+                format: "planningBucketRaw IN %@",
+                query.planningBuckets.map(\.rawValue)
+            ))
+        }
+        if let weeklyOutcomeID = query.weeklyOutcomeID {
+            predicates.append(NSPredicate(format: "weeklyOutcomeID == %@", weeklyOutcomeID as CVarArg))
+        }
         guard predicates.isEmpty == false else { return nil }
         return NSCompoundPredicate(andPredicateWithSubpredicates: predicates)
     }
@@ -377,6 +386,15 @@ public final class CoreDataTaskReadModelRepository: TaskReadModelRepositoryProto
         }
         if query.includeCompleted == false {
             predicates.append(NSPredicate(format: "isComplete == NO"))
+        }
+        if query.planningBuckets.isEmpty == false {
+            predicates.append(NSPredicate(
+                format: "planningBucketRaw IN %@",
+                query.planningBuckets.map(\.rawValue)
+            ))
+        }
+        if let weeklyOutcomeID = query.weeklyOutcomeID {
+            predicates.append(NSPredicate(format: "weeklyOutcomeID == %@", weeklyOutcomeID as CVarArg))
         }
         let trimmed = query.text.trimmingCharacters(in: .whitespacesAndNewlines)
         if trimmed.isEmpty == false {
@@ -409,6 +427,15 @@ public final class CoreDataTaskReadModelRepository: TaskReadModelRepositoryProto
         }
         if query.priorities.isEmpty == false {
             predicates.append(NSPredicate(format: "priority IN %@", query.priorities))
+        }
+        if query.planningBuckets.isEmpty == false {
+            predicates.append(NSPredicate(
+                format: "planningBucketRaw IN %@",
+                query.planningBuckets.map(\.rawValue)
+            ))
+        }
+        if let weeklyOutcomeID = query.weeklyOutcomeID {
+            predicates.append(NSPredicate(format: "weeklyOutcomeID == %@", weeklyOutcomeID as CVarArg))
         }
 
         let calendar = Calendar.current

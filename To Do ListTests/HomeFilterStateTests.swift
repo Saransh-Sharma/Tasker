@@ -41,4 +41,13 @@ final class HomeFilterStateTests: XCTestCase {
         XCTAssertEqual(decoded.customProjectOrderIDs, [second, first])
         XCTAssertEqual(decoded.selectedProjectIDs, [first])
     }
+
+    func testGroupingModeNoLongerCountsAsActiveFilter() {
+        let state = HomeFilterState(
+            quickView: .today,
+            projectGroupingMode: .groupByProjects
+        )
+
+        XCTAssertFalse(state.hasActiveFilters)
+    }
 }

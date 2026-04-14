@@ -135,7 +135,6 @@ public struct HomeFilterState: Codable, Equatable {
         !selectedProjectIDs.isEmpty
             || advancedFilter != nil
             || quickView != .today
-            || projectGroupingMode != .defaultMode
     }
 
     private enum CodingKeys: String, CodingKey {

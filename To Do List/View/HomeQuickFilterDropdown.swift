@@ -133,11 +133,6 @@ public struct HomeQuickFilterDropdown: View {
                         divider
                         projectsSection
 
-                        if shouldShowGrouping {
-                            divider
-                            groupingSection
-                        }
-
                         divider
                         savedViewsSection
                         divider
@@ -272,38 +267,11 @@ public struct HomeQuickFilterDropdown: View {
         }
     }
 
-    // MARK: - Grouping Section
-
-    private var shouldShowGrouping: Bool {
-        switch viewModel.activeScope {
-        case .today, .customDate:
-            return true
-        default:
-            return false
-        }
-    }
-
-    private var groupingSection: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            sectionHeader("Grouping", index: 3)
-
-            ForEach(HomeProjectGroupingMode.allCases, id: \.rawValue) { mode in
-                TaskerFilterRow(
-                    title: mode.title,
-                    isSelected: viewModel.activeFilterState.projectGroupingMode == mode
-                ) {
-                    viewModel.setProjectGroupingMode(mode)
-                    provideHapticFeedback()
-                }
-            }
-        }
-    }
-
     // MARK: - Saved Views Section
 
     private var savedViewsSection: some View {
         VStack(alignment: .leading, spacing: 0) {
-            sectionHeader("Saved Views", index: 4)
+            sectionHeader("Saved Views", index: 3)
 
             if viewModel.savedHomeViews.isEmpty {
                 Text("No saved views")

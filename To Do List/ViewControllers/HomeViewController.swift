@@ -106,6 +106,7 @@ struct HomeChromeSnapshot: Equatable {
     let progressState: HomeProgressState
     let dailyScore: Int
     let completionRate: Double
+    let weeklySummary: HomeWeeklySummary?
     let projects: [Project]
     let reflectionEligible: Bool
     let momentumGuidanceText: String
@@ -119,6 +120,7 @@ struct HomeChromeSnapshot: Equatable {
         progressState: .empty,
         dailyScore: 0,
         completionRate: 0,
+        weeklySummary: nil,
         projects: [],
         reflectionEligible: false,
         momentumGuidanceText: ""
@@ -693,6 +695,15 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
                 self.onboardingEvaluationSceneToken &+= 1
                 self.consumePendingShortcutHandoffIfNeeded()
                 self.scheduleOnboardingEvaluationIfNeeded()
+                self.viewModel?.refreshWeeklySummaryNow()
+            }
+            .store(in: &cancellables)
+
+        notificationCenter.publisher(for: UIApplication.significantTimeChangeNotification)
+            .merge(with: notificationCenter.publisher(for: TaskerWorkspacePreferencesStore.didChangeNotification))
+            .receive(on: RunLoop.main)
+            .sink { [weak self] _ in
+                self?.viewModel?.refreshWeeklySummaryNow()
             }
             .store(in: &cancellables)
 
@@ -1454,6 +1465,12 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
                     self?.onMenuButtonTapped()
                 }
             },
+            onOpenWeeklyPlanner: { [weak self] in
+                self?.presentWeeklyPlanner()
+            },
+            onOpenWeeklyReview: { [weak self] in
+                self?.presentWeeklyReview()
+            },
             onOpenAnalytics: { [weak self] source, launchDefaultInsights in
                 self?.openAnalytics(source: source, launchDefaultInsights: launchDefaultInsights)
             },
@@ -2138,6 +2155,7 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
                 let manageLifeAreas = presentationDependencyContainer.coordinator.manageLifeAreas
                 let manageProjects = presentationDependencyContainer.coordinator.manageProjects
                 let createTaskDefinition = presentationDependencyContainer.coordinator.createTaskDefinition
+                let createHabit = presentationDependencyContainer.coordinator.createHabit
 
                 let lifeArea = try await manageLifeAreas.createAsync(
                     name: "Focus Systems",
@@ -2225,6 +2243,35 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
 
                 for request in requests {
                     _ = try await createTaskDefinition.executeAsync(request: request)
+                }
+
+                let habitRequests = [
+                    CreateHabitRequest(
+                        title: "Reset desk before shutdown",
+                        lifeAreaID: lifeArea.id,
+                        projectID: project.id,
+                        kind: .positive,
+                        trackingMode: .dailyCheckIn,
+                        icon: HabitIconMetadata(symbolName: "sparkles", categoryKey: "focus"),
+                        colorHex: HabitColorFamily.blue.canonicalHex,
+                        targetConfig: HabitTargetConfig(targetCountPerDay: 1),
+                        cadence: .daily()
+                    ),
+                    CreateHabitRequest(
+                        title: "No doomscrolling after dinner",
+                        lifeAreaID: lifeArea.id,
+                        projectID: project.id,
+                        kind: .negative,
+                        trackingMode: .lapseOnly,
+                        icon: HabitIconMetadata(symbolName: "moon.zzz.fill", categoryKey: "recovery"),
+                        colorHex: HabitColorFamily.coral.canonicalHex,
+                        targetConfig: HabitTargetConfig(targetCountPerDay: 1),
+                        cadence: .daily()
+                    )
+                ]
+
+                for request in habitRequests {
+                    _ = try await createHabit.executeAsync(request: request)
                 }
 
                 UserDefaults.standard.set(
@@ -2615,6 +2662,71 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
         present(navController, animated: true)
     }
 
+    @MainActor
+    private func presentWeeklyPlanner() {
+        guard let presentationDependencyContainer else {
+            fatalError("HomeViewController missing PresentationDependencyContainer")
+        }
+
+        let weeklySummary = viewModel?.weeklySummary
+        let referenceDate = weeklySummary?.weekStartDate ?? Date()
+        let plannerPresentation = weeklySummary?.plannerPresentation ?? .thisWeek
+
+        let plannerView = WeeklyPlannerView(
+            viewModel: presentationDependencyContainer.makeWeeklyPlannerViewModel(
+                referenceDate: referenceDate,
+                plannerPresentation: plannerPresentation
+            ),
+            onClose: { [weak self] in
+                self?.dismiss(animated: true)
+            }
+        )
+        .taskerLayoutClass(currentLayoutClass)
+
+        let hostingController = UIHostingController(rootView: plannerView)
+        hostingController.modalPresentationStyle = currentLayoutClass.isPad ? .formSheet : .pageSheet
+        hostingController.preferredContentSize = CGSize(width: 620, height: 780)
+        if let sheet = hostingController.sheetPresentationController {
+            sheet.detents = [.large()]
+            sheet.prefersGrabberVisible = true
+            sheet.prefersScrollingExpandsWhenScrolledToEdge = false
+        }
+        present(hostingController, animated: true)
+    }
+
+    @MainActor
+    private func presentWeeklyReview() {
+        guard let presentationDependencyContainer else {
+            fatalError("HomeViewController missing PresentationDependencyContainer")
+        }
+
+        let referenceDate = viewModel?.weeklySummary?.weekStartDate ?? Date()
+
+        let reviewView = WeeklyReviewView(
+            viewModel: presentationDependencyContainer.makeWeeklyReviewViewModel(referenceDate: referenceDate),
+            onClose: { [weak self] in
+                self?.dismiss(animated: true)
+            },
+            onCompleted: { [weak self] message in
+                self?.dismiss(animated: true) {
+                    self?.viewModel?.refreshAfterWeeklyReviewCompletion()
+                    self?.showHomeSnackbar(message: message)
+                }
+            }
+        )
+        .taskerLayoutClass(currentLayoutClass)
+
+        let hostingController = UIHostingController(rootView: reviewView)
+        hostingController.modalPresentationStyle = currentLayoutClass.isPad ? .formSheet : .pageSheet
+        hostingController.preferredContentSize = CGSize(width: 620, height: 780)
+        if let sheet = hostingController.sheetPresentationController {
+            sheet.detents = [.large()]
+            sheet.prefersGrabberVisible = true
+            sheet.prefersScrollingExpandsWhenScrolledToEdge = false
+        }
+        present(hostingController, animated: true)
+    }
+
     /// Executes searchButtonTapped.
     @objc func searchButtonTapped() {
         if isUsingIPadNativeShell {
@@ -2895,6 +3007,17 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
                     return
                 }
                 viewModel.createProjectForTaskDetail(name: name, completion: completion)
+            },
+            onSaveReflectionNote: { [weak self] note, completion in
+                guard let self, let viewModel = self.viewModel else {
+                    completion(.failure(NSError(
+                        domain: "HomeViewController",
+                        code: 10,
+                        userInfo: [NSLocalizedDescriptionKey: "HomeViewModel unavailable"]
+                    )))
+                    return
+                }
+                viewModel.saveReflectionNote(note, completion: completion)
             }
         )
     }
@@ -3630,10 +3753,8 @@ extension HomeViewController {
 
     /// Executes showTaskCreatedSnackbar.
     private func showTaskCreatedSnackbar(for task: TaskDefinition) {
-        guard homeHostingController != nil else { return }
-
         let taskID = task.id
-        let snackbar = TaskerSnackbar(
+        showHomeSnackbar(
             data: SnackbarData(
                 message: "Task added.",
                 actions: [
@@ -3641,10 +3762,18 @@ extension HomeViewController {
                         self?.viewModel?.deleteTask(taskID: taskID) { _ in }
                     }
                 ]
-            ),
-            onDismiss: {}
+            )
         )
+    }
 
+    private func showHomeSnackbar(message: String) {
+        showHomeSnackbar(data: SnackbarData(message: message, actions: []))
+    }
+
+    private func showHomeSnackbar(data: SnackbarData) {
+        guard homeHostingController != nil else { return }
+
+        let snackbar = TaskerSnackbar(data: data, onDismiss: {})
         let snackbarVC = UIHostingController(rootView: snackbar)
         snackbarVC.view.backgroundColor = .clear
         snackbarVC.view.translatesAutoresizingMaskIntoConstraints = false
@@ -3658,7 +3787,6 @@ extension HomeViewController {
         ])
         snackbarVC.didMove(toParent: self)
 
-        // Auto-remove after snackbar's auto-dismiss (5s + 0.4s animation)
         DispatchQueue.main.asyncAfter(deadline: .now() + 6.0) {
             snackbarVC.willMove(toParent: nil)
             snackbarVC.view.removeFromSuperview()

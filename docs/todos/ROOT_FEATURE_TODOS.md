@@ -113,3 +113,23 @@ Source: `XP_LIVE_UPDATE_CORE_DATA_V5_TODO.md`
 - [x] Add focused unit coverage for board mapping semantics
 - [ ] Add dedicated UI automation for board rows and Habit Board interactions
 - [x] Run targeted build and test verification for Habit Board surfaces
+
+## Weekly Operating Layer Integration
+
+Source: `00_PRD_tasker_weekly_planning_reflection_combined_spec.pdf`
+
+- [x] Extend task/project domain models, requests, and read queries with weekly and motivation fields
+- [x] Add weekly domain entities plus repository contracts and dependency registration
+- [x] Create and register the real `TaskModelV3_WeeklyPlanning` Core Data version
+- [x] Update persistent bootstrap migration path from `TaskModelV3_Habits` to `TaskModelV3_WeeklyPlanning`
+- [x] Add mapper/repository/read-model support and post-bootstrap planning-bucket backfill
+- [x] Implement weekly planner, weekly review, momentum, capacity, and reflection use cases
+- [x] Add Home weekly summary card and planner/review presentation entry points
+- [x] Extend Add Task, Task Detail, and Project Management surfaces for weekly planning and motivation
+- [x] Build dedicated weekly planner/review/reflection SwiftUI screens with adaptive layouts
+- [x] Extend Insights Week, gamification events, and Eva weekly proposal plumbing
+- [x] Add focused weekly unit and repository coverage for planner save semantics, transactional review completion, draft-store round trip, recovery insights, AI proposal, and XP category behavior
+- [x] Run targeted app build and focused weekly unit validation
+- [ ] Add migration regression coverage for `Habits -> WeeklyPlanning` bootstrap upgrades
+- [ ] Add broader weekly view-model and UI regression coverage
+- [ ] Run migration validation and weekly UI validation flows

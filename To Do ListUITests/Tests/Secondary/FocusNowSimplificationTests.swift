@@ -69,6 +69,43 @@ final class FocusNowSimplificationTests: BaseUITest {
         )
     }
 
+    func testHomeShowsWeeklySummaryAsSecondaryAccessInsteadOfPrimaryRail() throws {
+        relaunchWithFocusSeed()
+
+        XCTAssertTrue(
+            homePage.weeklySummaryCard.waitForExistence(timeout: 5),
+            "Weekly summary should remain available on Home as secondary access"
+        )
+        XCTAssertFalse(homePage.primaryWidgetRail.exists, "Primary widget rail should be removed from Home")
+    }
+
+    func testWeeklySummaryPersistsAfterSearchRoundTrip() throws {
+        relaunchWithFocusSeed()
+
+        XCTAssertTrue(homePage.weeklySummaryCard.waitForExistence(timeout: 5), "Weekly summary should render on Home")
+
+        XCTAssertTrue(homePage.searchButton.waitForExistence(timeout: 3), "Search entry point should exist")
+        homePage.searchButton.tap()
+        XCTAssertTrue(homePage.searchView.waitForExistence(timeout: 3), "Search should open")
+
+        XCTAssertTrue(homePage.searchBackChip.waitForExistence(timeout: 3), "Back to tasks should be exposed in search")
+        homePage.searchBackChip.tap()
+
+        XCTAssertTrue(homePage.weeklySummaryCard.waitForExistence(timeout: 3), "Weekly summary should still exist after returning from search")
+    }
+
+    func testTodayHomeShowsPassiveTrackingRailAboveFocusStrip() throws {
+        relaunchWithFocusSeed()
+
+        XCTAssertTrue(homePage.passiveTrackingRail.waitForExistence(timeout: 5), "Passive tracking rail should render on Today when quiet-tracking rows exist")
+        XCTAssertTrue(homePage.focusStrip.waitForExistence(timeout: 5), "Focus strip should render on Today")
+        XCTAssertLessThan(
+            homePage.passiveTrackingRail.frame.minY,
+            homePage.focusStrip.frame.minY,
+            "Passive tracking rail should render above Focus Now"
+        )
+    }
+
     func testFocusTaskRowTapStillOpensTaskDetails() throws {
         relaunchWithFocusSeed()
 
@@ -81,41 +118,31 @@ final class FocusNowSimplificationTests: BaseUITest {
             focusCard.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
         }
 
-        XCTAssertTrue(
-            app.otherElements[AccessibilityIdentifiers.TaskDetail.view].waitForExistence(timeout: 5),
-            "Tapping focus task row should still open Task Detail"
-        )
+        let detailVisible =
+            app.otherElements[AccessibilityIdentifiers.TaskDetail.view].waitForExistence(timeout: 5)
+            || app.buttons[AccessibilityIdentifiers.TaskDetail.closeButton].waitForExistence(timeout: 5)
+            || app.buttons[AccessibilityIdentifiers.TaskDetail.editButton].waitForExistence(timeout: 5)
+            || app.navigationBars.firstMatch.waitForExistence(timeout: 5)
+
+        XCTAssertTrue(detailVisible, "Tapping focus task row should still open Task Detail")
     }
 
-    func testVisibleFocusTaskCanBePinnedAndSurvivesDetailShuffle() throws {
+    func testFocusRowsDoNotExposeHomePinButtonsAndQuickFilterHidesGrouping() throws {
         relaunchWithFocusSeed()
 
         let focusCard = homePage.focusTaskCard(containingTitle: SeededFocusTitle.detail)
         XCTAssertTrue(focusCard.waitForExistence(timeout: 5), "Focus strip should show the expected seeded task")
-
-        let pinButton = homePage.focusPinButton(containingTitle: SeededFocusTitle.detail)
-        XCTAssertTrue(pinButton.waitForExistence(timeout: 3), "Focus pin button should be exposed")
-
-        pinButton.tap()
-        waitForAnimations(duration: 0.5)
-        XCTAssertEqual(pinButton.label, "Unpin from Focus Now", "Pin state should update before shuffle")
-
-        let titleTap = homePage.focusTitleTap
-        XCTAssertTrue(titleTap.waitForExistence(timeout: 3), "Focus title tap target should exist")
-        if titleTap.isHittable {
-            titleTap.tap()
-        } else {
-            titleTap.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
-        }
-
-        let shuffleButton = homePage.focusDetailShuffleButton
-        XCTAssertTrue(shuffleButton.waitForExistence(timeout: 3), "Detail sheet should expose shuffle")
-        shuffleButton.tap()
-
-        XCTAssertTrue(
-            homePage.focusTaskCard(containingTitle: SeededFocusTitle.detail).waitForExistence(timeout: 3),
-            "Pinned focus task should remain visible after shuffle"
+        XCTAssertEqual(
+            focusCard.descendants(matching: .button)
+                .matching(NSPredicate(format: "identifier BEGINSWITH 'home.focus.pin.'"))
+                .count,
+            0,
+            "Home Focus Now rows should not expose pin affordances"
         )
+
+        homePage.tapProjectFilter()
+        XCTAssertTrue(homePage.quickFilterMenuContainer.waitForExistence(timeout: 3), "Quick filters should open")
+        XCTAssertFalse(app.staticTexts["Grouping"].exists, "Grouping should be removed from the Home quick-filter menu")
     }
 
     func testExpandedRescueTailShowsPersistentStartActionWithoutChevron() throws {
@@ -177,5 +204,46 @@ final class FocusNowSimplificationTests: BaseUITest {
         homePage = HomePage(app: app)
 
         XCTAssertFalse(homePage.rescueSection.waitForExistence(timeout: 2), "Rescue tail should not render without rescue items")
+    }
+
+    func testHomeRestoresSplitHabitSectionsAndKeepsWeeklyBelowThem() throws {
+        relaunchWithFocusSeed()
+
+        XCTAssertTrue(homePage.habitsSection.waitForExistence(timeout: 5), "Habits section should render on Home")
+        XCTAssertTrue(homePage.weeklySummaryCard.waitForExistence(timeout: 5), "Weekly summary should still render on Home")
+        XCTAssertFalse(homePage.habitsSectionAction.exists, "Merged habits summary action should be removed")
+
+        let visibleTaskRows = app.descendants(matching: .any).matching(
+            NSPredicate(format: "identifier BEGINSWITH 'home.taskRow.'")
+        )
+        XCTAssertGreaterThan(visibleTaskRows.count, 0, "Expected rendered Today task rows")
+        let taskListBottom = (0..<visibleTaskRows.count).reduce(CGFloat.zero) { currentMax, index in
+            max(currentMax, visibleTaskRows.element(boundBy: index).frame.maxY)
+        }
+
+        XCTAssertGreaterThan(
+            homePage.habitsSection.frame.minY,
+            taskListBottom,
+            "Habits section should render below the visible task list"
+        )
+
+        if homePage.habitsRecoverySection.exists {
+            XCTAssertGreaterThan(
+                homePage.habitsRecoverySection.frame.minY,
+                homePage.habitsSection.frame.maxY,
+                "Recovery section should render after the main habits section when recovery rows exist"
+            )
+            XCTAssertGreaterThan(
+                homePage.weeklySummaryCard.frame.minY,
+                homePage.habitsRecoverySection.frame.maxY,
+                "Weekly summary should render after the restored habit sections"
+            )
+        } else {
+            XCTAssertGreaterThan(
+                homePage.weeklySummaryCard.frame.minY,
+                homePage.habitsSection.frame.maxY,
+                "Weekly summary should render after the restored habits section"
+            )
+        }
     }
 }

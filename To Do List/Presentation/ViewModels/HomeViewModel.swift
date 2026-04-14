@@ -50,6 +50,22 @@ public struct HomeDataRevision: Equatable, Hashable {
     }
 }
 
+public struct HabitRecoveryReflectionPrompt: Equatable, Identifiable {
+    public let habitID: UUID
+    public let habitTitle: String
+    public let date: Date
+
+    public init(habitID: UUID, habitTitle: String, date: Date) {
+        self.habitID = habitID
+        self.habitTitle = habitTitle
+        self.date = date
+    }
+
+    public var id: String {
+        "\(habitID.uuidString):\(date.timeIntervalSince1970)"
+    }
+}
+
 private final class HomeReloadBatchTracker {
     private let lock = NSLock()
     private let onComplete: () -> Void
@@ -324,6 +340,9 @@ public final class HomeViewModel: ObservableObject {
     @Published public private(set) var dailyScore: Int = 0
     @Published public private(set) var streak: Int = 0
     @Published public private(set) var completionRate: Double = 0.0
+    @Published public private(set) var weeklySummary: HomeWeeklySummary? {
+        didSet { scheduleHomeRenderStateRefresh() }
+    }
 
     // Gamification v2
     @Published public private(set) var currentLevel: Int = 1
@@ -335,6 +354,7 @@ public final class HomeViewModel: ObservableObject {
     }
     @Published public private(set) var insightsLaunchRequest: InsightsLaunchRequest?
     @Published public private(set) var insightsLaunchToken: UUID?
+    @Published public private(set) var habitRecoveryReflectionPrompt: HabitRecoveryReflectionPrompt?
 
     // TaskDefinition lists by category
     @Published public private(set) var morningTasks: [TaskDefinition] = []
@@ -426,10 +446,16 @@ public final class HomeViewModel: ObservableObject {
     // Next Action Module: total open tasks for today
     public var todayOpenTaskCount: Int {
         if activeScope.quickView == .today, !todaySections.isEmpty {
-            return todaySections
-                .flatMap(\.rows)
-                .filter(\.isOpenForHomeCount)
-                .count
+            let agendaOpenTaskIDs = Set(
+                todaySections
+                    .flatMap(\.rows)
+                    .compactMap(Self.openTaskID(for:))
+            )
+            let visibleFocusOpenTaskIDs = Set(
+                focusRows
+                    .compactMap(Self.openTaskID(for:))
+            )
+            return agendaOpenTaskIDs.union(visibleFocusOpenTaskIDs).count
         }
         return (morningTasks + eveningTasks).filter { !$0.isComplete }.count
     }
@@ -511,6 +537,7 @@ public final class HomeViewModel: ObservableObject {
     private var pendingAnalyticsIncludeGamificationRefresh = false
     private var pendingAnalyticsCompletions: [() -> Void] = []
     private var analyticsGeneration: Int = 0
+    private var weeklySummaryGeneration: Int = 0
     private var pendingHomeRenderStateWorkItem: DispatchWorkItem?
     private var homeRenderStateRefreshBatchDepth: Int = 0
     private var needsHomeRenderStateRefresh = false
@@ -662,6 +689,7 @@ public final class HomeViewModel: ObservableObject {
             progressState: progressState,
             dailyScore: dailyScore,
             completionRate: completionRate,
+            weeklySummary: weeklySummary,
             projects: projects,
             // Reflection stays tied to the default Today scope, not custom-date views.
             reflectionEligible: activeScope == .today && !isDailyReflectionCompletedToday(),
@@ -768,6 +796,7 @@ public final class HomeViewModel: ObservableObject {
     private func keyPathTriggersHomeRenderRefreshViaDidSet(_ keyPath: AnyKeyPath) -> Bool {
         switch keyPath {
         case \HomeViewModel.selectedDate,
+             \HomeViewModel.weeklySummary,
              \HomeViewModel.lastXPResult,
              \HomeViewModel.dueTodayRows,
              \HomeViewModel.dueTodaySection,
@@ -853,6 +882,15 @@ public final class HomeViewModel: ObservableObject {
     /// Load tasks for today.
     public func loadTodayTasks() {
         loadTodayTasks(generation: nextReloadGeneration())
+    }
+
+    public func refreshWeeklySummaryNow() {
+        refreshWeeklySummary()
+    }
+
+    public func refreshAfterWeeklyReviewCompletion() {
+        refreshWeeklySummary()
+        reloadCurrentModeTasks()
     }
 
     /// Executes loadTodayTasks.
@@ -1085,6 +1123,7 @@ public final class HomeViewModel: ObservableObject {
 
         var loadedProjects: [Project] = projects
         var loadedSections: [TaskerProjectSection] = []
+        var weeklyOutcomes: [WeeklyOutcome] = []
 
         func record(_ error: Error) {
             lock.lock()
@@ -1116,14 +1155,38 @@ public final class HomeViewModel: ObservableObject {
             }
         }
 
+        group.enter()
+        useCaseCoordinator.buildWeeklyPlanSnapshot.execute(referenceDate: Date()) { result in
+            defer { group.leave() }
+            switch result {
+            case .success(let snapshot):
+                weeklyOutcomes = snapshot.outcomes.sorted { $0.orderIndex < $1.orderIndex }
+            case .failure(let error):
+                logWarning(
+                    event: "task_detail_metadata_weekly_snapshot_failed",
+                    message: "Weekly snapshot unavailable while loading task detail metadata",
+                    fields: ["error": error.localizedDescription]
+                )
+            }
+        }
+
         group.notify(queue: .main) {
             if let firstError {
                 completion(.failure(firstError))
                 return
             }
+            let projectMotivation = loadedProjects.first(where: { $0.id == projectID }).map {
+                ProjectWeeklyMotivation(
+                    why: $0.motivationWhy,
+                    successLooksLike: $0.motivationSuccessLooksLike,
+                    costOfNeglect: $0.motivationCostOfNeglect
+                )
+            }
             completion(.success(TaskDetailMetadataPayload(
                 projects: loadedProjects,
-                sections: loadedSections
+                sections: loadedSections,
+                weeklyOutcomes: weeklyOutcomes,
+                projectMotivation: projectMotivation
             )))
         }
     }
@@ -1139,6 +1202,7 @@ public final class HomeViewModel: ObservableObject {
         var loadedLifeAreas: [LifeArea] = []
         var loadedTags: [TagDefinition] = []
         var availableTasks: [TaskDefinition] = []
+        var recentReflectionNotes: [ReflectionNote] = []
 
         /// Executes record.
         func record(_ error: Error) {
@@ -1182,6 +1246,23 @@ public final class HomeViewModel: ObservableObject {
             }
         }
 
+        group.enter()
+        useCaseCoordinator.reflectionNoteRepository.fetchNotes(
+            query: ReflectionNoteQuery(linkedProjectID: projectID, limit: 6)
+        ) { result in
+            defer { group.leave() }
+            switch result {
+            case .success(let notes):
+                recentReflectionNotes = notes
+            case .failure(let error):
+                logWarning(
+                    event: "task_detail_relationship_metadata_reflections_failed",
+                    message: "Reflection notes unavailable while loading task relationship metadata",
+                    fields: ["error": error.localizedDescription]
+                )
+            }
+        }
+
         group.notify(queue: .main) {
             if let firstError {
                 completion(.failure(firstError))
@@ -1190,9 +1271,39 @@ public final class HomeViewModel: ObservableObject {
             completion(.success(TaskDetailRelationshipMetadataPayload(
                 lifeAreas: loadedLifeAreas,
                 tags: loadedTags,
-                availableTasks: availableTasks
+                availableTasks: availableTasks,
+                recentReflectionNotes: recentReflectionNotes
             )))
         }
+    }
+
+    public func saveReflectionNote(
+        _ note: ReflectionNote,
+        completion: @escaping (Result<ReflectionNote, Error>) -> Void
+    ) {
+        useCaseCoordinator.reflectionNoteRepository.saveNote(note) { [weak self] result in
+            guard let self else { return }
+
+            if case .success(let savedNote) = result {
+                self.useCaseCoordinator.gamificationEngine.recordEvent(
+                    context: XPEventContext(
+                        category: .reflectionCapture,
+                        source: .manual,
+                        taskID: savedNote.linkedTaskID,
+                        habitID: savedNote.linkedHabitID,
+                        completedAt: savedNote.createdAt
+                    )
+                ) { _ in }
+            }
+
+            DispatchQueue.main.async {
+                completion(result)
+            }
+        }
+    }
+
+    public func clearHabitRecoveryReflectionPrompt() {
+        habitRecoveryReflectionPrompt = nil
     }
 
     /// Executes loadTaskChildren.
@@ -1297,6 +1408,7 @@ public final class HomeViewModel: ObservableObject {
         pinnedFocusTaskIDs.append(taskID)
         persistPinnedFocusTaskIDs()
         updateFocusSelection(composedFocusTasks(from: openTasks))
+        refreshTodayAgendaForCurrentFocusSelection()
         refreshEvaInsights(openTasks: openTasks)
         return .pinned
     }
@@ -1308,6 +1420,7 @@ public final class HomeViewModel: ObservableObject {
         persistPinnedFocusTaskIDs()
         let openTasks = focusOpenTasksForCurrentState()
         updateFocusSelection(composedFocusTasks(from: openTasks))
+        refreshTodayAgendaForCurrentFocusSelection()
         refreshEvaInsights(openTasks: openTasks)
     }
 
@@ -1334,6 +1447,7 @@ public final class HomeViewModel: ObservableObject {
             pinnedFocusTaskIDs.append(taskID)
             persistPinnedFocusTaskIDs()
             updateFocusSelection(composedFocusTasks(from: openTasks))
+            refreshTodayAgendaForCurrentFocusSelection()
             refreshEvaInsights(openTasks: openTasks)
             return .promoted
         }
@@ -1342,6 +1456,7 @@ public final class HomeViewModel: ObservableObject {
             pinnedFocusTaskIDs.append(taskID)
             persistPinnedFocusTaskIDs()
             updateFocusSelection(composedFocusTasks(from: openTasks))
+            refreshTodayAgendaForCurrentFocusSelection()
             refreshEvaInsights(openTasks: openTasks)
             return .promoted
         }
@@ -1374,6 +1489,7 @@ public final class HomeViewModel: ObservableObject {
         pinnedFocusTaskIDs = normalizedPinnedFocusTaskIDs(curatedFocusIDs)
         persistPinnedFocusTaskIDs()
         updateFocusSelection(composedFocusTasks(from: openTasks))
+        refreshTodayAgendaForCurrentFocusSelection()
         refreshEvaInsights(openTasks: openTasks)
         return .promoted
     }
@@ -2048,7 +2164,11 @@ public final class HomeViewModel: ObservableObject {
             repository: useCaseCoordinator.gamificationRepository,
             taskReadModelRepository: useCaseCoordinator.taskReadModelRepository,
             reminderRepository: useCaseCoordinator.reminderRepository,
-            analyticsUseCase: useCaseCoordinator.calculateAnalytics
+            analyticsUseCase: useCaseCoordinator.calculateAnalytics,
+            buildWeeklyPlanSnapshotUseCase: useCaseCoordinator.buildWeeklyPlanSnapshot,
+            calculateWeeklyMomentumUseCase: useCaseCoordinator.calculateWeeklyMomentum,
+            buildRecoveryInsightsUseCase: useCaseCoordinator.buildRecoveryInsights,
+            weeklyReviewDraftStore: useCaseCoordinator.weeklyReviewDraftStore
         )
         retainedInsightsViewModel = resolvedViewModel
         return resolvedViewModel
@@ -3166,23 +3286,29 @@ public final class HomeViewModel: ObservableObject {
             self.habitLibraryRowsByID = resolvedLibraryRowsByID
             let rescueSplit = self.splitRescueEligibleTasks(from: openTaskRows, on: self.selectedDate)
 
+            let focusRows = self.composeFocusRows(taskRows: rescueSplit.focusTaskRows, habitRows: allHabitRows)
+            let agendaTaskRows =
+                self.activeScope.quickView == .today
+                ? Self.excludingVisibleFocusTasks(from: rescueSplit.agendaTaskRows, focusRows: focusRows)
+                : rescueSplit.agendaTaskRows
+
             let agenda = self.buildHomeAgendaUseCase.execute(
                 date: self.selectedDate,
-                taskRows: rescueSplit.agendaTaskRows,
+                taskRows: agendaTaskRows,
                 habitRows: resolvedAgendaHabitRows
             )
 
             self.assignIfChanged(\.dueTodayRows, agenda.rows)
             self.assignIfChanged(\.dueTodaySection, nil)
             let todaySections = HomeMixedSectionBuilder.buildTodaySections(
-                taskRows: rescueSplit.agendaTaskRows,
+                taskRows: agendaTaskRows,
                 habitRows: [],
                 projects: self.projects,
-                lifeAreas: self.lifeAreas
+                lifeAreas: self.lifeAreas,
+                useAdaptiveDayGrouping: true
             )
             self.assignIfChanged(\.todaySections, todaySections)
 
-            let focusRows = self.composeFocusRows(taskRows: rescueSplit.focusTaskRows, habitRows: allHabitRows)
             self.assignIfChanged(\.focusRows, focusRows)
             self.assignIfChanged(
                 \.focusNowSectionState,
@@ -3777,6 +3903,7 @@ public final class HomeViewModel: ObservableObject {
 
         let mutationContext = HabitMutationContext(source: source)
         registerSelfOriginatedHabitMutationContext(mutationContext)
+        let recoveryReflectionPrompt = recoveryReflectionPromptIfNeeded(for: row, request: request, on: date)
 
         switch request {
         case .resolve(let action):
@@ -3793,7 +3920,8 @@ public final class HomeViewModel: ObservableObject {
                         key: key,
                         habitID: row.habitID,
                         date: date,
-                        mutationContext: mutationContext
+                        mutationContext: mutationContext,
+                        recoveryReflectionPrompt: recoveryReflectionPrompt
                     )
                 }
             }
@@ -3811,7 +3939,8 @@ public final class HomeViewModel: ObservableObject {
                         key: key,
                         habitID: row.habitID,
                         date: date,
-                        mutationContext: mutationContext
+                        mutationContext: mutationContext,
+                        recoveryReflectionPrompt: recoveryReflectionPrompt
                     )
                 }
             }
@@ -3823,7 +3952,8 @@ public final class HomeViewModel: ObservableObject {
         key: HomeHabitMutationKey,
         habitID: UUID,
         date: Date,
-        mutationContext: HabitMutationContext
+        mutationContext: HabitMutationContext,
+        recoveryReflectionPrompt: HabitRecoveryReflectionPrompt?
     ) {
         defer {
             if let interval = pendingHabitMutationIntervals.removeValue(forKey: key) {
@@ -3845,9 +3975,41 @@ public final class HomeViewModel: ObservableObject {
             TaskerPerformanceTrace.event("HomeUserMutationPersistenceComplete")
             pendingHabitMutationSnapshots.removeValue(forKey: key)
             pendingHabitMutationKeys.remove(key)
-            guard Calendar.current.isDate(date, inSameDayAs: selectedDate) else { return }
+            let isSelectedDayMutation = Calendar.current.isDate(date, inSameDayAs: selectedDate)
+            if isSelectedDayMutation {
+                habitRecoveryReflectionPrompt = recoveryReflectionPrompt
+            }
+            guard isSelectedDayMutation else { return }
             reconcileHabitMutation(habitID: habitID, on: date)
         }
+    }
+
+    private func recoveryReflectionPromptIfNeeded(
+        for row: HomeHabitRow,
+        request: HomeHabitMutationRequest,
+        on date: Date
+    ) -> HabitRecoveryReflectionPrompt? {
+        guard Calendar.current.isDate(date, inSameDayAs: selectedDate) else { return nil }
+        guard isRecoveryHabitRow(row) else { return nil }
+        switch request {
+        case .reset:
+            return nil
+        case .resolve(let action):
+            switch action {
+            case .complete, .abstained:
+                return HabitRecoveryReflectionPrompt(
+                    habitID: row.habitID,
+                    habitTitle: row.title,
+                    date: date
+                )
+            case .skip, .lapsed:
+                return nil
+            }
+        }
+    }
+
+    private func isRecoveryHabitRow(_ row: HomeHabitRow) -> Bool {
+        row.state == .overdue || row.state == .lapsedToday || row.riskState != .stable
     }
 
     private func applyOptimisticHabitMutation(
@@ -3919,6 +4081,34 @@ public final class HomeViewModel: ObservableObject {
             focusTaskRows: remainingTaskRows,
             rescueEligibleTasks: rescueEligibleTasks
         )
+    }
+
+    private func refreshTodayAgendaForCurrentFocusSelection() {
+        guard activeScope.quickView == .today else { return }
+        refreshDueTodayAgenda(
+            openTaskRows: focusOpenTasksForCurrentState(),
+            generation: reloadGeneration,
+            includeAnalyticsRefresh: false
+        )
+    }
+
+    static func excludingVisibleFocusTasks(
+        from agendaTaskRows: [TaskDefinition],
+        focusRows: [HomeTodayRow]
+    ) -> [TaskDefinition] {
+        let visibleFocusTaskIDs = Set(
+            focusRows.compactMap { row -> UUID? in
+                guard case .task(let task) = row else { return nil }
+                return task.id
+            }
+        )
+        guard visibleFocusTaskIDs.isEmpty == false else { return agendaTaskRows }
+        return agendaTaskRows.filter { !visibleFocusTaskIDs.contains($0.id) }
+    }
+
+    private static func openTaskID(for row: HomeTodayRow) -> UUID? {
+        guard case .task(let task) = row, !task.isComplete else { return nil }
+        return task.id
     }
 
     private func isEligibleForHabitFocusFallback(_ row: HomeHabitRow) -> Bool {
@@ -4657,6 +4847,7 @@ public final class HomeViewModel: ObservableObject {
                         self.assignIfChanged(\.pointsPotential, filteredResult.pointsPotential)
                         self.applyResultToSections(filteredResult, generation: generation)
                         self.refreshProgressState()
+                        self.refreshWeeklySummary()
 
                         if trackAnalytics {
                             self.trackFeatureUsage(action: "home_filter_applied", metadata: [
@@ -4823,6 +5014,29 @@ public final class HomeViewModel: ObservableObject {
             streakDays: streakDays,
             isStreakSafeToday: earnedXP > 0
         ))
+    }
+
+    private func refreshWeeklySummary() {
+        let generation = nextWeeklySummaryGeneration()
+        useCaseCoordinator.getWeeklySummary.execute(referenceDate: Date()) { [weak self] result in
+            DispatchQueue.main.async {
+                guard let self else { return }
+                guard self.isCurrentWeeklySummaryGeneration(generation) else {
+                    logDebug("HOME_WEEKLY_SUMMARY vm.drop_stale generation=\(generation)")
+                    return
+                }
+                switch result {
+                case .success(let summary):
+                    self.assignIfChanged(\.weeklySummary, summary)
+                case .failure(let error):
+                    logWarning(
+                        event: "home_weekly_summary_refresh_failed",
+                        message: "Failed to refresh weekly summary",
+                        fields: ["error": error.localizedDescription]
+                    )
+                }
+            }
+        }
     }
 
     /// Executes persistLastFilterState.
@@ -6030,6 +6244,12 @@ public final class HomeViewModel: ObservableObject {
         return analyticsGeneration
     }
 
+    @discardableResult
+    private func nextWeeklySummaryGeneration() -> Int {
+        weeklySummaryGeneration += 1
+        return weeklySummaryGeneration
+    }
+
     /// Executes isCurrentReloadGeneration.
     private func isCurrentReloadGeneration(_ generation: Int) -> Bool {
         generation == reloadGeneration
@@ -6037,6 +6257,10 @@ public final class HomeViewModel: ObservableObject {
 
     private func isCurrentAnalyticsGeneration(_ generation: Int) -> Bool {
         generation == analyticsGeneration
+    }
+
+    private func isCurrentWeeklySummaryGeneration(_ generation: Int) -> Bool {
+        generation == weeklySummaryGeneration
     }
 
     private func assignIfChanged<Value: Equatable>(

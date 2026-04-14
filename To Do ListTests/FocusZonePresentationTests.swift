@@ -12,15 +12,42 @@ final class FocusZonePresentationTests: XCTestCase {
 
         let presentation = FocusZoneRowPresentation.make(task: overdueTask, insight: nil, now: now)
 
-        XCTAssertEqual(presentation.visibleBadge?.text, "2d late")
-        XCTAssertEqual(presentation.visibleBadge?.tone, .danger)
+        XCTAssertEqual(presentation.secondaryLineText, "Late by 2d")
     }
 
-    func testDueTodayTimingShowsWhenTaskIsNotDueSoon() {
+    func testSecondaryLineUsesSingleSharedSeparatorForUrgencyAndMetadata() {
+        let now = Date()
+        let overdueProjectTask = makeTask(
+            title: "Overdue with project",
+            projectID: UUID(),
+            projectName: "Project Alpha",
+            dueDate: Calendar.current.date(byAdding: .day, value: -2, to: now),
+            estimatedDuration: 600
+        )
+
+        let presentation = FocusZoneRowPresentation.make(task: overdueProjectTask, insight: nil, now: now)
+
+        XCTAssertEqual(presentation.secondaryLineText, "Late by 2d · Project Alpha")
+    }
+
+    func testEmptyStateMessageUsesGenericCopyWhenVisibleRowLimitIsNil() {
+        XCTAssertEqual(
+            FocusZone.emptyStateMessage(maxVisibleRows: nil),
+            "Add tasks for today to see your upcoming tasks."
+        )
+    }
+
+    func testEmptyStateMessageInterpolatesConfiguredVisibleRowLimit() {
+        XCTAssertEqual(
+            FocusZone.emptyStateMessage(maxVisibleRows: 5),
+            "Add tasks for today to see your next 5."
+        )
+    }
+
+    func testDueTodayTimingIsHiddenForInboxTasksInUnifiedList() {
         let now = Calendar.current.startOfDay(for: Date())
         let dueTodayTask = makeTask(
             title: "Later today",
-            projectName: "M26",
             dueDate: Calendar.current.date(byAdding: .hour, value: 8, to: now)
         )
 
@@ -30,9 +57,7 @@ final class FocusZonePresentationTests: XCTestCase {
             now: Calendar.current.date(byAdding: .hour, value: 1, to: now) ?? now
         )
 
-        let expectedTime = (Calendar.current.date(byAdding: .hour, value: 8, to: now) ?? now)
-            .formatted(date: .omitted, time: .shortened)
-        XCTAssertEqual(presentation.visibleBadge?.text, "Due \(expectedTime)")
+        XCTAssertNil(presentation.secondaryLineText)
     }
 
     func testDueSoonPrimaryBadgeSuppressesDueTodayTiming() {
@@ -44,31 +69,26 @@ final class FocusZonePresentationTests: XCTestCase {
 
         let presentation = FocusZoneRowPresentation.make(task: dueSoonTask, insight: nil, now: now)
 
-        XCTAssertEqual(presentation.visibleBadge?.text, "Due soon")
+        XCTAssertEqual(presentation.secondaryLineText, "Due soon")
     }
 
-    func testDueBadgeUsesInjectedNowForSameDayComparison() {
+    func testDueTodayTasksKeepNonInboxProjectNameWithoutTime() {
         let calendar = Calendar.current
         let now = calendar.date(from: DateComponents(year: 2026, month: 2, day: 24, hour: 9, minute: 0))!
         let dueDate = calendar.date(from: DateComponents(year: 2026, month: 2, day: 24, hour: 18, minute: 0))!
         let task = makeTask(
             title: "Deterministic due today",
+            projectID: UUID(),
             projectName: "M26",
             dueDate: dueDate
         )
 
         let presentation = FocusZoneRowPresentation.make(task: task, insight: nil, now: now)
 
-        XCTAssertEqual(
-            presentation.visibleBadge,
-            FocusZoneBadgePresentation(
-                text: "Due \(dueDate.formatted(date: .omitted, time: .shortened))",
-                tone: .warning
-            )
-        )
+        XCTAssertEqual(presentation.secondaryLineText, "M26")
     }
 
-    func testQuickWinDoesNotRenderWithoutTimePressure() {
+    func testQuickWinDoesNotRenderWithoutTimePressureForInboxTask() {
         let now = Date()
         let task = makeTask(
             title: "Quick win task",
@@ -78,10 +98,10 @@ final class FocusZonePresentationTests: XCTestCase {
 
         let presentation = FocusZoneRowPresentation.make(task: task, insight: nil, now: now)
 
-        XCTAssertNil(presentation.visibleBadge)
+        XCTAssertNil(presentation.secondaryLineText)
     }
 
-    func testCompactPresentationHidesPriorityAndKeepsContext() {
+    func testCompactPresentationHidesPriorityAndInboxContext() {
         let task = makeTask(
             title: "Priority task",
             projectID: ProjectConstants.inboxProjectID,
@@ -91,26 +111,27 @@ final class FocusZonePresentationTests: XCTestCase {
 
         let presentation = FocusZoneRowPresentation.make(task: task, insight: nil)
 
-        XCTAssertEqual(presentation.secondaryLineText, "Inbox")
-        XCTAssertNil(presentation.visibleBadge)
+        XCTAssertNil(presentation.secondaryLineText)
     }
 
-    func testDependencyFreeTaskDoesNotShowUnblockedBadge() {
+    func testDependencyFreeTaskKeepsNonInboxProjectContext() {
         let task = makeTask(
             title: "Dependency-free task",
+            projectID: UUID(),
             projectName: "Project Alpha"
         )
 
         let presentation = FocusZoneRowPresentation.make(task: task, insight: nil)
 
-        XCTAssertNil(presentation.visibleBadge)
+        XCTAssertEqual(presentation.secondaryLineText, "Project Alpha")
     }
 
-    func testBlockedTaskDoesNotShowVisibleBadgeWithoutUrgency() {
+    func testBlockedTaskKeepsNonInboxProjectContextWithoutUrgency() {
         let taskID = UUID()
         let blockedTask = makeTask(
             id: taskID,
             title: "Blocked task",
+            projectID: UUID(),
             projectName: "Project Alpha",
             dependencies: [
                 TaskDependencyLinkDefinition(
@@ -123,7 +144,19 @@ final class FocusZonePresentationTests: XCTestCase {
 
         let presentation = FocusZoneRowPresentation.make(task: blockedTask, insight: nil)
 
-        XCTAssertNil(presentation.visibleBadge)
+        XCTAssertEqual(presentation.secondaryLineText, "Project Alpha")
+    }
+
+    func testSecondaryLineResolverKeepsInboxByDefaultForOtherSurfaces() {
+        let task = makeTask(
+            title: "Inbox task",
+            projectID: ProjectConstants.inboxProjectID,
+            projectName: "Inbox"
+        )
+
+        let metadata = FocusZoneSecondaryLineResolver.resolve(task: task)
+
+        XCTAssertEqual(metadata.text, "Inbox")
     }
 
     private func makeTask(

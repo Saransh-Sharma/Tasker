@@ -71,11 +71,6 @@ extension HomeQuickFilterSummary {
             hasActiveFilters = true
         }
 
-        // Check for non-default grouping
-        if filterState.projectGroupingMode != .defaultMode {
-            hasActiveFilters = true
-        }
-
         let secondaryText = secondaryParts.isEmpty ? nil : secondaryParts.joined(separator: " ")
 
         return HomeQuickFilterSummary(

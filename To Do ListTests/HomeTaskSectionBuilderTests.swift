@@ -468,14 +468,15 @@ final class HomeTaskSectionBuilderTests: XCTestCase {
             showTypeBadge: false,
             now: now,
             isInOverdueSection: true,
-            tagNameByID: [tagID: "Client"]
+            tagNameByID: [tagID: "Client"],
+            metadataPolicy: .homeUnifiedList
         )
 
-        XCTAssertEqual(model.metadataText, "1w late • Inbox • Daily • Client")
+        XCTAssertEqual(model.metadataText, "1w late • Daily • Client")
         XCTAssertEqual(model.statusChip, nil)
     }
 
-    func testTaskRowDisplayModelShowsInlineDueTimeAndProjectMetadataOnMainRows() {
+    func testTaskRowDisplayModelHidesDueTodayTimeAndKeepsNonInboxProjectOnHomeRows() {
         let now = Calendar.current.date(from: DateComponents(year: 2026, month: 2, day: 24, hour: 9, minute: 0))!
         let dueToday = Calendar.current.date(byAdding: .hour, value: 6, to: now)!
         let overdue = Calendar.current.date(byAdding: .day, value: -2, to: now)!
@@ -483,13 +484,45 @@ final class HomeTaskSectionBuilderTests: XCTestCase {
         let dueTodayTask = TaskDefinition(projectName: "Ops", title: "Due later", priority: .low, dueDate: dueToday)
         let overdueTask = TaskDefinition(projectName: "Ops", title: "Late task", priority: .low, dueDate: overdue)
 
-        let todayModel = TaskRowDisplayModel.from(task: dueTodayTask, showTypeBadge: false, now: now)
-        let overdueModel = TaskRowDisplayModel.from(task: overdueTask, showTypeBadge: false, now: now)
+        let todayModel = TaskRowDisplayModel.from(
+            task: dueTodayTask,
+            showTypeBadge: false,
+            now: now,
+            metadataPolicy: .homeUnifiedList
+        )
+        let overdueModel = TaskRowDisplayModel.from(
+            task: overdueTask,
+            showTypeBadge: false,
+            now: now,
+            metadataPolicy: .homeUnifiedList
+        )
 
         XCTAssertNil(todayModel.statusChip)
-        XCTAssertEqual(todayModel.metadataText, "\(dueToday.formatted(date: .omitted, time: .shortened)) • Ops")
+        XCTAssertEqual(todayModel.metadataText, "Ops")
         XCTAssertNil(overdueModel.statusChip)
         XCTAssertEqual(overdueModel.metadataText, "2d late • Ops")
+    }
+
+    func testTaskRowDisplayModelHidesDueTodayTimeAndInboxProjectOnHomeRows() {
+        let now = Calendar.current.date(from: DateComponents(year: 2026, month: 2, day: 24, hour: 9, minute: 0))!
+        let dueToday = Calendar.current.date(byAdding: .hour, value: 6, to: now)!
+        let inboxTask = TaskDefinition(
+            projectID: ProjectConstants.inboxProjectID,
+            projectName: ProjectConstants.inboxProjectName,
+            title: "Inbox task",
+            priority: .low,
+            dueDate: dueToday
+        )
+
+        let model = TaskRowDisplayModel.from(
+            task: inboxTask,
+            showTypeBadge: false,
+            now: now,
+            metadataPolicy: .homeUnifiedList
+        )
+
+        XCTAssertNil(model.statusChip)
+        XCTAssertNil(model.metadataText)
     }
 
     func testTaskRowDisplayModelShowsDueSoonChipOnlyInsideWindow() {
@@ -504,12 +537,53 @@ final class HomeTaskSectionBuilderTests: XCTestCase {
             priority: .high,
             dueDate: Calendar.current.date(byAdding: .hour, value: 4, to: now)
         )
+        let dueSoonInboxTask = TaskDefinition(
+            projectID: ProjectConstants.inboxProjectID,
+            projectName: ProjectConstants.inboxProjectName,
+            title: "Inbox soon",
+            priority: .high,
+            dueDate: Calendar.current.date(byAdding: .minute, value: 45, to: now)
+        )
+        let dueSoonOpsTask = TaskDefinition(
+            projectName: "Ops",
+            title: "Ops soon",
+            priority: .high,
+            dueDate: Calendar.current.date(byAdding: .minute, value: 45, to: now)
+        )
 
-        let dueSoonModel = TaskRowDisplayModel.from(task: dueSoonTask, showTypeBadge: false, now: now)
-        let laterModel = TaskRowDisplayModel.from(task: laterTask, showTypeBadge: false, now: now)
+        let dueSoonModel = TaskRowDisplayModel.from(
+            task: dueSoonTask,
+            showTypeBadge: false,
+            now: now,
+            metadataPolicy: .homeUnifiedList
+        )
+        let laterModel = TaskRowDisplayModel.from(
+            task: laterTask,
+            showTypeBadge: false,
+            now: now,
+            metadataPolicy: .homeUnifiedList
+        )
+        let dueSoonInboxModel = TaskRowDisplayModel.from(
+            task: dueSoonInboxTask,
+            showTypeBadge: false,
+            now: now,
+            metadataPolicy: .homeUnifiedList
+        )
+        let dueSoonOpsModel = TaskRowDisplayModel.from(
+            task: dueSoonOpsTask,
+            showTypeBadge: false,
+            now: now,
+            metadataPolicy: .homeUnifiedList
+        )
 
         XCTAssertEqual(dueSoonModel.statusChip, .dueSoon)
+        XCTAssertNil(dueSoonModel.metadataText)
         XCTAssertNil(laterModel.statusChip)
+        XCTAssertNil(laterModel.metadataText)
+        XCTAssertEqual(dueSoonInboxModel.statusChip, .dueSoon)
+        XCTAssertNil(dueSoonInboxModel.metadataText)
+        XCTAssertEqual(dueSoonOpsModel.statusChip, .dueSoon)
+        XCTAssertEqual(dueSoonOpsModel.metadataText, "Ops")
     }
 
     func testTaskRowDisplayModelAppliesSmartDescriptionRules() {
@@ -651,6 +725,63 @@ final class HomeTaskSectionBuilderTests: XCTestCase {
             Set(sections.first?.rows.dropFirst().map(\.title) ?? []),
             Set(["Journal", "Closed loop"])
         )
+    }
+
+    func testAdaptiveDayGroupingKeepsUnifiedPlainListWhenNoProjectCrossesThreshold() {
+        let inbox = Project.createInbox()
+        let alpha = Project(id: UUID(), name: "Alpha", icon: .folder)
+        let beta = Project(id: UUID(), name: "Beta", icon: .folder)
+
+        let sections = HomeMixedSectionBuilder.buildTodaySections(
+            taskRows: [
+                makeTask(name: "Alpha 1", project: alpha, dueDate: Date()),
+                makeTask(name: "Inbox 1", project: inbox, dueDate: Date()),
+                makeTask(name: "Beta 1", project: beta, dueDate: Date())
+            ],
+            habitRows: [],
+            projects: [inbox, alpha, beta],
+            lifeAreas: [],
+            useAdaptiveDayGrouping: true
+        )
+
+        XCTAssertEqual(sections.count, 1)
+        XCTAssertEqual(sections.first?.displayStyle, .plain)
+        XCTAssertEqual(sections.first?.rows.map(\.title), ["Alpha 1", "Inbox 1", "Beta 1"])
+    }
+
+    func testAdaptiveDayGroupingEmitsQualifiedProjectSectionsInFirstOccurrenceOrder() {
+        let inbox = Project.createInbox()
+        let alpha = Project(id: UUID(), name: "Alpha", icon: .folder)
+        let beta = Project(id: UUID(), name: "Beta", icon: .folder)
+
+        let sections = HomeMixedSectionBuilder.buildTodaySections(
+            taskRows: [
+                makeTask(name: "Beta 1", project: beta, dueDate: Date()),
+                makeTask(name: "Alpha 1", project: alpha, dueDate: Date()),
+                makeTask(name: "Beta 2", project: beta, dueDate: Date()),
+                makeTask(name: "Inbox 1", project: inbox, dueDate: Date()),
+                makeTask(name: "Alpha 2", project: alpha, dueDate: Date()),
+                makeTask(name: "Inbox 2", project: inbox, dueDate: Date()),
+                makeTask(name: "Alpha 3", project: alpha, dueDate: Date()),
+                makeTask(name: "Inbox 3", project: inbox, dueDate: Date()),
+                makeTask(name: "Alpha 4", project: alpha, dueDate: Date()),
+                makeTask(name: "Inbox 4", project: inbox, dueDate: Date())
+            ],
+            habitRows: [],
+            projects: [inbox, alpha, beta],
+            lifeAreas: [],
+            useAdaptiveDayGrouping: true
+        )
+
+        XCTAssertEqual(sections.count, 4)
+        XCTAssertEqual(sections[0].displayStyle, .plain)
+        XCTAssertEqual(sections[0].rows.map(\.title), ["Beta 1"])
+        XCTAssertEqual(sections[1].anchor.title, "Alpha")
+        XCTAssertEqual(sections[1].rows.map(\.title), ["Alpha 1", "Alpha 2", "Alpha 3", "Alpha 4"])
+        XCTAssertEqual(sections[2].displayStyle, .plain)
+        XCTAssertEqual(sections[2].rows.map(\.title), ["Beta 2"])
+        XCTAssertTrue(sections[3].anchor.isInboxProject)
+        XCTAssertEqual(sections[3].rows.map(\.title), ["Inbox 1", "Inbox 2", "Inbox 3", "Inbox 4"])
     }
 
     private func makeTask(

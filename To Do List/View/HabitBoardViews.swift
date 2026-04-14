@@ -215,11 +215,8 @@ struct HabitHistoryStripView: View {
 
 struct HabitHomeSectionCard: View {
     let title: String
-    let subtitle: String
+    let summaryLine: String
     let rows: [HomeHabitRow]
-    let countValue: String
-    let secondaryValue: String
-    let tertiaryValue: String
     let onOpenBoard: (() -> Void)?
     let onPrimaryAction: (HomeHabitRow) -> Void
     let onSecondaryAction: (HomeHabitRow) -> Void
@@ -232,11 +229,8 @@ struct HabitHomeSectionCard: View {
 
     init(
         title: String,
-        subtitle: String,
+        summaryLine: String,
         rows: [HomeHabitRow],
-        countValue: String,
-        secondaryValue: String,
-        tertiaryValue: String,
         onOpenBoard: (() -> Void)?,
         onPrimaryAction: @escaping (HomeHabitRow) -> Void,
         onSecondaryAction: @escaping (HomeHabitRow) -> Void,
@@ -244,11 +238,8 @@ struct HabitHomeSectionCard: View {
         onOpenHabit: ((HomeHabitRow) -> Void)? = nil
     ) {
         self.title = title
-        self.subtitle = subtitle
+        self.summaryLine = summaryLine
         self.rows = rows
-        self.countValue = countValue
-        self.secondaryValue = secondaryValue
-        self.tertiaryValue = tertiaryValue
         self.onOpenBoard = onOpenBoard
         self.onPrimaryAction = onPrimaryAction
         self.onSecondaryAction = onSecondaryAction
@@ -257,26 +248,36 @@ struct HabitHomeSectionCard: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: spacing.s12) {
-            HStack(alignment: .top, spacing: spacing.s12) {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(title)
-                        .font(.tasker(.headline))
-                        .foregroundStyle(Color.tasker.textPrimary)
+        VStack(alignment: .leading, spacing: spacing.s8) {
+            HStack(alignment: .center, spacing: spacing.s8) {
+                Text(title)
+                    .font(.tasker(.headline))
+                    .foregroundStyle(Color.tasker.textPrimary)
+                    .lineLimit(1)
 
-                    Text(subtitle)
-                        .font(.tasker(.caption1))
-                        .foregroundStyle(Color.tasker.textSecondary)
-                }
+                Text(summaryLine)
+                    .font(.tasker(.caption1))
+                    .foregroundStyle(Color.tasker.textSecondary)
+                    .lineLimit(1)
+                    .truncationMode(.tail)
 
-                Spacer(minLength: 0)
+                Spacer(minLength: spacing.s4)
+
+                HabitBoardStripView(
+                    cells: aggregatePreviewCells,
+                    family: .gray,
+                    mode: .compact
+                )
+                .layoutPriority(1)
 
                 if let onOpenBoard {
-                    Button("Board") { onOpenBoard() }
-                        .font(.tasker(.caption1).weight(.semibold))
+                    Button { onOpenBoard() } label: {
+                        Label("Board", systemImage: "square.grid.3x3")
+                            .labelStyle(.iconOnly)
+                            .font(.system(size: 14, weight: .semibold))
+                    }
                         .foregroundStyle(Color.tasker.textPrimary)
-                        .frame(minWidth: 56, minHeight: 44)
-                        .padding(.horizontal, 10)
+                        .frame(width: 44, height: 44)
                         .background(
                             RoundedRectangle(cornerRadius: 10, style: .continuous)
                                 .fill(Color.white.opacity(0.7))
@@ -290,28 +291,7 @@ struct HabitHomeSectionCard: View {
                         .accessibilityLabel("Open Habit Board")
                 }
             }
-
-            HStack(spacing: spacing.s8) {
-                HabitBoardStripView(
-                    cells: aggregatePreviewCells,
-                    family: .gray,
-                    mode: .compact
-                )
-
-                Spacer(minLength: 0)
-
-                Text(countValue)
-                    .font(.tasker(.caption1).weight(.semibold))
-                    .foregroundStyle(Color.tasker.textPrimary)
-
-                Text(secondaryValue)
-                    .font(.tasker(.caption1))
-                    .foregroundStyle(Color.tasker.textSecondary)
-
-                Text(tertiaryValue)
-                    .font(.tasker(.caption1))
-                    .foregroundStyle(Color.tasker.textSecondary)
-            }
+            .padding(.horizontal, spacing.s16)
 
             VStack(spacing: 0) {
                 ForEach(Array(rows.enumerated()), id: \.element.id) { index, row in
@@ -327,15 +307,14 @@ struct HabitHomeSectionCard: View {
 
                     if index < rows.count - 1 {
                         Divider()
-                            .padding(.leading, spacing.s12)
+                            .padding(.leading, spacing.s16)
                     }
                 }
             }
         }
-        .padding(.horizontal, spacing.s16)
         .padding(.vertical, spacing.s12)
-        .background(HabitBoardSurfaceBackground(cornerRadius: TaskerTheme.CornerRadius.card))
-        .clipShape(RoundedRectangle(cornerRadius: TaskerTheme.CornerRadius.card, style: .continuous))
+        .background(HabitBoardSurfaceBackground(cornerRadius: 0))
+        .clipShape(RoundedRectangle(cornerRadius: 0, style: .continuous))
     }
 
     private var aggregatePreviewCells: [HabitBoardCell] {
@@ -361,7 +340,7 @@ struct HabitHomeSectionCard: View {
         }
         let aggregateDays = HabitBoardPresentationBuilder.aggregateDays(
             from: presentations,
-            dayCount: min(7, rows.first?.boardCellsCompact.count ?? 0)
+            dayCount: min(5, rows.first?.boardCellsCompact.count ?? 0)
         )
         return aggregateDays.map { day in
             HabitBoardCell(

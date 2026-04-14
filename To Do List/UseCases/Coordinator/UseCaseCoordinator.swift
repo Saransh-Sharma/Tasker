@@ -26,6 +26,12 @@ public final class UseCaseCoordinator {
         public let occurrenceRepository: OccurrenceRepositoryProtocol
         public let tombstoneRepository: TombstoneRepositoryProtocol
         public let reminderRepository: ReminderRepositoryProtocol
+        public let weeklyPlanRepository: WeeklyPlanRepositoryProtocol
+        public let weeklyOutcomeRepository: WeeklyOutcomeRepositoryProtocol
+        public let weeklyReviewRepository: WeeklyReviewRepositoryProtocol
+        public let weeklyReviewMutationRepository: WeeklyReviewMutationRepositoryProtocol
+        public let weeklyReviewDraftStore: WeeklyReviewDraftStoreProtocol
+        public let reflectionNoteRepository: ReflectionNoteRepositoryProtocol
         public let gamificationRepository: GamificationRepositoryProtocol
         public let assistantActionRepository: AssistantActionRepositoryProtocol
         public let externalSyncRepository: ExternalSyncRepositoryProtocol
@@ -47,6 +53,12 @@ public final class UseCaseCoordinator {
             occurrenceRepository: OccurrenceRepositoryProtocol,
             tombstoneRepository: TombstoneRepositoryProtocol,
             reminderRepository: ReminderRepositoryProtocol,
+            weeklyPlanRepository: WeeklyPlanRepositoryProtocol,
+            weeklyOutcomeRepository: WeeklyOutcomeRepositoryProtocol,
+            weeklyReviewRepository: WeeklyReviewRepositoryProtocol,
+            weeklyReviewMutationRepository: WeeklyReviewMutationRepositoryProtocol,
+            weeklyReviewDraftStore: WeeklyReviewDraftStoreProtocol,
+            reflectionNoteRepository: ReflectionNoteRepositoryProtocol,
             gamificationRepository: GamificationRepositoryProtocol,
             assistantActionRepository: AssistantActionRepositoryProtocol,
             externalSyncRepository: ExternalSyncRepositoryProtocol,
@@ -66,6 +78,12 @@ public final class UseCaseCoordinator {
             self.occurrenceRepository = occurrenceRepository
             self.tombstoneRepository = tombstoneRepository
             self.reminderRepository = reminderRepository
+            self.weeklyPlanRepository = weeklyPlanRepository
+            self.weeklyOutcomeRepository = weeklyOutcomeRepository
+            self.weeklyReviewRepository = weeklyReviewRepository
+            self.weeklyReviewMutationRepository = weeklyReviewMutationRepository
+            self.weeklyReviewDraftStore = weeklyReviewDraftStore
+            self.reflectionNoteRepository = reflectionNoteRepository
             self.gamificationRepository = gamificationRepository
             self.assistantActionRepository = assistantActionRepository
             self.externalSyncRepository = externalSyncRepository
@@ -125,6 +143,13 @@ public final class UseCaseCoordinator {
     public let maintainOccurrences: MaintainOccurrencesUseCase
     public let purgeExpiredTombstones: PurgeExpiredTombstonesUseCase
     public let scheduleReminder: ScheduleReminderUseCase
+    public let buildWeeklyPlanSnapshot: BuildWeeklyPlanSnapshotUseCase
+    public let estimateWeeklyCapacity: EstimateWeeklyCapacityUseCase
+    public let getWeeklySummary: GetWeeklySummaryUseCase
+    public let saveWeeklyPlan: SaveWeeklyPlanUseCase
+    public let calculateWeeklyMomentum: CalculateWeeklyMomentumUseCase
+    public let buildRecoveryInsights: BuildRecoveryInsightsUseCase
+    public let completeWeeklyReview: CompleteWeeklyReviewUseCase
     public let recordXP: RecordXPUseCase
     public let gamificationEngine: GamificationEngine
     public let focusSession: FocusSessionUseCase
@@ -140,6 +165,12 @@ public final class UseCaseCoordinator {
     public let taskDefinitionRepository: TaskDefinitionRepositoryProtocol
     public let gamificationRepository: GamificationRepositoryProtocol
     public let reminderRepository: ReminderRepositoryProtocol
+    public let weeklyPlanRepository: WeeklyPlanRepositoryProtocol
+    public let weeklyOutcomeRepository: WeeklyOutcomeRepositoryProtocol
+    public let weeklyReviewRepository: WeeklyReviewRepositoryProtocol
+    public let weeklyReviewMutationRepository: WeeklyReviewMutationRepositoryProtocol
+    public let weeklyReviewDraftStore: WeeklyReviewDraftStoreProtocol
+    public let reflectionNoteRepository: ReflectionNoteRepositoryProtocol
     public let taskReadModelRepository: TaskReadModelRepositoryProtocol?
     public let cacheService: CacheServiceProtocol?
 
@@ -158,6 +189,12 @@ public final class UseCaseCoordinator {
         self.taskDefinitionRepository = v2Dependencies.taskDefinitionRepository
         self.gamificationRepository = v2Dependencies.gamificationRepository
         self.reminderRepository = v2Dependencies.reminderRepository
+        self.weeklyPlanRepository = v2Dependencies.weeklyPlanRepository
+        self.weeklyOutcomeRepository = v2Dependencies.weeklyOutcomeRepository
+        self.weeklyReviewRepository = v2Dependencies.weeklyReviewRepository
+        self.weeklyReviewMutationRepository = v2Dependencies.weeklyReviewMutationRepository
+        self.weeklyReviewDraftStore = v2Dependencies.weeklyReviewDraftStore
+        self.reflectionNoteRepository = v2Dependencies.reflectionNoteRepository
         self.taskReadModelRepository = taskReadModelRepository
         self.cacheService = cacheService
 
@@ -225,6 +262,37 @@ public final class UseCaseCoordinator {
             repository: v2Dependencies.taskDefinitionRepository,
             gamification: xp,
             gamificationEngine: engine
+        )
+        let buildWeeklyPlanSnapshot = BuildWeeklyPlanSnapshotUseCase(
+            weeklyPlanRepository: v2Dependencies.weeklyPlanRepository,
+            weeklyOutcomeRepository: v2Dependencies.weeklyOutcomeRepository,
+            weeklyReviewRepository: v2Dependencies.weeklyReviewRepository,
+            reflectionNoteRepository: v2Dependencies.reflectionNoteRepository,
+            taskReadModelRepository: taskReadModelRepository,
+            taskDefinitionRepository: v2Dependencies.taskDefinitionRepository
+        )
+        self.buildWeeklyPlanSnapshot = buildWeeklyPlanSnapshot
+        let estimateWeeklyCapacity = EstimateWeeklyCapacityUseCase(
+            taskReadModelRepository: taskReadModelRepository,
+            taskDefinitionRepository: v2Dependencies.taskDefinitionRepository
+        )
+        self.estimateWeeklyCapacity = estimateWeeklyCapacity
+        self.getWeeklySummary = GetWeeklySummaryUseCase(
+            buildWeeklyPlanSnapshot: buildWeeklyPlanSnapshot,
+            estimateWeeklyCapacity: estimateWeeklyCapacity
+        )
+        self.saveWeeklyPlan = SaveWeeklyPlanUseCase(
+            weeklyPlanRepository: v2Dependencies.weeklyPlanRepository,
+            weeklyOutcomeRepository: v2Dependencies.weeklyOutcomeRepository,
+            updateTaskDefinitionUseCase: updateTaskDefinitionUseCase,
+            taskDefinitionRepository: v2Dependencies.taskDefinitionRepository
+        )
+        self.calculateWeeklyMomentum = CalculateWeeklyMomentumUseCase(
+            buildWeeklyPlanSnapshot: buildWeeklyPlanSnapshot
+        )
+        self.buildRecoveryInsights = BuildRecoveryInsightsUseCase()
+        self.completeWeeklyReview = CompleteWeeklyReviewUseCase(
+            reviewMutationRepository: v2Dependencies.weeklyReviewMutationRepository
         )
         let recomputeHabitStreaks = RecomputeHabitStreaksUseCase(
             habitRepository: v2Dependencies.habitRepository,

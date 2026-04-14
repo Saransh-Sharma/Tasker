@@ -76,9 +76,10 @@ final class HomeChromeSnapshotPresentationTests: XCTestCase {
         XCTAssertEqual(current.changedSliceCount(comparedTo: previous), 1)
     }
 
-    func testTodayPresentationBuildsXPCompletionAndStreakMetadata() {
+    func testTodayPresentationBuildsCompressedStatusLine() {
+        let today = Calendar.current.startOfDay(for: Date())
         let snapshot = HomeChromeSnapshot(
-            selectedDate: Date(timeIntervalSince1970: 0),
+            selectedDate: today,
             activeScope: .today,
             activeFilterState: .default,
             savedHomeViews: [],
@@ -92,22 +93,27 @@ final class HomeChromeSnapshotPresentationTests: XCTestCase {
             ),
             dailyScore: 18,
             completionRate: 1,
+            weeklySummary: nil,
             projects: [],
             reflectionEligible: true,
             momentumGuidanceText: ""
         )
 
-        let presentation = snapshot.homeHeaderPresentation(tasks: .empty)
+        let presentation = snapshot.homeHeaderPresentation(tasks: HomeTasksSnapshot.empty)
 
         XCTAssertEqual(presentation.viewLabel, "Today")
-        XCTAssertEqual(
-            presentation.centeredDateText,
-            Date(timeIntervalSince1970: 0).formatted(.dateTime.weekday(.abbreviated).month(.abbreviated).day())
-        )
+        XCTAssertEqual(presentation.compactDateText, today.formatted(.dateTime.weekday(.abbreviated).month(.abbreviated).day()))
+        XCTAssertEqual(presentation.backgroundDateText, today.formatted(.dateTime.month(.wide).day()))
+        XCTAssertEqual(presentation.foregroundRelativeLabel, "TODAY")
+        XCTAssertEqual(presentation.dateAccessibilityLabel, "Today, \(today.formatted(.dateTime.month(.wide).day()))")
         XCTAssertFalse(presentation.showsBackToToday)
         XCTAssertTrue(presentation.showsReflectionCTA)
         XCTAssertEqual(presentation.reflectionCTATitle, "Reflect")
-        XCTAssertEqual(presentation.metadataItems.map { $0.text }, ["18/250 XP", "100%", "1d"])
+        XCTAssertEqual(presentation.statusText, "18/250 XP · 100% · 1d")
+        XCTAssertEqual(presentation.todayStatus?.xpText, "18/250 XP")
+        XCTAssertEqual(presentation.todayStatus?.completionText, "100%")
+        XCTAssertEqual(presentation.todayStatus?.streakText, "1d")
+        XCTAssertEqual(presentation.todayStatus?.streakAccessibilityLabel, "1 day streak")
         XCTAssertEqual(presentation.xpProgress?.earnedXP, 18)
         XCTAssertEqual(presentation.xpProgress?.targetXP, 250)
         XCTAssertEqual(presentation.xpProgress?.isStreakSafeToday, true)
@@ -116,7 +122,8 @@ final class HomeChromeSnapshotPresentationTests: XCTestCase {
     }
 
     func testCustomDatePresentationShowsBackToTodayAndSuppressesReflection() {
-        let selectedDate = Date(timeIntervalSince1970: 86_400)
+        let today = Calendar.current.startOfDay(for: Date())
+        let selectedDate = Calendar.current.date(byAdding: .day, value: 1, to: today) ?? today
         let snapshot = HomeChromeSnapshot(
             selectedDate: selectedDate,
             activeScope: .customDate(selectedDate),
@@ -126,6 +133,7 @@ final class HomeChromeSnapshotPresentationTests: XCTestCase {
             progressState: .empty,
             dailyScore: 0,
             completionRate: 0,
+            weeklySummary: nil,
             projects: [],
             reflectionEligible: true,
             momentumGuidanceText: ""
@@ -189,19 +197,20 @@ final class HomeChromeSnapshotPresentationTests: XCTestCase {
 
         let presentation = snapshot.homeHeaderPresentation(tasks: tasks)
 
-        XCTAssertEqual(
-            presentation.centeredDateText,
-            selectedDate.formatted(.dateTime.weekday(.abbreviated).month(.abbreviated).day())
-        )
+        XCTAssertEqual(presentation.compactDateText, selectedDate.formatted(.dateTime.weekday(.abbreviated).month(.abbreviated).day()))
+        XCTAssertEqual(presentation.backgroundDateText, selectedDate.formatted(.dateTime.month(.wide).day()))
+        XCTAssertEqual(presentation.foregroundRelativeLabel, "TOMORROW")
+        XCTAssertEqual(presentation.dateAccessibilityLabel, "Tomorrow, \(selectedDate.formatted(.dateTime.month(.wide).day()))")
         XCTAssertTrue(presentation.showsBackToToday)
         XCTAssertFalse(presentation.showsReflectionCTA)
-        XCTAssertEqual(presentation.metadataItems.map { $0.text }, ["1 task", "1 habit"])
+        XCTAssertEqual(presentation.statusText, "1 task · 1 habit")
+        XCTAssertNil(presentation.todayStatus)
         XCTAssertNil(presentation.xpProgress)
     }
 
     func testOverduePresentationUsesTaskOnlyScopedSummary() {
         let snapshot = HomeChromeSnapshot(
-            selectedDate: Date(timeIntervalSince1970: 0),
+            selectedDate: Calendar.current.startOfDay(for: Date()),
             activeScope: .overdue,
             activeFilterState: .default,
             savedHomeViews: [],
@@ -209,6 +218,7 @@ final class HomeChromeSnapshotPresentationTests: XCTestCase {
             progressState: .empty,
             dailyScore: 0,
             completionRate: 0,
+            weeklySummary: nil,
             projects: [],
             reflectionEligible: false,
             momentumGuidanceText: ""
@@ -249,8 +259,12 @@ final class HomeChromeSnapshotPresentationTests: XCTestCase {
         let presentation = snapshot.homeHeaderPresentation(tasks: tasks)
 
         XCTAssertEqual(presentation.viewLabel, "Overdue")
-        XCTAssertNil(presentation.centeredDateText)
-        XCTAssertEqual(presentation.metadataItems.map { $0.text }, ["2 overdue tasks"])
+        XCTAssertNil(presentation.compactDateText)
+        XCTAssertNil(presentation.backgroundDateText)
+        XCTAssertNil(presentation.foregroundRelativeLabel)
+        XCTAssertNil(presentation.dateAccessibilityLabel)
+        XCTAssertEqual(presentation.statusText, "2 overdue tasks")
+        XCTAssertNil(presentation.todayStatus)
         XCTAssertFalse(presentation.showsReflectionCTA)
         XCTAssertNil(presentation.xpProgress)
     }
@@ -260,8 +274,9 @@ final class HomeChromeSnapshotPresentationTests: XCTestCase {
         V2FeatureFlags.gamificationV2Enabled = true
         defer { V2FeatureFlags.gamificationV2Enabled = originalGamificationV2Enabled }
 
+        let today = Calendar.current.startOfDay(for: Date())
         let snapshot = HomeChromeSnapshot(
-            selectedDate: Date(timeIntervalSince1970: 0),
+            selectedDate: today,
             activeScope: .today,
             activeFilterState: .default,
             savedHomeViews: [],
@@ -275,21 +290,24 @@ final class HomeChromeSnapshotPresentationTests: XCTestCase {
             ),
             dailyScore: 18,
             completionRate: 1,
+            weeklySummary: nil,
             projects: [],
             reflectionEligible: true,
             momentumGuidanceText: ""
         )
 
-        let presentation = snapshot.homeHeaderPresentation(tasks: .empty)
+        let presentation = snapshot.homeHeaderPresentation(tasks: HomeTasksSnapshot.empty)
 
-        XCTAssertEqual(presentation.metadataItems.map { $0.text }, ["18/250 XP", "100%", "1d"])
+        XCTAssertEqual(presentation.statusText, "18/250 XP · 100% · 1d")
+        XCTAssertEqual(presentation.todayStatus?.streakText, "1d")
         XCTAssertEqual(presentation.xpProgress?.targetXP, GamificationTokens.dailyXPCap)
         XCTAssertEqual(presentation.xpProgress?.accessibilityLabel, "XP progress, 18 of 250 XP")
     }
 
     func testTodayPresentationRoundsCompletionPercentageForHeaderDisplay() {
+        let today = Calendar.current.startOfDay(for: Date())
         let snapshot = HomeChromeSnapshot(
-            selectedDate: Date(timeIntervalSince1970: 0),
+            selectedDate: today,
             activeScope: .today,
             activeFilterState: .default,
             savedHomeViews: [],
@@ -303,13 +321,61 @@ final class HomeChromeSnapshotPresentationTests: XCTestCase {
             ),
             dailyScore: 18,
             completionRate: 1.0 / 3.0,
+            weeklySummary: nil,
             projects: [],
             reflectionEligible: true,
             momentumGuidanceText: ""
         )
 
-        let presentation = snapshot.homeHeaderPresentation(tasks: .empty)
+        let presentation = snapshot.homeHeaderPresentation(tasks: HomeTasksSnapshot.empty)
 
-        XCTAssertEqual(presentation.metadataItems.map { $0.text }, ["18/250 XP", "33%", "1d"])
+        XCTAssertEqual(presentation.statusText, "18/250 XP · 33% · 1d")
+        XCTAssertEqual(presentation.todayStatus?.completionText, "33%")
+    }
+
+    func testDateHeaderRelativeLabelsCoverPastAndFutureOffsets() {
+        let today = Calendar.current.startOfDay(for: Date())
+        let expectedLabels: [(offset: Int, label: String, accessibility: String)] = [
+            (-9, "9 DAYS AGO", "9 days ago"),
+            (-2, "2 DAYS AGO", "2 days ago"),
+            (-1, "YESTERDAY", "Yesterday"),
+            (0, "TODAY", "Today"),
+            (1, "TOMORROW", "Tomorrow"),
+            (2, "IN 2 DAYS", "In 2 days"),
+            (9, "IN 9 DAYS", "In 9 days")
+        ]
+
+        for expected in expectedLabels {
+            let selectedDate = Calendar.current.date(byAdding: .day, value: expected.offset, to: today) ?? today
+            let snapshot = HomeChromeSnapshot(
+                selectedDate: selectedDate,
+                activeScope: .customDate(selectedDate),
+                activeFilterState: .default,
+                savedHomeViews: [],
+                quickViewCounts: [:],
+                progressState: .empty,
+                dailyScore: 0,
+                completionRate: 0,
+                weeklySummary: nil,
+                projects: [],
+                reflectionEligible: false,
+                momentumGuidanceText: ""
+            )
+
+            let presentation = snapshot.homeHeaderPresentation(tasks: .empty)
+
+            XCTAssertEqual(presentation.foregroundRelativeLabel, expected.label, "offset \(expected.offset)")
+            XCTAssertEqual(
+                presentation.dateAccessibilityLabel,
+                "\(expected.accessibility), \(selectedDate.formatted(.dateTime.month(.wide).day()))",
+                "offset \(expected.offset)"
+            )
+            XCTAssertEqual(presentation.backgroundDateText, selectedDate.formatted(.dateTime.month(.wide).day()), "offset \(expected.offset)")
+            XCTAssertEqual(
+                presentation.compactDateText,
+                selectedDate.formatted(.dateTime.weekday(.abbreviated).month(.abbreviated).day()),
+                "offset \(expected.offset)"
+            )
+        }
     }
 }

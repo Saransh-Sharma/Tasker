@@ -33,6 +33,9 @@ struct QuietTrackingComposerView: View {
     private var progressTitle: String { snapshot.progressTitle(for: selectedEntry) }
     private var progressDetail: String { snapshot.progressDetail(for: selectedEntry) }
     private var footerTitle: String { snapshot.footerTitle(for: selectedEntry, outcome: outcome) }
+    private var selectedDayText: String {
+        selectedDate.formatted(.dateTime.weekday(.wide).month(.abbreviated).day())
+    }
 
     var body: some View {
         NavigationStack {
@@ -186,9 +189,12 @@ struct QuietTrackingComposerView: View {
                         Text("Selected day")
                             .font(.tasker(.caption2))
                             .foregroundStyle(Color.tasker.textSecondary)
-                        Text(selectedDate.formatted(.dateTime.weekday(.wide).month(.abbreviated).day()))
+                        Text(selectedDayText)
                             .font(.tasker(.callout).weight(.semibold))
                             .foregroundStyle(Color.tasker.textPrimary)
+                            .id(Calendar.current.startOfDay(for: selectedDate).timeIntervalSince1970)
+                            .accessibilityLabel("Selected day")
+                            .accessibilityValue(selectedDayText)
                             .accessibilityIdentifier("home.quietTracking.sheet.date.selected")
                     }
 
@@ -286,7 +292,7 @@ struct QuietTrackingComposerView: View {
         let isSelected = Calendar.current.isDate(selectedDate, inSameDayAs: date)
 
         return Button {
-            selectedDate = date
+            updateSelectedDate(date)
         } label: {
             Text(title)
                 .font(.tasker(.caption1).weight(.semibold))
@@ -303,13 +309,25 @@ struct QuietTrackingComposerView: View {
                 )
                 .clipShape(Capsule())
         }
+        .contentShape(Capsule())
         .buttonStyle(.plain)
+        .simultaneousGesture(
+            TapGesture().onEnded {
+                updateSelectedDate(date)
+            }
+        )
+        .accessibilityValue(isSelected ? "Selected" : "Not selected")
+        .accessibilityAddTraits(isSelected ? .isSelected : [])
         .accessibilityIdentifier(identifier)
     }
 
     private func selectHabit(_ habitID: String) {
         selectedHabitID = snapshot.resolvedSelectedHabitID(habitID)
         selectedEntry = snapshot.entry(for: selectedHabitID)
+    }
+
+    private func updateSelectedDate(_ date: Date) {
+        selectedDate = Calendar.current.startOfDay(for: min(date, Date()))
     }
 
     private func save() {

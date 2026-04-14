@@ -11,11 +11,13 @@ struct HomeCompactHeaderView: View {
     let onShowDatePicker: () -> Void
     let onShowAdvancedFilters: () -> Void
     let onResetFilters: () -> Void
-    let onOpenSearch: () -> Void
+    let onOpenTopNavSearch: () -> Void
+    let onOpenMenuSearch: () -> Void
     let onOpenReflection: () -> Void
     let onOpenSettings: () -> Void
 
     private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.currentTheme.tokens.spacing }
+    @Environment(\.colorScheme) private var colorScheme
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @State private var containerWidth: CGFloat = 0
     @State private var measuredLeadingColumnWidth: CGFloat = 0
@@ -32,7 +34,8 @@ struct HomeCompactHeaderView: View {
         onShowDatePicker: @escaping () -> Void,
         onShowAdvancedFilters: @escaping () -> Void,
         onResetFilters: @escaping () -> Void,
-        onOpenSearch: @escaping () -> Void,
+        onOpenTopNavSearch: @escaping () -> Void,
+        onOpenMenuSearch: @escaping () -> Void,
         onOpenReflection: @escaping () -> Void,
         onOpenSettings: @escaping () -> Void
     ) {
@@ -46,23 +49,20 @@ struct HomeCompactHeaderView: View {
         self.onShowDatePicker = onShowDatePicker
         self.onShowAdvancedFilters = onShowAdvancedFilters
         self.onResetFilters = onResetFilters
-        self.onOpenSearch = onOpenSearch
+        self.onOpenTopNavSearch = onOpenTopNavSearch
+        self.onOpenMenuSearch = onOpenMenuSearch
         self.onOpenReflection = onOpenReflection
         self.onOpenSettings = onOpenSettings
     }
 
     var body: some View {
         VStack(alignment: .leading, spacing: spacing.s8) {
-            if usesWideLayout {
-                wideHeaderLayout
-            } else {
-                compactHeaderLayout
-            }
-
+            headerTopRow
+            utilityRow
             headerBottomAccent
         }
         .padding(.horizontal, spacing.s16)
-        .padding(.top, spacing.s8 + 10 + extraTopPadding)
+        .padding(.top, spacing.s8 + extraTopPadding)
         .padding(.bottom, spacing.s8)
         .contentShape(Rectangle())
         .accessibilityIdentifier("home.topChrome")
@@ -83,11 +83,11 @@ struct HomeCompactHeaderView: View {
                     ? [Color.tasker.accentPrimary.opacity(0.78), Color.tasker.accentPrimary]
                     : [Color.tasker.statusWarning.opacity(0.82), Color.tasker.statusWarning],
                 trackColor: Color.tasker.surfaceSecondary.opacity(0.72),
-                height: 4,
+                height: 3,
                 animate: !reduceMotion
             )
             .frame(maxWidth: .infinity)
-            .frame(height: 4)
+            .frame(height: 3)
             .accessibilityElement()
             .accessibilityLabel(xpProgress.accessibilityLabel)
             .accessibilityIdentifier("home.topChrome.xpProgress")
@@ -99,137 +99,214 @@ struct HomeCompactHeaderView: View {
         }
     }
 
-    private var usesWideLayout: Bool {
-        containerWidth >= 700 && !dynamicTypeSize.isAccessibilitySize
-    }
-
-    private var compactHeaderLayout: some View {
-        VStack(alignment: .leading, spacing: spacing.s8) {
-            headerTopRow
-
-            metadataSection(alignment: .leading)
-        }
-    }
-
-    private var wideHeaderLayout: some View {
-        VStack(alignment: .leading, spacing: spacing.s8) {
-            headerTopRow
-
-            metadataSection(alignment: .leading)
-        }
+    private var canCenterDate: Bool {
+        let availableCenterWidth = containerWidth
+            - (dateHeroHorizontalInset * 2)
+            - measuredLeadingColumnWidth
+            - measuredTrailingColumnWidth
+        return presentation.backgroundDateText != nil
+            && presentation.foregroundRelativeLabel != nil
+            && containerWidth >= 360
+            && availableCenterWidth >= 120
+            && !dynamicTypeSize.isAccessibilitySize
     }
 
     private var headerTopRow: some View {
         Group {
-            if presentation.centeredDateText == nil {
+            if canCenterDate {
+                ZStack {
+                    layeredDateLabel
+                        .padding(.horizontal, dateHeroHorizontalInset)
+                        .offset(y: 10)
+
+                    HStack(alignment: .center, spacing: spacing.s8) {
+                        measuredLeadingHeaderContent
+                            .fixedSize(horizontal: true, vertical: true)
+
+                        Spacer(minLength: spacing.s8)
+
+                        measuredTrailingHeaderContent
+                            .fixedSize(horizontal: true, vertical: true)
+                    }
+                }
+                .frame(minHeight: 36)
+            } else {
                 HStack(spacing: spacing.s8) {
-                    leadingHeaderContent
-                        .background(
-                            widthReader { newWidth in
-                                measuredLeadingColumnWidth = newWidth
-                            }
-                        )
-                        .layoutPriority(1)
+                    VStack(alignment: .leading, spacing: spacing.s4) {
+                        measuredLeadingHeaderContent
+                            .layoutPriority(1)
+
+                        if let dateText = presentation.compactDateText {
+                            Text(dateText)
+                                .font(.tasker(.caption1))
+                                .foregroundStyle(Color.tasker.textSecondary)
+                                .lineLimit(1)
+                                .accessibilityLabel(presentation.dateAccessibilityLabel ?? dateText)
+                                .accessibilityIdentifier("home.topChrome.date")
+                        }
+                    }
 
                     Spacer(minLength: spacing.s4)
 
-                    trailingHeaderContent
-                }
-            } else {
-                HStack(alignment: .center, spacing: spacing.s8) {
-                    leadingMeasuredHeaderContent
-                        .background(
-                            widthReader { newWidth in
-                                measuredLeadingColumnWidth = newWidth
-                            }
-                        )
-                        .frame(width: balancedSideColumnWidth, alignment: .leading)
-
-                    centeredDateLabel
-                        .frame(maxWidth: .infinity, alignment: .center)
-                        .layoutPriority(1)
-
-                    trailingMeasuredHeaderContent
-                        .background(
-                            widthReader { newWidth in
-                                measuredTrailingColumnWidth = newWidth
-                            }
-                        )
-                        .frame(width: balancedSideColumnWidth, alignment: .trailing)
+                    measuredTrailingHeaderContent
                 }
             }
-        }
-        .onChange(of: presentation.centeredDateText != nil) { _, _ in
-            resetMeasuredColumnWidths()
-        }
-        .onChange(of: usesWideLayout) { _, _ in
-            resetMeasuredColumnWidths()
         }
     }
 
     @ViewBuilder
-    private func metadataSection(alignment: HorizontalAlignment) -> some View {
-        ViewThatFits(in: .horizontal) {
-            if presentation.showsReflectionCTA {
+    private var utilityRow: some View {
+        if presentation.showsReflectionCTA || presentation.statusText != nil || presentation.todayStatus != nil {
+            ViewThatFits(in: .horizontal) {
                 HStack(alignment: .center, spacing: spacing.s8) {
-                    reflectionButtonRail
-                    metadataItemsRow(alignment: .trailing)
+                    if presentation.showsReflectionCTA {
+                        reflectionButton
+                    }
+                    Spacer(minLength: spacing.s8)
+                    statusContent
                 }
-            } else {
-                metadataItemsRow(alignment: .leading)
-            }
 
-            VStack(alignment: alignment, spacing: spacing.s8) {
-                if presentation.showsReflectionCTA {
-                    reflectionButtonRail
+                VStack(alignment: .leading, spacing: spacing.s4) {
+                    if presentation.showsReflectionCTA {
+                        reflectionButton
+                    }
+                    statusContent
                 }
-                metadataItemsRow(alignment: presentation.showsReflectionCTA ? .trailing : .leading)
             }
         }
     }
 
-    private func metadataItemsRow(alignment: Alignment) -> some View {
-        HStack(alignment: .center, spacing: spacing.s8) {
-            ForEach(Array(presentation.metadataItems.enumerated()), id: \.element.id) { index, item in
-                metadataItemView(item)
+    @ViewBuilder
+    private var statusContent: some View {
+        if let todayStatus = presentation.todayStatus {
+            HStack(spacing: spacing.s4) {
+                Text(todayStatus.xpText)
+                    .foregroundStyle(Color.tasker.textSecondary)
 
-                if index < presentation.metadataItems.count - 1 {
-                    Text("·")
-                        .font(.tasker(.caption1))
-                        .foregroundStyle(Color.tasker.textQuaternary)
+                Text("·")
+                    .foregroundStyle(Color.tasker.textTertiary)
+
+                Text(todayStatus.completionText)
+                    .foregroundStyle(Color.tasker.textSecondary)
+
+                Text("·")
+                    .foregroundStyle(Color.tasker.textTertiary)
+
+                HStack(spacing: spacing.s4) {
+                    Image(systemName: "flame.fill")
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundStyle(Color.tasker.statusWarning)
+                        .accessibilityHidden(true)
+
+                    Text(todayStatus.streakText)
+                        .foregroundStyle(Color.tasker.textSecondary)
                 }
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel(todayStatus.streakAccessibilityLabel)
             }
-        }
-        .frame(maxWidth: .infinity, alignment: alignment)
-        .accessibilityElement(children: .combine)
-    }
-
-    private func metadataItemView(_ item: HomeHeaderMetadataItem) -> some View {
-        HStack(spacing: spacing.s4) {
-            if let iconSystemName = item.iconSystemName {
-                Image(systemName: iconSystemName)
-                    .font(.system(size: 12, weight: .semibold))
-            }
-
-            Text(item.text)
+            .font(.tasker(.caption1))
+            .lineLimit(1)
+            .minimumScaleFactor(0.85)
+            .accessibilityElement(children: .combine)
+            .accessibilityLabel(todayStatus.accessibilityLabel)
+            .accessibilityIdentifier("home.topChrome.status")
+        } else if let statusText = presentation.statusText {
+            Text(statusText)
+                .font(.tasker(.caption1))
+                .foregroundStyle(Color.tasker.textSecondary)
                 .lineLimit(1)
                 .minimumScaleFactor(0.85)
+                .accessibilityIdentifier("home.topChrome.status")
         }
-        .font(.tasker(.caption1).weight(.medium))
-        .foregroundStyle(metadataForegroundColor(for: item))
-        .fixedSize(horizontal: true, vertical: false)
     }
 
-    private var centeredDateLabel: some View {
-        Text(presentation.centeredDateText ?? "")
-            .font(.tasker(.display))
-            .foregroundStyle(Color.tasker.textPrimary)
-            .lineLimit(1)
-            .minimumScaleFactor(0.8)
-            .multilineTextAlignment(.center)
-            .accessibilityElement(children: .ignore)
-            .accessibilityLabel(presentation.centeredDateText ?? "")
-            .accessibilityIdentifier("home.topChrome.date")
+    private var layeredDateLabel: some View {
+        ZStack {
+            Text(presentation.backgroundDateText ?? "")
+                .font(.system(size: 80, weight: .heavy, design: .rounded))
+                .tracking(-0.4)
+                .foregroundStyle(watermarkDateColor)
+                .lineLimit(1)
+                .minimumScaleFactor(0.45)
+                .offset(y: -5)
+
+            Text(presentation.foregroundRelativeLabel ?? "")
+                .font(.system(size: 19, weight: .bold))
+                .tracking(2.8)
+                .foregroundStyle(foregroundDateColor)
+                .lineLimit(1)
+                .minimumScaleFactor(0.6)
+                .textCase(.uppercase)
+                .offset(y: 10)
+        }
+        .frame(maxWidth: .infinity)
+        .frame(height: 36)
+        .clipped()
+        .contentShape(Rectangle())
+        .multilineTextAlignment(.center)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(
+            presentation.dateAccessibilityLabel
+                ?? presentation.foregroundRelativeLabel
+                ?? presentation.backgroundDateText
+                ?? presentation.compactDateText
+                ?? ""
+        )
+        .allowsHitTesting(false)
+        .accessibilityIdentifier("home.topChrome.date")
+    }
+
+    private var watermarkDateColor: Color {
+        switch colorScheme {
+        case .dark:
+            return Color.tasker.statusWarning.opacity(0.40)
+        default:
+            return Color.tasker.statusWarning.opacity(0.30)
+        }
+    }
+
+    private var foregroundDateColor: Color {
+        switch colorScheme {
+        case .dark:
+            return Color.white.opacity(0.955)
+        default:
+            return Color.tasker.textPrimary.opacity(0.87)
+        }
+    }
+
+    private var dateHeroHorizontalInset: CGFloat {
+        max(
+            92,
+            max(measuredLeadingColumnWidth, measuredTrailingColumnWidth) + spacing.s12
+        )
+    }
+
+    private func widthReader(_ action: @escaping (CGFloat) -> Void) -> some View {
+        Color.clear
+            .onGeometryChange(for: CGFloat.self) { proxy in
+                proxy.size.width
+            } action: { newWidth in
+                guard newWidth > 0 else { return }
+                action(newWidth)
+            }
+    }
+
+    private var measuredLeadingHeaderContent: some View {
+        leadingHeaderContent
+            .background(
+                widthReader { newWidth in
+                    measuredLeadingColumnWidth = newWidth
+                }
+            )
+    }
+
+    private var measuredTrailingHeaderContent: some View {
+        trailingHeaderContent
+            .background(
+                widthReader { newWidth in
+                    measuredTrailingColumnWidth = newWidth
+                }
+            )
     }
 
     private var leadingHeaderContent: some View {
@@ -245,18 +322,12 @@ struct HomeCompactHeaderView: View {
     }
 
     private var trailingHeaderContent: some View {
-        settingsButton
-            .fixedSize()
-    }
-
-    private var leadingMeasuredHeaderContent: some View {
-        leadingHeaderContent
-            .fixedSize(horizontal: true, vertical: false)
-    }
-
-    private var trailingMeasuredHeaderContent: some View {
-        trailingHeaderContent
-            .fixedSize(horizontal: true, vertical: false)
+        HStack(spacing: spacing.s8) {
+            searchButton
+                .fixedSize()
+            settingsButton
+                .fixedSize()
+        }
     }
 
     private var reflectionButton: some View {
@@ -264,42 +335,16 @@ struct HomeCompactHeaderView: View {
             TaskerFeedback.selection()
             onOpenReflection()
         } label: {
-            HStack(spacing: spacing.s4) {
-                Image(systemName: "sparkles")
-                    .font(.system(size: 11, weight: .semibold))
-
-                Text(presentation.reflectionCTATitle)
-                    .font(.tasker(.caption1).weight(.semibold))
-                    .lineLimit(1)
-            }
-            .foregroundStyle(Color.tasker.statusWarning)
-            .padding(.horizontal, spacing.s12)
-            .frame(minHeight: 36)
-            .background(
-                Capsule(style: .continuous)
-                    .fill(Color.tasker.statusWarning.opacity(0.12))
-            )
-            .overlay(
-                Capsule(style: .continuous)
-                    .stroke(Color.tasker.statusWarning.opacity(0.22), lineWidth: 1)
-            )
+            Text(presentation.reflectionCTATitle)
+                .font(.tasker(.caption1).weight(.semibold))
+                .foregroundStyle(Color.tasker.statusWarning)
+                .lineLimit(1)
         }
         .buttonStyle(.plain)
         .scaleOnPress()
-        .accessibilityLabel("Reflect")
-        .accessibilityHint("Opens the daily reflection screen")
+        .accessibilityLabel(presentation.reflectionCTATitle)
+        .accessibilityHint("Opens \(presentation.reflectionCTATitle)")
         .accessibilityIdentifier("home.reflectionReady.button")
-    }
-
-    @ViewBuilder
-    private var reflectionButtonRail: some View {
-        if let reflectionRailWidth {
-            reflectionButton
-                .frame(width: reflectionRailWidth, alignment: .center)
-        } else {
-            reflectionButton
-                .fixedSize(horizontal: true, vertical: false)
-        }
     }
 
     private var scopeMenu: some View {
@@ -327,7 +372,7 @@ struct HomeCompactHeaderView: View {
             }
 
             Section("Tools") {
-                Button("Search", systemImage: "magnifyingglass", action: onOpenSearch)
+                Button("Search", systemImage: "magnifyingglass", action: onOpenMenuSearch)
                     .accessibilityIdentifier("home.focus.menu.search")
 
                 Button("Pick date", systemImage: "calendar", action: onShowDatePicker)
@@ -357,22 +402,27 @@ struct HomeCompactHeaderView: View {
     private var settingsButton: some View {
         Button("Settings", systemImage: "gearshape", action: onOpenSettings)
             .labelStyle(.iconOnly)
-            .font(.system(size: 18, weight: .semibold))
-            .foregroundStyle(Color.tasker.textSecondary)
-            .frame(width: 44, height: 44)
-            .background(
-                Circle()
-                    .fill(Color.tasker.surfaceSecondary.opacity(0.92))
-            )
-            .overlay(
-                Circle()
-                    .stroke(Color.tasker.strokeHairline.opacity(0.75), lineWidth: 1)
-            )
+            .font(.system(size: 15, weight: .semibold))
+            .foregroundStyle(Color.tasker.statusWarning)
+            .frame(width: 36, height: 36)
             .buttonStyle(.plain)
             .scaleOnPress()
             .accessibilityLabel("Settings")
             .accessibilityHint("Opens settings")
             .accessibilityIdentifier("home.settingsButton")
+    }
+
+    private var searchButton: some View {
+        Button("Search", systemImage: "magnifyingglass", action: onOpenTopNavSearch)
+            .labelStyle(.iconOnly)
+            .font(.system(size: 15, weight: .semibold))
+            .foregroundStyle(Color.tasker.statusWarning)
+            .frame(width: 36, height: 36)
+            .buttonStyle(.plain)
+            .scaleOnPress()
+            .accessibilityLabel("Search")
+            .accessibilityHint("Opens search")
+            .accessibilityIdentifier("home.topNav.searchButton")
     }
 
     private var scopeMenuAccessibilityLabel: String {
@@ -395,60 +445,6 @@ struct HomeCompactHeaderView: View {
         case .today, .upcoming:
             return Color.tasker.accentPrimary
         }
-    }
-
-    private var balancedSideColumnWidth: CGFloat? {
-        guard measuredLeadingColumnWidth > 0, measuredTrailingColumnWidth > 0 else {
-            return nil
-        }
-
-        return max(measuredLeadingColumnWidth, measuredTrailingColumnWidth)
-    }
-
-    private var reflectionRailWidth: CGFloat? {
-        guard presentation.showsReflectionCTA, measuredLeadingColumnWidth > 0 else {
-            return nil
-        }
-
-        return measuredLeadingColumnWidth
-    }
-
-    private func resetMeasuredColumnWidths() {
-        measuredLeadingColumnWidth = 0
-        measuredTrailingColumnWidth = 0
-    }
-
-    private func widthReader(_ action: @escaping (CGFloat) -> Void) -> some View {
-        Color.clear
-            .onGeometryChange(for: CGFloat.self) { proxy in
-                proxy.size.width
-            } action: { newWidth in
-                guard newWidth > 0 else { return }
-                action(newWidth)
-            }
-    }
-
-    private func metadataToneColor(_ tone: HomeHeaderMetadataItem.Tone) -> Color {
-        switch tone {
-        case .neutral:
-            return Color.tasker.textSecondary
-        case .accent:
-            return Color.tasker.accentSecondary
-        case .success:
-            return Color.tasker.statusSuccess
-        case .warning:
-            return Color.tasker.statusWarning
-        }
-    }
-
-    private func metadataForegroundColor(for item: HomeHeaderMetadataItem) -> Color {
-        if item.id == "xp" {
-            return Color.tasker.statusWarning
-        }
-        if item.id == "completion" {
-            return Color.tasker.textPrimary
-        }
-        return metadataToneColor(item.tone)
     }
 
     private func iconName(for quickView: HomeQuickView) -> String {

@@ -62,7 +62,11 @@ public struct XPCalculationEngine {
         case .decompose: return 2
         case .recoverReschedule: return 2
         case .reflection: return 10
+        case .reflectionCapture: return 4
         case .focus: return 0 // calculated from duration
+        case .weeklyPlan: return 8
+        case .weeklyReview: return 10
+        case .weeklyCarryCleanup: return 4
         case .habitPositiveComplete: return 8
         case .habitNegativeSuccess: return 8
         case .habitNegativeLapse: return 0
@@ -256,19 +260,54 @@ public struct XPCalculationEngine {
         return formatter.string(from: date)
     }
 
+    public static func weekCalendar(
+        startingOn weekStartsOn: Weekday,
+        using calendar: Calendar = .current
+    ) -> Calendar {
+        var weekCalendar = calendar
+        weekCalendar.firstWeekday = weekStartsOn.number
+        weekCalendar.minimumDaysInFirstWeek = 4
+        return weekCalendar
+    }
+
+    public static func startOfWeek(
+        for date: Date,
+        startingOn weekStartsOn: Weekday,
+        calendar: Calendar = .current
+    ) -> Date {
+        let weekCalendar = weekCalendar(startingOn: weekStartsOn, using: calendar)
+        let startOfDay = weekCalendar.startOfDay(for: date)
+        let weekday = weekCalendar.component(.weekday, from: startOfDay)
+        let daysFromWeekStart = (weekday - weekCalendar.firstWeekday + 7) % 7
+        return weekCalendar.date(byAdding: .day, value: -daysFromWeekStart, to: startOfDay) ?? startOfDay
+    }
+
+    public static func endOfWeek(
+        for weekStart: Date,
+        startingOn weekStartsOn: Weekday,
+        calendar: Calendar = .current
+    ) -> Date {
+        let weekCalendar = weekCalendar(startingOn: weekStartsOn, using: calendar)
+        return weekCalendar.date(byAdding: .day, value: 6, to: startOfWeek(for: weekStart, startingOn: weekStartsOn, calendar: calendar))
+            ?? startOfWeek(for: weekStart, startingOn: weekStartsOn, calendar: calendar)
+    }
+
+    public static func upcomingWeekStart(
+        after date: Date,
+        startingOn weekStartsOn: Weekday,
+        calendar: Calendar = .current
+    ) -> Date {
+        let weekCalendar = weekCalendar(startingOn: weekStartsOn, using: calendar)
+        let currentWeekStart = startOfWeek(for: date, startingOn: weekStartsOn, calendar: calendar)
+        return weekCalendar.date(byAdding: .day, value: 7, to: currentWeekStart) ?? currentWeekStart
+    }
+
     public static func mondayCalendar(using calendar: Calendar = .current) -> Calendar {
-        var mondayCalendar = calendar
-        mondayCalendar.firstWeekday = 2 // Monday
-        mondayCalendar.minimumDaysInFirstWeek = 4
-        return mondayCalendar
+        weekCalendar(startingOn: .monday, using: calendar)
     }
 
     public static func mondayStartOfWeek(for date: Date, calendar: Calendar = .current) -> Date {
-        let mondayCalendar = mondayCalendar(using: calendar)
-        let startOfDay = mondayCalendar.startOfDay(for: date)
-        let weekday = mondayCalendar.component(.weekday, from: startOfDay)
-        let daysFromMonday = (weekday + 5) % 7
-        return mondayCalendar.date(byAdding: .day, value: -daysFromMonday, to: startOfDay) ?? startOfDay
+        startOfWeek(for: date, startingOn: .monday, calendar: calendar)
     }
 
     // MARK: - Idempotency Keys
@@ -299,9 +338,21 @@ public struct XPCalculationEngine {
             return "recover_reschedule:\(taskID.uuidString):\(fromDay ?? ""):\(toDay ?? "")"
         case .reflection:
             return "reflection:\(periodKey ?? self.periodKey())"
+        case .reflectionCapture:
+            let identifier = taskID ?? habitID
+            if let identifier {
+                return "reflection_capture:\(identifier.uuidString):\(periodKey ?? self.periodKey())"
+            }
+            return "reflection_capture:\(periodKey ?? self.periodKey())"
         case .focus:
             guard let sessionID = sessionID else { return "focus:unknown" }
             return "focus:\(sessionID.uuidString)"
+        case .weeklyPlan:
+            return "weekly_plan:\(fromDay ?? periodKey ?? self.periodKey())"
+        case .weeklyReview:
+            return "weekly_review:\(fromDay ?? periodKey ?? self.periodKey())"
+        case .weeklyCarryCleanup:
+            return "weekly_carry_cleanup:\(fromDay ?? periodKey ?? self.periodKey())"
         case .habitPositiveComplete:
             let identifier = habitID ?? taskID
             guard let identifier else { return "habit_positive_complete:unknown" }
@@ -348,7 +399,12 @@ public struct XPCalculationEngine {
              .decompose,
              .recoverReschedule,
              .reflection,
+             .reflectionCapture,
              .focus:
+            return false
+        case .weeklyPlan,
+             .weeklyReview,
+             .weeklyCarryCleanup:
             return false
         }
     }

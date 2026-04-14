@@ -62,6 +62,10 @@ public struct AssistantTaskSnapshot: Codable, Equatable, Hashable {
     public var actualDuration: TimeInterval?
     public var subtasks: [UUID]?
     public var repeatPattern: TaskRepeatPattern?
+    public var planningBucket: TaskPlanningBucket
+    public var weeklyOutcomeID: UUID?
+    public var deferredFromWeekStart: Date?
+    public var deferredCount: Int
     public var createdAt: Date
     public var updatedAt: Date
 
@@ -96,6 +100,10 @@ public struct AssistantTaskSnapshot: Codable, Equatable, Hashable {
         self.actualDuration = task.actualDuration
         self.subtasks = task.subtasks.sorted { $0.uuidString < $1.uuidString }
         self.repeatPattern = task.repeatPattern
+        self.planningBucket = task.planningBucket
+        self.weeklyOutcomeID = task.weeklyOutcomeID
+        self.deferredFromWeekStart = task.deferredFromWeekStart
+        self.deferredCount = task.deferredCount
         self.createdAt = task.createdAt
         self.updatedAt = task.updatedAt
     }
@@ -129,6 +137,10 @@ public struct AssistantTaskSnapshot: Codable, Equatable, Hashable {
             actualDuration: actualDuration,
             subtasks: subtasks ?? [],
             repeatPattern: repeatPattern,
+            planningBucket: planningBucket,
+            weeklyOutcomeID: weeklyOutcomeID,
+            deferredFromWeekStart: deferredFromWeekStart,
+            deferredCount: deferredCount,
             createdAt: createdAt,
             updatedAt: updatedAt
         )

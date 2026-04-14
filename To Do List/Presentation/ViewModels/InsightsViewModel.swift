@@ -218,6 +218,7 @@ public struct InsightsTodayState: Equatable {
 }
 
 public struct InsightsWeekState: Equatable {
+    public var weeklyOperating: InsightsWeeklyOperatingSection?
     public var weeklyBars: [WeeklyBarData]
     public var weeklyTotalXP: Int
     public var previousWeekTotalXP: Int
@@ -234,6 +235,7 @@ public struct InsightsWeekState: Equatable {
     public var deltaSummary: String
 
     public init(
+        weeklyOperating: InsightsWeeklyOperatingSection? = nil,
         weeklyBars: [WeeklyBarData] = [],
         weeklyTotalXP: Int = 0,
         previousWeekTotalXP: Int = 0,
@@ -249,6 +251,7 @@ public struct InsightsWeekState: Equatable {
         patternSummary: String = "",
         deltaSummary: String = ""
     ) {
+        self.weeklyOperating = weeklyOperating
         self.weeklyBars = weeklyBars
         self.weeklyTotalXP = weeklyTotalXP
         self.previousWeekTotalXP = previousWeekTotalXP
@@ -263,6 +266,43 @@ public struct InsightsWeekState: Equatable {
         self.taskTypeMix = taskTypeMix
         self.patternSummary = patternSummary
         self.deltaSummary = deltaSummary
+    }
+}
+
+public struct InsightsWeeklyOperatingSection: Equatable {
+    public var momentumScore: Int
+    public var momentumNarrative: String
+    public var reviewStatusTitle: String
+    public var reflectionSummary: String
+    public var carryOverSummary: String
+    public var contributionSummary: String
+    public var recoveryHeadline: String
+    public var recoveryNarrative: String
+    public var recoverySummary: String
+    public var momentumDrivers: [InsightsMetricTile]
+
+    public init(
+        momentumScore: Int = 0,
+        momentumNarrative: String = "",
+        reviewStatusTitle: String = "",
+        reflectionSummary: String = "",
+        carryOverSummary: String = "",
+        contributionSummary: String = "",
+        recoveryHeadline: String = "",
+        recoveryNarrative: String = "",
+        recoverySummary: String = "",
+        momentumDrivers: [InsightsMetricTile] = []
+    ) {
+        self.momentumScore = momentumScore
+        self.momentumNarrative = momentumNarrative
+        self.reviewStatusTitle = reviewStatusTitle
+        self.reflectionSummary = reflectionSummary
+        self.carryOverSummary = carryOverSummary
+        self.contributionSummary = contributionSummary
+        self.recoveryHeadline = recoveryHeadline
+        self.recoveryNarrative = recoveryNarrative
+        self.recoverySummary = recoverySummary
+        self.momentumDrivers = momentumDrivers
     }
 }
 
@@ -399,6 +439,10 @@ public final class InsightsViewModel: ObservableObject {
     private let taskReadModelRepository: TaskReadModelRepositoryProtocol?
     private let reminderRepository: ReminderRepositoryProtocol?
     private let analyticsUseCase: CalculateAnalyticsUseCase?
+    private let buildWeeklyPlanSnapshotUseCase: BuildWeeklyPlanSnapshotUseCase?
+    private let calculateWeeklyMomentumUseCase: CalculateWeeklyMomentumUseCase?
+    private let buildRecoveryInsightsUseCase: BuildRecoveryInsightsUseCase?
+    private let weeklyReviewDraftStore: WeeklyReviewDraftStoreProtocol?
     private let notificationCenter: NotificationCenter
     private let userDefaults: UserDefaults
     private let refreshComputeQueue = DispatchQueue(label: "tasker.insights.refresh.compute", qos: .userInitiated)
@@ -425,6 +469,10 @@ public final class InsightsViewModel: ObservableObject {
         taskReadModelRepository: TaskReadModelRepositoryProtocol? = nil,
         reminderRepository: ReminderRepositoryProtocol? = nil,
         analyticsUseCase: CalculateAnalyticsUseCase? = nil,
+        buildWeeklyPlanSnapshotUseCase: BuildWeeklyPlanSnapshotUseCase? = nil,
+        calculateWeeklyMomentumUseCase: CalculateWeeklyMomentumUseCase? = nil,
+        buildRecoveryInsightsUseCase: BuildRecoveryInsightsUseCase? = nil,
+        weeklyReviewDraftStore: WeeklyReviewDraftStoreProtocol? = nil,
         notificationCenter: NotificationCenter = .default,
         userDefaults: UserDefaults = .standard
     ) {
@@ -433,6 +481,10 @@ public final class InsightsViewModel: ObservableObject {
         self.taskReadModelRepository = taskReadModelRepository
         self.reminderRepository = reminderRepository
         self.analyticsUseCase = analyticsUseCase
+        self.buildWeeklyPlanSnapshotUseCase = buildWeeklyPlanSnapshotUseCase
+        self.calculateWeeklyMomentumUseCase = calculateWeeklyMomentumUseCase
+        self.buildRecoveryInsightsUseCase = buildRecoveryInsightsUseCase
+        self.weeklyReviewDraftStore = weeklyReviewDraftStore
         self.notificationCenter = notificationCenter
         self.userDefaults = userDefaults
         self.sessionDayKey = Self.dateKey(for: Date(), calendar: XPCalculationEngine.mondayCalendar())
@@ -925,6 +977,9 @@ public final class InsightsViewModel: ObservableObject {
         var recentTasks: [TaskDefinition] = []
         var dueWindowTasks: [TaskDefinition] = []
         var projectScores: [UUID: Int] = [:]
+        var weeklySnapshot: WeeklyPlanSnapshot?
+        var weeklyMomentum: WeeklyMomentumSummary?
+        var recoveryDecisions: [WeeklyReviewTaskDecision] = []
 
         group.enter()
         repository.fetchDailyAggregates(from: currentWeekStartKey, to: currentWeekEndKey) { result in
@@ -980,8 +1035,52 @@ public final class InsightsViewModel: ObservableObject {
             }
         }
 
+        if let buildWeeklyPlanSnapshotUseCase {
+            group.enter()
+            buildWeeklyPlanSnapshotUseCase.execute(referenceDate: today) { result in
+                var reviewDecisionsWeekStart: Date?
+                var reviewDraftStore: WeeklyReviewDraftStoreProtocol?
+                lock.lock()
+                if case .success(let snapshot) = result {
+                    weeklySnapshot = snapshot
+                    if snapshot.review?.completedAt != nil {
+                        reviewDecisionsWeekStart = snapshot.weekStartDate
+                        reviewDraftStore = self.weeklyReviewDraftStore
+                    }
+                }
+                lock.unlock()
+
+                if let reviewDecisionsWeekStart,
+                   let reviewDraftStore {
+                    group.enter()
+                    reviewDraftStore.fetchCompletedTaskDecisions(weekStartDate: reviewDecisionsWeekStart) { decisionResult in
+                        lock.lock()
+                        if case .success(let decisions) = decisionResult {
+                            recoveryDecisions = decisions
+                        }
+                        lock.unlock()
+                        group.leave()
+                    }
+                }
+
+                group.leave()
+            }
+        }
+
+        if let calculateWeeklyMomentumUseCase {
+            group.enter()
+            calculateWeeklyMomentumUseCase.execute(referenceDate: today) { result in
+                lock.lock()
+                if case .success(let summary) = result {
+                    weeklyMomentum = summary
+                }
+                lock.unlock()
+                group.leave()
+            }
+        }
+
         group.notify(queue: refreshComputeQueue) { [weak self] in
-            let nextState = Self.buildWeekState(
+            var nextState = Self.buildWeekState(
                 currentAggregates: currentAggregates,
                 previousAggregates: previousAggregates,
                 currentWeekEvents: currentWeekEvents,
@@ -992,6 +1091,18 @@ public final class InsightsViewModel: ObservableObject {
                 weekStart: weekStart,
                 today: today,
                 calendar: calendar
+            )
+            Self.applyWeeklyOperatingInsights(
+                to: &nextState,
+                snapshot: weeklySnapshot,
+                momentum: weeklyMomentum,
+                recoveryInsights: {
+                    guard let buildRecoveryInsightsUseCase = self?.buildRecoveryInsightsUseCase,
+                          recoveryDecisions.isEmpty == false else {
+                        return nil
+                    }
+                    return buildRecoveryInsightsUseCase.execute(decisions: recoveryDecisions)
+                }()
             )
             DispatchQueue.main.async {
                 defer { TaskerPerformanceTrace.end(interval) }
@@ -1590,6 +1701,86 @@ public final class InsightsViewModel: ObservableObject {
         )
     }
 
+    private static func applyWeeklyOperatingInsights(
+        to state: inout InsightsWeekState,
+        snapshot: WeeklyPlanSnapshot?,
+        momentum: WeeklyMomentumSummary?,
+        recoveryInsights: RecoveryInsights?
+    ) {
+        guard let snapshot else { return }
+
+        let reviewCompleted = snapshot.review?.completedAt != nil
+        let noteCount = snapshot.reflectionNotes.count
+        let latestNote = snapshot.reflectionNotes.sorted { $0.createdAt > $1.createdAt }.first
+        let contributionProjectCount = Set(snapshot.outcomes.compactMap(\.sourceProjectID)).count
+
+        let reviewStatusTitle: String
+        if reviewCompleted {
+            reviewStatusTitle = "Review completed"
+        } else if snapshot.plan != nil {
+            reviewStatusTitle = "Review still open"
+        } else {
+            reviewStatusTitle = "No weekly plan saved"
+        }
+
+        let reflectionSummary: String
+        if let latestNote {
+            reflectionSummary = noteCount == 1
+                ? latestNote.noteText
+                : "\(noteCount) notes captured. Latest: \(latestNote.noteText)"
+        } else {
+            reflectionSummary = "No weekly notes captured yet."
+        }
+
+        let carryOverSummary: String
+        if let momentum, momentum.carryOverCount > 0 {
+            carryOverSummary = "\(momentum.carryOverCount) tasks are still carrying pressure into the next pass."
+        } else {
+            carryOverSummary = "Carry-over pressure is under control."
+        }
+
+        let contributionSummary: String
+        if contributionProjectCount > 0 {
+            contributionSummary = "Weekly outcomes are linked across \(contributionProjectCount) projects."
+        } else if let topProject = state.projectLeaderboard.first {
+            contributionSummary = "Most weekly signal is landing in \(topProject.title)."
+        } else {
+            contributionSummary = "Project contribution appears once completed work clusters around projects."
+        }
+
+        let momentumDrivers = momentum?.drivers.map { driver in
+            InsightsMetricTile(
+                id: driver.id,
+                title: driver.label,
+                value: formattedWeeklyDriverValue(driver.value),
+                detail: driver.detail,
+                tone: tone(for: driver)
+            )
+        } ?? []
+
+        let recoveryHeadline = recoveryInsights?.headline ?? "Recovery framing unlocks after a completed weekly review."
+        let recoveryNarrative = recoveryInsights?.narrative ?? "Complete a review to label what should carry, move later, or be consciously dropped."
+        let recoverySummary: String
+        if let recoveryInsights {
+            recoverySummary = "\(recoveryInsights.carryForwardCount) carry, \(recoveryInsights.laterCount) later, \(recoveryInsights.droppedCount) dropped."
+        } else {
+            recoverySummary = "No completed recovery pass recorded yet."
+        }
+
+        state.weeklyOperating = InsightsWeeklyOperatingSection(
+            momentumScore: momentum?.score ?? 0,
+            momentumNarrative: momentum?.narrative ?? "Weekly momentum will sharpen as planning and review data accumulate.",
+            reviewStatusTitle: reviewStatusTitle,
+            reflectionSummary: reflectionSummary,
+            carryOverSummary: carryOverSummary,
+            contributionSummary: contributionSummary,
+            recoveryHeadline: recoveryHeadline,
+            recoveryNarrative: recoveryNarrative,
+            recoverySummary: recoverySummary,
+            momentumDrivers: momentumDrivers
+        )
+    }
+
     private static func buildReminderResponseState(
         reminders: [ReminderDefinition],
         deliveriesByReminderID: [UUID: [ReminderDeliveryDefinition]]
@@ -1667,6 +1858,26 @@ public final class InsightsViewModel: ObservableObject {
             headline: headline,
             detail: "\(Int((responseRate * 100).rounded()))% of tracked deliveries were acknowledged or snoozed."
         )
+    }
+
+    private static func formattedWeeklyDriverValue(_ value: Double) -> String {
+        if value.rounded() == value {
+            return "\(Int(value))"
+        }
+        return String(format: "%.1f", value)
+    }
+
+    private static func tone(for driver: WeeklyMomentumDriver) -> InsightsMetricTone {
+        switch driver.id {
+        case "carry_pressure":
+            return driver.value > 0 ? .warning : .success
+        case "completed_tasks":
+            return driver.value > 0 ? .success : .neutral
+        case "finished_outcomes":
+            return driver.value > 0 ? .accent : .neutral
+        default:
+            return .neutral
+        }
     }
 
     private static func buildStreakMetrics(
@@ -2367,8 +2578,12 @@ public struct XPBreakdownItem: Identifiable, Equatable {
         case "start": return "Start tasks"
         case "focus": return "Focus sessions"
         case "reflection": return "Reflection"
+        case "reflectionCapture": return "Captured reflections"
         case "recoverReschedule": return "Recovery"
         case "decompose": return "Decompose"
+        case "weeklyPlan": return "Weekly planning"
+        case "weeklyReview": return "Weekly review"
+        case "weeklyCarryCleanup": return "Carry cleanup"
         default: return category.capitalized
         }
     }

@@ -76,6 +76,9 @@
 		5E49A6FCA0C096CB2B6EA054 /* TaskerWidgets/StreakResilienceWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BBE8CE1B13AA2877F4BBCAE /* TaskerWidgets/StreakResilienceWidget.swift */; };
 		5F230AF6BB3D9F989C5A6418 /* ColorTokens.swift in Sources */ = {isa = PBXBuildFile; fileRef = B812E7A0B879607C95C0571B /* ColorTokens.swift */; };
 		600B7F6D47A6091946016C7A /* GetHomeFilteredTasksUseCaseTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C39FDE21811FCBE733038318 /* GetHomeFilteredTasksUseCaseTests.swift */; };
+		D4F200000000000000000122 /* HomeAIActionCoordinatorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D4F200000000000000000120 /* HomeAIActionCoordinatorTests.swift */; };
+		D4F200000000000000000123 /* XPCalculationEngineWeeklyCategoryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D4F200000000000000000121 /* XPCalculationEngineWeeklyCategoryTests.swift */; };
+		D4F200000000000000000125 /* WeeklyOperatingLayerViewModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D4F200000000000000000124 /* WeeklyOperatingLayerViewModelTests.swift */; };
 		6211D7BD7037AA1D03E6F90B /* TaskReadModelRepositoryProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4C3F70CE989FCF07417B5EE /* TaskReadModelRepositoryProtocol.swift */; };
 		63F0A29CF92317D22F150D4B /* To Do List/Domain/Interfaces/ReminderRepositoryProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8D0FFCDBD5039DB8EE185B5E /* To Do List/Domain/Interfaces/ReminderRepositoryProtocol.swift */; };
 		656AE33F845CFC0E1E317F5E /* To Do List/Domain/Interfaces/TagRepositoryProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = D69B4ECB89C44E275D829577 /* To Do List/Domain/Interfaces/TagRepositoryProtocol.swift */; };
@@ -513,6 +516,23 @@
 		FD5A8F04A6436C78DBBD43A4 /* To Do List/Domain/Mappers/TombstoneMapper.swift in Sources */ = {isa = PBXBuildFile; fileRef = CD059BC932A17FD845CAC6CD /* To Do List/Domain/Mappers/TombstoneMapper.swift */; };
 		FF5BDB5653D5CB66DA106A16 /* To Do List/Domain/Models/XPEvent.swift in Sources */ = {isa = PBXBuildFile; fileRef = 85F3DEB89B5BEB05F1972CA7 /* To Do List/Domain/Models/XPEvent.swift */; };
 		FFCF1FC469B2AE9FC88CF3D1 /* To Do List/Presentation/ViewModels/InsightsViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 52EDFF0556DE6F60CD19AA39 /* To Do List/Presentation/ViewModels/InsightsViewModel.swift */; };
+		D4F200000000000000000101 /* TaskPlanningBucket.swift in Sources */ = {isa = PBXBuildFile; fileRef = D4F100000000000000000101 /* TaskPlanningBucket.swift */; };
+		D4F200000000000000000102 /* WeeklyPlan.swift in Sources */ = {isa = PBXBuildFile; fileRef = D4F100000000000000000102 /* WeeklyPlan.swift */; };
+		D4F200000000000000000103 /* WeeklyOutcome.swift in Sources */ = {isa = PBXBuildFile; fileRef = D4F100000000000000000103 /* WeeklyOutcome.swift */; };
+		D4F200000000000000000104 /* WeeklyReview.swift in Sources */ = {isa = PBXBuildFile; fileRef = D4F100000000000000000104 /* WeeklyReview.swift */; };
+		D4F200000000000000000105 /* ReflectionNote.swift in Sources */ = {isa = PBXBuildFile; fileRef = D4F100000000000000000105 /* ReflectionNote.swift */; };
+		D4F200000000000000000106 /* WeeklyMomentumSummary.swift in Sources */ = {isa = PBXBuildFile; fileRef = D4F100000000000000000106 /* WeeklyMomentumSummary.swift */; };
+		D4F200000000000000000107 /* To Do List/State/Repositories/CoreDataWeeklyRepositories.swift in Sources */ = {isa = PBXBuildFile; fileRef = D4F100000000000000000107 /* To Do List/State/Repositories/CoreDataWeeklyRepositories.swift */; };
+		D4F200000000000000000108 /* To Do List/UseCases/Weekly/WeeklyOperatingUseCases.swift in Sources */ = {isa = PBXBuildFile; fileRef = D4F100000000000000000108 /* To Do List/UseCases/Weekly/WeeklyOperatingUseCases.swift */; };
+		D4F200000000000000000109 /* WeeklyPlannerViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = D4F100000000000000000109 /* WeeklyPlannerViewModel.swift */; };
+		D4F20000000000000000010A /* WeeklyReviewViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = D4F10000000000000000010A /* WeeklyReviewViewModel.swift */; };
+		D4F20000000000000000010B /* HomeWeeklySummaryCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = D4F10000000000000000010B /* HomeWeeklySummaryCard.swift */; };
+		D4F20000000000000000010C /* WeeklyPlannerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D4F10000000000000000010C /* WeeklyPlannerView.swift */; };
+		D4F20000000000000000010D /* WeeklyReviewView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D4F10000000000000000010D /* WeeklyReviewView.swift */; };
+		D4F20000000000000000010E /* ReflectionNoteComposerViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = D4F10000000000000000010E /* ReflectionNoteComposerViewModel.swift */; };
+		D4F20000000000000000010F /* ReflectionNoteComposerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D4F10000000000000000010F /* ReflectionNoteComposerView.swift */; };
+		D4F200000000000000000110 /* HomeAIActionCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = D4F100000000000000000110 /* HomeAIActionCoordinator.swift */; };
+		D4F200000000000000000111 /* WeeklyRitualComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = D4F100000000000000000111 /* WeeklyRitualComponents.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -613,6 +633,9 @@
 		594ECD331C0135DA36357314 /* HomeAdvancedFilterSheetView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HomeAdvancedFilterSheetView.swift; sourceTree = "<group>"; };
 		5A05E16369BC6D8B09B0D460 /* HomeQuickFilterTriggerButton.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HomeQuickFilterTriggerButton.swift; sourceTree = "<group>"; };
 		5DA1D87ADF956BED887FE0CC /* TaskerThemeManagerTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = TaskerThemeManagerTests.swift; sourceTree = "<group>"; };
+		D4F200000000000000000120 /* HomeAIActionCoordinatorTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HomeAIActionCoordinatorTests.swift; sourceTree = "<group>"; };
+		D4F200000000000000000121 /* XPCalculationEngineWeeklyCategoryTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = XPCalculationEngineWeeklyCategoryTests.swift; sourceTree = "<group>"; };
+		D4F200000000000000000124 /* WeeklyOperatingLayerViewModelTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = WeeklyOperatingLayerViewModelTests.swift; sourceTree = "<group>"; };
 		607D98C13538414095C75E7B /* AddTaskMetadataRow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddTaskMetadataRow.swift; sourceTree = "<group>"; };
 		6442D619CAA8E6CA77B46126 /* TaskerTokens.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = TaskerTokens.swift; sourceTree = "<group>"; };
 		65A7A039AC9CA38845D1E44F /* SyncMergeState.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SyncMergeState.swift; sourceTree = "<group>"; };
@@ -989,6 +1012,7 @@
 		D379A868382E81C83D874E36 /* TaskRowView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = TaskRowView.swift; sourceTree = "<group>"; };
 		D39BBE25D96F4BE6E41320B1 /* SpacingTokens.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SpacingTokens.swift; sourceTree = "<group>"; };
 		D48E4DB12D2E1FE5A90FC97D /* GamificationTokens.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = GamificationTokens.swift; sourceTree = "<group>"; };
+		D4E5F6A7B8C9D0E1F2030406 /* TaskModelV3_WeeklyPlanning.xcdatamodel */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcdatamodel; path = TaskModelV3_WeeklyPlanning.xcdatamodel; sourceTree = "<group>"; };
 		D4E5F6A7B8C9D0E1F2030405 /* TaskModelV3_Habits.xcdatamodel */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcdatamodel; path = TaskModelV3_Habits.xcdatamodel; sourceTree = "<group>"; };
 		D5A9A2796943621DC66C4703 /* To Do List/Domain/Models/Tombstone.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "To Do List/Domain/Models/Tombstone.swift"; sourceTree = SOURCE_ROOT; };
 		D5E7A8B92F3C4D5E0067A1B2 /* DailySummaryModalTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DailySummaryModalTests.swift; sourceTree = "<group>"; };
@@ -1058,6 +1082,23 @@
 		FD3BCAD6C5A546608629F532 /* TaskerWidgets/FocusSeedWidget.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = TaskerWidgets/FocusSeedWidget.swift; sourceTree = SOURCE_ROOT; };
 		FEC0DEA9E6D02E2F991F11A1 /* To Do List/Domain/Interfaces/HabitRepositoryProtocol.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "To Do List/Domain/Interfaces/HabitRepositoryProtocol.swift"; sourceTree = SOURCE_ROOT; };
 		FF7B2CAF2B3D23AD9512B999 /* TaskerWidgets.entitlements */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.entitlements; name = TaskerWidgets.entitlements; path = TaskerWidgets/TaskerWidgets.entitlements; sourceTree = "<group>"; };
+		D4F100000000000000000101 /* TaskPlanningBucket.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = TaskPlanningBucket.swift; sourceTree = "<group>"; };
+		D4F100000000000000000102 /* WeeklyPlan.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = WeeklyPlan.swift; sourceTree = "<group>"; };
+		D4F100000000000000000103 /* WeeklyOutcome.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = WeeklyOutcome.swift; sourceTree = "<group>"; };
+		D4F100000000000000000104 /* WeeklyReview.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = WeeklyReview.swift; sourceTree = "<group>"; };
+		D4F100000000000000000105 /* ReflectionNote.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ReflectionNote.swift; sourceTree = "<group>"; };
+		D4F100000000000000000106 /* WeeklyMomentumSummary.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = WeeklyMomentumSummary.swift; sourceTree = "<group>"; };
+		D4F100000000000000000107 /* To Do List/State/Repositories/CoreDataWeeklyRepositories.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "To Do List/State/Repositories/CoreDataWeeklyRepositories.swift"; sourceTree = SOURCE_ROOT; };
+		D4F100000000000000000108 /* To Do List/UseCases/Weekly/WeeklyOperatingUseCases.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "To Do List/UseCases/Weekly/WeeklyOperatingUseCases.swift"; sourceTree = SOURCE_ROOT; };
+		D4F100000000000000000109 /* WeeklyPlannerViewModel.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = WeeklyPlannerViewModel.swift; sourceTree = "<group>"; };
+		D4F10000000000000000010A /* WeeklyReviewViewModel.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = WeeklyReviewViewModel.swift; sourceTree = "<group>"; };
+		D4F10000000000000000010B /* HomeWeeklySummaryCard.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HomeWeeklySummaryCard.swift; sourceTree = "<group>"; };
+		D4F10000000000000000010C /* WeeklyPlannerView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = WeeklyPlannerView.swift; sourceTree = "<group>"; };
+		D4F10000000000000000010D /* WeeklyReviewView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = WeeklyReviewView.swift; sourceTree = "<group>"; };
+		D4F10000000000000000010E /* ReflectionNoteComposerViewModel.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ReflectionNoteComposerViewModel.swift; sourceTree = "<group>"; };
+		D4F10000000000000000010F /* ReflectionNoteComposerView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ReflectionNoteComposerView.swift; sourceTree = "<group>"; };
+		D4F100000000000000000110 /* HomeAIActionCoordinator.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HomeAIActionCoordinator.swift; sourceTree = "<group>"; };
+		D4F100000000000000000111 /* WeeklyRitualComponents.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = WeeklyRitualComponents.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -1354,6 +1395,10 @@
 				B1A1C1D1E1F1020304050604 /* RadarChartCardViewModel.swift */,
 				B1A1C1D1E1F1020304050605 /* ProjectSelectionViewModel.swift */,
 				52EDFF0556DE6F60CD19AA39 /* To Do List/Presentation/ViewModels/InsightsViewModel.swift */,
+				D4F100000000000000000109 /* WeeklyPlannerViewModel.swift */,
+				D4F10000000000000000010A /* WeeklyReviewViewModel.swift */,
+				D4F100000000000000000110 /* HomeAIActionCoordinator.swift */,
+				D4F10000000000000000010E /* ReflectionNoteComposerViewModel.swift */,
 			);
 			path = ViewModels;
 			sourceTree = "<group>";
@@ -1514,6 +1559,9 @@
 				F0A1B2C3D4E5F60718293A4F /* HomeViewModelPersistenceTests.swift */,
 				F2A1B2C3D4E5F60718293A53 /* HomeBottomBarStateTests.swift */,
 				F2A1B2C3D4E5F60718293A54 /* HomeViewModelXPScoreRegressionTests.swift */,
+				D4F200000000000000000120 /* HomeAIActionCoordinatorTests.swift */,
+				D4F200000000000000000121 /* XPCalculationEngineWeeklyCategoryTests.swift */,
+				D4F200000000000000000124 /* WeeklyOperatingLayerViewModelTests.swift */,
 				F3A1B2C3D4E5F60718293A55 /* HomeForedropLayoutMetricsTests.swift */,
 				F4A1B2C3D4E5F60718293A56 /* HomeForedropHintEligibilityTests.swift */,
 				F6A1B2C3D4E5F60718293A57 /* HomeChromeSnapshotPresentationTests.swift */,
@@ -1717,6 +1765,7 @@
 				B1A000000000000000000016 /* HomeEvaLegacySheetViews.swift */,
 				B1A000000000000000000018 /* HomeEvaTriageSprintSheetV2.swift */,
 				17DC0A5BC84D9C6C792B2AB6 /* To Do List/View/HomeXPHeroView.swift */,
+				D4F10000000000000000010B /* HomeWeeklySummaryCard.swift */,
 				BF5D7161411B42651DF00D60 /* HomeForedropView.swift */,
 				D2A100000000000000000003 /* To Do List/View/QuietTrackingComposerView.swift */,
 				F2A1B2C3D4E5F60718293A50 /* HomeBottomBarItem.swift */,
@@ -1766,6 +1815,10 @@
 				37E2466DBE2A76A73458F530 /* To Do List/View/FocusTimerView.swift */,
 				6D63FBA200D736491232884A /* To Do List/View/FocusSessionSummaryView.swift */,
 				E2BA3F253548BE9F1EE2AB4B /* To Do List/View/DailyReflectionView.swift */,
+				D4F10000000000000000010C /* WeeklyPlannerView.swift */,
+				D4F10000000000000000010D /* WeeklyReviewView.swift */,
+				D4F10000000000000000010F /* ReflectionNoteComposerView.swift */,
+				D4F100000000000000000111 /* WeeklyRitualComponents.swift */,
 				4BDE4D4721AB3214B6F9804E /* Insights */,
 			);
 			path = View;
@@ -1962,6 +2015,7 @@
 			children = (
 				75E929A82E8C686300207270 /* Project.swift */,
 				75E929A92E8C686300207270 /* Task.swift */,
+				D4F100000000000000000101 /* TaskPlanningBucket.swift */,
 				75E929AA2E8C686300207270 /* TaskPriority.swift */,
 				75E929AB2E8C686300207270 /* TaskPriorityConfig.swift */,
 				75E929AC2E8C686300207270 /* TaskType.swift */,
@@ -1998,6 +2052,11 @@
 				65A7A039AC9CA38845D1E44F /* SyncMergeState.swift */,
 				2856D1EE26429146B60B6633 /* TaskReadQueries.swift */,
 				B3A1F2C4D5E6F708 /* To Do List/Domain/Models/AchievementCatalog.swift */,
+				D4F100000000000000000102 /* WeeklyPlan.swift */,
+				D4F100000000000000000103 /* WeeklyOutcome.swift */,
+				D4F100000000000000000104 /* WeeklyReview.swift */,
+				D4F100000000000000000105 /* ReflectionNote.swift */,
+				D4F100000000000000000106 /* WeeklyMomentumSummary.swift */,
 			);
 			path = Models;
 			sourceTree = "<group>";
@@ -2089,8 +2148,17 @@
 				0F156103AF2D844C6B6EE11B /* Gamification */,
 				14C7999D61C4732E90991035 /* LLM */,
 				61F94D8CE7F219567608A5F7 /* Sync */,
+				D4F300000000000000000101 /* Weekly */,
 			);
 			path = UseCases;
+			sourceTree = "<group>";
+		};
+		D4F300000000000000000101 /* Weekly */ = {
+			isa = PBXGroup;
+			children = (
+				D4F100000000000000000108 /* To Do List/UseCases/Weekly/WeeklyOperatingUseCases.swift */,
+			);
+			path = Weekly;
 			sourceTree = "<group>";
 		};
 		75F89F312DFC44E6009EDD8F /* Models */ = {
@@ -2313,6 +2381,7 @@
 				08CEBA82D3CB1ACE79D0E158 /* To Do List/State/Repositories/CoreDataExternalSyncRepository.swift */,
 				23A78189DAF93E5F5EA0C769 /* To Do List/State/Repositories/CoreDataTombstoneRepository.swift */,
 				A95FD785F6B6001D9106C2B8 /* To Do List/State/Repositories/CoreDataTaskReadModelRepository.swift */,
+				D4F100000000000000000107 /* To Do List/State/Repositories/CoreDataWeeklyRepositories.swift */,
 			);
 			name = Repositories;
 			sourceTree = "<group>";
@@ -2949,6 +3018,7 @@
 				B10B1C2D3E4F506172839408 /* To Do List/State/Mappers/StateProjectMapper.swift in Sources */,
 				AEF06D3B80CB5D968535DDE5 /* To Do List/Domain/Models/LifeArea.swift in Sources */,
 				D336A787C8DCE1322AB8ADAB /* To Do List/Domain/Models/Section.swift in Sources */,
+				D4F200000000000000000101 /* TaskPlanningBucket.swift in Sources */,
 				147231A5B5EE1AFA9351EA13 /* To Do List/Domain/Models/TagDefinition.swift in Sources */,
 				C1A100000000000000000102 /* To Do List/Domain/Models/HabitTypes.swift in Sources */,
 				816AAF82986408293F48FA7C /* To Do List/Domain/Models/HabitDefinition.swift in Sources */,
@@ -2962,6 +3032,11 @@
 				FAD4981C27F2BBC7898744CD /* To Do List/Domain/Models/Achievement.swift in Sources */,
 				6F02A28B57E02ED09779EC11 /* To Do List/Domain/Models/AssistantAction.swift in Sources */,
 				E15729081BE877C1AF53C8C8 /* To Do List/Domain/Models/ExternalSyncModels.swift in Sources */,
+				D4F200000000000000000102 /* WeeklyPlan.swift in Sources */,
+				D4F200000000000000000103 /* WeeklyOutcome.swift in Sources */,
+				D4F200000000000000000104 /* WeeklyReview.swift in Sources */,
+				D4F200000000000000000105 /* ReflectionNote.swift in Sources */,
+				D4F200000000000000000106 /* WeeklyMomentumSummary.swift in Sources */,
 				68910C38BADF060D09F81CE3 /* To Do List/State/Repositories/V2CoreDataRepositorySupport.swift in Sources */,
 				A4E8C9D12F9A4C3600A1B2C3 /* To Do List/State/Integrity/LifeAreaIdentityRepair.swift in Sources */,
 				0F67D9989E8924F5B6E2B2EE /* To Do List/State/Repositories/CoreDataLifeAreaRepository.swift in Sources */,
@@ -2977,6 +3052,7 @@
 				08CCE589CA3E83FE266289D1 /* To Do List/State/Repositories/CoreDataAssistantActionRepository.swift in Sources */,
 				3D26E03F6D3A9571E7204553 /* To Do List/State/Repositories/CoreDataExternalSyncRepository.swift in Sources */,
 				3367A12ABAB9C8FAB90843C2 /* To Do List/State/Repositories/CoreDataTombstoneRepository.swift in Sources */,
+				D4F200000000000000000107 /* To Do List/State/Repositories/CoreDataWeeklyRepositories.swift in Sources */,
 				30B49EE9EC93A901D247EA1F /* To Do List/State/Services/CoreSchedulingEngine.swift in Sources */,
 				A1E5C40F2F1A4B9D9C1E8A11 /* To Do List/State/Services/EventKitAppleRemindersProvider.swift in Sources */,
 				B07A5646DA7E6D9AC7739710 /* To Do List/UseCases/LifeArea/ManageLifeAreasUseCase.swift in Sources */,
@@ -2994,6 +3070,7 @@
 				722536ED9234849F6B954FAF /* To Do List/UseCases/Schedule/MaintainOccurrencesUseCase.swift in Sources */,
 				3EA2500F6FA7AE834A238C3A /* To Do List/UseCases/Reminder/ScheduleReminderUseCase.swift in Sources */,
 				1D79C65FEB0FF79A7D4C349D /* To Do List/UseCases/Gamification/RecordXPUseCase.swift in Sources */,
+				D4F200000000000000000108 /* To Do List/UseCases/Weekly/WeeklyOperatingUseCases.swift in Sources */,
 				C537950FC6FD78BB996E7CA5 /* To Do List/View/HomeXPHeroView.swift in Sources */,
 				511B4F3A5B402E7BCB708321 /* To Do List/Domain/Models/XPEnums.swift in Sources */,
 				D1855A230115C554ADB92AEA /* To Do List/Domain/Models/DailyXPAggregateDefinition.swift in Sources */,
@@ -3025,11 +3102,20 @@
 				3A549BEBEF3902410F96971A /* To Do List/View/FocusTimerView.swift in Sources */,
 				A912CB15A1588398C547FCE3 /* To Do List/View/FocusSessionSummaryView.swift in Sources */,
 				BA046E8ED5086F9E39ACB225 /* To Do List/View/DailyReflectionView.swift in Sources */,
+				D4F200000000000000000109 /* WeeklyPlannerViewModel.swift in Sources */,
+				D4F20000000000000000010A /* WeeklyReviewViewModel.swift in Sources */,
 				FFCF1FC469B2AE9FC88CF3D1 /* To Do List/Presentation/ViewModels/InsightsViewModel.swift in Sources */,
 				A25DA7AE7D00020D26A9EBC7 /* To Do List/View/Insights/InsightsTabView.swift in Sources */,
 				7129612FB537C3EBFEFAE820 /* To Do List/View/Insights/InsightsTodayView.swift in Sources */,
 				ABEDCF04774EFF887D0E6357 /* To Do List/View/Insights/InsightsWeekView.swift in Sources */,
 				512890EDADD52FEAEBF07400 /* To Do List/View/Insights/InsightsSystemsView.swift in Sources */,
+				D4F20000000000000000010B /* HomeWeeklySummaryCard.swift in Sources */,
+				D4F20000000000000000010C /* WeeklyPlannerView.swift in Sources */,
+				D4F20000000000000000010D /* WeeklyReviewView.swift in Sources */,
+				D4F20000000000000000010E /* ReflectionNoteComposerViewModel.swift in Sources */,
+				D4F20000000000000000010F /* ReflectionNoteComposerView.swift in Sources */,
+				D4F200000000000000000110 /* HomeAIActionCoordinator.swift in Sources */,
+				D4F200000000000000000111 /* WeeklyRitualComponents.swift in Sources */,
 				4D31E9106C4721F38F1B2394 /* Shared/AppGroupConstants.swift in Sources */,
 				A1D100012F90000100AA2001 /* Shared/ShortcutHandoffStore.swift in Sources */,
 				3D5A1FDECBC53839EF1F4953 /* Shared/WidgetSnapshot.swift in Sources */,
@@ -3053,6 +3139,9 @@
 				4987E47C4FB2B55409BA424F /* SpacingElevationCornerTests.swift in Sources */,
 				A8F1D2035E9C44A100112233 /* DeviceOrientationPolicyResolverTests.swift in Sources */,
 				600B7F6D47A6091946016C7A /* GetHomeFilteredTasksUseCaseTests.swift in Sources */,
+				D4F200000000000000000122 /* HomeAIActionCoordinatorTests.swift in Sources */,
+				D4F200000000000000000123 /* XPCalculationEngineWeeklyCategoryTests.swift in Sources */,
+				D4F200000000000000000125 /* WeeklyOperatingLayerViewModelTests.swift in Sources */,
 				A4C2E9F12B7D4C5581AA0002 /* HomeTaskMutationPayloadTests.swift in Sources */,
 				A7B8C9D0E1F20123456789A2 /* HabitBoardPresentationBuilderTests.swift in Sources */,
 				A7B8C9D0E1F20123456789A4 /* HomeHabitLastCellInteractionTests.swift in Sources */,
@@ -3595,8 +3684,9 @@
 				75F18101245C99CD004D9A69 /* TaskModelV3.xcdatamodel */,
 				A9C6F21138AB4C41B2D309E7 /* TaskModelV3_Gamification.xcdatamodel */,
 				D4E5F6A7B8C9D0E1F2030405 /* TaskModelV3_Habits.xcdatamodel */,
+				D4E5F6A7B8C9D0E1F2030406 /* TaskModelV3_WeeklyPlanning.xcdatamodel */,
 			);
-			currentVersion = D4E5F6A7B8C9D0E1F2030405 /* TaskModelV3_Habits.xcdatamodel */;
+			currentVersion = D4E5F6A7B8C9D0E1F2030406 /* TaskModelV3_WeeklyPlanning.xcdatamodel */;
 			path = TaskModelV3.xcdatamodeld;
 			sourceTree = "<group>";
 			versionGroupType = wrapper.xcdatamodel;

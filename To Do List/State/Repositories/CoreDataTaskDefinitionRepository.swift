@@ -26,6 +26,10 @@ private struct TaskEntitySnapshot {
         "estimatedDuration",
         "actualDuration",
         "repeatPatternData",
+        "planningBucketRaw",
+        "weeklyOutcomeID",
+        "deferredFromWeekStart",
+        "deferredCount",
         "createdAt",
         "updatedAt"
     ]
@@ -52,6 +56,10 @@ private struct TaskEntitySnapshot {
     let estimatedDuration: Double?
     let actualDuration: Double?
     let repeatPatternData: Data?
+    let planningBucketRaw: String?
+    let weeklyOutcomeID: UUID?
+    let deferredFromWeekStart: Date?
+    let deferredCount: Int
     let createdAt: Date
     let updatedAt: Date
     let fallbackProjectName: String?
@@ -80,6 +88,10 @@ private struct TaskEntitySnapshot {
         self.estimatedDuration = (values["estimatedDuration"] as? Double).flatMap { $0 > 0 ? $0 : nil }
         self.actualDuration = (values["actualDuration"] as? Double).flatMap { $0 > 0 ? $0 : nil }
         self.repeatPatternData = values["repeatPatternData"] as? Data
+        self.planningBucketRaw = values["planningBucketRaw"] as? String
+        self.weeklyOutcomeID = values["weeklyOutcomeID"] as? UUID
+        self.deferredFromWeekStart = values["deferredFromWeekStart"] as? Date
+        self.deferredCount = max(0, (values["deferredCount"] as? Int32).map(Int.init) ?? 0)
         self.createdAt = (values["createdAt"] as? Date) ?? Date()
         self.updatedAt = (values["updatedAt"] as? Date) ?? Date()
 
@@ -137,6 +149,144 @@ private struct ProjectNameSnapshot {
     }
 }
 
+enum TaskDefinitionMutationApplier {
+    static func applyCreateRequest(_ request: CreateTaskDefinitionRequest, to entity: NSManagedObject) {
+        setAttribute("id", value: request.id, on: entity)
+        setAttribute("taskID", value: request.id, on: entity)
+        setAttribute("projectID", value: request.projectID, on: entity)
+        setAttribute("lifeAreaID", value: request.lifeAreaID, on: entity)
+        setAttribute("sectionID", value: request.sectionID, on: entity)
+        setAttribute("parentTaskID", value: request.parentTaskID, on: entity)
+        setAttribute("recurrenceSeriesID", value: request.recurrenceSeriesID, on: entity)
+        setAttribute("title", value: request.title, on: entity)
+        setAttribute("notes", value: request.details, on: entity)
+        setAttribute("priority", value: request.priority.rawValue, on: entity)
+        setAttribute("taskType", value: request.type.rawValue, on: entity)
+        setAttribute("energy", value: request.energy.rawValue, on: entity)
+        setAttribute("category", value: request.category.rawValue, on: entity)
+        setAttribute("context", value: request.context.rawValue, on: entity)
+        setAttribute("dueDate", value: request.dueDate, on: entity)
+        setAttribute("estimatedDuration", value: request.estimatedDuration, on: entity)
+        setAttribute("actualDuration", value: nil, on: entity)
+        setAttribute("repeatPatternData", value: encodeRepeatPattern(request.repeatPattern), on: entity)
+        setAttribute("planningBucketRaw", value: request.planningBucket.rawValue, on: entity)
+        setAttribute("weeklyOutcomeID", value: request.weeklyOutcomeID, on: entity)
+        setAttribute("deferredFromWeekStart", value: request.deferredFromWeekStart, on: entity)
+        setAttribute("deferredCount", value: Int32(request.deferredCount), on: entity)
+        setAttribute("isComplete", value: false, on: entity)
+        setAttribute("dateAdded", value: request.createdAt, on: entity)
+        setAttribute("dateCompleted", value: nil, on: entity)
+        setAttribute("isEveningTask", value: request.isEveningTask, on: entity)
+        setAttribute("alertReminderTime", value: request.alertReminderTime, on: entity)
+        setAttribute("createdAt", value: request.createdAt, on: entity)
+        setAttribute("updatedAt", value: Date(), on: entity)
+        setAttribute("status", value: "pending", on: entity)
+        setAttribute("version", value: Int32(1), on: entity)
+    }
+
+    static func applyUpdateRequest(_ request: UpdateTaskDefinitionRequest, to entity: NSManagedObject) {
+        if let title = request.title {
+            setAttribute("title", value: title, on: entity)
+        }
+        if request.details != nil {
+            setAttribute("notes", value: request.details, on: entity)
+        }
+        if let projectID = request.projectID {
+            setAttribute("projectID", value: projectID, on: entity)
+        }
+        if request.clearLifeArea {
+            setAttribute("lifeAreaID", value: nil, on: entity)
+        } else if request.lifeAreaID != nil {
+            setAttribute("lifeAreaID", value: request.lifeAreaID, on: entity)
+        }
+        if request.clearSection {
+            setAttribute("sectionID", value: nil, on: entity)
+        } else if request.sectionID != nil {
+            setAttribute("sectionID", value: request.sectionID, on: entity)
+        }
+        if request.clearParentTaskLink {
+            setAttribute("parentTaskID", value: nil, on: entity)
+        } else if let parentTaskID = request.parentTaskID {
+            setAttribute("parentTaskID", value: parentTaskID, on: entity)
+        }
+        if let recurrenceSeriesID = request.recurrenceSeriesID {
+            setAttribute("recurrenceSeriesID", value: recurrenceSeriesID, on: entity)
+        }
+        if request.clearDueDate {
+            setAttribute("dueDate", value: nil, on: entity)
+        } else if let dueDate = request.dueDate {
+            setAttribute("dueDate", value: dueDate, on: entity)
+        }
+        if let priority = request.priority {
+            setAttribute("priority", value: priority.rawValue, on: entity)
+        }
+        if let type = request.type {
+            setAttribute("taskType", value: type.rawValue, on: entity)
+        }
+        if let energy = request.energy {
+            setAttribute("energy", value: energy.rawValue, on: entity)
+        }
+        if let category = request.category {
+            setAttribute("category", value: category.rawValue, on: entity)
+        }
+        if let context = request.context {
+            setAttribute("context", value: context.rawValue, on: entity)
+        }
+        if let isComplete = request.isComplete {
+            setAttribute("isComplete", value: isComplete, on: entity)
+            setAttribute("status", value: isComplete ? "completed" : "pending", on: entity)
+        }
+        if request.dateCompleted != nil || request.isComplete == false {
+            setAttribute("dateCompleted", value: request.dateCompleted, on: entity)
+        }
+        if request.clearReminderTime {
+            setAttribute("alertReminderTime", value: nil, on: entity)
+        } else if let alertReminderTime = request.alertReminderTime {
+            setAttribute("alertReminderTime", value: alertReminderTime, on: entity)
+        }
+        if request.clearEstimatedDuration {
+            setAttribute("estimatedDuration", value: nil, on: entity)
+        } else if let estimatedDuration = request.estimatedDuration {
+            setAttribute("estimatedDuration", value: estimatedDuration, on: entity)
+        }
+        if let actualDuration = request.actualDuration {
+            setAttribute("actualDuration", value: actualDuration, on: entity)
+        }
+        if request.clearRepeatPattern {
+            setAttribute("repeatPatternData", value: nil, on: entity)
+        } else if let repeatPattern = request.repeatPattern {
+            setAttribute("repeatPatternData", value: encodeRepeatPattern(repeatPattern), on: entity)
+        }
+        if let planningBucket = request.planningBucket {
+            setAttribute("planningBucketRaw", value: planningBucket.rawValue, on: entity)
+        }
+        if request.clearWeeklyOutcomeLink {
+            setAttribute("weeklyOutcomeID", value: nil, on: entity)
+        } else if let weeklyOutcomeID = request.weeklyOutcomeID {
+            setAttribute("weeklyOutcomeID", value: weeklyOutcomeID, on: entity)
+        }
+        if request.clearDeferredFromWeekStart {
+            setAttribute("deferredFromWeekStart", value: nil, on: entity)
+        } else if let deferredFromWeekStart = request.deferredFromWeekStart {
+            setAttribute("deferredFromWeekStart", value: deferredFromWeekStart, on: entity)
+        }
+        if let deferredCount = request.deferredCount {
+            setAttribute("deferredCount", value: Int32(max(0, deferredCount)), on: entity)
+        }
+        setAttribute("updatedAt", value: request.updatedAt, on: entity)
+    }
+
+    static func setAttribute(_ key: String, value: Any?, on entity: NSManagedObject) {
+        guard entity.entity.attributesByName[key] != nil else { return }
+        entity.setValue(value, forKey: key)
+    }
+
+    static func encodeRepeatPattern(_ repeatPattern: TaskRepeatPattern?) -> Data? {
+        guard let repeatPattern else { return nil }
+        return try? JSONEncoder().encode(repeatPattern)
+    }
+}
+
 public final class CoreDataTaskDefinitionRepository: TaskDefinitionRepositoryProtocol {
     private let viewContext: NSManagedObjectContext
     private let backgroundContext: NSManagedObjectContext
@@ -180,6 +330,15 @@ public final class CoreDataTaskDefinitionRepository: TaskDefinitionRepositoryPro
                     }
                     if let updatedAfter = query.updatedAfter {
                         predicates.append(NSPredicate(format: "updatedAt >= %@", updatedAfter as CVarArg))
+                    }
+                    if query.planningBuckets.isEmpty == false {
+                        predicates.append(NSPredicate(
+                            format: "planningBucketRaw IN %@",
+                            query.planningBuckets.map(\.rawValue)
+                        ))
+                    }
+                    if let weeklyOutcomeID = query.weeklyOutcomeID {
+                        predicates.append(NSPredicate(format: "weeklyOutcomeID == %@", weeklyOutcomeID as CVarArg))
                     }
                     if let searchText = query.searchText?.trimmingCharacters(in: .whitespacesAndNewlines),
                        searchText.isEmpty == false {
@@ -268,6 +427,10 @@ public final class CoreDataTaskDefinitionRepository: TaskDefinitionRepositoryPro
             alertReminderTime: task.alertReminderTime,
             estimatedDuration: task.estimatedDuration,
             repeatPattern: task.repeatPattern,
+            planningBucket: task.planningBucket,
+            weeklyOutcomeID: task.weeklyOutcomeID,
+            deferredFromWeekStart: task.deferredFromWeekStart,
+            deferredCount: task.deferredCount,
             createdAt: task.createdAt
         )
         create(request: request, completion: completion)
@@ -288,7 +451,7 @@ public final class CoreDataTaskDefinitionRepository: TaskDefinitionRepositoryPro
                     entityName: "TaskDefinition",
                     id: request.id
                 )
-                Self.applyCreateRequest(request, to: entity)
+                TaskDefinitionMutationApplier.applyCreateRequest(request, to: entity)
                 try self.backgroundContext.save()
                 let mapped = try Self.mapTaskDefinitions([entity], context: self.backgroundContext)
                 if let first = mapped.first {
@@ -332,6 +495,12 @@ public final class CoreDataTaskDefinitionRepository: TaskDefinitionRepositoryPro
             estimatedDuration: task.estimatedDuration,
             actualDuration: task.actualDuration,
             repeatPattern: task.repeatPattern,
+            planningBucket: task.planningBucket,
+            weeklyOutcomeID: task.weeklyOutcomeID,
+            clearWeeklyOutcomeLink: task.weeklyOutcomeID == nil,
+            deferredFromWeekStart: task.deferredFromWeekStart,
+            clearDeferredFromWeekStart: task.deferredFromWeekStart == nil,
+            deferredCount: task.deferredCount,
             updatedAt: task.updatedAt
         )
         update(request: request, completion: completion)
@@ -361,7 +530,7 @@ public final class CoreDataTaskDefinitionRepository: TaskDefinitionRepositoryPro
                     )))
                     return
                 }
-                Self.applyUpdateRequest(request, to: entity)
+                TaskDefinitionMutationApplier.applyUpdateRequest(request, to: entity)
                 try self.backgroundContext.save()
                 completion(.success(try Self.mapTaskDefinitions([entity], context: self.backgroundContext).first ?? Self.mapTaskDefinition(entity)))
             } catch {
@@ -414,6 +583,7 @@ public final class CoreDataTaskDefinitionRepository: TaskDefinitionRepositoryPro
         let context = TaskContext(rawValue: snapshot.contextRaw) ?? .anywhere
         let repeatPattern = snapshot.repeatPatternData.flatMap { try? JSONDecoder().decode(TaskRepeatPattern.self, from: $0) }
         let projectName = snapshot.fallbackProjectName ?? ProjectConstants.inboxProjectName
+        let planningBucket = TaskPlanningBucket(rawValue: snapshot.planningBucketRaw ?? "") ?? .thisWeek
 
         return TaskDefinition(
             id: snapshot.taskID,
@@ -441,6 +611,10 @@ public final class CoreDataTaskDefinitionRepository: TaskDefinitionRepositoryPro
             estimatedDuration: snapshot.estimatedDuration,
             actualDuration: snapshot.actualDuration,
             repeatPattern: repeatPattern,
+            planningBucket: planningBucket,
+            weeklyOutcomeID: snapshot.weeklyOutcomeID,
+            deferredFromWeekStart: snapshot.deferredFromWeekStart,
+            deferredCount: snapshot.deferredCount,
             createdAt: snapshot.createdAt,
             updatedAt: snapshot.updatedAt
         )
@@ -465,6 +639,8 @@ public final class CoreDataTaskDefinitionRepository: TaskDefinitionRepositoryPro
         let repeatPattern = decodeRepeatPattern(from: entity)
         let estimatedDuration = (attributeValue("estimatedDuration", from: entity) as Double?).flatMap { $0 > 0 ? $0 : nil }
         let actualDuration = (attributeValue("actualDuration", from: entity) as Double?).flatMap { $0 > 0 ? $0 : nil }
+        let planningBucket = TaskPlanningBucket(rawValue: attributeValue("planningBucketRaw", from: entity) ?? "") ?? .thisWeek
+        let deferredCount = max(0, Int((attributeValue("deferredCount", from: entity) as Int32?) ?? 0))
 
         return TaskDefinition(
             id: taskID,
@@ -492,6 +668,10 @@ public final class CoreDataTaskDefinitionRepository: TaskDefinitionRepositoryPro
             estimatedDuration: estimatedDuration,
             actualDuration: actualDuration,
             repeatPattern: repeatPattern,
+            planningBucket: planningBucket,
+            weeklyOutcomeID: attributeValue("weeklyOutcomeID", from: entity),
+            deferredFromWeekStart: attributeValue("deferredFromWeekStart", from: entity),
+            deferredCount: deferredCount,
             createdAt: attributeValue("createdAt", from: entity) ?? Date(),
             updatedAt: attributeValue("updatedAt", from: entity) ?? Date()
         )
@@ -722,114 +902,6 @@ public final class CoreDataTaskDefinitionRepository: TaskDefinitionRepositoryPro
         return namesByID
     }
 
-    /// Executes applyCreateRequest.
-    private static func applyCreateRequest(_ request: CreateTaskDefinitionRequest, to entity: NSManagedObject) {
-        setAttribute("id", value: request.id, on: entity)
-        setAttribute("taskID", value: request.id, on: entity)
-        setAttribute("projectID", value: request.projectID, on: entity)
-        setAttribute("lifeAreaID", value: request.lifeAreaID, on: entity)
-        setAttribute("sectionID", value: request.sectionID, on: entity)
-        setAttribute("parentTaskID", value: request.parentTaskID, on: entity)
-        setAttribute("recurrenceSeriesID", value: request.recurrenceSeriesID, on: entity)
-        setAttribute("title", value: request.title, on: entity)
-        setAttribute("notes", value: request.details, on: entity)
-        setAttribute("priority", value: request.priority.rawValue, on: entity)
-        setAttribute("taskType", value: request.type.rawValue, on: entity)
-        setAttribute("energy", value: request.energy.rawValue, on: entity)
-        setAttribute("category", value: request.category.rawValue, on: entity)
-        setAttribute("context", value: request.context.rawValue, on: entity)
-        setAttribute("dueDate", value: request.dueDate, on: entity)
-        setAttribute("estimatedDuration", value: request.estimatedDuration, on: entity)
-        setAttribute("actualDuration", value: nil, on: entity)
-        setAttribute("repeatPatternData", value: encodeRepeatPattern(request.repeatPattern), on: entity)
-        setAttribute("isComplete", value: false, on: entity)
-        setAttribute("dateAdded", value: request.createdAt, on: entity)
-        setAttribute("dateCompleted", value: nil, on: entity)
-        setAttribute("isEveningTask", value: request.isEveningTask, on: entity)
-        setAttribute("alertReminderTime", value: request.alertReminderTime, on: entity)
-        setAttribute("createdAt", value: request.createdAt, on: entity)
-        setAttribute("updatedAt", value: Date(), on: entity)
-        setAttribute("status", value: "pending", on: entity)
-        setAttribute("version", value: Int32(1), on: entity)
-    }
-
-    /// Executes applyUpdateRequest.
-    private static func applyUpdateRequest(_ request: UpdateTaskDefinitionRequest, to entity: NSManagedObject) {
-        if let title = request.title {
-            setAttribute("title", value: title, on: entity)
-        }
-        if request.details != nil {
-            setAttribute("notes", value: request.details, on: entity)
-        }
-        if let projectID = request.projectID {
-            setAttribute("projectID", value: projectID, on: entity)
-        }
-        if request.clearLifeArea {
-            setAttribute("lifeAreaID", value: nil, on: entity)
-        } else if request.lifeAreaID != nil {
-            setAttribute("lifeAreaID", value: request.lifeAreaID, on: entity)
-        }
-        if request.clearSection {
-            setAttribute("sectionID", value: nil, on: entity)
-        } else if request.sectionID != nil {
-            setAttribute("sectionID", value: request.sectionID, on: entity)
-        }
-        if request.clearParentTaskLink {
-            setAttribute("parentTaskID", value: nil, on: entity)
-        } else if let parentTaskID = request.parentTaskID {
-            setAttribute("parentTaskID", value: parentTaskID, on: entity)
-        }
-        if let recurrenceSeriesID = request.recurrenceSeriesID {
-            setAttribute("recurrenceSeriesID", value: recurrenceSeriesID, on: entity)
-        }
-        if request.clearDueDate {
-            setAttribute("dueDate", value: nil, on: entity)
-        } else if let dueDate = request.dueDate {
-            setAttribute("dueDate", value: dueDate, on: entity)
-        }
-        if let priority = request.priority {
-            setAttribute("priority", value: priority.rawValue, on: entity)
-        }
-        if let type = request.type {
-            setAttribute("taskType", value: type.rawValue, on: entity)
-        }
-        if let energy = request.energy {
-            setAttribute("energy", value: energy.rawValue, on: entity)
-        }
-        if let category = request.category {
-            setAttribute("category", value: category.rawValue, on: entity)
-        }
-        if let context = request.context {
-            setAttribute("context", value: context.rawValue, on: entity)
-        }
-        if let isComplete = request.isComplete {
-            setAttribute("isComplete", value: isComplete, on: entity)
-            setAttribute("status", value: isComplete ? "completed" : "pending", on: entity)
-        }
-        if request.dateCompleted != nil || request.isComplete == false {
-            setAttribute("dateCompleted", value: request.dateCompleted, on: entity)
-        }
-        if request.clearReminderTime {
-            setAttribute("alertReminderTime", value: nil, on: entity)
-        } else if let alertReminderTime = request.alertReminderTime {
-            setAttribute("alertReminderTime", value: alertReminderTime, on: entity)
-        }
-        if request.clearEstimatedDuration {
-            setAttribute("estimatedDuration", value: nil, on: entity)
-        } else if let estimatedDuration = request.estimatedDuration {
-            setAttribute("estimatedDuration", value: estimatedDuration, on: entity)
-        }
-        if let actualDuration = request.actualDuration {
-            setAttribute("actualDuration", value: actualDuration, on: entity)
-        }
-        if request.clearRepeatPattern {
-            setAttribute("repeatPatternData", value: nil, on: entity)
-        } else if let repeatPattern = request.repeatPattern {
-            setAttribute("repeatPatternData", value: encodeRepeatPattern(repeatPattern), on: entity)
-        }
-        setAttribute("updatedAt", value: request.updatedAt, on: entity)
-    }
-
     fileprivate static func attributeValue<T>(_ key: String, from entity: NSManagedObject) -> T? {
         guard entity.entity.attributesByName[key] != nil else { return nil }
         return entity.value(forKey: key) as? T
@@ -841,18 +913,6 @@ public final class CoreDataTaskDefinitionRepository: TaskDefinitionRepositoryPro
             return nil
         }
         return attributeValue("name", from: projectRef)
-    }
-
-    /// Executes setAttribute.
-    private static func setAttribute(_ key: String, value: Any?, on entity: NSManagedObject) {
-        guard entity.entity.attributesByName[key] != nil else { return }
-        entity.setValue(value, forKey: key)
-    }
-
-    /// Executes encodeRepeatPattern.
-    private static func encodeRepeatPattern(_ repeatPattern: TaskRepeatPattern?) -> Data? {
-        guard let repeatPattern else { return nil }
-        return try? JSONEncoder().encode(repeatPattern)
     }
 
     /// Executes decodeRepeatPattern.
