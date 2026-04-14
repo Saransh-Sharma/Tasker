@@ -11,7 +11,8 @@ struct HomeCompactHeaderView: View {
     let onShowDatePicker: () -> Void
     let onShowAdvancedFilters: () -> Void
     let onResetFilters: () -> Void
-    let onOpenSearch: () -> Void
+    let onOpenTopNavSearch: () -> Void
+    let onOpenMenuSearch: () -> Void
     let onOpenReflection: () -> Void
     let onOpenSettings: () -> Void
 
@@ -33,7 +34,8 @@ struct HomeCompactHeaderView: View {
         onShowDatePicker: @escaping () -> Void,
         onShowAdvancedFilters: @escaping () -> Void,
         onResetFilters: @escaping () -> Void,
-        onOpenSearch: @escaping () -> Void,
+        onOpenTopNavSearch: @escaping () -> Void,
+        onOpenMenuSearch: @escaping () -> Void,
         onOpenReflection: @escaping () -> Void,
         onOpenSettings: @escaping () -> Void
     ) {
@@ -47,7 +49,8 @@ struct HomeCompactHeaderView: View {
         self.onShowDatePicker = onShowDatePicker
         self.onShowAdvancedFilters = onShowAdvancedFilters
         self.onResetFilters = onResetFilters
-        self.onOpenSearch = onOpenSearch
+        self.onOpenTopNavSearch = onOpenTopNavSearch
+        self.onOpenMenuSearch = onOpenMenuSearch
         self.onOpenReflection = onOpenReflection
         self.onOpenSettings = onOpenSettings
     }
@@ -97,9 +100,14 @@ struct HomeCompactHeaderView: View {
     }
 
     private var canCenterDate: Bool {
-        presentation.backgroundDateText != nil
+        let availableCenterWidth = containerWidth
+            - (dateHeroHorizontalInset * 2)
+            - measuredLeadingColumnWidth
+            - measuredTrailingColumnWidth
+        return presentation.backgroundDateText != nil
             && presentation.foregroundRelativeLabel != nil
             && containerWidth >= 360
+            && availableCenterWidth >= 120
             && !dynamicTypeSize.isAccessibilitySize
     }
 
@@ -112,30 +120,20 @@ struct HomeCompactHeaderView: View {
                         .offset(y: 10)
 
                     HStack(alignment: .center, spacing: spacing.s8) {
-                        leadingHeaderContent
+                        measuredLeadingHeaderContent
                             .fixedSize(horizontal: true, vertical: true)
-                            .background(
-                                widthReader { newWidth in
-                                    measuredLeadingColumnWidth = newWidth
-                                }
-                            )
 
                         Spacer(minLength: spacing.s8)
 
-                        trailingHeaderContent
+                        measuredTrailingHeaderContent
                             .fixedSize(horizontal: true, vertical: true)
-                            .background(
-                                widthReader { newWidth in
-                                    measuredTrailingColumnWidth = newWidth
-                                }
-                            )
                     }
                 }
                 .frame(minHeight: 36)
             } else {
                 HStack(spacing: spacing.s8) {
                     VStack(alignment: .leading, spacing: spacing.s4) {
-                        leadingHeaderContent
+                        measuredLeadingHeaderContent
                             .layoutPriority(1)
 
                         if let dateText = presentation.compactDateText {
@@ -150,7 +148,7 @@ struct HomeCompactHeaderView: View {
 
                     Spacer(minLength: spacing.s4)
 
-                    trailingHeaderContent
+                    measuredTrailingHeaderContent
                 }
             }
         }
@@ -249,6 +247,8 @@ struct HomeCompactHeaderView: View {
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(
             presentation.dateAccessibilityLabel
+                ?? presentation.foregroundRelativeLabel
+                ?? presentation.backgroundDateText
                 ?? presentation.compactDateText
                 ?? ""
         )
@@ -291,6 +291,24 @@ struct HomeCompactHeaderView: View {
             }
     }
 
+    private var measuredLeadingHeaderContent: some View {
+        leadingHeaderContent
+            .background(
+                widthReader { newWidth in
+                    measuredLeadingColumnWidth = newWidth
+                }
+            )
+    }
+
+    private var measuredTrailingHeaderContent: some View {
+        trailingHeaderContent
+            .background(
+                widthReader { newWidth in
+                    measuredTrailingColumnWidth = newWidth
+                }
+            )
+    }
+
     private var leadingHeaderContent: some View {
         HStack(spacing: spacing.s8) {
             if presentation.showsBackToToday {
@@ -324,8 +342,8 @@ struct HomeCompactHeaderView: View {
         }
         .buttonStyle(.plain)
         .scaleOnPress()
-        .accessibilityLabel("Reflect")
-        .accessibilityHint("Opens the daily reflection screen")
+        .accessibilityLabel(presentation.reflectionCTATitle)
+        .accessibilityHint("Opens \(presentation.reflectionCTATitle)")
         .accessibilityIdentifier("home.reflectionReady.button")
     }
 
@@ -354,7 +372,7 @@ struct HomeCompactHeaderView: View {
             }
 
             Section("Tools") {
-                Button("Search", systemImage: "magnifyingglass", action: onOpenSearch)
+                Button("Search", systemImage: "magnifyingglass", action: onOpenMenuSearch)
                     .accessibilityIdentifier("home.focus.menu.search")
 
                 Button("Pick date", systemImage: "calendar", action: onShowDatePicker)
@@ -395,7 +413,7 @@ struct HomeCompactHeaderView: View {
     }
 
     private var searchButton: some View {
-        Button("Search", systemImage: "magnifyingglass", action: onOpenSearch)
+        Button("Search", systemImage: "magnifyingglass", action: onOpenTopNavSearch)
             .labelStyle(.iconOnly)
             .font(.system(size: 15, weight: .semibold))
             .foregroundStyle(Color.tasker.statusWarning)

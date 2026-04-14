@@ -1541,7 +1541,7 @@ private struct HomePrimaryWidgetRail: View {
                 )
                 .frame(height: resolvedContentHeight)
                 .background(alignment: .topLeading) {
-                    measurementLayer(pageWidth: pageWidth)
+                    measurementLayer(pageWidth: pageWidth, selectedKind: selectedKind)
                 }
             }
             .frame(height: resolvedContentHeight)
@@ -1552,8 +1552,13 @@ private struct HomePrimaryWidgetRail: View {
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("home.primaryWidgetRail")
         .onPreferenceChange(HomePrimaryWidgetHeightPreferenceKey.self) { heights in
-            guard heights != measuredHeights else { return }
-            measuredHeights = heights
+            guard heights.isEmpty == false else { return }
+            var updated = measuredHeights
+            updated.merge(heights, uniquingKeysWith: { _, next in next })
+            let validKinds = Set(pages.map(\.kind))
+            updated = updated.filter { validKinds.contains($0.key) }
+            guard updated != measuredHeights else { return }
+            measuredHeights = updated
         }
     }
 
@@ -1631,32 +1636,34 @@ private struct HomePrimaryWidgetRail: View {
     }
 
     @ViewBuilder
-    private func measurementLayer(pageWidth: CGFloat) -> some View {
-        VStack(spacing: 0) {
-            ForEach(Array(pages.indices), id: \.self) { pageIndex in
-                let page = pages[pageIndex]
-                pageShell(
-                    for: page,
-                    isActive: true,
-                    position: 1,
-                    total: max(pages.count, 1),
-                    includesAccessibility: false
-                )
-                    .frame(width: pageWidth)
-                    .background(
-                        GeometryReader { proxy in
-                            Color.clear.preference(
-                                key: HomePrimaryWidgetHeightPreferenceKey.self,
-                                value: [page.kind: proxy.size.height]
-                            )
-                        }
+    private func measurementLayer(pageWidth: CGFloat, selectedKind: HomePrimaryWidgetKind?) -> some View {
+        if let measurementPage = page(for: selectedKind) ?? pages.first {
+            pageShell(
+                for: measurementPage,
+                isActive: true,
+                position: 1,
+                total: max(pages.count, 1),
+                includesAccessibility: false
+            )
+            .frame(width: pageWidth)
+            .background(
+                GeometryReader { proxy in
+                    Color.clear.preference(
+                        key: HomePrimaryWidgetHeightPreferenceKey.self,
+                        value: [measurementPage.kind: proxy.size.height]
                     )
-            }
+                }
+            )
+            .fixedSize(horizontal: false, vertical: true)
+            .opacity(0.001)
+            .allowsHitTesting(false)
+            .accessibilityHidden(true)
         }
-        .fixedSize(horizontal: false, vertical: true)
-        .opacity(0.001)
-        .allowsHitTesting(false)
-        .accessibilityHidden(true)
+    }
+
+    private func page(for selectedKind: HomePrimaryWidgetKind?) -> HomePrimaryWidgetPage? {
+        guard let selectedKind else { return nil }
+        return pages.first(where: { $0.kind == selectedKind })
     }
 
     private var indicatorRow: some View {
@@ -3146,7 +3153,10 @@ struct HomeBackdropForedropRootView: View {
                     onResetFilters: {
                         viewModel.resetAllFilters()
                     },
-                    onOpenSearch: {
+                    onOpenTopNavSearch: {
+                        openSearch(source: "top_nav_search")
+                    },
+                    onOpenMenuSearch: {
                         openSearch(source: "scope_menu_search")
                     },
                     onOpenReflection: {
