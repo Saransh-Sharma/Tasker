@@ -89,7 +89,7 @@ public struct FocusZone: View {
     public var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             focusHeader
-                .padding(.horizontal, spacing.s12)
+                .padding(.horizontal, spacing.s16)
                 .padding(.top, spacing.s8)
                 .padding(.bottom, spacing.s2)
 
@@ -99,7 +99,6 @@ public struct FocusZone: View {
                     .padding(.bottom, spacing.s8)
             } else {
                 taskList
-                    .padding(.horizontal, spacing.s8)
                     .padding(.bottom, spacing.s8)
             }
         }
@@ -437,7 +436,7 @@ private struct FocusZoneRow: View {
             .frame(maxWidth: .infinity, alignment: .leading)
         }
         .padding(.vertical, 6)
-        .padding(.horizontal, spacing.s4)
+        .padding(.horizontal, spacing.s16)
         .contentShape(Rectangle())
         .onTapGesture {
             onTap()
