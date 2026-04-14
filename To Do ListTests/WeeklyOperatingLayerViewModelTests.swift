@@ -69,6 +69,41 @@ final class WeeklyOperatingLayerViewModelTests: XCTestCase {
         XCTAssertEqual(resolvedSummary?.weekStartDate, currentWeekStart)
     }
 
+    func testEstimateWeeklyCapacityUsesCalendarWindowWeeks() {
+        let weekStartsOn: Weekday = .monday
+        let workspaceStore = makeWorkspacePreferencesStore(weekStartsOn: weekStartsOn)
+        let referenceDate = makeDate(year: 2024, month: 4, day: 29)
+        let currentWeekStart = XPCalculationEngine.startOfWeek(
+            for: referenceDate,
+            startingOn: weekStartsOn
+        )
+        let calendar = XPCalculationEngine.weekCalendar(startingOn: weekStartsOn)
+        let completedTasks: [TaskDefinition] = (0..<8).map { index in
+            let completedAt = calendar.date(byAdding: .day, value: -(index + 1), to: currentWeekStart) ?? currentWeekStart
+            return TaskDefinition(
+                id: UUID(),
+                title: "Completed \(index)",
+                isComplete: true,
+                dateCompleted: completedAt
+            )
+        }
+        let taskRepository = InMemoryTaskDefinitionRepositoryStub(seed: completedTasks)
+        let useCase = EstimateWeeklyCapacityUseCase(
+            taskDefinitionRepository: taskRepository,
+            workspacePreferencesStore: workspaceStore
+        )
+        let completion = expectation(description: "estimated capacity resolved")
+        var resolvedCapacity: Int?
+
+        useCase.execute(referenceDate: referenceDate) { result in
+            resolvedCapacity = try? result.get()
+            completion.fulfill()
+        }
+
+        wait(for: [completion], timeout: 1.0)
+        XCTAssertEqual(resolvedCapacity, 3)
+    }
+
     @MainActor
     func testPlannerCompactSummaryReflectsWizardInputs() {
         let viewModel = makePlannerViewModel()
@@ -424,6 +459,42 @@ final class WeeklyOperatingLayerViewModelTests: XCTestCase {
         loadReview(viewModel)
 
         XCTAssertEqual(draftStore.savedDrafts.count, 0)
+    }
+
+    @MainActor
+    func testReviewLoadClampsDraftPerceivedWeekRatingToFive() {
+        let draftStore = RecordingWeeklyReviewDraftStore()
+        let weekStartDate = fixedWeekStart
+        draftStore.draft = WeeklyReviewDraft(
+            weekStartDate: weekStartDate,
+            wins: nil,
+            blockers: nil,
+            lessons: nil,
+            nextWeekPrepNotes: nil,
+            perceivedWeekRating: 9,
+            taskDecisions: [:],
+            outcomeStatuses: [:],
+            updatedAt: weekStartDate
+        )
+        let snapshot = WeeklyPlanSnapshot(
+            weekStartDate: weekStartDate,
+            plan: WeeklyPlan(
+                weekStartDate: weekStartDate,
+                weekEndDate: Calendar(identifier: .gregorian).date(byAdding: .day, value: 6, to: weekStartDate) ?? weekStartDate,
+                reviewStatus: .ready
+            ),
+            outcomes: [],
+            review: nil,
+            thisWeekTasks: [],
+            nextWeekTasks: [],
+            laterTasks: [],
+            reflectionNotes: []
+        )
+        let viewModel = makeReviewViewModel(snapshot: snapshot, draftStore: draftStore)
+
+        loadReview(viewModel)
+
+        XCTAssertEqual(viewModel.perceivedWeekRating, 5)
     }
 
     @MainActor

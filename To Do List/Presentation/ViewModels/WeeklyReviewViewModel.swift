@@ -371,7 +371,10 @@ public final class WeeklyReviewViewModel: ObservableObject {
                 self.blockers = draft?.blockers ?? snapshot.review?.blockers ?? ""
                 self.lessons = draft?.lessons ?? snapshot.review?.lessons ?? ""
                 self.nextWeekPrepNotes = draft?.nextWeekPrepNotes ?? snapshot.review?.nextWeekPrepNotes ?? ""
-                self.perceivedWeekRating = max(draft?.perceivedWeekRating ?? snapshot.review?.perceivedWeekRating ?? 3, 1)
+                self.perceivedWeekRating = min(
+                    max(draft?.perceivedWeekRating ?? snapshot.review?.perceivedWeekRating ?? 3, 1),
+                    5
+                )
                 self.taskDecisions = fallbackTaskDecisions.merging(draft?.taskDecisions ?? [:]) { _, newValue in newValue }
                 self.outcomeStatusesByID = Dictionary(uniqueKeysWithValues: snapshot.outcomes.map { outcome in
                     let derivedStatus = draft?.outcomeStatuses[outcome.id]

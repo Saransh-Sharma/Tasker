@@ -494,7 +494,11 @@ public final class EstimateWeeklyCapacityUseCase {
                     guard task.isComplete, let completedAt = task.dateCompleted else { return false }
                     return completedAt >= windowStart && completedAt < currentWeekStart
                 }
-                let weekCount = max(1, Int(ceil(Double(max(recentCompleted.count, 1)) / 7.0)))
+                let windowDayCount = max(
+                    1,
+                    calendar.dateComponents([.day], from: windowStart, to: currentWeekStart).day ?? 0
+                )
+                let weekCount = max(1, Int(ceil(Double(windowDayCount) / 7.0)))
                 let estimatedCapacity = max(3, Int(round(Double(recentCompleted.count) / Double(weekCount))))
                 completion(.success(estimatedCapacity))
             }

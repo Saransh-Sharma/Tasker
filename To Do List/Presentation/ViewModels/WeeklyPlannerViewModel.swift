@@ -286,6 +286,7 @@ struct WeeklyPlannerProposalState: Identifiable {
 public final class WeeklyPlannerViewModel: ObservableObject {
     @Published public private(set) var isLoading = false
     @Published public private(set) var isSaving = false
+    @Published public private(set) var isRequestingEvaPreview = false
     @Published public private(set) var errorMessage: String?
     @Published public private(set) var availableHabits: [HabitLibraryRow] = [] {
         didSet { refreshHabitSnapshotIfNeeded() }
@@ -804,6 +805,7 @@ public final class WeeklyPlannerViewModel: ObservableObject {
         }
 
         errorMessage = nil
+        isRequestingEvaPreview = true
         proposalState = nil
 
         homeAIActionCoordinator.proposeWeeklyPlan(
@@ -815,6 +817,7 @@ public final class WeeklyPlannerViewModel: ObservableObject {
             rationale: { _ in "Review the staged weekly plan before proposing changes." }
         ) { result in
             DispatchQueue.main.async {
+                self.isRequestingEvaPreview = false
                 switch result {
                 case .failure(let error):
                     self.errorMessage = error.localizedDescription
@@ -908,9 +911,20 @@ public final class WeeklyPlannerViewModel: ObservableObject {
             self.proposalState = proposalState
         }
 
-        homeAIActionCoordinator.reject(runID: runID) { _ in
+        homeAIActionCoordinator.reject(runID: runID) { result in
             DispatchQueue.main.async {
-                self.proposalState = nil
+                switch result {
+                case .failure(let error):
+                    if var proposalState = self.proposalState {
+                        proposalState.isWorking = false
+                        proposalState.errorMessage = error.localizedDescription
+                        self.proposalState = proposalState
+                    } else {
+                        self.errorMessage = error.localizedDescription
+                    }
+                case .success:
+                    self.proposalState = nil
+                }
             }
         }
     }

@@ -149,11 +149,11 @@ struct WeeklyPlannerView: View {
         switch viewModel.currentStep {
         case .review:
             HStack(spacing: spacing.s8) {
-                Button(WeeklyCopy.getAISuggestion) {
+                Button(viewModel.isRequestingEvaPreview ? "Working..." : WeeklyCopy.getAISuggestion) {
                     viewModel.requestEvaPreview()
                 }
                 .buttonStyle(.bordered)
-                .disabled(viewModel.isSaving)
+                .disabled(viewModel.isSaving || viewModel.isRequestingEvaPreview)
 
                 Button(viewModel.isSaving ? "Saving..." : WeeklyCopy.savePlan) {
                     viewModel.save()
