@@ -3444,11 +3444,8 @@ struct HomeBackdropForedropRootView: View {
     private var habitsSectionCard: some View {
         HabitHomeSectionCard(
             title: "Habits",
-            subtitle: "Habits that need attention stay here.",
+            summaryLine: "\(habitsSnapshot.habitHomeSectionState.totalCount) active · \(habitsSnapshot.habitHomeSectionState.onStreakCount) streak · \(habitsSnapshot.habitHomeSectionState.atRiskCount) risk",
             rows: habitsSnapshot.habitHomeSectionState.primaryRows,
-            countValue: "\(habitsSnapshot.habitHomeSectionState.totalCount) active",
-            secondaryValue: "\(habitsSnapshot.habitHomeSectionState.onStreakCount) on streak",
-            tertiaryValue: "\(habitsSnapshot.habitHomeSectionState.atRiskCount) at risk",
             onOpenBoard: {
                 showHabitBoardPresented = true
             },
@@ -3463,11 +3460,8 @@ struct HomeBackdropForedropRootView: View {
     private var recoveryHabitsSectionCard: some View {
         HabitHomeSectionCard(
             title: "Recovery",
-            subtitle: "Habits that need attention stay here.",
+            summaryLine: "\(habitsSnapshot.habitHomeSectionState.recoveryRows.count) in recovery",
             rows: habitsSnapshot.habitHomeSectionState.recoveryRows,
-            countValue: "\(habitsSnapshot.habitHomeSectionState.recoveryRows.count) in recovery",
-            secondaryValue: "streaks",
-            tertiaryValue: "need care",
             onOpenBoard: {
                 showHabitBoardPresented = true
             },
