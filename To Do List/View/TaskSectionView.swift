@@ -10,6 +10,14 @@ import SwiftUI
 
 // MARK: - Task Section View
 
+struct HomeTaskRowDivider: View {
+    var body: some View {
+        Rectangle()
+            .fill(Color.tasker.strokeHairline.opacity(0.55))
+            .frame(height: 1)
+    }
+}
+
 struct TaskSectionHeaderRow: View {
     let accentColor: Color
     let iconSystemName: String
@@ -131,6 +139,7 @@ struct TaskSectionView: View {
     let completedCollapsed: Bool?
     let isTaskDragEnabled: Bool
     let highlightedTaskID: UUID?
+    let layoutStyle: TaskListLayoutStyle
     private let derivedState: TaskSectionDerivedState
     var onTaskTap: ((TaskDefinition) -> Void)?
     var onToggleComplete: ((TaskDefinition) -> Void)?
@@ -161,6 +170,7 @@ struct TaskSectionView: View {
         completedCollapsed: Bool? = nil,
         isTaskDragEnabled: Bool = false,
         highlightedTaskID: UUID? = nil,
+        layoutStyle: TaskListLayoutStyle = .inset,
         onTaskTap: ((TaskDefinition) -> Void)? = nil,
         onToggleComplete: ((TaskDefinition) -> Void)? = nil,
         onDeleteTask: ((TaskDefinition) -> Void)? = nil,
@@ -181,6 +191,7 @@ struct TaskSectionView: View {
         self.completedCollapsed = completedCollapsed
         self.isTaskDragEnabled = isTaskDragEnabled
         self.highlightedTaskID = highlightedTaskID
+        self.layoutStyle = layoutStyle
         self.derivedState = TaskSectionDerivedState(tasks: tasks)
         self.onTaskTap = onTaskTap
         self.onToggleComplete = onToggleComplete
@@ -200,7 +211,7 @@ struct TaskSectionView: View {
 
             if isExpanded {
                 taskList
-                    .padding(.top, TaskerTheme.Spacing.xs)
+                    .padding(.top, layoutStyle == .inset ? TaskerTheme.Spacing.xs : 0)
                     .transition(.asymmetric(
                         insertion: .opacity.combined(with: .move(edge: .top)).combined(with: .scale(scale: 0.98, anchor: .top)),
                         removal: .opacity
@@ -229,13 +240,14 @@ struct TaskSectionView: View {
             onHeaderAction: onHeaderAction,
             headerActionAccessibilityID: headerActionAccessibilityID ?? "home.section.headerAction.\(project.id.uuidString)"
         )
+        .padding(.horizontal, layoutStyle.headerHorizontalPadding)
     }
 
     // MARK: - Task List
 
     private var taskList: some View {
-        VStack(spacing: TaskerTheme.Spacing.xs) {
-            ForEach(derivedState.openRenderItems, id: \.task.id) { item in
+        VStack(spacing: layoutStyle.rowSpacing) {
+            ForEach(Array(derivedState.openRenderItems.enumerated()), id: \.element.task.id) { index, item in
                 TaskRowView(
                     task: item.task,
                     showTypeBadge: derivedState.hasMixedTypes,
@@ -245,6 +257,8 @@ struct TaskSectionView: View {
                     isGamificationV2Enabled: isGamificationV2Enabled,
                     isTaskDragEnabled: isTaskDragEnabled,
                     highlightedTaskID: highlightedTaskID,
+                    metadataPolicy: layoutStyle.taskMetadataPolicy,
+                    chromeStyle: layoutStyle.taskChromeStyle,
                     onTap: { onTaskTap?(item.task) },
                     onToggleComplete: { onToggleComplete?(item.task) },
                     onDelete: { onDeleteTask?(item.task) },
@@ -255,14 +269,22 @@ struct TaskSectionView: View {
                     onTaskDragStarted: onTaskDragStarted
                 )
                 .equatable()
+
+                if layoutStyle.showsRowDividers && index < derivedState.openRenderItems.count - 1 {
+                    HomeTaskRowDivider()
+                }
             }
 
             if derivedState.completedCount > 0 {
+                if layoutStyle.showsRowDividers && !derivedState.openRenderItems.isEmpty {
+                    HomeTaskRowDivider()
+                }
+
                 completedToggleRow
-                    .padding(.top, 2)
+                    .padding(.top, layoutStyle == .inset ? 2 : 0)
 
                 if !isCompletedCollapsed {
-                    ForEach(derivedState.completedRenderItems, id: \.task.id) { item in
+                    ForEach(Array(derivedState.completedRenderItems.enumerated()), id: \.element.task.id) { index, item in
                         TaskRowView(
                             task: item.task,
                             showTypeBadge: derivedState.hasMixedTypes,
@@ -272,6 +294,8 @@ struct TaskSectionView: View {
                             isGamificationV2Enabled: isGamificationV2Enabled,
                             isTaskDragEnabled: false,
                             highlightedTaskID: highlightedTaskID,
+                            metadataPolicy: layoutStyle.taskMetadataPolicy,
+                            chromeStyle: layoutStyle.taskChromeStyle,
                             onTap: { onTaskTap?(item.task) },
                             onToggleComplete: { onToggleComplete?(item.task) },
                             onDelete: { onDeleteTask?(item.task) },
@@ -279,6 +303,10 @@ struct TaskSectionView: View {
                             onPromoteToFocus: nil
                         )
                         .equatable()
+
+                        if layoutStyle.showsRowDividers && index < derivedState.completedRenderItems.count - 1 {
+                            HomeTaskRowDivider()
+                        }
                     }
                 }
             }
@@ -355,6 +383,8 @@ struct HomeListRowView: View {
     let isGamificationV2Enabled: Bool
     let isTaskDragEnabled: Bool
     let highlightedTaskID: UUID?
+    let taskChromeStyle: TaskRowChromeStyle
+    let taskMetadataPolicy: TaskRowMetadataPolicy
     var onTaskTap: ((TaskDefinition) -> Void)?
     var onToggleComplete: ((TaskDefinition) -> Void)?
     var onDeleteTask: ((TaskDefinition) -> Void)?
@@ -365,6 +395,46 @@ struct HomeListRowView: View {
     var onSkipHabit: ((HomeHabitRow) -> Void)?
     var onLapseHabit: ((HomeHabitRow) -> Void)?
     var onOpenHabit: ((HomeHabitRow) -> Void)?
+
+    init(
+        row: HomeTodayRow,
+        tagNameByID: [UUID: String],
+        todayXPSoFar: Int?,
+        isGamificationV2Enabled: Bool,
+        isTaskDragEnabled: Bool,
+        highlightedTaskID: UUID?,
+        taskChromeStyle: TaskRowChromeStyle = .card,
+        taskMetadataPolicy: TaskRowMetadataPolicy = .default,
+        onTaskTap: ((TaskDefinition) -> Void)? = nil,
+        onToggleComplete: ((TaskDefinition) -> Void)? = nil,
+        onDeleteTask: ((TaskDefinition) -> Void)? = nil,
+        onRescheduleTask: ((TaskDefinition) -> Void)? = nil,
+        onPromoteTaskToFocus: ((TaskDefinition) -> Void)? = nil,
+        onTaskDragStarted: ((TaskDefinition) -> Void)? = nil,
+        onCompleteHabit: ((HomeHabitRow) -> Void)? = nil,
+        onSkipHabit: ((HomeHabitRow) -> Void)? = nil,
+        onLapseHabit: ((HomeHabitRow) -> Void)? = nil,
+        onOpenHabit: ((HomeHabitRow) -> Void)? = nil
+    ) {
+        self.row = row
+        self.tagNameByID = tagNameByID
+        self.todayXPSoFar = todayXPSoFar
+        self.isGamificationV2Enabled = isGamificationV2Enabled
+        self.isTaskDragEnabled = isTaskDragEnabled
+        self.highlightedTaskID = highlightedTaskID
+        self.taskChromeStyle = taskChromeStyle
+        self.taskMetadataPolicy = taskMetadataPolicy
+        self.onTaskTap = onTaskTap
+        self.onToggleComplete = onToggleComplete
+        self.onDeleteTask = onDeleteTask
+        self.onRescheduleTask = onRescheduleTask
+        self.onPromoteTaskToFocus = onPromoteTaskToFocus
+        self.onTaskDragStarted = onTaskDragStarted
+        self.onCompleteHabit = onCompleteHabit
+        self.onSkipHabit = onSkipHabit
+        self.onLapseHabit = onLapseHabit
+        self.onOpenHabit = onOpenHabit
+    }
 
     var body: some View {
         switch row {
@@ -378,6 +448,8 @@ struct HomeListRowView: View {
                 isGamificationV2Enabled: isGamificationV2Enabled,
                 isTaskDragEnabled: isTaskDragEnabled && !task.isComplete,
                 highlightedTaskID: highlightedTaskID,
+                metadataPolicy: taskMetadataPolicy,
+                chromeStyle: taskChromeStyle,
                 onTap: { onTaskTap?(task) },
                 onToggleComplete: { onToggleComplete?(task) },
                 onDelete: { onDeleteTask?(task) },
@@ -430,6 +502,7 @@ struct HomeListSectionView: View {
     let isTaskDragEnabled: Bool
     let highlightedTaskID: UUID?
     let completedCollapsed: Bool?
+    let layoutStyle: TaskListLayoutStyle
     var onTaskTap: ((TaskDefinition) -> Void)?
     var onToggleComplete: ((TaskDefinition) -> Void)?
     var onDeleteTask: ((TaskDefinition) -> Void)?
@@ -446,6 +519,54 @@ struct HomeListSectionView: View {
     var headerActionAccessibilityID: String? = nil
 
     @State private var isExpanded: Bool = true
+
+    init(
+        section: HomeListSection,
+        tagNameByID: [UUID: String],
+        todayXPSoFar: Int?,
+        isGamificationV2Enabled: Bool,
+        isTaskDragEnabled: Bool,
+        highlightedTaskID: UUID?,
+        completedCollapsed: Bool?,
+        layoutStyle: TaskListLayoutStyle = .inset,
+        onTaskTap: ((TaskDefinition) -> Void)? = nil,
+        onToggleComplete: ((TaskDefinition) -> Void)? = nil,
+        onDeleteTask: ((TaskDefinition) -> Void)? = nil,
+        onRescheduleTask: ((TaskDefinition) -> Void)? = nil,
+        onPromoteTaskToFocus: ((TaskDefinition) -> Void)? = nil,
+        onCompletedCollapsedChange: ((Bool, Int) -> Void)? = nil,
+        onTaskDragStarted: ((TaskDefinition) -> Void)? = nil,
+        onCompleteHabit: ((HomeHabitRow) -> Void)? = nil,
+        onSkipHabit: ((HomeHabitRow) -> Void)? = nil,
+        onLapseHabit: ((HomeHabitRow) -> Void)? = nil,
+        onOpenHabit: ((HomeHabitRow) -> Void)? = nil,
+        headerActionTitle: String? = nil,
+        onHeaderAction: (() -> Void)? = nil,
+        headerActionAccessibilityID: String? = nil
+    ) {
+        self.section = section
+        self.tagNameByID = tagNameByID
+        self.todayXPSoFar = todayXPSoFar
+        self.isGamificationV2Enabled = isGamificationV2Enabled
+        self.isTaskDragEnabled = isTaskDragEnabled
+        self.highlightedTaskID = highlightedTaskID
+        self.completedCollapsed = completedCollapsed
+        self.layoutStyle = layoutStyle
+        self.onTaskTap = onTaskTap
+        self.onToggleComplete = onToggleComplete
+        self.onDeleteTask = onDeleteTask
+        self.onRescheduleTask = onRescheduleTask
+        self.onPromoteTaskToFocus = onPromoteTaskToFocus
+        self.onCompletedCollapsedChange = onCompletedCollapsedChange
+        self.onTaskDragStarted = onTaskDragStarted
+        self.onCompleteHabit = onCompleteHabit
+        self.onSkipHabit = onSkipHabit
+        self.onLapseHabit = onLapseHabit
+        self.onOpenHabit = onOpenHabit
+        self.headerActionTitle = headerActionTitle
+        self.onHeaderAction = onHeaderAction
+        self.headerActionAccessibilityID = headerActionAccessibilityID
+    }
 
     private var openRows: [HomeTodayRow] {
         section.rows.filter { !$0.isResolved }
@@ -476,6 +597,7 @@ struct HomeListSectionView: View {
                     onHeaderAction: onHeaderAction,
                     headerActionAccessibilityID: headerActionAccessibilityID ?? "home.mixedSection.headerAction.\(section.id)"
                 )
+                .padding(.horizontal, layoutStyle.headerHorizontalPadding)
             }
 
             if section.showsHeader == false || isExpanded {
@@ -486,8 +608,8 @@ struct HomeListSectionView: View {
     }
 
     private var rowsContent: some View {
-        VStack(spacing: TaskerTheme.Spacing.xs) {
-            ForEach(openRows) { row in
+        VStack(spacing: layoutStyle.rowSpacing) {
+            ForEach(Array(openRows.enumerated()), id: \.element.id) { index, row in
                 HomeListRowView(
                     row: row,
                     tagNameByID: tagNameByID,
@@ -495,6 +617,8 @@ struct HomeListSectionView: View {
                     isGamificationV2Enabled: isGamificationV2Enabled,
                     isTaskDragEnabled: isTaskDragEnabled,
                     highlightedTaskID: highlightedTaskID,
+                    taskChromeStyle: layoutStyle.taskChromeStyle,
+                    taskMetadataPolicy: layoutStyle.taskMetadataPolicy,
                     onTaskTap: onTaskTap,
                     onToggleComplete: onToggleComplete,
                     onDeleteTask: onDeleteTask,
@@ -506,14 +630,22 @@ struct HomeListSectionView: View {
                     onLapseHabit: onLapseHabit,
                     onOpenHabit: onOpenHabit
                 )
+
+                if layoutStyle.showsRowDividers && index < openRows.count - 1 {
+                    HomeTaskRowDivider()
+                }
             }
 
             if resolvedCount > 0 {
+                if layoutStyle.showsRowDividers && !openRows.isEmpty {
+                    HomeTaskRowDivider()
+                }
+
                 resolvedToggleRow
-                    .padding(.top, 2)
+                    .padding(.top, layoutStyle == .inset ? 2 : 0)
 
                 if !isResolvedCollapsed {
-                    ForEach(resolvedRows) { row in
+                    ForEach(Array(resolvedRows.enumerated()), id: \.element.id) { index, row in
                         HomeListRowView(
                             row: row,
                             tagNameByID: tagNameByID,
@@ -521,6 +653,8 @@ struct HomeListSectionView: View {
                             isGamificationV2Enabled: isGamificationV2Enabled,
                             isTaskDragEnabled: false,
                             highlightedTaskID: highlightedTaskID,
+                            taskChromeStyle: layoutStyle.taskChromeStyle,
+                            taskMetadataPolicy: layoutStyle.taskMetadataPolicy,
                             onTaskTap: onTaskTap,
                             onToggleComplete: onToggleComplete,
                             onDeleteTask: onDeleteTask,
@@ -531,11 +665,15 @@ struct HomeListSectionView: View {
                             onLapseHabit: onLapseHabit,
                             onOpenHabit: onOpenHabit
                         )
+
+                        if layoutStyle.showsRowDividers && index < resolvedRows.count - 1 {
+                            HomeTaskRowDivider()
+                        }
                     }
                 }
             }
         }
-        .padding(.top, section.showsHeader ? TaskerTheme.Spacing.xs : 0)
+        .padding(.top, section.showsHeader ? (layoutStyle == .inset ? TaskerTheme.Spacing.xs : 0) : 0)
         .transition(.asymmetric(
             insertion: .opacity.combined(with: .move(edge: .top)).combined(with: .scale(scale: 0.98, anchor: .top)),
             removal: .opacity

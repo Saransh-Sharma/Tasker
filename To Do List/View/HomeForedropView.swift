@@ -2787,6 +2787,7 @@ struct HomeBackdropForedropRootView: View {
                 todaySections: tasksSnapshot.todayAgendaSectionState.sections,
                 agendaTailItems: visibleAgendaTailItems,
                 expandedAgendaTailItemIDs: expandedAgendaTailItemIDs,
+                layoutStyle: .edgeToEdgeHome,
                 onTaskTap: onTaskTap,
                 onToggleComplete: { task in
                     trackTaskToggle(task, source: "task_list")
@@ -3571,7 +3572,7 @@ struct HomeBackdropForedropRootView: View {
         }
 
         fullBleedTaskListHeaderModule {
-            VStack(alignment: .leading, spacing: spacing.s8) {
+            VStack(alignment: .leading, spacing: 0) {
                 HStack(alignment: .firstTextBaseline, spacing: spacing.s8) {
                     Label("Due today", systemImage: "calendar.badge.clock")
                         .font(.tasker(.headline))
@@ -3587,21 +3588,20 @@ struct HomeBackdropForedropRootView: View {
                         .background(Color.tasker.surfaceSecondary)
                         .clipShape(Capsule())
                 }
+                .padding(.horizontal, spacing.s16)
+                .padding(.bottom, spacing.s8)
 
-                LazyVStack(alignment: .leading, spacing: spacing.s8) {
-                    ForEach(rows) { row in
+                LazyVStack(alignment: .leading, spacing: 0) {
+                    ForEach(Array(rows.enumerated()), id: \.element.id) { index, row in
                         dueTodayAgendaRow(row, showTypeBadge: hasHabitRows)
+
+                        if index < rows.count - 1 {
+                            HomeTaskRowDivider()
+                        }
                     }
                 }
             }
-            .padding(.horizontal, spacing.s16)
             .padding(.vertical, spacing.s12)
-            .background(Color.tasker.surfaceSecondary.opacity(0.45))
-            .overlay(
-                RoundedRectangle(cornerRadius: corner.r3)
-                    .stroke(Color.tasker.strokeHairline.opacity(0.55), lineWidth: 1)
-            )
-            .clipShape(RoundedRectangle(cornerRadius: corner.r3))
             .accessibilityElement(children: .contain)
             .accessibilityIdentifier("home.dueTodayAgenda.section")
         }
@@ -3619,6 +3619,8 @@ struct HomeBackdropForedropRootView: View {
                 todayXPSoFar: tasksSnapshot.todayXPSoFar,
                 isGamificationV2Enabled: V2FeatureFlags.gamificationV2Enabled,
                 isTaskDragEnabled: false,
+                metadataPolicy: .homeUnifiedList,
+                chromeStyle: .flatHomeList,
                 onTap: { onTaskTap(task) },
                 onToggleComplete: {
                     trackTaskToggle(task, source: "due_today_agenda")
