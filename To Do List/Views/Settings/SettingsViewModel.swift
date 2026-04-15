@@ -16,6 +16,12 @@ final class SettingsViewModel: ObservableObject {
     @Published var currentModelDisplayName: String
     @Published var decorativeButtonEffectsEnabled: Bool
     @Published var homeBackdropNoiseAmount: Int
+    @Published var calendarAuthorizationStatus: TaskerCalendarAuthorizationStatus = .notDetermined
+    @Published var selectedCalendarIDs: [String] = []
+    @Published var availableCalendarCount: Int = 0
+    @Published var includeDeclinedCalendarEvents: Bool = false
+    @Published var includeAllDayInAgenda: Bool = true
+    @Published var includeAllDayInBusyStrip: Bool = false
 
     // MARK: - Navigation callbacks (set by SettingsPageViewController)
 
@@ -25,13 +31,16 @@ final class SettingsViewModel: ObservableObject {
     var onNavigateToChats: (() -> Void)?
     var onNavigateToModels: (() -> Void)?
     var onRestartOnboarding: (() -> Void)?
+    var onOpenCalendarChooser: (() -> Void)?
     var onDismiss: (() -> Void)?
 
     // MARK: - Dependencies
 
     private let notificationPreferencesStore: TaskerNotificationPreferencesStore
     private let workspacePreferencesStore: TaskerWorkspacePreferencesStore
+    private let calendarIntegrationService: CalendarIntegrationService?
     private let appManager: AppManager
+    private var cancellables: Set<AnyCancellable> = []
     private var hasCustomizedAppearance: Bool {
         decorativeButtonEffectsEnabled || homeBackdropNoiseAmount != V2FeatureFlags.defaultHomeBackdropNoiseAmount
     }
@@ -205,21 +214,79 @@ final class SettingsViewModel: ObservableObject {
         workspacePreferences.weekStartsOn.displayTitle
     }
 
+    var calendarStatusSummary: String {
+        if calendarAuthorizationStatus.isAuthorizedForRead == false {
+            return "Permission required"
+        }
+        if selectedCalendarIDs.isEmpty {
+            return "No calendars selected"
+        }
+        return "\(selectedCalendarIDs.count) selected"
+    }
+
+    var calendarStatusDetail: String {
+        "Read-only schedule context for Home and task fit hints."
+    }
+
+    var calendarAccessStatusLabel: String {
+        switch calendarAuthorizationStatus {
+        case .authorized:
+            return "Connected"
+        case .notDetermined:
+            return "Not requested"
+        case .denied:
+            return "Denied"
+        case .restricted:
+            return "Restricted"
+        case .writeOnly:
+            return "Write-only"
+        }
+    }
+
+    var calendarAccessSubtitle: String {
+        switch calendarAuthorizationStatus {
+        case .authorized:
+            return "Tasker can read your selected calendars."
+        case .notDetermined:
+            return "Grant access to show schedule context in Home."
+        case .denied:
+            return "Calendar access is off. Open Settings to re-enable it."
+        case .restricted:
+            return "Calendar access is restricted by system policy."
+        case .writeOnly:
+            return "Read access is required for schedule insights."
+        }
+    }
+
+    var calendarAccessTone: TaskerSettingsTone {
+        switch calendarAuthorizationStatus {
+        case .authorized:
+            return .success
+        case .notDetermined, .writeOnly:
+            return .warning
+        case .denied, .restricted:
+            return .danger
+        }
+    }
+
     // MARK: - Init
 
     init(
         appManager: AppManager = AppManager(),
         notificationPreferencesStore: TaskerNotificationPreferencesStore = .shared,
-        workspacePreferencesStore: TaskerWorkspacePreferencesStore = .shared
+        workspacePreferencesStore: TaskerWorkspacePreferencesStore = .shared,
+        calendarIntegrationService: CalendarIntegrationService? = nil
     ) {
         self.appManager = appManager
         self.notificationPreferencesStore = notificationPreferencesStore
         self.workspacePreferencesStore = workspacePreferencesStore
+        self.calendarIntegrationService = calendarIntegrationService
         self.preferences = notificationPreferencesStore.load()
         self.workspacePreferences = workspacePreferencesStore.load()
         self.currentModelDisplayName = appManager.compactModelDisplayName(appManager.currentModelName ?? "")
         self.decorativeButtonEffectsEnabled = V2FeatureFlags.userDecorativeCTAEffectsEnabled
         self.homeBackdropNoiseAmount = V2FeatureFlags.homeBackdropNoiseAmount
+        bindCalendarService()
     }
 
     // MARK: - Notification Toggles
@@ -306,6 +373,7 @@ final class SettingsViewModel: ObservableObject {
         decorativeButtonEffectsEnabled = V2FeatureFlags.userDecorativeCTAEffectsEnabled
         homeBackdropNoiseAmount = V2FeatureFlags.homeBackdropNoiseAmount
         refreshPermissionStatus()
+        refreshCalendarState()
     }
 
     func restartOnboarding() {
@@ -316,6 +384,77 @@ final class SettingsViewModel: ObservableObject {
     private func saveAndReconcile() {
         notificationPreferencesStore.save(preferences)
         reconcileNotifications(reason: "settings_changed")
+    }
+
+    func requestCalendarPermission() {
+        TaskerFeedback.medium()
+        switch calendarAuthorizationStatus {
+        case .denied:
+            guard let url = URL(string: UIApplication.openSettingsURLString),
+                  UIApplication.shared.canOpenURL(url) else { return }
+            UIApplication.shared.open(url)
+        case .restricted:
+            break
+        default:
+            calendarIntegrationService?.requestAccess()
+        }
+    }
+
+    func openCalendarChooser() {
+        guard calendarAuthorizationStatus.isAuthorizedForRead else {
+            requestCalendarPermission()
+            return
+        }
+        onOpenCalendarChooser?()
+    }
+
+    func setIncludeDeclinedCalendarEvents(_ include: Bool) {
+        includeDeclinedCalendarEvents = include
+        calendarIntegrationService?.setIncludeDeclined(include)
+    }
+
+    func setIncludeAllDayInAgenda(_ include: Bool) {
+        includeAllDayInAgenda = include
+        calendarIntegrationService?.setIncludeAllDayInAgenda(include)
+    }
+
+    func setIncludeAllDayInBusyStrip(_ include: Bool) {
+        includeAllDayInBusyStrip = include
+        calendarIntegrationService?.setIncludeAllDayInBusyStrip(include)
+    }
+
+    private func bindCalendarService() {
+        calendarIntegrationService?.$snapshot
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] snapshot in
+                guard let self else { return }
+                self.calendarAuthorizationStatus = snapshot.authorizationStatus
+                self.selectedCalendarIDs = snapshot.selectedCalendarIDs
+                self.availableCalendarCount = snapshot.availableCalendars.count
+                self.includeDeclinedCalendarEvents = snapshot.includeDeclined
+                self.includeAllDayInAgenda = snapshot.includeAllDayInAgenda
+                self.includeAllDayInBusyStrip = snapshot.includeAllDayInBusyStrip
+            }
+            .store(in: &cancellables)
+    }
+
+    private func refreshCalendarState() {
+        guard let calendarIntegrationService else {
+            calendarAuthorizationStatus = .denied
+            selectedCalendarIDs = []
+            availableCalendarCount = 0
+            includeDeclinedCalendarEvents = false
+            includeAllDayInAgenda = true
+            includeAllDayInBusyStrip = false
+            return
+        }
+        let snapshot = calendarIntegrationService.snapshot
+        calendarAuthorizationStatus = snapshot.authorizationStatus
+        selectedCalendarIDs = snapshot.selectedCalendarIDs
+        availableCalendarCount = snapshot.availableCalendars.count
+        includeDeclinedCalendarEvents = snapshot.includeDeclined
+        includeAllDayInAgenda = snapshot.includeAllDayInAgenda
+        includeAllDayInBusyStrip = snapshot.includeAllDayInBusyStrip
     }
 
     private func reconcileNotifications(reason: String) {

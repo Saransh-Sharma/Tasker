@@ -1972,6 +1972,7 @@ struct HomeBackdropForedropRootView: View {
     @ObservedObject var chromeStore: HomeChromeStore
     @ObservedObject var tasksStore: HomeTasksStore
     @ObservedObject var habitsStore: HomeHabitsStore
+    @ObservedObject var calendarStore: HomeCalendarStore
     @ObservedObject var overlayStore: HomeOverlayStore
     @ObservedObject var faceCoordinator: HomeFaceCoordinator
     @ObservedObject var searchState: HomeSearchState
@@ -2003,6 +2004,9 @@ struct HomeBackdropForedropRootView: View {
     let onReturnToTasks: (String) -> Void
     let onTaskListScrollChromeStateChange: (HomeScrollChromeState) -> Void
     let onStartFocus: (TaskDefinition) -> Void
+    let onRequestCalendarPermission: () -> Void
+    let onOpenCalendarChooser: () -> Void
+    let onOpenCalendarSchedule: () -> Void
 
     @State private var showAdvancedFilters = false
     @State private var showDatePicker = false
@@ -2062,6 +2066,7 @@ struct HomeBackdropForedropRootView: View {
     private var chromeSnapshot: HomeChromeSnapshot { chromeStore.snapshot }
     private var tasksSnapshot: HomeTasksSnapshot { tasksStore.snapshot }
     private var habitsSnapshot: HomeHabitsSnapshot { habitsStore.snapshot }
+    private var calendarSnapshot: HomeCalendarSnapshot { calendarStore.snapshot }
     private var overlaySnapshot: HomeOverlaySnapshot { overlayStore.snapshot }
     private var activeFace: HomeForedropFace { faceCoordinator.activeFace }
     private var shellPhase: HomeShellPhase { faceCoordinator.shellPhase }
@@ -3315,6 +3320,7 @@ struct HomeBackdropForedropRootView: View {
                         if habitsSnapshot.quietTrackingSummaryState.isVisible {
                             passiveTrackingRail
                         }
+                        calendarScheduleModuleCard
                         focusStrip
                     }
                 }
@@ -3325,6 +3331,194 @@ struct HomeBackdropForedropRootView: View {
                     .padding(.top, spacing.s8)
                     .modifier(HomeStaggerModifier(isEnabled: shellPhase == .interactive, index: 3))
             }
+        }
+    }
+
+    private var calendarScheduleModuleCard: some View {
+        VStack(alignment: .leading, spacing: spacing.s8) {
+            HStack(spacing: spacing.s8) {
+                Label("Schedule", systemImage: "calendar.badge.clock")
+                    .font(.tasker(.headline))
+                    .foregroundStyle(Color.tasker.textPrimary)
+                    .accessibilityIdentifier("home.calendar.header")
+
+                Spacer(minLength: 0)
+
+                if calendarSnapshot.isLoading {
+                    ProgressView()
+                        .controlSize(.small)
+                        .accessibilityIdentifier("home.calendar.loading")
+                }
+
+                Button {
+                    onOpenCalendarChooser()
+                } label: {
+                    Image(systemName: "slider.horizontal.3")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundStyle(Color.tasker.textSecondary)
+                }
+                .buttonStyle(.plain)
+                .accessibilityIdentifier("home.calendar.filters")
+                .accessibilityLabel("Select calendars")
+            }
+
+            calendarModuleBody
+
+            HStack(spacing: spacing.s8) {
+                Button {
+                    onOpenCalendarSchedule()
+                } label: {
+                    Label("Open Schedule", systemImage: "list.bullet")
+                        .font(.tasker(.buttonSmall))
+                        .foregroundStyle(Color.tasker.textPrimary)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, spacing.s8)
+                        .background(
+                            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                                .fill(Color.tasker.surfaceSecondary)
+                        )
+                }
+                .buttonStyle(.plain)
+                .accessibilityIdentifier("home.calendar.openSchedule")
+
+                if calendarSnapshot.moduleState == .permissionRequired {
+                    Button {
+                        onRequestCalendarPermission()
+                    } label: {
+                        Text("Connect")
+                            .font(.tasker(.buttonSmall))
+                            .foregroundStyle(Color.tasker.accentOnPrimary)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, spacing.s8)
+                            .background(
+                                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                                    .fill(Color.tasker.accentPrimary)
+                            )
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityIdentifier("home.calendar.connect")
+                }
+            }
+        }
+        .padding(.horizontal, spacing.s16)
+        .padding(.vertical, spacing.s12)
+        .background(
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .fill(Color.tasker.surfacePrimary)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .stroke(Color.tasker.strokeHairline.opacity(0.72), lineWidth: 1)
+        )
+        .padding(.horizontal, spacing.s16)
+        .accessibilityIdentifier("home.calendar.card")
+    }
+
+    @ViewBuilder
+    private var calendarModuleBody: some View {
+        switch calendarSnapshot.moduleState {
+        case .permissionRequired:
+            Text("Connect Calendar to surface next meetings and free windows.")
+                .font(.tasker(.callout))
+                .foregroundStyle(Color.tasker.textSecondary)
+                .accessibilityIdentifier("home.calendar.state.permission")
+        case .noCalendarsSelected:
+            Text("No calendars selected. Choose at least one calendar.")
+                .font(.tasker(.callout))
+                .foregroundStyle(Color.tasker.textSecondary)
+                .accessibilityIdentifier("home.calendar.state.noCalendars")
+        case .empty:
+            Text("You have a clear day. Use this time for deep work.")
+                .font(.tasker(.callout))
+                .foregroundStyle(Color.tasker.textSecondary)
+                .accessibilityIdentifier("home.calendar.state.empty")
+        case .error(let message):
+            Text(message)
+                .font(.tasker(.callout))
+                .foregroundStyle(Color.tasker.statusWarning)
+                .accessibilityIdentifier("home.calendar.state.error")
+        case .active:
+            VStack(alignment: .leading, spacing: spacing.s8) {
+                if let nextMeeting = calendarSnapshot.nextMeeting {
+                    Text(calendarPrimaryLine(for: nextMeeting))
+                        .font(.tasker(.bodyStrong))
+                        .foregroundStyle(Color.tasker.textPrimary)
+                        .lineLimit(2)
+                        .accessibilityIdentifier("home.calendar.nextMeeting")
+
+                    Text(calendarSecondaryLine(for: nextMeeting))
+                        .font(.tasker(.caption1))
+                        .foregroundStyle(Color.tasker.textSecondary)
+                        .lineLimit(2)
+                } else {
+                    Text("No upcoming meetings")
+                        .font(.tasker(.bodyStrong))
+                        .foregroundStyle(Color.tasker.textPrimary)
+                }
+
+                if let freeUntil = calendarSnapshot.freeUntil {
+                    Text("Free until \(freeUntil.formatted(date: .omitted, time: .shortened))")
+                        .font(.tasker(.caption1))
+                        .foregroundStyle(Color.tasker.textSecondary)
+                        .accessibilityIdentifier("home.calendar.freeUntil")
+                }
+
+                calendarBusyStrip
+            }
+            .accessibilityIdentifier("home.calendar.state.active")
+        }
+    }
+
+    private var calendarBusyStrip: some View {
+        GeometryReader { proxy in
+            let segments = calendarBusySegments(width: proxy.size.width)
+            ZStack(alignment: .leading) {
+                RoundedRectangle(cornerRadius: 6, style: .continuous)
+                    .fill(Color.tasker.surfaceSecondary)
+                ForEach(Array(segments.enumerated()), id: \.offset) { _, segment in
+                    RoundedRectangle(cornerRadius: 6, style: .continuous)
+                        .fill(Color.tasker.statusWarning.opacity(0.9))
+                        .frame(width: segment.width, height: 8)
+                        .offset(x: segment.x)
+                }
+            }
+        }
+        .frame(height: 8)
+        .accessibilityIdentifier("home.calendar.busyStrip")
+    }
+
+    private func calendarPrimaryLine(for nextMeeting: TaskerNextMeetingSummary) -> String {
+        if nextMeeting.isInProgress {
+            return "Currently busy · \(nextMeeting.event.title)"
+        }
+        return "Next: \(nextMeeting.event.title)"
+    }
+
+    private func calendarSecondaryLine(for nextMeeting: TaskerNextMeetingSummary) -> String {
+        let start = nextMeeting.event.startDate.formatted(date: .omitted, time: .shortened)
+        let end = nextMeeting.event.endDate.formatted(date: .omitted, time: .shortened)
+        if let location = nextMeeting.event.location, location.isEmpty == false {
+            return "\(start)-\(end) • \(location)"
+        }
+        return "\(start)-\(end)"
+    }
+
+    private func calendarBusySegments(width: CGFloat) -> [(x: CGFloat, width: CGFloat)] {
+        guard width > 0 else { return [] }
+        let horizonStart = Date()
+        let horizonEnd = Calendar.current.date(byAdding: .hour, value: 12, to: horizonStart) ?? horizonStart
+        let horizonDuration = max(1, horizonEnd.timeIntervalSince(horizonStart))
+
+        return calendarSnapshot.busyBlocks.compactMap { block -> (x: CGFloat, width: CGFloat)? in
+            let start = max(horizonStart, block.startDate)
+            let end = min(horizonEnd, block.endDate)
+            guard end > start else { return nil }
+
+            let startRatio = start.timeIntervalSince(horizonStart) / horizonDuration
+            let endRatio = end.timeIntervalSince(horizonStart) / horizonDuration
+            let x = CGFloat(startRatio) * width
+            let segmentWidth = max(2, CGFloat(endRatio - startRatio) * width)
+            return (x: x, width: segmentWidth)
         }
     }
 
@@ -4988,8 +5182,31 @@ struct HomeiPadSettingsContainer: View {
     let onNavigateToChats: () -> Void
     let onNavigateToModels: () -> Void
     let onRestartOnboarding: () -> Void
+    let onOpenCalendarChooser: () -> Void
 
-    @StateObject private var viewModel = SettingsViewModel()
+    @StateObject private var viewModel: SettingsViewModel
+
+    init(
+        onNavigateToProjects: @escaping () -> Void,
+        onNavigateToLifeManagement: @escaping () -> Void,
+        onNavigateToChats: @escaping () -> Void,
+        onNavigateToModels: @escaping () -> Void,
+        onRestartOnboarding: @escaping () -> Void,
+        calendarIntegrationService: CalendarIntegrationService?,
+        onOpenCalendarChooser: @escaping () -> Void
+    ) {
+        self.onNavigateToProjects = onNavigateToProjects
+        self.onNavigateToLifeManagement = onNavigateToLifeManagement
+        self.onNavigateToChats = onNavigateToChats
+        self.onNavigateToModels = onNavigateToModels
+        self.onRestartOnboarding = onRestartOnboarding
+        self.onOpenCalendarChooser = onOpenCalendarChooser
+        _viewModel = StateObject(
+            wrappedValue: SettingsViewModel(
+                calendarIntegrationService: calendarIntegrationService
+            )
+        )
+    }
 
     var body: some View {
         NavigationStack {
@@ -5000,6 +5217,7 @@ struct HomeiPadSettingsContainer: View {
                     viewModel.onNavigateToChats = onNavigateToChats
                     viewModel.onNavigateToModels = onNavigateToModels
                     viewModel.onRestartOnboarding = onRestartOnboarding
+                    viewModel.onOpenCalendarChooser = onOpenCalendarChooser
                 }
         }
         .accessibilityIdentifier("home.ipad.detail.settings")
