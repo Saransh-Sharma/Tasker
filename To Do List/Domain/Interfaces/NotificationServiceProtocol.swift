@@ -444,9 +444,49 @@ public struct TaskerNotificationPreferences: Codable, Equatable {
 
 public struct TaskerWorkspacePreferences: Codable, Equatable {
     public var weekStartsOn: Weekday
+    public var selectedCalendarIDs: [String]
+    public var includeDeclinedCalendarEvents: Bool
+    public var includeAllDayInAgenda: Bool
+    public var includeAllDayInBusyStrip: Bool
 
-    public init(weekStartsOn: Weekday = .monday) {
+    public init(
+        weekStartsOn: Weekday = .monday,
+        selectedCalendarIDs: [String] = [],
+        includeDeclinedCalendarEvents: Bool = false,
+        includeAllDayInAgenda: Bool = true,
+        includeAllDayInBusyStrip: Bool = false
+    ) {
         self.weekStartsOn = weekStartsOn
+        self.selectedCalendarIDs = selectedCalendarIDs
+        self.includeDeclinedCalendarEvents = includeDeclinedCalendarEvents
+        self.includeAllDayInAgenda = includeAllDayInAgenda
+        self.includeAllDayInBusyStrip = includeAllDayInBusyStrip
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case weekStartsOn
+        case selectedCalendarIDs
+        case includeDeclinedCalendarEvents
+        case includeAllDayInAgenda
+        case includeAllDayInBusyStrip
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        weekStartsOn = try container.decodeIfPresent(Weekday.self, forKey: .weekStartsOn) ?? .monday
+        selectedCalendarIDs = try container.decodeIfPresent([String].self, forKey: .selectedCalendarIDs) ?? []
+        includeDeclinedCalendarEvents = try container.decodeIfPresent(Bool.self, forKey: .includeDeclinedCalendarEvents) ?? false
+        includeAllDayInAgenda = try container.decodeIfPresent(Bool.self, forKey: .includeAllDayInAgenda) ?? true
+        includeAllDayInBusyStrip = try container.decodeIfPresent(Bool.self, forKey: .includeAllDayInBusyStrip) ?? false
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(weekStartsOn, forKey: .weekStartsOn)
+        try container.encode(selectedCalendarIDs, forKey: .selectedCalendarIDs)
+        try container.encode(includeDeclinedCalendarEvents, forKey: .includeDeclinedCalendarEvents)
+        try container.encode(includeAllDayInAgenda, forKey: .includeAllDayInAgenda)
+        try container.encode(includeAllDayInBusyStrip, forKey: .includeAllDayInBusyStrip)
     }
 }
 
