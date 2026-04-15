@@ -95,6 +95,7 @@ public final class TaskDetailViewModel: ObservableObject {
     public typealias CreateTaskHandler = (CreateTaskDefinitionRequest, @escaping (Result<TaskDefinition, Error>) -> Void) -> Void
     public typealias CreateTagHandler = (String, @escaping (Result<TagDefinition, Error>) -> Void) -> Void
     public typealias CreateProjectHandler = (String, @escaping (Result<Project, Error>) -> Void) -> Void
+    public typealias TaskFitHintHandler = (TaskDefinition, @escaping (TaskerTaskFitHintResult) -> Void) -> Void
 
     @Published public private(set) var persistedTask: TaskDefinition
     @Published public private(set) var projects: [Project]
@@ -138,6 +139,8 @@ public final class TaskDetailViewModel: ObservableObject {
     @Published public private(set) var aiBreakdownSteps: [String] = []
     @Published public private(set) var aiBreakdownRouteBanner: String?
     @Published public private(set) var isGeneratingAIBreakdown = false
+    @Published public private(set) var taskFitHint: TaskerTaskFitHintResult = .unknown
+    @Published public private(set) var isLoadingTaskFitHint = false
 
     private let onUpdate: UpdateHandler
     private let onSetCompletion: CompletionHandler
@@ -149,6 +152,7 @@ public final class TaskDetailViewModel: ObservableObject {
     private let onCreateTask: CreateTaskHandler
     private let onCreateTag: CreateTagHandler
     private let onCreateProject: CreateProjectHandler
+    private let onLoadTaskFitHint: TaskFitHintHandler
 
     private var autosaveWorkItem: DispatchWorkItem?
     private var isSaving = false
@@ -179,7 +183,10 @@ public final class TaskDetailViewModel: ObservableObject {
         onLoadChildren: @escaping ChildrenHandler,
         onCreateTask: @escaping CreateTaskHandler,
         onCreateTag: @escaping CreateTagHandler,
-        onCreateProject: @escaping CreateProjectHandler
+        onCreateProject: @escaping CreateProjectHandler,
+        onLoadTaskFitHint: @escaping TaskFitHintHandler = { _, completion in
+            completion(.unknown)
+        }
     ) {
         self.persistedTask = task
         self.projects = projects
@@ -220,6 +227,7 @@ public final class TaskDetailViewModel: ObservableObject {
         self.onCreateTask = onCreateTask
         self.onCreateTag = onCreateTag
         self.onCreateProject = onCreateProject
+        self.onLoadTaskFitHint = onLoadTaskFitHint
     }
 
     deinit {
@@ -331,7 +339,20 @@ public final class TaskDetailViewModel: ObservableObject {
             }
             guard let self, Task.isCancelled == false else { return }
             self.refreshRelationshipMetadata()
+            self.refreshTaskFitHint()
             self.pendingSecondaryEnrichmentTask = nil
+        }
+    }
+
+    public func refreshTaskFitHint() {
+        let draftTask = makeTaskDraftForFitHint()
+        isLoadingTaskFitHint = true
+        onLoadTaskFitHint(draftTask) { [weak self] hint in
+            DispatchQueue.main.async {
+                guard let self else { return }
+                self.isLoadingTaskFitHint = false
+                self.taskFitHint = hint
+            }
         }
     }
 
@@ -1116,10 +1137,19 @@ public final class TaskDetailViewModel: ObservableObject {
         estimatedDuration = updatedTask.estimatedDuration
         repeatPattern = updatedTask.repeatPattern
         refreshDisplayProjectName()
+        refreshTaskFitHint()
 
         DispatchQueue.main.async {
             self.suppressAutosave = false
         }
+    }
+
+    private func makeTaskDraftForFitHint() -> TaskDefinition {
+        var draft = persistedTask
+        draft.dueDate = dueDate
+        draft.estimatedDuration = estimatedDuration
+        draft.updatedAt = Date()
+        return draft
     }
 
     /// Executes dedupeProjects.

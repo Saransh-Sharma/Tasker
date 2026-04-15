@@ -36,6 +36,7 @@ public final class UseCaseCoordinator {
         public let assistantActionRepository: AssistantActionRepositoryProtocol
         public let externalSyncRepository: ExternalSyncRepositoryProtocol
         public let remindersProvider: AppleRemindersProviderProtocol?
+        public let calendarEventsProvider: CalendarEventsProviderProtocol?
 
         /// Initializes a new instance.
         public init(
@@ -62,7 +63,8 @@ public final class UseCaseCoordinator {
             gamificationRepository: GamificationRepositoryProtocol,
             assistantActionRepository: AssistantActionRepositoryProtocol,
             externalSyncRepository: ExternalSyncRepositoryProtocol,
-            remindersProvider: AppleRemindersProviderProtocol? = nil
+            remindersProvider: AppleRemindersProviderProtocol? = nil,
+            calendarEventsProvider: CalendarEventsProviderProtocol? = nil
         ) {
             self.projectRepository = projectRepository
             self.lifeAreaRepository = lifeAreaRepository
@@ -88,6 +90,7 @@ public final class UseCaseCoordinator {
             self.assistantActionRepository = assistantActionRepository
             self.externalSyncRepository = externalSyncRepository
             self.remindersProvider = remindersProvider
+            self.calendarEventsProvider = calendarEventsProvider
         }
     }
 
@@ -157,6 +160,7 @@ public final class UseCaseCoordinator {
     public let assistantActionPipeline: AssistantActionPipelineUseCase
     public let linkExternalReminders: LinkExternalRemindersUseCase
     public let reconcileExternalReminders: ReconcileExternalRemindersUseCase
+    public let calendarIntegrationService: CalendarIntegrationService
 
     // MARK: - Dependencies
 
@@ -197,6 +201,9 @@ public final class UseCaseCoordinator {
         self.reflectionNoteRepository = v2Dependencies.reflectionNoteRepository
         self.taskReadModelRepository = taskReadModelRepository
         self.cacheService = cacheService
+        self.calendarIntegrationService = CalendarIntegrationService(
+            provider: v2Dependencies.calendarEventsProvider
+        )
 
         // Query-centric use cases
         self.getTasks = GetTasksUseCase(

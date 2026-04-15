@@ -65,7 +65,11 @@ class SettingsPageViewController: UIViewController, PresentationDependencyContai
     // MARK: - SwiftUI Hosting
 
     private func setupSwiftUIHost() {
-        let viewModel = SettingsViewModel(appManager: appManager)
+        let calendarService = presentationDependencyContainer?.coordinator.calendarIntegrationService
+        let viewModel = SettingsViewModel(
+            appManager: appManager,
+            calendarIntegrationService: calendarService
+        )
 
         viewModel.onNavigateToLifeManagement = { [weak self] in
             self?.navigateToLifeManagement()
@@ -86,6 +90,9 @@ class SettingsPageViewController: UIViewController, PresentationDependencyContai
             self?.dismiss(animated: true) {
                 NotificationCenter.default.post(name: .taskerStartOnboardingRequested, object: nil)
             }
+        }
+        viewModel.onOpenCalendarChooser = { [weak self] in
+            self?.presentCalendarChooser()
         }
         viewModel.onDismiss = { [weak self] in
             self?.doneTapped()
@@ -187,6 +194,25 @@ class SettingsPageViewController: UIViewController, PresentationDependencyContai
         let controller = UIHostingController(rootView: view)
         controller.title = "Life Management"
         navigationController?.pushViewController(controller, animated: true)
+    }
+
+    private func presentCalendarChooser() {
+        guard let service = presentationDependencyContainer?.coordinator.calendarIntegrationService else { return }
+        let chooser = EventKitCalendarChooserSheet(
+            initialSelectedCalendarIDs: service.snapshot.selectedCalendarIDs,
+            onCancel: {},
+            onCommit: { selectedIDs in
+                service.updateSelectedCalendarIDs(selectedIDs)
+            }
+        )
+        let host = UIHostingController(rootView: AnyView(chooser.taskerLayoutClass(currentLayoutClass)))
+        host.modalPresentationStyle = .pageSheet
+        if let sheet = host.sheetPresentationController {
+            sheet.detents = [.medium(), .large()]
+            sheet.prefersGrabberVisible = true
+            sheet.prefersScrollingExpandsWhenScrolledToEdge = false
+        }
+        present(host, animated: true)
     }
 
     // MARK: - Theme

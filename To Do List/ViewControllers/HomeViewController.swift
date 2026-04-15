@@ -64,18 +64,35 @@ struct HomeLayoutMetrics: Equatable {
 
 typealias HomeChromeState = HomeChromeSnapshot
 typealias HomeTasksState = HomeTasksSnapshot
+typealias HomeCalendarState = HomeCalendarSnapshot
 typealias HomeOverlayState = HomeOverlaySnapshot
 
 struct HomeRenderTransaction: Equatable {
     let chrome: HomeChromeState
     let tasks: HomeTasksState
     let habits: HomeHabitsSnapshot
+    let calendar: HomeCalendarState
     let overlay: HomeOverlayState
+
+    init(
+        chrome: HomeChromeState,
+        tasks: HomeTasksState,
+        habits: HomeHabitsSnapshot,
+        calendar: HomeCalendarState = .empty,
+        overlay: HomeOverlayState
+    ) {
+        self.chrome = chrome
+        self.tasks = tasks
+        self.habits = habits
+        self.calendar = calendar
+        self.overlay = overlay
+    }
 
     static let empty = HomeRenderTransaction(
         chrome: .empty,
         tasks: .empty,
         habits: .empty,
+        calendar: .empty,
         overlay: .empty
     )
 
@@ -88,6 +105,9 @@ struct HomeRenderTransaction: Equatable {
             count += 1
         }
         if habits != previous.habits {
+            count += 1
+        }
+        if calendar != previous.calendar {
             count += 1
         }
         if overlay != previous.overlay {
@@ -251,6 +271,40 @@ struct HomeHabitsSnapshot: Equatable {
     )
 }
 
+enum HomeCalendarModuleState: Equatable {
+    case permissionRequired
+    case noCalendarsSelected
+    case empty
+    case error(message: String)
+    case active
+}
+
+struct HomeCalendarSnapshot: Equatable {
+    let moduleState: HomeCalendarModuleState
+    let authorizationStatus: TaskerCalendarAuthorizationStatus
+    let selectedCalendarCount: Int
+    let availableCalendarCount: Int
+    let nextMeeting: TaskerNextMeetingSummary?
+    let busyBlocks: [TaskerCalendarBusyBlock]
+    let freeUntil: Date?
+    let eventsTodayCount: Int
+    let isLoading: Bool
+    let errorMessage: String?
+
+    static let empty = HomeCalendarSnapshot(
+        moduleState: .permissionRequired,
+        authorizationStatus: .notDetermined,
+        selectedCalendarCount: 0,
+        availableCalendarCount: 0,
+        nextMeeting: nil,
+        busyBlocks: [],
+        freeUntil: nil,
+        eventsTodayCount: 0,
+        isLoading: false,
+        errorMessage: nil
+    )
+}
+
 struct HomeOverlaySnapshot: Equatable {
     let guidanceState: HomeOnboardingGuidanceModel.State?
     let focusWhyPresented: Bool
@@ -328,6 +382,16 @@ final class HomeOverlayStore: ObservableObject {
     @Published private(set) var snapshot: HomeOverlaySnapshot = .empty
 
     func apply(_ snapshot: HomeOverlaySnapshot) {
+        guard self.snapshot != snapshot else { return }
+        self.snapshot = snapshot
+    }
+}
+
+@MainActor
+final class HomeCalendarStore: ObservableObject {
+    @Published private(set) var snapshot: HomeCalendarSnapshot = .empty
+
+    func apply(_ snapshot: HomeCalendarSnapshot) {
         guard self.snapshot != snapshot else { return }
         self.snapshot = snapshot
     }
@@ -468,6 +532,7 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
     private let chromeStore = HomeChromeStore()
     private let tasksStore = HomeTasksStore()
     private let habitsStore = HomeHabitsStore()
+    private let calendarStore = HomeCalendarStore()
     private let overlayStore = HomeOverlayStore()
     private let faceCoordinator = HomeFaceCoordinator()
 
@@ -696,6 +761,9 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
                 self.consumePendingShortcutHandoffIfNeeded()
                 self.scheduleOnboardingEvaluationIfNeeded()
                 self.viewModel?.refreshWeeklySummaryNow()
+                self.presentationDependencyContainer?.coordinator.calendarIntegrationService.refreshContext(
+                    reason: "app_did_become_active"
+                )
             }
             .store(in: &cancellables)
 
@@ -704,6 +772,9 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
             .receive(on: RunLoop.main)
             .sink { [weak self] _ in
                 self?.viewModel?.refreshWeeklySummaryNow()
+                self?.presentationDependencyContainer?.coordinator.calendarIntegrationService.refreshContext(
+                    reason: "significant_time_change"
+                )
             }
             .store(in: &cancellables)
 
@@ -1238,6 +1309,10 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
             habitsStore.apply(transaction.habits)
             TaskerPerformanceTrace.event("home.render.habitsCommitted")
         }
+        if transaction.calendar != lastAppliedHomeRenderTransaction.calendar {
+            calendarStore.apply(transaction.calendar)
+            TaskerPerformanceTrace.event("home.render.calendarCommitted")
+        }
         if transaction.overlay != lastAppliedHomeRenderTransaction.overlay {
             applyOverlayState(transaction.overlay)
         }
@@ -1415,6 +1490,7 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
             chromeStore: chromeStore,
             tasksStore: tasksStore,
             habitsStore: habitsStore,
+            calendarStore: calendarStore,
             overlayStore: overlayStore,
             faceCoordinator: faceCoordinator,
             searchState: searchState,
@@ -1491,6 +1567,15 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
             },
             onStartFocus: { [weak self] task in
                 self?.startFocusFlow(task: task, source: "focus_strip")
+            },
+            onRequestCalendarPermission: { [weak self] in
+                self?.viewModel?.requestCalendarPermission()
+            },
+            onOpenCalendarChooser: { [weak self] in
+                self?.presentCalendarChooser()
+            },
+            onOpenCalendarSchedule: { [weak self] in
+                self?.presentCalendarSchedule()
             }
         )
     }
@@ -1569,6 +1654,10 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
                 },
                 onRestartOnboarding: {
                     NotificationCenter.default.post(name: .taskerStartOnboardingRequested, object: nil)
+                },
+                calendarIntegrationService: presentationDependencyContainer?.coordinator.calendarIntegrationService,
+                onOpenCalendarChooser: { [weak self] in
+                    self?.presentCalendarChooser()
                 }
             )
             .taskerLayoutClass(layoutClass)
@@ -3018,8 +3107,54 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
                     return
                 }
                 viewModel.saveReflectionNote(note, completion: completion)
+            },
+            onLoadTaskFitHint: { [weak self] task, completion in
+                guard let self, let service = self.presentationDependencyContainer?.coordinator.calendarIntegrationService else {
+                    completion(.unknown)
+                    return
+                }
+                completion(service.taskFitHint(for: task))
             }
         )
+    }
+
+    private func presentCalendarChooser() {
+        guard let service = presentationDependencyContainer?.coordinator.calendarIntegrationService else { return }
+        let chooser = EventKitCalendarChooserSheet(
+            initialSelectedCalendarIDs: service.snapshot.selectedCalendarIDs,
+            onCancel: {},
+            onCommit: { selectedIDs in
+                service.updateSelectedCalendarIDs(selectedIDs)
+            }
+        )
+        let host = UIHostingController(rootView: AnyView(chooser))
+        host.modalPresentationStyle = UIModalPresentationStyle.pageSheet
+        if let sheet = host.sheetPresentationController {
+            let detents: [UISheetPresentationController.Detent] = [.medium(), .large()]
+            sheet.detents = detents
+            sheet.prefersGrabberVisible = true
+            sheet.prefersScrollingExpandsWhenScrolledToEdge = false
+        }
+        present(host, animated: true)
+    }
+
+    private func presentCalendarSchedule() {
+        guard let service = presentationDependencyContainer?.coordinator.calendarIntegrationService else { return }
+        let weekStartsOn = TaskerWorkspacePreferencesStore.shared.load().weekStartsOn
+        let view = CalendarScheduleView(
+            service: service,
+            weekStartsOn: weekStartsOn
+        )
+        let host = UIHostingController(rootView: AnyView(view.taskerLayoutClass(currentLayoutClass)))
+        host.modalPresentationStyle = UIModalPresentationStyle.pageSheet
+        if let sheet = host.sheetPresentationController {
+            let detents: [UISheetPresentationController.Detent] = currentLayoutClass.isPad
+                ? [.large()]
+                : [.medium(), .large()]
+            sheet.detents = detents
+            sheet.prefersGrabberVisible = true
+        }
+        present(host, animated: true)
     }
 
     private func handleFocusDeepLink() {

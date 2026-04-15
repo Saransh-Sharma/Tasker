@@ -440,6 +440,9 @@ public final class HomeViewModel: ObservableObject {
     @Published public private(set) var evaLastBatchRunID: UUID? {
         didSet { scheduleHomeRenderStateRefresh() }
     }
+    @Published private(set) var homeCalendarSnapshot: HomeCalendarSnapshot = .empty {
+        didSet { scheduleHomeRenderStateRefresh() }
+    }
 
     @Published private(set) var homeRenderTransaction: HomeRenderTransaction = .empty
 
@@ -477,6 +480,7 @@ public final class HomeViewModel: ObservableObject {
     private let buildHomeAgendaUseCase: BuildHomeAgendaUseCase
     private let buildHabitHomeProjectionUseCase: BuildHabitHomeProjectionUseCase
     private let resetHabitOccurrenceUseCase: ResetHabitOccurrenceUseCase
+    private let calendarIntegrationService: CalendarIntegrationService
     private let savedHomeViewRepository: SavedHomeViewRepositoryProtocol
     private let analyticsService: AnalyticsServiceProtocol?
     private let aiSuggestionService: AISuggestionService?
@@ -672,6 +676,7 @@ public final class HomeViewModel: ObservableObject {
             chrome: buildHomeChromeState(),
             tasks: buildHomeTasksState(),
             habits: buildHomeHabitsState(),
+            calendar: buildHomeCalendarState(),
             overlay: buildHomeOverlayState()
         )
         guard homeRenderTransaction != transaction else { return }
@@ -740,6 +745,10 @@ public final class HomeViewModel: ObservableObject {
             habitHomeSectionState: habitHomeSectionState,
             quietTrackingSummaryState: quietTrackingSummaryState
         )
+    }
+
+    private func buildHomeCalendarState() -> HomeCalendarSnapshot {
+        homeCalendarSnapshot
     }
 
     private func buildHomeOverlayState() -> HomeOverlayState {
@@ -818,7 +827,8 @@ public final class HomeViewModel: ObservableObject {
              \HomeViewModel.evaTriageQueueErrorMessage,
              \HomeViewModel.evaTriageQueue,
              \HomeViewModel.evaRescuePlan,
-             \HomeViewModel.evaLastBatchRunID:
+             \HomeViewModel.evaLastBatchRunID,
+             \HomeViewModel.homeCalendarSnapshot:
             return true
         default:
             return false
@@ -844,6 +854,7 @@ public final class HomeViewModel: ObservableObject {
         self.buildHomeAgendaUseCase = BuildHomeAgendaUseCase()
         self.buildHabitHomeProjectionUseCase = useCaseCoordinator.buildHabitHomeProjection
         self.resetHabitOccurrenceUseCase = useCaseCoordinator.resetHabitOccurrence
+        self.calendarIntegrationService = useCaseCoordinator.calendarIntegrationService
         self.getDailySummaryModalUseCase = GetDailySummaryModalUseCase(
             getTasksUseCase: useCaseCoordinator.getTasks,
             analyticsUseCase: useCaseCoordinator.calculateAnalytics
@@ -852,6 +863,7 @@ public final class HomeViewModel: ObservableObject {
         self.analyticsService = analyticsService
         self.aiSuggestionService = aiSuggestionService
         self.userDefaults = userDefaults
+        self.homeCalendarSnapshot = Self.buildHomeCalendarSnapshot(from: calendarIntegrationService.snapshot)
 
         setupBindings()
         loadInitialData()
@@ -891,6 +903,14 @@ public final class HomeViewModel: ObservableObject {
     public func refreshAfterWeeklyReviewCompletion() {
         refreshWeeklySummary()
         reloadCurrentModeTasks()
+    }
+
+    public func requestCalendarPermission() {
+        calendarIntegrationService.requestAccess()
+    }
+
+    public func refreshCalendarContext(reason: String = "home_manual_refresh") {
+        calendarIntegrationService.refreshContext(reason: reason)
     }
 
     /// Executes loadTodayTasks.
@@ -2784,6 +2804,13 @@ public final class HomeViewModel: ObservableObject {
 
     /// Executes setupBindings.
     private func setupBindings() {
+        calendarIntegrationService.$snapshot
+            .receive(on: RunLoop.main)
+            .sink { [weak self] snapshot in
+                self?.homeCalendarSnapshot = Self.buildHomeCalendarSnapshot(from: snapshot)
+            }
+            .store(in: &cancellables)
+
         NotificationCenter.default.publisher(for: NSNotification.Name("TaskCreated"))
             .receive(on: RunLoop.main)
             .sink { [weak self] _ in
@@ -2991,6 +3018,7 @@ public final class HomeViewModel: ObservableObject {
         loadProjects(generation: generation)
         loadLifeAreas(generation: generation)
         loadTags(generation: generation)
+        calendarIntegrationService.refreshContext(reason: "home_initial_load")
         applyFocusFilters(trackAnalytics: false, generation: generation) { [weak self] in
             TaskerMemoryDiagnostics.checkpoint(
                 event: "home_initial_load_finished",
@@ -6371,6 +6399,36 @@ public final class HomeViewModel: ObservableObject {
         formatter.timeZone = Calendar.current.timeZone
         formatter.dateFormat = "yyyyMMdd"
         return formatter.string(from: date)
+    }
+
+    private static func buildHomeCalendarSnapshot(from snapshot: TaskerCalendarSnapshot) -> HomeCalendarSnapshot {
+        let moduleState: HomeCalendarModuleState
+        if snapshot.authorizationStatus.isAuthorizedForRead == false {
+            moduleState = .permissionRequired
+        } else if let error = snapshot.errorMessage, error.isEmpty == false {
+            moduleState = .error(message: error)
+        } else if snapshot.selectedCalendarIDs.isEmpty {
+            moduleState = .noCalendarsSelected
+        } else if snapshot.eventsInRange.isEmpty {
+            moduleState = .empty
+        } else {
+            moduleState = .active
+        }
+
+        let todayCount = snapshot.eventsInRange.filter { Calendar.current.isDateInToday($0.startDate) || Calendar.current.isDateInToday($0.endDate) }.count
+
+        return HomeCalendarSnapshot(
+            moduleState: moduleState,
+            authorizationStatus: snapshot.authorizationStatus,
+            selectedCalendarCount: snapshot.selectedCalendarIDs.count,
+            availableCalendarCount: snapshot.availableCalendars.count,
+            nextMeeting: snapshot.nextMeeting,
+            busyBlocks: snapshot.busyBlocks,
+            freeUntil: snapshot.freeUntil,
+            eventsTodayCount: todayCount,
+            isLoading: snapshot.isLoading,
+            errorMessage: snapshot.errorMessage
+        )
     }
 }
 
