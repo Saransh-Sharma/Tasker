@@ -31,6 +31,8 @@ extension XCUIApplication {
         case testSeedHabitBoardWorkspace = "-TASKER_TEST_SEED_HABIT_BOARD_WORKSPACE"
         case testSeedQuietTrackingWorkspace = "-TASKER_TEST_SEED_QUIET_TRACKING_WORKSPACE"
         case testPresentHabitBoard = "-TASKER_TEST_PRESENT_HABIT_BOARD"
+        case testCalendarStub = "-TASKER_TEST_CALENDAR_STUB"
+        case testCalendarMode = "-TASKER_TEST_CALENDAR_MODE"
     }
 
     // MARK: - Convenience Launch Methods

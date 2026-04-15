@@ -421,6 +421,19 @@
 		C4B2E3D5F6A7081C /* To Do List/View/MilestoneCelebrationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B3A1F2C4D5E6F70B /* To Do List/View/MilestoneCelebrationView.swift */; };
 		C4B2E3D5F6A7081D /* To Do List/View/BadgeDetailSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = B3A1F2C4D5E6F70C /* To Do List/View/BadgeDetailSheet.swift */; };
 		C4D5E6F70891A2B3C4D5E6F8 /* TaskDetailSheetView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4D5E6F70891A2B3C4D5E6F7 /* TaskDetailSheetView.swift */; };
+		CA1A10000000000000000001 /* To Do List/Domain/Interfaces/CalendarEventsProviderProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA1A20000000000000000001 /* To Do List/Domain/Interfaces/CalendarEventsProviderProtocol.swift */; };
+		CA1A10000000000000000002 /* To Do List/Domain/Models/CalendarIntegrationModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA1A20000000000000000002 /* To Do List/Domain/Models/CalendarIntegrationModels.swift */; };
+		CA1A10000000000000000003 /* To Do List/UseCases/Calendar/CalendarComputationUseCases.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA1A20000000000000000003 /* To Do List/UseCases/Calendar/CalendarComputationUseCases.swift */; };
+		CA1A10000000000000000004 /* To Do List/State/Services/EventKitCalendarEventsProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA1A20000000000000000004 /* To Do List/State/Services/EventKitCalendarEventsProvider.swift */; };
+		CA1A10000000000000000005 /* To Do List/State/Services/CalendarIntegrationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA1A20000000000000000005 /* To Do List/State/Services/CalendarIntegrationService.swift */; };
+		CA1A10000000000000000006 /* To Do List/View/Calendar/EventKitCalendarChooserSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA1A20000000000000000006 /* To Do List/View/Calendar/EventKitCalendarChooserSheet.swift */; };
+		CA1A10000000000000000007 /* To Do List/View/Calendar/EventKitEventDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA1A20000000000000000007 /* To Do List/View/Calendar/EventKitEventDetailView.swift */; };
+		CA1A10000000000000000008 /* To Do List/View/Calendar/CalendarScheduleView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA1A20000000000000000008 /* To Do List/View/Calendar/CalendarScheduleView.swift */; };
+		CA1A10000000000000000009 /* CalendarComputationUseCasesTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA1A20000000000000000009 /* CalendarComputationUseCasesTests.swift */; };
+		CA1A1000000000000000000A /* CalendarIntegrationServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA1A2000000000000000000A /* CalendarIntegrationServiceTests.swift */; };
+		CA1A1000000000000000000B /* HomeCalendarIntegrationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA1A2000000000000000000B /* HomeCalendarIntegrationTests.swift */; };
+		CA1A1000000000000000000C /* CalendarTestSupport.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA1A2000000000000000000C /* CalendarTestSupport.swift */; };
+		CA1A1000000000000000000D /* HomeCalendarModuleUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA1A2000000000000000000D /* HomeCalendarModuleUITests.swift */; };
 		C537950FC6FD78BB996E7CA5 /* To Do List/View/HomeXPHeroView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 17DC0A5BC84D9C6C792B2AB6 /* To Do List/View/HomeXPHeroView.swift */; };
 		C5E24F11E95F5281AFA4E8DD /* UIKit+TokenAdapters.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A94E5E4F9BB3AA846B56A72 /* UIKit+TokenAdapters.swift */; };
 		C6182C050AFE59B731DAD798 /* TaskerWidgets.appex in Embed App Extensions */ = {isa = PBXBuildFile; fileRef = F9A8B91DCC93833939CAE3C6 /* TaskerWidgets.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
@@ -975,6 +988,19 @@
 		C4AF3952DBA8C2ACE185FEF0 /* To Do List/Domain/Models/DailyXPAggregateDefinition.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "To Do List/Domain/Models/DailyXPAggregateDefinition.swift"; sourceTree = SOURCE_ROOT; };
 		C4C3F70CE989FCF07417B5EE /* TaskReadModelRepositoryProtocol.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = TaskReadModelRepositoryProtocol.swift; sourceTree = "<group>"; };
 		C4D5E6F70891A2B3C4D5E6F7 /* TaskDetailSheetView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = TaskDetailSheetView.swift; sourceTree = "<group>"; };
+		CA1A20000000000000000001 /* To Do List/Domain/Interfaces/CalendarEventsProviderProtocol.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "To Do List/Domain/Interfaces/CalendarEventsProviderProtocol.swift"; sourceTree = "<group>"; };
+		CA1A20000000000000000002 /* To Do List/Domain/Models/CalendarIntegrationModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "To Do List/Domain/Models/CalendarIntegrationModels.swift"; sourceTree = "<group>"; };
+		CA1A20000000000000000003 /* To Do List/UseCases/Calendar/CalendarComputationUseCases.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "To Do List/UseCases/Calendar/CalendarComputationUseCases.swift"; sourceTree = "<group>"; };
+		CA1A20000000000000000004 /* To Do List/State/Services/EventKitCalendarEventsProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "To Do List/State/Services/EventKitCalendarEventsProvider.swift"; sourceTree = "<group>"; };
+		CA1A20000000000000000005 /* To Do List/State/Services/CalendarIntegrationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "To Do List/State/Services/CalendarIntegrationService.swift"; sourceTree = "<group>"; };
+		CA1A20000000000000000006 /* To Do List/View/Calendar/EventKitCalendarChooserSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "To Do List/View/Calendar/EventKitCalendarChooserSheet.swift"; sourceTree = "<group>"; };
+		CA1A20000000000000000007 /* To Do List/View/Calendar/EventKitEventDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "To Do List/View/Calendar/EventKitEventDetailView.swift"; sourceTree = "<group>"; };
+		CA1A20000000000000000008 /* To Do List/View/Calendar/CalendarScheduleView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "To Do List/View/Calendar/CalendarScheduleView.swift"; sourceTree = "<group>"; };
+		CA1A20000000000000000009 /* CalendarComputationUseCasesTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalendarComputationUseCasesTests.swift; sourceTree = "<group>"; };
+		CA1A2000000000000000000A /* CalendarIntegrationServiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalendarIntegrationServiceTests.swift; sourceTree = "<group>"; };
+		CA1A2000000000000000000B /* HomeCalendarIntegrationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeCalendarIntegrationTests.swift; sourceTree = "<group>"; };
+		CA1A2000000000000000000C /* CalendarTestSupport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalendarTestSupport.swift; sourceTree = "<group>"; };
+		CA1A2000000000000000000D /* HomeCalendarModuleUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeCalendarModuleUITests.swift; sourceTree = "<group>"; };
 		C5A1D20E3F4B6789ABCDEF01 /* AddTaskCreateButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddTaskCreateButton.swift; sourceTree = "<group>"; };
 		C5A1D20E3F4B6789ABCDEF02 /* AddTaskDescriptionField.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddTaskDescriptionField.swift; sourceTree = "<group>"; };
 		C5A1D20E3F4B6789ABCDEF03 /* AddTaskInlineCreator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddTaskInlineCreator.swift; sourceTree = "<group>"; };
@@ -1565,6 +1591,10 @@
 				F3A1B2C3D4E5F60718293A55 /* HomeForedropLayoutMetricsTests.swift */,
 				F4A1B2C3D4E5F60718293A56 /* HomeForedropHintEligibilityTests.swift */,
 				F6A1B2C3D4E5F60718293A57 /* HomeChromeSnapshotPresentationTests.swift */,
+				CA1A20000000000000000009 /* CalendarComputationUseCasesTests.swift */,
+				CA1A2000000000000000000A /* CalendarIntegrationServiceTests.swift */,
+				CA1A2000000000000000000B /* HomeCalendarIntegrationTests.swift */,
+				CA1A2000000000000000000C /* CalendarTestSupport.swift */,
 				A91F8E152F44420100AB11C1 /* LifeManagementFeatureTests.swift */,
 				B8E100042F70000100A0A001 /* TaskerCTABezelResolverTests.swift */,
 				753EFCB62445A24800A739E3 /* Info.plist */,
@@ -1593,6 +1623,7 @@
 				7551BCBB2EAB665F003C6916 /* SettingsUITests.swift */,
 				A1F0D0B62F5A100100ABC001 /* OnboardingUITests.swift */,
 				B7C8D9E12F6A100100ABC123 /* ChatPlanApplyUndoTests.swift */,
+				CA1A2000000000000000000D /* HomeCalendarModuleUITests.swift */,
 				7551BCCC2EAB665F003C6916 /* Tests */,
 			);
 			path = "To Do ListUITests";
@@ -2813,6 +2844,8 @@
 				75E929E32E8C782100207270 /* TaskRepeatPattern.swift in Sources */,
 				75D8274E2E8C8995000F04E1 /* UserRepositoryProtocol.swift in Sources */,
 				75D8274F2E8C8995000F04E1 /* NotificationServiceProtocol.swift in Sources */,
+				CA1A10000000000000000001 /* To Do List/Domain/Interfaces/CalendarEventsProviderProtocol.swift in Sources */,
+				CA1A10000000000000000002 /* To Do List/Domain/Models/CalendarIntegrationModels.swift in Sources */,
 				75E866D92DFF0381000470B4 /* ThemeSelectionViewController.swift in Sources */,
 				750894CC2E8D3C390037FACE /* AnalyticsRepositoryProtocol.swift in Sources */,
 				75F89F782DFC57F1009EDD8F /* LLMSettingsView.swift in Sources */,
@@ -2943,6 +2976,9 @@
 				B1A000000000000000000006 /* HomeEvaLegacySheetViews.swift in Sources */,
 				B1A000000000000000000008 /* HomeEvaTriageSprintSheetV2.swift in Sources */,
 				355015C0A77A72D864F1AC64 /* HomeForedropView.swift in Sources */,
+				CA1A10000000000000000006 /* To Do List/View/Calendar/EventKitCalendarChooserSheet.swift in Sources */,
+				CA1A10000000000000000007 /* To Do List/View/Calendar/EventKitEventDetailView.swift in Sources */,
+				CA1A10000000000000000008 /* To Do List/View/Calendar/CalendarScheduleView.swift in Sources */,
 				D2A100000000000000000004 /* To Do List/View/QuietTrackingComposerView.swift in Sources */,
 				F2A1B2C3D4E5F60718293B50 /* HomeBottomBarItem.swift in Sources */,
 				F2A1B2C3D4E5F60718293B51 /* HomeBottomBarState.swift in Sources */,
@@ -3055,6 +3091,8 @@
 				D4F200000000000000000107 /* To Do List/State/Repositories/CoreDataWeeklyRepositories.swift in Sources */,
 				30B49EE9EC93A901D247EA1F /* To Do List/State/Services/CoreSchedulingEngine.swift in Sources */,
 				A1E5C40F2F1A4B9D9C1E8A11 /* To Do List/State/Services/EventKitAppleRemindersProvider.swift in Sources */,
+				CA1A10000000000000000004 /* To Do List/State/Services/EventKitCalendarEventsProvider.swift in Sources */,
+				CA1A10000000000000000005 /* To Do List/State/Services/CalendarIntegrationService.swift in Sources */,
 				B07A5646DA7E6D9AC7739710 /* To Do List/UseCases/LifeArea/ManageLifeAreasUseCase.swift in Sources */,
 				599BA3DB81762830929CF142 /* To Do List/UseCases/Section/ManageSectionsUseCase.swift in Sources */,
 				300E318A0AD9AB7F088C497E /* To Do List/UseCases/Tag/ManageTagsUseCase.swift in Sources */,
@@ -3070,6 +3108,7 @@
 				722536ED9234849F6B954FAF /* To Do List/UseCases/Schedule/MaintainOccurrencesUseCase.swift in Sources */,
 				3EA2500F6FA7AE834A238C3A /* To Do List/UseCases/Reminder/ScheduleReminderUseCase.swift in Sources */,
 				1D79C65FEB0FF79A7D4C349D /* To Do List/UseCases/Gamification/RecordXPUseCase.swift in Sources */,
+				CA1A10000000000000000003 /* To Do List/UseCases/Calendar/CalendarComputationUseCases.swift in Sources */,
 				D4F200000000000000000108 /* To Do List/UseCases/Weekly/WeeklyOperatingUseCases.swift in Sources */,
 				C537950FC6FD78BB996E7CA5 /* To Do List/View/HomeXPHeroView.swift in Sources */,
 				511B4F3A5B402E7BCB708321 /* To Do List/Domain/Models/XPEnums.swift in Sources */,
@@ -3159,6 +3198,10 @@
 				F3A1B2C3D4E5F60718293B55 /* HomeForedropLayoutMetricsTests.swift in Sources */,
 				F4A1B2C3D4E5F60718293B56 /* HomeForedropHintEligibilityTests.swift in Sources */,
 				F6A1B2C3D4E5F60718293B57 /* HomeChromeSnapshotPresentationTests.swift in Sources */,
+				CA1A10000000000000000009 /* CalendarComputationUseCasesTests.swift in Sources */,
+				CA1A1000000000000000000A /* CalendarIntegrationServiceTests.swift in Sources */,
+				CA1A1000000000000000000B /* HomeCalendarIntegrationTests.swift in Sources */,
+				CA1A1000000000000000000C /* CalendarTestSupport.swift in Sources */,
 				A91F8E162F44420100AB11C1 /* LifeManagementFeatureTests.swift in Sources */,
 				A1F0D0B52F5A100100ABC001 /* AppOnboardingTests.swift in Sources */,
 				E0A100000000000000000301 /* EvaActivationTests.swift in Sources */,
@@ -3205,6 +3248,7 @@
 				D5E7A8BA2F3C4D5E0067A1B2 /* DailySummaryModalTests.swift in Sources */,
 				C8A4F1023D6E4B7A91C2D304 /* HabitBoardUITests.swift in Sources */,
 				D2A100000000000000000006 /* QuietTrackingUITests.swift in Sources */,
+				CA1A1000000000000000000D /* HomeCalendarModuleUITests.swift in Sources */,
 				753EFCC02445A24800A739E3 /* To_Do_ListUITests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

@@ -76,6 +76,62 @@ final class HomeChromeSnapshotPresentationTests: XCTestCase {
         XCTAssertEqual(current.changedSliceCount(comparedTo: previous), 1)
     }
 
+    func testHomeRenderTransactionCountsCalendarSliceSeparately() {
+        let previous = HomeRenderTransaction.empty
+        let current = HomeRenderTransaction(
+            chrome: previous.chrome,
+            tasks: previous.tasks,
+            habits: previous.habits,
+            calendar: HomeCalendarSnapshot(
+                moduleState: .active,
+                authorizationStatus: .authorized,
+                selectedCalendarCount: 1,
+                availableCalendarCount: 1,
+                nextMeeting: nil,
+                busyBlocks: [],
+                freeUntil: nil,
+                eventsTodayCount: 2,
+                isLoading: false,
+                errorMessage: nil
+            ),
+            overlay: previous.overlay
+        )
+
+        XCTAssertEqual(current.changedSliceCount(comparedTo: previous), 1)
+    }
+
+    func testHomeRenderTransactionEqualityIncludesCalendarSlice() {
+        let base = HomeRenderTransaction.empty
+        let lhs = HomeRenderTransaction(
+            chrome: base.chrome,
+            tasks: base.tasks,
+            habits: base.habits,
+            calendar: .empty,
+            overlay: base.overlay
+        )
+        let rhs = HomeRenderTransaction(
+            chrome: base.chrome,
+            tasks: base.tasks,
+            habits: base.habits,
+            calendar: HomeCalendarSnapshot(
+                moduleState: .permissionRequired,
+                authorizationStatus: .notDetermined,
+                selectedCalendarCount: 0,
+                availableCalendarCount: 2,
+                nextMeeting: nil,
+                busyBlocks: [],
+                freeUntil: nil,
+                eventsTodayCount: 0,
+                isLoading: false,
+                errorMessage: nil
+            ),
+            overlay: base.overlay
+        )
+
+        XCTAssertNotEqual(lhs, rhs)
+        XCTAssertEqual(rhs.changedSliceCount(comparedTo: lhs), 1)
+    }
+
     func testTodayPresentationBuildsCompressedStatusLine() {
         let today = Calendar.current.startOfDay(for: Date())
         let snapshot = HomeChromeSnapshot(

@@ -14,6 +14,7 @@ enum V3TestHarness {
         scheduleEngine: SchedulingEngineProtocol = NoopSchedulingEngine(),
         occurrenceRepository: OccurrenceRepositoryProtocol = NoopOccurrenceRepository(),
         gamificationRepository: GamificationRepositoryProtocol = NoopGamificationRepository(),
+        calendarEventsProvider: CalendarEventsProviderProtocol? = nil,
         cacheService: CacheServiceProtocol? = nil,
         notificationService: NotificationServiceProtocol? = nil
     ) -> UseCaseCoordinator {
@@ -41,7 +42,8 @@ enum V3TestHarness {
             gamificationRepository: gamificationRepository,
             assistantActionRepository: NoopAssistantActionRepository(),
             externalSyncRepository: NoopExternalSyncRepository(),
-            remindersProvider: nil
+            remindersProvider: nil,
+            calendarEventsProvider: calendarEventsProvider
         )
 
         return UseCaseCoordinator(
