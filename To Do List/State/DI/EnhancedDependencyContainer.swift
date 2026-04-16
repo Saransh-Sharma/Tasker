@@ -293,6 +293,7 @@ public final class EnhancedDependencyContainer {
     private func applyCalendarUITestWorkspaceDefaults(mode: UITestCalendarMode) {
         TaskerWorkspacePreferencesStore.shared.update { preferences in
             preferences.includeDeclinedCalendarEvents = false
+            preferences.includeCanceledCalendarEvents = false
             preferences.includeAllDayInAgenda = true
             preferences.includeAllDayInBusyStrip = false
 
