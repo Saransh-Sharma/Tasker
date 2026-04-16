@@ -7,6 +7,7 @@ public struct FilterCalendarEventsUseCase {
         events: [TaskerCalendarEventSnapshot],
         selectedCalendarIDs: Set<String>,
         includeDeclined: Bool,
+        includeCanceled: Bool,
         includeAllDayInAgenda: Bool
     ) -> [TaskerCalendarEventSnapshot] {
         events
@@ -15,6 +16,9 @@ public struct FilterCalendarEventsUseCase {
             }
             .filter { event in
                 includeDeclined || !event.isDeclined
+            }
+            .filter { event in
+                includeCanceled || !event.isCanceled
             }
             .filter { event in
                 includeAllDayInAgenda || !event.isAllDay
