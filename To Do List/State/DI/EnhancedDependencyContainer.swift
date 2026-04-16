@@ -431,6 +431,8 @@ final class UITestCalendarEventsProvider: CalendarEventsProviderProtocol {
         completion(.success(true))
     }
 
+    func resetStoreStateAfterPermissionChange() {}
+
     func fetchCalendars(completion: @escaping (Result<[TaskerCalendarSourceSnapshot], Error>) -> Void) {
         switch mode {
         case .error:

@@ -4,6 +4,7 @@ import Combine
 public protocol CalendarEventsProviderProtocol {
     func authorizationStatus() -> TaskerCalendarAuthorizationStatus
     func requestAccess(completion: @escaping (Result<Bool, Error>) -> Void)
+    func resetStoreStateAfterPermissionChange()
     func fetchCalendars(completion: @escaping (Result<[TaskerCalendarSourceSnapshot], Error>) -> Void)
     func fetchEvents(
         startDate: Date,
