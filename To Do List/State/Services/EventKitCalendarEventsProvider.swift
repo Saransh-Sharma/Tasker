@@ -7,13 +7,19 @@ import EventKit
 public final class EventKitCalendarEventsProvider: CalendarEventsProviderProtocol {
     private let store: EKEventStore
     private let center: NotificationCenter
+    private let workerQueue: DispatchQueue
 
     public init(
         store: EKEventStore = EKEventStore(),
-        center: NotificationCenter = .default
+        center: NotificationCenter = .default,
+        workerQueue: DispatchQueue = DispatchQueue(
+            label: "com.tasker.calendar.eventkit-provider",
+            qos: .userInitiated
+        )
     ) {
         self.store = store
         self.center = center
+        self.workerQueue = workerQueue
     }
 
     public func authorizationStatus() -> TaskerCalendarAuthorizationStatus {
@@ -43,6 +49,10 @@ public final class EventKitCalendarEventsProvider: CalendarEventsProviderProtoco
                 return .denied
             case .authorized:
                 return .authorized
+            case .fullAccess:
+                return .authorized
+            case .writeOnly:
+                return .writeOnly
             @unknown default:
                 return .denied
             }
@@ -69,17 +79,25 @@ public final class EventKitCalendarEventsProvider: CalendarEventsProviderProtoco
         }
     }
 
-    public func fetchCalendars(completion: @escaping (Result<[TaskerCalendarSourceSnapshot], Error>) -> Void) {
-        let calendars = store.calendars(for: .event).map { calendar in
-            TaskerCalendarSourceSnapshot(
-                id: calendar.calendarIdentifier,
-                title: calendar.title,
-                sourceTitle: calendar.source.title,
-                colorHex: calendar.cgColor.flatMap { Self.hexString(from: $0) },
-                allowsContentModifications: calendar.allowsContentModifications
-            )
+    public func resetStoreStateAfterPermissionChange() {
+        workerQueue.async { [store] in
+            store.reset()
         }
-        completion(.success(calendars))
+    }
+
+    public func fetchCalendars(completion: @escaping (Result<[TaskerCalendarSourceSnapshot], Error>) -> Void) {
+        workerQueue.async { [store] in
+            let calendars = store.calendars(for: .event).map { calendar in
+                TaskerCalendarSourceSnapshot(
+                    id: calendar.calendarIdentifier,
+                    title: calendar.title,
+                    sourceTitle: calendar.source.title,
+                    colorHex: calendar.cgColor.flatMap { Self.hexString(from: $0) },
+                    allowsContentModifications: calendar.allowsContentModifications
+                )
+            }
+            Self.deliverToMain(completion: completion, result: .success(calendars))
+        }
     }
 
     public func fetchEvents(
@@ -88,41 +106,43 @@ public final class EventKitCalendarEventsProvider: CalendarEventsProviderProtoco
         calendarIDs: Set<String>,
         completion: @escaping (Result<[TaskerCalendarEventSnapshot], Error>) -> Void
     ) {
-        let availableCalendars = store.calendars(for: .event)
-        let selectedCalendars: [EKCalendar]
-        if calendarIDs.isEmpty {
-            selectedCalendars = availableCalendars
-        } else {
-            selectedCalendars = availableCalendars.filter { calendarIDs.contains($0.calendarIdentifier) }
-        }
-
-        guard selectedCalendars.isEmpty == false else {
-            completion(.success([]))
-            return
-        }
-
-        let predicate = store.predicateForEvents(withStart: startDate, end: endDate, calendars: selectedCalendars)
-        let events = store.events(matching: predicate)
-            .map { event in
-                TaskerCalendarEventSnapshot(
-                    id: event.eventIdentifier,
-                    calendarID: event.calendar.calendarIdentifier,
-                    calendarTitle: event.calendar.title,
-                    calendarColorHex: event.calendar.cgColor.flatMap { Self.hexString(from: $0) },
-                    title: event.title,
-                    notes: event.notes,
-                    location: event.location,
-                    urlString: event.url?.absoluteString,
-                    startDate: event.startDate,
-                    endDate: event.endDate,
-                    isAllDay: event.isAllDay,
-                    availability: mapAvailability(event.availability),
-                    participationStatus: participantStatus(for: event),
-                    lastModifiedAt: event.lastModifiedDate
-                )
+        workerQueue.async { [store, self] in
+            let availableCalendars = store.calendars(for: .event)
+            let selectedCalendars: [EKCalendar]
+            if calendarIDs.isEmpty {
+                selectedCalendars = availableCalendars
+            } else {
+                selectedCalendars = availableCalendars.filter { calendarIDs.contains($0.calendarIdentifier) }
             }
 
-        completion(.success(events))
+            guard selectedCalendars.isEmpty == false else {
+                Self.deliverToMain(completion: completion, result: .success([]))
+                return
+            }
+
+            let predicate = store.predicateForEvents(withStart: startDate, end: endDate, calendars: selectedCalendars)
+            let events = store.events(matching: predicate)
+                .map { event in
+                    TaskerCalendarEventSnapshot(
+                        id: event.eventIdentifier,
+                        calendarID: event.calendar.calendarIdentifier,
+                        calendarTitle: event.calendar.title,
+                        calendarColorHex: event.calendar.cgColor.flatMap { Self.hexString(from: $0) },
+                        title: Self.sanitizedTitle(event.title),
+                        notes: event.notes,
+                        location: event.location,
+                        urlString: event.url?.absoluteString,
+                        startDate: event.startDate,
+                        endDate: event.endDate,
+                        isAllDay: event.isAllDay,
+                        availability: self.mapAvailability(event.availability),
+                        participationStatus: self.participantStatus(for: event),
+                        lastModifiedAt: event.lastModifiedDate
+                    )
+                }
+
+            Self.deliverToMain(completion: completion, result: .success(events))
+        }
     }
 
     public func storeChangedPublisher() -> AnyPublisher<Void, Never> {
@@ -179,6 +199,23 @@ public final class EventKitCalendarEventsProvider: CalendarEventsProviderProtoco
         }
     }
 
+    static func sanitizedTitle(_ title: String?) -> String {
+        guard let trimmedTitle = title?.trimmingCharacters(in: .whitespacesAndNewlines),
+              trimmedTitle.isEmpty == false else {
+            return "Untitled Event"
+        }
+        return trimmedTitle
+    }
+
+    private static func deliverToMain<T>(
+        completion: @escaping (Result<T, Error>) -> Void,
+        result: Result<T, Error>
+    ) {
+        DispatchQueue.main.async {
+            completion(result)
+        }
+    }
+
     private static func hexString(from cgColor: CGColor) -> String? {
         guard let components = cgColor.converted(to: CGColorSpaceCreateDeviceRGB(), intent: .defaultIntent, options: nil)?.components,
               components.count >= 3 else {
@@ -202,6 +239,8 @@ public final class EventKitCalendarEventsProvider: CalendarEventsProviderProtoco
     public func requestAccess(completion: @escaping (Result<Bool, Error>) -> Void) {
         completion(.success(false))
     }
+
+    public func resetStoreStateAfterPermissionChange() {}
 
     public func fetchCalendars(completion: @escaping (Result<[TaskerCalendarSourceSnapshot], Error>) -> Void) {
         completion(.success([]))
