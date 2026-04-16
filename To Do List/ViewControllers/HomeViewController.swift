@@ -281,24 +281,30 @@ enum HomeCalendarModuleState: Equatable {
 
 struct HomeCalendarSnapshot: Equatable {
     let moduleState: HomeCalendarModuleState
+    let selectedDate: Date
     let authorizationStatus: TaskerCalendarAuthorizationStatus
     let selectedCalendarCount: Int
     let availableCalendarCount: Int
     let nextMeeting: TaskerNextMeetingSummary?
     let busyBlocks: [TaskerCalendarBusyBlock]
     let freeUntil: Date?
+    let selectedDayEvents: [TaskerCalendarEventSnapshot]
+    let selectedDayTimelineEvents: [TaskerCalendarEventSnapshot]
     let eventsTodayCount: Int
     let isLoading: Bool
     let errorMessage: String?
 
     static let empty = HomeCalendarSnapshot(
         moduleState: .permissionRequired,
+        selectedDate: Date(),
         authorizationStatus: .notDetermined,
         selectedCalendarCount: 0,
         availableCalendarCount: 0,
         nextMeeting: nil,
         busyBlocks: [],
         freeUntil: nil,
+        selectedDayEvents: [],
+        selectedDayTimelineEvents: [],
         eventsTodayCount: 0,
         isLoading: false,
         errorMessage: nil
