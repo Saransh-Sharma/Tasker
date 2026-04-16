@@ -15,6 +15,7 @@ final class CalendarEventsProviderStub: CalendarEventsProviderProtocol {
 
     private(set) var fetchCalendarsCallCount = 0
     private(set) var fetchEventsCallCount = 0
+    private(set) var resetStoreCallCount = 0
     private(set) var lastRequestedStartDate: Date?
     private(set) var lastRequestedEndDate: Date?
     private(set) var lastRequestedCalendarIDs: Set<String> = []
@@ -30,6 +31,10 @@ final class CalendarEventsProviderStub: CalendarEventsProviderProtocol {
             authorizationStatusValue = nextStatus
         }
         completion(requestAccessResult)
+    }
+
+    func resetStoreStateAfterPermissionChange() {
+        resetStoreCallCount += 1
     }
 
     func fetchCalendars(completion: @escaping (Result<[TaskerCalendarSourceSnapshot], Error>) -> Void) {

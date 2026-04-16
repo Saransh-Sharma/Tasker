@@ -30,7 +30,7 @@ final class HomeCalendarIntegrationTests: XCTestCase {
         provider.authorizationStatusValue = .authorized
         provider.calendarsResult = .success([calendar(id: "work")])
         provider.eventsResult = .success([
-            event(id: "e1", start: CalendarTestClock.date(hour: 9), end: CalendarTestClock.date(hour: 10))
+            event(id: "e1", start: todayDate(hour: 9), end: todayDate(hour: 10))
         ])
 
         let coordinator = makeCoordinator(provider: provider)
@@ -43,8 +43,8 @@ final class HomeCalendarIntegrationTests: XCTestCase {
 
         let callsAfterInitialLoad = provider.fetchEventsCallCount
         provider.eventsResult = .success([
-            event(id: "e1", start: CalendarTestClock.date(hour: 9), end: CalendarTestClock.date(hour: 10)),
-            event(id: "e2", start: CalendarTestClock.date(hour: 11), end: CalendarTestClock.date(hour: 12))
+            event(id: "e1", start: todayDate(hour: 9), end: todayDate(hour: 10)),
+            event(id: "e2", start: todayDate(hour: 11), end: todayDate(hour: 12))
         ])
         viewModel.refreshCalendarContext(reason: "test_manual_refresh")
 
@@ -54,7 +54,7 @@ final class HomeCalendarIntegrationTests: XCTestCase {
 
         let callsBeforeStoreChange = provider.fetchEventsCallCount
         provider.eventsResult = .success([
-            event(id: "e3", start: CalendarTestClock.date(hour: 15), end: CalendarTestClock.date(hour: 16))
+            event(id: "e3", start: todayDate(hour: 15), end: todayDate(hour: 16))
         ])
         provider.emitStoreChanged()
 
@@ -77,8 +77,8 @@ final class HomeCalendarIntegrationTests: XCTestCase {
         provider.eventsResult = .success([
             event(
                 id: "all-day",
-                start: CalendarTestClock.date(hour: 0),
-                end: CalendarTestClock.date(hour: 23, minute: 59),
+                start: todayDate(hour: 0),
+                end: todayDate(hour: 23, minute: 59),
                 isAllDay: true
             )
         ])
@@ -114,7 +114,7 @@ final class HomeCalendarIntegrationTests: XCTestCase {
         provider.authorizationStatusValue = .authorized
         provider.calendarsResult = .success([calendar(id: "work")])
         provider.eventsResult = .success([
-            event(id: "e1", start: CalendarTestClock.date(hour: 9), end: CalendarTestClock.date(hour: 10))
+            event(id: "e1", start: todayDate(hour: 9), end: todayDate(hour: 10))
         ])
 
         let projectRepository = CalendarProjectRepositoryStub(projects: [Project.createInbox()])
@@ -195,5 +195,39 @@ final class HomeCalendarIntegrationTests: XCTestCase {
             availability: .busy,
             participationStatus: .accepted
         )
+    }
+
+    private func todayDate(hour: Int, minute: Int = 0) -> Date {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = .current
+        let startOfToday = calendar.startOfDay(for: Date())
+        return calendar.date(byAdding: .minute, value: (hour * 60) + minute, to: startOfToday) ?? startOfToday
+    }
+}
+
+final class CalendarSchedulePresentationStateTests: XCTestCase {
+    func testChooserCancelClearsPresentationState() {
+        var state = CalendarSchedulePresentationState(showChooser: true)
+
+        state.cancelChooser()
+
+        XCTAssertFalse(state.showChooser)
+    }
+
+    func testChooserCommitClearsPresentationState() {
+        var state = CalendarSchedulePresentationState(showChooser: true)
+
+        state.commitChooser()
+
+        XCTAssertFalse(state.showChooser)
+    }
+
+    func testEventDetailDismissClearsSelectedEvent() {
+        var state = CalendarSchedulePresentationState()
+        state.selectEvent(id: "event-1")
+
+        state.dismissEventDetail()
+
+        XCTAssertNil(state.selectedEvent)
     }
 }
