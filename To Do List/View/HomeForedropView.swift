@@ -3352,6 +3352,21 @@ struct HomeBackdropForedropRootView: View {
                 }
 
                 Button {
+                    handleOpenScheduleAction()
+                } label: {
+                    Label("Open Schedule", systemImage: "calendar")
+                        .labelStyle(.iconOnly)
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundStyle(Color.tasker.textSecondary)
+                        .frame(minWidth: 44, minHeight: 44)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .disabled(calendarPermissionsLocked)
+                .accessibilityIdentifier("home.calendar.openSchedule")
+                .accessibilityLabel("Open schedule")
+
+                Button {
                     handleCalendarFilterAction()
                 } label: {
                     Label("Calendar Filters", systemImage: "slider.horizontal.3")
@@ -3369,25 +3384,8 @@ struct HomeBackdropForedropRootView: View {
 
             calendarModuleBody
 
-            HStack(spacing: spacing.s8) {
-                Button {
-                    handleOpenScheduleAction()
-                } label: {
-                    Label("Open Schedule", systemImage: "list.bullet")
-                        .font(.tasker(.buttonSmall))
-                        .foregroundStyle(Color.tasker.textPrimary)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, spacing.s8)
-                        .background(
-                            RoundedRectangle(cornerRadius: 10, style: .continuous)
-                                .fill(Color.tasker.surfaceSecondary)
-                        )
-                }
-                .buttonStyle(.plain)
-                .disabled(calendarPermissionsLocked)
-                .accessibilityIdentifier("home.calendar.openSchedule")
-
-                if shouldShowCalendarPermissionCTA {
+            if shouldShowCalendarPermissionCTA {
+                HStack(spacing: spacing.s8) {
                     Button {
                         onRequestCalendarPermission()
                     } label: {
@@ -3482,8 +3480,28 @@ struct HomeBackdropForedropRootView: View {
                 }
 
                 calendarBusyStrip
+                calendarTimelinePreview
             }
             .accessibilityIdentifier("home.calendar.state.active")
+        }
+    }
+
+    @ViewBuilder
+    private var calendarTimelinePreview: some View {
+        if calendarSnapshot.selectedDayTimelineEvents.isEmpty == false {
+            Button {
+                handleOpenScheduleAction()
+            } label: {
+                HomeDayTimelinePreview(
+                    date: calendarSnapshot.selectedDate,
+                    events: calendarSnapshot.selectedDayEvents
+                )
+            }
+            .buttonStyle(.plain)
+            .accessibilityIdentifier("home.calendar.timelinePreview")
+            .accessibilityLabel(
+                "Open schedule for \(calendarSnapshot.selectedDate.formatted(.dateTime.weekday(.wide).month(.abbreviated).day()))"
+            )
         }
     }
 
@@ -3523,7 +3541,7 @@ struct HomeBackdropForedropRootView: View {
 
     private func calendarBusySegments(width: CGFloat) -> [(x: CGFloat, width: CGFloat)] {
         guard width > 0 else { return [] }
-        let horizonStart = Date()
+        let horizonStart = calendarSnapshot.selectedDate
         let horizonEnd = Calendar.current.date(byAdding: .hour, value: 12, to: horizonStart) ?? horizonStart
         let horizonDuration = max(1, horizonEnd.timeIntervalSince(horizonStart))
 
@@ -4532,6 +4550,336 @@ private struct HomeDenseSurfaceModifier: ViewModifier {
                     topTrailingRadius: cornerRadius
                 )
             )
+    }
+}
+
+struct HomeDayTimelineLayoutPlan: Equatable {
+    struct PositionedEvent: Equatable, Identifiable {
+        let event: TaskerCalendarEventSnapshot
+        let lane: Int
+        let laneCount: Int
+        let startMinute: Int
+        let endMinute: Int
+
+        var id: String { event.id }
+    }
+
+    let startHour: Int
+    let endHour: Int
+    let positionedEvents: [PositionedEvent]
+
+    var hourMarkers: [Int] {
+        Array(startHour...endHour)
+    }
+}
+
+enum HomeDayTimelineLayoutPlanner {
+    private struct ClippedEvent {
+        let event: TaskerCalendarEventSnapshot
+        let startMinute: Int
+        let endMinute: Int
+    }
+
+    static func makePlan(
+        for events: [TaskerCalendarEventSnapshot],
+        on date: Date,
+        anchorDate: Date = Date(),
+        calendar: Calendar = .current
+    ) -> HomeDayTimelineLayoutPlan? {
+        let selectedDayEvents = events
+            .filter { $0.isAllDay == false && $0.isBusy }
+            .compactMap { clip($0, to: date, calendar: calendar) }
+            .sorted { lhs, rhs in
+                if lhs.startMinute != rhs.startMinute {
+                    return lhs.startMinute < rhs.startMinute
+                }
+                return lhs.endMinute < rhs.endMinute
+            }
+
+        guard selectedDayEvents.isEmpty == false else { return nil }
+
+        let anchorHour = calendar.component(.hour, from: anchorDate)
+        var startHour = max(0, anchorHour - 1)
+        var endHour = min(23, startHour + 2)
+        if endHour - startHour < 2 {
+            startHour = max(0, endHour - 2)
+        }
+        let visibleStartMinute = startHour * 60
+        let visibleEndMinute = endHour * 60
+
+        let visibleEvents = selectedDayEvents.compactMap { event in
+            clip(event, visibleStartMinute: visibleStartMinute, visibleEndMinute: visibleEndMinute)
+        }
+
+        let clusters = overlapClusters(for: visibleEvents)
+        let positionedEvents = clusters.flatMap { cluster -> [HomeDayTimelineLayoutPlan.PositionedEvent] in
+            var laneEndMinutes: [Int] = []
+            var positionedCluster: [HomeDayTimelineLayoutPlan.PositionedEvent] = []
+
+            for event in cluster {
+                if let reusableLane = laneEndMinutes.firstIndex(where: { $0 <= event.startMinute }) {
+                    laneEndMinutes[reusableLane] = event.endMinute
+                    positionedCluster.append(
+                        HomeDayTimelineLayoutPlan.PositionedEvent(
+                            event: event.event,
+                            lane: reusableLane,
+                            laneCount: 0,
+                            startMinute: event.startMinute,
+                            endMinute: event.endMinute
+                        )
+                    )
+                } else {
+                    laneEndMinutes.append(event.endMinute)
+                    positionedCluster.append(
+                        HomeDayTimelineLayoutPlan.PositionedEvent(
+                            event: event.event,
+                            lane: laneEndMinutes.count - 1,
+                            laneCount: 0,
+                            startMinute: event.startMinute,
+                            endMinute: event.endMinute
+                        )
+                    )
+                }
+            }
+
+            let laneCount = max(1, laneEndMinutes.count)
+            return positionedCluster.map { positioned in
+                HomeDayTimelineLayoutPlan.PositionedEvent(
+                    event: positioned.event,
+                    lane: positioned.lane,
+                    laneCount: laneCount,
+                    startMinute: positioned.startMinute,
+                    endMinute: positioned.endMinute
+                )
+            }
+        }
+
+        return HomeDayTimelineLayoutPlan(
+            startHour: startHour,
+            endHour: endHour,
+            positionedEvents: positionedEvents
+        )
+    }
+
+    private static func overlapClusters(for events: [ClippedEvent]) -> [[ClippedEvent]] {
+        var clusters: [[ClippedEvent]] = []
+        var currentCluster: [ClippedEvent] = []
+        var currentClusterEndMinute = 0
+
+        for event in events {
+            if currentCluster.isEmpty {
+                currentCluster = [event]
+                currentClusterEndMinute = event.endMinute
+                continue
+            }
+
+            if event.startMinute < currentClusterEndMinute {
+                currentCluster.append(event)
+                currentClusterEndMinute = max(currentClusterEndMinute, event.endMinute)
+            } else {
+                clusters.append(currentCluster)
+                currentCluster = [event]
+                currentClusterEndMinute = event.endMinute
+            }
+        }
+
+        if currentCluster.isEmpty == false {
+            clusters.append(currentCluster)
+        }
+
+        return clusters
+    }
+
+    private static func clip(
+        _ event: TaskerCalendarEventSnapshot,
+        to date: Date,
+        calendar: Calendar
+    ) -> ClippedEvent? {
+        let dayStart = calendar.startOfDay(for: date)
+        let dayEnd = calendar.date(byAdding: .day, value: 1, to: dayStart) ?? dayStart
+        let clippedStart = max(event.startDate, dayStart)
+        let clippedEnd = min(event.endDate, dayEnd)
+        guard clippedEnd > clippedStart else { return nil }
+
+        let startMinute = max(0, Int(clippedStart.timeIntervalSince(dayStart) / 60.0))
+        let endMinute = min(24 * 60, max(startMinute + 1, Int(ceil(clippedEnd.timeIntervalSince(dayStart) / 60.0))))
+        return ClippedEvent(
+            event: event,
+            startMinute: startMinute,
+            endMinute: endMinute
+        )
+    }
+
+    private static func clip(
+        _ event: ClippedEvent,
+        visibleStartMinute: Int,
+        visibleEndMinute: Int
+    ) -> ClippedEvent? {
+        let clippedStart = max(event.startMinute, visibleStartMinute)
+        let clippedEnd = min(event.endMinute, visibleEndMinute)
+        guard clippedEnd > clippedStart else { return nil }
+
+        return ClippedEvent(
+            event: event.event,
+            startMinute: clippedStart,
+            endMinute: clippedEnd
+        )
+    }
+}
+
+private struct HomeDayTimelinePreview: View {
+    let date: Date
+    let events: [TaskerCalendarEventSnapshot]
+
+    @Environment(\.taskerLayoutClass) private var layoutClass
+
+    private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.tokens(for: layoutClass).spacing }
+    private let labelColumnWidth: CGFloat = 56
+    private let hourHeight: CGFloat = 42
+
+    private var layoutPlan: HomeDayTimelineLayoutPlan? {
+        HomeDayTimelineLayoutPlanner.makePlan(for: events, on: date)
+    }
+
+    var body: some View {
+        if let layoutPlan {
+            VStack(alignment: .leading, spacing: spacing.s8) {
+                Text(date.formatted(.dateTime.weekday(.abbreviated).month(.abbreviated).day()))
+                    .font(.tasker(.caption1))
+                    .foregroundStyle(Color.tasker.textSecondary)
+
+                GeometryReader { proxy in
+                    let timelineWidth = max(0, proxy.size.width - labelColumnWidth)
+                    ZStack(alignment: .topLeading) {
+                        timelineGrid(layoutPlan, width: timelineWidth)
+                        timelineEvents(layoutPlan, width: timelineWidth)
+                        if layoutPlan.positionedEvents.isEmpty {
+                            timelineEmptyState(width: timelineWidth, plan: layoutPlan)
+                        }
+                    }
+                }
+                .frame(height: CGFloat(layoutPlan.endHour - layoutPlan.startHour) * hourHeight)
+            }
+            .padding(.top, spacing.s4)
+        }
+    }
+
+    private func timelineGrid(_ plan: HomeDayTimelineLayoutPlan, width: CGFloat) -> some View {
+        let totalHeight = CGFloat(plan.endHour - plan.startHour) * hourHeight
+
+        return ZStack(alignment: .topLeading) {
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .fill(Color.tasker.surfaceSecondary.opacity(0.42))
+                .frame(width: labelColumnWidth + width, height: totalHeight)
+
+            ForEach(Array(plan.hourMarkers.enumerated()), id: \.offset) { offset, hour in
+                let y = CGFloat(offset) * hourHeight
+
+                HStack(spacing: spacing.s8) {
+                    Text(hourLabel(hour))
+                        .font(.tasker(.caption1))
+                        .foregroundStyle(Color.tasker.textSecondary)
+                        .frame(width: labelColumnWidth - spacing.s8, alignment: .trailing)
+
+                    Rectangle()
+                        .fill(Color.tasker.strokeHairline.opacity(0.78))
+                        .frame(height: 1)
+                }
+                .offset(y: y)
+            }
+        }
+    }
+
+    private func timelineEvents(_ plan: HomeDayTimelineLayoutPlan, width: CGFloat) -> some View {
+        ZStack(alignment: .topLeading) {
+            ForEach(plan.positionedEvents) { positioned in
+                let frame = eventFrame(for: positioned, in: plan, width: width)
+                eventCard(positioned.event, width: frame.width, height: frame.height)
+                    .frame(width: frame.width, height: frame.height, alignment: .topLeading)
+                    .offset(x: labelColumnWidth + frame.minX, y: frame.minY)
+            }
+        }
+    }
+
+    private func timelineEmptyState(width: CGFloat, plan: HomeDayTimelineLayoutPlan) -> some View {
+        Text("Nothing in this window")
+            .font(.tasker(.caption1))
+            .foregroundStyle(Color.tasker.textSecondary)
+            .frame(width: width, height: CGFloat(plan.endHour - plan.startHour) * hourHeight)
+            .offset(x: labelColumnWidth, y: 0)
+    }
+
+    private func eventCard(_ event: TaskerCalendarEventSnapshot, width: CGFloat, height: CGFloat) -> some View {
+        let accentColor = TaskerHexColor.color(
+            event.calendarColorHex,
+            fallback: Color.tasker.accentPrimary
+        )
+        let fillOpacity = event.isCanceled ? 0.12 : 0.18
+
+        return ZStack(alignment: .leading) {
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .fill(accentColor.opacity(fillOpacity))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                        .stroke(accentColor.opacity(event.isCanceled ? 0.28 : 0.44), lineWidth: 1)
+                )
+
+            RoundedRectangle(cornerRadius: 4, style: .continuous)
+                .fill(accentColor)
+                .frame(width: 4)
+                .padding(.vertical, 6)
+                .padding(.leading, 6)
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(event.title)
+                    .font(.tasker(.caption1))
+                    .foregroundStyle(Color.tasker.textPrimary)
+                    .strikethrough(event.isCanceled, color: Color.tasker.textSecondary)
+                    .lineLimit(height < 44 ? 1 : 2)
+
+                if width > 124 {
+                    Text(eventTimeLabel(event))
+                        .font(.tasker(.caption2))
+                        .foregroundStyle(Color.tasker.textSecondary)
+                        .lineLimit(1)
+                }
+            }
+            .padding(.leading, 18)
+            .padding(.trailing, 8)
+            .padding(.vertical, 6)
+            .opacity(event.isCanceled ? 0.72 : 1)
+        }
+        .shadow(color: Color.black.opacity(0.04), radius: 8, x: 0, y: 4)
+    }
+
+    private func eventFrame(
+        for event: HomeDayTimelineLayoutPlan.PositionedEvent,
+        in plan: HomeDayTimelineLayoutPlan,
+        width: CGFloat
+    ) -> CGRect {
+        let eventWidth = width / CGFloat(max(1, event.laneCount))
+        let minX = CGFloat(event.lane) * eventWidth + 2
+        let contentWidth = max(44, eventWidth - 6)
+        let minY = CGFloat(event.startMinute - (plan.startHour * 60)) / 60.0 * hourHeight + 4
+        let height = max(30, CGFloat(event.endMinute - event.startMinute) / 60.0 * hourHeight - 6)
+        return CGRect(x: minX, y: minY, width: contentWidth, height: height)
+    }
+
+    private func eventTimeLabel(_ event: TaskerCalendarEventSnapshot) -> String {
+        let start = event.startDate.formatted(date: .omitted, time: .shortened)
+        let end = event.endDate.formatted(date: .omitted, time: .shortened)
+        return "\(start)-\(end)"
+    }
+
+    private func hourLabel(_ hour: Int) -> String {
+        let normalizedHour = hour == 24 ? 0 : hour
+        let markerDate = Calendar.current.date(
+            bySettingHour: normalizedHour,
+            minute: 0,
+            second: 0,
+            of: date
+        ) ?? date
+        return markerDate.formatted(.dateTime.hour(.defaultDigits(amPM: .abbreviated)))
     }
 }
 
