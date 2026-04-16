@@ -249,6 +249,20 @@ struct SettingsRootView: View {
                         Divider()
 
                         TaskerSettingsToggleRow(
+                            iconName: "calendar.badge.exclamationmark",
+                            title: "Include canceled events",
+                            subtitle: "Show canceled events in Home, schedule, and task-fit context.",
+                            isOn: Binding(
+                                get: { viewModel.includeCanceledCalendarEvents },
+                                set: { viewModel.setIncludeCanceledCalendarEvents($0) }
+                            ),
+                            tone: .neutral,
+                            accessibilityIdentifier: "settings.calendar.includeCanceled.toggle"
+                        )
+
+                        Divider()
+
+                        TaskerSettingsToggleRow(
                             iconName: "sun.max",
                             title: "Include all-day events in agenda",
                             subtitle: "Show all-day events in Today/Week lists.",

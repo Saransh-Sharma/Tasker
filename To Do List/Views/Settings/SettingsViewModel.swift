@@ -20,6 +20,7 @@ final class SettingsViewModel: ObservableObject {
     @Published var selectedCalendarIDs: [String] = []
     @Published var availableCalendarCount: Int = 0
     @Published var includeDeclinedCalendarEvents: Bool = false
+    @Published var includeCanceledCalendarEvents: Bool = false
     @Published var includeAllDayInAgenda: Bool = true
     @Published var includeAllDayInBusyStrip: Bool = false
 
@@ -404,6 +405,11 @@ final class SettingsViewModel: ObservableObject {
         calendarIntegrationService?.setIncludeDeclined(include)
     }
 
+    func setIncludeCanceledCalendarEvents(_ include: Bool) {
+        includeCanceledCalendarEvents = include
+        calendarIntegrationService?.setIncludeCanceled(include)
+    }
+
     func setIncludeAllDayInAgenda(_ include: Bool) {
         includeAllDayInAgenda = include
         calendarIntegrationService?.setIncludeAllDayInAgenda(include)
@@ -423,6 +429,7 @@ final class SettingsViewModel: ObservableObject {
                 self.selectedCalendarIDs = snapshot.selectedCalendarIDs
                 self.availableCalendarCount = snapshot.availableCalendars.count
                 self.includeDeclinedCalendarEvents = snapshot.includeDeclined
+                self.includeCanceledCalendarEvents = snapshot.includeCanceled
                 self.includeAllDayInAgenda = snapshot.includeAllDayInAgenda
                 self.includeAllDayInBusyStrip = snapshot.includeAllDayInBusyStrip
             }
@@ -435,6 +442,7 @@ final class SettingsViewModel: ObservableObject {
             selectedCalendarIDs = []
             availableCalendarCount = 0
             includeDeclinedCalendarEvents = false
+            includeCanceledCalendarEvents = false
             includeAllDayInAgenda = true
             includeAllDayInBusyStrip = false
             return
@@ -444,6 +452,7 @@ final class SettingsViewModel: ObservableObject {
         selectedCalendarIDs = snapshot.selectedCalendarIDs
         availableCalendarCount = snapshot.availableCalendars.count
         includeDeclinedCalendarEvents = snapshot.includeDeclined
+        includeCanceledCalendarEvents = snapshot.includeCanceled
         includeAllDayInAgenda = snapshot.includeAllDayInAgenda
         includeAllDayInBusyStrip = snapshot.includeAllDayInBusyStrip
     }
