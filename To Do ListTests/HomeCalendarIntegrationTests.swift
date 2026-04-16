@@ -67,6 +67,7 @@ final class HomeCalendarIntegrationTests: XCTestCase {
         TaskerWorkspacePreferencesStore.shared.save(TaskerWorkspacePreferences(
             selectedCalendarIDs: ["work"],
             includeDeclinedCalendarEvents: false,
+            includeCanceledCalendarEvents: false,
             includeAllDayInAgenda: true,
             includeAllDayInBusyStrip: false
         ))
@@ -101,11 +102,62 @@ final class HomeCalendarIntegrationTests: XCTestCase {
         XCTAssertEqual(viewModel.homeCalendarSnapshot.selectedCalendarCount, 0)
     }
 
+    func testHomeSnapshotHidesCanceledEventsByDefault() {
+        TaskerWorkspacePreferencesStore.shared.save(TaskerWorkspacePreferences(
+            selectedCalendarIDs: ["work"],
+            includeDeclinedCalendarEvents: false,
+            includeCanceledCalendarEvents: false,
+            includeAllDayInAgenda: true,
+            includeAllDayInBusyStrip: false
+        ))
+
+        let provider = CalendarEventsProviderStub()
+        provider.authorizationStatusValue = .authorized
+        provider.calendarsResult = .success([calendar(id: "work")])
+        provider.eventsResult = .success([
+            event(id: "canceled", start: todayDate(hour: 9), end: todayDate(hour: 10), eventStatus: .canceled)
+        ])
+
+        let coordinator = makeCoordinator(provider: provider)
+        let defaults = UserDefaults(suiteName: "HomeCalendarCanceledDefaultTests.\(UUID().uuidString)")!
+        let viewModel = HomeViewModel(useCaseCoordinator: coordinator, userDefaults: defaults)
+
+        waitForMainQueue(seconds: 0.45)
+        XCTAssertEqual(viewModel.homeCalendarSnapshot.moduleState, .empty)
+        XCTAssertEqual(viewModel.homeCalendarSnapshot.eventsTodayCount, 0)
+    }
+
+    func testHomeSnapshotCanIncludeCanceledEventsWhenEnabled() {
+        TaskerWorkspacePreferencesStore.shared.save(TaskerWorkspacePreferences(
+            selectedCalendarIDs: ["work"],
+            includeDeclinedCalendarEvents: false,
+            includeCanceledCalendarEvents: true,
+            includeAllDayInAgenda: true,
+            includeAllDayInBusyStrip: false
+        ))
+
+        let provider = CalendarEventsProviderStub()
+        provider.authorizationStatusValue = .authorized
+        provider.calendarsResult = .success([calendar(id: "work")])
+        provider.eventsResult = .success([
+            event(id: "canceled", start: todayDate(hour: 9), end: todayDate(hour: 10), eventStatus: .canceled)
+        ])
+
+        let coordinator = makeCoordinator(provider: provider)
+        let defaults = UserDefaults(suiteName: "HomeCalendarCanceledIncludedTests.\(UUID().uuidString)")!
+        let viewModel = HomeViewModel(useCaseCoordinator: coordinator, userDefaults: defaults)
+
+        waitForMainQueue(seconds: 0.45)
+        XCTAssertEqual(viewModel.homeCalendarSnapshot.moduleState, .active)
+        XCTAssertEqual(viewModel.homeCalendarSnapshot.eventsTodayCount, 1)
+    }
+
     @MainActor
     func testHomeViewControllerRefreshesCalendarWhenAppBecomesActive() {
         TaskerWorkspacePreferencesStore.shared.save(TaskerWorkspacePreferences(
             selectedCalendarIDs: ["work"],
             includeDeclinedCalendarEvents: false,
+            includeCanceledCalendarEvents: false,
             includeAllDayInAgenda: true,
             includeAllDayInBusyStrip: false
         ))
@@ -182,7 +234,8 @@ final class HomeCalendarIntegrationTests: XCTestCase {
         id: String,
         start: Date,
         end: Date,
-        isAllDay: Bool = false
+        isAllDay: Bool = false,
+        eventStatus: TaskerCalendarEventStatus = .unknown
     ) -> TaskerCalendarEventSnapshot {
         TaskerCalendarEventSnapshot(
             id: id,
@@ -193,6 +246,7 @@ final class HomeCalendarIntegrationTests: XCTestCase {
             endDate: end,
             isAllDay: isAllDay,
             availability: .busy,
+            eventStatus: eventStatus,
             participationStatus: .accepted
         )
     }

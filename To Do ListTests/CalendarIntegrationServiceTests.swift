@@ -1,6 +1,9 @@
 import XCTest
 import Combine
 @testable import To_Do_List
+#if canImport(EventKit)
+import EventKit
+#endif
 
 final class CalendarIntegrationServiceTests: XCTestCase {
     private var cancellables: Set<AnyCancellable> = []
@@ -110,6 +113,36 @@ final class CalendarIntegrationServiceTests: XCTestCase {
         XCTAssertEqual(EventKitCalendarEventsProvider.sanitizedTitle(" Focus Block "), "Focus Block")
     }
 
+    func testWorkspacePreferencesDefaultCanceledSettingIsFalse() {
+        XCTAssertFalse(TaskerWorkspacePreferences().includeCanceledCalendarEvents)
+    }
+
+    func testWorkspacePreferencesDecodeMissingCanceledFieldDefaultsToFalse() throws {
+        let legacyJSON = """
+        {
+          "weekStartsOn": "monday",
+          "selectedCalendarIDs": ["work"],
+          "includeDeclinedCalendarEvents": true,
+          "includeAllDayInAgenda": true,
+          "includeAllDayInBusyStrip": false
+        }
+        """.data(using: .utf8)!
+
+        let decoded = try JSONDecoder().decode(TaskerWorkspacePreferences.self, from: legacyJSON)
+
+        XCTAssertEqual(decoded.selectedCalendarIDs, ["work"])
+        XCTAssertTrue(decoded.includeDeclinedCalendarEvents)
+        XCTAssertFalse(decoded.includeCanceledCalendarEvents)
+    }
+
+#if canImport(EventKit)
+    func testEventStatusMapperMapsCanceledStatusSeparatelyFromParticipationStatus() {
+        XCTAssertEqual(EventKitCalendarEventsProvider.eventStatus(for: .canceled), .canceled)
+        XCTAssertEqual(EventKitCalendarEventsProvider.eventStatus(for: .confirmed), .unknown)
+        XCTAssertEqual(EventKitCalendarEventsProvider.eventStatus(for: .tentative), .unknown)
+    }
+#endif
+
     func testWorkspacePreferenceReloadUpdatesFiltering() {
         let provider = CalendarEventsProviderStub()
         provider.authorizationStatusValue = .authorized
@@ -121,6 +154,7 @@ final class CalendarIntegrationServiceTests: XCTestCase {
             event(id: "w1", calendarID: "work", start: CalendarTestClock.date(hour: 9), end: CalendarTestClock.date(hour: 10)),
             event(id: "w2", calendarID: "work", start: CalendarTestClock.date(hour: 11), end: CalendarTestClock.date(hour: 12), isAllDay: true),
             event(id: "w3", calendarID: "work", start: CalendarTestClock.date(hour: 13), end: CalendarTestClock.date(hour: 14), participationStatus: .declined),
+            event(id: "w4", calendarID: "work", start: CalendarTestClock.date(hour: 16), end: CalendarTestClock.date(hour: 17), eventStatus: .canceled),
             event(id: "p1", calendarID: "personal", start: CalendarTestClock.date(hour: 15), end: CalendarTestClock.date(hour: 16))
         ])
 
@@ -128,6 +162,7 @@ final class CalendarIntegrationServiceTests: XCTestCase {
         store.save(TaskerWorkspacePreferences(
             selectedCalendarIDs: ["work"],
             includeDeclinedCalendarEvents: true,
+            includeCanceledCalendarEvents: true,
             includeAllDayInAgenda: true,
             includeAllDayInBusyStrip: false
         ))
@@ -141,7 +176,7 @@ final class CalendarIntegrationServiceTests: XCTestCase {
             .dropFirst()
             .sink { snapshot in
                 if didFulfillInitial == false &&
-                    snapshot.eventsInRange.count == 3 &&
+                    snapshot.eventsInRange.count == 4 &&
                     snapshot.selectedCalendarIDs == ["work"] {
                     didFulfillInitial = true
                     initialExpectation.fulfill()
@@ -152,7 +187,7 @@ final class CalendarIntegrationServiceTests: XCTestCase {
         service.refreshContext(reason: "test_initial")
         wait(for: [initialExpectation], timeout: 2.0)
 
-        XCTAssertEqual(service.snapshot.eventsInRange.map(\.id).sorted(), ["w1", "w2", "w3"])
+        XCTAssertEqual(service.snapshot.eventsInRange.map(\.id).sorted(), ["w1", "w2", "w3", "w4"])
         XCTAssertEqual(store.load().selectedCalendarIDs, ["work"])
 
         let updatedExpectation = expectation(description: "Updated filter from store notification")
@@ -164,6 +199,7 @@ final class CalendarIntegrationServiceTests: XCTestCase {
                 if didFulfillUpdated == false &&
                     snapshot.selectedCalendarIDs == ["personal"] &&
                     snapshot.includeDeclined == false &&
+                    snapshot.includeCanceled == false &&
                     snapshot.includeAllDayInAgenda == false &&
                     snapshot.eventsInRange.map(\.id) == ["p1"] {
                     didFulfillUpdated = true
@@ -175,6 +211,7 @@ final class CalendarIntegrationServiceTests: XCTestCase {
         store.update { preferences in
             preferences.selectedCalendarIDs = ["personal"]
             preferences.includeDeclinedCalendarEvents = false
+            preferences.includeCanceledCalendarEvents = false
             preferences.includeAllDayInAgenda = false
             preferences.includeAllDayInBusyStrip = true
         }
@@ -294,6 +331,145 @@ final class CalendarIntegrationServiceTests: XCTestCase {
         XCTAssertTrue(service.snapshot.eventsInRange.isEmpty, "Agenda should hide all-day events when toggle is disabled.")
         let hint = service.taskFitHint(for: task, now: now)
         XCTAssertEqual(hint.classification, .conflict, "Task-fit should still use context events and include all-day busy blocks.")
+    }
+
+    func testRefreshContextExcludesCanceledEventsByDefault() {
+        let provider = CalendarEventsProviderStub()
+        provider.authorizationStatusValue = .authorized
+        provider.calendarsResult = .success([calendar(id: "work", title: "Work")])
+        let now = todayDate(hour: 8)
+        provider.eventsResult = .success([
+            event(
+                id: "canceled",
+                calendarID: "work",
+                start: todayDate(hour: 9),
+                end: todayDate(hour: 10),
+                eventStatus: .canceled
+            ),
+            event(
+                id: "confirmed",
+                calendarID: "work",
+                start: todayDate(hour: 11),
+                end: todayDate(hour: 12)
+            )
+        ])
+
+        let store = TaskerWorkspacePreferencesStore(defaults: defaults)
+        store.save(TaskerWorkspacePreferences(
+            selectedCalendarIDs: ["work"],
+            includeDeclinedCalendarEvents: true,
+            includeCanceledCalendarEvents: false
+        ))
+        let service = CalendarIntegrationService(provider: provider, workspacePreferencesStore: store)
+
+        service.refreshContext(referenceDate: now, reason: "exclude_canceled_default")
+        waitForMainQueue(seconds: 0.2)
+
+        XCTAssertEqual(service.snapshot.eventsInRange.map(\.id), ["confirmed"])
+        XCTAssertEqual(service.snapshot.nextMeeting?.event.id, "confirmed")
+    }
+
+    func testRefreshContextCanIncludeCanceledEventsWhenEnabled() {
+        let provider = CalendarEventsProviderStub()
+        provider.authorizationStatusValue = .authorized
+        provider.calendarsResult = .success([calendar(id: "work", title: "Work")])
+        provider.eventsResult = .success([
+            event(
+                id: "canceled",
+                calendarID: "work",
+                start: todayDate(hour: 9),
+                end: todayDate(hour: 10),
+                eventStatus: .canceled
+            )
+        ])
+
+        let store = TaskerWorkspacePreferencesStore(defaults: defaults)
+        store.save(TaskerWorkspacePreferences(
+            selectedCalendarIDs: ["work"],
+            includeDeclinedCalendarEvents: false,
+            includeCanceledCalendarEvents: true
+        ))
+        let service = CalendarIntegrationService(provider: provider, workspacePreferencesStore: store)
+
+        service.refreshContext(referenceDate: todayDate(hour: 8), reason: "include_canceled")
+        waitForMainQueue(seconds: 0.2)
+
+        XCTAssertEqual(service.snapshot.eventsInRange.map(\.id), ["canceled"])
+        XCTAssertEqual(service.snapshot.nextMeeting?.event.id, "canceled")
+    }
+
+    func testDeclinedAndCanceledFiltersAreIndependent() {
+        let provider = CalendarEventsProviderStub()
+        provider.authorizationStatusValue = .authorized
+        provider.calendarsResult = .success([calendar(id: "work", title: "Work")])
+        provider.eventsResult = .success([
+            event(
+                id: "declined",
+                calendarID: "work",
+                start: todayDate(hour: 9),
+                end: todayDate(hour: 10),
+                participationStatus: .declined
+            ),
+            event(
+                id: "canceled",
+                calendarID: "work",
+                start: todayDate(hour: 11),
+                end: todayDate(hour: 12),
+                eventStatus: .canceled
+            ),
+            event(
+                id: "confirmed",
+                calendarID: "work",
+                start: todayDate(hour: 13),
+                end: todayDate(hour: 14)
+            )
+        ])
+
+        let store = TaskerWorkspacePreferencesStore(defaults: defaults)
+        store.save(TaskerWorkspacePreferences(
+            selectedCalendarIDs: ["work"],
+            includeDeclinedCalendarEvents: false,
+            includeCanceledCalendarEvents: true
+        ))
+        let service = CalendarIntegrationService(provider: provider, workspacePreferencesStore: store)
+
+        service.refreshContext(referenceDate: todayDate(hour: 8), reason: "independent_declined_canceled")
+        waitForMainQueue(seconds: 0.2)
+
+        XCTAssertEqual(service.snapshot.eventsInRange.map(\.id), ["canceled", "confirmed"])
+    }
+
+    func testSetIncludeCanceledPersistsPreferenceAndRefreshesSnapshot() {
+        let provider = CalendarEventsProviderStub()
+        provider.authorizationStatusValue = .authorized
+        provider.calendarsResult = .success([calendar(id: "work", title: "Work")])
+        provider.eventsResult = .success([
+            event(
+                id: "canceled",
+                calendarID: "work",
+                start: todayDate(hour: 9),
+                end: todayDate(hour: 10),
+                eventStatus: .canceled
+            )
+        ])
+
+        let store = TaskerWorkspacePreferencesStore(defaults: defaults)
+        store.save(TaskerWorkspacePreferences(
+            selectedCalendarIDs: ["work"],
+            includeCanceledCalendarEvents: false
+        ))
+        let service = CalendarIntegrationService(provider: provider, workspacePreferencesStore: store)
+
+        service.refreshContext(referenceDate: todayDate(hour: 8), reason: "canceled_initially_hidden")
+        waitForMainQueue(seconds: 0.2)
+        XCTAssertTrue(service.snapshot.eventsInRange.isEmpty)
+
+        service.setIncludeCanceled(true)
+        waitForMainQueue(seconds: 0.2)
+
+        XCTAssertTrue(store.load().includeCanceledCalendarEvents)
+        XCTAssertTrue(service.snapshot.includeCanceled)
+        XCTAssertEqual(service.snapshot.eventsInRange.map(\.id), ["canceled"])
     }
 
     func testNextMeetingExcludesAllDayEventsByDefault() {
@@ -428,6 +604,7 @@ final class CalendarIntegrationServiceTests: XCTestCase {
         start: Date,
         end: Date,
         isAllDay: Bool = false,
+        eventStatus: TaskerCalendarEventStatus = .unknown,
         participationStatus: TaskerCalendarEventParticipationStatus = .accepted
     ) -> TaskerCalendarEventSnapshot {
         TaskerCalendarEventSnapshot(
@@ -439,6 +616,7 @@ final class CalendarIntegrationServiceTests: XCTestCase {
             endDate: end,
             isAllDay: isAllDay,
             availability: .busy,
+            eventStatus: eventStatus,
             participationStatus: participationStatus
         )
     }
