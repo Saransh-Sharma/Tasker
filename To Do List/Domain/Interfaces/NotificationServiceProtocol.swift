@@ -446,6 +446,7 @@ public struct TaskerWorkspacePreferences: Codable, Equatable {
     public var weekStartsOn: Weekday
     public var selectedCalendarIDs: [String]
     public var includeDeclinedCalendarEvents: Bool
+    public var includeCanceledCalendarEvents: Bool
     public var includeAllDayInAgenda: Bool
     public var includeAllDayInBusyStrip: Bool
 
@@ -453,12 +454,14 @@ public struct TaskerWorkspacePreferences: Codable, Equatable {
         weekStartsOn: Weekday = .monday,
         selectedCalendarIDs: [String] = [],
         includeDeclinedCalendarEvents: Bool = false,
+        includeCanceledCalendarEvents: Bool = false,
         includeAllDayInAgenda: Bool = true,
         includeAllDayInBusyStrip: Bool = false
     ) {
         self.weekStartsOn = weekStartsOn
         self.selectedCalendarIDs = selectedCalendarIDs
         self.includeDeclinedCalendarEvents = includeDeclinedCalendarEvents
+        self.includeCanceledCalendarEvents = includeCanceledCalendarEvents
         self.includeAllDayInAgenda = includeAllDayInAgenda
         self.includeAllDayInBusyStrip = includeAllDayInBusyStrip
     }
@@ -467,6 +470,7 @@ public struct TaskerWorkspacePreferences: Codable, Equatable {
         case weekStartsOn
         case selectedCalendarIDs
         case includeDeclinedCalendarEvents
+        case includeCanceledCalendarEvents
         case includeAllDayInAgenda
         case includeAllDayInBusyStrip
     }
@@ -476,6 +480,7 @@ public struct TaskerWorkspacePreferences: Codable, Equatable {
         weekStartsOn = try container.decodeIfPresent(Weekday.self, forKey: .weekStartsOn) ?? .monday
         selectedCalendarIDs = try container.decodeIfPresent([String].self, forKey: .selectedCalendarIDs) ?? []
         includeDeclinedCalendarEvents = try container.decodeIfPresent(Bool.self, forKey: .includeDeclinedCalendarEvents) ?? false
+        includeCanceledCalendarEvents = try container.decodeIfPresent(Bool.self, forKey: .includeCanceledCalendarEvents) ?? false
         includeAllDayInAgenda = try container.decodeIfPresent(Bool.self, forKey: .includeAllDayInAgenda) ?? true
         includeAllDayInBusyStrip = try container.decodeIfPresent(Bool.self, forKey: .includeAllDayInBusyStrip) ?? false
     }
@@ -485,6 +490,7 @@ public struct TaskerWorkspacePreferences: Codable, Equatable {
         try container.encode(weekStartsOn, forKey: .weekStartsOn)
         try container.encode(selectedCalendarIDs, forKey: .selectedCalendarIDs)
         try container.encode(includeDeclinedCalendarEvents, forKey: .includeDeclinedCalendarEvents)
+        try container.encode(includeCanceledCalendarEvents, forKey: .includeCanceledCalendarEvents)
         try container.encode(includeAllDayInAgenda, forKey: .includeAllDayInAgenda)
         try container.encode(includeAllDayInBusyStrip, forKey: .includeAllDayInBusyStrip)
     }
