@@ -388,16 +388,7 @@ final class SettingsViewModel: ObservableObject {
 
     func requestCalendarPermission() {
         TaskerFeedback.medium()
-        switch calendarAuthorizationStatus {
-        case .denied:
-            guard let url = URL(string: UIApplication.openSettingsURLString),
-                  UIApplication.shared.canOpenURL(url) else { return }
-            UIApplication.shared.open(url)
-        case .restricted:
-            break
-        default:
-            calendarIntegrationService?.requestAccess()
-        }
+        _ = calendarIntegrationService?.performAccessAction(openSystemSettings: openSystemSettings)
     }
 
     func openCalendarChooser() {
@@ -459,6 +450,12 @@ final class SettingsViewModel: ObservableObject {
 
     private func reconcileNotifications(reason: String) {
         (UIApplication.shared.delegate as? AppDelegate)?.reconcileNotifications(reason: reason)
+    }
+
+    private func openSystemSettings() {
+        guard let url = URL(string: UIApplication.openSettingsURLString),
+              UIApplication.shared.canOpenURL(url) else { return }
+        UIApplication.shared.open(url)
     }
 
     private func dateFrom(hour: Int, minute: Int) -> Date {

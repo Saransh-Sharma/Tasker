@@ -1569,13 +1569,20 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
                 self?.startFocusFlow(task: task, source: "focus_strip")
             },
             onRequestCalendarPermission: { [weak self] in
-                self?.viewModel?.requestCalendarPermission()
+                self?.viewModel?.requestCalendarPermission(openSystemSettings: {
+                    guard let url = URL(string: UIApplication.openSettingsURLString),
+                          UIApplication.shared.canOpenURL(url) else { return }
+                    UIApplication.shared.open(url)
+                })
             },
             onOpenCalendarChooser: { [weak self] in
                 self?.presentCalendarChooser()
             },
             onOpenCalendarSchedule: { [weak self] in
                 self?.presentCalendarSchedule()
+            },
+            onRetryCalendarContext: { [weak self] in
+                self?.viewModel?.refreshCalendarContext(reason: "home_calendar_retry")
             }
         )
     }
@@ -3120,9 +3127,8 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
 
     private func presentCalendarChooser() {
         guard let service = presentationDependencyContainer?.coordinator.calendarIntegrationService else { return }
-        let chooser = EventKitCalendarChooserSheet(
+        let chooser = EventKitCalendarChooserContainerView(
             initialSelectedCalendarIDs: service.snapshot.selectedCalendarIDs,
-            onCancel: {},
             onCommit: { selectedIDs in
                 service.updateSelectedCalendarIDs(selectedIDs)
             }

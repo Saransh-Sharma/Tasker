@@ -905,8 +905,8 @@ public final class HomeViewModel: ObservableObject {
         reloadCurrentModeTasks()
     }
 
-    public func requestCalendarPermission() {
-        calendarIntegrationService.requestAccess()
+    public func requestCalendarPermission(openSystemSettings: @escaping () -> Void = {}) {
+        _ = calendarIntegrationService.performAccessAction(openSystemSettings: openSystemSettings)
     }
 
     public func refreshCalendarContext(reason: String = "home_manual_refresh") {
@@ -6402,6 +6402,13 @@ public final class HomeViewModel: ObservableObject {
     }
 
     private static func buildHomeCalendarSnapshot(from snapshot: TaskerCalendarSnapshot) -> HomeCalendarSnapshot {
+        let calendar = Calendar.current
+        let startOfToday = calendar.startOfDay(for: Date())
+        let endOfToday = calendar.date(byAdding: .day, value: 1, to: startOfToday) ?? startOfToday
+        let todayCount = snapshot.eventsInRange.filter { event in
+            event.endDate > startOfToday && event.startDate < endOfToday
+        }.count
+
         let moduleState: HomeCalendarModuleState
         if snapshot.authorizationStatus.isAuthorizedForRead == false {
             moduleState = .permissionRequired
@@ -6409,13 +6416,11 @@ public final class HomeViewModel: ObservableObject {
             moduleState = .error(message: error)
         } else if snapshot.selectedCalendarIDs.isEmpty {
             moduleState = .noCalendarsSelected
-        } else if snapshot.eventsInRange.isEmpty {
+        } else if todayCount == 0 {
             moduleState = .empty
         } else {
             moduleState = .active
         }
-
-        let todayCount = snapshot.eventsInRange.filter { Calendar.current.isDateInToday($0.startDate) || Calendar.current.isDateInToday($0.endDate) }.count
 
         return HomeCalendarSnapshot(
             moduleState: moduleState,

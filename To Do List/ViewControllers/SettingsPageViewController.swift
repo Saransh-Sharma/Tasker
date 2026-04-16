@@ -198,9 +198,8 @@ class SettingsPageViewController: UIViewController, PresentationDependencyContai
 
     private func presentCalendarChooser() {
         guard let service = presentationDependencyContainer?.coordinator.calendarIntegrationService else { return }
-        let chooser = EventKitCalendarChooserSheet(
+        let chooser = EventKitCalendarChooserContainerView(
             initialSelectedCalendarIDs: service.snapshot.selectedCalendarIDs,
-            onCancel: {},
             onCommit: { selectedIDs in
                 service.updateSelectedCalendarIDs(selectedIDs)
             }
