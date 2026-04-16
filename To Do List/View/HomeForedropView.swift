@@ -2007,6 +2007,7 @@ struct HomeBackdropForedropRootView: View {
     let onRequestCalendarPermission: () -> Void
     let onOpenCalendarChooser: () -> Void
     let onOpenCalendarSchedule: () -> Void
+    let onRetryCalendarContext: () -> Void
 
     @State private var showAdvancedFilters = false
     @State private var showDatePicker = false
@@ -3351,13 +3352,17 @@ struct HomeBackdropForedropRootView: View {
                 }
 
                 Button {
-                    onOpenCalendarChooser()
+                    handleCalendarFilterAction()
                 } label: {
-                    Image(systemName: "slider.horizontal.3")
+                    Label("Calendar Filters", systemImage: "slider.horizontal.3")
+                        .labelStyle(.iconOnly)
                         .font(.system(size: 14, weight: .semibold))
                         .foregroundStyle(Color.tasker.textSecondary)
+                        .frame(minWidth: 44, minHeight: 44)
+                        .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
+                .disabled(calendarPermissionsLocked)
                 .accessibilityIdentifier("home.calendar.filters")
                 .accessibilityLabel("Select calendars")
             }
@@ -3366,7 +3371,7 @@ struct HomeBackdropForedropRootView: View {
 
             HStack(spacing: spacing.s8) {
                 Button {
-                    onOpenCalendarSchedule()
+                    handleOpenScheduleAction()
                 } label: {
                     Label("Open Schedule", systemImage: "list.bullet")
                         .font(.tasker(.buttonSmall))
@@ -3379,13 +3384,14 @@ struct HomeBackdropForedropRootView: View {
                         )
                 }
                 .buttonStyle(.plain)
+                .disabled(calendarPermissionsLocked)
                 .accessibilityIdentifier("home.calendar.openSchedule")
 
-                if calendarSnapshot.moduleState == .permissionRequired {
+                if shouldShowCalendarPermissionCTA {
                     Button {
                         onRequestCalendarPermission()
                     } label: {
-                        Text("Connect")
+                        Text(calendarPermissionButtonTitle)
                             .font(.tasker(.buttonSmall))
                             .foregroundStyle(Color.tasker.accentOnPrimary)
                             .frame(maxWidth: .infinity)
@@ -3397,6 +3403,7 @@ struct HomeBackdropForedropRootView: View {
                     }
                     .buttonStyle(.plain)
                     .accessibilityIdentifier("home.calendar.connect")
+                    .accessibilityLabel(calendarPermissionButtonTitle)
                 }
             }
         }
@@ -3411,6 +3418,7 @@ struct HomeBackdropForedropRootView: View {
                 .stroke(Color.tasker.strokeHairline.opacity(0.72), lineWidth: 1)
         )
         .padding(.horizontal, spacing.s16)
+        .accessibilityElement(children: .contain)
         .accessibilityIdentifier("home.calendar.card")
     }
 
@@ -3418,10 +3426,13 @@ struct HomeBackdropForedropRootView: View {
     private var calendarModuleBody: some View {
         switch calendarSnapshot.moduleState {
         case .permissionRequired:
-            Text("Connect Calendar to surface next meetings and free windows.")
-                .font(.tasker(.callout))
-                .foregroundStyle(Color.tasker.textSecondary)
-                .accessibilityIdentifier("home.calendar.state.permission")
+            VStack(alignment: .leading, spacing: spacing.s8) {
+                Text(calendarPermissionBodyText)
+                    .font(.tasker(.callout))
+                    .foregroundStyle(Color.tasker.textSecondary)
+                    .accessibilityIdentifier(calendarPermissionStateAccessibilityID)
+            }
+            .accessibilityIdentifier("home.calendar.state.permission")
         case .noCalendarsSelected:
             Text("No calendars selected. Choose at least one calendar.")
                 .font(.tasker(.callout))
@@ -3433,10 +3444,17 @@ struct HomeBackdropForedropRootView: View {
                 .foregroundStyle(Color.tasker.textSecondary)
                 .accessibilityIdentifier("home.calendar.state.empty")
         case .error(let message):
-            Text(message)
-                .font(.tasker(.callout))
-                .foregroundStyle(Color.tasker.statusWarning)
-                .accessibilityIdentifier("home.calendar.state.error")
+            VStack(alignment: .leading, spacing: spacing.s8) {
+                Text(message)
+                    .font(.tasker(.callout))
+                    .foregroundStyle(Color.tasker.statusWarning)
+                    .accessibilityIdentifier("home.calendar.state.error")
+                Button("Retry") {
+                    onRetryCalendarContext()
+                }
+                .buttonStyle(.bordered)
+                .accessibilityIdentifier("home.calendar.retry")
+            }
         case .active:
             VStack(alignment: .leading, spacing: spacing.s8) {
                 if let nextMeeting = calendarSnapshot.nextMeeting {
@@ -3519,6 +3537,74 @@ struct HomeBackdropForedropRootView: View {
             let x = CGFloat(startRatio) * width
             let segmentWidth = max(2, CGFloat(endRatio - startRatio) * width)
             return (x: x, width: segmentWidth)
+        }
+    }
+
+    private var calendarPermissionsLocked: Bool {
+        calendarSnapshot.authorizationStatus == .restricted || calendarSnapshot.authorizationStatus == .writeOnly
+    }
+
+    private var shouldShowCalendarPermissionCTA: Bool {
+        guard calendarSnapshot.moduleState == .permissionRequired else { return false }
+        switch calendarSnapshot.authorizationStatus {
+        case .notDetermined, .denied:
+            return true
+        case .restricted, .writeOnly, .authorized:
+            return false
+        }
+    }
+
+    private var calendarPermissionButtonTitle: String {
+        calendarSnapshot.authorizationStatus == .denied ? "Open Settings" : "Connect"
+    }
+
+    private var calendarPermissionBodyText: String {
+        switch calendarSnapshot.authorizationStatus {
+        case .notDetermined:
+            return "Connect Calendar to surface next meetings and free windows."
+        case .denied:
+            return "Calendar access is off. Open Settings to re-enable read access."
+        case .restricted:
+            return "Calendar access is restricted by system policy."
+        case .writeOnly:
+            return "Tasker needs read access to compute schedule context."
+        case .authorized:
+            return "Connect Calendar to surface next meetings and free windows."
+        }
+    }
+
+    private var calendarPermissionStateAccessibilityID: String {
+        switch calendarSnapshot.authorizationStatus {
+        case .notDetermined:
+            return "home.calendar.state.permission.notDetermined"
+        case .denied:
+            return "home.calendar.state.permission.denied"
+        case .restricted:
+            return "home.calendar.state.permission.restricted"
+        case .writeOnly:
+            return "home.calendar.state.permission.writeOnly"
+        case .authorized:
+            return "home.calendar.state.permission"
+        }
+    }
+
+    private func handleCalendarFilterAction() {
+        if calendarSnapshot.authorizationStatus.isAuthorizedForRead {
+            onOpenCalendarChooser()
+            return
+        }
+        if shouldShowCalendarPermissionCTA {
+            onRequestCalendarPermission()
+        }
+    }
+
+    private func handleOpenScheduleAction() {
+        if calendarSnapshot.authorizationStatus.isAuthorizedForRead {
+            onOpenCalendarSchedule()
+            return
+        }
+        if shouldShowCalendarPermissionCTA {
+            onRequestCalendarPermission()
         }
     }
 

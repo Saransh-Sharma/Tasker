@@ -1,4 +1,7 @@
 import SwiftUI
+#if canImport(UIKit)
+import UIKit
+#endif
 
 private enum CalendarScheduleTab: String, CaseIterable, Identifiable {
     case today
@@ -14,8 +17,33 @@ private enum CalendarScheduleTab: String, CaseIterable, Identifiable {
     }
 }
 
-private struct SelectedCalendarEvent: Identifiable, Equatable {
+struct SelectedCalendarEvent: Identifiable, Equatable {
     let id: String
+}
+
+struct CalendarSchedulePresentationState: Equatable {
+    var selectedEvent: SelectedCalendarEvent?
+    var showChooser = false
+
+    mutating func presentChooser() {
+        showChooser = true
+    }
+
+    mutating func cancelChooser() {
+        showChooser = false
+    }
+
+    mutating func commitChooser() {
+        showChooser = false
+    }
+
+    mutating func selectEvent(id: String) {
+        selectedEvent = SelectedCalendarEvent(id: id)
+    }
+
+    mutating func dismissEventDetail() {
+        selectedEvent = nil
+    }
 }
 
 struct CalendarScheduleView: View {
@@ -23,9 +51,9 @@ struct CalendarScheduleView: View {
     let weekStartsOn: Weekday
 
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.openURL) private var openURL
     @State private var selectedTab: CalendarScheduleTab = .today
-    @State private var selectedEvent: SelectedCalendarEvent?
-    @State private var showChooser = false
+    @State private var presentationState = CalendarSchedulePresentationState()
 
     var body: some View {
         NavigationStack {
@@ -47,17 +75,20 @@ struct CalendarScheduleView: View {
                 }
                 ToolbarItem(placement: .primaryAction) {
                     Button {
-                        showChooser = true
+                        handleCalendarFilterTap()
                     } label: {
-                        Image(systemName: "slider.horizontal.3")
+                        Label("Calendar Filters", systemImage: "slider.horizontal.3")
+                            .labelStyle(.iconOnly)
                     }
+                    .disabled(service.snapshot.authorizationStatus == .restricted || service.snapshot.authorizationStatus == .writeOnly)
                     .accessibilityIdentifier("schedule.filters")
                 }
                 ToolbarItem(placement: .topBarTrailing) {
                     Button {
                         service.refreshContext(reason: "schedule_manual_refresh")
                     } label: {
-                        Image(systemName: "arrow.clockwise")
+                        Label("Refresh Schedule", systemImage: "arrow.clockwise")
+                            .labelStyle(.iconOnly)
                     }
                     .accessibilityIdentifier("schedule.refresh")
                 }
@@ -66,15 +97,23 @@ struct CalendarScheduleView: View {
         .onAppear {
             service.refreshContext(reason: "schedule_appear")
         }
-        .sheet(item: $selectedEvent) { selected in
-            EventKitEventDetailView(eventID: selected.id)
+        .sheet(item: $presentationState.selectedEvent) { selected in
+            EventKitEventDetailView(
+                eventID: selected.id,
+                onDismiss: {
+                    presentationState.dismissEventDetail()
+                }
+            )
         }
-        .sheet(isPresented: $showChooser) {
+        .sheet(isPresented: $presentationState.showChooser) {
             EventKitCalendarChooserSheet(
                 initialSelectedCalendarIDs: service.snapshot.selectedCalendarIDs,
-                onCancel: {},
+                onCancel: {
+                    presentationState.cancelChooser()
+                },
                 onCommit: { selectedIDs in
                     service.updateSelectedCalendarIDs(selectedIDs)
+                    presentationState.commitChooser()
                 }
             )
         }
@@ -128,7 +167,7 @@ struct CalendarScheduleView: View {
 
     private func calendarEventRow(_ event: TaskerCalendarEventSnapshot) -> some View {
         Button {
-            selectedEvent = SelectedCalendarEvent(id: event.id)
+            presentationState.selectEvent(id: event.id)
         } label: {
             VStack(alignment: .leading, spacing: 4) {
                 Text(event.title)
@@ -167,14 +206,22 @@ struct CalendarScheduleView: View {
             Image(systemName: "calendar.badge.exclamationmark")
                 .font(.system(size: 36, weight: .semibold))
                 .foregroundStyle(Color.tasker.statusWarning)
-            Text("Calendar access is required")
+            Text(permissionTitle)
                 .font(.tasker(.headline))
                 .foregroundStyle(Color.tasker.textPrimary)
-            Button("Connect Calendar") {
-                service.requestAccess()
+            Text(permissionSubtitle)
+                .font(.tasker(.callout))
+                .foregroundStyle(Color.tasker.textSecondary)
+                .multilineTextAlignment(.center)
+                .accessibilityIdentifier(permissionStateAccessibilityID)
+
+            if permissionButtonTitle != nil {
+                Button(permissionButtonTitle ?? "Connect Calendar") {
+                    performPermissionAction()
+                }
+                .buttonStyle(.borderedProminent)
+                .accessibilityIdentifier("schedule.permission.connect")
             }
-            .buttonStyle(.borderedProminent)
-            .accessibilityIdentifier("schedule.permission.connect")
         }
         .padding(24)
     }
@@ -189,7 +236,7 @@ struct CalendarScheduleView: View {
                 .foregroundStyle(Color.tasker.textSecondary)
                 .multilineTextAlignment(.center)
             Button("Choose Calendars") {
-                showChooser = true
+                presentationState.presentChooser()
             }
             .buttonStyle(.borderedProminent)
             .accessibilityIdentifier("schedule.noCalendars.choose")
@@ -213,5 +260,78 @@ struct CalendarScheduleView: View {
             .accessibilityIdentifier("schedule.error.retry")
         }
         .padding(24)
+    }
+
+    private var permissionButtonTitle: String? {
+        switch service.snapshot.authorizationStatus {
+        case .notDetermined:
+            return "Connect Calendar"
+        case .denied:
+            return "Open Settings"
+        case .restricted, .writeOnly, .authorized:
+            return nil
+        }
+    }
+
+    private var permissionTitle: String {
+        switch service.snapshot.authorizationStatus {
+        case .denied:
+            return "Calendar access is off"
+        case .restricted:
+            return "Calendar access is restricted"
+        case .writeOnly:
+            return "Read access is required"
+        case .notDetermined, .authorized:
+            return "Calendar access is required"
+        }
+    }
+
+    private var permissionSubtitle: String {
+        switch service.snapshot.authorizationStatus {
+        case .notDetermined:
+            return "Grant calendar access to show Today and Week schedule context."
+        case .denied:
+            return "Open system Settings and allow Calendar access for Tasker."
+        case .restricted:
+            return "Calendar access is restricted by system policy and cannot be changed here."
+        case .writeOnly:
+            return "Tasker needs read access to compute schedule context."
+        case .authorized:
+            return "Calendar access is required."
+        }
+    }
+
+    private var permissionStateAccessibilityID: String {
+        switch service.snapshot.authorizationStatus {
+        case .notDetermined:
+            return "schedule.permission.state.notDetermined"
+        case .denied:
+            return "schedule.permission.state.denied"
+        case .restricted:
+            return "schedule.permission.state.restricted"
+        case .writeOnly:
+            return "schedule.permission.state.writeOnly"
+        case .authorized:
+            return "schedule.permission.state.authorized"
+        }
+    }
+
+    private func handleCalendarFilterTap() {
+        if service.snapshot.authorizationStatus.isAuthorizedForRead {
+            presentationState.presentChooser()
+            return
+        }
+        performPermissionAction()
+    }
+
+    private func performPermissionAction() {
+        _ = service.performAccessAction(openSystemSettings: openSystemSettings)
+    }
+
+    private func openSystemSettings() {
+        #if canImport(UIKit)
+        guard let url = URL(string: UIApplication.openSettingsURLString) else { return }
+        openURL(url)
+        #endif
     }
 }

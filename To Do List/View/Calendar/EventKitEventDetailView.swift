@@ -7,9 +7,10 @@ import EventKitUI
 
 struct EventKitEventDetailView: UIViewControllerRepresentable {
     let eventID: String
+    let onDismiss: () -> Void
 
     func makeCoordinator() -> Coordinator {
-        Coordinator(eventID: eventID)
+        Coordinator(eventID: eventID, onDismiss: onDismiss)
     }
 
     func makeUIViewController(context: Context) -> UINavigationController {
@@ -22,11 +23,13 @@ struct EventKitEventDetailView: UIViewControllerRepresentable {
 
     final class Coordinator: NSObject, EKEventViewDelegate {
         private let store = EKEventStore()
+        private let onDismiss: () -> Void
         private var eventID: String
         private weak var eventViewController: EKEventViewController?
 
-        init(eventID: String) {
+        init(eventID: String, onDismiss: @escaping () -> Void) {
             self.eventID = eventID
+            self.onDismiss = onDismiss
         }
 
         func makeController() -> UINavigationController {
@@ -52,7 +55,8 @@ struct EventKitEventDetailView: UIViewControllerRepresentable {
             guard let eventViewController else { return }
             if let event = store.event(withIdentifier: eventID) {
                 eventViewController.event = event
-                eventViewController.title = event.title
+                let title = event.title?.trimmingCharacters(in: .whitespacesAndNewlines)
+                eventViewController.title = (title?.isEmpty == false ? title : "Untitled Event")
             } else {
                 eventViewController.event = nil
                 eventViewController.title = "Event"
@@ -60,18 +64,19 @@ struct EventKitEventDetailView: UIViewControllerRepresentable {
         }
 
         @objc private func closeTapped() {
-            eventViewController?.presentingViewController?.dismiss(animated: true)
+            onDismiss()
         }
 
         func eventViewController(_ controller: EKEventViewController, didCompleteWith action: EKEventViewAction) {
             _ = action
-            controller.presentingViewController?.dismiss(animated: true)
+            onDismiss()
         }
     }
 }
 #else
 struct EventKitEventDetailView: View {
     let eventID: String
+    let onDismiss: () -> Void
 
     var body: some View {
         VStack(spacing: 16) {
@@ -80,6 +85,7 @@ struct EventKitEventDetailView: View {
             Text(eventID)
                 .font(.tasker(.caption2))
                 .foregroundStyle(Color.tasker.textSecondary)
+            Button("Close", action: onDismiss)
         }
         .padding()
     }

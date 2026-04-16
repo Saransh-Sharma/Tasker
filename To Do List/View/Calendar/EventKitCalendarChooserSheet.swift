@@ -71,13 +71,31 @@ struct EventKitCalendarChooserSheet: UIViewControllerRepresentable {
         func calendarChooserDidFinish(_ calendarChooser: EKCalendarChooser) {
             let selectedIDs = calendarChooser.selectedCalendars.map(\.calendarIdentifier).sorted()
             onCommit(selectedIDs)
-            calendarChooser.presentingViewController?.dismiss(animated: true)
         }
 
         func calendarChooserDidCancel(_ calendarChooser: EKCalendarChooser) {
             onCancel()
-            calendarChooser.presentingViewController?.dismiss(animated: true)
         }
+    }
+}
+
+struct EventKitCalendarChooserContainerView: View {
+    let initialSelectedCalendarIDs: [String]
+    let onCommit: ([String]) -> Void
+
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        EventKitCalendarChooserSheet(
+            initialSelectedCalendarIDs: initialSelectedCalendarIDs,
+            onCancel: {
+                dismiss()
+            },
+            onCommit: { selectedIDs in
+                onCommit(selectedIDs)
+                dismiss()
+            }
+        )
     }
 }
 #else
@@ -95,6 +113,26 @@ struct EventKitCalendarChooserSheet: View {
             }
         }
         .padding()
+    }
+}
+
+struct EventKitCalendarChooserContainerView: View {
+    let initialSelectedCalendarIDs: [String]
+    let onCommit: ([String]) -> Void
+
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        EventKitCalendarChooserSheet(
+            initialSelectedCalendarIDs: initialSelectedCalendarIDs,
+            onCancel: {
+                dismiss()
+            },
+            onCommit: { selectedIDs in
+                onCommit(selectedIDs)
+                dismiss()
+            }
+        )
     }
 }
 #endif
