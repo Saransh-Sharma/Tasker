@@ -27,6 +27,11 @@ public enum TaskerCalendarEventParticipationStatus: String, Codable, Equatable {
     case unknown
 }
 
+public enum TaskerCalendarEventStatus: String, Codable, Equatable {
+    case unknown
+    case canceled
+}
+
 public struct TaskerCalendarSourceSnapshot: Codable, Equatable, Identifiable, Hashable {
     public let id: String
     public let title: String
@@ -62,6 +67,7 @@ public struct TaskerCalendarEventSnapshot: Codable, Equatable, Identifiable, Has
     public let endDate: Date
     public let isAllDay: Bool
     public let availability: TaskerCalendarEventAvailability
+    public let eventStatus: TaskerCalendarEventStatus
     public let participationStatus: TaskerCalendarEventParticipationStatus
     public let lastModifiedAt: Date?
 
@@ -78,6 +84,7 @@ public struct TaskerCalendarEventSnapshot: Codable, Equatable, Identifiable, Has
         endDate: Date,
         isAllDay: Bool,
         availability: TaskerCalendarEventAvailability = .busy,
+        eventStatus: TaskerCalendarEventStatus = .unknown,
         participationStatus: TaskerCalendarEventParticipationStatus = .unknown,
         lastModifiedAt: Date? = nil
     ) {
@@ -93,12 +100,17 @@ public struct TaskerCalendarEventSnapshot: Codable, Equatable, Identifiable, Has
         self.endDate = max(endDate, startDate)
         self.isAllDay = isAllDay
         self.availability = availability
+        self.eventStatus = eventStatus
         self.participationStatus = participationStatus
         self.lastModifiedAt = lastModifiedAt
     }
 
     public var isDeclined: Bool {
         participationStatus == .declined
+    }
+
+    public var isCanceled: Bool {
+        eventStatus == .canceled
     }
 
     public var isBusy: Bool {
@@ -198,6 +210,7 @@ public struct TaskerCalendarSnapshot: Equatable {
     public var availableCalendars: [TaskerCalendarSourceSnapshot]
     public var selectedCalendarIDs: [String]
     public var includeDeclined: Bool
+    public var includeCanceled: Bool
     public var includeAllDayInAgenda: Bool
     public var includeAllDayInBusyStrip: Bool
     public var eventsInRange: [TaskerCalendarEventSnapshot]
@@ -212,6 +225,7 @@ public struct TaskerCalendarSnapshot: Equatable {
         availableCalendars: [TaskerCalendarSourceSnapshot],
         selectedCalendarIDs: [String],
         includeDeclined: Bool,
+        includeCanceled: Bool,
         includeAllDayInAgenda: Bool,
         includeAllDayInBusyStrip: Bool,
         eventsInRange: [TaskerCalendarEventSnapshot],
@@ -225,6 +239,7 @@ public struct TaskerCalendarSnapshot: Equatable {
         self.availableCalendars = availableCalendars
         self.selectedCalendarIDs = selectedCalendarIDs
         self.includeDeclined = includeDeclined
+        self.includeCanceled = includeCanceled
         self.includeAllDayInAgenda = includeAllDayInAgenda
         self.includeAllDayInBusyStrip = includeAllDayInBusyStrip
         self.eventsInRange = eventsInRange
@@ -240,6 +255,7 @@ public struct TaskerCalendarSnapshot: Equatable {
         availableCalendars: [],
         selectedCalendarIDs: [],
         includeDeclined: false,
+        includeCanceled: false,
         includeAllDayInAgenda: true,
         includeAllDayInBusyStrip: false,
         eventsInRange: [],
