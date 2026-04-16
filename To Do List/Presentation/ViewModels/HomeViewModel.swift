@@ -863,7 +863,10 @@ public final class HomeViewModel: ObservableObject {
         self.analyticsService = analyticsService
         self.aiSuggestionService = aiSuggestionService
         self.userDefaults = userDefaults
-        self.homeCalendarSnapshot = Self.buildHomeCalendarSnapshot(from: calendarIntegrationService.snapshot)
+        self.homeCalendarSnapshot = Self.buildHomeCalendarSnapshot(
+            from: calendarIntegrationService.snapshot,
+            selectedDate: selectedDate
+        )
 
         setupBindings()
         loadInitialData()
@@ -910,7 +913,7 @@ public final class HomeViewModel: ObservableObject {
     }
 
     public func refreshCalendarContext(reason: String = "home_manual_refresh") {
-        calendarIntegrationService.refreshContext(reason: reason)
+        calendarIntegrationService.refreshContext(referenceDate: selectedDate, reason: reason)
     }
 
     /// Executes loadTodayTasks.
@@ -2807,7 +2810,28 @@ public final class HomeViewModel: ObservableObject {
         calendarIntegrationService.$snapshot
             .receive(on: RunLoop.main)
             .sink { [weak self] snapshot in
-                self?.homeCalendarSnapshot = Self.buildHomeCalendarSnapshot(from: snapshot)
+                guard let self else { return }
+                self.homeCalendarSnapshot = Self.buildHomeCalendarSnapshot(
+                    from: snapshot,
+                    selectedDate: self.selectedDate
+                )
+            }
+            .store(in: &cancellables)
+
+        $selectedDate
+            .removeDuplicates(by: Self.isSameCalendarDay(_:_:))
+            .dropFirst()
+            .receive(on: RunLoop.main)
+            .sink { [weak self] selectedDate in
+                guard let self else { return }
+                self.homeCalendarSnapshot = Self.buildHomeCalendarSnapshot(
+                    from: self.calendarIntegrationService.snapshot,
+                    selectedDate: selectedDate
+                )
+                self.calendarIntegrationService.refreshContext(
+                    referenceDate: selectedDate,
+                    reason: "home_selected_date_changed"
+                )
             }
             .store(in: &cancellables)
 
@@ -3018,7 +3042,7 @@ public final class HomeViewModel: ObservableObject {
         loadProjects(generation: generation)
         loadLifeAreas(generation: generation)
         loadTags(generation: generation)
-        calendarIntegrationService.refreshContext(reason: "home_initial_load")
+        calendarIntegrationService.refreshContext(referenceDate: selectedDate, reason: "home_initial_load")
         applyFocusFilters(trackAnalytics: false, generation: generation) { [weak self] in
             TaskerMemoryDiagnostics.checkpoint(
                 event: "home_initial_load_finished",
@@ -6401,8 +6425,26 @@ public final class HomeViewModel: ObservableObject {
         return formatter.string(from: date)
     }
 
-    private static func buildHomeCalendarSnapshot(from snapshot: TaskerCalendarSnapshot) -> HomeCalendarSnapshot {
+    private static func buildHomeCalendarSnapshot(
+        from snapshot: TaskerCalendarSnapshot,
+        selectedDate: Date
+    ) -> HomeCalendarSnapshot {
         let calendar = Calendar.current
+        let selectedDayStart = calendar.startOfDay(for: selectedDate)
+        let selectedDayEnd = calendar.date(byAdding: .day, value: 1, to: selectedDayStart) ?? selectedDayStart
+        let selectedDayEvents = snapshot.eventsInRange
+            .filter { event in
+                event.endDate > selectedDayStart && event.startDate < selectedDayEnd
+            }
+            .sorted { lhs, rhs in
+                if lhs.startDate != rhs.startDate {
+                    return lhs.startDate < rhs.startDate
+                }
+                return lhs.endDate < rhs.endDate
+            }
+        let selectedDayTimelineEvents = selectedDayEvents.filter { event in
+            event.isAllDay == false && event.isBusy
+        }
         let startOfToday = calendar.startOfDay(for: Date())
         let endOfToday = calendar.date(byAdding: .day, value: 1, to: startOfToday) ?? startOfToday
         let todayCount = snapshot.eventsInRange.filter { event in
@@ -6416,7 +6458,7 @@ public final class HomeViewModel: ObservableObject {
             moduleState = .error(message: error)
         } else if snapshot.selectedCalendarIDs.isEmpty {
             moduleState = .noCalendarsSelected
-        } else if todayCount == 0 {
+        } else if selectedDayTimelineEvents.isEmpty {
             moduleState = .empty
         } else {
             moduleState = .active
@@ -6424,16 +6466,23 @@ public final class HomeViewModel: ObservableObject {
 
         return HomeCalendarSnapshot(
             moduleState: moduleState,
+            selectedDate: selectedDate,
             authorizationStatus: snapshot.authorizationStatus,
             selectedCalendarCount: snapshot.selectedCalendarIDs.count,
             availableCalendarCount: snapshot.availableCalendars.count,
             nextMeeting: snapshot.nextMeeting,
             busyBlocks: snapshot.busyBlocks,
             freeUntil: snapshot.freeUntil,
+            selectedDayEvents: selectedDayEvents,
+            selectedDayTimelineEvents: selectedDayTimelineEvents,
             eventsTodayCount: todayCount,
             isLoading: snapshot.isLoading,
             errorMessage: snapshot.errorMessage
         )
+    }
+
+    private static func isSameCalendarDay(_ lhs: Date, _ rhs: Date) -> Bool {
+        Calendar.current.isDate(lhs, inSameDayAs: rhs)
     }
 }
 
