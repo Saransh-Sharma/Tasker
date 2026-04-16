@@ -136,6 +136,7 @@ public final class EventKitCalendarEventsProvider: CalendarEventsProviderProtoco
                         endDate: event.endDate,
                         isAllDay: event.isAllDay,
                         availability: self.mapAvailability(event.availability),
+                        eventStatus: Self.eventStatus(for: event.status),
                         participationStatus: self.participantStatus(for: event),
                         lastModifiedAt: event.lastModifiedDate
                     )
@@ -194,6 +195,15 @@ public final class EventKitCalendarEventsProvider: CalendarEventsProviderProtoco
             return .declined
         case .pending:
             return .pending
+        default:
+            return .unknown
+        }
+    }
+
+    static func eventStatus(for status: EKEventStatus) -> TaskerCalendarEventStatus {
+        switch status {
+        case .canceled:
+            return .canceled
         default:
             return .unknown
         }
