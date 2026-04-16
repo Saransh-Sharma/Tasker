@@ -38,6 +38,19 @@ final class HomeCalendarModuleUITests: XCTestCase {
         XCTAssertTrue(includeAllDayBusy.isHittable || includeAllDayBusy.isEnabled)
     }
 
+    func testCalendarTimelinePreviewOpensSchedule() throws {
+        let app = launchApp(calendarMode: "active")
+
+        let timelinePreview = app.descendants(matching: .any)["home.calendar.timelinePreview"]
+        XCTAssertTrue(timelinePreview.waitForExistence(timeout: 12))
+
+        timelinePreview.tap()
+
+        let segmentedControl = app.descendants(matching: .any)["schedule.segmented"]
+        XCTAssertTrue(segmentedControl.waitForExistence(timeout: 8))
+        XCTAssertTrue(app.descendants(matching: .any)["schedule.list"].exists)
+    }
+
     private func assertCalendarMode(_ mode: String, expectedStateID: String, expectsRetry: Bool) {
         let app = launchApp(calendarMode: mode)
         let card = app.descendants(matching: .any)["home.calendar.card"]
@@ -61,6 +74,7 @@ final class HomeCalendarModuleUITests: XCTestCase {
             "home.calendar.nextMeeting",
             "home.calendar.freeUntil",
             "home.calendar.busyStrip",
+            "home.calendar.timelinePreview",
             "home.calendar.retry",
             "home.calendar.filters",
             "home.calendar.openSchedule"

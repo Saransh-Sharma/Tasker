@@ -84,12 +84,15 @@ final class HomeChromeSnapshotPresentationTests: XCTestCase {
             habits: previous.habits,
             calendar: HomeCalendarSnapshot(
                 moduleState: .active,
+                selectedDate: Date(),
                 authorizationStatus: .authorized,
                 selectedCalendarCount: 1,
                 availableCalendarCount: 1,
                 nextMeeting: nil,
                 busyBlocks: [],
                 freeUntil: nil,
+                selectedDayEvents: [],
+                selectedDayTimelineEvents: [],
                 eventsTodayCount: 2,
                 isLoading: false,
                 errorMessage: nil
@@ -115,12 +118,15 @@ final class HomeChromeSnapshotPresentationTests: XCTestCase {
             habits: base.habits,
             calendar: HomeCalendarSnapshot(
                 moduleState: .permissionRequired,
+                selectedDate: Date(),
                 authorizationStatus: .notDetermined,
                 selectedCalendarCount: 0,
                 availableCalendarCount: 2,
                 nextMeeting: nil,
                 busyBlocks: [],
                 freeUntil: nil,
+                selectedDayEvents: [],
+                selectedDayTimelineEvents: [],
                 eventsTodayCount: 0,
                 isLoading: false,
                 errorMessage: nil
