@@ -1,6 +1,13 @@
 import Foundation
 import Combine
 
+public enum CalendarAccessAction: Equatable {
+    case requestPermission
+    case openSystemSettings
+    case unavailable(TaskerCalendarAuthorizationStatus)
+    case noneNeeded
+}
+
 public final class CalendarIntegrationService: ObservableObject {
     @Published public private(set) var snapshot: TaskerCalendarSnapshot
 
@@ -12,6 +19,8 @@ public final class CalendarIntegrationService: ObservableObject {
     private let buildWeekAgenda = BuildCalendarWeekAgendaUseCase()
     private let taskFitUseCase = ComputeTaskFitHintUseCase(bufferMinutes: 15)
 
+    private var contextEvents: [TaskerCalendarEventSnapshot] = []
+    private var refreshGeneration: UInt64 = 0
     private var cancellables: Set<AnyCancellable> = []
 
     public init(
@@ -60,6 +69,40 @@ public final class CalendarIntegrationService: ObservableObject {
         snapshot.authorizationStatus = provider?.authorizationStatus() ?? .denied
     }
 
+    public func accessAction() -> CalendarAccessAction {
+        refreshAuthorizationStatus()
+        switch snapshot.authorizationStatus {
+        case .notDetermined:
+            return .requestPermission
+        case .denied:
+            return .openSystemSettings
+        case .restricted, .writeOnly:
+            return .unavailable(snapshot.authorizationStatus)
+        case .authorized:
+            return .noneNeeded
+        }
+    }
+
+    @discardableResult
+    public func performAccessAction(
+        openSystemSettings: @escaping () -> Void,
+        completion: ((Bool) -> Void)? = nil
+    ) -> CalendarAccessAction {
+        let action = accessAction()
+        switch action {
+        case .requestPermission:
+            requestAccess(completion: completion)
+        case .openSystemSettings:
+            openSystemSettings()
+            completion?(false)
+        case .unavailable:
+            completion?(false)
+        case .noneNeeded:
+            completion?(true)
+        }
+        return action
+    }
+
     public func requestAccess(completion: ((Bool) -> Void)? = nil) {
         guard let provider else {
             completion?(false)
@@ -71,6 +114,9 @@ public final class CalendarIntegrationService: ObservableObject {
                 guard let self else { return }
                 switch result {
                 case .success(let granted):
+                    if granted {
+                        provider.resetStoreStateAfterPermissionChange()
+                    }
                     self.snapshot.authorizationStatus = self.provider?.authorizationStatus() ?? (granted ? .authorized : .denied)
                     if granted {
                         self.refreshContext(reason: "permission_granted")
@@ -119,55 +165,75 @@ public final class CalendarIntegrationService: ObservableObject {
 
     public func refreshContext(referenceDate: Date = Date(), reason: String = "manual") {
         _ = reason
+        let generation = beginRefreshGeneration()
+
         guard let provider else {
             snapshot.authorizationStatus = .denied
             snapshot.errorMessage = "Calendar provider unavailable."
+            clearCalendarContext(keepAvailableCalendars: false)
             return
         }
 
         refreshAuthorizationStatus()
 
         guard snapshot.authorizationStatus.isAuthorizedForRead else {
-            snapshot.eventsInRange = []
-            snapshot.busyBlocks = []
-            snapshot.nextMeeting = nil
-            snapshot.freeUntil = nil
-            snapshot.availableCalendars = []
+            clearCalendarContext(keepAvailableCalendars: false)
             snapshot.errorMessage = nil
+            snapshot.isLoading = false
             return
         }
 
+        let workspacePreferences = workspacePreferencesStore.load()
         let calendar = Calendar.current
-        let start = calendar.startOfDay(for: referenceDate)
-        let end = calendar.date(byAdding: .day, value: 7, to: start) ?? start
+        let weekStart = XPCalculationEngine.startOfWeek(
+            for: referenceDate,
+            startingOn: workspacePreferences.weekStartsOn
+        )
+        let weekEnd = calendar.date(byAdding: .day, value: 7, to: weekStart) ?? weekStart
+        let startOfToday = calendar.startOfDay(for: referenceDate)
+        let todayForwardEnd = calendar.date(byAdding: .day, value: 7, to: startOfToday) ?? startOfToday
+        let fetchStart = weekStart
+        let fetchEnd = max(weekEnd, todayForwardEnd)
 
         snapshot.isLoading = true
         snapshot.errorMessage = nil
 
         provider.fetchCalendars { [weak self] calendarsResult in
             DispatchQueue.main.async {
-                guard let self else { return }
+                guard let self, self.isCurrentRefreshGeneration(generation) else { return }
                 switch calendarsResult {
                 case .failure(let error):
                     self.snapshot.isLoading = false
                     self.snapshot.errorMessage = error.localizedDescription
+                    self.clearCalendarContext(keepAvailableCalendars: true)
                 case .success(let calendars):
                     self.snapshot.availableCalendars = calendars
+                    let availableCalendarIDs = Set(calendars.map(\.id))
+                    let reconciledSelection = self.snapshot.selectedCalendarIDs.filter { availableCalendarIDs.contains($0) }
+                    if reconciledSelection != self.snapshot.selectedCalendarIDs {
+                        self.persistSelectedCalendarIDs(reconciledSelection)
+                        self.snapshot.selectedCalendarIDs = reconciledSelection
+                    }
+
+                    guard self.snapshot.selectedCalendarIDs.isEmpty == false else {
+                        self.snapshot.isLoading = false
+                        self.snapshot.errorMessage = nil
+                        self.clearCalendarContext(keepAvailableCalendars: true)
+                        return
+                    }
+
                     self.provider?.fetchEvents(
-                        startDate: start,
-                        endDate: end,
+                        startDate: fetchStart,
+                        endDate: fetchEnd,
                         calendarIDs: Set(self.snapshot.selectedCalendarIDs)
                     ) { [weak self] eventsResult in
                         DispatchQueue.main.async {
-                            guard let self else { return }
+                            guard let self, self.isCurrentRefreshGeneration(generation) else { return }
                             self.snapshot.isLoading = false
                             switch eventsResult {
                             case .failure(let error):
                                 self.snapshot.errorMessage = error.localizedDescription
-                                self.snapshot.eventsInRange = []
-                                self.snapshot.busyBlocks = []
-                                self.snapshot.nextMeeting = nil
-                                self.snapshot.freeUntil = nil
+                                self.clearCalendarContext(keepAvailableCalendars: true)
                             case .success(let events):
                                 self.reconcile(events: events, referenceDate: referenceDate)
                             }
@@ -211,7 +277,7 @@ public final class CalendarIntegrationService: ObservableObject {
         }
 
         let busyBlocks = buildBusyBlocks.execute(
-            events: snapshot.eventsInRange,
+            events: contextEvents,
             includeAllDayEvents: snapshot.includeAllDayInBusyStrip,
             referenceStart: rangeStart,
             referenceEnd: rangeEnd
@@ -229,6 +295,15 @@ public final class CalendarIntegrationService: ObservableObject {
         snapshot.eventsInRange.first { $0.id == eventID }
     }
 
+    private func beginRefreshGeneration() -> UInt64 {
+        refreshGeneration &+= 1
+        return refreshGeneration
+    }
+
+    private func isCurrentRefreshGeneration(_ generation: UInt64) -> Bool {
+        generation == refreshGeneration
+    }
+
     private func reloadPreferencesAndRefresh(reason: String) {
         let preferences = workspacePreferencesStore.load()
         snapshot.selectedCalendarIDs = preferences.selectedCalendarIDs
@@ -238,40 +313,58 @@ public final class CalendarIntegrationService: ObservableObject {
         refreshContext(reason: reason)
     }
 
+    private func persistSelectedCalendarIDs(_ calendarIDs: [String]) {
+        workspacePreferencesStore.update { preferences in
+            preferences.selectedCalendarIDs = calendarIDs
+        }
+    }
+
+    private func clearCalendarContext(keepAvailableCalendars: Bool) {
+        contextEvents = []
+        snapshot.eventsInRange = []
+        snapshot.busyBlocks = []
+        snapshot.nextMeeting = nil
+        snapshot.freeUntil = nil
+        if keepAvailableCalendars == false {
+            snapshot.availableCalendars = []
+        }
+    }
+
     private func reconcile(events: [TaskerCalendarEventSnapshot], referenceDate: Date) {
-        let filteredEvents = filterEvents.execute(
+        let selectedCalendarIDs = Set(snapshot.selectedCalendarIDs)
+        let contextEvents = filterEvents.execute(
             events: events,
-            selectedCalendarIDs: Set(snapshot.selectedCalendarIDs),
+            selectedCalendarIDs: selectedCalendarIDs,
+            includeDeclined: snapshot.includeDeclined,
+            includeAllDayInAgenda: true
+        )
+        let agendaEvents = filterEvents.execute(
+            events: events,
+            selectedCalendarIDs: selectedCalendarIDs,
             includeDeclined: snapshot.includeDeclined,
             includeAllDayInAgenda: snapshot.includeAllDayInAgenda
         )
 
-        let now = Date()
+        let now = referenceDate
         let busyHorizonEnd = Calendar.current.date(byAdding: .hour, value: 12, to: now) ?? now
         let busyBlocks = buildBusyBlocks.execute(
-            events: filteredEvents,
+            events: contextEvents,
             includeAllDayEvents: snapshot.includeAllDayInBusyStrip,
             referenceStart: now,
             referenceEnd: busyHorizonEnd
         )
 
-        let nextMeeting = resolveNextMeeting.execute(events: filteredEvents, now: now)
-        let freeUntil = nextMeeting?.event.startDate
+        let timedContextEvents = contextEvents.filter { !$0.isAllDay }
+        let nextMeeting = resolveNextMeeting.execute(events: timedContextEvents, now: now)
+        let isCurrentlyBusy = busyBlocks.contains { $0.startDate <= now && $0.endDate > now }
+        let nextBusyStart = busyBlocks.first(where: { $0.startDate > now })?.startDate
+        let freeUntil = isCurrentlyBusy ? nil : nextBusyStart
 
-        snapshot.eventsInRange = filteredEvents
+        self.contextEvents = contextEvents
+        snapshot.eventsInRange = agendaEvents
         snapshot.busyBlocks = busyBlocks
         snapshot.nextMeeting = nextMeeting
         snapshot.freeUntil = freeUntil
         snapshot.errorMessage = nil
-
-        if Calendar.current.isDate(referenceDate, inSameDayAs: now) == false {
-            // Maintain deterministic behavior for custom date calls by re-sorting only.
-            snapshot.eventsInRange = filteredEvents.sorted { lhs, rhs in
-                if lhs.startDate != rhs.startDate {
-                    return lhs.startDate < rhs.startDate
-                }
-                return lhs.endDate < rhs.endDate
-            }
-        }
     }
 }
