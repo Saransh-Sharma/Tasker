@@ -36,6 +36,7 @@ public final class CalendarIntegrationService: ObservableObject {
             availableCalendars: [],
             selectedCalendarIDs: prefs.selectedCalendarIDs,
             includeDeclined: prefs.includeDeclinedCalendarEvents,
+            includeCanceled: prefs.includeCanceledCalendarEvents,
             includeAllDayInAgenda: prefs.includeAllDayInAgenda,
             includeAllDayInBusyStrip: prefs.includeAllDayInBusyStrip,
             eventsInRange: [],
@@ -145,6 +146,14 @@ public final class CalendarIntegrationService: ObservableObject {
         }
         snapshot.includeDeclined = include
         refreshContext(reason: "include_declined_changed")
+    }
+
+    public func setIncludeCanceled(_ include: Bool) {
+        workspacePreferencesStore.update { preferences in
+            preferences.includeCanceledCalendarEvents = include
+        }
+        snapshot.includeCanceled = include
+        refreshContext(reason: "include_canceled_changed")
     }
 
     public func setIncludeAllDayInAgenda(_ include: Bool) {
@@ -308,6 +317,7 @@ public final class CalendarIntegrationService: ObservableObject {
         let preferences = workspacePreferencesStore.load()
         snapshot.selectedCalendarIDs = preferences.selectedCalendarIDs
         snapshot.includeDeclined = preferences.includeDeclinedCalendarEvents
+        snapshot.includeCanceled = preferences.includeCanceledCalendarEvents
         snapshot.includeAllDayInAgenda = preferences.includeAllDayInAgenda
         snapshot.includeAllDayInBusyStrip = preferences.includeAllDayInBusyStrip
         refreshContext(reason: reason)
@@ -336,12 +346,14 @@ public final class CalendarIntegrationService: ObservableObject {
             events: events,
             selectedCalendarIDs: selectedCalendarIDs,
             includeDeclined: snapshot.includeDeclined,
+            includeCanceled: snapshot.includeCanceled,
             includeAllDayInAgenda: true
         )
         let agendaEvents = filterEvents.execute(
             events: events,
             selectedCalendarIDs: selectedCalendarIDs,
             includeDeclined: snapshot.includeDeclined,
+            includeCanceled: snapshot.includeCanceled,
             includeAllDayInAgenda: snapshot.includeAllDayInAgenda
         )
 
