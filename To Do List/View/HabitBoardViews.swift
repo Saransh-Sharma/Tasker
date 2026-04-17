@@ -521,6 +521,7 @@ struct HabitBoardScreen: View {
                             layoutMetrics: layoutMetrics,
                             onSelect: {
                                 if let libraryRow = viewModel.row(for: row.habitID) {
+                                    TaskerPerformanceTrace.event("HabitDetailTapReceived")
                                     selectedHabitRow = libraryRow
                                 }
                             }

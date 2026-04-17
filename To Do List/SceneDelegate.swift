@@ -20,6 +20,8 @@ extension Notification.Name {
     static let taskerOpenTaskScopeDeepLink = Notification.Name("TaskerOpenTaskScopeDeepLink")
     static let taskerOpenTaskDetailDeepLink = Notification.Name("TaskerOpenTaskDetailDeepLink")
     static let taskerOpenQuickAddDeepLink = Notification.Name("TaskerOpenQuickAddDeepLink")
+    static let taskerOpenCalendarScheduleDeepLink = Notification.Name("TaskerOpenCalendarScheduleDeepLink")
+    static let taskerOpenCalendarChooserDeepLink = Notification.Name("TaskerOpenCalendarChooserDeepLink")
     static let taskerProcessWidgetActionCommand = Notification.Name("TaskerProcessWidgetActionCommand")
 }
 
@@ -270,6 +272,18 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         }
         if host == "quickadd" {
             NotificationCenter.default.post(name: .taskerOpenQuickAddDeepLink, object: nil)
+            return
+        }
+        if host == "calendar" {
+            let route = pathSegments.first?.lowercased() ?? "schedule"
+            switch route {
+            case "schedule":
+                NotificationCenter.default.post(name: .taskerOpenCalendarScheduleDeepLink, object: nil)
+            case "chooser", "calendars", "filters":
+                NotificationCenter.default.post(name: .taskerOpenCalendarChooserDeepLink, object: nil)
+            default:
+                break
+            }
             return
         }
         if host == "tasks" {

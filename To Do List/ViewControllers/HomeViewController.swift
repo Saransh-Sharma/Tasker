@@ -275,6 +275,7 @@ enum HomeCalendarModuleState: Equatable {
     case permissionRequired
     case noCalendarsSelected
     case empty
+    case allDayOnly
     case error(message: String)
     case active
 }
@@ -597,6 +598,8 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
         observeTaskScopeDeepLinks()
         observeTaskDetailDeepLinks()
         observeQuickAddDeepLinks()
+        observeCalendarScheduleDeepLinks()
+        observeCalendarChooserDeepLinks()
         observeWidgetActionCommands()
         observeTaskCreatedForSnackbar()
         observePersistentSyncMode()
@@ -1585,7 +1588,12 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
                 self?.presentCalendarChooser()
             },
             onOpenCalendarSchedule: { [weak self] in
-                self?.presentCalendarSchedule()
+                guard let self else { return }
+                if self.isUsingIPadNativeShell {
+                    self.iPadShellState.destination = .schedule
+                } else {
+                    self.presentCalendarSchedule()
+                }
             },
             onRetryCalendarContext: { [weak self] in
                 self?.viewModel?.refreshCalendarContext(reason: "home_calendar_retry")
@@ -1608,6 +1616,9 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
             },
             addTaskSurface: { [weak self] in
                 self?.makeAddTaskInspectorRoot(layoutClass: layoutClass) ?? AnyView(EmptyView())
+            },
+            scheduleSurface: { [weak self] in
+                self?.makeCalendarScheduleInspectorRoot(layoutClass: layoutClass) ?? AnyView(EmptyView())
             },
             settingsSurface: { [weak self] in
                 self?.makeSettingsInspectorRoot(layoutClass: layoutClass) ?? AnyView(EmptyView())
@@ -1645,6 +1656,21 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
                 onClose: { [weak self] in
                     self?.iPadShellState.destination = .tasks
                 }
+            )
+            .taskerLayoutClass(layoutClass)
+        )
+    }
+
+    private func makeCalendarScheduleInspectorRoot(layoutClass: TaskerLayoutClass) -> AnyView {
+        guard let service = presentationDependencyContainer?.coordinator.calendarIntegrationService else {
+            return AnyView(Text("Schedule unavailable").font(.tasker(.body)))
+        }
+        let weekStartsOn = TaskerWorkspacePreferencesStore.shared.load().weekStartsOn
+        return AnyView(
+            CalendarScheduleView(
+                service: service,
+                weekStartsOn: weekStartsOn,
+                presentationMode: .embedded
             )
             .taskerLayoutClass(layoutClass)
         )
@@ -1936,6 +1962,24 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
             .receive(on: RunLoop.main)
             .sink { [weak self] _ in
                 self?.handleQuickAddDeepLink()
+            }
+            .store(in: &cancellables)
+    }
+
+    private func observeCalendarScheduleDeepLinks() {
+        NotificationCenter.default.publisher(for: .taskerOpenCalendarScheduleDeepLink)
+            .receive(on: RunLoop.main)
+            .sink { [weak self] _ in
+                self?.handleCalendarScheduleDeepLink()
+            }
+            .store(in: &cancellables)
+    }
+
+    private func observeCalendarChooserDeepLinks() {
+        NotificationCenter.default.publisher(for: .taskerOpenCalendarChooserDeepLink)
+            .receive(on: RunLoop.main)
+            .sink { [weak self] _ in
+                self?.handleCalendarChooserDeepLink()
             }
             .store(in: &cancellables)
     }
@@ -3148,17 +3192,22 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
             sheet.detents = detents
             sheet.prefersGrabberVisible = true
             sheet.prefersScrollingExpandsWhenScrolledToEdge = false
-            sheet.preferredCornerRadius = 28
+            sheet.preferredCornerRadius = TaskerThemeManager.shared.currentTheme.tokens.corner.modal
         }
         present(host, animated: true)
     }
 
     private func presentCalendarSchedule() {
+        if isUsingIPadNativeShell {
+            iPadShellState.destination = .schedule
+            return
+        }
         guard let service = presentationDependencyContainer?.coordinator.calendarIntegrationService else { return }
         let weekStartsOn = TaskerWorkspacePreferencesStore.shared.load().weekStartsOn
         let view = CalendarScheduleView(
             service: service,
-            weekStartsOn: weekStartsOn
+            weekStartsOn: weekStartsOn,
+            presentationMode: .modal
         )
         let host = UIHostingController(rootView: AnyView(view.taskerLayoutClass(currentLayoutClass)))
         host.modalPresentationStyle = UIModalPresentationStyle.pageSheet
@@ -3169,7 +3218,7 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
                 : [.medium(), .large()]
             sheet.detents = detents
             sheet.prefersGrabberVisible = true
-            sheet.preferredCornerRadius = 28
+            sheet.preferredCornerRadius = TaskerThemeManager.shared.currentTheme.tokens.corner.modal
         }
         present(host, animated: true)
     }
@@ -3326,6 +3375,48 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
             return
         }
         AddTaskAction()
+    }
+
+    private func handleCalendarScheduleDeepLink() {
+        if isUsingIPadNativeShell {
+            let routeToSchedule = { [weak self] in
+                self?.iPadShellState.destination = .schedule
+            }
+            if presentedViewController != nil {
+                dismiss(animated: true) {
+                    routeToSchedule()
+                }
+                return
+            }
+            routeToSchedule()
+            return
+        }
+
+        if presentedViewController != nil {
+            dismiss(animated: true) { [weak self] in
+                self?.presentCalendarSchedule()
+            }
+            return
+        }
+        presentCalendarSchedule()
+    }
+
+    private func handleCalendarChooserDeepLink() {
+        let openChooser = { [weak self] in
+            guard let self else { return }
+            if self.isUsingIPadNativeShell {
+                self.iPadShellState.destination = .schedule
+            }
+            self.presentCalendarChooser()
+        }
+
+        if presentedViewController != nil {
+            dismiss(animated: true) {
+                openChooser()
+            }
+            return
+        }
+        openChooser()
     }
 
     private func processPendingWidgetActionCommand() {
