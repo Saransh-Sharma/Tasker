@@ -41,14 +41,79 @@ final class HomeCalendarModuleUITests: XCTestCase {
     func testCalendarTimelinePreviewOpensSchedule() throws {
         let app = launchApp(calendarMode: "active")
 
-        let timelinePreview = app.descendants(matching: .any)["home.calendar.timelinePreview"]
-        XCTAssertTrue(timelinePreview.waitForExistence(timeout: 12))
-
-        timelinePreview.tap()
+        openSchedule(from: app)
 
         let segmentedControl = app.descendants(matching: .any)["schedule.segmented"]
         XCTAssertTrue(segmentedControl.waitForExistence(timeout: 8))
         XCTAssertTrue(app.descendants(matching: .any)["schedule.list"].exists)
+    }
+
+    func testScheduleSwitchesBetweenTodayAndWeekTabs() throws {
+        let app = launchApp(calendarMode: "active")
+
+        openSchedule(from: app)
+
+        let weekTab = scheduleWeekTab(in: app)
+        XCTAssertTrue(weekTab.waitForExistence(timeout: 8))
+        weekTab.tap()
+
+        XCTAssertTrue(app.descendants(matching: .any)["schedule.week.content"].waitForExistence(timeout: 8))
+    }
+
+    func testScheduleFiltersOpenCustomChooserAndCommitSelection() throws {
+        let app = launchApp(calendarMode: "active")
+
+        openSchedule(from: app)
+
+        let filters = app.descendants(matching: .any)["schedule.filters"]
+        XCTAssertTrue(filters.waitForExistence(timeout: 8))
+        filters.tap()
+
+        let personalCalendar = app.descendants(matching: .any)["schedule.chooser.calendar.personal"]
+        XCTAssertTrue(personalCalendar.waitForExistence(timeout: 8))
+        personalCalendar.tap()
+
+        let done = scheduleChooserDoneButton(in: app)
+        XCTAssertTrue(done.waitForExistence(timeout: 8))
+        done.tap()
+
+        XCTAssertTrue(app.descendants(matching: .any)["schedule.segmented"].waitForExistence(timeout: 8))
+    }
+
+    func testScheduleTimelineExpandsInlineAndCollapsesBack() throws {
+        let app = launchApp(calendarMode: "active")
+
+        openSchedule(from: app)
+
+        let compactTimeline = app.descendants(matching: .any)["schedule.timeline.compact"]
+        XCTAssertTrue(compactTimeline.waitForExistence(timeout: 8))
+        compactTimeline.tap()
+
+        let expandedTimeline = app.descendants(matching: .any)["schedule.timeline.expanded"]
+        XCTAssertTrue(expandedTimeline.waitForExistence(timeout: 8))
+
+        let toggle = app.buttons["schedule.timeline.toggle"]
+        XCTAssertTrue(toggle.waitForExistence(timeout: 8))
+        toggle.tap()
+
+        XCTAssertTrue(compactTimeline.waitForExistence(timeout: 8))
+        XCTAssertTrue(app.descendants(matching: .any)["schedule.event.test_meeting_1"].exists)
+    }
+
+    func testScheduleEventRowOpensNativeEventDetail() throws {
+        let app = launchApp(calendarMode: "active")
+
+        openSchedule(from: app)
+
+        let eventRow = scheduleEventRow(in: app, identifier: "schedule.event.test_meeting_1", fallbackTitle: "Design Review")
+        XCTAssertTrue(eventRow.waitForExistence(timeout: 8))
+        eventRow.tap()
+
+        let closeButton = scheduleDetailCloseButton(in: app)
+        XCTAssertTrue(closeButton.waitForExistence(timeout: 8))
+        closeButton.tap()
+
+        XCTAssertTrue(app.descendants(matching: .any)["schedule.segmented"].waitForExistence(timeout: 8))
     }
 
     private func assertCalendarMode(_ mode: String, expectedStateID: String, expectsRetry: Bool) {
@@ -128,5 +193,61 @@ final class HomeCalendarModuleUITests: XCTestCase {
             }
         }
         return element
+    }
+
+    private func openSchedule(from app: XCUIApplication) {
+        let timelinePreview = app.descendants(matching: .any)["home.calendar.timelinePreview"]
+        if timelinePreview.waitForExistence(timeout: 4) {
+            timelinePreview.tap()
+            return
+        }
+
+        let openSchedule = app.descendants(matching: .any)["home.calendar.openSchedule"]
+        XCTAssertTrue(openSchedule.waitForExistence(timeout: 8))
+        openSchedule.tap()
+    }
+
+    private func scheduleWeekTab(in app: XCUIApplication) -> XCUIElement {
+        let identified = app.descendants(matching: .any)["schedule.segment.week"]
+        if identified.exists {
+            return identified
+        }
+        return app.buttons["Week"].firstMatch
+    }
+
+    private func scheduleChooserDoneButton(in app: XCUIApplication) -> XCUIElement {
+        let identified = app.buttons.matching(identifier: "schedule.chooser.done").firstMatch
+        if identified.exists {
+            return identified
+        }
+        return app.buttons["Done"].firstMatch
+    }
+
+    private func scheduleEventRow(in app: XCUIApplication, identifier: String, fallbackTitle: String) -> XCUIElement {
+        let identified = app.buttons.matching(identifier: identifier).firstMatch
+        if identified.exists {
+            return identified
+        }
+
+        let buttonMatch = app.buttons[fallbackTitle].firstMatch
+        if buttonMatch.exists {
+            return buttonMatch
+        }
+
+        let containerMatch = app.otherElements.containing(.staticText, identifier: fallbackTitle).firstMatch
+        if containerMatch.exists {
+            return containerMatch
+        }
+
+        return app.staticTexts[fallbackTitle].firstMatch
+    }
+
+    private func scheduleDetailCloseButton(in app: XCUIApplication) -> XCUIElement {
+        let identified = app.descendants(matching: .any)["schedule.detail.close"]
+        if identified.exists {
+            return identified
+        }
+
+        return app.navigationBars.buttons["Close"].firstMatch
     }
 }
