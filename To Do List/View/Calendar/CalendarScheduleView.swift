@@ -760,29 +760,34 @@ private struct CalendarScheduleTimelineSection: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: spacing.s12) {
+        VStack(alignment: .leading, spacing: spacing.s8) {
             HStack(alignment: .firstTextBaseline, spacing: spacing.s8) {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("Live timeline")
-                        .font(.tasker(.headline))
-                        .foregroundStyle(Color.tasker.textPrimary)
+                Text("W\(Calendar.current.component(.weekOfYear, from: date))")
+                    .font(.tasker(.caption1))
+                    .foregroundStyle(Color.tasker.textTertiary)
 
-                    Text(timelineSubtitle)
-                        .font(.tasker(.caption1))
-                        .foregroundStyle(Color.tasker.textSecondary)
-                }
+                Spacer(minLength: 0)
+
+                Text(timelineDateLabel)
+                    .font(.tasker(.headline))
+                    .foregroundStyle(Color.tasker.statusDanger)
 
                 Spacer(minLength: 0)
 
                 if timedEvents.isEmpty == false {
-                    Button(isExpanded ? "Collapse" : "Expand") {
-                        toggleExpanded()
+                    Button(action: toggleExpanded) {
+                        Label(isExpanded ? "Collapse" : "Expand", systemImage: isExpanded ? "chevron.up" : "chevron.down")
+                            .labelStyle(.titleAndIcon)
                     }
-                    .font(.tasker(.bodyStrong))
-                    .foregroundStyle(Color.tasker.actionPrimary)
+                    .font(.tasker(.caption1))
+                    .foregroundStyle(Color.tasker.textSecondary)
                     .buttonStyle(.plain)
                     .accessibilityIdentifier("schedule.timeline.toggle")
                     .accessibilityLabel(isExpanded ? "Collapse live timeline" : "Expand live timeline")
+                } else {
+                    Text("Timeline")
+                        .font(.tasker(.caption1))
+                        .foregroundStyle(Color.tasker.textTertiary)
                 }
             }
 
@@ -791,13 +796,7 @@ private struct CalendarScheduleTimelineSection: View {
                     .font(.tasker(.callout))
                     .foregroundStyle(Color.tasker.textSecondary)
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(spacing.s16)
-                    .background(Color.tasker.surfacePrimary)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: TaskerTheme.CornerRadius.card, style: .continuous)
-                            .stroke(Color.tasker.strokeHairline.opacity(0.72), lineWidth: 1)
-                    )
-                    .clipShape(RoundedRectangle(cornerRadius: TaskerTheme.CornerRadius.card, style: .continuous))
+                    .padding(.vertical, spacing.s12)
                     .accessibilityIdentifier("schedule.timeline.compact")
             } else if isExpanded {
                 TaskerCalendarTimelineView(
@@ -829,24 +828,13 @@ private struct CalendarScheduleTimelineSection: View {
                 .accessibilityHint("Expands to show the full day")
             }
         }
-        .padding(spacing.s16)
-        .background(Color.tasker.bgElevated)
-        .overlay(
-            RoundedRectangle(cornerRadius: TaskerTheme.CornerRadius.card, style: .continuous)
-                .stroke(Color.tasker.strokeHairline.opacity(0.75), lineWidth: 1)
-        )
-        .clipShape(RoundedRectangle(cornerRadius: TaskerTheme.CornerRadius.card, style: .continuous))
         .accessibilityIdentifier("schedule.timeline")
     }
 
-    private var timelineSubtitle: String {
-        if timedEvents.isEmpty {
-            return "A compact runway for timed events."
-        }
-        if isExpanded {
-            return "Showing the full day, centered on the most relevant work window."
-        }
-        return "Showing the most relevant live window. Tap to open the full workday."
+    private var timelineDateLabel: String {
+        let weekday = date.formatted(.dateTime.weekday(.abbreviated))
+        let monthDay = date.formatted(.dateTime.month(.abbreviated).day())
+        return "\(weekday) - \(monthDay)"
     }
 
     private func toggleExpanded() {
@@ -1111,6 +1099,7 @@ struct TaskerCalendarTimelineLayoutPlan: Equatable {
         let event: TaskerCalendarEventSnapshot
         let lane: Int
         let laneCount: Int
+        let columnSpan: Int
         let startMinute: Int
         let endMinute: Int
 
@@ -1194,6 +1183,7 @@ enum TaskerCalendarTimelinePlanner {
                             event: event.event,
                             lane: reusableLane,
                             laneCount: 0,
+                            columnSpan: 1,
                             startMinute: event.startMinute,
                             endMinute: event.endMinute
                         )
@@ -1205,6 +1195,7 @@ enum TaskerCalendarTimelinePlanner {
                             event: event.event,
                             lane: laneEndMinutes.count - 1,
                             laneCount: 0,
+                            columnSpan: 1,
                             startMinute: event.startMinute,
                             endMinute: event.endMinute
                         )
@@ -1214,19 +1205,28 @@ enum TaskerCalendarTimelinePlanner {
 
             let laneCount = max(1, laneEndMinutes.count)
             return positionedCluster.map { positioned in
-                TaskerCalendarTimelineLayoutPlan.PositionedEvent(
+                let columnSpan = maxColumnSpan(
+                    for: positioned,
+                    in: positionedCluster,
+                    laneCount: laneCount
+                )
+                return TaskerCalendarTimelineLayoutPlan.PositionedEvent(
                     event: positioned.event,
                     lane: positioned.lane,
                     laneCount: laneCount,
+                    columnSpan: columnSpan,
                     startMinute: positioned.startMinute,
                     endMinute: positioned.endMinute
                 )
             }
         }
 
+        let startHour = visibleRange.startMinute / 60
+        let endHour = max(startHour, (visibleRange.endMinute / 60) - 1)
+
         return TaskerCalendarTimelineLayoutPlan(
-            startHour: visibleRange.startMinute / 60,
-            endHour: visibleRange.endMinute / 60,
+            startHour: startHour,
+            endHour: endHour,
             positionedEvents: positionedEvents
         )
     }
@@ -1339,6 +1339,46 @@ enum TaskerCalendarTimelinePlanner {
         return clusters
     }
 
+    private static func maxColumnSpan(
+        for event: TaskerCalendarTimelineLayoutPlan.PositionedEvent,
+        in cluster: [TaskerCalendarTimelineLayoutPlan.PositionedEvent],
+        laneCount: Int
+    ) -> Int {
+        guard laneCount > 1 else { return 1 }
+
+        var span = 1
+
+        for candidateLane in (event.lane + 1)..<laneCount {
+            let hasOverlapInLane = cluster.contains { other in
+                other.lane == candidateLane
+                    && other.id != event.id
+                    && intervalsOverlap(
+                        lhsStart: event.startMinute,
+                        lhsEnd: event.endMinute,
+                        rhsStart: other.startMinute,
+                        rhsEnd: other.endMinute
+                    )
+            }
+
+            if hasOverlapInLane {
+                break
+            }
+
+            span += 1
+        }
+
+        return span
+    }
+
+    private static func intervalsOverlap(
+        lhsStart: Int,
+        lhsEnd: Int,
+        rhsStart: Int,
+        rhsEnd: Int
+    ) -> Bool {
+        lhsStart < rhsEnd && rhsStart < lhsEnd
+    }
+
     private static func clip(
         _ event: TaskerCalendarEventSnapshot,
         to date: Date,
@@ -1392,19 +1432,6 @@ struct TaskerCalendarTimelineView: View {
         TimelineMetrics(density: density, layoutClass: layoutClass)
     }
 
-    private var dateFont: Font {
-        switch density {
-        case .compact:
-            return .tasker(.caption1)
-        case .expanded:
-            return .tasker(.callout)
-        }
-    }
-
-    private var hourFont: Font {
-        .tasker(.caption1)
-    }
-
     var body: some View {
         TimelineView(.periodic(from: .now, by: 60)) { timeline in
             content(anchorDate: timeline.date)
@@ -1428,7 +1455,7 @@ struct TaskerCalendarTimelineView: View {
             VStack(alignment: .leading, spacing: spacing.s8) {
                 if showsDateLabel {
                     Text(TaskerCalendarPresentation.compactDateText(for: date))
-                        .font(dateFont)
+                        .font(.tasker(.caption1))
                         .foregroundStyle(Color.tasker.textSecondary)
                 }
 
@@ -1448,16 +1475,9 @@ struct TaskerCalendarTimelineView: View {
         anchorDate: Date
     ) -> some View {
         GeometryReader { proxy in
-            let timelineWidth = max(0, proxy.size.width - metrics.labelColumnWidth)
-            ZStack(alignment: .topLeading) {
-                timelineGrid(layoutPlan, width: timelineWidth, anchorDate: anchorDate)
-                timelineEvents(layoutPlan, width: timelineWidth)
-                if layoutPlan.positionedEvents.isEmpty {
-                    timelineEmptyState(width: timelineWidth, plan: layoutPlan)
-                }
-            }
+            timelineCanvas(layoutPlan: layoutPlan, anchorDate: anchorDate, totalWidth: proxy.size.width)
         }
-        .frame(height: CGFloat(layoutPlan.endHour - layoutPlan.startHour) * metrics.hourHeight)
+        .frame(height: CGFloat(layoutPlan.endHour - layoutPlan.startHour + 1) * metrics.hourHeight)
     }
 
     private func expandedTimelineBody(
@@ -1465,21 +1485,17 @@ struct TaskerCalendarTimelineView: View {
         anchorDate: Date
     ) -> some View {
         GeometryReader { proxy in
-            let timelineWidth = max(0, proxy.size.width - metrics.labelColumnWidth)
-
             ScrollViewReader { scrollProxy in
-                ScrollView(.vertical, showsIndicators: true) {
-                    ZStack(alignment: .topLeading) {
-                        timelineGrid(layoutPlan, width: timelineWidth, anchorDate: anchorDate)
-                        timelineEvents(layoutPlan, width: timelineWidth)
-                        if layoutPlan.positionedEvents.isEmpty {
-                            timelineEmptyState(width: timelineWidth, plan: layoutPlan)
-                        }
-                    }
-                    .frame(height: CGFloat(layoutPlan.endHour - layoutPlan.startHour) * metrics.hourHeight)
+                ScrollView(.vertical) {
+                    timelineCanvas(layoutPlan: layoutPlan, anchorDate: anchorDate, totalWidth: proxy.size.width)
+                        .frame(height: CGFloat(layoutPlan.endHour - layoutPlan.startHour + 1) * metrics.hourHeight)
                 }
+                .scrollIndicators(.visible)
                 .onAppear {
-                    let targetHour = min(max(layoutPlan.startHour, initialVisibleHour ?? layoutPlan.startHour), max(layoutPlan.startHour, layoutPlan.endHour - 1))
+                    let targetHour = min(
+                        max(layoutPlan.startHour, initialVisibleHour ?? layoutPlan.startHour),
+                        max(layoutPlan.startHour, layoutPlan.endHour)
+                    )
                     DispatchQueue.main.async {
                         if reduceMotion {
                             scrollProxy.scrollTo(hourAnchorID(targetHour), anchor: .top)
@@ -1495,33 +1511,50 @@ struct TaskerCalendarTimelineView: View {
         .frame(height: layoutClass.isPad ? 560 : 460)
     }
 
+    private func timelineCanvas(
+        layoutPlan: TaskerCalendarTimelineLayoutPlan,
+        anchorDate: Date,
+        totalWidth: CGFloat
+    ) -> some View {
+        let timelineWidth = max(0, totalWidth - metrics.labelColumnWidth)
+
+        return ZStack(alignment: .topLeading) {
+            timelineGrid(layoutPlan, width: timelineWidth, anchorDate: anchorDate)
+            timelineEvents(layoutPlan, width: timelineWidth)
+            if layoutPlan.positionedEvents.isEmpty {
+                timelineEmptyState(width: timelineWidth, plan: layoutPlan)
+            }
+        }
+    }
+
     private func timelineGrid(
         _ plan: TaskerCalendarTimelineLayoutPlan,
         width: CGFloat,
         anchorDate: Date
     ) -> some View {
-        let totalHeight = CGFloat(plan.endHour - plan.startHour) * metrics.hourHeight
+        let totalHeight = CGFloat(plan.endHour - plan.startHour + 1) * metrics.hourHeight
 
         return ZStack(alignment: .topLeading) {
-            RoundedRectangle(cornerRadius: metrics.backgroundCornerRadius, style: .continuous)
-                .fill(backgroundFill)
-                .overlay(
-                    RoundedRectangle(cornerRadius: metrics.backgroundCornerRadius, style: .continuous)
-                        .stroke(Color.tasker.strokeHairline.opacity(0.78), lineWidth: 1)
-                )
+            Rectangle()
+                .fill(Color.clear)
                 .frame(width: metrics.labelColumnWidth + width, height: totalHeight)
+
+            Rectangle()
+                .fill(Color.tasker.strokeHairline.opacity(0.55))
+                .frame(width: 1, height: totalHeight)
+                .offset(x: metrics.labelColumnWidth)
 
             ForEach(Array(plan.hourMarkers.enumerated()), id: \.offset) { offset, hour in
                 let y = CGFloat(offset) * metrics.hourHeight
 
                 HStack(spacing: spacing.s8) {
                     Text(hourLabel(hour))
-                        .font(hourFont)
-                        .foregroundStyle(Color.tasker.textSecondary)
-                        .frame(width: metrics.labelColumnWidth - spacing.s8, alignment: .trailing)
+                        .font(.tasker(.caption1))
+                        .foregroundStyle(Color.tasker.textTertiary)
+                        .frame(width: metrics.labelColumnWidth - spacing.s4, alignment: .trailing)
 
                     Rectangle()
-                        .fill(Color.tasker.strokeHairline.opacity(0.78))
+                        .fill(Color.tasker.strokeHairline.opacity(hour == 12 ? 0.8 : 0.48))
                         .frame(height: 1)
                 }
                 .offset(y: y)
@@ -1529,17 +1562,8 @@ struct TaskerCalendarTimelineView: View {
             }
 
             if let nowOffset = currentTimeOffset(in: plan, anchorDate: anchorDate) {
-                HStack(spacing: spacing.s8) {
-                    Circle()
-                        .fill(Color.tasker.actionPrimary)
-                        .frame(width: 8, height: 8)
-                        .frame(width: metrics.labelColumnWidth - spacing.s8, alignment: .trailing)
-
-                    Rectangle()
-                        .fill(Color.tasker.actionPrimary)
-                        .frame(height: density == .compact ? 2 : 3)
-                }
-                .offset(y: nowOffset)
+                currentTimeIndicator(label: currentTimeLabel(for: anchorDate), width: width)
+                    .offset(y: nowOffset - (metrics.currentTimeIndicatorHeight / 2))
             }
         }
     }
@@ -1564,8 +1588,8 @@ struct TaskerCalendarTimelineView: View {
         Text(emptyText)
             .font(.tasker(.callout))
             .foregroundStyle(Color.tasker.textSecondary)
-            .frame(width: width, height: CGFloat(plan.endHour - plan.startHour) * metrics.hourHeight)
-            .offset(x: metrics.labelColumnWidth, y: 0)
+            .frame(width: width, height: CGFloat(plan.endHour - plan.startHour + 1) * metrics.hourHeight)
+            .offset(x: metrics.labelColumnWidth + metrics.laneInset, y: 0)
     }
 
     private func eventFrame(
@@ -1573,9 +1597,9 @@ struct TaskerCalendarTimelineView: View {
         in plan: TaskerCalendarTimelineLayoutPlan,
         width: CGFloat
     ) -> CGRect {
-        let eventWidth = width / CGFloat(max(1, event.laneCount))
-        let minX = CGFloat(event.lane) * eventWidth + metrics.laneInset
-        let contentWidth = max(44, eventWidth - (metrics.laneInset * 2) - 2)
+        let columnWidth = width / CGFloat(max(1, event.laneCount))
+        let minX = CGFloat(event.lane) * columnWidth + metrics.laneInset
+        let contentWidth = max(40, (columnWidth * CGFloat(event.columnSpan)) - (metrics.laneInset * 2) - 1)
         let minY = CGFloat(event.startMinute - (plan.startHour * 60)) / 60.0 * metrics.hourHeight + metrics.verticalInset
         let height = max(
             metrics.minimumCardHeight,
@@ -1585,6 +1609,10 @@ struct TaskerCalendarTimelineView: View {
     }
 
     private func hourLabel(_ hour: Int) -> String {
+        if hour == 12 {
+            return "Noon"
+        }
+
         let normalizedHour = hour == 24 ? 0 : hour
         let markerDate = Calendar.current.date(
             bySettingHour: normalizedHour,
@@ -1605,23 +1633,40 @@ struct TaskerCalendarTimelineView: View {
         let nowMinute = calendar.component(.hour, from: anchorDate) * 60
             + calendar.component(.minute, from: anchorDate)
         let startMinute = plan.startHour * 60
-        let endMinute = plan.endHour * 60
+        let endMinute = (plan.endHour + 1) * 60
         guard nowMinute >= startMinute, nowMinute <= endMinute else { return nil }
 
         return CGFloat(nowMinute - startMinute) / 60.0 * metrics.hourHeight
     }
 
-    private func hourAnchorID(_ hour: Int) -> String {
-        "timeline.hour.\(hour)"
+    private func currentTimeIndicator(label: String, width: CGFloat) -> some View {
+        HStack(spacing: spacing.s8) {
+            Text(label)
+                .font(.system(size: metrics.currentTimeLabelSize, weight: .semibold))
+                .foregroundStyle(.white)
+                .padding(.horizontal, 8)
+                .frame(height: metrics.currentTimeIndicatorHeight)
+                .background(
+                    Capsule(style: .continuous)
+                        .fill(Color.tasker.statusDanger)
+                )
+
+            Rectangle()
+                .fill(Color.tasker.statusDanger)
+                .frame(width: width, height: metrics.currentTimeRuleHeight)
+        }
     }
 
-    private var backgroundFill: Color {
-        switch density {
-        case .compact:
-            return Color.tasker.surfaceSecondary.opacity(0.42)
-        case .expanded:
-            return Color.tasker.surfacePrimary
-        }
+    private func currentTimeLabel(for anchorDate: Date) -> String {
+        anchorDate.formatted(
+            .dateTime
+                .hour(.defaultDigits(amPM: .omitted))
+                .minute()
+        )
+    }
+
+    private func hourAnchorID(_ hour: Int) -> String {
+        "timeline.hour.\(hour)"
     }
 }
 
@@ -1658,64 +1703,70 @@ private struct TaskerCalendarTimelineEventCard: View {
 
     var body: some View {
         ZStack(alignment: .leading) {
-            RoundedRectangle(cornerRadius: density == .compact ? 12 : 16, style: .continuous)
-                .fill(accentColor.opacity(fillOpacity))
+            RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                .fill(cardFillColor)
                 .overlay(
-                    RoundedRectangle(cornerRadius: density == .compact ? 12 : 16, style: .continuous)
-                        .stroke(accentColor.opacity(borderOpacity), lineWidth: 1)
+                    RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                        .stroke(cardStrokeColor, lineWidth: 1)
                 )
+
+            if event.isCanceled {
+                TaskerCalendarTimelineStripeOverlay(
+                    color: accentColor,
+                    cornerRadius: cornerRadius
+                )
+            }
 
             RoundedRectangle(cornerRadius: 4, style: .continuous)
                 .fill(accentColor)
-                .frame(width: differentiateWithoutColor ? 6 : 4)
-                .padding(.vertical, density == .compact ? 6 : 8)
-                .padding(.leading, density == .compact ? 6 : 8)
+                .frame(width: differentiateWithoutColor ? 5 : 3)
+                .padding(.vertical, railVerticalPadding)
+                .padding(.leading, railLeadingPadding)
 
-            VStack(alignment: .leading, spacing: density == .compact ? 2 : 4) {
-                HStack(alignment: .top, spacing: 4) {
+            VStack(alignment: .leading, spacing: contentSpacing) {
+                HStack(alignment: .firstTextBaseline, spacing: 4) {
+                    Circle()
+                        .fill(accentColor)
+                        .frame(width: 4, height: 4)
+                        .opacity(showsAccentDot ? 1 : 0)
+                        .accessibilityHidden(true)
+
                     Text(event.title)
-                        .font(density == .compact ? .tasker(.caption1) : .tasker(.bodyStrong))
-                        .foregroundStyle(Color.tasker.textPrimary)
+                        .font(titleFont)
+                        .foregroundStyle(titleColor)
                         .strikethrough(event.isCanceled, color: Color.tasker.textSecondary)
-                        .lineLimit(height < 44 ? 1 : (density == .compact ? 2 : 3))
+                        .lineLimit(titleLineLimit)
+                        .minimumScaleFactor(0.9)
 
                     if differentiateWithoutColor, let firstBadge = badges.first {
                         Image(systemName: firstBadge.systemImage)
-                            .font(.system(size: density == .compact ? 10 : 12, weight: .semibold))
+                            .font(.system(size: 10, weight: .semibold))
                             .foregroundStyle(accentColor)
-                            .padding(.top, 2)
                             .accessibilityHidden(true)
                     }
                 }
 
-                Text(TaskerCalendarPresentation.timeRangeText(for: event))
-                    .font(density == .compact ? .tasker(.caption2) : .tasker(.caption1))
-                    .foregroundStyle(Color.tasker.textSecondary)
-                    .lineLimit(1)
-
-                if density == .expanded || height > 54 {
-                    if let supportingLine = supportingLine {
-                        Text(supportingLine)
-                            .font(density == .compact ? .tasker(.caption2) : .tasker(.callout))
-                            .foregroundStyle(Color.tasker.textSecondary)
-                            .lineLimit(1)
-                    }
+                if showsTimeLine {
+                    Text(TaskerCalendarPresentation.timeRangeText(for: event))
+                        .font(.tasker(.caption1))
+                        .foregroundStyle(Color.tasker.textSecondary)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.9)
                 }
 
-                if density == .expanded && !badges.isEmpty {
-                    HStack(spacing: 6) {
-                        ForEach(Array(badges.prefix(2))) { badge in
-                            TaskerCalendarBadgeView(badge: badge)
-                        }
-                    }
+                if showsSupportingLine, let supportingLine {
+                    Text(supportingLine)
+                        .font(.tasker(.caption1))
+                        .foregroundStyle(Color.tasker.textSecondary)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.88)
                 }
             }
-            .padding(.leading, density == .compact ? 18 : 22)
-            .padding(.trailing, density == .compact ? 8 : 12)
-            .padding(.vertical, density == .compact ? 6 : 10)
+            .padding(.leading, contentLeadingPadding)
+            .padding(.trailing, contentTrailingPadding)
+            .padding(.vertical, contentVerticalPadding)
             .opacity(event.isCanceled ? 0.72 : 1)
         }
-        .taskerElevation(.e1, cornerRadius: density == .compact ? 12 : 16, includesBorder: false)
     }
 
     private var supportingLine: String? {
@@ -1725,15 +1776,95 @@ private struct TaskerCalendarTimelineEventCard: View {
         return event.calendarTitle
     }
 
-    private var fillOpacity: Double {
+    private var cardFillColor: Color {
         if event.isCanceled {
-            return 0.12
+            return Color.tasker.surfaceSecondary.opacity(0.6)
         }
-        return density == .compact ? 0.18 : 0.22
+        return accentColor.opacity(density == .compact ? 0.14 : 0.16)
     }
 
-    private var borderOpacity: Double {
-        event.isCanceled ? 0.28 : 0.44
+    private var cardStrokeColor: Color {
+        event.isCanceled ? Color.tasker.strokeHairline.opacity(0.6) : accentColor.opacity(0.26)
+    }
+
+    private var titleColor: Color {
+        event.isCanceled ? Color.tasker.textSecondary : Color.tasker.textPrimary
+    }
+
+    private var cornerRadius: CGFloat {
+        density == .compact ? 8 : 10
+    }
+
+    private var railLeadingPadding: CGFloat {
+        density == .compact ? 4 : 5
+    }
+
+    private var railVerticalPadding: CGFloat {
+        density == .compact ? 4 : 5
+    }
+
+    private var contentLeadingPadding: CGFloat {
+        density == .compact ? 12 : 14
+    }
+
+    private var contentTrailingPadding: CGFloat {
+        density == .compact ? 5 : 6
+    }
+
+    private var contentVerticalPadding: CGFloat {
+        density == .compact ? 4 : 5
+    }
+
+    private var contentSpacing: CGFloat {
+        height < 34 ? 1 : 2
+    }
+
+    private var titleFont: Font {
+        density == .compact ? .tasker(.caption1) : .tasker(.bodyStrong)
+    }
+
+    private var titleLineLimit: Int {
+        if density == .compact {
+            return 1
+        }
+        return height >= 64 ? 2 : 1
+    }
+
+    private var showsAccentDot: Bool {
+        height >= 24
+    }
+
+    private var showsTimeLine: Bool {
+        height >= (density == .compact ? 34 : 38)
+    }
+
+    private var showsSupportingLine: Bool {
+        height >= (density == .compact ? 52 : 60)
+    }
+}
+
+private struct TaskerCalendarTimelineStripeOverlay: View {
+    let color: Color
+    let cornerRadius: CGFloat
+
+    var body: some View {
+        GeometryReader { proxy in
+            Path { path in
+                let height = proxy.size.height
+                let width = proxy.size.width
+                let step: CGFloat = 10
+                var x: CGFloat = -height
+
+                while x < width {
+                    path.move(to: CGPoint(x: x, y: height))
+                    path.addLine(to: CGPoint(x: x + height, y: 0))
+                    x += step
+                }
+            }
+            .stroke(color.opacity(0.22), lineWidth: 1)
+        }
+        .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
+        .allowsHitTesting(false)
     }
 }
 
@@ -1797,27 +1928,33 @@ private struct TaskerCalendarBadgeView: View {
 private struct TimelineMetrics {
     let labelColumnWidth: CGFloat
     let hourHeight: CGFloat
-    let backgroundCornerRadius: CGFloat
     let laneInset: CGFloat
     let verticalInset: CGFloat
     let minimumCardHeight: CGFloat
+    let currentTimeIndicatorHeight: CGFloat
+    let currentTimeRuleHeight: CGFloat
+    let currentTimeLabelSize: CGFloat
 
     init(density: TaskerCalendarTimelineDensity, layoutClass: TaskerLayoutClass) {
         switch density {
         case .compact:
-            labelColumnWidth = 56
+            labelColumnWidth = 52
             hourHeight = 42
-            backgroundCornerRadius = 16
             laneInset = 2
-            verticalInset = 4
-            minimumCardHeight = 30
+            verticalInset = 3
+            minimumCardHeight = 24
+            currentTimeIndicatorHeight = 18
+            currentTimeRuleHeight = 2
+            currentTimeLabelSize = 11
         case .expanded:
-            labelColumnWidth = layoutClass.isPad ? 74 : 64
-            hourHeight = layoutClass.isPad ? 56 : 48
-            backgroundCornerRadius = 22
-            laneInset = 4
-            verticalInset = 6
-            minimumCardHeight = 40
+            labelColumnWidth = layoutClass.isPad ? 62 : 56
+            hourHeight = layoutClass.isPad ? 52 : 46
+            laneInset = 3
+            verticalInset = 4
+            minimumCardHeight = 28
+            currentTimeIndicatorHeight = 20
+            currentTimeRuleHeight = 2
+            currentTimeLabelSize = 12
         }
     }
 }
