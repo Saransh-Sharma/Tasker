@@ -300,7 +300,7 @@ public final class EnhancedDependencyContainer {
             switch mode {
             case .permission, .noCalendars:
                 preferences.selectedCalendarIDs = []
-            case .active, .empty, .error:
+            case .active, .allDayOnly, .empty, .error:
                 preferences.selectedCalendarIDs = ["work"]
             }
         }
@@ -402,6 +402,7 @@ public final class EnhancedDependencyContainer {
 
 enum UITestCalendarMode: String {
     case active
+    case allDayOnly
     case permission
     case noCalendars
     case empty
@@ -418,7 +419,7 @@ final class UITestCalendarEventsProvider: CalendarEventsProviderProtocol {
         switch mode {
         case .permission:
             self.authStatus = .notDetermined
-        case .active, .noCalendars, .empty, .error:
+        case .active, .allDayOnly, .noCalendars, .empty, .error:
             self.authStatus = .authorized
         }
     }
@@ -481,6 +482,12 @@ final class UITestCalendarEventsProvider: CalendarEventsProviderProtocol {
                 userInfo: [NSLocalizedDescriptionKey: "Failed to load test events."]
             )))
         case .active:
+            let calendar = Calendar.current
+            let startOfToday = calendar.startOfDay(for: Date())
+            let firstStart = calendar.date(byAdding: .hour, value: 10, to: startOfToday) ?? Date()
+            let firstEnd = calendar.date(byAdding: .minute, value: 30, to: firstStart) ?? firstStart
+            let secondStart = calendar.date(byAdding: .hour, value: 14, to: startOfToday) ?? Date()
+            let secondEnd = calendar.date(byAdding: .minute, value: 30, to: secondStart) ?? secondStart
             let allEvents = [
                 TaskerCalendarEventSnapshot(
                     id: "test_meeting_1",
@@ -489,8 +496,8 @@ final class UITestCalendarEventsProvider: CalendarEventsProviderProtocol {
                     calendarColorHex: "#007AFF",
                     title: "Design Review",
                     location: "Zoom",
-                    startDate: Date().addingTimeInterval(20 * 60),
-                    endDate: Date().addingTimeInterval(50 * 60),
+                    startDate: firstStart,
+                    endDate: firstEnd,
                     isAllDay: false,
                     availability: .busy,
                     participationStatus: .accepted
@@ -502,8 +509,8 @@ final class UITestCalendarEventsProvider: CalendarEventsProviderProtocol {
                     calendarColorHex: "#007AFF",
                     title: "Sprint Standup",
                     location: "Room A",
-                    startDate: Date().addingTimeInterval(3 * 60 * 60),
-                    endDate: Date().addingTimeInterval(3 * 60 * 60 + 30 * 60),
+                    startDate: secondStart,
+                    endDate: secondEnd,
                     isAllDay: false,
                     availability: .busy,
                     participationStatus: .accepted
@@ -515,6 +522,22 @@ final class UITestCalendarEventsProvider: CalendarEventsProviderProtocol {
             } else {
                 completion(.success(allEvents.filter { calendarIDs.contains($0.calendarID) }))
             }
+        case .allDayOnly:
+            completion(.success([
+                TaskerCalendarEventSnapshot(
+                    id: "test_all_day",
+                    calendarID: "work",
+                    calendarTitle: "Work",
+                    calendarColorHex: "#007AFF",
+                    title: "All-Day Offsite",
+                    location: nil,
+                    startDate: Calendar.current.startOfDay(for: Date()),
+                    endDate: Calendar.current.date(byAdding: .day, value: 1, to: Calendar.current.startOfDay(for: Date())) ?? Date(),
+                    isAllDay: true,
+                    availability: .busy,
+                    participationStatus: .accepted
+                )
+            ]))
         }
     }
 
