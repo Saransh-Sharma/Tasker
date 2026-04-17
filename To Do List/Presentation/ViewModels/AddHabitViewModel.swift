@@ -623,8 +623,363 @@ public struct HabitEditorDraft: Equatable {
     }
 }
 
+public enum HabitDetailDayCellState: Equatable {
+    case empty
+    case success
+    case skipped
+    case lapsed
+    case notScheduled
+    case future
+}
+
+public struct HabitDetailDayCell: Identifiable, Equatable {
+    public let date: Date
+    public let state: HabitDetailDayCellState
+    public let isToday: Bool
+    public let isInteractive: Bool
+
+    public var id: Date { date }
+
+    public var dayNumber: String {
+        String(Calendar.current.component(.day, from: date))
+    }
+}
+
+public struct HabitDetailCalendarWeek: Identifiable, Equatable {
+    public let startDate: Date
+    public let monthLabel: String?
+    public let cells: [HabitDetailDayCell]
+
+    public var id: Date { startDate }
+}
+
+public struct HabitDetailCalendarCellViewState: Identifiable, Equatable {
+    public let cell: HabitDetailDayCell
+    public let dayNumber: String
+    public let accessibilityLabel: String
+    public let accessibilityValue: String
+    public let accessibilityHint: String
+    public let accessibilityIdentifier: String
+
+    public var id: Date { cell.id }
+}
+
+public struct HabitDetailCalendarWeekViewState: Identifiable, Equatable {
+    public let startDate: Date
+    public let monthLabel: String?
+    public let cells: [HabitDetailCalendarCellViewState]
+
+    public var id: Date { startDate }
+}
+
+public struct HabitDetailCalendarViewState: Equatable {
+    public let helperText: String
+    public let weeks: [HabitDetailCalendarWeekViewState]
+}
+
+enum HabitDetailDayMutationRequest: Equatable {
+    case resolve(HabitOccurrenceAction)
+    case reset
+}
+
+enum HabitDetailCalendarBuilder {
+    static let historyDayCount = 84
+
+    static func buildWeeks(
+        row: HabitLibraryRow,
+        marks: [HabitDayMark],
+        referenceDate: Date,
+        dayCount: Int = historyDayCount,
+        calendar: Calendar = .current
+    ) -> [HabitDetailCalendarWeek] {
+        let endDay = calendar.startOfDay(for: referenceDate)
+        let requestedStart = calendar.date(byAdding: .day, value: -(max(dayCount, 1) - 1), to: endDay) ?? endDay
+        let startDay = calendar.dateInterval(of: .weekOfYear, for: requestedStart)?.start ?? requestedStart
+        let endWeek = calendar.dateInterval(of: .weekOfYear, for: endDay)
+        let endGridDay = calendar.date(byAdding: .day, value: 6, to: endWeek?.start ?? endDay) ?? endDay
+        let totalDays = max(calendar.dateComponents([.day], from: startDay, to: endGridDay).day ?? 0, 0) + 1
+        let marksByDay = Dictionary(uniqueKeysWithValues: marks.map { mark in
+            (calendar.startOfDay(for: mark.date), mark)
+        })
+
+        let days = (0..<totalDays).compactMap { offset -> HabitDetailDayCell? in
+            guard let day = calendar.date(byAdding: .day, value: offset, to: startDay) else { return nil }
+            let dayStart = calendar.startOfDay(for: day)
+            let scheduled = occurs(on: dayStart, cadence: row.cadence, trackingMode: row.trackingMode, calendar: calendar)
+            let mark = marksByDay[dayStart]
+            let state = resolveState(
+                row: row,
+                mark: mark,
+                day: dayStart,
+                referenceDay: endDay,
+                scheduled: scheduled
+            )
+
+            return HabitDetailDayCell(
+                date: dayStart,
+                state: state,
+                isToday: calendar.isDate(dayStart, inSameDayAs: endDay),
+                isInteractive: scheduled && dayStart <= endDay && !row.isPaused && !row.isArchived
+            )
+        }
+
+        let formatter = monthFormatter
+        var previousMonthAnchor: Date?
+
+        return stride(from: 0, to: days.count, by: 7).compactMap { index in
+            let cells = Array(days[index..<min(index + 7, days.count)])
+            guard let firstDay = cells.first?.date else { return nil }
+            let monthAnchor = cells.first(where: {
+                calendar.component(.day, from: $0.date) == 1
+            })?.date ?? (index == 0 ? firstDay : nil)
+            let monthLabel: String?
+            if let monthAnchor {
+                if let previousMonthAnchor, calendar.isDate(monthAnchor, equalTo: previousMonthAnchor, toGranularity: .month) {
+                    monthLabel = nil
+                } else {
+                    monthLabel = formatter.string(from: monthAnchor)
+                    previousMonthAnchor = monthAnchor
+                }
+            } else {
+                monthLabel = nil
+            }
+
+            return HabitDetailCalendarWeek(
+                startDate: firstDay,
+                monthLabel: monthLabel,
+                cells: cells
+            )
+        }
+    }
+
+    static func buildViewState(
+        row: HabitLibraryRow,
+        marks: [HabitDayMark],
+        referenceDate: Date,
+        dayCount: Int = historyDayCount,
+        calendar: Calendar = .current
+    ) -> HabitDetailCalendarViewState {
+        let weeks = buildWeeks(
+            row: row,
+            marks: marks,
+            referenceDate: referenceDate,
+            dayCount: dayCount,
+            calendar: calendar
+        )
+
+        return HabitDetailCalendarViewState(
+            helperText: helperText(for: row),
+            weeks: weeks.map { week in
+                HabitDetailCalendarWeekViewState(
+                    startDate: week.startDate,
+                    monthLabel: week.monthLabel,
+                    cells: week.cells.map { cell in
+                        HabitDetailCalendarCellViewState(
+                            cell: cell,
+                            dayNumber: String(calendar.component(.day, from: cell.date)),
+                            accessibilityLabel: fullDateFormatter.string(from: cell.date),
+                            accessibilityValue: accessibilityValue(for: cell, row: row),
+                            accessibilityHint: accessibilityHint(for: cell, row: row),
+                            accessibilityIdentifier: accessibilityIdentifier(for: cell.date)
+                        )
+                    }
+                )
+            }
+        )
+    }
+
+    static func helperText(for row: HabitLibraryRow) -> String {
+        if row.isArchived {
+            return "Archived habits are read-only."
+        }
+        if row.isPaused {
+            return "Resume this habit to update days."
+        }
+
+        switch (row.kind, row.trackingMode) {
+        case (.positive, .dailyCheckIn):
+            return "Tap a day to mark it done or skipped."
+        case (.negative, .dailyCheckIn):
+            return "Tap a day to mark stayed clean or lapsed."
+        case (.negative, .lapseOnly):
+            return "Tap a day to log or clear a lapse."
+        case (.positive, .lapseOnly):
+            return "Tap a day to update it."
+        }
+    }
+
+    static func accessibilityIdentifier(for date: Date) -> String {
+        "habitDetail.cell.\(accessibilityStampFormatter.string(from: date))"
+    }
+
+    static func nextMutation(
+        for row: HabitLibraryRow,
+        state: HabitDetailDayCellState
+    ) -> HabitDetailDayMutationRequest? {
+        guard !row.isPaused, !row.isArchived else { return nil }
+
+        switch (row.kind, row.trackingMode, state) {
+        case (_, _, .future), (_, _, .notScheduled):
+            return nil
+
+        case (.positive, .dailyCheckIn, .empty):
+            return .resolve(.complete)
+        case (.positive, .dailyCheckIn, .success):
+            return .resolve(.skip)
+        case (.positive, .dailyCheckIn, .skipped), (.positive, .dailyCheckIn, .lapsed):
+            return .reset
+
+        case (.negative, .dailyCheckIn, .empty):
+            return .resolve(.abstained)
+        case (.negative, .dailyCheckIn, .success):
+            return .resolve(.lapsed)
+        case (.negative, .dailyCheckIn, .skipped):
+            return .reset
+        case (.negative, .dailyCheckIn, .lapsed):
+            return .reset
+
+        case (.negative, .lapseOnly, .empty):
+            return .resolve(.lapsed)
+        case (.negative, .lapseOnly, .lapsed):
+            return .reset
+        case (.negative, .lapseOnly, .success), (.negative, .lapseOnly, .skipped):
+            return .reset
+
+        case (.positive, .lapseOnly, .empty):
+            return .resolve(.complete)
+        case (.positive, .lapseOnly, .success), (.positive, .lapseOnly, .skipped), (.positive, .lapseOnly, .lapsed):
+            return .reset
+        }
+    }
+
+    static func accessibilityValue(for cell: HabitDetailDayCell, row: HabitLibraryRow) -> String {
+        switch cell.state {
+        case .empty:
+            return row.kind == .negative && row.trackingMode == .dailyCheckIn ? "Open day" : "Empty"
+        case .success:
+            return row.kind == .negative ? "Stayed clean" : "Done"
+        case .skipped:
+            return "Skipped"
+        case .lapsed:
+            return row.kind == .negative ? "Lapsed" : "Missed"
+        case .notScheduled:
+            return "Not scheduled"
+        case .future:
+            return "Future day"
+        }
+    }
+
+    static func accessibilityHint(for cell: HabitDetailDayCell, row: HabitLibraryRow) -> String {
+        guard cell.isInteractive,
+              let mutation = nextMutation(for: row, state: cell.state) else { return "" }
+
+        switch mutation {
+        case .resolve(let action):
+            switch action {
+            case .complete:
+                return "Double-tap to mark done."
+            case .skip:
+                return "Double-tap to mark skipped."
+            case .abstained:
+                return "Double-tap to mark stayed clean."
+            case .lapsed:
+                return "Double-tap to mark lapsed."
+            }
+        case .reset:
+            return "Double-tap to clear this day."
+        }
+    }
+
+    private static func resolveState(
+        row: HabitLibraryRow,
+        mark: HabitDayMark?,
+        day: Date,
+        referenceDay: Date,
+        scheduled: Bool
+    ) -> HabitDetailDayCellState {
+        guard day <= referenceDay else { return .future }
+        guard scheduled else { return .notScheduled }
+        guard let mark else { return .empty }
+
+        switch mark.state {
+        case .success:
+            return .success
+        case .skipped:
+            return .skipped
+        case .failure:
+            return row.kind == .negative ? .lapsed : .empty
+        case .none:
+            return .empty
+        case .future:
+            return .future
+        }
+    }
+
+    private static func occurs(
+        on date: Date,
+        cadence: HabitCadenceDraft,
+        trackingMode: HabitTrackingMode,
+        calendar: Calendar
+    ) -> Bool {
+        switch cadence {
+        case .daily:
+            return true
+        case .weekly(let daysOfWeek, _, _):
+            let weekday = calendar.component(.weekday, from: date)
+            if trackingMode == .lapseOnly && daysOfWeek.isEmpty {
+                return true
+            }
+            return daysOfWeek.contains(weekday)
+        }
+    }
+
+    private static var monthFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.calendar = Calendar.current
+        formatter.locale = Locale.current
+        formatter.setLocalizedDateFormatFromTemplate("MMMM yyyy")
+        return formatter
+    }()
+
+    private static let fullDateFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.calendar = Calendar.current
+        formatter.locale = Locale.current
+        formatter.timeZone = Calendar.current.timeZone
+        formatter.dateStyle = .full
+        formatter.timeStyle = .none
+        return formatter
+    }()
+
+    private static let accessibilityStampFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.calendar = Calendar(identifier: .gregorian)
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.timeZone = Calendar.current.timeZone
+        formatter.dateFormat = "yyyy-MM-dd"
+        return formatter
+    }()
+}
+
 @MainActor
 public final class HabitDetailViewModel: ObservableObject {
+    private enum TestHooks {
+        private static let editorSupportDelayPrefix = "-TASKER_TEST_HABIT_DETAIL_EDITOR_SUPPORT_DELAY_MS:"
+
+        static var editorSupportDelay: TimeInterval {
+            guard let argument = ProcessInfo.processInfo.arguments.first(where: { $0.hasPrefix(editorSupportDelayPrefix) }) else {
+                return 0
+            }
+
+            let rawValue = argument.dropFirst(editorSupportDelayPrefix.count)
+            guard let milliseconds = Double(rawValue), milliseconds > 0 else {
+                return 0
+            }
+
+            return milliseconds / 1_000
+        }
+    }
+
     private struct IconSearchCacheKey: Equatable {
         let query: String
         let kind: AddHabitKind
@@ -633,9 +988,13 @@ public final class HabitDetailViewModel: ObservableObject {
 
     @Published public private(set) var row: HabitLibraryRow
     @Published public private(set) var historyMarks: [HabitDayMark]
+    @Published public private(set) var calendarViewState: HabitDetailCalendarViewState
     @Published public private(set) var lifeAreas: [LifeArea] = []
     @Published public private(set) var projects: [ProjectWithStats] = []
     @Published public private(set) var isLoading = false
+    @Published public private(set) var isCalendarMounted = false
+    @Published public private(set) var isCalendarLoading = false
+    @Published public private(set) var isPreparingEditorData = false
     @Published public private(set) var isSaving = false
     @Published public private(set) var errorMessage: String?
     @Published public var isEditing = false
@@ -647,11 +1006,14 @@ public final class HabitDetailViewModel: ObservableObject {
     private let pauseHabitUseCase: PauseHabitUseCase
     private let archiveHabitUseCase: ArchiveHabitUseCase
     private let resolveHabitOccurrenceUseCase: ResolveHabitOccurrenceUseCase
+    private let resetHabitOccurrenceUseCase: ResetHabitOccurrenceUseCase
     private let manageLifeAreasUseCase: ManageLifeAreasUseCase
     private let manageProjectsUseCase: ManageProjectsUseCase
     private let iconCatalog: HabitIconCatalog
     private var hasLoadedOnce = false
+    private var hasLoadedEditorSupport = false
     private var iconOptionsCache: (key: IconSearchCacheKey, options: [HabitIconOption])?
+    private var pendingEditorSupportCompletions: [(Bool) -> Void] = []
 
     public init(
         row: HabitLibraryRow,
@@ -661,12 +1023,19 @@ public final class HabitDetailViewModel: ObservableObject {
         pauseHabitUseCase: PauseHabitUseCase,
         archiveHabitUseCase: ArchiveHabitUseCase,
         resolveHabitOccurrenceUseCase: ResolveHabitOccurrenceUseCase,
+        resetHabitOccurrenceUseCase: ResetHabitOccurrenceUseCase,
         manageLifeAreasUseCase: ManageLifeAreasUseCase,
         manageProjectsUseCase: ManageProjectsUseCase,
         iconCatalog: HabitIconCatalog = .shared
     ) {
         self.row = row
         self.historyMarks = row.last14Days
+        self.calendarViewState = HabitDetailCalendarBuilder.buildViewState(
+            row: row,
+            marks: row.last14Days,
+            referenceDate: Date(),
+            dayCount: max(row.last14Days.count, 14)
+        )
         self.draft = HabitEditorDraft(row: row)
         self.getHabitLibraryUseCase = getHabitLibraryUseCase
         self.getHabitHistoryUseCase = getHabitHistoryUseCase
@@ -674,9 +1043,25 @@ public final class HabitDetailViewModel: ObservableObject {
         self.pauseHabitUseCase = pauseHabitUseCase
         self.archiveHabitUseCase = archiveHabitUseCase
         self.resolveHabitOccurrenceUseCase = resolveHabitOccurrenceUseCase
+        self.resetHabitOccurrenceUseCase = resetHabitOccurrenceUseCase
         self.manageLifeAreasUseCase = manageLifeAreasUseCase
         self.manageProjectsUseCase = manageProjectsUseCase
         self.iconCatalog = iconCatalog
+        TaskerPerformanceTrace.event("HabitDetailViewModelInit")
+    }
+
+    public var detailCalendarWeeks: [HabitDetailCalendarWeek] {
+        calendarViewState.weeks.map { week in
+            HabitDetailCalendarWeek(
+                startDate: week.startDate,
+                monthLabel: week.monthLabel,
+                cells: week.cells.map(\.cell)
+            )
+        }
+    }
+
+    public var detailCalendarHelperText: String {
+        calendarViewState.helperText
     }
 
     public var availableIconOptions: [HabitIconOption] {
@@ -721,27 +1106,41 @@ public final class HabitDetailViewModel: ObservableObject {
     public func loadIfNeeded() {
         guard hasLoadedOnce == false else { return }
         hasLoadedOnce = true
-        refresh()
+        isCalendarLoading = true
+        TaskerPerformanceTrace.event("HabitDetailSheetLoadRequested")
+
+        DispatchQueue.main.async {
+            self.isCalendarMounted = true
+            TaskerPerformanceTrace.event("HabitDetailCalendarMounted")
+
+            DispatchQueue.main.async {
+                self.refreshReadOnlyData()
+            }
+        }
     }
 
     public func refresh() {
+        refreshReadOnlyData()
+    }
+
+    public func refreshReadOnlyData(completion: (() -> Void)? = nil) {
         isLoading = true
+        isCalendarLoading = true
         errorMessage = nil
+        TaskerPerformanceTrace.event("HabitDetailReadOnlyRefreshStarted")
 
         let group = DispatchGroup()
         var latestRow: HabitLibraryRow?
         var latestHistory: [HabitDayMark] = historyMarks
-        var loadedLifeAreas: [LifeArea] = []
-        var loadedProjects: [ProjectWithStats] = []
         var firstError: Error?
 
         group.enter()
-        getHabitLibraryUseCase.execute(includeArchived: true) { result in
+        getHabitLibraryUseCase.execute(habitID: row.habitID, includeArchived: true) { result in
             Task { @MainActor in
                 defer { group.leave() }
                 switch result {
-                case .success(let rows):
-                    latestRow = rows.first(where: { $0.habitID == self.row.habitID })
+                case .success(let refreshedRow):
+                    latestRow = refreshedRow
                 case .failure(let error):
                     firstError = firstError ?? error
                 }
@@ -749,7 +1148,11 @@ public final class HabitDetailViewModel: ObservableObject {
         }
 
         group.enter()
-        getHabitHistoryUseCase.execute(habitIDs: [row.habitID], endingOn: Date(), dayCount: 14) { result in
+        getHabitHistoryUseCase.execute(
+            habitIDs: [row.habitID],
+            endingOn: Date(),
+            dayCount: HabitDetailCalendarBuilder.historyDayCount
+        ) { result in
             Task { @MainActor in
                 defer { group.leave() }
                 switch result {
@@ -761,56 +1164,63 @@ public final class HabitDetailViewModel: ObservableObject {
             }
         }
 
-        group.enter()
-        manageLifeAreasUseCase.list { result in
-            Task { @MainActor in
-                defer { group.leave() }
-                switch result {
-                case .success(let values):
-                    loadedLifeAreas = values
-                case .failure(let error):
-                    firstError = firstError ?? error
-                }
-            }
-        }
-
-        group.enter()
-        manageProjectsUseCase.getAllProjects { result in
-            Task { @MainActor in
-                defer { group.leave() }
-                switch result {
-                case .success(let values):
-                    loadedProjects = values
-                case .failure(let error):
-                    firstError = firstError ?? error
-                }
-            }
-        }
-
         group.notify(queue: .main) {
             self.isLoading = false
+            self.isCalendarLoading = false
             if let latestRow {
+                let preservedLast14Days = latestRow.last14Days.isEmpty ? self.row.last14Days : latestRow.last14Days
                 self.row = latestRow
+                if latestRow.last14Days.isEmpty {
+                    self.row = HabitLibraryRow(
+                        habitID: latestRow.habitID,
+                        title: latestRow.title,
+                        kind: latestRow.kind,
+                        trackingMode: latestRow.trackingMode,
+                        cadence: latestRow.cadence,
+                        lifeAreaID: latestRow.lifeAreaID,
+                        lifeAreaName: latestRow.lifeAreaName,
+                        projectID: latestRow.projectID,
+                        projectName: latestRow.projectName,
+                        icon: latestRow.icon,
+                        colorHex: latestRow.colorHex,
+                        isPaused: latestRow.isPaused,
+                        isArchived: latestRow.isArchived,
+                        currentStreak: latestRow.currentStreak,
+                        bestStreak: latestRow.bestStreak,
+                        last14Days: preservedLast14Days,
+                        nextDueAt: latestRow.nextDueAt,
+                        lastCompletedAt: latestRow.lastCompletedAt,
+                        reminderWindowStart: latestRow.reminderWindowStart,
+                        reminderWindowEnd: latestRow.reminderWindowEnd,
+                        notes: latestRow.notes
+                    )
+                }
                 if self.isEditing == false {
-                    self.draft = HabitEditorDraft(row: latestRow)
+                    self.draft = HabitEditorDraft(row: self.row)
                 }
             }
             self.historyMarks = latestHistory
-            self.lifeAreas = loadedLifeAreas
-            self.projects = loadedProjects
-            self.normalizeDraftSelection()
+            self.updateCalendarViewState()
             if self.draft.selectedIconSymbolName == nil {
                 self.draft.selectedIconSymbolName = self.availableIconOptions.first?.symbolName
             }
             self.errorMessage = firstError?.localizedDescription
+            TaskerPerformanceTrace.event("HabitDetailHydrationCompleted")
+            completion?()
         }
     }
 
     public func beginEditing() {
-        draft = HabitEditorDraft(row: row)
-        normalizeDraftSelection()
-        isEditing = true
+        guard isSaving == false, isPreparingEditorData == false else { return }
         errorMessage = nil
+        loadEditorSupportDataIfNeeded { [weak self] didLoad in
+            guard let self else { return }
+            guard didLoad else { return }
+            self.draft = HabitEditorDraft(row: self.row)
+            self.normalizeDraftSelection()
+            self.isEditing = true
+            self.errorMessage = nil
+        }
     }
 
     public func cancelEditing() {
@@ -868,8 +1278,9 @@ public final class HabitDetailViewModel: ObservableObject {
                 switch result {
                 case .success:
                     self.isEditing = false
-                    self.refresh()
-                    completion?()
+                    self.refreshReadOnlyData {
+                        completion?()
+                    }
                 case .failure(let error):
                     self.errorMessage = error.localizedDescription
                 }
@@ -886,8 +1297,9 @@ public final class HabitDetailViewModel: ObservableObject {
                 self.isSaving = false
                 switch result {
                 case .success:
-                    self.refresh()
-                    completion?()
+                    self.refreshReadOnlyData {
+                        completion?()
+                    }
                 case .failure(let error):
                     self.errorMessage = error.localizedDescription
                 }
@@ -904,8 +1316,9 @@ public final class HabitDetailViewModel: ObservableObject {
                 self.isSaving = false
                 switch result {
                 case .success:
-                    self.refresh()
-                    completion?()
+                    self.refreshReadOnlyData {
+                        completion?()
+                    }
                 case .failure(let error):
                     self.errorMessage = error.localizedDescription
                 }
@@ -928,8 +1341,9 @@ public final class HabitDetailViewModel: ObservableObject {
                 self.isSaving = false
                 switch result {
                 case .success:
-                    self.refresh()
-                    completion?()
+                    self.refreshReadOnlyData {
+                        completion?()
+                    }
                 case .failure(let error):
                     self.errorMessage = error.localizedDescription
                 }
@@ -937,8 +1351,135 @@ public final class HabitDetailViewModel: ObservableObject {
         }
     }
 
+    public func mutateDay(
+        _ cell: HabitDetailDayCell,
+        completion: (() -> Void)? = nil
+    ) {
+        guard cell.isInteractive,
+              isSaving == false,
+              let request = HabitDetailCalendarBuilder.nextMutation(for: row, state: cell.state) else { return }
+
+        isSaving = true
+        errorMessage = nil
+
+        let handleResult: (Result<Void, Error>) -> Void = { [weak self] result in
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                self.isSaving = false
+                switch result {
+                case .success:
+                    self.refreshReadOnlyData {
+                        completion?()
+                    }
+                case .failure(let error):
+                    self.errorMessage = error.localizedDescription
+                }
+            }
+        }
+
+        switch request {
+        case .resolve(let action):
+            resolveHabitOccurrenceUseCase.execute(
+                habitID: row.habitID,
+                occurrenceID: nil,
+                action: action,
+                on: cell.date
+            ) { result in
+                handleResult(result)
+            }
+        case .reset:
+            resetHabitOccurrenceUseCase.execute(
+                habitID: row.habitID,
+                occurrenceID: nil,
+                on: cell.date
+            ) { result in
+                handleResult(result)
+            }
+        }
+    }
+
     public func clearError() {
         errorMessage = nil
+    }
+
+    private func updateCalendarViewState(referenceDate: Date = Date()) {
+        calendarViewState = HabitDetailCalendarBuilder.buildViewState(
+            row: row,
+            marks: historyMarks,
+            referenceDate: referenceDate
+        )
+    }
+
+    private func loadEditorSupportDataIfNeeded(completion: @escaping (Bool) -> Void) {
+        if hasLoadedEditorSupport {
+            completion(true)
+            return
+        }
+
+        pendingEditorSupportCompletions.append(completion)
+        guard isPreparingEditorData == false else { return }
+
+        isPreparingEditorData = true
+
+        let group = DispatchGroup()
+        var loadedLifeAreas: [LifeArea] = lifeAreas
+        var loadedProjects: [ProjectWithStats] = projects
+        var firstError: Error?
+
+        group.enter()
+        manageLifeAreasUseCase.list { result in
+            Task { @MainActor in
+                defer { group.leave() }
+                switch result {
+                case .success(let values):
+                    loadedLifeAreas = values
+                case .failure(let error):
+                    firstError = firstError ?? error
+                }
+            }
+        }
+
+        group.enter()
+        manageProjectsUseCase.getAllProjects { result in
+            Task { @MainActor in
+                defer { group.leave() }
+                switch result {
+                case .success(let values):
+                    loadedProjects = values
+                case .failure(let error):
+                    firstError = firstError ?? error
+                }
+            }
+        }
+
+        group.notify(queue: .main) {
+            let finalize = {
+                self.isPreparingEditorData = false
+                self.lifeAreas = loadedLifeAreas
+                self.projects = loadedProjects
+                self.hasLoadedEditorSupport = firstError == nil
+                if self.hasLoadedEditorSupport {
+                    self.normalizeDraftSelection()
+                    self.errorMessage = nil
+                } else {
+                    self.errorMessage = firstError?.localizedDescription
+                }
+
+                let completions = self.pendingEditorSupportCompletions
+                self.pendingEditorSupportCompletions.removeAll()
+                completions.forEach { $0(firstError == nil) }
+            }
+
+            let delay = TestHooks.editorSupportDelay
+            guard delay > 0 else {
+                finalize()
+                return
+            }
+
+            DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
+                finalize()
+            }
+        }
     }
 
     private func normalizeDraftProjectSelection() {

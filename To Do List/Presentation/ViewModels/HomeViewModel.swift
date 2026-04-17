@@ -6458,6 +6458,8 @@ public final class HomeViewModel: ObservableObject {
             moduleState = .error(message: error)
         } else if snapshot.selectedCalendarIDs.isEmpty {
             moduleState = .noCalendarsSelected
+        } else if selectedDayEvents.isEmpty == false && selectedDayTimelineEvents.isEmpty {
+            moduleState = .allDayOnly
         } else if selectedDayTimelineEvents.isEmpty {
             moduleState = .empty
         } else {
