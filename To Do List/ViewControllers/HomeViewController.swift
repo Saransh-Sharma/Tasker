@@ -264,10 +264,12 @@ struct HomeTasksSnapshot: Equatable {
 struct HomeHabitsSnapshot: Equatable {
     let habitHomeSectionState: HabitHomeSectionState
     let quietTrackingSummaryState: QuietTrackingSummaryState
+    let errorMessage: String?
 
     static let empty = HomeHabitsSnapshot(
         habitHomeSectionState: HabitHomeSectionState(primaryRows: [], recoveryRows: []),
-        quietTrackingSummaryState: QuietTrackingSummaryState(stableRows: [])
+        quietTrackingSummaryState: QuietTrackingSummaryState(stableRows: []),
+        errorMessage: nil
     )
 }
 
@@ -597,6 +599,9 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
         observeInsightsDeepLinks()
         observeTaskScopeDeepLinks()
         observeTaskDetailDeepLinks()
+        observeHabitBoardDeepLinks()
+        observeHabitLibraryDeepLinks()
+        observeHabitDetailDeepLinks()
         observeQuickAddDeepLinks()
         observeCalendarScheduleDeepLinks()
         observeCalendarChooserDeepLinks()
@@ -1953,6 +1958,37 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
                     return
                 }
                 self?.handleTaskDetailDeepLink(taskID: taskID)
+            }
+            .store(in: &cancellables)
+    }
+
+    private func observeHabitBoardDeepLinks() {
+        NotificationCenter.default.publisher(for: .taskerOpenHabitBoardDeepLink)
+            .receive(on: RunLoop.main)
+            .sink { [weak self] _ in
+                self?.handleHabitBoardDeepLink()
+            }
+            .store(in: &cancellables)
+    }
+
+    private func observeHabitLibraryDeepLinks() {
+        NotificationCenter.default.publisher(for: .taskerOpenHabitLibraryDeepLink)
+            .receive(on: RunLoop.main)
+            .sink { [weak self] _ in
+                self?.handleHabitLibraryDeepLink()
+            }
+            .store(in: &cancellables)
+    }
+
+    private func observeHabitDetailDeepLinks() {
+        NotificationCenter.default.publisher(for: .taskerOpenHabitDetailDeepLink)
+            .receive(on: RunLoop.main)
+            .sink { [weak self] notification in
+                guard let taskIDRaw = notification.userInfo?["habitID"] as? String,
+                      let habitID = UUID(uuidString: taskIDRaw) else {
+                    return
+                }
+                self?.handleHabitDetailDeepLink(habitID: habitID)
             }
             .store(in: &cancellables)
     }
@@ -3346,6 +3382,48 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
         viewModel?.setQuickView(.today)
         pendingNotificationFocusTaskID = taskID
         resolveAndPresentTaskDetail(taskID: taskID)
+    }
+
+    private func handleHabitBoardDeepLink() {
+        routeToHabitDeepLinkDestination {
+            NotificationCenter.default.post(name: .taskerPresentHabitBoard, object: nil)
+        }
+    }
+
+    private func handleHabitLibraryDeepLink() {
+        routeToHabitDeepLinkDestination {
+            NotificationCenter.default.post(name: .taskerPresentHabitLibrary, object: nil)
+        }
+    }
+
+    private func handleHabitDetailDeepLink(habitID: UUID) {
+        routeToHabitDeepLinkDestination {
+            NotificationCenter.default.post(
+                name: .taskerPresentHabitDetail,
+                object: nil,
+                userInfo: ["habitID": habitID.uuidString]
+            )
+        }
+    }
+
+    private func routeToHabitDeepLinkDestination(_ completion: @escaping () -> Void) {
+        if isUsingIPadNativeShell {
+            iPadShellState.destination = .tasks
+        }
+        viewModel?.setQuickView(.today)
+
+        if presentedViewController != nil {
+            dismiss(animated: true) {
+                DispatchQueue.main.async {
+                    completion()
+                }
+            }
+            return
+        }
+
+        DispatchQueue.main.async {
+            completion()
+        }
     }
 
     private func handleQuickAddDeepLink() {
