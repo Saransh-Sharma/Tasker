@@ -194,8 +194,8 @@ struct SettingsRootView: View {
 
     private func calendarSection(baseIndex: Int, includeHorizontalPadding: Bool = true) -> some View {
         SettingsSectionView(
-            title: "Calendar & Schedule",
-            subtitle: "Read-only calendar context for Home, Today/Week agenda, and task-fit hints.",
+            title: String(localized: "Calendar & Schedule"),
+            subtitle: String(localized: "Read-only calendar context for Home, Today/Week agenda, and task-fit hints."),
             topPadding: sectionTopPadding,
             includeHorizontalPadding: includeHorizontalPadding
         ) {
@@ -204,7 +204,7 @@ struct SettingsRootView: View {
                     SettingsNavigationRow(
                         descriptor: TaskerSettingsDestinationDescriptor(
                             iconName: viewModel.calendarAuthorizationStatus.isAuthorizedForRead ? "calendar.badge.checkmark" : "calendar.badge.exclamationmark",
-                            title: "Calendar access",
+                            title: String(localized: "Calendar access"),
                             subtitle: viewModel.calendarAccessSubtitle,
                             trailingStatus: viewModel.calendarAccessStatusLabel,
                             tone: viewModel.calendarAccessTone,
@@ -219,10 +219,10 @@ struct SettingsRootView: View {
                     SettingsNavigationRow(
                         descriptor: TaskerSettingsDestinationDescriptor(
                             iconName: "slider.horizontal.3",
-                            title: "Calendar selection",
+                            title: String(localized: "Calendar selection"),
                             subtitle: viewModel.calendarAuthorizationStatus.isAuthorizedForRead
-                                ? "Choose calendars for Home and the schedule view."
-                                : "Connect calendar access before selecting calendars.",
+                                ? String(localized: "Choose calendars for Home and the schedule view.")
+                                : String(localized: "Connect calendar access before selecting calendars."),
                             trailingStatus: viewModel.calendarStatusSummary,
                             tone: viewModel.calendarAuthorizationStatus.isAuthorizedForRead ? .accent : .warning,
                             accessibilityIdentifier: "settings.calendar.selection.row"
@@ -236,8 +236,8 @@ struct SettingsRootView: View {
                     VStack(spacing: TaskerSettingsMetrics.cardInnerPadding) {
                         TaskerSettingsToggleRow(
                             iconName: "person.crop.circle.badge.xmark",
-                            title: "Include declined events",
-                            subtitle: "Show declined meetings in agenda and Home context.",
+                            title: String(localized: "Include declined events"),
+                            subtitle: String(localized: "Show declined meetings in agenda and Home context."),
                             isOn: Binding(
                                 get: { viewModel.includeDeclinedCalendarEvents },
                                 set: { viewModel.setIncludeDeclinedCalendarEvents($0) }
@@ -250,8 +250,8 @@ struct SettingsRootView: View {
 
                         TaskerSettingsToggleRow(
                             iconName: "calendar.badge.exclamationmark",
-                            title: "Include canceled events",
-                            subtitle: "Show canceled events in Home, schedule, and task-fit context.",
+                            title: String(localized: "Include canceled events"),
+                            subtitle: String(localized: "Show canceled events in Home, schedule, and task-fit context."),
                             isOn: Binding(
                                 get: { viewModel.includeCanceledCalendarEvents },
                                 set: { viewModel.setIncludeCanceledCalendarEvents($0) }
@@ -264,8 +264,8 @@ struct SettingsRootView: View {
 
                         TaskerSettingsToggleRow(
                             iconName: "sun.max",
-                            title: "Include all-day events in agenda",
-                            subtitle: "Show all-day events in Today/Week lists.",
+                            title: String(localized: "Include all-day events in agenda"),
+                            subtitle: String(localized: "Show all-day events in Today/Week lists."),
                             isOn: Binding(
                                 get: { viewModel.includeAllDayInAgenda },
                                 set: { viewModel.setIncludeAllDayInAgenda($0) }
@@ -278,8 +278,8 @@ struct SettingsRootView: View {
 
                         TaskerSettingsToggleRow(
                             iconName: "chart.bar.xaxis",
-                            title: "Include all-day events in busy strip",
-                            subtitle: "Use all-day events when calculating compact busy blocks.",
+                            title: String(localized: "Include all-day events in busy strip"),
+                            subtitle: String(localized: "Use all-day events when calculating compact busy blocks."),
                             isOn: Binding(
                                 get: { viewModel.includeAllDayInBusyStrip },
                                 set: { viewModel.setIncludeAllDayInBusyStrip($0) }

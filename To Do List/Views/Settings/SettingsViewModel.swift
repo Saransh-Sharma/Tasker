@@ -217,45 +217,45 @@ final class SettingsViewModel: ObservableObject {
 
     var calendarStatusSummary: String {
         if calendarAuthorizationStatus.isAuthorizedForRead == false {
-            return "Permission required"
+            return String(localized: "Permission required")
         }
         if selectedCalendarIDs.isEmpty {
-            return "No calendars selected"
+            return String(localized: "No calendars selected")
         }
-        return "\(selectedCalendarIDs.count) selected"
+        return String(localized: "\(selectedCalendarIDs.count) selected")
     }
 
     var calendarStatusDetail: String {
-        "Read-only schedule context for Home and task fit hints."
+        String(localized: "Read-only schedule context for Home and task fit hints.")
     }
 
     var calendarAccessStatusLabel: String {
         switch calendarAuthorizationStatus {
         case .authorized:
-            return "Connected"
+            return String(localized: "Connected")
         case .notDetermined:
-            return "Not requested"
+            return String(localized: "Not requested")
         case .denied:
-            return "Denied"
+            return String(localized: "Denied")
         case .restricted:
-            return "Restricted"
+            return String(localized: "Restricted")
         case .writeOnly:
-            return "Write-only"
+            return String(localized: "Write-only")
         }
     }
 
     var calendarAccessSubtitle: String {
         switch calendarAuthorizationStatus {
         case .authorized:
-            return "Tasker can read your selected calendars."
+            return String(localized: "Tasker can read your selected calendars.")
         case .notDetermined:
-            return "Grant access to show schedule context in Home."
+            return String(localized: "Grant access to show schedule context in Home.")
         case .denied:
-            return "Calendar access is off. Open Settings to re-enable it."
+            return String(localized: "Calendar access is off. Open Settings to re-enable it.")
         case .restricted:
-            return "Calendar access is restricted by system policy."
+            return String(localized: "Calendar access is restricted by system policy.")
         case .writeOnly:
-            return "Read access is required for schedule insights."
+            return String(localized: "Tasker has write-only access. Open Settings to allow read access.")
         }
     }
 
