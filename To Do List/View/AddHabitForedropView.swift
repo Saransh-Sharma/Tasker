@@ -338,6 +338,31 @@ struct AddHabitForedropView: View {
 
     private var ownershipSection: some View {
         VStack(alignment: .leading, spacing: spacing.s12) {
+            if viewModel.isLoading {
+                HabitInlineMessage(
+                    title: "Loading areas and projects",
+                    message: "Fetching your latest life areas and project lists."
+                )
+            }
+
+            if let dependencyError = viewModel.errorMessage,
+               viewModel.lifeAreas.isEmpty {
+                VStack(alignment: .leading, spacing: spacing.s8) {
+                    Text("Couldn't load ownership options.")
+                        .font(.tasker(.meta))
+                        .foregroundStyle(Color.tasker.statusWarning)
+                    Text(dependencyError)
+                        .font(.tasker(.caption1))
+                        .foregroundStyle(Color.tasker.textSecondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                    Button("Retry loading options") {
+                        viewModel.reloadDependencies()
+                    }
+                    .buttonStyle(.bordered)
+                    .accessibilityIdentifier("addHabit.ownership.retry")
+                }
+            }
+
             TaskerComposerOptionGrid(
                 title: "Life Area",
                 helperText: "Every habit needs a home.",
@@ -719,11 +744,16 @@ struct AddHabitForedropView: View {
     }
 }
 
+@MainActor
 struct HabitLibraryView: View {
     @ObservedObject var viewModel: HabitLibraryViewModel
     @State private var selectedRow: HabitLibraryRow?
     @State private var selectedFilter: HabitLibraryFilter = .active
     @State private var searchText = ""
+    @State private var habitComposerPresented = false
+    @State private var habitComposerSuccessFlash = false
+    @StateObject private var habitComposerViewModel = PresentationDependencyContainer.shared.makeNewAddHabitViewModel()
+    @Environment(\.dismiss) private var dismiss
     @Environment(\.taskerLayoutClass) private var layoutClass
 
     private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.tokens(for: layoutClass).spacing }
@@ -787,6 +817,19 @@ struct HabitLibraryView: View {
             .background(Color.tasker.bgCanvas)
             .navigationTitle("Manage Habits")
             .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Close") {
+                        dismiss()
+                    }
+                }
+                ToolbarItem(placement: .topBarLeading) {
+                    Button {
+                        presentHabitComposer()
+                    } label: {
+                        Label("Add Habit", systemImage: "plus")
+                    }
+                    .accessibilityLabel("Add habit")
+                }
                 ToolbarItem(placement: .topBarTrailing) {
                     Button {
                         viewModel.refresh()
@@ -808,6 +851,25 @@ struct HabitLibraryView: View {
                     }
                 )
             }
+            .sheet(isPresented: $habitComposerPresented) {
+                AddHabitForedropView(
+                    viewModel: habitComposerViewModel,
+                    containerMode: .sheet,
+                    showAddAnother: false,
+                    successFlash: $habitComposerSuccessFlash,
+                    onCancel: {
+                        habitComposerPresented = false
+                    },
+                    onCreate: {
+                        createHabitFromLibrary()
+                    },
+                    onAddAnother: {
+                        createHabitFromLibrary()
+                    },
+                    onExpandToLarge: {}
+                )
+                .background(Color.tasker(.bgCanvas))
+            }
             .alert(
                 "Habit Error",
                 isPresented: Binding(
@@ -826,16 +888,27 @@ struct HabitLibraryView: View {
     private var content: some View {
         if viewModel.isLoading && viewModel.rows.isEmpty {
             HabitEmptyStateCard(
-                systemImage: "progress.indicator",
+                systemImage: "clock.arrow.circlepath",
                 title: "Loading habits",
-                message: "Pulling in your behavior loops and their latest streak signals."
+                message: "Pulling in your behavior loops and their latest streak signals.",
+                showsProgress: true
             )
         } else if filteredRows.isEmpty {
-            HabitEmptyStateCard(
-                systemImage: searchText.isEmpty ? "circle.dashed" : "magnifyingglass",
-                title: searchText.isEmpty ? emptyTitle : "No matching habits",
-                message: searchText.isEmpty ? emptyBody : "Try a different search or switch filters to see more habits."
-            )
+            if searchText.isEmpty {
+                HabitEmptyStateCard(
+                    systemImage: "circle.dashed",
+                    title: emptyTitle,
+                    message: emptyBody,
+                    actionTitle: "Add Habit",
+                    action: presentHabitComposer
+                )
+            } else {
+                HabitEmptyStateCard(
+                    systemImage: "magnifyingglass",
+                    title: "No matching habits",
+                    message: "Try a different search or switch filters to see more habits."
+                )
+            }
         } else {
             LazyVGrid(columns: columns, spacing: spacing.s12) {
                 ForEach(filteredRows) { row in
@@ -876,6 +949,20 @@ struct HabitLibraryView: View {
 
     private func trackingLabel(for row: HabitLibraryRow) -> String {
         row.trackingMode == .lapseOnly ? "Log lapse only" : "Daily check-in"
+    }
+
+    private func presentHabitComposer() {
+        habitComposerViewModel.resetForm()
+        habitComposerPresented = true
+    }
+
+    private func createHabitFromLibrary() {
+        guard habitComposerViewModel.canSubmit, habitComposerViewModel.isSaving == false else { return }
+        habitComposerViewModel.createHabit { result in
+            guard case .success = result else { return }
+            habitComposerPresented = false
+            viewModel.refresh()
+        }
     }
 }
 
@@ -1941,19 +2028,20 @@ private struct HabitDetailCalendarDayCellView: View {
     let side: CGFloat
     let isSaving: Bool
     let action: () -> Void
+    @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
         Button(action: action) {
             ZStack {
-                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                Rectangle()
                     .fill(fillColor)
 
-                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                Rectangle()
                     .strokeBorder(borderColor, style: strokeStyle)
 
                 if cell.cell.isToday {
-                    RoundedRectangle(cornerRadius: 10, style: .continuous)
-                        .strokeBorder(Color.tasker.textPrimary.opacity(0.28), lineWidth: 1.5)
+                    Rectangle()
+                        .strokeBorder(HabitEverydayPalette.todayStroke(colorScheme: colorScheme), lineWidth: 1.5)
                         .padding(1)
                 }
 
@@ -1975,42 +2063,48 @@ private struct HabitDetailCalendarDayCellView: View {
         .accessibilityAddTraits(cell.cell.isInteractive ? .isButton : .isStaticText)
     }
 
-    private var accentColor: Color {
-        TaskerHexColor.color(
-            row.colorHex,
-            fallback: row.kind == .positive ? Color.tasker.statusSuccess : Color.tasker.statusWarning
+    private var colorFamily: HabitColorFamily {
+        HabitColorFamily.family(
+            for: row.colorHex,
+            fallback: row.kind == .positive ? .green : .coral
         )
     }
 
     private var fillColor: Color {
         switch cell.cell.state {
         case .empty:
-            return Color.tasker.surfacePrimary
+            return HabitEverydayPalette.paperFill(colorScheme: colorScheme)
         case .success:
-            return accentColor.opacity(0.16)
+            return HabitEverydayPalette.depthColor(
+                for: colorFamily,
+                depth: max(1, min(cell.streakDepth ?? 1, 8)),
+                colorScheme: colorScheme
+            )
         case .skipped:
-            return Color.tasker.surfaceSecondary
+            return HabitEverydayPalette.paperFill(colorScheme: colorScheme)
         case .lapsed:
-            return Color.tasker.statusDanger.opacity(0.14)
+            return HabitEverydayPalette.missedFill(colorScheme: colorScheme)
         case .notScheduled:
-            return Color.tasker.surfaceSecondary.opacity(0.55)
+            return HabitEverydayPalette.paperFill(colorScheme: colorScheme)
         case .future:
-            return Color.tasker.surfaceSecondary.opacity(0.35)
+            return HabitEverydayPalette.futureFill(colorScheme: colorScheme)
         }
     }
 
     private var borderColor: Color {
         switch cell.cell.state {
         case .empty:
-            return Color.tasker.strokeHairline.opacity(0.92)
+            return HabitEverydayPalette.gridStroke(colorScheme: colorScheme).opacity(0.85)
         case .success:
-            return accentColor.opacity(0.34)
+            return HabitEverydayPalette.gridStroke(colorScheme: colorScheme).opacity(0.7)
         case .skipped:
-            return Color.tasker.textTertiary.opacity(0.7)
+            return HabitEverydayPalette.gridStroke(colorScheme: colorScheme).opacity(0.9)
         case .lapsed:
-            return Color.tasker.statusDanger.opacity(0.3)
-        case .notScheduled, .future:
-            return Color.tasker.strokeHairline.opacity(0.52)
+            return Color.tasker.statusDanger.opacity(0.44)
+        case .notScheduled:
+            return HabitEverydayPalette.gridStroke(colorScheme: colorScheme).opacity(0.78)
+        case .future:
+            return HabitEverydayPalette.gridStroke(colorScheme: colorScheme).opacity(0.55)
         }
     }
 
@@ -2028,7 +2122,7 @@ private struct HabitDetailCalendarDayCellView: View {
         case .empty:
             return Color.tasker.textPrimary
         case .success:
-            return accentColor
+            return successTextColor
         case .skipped:
             return Color.tasker.textSecondary
         case .lapsed:
@@ -2045,6 +2139,14 @@ private struct HabitDetailCalendarDayCellView: View {
         default:
             return .medium
         }
+    }
+
+    private var successTextColor: Color {
+        let depth = cell.streakDepth ?? 1
+        if depth >= 4 {
+            return Color.white.opacity(colorScheme == .dark ? 0.95 : 0.98)
+        }
+        return Color.tasker.textPrimary
     }
 }
 
@@ -2417,15 +2519,39 @@ private struct HabitEmptyStateCard: View {
     let systemImage: String
     let title: String
     let message: String
+    let showsProgress: Bool
+    let actionTitle: String?
+    let action: (() -> Void)?
+
+    init(
+        systemImage: String,
+        title: String,
+        message: String,
+        showsProgress: Bool = false,
+        actionTitle: String? = nil,
+        action: (() -> Void)? = nil
+    ) {
+        self.systemImage = systemImage
+        self.title = title
+        self.message = message
+        self.showsProgress = showsProgress
+        self.actionTitle = actionTitle
+        self.action = action
+    }
 
     @Environment(\.taskerLayoutClass) private var layoutClass
     private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.tokens(for: layoutClass).spacing }
 
     var body: some View {
         VStack(spacing: spacing.s12) {
-            Image(systemName: systemImage)
-                .font(.system(size: 28, weight: .semibold))
-                .foregroundColor(Color.tasker.textSecondary)
+            if showsProgress {
+                ProgressView()
+                    .controlSize(.regular)
+            } else {
+                Image(systemName: systemImage)
+                    .font(.system(size: 28, weight: .semibold))
+                    .foregroundColor(Color.tasker.textSecondary)
+            }
 
             Text(title)
                 .font(.tasker(.headline))
@@ -2436,6 +2562,11 @@ private struct HabitEmptyStateCard: View {
                 .foregroundColor(Color.tasker.textSecondary)
                 .multilineTextAlignment(.center)
                 .fixedSize(horizontal: false, vertical: true)
+
+            if let actionTitle, let action {
+                Button(actionTitle, action: action)
+                    .buttonStyle(.borderedProminent)
+            }
         }
         .frame(maxWidth: .infinity)
         .padding(spacing.s20)

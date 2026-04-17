@@ -22,6 +22,12 @@ extension Notification.Name {
     static let taskerOpenQuickAddDeepLink = Notification.Name("TaskerOpenQuickAddDeepLink")
     static let taskerOpenCalendarScheduleDeepLink = Notification.Name("TaskerOpenCalendarScheduleDeepLink")
     static let taskerOpenCalendarChooserDeepLink = Notification.Name("TaskerOpenCalendarChooserDeepLink")
+    static let taskerOpenHabitBoardDeepLink = Notification.Name("TaskerOpenHabitBoardDeepLink")
+    static let taskerOpenHabitLibraryDeepLink = Notification.Name("TaskerOpenHabitLibraryDeepLink")
+    static let taskerOpenHabitDetailDeepLink = Notification.Name("TaskerOpenHabitDetailDeepLink")
+    static let taskerPresentHabitBoard = Notification.Name("TaskerPresentHabitBoard")
+    static let taskerPresentHabitLibrary = Notification.Name("TaskerPresentHabitLibrary")
+    static let taskerPresentHabitDetail = Notification.Name("TaskerPresentHabitDetail")
     static let taskerProcessWidgetActionCommand = Notification.Name("TaskerProcessWidgetActionCommand")
 }
 
@@ -310,6 +316,28 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
                 userInfo: ["scope": scope]
             )
             NotificationCenter.default.post(name: .taskerProcessWidgetActionCommand, object: nil)
+            return
+        }
+        if host == "habits" {
+            let route = pathSegments.first?.lowercased() ?? "board"
+            switch route {
+            case "board":
+                NotificationCenter.default.post(name: .taskerOpenHabitBoardDeepLink, object: nil)
+            case "library", "manage":
+                NotificationCenter.default.post(name: .taskerOpenHabitLibraryDeepLink, object: nil)
+            default:
+                break
+            }
+            return
+        }
+        if host == "habit",
+           let firstSegment = pathSegments.first,
+           let habitID = UUID(uuidString: firstSegment) {
+            NotificationCenter.default.post(
+                name: .taskerOpenHabitDetailDeepLink,
+                object: nil,
+                userInfo: ["habitID": habitID.uuidString]
+            )
             return
         }
         if host == "task",
