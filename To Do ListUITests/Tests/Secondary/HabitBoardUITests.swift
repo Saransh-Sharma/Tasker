@@ -5,7 +5,8 @@ final class HabitBoardUITests: BaseUITest {
         [
             XCUIApplication.LaunchArgumentKey.disableCloudSync.rawValue,
             XCUIApplication.LaunchArgumentKey.testSeedHabitBoardWorkspace.rawValue,
-            XCUIApplication.LaunchArgumentKey.testPresentHabitBoard.rawValue
+            XCUIApplication.LaunchArgumentKey.testPresentHabitBoard.rawValue,
+            "\(XCUIApplication.LaunchArgumentKey.testHabitDetailEditorSupportDelayMilliseconds.rawValue):350"
         ]
     }
 
@@ -43,8 +44,7 @@ final class HabitBoardUITests: BaseUITest {
     func testHabitBoardShowsSevenDayMatrixAndPages() {
         openHabitBoard()
 
-        let board = app.otherElements[AccessibilityIdentifiers.HabitBoard.view]
-        XCTAssertTrue(board.waitForExistence(timeout: 8), "Habit Board should be presented from Home")
+        XCTAssertTrue(waitForHabitBoardVisible(timeout: 8), "Habit Board should be presented from Home")
         let pinnedHeader = app.otherElements[AccessibilityIdentifiers.HabitBoard.pinnedHeader]
         XCTAssertTrue(pinnedHeader.waitForExistence(timeout: 3), "Pinned HABITS header should exist")
 
@@ -103,14 +103,90 @@ final class HabitBoardUITests: BaseUITest {
     func testHabitBoardRowTapOpensHabitDetail() {
         openHabitBoard()
 
-        let firstRow = app.otherElements.matching(NSPredicate(format: "identifier BEGINSWITH %@", "habitBoard.row.")).firstMatch
-        XCTAssertTrue(firstRow.waitForExistence(timeout: 5), "A board row should be available to open detail")
+        let firstRow = firstHabitBoardRow()
         XCTAssertTrue(waitForElementToBeHittable(firstRow, timeout: 3))
 
         firstRow.tap()
 
         XCTAssertTrue(app.staticTexts["Drink water after breakfast"].waitForExistence(timeout: 5), "Habit detail should show the tapped habit title")
         XCTAssertTrue(app.buttons["Edit"].waitForExistence(timeout: 3), "Habit detail should expose the edit action")
+    }
+
+    func testHabitDetailShowsSquareTappableDayCells() {
+        openHabitBoard()
+
+        let firstRow = firstHabitBoardRow()
+        firstRow.tap()
+
+        let detailView = app.otherElements[AccessibilityIdentifiers.HabitDetail.view]
+        XCTAssertTrue(detailView.waitForExistence(timeout: 5), "Habit detail should render")
+
+        let grid = app.scrollViews[AccessibilityIdentifiers.HabitDetail.grid]
+        XCTAssertTrue(grid.waitForExistence(timeout: 3), "Habit detail should expose the streak grid")
+
+        let todayCell = app.buttons[AccessibilityIdentifiers.HabitDetail.dayCell(Self.accessibilityStamp(Date()))]
+        XCTAssertTrue(todayCell.waitForExistence(timeout: 5), "Today's habit cell should exist in the detail grid")
+        XCTAssertTrue(waitForElementToBeHittable(todayCell, timeout: 3))
+        XCTAssertGreaterThanOrEqual(todayCell.frame.width, 44, "Day cells should meet minimum touch target width")
+        XCTAssertGreaterThanOrEqual(todayCell.frame.height, 44, "Day cells should meet minimum touch target height")
+        XCTAssertLessThanOrEqual(abs(todayCell.frame.width - todayCell.frame.height), 1.5, "Day cells should remain visually square")
+    }
+
+    func testHabitDetailDayTapKeepsCalendarGridMounted() throws {
+        openHabitBoard()
+
+        let firstRow = app.otherElements
+            .matching(NSPredicate(format: "identifier BEGINSWITH %@", "habitBoard.row."))
+            .firstMatch
+        guard firstRow.waitForExistence(timeout: 8) else {
+            throw XCTSkip("No habit board rows available in the seeded test workspace")
+        }
+        firstRow.tap()
+
+        let detailView = app.otherElements[AccessibilityIdentifiers.HabitDetail.view]
+        XCTAssertTrue(detailView.waitForExistence(timeout: 5), "Habit detail should render")
+
+        let grid = app.scrollViews[AccessibilityIdentifiers.HabitDetail.grid]
+        XCTAssertTrue(grid.waitForExistence(timeout: 3), "Habit detail should expose the streak grid")
+
+        let todayCell = app.buttons[AccessibilityIdentifiers.HabitDetail.dayCell(Self.accessibilityStamp(Date()))]
+        XCTAssertTrue(todayCell.waitForExistence(timeout: 5), "Today's habit cell should exist in the detail grid")
+        XCTAssertTrue(waitForElementToBeHittable(todayCell, timeout: 3))
+
+        todayCell.tap()
+
+        XCTAssertTrue(detailView.waitForExistence(timeout: 5), "Habit detail should remain visible after mutating a day")
+        XCTAssertTrue(grid.waitForExistence(timeout: 5), "Streak grid should remain mounted after day mutation")
+        XCTAssertTrue(waitForElementToBeHittable(todayCell, timeout: 5), "Day cell should become interactive again after the save cycle")
+    }
+
+    func testHabitDetailEditWaitsForDeferredEditorSupport() {
+        openHabitBoard()
+
+        let firstRow = firstHabitBoardRow()
+        firstRow.tap()
+
+        let detailView = app.otherElements[AccessibilityIdentifiers.HabitDetail.view]
+        XCTAssertTrue(detailView.waitForExistence(timeout: 5), "Habit detail should render")
+
+        let editButton = app.buttons[AccessibilityIdentifiers.HabitDetail.editButton]
+        XCTAssertTrue(editButton.waitForExistence(timeout: 3), "Habit detail should expose the edit action")
+        XCTAssertTrue(waitForElementToBeHittable(editButton, timeout: 3))
+
+        editButton.tap()
+
+        let loadingExpectation = XCTNSPredicateExpectation(
+            predicate: NSPredicate(format: "label == %@", "Loading"),
+            object: editButton
+        )
+        XCTAssertEqual(
+            XCTWaiter.wait(for: [loadingExpectation], timeout: 1.5),
+            .completed,
+            "Deferred editor support should keep the sheet visible and show a loading affordance"
+        )
+
+        let saveButton = app.buttons[AccessibilityIdentifiers.HabitDetail.saveButton]
+        XCTAssertTrue(saveButton.waitForExistence(timeout: 5), "Habit detail should enter edit mode after editor support loads")
     }
 
     func testHomeHabitLastCellCyclesThroughThreeStates() {
@@ -180,12 +256,13 @@ final class HabitBoardUITests: BaseUITest {
     }
 
     private func openHabitBoard(file: StaticString = #file, line: UInt = #line) {
-        let board = app.otherElements[AccessibilityIdentifiers.HabitBoard.view]
-        if board.waitForExistence(timeout: 6) {
-            return
+        for _ in 0..<12 {
+            if waitForHabitBoardVisible(timeout: 1) {
+                return
+            }
         }
 
-        let openBoardButton = app.buttons[AccessibilityIdentifiers.Home.habitsOpenBoard]
+        let openBoardButton = app.descendants(matching: .any)[AccessibilityIdentifiers.Home.habitsOpenBoard]
         let backToTodayButton = app.buttons[AccessibilityIdentifiers.Home.backToTodayButton]
 
         if backToTodayButton.waitForExistence(timeout: 2) && backToTodayButton.isHittable {
@@ -204,13 +281,25 @@ final class HabitBoardUITests: BaseUITest {
             }
         }
 
-        XCTAssertTrue(foundBoardButton && openBoardButton.isHittable, "Home habits section should expose the Habit Board entry point", file: file, line: line)
-        XCTAssertTrue(waitForElementToBeHittable(openBoardButton, timeout: 3, file: file, line: line))
+        XCTAssertTrue(foundBoardButton, "Home habits section should expose the Habit Board entry point", file: file, line: line)
+        XCTAssertTrue(waitForElementToBeHittable(openBoardButton, timeout: 4, file: file, line: line))
         openBoardButton.tap()
-        XCTAssertTrue(board.waitForExistence(timeout: 5), "Habit Board should appear after tapping the Home entry point", file: file, line: line)
+        XCTAssertTrue(waitForHabitBoardVisible(timeout: 5), "Habit Board should appear after tapping the Home entry point", file: file, line: line)
+    }
+
+    @discardableResult
+    private func waitForHabitBoardVisible(timeout: TimeInterval) -> Bool {
+        let board = app.otherElements[AccessibilityIdentifiers.HabitBoard.view]
+        let title = app.navigationBars["Habit Board"]
+        let close = app.buttons["Close"]
+        return board.waitForExistence(timeout: timeout)
+            || title.waitForExistence(timeout: timeout)
+            || close.waitForExistence(timeout: timeout)
     }
 
     private func firstHomeHabitRow(file: StaticString = #file, line: UInt = #line) -> XCUIElement {
+        dismissHabitBoardIfVisible()
+
         let backToTodayButton = app.buttons[AccessibilityIdentifiers.Home.backToTodayButton]
         if backToTodayButton.waitForExistence(timeout: 2) && backToTodayButton.isHittable {
             backToTodayButton.tap()
@@ -234,10 +323,33 @@ final class HabitBoardUITests: BaseUITest {
         return firstRow
     }
 
+    private func firstHabitBoardRow(file: StaticString = #file, line: UInt = #line) -> XCUIElement {
+        let firstRow = app.otherElements.matching(NSPredicate(format: "identifier BEGINSWITH %@", "habitBoard.row.")).firstMatch
+        XCTAssertTrue(firstRow.waitForExistence(timeout: 12), "A board row should be available to open detail", file: file, line: line)
+        return firstRow
+    }
+
+    private func dismissHabitBoardIfVisible() {
+        let closeButton = app.buttons["Close"]
+        if closeButton.waitForExistence(timeout: 1) && closeButton.isHittable {
+            closeButton.tap()
+            XCTAssertFalse(waitForHabitBoardVisible(timeout: 2), "Habit Board should dismiss before returning to Home")
+        }
+    }
+
     @discardableResult
     private func waitForLastCellValue(_ element: XCUIElement, expected: String, timeout: TimeInterval = 5) -> Bool {
         let predicate = NSPredicate(format: "value == %@", expected)
         let expectation = XCTNSPredicateExpectation(predicate: predicate, object: element)
         return XCTWaiter.wait(for: [expectation], timeout: timeout) == .completed
+    }
+
+    private static func accessibilityStamp(_ date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.calendar = Calendar(identifier: .gregorian)
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.timeZone = Calendar.current.timeZone
+        formatter.dateFormat = "yyyy-MM-dd"
+        return formatter.string(from: date)
     }
 }

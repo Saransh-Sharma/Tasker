@@ -319,6 +319,16 @@ enum AccessibilityIdentifiers {
         static func dayCell(_ habitID: String, dateStamp: String) -> String { "habitBoard.cell.\(habitID).\(dateStamp)" }
     }
 
+    enum HabitDetail {
+        static let view = "habitDetail.view"
+        static let grid = "habitDetail.grid"
+        static let detailsDisclosure = "habitDetail.detailsDisclosure"
+        static let helperText = "habitDetail.helperText"
+        static let editButton = "habitDetail.editButton"
+        static let saveButton = "habitDetail.saveButton"
+        static func dayCell(_ dateStamp: String) -> String { "habitDetail.cell.\(dateStamp)" }
+    }
+
     // MARK: - Search Screen
 
     enum Search {
