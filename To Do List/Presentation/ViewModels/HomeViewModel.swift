@@ -389,6 +389,12 @@ public final class HomeViewModel: ObservableObject {
     @Published public private(set) var quietTrackingSummaryState = QuietTrackingSummaryState(stableRows: []) {
         didSet { scheduleHomeRenderStateRefresh() }
     }
+    @Published public private(set) var habitMutationErrorMessage: String? {
+        didSet {
+            guard oldValue != habitMutationErrorMessage else { return }
+            scheduleHomeRenderStateRefresh()
+        }
+    }
 
     // Focus Engine
     @Published public private(set) var activeFilterState: HomeFilterState = .default {
@@ -743,8 +749,13 @@ public final class HomeViewModel: ObservableObject {
     private func buildHomeHabitsState() -> HomeHabitsSnapshot {
         HomeHabitsSnapshot(
             habitHomeSectionState: habitHomeSectionState,
-            quietTrackingSummaryState: quietTrackingSummaryState
+            quietTrackingSummaryState: quietTrackingSummaryState,
+            errorMessage: habitMutationErrorMessage
         )
+    }
+
+    public func clearHabitMutationErrorMessage() {
+        habitMutationErrorMessage = nil
     }
 
     private func buildHomeCalendarState() -> HomeCalendarSnapshot {
@@ -3929,6 +3940,7 @@ public final class HomeViewModel: ObservableObject {
             return
         }
 
+        habitMutationErrorMessage = nil
         pendingHabitMutationKeys.insert(key)
         pendingHabitMutationIntervals[key] = TaskerPerformanceTrace.begin("HomeUserMutation")
         if Calendar.current.isDate(date, inSameDayAs: selectedDate) {
@@ -4021,12 +4033,14 @@ public final class HomeViewModel: ObservableObject {
             }
             pendingHabitMutationSnapshots.removeValue(forKey: key)
             pendingHabitMutationKeys.remove(key)
+            habitMutationErrorMessage = error.localizedDescription
             errorMessage = error.localizedDescription
 
         case .success:
             TaskerPerformanceTrace.event("HomeUserMutationPersistenceComplete")
             pendingHabitMutationSnapshots.removeValue(forKey: key)
             pendingHabitMutationKeys.remove(key)
+            habitMutationErrorMessage = nil
             let isSelectedDayMutation = Calendar.current.isDate(date, inSameDayAs: selectedDate)
             if isSelectedDayMutation {
                 habitRecoveryReflectionPrompt = recoveryReflectionPrompt

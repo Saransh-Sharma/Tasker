@@ -213,10 +213,19 @@ public final class AddHabitViewModel: ObservableObject {
 
     public func loadIfNeeded() {
         guard hasLoadedOnce == false else { return }
-        hasLoadedOnce = true
+        loadDependencies(markLoaded: true)
+    }
+
+    public func reloadDependencies() {
+        loadDependencies(markLoaded: true)
+    }
+
+    private func loadDependencies(markLoaded: Bool) {
+        if markLoaded {
+            hasLoadedOnce = true
+        }
         isLoading = true
         errorMessage = nil
-
         let group = DispatchGroup()
         var loadedLifeAreas: [LifeArea] = []
         var loadedProjects: [ProjectWithStats] = []
@@ -655,6 +664,7 @@ public struct HabitDetailCalendarWeek: Identifiable, Equatable {
 
 public struct HabitDetailCalendarCellViewState: Identifiable, Equatable {
     public let cell: HabitDetailDayCell
+    public let streakDepth: Int?
     public let dayNumber: String
     public let accessibilityLabel: String
     public let accessibilityValue: String
@@ -766,6 +776,8 @@ enum HabitDetailCalendarBuilder {
             dayCount: dayCount,
             calendar: calendar
         )
+        let flattenedCells = weeks.flatMap(\.cells)
+        let streakDepthByDate = streakDepthMap(for: flattenedCells, calendar: calendar)
 
         return HabitDetailCalendarViewState(
             helperText: helperText(for: row),
@@ -774,8 +786,10 @@ enum HabitDetailCalendarBuilder {
                     startDate: week.startDate,
                     monthLabel: week.monthLabel,
                     cells: week.cells.map { cell in
-                        HabitDetailCalendarCellViewState(
+                        let dayStart = calendar.startOfDay(for: cell.date)
+                        return HabitDetailCalendarCellViewState(
                             cell: cell,
+                            streakDepth: streakDepthByDate[dayStart],
                             dayNumber: String(calendar.component(.day, from: cell.date)),
                             accessibilityLabel: fullDateFormatter.string(from: cell.date),
                             accessibilityValue: accessibilityValue(for: cell, row: row),
@@ -931,6 +945,30 @@ enum HabitDetailCalendarBuilder {
             }
             return daysOfWeek.contains(weekday)
         }
+    }
+
+    private static func streakDepthMap(
+        for cells: [HabitDetailDayCell],
+        calendar: Calendar
+    ) -> [Date: Int] {
+        var streakDepthByDate: [Date: Int] = [:]
+        var streakDepth = 0
+
+        for cell in cells.sorted(by: { $0.date < $1.date }) {
+            switch cell.state {
+            case .success:
+                streakDepth = min(streakDepth + 1, 8)
+                streakDepthByDate[calendar.startOfDay(for: cell.date)] = streakDepth
+            case .skipped, .notScheduled:
+                continue
+            case .empty, .lapsed:
+                streakDepth = 0
+            case .future:
+                continue
+            }
+        }
+
+        return streakDepthByDate
     }
 
     private static var monthFormatter: DateFormatter = {
