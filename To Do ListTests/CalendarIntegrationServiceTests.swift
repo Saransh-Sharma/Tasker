@@ -100,7 +100,7 @@ final class CalendarIntegrationServiceTests: XCTestCase {
         XCTAssertEqual(service.accessAction(), .unavailable(.restricted))
 
         provider.authorizationStatusValue = .writeOnly
-        XCTAssertEqual(service.accessAction(), .unavailable(.writeOnly))
+        XCTAssertEqual(service.accessAction(), .openSystemSettings)
 
         provider.authorizationStatusValue = .authorized
         XCTAssertEqual(service.accessAction(), .noneNeeded)
@@ -133,6 +133,54 @@ final class CalendarIntegrationServiceTests: XCTestCase {
         XCTAssertEqual(decoded.selectedCalendarIDs, ["work"])
         XCTAssertTrue(decoded.includeDeclinedCalendarEvents)
         XCTAssertFalse(decoded.includeCanceledCalendarEvents)
+    }
+
+    func testWorkspacePreferencesDecodeMissingAllDayFieldsPreservesDefaults() throws {
+        let legacyJSON = """
+        {
+          "weekStartsOn": "monday",
+          "selectedCalendarIDs": ["work"],
+          "includeDeclinedCalendarEvents": false,
+          "includeCanceledCalendarEvents": false
+        }
+        """.data(using: .utf8)!
+
+        let decoded = try JSONDecoder().decode(TaskerWorkspacePreferences.self, from: legacyJSON)
+
+        XCTAssertEqual(decoded.selectedCalendarIDs, ["work"])
+        XCTAssertTrue(decoded.includeAllDayInAgenda)
+        XCTAssertFalse(decoded.includeAllDayInBusyStrip)
+    }
+
+    func testWorkspacePreferencesStoreCanonicalizesSelectedCalendarIDs() {
+        let store = TaskerWorkspacePreferencesStore(defaults: defaults)
+        store.save(TaskerWorkspacePreferences(
+            selectedCalendarIDs: ["work", "personal", "work", "archive"]
+        ))
+
+        XCTAssertEqual(store.load().selectedCalendarIDs, ["archive", "personal", "work"])
+    }
+
+    func testWorkspacePreferencesStoreSkipsNoopSaveAndDoesNotEmitDidChange() {
+        let store = TaskerWorkspacePreferencesStore(defaults: defaults)
+        let baseline = TaskerWorkspacePreferences(selectedCalendarIDs: ["work"])
+        store.save(baseline)
+
+        var notificationCount = 0
+        let observer = NotificationCenter.default.addObserver(
+            forName: TaskerWorkspacePreferencesStore.didChangeNotification,
+            object: nil,
+            queue: .main
+        ) { _ in
+            notificationCount += 1
+        }
+        defer { NotificationCenter.default.removeObserver(observer) }
+
+        store.save(TaskerWorkspacePreferences(selectedCalendarIDs: ["work", "work"]))
+        waitForMainQueue(seconds: 0.05)
+
+        XCTAssertEqual(notificationCount, 0)
+        XCTAssertEqual(store.load().selectedCalendarIDs, ["work"])
     }
 
 #if canImport(EventKit)
@@ -470,6 +518,86 @@ final class CalendarIntegrationServiceTests: XCTestCase {
         XCTAssertTrue(store.load().includeCanceledCalendarEvents)
         XCTAssertTrue(service.snapshot.includeCanceled)
         XCTAssertEqual(service.snapshot.eventsInRange.map(\.id), ["canceled"])
+    }
+
+    func testPerformAccessActionForWriteOnlyRoutesToSystemSettings() {
+        let provider = CalendarEventsProviderStub()
+        provider.authorizationStatusValue = .writeOnly
+
+        let store = TaskerWorkspacePreferencesStore(defaults: defaults)
+        let service = CalendarIntegrationService(provider: provider, workspacePreferencesStore: store)
+
+        var openSettingsCount = 0
+        let action = service.performAccessAction(
+            openSystemSettings: { openSettingsCount += 1 },
+            completion: { granted in
+                XCTAssertFalse(granted)
+            }
+        )
+
+        XCTAssertEqual(action, .openSystemSettings)
+        XCTAssertEqual(openSettingsCount, 1)
+    }
+
+    func testUpdateSelectedCalendarIDsNoopSkipsRefreshAndWrite() {
+        let provider = CalendarEventsProviderStub()
+        provider.authorizationStatusValue = .authorized
+        provider.calendarsResult = .success([calendar(id: "work", title: "Work")])
+        provider.eventsResult = .success([
+            event(id: "w1", calendarID: "work", start: todayDate(hour: 9), end: todayDate(hour: 10))
+        ])
+
+        let store = TaskerWorkspacePreferencesStore(defaults: defaults)
+        store.save(TaskerWorkspacePreferences(selectedCalendarIDs: ["work"]))
+        let service = CalendarIntegrationService(provider: provider, workspacePreferencesStore: store)
+
+        service.refreshContext(referenceDate: todayDate(hour: 8), reason: "selected_calendar_noop_baseline")
+        waitForMainQueue(seconds: 0.2)
+        let fetchEventsCallsBeforeNoop = provider.fetchEventsCallCount
+
+        service.updateSelectedCalendarIDs(["work", "work"])
+        waitForMainQueue(seconds: 0.2)
+
+        XCTAssertEqual(provider.fetchEventsCallCount, fetchEventsCallsBeforeNoop)
+        XCTAssertEqual(service.snapshot.selectedCalendarIDs, ["work"])
+        XCTAssertEqual(store.load().selectedCalendarIDs, ["work"])
+    }
+
+    func testDayAndWeekProjectionCacheInvalidatesAfterRefreshReconcile() {
+        let provider = CalendarEventsProviderStub()
+        provider.authorizationStatusValue = .authorized
+        provider.calendarsResult = .success([calendar(id: "work", title: "Work")])
+        provider.eventsResult = .success([
+            event(id: "initial_day", calendarID: "work", start: todayDate(hour: 9), end: todayDate(hour: 10))
+        ])
+
+        let store = TaskerWorkspacePreferencesStore(defaults: defaults)
+        store.save(TaskerWorkspacePreferences(selectedCalendarIDs: ["work"]))
+        let service = CalendarIntegrationService(provider: provider, workspacePreferencesStore: store)
+
+        service.refreshContext(referenceDate: todayDate(hour: 8), reason: "projection_cache_initial")
+        waitForMainQueue(seconds: 0.2)
+
+        let firstDayProjection = service.eventsForDay(Date()).map(\.id)
+        let secondDayProjection = service.eventsForDay(Date()).map(\.id)
+        XCTAssertEqual(firstDayProjection, secondDayProjection)
+        XCTAssertEqual(firstDayProjection, ["initial_day"])
+
+        let firstWeekProjection = service.weekAgenda(anchorDate: Date(), weekStartsOn: .monday)
+        let secondWeekProjection = service.weekAgenda(anchorDate: Date(), weekStartsOn: .monday)
+        XCTAssertEqual(firstWeekProjection, secondWeekProjection)
+
+        provider.eventsResult = .success([
+            event(id: "next_day", calendarID: "work", start: todayDate(hour: 14), end: todayDate(hour: 15))
+        ])
+        service.refreshContext(referenceDate: todayDate(hour: 8), reason: "projection_cache_updated")
+        waitForMainQueue(seconds: 0.2)
+
+        XCTAssertEqual(service.eventsForDay(Date()).map(\.id), ["next_day"])
+        let refreshedWeekProjectionIDs = service.weekAgenda(anchorDate: Date(), weekStartsOn: .monday)
+            .flatMap(\.events)
+            .map(\.id)
+        XCTAssertEqual(refreshedWeekProjectionIDs, ["next_day"])
     }
 
     func testNextMeetingExcludesAllDayEventsByDefault() {

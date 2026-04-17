@@ -92,7 +92,7 @@ final class HomeCalendarIntegrationTests: XCTestCase {
         let viewModel = HomeViewModel(useCaseCoordinator: coordinator, userDefaults: defaults)
 
         waitForMainQueue(seconds: 0.45)
-        XCTAssertEqual(viewModel.homeCalendarSnapshot.moduleState, .empty)
+        XCTAssertEqual(viewModel.homeCalendarSnapshot.moduleState, .allDayOnly)
         XCTAssertEqual(viewModel.homeCalendarSnapshot.eventsTodayCount, 1)
         XCTAssertEqual(viewModel.homeCalendarSnapshot.selectedDayEvents.map(\.id), ["all-day"])
         XCTAssertTrue(viewModel.homeCalendarSnapshot.selectedDayTimelineEvents.isEmpty)
