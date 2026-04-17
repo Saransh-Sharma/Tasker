@@ -278,8 +278,35 @@ final class HomeCalendarIntegrationTests: XCTestCase {
         let laneByID = Dictionary(uniqueKeysWithValues: plan.positionedEvents.map { ($0.event.id, $0) })
         XCTAssertEqual(laneByID["a"]?.laneCount, 2)
         XCTAssertEqual(laneByID["b"]?.laneCount, 2)
+        XCTAssertEqual(laneByID["a"]?.columnSpan, 1)
+        XCTAssertEqual(laneByID["b"]?.columnSpan, 1)
         XCTAssertNotEqual(laneByID["a"]?.lane, laneByID["b"]?.lane)
         XCTAssertEqual(laneByID["c"]?.laneCount, 1)
+        XCTAssertEqual(laneByID["c"]?.columnSpan, 1)
+    }
+
+    func testHomeDayTimelineLayoutPlannerExpandsIntoFreeAdjacentColumns() throws {
+        let selectedDate = CalendarTestClock.date(hour: 0)
+        let anchorDate = CalendarTestClock.date(hour: 14, minute: 30)
+        let plan = try XCTUnwrap(HomeDayTimelineLayoutPlanner.makePlan(
+            for: [
+                timelineEvent(id: "a", hour: 13, minute: 50, durationMinutes: 70),
+                timelineEvent(id: "b", hour: 14, minute: 0, durationMinutes: 30),
+                timelineEvent(id: "c", hour: 14, minute: 10, durationMinutes: 35),
+                timelineEvent(id: "d", hour: 14, minute: 30, durationMinutes: 15),
+                timelineEvent(id: "e", hour: 14, minute: 45, durationMinutes: 15)
+            ],
+            on: selectedDate,
+            anchorDate: anchorDate,
+            calendar: CalendarTestClock.calendar
+        ))
+
+        let positionedByID = Dictionary(uniqueKeysWithValues: plan.positionedEvents.map { ($0.event.id, $0) })
+        XCTAssertEqual(positionedByID["a"]?.laneCount, 3)
+        XCTAssertEqual(positionedByID["a"]?.columnSpan, 1)
+        XCTAssertEqual(positionedByID["b"]?.columnSpan, 1)
+        XCTAssertEqual(positionedByID["e"]?.lane, 1)
+        XCTAssertEqual(positionedByID["e"]?.columnSpan, 2)
     }
 
     func testHomeDayTimelineLayoutPlannerBuildsCompactVisibleHourWindow() throws {
