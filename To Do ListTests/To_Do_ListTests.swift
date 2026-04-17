@@ -2763,6 +2763,15 @@ final class TaskListWidgetSourceContractTests: XCTestCase {
         )
     }
 
+    func testSceneDelegateRegistersHabitDeepLinkRoutes() throws {
+        let source = try loadWorkspaceFile("To Do List/SceneDelegate.swift")
+        XCTAssertTrue(source.contains("if host == \"habits\""))
+        XCTAssertTrue(source.contains("if host == \"habit\""))
+        XCTAssertTrue(source.contains("taskerOpenHabitBoardDeepLink"))
+        XCTAssertTrue(source.contains("taskerOpenHabitLibraryDeepLink"))
+        XCTAssertTrue(source.contains("taskerOpenHabitDetailDeepLink"))
+    }
+
     func testWidgetBundleRegistersFullTaskListCatalogKinds() throws {
         let source = try loadWorkspaceFile("TaskerWidgets/TaskerWidgetBundle.swift")
         let expectedKinds = [

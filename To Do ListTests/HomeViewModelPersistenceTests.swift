@@ -1480,6 +1480,25 @@ final class HomeViewModelPersistenceTests: XCTestCase {
         XCTAssertEqual(harness.viewModel.habitHomeSectionState.primaryRows.first?.state, .due)
     }
 
+    func testHabitMutationFailurePublishesHabitScopedErrorMessage() {
+        let harness = makeHabitMutationHarness()
+        waitForMainQueueFlush()
+
+        guard let row = harness.viewModel.habitHomeSectionState.primaryRows.first else {
+            return XCTFail("Expected habit row after initial load")
+        }
+
+        harness.schedulingEngine.deferResolveCompletion = true
+        harness.viewModel.performHabitLastCellAction(row, source: "test")
+        harness.schedulingEngine.completePendingResolve(with: .failure(NSError(domain: "HabitMutation", code: 11)))
+        waitForMainQueueFlush()
+
+        XCTAssertNotNil(harness.viewModel.habitMutationErrorMessage)
+
+        harness.viewModel.clearHabitMutationErrorMessage()
+        XCTAssertNil(harness.viewModel.habitMutationErrorMessage)
+    }
+
     func testHabitMutationTriggersSingleHabitScopedReload() {
         let harness = makeHabitMutationHarness()
         waitForMainQueueFlush()

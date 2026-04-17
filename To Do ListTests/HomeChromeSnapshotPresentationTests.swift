@@ -68,7 +68,8 @@ final class HomeChromeSnapshotPresentationTests: XCTestCase {
             tasks: previous.tasks,
             habits: HomeHabitsSnapshot(
                 habitHomeSectionState: HabitHomeSectionState(primaryRows: [habitRow], recoveryRows: []),
-                quietTrackingSummaryState: .init(stableRows: [])
+                quietTrackingSummaryState: .init(stableRows: []),
+                errorMessage: nil
             ),
             overlay: previous.overlay
         )
