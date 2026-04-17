@@ -266,3 +266,103 @@ public struct TaskerCalendarSnapshot: Equatable {
         errorMessage: nil
     )
 }
+
+enum TaskerCalendarBadgeTone: String, Equatable {
+    case accent
+    case warning
+    case danger
+    case neutral
+}
+
+struct TaskerCalendarEventBadge: Equatable, Identifiable {
+    let title: String
+    let systemImage: String
+    let tone: TaskerCalendarBadgeTone
+
+    var id: String { title }
+}
+
+struct TaskerCalendarChooserSection: Equatable, Identifiable {
+    let title: String
+    let calendars: [TaskerCalendarSourceSnapshot]
+
+    var id: String { title }
+}
+
+enum TaskerCalendarPresentation {
+    static func chooserSections(from calendars: [TaskerCalendarSourceSnapshot]) -> [TaskerCalendarChooserSection] {
+        let grouped = Dictionary(grouping: calendars) { calendar in
+            let sourceTitle = calendar.sourceTitle.trimmingCharacters(in: .whitespacesAndNewlines)
+            return sourceTitle.isEmpty ? "Other" : sourceTitle
+        }
+
+        return grouped.keys
+            .sorted { lhs, rhs in
+                lhs.localizedStandardCompare(rhs) == .orderedAscending
+            }
+            .map { sourceTitle in
+                let sortedCalendars = (grouped[sourceTitle] ?? [])
+                    .sorted { lhs, rhs in
+                        let titleCompare = lhs.title.localizedStandardCompare(rhs.title)
+                        if titleCompare != .orderedSame {
+                            return titleCompare == .orderedAscending
+                        }
+                        return lhs.id.localizedStandardCompare(rhs.id) == .orderedAscending
+                    }
+                return TaskerCalendarChooserSection(title: sourceTitle, calendars: sortedCalendars)
+            }
+    }
+
+    static func timeRangeText(for event: TaskerCalendarEventSnapshot, includeDate: Bool = false) -> String {
+        if event.isAllDay {
+            if includeDate {
+                return event.startDate.formatted(.dateTime.weekday(.wide).month(.abbreviated).day()) + " · All day"
+            }
+            return "All day"
+        }
+
+        let start = includeDate
+            ? event.startDate.formatted(.dateTime.weekday(.abbreviated).month(.abbreviated).day().hour().minute())
+            : event.startDate.formatted(date: .omitted, time: .shortened)
+        let end = includeDate
+            ? event.endDate.formatted(.dateTime.weekday(.abbreviated).month(.abbreviated).day().hour().minute())
+            : event.endDate.formatted(date: .omitted, time: .shortened)
+
+        return "\(start) - \(end)"
+    }
+
+    static func scheduleDateText(for date: Date) -> String {
+        date.formatted(.dateTime.weekday(.wide).month(.abbreviated).day())
+    }
+
+    static func compactDateText(for date: Date) -> String {
+        date.formatted(.dateTime.weekday(.abbreviated).month(.abbreviated).day())
+    }
+
+    static func badges(for event: TaskerCalendarEventSnapshot) -> [TaskerCalendarEventBadge] {
+        var badges: [TaskerCalendarEventBadge] = []
+
+        if event.isAllDay {
+            badges.append(TaskerCalendarEventBadge(title: "All Day", systemImage: "sun.max", tone: .neutral))
+        }
+
+        switch event.participationStatus {
+        case .declined:
+            badges.append(TaskerCalendarEventBadge(title: "Declined", systemImage: "person.crop.circle.badge.xmark", tone: .danger))
+        case .tentative:
+            badges.append(TaskerCalendarEventBadge(title: "Tentative", systemImage: "questionmark.circle", tone: .warning))
+        default:
+            break
+        }
+
+        if event.isCanceled {
+            badges.append(TaskerCalendarEventBadge(title: "Canceled", systemImage: "nosign", tone: .danger))
+        }
+
+        if event.availability == .free {
+            badges.append(TaskerCalendarEventBadge(title: "Free", systemImage: "circle.dotted", tone: .accent))
+        }
+
+        return badges
+    }
+}
