@@ -3134,18 +3134,21 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
     private func presentCalendarChooser() {
         guard let service = presentationDependencyContainer?.coordinator.calendarIntegrationService else { return }
         let chooser = EventKitCalendarChooserContainerView(
+            service: service,
             initialSelectedCalendarIDs: service.snapshot.selectedCalendarIDs,
             onCommit: { selectedIDs in
                 service.updateSelectedCalendarIDs(selectedIDs)
             }
         )
-        let host = UIHostingController(rootView: AnyView(chooser))
+        let host = UIHostingController(rootView: AnyView(chooser.taskerLayoutClass(currentLayoutClass)))
         host.modalPresentationStyle = UIModalPresentationStyle.pageSheet
+        host.view.backgroundColor = TaskerThemeManager.shared.currentTheme.tokens.color.bgCanvas
         if let sheet = host.sheetPresentationController {
             let detents: [UISheetPresentationController.Detent] = [.medium(), .large()]
             sheet.detents = detents
             sheet.prefersGrabberVisible = true
             sheet.prefersScrollingExpandsWhenScrolledToEdge = false
+            sheet.preferredCornerRadius = 28
         }
         present(host, animated: true)
     }
@@ -3159,12 +3162,14 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
         )
         let host = UIHostingController(rootView: AnyView(view.taskerLayoutClass(currentLayoutClass)))
         host.modalPresentationStyle = UIModalPresentationStyle.pageSheet
+        host.view.backgroundColor = TaskerThemeManager.shared.currentTheme.tokens.color.bgCanvas
         if let sheet = host.sheetPresentationController {
             let detents: [UISheetPresentationController.Detent] = currentLayoutClass.isPad
                 ? [.large()]
                 : [.medium(), .large()]
             sheet.detents = detents
             sheet.prefersGrabberVisible = true
+            sheet.preferredCornerRadius = 28
         }
         present(host, animated: true)
     }

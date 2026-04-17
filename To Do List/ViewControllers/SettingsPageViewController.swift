@@ -199,6 +199,7 @@ class SettingsPageViewController: UIViewController, PresentationDependencyContai
     private func presentCalendarChooser() {
         guard let service = presentationDependencyContainer?.coordinator.calendarIntegrationService else { return }
         let chooser = EventKitCalendarChooserContainerView(
+            service: service,
             initialSelectedCalendarIDs: service.snapshot.selectedCalendarIDs,
             onCommit: { selectedIDs in
                 service.updateSelectedCalendarIDs(selectedIDs)
@@ -206,10 +207,12 @@ class SettingsPageViewController: UIViewController, PresentationDependencyContai
         )
         let host = UIHostingController(rootView: AnyView(chooser.taskerLayoutClass(currentLayoutClass)))
         host.modalPresentationStyle = .pageSheet
+        host.view.backgroundColor = TaskerThemeManager.shared.currentTheme.tokens.color.bgCanvas
         if let sheet = host.sheetPresentationController {
             sheet.detents = [.medium(), .large()]
             sheet.prefersGrabberVisible = true
             sheet.prefersScrollingExpandsWhenScrolledToEdge = false
+            sheet.preferredCornerRadius = 28
         }
         present(host, animated: true)
     }
