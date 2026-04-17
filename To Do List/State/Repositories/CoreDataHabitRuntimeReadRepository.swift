@@ -450,6 +450,51 @@ public final class CoreDataHabitRuntimeReadRepository: HabitRuntimeReadRepositor
         }
     }
 
+    public func fetchHabitDetailSummary(
+        habitID: UUID,
+        includeArchived: Bool,
+        completion: @escaping (Result<HabitLibraryRow?, Error>) -> Void
+    ) {
+        context.perform {
+            do {
+                var predicates: [NSPredicate] = [NSPredicate(format: "id == %@", habitID as CVarArg)]
+                if includeArchived == false {
+                    predicates.append(NSPredicate(format: "archivedAt == nil"))
+                }
+
+                let predicate = NSCompoundPredicate(andPredicateWithSubpredicates: predicates)
+                guard let habit = try self.fetchHabits(predicate: predicate).first else {
+                    completion(.success(nil))
+                    return
+                }
+
+                let calendar = Calendar.current
+                let ownership = try self.fetchOwnershipLookups(habits: [habit])[habit.id]
+                let schedule = try self.fetchHabitScheduleMetadata(habitIDs: [habit.id])[habit.id]
+                let today = calendar.startOfDay(for: Date())
+                let historyStart = calendar.date(byAdding: .day, value: -7, to: today) ?? today
+                let lookaheadEnd = calendar.date(byAdding: .day, value: 21, to: today) ?? today
+                let occurrences = try self.fetchHabitOccurrences(
+                    start: historyStart,
+                    end: lookaheadEnd,
+                    sourceIDs: [habit.id],
+                    includeFuture: true
+                )
+
+                let row = self.makeDetailSummaryRow(
+                    habit: habit,
+                    ownership: ownership,
+                    schedule: schedule,
+                    occurrences: occurrences,
+                    calendar: calendar
+                )
+                completion(.success(row))
+            } catch {
+                completion(.failure(error))
+            }
+        }
+    }
+
     private func fetchHabits(predicate: NSPredicate? = nil) throws -> [HabitDefinitionRecord] {
         let request = NSFetchRequest<NSManagedObject>(entityName: HabitDefinitionMapper.entityName)
         request.predicate = predicate
@@ -458,6 +503,48 @@ public final class CoreDataHabitRuntimeReadRepository: HabitRuntimeReadRepositor
             NSSortDescriptor(key: "id", ascending: true)
         ]
         return try context.fetch(request).map(HabitDefinitionMapper.toDomain)
+    }
+
+    private func makeDetailSummaryRow(
+        habit: HabitDefinitionRecord,
+        ownership: (lifeAreaName: String?, projectName: String?)?,
+        schedule: (cadence: HabitCadenceDraft, reminderWindowStart: String?, reminderWindowEnd: String?)?,
+        occurrences: [OccurrenceDefinition],
+        calendar: Calendar
+    ) -> HabitLibraryRow {
+        let today = calendar.startOfDay(for: Date())
+        let nextDueAt = occurrences
+            .filter { self.occurrenceDate($0) >= today && $0.state == .pending }
+            .map(self.occurrenceDate(_:))
+            .min()
+        let lastCompletedAt = occurrences
+            .filter { $0.state == .completed }
+            .map(self.occurrenceDate(_:))
+            .max()
+
+        return HabitLibraryRow(
+            habitID: habit.id,
+            title: habit.title,
+            kind: habit.kind,
+            trackingMode: habit.trackingMode,
+            cadence: schedule?.cadence ?? .daily(),
+            lifeAreaID: habit.lifeAreaID,
+            lifeAreaName: ownership?.lifeAreaName ?? "Needs Repair",
+            projectID: habit.projectID,
+            projectName: ownership?.projectName,
+            icon: habit.icon,
+            colorHex: habit.colorHex,
+            isPaused: habit.isPaused,
+            isArchived: habit.isArchived,
+            currentStreak: habit.streakCurrent,
+            bestStreak: habit.streakBest,
+            last14Days: [],
+            nextDueAt: nextDueAt,
+            lastCompletedAt: lastCompletedAt,
+            reminderWindowStart: schedule?.reminderWindowStart,
+            reminderWindowEnd: schedule?.reminderWindowEnd,
+            notes: habit.notes
+        )
     }
 
     private func fetchOwnershipLookups(

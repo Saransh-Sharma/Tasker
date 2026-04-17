@@ -9,6 +9,17 @@ public enum CalendarAccessAction: Equatable {
 }
 
 public final class CalendarIntegrationService: ObservableObject {
+    private struct DayProjectionKey: Hashable {
+        let revision: UInt64
+        let startOfDay: Date
+    }
+
+    private struct WeekProjectionKey: Hashable {
+        let revision: UInt64
+        let weekStart: Date
+        let weekStartsOn: Weekday
+    }
+
     @Published public private(set) var snapshot: TaskerCalendarSnapshot
 
     private let provider: CalendarEventsProviderProtocol?
@@ -21,6 +32,9 @@ public final class CalendarIntegrationService: ObservableObject {
 
     private var contextEvents: [TaskerCalendarEventSnapshot] = []
     private var refreshGeneration: UInt64 = 0
+    private var projectionRevision: UInt64 = 0
+    private var dayProjectionCache: [DayProjectionKey: [TaskerCalendarEventSnapshot]] = [:]
+    private var weekProjectionCache: [WeekProjectionKey: [TaskerCalendarDayAgenda]] = [:]
     private var cancellables: Set<AnyCancellable> = []
 
     public init(
@@ -75,9 +89,9 @@ public final class CalendarIntegrationService: ObservableObject {
         switch snapshot.authorizationStatus {
         case .notDetermined:
             return .requestPermission
-        case .denied:
+        case .denied, .writeOnly:
             return .openSystemSettings
-        case .restricted, .writeOnly:
+        case .restricted:
             return .unavailable(snapshot.authorizationStatus)
         case .authorized:
             return .noneNeeded
@@ -133,10 +147,13 @@ public final class CalendarIntegrationService: ObservableObject {
     }
 
     public func updateSelectedCalendarIDs(_ calendarIDs: [String]) {
+        let normalizedCalendarIDs = TaskerWorkspacePreferences.normalizeSelectedCalendarIDs(calendarIDs)
+        guard normalizedCalendarIDs != snapshot.selectedCalendarIDs else { return }
+
         workspacePreferencesStore.update { preferences in
-            preferences.selectedCalendarIDs = calendarIDs
+            preferences.selectedCalendarIDs = normalizedCalendarIDs
         }
-        snapshot.selectedCalendarIDs = calendarIDs
+        snapshot.selectedCalendarIDs = normalizedCalendarIDs
         refreshContext(reason: "selected_calendars_changed")
     }
 
@@ -255,21 +272,39 @@ public final class CalendarIntegrationService: ObservableObject {
 
     public func eventsForDay(_ day: Date) -> [TaskerCalendarEventSnapshot] {
         let calendar = Calendar.current
-        let start = calendar.startOfDay(for: day)
-        let end = calendar.date(byAdding: .day, value: 1, to: start) ?? start
-        return snapshot.eventsInRange
-            .filter { $0.endDate > start && $0.startDate < end }
+        let startOfDay = calendar.startOfDay(for: day)
+        let cacheKey = DayProjectionKey(revision: projectionRevision, startOfDay: startOfDay)
+        if let cached = dayProjectionCache[cacheKey] {
+            return cached
+        }
+
+        let endOfDay = calendar.date(byAdding: .day, value: 1, to: startOfDay) ?? startOfDay
+        let events = snapshot.eventsInRange
+            .filter { $0.endDate > startOfDay && $0.startDate < endOfDay }
             .sorted { lhs, rhs in
                 if lhs.startDate != rhs.startDate {
                     return lhs.startDate < rhs.startDate
                 }
                 return lhs.endDate < rhs.endDate
             }
+        dayProjectionCache[cacheKey] = events
+        return events
     }
 
     public func weekAgenda(anchorDate: Date, weekStartsOn: Weekday) -> [TaskerCalendarDayAgenda] {
         let weekStart = XPCalculationEngine.startOfWeek(for: anchorDate, startingOn: weekStartsOn)
-        return buildWeekAgenda.execute(events: snapshot.eventsInRange, weekStart: weekStart)
+        let cacheKey = WeekProjectionKey(
+            revision: projectionRevision,
+            weekStart: weekStart,
+            weekStartsOn: weekStartsOn
+        )
+        if let cached = weekProjectionCache[cacheKey] {
+            return cached
+        }
+
+        let agenda = buildWeekAgenda.execute(events: snapshot.eventsInRange, weekStart: weekStart)
+        weekProjectionCache[cacheKey] = agenda
+        return agenda
     }
 
     public func taskFitHint(for task: TaskDefinition, now: Date = Date()) -> TaskerTaskFitHintResult {
@@ -315,7 +350,7 @@ public final class CalendarIntegrationService: ObservableObject {
 
     private func reloadPreferencesAndRefresh(reason: String) {
         let preferences = workspacePreferencesStore.load()
-        snapshot.selectedCalendarIDs = preferences.selectedCalendarIDs
+        snapshot.selectedCalendarIDs = TaskerWorkspacePreferences.normalizeSelectedCalendarIDs(preferences.selectedCalendarIDs)
         snapshot.includeDeclined = preferences.includeDeclinedCalendarEvents
         snapshot.includeCanceled = preferences.includeCanceledCalendarEvents
         snapshot.includeAllDayInAgenda = preferences.includeAllDayInAgenda
@@ -324,12 +359,14 @@ public final class CalendarIntegrationService: ObservableObject {
     }
 
     private func persistSelectedCalendarIDs(_ calendarIDs: [String]) {
+        let normalizedCalendarIDs = TaskerWorkspacePreferences.normalizeSelectedCalendarIDs(calendarIDs)
         workspacePreferencesStore.update { preferences in
-            preferences.selectedCalendarIDs = calendarIDs
+            preferences.selectedCalendarIDs = normalizedCalendarIDs
         }
     }
 
     private func clearCalendarContext(keepAvailableCalendars: Bool) {
+        invalidateProjectionCaches()
         contextEvents = []
         snapshot.eventsInRange = []
         snapshot.busyBlocks = []
@@ -341,6 +378,7 @@ public final class CalendarIntegrationService: ObservableObject {
     }
 
     private func reconcile(events: [TaskerCalendarEventSnapshot], referenceDate: Date) {
+        invalidateProjectionCaches()
         let selectedCalendarIDs = Set(snapshot.selectedCalendarIDs)
         let contextEvents = filterEvents.execute(
             events: events,
@@ -378,5 +416,11 @@ public final class CalendarIntegrationService: ObservableObject {
         snapshot.nextMeeting = nextMeeting
         snapshot.freeUntil = freeUntil
         snapshot.errorMessage = nil
+    }
+
+    private func invalidateProjectionCaches() {
+        projectionRevision &+= 1
+        dayProjectionCache.removeAll(keepingCapacity: true)
+        weekProjectionCache.removeAll(keepingCapacity: true)
     }
 }
