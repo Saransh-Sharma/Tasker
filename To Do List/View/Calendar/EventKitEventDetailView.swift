@@ -36,14 +36,21 @@ struct EventKitEventDetailView: UIViewControllerRepresentable {
             let eventViewController = EKEventViewController()
             eventViewController.allowsEditing = false
             eventViewController.delegate = self
-            eventViewController.navigationItem.leftBarButtonItem = UIBarButtonItem(
+
+            let closeButton = UIBarButtonItem(
                 barButtonSystemItem: .close,
                 target: self,
                 action: #selector(closeTapped)
             )
+            closeButton.accessibilityIdentifier = "schedule.detail.close"
+            eventViewController.navigationItem.leftBarButtonItem = closeButton
+
             self.eventViewController = eventViewController
             applyCurrentEvent()
-            return UINavigationController(rootViewController: eventViewController)
+
+            let navigationController = UINavigationController(rootViewController: eventViewController)
+            navigationController.view.accessibilityIdentifier = "schedule.detail.sheet"
+            return navigationController
         }
 
         func update(eventID: String) {
@@ -53,10 +60,11 @@ struct EventKitEventDetailView: UIViewControllerRepresentable {
 
         private func applyCurrentEvent() {
             guard let eventViewController else { return }
+
             if let event = store.event(withIdentifier: eventID) {
                 eventViewController.event = event
                 let title = event.title?.trimmingCharacters(in: .whitespacesAndNewlines)
-                eventViewController.title = (title?.isEmpty == false ? title : "Untitled Event")
+                eventViewController.title = title?.isEmpty == false ? title : "Untitled Event"
             } else {
                 eventViewController.event = nil
                 eventViewController.title = "Event"
