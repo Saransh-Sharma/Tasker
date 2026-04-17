@@ -380,6 +380,57 @@ final class HomeCalendarIntegrationTests: XCTestCase {
         XCTAssertTrue(plan.positionedEvents.first?.event.isCanceled == true)
     }
 
+    func testChooserSectionsGroupCalendarsBySourceAndSortRows() {
+        let calendars = [
+            TaskerCalendarSourceSnapshot(
+                id: "personal",
+                title: "Personal",
+                sourceTitle: "Google",
+                colorHex: "#34C759",
+                allowsContentModifications: false
+            ),
+            TaskerCalendarSourceSnapshot(
+                id: "work",
+                title: "Work",
+                sourceTitle: "iCloud",
+                colorHex: "#007AFF",
+                allowsContentModifications: false
+            ),
+            TaskerCalendarSourceSnapshot(
+                id: "errands",
+                title: "Errands",
+                sourceTitle: "Google",
+                colorHex: "#FF9500",
+                allowsContentModifications: false
+            )
+        ]
+
+        let sections = TaskerCalendarPresentation.chooserSections(from: calendars)
+
+        XCTAssertEqual(sections.map(\.title), ["Google", "iCloud"])
+        XCTAssertEqual(sections.first?.calendars.map(\.title), ["Errands", "Personal"])
+    }
+
+    func testBadgesDifferentiateEventStateWithoutColorOnly() {
+        let event = TaskerCalendarEventSnapshot(
+            id: "event",
+            calendarID: "work",
+            calendarTitle: "Work",
+            calendarColorHex: "#007AFF",
+            title: "Review",
+            startDate: Date(),
+            endDate: Date().addingTimeInterval(3600),
+            isAllDay: true,
+            availability: .busy,
+            eventStatus: .canceled,
+            participationStatus: .declined
+        )
+
+        let badges = TaskerCalendarPresentation.badges(for: event)
+
+        XCTAssertEqual(badges.map(\.title), ["All Day", "Declined", "Canceled"])
+    }
+
     private func makeCoordinator(provider: CalendarEventsProviderProtocol) -> UseCaseCoordinator {
         V3TestHarness.makeCoordinator(
             taskDefinitionRepository: InMemoryTaskDefinitionRepositoryStub(),
