@@ -12,9 +12,9 @@ enum CalendarScheduleTab: String, CaseIterable, Identifiable {
     var title: String {
         switch self {
         case .today:
-            return "Today"
+            return String(localized: "Today")
         case .week:
-            return "Week"
+            return String(localized: "Week")
         }
     }
 }
@@ -48,9 +48,15 @@ struct CalendarSchedulePresentationState: Equatable {
     }
 }
 
+enum CalendarSchedulePresentationMode {
+    case modal
+    case embedded
+}
+
 struct CalendarScheduleView: View {
     @ObservedObject var service: CalendarIntegrationService
     let weekStartsOn: Weekday
+    let presentationMode: CalendarSchedulePresentationMode
 
     @Environment(\.dismiss) private var dismiss
     @Environment(\.openURL) private var openURL
@@ -77,48 +83,24 @@ struct CalendarScheduleView: View {
     }
 
     var body: some View {
-        NavigationStack {
-            ScrollView {
-                LazyVStack(alignment: .leading, spacing: spacing.s20) {
-                    CalendarScheduleHeaderView(
-                        snapshot: service.snapshot,
-                        selectedTab: selectedTab,
-                        todayEventCount: todayEvents.count,
-                        weekEventCount: weekEventCount,
-                        onSelectTab: { selectedTab = $0 }
-                    )
-                    .enhancedStaggeredAppearance(index: 0)
-
-                    content
-                        .accessibilityIdentifier("schedule.list")
-                        .enhancedStaggeredAppearance(index: 1)
+        Group {
+            if presentationMode == .modal {
+                NavigationStack {
+                    scheduleContent
+                        .navigationBarTitleDisplayMode(.inline)
+                        .toolbar {
+                            ToolbarItem(placement: .cancellationAction) {
+                                Button(String(localized: "Close"), action: dismiss.callAsFunction)
+                            }
+                            scheduleToolbarItems
+                        }
                 }
-                .taskerReadableContent(maxWidth: layoutClass.isPad ? 960 : .infinity, alignment: .center)
-                .padding(.horizontal, spacing.screenHorizontal)
-                .padding(.top, spacing.s16)
-                .padding(.bottom, spacing.sectionGap)
-            }
-            .background(Color.tasker.bgCanvas.ignoresSafeArea())
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Close", action: dismiss.callAsFunction)
-                }
-                ToolbarItemGroup(placement: .navigationBarTrailing) {
-                    Button(action: handleCalendarFilterTap) {
-                        Image(systemName: "slider.horizontal.3")
+            } else {
+                scheduleContent
+                    .navigationBarTitleDisplayMode(.inline)
+                    .toolbar {
+                        scheduleToolbarItems
                     }
-                    .accessibilityIdentifier("schedule.filters")
-                    .accessibilityLabel("Choose calendars")
-
-                    Button {
-                        service.refreshContext(reason: "schedule_manual_refresh")
-                    } label: {
-                        Image(systemName: "arrow.clockwise")
-                    }
-                    .accessibilityIdentifier("schedule.refresh")
-                    .accessibilityLabel("Refresh schedule")
-                }
             }
         }
         .task {
@@ -154,10 +136,55 @@ struct CalendarScheduleView: View {
         }
     }
 
+    private var scheduleContent: some View {
+        ScrollView {
+            LazyVStack(alignment: .leading, spacing: spacing.s20) {
+                CalendarScheduleHeaderView(
+                    snapshot: service.snapshot,
+                    selectedTab: selectedTab,
+                    todayEventCount: todayEvents.count,
+                    weekEventCount: weekEventCount,
+                    onSelectTab: { selectedTab = $0 }
+                )
+                .enhancedStaggeredAppearance(index: 0)
+
+                content
+                    .enhancedStaggeredAppearance(index: 1)
+            }
+            .taskerReadableContent(maxWidth: layoutClass.isPad ? 960 : .infinity, alignment: .center)
+            .padding(.horizontal, spacing.screenHorizontal)
+            .padding(.top, spacing.s16)
+            .padding(.bottom, spacing.sectionGap)
+        }
+        .accessibilityIdentifier("schedule.list")
+        .background(Color.tasker.bgCanvas.ignoresSafeArea())
+    }
+
+    @ToolbarContentBuilder
+    private var scheduleToolbarItems: some ToolbarContent {
+        ToolbarItemGroup(placement: .navigationBarTrailing) {
+            Button(action: handleCalendarFilterTap) {
+                Image(systemName: "slider.horizontal.3")
+            }
+            .accessibilityIdentifier("schedule.toolbar.filters")
+            .accessibilityLabel(String(localized: "Choose calendars"))
+
+            Button {
+                service.refreshContext(reason: "schedule_manual_refresh")
+            } label: {
+                Image(systemName: "arrow.clockwise")
+            }
+            .accessibilityIdentifier("schedule.toolbar.refresh")
+            .accessibilityLabel(String(localized: "Refresh schedule"))
+        }
+    }
+
     @ViewBuilder
     private var content: some View {
         if service.snapshot.authorizationStatus.isAuthorizedForRead == false {
             permissionRequiredView
+        } else if isInitialLoadingStateVisible {
+            initialLoadingView
         } else if let error = service.snapshot.errorMessage, !error.isEmpty {
             errorView(error)
         } else if service.snapshot.selectedCalendarIDs.isEmpty {
@@ -165,6 +192,27 @@ struct CalendarScheduleView: View {
         } else {
             activeContent
         }
+    }
+
+    private var isInitialLoadingStateVisible: Bool {
+        service.snapshot.authorizationStatus.isAuthorizedForRead
+            && service.snapshot.isLoading
+            && service.snapshot.errorMessage?.isEmpty != false
+            && service.snapshot.availableCalendars.isEmpty
+            && service.snapshot.eventsInRange.isEmpty
+    }
+
+    private var initialLoadingView: some View {
+        CalendarScheduleStatePanel(
+            iconName: "calendar.badge.clock",
+            title: String(localized: "Loading schedule"),
+            message: String(localized: "Fetching calendars and events for this workspace."),
+            accentColor: Color.tasker.stateInfo,
+            buttonTitle: nil,
+            buttonAccessibilityIdentifier: nil,
+            bodyAccessibilityIdentifier: "schedule.loading.initial",
+            action: nil
+        )
     }
 
     @ViewBuilder
@@ -178,13 +226,11 @@ struct CalendarScheduleView: View {
                 onChooseCalendars: handleCalendarFilterTap,
                 onSelectEvent: { presentationState.selectEvent(id: $0.id) }
             )
-            .accessibilityIdentifier("schedule.today.content")
         case .week:
             CalendarScheduleWeekContent(
                 agenda: weekAgenda,
                 onSelectEvent: { presentationState.selectEvent(id: $0.id) }
             )
-            .accessibilityIdentifier("schedule.week.content")
         }
     }
 
@@ -204,10 +250,10 @@ struct CalendarScheduleView: View {
     private var noCalendarSelectionView: some View {
         CalendarScheduleStatePanel(
             iconName: "calendar.badge.plus",
-            title: "No calendars selected",
-            message: "Choose the calendars that should shape the schedule view and Home day lane.",
+            title: String(localized: "No calendars selected"),
+            message: String(localized: "Choose the calendars that should shape the schedule view and Home day lane."),
             accentColor: Color.tasker.accentSecondary,
-            buttonTitle: "Choose Calendars",
+            buttonTitle: String(localized: "Choose Calendars"),
             buttonAccessibilityIdentifier: "schedule.noCalendars.choose",
             bodyAccessibilityIdentifier: "schedule.noCalendars.body",
             action: {
@@ -219,10 +265,10 @@ struct CalendarScheduleView: View {
     private func errorView(_ message: String) -> some View {
         CalendarScheduleStatePanel(
             iconName: "wifi.exclamationmark",
-            title: "Unable to load calendar",
+            title: String(localized: "Unable to load calendar"),
             message: message,
             accentColor: Color.tasker.statusDanger,
-            buttonTitle: "Retry",
+            buttonTitle: String(localized: "Retry"),
             buttonAccessibilityIdentifier: "schedule.error.retry",
             bodyAccessibilityIdentifier: "schedule.error.message",
             action: {
@@ -234,10 +280,10 @@ struct CalendarScheduleView: View {
     private var permissionButtonTitle: String? {
         switch service.snapshot.authorizationStatus {
         case .notDetermined:
-            return "Connect Calendar"
-        case .denied:
-            return "Open Settings"
-        case .restricted, .writeOnly, .authorized:
+            return String(localized: "Connect Calendar")
+        case .denied, .writeOnly:
+            return String(localized: "Open Settings")
+        case .restricted, .authorized:
             return nil
         }
     }
@@ -245,28 +291,28 @@ struct CalendarScheduleView: View {
     private var permissionTitle: String {
         switch service.snapshot.authorizationStatus {
         case .denied:
-            return "Calendar access is off"
+            return String(localized: "Calendar access is off")
         case .restricted:
-            return "Calendar access is restricted"
+            return String(localized: "Calendar access is restricted")
         case .writeOnly:
-            return "Read access is required"
+            return String(localized: "Write-only access detected")
         case .notDetermined, .authorized:
-            return "Calendar access is required"
+            return String(localized: "Calendar access is required")
         }
     }
 
     private var permissionSubtitle: String {
         switch service.snapshot.authorizationStatus {
         case .notDetermined:
-            return "Grant calendar access to bring Today and Week schedule context into Tasker."
+            return String(localized: "Grant calendar access to bring Today and Week schedule context into Tasker.")
         case .denied:
-            return "Open system Settings and allow Calendar access for Tasker."
+            return String(localized: "Open system Settings and allow Calendar access for Tasker.")
         case .restricted:
-            return "Calendar access is restricted by system policy and cannot be changed here."
+            return String(localized: "Calendar access is restricted by system policy and cannot be changed here.")
         case .writeOnly:
-            return "Tasker needs read access to compute schedule context."
+            return String(localized: "Tasker only has write-only access. Open Settings and enable read access.")
         case .authorized:
-            return "Calendar access is required."
+            return String(localized: "Calendar access is required.")
         }
     }
 
@@ -359,7 +405,7 @@ private struct CalendarScheduleHeaderView: View {
 
     private var titleBlock: some View {
         VStack(alignment: .leading, spacing: spacing.s8) {
-            Text("Schedule")
+            Text(String(localized: "Schedule"))
                 .font(layoutClass.isPad ? .tasker(.screenTitle) : .tasker(.title1))
                 .foregroundStyle(Color.tasker.textPrimary)
 
@@ -368,7 +414,7 @@ private struct CalendarScheduleHeaderView: View {
                 .foregroundStyle(Color.tasker.textSecondary)
                 .lineLimit(3)
 
-            Text("Today \(todayEventCount) • Week \(weekEventCount)")
+            Text(String(localized: "Today \(todayEventCount) • Week \(weekEventCount)"))
                 .font(.tasker(.caption1))
                 .foregroundStyle(Color.tasker.textTertiary)
         }
@@ -413,7 +459,7 @@ private struct CalendarScheduleHeaderView: View {
         }
         .buttonStyle(.plain)
         .accessibilityIdentifier("schedule.segment.\(tab.rawValue)")
-        .accessibilityValue(selectedTab == tab ? "selected" : "unselected")
+        .accessibilityValue(selectedTab == tab ? String(localized: "selected") : String(localized: "unselected"))
     }
 
     private func selectedBackground(for tab: CalendarScheduleTab) -> Color {
@@ -436,40 +482,40 @@ private struct CalendarScheduleHeaderView: View {
 
     private var summaryLine: String {
         if !snapshot.authorizationStatus.isAuthorizedForRead {
-            return "Connect Calendar access to bring your real day into focus."
+            return String(localized: "Connect Calendar access to bring your real day into focus.")
         }
 
         if snapshot.selectedCalendarIDs.isEmpty {
-            return "Choose the calendars that should shape the Today and Week views."
+            return String(localized: "Choose the calendars that should shape the Today and Week views.")
         }
 
         if let nextMeeting = snapshot.nextMeeting {
             if nextMeeting.isInProgress {
-                return "\(nextMeeting.event.title) is active right now."
+                return String(localized: "\(nextMeeting.event.title) is active right now.")
             }
-            return "\(nextMeeting.event.title) is the next anchor."
+            return String(localized: "\(nextMeeting.event.title) is the next anchor.")
         }
 
         if let freeUntil = snapshot.freeUntil {
-            return "You have open time until \(freeUntil.formatted(date: .omitted, time: .shortened))."
+            return String(localized: "You have open time until \(freeUntil.formatted(date: .omitted, time: .shortened)).")
         }
 
         if todayEventCount == 0 {
-            return "No timed blocks are pressuring the day right now."
+            return String(localized: "No timed blocks are pressuring the day right now.")
         }
 
-        return "\(todayEventCount) events today, with the full week one tap away."
+        return String(localized: "\(todayEventCount) events today, with the full week one tap away.")
     }
 
     private var selectionLabel: String {
         let count = snapshot.selectedCalendarIDs.count
         switch count {
         case 0:
-            return "No calendars selected"
+            return String(localized: "No calendars selected")
         case 1:
-            return "1 calendar selected"
+            return String(localized: "1 calendar selected")
         default:
-            return "\(count) calendars selected"
+            return String(localized: "\(count) calendars selected")
         }
     }
 }
@@ -492,8 +538,10 @@ private struct CalendarScheduleTodayContent: View {
     var body: some View {
         VStack(alignment: .leading, spacing: spacing.s20) {
             sectionHeader(
-                title: "Today",
-                detail: events.isEmpty ? "No events" : "\(events.count) \(events.count == 1 ? "event" : "events")"
+                title: String(localized: "Today"),
+                detail: events.isEmpty
+                    ? String(localized: "No events")
+                    : String(localized: "\(events.count) \(events.count == 1 ? "event" : "events")")
             )
 
             CalendarScheduleTodaySnapshotView(
@@ -511,10 +559,10 @@ private struct CalendarScheduleTodayContent: View {
             if events.isEmpty {
                 CalendarScheduleStatePanel(
                     iconName: "sparkles",
-                    title: "No events today",
-                    message: "Your day is clear. Use the open space for focused work or planning.",
+                    title: String(localized: "No events today"),
+                    message: String(localized: "Your day is clear. Use the open space for focused work or planning."),
                     accentColor: Color.tasker.statusSuccess,
-                    buttonTitle: "Choose Calendars",
+                    buttonTitle: String(localized: "Choose Calendars"),
                     buttonAccessibilityIdentifier: "schedule.today.chooseCalendars",
                     bodyAccessibilityIdentifier: "schedule.today.empty",
                     action: onChooseCalendars
@@ -522,8 +570,10 @@ private struct CalendarScheduleTodayContent: View {
             } else {
                 VStack(alignment: .leading, spacing: spacing.s12) {
                     sectionHeader(
-                        title: "Agenda",
-                        detail: timedEvents.isEmpty ? "All-day only" : "\(timedEvents.count) timed block\(timedEvents.count == 1 ? "" : "s")"
+                        title: String(localized: "Agenda"),
+                        detail: timedEvents.isEmpty
+                            ? String(localized: "All-day only")
+                            : String(localized: "\(timedEvents.count) timed block\(timedEvents.count == 1 ? "" : "s")")
                     )
 
                     VStack(spacing: 0) {
@@ -581,13 +631,17 @@ private struct CalendarScheduleWeekContent: View {
     var body: some View {
         VStack(alignment: .leading, spacing: spacing.s20) {
             HStack(alignment: .firstTextBaseline, spacing: spacing.s8) {
-                Text("Week")
+                Text(String(localized: "Week"))
                     .font(.tasker(.sectionTitle))
                     .foregroundStyle(Color.tasker.textPrimary)
 
                 Spacer(minLength: 0)
 
-                Text(totalEvents == 0 ? "Clear week" : "\(totalEvents) \(totalEvents == 1 ? "event" : "events")")
+                Text(
+                    totalEvents == 0
+                        ? String(localized: "Clear week")
+                        : String(localized: "\(totalEvents) \(totalEvents == 1 ? "event" : "events")")
+                )
                     .font(.tasker(.caption1))
                     .foregroundStyle(Color.tasker.textSecondary)
             }
@@ -595,8 +649,8 @@ private struct CalendarScheduleWeekContent: View {
             if agenda.allSatisfy({ $0.events.isEmpty }) {
                 CalendarScheduleStatePanel(
                     iconName: "calendar.badge.clock",
-                    title: "No events this week",
-                    message: "The week horizon is clear with the currently selected calendars.",
+                    title: String(localized: "No events this week"),
+                    message: String(localized: "The week horizon is clear with the currently selected calendars."),
                     accentColor: Color.tasker.stateInfo,
                     buttonTitle: nil,
                     buttonAccessibilityIdentifier: nil,
@@ -637,13 +691,13 @@ private struct CalendarScheduleWeekDaySection: View {
 
                 Spacer(minLength: 0)
 
-                Text(day.events.isEmpty ? "Clear" : "\(day.events.count)")
+                Text(day.events.isEmpty ? String(localized: "Clear") : String(localized: "\(day.events.count)"))
                     .font(.tasker(.caption1))
                     .foregroundStyle(Color.tasker.textSecondary)
             }
 
             if day.events.isEmpty {
-                Text("No events")
+                Text(String(localized: "No events"))
                     .font(.tasker(.callout))
                     .foregroundStyle(Color.tasker.textSecondary)
             } else {
@@ -700,7 +754,7 @@ private struct CalendarScheduleTodaySnapshotView: View {
                         .font(.tasker(.title3))
                         .foregroundStyle(Color.tasker.textPrimary)
 
-                    Text(timedEventCount == 0 ? "all-day only" : "\(timedEventCount) timed")
+                    Text(timedEventCount == 0 ? String(localized: "all-day only") : String(localized: "\(timedEventCount) timed"))
                         .font(.tasker(.caption1))
                         .foregroundStyle(Color.tasker.textSecondary)
                 }
@@ -712,7 +766,7 @@ private struct CalendarScheduleTodaySnapshotView: View {
             )
 
             if let freeUntil = snapshot.freeUntil {
-                Label("Free until \(freeUntil.formatted(date: .omitted, time: .shortened))", systemImage: "leaf")
+                Label(String(localized: "Free until \(freeUntil.formatted(date: .omitted, time: .shortened))"), systemImage: "leaf")
                     .font(.tasker(.caption1))
                     .foregroundStyle(Color.tasker.statusSuccess)
             }
@@ -728,16 +782,16 @@ private struct CalendarScheduleTodaySnapshotView: View {
 
     private var primaryTitle: String {
         if let nextMeeting = snapshot.nextMeeting {
-            return nextMeeting.isInProgress ? "Currently busy" : "Next meeting"
+            return nextMeeting.isInProgress ? String(localized: "Currently busy") : String(localized: "Next meeting")
         }
-        return "No upcoming meetings"
+        return String(localized: "No upcoming meetings")
     }
 
     private var primaryDetail: String {
         if let nextMeeting = snapshot.nextMeeting {
-            return "\(nextMeeting.event.title) • \(TaskerCalendarPresentation.timeRangeText(for: nextMeeting.event))"
+            return String(localized: "\(nextMeeting.event.title) • \(TaskerCalendarPresentation.timeRangeText(for: nextMeeting.event))")
         }
-        return "Use the open space for focused work or planning."
+        return String(localized: "Use the open space for focused work or planning.")
     }
 }
 
@@ -776,23 +830,30 @@ private struct CalendarScheduleTimelineSection: View {
 
                 if timedEvents.isEmpty == false {
                     Button(action: toggleExpanded) {
-                        Label(isExpanded ? "Collapse" : "Expand", systemImage: isExpanded ? "chevron.up" : "chevron.down")
+                        Label(
+                            isExpanded ? String(localized: "Collapse") : String(localized: "Expand"),
+                            systemImage: isExpanded ? "chevron.up" : "chevron.down"
+                        )
                             .labelStyle(.titleAndIcon)
                     }
                     .font(.tasker(.caption1))
                     .foregroundStyle(Color.tasker.textSecondary)
                     .buttonStyle(.plain)
                     .accessibilityIdentifier("schedule.timeline.toggle")
-                    .accessibilityLabel(isExpanded ? "Collapse live timeline" : "Expand live timeline")
+                    .accessibilityLabel(
+                        isExpanded
+                            ? String(localized: "Collapse live timeline")
+                            : String(localized: "Expand live timeline")
+                    )
                 } else {
-                    Text("Timeline")
+                    Text(String(localized: "Timeline"))
                         .font(.tasker(.caption1))
                         .foregroundStyle(Color.tasker.textTertiary)
                 }
             }
 
             if timedEvents.isEmpty {
-                Text("No timed blocks today. All-day events stay in the agenda below.")
+                Text(String(localized: "No timed blocks today. All-day events stay in the agenda below."))
                     .font(.tasker(.callout))
                     .foregroundStyle(Color.tasker.textSecondary)
                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -804,9 +865,9 @@ private struct CalendarScheduleTimelineSection: View {
                     events: events,
                     density: .expanded,
                     showsDateLabel: false,
-                    emptyText: "No timed blocks today",
+                    emptyText: String(localized: "No timed blocks today"),
                     accessibilityIdentifier: "schedule.timeline.expanded",
-                    accessibilityLabelText: "Expanded live timeline for the full day.",
+                    accessibilityLabelText: String(localized: "Expanded live timeline for the full day."),
                     initialVisibleHour: targetHour
                 )
             } else {
@@ -818,17 +879,16 @@ private struct CalendarScheduleTimelineSection: View {
                         events: events,
                         density: .compact,
                         showsDateLabel: false,
-                        emptyText: "No timed blocks in view",
+                        emptyText: String(localized: "No timed blocks in view"),
                         accessibilityIdentifier: "schedule.timeline.compact",
-                        accessibilityLabelText: "Compact live timeline. Double tap to expand.",
+                        accessibilityLabelText: String(localized: "Compact live timeline. Double tap to expand."),
                         initialVisibleHour: nil
                     )
                 }
                 .buttonStyle(.plain)
-                .accessibilityHint("Expands to show the full day")
+                .accessibilityHint(String(localized: "Expands to show the full day"))
             }
         }
-        .accessibilityIdentifier("schedule.timeline")
     }
 
     private var timelineDateLabel: String {

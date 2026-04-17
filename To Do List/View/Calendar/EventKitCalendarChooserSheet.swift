@@ -29,6 +29,13 @@ struct EventKitCalendarChooserSheet: View {
         TaskerCalendarPresentation.chooserSections(from: service.snapshot.availableCalendars)
     }
 
+    private var isInitialLoadingStateVisible: Bool {
+        service.snapshot.authorizationStatus.isAuthorizedForRead
+            && service.snapshot.isLoading
+            && service.snapshot.errorMessage?.isEmpty != false
+            && service.snapshot.availableCalendars.isEmpty
+    }
+
     var body: some View {
         NavigationStack {
             ScrollView {
@@ -37,13 +44,18 @@ struct EventKitCalendarChooserSheet: View {
 
                     if service.snapshot.authorizationStatus.isAuthorizedForRead == false {
                         chooserStateCard(
-                            title: "Calendar access required",
-                            message: "Connect calendar access before choosing sources for the schedule view."
+                            title: String(localized: "Calendar access required"),
+                            message: String(localized: "Grant calendar access before choosing sources for schedule insights.")
+                        )
+                    } else if isInitialLoadingStateVisible {
+                        chooserStateCard(
+                            title: String(localized: "Loading calendars"),
+                            message: String(localized: "Fetching readable calendars for this workspace.")
                         )
                     } else if sections.isEmpty {
                         chooserStateCard(
-                            title: "No calendars available",
-                            message: "Tasker could not find readable calendars right now."
+                            title: String(localized: "No calendars available"),
+                            message: String(localized: "No readable calendars were found right now.")
                         )
                     } else {
                         ForEach(sections) { section in
@@ -66,15 +78,15 @@ struct EventKitCalendarChooserSheet: View {
                 .padding(.bottom, spacing.sectionGap)
             }
             .background(Color.tasker.bgCanvas.ignoresSafeArea())
-            .navigationTitle("Calendars")
+            .navigationTitle(String(localized: "Calendars"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel", action: onCancel)
+                    Button(String(localized: "Cancel"), action: onCancel)
                         .accessibilityIdentifier("schedule.chooser.cancel")
                 }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Done") {
+                    Button(String(localized: "Done")) {
                         onCommit(selectedCalendarIDs.sorted())
                     }
                     .bold()
@@ -91,13 +103,13 @@ struct EventKitCalendarChooserSheet: View {
 
     private var chooserHeader: some View {
         VStack(alignment: .leading, spacing: spacing.s12) {
-            Text("Pick the calendars that should drive Home and the schedule lane.")
+            Text(String(localized: "Pick the calendars that should drive Home and the schedule lane."))
                 .font(.tasker(.callout))
                 .foregroundStyle(Color.tasker.textSecondary)
 
             HStack(spacing: spacing.s12) {
-                chooserMetricPill(title: "Selected", value: "\(selectedCalendarIDs.count)")
-                chooserMetricPill(title: "Available", value: "\(service.snapshot.availableCalendars.count)")
+                chooserMetricPill(title: String(localized: "Selected"), value: "\(selectedCalendarIDs.count)")
+                chooserMetricPill(title: String(localized: "Available"), value: "\(service.snapshot.availableCalendars.count)")
             }
         }
         .padding(spacing.s16)
@@ -162,7 +174,11 @@ struct EventKitCalendarChooserSheet: View {
                             .font(.tasker(.headline))
                             .foregroundStyle(Color.tasker.textPrimary)
 
-                        Text(calendar.allowsContentModifications ? "Editable source" : "Read-only source")
+                        Text(
+                            calendar.allowsContentModifications
+                                ? String(localized: "Editable source")
+                                : String(localized: "Read-only source")
+                        )
                             .font(.tasker(.caption1))
                             .foregroundStyle(Color.tasker.textSecondary)
                     }
@@ -183,7 +199,7 @@ struct EventKitCalendarChooserSheet: View {
         }
         .buttonStyle(.plain)
         .accessibilityIdentifier("schedule.chooser.calendar.\(calendar.id)")
-        .accessibilityValue(isSelected ? "selected" : "unselected")
+        .accessibilityValue(isSelected ? String(localized: "selected") : String(localized: "unselected"))
     }
 }
 

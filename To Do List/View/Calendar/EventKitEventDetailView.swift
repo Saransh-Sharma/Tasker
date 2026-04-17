@@ -26,6 +26,7 @@ struct EventKitEventDetailView: UIViewControllerRepresentable {
         private let onDismiss: () -> Void
         private var eventID: String
         private weak var eventViewController: EKEventViewController?
+        private weak var unavailableLabel: UILabel?
 
         init(eventID: String, onDismiss: @escaping () -> Void) {
             self.eventID = eventID
@@ -37,15 +38,34 @@ struct EventKitEventDetailView: UIViewControllerRepresentable {
             eventViewController.allowsEditing = false
             eventViewController.delegate = self
 
-            let closeButton = UIBarButtonItem(
-                barButtonSystemItem: .close,
-                target: self,
-                action: #selector(closeTapped)
-            )
-            closeButton.accessibilityIdentifier = "schedule.detail.close"
-            eventViewController.navigationItem.leftBarButtonItem = closeButton
+            let closeControl = UIButton(type: .system)
+            closeControl.setTitle(String(localized: "Close"), for: .normal)
+            closeControl.titleLabel?.font = UIFont.preferredFont(forTextStyle: .body)
+            closeControl.isAccessibilityElement = true
+            closeControl.accessibilityLabel = String(localized: "Close")
+            closeControl.accessibilityIdentifier = "schedule.detail.close"
+            closeControl.addTarget(self, action: #selector(closeTapped), for: .touchUpInside)
+            eventViewController.navigationItem.leftBarButtonItem = UIBarButtonItem(customView: closeControl)
+
+            let unavailableLabel = UILabel()
+            unavailableLabel.translatesAutoresizingMaskIntoConstraints = false
+            unavailableLabel.text = String(localized: "This event is no longer available.")
+            unavailableLabel.font = UIFont.preferredFont(forTextStyle: .body)
+            unavailableLabel.textColor = .secondaryLabel
+            unavailableLabel.numberOfLines = 0
+            unavailableLabel.textAlignment = .center
+            unavailableLabel.isHidden = true
+            unavailableLabel.accessibilityIdentifier = "schedule.detail.unavailable"
+            eventViewController.view.addSubview(unavailableLabel)
+            NSLayoutConstraint.activate([
+                unavailableLabel.centerXAnchor.constraint(equalTo: eventViewController.view.centerXAnchor),
+                unavailableLabel.centerYAnchor.constraint(equalTo: eventViewController.view.centerYAnchor),
+                unavailableLabel.leadingAnchor.constraint(greaterThanOrEqualTo: eventViewController.view.leadingAnchor, constant: 24),
+                unavailableLabel.trailingAnchor.constraint(lessThanOrEqualTo: eventViewController.view.trailingAnchor, constant: -24)
+            ])
 
             self.eventViewController = eventViewController
+            self.unavailableLabel = unavailableLabel
             applyCurrentEvent()
 
             let navigationController = UINavigationController(rootViewController: eventViewController)
@@ -64,10 +84,12 @@ struct EventKitEventDetailView: UIViewControllerRepresentable {
             if let event = store.event(withIdentifier: eventID) {
                 eventViewController.event = event
                 let title = event.title?.trimmingCharacters(in: .whitespacesAndNewlines)
-                eventViewController.title = title?.isEmpty == false ? title : "Untitled Event"
+                eventViewController.title = title?.isEmpty == false ? title : String(localized: "Untitled Event")
+                unavailableLabel?.isHidden = true
             } else {
                 eventViewController.event = nil
-                eventViewController.title = "Event"
+                eventViewController.title = String(localized: "Event unavailable")
+                unavailableLabel?.isHidden = false
             }
         }
 
@@ -88,12 +110,12 @@ struct EventKitEventDetailView: View {
 
     var body: some View {
         VStack(spacing: 16) {
-            Text("Event details are unavailable on this platform.")
+            Text(String(localized: "Event unavailable on this platform."))
                 .font(.tasker(.body))
             Text(eventID)
                 .font(.tasker(.caption2))
                 .foregroundStyle(Color.tasker.textSecondary)
-            Button("Close", action: onDismiss)
+            Button(String(localized: "Close"), action: onDismiss)
         }
         .padding()
     }
