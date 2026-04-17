@@ -8,7 +8,7 @@ final class QuietTrackingUITests: BaseUITest {
         ]
     }
 
-    func testQuietTrackingSheetSupportsScrollSelectionAndSave() {
+    func testPassiveTrackingRailTapOpensHabitDetailForTappedCard() {
         let homePage = HomePage(app: app)
 
         XCTAssertTrue(homePage.passiveTrackingRail.waitForExistence(timeout: 8), "Passive tracking rail should appear in the seeded workspace")
@@ -17,44 +17,39 @@ final class QuietTrackingUITests: BaseUITest {
             NSPredicate(format: "identifier BEGINSWITH %@", AccessibilityIdentifiers.Home.passiveTrackingCard(""))
         )
         XCTAssertGreaterThanOrEqual(passiveTrackingCards.count, 2, "Seeded quiet tracking workspace should expose at least two passive tracking cards")
+        XCTAssertFalse(homePage.quietTrackingSheet.exists, "Quiet tracking sheet should not be visible before tapping passive tracking cards")
 
-        let secondPassiveTrackingCard = passiveTrackingCards.element(boundBy: 1)
-        XCTAssertTrue(secondPassiveTrackingCard.waitForExistence(timeout: 3))
-        XCTAssertTrue(waitForElementToBeHittable(secondPassiveTrackingCard, timeout: 3))
-        secondPassiveTrackingCard.tap()
+        let expectedTitles = ["No phone in bed", "No doomscrolling after dinner"]
+        var openedTitles: [String] = []
 
-        XCTAssertTrue(homePage.quietTrackingSheet.waitForExistence(timeout: 5), "Quiet tracking sheet should open from Home")
-        XCTAssertTrue(homePage.quietTrackingSheetScroll.waitForExistence(timeout: 3), "Quiet tracking sheet should expose a scroll container")
+        for index in 0..<2 {
+            let card = passiveTrackingCards.element(boundBy: index)
+            let expectedTitle = expectedTitles.first(where: { card.label.contains($0) }) ?? expectedTitles[index]
+            XCTAssertTrue(card.waitForExistence(timeout: 3))
+            XCTAssertTrue(waitForElementToBeHittable(card, timeout: 3))
+            card.tap()
 
-        let habitButtons = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", "home.quietTracking.sheet.habit."))
-        XCTAssertGreaterThanOrEqual(habitButtons.count, 2, "Seeded quiet tracking workspace should expose at least two habits")
+            let navigationTitle = app.navigationBars[expectedTitle]
+            let staticTitle = app.staticTexts[expectedTitle]
+            XCTAssertTrue(
+                navigationTitle.waitForExistence(timeout: 5) || staticTitle.waitForExistence(timeout: 5),
+                "Habit detail should open for the tapped passive tracking card"
+            )
+            XCTAssertFalse(homePage.quietTrackingSheet.exists, "Passive tracking tap should not present the quiet tracking sheet")
 
-        let secondHabitButton = habitButtons.element(boundBy: 1)
-        XCTAssertTrue(secondHabitButton.waitForExistence(timeout: 3))
-        XCTAssertTrue(waitForElementToBeHittable(secondHabitButton, timeout: 3))
-        secondHabitButton.tap()
+            openedTitles.append(expectedTitle)
 
-        let scrollView = homePage.quietTrackingSheetScroll
-        scrollView.swipeUp()
-        scrollView.swipeDown()
+            let closeButton = app.buttons["Close"]
+            XCTAssertTrue(closeButton.waitForExistence(timeout: 3), "Habit detail should expose a Close button")
+            XCTAssertTrue(waitForElementToBeHittable(closeButton, timeout: 3))
+            closeButton.tap()
+            XCTAssertTrue(
+                waitForElementToDisappear(navigationTitle, timeout: 5)
+                    || waitForElementToDisappear(staticTitle, timeout: 5),
+                "Closing habit detail should return to Home"
+            )
+        }
 
-        XCTAssertTrue(
-            homePage.quietTrackingSheetTodayButton.isSelected,
-            "Quiet tracking should default to today"
-        )
-
-        XCTAssertTrue(
-            scrollToElement(homePage.quietTrackingSheetYesterdayButton, in: scrollView, maxSwipes: 4),
-            "The quiet tracking sheet should scroll until the day shortcuts are reachable"
-        )
-        XCTAssertTrue(waitForElementToBeHittable(homePage.quietTrackingSheetYesterdayButton, timeout: 3))
-
-        XCTAssertTrue(waitForElementToBeHittable(homePage.quietTrackingSheetOutcomeLapseButton, timeout: 3))
-        homePage.quietTrackingSheetOutcomeLapseButton.tap()
-
-        XCTAssertTrue(waitForElementToBeHittable(homePage.quietTrackingSheetSaveButton, timeout: 3))
-        homePage.quietTrackingSheetSaveButton.tap()
-
-        XCTAssertTrue(waitForElementToDisappear(homePage.quietTrackingSheet, timeout: 5), "Saving should dismiss the quiet tracking sheet")
+        XCTAssertEqual(Set(openedTitles).count, 2, "Tapping different passive tracking cards should open different habit detail screens")
     }
 }

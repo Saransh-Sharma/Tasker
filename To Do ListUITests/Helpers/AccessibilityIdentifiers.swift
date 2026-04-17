@@ -56,7 +56,6 @@ enum AccessibilityIdentifiers {
         static let calendarStateEmpty = "home.calendar.state.empty"
         static let calendarStateError = "home.calendar.state.error"
         static let calendarConnect = "home.calendar.connect"
-        static let calendarOpenSchedule = "home.calendar.openSchedule"
         static let calendarRetry = "home.calendar.retry"
         static let focusStrip = "home.focus.strip"
         static let focusDropZone = "home.focus.dropzone"
@@ -313,6 +312,11 @@ enum AccessibilityIdentifiers {
         static let previousWindow = "habitBoard.window.previous"
         static let nextWindow = "habitBoard.window.next"
         static let pinnedHeader = "habitBoard.pinned.header"
+        static let loadingState = "habitBoard.state.loading"
+        static let emptyState = "habitBoard.state.empty"
+        static let errorState = "habitBoard.state.error"
+        static let retryButton = "habitBoard.state.retry"
+        static let createButton = "habitBoard.state.create"
         static func row(_ habitID: String) -> String { "habitBoard.row.\(habitID)" }
         static func pinnedTitle(_ habitID: String) -> String { "habitBoard.pinnedTitle.\(habitID)" }
         static func dayHeader(_ dateStamp: String) -> String { "habitBoard.dayHeader.\(dateStamp)" }

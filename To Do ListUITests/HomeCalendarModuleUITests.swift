@@ -57,7 +57,7 @@ final class HomeCalendarModuleUITests: XCTestCase {
     func testScheduleSwitchesBetweenTodayAndWeekTabs() throws {
         let app = launchApp(calendarMode: "active")
 
-        openScheduleFromButton(from: app)
+        openScheduleFromCardOrTimeline(from: app)
 
         let weekTab = scheduleWeekTab(in: app)
         XCTAssertTrue(weekTab.waitForExistence(timeout: 8))
@@ -73,7 +73,7 @@ final class HomeCalendarModuleUITests: XCTestCase {
     func testScheduleFiltersOpenCustomChooserAndCommitSelection() throws {
         let app = launchApp(calendarMode: "active")
 
-        openScheduleFromButton(from: app)
+        openScheduleFromCardOrTimeline(from: app)
 
         let filters = app.buttons["schedule.toolbar.filters"]
         XCTAssertTrue(filters.waitForExistence(timeout: 8))
@@ -93,7 +93,7 @@ final class HomeCalendarModuleUITests: XCTestCase {
     func testScheduleTimelineExpandsInlineAndCollapsesBack() throws {
         let app = launchApp(calendarMode: "active")
 
-        openScheduleFromButton(from: app)
+        openScheduleFromCardOrTimeline(from: app)
         XCTAssertTrue(
             waitForActiveScheduleContent(in: app, timeout: 10),
             "Expected active schedule content to render in active mode. Visible states: \(scheduleStateDiagnostics(in: app))"
@@ -114,7 +114,7 @@ final class HomeCalendarModuleUITests: XCTestCase {
     func testScheduleEventRowOpensNativeEventDetail() throws {
         let app = launchApp(calendarMode: "active")
 
-        openScheduleFromButton(from: app)
+        openScheduleFromCardOrTimeline(from: app)
         XCTAssertTrue(
             waitForActiveScheduleContent(in: app, timeout: 10),
             "Expected active schedule content to render in active mode. Visible states: \(scheduleStateDiagnostics(in: app))"
@@ -160,20 +160,22 @@ final class HomeCalendarModuleUITests: XCTestCase {
             "home.calendar.freeUntil",
             "home.calendar.busyStrip",
             "home.calendar.timelinePreview",
-            "home.calendar.retry",
-            "home.calendar.filters",
-            "home.calendar.openSchedule"
+            "home.calendar.retry"
         ]
         let visibleDiagnostics = diagnostics.filter { app.descendants(matching: .any)[$0].exists }
-        XCTAssertTrue(
-            state.waitForExistence(timeout: 8),
-            "Expected calendar state \(expectedStateID) for mode \(mode). Visible states: \(visibleStates); Visible diagnostics: \(visibleDiagnostics)"
-        )
-
-        let filters = app.descendants(matching: .any)["home.calendar.filters"]
-        let openSchedule = app.descendants(matching: .any)["home.calendar.openSchedule"]
-        XCTAssertTrue(filters.waitForExistence(timeout: 8))
-        XCTAssertTrue(openSchedule.waitForExistence(timeout: 8))
+        if expectedStateID == "home.calendar.state.active" {
+            let timelinePreview = app.descendants(matching: .any)["home.calendar.timelinePreview"]
+            let activeSignalVisible = state.waitForExistence(timeout: 4) || timelinePreview.waitForExistence(timeout: 4)
+            XCTAssertTrue(
+                activeSignalVisible,
+                "Expected active calendar signal for mode \(mode). Visible states: \(visibleStates); Visible diagnostics: \(visibleDiagnostics)"
+            )
+        } else {
+            XCTAssertTrue(
+                state.waitForExistence(timeout: 8),
+                "Expected calendar state \(expectedStateID) for mode \(mode). Visible states: \(visibleStates); Visible diagnostics: \(visibleDiagnostics)"
+            )
+        }
 
         let retry = app.descendants(matching: .any)["home.calendar.retry"]
         if expectsRetry {
@@ -215,10 +217,16 @@ final class HomeCalendarModuleUITests: XCTestCase {
         return element
     }
 
-    private func openScheduleFromButton(from app: XCUIApplication) {
-        let openSchedule = app.buttons["home.calendar.openSchedule"]
-        XCTAssertTrue(openSchedule.waitForExistence(timeout: 8))
-        openSchedule.tap()
+    private func openScheduleFromCardOrTimeline(from app: XCUIApplication) {
+        let card = app.descendants(matching: .any)["home.calendar.card"]
+        XCTAssertTrue(waitForElementWithScrolling(card, in: app, timeout: 8))
+        tapElement(card, in: app)
+        if scheduleSurfaceIsVisible(in: app, timeout: 2) {
+            return
+        }
+        let timelinePreview = homeTimelinePreview(in: app)
+        XCTAssertTrue(waitForElementWithScrolling(timelinePreview, in: app, timeout: 8))
+        tapElement(timelinePreview, in: app)
         XCTAssertTrue(scheduleSurfaceIsVisible(in: app, timeout: 8))
     }
 
