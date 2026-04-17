@@ -459,7 +459,7 @@ public struct TaskerWorkspacePreferences: Codable, Equatable {
         includeAllDayInBusyStrip: Bool = false
     ) {
         self.weekStartsOn = weekStartsOn
-        self.selectedCalendarIDs = selectedCalendarIDs
+        self.selectedCalendarIDs = Self.normalizeSelectedCalendarIDs(selectedCalendarIDs)
         self.includeDeclinedCalendarEvents = includeDeclinedCalendarEvents
         self.includeCanceledCalendarEvents = includeCanceledCalendarEvents
         self.includeAllDayInAgenda = includeAllDayInAgenda
@@ -478,7 +478,9 @@ public struct TaskerWorkspacePreferences: Codable, Equatable {
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         weekStartsOn = try container.decodeIfPresent(Weekday.self, forKey: .weekStartsOn) ?? .monday
-        selectedCalendarIDs = try container.decodeIfPresent([String].self, forKey: .selectedCalendarIDs) ?? []
+        selectedCalendarIDs = Self.normalizeSelectedCalendarIDs(
+            try container.decodeIfPresent([String].self, forKey: .selectedCalendarIDs) ?? []
+        )
         includeDeclinedCalendarEvents = try container.decodeIfPresent(Bool.self, forKey: .includeDeclinedCalendarEvents) ?? false
         includeCanceledCalendarEvents = try container.decodeIfPresent(Bool.self, forKey: .includeCanceledCalendarEvents) ?? false
         includeAllDayInAgenda = try container.decodeIfPresent(Bool.self, forKey: .includeAllDayInAgenda) ?? true
@@ -493,6 +495,29 @@ public struct TaskerWorkspacePreferences: Codable, Equatable {
         try container.encode(includeCanceledCalendarEvents, forKey: .includeCanceledCalendarEvents)
         try container.encode(includeAllDayInAgenda, forKey: .includeAllDayInAgenda)
         try container.encode(includeAllDayInBusyStrip, forKey: .includeAllDayInBusyStrip)
+    }
+
+    public func normalizedForPersistence() -> TaskerWorkspacePreferences {
+        TaskerWorkspacePreferences(
+            weekStartsOn: weekStartsOn,
+            selectedCalendarIDs: Self.normalizeSelectedCalendarIDs(selectedCalendarIDs),
+            includeDeclinedCalendarEvents: includeDeclinedCalendarEvents,
+            includeCanceledCalendarEvents: includeCanceledCalendarEvents,
+            includeAllDayInAgenda: includeAllDayInAgenda,
+            includeAllDayInBusyStrip: includeAllDayInBusyStrip
+        )
+    }
+
+    public static func normalizeSelectedCalendarIDs(_ calendarIDs: [String]) -> [String] {
+        var deduped: [String] = []
+        deduped.reserveCapacity(calendarIDs.count)
+        var seen: Set<String> = []
+
+        for id in calendarIDs where seen.insert(id).inserted {
+            deduped.append(id)
+        }
+
+        return deduped.sorted()
     }
 }
 
@@ -558,9 +583,12 @@ public final class TaskerWorkspacePreferencesStore {
     }
 
     public func save(_ preferences: TaskerWorkspacePreferences) {
-        guard let data = try? encoder.encode(preferences) else { return }
+        let normalized = preferences.normalizedForPersistence()
+        let current = load()
+        guard current != normalized else { return }
+        guard let data = try? encoder.encode(normalized) else { return }
         defaults.set(data, forKey: key)
-        NotificationCenter.default.post(name: Self.didChangeNotification, object: preferences)
+        NotificationCenter.default.post(name: Self.didChangeNotification, object: normalized)
     }
 
     public func update(_ mutate: (inout TaskerWorkspacePreferences) -> Void) {

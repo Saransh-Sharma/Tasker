@@ -41,6 +41,13 @@ public protocol HabitRuntimeReadRepositoryProtocol {
         includeArchived: Bool,
         completion: @escaping (Result<[HabitLibraryRow], Error>) -> Void
     )
+
+    /// Executes fetchHabitDetailSummary.
+    func fetchHabitDetailSummary(
+        habitID: UUID,
+        includeArchived: Bool,
+        completion: @escaping (Result<HabitLibraryRow?, Error>) -> Void
+    )
 }
 
 public extension HabitRuntimeReadRepositoryProtocol {
@@ -71,6 +78,16 @@ public extension HabitRuntimeReadRepositoryProtocol {
                     return rows.filter { requestedIDs.contains($0.habitID) }
                 }
             )
+        }
+    }
+
+    func fetchHabitDetailSummary(
+        habitID: UUID,
+        includeArchived: Bool,
+        completion: @escaping (Result<HabitLibraryRow?, Error>) -> Void
+    ) {
+        fetchHabitLibrary(habitIDs: [habitID], includeArchived: includeArchived) { result in
+            completion(result.map { $0.first })
         }
     }
 }
