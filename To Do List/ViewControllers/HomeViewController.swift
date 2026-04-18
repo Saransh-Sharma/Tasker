@@ -127,9 +127,43 @@ struct HomeChromeSnapshot: Equatable {
     let dailyScore: Int
     let completionRate: Double
     let weeklySummary: HomeWeeklySummary?
+    let weeklySummaryIsLoading: Bool
+    let weeklySummaryErrorMessage: String?
     let projects: [Project]
     let reflectionEligible: Bool
     let momentumGuidanceText: String
+
+    init(
+        selectedDate: Date,
+        activeScope: HomeListScope,
+        activeFilterState: HomeFilterState,
+        savedHomeViews: [SavedHomeView],
+        quickViewCounts: [HomeQuickView: Int],
+        progressState: HomeProgressState,
+        dailyScore: Int,
+        completionRate: Double,
+        weeklySummary: HomeWeeklySummary?,
+        weeklySummaryIsLoading: Bool = false,
+        weeklySummaryErrorMessage: String? = nil,
+        projects: [Project],
+        reflectionEligible: Bool,
+        momentumGuidanceText: String
+    ) {
+        self.selectedDate = selectedDate
+        self.activeScope = activeScope
+        self.activeFilterState = activeFilterState
+        self.savedHomeViews = savedHomeViews
+        self.quickViewCounts = quickViewCounts
+        self.progressState = progressState
+        self.dailyScore = dailyScore
+        self.completionRate = completionRate
+        self.weeklySummary = weeklySummary
+        self.weeklySummaryIsLoading = weeklySummaryIsLoading
+        self.weeklySummaryErrorMessage = weeklySummaryErrorMessage
+        self.projects = projects
+        self.reflectionEligible = reflectionEligible
+        self.momentumGuidanceText = momentumGuidanceText
+    }
 
     static let empty = HomeChromeSnapshot(
         selectedDate: Date(),
@@ -141,6 +175,8 @@ struct HomeChromeSnapshot: Equatable {
         dailyScore: 0,
         completionRate: 0,
         weeklySummary: nil,
+        weeklySummaryIsLoading: false,
+        weeklySummaryErrorMessage: nil,
         projects: [],
         reflectionEligible: false,
         momentumGuidanceText: ""
@@ -605,6 +641,8 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
         observeQuickAddDeepLinks()
         observeCalendarScheduleDeepLinks()
         observeCalendarChooserDeepLinks()
+        observeWeeklyPlannerDeepLinks()
+        observeWeeklyReviewDeepLinks()
         observeWidgetActionCommands()
         observeTaskCreatedForSnackbar()
         observePersistentSyncMode()
@@ -1561,6 +1599,9 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
             onOpenWeeklyReview: { [weak self] in
                 self?.presentWeeklyReview()
             },
+            onRetryWeeklySummary: { [weak self] in
+                self?.viewModel?.refreshWeeklySummaryNow()
+            },
             onOpenAnalytics: { [weak self] source, launchDefaultInsights in
                 self?.openAnalytics(source: source, launchDefaultInsights: launchDefaultInsights)
             },
@@ -1923,8 +1964,9 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
     private func observeHomeDeepLinks() {
         NotificationCenter.default.publisher(for: .taskerOpenHomeDeepLink)
             .receive(on: RunLoop.main)
-            .sink { [weak self] _ in
-                self?.handleHomeDeepLink()
+            .sink { [weak self] notification in
+                let notice = notification.userInfo?["notice"] as? String
+                self?.handleHomeDeepLink(notice: notice)
             }
             .store(in: &cancellables)
     }
@@ -2016,6 +2058,24 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
             .receive(on: RunLoop.main)
             .sink { [weak self] _ in
                 self?.handleCalendarChooserDeepLink()
+            }
+            .store(in: &cancellables)
+    }
+
+    private func observeWeeklyPlannerDeepLinks() {
+        NotificationCenter.default.publisher(for: .taskerOpenWeeklyPlannerDeepLink)
+            .receive(on: RunLoop.main)
+            .sink { [weak self] _ in
+                self?.handleWeeklyPlannerDeepLink()
+            }
+            .store(in: &cancellables)
+    }
+
+    private func observeWeeklyReviewDeepLinks() {
+        NotificationCenter.default.publisher(for: .taskerOpenWeeklyReviewDeepLink)
+            .receive(on: RunLoop.main)
+            .sink { [weak self] _ in
+                self?.handleWeeklyReviewDeepLink()
             }
             .store(in: &cancellables)
     }
@@ -2867,9 +2927,8 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
 
         let hostingController = UIHostingController(rootView: plannerView)
         hostingController.modalPresentationStyle = currentLayoutClass.isPad ? .formSheet : .pageSheet
-        hostingController.preferredContentSize = CGSize(width: 620, height: 780)
         if let sheet = hostingController.sheetPresentationController {
-            sheet.detents = [.large()]
+            sheet.detents = currentLayoutClass.isPad ? [.large()] : [.medium(), .large()]
             sheet.prefersGrabberVisible = true
             sheet.prefersScrollingExpandsWhenScrolledToEdge = false
         }
@@ -2900,9 +2959,8 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
 
         let hostingController = UIHostingController(rootView: reviewView)
         hostingController.modalPresentationStyle = currentLayoutClass.isPad ? .formSheet : .pageSheet
-        hostingController.preferredContentSize = CGSize(width: 620, height: 780)
         if let sheet = hostingController.sheetPresentationController {
-            sheet.detents = [.large()]
+            sheet.detents = currentLayoutClass.isPad ? [.large()] : [.medium(), .large()]
             sheet.prefersGrabberVisible = true
             sheet.prefersScrollingExpandsWhenScrolledToEdge = false
         }
@@ -3339,11 +3397,14 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
         }
     }
 
-    private func handleHomeDeepLink() {
+    private func handleHomeDeepLink(notice: String? = nil) {
         if isUsingIPadNativeShell {
             iPadShellState.destination = .tasks
         }
         viewModel?.setQuickView(.today)
+        if let notice, notice.isEmpty == false {
+            showHomeSnackbar(message: notice)
+        }
     }
 
     private func handleInsightsDeepLink() {
@@ -3495,6 +3556,46 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
             return
         }
         openChooser()
+    }
+
+    private func handleWeeklyPlannerDeepLink() {
+        let openPlanner = { [weak self] in
+            guard let self else { return }
+            if self.isUsingIPadNativeShell {
+                self.iPadShellState.destination = .tasks
+            }
+            self.viewModel?.setQuickView(.today)
+            self.presentWeeklyPlanner()
+        }
+
+        if presentedViewController != nil {
+            dismiss(animated: true) {
+                openPlanner()
+            }
+            return
+        }
+
+        openPlanner()
+    }
+
+    private func handleWeeklyReviewDeepLink() {
+        let openReview = { [weak self] in
+            guard let self else { return }
+            if self.isUsingIPadNativeShell {
+                self.iPadShellState.destination = .tasks
+            }
+            self.viewModel?.setQuickView(.today)
+            self.presentWeeklyReview()
+        }
+
+        if presentedViewController != nil {
+            dismiss(animated: true) {
+                openReview()
+            }
+            return
+        }
+
+        openReview()
     }
 
     private func processPendingWidgetActionCommand() {
@@ -3727,6 +3828,10 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
             viewModel.setQuickView(.today)
             pendingNotificationFocusTaskID = taskID
             resolveAndPresentTaskDetail(taskID: taskID)
+        case .weeklyPlanner:
+            handleWeeklyPlannerDeepLink()
+        case .weeklyReview:
+            handleWeeklyReviewDeepLink()
         case .dailySummary(let kind, let dateStamp):
             presentDailySummaryModal(kind: kind, dateStamp: dateStamp)
         }

@@ -19,6 +19,8 @@ extension Notification.Name {
     static let taskerOpenInsightsDeepLink = Notification.Name("TaskerOpenInsightsDeepLink")
     static let taskerOpenTaskScopeDeepLink = Notification.Name("TaskerOpenTaskScopeDeepLink")
     static let taskerOpenTaskDetailDeepLink = Notification.Name("TaskerOpenTaskDetailDeepLink")
+    static let taskerOpenWeeklyPlannerDeepLink = Notification.Name("TaskerOpenWeeklyPlannerDeepLink")
+    static let taskerOpenWeeklyReviewDeepLink = Notification.Name("TaskerOpenWeeklyReviewDeepLink")
     static let taskerOpenQuickAddDeepLink = Notification.Name("TaskerOpenQuickAddDeepLink")
     static let taskerOpenCalendarScheduleDeepLink = Notification.Name("TaskerOpenCalendarScheduleDeepLink")
     static let taskerOpenCalendarChooserDeepLink = Notification.Name("TaskerOpenCalendarChooserDeepLink")
@@ -289,6 +291,22 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
                 NotificationCenter.default.post(name: .taskerOpenCalendarChooserDeepLink, object: nil)
             default:
                 break
+            }
+            return
+        }
+        if host == "weekly" {
+            let route = pathSegments.first?.lowercased() ?? "planner"
+            switch route {
+            case "planner", "plan":
+                NotificationCenter.default.post(name: .taskerOpenWeeklyPlannerDeepLink, object: nil)
+            case "review":
+                NotificationCenter.default.post(name: .taskerOpenWeeklyReviewDeepLink, object: nil)
+            default:
+                NotificationCenter.default.post(
+                    name: .taskerOpenHomeDeepLink,
+                    object: nil,
+                    userInfo: ["notice": "That weekly destination is unavailable. Opened Home instead."]
+                )
             }
             return
         }
