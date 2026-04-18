@@ -40,8 +40,6 @@ struct EventKitCalendarChooserSheet: View {
         NavigationStack {
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: spacing.s16) {
-                    chooserHeader
-
                     if service.snapshot.authorizationStatus.isAuthorizedForRead == false {
                         chooserStateCard(
                             title: String(localized: "Calendar access required"),
@@ -61,8 +59,9 @@ struct EventKitCalendarChooserSheet: View {
                         ForEach(sections) { section in
                             VStack(alignment: .leading, spacing: spacing.s12) {
                                 Text(section.title)
-                                    .font(.tasker(.headline))
-                                    .foregroundStyle(Color.tasker.textPrimary)
+                                    .font(.tasker(.caption1))
+                                    .foregroundStyle(Color.tasker.textSecondary)
+                                    .textCase(.uppercase)
                                     .accessibilityIdentifier("schedule.chooser.section.\(section.id)")
 
                                 ForEach(section.calendars) { calendar in
@@ -101,56 +100,25 @@ struct EventKitCalendarChooserSheet: View {
         }
     }
 
-    private var chooserHeader: some View {
-        VStack(alignment: .leading, spacing: spacing.s12) {
-            Text(String(localized: "Pick the calendars that should drive Home and the schedule lane."))
+    private func chooserStateCard(title: String, message: String) -> some View {
+        VStack(alignment: .leading, spacing: spacing.s8) {
+            Text(title)
+                .font(.tasker(.sectionTitle))
+                .foregroundStyle(Color.tasker.textPrimary)
+
+            Text(message)
                 .font(.tasker(.callout))
                 .foregroundStyle(Color.tasker.textSecondary)
-
-            HStack(spacing: spacing.s12) {
-                chooserMetricPill(title: String(localized: "Selected"), value: "\(selectedCalendarIDs.count)")
-                chooserMetricPill(title: String(localized: "Available"), value: "\(service.snapshot.availableCalendars.count)")
-            }
         }
-        .padding(spacing.s16)
-        .background(Color.tasker.bgElevated)
-        .taskerPremiumSurface(
-            cornerRadius: TaskerTheme.CornerRadius.card,
-            fillColor: Color.tasker.bgElevated,
-            strokeColor: Color.tasker.strokeHairline.opacity(0.82),
-            accentColor: Color.tasker.accentSecondary,
-            level: .e2
+        .padding(spacing.s12)
+        .background(
+            RoundedRectangle(cornerRadius: TaskerTheme.CornerRadius.card, style: .continuous)
+                .fill(Color.tasker.surfacePrimary)
         )
-    }
-
-    private func chooserMetricPill(title: String, value: String) -> some View {
-        VStack(alignment: .leading, spacing: 2) {
-            Text(title)
-                .font(.tasker(.caption1))
-                .foregroundStyle(Color.tasker.textSecondary)
-            Text(value)
-                .font(.tasker(.bodyStrong))
-                .foregroundStyle(Color.tasker.textPrimary)
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(.horizontal, spacing.s12)
-        .padding(.vertical, spacing.s12)
-        .background(Color.tasker.surfaceSecondary)
-        .clipShape(RoundedRectangle(cornerRadius: TaskerTheme.CornerRadius.md, style: .continuous))
-    }
-
-    private func chooserStateCard(title: String, message: String) -> some View {
-        TaskerCard(elevated: true) {
-            VStack(alignment: .leading, spacing: spacing.s8) {
-                Text(title)
-                    .font(.tasker(.sectionTitle))
-                    .foregroundStyle(Color.tasker.textPrimary)
-
-                Text(message)
-                    .font(.tasker(.callout))
-                    .foregroundStyle(Color.tasker.textSecondary)
-            }
-        }
+        .overlay(
+            RoundedRectangle(cornerRadius: TaskerTheme.CornerRadius.card, style: .continuous)
+                .stroke(Color.tasker.strokeHairline.opacity(0.7), lineWidth: 1)
+        )
     }
 
     private func chooserRow(_ calendar: TaskerCalendarSourceSnapshot) -> some View {
@@ -163,39 +131,42 @@ struct EventKitCalendarChooserSheet: View {
                 selectedCalendarIDs.insert(calendar.id)
             }
         } label: {
-            TaskerCard(active: isSelected, elevated: true) {
-                HStack(alignment: .center, spacing: spacing.s12) {
-                    Circle()
-                        .fill(TaskerHexColor.color(calendar.colorHex, fallback: Color.tasker.accentPrimary))
-                        .frame(width: 14, height: 14)
+            HStack(alignment: .center, spacing: spacing.s12) {
+                Circle()
+                    .fill(TaskerHexColor.color(calendar.colorHex, fallback: Color.tasker.accentPrimary))
+                    .frame(width: 12, height: 12)
 
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text(calendar.title)
-                            .font(.tasker(.headline))
-                            .foregroundStyle(Color.tasker.textPrimary)
+                Text(calendar.title)
+                    .font(.tasker(.bodyStrong))
+                    .foregroundStyle(Color.tasker.textPrimary)
 
-                        Text(
-                            calendar.allowsContentModifications
-                                ? String(localized: "Editable source")
-                                : String(localized: "Read-only source")
-                        )
-                            .font(.tasker(.caption1))
-                            .foregroundStyle(Color.tasker.textSecondary)
-                    }
+                Spacer(minLength: 0)
 
-                    Spacer(minLength: 0)
-
-                    if isSelected {
-                        Image(systemName: "checkmark.circle.fill")
-                            .font(.system(size: 20, weight: .semibold))
-                            .foregroundStyle(Color.tasker.actionPrimary)
-                    } else {
-                        Image(systemName: "circle")
-                            .font(.system(size: 20, weight: .regular))
-                            .foregroundStyle(Color.tasker.textTertiary)
-                    }
-                }
+                Text(isSelected ? String(localized: "On") : String(localized: "Off"))
+                    .font(.tasker(.caption1))
+                    .foregroundStyle(isSelected ? Color.tasker.actionPrimary : Color.tasker.textSecondary)
+                    .padding(.horizontal, spacing.s12)
+                    .padding(.vertical, spacing.s4)
+                    .background(
+                        Capsule(style: .continuous)
+                            .fill(isSelected ? Color.tasker.accentWash : Color.tasker.surfaceSecondary)
+                    )
             }
+            .padding(.horizontal, spacing.s12)
+            .padding(.vertical, spacing.s12)
+            .background(
+                RoundedRectangle(cornerRadius: TaskerTheme.CornerRadius.card, style: .continuous)
+                    .fill(Color.tasker.surfacePrimary)
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: TaskerTheme.CornerRadius.card, style: .continuous)
+                    .stroke(
+                        isSelected
+                            ? Color.tasker.actionPrimary.opacity(0.36)
+                            : Color.tasker.strokeHairline.opacity(0.7),
+                        lineWidth: 1
+                    )
+            )
         }
         .buttonStyle(.plain)
         .accessibilityIdentifier("schedule.chooser.calendar.\(calendar.id)")

@@ -31,7 +31,33 @@ struct WeeklyReviewView: View {
                 message: viewModel.saveMessage,
                 messageTone: .accent
             ) {
-                if let renderedSnapshot {
+                if viewModel.hasLoadedInitialData == false {
+                    if viewModel.isLoading {
+                        WeeklyReviewBlockingStateCard(
+                            title: "Loading weekly review…",
+                            message: "Pulling outcomes, unfinished tasks, and reflections.",
+                            showsProgress: true,
+                            primaryActionTitle: nil,
+                            onPrimaryAction: nil
+                        )
+                    } else if let errorMessage = viewModel.errorMessage {
+                        WeeklyReviewBlockingStateCard(
+                            title: WeeklyCopy.reviewErrorTitle,
+                            message: errorMessage,
+                            showsProgress: false,
+                            primaryActionTitle: "Retry",
+                            onPrimaryAction: { viewModel.load() }
+                        )
+                    } else {
+                        WeeklyReviewBlockingStateCard(
+                            title: "Loading weekly review…",
+                            message: "Preparing your review.",
+                            showsProgress: true,
+                            primaryActionTitle: nil,
+                            onPrimaryAction: nil
+                        )
+                    }
+                } else if let renderedSnapshot {
                     WeeklyReviewRealityStep(
                         completedTasks: renderedSnapshot.completedTasks,
                         unfinishedTasks: renderedSnapshot.unfinishedTasks,
@@ -87,6 +113,8 @@ struct WeeklyReviewView: View {
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Close", action: onClose)
+                        .accessibilityLabel("Close weekly review")
+                        .accessibilityHint("Dismiss the weekly review and return to Home.")
                 }
             }
             .task {
@@ -95,7 +123,7 @@ struct WeeklyReviewView: View {
                 }
             }
             .alert(WeeklyCopy.reviewErrorTitle, isPresented: Binding(
-                get: { viewModel.errorMessage != nil },
+                get: { viewModel.errorMessage != nil && viewModel.hasLoadedInitialData },
                 set: { if !$0 { viewModel.clearError() } }
             )) {
                 Button("OK", role: .cancel) {}
@@ -117,6 +145,32 @@ struct WeeklyReviewView: View {
                     )
                 }
             }
+        }
+    }
+}
+
+private struct WeeklyReviewBlockingStateCard: View {
+    let title: String
+    let message: String
+    let showsProgress: Bool
+    let primaryActionTitle: String?
+    let onPrimaryAction: (() -> Void)?
+
+    var body: some View {
+        WeeklySectionCard(title: title, detail: message) {
+            HStack(spacing: 12) {
+                if showsProgress {
+                    ProgressView()
+                        .controlSize(.small)
+                }
+
+                if let primaryActionTitle, let onPrimaryAction {
+                    Button(primaryActionTitle, action: onPrimaryAction)
+                        .buttonStyle(.borderedProminent)
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.top, 4)
         }
     }
 }

@@ -1997,6 +1997,7 @@ struct HomeBackdropForedropRootView: View {
     let onOpenSettings: () -> Void
     let onOpenWeeklyPlanner: () -> Void
     let onOpenWeeklyReview: () -> Void
+    let onRetryWeeklySummary: () -> Void
     let onOpenAnalytics: (String, Bool) -> Void
     let onCloseAnalytics: (String) -> Void
     let onOpenSearch: (String) -> Void
@@ -2610,7 +2611,7 @@ struct HomeBackdropForedropRootView: View {
                 HabitDetailSheetView(
                     viewModel: PresentationDependencyContainer.shared.makeHabitDetailViewModel(row: row),
                     onMutation: {
-                        viewModel.loadTasksForSelectedDate()
+                        viewModel.refreshCurrentScopeContent(source: "habit_detail_sheet_mutation")
                     }
                 )
             }
@@ -3369,6 +3370,11 @@ struct HomeBackdropForedropRootView: View {
                         }
                         calendarScheduleModuleCard
                         focusStrip
+                        if chromeSnapshot.weeklySummary != nil
+                            || chromeSnapshot.weeklySummaryIsLoading
+                            || chromeSnapshot.weeklySummaryErrorMessage != nil {
+                            weeklySummaryCard
+                        }
                     }
                 }
             }
@@ -3553,6 +3559,8 @@ struct HomeBackdropForedropRootView: View {
     private var weeklySummaryCard: some View {
         HomeWeeklySummaryCard(
             summary: chromeSnapshot.weeklySummary,
+            isLoading: chromeSnapshot.weeklySummaryIsLoading,
+            errorMessage: chromeSnapshot.weeklySummaryErrorMessage,
             onPrimaryAction: {
                 guard let summary = chromeSnapshot.weeklySummary else { return }
                 switch summary.ctaState {
@@ -3561,7 +3569,8 @@ struct HomeBackdropForedropRootView: View {
                 case .reviewWeek:
                     onOpenWeeklyReview()
                 }
-            }
+            },
+            onRetryAction: onRetryWeeklySummary
         )
         .accessibilityIdentifier("home.weeklySummary.card")
     }
@@ -3571,9 +3580,8 @@ struct HomeBackdropForedropRootView: View {
 
         let hasPrimaryHabits = habitsSnapshot.habitHomeSectionState.primaryRows.isEmpty == false
         let hasRecoveryHabits = habitsSnapshot.habitHomeSectionState.recoveryRows.isEmpty == false
-        let hasWeeklySummary = chromeSnapshot.weeklySummary != nil
 
-        guard hasPrimaryHabits || hasRecoveryHabits || hasWeeklySummary else { return nil }
+        guard hasPrimaryHabits || hasRecoveryHabits else { return nil }
 
         return AnyView(
             VStack(alignment: .leading, spacing: spacing.s12) {
@@ -3587,9 +3595,6 @@ struct HomeBackdropForedropRootView: View {
                         .padding(.horizontal, -taskListHorizontalGutter)
                 }
 
-                if hasWeeklySummary {
-                    weeklySummaryCard
-                }
             }
         )
     }

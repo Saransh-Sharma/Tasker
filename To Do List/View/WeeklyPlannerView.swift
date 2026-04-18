@@ -24,11 +24,39 @@ struct WeeklyPlannerView: View {
                 showsBack: viewModel.currentStep != .direction,
                 onBack: viewModel.moveBackward
             ) {
-                if let saveMessage = viewModel.saveMessage, saveMessage.isEmpty == false {
-                    WeeklyInlineMessage(text: saveMessage, tone: .accent)
-                }
+                if viewModel.hasLoadedInitialData == false {
+                    if viewModel.isLoading {
+                        WeeklyBlockingStateCard(
+                            title: "Loading weekly plan…",
+                            message: "Pulling tasks, habits, and outcomes for this week.",
+                            showsProgress: true,
+                            primaryActionTitle: nil,
+                            onPrimaryAction: nil
+                        )
+                    } else if let errorMessage = viewModel.errorMessage {
+                        WeeklyBlockingStateCard(
+                            title: "We couldn't load this week",
+                            message: errorMessage,
+                            showsProgress: false,
+                            primaryActionTitle: "Retry",
+                            onPrimaryAction: { viewModel.load() }
+                        )
+                    } else {
+                        WeeklyBlockingStateCard(
+                            title: "Loading weekly plan…",
+                            message: "Preparing your planner.",
+                            showsProgress: true,
+                            primaryActionTitle: nil,
+                            onPrimaryAction: nil
+                        )
+                    }
+                } else {
+                    if let saveMessage = viewModel.saveMessage, saveMessage.isEmpty == false {
+                        WeeklyInlineMessage(text: saveMessage, tone: .accent)
+                    }
 
-                currentStepContent
+                    currentStepContent
+                }
             } footer: {
                 WeeklyStickyActionBar {
                     footerSummary
@@ -41,6 +69,8 @@ struct WeeklyPlannerView: View {
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Close", action: onClose)
+                        .accessibilityLabel("Close weekly planner")
+                        .accessibilityHint("Dismiss the weekly planner and return to Home.")
                 }
             }
             .task {
@@ -49,7 +79,7 @@ struct WeeklyPlannerView: View {
                 }
             }
             .alert(viewModel.errorTitle, isPresented: Binding(
-                get: { viewModel.errorMessage != nil },
+                get: { viewModel.errorMessage != nil && viewModel.hasLoadedInitialData },
                 set: { if !$0 { viewModel.clearError() } }
             )) {
                 Button("OK", role: .cancel) {}
@@ -207,6 +237,32 @@ struct WeeklyPlannerView: View {
         guard viewModel.addTaskToReviewFlow(taskID) else { return }
         TaskerFeedback.success()
         snackbar = SnackbarData(message: WeeklyCopy.addedToReview, autoDismissSeconds: 2)
+    }
+}
+
+private struct WeeklyBlockingStateCard: View {
+    let title: String
+    let message: String
+    let showsProgress: Bool
+    let primaryActionTitle: String?
+    let onPrimaryAction: (() -> Void)?
+
+    var body: some View {
+        WeeklySectionCard(title: title, detail: message) {
+            HStack(spacing: 12) {
+                if showsProgress {
+                    ProgressView()
+                        .controlSize(.small)
+                }
+
+                if let primaryActionTitle, let onPrimaryAction {
+                    Button(primaryActionTitle, action: onPrimaryAction)
+                        .buttonStyle(.borderedProminent)
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.top, 4)
+        }
     }
 }
 

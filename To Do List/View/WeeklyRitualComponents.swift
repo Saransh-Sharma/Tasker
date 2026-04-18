@@ -582,19 +582,23 @@ struct WeeklyCapacityCard: View {
                         targetCapacity = max(1, targetCapacity - 1)
                     } label: {
                         Image(systemName: "minus")
-                            .frame(width: 36, height: 36)
+                            .frame(width: 44, height: 44)
                     }
                     .buttonStyle(.plain)
                     .taskerDenseSurface(cornerRadius: 12, fillColor: Color.tasker.surfaceSecondary)
+                    .accessibilityLabel("Decrease planned pace")
+                    .accessibilityHint("Reduces planned weekly tasks by one.")
 
                     Button {
                         targetCapacity = min(30, targetCapacity + 1)
                     } label: {
                         Image(systemName: "plus")
-                            .frame(width: 36, height: 36)
+                            .frame(width: 44, height: 44)
                     }
                     .buttonStyle(.plain)
                     .taskerDenseSurface(cornerRadius: 12, fillColor: Color.tasker.surfaceSecondary)
+                    .accessibilityLabel("Increase planned pace")
+                    .accessibilityHint("Increases planned weekly tasks by one.")
                 }
             }
 

@@ -64,7 +64,7 @@ struct CalendarScheduleView: View {
 
     @State private var selectedTab: CalendarScheduleTab = .today
     @State private var presentationState = CalendarSchedulePresentationState()
-    @State private var isTimelineExpanded = false
+    @State private var selectedWeekDate = Date()
 
     private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.tokens(for: layoutClass).spacing }
 
@@ -72,14 +72,32 @@ struct CalendarScheduleView: View {
         service.eventsForDay(Date())
     }
 
-    private var weekAgenda: [TaskerCalendarDayAgenda] {
-        service.weekAgenda(anchorDate: Date(), weekStartsOn: weekStartsOn)
-    }
-
     private var weekEventCount: Int {
-        weekAgenda.reduce(into: 0) { result, day in
+        service.weekAgenda(anchorDate: Date(), weekStartsOn: weekStartsOn).reduce(into: 0) { result, day in
             result += day.events.count
         }
+    }
+
+    private var currentWeekStart: Date {
+        XPCalculationEngine.startOfWeek(for: Date(), startingOn: weekStartsOn)
+    }
+
+    private var weekDates: [Date] {
+        (0..<7).compactMap { offset in
+            Calendar.current.date(byAdding: .day, value: offset, to: currentWeekStart)
+        }
+    }
+
+    private var selectedWeekEvents: [TaskerCalendarEventSnapshot] {
+        service.eventsForDay(selectedWeekDate)
+    }
+
+    private var weekDefaultSelectedDate: Date {
+        let today = Date()
+        if weekDates.contains(where: { Calendar.current.isDate($0, inSameDayAs: today) }) {
+            return today
+        }
+        return weekDates.first ?? today
     }
 
     var body: some View {
@@ -92,19 +110,15 @@ struct CalendarScheduleView: View {
                             ToolbarItem(placement: .cancellationAction) {
                                 Button(String(localized: "Close"), action: dismiss.callAsFunction)
                             }
-                            scheduleToolbarItems
                         }
                 }
             } else {
                 scheduleContent
                     .navigationBarTitleDisplayMode(.inline)
-                    .toolbar {
-                        scheduleToolbarItems
-                    }
             }
         }
         .task {
-            isTimelineExpanded = false
+            selectedWeekDate = weekDefaultSelectedDate
             service.refreshContext(reason: "schedule_appear")
         }
         .sheet(item: $presentationState.selectedEvent) { selected in
@@ -142,9 +156,16 @@ struct CalendarScheduleView: View {
                 CalendarScheduleHeaderView(
                     snapshot: service.snapshot,
                     selectedTab: selectedTab,
-                    todayEventCount: todayEvents.count,
-                    weekEventCount: weekEventCount,
-                    onSelectTab: { selectedTab = $0 }
+                    contextLabel: selectedTab == .today
+                        ? "Today \u{00B7} \(TaskerCalendarPresentation.scheduleDateText(for: Date()))"
+                        : "Week \u{00B7} \(weekRangeLabel)",
+                    onSelectTab: { tab in
+                        selectedTab = tab
+                        if tab == .week {
+                            selectedWeekDate = weekDefaultSelectedDate
+                        }
+                    },
+                    onOpenFilters: handleCalendarFilterTap
                 )
                 .enhancedStaggeredAppearance(index: 0)
 
@@ -156,27 +177,11 @@ struct CalendarScheduleView: View {
             .padding(.top, spacing.s16)
             .padding(.bottom, spacing.sectionGap)
         }
+        .refreshable {
+            service.refreshContext(reason: "schedule_pull_to_refresh")
+        }
         .accessibilityIdentifier("schedule.list")
         .background(Color.tasker.bgCanvas.ignoresSafeArea())
-    }
-
-    @ToolbarContentBuilder
-    private var scheduleToolbarItems: some ToolbarContent {
-        ToolbarItemGroup(placement: .navigationBarTrailing) {
-            Button(action: handleCalendarFilterTap) {
-                Image(systemName: "slider.horizontal.3")
-            }
-            .accessibilityIdentifier("schedule.toolbar.filters")
-            .accessibilityLabel(String(localized: "Choose calendars"))
-
-            Button {
-                service.refreshContext(reason: "schedule_manual_refresh")
-            } label: {
-                Image(systemName: "arrow.clockwise")
-            }
-            .accessibilityIdentifier("schedule.toolbar.refresh")
-            .accessibilityLabel(String(localized: "Refresh schedule"))
-        }
     }
 
     @ViewBuilder
@@ -221,17 +226,26 @@ struct CalendarScheduleView: View {
         case .today:
             CalendarScheduleTodayContent(
                 snapshot: service.snapshot,
+                date: Date(),
                 events: todayEvents,
-                isTimelineExpanded: $isTimelineExpanded,
-                onChooseCalendars: handleCalendarFilterTap,
                 onSelectEvent: { presentationState.selectEvent(id: $0.id) }
             )
         case .week:
             CalendarScheduleWeekContent(
-                agenda: weekAgenda,
+                weekDates: weekDates,
+                selectedDate: $selectedWeekDate,
+                eventsForSelectedDay: selectedWeekEvents,
+                weekEventCount: weekEventCount,
                 onSelectEvent: { presentationState.selectEvent(id: $0.id) }
             )
         }
+    }
+
+    private var weekRangeLabel: String {
+        guard let weekEnd = Calendar.current.date(byAdding: .day, value: 6, to: currentWeekStart) else {
+            return TaskerCalendarPresentation.scheduleDateText(for: currentWeekStart)
+        }
+        return "\(TaskerCalendarPresentation.compactDateText(for: currentWeekStart))-\(TaskerCalendarPresentation.compactDateText(for: weekEnd))"
     }
 
     private var permissionRequiredView: some View {
@@ -357,27 +371,47 @@ typealias HomeDayTimelineLayoutPlanner = TaskerCalendarTimelinePlanner
 private struct CalendarScheduleHeaderView: View {
     let snapshot: TaskerCalendarSnapshot
     let selectedTab: CalendarScheduleTab
-    let todayEventCount: Int
-    let weekEventCount: Int
+    let contextLabel: String
     let onSelectTab: (CalendarScheduleTab) -> Void
+    let onOpenFilters: () -> Void
 
     @Environment(\.taskerLayoutClass) private var layoutClass
 
     private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.tokens(for: layoutClass).spacing }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: spacing.s16) {
-            ViewThatFits(in: .horizontal) {
-                HStack(alignment: .top, spacing: spacing.s16) {
-                    titleBlock
-                    Spacer(minLength: spacing.s12)
-                    calendarSelectionChip
+        VStack(alignment: .leading, spacing: spacing.s12) {
+            HStack(alignment: .top, spacing: spacing.s12) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(contextLabel)
+                        .font(layoutClass.isPad ? .tasker(.title2) : .tasker(.title3))
+                        .foregroundStyle(Color.tasker.textPrimary)
+
+                    Text(selectionLabel)
+                        .font(.tasker(.caption1))
+                        .foregroundStyle(Color.tasker.textSecondary)
                 }
 
-                VStack(alignment: .leading, spacing: spacing.s12) {
-                    titleBlock
-                    calendarSelectionChip
+                Spacer(minLength: 0)
+
+                Button(action: onOpenFilters) {
+                    Text(String(localized: "Filters"))
+                        .font(.tasker(.bodyStrong))
+                        .foregroundStyle(Color.tasker.textPrimary)
+                        .padding(.horizontal, spacing.s12)
+                        .padding(.vertical, spacing.s8)
+                        .background(
+                            RoundedRectangle(cornerRadius: TaskerTheme.CornerRadius.lg, style: .continuous)
+                                .fill(Color.tasker.surfacePrimary)
+                        )
+                        .overlay(
+                            RoundedRectangle(cornerRadius: TaskerTheme.CornerRadius.lg, style: .continuous)
+                                .stroke(Color.tasker.strokeHairline.opacity(0.8), lineWidth: 1)
+                        )
                 }
+                .buttonStyle(.plain)
+                .accessibilityIdentifier("schedule.toolbar.filters")
+                .accessibilityLabel(String(localized: "Choose calendars"))
             }
 
             HStack(spacing: spacing.s8) {
@@ -386,58 +420,25 @@ private struct CalendarScheduleHeaderView: View {
                 }
             }
             .padding(spacing.s4)
-            .background(Color.tasker.surfaceSecondary.opacity(0.7))
+            .background(
+                RoundedRectangle(cornerRadius: TaskerTheme.CornerRadius.xl, style: .continuous)
+                    .fill(Color.tasker.surfaceSecondary.opacity(0.8))
+            )
             .overlay(
                 RoundedRectangle(cornerRadius: TaskerTheme.CornerRadius.xl, style: .continuous)
                     .stroke(Color.tasker.strokeHairline.opacity(0.75), lineWidth: 1)
             )
-            .clipShape(RoundedRectangle(cornerRadius: TaskerTheme.CornerRadius.xl, style: .continuous))
             .accessibilityIdentifier("schedule.segmented")
         }
         .padding(layoutClass.isPad ? spacing.s20 : spacing.s16)
-        .background(Color.tasker.bgElevated)
+        .background(
+            RoundedRectangle(cornerRadius: TaskerTheme.CornerRadius.card, style: .continuous)
+                .fill(Color.tasker.bgElevated)
+        )
         .overlay(
             RoundedRectangle(cornerRadius: TaskerTheme.CornerRadius.card, style: .continuous)
                 .stroke(Color.tasker.strokeHairline.opacity(0.78), lineWidth: 1)
         )
-        .clipShape(RoundedRectangle(cornerRadius: TaskerTheme.CornerRadius.card, style: .continuous))
-    }
-
-    private var titleBlock: some View {
-        VStack(alignment: .leading, spacing: spacing.s8) {
-            Text(String(localized: "Schedule"))
-                .font(layoutClass.isPad ? .tasker(.screenTitle) : .tasker(.title1))
-                .foregroundStyle(Color.tasker.textPrimary)
-
-            Text(summaryLine)
-                .font(.tasker(.callout))
-                .foregroundStyle(Color.tasker.textSecondary)
-                .lineLimit(3)
-
-            Text(String(localized: "Today \(todayEventCount) • Week \(weekEventCount)"))
-                .font(.tasker(.caption1))
-                .foregroundStyle(Color.tasker.textTertiary)
-        }
-    }
-
-    private var calendarSelectionChip: some View {
-        HStack(spacing: spacing.s8) {
-            Image(systemName: "calendar.badge.checkmark")
-                .font(.system(size: 14, weight: .semibold))
-                .foregroundStyle(Color.tasker.actionPrimary)
-
-            Text(selectionLabel)
-                .font(.tasker(.bodyStrong))
-                .foregroundStyle(Color.tasker.textPrimary)
-        }
-        .padding(.horizontal, spacing.s12)
-        .padding(.vertical, spacing.s8)
-        .background(Color.tasker.surfacePrimary)
-        .overlay(
-            RoundedRectangle(cornerRadius: TaskerTheme.CornerRadius.lg, style: .continuous)
-                .stroke(Color.tasker.strokeHairline.opacity(0.7), lineWidth: 1)
-        )
-        .clipShape(RoundedRectangle(cornerRadius: TaskerTheme.CornerRadius.lg, style: .continuous))
     }
 
     private func tabButton(for tab: CalendarScheduleTab) -> some View {
@@ -450,64 +451,21 @@ private struct CalendarScheduleHeaderView: View {
                 .frame(maxWidth: .infinity)
                 .padding(.horizontal, spacing.s12)
                 .padding(.vertical, spacing.s12)
-                .background(selectedTab == tab ? selectedBackground(for: tab) : Color.clear)
-                .overlay(
+                .background(
                     RoundedRectangle(cornerRadius: TaskerTheme.CornerRadius.lg, style: .continuous)
-                        .stroke(selectedTab == tab ? selectedStroke(for: tab) : Color.clear, lineWidth: 1)
+                        .fill(selectedTab == tab ? Color.tasker.actionPrimary : Color.clear)
                 )
-                .clipShape(RoundedRectangle(cornerRadius: TaskerTheme.CornerRadius.lg, style: .continuous))
         }
         .buttonStyle(.plain)
         .accessibilityIdentifier("schedule.segment.\(tab.rawValue)")
         .accessibilityValue(selectedTab == tab ? String(localized: "selected") : String(localized: "unselected"))
     }
 
-    private func selectedBackground(for tab: CalendarScheduleTab) -> Color {
-        switch tab {
-        case .today:
-            return Color.tasker.actionPrimary
-        case .week:
-            return Color.tasker.accentSecondary
-        }
-    }
-
-    private func selectedStroke(for tab: CalendarScheduleTab) -> Color {
-        switch tab {
-        case .today:
-            return Color.tasker.accentRing
-        case .week:
-            return Color.tasker.accentSecondaryMuted
-        }
-    }
-
-    private var summaryLine: String {
-        if !snapshot.authorizationStatus.isAuthorizedForRead {
-            return String(localized: "Connect Calendar access to bring your real day into focus.")
-        }
-
-        if snapshot.selectedCalendarIDs.isEmpty {
-            return String(localized: "Choose the calendars that should shape the Today and Week views.")
-        }
-
-        if let nextMeeting = snapshot.nextMeeting {
-            if nextMeeting.isInProgress {
-                return String(localized: "\(nextMeeting.event.title) is active right now.")
-            }
-            return String(localized: "\(nextMeeting.event.title) is the next anchor.")
-        }
-
-        if let freeUntil = snapshot.freeUntil {
-            return String(localized: "You have open time until \(freeUntil.formatted(date: .omitted, time: .shortened)).")
-        }
-
-        if todayEventCount == 0 {
-            return String(localized: "No timed blocks are pressuring the day right now.")
-        }
-
-        return String(localized: "\(todayEventCount) events today, with the full week one tap away.")
-    }
-
     private var selectionLabel: String {
+        if snapshot.authorizationStatus.isAuthorizedForRead == false {
+            return String(localized: "Calendar access required")
+        }
+
         let count = snapshot.selectedCalendarIDs.count
         switch count {
         case 0:
@@ -522,131 +480,48 @@ private struct CalendarScheduleHeaderView: View {
 
 private struct CalendarScheduleTodayContent: View {
     let snapshot: TaskerCalendarSnapshot
+    let date: Date
     let events: [TaskerCalendarEventSnapshot]
-    @Binding var isTimelineExpanded: Bool
-    let onChooseCalendars: () -> Void
     let onSelectEvent: (TaskerCalendarEventSnapshot) -> Void
 
     @Environment(\.taskerLayoutClass) private var layoutClass
-
     private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.tokens(for: layoutClass).spacing }
 
-    private var timedEvents: [TaskerCalendarEventSnapshot] {
-        events.filter { !$0.isAllDay && $0.isBusy }
-    }
-
     var body: some View {
-        VStack(alignment: .leading, spacing: spacing.s20) {
-            sectionHeader(
-                title: String(localized: "Today"),
-                detail: events.isEmpty
-                    ? String(localized: "No events")
-                    : String(localized: "\(events.count) \(events.count == 1 ? "event" : "events")")
-            )
-
-            CalendarScheduleTodaySnapshotView(
-                snapshot: snapshot,
-                eventCount: events.count,
-                timedEventCount: timedEvents.count
-            )
+        VStack(alignment: .leading, spacing: spacing.s16) {
+            CalendarScheduleNextUpCard(snapshot: snapshot)
 
             CalendarScheduleTimelineSection(
-                date: Date(),
+                date: date,
                 events: events,
-                isExpanded: $isTimelineExpanded
+                emptyText: String(localized: "No timed blocks today."),
+                accessibilityIdentifier: "schedule.timeline.expanded",
+                onSelectEvent: onSelectEvent
             )
 
             if events.isEmpty {
-                CalendarScheduleStatePanel(
-                    iconName: "sparkles",
-                    title: String(localized: "No events today"),
-                    message: String(localized: "Your day is clear. Use the open space for focused work or planning."),
-                    accentColor: Color.tasker.statusSuccess,
-                    buttonTitle: String(localized: "Choose Calendars"),
-                    buttonAccessibilityIdentifier: "schedule.today.chooseCalendars",
-                    bodyAccessibilityIdentifier: "schedule.today.empty",
-                    action: onChooseCalendars
-                )
-            } else {
-                VStack(alignment: .leading, spacing: spacing.s12) {
-                    sectionHeader(
-                        title: String(localized: "Agenda"),
-                        detail: timedEvents.isEmpty
-                            ? String(localized: "All-day only")
-                            : String(localized: "\(timedEvents.count) timed block\(timedEvents.count == 1 ? "" : "s")")
-                    )
-
-                    VStack(spacing: 0) {
-                        ForEach(Array(events.enumerated()), id: \.element.id) { index, event in
-                            CalendarScheduleEventRow(event: event) {
-                                onSelectEvent(event)
-                            }
-
-                            if index < events.count - 1 {
-                                Divider()
-                                    .padding(.leading, 26)
-                            }
-                        }
-                    }
-                    .background(Color.tasker.surfacePrimary)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: TaskerTheme.CornerRadius.card, style: .continuous)
-                            .stroke(Color.tasker.strokeHairline.opacity(0.72), lineWidth: 1)
-                    )
-                    .clipShape(RoundedRectangle(cornerRadius: TaskerTheme.CornerRadius.card, style: .continuous))
-                }
+                Text(String(localized: "No events today"))
+                    .font(.tasker(.callout))
+                    .foregroundStyle(Color.tasker.textSecondary)
+                    .accessibilityIdentifier("schedule.today.empty")
             }
-        }
-    }
-
-    private func sectionHeader(title: String, detail: String) -> some View {
-        HStack(alignment: .firstTextBaseline, spacing: spacing.s8) {
-            Text(title)
-                .font(.tasker(.sectionTitle))
-                .foregroundStyle(Color.tasker.textPrimary)
-
-            Spacer(minLength: 0)
-
-            Text(detail)
-                .font(.tasker(.caption1))
-                .foregroundStyle(Color.tasker.textSecondary)
         }
     }
 }
 
 private struct CalendarScheduleWeekContent: View {
-    let agenda: [TaskerCalendarDayAgenda]
+    let weekDates: [Date]
+    @Binding var selectedDate: Date
+    let eventsForSelectedDay: [TaskerCalendarEventSnapshot]
+    let weekEventCount: Int
     let onSelectEvent: (TaskerCalendarEventSnapshot) -> Void
 
     @Environment(\.taskerLayoutClass) private var layoutClass
-
     private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.tokens(for: layoutClass).spacing }
 
-    private var totalEvents: Int {
-        agenda.reduce(into: 0) { result, day in
-            result += day.events.count
-        }
-    }
-
     var body: some View {
-        VStack(alignment: .leading, spacing: spacing.s20) {
-            HStack(alignment: .firstTextBaseline, spacing: spacing.s8) {
-                Text(String(localized: "Week"))
-                    .font(.tasker(.sectionTitle))
-                    .foregroundStyle(Color.tasker.textPrimary)
-
-                Spacer(minLength: 0)
-
-                Text(
-                    totalEvents == 0
-                        ? String(localized: "Clear week")
-                        : String(localized: "\(totalEvents) \(totalEvents == 1 ? "event" : "events")")
-                )
-                    .font(.tasker(.caption1))
-                    .foregroundStyle(Color.tasker.textSecondary)
-            }
-
-            if agenda.allSatisfy({ $0.events.isEmpty }) {
+        VStack(alignment: .leading, spacing: spacing.s16) {
+            if weekEventCount == 0 {
                 CalendarScheduleStatePanel(
                     iconName: "calendar.badge.clock",
                     title: String(localized: "No events this week"),
@@ -658,151 +533,134 @@ private struct CalendarScheduleWeekContent: View {
                     action: nil
                 )
             } else {
-                VStack(spacing: 0) {
-                    ForEach(Array(agenda.enumerated()), id: \.element.id) { index, day in
-                        CalendarScheduleWeekDaySection(day: day, onSelectEvent: onSelectEvent)
-                            .padding(.vertical, spacing.s16)
-                            .accessibilityIdentifier("schedule.week.day.\(day.id)")
+                weekStrip
 
-                        if index < agenda.count - 1 {
-                            Divider()
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
-
-private struct CalendarScheduleWeekDaySection: View {
-    let day: TaskerCalendarDayAgenda
-    let onSelectEvent: (TaskerCalendarEventSnapshot) -> Void
-
-    @Environment(\.taskerLayoutClass) private var layoutClass
-
-    private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.tokens(for: layoutClass).spacing }
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: spacing.s12) {
-            HStack(alignment: .firstTextBaseline, spacing: spacing.s8) {
-                Text(TaskerCalendarPresentation.scheduleDateText(for: day.date))
-                    .font(.tasker(.headline))
-                    .foregroundStyle(Color.tasker.textPrimary)
-
-                Spacer(minLength: 0)
-
-                Text(day.events.isEmpty ? String(localized: "Clear") : String(localized: "\(day.events.count)"))
+                Text(selectedDaySummary)
                     .font(.tasker(.caption1))
                     .foregroundStyle(Color.tasker.textSecondary)
-            }
+                    .padding(.horizontal, spacing.s12)
+                    .padding(.vertical, spacing.s8)
+                    .background(
+                        RoundedRectangle(cornerRadius: TaskerTheme.CornerRadius.lg, style: .continuous)
+                            .fill(Color.tasker.surfaceSecondary)
+                    )
+                    .accessibilityIdentifier("schedule.week.selectedDay")
 
-            if day.events.isEmpty {
-                Text(String(localized: "No events"))
-                    .font(.tasker(.callout))
-                    .foregroundStyle(Color.tasker.textSecondary)
-            } else {
-                VStack(spacing: 0) {
-                    ForEach(Array(day.events.enumerated()), id: \.element.id) { index, event in
-                        CalendarScheduleEventRow(event: event) {
-                            onSelectEvent(event)
-                        }
-
-                        if index < day.events.count - 1 {
-                            Divider()
-                                .padding(.leading, 26)
-                        }
-                    }
-                }
-                .background(Color.tasker.surfacePrimary)
-                .overlay(
-                    RoundedRectangle(cornerRadius: TaskerTheme.CornerRadius.card, style: .continuous)
-                        .stroke(Color.tasker.strokeHairline.opacity(0.72), lineWidth: 1)
+                CalendarScheduleTimelineSection(
+                    date: selectedDate,
+                    events: eventsForSelectedDay,
+                    emptyText: String(localized: "No timed blocks on selected day."),
+                    accessibilityIdentifier: "schedule.timeline.expanded",
+                    onSelectEvent: onSelectEvent
                 )
-                .clipShape(RoundedRectangle(cornerRadius: TaskerTheme.CornerRadius.card, style: .continuous))
             }
         }
     }
+
+    private var weekStrip: some View {
+        HStack(spacing: spacing.s8) {
+            ForEach(weekDates, id: \.timeIntervalSince1970) { date in
+                let isSelected = Calendar.current.isDate(date, inSameDayAs: selectedDate)
+                Button {
+                    selectedDate = date
+                } label: {
+                    VStack(spacing: 2) {
+                        Text(date.formatted(.dateTime.weekday(.narrow)))
+                            .font(.tasker(.caption2))
+                            .foregroundStyle(isSelected ? Color.tasker.textInverse : Color.tasker.textSecondary)
+                        Text(date.formatted(.dateTime.day()))
+                            .font(.tasker(.bodyStrong))
+                            .foregroundStyle(isSelected ? Color.tasker.textInverse : Color.tasker.textPrimary)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, spacing.s8)
+                    .background(
+                        RoundedRectangle(cornerRadius: TaskerTheme.CornerRadius.lg, style: .continuous)
+                            .fill(isSelected ? Color.tasker.actionPrimary : Color.tasker.surfacePrimary)
+                    )
+                    .overlay(
+                        RoundedRectangle(cornerRadius: TaskerTheme.CornerRadius.lg, style: .continuous)
+                            .stroke(Color.tasker.strokeHairline.opacity(0.7), lineWidth: isSelected ? 0 : 1)
+                    )
+                }
+                .buttonStyle(.plain)
+                .accessibilityIdentifier("schedule.week.day.\(dayIdentifier(for: date))")
+            }
+        }
+    }
+
+    private var selectedDaySummary: String {
+        let dayText = TaskerCalendarPresentation.scheduleDateText(for: selectedDate)
+        let count = eventsForSelectedDay.count
+        let suffix = count == 1 ? "event" : "events"
+        return "Selected day: \(dayText) \u{00B7} \(count) \(suffix)"
+    }
+
+    private func dayIdentifier(for date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.calendar = Calendar(identifier: .gregorian)
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.timeZone = Calendar.current.timeZone
+        formatter.dateFormat = "yyyy-MM-dd"
+        return formatter.string(from: date)
+    }
 }
 
-private struct CalendarScheduleTodaySnapshotView: View {
+private struct CalendarScheduleNextUpCard: View {
     let snapshot: TaskerCalendarSnapshot
-    let eventCount: Int
-    let timedEventCount: Int
 
     @Environment(\.taskerLayoutClass) private var layoutClass
-
     private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.tokens(for: layoutClass).spacing }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: spacing.s12) {
-            HStack(alignment: .top, spacing: spacing.s12) {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(primaryTitle)
-                        .font(.tasker(.bodyStrong))
-                        .foregroundStyle(Color.tasker.textPrimary)
-
-                    Text(primaryDetail)
-                        .font(.tasker(.callout))
-                        .foregroundStyle(Color.tasker.textSecondary)
-                        .lineLimit(2)
-                }
-
-                Spacer(minLength: 0)
-
-                VStack(alignment: .trailing, spacing: 4) {
-                    Text("\(eventCount)")
-                        .font(.tasker(.title3))
-                        .foregroundStyle(Color.tasker.textPrimary)
-
-                    Text(timedEventCount == 0 ? String(localized: "all-day only") : String(localized: "\(timedEventCount) timed"))
-                        .font(.tasker(.caption1))
-                        .foregroundStyle(Color.tasker.textSecondary)
-                }
-            }
-
-            CalendarScheduleBusyStripView(
-                busyBlocks: snapshot.busyBlocks,
-                referenceDate: Date()
-            )
-
-            if let freeUntil = snapshot.freeUntil {
-                Label(String(localized: "Free until \(freeUntil.formatted(date: .omitted, time: .shortened))"), systemImage: "leaf")
-                    .font(.tasker(.caption1))
-                    .foregroundStyle(Color.tasker.statusSuccess)
-            }
+        VStack(alignment: .leading, spacing: spacing.s4) {
+            Text(primaryLine)
+                .font(.tasker(.bodyStrong))
+                .foregroundStyle(Color.tasker.textPrimary)
+            Text(secondaryLine)
+                .font(.tasker(.caption1))
+                .foregroundStyle(Color.tasker.textSecondary)
         }
-        .padding(spacing.s16)
-        .background(Color.tasker.bgElevated)
+        .padding(.horizontal, spacing.s12)
+        .padding(.vertical, spacing.s12)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(
+            RoundedRectangle(cornerRadius: TaskerTheme.CornerRadius.card, style: .continuous)
+                .fill(Color.tasker.surfacePrimary)
+        )
         .overlay(
             RoundedRectangle(cornerRadius: TaskerTheme.CornerRadius.card, style: .continuous)
-                .stroke(Color.tasker.strokeHairline.opacity(0.75), lineWidth: 1)
+                .stroke(Color.tasker.strokeHairline.opacity(0.7), lineWidth: 1)
         )
-        .clipShape(RoundedRectangle(cornerRadius: TaskerTheme.CornerRadius.card, style: .continuous))
+        .accessibilityIdentifier("schedule.today.nextUp")
     }
 
-    private var primaryTitle: String {
+    private var primaryLine: String {
         if let nextMeeting = snapshot.nextMeeting {
-            return nextMeeting.isInProgress ? String(localized: "Currently busy") : String(localized: "Next meeting")
+            return "Next up: \(nextMeeting.event.title)"
         }
-        return String(localized: "No upcoming meetings")
+        return String(localized: "Next up: Clear")
     }
 
-    private var primaryDetail: String {
+    private var secondaryLine: String {
         if let nextMeeting = snapshot.nextMeeting {
-            return String(localized: "\(nextMeeting.event.title) • \(TaskerCalendarPresentation.timeRangeText(for: nextMeeting.event))")
+            return TaskerCalendarPresentation.timeRangeText(for: nextMeeting.event)
         }
-        return String(localized: "Use the open space for focused work or planning.")
+        if let freeUntil = snapshot.freeUntil {
+            return String(localized: "Free until \(freeUntil.formatted(date: .omitted, time: .shortened))")
+        }
+        return String(localized: "No upcoming meetings.")
     }
 }
 
 private struct CalendarScheduleTimelineSection: View {
     let date: Date
     let events: [TaskerCalendarEventSnapshot]
-    @Binding var isExpanded: Bool
+    let emptyText: String
+    let accessibilityIdentifier: String
+    let onSelectEvent: (TaskerCalendarEventSnapshot) -> Void
 
     @Environment(\.taskerLayoutClass) private var layoutClass
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-
     private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.tokens(for: layoutClass).spacing }
 
     private var timedEvents: [TaskerCalendarEventSnapshot] {
@@ -816,138 +674,37 @@ private struct CalendarScheduleTimelineSection: View {
     var body: some View {
         VStack(alignment: .leading, spacing: spacing.s8) {
             HStack(alignment: .firstTextBaseline, spacing: spacing.s8) {
-                Text("W\(Calendar.current.component(.weekOfYear, from: date))")
-                    .font(.tasker(.caption1))
-                    .foregroundStyle(Color.tasker.textTertiary)
-
-                Spacer(minLength: 0)
-
-                Text(timelineDateLabel)
+                Text(String(localized: "Timeline"))
                     .font(.tasker(.headline))
-                    .foregroundStyle(Color.tasker.statusDanger)
+                    .foregroundStyle(Color.tasker.textPrimary)
 
                 Spacer(minLength: 0)
 
-                if timedEvents.isEmpty == false {
-                    Button(action: toggleExpanded) {
-                        Label(
-                            isExpanded ? String(localized: "Collapse") : String(localized: "Expand"),
-                            systemImage: isExpanded ? "chevron.up" : "chevron.down"
-                        )
-                            .labelStyle(.titleAndIcon)
-                    }
+                Text(TaskerCalendarPresentation.scheduleDateText(for: date))
                     .font(.tasker(.caption1))
                     .foregroundStyle(Color.tasker.textSecondary)
-                    .buttonStyle(.plain)
-                    .accessibilityIdentifier("schedule.timeline.toggle")
-                    .accessibilityLabel(
-                        isExpanded
-                            ? String(localized: "Collapse live timeline")
-                            : String(localized: "Expand live timeline")
-                    )
-                } else {
-                    Text(String(localized: "Timeline"))
-                        .font(.tasker(.caption1))
-                        .foregroundStyle(Color.tasker.textTertiary)
-                }
             }
 
             if timedEvents.isEmpty {
-                Text(String(localized: "No timed blocks today. All-day events stay in the agenda below."))
+                Text(emptyText)
                     .font(.tasker(.callout))
                     .foregroundStyle(Color.tasker.textSecondary)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(.vertical, spacing.s12)
-                    .accessibilityIdentifier("schedule.timeline.compact")
-            } else if isExpanded {
+                    .accessibilityIdentifier("schedule.timeline.empty")
+            } else {
                 TaskerCalendarTimelineView(
                     date: date,
                     events: events,
                     density: .expanded,
                     showsDateLabel: false,
-                    emptyText: String(localized: "No timed blocks today"),
-                    accessibilityIdentifier: "schedule.timeline.expanded",
-                    accessibilityLabelText: String(localized: "Expanded live timeline for the full day."),
-                    initialVisibleHour: targetHour
+                    emptyText: emptyText,
+                    accessibilityIdentifier: accessibilityIdentifier,
+                    accessibilityLabelText: String(localized: "Live timeline for the selected day."),
+                    initialVisibleHour: targetHour,
+                    onSelectEvent: onSelectEvent
                 )
-            } else {
-                Button {
-                    toggleExpanded()
-                } label: {
-                    TaskerCalendarTimelineView(
-                        date: date,
-                        events: events,
-                        density: .compact,
-                        showsDateLabel: false,
-                        emptyText: String(localized: "No timed blocks in view"),
-                        accessibilityIdentifier: "schedule.timeline.compact",
-                        accessibilityLabelText: String(localized: "Compact live timeline. Double tap to expand."),
-                        initialVisibleHour: nil
-                    )
-                }
-                .buttonStyle(.plain)
-                .accessibilityHint(String(localized: "Expands to show the full day"))
             }
-        }
-    }
-
-    private var timelineDateLabel: String {
-        let weekday = date.formatted(.dateTime.weekday(.abbreviated))
-        let monthDay = date.formatted(.dateTime.month(.abbreviated).day())
-        return "\(weekday) - \(monthDay)"
-    }
-
-    private func toggleExpanded() {
-        if reduceMotion {
-            isExpanded.toggle()
-        } else {
-            withAnimation(.easeInOut(duration: 0.22)) {
-                isExpanded.toggle()
-            }
-        }
-    }
-}
-
-private struct CalendarScheduleBusyStripView: View {
-    let busyBlocks: [TaskerCalendarBusyBlock]
-    let referenceDate: Date
-
-    var body: some View {
-        GeometryReader { proxy in
-            let segments = busySegments(width: proxy.size.width)
-            ZStack(alignment: .leading) {
-                RoundedRectangle(cornerRadius: 8, style: .continuous)
-                    .fill(Color.tasker.surfaceSecondary)
-
-                ForEach(Array(segments.enumerated()), id: \.offset) { _, segment in
-                    RoundedRectangle(cornerRadius: 8, style: .continuous)
-                        .fill(Color.tasker.statusWarning.opacity(0.88))
-                        .frame(width: segment.width, height: 10)
-                        .offset(x: segment.x)
-                }
-            }
-        }
-        .frame(height: 10)
-    }
-
-    private func busySegments(width: CGFloat) -> [(x: CGFloat, width: CGFloat)] {
-        guard width > 0 else { return [] }
-
-        let calendar = Calendar.current
-        let horizonStart = calendar.startOfDay(for: referenceDate)
-        let horizonEnd = calendar.date(byAdding: .hour, value: 12, to: horizonStart) ?? horizonStart
-        let horizonDuration = max(1, horizonEnd.timeIntervalSince(horizonStart))
-
-        return busyBlocks.compactMap { block in
-            let start = max(horizonStart, block.startDate)
-            let end = min(horizonEnd, block.endDate)
-            guard end > start else { return nil }
-
-            let startRatio = start.timeIntervalSince(horizonStart) / horizonDuration
-            let endRatio = end.timeIntervalSince(horizonStart) / horizonDuration
-            let x = CGFloat(startRatio) * width
-            let segmentWidth = max(2, CGFloat(endRatio - startRatio) * width)
-            return (x: x, width: segmentWidth)
         }
     }
 }
@@ -1481,6 +1238,7 @@ struct TaskerCalendarTimelineView: View {
     var accessibilityIdentifier: String? = nil
     var accessibilityLabelText: String? = nil
     var initialVisibleHour: Int? = nil
+    var onSelectEvent: ((TaskerCalendarEventSnapshot) -> Void)? = nil
 
     @Environment(\.taskerLayoutClass) private var layoutClass
     @Environment(\.accessibilityDifferentiateWithoutColor) private var differentiateWithoutColor
@@ -1632,12 +1390,31 @@ struct TaskerCalendarTimelineView: View {
         ZStack(alignment: .topLeading) {
             ForEach(plan.positionedEvents) { positioned in
                 let frame = eventFrame(for: positioned, in: plan, width: width)
-                TaskerCalendarTimelineEventCard(
-                    event: positioned.event,
-                    density: density,
-                    height: frame.height,
-                    differentiateWithoutColor: differentiateWithoutColor
-                )
+                Group {
+                    if let onSelectEvent {
+                        Button {
+                            onSelectEvent(positioned.event)
+                        } label: {
+                            TaskerCalendarTimelineEventCard(
+                                event: positioned.event,
+                                density: density,
+                                height: frame.height,
+                                differentiateWithoutColor: differentiateWithoutColor
+                            )
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityIdentifier("schedule.event.\(positioned.event.id)")
+                        .accessibilityLabel(positioned.event.title)
+                        .accessibilityHint(String(localized: "Open event details"))
+                    } else {
+                        TaskerCalendarTimelineEventCard(
+                            event: positioned.event,
+                            density: density,
+                            height: frame.height,
+                            differentiateWithoutColor: differentiateWithoutColor
+                        )
+                    }
+                }
                 .frame(width: frame.width, height: frame.height, alignment: .topLeading)
                 .offset(x: metrics.labelColumnWidth + frame.minX, y: frame.minY)
             }
@@ -1738,7 +1515,7 @@ private struct TaskerCalendarTimelineAccessibilityModifier: ViewModifier {
     func body(content: Content) -> some View {
         if let identifier {
             content
-                .accessibilityElement(children: .ignore)
+                .accessibilityElement(children: .contain)
                 .accessibilityIdentifier(identifier)
                 .accessibilityLabel(label ?? "")
         } else {
