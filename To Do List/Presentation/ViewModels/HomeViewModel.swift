@@ -343,6 +343,12 @@ public final class HomeViewModel: ObservableObject {
     @Published public private(set) var weeklySummary: HomeWeeklySummary? {
         didSet { scheduleHomeRenderStateRefresh() }
     }
+    @Published public private(set) var weeklySummaryIsLoading: Bool = false {
+        didSet { scheduleHomeRenderStateRefresh() }
+    }
+    @Published public private(set) var weeklySummaryErrorMessage: String? {
+        didSet { scheduleHomeRenderStateRefresh() }
+    }
 
     // Gamification v2
     @Published public private(set) var currentLevel: Int = 1
@@ -701,6 +707,8 @@ public final class HomeViewModel: ObservableObject {
             dailyScore: dailyScore,
             completionRate: completionRate,
             weeklySummary: weeklySummary,
+            weeklySummaryIsLoading: weeklySummaryIsLoading,
+            weeklySummaryErrorMessage: weeklySummaryErrorMessage,
             projects: projects,
             // Reflection stays tied to the default Today scope, not custom-date views.
             reflectionEligible: activeScope == .today && !isDailyReflectionCompletedToday(),
@@ -817,6 +825,8 @@ public final class HomeViewModel: ObservableObject {
         switch keyPath {
         case \HomeViewModel.selectedDate,
              \HomeViewModel.weeklySummary,
+             \HomeViewModel.weeklySummaryIsLoading,
+             \HomeViewModel.weeklySummaryErrorMessage,
              \HomeViewModel.lastXPResult,
              \HomeViewModel.dueTodayRows,
              \HomeViewModel.dueTodaySection,
@@ -925,6 +935,19 @@ public final class HomeViewModel: ObservableObject {
 
     public func refreshCalendarContext(reason: String = "home_manual_refresh") {
         calendarIntegrationService.refreshContext(referenceDate: selectedDate, reason: reason)
+    }
+
+    /// Refresh visible Home content without changing the active scope or selected date.
+    public func refreshCurrentScopeContent(source: String = "home_scope_preserving_refresh") {
+        enqueueReload(
+            source: source,
+            reason: .updated,
+            taskID: nil,
+            invalidateCaches: true,
+            includeAnalytics: false,
+            repostEvent: false,
+            overrideScopes: [.visibleTasks]
+        )
     }
 
     /// Executes loadTodayTasks.
@@ -5084,6 +5107,8 @@ public final class HomeViewModel: ObservableObject {
 
     private func refreshWeeklySummary() {
         let generation = nextWeeklySummaryGeneration()
+        assignIfChanged(\.weeklySummaryIsLoading, true)
+        assignIfChanged(\.weeklySummaryErrorMessage, nil)
         useCaseCoordinator.getWeeklySummary.execute(referenceDate: Date()) { [weak self] result in
             DispatchQueue.main.async {
                 guard let self else { return }
@@ -5091,10 +5116,18 @@ public final class HomeViewModel: ObservableObject {
                     logDebug("HOME_WEEKLY_SUMMARY vm.drop_stale generation=\(generation)")
                     return
                 }
+                self.assignIfChanged(\.weeklySummaryIsLoading, false)
                 switch result {
                 case .success(let summary):
                     self.assignIfChanged(\.weeklySummary, summary)
+                    self.assignIfChanged(\.weeklySummaryErrorMessage, nil)
                 case .failure(let error):
+                    if self.weeklySummary == nil {
+                        self.assignIfChanged(
+                            \.weeklySummaryErrorMessage,
+                            "Couldn't load weekly summary. Try again."
+                        )
+                    }
                     logWarning(
                         event: "home_weekly_summary_refresh_failed",
                         message: "Failed to refresh weekly summary",

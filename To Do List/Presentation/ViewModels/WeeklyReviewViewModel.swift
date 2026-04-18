@@ -61,6 +61,7 @@ private struct WeeklyReviewDraftPayload: Equatable {
 public final class WeeklyReviewViewModel: ObservableObject {
     @Published public private(set) var isLoading = false
     @Published public private(set) var isSaving = false
+    @Published public private(set) var hasLoadedInitialData = false
     @Published public private(set) var errorMessage: String?
     @Published public private(set) var snapshot: WeeklyPlanSnapshot?
     @Published public private(set) var reflectionNotes: [ReflectionNote] = []
@@ -74,43 +75,43 @@ public final class WeeklyReviewViewModel: ObservableObject {
     @Published public var outcomeStatusesByID: [UUID: WeeklyOutcomeStatus] = [:] {
         didSet {
             guard outcomeStatusesByID != oldValue else { return }
-            handleInteractiveStateChange()
+            handleInteractiveStateChange(mode: .immediate)
         }
     }
     @Published public var wins: String = "" {
         didSet {
             guard wins != oldValue else { return }
-            handleInteractiveStateChange()
+            handleInteractiveStateChange(mode: .debouncedText)
         }
     }
     @Published public var blockers: String = "" {
         didSet {
             guard blockers != oldValue else { return }
-            handleInteractiveStateChange()
+            handleInteractiveStateChange(mode: .debouncedText)
         }
     }
     @Published public var lessons: String = "" {
         didSet {
             guard lessons != oldValue else { return }
-            handleInteractiveStateChange()
+            handleInteractiveStateChange(mode: .debouncedText)
         }
     }
     @Published public var nextWeekPrepNotes: String = "" {
         didSet {
             guard nextWeekPrepNotes != oldValue else { return }
-            handleInteractiveStateChange()
+            handleInteractiveStateChange(mode: .debouncedText)
         }
     }
     @Published public var perceivedWeekRating: Int = 3 {
         didSet {
             guard perceivedWeekRating != oldValue else { return }
-            handleInteractiveStateChange()
+            handleInteractiveStateChange(mode: .debouncedText)
         }
     }
     @Published public var taskDecisions: [UUID: WeeklyReviewTaskDisposition] = [:] {
         didSet {
             guard taskDecisions != oldValue else { return }
-            handleInteractiveStateChange()
+            handleInteractiveStateChange(mode: .immediate)
         }
     }
 
@@ -124,6 +125,7 @@ public final class WeeklyReviewViewModel: ObservableObject {
     private let reflectionNoteRepository: ReflectionNoteRepositoryProtocol
     private let gamificationEngine: GamificationEngine?
     private var autosaveWorkItem: DispatchWorkItem?
+    private var derivedStateDebounceWorkItem: DispatchWorkItem?
     private var renderCache = WeeklyReviewRenderCache()
     private var isHydratingLocalState = false
     private var lastPersistedDraftPayload: WeeklyReviewDraftPayload?
@@ -344,6 +346,7 @@ public final class WeeklyReviewViewModel: ObservableObject {
     }
 
     private func applyLoadedPayload(_ payload: LoadedReviewPayload) {
+        hasLoadedInitialData = true
         snapshot = payload.snapshot
         reflectionNotes = payload.snapshot.reflectionNotes
 
@@ -510,9 +513,29 @@ public final class WeeklyReviewViewModel: ObservableObject {
         footerSnapshot = snapshot
     }
 
-    private func handleInteractiveStateChange() {
-        refreshDerivedState()
+    private enum InteractiveStateRefreshMode {
+        case immediate
+        case debouncedText
+    }
+
+    private func handleInteractiveStateChange(mode: InteractiveStateRefreshMode) {
+        switch mode {
+        case .immediate:
+            derivedStateDebounceWorkItem?.cancel()
+            refreshDerivedState()
+        case .debouncedText:
+            scheduleDerivedStateRefreshDebounced()
+        }
         scheduleDraftAutosaveIfNeeded()
+    }
+
+    private func scheduleDerivedStateRefreshDebounced() {
+        derivedStateDebounceWorkItem?.cancel()
+        let workItem = DispatchWorkItem { [weak self] in
+            self?.refreshDerivedState()
+        }
+        derivedStateDebounceWorkItem = workItem
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.15, execute: workItem)
     }
 
     private func scheduleDraftAutosaveIfNeeded() {
@@ -572,6 +595,7 @@ public final class WeeklyReviewViewModel: ObservableObject {
         decisions: [WeeklyReviewTaskDecision],
         completion: @escaping () -> Void
     ) {
+        derivedStateDebounceWorkItem?.cancel()
         autosaveWorkItem?.cancel()
         draftStore.saveCompletedTaskDecisions(decisions, weekStartDate: weekStartDate) { _ in
             self.draftStore.clearDraft(weekStartDate: self.weekStartDate) { _ in
