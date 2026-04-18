@@ -67,7 +67,20 @@ final class HomeCalendarModuleUITests: XCTestCase {
             accessibilityValueContainsSelected(weekTab),
             "Week tab should be selected after tapping it."
         )
-        XCTAssertFalse(app.buttons["schedule.timeline.toggle"].exists)
+
+        let selectedSummary = app.descendants(matching: .any)["schedule.week.selectedDay"]
+        XCTAssertTrue(
+            waitForElementWithScrolling(selectedSummary, in: app, timeout: 8),
+            "Selected-day summary should render in week mode."
+        )
+        let initialSummary = selectedSummary.label
+
+        let dayChips = app.descendants(matching: .any).matching(NSPredicate(format: "identifier BEGINSWITH %@", "schedule.week.day."))
+        XCTAssertGreaterThanOrEqual(dayChips.count, 2)
+        let alternateDay = dayChips.element(boundBy: 1)
+        tapElement(alternateDay, in: app)
+
+        XCTAssertNotEqual(initialSummary, selectedSummary.label, "Selected day summary should change when week strip selection changes.")
     }
 
     func testScheduleFiltersOpenCustomChooserAndCommitSelection() throws {
@@ -90,7 +103,7 @@ final class HomeCalendarModuleUITests: XCTestCase {
         XCTAssertTrue(scheduleSurfaceIsVisible(in: app, timeout: 8))
     }
 
-    func testScheduleTimelineExpandsInlineAndCollapsesBack() throws {
+    func testScheduleTimelineIsAlwaysExpandedInRedesign() throws {
         let app = launchApp(calendarMode: "active")
 
         openScheduleFromCardOrTimeline(from: app)
@@ -99,14 +112,14 @@ final class HomeCalendarModuleUITests: XCTestCase {
             "Expected active schedule content to render in active mode. Visible states: \(scheduleStateDiagnostics(in: app))"
         )
 
-        let toggle = app.buttons["schedule.timeline.toggle"]
+        let expandedTimeline = app.descendants(matching: .any)["schedule.timeline.expanded"]
         XCTAssertTrue(
-            waitForElementWithScrolling(toggle, in: app, timeout: 8),
-            "Timeline toggle should be discoverable in active schedule mode."
+            waitForElementWithScrolling(expandedTimeline, in: app, timeout: 8),
+            "Expanded timeline should render by default in redesigned schedule mode."
         )
-        tapElement(toggle, in: app)
-        XCTAssertTrue(toggle.exists)
-        tapElement(toggle, in: app)
+
+        let toggle = app.buttons["schedule.timeline.toggle"]
+        XCTAssertFalse(toggle.exists, "Timeline expand/collapse toggle should not be present after redesign.")
 
         XCTAssertTrue(scheduleSurfaceIsVisible(in: app, timeout: 8))
     }
@@ -313,11 +326,6 @@ final class HomeCalendarModuleUITests: XCTestCase {
             return true
         }
 
-        let refresh = app.buttons["schedule.toolbar.refresh"]
-        if refresh.exists {
-            refresh.tap()
-        }
-
         let deadline = Date().addingTimeInterval(timeout)
         while Date() < deadline {
             if hasActiveScheduleSignals(in: app) {
@@ -351,9 +359,9 @@ final class HomeCalendarModuleUITests: XCTestCase {
 
     private func hasActiveScheduleSignals(in app: XCUIApplication) -> Bool {
         let eventRow = app.descendants(matching: .any)["schedule.event.test_meeting_1"]
-        let timelineToggle = app.descendants(matching: .any)["schedule.timeline.toggle"]
+        let expandedTimeline = app.descendants(matching: .any)["schedule.timeline.expanded"]
         let weekDayRows = app.descendants(matching: .any).matching(NSPredicate(format: "identifier BEGINSWITH %@", "schedule.week.day."))
-        return eventRow.exists || timelineToggle.exists || weekDayRows.firstMatch.exists
+        return eventRow.exists || expandedTimeline.exists || weekDayRows.firstMatch.exists
     }
 
     private func scheduleStateDiagnostics(in app: XCUIApplication) -> String {
@@ -368,7 +376,8 @@ final class HomeCalendarModuleUITests: XCTestCase {
             "schedule.permission.state.authorized",
             "schedule.today.empty",
             "schedule.week.empty",
-            "schedule.timeline.compact"
+            "schedule.timeline.expanded",
+            "schedule.timeline.empty"
         ]
         let visible = stateIDs.filter { app.descendants(matching: .any)[$0].exists }
         return visible.isEmpty ? "none" : visible.joined(separator: ", ")

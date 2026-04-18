@@ -2772,6 +2772,37 @@ final class TaskListWidgetSourceContractTests: XCTestCase {
         XCTAssertTrue(source.contains("taskerOpenHabitDetailDeepLink"))
     }
 
+    func testSceneDelegateRegistersWeeklyDeepLinkRoutesAndFallbackNotice() throws {
+        let source = try loadWorkspaceFile("To Do List/SceneDelegate.swift")
+        XCTAssertTrue(source.contains("if host == \"weekly\""))
+        XCTAssertTrue(source.contains("taskerOpenWeeklyPlannerDeepLink"))
+        XCTAssertTrue(source.contains("taskerOpenWeeklyReviewDeepLink"))
+        XCTAssertTrue(source.contains("That weekly destination is unavailable. Opened Home instead."))
+    }
+
+    func testWeekTaskPlannerWidgetRoutesToWeeklyPlannerDeepLink() throws {
+        let routesSource = try loadWorkspaceFile("TaskerWidgets/TaskerWidgetBundle.swift")
+        XCTAssertTrue(routesSource.contains("static var weeklyPlanner: URL { URL(string: \"tasker://weekly/planner\")! }"))
+
+        let widgetSource = try loadWorkspaceFile("TaskerWidgets/TaskWidgetHomeViews.swift")
+        XCTAssertTrue(widgetSource.contains(".widgetURL(TaskWidgetRoutes.weeklyPlanner)"))
+    }
+
+    func testWeeklyPlanningScreensRenderLoadingAndRetryContracts() throws {
+        let plannerSource = try loadWorkspaceFile("To Do List/View/WeeklyPlannerView.swift")
+        XCTAssertTrue(plannerSource.contains("WeeklyBlockingStateCard("))
+        XCTAssertTrue(plannerSource.contains("primaryActionTitle: \"Retry\""))
+
+        let reviewSource = try loadWorkspaceFile("To Do List/View/WeeklyReviewView.swift")
+        XCTAssertTrue(reviewSource.contains("WeeklyReviewBlockingStateCard("))
+        XCTAssertTrue(reviewSource.contains("primaryActionTitle: \"Retry\""))
+
+        let cardSource = try loadWorkspaceFile("To Do List/View/HomeWeeklySummaryCard.swift")
+        XCTAssertTrue(cardSource.contains("isLoading"))
+        XCTAssertTrue(cardSource.contains("errorMessage"))
+        XCTAssertTrue(cardSource.contains("Retry"))
+    }
+
     func testWidgetBundleRegistersFullTaskListCatalogKinds() throws {
         let source = try loadWorkspaceFile("TaskerWidgets/TaskerWidgetBundle.swift")
         let expectedKinds = [
@@ -10479,7 +10510,24 @@ final class SaveWeeklyPlanUseCaseTests: XCTestCase {
     }
 }
 
+private func canonicalISOWeekStart(_ date: Date) -> Date {
+    var calendar = Calendar(identifier: .iso8601)
+    calendar.timeZone = TimeZone(secondsFromGMT: 0) ?? .gmt
+    calendar.locale = Locale(identifier: "en_US_POSIX")
+    return XPCalculationEngine.startOfWeek(for: date, startingOn: .monday, calendar: calendar)
+}
+
+private func isSameCanonicalISOWeek(_ lhs: Date?, _ rhs: Date) -> Bool {
+    guard let lhs else { return false }
+    return canonicalISOWeekStart(lhs) == canonicalISOWeekStart(rhs)
+}
+
 final class WeeklyReviewDraftStoreTests: XCTestCase {
+    private struct LegacyWeeklyReviewLocalStateFile: Codable {
+        var draftsByWeekKey: [String: WeeklyReviewDraft]
+        var completedTaskDecisionsByWeekKey: [String: [WeeklyReviewTaskDecision]]
+    }
+
     func testRoundTripsDraftAndCompletedTaskDecisions() throws {
         let suiteName = "WeeklyReviewDraftStoreTests.\(UUID().uuidString)"
         let defaults = UserDefaults(suiteName: suiteName)!
@@ -10537,6 +10585,142 @@ final class WeeklyReviewDraftStoreTests: XCTestCase {
             store.fetchDraft(weekStartDate: weekStart, completion: completion)
         }
         XCTAssertNil(clearedDraft)
+    }
+
+    func testFetchDraftMigratesLegacyAliasKeyToCanonicalWeekIdentity() throws {
+        let suiteName = "WeeklyReviewDraftStoreTests.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        let storageKey = "tasker.weekly.review.localstate.tests"
+        defer {
+            defaults.removePersistentDomain(forName: suiteName)
+        }
+
+        let referenceDate = Date(timeIntervalSince1970: 1_720_224_000)
+        let legacyWeekStart = XPCalculationEngine.startOfWeek(for: referenceDate, startingOn: .sunday)
+        let canonicalWeekStart = XPCalculationEngine.mondayStartOfWeek(
+            for: referenceDate,
+            calendar: XPCalculationEngine.mondayCalendar()
+        )
+        let taskID = UUID()
+        let outcomeID = UUID()
+        let draft = WeeklyReviewDraft(
+            weekStartDate: legacyWeekStart,
+            wins: "Legacy key",
+            blockers: "Legacy blockers",
+            lessons: "Legacy lessons",
+            nextWeekPrepNotes: "Legacy prep",
+            perceivedWeekRating: 3,
+            taskDecisions: [taskID: .carry],
+            outcomeStatuses: [outcomeID: .completed],
+            updatedAt: referenceDate
+        )
+
+        let legacyKey = isoDateStorageKey(for: legacyWeekStart)
+        let legacyState = LegacyWeeklyReviewLocalStateFile(
+            draftsByWeekKey: [legacyKey: draft],
+            completedTaskDecisionsByWeekKey: [
+                legacyKey: [WeeklyReviewTaskDecision(taskID: taskID, disposition: .carry)]
+            ]
+        )
+        let encoder = JSONEncoder()
+        encoder.dateEncodingStrategy = .iso8601
+        defaults.set(try encoder.encode(legacyState), forKey: storageKey)
+
+        let store = UserDefaultsWeeklyReviewDraftStore(defaults: defaults, storageKey: storageKey)
+
+        let fetchedDraft = try awaitResult { completion in
+            store.fetchDraft(weekStartDate: canonicalWeekStart, completion: completion)
+        }
+        let fetchedDecisions = try awaitResult { completion in
+            store.fetchCompletedTaskDecisions(weekStartDate: canonicalWeekStart, completion: completion)
+        }
+
+        XCTAssertEqual(fetchedDraft?.wins, "Legacy key")
+        XCTAssertTrue(isSameCanonicalISOWeek(fetchedDraft?.weekStartDate, canonicalWeekStart))
+        XCTAssertEqual(fetchedDecisions.first?.disposition, .carry)
+
+        let persisted = try decodeStorageJSON(defaults: defaults, storageKey: storageKey)
+        let draftKeys = Set((persisted["draftsByWeekKey"] as? [String: Any] ?? [:]).keys)
+        let completedKeys = Set((persisted["completedTaskDecisionsByWeekKey"] as? [String: Any] ?? [:]).keys)
+        XCTAssertEqual(draftKeys.count, 1)
+        XCTAssertEqual(completedKeys.count, 1)
+        XCTAssertTrue(draftKeys.allSatisfy { $0.hasPrefix("iso:") })
+        XCTAssertTrue(completedKeys.allSatisfy { $0.hasPrefix("iso:") })
+        XCTAssertFalse(draftKeys.contains(legacyKey))
+        XCTAssertFalse(completedKeys.contains(legacyKey))
+    }
+
+    func testDraftStorePrunesToMostRecentTwentySixWeeks() throws {
+        let suiteName = "WeeklyReviewDraftStoreTests.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        let storageKey = "tasker.weekly.review.localstate.tests"
+        let store = UserDefaultsWeeklyReviewDraftStore(defaults: defaults, storageKey: storageKey)
+        defer {
+            defaults.removePersistentDomain(forName: suiteName)
+        }
+
+        let referenceWeek = XPCalculationEngine.mondayStartOfWeek(
+            for: Date(timeIntervalSince1970: 1_720_224_000),
+            calendar: XPCalculationEngine.mondayCalendar()
+        )
+        let calendar = Calendar(identifier: .gregorian)
+
+        for offset in 0..<30 {
+            let weekStart = calendar.date(byAdding: .weekOfYear, value: -offset, to: referenceWeek) ?? referenceWeek
+            let draft = WeeklyReviewDraft(
+                weekStartDate: weekStart,
+                wins: "Week \(offset)",
+                blockers: nil,
+                lessons: nil,
+                nextWeekPrepNotes: nil,
+                perceivedWeekRating: 4,
+                taskDecisions: [:],
+                outcomeStatuses: [:],
+                updatedAt: weekStart.addingTimeInterval(Double(offset))
+            )
+            _ = try awaitResult { completion in
+                store.saveDraft(draft, completion: completion)
+            }
+            _ = try awaitResult { completion in
+                store.saveCompletedTaskDecisions(
+                    [WeeklyReviewTaskDecision(taskID: UUID(), disposition: .later)],
+                    weekStartDate: weekStart,
+                    completion: completion
+                )
+            }
+        }
+
+        let persisted = try decodeStorageJSON(defaults: defaults, storageKey: storageKey)
+        let draftKeys = Set((persisted["draftsByWeekKey"] as? [String: Any] ?? [:]).keys)
+        let completedKeys = Set((persisted["completedTaskDecisionsByWeekKey"] as? [String: Any] ?? [:]).keys)
+        XCTAssertEqual(draftKeys.count, 26)
+        XCTAssertEqual(completedKeys.count, 26)
+        XCTAssertTrue(draftKeys.allSatisfy { $0.hasPrefix("iso:") })
+        XCTAssertTrue(completedKeys.allSatisfy { $0.hasPrefix("iso:") })
+
+        let prunedWeekStart = calendar.date(byAdding: .weekOfYear, value: -29, to: referenceWeek) ?? referenceWeek
+        let keptWeekStart = calendar.date(byAdding: .weekOfYear, value: -25, to: referenceWeek) ?? referenceWeek
+        let prunedDraft = try awaitResult { completion in
+            store.fetchDraft(weekStartDate: prunedWeekStart, completion: completion)
+        }
+        let keptDraft = try awaitResult { completion in
+            store.fetchDraft(weekStartDate: keptWeekStart, completion: completion)
+        }
+        XCTAssertNil(prunedDraft)
+        XCTAssertNotNil(keptDraft)
+    }
+
+    private func isoDateStorageKey(for date: Date) -> String {
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime]
+        formatter.timeZone = TimeZone(secondsFromGMT: 0)
+        return formatter.string(from: date)
+    }
+
+    private func decodeStorageJSON(defaults: UserDefaults, storageKey: String) throws -> [String: Any] {
+        let data = try XCTUnwrap(defaults.data(forKey: storageKey))
+        let object = try JSONSerialization.jsonObject(with: data)
+        return try XCTUnwrap(object as? [String: Any])
     }
 }
 
@@ -10631,7 +10815,7 @@ final class CoreDataWeeklyReviewMutationRepositoryTests: XCTestCase {
         })
         XCTAssertEqual(updatedTask.planningBucket, .later)
         XCTAssertNil(updatedTask.weeklyOutcomeID)
-        XCTAssertEqual(updatedTask.deferredFromWeekStart, weekStart)
+        XCTAssertTrue(isSameCanonicalISOWeek(updatedTask.deferredFromWeekStart, weekStart))
         XCTAssertEqual(updatedTask.deferredCount, 0)
 
         let updatedOutcomes = try awaitResult { completion in
@@ -10798,6 +10982,122 @@ final class CoreDataWeeklyReviewMutationRepositoryTests: XCTestCase {
             outcomeRepository.fetchOutcomes(weeklyPlanID: savedPlan.id, completion: completion)
         }
         XCTAssertEqual(outcomes.first?.status, .dropped)
+    }
+
+    func testFinalizeReviewCarryDecisionIsIdempotentForSameWeek() throws {
+        let container = try makeWeeklyContainer()
+        let taskRepository = CoreDataTaskDefinitionRepository(container: container)
+        let planRepository = CoreDataWeeklyPlanRepository(container: container)
+        let mutationRepository = CoreDataWeeklyReviewMutationRepository(container: container)
+        let weekStart = XPCalculationEngine.mondayStartOfWeek(
+            for: Date(timeIntervalSince1970: 1_720_224_000),
+            calendar: XPCalculationEngine.mondayCalendar()
+        )
+
+        let plan = WeeklyPlan(
+            weekStartDate: weekStart,
+            weekEndDate: Calendar(identifier: .gregorian).date(byAdding: .day, value: 6, to: weekStart) ?? weekStart,
+            reviewStatus: .ready,
+            createdAt: weekStart,
+            updatedAt: weekStart
+        )
+        let savedPlan = try awaitResult { completion in
+            planRepository.savePlan(plan, completion: completion)
+        }
+        let task = TaskDefinition(
+            title: "Carry me once",
+            planningBucket: .thisWeek,
+            createdAt: weekStart,
+            updatedAt: weekStart
+        )
+        let savedTask = try awaitResult { completion in
+            taskRepository.create(task, completion: completion)
+        }
+
+        let request = CompleteWeeklyReviewRequest(
+            weeklyPlanID: savedPlan.id,
+            taskDecisions: [WeeklyReviewTaskDecision(taskID: savedTask.id, disposition: .carry)],
+            completedAt: weekStart.addingTimeInterval(3600)
+        )
+        _ = try awaitResult { completion in
+            mutationRepository.finalizeReview(request: request, completion: completion)
+        }
+
+        let afterFirstPass = try XCTUnwrap(try awaitResult { completion in
+            taskRepository.fetchTaskDefinition(id: savedTask.id, completion: completion)
+        })
+        XCTAssertEqual(afterFirstPass.deferredCount, 1)
+        XCTAssertTrue(isSameCanonicalISOWeek(afterFirstPass.deferredFromWeekStart, weekStart))
+
+        _ = try awaitResult { completion in
+            mutationRepository.finalizeReview(
+                request: CompleteWeeklyReviewRequest(
+                    weeklyPlanID: savedPlan.id,
+                    taskDecisions: [WeeklyReviewTaskDecision(taskID: savedTask.id, disposition: .carry)],
+                    completedAt: weekStart.addingTimeInterval(7200)
+                ),
+                completion: completion
+            )
+        }
+
+        let afterSecondPass = try XCTUnwrap(try awaitResult { completion in
+            taskRepository.fetchTaskDefinition(id: savedTask.id, completion: completion)
+        })
+        XCTAssertEqual(afterSecondPass.deferredCount, 1)
+    }
+
+    func testFetchPlanMigratesLegacyWeekStartAliasToCanonicalIdentity() throws {
+        let container = try makeWeeklyContainer()
+        let planRepository = CoreDataWeeklyPlanRepository(container: container)
+        let referenceDate = Date(timeIntervalSince1970: 1_720_224_000)
+        let canonicalWeekStart = XPCalculationEngine.mondayStartOfWeek(
+            for: referenceDate,
+            calendar: XPCalculationEngine.mondayCalendar()
+        )
+        let legacyWeekStart = XPCalculationEngine.startOfWeek(for: referenceDate, startingOn: .sunday)
+        let planID = UUID()
+        let createdAt = referenceDate.addingTimeInterval(-120)
+        let updatedAt = referenceDate.addingTimeInterval(-60)
+
+        var insertionError: Error?
+        container.viewContext.performAndWait {
+            do {
+                let object = NSEntityDescription.insertNewObject(forEntityName: "WeeklyPlan", into: container.viewContext)
+                object.setValue(planID, forKey: "id")
+                object.setValue(legacyWeekStart, forKey: "weekStartDate")
+                object.setValue(
+                    Calendar(identifier: .gregorian).date(byAdding: .day, value: 6, to: legacyWeekStart),
+                    forKey: "weekEndDate"
+                )
+                object.setValue("Legacy keyed plan", forKey: "focusStatement")
+                object.setValue([], forKey: "selectedHabitIDs")
+                object.setValue(WeeklyPlanReviewStatus.ready.rawValue, forKey: "reviewStatus")
+                object.setValue(createdAt, forKey: "createdAt")
+                object.setValue(updatedAt, forKey: "updatedAt")
+                try container.viewContext.save()
+            } catch {
+                insertionError = error
+            }
+        }
+        if let insertionError {
+            throw insertionError
+        }
+
+        let fetchedFromLegacyStart = try awaitResult { completion in
+            planRepository.fetchPlan(forWeekStarting: legacyWeekStart, completion: completion)
+        }
+        let fetchedFromCanonicalStart = try awaitResult { completion in
+            planRepository.fetchPlan(forWeekStarting: canonicalWeekStart, completion: completion)
+        }
+
+        XCTAssertEqual(fetchedFromLegacyStart?.id, planID)
+        XCTAssertEqual(fetchedFromCanonicalStart?.id, planID)
+        XCTAssertTrue(isSameCanonicalISOWeek(fetchedFromLegacyStart?.weekStartDate, canonicalWeekStart))
+
+        let persisted = try awaitResult { completion in
+            planRepository.fetchPlan(id: planID, completion: completion)
+        }
+        XCTAssertTrue(isSameCanonicalISOWeek(persisted?.weekStartDate, canonicalWeekStart))
     }
 
     private func makeWeeklyContainer() throws -> NSPersistentContainer {

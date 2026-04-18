@@ -271,6 +271,28 @@ final class HomeChromeSnapshotPresentationTests: XCTestCase {
         XCTAssertNil(presentation.xpProgress)
     }
 
+    func testCustomDateTodayPresentationSuppressesBackToTodayAsSafetyFallback() {
+        let today = Calendar.current.startOfDay(for: Date())
+        let snapshot = HomeChromeSnapshot(
+            selectedDate: today,
+            activeScope: .customDate(today),
+            activeFilterState: .default,
+            savedHomeViews: [],
+            quickViewCounts: [:],
+            progressState: .empty,
+            dailyScore: 0,
+            completionRate: 0,
+            weeklySummary: nil,
+            projects: [],
+            reflectionEligible: true,
+            momentumGuidanceText: ""
+        )
+
+        let presentation = snapshot.homeHeaderPresentation(tasks: .empty)
+
+        XCTAssertFalse(presentation.showsBackToToday)
+    }
+
     func testOverduePresentationUsesTaskOnlyScopedSummary() {
         let snapshot = HomeChromeSnapshot(
             selectedDate: Calendar.current.startOfDay(for: Date()),

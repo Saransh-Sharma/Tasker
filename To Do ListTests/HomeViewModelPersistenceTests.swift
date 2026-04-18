@@ -1857,6 +1857,40 @@ final class HomeViewModelPersistenceTests: XCTestCase {
         XCTAssertEqual(harness.viewModel.focusNowSectionState.rows.map(\.title), ["Overdue B"])
     }
 
+    func testRefreshCurrentScopeContentKeepsTodayScopeStable() {
+        let suiteName = "HomeViewModelPersistenceTests.ScopeStableAfterHabitDetailMutation.\(UUID().uuidString)"
+        guard let defaults = UserDefaults(suiteName: suiteName) else {
+            return XCTFail("Failed to create test UserDefaults suite")
+        }
+        defaults.removePersistentDomain(forName: suiteName)
+
+        let inbox = Project.createInbox()
+        let taskRepository = HomeViewModelMockTaskRepository(
+            tasks: [makeTask(name: "Scope Stability Task", project: inbox, dueDate: Date())]
+        )
+        let projectRepository = HomeViewModelMockProjectRepository(projects: [inbox])
+        let coordinator = UseCaseCoordinator(
+            taskRepository: taskRepository,
+            projectRepository: projectRepository
+        )
+        let viewModel = HomeViewModel(useCaseCoordinator: coordinator, userDefaults: defaults)
+        waitForMainQueueFlush()
+
+        viewModel.setQuickView(.today)
+        waitForMainQueueFlush()
+
+        XCTAssertEqual(viewModel.activeScope, .today)
+        let baselineSelectedDate = viewModel.selectedDate
+
+        viewModel.refreshCurrentScopeContent(source: "test_habit_detail_mutation")
+        waitForMainQueueFlush(seconds: 0.45)
+
+        XCTAssertEqual(viewModel.activeScope, .today)
+        XCTAssertTrue(Calendar.current.isDate(viewModel.selectedDate, inSameDayAs: baselineSelectedDate))
+
+        defaults.removePersistentDomain(forName: suiteName)
+    }
+
     private func rescueTailState(from viewModel: HomeViewModel) -> RescueTailState? {
         viewModel.agendaTailItems.compactMap { item in
             guard case .rescue(let state) = item else { return nil }
