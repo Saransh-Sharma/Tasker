@@ -126,6 +126,8 @@ public enum TaskerNotificationActionID: String, Codable, CaseIterable {
     case complete = "tasker.action.complete"
     case snooze15m = "tasker.action.snooze_15m"
     case openToday = "tasker.action.open_today"
+    case openWeeklyPlanner = "tasker.action.open_weekly_planner"
+    case openWeeklyReview = "tasker.action.open_weekly_review"
     case snooze30m = "tasker.action.snooze_30m"
     case openDone = "tasker.action.open_done"
     case snooze60m = "tasker.action.snooze_60m"
@@ -148,6 +150,8 @@ public enum TaskerNotificationRoute: Equatable, Codable {
     case homeToday(taskID: UUID?)
     case homeDone
     case taskDetail(taskID: UUID)
+    case weeklyPlanner
+    case weeklyReview
     case dailySummary(kind: TaskerDailySummaryKind, dateStamp: String?)
 
     public var payload: String {
@@ -161,6 +165,10 @@ public enum TaskerNotificationRoute: Equatable, Codable {
             return "home_done"
         case .taskDetail(let taskID):
             return "task_detail:\(taskID.uuidString)"
+        case .weeklyPlanner:
+            return "weekly_planner"
+        case .weeklyReview:
+            return "weekly_review"
         case .dailySummary(let kind, let dateStamp):
             if let dateStamp, dateStamp.isEmpty == false {
                 return "daily_summary:\(kind.rawValue):\(dateStamp)"
@@ -177,6 +185,8 @@ public enum TaskerNotificationRoute: Equatable, Codable {
             return nil
         case .taskDetail(let taskID):
             return taskID
+        case .weeklyPlanner, .weeklyReview:
+            return nil
         case .dailySummary:
             return nil
         }
@@ -195,6 +205,12 @@ public enum TaskerNotificationRoute: Equatable, Codable {
         }
         if payload == "home_done" {
             return .homeDone
+        }
+        if payload == "weekly_planner" {
+            return .weeklyPlanner
+        }
+        if payload == "weekly_review" {
+            return .weeklyReview
         }
         if payload.hasPrefix("task_detail:") {
             let value = String(payload.dropFirst("task_detail:".count))

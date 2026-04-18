@@ -250,6 +250,11 @@ public enum TaskerNotificationCategories {
             title: "Open Today",
             options: [.foreground]
         )
+        let planWeekAction = UNNotificationAction(
+            identifier: TaskerNotificationActionID.openWeeklyPlanner.rawValue,
+            title: "Plan Week",
+            options: [.foreground]
+        )
         let snooze30Action = UNNotificationAction(
             identifier: TaskerNotificationActionID.snooze30m.rawValue,
             title: "Snooze 30m",
@@ -257,7 +262,7 @@ public enum TaskerNotificationCategories {
         )
         let morningCategory = UNNotificationCategory(
             identifier: TaskerNotificationCategoryID.dailyMorning.rawValue,
-            actions: [openTodayAction, snooze30Action],
+            actions: [openTodayAction, planWeekAction, snooze30Action],
             intentIdentifiers: [],
             options: []
         )
@@ -267,6 +272,11 @@ public enum TaskerNotificationCategories {
             title: "Open Done",
             options: [.foreground]
         )
+        let reviewWeekAction = UNNotificationAction(
+            identifier: TaskerNotificationActionID.openWeeklyReview.rawValue,
+            title: "Review Week",
+            options: [.foreground]
+        )
         let snooze60Action = UNNotificationAction(
             identifier: TaskerNotificationActionID.snooze60m.rawValue,
             title: "Snooze 60m",
@@ -274,7 +284,7 @@ public enum TaskerNotificationCategories {
         )
         let nightlyCategory = UNNotificationCategory(
             identifier: TaskerNotificationCategoryID.dailyNightly.rawValue,
-            actions: [openDoneAction, snooze60Action],
+            actions: [openDoneAction, reviewWeekAction, snooze60Action],
             intentIdentifiers: [],
             options: []
         )
@@ -373,6 +383,14 @@ public final class TaskerNotificationActionHandler {
         case .openToday:
             routeBus.post(route: .homeToday(taskID: taskID(from: request)))
             logWarning(event: "notification_opened", message: "Opened today from action", fields: ["id": request.identifier])
+            finish()
+        case .openWeeklyPlanner:
+            routeBus.post(route: .weeklyPlanner)
+            logWarning(event: "notification_opened", message: "Opened weekly planner from action", fields: ["id": request.identifier])
+            finish()
+        case .openWeeklyReview:
+            routeBus.post(route: .weeklyReview)
+            logWarning(event: "notification_opened", message: "Opened weekly review from action", fields: ["id": request.identifier])
             finish()
         case .openDone:
             routeBus.post(route: .homeDone)
