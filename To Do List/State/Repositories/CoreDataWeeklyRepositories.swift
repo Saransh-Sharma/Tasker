@@ -2,15 +2,116 @@ import CoreData
 import Foundation
 
 private enum WeeklyRepositoryCalendar {
+    struct WeekIdentity: Hashable {
+        let isoYear: Int
+        let isoWeek: Int
+        let canonicalStartUTC: Date
+
+        var storageKey: String {
+            String(format: "iso:%04d-W%02d", isoYear, isoWeek)
+        }
+    }
+
+    private static let storageDateFormatter: ISO8601DateFormatter = {
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime]
+        formatter.timeZone = TimeZone(secondsFromGMT: 0)
+        return formatter
+    }()
+
+    private static var canonicalCalendar: Calendar {
+        var calendar = Calendar(identifier: .iso8601)
+        calendar.timeZone = TimeZone(secondsFromGMT: 0) ?? .gmt
+        calendar.locale = Locale(identifier: "en_US_POSIX")
+        return calendar
+    }
+
     static func normalizedWeekStart(for date: Date) -> Date {
-        let weekStartsOn = TaskerWorkspacePreferencesStore.shared.load().weekStartsOn
-        return XPCalculationEngine.startOfWeek(for: date, startingOn: weekStartsOn)
+        canonicalWeekStart(for: date)
     }
 
     static func normalizedWeekEnd(for weekStartDate: Date) -> Date {
-        let weekStartsOn = TaskerWorkspacePreferencesStore.shared.load().weekStartsOn
-        let normalizedStart = normalizedWeekStart(for: weekStartDate)
-        return XPCalculationEngine.endOfWeek(for: normalizedStart, startingOn: weekStartsOn)
+        canonicalWeekEnd(for: weekStartDate)
+    }
+
+    static func canonicalWeekStart(for date: Date) -> Date {
+        XPCalculationEngine.startOfWeek(
+            for: date,
+            startingOn: .monday,
+            calendar: canonicalCalendar
+        )
+    }
+
+    static func canonicalWeekEnd(for weekStartDate: Date) -> Date {
+        XPCalculationEngine.endOfWeek(
+            for: canonicalWeekStart(for: weekStartDate),
+            startingOn: .monday,
+            calendar: canonicalCalendar
+        )
+    }
+
+    static func identity(for date: Date) -> WeekIdentity {
+        let canonicalStart = canonicalWeekStart(for: date)
+        let components = canonicalCalendar.dateComponents([.yearForWeekOfYear, .weekOfYear], from: canonicalStart)
+        return WeekIdentity(
+            isoYear: components.yearForWeekOfYear ?? 0,
+            isoWeek: components.weekOfYear ?? 0,
+            canonicalStartUTC: canonicalStart
+        )
+    }
+
+    static func legacyWeekStarts(for date: Date) -> [Date] {
+        let calendar = Calendar.autoupdatingCurrent
+        let canonicalStart = canonicalWeekStart(for: date)
+        let values = Weekday.allCases.map {
+            XPCalculationEngine.startOfWeek(for: date, startingOn: $0)
+        }
+        return Array(Set(values)).filter { !calendar.isDate($0, inSameDayAs: canonicalStart) }
+    }
+
+    static func isSameCanonicalWeek(_ lhs: Date, _ rhs: Date) -> Bool {
+        let calendar = Calendar.autoupdatingCurrent
+        return calendar.isDate(canonicalWeekStart(for: lhs), inSameDayAs: canonicalWeekStart(for: rhs))
+    }
+
+    static func weekKeyAliases(for weekStartDate: Date) -> [String] {
+        var keys = Set<String>()
+        let identity = identity(for: weekStartDate)
+        keys.insert(identity.storageKey)
+        keys.insert(storageDateFormatter.string(from: identity.canonicalStartUTC))
+        keys.insert(storageDateFormatter.string(from: canonicalWeekStart(for: weekStartDate)))
+        legacyWeekStarts(for: weekStartDate).forEach { keys.insert(storageDateFormatter.string(from: $0)) }
+        return Array(keys)
+    }
+
+    static func canonicalWeekStart(forStorageKey key: String) -> Date? {
+        if key.hasPrefix("iso:") {
+            let value = String(key.dropFirst("iso:".count))
+            let components = value.split(separator: "-W", maxSplits: 1).map(String.init)
+            if components.count == 2,
+               let year = Int(components[0]),
+               let week = Int(components[1]) {
+                var dateComponents = DateComponents()
+                dateComponents.calendar = canonicalCalendar
+                dateComponents.timeZone = TimeZone(secondsFromGMT: 0)
+                dateComponents.yearForWeekOfYear = year
+                dateComponents.weekOfYear = week
+                dateComponents.weekday = 2
+                if let date = canonicalCalendar.date(from: dateComponents) {
+                    return canonicalWeekStart(for: date)
+                }
+            }
+        }
+
+        if let parsed = storageDateFormatter.date(from: key) {
+            return canonicalWeekStart(for: parsed)
+        }
+
+        return nil
+    }
+
+    static func canonicalStorageKey(for weekStartDate: Date) -> String {
+        identity(for: weekStartDate).storageKey
     }
 }
 
@@ -40,16 +141,42 @@ public final class CoreDataWeeklyPlanRepository: WeeklyPlanRepositoryProtocol {
     }
 
     public func fetchPlan(forWeekStarting weekStartDate: Date, completion: @escaping (Result<WeeklyPlan?, Error>) -> Void) {
-        let normalizedWeekStart = WeeklyRepositoryCalendar.normalizedWeekStart(for: weekStartDate)
+        let canonicalWeekStart = WeeklyRepositoryCalendar.normalizedWeekStart(for: weekStartDate)
         viewContext.perform {
             do {
-                let object = try V2CoreDataRepositorySupport.canonicalObject(
+                if let object = try V2CoreDataRepositorySupport.canonicalObject(
                     in: self.viewContext,
                     entityName: "WeeklyPlan",
-                    predicate: NSPredicate(format: "weekStartDate == %@", normalizedWeekStart as NSDate),
+                    predicate: NSPredicate(format: "weekStartDate == %@", canonicalWeekStart as NSDate),
+                    sort: [NSSortDescriptor(key: "createdAt", ascending: true)]
+                ) {
+                    completion(.success(Self.mapWeeklyPlan(object)))
+                    return
+                }
+
+                let legacyStarts = WeeklyRepositoryCalendar.legacyWeekStarts(for: weekStartDate)
+                guard legacyStarts.isEmpty == false else {
+                    completion(.success(nil))
+                    return
+                }
+
+                let legacyObjects = try V2CoreDataRepositorySupport.fetchObjects(
+                    in: self.viewContext,
+                    entityName: "WeeklyPlan",
+                    predicate: NSPredicate(format: "weekStartDate IN %@", legacyStarts as NSArray),
                     sort: [NSSortDescriptor(key: "createdAt", ascending: true)]
                 )
-                completion(.success(object.map(Self.mapWeeklyPlan)))
+                guard let legacyObject = legacyObjects.first else {
+                    completion(.success(nil))
+                    return
+                }
+
+                Self.migrateLegacyPlanObject(
+                    legacyObject,
+                    canonicalWeekStart: canonicalWeekStart,
+                    in: self.viewContext
+                )
+                completion(.success(Self.mapWeeklyPlan(legacyObject)))
             } catch {
                 completion(.failure(error))
             }
@@ -57,20 +184,38 @@ public final class CoreDataWeeklyPlanRepository: WeeklyPlanRepositoryProtocol {
     }
 
     public func fetchPlans(from startDate: Date, to endDate: Date, completion: @escaping (Result<[WeeklyPlan], Error>) -> Void) {
-        let normalizedStart = WeeklyRepositoryCalendar.normalizedWeekStart(for: startDate)
-        let normalizedEnd = WeeklyRepositoryCalendar.normalizedWeekStart(for: endDate)
+        let canonicalStart = WeeklyRepositoryCalendar.normalizedWeekStart(for: startDate)
+        let canonicalEnd = WeeklyRepositoryCalendar.normalizedWeekStart(for: endDate)
+        let calendar = Calendar.autoupdatingCurrent
+        let widenedStart = calendar.date(byAdding: .day, value: -6, to: canonicalStart) ?? canonicalStart
+        let widenedEnd = calendar.date(byAdding: .day, value: 6, to: canonicalEnd) ?? canonicalEnd
         viewContext.perform {
             do {
                 let objects = try V2CoreDataRepositorySupport.fetchObjects(
                     in: self.viewContext,
                     entityName: "WeeklyPlan",
                     predicate: NSCompoundPredicate(andPredicateWithSubpredicates: [
-                        NSPredicate(format: "weekStartDate >= %@", normalizedStart as NSDate),
-                        NSPredicate(format: "weekStartDate <= %@", normalizedEnd as NSDate)
+                        NSPredicate(format: "weekStartDate >= %@", widenedStart as NSDate),
+                        NSPredicate(format: "weekStartDate <= %@", widenedEnd as NSDate)
                     ]),
-                    sort: [NSSortDescriptor(key: "weekStartDate", ascending: true)]
+                    sort: [
+                        NSSortDescriptor(key: "weekStartDate", ascending: true),
+                        NSSortDescriptor(key: "createdAt", ascending: true)
+                    ]
                 )
-                completion(.success(objects.map(Self.mapWeeklyPlan)))
+                var dedupedPlansByCanonicalStart: [Date: WeeklyPlan] = [:]
+                for object in objects {
+                    let plan = Self.mapWeeklyPlan(object)
+                    let canonicalPlanStart = WeeklyRepositoryCalendar.normalizedWeekStart(for: plan.weekStartDate)
+                    if dedupedPlansByCanonicalStart[canonicalPlanStart] == nil {
+                        dedupedPlansByCanonicalStart[canonicalPlanStart] = plan
+                    }
+                }
+
+                let plans = dedupedPlansByCanonicalStart.values
+                    .filter { $0.weekStartDate >= canonicalStart && $0.weekStartDate <= canonicalEnd }
+                    .sorted { $0.weekStartDate < $1.weekStartDate }
+                completion(.success(plans))
             } catch {
                 completion(.failure(error))
             }
@@ -124,6 +269,33 @@ public final class CoreDataWeeklyPlanRepository: WeeklyPlanRepositoryProtocol {
         object.setValue(plan.reviewStatus.rawValue, forKey: "reviewStatus")
         object.setValue(plan.createdAt, forKey: "createdAt")
         object.setValue(Date(), forKey: "updatedAt")
+    }
+
+    private static func migrateLegacyPlanObject(
+        _ object: NSManagedObject,
+        canonicalWeekStart: Date,
+        in context: NSManagedObjectContext
+    ) {
+        let existingStart = (object.value(forKey: "weekStartDate") as? Date) ?? canonicalWeekStart
+        let calendar = Calendar.autoupdatingCurrent
+        guard calendar.isDate(existingStart, inSameDayAs: canonicalWeekStart) == false else {
+            return
+        }
+
+        object.setValue(canonicalWeekStart, forKey: "weekStartDate")
+        object.setValue(WeeklyRepositoryCalendar.normalizedWeekEnd(for: canonicalWeekStart), forKey: "weekEndDate")
+        object.setValue(Date(), forKey: "updatedAt")
+        do {
+            if context.hasChanges {
+                try context.save()
+            }
+        } catch {
+            logWarning(
+                event: "weekly_plan_legacy_migration_failed",
+                message: "Failed to migrate legacy weekly plan key to canonical identity",
+                fields: ["error": error.localizedDescription]
+            )
+        }
     }
 }
 
@@ -596,10 +768,16 @@ public final class CoreDataWeeklyReviewMutationRepository: WeeklyReviewMutationR
         taskObjectsByID: [UUID: NSManagedObject],
         weekStartDate: Date
     ) throws {
+        let canonicalWeekStart = WeeklyRepositoryCalendar.normalizedWeekStart(for: weekStartDate)
         for decision in decisions {
             guard let taskObject = taskObjectsByID[decision.taskID] else { continue }
 
             let existingDeferredCount = max(0, Int((taskObject.value(forKey: "deferredCount") as? Int32) ?? 0))
+            let existingDeferredFromWeekStart = (taskObject.value(forKey: "deferredFromWeekStart") as? Date)
+                .map(WeeklyRepositoryCalendar.normalizedWeekStart(for:))
+            let isRepeatedCarryForSameWeek = decision.disposition == .carry
+                && existingDeferredFromWeekStart.map { WeeklyRepositoryCalendar.isSameCanonicalWeek($0, canonicalWeekStart) } == true
+            let nextDeferredCount = existingDeferredCount + ((decision.disposition == .carry && !isRepeatedCarryForSameWeek) ? 1 : 0)
             let updateRequest = UpdateTaskDefinitionRequest(
                 id: decision.taskID,
                 planningBucket: {
@@ -612,9 +790,9 @@ public final class CoreDataWeeklyReviewMutationRepository: WeeklyReviewMutationR
                 }(),
                 weeklyOutcomeID: nil,
                 clearWeeklyOutcomeLink: true,
-                deferredFromWeekStart: weekStartDate,
+                deferredFromWeekStart: canonicalWeekStart,
                 clearDeferredFromWeekStart: false,
-                deferredCount: existingDeferredCount + (decision.disposition == .carry ? 1 : 0),
+                deferredCount: nextDeferredCount,
                 updatedAt: Date()
             )
             TaskDefinitionMutationApplier.applyUpdateRequest(updateRequest, to: taskObject)
@@ -715,10 +893,12 @@ public final class CoreDataWeeklyReviewMutationRepository: WeeklyReviewMutationR
 }
 
 public final class UserDefaultsWeeklyReviewDraftStore: WeeklyReviewDraftStoreProtocol {
-    private struct WeeklyReviewLocalStateFile: Codable {
+    private struct WeeklyReviewLocalStateFile: Codable, Equatable {
         var draftsByWeekKey: [String: WeeklyReviewDraft]
         var completedTaskDecisionsByWeekKey: [String: [WeeklyReviewTaskDecision]]
     }
+
+    private static let maxStoredWeeks = 26
 
     private let defaults: UserDefaults
     private let storageKey: String
@@ -729,6 +909,7 @@ public final class UserDefaultsWeeklyReviewDraftStore: WeeklyReviewDraftStorePro
     ) {
         self.defaults = defaults
         self.storageKey = storageKey
+        normalizePersistedStateIfNeeded()
     }
 
     public func fetchDraft(
@@ -736,8 +917,24 @@ public final class UserDefaultsWeeklyReviewDraftStore: WeeklyReviewDraftStorePro
         completion: @escaping (Result<WeeklyReviewDraft?, Error>) -> Void
     ) {
         do {
-            let file = try loadState()
-            completion(.success(file.draftsByWeekKey[Self.weekKey(for: weekStartDate)]))
+            var file = normalizeAndPrune(try loadState())
+            let canonicalKey = Self.weekKey(for: weekStartDate)
+            if let draft = file.draftsByWeekKey[canonicalKey] {
+                completion(.success(draft))
+                return
+            }
+
+            let legacyKey = Self.legacyWeekKeys(for: weekStartDate).first { file.draftsByWeekKey[$0] != nil }
+            if let legacyKey, let legacyDraft = file.draftsByWeekKey[legacyKey] {
+                let normalizedDraft = Self.normalizeDraft(legacyDraft)
+                file.draftsByWeekKey[legacyKey] = nil
+                file.draftsByWeekKey[canonicalKey] = normalizedDraft
+                try persist(file)
+                completion(.success(normalizedDraft))
+                return
+            }
+
+            completion(.success(nil))
         } catch {
             completion(.failure(error))
         }
@@ -748,18 +945,8 @@ public final class UserDefaultsWeeklyReviewDraftStore: WeeklyReviewDraftStorePro
         completion: @escaping (Result<WeeklyReviewDraft, Error>) -> Void
     ) {
         do {
-            var file = try loadState()
-            let normalizedDraft = WeeklyReviewDraft(
-                weekStartDate: WeeklyRepositoryCalendar.normalizedWeekStart(for: draft.weekStartDate),
-                wins: draft.wins,
-                blockers: draft.blockers,
-                lessons: draft.lessons,
-                nextWeekPrepNotes: draft.nextWeekPrepNotes,
-                perceivedWeekRating: draft.perceivedWeekRating,
-                taskDecisions: draft.taskDecisions,
-                outcomeStatuses: draft.outcomeStatuses,
-                updatedAt: draft.updatedAt
-            )
+            var file = normalizeAndPrune(try loadState())
+            let normalizedDraft = Self.normalizeDraft(draft)
             file.draftsByWeekKey[Self.weekKey(for: normalizedDraft.weekStartDate)] = normalizedDraft
             try persist(file)
             completion(.success(normalizedDraft))
@@ -773,8 +960,10 @@ public final class UserDefaultsWeeklyReviewDraftStore: WeeklyReviewDraftStorePro
         completion: @escaping (Result<Void, Error>) -> Void
     ) {
         do {
-            var file = try loadState()
-            file.draftsByWeekKey.removeValue(forKey: Self.weekKey(for: weekStartDate))
+            var file = normalizeAndPrune(try loadState())
+            for key in Self.allWeekKeys(for: weekStartDate) {
+                file.draftsByWeekKey.removeValue(forKey: key)
+            }
             try persist(file)
             completion(.success(()))
         } catch {
@@ -787,8 +976,23 @@ public final class UserDefaultsWeeklyReviewDraftStore: WeeklyReviewDraftStorePro
         completion: @escaping (Result<[WeeklyReviewTaskDecision], Error>) -> Void
     ) {
         do {
-            let file = try loadState()
-            completion(.success(file.completedTaskDecisionsByWeekKey[Self.weekKey(for: weekStartDate)] ?? []))
+            var file = normalizeAndPrune(try loadState())
+            let canonicalKey = Self.weekKey(for: weekStartDate)
+            if let decisions = file.completedTaskDecisionsByWeekKey[canonicalKey] {
+                completion(.success(decisions))
+                return
+            }
+
+            let legacyKey = Self.legacyWeekKeys(for: weekStartDate).first { file.completedTaskDecisionsByWeekKey[$0] != nil }
+            if let legacyKey, let decisions = file.completedTaskDecisionsByWeekKey[legacyKey] {
+                file.completedTaskDecisionsByWeekKey[legacyKey] = nil
+                file.completedTaskDecisionsByWeekKey[canonicalKey] = decisions
+                try persist(file)
+                completion(.success(decisions))
+                return
+            }
+
+            completion(.success([]))
         } catch {
             completion(.failure(error))
         }
@@ -800,7 +1004,7 @@ public final class UserDefaultsWeeklyReviewDraftStore: WeeklyReviewDraftStorePro
         completion: @escaping (Result<[WeeklyReviewTaskDecision], Error>) -> Void
     ) {
         do {
-            var file = try loadState()
+            var file = normalizeAndPrune(try loadState())
             let normalized = decisions.sorted { $0.taskID.uuidString < $1.taskID.uuidString }
             file.completedTaskDecisionsByWeekKey[Self.weekKey(for: weekStartDate)] = normalized
             try persist(file)
@@ -820,13 +1024,112 @@ public final class UserDefaultsWeeklyReviewDraftStore: WeeklyReviewDraftStorePro
     }
 
     private func persist(_ file: WeeklyReviewLocalStateFile) throws {
+        let normalized = normalizeAndPrune(file)
         let encoder = JSONEncoder()
         encoder.dateEncodingStrategy = .iso8601
-        defaults.set(try encoder.encode(file), forKey: storageKey)
+        defaults.set(try encoder.encode(normalized), forKey: storageKey)
+    }
+
+    private static func normalizeDraft(_ draft: WeeklyReviewDraft) -> WeeklyReviewDraft {
+        WeeklyReviewDraft(
+            weekStartDate: WeeklyRepositoryCalendar.normalizedWeekStart(for: draft.weekStartDate),
+            wins: draft.wins,
+            blockers: draft.blockers,
+            lessons: draft.lessons,
+            nextWeekPrepNotes: draft.nextWeekPrepNotes,
+            perceivedWeekRating: draft.perceivedWeekRating,
+            taskDecisions: draft.taskDecisions,
+            outcomeStatuses: draft.outcomeStatuses,
+            updatedAt: draft.updatedAt
+        )
+    }
+
+    private func normalizeAndPrune(_ file: WeeklyReviewLocalStateFile) -> WeeklyReviewLocalStateFile {
+        var normalizedDrafts: [String: WeeklyReviewDraft] = [:]
+        for draft in file.draftsByWeekKey.values {
+            let normalizedDraft = Self.normalizeDraft(draft)
+            let canonicalKey = Self.weekKey(for: normalizedDraft.weekStartDate)
+            if let existing = normalizedDrafts[canonicalKey] {
+                if existing.updatedAt <= normalizedDraft.updatedAt {
+                    normalizedDrafts[canonicalKey] = normalizedDraft
+                }
+            } else {
+                normalizedDrafts[canonicalKey] = normalizedDraft
+            }
+        }
+
+        var normalizedCompleted: [String: [WeeklyReviewTaskDecision]] = [:]
+        for (rawKey, decisions) in file.completedTaskDecisionsByWeekKey {
+            guard let canonicalWeekStart = WeeklyRepositoryCalendar.canonicalWeekStart(forStorageKey: rawKey) else {
+                continue
+            }
+            let canonicalKey = Self.weekKey(for: canonicalWeekStart)
+            var dedupedByTaskID: [UUID: WeeklyReviewTaskDecision] = [:]
+            for decision in decisions {
+                dedupedByTaskID[decision.taskID] = decision
+            }
+            let normalizedDecisions = dedupedByTaskID.values.sorted { $0.taskID.uuidString < $1.taskID.uuidString }
+            if let existing = normalizedCompleted[canonicalKey] {
+                if normalizedDecisions.count >= existing.count {
+                    normalizedCompleted[canonicalKey] = normalizedDecisions
+                }
+            } else {
+                normalizedCompleted[canonicalKey] = normalizedDecisions
+            }
+        }
+
+        let allKeys = Set(normalizedDrafts.keys).union(normalizedCompleted.keys)
+        let sortableKeys = allKeys.compactMap { key -> (String, Date)? in
+            guard let weekStart = WeeklyRepositoryCalendar.canonicalWeekStart(forStorageKey: key) else { return nil }
+            return (key, weekStart)
+        }
+        let keysToKeep = Set(
+            sortableKeys
+                .sorted { $0.1 > $1.1 }
+                .prefix(Self.maxStoredWeeks)
+                .map(\.0)
+        )
+
+        normalizedDrafts = normalizedDrafts.filter { key, _ in
+            guard WeeklyRepositoryCalendar.canonicalWeekStart(forStorageKey: key) != nil else { return true }
+            return keysToKeep.contains(key)
+        }
+        normalizedCompleted = normalizedCompleted.filter { key, _ in
+            guard WeeklyRepositoryCalendar.canonicalWeekStart(forStorageKey: key) != nil else { return true }
+            return keysToKeep.contains(key)
+        }
+
+        return WeeklyReviewLocalStateFile(
+            draftsByWeekKey: normalizedDrafts,
+            completedTaskDecisionsByWeekKey: normalizedCompleted
+        )
+    }
+
+    private func normalizePersistedStateIfNeeded() {
+        do {
+            let loaded = try loadState()
+            let normalized = normalizeAndPrune(loaded)
+            guard normalized != loaded else { return }
+            try persist(normalized)
+        } catch {
+            logWarning(
+                event: "weekly_review_draft_store_normalize_failed",
+                message: "Failed to normalize persisted weekly review local state",
+                fields: ["error": error.localizedDescription]
+            )
+        }
     }
 
     private static func weekKey(for weekStartDate: Date) -> String {
-        let normalizedDate = WeeklyRepositoryCalendar.normalizedWeekStart(for: weekStartDate)
-        return ISO8601DateFormatter().string(from: normalizedDate)
+        WeeklyRepositoryCalendar.canonicalStorageKey(for: weekStartDate)
+    }
+
+    private static func allWeekKeys(for weekStartDate: Date) -> [String] {
+        WeeklyRepositoryCalendar.weekKeyAliases(for: weekStartDate)
+    }
+
+    private static func legacyWeekKeys(for weekStartDate: Date) -> [String] {
+        let canonicalKey = weekKey(for: weekStartDate)
+        return allWeekKeys(for: weekStartDate).filter { $0 != canonicalKey }
     }
 }
