@@ -993,7 +993,7 @@ struct WeekTaskPlannerWidgetView: View {
                 }
             }
         }
-        .widgetURL(datedTasks.first.map { TaskWidgetRoutes.task($0.id) } ?? TaskWidgetRoutes.upcoming)
+        .widgetURL(TaskWidgetRoutes.weeklyPlanner)
     }
 }
 
