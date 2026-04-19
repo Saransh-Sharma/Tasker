@@ -31,10 +31,16 @@ final class QuietTrackingUITests: BaseUITest {
 
             let navigationTitle = app.navigationBars[expectedTitle]
             let staticTitle = app.staticTexts[expectedTitle]
-            XCTAssertTrue(
-                navigationTitle.waitForExistence(timeout: 5) || staticTitle.waitForExistence(timeout: 5),
-                "Habit detail should open for the tapped passive tracking card"
-            )
+            let openedTitleElement: XCUIElement
+            if navigationTitle.waitForExistence(timeout: 2) {
+                openedTitleElement = navigationTitle
+            } else {
+                XCTAssertTrue(
+                    staticTitle.waitForExistence(timeout: 3),
+                    "Habit detail should open for the tapped passive tracking card"
+                )
+                openedTitleElement = staticTitle
+            }
             XCTAssertFalse(homePage.quietTrackingSheet.exists, "Passive tracking tap should not present the quiet tracking sheet")
 
             openedTitles.append(expectedTitle)
@@ -44,8 +50,7 @@ final class QuietTrackingUITests: BaseUITest {
             XCTAssertTrue(waitForElementToBeHittable(closeButton, timeout: 3))
             closeButton.tap()
             XCTAssertTrue(
-                waitForElementToDisappear(navigationTitle, timeout: 5)
-                    || waitForElementToDisappear(staticTitle, timeout: 5),
+                waitForElementToDisappear(openedTitleElement, timeout: 5),
                 "Closing habit detail should return to Home"
             )
         }

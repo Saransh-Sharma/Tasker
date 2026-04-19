@@ -471,9 +471,10 @@ public final class CoreDataHabitRuntimeReadRepository: HabitRuntimeReadRepositor
                 let calendar = Calendar.current
                 let ownership = try self.fetchOwnershipLookups(habits: [habit])[habit.id]
                 let schedule = try self.fetchHabitScheduleMetadata(habitIDs: [habit.id])[habit.id]
-                let today = calendar.startOfDay(for: Date())
-                let historyStart = calendar.date(byAdding: .day, value: -7, to: today) ?? today
-                let lookaheadEnd = calendar.date(byAdding: .day, value: 21, to: today) ?? today
+                let referenceDate = Date()
+                let today = calendar.startOfDay(for: referenceDate)
+                let historyStart = calendar.date(byAdding: .day, value: -30, to: today) ?? today
+                let lookaheadEnd = calendar.date(byAdding: .day, value: 30, to: today) ?? today
                 let occurrences = try self.fetchHabitOccurrences(
                     start: historyStart,
                     end: lookaheadEnd,
@@ -486,6 +487,7 @@ public final class CoreDataHabitRuntimeReadRepository: HabitRuntimeReadRepositor
                     ownership: ownership,
                     schedule: schedule,
                     occurrences: occurrences,
+                    referenceDate: referenceDate,
                     calendar: calendar
                 )
                 completion(.success(row))
@@ -510,9 +512,16 @@ public final class CoreDataHabitRuntimeReadRepository: HabitRuntimeReadRepositor
         ownership: (lifeAreaName: String?, projectName: String?)?,
         schedule: (cadence: HabitCadenceDraft, reminderWindowStart: String?, reminderWindowEnd: String?)?,
         occurrences: [OccurrenceDefinition],
+        referenceDate: Date,
         calendar: Calendar
     ) -> HabitLibraryRow {
-        let today = calendar.startOfDay(for: Date())
+        let today = calendar.startOfDay(for: referenceDate)
+        let last14Days = HabitRuntimeSupport.dayMarks(
+            from: occurrences,
+            endingOn: referenceDate,
+            dayCount: 14,
+            calendar: calendar
+        )
         let nextDueAt = occurrences
             .filter { self.occurrenceDate($0) >= today && $0.state == .pending }
             .map(self.occurrenceDate(_:))
@@ -538,7 +547,7 @@ public final class CoreDataHabitRuntimeReadRepository: HabitRuntimeReadRepositor
             isArchived: habit.isArchived,
             currentStreak: habit.streakCurrent,
             bestStreak: habit.streakBest,
-            last14Days: [],
+            last14Days: last14Days,
             nextDueAt: nextDueAt,
             lastCompletedAt: lastCompletedAt,
             reminderWindowStart: schedule?.reminderWindowStart,

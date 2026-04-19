@@ -81,8 +81,18 @@ public final class CalendarIntegrationService: ObservableObject {
         snapshot.selectedCalendarIDs.count
     }
 
+    public var weekStartsOn: Weekday {
+        workspacePreferencesStore.load().weekStartsOn
+    }
+
     public func refreshAuthorizationStatus() {
-        snapshot.authorizationStatus = provider?.authorizationStatus() ?? .denied
+        let status = provider?.authorizationStatus() ?? .denied
+        snapshot.authorizationStatus = status
+        if status.isAuthorizedForRead == false {
+            snapshot.isLoading = false
+            snapshot.errorMessage = nil
+            clearCalendarContext(keepAvailableCalendars: false)
+        }
     }
 
     public func accessAction() -> CalendarAccessAction {

@@ -939,6 +939,7 @@ public final class HomeViewModel: ObservableObject {
 
     /// Refresh visible Home content without changing the active scope or selected date.
     public func refreshCurrentScopeContent(source: String = "home_scope_preserving_refresh") {
+        calendarIntegrationService.refreshContext(referenceDate: selectedDate, reason: source)
         enqueueReload(
             source: source,
             reason: .updated,

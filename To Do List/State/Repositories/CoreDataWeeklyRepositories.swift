@@ -61,7 +61,8 @@ private enum WeeklyRepositoryCalendar {
     }
 
     static func legacyWeekStarts(for date: Date) -> [Date] {
-        let calendar = Calendar.autoupdatingCurrent
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(secondsFromGMT: 0) ?? .gmt
         let canonicalStart = canonicalWeekStart(for: date)
         let values = Weekday.allCases.map {
             XPCalculationEngine.startOfWeek(for: date, startingOn: $0)
@@ -87,7 +88,7 @@ private enum WeeklyRepositoryCalendar {
     static func canonicalWeekStart(forStorageKey key: String) -> Date? {
         if key.hasPrefix("iso:") {
             let value = String(key.dropFirst("iso:".count))
-            let components = value.split(separator: "-W", maxSplits: 1).map(String.init)
+            let components = value.components(separatedBy: "-W")
             if components.count == 2,
                let year = Int(components[0]),
                let week = Int(components[1]) {

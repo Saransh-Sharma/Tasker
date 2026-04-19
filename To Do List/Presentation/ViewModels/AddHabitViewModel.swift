@@ -718,18 +718,25 @@ enum HabitDetailCalendarBuilder {
             let scheduled = occurs(on: dayStart, cadence: row.cadence, trackingMode: row.trackingMode, calendar: calendar)
             let mark = marksByDay[dayStart]
             let state = resolveState(
-                row: row,
                 mark: mark,
                 day: dayStart,
                 referenceDay: endDay,
                 scheduled: scheduled
             )
+            let hasRecordedMark: Bool = {
+                switch mark?.state {
+                case .some(.success), .some(.skipped), .some(.failure):
+                    return true
+                case .some(.none), .some(.future), .none:
+                    return false
+                }
+            }()
 
             return HabitDetailDayCell(
                 date: dayStart,
                 state: state,
                 isToday: calendar.isDate(dayStart, inSameDayAs: endDay),
-                isInteractive: scheduled && dayStart <= endDay && !row.isPaused && !row.isArchived
+                isInteractive: (scheduled || hasRecordedMark) && dayStart <= endDay && !row.isPaused && !row.isArchived
             )
         }
 
@@ -905,28 +912,29 @@ enum HabitDetailCalendarBuilder {
     }
 
     private static func resolveState(
-        row: HabitLibraryRow,
         mark: HabitDayMark?,
         day: Date,
         referenceDay: Date,
         scheduled: Bool
     ) -> HabitDetailDayCellState {
         guard day <= referenceDay else { return .future }
-        guard scheduled else { return .notScheduled }
-        guard let mark else { return .empty }
 
-        switch mark.state {
-        case .success:
-            return .success
-        case .skipped:
-            return .skipped
-        case .failure:
-            return row.kind == .negative ? .lapsed : .empty
-        case .none:
-            return .empty
-        case .future:
-            return .future
+        if let mark {
+            switch mark.state {
+            case .success:
+                return .success
+            case .skipped:
+                return .skipped
+            case .failure:
+                return .lapsed
+            case .future:
+                return .future
+            case .none:
+                break
+            }
         }
+
+        return scheduled ? .empty : .notScheduled
     }
 
     private static func occurs(

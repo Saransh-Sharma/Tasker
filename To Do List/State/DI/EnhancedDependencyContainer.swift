@@ -544,7 +544,8 @@ final class UITestCalendarEventsProvider: CalendarEventsProviderProtocol {
                 participationStatus: .accepted
             )
             let inWindow = event.endDate > startDate && event.startDate < endDate
-            completion(.success(inWindow ? [event] : []))
+            let matchesCalendar = calendarIDs.isEmpty || calendarIDs.contains(event.calendarID)
+            completion(.success(inWindow && matchesCalendar ? [event] : []))
         }
     }
 

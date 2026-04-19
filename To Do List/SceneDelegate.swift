@@ -343,6 +343,15 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
                 NotificationCenter.default.post(name: .taskerOpenHabitBoardDeepLink, object: nil)
             case "library", "manage":
                 NotificationCenter.default.post(name: .taskerOpenHabitLibraryDeepLink, object: nil)
+            case "habit":
+                if pathSegments.count > 1,
+                   let habitID = UUID(uuidString: pathSegments[1]) {
+                    NotificationCenter.default.post(
+                        name: .taskerOpenHabitDetailDeepLink,
+                        object: nil,
+                        userInfo: ["habitID": habitID.uuidString]
+                    )
+                }
             default:
                 break
             }

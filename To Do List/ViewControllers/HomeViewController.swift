@@ -1711,11 +1711,10 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
         guard let service = presentationDependencyContainer?.coordinator.calendarIntegrationService else {
             return AnyView(Text("Schedule unavailable").font(.tasker(.body)))
         }
-        let weekStartsOn = TaskerWorkspacePreferencesStore.shared.load().weekStartsOn
         return AnyView(
             CalendarScheduleView(
                 service: service,
-                weekStartsOn: weekStartsOn,
+                weekStartsOn: service.weekStartsOn,
                 presentationMode: .embedded
             )
             .taskerLayoutClass(layoutClass)
@@ -3302,10 +3301,9 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
             return
         }
         guard let service = presentationDependencyContainer?.coordinator.calendarIntegrationService else { return }
-        let weekStartsOn = TaskerWorkspacePreferencesStore.shared.load().weekStartsOn
         let view = CalendarScheduleView(
             service: service,
-            weekStartsOn: weekStartsOn,
+            weekStartsOn: service.weekStartsOn,
             presentationMode: .modal
         )
         let host = UIHostingController(rootView: AnyView(view.taskerLayoutClass(currentLayoutClass)))

@@ -3422,10 +3422,6 @@ struct HomeBackdropForedropRootView: View {
             RoundedRectangle(cornerRadius: TaskerTheme.CornerRadius.card, style: .continuous)
                 .stroke(Color.tasker.strokeHairline.opacity(0.72), lineWidth: 1)
         )
-        .contentShape(Rectangle())
-        .onTapGesture {
-            handleOpenScheduleAction()
-        }
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("home.calendar.card")
     }
@@ -3796,8 +3792,14 @@ struct HomeBackdropForedropRootView: View {
     private func presentHabitDetailFromDeepLink(habitID: UUID) {
         showHabitLibraryPresented = false
         showHabitBoardPresented = false
+        selectedHomeHabitRow = nil
         if let row = viewModel.habitLibraryRow(for: habitID) {
             selectedHomeHabitRow = row
+            return
+        }
+
+        if let fallback = habitDetailFallbackRows.first(where: { $0.habitID == habitID }) {
+            selectedHomeHabitRow = makeFallbackHabitLibraryRow(from: fallback)
             return
         }
 

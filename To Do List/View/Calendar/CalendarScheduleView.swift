@@ -1082,12 +1082,22 @@ enum TaskerCalendarTimelinePlanner {
             .compactMap { clip($0, to: date, calendar: calendar) }
             .sorted { $0.startMinute < $1.startMinute }
 
-        let currentHour = calendar.component(.hour, from: anchorDate)
+        let isToday = calendar.isDate(anchorDate, inSameDayAs: date)
+        let currentHour = isToday
+            ? calendar.component(.hour, from: anchorDate)
+            : calendar.component(.hour, from: date)
         let earliestHour = selectedDayEvents.map { $0.startMinute / 60 }.min()
         let nextOrLaterHour = selectedDayEvents
             .map { $0.startMinute / 60 }
             .filter { $0 >= currentHour }
             .min()
+
+        guard isToday else {
+            if let earliestHour {
+                return min(23, max(0, earliestHour))
+            }
+            return workdayStartHour
+        }
 
         if currentHour < workdayStartHour {
             if let earliestHour, earliestHour < workdayStartHour {
@@ -1306,6 +1316,18 @@ struct TaskerCalendarTimelineView: View {
                 }
             }
             .padding(.top, spacing.s4)
+        } else {
+            VStack(alignment: .leading, spacing: spacing.s8) {
+                if showsDateLabel {
+                    Text(TaskerCalendarPresentation.compactDateText(for: date))
+                        .font(.tasker(.caption1))
+                        .foregroundStyle(Color.tasker.textSecondary)
+                }
+                Text(emptyText)
+                    .font(.tasker(.callout))
+                    .foregroundStyle(Color.tasker.textSecondary)
+            }
+            .padding(.top, spacing.s4)
         }
     }
 
@@ -1444,7 +1466,7 @@ struct TaskerCalendarTimelineView: View {
                         }
                         .buttonStyle(.plain)
                         .accessibilityIdentifier("schedule.event.\(positioned.event.id)")
-                        .accessibilityLabel(positioned.event.title)
+                        .accessibilityLabel(timelineEventAccessibilityLabel(for: positioned.event))
                         .accessibilityHint(String(localized: "Open event details"))
                     } else {
                         TaskerCalendarTimelineEventCard(
@@ -1459,6 +1481,16 @@ struct TaskerCalendarTimelineView: View {
                 .offset(x: metrics.labelColumnWidth + frame.minX, y: frame.minY)
             }
         }
+    }
+
+    private func timelineEventAccessibilityLabel(for event: TaskerCalendarEventSnapshot) -> String {
+        [
+            event.title,
+            TaskerCalendarPresentation.timeRangeText(for: event),
+            event.calendarTitle
+        ]
+        .filter { !$0.isEmpty }
+        .joined(separator: ", ")
     }
 
     private func timelineEmptyState(width: CGFloat, plan: TaskerCalendarTimelineLayoutPlan) -> some View {

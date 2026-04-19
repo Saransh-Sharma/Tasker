@@ -555,6 +555,7 @@ public final class WeeklyPlannerViewModel: ObservableObject {
             self.isLoading = false
             if let firstError {
                 self.errorMessage = firstError.localizedDescription
+                self.hasLoadedInitialData = true
                 return
             }
 

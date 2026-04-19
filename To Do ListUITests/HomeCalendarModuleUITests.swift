@@ -80,6 +80,10 @@ final class HomeCalendarModuleUITests: XCTestCase {
         let alternateDay = dayChips.element(boundBy: 1)
         tapElement(alternateDay, in: app)
 
+        let deadline = Date().addingTimeInterval(4)
+        while Date() < deadline, selectedSummary.label == initialSummary {
+            RunLoop.current.run(until: Date().addingTimeInterval(0.1))
+        }
         XCTAssertNotEqual(initialSummary, selectedSummary.label, "Selected day summary should change when week strip selection changes.")
     }
 

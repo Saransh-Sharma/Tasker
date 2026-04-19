@@ -144,7 +144,7 @@ public struct ComputeTaskFitHintUseCase {
             )
         }
 
-        let start = max(now, calendar.startOfDay(for: dueDate))
+        let start = now
         let end = dueDate
         guard end > start else {
             return TaskerTaskFitHintResult(
