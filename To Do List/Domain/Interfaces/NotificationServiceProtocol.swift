@@ -65,17 +65,17 @@ public protocol NotificationServiceProtocol {
 public extension NotificationServiceProtocol {
     func schedule(request: TaskerLocalNotificationRequest) {
         _ = request
-        assertionFailure("NotificationServiceProtocol.schedule(request:) must be implemented by concrete notification services.")
+        fatalError("NotificationServiceProtocol.schedule(request:) must be implemented by concrete notification services.")
     }
 
     func cancel(ids: [String]) {
         _ = ids
-        assertionFailure("NotificationServiceProtocol.cancel(ids:) must be implemented by concrete notification services.")
+        fatalError("NotificationServiceProtocol.cancel(ids:) must be implemented by concrete notification services.")
     }
 
     func pendingRequests(completion: @escaping ([TaskerPendingNotificationRequest]) -> Void) {
-        assertionFailure("NotificationServiceProtocol.pendingRequests(completion:) should be implemented for typed notification reconciliation.")
-        completion([])
+        _ = completion
+        fatalError("NotificationServiceProtocol.pendingRequests(completion:) should be implemented for typed notification reconciliation.")
     }
 
     func registerCategories(_ categories: Set<UNNotificationCategory>) {
