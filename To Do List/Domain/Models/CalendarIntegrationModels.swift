@@ -105,6 +105,45 @@ public struct TaskerCalendarEventSnapshot: Codable, Equatable, Identifiable, Has
         self.lastModifiedAt = lastModifiedAt
     }
 
+    private enum CodingKeys: String, CodingKey {
+        case id
+        case calendarID
+        case calendarTitle
+        case calendarColorHex
+        case title
+        case notes
+        case location
+        case urlString
+        case startDate
+        case endDate
+        case isAllDay
+        case availability
+        case eventStatus
+        case participationStatus
+        case lastModifiedAt
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.init(
+            id: try container.decode(String.self, forKey: .id),
+            calendarID: try container.decode(String.self, forKey: .calendarID),
+            calendarTitle: try container.decode(String.self, forKey: .calendarTitle),
+            calendarColorHex: try container.decodeIfPresent(String.self, forKey: .calendarColorHex),
+            title: try container.decode(String.self, forKey: .title),
+            notes: try container.decodeIfPresent(String.self, forKey: .notes),
+            location: try container.decodeIfPresent(String.self, forKey: .location),
+            urlString: try container.decodeIfPresent(String.self, forKey: .urlString),
+            startDate: try container.decode(Date.self, forKey: .startDate),
+            endDate: try container.decode(Date.self, forKey: .endDate),
+            isAllDay: try container.decode(Bool.self, forKey: .isAllDay),
+            availability: try container.decode(TaskerCalendarEventAvailability.self, forKey: .availability),
+            eventStatus: try container.decode(TaskerCalendarEventStatus.self, forKey: .eventStatus),
+            participationStatus: try container.decode(TaskerCalendarEventParticipationStatus.self, forKey: .participationStatus),
+            lastModifiedAt: try container.decodeIfPresent(Date.self, forKey: .lastModifiedAt)
+        )
+    }
+
     public var isDeclined: Bool {
         participationStatus == .declined
     }
