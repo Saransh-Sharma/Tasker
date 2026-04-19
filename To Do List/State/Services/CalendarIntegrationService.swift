@@ -31,6 +31,7 @@ public final class CalendarIntegrationService: ObservableObject {
     private let taskFitUseCase = ComputeTaskFitHintUseCase(bufferMinutes: 15)
 
     private var contextEvents: [TaskerCalendarEventSnapshot] = []
+    private var contextEventFetchRange: ClosedRange<Date>?
     private var refreshGeneration: UInt64 = 0
     private var projectionRevision: UInt64 = 0
     private var dayProjectionCache: [DayProjectionKey: [TaskerCalendarEventSnapshot]] = [:]
@@ -154,39 +155,38 @@ public final class CalendarIntegrationService: ObservableObject {
             preferences.selectedCalendarIDs = normalizedCalendarIDs
         }
         snapshot.selectedCalendarIDs = normalizedCalendarIDs
-        refreshContext(reason: "selected_calendars_changed")
     }
 
     public func setIncludeDeclined(_ include: Bool) {
+        guard snapshot.includeDeclined != include else { return }
         workspacePreferencesStore.update { preferences in
             preferences.includeDeclinedCalendarEvents = include
         }
         snapshot.includeDeclined = include
-        refreshContext(reason: "include_declined_changed")
     }
 
     public func setIncludeCanceled(_ include: Bool) {
+        guard snapshot.includeCanceled != include else { return }
         workspacePreferencesStore.update { preferences in
             preferences.includeCanceledCalendarEvents = include
         }
         snapshot.includeCanceled = include
-        refreshContext(reason: "include_canceled_changed")
     }
 
     public func setIncludeAllDayInAgenda(_ include: Bool) {
+        guard snapshot.includeAllDayInAgenda != include else { return }
         workspacePreferencesStore.update { preferences in
             preferences.includeAllDayInAgenda = include
         }
         snapshot.includeAllDayInAgenda = include
-        refreshContext(reason: "all_day_agenda_changed")
     }
 
     public func setIncludeAllDayInBusyStrip(_ include: Bool) {
+        guard snapshot.includeAllDayInBusyStrip != include else { return }
         workspacePreferencesStore.update { preferences in
             preferences.includeAllDayInBusyStrip = include
         }
         snapshot.includeAllDayInBusyStrip = include
-        refreshContext(reason: "all_day_busy_changed")
     }
 
     public func refreshContext(referenceDate: Date = Date(), reason: String = "manual") {
@@ -261,7 +261,11 @@ public final class CalendarIntegrationService: ObservableObject {
                                 self.snapshot.errorMessage = error.localizedDescription
                                 self.clearCalendarContext(keepAvailableCalendars: true)
                             case .success(let events):
-                                self.reconcile(events: events, referenceDate: referenceDate)
+                                self.reconcile(
+                                    events: events,
+                                    referenceDate: referenceDate,
+                                    loadedRange: fetchStart...fetchEnd
+                                )
                             }
                         }
                     }
@@ -307,6 +311,7 @@ public final class CalendarIntegrationService: ObservableObject {
         return agenda
     }
 
+    @MainActor
     public func taskFitHint(for task: TaskDefinition, now: Date = Date()) -> TaskerTaskFitHintResult {
         guard let dueDate = task.dueDate,
               dueDate >= now else {
@@ -317,6 +322,11 @@ public final class CalendarIntegrationService: ObservableObject {
         let rangeStart = calendar.startOfDay(for: dueDate)
         let rangeEnd = dueDate
         guard rangeEnd > rangeStart else {
+            return .unknown
+        }
+        guard let contextEventFetchRange,
+              rangeStart >= contextEventFetchRange.lowerBound,
+              rangeEnd <= contextEventFetchRange.upperBound else {
             return .unknown
         }
 
@@ -368,6 +378,7 @@ public final class CalendarIntegrationService: ObservableObject {
     private func clearCalendarContext(keepAvailableCalendars: Bool) {
         invalidateProjectionCaches()
         contextEvents = []
+        contextEventFetchRange = nil
         snapshot.eventsInRange = []
         snapshot.busyBlocks = []
         snapshot.nextMeeting = nil
@@ -377,7 +388,11 @@ public final class CalendarIntegrationService: ObservableObject {
         }
     }
 
-    private func reconcile(events: [TaskerCalendarEventSnapshot], referenceDate: Date) {
+    private func reconcile(
+        events: [TaskerCalendarEventSnapshot],
+        referenceDate: Date,
+        loadedRange: ClosedRange<Date>
+    ) {
         invalidateProjectionCaches()
         let selectedCalendarIDs = Set(snapshot.selectedCalendarIDs)
         let contextEvents = filterEvents.execute(
@@ -411,6 +426,7 @@ public final class CalendarIntegrationService: ObservableObject {
         let freeUntil = isCurrentlyBusy ? nil : nextBusyStart
 
         self.contextEvents = contextEvents
+        self.contextEventFetchRange = loadedRange
         snapshot.eventsInRange = agendaEvents
         snapshot.busyBlocks = busyBlocks
         snapshot.nextMeeting = nextMeeting

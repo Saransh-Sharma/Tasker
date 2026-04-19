@@ -256,7 +256,6 @@ struct TaskDetailSheetView: View {
         .onAppear {
             viewModel.onAppear()
             viewModel.ensureChildrenLoaded()
-            viewModel.refreshTaskFitHint()
         }
         .onReceive(NotificationCenter.default.publisher(for: .gamificationLedgerDidMutate)) { notification in
             guard let mutation = notification.gamificationLedgerMutation else { return }

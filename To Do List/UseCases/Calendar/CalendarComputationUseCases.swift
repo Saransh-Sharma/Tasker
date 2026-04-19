@@ -90,7 +90,7 @@ public struct ResolveNextMeetingUseCase {
         now: Date
     ) -> TaskerNextMeetingSummary? {
         let candidate = events
-            .filter { $0.endDate > now }
+            .filter { $0.endDate > now && $0.isBusy }
             .sorted { lhs, rhs in
                 if lhs.startDate != rhs.startDate {
                     return lhs.startDate < rhs.startDate

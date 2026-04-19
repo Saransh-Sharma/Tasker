@@ -342,6 +342,7 @@ final class CalendarIntegrationServiceTests: XCTestCase {
         XCTAssertTrue(service.snapshot.busyBlocks.isEmpty)
     }
 
+    @MainActor
     func testAgendaAllDayToggleDoesNotAffectTaskFitContextPipeline() {
         let provider = CalendarEventsProviderStub()
         provider.authorizationStatusValue = .authorized

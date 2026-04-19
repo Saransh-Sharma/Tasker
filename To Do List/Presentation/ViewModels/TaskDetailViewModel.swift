@@ -164,6 +164,7 @@ public final class TaskDetailViewModel: ObservableObject {
     private var relationshipMetadataRequestID: UUID?
     private var childrenRequestID: UUID?
     private var breakdownRequestToken = UUID()
+    private var taskFitHintRequestToken = UUID()
     private var hasScheduledInitialEnrichment = false
     private var hasLoadedChildren = false
     private var pendingEditingMetadataTask: Task<Void, Never>?
@@ -345,11 +346,14 @@ public final class TaskDetailViewModel: ObservableObject {
     }
 
     public func refreshTaskFitHint() {
+        let requestToken = UUID()
+        taskFitHintRequestToken = requestToken
         let draftTask = makeTaskDraftForFitHint()
         isLoadingTaskFitHint = true
         onLoadTaskFitHint(draftTask) { [weak self] hint in
             DispatchQueue.main.async {
                 guard let self else { return }
+                guard self.taskFitHintRequestToken == requestToken else { return }
                 self.isLoadingTaskFitHint = false
                 self.taskFitHint = hint
             }
@@ -385,6 +389,7 @@ public final class TaskDetailViewModel: ObservableObject {
         pendingEditingMetadataTask?.cancel()
         pendingSecondaryEnrichmentTask?.cancel()
         pendingProjectScopedRefreshWorkItem?.cancel()
+        taskFitHintRequestToken = UUID()
         pendingEditingMetadataTask = nil
         pendingSecondaryEnrichmentTask = nil
         pendingProjectScopedRefreshWorkItem = nil
