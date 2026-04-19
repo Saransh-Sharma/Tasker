@@ -3,23 +3,33 @@ import UIKit
 @testable import To_Do_List
 
 final class HomeCalendarIntegrationTests: XCTestCase {
-    private var previousWorkspacePreferences: TaskerWorkspacePreferences!
+    private var workspaceSuiteName: String!
+    private var workspaceStore: TaskerWorkspacePreferencesStore!
+    private var ephemeralSuiteNames: [String] = []
 
     override func setUp() {
         super.setUp()
-        previousWorkspacePreferences = TaskerWorkspacePreferencesStore.shared.load()
+        workspaceSuiteName = "HomeCalendarIntegrationTests.Workspace.\(UUID().uuidString)"
+        let workspaceDefaults = UserDefaults(suiteName: workspaceSuiteName)!
+        workspaceStore = TaskerWorkspacePreferencesStore(defaults: workspaceDefaults)
+        ephemeralSuiteNames = []
     }
 
     override func tearDown() {
-        if let previousWorkspacePreferences {
-            TaskerWorkspacePreferencesStore.shared.save(previousWorkspacePreferences)
+        for suiteName in ephemeralSuiteNames {
+            UserDefaults().removePersistentDomain(forName: suiteName)
         }
-        previousWorkspacePreferences = nil
+        if let workspaceSuiteName {
+            UserDefaults().removePersistentDomain(forName: workspaceSuiteName)
+        }
+        workspaceSuiteName = nil
+        workspaceStore = nil
+        ephemeralSuiteNames = []
         super.tearDown()
     }
 
     func testHomeViewModelRefreshesCalendarContextManuallyAndOnStoreChanges() {
-        TaskerWorkspacePreferencesStore.shared.save(TaskerWorkspacePreferences(
+        workspaceStore.save(TaskerWorkspacePreferences(
             selectedCalendarIDs: ["work"],
             includeDeclinedCalendarEvents: false,
             includeAllDayInAgenda: true,
@@ -34,7 +44,7 @@ final class HomeCalendarIntegrationTests: XCTestCase {
         ])
 
         let coordinator = makeCoordinator(provider: provider)
-        let defaults = UserDefaults(suiteName: "HomeCalendarIntegrationTests.\(UUID().uuidString)")!
+        let defaults = makeUserDefaultsSuite(prefix: "HomeCalendarIntegrationTests")
         let viewModel = HomeViewModel(useCaseCoordinator: coordinator, userDefaults: defaults)
 
         waitForMainQueue(seconds: 0.45)
@@ -67,7 +77,7 @@ final class HomeCalendarIntegrationTests: XCTestCase {
     }
 
     func testSettingsToHomePropagationUpdatesCalendarModuleState() {
-        TaskerWorkspacePreferencesStore.shared.save(TaskerWorkspacePreferences(
+        workspaceStore.save(TaskerWorkspacePreferences(
             selectedCalendarIDs: ["work"],
             includeDeclinedCalendarEvents: false,
             includeCanceledCalendarEvents: false,
@@ -88,7 +98,7 @@ final class HomeCalendarIntegrationTests: XCTestCase {
         ])
 
         let coordinator = makeCoordinator(provider: provider)
-        let defaults = UserDefaults(suiteName: "HomeCalendarSettingsPropagationTests.\(UUID().uuidString)")!
+        let defaults = makeUserDefaultsSuite(prefix: "HomeCalendarSettingsPropagationTests")
         let viewModel = HomeViewModel(useCaseCoordinator: coordinator, userDefaults: defaults)
 
         waitForMainQueue(seconds: 0.45)
@@ -109,7 +119,7 @@ final class HomeCalendarIntegrationTests: XCTestCase {
     }
 
     func testHomeSnapshotHidesCanceledEventsByDefault() {
-        TaskerWorkspacePreferencesStore.shared.save(TaskerWorkspacePreferences(
+        workspaceStore.save(TaskerWorkspacePreferences(
             selectedCalendarIDs: ["work"],
             includeDeclinedCalendarEvents: false,
             includeCanceledCalendarEvents: false,
@@ -125,7 +135,7 @@ final class HomeCalendarIntegrationTests: XCTestCase {
         ])
 
         let coordinator = makeCoordinator(provider: provider)
-        let defaults = UserDefaults(suiteName: "HomeCalendarCanceledDefaultTests.\(UUID().uuidString)")!
+        let defaults = makeUserDefaultsSuite(prefix: "HomeCalendarCanceledDefaultTests")
         let viewModel = HomeViewModel(useCaseCoordinator: coordinator, userDefaults: defaults)
 
         waitForMainQueue(seconds: 0.45)
@@ -134,7 +144,7 @@ final class HomeCalendarIntegrationTests: XCTestCase {
     }
 
     func testHomeSnapshotCanIncludeCanceledEventsWhenEnabled() {
-        TaskerWorkspacePreferencesStore.shared.save(TaskerWorkspacePreferences(
+        workspaceStore.save(TaskerWorkspacePreferences(
             selectedCalendarIDs: ["work"],
             includeDeclinedCalendarEvents: false,
             includeCanceledCalendarEvents: true,
@@ -150,7 +160,7 @@ final class HomeCalendarIntegrationTests: XCTestCase {
         ])
 
         let coordinator = makeCoordinator(provider: provider)
-        let defaults = UserDefaults(suiteName: "HomeCalendarCanceledIncludedTests.\(UUID().uuidString)")!
+        let defaults = makeUserDefaultsSuite(prefix: "HomeCalendarCanceledIncludedTests")
         let viewModel = HomeViewModel(useCaseCoordinator: coordinator, userDefaults: defaults)
 
         waitForMainQueue(seconds: 0.45)
@@ -159,7 +169,7 @@ final class HomeCalendarIntegrationTests: XCTestCase {
     }
 
     func testHomeCalendarSnapshotFollowsSelectedDateAndRefreshesCalendarReferenceDate() throws {
-        TaskerWorkspacePreferencesStore.shared.save(TaskerWorkspacePreferences(
+        workspaceStore.save(TaskerWorkspacePreferences(
             selectedCalendarIDs: ["work"],
             includeDeclinedCalendarEvents: false,
             includeCanceledCalendarEvents: false,
@@ -180,7 +190,7 @@ final class HomeCalendarIntegrationTests: XCTestCase {
         ])
 
         let coordinator = makeCoordinator(provider: provider)
-        let defaults = UserDefaults(suiteName: "HomeCalendarSelectedDateTests.\(UUID().uuidString)")!
+        let defaults = makeUserDefaultsSuite(prefix: "HomeCalendarSelectedDateTests")
         let viewModel = HomeViewModel(useCaseCoordinator: coordinator, userDefaults: defaults)
 
         waitForMainQueue(seconds: 0.45)
@@ -202,7 +212,7 @@ final class HomeCalendarIntegrationTests: XCTestCase {
 
     @MainActor
     func testHomeViewControllerRefreshesCalendarWhenAppBecomesActive() {
-        TaskerWorkspacePreferencesStore.shared.save(TaskerWorkspacePreferences(
+        workspaceStore.save(TaskerWorkspacePreferences(
             selectedCalendarIDs: ["work"],
             includeDeclinedCalendarEvents: false,
             includeCanceledCalendarEvents: false,
@@ -223,10 +233,11 @@ final class HomeCalendarIntegrationTests: XCTestCase {
             taskDefinitionRepository: InMemoryTaskDefinitionRepositoryStub(),
             taskReadModelRepository: readModelRepository,
             projectRepository: projectRepository,
-            calendarEventsProvider: provider
+            calendarEventsProvider: provider,
+            workspacePreferencesStore: workspaceStore
         )
 
-        let defaults = UserDefaults(suiteName: "HomeCalendarControllerRefreshTests.\(UUID().uuidString)")!
+        let defaults = makeUserDefaultsSuite(prefix: "HomeCalendarControllerRefreshTests")
         let viewModel = HomeViewModel(useCaseCoordinator: coordinator, userDefaults: defaults)
 
         let presentationContainer = PresentationDependencyContainer.shared
@@ -256,6 +267,7 @@ final class HomeCalendarIntegrationTests: XCTestCase {
         waitForMainQueue(seconds: 0.3)
 
         XCTAssertGreaterThan(provider.fetchEventsCallCount, fetchCallsBeforeActive)
+        window.rootViewController = nil
         window.isHidden = true
     }
 
@@ -463,8 +475,15 @@ final class HomeCalendarIntegrationTests: XCTestCase {
             taskDefinitionRepository: InMemoryTaskDefinitionRepositoryStub(),
             taskReadModelRepository: InMemoryTaskReadModelRepositoryStub(),
             projectRepository: CalendarProjectRepositoryStub(projects: [Project.createInbox()]),
-            calendarEventsProvider: provider
+            calendarEventsProvider: provider,
+            workspacePreferencesStore: workspaceStore
         )
+    }
+
+    private func makeUserDefaultsSuite(prefix: String) -> UserDefaults {
+        let suiteName = "\(prefix).\(UUID().uuidString)"
+        ephemeralSuiteNames.append(suiteName)
+        return UserDefaults(suiteName: suiteName)!
     }
 
     private func calendar(id: String) -> TaskerCalendarSourceSnapshot {
@@ -531,19 +550,19 @@ final class HomeCalendarIntegrationTests: XCTestCase {
 
 final class CalendarSchedulePresentationStateTests: XCTestCase {
     func testChooserCancelClearsPresentationState() {
-        var state = CalendarSchedulePresentationState(showChooser: true)
+        var state = CalendarSchedulePresentationState(activeSheet: .chooser)
 
         state.cancelChooser()
 
-        XCTAssertFalse(state.showChooser)
+        XCTAssertNil(state.activeSheet)
     }
 
     func testChooserCommitClearsPresentationState() {
-        var state = CalendarSchedulePresentationState(showChooser: true)
+        var state = CalendarSchedulePresentationState(activeSheet: .chooser)
 
         state.commitChooser()
 
-        XCTAssertFalse(state.showChooser)
+        XCTAssertNil(state.activeSheet)
     }
 
     func testEventDetailDismissClearsSelectedEvent() {
@@ -552,6 +571,6 @@ final class CalendarSchedulePresentationStateTests: XCTestCase {
 
         state.dismissEventDetail()
 
-        XCTAssertNil(state.selectedEvent)
+        XCTAssertNil(state.activeSheet)
     }
 }

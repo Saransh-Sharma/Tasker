@@ -1,7 +1,7 @@
 import SwiftUI
-import UIKit
 
 #if canImport(EventKitUI)
+import UIKit
 import EventKit
 import EventKitUI
 

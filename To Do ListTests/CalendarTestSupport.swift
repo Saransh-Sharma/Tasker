@@ -84,7 +84,14 @@ final class CalendarProjectRepositoryStub: ProjectRepositoryProtocol {
     }
 
     func fetchInboxProject(completion: @escaping (Result<Project, Error>) -> Void) {
-        completion(.success(projects.first(where: \.isInbox) ?? Project.createInbox()))
+        if let inbox = projects.first(where: \.isInbox) {
+            completion(.success(inbox))
+            return
+        }
+
+        let inbox = Project.createInbox()
+        projects.append(inbox)
+        completion(.success(inbox))
     }
 
     func fetchCustomProjects(completion: @escaping (Result<[Project], Error>) -> Void) {

@@ -37,6 +37,7 @@ public final class UseCaseCoordinator {
         public let externalSyncRepository: ExternalSyncRepositoryProtocol
         public let remindersProvider: AppleRemindersProviderProtocol?
         public let calendarEventsProvider: CalendarEventsProviderProtocol?
+        public let workspacePreferencesStore: TaskerWorkspacePreferencesStore
 
         /// Initializes a new instance.
         public init(
@@ -64,7 +65,8 @@ public final class UseCaseCoordinator {
             assistantActionRepository: AssistantActionRepositoryProtocol,
             externalSyncRepository: ExternalSyncRepositoryProtocol,
             remindersProvider: AppleRemindersProviderProtocol? = nil,
-            calendarEventsProvider: CalendarEventsProviderProtocol? = nil
+            calendarEventsProvider: CalendarEventsProviderProtocol? = nil,
+            workspacePreferencesStore: TaskerWorkspacePreferencesStore = .shared
         ) {
             self.projectRepository = projectRepository
             self.lifeAreaRepository = lifeAreaRepository
@@ -91,6 +93,7 @@ public final class UseCaseCoordinator {
             self.externalSyncRepository = externalSyncRepository
             self.remindersProvider = remindersProvider
             self.calendarEventsProvider = calendarEventsProvider
+            self.workspacePreferencesStore = workspacePreferencesStore
         }
     }
 
@@ -202,7 +205,8 @@ public final class UseCaseCoordinator {
         self.taskReadModelRepository = taskReadModelRepository
         self.cacheService = cacheService
         self.calendarIntegrationService = CalendarIntegrationService(
-            provider: v2Dependencies.calendarEventsProvider
+            provider: v2Dependencies.calendarEventsProvider,
+            workspacePreferencesStore: v2Dependencies.workspacePreferencesStore
         )
 
         // Query-centric use cases

@@ -19,32 +19,47 @@ enum CalendarScheduleTab: String, CaseIterable, Identifiable {
     }
 }
 
-struct SelectedCalendarEvent: Identifiable, Equatable {
-    let id: String
+enum CalendarScheduleSheet: Identifiable, Equatable {
+    case chooser
+    case event(id: String)
+
+    var id: String {
+        switch self {
+        case .chooser:
+            return "chooser"
+        case .event(let id):
+            return "event.\(id)"
+        }
+    }
 }
 
 struct CalendarSchedulePresentationState: Equatable {
-    var selectedEvent: SelectedCalendarEvent?
-    var showChooser = false
+    var activeSheet: CalendarScheduleSheet? = nil
 
     mutating func presentChooser() {
-        showChooser = true
+        activeSheet = .chooser
     }
 
     mutating func cancelChooser() {
-        showChooser = false
+        if activeSheet == .chooser {
+            activeSheet = nil
+        }
     }
 
     mutating func commitChooser() {
-        showChooser = false
+        if activeSheet == .chooser {
+            activeSheet = nil
+        }
     }
 
     mutating func selectEvent(id: String) {
-        selectedEvent = SelectedCalendarEvent(id: id)
+        activeSheet = .event(id: id)
     }
 
     mutating func dismissEventDetail() {
-        selectedEvent = nil
+        if case .event = activeSheet {
+            activeSheet = nil
+        }
     }
 }
 
@@ -72,8 +87,12 @@ struct CalendarScheduleView: View {
         service.eventsForDay(Date())
     }
 
+    private var weekAgenda: [TaskerCalendarDayAgenda] {
+        service.weekAgenda(anchorDate: Date(), weekStartsOn: weekStartsOn)
+    }
+
     private var weekEventCount: Int {
-        service.weekAgenda(anchorDate: Date(), weekStartsOn: weekStartsOn).reduce(into: 0) { result, day in
+        weekAgenda.reduce(into: 0) { result, day in
             result += day.events.count
         }
     }
@@ -121,32 +140,34 @@ struct CalendarScheduleView: View {
             selectedWeekDate = weekDefaultSelectedDate
             service.refreshContext(reason: "schedule_appear")
         }
-        .sheet(item: $presentationState.selectedEvent) { selected in
-            EventKitEventDetailView(
-                eventID: selected.id,
-                onDismiss: {
-                    presentationState.dismissEventDetail()
-                }
-            )
-            .presentationDetents([.large])
-            .presentationDragIndicator(.visible)
-            .presentationBackground(Color.tasker(.bgElevated))
-        }
-        .sheet(isPresented: $presentationState.showChooser) {
-            EventKitCalendarChooserSheet(
-                service: service,
-                initialSelectedCalendarIDs: service.snapshot.selectedCalendarIDs,
-                onCancel: {
-                    presentationState.cancelChooser()
-                },
-                onCommit: { selectedIDs in
-                    service.updateSelectedCalendarIDs(selectedIDs)
-                    presentationState.commitChooser()
-                }
-            )
-            .presentationDetents([.medium, .large])
-            .presentationDragIndicator(.visible)
-            .presentationBackground(Color.tasker(.bgElevated))
+        .sheet(item: $presentationState.activeSheet) { sheet in
+            switch sheet {
+            case .event(let eventID):
+                EventKitEventDetailView(
+                    eventID: eventID,
+                    onDismiss: {
+                        presentationState.dismissEventDetail()
+                    }
+                )
+                .presentationDetents([.large])
+                .presentationDragIndicator(.visible)
+                .presentationBackground(Color.tasker(.bgElevated))
+            case .chooser:
+                EventKitCalendarChooserSheet(
+                    service: service,
+                    initialSelectedCalendarIDs: service.snapshot.selectedCalendarIDs,
+                    onCancel: {
+                        presentationState.cancelChooser()
+                    },
+                    onCommit: { selectedIDs in
+                        service.updateSelectedCalendarIDs(selectedIDs)
+                        presentationState.commitChooser()
+                    }
+                )
+                .presentationDetents([.medium, .large])
+                .presentationDragIndicator(.visible)
+                .presentationBackground(Color.tasker(.bgElevated))
+            }
         }
     }
 
@@ -1083,7 +1104,7 @@ enum TaskerCalendarTimelinePlanner {
             return min(23, nextOrLaterHour)
         }
 
-        return workdayEndHour
+        return min(23, currentHour)
     }
 
     private static func visibleRange(
@@ -1310,23 +1331,42 @@ struct TaskerCalendarTimelineView: View {
                 }
                 .scrollIndicators(.visible)
                 .onAppear {
-                    let targetHour = min(
-                        max(layoutPlan.startHour, initialVisibleHour ?? layoutPlan.startHour),
-                        max(layoutPlan.startHour, layoutPlan.endHour)
+                    scrollExpandedTimeline(
+                        scrollProxy: scrollProxy,
+                        layoutPlan: layoutPlan,
+                        targetHour: initialVisibleHour
                     )
-                    DispatchQueue.main.async {
-                        if reduceMotion {
-                            scrollProxy.scrollTo(hourAnchorID(targetHour), anchor: .top)
-                        } else {
-                            withAnimation(.easeInOut(duration: 0.22)) {
-                                scrollProxy.scrollTo(hourAnchorID(targetHour), anchor: .top)
-                            }
-                        }
-                    }
+                }
+                .onChange(of: initialVisibleHour) { _, updatedHour in
+                    scrollExpandedTimeline(
+                        scrollProxy: scrollProxy,
+                        layoutPlan: layoutPlan,
+                        targetHour: updatedHour
+                    )
                 }
             }
         }
         .frame(height: layoutClass.isPad ? 560 : 460)
+    }
+
+    private func scrollExpandedTimeline(
+        scrollProxy: ScrollViewProxy,
+        layoutPlan: TaskerCalendarTimelineLayoutPlan,
+        targetHour: Int?
+    ) {
+        let clampedHour = min(
+            max(layoutPlan.startHour, targetHour ?? layoutPlan.startHour),
+            max(layoutPlan.startHour, layoutPlan.endHour)
+        )
+        DispatchQueue.main.async {
+            if reduceMotion {
+                scrollProxy.scrollTo(hourAnchorID(clampedHour), anchor: .top)
+            } else {
+                withAnimation(.easeInOut(duration: 0.22)) {
+                    scrollProxy.scrollTo(hourAnchorID(clampedHour), anchor: .top)
+                }
+            }
+        }
     }
 
     private func timelineCanvas(
@@ -1447,12 +1487,11 @@ struct TaskerCalendarTimelineView: View {
 
     private func hourLabel(_ hour: Int) -> String {
         if hour == 12 {
-            return "Noon"
+            return String(localized: "Noon")
         }
 
-        let normalizedHour = hour == 24 ? 0 : hour
         let markerDate = Calendar.current.date(
-            bySettingHour: normalizedHour,
+            bySettingHour: hour,
             minute: 0,
             second: 0,
             of: date
