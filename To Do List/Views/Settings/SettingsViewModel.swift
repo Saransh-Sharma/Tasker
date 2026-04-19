@@ -39,7 +39,7 @@ final class SettingsViewModel: ObservableObject {
 
     private let notificationPreferencesStore: TaskerNotificationPreferencesStore
     private let workspacePreferencesStore: TaskerWorkspacePreferencesStore
-    private let calendarIntegrationService: CalendarIntegrationService?
+    private let calendarIntegrationService: CalendarIntegrationService
     private let appManager: AppManager
     private var cancellables: Set<AnyCancellable> = []
     private var hasCustomizedAppearance: Bool {
@@ -276,7 +276,7 @@ final class SettingsViewModel: ObservableObject {
         appManager: AppManager = AppManager(),
         notificationPreferencesStore: TaskerNotificationPreferencesStore = .shared,
         workspacePreferencesStore: TaskerWorkspacePreferencesStore = .shared,
-        calendarIntegrationService: CalendarIntegrationService? = nil
+        calendarIntegrationService: CalendarIntegrationService
     ) {
         self.appManager = appManager
         self.notificationPreferencesStore = notificationPreferencesStore
@@ -389,7 +389,7 @@ final class SettingsViewModel: ObservableObject {
 
     func requestCalendarPermission() {
         TaskerFeedback.medium()
-        _ = calendarIntegrationService?.performAccessAction(openSystemSettings: openSystemSettings)
+        _ = calendarIntegrationService.performAccessAction(openSystemSettings: openSystemSettings)
     }
 
     func openCalendarChooser() {
@@ -402,26 +402,26 @@ final class SettingsViewModel: ObservableObject {
 
     func setIncludeDeclinedCalendarEvents(_ include: Bool) {
         includeDeclinedCalendarEvents = include
-        calendarIntegrationService?.setIncludeDeclined(include)
+        calendarIntegrationService.setIncludeDeclined(include)
     }
 
     func setIncludeCanceledCalendarEvents(_ include: Bool) {
         includeCanceledCalendarEvents = include
-        calendarIntegrationService?.setIncludeCanceled(include)
+        calendarIntegrationService.setIncludeCanceled(include)
     }
 
     func setIncludeAllDayInAgenda(_ include: Bool) {
         includeAllDayInAgenda = include
-        calendarIntegrationService?.setIncludeAllDayInAgenda(include)
+        calendarIntegrationService.setIncludeAllDayInAgenda(include)
     }
 
     func setIncludeAllDayInBusyStrip(_ include: Bool) {
         includeAllDayInBusyStrip = include
-        calendarIntegrationService?.setIncludeAllDayInBusyStrip(include)
+        calendarIntegrationService.setIncludeAllDayInBusyStrip(include)
     }
 
     private func bindCalendarService() {
-        calendarIntegrationService?.$snapshot
+        calendarIntegrationService.$snapshot
             .receive(on: DispatchQueue.main)
             .sink { [weak self] snapshot in
                 guard let self else { return }
@@ -437,16 +437,6 @@ final class SettingsViewModel: ObservableObject {
     }
 
     private func refreshCalendarState() {
-        guard let calendarIntegrationService else {
-            calendarAuthorizationStatus = .denied
-            selectedCalendarIDs = []
-            availableCalendarCount = 0
-            includeDeclinedCalendarEvents = false
-            includeCanceledCalendarEvents = false
-            includeAllDayInAgenda = true
-            includeAllDayInBusyStrip = false
-            return
-        }
         let snapshot = calendarIntegrationService.snapshot
         calendarAuthorizationStatus = snapshot.authorizationStatus
         selectedCalendarIDs = snapshot.selectedCalendarIDs

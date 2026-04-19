@@ -1723,6 +1723,9 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
     }
 
     private func makeSettingsInspectorRoot(layoutClass: TaskerLayoutClass) -> AnyView {
+        guard let calendarService = presentationDependencyContainer?.coordinator.calendarIntegrationService else {
+            return AnyView(Text("Settings unavailable").font(.tasker(.body)))
+        }
         AnyView(
             HomeiPadSettingsContainer(
                 onNavigateToProjects: { [weak self] in
@@ -1740,7 +1743,7 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
                 onRestartOnboarding: {
                     NotificationCenter.default.post(name: .taskerStartOnboardingRequested, object: nil)
                 },
-                calendarIntegrationService: presentationDependencyContainer?.coordinator.calendarIntegrationService,
+                calendarIntegrationService: calendarService,
                 onOpenCalendarChooser: { [weak self] in
                     self?.presentCalendarChooser()
                 }
@@ -3260,11 +3263,13 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
                 viewModel.saveReflectionNote(note, completion: completion)
             },
             onLoadTaskFitHint: { [weak self] task, completion in
-                guard let self, let service = self.presentationDependencyContainer?.coordinator.calendarIntegrationService else {
-                    completion(.unknown)
-                    return
+                Task { @MainActor [weak self] in
+                    guard let self, let service = self.presentationDependencyContainer?.coordinator.calendarIntegrationService else {
+                        completion(.unknown)
+                        return
+                    }
+                    completion(service.taskFitHint(for: task))
                 }
-                completion(service.taskFitHint(for: task))
             }
         )
     }

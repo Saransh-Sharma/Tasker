@@ -5283,7 +5283,7 @@ struct HomeiPadSettingsContainer: View {
         onNavigateToChats: @escaping () -> Void,
         onNavigateToModels: @escaping () -> Void,
         onRestartOnboarding: @escaping () -> Void,
-        calendarIntegrationService: CalendarIntegrationService?,
+        calendarIntegrationService: CalendarIntegrationService,
         onOpenCalendarChooser: @escaping () -> Void
     ) {
         self.onNavigateToProjects = onNavigateToProjects

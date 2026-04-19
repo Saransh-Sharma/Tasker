@@ -65,7 +65,10 @@ class SettingsPageViewController: UIViewController, PresentationDependencyContai
     // MARK: - SwiftUI Hosting
 
     private func setupSwiftUIHost() {
-        let calendarService = presentationDependencyContainer?.coordinator.calendarIntegrationService
+        guard let calendarService = presentationDependencyContainer?.coordinator.calendarIntegrationService else {
+            assertionFailure("CalendarIntegrationService is required before presenting Settings.")
+            return
+        }
         let viewModel = SettingsViewModel(
             appManager: appManager,
             calendarIntegrationService: calendarService
