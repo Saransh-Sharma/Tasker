@@ -443,6 +443,8 @@ final class UITestCalendarEventsProvider: CalendarEventsProviderProtocol {
                 code: 1,
                 userInfo: [NSLocalizedDescriptionKey: "Failed to load test calendars."]
             )))
+        case .noCalendars:
+            completion(.success([]))
         default:
             completion(.success([
                 TaskerCalendarSourceSnapshot(
@@ -469,9 +471,6 @@ final class UITestCalendarEventsProvider: CalendarEventsProviderProtocol {
         calendarIDs: Set<String>,
         completion: @escaping (Result<[TaskerCalendarEventSnapshot], Error>) -> Void
     ) {
-        _ = startDate
-        _ = endDate
-
         switch mode {
         case .permission, .noCalendars, .empty:
             completion(.success([]))
@@ -483,10 +482,12 @@ final class UITestCalendarEventsProvider: CalendarEventsProviderProtocol {
             )))
         case .active:
             let calendar = Calendar.current
-            let startOfToday = calendar.startOfDay(for: Date())
-            let firstStart = calendar.date(byAdding: .hour, value: 10, to: startOfToday) ?? Date()
+            let now = Date()
+            let clampedAnchor = min(max(now, startDate), endDate.addingTimeInterval(-60))
+            let startOfAnchorDay = calendar.startOfDay(for: clampedAnchor)
+            let firstStart = calendar.date(byAdding: .hour, value: 10, to: startOfAnchorDay) ?? startOfAnchorDay
             let firstEnd = calendar.date(byAdding: .minute, value: 30, to: firstStart) ?? firstStart
-            let secondStart = calendar.date(byAdding: .hour, value: 14, to: startOfToday) ?? Date()
+            let secondStart = calendar.date(byAdding: .hour, value: 14, to: startOfAnchorDay) ?? firstEnd
             let secondEnd = calendar.date(byAdding: .minute, value: 30, to: secondStart) ?? secondStart
             let allEvents = [
                 TaskerCalendarEventSnapshot(
@@ -516,28 +517,34 @@ final class UITestCalendarEventsProvider: CalendarEventsProviderProtocol {
                     participationStatus: .accepted
                 )
             ]
-
-            if calendarIDs.isEmpty {
-                completion(.success(allEvents))
-            } else {
-                completion(.success(allEvents.filter { calendarIDs.contains($0.calendarID) }))
+            let inWindowEvents = allEvents.filter { event in
+                event.endDate > startDate && event.startDate < endDate
             }
+            let filteredEvents = calendarIDs.isEmpty
+                ? inWindowEvents
+                : inWindowEvents.filter { calendarIDs.contains($0.calendarID) }
+            completion(.success(filteredEvents))
         case .allDayOnly:
-            completion(.success([
-                TaskerCalendarEventSnapshot(
-                    id: "test_all_day",
-                    calendarID: "work",
-                    calendarTitle: "Work",
-                    calendarColorHex: "#007AFF",
-                    title: "All-Day Offsite",
-                    location: nil,
-                    startDate: Calendar.current.startOfDay(for: Date()),
-                    endDate: Calendar.current.date(byAdding: .day, value: 1, to: Calendar.current.startOfDay(for: Date())) ?? Date(),
-                    isAllDay: true,
-                    availability: .busy,
-                    participationStatus: .accepted
-                )
-            ]))
+            let calendar = Calendar.current
+            let now = Date()
+            let clampedAnchor = min(max(now, startDate), endDate.addingTimeInterval(-60))
+            let allDayStart = calendar.startOfDay(for: clampedAnchor)
+            let allDayEnd = calendar.date(byAdding: .day, value: 1, to: allDayStart) ?? allDayStart
+            let event = TaskerCalendarEventSnapshot(
+                id: "test_all_day",
+                calendarID: "work",
+                calendarTitle: "Work",
+                calendarColorHex: "#007AFF",
+                title: "All-Day Offsite",
+                location: nil,
+                startDate: allDayStart,
+                endDate: allDayEnd,
+                isAllDay: true,
+                availability: .busy,
+                participationStatus: .accepted
+            )
+            let inWindow = event.endDate > startDate && event.startDate < endDate
+            completion(.success(inWindow ? [event] : []))
         }
     }
 

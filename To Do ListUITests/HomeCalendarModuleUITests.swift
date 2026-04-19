@@ -133,7 +133,7 @@ final class HomeCalendarModuleUITests: XCTestCase {
             "Expected active schedule content to render in active mode. Visible states: \(scheduleStateDiagnostics(in: app))"
         )
 
-        let eventRow = scheduleEventRow(in: app, identifier: "schedule.event.test_meeting_1", fallbackTitle: "Design Review")
+        let eventRow = scheduleEventRow(in: app, identifier: "schedule.event.test_meeting_1")
         XCTAssertTrue(
             waitForElementWithScrolling(eventRow, in: app, timeout: 8),
             "Expected stub event row to be discoverable in active schedule mode."
@@ -259,13 +259,10 @@ final class HomeCalendarModuleUITests: XCTestCase {
         return app.buttons["Done"].firstMatch
     }
 
-    private func scheduleEventRow(in app: XCUIApplication, identifier: String, fallbackTitle: String) -> XCUIElement {
+    private func scheduleEventRow(in app: XCUIApplication, identifier: String) -> XCUIElement {
         let prioritizedCandidates: [XCUIElement] = [
             app.buttons.matching(identifier: identifier).firstMatch,
-            app.descendants(matching: .any).matching(identifier: identifier).firstMatch,
-            app.buttons[fallbackTitle].firstMatch,
-            app.staticTexts[fallbackTitle].firstMatch,
-            app.otherElements.containing(.staticText, identifier: fallbackTitle).firstMatch
+            app.descendants(matching: .any).matching(identifier: identifier).firstMatch
         ]
 
         for candidate in prioritizedCandidates where waitForElementWithScrolling(candidate, in: app, timeout: 2, scrollAttempts: 4) {
