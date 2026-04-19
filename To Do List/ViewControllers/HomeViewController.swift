@@ -1726,7 +1726,7 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
         guard let calendarService = presentationDependencyContainer?.coordinator.calendarIntegrationService else {
             return AnyView(Text("Settings unavailable").font(.tasker(.body)))
         }
-        AnyView(
+        return AnyView(
             HomeiPadSettingsContainer(
                 onNavigateToProjects: { [weak self] in
                     self?.iPadShellState.destination = .projects
