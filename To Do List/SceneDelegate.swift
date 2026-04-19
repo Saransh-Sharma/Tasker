@@ -19,7 +19,17 @@ extension Notification.Name {
     static let taskerOpenInsightsDeepLink = Notification.Name("TaskerOpenInsightsDeepLink")
     static let taskerOpenTaskScopeDeepLink = Notification.Name("TaskerOpenTaskScopeDeepLink")
     static let taskerOpenTaskDetailDeepLink = Notification.Name("TaskerOpenTaskDetailDeepLink")
+    static let taskerOpenWeeklyPlannerDeepLink = Notification.Name("TaskerOpenWeeklyPlannerDeepLink")
+    static let taskerOpenWeeklyReviewDeepLink = Notification.Name("TaskerOpenWeeklyReviewDeepLink")
     static let taskerOpenQuickAddDeepLink = Notification.Name("TaskerOpenQuickAddDeepLink")
+    static let taskerOpenCalendarScheduleDeepLink = Notification.Name("TaskerOpenCalendarScheduleDeepLink")
+    static let taskerOpenCalendarChooserDeepLink = Notification.Name("TaskerOpenCalendarChooserDeepLink")
+    static let taskerOpenHabitBoardDeepLink = Notification.Name("TaskerOpenHabitBoardDeepLink")
+    static let taskerOpenHabitLibraryDeepLink = Notification.Name("TaskerOpenHabitLibraryDeepLink")
+    static let taskerOpenHabitDetailDeepLink = Notification.Name("TaskerOpenHabitDetailDeepLink")
+    static let taskerPresentHabitBoard = Notification.Name("TaskerPresentHabitBoard")
+    static let taskerPresentHabitLibrary = Notification.Name("TaskerPresentHabitLibrary")
+    static let taskerPresentHabitDetail = Notification.Name("TaskerPresentHabitDetail")
     static let taskerProcessWidgetActionCommand = Notification.Name("TaskerProcessWidgetActionCommand")
 }
 
@@ -272,6 +282,34 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
             NotificationCenter.default.post(name: .taskerOpenQuickAddDeepLink, object: nil)
             return
         }
+        if host == "calendar" {
+            let route = pathSegments.first?.lowercased() ?? "schedule"
+            switch route {
+            case "schedule":
+                NotificationCenter.default.post(name: .taskerOpenCalendarScheduleDeepLink, object: nil)
+            case "chooser", "calendars", "filters":
+                NotificationCenter.default.post(name: .taskerOpenCalendarChooserDeepLink, object: nil)
+            default:
+                break
+            }
+            return
+        }
+        if host == "weekly" {
+            let route = pathSegments.first?.lowercased() ?? "planner"
+            switch route {
+            case "planner", "plan":
+                NotificationCenter.default.post(name: .taskerOpenWeeklyPlannerDeepLink, object: nil)
+            case "review":
+                NotificationCenter.default.post(name: .taskerOpenWeeklyReviewDeepLink, object: nil)
+            default:
+                NotificationCenter.default.post(
+                    name: .taskerOpenHomeDeepLink,
+                    object: nil,
+                    userInfo: ["notice": "That weekly destination is unavailable. Opened Home instead."]
+                )
+            }
+            return
+        }
         if host == "tasks" {
             guard let scope = pathSegments.first?.lowercased() else { return }
             if scope == "project",
@@ -296,6 +334,37 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
                 userInfo: ["scope": scope]
             )
             NotificationCenter.default.post(name: .taskerProcessWidgetActionCommand, object: nil)
+            return
+        }
+        if host == "habits" {
+            let route = pathSegments.first?.lowercased() ?? "board"
+            switch route {
+            case "board":
+                NotificationCenter.default.post(name: .taskerOpenHabitBoardDeepLink, object: nil)
+            case "library", "manage":
+                NotificationCenter.default.post(name: .taskerOpenHabitLibraryDeepLink, object: nil)
+            case "habit":
+                if pathSegments.count > 1,
+                   let habitID = UUID(uuidString: pathSegments[1]) {
+                    NotificationCenter.default.post(
+                        name: .taskerOpenHabitDetailDeepLink,
+                        object: nil,
+                        userInfo: ["habitID": habitID.uuidString]
+                    )
+                }
+            default:
+                break
+            }
+            return
+        }
+        if host == "habit",
+           let firstSegment = pathSegments.first,
+           let habitID = UUID(uuidString: firstSegment) {
+            NotificationCenter.default.post(
+                name: .taskerOpenHabitDetailDeepLink,
+                object: nil,
+                userInfo: ["habitID": habitID.uuidString]
+            )
             return
         }
         if host == "task",

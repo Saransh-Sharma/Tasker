@@ -575,6 +575,7 @@ enum TaskWidgetRoutes {
     static var today: URL { URL(string: "tasker://tasks/today")! }
     static var upcoming: URL { URL(string: "tasker://tasks/upcoming")! }
     static var overdue: URL { URL(string: "tasker://tasks/overdue")! }
+    static var weeklyPlanner: URL { URL(string: "tasker://weekly/planner")! }
     static var quickAdd: URL { URL(string: "tasker://quickadd")! }
 
     static func task(_ id: UUID) -> URL {

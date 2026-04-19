@@ -105,6 +105,11 @@ private enum HabitBoardAccessibilityID {
     static let previousWindow = "habitBoard.window.previous"
     static let nextWindow = "habitBoard.window.next"
     static let pinnedHeader = "habitBoard.pinned.header"
+    static let loadingState = "habitBoard.state.loading"
+    static let emptyState = "habitBoard.state.empty"
+    static let errorState = "habitBoard.state.error"
+    static let retryButton = "habitBoard.state.retry"
+    static let createButton = "habitBoard.state.create"
     static let homeOpenBoard = "home.habits.openBoard"
     static func row(_ habitID: UUID) -> String { "habitBoard.row.\(habitID.uuidString)" }
     static func pinnedTitle(_ habitID: UUID) -> String { "habitBoard.pinnedTitle.\(habitID.uuidString)" }
@@ -410,15 +415,12 @@ struct HabitBoardScreen: View {
                 .fill(Color.tasker.strokeHairline.opacity(0.16))
                 .frame(height: 1)
 
-            if viewModel.boardRows.isEmpty, !viewModel.isLoading {
-                ContentUnavailableView(
-                    "No habits yet",
-                    systemImage: "square.grid.3x3.topleft.filled",
-                    description: Text("Create a habit to start building a board.")
-                )
-                .frame(maxWidth: .infinity)
-                .padding(.horizontal, spacing.s16)
-                .padding(.vertical, spacing.s24)
+            if viewModel.isLoading && viewModel.boardRows.isEmpty {
+                boardLoadingState
+            } else if let errorMessage = viewModel.errorMessage, viewModel.boardRows.isEmpty {
+                boardErrorState(message: errorMessage)
+            } else if viewModel.boardRows.isEmpty {
+                boardEmptyState
             } else {
                 boardMatrix
             }
@@ -428,6 +430,92 @@ struct HabitBoardScreen: View {
         .onPreferenceChange(HabitBoardWidthPreferenceKey.self) { width in
             guard width > 1 else { return }
             measuredBoardWidth = width
+        }
+    }
+
+    private var boardLoadingState: some View {
+        VStack(spacing: spacing.s12) {
+            ProgressView()
+            Text("Loading habit board")
+                .font(.tasker(.headline))
+                .foregroundStyle(Color.tasker.textPrimary)
+            Text("Pulling your latest streak history.")
+                .font(.tasker(.body))
+                .foregroundStyle(Color.tasker.textSecondary)
+                .multilineTextAlignment(.center)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.horizontal, spacing.s16)
+        .padding(.vertical, spacing.s24)
+        .accessibilityIdentifier(HabitBoardAccessibilityID.loadingState)
+    }
+
+    private func boardErrorState(message: String) -> some View {
+        VStack(spacing: spacing.s12) {
+            Image(systemName: "exclamationmark.triangle.fill")
+                .font(.tasker(.title3))
+                .foregroundStyle(Color.tasker.statusWarning)
+
+            Text("Couldn't load the habit board")
+                .font(.tasker(.headline))
+                .foregroundStyle(Color.tasker.textPrimary)
+
+            Text(message)
+                .font(.tasker(.body))
+                .foregroundStyle(Color.tasker.textSecondary)
+                .multilineTextAlignment(.center)
+
+            HStack(spacing: spacing.s8) {
+                Button("Retry") {
+                    viewModel.refresh()
+                }
+                .buttonStyle(.borderedProminent)
+                .accessibilityIdentifier(HabitBoardAccessibilityID.retryButton)
+
+                Button("Manage Habits") {
+                    openManageHabitsFromBoard()
+                }
+                .buttonStyle(.bordered)
+                .accessibilityIdentifier(HabitBoardAccessibilityID.createButton)
+            }
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.horizontal, spacing.s16)
+        .padding(.vertical, spacing.s24)
+        .accessibilityIdentifier(HabitBoardAccessibilityID.errorState)
+    }
+
+    private var boardEmptyState: some View {
+        VStack(spacing: spacing.s12) {
+            Image(systemName: "square.grid.3x3.topleft.filled")
+                .font(.tasker(.title3))
+                .foregroundStyle(Color.tasker.textSecondary)
+
+            Text("No habits yet")
+                .font(.tasker(.headline))
+                .foregroundStyle(Color.tasker.textPrimary)
+
+            Text("Create your first habit to start building streak momentum.")
+                .font(.tasker(.body))
+                .foregroundStyle(Color.tasker.textSecondary)
+                .multilineTextAlignment(.center)
+
+            Button("Manage Habits") {
+                openManageHabitsFromBoard()
+            }
+            .buttonStyle(.borderedProminent)
+            .accessibilityIdentifier(HabitBoardAccessibilityID.createButton)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.horizontal, spacing.s16)
+        .padding(.vertical, spacing.s24)
+        .accessibilityIdentifier(HabitBoardAccessibilityID.emptyState)
+    }
+
+    private func openManageHabitsFromBoard() {
+        dismiss()
+        DispatchQueue.main.async {
+            NotificationCenter.default.post(name: .taskerOpenHabitLibraryDeepLink, object: nil)
         }
     }
 
@@ -491,8 +579,10 @@ struct HabitBoardScreen: View {
 
     private var boardWindowBadge: some View {
         Text("\(viewModel.viewportColumnCount) DAYS")
-            .font(.system(size: 11, weight: .semibold, design: .default))
+            .font(.tasker(.caption2).weight(.semibold))
             .foregroundStyle(Color.tasker.textSecondary)
+            .lineLimit(1)
+            .minimumScaleFactor(0.85)
             .padding(.horizontal, 8)
             .padding(.vertical, 5)
             .background(
@@ -521,6 +611,7 @@ struct HabitBoardScreen: View {
                             layoutMetrics: layoutMetrics,
                             onSelect: {
                                 if let libraryRow = viewModel.row(for: row.habitID) {
+                                    TaskerPerformanceTrace.event("HabitDetailTapReceived")
                                     selectedHabitRow = libraryRow
                                 }
                             }
@@ -702,7 +793,7 @@ private struct HabitBoardPinnedColumnHeader: View {
     var body: some View {
         ZStack {
             Text("Habits")
-                .font(.system(size: 14, weight: .semibold, design: .default))
+                .font(.tasker(.caption1).weight(.semibold))
                 .foregroundStyle(Color.tasker.textSecondary)
                 .tracking(0.1)
                 .frame(maxWidth: .infinity, alignment: .center)
@@ -756,14 +847,14 @@ private struct HabitBoardHeaderDayCell: View {
                 .frame(maxWidth: .infinity, alignment: .center)
 
             Text(day.date.formatted(.dateTime.day()))
-                .font(.system(size: 22, weight: .semibold, design: .default))
+                .font(.tasker(.title3).weight(.semibold))
                 .monospacedDigit()
                 .foregroundStyle(day.isToday ? HabitEverydayPalette.todayStroke(colorScheme: colorScheme) : Color.tasker.textPrimary)
                 .frame(maxWidth: .infinity, minHeight: 28)
                 .background(todayBackground)
 
             Text(weekdayLabel)
-                .font(.system(size: 11, weight: .semibold, design: .default))
+                .font(.tasker(.caption2).weight(.semibold))
                 .foregroundStyle(day.isToday ? Color.tasker.textPrimary : Color.tasker.textSecondary)
                 .lineLimit(1)
                 .minimumScaleFactor(0.8)
@@ -802,7 +893,7 @@ private struct HabitBoardHeaderDayCell: View {
     private var monthMarker: some View {
         if showsMonthMarker {
             Text(day.date.formatted(.dateTime.month(.abbreviated)).uppercased())
-                .font(.system(size: 11, weight: .semibold, design: .default))
+                .font(.tasker(.caption2).weight(.semibold))
                 .foregroundStyle(Color.tasker.textSecondary)
                 .lineLimit(1)
                 .minimumScaleFactor(0.9)

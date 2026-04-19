@@ -68,12 +68,75 @@ final class HomeChromeSnapshotPresentationTests: XCTestCase {
             tasks: previous.tasks,
             habits: HomeHabitsSnapshot(
                 habitHomeSectionState: HabitHomeSectionState(primaryRows: [habitRow], recoveryRows: []),
-                quietTrackingSummaryState: .init(stableRows: [])
+                quietTrackingSummaryState: .init(stableRows: []),
+                errorMessage: nil
             ),
             overlay: previous.overlay
         )
 
         XCTAssertEqual(current.changedSliceCount(comparedTo: previous), 1)
+    }
+
+    func testHomeRenderTransactionCountsCalendarSliceSeparately() {
+        let previous = HomeRenderTransaction.empty
+        let current = HomeRenderTransaction(
+            chrome: previous.chrome,
+            tasks: previous.tasks,
+            habits: previous.habits,
+            calendar: HomeCalendarSnapshot(
+                moduleState: .active,
+                selectedDate: Date(),
+                authorizationStatus: .authorized,
+                selectedCalendarCount: 1,
+                availableCalendarCount: 1,
+                nextMeeting: nil,
+                busyBlocks: [],
+                freeUntil: nil,
+                selectedDayEvents: [],
+                selectedDayTimelineEvents: [],
+                eventsTodayCount: 2,
+                isLoading: false,
+                errorMessage: nil
+            ),
+            overlay: previous.overlay
+        )
+
+        XCTAssertEqual(current.changedSliceCount(comparedTo: previous), 1)
+    }
+
+    func testHomeRenderTransactionEqualityIncludesCalendarSlice() {
+        let base = HomeRenderTransaction.empty
+        let lhs = HomeRenderTransaction(
+            chrome: base.chrome,
+            tasks: base.tasks,
+            habits: base.habits,
+            calendar: .empty,
+            overlay: base.overlay
+        )
+        let rhs = HomeRenderTransaction(
+            chrome: base.chrome,
+            tasks: base.tasks,
+            habits: base.habits,
+            calendar: HomeCalendarSnapshot(
+                moduleState: .permissionRequired,
+                selectedDate: Date(),
+                authorizationStatus: .notDetermined,
+                selectedCalendarCount: 0,
+                availableCalendarCount: 2,
+                nextMeeting: nil,
+                busyBlocks: [],
+                freeUntil: nil,
+                selectedDayEvents: [],
+                selectedDayTimelineEvents: [],
+                eventsTodayCount: 0,
+                isLoading: false,
+                errorMessage: nil
+            ),
+            overlay: base.overlay
+        )
+
+        XCTAssertNotEqual(lhs, rhs)
+        XCTAssertEqual(rhs.changedSliceCount(comparedTo: lhs), 1)
     }
 
     func testTodayPresentationBuildsCompressedStatusLine() {
@@ -206,6 +269,28 @@ final class HomeChromeSnapshotPresentationTests: XCTestCase {
         XCTAssertEqual(presentation.statusText, "1 task · 1 habit")
         XCTAssertNil(presentation.todayStatus)
         XCTAssertNil(presentation.xpProgress)
+    }
+
+    func testCustomDateTodayPresentationSuppressesBackToTodayAsSafetyFallback() {
+        let today = Calendar.current.startOfDay(for: Date())
+        let snapshot = HomeChromeSnapshot(
+            selectedDate: today,
+            activeScope: .customDate(today),
+            activeFilterState: .default,
+            savedHomeViews: [],
+            quickViewCounts: [:],
+            progressState: .empty,
+            dailyScore: 0,
+            completionRate: 0,
+            weeklySummary: nil,
+            projects: [],
+            reflectionEligible: true,
+            momentumGuidanceText: ""
+        )
+
+        let presentation = snapshot.homeHeaderPresentation(tasks: .empty)
+
+        XCTAssertFalse(presentation.showsBackToToday)
     }
 
     func testOverduePresentationUsesTaskOnlyScopedSummary() {

@@ -343,6 +343,12 @@ public final class HomeViewModel: ObservableObject {
     @Published public private(set) var weeklySummary: HomeWeeklySummary? {
         didSet { scheduleHomeRenderStateRefresh() }
     }
+    @Published public private(set) var weeklySummaryIsLoading: Bool = false {
+        didSet { scheduleHomeRenderStateRefresh() }
+    }
+    @Published public private(set) var weeklySummaryErrorMessage: String? {
+        didSet { scheduleHomeRenderStateRefresh() }
+    }
 
     // Gamification v2
     @Published public private(set) var currentLevel: Int = 1
@@ -388,6 +394,12 @@ public final class HomeViewModel: ObservableObject {
     }
     @Published public private(set) var quietTrackingSummaryState = QuietTrackingSummaryState(stableRows: []) {
         didSet { scheduleHomeRenderStateRefresh() }
+    }
+    @Published public private(set) var habitMutationErrorMessage: String? {
+        didSet {
+            guard oldValue != habitMutationErrorMessage else { return }
+            scheduleHomeRenderStateRefresh()
+        }
     }
 
     // Focus Engine
@@ -440,6 +452,9 @@ public final class HomeViewModel: ObservableObject {
     @Published public private(set) var evaLastBatchRunID: UUID? {
         didSet { scheduleHomeRenderStateRefresh() }
     }
+    @Published private(set) var homeCalendarSnapshot: HomeCalendarSnapshot = .empty {
+        didSet { scheduleHomeRenderStateRefresh() }
+    }
 
     @Published private(set) var homeRenderTransaction: HomeRenderTransaction = .empty
 
@@ -477,6 +492,7 @@ public final class HomeViewModel: ObservableObject {
     private let buildHomeAgendaUseCase: BuildHomeAgendaUseCase
     private let buildHabitHomeProjectionUseCase: BuildHabitHomeProjectionUseCase
     private let resetHabitOccurrenceUseCase: ResetHabitOccurrenceUseCase
+    private let calendarIntegrationService: CalendarIntegrationService
     private let savedHomeViewRepository: SavedHomeViewRepositoryProtocol
     private let analyticsService: AnalyticsServiceProtocol?
     private let aiSuggestionService: AISuggestionService?
@@ -672,6 +688,7 @@ public final class HomeViewModel: ObservableObject {
             chrome: buildHomeChromeState(),
             tasks: buildHomeTasksState(),
             habits: buildHomeHabitsState(),
+            calendar: buildHomeCalendarState(),
             overlay: buildHomeOverlayState()
         )
         guard homeRenderTransaction != transaction else { return }
@@ -690,6 +707,8 @@ public final class HomeViewModel: ObservableObject {
             dailyScore: dailyScore,
             completionRate: completionRate,
             weeklySummary: weeklySummary,
+            weeklySummaryIsLoading: weeklySummaryIsLoading,
+            weeklySummaryErrorMessage: weeklySummaryErrorMessage,
             projects: projects,
             // Reflection stays tied to the default Today scope, not custom-date views.
             reflectionEligible: activeScope == .today && !isDailyReflectionCompletedToday(),
@@ -738,8 +757,17 @@ public final class HomeViewModel: ObservableObject {
     private func buildHomeHabitsState() -> HomeHabitsSnapshot {
         HomeHabitsSnapshot(
             habitHomeSectionState: habitHomeSectionState,
-            quietTrackingSummaryState: quietTrackingSummaryState
+            quietTrackingSummaryState: quietTrackingSummaryState,
+            errorMessage: habitMutationErrorMessage
         )
+    }
+
+    public func clearHabitMutationErrorMessage() {
+        habitMutationErrorMessage = nil
+    }
+
+    private func buildHomeCalendarState() -> HomeCalendarSnapshot {
+        homeCalendarSnapshot
     }
 
     private func buildHomeOverlayState() -> HomeOverlayState {
@@ -797,6 +825,8 @@ public final class HomeViewModel: ObservableObject {
         switch keyPath {
         case \HomeViewModel.selectedDate,
              \HomeViewModel.weeklySummary,
+             \HomeViewModel.weeklySummaryIsLoading,
+             \HomeViewModel.weeklySummaryErrorMessage,
              \HomeViewModel.lastXPResult,
              \HomeViewModel.dueTodayRows,
              \HomeViewModel.dueTodaySection,
@@ -818,7 +848,8 @@ public final class HomeViewModel: ObservableObject {
              \HomeViewModel.evaTriageQueueErrorMessage,
              \HomeViewModel.evaTriageQueue,
              \HomeViewModel.evaRescuePlan,
-             \HomeViewModel.evaLastBatchRunID:
+             \HomeViewModel.evaLastBatchRunID,
+             \HomeViewModel.homeCalendarSnapshot:
             return true
         default:
             return false
@@ -844,6 +875,7 @@ public final class HomeViewModel: ObservableObject {
         self.buildHomeAgendaUseCase = BuildHomeAgendaUseCase()
         self.buildHabitHomeProjectionUseCase = useCaseCoordinator.buildHabitHomeProjection
         self.resetHabitOccurrenceUseCase = useCaseCoordinator.resetHabitOccurrence
+        self.calendarIntegrationService = useCaseCoordinator.calendarIntegrationService
         self.getDailySummaryModalUseCase = GetDailySummaryModalUseCase(
             getTasksUseCase: useCaseCoordinator.getTasks,
             analyticsUseCase: useCaseCoordinator.calculateAnalytics
@@ -852,6 +884,10 @@ public final class HomeViewModel: ObservableObject {
         self.analyticsService = analyticsService
         self.aiSuggestionService = aiSuggestionService
         self.userDefaults = userDefaults
+        self.homeCalendarSnapshot = Self.buildHomeCalendarSnapshot(
+            from: calendarIntegrationService.snapshot,
+            selectedDate: selectedDate
+        )
 
         setupBindings()
         loadInitialData()
@@ -891,6 +927,28 @@ public final class HomeViewModel: ObservableObject {
     public func refreshAfterWeeklyReviewCompletion() {
         refreshWeeklySummary()
         reloadCurrentModeTasks()
+    }
+
+    public func requestCalendarPermission(openSystemSettings: @escaping () -> Void = {}) {
+        _ = calendarIntegrationService.performAccessAction(openSystemSettings: openSystemSettings)
+    }
+
+    public func refreshCalendarContext(reason: String = "home_manual_refresh") {
+        calendarIntegrationService.refreshContext(referenceDate: selectedDate, reason: reason)
+    }
+
+    /// Refresh visible Home content without changing the active scope or selected date.
+    public func refreshCurrentScopeContent(source: String = "home_scope_preserving_refresh") {
+        calendarIntegrationService.refreshContext(referenceDate: selectedDate, reason: source)
+        enqueueReload(
+            source: source,
+            reason: .updated,
+            taskID: nil,
+            invalidateCaches: true,
+            includeAnalytics: false,
+            repostEvent: false,
+            overrideScopes: [.visibleTasks]
+        )
     }
 
     /// Executes loadTodayTasks.
@@ -2784,6 +2842,34 @@ public final class HomeViewModel: ObservableObject {
 
     /// Executes setupBindings.
     private func setupBindings() {
+        calendarIntegrationService.$snapshot
+            .receive(on: RunLoop.main)
+            .sink { [weak self] snapshot in
+                guard let self else { return }
+                self.homeCalendarSnapshot = Self.buildHomeCalendarSnapshot(
+                    from: snapshot,
+                    selectedDate: self.selectedDate
+                )
+            }
+            .store(in: &cancellables)
+
+        $selectedDate
+            .removeDuplicates(by: Self.isSameCalendarDay(_:_:))
+            .dropFirst()
+            .receive(on: RunLoop.main)
+            .sink { [weak self] selectedDate in
+                guard let self else { return }
+                self.homeCalendarSnapshot = Self.buildHomeCalendarSnapshot(
+                    from: self.calendarIntegrationService.snapshot,
+                    selectedDate: selectedDate
+                )
+                self.calendarIntegrationService.refreshContext(
+                    referenceDate: selectedDate,
+                    reason: "home_selected_date_changed"
+                )
+            }
+            .store(in: &cancellables)
+
         NotificationCenter.default.publisher(for: NSNotification.Name("TaskCreated"))
             .receive(on: RunLoop.main)
             .sink { [weak self] _ in
@@ -2991,6 +3077,7 @@ public final class HomeViewModel: ObservableObject {
         loadProjects(generation: generation)
         loadLifeAreas(generation: generation)
         loadTags(generation: generation)
+        calendarIntegrationService.refreshContext(referenceDate: selectedDate, reason: "home_initial_load")
         applyFocusFilters(trackAnalytics: false, generation: generation) { [weak self] in
             TaskerMemoryDiagnostics.checkpoint(
                 event: "home_initial_load_finished",
@@ -3877,6 +3964,7 @@ public final class HomeViewModel: ObservableObject {
             return
         }
 
+        habitMutationErrorMessage = nil
         pendingHabitMutationKeys.insert(key)
         pendingHabitMutationIntervals[key] = TaskerPerformanceTrace.begin("HomeUserMutation")
         if Calendar.current.isDate(date, inSameDayAs: selectedDate) {
@@ -3969,12 +4057,14 @@ public final class HomeViewModel: ObservableObject {
             }
             pendingHabitMutationSnapshots.removeValue(forKey: key)
             pendingHabitMutationKeys.remove(key)
+            habitMutationErrorMessage = error.localizedDescription
             errorMessage = error.localizedDescription
 
         case .success:
             TaskerPerformanceTrace.event("HomeUserMutationPersistenceComplete")
             pendingHabitMutationSnapshots.removeValue(forKey: key)
             pendingHabitMutationKeys.remove(key)
+            habitMutationErrorMessage = nil
             let isSelectedDayMutation = Calendar.current.isDate(date, inSameDayAs: selectedDate)
             if isSelectedDayMutation {
                 habitRecoveryReflectionPrompt = recoveryReflectionPrompt
@@ -5018,6 +5108,8 @@ public final class HomeViewModel: ObservableObject {
 
     private func refreshWeeklySummary() {
         let generation = nextWeeklySummaryGeneration()
+        assignIfChanged(\.weeklySummaryIsLoading, true)
+        assignIfChanged(\.weeklySummaryErrorMessage, nil)
         useCaseCoordinator.getWeeklySummary.execute(referenceDate: Date()) { [weak self] result in
             DispatchQueue.main.async {
                 guard let self else { return }
@@ -5025,10 +5117,18 @@ public final class HomeViewModel: ObservableObject {
                     logDebug("HOME_WEEKLY_SUMMARY vm.drop_stale generation=\(generation)")
                     return
                 }
+                self.assignIfChanged(\.weeklySummaryIsLoading, false)
                 switch result {
                 case .success(let summary):
                     self.assignIfChanged(\.weeklySummary, summary)
+                    self.assignIfChanged(\.weeklySummaryErrorMessage, nil)
                 case .failure(let error):
+                    if self.weeklySummary == nil {
+                        self.assignIfChanged(
+                            \.weeklySummaryErrorMessage,
+                            "Couldn't load weekly summary. Try again."
+                        )
+                    }
                     logWarning(
                         event: "home_weekly_summary_refresh_failed",
                         message: "Failed to refresh weekly summary",
@@ -6371,6 +6471,68 @@ public final class HomeViewModel: ObservableObject {
         formatter.timeZone = Calendar.current.timeZone
         formatter.dateFormat = "yyyyMMdd"
         return formatter.string(from: date)
+    }
+
+    private static func buildHomeCalendarSnapshot(
+        from snapshot: TaskerCalendarSnapshot,
+        selectedDate: Date
+    ) -> HomeCalendarSnapshot {
+        let calendar = Calendar.current
+        let selectedDayStart = calendar.startOfDay(for: selectedDate)
+        let selectedDayEnd = calendar.date(byAdding: .day, value: 1, to: selectedDayStart) ?? selectedDayStart
+        let selectedDayEvents = snapshot.eventsInRange
+            .filter { event in
+                event.endDate > selectedDayStart && event.startDate < selectedDayEnd
+            }
+            .sorted { lhs, rhs in
+                if lhs.startDate != rhs.startDate {
+                    return lhs.startDate < rhs.startDate
+                }
+                return lhs.endDate < rhs.endDate
+            }
+        let selectedDayTimelineEvents = selectedDayEvents.filter { event in
+            event.isAllDay == false && event.isBusy
+        }
+        let startOfToday = calendar.startOfDay(for: Date())
+        let endOfToday = calendar.date(byAdding: .day, value: 1, to: startOfToday) ?? startOfToday
+        let todayCount = snapshot.eventsInRange.filter { event in
+            event.endDate > startOfToday && event.startDate < endOfToday
+        }.count
+
+        let moduleState: HomeCalendarModuleState
+        if snapshot.authorizationStatus.isAuthorizedForRead == false {
+            moduleState = .permissionRequired
+        } else if let error = snapshot.errorMessage, error.isEmpty == false {
+            moduleState = .error(message: error)
+        } else if snapshot.selectedCalendarIDs.isEmpty {
+            moduleState = .noCalendarsSelected
+        } else if selectedDayEvents.isEmpty == false && selectedDayTimelineEvents.isEmpty {
+            moduleState = .allDayOnly
+        } else if selectedDayTimelineEvents.isEmpty {
+            moduleState = .empty
+        } else {
+            moduleState = .active
+        }
+
+        return HomeCalendarSnapshot(
+            moduleState: moduleState,
+            selectedDate: selectedDate,
+            authorizationStatus: snapshot.authorizationStatus,
+            selectedCalendarCount: snapshot.selectedCalendarIDs.count,
+            availableCalendarCount: snapshot.availableCalendars.count,
+            nextMeeting: snapshot.nextMeeting,
+            busyBlocks: snapshot.busyBlocks,
+            freeUntil: snapshot.freeUntil,
+            selectedDayEvents: selectedDayEvents,
+            selectedDayTimelineEvents: selectedDayTimelineEvents,
+            eventsTodayCount: todayCount,
+            isLoading: snapshot.isLoading,
+            errorMessage: snapshot.errorMessage
+        )
+    }
+
+    private static func isSameCalendarDay(_ lhs: Date, _ rhs: Date) -> Bool {
+        Calendar.current.isDate(lhs, inSameDayAs: rhs)
     }
 }
 

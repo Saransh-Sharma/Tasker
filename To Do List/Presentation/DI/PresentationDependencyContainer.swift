@@ -404,6 +404,7 @@ public final class PresentationDependencyContainer {
             pauseHabitUseCase: useCaseCoordinator.pauseHabit,
             archiveHabitUseCase: useCaseCoordinator.archiveHabit,
             resolveHabitOccurrenceUseCase: useCaseCoordinator.resolveHabitOccurrence,
+            resetHabitOccurrenceUseCase: useCaseCoordinator.resetHabitOccurrence,
             manageLifeAreasUseCase: useCaseCoordinator.manageLifeAreas,
             manageProjectsUseCase: useCaseCoordinator.manageProjects,
             iconCatalog: HabitIconCatalog.shared

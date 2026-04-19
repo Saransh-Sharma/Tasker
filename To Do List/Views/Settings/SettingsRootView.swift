@@ -103,10 +103,11 @@ struct SettingsRootView: View {
         VStack(spacing: 0) {
             // baseIndex controls stagger ordering; gaps leave room for expanded card content.
             workspaceSection(baseIndex: 1)
-            aiAssistantSection(baseIndex: 3)
-            notificationsSection(baseIndex: 5)
-            appearanceSection(baseIndex: 12)
-            helpSection(baseIndex: 14)
+            calendarSection(baseIndex: 4)
+            aiAssistantSection(baseIndex: 8)
+            notificationsSection(baseIndex: 10)
+            appearanceSection(baseIndex: 18)
+            helpSection(baseIndex: 20)
         }
     }
 
@@ -116,14 +117,15 @@ struct SettingsRootView: View {
                 VStack(spacing: 0) {
                     // Keep the same stagger ordering across compact and regular layouts.
                     workspaceSection(baseIndex: 1, includeHorizontalPadding: false)
-                    aiAssistantSection(baseIndex: 3, includeHorizontalPadding: false)
-                    appearanceSection(baseIndex: 12, includeHorizontalPadding: false)
-                    helpSection(baseIndex: 14, includeHorizontalPadding: false)
+                    calendarSection(baseIndex: 4, includeHorizontalPadding: false)
+                    aiAssistantSection(baseIndex: 8, includeHorizontalPadding: false)
+                    appearanceSection(baseIndex: 18, includeHorizontalPadding: false)
+                    helpSection(baseIndex: 20, includeHorizontalPadding: false)
                 }
                 .frame(maxWidth: 560, alignment: .top)
 
                 VStack(spacing: 0) {
-                    notificationsSection(baseIndex: 5, includeHorizontalPadding: false)
+                    notificationsSection(baseIndex: 10, includeHorizontalPadding: false)
                 }
                 .frame(maxWidth: 560, alignment: .top)
             }
@@ -182,6 +184,108 @@ struct SettingsRootView: View {
                             selectedValue: viewModel.workspacePreferences.weekStartsOn,
                             onSelect: viewModel.updateWeekStartsOn,
                             accessibilityIdentifier: "settings.workspace.weekStart.selector"
+                        )
+                    }
+                }
+                .enhancedStaggeredAppearance(index: baseIndex + 2)
+            }
+        }
+    }
+
+    private func calendarSection(baseIndex: Int, includeHorizontalPadding: Bool = true) -> some View {
+        SettingsSectionView(
+            title: String(localized: "Calendar & Schedule"),
+            subtitle: String(localized: "Read-only calendar context for Home, Today/Week agenda, and task-fit hints."),
+            topPadding: sectionTopPadding,
+            includeHorizontalPadding: includeHorizontalPadding
+        ) {
+            VStack(spacing: spacing.cardStackVertical) {
+                TaskerSettingsCard(active: viewModel.calendarAuthorizationStatus.isAuthorizedForRead) {
+                    SettingsNavigationRow(
+                        descriptor: TaskerSettingsDestinationDescriptor(
+                            iconName: viewModel.calendarAuthorizationStatus.isAuthorizedForRead ? "calendar.badge.checkmark" : "calendar.badge.exclamationmark",
+                            title: String(localized: "Calendar access"),
+                            subtitle: viewModel.calendarAccessSubtitle,
+                            trailingStatus: viewModel.calendarAccessStatusLabel,
+                            tone: viewModel.calendarAccessTone,
+                            accessibilityIdentifier: "settings.calendar.access.row"
+                        ),
+                        action: viewModel.requestCalendarPermission
+                    )
+                }
+                .enhancedStaggeredAppearance(index: baseIndex)
+
+                TaskerSettingsCard {
+                    SettingsNavigationRow(
+                        descriptor: TaskerSettingsDestinationDescriptor(
+                            iconName: "slider.horizontal.3",
+                            title: String(localized: "Calendar selection"),
+                            subtitle: viewModel.calendarAuthorizationStatus.isAuthorizedForRead
+                                ? String(localized: "Choose calendars for Home and the schedule view.")
+                                : String(localized: "Connect calendar access before selecting calendars."),
+                            trailingStatus: viewModel.calendarStatusSummary,
+                            tone: viewModel.calendarAuthorizationStatus.isAuthorizedForRead ? .accent : .warning,
+                            accessibilityIdentifier: "settings.calendar.selection.row"
+                        ),
+                        action: viewModel.openCalendarChooser
+                    )
+                }
+                .enhancedStaggeredAppearance(index: baseIndex + 1)
+
+                TaskerSettingsCard {
+                    VStack(spacing: TaskerSettingsMetrics.cardInnerPadding) {
+                        TaskerSettingsToggleRow(
+                            iconName: "person.crop.circle.badge.xmark",
+                            title: String(localized: "Include declined events"),
+                            subtitle: String(localized: "Show declined meetings in agenda and Home context."),
+                            isOn: Binding(
+                                get: { viewModel.includeDeclinedCalendarEvents },
+                                set: { viewModel.setIncludeDeclinedCalendarEvents($0) }
+                            ),
+                            tone: .neutral,
+                            accessibilityIdentifier: "settings.calendar.includeDeclined.toggle"
+                        )
+
+                        Divider()
+
+                        TaskerSettingsToggleRow(
+                            iconName: "calendar.badge.exclamationmark",
+                            title: String(localized: "Include canceled events"),
+                            subtitle: String(localized: "Show canceled events in Home, schedule, and task-fit context."),
+                            isOn: Binding(
+                                get: { viewModel.includeCanceledCalendarEvents },
+                                set: { viewModel.setIncludeCanceledCalendarEvents($0) }
+                            ),
+                            tone: .neutral,
+                            accessibilityIdentifier: "settings.calendar.includeCanceled.toggle"
+                        )
+
+                        Divider()
+
+                        TaskerSettingsToggleRow(
+                            iconName: "sun.max",
+                            title: String(localized: "Include all-day events in agenda"),
+                            subtitle: String(localized: "Show all-day events in Today/Week lists."),
+                            isOn: Binding(
+                                get: { viewModel.includeAllDayInAgenda },
+                                set: { viewModel.setIncludeAllDayInAgenda($0) }
+                            ),
+                            tone: .neutral,
+                            accessibilityIdentifier: "settings.calendar.includeAllDayAgenda.toggle"
+                        )
+
+                        Divider()
+
+                        TaskerSettingsToggleRow(
+                            iconName: "chart.bar.xaxis",
+                            title: String(localized: "Include all-day events in busy strip"),
+                            subtitle: String(localized: "Use all-day events when calculating compact busy blocks."),
+                            isOn: Binding(
+                                get: { viewModel.includeAllDayInBusyStrip },
+                                set: { viewModel.setIncludeAllDayInBusyStrip($0) }
+                            ),
+                            tone: .neutral,
+                            accessibilityIdentifier: "settings.calendar.includeAllDayBusy.toggle"
                         )
                     }
                 }

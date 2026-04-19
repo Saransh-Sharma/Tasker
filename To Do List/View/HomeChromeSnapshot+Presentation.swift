@@ -86,6 +86,10 @@ extension HomeChromeSnapshot {
         if case .today = activeScope {
             return false
         }
+        if case .customDate(let date) = activeScope,
+           Calendar.current.isDateInToday(date) {
+            return false
+        }
         return true
     }
 

@@ -287,91 +287,52 @@ public final class WeeklyPlannerViewModel: ObservableObject {
     @Published public private(set) var isLoading = false
     @Published public private(set) var isSaving = false
     @Published public private(set) var isRequestingEvaPreview = false
+    @Published public private(set) var hasLoadedInitialData = false
     @Published public private(set) var errorMessage: String?
     @Published public private(set) var availableHabits: [HabitLibraryRow] = [] {
-        didSet { refreshHabitSnapshotIfNeeded() }
+        didSet { scheduleRecompute(reason: "available_habits_changed") }
     }
     @Published public private(set) var availableProjects: [Project] = [] {
-        didSet {
-            refreshProjectIndexesIfNeeded()
-            refreshOutcomeIndexesIfNeeded()
-            refreshReviewSnapshotIfNeeded()
-        }
+        didSet { scheduleRecompute(reason: "available_projects_changed") }
     }
     @Published public private(set) var estimatedCapacity = 3
     @Published public private(set) var saveMessage: String?
     @Published private(set) var proposalState: WeeklyPlannerProposalState?
     @Published public private(set) var allOpenTasks: [TaskDefinition] = [] {
-        didSet {
-            refreshTaskIndexesIfNeeded()
-            refreshTaskSourceSnapshotIfNeeded()
-            refreshTriageSnapshotIfNeeded()
-        }
+        didSet { scheduleRecompute(reason: "all_open_tasks_changed") }
     }
     @Published public private(set) var triageTaskIDs: [UUID] = [] {
-        didSet {
-            refreshTriageQueueIndexesIfNeeded()
-            refreshTaskSourceSnapshotIfNeeded()
-            refreshTriageSnapshotIfNeeded()
-        }
+        didSet { scheduleRecompute(reason: "triage_queue_changed") }
     }
     @Published public private(set) var triageReviewedCount = 0 {
-        didSet {
-            refreshTriageSnapshotIfNeeded()
-            refreshFooterSnapshotIfNeeded()
-        }
+        didSet { scheduleRecompute(reason: "triage_reviewed_count_changed") }
     }
     @Published public private(set) var currentStep: WeeklyPlannerStep = .direction {
-        didSet { refreshFooterSnapshotIfNeeded() }
+        didSet { scheduleRecompute(reason: "current_step_changed") }
     }
     @Published public var focusStatement: String = "" {
-        didSet {
-            refreshReviewSnapshotIfNeeded()
-            refreshFooterSnapshotIfNeeded()
-        }
+        didSet { scheduleRecompute(reason: "focus_statement_changed") }
     }
     @Published public var selectedHabitIDs: Set<UUID> = [] {
-        didSet { refreshHabitSnapshotIfNeeded() }
+        didSet { scheduleRecompute(reason: "selected_habits_changed") }
     }
     @Published public var targetCapacity: Int = 3 {
-        didSet {
-            refreshReviewSnapshotIfNeeded()
-            refreshFooterSnapshotIfNeeded()
-        }
+        didSet { scheduleRecompute(reason: "target_capacity_changed") }
     }
     @Published public var minimumViableWeekEnabled = false {
-        didSet { refreshFooterSnapshotIfNeeded() }
+        didSet { scheduleRecompute(reason: "minimum_viable_week_changed") }
     }
     @Published public var outcomeDrafts: [WeeklyOutcomeDraft] = [] {
-        didSet {
-            refreshOutcomeIndexesIfNeeded()
-            refreshTaskSourceSnapshotIfNeeded()
-            refreshReviewSnapshotIfNeeded()
-        }
+        didSet { scheduleRecompute(reason: "outcome_drafts_changed") }
     }
     @Published public var thisWeekTasks: [TaskDefinition] = [] {
-        didSet {
-            refreshTaskIndexesIfNeeded()
-            refreshTaskSourceSnapshotIfNeeded()
-            refreshTriageSnapshotIfNeeded()
-            refreshReviewSnapshotIfNeeded()
-        }
+        didSet { scheduleRecompute(reason: "this_week_tasks_changed") }
     }
     @Published public var nextWeekTasks: [TaskDefinition] = [] {
-        didSet {
-            refreshTaskIndexesIfNeeded()
-            refreshTaskSourceSnapshotIfNeeded()
-            refreshTriageSnapshotIfNeeded()
-            refreshReviewSnapshotIfNeeded()
-        }
+        didSet { scheduleRecompute(reason: "next_week_tasks_changed") }
     }
     @Published public var laterTasks: [TaskDefinition] = [] {
-        didSet {
-            refreshTaskIndexesIfNeeded()
-            refreshTaskSourceSnapshotIfNeeded()
-            refreshTriageSnapshotIfNeeded()
-            refreshReviewSnapshotIfNeeded()
-        }
+        didSet { scheduleRecompute(reason: "later_tasks_changed") }
     }
 
     public let weekStartDate: Date
@@ -391,6 +352,7 @@ public final class WeeklyPlannerViewModel: ObservableObject {
     private var lastTriageDecision: WeeklyTaskTriageDecision?
     private var renderCache = WeeklyPlannerRenderCache()
     private var suspendsRenderRefresh = false
+    private var pendingRecomputeWorkItem: DispatchWorkItem?
 
     init(
         referenceDate: Date = Date(),
@@ -593,10 +555,12 @@ public final class WeeklyPlannerViewModel: ObservableObject {
             self.isLoading = false
             if let firstError {
                 self.errorMessage = firstError.localizedDescription
+                self.hasLoadedInitialData = true
                 return
             }
 
             self.performBatchedRefresh {
+                self.hasLoadedInitialData = true
                 self.availableHabits = fetchedHabits
                 self.availableProjects = fetchedProjects
                 self.estimatedCapacity = fetchedCapacity
@@ -968,10 +932,22 @@ public final class WeeklyPlannerViewModel: ObservableObject {
     }
 
     private func performBatchedRefresh(_ updates: () -> Void) {
+        pendingRecomputeWorkItem?.cancel()
+        pendingRecomputeWorkItem = nil
         suspendsRenderRefresh = true
         updates()
         suspendsRenderRefresh = false
         refreshAllDerivedState()
+    }
+
+    private func scheduleRecompute(reason _: String) {
+        guard suspendsRenderRefresh == false else { return }
+        pendingRecomputeWorkItem?.cancel()
+        let workItem = DispatchWorkItem { [weak self] in
+            self?.refreshAllDerivedState()
+        }
+        pendingRecomputeWorkItem = workItem
+        DispatchQueue.main.async(execute: workItem)
     }
 
     private func refreshAllDerivedState() {

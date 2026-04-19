@@ -49,6 +49,14 @@ enum AccessibilityIdentifiers {
         static let primaryWidgetIndicatorFocusNow = "home.primaryWidget.indicator.focusNow"
         static let primaryWidgetIndicatorWeeklyOperating = "home.primaryWidget.indicator.weeklyOperating"
         static let weeklySummaryCard = "home.weeklySummary.card"
+        static let calendarCard = "home.calendar.card"
+        static let calendarStateActive = "home.calendar.state.active"
+        static let calendarStatePermission = "home.calendar.state.permission"
+        static let calendarStateNoCalendars = "home.calendar.state.noCalendars"
+        static let calendarStateEmpty = "home.calendar.state.empty"
+        static let calendarStateError = "home.calendar.state.error"
+        static let calendarConnect = "home.calendar.connect"
+        static let calendarRetry = "home.calendar.retry"
         static let focusStrip = "home.focus.strip"
         static let focusDropZone = "home.focus.dropzone"
         static let focusTitleTap = "home.focus.titleTap"
@@ -209,6 +217,11 @@ enum AccessibilityIdentifiers {
         static let projectsRow = "settings.workspace.projects.row"
         static let aiAssistantRow = "settings.aiAssistant.row"
         static let modelsRow = "settings.aiAssistant.models.row"
+        static let calendarAccessRow = "settings.calendar.access.row"
+        static let calendarSelectionRow = "settings.calendar.selection.row"
+        static let calendarIncludeDeclinedToggle = "settings.calendar.includeDeclined.toggle"
+        static let calendarIncludeAllDayAgendaToggle = "settings.calendar.includeAllDayAgenda.toggle"
+        static let calendarIncludeAllDayBusyToggle = "settings.calendar.includeAllDayBusy.toggle"
         static let appearanceInfo = "settings.appearance.info"
         static let decorativeButtonEffectsCard = "settings.appearance.decorativeButtonEffects.card"
         static let decorativeButtonEffectsToggle = "settings.appearance.decorativeButtonEffects.toggle"
@@ -299,10 +312,25 @@ enum AccessibilityIdentifiers {
         static let previousWindow = "habitBoard.window.previous"
         static let nextWindow = "habitBoard.window.next"
         static let pinnedHeader = "habitBoard.pinned.header"
+        static let loadingState = "habitBoard.state.loading"
+        static let emptyState = "habitBoard.state.empty"
+        static let errorState = "habitBoard.state.error"
+        static let retryButton = "habitBoard.state.retry"
+        static let createButton = "habitBoard.state.create"
         static func row(_ habitID: String) -> String { "habitBoard.row.\(habitID)" }
         static func pinnedTitle(_ habitID: String) -> String { "habitBoard.pinnedTitle.\(habitID)" }
         static func dayHeader(_ dateStamp: String) -> String { "habitBoard.dayHeader.\(dateStamp)" }
         static func dayCell(_ habitID: String, dateStamp: String) -> String { "habitBoard.cell.\(habitID).\(dateStamp)" }
+    }
+
+    enum HabitDetail {
+        static let view = "habitDetail.view"
+        static let grid = "habitDetail.grid"
+        static let detailsDisclosure = "habitDetail.detailsDisclosure"
+        static let helperText = "habitDetail.helperText"
+        static let editButton = "habitDetail.editButton"
+        static let saveButton = "habitDetail.saveButton"
+        static func dayCell(_ dateStamp: String) -> String { "habitDetail.cell.\(dateStamp)" }
     }
 
     // MARK: - Search Screen

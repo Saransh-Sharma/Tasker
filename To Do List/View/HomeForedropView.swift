@@ -1972,6 +1972,7 @@ struct HomeBackdropForedropRootView: View {
     @ObservedObject var chromeStore: HomeChromeStore
     @ObservedObject var tasksStore: HomeTasksStore
     @ObservedObject var habitsStore: HomeHabitsStore
+    @ObservedObject var calendarStore: HomeCalendarStore
     @ObservedObject var overlayStore: HomeOverlayStore
     @ObservedObject var faceCoordinator: HomeFaceCoordinator
     @ObservedObject var searchState: HomeSearchState
@@ -1996,6 +1997,7 @@ struct HomeBackdropForedropRootView: View {
     let onOpenSettings: () -> Void
     let onOpenWeeklyPlanner: () -> Void
     let onOpenWeeklyReview: () -> Void
+    let onRetryWeeklySummary: () -> Void
     let onOpenAnalytics: (String, Bool) -> Void
     let onCloseAnalytics: (String) -> Void
     let onOpenSearch: (String) -> Void
@@ -2003,6 +2005,10 @@ struct HomeBackdropForedropRootView: View {
     let onReturnToTasks: (String) -> Void
     let onTaskListScrollChromeStateChange: (HomeScrollChromeState) -> Void
     let onStartFocus: (TaskDefinition) -> Void
+    let onRequestCalendarPermission: () -> Void
+    let onOpenCalendarChooser: () -> Void
+    let onOpenCalendarSchedule: () -> Void
+    let onRetryCalendarContext: () -> Void
 
     @State private var showAdvancedFilters = false
     @State private var showDatePicker = false
@@ -2038,9 +2044,10 @@ struct HomeBackdropForedropRootView: View {
     @State private var hasMountedAnalyticsSurface = false
     @State private var expandedAgendaTailItemIDs = Set<String>()
     @State private var showHabitBoardPresented = false
+    @State private var showHabitLibraryPresented = false
     @State private var selectedHomeHabitRow: HabitLibraryRow?
     @State private var hasPresentedUITestHabitBoard = false
-    @State private var quietTrackingComposerSnapshot: QuietTrackingComposerSnapshot?
+    @State private var isSchedulingUITestHabitBoardPresentation = false
     @State private var passiveTrackingRailViewportWidth: CGFloat = 0
     @State private var pendingFocusPromotionTask: TaskDefinition?
     @State private var focusReplacementOptions: [TaskDefinition] = []
@@ -2062,6 +2069,7 @@ struct HomeBackdropForedropRootView: View {
     private var chromeSnapshot: HomeChromeSnapshot { chromeStore.snapshot }
     private var tasksSnapshot: HomeTasksSnapshot { tasksStore.snapshot }
     private var habitsSnapshot: HomeHabitsSnapshot { habitsStore.snapshot }
+    private var calendarSnapshot: HomeCalendarSnapshot { calendarStore.snapshot }
     private var overlaySnapshot: HomeOverlaySnapshot { overlayStore.snapshot }
     private var activeFace: HomeForedropFace { faceCoordinator.activeFace }
     private var shellPhase: HomeShellPhase { faceCoordinator.shellPhase }
@@ -2155,7 +2163,7 @@ struct HomeBackdropForedropRootView: View {
     }
 
     private var homeScreenBody: some View {
-        ZStack {
+        let baseHomeScreen = ZStack {
             ZStack(alignment: .top) {
                 Color.tasker.bgCanvas
                     .ignoresSafeArea()
@@ -2364,6 +2372,9 @@ struct HomeBackdropForedropRootView: View {
             triggerForedropHintIfEligible()
             presentHabitBoardIfRequestedForUITests()
         }
+        .onChange(of: habitRenderSignature) { _, _ in
+            presentHabitBoardIfRequestedForUITests()
+        }
         .onDisappear {
             HomePerformanceSignposts.endHabitMutation(activeHabitMutationInterval)
             activeHabitMutationInterval = nil
@@ -2383,29 +2394,22 @@ struct HomeBackdropForedropRootView: View {
                     Text("Board")
                         .font(.tasker(.caption2).weight(.semibold))
                         .frame(width: 44, height: 44)
+                        .background(
+                            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                                .fill(Color.black.opacity(0.14))
+                        )
                 }
                 .buttonStyle(.plain)
-                .padding(.top, spacing.s8)
+                .padding(.top, layoutMetrics.safeAreaTop + spacing.s12)
                 .padding(.trailing, spacing.s8)
                 .contentShape(Rectangle())
                 .accessibilityIdentifier("home.habits.openBoard")
                 .accessibilityLabel("Open Habit Board")
-                .opacity(0.02)
+                .opacity(0.16)
             }
         }
-        .sheet(isPresented: $showHabitBoardPresented) {
-            HabitBoardScreen(
-                viewModel: PresentationDependencyContainer.shared.makeHabitBoardViewModel()
-            )
-        }
-        .sheet(item: $selectedHomeHabitRow) { row in
-            HabitDetailSheetView(
-                viewModel: PresentationDependencyContainer.shared.makeHabitDetailViewModel(row: row),
-                onMutation: {
-                    viewModel.loadTasksForSelectedDate()
-                }
-            )
-        }
+
+        return applyHabitPresentationRouting(to: baseHomeScreen)
         .onChange(of: activeFace) { _, newValue in
             forcedFace?.wrappedValue = newValue
             if newValue == .search {
@@ -2589,6 +2593,53 @@ struct HomeBackdropForedropRootView: View {
                 }
             )
         }
+    }
+
+    private func applyHabitPresentationRouting<Content: View>(to content: Content) -> some View {
+        content
+            .sheet(isPresented: $showHabitBoardPresented) {
+                HabitBoardScreen(
+                    viewModel: PresentationDependencyContainer.shared.makeHabitBoardViewModel()
+                )
+            }
+            .sheet(isPresented: $showHabitLibraryPresented) {
+                HabitLibraryView(
+                    viewModel: PresentationDependencyContainer.shared.makeNewHabitLibraryViewModel()
+                )
+            }
+            .sheet(item: $selectedHomeHabitRow) { row in
+                HabitDetailSheetView(
+                    viewModel: PresentationDependencyContainer.shared.makeHabitDetailViewModel(row: row),
+                    onMutation: {
+                        viewModel.refreshCurrentScopeContent(source: "habit_detail_sheet_mutation")
+                    }
+                )
+            }
+            .onReceive(NotificationCenter.default.publisher(for: .taskerPresentHabitBoard)) { _ in
+                presentHabitBoardFromDeepLink()
+            }
+            .onReceive(NotificationCenter.default.publisher(for: .taskerPresentHabitLibrary)) { _ in
+                presentHabitLibraryFromDeepLink()
+            }
+            .onReceive(NotificationCenter.default.publisher(for: .taskerPresentHabitDetail)) { notification in
+                guard let rawHabitID = notification.userInfo?["habitID"] as? String,
+                      let habitID = UUID(uuidString: rawHabitID) else {
+                    return
+                }
+                presentHabitDetailFromDeepLink(habitID: habitID)
+            }
+            .onChange(of: habitsSnapshot.errorMessage) { _, message in
+                guard let message, message.isEmpty == false else { return }
+                snackbar = SnackbarData(
+                    message: message,
+                    actions: [
+                        SnackbarAction(title: "Open board") {
+                            showHabitBoardPresented = true
+                        }
+                    ]
+                )
+                viewModel.clearHabitMutationErrorMessage()
+            }
     }
 
     /// Executes triggerForedropHintIfEligible.
@@ -2859,17 +2910,6 @@ struct HomeBackdropForedropRootView: View {
             .padding(.top, spacing.s4)
             .onDrop(of: ["public.text"], isTargeted: nil, perform: handleListDrop)
             .accessibilityIdentifier("home.list.dropzone")
-            .sheet(item: $quietTrackingComposerSnapshot) { snapshot in
-                QuietTrackingComposerView(
-                    snapshot: snapshot,
-                    onClose: {
-                        quietTrackingComposerSnapshot = nil
-                    },
-                    onSave: { request in
-                        saveQuietTrackingEntry(request, snapshot: snapshot)
-                    }
-                )
-            }
         }
     }
 
@@ -2930,14 +2970,27 @@ struct HomeBackdropForedropRootView: View {
     }
 
     private func presentHabitBoardIfRequestedForUITests() {
-        guard shouldPresentHabitBoardForUITests, hasPresentedUITestHabitBoard == false else { return }
-        hasPresentedUITestHabitBoard = true
+        guard shouldPresentHabitBoardForUITests else { return }
+        let hasVisibleHabits =
+            habitsSnapshot.habitHomeSectionState.primaryRows.isEmpty == false
+            || habitsSnapshot.habitHomeSectionState.recoveryRows.isEmpty == false
+        guard hasVisibleHabits else { return }
+        guard hasPresentedUITestHabitBoard == false, showHabitBoardPresented == false else { return }
+        guard isSchedulingUITestHabitBoardPresentation == false else { return }
+        isSchedulingUITestHabitBoardPresentation = true
 
         Task { @MainActor in
             setActiveFace(.tasks, animated: false)
             await Task.yield()
             await Task.yield()
+            try? await Task.sleep(nanoseconds: 350_000_000)
+            guard showHabitBoardPresented == false else {
+                isSchedulingUITestHabitBoardPresentation = false
+                return
+            }
             showHabitBoardPresented = true
+            hasPresentedUITestHabitBoard = true
+            isSchedulingUITestHabitBoardPresentation = false
         }
     }
 
@@ -3315,7 +3368,13 @@ struct HomeBackdropForedropRootView: View {
                         if habitsSnapshot.quietTrackingSummaryState.isVisible {
                             passiveTrackingRail
                         }
+                        calendarScheduleModuleCard
                         focusStrip
+                        if chromeSnapshot.weeklySummary != nil
+                            || chromeSnapshot.weeklySummaryIsLoading
+                            || chromeSnapshot.weeklySummaryErrorMessage != nil {
+                            weeklySummaryCard
+                        }
                     }
                 }
             }
@@ -3328,9 +3387,176 @@ struct HomeBackdropForedropRootView: View {
         }
     }
 
+    private var calendarScheduleModuleCard: some View {
+        VStack(alignment: .leading, spacing: spacing.s8) {
+            calendarModuleBody
+
+            if shouldShowCalendarPermissionCTA {
+                HStack(spacing: spacing.s8) {
+                    Button {
+                        onRequestCalendarPermission()
+                    } label: {
+                        Text(calendarPermissionButtonTitle)
+                            .font(.tasker(.buttonSmall))
+                            .foregroundStyle(Color.tasker.accentOnPrimary)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, spacing.s8)
+                            .background(
+                                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                                    .fill(Color.tasker.accentPrimary)
+                            )
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityIdentifier("home.calendar.connect")
+                    .accessibilityLabel(calendarPermissionButtonTitle)
+                }
+            }
+        }
+        .padding(.horizontal, spacing.s16)
+        .padding(.vertical, spacing.s12)
+        .background(
+            RoundedRectangle(cornerRadius: TaskerTheme.CornerRadius.card, style: .continuous)
+                .fill(Color.tasker.surfacePrimary)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: TaskerTheme.CornerRadius.card, style: .continuous)
+                .stroke(Color.tasker.strokeHairline.opacity(0.72), lineWidth: 1)
+        )
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("home.calendar.card")
+    }
+
+    @ViewBuilder
+    private var calendarModuleBody: some View {
+        switch calendarSnapshot.moduleState {
+        case .permissionRequired:
+            VStack(alignment: .leading, spacing: spacing.s8) {
+                Text(calendarPermissionBodyText)
+                    .font(.tasker(.callout))
+                    .foregroundStyle(Color.tasker.textSecondary)
+                    .accessibilityIdentifier(calendarPermissionStateAccessibilityID)
+            }
+            .accessibilityIdentifier("home.calendar.state.permission")
+        case .noCalendarsSelected:
+            Text(String(localized: "No calendars selected. Choose at least one calendar for schedule insights."))
+                .font(.tasker(.callout))
+                .foregroundStyle(Color.tasker.textSecondary)
+                .accessibilityIdentifier("home.calendar.state.noCalendars")
+        case .allDayOnly:
+            Text(String(localized: "Only all-day events are scheduled. No timed blocks for this day."))
+                .font(.tasker(.callout))
+                .foregroundStyle(Color.tasker.textSecondary)
+                .accessibilityIdentifier("home.calendar.state.allDayOnly")
+        case .empty:
+            Text(String(localized: "No events are scheduled. Use this open window for focused work."))
+                .font(.tasker(.callout))
+                .foregroundStyle(Color.tasker.textSecondary)
+                .accessibilityIdentifier("home.calendar.state.empty")
+        case .error(let message):
+            VStack(alignment: .leading, spacing: spacing.s8) {
+                Text(message)
+                    .font(.tasker(.callout))
+                    .foregroundStyle(Color.tasker.statusWarning)
+                    .accessibilityIdentifier("home.calendar.state.error")
+                Button(String(localized: "Retry")) {
+                    onRetryCalendarContext()
+                }
+                .buttonStyle(.bordered)
+                .accessibilityIdentifier("home.calendar.retry")
+            }
+        case .active:
+            VStack(alignment: .leading, spacing: spacing.s8) {
+                calendarTimelinePreview
+            }
+            .accessibilityElement(children: .contain)
+            .accessibilityIdentifier("home.calendar.state.active")
+        }
+    }
+
+    @ViewBuilder
+    private var calendarTimelinePreview: some View {
+        if calendarSnapshot.selectedDayTimelineEvents.isEmpty == false {
+            Button {
+                handleOpenScheduleAction()
+            } label: {
+                TaskerCalendarTimelineView(
+                    date: calendarSnapshot.selectedDate,
+                    events: calendarSnapshot.selectedDayEvents,
+                    density: .compact
+                )
+                .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .buttonStyle(.plain)
+            .accessibilityIdentifier("home.calendar.timelinePreview")
+            .accessibilityLabel(String(localized: "Open schedule for \(calendarSnapshot.selectedDate.formatted(.dateTime.weekday(.wide).month(.abbreviated).day()))"))
+            .accessibilityHint(String(localized: "Opens the full calendar schedule"))
+        }
+    }
+
+    private var shouldShowCalendarPermissionCTA: Bool {
+        guard calendarSnapshot.moduleState == .permissionRequired else { return false }
+        switch calendarSnapshot.authorizationStatus {
+        case .notDetermined, .denied, .writeOnly:
+            return true
+        case .restricted, .authorized:
+            return false
+        }
+    }
+
+    private var calendarPermissionButtonTitle: String {
+        switch calendarSnapshot.authorizationStatus {
+        case .denied, .writeOnly:
+            return String(localized: "Open Settings")
+        case .notDetermined, .restricted, .authorized:
+            return String(localized: "Connect")
+        }
+    }
+
+    private var calendarPermissionBodyText: String {
+        switch calendarSnapshot.authorizationStatus {
+        case .notDetermined:
+            return String(localized: "Connect Calendar to surface next meetings and free windows.")
+        case .denied:
+            return String(localized: "Calendar access is off. Open Settings to re-enable read access.")
+        case .restricted:
+            return String(localized: "Calendar access is restricted by system policy.")
+        case .writeOnly:
+            return String(localized: "Tasker currently has write-only access. Open Settings and allow full read access.")
+        case .authorized:
+            return String(localized: "Connect Calendar to surface next meetings and free windows.")
+        }
+    }
+
+    private var calendarPermissionStateAccessibilityID: String {
+        switch calendarSnapshot.authorizationStatus {
+        case .notDetermined:
+            return "home.calendar.state.permission.notDetermined"
+        case .denied:
+            return "home.calendar.state.permission.denied"
+        case .restricted:
+            return "home.calendar.state.permission.restricted"
+        case .writeOnly:
+            return "home.calendar.state.permission.writeOnly"
+        case .authorized:
+            return "home.calendar.state.permission"
+        }
+    }
+
+    private func handleOpenScheduleAction() {
+        if calendarSnapshot.authorizationStatus.isAuthorizedForRead {
+            onOpenCalendarSchedule()
+            return
+        }
+        if shouldShowCalendarPermissionCTA {
+            onRequestCalendarPermission()
+        }
+    }
+
     private var weeklySummaryCard: some View {
         HomeWeeklySummaryCard(
             summary: chromeSnapshot.weeklySummary,
+            isLoading: chromeSnapshot.weeklySummaryIsLoading,
+            errorMessage: chromeSnapshot.weeklySummaryErrorMessage,
             onPrimaryAction: {
                 guard let summary = chromeSnapshot.weeklySummary else { return }
                 switch summary.ctaState {
@@ -3339,7 +3565,8 @@ struct HomeBackdropForedropRootView: View {
                 case .reviewWeek:
                     onOpenWeeklyReview()
                 }
-            }
+            },
+            onRetryAction: onRetryWeeklySummary
         )
         .accessibilityIdentifier("home.weeklySummary.card")
     }
@@ -3349,9 +3576,8 @@ struct HomeBackdropForedropRootView: View {
 
         let hasPrimaryHabits = habitsSnapshot.habitHomeSectionState.primaryRows.isEmpty == false
         let hasRecoveryHabits = habitsSnapshot.habitHomeSectionState.recoveryRows.isEmpty == false
-        let hasWeeklySummary = chromeSnapshot.weeklySummary != nil
 
-        guard hasPrimaryHabits || hasRecoveryHabits || hasWeeklySummary else { return nil }
+        guard hasPrimaryHabits || hasRecoveryHabits else { return nil }
 
         return AnyView(
             VStack(alignment: .leading, spacing: spacing.s12) {
@@ -3365,9 +3591,6 @@ struct HomeBackdropForedropRootView: View {
                         .padding(.horizontal, -taskListHorizontalGutter)
                 }
 
-                if hasWeeklySummary {
-                    weeklySummaryCard
-                }
             }
         )
     }
@@ -3417,8 +3640,7 @@ struct HomeBackdropForedropRootView: View {
         let visibleDayCount = min(layout.visibleDayCount, card.historyCells.count)
 
         return Button {
-            guard let row = habitsSnapshot.quietTrackingSummaryState.stableRows.first(where: { $0.id == card.id }) else { return }
-            presentQuietTrackingComposer(for: row, preferredOutcome: .lapse)
+            openHabitDetail(habitID: card.habitID)
         } label: {
             QuietTrackingRailStreakWidget(
                 card: card,
@@ -3429,7 +3651,7 @@ struct HomeBackdropForedropRootView: View {
         .buttonStyle(.plain)
         .scaleOnPress()
         .accessibilityIdentifier("home.passiveTracking.card.\(card.id)")
-        .accessibilityHint("Opens quiet tracking logging for \(card.title)")
+        .accessibilityHint("Opens habit details for \(card.title)")
     }
 
     private var todayAgendaHeader: some View {
@@ -3495,10 +3717,94 @@ struct HomeBackdropForedropRootView: View {
         performHabitLastCellAction(habit, source: "habit_home_last_cell")
     }
 
+    private var habitDetailFallbackRows: [HomeHabitRow] {
+        habitsSnapshot.habitHomeSectionState.primaryRows
+        + habitsSnapshot.habitHomeSectionState.recoveryRows
+        + habitsSnapshot.quietTrackingSummaryState.stableRows
+    }
+
+    private func makeFallbackHabitLibraryRow(from habit: HomeHabitRow) -> HabitLibraryRow {
+        HabitLibraryRow(
+            habitID: habit.habitID,
+            title: habit.title,
+            kind: habit.kind,
+            trackingMode: habit.trackingMode,
+            cadence: habit.cadence,
+            lifeAreaID: habit.lifeAreaID,
+            lifeAreaName: habit.lifeAreaName,
+            projectID: habit.projectID,
+            projectName: habit.projectName,
+            icon: HabitIconMetadata(symbolName: habit.iconSymbolName, categoryKey: "home_fallback"),
+            colorHex: habit.accentHex,
+            isPaused: false,
+            isArchived: false,
+            currentStreak: habit.currentStreak,
+            bestStreak: habit.bestStreak,
+            last14Days: habit.last14Days,
+            nextDueAt: habit.dueAt,
+            lastCompletedAt: nil,
+            reminderWindowStart: nil,
+            reminderWindowEnd: nil,
+            notes: habit.helperText
+        )
+    }
+
     private func openHabitDetail(_ habit: HomeHabitRow) {
         HomePerformanceSignposts.openDetailTap()
-        guard let row = viewModel.habitLibraryRow(for: habit.habitID) else { return }
-        selectedHomeHabitRow = row
+        TaskerPerformanceTrace.event("HabitDetailTapReceived")
+        if let row = viewModel.habitLibraryRow(for: habit.habitID) {
+            selectedHomeHabitRow = row
+            return
+        }
+
+        // Fallback keeps detail navigation available when Home rows are ready
+        // before the library cache hydrates.
+        selectedHomeHabitRow = makeFallbackHabitLibraryRow(from: habit)
+    }
+
+    private func openHabitDetail(habitID: UUID) {
+        HomePerformanceSignposts.openDetailTap()
+        TaskerPerformanceTrace.event("HabitDetailTapReceived")
+
+        if let row = viewModel.habitLibraryRow(for: habitID) {
+            selectedHomeHabitRow = row
+            return
+        }
+
+        if let fallback = habitDetailFallbackRows.first(where: { $0.habitID == habitID }) {
+            selectedHomeHabitRow = makeFallbackHabitLibraryRow(from: fallback)
+            return
+        }
+    }
+
+    private func presentHabitBoardFromDeepLink() {
+        showHabitLibraryPresented = false
+        selectedHomeHabitRow = nil
+        showHabitBoardPresented = true
+    }
+
+    private func presentHabitLibraryFromDeepLink() {
+        selectedHomeHabitRow = nil
+        showHabitBoardPresented = false
+        showHabitLibraryPresented = true
+    }
+
+    private func presentHabitDetailFromDeepLink(habitID: UUID) {
+        showHabitLibraryPresented = false
+        showHabitBoardPresented = false
+        selectedHomeHabitRow = nil
+        if let row = viewModel.habitLibraryRow(for: habitID) {
+            selectedHomeHabitRow = row
+            return
+        }
+
+        if let fallback = habitDetailFallbackRows.first(where: { $0.habitID == habitID }) {
+            selectedHomeHabitRow = makeFallbackHabitLibraryRow(from: fallback)
+            return
+        }
+
+        snackbar = SnackbarData(message: "Couldn't find that habit. Opening Habit Board.")
+        showHabitBoardPresented = true
     }
 
     private func beginHabitMutationSignpost(trackLastCellTap: Bool = false) {
@@ -3539,32 +3845,6 @@ struct HomeBackdropForedropRootView: View {
         HomePerformanceSignposts.lastCellTapAccepted()
         beginHabitMutationSignpost(trackLastCellTap: true)
         viewModel.performHabitLastCellAction(habit, source: source)
-    }
-
-    private func saveQuietTrackingEntry(
-        _ request: QuietTrackingComposerSaveRequest,
-        snapshot: QuietTrackingComposerSnapshot
-    ) {
-        guard let entry = snapshot.entry(for: request.habitID) else { return }
-        switch request.outcome {
-        case .progress:
-            viewModel.logHabitProgress(entry.sourceRow, on: request.date)
-        case .lapse:
-            viewModel.logHabitLapse(entry.sourceRow, on: request.date)
-        }
-        quietTrackingComposerSnapshot = nil
-    }
-
-    private func presentQuietTrackingComposer(
-        for row: HomeHabitRow,
-        preferredOutcome: QuietTrackingOutcome
-    ) {
-        quietTrackingComposerSnapshot = QuietTrackingComposerSnapshot(
-            rows: habitsSnapshot.quietTrackingSummaryState.stableRows,
-            initialSelectedHabitID: row.id,
-            initialDate: min(chromeSnapshot.selectedDate, Date()),
-            initialOutcome: preferredOutcome
-        )
     }
 
     @ViewBuilder
@@ -4289,6 +4569,7 @@ struct TaskerProgressBar: View {
 
 enum HomeiPadDestination: String, CaseIterable, Identifiable {
     case tasks
+    case schedule
     case search
     case analytics
     case addTask
@@ -4303,6 +4584,7 @@ enum HomeiPadDestination: String, CaseIterable, Identifiable {
     var title: String {
         switch self {
         case .tasks: return "Tasks"
+        case .schedule: return "Schedule"
         case .search: return "Search"
         case .analytics: return "Analytics"
         case .addTask: return "Add Task"
@@ -4317,6 +4599,7 @@ enum HomeiPadDestination: String, CaseIterable, Identifiable {
     var icon: String {
         switch self {
         case .tasks: return "checklist"
+        case .schedule: return "calendar.badge.clock"
         case .search: return "magnifyingglass"
         case .analytics: return "chart.bar.xaxis"
         case .addTask: return "plus.circle"
@@ -4333,7 +4616,7 @@ enum HomeiPadDestination: String, CaseIterable, Identifiable {
         case .tasks: return .tasks
         case .search: return .search
         case .analytics: return .analytics
-        case .addTask, .settings, .lifeManagement, .projects, .chat, .models: return nil
+        case .schedule, .addTask, .settings, .lifeManagement, .projects, .chat, .models: return nil
         }
     }
 
@@ -4373,7 +4656,7 @@ enum HomeiPadSidebarSection: String, CaseIterable, Identifiable {
 
     var destinations: [HomeiPadDestination] {
         switch self {
-        case .primary: return [.tasks, .search, .analytics]
+        case .primary: return [.tasks, .schedule, .search, .analytics]
         case .create: return [.addTask]
         case .manage: return [.lifeManagement, .projects, .chat, .models, .settings]
         }
@@ -4492,6 +4775,7 @@ struct HomeiPadSplitShellView: View {
     let shellEpoch: Int
     let homeSurface: (Binding<HomeForedropFace>) -> AnyView
     let addTaskSurface: () -> AnyView
+    let scheduleSurface: () -> AnyView
     let settingsSurface: () -> AnyView
     let lifeManagementSurface: () -> AnyView
     let projectsSurface: () -> AnyView
@@ -4815,6 +5099,9 @@ struct HomeiPadSplitShellView: View {
                     monitor: primarySurfaceMonitor
                 )
             }
+        case .schedule:
+            scheduleSurface()
+                .accessibilityIdentifier("home.ipad.detail.schedule")
         case .settings:
             settingsSurface()
                 .accessibilityIdentifier("home.ipad.detail.settings")
@@ -4988,8 +5275,31 @@ struct HomeiPadSettingsContainer: View {
     let onNavigateToChats: () -> Void
     let onNavigateToModels: () -> Void
     let onRestartOnboarding: () -> Void
+    let onOpenCalendarChooser: () -> Void
 
-    @StateObject private var viewModel = SettingsViewModel()
+    @StateObject private var viewModel: SettingsViewModel
+
+    init(
+        onNavigateToProjects: @escaping () -> Void,
+        onNavigateToLifeManagement: @escaping () -> Void,
+        onNavigateToChats: @escaping () -> Void,
+        onNavigateToModels: @escaping () -> Void,
+        onRestartOnboarding: @escaping () -> Void,
+        calendarIntegrationService: CalendarIntegrationService,
+        onOpenCalendarChooser: @escaping () -> Void
+    ) {
+        self.onNavigateToProjects = onNavigateToProjects
+        self.onNavigateToLifeManagement = onNavigateToLifeManagement
+        self.onNavigateToChats = onNavigateToChats
+        self.onNavigateToModels = onNavigateToModels
+        self.onRestartOnboarding = onRestartOnboarding
+        self.onOpenCalendarChooser = onOpenCalendarChooser
+        _viewModel = StateObject(
+            wrappedValue: SettingsViewModel(
+                calendarIntegrationService: calendarIntegrationService
+            )
+        )
+    }
 
     var body: some View {
         NavigationStack {
@@ -5000,6 +5310,7 @@ struct HomeiPadSettingsContainer: View {
                     viewModel.onNavigateToChats = onNavigateToChats
                     viewModel.onNavigateToModels = onNavigateToModels
                     viewModel.onRestartOnboarding = onRestartOnboarding
+                    viewModel.onOpenCalendarChooser = onOpenCalendarChooser
                 }
         }
         .accessibilityIdentifier("home.ipad.detail.settings")

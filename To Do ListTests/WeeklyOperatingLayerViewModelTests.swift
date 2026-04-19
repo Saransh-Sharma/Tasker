@@ -131,6 +131,10 @@ final class WeeklyOperatingLayerViewModelTests: XCTestCase {
         viewModel.nextWeekTasks = [
             TaskDefinition(title: "Archive test builds", planningBucket: .nextWeek)
         ]
+        waitForCondition("planner summary recomputed") {
+            viewModel.plannerSteps.map(\.isComplete) == [true, true, true, true]
+                && viewModel.reviewSummary.compactSummary == "1 outcomes · 1 this week · 1 habits"
+        }
 
         XCTAssertEqual(viewModel.plannerSteps.map(\.isComplete), [true, true, true, true])
         XCTAssertEqual(viewModel.reviewSummary.compactSummary, "1 outcomes · 1 this week · 1 habits")
@@ -322,6 +326,10 @@ final class WeeklyOperatingLayerViewModelTests: XCTestCase {
         XCTAssertEqual(viewModel.selectedHabits.count, 1)
 
         viewModel.toggleHabit(habitOne.habitID)
+        waitForCondition("planner habit snapshot recomputed") {
+            viewModel.selectedHabits.isEmpty
+                && viewModel.footerSnapshot.title == WeeklyPlannerStep.direction.stepLabel
+        }
 
         XCTAssertTrue(viewModel.selectedHabits.isEmpty)
         XCTAssertEqual(viewModel.footerSnapshot.title, WeeklyPlannerStep.direction.stepLabel)
@@ -434,6 +442,9 @@ final class WeeklyOperatingLayerViewModelTests: XCTestCase {
         XCTAssertTrue(viewModel.unfinishedTasks.allSatisfy { viewModel.taskDecisions[$0.id] == .later })
 
         viewModel.wins = "Kept the scope believable."
+        waitForCondition("review reflection step recomputed", timeout: 1.0, pollInterval: 0.02) {
+            viewModel.reviewSteps[3].isComplete
+        }
         XCTAssertTrue(viewModel.reviewSteps[3].isComplete)
     }
 
@@ -761,6 +772,20 @@ final class WeeklyOperatingLayerViewModelTests: XCTestCase {
 
         DispatchQueue.main.async(execute: waitForLoad)
         wait(for: [loaded], timeout: 1.0)
+    }
+
+    @MainActor
+    private func waitForCondition(
+        _ description: String,
+        timeout: TimeInterval = 1.0,
+        pollInterval: TimeInterval = 0.01,
+        condition: @escaping @MainActor () -> Bool
+    ) {
+        let deadline = Date().addingTimeInterval(timeout)
+        while condition() == false && Date() < deadline {
+            RunLoop.main.run(until: Date().addingTimeInterval(pollInterval))
+        }
+        XCTAssertTrue(condition(), "Timed out waiting for condition: \(description)")
     }
 
     private var fixedWeekStart: Date {

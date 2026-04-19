@@ -16,6 +16,13 @@ final class SettingsViewModel: ObservableObject {
     @Published var currentModelDisplayName: String
     @Published var decorativeButtonEffectsEnabled: Bool
     @Published var homeBackdropNoiseAmount: Int
+    @Published var calendarAuthorizationStatus: TaskerCalendarAuthorizationStatus = .notDetermined
+    @Published var selectedCalendarIDs: [String] = []
+    @Published var availableCalendarCount: Int = 0
+    @Published var includeDeclinedCalendarEvents: Bool = false
+    @Published var includeCanceledCalendarEvents: Bool = false
+    @Published var includeAllDayInAgenda: Bool = true
+    @Published var includeAllDayInBusyStrip: Bool = false
 
     // MARK: - Navigation callbacks (set by SettingsPageViewController)
 
@@ -25,13 +32,16 @@ final class SettingsViewModel: ObservableObject {
     var onNavigateToChats: (() -> Void)?
     var onNavigateToModels: (() -> Void)?
     var onRestartOnboarding: (() -> Void)?
+    var onOpenCalendarChooser: (() -> Void)?
     var onDismiss: (() -> Void)?
 
     // MARK: - Dependencies
 
     private let notificationPreferencesStore: TaskerNotificationPreferencesStore
     private let workspacePreferencesStore: TaskerWorkspacePreferencesStore
+    private let calendarIntegrationService: CalendarIntegrationService
     private let appManager: AppManager
+    private var cancellables: Set<AnyCancellable> = []
     private var hasCustomizedAppearance: Bool {
         decorativeButtonEffectsEnabled || homeBackdropNoiseAmount != V2FeatureFlags.defaultHomeBackdropNoiseAmount
     }
@@ -205,21 +215,79 @@ final class SettingsViewModel: ObservableObject {
         workspacePreferences.weekStartsOn.displayTitle
     }
 
+    var calendarStatusSummary: String {
+        if calendarAuthorizationStatus.isAuthorizedForRead == false {
+            return String(localized: "Permission required")
+        }
+        if selectedCalendarIDs.isEmpty {
+            return String(localized: "No calendars selected")
+        }
+        return String(localized: "\(selectedCalendarIDs.count) selected")
+    }
+
+    var calendarStatusDetail: String {
+        String(localized: "Read-only schedule context for Home and task fit hints.")
+    }
+
+    var calendarAccessStatusLabel: String {
+        switch calendarAuthorizationStatus {
+        case .authorized:
+            return String(localized: "Connected")
+        case .notDetermined:
+            return String(localized: "Not requested")
+        case .denied:
+            return String(localized: "Denied")
+        case .restricted:
+            return String(localized: "Restricted")
+        case .writeOnly:
+            return String(localized: "Write-only")
+        }
+    }
+
+    var calendarAccessSubtitle: String {
+        switch calendarAuthorizationStatus {
+        case .authorized:
+            return String(localized: "Tasker can read your selected calendars.")
+        case .notDetermined:
+            return String(localized: "Grant access to show schedule context in Home.")
+        case .denied:
+            return String(localized: "Calendar access is off. Open Settings to re-enable it.")
+        case .restricted:
+            return String(localized: "Calendar access is restricted by system policy.")
+        case .writeOnly:
+            return String(localized: "Tasker has write-only access. Open Settings to allow read access.")
+        }
+    }
+
+    var calendarAccessTone: TaskerSettingsTone {
+        switch calendarAuthorizationStatus {
+        case .authorized:
+            return .success
+        case .notDetermined, .writeOnly:
+            return .warning
+        case .denied, .restricted:
+            return .danger
+        }
+    }
+
     // MARK: - Init
 
     init(
         appManager: AppManager = AppManager(),
         notificationPreferencesStore: TaskerNotificationPreferencesStore = .shared,
-        workspacePreferencesStore: TaskerWorkspacePreferencesStore = .shared
+        workspacePreferencesStore: TaskerWorkspacePreferencesStore = .shared,
+        calendarIntegrationService: CalendarIntegrationService
     ) {
         self.appManager = appManager
         self.notificationPreferencesStore = notificationPreferencesStore
         self.workspacePreferencesStore = workspacePreferencesStore
+        self.calendarIntegrationService = calendarIntegrationService
         self.preferences = notificationPreferencesStore.load()
         self.workspacePreferences = workspacePreferencesStore.load()
         self.currentModelDisplayName = appManager.compactModelDisplayName(appManager.currentModelName ?? "")
         self.decorativeButtonEffectsEnabled = V2FeatureFlags.userDecorativeCTAEffectsEnabled
         self.homeBackdropNoiseAmount = V2FeatureFlags.homeBackdropNoiseAmount
+        bindCalendarService()
     }
 
     // MARK: - Notification Toggles
@@ -306,6 +374,7 @@ final class SettingsViewModel: ObservableObject {
         decorativeButtonEffectsEnabled = V2FeatureFlags.userDecorativeCTAEffectsEnabled
         homeBackdropNoiseAmount = V2FeatureFlags.homeBackdropNoiseAmount
         refreshPermissionStatus()
+        refreshCalendarState()
     }
 
     func restartOnboarding() {
@@ -318,8 +387,74 @@ final class SettingsViewModel: ObservableObject {
         reconcileNotifications(reason: "settings_changed")
     }
 
+    func requestCalendarPermission() {
+        TaskerFeedback.medium()
+        _ = calendarIntegrationService.performAccessAction(openSystemSettings: openSystemSettings)
+    }
+
+    func openCalendarChooser() {
+        guard calendarAuthorizationStatus.isAuthorizedForRead else {
+            requestCalendarPermission()
+            return
+        }
+        onOpenCalendarChooser?()
+    }
+
+    func setIncludeDeclinedCalendarEvents(_ include: Bool) {
+        includeDeclinedCalendarEvents = include
+        calendarIntegrationService.setIncludeDeclined(include)
+    }
+
+    func setIncludeCanceledCalendarEvents(_ include: Bool) {
+        includeCanceledCalendarEvents = include
+        calendarIntegrationService.setIncludeCanceled(include)
+    }
+
+    func setIncludeAllDayInAgenda(_ include: Bool) {
+        includeAllDayInAgenda = include
+        calendarIntegrationService.setIncludeAllDayInAgenda(include)
+    }
+
+    func setIncludeAllDayInBusyStrip(_ include: Bool) {
+        includeAllDayInBusyStrip = include
+        calendarIntegrationService.setIncludeAllDayInBusyStrip(include)
+    }
+
+    private func bindCalendarService() {
+        calendarIntegrationService.$snapshot
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] snapshot in
+                guard let self else { return }
+                self.calendarAuthorizationStatus = snapshot.authorizationStatus
+                self.selectedCalendarIDs = snapshot.selectedCalendarIDs
+                self.availableCalendarCount = snapshot.availableCalendars.count
+                self.includeDeclinedCalendarEvents = snapshot.includeDeclined
+                self.includeCanceledCalendarEvents = snapshot.includeCanceled
+                self.includeAllDayInAgenda = snapshot.includeAllDayInAgenda
+                self.includeAllDayInBusyStrip = snapshot.includeAllDayInBusyStrip
+            }
+            .store(in: &cancellables)
+    }
+
+    private func refreshCalendarState() {
+        let snapshot = calendarIntegrationService.snapshot
+        calendarAuthorizationStatus = snapshot.authorizationStatus
+        selectedCalendarIDs = snapshot.selectedCalendarIDs
+        availableCalendarCount = snapshot.availableCalendars.count
+        includeDeclinedCalendarEvents = snapshot.includeDeclined
+        includeCanceledCalendarEvents = snapshot.includeCanceled
+        includeAllDayInAgenda = snapshot.includeAllDayInAgenda
+        includeAllDayInBusyStrip = snapshot.includeAllDayInBusyStrip
+    }
+
     private func reconcileNotifications(reason: String) {
         (UIApplication.shared.delegate as? AppDelegate)?.reconcileNotifications(reason: reason)
+    }
+
+    private func openSystemSettings() {
+        guard let url = URL(string: UIApplication.openSettingsURLString),
+              UIApplication.shared.canOpenURL(url) else { return }
+        UIApplication.shared.open(url)
     }
 
     private func dateFrom(hour: Int, minute: Int) -> Date {

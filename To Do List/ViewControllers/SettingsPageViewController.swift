@@ -65,7 +65,17 @@ class SettingsPageViewController: UIViewController, PresentationDependencyContai
     // MARK: - SwiftUI Hosting
 
     private func setupSwiftUIHost() {
-        let viewModel = SettingsViewModel(appManager: appManager)
+        let calendarService: CalendarIntegrationService
+        if let service = presentationDependencyContainer?.coordinator.calendarIntegrationService {
+            calendarService = service
+        } else {
+            assertionFailure("CalendarIntegrationService is required before presenting Settings.")
+            calendarService = CalendarIntegrationService(provider: nil)
+        }
+        let viewModel = SettingsViewModel(
+            appManager: appManager,
+            calendarIntegrationService: calendarService
+        )
 
         viewModel.onNavigateToLifeManagement = { [weak self] in
             self?.navigateToLifeManagement()
@@ -86,6 +96,9 @@ class SettingsPageViewController: UIViewController, PresentationDependencyContai
             self?.dismiss(animated: true) {
                 NotificationCenter.default.post(name: .taskerStartOnboardingRequested, object: nil)
             }
+        }
+        viewModel.onOpenCalendarChooser = { [weak self] in
+            self?.presentCalendarChooser()
         }
         viewModel.onDismiss = { [weak self] in
             self?.doneTapped()
@@ -187,6 +200,27 @@ class SettingsPageViewController: UIViewController, PresentationDependencyContai
         let controller = UIHostingController(rootView: view)
         controller.title = "Life Management"
         navigationController?.pushViewController(controller, animated: true)
+    }
+
+    private func presentCalendarChooser() {
+        guard let service = presentationDependencyContainer?.coordinator.calendarIntegrationService else { return }
+        let chooser = EventKitCalendarChooserContainerView(
+            service: service,
+            initialSelectedCalendarIDs: service.snapshot.selectedCalendarIDs,
+            onCommit: { selectedIDs in
+                service.updateSelectedCalendarIDs(selectedIDs)
+            }
+        )
+        let host = UIHostingController(rootView: AnyView(chooser.taskerLayoutClass(currentLayoutClass)))
+        host.modalPresentationStyle = .pageSheet
+        host.view.backgroundColor = TaskerThemeManager.shared.currentTheme.tokens.color.bgCanvas
+        if let sheet = host.sheetPresentationController {
+            sheet.detents = [.medium(), .large()]
+            sheet.prefersGrabberVisible = true
+            sheet.prefersScrollingExpandsWhenScrolledToEdge = false
+            sheet.preferredCornerRadius = 28
+        }
+        present(host, animated: true)
     }
 
     // MARK: - Theme

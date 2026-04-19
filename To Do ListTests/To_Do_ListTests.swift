@@ -2763,6 +2763,46 @@ final class TaskListWidgetSourceContractTests: XCTestCase {
         )
     }
 
+    func testSceneDelegateRegistersHabitDeepLinkRoutes() throws {
+        let source = try loadWorkspaceFile("To Do List/SceneDelegate.swift")
+        XCTAssertTrue(source.contains("if host == \"habits\""))
+        XCTAssertTrue(source.contains("if host == \"habit\""))
+        XCTAssertTrue(source.contains("taskerOpenHabitBoardDeepLink"))
+        XCTAssertTrue(source.contains("taskerOpenHabitLibraryDeepLink"))
+        XCTAssertTrue(source.contains("taskerOpenHabitDetailDeepLink"))
+    }
+
+    func testSceneDelegateRegistersWeeklyDeepLinkRoutesAndFallbackNotice() throws {
+        let source = try loadWorkspaceFile("To Do List/SceneDelegate.swift")
+        XCTAssertTrue(source.contains("if host == \"weekly\""))
+        XCTAssertTrue(source.contains("taskerOpenWeeklyPlannerDeepLink"))
+        XCTAssertTrue(source.contains("taskerOpenWeeklyReviewDeepLink"))
+        XCTAssertTrue(source.contains("That weekly destination is unavailable. Opened Home instead."))
+    }
+
+    func testWeekTaskPlannerWidgetRoutesToWeeklyPlannerDeepLink() throws {
+        let routesSource = try loadWorkspaceFile("TaskerWidgets/TaskerWidgetBundle.swift")
+        XCTAssertTrue(routesSource.contains("static var weeklyPlanner: URL { URL(string: \"tasker://weekly/planner\")! }"))
+
+        let widgetSource = try loadWorkspaceFile("TaskerWidgets/TaskWidgetHomeViews.swift")
+        XCTAssertTrue(widgetSource.contains(".widgetURL(TaskWidgetRoutes.weeklyPlanner)"))
+    }
+
+    func testWeeklyPlanningScreensRenderLoadingAndRetryContracts() throws {
+        let plannerSource = try loadWorkspaceFile("To Do List/View/WeeklyPlannerView.swift")
+        XCTAssertTrue(plannerSource.contains("WeeklyBlockingStateCard("))
+        XCTAssertTrue(plannerSource.contains("primaryActionTitle: \"Retry\""))
+
+        let reviewSource = try loadWorkspaceFile("To Do List/View/WeeklyReviewView.swift")
+        XCTAssertTrue(reviewSource.contains("WeeklyReviewBlockingStateCard("))
+        XCTAssertTrue(reviewSource.contains("primaryActionTitle: \"Retry\""))
+
+        let cardSource = try loadWorkspaceFile("To Do List/View/HomeWeeklySummaryCard.swift")
+        XCTAssertTrue(cardSource.contains("isLoading"))
+        XCTAssertTrue(cardSource.contains("errorMessage"))
+        XCTAssertTrue(cardSource.contains("Retry"))
+    }
+
     func testWidgetBundleRegistersFullTaskListCatalogKinds() throws {
         let source = try loadWorkspaceFile("TaskerWidgets/TaskerWidgetBundle.swift")
         let expectedKinds = [
@@ -10470,7 +10510,24 @@ final class SaveWeeklyPlanUseCaseTests: XCTestCase {
     }
 }
 
+private func canonicalISOWeekStart(_ date: Date) -> Date {
+    var calendar = Calendar(identifier: .iso8601)
+    calendar.timeZone = TimeZone(secondsFromGMT: 0) ?? .gmt
+    calendar.locale = Locale(identifier: "en_US_POSIX")
+    return XPCalculationEngine.startOfWeek(for: date, startingOn: .monday, calendar: calendar)
+}
+
+private func isSameCanonicalISOWeek(_ lhs: Date?, _ rhs: Date) -> Bool {
+    guard let lhs else { return false }
+    return canonicalISOWeekStart(lhs) == canonicalISOWeekStart(rhs)
+}
+
 final class WeeklyReviewDraftStoreTests: XCTestCase {
+    private struct LegacyWeeklyReviewLocalStateFile: Codable {
+        var draftsByWeekKey: [String: WeeklyReviewDraft]
+        var completedTaskDecisionsByWeekKey: [String: [WeeklyReviewTaskDecision]]
+    }
+
     func testRoundTripsDraftAndCompletedTaskDecisions() throws {
         let suiteName = "WeeklyReviewDraftStoreTests.\(UUID().uuidString)"
         let defaults = UserDefaults(suiteName: suiteName)!
@@ -10528,6 +10585,142 @@ final class WeeklyReviewDraftStoreTests: XCTestCase {
             store.fetchDraft(weekStartDate: weekStart, completion: completion)
         }
         XCTAssertNil(clearedDraft)
+    }
+
+    func testFetchDraftMigratesLegacyAliasKeyToCanonicalWeekIdentity() throws {
+        let suiteName = "WeeklyReviewDraftStoreTests.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        let storageKey = "tasker.weekly.review.localstate.tests"
+        defer {
+            defaults.removePersistentDomain(forName: suiteName)
+        }
+
+        let referenceDate = Date(timeIntervalSince1970: 1_720_224_000)
+        let legacyWeekStart = XPCalculationEngine.startOfWeek(for: referenceDate, startingOn: .sunday)
+        let canonicalWeekStart = XPCalculationEngine.mondayStartOfWeek(
+            for: referenceDate,
+            calendar: XPCalculationEngine.mondayCalendar()
+        )
+        let taskID = UUID()
+        let outcomeID = UUID()
+        let draft = WeeklyReviewDraft(
+            weekStartDate: legacyWeekStart,
+            wins: "Legacy key",
+            blockers: "Legacy blockers",
+            lessons: "Legacy lessons",
+            nextWeekPrepNotes: "Legacy prep",
+            perceivedWeekRating: 3,
+            taskDecisions: [taskID: .carry],
+            outcomeStatuses: [outcomeID: .completed],
+            updatedAt: referenceDate
+        )
+
+        let legacyKey = isoDateStorageKey(for: legacyWeekStart)
+        let legacyState = LegacyWeeklyReviewLocalStateFile(
+            draftsByWeekKey: [legacyKey: draft],
+            completedTaskDecisionsByWeekKey: [
+                legacyKey: [WeeklyReviewTaskDecision(taskID: taskID, disposition: .carry)]
+            ]
+        )
+        let encoder = JSONEncoder()
+        encoder.dateEncodingStrategy = .iso8601
+        defaults.set(try encoder.encode(legacyState), forKey: storageKey)
+
+        let store = UserDefaultsWeeklyReviewDraftStore(defaults: defaults, storageKey: storageKey)
+
+        let fetchedDraft = try awaitResult { completion in
+            store.fetchDraft(weekStartDate: canonicalWeekStart, completion: completion)
+        }
+        let fetchedDecisions = try awaitResult { completion in
+            store.fetchCompletedTaskDecisions(weekStartDate: canonicalWeekStart, completion: completion)
+        }
+
+        XCTAssertEqual(fetchedDraft?.wins, "Legacy key")
+        XCTAssertTrue(isSameCanonicalISOWeek(fetchedDraft?.weekStartDate, canonicalWeekStart))
+        XCTAssertEqual(fetchedDecisions.first?.disposition, .carry)
+
+        let persisted = try decodeStorageJSON(defaults: defaults, storageKey: storageKey)
+        let draftKeys = Set((persisted["draftsByWeekKey"] as? [String: Any] ?? [:]).keys)
+        let completedKeys = Set((persisted["completedTaskDecisionsByWeekKey"] as? [String: Any] ?? [:]).keys)
+        XCTAssertEqual(draftKeys.count, 1)
+        XCTAssertEqual(completedKeys.count, 1)
+        XCTAssertTrue(draftKeys.allSatisfy { $0.hasPrefix("iso:") })
+        XCTAssertTrue(completedKeys.allSatisfy { $0.hasPrefix("iso:") })
+        XCTAssertFalse(draftKeys.contains(legacyKey))
+        XCTAssertFalse(completedKeys.contains(legacyKey))
+    }
+
+    func testDraftStorePrunesToMostRecentTwentySixWeeks() throws {
+        let suiteName = "WeeklyReviewDraftStoreTests.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        let storageKey = "tasker.weekly.review.localstate.tests"
+        let store = UserDefaultsWeeklyReviewDraftStore(defaults: defaults, storageKey: storageKey)
+        defer {
+            defaults.removePersistentDomain(forName: suiteName)
+        }
+
+        let referenceWeek = XPCalculationEngine.mondayStartOfWeek(
+            for: Date(timeIntervalSince1970: 1_720_224_000),
+            calendar: XPCalculationEngine.mondayCalendar()
+        )
+        let calendar = Calendar(identifier: .gregorian)
+
+        for offset in 0..<30 {
+            let weekStart = calendar.date(byAdding: .weekOfYear, value: -offset, to: referenceWeek) ?? referenceWeek
+            let draft = WeeklyReviewDraft(
+                weekStartDate: weekStart,
+                wins: "Week \(offset)",
+                blockers: nil,
+                lessons: nil,
+                nextWeekPrepNotes: nil,
+                perceivedWeekRating: 4,
+                taskDecisions: [:],
+                outcomeStatuses: [:],
+                updatedAt: weekStart.addingTimeInterval(Double(offset))
+            )
+            _ = try awaitResult { completion in
+                store.saveDraft(draft, completion: completion)
+            }
+            _ = try awaitResult { completion in
+                store.saveCompletedTaskDecisions(
+                    [WeeklyReviewTaskDecision(taskID: UUID(), disposition: .later)],
+                    weekStartDate: weekStart,
+                    completion: completion
+                )
+            }
+        }
+
+        let persisted = try decodeStorageJSON(defaults: defaults, storageKey: storageKey)
+        let draftKeys = Set((persisted["draftsByWeekKey"] as? [String: Any] ?? [:]).keys)
+        let completedKeys = Set((persisted["completedTaskDecisionsByWeekKey"] as? [String: Any] ?? [:]).keys)
+        XCTAssertEqual(draftKeys.count, 26)
+        XCTAssertEqual(completedKeys.count, 26)
+        XCTAssertTrue(draftKeys.allSatisfy { $0.hasPrefix("iso:") })
+        XCTAssertTrue(completedKeys.allSatisfy { $0.hasPrefix("iso:") })
+
+        let prunedWeekStart = calendar.date(byAdding: .weekOfYear, value: -29, to: referenceWeek) ?? referenceWeek
+        let keptWeekStart = calendar.date(byAdding: .weekOfYear, value: -25, to: referenceWeek) ?? referenceWeek
+        let prunedDraft = try awaitResult { completion in
+            store.fetchDraft(weekStartDate: prunedWeekStart, completion: completion)
+        }
+        let keptDraft = try awaitResult { completion in
+            store.fetchDraft(weekStartDate: keptWeekStart, completion: completion)
+        }
+        XCTAssertNil(prunedDraft)
+        XCTAssertNotNil(keptDraft)
+    }
+
+    private func isoDateStorageKey(for date: Date) -> String {
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime]
+        formatter.timeZone = TimeZone(secondsFromGMT: 0)
+        return formatter.string(from: date)
+    }
+
+    private func decodeStorageJSON(defaults: UserDefaults, storageKey: String) throws -> [String: Any] {
+        let data = try XCTUnwrap(defaults.data(forKey: storageKey))
+        let object = try JSONSerialization.jsonObject(with: data)
+        return try XCTUnwrap(object as? [String: Any])
     }
 }
 
@@ -10622,7 +10815,7 @@ final class CoreDataWeeklyReviewMutationRepositoryTests: XCTestCase {
         })
         XCTAssertEqual(updatedTask.planningBucket, .later)
         XCTAssertNil(updatedTask.weeklyOutcomeID)
-        XCTAssertEqual(updatedTask.deferredFromWeekStart, weekStart)
+        XCTAssertTrue(isSameCanonicalISOWeek(updatedTask.deferredFromWeekStart, weekStart))
         XCTAssertEqual(updatedTask.deferredCount, 0)
 
         let updatedOutcomes = try awaitResult { completion in
@@ -10789,6 +10982,122 @@ final class CoreDataWeeklyReviewMutationRepositoryTests: XCTestCase {
             outcomeRepository.fetchOutcomes(weeklyPlanID: savedPlan.id, completion: completion)
         }
         XCTAssertEqual(outcomes.first?.status, .dropped)
+    }
+
+    func testFinalizeReviewCarryDecisionIsIdempotentForSameWeek() throws {
+        let container = try makeWeeklyContainer()
+        let taskRepository = CoreDataTaskDefinitionRepository(container: container)
+        let planRepository = CoreDataWeeklyPlanRepository(container: container)
+        let mutationRepository = CoreDataWeeklyReviewMutationRepository(container: container)
+        let weekStart = XPCalculationEngine.mondayStartOfWeek(
+            for: Date(timeIntervalSince1970: 1_720_224_000),
+            calendar: XPCalculationEngine.mondayCalendar()
+        )
+
+        let plan = WeeklyPlan(
+            weekStartDate: weekStart,
+            weekEndDate: Calendar(identifier: .gregorian).date(byAdding: .day, value: 6, to: weekStart) ?? weekStart,
+            reviewStatus: .ready,
+            createdAt: weekStart,
+            updatedAt: weekStart
+        )
+        let savedPlan = try awaitResult { completion in
+            planRepository.savePlan(plan, completion: completion)
+        }
+        let task = TaskDefinition(
+            title: "Carry me once",
+            planningBucket: .thisWeek,
+            createdAt: weekStart,
+            updatedAt: weekStart
+        )
+        let savedTask = try awaitResult { completion in
+            taskRepository.create(task, completion: completion)
+        }
+
+        let request = CompleteWeeklyReviewRequest(
+            weeklyPlanID: savedPlan.id,
+            taskDecisions: [WeeklyReviewTaskDecision(taskID: savedTask.id, disposition: .carry)],
+            completedAt: weekStart.addingTimeInterval(3600)
+        )
+        _ = try awaitResult { completion in
+            mutationRepository.finalizeReview(request: request, completion: completion)
+        }
+
+        let afterFirstPass = try XCTUnwrap(try awaitResult { completion in
+            taskRepository.fetchTaskDefinition(id: savedTask.id, completion: completion)
+        })
+        XCTAssertEqual(afterFirstPass.deferredCount, 1)
+        XCTAssertTrue(isSameCanonicalISOWeek(afterFirstPass.deferredFromWeekStart, weekStart))
+
+        _ = try awaitResult { completion in
+            mutationRepository.finalizeReview(
+                request: CompleteWeeklyReviewRequest(
+                    weeklyPlanID: savedPlan.id,
+                    taskDecisions: [WeeklyReviewTaskDecision(taskID: savedTask.id, disposition: .carry)],
+                    completedAt: weekStart.addingTimeInterval(7200)
+                ),
+                completion: completion
+            )
+        }
+
+        let afterSecondPass = try XCTUnwrap(try awaitResult { completion in
+            taskRepository.fetchTaskDefinition(id: savedTask.id, completion: completion)
+        })
+        XCTAssertEqual(afterSecondPass.deferredCount, 1)
+    }
+
+    func testFetchPlanMigratesLegacyWeekStartAliasToCanonicalIdentity() throws {
+        let container = try makeWeeklyContainer()
+        let planRepository = CoreDataWeeklyPlanRepository(container: container)
+        let referenceDate = Date(timeIntervalSince1970: 1_720_224_000)
+        let canonicalWeekStart = XPCalculationEngine.mondayStartOfWeek(
+            for: referenceDate,
+            calendar: XPCalculationEngine.mondayCalendar()
+        )
+        let legacyWeekStart = XPCalculationEngine.startOfWeek(for: referenceDate, startingOn: .sunday)
+        let planID = UUID()
+        let createdAt = referenceDate.addingTimeInterval(-120)
+        let updatedAt = referenceDate.addingTimeInterval(-60)
+
+        var insertionError: Error?
+        container.viewContext.performAndWait {
+            do {
+                let object = NSEntityDescription.insertNewObject(forEntityName: "WeeklyPlan", into: container.viewContext)
+                object.setValue(planID, forKey: "id")
+                object.setValue(legacyWeekStart, forKey: "weekStartDate")
+                object.setValue(
+                    Calendar(identifier: .gregorian).date(byAdding: .day, value: 6, to: legacyWeekStart),
+                    forKey: "weekEndDate"
+                )
+                object.setValue("Legacy keyed plan", forKey: "focusStatement")
+                object.setValue([], forKey: "selectedHabitIDs")
+                object.setValue(WeeklyPlanReviewStatus.ready.rawValue, forKey: "reviewStatus")
+                object.setValue(createdAt, forKey: "createdAt")
+                object.setValue(updatedAt, forKey: "updatedAt")
+                try container.viewContext.save()
+            } catch {
+                insertionError = error
+            }
+        }
+        if let insertionError {
+            throw insertionError
+        }
+
+        let fetchedFromLegacyStart = try awaitResult { completion in
+            planRepository.fetchPlan(forWeekStarting: legacyWeekStart, completion: completion)
+        }
+        let fetchedFromCanonicalStart = try awaitResult { completion in
+            planRepository.fetchPlan(forWeekStarting: canonicalWeekStart, completion: completion)
+        }
+
+        XCTAssertEqual(fetchedFromLegacyStart?.id, planID)
+        XCTAssertEqual(fetchedFromCanonicalStart?.id, planID)
+        XCTAssertTrue(isSameCanonicalISOWeek(fetchedFromLegacyStart?.weekStartDate, canonicalWeekStart))
+
+        let persisted = try awaitResult { completion in
+            planRepository.fetchPlan(id: planID, completion: completion)
+        }
+        XCTAssertTrue(isSameCanonicalISOWeek(persisted?.weekStartDate, canonicalWeekStart))
     }
 
     private func makeWeeklyContainer() throws -> NSPersistentContainer {
@@ -11275,6 +11584,487 @@ final class AddHabitViewModelValidationTests: XCTestCase {
             ),
             habitRepository
         )
+    }
+}
+
+@MainActor
+final class HabitDetailViewModelHydrationTests: XCTestCase {
+    func testLoadIfNeededUsesTargetedReadOnlyHydrationOnly() async {
+        let fixture = makeDetailFixture(returnedTitle: "Hydrate refreshed")
+
+        XCTAssertFalse(fixture.viewModel.isCalendarMounted)
+        XCTAssertFalse(fixture.viewModel.calendarViewState.weeks.isEmpty)
+
+        fixture.viewModel.loadIfNeeded()
+        await waitUntil { fixture.viewModel.isCalendarMounted }
+        await waitUntil { fixture.viewModel.isLoading == false }
+
+        XCTAssertEqual(fixture.readRepository.fetchDetailSummaryCallCount, 1)
+        XCTAssertEqual(fixture.readRepository.fetchFilteredLibraryCallCount, 0)
+        XCTAssertEqual(fixture.readRepository.fetchAllLibraryCallCount, 0)
+        XCTAssertEqual(fixture.readRepository.fetchHistoryCallCount, 1)
+        XCTAssertEqual(fixture.lifeAreaRepository.fetchAllCallCount, 0)
+        XCTAssertEqual(fixture.projectRepository.fetchAllProjectsCallCount, 0)
+        XCTAssertEqual(fixture.projectRepository.getTaskCountCallCount, 0)
+        XCTAssertEqual(fixture.viewModel.row.title, "Hydrate refreshed")
+        XCTAssertFalse(fixture.viewModel.isPreparingEditorData)
+    }
+
+    func testBeginEditingDefersAndCachesEditorSupportLoading() async {
+        let fixture = makeDetailFixture()
+
+        fixture.viewModel.loadIfNeeded()
+        await waitUntil { fixture.viewModel.isLoading == false }
+
+        fixture.viewModel.beginEditing()
+        await waitUntil { fixture.viewModel.isEditing }
+
+        XCTAssertEqual(fixture.lifeAreaRepository.fetchAllCallCount, 1)
+        XCTAssertEqual(fixture.projectRepository.fetchAllProjectsCallCount, 1)
+        XCTAssertEqual(fixture.projectRepository.getTaskCountCallCount, fixture.projectRepository.projectCount)
+        XCTAssertFalse(fixture.viewModel.isPreparingEditorData)
+
+        fixture.viewModel.cancelEditing()
+        fixture.viewModel.beginEditing()
+        await waitUntil { fixture.viewModel.isEditing }
+
+        XCTAssertEqual(fixture.lifeAreaRepository.fetchAllCallCount, 1)
+        XCTAssertEqual(fixture.projectRepository.fetchAllProjectsCallCount, 1)
+        XCTAssertEqual(fixture.projectRepository.getTaskCountCallCount, fixture.projectRepository.projectCount)
+    }
+
+    func testMutateDayRefreshesReadOnlyDataWithoutLoadingEditorSupport() async {
+        let fixture = makeDetailFixture()
+        fixture.occurrenceRepository.occurrences = [makePendingOccurrence(habitID: fixture.row.habitID, on: Date())]
+
+        fixture.viewModel.loadIfNeeded()
+        await waitUntil { fixture.viewModel.isLoading == false }
+
+        guard let todayCell = fixture.viewModel.detailCalendarWeeks
+            .flatMap(\.cells)
+            .first(where: { Calendar.current.isDateInToday($0.date) }) else {
+            XCTFail("Expected a today cell in the detail calendar")
+            return
+        }
+
+        fixture.viewModel.mutateDay(todayCell)
+        await waitUntil { fixture.viewModel.isSaving == false && fixture.viewModel.isLoading == false }
+
+        XCTAssertEqual(fixture.readRepository.fetchDetailSummaryCallCount, 2)
+        XCTAssertEqual(fixture.readRepository.fetchFilteredLibraryCallCount, 0)
+        XCTAssertEqual(fixture.readRepository.fetchHistoryCallCount, 2)
+        XCTAssertEqual(fixture.lifeAreaRepository.fetchAllCallCount, 0)
+        XCTAssertEqual(fixture.projectRepository.fetchAllProjectsCallCount, 0)
+        XCTAssertEqual(fixture.projectRepository.getTaskCountCallCount, 0)
+    }
+
+    func testSaveChangesRefreshesReadOnlyDataWithoutReloadingEditorSupport() async {
+        let fixture = makeDetailFixture()
+
+        fixture.viewModel.loadIfNeeded()
+        await waitUntil { fixture.viewModel.isLoading == false }
+
+        fixture.viewModel.beginEditing()
+        await waitUntil { fixture.viewModel.isEditing }
+
+        fixture.viewModel.draft.title = "Hydrate better"
+        let editorLifeAreaFetchCount = fixture.lifeAreaRepository.fetchAllCallCount
+        let editorProjectListFetchCount = fixture.projectRepository.fetchAllProjectsCallCount
+        let editorProjectCountFetches = fixture.projectRepository.getTaskCountCallCount
+
+        let expectation = expectation(description: "save completes")
+        fixture.viewModel.saveChanges {
+            expectation.fulfill()
+        }
+        await fulfillment(of: [expectation], timeout: 1.0)
+        await waitUntil { fixture.viewModel.isSaving == false && fixture.viewModel.isLoading == false && fixture.viewModel.isEditing == false }
+
+        XCTAssertEqual(fixture.readRepository.fetchDetailSummaryCallCount, 2)
+        XCTAssertEqual(fixture.readRepository.fetchFilteredLibraryCallCount, 0)
+        XCTAssertEqual(fixture.readRepository.fetchHistoryCallCount, 2)
+        XCTAssertEqual(fixture.lifeAreaRepository.fetchAllCallCount, editorLifeAreaFetchCount + 1)
+        XCTAssertEqual(fixture.projectRepository.fetchAllProjectsCallCount, editorProjectListFetchCount)
+        XCTAssertEqual(fixture.projectRepository.getTaskCountCallCount, editorProjectCountFetches)
+    }
+
+    private struct DetailFixture {
+        let row: HabitLibraryRow
+        let viewModel: HabitDetailViewModel
+        let readRepository: DetailReadRepositorySpy
+        let lifeAreaRepository: CountingLifeAreaRepository
+        let projectRepository: CountingProjectRepository
+        let occurrenceRepository: InMemoryOccurrenceRepository
+    }
+
+    private final class DetailReadRepositorySpy: HabitRuntimeReadRepositoryProtocol {
+        var libraryRows: [HabitLibraryRow]
+        var historyWindows: [HabitHistoryWindow]
+        private(set) var fetchAllLibraryCallCount = 0
+        private(set) var fetchFilteredLibraryCallCount = 0
+        private(set) var fetchDetailSummaryCallCount = 0
+        private(set) var fetchHistoryCallCount = 0
+
+        init(libraryRows: [HabitLibraryRow], historyWindows: [HabitHistoryWindow]) {
+            self.libraryRows = libraryRows
+            self.historyWindows = historyWindows
+        }
+
+        func fetchAgendaHabits(
+            for date: Date,
+            completion: @escaping (Result<[HabitOccurrenceSummary], Error>) -> Void
+        ) {
+            completion(.success([]))
+        }
+
+        func fetchHistory(
+            habitIDs: [UUID],
+            endingOn date: Date,
+            dayCount: Int,
+            completion: @escaping (Result<[HabitHistoryWindow], Error>) -> Void
+        ) {
+            fetchHistoryCallCount += 1
+            let requestedIDs = Set(habitIDs)
+            completion(.success(historyWindows.filter { requestedIDs.contains($0.habitID) }))
+        }
+
+        func fetchSignals(
+            start: Date,
+            end: Date,
+            completion: @escaping (Result<[HabitOccurrenceSummary], Error>) -> Void
+        ) {
+            completion(.success([]))
+        }
+
+        func fetchHabitLibrary(
+            includeArchived: Bool,
+            completion: @escaping (Result<[HabitLibraryRow], Error>) -> Void
+        ) {
+            fetchAllLibraryCallCount += 1
+            completion(.success(libraryRows))
+        }
+
+        func fetchHabitLibrary(
+            habitIDs: [UUID]?,
+            includeArchived: Bool,
+            completion: @escaping (Result<[HabitLibraryRow], Error>) -> Void
+        ) {
+            fetchFilteredLibraryCallCount += 1
+            guard let habitIDs, habitIDs.isEmpty == false else {
+                completion(.success(libraryRows))
+                return
+            }
+            let requestedIDs = Set(habitIDs)
+            completion(.success(libraryRows.filter { requestedIDs.contains($0.habitID) }))
+        }
+
+        func fetchHabitDetailSummary(
+            habitID: UUID,
+            includeArchived: Bool,
+            completion: @escaping (Result<HabitLibraryRow?, Error>) -> Void
+        ) {
+            fetchDetailSummaryCallCount += 1
+            completion(.success(libraryRows.first(where: { $0.habitID == habitID })))
+        }
+    }
+
+    private final class CountingLifeAreaRepository: LifeAreaRepositoryProtocol {
+        let storedAreas: [LifeArea]
+        private(set) var fetchAllCallCount = 0
+
+        init(storedAreas: [LifeArea]) {
+            self.storedAreas = storedAreas
+        }
+
+        func fetchAll(completion: @escaping (Result<[LifeArea], Error>) -> Void) {
+            fetchAllCallCount += 1
+            completion(.success(storedAreas))
+        }
+
+        func create(_ area: LifeArea, completion: @escaping (Result<LifeArea, Error>) -> Void) {
+            completion(.success(area))
+        }
+
+        func update(_ area: LifeArea, completion: @escaping (Result<LifeArea, Error>) -> Void) {
+            completion(.success(area))
+        }
+
+        func delete(id: UUID, completion: @escaping (Result<Void, Error>) -> Void) {
+            completion(.success(()))
+        }
+    }
+
+    private final class CountingProjectRepository: ProjectRepositoryProtocol {
+        private let projectsByID: [UUID: Project]
+        private(set) var fetchAllProjectsCallCount = 0
+        private(set) var getTaskCountCallCount = 0
+
+        init(projects: [Project]) {
+            self.projectsByID = Dictionary(uniqueKeysWithValues: projects.map { ($0.id, $0) })
+        }
+
+        var projectCount: Int { projectsByID.count }
+
+        func fetchAllProjects(completion: @escaping (Result<[Project], Error>) -> Void) {
+            fetchAllProjectsCallCount += 1
+            completion(.success(Array(projectsByID.values)))
+        }
+
+        func fetchProject(withId id: UUID, completion: @escaping (Result<Project?, Error>) -> Void) {
+            completion(.success(projectsByID[id]))
+        }
+
+        func fetchProject(withName name: String, completion: @escaping (Result<Project?, Error>) -> Void) {
+            completion(.success(projectsByID.values.first { $0.name.caseInsensitiveCompare(name) == .orderedSame }))
+        }
+
+        func fetchInboxProject(completion: @escaping (Result<Project, Error>) -> Void) {
+            completion(.success(Project.createInbox()))
+        }
+
+        func fetchCustomProjects(completion: @escaping (Result<[Project], Error>) -> Void) {
+            completion(.success(Array(projectsByID.values)))
+        }
+
+        func createProject(_ project: Project, completion: @escaping (Result<Project, Error>) -> Void) {
+            completion(.success(project))
+        }
+
+        func ensureInboxProject(completion: @escaping (Result<Project, Error>) -> Void) {
+            completion(.success(Project.createInbox()))
+        }
+
+        func repairProjectIdentityCollisions(completion: @escaping (Result<ProjectRepairReport, Error>) -> Void) {
+            completion(.success(ProjectRepairReport(scanned: 0, merged: 0, deleted: 0, inboxCandidates: 0, warnings: [])))
+        }
+
+        func updateProject(_ project: Project, completion: @escaping (Result<Project, Error>) -> Void) {
+            completion(.success(project))
+        }
+
+        func renameProject(withId id: UUID, to newName: String, completion: @escaping (Result<Project, Error>) -> Void) {
+            if var project = projectsByID[id] {
+                project.name = newName
+                completion(.success(project))
+            } else {
+                completion(.failure(NSError(domain: "CountingProjectRepository", code: 404)))
+            }
+        }
+
+        func deleteProject(withId id: UUID, deleteTasks: Bool, completion: @escaping (Result<Void, Error>) -> Void) {
+            completion(.success(()))
+        }
+
+        func getTaskCount(for projectId: UUID, completion: @escaping (Result<Int, Error>) -> Void) {
+            getTaskCountCallCount += 1
+            completion(.success(0))
+        }
+
+        func getTasks(for projectId: UUID, completion: @escaping (Result<[Task], Error>) -> Void) {
+            completion(.success([]))
+        }
+
+        func moveTasks(from sourceProjectId: UUID, to targetProjectId: UUID, completion: @escaping (Result<Void, Error>) -> Void) {
+            completion(.success(()))
+        }
+
+        func isProjectNameAvailable(_ name: String, excludingId: UUID?, completion: @escaping (Result<Bool, Error>) -> Void) {
+            completion(.success(true))
+        }
+    }
+
+    private func makeDetailFixture(returnedTitle: String = "Hydrate") -> DetailFixture {
+        let anchorDate = Date(timeIntervalSince1970: 1_711_036_800)
+        let lifeAreaID = UUID()
+        let projectID = UUID()
+        let habitID = UUID()
+        let project = Project(
+            id: projectID,
+            lifeAreaID: lifeAreaID,
+            name: "Wellness",
+            createdDate: anchorDate,
+            modifiedDate: anchorDate,
+            isArchived: false
+        )
+        let row = HabitLibraryRow(
+            habitID: habitID,
+            title: "Hydrate",
+            kind: .positive,
+            trackingMode: .dailyCheckIn,
+            cadence: .daily(),
+            lifeAreaID: lifeAreaID,
+            lifeAreaName: "Health",
+            projectID: projectID,
+            projectName: project.name,
+            icon: HabitIconMetadata(symbolName: "drop.fill", categoryKey: "health"),
+            colorHex: "#3B82F6",
+            isPaused: false,
+            isArchived: false,
+            currentStreak: 3,
+            bestStreak: 8,
+            last14Days: [],
+            reminderWindowStart: "08:00",
+            reminderWindowEnd: "09:00",
+            notes: "Stay consistent"
+        )
+        let refreshedRow = HabitLibraryRow(
+            habitID: habitID,
+            title: returnedTitle,
+            kind: .positive,
+            trackingMode: .dailyCheckIn,
+            cadence: .daily(),
+            lifeAreaID: lifeAreaID,
+            lifeAreaName: "Health",
+            projectID: projectID,
+            projectName: project.name,
+            icon: HabitIconMetadata(symbolName: "drop.fill", categoryKey: "health"),
+            colorHex: "#3B82F6",
+            isPaused: false,
+            isArchived: false,
+            currentStreak: 3,
+            bestStreak: 8,
+            last14Days: [],
+            reminderWindowStart: "08:00",
+            reminderWindowEnd: "09:00",
+            notes: "Stay consistent"
+        )
+        let historyWindow = HabitHistoryWindow(habitID: habitID, marks: [])
+        let readRepository = DetailReadRepositorySpy(
+            libraryRows: [refreshedRow],
+            historyWindows: [historyWindow]
+        )
+        let lifeAreaRepository = CountingLifeAreaRepository(
+            storedAreas: [LifeArea(id: lifeAreaID, name: "Health", createdAt: anchorDate, updatedAt: anchorDate)]
+        )
+        let projectRepository = CountingProjectRepository(projects: [project])
+        let habitRepository = InMemoryHabitRepository(habits: [
+            HabitDefinitionRecord(
+                id: habitID,
+                lifeAreaID: lifeAreaID,
+                projectID: projectID,
+                title: "Hydrate",
+                habitType: "check_in",
+                kindRaw: HabitKind.positive.rawValue,
+                trackingModeRaw: HabitTrackingMode.dailyCheckIn.rawValue,
+                iconSymbolName: "drop.fill",
+                iconCategoryKey: "health",
+                colorHex: "#3B82F6",
+                notes: "Stay consistent",
+                createdAt: anchorDate,
+                updatedAt: anchorDate
+            )
+        ])
+        let scheduleRepository = InMemoryScheduleRepository()
+        let occurrenceRepository = InMemoryOccurrenceRepository()
+        let gamificationRepository = InMemoryGamificationEngineRepository()
+        let gamificationEngine = GamificationEngine(repository: gamificationRepository)
+        let recomputeHabitStreaksUseCase = RecomputeHabitStreaksUseCase(
+            habitRepository: habitRepository,
+            occurrenceRepository: occurrenceRepository
+        )
+        let schedulingEngine = RecordingSchedulingEngine(occurrenceRepository: occurrenceRepository)
+        let maintainHabitRuntimeUseCase = MaintainHabitRuntimeUseCase(
+            syncHabitScheduleUseCase: SyncHabitScheduleUseCase(
+                habitRepository: habitRepository,
+                scheduleRepository: scheduleRepository,
+                scheduleEngine: schedulingEngine,
+                occurrenceRepository: occurrenceRepository,
+                recomputeHabitStreaksUseCase: recomputeHabitStreaksUseCase
+            )
+        )
+
+        let viewModel = HabitDetailViewModel(
+            row: row,
+            getHabitLibraryUseCase: GetHabitLibraryUseCase(readRepository: readRepository),
+            getHabitHistoryUseCase: GetHabitHistoryUseCase(readRepository: readRepository),
+            updateHabitUseCase: UpdateHabitUseCase(
+                habitRepository: habitRepository,
+                scheduleRepository: scheduleRepository,
+                scheduleEngine: schedulingEngine,
+                projectRepository: projectRepository,
+                lifeAreaRepository: lifeAreaRepository,
+                maintainHabitRuntimeUseCase: maintainHabitRuntimeUseCase
+            ),
+            pauseHabitUseCase: PauseHabitUseCase(
+                habitRepository: habitRepository,
+                scheduleRepository: scheduleRepository,
+                maintainHabitRuntimeUseCase: maintainHabitRuntimeUseCase
+            ),
+            archiveHabitUseCase: ArchiveHabitUseCase(
+                habitRepository: habitRepository,
+                pauseHabitUseCase: PauseHabitUseCase(
+                    habitRepository: habitRepository,
+                    scheduleRepository: scheduleRepository,
+                    maintainHabitRuntimeUseCase: maintainHabitRuntimeUseCase
+                ),
+                maintainHabitRuntimeUseCase: maintainHabitRuntimeUseCase
+            ),
+            resolveHabitOccurrenceUseCase: ResolveHabitOccurrenceUseCase(
+                habitRepository: habitRepository,
+                scheduleRepository: scheduleRepository,
+                occurrenceRepository: occurrenceRepository,
+                scheduleEngine: schedulingEngine,
+                recomputeHabitStreaksUseCase: recomputeHabitStreaksUseCase,
+                gamificationEngine: gamificationEngine
+            ),
+            resetHabitOccurrenceUseCase: ResetHabitOccurrenceUseCase(
+                habitRepository: habitRepository,
+                occurrenceRepository: occurrenceRepository,
+                recomputeHabitStreaksUseCase: recomputeHabitStreaksUseCase,
+                gamificationEngine: gamificationEngine
+            ),
+            manageLifeAreasUseCase: ManageLifeAreasUseCase(repository: lifeAreaRepository),
+            manageProjectsUseCase: ManageProjectsUseCase(projectRepository: projectRepository)
+        )
+
+        return DetailFixture(
+            row: row,
+            viewModel: viewModel,
+            readRepository: readRepository,
+            lifeAreaRepository: lifeAreaRepository,
+            projectRepository: projectRepository,
+            occurrenceRepository: occurrenceRepository
+        )
+    }
+
+    private func makePendingOccurrence(habitID: UUID, on date: Date) -> OccurrenceDefinition {
+        let templateID = UUID()
+        let scheduledAt = Calendar.current.date(bySettingHour: 8, minute: 0, second: 0, of: date) ?? date
+        return OccurrenceDefinition(
+            id: UUID(),
+            occurrenceKey: OccurrenceKeyCodec.encode(
+                scheduleTemplateID: templateID,
+                scheduledAt: scheduledAt,
+                sourceID: habitID
+            ),
+            scheduleTemplateID: templateID,
+            sourceType: .habit,
+            sourceID: habitID,
+            scheduledAt: scheduledAt,
+            dueAt: scheduledAt,
+            state: .pending,
+            isGenerated: true,
+            generationWindow: nil,
+            createdAt: scheduledAt,
+            updatedAt: scheduledAt
+        )
+    }
+
+    private func waitUntil(
+        timeoutNanoseconds: UInt64 = 1_000_000_000,
+        pollIntervalNanoseconds: UInt64 = 10_000_000,
+        condition: @escaping @MainActor () -> Bool
+    ) async {
+        let start = ContinuousClock.now
+        let timeout = Duration.nanoseconds(Int64(timeoutNanoseconds))
+        let pollInterval = Duration.nanoseconds(Int64(pollIntervalNanoseconds))
+
+        while condition() == false {
+            if ContinuousClock.now - start >= timeout {
+                XCTFail("Timed out waiting for condition")
+                return
+            }
+            try? await _Concurrency.Task.sleep(for: pollInterval)
+        }
     }
 }
 

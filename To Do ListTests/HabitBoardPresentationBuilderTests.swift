@@ -1,3 +1,4 @@
+import CoreGraphics
 import XCTest
 @testable import To_Do_List
 
@@ -157,6 +158,253 @@ final class HabitBoardPresentationBuilderTests: XCTestCase {
         XCTAssertEqual(cells[1].state, .bridge(kind: .start, source: .notScheduled))
         XCTAssertEqual(cells[2].state, .bridge(kind: .middle, source: .notScheduled))
         XCTAssertEqual(cells[3].state, .bridge(kind: .end, source: .notScheduled))
+    }
+
+    func testHabitDetailCalendarBuildsFullWeeksAndMarksOffDaysReadOnly() {
+        let row = HabitLibraryRow(
+            habitID: UUID(),
+            title: "Hydrate",
+            kind: .positive,
+            trackingMode: .dailyCheckIn,
+            cadence: .weekly(daysOfWeek: [2, 4, 6]),
+            lifeAreaID: UUID(),
+            lifeAreaName: "Health",
+            icon: HabitIconMetadata(symbolName: "drop.fill", categoryKey: "health"),
+            isPaused: false,
+            isArchived: false,
+            currentStreak: 2,
+            bestStreak: 5
+        )
+
+        let weeks = HabitDetailCalendarBuilder.buildWeeks(
+            row: row,
+            marks: [
+                HabitDayMark(date: date("2026-04-06"), state: .success),
+                HabitDayMark(date: date("2026-04-08"), state: .skipped)
+            ],
+            referenceDate: date("2026-04-10"),
+            dayCount: 14,
+            calendar: Self.calendar
+        )
+
+        XCTAssertEqual(weeks.count, 3)
+        XCTAssertTrue(weeks.allSatisfy { $0.cells.count == 7 })
+        XCTAssertEqual(weeks[0].monthLabel, "March 2026")
+
+        let flattenedCells = weeks.flatMap(\.cells)
+        let mondayCell = try! XCTUnwrap(flattenedCells.first(where: { $0.date == date("2026-04-06") }))
+        let tuesdayCell = try! XCTUnwrap(flattenedCells.first(where: { $0.date == date("2026-04-07") }))
+        let wednesdayCell = try! XCTUnwrap(flattenedCells.first(where: { $0.date == date("2026-04-08") }))
+
+        XCTAssertEqual(mondayCell.state, .success)
+        XCTAssertEqual(tuesdayCell.state, .notScheduled)
+        XCTAssertEqual(wednesdayCell.state, .skipped)
+        XCTAssertFalse(tuesdayCell.isInteractive)
+    }
+
+    func testHabitDetailCalendarMutationCycleMatchesPositiveDailyCheckIn() {
+        let row = HabitLibraryRow(
+            habitID: UUID(),
+            title: "Read",
+            kind: .positive,
+            trackingMode: .dailyCheckIn,
+            lifeAreaID: UUID(),
+            lifeAreaName: "Mind",
+            isPaused: false,
+            isArchived: false,
+            currentStreak: 0,
+            bestStreak: 0
+        )
+
+        XCTAssertEqual(HabitDetailCalendarBuilder.nextMutation(for: row, state: .empty), .resolve(.complete))
+        XCTAssertEqual(HabitDetailCalendarBuilder.nextMutation(for: row, state: .success), .resolve(.skip))
+        XCTAssertEqual(HabitDetailCalendarBuilder.nextMutation(for: row, state: .skipped), .reset)
+    }
+
+    func testHabitDetailCalendarMutationCycleMatchesNegativeModes() {
+        let dailyRow = HabitLibraryRow(
+            habitID: UUID(),
+            title: "No sugar",
+            kind: .negative,
+            trackingMode: .dailyCheckIn,
+            lifeAreaID: UUID(),
+            lifeAreaName: "Health",
+            isPaused: false,
+            isArchived: false,
+            currentStreak: 0,
+            bestStreak: 0
+        )
+        let lapseOnlyRow = HabitLibraryRow(
+            habitID: UUID(),
+            title: "No smoking",
+            kind: .negative,
+            trackingMode: .lapseOnly,
+            lifeAreaID: UUID(),
+            lifeAreaName: "Health",
+            isPaused: false,
+            isArchived: false,
+            currentStreak: 0,
+            bestStreak: 0
+        )
+
+        XCTAssertEqual(HabitDetailCalendarBuilder.nextMutation(for: dailyRow, state: .empty), .resolve(.abstained))
+        XCTAssertEqual(HabitDetailCalendarBuilder.nextMutation(for: dailyRow, state: .success), .resolve(.lapsed))
+        XCTAssertEqual(HabitDetailCalendarBuilder.nextMutation(for: dailyRow, state: .lapsed), .reset)
+        XCTAssertEqual(HabitDetailCalendarBuilder.nextMutation(for: lapseOnlyRow, state: .empty), .resolve(.lapsed))
+        XCTAssertEqual(HabitDetailCalendarBuilder.nextMutation(for: lapseOnlyRow, state: .lapsed), .reset)
+    }
+
+    func testHabitDetailCalendarViewStatePrecomputesAccessibilityStrings() {
+        let row = HabitLibraryRow(
+            habitID: UUID(),
+            title: "Hydrate",
+            kind: .positive,
+            trackingMode: .dailyCheckIn,
+            cadence: .daily(),
+            lifeAreaID: UUID(),
+            lifeAreaName: "Health",
+            isPaused: false,
+            isArchived: false,
+            currentStreak: 3,
+            bestStreak: 7
+        )
+
+        let viewState = HabitDetailCalendarBuilder.buildViewState(
+            row: row,
+            marks: [HabitDayMark(date: date("2026-04-10"), state: .success)],
+            referenceDate: date("2026-04-10"),
+            dayCount: 7,
+            calendar: Self.calendar
+        )
+
+        let todayCell = try! XCTUnwrap(viewState.weeks.last?.cells.last(where: { $0.cell.isToday }))
+        XCTAssertEqual(viewState.helperText, "Tap a day to mark it done or skipped.")
+        XCTAssertEqual(todayCell.dayNumber, "10")
+        XCTAssertEqual(todayCell.accessibilityValue, "Done")
+        XCTAssertEqual(todayCell.accessibilityHint, "Double-tap to mark skipped.")
+        XCTAssertEqual(todayCell.accessibilityIdentifier, "habitDetail.cell.2026-04-10")
+        XCTAssertTrue(todayCell.accessibilityLabel.contains("Friday"))
+    }
+
+    func testHabitDetailCalendarViewStateCarriesStreakDepthAcrossSkippedAndNotScheduledDays() {
+        let row = HabitLibraryRow(
+            habitID: UUID(),
+            title: "Hydrate",
+            kind: .positive,
+            trackingMode: .dailyCheckIn,
+            cadence: .weekly(daysOfWeek: [2, 4, 6]),
+            lifeAreaID: UUID(),
+            lifeAreaName: "Health",
+            isPaused: false,
+            isArchived: false,
+            currentStreak: 0,
+            bestStreak: 0
+        )
+
+        let viewState = HabitDetailCalendarBuilder.buildViewState(
+            row: row,
+            marks: [
+                HabitDayMark(date: date("2026-04-06"), state: .success),
+                HabitDayMark(date: date("2026-04-08"), state: .success),
+                HabitDayMark(date: date("2026-04-10"), state: .success),
+            ],
+            referenceDate: date("2026-04-10"),
+            dayCount: 7,
+            calendar: Self.calendar
+        )
+        let cells = viewState.weeks.flatMap(\.cells)
+
+        let monday = try! XCTUnwrap(cells.first(where: { $0.cell.date == date("2026-04-06") }))
+        let tuesday = try! XCTUnwrap(cells.first(where: { $0.cell.date == date("2026-04-07") }))
+        let wednesday = try! XCTUnwrap(cells.first(where: { $0.cell.date == date("2026-04-08") }))
+        let thursday = try! XCTUnwrap(cells.first(where: { $0.cell.date == date("2026-04-09") }))
+        let friday = try! XCTUnwrap(cells.first(where: { $0.cell.date == date("2026-04-10") }))
+
+        XCTAssertEqual(monday.cell.state, .success)
+        XCTAssertEqual(monday.streakDepth, 1)
+        XCTAssertEqual(tuesday.cell.state, .notScheduled)
+        XCTAssertNil(tuesday.streakDepth)
+        XCTAssertEqual(wednesday.cell.state, .success)
+        XCTAssertEqual(wednesday.streakDepth, 2)
+        XCTAssertEqual(thursday.cell.state, .notScheduled)
+        XCTAssertNil(thursday.streakDepth)
+        XCTAssertEqual(friday.cell.state, .success)
+        XCTAssertEqual(friday.streakDepth, 3)
+    }
+
+    func testHabitDetailCalendarViewStateResetsStreakDepthAfterLapseAndEmptyDays() {
+        let negativeRow = HabitLibraryRow(
+            habitID: UUID(),
+            title: "No smoking",
+            kind: .negative,
+            trackingMode: .dailyCheckIn,
+            cadence: .daily(),
+            lifeAreaID: UUID(),
+            lifeAreaName: "Health",
+            isPaused: false,
+            isArchived: false,
+            currentStreak: 0,
+            bestStreak: 0
+        )
+
+        let negativeViewState = HabitDetailCalendarBuilder.buildViewState(
+            row: negativeRow,
+            marks: [
+                HabitDayMark(date: date("2026-04-08"), state: .success),
+                HabitDayMark(date: date("2026-04-09"), state: .failure),
+                HabitDayMark(date: date("2026-04-10"), state: .success),
+            ],
+            referenceDate: date("2026-04-10"),
+            dayCount: 3,
+            calendar: Self.calendar
+        )
+        let negativeCells = negativeViewState.weeks.flatMap(\.cells)
+        let dayEight = try! XCTUnwrap(negativeCells.first(where: { $0.cell.date == date("2026-04-08") }))
+        let dayNine = try! XCTUnwrap(negativeCells.first(where: { $0.cell.date == date("2026-04-09") }))
+        let dayTen = try! XCTUnwrap(negativeCells.first(where: { $0.cell.date == date("2026-04-10") }))
+
+        XCTAssertEqual(dayEight.cell.state, .success)
+        XCTAssertEqual(dayEight.streakDepth, 1)
+        XCTAssertEqual(dayNine.cell.state, .lapsed)
+        XCTAssertNil(dayNine.streakDepth)
+        XCTAssertEqual(dayTen.cell.state, .success)
+        XCTAssertEqual(dayTen.streakDepth, 1)
+
+        let positiveRow = HabitLibraryRow(
+            habitID: UUID(),
+            title: "Read",
+            kind: .positive,
+            trackingMode: .dailyCheckIn,
+            cadence: .daily(),
+            lifeAreaID: UUID(),
+            lifeAreaName: "Mind",
+            isPaused: false,
+            isArchived: false,
+            currentStreak: 0,
+            bestStreak: 0
+        )
+        let positiveViewState = HabitDetailCalendarBuilder.buildViewState(
+            row: positiveRow,
+            marks: [
+                HabitDayMark(date: date("2026-04-08"), state: .success),
+                HabitDayMark(date: date("2026-04-09"), state: .success),
+                HabitDayMark(date: date("2026-04-11"), state: .success),
+            ],
+            referenceDate: date("2026-04-11"),
+            dayCount: 4,
+            calendar: Self.calendar
+        )
+        let positiveCells = positiveViewState.weeks.flatMap(\.cells)
+        let dayEleven = try! XCTUnwrap(positiveCells.first(where: { $0.cell.date == date("2026-04-11") }))
+
+        XCTAssertEqual(dayEleven.cell.state, .success)
+        XCTAssertEqual(dayEleven.streakDepth, 1)
+    }
+
+    func testHabitDetailCalendarLayoutMetricsPreserveMinimumTapTarget() {
+        XCTAssertGreaterThanOrEqual(HabitDetailCalendarLayoutMetrics.cellSide(for: 351), 44)
+        XCTAssertLessThanOrEqual(HabitDetailCalendarLayoutMetrics.cellSide(for: 800), 52)
+        XCTAssertGreaterThanOrEqual(HabitDetailCalendarLayoutMetrics.requiredWidth(for: 320), CGFloat(44 * 7))
     }
 
     private func makeRow(

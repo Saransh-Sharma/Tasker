@@ -45,6 +45,10 @@
 	<true/>
 	<key>NSRemindersUsageDescription</key>
 	<string>Tasker uses Reminders access to sync your tasks with Apple Reminders lists.</string>
+	<key>NSCalendarsFullAccessUsageDescription</key>
+	<string>Tasker uses Calendar access to show read-only schedule context for task planning and fit hints.</string>
+	<key>NSCalendarsUsageDescription</key>
+	<string>Tasker uses Calendar access to show read-only schedule context for task planning and fit hints.</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>

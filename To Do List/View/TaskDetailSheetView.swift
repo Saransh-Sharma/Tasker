@@ -24,6 +24,7 @@ struct TaskDetailSheetView: View {
     typealias CreateTagHandler = (String, @escaping (Result<TagDefinition, Error>) -> Void) -> Void
     typealias CreateProjectHandler = (String, @escaping (Result<Project, Error>) -> Void) -> Void
     typealias SaveReflectionNoteHandler = (ReflectionNote, @escaping (Result<ReflectionNote, Error>) -> Void) -> Void
+    typealias TaskFitHintHandler = (TaskDefinition, @escaping (TaskerTaskFitHintResult) -> Void) -> Void
 
     /// Initializes a new instance.
     @Environment(\.dismiss) private var dismiss
@@ -75,6 +76,9 @@ struct TaskDetailSheetView: View {
                 code: 501,
                 userInfo: [NSLocalizedDescriptionKey: "Reflection notes are unavailable in this context."]
             )))
+        },
+        onLoadTaskFitHint: @escaping TaskFitHintHandler = { _, completion in
+            completion(.unknown)
         }
     ) {
         self._liveTodayXPSoFar = State(initialValue: todayXPSoFar)
@@ -93,7 +97,8 @@ struct TaskDetailSheetView: View {
             onLoadChildren: onLoadChildren,
             onCreateTask: onCreateTask,
             onCreateTag: onCreateTag,
-            onCreateProject: onCreateProject
+            onCreateProject: onCreateProject,
+            onLoadTaskFitHint: onLoadTaskFitHint
         ))
     }
 
@@ -153,6 +158,7 @@ struct TaskDetailSheetView: View {
                 viewModel.scheduleAutosave(debounced: false)
             }
             .onChange(of: viewModel.dueDate) {
+                viewModel.refreshTaskFitHint()
                 viewModel.scheduleAutosave(debounced: false)
             }
             .onChange(of: viewModel.reminderTime) {
@@ -193,6 +199,7 @@ struct TaskDetailSheetView: View {
                 viewModel.scheduleAutosave(debounced: false)
             }
             .onChange(of: viewModel.estimatedDuration) {
+                viewModel.refreshTaskFitHint()
                 viewModel.scheduleAutosave(debounced: false)
             }
             .onChange(of: viewModel.repeatPattern) {
@@ -802,6 +809,8 @@ struct TaskDetailSheetView: View {
                 AddTaskDurationPicker(duration: $viewModel.estimatedDuration)
                     .accessibilityIdentifier("taskDetail.durationPicker")
 
+                taskFitHintRow
+
                 AddTaskEnumChipRow(
                     label: "Energy",
                     displayName: { $0.displayName },
@@ -829,6 +838,69 @@ struct TaskDetailSheetView: View {
                 recentReflectionsCard
             }
         }
+    }
+
+    private var taskFitHintRow: some View {
+        let hint = viewModel.taskFitHint
+        let style = taskFitStyle(for: hint.classification)
+        return HStack(alignment: .top, spacing: TaskerTheme.Spacing.xs) {
+            Image(systemName: style.symbol)
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(style.tint)
+                .padding(.top, 1)
+                .accessibilityHidden(true)
+
+            VStack(alignment: .leading, spacing: 2) {
+                HStack(spacing: 6) {
+                    Text("Task fit")
+                        .font(.tasker(.caption1).weight(.semibold))
+                        .foregroundStyle(Color.tasker.textPrimary)
+                    if viewModel.isLoadingTaskFitHint {
+                        ProgressView()
+                            .controlSize(.mini)
+                    }
+                }
+                Text(hint.message)
+                    .font(.tasker(.caption2))
+                    .foregroundStyle(style.tint)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                if let window = taskFitWindowSummary(hint) {
+                    Text(window)
+                        .font(.tasker(.caption2))
+                        .foregroundStyle(Color.tasker.textSecondary)
+                }
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal, TaskerTheme.Spacing.sm)
+        .padding(.vertical, TaskerTheme.Spacing.xs)
+        .taskerDenseSurface(
+            cornerRadius: TaskerTheme.CornerRadius.sm,
+            fillColor: style.tint.opacity(0.12),
+            strokeColor: style.tint.opacity(0.24)
+        )
+        .accessibilityIdentifier("taskDetail.taskFitHint")
+    }
+
+    private func taskFitStyle(for classification: TaskerTaskFitClassification) -> (symbol: String, tint: Color) {
+        switch classification {
+        case .fit:
+            return ("checkmark.circle.fill", Color.tasker.statusSuccess)
+        case .tight:
+            return ("exclamationmark.triangle.fill", Color.tasker.statusWarning)
+        case .conflict:
+            return ("xmark.octagon.fill", Color.tasker.statusDanger)
+        case .unknown:
+            return ("questionmark.circle.fill", Color.tasker.textSecondary)
+        }
+    }
+
+    private func taskFitWindowSummary(_ hint: TaskerTaskFitHintResult) -> String? {
+        guard let start = hint.freeWindowStart, let end = hint.freeWindowEnd else { return nil }
+        let startText = start.formatted(date: .omitted, time: .shortened)
+        let endText = end.formatted(date: .omitted, time: .shortened)
+        return "Largest window: \(startText) - \(endText)"
     }
 
     private var relationshipsSection: some View {

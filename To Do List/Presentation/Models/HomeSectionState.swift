@@ -2,6 +2,7 @@ import Foundation
 
 struct QuietTrackingRailCardPresentation: Equatable, Identifiable {
     let id: String
+    let habitID: UUID
     let title: String
     let iconSymbolName: String
     let colorFamily: HabitColorFamily
@@ -16,6 +17,7 @@ struct QuietTrackingRailCardPresentation: Equatable, Identifiable {
         )
 
         self.id = row.id
+        self.habitID = row.habitID
         self.title = row.title
         self.iconSymbolName = row.iconSymbolName
         self.colorFamily = resolvedColorFamily

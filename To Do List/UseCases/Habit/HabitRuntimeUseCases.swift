@@ -2379,6 +2379,18 @@ public final class GetHabitLibraryUseCase {
             completion: completion
         )
     }
+
+    public func execute(
+        habitID: UUID,
+        includeArchived: Bool = true,
+        completion: @escaping (Result<HabitLibraryRow?, Error>) -> Void
+    ) {
+        readRepository.fetchHabitDetailSummary(
+            habitID: habitID,
+            includeArchived: includeArchived,
+            completion: completion
+        )
+    }
 }
 
 public final class BuildHabitHomeProjectionUseCase {

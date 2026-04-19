@@ -8,6 +8,7 @@
 import Foundation
 import CoreData
 import UIKit
+import Combine
 
 /// Enhanced dependency container supporting Clean Architecture
 public final class EnhancedDependencyContainer {
@@ -61,6 +62,7 @@ public final class EnhancedDependencyContainer {
     private(set) var schedulingEngine: SchedulingEngineProtocol?
     private(set) var notificationService: NotificationServiceProtocol?
     private(set) var remindersProvider: AppleRemindersProviderProtocol?
+    private(set) var calendarEventsProvider: CalendarEventsProviderProtocol?
     
     // MARK: - Initialization
     
@@ -197,6 +199,12 @@ public final class EnhancedDependencyContainer {
         }
         self.notificationService = LocalNotificationService()
         self.remindersProvider = EventKitAppleRemindersProvider()
+        if let calendarMode = calendarUITestMode() {
+            self.calendarEventsProvider = UITestCalendarEventsProvider(mode: calendarMode)
+            applyCalendarUITestWorkspaceDefaults(mode: calendarMode)
+        } else {
+            self.calendarEventsProvider = EventKitCalendarEventsProvider()
+        }
 
         guard let lifeAreaRepository,
               let sectionRepository,
@@ -250,7 +258,8 @@ public final class EnhancedDependencyContainer {
             gamificationRepository: gamificationRepository,
             assistantActionRepository: assistantActionRepository,
             externalSyncRepository: externalSyncRepository,
-            remindersProvider: remindersProvider
+            remindersProvider: remindersProvider,
+            calendarEventsProvider: calendarEventsProvider
         )
 
         // Initialize UseCaseCoordinator
@@ -267,6 +276,34 @@ public final class EnhancedDependencyContainer {
         evaluateV3RuntimeReadiness()
 
         logDebug("✅ EnhancedDependencyContainer: Configuration completed")
+    }
+
+    private func calendarUITestMode() -> UITestCalendarMode? {
+        let arguments = ProcessInfo.processInfo.arguments
+        guard arguments.contains("-TASKER_TEST_CALENDAR_STUB") else {
+            return nil
+        }
+        guard let modeArgument = arguments.first(where: { $0.hasPrefix("-TASKER_TEST_CALENDAR_MODE:") }) else {
+            return .active
+        }
+        let rawMode = String(modeArgument.split(separator: ":", maxSplits: 1).last ?? "")
+        return UITestCalendarMode(rawValue: rawMode) ?? .active
+    }
+
+    private func applyCalendarUITestWorkspaceDefaults(mode: UITestCalendarMode) {
+        TaskerWorkspacePreferencesStore.shared.update { preferences in
+            preferences.includeDeclinedCalendarEvents = false
+            preferences.includeCanceledCalendarEvents = false
+            preferences.includeAllDayInAgenda = true
+            preferences.includeAllDayInBusyStrip = false
+
+            switch mode {
+            case .permission, .noCalendars:
+                preferences.selectedCalendarIDs = []
+            case .active, .allDayOnly, .empty, .error:
+                preferences.selectedCalendarIDs = ["work"]
+            }
+        }
     }
 
     private func performHabitRuntimeBootstrapRepairIfNeeded() {
@@ -360,6 +397,160 @@ public final class EnhancedDependencyContainer {
             repository: projectRepository,
             cache: cacheService
         )
+    }
+}
+
+enum UITestCalendarMode: String {
+    case active
+    case allDayOnly
+    case permission
+    case noCalendars
+    case empty
+    case error
+}
+
+final class UITestCalendarEventsProvider: CalendarEventsProviderProtocol {
+    private let mode: UITestCalendarMode
+    private let storeChangedSubject = PassthroughSubject<Void, Never>()
+    private var authStatus: TaskerCalendarAuthorizationStatus
+
+    init(mode: UITestCalendarMode) {
+        self.mode = mode
+        switch mode {
+        case .permission:
+            self.authStatus = .notDetermined
+        case .active, .allDayOnly, .noCalendars, .empty, .error:
+            self.authStatus = .authorized
+        }
+    }
+
+    func authorizationStatus() -> TaskerCalendarAuthorizationStatus {
+        authStatus
+    }
+
+    func requestAccess(completion: @escaping (Result<Bool, Error>) -> Void) {
+        authStatus = .authorized
+        completion(.success(true))
+    }
+
+    func resetStoreStateAfterPermissionChange() {}
+
+    func fetchCalendars(completion: @escaping (Result<[TaskerCalendarSourceSnapshot], Error>) -> Void) {
+        switch mode {
+        case .error:
+            completion(.failure(NSError(
+                domain: "UITestCalendarEventsProvider",
+                code: 1,
+                userInfo: [NSLocalizedDescriptionKey: "Failed to load test calendars."]
+            )))
+        case .noCalendars:
+            completion(.success([]))
+        default:
+            completion(.success([
+                TaskerCalendarSourceSnapshot(
+                    id: "work",
+                    title: "Work",
+                    sourceTitle: "iCloud",
+                    colorHex: "#007AFF",
+                    allowsContentModifications: false
+                ),
+                TaskerCalendarSourceSnapshot(
+                    id: "personal",
+                    title: "Personal",
+                    sourceTitle: "iCloud",
+                    colorHex: "#34C759",
+                    allowsContentModifications: false
+                )
+            ]))
+        }
+    }
+
+    func fetchEvents(
+        startDate: Date,
+        endDate: Date,
+        calendarIDs: Set<String>,
+        completion: @escaping (Result<[TaskerCalendarEventSnapshot], Error>) -> Void
+    ) {
+        switch mode {
+        case .permission, .noCalendars, .empty:
+            completion(.success([]))
+        case .error:
+            completion(.failure(NSError(
+                domain: "UITestCalendarEventsProvider",
+                code: 2,
+                userInfo: [NSLocalizedDescriptionKey: "Failed to load test events."]
+            )))
+        case .active:
+            let calendar = Calendar.current
+            let now = Date()
+            let clampedAnchor = min(max(now, startDate), endDate.addingTimeInterval(-60))
+            let startOfAnchorDay = calendar.startOfDay(for: clampedAnchor)
+            let firstStart = calendar.date(byAdding: .hour, value: 10, to: startOfAnchorDay) ?? startOfAnchorDay
+            let firstEnd = calendar.date(byAdding: .minute, value: 30, to: firstStart) ?? firstStart
+            let secondStart = calendar.date(byAdding: .hour, value: 14, to: startOfAnchorDay) ?? firstEnd
+            let secondEnd = calendar.date(byAdding: .minute, value: 30, to: secondStart) ?? secondStart
+            let allEvents = [
+                TaskerCalendarEventSnapshot(
+                    id: "test_meeting_1",
+                    calendarID: "work",
+                    calendarTitle: "Work",
+                    calendarColorHex: "#007AFF",
+                    title: "Design Review",
+                    location: "Zoom",
+                    startDate: firstStart,
+                    endDate: firstEnd,
+                    isAllDay: false,
+                    availability: .busy,
+                    participationStatus: .accepted
+                ),
+                TaskerCalendarEventSnapshot(
+                    id: "test_meeting_2",
+                    calendarID: "work",
+                    calendarTitle: "Work",
+                    calendarColorHex: "#007AFF",
+                    title: "Sprint Standup",
+                    location: "Room A",
+                    startDate: secondStart,
+                    endDate: secondEnd,
+                    isAllDay: false,
+                    availability: .busy,
+                    participationStatus: .accepted
+                )
+            ]
+            let inWindowEvents = allEvents.filter { event in
+                event.endDate > startDate && event.startDate < endDate
+            }
+            let filteredEvents = calendarIDs.isEmpty
+                ? inWindowEvents
+                : inWindowEvents.filter { calendarIDs.contains($0.calendarID) }
+            completion(.success(filteredEvents))
+        case .allDayOnly:
+            let calendar = Calendar.current
+            let now = Date()
+            let clampedAnchor = min(max(now, startDate), endDate.addingTimeInterval(-60))
+            let allDayStart = calendar.startOfDay(for: clampedAnchor)
+            let allDayEnd = calendar.date(byAdding: .day, value: 1, to: allDayStart) ?? allDayStart
+            let event = TaskerCalendarEventSnapshot(
+                id: "test_all_day",
+                calendarID: "work",
+                calendarTitle: "Work",
+                calendarColorHex: "#007AFF",
+                title: "All-Day Offsite",
+                location: nil,
+                startDate: allDayStart,
+                endDate: allDayEnd,
+                isAllDay: true,
+                availability: .busy,
+                participationStatus: .accepted
+            )
+            let inWindow = event.endDate > startDate && event.startDate < endDate
+            let matchesCalendar = calendarIDs.isEmpty || calendarIDs.contains(event.calendarID)
+            completion(.success(inWindow && matchesCalendar ? [event] : []))
+        }
+    }
+
+    func storeChangedPublisher() -> AnyPublisher<Void, Never> {
+        storeChangedSubject.eraseToAnyPublisher()
     }
 }
 

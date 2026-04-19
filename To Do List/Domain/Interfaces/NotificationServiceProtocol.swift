@@ -65,17 +65,17 @@ public protocol NotificationServiceProtocol {
 public extension NotificationServiceProtocol {
     func schedule(request: TaskerLocalNotificationRequest) {
         _ = request
-        assertionFailure("NotificationServiceProtocol.schedule(request:) must be implemented by concrete notification services.")
+        fatalError("NotificationServiceProtocol.schedule(request:) must be implemented by concrete notification services.")
     }
 
     func cancel(ids: [String]) {
         _ = ids
-        assertionFailure("NotificationServiceProtocol.cancel(ids:) must be implemented by concrete notification services.")
+        fatalError("NotificationServiceProtocol.cancel(ids:) must be implemented by concrete notification services.")
     }
 
     func pendingRequests(completion: @escaping ([TaskerPendingNotificationRequest]) -> Void) {
-        assertionFailure("NotificationServiceProtocol.pendingRequests(completion:) should be implemented for typed notification reconciliation.")
-        completion([])
+        _ = completion
+        fatalError("NotificationServiceProtocol.pendingRequests(completion:) should be implemented for typed notification reconciliation.")
     }
 
     func registerCategories(_ categories: Set<UNNotificationCategory>) {
@@ -126,6 +126,8 @@ public enum TaskerNotificationActionID: String, Codable, CaseIterable {
     case complete = "tasker.action.complete"
     case snooze15m = "tasker.action.snooze_15m"
     case openToday = "tasker.action.open_today"
+    case openWeeklyPlanner = "tasker.action.open_weekly_planner"
+    case openWeeklyReview = "tasker.action.open_weekly_review"
     case snooze30m = "tasker.action.snooze_30m"
     case openDone = "tasker.action.open_done"
     case snooze60m = "tasker.action.snooze_60m"
@@ -148,6 +150,8 @@ public enum TaskerNotificationRoute: Equatable, Codable {
     case homeToday(taskID: UUID?)
     case homeDone
     case taskDetail(taskID: UUID)
+    case weeklyPlanner
+    case weeklyReview
     case dailySummary(kind: TaskerDailySummaryKind, dateStamp: String?)
 
     public var payload: String {
@@ -161,6 +165,10 @@ public enum TaskerNotificationRoute: Equatable, Codable {
             return "home_done"
         case .taskDetail(let taskID):
             return "task_detail:\(taskID.uuidString)"
+        case .weeklyPlanner:
+            return "weekly_planner"
+        case .weeklyReview:
+            return "weekly_review"
         case .dailySummary(let kind, let dateStamp):
             if let dateStamp, dateStamp.isEmpty == false {
                 return "daily_summary:\(kind.rawValue):\(dateStamp)"
@@ -177,6 +185,8 @@ public enum TaskerNotificationRoute: Equatable, Codable {
             return nil
         case .taskDetail(let taskID):
             return taskID
+        case .weeklyPlanner, .weeklyReview:
+            return nil
         case .dailySummary:
             return nil
         }
@@ -195,6 +205,12 @@ public enum TaskerNotificationRoute: Equatable, Codable {
         }
         if payload == "home_done" {
             return .homeDone
+        }
+        if payload == "weekly_planner" {
+            return .weeklyPlanner
+        }
+        if payload == "weekly_review" {
+            return .weeklyReview
         }
         if payload.hasPrefix("task_detail:") {
             let value = String(payload.dropFirst("task_detail:".count))
@@ -444,9 +460,80 @@ public struct TaskerNotificationPreferences: Codable, Equatable {
 
 public struct TaskerWorkspacePreferences: Codable, Equatable {
     public var weekStartsOn: Weekday
+    public var selectedCalendarIDs: [String]
+    public var includeDeclinedCalendarEvents: Bool
+    public var includeCanceledCalendarEvents: Bool
+    public var includeAllDayInAgenda: Bool
+    public var includeAllDayInBusyStrip: Bool
 
-    public init(weekStartsOn: Weekday = .monday) {
+    public init(
+        weekStartsOn: Weekday = .monday,
+        selectedCalendarIDs: [String] = [],
+        includeDeclinedCalendarEvents: Bool = false,
+        includeCanceledCalendarEvents: Bool = false,
+        includeAllDayInAgenda: Bool = true,
+        includeAllDayInBusyStrip: Bool = false
+    ) {
         self.weekStartsOn = weekStartsOn
+        self.selectedCalendarIDs = Self.normalizeSelectedCalendarIDs(selectedCalendarIDs)
+        self.includeDeclinedCalendarEvents = includeDeclinedCalendarEvents
+        self.includeCanceledCalendarEvents = includeCanceledCalendarEvents
+        self.includeAllDayInAgenda = includeAllDayInAgenda
+        self.includeAllDayInBusyStrip = includeAllDayInBusyStrip
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case weekStartsOn
+        case selectedCalendarIDs
+        case includeDeclinedCalendarEvents
+        case includeCanceledCalendarEvents
+        case includeAllDayInAgenda
+        case includeAllDayInBusyStrip
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        weekStartsOn = try container.decodeIfPresent(Weekday.self, forKey: .weekStartsOn) ?? .monday
+        selectedCalendarIDs = Self.normalizeSelectedCalendarIDs(
+            try container.decodeIfPresent([String].self, forKey: .selectedCalendarIDs) ?? []
+        )
+        includeDeclinedCalendarEvents = try container.decodeIfPresent(Bool.self, forKey: .includeDeclinedCalendarEvents) ?? false
+        includeCanceledCalendarEvents = try container.decodeIfPresent(Bool.self, forKey: .includeCanceledCalendarEvents) ?? false
+        includeAllDayInAgenda = try container.decodeIfPresent(Bool.self, forKey: .includeAllDayInAgenda) ?? true
+        includeAllDayInBusyStrip = try container.decodeIfPresent(Bool.self, forKey: .includeAllDayInBusyStrip) ?? false
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(weekStartsOn, forKey: .weekStartsOn)
+        try container.encode(selectedCalendarIDs, forKey: .selectedCalendarIDs)
+        try container.encode(includeDeclinedCalendarEvents, forKey: .includeDeclinedCalendarEvents)
+        try container.encode(includeCanceledCalendarEvents, forKey: .includeCanceledCalendarEvents)
+        try container.encode(includeAllDayInAgenda, forKey: .includeAllDayInAgenda)
+        try container.encode(includeAllDayInBusyStrip, forKey: .includeAllDayInBusyStrip)
+    }
+
+    public func normalizedForPersistence() -> TaskerWorkspacePreferences {
+        TaskerWorkspacePreferences(
+            weekStartsOn: weekStartsOn,
+            selectedCalendarIDs: Self.normalizeSelectedCalendarIDs(selectedCalendarIDs),
+            includeDeclinedCalendarEvents: includeDeclinedCalendarEvents,
+            includeCanceledCalendarEvents: includeCanceledCalendarEvents,
+            includeAllDayInAgenda: includeAllDayInAgenda,
+            includeAllDayInBusyStrip: includeAllDayInBusyStrip
+        )
+    }
+
+    public static func normalizeSelectedCalendarIDs(_ calendarIDs: [String]) -> [String] {
+        var deduped: [String] = []
+        deduped.reserveCapacity(calendarIDs.count)
+        var seen: Set<String> = []
+
+        for id in calendarIDs where seen.insert(id).inserted {
+            deduped.append(id)
+        }
+
+        return deduped.sorted()
     }
 }
 
@@ -512,9 +599,12 @@ public final class TaskerWorkspacePreferencesStore {
     }
 
     public func save(_ preferences: TaskerWorkspacePreferences) {
-        guard let data = try? encoder.encode(preferences) else { return }
+        let normalized = preferences.normalizedForPersistence()
+        let current = load()
+        guard current != normalized else { return }
+        guard let data = try? encoder.encode(normalized) else { return }
         defaults.set(data, forKey: key)
-        NotificationCenter.default.post(name: Self.didChangeNotification, object: preferences)
+        NotificationCenter.default.post(name: Self.didChangeNotification, object: normalized)
     }
 
     public func update(_ mutate: (inout TaskerWorkspacePreferences) -> Void) {
