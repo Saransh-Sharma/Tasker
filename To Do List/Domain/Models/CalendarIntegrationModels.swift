@@ -1,6 +1,6 @@
 import Foundation
 
-public enum TaskerCalendarAuthorizationStatus: String, Codable, Equatable {
+public enum TaskerCalendarAuthorizationStatus: String, Codable, Equatable, Sendable {
     case notDetermined
     case denied
     case restricted
@@ -12,14 +12,14 @@ public enum TaskerCalendarAuthorizationStatus: String, Codable, Equatable {
     }
 }
 
-public enum TaskerCalendarEventAvailability: String, Codable, Equatable {
+public enum TaskerCalendarEventAvailability: String, Codable, Equatable, Sendable {
     case busy
     case free
     case tentative
     case unavailable
 }
 
-public enum TaskerCalendarEventParticipationStatus: String, Codable, Equatable {
+public enum TaskerCalendarEventParticipationStatus: String, Codable, Equatable, Sendable {
     case accepted
     case tentative
     case declined
@@ -27,12 +27,12 @@ public enum TaskerCalendarEventParticipationStatus: String, Codable, Equatable {
     case unknown
 }
 
-public enum TaskerCalendarEventStatus: String, Codable, Equatable {
+public enum TaskerCalendarEventStatus: String, Codable, Equatable, Sendable {
     case unknown
     case canceled
 }
 
-public struct TaskerCalendarSourceSnapshot: Codable, Equatable, Identifiable, Hashable {
+public struct TaskerCalendarSourceSnapshot: Codable, Equatable, Identifiable, Hashable, Sendable {
     public let id: String
     public let title: String
     public let sourceTitle: String
@@ -54,7 +54,7 @@ public struct TaskerCalendarSourceSnapshot: Codable, Equatable, Identifiable, Ha
     }
 }
 
-public struct TaskerCalendarEventSnapshot: Codable, Equatable, Identifiable, Hashable {
+public struct TaskerCalendarEventSnapshot: Codable, Equatable, Identifiable, Hashable, Sendable {
     public let id: String
     public let calendarID: String
     public let calendarTitle: String
@@ -157,7 +157,35 @@ public struct TaskerCalendarEventSnapshot: Codable, Equatable, Identifiable, Has
     }
 }
 
-public struct TaskerCalendarBusyBlock: Equatable, Hashable, Identifiable {
+public struct TaskerCalendarEventSlice: Codable, Equatable, Hashable, Sendable {
+    public let startDate: Date
+    public let endDate: Date
+    public let isAllDay: Bool
+    public let isBusy: Bool
+
+    public init(
+        startDate: Date,
+        endDate: Date,
+        isAllDay: Bool,
+        isBusy: Bool
+    ) {
+        self.startDate = startDate
+        self.endDate = max(endDate, startDate)
+        self.isAllDay = isAllDay
+        self.isBusy = isBusy
+    }
+
+    public init(snapshot: TaskerCalendarEventSnapshot) {
+        self.init(
+            startDate: snapshot.startDate,
+            endDate: snapshot.endDate,
+            isAllDay: snapshot.isAllDay,
+            isBusy: snapshot.isBusy
+        )
+    }
+}
+
+public struct TaskerCalendarBusyBlock: Equatable, Hashable, Identifiable, Sendable {
     public let id: String
     public let startDate: Date
     public let endDate: Date
@@ -173,7 +201,7 @@ public struct TaskerCalendarBusyBlock: Equatable, Hashable, Identifiable {
     }
 }
 
-public struct TaskerNextMeetingSummary: Equatable {
+public struct TaskerNextMeetingSummary: Equatable, Sendable {
     public let event: TaskerCalendarEventSnapshot
     public let isInProgress: Bool
     public let minutesUntilStart: Int
@@ -189,7 +217,7 @@ public struct TaskerNextMeetingSummary: Equatable {
     }
 }
 
-public enum TaskerTaskFitClassification: String, Codable, Equatable {
+public enum TaskerTaskFitClassification: String, Codable, Equatable, Sendable {
     case fit
     case tight
     case conflict

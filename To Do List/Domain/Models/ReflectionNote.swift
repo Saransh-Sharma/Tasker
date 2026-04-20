@@ -183,6 +183,125 @@ public struct ReflectionHighlight: Codable, Equatable, Hashable, Identifiable {
     }
 }
 
+public struct ReflectionTaskMiniRow: Codable, Equatable, Hashable, Identifiable {
+    public let id: UUID
+    public let title: String
+    public let projectName: String?
+
+    public init(id: UUID, title: String, projectName: String? = nil) {
+        self.id = id
+        self.title = title
+        self.projectName = projectName
+    }
+}
+
+public struct ReflectionHabitMiniRow: Codable, Equatable, Hashable, Identifiable {
+    public let id: UUID
+    public let title: String
+    public let colorFamily: HabitColorFamily
+    public let currentStreak: Int
+    public let last7Days: [HabitDayMark]
+
+    public init(
+        id: UUID,
+        title: String,
+        colorFamily: HabitColorFamily,
+        currentStreak: Int,
+        last7Days: [HabitDayMark]
+    ) {
+        self.id = id
+        self.title = title
+        self.colorFamily = colorFamily
+        self.currentStreak = currentStreak
+        self.last7Days = last7Days
+    }
+}
+
+public struct ReflectionNarrativeSummary: Codable, Equatable, Hashable {
+    public let homeCardLine: String
+    public let planCardLine: String
+
+    public init(homeCardLine: String, planCardLine: String) {
+        self.homeCardLine = homeCardLine
+        self.planCardLine = planCardLine
+    }
+
+    public static func make(
+        completedCount: Int,
+        keptCount: Int,
+        missedTitles: [String]
+    ) -> ReflectionNarrativeSummary {
+        let taskLine: String
+        switch completedCount {
+        case 0:
+            taskLine = "No tasks closed"
+        case 1:
+            taskLine = "1 task closed"
+        default:
+            taskLine = "\(completedCount) tasks closed"
+        }
+
+        let homeLine: String
+        if missedTitles.isEmpty == false {
+            homeLine = "\(taskLine), \(keptPhrase(count: keptCount, short: true)), missed \(missedPhrase(from: missedTitles))."
+        } else if keptCount > 0 {
+            homeLine = "\(taskLine), \(keptPhrase(count: keptCount, short: true)). Keep tomorrow tight."
+        } else {
+            homeLine = "\(taskLine). Keep tomorrow tight."
+        }
+
+        let planLine: String
+        if missedTitles.isEmpty == false {
+            planLine = "You closed \(taskCountPhrase(completedCount)), \(keptPhrase(count: keptCount, short: false)), and missed \(missedPhrase(from: missedTitles))."
+        } else if keptCount > 0 {
+            planLine = "You closed \(taskCountPhrase(completedCount)) and \(keptPhrase(count: keptCount, short: false)), so tomorrow can stay narrow."
+        } else {
+            planLine = "You closed \(taskCountPhrase(completedCount)), and tomorrow can stay narrow."
+        }
+
+        return ReflectionNarrativeSummary(
+            homeCardLine: homeLine,
+            planCardLine: planLine
+        )
+    }
+
+    private static func taskCountPhrase(_ count: Int) -> String {
+        switch count {
+        case 0:
+            return "no tasks"
+        case 1:
+            return "1 task"
+        default:
+            return "\(count) tasks"
+        }
+    }
+
+    private static func keptPhrase(count: Int, short: Bool) -> String {
+        switch count {
+        case ..<1:
+            return short ? "routines steady" : "kept routines steady"
+        case 1:
+            return short ? "1 habit kept" : "kept 1 habit streak alive"
+        default:
+            return short ? "\(count) habits kept" : "kept \(count) habit streaks alive"
+        }
+    }
+
+    private static func missedPhrase(from titles: [String]) -> String {
+        let cleaned = titles
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { $0.isEmpty == false }
+        guard cleaned.isEmpty == false else { return "a few routines" }
+        if cleaned.count == 1 {
+            return cleaned[0]
+        }
+        if cleaned.count == 2 {
+            return "\(cleaned[0]) and \(cleaned[1])"
+        }
+        return "\(cleaned[0]), \(cleaned[1]), and \(cleaned.count - 2) more"
+    }
+}
+
 public struct TaskReflectionSummary: Codable, Equatable, Hashable {
     public let completedCount: Int
     public let scheduledCount: Int
@@ -403,6 +522,9 @@ public struct DailyReflectionCoreSnapshot: Codable, Equatable, Hashable {
     public let mode: DailyReflectionMode
     public let pulseNote: String?
     public let biggestWins: [ReflectionHighlight]
+    public let closedTasks: [ReflectionTaskMiniRow]
+    public let habitGrid: [ReflectionHabitMiniRow]
+    public let narrativeSummary: ReflectionNarrativeSummary
     public let tasksSummary: TaskReflectionSummary
     public let habitsSummary: HabitReflectionSummary?
 
@@ -412,6 +534,12 @@ public struct DailyReflectionCoreSnapshot: Codable, Equatable, Hashable {
         mode: DailyReflectionMode,
         pulseNote: String?,
         biggestWins: [ReflectionHighlight],
+        closedTasks: [ReflectionTaskMiniRow] = [],
+        habitGrid: [ReflectionHabitMiniRow] = [],
+        narrativeSummary: ReflectionNarrativeSummary = ReflectionNarrativeSummary(
+            homeCardLine: "Keep tomorrow tight.",
+            planCardLine: "Tomorrow can stay narrow."
+        ),
         tasksSummary: TaskReflectionSummary,
         habitsSummary: HabitReflectionSummary?
     ) {
@@ -420,6 +548,9 @@ public struct DailyReflectionCoreSnapshot: Codable, Equatable, Hashable {
         self.mode = mode
         self.pulseNote = pulseNote
         self.biggestWins = biggestWins
+        self.closedTasks = closedTasks
+        self.habitGrid = habitGrid
+        self.narrativeSummary = narrativeSummary
         self.tasksSummary = tasksSummary
         self.habitsSummary = habitsSummary
     }
@@ -516,6 +647,9 @@ public struct DailyReflectionEntryState: Codable, Equatable, Hashable, Identifia
     public let subtitle: String
     public let summaryText: String
     public let badgeText: String?
+    public let closedTasks: [ReflectionTaskMiniRow]
+    public let habitGrid: [ReflectionHabitMiniRow]
+    public let narrativeSummary: ReflectionNarrativeSummary
 
     public init(
         mode: DailyReflectionMode,
@@ -524,7 +658,10 @@ public struct DailyReflectionEntryState: Codable, Equatable, Hashable, Identifia
         title: String,
         subtitle: String,
         summaryText: String,
-        badgeText: String?
+        badgeText: String?,
+        closedTasks: [ReflectionTaskMiniRow] = [],
+        habitGrid: [ReflectionHabitMiniRow] = [],
+        narrativeSummary: ReflectionNarrativeSummary? = nil
     ) {
         self.mode = mode
         self.reflectionDate = reflectionDate
@@ -533,6 +670,12 @@ public struct DailyReflectionEntryState: Codable, Equatable, Hashable, Identifia
         self.subtitle = subtitle
         self.summaryText = summaryText
         self.badgeText = badgeText
+        self.closedTasks = closedTasks
+        self.habitGrid = habitGrid
+        self.narrativeSummary = narrativeSummary ?? ReflectionNarrativeSummary(
+            homeCardLine: summaryText,
+            planCardLine: summaryText
+        )
     }
 
     public var id: String {
