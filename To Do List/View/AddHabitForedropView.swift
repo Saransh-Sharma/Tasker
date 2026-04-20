@@ -972,6 +972,7 @@ struct HabitDetailSheetView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.taskerLayoutClass) private var layoutClass
     @State private var isDetailsExpanded = false
+    @State private var snackbar: SnackbarData?
 
     private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.tokens(for: layoutClass).spacing }
 
@@ -1041,6 +1042,12 @@ struct HabitDetailSheetView: View {
             .task {
                 viewModel.loadIfNeeded()
             }
+            .onChange(of: viewModel.mutationFeedback) { _, feedback in
+                guard let feedback else { return }
+                snackbar = SnackbarData(message: feedback.message, autoDismissSeconds: 2)
+                playMutationHaptic(feedback.haptic)
+                viewModel.clearMutationFeedback()
+            }
             .alert(
                 "Couldn’t update habit",
                 isPresented: Binding(
@@ -1051,6 +1058,7 @@ struct HabitDetailSheetView: View {
             } message: {
                 Text(viewModel.errorMessage ?? "")
             }
+            .taskerSnackbar($snackbar)
         }
     }
 
@@ -1516,6 +1524,17 @@ struct HabitDetailSheetView: View {
     private func trimmedReminderValue(_ value: String?) -> String? {
         let trimmed = value?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
         return trimmed.isEmpty ? nil : trimmed
+    }
+
+    private func playMutationHaptic(_ haptic: HabitDetailMutationFeedbackHaptic) {
+        switch haptic {
+        case .selection:
+            TaskerFeedback.selection()
+        case .success:
+            TaskerFeedback.success()
+        case .warning:
+            TaskerFeedback.warning()
+        }
     }
 }
 

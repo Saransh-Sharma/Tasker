@@ -692,6 +692,28 @@ enum HabitDetailDayMutationRequest: Equatable {
     case reset
 }
 
+public enum HabitDetailMutationFeedbackHaptic: Equatable {
+    case selection
+    case success
+    case warning
+}
+
+public struct HabitDetailMutationFeedback: Equatable, Identifiable {
+    public let id: UUID
+    public let message: String
+    public let haptic: HabitDetailMutationFeedbackHaptic
+
+    public init(
+        id: UUID = UUID(),
+        message: String,
+        haptic: HabitDetailMutationFeedbackHaptic
+    ) {
+        self.id = id
+        self.message = message
+        self.haptic = haptic
+    }
+}
+
 enum HabitDetailCalendarBuilder {
     static let historyDayCount = 84
 
@@ -723,20 +745,12 @@ enum HabitDetailCalendarBuilder {
                 referenceDay: endDay,
                 scheduled: scheduled
             )
-            let hasRecordedMark: Bool = {
-                switch mark?.state {
-                case .some(.success), .some(.skipped), .some(.failure):
-                    return true
-                case .some(.none), .some(.future), .none:
-                    return false
-                }
-            }()
 
             return HabitDetailDayCell(
                 date: dayStart,
                 state: state,
                 isToday: calendar.isDate(dayStart, inSameDayAs: endDay),
-                isInteractive: (scheduled || hasRecordedMark) && dayStart <= endDay && !row.isPaused && !row.isArchived
+                isInteractive: dayStart <= endDay && !row.isPaused && !row.isArchived
             )
         }
 
@@ -823,7 +837,7 @@ enum HabitDetailCalendarBuilder {
         case (.negative, .dailyCheckIn):
             return "Tap a day to mark stayed clean or lapsed."
         case (.negative, .lapseOnly):
-            return "Tap a day to log or clear a lapse."
+            return "Tap a day to toggle clean or lapsed."
         case (.positive, .lapseOnly):
             return "Tap a day to update it."
         }
@@ -840,17 +854,17 @@ enum HabitDetailCalendarBuilder {
         guard !row.isPaused, !row.isArchived else { return nil }
 
         switch (row.kind, row.trackingMode, state) {
-        case (_, _, .future), (_, _, .notScheduled):
+        case (_, _, .future):
             return nil
 
-        case (.positive, .dailyCheckIn, .empty):
+        case (.positive, .dailyCheckIn, .empty), (.positive, .dailyCheckIn, .notScheduled):
             return .resolve(.complete)
         case (.positive, .dailyCheckIn, .success):
             return .resolve(.skip)
         case (.positive, .dailyCheckIn, .skipped), (.positive, .dailyCheckIn, .lapsed):
             return .reset
 
-        case (.negative, .dailyCheckIn, .empty):
+        case (.negative, .dailyCheckIn, .empty), (.negative, .dailyCheckIn, .notScheduled):
             return .resolve(.abstained)
         case (.negative, .dailyCheckIn, .success):
             return .resolve(.lapsed)
@@ -859,18 +873,54 @@ enum HabitDetailCalendarBuilder {
         case (.negative, .dailyCheckIn, .lapsed):
             return .reset
 
-        case (.negative, .lapseOnly, .empty):
+        case (.negative, .lapseOnly, .empty), (.negative, .lapseOnly, .notScheduled):
+            return .resolve(.lapsed)
+        case (.negative, .lapseOnly, .success):
             return .resolve(.lapsed)
         case (.negative, .lapseOnly, .lapsed):
-            return .reset
-        case (.negative, .lapseOnly, .success), (.negative, .lapseOnly, .skipped):
+            return .resolve(.abstained)
+        case (.negative, .lapseOnly, .skipped):
             return .reset
 
-        case (.positive, .lapseOnly, .empty):
+        case (.positive, .lapseOnly, .empty), (.positive, .lapseOnly, .notScheduled):
             return .resolve(.complete)
         case (.positive, .lapseOnly, .success), (.positive, .lapseOnly, .skipped), (.positive, .lapseOnly, .lapsed):
             return .reset
         }
+    }
+
+    static func mutationFeedback(
+        for request: HabitDetailDayMutationRequest,
+        row: HabitLibraryRow,
+        date: Date,
+        calendar: Calendar = .current
+    ) -> HabitDetailMutationFeedback {
+        let stateLabel: String
+        let haptic: HabitDetailMutationFeedbackHaptic
+
+        switch request {
+        case .resolve(.complete):
+            stateLabel = "Marked complete"
+            haptic = .success
+        case .resolve(.skip):
+            stateLabel = "Marked skipped"
+            haptic = .selection
+        case .resolve(.abstained):
+            stateLabel = row.kind == .negative ? "Marked clean" : "Marked complete"
+            haptic = .success
+        case .resolve(.lapsed):
+            stateLabel = "Marked lapsed"
+            haptic = .warning
+        case .reset:
+            stateLabel = "Cleared to empty"
+            haptic = .selection
+        }
+
+        let dayLabel = feedbackDateFormatter.string(from: calendar.startOfDay(for: date))
+        return HabitDetailMutationFeedback(
+            message: "\(dayLabel): \(stateLabel)",
+            haptic: haptic
+        )
     }
 
     static func accessibilityValue(for cell: HabitDetailDayCell, row: HabitLibraryRow) -> String {
@@ -987,6 +1037,14 @@ enum HabitDetailCalendarBuilder {
         return formatter
     }()
 
+    private static var feedbackDateFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.calendar = Calendar.current
+        formatter.locale = Locale.current
+        formatter.setLocalizedDateFormatFromTemplate("MMM d")
+        return formatter
+    }()
+
     private static let fullDateFormatter: DateFormatter = {
         let formatter = DateFormatter()
         formatter.calendar = Calendar.current
@@ -1043,6 +1101,7 @@ public final class HabitDetailViewModel: ObservableObject {
     @Published public private(set) var isPreparingEditorData = false
     @Published public private(set) var isSaving = false
     @Published public private(set) var errorMessage: String?
+    @Published public private(set) var mutationFeedback: HabitDetailMutationFeedback?
     @Published public var isEditing = false
     @Published public var draft: HabitEditorDraft
 
@@ -1405,6 +1464,11 @@ public final class HabitDetailViewModel: ObservableObject {
               isSaving == false,
               let request = HabitDetailCalendarBuilder.nextMutation(for: row, state: cell.state) else { return }
 
+        let mutationFeedback = HabitDetailCalendarBuilder.mutationFeedback(
+            for: request,
+            row: row,
+            date: cell.date
+        )
         isSaving = true
         errorMessage = nil
 
@@ -1414,6 +1478,7 @@ public final class HabitDetailViewModel: ObservableObject {
                 self.isSaving = false
                 switch result {
                 case .success:
+                    self.mutationFeedback = mutationFeedback
                     self.refreshReadOnlyData {
                         completion?()
                     }
@@ -1446,6 +1511,10 @@ public final class HabitDetailViewModel: ObservableObject {
 
     public func clearError() {
         errorMessage = nil
+    }
+
+    public func clearMutationFeedback() {
+        mutationFeedback = nil
     }
 
     private func updateCalendarViewState(referenceDate: Date = Date()) {
