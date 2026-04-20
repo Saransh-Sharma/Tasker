@@ -14,9 +14,19 @@ public protocol TaskReadModelRepositoryProtocol {
         referenceDate: Date,
         completion: @escaping (Result<InsightsTodayTaskProjection, Error>) -> Void
     )
+    /// Executes fetchInsightsTodayProjection.
+    func fetchInsightsTodayProjection(
+        query: InsightsTodayProjectionQuery,
+        completion: @escaping (Result<InsightsTodayTaskProjection, Error>) -> Void
+    )
     /// Executes fetchInsightsWeekProjection.
     func fetchInsightsWeekProjection(
         referenceDate: Date,
+        completion: @escaping (Result<InsightsWeekTaskProjection, Error>) -> Void
+    )
+    /// Executes fetchInsightsWeekProjection.
+    func fetchInsightsWeekProjection(
+        query: InsightsWeekProjectionQuery,
         completion: @escaping (Result<InsightsWeekTaskProjection, Error>) -> Void
     )
     /// Executes fetchWeekChartProjection.
@@ -110,9 +120,19 @@ public extension TaskReadModelRepositoryProtocol {
         referenceDate: Date,
         completion: @escaping (Result<InsightsTodayTaskProjection, Error>) -> Void
     ) {
+        fetchInsightsTodayProjection(
+            query: InsightsTodayProjectionQuery(referenceDate: referenceDate),
+            completion: completion
+        )
+    }
+
+    func fetchInsightsTodayProjection(
+        query: InsightsTodayProjectionQuery,
+        completion: @escaping (Result<InsightsTodayTaskProjection, Error>) -> Void
+    ) {
         let calendar = Calendar.current
-        let startOfToday = calendar.startOfDay(for: referenceDate)
-        let startOfTomorrow = calendar.date(byAdding: .day, value: 1, to: startOfToday) ?? referenceDate
+        let startOfToday = calendar.startOfDay(for: query.referenceDate)
+        let startOfTomorrow = calendar.date(byAdding: .day, value: 1, to: startOfToday) ?? query.referenceDate
         let group = DispatchGroup()
         let lock = NSLock()
         var dueWindowTasks: [TaskDefinition] = []
@@ -125,7 +145,7 @@ public extension TaskReadModelRepositoryProtocol {
                 includeCompleted: true,
                 dueDateEnd: startOfTomorrow,
                 sortBy: .dueDateAscending,
-                limit: 600,
+                limit: query.dueWindowLimit,
                 offset: 0
             )
         ) { result in
@@ -144,7 +164,7 @@ public extension TaskReadModelRepositoryProtocol {
             query: TaskReadQuery(
                 includeCompleted: true,
                 sortBy: .updatedAtDescending,
-                limit: 600,
+                limit: query.recentLimit,
                 offset: 0
             )
         ) { result in
@@ -171,8 +191,18 @@ public extension TaskReadModelRepositoryProtocol {
         referenceDate: Date,
         completion: @escaping (Result<InsightsWeekTaskProjection, Error>) -> Void
     ) {
+        fetchInsightsWeekProjection(
+            query: InsightsWeekProjectionQuery(referenceDate: referenceDate),
+            completion: completion
+        )
+    }
+
+    func fetchInsightsWeekProjection(
+        query: InsightsWeekProjectionQuery,
+        completion: @escaping (Result<InsightsWeekTaskProjection, Error>) -> Void
+    ) {
         let calendar = Calendar.current
-        let today = calendar.startOfDay(for: referenceDate)
+        let today = calendar.startOfDay(for: query.referenceDate)
         let weekEnd = calendar.date(byAdding: .day, value: 1, to: today) ?? today
         let group = DispatchGroup()
         let lock = NSLock()
@@ -186,7 +216,7 @@ public extension TaskReadModelRepositoryProtocol {
             query: TaskReadQuery(
                 includeCompleted: true,
                 sortBy: .updatedAtDescending,
-                limit: 600,
+                limit: query.recentLimit,
                 offset: 0
             )
         ) { result in
@@ -206,7 +236,7 @@ public extension TaskReadModelRepositoryProtocol {
                 includeCompleted: true,
                 dueDateEnd: weekEnd,
                 sortBy: .dueDateAscending,
-                limit: 600,
+                limit: query.dueWindowLimit,
                 offset: 0
             )
         ) { result in

@@ -128,6 +128,98 @@ public protocol ReminderRepositoryProtocol {
     func saveDelivery(_ delivery: ReminderDeliveryDefinition, completion: @escaping (Result<ReminderDeliveryDefinition, Error>) -> Void)
     /// Executes updateDelivery.
     func updateDelivery(_ delivery: ReminderDeliveryDefinition, completion: @escaping (Result<ReminderDeliveryDefinition, Error>) -> Void)
+    /// Executes fetchDeliveryResponseAggregate.
+    func fetchDeliveryResponseAggregate(
+        from startDate: Date?,
+        to endDate: Date?,
+        completion: @escaping (Result<ReminderDeliveryResponseAggregate, Error>) -> Void
+    )
+}
+
+public extension ReminderRepositoryProtocol {
+    func fetchDeliveryResponseAggregate(
+        from startDate: Date?,
+        to endDate: Date?,
+        completion: @escaping (Result<ReminderDeliveryResponseAggregate, Error>) -> Void
+    ) {
+        fetchReminders { reminderResult in
+            switch reminderResult {
+            case .failure(let error):
+                completion(.failure(error))
+            case .success(let reminders):
+                guard !reminders.isEmpty else {
+                    completion(.success(ReminderDeliveryResponseAggregate()))
+                    return
+                }
+
+                let group = DispatchGroup()
+                let lock = NSLock()
+                var firstError: Error?
+                var deliveries: [ReminderDeliveryDefinition] = []
+
+                for reminder in reminders {
+                    group.enter()
+                    fetchDeliveries(reminderID: reminder.id) { deliveryResult in
+                        lock.lock()
+                        defer { lock.unlock() }
+                        switch deliveryResult {
+                        case .failure(let error):
+                            if firstError == nil {
+                                firstError = error
+                            }
+                        case .success(let fetched):
+                            deliveries.append(contentsOf: fetched)
+                        }
+                        group.leave()
+                    }
+                }
+
+                group.notify(queue: .main) {
+                    if let firstError {
+                        completion(.failure(firstError))
+                        return
+                    }
+
+                    var acknowledged = 0
+                    var snoozed = 0
+                    var pending = 0
+
+                    for delivery in deliveries {
+                        if let startDate,
+                           delivery.createdAt < startDate {
+                            continue
+                        }
+                        if let endDate,
+                           delivery.createdAt >= endDate {
+                            continue
+                        }
+                        let normalizedStatus = delivery.status
+                            .trimmingCharacters(in: .whitespacesAndNewlines)
+                            .lowercased()
+                        if delivery.ackAt != nil || normalizedStatus == "acked" || normalizedStatus == "acknowledged" {
+                            acknowledged += 1
+                        } else if delivery.snoozedUntil != nil || normalizedStatus == "snoozed" {
+                            snoozed += 1
+                        } else {
+                            pending += 1
+                        }
+                    }
+
+                    completion(
+                        .success(
+                            ReminderDeliveryResponseAggregate(
+                                configuredReminderCount: reminders.count,
+                                totalDeliveries: acknowledged + snoozed + pending,
+                                acknowledgedDeliveries: acknowledged,
+                                snoozedDeliveries: snoozed,
+                                pendingDeliveries: pending
+                            )
+                        )
+                    )
+                }
+            }
+        }
+    }
 }
 
 public protocol WeeklyPlanRepositoryProtocol {

@@ -139,6 +139,38 @@ public struct HomeProjectionQuery: Codable, Equatable {
     }
 }
 
+public struct InsightsTodayProjectionQuery: Codable, Equatable, Hashable {
+    public var referenceDate: Date
+    public var dueWindowLimit: Int
+    public var recentLimit: Int
+
+    public init(
+        referenceDate: Date,
+        dueWindowLimit: Int = 240,
+        recentLimit: Int = 240
+    ) {
+        self.referenceDate = referenceDate
+        self.dueWindowLimit = max(1, dueWindowLimit)
+        self.recentLimit = max(1, recentLimit)
+    }
+}
+
+public struct InsightsWeekProjectionQuery: Codable, Equatable, Hashable {
+    public var referenceDate: Date
+    public var dueWindowLimit: Int
+    public var recentLimit: Int
+
+    public init(
+        referenceDate: Date,
+        dueWindowLimit: Int = 260,
+        recentLimit: Int = 260
+    ) {
+        self.referenceDate = referenceDate
+        self.dueWindowLimit = max(1, dueWindowLimit)
+        self.recentLimit = max(1, recentLimit)
+    }
+}
+
 public struct InsightsTodayTaskProjection: Codable, Equatable, Hashable {
     public let dueWindowTasks: [TaskDefinition]
     public let recentTasks: [TaskDefinition]
