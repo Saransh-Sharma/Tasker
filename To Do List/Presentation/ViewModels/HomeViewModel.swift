@@ -697,7 +697,8 @@ public final class HomeViewModel: ObservableObject {
     }
 
     private func buildHomeChromeState() -> HomeChromeState {
-        HomeChromeState(
+        let reflectionEntryState = makeDailyReflectionEntryState()
+        return HomeChromeState(
             selectedDate: selectedDate,
             activeScope: activeScope,
             activeFilterState: activeFilterState,
@@ -710,8 +711,8 @@ public final class HomeViewModel: ObservableObject {
             weeklySummaryIsLoading: weeklySummaryIsLoading,
             weeklySummaryErrorMessage: weeklySummaryErrorMessage,
             projects: projects,
-            // Reflection stays tied to the default Today scope, not custom-date views.
-            reflectionEligible: activeScope == .today && !isDailyReflectionCompletedToday(),
+            dailyReflectionEntryState: reflectionEntryState,
+            dailyPlanDraft: dailyPlanDraftForSelectedDate(),
             momentumGuidanceText: makeMomentumGuidanceText()
         )
     }
@@ -794,6 +795,40 @@ public final class HomeViewModel: ObservableObject {
             return "Pick one visible task and finish it before switching surfaces."
         }
         return "Your surface is clear. Add one intentional task for today."
+    }
+
+    private func makeDailyReflectionEntryState() -> DailyReflectionEntryState? {
+        guard activeScope == .today,
+              let target = useCaseCoordinator.resolveDailyReflectionTarget.execute() else {
+            return nil
+        }
+
+        switch target.mode {
+        case .sameDay:
+            return DailyReflectionEntryState(
+                mode: target.mode,
+                reflectionDate: target.reflectionDate,
+                planningDate: target.planningDate,
+                title: "Reflect & plan",
+                subtitle: "Close today cleanly, then shape tomorrow.",
+                summaryText: "Capture the day and lock tomorrow's top three before the surface resets.",
+                badgeText: nil
+            )
+        case .catchUpYesterday:
+            return DailyReflectionEntryState(
+                mode: target.mode,
+                reflectionDate: target.reflectionDate,
+                planningDate: target.planningDate,
+                title: "Reflect & plan",
+                subtitle: "Yesterday is still open. Close it before today sprawls.",
+                summaryText: "Reflect on yesterday, then keep today's board focused with a smaller plan.",
+                badgeText: "Yesterday"
+            )
+        }
+    }
+
+    private func dailyPlanDraftForSelectedDate() -> DailyPlanDraft? {
+        useCaseCoordinator.dailyReflectionStore.fetchPlanDraft(on: selectedDate)
     }
 
     private func bumpTaskRowsDerivationRevision() {
@@ -2189,6 +2224,13 @@ public final class HomeViewModel: ObservableObject {
 
     public func isDailyReflectionCompletedToday() -> Bool {
         useCaseCoordinator.markDailyReflection.isCompletedToday()
+    }
+
+    public func refreshAfterDailyReflectPlanSave(planningDate: Date) {
+        refreshWeeklySummary()
+        loadDailyAnalytics(includeGamificationRefresh: false)
+        selectDate(planningDate)
+        scheduleHomeRenderStateRefresh()
     }
 
     public func launchInsights(_ request: InsightsLaunchRequest = .default) {

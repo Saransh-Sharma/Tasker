@@ -2021,8 +2021,8 @@ struct HomeBackdropForedropRootView: View {
     @State private var showMilestone = false
     @State private var milestoneValue: XPCalculationEngine.Milestone?
     @State private var semanticCelebrationXP = 0
-    @State private var showReflectionSheet = false
-    @State private var reflectionClaimState: DailyReflectionClaimState = .ready
+    @State private var showDailyReflectPlan = false
+    @State private var dailyReflectPlanViewModel: DailyReflectPlanViewModel?
     @State private var activeNextActionFocusSession: FocusSessionDefinition?
     @State private var showNextActionFocusTimer = false
     @State private var nextActionFocusSummaryResult: FocusSessionResult?
@@ -2368,7 +2368,6 @@ struct HomeBackdropForedropRootView: View {
             searchDraftQuery = searchState.query
             hasMountedSearchSurface = activeFace == .search
             hasMountedAnalyticsSurface = activeFace == .analytics
-            refreshReflectionClaimState()
             triggerForedropHintIfEligible()
             presentHabitBoardIfRequestedForUITests()
         }
@@ -2567,31 +2566,23 @@ struct HomeBackdropForedropRootView: View {
                 )
             )
         }
-        .sheet(isPresented: $showReflectionSheet) {
-            DailyReflectionView(
-                tasksCompleted: max(viewModel.dailyCompletedTasks.count, faceCoordinator.insightsViewModel?.tasksCompletedToday ?? 0),
-                xpEarned: chromeSnapshot.dailyScore,
-                streakDays: viewModel.streak,
-                claimState: reflectionClaimState,
-                onComplete: {
-                    reflectionClaimState = .submitting
-                    viewModel.completeDailyReflection { result in
-                        switch result {
-                        case .success(let xpResult):
-                            if xpResult.awardedXP > 0 {
-                                reflectionClaimState = .claimed(xp: xpResult.awardedXP)
-                                DispatchQueue.main.asyncAfter(deadline: .now() + 0.7) {
-                                    showReflectionSheet = false
-                                }
-                            } else {
-                                reflectionClaimState = .alreadyClaimed
-                            }
-                        case .failure(let error):
-                            reflectionClaimState = .unavailable(message: error.localizedDescription)
-                        }
-                    }
-                }
-            )
+        .sheet(isPresented: Binding(
+            get: { layoutClass.isPad && showDailyReflectPlan },
+            set: { showDailyReflectPlan = $0 }
+        ), onDismiss: {
+            dailyReflectPlanViewModel = nil
+        }) {
+            reflectPlanPresentation
+                .presentationDetents([.large])
+                .presentationDragIndicator(.visible)
+        }
+        .fullScreenCover(isPresented: Binding(
+            get: { !layoutClass.isPad && showDailyReflectPlan },
+            set: { showDailyReflectPlan = $0 }
+        ), onDismiss: {
+            dailyReflectPlanViewModel = nil
+        }) {
+            reflectPlanPresentation
         }
     }
 
@@ -2945,11 +2936,11 @@ struct HomeBackdropForedropRootView: View {
                         viewModel: insightsViewModel,
                         homeProgress: chromeSnapshot.progressState,
                         homeCompletionRate: chromeSnapshot.completionRate,
-                        reflectionEligible: reflectionEligible,
+                        reflectionEligible: false,
                         momentumGuidanceText: momentumGuidanceText,
                         animateMomentumCard: shellPhase == .interactive && !reduceMotion,
                         onOpenReflection: {
-                            openReflectionSheet()
+                            openDailyReflectPlan()
                         }
                     )
                 } else {
@@ -3213,7 +3204,7 @@ struct HomeBackdropForedropRootView: View {
                         openSearch(source: "scope_menu_search")
                     },
                     onOpenReflection: {
-                        openReflectionSheet()
+                        openDailyReflectPlan()
                     },
                     onOpenSettings: {
                         onOpenSettings()
@@ -3365,6 +3356,18 @@ struct HomeBackdropForedropRootView: View {
             if tasksSnapshot.activeQuickView == .today {
                 fullBleedTaskListHeaderModule {
                     VStack(alignment: .leading, spacing: spacing.s12) {
+                        if let entryState = chromeSnapshot.dailyReflectionEntryState {
+                            HomeDailyReflectionEntryCard(state: entryState) {
+                                openDailyReflectPlan(preferredReflectionDate: entryState.reflectionDate)
+                            }
+                        }
+                        if let dailyPlanDraft = chromeSnapshot.dailyPlanDraft {
+                            HomeDailyPlanDraftCard(draft: dailyPlanDraft) { taskID in
+                                if let task = resolveTaskForReflectionPlanDraft(taskID: taskID) {
+                                    onTaskTap(task)
+                                }
+                            }
+                        }
                         if habitsSnapshot.quietTrackingSummaryState.isVisible {
                             passiveTrackingRail
                         }
@@ -4210,10 +4213,6 @@ struct HomeBackdropForedropRootView: View {
         }
     }
 
-    private var reflectionEligible: Bool {
-        chromeSnapshot.reflectionEligible
-    }
-
     private var momentumGuidanceText: String {
         chromeSnapshot.momentumGuidanceText
     }
@@ -4478,13 +4477,49 @@ struct HomeBackdropForedropRootView: View {
         return candidates.first(where: { $0.id == taskID })
     }
 
-    private func refreshReflectionClaimState() {
-        reflectionClaimState = viewModel.isDailyReflectionCompletedToday() ? .alreadyClaimed : .ready
+    private func resolveTaskForReflectionPlanDraft(taskID: UUID) -> TaskDefinition? {
+        var candidates: [TaskDefinition] = []
+        candidates.append(contentsOf: viewModel.focusTasks)
+        candidates.append(contentsOf: viewModel.morningTasks)
+        candidates.append(contentsOf: viewModel.eveningTasks)
+        candidates.append(contentsOf: viewModel.overdueTasks)
+        candidates.append(contentsOf: viewModel.upcomingTasks)
+        candidates.append(contentsOf: viewModel.completedTasks)
+        return candidates.first(where: { $0.id == taskID })
     }
 
-    private func openReflectionSheet() {
-        refreshReflectionClaimState()
-        showReflectionSheet = true
+    @ViewBuilder
+    private var reflectPlanPresentation: some View {
+        if let dailyReflectPlanViewModel {
+            ReflectPlanScreen(
+                viewModel: dailyReflectPlanViewModel,
+                onClose: {
+                    showDailyReflectPlan = false
+                }
+            )
+        } else {
+            Color.clear
+                .ignoresSafeArea()
+                .onAppear {
+                    showDailyReflectPlan = false
+                }
+        }
+    }
+
+    private func openDailyReflectPlan(preferredReflectionDate: Date? = nil) {
+        dailyReflectPlanViewModel = PresentationDependencyContainer.shared.makeDailyReflectPlanViewModel(
+            preferredReflectionDate: preferredReflectionDate,
+            analyticsTracker: { action, metadata in
+                viewModel.trackHomeInteraction(action: action, metadata: metadata.reduce(into: [String: Any]()) { partialResult, item in
+                    partialResult[item.key] = item.value
+                })
+            },
+            onComplete: { result in
+                viewModel.refreshAfterDailyReflectPlanSave(planningDate: result.target.planningDate)
+                showDailyReflectPlan = false
+            }
+        )
+        showDailyReflectPlan = true
     }
 }
 
