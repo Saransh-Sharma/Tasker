@@ -10,6 +10,7 @@ final class DarkModeToggleCell: UITableViewCell {
     private let titleLabel = UILabel()
     private let subtitleLabel = UILabel()
     private let modeBadge = UILabel()
+    private var traitRegistration: (any UITraitChangeRegistration)?
 
     /// Initializes a new instance.
     override init(style: UITableViewCell.CellStyle, reuseIdentifier: String?) {
@@ -95,15 +96,10 @@ final class DarkModeToggleCell: UITableViewCell {
 
         // Set initial visuals
         updateVisuals(isDark: traitCollection.userInterfaceStyle == .dark)
-    }
-
-    override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
-        super.traitCollectionDidChange(previousTraitCollection)
-
-        guard previousTraitCollection?.userInterfaceStyle != traitCollection.userInterfaceStyle else {
-            return
+        traitRegistration = registerForTraitChanges([UITraitUserInterfaceStyle.self]) {
+            (cell: Self, _) in
+            cell.updateVisuals(isDark: cell.traitCollection.userInterfaceStyle == .dark)
         }
-        updateVisuals(isDark: traitCollection.userInterfaceStyle == .dark)
     }
 
     /// Executes updateVisuals.

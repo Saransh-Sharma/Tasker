@@ -101,7 +101,7 @@ struct InsightsSystemsView: View {
             didAppear = true
             applyHighlightedAchievementIfNeeded()
         }
-        .onChange(of: viewModel.highlightedAchievementKey) { _ in
+        .onChange(of: viewModel.highlightedAchievementKey) {
             applyHighlightedAchievementIfNeeded()
         }
     }

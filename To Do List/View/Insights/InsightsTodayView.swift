@@ -7,6 +7,7 @@ struct InsightsTodayView: View {
     let homeProgress: HomeProgressState
     let homeCompletionRate: Double
     let reflectionEligible: Bool
+    let dailyReflectionEntryState: DailyReflectionEntryState?
     let momentumGuidanceText: String
     let animateMomentumCard: Bool
     let onOpenReflection: () -> Void
@@ -46,6 +47,15 @@ struct InsightsTodayView: View {
                 heroCard
             }
             module(index: 2) {
+                if let dailyReflectionEntryState {
+                    HomeDailyReflectionEntryCard(
+                        state: dailyReflectionEntryState,
+                        mode: .full,
+                        onOpen: onOpenReflection
+                    )
+                }
+            }
+            module(index: 3) {
                 metricGridCard(
                     eyebrow: "Due pressure",
                     title: "Decide these next",
@@ -53,10 +63,10 @@ struct InsightsTodayView: View {
                     metrics: state.duePressureMetrics
                 )
             }
-            module(index: 3) {
+            module(index: 4) {
                 goalAndPaceCard
             }
-            module(index: 4) {
+            module(index: 5) {
                 metricGridCard(
                     eyebrow: "Focus pulse",
                     title: "Protect deep work",
@@ -64,7 +74,7 @@ struct InsightsTodayView: View {
                     metrics: state.focusMetrics
                 )
             }
-            module(index: 5) {
+            module(index: 6) {
                 metricGridCard(
                     eyebrow: "Momentum board",
                     title: "Today snapshot",
@@ -72,7 +82,7 @@ struct InsightsTodayView: View {
                     metrics: state.momentumMetrics
                 )
             }
-            module(index: 6) {
+            module(index: 7) {
                 metricGridCard(
                     eyebrow: "Recovery loop",
                     title: "Stop backlog drift",
@@ -80,7 +90,7 @@ struct InsightsTodayView: View {
                     metrics: state.recoveryMetrics
                 )
             }
-            module(index: 7) {
+            module(index: 8) {
                 completionMixCard
             }
         }

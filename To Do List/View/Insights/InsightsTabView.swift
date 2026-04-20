@@ -8,6 +8,7 @@ public struct InsightsTabView: View {
     let homeProgress: HomeProgressState
     let homeCompletionRate: Double
     let reflectionEligible: Bool
+    let dailyReflectionEntryState: DailyReflectionEntryState?
     let momentumGuidanceText: String
     let animateMomentumCard: Bool
     let onOpenReflection: () -> Void
@@ -55,6 +56,7 @@ public struct InsightsTabView: View {
                             homeProgress: homeProgress,
                             homeCompletionRate: homeCompletionRate,
                             reflectionEligible: reflectionEligible,
+                            dailyReflectionEntryState: dailyReflectionEntryState,
                             momentumGuidanceText: momentumGuidanceText,
                             animateMomentumCard: animateMomentumCard,
                             onOpenReflection: onOpenReflection
