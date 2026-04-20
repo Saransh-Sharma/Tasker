@@ -96,7 +96,7 @@ public final class EventKitCalendarEventsProvider: CalendarEventsProviderProtoco
                     allowsContentModifications: calendar.allowsContentModifications
                 )
             }
-            Self.deliverToMain(completion: completion, result: .success(calendars))
+            completion(.success(calendars))
         }
     }
 
@@ -116,7 +116,7 @@ public final class EventKitCalendarEventsProvider: CalendarEventsProviderProtoco
             }
 
             guard selectedCalendars.isEmpty == false else {
-                Self.deliverToMain(completion: completion, result: .success([]))
+                completion(.success([]))
                 return
             }
 
@@ -142,7 +142,41 @@ public final class EventKitCalendarEventsProvider: CalendarEventsProviderProtoco
                     )
                 }
 
-            Self.deliverToMain(completion: completion, result: .success(events))
+            completion(.success(events))
+        }
+    }
+
+    public func fetchEventSlices(
+        startDate: Date,
+        endDate: Date,
+        calendarIDs: Set<String>,
+        completion: @escaping (Result<[TaskerCalendarEventSlice], Error>) -> Void
+    ) {
+        workerQueue.async { [store, self] in
+            let availableCalendars = store.calendars(for: .event)
+            let selectedCalendars: [EKCalendar]
+            if calendarIDs.isEmpty {
+                selectedCalendars = availableCalendars
+            } else {
+                selectedCalendars = availableCalendars.filter { calendarIDs.contains($0.calendarIdentifier) }
+            }
+
+            guard selectedCalendars.isEmpty == false else {
+                completion(.success([]))
+                return
+            }
+
+            let predicate = store.predicateForEvents(withStart: startDate, end: endDate, calendars: selectedCalendars)
+            let slices = store.events(matching: predicate).map { event in
+                TaskerCalendarEventSlice(
+                    startDate: event.startDate,
+                    endDate: event.endDate,
+                    isAllDay: event.isAllDay,
+                    isBusy: self.mapAvailability(event.availability) != .free
+                )
+            }
+
+            completion(.success(slices))
         }
     }
 
@@ -217,15 +251,6 @@ public final class EventKitCalendarEventsProvider: CalendarEventsProviderProtoco
         return trimmedTitle
     }
 
-    private static func deliverToMain<T>(
-        completion: @escaping (Result<T, Error>) -> Void,
-        result: Result<T, Error>
-    ) {
-        DispatchQueue.main.async {
-            completion(result)
-        }
-    }
-
     private static func hexString(from cgColor: CGColor) -> String? {
         guard let components = cgColor.converted(to: CGColorSpaceCreateDeviceRGB(), intent: .defaultIntent, options: nil)?.components,
               components.count >= 3 else {
@@ -261,6 +286,18 @@ public final class EventKitCalendarEventsProvider: CalendarEventsProviderProtoco
         endDate: Date,
         calendarIDs: Set<String>,
         completion: @escaping (Result<[TaskerCalendarEventSnapshot], Error>) -> Void
+    ) {
+        _ = startDate
+        _ = endDate
+        _ = calendarIDs
+        completion(.success([]))
+    }
+
+    public func fetchEventSlices(
+        startDate: Date,
+        endDate: Date,
+        calendarIDs: Set<String>,
+        completion: @escaping (Result<[TaskerCalendarEventSlice], Error>) -> Void
     ) {
         _ = startDate
         _ = endDate
