@@ -29,6 +29,11 @@ public protocol TaskReadModelRepositoryProtocol {
         query: InsightsWeekProjectionQuery,
         completion: @escaping (Result<InsightsWeekTaskProjection, Error>) -> Void
     )
+    /// Executes fetchDailyReflectionProjection.
+    func fetchDailyReflectionProjection(
+        query: DailyReflectionTaskProjectionQuery,
+        completion: @escaping (Result<DailyReflectionTaskProjection, Error>) -> Void
+    )
     /// Executes fetchWeekChartProjection.
     func fetchWeekChartProjection(
         referenceDate: Date,
@@ -273,6 +278,119 @@ public extension TaskReadModelRepositoryProtocol {
                 dueWindowTasks: dueWindowTasks,
                 projectScores: projectScores
             )))
+        }
+    }
+
+    func fetchDailyReflectionProjection(
+        query: DailyReflectionTaskProjectionQuery,
+        completion: @escaping (Result<DailyReflectionTaskProjection, Error>) -> Void
+    ) {
+        let calendar = Calendar.current
+        let reflectionDayStart = calendar.startOfDay(for: query.reflectionDate)
+        let reflectionDayEnd = calendar.date(byAdding: .day, value: 1, to: reflectionDayStart) ?? reflectionDayStart
+        let planningDayStart = calendar.startOfDay(for: query.planningDate)
+        let planningDayEnd = calendar.date(byAdding: .day, value: 1, to: planningDayStart) ?? planningDayStart
+        let group = DispatchGroup()
+        let lock = NSLock()
+
+        var completedTasks: [TaskDefinition] = []
+        var reflectionOpenTasks: [TaskDefinition] = []
+        var planningOpenTasks: [TaskDefinition] = []
+        var firstError: Error?
+
+        group.enter()
+        fetchTasks(
+            query: TaskReadQuery(
+                includeCompleted: true,
+                sortBy: .updatedAtDescending,
+                limit: query.completedLimit,
+                offset: 0
+            )
+        ) { result in
+            lock.lock()
+            defer { lock.unlock() }
+            switch result {
+            case .failure(let error):
+                firstError = firstError ?? error
+            case .success(let slice):
+                completedTasks = slice.tasks.filter { task in
+                    guard task.isComplete, let completedAt = task.dateCompleted else { return false }
+                    return completedAt >= reflectionDayStart && completedAt < reflectionDayEnd
+                }
+            }
+            group.leave()
+        }
+
+        group.enter()
+        fetchTasks(
+            query: TaskReadQuery(
+                includeCompleted: true,
+                dueDateEnd: reflectionDayEnd,
+                sortBy: .dueDateAscending,
+                limit: query.openTaskLimit,
+                offset: 0
+            )
+        ) { result in
+            lock.lock()
+            defer { lock.unlock() }
+            switch result {
+            case .failure(let error):
+                firstError = firstError ?? error
+            case .success(let slice):
+                reflectionOpenTasks = slice.tasks.filter { task in
+                    guard task.isComplete == false else { return false }
+                    if task.type == .morning || task.type == .evening {
+                        return true
+                    }
+                    guard let dueDate = task.dueDate else { return false }
+                    return dueDate < reflectionDayEnd
+                }
+            }
+            group.leave()
+        }
+
+        group.enter()
+        fetchTasks(
+            query: TaskReadQuery(
+                includeCompleted: true,
+                dueDateEnd: planningDayEnd,
+                sortBy: .dueDateAscending,
+                limit: query.openTaskLimit,
+                offset: 0
+            )
+        ) { result in
+            lock.lock()
+            defer { lock.unlock() }
+            switch result {
+            case .failure(let error):
+                firstError = firstError ?? error
+            case .success(let slice):
+                planningOpenTasks = slice.tasks.filter { task in
+                    guard task.isComplete == false else { return false }
+                    if task.type == .morning || task.type == .evening {
+                        return true
+                    }
+                    guard let dueDate = task.dueDate else { return false }
+                    return dueDate < planningDayEnd
+                }
+            }
+            group.leave()
+        }
+
+        group.notify(queue: .global(qos: .userInitiated)) {
+            if let firstError {
+                completion(.failure(firstError))
+                return
+            }
+            completion(
+                .success(
+                    DailyReflectionTaskProjection(
+                        reflectionCompletedTasks: completedTasks,
+                        reflectionOpenTasks: reflectionOpenTasks,
+                        planningOpenTasks: planningOpenTasks
+                    )
+                )
+            )
         }
     }
 
