@@ -13,10 +13,14 @@ public struct InsightsTabView: View {
     let onOpenReflection: () -> Void
     @Environment(\.taskerLayoutClass) private var layoutClass
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @State private var scrollTraceInterval: TaskerPerformanceInterval?
     @State private var pendingScrollTraceIdleTask: Task<Void, Never>?
 
     private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.currentTheme.tokens.spacing }
+    private var shouldReduceAnimation: Bool {
+        reduceMotion || dynamicTypeSize.isAccessibilitySize || V2FeatureFlags.iPadPerfHomeAnimationTrimV3Enabled
+    }
 
     public var body: some View {
         VStack(spacing: 0) {
@@ -31,7 +35,7 @@ public struct InsightsTabView: View {
                         .fontWeight(.semibold)
                         .foregroundStyle(Color.tasker.textPrimary)
 
-                    Text("Today keeps the board operational, Week shows patterns, and Systems checks whether the product is helping you recover.")
+                    Text("Today for execution, Week for patterns, Systems for reliability.")
                         .font(.tasker(.caption1))
                         .foregroundStyle(Color.tasker.textSecondary)
                 }
@@ -84,7 +88,7 @@ public struct InsightsTabView: View {
             }
             .accessibilityIdentifier("home.insights.scroll")
             .animation(
-                reduceMotion ? nil : .easeOut(duration: 0.26),
+                shouldReduceAnimation ? nil : .easeOut(duration: 0.18),
                 value: viewModel.selectedTab
             )
         }
@@ -187,13 +191,7 @@ public struct InsightsTabView: View {
     }
 
     private var contentTransition: AnyTransition {
-        if reduceMotion {
-            return .opacity
-        }
-        return .asymmetric(
-            insertion: .opacity.combined(with: .move(edge: .trailing)),
-            removal: .opacity.combined(with: .move(edge: .leading))
-        )
+        .opacity
     }
 
     private func tabSubtitle(for tab: InsightsViewModel.InsightsTab) -> String {

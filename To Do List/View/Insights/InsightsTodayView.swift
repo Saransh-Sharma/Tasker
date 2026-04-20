@@ -11,10 +11,14 @@ struct InsightsTodayView: View {
     let animateMomentumCard: Bool
     let onOpenReflection: () -> Void
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @State private var didAppear = false
 
     private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.currentTheme.tokens.spacing }
     private var state: InsightsTodayState { viewModel.todayState }
+    private var shouldReduceAnimation: Bool {
+        reduceMotion || dynamicTypeSize.isAccessibilitySize || V2FeatureFlags.iPadPerfHomeAnimationTrimV3Enabled
+    }
 
     private var progress: CGFloat {
         guard state.dailyCap > 0 else { return 0 }
@@ -43,10 +47,10 @@ struct InsightsTodayView: View {
             }
             module(index: 2) {
                 metricGridCard(
-                    eyebrow: "Momentum board",
-                    title: "The operating picture for today",
-                    subtitle: state.heroSummary,
-                    metrics: state.momentumMetrics
+                    eyebrow: "Due pressure",
+                    title: "Decide these next",
+                    subtitle: "Clear, reschedule, or unblock.",
+                    metrics: state.duePressureMetrics
                 )
             }
             module(index: 3) {
@@ -54,30 +58,30 @@ struct InsightsTodayView: View {
             }
             module(index: 4) {
                 metricGridCard(
-                    eyebrow: "Due pressure",
-                    title: "What still needs an explicit decision",
-                    subtitle: "Pressure is useful when it stays legible.",
-                    metrics: state.duePressureMetrics
+                    eyebrow: "Focus pulse",
+                    title: "Protect deep work",
+                    subtitle: "One quality session beats constant switching.",
+                    metrics: state.focusMetrics
                 )
             }
             module(index: 5) {
                 metricGridCard(
-                    eyebrow: "Focus pulse",
-                    title: "Depth, not just movement",
-                    subtitle: "Focused time matters when the board is already in motion.",
-                    metrics: state.focusMetrics
+                    eyebrow: "Momentum board",
+                    title: "Today snapshot",
+                    subtitle: "Output and streak status.",
+                    metrics: state.momentumMetrics
                 )
             }
             module(index: 6) {
-                completionMixCard
-            }
-            module(index: 7) {
                 metricGridCard(
                     eyebrow: "Recovery loop",
-                    title: "How the day recovers instead of spirals",
-                    subtitle: state.coachingPrompt,
+                    title: "Stop backlog drift",
+                    subtitle: "Recovery actions keep pressure from compounding.",
                     metrics: state.recoveryMetrics
                 )
+            }
+            module(index: 7) {
+                completionMixCard
             }
         }
         .padding(.horizontal, spacing.screenHorizontal)
@@ -94,12 +98,16 @@ struct InsightsTodayView: View {
                     .font(.tasker(.caption1))
                     .foregroundColor(Color.tasker.textTertiary)
 
-                Text(state.heroTitle)
+                Text(state.heroCard.title)
                     .font(.tasker(.title2))
                     .foregroundColor(Color.tasker.textPrimary)
 
-                Text(state.heroSummary)
-                    .font(.tasker(.callout))
+                Text(state.heroCard.metric)
+                    .font(.tasker(.headline))
+                    .foregroundColor(Color.tasker.textPrimary)
+
+                Text(state.heroCard.hint)
+                    .font(.tasker(.caption1))
                     .foregroundColor(Color.tasker.textSecondary)
 
                 HStack(alignment: .bottom, spacing: spacing.s16) {
@@ -113,14 +121,25 @@ struct InsightsTodayView: View {
                         )
                         metricPill(
                             title: "Next move",
-                            value: state.coachingPrompt,
+                            value: state.heroCard.hint,
                             tone: .warning
                         )
                     }
                 }
+
+                if let detail = state.heroCard.detail, detail.isEmpty == false {
+                    DisclosureGroup("Details") {
+                        Text(detail)
+                            .font(.tasker(.caption1))
+                            .foregroundColor(Color.tasker.textSecondary)
+                            .padding(.top, spacing.s4)
+                    }
+                    .font(.tasker(.caption1))
+                    .foregroundColor(Color.tasker.textTertiary)
+                }
             }
             .accessibilityElement(children: .combine)
-            .accessibilityLabel("\(state.heroTitle). \(state.heroSummary). \(state.coachingPrompt)")
+            .accessibilityLabel("\(state.heroCard.title). \(state.heroCard.metric). \(state.heroCard.hint)")
         }
     }
 
@@ -164,7 +183,7 @@ struct InsightsTodayView: View {
                     .font(.tasker(.caption1))
                     .foregroundColor(Color.tasker.textTertiary)
 
-                Text("The score is useful only when it matches the shape of the day.")
+                Text("Keep output and effort aligned.")
                     .font(.tasker(.headline))
                     .foregroundColor(Color.tasker.textPrimary)
 
@@ -206,12 +225,12 @@ struct InsightsTodayView: View {
 
                 Text(state.completionMixSections.isEmpty
                         ? "Complete one task to unlock today’s mix."
-                        : "What got finished, and what kind of work it was.")
+                        : "What got finished.")
                     .font(.tasker(.headline))
                     .foregroundColor(Color.tasker.textPrimary)
 
                 if state.completionMixSections.isEmpty {
-                    Text("Today’s mix appears after the first completed task.")
+                    Text("Mix appears after the first completion.")
                         .font(.tasker(.callout))
                         .foregroundColor(Color.tasker.textSecondary)
                 } else {
@@ -356,13 +375,11 @@ struct InsightsTodayView: View {
     }
 
     private func module<Content: View>(index: Int, @ViewBuilder content: () -> Content) -> some View {
-        let delay = Double(index) * 0.05
+        let delay = min(0.12, Double(index) * 0.015)
         return content()
-            .opacity(reduceMotion || didAppear ? 1 : 0)
-            .scaleEffect(reduceMotion || didAppear ? 1 : 0.985)
-            .offset(y: reduceMotion || didAppear ? 0 : 12)
+            .opacity(shouldReduceAnimation || didAppear ? 1 : 0.98)
             .animation(
-                reduceMotion ? nil : TaskerAnimation.gentle.delay(delay),
+                shouldReduceAnimation ? nil : TaskerAnimation.quick.delay(delay),
                 value: didAppear
             )
     }
@@ -372,12 +389,12 @@ struct InsightsTodayView: View {
         content()
             .padding(spacing.s16)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .taskerPremiumSurface(
+            .taskerAnalyticsSurface(
                 cornerRadius: 24,
                 fillColor: Color.tasker.surfacePrimary,
                 strokeColor: Color.tasker.strokeHairline.opacity(0.82),
                 accentColor: Color.tasker.accentSecondary,
-                level: .e2
+                level: .e1
             )
     }
 

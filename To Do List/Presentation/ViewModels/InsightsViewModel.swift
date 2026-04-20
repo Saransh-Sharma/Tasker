@@ -103,6 +103,25 @@ public struct InsightsDistributionSection: Identifiable, Equatable {
     }
 }
 
+public struct InsightsNarrativeBlock: Equatable {
+    public var title: String
+    public var metric: String
+    public var hint: String
+    public var detail: String?
+
+    public init(
+        title: String,
+        metric: String,
+        hint: String,
+        detail: String? = nil
+    ) {
+        self.title = title
+        self.metric = metric
+        self.hint = hint
+        self.detail = detail
+    }
+}
+
 public struct InsightsLeaderboardRow: Identifiable, Equatable {
     public let id: String
     public let title: String
@@ -146,7 +165,7 @@ public struct InsightsReminderResponseState: Equatable {
         responseRate: Double = 0,
         statusItems: [InsightsDistributionItem] = [],
         headline: String = "No reminder response data yet.",
-        detail: String = "Responses will appear once reminders start getting acknowledged or snoozed."
+        detail: String = "Responses appear after reminders are acknowledged or snoozed."
     ) {
         self.totalDeliveries = totalDeliveries
         self.acknowledgedDeliveries = acknowledgedDeliveries
@@ -168,6 +187,7 @@ public struct InsightsTodayState: Equatable {
     public var xpBreakdown: [XPBreakdownItem]
     public var recoveryXP: Int
     public var recoveryCount: Int
+    public var heroCard: InsightsNarrativeBlock
     public var heroTitle: String
     public var heroSummary: String
     public var coachingPrompt: String
@@ -187,6 +207,12 @@ public struct InsightsTodayState: Equatable {
         xpBreakdown: [XPBreakdownItem] = [],
         recoveryXP: Int = 0,
         recoveryCount: Int = 0,
+        heroCard: InsightsNarrativeBlock = InsightsNarrativeBlock(
+            title: "Build today’s momentum",
+            metric: "0/0 done • 0 XP",
+            hint: "Start with one meaningful task.",
+            detail: "Today turns into signal once you close the first meaningful task."
+        ),
         heroTitle: String = "Build today’s momentum",
         heroSummary: String = "Today turns into signal once you close the first meaningful task.",
         coachingPrompt: String = "Start with one task that clears pressure or unlocks motion.",
@@ -205,6 +231,7 @@ public struct InsightsTodayState: Equatable {
         self.xpBreakdown = xpBreakdown
         self.recoveryXP = recoveryXP
         self.recoveryCount = recoveryCount
+        self.heroCard = heroCard
         self.heroTitle = heroTitle
         self.heroSummary = heroSummary
         self.coachingPrompt = coachingPrompt
@@ -225,6 +252,7 @@ public struct InsightsWeekState: Equatable {
     public var goalHitDays: Int
     public var bestDayLabel: String
     public var averageDailyXP: Int
+    public var heroCard: InsightsNarrativeBlock
     public var heroTitle: String
     public var heroSummary: String
     public var weeklySummaryMetrics: [InsightsMetricTile]
@@ -242,6 +270,12 @@ public struct InsightsWeekState: Equatable {
         goalHitDays: Int = 0,
         bestDayLabel: String = "",
         averageDailyXP: Int = 0,
+        heroCard: InsightsNarrativeBlock = InsightsNarrativeBlock(
+            title: "Your weekly rhythm",
+            metric: "0 XP • 0/7 goal-hit days",
+            hint: "Look for one leverage day.",
+            detail: "Consistency looks better when the week is visible at a glance."
+        ),
         heroTitle: String = "Your weekly rhythm",
         heroSummary: String = "Consistency looks better when the week is visible at a glance.",
         weeklySummaryMetrics: [InsightsMetricTile] = [],
@@ -258,6 +292,7 @@ public struct InsightsWeekState: Equatable {
         self.goalHitDays = goalHitDays
         self.bestDayLabel = bestDayLabel
         self.averageDailyXP = averageDailyXP
+        self.heroCard = heroCard
         self.heroTitle = heroTitle
         self.heroSummary = heroSummary
         self.weeklySummaryMetrics = weeklySummaryMetrics
@@ -319,6 +354,7 @@ public struct InsightsSystemsState: Equatable {
     public var achievementProgress: [AchievementProgressState]
     public var nextMilestone: XPCalculationEngine.Milestone?
     public var milestoneProgress: CGFloat
+    public var heroCard: InsightsNarrativeBlock
     public var heroSummary: String
     public var streakMetrics: [InsightsMetricTile]
     public var achievementVelocityMetrics: [InsightsMetricTile]
@@ -339,6 +375,12 @@ public struct InsightsSystemsState: Equatable {
         achievementProgress: [AchievementProgressState] = [],
         nextMilestone: XPCalculationEngine.Milestone? = nil,
         milestoneProgress: CGFloat = 0,
+        heroCard: InsightsNarrativeBlock = InsightsNarrativeBlock(
+            title: "System health",
+            metric: "L1 • 0 XP",
+            hint: "Consistency beats intensity.",
+            detail: "Long-term systems become visible once reminders, focus, and recovery are in the same place."
+        ),
         heroSummary: String = "Long-term systems become visible once reminders, focus, and recovery are in the same place.",
         streakMetrics: [InsightsMetricTile] = [],
         achievementVelocityMetrics: [InsightsMetricTile] = [],
@@ -358,6 +400,7 @@ public struct InsightsSystemsState: Equatable {
         self.achievementProgress = achievementProgress
         self.nextMilestone = nextMilestone
         self.milestoneProgress = milestoneProgress
+        self.heroCard = heroCard
         self.heroSummary = heroSummary
         self.streakMetrics = streakMetrics
         self.achievementVelocityMetrics = achievementVelocityMetrics
@@ -448,6 +491,7 @@ public final class InsightsViewModel: ObservableObject {
     private let refreshComputeQueue = DispatchQueue(label: "tasker.insights.refresh.compute", qos: .userInitiated)
 
     private var tabRefreshState: [InsightsTab: InsightsTabRefreshState] = [:]
+    private var tabSnapshotCapturedAt: [InsightsTab: Date] = [:]
     private var versionCounter: UInt64 = 0
     private var cancellables = Set<AnyCancellable>()
     private var pendingMutationWorkItem: DispatchWorkItem?
@@ -459,9 +503,9 @@ public final class InsightsViewModel: ObservableObject {
     private static let mutationDebounceInterval: TimeInterval = 0.22
     private static let cloudSyncNotification = Notification.Name("DataDidChangeFromCloudSync")
     private static let weekScaleModeDefaultsKey = "insights.week.scale.mode.v1"
+    private static let tabSnapshotTTL: TimeInterval = 90
     private static let staleDayThreshold = 14
     private static let duePressureLongTaskThreshold: TimeInterval = 60 * 60
-    private static let projectionTaskLimit = 4_000
 
     public init(
         engine: GamificationEngine,
@@ -562,9 +606,11 @@ public final class InsightsViewModel: ObservableObject {
 
     private func refresh(tab: InsightsTab, force: Bool) {
         guard var tabState = tabRefreshState[tab] else { return }
+        let snapshotExpired = isTabSnapshotExpired(tab)
 
         let shouldRefresh = force
             || !tabState.isLoaded
+            || snapshotExpired
             || tabState.loadedVersion < tabState.requestedVersion
             || tabState.dirtyReason != nil
 
@@ -595,6 +641,7 @@ public final class InsightsViewModel: ObservableObject {
         tabState.inFlight = false
         tabState.isLoaded = true
         tabState.loadedVersion = max(tabState.loadedVersion, version)
+        tabSnapshotCapturedAt[tab] = Date()
 
         if tabState.loadedVersion >= tabState.requestedVersion {
             tabState.dirtyReason = nil
@@ -615,11 +662,17 @@ public final class InsightsViewModel: ObservableObject {
             guard var tabState = tabRefreshState[tab] else { continue }
             tabState.requestedVersion = versionCounter
             tabState.dirtyReason = reason
+            tabSnapshotCapturedAt[tab] = nil
             if tabState.inFlight {
                 tabState.needsReplay = true
             }
             tabRefreshState[tab] = tabState
         }
+    }
+
+    private func isTabSnapshotExpired(_ tab: InsightsTab) -> Bool {
+        guard let capturedAt = tabSnapshotCapturedAt[tab] else { return true }
+        return Date().timeIntervalSince(capturedAt) > Self.tabSnapshotTTL
     }
 
     private func bindMutations() {
@@ -685,7 +738,15 @@ public final class InsightsViewModel: ObservableObject {
 
     private func tabsAffected(by mutation: InsightsMutation) -> Set<InsightsTab> {
         switch mutation {
-        case .taskCompleted, .taskReopened, .focusSessionEnded, .reflectionCompleted, .xpRecorded, .cloudReconciled:
+        case .taskCompleted, .xpRecorded:
+            return [.today, .week, .systems]
+        case .taskReopened:
+            return [.today, .week]
+        case .focusSessionEnded:
+            return [.today, .systems]
+        case .reflectionCompleted:
+            return [.today, .week, .systems]
+        case .cloudReconciled:
             return Set(InsightsTab.allCases)
         case .dayBoundaryChanged:
             return [.today, .week]
@@ -762,6 +823,12 @@ public final class InsightsViewModel: ObservableObject {
             dailyCap: next.dailyCap,
             duePressure: next.duePressureMetrics
         )
+        next.heroCard = InsightsNarrativeBlock(
+            title: next.heroTitle,
+            metric: "\(next.tasksCompletedToday)/\(max(next.totalTasksToday, next.tasksCompletedToday)) done • \(next.dailyXP) XP",
+            hint: next.coachingPrompt,
+            detail: next.heroSummary
+        )
 
         if todayState != next {
             todayState = next
@@ -835,6 +902,12 @@ public final class InsightsViewModel: ObservableObject {
             next.nextMilestone = nil
             next.milestoneProgress = 0
         }
+        next.heroCard = InsightsNarrativeBlock(
+            title: "System health",
+            metric: "L\(next.level) • \(next.totalXP) XP",
+            hint: next.reminderResponse.responseRate >= 0.5 ? "Response loop is working." : "Tighten reminder response.",
+            detail: next.heroSummary
+        )
 
         if systemsState != next {
             systemsState = next
@@ -905,7 +978,13 @@ public final class InsightsViewModel: ObservableObject {
 
         if let taskReadModelRepository {
             group.enter()
-            taskReadModelRepository.fetchInsightsTodayProjection(referenceDate: startOfToday) { result in
+            taskReadModelRepository.fetchInsightsTodayProjection(
+                query: InsightsTodayProjectionQuery(
+                    referenceDate: startOfToday,
+                    dueWindowLimit: 220,
+                    recentLimit: 220
+                )
+            ) { result in
                 lock.lock()
                 if case .success(let projection) = result {
                     dueWindowTasks = projection.dueWindowTasks
@@ -1023,7 +1102,13 @@ public final class InsightsViewModel: ObservableObject {
 
         if let taskReadModelRepository {
             group.enter()
-            taskReadModelRepository.fetchInsightsWeekProjection(referenceDate: today) { result in
+            taskReadModelRepository.fetchInsightsWeekProjection(
+                query: InsightsWeekProjectionQuery(
+                    referenceDate: today,
+                    dueWindowLimit: 260,
+                    recentLimit: 260
+                )
+            ) { result in
                 lock.lock()
                 if case .success(let projection) = result {
                     recentTasks = projection.recentTasks
@@ -1121,14 +1206,14 @@ public final class InsightsViewModel: ObservableObject {
         let group = DispatchGroup()
         let now = Date()
         let lookbackStart = Calendar.current.date(byAdding: .day, value: -28, to: now) ?? now
+        let achievementLookbackStart = Calendar.current.date(byAdding: .day, value: -365, to: now) ?? lookbackStart
 
         var state = systemsState
         var latestProfile: GamificationSnapshot?
         var unlocks: [AchievementUnlockDefinition] = []
         var events: [XPEventDefinition] = []
         var focusSessions: [FocusSessionDefinition] = []
-        var reminders: [ReminderDefinition] = []
-        var deliveriesByReminderID: [UUID: [ReminderDeliveryDefinition]] = [:]
+        var reminderResponseAggregate = ReminderDeliveryResponseAggregate()
 
         group.enter()
         engine.fetchCurrentProfile { result in
@@ -1173,7 +1258,7 @@ public final class InsightsViewModel: ObservableObject {
         }
 
         group.enter()
-        repository.fetchXPEvents { result in
+        repository.fetchXPEvents(from: achievementLookbackStart, to: now) { result in
             lock.lock()
             if case .success(let fetchedEvents) = result {
                 events = fetchedEvents
@@ -1194,37 +1279,13 @@ public final class InsightsViewModel: ObservableObject {
 
         if let reminderRepository {
             group.enter()
-            reminderRepository.fetchReminders { result in
-                switch result {
-                case .failure:
-                    group.leave()
-                case .success(let fetchedReminders):
-                    lock.lock()
-                    reminders = fetchedReminders
-                    lock.unlock()
-
-                    if fetchedReminders.isEmpty {
-                        group.leave()
-                        return
-                    }
-
-                    let nestedGroup = DispatchGroup()
-                    for reminder in fetchedReminders {
-                        nestedGroup.enter()
-                        reminderRepository.fetchDeliveries(reminderID: reminder.id) { deliveryResult in
-                            lock.lock()
-                            if case .success(let deliveries) = deliveryResult {
-                                deliveriesByReminderID[reminder.id] = deliveries
-                            }
-                            lock.unlock()
-                            nestedGroup.leave()
-                        }
-                    }
-
-                    nestedGroup.notify(queue: .global()) {
-                        group.leave()
-                    }
+            reminderRepository.fetchDeliveryResponseAggregate(from: lookbackStart, to: now) { result in
+                lock.lock()
+                if case .success(let aggregate) = result {
+                    reminderResponseAggregate = aggregate
                 }
+                lock.unlock()
+                group.leave()
             }
         }
 
@@ -1235,10 +1296,7 @@ public final class InsightsViewModel: ObservableObject {
                 events: events
             )
 
-            let responseState = Self.buildReminderResponseState(
-                reminders: reminders,
-                deliveriesByReminderID: deliveriesByReminderID
-            )
+            let responseState = Self.buildReminderResponseState(aggregate: reminderResponseAggregate)
             state.reminderResponse = responseState
             state.streakMetrics = Self.buildStreakMetrics(
                 profile: latestProfile ?? GamificationSnapshot(),
@@ -1251,6 +1309,12 @@ public final class InsightsViewModel: ObservableObject {
                 profile: latestProfile ?? GamificationSnapshot(),
                 reminderResponse: responseState,
                 focusSessions: focusSessions
+            )
+            state.heroCard = InsightsNarrativeBlock(
+                title: "System health",
+                metric: "L\(state.level) • \(state.totalXP) XP",
+                hint: responseState.responseRate >= 0.5 ? "Response loop is stable." : "Improve reminder response.",
+                detail: state.heroSummary
             )
             let nextState = state
             DispatchQueue.main.async {
@@ -1502,12 +1566,25 @@ public final class InsightsViewModel: ObservableObject {
 
         let heroTitle: String
         if overdueOpen.count > 0 {
-            heroTitle = "Pressure is visible. Keep the board small."
+            heroTitle = "Pressure is visible."
         } else if summary.tasksCompleted > 0 {
             heroTitle = "Today has traction."
         } else {
             heroTitle = "Build today’s momentum."
         }
+        let heroSummary = todayHeroSummary(
+            completed: summary.tasksCompleted,
+            scheduled: max(scheduledCount, summary.tasksCompleted),
+            dailyXP: dailyXP,
+            dailyCap: GamificationTokens.dailyXPCap,
+            duePressure: duePressureMetrics
+        )
+        let coachingPrompt = todayCoachingPrompt(
+            dueTodayOpen: dueTodayOpen.count,
+            overdueOpen: overdueOpen.count,
+            blockedCount: blockedCount,
+            focusMinutes: totalFocusMinutes
+        )
 
         return InsightsTodayState(
             dailyXP: dailyXP,
@@ -1518,20 +1595,15 @@ public final class InsightsViewModel: ObservableObject {
             xpBreakdown: summary.breakdown,
             recoveryXP: summary.recoveryXP,
             recoveryCount: summary.recoveryCount,
+            heroCard: InsightsNarrativeBlock(
+                title: heroTitle,
+                metric: "\(summary.tasksCompleted)/\(max(scheduledCount, summary.tasksCompleted)) done • \(dailyXP) XP",
+                hint: coachingPrompt,
+                detail: heroSummary
+            ),
             heroTitle: heroTitle,
-            heroSummary: todayHeroSummary(
-                completed: summary.tasksCompleted,
-                scheduled: max(scheduledCount, summary.tasksCompleted),
-                dailyXP: dailyXP,
-                dailyCap: GamificationTokens.dailyXPCap,
-                duePressure: duePressureMetrics
-            ),
-            coachingPrompt: todayCoachingPrompt(
-                dueTodayOpen: dueTodayOpen.count,
-                overdueOpen: overdueOpen.count,
-                blockedCount: blockedCount,
-                focusMinutes: totalFocusMinutes
-            ),
+            heroSummary: heroSummary,
+            coachingPrompt: coachingPrompt,
             momentumMetrics: momentumMetrics,
             paceMetrics: paceMetrics,
             duePressureMetrics: duePressureMetrics,
@@ -1583,12 +1655,6 @@ public final class InsightsViewModel: ObservableObject {
             guard $0.isComplete, let completedAt = $0.dateCompleted else { return false }
             return completedAt >= weekStart && completedAt < calendar.date(byAdding: .day, value: 7, to: weekStart) ?? weekStart
         }
-        let previousWeekCompletedTasks = recentTasks.filter {
-            guard $0.isComplete, let completedAt = $0.dateCompleted else { return false }
-            let previousWeekStart = calendar.date(byAdding: .day, value: -7, to: weekStart) ?? weekStart
-            return completedAt >= previousWeekStart && completedAt < weekStart
-        }
-
         let previousTotalXP = previousAggregates.reduce(0) { $0 + $1.totalXP }
         let previousCompletions = completionCountsByDateKey(events: previousWeekEvents, calendar: calendar)
             .values.reduce(0, +)
@@ -1782,43 +1848,29 @@ public final class InsightsViewModel: ObservableObject {
     }
 
     private static func buildReminderResponseState(
-        reminders: [ReminderDefinition],
-        deliveriesByReminderID: [UUID: [ReminderDeliveryDefinition]]
+        aggregate: ReminderDeliveryResponseAggregate
     ) -> InsightsReminderResponseState {
-        let deliveries = reminders.flatMap { deliveriesByReminderID[$0.id] ?? [] }
-        guard !deliveries.isEmpty else {
+        guard aggregate.totalDeliveries > 0 else {
             return InsightsReminderResponseState(
-                headline: reminders.isEmpty
-                    ? "Reminders are not producing response data yet."
-                    : "Deliveries are scheduled, but no responses have landed yet.",
-                detail: reminders.isEmpty
-                    ? "Once reminders are scheduled and acted on, this card will show acknowledgement and snooze behavior."
-                    : "Response quality uses current delivery status, acknowledgements, and snoozes."
+                headline: aggregate.configuredReminderCount == 0
+                    ? "No reminders configured."
+                    : "No reminder responses yet.",
+                detail: aggregate.configuredReminderCount == 0
+                    ? "Enable a reminder to start tracking response quality."
+                    : "Responses appear after reminders are acknowledged or snoozed."
             )
         }
-
-        let normalizedStates = deliveries.map { delivery -> String in
-            let normalizedStatus = delivery.status.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-            if delivery.ackAt != nil || normalizedStatus == "acked" || normalizedStatus == "acknowledged" {
-                return "acked"
-            }
-            if delivery.snoozedUntil != nil || normalizedStatus == "snoozed" {
-                return "snoozed"
-            }
-            return "pending"
-        }
-
-        let acked = normalizedStates.filter { $0 == "acked" }.count
-        let snoozed = normalizedStates.filter { $0 == "snoozed" }.count
-        let pending = normalizedStates.filter { $0 == "pending" }.count
-        let responseRate = deliveries.isEmpty ? 0 : Double(acked + snoozed) / Double(deliveries.count)
+        let acked = aggregate.acknowledgedDeliveries
+        let snoozed = aggregate.snoozedDeliveries
+        let pending = aggregate.pendingDeliveries
+        let responseRate = aggregate.responseRate
         let statusItems = [
             InsightsDistributionItem(
                 id: "acked",
                 label: "Acknowledged",
                 value: acked,
                 valueText: "\(acked)",
-                share: deliveries.isEmpty ? 0 : Double(acked) / Double(deliveries.count),
+                share: aggregate.totalDeliveries == 0 ? 0 : Double(acked) / Double(aggregate.totalDeliveries),
                 tone: .success
             ),
             InsightsDistributionItem(
@@ -1826,7 +1878,7 @@ public final class InsightsViewModel: ObservableObject {
                 label: "Snoozed",
                 value: snoozed,
                 valueText: "\(snoozed)",
-                share: deliveries.isEmpty ? 0 : Double(snoozed) / Double(deliveries.count),
+                share: aggregate.totalDeliveries == 0 ? 0 : Double(snoozed) / Double(aggregate.totalDeliveries),
                 tone: .warning
             ),
             InsightsDistributionItem(
@@ -1834,7 +1886,7 @@ public final class InsightsViewModel: ObservableObject {
                 label: "Pending",
                 value: pending,
                 valueText: "\(pending)",
-                share: deliveries.isEmpty ? 0 : Double(pending) / Double(deliveries.count),
+                share: aggregate.totalDeliveries == 0 ? 0 : Double(pending) / Double(aggregate.totalDeliveries),
                 tone: .neutral
             )
         ]
@@ -1849,14 +1901,14 @@ public final class InsightsViewModel: ObservableObject {
         }
 
         return InsightsReminderResponseState(
-            totalDeliveries: deliveries.count,
+            totalDeliveries: aggregate.totalDeliveries,
             acknowledgedDeliveries: acked,
             snoozedDeliveries: snoozed,
             pendingDeliveries: pending,
             responseRate: responseRate,
             statusItems: statusItems,
             headline: headline,
-            detail: "\(Int((responseRate * 100).rounded()))% of tracked deliveries were acknowledged or snoozed."
+            detail: "\(Int((responseRate * 100).rounded()))% response across \(aggregate.totalDeliveries) deliveries."
         )
     }
 
@@ -2035,12 +2087,12 @@ public final class InsightsViewModel: ObservableObject {
         focusSessions: [FocusSessionDefinition]
     ) -> String {
         if profile.currentStreak > 0 && reminderResponse.responseRate >= 0.5 {
-            return "Your long-term systems are supporting follow-through instead of just tracking it."
+            return "Systems are supporting follow-through."
         }
         if focusSessions.isEmpty {
-            return "Progression is active, but focus rituals are still light."
+            return "Progress is active, but focus rituals are thin."
         }
-        return "The system is running, but the weak link is still visible in response or recovery."
+        return "System is running, but response or recovery is weak."
     }
 
     private static func summarize(events: [XPEventDefinition]) -> (
@@ -2277,13 +2329,13 @@ public final class InsightsViewModel: ObservableObject {
         let overdueCount = Int(duePressure.first(where: { $0.id == "overdue" })?.value ?? "0") ?? 0
         if completed == 0 {
             return overdueCount > 0
-                ? "There’s pressure on the board. Clear one overdue task to calm the day."
-                : "No completions yet. One solid task is enough to change the day’s shape."
+                ? "Overdue pressure is active. Clear one item first."
+                : "No completions yet. Close one meaningful task."
         }
         if dailyXP >= dailyCap {
-            return "You’ve already banked the daily cap. Use the rest of the day to reduce pressure, not chase points."
+            return "Daily cap reached. Use remaining time to reduce pressure."
         }
-        return "Completed \(completed) of \(max(scheduled, completed)) planned tasks. The board is moving in the right direction."
+        return "\(completed)/\(max(scheduled, completed)) planned tasks completed."
     }
 
     private static func todayCoachingPrompt(
@@ -2293,18 +2345,18 @@ public final class InsightsViewModel: ObservableObject {
         focusMinutes: Int
     ) -> String {
         if overdueOpen > 0 {
-            return "Next move: rescue the oldest overdue task or explicitly reschedule it."
+            return "Next: clear or reschedule the oldest overdue task."
         }
         if blockedCount > 0 {
-            return "Next move: unblock one waiting task so tomorrow’s board is lighter."
+            return "Next: unblock one waiting task."
         }
         if dueTodayOpen > 0 {
-            return "Next move: close one remaining due-today task before switching context."
+            return "Next: close one due-today task."
         }
         if focusMinutes == 0 {
-            return "Next move: run one focused session to turn clean momentum into depth."
+            return "Next: run one focus session."
         }
-        return "Next move: use the remaining space for a high-value task, not more backlog shuffling."
+        return "Next: finish one high-value task."
     }
 
     private static func weekDeltaSummary(
@@ -2320,10 +2372,10 @@ public final class InsightsViewModel: ObservableObject {
         let goalHitDelta = currentGoalHitDays - previousGoalHitDays
 
         if xpDelta == 0 && completionDelta == 0 && goalHitDelta == 0 {
-            return "The shape of the week is steady versus last week."
+            return "Week is flat versus last week."
         }
 
-        return "\(signedDeltaLabel(xpDelta)) XP, \(signedDeltaLabel(completionDelta)) completions, \(signedDeltaLabel(goalHitDelta)) goal-hit days versus last week."
+        return "\(signedDeltaLabel(xpDelta)) XP, \(signedDeltaLabel(completionDelta)) completions, \(signedDeltaLabel(goalHitDelta)) goal-hit days vs last week."
     }
 
     private static func weekPatternSummary(
@@ -2332,12 +2384,12 @@ public final class InsightsViewModel: ObservableObject {
         highPriorityMix: Int
     ) -> String {
         if staleCarryOverCount > 0 {
-            return "Backlog drag is still visible. Reflection is strongest when it turns into a smaller pressure board."
+            return "Backlog drag is visible. Reduce stale carry-over."
         }
         if let strongest = bars.max(by: { $0.xp < $1.xp }), strongest.xp > 0 {
-            return "The week peaks on \(strongest.label). \(highPriorityMix > 0 ? "High-priority work is showing up in the mix." : "Priority mix is still skewing light.")"
+            return "Peak day: \(strongest.label). \(highPriorityMix > 0 ? "High-priority work is landing." : "Priority mix is light.")"
         }
-        return "The week is quiet so far. One strong day can still reset the pattern."
+        return "Week is quiet so far. One strong day can reset the pattern."
     }
 
     private static func signedDeltaLabel(_ value: Int) -> String {
@@ -2388,10 +2440,18 @@ public final class InsightsViewModel: ObservableObject {
 
         let calendar = XPCalculationEngine.mondayCalendar()
         let bestDay = bestLabel(for: normalizedBars, calendar: calendar)
-        let heroTitle = total >= previousTotalXP ? "Your weekly rhythm is building." : "Your weekly rhythm is softer than last week."
+        let heroTitle = total >= previousTotalXP ? "Week is ahead." : "Week is behind."
         let heroSummary = total == 0
-            ? "No weekly XP signal yet. The first decisive day will set the pattern."
-            : "\(signedDeltaLabel(total - previousTotalXP)) XP versus last week with \(goalHit) goal-hit days."
+            ? "No weekly signal yet."
+            : "\(signedDeltaLabel(total - previousTotalXP)) XP vs last week."
+        let heroHint: String
+        if goalHit == 0 {
+            heroHint = "Create one goal-hit day."
+        } else if goalHit >= 4 {
+            heroHint = "Protect consistency."
+        } else {
+            heroHint = "Convert one medium day into a strong day."
+        }
 
         return InsightsWeekState(
             weeklyBars: normalizedBars,
@@ -2400,6 +2460,12 @@ public final class InsightsViewModel: ObservableObject {
             goalHitDays: goalHit,
             bestDayLabel: bestDay.isEmpty ? "" : "\(bestDay) (\(normalizedBars.max(by: { $0.xp < $1.xp })?.xp ?? 0) XP)",
             averageDailyXP: total / activeDays,
+            heroCard: InsightsNarrativeBlock(
+                title: heroTitle,
+                metric: "\(total) XP • \(goalHit)/7 goal-hit days",
+                hint: heroHint,
+                detail: heroSummary
+            ),
             heroTitle: heroTitle,
             heroSummary: heroSummary,
             weeklySummaryMetrics: weeklySummaryMetrics,

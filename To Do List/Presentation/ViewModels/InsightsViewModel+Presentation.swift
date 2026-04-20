@@ -5,17 +5,17 @@ extension InsightsViewModel {
         switch tab {
         case .today:
             return InsightsTabBlueprint(
-                heroQuestion: "How is my day going right now?",
+                heroQuestion: "How is today tracking?",
                 supportModuleIDs: ["pressure", "focus", "completion", "recovery"]
             )
         case .week:
             return InsightsTabBlueprint(
-                heroQuestion: "How did I work this week and what patterns matter?",
+                heroQuestion: "What pattern defines this week?",
                 supportModuleIDs: ["pattern", "leaderboard", "priority_mix", "type_mix"]
             )
         case .systems:
             return InsightsTabBlueprint(
-                heroQuestion: "Is the product helping me operate better over time?",
+                heroQuestion: "Is the system improving follow-through?",
                 supportModuleIDs: ["reminders", "focus_health", "recovery_health", "achievements"]
             )
         }

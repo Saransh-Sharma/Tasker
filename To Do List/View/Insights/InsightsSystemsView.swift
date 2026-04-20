@@ -5,12 +5,16 @@ struct InsightsSystemsView: View {
 
     @ObservedObject var viewModel: InsightsViewModel
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @State private var selectedCategory: AchievementDefinition.AchievementCategory?
     @State private var selectedBadgeKey: String?
     @State private var didAppear = false
 
     private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.currentTheme.tokens.spacing }
     private var state: InsightsSystemsState { viewModel.systemsState }
+    private var shouldReduceAnimation: Bool {
+        reduceMotion || dynamicTypeSize.isAccessibilitySize || V2FeatureFlags.iPadPerfHomeAnimationTrimV3Enabled
+    }
     private var progressByKey: [String: AchievementProgressState] {
         Dictionary(uniqueKeysWithValues: state.achievementProgress.map { ($0.key, $0) })
     }
@@ -34,38 +38,38 @@ struct InsightsSystemsView: View {
                 progressionCard
             }
             module(index: 1) {
+                reminderResponseCard
+            }
+            module(index: 2) {
+                metricGridCard(
+                    eyebrow: "Focus ritual",
+                    title: "Protect consistency",
+                    subtitle: "Focus reliability over the last 28 days.",
+                    metrics: state.focusHealthMetrics
+                )
+            }
+            module(index: 3) {
+                metricGridCard(
+                    eyebrow: "Recovery loop",
+                    title: "Catch drift early",
+                    subtitle: "Recovery actions in the last 14 days.",
+                    metrics: state.recoveryHealthMetrics
+                )
+            }
+            module(index: 4) {
                 metricGridCard(
                     eyebrow: "Streak resilience",
-                    title: "The system should reward return, not perfection.",
+                    title: "Reward return, not perfection",
                     subtitle: state.heroSummary,
                     metrics: state.streakMetrics
                 )
             }
-            module(index: 2) {
-                metricGridCard(
-                    eyebrow: "Achievement velocity",
-                    title: "Progression should feel active, not decorative.",
-                    subtitle: "Unlocks matter most when they reflect how often you return to the loop.",
-                    metrics: state.achievementVelocityMetrics
-                )
-            }
-            module(index: 3) {
-                reminderResponseCard
-            }
-            module(index: 4) {
-                metricGridCard(
-                    eyebrow: "Focus ritual health",
-                    title: "How reliable the focus system is right now",
-                    subtitle: "A strong focus ritual makes the rest of the system easier to trust.",
-                    metrics: state.focusHealthMetrics
-                )
-            }
             module(index: 5) {
                 metricGridCard(
-                    eyebrow: "Recovery loop health",
-                    title: "How often the system catches you before backlog turns sticky",
-                    subtitle: "Recovery, decomposition, and reflection are the anti-spiral tools.",
-                    metrics: state.recoveryHealthMetrics
+                    eyebrow: "Achievement velocity",
+                    title: "Progression pace",
+                    subtitle: "Recent unlock cadence.",
+                    metrics: state.achievementVelocityMetrics
                 )
             }
             module(index: 6) {
@@ -109,9 +113,17 @@ struct InsightsSystemsView: View {
                     .font(.tasker(.caption1))
                     .foregroundColor(Color.tasker.textTertiary)
 
-                Text("Progression is stronger when reminders, focus, and return behavior agree.")
+                Text(state.heroCard.title)
                     .font(.tasker(.title2))
                     .foregroundColor(Color.tasker.textPrimary)
+
+                Text(state.heroCard.metric)
+                    .font(.tasker(.headline))
+                    .foregroundColor(Color.tasker.textPrimary)
+
+                Text(state.heroCard.hint)
+                    .font(.tasker(.caption1))
+                    .foregroundColor(Color.tasker.textSecondary)
 
                 HStack(alignment: .center, spacing: spacing.s16) {
                     VStack(alignment: .leading, spacing: spacing.s4) {
@@ -161,9 +173,16 @@ struct InsightsSystemsView: View {
                 }
                 .frame(height: 12)
 
-                Text(state.heroSummary)
-                    .font(.tasker(.callout))
-                    .foregroundColor(Color.tasker.textSecondary)
+                if let detail = state.heroCard.detail, detail.isEmpty == false {
+                    DisclosureGroup("Details") {
+                        Text(detail)
+                            .font(.tasker(.caption1))
+                            .foregroundColor(Color.tasker.textSecondary)
+                            .padding(.top, spacing.s4)
+                    }
+                    .font(.tasker(.caption1))
+                    .foregroundColor(Color.tasker.textTertiary)
+                }
             }
         }
     }
@@ -184,7 +203,7 @@ struct InsightsSystemsView: View {
                     .foregroundColor(Color.tasker.textSecondary)
 
                 if state.reminderResponse.statusItems.isEmpty {
-                    Text("Enable and act on reminders to make this system visible.")
+                    Text("Enable and act on reminders to make this visible.")
                         .font(.tasker(.caption1))
                         .foregroundColor(Color.tasker.textTertiary)
                 } else {
@@ -333,13 +352,11 @@ struct InsightsSystemsView: View {
     }
 
     private func module<Content: View>(index: Int, @ViewBuilder content: () -> Content) -> some View {
-        let delay = Double(index) * 0.05
+        let delay = min(0.12, Double(index) * 0.015)
         return content()
-            .opacity(reduceMotion || didAppear ? 1 : 0)
-            .scaleEffect(reduceMotion || didAppear ? 1 : 0.985)
-            .offset(y: reduceMotion || didAppear ? 0 : 14)
+            .opacity(shouldReduceAnimation || didAppear ? 1 : 0.98)
             .animation(
-                reduceMotion ? nil : TaskerAnimation.gentle.delay(delay),
+                shouldReduceAnimation ? nil : TaskerAnimation.quick.delay(delay),
                 value: didAppear
             )
     }
@@ -349,12 +366,12 @@ struct InsightsSystemsView: View {
         content()
             .padding(spacing.s16)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .taskerPremiumSurface(
+            .taskerAnalyticsSurface(
                 cornerRadius: 24,
                 fillColor: Color.tasker.surfacePrimary,
                 strokeColor: Color.tasker.strokeHairline.opacity(0.82),
                 accentColor: Color.tasker.accentSecondary,
-                level: .e2
+                level: .e1
             )
     }
 
