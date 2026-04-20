@@ -112,7 +112,7 @@ enum LLMDebugSmokeRunner {
 
         return LLMRuntimeSmokeMetrics(
             firstTokenLatencyMs: nil,
-            peakMemoryMB: Int(MLX.GPU.activeMemory / 1024 / 1024),
+            peakMemoryMB: Int(MLX.Memory.activeMemory / 1024 / 1024),
             terminationReason: evaluator.lastTerminationReason,
             rawOutputPreview: LoggingService.previewText(rawTrimmed, maxLength: 128),
             sanitizedOutputPreview: LoggingService.previewText(

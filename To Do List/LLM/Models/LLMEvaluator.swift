@@ -190,11 +190,38 @@ class LLMEvaluator {
         lastSanitizedTemplateArtifacts = false
 
         let timeoutMs = UInt64(max(profile.timeoutSeconds, 0) * 1_000)
+        guard let model = ModelConfiguration.getModelByName(modelName) else {
+            runtimePhase = .failed
+            output = "Failed: model not found"
+            return output
+        }
+
+        let promptBuildStartedAt = Date()
+        let chatMessages = model.getChatMessages(thread: thread, systemPrompt: systemPrompt)
+        let promptBuildMs = Int(Date().timeIntervalSince(promptBuildStartedAt) * 1_000)
+        let promptChars = chatMessages.reduce(0) { partial, item in
+            partial + item.content.count
+        }
+        let promptHistoryChars = chatMessages.dropFirst().reduce(0) { partial, item in
+            partial + item.content.count
+        }
+        logWarning(
+            event: "chat_prompt_build_ms",
+            message: "Built prompt history for generation",
+            fields: [
+                "model_name": modelName,
+                "duration_ms": String(promptBuildMs),
+                "message_count": String(chatMessages.count),
+                "system_prompt_chars": String(systemPrompt.count),
+                "prompt_history_chars": String(promptHistoryChars),
+                "final_prompt_chars": String(promptChars)
+            ]
+        )
+
         guard timeoutMs > 0 else {
             return await runGeneration(
                 modelName: modelName,
-                thread: thread,
-                systemPrompt: systemPrompt,
+                chatMessages: chatMessages,
                 profile: profile,
                 requestOptions: requestOptions,
                 onFirstToken: onFirstToken
@@ -205,8 +232,7 @@ class LLMEvaluator {
             guard let self else { return "{}" }
             return await self.runGeneration(
                 modelName: modelName,
-                thread: thread,
-                systemPrompt: systemPrompt,
+                chatMessages: chatMessages,
                 profile: profile,
                 requestOptions: requestOptions,
                 onFirstToken: onFirstToken
@@ -223,8 +249,7 @@ class LLMEvaluator {
     /// Executes runGeneration.
     private func runGeneration(
         modelName: String,
-        thread: Thread,
-        systemPrompt: String,
+        chatMessages: [Chat.Message],
         profile: LLMGenerationProfile,
         requestOptions: LLMGenerationRequestOptions?,
         onFirstToken: (@MainActor () -> Void)?
@@ -263,31 +288,9 @@ class LLMEvaluator {
 
         do {
             modelConfiguration = model
-
-            let promptBuildStartedAt = Date()
-            let chatMessages = model.getChatMessages(thread: thread, systemPrompt: systemPrompt)
             if Task.isCancelled || runCancellationToken.isCancelled {
                 throw CancellationError()
             }
-            let promptBuildMs = Int(Date().timeIntervalSince(promptBuildStartedAt) * 1_000)
-            let promptChars = chatMessages.reduce(0) { partial, item in
-                partial + item.content.count
-            }
-            let promptHistoryChars = chatMessages.dropFirst().reduce(0) { partial, item in
-                partial + item.content.count
-            }
-            logWarning(
-                event: "chat_prompt_build_ms",
-                message: "Built prompt history for generation",
-                fields: [
-                    "model_name": modelName,
-                    "duration_ms": String(promptBuildMs),
-                    "message_count": String(chatMessages.count),
-                    "system_prompt_chars": String(systemPrompt.count),
-                    "prompt_history_chars": String(promptHistoryChars),
-                    "final_prompt_chars": String(promptChars)
-                ]
-            )
 
             let resolvedRequestOptions = requestOptions ?? .structuredOutput(for: model)
             let isReasoningModel = resolvedRequestOptions.isReasoningEnabled
