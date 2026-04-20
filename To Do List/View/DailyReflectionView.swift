@@ -307,8 +307,14 @@ public struct DailyReflectionView: View {
 
 import SwiftUI
 
+enum DailyReflectionEntryCardMode {
+    case compact
+    case full
+}
+
 struct HomeDailyReflectionEntryCard: View {
     let state: DailyReflectionEntryState
+    let mode: DailyReflectionEntryCardMode
     let onOpen: () -> Void
 
     private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.currentTheme.tokens.spacing }
@@ -318,146 +324,160 @@ struct HomeDailyReflectionEntryCard: View {
         Button {
             onOpen()
         } label: {
-            VStack(alignment: .leading, spacing: spacing.s8) {
-                HStack(alignment: .top, spacing: spacing.s8) {
-                    VStack(alignment: .leading, spacing: spacing.s4) {
-                        Text(state.title)
-                            .font(.tasker(.headline))
-                            .foregroundStyle(Color.tasker.textPrimary)
-                        Text(state.subtitle)
-                            .font(.tasker(.caption1))
-                            .foregroundStyle(Color.tasker.textSecondary)
-                            .multilineTextAlignment(.leading)
-                    }
-
-                    Spacer(minLength: spacing.s8)
-
-                    if let badgeText = state.badgeText {
-                        Text(badgeText)
-                            .font(.tasker(.caption2))
-                            .fontWeight(.semibold)
-                            .foregroundStyle(Color.tasker.statusWarning)
-                            .padding(.horizontal, spacing.s8)
-                            .padding(.vertical, spacing.s4)
-                            .background(
-                                Capsule(style: .continuous)
-                                    .fill(Color.tasker.statusWarning.opacity(0.14))
-                            )
-                    }
-                }
-
-                Text(state.summaryText)
-                    .font(.tasker(.body))
-                    .foregroundStyle(Color.tasker.textPrimary)
-                    .multilineTextAlignment(.leading)
-
-                HStack(spacing: spacing.s8) {
-                    Label("Open flow", systemImage: "arrow.up.right")
-                        .font(.tasker(.caption1))
-                        .fontWeight(.semibold)
-                        .foregroundStyle(Color.tasker.accentPrimary)
-                    Spacer()
-                }
-            }
-            .padding(spacing.s16)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .taskerPremiumSurface(
-                cornerRadius: corner.card,
-                fillColor: Color.tasker.surfacePrimary,
-                strokeColor: Color.tasker.strokeHairline.opacity(0.82),
-                accentColor: Color.tasker.accentSecondary,
-                level: .e2
-            )
+            content
         }
         .buttonStyle(.plain)
-        .accessibilityIdentifier("home.dailyReflection.entry")
-        .accessibilityLabel("\(state.title). \(state.subtitle). \(state.summaryText)")
+        .accessibilityIdentifier(
+            mode == .compact
+                ? "home.dailyReflection.entry.compact"
+                : "home.dailyReflection.entry.full"
+        )
+        .accessibilityLabel(accessibilityLabel)
+        .accessibilityHint("Opens Reflect and Plan")
     }
-}
 
-struct HomeDailyPlanDraftCard: View {
-    let draft: DailyPlanDraft
-    let onTaskTap: (UUID) -> Void
-
-    private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.currentTheme.tokens.spacing }
-    private var corner: TaskerCornerTokens { TaskerThemeManager.shared.currentTheme.tokens.corner }
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: spacing.s12) {
-            Text("Plan draft")
-                .font(.tasker(.headline))
-                .foregroundStyle(Color.tasker.textPrimary)
-
-            VStack(alignment: .leading, spacing: spacing.s8) {
-                ForEach(Array(draft.topTasks.indices), id: \.self) { index in
-                    let task = draft.topTasks[index]
-                    Button {
-                        onTaskTap(task.id)
-                    } label: {
-                        HStack(alignment: .top, spacing: spacing.s8) {
-                            Text("\(index + 1)")
-                                .font(.tasker(.caption1))
-                                .fontWeight(.semibold)
-                                .foregroundStyle(Color.tasker.textTertiary)
-                            VStack(alignment: .leading, spacing: spacing.s2) {
-                                Text(task.title)
-                                    .font(.tasker(.bodyEmphasis))
-                                    .foregroundStyle(Color.tasker.textPrimary)
-                                if let projectName = task.projectName, projectName.isEmpty == false {
-                                    Text(projectName)
-                                        .font(.tasker(.caption1))
-                                        .foregroundStyle(Color.tasker.textSecondary)
-                                }
-                            }
-                            Spacer(minLength: spacing.s8)
-                        }
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityLabel("Top task \(index + 1). \(task.title)")
-                }
-            }
-
-            if let focus = draft.suggestedFocusBlock {
-                detailRow(title: "Focus window", value: timeRange(focus))
-            }
-            if let habitTitle = draft.protectedHabitTitle {
-                detailRow(title: "Protected habit", value: habitTitle)
-            }
-            if let risk = draft.primaryRisk {
-                detailRow(title: "Clear first", value: draft.primaryRiskDetail ?? risk.title)
-            }
+    @ViewBuilder
+    private var content: some View {
+        switch mode {
+        case .compact:
+            compactContent
+        case .full:
+            fullContent
         }
-        .padding(spacing.s16)
+    }
+
+    private var compactContent: some View {
+        HStack(alignment: .center, spacing: spacing.s12) {
+            HStack(alignment: .center, spacing: spacing.s8) {
+                if let badgeText = state.badgeText {
+                    badge(text: badgeText)
+                }
+
+                Text(state.narrativeSummary.homeCardLine)
+                    .font(.tasker(.caption1))
+                    .foregroundStyle(Color.tasker.textPrimary)
+                    .lineLimit(1)
+                    .multilineTextAlignment(.leading)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+
+            HStack(spacing: spacing.s4) {
+                Text("Reflect & plan")
+                    .font(.tasker(.caption1).weight(.semibold))
+                    .foregroundStyle(Color.tasker.accentPrimary)
+                    .lineLimit(1)
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(Color.tasker.accentPrimary)
+            }
+            .accessibilityHidden(true)
+        }
+        .padding(.horizontal, spacing.s16)
+        .padding(.vertical, spacing.s12)
+        .frame(maxWidth: .infinity, alignment: .leading)
         .taskerPremiumSurface(
             cornerRadius: corner.card,
             fillColor: Color.tasker.surfacePrimary,
             strokeColor: Color.tasker.strokeHairline.opacity(0.82),
             accentColor: Color.tasker.accentSecondary,
-            level: .e2
+            level: .e1
         )
-        .accessibilityIdentifier("home.dailyPlanDraft.card")
     }
 
-    private func detailRow(title: String, value: String) -> some View {
-        VStack(alignment: .leading, spacing: spacing.s2) {
-            Text(title)
-                .font(.tasker(.caption2))
-                .foregroundStyle(Color.tasker.textTertiary)
-            Text(value)
-                .font(.tasker(.caption1))
-                        .fontWeight(.semibold)
-                .foregroundStyle(Color.tasker.textPrimary)
+    private var fullContent: some View {
+        VStack(alignment: .leading, spacing: spacing.s12) {
+            HStack(alignment: .top, spacing: spacing.s8) {
+                VStack(alignment: .leading, spacing: spacing.s4) {
+                    Text(state.title)
+                        .font(.tasker(.callout).weight(.semibold))
+                        .foregroundStyle(Color.tasker.textPrimary)
+                    Text(state.subtitle)
+                        .font(.tasker(.caption1))
+                        .foregroundStyle(Color.tasker.textSecondary)
+                        .multilineTextAlignment(.leading)
+                }
+
+                Spacer(minLength: spacing.s8)
+
+                if let badgeText = state.badgeText {
+                    badge(text: badgeText)
+                }
+            }
+
+            if state.closedTasks.isEmpty == false {
+                VStack(alignment: .leading, spacing: spacing.s8) {
+                    ForEach(state.closedTasks.prefix(3)) { task in
+                        HStack(alignment: .firstTextBaseline, spacing: spacing.s8) {
+                            Circle()
+                                .fill(Color.tasker.accentSecondary.opacity(0.5))
+                                .frame(width: 5, height: 5)
+                            Text(task.title)
+                                .font(.tasker(.callout))
+                                .foregroundStyle(Color.tasker.textPrimary)
+                                .lineLimit(1)
+                            Spacer(minLength: spacing.s4)
+                        }
+                    }
+                }
+            }
+
+            if state.habitGrid.isEmpty == false {
+                ReflectionHabitMiniGridView(
+                    items: Array(state.habitGrid.prefix(4)),
+                    spacing: spacing
+                )
+            }
+
+            HStack(alignment: .firstTextBaseline, spacing: spacing.s8) {
+                Text(state.narrativeSummary.homeCardLine)
+                    .font(.tasker(.caption1))
+                    .foregroundStyle(Color.tasker.textSecondary)
+                    .multilineTextAlignment(.leading)
+                Spacer(minLength: spacing.s8)
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(Color.tasker.textTertiary)
+            }
+        }
+        .padding(spacing.s16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .taskerPremiumSurface(
+            cornerRadius: corner.card,
+            fillColor: Color.tasker.surfacePrimary,
+            strokeColor: Color.tasker.strokeHairline.opacity(0.82),
+            accentColor: Color.tasker.accentSecondary,
+            level: .e1
+        )
+    }
+
+    private func badge(text: String) -> some View {
+        Text(text)
+            .font(.tasker(.caption1).weight(.semibold))
+            .fontWeight(.semibold)
+            .foregroundStyle(Color.tasker.statusWarning)
+            .padding(.horizontal, spacing.s8)
+            .padding(.vertical, spacing.s4)
+            .background(
+                Capsule(style: .continuous)
+                    .fill(Color.tasker.statusWarning.opacity(0.14))
+            )
+    }
+
+    private var accessibilityLabel: String {
+        switch mode {
+        case .compact:
+            var parts: [String] = []
+            if let badgeText = state.badgeText {
+                parts.append(badgeText)
+            }
+            parts.append(state.narrativeSummary.homeCardLine)
+            parts.append("Reflect and plan")
+            return parts.joined(separator: ". ")
+        case .full:
+            return "\(state.title). \(state.subtitle). \(state.narrativeSummary.homeCardLine)"
         }
     }
-
-    private func timeRange(_ interval: DateInterval) -> String {
-        let formatter = DateIntervalFormatter()
-        formatter.dateStyle = .none
-        formatter.timeStyle = .short
-        return formatter.string(from: interval.start, to: interval.end)
-    }
 }
-
 
 import SwiftUI
 
@@ -467,8 +487,8 @@ struct ReflectPlanScreen: View {
 
     @Environment(\.dismiss) private var dismiss
     @Environment(\.taskerLayoutClass) private var layoutClass
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @State private var isContextExpanded = false
 
     private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.currentTheme.tokens.spacing }
     private var corner: TaskerCornerTokens { TaskerThemeManager.shared.currentTheme.tokens.corner }
@@ -495,18 +515,19 @@ struct ReflectPlanScreen: View {
         .onDisappear {
             viewModel.cancelLoading()
         }
+        .accessibilityIdentifier("reflection.plan.screen")
     }
 
     private var header: some View {
         HStack(alignment: .top, spacing: spacing.s12) {
             VStack(alignment: .leading, spacing: spacing.s4) {
                 Text(viewModel.screenTitle)
-                    .font(.tasker(.title3))
+                    .font(.tasker(.title3).weight(.semibold))
                     .foregroundStyle(Color.tasker.textPrimary)
 
                 if let target = viewModel.target {
                     Text("Reflect on \(viewModel.reflectionDateLabel). Plan for \(viewModel.planningDateLabel).")
-                        .font(.tasker(.caption1))
+                        .font(.tasker(.callout))
                         .foregroundStyle(Color.tasker.textSecondary)
                         .accessibilityLabel(
                             "Reflect on \(viewModel.reflectionDateLabel). Plan for \(viewModel.planningDateLabel)."
@@ -514,7 +535,7 @@ struct ReflectPlanScreen: View {
 
                     if target.mode == .catchUpYesterday {
                         Text("Catch-up")
-                            .font(.tasker(.caption2))
+                            .font(.tasker(.caption1).weight(.semibold))
                             .fontWeight(.semibold)
                             .foregroundStyle(Color.tasker.statusWarning)
                             .padding(.horizontal, spacing.s8)
@@ -552,13 +573,17 @@ struct ReflectPlanScreen: View {
     @ViewBuilder
     private var content: some View {
         if viewModel.loadState == .loadingCore {
-            VStack(spacing: spacing.s12) {
-                ProgressView()
-                Text("Loading reflection context...")
+            VStack(alignment: .leading, spacing: spacing.s12) {
+                Text("Preparing your reflection context")
+                    .font(.tasker(.callout).weight(.semibold))
+                    .foregroundStyle(Color.tasker.textPrimary)
+                Text("Tasks and habits load first. Calendar details are added in the background.")
                     .font(.tasker(.caption1))
                     .foregroundStyle(Color.tasker.textSecondary)
+                    .fixedSize(horizontal: false, vertical: true)
             }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+            .padding(spacing.s16)
         } else if viewModel.isCompleteStateVisible {
             VStack(spacing: spacing.s12) {
                 Image(systemName: "checkmark.circle.fill")
@@ -577,65 +602,15 @@ struct ReflectPlanScreen: View {
         } else if let coreSnapshot = viewModel.coreSnapshot {
             ScrollView {
                 VStack(alignment: .leading, spacing: spacing.s16) {
-                    if let pulseNote = coreSnapshot.pulseNote, pulseNote.isEmpty == false {
-                        infoCard(title: "LifeBoard note", body: pulseNote)
-                    }
-
-                    recapGrid(snapshot: coreSnapshot)
-
-                    if coreSnapshot.biggestWins.isEmpty == false {
-                        sectionCard(title: "Biggest wins") {
-                            VStack(alignment: .leading, spacing: spacing.s8) {
-                                ForEach(coreSnapshot.biggestWins) { highlight in
-                                    VStack(alignment: .leading, spacing: spacing.s2) {
-                                        Text(highlight.title)
-                                            .font(.tasker(.bodyEmphasis))
-                                            .foregroundStyle(Color.tasker.textPrimary)
-                                        if let detail = highlight.detail, detail.isEmpty == false {
-                                            Text(detail)
-                                                .font(.tasker(.caption1))
-                                                .foregroundStyle(Color.tasker.textSecondary)
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-
-                    chipSection(title: "Mood", subtitle: "Optional. Pick one that fits.") {
-                        chipRow(ReflectionMood.allCases, selection: viewModel.selectedMood) { mood in
-                            viewModel.toggleMood(mood)
-                        }
-                    }
-
-                    chipSection(title: "Energy", subtitle: "Optional. Pick one.") {
-                        chipRow(ReflectionEnergy.allCases, selection: viewModel.selectedEnergy) { energy in
-                            viewModel.toggleEnergy(energy)
-                        }
-                    }
-
-                    chipSection(title: "Friction", subtitle: "Optional. Pick any blockers that mattered.") {
-                        frictionChipGrid
-                    }
-
-                    sectionCard(title: "One-line note") {
-                        TextField("Optional. What mattered most?", text: $viewModel.noteText, axis: .vertical)
-                            .font(.tasker(.body))
-                            .lineLimit(1...2)
-                            .textFieldStyle(.plain)
-                            .padding(spacing.s12)
-                            .background(
-                                RoundedRectangle(cornerRadius: 14, style: .continuous)
-                                    .fill(Color.tasker.surfaceSecondary)
-                            )
-                            .accessibilityLabel("Optional note")
-                    }
+                    recapSurface(snapshot: coreSnapshot)
 
                     if let editablePlan = viewModel.editablePlan {
-                        planningCard(plan: editablePlan)
+                        planningCard(plan: editablePlan, narrativeLine: coreSnapshot.narrativeSummary.planCardLine)
                     } else {
                         planningPlaceholderCard
                     }
+
+                    contextDisclosureCard
 
                     if let successMessage = viewModel.successMessage {
                         Text(successMessage)
@@ -687,11 +662,6 @@ struct ReflectPlanScreen: View {
                 viewModel.save()
             } label: {
                 HStack(spacing: spacing.s8) {
-                    if viewModel.isSaving {
-                        ProgressView()
-                            .progressViewStyle(.circular)
-                            .tint(Color.tasker.accentOnPrimary)
-                    }
                     Text(viewModel.isSaving ? "Saving..." : "Save reflection & plan")
                         .font(.tasker(.button))
                 }
@@ -708,17 +678,17 @@ struct ReflectPlanScreen: View {
 
             if let planningStatusMessage = viewModel.planningStatusMessage {
                 Text(planningStatusMessage)
-                    .font(.tasker(.caption2))
+                    .font(.tasker(.caption1))
                     .foregroundStyle(Color.tasker.textSecondary)
                     .multilineTextAlignment(.center)
             } else if viewModel.isPlanningPlaceholderVisible {
-                Text("Building plan suggestions. Reflection inputs are already ready.")
-                    .font(.tasker(.caption2))
+                Text("Building the smaller plan now.")
+                    .font(.tasker(.caption1))
                     .foregroundStyle(Color.tasker.textSecondary)
                     .multilineTextAlignment(.center)
             } else if dynamicTypeSize.isAccessibilitySize {
-                Text("No typing is required. Chips and suggested tasks are enough.")
-                    .font(.tasker(.caption2))
+                Text("No typing is required.")
+                    .font(.tasker(.caption1))
                     .foregroundStyle(Color.tasker.textSecondary)
             }
         }
@@ -728,72 +698,96 @@ struct ReflectPlanScreen: View {
         .background(.ultraThinMaterial)
     }
 
-    private func recapGrid(snapshot: DailyReflectionCoreSnapshot) -> some View {
-        VStack(spacing: spacing.s12) {
-            sectionCard(title: "Recap") {
-                VStack(spacing: spacing.s8) {
-                    recapRow(
-                        title: "Tasks",
-                        summary: "\(snapshot.tasksSummary.completedCount) completed | \(snapshot.tasksSummary.carryOverCount) carryover",
-                        accessibilityLabel: "Tasks. \(snapshot.tasksSummary.completedCount) completed. \(snapshot.tasksSummary.carryOverCount) carryover."
-                    )
+    private func recapSurface(snapshot: DailyReflectionCoreSnapshot) -> some View {
+        sectionCard(title: viewModel.target?.mode == .catchUpYesterday ? "Yesterday" : "Today") {
+            VStack(alignment: .leading, spacing: spacing.s12) {
+                if let pulseNote = snapshot.pulseNote, pulseNote.isEmpty == false {
+                    Text(pulseNote)
+                        .font(.tasker(.callout))
+                        .foregroundStyle(Color.tasker.textSecondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
 
-                    if let habits = snapshot.habitsSummary {
-                        recapRow(
-                            title: "Habits",
-                            summary: "\(habits.keptCount) kept | \(habits.missedCount) missed",
-                            accessibilityLabel: "Habits. \(habits.keptCount) kept. \(habits.missedCount) missed."
-                        )
+                if snapshot.closedTasks.isEmpty == false {
+                    VStack(alignment: .leading, spacing: spacing.s8) {
+                        Text("Closed tasks")
+                            .font(.tasker(.caption1).weight(.semibold))
+                            .foregroundStyle(Color.tasker.textTertiary)
+                        VStack(alignment: .leading, spacing: spacing.s8) {
+                            ForEach(snapshot.closedTasks.prefix(3)) { task in
+                                HStack(alignment: .firstTextBaseline, spacing: spacing.s8) {
+                                    Circle()
+                                        .fill(Color.tasker.accentSecondary.opacity(0.55))
+                                        .frame(width: 5, height: 5)
+                                    VStack(alignment: .leading, spacing: spacing.s2) {
+                                        Text(task.title)
+                                            .font(.tasker(.callout))
+                                            .foregroundStyle(Color.tasker.textPrimary)
+                                            .lineLimit(1)
+                                        if let projectName = task.projectName, projectName.isEmpty == false {
+                                            Text(projectName)
+                                                .font(.tasker(.caption1))
+                                                .foregroundStyle(Color.tasker.textSecondary)
+                                                .lineLimit(1)
+                                        }
+                                    }
+                                }
+                            }
+                        }
                     }
+                }
 
-                    if let calendarSummary = viewModel.optionalContext?.calendarSummary {
-                        recapRow(
-                            title: "Calendar",
-                            summary: "\(calendarSummary.eventCount) events | \(calendarSummary.meetingMinutes)m busy",
-                            accessibilityLabel: "Calendar. \(calendarSummary.eventCount) events. \(calendarSummary.meetingMinutes) minutes busy."
-                        )
+                if snapshot.habitGrid.isEmpty == false {
+                    VStack(alignment: .leading, spacing: spacing.s8) {
+                        Text("Habit streaks")
+                            .font(.tasker(.caption1).weight(.semibold))
+                            .foregroundStyle(Color.tasker.textTertiary)
+                        ReflectionHabitMiniGridView(items: snapshot.habitGrid, spacing: spacing)
                     }
+                }
+
+                if snapshot.closedTasks.isEmpty && snapshot.habitGrid.isEmpty {
+                    Text("No recap items were captured for this day yet.")
+                        .font(.tasker(.callout))
+                        .foregroundStyle(Color.tasker.textSecondary)
                 }
             }
         }
     }
 
     private var planningPlaceholderCard: some View {
-        sectionCard(title: "Plan for \(viewModel.planningDateLabel)") {
+        sectionCard(title: viewModel.target?.mode == .catchUpYesterday ? "Today" : "Tomorrow") {
             VStack(alignment: .leading, spacing: spacing.s12) {
-                HStack(spacing: spacing.s8) {
-                    ProgressView()
-                        .controlSize(.small)
-                    Text("Building plan suggestions...")
-                        .font(.tasker(.bodyEmphasis))
-                        .foregroundStyle(Color.tasker.textPrimary)
-                }
+                Text("Building plan suggestions...")
+                    .font(.tasker(.callout).weight(.semibold))
+                    .foregroundStyle(Color.tasker.textPrimary)
 
                 Text(viewModel.planningStatusMessage ?? "Tasks and habits are ready. Calendar context is still loading.")
-                    .font(.tasker(.caption1))
+                    .font(.tasker(.callout))
                     .foregroundStyle(Color.tasker.textSecondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
         }
     }
 
-    private func planningCard(plan: EditableDailyPlan) -> some View {
-        sectionCard(title: "Plan for \(viewModel.planningDateLabel)") {
+    private func planningCard(plan: EditableDailyPlan, narrativeLine: String) -> some View {
+        sectionCard(title: viewModel.target?.mode == .catchUpYesterday ? "Today" : "Tomorrow") {
             VStack(alignment: .leading, spacing: spacing.s12) {
                 VStack(alignment: .leading, spacing: spacing.s8) {
                     ForEach(Array(plan.topTasks.indices), id: \.self) { index in
                         let task = plan.topTasks[index]
                         HStack(alignment: .top, spacing: spacing.s8) {
                             Text("\(index + 1)")
-                                .font(.tasker(.caption1))
+                                .font(.tasker(.caption1).weight(.semibold))
                                 .fontWeight(.semibold)
                                 .foregroundStyle(Color.tasker.textTertiary)
                                 .frame(width: 20, alignment: .leading)
 
                             VStack(alignment: .leading, spacing: spacing.s2) {
                                 Text(task.title)
-                                    .font(.tasker(.bodyEmphasis))
+                                    .font(.tasker(.callout).weight(.semibold))
                                     .foregroundStyle(Color.tasker.textPrimary)
+                                    .fixedSize(horizontal: false, vertical: true)
                                 if let projectName = task.projectName, projectName.isEmpty == false {
                                     Text(projectName)
                                         .font(.tasker(.caption1))
@@ -806,8 +800,7 @@ struct ReflectPlanScreen: View {
                             Button("Swap") {
                                 viewModel.activeSwapSlot = index
                             }
-                            .font(.tasker(.caption1))
-                        .fontWeight(.semibold)
+                            .font(.tasker(.caption1).weight(.semibold))
                             .buttonStyle(.plain)
                             .foregroundStyle(Color.tasker.accentPrimary)
                             .frame(minWidth: 44, minHeight: 44)
@@ -816,21 +809,29 @@ struct ReflectPlanScreen: View {
                     }
                 }
 
-                if let focusWindow = plan.focusWindow {
-                    detailPill(title: "Focus window", value: timeRangeLabel(focusWindow))
-                }
+                Text(narrativeLine)
+                    .font(.tasker(.callout))
+                    .foregroundStyle(Color.tasker.textSecondary)
+                    .fixedSize(horizontal: false, vertical: true)
 
-                if let habitTitle = plan.protectedHabitTitle {
-                    detailPill(title: "Protected habit", value: habitTitle)
-                }
+                VStack(alignment: .leading, spacing: spacing.s8) {
+                    if let focusWindow = plan.focusWindow {
+                        planDetailRow(title: "Focus window", value: timeRangeLabel(focusWindow))
+                    }
 
-                if let risk = plan.primaryRisk {
-                    detailPill(title: "Clear first", value: plan.primaryRiskDetail ?? risk.title)
+                    if let habitTitle = plan.protectedHabitTitle {
+                        let value = plan.protectedHabitStreak.map { "\(habitTitle) · \($0)d streak" } ?? habitTitle
+                        planDetailRow(title: "Protected habit", value: value)
+                    }
+
+                    if let risk = plan.primaryRisk {
+                        planDetailRow(title: "Clear first", value: plan.primaryRiskDetail ?? risk.title)
+                    }
                 }
 
                 if let planningStatusMessage = viewModel.planningStatusMessage {
                     Text(planningStatusMessage)
-                        .font(.tasker(.caption2))
+                        .font(.tasker(.caption1))
                         .foregroundStyle(Color.tasker.textSecondary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
@@ -838,14 +839,64 @@ struct ReflectPlanScreen: View {
         }
     }
 
-    private func chipSection<Content: View>(title: String, subtitle: String, @ViewBuilder content: () -> Content) -> some View {
-        sectionCard(title: title) {
-            VStack(alignment: .leading, spacing: spacing.s8) {
-                Text(subtitle)
-                    .font(.tasker(.caption1))
-                    .foregroundStyle(Color.tasker.textSecondary)
-                content()
+    private var contextDisclosureCard: some View {
+        sectionCard(title: "Add context") {
+            DisclosureGroup(isExpanded: $isContextExpanded) {
+                VStack(alignment: .leading, spacing: spacing.s12) {
+                    VStack(alignment: .leading, spacing: spacing.s8) {
+                        Text("One-line note")
+                            .font(.tasker(.caption1).weight(.semibold))
+                            .foregroundStyle(Color.tasker.textTertiary)
+                        TextField("What mattered most?", text: $viewModel.noteText, axis: .vertical)
+                            .font(.tasker(.callout))
+                            .lineLimit(1...2)
+                            .textFieldStyle(.plain)
+                            .padding(spacing.s12)
+                            .background(
+                                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                    .fill(Color.tasker.surfaceSecondary)
+                            )
+                            .accessibilityLabel("Optional note")
+                    }
+
+                    VStack(alignment: .leading, spacing: spacing.s8) {
+                        Text("Mood")
+                            .font(.tasker(.caption1).weight(.semibold))
+                            .foregroundStyle(Color.tasker.textTertiary)
+                        chipRow(ReflectionMood.allCases, selection: viewModel.selectedMood) { mood in
+                            viewModel.toggleMood(mood)
+                        }
+                    }
+
+                    VStack(alignment: .leading, spacing: spacing.s8) {
+                        Text("Energy")
+                            .font(.tasker(.caption1).weight(.semibold))
+                            .foregroundStyle(Color.tasker.textTertiary)
+                        chipRow(ReflectionEnergy.allCases, selection: viewModel.selectedEnergy) { energy in
+                            viewModel.toggleEnergy(energy)
+                        }
+                    }
+
+                    VStack(alignment: .leading, spacing: spacing.s8) {
+                        Text("Friction")
+                            .font(.tasker(.caption1).weight(.semibold))
+                            .foregroundStyle(Color.tasker.textTertiary)
+                        frictionChipGrid
+                    }
+                }
+                .padding(.top, spacing.s8)
+            } label: {
+                HStack(spacing: spacing.s8) {
+                    Text("Mood, energy, friction, and note")
+                        .font(.tasker(.callout))
+                        .foregroundStyle(Color.tasker.textSecondary)
+                    Spacer(minLength: spacing.s8)
+                    Text(isContextExpanded ? "Hide" : "Optional")
+                        .font(.tasker(.caption1).weight(.semibold))
+                        .foregroundStyle(Color.tasker.textTertiary)
+                }
             }
+            .tint(Color.tasker.textPrimary)
         }
     }
 
@@ -859,7 +910,7 @@ struct ReflectPlanScreen: View {
                 onTap(value)
             } label: {
                 Text(String(describing: value).capitalized)
-                    .font(.tasker(.caption1))
+                    .font(.tasker(.caption1).weight(.semibold))
                     .fontWeight(.semibold)
                     .foregroundStyle(selection == value ? Color.tasker.accentOnPrimary : Color.tasker.textPrimary)
                     .padding(.horizontal, spacing.s12)
@@ -881,7 +932,7 @@ struct ReflectPlanScreen: View {
                 viewModel.toggleFriction(tag)
             } label: {
                 Text(tag.title)
-                    .font(.tasker(.caption1))
+                    .font(.tasker(.caption1).weight(.semibold))
                     .fontWeight(.semibold)
                     .foregroundStyle(isSelected ? Color.tasker.accentOnPrimary : Color.tasker.textPrimary)
                     .padding(.horizontal, spacing.s12)
@@ -897,52 +948,22 @@ struct ReflectPlanScreen: View {
         }
     }
 
-    private func recapRow(title: String, summary: String, accessibilityLabel: String) -> some View {
-        HStack(alignment: .top, spacing: spacing.s12) {
-            VStack(alignment: .leading, spacing: spacing.s2) {
-                Text(title)
-                    .font(.tasker(.bodyEmphasis))
-                    .foregroundStyle(Color.tasker.textPrimary)
-                Text(summary)
-                    .font(.tasker(.caption1))
-                    .foregroundStyle(Color.tasker.textSecondary)
-            }
-            Spacer()
-        }
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel(accessibilityLabel)
-    }
-
-    private func infoCard(title: String, body: String) -> some View {
-        sectionCard(title: title) {
-            Text(body)
-                .font(.tasker(.body))
-                .foregroundStyle(Color.tasker.textPrimary)
-        }
-    }
-
-    private func detailPill(title: String, value: String) -> some View {
-        VStack(alignment: .leading, spacing: spacing.s2) {
+    private func planDetailRow(title: String, value: String) -> some View {
+        HStack(alignment: .firstTextBaseline, spacing: spacing.s8) {
             Text(title)
-                .font(.tasker(.caption2))
+                .font(.tasker(.caption1).weight(.semibold))
                 .foregroundStyle(Color.tasker.textTertiary)
             Text(value)
-                .font(.tasker(.caption1))
-                .fontWeight(.semibold)
+                .font(.tasker(.callout))
                 .foregroundStyle(Color.tasker.textPrimary)
+                .fixedSize(horizontal: false, vertical: true)
         }
-        .padding(spacing.s8)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .fill(Color.tasker.surfaceSecondary)
-        )
     }
 
     private func sectionCard<Content: View>(title: String, @ViewBuilder content: () -> Content) -> some View {
         VStack(alignment: .leading, spacing: spacing.s8) {
             Text(title)
-                .font(.tasker(.headline))
+                .font(.tasker(.title3).weight(.semibold))
                 .foregroundStyle(Color.tasker.textPrimary)
             content()
         }
@@ -950,9 +971,9 @@ struct ReflectPlanScreen: View {
         .taskerPremiumSurface(
             cornerRadius: corner.card,
             fillColor: Color.tasker.surfacePrimary,
-            strokeColor: Color.tasker.strokeHairline.opacity(0.84),
+            strokeColor: Color.tasker.strokeHairline.opacity(0.72),
             accentColor: Color.tasker.accentSecondary,
-            level: .e2
+            level: .e1
         )
     }
 
@@ -999,6 +1020,75 @@ struct ReflectPlanScreen: View {
     private func dismissIfPossible() {
         onClose()
         dismiss()
+    }
+}
+
+@MainActor
+private struct ReflectionHabitMiniGridView: View {
+    let items: [ReflectionHabitMiniRow]
+    let spacing: TaskerSpacingTokens
+
+    var body: some View {
+        LazyVGrid(
+            columns: [
+                GridItem(.flexible(), spacing: spacing.s8),
+                GridItem(.flexible(), spacing: spacing.s8)
+            ],
+            alignment: .leading,
+            spacing: spacing.s8
+        ) {
+            ForEach(items.prefix(4)) { habit in
+                ReflectionHabitMiniTileView(habit: habit, spacing: spacing)
+            }
+        }
+    }
+}
+
+@MainActor
+private struct ReflectionHabitMiniTileView: View {
+    let habit: ReflectionHabitMiniRow
+    let spacing: TaskerSpacingTokens
+
+    private var cells: [HabitBoardCell] {
+        let referenceDate = habit.last7Days.last?.date ?? Date()
+        return HabitBoardPresentationBuilder.buildCells(
+            marks: habit.last7Days,
+            cadence: .daily(),
+            referenceDate: referenceDate,
+            dayCount: max(7, habit.last7Days.count)
+        )
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: spacing.s8) {
+            HStack(alignment: .firstTextBaseline, spacing: spacing.s8) {
+                Text(habit.title)
+                    .font(.tasker(.caption1).weight(.semibold))
+                    .foregroundStyle(Color.tasker.textPrimary)
+                    .lineLimit(1)
+                Spacer(minLength: spacing.s4)
+                if habit.currentStreak > 0 {
+                    Text("\(habit.currentStreak)d")
+                        .font(.tasker(.caption1))
+                        .foregroundStyle(Color.tasker.textTertiary)
+                }
+            }
+
+            HabitBoardStripView(
+                cells: Array(cells.suffix(7)),
+                family: habit.colorFamily,
+                mode: .compact,
+                cellSizeOverride: 10,
+                cellWidthOverride: 10,
+                cellHeightOverride: 10
+            )
+        }
+        .padding(spacing.s8)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .fill(Color.tasker.surfaceSecondary.opacity(0.72))
+        )
     }
 }
 

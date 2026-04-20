@@ -1070,19 +1070,6 @@ struct HabitDetailSheetView: View {
                 cadenceLine: cadenceSummary(viewModel.row.cadence)
             )
 
-            HStack(spacing: spacing.s8) {
-                HabitDetailMetricCapsule(
-                    title: "Current streak",
-                    value: "\(viewModel.row.currentStreak)d",
-                    detail: viewModel.row.currentStreak > 0 ? "Active" : "Open"
-                )
-                HabitDetailMetricCapsule(
-                    title: "Best streak",
-                    value: "\(viewModel.row.bestStreak)d",
-                    detail: nextDueSummary
-                )
-            }
-
             HabitDetailCalendarMountHost(
                 row: viewModel.row,
                 calendarViewState: viewModel.calendarViewState,
@@ -1096,17 +1083,26 @@ struct HabitDetailSheetView: View {
                 }
             }
 
+            HStack(spacing: spacing.s8) {
+                HabitDetailMetricCapsule(
+                    title: "Current streak",
+                    value: "\(viewModel.row.currentStreak)d",
+                    detail: viewModel.row.bestStreak > 0 ? "Best \(viewModel.row.bestStreak)d" : "No best streak yet"
+                )
+                HabitDetailMetricCapsule(
+                    title: "Next due",
+                    value: nextDueSummary,
+                    detail: cadenceSummary(viewModel.row.cadence)
+                )
+            }
+
             DisclosureGroup(
                 isExpanded: $isDetailsExpanded.animation(TaskerAnimation.snappy)
             ) {
                 VStack(alignment: .leading, spacing: spacing.s12) {
-                    HabitDefinitionLine(label: "Area", value: viewModel.row.lifeAreaName)
-                    if let projectName = viewModel.row.projectName, projectName.isEmpty == false {
-                        HabitDefinitionLine(label: "Project", value: projectName)
-                    }
+                    HabitDefinitionLine(label: "Ownership", value: ownershipSummary)
                     HabitDefinitionLine(label: "Cadence", value: cadenceSummary(viewModel.row.cadence))
                     HabitDefinitionLine(label: "Reminder", value: reminderSummary)
-                    HabitDefinitionLine(label: "Status", value: statusSummary)
 
                     if let notes = viewModel.row.notes, notes.isEmpty == false {
                         HabitActionMessageCard(
@@ -1122,13 +1118,13 @@ struct HabitDetailSheetView: View {
                 .padding(.top, spacing.s12)
             } label: {
                 HStack(spacing: spacing.s8) {
-                    Text("Details")
+                    Text("Details & lifecycle")
                         .font(.tasker(.headline))
                         .foregroundStyle(Color.tasker.textPrimary)
 
                     Spacer(minLength: 0)
 
-                    Text(isDetailsExpanded ? "Hide" : "Show")
+                    Text(isDetailsExpanded ? "Collapse" : "Expand")
                         .font(.tasker(.caption1).weight(.semibold))
                         .foregroundStyle(Color.tasker.textSecondary)
                 }
@@ -1338,8 +1334,8 @@ struct HabitDetailSheetView: View {
             .buttonStyle(HabitActionButtonStyle(tone: .destructive))
             .disabled(viewModel.isSaving || viewModel.row.isArchived)
 
-            Text("Pausing keeps history intact. Archiving removes the habit from active views but preserves its record.")
-                .font(.tasker(.caption2))
+            Text("Pause keeps history intact. Archive removes the habit from active views.")
+                .font(.tasker(.caption1))
                 .foregroundColor(Color.tasker.textSecondary)
                 .fixedSize(horizontal: false, vertical: true)
         }
@@ -1373,14 +1369,11 @@ struct HabitDetailSheetView: View {
         return parts.joined(separator: " · ")
     }
 
-    private var statusSummary: String {
-        if viewModel.row.isArchived {
-            return String(localized: "Archived", defaultValue: "Archived")
+    private var ownershipSummary: String {
+        if let projectName = viewModel.row.projectName, projectName.isEmpty == false {
+            return "\(viewModel.row.lifeAreaName) · \(projectName)"
         }
-        if viewModel.row.isPaused {
-            return "Paused"
-        }
-        return nextDueSummary
+        return viewModel.row.lifeAreaName
     }
 
     private func cadenceSummary(_ cadence: HabitCadenceDraft) -> String {
@@ -1766,6 +1759,8 @@ private struct HabitComposerSummaryCard: View {
 private enum HabitDetailAccessibilityID {
     static let view = "habitDetail.view"
     static let grid = "habitDetail.grid"
+    static let contextPrimary = "habitDetail.context.primary"
+    static let contextSecondary = "habitDetail.context.secondary"
     static let detailsDisclosure = "habitDetail.detailsDisclosure"
     static let helperText = "habitDetail.helperText"
     static let editButton = "habitDetail.editButton"
@@ -1811,21 +1806,23 @@ private struct HabitDetailContextStrip: View {
 
             VStack(alignment: .leading, spacing: 3) {
                 Text(metaLine)
-                    .font(.tasker(.caption1).weight(.semibold))
+                    .font(.tasker(.support).weight(.semibold))
                     .foregroundStyle(Color.tasker.textPrimary)
                     .lineLimit(2)
+                    .accessibilityIdentifier(HabitDetailAccessibilityID.contextPrimary)
 
                 Text(cadenceLine)
-                    .font(.tasker(.caption2))
+                    .font(.tasker(.caption1))
                     .foregroundStyle(Color.tasker.textSecondary)
-                    .lineLimit(1)
+                    .lineLimit(2)
+                    .accessibilityIdentifier(HabitDetailAccessibilityID.contextSecondary)
             }
 
             Spacer(minLength: 0)
 
             if row.isArchived || row.isPaused {
                 Text(row.isArchived ? String(localized: "Archived", defaultValue: "Archived") : "Paused")
-                    .font(.tasker(.caption2).weight(.semibold))
+                    .font(.tasker(.caption1).weight(.semibold))
                     .foregroundStyle(Color.tasker.textSecondary)
                     .padding(.horizontal, 10)
                     .padding(.vertical, 6)
@@ -1849,15 +1846,17 @@ private struct HabitDetailMetricCapsule: View {
     let detail: String
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 2) {
+        VStack(alignment: .leading, spacing: 4) {
             Text(value)
-                .font(.tasker(.title3))
+                .font(.tasker(.headline))
                 .foregroundStyle(Color.tasker.textPrimary)
+                .lineLimit(1)
+                .minimumScaleFactor(0.85)
             Text(title)
-                .font(.tasker(.caption2))
+                .font(.tasker(.caption1).weight(.semibold))
                 .foregroundStyle(Color.tasker.textSecondary)
             Text(detail)
-                .font(.tasker(.caption2))
+                .font(.tasker(.caption1))
                 .foregroundStyle(Color.tasker.textTertiary)
                 .lineLimit(1)
                 .minimumScaleFactor(0.85)
@@ -1904,7 +1903,7 @@ private struct HabitDetailCalendarPlaceholder: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             VStack(alignment: .leading, spacing: 4) {
-                Text("Streak calendar")
+                Text("Calendar")
                     .font(.tasker(.headline))
                     .foregroundStyle(Color.tasker.textPrimary)
 
@@ -1946,7 +1945,7 @@ private struct HabitDetailCalendarSection: View {
     var body: some View {
         VStack(alignment: .leading, spacing: spacing.s12) {
             VStack(alignment: .leading, spacing: 4) {
-                Text("Streak calendar")
+                Text("Calendar")
                     .font(.tasker(.headline))
                     .foregroundStyle(Color.tasker.textPrimary)
 
@@ -2002,7 +2001,7 @@ private struct HabitDetailCalendarSection: View {
                     ProgressView()
                         .controlSize(.small)
                     Text("Refreshing streaks")
-                        .font(.tasker(.caption2))
+                        .font(.tasker(.caption1))
                         .foregroundStyle(Color.tasker.textSecondary)
                 }
             }

@@ -2937,6 +2937,7 @@ struct HomeBackdropForedropRootView: View {
                         homeProgress: chromeSnapshot.progressState,
                         homeCompletionRate: chromeSnapshot.completionRate,
                         reflectionEligible: false,
+                        dailyReflectionEntryState: chromeSnapshot.dailyReflectionEntryState,
                         momentumGuidanceText: momentumGuidanceText,
                         animateMomentumCard: shellPhase == .interactive && !reduceMotion,
                         onOpenReflection: {
@@ -3357,15 +3358,11 @@ struct HomeBackdropForedropRootView: View {
                 fullBleedTaskListHeaderModule {
                     VStack(alignment: .leading, spacing: spacing.s12) {
                         if let entryState = chromeSnapshot.dailyReflectionEntryState {
-                            HomeDailyReflectionEntryCard(state: entryState) {
+                            HomeDailyReflectionEntryCard(
+                                state: entryState,
+                                mode: .compact
+                            ) {
                                 openDailyReflectPlan(preferredReflectionDate: entryState.reflectionDate)
-                            }
-                        }
-                        if let dailyPlanDraft = chromeSnapshot.dailyPlanDraft {
-                            HomeDailyPlanDraftCard(draft: dailyPlanDraft) { taskID in
-                                if let task = resolveTaskForReflectionPlanDraft(taskID: taskID) {
-                                    onTaskTap(task)
-                                }
                             }
                         }
                         if habitsSnapshot.quietTrackingSummaryState.isVisible {
@@ -4474,17 +4471,6 @@ struct HomeBackdropForedropRootView: View {
         candidates.append(contentsOf: viewModel.morningTasks)
         candidates.append(contentsOf: viewModel.eveningTasks)
         candidates.append(contentsOf: viewModel.overdueTasks)
-        return candidates.first(where: { $0.id == taskID })
-    }
-
-    private func resolveTaskForReflectionPlanDraft(taskID: UUID) -> TaskDefinition? {
-        var candidates: [TaskDefinition] = []
-        candidates.append(contentsOf: viewModel.focusTasks)
-        candidates.append(contentsOf: viewModel.morningTasks)
-        candidates.append(contentsOf: viewModel.eveningTasks)
-        candidates.append(contentsOf: viewModel.overdueTasks)
-        candidates.append(contentsOf: viewModel.upcomingTasks)
-        candidates.append(contentsOf: viewModel.completedTasks)
         return candidates.first(where: { $0.id == taskID })
     }
 
