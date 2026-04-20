@@ -11658,6 +11658,35 @@ final class HabitDetailViewModelHydrationTests: XCTestCase {
         XCTAssertEqual(fixture.projectRepository.getTaskCountCallCount, 0)
     }
 
+    func testMutateDayPublishesMutationFeedbackWithTargetState() async {
+        let fixture = makeDetailFixture()
+        fixture.occurrenceRepository.occurrences = [makePendingOccurrence(habitID: fixture.row.habitID, on: Date())]
+
+        fixture.viewModel.loadIfNeeded()
+        await waitUntil { fixture.viewModel.isLoading == false }
+
+        guard let todayCell = fixture.viewModel.detailCalendarWeeks
+            .flatMap(\.cells)
+            .first(where: { Calendar.current.isDateInToday($0.date) }) else {
+            XCTFail("Expected a today cell in the detail calendar")
+            return
+        }
+
+        fixture.viewModel.mutateDay(todayCell)
+        await waitUntil {
+            fixture.viewModel.isSaving == false
+                && fixture.viewModel.isLoading == false
+                && fixture.viewModel.mutationFeedback != nil
+        }
+
+        let feedback = try! XCTUnwrap(fixture.viewModel.mutationFeedback)
+        XCTAssertTrue(feedback.message.contains("Marked complete"))
+        XCTAssertEqual(feedback.haptic, .success)
+
+        fixture.viewModel.clearMutationFeedback()
+        XCTAssertNil(fixture.viewModel.mutationFeedback)
+    }
+
     func testSaveChangesRefreshesReadOnlyDataWithoutReloadingEditorSupport() async {
         let fixture = makeDetailFixture()
 
