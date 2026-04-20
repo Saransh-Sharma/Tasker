@@ -160,7 +160,7 @@ final class HabitBoardPresentationBuilderTests: XCTestCase {
         XCTAssertEqual(cells[3].state, .bridge(kind: .end, source: .notScheduled))
     }
 
-    func testHabitDetailCalendarBuildsFullWeeksAndMarksOffDaysReadOnly() {
+    func testHabitDetailCalendarBuildsFullWeeksAndKeepsOffCadenceDaysEditable() {
         let row = HabitLibraryRow(
             habitID: UUID(),
             title: "Hydrate",
@@ -199,7 +199,7 @@ final class HabitBoardPresentationBuilderTests: XCTestCase {
         XCTAssertEqual(mondayCell.state, .success)
         XCTAssertEqual(tuesdayCell.state, .notScheduled)
         XCTAssertEqual(wednesdayCell.state, .skipped)
-        XCTAssertFalse(tuesdayCell.isInteractive)
+        XCTAssertTrue(tuesdayCell.isInteractive)
     }
 
     func testHabitDetailCalendarMutationCycleMatchesPositiveDailyCheckIn() {
@@ -217,6 +217,7 @@ final class HabitBoardPresentationBuilderTests: XCTestCase {
         )
 
         XCTAssertEqual(HabitDetailCalendarBuilder.nextMutation(for: row, state: .empty), .resolve(.complete))
+        XCTAssertEqual(HabitDetailCalendarBuilder.nextMutation(for: row, state: .notScheduled), .resolve(.complete))
         XCTAssertEqual(HabitDetailCalendarBuilder.nextMutation(for: row, state: .success), .resolve(.skip))
         XCTAssertEqual(HabitDetailCalendarBuilder.nextMutation(for: row, state: .skipped), .reset)
     }
@@ -248,10 +249,77 @@ final class HabitBoardPresentationBuilderTests: XCTestCase {
         )
 
         XCTAssertEqual(HabitDetailCalendarBuilder.nextMutation(for: dailyRow, state: .empty), .resolve(.abstained))
+        XCTAssertEqual(HabitDetailCalendarBuilder.nextMutation(for: dailyRow, state: .notScheduled), .resolve(.abstained))
         XCTAssertEqual(HabitDetailCalendarBuilder.nextMutation(for: dailyRow, state: .success), .resolve(.lapsed))
         XCTAssertEqual(HabitDetailCalendarBuilder.nextMutation(for: dailyRow, state: .lapsed), .reset)
         XCTAssertEqual(HabitDetailCalendarBuilder.nextMutation(for: lapseOnlyRow, state: .empty), .resolve(.lapsed))
-        XCTAssertEqual(HabitDetailCalendarBuilder.nextMutation(for: lapseOnlyRow, state: .lapsed), .reset)
+        XCTAssertEqual(HabitDetailCalendarBuilder.nextMutation(for: lapseOnlyRow, state: .notScheduled), .resolve(.lapsed))
+        XCTAssertEqual(HabitDetailCalendarBuilder.nextMutation(for: lapseOnlyRow, state: .success), .resolve(.lapsed))
+        XCTAssertEqual(HabitDetailCalendarBuilder.nextMutation(for: lapseOnlyRow, state: .lapsed), .resolve(.abstained))
+    }
+
+    func testHabitDetailCalendarMutationFeedbackLabelsTargetStateAndHaptic() {
+        let positiveRow = HabitLibraryRow(
+            habitID: UUID(),
+            title: "Read",
+            kind: .positive,
+            trackingMode: .dailyCheckIn,
+            lifeAreaID: UUID(),
+            lifeAreaName: "Mind",
+            isPaused: false,
+            isArchived: false,
+            currentStreak: 0,
+            bestStreak: 0
+        )
+        let negativeRow = HabitLibraryRow(
+            habitID: UUID(),
+            title: "No sugar",
+            kind: .negative,
+            trackingMode: .dailyCheckIn,
+            lifeAreaID: UUID(),
+            lifeAreaName: "Health",
+            isPaused: false,
+            isArchived: false,
+            currentStreak: 0,
+            bestStreak: 0
+        )
+        let day = date("2026-04-20")
+
+        let completeFeedback = HabitDetailCalendarBuilder.mutationFeedback(
+            for: .resolve(.complete),
+            row: positiveRow,
+            date: day,
+            calendar: Self.calendar
+        )
+        XCTAssertTrue(completeFeedback.message.contains("Marked complete"))
+        XCTAssertEqual(completeFeedback.haptic, .success)
+
+        let cleanFeedback = HabitDetailCalendarBuilder.mutationFeedback(
+            for: .resolve(.abstained),
+            row: negativeRow,
+            date: day,
+            calendar: Self.calendar
+        )
+        XCTAssertTrue(cleanFeedback.message.contains("Marked clean"))
+        XCTAssertEqual(cleanFeedback.haptic, .success)
+
+        let lapsedFeedback = HabitDetailCalendarBuilder.mutationFeedback(
+            for: .resolve(.lapsed),
+            row: negativeRow,
+            date: day,
+            calendar: Self.calendar
+        )
+        XCTAssertTrue(lapsedFeedback.message.contains("Marked lapsed"))
+        XCTAssertEqual(lapsedFeedback.haptic, .warning)
+
+        let resetFeedback = HabitDetailCalendarBuilder.mutationFeedback(
+            for: .reset,
+            row: positiveRow,
+            date: day,
+            calendar: Self.calendar
+        )
+        XCTAssertTrue(resetFeedback.message.contains("Cleared to empty"))
+        XCTAssertEqual(resetFeedback.haptic, .selection)
     }
 
     func testHabitDetailCalendarViewStatePrecomputesAccessibilityStrings() {
