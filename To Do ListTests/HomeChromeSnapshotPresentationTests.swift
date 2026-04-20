@@ -158,7 +158,8 @@ final class HomeChromeSnapshotPresentationTests: XCTestCase {
             completionRate: 1,
             weeklySummary: nil,
             projects: [],
-            reflectionEligible: true,
+            dailyReflectionEntryState: nil,
+            dailyPlanDraft: nil,
             momentumGuidanceText: ""
         )
 
@@ -170,7 +171,7 @@ final class HomeChromeSnapshotPresentationTests: XCTestCase {
         XCTAssertEqual(presentation.foregroundRelativeLabel, "TODAY")
         XCTAssertEqual(presentation.dateAccessibilityLabel, "Today, \(today.formatted(.dateTime.month(.wide).day()))")
         XCTAssertFalse(presentation.showsBackToToday)
-        XCTAssertTrue(presentation.showsReflectionCTA)
+        XCTAssertFalse(presentation.showsReflectionCTA)
         XCTAssertEqual(presentation.reflectionCTATitle, "Reflect")
         XCTAssertEqual(presentation.statusText, "18/250 XP · 100% · 1d")
         XCTAssertEqual(presentation.todayStatus?.xpText, "18/250 XP")
@@ -198,7 +199,8 @@ final class HomeChromeSnapshotPresentationTests: XCTestCase {
             completionRate: 0,
             weeklySummary: nil,
             projects: [],
-            reflectionEligible: true,
+            dailyReflectionEntryState: nil,
+            dailyPlanDraft: nil,
             momentumGuidanceText: ""
         )
         let tasks = HomeTasksSnapshot(
@@ -284,7 +286,8 @@ final class HomeChromeSnapshotPresentationTests: XCTestCase {
             completionRate: 0,
             weeklySummary: nil,
             projects: [],
-            reflectionEligible: true,
+            dailyReflectionEntryState: nil,
+            dailyPlanDraft: nil,
             momentumGuidanceText: ""
         )
 
@@ -305,7 +308,8 @@ final class HomeChromeSnapshotPresentationTests: XCTestCase {
             completionRate: 0,
             weeklySummary: nil,
             projects: [],
-            reflectionEligible: false,
+            dailyReflectionEntryState: nil,
+            dailyPlanDraft: nil,
             momentumGuidanceText: ""
         )
         var tasks = HomeTasksSnapshot.empty
@@ -377,7 +381,8 @@ final class HomeChromeSnapshotPresentationTests: XCTestCase {
             completionRate: 1,
             weeklySummary: nil,
             projects: [],
-            reflectionEligible: true,
+            dailyReflectionEntryState: nil,
+            dailyPlanDraft: nil,
             momentumGuidanceText: ""
         )
 
@@ -408,7 +413,8 @@ final class HomeChromeSnapshotPresentationTests: XCTestCase {
             completionRate: 1.0 / 3.0,
             weeklySummary: nil,
             projects: [],
-            reflectionEligible: true,
+            dailyReflectionEntryState: nil,
+            dailyPlanDraft: nil,
             momentumGuidanceText: ""
         )
 
@@ -443,7 +449,8 @@ final class HomeChromeSnapshotPresentationTests: XCTestCase {
                 completionRate: 0,
                 weeklySummary: nil,
                 projects: [],
-                reflectionEligible: false,
+                dailyReflectionEntryState: nil,
+                dailyPlanDraft: nil,
                 momentumGuidanceText: ""
             )
 
