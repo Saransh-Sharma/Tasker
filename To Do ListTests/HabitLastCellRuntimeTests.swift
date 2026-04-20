@@ -106,6 +106,135 @@ final class HabitLastCellRuntimeTests: XCTestCase {
         XCTAssertEqual(gamificationRepository.events.first?.delta, -8)
     }
 
+    func testResolveHabitOccurrenceMaterializesSameDayOccurrenceForRegularHabit() {
+        let habitID = UUID()
+        let date = Self.date("2026-04-09")
+        let templateID = UUID()
+
+        let habit = Self.makeHabit(id: habitID, kind: .positive)
+        let habitRepository = HabitRepositoryStub(habits: [habit])
+        let occurrenceRepository = OccurrenceRepositoryStub(occurrences: [])
+        let scheduleRepository = ScheduleRepositoryStub()
+        scheduleRepository.templates = [
+            ScheduleTemplateDefinition(
+                id: templateID,
+                sourceType: .habit,
+                sourceID: habitID,
+                timezoneID: "UTC",
+                temporalReference: .anchored,
+                anchorAt: date,
+                isActive: true,
+                createdAt: date,
+                updatedAt: date
+            )
+        ]
+        let schedulingEngine = ResolvingSchedulingEngineStub(occurrenceRepository: occurrenceRepository)
+        let gamificationRepository = InMemoryGamificationRepositoryStub()
+        let useCase = ResolveHabitOccurrenceUseCase(
+            habitRepository: habitRepository,
+            scheduleRepository: scheduleRepository,
+            occurrenceRepository: occurrenceRepository,
+            scheduleEngine: schedulingEngine,
+            recomputeHabitStreaksUseCase: RecomputeHabitStreaksUseCase(
+                habitRepository: habitRepository,
+                occurrenceRepository: occurrenceRepository
+            ),
+            gamificationEngine: GamificationEngine(repository: gamificationRepository)
+        )
+
+        let completion = expectation(description: "resolve complete")
+        useCase.execute(
+            habitID: habitID,
+            action: .complete,
+            on: date
+        ) { result in
+            if case .failure(let error) = result {
+                XCTFail("Expected complete to succeed for materialized occurrence: \(error)")
+            }
+            completion.fulfill()
+        }
+        wait(for: [completion], timeout: 2)
+
+        let occurrence = try! XCTUnwrap(occurrenceRepository.occurrences.first(where: { $0.sourceID == habitID }))
+        XCTAssertEqual(occurrence.state, .completed)
+        XCTAssertEqual(schedulingEngine.resolvedCalls.map(\.resolution), [.completed])
+        XCTAssertEqual(gamificationRepository.events.map(\.category), [.habitPositiveComplete])
+    }
+
+    func testResolveHabitOccurrenceBackdatedActionUpdatesMaterializedOccurrenceState() {
+        let habitID = UUID()
+        let date = Self.date("2026-04-05")
+        let templateID = UUID()
+
+        let habit = Self.makeHabit(id: habitID, kind: .positive)
+        let habitRepository = HabitRepositoryStub(habits: [habit])
+        let occurrenceRepository = OccurrenceRepositoryStub(occurrences: [])
+        let scheduleRepository = ScheduleRepositoryStub()
+        scheduleRepository.templates = [
+            ScheduleTemplateDefinition(
+                id: templateID,
+                sourceType: .habit,
+                sourceID: habitID,
+                timezoneID: "UTC",
+                temporalReference: .anchored,
+                anchorAt: date,
+                isActive: true,
+                createdAt: date,
+                updatedAt: date
+            )
+        ]
+        let schedulingEngine = ResolvingSchedulingEngineStub(occurrenceRepository: occurrenceRepository)
+        let useCase = ResolveHabitOccurrenceUseCase(
+            habitRepository: habitRepository,
+            scheduleRepository: scheduleRepository,
+            occurrenceRepository: occurrenceRepository,
+            scheduleEngine: schedulingEngine,
+            recomputeHabitStreaksUseCase: RecomputeHabitStreaksUseCase(
+                habitRepository: habitRepository,
+                occurrenceRepository: occurrenceRepository
+            ),
+            gamificationEngine: GamificationEngine(repository: InMemoryGamificationRepositoryStub())
+        )
+
+        let completion = expectation(description: "resolve skip")
+        useCase.execute(
+            habitID: habitID,
+            action: .skip,
+            on: date
+        ) { result in
+            if case .failure(let error) = result {
+                XCTFail("Expected skip to succeed for materialized backdated occurrence: \(error)")
+            }
+            completion.fulfill()
+        }
+        wait(for: [completion], timeout: 2)
+
+        let occurrence = try! XCTUnwrap(occurrenceRepository.occurrences.first(where: { $0.sourceID == habitID }))
+        XCTAssertEqual(occurrence.state, .skipped)
+        XCTAssertTrue(Self.calendar.isDate(occurrence.dueAt ?? occurrence.scheduledAt, inSameDayAs: date))
+        XCTAssertEqual(schedulingEngine.resolvedCalls.map(\.resolution), [.skipped])
+    }
+
+    func testPendingOccurrenceProjectsAsNoneInDayMarks() {
+        let habitID = UUID()
+        let date = Self.date("2026-04-09")
+        let pendingOccurrence = Self.makeOccurrence(
+            id: UUID(),
+            habitID: habitID,
+            date: date,
+            state: .pending
+        )
+
+        let marks = HabitRuntimeSupport.dayMarks(
+            from: [pendingOccurrence],
+            endingOn: date,
+            dayCount: 1,
+            calendar: Self.calendar
+        )
+
+        XCTAssertEqual(marks.first?.state, HabitDayState.none)
+    }
+
     func testGamificationCompensationAllowsSameDayHabitSuccessReaward() {
         let habitID = UUID()
         let date = Self.date("2026-04-09")
@@ -459,12 +588,15 @@ private final class OccurrenceRepositoryStub: OccurrenceRepositoryProtocol {
 }
 
 private final class ScheduleRepositoryStub: ScheduleRepositoryProtocol {
+    var templates: [ScheduleTemplateDefinition] = []
+    var rulesByTemplateID: [UUID: [ScheduleRuleDefinition]] = [:]
+
     func fetchTemplates(completion: @escaping (Result<[ScheduleTemplateDefinition], Error>) -> Void) {
-        completion(.success([]))
+        completion(.success(templates))
     }
 
     func fetchRules(templateID: UUID, completion: @escaping (Result<[ScheduleRuleDefinition], Error>) -> Void) {
-        completion(.success([]))
+        completion(.success(rulesByTemplateID[templateID] ?? []))
     }
 
     func saveTemplate(_ template: ScheduleTemplateDefinition, completion: @escaping (Result<ScheduleTemplateDefinition, Error>) -> Void) {
@@ -502,6 +634,69 @@ private final class SchedulingEngineStub: SchedulingEngineProtocol {
     }
 
     func applyScheduleException(templateID: UUID, occurrenceKey: String, action: ScheduleExceptionAction, completion: @escaping (Result<Void, Error>) -> Void) {
+        completion(.success(()))
+    }
+}
+
+private final class ResolvingSchedulingEngineStub: SchedulingEngineProtocol {
+    struct ResolveCall {
+        let id: UUID
+        let resolution: OccurrenceResolutionType
+        let actor: OccurrenceActor
+    }
+
+    private let occurrenceRepository: OccurrenceRepositoryStub
+    private(set) var resolvedCalls: [ResolveCall] = []
+
+    init(occurrenceRepository: OccurrenceRepositoryStub) {
+        self.occurrenceRepository = occurrenceRepository
+    }
+
+    func generateOccurrences(
+        windowStart: Date,
+        windowEnd: Date,
+        sourceFilter: ScheduleSourceType?,
+        completion: @escaping (Result<[OccurrenceDefinition], Error>) -> Void
+    ) {
+        completion(.success([]))
+    }
+
+    func resolveOccurrence(
+        id: UUID,
+        resolution: OccurrenceResolutionType,
+        actor: OccurrenceActor,
+        completion: @escaping (Result<Void, Error>) -> Void
+    ) {
+        resolvedCalls.append(ResolveCall(id: id, resolution: resolution, actor: actor))
+        guard let index = occurrenceRepository.occurrences.firstIndex(where: { $0.id == id }) else {
+            completion(.failure(NSError(domain: "ResolvingSchedulingEngineStub", code: 404)))
+            return
+        }
+
+        switch resolution {
+        case .completed:
+            occurrenceRepository.occurrences[index].state = .completed
+        case .skipped, .deferred:
+            occurrenceRepository.occurrences[index].state = .skipped
+        case .missed:
+            occurrenceRepository.occurrences[index].state = .missed
+        case .lapsed:
+            occurrenceRepository.occurrences[index].state = .failed
+        }
+        occurrenceRepository.occurrences[index].updatedAt = Date()
+        completion(.success(()))
+    }
+
+    func rebuildFutureOccurrences(templateID: UUID, effectiveFrom: Date, completion: @escaping (Result<Void, Error>) -> Void) {
+        completion(.success(()))
+    }
+
+    func applyScheduleException(
+        templateID: UUID,
+        occurrenceKey: String,
+        action: ScheduleExceptionAction,
+        completion: @escaping (Result<Void, Error>) -> Void
+    ) {
         completion(.success(()))
     }
 }
