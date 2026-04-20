@@ -3314,7 +3314,7 @@
 					"@executable_path/Frameworks",
 					"@executable_path/../../Frameworks",
 				);
-				MARKETING_VERSION = 1.8.6;
+					MARKETING_VERSION = "$(TASKER_MARKETING_VERSION)";
 				PRODUCT_BUNDLE_IDENTIFIER = "com.saransh1337.To-Do-List.TaskerWidgets";
 				PRODUCT_NAME = TaskerWidgets;
 				SDKROOT = iphoneos;
@@ -3380,9 +3380,10 @@
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;
-				SDKROOT = iphoneos;
-				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
-				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+					SDKROOT = iphoneos;
+					TASKER_MARKETING_VERSION = 1.8.7;
+					SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+					SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 			};
 			name = Debug;
 		};
@@ -3434,9 +3435,10 @@
 				IPHONEOS_DEPLOYMENT_TARGET = 13.0;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
-				SDKROOT = iphoneos;
-				SWIFT_COMPILATION_MODE = wholemodule;
-				SWIFT_OPTIMIZATION_LEVEL = "-O";
+					SDKROOT = iphoneos;
+					TASKER_MARKETING_VERSION = 1.8.7;
+					SWIFT_COMPILATION_MODE = wholemodule;
+					SWIFT_OPTIMIZATION_LEVEL = "-O";
 				VALIDATE_PRODUCT = YES;
 			};
 			name = Release;
@@ -3454,14 +3456,18 @@
 				INFOPLIST_KEY_CFBundleDisplayName = Tasker;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.productivity";
 				IPHONEOS_DEPLOYMENT_TARGET = 18.6;
-				LD_RUNPATH_SEARCH_PATHS = (
-					"$(inherited)",
-					"@executable_path/Frameworks",
-				);
-				MARKETING_VERSION = 1.8.7;
-				PRODUCT_BUNDLE_IDENTIFIER = "com.saransh1337.To-Do-List";
-				PRODUCT_MODULE_NAME = To_Do_List;
-				PRODUCT_NAME = "This Day";
+					LD_RUNPATH_SEARCH_PATHS = (
+						"$(inherited)",
+						"@executable_path/Frameworks",
+					);
+					MARKETING_VERSION = "$(TASKER_MARKETING_VERSION)";
+					OTHER_LDFLAGS = (
+						"$(inherited)",
+						"-Wl,-no_warn_duplicate_libraries",
+					);
+					PRODUCT_BUNDLE_IDENTIFIER = "com.saransh1337.To-Do-List";
+					PRODUCT_MODULE_NAME = To_Do_List;
+					PRODUCT_NAME = "This Day";
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
 			};
@@ -3480,14 +3486,18 @@
 				INFOPLIST_KEY_CFBundleDisplayName = Tasker;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.productivity";
 				IPHONEOS_DEPLOYMENT_TARGET = 18.6;
-				LD_RUNPATH_SEARCH_PATHS = (
-					"$(inherited)",
-					"@executable_path/Frameworks",
-				);
-				MARKETING_VERSION = 1.8.7;
-				PRODUCT_BUNDLE_IDENTIFIER = "com.saransh1337.To-Do-List";
-				PRODUCT_MODULE_NAME = To_Do_List;
-				PRODUCT_NAME = "This Day";
+					LD_RUNPATH_SEARCH_PATHS = (
+						"$(inherited)",
+						"@executable_path/Frameworks",
+					);
+					MARKETING_VERSION = "$(TASKER_MARKETING_VERSION)";
+					OTHER_LDFLAGS = (
+						"$(inherited)",
+						"-Wl,-no_warn_duplicate_libraries",
+					);
+					PRODUCT_BUNDLE_IDENTIFIER = "com.saransh1337.To-Do-List";
+					PRODUCT_MODULE_NAME = To_Do_List;
+					PRODUCT_NAME = "This Day";
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
 			};
@@ -3597,7 +3607,7 @@
 					"@executable_path/Frameworks",
 					"@executable_path/../../Frameworks",
 				);
-				MARKETING_VERSION = 1.8.6;
+					MARKETING_VERSION = "$(TASKER_MARKETING_VERSION)";
 				PRODUCT_BUNDLE_IDENTIFIER = "com.saransh1337.To-Do-List.TaskerWidgets";
 				PRODUCT_NAME = TaskerWidgets;
 				SDKROOT = iphoneos;
@@ -3668,10 +3678,10 @@
 		};
 		75A328B02DFB603F00F36C31 /* XCRemoteSwiftPackageReference "mlx-swift" */ = {
 			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "https://github.com/PrismML-Eng/mlx-swift.git";
+			repositoryURL = "https://github.com/ml-explore/mlx-swift.git";
 			requirement = {
-				branch = v0.30.6_prism;
-				kind = branch;
+				kind = upToNextMinorVersion;
+				minimumVersion = 0.30.6;
 			};
 		};
 		75A328B72DFB606700F36C31 /* XCRemoteSwiftPackageReference "mlx-swift-lm" */ = {

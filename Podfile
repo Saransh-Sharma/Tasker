@@ -1,5 +1,6 @@
 platform :ios, '16.0'
 inhibit_all_warnings!
+require 'shellwords'
 
 target 'Tasker' do
   use_frameworks!
@@ -45,8 +46,23 @@ post_install do |installer|
       c.build_settings['GCC_WARN_INHIBIT_ALL_WARNINGS'] = 'YES'
       c.build_settings['TOOLCHAIN_DIR'] = '$(DEVELOPER_DIR)/Toolchains/XcodeDefault.xctoolchain'
 
-      ldflags = Array(c.build_settings['OTHER_LDFLAGS']).flatten.compact.map(&:to_s).uniq
-      c.build_settings['OTHER_LDFLAGS'] = ldflags unless ldflags.empty?
+      ldflags = Array(c.build_settings['OTHER_LDFLAGS'])
+        .flatten
+        .compact
+        .flat_map { |value| Shellwords.split(value.to_s) }
+      normalized_ldflags = []
+      seen_cpp_flag = false
+      ldflags.each do |flag|
+        canonical = flag.gsub('"', '')
+        if canonical == '-lc++'
+          next if seen_cpp_flag
+          seen_cpp_flag = true
+          normalized_ldflags << '-lc++'
+          next
+        end
+        normalized_ldflags << flag unless normalized_ldflags.include?(flag)
+      end
+      c.build_settings['OTHER_LDFLAGS'] = normalized_ldflags unless normalized_ldflags.empty?
 
       search_paths = Array(c.build_settings['LIBRARY_SEARCH_PATHS']).flatten.compact.map(&:to_s)
       filtered_paths = search_paths.reject { |path| path.include?(toolchain_swift_path) }.uniq
@@ -63,7 +79,9 @@ post_install do |installer|
   support_files_pattern = File.join(installer.sandbox.root.to_s, 'Target Support Files', '**', '*.xcconfig')
   Dir.glob(support_files_pattern).each do |xcconfig_path|
     content = File.read(xcconfig_path)
-    updated = content.gsub(/ ?"\$\{TOOLCHAIN_DIR\}\/usr\/lib\/swift\/\$\{PLATFORM_NAME\}"/, '')
+    updated = content
+      .gsub(/ ?"\$\{TOOLCHAIN_DIR\}\/usr\/lib\/swift\/\$\{PLATFORM_NAME\}"/, '')
+      .gsub(/(?:^|\s)-l"c\+\+"/, '')
     File.write(xcconfig_path, updated) if updated != content
   end
 end
