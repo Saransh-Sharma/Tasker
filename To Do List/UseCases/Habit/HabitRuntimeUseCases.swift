@@ -356,9 +356,9 @@ enum HabitRuntimeSupport {
 
     static func dayState(
         for occurrence: OccurrenceDefinition,
-        day: Date,
-        referenceDay: Date,
-        calendar: Calendar = .current
+        day _: Date,
+        referenceDay _: Date,
+        calendar _: Calendar = .current
     ) -> HabitDayState {
         switch occurrence.state {
         case .completed:
@@ -368,7 +368,8 @@ enum HabitRuntimeSupport {
         case .skipped:
             return .skipped
         case .pending:
-            return day < referenceDay ? .failure : .none
+            // Pending days should remain visually neutral until the user explicitly resolves them.
+            return .none
         }
     }
 
@@ -1924,7 +1925,7 @@ public final class ResolveHabitOccurrenceUseCase {
         habit: HabitDefinitionRecord,
         occurrenceID: UUID?,
         date: Date,
-        action: HabitOccurrenceAction,
+        action _: HabitOccurrenceAction,
         completion: @escaping (Result<UUID, Error>) -> Void
     ) {
         let calendar = Calendar.current
@@ -1952,10 +1953,6 @@ public final class ResolveHabitOccurrenceUseCase {
                     .sorted { HabitRuntimeSupport.occurrenceDate($0) < HabitRuntimeSupport.occurrenceDate($1) }
                 if let occurrence = matches.last {
                     completion(.success(occurrence.id))
-                    return
-                }
-                guard habit.trackingMode == .lapseOnly && action == .lapsed else {
-                    completion(.failure(HabitRuntimeError.occurrenceNotFound))
                     return
                 }
                 self.materializeOccurrence(for: habit, date: date, completion: completion)
