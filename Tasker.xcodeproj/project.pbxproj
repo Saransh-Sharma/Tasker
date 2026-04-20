@@ -3678,10 +3678,10 @@
 		};
 		75A328B02DFB603F00F36C31 /* XCRemoteSwiftPackageReference "mlx-swift" */ = {
 			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "https://github.com/ml-explore/mlx-swift.git";
+			repositoryURL = "https://github.com/PrismML-Eng/mlx-swift.git";
 			requirement = {
-				kind = upToNextMinorVersion;
-				minimumVersion = 0.30.6;
+				branch = v0.30.6_prism;
+				kind = branch;
 			};
 		};
 		75A328B72DFB606700F36C31 /* XCRemoteSwiftPackageReference "mlx-swift-lm" */ = {
