@@ -12663,9 +12663,193 @@ final class DailyReflectionUseCasesTests: XCTestCase {
         wait(for: [expectation], timeout: 1.0)
     }
 
+    func testLoadCoordinatorBuildsCompactRecapContent() async throws {
+        let calendar = Calendar.autoupdatingCurrent
+        let reflectionDate = calendar.startOfDay(for: Date())
+        let planningDate = calendar.date(byAdding: .day, value: 1, to: reflectionDate)!
+        let tasks = [
+            TaskDefinition(
+                title: "Beta polish",
+                priority: .high,
+                type: .morning,
+                dueDate: reflectionDate,
+                isComplete: true,
+                dateCompleted: reflectionDate.addingTimeInterval(60)
+            ),
+            TaskDefinition(
+                title: "Alpha closeout",
+                priority: .high,
+                type: .morning,
+                dueDate: reflectionDate,
+                isComplete: true,
+                dateCompleted: reflectionDate.addingTimeInterval(120)
+            ),
+            TaskDefinition(
+                title: "Top priority fix",
+                priority: .max,
+                type: .morning,
+                dueDate: reflectionDate,
+                isComplete: true,
+                dateCompleted: reflectionDate.addingTimeInterval(180)
+            ),
+            TaskDefinition(
+                title: "Low priority cleanup",
+                priority: .low,
+                type: .morning,
+                dueDate: reflectionDate,
+                isComplete: true,
+                dateCompleted: reflectionDate.addingTimeInterval(240)
+            ),
+            TaskDefinition(
+                title: "Carryover open",
+                priority: .high,
+                type: .morning,
+                dueDate: reflectionDate,
+                isComplete: false
+            )
+        ]
+
+        let habits = [
+            HabitOccurrenceSummary(
+                habitID: UUID(),
+                occurrenceID: UUID(),
+                title: "Stretch",
+                kind: .positive,
+                trackingMode: .dailyCheckIn,
+                lifeAreaID: UUID(),
+                lifeAreaName: "Health",
+                colorHex: "#4A86E8",
+                state: .missed,
+                currentStreak: 2,
+                riskState: .broken,
+                last14Days: makeReflectionMarks(endingOn: reflectionDate, lastSevenStates: [.failure, .success, .success, .success, .failure, .success, .failure])
+            ),
+            HabitOccurrenceSummary(
+                habitID: UUID(),
+                occurrenceID: UUID(),
+                title: "Walk",
+                kind: .positive,
+                trackingMode: .dailyCheckIn,
+                lifeAreaID: UUID(),
+                lifeAreaName: "Health",
+                colorHex: "#4E9A2F",
+                state: .skipped,
+                currentStreak: 5,
+                riskState: .atRisk,
+                last14Days: makeReflectionMarks(endingOn: reflectionDate, lastSevenStates: [.success, .success, .skipped, .success, .success, .success, .skipped])
+            ),
+            HabitOccurrenceSummary(
+                habitID: UUID(),
+                occurrenceID: UUID(),
+                title: "Read",
+                kind: .positive,
+                trackingMode: .dailyCheckIn,
+                lifeAreaID: UUID(),
+                lifeAreaName: "Learning",
+                colorHex: "#8A46B5",
+                state: .completed,
+                currentStreak: 7,
+                riskState: .stable,
+                last14Days: makeReflectionMarks(endingOn: reflectionDate, lastSevenStates: [.success, .success, .success, .success, .success, .success, .success])
+            ),
+            HabitOccurrenceSummary(
+                habitID: UUID(),
+                occurrenceID: UUID(),
+                title: "Water",
+                kind: .positive,
+                trackingMode: .dailyCheckIn,
+                lifeAreaID: UUID(),
+                lifeAreaName: "Health",
+                colorHex: "#5AA7A4",
+                state: .completed,
+                currentStreak: 9,
+                riskState: .stable,
+                last14Days: makeReflectionMarks(endingOn: reflectionDate, lastSevenStates: [.success, .success, .success, .success, .success, .success, .success])
+            ),
+            HabitOccurrenceSummary(
+                habitID: UUID(),
+                occurrenceID: UUID(),
+                title: "Journal",
+                kind: .positive,
+                trackingMode: .dailyCheckIn,
+                lifeAreaID: UUID(),
+                lifeAreaName: "Mind",
+                colorHex: "#F5B23C",
+                state: .completed,
+                currentStreak: 3,
+                riskState: .stable,
+                last14Days: makeReflectionMarks(endingOn: reflectionDate, lastSevenStates: [.success, .success, .success, .success, .success, .success, .success])
+            )
+        ]
+
+        let coordinator = V3TestHarness.makeCoordinator(
+            taskDefinitionRepository: InMemoryTaskDefinitionRepositoryStub(seed: tasks),
+            taskReadModelRepository: InMemoryTaskReadModelRepositoryStub(tasks: tasks),
+            projectRepository: MockProjectRepository(projects: [Project.createInbox()]),
+            habitRuntimeReadRepository: CapturingHabitRuntimeReadRepository(agendaSummaries: habits)
+        )
+
+        let bundle = try await coordinator.dailyReflectionLoadCoordinator.loadCore(
+            target: DailyReflectionTarget(
+                mode: .sameDay,
+                reflectionDate: reflectionDate,
+                planningDate: planningDate
+            )
+        )
+
+        XCTAssertEqual(bundle.coreSnapshot.closedTasks.map(\.title), [
+            "Top priority fix",
+            "Alpha closeout",
+            "Beta polish"
+        ])
+        XCTAssertEqual(bundle.coreSnapshot.habitGrid.map(\.title), [
+            "Stretch",
+            "Walk",
+            "Water",
+            "Read"
+        ])
+        XCTAssertEqual(bundle.coreSnapshot.habitGrid.first?.colorFamily, .blue)
+        XCTAssertEqual(bundle.coreSnapshot.habitGrid.first?.last7Days.count, 7)
+        XCTAssertEqual(
+            bundle.coreSnapshot.narrativeSummary.planCardLine,
+            "You closed 4 tasks, kept 3 habit streaks alive, and missed Stretch and Walk."
+        )
+        XCTAssertEqual(
+            bundle.coreSnapshot.narrativeSummary.homeCardLine,
+            "4 tasks closed, 3 habits kept, missed Stretch and Walk."
+        )
+    }
+
+    func testNarrativeSummaryHandlesNoMissesAndOverflow() {
+        let calm = ReflectionNarrativeSummary.make(
+            completedCount: 1,
+            keptCount: 2,
+            missedTitles: []
+        )
+        XCTAssertEqual(
+            calm.planCardLine,
+            "You closed 1 task and kept 2 habit streaks alive, so tomorrow can stay narrow."
+        )
+        XCTAssertEqual(
+            calm.homeCardLine,
+            "1 task closed, 2 habits kept. Keep tomorrow tight."
+        )
+
+        let overflow = ReflectionNarrativeSummary.make(
+            completedCount: 3,
+            keptCount: 1,
+            missedTitles: ["Water", "Walk", "Read"]
+        )
+        XCTAssertEqual(
+            overflow.planCardLine,
+            "You closed 3 tasks, kept 1 habit streak alive, and missed Water, Walk, and 1 more."
+        )
+    }
+
     func testCalendarContextSkipsInvalidPreHardStopWindows() async {
         let calendar = Calendar.autoupdatingCurrent
         let planningDate = calendar.startOfDay(for: Date())
+        await ReflectionCalendarContextCacheStore.shared.clearAll()
         let provider = DelayedCalendarEventsProviderStub(
             events: [
                 TaskerCalendarEventSnapshot(
@@ -12697,9 +12881,36 @@ final class DailyReflectionUseCasesTests: XCTestCase {
         XCTAssertGreaterThanOrEqual(result.context?.bestFocusWindow?.start ?? .distantPast, planningDate.addingTimeInterval(30 * 60))
     }
 
+    func testCalendarContextBuildsOffMainWhenProviderCompletesOnMain() async {
+        let calendar = Calendar.autoupdatingCurrent
+        let planningDate = calendar.startOfDay(for: Date())
+        await ReflectionCalendarContextCacheStore.shared.clearAll()
+        let provider = MainQueueCalendarEventsProviderStub(
+            events: [
+                TaskerCalendarEventSnapshot(
+                    id: "main_queue_event",
+                    calendarID: "calendar",
+                    calendarTitle: "Primary",
+                    title: "Main queue callback",
+                    startDate: planningDate.addingTimeInterval(9 * 60 * 60),
+                    endDate: planningDate.addingTimeInterval(10 * 60 * 60),
+                    isAllDay: false
+                )
+            ]
+        )
+        let useCase = BuildNextDayPlanSuggestionUseCase(calendarEventsProvider: provider, calendar: calendar)
+
+        let result = await useCase.loadCalendarContext(for: planningDate, timeoutSeconds: 1.0)
+
+        XCTAssertEqual(result.status, .loaded)
+        XCTAssertNotNil(result.context)
+        XCTAssertEqual(result.context?.eventCount, 1)
+    }
+
     func testCalendarContextTimeoutReturnsDegradedPlanState() async {
         let calendar = Calendar.autoupdatingCurrent
         let planningDate = calendar.startOfDay(for: Date())
+        await ReflectionCalendarContextCacheStore.shared.clearAll()
         let provider = DelayedCalendarEventsProviderStub(
             events: [],
             delayNanoseconds: 1_000_000_000
@@ -12713,6 +12924,148 @@ final class DailyReflectionUseCasesTests: XCTestCase {
             result.status,
             .degraded("Calendar context timed out. Suggestions use tasks and habits only.")
         )
+    }
+
+    func testCalendarContextUsesSelectedCalendarIDsFromWorkspacePreferences() async {
+        let calendar = Calendar.autoupdatingCurrent
+        let planningDate = calendar.startOfDay(for: Date())
+        await ReflectionCalendarContextCacheStore.shared.clearAll()
+        let provider = DelayedCalendarEventsProviderStub(events: [])
+        let suiteName = "DailyReflectionUseCasesTests.workspace.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defaults.removePersistentDomain(forName: suiteName)
+        let workspaceStore = TaskerWorkspacePreferencesStore(defaults: defaults)
+        workspaceStore.save(TaskerWorkspacePreferences(selectedCalendarIDs: ["work", "personal"]))
+
+        let useCase = BuildNextDayPlanSuggestionUseCase(
+            calendarEventsProvider: provider,
+            calendar: calendar,
+            workspacePreferencesStore: workspaceStore
+        )
+
+        _ = await useCase.loadCalendarContext(for: planningDate, timeoutSeconds: 1.0)
+
+        XCTAssertEqual(provider.lastRequestedCalendarIDs, Set(["work", "personal"]))
+    }
+
+    func testCalendarContextSkipsFetchWhenNoCalendarsAreSelected() async {
+        let calendar = Calendar.autoupdatingCurrent
+        let planningDate = calendar.startOfDay(for: Date())
+        await ReflectionCalendarContextCacheStore.shared.clearAll()
+        let provider = DelayedCalendarEventsProviderStub(
+            events: [
+                TaskerCalendarEventSnapshot(
+                    id: "should-not-fetch",
+                    calendarID: "calendar",
+                    calendarTitle: "Primary",
+                    title: "Hidden",
+                    startDate: planningDate.addingTimeInterval(9 * 60 * 60),
+                    endDate: planningDate.addingTimeInterval(10 * 60 * 60),
+                    isAllDay: false
+                )
+            ]
+        )
+        let suiteName = "DailyReflectionUseCasesTests.workspace.empty.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defaults.removePersistentDomain(forName: suiteName)
+        let workspaceStore = TaskerWorkspacePreferencesStore(defaults: defaults)
+        workspaceStore.save(TaskerWorkspacePreferences(selectedCalendarIDs: []))
+
+        let useCase = BuildNextDayPlanSuggestionUseCase(
+            calendarEventsProvider: provider,
+            calendar: calendar,
+            workspacePreferencesStore: workspaceStore
+        )
+
+        let result = await useCase.loadCalendarContext(for: planningDate, timeoutSeconds: 1.0)
+        XCTAssertNil(result.context)
+        XCTAssertEqual(
+            result.status,
+            .degraded("Calendar context unavailable. Suggestions use tasks and habits only.")
+        )
+        XCTAssertEqual(provider.fetchEventsCallCount, 0)
+
+        let lookup = await useCase.loadCachedOrStaleCalendarContext(for: planningDate)
+        if case .miss = lookup {
+            // expected
+        } else {
+            XCTFail("Expected cache miss when no calendars are selected")
+        }
+    }
+
+    func testCachedCalendarContextFreshHitReturnsWithoutProviderFetch() async {
+        let calendar = Calendar.autoupdatingCurrent
+        let planningDate = calendar.startOfDay(for: Date())
+        await ReflectionCalendarContextCacheStore.shared.clearAll()
+        let provider = DelayedCalendarEventsProviderStub(
+            events: [
+                TaskerCalendarEventSnapshot(
+                    id: "cache-fresh",
+                    calendarID: "calendar",
+                    calendarTitle: "Primary",
+                    title: "Focus",
+                    startDate: planningDate.addingTimeInterval(9 * 60 * 60),
+                    endDate: planningDate.addingTimeInterval(10 * 60 * 60),
+                    isAllDay: false
+                )
+            ]
+        )
+        var now = Date()
+        let useCase = BuildNextDayPlanSuggestionUseCase(
+            calendarEventsProvider: provider,
+            calendar: calendar,
+            nowProvider: { now }
+        )
+
+        _ = await useCase.loadCalendarContext(for: planningDate, timeoutSeconds: 1.0)
+        XCTAssertEqual(provider.fetchEventsCallCount, 1)
+
+        let lookup = await useCase.loadCachedOrStaleCalendarContext(for: planningDate)
+        switch lookup {
+        case .fresh(let context):
+            XCTAssertEqual(context.eventCount, 1)
+        default:
+            XCTFail("Expected fresh cached context")
+        }
+        XCTAssertEqual(provider.fetchEventsCallCount, 1)
+    }
+
+    func testCachedCalendarContextStaleHitIsReported() async {
+        let calendar = Calendar.autoupdatingCurrent
+        let planningDate = calendar.startOfDay(for: Date())
+        await ReflectionCalendarContextCacheStore.shared.clearAll()
+        let provider = DelayedCalendarEventsProviderStub(
+            events: [
+                TaskerCalendarEventSnapshot(
+                    id: "cache-stale",
+                    calendarID: "calendar",
+                    calendarTitle: "Primary",
+                    title: "Standup",
+                    startDate: planningDate.addingTimeInterval(8 * 60 * 60),
+                    endDate: planningDate.addingTimeInterval(9 * 60 * 60),
+                    isAllDay: false
+                )
+            ]
+        )
+        var now = Date()
+        let useCase = BuildNextDayPlanSuggestionUseCase(
+            calendarEventsProvider: provider,
+            calendar: calendar,
+            nowProvider: { now }
+        )
+
+        _ = await useCase.loadCalendarContext(for: planningDate, timeoutSeconds: 1.0)
+        XCTAssertEqual(provider.fetchEventsCallCount, 1)
+
+        now = now.addingTimeInterval(31 * 60)
+        let lookup = await useCase.loadCachedOrStaleCalendarContext(for: planningDate)
+        switch lookup {
+        case .stale(let context):
+            XCTAssertEqual(context.eventCount, 1)
+        default:
+            XCTFail("Expected stale cached context")
+        }
+        XCTAssertEqual(provider.fetchEventsCallCount, 1)
     }
 
     func testSaveUseCasePreservesManualDraftByDefault() throws {
@@ -12770,6 +13123,7 @@ final class DailyReflectionUseCasesTests: XCTestCase {
 
     @MainActor
     func testDailyReflectPlanViewModelPublishesCoreBeforeOptionalContextFinishes() async {
+        await ReflectionCalendarContextCacheStore.shared.clearAll()
         let calendar = Calendar.autoupdatingCurrent
         let reflectionDate = calendar.startOfDay(for: Date())
         let planningDate = calendar.date(byAdding: .day, value: 1, to: reflectionDate)!
@@ -12811,20 +13165,112 @@ final class DailyReflectionUseCasesTests: XCTestCase {
             habitRuntimeReadRepository: CapturingHabitRuntimeReadRepository(),
             calendarEventsProvider: calendarProvider
         )
+        let yesterday = calendar.date(byAdding: .day, value: -1, to: reflectionDate) ?? reflectionDate
+        XCTAssertNoThrow(
+            try coordinator.dailyReflectionStore.markCompleted(
+                on: yesterday,
+                completedAt: reflectionDate,
+                payload: nil as ReflectionPayload?
+            )
+        )
         let viewModel = DailyReflectPlanViewModel(useCaseCoordinator: coordinator, calendar: calendar)
 
-        let coreLoaded = await waitForCondition(timeout: 1.0) {
-            viewModel.loadState == .coreLoaded && viewModel.coreSnapshot != nil && viewModel.editablePlan == nil
+        let baselineLoaded = await waitForCondition(timeout: 1.0) {
+            viewModel.loadState == DailyReflectionLoadState.fullyLoaded
+                && viewModel.coreSnapshot != nil
+                && viewModel.editablePlan != nil
+                && viewModel.snapshot != nil
+                && viewModel.optionalContext?.status == .loading
         }
-        XCTAssertTrue(coreLoaded)
+        XCTAssertTrue(baselineLoaded)
 
-        let fullyLoaded = await waitForCondition(timeout: 3.0) {
-            viewModel.loadState == .fullyLoaded && viewModel.editablePlan != nil && viewModel.snapshot != nil
+        let timedOut = await waitForCondition(timeout: 2.0) {
+            if case .some(.degraded(_)) = viewModel.optionalContext?.status {
+                return true
+            }
+            return false
         }
-        XCTAssertTrue(fullyLoaded)
+        XCTAssertTrue(timedOut)
+        XCTAssertEqual(viewModel.coreSnapshot?.closedTasks.map(\.title), ["Finished"])
+        XCTAssertEqual(viewModel.coreSnapshot?.habitGrid.count, 0)
+        XCTAssertEqual(
+            viewModel.coreSnapshot?.narrativeSummary.planCardLine,
+            "You closed 1 task, and tomorrow can stay narrow."
+        )
         XCTAssertEqual(
             viewModel.optionalContext?.status,
             .degraded("Calendar context timed out. Suggestions use tasks and habits only.")
+        )
+    }
+
+    @MainActor
+    func testDailyReflectPlanViewModelPreservesSwappedTasksAfterCalendarEnrichment() async {
+        await ReflectionCalendarContextCacheStore.shared.clearAll()
+        let calendar = Calendar.autoupdatingCurrent
+        let reflectionDate = calendar.startOfDay(for: Date())
+        let planningDate = calendar.date(byAdding: .day, value: 1, to: reflectionDate)!
+        let tasks = [
+            TaskDefinition(title: "Task A", priority: .max, type: .morning, dueDate: reflectionDate, isComplete: false),
+            TaskDefinition(title: "Task B", priority: .high, type: .morning, dueDate: reflectionDate, isComplete: false),
+            TaskDefinition(title: "Task C", priority: .low, type: .morning, dueDate: planningDate, isComplete: false),
+            TaskDefinition(title: "Task D", priority: .low, type: .morning, dueDate: planningDate, isComplete: false),
+            TaskDefinition(title: "Task E", priority: .high, type: .morning, dueDate: planningDate, isComplete: false)
+        ]
+        let provider = DelayedCalendarEventsProviderStub(
+            events: [
+                TaskerCalendarEventSnapshot(
+                    id: "meeting",
+                    calendarID: "calendar",
+                    calendarTitle: "Primary",
+                    title: "Team meeting",
+                    startDate: planningDate.addingTimeInterval(10 * 60 * 60),
+                    endDate: planningDate.addingTimeInterval(11 * 60 * 60),
+                    isAllDay: false
+                )
+            ],
+            delayNanoseconds: 150_000_000
+        )
+        let coordinator = V3TestHarness.makeCoordinator(
+            taskDefinitionRepository: InMemoryTaskDefinitionRepositoryStub(seed: tasks),
+            taskReadModelRepository: InMemoryTaskReadModelRepositoryStub(tasks: tasks),
+            projectRepository: MockProjectRepository(projects: [Project.createInbox()]),
+            habitRuntimeReadRepository: CapturingHabitRuntimeReadRepository(),
+            calendarEventsProvider: provider
+        )
+        let yesterday = calendar.date(byAdding: .day, value: -1, to: reflectionDate) ?? reflectionDate
+        XCTAssertNoThrow(
+            try coordinator.dailyReflectionStore.markCompleted(
+                on: yesterday,
+                completedAt: reflectionDate,
+                payload: nil as ReflectionPayload?
+            )
+        )
+
+        let viewModel = DailyReflectPlanViewModel(useCaseCoordinator: coordinator, calendar: calendar)
+
+        let baselineLoaded = await waitForCondition(timeout: 1.0) {
+            viewModel.loadState == DailyReflectionLoadState.fullyLoaded
+                && viewModel.editablePlan != nil
+                && viewModel.optionalContext?.status == .loading
+        }
+        XCTAssertTrue(baselineLoaded)
+
+        guard let swapOption = viewModel.swapOptions(for: 0).first else {
+            XCTFail("Expected at least one swap option in baseline plan")
+            return
+        }
+
+        viewModel.swapTask(slotIndex: 0, with: swapOption)
+        XCTAssertEqual(viewModel.editablePlan?.topTasks.first?.id, swapOption.id)
+
+        let enrichmentLoaded = await waitForCondition(timeout: 2.0) {
+            viewModel.optionalContext?.status == .loaded
+        }
+        XCTAssertTrue(enrichmentLoaded)
+        XCTAssertEqual(viewModel.editablePlan?.topTasks.first?.id, swapOption.id)
+        XCTAssertEqual(
+            viewModel.editablePlan?.focusWindow,
+            viewModel.optionalContext?.suggestedPlan.focusWindow
         )
     }
 
@@ -12846,6 +13292,19 @@ final class DailyReflectionUseCasesTests: XCTestCase {
         }
 
         return condition()
+    }
+}
+
+private func makeReflectionMarks(
+    endingOn date: Date,
+    lastSevenStates: [HabitDayState]
+) -> [HabitDayMark] {
+    let calendar = Calendar.autoupdatingCurrent
+    return lastSevenStates.enumerated().compactMap { index, state in
+        guard let day = calendar.date(byAdding: .day, value: index - (lastSevenStates.count - 1), to: date) else {
+            return nil
+        }
+        return HabitDayMark(date: day, state: state)
     }
 }
 
@@ -12917,10 +13376,25 @@ private final class InMemoryGamificationRepositoryStub: GamificationRepositoryPr
 private final class DelayedCalendarEventsProviderStub: CalendarEventsProviderProtocol {
     private let events: [TaskerCalendarEventSnapshot]
     private let delayNanoseconds: UInt64
+    private let lock = NSLock()
+    private var _fetchEventsCallCount = 0
+    private var _lastRequestedCalendarIDs: Set<String> = []
 
     init(events: [TaskerCalendarEventSnapshot], delayNanoseconds: UInt64 = 0) {
         self.events = events
         self.delayNanoseconds = delayNanoseconds
+    }
+
+    var fetchEventsCallCount: Int {
+        lock.lock()
+        defer { lock.unlock() }
+        return _fetchEventsCallCount
+    }
+
+    var lastRequestedCalendarIDs: Set<String> {
+        lock.lock()
+        defer { lock.unlock() }
+        return _lastRequestedCalendarIDs
     }
 
     func authorizationStatus() -> TaskerCalendarAuthorizationStatus {
@@ -12940,14 +13414,57 @@ private final class DelayedCalendarEventsProviderStub: CalendarEventsProviderPro
     func fetchEvents(
         startDate _: Date,
         endDate _: Date,
-        calendarIDs _: Set<String>,
+        calendarIDs: Set<String>,
         completion: @escaping (Result<[TaskerCalendarEventSnapshot], Error>) -> Void
     ) {
+        lock.lock()
+        _fetchEventsCallCount += 1
+        _lastRequestedCalendarIDs = calendarIDs
+        lock.unlock()
         _Concurrency.Task {
             if delayNanoseconds > 0 {
                 try? await _Concurrency.Task.sleep(nanoseconds: delayNanoseconds)
             }
             completion(.success(events))
+        }
+    }
+
+    func storeChangedPublisher() -> AnyPublisher<Void, Never> {
+        Empty<Void, Never>().eraseToAnyPublisher()
+    }
+}
+
+private final class MainQueueCalendarEventsProviderStub: CalendarEventsProviderProtocol {
+    private let events: [TaskerCalendarEventSnapshot]
+
+    init(events: [TaskerCalendarEventSnapshot]) {
+        self.events = events
+    }
+
+    func authorizationStatus() -> TaskerCalendarAuthorizationStatus {
+        .authorized
+    }
+
+    func requestAccess(completion: @escaping (Result<Bool, Error>) -> Void) {
+        completion(.success(true))
+    }
+
+    func resetStoreStateAfterPermissionChange() {}
+
+    func fetchCalendars(completion: @escaping (Result<[TaskerCalendarSourceSnapshot], Error>) -> Void) {
+        DispatchQueue.main.async {
+            completion(.success([]))
+        }
+    }
+
+    func fetchEvents(
+        startDate _: Date,
+        endDate _: Date,
+        calendarIDs _: Set<String>,
+        completion: @escaping (Result<[TaskerCalendarEventSnapshot], Error>) -> Void
+    ) {
+        DispatchQueue.main.async {
+            completion(.success(self.events))
         }
     }
 

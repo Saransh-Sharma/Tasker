@@ -309,6 +309,7 @@ enum AccessibilityIdentifiers {
     enum HabitBoard {
         static let view = "habitBoard.view"
         static let rangeTitle = "habitBoard.rangeTitle"
+        static let rangeSubtitle = "habitBoard.rangeSubtitle"
         static let previousWindow = "habitBoard.window.previous"
         static let nextWindow = "habitBoard.window.next"
         static let pinnedHeader = "habitBoard.pinned.header"
@@ -326,6 +327,8 @@ enum AccessibilityIdentifiers {
     enum HabitDetail {
         static let view = "habitDetail.view"
         static let grid = "habitDetail.grid"
+        static let contextPrimary = "habitDetail.context.primary"
+        static let contextSecondary = "habitDetail.context.secondary"
         static let detailsDisclosure = "habitDetail.detailsDisclosure"
         static let helperText = "habitDetail.helperText"
         static let editButton = "habitDetail.editButton"

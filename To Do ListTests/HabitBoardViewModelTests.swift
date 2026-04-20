@@ -41,9 +41,14 @@ final class HabitBoardViewModelTests: XCTestCase {
 
     func testLayoutMetricsMapContainerWidthsToTargetColumnCounts() {
         XCTAssertEqual(HabitBoardLayoutMetrics.forContainerWidth(375, dynamicTypeSize: .medium).visibleColumns, 7)
-        XCTAssertEqual(HabitBoardLayoutMetrics.forContainerWidth(430, dynamicTypeSize: .medium).visibleColumns, 8)
-        XCTAssertEqual(HabitBoardLayoutMetrics.forContainerWidth(700, dynamicTypeSize: .medium).visibleColumns, 10)
-        XCTAssertEqual(HabitBoardLayoutMetrics.forContainerWidth(1024, dynamicTypeSize: .medium).visibleColumns, 12)
+        XCTAssertEqual(HabitBoardLayoutMetrics.forContainerWidth(430, dynamicTypeSize: .medium).visibleColumns, 7)
+        XCTAssertEqual(HabitBoardLayoutMetrics.forContainerWidth(700, dynamicTypeSize: .medium).visibleColumns, 7)
+        XCTAssertEqual(HabitBoardLayoutMetrics.forContainerWidth(1024, dynamicTypeSize: .medium).visibleColumns, 7)
+    }
+
+    func testLayoutMetricsKeepSevenColumnsForAccessibilityDynamicType() {
+        XCTAssertEqual(HabitBoardLayoutMetrics.forContainerWidth(375, dynamicTypeSize: .accessibility1).visibleColumns, 7)
+        XCTAssertEqual(HabitBoardLayoutMetrics.forContainerWidth(834, dynamicTypeSize: .accessibility3).visibleColumns, 7)
     }
 
     func testDisplayDepthRemapRampsVisibleRunFromOne() {
