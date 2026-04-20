@@ -735,6 +735,7 @@ public extension ModelConfiguration {
         extraEOSTokens: LLMModelStopTokenRegistry.qwenStyle
     )
 
+    // Bonsai 1-bit requires Prism's MLX Swift fork with 1-bit quantization kernels.
     static let bonsai_1_7b_mlx_1bit = ModelConfiguration(
         id: "prism-ml/Bonsai-1.7B-mlx-1bit"
     )
