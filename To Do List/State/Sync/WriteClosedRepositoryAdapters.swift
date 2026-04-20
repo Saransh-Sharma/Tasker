@@ -477,6 +477,14 @@ final class WriteClosedReminderRepositoryAdapter: ReminderRepositoryProtocol {
         base.fetchDeliveries(reminderID: reminderID, completion: completion)
     }
 
+    func fetchDeliveryResponseAggregate(
+        from startDate: Date?,
+        to endDate: Date?,
+        completion: @escaping (Result<ReminderDeliveryResponseAggregate, Error>) -> Void
+    ) {
+        base.fetchDeliveryResponseAggregate(from: startDate, to: endDate, completion: completion)
+    }
+
     func saveDelivery(_ delivery: ReminderDeliveryDefinition, completion: @escaping (Result<ReminderDeliveryDefinition, Error>) -> Void) {
         gate.performWrite(operation: "ReminderRepository.saveDelivery", completion: completion) {
             self.base.saveDelivery(delivery, completion: completion)
