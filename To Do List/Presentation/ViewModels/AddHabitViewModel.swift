@@ -504,10 +504,10 @@ public final class AddHabitViewModel: ObservableObject {
 fileprivate func habitReminderWindowValidationError(start: String?, end: String?) -> String? {
     let normalizedStart = start?.normalizedHHmm
     let normalizedEnd = end?.normalizedHHmm
-    if let start, normalizedStart == nil {
+    if start != nil, normalizedStart == nil {
         return "Reminder start must use HH:mm."
     }
-    if let end, normalizedEnd == nil {
+    if end != nil, normalizedEnd == nil {
         return "Reminder end must use HH:mm."
     }
     if let startMinutes = normalizedStart?.minutesSinceMidnight,

@@ -113,13 +113,16 @@ public final class DailyReflectPlanViewModel: ObservableObject {
 
     private let loadCoordinator: DailyReflectionLoadCoordinatorProtocol
     private let saveUseCase: SaveDailyReflectionAndPlanUseCase
+    private let dailyReflectionStore: DailyReflectionStoreProtocol
     private let preferredReflectionDate: Date?
     private let analyticsTracker: ((String, [String: String]) -> Void)?
     private let onComplete: ((SaveDailyReflectionAndPlanResult) -> Void)?
     private let calendar: Calendar
     private var openedAt: Date
     private var loadTask: Task<Void, Never>?
+    private var enrichmentTask: Task<Void, Never>?
     private var currentLoadID = UUID()
+    private static let enrichmentTimeoutSeconds: TimeInterval = 0.8
 
     public init(
         useCaseCoordinator: UseCaseCoordinator,
@@ -130,6 +133,7 @@ public final class DailyReflectPlanViewModel: ObservableObject {
     ) {
         self.loadCoordinator = useCaseCoordinator.dailyReflectionLoadCoordinator
         self.saveUseCase = useCaseCoordinator.saveDailyReflectionAndPlan
+        self.dailyReflectionStore = useCaseCoordinator.dailyReflectionStore
         self.preferredReflectionDate = preferredReflectionDate
         self.analyticsTracker = analyticsTracker
         self.onComplete = onComplete
@@ -141,6 +145,7 @@ public final class DailyReflectPlanViewModel: ObservableObject {
 
     deinit {
         loadTask?.cancel()
+        enrichmentTask?.cancel()
     }
 
     public var isLoading: Bool {
@@ -164,6 +169,7 @@ public final class DailyReflectPlanViewModel: ObservableObject {
 
         openedAt = Date()
         currentLoadID = UUID()
+        TaskerPerformanceTrace.event("ReflectionShellShown")
         errorMessage = nil
         successMessage = nil
         target = nil
@@ -201,13 +207,76 @@ public final class DailyReflectPlanViewModel: ObservableObject {
                     self.baseAnalyticsMetadata(mode: coreBundle.coreSnapshot.mode)
                 )
 
-                let optionalContext = await loadCoordinator.loadOptionalContext(target: resolvedTarget, coreBundle: coreBundle)
+                let baselineContext = await loadCoordinator.makeBaselineOptionalContext(
+                    target: resolvedTarget,
+                    coreBundle: coreBundle
+                )
                 guard self.isActiveLoad(loadID) else { return }
 
-                self.optionalContext = optionalContext
-                self.snapshot = coreBundle.coreSnapshot.makeSnapshot(optionalContext: optionalContext)
-                self.editablePlan = EditableDailyPlan(planningDate: resolvedTarget.planningDate, suggestion: optionalContext.suggestedPlan)
+                self.optionalContext = baselineContext
+                self.snapshot = coreBundle.coreSnapshot.makeSnapshot(optionalContext: baselineContext)
+                self.editablePlan = self.warmStartPlan(
+                    planningDate: resolvedTarget.planningDate,
+                    baselineContext: baselineContext
+                )
+                TaskerPerformanceTrace.event("ReflectionBaselinePlanReady")
                 self.loadState = .fullyLoaded
+
+                var shouldRefreshInBackground = true
+                if let cachedContext = await self.loadCoordinator.loadCachedOrStaleContext(
+                    target: resolvedTarget,
+                    coreBundle: coreBundle
+                ) {
+                    guard self.isActiveLoad(loadID) else { return }
+                    self.optionalContext = cachedContext.optionalContext
+                    self.snapshot = coreBundle.coreSnapshot.makeSnapshot(optionalContext: cachedContext.optionalContext)
+                    if var plan = self.editablePlan {
+                        plan = self.mergeEnrichmentMetadata(
+                            into: plan,
+                            suggestion: cachedContext.optionalContext.suggestedPlan
+                        )
+                        self.editablePlan = plan
+                    }
+                    TaskerPerformanceTrace.event("ReflectionEnrichmentApplied")
+                    shouldRefreshInBackground = cachedContext.isStale
+                }
+
+                self.enrichmentTask?.cancel()
+                guard shouldRefreshInBackground else {
+                    self.enrichmentTask = nil
+                    return
+                }
+                self.enrichmentTask = Task { [weak self] in
+                    guard let self else { return }
+                    let enrichedContext = await self.loadCoordinator.refreshContextInBackground(
+                        target: resolvedTarget,
+                        coreBundle: coreBundle,
+                        timeoutSeconds: Self.enrichmentTimeoutSeconds
+                    )
+                    guard self.isActiveLoad(loadID) else { return }
+
+                    self.optionalContext = enrichedContext
+                    self.snapshot = coreBundle.coreSnapshot.makeSnapshot(optionalContext: enrichedContext)
+
+                    if var plan = self.editablePlan {
+                        plan = self.mergeEnrichmentMetadata(
+                            into: plan,
+                            suggestion: enrichedContext.suggestedPlan
+                        )
+                        self.editablePlan = plan
+                    }
+
+                    switch enrichedContext.status {
+                    case .loaded:
+                        TaskerPerformanceTrace.event("ReflectionEnrichmentApplied")
+                    case .degraded(let message):
+                        if message.localizedCaseInsensitiveContains("timed out") {
+                            TaskerPerformanceTrace.event("ReflectionEnrichmentTimedOut")
+                        }
+                    case .loading:
+                        break
+                    }
+                }
             } catch is CancellationError {
                 guard self.isActiveLoad(loadID) else { return }
             } catch {
@@ -221,6 +290,8 @@ public final class DailyReflectPlanViewModel: ObservableObject {
     public func cancelLoading() {
         loadTask?.cancel()
         loadTask = nil
+        enrichmentTask?.cancel()
+        enrichmentTask = nil
     }
 
     public func toggleMood(_ mood: ReflectionMood) {
@@ -352,6 +423,45 @@ public final class DailyReflectPlanViewModel: ObservableObject {
 
     private func isActiveLoad(_ loadID: UUID) -> Bool {
         !Task.isCancelled && loadID == currentLoadID
+    }
+
+    private func warmStartPlan(
+        planningDate: Date,
+        baselineContext: DailyReflectionOptionalContext
+    ) -> EditableDailyPlan {
+        guard let draft = dailyReflectionStore.fetchPlanDraft(on: planningDate) else {
+            return EditableDailyPlan(
+                planningDate: planningDate,
+                suggestion: baselineContext.suggestedPlan
+            )
+        }
+
+        return EditableDailyPlan(
+            planningDate: planningDate,
+            topTasks: draft.topTasks,
+            swapPoolsBySlot: baselineContext.suggestedPlan.swapPoolsBySlot,
+            focusWindow: draft.suggestedFocusBlock,
+            protectedHabitID: draft.protectedHabitID,
+            protectedHabitTitle: draft.protectedHabitTitle,
+            protectedHabitStreak: draft.protectedHabitStreak,
+            primaryRisk: draft.primaryRisk,
+            primaryRiskDetail: draft.primaryRiskDetail,
+            source: draft.source
+        )
+    }
+
+    private func mergeEnrichmentMetadata(
+        into plan: EditableDailyPlan,
+        suggestion: DailyPlanSuggestion
+    ) -> EditableDailyPlan {
+        var merged = plan
+        merged.focusWindow = suggestion.focusWindow
+        merged.protectedHabitID = suggestion.protectedHabitID
+        merged.protectedHabitTitle = suggestion.protectedHabitTitle
+        merged.protectedHabitStreak = suggestion.protectedHabitStreak
+        merged.primaryRisk = suggestion.primaryRisk
+        merged.primaryRiskDetail = suggestion.primaryRiskDetail
+        return merged
     }
 
     private func trackChipSelected(kind: String, value: String) {

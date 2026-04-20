@@ -455,6 +455,9 @@ public final class HomeViewModel: ObservableObject {
     @Published private(set) var homeCalendarSnapshot: HomeCalendarSnapshot = .empty {
         didSet { scheduleHomeRenderStateRefresh() }
     }
+    @Published private(set) var catchUpDailyReflectionEntryPreview: DailyReflectionEntryState? {
+        didSet { scheduleHomeRenderStateRefresh() }
+    }
 
     @Published private(set) var homeRenderTransaction: HomeRenderTransaction = .empty
 
@@ -565,9 +568,17 @@ public final class HomeViewModel: ObservableObject {
     private var cachedMergedHabitRows: HomeDerivedHabitRowsCache?
     private var evaInsightsGeneration: Int = 0
     private var lastTaskListSnapshotRevision: HomeDataRevision?
+    private var catchUpReflectionPreviewTask: Task<Void, Never>?
+    private var catchUpReflectionPreviewKey: String?
+    private var reflectionContextPrefetchTask: Task<Void, Never>?
+    private var reflectionContextPrefetchKey: String?
+    private static let reflectionContextPrefetchDelayNanoseconds: UInt64 = 250_000_000
+    private static let reflectionContextPrefetchTimeoutSeconds: TimeInterval = 0.8
 
     deinit {
         pendingRecurringTopUpWorkItem?.cancel()
+        catchUpReflectionPreviewTask?.cancel()
+        reflectionContextPrefetchTask?.cancel()
     }
 
     var currentDataRevision: HomeDataRevision {
@@ -684,6 +695,7 @@ public final class HomeViewModel: ObservableObject {
     }
 
     private func refreshHomeRenderStates() {
+        refreshDailyReflectionEntryPreviewIfNeeded()
         let transaction = HomeRenderTransaction(
             chrome: buildHomeChromeState(),
             tasks: buildHomeTasksState(),
@@ -805,6 +817,142 @@ public final class HomeViewModel: ObservableObject {
 
         switch target.mode {
         case .sameDay:
+            return makeSameDayReflectionEntryState(target: target)
+        case .catchUpYesterday:
+            if let catchUpDailyReflectionEntryPreview,
+               catchUpDailyReflectionEntryPreview.mode == target.mode,
+               catchUpDailyReflectionEntryPreview.reflectionDate == target.reflectionDate,
+               catchUpDailyReflectionEntryPreview.planningDate == target.planningDate {
+                return catchUpDailyReflectionEntryPreview
+            }
+            return makeBaseDailyReflectionEntryState(target: target)
+        }
+    }
+
+    private func refreshDailyReflectionEntryPreviewIfNeeded() {
+        guard activeScope == .today,
+              let target = useCaseCoordinator.resolveDailyReflectionTarget.execute() else {
+            clearCatchUpReflectionPreview()
+            clearReflectionContextPrefetch()
+            return
+        }
+
+        scheduleReflectionContextPrefetchIfNeeded(target: target)
+
+        guard target.mode == .catchUpYesterday else {
+            clearCatchUpReflectionPreview()
+            return
+        }
+
+        let previewKey = "\(target.mode.rawValue):\(target.reflectionDate.timeIntervalSince1970):\(target.planningDate.timeIntervalSince1970)"
+        guard catchUpReflectionPreviewKey != previewKey else { return }
+        catchUpReflectionPreviewTask?.cancel()
+        catchUpReflectionPreviewKey = previewKey
+
+        catchUpReflectionPreviewTask = Task { [weak self] in
+            guard let self else { return }
+            do {
+                let bundle = try await useCaseCoordinator.dailyReflectionLoadCoordinator.loadCore(target: target)
+                guard Task.isCancelled == false else { return }
+                await MainActor.run {
+                    guard self.catchUpReflectionPreviewKey == previewKey else { return }
+                    self.catchUpDailyReflectionEntryPreview = self.makeLoadedReflectionEntryState(
+                        target: target,
+                        coreSnapshot: bundle.coreSnapshot
+                    )
+                }
+            } catch {
+                await MainActor.run {
+                    if self.catchUpReflectionPreviewKey == previewKey {
+                        self.catchUpReflectionPreviewKey = nil
+                    }
+                }
+            }
+        }
+    }
+
+    private func clearCatchUpReflectionPreview() {
+        catchUpReflectionPreviewTask?.cancel()
+        catchUpReflectionPreviewTask = nil
+        catchUpReflectionPreviewKey = nil
+        if catchUpDailyReflectionEntryPreview != nil {
+            catchUpDailyReflectionEntryPreview = nil
+        }
+    }
+
+    private func clearReflectionContextPrefetch() {
+        reflectionContextPrefetchTask?.cancel()
+        reflectionContextPrefetchTask = nil
+        reflectionContextPrefetchKey = nil
+    }
+
+    private func scheduleReflectionContextPrefetchIfNeeded(target: DailyReflectionTarget) {
+        let prefetchKey = "\(target.mode.rawValue):\(target.planningDate.timeIntervalSince1970)"
+        guard reflectionContextPrefetchKey != prefetchKey else { return }
+        reflectionContextPrefetchTask?.cancel()
+        reflectionContextPrefetchKey = prefetchKey
+
+        reflectionContextPrefetchTask = Task(priority: .utility) { [weak self] in
+            guard let self else { return }
+            try? await _Concurrency.Task.sleep(nanoseconds: Self.reflectionContextPrefetchDelayNanoseconds)
+            guard Task.isCancelled == false else { return }
+            guard self.activeScope == .today else { return }
+
+            await self.useCaseCoordinator.dailyReflectionLoadCoordinator.prefetchContext(
+                for: target,
+                timeoutSeconds: Self.reflectionContextPrefetchTimeoutSeconds
+            )
+        }
+    }
+
+    private func makeSameDayReflectionEntryState(target: DailyReflectionTarget) -> DailyReflectionEntryState {
+        let closedTasks = reflectionClosedTasks(from: completedTasks)
+        let habitRows = currentAllHabitRows()
+        let habitGrid = reflectionHabitGrid(from: habitRows)
+        let narrativeSummary = ReflectionNarrativeSummary.make(
+            completedCount: completedTasks.count,
+            keptCount: habitRows.filter { $0.state == .completedToday }.count,
+            missedTitles: habitRows
+                .filter { $0.state == .overdue || $0.state == .lapsedToday || $0.state == .skippedToday }
+                .map(\.title)
+        )
+
+        return DailyReflectionEntryState(
+            mode: target.mode,
+            reflectionDate: target.reflectionDate,
+            planningDate: target.planningDate,
+            title: "Reflect & plan",
+            subtitle: "Close today cleanly, then shape tomorrow.",
+            summaryText: narrativeSummary.homeCardLine,
+            badgeText: nil,
+            closedTasks: closedTasks,
+            habitGrid: habitGrid,
+            narrativeSummary: narrativeSummary
+        )
+    }
+
+    private func makeLoadedReflectionEntryState(
+        target: DailyReflectionTarget,
+        coreSnapshot: DailyReflectionCoreSnapshot
+    ) -> DailyReflectionEntryState {
+        let base = makeBaseDailyReflectionEntryState(target: target)
+        return DailyReflectionEntryState(
+            mode: base.mode,
+            reflectionDate: base.reflectionDate,
+            planningDate: base.planningDate,
+            title: base.title,
+            subtitle: base.subtitle,
+            summaryText: coreSnapshot.narrativeSummary.homeCardLine,
+            badgeText: base.badgeText,
+            closedTasks: coreSnapshot.closedTasks,
+            habitGrid: coreSnapshot.habitGrid,
+            narrativeSummary: coreSnapshot.narrativeSummary
+        )
+    }
+
+    private func makeBaseDailyReflectionEntryState(target: DailyReflectionTarget) -> DailyReflectionEntryState {
+        switch target.mode {
+        case .sameDay:
             return DailyReflectionEntryState(
                 mode: target.mode,
                 reflectionDate: target.reflectionDate,
@@ -824,6 +972,56 @@ public final class HomeViewModel: ObservableObject {
                 summaryText: "Reflect on yesterday, then keep today's board focused with a smaller plan.",
                 badgeText: "Yesterday"
             )
+        }
+    }
+
+    private func reflectionClosedTasks(from tasks: [TaskDefinition]) -> [ReflectionTaskMiniRow] {
+        tasks
+            .sorted { lhs, rhs in
+                if lhs.priority.scorePoints != rhs.priority.scorePoints {
+                    return lhs.priority.scorePoints > rhs.priority.scorePoints
+                }
+                return lhs.title.localizedCaseInsensitiveCompare(rhs.title) == .orderedAscending
+            }
+            .prefix(3)
+            .map { task in
+                ReflectionTaskMiniRow(id: task.id, title: task.title, projectName: task.projectName)
+            }
+    }
+
+    private func reflectionHabitGrid(from rows: [HomeHabitRow]) -> [ReflectionHabitMiniRow] {
+        rows
+            .sorted { lhs, rhs in
+                let lhsRisk = reflectionHabitRiskRank(lhs.riskState)
+                let rhsRisk = reflectionHabitRiskRank(rhs.riskState)
+                if lhsRisk != rhsRisk {
+                    return lhsRisk > rhsRisk
+                }
+                if lhs.currentStreak != rhs.currentStreak {
+                    return lhs.currentStreak > rhs.currentStreak
+                }
+                return lhs.title.localizedCaseInsensitiveCompare(rhs.title) == .orderedAscending
+            }
+            .prefix(4)
+            .map { row in
+                ReflectionHabitMiniRow(
+                    id: row.habitID,
+                    title: row.title,
+                    colorFamily: HabitColorFamily.family(for: row.accentHex),
+                    currentStreak: row.currentStreak,
+                    last7Days: Array(row.last14Days.suffix(7))
+                )
+            }
+    }
+
+    private func reflectionHabitRiskRank(_ risk: HabitRiskState) -> Int {
+        switch risk {
+        case .broken:
+            return 2
+        case .atRisk:
+            return 1
+        case .stable:
+            return 0
         }
     }
 

@@ -1,4 +1,5 @@
 import Foundation
+import SwiftData
 
 public enum DailyReflectionUseCaseError: LocalizedError {
     case unavailableTarget
@@ -78,22 +79,247 @@ public final class ResolveDailyReflectionTargetUseCase {
     }
 }
 
+struct ReflectionCalendarContextSnapshot: Equatable, Sendable {
+    let eventCount: Int
+    let busyBlocks: [TaskerCalendarBusyBlock]
+    let bestFocusWindow: DateInterval?
+    let firstHardStop: Date?
+    let meetingMinutes: Int
+}
+
+private struct ReflectionCalendarBusyBlockPayload: Codable, Equatable {
+    let startDate: Date
+    let endDate: Date
+
+    init(_ block: TaskerCalendarBusyBlock) {
+        self.startDate = block.startDate
+        self.endDate = block.endDate
+    }
+
+    var model: TaskerCalendarBusyBlock {
+        TaskerCalendarBusyBlock(startDate: startDate, endDate: endDate)
+    }
+}
+
+private struct ReflectionCalendarContextCachePayload: Codable, Equatable {
+    let eventCount: Int
+    let meetingMinutes: Int
+    let firstHardStop: Date?
+    let bestFocusWindow: DateInterval?
+    let busyBlocks: [ReflectionCalendarBusyBlockPayload]
+
+    init(snapshot: ReflectionCalendarContextSnapshot) {
+        eventCount = snapshot.eventCount
+        meetingMinutes = snapshot.meetingMinutes
+        firstHardStop = snapshot.firstHardStop
+        bestFocusWindow = snapshot.bestFocusWindow
+        busyBlocks = snapshot.busyBlocks.map(ReflectionCalendarBusyBlockPayload.init)
+    }
+
+    var snapshot: ReflectionCalendarContextSnapshot {
+        ReflectionCalendarContextSnapshot(
+            eventCount: eventCount,
+            busyBlocks: busyBlocks.map(\.model),
+            bestFocusWindow: bestFocusWindow,
+            firstHardStop: firstHardStop,
+            meetingMinutes: meetingMinutes
+        )
+    }
+}
+
+struct ReflectionCalendarContextCacheKey: Equatable, Hashable, Sendable {
+    let dayStart: Date
+    let dayEnd: Date
+    let timezoneID: String
+    let selectedCalendarIDsHash: String
+
+    var storageKey: String {
+        let startStamp = Int(dayStart.timeIntervalSince1970)
+        let endStamp = Int(dayEnd.timeIntervalSince1970)
+        return "\(startStamp)|\(endStamp)|\(timezoneID)|\(selectedCalendarIDsHash)"
+    }
+}
+
+struct ReflectionCalendarContextCacheLookup: Equatable, Sendable {
+    let snapshot: ReflectionCalendarContextSnapshot
+    let isStale: Bool
+}
+
+protocol ReflectionCalendarContextCacheStoreProtocol: Sendable {
+    func load(
+        key: ReflectionCalendarContextCacheKey,
+        freshnessSeconds: TimeInterval,
+        now: Date
+    ) async -> ReflectionCalendarContextCacheLookup?
+    func save(
+        snapshot: ReflectionCalendarContextSnapshot,
+        key: ReflectionCalendarContextCacheKey,
+        cachedAt: Date
+    ) async
+}
+
+@Model
+private final class ReflectionCalendarContextCacheRecord {
+    var storageKey: String
+    var dayStart: Date
+    var dayEnd: Date
+    var timezoneID: String
+    var selectedCalendarIDsHash: String
+    var cachedAt: Date
+    var payloadData: Data
+
+    init(
+        storageKey: String,
+        dayStart: Date,
+        dayEnd: Date,
+        timezoneID: String,
+        selectedCalendarIDsHash: String,
+        cachedAt: Date,
+        payloadData: Data
+    ) {
+        self.storageKey = storageKey
+        self.dayStart = dayStart
+        self.dayEnd = dayEnd
+        self.timezoneID = timezoneID
+        self.selectedCalendarIDsHash = selectedCalendarIDsHash
+        self.cachedAt = cachedAt
+        self.payloadData = payloadData
+    }
+}
+
+private enum ReflectionCalendarContextCacheDataController {
+    static let shared: ModelContainer? = {
+        let fileManager = FileManager.default
+        let appSupportURL = fileManager.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
+            ?? URL(fileURLWithPath: NSTemporaryDirectory(), isDirectory: true)
+        try? fileManager.createDirectory(at: appSupportURL, withIntermediateDirectories: true)
+        let storeURL = appSupportURL.appendingPathComponent("reflection-calendar-context.store")
+        let configuration = ModelConfiguration(url: storeURL, cloudKitDatabase: .none)
+        return try? ModelContainer(
+            for: ReflectionCalendarContextCacheRecord.self,
+            configurations: configuration
+        )
+    }()
+}
+
+actor ReflectionCalendarContextCacheStore: ReflectionCalendarContextCacheStoreProtocol {
+    static let shared = ReflectionCalendarContextCacheStore()
+
+    private let container: ModelContainer?
+    private let encoder = JSONEncoder()
+    private let decoder = JSONDecoder()
+    private var inMemoryFallback: [String: (snapshot: ReflectionCalendarContextSnapshot, cachedAt: Date)] = [:]
+
+    init(container: ModelContainer? = ReflectionCalendarContextCacheDataController.shared) {
+        self.container = container
+    }
+
+    func load(
+        key: ReflectionCalendarContextCacheKey,
+        freshnessSeconds: TimeInterval,
+        now: Date
+    ) async -> ReflectionCalendarContextCacheLookup? {
+        if let container {
+            let context = ModelContext(container)
+            let descriptor = FetchDescriptor<ReflectionCalendarContextCacheRecord>()
+            if let records = try? context.fetch(descriptor),
+               let record = records.first(where: { $0.storageKey == key.storageKey }),
+               let payload = try? decoder.decode(ReflectionCalendarContextCachePayload.self, from: record.payloadData) {
+                let age = max(0, now.timeIntervalSince(record.cachedAt))
+                return ReflectionCalendarContextCacheLookup(
+                    snapshot: payload.snapshot,
+                    isStale: age > freshnessSeconds
+                )
+            }
+        }
+
+        guard let fallback = inMemoryFallback[key.storageKey] else {
+            return nil
+        }
+        let age = max(0, now.timeIntervalSince(fallback.cachedAt))
+        return ReflectionCalendarContextCacheLookup(
+            snapshot: fallback.snapshot,
+            isStale: age > freshnessSeconds
+        )
+    }
+
+    func save(
+        snapshot: ReflectionCalendarContextSnapshot,
+        key: ReflectionCalendarContextCacheKey,
+        cachedAt: Date
+    ) async {
+        let payload = ReflectionCalendarContextCachePayload(snapshot: snapshot)
+        guard let data = try? encoder.encode(payload) else { return }
+
+        if let container {
+            let context = ModelContext(container)
+            let descriptor = FetchDescriptor<ReflectionCalendarContextCacheRecord>()
+            var records = (try? context.fetch(descriptor)) ?? []
+            if let existing = records.first(where: { $0.storageKey == key.storageKey }) {
+                existing.cachedAt = cachedAt
+                existing.payloadData = data
+                existing.dayStart = key.dayStart
+                existing.dayEnd = key.dayEnd
+                existing.timezoneID = key.timezoneID
+                existing.selectedCalendarIDsHash = key.selectedCalendarIDsHash
+                for duplicate in records where duplicate.storageKey == key.storageKey && duplicate !== existing {
+                    context.delete(duplicate)
+                }
+            } else {
+                context.insert(
+                    ReflectionCalendarContextCacheRecord(
+                        storageKey: key.storageKey,
+                        dayStart: key.dayStart,
+                        dayEnd: key.dayEnd,
+                        timezoneID: key.timezoneID,
+                        selectedCalendarIDsHash: key.selectedCalendarIDsHash,
+                        cachedAt: cachedAt,
+                        payloadData: data
+                    )
+                )
+            }
+
+            let pruneBefore = cachedAt.addingTimeInterval(-(7 * 24 * 60 * 60))
+            records = (try? context.fetch(descriptor)) ?? records
+            for record in records where record.cachedAt < pruneBefore {
+                context.delete(record)
+            }
+
+            try? context.save()
+        }
+
+        inMemoryFallback[key.storageKey] = (snapshot: snapshot, cachedAt: cachedAt)
+    }
+
+    func clearAll() async {
+        inMemoryFallback.removeAll()
+        guard let container else { return }
+        let context = ModelContext(container)
+        let descriptor = FetchDescriptor<ReflectionCalendarContextCacheRecord>()
+        guard let records = try? context.fetch(descriptor) else { return }
+        for record in records {
+            context.delete(record)
+        }
+        try? context.save()
+    }
+}
+
 public final class BuildNextDayPlanSuggestionUseCase {
     public struct CalendarContext: Equatable {
-        public let events: [TaskerCalendarEventSnapshot]
+        public let eventCount: Int
         public let busyBlocks: [TaskerCalendarBusyBlock]
         public let bestFocusWindow: DateInterval?
         public let firstHardStop: Date?
         public let meetingMinutes: Int
 
         public init(
-            events: [TaskerCalendarEventSnapshot],
+            eventCount: Int,
             busyBlocks: [TaskerCalendarBusyBlock],
             bestFocusWindow: DateInterval?,
             firstHardStop: Date?,
             meetingMinutes: Int
         ) {
-            self.events = events
+            self.eventCount = eventCount
             self.busyBlocks = busyBlocks
             self.bestFocusWindow = bestFocusWindow
             self.firstHardStop = firstHardStop
@@ -111,18 +337,58 @@ public final class BuildNextDayPlanSuggestionUseCase {
         }
     }
 
+    public enum CachedCalendarContextLookup: Equatable {
+        case fresh(CalendarContext)
+        case stale(CalendarContext)
+        case miss
+    }
+
     private let calendarEventsProvider: CalendarEventsProviderProtocol?
-    private let buildCalendarBusyBlocks: BuildCalendarBusyBlocksUseCase
     private let calendar: Calendar
+    private let contextBuildQueue: DispatchQueue
+    private let workspacePreferencesStore: TaskerWorkspacePreferencesStore
+    private let calendarContextCacheStore: ReflectionCalendarContextCacheStoreProtocol
+    private let nowProvider: () -> Date
+    private let mergeGapThreshold: TimeInterval
 
     public init(
         calendarEventsProvider: CalendarEventsProviderProtocol?,
         buildCalendarBusyBlocks: BuildCalendarBusyBlocksUseCase = BuildCalendarBusyBlocksUseCase(),
-        calendar: Calendar = .autoupdatingCurrent
+        calendar: Calendar = .autoupdatingCurrent,
+        contextBuildQueue: DispatchQueue = DispatchQueue(
+            label: "com.tasker.reflection.calendar-context-build",
+            qos: .userInitiated
+        )
+    ) {
+        _ = buildCalendarBusyBlocks
+        self.calendarEventsProvider = calendarEventsProvider
+        self.calendar = calendar
+        self.contextBuildQueue = contextBuildQueue
+        self.workspacePreferencesStore = .shared
+        self.calendarContextCacheStore = ReflectionCalendarContextCacheStore.shared
+        self.nowProvider = Date.init
+        self.mergeGapThreshold = 5 * 60
+    }
+
+    init(
+        calendarEventsProvider: CalendarEventsProviderProtocol?,
+        calendar: Calendar = .autoupdatingCurrent,
+        contextBuildQueue: DispatchQueue = DispatchQueue(
+            label: "com.tasker.reflection.calendar-context-build",
+            qos: .userInitiated
+        ),
+        workspacePreferencesStore: TaskerWorkspacePreferencesStore = .shared,
+        calendarContextCacheStore: ReflectionCalendarContextCacheStoreProtocol = ReflectionCalendarContextCacheStore.shared,
+        mergeGapThreshold: TimeInterval = 5 * 60,
+        nowProvider: @escaping () -> Date = Date.init
     ) {
         self.calendarEventsProvider = calendarEventsProvider
-        self.buildCalendarBusyBlocks = buildCalendarBusyBlocks
         self.calendar = calendar
+        self.contextBuildQueue = contextBuildQueue
+        self.workspacePreferencesStore = workspacePreferencesStore
+        self.calendarContextCacheStore = calendarContextCacheStore
+        self.nowProvider = nowProvider
+        self.mergeGapThreshold = max(0, mergeGapThreshold)
     }
 
     public func execute(
@@ -175,6 +441,13 @@ public final class BuildNextDayPlanSuggestionUseCase {
             )
         }
 
+        let query = calendarContextQuery(for: planningDate)
+        guard query.selectedCalendarIDs.isEmpty == false else {
+            return CalendarContextLoadResult(
+                context: nil,
+                status: .degraded("Calendar context unavailable. Suggestions use tasks and habits only.")
+            )
+        }
         let interval = TaskerPerformanceTrace.begin("ReflectionOptionalLoad")
         return await withCheckedContinuation { continuation in
             let lock = NSLock()
@@ -189,9 +462,21 @@ public final class BuildNextDayPlanSuggestionUseCase {
                 continuation.resume(returning: result)
             }
 
+            func shouldContinue() -> Bool {
+                lock.lock()
+                defer { lock.unlock() }
+                return didFinish == false
+            }
+
             let timeoutNanoseconds = UInt64(max(0.25, timeoutSeconds) * 1_000_000_000)
             let timeoutTask = _Concurrency.Task {
-                try? await _Concurrency.Task.sleep(nanoseconds: timeoutNanoseconds)
+                do {
+                    try await _Concurrency.Task.sleep(nanoseconds: timeoutNanoseconds)
+                } catch {
+                    return
+                }
+                guard _Concurrency.Task.isCancelled == false else { return }
+                TaskerPerformanceTrace.event("ReflectionEnrichmentTimedOut")
                 finish(
                     CalendarContextLoadResult(
                         context: nil,
@@ -200,32 +485,85 @@ public final class BuildNextDayPlanSuggestionUseCase {
                 )
             }
 
-            let dayStart = calendar.startOfDay(for: planningDate)
-            let dayEnd = calendar.date(byAdding: .day, value: 1, to: dayStart) ?? dayStart
             let fetchInterval = TaskerPerformanceTrace.begin("ReflectionCalendarFetch")
-            calendarEventsProvider.fetchEvents(startDate: dayStart, endDate: dayEnd, calendarIDs: []) { result in
-                DispatchQueue.global(qos: .userInitiated).async {
-                    defer { TaskerPerformanceTrace.end(fetchInterval) }
-                    timeoutTask.cancel()
-                    switch result {
-                    case .failure:
-                        finish(
-                            CalendarContextLoadResult(
-                                context: nil,
-                                status: .degraded("Calendar context unavailable. Suggestions use tasks and habits only.")
+            calendarEventsProvider.fetchEventSlices(
+                startDate: query.dayStart,
+                endDate: query.dayEnd,
+                calendarIDs: query.selectedCalendarIDs
+            ) { result in
+                defer { TaskerPerformanceTrace.end(fetchInterval) }
+                timeoutTask.cancel()
+                switch result {
+                case .failure:
+                    finish(
+                        CalendarContextLoadResult(
+                            context: nil,
+                            status: .degraded("Calendar context unavailable. Suggestions use tasks and habits only.")
+                        )
+                    )
+                case .success(let eventSlices):
+                    self.contextBuildQueue.async {
+                        guard shouldContinue() else { return }
+                        TaskerPerformanceTrace.event("ReflectionContextBuildStart")
+                        let buildInterval = TaskerPerformanceTrace.begin("ReflectionCalendarContextBuild")
+                        let context = Self.buildCalendarContext(
+                            eventSlices: eventSlices,
+                            dayStart: query.dayStart,
+                            dayEnd: query.dayEnd,
+                            mergeGapThreshold: self.mergeGapThreshold
+                        )
+                        TaskerPerformanceTrace.end(buildInterval)
+                        TaskerPerformanceTrace.event("ReflectionContextBuildFinish")
+                        let snapshot = Self.snapshot(from: context)
+                        Task {
+                            await self.calendarContextCacheStore.save(
+                                snapshot: snapshot,
+                                key: query.cacheKey,
+                                cachedAt: self.nowProvider()
                             )
-                        )
-                    case .success(let events):
-                        let context = self.buildCalendarContext(
-                            events: events,
-                            dayStart: dayStart,
-                            dayEnd: dayEnd
-                        )
+                        }
                         finish(CalendarContextLoadResult(context: context, status: .loaded))
                     }
                 }
             }
         }
+    }
+
+    public func loadCachedOrStaleCalendarContext(
+        for planningDate: Date,
+        freshnessSeconds: TimeInterval = 30 * 60
+    ) async -> CachedCalendarContextLookup {
+        guard let calendarEventsProvider,
+              calendarEventsProvider.authorizationStatus().isAuthorizedForRead else {
+            return .miss
+        }
+
+        let query = calendarContextQuery(for: planningDate)
+        guard query.selectedCalendarIDs.isEmpty == false else {
+            return .miss
+        }
+        guard let lookup = await calendarContextCacheStore.load(
+            key: query.cacheKey,
+            freshnessSeconds: max(60, freshnessSeconds),
+            now: nowProvider()
+        ) else {
+            return .miss
+        }
+
+        let context = Self.context(from: lookup.snapshot)
+        if lookup.isStale {
+            TaskerPerformanceTrace.event("ReflectionContextCacheStaleHit")
+            return .stale(context)
+        }
+        TaskerPerformanceTrace.event("ReflectionContextCacheHit")
+        return .fresh(context)
+    }
+
+    public func prefetchCalendarContext(
+        for planningDate: Date,
+        timeoutSeconds: TimeInterval = 0.8
+    ) async {
+        _ = await loadCalendarContext(for: planningDate, timeoutSeconds: timeoutSeconds)
     }
 
     public func buildSuggestion(
@@ -272,51 +610,85 @@ public final class BuildNextDayPlanSuggestionUseCase {
 
     public func makeCalendarSummary(from context: CalendarContext?) -> CalendarReflectionSummary? {
         guard let context,
-              context.events.isEmpty == false || context.bestFocusWindow != nil else {
+              context.eventCount > 0 || context.bestFocusWindow != nil else {
             return nil
         }
         return CalendarReflectionSummary(
-            eventCount: context.events.count,
+            eventCount: context.eventCount,
             meetingMinutes: context.meetingMinutes,
             bestFocusWindow: context.bestFocusWindow,
             firstHardStop: context.firstHardStop
         )
     }
 
-    private func buildCalendarContext(
-        events: [TaskerCalendarEventSnapshot],
+    private static func buildCalendarContext(
+        eventSlices: [TaskerCalendarEventSlice],
         dayStart: Date,
-        dayEnd: Date
+        dayEnd: Date,
+        mergeGapThreshold: TimeInterval
     ) -> CalendarContext {
         #if DEBUG
         dispatchPrecondition(condition: .notOnQueue(.main))
         #endif
 
-        let busyBlocks = buildCalendarBusyBlocks.execute(
-            events: events,
-            includeAllDayEvents: false,
-            referenceStart: dayStart,
-            referenceEnd: dayEnd
-        )
-        let firstHardStop = events
-            .filter { !$0.isAllDay && $0.isBusy }
-            .map(\.startDate)
-            .sorted()
-            .first
-        let bestFocusWindow = resolveBestFocusWindow(
+        let clampedAndSorted = eventSlices
+            .compactMap { slice -> TaskerCalendarEventSlice? in
+                let clampedStart = max(dayStart, slice.startDate)
+                let clampedEnd = min(dayEnd, slice.endDate)
+                guard clampedEnd > clampedStart else { return nil }
+                return TaskerCalendarEventSlice(
+                    startDate: clampedStart,
+                    endDate: clampedEnd,
+                    isAllDay: slice.isAllDay,
+                    isBusy: slice.isBusy
+                )
+            }
+            .sorted { lhs, rhs in
+                if lhs.startDate != rhs.startDate {
+                    return lhs.startDate < rhs.startDate
+                }
+                return lhs.endDate < rhs.endDate
+            }
+
+        var busyBlocks: [TaskerCalendarBusyBlock] = []
+        var currentBusy: TaskerCalendarBusyBlock?
+        var firstHardStop: Date?
+        var meetingMinutes = 0
+
+        for slice in clampedAndSorted where slice.isBusy && !slice.isAllDay {
+            if firstHardStop == nil {
+                firstHardStop = slice.startDate
+            }
+            meetingMinutes += max(0, Int(slice.endDate.timeIntervalSince(slice.startDate) / 60.0))
+
+            let block = TaskerCalendarBusyBlock(startDate: slice.startDate, endDate: slice.endDate)
+            if let existing = currentBusy {
+                if block.startDate <= existing.endDate.addingTimeInterval(mergeGapThreshold) {
+                    currentBusy = TaskerCalendarBusyBlock(
+                        startDate: existing.startDate,
+                        endDate: max(existing.endDate, block.endDate)
+                    )
+                } else {
+                    busyBlocks.append(existing)
+                    currentBusy = block
+                }
+            } else {
+                currentBusy = block
+            }
+        }
+        if let currentBusy {
+            busyBlocks.append(currentBusy)
+        }
+
+        let bestFocusWindow = Self.resolveBestFocusWindow(
             start: dayStart,
             end: dayEnd,
             busyBlocks: busyBlocks,
             firstHardStop: firstHardStop
         )
-        let meetingMinutes = events
-            .filter { !$0.isAllDay && $0.isBusy }
-            .reduce(0) { partialResult, event in
-                partialResult + max(0, Int(event.endDate.timeIntervalSince(event.startDate) / 60.0))
-            }
 
         return CalendarContext(
-            events: events,
+            eventCount: clampedAndSorted.count,
             busyBlocks: busyBlocks,
             bestFocusWindow: bestFocusWindow,
             firstHardStop: firstHardStop,
@@ -324,13 +696,13 @@ public final class BuildNextDayPlanSuggestionUseCase {
         )
     }
 
-    private func resolveBestFocusWindow(
+    private static func resolveBestFocusWindow(
         start: Date,
         end: Date,
         busyBlocks: [TaskerCalendarBusyBlock],
         firstHardStop: Date?
     ) -> DateInterval? {
-        let windows = freeWindows(start: start, end: end, busyBlocks: busyBlocks)
+        let windows = Self.freeWindows(start: start, end: end, busyBlocks: busyBlocks)
         guard windows.isEmpty == false else { return nil }
 
         let minimumUsefulDuration: TimeInterval = 45 * 60
@@ -356,7 +728,7 @@ public final class BuildNextDayPlanSuggestionUseCase {
             .first ?? windows.sorted { $0.duration > $1.duration }.first
     }
 
-    private func freeWindows(
+    private static func freeWindows(
         start: Date,
         end: Date,
         busyBlocks: [TaskerCalendarBusyBlock]
@@ -364,7 +736,7 @@ public final class BuildNextDayPlanSuggestionUseCase {
         var cursor = start
         var intervals: [DateInterval] = []
 
-        for block in busyBlocks.sorted(by: { $0.startDate < $1.startDate }) {
+        for block in busyBlocks {
             let clampedStart = max(start, block.startDate)
             let clampedEnd = min(end, block.endDate)
             if clampedStart > cursor {
@@ -378,6 +750,53 @@ public final class BuildNextDayPlanSuggestionUseCase {
         }
 
         return intervals.filter { $0.duration > 0 }
+    }
+
+    private struct CalendarContextQuery {
+        let dayStart: Date
+        let dayEnd: Date
+        let selectedCalendarIDs: Set<String>
+        let cacheKey: ReflectionCalendarContextCacheKey
+    }
+
+    private func calendarContextQuery(for planningDate: Date) -> CalendarContextQuery {
+        let dayStart = calendar.startOfDay(for: planningDate)
+        let dayEnd = calendar.date(byAdding: .day, value: 1, to: dayStart) ?? dayStart
+        let normalizedIDs = TaskerWorkspacePreferences.normalizeSelectedCalendarIDs(
+            workspacePreferencesStore.load().selectedCalendarIDs
+        )
+        let selectionHash = normalizedIDs.joined(separator: "|")
+        return CalendarContextQuery(
+            dayStart: dayStart,
+            dayEnd: dayEnd,
+            selectedCalendarIDs: Set(normalizedIDs),
+            cacheKey: ReflectionCalendarContextCacheKey(
+                dayStart: dayStart,
+                dayEnd: dayEnd,
+                timezoneID: calendar.timeZone.identifier,
+                selectedCalendarIDsHash: selectionHash
+            )
+        )
+    }
+
+    private static func snapshot(from context: CalendarContext) -> ReflectionCalendarContextSnapshot {
+        ReflectionCalendarContextSnapshot(
+            eventCount: context.eventCount,
+            busyBlocks: context.busyBlocks,
+            bestFocusWindow: context.bestFocusWindow,
+            firstHardStop: context.firstHardStop,
+            meetingMinutes: context.meetingMinutes
+        )
+    }
+
+    private static func context(from snapshot: ReflectionCalendarContextSnapshot) -> CalendarContext {
+        CalendarContext(
+            eventCount: snapshot.eventCount,
+            busyBlocks: snapshot.busyBlocks,
+            bestFocusWindow: snapshot.bestFocusWindow,
+            firstHardStop: snapshot.firstHardStop,
+            meetingMinutes: snapshot.meetingMinutes
+        )
     }
 
     private func rankCandidates(
@@ -524,10 +943,41 @@ public struct DailyReflectionCoreLoadBundle {
     }
 }
 
+public struct DailyReflectionCachedOptionalContext: Equatable {
+    public let optionalContext: DailyReflectionOptionalContext
+    public let isStale: Bool
+
+    public init(optionalContext: DailyReflectionOptionalContext, isStale: Bool) {
+        self.optionalContext = optionalContext
+        self.isStale = isStale
+    }
+}
+
 public protocol DailyReflectionLoadCoordinatorProtocol {
     func resolveTarget(preferredReflectionDate: Date?) async -> DailyReflectionTarget?
     func loadCore(target: DailyReflectionTarget) async throws -> DailyReflectionCoreLoadBundle
-    func loadOptionalContext(target: DailyReflectionTarget, coreBundle: DailyReflectionCoreLoadBundle) async -> DailyReflectionOptionalContext
+    func makeBaselineOptionalContext(
+        target: DailyReflectionTarget,
+        coreBundle: DailyReflectionCoreLoadBundle
+    ) async -> DailyReflectionOptionalContext
+    func loadCachedOrStaleContext(
+        target: DailyReflectionTarget,
+        coreBundle: DailyReflectionCoreLoadBundle
+    ) async -> DailyReflectionCachedOptionalContext?
+    func refreshContextInBackground(
+        target: DailyReflectionTarget,
+        coreBundle: DailyReflectionCoreLoadBundle,
+        timeoutSeconds: TimeInterval
+    ) async -> DailyReflectionOptionalContext
+    func prefetchContext(
+        for target: DailyReflectionTarget,
+        timeoutSeconds: TimeInterval
+    ) async
+    func loadOptionalContext(
+        target: DailyReflectionTarget,
+        coreBundle: DailyReflectionCoreLoadBundle,
+        timeoutSeconds: TimeInterval
+    ) async -> DailyReflectionOptionalContext
 }
 
 public actor DailyReflectionLoadCoordinator: DailyReflectionLoadCoordinatorProtocol {
@@ -574,6 +1024,13 @@ public actor DailyReflectionLoadCoordinator: DailyReflectionLoadCoordinatorProto
 
         let taskSummary = makeTaskSummary(from: projection, on: target.reflectionDate)
         let habitSummary = makeHabitSummary(from: habits)
+        let closedTasks = makeClosedTasks(from: projection.reflectionCompletedTasks)
+        let habitGrid = makeHabitGrid(from: habits)
+        let narrativeSummary = ReflectionNarrativeSummary.make(
+            completedCount: taskSummary.completedCount,
+            keptCount: habitSummary?.keptCount ?? 0,
+            missedTitles: missedHabitTitles(from: habits)
+        )
         let atRiskHabit = habits
             .sorted { lhs, rhs in
                 if lhs.riskState != rhs.riskState {
@@ -603,6 +1060,9 @@ public actor DailyReflectionLoadCoordinator: DailyReflectionLoadCoordinatorProto
                 habits: habits,
                 taskSummary: taskSummary
             ),
+            closedTasks: closedTasks,
+            habitGrid: habitGrid,
+            narrativeSummary: narrativeSummary,
             tasksSummary: taskSummary,
             habitsSummary: habitSummary
         )
@@ -616,8 +1076,74 @@ public actor DailyReflectionLoadCoordinator: DailyReflectionLoadCoordinatorProto
         )
     }
 
-    public func loadOptionalContext(target: DailyReflectionTarget, coreBundle: DailyReflectionCoreLoadBundle) async -> DailyReflectionOptionalContext {
-        let loadResult = await buildNextDayPlanSuggestionUseCase.loadCalendarContext(for: target.planningDate)
+    public func makeBaselineOptionalContext(
+        target: DailyReflectionTarget,
+        coreBundle: DailyReflectionCoreLoadBundle
+    ) async -> DailyReflectionOptionalContext {
+        let suggestion = buildNextDayPlanSuggestionUseCase.buildSuggestion(
+            planningDate: target.planningDate,
+            carryoverTasks: coreBundle.carryoverTasks,
+            planningDateTasks: coreBundle.planningTasks,
+            atRiskHabit: coreBundle.atRiskHabit,
+            calendarContext: nil
+        )
+        return DailyReflectionOptionalContext(
+            calendarSummary: nil,
+            suggestedPlan: suggestion,
+            status: .loading
+        )
+    }
+
+    public func loadCachedOrStaleContext(
+        target: DailyReflectionTarget,
+        coreBundle: DailyReflectionCoreLoadBundle
+    ) async -> DailyReflectionCachedOptionalContext? {
+        let lookup = await buildNextDayPlanSuggestionUseCase.loadCachedOrStaleCalendarContext(
+            for: target.planningDate
+        )
+
+        let resolvedContext: BuildNextDayPlanSuggestionUseCase.CalendarContext?
+        let isStale: Bool
+        switch lookup {
+        case .fresh(let context):
+            resolvedContext = context
+            isStale = false
+        case .stale(let context):
+            resolvedContext = context
+            isStale = true
+        case .miss:
+            resolvedContext = nil
+            isStale = false
+        }
+        guard let resolvedContext else { return nil }
+
+        let suggestion = buildNextDayPlanSuggestionUseCase.buildSuggestion(
+            planningDate: target.planningDate,
+            carryoverTasks: coreBundle.carryoverTasks,
+            planningDateTasks: coreBundle.planningTasks,
+            atRiskHabit: coreBundle.atRiskHabit,
+            calendarContext: resolvedContext
+        )
+        let optionalContext = DailyReflectionOptionalContext(
+            calendarSummary: buildNextDayPlanSuggestionUseCase.makeCalendarSummary(from: resolvedContext),
+            suggestedPlan: suggestion,
+            status: .loaded
+        )
+        return DailyReflectionCachedOptionalContext(
+            optionalContext: optionalContext,
+            isStale: isStale
+        )
+    }
+
+    public func refreshContextInBackground(
+        target: DailyReflectionTarget,
+        coreBundle: DailyReflectionCoreLoadBundle,
+        timeoutSeconds: TimeInterval
+    ) async -> DailyReflectionOptionalContext {
+        let loadResult = await buildNextDayPlanSuggestionUseCase.loadCalendarContext(
+            for: target.planningDate,
+            timeoutSeconds: timeoutSeconds
+        )
         let suggestion = buildNextDayPlanSuggestionUseCase.buildSuggestion(
             planningDate: target.planningDate,
             carryoverTasks: coreBundle.carryoverTasks,
@@ -629,6 +1155,28 @@ public actor DailyReflectionLoadCoordinator: DailyReflectionLoadCoordinatorProto
             calendarSummary: buildNextDayPlanSuggestionUseCase.makeCalendarSummary(from: loadResult.context),
             suggestedPlan: suggestion,
             status: loadResult.status
+        )
+    }
+
+    public func prefetchContext(
+        for target: DailyReflectionTarget,
+        timeoutSeconds: TimeInterval
+    ) async {
+        await buildNextDayPlanSuggestionUseCase.prefetchCalendarContext(
+            for: target.planningDate,
+            timeoutSeconds: timeoutSeconds
+        )
+    }
+
+    public func loadOptionalContext(
+        target: DailyReflectionTarget,
+        coreBundle: DailyReflectionCoreLoadBundle,
+        timeoutSeconds: TimeInterval
+    ) async -> DailyReflectionOptionalContext {
+        await refreshContextInBackground(
+            target: target,
+            coreBundle: coreBundle,
+            timeoutSeconds: timeoutSeconds
         )
     }
 
@@ -743,6 +1291,69 @@ public actor DailyReflectionLoadCoordinator: DailyReflectionLoadCoordinatorProto
         }
 
         return Array(wins.prefix(2))
+    }
+
+    private func makeClosedTasks(from completedTasks: [TaskDefinition]) -> [ReflectionTaskMiniRow] {
+        completedTasks
+            .sorted { lhs, rhs in
+                if lhs.priority.scorePoints != rhs.priority.scorePoints {
+                    return lhs.priority.scorePoints > rhs.priority.scorePoints
+                }
+                return lhs.title.localizedCaseInsensitiveCompare(rhs.title) == .orderedAscending
+            }
+            .prefix(3)
+            .map { task in
+                ReflectionTaskMiniRow(
+                    id: task.id,
+                    title: task.title,
+                    projectName: task.projectName
+                )
+            }
+    }
+
+    private func makeHabitGrid(from habits: [HabitOccurrenceSummary]) -> [ReflectionHabitMiniRow] {
+        habits
+            .sorted { lhs, rhs in
+                let lhsRisk = habitRiskRank(lhs.riskState)
+                let rhsRisk = habitRiskRank(rhs.riskState)
+                if lhsRisk != rhsRisk {
+                    return lhsRisk > rhsRisk
+                }
+                if lhs.currentStreak != rhs.currentStreak {
+                    return lhs.currentStreak > rhs.currentStreak
+                }
+                return lhs.title.localizedCaseInsensitiveCompare(rhs.title) == .orderedAscending
+            }
+            .prefix(4)
+            .map { habit in
+                ReflectionHabitMiniRow(
+                    id: habit.habitID,
+                    title: habit.title,
+                    colorFamily: HabitColorFamily.family(for: habit.colorHex),
+                    currentStreak: habit.currentStreak,
+                    last7Days: Array(habit.last14Days.suffix(7))
+                )
+            }
+    }
+
+    private func missedHabitTitles(from habits: [HabitOccurrenceSummary]) -> [String] {
+        habits
+            .filter { $0.state == .missed || $0.state == .skipped }
+            .sorted { lhs, rhs in
+                lhs.title.localizedCaseInsensitiveCompare(rhs.title) == .orderedAscending
+            }
+            .map(\.title)
+    }
+
+    private func habitRiskRank(_ risk: HabitRiskState) -> Int {
+        switch risk {
+        case .broken:
+            return 2
+        case .atRisk:
+            return 1
+        case .stable:
+            return 0
+        }
     }
 }
 

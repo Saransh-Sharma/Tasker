@@ -260,7 +260,8 @@ public final class UseCaseCoordinator {
             reflectionStore: v2Dependencies.dailyReflectionStore
         )
         let buildNextDayPlanSuggestion = BuildNextDayPlanSuggestionUseCase(
-            calendarEventsProvider: v2Dependencies.calendarEventsProvider
+            calendarEventsProvider: v2Dependencies.calendarEventsProvider,
+            workspacePreferencesStore: v2Dependencies.workspacePreferencesStore
         )
         self.buildNextDayPlanSuggestion = buildNextDayPlanSuggestion
         self.resolveDailyReflectionTarget = ResolveDailyReflectionTargetUseCase(
