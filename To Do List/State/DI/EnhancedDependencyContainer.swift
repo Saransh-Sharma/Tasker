@@ -44,6 +44,7 @@ public final class EnhancedDependencyContainer {
     public private(set) var weeklyReviewRepository: WeeklyReviewRepositoryProtocol?
     public private(set) var weeklyReviewMutationRepository: WeeklyReviewMutationRepositoryProtocol?
     public private(set) var weeklyReviewDraftStore: WeeklyReviewDraftStoreProtocol?
+    public private(set) var dailyReflectionStore: DailyReflectionStoreProtocol?
     public private(set) var reflectionNoteRepository: ReflectionNoteRepositoryProtocol?
     public private(set) var gamificationRepository: GamificationRepositoryProtocol?
     public private(set) var assistantActionRepository: AssistantActionRepositoryProtocol?
@@ -102,6 +103,7 @@ public final class EnhancedDependencyContainer {
         let baseWeeklyReviewRepository = CoreDataWeeklyReviewRepository(container: container)
         let baseWeeklyReviewMutationRepository = CoreDataWeeklyReviewMutationRepository(container: container)
         let baseWeeklyReviewDraftStore = UserDefaultsWeeklyReviewDraftStore()
+        let baseDailyReflectionStore = UserDefaultsDailyReflectionStore()
         let baseReflectionNoteRepository = CoreDataReflectionNoteRepository(container: container)
         let baseGamificationRepository = CoreDataGamificationRepository(container: container)
         let baseAssistantActionRepository = CoreDataAssistantActionRepository(container: container)
@@ -171,6 +173,7 @@ public final class EnhancedDependencyContainer {
             gate: writeGate
         )
         self.weeklyReviewDraftStore = baseWeeklyReviewDraftStore
+        self.dailyReflectionStore = baseDailyReflectionStore
         self.reflectionNoteRepository = WriteClosedReflectionNoteRepositoryAdapter(
             base: baseReflectionNoteRepository,
             gate: writeGate
@@ -221,6 +224,7 @@ public final class EnhancedDependencyContainer {
               let weeklyReviewRepository,
               let weeklyReviewMutationRepository,
               let weeklyReviewDraftStore,
+              let dailyReflectionStore,
               let reflectionNoteRepository,
               let gamificationRepository,
               let assistantActionRepository,
@@ -254,6 +258,7 @@ public final class EnhancedDependencyContainer {
             weeklyReviewRepository: weeklyReviewRepository,
             weeklyReviewMutationRepository: weeklyReviewMutationRepository,
             weeklyReviewDraftStore: weeklyReviewDraftStore,
+            dailyReflectionStore: dailyReflectionStore,
             reflectionNoteRepository: reflectionNoteRepository,
             gamificationRepository: gamificationRepository,
             assistantActionRepository: assistantActionRepository,
