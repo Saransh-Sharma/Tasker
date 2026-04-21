@@ -73,6 +73,8 @@ public protocol TaskDependencyRepositoryProtocol {
 public protocol HabitRepositoryProtocol {
     /// Executes fetchAll.
     func fetchAll(completion: @escaping (Result<[HabitDefinitionRecord], Error>) -> Void)
+    /// Executes fetchByID.
+    func fetchByID(id: UUID, completion: @escaping (Result<HabitDefinitionRecord?, Error>) -> Void)
     /// Executes create.
     func create(_ habit: HabitDefinitionRecord, completion: @escaping (Result<HabitDefinitionRecord, Error>) -> Void)
     /// Executes update.
@@ -105,12 +107,64 @@ public protocol ScheduleRepositoryProtocol {
 public protocol OccurrenceRepositoryProtocol {
     /// Executes fetchInRange.
     func fetchInRange(start: Date, end: Date, completion: @escaping (Result<[OccurrenceDefinition], Error>) -> Void)
+    /// Executes fetchByID.
+    func fetchByID(id: UUID, completion: @escaping (Result<OccurrenceDefinition?, Error>) -> Void)
+    /// Executes fetchLatestForHabit.
+    func fetchLatestForHabit(habitID: UUID, on date: Date, completion: @escaping (Result<OccurrenceDefinition?, Error>) -> Void)
     /// Executes saveOccurrences.
     func saveOccurrences(_ occurrences: [OccurrenceDefinition], completion: @escaping (Result<Void, Error>) -> Void)
     /// Executes resolve.
     func resolve(_ resolution: OccurrenceResolutionDefinition, completion: @escaping (Result<Void, Error>) -> Void)
     /// Executes deleteOccurrences.
     func deleteOccurrences(ids: [UUID], completion: @escaping (Result<Void, Error>) -> Void)
+}
+
+public extension HabitRepositoryProtocol {
+    func fetchByID(id: UUID, completion: @escaping (Result<HabitDefinitionRecord?, Error>) -> Void) {
+        fetchAll { result in
+            switch result {
+            case .failure(let error):
+                completion(.failure(error))
+            case .success(let habits):
+                completion(.success(habits.first(where: { $0.id == id })))
+            }
+        }
+    }
+}
+
+public extension OccurrenceRepositoryProtocol {
+    func fetchByID(id: UUID, completion: @escaping (Result<OccurrenceDefinition?, Error>) -> Void) {
+        fetchInRange(start: .distantPast, end: .distantFuture) { result in
+            switch result {
+            case .failure(let error):
+                completion(.failure(error))
+            case .success(let occurrences):
+                completion(.success(occurrences.first(where: { $0.id == id })))
+            }
+        }
+    }
+
+    func fetchLatestForHabit(
+        habitID: UUID,
+        on date: Date,
+        completion: @escaping (Result<OccurrenceDefinition?, Error>) -> Void
+    ) {
+        let calendar = Calendar.current
+        let startOfDay = calendar.startOfDay(for: date)
+        let endOfDay = calendar.date(byAdding: .day, value: 1, to: startOfDay) ?? date
+        fetchInRange(start: startOfDay, end: endOfDay) { result in
+            switch result {
+            case .failure(let error):
+                completion(.failure(error))
+            case .success(let occurrences):
+                let latest = occurrences
+                    .filter { $0.sourceType == .habit && $0.sourceID == habitID }
+                    .sorted { HabitRuntimeSupport.occurrenceDate($0) < HabitRuntimeSupport.occurrenceDate($1) }
+                    .last
+                completion(.success(latest))
+            }
+        }
+    }
 }
 
 public protocol ReminderRepositoryProtocol {
