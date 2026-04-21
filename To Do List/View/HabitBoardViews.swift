@@ -272,6 +272,7 @@ struct HabitHomeSectionCard: View {
     let onOpenBoard: (() -> Void)?
     let onPrimaryAction: (HomeHabitRow) -> Void
     let onSecondaryAction: (HomeHabitRow) -> Void
+    let onRowAction: (HomeHabitRow) -> Void
     let onLastCellAction: (HomeHabitRow) -> Void
     let onOpenHabit: ((HomeHabitRow) -> Void)?
 
@@ -286,6 +287,7 @@ struct HabitHomeSectionCard: View {
         onOpenBoard: (() -> Void)?,
         onPrimaryAction: @escaping (HomeHabitRow) -> Void,
         onSecondaryAction: @escaping (HomeHabitRow) -> Void,
+        onRowAction: @escaping (HomeHabitRow) -> Void,
         onLastCellAction: @escaping (HomeHabitRow) -> Void,
         onOpenHabit: ((HomeHabitRow) -> Void)? = nil
     ) {
@@ -295,6 +297,7 @@ struct HabitHomeSectionCard: View {
         self.onOpenBoard = onOpenBoard
         self.onPrimaryAction = onPrimaryAction
         self.onSecondaryAction = onSecondaryAction
+        self.onRowAction = onRowAction
         self.onLastCellAction = onLastCellAction
         self.onOpenHabit = onOpenHabit
     }
@@ -351,6 +354,7 @@ struct HabitHomeSectionCard: View {
                         row: row,
                         onPrimaryAction: { onPrimaryAction(row) },
                         onSecondaryAction: { onSecondaryAction(row) },
+                        onRowAction: { onRowAction(row) },
                         onOpenDetail: {
                             onOpenHabit?(row)
                         },
