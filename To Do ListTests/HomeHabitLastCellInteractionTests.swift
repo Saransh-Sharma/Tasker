@@ -43,8 +43,8 @@ final class HomeHabitLastCellInteractionTests: XCTestCase {
         )
     }
 
-    func testLapseOnlyRowsAreNotEligible() {
-        let row = HomeHabitRow(
+    func testLapseOnlyHabitCyclesLapseThenClear() {
+        let tracking = HomeHabitRow(
             habitID: UUID(),
             title: "No phone in bed",
             kind: .negative,
@@ -53,44 +53,94 @@ final class HomeHabitLastCellInteractionTests: XCTestCase {
             iconSymbolName: "bed.double.fill",
             state: .tracking
         )
+        XCTAssertEqual(
+            HomeHabitLastCellInteraction.resolve(for: tracking),
+            HomeHabitLastCellInteraction(
+                action: .lapse,
+                currentStateText: "Tracking",
+                nextActionText: "Mark lapsed"
+            )
+        )
 
-        XCTAssertNil(HomeHabitLastCellInteraction.resolve(for: row))
+        let lapsed = HomeHabitRow(
+            habitID: UUID(),
+            title: "No phone in bed",
+            kind: .negative,
+            trackingMode: .lapseOnly,
+            lifeAreaName: "Health",
+            iconSymbolName: "bed.double.fill",
+            state: .lapsedToday
+        )
+        XCTAssertEqual(
+            HomeHabitLastCellInteraction.resolve(for: lapsed),
+            HomeHabitLastCellInteraction(
+                action: .clear,
+                currentStateText: "Lapsed",
+                nextActionText: "Clear to tracking"
+            )
+        )
     }
 
-    func testHitTargetMetricsExpandTrailingInteractionWidthForFatFingerTap() {
+    func testDailyCheckInStatesAlwaysResolveToAnAction() {
+        let positiveTracking = makeRow(kind: .positive, state: .tracking)
+        XCTAssertEqual(
+            HomeHabitLastCellInteraction.resolve(for: positiveTracking),
+            HomeHabitLastCellInteraction(
+                action: .complete,
+                currentStateText: "Tracking",
+                nextActionText: "Mark done"
+            )
+        )
+
+        let positiveLapsed = makeRow(kind: .positive, state: .lapsedToday)
+        XCTAssertEqual(
+            HomeHabitLastCellInteraction.resolve(for: positiveLapsed),
+            HomeHabitLastCellInteraction(
+                action: .clear,
+                currentStateText: "Lapsed",
+                nextActionText: "Clear to empty"
+            )
+        )
+
+        let negativeTracking = makeRow(kind: .negative, state: .tracking)
+        XCTAssertEqual(
+            HomeHabitLastCellInteraction.resolve(for: negativeTracking),
+            HomeHabitLastCellInteraction(
+                action: .complete,
+                currentStateText: "Tracking",
+                nextActionText: "Mark stayed clean"
+            )
+        )
+    }
+
+    func testHitTargetMetricsComputeTrailingVisualWidthFromCellCount() {
         let metrics = HomeHabitRowHitTargetMetrics(
             stripWidth: 210,
             cellCount: 7,
-            hasLastCellInteraction: true
+            showsLastCellDecoration: true
         )
 
         XCTAssertEqual(metrics.visualLastCellWidth, 30, accuracy: 0.001)
-        XCTAssertEqual(metrics.interactiveLastCellWidth, 64, accuracy: 0.001)
-        XCTAssertEqual(metrics.detailRegionWidth, 146, accuracy: 0.001)
     }
 
-    func testHitTargetMetricsCapExpandedInteractionWidthOnWideRows() {
+    func testHitTargetMetricsScaleTrailingVisualWidthOnWideRows() {
         let metrics = HomeHabitRowHitTargetMetrics(
             stripWidth: 560,
             cellCount: 7,
-            hasLastCellInteraction: true
+            showsLastCellDecoration: true
         )
 
         XCTAssertEqual(metrics.visualLastCellWidth, 80, accuracy: 0.001)
-        XCTAssertEqual(metrics.interactiveLastCellWidth, 80, accuracy: 0.001)
-        XCTAssertEqual(metrics.detailRegionWidth, 480, accuracy: 0.001)
     }
 
-    func testHitTargetMetricsUseFullStripWhenTrailingActionIsUnavailable() {
+    func testHitTargetMetricsHideTrailingVisualWidthWhenDecorationUnavailable() {
         let metrics = HomeHabitRowHitTargetMetrics(
             stripWidth: 210,
             cellCount: 7,
-            hasLastCellInteraction: false
+            showsLastCellDecoration: false
         )
 
         XCTAssertEqual(metrics.visualLastCellWidth, 0, accuracy: 0.001)
-        XCTAssertEqual(metrics.interactiveLastCellWidth, 0, accuracy: 0.001)
-        XCTAssertEqual(metrics.detailRegionWidth, 210, accuracy: 0.001)
     }
 
     private func makeRow(kind: HabitKind, state: HomeHabitRowState) -> HomeHabitRow {

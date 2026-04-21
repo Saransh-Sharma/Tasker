@@ -215,6 +215,88 @@ final class HabitLastCellRuntimeTests: XCTestCase {
         XCTAssertEqual(schedulingEngine.resolvedCalls.map(\.resolution), [.skipped])
     }
 
+    func testResolveHabitOccurrenceUsesFetchByIDWhenOccurrenceIDProvided() {
+        let habitID = UUID()
+        let occurrenceID = UUID()
+        let date = Self.date("2026-04-09")
+        let expectedError = NSError(domain: "SchedulingEngine", code: 77)
+
+        let habitRepository = HabitRepositoryStub(habits: [Self.makeHabit(id: habitID, kind: .positive)])
+        let occurrenceRepository = OccurrenceRepositoryStub(occurrences: [
+            Self.makeOccurrence(id: occurrenceID, habitID: habitID, date: date, state: .pending)
+        ])
+        let schedulingEngine = SchedulingEngineStub()
+        schedulingEngine.resolveError = expectedError
+
+        let useCase = ResolveHabitOccurrenceUseCase(
+            habitRepository: habitRepository,
+            scheduleRepository: ScheduleRepositoryStub(),
+            occurrenceRepository: occurrenceRepository,
+            scheduleEngine: schedulingEngine,
+            recomputeHabitStreaksUseCase: RecomputeHabitStreaksUseCase(
+                habitRepository: habitRepository,
+                occurrenceRepository: occurrenceRepository
+            ),
+            gamificationEngine: GamificationEngine(repository: InMemoryGamificationRepositoryStub())
+        )
+
+        let completion = expectation(description: "resolve fails after targeted lookup")
+        useCase.execute(habitID: habitID, occurrenceID: occurrenceID, action: .complete, on: date) { result in
+            if case .success = result {
+                XCTFail("Expected resolve to fail when scheduling engine fails")
+            }
+            completion.fulfill()
+        }
+        wait(for: [completion], timeout: 2)
+
+        XCTAssertEqual(habitRepository.fetchByIDCallCount, 1)
+        XCTAssertEqual(habitRepository.fetchAllCallCount, 0)
+        XCTAssertEqual(occurrenceRepository.fetchByIDCallCount, 1)
+        XCTAssertEqual(occurrenceRepository.fetchLatestForHabitCallCount, 0)
+        XCTAssertEqual(occurrenceRepository.fetchInRangeCallCount, 0)
+    }
+
+    func testResolveHabitOccurrenceUsesFetchLatestForHabitWhenOccurrenceIDMissing() {
+        let habitID = UUID()
+        let occurrenceID = UUID()
+        let date = Self.date("2026-04-09")
+        let expectedError = NSError(domain: "SchedulingEngine", code: 88)
+
+        let habitRepository = HabitRepositoryStub(habits: [Self.makeHabit(id: habitID, kind: .positive)])
+        let occurrenceRepository = OccurrenceRepositoryStub(occurrences: [
+            Self.makeOccurrence(id: occurrenceID, habitID: habitID, date: date, state: .pending)
+        ])
+        let schedulingEngine = SchedulingEngineStub()
+        schedulingEngine.resolveError = expectedError
+
+        let useCase = ResolveHabitOccurrenceUseCase(
+            habitRepository: habitRepository,
+            scheduleRepository: ScheduleRepositoryStub(),
+            occurrenceRepository: occurrenceRepository,
+            scheduleEngine: schedulingEngine,
+            recomputeHabitStreaksUseCase: RecomputeHabitStreaksUseCase(
+                habitRepository: habitRepository,
+                occurrenceRepository: occurrenceRepository
+            ),
+            gamificationEngine: GamificationEngine(repository: InMemoryGamificationRepositoryStub())
+        )
+
+        let completion = expectation(description: "resolve fails after latest lookup")
+        useCase.execute(habitID: habitID, action: .complete, on: date) { result in
+            if case .success = result {
+                XCTFail("Expected resolve to fail when scheduling engine fails")
+            }
+            completion.fulfill()
+        }
+        wait(for: [completion], timeout: 2)
+
+        XCTAssertEqual(habitRepository.fetchByIDCallCount, 1)
+        XCTAssertEqual(habitRepository.fetchAllCallCount, 0)
+        XCTAssertEqual(occurrenceRepository.fetchLatestForHabitCallCount, 1)
+        XCTAssertEqual(occurrenceRepository.fetchByIDCallCount, 0)
+        XCTAssertEqual(occurrenceRepository.fetchInRangeCallCount, 0)
+    }
+
     func testPendingOccurrenceProjectsAsNoneInDayMarks() {
         let habitID = UUID()
         let date = Self.date("2026-04-09")
@@ -527,13 +609,21 @@ final class HabitLastCellRuntimeTests: XCTestCase {
 
 private final class HabitRepositoryStub: HabitRepositoryProtocol {
     var habits: [HabitDefinitionRecord]
+    private(set) var fetchAllCallCount = 0
+    private(set) var fetchByIDCallCount = 0
 
     init(habits: [HabitDefinitionRecord]) {
         self.habits = habits
     }
 
     func fetchAll(completion: @escaping (Result<[HabitDefinitionRecord], Error>) -> Void) {
+        fetchAllCallCount += 1
         completion(.success(habits))
+    }
+
+    func fetchByID(id: UUID, completion: @escaping (Result<HabitDefinitionRecord?, Error>) -> Void) {
+        fetchByIDCallCount += 1
+        completion(.success(habits.first(where: { $0.id == id })))
     }
 
     func create(_ habit: HabitDefinitionRecord, completion: @escaping (Result<HabitDefinitionRecord, Error>) -> Void) {
@@ -556,17 +646,48 @@ private final class HabitRepositoryStub: HabitRepositoryProtocol {
 
 private final class OccurrenceRepositoryStub: OccurrenceRepositoryProtocol {
     var occurrences: [OccurrenceDefinition]
+    private(set) var fetchInRangeCallCount = 0
+    private(set) var fetchByIDCallCount = 0
+    private(set) var fetchLatestForHabitCallCount = 0
 
     init(occurrences: [OccurrenceDefinition]) {
         self.occurrences = occurrences
     }
 
     func fetchInRange(start: Date, end: Date, completion: @escaping (Result<[OccurrenceDefinition], Error>) -> Void) {
+        fetchInRangeCallCount += 1
         let filtered = occurrences.filter { occurrence in
             let occurrenceDate = occurrence.dueAt ?? occurrence.scheduledAt
             return occurrenceDate >= start && occurrenceDate <= end
         }
         completion(.success(filtered))
+    }
+
+    func fetchByID(id: UUID, completion: @escaping (Result<OccurrenceDefinition?, Error>) -> Void) {
+        fetchByIDCallCount += 1
+        completion(.success(occurrences.first(where: { $0.id == id })))
+    }
+
+    func fetchLatestForHabit(
+        habitID: UUID,
+        on date: Date,
+        completion: @escaping (Result<OccurrenceDefinition?, Error>) -> Void
+    ) {
+        fetchLatestForHabitCallCount += 1
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(secondsFromGMT: 0) ?? .current
+        calendar.locale = Locale(identifier: "en_US_POSIX")
+        let dayStart = calendar.startOfDay(for: date)
+        let dayEnd = calendar.date(byAdding: .day, value: 1, to: dayStart) ?? date
+        let latest = occurrences
+            .filter { occurrence in
+                guard occurrence.sourceType == .habit, occurrence.sourceID == habitID else { return false }
+                let occurrenceDate = occurrence.dueAt ?? occurrence.scheduledAt
+                return occurrenceDate >= dayStart && occurrenceDate < dayEnd
+            }
+            .sorted { ($0.dueAt ?? $0.scheduledAt) < ($1.dueAt ?? $1.scheduledAt) }
+            .last
+        completion(.success(latest))
     }
 
     func saveOccurrences(_ occurrences: [OccurrenceDefinition], completion: @escaping (Result<Void, Error>) -> Void) {
@@ -621,11 +742,17 @@ private final class ScheduleRepositoryStub: ScheduleRepositoryProtocol {
 }
 
 private final class SchedulingEngineStub: SchedulingEngineProtocol {
+    var resolveError: Error?
+
     func generateOccurrences(windowStart: Date, windowEnd: Date, sourceFilter: ScheduleSourceType?, completion: @escaping (Result<[OccurrenceDefinition], Error>) -> Void) {
         completion(.success([]))
     }
 
     func resolveOccurrence(id: UUID, resolution: OccurrenceResolutionType, actor: OccurrenceActor, completion: @escaping (Result<Void, Error>) -> Void) {
+        if let resolveError {
+            completion(.failure(resolveError))
+            return
+        }
         completion(.success(()))
     }
 
