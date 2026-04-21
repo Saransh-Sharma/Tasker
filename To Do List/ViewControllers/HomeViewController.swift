@@ -791,10 +791,13 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
             .receive(on: RunLoop.main)
             .sink { [weak self] activeFace in
                 self?.trackFaceSelection(activeFace)
-                if activeFace == .tasks {
+                switch activeFace {
+                case .tasks:
                     self?.scheduleOnboardingEvaluationIfNeeded()
                     self?.scheduleBackgroundSurfacePrewarmIfNeeded()
-                } else {
+                case .analytics:
+                    self?.cancelBackgroundSearchPrewarm()
+                case .search:
                     self?.cancelBackgroundSurfacePrewarm()
                 }
             }
@@ -941,7 +944,7 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
 
     private func openAnalytics(source: String, launchDefaultInsights: Bool) {
         guard faceCoordinator.activeFace != .analytics else { return }
-        cancelBackgroundSurfacePrewarm()
+        cancelBackgroundSearchPrewarm()
         pendingOnboardingEvaluationTask?.cancel()
         pendingOnboardingEvaluationTask = nil
         awaitsAnalyticsFirstInteractiveFrame = true
@@ -1020,9 +1023,6 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
         }
         awaitsAnalyticsFirstInteractiveFrame = false
         TaskerPerformanceTrace.event("HomeFaceSwitch")
-        faceCoordinator.insightsViewModel = nil
-        insightsViewModel = nil
-        viewModel.releaseInsightsViewModel()
         TaskerMemoryDiagnostics.checkpoint(
             event: "home_insights_close",
             message: "Closing insights surface",
@@ -1199,8 +1199,16 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
     }
 
     private func cancelBackgroundSurfacePrewarm() {
+        cancelBackgroundSearchPrewarm()
+        cancelBackgroundInsightsPrewarm()
+    }
+
+    private func cancelBackgroundSearchPrewarm() {
         pendingBackgroundSearchPrewarmTask?.cancel()
         pendingBackgroundSearchPrewarmTask = nil
+    }
+
+    private func cancelBackgroundInsightsPrewarm() {
         pendingBackgroundInsightsPrewarmTask?.cancel()
         pendingBackgroundInsightsPrewarmTask = nil
     }
