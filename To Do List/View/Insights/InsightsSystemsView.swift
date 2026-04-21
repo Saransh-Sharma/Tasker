@@ -4,17 +4,11 @@ import SwiftUI
 struct InsightsSystemsView: View {
 
     @ObservedObject var viewModel: InsightsViewModel
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @State private var selectedCategory: AchievementDefinition.AchievementCategory?
     @State private var selectedBadgeKey: String?
-    @State private var didAppear = false
 
     private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.currentTheme.tokens.spacing }
     private var state: InsightsSystemsState { viewModel.systemsState }
-    private var shouldReduceAnimation: Bool {
-        reduceMotion || dynamicTypeSize.isAccessibilitySize || V2FeatureFlags.iPadPerfHomeAnimationTrimV3Enabled
-    }
     private var progressByKey: [String: AchievementProgressState] {
         Dictionary(uniqueKeysWithValues: state.achievementProgress.map { ($0.key, $0) })
     }
@@ -33,7 +27,7 @@ struct InsightsSystemsView: View {
     }
 
     var body: some View {
-        VStack(spacing: spacing.s12) {
+        LazyVStack(spacing: spacing.s12) {
             module(index: 0) {
                 progressionCard
             }
@@ -98,7 +92,6 @@ struct InsightsSystemsView: View {
             }
         }
         .onAppear {
-            didAppear = true
             applyHighlightedAchievementIfNeeded()
         }
         .onChange(of: viewModel.highlightedAchievementKey) {
@@ -351,14 +344,8 @@ struct InsightsSystemsView: View {
         selectedBadgeKey = highlightedKey
     }
 
-    private func module<Content: View>(index: Int, @ViewBuilder content: () -> Content) -> some View {
-        let delay = min(0.12, Double(index) * 0.015)
-        return content()
-            .opacity(shouldReduceAnimation || didAppear ? 1 : 0.98)
-            .animation(
-                shouldReduceAnimation ? nil : TaskerAnimation.quick.delay(delay),
-                value: didAppear
-            )
+    private func module<Content: View>(index _: Int, @ViewBuilder content: () -> Content) -> some View {
+        content()
     }
 
     @ViewBuilder

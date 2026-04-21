@@ -4,15 +4,9 @@ import SwiftUI
 struct InsightsWeekView: View {
 
     @ObservedObject var viewModel: InsightsViewModel
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
-    @State private var didAppear = false
 
     private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.currentTheme.tokens.spacing }
     private var state: InsightsWeekState { viewModel.weekState }
-    private var shouldReduceAnimation: Bool {
-        reduceMotion || dynamicTypeSize.isAccessibilitySize || V2FeatureFlags.iPadPerfHomeAnimationTrimV3Enabled
-    }
     private var weekRangeText: String {
         let calendar = XPCalculationEngine.mondayCalendar()
         let weekStart = XPCalculationEngine.mondayStartOfWeek(for: Date(), calendar: calendar)
@@ -30,7 +24,7 @@ struct InsightsWeekView: View {
     }
 
     var body: some View {
-        VStack(spacing: spacing.s12) {
+        LazyVStack(spacing: spacing.s12) {
             module(index: 0) {
                 heroCard
             }
@@ -63,9 +57,6 @@ struct InsightsWeekView: View {
         }
         .padding(.horizontal, spacing.screenHorizontal)
         .padding(.bottom, spacing.s16)
-        .onAppear {
-            didAppear = true
-        }
     }
 
     @ViewBuilder
@@ -418,14 +409,8 @@ struct InsightsWeekView: View {
         }
     }
 
-    private func module<Content: View>(index: Int, @ViewBuilder content: () -> Content) -> some View {
-        let delay = min(0.12, Double(index) * 0.015)
-        return content()
-            .opacity(shouldReduceAnimation || didAppear ? 1 : 0.98)
-            .animation(
-                shouldReduceAnimation ? nil : TaskerAnimation.quick.delay(delay),
-                value: didAppear
-            )
+    private func module<Content: View>(index _: Int, @ViewBuilder content: () -> Content) -> some View {
+        content()
     }
 
     @ViewBuilder

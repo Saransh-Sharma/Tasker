@@ -11,15 +11,9 @@ struct InsightsTodayView: View {
     let momentumGuidanceText: String
     let animateMomentumCard: Bool
     let onOpenReflection: () -> Void
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
-    @State private var didAppear = false
 
     private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.currentTheme.tokens.spacing }
     private var state: InsightsTodayState { viewModel.todayState }
-    private var shouldReduceAnimation: Bool {
-        reduceMotion || dynamicTypeSize.isAccessibilitySize || V2FeatureFlags.iPadPerfHomeAnimationTrimV3Enabled
-    }
 
     private var progress: CGFloat {
         guard state.dailyCap > 0 else { return 0 }
@@ -32,7 +26,7 @@ struct InsightsTodayView: View {
     ]
 
     var body: some View {
-        VStack(spacing: spacing.s12) {
+        LazyVStack(spacing: spacing.s12) {
             module(index: 0) {
                 HomeMomentumSummaryCard(
                     progress: homeProgress,
@@ -96,9 +90,6 @@ struct InsightsTodayView: View {
         }
         .padding(.horizontal, spacing.screenHorizontal)
         .padding(.bottom, spacing.s16)
-        .onAppear {
-            didAppear = true
-        }
     }
 
     private var heroCard: some View {
@@ -384,14 +375,8 @@ struct InsightsTodayView: View {
         .accessibilityLabel("\(item.label). \(item.valueText)")
     }
 
-    private func module<Content: View>(index: Int, @ViewBuilder content: () -> Content) -> some View {
-        let delay = min(0.12, Double(index) * 0.015)
-        return content()
-            .opacity(shouldReduceAnimation || didAppear ? 1 : 0.98)
-            .animation(
-                shouldReduceAnimation ? nil : TaskerAnimation.quick.delay(delay),
-                value: didAppear
-            )
+    private func module<Content: View>(index _: Int, @ViewBuilder content: () -> Content) -> some View {
+        content()
     }
 
     @ViewBuilder
