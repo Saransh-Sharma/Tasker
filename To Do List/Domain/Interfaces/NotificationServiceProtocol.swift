@@ -466,6 +466,10 @@ public struct TaskerWorkspacePreferences: Codable, Equatable {
     public var includeAllDayInAgenda: Bool
     public var includeAllDayInBusyStrip: Bool
     public var showCalendarEventsInTimeline: Bool
+    public var timelineRiseAndShineHour: Int
+    public var timelineRiseAndShineMinute: Int
+    public var timelineWindDownHour: Int
+    public var timelineWindDownMinute: Int
 
     public init(
         weekStartsOn: Weekday = .monday,
@@ -474,7 +478,11 @@ public struct TaskerWorkspacePreferences: Codable, Equatable {
         includeCanceledCalendarEvents: Bool = false,
         includeAllDayInAgenda: Bool = true,
         includeAllDayInBusyStrip: Bool = false,
-        showCalendarEventsInTimeline: Bool = false
+        showCalendarEventsInTimeline: Bool = false,
+        timelineRiseAndShineHour: Int = 8,
+        timelineRiseAndShineMinute: Int = 0,
+        timelineWindDownHour: Int = 22,
+        timelineWindDownMinute: Int = 0
     ) {
         self.weekStartsOn = weekStartsOn
         self.selectedCalendarIDs = Self.normalizeSelectedCalendarIDs(selectedCalendarIDs)
@@ -483,6 +491,10 @@ public struct TaskerWorkspacePreferences: Codable, Equatable {
         self.includeAllDayInAgenda = includeAllDayInAgenda
         self.includeAllDayInBusyStrip = includeAllDayInBusyStrip
         self.showCalendarEventsInTimeline = showCalendarEventsInTimeline
+        self.timelineRiseAndShineHour = timelineRiseAndShineHour
+        self.timelineRiseAndShineMinute = timelineRiseAndShineMinute
+        self.timelineWindDownHour = timelineWindDownHour
+        self.timelineWindDownMinute = timelineWindDownMinute
     }
 
     private enum CodingKeys: String, CodingKey {
@@ -493,6 +505,10 @@ public struct TaskerWorkspacePreferences: Codable, Equatable {
         case includeAllDayInAgenda
         case includeAllDayInBusyStrip
         case showCalendarEventsInTimeline
+        case timelineRiseAndShineHour
+        case timelineRiseAndShineMinute
+        case timelineWindDownHour
+        case timelineWindDownMinute
     }
 
     public init(from decoder: Decoder) throws {
@@ -506,6 +522,10 @@ public struct TaskerWorkspacePreferences: Codable, Equatable {
         includeAllDayInAgenda = try container.decodeIfPresent(Bool.self, forKey: .includeAllDayInAgenda) ?? true
         includeAllDayInBusyStrip = try container.decodeIfPresent(Bool.self, forKey: .includeAllDayInBusyStrip) ?? false
         showCalendarEventsInTimeline = try container.decodeIfPresent(Bool.self, forKey: .showCalendarEventsInTimeline) ?? false
+        timelineRiseAndShineHour = try container.decodeIfPresent(Int.self, forKey: .timelineRiseAndShineHour) ?? 8
+        timelineRiseAndShineMinute = try container.decodeIfPresent(Int.self, forKey: .timelineRiseAndShineMinute) ?? 0
+        timelineWindDownHour = try container.decodeIfPresent(Int.self, forKey: .timelineWindDownHour) ?? 22
+        timelineWindDownMinute = try container.decodeIfPresent(Int.self, forKey: .timelineWindDownMinute) ?? 0
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -517,6 +537,10 @@ public struct TaskerWorkspacePreferences: Codable, Equatable {
         try container.encode(includeAllDayInAgenda, forKey: .includeAllDayInAgenda)
         try container.encode(includeAllDayInBusyStrip, forKey: .includeAllDayInBusyStrip)
         try container.encode(showCalendarEventsInTimeline, forKey: .showCalendarEventsInTimeline)
+        try container.encode(timelineRiseAndShineHour, forKey: .timelineRiseAndShineHour)
+        try container.encode(timelineRiseAndShineMinute, forKey: .timelineRiseAndShineMinute)
+        try container.encode(timelineWindDownHour, forKey: .timelineWindDownHour)
+        try container.encode(timelineWindDownMinute, forKey: .timelineWindDownMinute)
     }
 
     public func normalizedForPersistence() -> TaskerWorkspacePreferences {
@@ -527,7 +551,11 @@ public struct TaskerWorkspacePreferences: Codable, Equatable {
             includeCanceledCalendarEvents: includeCanceledCalendarEvents,
             includeAllDayInAgenda: includeAllDayInAgenda,
             includeAllDayInBusyStrip: includeAllDayInBusyStrip,
-            showCalendarEventsInTimeline: showCalendarEventsInTimeline
+            showCalendarEventsInTimeline: showCalendarEventsInTimeline,
+            timelineRiseAndShineHour: timelineRiseAndShineHour,
+            timelineRiseAndShineMinute: timelineRiseAndShineMinute,
+            timelineWindDownHour: timelineWindDownHour,
+            timelineWindDownMinute: timelineWindDownMinute
         )
     }
 
