@@ -92,6 +92,7 @@ public struct AddTaskPrefillTemplate: Equatable {
 /// ViewModel for the Add Task screen
 /// Manages task creation state and validation
 public final class AddTaskViewModel: ObservableObject {
+    public static let defaultEstimatedDuration: TimeInterval = 15 * 60
     
     // MARK: - Published Properties (Observable State)
     
@@ -115,7 +116,8 @@ public final class AddTaskViewModel: ObservableObject {
     @Published public var selectedPriority: TaskPriority = .low
     @Published public var selectedType: TaskType = .morning
     @Published public var selectedProject: String = "Inbox"
-    @Published public var dueDate: Date? = Date()
+    @Published public var dueDate: Date?
+    @Published public var scheduledStartAt: Date?
     @Published public var hasReminder: Bool = false
     @Published public var reminderTime: Date = Date()
 
@@ -131,7 +133,7 @@ public final class AddTaskViewModel: ObservableObject {
     @Published public var selectedEnergy: TaskEnergy = .medium
     @Published public var selectedCategory: TaskCategory = .general
     @Published public var selectedContext: TaskContext = .anywhere
-    @Published public var estimatedDuration: TimeInterval? = nil
+    @Published public var estimatedDuration: TimeInterval?
     @Published public var repeatPattern: TaskRepeatPattern? = nil
     @Published public var selectedPlanningBucket: TaskPlanningBucket = .thisWeek
     @Published public var selectedWeeklyOutcomeID: UUID? {
@@ -151,6 +153,13 @@ public final class AddTaskViewModel: ObservableObject {
     @Published public private(set) var availableParentTasks: [TaskDefinition] = []
     @Published public private(set) var availableDependencyTasks: [TaskDefinition] = []
 
+    public var scheduledEndAt: Date? {
+        guard let scheduledStartAt,
+              let estimatedDuration,
+              estimatedDuration > 0 else { return nil }
+        return scheduledStartAt.addingTimeInterval(estimatedDuration)
+    }
+
     /// True when the form has any user-entered content (used for discard confirmation)
     public var hasUnsavedChanges: Bool {
         !taskName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
@@ -158,12 +167,13 @@ public final class AddTaskViewModel: ObservableObject {
         || selectedPriority != .low
         || selectedType != .morning
         || selectedProject != "Inbox"
+        || areDatesDifferent(scheduledStartAt, pristineScheduledStartAt)
         || hasReminder
         || selectedLifeAreaID != nil
         || selectedTagIDs.isEmpty == false
         || selectedParentTaskID != nil
         || selectedDependencyTaskIDs.isEmpty == false
-        || estimatedDuration != nil
+        || areDurationsDifferent(estimatedDuration, pristineEstimatedDuration)
         || repeatPattern != nil
         || selectedPlanningBucket != .thisWeek
         || selectedWeeklyOutcomeID != nil
@@ -171,10 +181,12 @@ public final class AddTaskViewModel: ObservableObject {
 
     public var scheduleSummary: String {
         var parts: [String] = []
-        if let dueDate {
+        if let scheduledStartAt {
+            parts.append(Self.scheduleRangeLabel(start: scheduledStartAt, end: scheduledEndAt))
+        } else if let dueDate {
             parts.append(DateUtils.formatDate(dueDate))
         } else {
-            parts.append("No due date")
+            parts.append("No schedule")
         }
         if hasReminder {
             parts.append(formatTime(reminderTime))
@@ -261,12 +273,15 @@ public final class AddTaskViewModel: ObservableObject {
     private let gamificationEngine: GamificationEngine?
     private let aiSuggestionService: AISuggestionService?
     private let isAISuggestionRefinementReady: @MainActor () -> Bool
+    private let nowProvider: () -> Date
     private var cancellables = Set<AnyCancellable>()
     private var suggestionTask: Task<Void, Never>?
     private var suggestionRequestToken = UUID()
     private var pendingPrefillTemplate: AddTaskPrefillTemplate?
     private let suggestionDebounceMilliseconds = 650
     private var loadedTaskMetadataProjectID: UUID?
+    private var pristineScheduledStartAt: Date?
+    private var pristineEstimatedDuration: TimeInterval?
     
     // MARK: - Initialization
     
@@ -282,6 +297,7 @@ public final class AddTaskViewModel: ObservableObject {
         manageTagsUseCase: ManageTagsUseCase? = nil,
         gamificationEngine: GamificationEngine? = nil,
         aiSuggestionService: AISuggestionService? = nil,
+        nowProvider: @escaping () -> Date = Date.init,
         isAISuggestionRefinementReady: (@MainActor () -> Bool)? = nil
     ) {
         self.taskReadModelRepository = taskReadModelRepository
@@ -294,10 +310,14 @@ public final class AddTaskViewModel: ObservableObject {
         self.manageTagsUseCase = manageTagsUseCase
         self.gamificationEngine = gamificationEngine
         self.aiSuggestionService = aiSuggestionService
+        self.nowProvider = nowProvider
         self.isAISuggestionRefinementReady = isAISuggestionRefinementReady ?? {
             let evaluator = LLMRuntimeCoordinator.shared.evaluator
             return evaluator.loadedModelName != nil && evaluator.runtimePhase != .preparing
         }
+
+        applyDefaultScheduleAsPristine()
+        reminderTime = nowProvider()
 
         setupValidation()
         setupAISuggestionPipeline()
@@ -313,6 +333,53 @@ public final class AddTaskViewModel: ObservableObject {
     }
     
     // MARK: - Public Methods
+
+    public func setScheduledDate(_ date: Date, calendar: Calendar = .current) {
+        let currentStart = scheduledStartAt ?? Self.defaultScheduledStart(now: nowProvider(), calendar: calendar)
+        let timeComponents = calendar.dateComponents([.hour, .minute], from: currentStart)
+        let day = calendar.startOfDay(for: date)
+        let updated = calendar.date(
+            bySettingHour: timeComponents.hour ?? 0,
+            minute: timeComponents.minute ?? 0,
+            second: 0,
+            of: day
+        ) ?? currentStart
+        scheduledStartAt = Self.clearingSubminuteComponents(updated, calendar: calendar)
+        dueDate = scheduledStartAt
+    }
+
+    public func setScheduledStartTime(_ time: Date, calendar: Calendar = .current) {
+        let currentStart = scheduledStartAt ?? Self.defaultScheduledStart(now: nowProvider(), calendar: calendar)
+        let timeComponents = calendar.dateComponents([.hour, .minute], from: time)
+        let updated = calendar.date(
+            bySettingHour: timeComponents.hour ?? 0,
+            minute: timeComponents.minute ?? 0,
+            second: 0,
+            of: currentStart
+        ) ?? currentStart
+        scheduledStartAt = Self.clearingSubminuteComponents(updated, calendar: calendar)
+        dueDate = scheduledStartAt
+    }
+
+    public func setEstimatedDuration(_ duration: TimeInterval?) {
+        guard let duration else {
+            estimatedDuration = nil
+            return
+        }
+        estimatedDuration = max(60, duration)
+    }
+
+    public func clearSchedule() {
+        scheduledStartAt = nil
+        dueDate = nil
+    }
+
+    public func restoreDefaultSchedule() {
+        let start = Self.defaultScheduledStart(now: nowProvider())
+        scheduledStartAt = start
+        dueDate = start
+        estimatedDuration = Self.defaultEstimatedDuration
+    }
     
     /// Create a new task
     public func createTask() {
@@ -330,6 +397,8 @@ public final class AddTaskViewModel: ObservableObject {
 
         let resolvedTagIDs = selectedTagIDs.isEmpty ? parseImplicitTagIDs(from: taskName) : selectedTagIDs
         let requestID = UUID()
+        let resolvedScheduledStartAt = scheduledStartAt
+        let resolvedScheduledEndAt = scheduledEndAt
         let definitionRequest = CreateTaskDefinitionRequest(
             id: requestID,
             title: taskName,
@@ -338,7 +407,10 @@ public final class AddTaskViewModel: ObservableObject {
             projectName: selectedProject,
             lifeAreaID: selectedLifeAreaID,
             sectionID: selectedSectionID,
-            dueDate: dueDate,
+            dueDate: resolvedScheduledStartAt ?? dueDate,
+            scheduledStartAt: resolvedScheduledStartAt,
+            scheduledEndAt: resolvedScheduledEndAt,
+            isAllDay: false,
             parentTaskID: selectedParentTaskID,
             tagIDs: Array(resolvedTagIDs),
             dependencies: selectedDependencyTaskIDs.map { dependsOnTaskID in
@@ -545,13 +617,12 @@ public final class AddTaskViewModel: ObservableObject {
         selectedEnergy = .medium
         selectedCategory = .general
         selectedContext = .anywhere
-        estimatedDuration = nil
         repeatPattern = nil
         selectedPlanningBucket = .thisWeek
         selectedWeeklyOutcomeID = nil
-        dueDate = Date()
+        applyDefaultScheduleAsPristine()
         hasReminder = false
-        reminderTime = Date()
+        reminderTime = nowProvider()
         expandedSections = []
         isCoreDetailsExpanded = false
         validationErrors = []
@@ -1000,8 +1071,8 @@ public final class AddTaskViewModel: ObservableObject {
         selectedEnergy = template.energy
         selectedCategory = template.category
         selectedContext = template.context
-        estimatedDuration = template.estimatedDuration
-        dueDate = template.dueDateIntent.resolvedDate()
+        estimatedDuration = template.estimatedDuration ?? Self.defaultEstimatedDuration
+        applyPrefillDueDate(template.dueDateIntent.resolvedDate())
         isCoreDetailsExpanded = (template.details?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false)
 
         var resolvedAllSelections = true
@@ -1066,7 +1137,7 @@ public final class AddTaskViewModel: ObservableObject {
         if selectedEnergy != .medium
             || selectedCategory != .general
             || selectedContext != .anywhere
-            || estimatedDuration != nil {
+            || areDurationsDifferent(estimatedDuration, Self.defaultEstimatedDuration) {
             sections.insert(.execution)
         }
 
@@ -1075,6 +1146,70 @@ public final class AddTaskViewModel: ObservableObject {
         }
 
         return sections
+    }
+
+    private func applyDefaultScheduleAsPristine(calendar: Calendar = .current) {
+        let start = Self.defaultScheduledStart(now: nowProvider(), calendar: calendar)
+        scheduledStartAt = start
+        dueDate = start
+        estimatedDuration = Self.defaultEstimatedDuration
+        pristineScheduledStartAt = start
+        pristineEstimatedDuration = Self.defaultEstimatedDuration
+    }
+
+    private func applyPrefillDueDate(_ date: Date?, calendar: Calendar = .current) {
+        guard let date else {
+            clearSchedule()
+            return
+        }
+        if TaskScheduleNormalizer.isDateOnly(date, calendar: calendar) {
+            setScheduledDate(date, calendar: calendar)
+        } else {
+            let start = Self.clearingSubminuteComponents(date, calendar: calendar)
+            scheduledStartAt = start
+            dueDate = start
+        }
+    }
+
+    public static func defaultScheduledStart(now: Date = Date(), calendar: Calendar = .current) -> Date {
+        let start = calendar.date(byAdding: .minute, value: 20, to: now) ?? now.addingTimeInterval(20 * 60)
+        return clearingSubminuteComponents(start, calendar: calendar)
+    }
+
+    public static func scheduleRangeLabel(start: Date, end: Date?) -> String {
+        let formatter = DateFormatter()
+        formatter.timeStyle = .short
+        guard let end else {
+            return formatter.string(from: start)
+        }
+        return "\(formatter.string(from: start)) - \(formatter.string(from: end))"
+    }
+
+    private static func clearingSubminuteComponents(_ date: Date, calendar: Calendar = .current) -> Date {
+        let components = calendar.dateComponents([.year, .month, .day, .hour, .minute], from: date)
+        return calendar.date(from: components) ?? date
+    }
+
+    private func areDatesDifferent(_ lhs: Date?, _ rhs: Date?) -> Bool {
+        switch (lhs, rhs) {
+        case (.none, .none):
+            return false
+        case let (.some(lhs), .some(rhs)):
+            return abs(lhs.timeIntervalSince(rhs)) >= 1
+        default:
+            return true
+        }
+    }
+
+    private func areDurationsDifferent(_ lhs: TimeInterval?, _ rhs: TimeInterval?) -> Bool {
+        switch (lhs, rhs) {
+        case (.none, .none):
+            return false
+        case let (.some(lhs), .some(rhs)):
+            return abs(lhs - rhs) >= 1
+        default:
+            return true
+        }
     }
 
     private static func durationLabel(for duration: TimeInterval) -> String {

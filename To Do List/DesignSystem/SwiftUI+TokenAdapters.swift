@@ -263,13 +263,11 @@ private struct TaskerFontModifier: ViewModifier {
             dynamicTypeSize: dynamicTypeSize,
             colorSchemeContrast: colorSchemeContrast
         )
-        let traitCollection = UITraitCollection(
-            traitsFrom: [
-                UITraitCollection(userInterfaceStyle: colorScheme == .dark ? .dark : .light),
-                UITraitCollection(preferredContentSizeCategory: dynamicTypeSize.uiContentSizeCategory),
-                UITraitCollection(accessibilityContrast: colorSchemeContrast.uiAccessibilityContrast)
-            ]
-        )
+        let traitCollection = UITraitCollection { traits in
+            traits.userInterfaceStyle = colorScheme == .dark ? .dark : .light
+            traits.preferredContentSizeCategory = dynamicTypeSize.uiContentSizeCategory
+            traits.accessibilityContrast = colorSchemeContrast.uiAccessibilityContrast
+        }
         let font = Font(
             TaskerSwiftUITokens.typography(
                 for: layoutClass,
