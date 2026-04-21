@@ -44,7 +44,7 @@ public final class CreateTaskDefinitionUseCase {
         request: CreateTaskDefinitionRequest,
         completion: @escaping (Result<TaskDefinition, Error>) -> Void
     ) {
-        let normalizedRequest = normalizedRequestForSeriesRoot(request)
+        let normalizedRequest = normalizedRequestForStorage(request)
 
         repository.create(request: normalizedRequest) { result in
             switch result {
@@ -151,6 +151,29 @@ public final class CreateTaskDefinitionUseCase {
         return normalized
     }
 
+    private func normalizedRequestForStorage(_ request: CreateTaskDefinitionRequest) -> CreateTaskDefinitionRequest {
+        var normalized = normalizedRequestForSeriesRoot(request)
+        guard normalized.scheduledStartAt == nil,
+              normalized.scheduledEndAt == nil,
+              normalized.isAllDay == false
+        else {
+            return normalized
+        }
+
+        let schedule = TaskScheduleNormalizer.normalize(
+            deadlineDate: normalized.dueDate,
+            existingScheduledStartAt: nil,
+            existingScheduledEndAt: nil,
+            estimatedDuration: normalized.estimatedDuration,
+            preserveExistingDuration: false
+        )
+        normalized.dueDate = schedule.dueDate
+        normalized.scheduledStartAt = schedule.scheduledStartAt
+        normalized.scheduledEndAt = schedule.scheduledEndAt
+        normalized.isAllDay = schedule.isAllDay
+        return normalized
+    }
+
     /// Executes materializeRecurringTasksIfNeeded.
     private func materializeRecurringTasksIfNeeded(
         rootTask: TaskDefinition,
@@ -218,6 +241,9 @@ private final class RecurringTaskMaterializer {
                         lifeAreaID: root.lifeAreaID,
                         sectionID: root.sectionID,
                         dueDate: root.dueDate,
+                        scheduledStartAt: root.scheduledStartAt,
+                        scheduledEndAt: root.scheduledEndAt,
+                        isAllDay: root.isAllDay,
                         parentTaskID: root.parentTaskID,
                         tagIDs: root.tagIDs,
                         dependencies: root.dependencies,
@@ -332,6 +358,13 @@ private final class RecurringTaskMaterializer {
                 var createdCount = 0
 
                 for dueDate in missingDates {
+                    let schedule = TaskScheduleNormalizer.normalize(
+                        deadlineDate: dueDate,
+                        existingScheduledStartAt: rootTask.scheduledStartAt,
+                        existingScheduledEndAt: rootTask.scheduledEndAt,
+                        estimatedDuration: rootTask.estimatedDuration,
+                        preserveExistingDuration: true
+                    )
                     let request = CreateTaskDefinitionRequest(
                         id: UUID(),
                         recurrenceSeriesID: recurrenceSeriesID,
@@ -341,7 +374,10 @@ private final class RecurringTaskMaterializer {
                         projectName: rootTask.projectName,
                         lifeAreaID: rootTask.lifeAreaID,
                         sectionID: rootTask.sectionID,
-                        dueDate: dueDate,
+                        dueDate: schedule.dueDate,
+                        scheduledStartAt: schedule.scheduledStartAt,
+                        scheduledEndAt: schedule.scheduledEndAt,
+                        isAllDay: schedule.isAllDay,
                         parentTaskID: rootTask.parentTaskID,
                         tagIDs: rootRequest.tagIDs,
                         dependencies: [],

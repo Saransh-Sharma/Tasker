@@ -502,7 +502,11 @@ public final class BuildNextDayPlanSuggestionUseCase {
                         )
                     )
                 case .success(let eventSlices):
-                    self.contextBuildQueue.async {
+                    let contextBuildQueue = self.contextBuildQueue
+                    let mergeGapThreshold = self.mergeGapThreshold
+                    let calendarContextCacheStore = self.calendarContextCacheStore
+                    let nowProvider = self.nowProvider
+                    contextBuildQueue.async {
                         guard shouldContinue() else { return }
                         TaskerPerformanceTrace.event("ReflectionContextBuildStart")
                         let buildInterval = TaskerPerformanceTrace.begin("ReflectionCalendarContextBuild")
@@ -510,16 +514,16 @@ public final class BuildNextDayPlanSuggestionUseCase {
                             eventSlices: eventSlices,
                             dayStart: query.dayStart,
                             dayEnd: query.dayEnd,
-                            mergeGapThreshold: self.mergeGapThreshold
+                            mergeGapThreshold: mergeGapThreshold
                         )
                         TaskerPerformanceTrace.end(buildInterval)
                         TaskerPerformanceTrace.event("ReflectionContextBuildFinish")
                         let snapshot = Self.snapshot(from: context)
                         Task {
-                            await self.calendarContextCacheStore.save(
+                            await calendarContextCacheStore.save(
                                 snapshot: snapshot,
                                 key: query.cacheKey,
-                                cachedAt: self.nowProvider()
+                                cachedAt: nowProvider()
                             )
                         }
                         finish(CalendarContextLoadResult(context: context, status: .loaded))

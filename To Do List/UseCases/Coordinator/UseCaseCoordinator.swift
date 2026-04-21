@@ -296,7 +296,8 @@ public final class UseCaseCoordinator {
             tombstoneRepository: v2Dependencies.tombstoneRepository
         )
         self.rescheduleTaskDefinition = RescheduleTaskDefinitionUseCase(
-            updateTaskDefinition: updateTaskDefinitionUseCase
+            updateTaskDefinition: updateTaskDefinitionUseCase,
+            repository: v2Dependencies.taskDefinitionRepository
         )
         self.getTaskChildren = GetTaskChildrenUseCase(repository: v2Dependencies.taskDefinitionRepository)
         self.completeTaskDefinition = CompleteTaskDefinitionUseCase(
