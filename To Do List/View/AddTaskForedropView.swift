@@ -55,8 +55,11 @@ struct AddTaskForedropView: View {
                     )
                     .enhancedStaggeredAppearance(index: 0)
 
-                    baseComposerSections
+                    AddTaskScheduleQuickEditor(viewModel: viewModel)
                         .enhancedStaggeredAppearance(index: 1)
+
+                    baseComposerSections
+                        .enhancedStaggeredAppearance(index: 2)
 
                     if viewModel.isCoreDetailsExpanded {
                         detailedSections
@@ -120,24 +123,7 @@ struct AddTaskForedropView: View {
 
     private var baseComposerSections: some View {
         VStack(spacing: spacing.s16) {
-            if dynamicTypeSize.isAccessibilitySize {
-                dueDateSection
-                ownershipSection
-            } else {
-                ViewThatFits(in: .horizontal) {
-                    HStack(alignment: .top, spacing: spacing.s16) {
-                        dueDateSection
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                        ownershipSection
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                    }
-
-                    VStack(spacing: spacing.s16) {
-                        dueDateSection
-                        ownershipSection
-                    }
-                }
-            }
+            ownershipSection
 
             TaskerComposerDisclosureRow(
                 title: "Add details",
@@ -231,9 +217,9 @@ struct AddTaskForedropView: View {
 
                     AddTaskRepeatEditor(repeatPattern: $viewModel.repeatPattern)
 
-                    if viewModel.dueDate != nil {
-                        Button("Clear due date") {
-                            viewModel.dueDate = nil
+                    if viewModel.scheduledStartAt != nil {
+                        Button("Clear schedule") {
+                            viewModel.clearSchedule()
                         }
                         .font(.tasker(.meta))
                         .foregroundStyle(Color.tasker.statusWarning)
@@ -264,8 +250,6 @@ struct AddTaskForedropView: View {
 
             sectionCard(.execution, index: 4) {
                 VStack(alignment: .leading, spacing: spacing.s12) {
-                    AddTaskDurationPicker(duration: $viewModel.estimatedDuration)
-
                     AddTaskEnumChipRow(
                         label: "Energy",
                         displayName: { $0.displayName },
@@ -459,6 +443,431 @@ struct AddTaskForedropView: View {
         }
         .buttonStyle(.plain)
         .scaleOnPress()
+    }
+}
+
+// MARK: - Schedule Quick Editor
+
+private enum AddTaskScheduleAccessibilityID {
+    static let editor = "addTask.scheduleEditor"
+    static let dateToday = "addTask.schedule.date.today"
+    static let dateTomorrow = "addTask.schedule.date.tomorrow"
+    static let dateCustom = "addTask.schedule.date.custom"
+    static let dateSomeday = "addTask.schedule.date.someday"
+    static let timeRow = "addTask.schedule.timeRow"
+    static let timePickerSheet = "addTask.schedule.timePickerSheet"
+    static let timePicker = "addTask.schedule.timePicker"
+    static let timePickerConfirm = "addTask.schedule.timePickerConfirm"
+    static let datePickerSheet = "addTask.schedule.datePickerSheet"
+    static let datePicker = "addTask.schedule.datePicker"
+    static let datePickerConfirm = "addTask.schedule.datePickerConfirm"
+    static let customDurationField = "addTask.schedule.customDurationField"
+
+    static func durationChip(_ minutes: Int) -> String {
+        "addTask.schedule.duration.\(minutes)"
+    }
+}
+
+struct AddTaskScheduleQuickEditor: View {
+    @ObservedObject var viewModel: AddTaskViewModel
+
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @State private var showDatePicker = false
+    @State private var showTimePicker = false
+    @State private var showCustomDuration = false
+    @State private var customDurationMinutes = ""
+
+    private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.currentTheme.tokens.spacing }
+    private var corner: TaskerCornerTokens { TaskerThemeManager.shared.currentTheme.tokens.corner }
+
+    private let durationPresets: [(label: String, seconds: TimeInterval, minutes: Int)] = [
+        ("15m", 15 * 60, 15),
+        ("30m", 30 * 60, 30),
+        ("1h", 60 * 60, 60),
+        ("1h 30m", 90 * 60, 90),
+        ("2h", 2 * 60 * 60, 120),
+    ]
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: spacing.s12) {
+            HStack(spacing: spacing.s8) {
+                Image(systemName: "clock")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(Color.tasker.accentPrimary)
+                Text("Schedule")
+                    .font(.tasker(.caption1).weight(.semibold))
+                    .foregroundStyle(Color.tasker.textSecondary)
+                Spacer(minLength: 0)
+            }
+
+            datePresetRow
+            timeRow
+            durationRow
+
+            if showCustomDuration {
+                customDurationRow
+                    .transition(.asymmetric(
+                        insertion: .opacity.combined(with: .move(edge: .top)),
+                        removal: .opacity
+                    ))
+            }
+        }
+        .padding(.horizontal, spacing.s12)
+        .padding(.vertical, spacing.s12)
+        .background(
+            RoundedRectangle(cornerRadius: corner.r3)
+                .fill(Color.tasker.surfaceSecondary)
+                .overlay(
+                    RoundedRectangle(cornerRadius: corner.r3)
+                        .stroke(Color.tasker.strokeHairline, lineWidth: 1)
+                )
+        )
+        .accessibilityIdentifier(AddTaskScheduleAccessibilityID.editor)
+        .sheet(isPresented: $showDatePicker) {
+            AddTaskScheduleDatePickerSheet(
+                initialDate: viewModel.scheduledStartAt ?? Date(),
+                onSet: { date in
+                    viewModel.setScheduledDate(date)
+                }
+            )
+        }
+        .sheet(isPresented: $showTimePicker) {
+            AddTaskScheduleTimePickerSheet(
+                initialTime: viewModel.scheduledStartAt ?? AddTaskViewModel.defaultScheduledStart(),
+                onSet: { time in
+                    viewModel.setScheduledStartTime(time)
+                }
+            )
+        }
+        .animation(TaskerAnimation.snappy, value: showCustomDuration)
+    }
+
+    private var datePresetRow: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: spacing.chipSpacing) {
+                AddTaskMetadataChip(
+                    icon: "sun.horizon",
+                    text: "Today",
+                    isActive: isScheduledToday
+                ) {
+                    if let today = DatePreset.today.resolvedDueDate() {
+                        viewModel.setScheduledDate(today)
+                    }
+                }
+                .accessibilityIdentifier(AddTaskScheduleAccessibilityID.dateToday)
+
+                AddTaskMetadataChip(
+                    icon: "sunrise",
+                    text: "Tomorrow",
+                    isActive: isScheduledTomorrow
+                ) {
+                    if let tomorrow = DatePreset.tomorrow.resolvedDueDate() {
+                        viewModel.setScheduledDate(tomorrow)
+                    }
+                }
+                .accessibilityIdentifier(AddTaskScheduleAccessibilityID.dateTomorrow)
+
+                AddTaskMetadataChip(
+                    icon: "calendar.badge.plus",
+                    text: customDateText,
+                    isActive: isCustomDateSelected
+                ) {
+                    if viewModel.scheduledStartAt == nil {
+                        viewModel.restoreDefaultSchedule()
+                    }
+                    showDatePicker = true
+                }
+                .accessibilityIdentifier(AddTaskScheduleAccessibilityID.dateCustom)
+
+                AddTaskMetadataChip(
+                    icon: "tray",
+                    text: "Someday",
+                    isActive: viewModel.scheduledStartAt == nil
+                ) {
+                    withAnimation(TaskerAnimation.snappy) {
+                        viewModel.clearSchedule()
+                    }
+                }
+                .accessibilityIdentifier(AddTaskScheduleAccessibilityID.dateSomeday)
+            }
+        }
+    }
+
+    private var timeRow: some View {
+        Button {
+            if viewModel.scheduledStartAt == nil {
+                viewModel.restoreDefaultSchedule()
+            }
+            showTimePicker = true
+        } label: {
+            HStack(spacing: spacing.s12) {
+                Image(systemName: "clock.fill")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(Color.tasker.accentPrimary)
+                    .frame(width: 24, height: 24)
+                    .background(Circle().fill(Color.tasker.accentWash))
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Time")
+                        .font(.tasker(.caption1))
+                        .foregroundStyle(Color.tasker.textTertiary)
+                    Text(timeRangeText)
+                        .font(.tasker(.callout).weight(.semibold))
+                        .foregroundStyle(Color.tasker.textPrimary)
+                        .lineLimit(dynamicTypeSize.isAccessibilitySize ? 2 : 1)
+                }
+
+                Spacer(minLength: spacing.s8)
+
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(Color.tasker.textQuaternary)
+            }
+            .padding(.horizontal, spacing.s12)
+            .padding(.vertical, spacing.s8)
+            .background(
+                RoundedRectangle(cornerRadius: corner.r2)
+                    .fill(Color.tasker.surfacePrimary)
+            )
+        }
+        .buttonStyle(.plain)
+        .scaleOnPress()
+        .accessibilityIdentifier(AddTaskScheduleAccessibilityID.timeRow)
+    }
+
+    private var durationRow: some View {
+        VStack(alignment: .leading, spacing: spacing.s8) {
+            Text("Duration")
+                .font(.tasker(.caption1))
+                .foregroundStyle(Color.tasker.textTertiary)
+
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: spacing.chipSpacing) {
+                    ForEach(durationPresets, id: \.minutes) { preset in
+                        AddTaskMetadataChip(
+                            icon: "timer",
+                            text: preset.label,
+                            isActive: durationMatches(preset.seconds)
+                        ) {
+                            withAnimation(TaskerAnimation.snappy) {
+                                viewModel.setEstimatedDuration(preset.seconds)
+                                showCustomDuration = false
+                            }
+                        }
+                        .accessibilityIdentifier(AddTaskScheduleAccessibilityID.durationChip(preset.minutes))
+                    }
+
+                    AddTaskMetadataChip(
+                        icon: "pencil",
+                        text: customDurationChipText,
+                        isActive: showCustomDuration || isCustomDurationSelected
+                    ) {
+                        customDurationMinutes = currentDurationMinutesText
+                        withAnimation(TaskerAnimation.snappy) {
+                            showCustomDuration.toggle()
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private var customDurationRow: some View {
+        HStack(spacing: spacing.s8) {
+            TextField("Minutes", text: $customDurationMinutes)
+                .font(.tasker(.callout))
+                .keyboardType(.numberPad)
+                .foregroundStyle(Color.tasker.textPrimary)
+                .padding(.horizontal, spacing.s12)
+                .padding(.vertical, spacing.s8)
+                .background(
+                    RoundedRectangle(cornerRadius: corner.r2)
+                        .fill(Color.tasker.surfacePrimary)
+                )
+                .frame(width: 112)
+                .accessibilityIdentifier(AddTaskScheduleAccessibilityID.customDurationField)
+
+            Text("minutes")
+                .font(.tasker(.callout))
+                .foregroundStyle(Color.tasker.textTertiary)
+
+            Spacer(minLength: 0)
+
+            Button("Set") {
+                guard let minutes = Int(customDurationMinutes), minutes > 0 else { return }
+                viewModel.setEstimatedDuration(TimeInterval(minutes * 60))
+                showCustomDuration = false
+            }
+            .font(.tasker(.callout).weight(.semibold))
+            .foregroundStyle(Color.tasker.accentPrimary)
+            .buttonStyle(.plain)
+        }
+    }
+
+    private var isScheduledToday: Bool {
+        guard let scheduledStartAt = viewModel.scheduledStartAt else { return false }
+        return Calendar.current.isDateInToday(scheduledStartAt)
+    }
+
+    private var isScheduledTomorrow: Bool {
+        guard let scheduledStartAt = viewModel.scheduledStartAt else { return false }
+        return Calendar.current.isDateInTomorrow(scheduledStartAt)
+    }
+
+    private var isCustomDateSelected: Bool {
+        guard viewModel.scheduledStartAt != nil else { return false }
+        return isScheduledToday == false && isScheduledTomorrow == false
+    }
+
+    private var customDateText: String {
+        guard isCustomDateSelected, let scheduledStartAt = viewModel.scheduledStartAt else {
+            return "Pick date"
+        }
+        let formatter = DateFormatter()
+        formatter.setLocalizedDateFormatFromTemplate("EEE MMM d")
+        return formatter.string(from: scheduledStartAt)
+    }
+
+    private var timeRangeText: String {
+        guard let scheduledStartAt = viewModel.scheduledStartAt else {
+            return "No start time"
+        }
+        return AddTaskViewModel.scheduleRangeLabel(start: scheduledStartAt, end: viewModel.scheduledEndAt)
+    }
+
+    private var customDurationChipText: String {
+        guard isCustomDurationSelected, let duration = viewModel.estimatedDuration else {
+            return "Custom"
+        }
+        return durationLabel(for: duration)
+    }
+
+    private var currentDurationMinutesText: String {
+        guard let duration = viewModel.estimatedDuration else { return "" }
+        return "\(max(1, Int((duration / 60).rounded())))"
+    }
+
+    private var isCustomDurationSelected: Bool {
+        guard let duration = viewModel.estimatedDuration else { return false }
+        return durationPresets.contains(where: { abs($0.seconds - duration) < 1 }) == false
+    }
+
+    private func durationMatches(_ duration: TimeInterval) -> Bool {
+        guard let selected = viewModel.estimatedDuration else { return false }
+        return abs(selected - duration) < 1
+    }
+
+    private func durationLabel(for duration: TimeInterval) -> String {
+        let minutes = max(1, Int((duration / 60).rounded()))
+        if minutes < 60 {
+            return "\(minutes)m"
+        }
+        let hours = minutes / 60
+        let remainder = minutes % 60
+        if remainder == 0 {
+            return "\(hours)h"
+        }
+        return "\(hours)h \(remainder)m"
+    }
+}
+
+private struct AddTaskScheduleDatePickerSheet: View {
+    let onSet: (Date) -> Void
+    @Environment(\.dismiss) private var dismiss
+    @State private var selectedDate: Date
+
+    private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.currentTheme.tokens.spacing }
+
+    init(initialDate: Date, onSet: @escaping (Date) -> Void) {
+        _selectedDate = State(initialValue: initialDate)
+        self.onSet = onSet
+    }
+
+    var body: some View {
+        NavigationStack {
+            VStack(spacing: spacing.s20) {
+                DatePicker(
+                    "Date",
+                    selection: $selectedDate,
+                    in: Calendar.current.startOfDay(for: Date())...,
+                    displayedComponents: .date
+                )
+                .datePickerStyle(.graphical)
+                .padding(.horizontal, spacing.s16)
+                .accessibilityIdentifier(AddTaskScheduleAccessibilityID.datePicker)
+
+                Spacer(minLength: 0)
+            }
+            .accessibilityIdentifier(AddTaskScheduleAccessibilityID.datePickerSheet)
+            .navigationTitle("Pick Date")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") {
+                        dismiss()
+                    }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Set Date") {
+                        onSet(selectedDate)
+                        TaskerFeedback.success()
+                        dismiss()
+                    }
+                    .accessibilityIdentifier(AddTaskScheduleAccessibilityID.datePickerConfirm)
+                }
+            }
+        }
+        .presentationDetents([.medium, .large])
+    }
+}
+
+private struct AddTaskScheduleTimePickerSheet: View {
+    let onSet: (Date) -> Void
+    @Environment(\.dismiss) private var dismiss
+    @State private var selectedTime: Date
+
+    private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.currentTheme.tokens.spacing }
+
+    init(initialTime: Date, onSet: @escaping (Date) -> Void) {
+        _selectedTime = State(initialValue: initialTime)
+        self.onSet = onSet
+    }
+
+    var body: some View {
+        NavigationStack {
+            VStack(spacing: spacing.s16) {
+                DatePicker(
+                    "Start Time",
+                    selection: $selectedTime,
+                    displayedComponents: .hourAndMinute
+                )
+                .datePickerStyle(.wheel)
+                .labelsHidden()
+                .padding(.horizontal, spacing.s16)
+                .accessibilityIdentifier(AddTaskScheduleAccessibilityID.timePicker)
+
+                Spacer(minLength: 0)
+            }
+            .accessibilityIdentifier(AddTaskScheduleAccessibilityID.timePickerSheet)
+            .navigationTitle("Start Time")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") {
+                        dismiss()
+                    }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Set Time") {
+                        onSet(selectedTime)
+                        TaskerFeedback.success()
+                        dismiss()
+                    }
+                    .accessibilityIdentifier(AddTaskScheduleAccessibilityID.timePickerConfirm)
+                }
+            }
+        }
+        .presentationDetents([.height(320), .medium])
     }
 }
 

@@ -45,6 +45,370 @@ private struct EvaRescueSplitComposerState {
     var createdChildIDs: [UUID] = []
 }
 
+private struct NeedsReplanTrayView: View {
+    let summary: NeedsReplanSummary
+    let onTap: () -> Void
+
+    var body: some View {
+        Button(action: onTap) {
+            HStack(alignment: .center, spacing: 12) {
+                Image(systemName: "arrow.triangle.2.circlepath")
+                    .font(.system(size: 15, weight: .semibold, design: .rounded))
+                    .foregroundStyle(Color.tasker.accentPrimary)
+                    .frame(width: 36, height: 36)
+                    .background(Color.tasker.accentWash.opacity(0.72), in: Circle())
+                    .accessibilityHidden(true)
+
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(summary.title)
+                        .font(.tasker(.headline).weight(.semibold))
+                        .foregroundStyle(Color.tasker.textPrimary)
+                    Text(summary.subtitle)
+                        .font(.tasker(.support))
+                        .foregroundStyle(Color.tasker.textSecondary)
+                        .lineLimit(2)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+
+                Spacer(minLength: 8)
+
+                Text(summary.callToAction)
+                    .font(.tasker(.support).weight(.semibold))
+                    .foregroundStyle(Color.tasker.textPrimary)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 8)
+                    .background(Color.tasker.surfacePrimary.opacity(0.82), in: Capsule())
+                    .lineLimit(1)
+            }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 12)
+            .background(
+                RoundedRectangle(cornerRadius: 24, style: .continuous)
+                    .fill(Color.tasker.accentWash.opacity(0.34))
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 24, style: .continuous)
+                    .stroke(Color.tasker.accentPrimary.opacity(0.12), lineWidth: 1)
+            )
+        }
+        .buttonStyle(.plain)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("\(summary.title), \(summary.subtitle)")
+        .accessibilityHint("Opens Plan the Day.")
+        .accessibilityIdentifier("home.needsReplan.tray")
+    }
+}
+
+private struct NeedsReplanLauncherSheet: View {
+    let summary: NeedsReplanSummary
+    let onStart: () -> Void
+    let onLater: () -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 18) {
+            Capsule()
+                .fill(Color.tasker.strokeHairline.opacity(0.7))
+                .frame(width: 44, height: 5)
+                .frame(maxWidth: .infinity)
+                .accessibilityHidden(true)
+
+            VStack(alignment: .leading, spacing: 6) {
+                Text(summary.count == 0 ? "You're all caught up" : "Plan the Day")
+                    .font(.tasker(.title1).weight(.semibold))
+                    .foregroundStyle(Color.tasker.textPrimary)
+                Text(summary.count == 0 ? summary.subtitle : "Resolve unfinished tasks from the past before you shape today.")
+                    .font(.tasker(.body))
+                    .foregroundStyle(Color.tasker.textSecondary)
+                    .lineSpacing(2)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            if summary.count > 0 {
+                VStack(alignment: .leading, spacing: 10) {
+                    launcherRow(summary.count == 1 ? "1 task needs a decision" : "\(summary.count) tasks need a decision", systemImage: "checklist")
+                    if summary.dayCount <= 1 {
+                        launcherRow("All from the most recent past day", systemImage: "calendar")
+                    } else {
+                        launcherRow("Spanning \(summary.dayCount) past days", systemImage: "calendar")
+                    }
+                    if let newestDate = summary.newestDate {
+                        launcherRow("Start with \(newestDate.formatted(.dateTime.weekday(.wide).month().day()))", systemImage: "arrow.forward.circle")
+                    }
+                }
+            }
+
+            Button(summary.count == 0 ? "Go to Today" : "Start Replan", action: onStart)
+                .buttonStyle(.borderedProminent)
+                .accessibilityIdentifier("home.needsReplan.start")
+
+            HStack {
+                Button("Later", action: onLater)
+                    .font(.tasker(.body).weight(.semibold))
+                Spacer()
+            }
+            .foregroundStyle(Color.tasker.textSecondary)
+        }
+        .padding(24)
+        .presentationDetents([.medium])
+        .presentationDragIndicator(.hidden)
+        .accessibilityIdentifier("home.needsReplan.launcher")
+    }
+
+    private func launcherRow(_ title: String, systemImage: String) -> some View {
+        Label(title, systemImage: systemImage)
+            .font(.tasker(.support))
+            .foregroundStyle(Color.tasker.textSecondary)
+            .labelStyle(.titleAndIcon)
+    }
+}
+
+private struct NeedsReplanCardOverlay: View {
+    let state: HomeReplanSessionState
+    let onUndo: () -> Void
+    let onSkip: () -> Void
+    let onMoveToInbox: () -> Void
+    let onReschedule: () -> Void
+    let onCheckOff: () -> Void
+    let onDelete: () -> Void
+    let onClearError: () -> Void
+
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+
+    var body: some View {
+        if let candidate = state.currentCandidate {
+            ScrollView(showsIndicators: false) {
+                VStack(alignment: .leading, spacing: 16) {
+                    HStack {
+                        Button("Undo", action: onUndo)
+                            .disabled(state.canUndo == false || state.isApplying)
+                        Spacer()
+                        Text("\(max(state.candidateIndex, 1)) of \(max(state.candidateTotal, 1))")
+                            .font(.tasker(.support).weight(.semibold))
+                            .foregroundStyle(Color.tasker.textSecondary)
+                        Button("Skip", action: onSkip)
+                            .disabled(state.isApplying)
+                    }
+                    .font(.tasker(.support).weight(.semibold))
+
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text(candidate.task.title)
+                            .font(.tasker(.title2).weight(.semibold))
+                            .foregroundStyle(Color.tasker.textPrimary)
+                            .lineLimit(dynamicTypeSize.isAccessibilitySize ? 4 : 3)
+                            .fixedSize(horizontal: false, vertical: true)
+
+                        Text(originalLine(for: candidate))
+                            .font(.tasker(.body))
+                            .foregroundStyle(Color.tasker.textSecondary)
+                            .lineLimit(2)
+
+                        if let projectName = candidate.projectName, projectName.isEmpty == false {
+                            Text("Project: \(projectName)")
+                                .font(.tasker(.support))
+                                .foregroundStyle(Color.tasker.textSecondary)
+                                .lineLimit(2)
+                        }
+
+                        if candidate.task.replanCount >= 3 {
+                            Text("Replanned \(candidate.task.replanCount)x")
+                                .font(.tasker(.support).weight(.semibold))
+                                .foregroundStyle(Color.tasker.statusWarning)
+                                .padding(.horizontal, 10)
+                                .padding(.vertical, 5)
+                                .background(Color.tasker.statusWarning.opacity(0.12), in: Capsule())
+                            Text("This keeps slipping. Consider shrinking it.")
+                                .font(.tasker(.support))
+                                .foregroundStyle(Color.tasker.textSecondary)
+                                .lineSpacing(1)
+                        }
+                    }
+
+                    if state.isApplying {
+                        ProgressView(applyingMessage)
+                            .font(.tasker(.support).weight(.semibold))
+                            .foregroundStyle(Color.tasker.textSecondary)
+                    }
+
+                    if let errorMessage = state.errorMessage {
+                        errorBanner(errorMessage)
+                    }
+
+                    if dynamicTypeSize.isAccessibilitySize {
+                        VStack(spacing: 10) {
+                            fullWidthAction("Reschedule", systemImage: "calendar.badge.clock", disabled: state.isApplying, action: onReschedule)
+                            fullWidthAction("Move to Inbox", systemImage: "tray.fill", disabled: state.isApplying, action: onMoveToInbox)
+                            fullWidthAction("Check Off", systemImage: "checkmark.circle.fill", disabled: state.isApplying, action: onCheckOff)
+                            fullWidthAction("Delete", systemImage: "trash.fill", role: .destructive, disabled: state.isApplying, action: onDelete)
+                        }
+                    } else {
+                        LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 10) {
+                            compactAction("Move to Inbox", systemImage: "tray.fill", disabled: state.isApplying, action: onMoveToInbox)
+                            compactAction("Reschedule", systemImage: "calendar.badge.clock", emphasized: true, disabled: state.isApplying, action: onReschedule)
+                            compactAction("Check Off", systemImage: "checkmark.circle.fill", disabled: state.isApplying, action: onCheckOff)
+                            compactAction("Delete", systemImage: "trash.fill", role: .destructive, disabled: state.isApplying, action: onDelete)
+                        }
+                    }
+                }
+                .padding(18)
+            }
+            .frame(maxHeight: maxCardHeight)
+            .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 28, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 28, style: .continuous)
+                    .stroke(Color.tasker.strokeHairline.opacity(0.6), lineWidth: 1)
+            )
+            .shadow(color: .black.opacity(0.12), radius: 24, x: 0, y: 12)
+            .accessibilityIdentifier("home.needsReplan.card")
+        }
+    }
+
+    private var maxCardHeight: CGFloat {
+        min(UIScreen.main.bounds.height * (dynamicTypeSize.isAccessibilitySize ? 0.72 : 0.58), dynamicTypeSize.isAccessibilitySize ? 620 : 470)
+    }
+
+    private var applyingMessage: String {
+        switch state.applyingAction {
+        case .moveToInbox:
+            return "Moving to Inbox..."
+        case .reschedule:
+            return "Scheduling..."
+        case .checkOff:
+            return "Marking complete..."
+        case .delete:
+            return "Deleting..."
+        case .undo:
+            return "Undoing..."
+        case nil:
+            return "Updating..."
+        }
+    }
+
+    private func originalLine(for candidate: HomeReplanCandidate) -> String {
+        let start = candidate.originalDate.formatted(.dateTime.weekday(.wide).hour().minute())
+        if let end = candidate.originalEndDate {
+            let durationMinutes = max(Int(end.timeIntervalSince(candidate.originalDate) / 60), 1)
+            return "\(start) • \(durationMinutes)m"
+        }
+        return start
+    }
+
+    private func fullWidthAction(
+        _ title: String,
+        systemImage: String,
+        role: ButtonRole? = nil,
+        disabled: Bool,
+        action: @escaping () -> Void
+    ) -> some View {
+        Button(role: role, action: action) {
+            Label(title, systemImage: systemImage)
+                .frame(maxWidth: .infinity, alignment: .center)
+        }
+        .buttonStyle(.borderedProminent)
+        .disabled(disabled)
+    }
+
+    private func compactAction(
+        _ title: String,
+        systemImage: String,
+        role: ButtonRole? = nil,
+        emphasized: Bool = false,
+        disabled: Bool,
+        action: @escaping () -> Void
+    ) -> some View {
+        Group {
+            if emphasized {
+                Button(role: role, action: action) {
+                    Label(title, systemImage: systemImage)
+                        .font(.tasker(.caption1).weight(.semibold))
+                        .frame(maxWidth: .infinity, minHeight: 42)
+                }
+                .buttonStyle(.borderedProminent)
+            } else {
+                Button(role: role, action: action) {
+                    Label(title, systemImage: systemImage)
+                        .font(.tasker(.caption1).weight(.semibold))
+                        .frame(maxWidth: .infinity, minHeight: 42)
+                }
+                .buttonStyle(.bordered)
+            }
+        }
+        .disabled(disabled)
+    }
+
+    private func errorBanner(_ message: String) -> some View {
+        HStack(alignment: .firstTextBaseline, spacing: 10) {
+            Image(systemName: "exclamationmark.circle.fill")
+                .foregroundStyle(Color.tasker.statusWarning)
+                .accessibilityHidden(true)
+            Text(message)
+                .font(.tasker(.support))
+                .foregroundStyle(Color.tasker.textPrimary)
+                .fixedSize(horizontal: false, vertical: true)
+            Spacer(minLength: 0)
+            Button("Dismiss", action: onClearError)
+                .font(.tasker(.support).weight(.semibold))
+        }
+        .padding(12)
+        .background(Color.tasker.surfaceSecondary.opacity(0.86), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+    }
+}
+
+private struct NeedsReplanSummaryOverlay: View {
+    let state: HomeReplanSessionState
+    let onReviewSkipped: () -> Void
+    let onViewToday: () -> Void
+    let onDone: () -> Void
+
+    var body: some View {
+        ScrollView(showsIndicators: false) {
+            VStack(alignment: .leading, spacing: 16) {
+                Text(state.skippedCount > 0 ? "You skipped \(state.skippedCount) tasks" : "All caught up")
+                    .font(.tasker(.title1).weight(.semibold))
+                    .foregroundStyle(Color.tasker.textPrimary)
+                    .fixedSize(horizontal: false, vertical: true)
+                Text(state.skippedCount > 0 ? "You can review them now or leave them for later." : "You've resolved your unfinished tasks.")
+                    .font(.tasker(.body))
+                    .foregroundStyle(Color.tasker.textSecondary)
+                    .lineSpacing(2)
+
+                VStack(alignment: .leading, spacing: 6) {
+                    metric("rescheduled", state.outcomes.rescheduled)
+                    metric("moved to Inbox", state.outcomes.movedToInbox)
+                    metric("completed", state.outcomes.completed)
+                    metric("deleted", state.outcomes.deleted)
+                }
+
+                if state.skippedCount > 0 {
+                    Button("Review skipped", action: onReviewSkipped)
+                        .buttonStyle(.borderedProminent)
+                    Button("Finish", action: onDone)
+                        .font(.tasker(.body).weight(.semibold))
+                } else {
+                    Button("View Today", action: onViewToday)
+                        .buttonStyle(.borderedProminent)
+                    Button("Done", action: onDone)
+                        .font(.tasker(.body).weight(.semibold))
+                }
+            }
+            .padding(20)
+        }
+        .frame(maxHeight: min(UIScreen.main.bounds.height * 0.52, 420))
+        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 28, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 28, style: .continuous)
+                .stroke(Color.tasker.strokeHairline.opacity(0.6), lineWidth: 1)
+        )
+        .shadow(color: .black.opacity(0.12), radius: 24, x: 0, y: 12)
+        .accessibilityIdentifier("home.needsReplan.summary")
+    }
+
+    private func metric(_ label: String, _ count: Int) -> some View {
+        Text("\(count) \(label)")
+            .font(.tasker(.support).weight(.semibold))
+            .foregroundStyle(Color.tasker.textSecondary)
+    }
+}
+
 private struct EvaOverdueRescueSheetV2: View {
     let plan: EvaRescuePlan?
     let tasksByID: [UUID: TaskDefinition]
@@ -831,12 +1195,35 @@ private extension Array {
 
 struct HomeForedropLayoutMetrics {
     var calendarExpandedHeight: CGFloat = 0
-    var analyticsSectionHeight: CGFloat = 0
+    var timelineHeaderHeight: CGFloat = 0
+    var weeklyBackdropHeight: CGFloat = 0
     var geometryHeight: CGFloat = 0
 
     /// Executes offset.
     func offset(for anchor: ForedropAnchor) -> CGFloat {
-        0
+        let measuredCalendarHeight = max(calendarExpandedHeight, 72)
+        let measuredHeaderHeight = max(timelineHeaderHeight, 56)
+        let measuredWeekHeight = max(weeklyBackdropHeight, measuredHeaderHeight + 44)
+        let midRevealBase = measuredCalendarHeight + min(measuredWeekHeight * 0.52, measuredHeaderHeight + 56)
+        let minimumMidReveal = max(104, measuredCalendarHeight + 20)
+        let midReveal = min(
+            max(midRevealBase, minimumMidReveal),
+            geometryHeight * 0.24
+        )
+        let fullRevealBase = measuredCalendarHeight + measuredWeekHeight + max(24, measuredHeaderHeight * 0.28)
+        let fullReveal = min(
+            max(fullRevealBase, midReveal + 72),
+            geometryHeight * 0.56
+        )
+
+        switch anchor {
+        case .collapsed:
+            return 0
+        case .midReveal:
+            return midReveal
+        case .fullReveal:
+            return fullReveal
+        }
     }
 }
 
@@ -2094,6 +2481,10 @@ struct HomeBackdropForedropRootView: View {
     @State private var focusReplacementOptions: [TaskDefinition] = []
     @State private var activeHabitMutationInterval: TaskerPerformanceInterval?
     @State private var activeLastCellTapInterval: TaskerPerformanceInterval?
+    @State private var measuredTimelineHeaderHeight: CGFloat = 0
+    @State private var measuredCalendarCardHeight: CGFloat = 0
+    @State private var measuredWeekBackdropHeight: CGFloat = 0
+    @StateObject private var timelineViewModel = HomeTimelineViewModel()
     private static let foredropHintLaunchDelay: TimeInterval = 0.10
     private static let foredropHintPeekDistance: CGFloat = 24
     private static let foredropHintPeekDuration: TimeInterval = 0.10
@@ -2127,7 +2518,7 @@ struct HomeBackdropForedropRootView: View {
         Self.launchArguments.contains("-ENABLE_FOREDROP_HINT_ANIMATION")
     }
     private var foredropAnchorForHint: ForedropAnchor {
-        activeFace == .tasks ? .collapsed : .fullReveal
+        activeFace == .tasks ? timelineViewModel.foredropAnchor : .fullReveal
     }
     private var isSearchOpen: Bool { activeFace == .search }
     private var isBackFaceVisible: Bool { activeFace.isBackFace }
@@ -2157,6 +2548,59 @@ struct HomeBackdropForedropRootView: View {
         let recovery = habitsSnapshot.habitHomeSectionState.recoveryRows.map { "\($0.id):\($0.state.rawValue)" }.joined(separator: "|")
         let quiet = habitsSnapshot.quietTrackingSummaryState.stableRows.map { "\($0.id):\($0.state.rawValue)" }.joined(separator: "|")
         return "\(primary)#\(recovery)#\(quiet)"
+    }
+    private var timelineLayoutMetrics: HomeForedropLayoutMetrics {
+        HomeForedropLayoutMetrics(
+            calendarExpandedHeight: measuredCalendarCardHeight,
+            timelineHeaderHeight: measuredTimelineHeaderHeight,
+            weeklyBackdropHeight: measuredWeekBackdropHeight,
+            geometryHeight: layoutMetrics.height
+        )
+    }
+    private var timelineSnapshot: HomeTimelineSnapshot {
+        viewModel.buildTimelineSnapshot(
+            calendarSnapshot: calendarSnapshot,
+            foredropAnchor: timelineViewModel.foredropAnchor
+        )
+    }
+    @ViewBuilder
+    private var needsReplanFloatingOverlay: some View {
+        switch overlaySnapshot.replanState.phase {
+        case .card:
+            NeedsReplanCardOverlay(
+                state: overlaySnapshot.replanState,
+                onUndo: { viewModel.undoLastReplanAction() },
+                onSkip: { viewModel.skipCurrentReplanCandidate() },
+                onMoveToInbox: { viewModel.moveCurrentReplanCandidateToInbox() },
+                onReschedule: { viewModel.beginCurrentReplanPlacement() },
+                onCheckOff: { viewModel.checkOffCurrentReplanCandidate() },
+                onDelete: { viewModel.deleteCurrentReplanCandidate() },
+                onClearError: { viewModel.clearReplanError() }
+            )
+            .padding(.horizontal, spacing.s16)
+            .padding(.bottom, layoutMetrics.safeAreaBottom + spacing.s20)
+            .transition(.opacity.combined(with: .move(edge: .bottom)))
+        case .summary:
+            NeedsReplanSummaryOverlay(
+                state: overlaySnapshot.replanState,
+                onReviewSkipped: { viewModel.reviewSkippedReplanCandidates() },
+                onViewToday: {
+                    timelineViewModel.syncSelectedDate(Date())
+                    viewModel.selectDate(Date())
+                    viewModel.finishNeedsReplanSession()
+                },
+                onDone: { viewModel.finishNeedsReplanSession() }
+            )
+            .padding(.horizontal, spacing.s16)
+            .padding(.bottom, layoutMetrics.safeAreaBottom + spacing.s20)
+            .transition(.opacity.combined(with: .move(edge: .bottom)))
+        default:
+            EmptyView()
+        }
+    }
+    private var foredropInteractiveOffset: CGFloat {
+        guard activeFace == .tasks else { return 0 }
+        return timelineViewModel.interactiveOffset(metrics: timelineLayoutMetrics)
     }
     private var foredropFlipAnimation: Animation {
         let duration: TimeInterval
@@ -2235,7 +2679,7 @@ struct HomeBackdropForedropRootView: View {
                         backdropLayer()
 
                         foredropLayer(taskListBottomInset: layoutMetrics.taskListBottomInset)
-                            .offset(y: foredropHintOffset)
+                            .offset(y: foredropHintOffset + foredropInteractiveOffset)
                             .animation(foredropFlipAnimation, value: activeFace)
                     }
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
@@ -2265,6 +2709,12 @@ struct HomeBackdropForedropRootView: View {
         .ignoresSafeArea(.keyboard, edges: .bottom)
         .accessibilityIdentifier("home.view")
         .taskerSnackbar($snackbar)
+        .overlay(alignment: .bottom) {
+            needsReplanFloatingOverlay
+        }
+        .onPreferenceChange(TimelineHeaderHeightPreferenceKey.self) { measuredTimelineHeaderHeight = $0 }
+        .onPreferenceChange(TimelineCalendarCardHeightPreferenceKey.self) { measuredCalendarCardHeight = $0 }
+        .onPreferenceChange(TimelineBackdropWeekHeightPreferenceKey.self) { measuredWeekBackdropHeight = $0 }
         .onChange(of: habitRenderSignature) { _, _ in
             HomePerformanceSignposts.endHabitMutation(activeHabitMutationInterval)
             activeHabitMutationInterval = nil
@@ -2405,6 +2855,7 @@ struct HomeBackdropForedropRootView: View {
                 setActiveFace(forcedFaceValue, animated: false)
             }
             isHomeVisible = true
+            timelineViewModel.syncSelectedDate(viewModel.selectedDate)
             hasAutoFocusedSearchField = false
             searchDraftQuery = searchState.query
             hasMountedSearchSurface = activeFace == .search
@@ -2449,55 +2900,10 @@ struct HomeBackdropForedropRootView: View {
             }
         }
 
-        return applyHabitPresentationRouting(to: baseHomeScreen)
-        .onChange(of: activeFace) { _, newValue in
-            forcedFace?.wrappedValue = newValue
-            if newValue == .search {
-                hasMountedSearchSurface = true
-            } else if newValue == .analytics {
-                hasMountedAnalyticsSurface = true
-            }
-            if newValue != .search {
-                isSearchFieldFocused = false
-                cancelPendingSearchCommit()
-            } else {
-                searchDraftQuery = searchState.query
-            }
-        }
-        .onChange(of: searchSurfaceState) { _, newValue in
-            switch newValue {
-            case .idle:
-                hasAutoFocusedSearchField = false
-                isSearchFieldFocused = false
-                cancelPendingSearchCommit()
-                searchDraftQuery = searchState.query
-                searchState.deactivate()
-            case .presenting, .preparing:
-                isSearchFieldFocused = false
-            case .ready:
-                guard activeFace == .search else { return }
-                hasAutoFocusedSearchField = false
-            }
-        }
-        .onChange(of: searchState.query) { _, newValue in
-            guard newValue != searchDraftQuery else { return }
-            guard isSearchFieldFocused == false else { return }
-            searchDraftQuery = newValue
-        }
-        .onChange(of: overlaySnapshot.guidanceState) { _, state in
-            guard state != nil, activeFace != .tasks else { return }
-            setActiveFace(.tasks, animated: true)
-        }
-        .onChange(of: agendaTailExpansionResetKey) { _, _ in
-            expandedAgendaTailItemIDs.removeAll()
-        }
-        .onChange(of: forcedFaceValue) { _, newValue in
-            guard let newValue, newValue != activeFace else { return }
-            setActiveFace(newValue, animated: true)
-        }
-        .onReceive(overlayStore.$snapshot.map(\.lastXPResult).receive(on: RunLoop.main)) { result in
-            handleXPResult(result)
-        }
+        let routedHomeScreen = AnyView(applyHabitPresentationRouting(to: baseHomeScreen))
+        let observedHomeScreen = applyHomeStateObservers(to: routedHomeScreen)
+
+        return observedHomeScreen
         .sheet(isPresented: Binding(
             get: { overlaySnapshot.focusWhyPresented },
             set: { viewModel.setEvaFocusWhyPresented($0) }
@@ -2591,6 +2997,36 @@ struct HomeBackdropForedropRootView: View {
             )
             .accessibilityIdentifier("home.rescue.sheet")
         }
+        .sheet(isPresented: Binding(
+            get: { overlaySnapshot.replanState.launcherSummary != nil },
+            set: { isPresented in
+                if isPresented == false,
+                   overlaySnapshot.replanState.launcherSummary != nil {
+                    viewModel.dismissNeedsReplanLater()
+                }
+            }
+        )) {
+            NeedsReplanLauncherSheet(
+                summary: overlaySnapshot.replanState.launcherSummary ?? NeedsReplanSummary(
+                    count: 0,
+                    dayCount: 0,
+                    newestDate: nil,
+                    oldestDate: nil
+                ),
+                onStart: {
+                    if overlaySnapshot.replanState.launcherSummary?.count == 0 {
+                        timelineViewModel.syncSelectedDate(Date())
+                        viewModel.selectDate(Date())
+                        viewModel.finishNeedsReplanSession()
+                    } else {
+                        viewModel.startNeedsReplanSession()
+                    }
+                },
+                onLater: {
+                    viewModel.dismissNeedsReplanLater()
+                }
+            )
+        }
         .sheet(item: Binding(
             get: { viewModel.habitRecoveryReflectionPrompt },
             set: { if $0 == nil { viewModel.clearHabitRecoveryReflectionPrompt() } }
@@ -2625,6 +3061,70 @@ struct HomeBackdropForedropRootView: View {
         }) {
             reflectPlanPresentation
         }
+    }
+
+    private func applyHomeStateObservers(to content: AnyView) -> AnyView {
+        let withActiveFace = AnyView(
+            content.onChange(of: activeFace) { _, newValue in
+                forcedFace?.wrappedValue = newValue
+                if newValue == .search {
+                    hasMountedSearchSurface = true
+                } else if newValue == .analytics {
+                    hasMountedAnalyticsSurface = true
+                }
+                if newValue != .search {
+                    isSearchFieldFocused = false
+                    cancelPendingSearchCommit()
+                } else {
+                    searchDraftQuery = searchState.query
+                }
+            }
+        )
+
+        let withSearchState = AnyView(
+            withActiveFace
+                .onChange(of: searchSurfaceState) { _, newValue in
+                    switch newValue {
+                    case .idle:
+                        hasAutoFocusedSearchField = false
+                        isSearchFieldFocused = false
+                        cancelPendingSearchCommit()
+                        searchDraftQuery = searchState.query
+                        searchState.deactivate()
+                    case .presenting, .preparing:
+                        isSearchFieldFocused = false
+                    case .ready:
+                        guard activeFace == .search else { return }
+                        hasAutoFocusedSearchField = false
+                    }
+                }
+                .onChange(of: searchState.query) { _, newValue in
+                    guard newValue != searchDraftQuery else { return }
+                    guard isSearchFieldFocused == false else { return }
+                    searchDraftQuery = newValue
+                }
+                .onChange(of: overlaySnapshot.guidanceState) { _, state in
+                    guard state != nil, activeFace != .tasks else { return }
+                    setActiveFace(.tasks, animated: true)
+                }
+                .onChange(of: agendaTailExpansionResetKey) { _, _ in
+                    expandedAgendaTailItemIDs.removeAll()
+                }
+        )
+
+        return AnyView(
+            withSearchState
+                .onChange(of: forcedFaceValue) { _, newValue in
+                    guard let newValue, newValue != activeFace else { return }
+                    setActiveFace(newValue, animated: true)
+                }
+                .onChange(of: chromeSnapshot.selectedDate) { _, newValue in
+                    timelineViewModel.syncSelectedDate(newValue)
+                }
+                .onReceive(overlayStore.$snapshot.map(\.lastXPResult).receive(on: RunLoop.main)) { result in
+                    handleXPResult(result)
+                }
+        )
     }
 
     private func applyHabitPresentationRouting<Content: View>(to content: Content) -> some View {
@@ -2798,18 +3298,27 @@ struct HomeBackdropForedropRootView: View {
                 .fill(Color.clear)
                 .frame(height: max(480, layoutMetrics.height * 0.65))
                 .overlay(alignment: .topLeading) {
-                    VStack(alignment: .leading, spacing: spacing.s8) {
-                        WeeklyCalendarStripView(
-                            selectedDate: Binding(
-                                get: { viewModel.selectedDate },
-                                set: { viewModel.selectDate($0) }
-                            ),
-                            todayDate: Date()
-                        )
-                        .padding(.horizontal, spacing.s16)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .opacity(isBackFaceVisible ? 0.001 : 1)
-                    }
+                    TimelineBackdropWeekView(
+                        snapshot: timelineSnapshot,
+                        onSelectDate: { date in
+                            timelineViewModel.syncSelectedDate(date)
+                            viewModel.selectDate(date)
+                            withAnimation(foredropFlipAnimation) {
+                                timelineViewModel.snap(to: .collapsed)
+                            }
+                        },
+                        onStartReplanForDate: { date in
+                            viewModel.openNeedsReplanLauncher(for: date)
+                        },
+                        onPlaceReplanAllDay: { candidate, date in
+                            timelineViewModel.syncSelectedDate(date)
+                            viewModel.selectDate(date)
+                            viewModel.placeReplanCandidateAllDay(taskID: candidate.taskID, on: date)
+                        }
+                    )
+                    .padding(.horizontal, spacing.s16)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .opacity(isBackFaceVisible ? 0.001 : 1)
                 }
             Spacer(minLength: 0)
         }
@@ -2842,7 +3351,7 @@ struct HomeBackdropForedropRootView: View {
         .modifier(HomeDenseSurfaceModifier(cornerRadius: corner.modal))
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("home.foredrop.surface")
-        .accessibilityValue(activeFace.surfaceAccessibilityValue)
+        .accessibilityValue(activeFace == .tasks ? timelineViewModel.foredropAnchor.accessibilityValue : activeFace.surfaceAccessibilityValue)
         .animation(foredropFlipAnimation, value: activeFace)
     }
 
@@ -2861,96 +3370,100 @@ struct HomeBackdropForedropRootView: View {
 
     private func foredropFrontFace(taskListBottomInset: CGFloat) -> some View {
         VStack(spacing: 0) {
-            TaskListView(
-                headerContent: AnyView(taskListScrollHeader),
-                footerContent: taskListFooterContent,
-                footerContentCountsAsContentForEmptyState: false,
-                morningTasks: tasksSnapshot.morningTasks,
-                eveningTasks: tasksSnapshot.eveningTasks,
-                overdueTasks: tasksSnapshot.overdueTasks,
-                inlineCompletedTasks: tasksSnapshot.inlineCompletedTasks,
-                projects: tasksSnapshot.projects,
-                doneTimelineTasks: tasksSnapshot.doneTimelineTasks,
-                tagNameByID: tasksSnapshot.tagNameByID,
-                activeQuickView: tasksSnapshot.activeQuickView,
-                todayXPSoFar: tasksSnapshot.todayXPSoFar,
-                isGamificationV2Enabled: V2FeatureFlags.gamificationV2Enabled,
-                projectGroupingMode: tasksSnapshot.projectGroupingMode,
-                customProjectOrderIDs: tasksSnapshot.customProjectOrderIDs,
-                emptyStateMessage: tasksSnapshot.emptyStateMessage,
-                emptyStateActionTitle: tasksSnapshot.emptyStateActionTitle,
-                isTaskDragEnabled: false,
-                todaySections: tasksSnapshot.todayAgendaSectionState.sections,
-                agendaTailItems: visibleAgendaTailItems,
-                expandedAgendaTailItemIDs: expandedAgendaTailItemIDs,
-                layoutStyle: .edgeToEdgeHome,
-                onTaskTap: onTaskTap,
-                onToggleComplete: { task in
-                    trackTaskToggle(task, source: "task_list")
-                    onToggleComplete(task)
-                },
-                onDeleteTask: onDeleteTask,
-                onRescheduleTask: onRescheduleTask,
-                onPromoteTaskToFocus: { task in
-                    promoteAgendaTaskToFocus(task)
-                },
-                onCompleteHabit: { habit in
-                    viewModel.completeHabit(habit, source: "task_list")
-                },
-                onSkipHabit: { habit in
-                    viewModel.skipHabit(habit, source: "task_list")
-                },
-                onLapseHabit: { habit in
-                    viewModel.lapseHabit(habit, source: "task_list")
-                },
-                onCycleHabit: { habit in
-                    performHabitRowAction(habit, source: "task_list_row_tap")
-                },
-                onOpenHabit: { habit in
-                    openHabitDetail(habit)
-                },
-                onReorderCustomProjects: onReorderCustomProjects,
-                onInboxHeaderAction: shouldShowInboxTriageAction ? {
-                    viewModel.startTriage()
-                } : nil,
-                inboxHeaderActionTitle: shouldShowInboxTriageAction ? "Start triage" : nil,
-                onCompletedSectionToggle: { sectionID, collapsed, count in
-                    viewModel.trackHomeInteraction(
-                        action: "home_completed_group_toggled",
-                        metadata: [
-                            "section_id": sectionID.uuidString,
-                            "collapsed": collapsed,
-                            "count": count
-                        ]
-                    )
-                },
-                onEmptyStateAction: { onAddTask() },
-                onToggleAgendaTailItemExpansion: { itemID in
-                    if expandedAgendaTailItemIDs.contains(itemID) {
-                        expandedAgendaTailItemIDs.remove(itemID)
-                    } else {
-                        expandedAgendaTailItemIDs.insert(itemID)
-                    }
-                },
-                onOpenRescue: isRescueEnabled ? {
-                    viewModel.openRescue()
-                } : nil,
-                onTaskDragStarted: { task in
-                    trackTaskDragStarted(task, source: "task_list")
-                },
-                onScrollChromeStateChange: { state in
-                    onTaskListScrollChromeStateChange(state)
-                },
-                onPullToSearch: {
-                    openSearch(source: "task_list_pull")
-                },
-                highlightedTaskID: overlaySnapshot.guidanceState?.taskID,
-                scrollResetKey: taskListScrollResetKey,
-                bottomContentInset: taskListBottomInset
-            )
-            .padding(.top, spacing.s4)
-            .onDrop(of: ["public.text"], isTargeted: nil, perform: handleListDrop)
-            .accessibilityIdentifier("home.list.dropzone")
+            if tasksSnapshot.activeQuickView == .today {
+                todayTimelineSurface(taskListBottomInset: taskListBottomInset)
+            } else {
+                TaskListView(
+                    headerContent: AnyView(taskListScrollHeader),
+                    footerContent: taskListFooterContent,
+                    footerContentCountsAsContentForEmptyState: false,
+                    morningTasks: tasksSnapshot.morningTasks,
+                    eveningTasks: tasksSnapshot.eveningTasks,
+                    overdueTasks: tasksSnapshot.overdueTasks,
+                    inlineCompletedTasks: tasksSnapshot.inlineCompletedTasks,
+                    projects: tasksSnapshot.projects,
+                    doneTimelineTasks: tasksSnapshot.doneTimelineTasks,
+                    tagNameByID: tasksSnapshot.tagNameByID,
+                    activeQuickView: tasksSnapshot.activeQuickView,
+                    todayXPSoFar: tasksSnapshot.todayXPSoFar,
+                    isGamificationV2Enabled: V2FeatureFlags.gamificationV2Enabled,
+                    projectGroupingMode: tasksSnapshot.projectGroupingMode,
+                    customProjectOrderIDs: tasksSnapshot.customProjectOrderIDs,
+                    emptyStateMessage: tasksSnapshot.emptyStateMessage,
+                    emptyStateActionTitle: tasksSnapshot.emptyStateActionTitle,
+                    isTaskDragEnabled: false,
+                    todaySections: tasksSnapshot.todayAgendaSectionState.sections,
+                    agendaTailItems: visibleAgendaTailItems,
+                    expandedAgendaTailItemIDs: expandedAgendaTailItemIDs,
+                    layoutStyle: .edgeToEdgeHome,
+                    onTaskTap: onTaskTap,
+                    onToggleComplete: { task in
+                        trackTaskToggle(task, source: "task_list")
+                        onToggleComplete(task)
+                    },
+                    onDeleteTask: onDeleteTask,
+                    onRescheduleTask: onRescheduleTask,
+                    onPromoteTaskToFocus: { task in
+                        promoteAgendaTaskToFocus(task)
+                    },
+                    onCompleteHabit: { habit in
+                        viewModel.completeHabit(habit, source: "task_list")
+                    },
+                    onSkipHabit: { habit in
+                        viewModel.skipHabit(habit, source: "task_list")
+                    },
+                    onLapseHabit: { habit in
+                        viewModel.lapseHabit(habit, source: "task_list")
+                    },
+                    onCycleHabit: { habit in
+                        performHabitRowAction(habit, source: "task_list_row_tap")
+                    },
+                    onOpenHabit: { habit in
+                        openHabitDetail(habit)
+                    },
+                    onReorderCustomProjects: onReorderCustomProjects,
+                    onInboxHeaderAction: shouldShowInboxTriageAction ? {
+                        viewModel.startTriage()
+                    } : nil,
+                    inboxHeaderActionTitle: shouldShowInboxTriageAction ? "Start triage" : nil,
+                    onCompletedSectionToggle: { sectionID, collapsed, count in
+                        viewModel.trackHomeInteraction(
+                            action: "home_completed_group_toggled",
+                            metadata: [
+                                "section_id": sectionID.uuidString,
+                                "collapsed": collapsed,
+                                "count": count
+                            ]
+                        )
+                    },
+                    onEmptyStateAction: { onAddTask() },
+                    onToggleAgendaTailItemExpansion: { itemID in
+                        if expandedAgendaTailItemIDs.contains(itemID) {
+                            expandedAgendaTailItemIDs.remove(itemID)
+                        } else {
+                            expandedAgendaTailItemIDs.insert(itemID)
+                        }
+                    },
+                    onOpenRescue: isRescueEnabled ? {
+                        viewModel.openRescue()
+                    } : nil,
+                    onTaskDragStarted: { task in
+                        trackTaskDragStarted(task, source: "task_list")
+                    },
+                    onScrollChromeStateChange: { state in
+                        onTaskListScrollChromeStateChange(state)
+                    },
+                    onPullToSearch: {
+                        openSearch(source: "task_list_pull")
+                    },
+                    highlightedTaskID: overlaySnapshot.guidanceState?.taskID,
+                    scrollResetKey: taskListScrollResetKey,
+                    bottomContentInset: taskListBottomInset
+                )
+                .padding(.top, spacing.s4)
+                .onDrop(of: ["public.text"], isTargeted: nil, perform: handleListDrop)
+                .accessibilityIdentifier("home.list.dropzone")
+            }
         }
     }
 
@@ -3404,26 +3917,6 @@ struct HomeBackdropForedropRootView: View {
     @ViewBuilder
     private var taskListScrollHeader: some View {
         VStack(alignment: .leading, spacing: spacing.s12) {
-            if tasksSnapshot.activeQuickView == .today {
-                fullBleedTaskListHeaderModule {
-                    VStack(alignment: .leading, spacing: spacing.s12) {
-                        if habitsSnapshot.quietTrackingSummaryState.isVisible {
-                            passiveTrackingRail
-                        }
-                        if let entryState = chromeSnapshot.dailyReflectionEntryState {
-                            HomeDailyReflectionEntryCard(
-                                state: entryState,
-                                mode: .compact
-                            ) {
-                                openDailyReflectPlan(preferredReflectionDate: entryState.reflectionDate)
-                            }
-                        }
-                        calendarScheduleModuleCard
-                        focusStrip
-                    }
-                }
-            }
-
             if let guidanceState = overlaySnapshot.guidanceState {
                 HomeOnboardingGuidanceBanner(state: guidanceState)
                     .padding(.top, spacing.s8)
@@ -3432,33 +3925,129 @@ struct HomeBackdropForedropRootView: View {
         }
     }
 
+    private func todayTimelineSurface(taskListBottomInset: CGFloat) -> some View {
+        VStack(spacing: 0) {
+            TimelineForedropBar(
+                onSnapAnchor: { anchor in
+                    withAnimation(foredropFlipAnimation) {
+                        timelineViewModel.snap(to: anchor)
+                    }
+                },
+                onDragChanged: { translation in
+                    timelineViewModel.updateDrag(translation, metrics: timelineLayoutMetrics)
+                },
+                onDragEnded: { translation in
+                    timelineViewModel.endDrag(predictedTranslation: translation, metrics: timelineLayoutMetrics)
+                }
+            )
+            .reportHeight(to: TimelineHeaderHeightPreferenceKey.self)
+            .padding(.horizontal, spacing.s16)
+
+            ScrollView {
+                VStack(alignment: .leading, spacing: spacing.s12) {
+                    if habitsSnapshot.quietTrackingSummaryState.isVisible {
+                        fullBleedTaskListHeaderModule {
+                            passiveTrackingRail
+                        }
+                    }
+
+                    if case .trayVisible(let summary) = overlaySnapshot.replanState.phase {
+                        NeedsReplanTrayView(summary: summary) {
+                            viewModel.openNeedsReplanLauncher()
+                        }
+                        .padding(.horizontal, spacing.s16)
+                        .transition(.opacity.combined(with: .move(edge: .top)))
+                    }
+
+                    calendarScheduleModuleCard
+                        .reportHeight(to: TimelineCalendarCardHeightPreferenceKey.self)
+
+                    TimelineForedropView(
+                        snapshot: timelineSnapshot,
+                        layoutClass: layoutClass,
+                        showsRevealHandle: false,
+                        onSelectDate: { date in
+                            timelineViewModel.syncSelectedDate(date)
+                            viewModel.selectDate(date)
+                        },
+                        onSnapAnchor: { anchor in
+                            withAnimation(foredropFlipAnimation) {
+                                timelineViewModel.snap(to: anchor)
+                            }
+                        },
+                        onDragChanged: { translation in
+                            timelineViewModel.updateDrag(translation, metrics: timelineLayoutMetrics)
+                        },
+                        onDragEnded: { translation in
+                            timelineViewModel.endDrag(predictedTranslation: translation, metrics: timelineLayoutMetrics)
+                        },
+                        onTaskTap: { item in
+                            if let taskID = item.taskID, let task = viewModel.taskSnapshot(for: taskID) {
+                                onTaskTap(task)
+                            }
+                        },
+                        onToggleComplete: { item in
+                            guard let taskID = item.taskID, let task = viewModel.taskSnapshot(for: taskID) else { return }
+                            trackTaskToggle(task, source: "timeline")
+                            onToggleComplete(task)
+                        },
+                        onAddTask: onAddTask,
+                        onScheduleInbox: {
+                            viewModel.startTriage()
+                        },
+                        onPlaceReplanAtTime: { candidate, date in
+                            viewModel.placeReplanCandidate(taskID: candidate.taskID, at: date)
+                        },
+                        onPlaceReplanAllDay: { candidate, date in
+                            viewModel.placeReplanCandidateAllDay(taskID: candidate.taskID, on: date)
+                        },
+                        onCancelReplanPlacement: {
+                            viewModel.cancelCurrentReplanPlacement()
+                        },
+                        onSkipReplanPlacement: {
+                            viewModel.skipCurrentReplanCandidate()
+                        },
+                        onClearReplanError: {
+                            viewModel.clearReplanError()
+                        }
+                    )
+                    .padding(.horizontal, spacing.s16)
+
+                    if let entryState = chromeSnapshot.dailyReflectionEntryState {
+                        HomeDailyReflectionEntryCard(
+                            state: entryState,
+                            mode: .compact
+                        ) {
+                            openDailyReflectPlan(preferredReflectionDate: entryState.reflectionDate)
+                        }
+                        .padding(.horizontal, spacing.s16)
+                    }
+
+                    if let guidanceState = overlaySnapshot.guidanceState {
+                        HomeOnboardingGuidanceBanner(state: guidanceState)
+                            .padding(.horizontal, spacing.s16)
+                    }
+
+                    if let footerContent = timelineFooterModules {
+                        footerContent
+                    }
+                }
+                .padding(.top, spacing.s8)
+                .padding(.bottom, taskListBottomInset)
+            }
+            .scrollIndicators(.hidden)
+        }
+        .accessibilityIdentifier("home.timeline.surface")
+    }
+
     private var calendarScheduleModuleCard: some View {
         VStack(alignment: .leading, spacing: spacing.s8) {
+            calendarSummaryHeader
             calendarModuleBody
-
-            if shouldShowCalendarPermissionCTA {
-                HStack(spacing: spacing.s8) {
-                    Button {
-                        onRequestCalendarPermission()
-                    } label: {
-                        Text(calendarPermissionButtonTitle)
-                            .font(.tasker(.buttonSmall))
-                            .foregroundStyle(Color.tasker.accentOnPrimary)
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, spacing.s8)
-                            .background(
-                                RoundedRectangle(cornerRadius: 10, style: .continuous)
-                                    .fill(Color.tasker.accentPrimary)
-                            )
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityIdentifier("home.calendar.connect")
-                    .accessibilityLabel(calendarPermissionButtonTitle)
-                }
-            }
         }
         .padding(.horizontal, spacing.s16)
         .padding(.vertical, spacing.s12)
+        .frame(maxWidth: .infinity, alignment: .leading)
         .background(
             RoundedRectangle(cornerRadius: TaskerTheme.CornerRadius.card, style: .continuous)
                 .fill(Color.tasker.surfacePrimary)
@@ -3467,8 +4056,45 @@ struct HomeBackdropForedropRootView: View {
             RoundedRectangle(cornerRadius: TaskerTheme.CornerRadius.card, style: .continuous)
                 .stroke(Color.tasker.strokeHairline.opacity(0.72), lineWidth: 1)
         )
+        .contentShape(Rectangle())
+        .onTapGesture {
+            handleOpenScheduleAction()
+        }
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("home.calendar.card")
+        .accessibilityLabel(calendarCardAccessibilityLabel)
+        .accessibilityHint(String(localized: "Opens the full calendar schedule"))
+        .accessibilityAddTraits(.isButton)
+    }
+
+    private var calendarSummaryHeader: some View {
+        Text(calendarSummaryLine)
+            .font(.tasker(.bodyStrong))
+            .foregroundStyle(Color.tasker.textPrimary)
+            .lineLimit(1)
+            .minimumScaleFactor(0.86)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .accessibilityIdentifier("home.calendar.nextMeeting")
+    }
+
+    private var calendarSummaryLine: String {
+        let dateText = TaskerCalendarPresentation.compactDateText(for: calendarSnapshot.selectedDate)
+
+        if let nextMeeting = calendarSnapshot.nextMeeting {
+            let timeText = TaskerCalendarPresentation.timeRangeText(for: nextMeeting.event)
+            return "\(dateText) · Next up: \(nextMeeting.event.title) · \(timeText)"
+        }
+
+        if let freeUntil = calendarSnapshot.freeUntil {
+            return "\(dateText) · Next up: Clear · Free until \(freeUntil.formatted(date: .omitted, time: .shortened))"
+        }
+
+        return "\(dateText) · Next up: Clear"
+    }
+
+    private var calendarCardAccessibilityLabel: String {
+        let spokenLine = calendarSummaryLine.replacingOccurrences(of: " - ", with: " to ")
+        return String(localized: "Open schedule, \(spokenLine)")
     }
 
     @ViewBuilder
@@ -3498,17 +4124,10 @@ struct HomeBackdropForedropRootView: View {
                 .foregroundStyle(Color.tasker.textSecondary)
                 .accessibilityIdentifier("home.calendar.state.empty")
         case .error(let message):
-            VStack(alignment: .leading, spacing: spacing.s8) {
-                Text(message)
-                    .font(.tasker(.callout))
-                    .foregroundStyle(Color.tasker.statusWarning)
-                    .accessibilityIdentifier("home.calendar.state.error")
-                Button(String(localized: "Retry")) {
-                    onRetryCalendarContext()
-                }
-                .buttonStyle(.bordered)
-                .accessibilityIdentifier("home.calendar.retry")
-            }
+            Text(message)
+                .font(.tasker(.callout))
+                .foregroundStyle(Color.tasker.statusWarning)
+                .accessibilityIdentifier("home.calendar.state.error")
         case .active:
             VStack(alignment: .leading, spacing: spacing.s8) {
                 calendarTimelinePreview
@@ -3521,20 +4140,14 @@ struct HomeBackdropForedropRootView: View {
     @ViewBuilder
     private var calendarTimelinePreview: some View {
         if calendarSnapshot.selectedDayTimelineEvents.isEmpty == false {
-            Button {
-                handleOpenScheduleAction()
-            } label: {
-                TaskerCalendarTimelineView(
-                    date: calendarSnapshot.selectedDate,
-                    events: calendarSnapshot.selectedDayEvents,
-                    density: .compact
-                )
-                .frame(maxWidth: .infinity, alignment: .leading)
-            }
-            .buttonStyle(.plain)
+            TaskerCalendarTimelineView(
+                date: calendarSnapshot.selectedDate,
+                events: calendarSnapshot.selectedDayEvents,
+                density: .compact,
+                showsDateLabel: false
+            )
+            .frame(maxWidth: .infinity, alignment: .leading)
             .accessibilityIdentifier("home.calendar.timelinePreview")
-            .accessibilityLabel(String(localized: "Open schedule for \(calendarSnapshot.selectedDate.formatted(.dateTime.weekday(.wide).month(.abbreviated).day()))"))
-            .accessibilityHint(String(localized: "Opens the full calendar schedule"))
         }
     }
 
@@ -3588,13 +4201,7 @@ struct HomeBackdropForedropRootView: View {
     }
 
     private func handleOpenScheduleAction() {
-        if calendarSnapshot.authorizationStatus.isAuthorizedForRead {
-            onOpenCalendarSchedule()
-            return
-        }
-        if shouldShowCalendarPermissionCTA {
-            onRequestCalendarPermission()
-        }
+        onOpenCalendarSchedule()
     }
 
     private var weeklySummaryCard: some View {
@@ -3619,6 +4226,12 @@ struct HomeBackdropForedropRootView: View {
     private var taskListFooterContent: AnyView? {
         guard tasksSnapshot.activeQuickView == .today else { return nil }
 
+        return timelineFooterModules
+    }
+
+    private var timelineFooterModules: AnyView? {
+        guard tasksSnapshot.activeQuickView == .today else { return nil }
+
         let hasWeeklySummary = chromeSnapshot.weeklySummary != nil
             || chromeSnapshot.weeklySummaryIsLoading
             || chromeSnapshot.weeklySummaryErrorMessage != nil
@@ -3631,19 +4244,18 @@ struct HomeBackdropForedropRootView: View {
             VStack(alignment: .leading, spacing: spacing.s12) {
                 if hasWeeklySummary {
                     weeklySummaryCard
-                        .padding(.horizontal, -taskListHorizontalGutter)
+                        .padding(.horizontal, spacing.s16)
                 }
 
                 if hasPrimaryHabits {
                     habitsSectionCard
-                        .padding(.horizontal, -taskListHorizontalGutter)
+                        .padding(.horizontal, spacing.s16)
                 }
 
                 if hasRecoveryHabits {
                     recoveryHabitsSectionCard
-                        .padding(.horizontal, -taskListHorizontalGutter)
+                        .padding(.horizontal, spacing.s16)
                 }
-
             }
         )
     }

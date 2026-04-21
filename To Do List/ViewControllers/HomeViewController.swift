@@ -354,6 +354,302 @@ struct HomeCalendarSnapshot: Equatable {
     )
 }
 
+enum TimelinePlanItemSource: Equatable {
+    case task
+    case calendarEvent
+}
+
+struct TimelinePlanItem: Equatable, Identifiable {
+    let id: String
+    let source: TimelinePlanItemSource
+    let taskID: UUID?
+    let eventID: String?
+    let title: String
+    let subtitle: String?
+    let startDate: Date?
+    let endDate: Date?
+    let isAllDay: Bool
+    let isComplete: Bool
+    let tintHex: String?
+    let systemImageName: String
+    let accessoryText: String?
+
+    var duration: TimeInterval? {
+        guard let startDate, let endDate else { return nil }
+        return max(0, endDate.timeIntervalSince(startDate))
+    }
+
+    func isActive(at date: Date) -> Bool {
+        guard let startDate, let endDate, isComplete == false else { return false }
+        return startDate <= date && endDate > date
+    }
+}
+
+enum TimelineGapAction: String, Equatable {
+    case addTask
+    case scheduleInbox
+
+    var title: String {
+        switch self {
+        case .addTask:
+            return "Add Task"
+        case .scheduleInbox:
+            return "Schedule Inbox"
+        }
+    }
+}
+
+enum TimelineGapEmphasis: Equatable {
+    case openTime
+    case prepWindow
+    case quietWindow
+}
+
+struct TimelineGap: Equatable, Identifiable {
+    let startDate: Date
+    let endDate: Date
+    let suggestedTaskCount: Int
+    let headline: String
+    let supportingText: String
+    let primaryAction: TimelineGapAction
+    let secondaryAction: TimelineGapAction?
+    let emphasis: TimelineGapEmphasis
+
+    init(
+        startDate: Date,
+        endDate: Date,
+        suggestedTaskCount: Int,
+        headline: String? = nil,
+        supportingText: String? = nil,
+        primaryAction: TimelineGapAction? = nil,
+        secondaryAction: TimelineGapAction? = nil,
+        emphasis: TimelineGapEmphasis = .openTime
+    ) {
+        self.startDate = startDate
+        self.endDate = endDate
+        self.suggestedTaskCount = suggestedTaskCount
+        self.headline = headline ?? "Open time"
+        self.supportingText = supportingText ?? "Place something meaningful into this window."
+        let resolvedPrimary = primaryAction ?? (suggestedTaskCount > 0 ? .scheduleInbox : .addTask)
+        self.primaryAction = resolvedPrimary
+        if let secondaryAction {
+            self.secondaryAction = secondaryAction
+        } else if suggestedTaskCount > 0 {
+            self.secondaryAction = resolvedPrimary == .scheduleInbox ? .addTask : .scheduleInbox
+        } else {
+            self.secondaryAction = nil
+        }
+        self.emphasis = emphasis
+    }
+
+    var id: String {
+        "\(startDate.timeIntervalSince1970)-\(endDate.timeIntervalSince1970)"
+    }
+
+    var duration: TimeInterval {
+        max(0, endDate.timeIntervalSince(startDate))
+    }
+}
+
+struct TimelineAnchorItem: Equatable, Identifiable {
+    let id: String
+    let title: String
+    let time: Date
+    let systemImageName: String
+}
+
+enum TimelineDayLayoutMode: Equatable {
+    case expanded
+    case compact
+}
+
+struct TimelineDayProjection: Equatable {
+    let date: Date
+    let allDayItems: [TimelinePlanItem]
+    let inboxItems: [TimelinePlanItem]
+    let timedItems: [TimelinePlanItem]
+    let gaps: [TimelineGap]
+    let layoutMode: TimelineDayLayoutMode
+    let wakeAnchor: TimelineAnchorItem
+    let sleepAnchor: TimelineAnchorItem
+    let activeItemID: String?
+    let currentTime: Date
+}
+
+enum TimelineDayLoadLevel: Equatable {
+    case light
+    case balanced
+    case busy
+}
+
+struct TimelineWeekDaySummary: Equatable, Identifiable {
+    let date: Date
+    let dayKey: String
+    let allDayCount: Int
+    let replanEligibleCount: Int
+    let timedMarkers: [Date]
+    let tintHexes: [String]
+    let summaryText: String
+    let loadLevel: TimelineDayLoadLevel
+
+    var id: String {
+        dayKey
+    }
+}
+
+struct NeedsReplanSummary: Equatable {
+    let count: Int
+    let dayCount: Int
+    let newestDate: Date?
+    let oldestDate: Date?
+
+    var title: String { "Needs Replan" }
+
+    var subtitle: String {
+        if count == 0 {
+            return "No unfinished past tasks need replanning."
+        }
+        if count == 1 {
+            return "1 unfinished task from yesterday"
+        }
+        if dayCount <= 1 {
+            return "\(count) unfinished from yesterday"
+        }
+        if count >= 10 {
+            return "\(count) unfinished - start with the most recent"
+        }
+        return "\(count) unfinished from past days"
+    }
+
+    var callToAction: String {
+        if count == 0 { return "Go to Today" }
+        if count == 1 { return "Resolve" }
+        if dayCount <= 1 { return "Plan the Day" }
+        if count >= 10 { return "Start" }
+        return "Review"
+    }
+}
+
+struct HomeReplanCandidate: Equatable, Identifiable {
+    let task: TaskDefinition
+    let originalDate: Date
+    let originalEndDate: Date?
+    let projectName: String?
+
+    var id: UUID { task.id }
+}
+
+struct HomeReplanOutcomeSummary: Equatable {
+    var rescheduled: Int = 0
+    var movedToInbox: Int = 0
+    var completed: Int = 0
+    var deleted: Int = 0
+
+    var totalResolved: Int {
+        rescheduled + movedToInbox + completed + deleted
+    }
+}
+
+struct TimelinePlacementCandidate: Equatable, Identifiable {
+    let taskID: UUID
+    let title: String
+    let duration: TimeInterval
+    let tintHex: String?
+    let isApplying: Bool
+    let errorMessage: String?
+
+    var id: UUID { taskID }
+}
+
+enum HomeReplanApplyingAction: Equatable {
+    case moveToInbox
+    case reschedule
+    case checkOff
+    case delete
+    case undo
+}
+
+enum HomeReplanSessionPhase: Equatable {
+    case trayHidden
+    case trayVisible(NeedsReplanSummary)
+    case launcher(NeedsReplanSummary)
+    case card(candidateIndex: Int)
+    case placement(HomeReplanCandidate, defaultDay: Date)
+    case summary(HomeReplanOutcomeSummary, skippedCount: Int)
+    case skippedReview
+}
+
+struct HomeReplanSessionState: Equatable {
+    let phase: HomeReplanSessionPhase
+    let summary: NeedsReplanSummary?
+    let currentCandidate: HomeReplanCandidate?
+    let candidateIndex: Int
+    let candidateTotal: Int
+    let canUndo: Bool
+    let outcomes: HomeReplanOutcomeSummary
+    let skippedCount: Int
+    let isApplying: Bool
+    let applyingAction: HomeReplanApplyingAction?
+    let errorMessage: String?
+
+    static let hidden = HomeReplanSessionState(
+        phase: .trayHidden,
+        summary: nil,
+        currentCandidate: nil,
+        candidateIndex: 0,
+        candidateTotal: 0,
+        canUndo: false,
+        outcomes: HomeReplanOutcomeSummary(),
+        skippedCount: 0,
+        isApplying: false,
+        applyingAction: nil,
+        errorMessage: nil
+    )
+
+    var launcherSummary: NeedsReplanSummary? {
+        guard case .launcher(let summary) = phase else { return nil }
+        return summary
+    }
+
+    var placementCandidate: TimelinePlacementCandidate? {
+        guard case .placement(let candidate, _) = phase else { return nil }
+        let duration = candidate.task.scheduledEndAt?.timeIntervalSince(candidate.originalDate)
+            ?? candidate.task.estimatedDuration
+            ?? (30 * 60)
+        return TimelinePlacementCandidate(
+            taskID: candidate.task.id,
+            title: candidate.task.title,
+            duration: max(duration, 15 * 60),
+            tintHex: nil,
+            isApplying: isApplying,
+            errorMessage: errorMessage
+        )
+    }
+
+    var suppressesBottomBar: Bool {
+        switch phase {
+        case .card, .placement, .summary, .skippedReview:
+            return true
+        case .trayHidden, .trayVisible, .launcher:
+            return false
+        }
+    }
+}
+
+struct TimelineWeekSummary: Equatable {
+    let weekStart: Date
+    let weekStartsOn: Weekday
+    let days: [TimelineWeekDaySummary]
+}
+
+struct HomeTimelineSnapshot: Equatable {
+    let selectedDate: Date
+    let foredropAnchor: ForedropAnchor
+    let day: TimelineDayProjection
+    let week: TimelineWeekSummary
+    let placementCandidate: TimelinePlacementCandidate?
+}
+
 struct HomeOverlaySnapshot: Equatable {
     let guidanceState: HomeOnboardingGuidanceModel.State?
     let focusWhyPresented: Bool
@@ -366,6 +662,7 @@ struct HomeOverlaySnapshot: Equatable {
     let rescuePlan: EvaRescuePlan?
     let lastBatchRunID: UUID?
     let lastXPResult: XPEventResult?
+    let replanState: HomeReplanSessionState
 
     static let empty = HomeOverlaySnapshot(
         guidanceState: nil,
@@ -378,7 +675,8 @@ struct HomeOverlaySnapshot: Equatable {
         rescuePresented: false,
         rescuePlan: nil,
         lastBatchRunID: nil,
-        lastXPResult: nil
+        lastXPResult: nil,
+        replanState: .hidden
     )
 
     static func == (lhs: HomeOverlaySnapshot, rhs: HomeOverlaySnapshot) -> Bool {
@@ -393,6 +691,7 @@ struct HomeOverlaySnapshot: Equatable {
             && String(describing: lhs.rescuePlan) == String(describing: rhs.rescuePlan)
             && lhs.lastBatchRunID == rhs.lastBatchRunID
             && String(describing: lhs.lastXPResult) == String(describing: rhs.lastXPResult)
+            && lhs.replanState == rhs.replanState
     }
 }
 
@@ -1395,13 +1694,17 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
                 rescuePresented: state.rescuePresented,
                 rescuePlan: state.rescuePlan,
                 lastBatchRunID: state.lastBatchRunID,
-                lastXPResult: state.lastXPResult
+                lastXPResult: state.lastXPResult,
+                replanState: state.replanState
             )
         )
+        mountBottomBarOverlayIfNeeded()
     }
 
     private func mountBottomBarOverlayIfNeeded() {
-        let shouldShowBottomBar = currentLayoutClass == .phone && faceCoordinator.shellPhase == .interactive
+        let shouldShowBottomBar = currentLayoutClass == .phone
+            && faceCoordinator.shellPhase == .interactive
+            && overlayStore.snapshot.replanState.suppressesBottomBar == false
         if shouldShowBottomBar == false {
             if let bottomBarHostingController {
                 bottomBarHostingController.willMove(toParent: nil)

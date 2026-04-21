@@ -104,10 +104,11 @@ struct SettingsRootView: View {
             // baseIndex controls stagger ordering; gaps leave room for expanded card content.
             workspaceSection(baseIndex: 1)
             calendarSection(baseIndex: 4)
-            aiAssistantSection(baseIndex: 8)
-            notificationsSection(baseIndex: 10)
-            appearanceSection(baseIndex: 18)
-            helpSection(baseIndex: 20)
+            timelineSection(baseIndex: 8)
+            aiAssistantSection(baseIndex: 10)
+            notificationsSection(baseIndex: 12)
+            appearanceSection(baseIndex: 20)
+            helpSection(baseIndex: 22)
         }
     }
 
@@ -118,14 +119,15 @@ struct SettingsRootView: View {
                     // Keep the same stagger ordering across compact and regular layouts.
                     workspaceSection(baseIndex: 1, includeHorizontalPadding: false)
                     calendarSection(baseIndex: 4, includeHorizontalPadding: false)
-                    aiAssistantSection(baseIndex: 8, includeHorizontalPadding: false)
-                    appearanceSection(baseIndex: 18, includeHorizontalPadding: false)
-                    helpSection(baseIndex: 20, includeHorizontalPadding: false)
+                    timelineSection(baseIndex: 8, includeHorizontalPadding: false)
+                    aiAssistantSection(baseIndex: 10, includeHorizontalPadding: false)
+                    appearanceSection(baseIndex: 20, includeHorizontalPadding: false)
+                    helpSection(baseIndex: 22, includeHorizontalPadding: false)
                 }
                 .frame(maxWidth: 560, alignment: .top)
 
                 VStack(spacing: 0) {
-                    notificationsSection(baseIndex: 10, includeHorizontalPadding: false)
+                    notificationsSection(baseIndex: 12, includeHorizontalPadding: false)
                 }
                 .frame(maxWidth: 560, alignment: .top)
             }
@@ -332,6 +334,32 @@ struct SettingsRootView: View {
                     )
                 }
                 .enhancedStaggeredAppearance(index: baseIndex + 1)
+            }
+        }
+    }
+
+    private func timelineSection(baseIndex: Int, includeHorizontalPadding: Bool = true) -> some View {
+        SettingsSectionView(
+            title: "Timeline",
+            subtitle: "Control whether calendar activity appears inside the Home timeline surfaces.",
+            topPadding: sectionTopPadding,
+            includeHorizontalPadding: includeHorizontalPadding
+        ) {
+            VStack(spacing: spacing.cardStackVertical) {
+                TaskerSettingsCard {
+                    TaskerSettingsToggleRow(
+                        iconName: "calendar.badge.clock",
+                        title: "Show calendar events in timeline",
+                        subtitle: "Affects Home timeline rows and weekly timeline markers. The calendar card stays unchanged.",
+                        isOn: Binding(
+                            get: { viewModel.showCalendarEventsInTimeline },
+                            set: { viewModel.setShowCalendarEventsInTimeline($0) }
+                        ),
+                        tone: .neutral,
+                        accessibilityIdentifier: "settings.timeline.showCalendarEvents.toggle"
+                    )
+                }
+                .enhancedStaggeredAppearance(index: baseIndex)
             }
         }
     }

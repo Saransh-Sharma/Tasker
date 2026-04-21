@@ -23,6 +23,7 @@ final class SettingsViewModel: ObservableObject {
     @Published var includeCanceledCalendarEvents: Bool = false
     @Published var includeAllDayInAgenda: Bool = true
     @Published var includeAllDayInBusyStrip: Bool = false
+    @Published var showCalendarEventsInTimeline: Bool = false
 
     // MARK: - Navigation callbacks (set by SettingsPageViewController)
 
@@ -308,6 +309,7 @@ final class SettingsViewModel: ObservableObject {
         guard workspacePreferences.weekStartsOn != weekday else { return }
         workspacePreferences.weekStartsOn = weekday
         workspacePreferencesStore.save(workspacePreferences)
+        TaskerFeedback.selection()
     }
 
     func setDecorativeButtonEffectsEnabled(_ isEnabled: Bool) {
@@ -420,6 +422,14 @@ final class SettingsViewModel: ObservableObject {
         calendarIntegrationService.setIncludeAllDayInBusyStrip(include)
     }
 
+    func setShowCalendarEventsInTimeline(_ show: Bool) {
+        guard workspacePreferences.showCalendarEventsInTimeline != show else { return }
+        showCalendarEventsInTimeline = show
+        workspacePreferences.showCalendarEventsInTimeline = show
+        workspacePreferencesStore.save(workspacePreferences)
+        TaskerFeedback.selection()
+    }
+
     private func bindCalendarService() {
         calendarIntegrationService.$snapshot
             .receive(on: DispatchQueue.main)
@@ -432,6 +442,7 @@ final class SettingsViewModel: ObservableObject {
                 self.includeCanceledCalendarEvents = snapshot.includeCanceled
                 self.includeAllDayInAgenda = snapshot.includeAllDayInAgenda
                 self.includeAllDayInBusyStrip = snapshot.includeAllDayInBusyStrip
+                self.showCalendarEventsInTimeline = self.workspacePreferencesStore.load().showCalendarEventsInTimeline
             }
             .store(in: &cancellables)
     }
@@ -445,6 +456,7 @@ final class SettingsViewModel: ObservableObject {
         includeCanceledCalendarEvents = snapshot.includeCanceled
         includeAllDayInAgenda = snapshot.includeAllDayInAgenda
         includeAllDayInBusyStrip = snapshot.includeAllDayInBusyStrip
+        showCalendarEventsInTimeline = workspacePreferences.showCalendarEventsInTimeline
     }
 
     private func reconcileNotifications(reason: String) {
