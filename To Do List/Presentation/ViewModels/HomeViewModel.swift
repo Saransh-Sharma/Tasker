@@ -66,6 +66,28 @@ public struct HabitRecoveryReflectionPrompt: Equatable, Identifiable {
     }
 }
 
+public enum HomeHabitMutationFeedbackHaptic: Equatable {
+    case selection
+    case success
+    case warning
+}
+
+public struct HomeHabitMutationFeedback: Equatable, Identifiable {
+    public let id: UUID
+    public let message: String
+    public let haptic: HomeHabitMutationFeedbackHaptic
+
+    public init(
+        id: UUID = UUID(),
+        message: String,
+        haptic: HomeHabitMutationFeedbackHaptic
+    ) {
+        self.id = id
+        self.message = message
+        self.haptic = haptic
+    }
+}
+
 private final class HomeReloadBatchTracker {
     private let lock = NSLock()
     private let onComplete: () -> Void
@@ -395,6 +417,7 @@ public final class HomeViewModel: ObservableObject {
     @Published public private(set) var quietTrackingSummaryState = QuietTrackingSummaryState(stableRows: []) {
         didSet { scheduleHomeRenderStateRefresh() }
     }
+    @Published public private(set) var habitMutationFeedback: HomeHabitMutationFeedback?
     @Published public private(set) var habitMutationErrorMessage: String? {
         didSet {
             guard oldValue != habitMutationErrorMessage else { return }
@@ -1244,8 +1267,7 @@ public final class HomeViewModel: ObservableObject {
         _ row: HomeHabitRow,
         source: String = "habit_home_last_cell"
     ) {
-        guard let interaction = HomeHabitLastCellInteraction.resolve(for: row) else { return }
-
+        let interaction = HomeHabitLastCellInteraction.resolve(for: row)
         switch interaction.action {
         case .complete:
             completeHabit(row, source: source)
@@ -4226,6 +4248,7 @@ public final class HomeViewModel: ObservableObject {
                 pendingHabitMutationSnapshots.removeValue(forKey: key)
                 return
             }
+            habitMutationFeedback = makeHabitMutationFeedback(for: request, row: row, date: date)
             TaskerPerformanceTrace.event("HomeUserMutationOptimisticApplied")
         }
 
@@ -4336,6 +4359,43 @@ public final class HomeViewModel: ObservableObject {
                 return nil
             }
         }
+    }
+
+    private func makeHabitMutationFeedback(
+        for request: HomeHabitMutationRequest,
+        row: HomeHabitRow,
+        date: Date,
+        calendar: Calendar = .current
+    ) -> HomeHabitMutationFeedback {
+        let stateLabel: String
+        let haptic: HomeHabitMutationFeedbackHaptic
+
+        switch request {
+        case .resolve(.complete):
+            stateLabel = "Marked done"
+            haptic = .success
+        case .resolve(.abstained):
+            stateLabel = row.kind == .negative ? "Marked clean" : "Marked done"
+            haptic = .success
+        case .resolve(.skip):
+            stateLabel = "Marked skipped"
+            haptic = .selection
+        case .resolve(.lapsed):
+            stateLabel = "Marked lapsed"
+            haptic = .warning
+        case .reset:
+            stateLabel = row.trackingMode == .lapseOnly ? "Cleared to tracking" : "Cleared to empty"
+            haptic = .selection
+        }
+
+        let dayLabel = Self.habitMutationFeedbackDateFormatter.string(from: calendar.startOfDay(for: date))
+        return HomeHabitMutationFeedback(message: "\(dayLabel): \(stateLabel)", haptic: haptic)
+    }
+
+    @MainActor
+    public func consumeHabitMutationFeedback(id: UUID) {
+        guard habitMutationFeedback?.id == id else { return }
+        habitMutationFeedback = nil
     }
 
     private func isRecoveryHabitRow(_ row: HomeHabitRow) -> Bool {
@@ -4628,15 +4688,15 @@ public final class HomeViewModel: ObservableObject {
     }
 
     private func applyHabitMutationSectionPatch(_ patch: HomeHabitMutationSectionPatch) {
-        assignIfChanged(\.dueTodayRows, patch.dueTodayRows)
-        assignIfChanged(\.dueTodaySection, patch.dueTodaySection)
-        assignIfChanged(\.habitHomeSectionState, patch.habitHomeSectionState)
-        assignIfChanged(\.quietTrackingSummaryState, patch.quietTrackingSummaryState)
+        assignForHabitMutation(\.dueTodayRows, patch.dueTodayRows)
+        assignForHabitMutation(\.dueTodaySection, patch.dueTodaySection)
+        assignForHabitMutation(\.habitHomeSectionState, patch.habitHomeSectionState)
+        assignForHabitMutation(\.quietTrackingSummaryState, patch.quietTrackingSummaryState)
         if let focusRows = patch.focusRows {
-            assignIfChanged(\.focusRows, focusRows)
+            assignForHabitMutation(\.focusRows, focusRows)
         }
         if let focusNowSectionState = patch.focusNowSectionState {
-            assignIfChanged(\.focusNowSectionState, focusNowSectionState)
+            assignForHabitMutation(\.focusNowSectionState, focusNowSectionState)
         }
         currentHabitSignals = patch.currentHabitSignals
     }
@@ -6616,6 +6676,18 @@ public final class HomeViewModel: ObservableObject {
         }
     }
 
+    private func assignForHabitMutation<Value>(
+        _ keyPath: ReferenceWritableKeyPath<HomeViewModel, Value>,
+        _ newValue: Value
+    ) {
+        self[keyPath: keyPath] = newValue
+        let erasedKeyPath = keyPath as AnyKeyPath
+        invalidateDerivedRowCaches(for: erasedKeyPath)
+        if !keyPathTriggersHomeRenderRefreshViaDidSet(erasedKeyPath) {
+            scheduleHomeRenderStateRefresh()
+        }
+    }
+
     /// Executes applyCompletionOverrides.
     private func applyCompletionOverrides(openTasks: [TaskDefinition], doneTasks: [TaskDefinition]) -> (openTasks: [TaskDefinition], doneTasks: [TaskDefinition]) {
         let normalizedOpen = openTasks.map(applyingCompletionOverrideIfNeeded)
@@ -6693,6 +6765,14 @@ public final class HomeViewModel: ObservableObject {
         }.joined(separator: "|")
         return "[\(summary)] total=\(tasks.count)"
     }
+
+    private static var habitMutationFeedbackDateFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.calendar = Calendar.current
+        formatter.locale = Locale.current
+        formatter.setLocalizedDateFormatFromTemplate("MMM d")
+        return formatter
+    }()
 
     private static func summaryDate(from dateStamp: String?) -> Date? {
         guard let dateStamp, dateStamp.isEmpty == false else { return nil }

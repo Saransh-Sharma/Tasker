@@ -12,9 +12,16 @@ struct HomeHabitLastCellInteraction: Equatable {
     let currentStateText: String
     let nextActionText: String
 
-    static func resolve(for row: HomeHabitRow) -> HomeHabitLastCellInteraction? {
-        guard row.trackingMode == .dailyCheckIn else { return nil }
+    static func resolve(for row: HomeHabitRow) -> HomeHabitLastCellInteraction {
+        switch row.trackingMode {
+        case .dailyCheckIn:
+            return resolveDailyCheckIn(row)
+        case .lapseOnly:
+            return resolveLapseOnly(row)
+        }
+    }
 
+    private static func resolveDailyCheckIn(_ row: HomeHabitRow) -> HomeHabitLastCellInteraction {
         switch (row.kind, row.state) {
         case (.positive, .due), (.positive, .overdue):
             return HomeHabitLastCellInteraction(
@@ -52,11 +59,47 @@ struct HomeHabitLastCellInteraction: Equatable {
                 currentStateText: "Lapsed",
                 nextActionText: "Clear to empty"
             )
-        case (.positive, .lapsedToday),
-             (.positive, .tracking),
-             (.negative, .skippedToday),
-             (.negative, .tracking):
-            return nil
+        case (.positive, .lapsedToday):
+            return HomeHabitLastCellInteraction(
+                action: .clear,
+                currentStateText: "Lapsed",
+                nextActionText: "Clear to empty"
+            )
+        case (.positive, .tracking):
+            return HomeHabitLastCellInteraction(
+                action: .complete,
+                currentStateText: "Tracking",
+                nextActionText: "Mark done"
+            )
+        case (.negative, .skippedToday):
+            return HomeHabitLastCellInteraction(
+                action: .clear,
+                currentStateText: "Skipped",
+                nextActionText: "Clear to empty"
+            )
+        case (.negative, .tracking):
+            return HomeHabitLastCellInteraction(
+                action: .complete,
+                currentStateText: "Tracking",
+                nextActionText: "Mark stayed clean"
+            )
+        }
+    }
+
+    private static func resolveLapseOnly(_ row: HomeHabitRow) -> HomeHabitLastCellInteraction {
+        switch row.state {
+        case .tracking, .due, .overdue:
+            return HomeHabitLastCellInteraction(
+                action: .lapse,
+                currentStateText: "Tracking",
+                nextActionText: "Mark lapsed"
+            )
+        case .lapsedToday, .completedToday, .skippedToday:
+            return HomeHabitLastCellInteraction(
+                action: .clear,
+                currentStateText: row.state == .lapsedToday ? "Lapsed" : "Resolved",
+                nextActionText: "Clear to tracking"
+            )
         }
     }
 }
