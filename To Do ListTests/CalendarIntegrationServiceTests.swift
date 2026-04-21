@@ -117,6 +117,10 @@ final class CalendarIntegrationServiceTests: XCTestCase {
         XCTAssertFalse(TaskerWorkspacePreferences().includeCanceledCalendarEvents)
     }
 
+    func testWorkspacePreferencesDefaultTimelineCalendarSettingIsFalse() {
+        XCTAssertFalse(TaskerWorkspacePreferences().showCalendarEventsInTimeline)
+    }
+
     func testWorkspacePreferencesDecodeMissingCanceledFieldDefaultsToFalse() throws {
         let legacyJSON = """
         {
@@ -133,6 +137,24 @@ final class CalendarIntegrationServiceTests: XCTestCase {
         XCTAssertEqual(decoded.selectedCalendarIDs, ["work"])
         XCTAssertTrue(decoded.includeDeclinedCalendarEvents)
         XCTAssertFalse(decoded.includeCanceledCalendarEvents)
+    }
+
+    func testWorkspacePreferencesDecodeMissingTimelineCalendarFieldDefaultsToFalse() throws {
+        let legacyJSON = """
+        {
+          "weekStartsOn": "monday",
+          "selectedCalendarIDs": ["work"],
+          "includeDeclinedCalendarEvents": true,
+          "includeCanceledCalendarEvents": false,
+          "includeAllDayInAgenda": true,
+          "includeAllDayInBusyStrip": false
+        }
+        """.data(using: .utf8)!
+
+        let decoded = try JSONDecoder().decode(TaskerWorkspacePreferences.self, from: legacyJSON)
+
+        XCTAssertEqual(decoded.selectedCalendarIDs, ["work"])
+        XCTAssertFalse(decoded.showCalendarEventsInTimeline)
     }
 
     func testWorkspacePreferencesDecodeMissingAllDayFieldsPreservesDefaults() throws {
@@ -159,6 +181,18 @@ final class CalendarIntegrationServiceTests: XCTestCase {
         ))
 
         XCTAssertEqual(store.load().selectedCalendarIDs, ["archive", "personal", "work"])
+    }
+
+    func testWorkspacePreferencesStorePersistsTimelineCalendarSetting() {
+        let store = TaskerWorkspacePreferencesStore(defaults: defaults)
+        store.save(TaskerWorkspacePreferences(
+            selectedCalendarIDs: ["work"],
+            showCalendarEventsInTimeline: true
+        ))
+
+        let loaded = store.load()
+        XCTAssertEqual(loaded.selectedCalendarIDs, ["work"])
+        XCTAssertTrue(loaded.showCalendarEventsInTimeline)
     }
 
     func testWorkspacePreferencesStoreSkipsNoopSaveAndDoesNotEmitDidChange() {

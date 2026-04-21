@@ -109,6 +109,227 @@ final class HomeViewModelPersistenceTests: XCTestCase {
         defaults.removePersistentDomain(forName: suiteName)
     }
 
+    func testNeedsReplanEligibilityIncludesOnlyPastOpenTimedTasks() {
+        let suiteName = "HomeViewModelPersistenceTests.NeedsReplan.\(UUID().uuidString)"
+        guard let defaults = UserDefaults(suiteName: suiteName) else {
+            return XCTFail("Failed to create test UserDefaults suite")
+        }
+        defaults.removePersistentDomain(forName: suiteName)
+
+        let calendar = Calendar.current
+        let yesterday = calendar.date(byAdding: .day, value: -1, to: calendar.startOfDay(for: Date()))!
+        let yesterdayTimed = calendar.date(bySettingHour: 10, minute: 30, second: 0, of: yesterday)!
+        let todayTimed = calendar.date(bySettingHour: 10, minute: 30, second: 0, of: calendar.startOfDay(for: Date()))!
+
+        let included = makeDefinition(title: "Included", start: yesterdayTimed)
+        let recurring = makeDefinition(title: "Recurring", start: yesterdayTimed, repeatPattern: .daily)
+        let allDay = makeDefinition(title: "All day", start: yesterday, isAllDay: true)
+        let habit = makeDefinition(title: "Habit", start: yesterdayTimed, habitDefinitionID: UUID())
+        let completed = makeDefinition(title: "Completed", start: yesterdayTimed, isComplete: true)
+        let today = makeDefinition(title: "Today", start: todayTimed)
+        let inbox = TaskDefinition(
+            title: "Inbox",
+            type: .inbox,
+            dueDate: nil,
+            scheduledStartAt: nil,
+            scheduledEndAt: nil,
+            isAllDay: false,
+            isComplete: false
+        )
+
+        let viewModel = HomeViewModel(
+            useCaseCoordinator: UseCaseCoordinator(
+                taskRepository: HomeViewModelMockTaskRepository(tasks: []),
+                projectRepository: HomeViewModelMockProjectRepository(projects: [Project.createInbox()])
+            ),
+            userDefaults: defaults
+        )
+        waitForMainQueueFlush()
+
+        let candidates = viewModel.needsReplanCandidatesForTesting(
+            from: [included, recurring, allDay, habit, completed, today, inbox]
+        )
+
+        XCTAssertEqual(candidates.map { $0.task.title }, ["Included"])
+        defaults.removePersistentDomain(forName: suiteName)
+    }
+
+    func testNeedsReplanManualScopeLimitsToTappedPastDate() {
+        let suiteName = "HomeViewModelPersistenceTests.Scope.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        let calendar = Calendar.current
+        let yesterday = calendar.date(byAdding: .day, value: -1, to: calendar.startOfDay(for: Date()))!
+        let twoDaysAgo = calendar.date(byAdding: .day, value: -2, to: calendar.startOfDay(for: Date()))!
+        let yesterdayTask = makeDefinition(title: "Yesterday", start: calendar.date(bySettingHour: 11, minute: 0, second: 0, of: yesterday)!)
+        let olderTask = makeDefinition(title: "Older", start: calendar.date(bySettingHour: 11, minute: 0, second: 0, of: twoDaysAgo)!)
+        let viewModel = HomeViewModel(
+            useCaseCoordinator: UseCaseCoordinator(
+                taskRepository: HomeViewModelMockTaskRepository(tasks: []),
+                projectRepository: HomeViewModelMockProjectRepository(projects: [Project.createInbox()])
+            ),
+            userDefaults: defaults
+        )
+        waitForMainQueueFlush()
+
+        let scoped = viewModel.needsReplanCandidatesForTesting(from: [olderTask, yesterdayTask], scopedTo: twoDaysAgo)
+
+        XCTAssertEqual(scoped.map { $0.task.title }, ["Older"])
+        defaults.removePersistentDomain(forName: suiteName)
+    }
+
+    func testDefaultReplanPlacementDaySwitchesAtFivePM() {
+        let suiteName = "HomeViewModelPersistenceTests.Cutoff.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        let viewModel = HomeViewModel(
+            useCaseCoordinator: UseCaseCoordinator(
+                taskRepository: HomeViewModelMockTaskRepository(tasks: []),
+                projectRepository: HomeViewModelMockProjectRepository(projects: [Project.createInbox()])
+            ),
+            userDefaults: defaults
+        )
+        let calendar = Calendar.current
+        let day = calendar.startOfDay(for: Date())
+        let beforeFive = calendar.date(bySettingHour: 16, minute: 59, second: 0, of: day)!
+        let atFive = calendar.date(bySettingHour: 17, minute: 0, second: 0, of: day)!
+
+        XCTAssertEqual(viewModel.defaultReplanPlacementDayForTesting(now: beforeFive), day)
+        XCTAssertEqual(
+            viewModel.defaultReplanPlacementDayForTesting(now: atFive),
+            calendar.date(byAdding: .day, value: 1, to: day)
+        )
+        defaults.removePersistentDomain(forName: suiteName)
+    }
+
+    func testNeedsReplanSummaryCopy() {
+        let summary = NeedsReplanSummary(count: 12, dayCount: 3, newestDate: nil, oldestDate: nil)
+
+        XCTAssertEqual(summary.title, "Needs Replan")
+        XCTAssertEqual(summary.subtitle, "12 unfinished - start with the most recent")
+        XCTAssertEqual(summary.callToAction, "Start")
+    }
+
+    func testAssistantSnapshotRoundTripsReplanScheduleFields() {
+        let calendar = Calendar.current
+        let start = calendar.date(bySettingHour: 9, minute: 15, second: 0, of: calendar.startOfDay(for: Date()))!
+        let end = start.addingTimeInterval(45 * 60)
+        let task = TaskDefinition(
+            title: "Round trip",
+            dueDate: start,
+            scheduledStartAt: start,
+            scheduledEndAt: end,
+            isAllDay: false,
+            replanCount: 3
+        )
+
+        let restored = AssistantTaskSnapshot(task: task).toTaskDefinition()
+
+        XCTAssertEqual(restored.scheduledStartAt, start)
+        XCTAssertEqual(restored.scheduledEndAt, end)
+        XCTAssertFalse(restored.isAllDay)
+        XCTAssertEqual(restored.replanCount, 3)
+    }
+
+    func testNeedsReplanBottomBarSuppressionByPhase() {
+        let summary = NeedsReplanSummary(count: 2, dayCount: 1, newestDate: Date(), oldestDate: Date())
+        let candidate = HomeReplanCandidate(
+            task: makeDefinition(title: "Replan", start: Date()),
+            originalDate: Date(),
+            originalEndDate: nil,
+            projectName: nil
+        )
+        let outcomes = HomeReplanOutcomeSummary()
+
+        func state(_ phase: HomeReplanSessionPhase) -> HomeReplanSessionState {
+            HomeReplanSessionState(
+                phase: phase,
+                summary: summary,
+                currentCandidate: candidate,
+                candidateIndex: 1,
+                candidateTotal: 2,
+                canUndo: false,
+                outcomes: outcomes,
+                skippedCount: 0,
+                isApplying: false,
+                applyingAction: nil,
+                errorMessage: nil
+            )
+        }
+
+        XCTAssertFalse(state(.trayHidden).suppressesBottomBar)
+        XCTAssertFalse(state(.trayVisible(summary)).suppressesBottomBar)
+        XCTAssertFalse(state(.launcher(summary)).suppressesBottomBar)
+        XCTAssertTrue(state(.card(candidateIndex: 1)).suppressesBottomBar)
+        XCTAssertTrue(state(.placement(candidate, defaultDay: Date())).suppressesBottomBar)
+        XCTAssertTrue(state(.summary(outcomes, skippedCount: 0)).suppressesBottomBar)
+        XCTAssertTrue(state(.skippedReview).suppressesBottomBar)
+    }
+
+    func testCancelCurrentReplanPlacementReturnsToSameCard() {
+        let suiteName = "HomeViewModelPersistenceTests.ReplanCancel.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        let calendar = Calendar.current
+        let start = calendar.date(bySettingHour: 10, minute: 0, second: 0, of: calendar.startOfDay(for: Date()))!
+        let candidate = HomeReplanCandidate(
+            task: makeDefinition(title: "Place me", start: start),
+            originalDate: start,
+            originalEndDate: start.addingTimeInterval(30 * 60),
+            projectName: "Home"
+        )
+        let viewModel = HomeViewModel(
+            useCaseCoordinator: UseCaseCoordinator(
+                taskRepository: HomeViewModelMockTaskRepository(tasks: []),
+                projectRepository: HomeViewModelMockProjectRepository(projects: [Project.createInbox()])
+            ),
+            userDefaults: defaults
+        )
+
+        viewModel.beginReplanPlacementForTesting(candidate: candidate)
+        viewModel.cancelCurrentReplanPlacement()
+
+        if case .card(let index) = viewModel.homeReplanState.phase {
+            XCTAssertEqual(index, 1)
+        } else {
+            XCTFail("Expected card phase after canceling placement")
+        }
+        XCTAssertEqual(viewModel.homeReplanState.currentCandidate?.id, candidate.id)
+        XCTAssertEqual(viewModel.homeReplanState.outcomes.totalResolved, 0)
+        defaults.removePersistentDomain(forName: suiteName)
+    }
+
+    func testNeedsReplanApplyingStateBlocksSkipAndPlacementCancel() {
+        let suiteName = "HomeViewModelPersistenceTests.ReplanApplying.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        let calendar = Calendar.current
+        let start = calendar.date(bySettingHour: 10, minute: 0, second: 0, of: calendar.startOfDay(for: Date()))!
+        let candidate = HomeReplanCandidate(
+            task: makeDefinition(title: "Busy", start: start),
+            originalDate: start,
+            originalEndDate: start.addingTimeInterval(30 * 60),
+            projectName: nil
+        )
+        let viewModel = HomeViewModel(
+            useCaseCoordinator: UseCaseCoordinator(
+                taskRepository: HomeViewModelMockTaskRepository(tasks: []),
+                projectRepository: HomeViewModelMockProjectRepository(projects: [Project.createInbox()])
+            ),
+            userDefaults: defaults
+        )
+
+        viewModel.beginReplanPlacementForTesting(candidate: candidate)
+        viewModel.setReplanApplyingForTesting(.reschedule)
+        viewModel.skipCurrentReplanCandidate()
+        viewModel.cancelCurrentReplanPlacement()
+
+        XCTAssertTrue(viewModel.homeReplanState.isApplying)
+        XCTAssertEqual(viewModel.homeReplanState.currentCandidate?.id, candidate.id)
+        if case .placement(let activeCandidate, _) = viewModel.homeReplanState.phase {
+            XCTAssertEqual(activeCandidate.id, candidate.id)
+        } else {
+            XCTFail("Applying state should keep placement active")
+        }
+        defaults.removePersistentDomain(forName: suiteName)
+    }
+
     func testInsightsViewModelIsRetainedAcrossRequests() {
         let suiteName = "HomeViewModelPersistenceTests.InsightsRetention.\(UUID().uuidString)"
         guard let defaults = UserDefaults(suiteName: suiteName) else {
@@ -2147,6 +2368,26 @@ final class HomeViewModelPersistenceTests: XCTestCase {
             isComplete: isComplete,
             dateCompleted: dateCompleted,
             updatedAt: updatedAt
+        )
+    }
+
+    private func makeDefinition(
+        title: String,
+        start: Date,
+        isAllDay: Bool = false,
+        isComplete: Bool = false,
+        repeatPattern: TaskRepeatPattern? = nil,
+        habitDefinitionID: UUID? = nil
+    ) -> TaskDefinition {
+        TaskDefinition(
+            habitDefinitionID: habitDefinitionID,
+            title: title,
+            dueDate: start,
+            scheduledStartAt: isAllDay ? nil : start,
+            scheduledEndAt: isAllDay ? nil : start.addingTimeInterval(30 * 60),
+            isAllDay: isAllDay,
+            isComplete: isComplete,
+            repeatPattern: repeatPattern
         )
     }
 

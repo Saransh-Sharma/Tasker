@@ -210,6 +210,286 @@ final class HomeCalendarIntegrationTests: XCTestCase {
         XCTAssertGreaterThan(lastRequestedEndDate, tomorrow)
     }
 
+    func testHomeTimelineSnapshotHidesCalendarEventsWhenTimelineSettingIsDisabled() {
+        let sharedStore = TaskerWorkspacePreferencesStore.shared
+        let originalSharedPreferences = sharedStore.load()
+        defer { sharedStore.save(originalSharedPreferences) }
+
+        let timelineHiddenPreferences = TaskerWorkspacePreferences(
+            selectedCalendarIDs: ["work"],
+            includeDeclinedCalendarEvents: false,
+            includeCanceledCalendarEvents: false,
+            includeAllDayInAgenda: true,
+            includeAllDayInBusyStrip: false,
+            showCalendarEventsInTimeline: false
+        )
+        workspaceStore.save(timelineHiddenPreferences)
+        sharedStore.save(timelineHiddenPreferences)
+
+        let provider = CalendarEventsProviderStub()
+        provider.authorizationStatusValue = .authorized
+        provider.calendarsResult = .success([calendar(id: "work")])
+        provider.eventsResult = .success([
+            event(id: "all_day", start: todayDate(hour: 0), end: todayDate(hour: 23, minute: 59), isAllDay: true),
+            event(id: "timed", start: todayDate(hour: 9), end: todayDate(hour: 10))
+        ])
+
+        let coordinator = makeCoordinator(provider: provider)
+        let defaults = makeUserDefaultsSuite(prefix: "HomeTimelineCalendarToggleOffTests")
+        let viewModel = HomeViewModel(useCaseCoordinator: coordinator, userDefaults: defaults)
+
+        waitForMainQueue(seconds: 0.45)
+        XCTAssertEqual(viewModel.homeCalendarSnapshot.selectedDayEvents.map(\.id), ["all_day", "timed"])
+        XCTAssertEqual(viewModel.homeCalendarSnapshot.selectedDayTimelineEvents.map(\.id), ["timed"])
+
+        let timeline = viewModel.buildTimelineSnapshot(
+            calendarSnapshot: viewModel.homeCalendarSnapshot,
+            foredropAnchor: .collapsed
+        )
+
+        XCTAssertFalse(timeline.day.allDayItems.contains { $0.source == .calendarEvent })
+        XCTAssertFalse(timeline.day.timedItems.contains { $0.source == .calendarEvent })
+        XCTAssertTrue(timeline.week.days.allSatisfy { $0.allDayCount == 0 && $0.timedMarkers.isEmpty })
+    }
+
+    func testHomeTimelineSnapshotIncludesCalendarEventsWhenTimelineSettingIsEnabled() {
+        let sharedStore = TaskerWorkspacePreferencesStore.shared
+        let originalSharedPreferences = sharedStore.load()
+        defer { sharedStore.save(originalSharedPreferences) }
+
+        let timelineVisiblePreferences = TaskerWorkspacePreferences(
+            selectedCalendarIDs: ["work"],
+            includeDeclinedCalendarEvents: false,
+            includeCanceledCalendarEvents: false,
+            includeAllDayInAgenda: true,
+            includeAllDayInBusyStrip: false,
+            showCalendarEventsInTimeline: true
+        )
+        workspaceStore.save(timelineVisiblePreferences)
+        sharedStore.save(timelineVisiblePreferences)
+
+        let provider = CalendarEventsProviderStub()
+        provider.authorizationStatusValue = .authorized
+        provider.calendarsResult = .success([calendar(id: "work")])
+        provider.eventsResult = .success([
+            event(id: "all_day", start: todayDate(hour: 0), end: todayDate(hour: 23, minute: 59), isAllDay: true),
+            event(id: "timed", start: todayDate(hour: 9), end: todayDate(hour: 10))
+        ])
+
+        let coordinator = makeCoordinator(provider: provider)
+        let defaults = makeUserDefaultsSuite(prefix: "HomeTimelineCalendarToggleOnTests")
+        let viewModel = HomeViewModel(useCaseCoordinator: coordinator, userDefaults: defaults)
+
+        waitForMainQueue(seconds: 0.45)
+        let timeline = viewModel.buildTimelineSnapshot(
+            calendarSnapshot: viewModel.homeCalendarSnapshot,
+            foredropAnchor: .collapsed
+        )
+
+        XCTAssertTrue(timeline.day.allDayItems.contains { $0.source == .calendarEvent && $0.eventID == "all_day" })
+        XCTAssertTrue(timeline.day.timedItems.contains { $0.source == .calendarEvent && $0.eventID == "timed" })
+        XCTAssertTrue(timeline.week.days.contains { $0.allDayCount > 0 || $0.timedMarkers.isEmpty == false })
+    }
+
+    func testHomeTimelineSnapshotUsesCompactLayoutForEmptyDay() {
+        let sharedStore = TaskerWorkspacePreferencesStore.shared
+        let originalSharedPreferences = sharedStore.load()
+        defer { sharedStore.save(originalSharedPreferences) }
+
+        let preferences = TaskerWorkspacePreferences(
+            selectedCalendarIDs: ["work"],
+            includeDeclinedCalendarEvents: false,
+            includeCanceledCalendarEvents: false,
+            includeAllDayInAgenda: true,
+            includeAllDayInBusyStrip: false,
+            showCalendarEventsInTimeline: true
+        )
+        workspaceStore.save(preferences)
+        sharedStore.save(preferences)
+
+        let provider = CalendarEventsProviderStub()
+        provider.authorizationStatusValue = .authorized
+        provider.calendarsResult = .success([calendar(id: "work")])
+        provider.eventsResult = .success([])
+
+        let coordinator = makeCoordinator(provider: provider)
+        let defaults = makeUserDefaultsSuite(prefix: "HomeTimelineCompactEmptyTests")
+        let viewModel = HomeViewModel(useCaseCoordinator: coordinator, userDefaults: defaults)
+
+        waitForMainQueue(seconds: 0.35)
+        let timeline = viewModel.buildTimelineSnapshot(
+            calendarSnapshot: viewModel.homeCalendarSnapshot,
+            foredropAnchor: .collapsed
+        )
+
+        XCTAssertEqual(timeline.day.layoutMode, .compact)
+        XCTAssertTrue(timeline.day.timedItems.isEmpty)
+    }
+
+    func testHomeTimelineSnapshotUsesCompactLayoutForSparseDay() {
+        let sharedStore = TaskerWorkspacePreferencesStore.shared
+        let originalSharedPreferences = sharedStore.load()
+        defer { sharedStore.save(originalSharedPreferences) }
+
+        let preferences = TaskerWorkspacePreferences(
+            selectedCalendarIDs: ["work"],
+            includeDeclinedCalendarEvents: false,
+            includeCanceledCalendarEvents: false,
+            includeAllDayInAgenda: true,
+            includeAllDayInBusyStrip: false,
+            showCalendarEventsInTimeline: true
+        )
+        workspaceStore.save(preferences)
+        sharedStore.save(preferences)
+
+        let provider = CalendarEventsProviderStub()
+        provider.authorizationStatusValue = .authorized
+        provider.calendarsResult = .success([calendar(id: "work")])
+        provider.eventsResult = .success([
+            event(id: "morning", start: todayDate(hour: 9), end: todayDate(hour: 10)),
+            event(id: "evening", start: todayDate(hour: 17), end: todayDate(hour: 18))
+        ])
+
+        let coordinator = makeCoordinator(provider: provider)
+        let defaults = makeUserDefaultsSuite(prefix: "HomeTimelineCompactSparseTests")
+        let viewModel = HomeViewModel(useCaseCoordinator: coordinator, userDefaults: defaults)
+
+        waitForMainQueue(seconds: 0.35)
+        let timeline = viewModel.buildTimelineSnapshot(
+            calendarSnapshot: viewModel.homeCalendarSnapshot,
+            foredropAnchor: .collapsed
+        )
+
+        XCTAssertEqual(timeline.day.layoutMode, .compact)
+        XCTAssertEqual(timeline.day.timedItems.count, 2)
+    }
+
+    func testHomeTimelineSnapshotKeepsExpandedLayoutForBusyDay() {
+        let sharedStore = TaskerWorkspacePreferencesStore.shared
+        let originalSharedPreferences = sharedStore.load()
+        defer { sharedStore.save(originalSharedPreferences) }
+
+        let preferences = TaskerWorkspacePreferences(
+            selectedCalendarIDs: ["work"],
+            includeDeclinedCalendarEvents: false,
+            includeCanceledCalendarEvents: false,
+            includeAllDayInAgenda: true,
+            includeAllDayInBusyStrip: false,
+            showCalendarEventsInTimeline: true
+        )
+        workspaceStore.save(preferences)
+        sharedStore.save(preferences)
+
+        let provider = CalendarEventsProviderStub()
+        provider.authorizationStatusValue = .authorized
+        provider.calendarsResult = .success([calendar(id: "work")])
+        provider.eventsResult = .success([
+            event(id: "morning", start: todayDate(hour: 8), end: todayDate(hour: 12)),
+            event(id: "afternoon", start: todayDate(hour: 12, minute: 30), end: todayDate(hour: 16, minute: 30)),
+            event(id: "evening", start: todayDate(hour: 17), end: todayDate(hour: 21))
+        ])
+
+        let coordinator = makeCoordinator(provider: provider)
+        let defaults = makeUserDefaultsSuite(prefix: "HomeTimelineExpandedBusyTests")
+        let viewModel = HomeViewModel(useCaseCoordinator: coordinator, userDefaults: defaults)
+
+        waitForMainQueue(seconds: 0.35)
+        let timeline = viewModel.buildTimelineSnapshot(
+            calendarSnapshot: viewModel.homeCalendarSnapshot,
+            foredropAnchor: .collapsed
+        )
+
+        XCTAssertEqual(timeline.day.layoutMode, .expanded)
+        XCTAssertEqual(timeline.day.timedItems.count, 3)
+    }
+
+    func testTimelineGapsGeneratePlanningActionsAndCopyForOpenWindows() {
+        let provider = CalendarEventsProviderStub()
+        let coordinator = makeCoordinator(provider: provider)
+        let defaults = makeUserDefaultsSuite(prefix: "HomeTimelineGapCopyTests")
+        let viewModel = HomeViewModel(useCaseCoordinator: coordinator, userDefaults: defaults)
+
+        let wake = CalendarTestClock.date(hour: 8, minute: 0)
+        let sleep = CalendarTestClock.date(hour: 22, minute: 0)
+        let morningTask = TimelinePlanItem(
+            id: "task:morning",
+            source: .task,
+            taskID: UUID(),
+            eventID: nil,
+            title: "Morning block",
+            subtitle: nil,
+            startDate: CalendarTestClock.date(hour: 10, minute: 0),
+            endDate: CalendarTestClock.date(hour: 11, minute: 0),
+            isAllDay: false,
+            isComplete: false,
+            tintHex: ProjectColor.blue.hexString,
+            systemImageName: "briefcase.fill",
+            accessoryText: nil
+        )
+        let noonTask = TimelinePlanItem(
+            id: "task:noon",
+            source: .task,
+            taskID: UUID(),
+            eventID: nil,
+            title: "Noon block",
+            subtitle: nil,
+            startDate: CalendarTestClock.date(hour: 11, minute: 30),
+            endDate: CalendarTestClock.date(hour: 12, minute: 0),
+            isAllDay: false,
+            isComplete: false,
+            tintHex: ProjectColor.green.hexString,
+            systemImageName: "leaf.fill",
+            accessoryText: nil
+        )
+
+        let gaps = viewModel.timelineGaps(
+            between: [morningTask, noonTask],
+            wakeAnchor: TimelineAnchorItem(id: "wake", title: "Rise and shine", time: wake, systemImageName: "alarm.fill"),
+            sleepAnchor: TimelineAnchorItem(id: "sleep", title: "Wind down", time: sleep, systemImageName: "moon.fill"),
+            inboxCount: 3
+        )
+
+        XCTAssertEqual(gaps.count, 3)
+        XCTAssertEqual(gaps.first?.primaryAction, .scheduleInbox)
+        XCTAssertEqual(gaps.first?.secondaryAction, .addTask)
+        XCTAssertEqual(gaps.first?.emphasis, .openTime)
+        XCTAssertTrue(gaps.first?.headline.contains("Free for") == true)
+        XCTAssertEqual(gaps[1].emphasis, .prepWindow)
+        XCTAssertEqual(gaps.last?.emphasis, .quietWindow)
+        XCTAssertEqual(gaps.last?.headline, "Open evening")
+    }
+
+    func testHomeTimelineSnapshotBuildsStableWeekDayKeysAndOpenSummaries() {
+        let provider = CalendarEventsProviderStub()
+        let coordinator = makeCoordinator(provider: provider)
+        let defaults = makeUserDefaultsSuite(prefix: "HomeTimelineWeekSummaryTests")
+        let viewModel = HomeViewModel(useCaseCoordinator: coordinator, userDefaults: defaults)
+
+        waitForMainQueue(seconds: 0.2)
+        let timeline = viewModel.buildTimelineSnapshot(
+            calendarSnapshot: viewModel.homeCalendarSnapshot,
+            foredropAnchor: .collapsed
+        )
+
+        XCTAssertEqual(timeline.week.days.count, 7)
+        XCTAssertTrue(timeline.week.days.allSatisfy { $0.dayKey.count == 10 })
+        XCTAssertTrue(timeline.week.days.allSatisfy { $0.summaryText.isEmpty == false })
+        XCTAssertTrue(timeline.week.days.contains { $0.summaryText == "Open" })
+    }
+
+    func testTimelineSummaryHelpersPromoteBusyDaysAndMeaningfulCounts() {
+        let provider = CalendarEventsProviderStub()
+        let coordinator = makeCoordinator(provider: provider)
+        let defaults = makeUserDefaultsSuite(prefix: "HomeTimelineSummaryHelperTests")
+        let viewModel = HomeViewModel(useCaseCoordinator: coordinator, userDefaults: defaults)
+
+        XCTAssertEqual(viewModel.timelineLoadLevel(for: 1), .light)
+        XCTAssertEqual(viewModel.timelineLoadLevel(for: 3), .balanced)
+        XCTAssertEqual(viewModel.timelineLoadLevel(for: 6), .busy)
+        XCTAssertEqual(viewModel.timelineWeekSummaryText(taskCount: 2, eventCount: 1, allDayCount: 0), "2 tasks · 1 event")
+        XCTAssertEqual(viewModel.timelineWeekSummaryText(taskCount: 0, eventCount: 0, allDayCount: 0), "Open")
+    }
+
     @MainActor
     func testHomeViewControllerRefreshesCalendarWhenAppBecomesActive() {
         workspaceStore.save(TaskerWorkspacePreferences(

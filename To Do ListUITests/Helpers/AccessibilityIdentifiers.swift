@@ -143,6 +143,16 @@ enum AccessibilityIdentifiers {
         static let lifeAreaSelector = "addTask.lifeAreaSelector"
         static let projectSelector = "addTask.projectSelector"
         static let detailsDisclosure = "addTask.detailsDisclosure"
+        static let scheduleEditor = "addTask.scheduleEditor"
+        static let scheduleDateToday = "addTask.schedule.date.today"
+        static let scheduleDateTomorrow = "addTask.schedule.date.tomorrow"
+        static let scheduleDateCustom = "addTask.schedule.date.custom"
+        static let scheduleDateSomeday = "addTask.schedule.date.someday"
+        static let scheduleTimeRow = "addTask.schedule.timeRow"
+        static let scheduleTimePickerSheet = "addTask.schedule.timePickerSheet"
+        static let scheduleTimePicker = "addTask.schedule.timePicker"
+        static let scheduleTimePickerConfirm = "addTask.schedule.timePickerConfirm"
+        static let scheduleCustomDurationField = "addTask.schedule.customDurationField"
         static let reminderToggle = "addTask.reminderToggle"
         static let reminderTimePicker = "addTask.reminderTimePicker"
         static let saveButton = "addTask.saveButton"
@@ -154,6 +164,7 @@ enum AccessibilityIdentifiers {
 
         // Project Pills
         static func projectPill(projectId: String) -> String { "addTask.projectPill.\(projectId)" }
+        static func scheduleDurationChip(minutes: Int) -> String { "addTask.schedule.duration.\(minutes)" }
     }
 
     enum DatePickerSheet {

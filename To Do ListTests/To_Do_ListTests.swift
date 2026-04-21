@@ -3029,12 +3029,19 @@ private final class NoopTaskDefinitionRepository: TaskDefinitionRepositoryProtoc
             category: request.category,
             context: request.context,
             dueDate: request.dueDate,
+            scheduledStartAt: request.scheduledStartAt,
+            scheduledEndAt: request.scheduledEndAt,
+            isAllDay: request.isAllDay,
             isComplete: false,
             dateAdded: request.createdAt,
             isEveningTask: request.isEveningTask,
             alertReminderTime: request.alertReminderTime,
             tagIDs: request.tagIDs,
             dependencies: request.dependencies,
+            estimatedDuration: request.estimatedDuration,
+            repeatPattern: request.repeatPattern,
+            planningBucket: request.planningBucket,
+            weeklyOutcomeID: request.weeklyOutcomeID,
             createdAt: request.createdAt,
             updatedAt: request.createdAt
         )))
@@ -6738,7 +6745,143 @@ final class ManageLifeAreasUseCaseValidationTests: XCTestCase {
     }
 }
 
+private final class CapturingAddTaskRepository: TaskDefinitionRepositoryProtocol {
+    var lastCreateRequest: CreateTaskDefinitionRequest?
+    var onCreateRequest: ((CreateTaskDefinitionRequest) -> Void)?
+
+    func fetchAll(completion: @escaping (Result<[TaskDefinition], Error>) -> Void) { completion(.success([])) }
+    func fetchAll(query: TaskDefinitionQuery?, completion: @escaping (Result<[TaskDefinition], Error>) -> Void) { completion(.success([])) }
+    func fetchTaskDefinition(id: UUID, completion: @escaping (Result<TaskDefinition?, Error>) -> Void) { completion(.success(nil)) }
+    func create(_ task: TaskDefinition, completion: @escaping (Result<TaskDefinition, Error>) -> Void) { completion(.success(task)) }
+    func create(request: CreateTaskDefinitionRequest, completion: @escaping (Result<TaskDefinition, Error>) -> Void) {
+        lastCreateRequest = request
+        onCreateRequest?(request)
+        completion(.success(request.toTaskDefinition(projectName: request.projectName)))
+    }
+    func update(_ task: TaskDefinition, completion: @escaping (Result<TaskDefinition, Error>) -> Void) { completion(.success(task)) }
+    func update(request: UpdateTaskDefinitionRequest, completion: @escaping (Result<TaskDefinition, Error>) -> Void) {
+        completion(.failure(NSError(domain: "CapturingAddTaskRepository", code: 1)))
+    }
+    func fetchChildren(parentTaskID: UUID, completion: @escaping (Result<[TaskDefinition], Error>) -> Void) { completion(.success([])) }
+    func delete(id: UUID, completion: @escaping (Result<Void, Error>) -> Void) { completion(.success(())) }
+}
+
+private func makeAddTaskScheduleViewModel(
+    now: Date = Date(timeIntervalSince1970: 1_777_000_000),
+    repository: TaskDefinitionRepositoryProtocol = CapturingAddTaskRepository()
+) -> AddTaskViewModel {
+    AddTaskViewModel(
+        taskReadModelRepository: nil,
+        manageProjectsUseCase: ManageProjectsUseCase(
+            projectRepository: MockProjectRepository(projects: [Project.createInbox()])
+        ),
+        createTaskDefinitionUseCase: CreateTaskDefinitionUseCase(
+            repository: repository,
+            taskTagLinkRepository: nil,
+            taskDependencyRepository: nil
+        ),
+        rescheduleTaskDefinitionUseCase: nil,
+        manageLifeAreasUseCase: nil,
+        manageSectionsUseCase: nil,
+        manageTagsUseCase: nil,
+        nowProvider: { now }
+    )
+}
+
 final class AddTaskViewModelLifeAreaDedupeTests: XCTestCase {
+    func testAddTaskScheduleDefaultsToTwentyMinutesFromNowAndFifteenMinuteDuration() {
+        let calendar = Calendar.current
+        let now = calendar.date(from: DateComponents(year: 2026, month: 4, day: 22, hour: 9, minute: 10, second: 45))!
+        let viewModel = makeAddTaskScheduleViewModel(now: now)
+        let expectedStart = AddTaskViewModel.defaultScheduledStart(now: now)
+
+        XCTAssertEqual(viewModel.scheduledStartAt, expectedStart)
+        XCTAssertEqual(viewModel.dueDate, expectedStart)
+        XCTAssertEqual(viewModel.estimatedDuration, 15 * 60)
+        XCTAssertEqual(viewModel.scheduledEndAt, expectedStart.addingTimeInterval(15 * 60))
+        XCTAssertFalse(viewModel.hasUnsavedChanges)
+    }
+
+    func testChangingDurationUpdatesDerivedScheduledEnd() {
+        let calendar = Calendar.current
+        let now = calendar.date(from: DateComponents(year: 2026, month: 4, day: 22, hour: 9, minute: 0, second: 15))!
+        let viewModel = makeAddTaskScheduleViewModel(now: now)
+
+        viewModel.setEstimatedDuration(90 * 60)
+
+        XCTAssertEqual(viewModel.scheduledEndAt, viewModel.scheduledStartAt?.addingTimeInterval(90 * 60))
+    }
+
+    func testChangingDatePreservesStartTime() {
+        let calendar = Calendar.current
+        let now = calendar.date(from: DateComponents(year: 2026, month: 4, day: 22, hour: 9, minute: 10, second: 45))!
+        let tomorrow = calendar.date(byAdding: .day, value: 1, to: now)!
+        let viewModel = makeAddTaskScheduleViewModel(now: now)
+        let originalTime = calendar.dateComponents([.hour, .minute], from: viewModel.scheduledStartAt!)
+
+        viewModel.setScheduledDate(tomorrow)
+
+        let updated = viewModel.scheduledStartAt!
+        XCTAssertTrue(calendar.isDate(updated, inSameDayAs: tomorrow))
+        XCTAssertEqual(calendar.component(.hour, from: updated), originalTime.hour)
+        XCTAssertEqual(calendar.component(.minute, from: updated), originalTime.minute)
+    }
+
+    func testChangingTimePreservesDate() {
+        let calendar = Calendar.current
+        let now = calendar.date(from: DateComponents(year: 2026, month: 4, day: 22, hour: 9, minute: 10, second: 45))!
+        let newTime = calendar.date(from: DateComponents(year: 2026, month: 4, day: 24, hour: 14, minute: 35, second: 30))!
+        let viewModel = makeAddTaskScheduleViewModel(now: now)
+        let originalDate = viewModel.scheduledStartAt!
+
+        viewModel.setScheduledStartTime(newTime)
+
+        let updated = viewModel.scheduledStartAt!
+        XCTAssertTrue(calendar.isDate(updated, inSameDayAs: originalDate))
+        XCTAssertEqual(calendar.component(.hour, from: updated), 14)
+        XCTAssertEqual(calendar.component(.minute, from: updated), 35)
+        XCTAssertEqual(calendar.component(.second, from: updated), 0)
+    }
+
+    func testCreateTaskIncludesTimedScheduleFields() {
+        let calendar = Calendar.current
+        let now = calendar.date(from: DateComponents(year: 2026, month: 4, day: 22, hour: 9, minute: 10, second: 45))!
+        let repository = CapturingAddTaskRepository()
+        let viewModel = makeAddTaskScheduleViewModel(now: now, repository: repository)
+        viewModel.taskName = "Watch a movie"
+        viewModel.setEstimatedDuration(90 * 60)
+
+        let expectation = expectation(description: "task created")
+        repository.onCreateRequest = { _ in expectation.fulfill() }
+        viewModel.createTask()
+        waitForExpectations(timeout: 1.0)
+
+        let request = repository.lastCreateRequest
+        XCTAssertEqual(request?.dueDate, viewModel.scheduledStartAt)
+        XCTAssertEqual(request?.scheduledStartAt, viewModel.scheduledStartAt)
+        XCTAssertEqual(request?.scheduledEndAt, viewModel.scheduledEndAt)
+        XCTAssertEqual(request?.estimatedDuration, 90 * 60)
+        XCTAssertEqual(request?.isAllDay, false)
+    }
+
+    func testClearingScheduleCreatesUnscheduledTask() {
+        let repository = CapturingAddTaskRepository()
+        let viewModel = makeAddTaskScheduleViewModel(repository: repository)
+        viewModel.taskName = "Inbox idea"
+        viewModel.clearSchedule()
+
+        let expectation = expectation(description: "task created")
+        repository.onCreateRequest = { _ in expectation.fulfill() }
+        viewModel.createTask()
+        waitForExpectations(timeout: 1.0)
+
+        XCTAssertNil(repository.lastCreateRequest?.dueDate)
+        XCTAssertNil(repository.lastCreateRequest?.scheduledStartAt)
+        XCTAssertNil(repository.lastCreateRequest?.scheduledEndAt)
+        XCTAssertEqual(repository.lastCreateRequest?.isAllDay, false)
+        XCTAssertEqual(repository.lastCreateRequest?.estimatedDuration, 15 * 60)
+    }
+
     func testLoadLifeAreasDedupesSameNameChipsAndKeepsStableSelection() {
         let duplicateGeneralA = LifeArea(id: UUID(), name: "General", color: nil, icon: "square.grid.2x2")
         let duplicateGeneralB = LifeArea(id: UUID(), name: " general ", color: "#111111", icon: "circle")

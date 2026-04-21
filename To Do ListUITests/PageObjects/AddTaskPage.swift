@@ -87,6 +87,26 @@ class AddTaskPage {
         app.otherElements[AccessibilityIdentifiers.AddTask.projectSelector]
     }
 
+    var scheduleEditor: XCUIElement {
+        app.descendants(matching: .any)[AccessibilityIdentifiers.AddTask.scheduleEditor]
+    }
+
+    var scheduleTimeRow: XCUIElement {
+        app.descendants(matching: .any)[AccessibilityIdentifiers.AddTask.scheduleTimeRow]
+    }
+
+    var scheduleTimePickerSheet: XCUIElement {
+        app.descendants(matching: .any)[AccessibilityIdentifiers.AddTask.scheduleTimePickerSheet]
+    }
+
+    var scheduleTimePicker: XCUIElement {
+        app.datePickers[AccessibilityIdentifiers.AddTask.scheduleTimePicker]
+    }
+
+    var scheduleTimePickerConfirmButton: XCUIElement {
+        app.buttons[AccessibilityIdentifiers.AddTask.scheduleTimePickerConfirm]
+    }
+
     var prioritySegmentedControl: XCUIElement {
         return app.segmentedControls[AccessibilityIdentifiers.AddTask.prioritySegmentedControl]
     }
@@ -244,6 +264,21 @@ class AddTaskPage {
         let button = habitModeButton
         if button.waitForExistence(timeout: 3) {
             button.tap()
+        }
+    }
+
+    func openScheduleTimePicker() {
+        let row = scheduleTimeRow
+        if row.waitForExistence(timeout: 3) {
+            tapElementCenter(row)
+        }
+    }
+
+    func selectScheduleDuration(minutes: Int) {
+        let identifier = AccessibilityIdentifiers.AddTask.scheduleDurationChip(minutes: minutes)
+        let chip = app.descendants(matching: .any)[identifier]
+        if chip.waitForExistence(timeout: 3) {
+            tapElementCenter(chip)
         }
     }
 
