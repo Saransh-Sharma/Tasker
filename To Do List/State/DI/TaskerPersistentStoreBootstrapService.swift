@@ -495,6 +495,7 @@ struct TaskerPersistentRuntimeInitializer {
             try backfillHabitRuntimeFieldsIfNeeded(in: context)
             try backfillOccurrenceKeysIfNeeded(in: context)
             try backfillWeeklyPlanningBucketsIfNeeded(in: context)
+            try backfillTimelineScheduleFieldsIfNeeded(in: context)
 
             if context.hasChanges {
                 try context.save()
@@ -950,6 +951,56 @@ struct TaskerPersistentRuntimeInitializer {
         logWarning(
             event: "weekly_planning_bucket_backfill_applied",
             message: "Backfilled TaskDefinition.planningBucketRaw for legacy rows",
+            fields: ["updated_count": String(tasks.count)]
+        )
+    }
+
+    private func backfillTimelineScheduleFieldsIfNeeded(in context: NSManagedObjectContext) throws {
+        guard
+            let taskEntity = NSEntityDescription.entity(forEntityName: "TaskDefinition", in: context),
+            taskEntity.attributesByName["scheduledStartAt"] != nil,
+            taskEntity.attributesByName["scheduledEndAt"] != nil,
+            taskEntity.attributesByName["isAllDay"] != nil
+        else {
+            return
+        }
+
+        let request = NSFetchRequest<NSManagedObject>(entityName: "TaskDefinition")
+        request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
+            NSPredicate(format: "dueDate != nil"),
+            NSPredicate(format: "scheduledStartAt == nil"),
+            NSPredicate(format: "scheduledEndAt == nil"),
+            NSPredicate(format: "isAllDay == NO")
+        ])
+
+        let tasks = try context.fetch(request)
+        guard tasks.isEmpty == false else {
+            return
+        }
+
+        let calendar = Calendar.current
+        for task in tasks {
+            guard let dueDate = task.value(forKey: "dueDate") as? Date else { continue }
+            let estimatedDuration = (task.value(forKey: "estimatedDuration") as? Double).flatMap { $0 > 0 ? $0 : nil } ?? (30 * 60)
+            let dueComponents = calendar.dateComponents([.hour, .minute, .second], from: dueDate)
+            let isDateOnlyDueDate =
+                (dueComponents.hour ?? 0) == 0
+                && (dueComponents.minute ?? 0) == 0
+                && (dueComponents.second ?? 0) == 0
+
+            if isDateOnlyDueDate {
+                task.setValue(true, forKey: "isAllDay")
+                task.setValue(nil, forKey: "scheduledStartAt")
+                task.setValue(nil, forKey: "scheduledEndAt")
+            } else {
+                task.setValue(dueDate, forKey: "scheduledStartAt")
+                task.setValue(dueDate.addingTimeInterval(estimatedDuration), forKey: "scheduledEndAt")
+            }
+        }
+
+        logWarning(
+            event: "timeline_schedule_backfill_applied",
+            message: "Backfilled TaskDefinition timeline schedule fields for legacy rows",
             fields: ["updated_count": String(tasks.count)]
         )
     }
@@ -1680,7 +1731,11 @@ final class TaskerPersistentStoreBootstrapService {
                 "planningBucketRaw",
                 "weeklyOutcomeID",
                 "deferredFromWeekStart",
-                "deferredCount"
+                "deferredCount",
+                "replanCount",
+                "scheduledStartAt",
+                "scheduledEndAt",
+                "isAllDay"
             ]
         )
         requireAttributes(

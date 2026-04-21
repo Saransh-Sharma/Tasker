@@ -40,6 +40,7 @@
 		3494FE9BF173433EE0791F1B /* TypographyTokenTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 32CFD17024C4F8FF10386CE1 /* TypographyTokenTests.swift */; };
 		350E661527174B8BDEE11FCC /* TaskRowView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D379A868382E81C83D874E36 /* TaskRowView.swift */; };
 		355015C0A77A72D864F1AC64 /* HomeForedropView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BF5D7161411B42651DF00D60 /* HomeForedropView.swift */; };
+		D4F400000000000000000201 /* To Do List/View/HomeTimelineSurface.swift in Sources */ = {isa = PBXBuildFile; fileRef = D4F400000000000000000202 /* To Do List/View/HomeTimelineSurface.swift */; };
 		36235D01BFCF2D2001A39CCE /* To Do List/UseCases/Gamification/FocusSessionUseCase.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7CC4B584282446580AA72B44 /* To Do List/UseCases/Gamification/FocusSessionUseCase.swift */; };
 		37A2B8A6A25F06C72606019E /* To Do List/Domain/Mappers/TaskDefinitionMapper.swift in Sources */ = {isa = PBXBuildFile; fileRef = 592346DCA3C3FE56E12617C2 /* To Do List/Domain/Mappers/TaskDefinitionMapper.swift */; };
 		3A549BEBEF3902410F96971A /* To Do List/View/FocusTimerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 37E2466DBE2A76A73458F530 /* To Do List/View/FocusTimerView.swift */; };
@@ -787,6 +788,7 @@
 		75F0C70A2DE9E47C008F4460 /* ColoredPillBackgroundView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ColoredPillBackgroundView.swift; sourceTree = "<group>"; };
 		75F0C7122DEA3DF8008F4460 /* ProjectPillCell.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProjectPillCell.swift; sourceTree = "<group>"; };
 		75F18101245C99CD004D9A69 /* TaskModelV3.xcdatamodel */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcdatamodel; path = TaskModelV3.xcdatamodel; sourceTree = "<group>"; };
+		A7B8C9D0E1F2030405060708 /* TaskModelV3_Timeline.xcdatamodel */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcdatamodel; path = TaskModelV3_Timeline.xcdatamodel; sourceTree = "<group>"; };
 		75F18109245CA7DF004D9A69 /* TaskDefinitionEntity+CoreDataClass.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "TaskDefinitionEntity+CoreDataClass.swift"; path = "To Do List/State/Entities/TaskDefinitionEntity+CoreDataClass.swift"; sourceTree = "<group>"; };
 		75F1810A245CA7DF004D9A69 /* TaskDefinitionEntity+CoreDataProperties.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "TaskDefinitionEntity+CoreDataProperties.swift"; path = "To Do List/State/Entities/TaskDefinitionEntity+CoreDataProperties.swift"; sourceTree = "<group>"; };
 		75F89F2C2DFC44E6009EDD8F /* Data.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Data.swift; sourceTree = "<group>"; };
@@ -966,6 +968,7 @@
 		BC92DC6157EF1B9AAB1422D9 /* SettingsRootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsRootView.swift; sourceTree = "<group>"; };
 		BCD0B9C7DEE094DB1B55D5BD /* SettingsViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsViewModel.swift; sourceTree = "<group>"; };
 		BF5D7161411B42651DF00D60 /* HomeForedropView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HomeForedropView.swift; sourceTree = "<group>"; };
+		D4F400000000000000000202 /* To Do List/View/HomeTimelineSurface.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "To Do List/View/HomeTimelineSurface.swift"; sourceTree = SOURCE_ROOT; };
 		C1256A6FF63A60FC9D9E82C2 /* TaskerWidgets/TaskerWidgetBundle.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = TaskerWidgets/TaskerWidgetBundle.swift; sourceTree = SOURCE_ROOT; };
 		C1429E78D48CAF30D016B671 /* NotificationTypesCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationTypesCard.swift; sourceTree = "<group>"; };
 		C1A100000000000000000001 /* To Do List/Domain/Interfaces/HabitRuntimeReadRepositoryProtocol.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "To Do List/Domain/Interfaces/HabitRuntimeReadRepositoryProtocol.swift"; sourceTree = SOURCE_ROOT; };
@@ -1801,6 +1804,7 @@
 				17DC0A5BC84D9C6C792B2AB6 /* To Do List/View/HomeXPHeroView.swift */,
 				D4F10000000000000000010B /* HomeWeeklySummaryCard.swift */,
 				BF5D7161411B42651DF00D60 /* HomeForedropView.swift */,
+				D4F400000000000000000202 /* To Do List/View/HomeTimelineSurface.swift */,
 				D2A100000000000000000003 /* To Do List/View/QuietTrackingComposerView.swift */,
 				F2A1B2C3D4E5F60718293A50 /* HomeBottomBarItem.swift */,
 				F2A1B2C3D4E5F60718293A51 /* HomeBottomBarState.swift */,
@@ -2979,6 +2983,7 @@
 				B1A000000000000000000006 /* HomeEvaLegacySheetViews.swift in Sources */,
 				B1A000000000000000000008 /* HomeEvaTriageSprintSheetV2.swift in Sources */,
 				355015C0A77A72D864F1AC64 /* HomeForedropView.swift in Sources */,
+				D4F400000000000000000201 /* To Do List/View/HomeTimelineSurface.swift in Sources */,
 				CA1A10000000000000000006 /* To Do List/View/Calendar/EventKitCalendarChooserSheet.swift in Sources */,
 				CA1A10000000000000000007 /* To Do List/View/Calendar/EventKitEventDetailView.swift in Sources */,
 				CA1A10000000000000000008 /* To Do List/View/Calendar/CalendarScheduleView.swift in Sources */,
@@ -3743,8 +3748,9 @@
 				A9C6F21138AB4C41B2D309E7 /* TaskModelV3_Gamification.xcdatamodel */,
 				D4E5F6A7B8C9D0E1F2030405 /* TaskModelV3_Habits.xcdatamodel */,
 				D4E5F6A7B8C9D0E1F2030406 /* TaskModelV3_WeeklyPlanning.xcdatamodel */,
+				A7B8C9D0E1F2030405060708 /* TaskModelV3_Timeline.xcdatamodel */,
 			);
-			currentVersion = D4E5F6A7B8C9D0E1F2030406 /* TaskModelV3_WeeklyPlanning.xcdatamodel */;
+			currentVersion = A7B8C9D0E1F2030405060708 /* TaskModelV3_Timeline.xcdatamodel */;
 			path = TaskModelV3.xcdatamodeld;
 			sourceTree = "<group>";
 			versionGroupType = wrapper.xcdatamodel;
