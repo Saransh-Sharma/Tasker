@@ -599,11 +599,19 @@ struct LLMModelCompatibilityResult: Equatable {
 
 enum LLMRuntimeSupportMatrix {
     static func compatibility(for model: ModelConfiguration) -> LLMModelCompatibilityResult {
+        #if targetEnvironment(simulator)
+        return LLMModelCompatibilityResult(
+            modelName: model.name,
+            availability: .temporarilyUnavailable,
+            statusReason: "Local EVA models are not available in the iOS Simulator."
+        )
+        #else
         LLMModelCompatibilityResult(
             modelName: model.name,
             availability: .supported,
             statusReason: nil
         )
+        #endif
     }
 
     static func compatibility(for modelName: String) -> LLMModelCompatibilityResult? {
