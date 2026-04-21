@@ -78,7 +78,11 @@ class LLMEvaluator {
     private var startTime: Date?
     private var generationCancellationToken = LLMGenerationCancellationToken()
     private var didEmitAnswerPhaseSignalForRun = false
+    private var pendingVisibleOutput = ""
+    private var hasPendingVisibleOutput = false
+    private var lastVisibleOutputPublishAt = Date.distantPast
     private let inferenceEngine: LLMInferenceEngine
+    private let streamPublishThrottleInterval: TimeInterval = 1.0 / 24.0
 
     var modelConfiguration = ModelConfiguration.defaultModel
 
@@ -264,6 +268,9 @@ class LLMEvaluator {
         running = true
         cancelled = false
         output = ""
+        pendingVisibleOutput = ""
+        hasPendingVisibleOutput = false
+        lastVisibleOutputPublishAt = .distantPast
         stat = ""
         progress = 0.0
         thinkingTime = nil
@@ -333,6 +340,7 @@ class LLMEvaluator {
             loadedModelName = modelName
             progress = 1.0
             lastRawOutput = generationResult.rawOutput
+            flushPendingVisibleOutput(force: true)
             if generationResult.visibleOutput != output {
                 output = generationResult.visibleOutput
             }
@@ -404,9 +412,28 @@ class LLMEvaluator {
         isReasoningModel: Bool,
         modelName: String
     ) {
-        output = visibleText
+        enqueueVisibleOutput(visibleText)
         if isReasoningModel, runtimePhase == .thinking, let phaseTrigger {
             markAnswerPhaseStarted(modelName: modelName, trigger: phaseTrigger, tokenCount: tokenCount)
+        }
+    }
+
+    private func enqueueVisibleOutput(_ text: String) {
+        guard output != text else { return }
+        pendingVisibleOutput = text
+        hasPendingVisibleOutput = true
+        flushPendingVisibleOutput(force: false)
+    }
+
+    private func flushPendingVisibleOutput(force: Bool) {
+        guard hasPendingVisibleOutput else { return }
+        let now = Date()
+        if force || now.timeIntervalSince(lastVisibleOutputPublishAt) >= streamPublishThrottleInterval {
+            hasPendingVisibleOutput = false
+            lastVisibleOutputPublishAt = now
+            if output != pendingVisibleOutput {
+                output = pendingVisibleOutput
+            }
         }
     }
 
@@ -432,6 +459,9 @@ class LLMEvaluator {
         loadedModelName = nil
         progress = 0
         output = ""
+        pendingVisibleOutput = ""
+        hasPendingVisibleOutput = false
+        lastVisibleOutputPublishAt = .distantPast
         stat = ""
         thinkingTime = nil
         isThinking = false

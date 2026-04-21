@@ -275,7 +275,7 @@ struct ChatView: View {
                 contextCoordinator.remove(attachment)
             },
             onGenerate: {
-                generate()
+                submitPromptFromSendButton()
             },
             onStop: {
                 cancelActiveGeneration(reason: "stop_button")
@@ -335,6 +335,26 @@ struct ChatView: View {
         #else
         isPromptFocused = true
         generate()
+        #endif
+    }
+
+    @MainActor
+    private func submitPromptFromSendButton() {
+        #if os(macOS)
+        generate()
+        #else
+        // Force a focus commit before generation so the first tap reliably submits current composer text.
+        let wasPromptFocused = isPromptFocused
+        isProjectFieldFocused = false
+        if wasPromptFocused {
+            isPromptFocused = false
+            _Concurrency.Task { @MainActor in
+                await _Concurrency.Task.yield()
+                generate()
+            }
+        } else {
+            generate()
+        }
         #endif
     }
 
