@@ -26,10 +26,15 @@ public enum StateTaskDefinitionMapper {
         let weeklyOutcomeID = entity.value(forKey: "weeklyOutcomeID") as? UUID
         let deferredFromWeekStart = entity.value(forKey: "deferredFromWeekStart") as? Date
         let deferredCount = max(0, (entity.value(forKey: "deferredCount") as? Int32).map(Int.init) ?? 0)
+        let replanCount = max(0, Int(entity.replanCount))
+        let scheduledStartAt = entity.value(forKey: "scheduledStartAt") as? Date
+        let scheduledEndAt = entity.value(forKey: "scheduledEndAt") as? Date
+        let isAllDay = entity.value(forKey: "isAllDay") as? Bool ?? false
 
         return TaskDefinition(
             id: taskID,
             recurrenceSeriesID: entity.recurrenceSeriesID,
+            habitDefinitionID: entity.habitDefinitionID,
             projectID: projectID,
             projectName: projectRef?.name ?? ProjectConstants.inboxProjectName,
             lifeAreaID: entity.lifeAreaID,
@@ -43,6 +48,9 @@ public enum StateTaskDefinitionMapper {
             category: TaskCategory(rawValue: entity.category ?? "") ?? .general,
             context: TaskContext(rawValue: entity.context ?? "") ?? .anywhere,
             dueDate: entity.dueDate,
+            scheduledStartAt: scheduledStartAt,
+            scheduledEndAt: scheduledEndAt,
+            isAllDay: isAllDay,
             isComplete: isComplete,
             dateAdded: entity.dateAdded ?? createdAt,
             dateCompleted: entity.dateCompleted,
@@ -57,6 +65,7 @@ public enum StateTaskDefinitionMapper {
             weeklyOutcomeID: weeklyOutcomeID,
             deferredFromWeekStart: deferredFromWeekStart,
             deferredCount: deferredCount,
+            replanCount: replanCount,
             createdAt: createdAt,
             updatedAt: updatedAt
         )
@@ -72,6 +81,7 @@ public enum StateTaskDefinitionMapper {
         entity.sectionID = model.sectionID
         entity.parentTaskID = model.parentTaskID
         entity.recurrenceSeriesID = model.recurrenceSeriesID
+        entity.habitDefinitionID = model.habitDefinitionID
         entity.title = model.title
         entity.notes = model.details
         entity.status = model.isComplete ? "completed" : "pending"
@@ -81,6 +91,9 @@ public enum StateTaskDefinitionMapper {
         entity.category = model.category.rawValue
         entity.context = model.context.rawValue
         entity.dueDate = model.dueDate
+        entity.setValue(model.scheduledStartAt, forKey: "scheduledStartAt")
+        entity.setValue(model.scheduledEndAt, forKey: "scheduledEndAt")
+        entity.setValue(model.isAllDay, forKey: "isAllDay")
         entity.isComplete = model.isComplete
         entity.dateAdded = model.dateAdded
         entity.dateCompleted = model.dateCompleted
@@ -93,6 +106,7 @@ public enum StateTaskDefinitionMapper {
         entity.setValue(model.weeklyOutcomeID, forKey: "weeklyOutcomeID")
         entity.setValue(model.deferredFromWeekStart, forKey: "deferredFromWeekStart")
         entity.setValue(Int32(model.deferredCount), forKey: "deferredCount")
+        entity.replanCount = Int32(max(0, model.replanCount))
         entity.source = entity.source ?? "user"
         entity.createdBy = entity.createdBy ?? "user"
         entity.createdAt = model.createdAt

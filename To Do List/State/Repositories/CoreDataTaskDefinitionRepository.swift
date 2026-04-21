@@ -7,6 +7,7 @@ private struct TaskEntitySnapshot {
         "taskID",
         "projectID",
         "recurrenceSeriesID",
+        "habitDefinitionID",
         "lifeAreaID",
         "sectionID",
         "parentTaskID",
@@ -18,6 +19,9 @@ private struct TaskEntitySnapshot {
         "category",
         "context",
         "dueDate",
+        "scheduledStartAt",
+        "scheduledEndAt",
+        "isAllDay",
         "isComplete",
         "dateAdded",
         "dateCompleted",
@@ -30,6 +34,7 @@ private struct TaskEntitySnapshot {
         "weeklyOutcomeID",
         "deferredFromWeekStart",
         "deferredCount",
+        "replanCount",
         "createdAt",
         "updatedAt"
     ]
@@ -37,6 +42,7 @@ private struct TaskEntitySnapshot {
     let taskID: UUID
     let projectID: UUID
     let recurrenceSeriesID: UUID?
+    let habitDefinitionID: UUID?
     let lifeAreaID: UUID?
     let sectionID: UUID?
     let parentTaskID: UUID?
@@ -48,6 +54,9 @@ private struct TaskEntitySnapshot {
     let categoryRaw: String
     let contextRaw: String
     let dueDate: Date?
+    let scheduledStartAt: Date?
+    let scheduledEndAt: Date?
+    let isAllDay: Bool
     let isComplete: Bool
     let dateAdded: Date
     let dateCompleted: Date?
@@ -60,6 +69,7 @@ private struct TaskEntitySnapshot {
     let weeklyOutcomeID: UUID?
     let deferredFromWeekStart: Date?
     let deferredCount: Int
+    let replanCount: Int
     let createdAt: Date
     let updatedAt: Date
     let fallbackProjectName: String?
@@ -69,6 +79,7 @@ private struct TaskEntitySnapshot {
         self.taskID = (values["taskID"] as? UUID) ?? (values["id"] as? UUID) ?? UUID()
         self.projectID = (values["projectID"] as? UUID) ?? ProjectConstants.inboxProjectID
         self.recurrenceSeriesID = values["recurrenceSeriesID"] as? UUID
+        self.habitDefinitionID = values["habitDefinitionID"] as? UUID
         self.lifeAreaID = values["lifeAreaID"] as? UUID
         self.sectionID = values["sectionID"] as? UUID
         self.parentTaskID = values["parentTaskID"] as? UUID
@@ -80,6 +91,9 @@ private struct TaskEntitySnapshot {
         self.categoryRaw = (values["category"] as? String) ?? ""
         self.contextRaw = (values["context"] as? String) ?? ""
         self.dueDate = values["dueDate"] as? Date
+        self.scheduledStartAt = values["scheduledStartAt"] as? Date
+        self.scheduledEndAt = values["scheduledEndAt"] as? Date
+        self.isAllDay = (values["isAllDay"] as? Bool) ?? false
         self.isComplete = (values["isComplete"] as? Bool) ?? false
         self.dateAdded = (values["dateAdded"] as? Date) ?? Date()
         self.dateCompleted = values["dateCompleted"] as? Date
@@ -92,6 +106,7 @@ private struct TaskEntitySnapshot {
         self.weeklyOutcomeID = values["weeklyOutcomeID"] as? UUID
         self.deferredFromWeekStart = values["deferredFromWeekStart"] as? Date
         self.deferredCount = max(0, (values["deferredCount"] as? Int32).map(Int.init) ?? 0)
+        self.replanCount = max(0, (values["replanCount"] as? Int32).map(Int.init) ?? 0)
         self.createdAt = (values["createdAt"] as? Date) ?? Date()
         self.updatedAt = (values["updatedAt"] as? Date) ?? Date()
 
@@ -158,6 +173,7 @@ enum TaskDefinitionMutationApplier {
         setAttribute("sectionID", value: request.sectionID, on: entity)
         setAttribute("parentTaskID", value: request.parentTaskID, on: entity)
         setAttribute("recurrenceSeriesID", value: request.recurrenceSeriesID, on: entity)
+        setAttribute("habitDefinitionID", value: request.habitDefinitionID, on: entity)
         setAttribute("title", value: request.title, on: entity)
         setAttribute("notes", value: request.details, on: entity)
         setAttribute("priority", value: request.priority.rawValue, on: entity)
@@ -166,6 +182,9 @@ enum TaskDefinitionMutationApplier {
         setAttribute("category", value: request.category.rawValue, on: entity)
         setAttribute("context", value: request.context.rawValue, on: entity)
         setAttribute("dueDate", value: request.dueDate, on: entity)
+        setAttribute("scheduledStartAt", value: request.scheduledStartAt, on: entity)
+        setAttribute("scheduledEndAt", value: request.scheduledEndAt, on: entity)
+        setAttribute("isAllDay", value: request.isAllDay, on: entity)
         setAttribute("estimatedDuration", value: request.estimatedDuration, on: entity)
         setAttribute("actualDuration", value: nil, on: entity)
         setAttribute("repeatPatternData", value: encodeRepeatPattern(request.repeatPattern), on: entity)
@@ -173,6 +192,7 @@ enum TaskDefinitionMutationApplier {
         setAttribute("weeklyOutcomeID", value: request.weeklyOutcomeID, on: entity)
         setAttribute("deferredFromWeekStart", value: request.deferredFromWeekStart, on: entity)
         setAttribute("deferredCount", value: Int32(request.deferredCount), on: entity)
+        setAttribute("replanCount", value: Int32(request.replanCount), on: entity)
         setAttribute("isComplete", value: false, on: entity)
         setAttribute("dateAdded", value: request.createdAt, on: entity)
         setAttribute("dateCompleted", value: nil, on: entity)
@@ -212,10 +232,26 @@ enum TaskDefinitionMutationApplier {
         if let recurrenceSeriesID = request.recurrenceSeriesID {
             setAttribute("recurrenceSeriesID", value: recurrenceSeriesID, on: entity)
         }
+        if let habitDefinitionID = request.habitDefinitionID {
+            setAttribute("habitDefinitionID", value: habitDefinitionID, on: entity)
+        }
         if request.clearDueDate {
             setAttribute("dueDate", value: nil, on: entity)
         } else if let dueDate = request.dueDate {
             setAttribute("dueDate", value: dueDate, on: entity)
+        }
+        if request.clearScheduledStartAt {
+            setAttribute("scheduledStartAt", value: nil, on: entity)
+        } else if let scheduledStartAt = request.scheduledStartAt {
+            setAttribute("scheduledStartAt", value: scheduledStartAt, on: entity)
+        }
+        if request.clearScheduledEndAt {
+            setAttribute("scheduledEndAt", value: nil, on: entity)
+        } else if let scheduledEndAt = request.scheduledEndAt {
+            setAttribute("scheduledEndAt", value: scheduledEndAt, on: entity)
+        }
+        if let isAllDay = request.isAllDay {
+            setAttribute("isAllDay", value: isAllDay, on: entity)
         }
         if let priority = request.priority {
             setAttribute("priority", value: priority.rawValue, on: entity)
@@ -272,6 +308,9 @@ enum TaskDefinitionMutationApplier {
         }
         if let deferredCount = request.deferredCount {
             setAttribute("deferredCount", value: Int32(max(0, deferredCount)), on: entity)
+        }
+        if let replanCount = request.replanCount {
+            setAttribute("replanCount", value: Int32(max(0, replanCount)), on: entity)
         }
         setAttribute("updatedAt", value: request.updatedAt, on: entity)
     }
@@ -408,6 +447,7 @@ public final class CoreDataTaskDefinitionRepository: TaskDefinitionRepositoryPro
         let request = CreateTaskDefinitionRequest(
             id: task.id,
             recurrenceSeriesID: task.recurrenceSeriesID,
+            habitDefinitionID: task.habitDefinitionID,
             title: task.title,
             details: task.details,
             projectID: task.projectID,
@@ -415,6 +455,9 @@ public final class CoreDataTaskDefinitionRepository: TaskDefinitionRepositoryPro
             lifeAreaID: task.lifeAreaID,
             sectionID: task.sectionID,
             dueDate: task.dueDate,
+            scheduledStartAt: task.scheduledStartAt,
+            scheduledEndAt: task.scheduledEndAt,
+            isAllDay: task.isAllDay,
             parentTaskID: task.parentTaskID,
             tagIDs: task.tagIDs,
             dependencies: task.dependencies,
@@ -431,6 +474,7 @@ public final class CoreDataTaskDefinitionRepository: TaskDefinitionRepositoryPro
             weeklyOutcomeID: task.weeklyOutcomeID,
             deferredFromWeekStart: task.deferredFromWeekStart,
             deferredCount: task.deferredCount,
+            replanCount: task.replanCount,
             createdAt: task.createdAt
         )
         create(request: request, completion: completion)
@@ -474,12 +518,18 @@ public final class CoreDataTaskDefinitionRepository: TaskDefinitionRepositoryPro
         let request = UpdateTaskDefinitionRequest(
             id: task.id,
             recurrenceSeriesID: task.recurrenceSeriesID,
+            habitDefinitionID: task.habitDefinitionID,
             title: task.title,
             details: task.details,
             projectID: task.projectID,
             lifeAreaID: task.lifeAreaID,
             sectionID: task.sectionID,
             dueDate: task.dueDate,
+            scheduledStartAt: task.scheduledStartAt,
+            clearScheduledStartAt: task.scheduledStartAt == nil,
+            scheduledEndAt: task.scheduledEndAt,
+            clearScheduledEndAt: task.scheduledEndAt == nil,
+            isAllDay: task.isAllDay,
             parentTaskID: task.parentTaskID,
             clearParentTaskLink: task.parentTaskID == nil,
             tagIDs: task.tagIDs,
@@ -501,6 +551,7 @@ public final class CoreDataTaskDefinitionRepository: TaskDefinitionRepositoryPro
             deferredFromWeekStart: task.deferredFromWeekStart,
             clearDeferredFromWeekStart: task.deferredFromWeekStart == nil,
             deferredCount: task.deferredCount,
+            replanCount: task.replanCount,
             updatedAt: task.updatedAt
         )
         update(request: request, completion: completion)
@@ -588,6 +639,7 @@ public final class CoreDataTaskDefinitionRepository: TaskDefinitionRepositoryPro
         return TaskDefinition(
             id: snapshot.taskID,
             recurrenceSeriesID: snapshot.recurrenceSeriesID,
+            habitDefinitionID: snapshot.habitDefinitionID,
             projectID: snapshot.projectID,
             projectName: projectName,
             lifeAreaID: snapshot.lifeAreaID,
@@ -601,6 +653,9 @@ public final class CoreDataTaskDefinitionRepository: TaskDefinitionRepositoryPro
             category: category,
             context: context,
             dueDate: snapshot.dueDate,
+            scheduledStartAt: snapshot.scheduledStartAt,
+            scheduledEndAt: snapshot.scheduledEndAt,
+            isAllDay: snapshot.isAllDay,
             isComplete: snapshot.isComplete,
             dateAdded: snapshot.dateAdded,
             dateCompleted: snapshot.dateCompleted,
@@ -615,6 +670,7 @@ public final class CoreDataTaskDefinitionRepository: TaskDefinitionRepositoryPro
             weeklyOutcomeID: snapshot.weeklyOutcomeID,
             deferredFromWeekStart: snapshot.deferredFromWeekStart,
             deferredCount: snapshot.deferredCount,
+            replanCount: snapshot.replanCount,
             createdAt: snapshot.createdAt,
             updatedAt: snapshot.updatedAt
         )
@@ -641,10 +697,12 @@ public final class CoreDataTaskDefinitionRepository: TaskDefinitionRepositoryPro
         let actualDuration = (attributeValue("actualDuration", from: entity) as Double?).flatMap { $0 > 0 ? $0 : nil }
         let planningBucket = TaskPlanningBucket(rawValue: attributeValue("planningBucketRaw", from: entity) ?? "") ?? .thisWeek
         let deferredCount = max(0, Int((attributeValue("deferredCount", from: entity) as Int32?) ?? 0))
+        let replanCount = max(0, Int((attributeValue("replanCount", from: entity) as Int32?) ?? 0))
 
         return TaskDefinition(
             id: taskID,
             recurrenceSeriesID: attributeValue("recurrenceSeriesID", from: entity),
+            habitDefinitionID: attributeValue("habitDefinitionID", from: entity),
             projectID: projectID,
             projectName: projectName,
             lifeAreaID: attributeValue("lifeAreaID", from: entity),
@@ -658,6 +716,9 @@ public final class CoreDataTaskDefinitionRepository: TaskDefinitionRepositoryPro
             category: category,
             context: context,
             dueDate: attributeValue("dueDate", from: entity),
+            scheduledStartAt: attributeValue("scheduledStartAt", from: entity),
+            scheduledEndAt: attributeValue("scheduledEndAt", from: entity),
+            isAllDay: attributeValue("isAllDay", from: entity) ?? false,
             isComplete: attributeValue("isComplete", from: entity) ?? false,
             dateAdded: attributeValue("dateAdded", from: entity) ?? Date(),
             dateCompleted: attributeValue("dateCompleted", from: entity),
@@ -672,6 +733,7 @@ public final class CoreDataTaskDefinitionRepository: TaskDefinitionRepositoryPro
             weeklyOutcomeID: attributeValue("weeklyOutcomeID", from: entity),
             deferredFromWeekStart: attributeValue("deferredFromWeekStart", from: entity),
             deferredCount: deferredCount,
+            replanCount: replanCount,
             createdAt: attributeValue("createdAt", from: entity) ?? Date(),
             updatedAt: attributeValue("updatedAt", from: entity) ?? Date()
         )
