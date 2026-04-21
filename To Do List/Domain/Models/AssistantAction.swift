@@ -38,6 +38,7 @@ public struct AssistantCommandEnvelope: Codable, Equatable, Hashable {
 public struct AssistantTaskSnapshot: Codable, Equatable, Hashable {
     public var id: UUID
     public var recurrenceSeriesID: UUID?
+    public var habitDefinitionID: UUID?
     public var projectID: UUID
     public var projectName: String?
     public var lifeAreaID: UUID?
@@ -51,6 +52,9 @@ public struct AssistantTaskSnapshot: Codable, Equatable, Hashable {
     public var category: TaskCategory
     public var context: TaskContext
     public var dueDate: Date?
+    public var scheduledStartAt: Date?
+    public var scheduledEndAt: Date?
+    public var isAllDay: Bool?
     public var isComplete: Bool
     public var dateAdded: Date
     public var dateCompleted: Date?
@@ -66,6 +70,7 @@ public struct AssistantTaskSnapshot: Codable, Equatable, Hashable {
     public var weeklyOutcomeID: UUID?
     public var deferredFromWeekStart: Date?
     public var deferredCount: Int
+    public var replanCount: Int
     public var createdAt: Date
     public var updatedAt: Date
 
@@ -73,6 +78,7 @@ public struct AssistantTaskSnapshot: Codable, Equatable, Hashable {
     public init(task: TaskDefinition) {
         self.id = task.id
         self.recurrenceSeriesID = task.recurrenceSeriesID
+        self.habitDefinitionID = task.habitDefinitionID
         self.projectID = task.projectID
         self.projectName = task.projectName
         self.lifeAreaID = task.lifeAreaID
@@ -86,6 +92,9 @@ public struct AssistantTaskSnapshot: Codable, Equatable, Hashable {
         self.category = task.category
         self.context = task.context
         self.dueDate = task.dueDate
+        self.scheduledStartAt = task.scheduledStartAt
+        self.scheduledEndAt = task.scheduledEndAt
+        self.isAllDay = task.isAllDay
         self.isComplete = task.isComplete
         self.dateAdded = task.dateAdded
         self.dateCompleted = task.dateCompleted
@@ -104,6 +113,7 @@ public struct AssistantTaskSnapshot: Codable, Equatable, Hashable {
         self.weeklyOutcomeID = task.weeklyOutcomeID
         self.deferredFromWeekStart = task.deferredFromWeekStart
         self.deferredCount = task.deferredCount
+        self.replanCount = task.replanCount
         self.createdAt = task.createdAt
         self.updatedAt = task.updatedAt
     }
@@ -113,6 +123,7 @@ public struct AssistantTaskSnapshot: Codable, Equatable, Hashable {
         TaskDefinition(
             id: id,
             recurrenceSeriesID: recurrenceSeriesID,
+            habitDefinitionID: habitDefinitionID,
             projectID: projectID,
             projectName: projectName,
             lifeAreaID: lifeAreaID,
@@ -126,6 +137,9 @@ public struct AssistantTaskSnapshot: Codable, Equatable, Hashable {
             category: category,
             context: context,
             dueDate: dueDate,
+            scheduledStartAt: scheduledStartAt,
+            scheduledEndAt: scheduledEndAt,
+            isAllDay: isAllDay ?? false,
             isComplete: isComplete,
             dateAdded: dateAdded,
             dateCompleted: dateCompleted,
@@ -141,6 +155,7 @@ public struct AssistantTaskSnapshot: Codable, Equatable, Hashable {
             weeklyOutcomeID: weeklyOutcomeID,
             deferredFromWeekStart: deferredFromWeekStart,
             deferredCount: deferredCount,
+            replanCount: replanCount,
             createdAt: createdAt,
             updatedAt: updatedAt
         )

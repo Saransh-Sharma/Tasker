@@ -465,6 +465,7 @@ public struct TaskerWorkspacePreferences: Codable, Equatable {
     public var includeCanceledCalendarEvents: Bool
     public var includeAllDayInAgenda: Bool
     public var includeAllDayInBusyStrip: Bool
+    public var showCalendarEventsInTimeline: Bool
 
     public init(
         weekStartsOn: Weekday = .monday,
@@ -472,7 +473,8 @@ public struct TaskerWorkspacePreferences: Codable, Equatable {
         includeDeclinedCalendarEvents: Bool = false,
         includeCanceledCalendarEvents: Bool = false,
         includeAllDayInAgenda: Bool = true,
-        includeAllDayInBusyStrip: Bool = false
+        includeAllDayInBusyStrip: Bool = false,
+        showCalendarEventsInTimeline: Bool = false
     ) {
         self.weekStartsOn = weekStartsOn
         self.selectedCalendarIDs = Self.normalizeSelectedCalendarIDs(selectedCalendarIDs)
@@ -480,6 +482,7 @@ public struct TaskerWorkspacePreferences: Codable, Equatable {
         self.includeCanceledCalendarEvents = includeCanceledCalendarEvents
         self.includeAllDayInAgenda = includeAllDayInAgenda
         self.includeAllDayInBusyStrip = includeAllDayInBusyStrip
+        self.showCalendarEventsInTimeline = showCalendarEventsInTimeline
     }
 
     private enum CodingKeys: String, CodingKey {
@@ -489,6 +492,7 @@ public struct TaskerWorkspacePreferences: Codable, Equatable {
         case includeCanceledCalendarEvents
         case includeAllDayInAgenda
         case includeAllDayInBusyStrip
+        case showCalendarEventsInTimeline
     }
 
     public init(from decoder: Decoder) throws {
@@ -501,6 +505,7 @@ public struct TaskerWorkspacePreferences: Codable, Equatable {
         includeCanceledCalendarEvents = try container.decodeIfPresent(Bool.self, forKey: .includeCanceledCalendarEvents) ?? false
         includeAllDayInAgenda = try container.decodeIfPresent(Bool.self, forKey: .includeAllDayInAgenda) ?? true
         includeAllDayInBusyStrip = try container.decodeIfPresent(Bool.self, forKey: .includeAllDayInBusyStrip) ?? false
+        showCalendarEventsInTimeline = try container.decodeIfPresent(Bool.self, forKey: .showCalendarEventsInTimeline) ?? false
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -511,6 +516,7 @@ public struct TaskerWorkspacePreferences: Codable, Equatable {
         try container.encode(includeCanceledCalendarEvents, forKey: .includeCanceledCalendarEvents)
         try container.encode(includeAllDayInAgenda, forKey: .includeAllDayInAgenda)
         try container.encode(includeAllDayInBusyStrip, forKey: .includeAllDayInBusyStrip)
+        try container.encode(showCalendarEventsInTimeline, forKey: .showCalendarEventsInTimeline)
     }
 
     public func normalizedForPersistence() -> TaskerWorkspacePreferences {
@@ -520,7 +526,8 @@ public struct TaskerWorkspacePreferences: Codable, Equatable {
             includeDeclinedCalendarEvents: includeDeclinedCalendarEvents,
             includeCanceledCalendarEvents: includeCanceledCalendarEvents,
             includeAllDayInAgenda: includeAllDayInAgenda,
-            includeAllDayInBusyStrip: includeAllDayInBusyStrip
+            includeAllDayInBusyStrip: includeAllDayInBusyStrip,
+            showCalendarEventsInTimeline: showCalendarEventsInTimeline
         )
     }
 
