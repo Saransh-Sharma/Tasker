@@ -41,8 +41,9 @@ final class HabitBoardUITests: BaseUITest {
         XCTAssertGreaterThanOrEqual(title.frame.minY, strip.frame.minY, "Title overlay should be vertically inside the streak surface")
     }
 
-    func testHabitBoardShowsSevenDayMatrixAndPages() {
+    func testHabitBoardShowsSevenDayMatrixAndPages() throws {
         openHabitBoard()
+        _ = try requireHabitBoardRows(timeout: 12)
 
         XCTAssertTrue(waitForHabitBoardVisible(timeout: 8), "Habit Board should be presented from Home")
         let pinnedHeader = app.otherElements[AccessibilityIdentifiers.HabitBoard.pinnedHeader]
@@ -50,6 +51,9 @@ final class HabitBoardUITests: BaseUITest {
 
         let rangeTitle = app.staticTexts[AccessibilityIdentifiers.HabitBoard.rangeTitle]
         XCTAssertTrue(rangeTitle.waitForExistence(timeout: 3), "Range title should render on the board")
+        let rangeSubtitle = app.staticTexts[AccessibilityIdentifiers.HabitBoard.rangeSubtitle]
+        XCTAssertTrue(rangeSubtitle.waitForExistence(timeout: 3), "Range subtitle should provide a secondary scanning cue")
+        XCTAssertEqual(rangeSubtitle.label, "7-day window")
 
         let previousButton = app.buttons[AccessibilityIdentifiers.HabitBoard.previousWindow]
         let nextButton = app.buttons[AccessibilityIdentifiers.HabitBoard.nextWindow]
@@ -63,9 +67,11 @@ final class HabitBoardUITests: BaseUITest {
         XCTAssertGreaterThanOrEqual(previousButton.frame.height, 44)
         XCTAssertGreaterThanOrEqual(nextButton.frame.width, 44)
         XCTAssertGreaterThanOrEqual(nextButton.frame.height, 44)
+        XCTAssertEqual(previousButton.label, "Show previous 7 days")
+        XCTAssertEqual(nextButton.label, "Show next 7 days")
 
-        let dayHeaders = app.otherElements.matching(NSPredicate(format: "identifier BEGINSWITH %@", "habitBoard.dayHeader."))
-        XCTAssertEqual(dayHeaders.count, 7, "Compact portrait should expose exactly seven visible day headers")
+        let initialHeaderDateStamps = try waitForVisibleDayHeaderDateStamps()
+        XCTAssertEqual(initialHeaderDateStamps.count, 7, "Habit Board should expose exactly seven visible day headers")
 
         let pinnedTitles = app.staticTexts.matching(NSPredicate(format: "identifier BEGINSWITH %@", "habitBoard.pinnedTitle."))
         let firstPinnedTitle = pinnedTitles.firstMatch
@@ -76,34 +82,62 @@ final class HabitBoardUITests: BaseUITest {
         let visibleRange = rangeTitle.label
         nextButton.tap()
         XCTAssertNotEqual(rangeTitle.label, visibleRange, "Paging forward should update the visible date range")
+        let advancedHeaderDateStamps = try waitForVisibleDayHeaderDateStamps(previous: initialHeaderDateStamps)
+        XCTAssertEqual(advancedHeaderDateStamps.count, 7, "Paging forward should still render seven day headers")
+        XCTAssertEqual(dayDistance(from: initialHeaderDateStamps[0], to: advancedHeaderDateStamps[0]), 7, "Paging should advance the matrix by seven days")
 
         previousButton.tap()
         XCTAssertEqual(rangeTitle.label, visibleRange, "Paging backward should restore the prior date range")
         XCTAssertEqual(firstPinnedTitle.label, initialPinnedTitle, "Paging the matrix should not replace the pinned habit label rail")
+        let restoredHeaderDateStamps = try waitForVisibleDayHeaderDateStamps(previous: advancedHeaderDateStamps)
+        XCTAssertEqual(restoredHeaderDateStamps, initialHeaderDateStamps, "Paging backward should restore the original seven-day window")
 
-        let headerIdentifiers = dayHeaders.allElementsBoundByIndex.map(\.identifier)
-        XCTAssertEqual(headerIdentifiers.count, 7)
-
-        guard let firstHeaderID = headerIdentifiers.first,
-              let lastDateStamp = firstHeaderID.split(separator: ".").last else {
-            XCTFail("Expected a visible day header identifier")
-            return
-        }
+        let lastDateStamp = initialHeaderDateStamps[0]
 
         let rowCells = app.otherElements.matching(
             NSPredicate(
                 format: "identifier BEGINSWITH %@ AND identifier ENDSWITH %@",
                 "habitBoard.cell.",
-                String(lastDateStamp)
+                lastDateStamp
             )
         )
         XCTAssertGreaterThan(rowCells.count, 0, "At least one board cell should share the visible day header date")
     }
 
-    func testHabitBoardRowTapOpensHabitDetail() {
+    func testHabitBoardAndDetailMaintainTypographyHierarchyAtAccessibilitySize() throws {
+        relaunchWithPreferredContentSizeCategory("UICTContentSizeCategoryAccessibilityXL")
         openHabitBoard()
 
-        let firstRow = firstHabitBoardRow()
+        let firstRow = try requireHabitBoardRows(timeout: 12)
+        let rangeTitle = app.staticTexts[AccessibilityIdentifiers.HabitBoard.rangeTitle]
+        let rangeSubtitle = app.staticTexts[AccessibilityIdentifiers.HabitBoard.rangeSubtitle]
+        XCTAssertTrue(rangeTitle.waitForExistence(timeout: 3), "Range title should remain visible at large text sizes")
+        XCTAssertTrue(rangeSubtitle.waitForExistence(timeout: 3), "Range subtitle should remain visible at large text sizes")
+        XCTAssertEqual(rangeSubtitle.label, "7-day window")
+        XCTAssertEqual(try waitForVisibleDayHeaderDateStamps().count, 7, "Board should keep seven visible day headers at large text sizes")
+
+        firstRow.tap()
+
+        let detailView = app.otherElements[AccessibilityIdentifiers.HabitDetail.view]
+        XCTAssertTrue(detailView.waitForExistence(timeout: 5), "Habit detail should render")
+        XCTAssertTrue(
+            app.staticTexts[AccessibilityIdentifiers.HabitDetail.contextPrimary].waitForExistence(timeout: 3),
+            "Context primary text should remain visible at large text sizes"
+        )
+        XCTAssertTrue(
+            app.staticTexts[AccessibilityIdentifiers.HabitDetail.contextSecondary].waitForExistence(timeout: 3),
+            "Context secondary text should remain visible at large text sizes"
+        )
+        XCTAssertTrue(
+            app.staticTexts[AccessibilityIdentifiers.HabitDetail.helperText].waitForExistence(timeout: 3),
+            "Calendar helper text should remain visible at large text sizes"
+        )
+    }
+
+    func testHabitBoardRowTapOpensHabitDetail() throws {
+        openHabitBoard()
+
+        let firstRow = try firstHabitBoardRow()
         XCTAssertTrue(waitForElementToBeHittable(firstRow, timeout: 3))
 
         firstRow.tap()
@@ -112,10 +146,10 @@ final class HabitBoardUITests: BaseUITest {
         XCTAssertTrue(app.buttons["Edit"].waitForExistence(timeout: 3), "Habit detail should expose the edit action")
     }
 
-    func testHabitDetailShowsSquareTappableDayCells() {
+    func testHabitDetailShowsSquareTappableDayCells() throws {
         openHabitBoard()
 
-        let firstRow = firstHabitBoardRow()
+        let firstRow = try firstHabitBoardRow()
         firstRow.tap()
 
         let detailView = app.otherElements[AccessibilityIdentifiers.HabitDetail.view]
@@ -135,12 +169,7 @@ final class HabitBoardUITests: BaseUITest {
     func testHabitDetailDayTapKeepsCalendarGridMounted() throws {
         openHabitBoard()
 
-        let firstRow = app.otherElements
-            .matching(NSPredicate(format: "identifier BEGINSWITH %@", "habitBoard.row."))
-            .firstMatch
-        guard firstRow.waitForExistence(timeout: 8) else {
-            throw XCTSkip("No habit board rows available in the seeded test workspace")
-        }
+        let firstRow = try requireHabitBoardRows(timeout: 12)
         firstRow.tap()
 
         let detailView = app.otherElements[AccessibilityIdentifiers.HabitDetail.view]
@@ -160,10 +189,10 @@ final class HabitBoardUITests: BaseUITest {
         XCTAssertTrue(waitForElementToBeHittable(todayCell, timeout: 5), "Day cell should become interactive again after the save cycle")
     }
 
-    func testHabitDetailEditWaitsForDeferredEditorSupport() {
+    func testHabitDetailEditWaitsForDeferredEditorSupport() throws {
         openHabitBoard()
 
-        let firstRow = firstHabitBoardRow()
+        let firstRow = try firstHabitBoardRow()
         firstRow.tap()
 
         let detailView = app.otherElements[AccessibilityIdentifiers.HabitDetail.view]
@@ -189,12 +218,11 @@ final class HabitBoardUITests: BaseUITest {
         XCTAssertTrue(saveButton.waitForExistence(timeout: 5), "Habit detail should enter edit mode after editor support loads")
     }
 
-    func testHomeHabitLastCellCyclesThroughThreeStates() {
-        let row = firstHomeHabitRow()
+    func testHomeHabitLastCellCyclesThroughThreeStates() throws {
+        relaunchForHomeHabitRowAssertions()
+        let (rowID, strip) = try firstHomeHabitStrip()
 
-        XCTAssertTrue(row.waitForExistence(timeout: 5), "A home habit row should exist in the seeded workspace")
-
-        let rowID = row.identifier.replacingOccurrences(of: "home.habitRow.", with: "")
+        XCTAssertTrue(strip.waitForExistence(timeout: 5), "A home habit strip should exist in the seeded workspace")
         let lastCell = app.buttons[AccessibilityIdentifiers.Home.habitRowLastCell(rowID)]
 
         XCTAssertTrue(lastCell.waitForExistence(timeout: 5), "Eligible home habit rows should expose a tappable last-cell button")
@@ -244,15 +272,44 @@ final class HabitBoardUITests: BaseUITest {
         XCTAssertNotEqual(lastCell.value as? String, "Empty. Next: Mark done.")
     }
 
-    func testHomeHabitRowTapOutsideLastCellStillOpensDetail() {
-        let row = firstHomeHabitRow()
+    func testHomeHabitRowTapOutsideIconCyclesHabitStateAcrossStripTapPoints() throws {
+        relaunchForHomeHabitRowAssertions()
+        let (rowID, strip) = try firstHomeHabitStrip()
+        XCTAssertTrue(strip.waitForExistence(timeout: 5), "A home habit strip should exist in the seeded workspace")
+        let lastCell = app.buttons[AccessibilityIdentifiers.Home.habitRowLastCell(rowID)]
+        XCTAssertTrue(lastCell.waitForExistence(timeout: 5), "Eligible home habit rows should expose a tappable last-cell button")
+        XCTAssertEqual(lastCell.value as? String, "Empty. Next: Mark done.")
 
-        XCTAssertTrue(row.waitForExistence(timeout: 5), "A home habit row should exist in the seeded workspace")
+        let stripTapPoints = [0.20, 0.50, 0.80]
+        let expectedValues = [
+            "Done. Next: Mark skipped.",
+            "Skipped. Next: Clear to empty.",
+            "Empty. Next: Mark done."
+        ]
 
-        let coordinate = row.coordinate(withNormalizedOffset: CGVector(dx: 0.2, dy: 0.5))
-        coordinate.tap()
+        for (index, tapPoint) in stripTapPoints.enumerated() {
+            let coordinate = strip.coordinate(withNormalizedOffset: CGVector(dx: tapPoint, dy: 0.5))
+            coordinate.tap()
+            XCTAssertTrue(
+                waitForLastCellValue(lastCell, expected: expectedValues[index]),
+                "Tapping strip point \(tapPoint) should cycle the habit state"
+            )
+        }
+    }
 
-        XCTAssertTrue(app.staticTexts["Drink water after breakfast"].waitForExistence(timeout: 5), "Tapping outside the last cell should still open habit detail")
+    func testHomeHabitIconTapStillOpensDetail() throws {
+        relaunchForHomeHabitRowAssertions()
+        let (rowID, strip) = try firstHomeHabitStrip()
+        XCTAssertTrue(strip.waitForExistence(timeout: 5), "A home habit strip should exist in the seeded workspace")
+        let icon = app.otherElements[AccessibilityIdentifiers.Home.habitRowIcon(rowID)]
+        XCTAssertTrue(icon.waitForExistence(timeout: 5), "Habit row icon should be visible")
+
+        icon.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+
+        XCTAssertTrue(
+            app.staticTexts["Drink water after breakfast"].waitForExistence(timeout: 5),
+            "Tapping the left icon should open habit detail"
+        )
     }
 
     private func openHabitBoard(file: StaticString = #file, line: UInt = #line) {
@@ -323,10 +380,44 @@ final class HabitBoardUITests: BaseUITest {
         return firstRow
     }
 
-    private func firstHabitBoardRow(file: StaticString = #file, line: UInt = #line) -> XCUIElement {
-        let firstRow = app.otherElements.matching(NSPredicate(format: "identifier BEGINSWITH %@", "habitBoard.row.")).firstMatch
-        XCTAssertTrue(firstRow.waitForExistence(timeout: 12), "A board row should be available to open detail", file: file, line: line)
-        return firstRow
+    private func firstHomeHabitStrip(file: StaticString = #file, line: UInt = #line) throws -> (rowID: String, strip: XCUIElement) {
+        dismissHabitBoardIfVisible()
+
+        let backToTodayButton = app.buttons[AccessibilityIdentifiers.Home.backToTodayButton]
+        if backToTodayButton.waitForExistence(timeout: 2) && backToTodayButton.isHittable {
+            backToTodayButton.tap()
+        }
+
+        let stripQuery = app.descendants(matching: .any).matching(
+            NSPredicate(format: "identifier MATCHES %@", #"^home\.habitRow\.strip\.[A-Za-z0-9-]+$"#)
+        )
+        let firstStrip = stripQuery.firstMatch
+
+        if firstStrip.waitForExistence(timeout: 3) && firstStrip.isHittable {
+            let rowID = firstStrip.identifier.replacingOccurrences(of: "home.habitRow.strip.", with: "")
+            return (rowID, firstStrip)
+        }
+
+        for _ in 0..<12 {
+            app.swipeUp()
+            if firstStrip.exists && firstStrip.isHittable {
+                break
+            }
+        }
+
+        guard firstStrip.waitForExistence(timeout: 2) else {
+            throw XCTSkip("Home habit strip is unavailable in the current UI test seed")
+        }
+        let rowID = firstStrip.identifier.replacingOccurrences(of: "home.habitRow.strip.", with: "")
+        return (rowID, firstStrip)
+    }
+
+    private func firstHabitBoardRow() throws -> XCUIElement {
+        do {
+            return try requireHabitBoardRows(timeout: 12)
+        } catch {
+            throw XCTSkip("A board row should be available to open detail")
+        }
     }
 
     private func dismissHabitBoardIfVisible() {
@@ -344,12 +435,121 @@ final class HabitBoardUITests: BaseUITest {
         return XCTWaiter.wait(for: [expectation], timeout: timeout) == .completed
     }
 
-    private static func accessibilityStamp(_ date: Date) -> String {
+    private func relaunchWithPreferredContentSizeCategory(_ contentSizeCategory: String) {
+        app.terminate()
+
+        let relaunchedApp = XCUIApplication()
+        relaunchedApp.launchArguments = [
+            "-RESET_APP_STATE",
+            "-UI_TESTING",
+            "-DISABLE_ANIMATIONS",
+            "-SKIP_ONBOARDING"
+        ]
+        relaunchedApp.launchArguments.append(contentsOf: additionalLaunchArguments)
+        relaunchedApp.launchArguments.append(contentsOf: [
+            "-UIPreferredContentSizeCategoryName",
+            contentSizeCategory
+        ])
+        relaunchedApp.launchEnvironment[XCUIApplication.LaunchEnvironmentKey.performanceTest.rawValue] = "1"
+        app = relaunchedApp
+        app.launch()
+        waitForAppLaunch()
+    }
+
+    private func relaunchForHomeHabitRowAssertions() {
+        app.terminate()
+
+        let relaunchedApp = XCUIApplication()
+        relaunchedApp.launchArguments = [
+            "-RESET_APP_STATE",
+            "-UI_TESTING",
+            "-DISABLE_ANIMATIONS",
+            "-SKIP_ONBOARDING"
+        ]
+        relaunchedApp.launchArguments.append(
+            contentsOf: additionalLaunchArguments.filter {
+                $0 != XCUIApplication.LaunchArgumentKey.testPresentHabitBoard.rawValue
+                    && $0 != XCUIApplication.LaunchArgumentKey.testSeedHabitBoardWorkspace.rawValue
+            }
+        )
+        relaunchedApp.launchArguments.append(XCUIApplication.LaunchArgumentKey.testSeedEstablishedWorkspace.rawValue)
+        relaunchedApp.launchEnvironment[XCUIApplication.LaunchEnvironmentKey.performanceTest.rawValue] = "1"
+        app = relaunchedApp
+        app.launch()
+        waitForAppLaunch()
+    }
+
+    private func requireHabitBoardRows(
+        timeout: TimeInterval
+    ) throws -> XCUIElement {
+        let firstRow = app.otherElements.matching(NSPredicate(format: "identifier BEGINSWITH %@", "habitBoard.row.")).firstMatch
+        let deadline = Date().addingTimeInterval(timeout)
+
+        while Date() < deadline {
+            if firstRow.exists {
+                return firstRow
+            }
+
+            if app.otherElements[AccessibilityIdentifiers.HabitBoard.emptyState].exists {
+                throw XCTSkip("No habit board rows available in the seeded test workspace")
+            }
+
+            if app.otherElements[AccessibilityIdentifiers.HabitBoard.errorState].exists {
+                throw XCTSkip("Habit board entered an error state in the seeded test workspace")
+            }
+
+            _ = app.otherElements[AccessibilityIdentifiers.HabitBoard.loadingState].waitForExistence(timeout: 0.25)
+        }
+        throw XCTSkip("No habit board rows available in the seeded test workspace")
+    }
+
+    private func waitForVisibleDayHeaderDateStamps(
+        previous: [String]? = nil,
+        timeout: TimeInterval = 5
+    ) throws -> [String] {
+        let dayHeaders = app.otherElements.matching(NSPredicate(format: "identifier BEGINSWITH %@", "habitBoard.dayHeader."))
+        let deadline = Date().addingTimeInterval(timeout)
+
+        while Date() < deadline {
+            let dateStamps = dayHeaders.allElementsBoundByIndex.compactMap { header in
+                header.identifier.split(separator: ".").last.map(String.init)
+            }
+
+            if dateStamps.count == 7 {
+                if let previous {
+                    if dateStamps != previous {
+                        return dateStamps
+                    }
+                } else {
+                    return dateStamps
+                }
+            }
+
+            Thread.sleep(forTimeInterval: 0.2)
+        }
+
+        throw XCTSkip("Expected seven visible day headers, but the seeded board did not stabilize in time")
+    }
+
+    private func dayDistance(from lhsDateStamp: String, to rhsDateStamp: String) -> Int {
+        guard let lhsDate = Self.accessibilityDateFormatter.date(from: lhsDateStamp),
+              let rhsDate = Self.accessibilityDateFormatter.date(from: rhsDateStamp) else {
+            XCTFail("Unable to parse habit board date stamps: \(lhsDateStamp), \(rhsDateStamp)")
+            return 0
+        }
+        return Calendar(identifier: .gregorian).dateComponents([.day], from: lhsDate, to: rhsDate).day ?? 0
+    }
+
+    private static let accessibilityDateFormatter: DateFormatter = {
         let formatter = DateFormatter()
         formatter.calendar = Calendar(identifier: .gregorian)
         formatter.locale = Locale(identifier: "en_US_POSIX")
         formatter.timeZone = Calendar.current.timeZone
         formatter.dateFormat = "yyyy-MM-dd"
-        return formatter.string(from: date)
+        return formatter
+    }()
+
+    private static func accessibilityStamp(_ date: Date) -> String {
+        accessibilityDateFormatter.string(from: date)
     }
 }

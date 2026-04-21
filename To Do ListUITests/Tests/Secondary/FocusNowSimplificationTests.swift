@@ -98,11 +98,26 @@ final class FocusNowSimplificationTests: BaseUITest {
         relaunchWithFocusSeed()
 
         XCTAssertTrue(homePage.passiveTrackingRail.waitForExistence(timeout: 5), "Passive tracking rail should render on Today when quiet-tracking rows exist")
+        XCTAssertTrue(
+            homePage.dailyReflectionEntryCompact.waitForExistence(timeout: 5),
+            "Reflect and Plan banner should render on Today"
+        )
+        XCTAssertTrue(homePage.calendarCard.waitForExistence(timeout: 5), "Calendar card should render on Today")
         XCTAssertTrue(homePage.focusStrip.waitForExistence(timeout: 5), "Focus strip should render on Today")
         XCTAssertLessThan(
             homePage.passiveTrackingRail.frame.minY,
+            homePage.dailyReflectionEntryCompact.frame.minY,
+            "Passive tracking rail should render above Reflect and Plan"
+        )
+        XCTAssertLessThan(
+            homePage.dailyReflectionEntryCompact.frame.minY,
+            homePage.calendarCard.frame.minY,
+            "Reflect and Plan should render above the calendar card"
+        )
+        XCTAssertLessThan(
+            homePage.calendarCard.frame.minY,
             homePage.focusStrip.frame.minY,
-            "Passive tracking rail should render above Focus Now"
+            "Calendar card should render above Focus Now"
         )
     }
 
@@ -206,7 +221,7 @@ final class FocusNowSimplificationTests: BaseUITest {
         XCTAssertFalse(homePage.rescueSection.waitForExistence(timeout: 2), "Rescue tail should not render without rescue items")
     }
 
-    func testHomeRestoresSplitHabitSectionsAndKeepsWeeklyBelowThem() throws {
+    func testHomeRestoresSplitHabitSectionsAndPlacesWeeklyAboveHabits() throws {
         relaunchWithFocusSeed()
 
         XCTAssertTrue(homePage.habitsSection.waitForExistence(timeout: 5), "Habits section should render on Home")
@@ -221,10 +236,11 @@ final class FocusNowSimplificationTests: BaseUITest {
             max(currentMax, visibleTaskRows.element(boundBy: index).frame.maxY)
         }
 
+        XCTAssertGreaterThan(homePage.weeklySummaryCard.frame.minY, taskListBottom, "Weekly summary should render below the visible task list")
         XCTAssertGreaterThan(
             homePage.habitsSection.frame.minY,
-            taskListBottom,
-            "Habits section should render below the visible task list"
+            homePage.weeklySummaryCard.frame.maxY,
+            "Habits section should render below weekly summary"
         )
 
         if homePage.habitsRecoverySection.exists {
@@ -233,17 +249,8 @@ final class FocusNowSimplificationTests: BaseUITest {
                 homePage.habitsSection.frame.maxY,
                 "Recovery section should render after the main habits section when recovery rows exist"
             )
-            XCTAssertGreaterThan(
-                homePage.weeklySummaryCard.frame.minY,
-                homePage.habitsRecoverySection.frame.maxY,
-                "Weekly summary should render after the restored habit sections"
-            )
         } else {
-            XCTAssertGreaterThan(
-                homePage.weeklySummaryCard.frame.minY,
-                homePage.habitsSection.frame.maxY,
-                "Weekly summary should render after the restored habits section"
-            )
+            XCTAssertTrue(homePage.habitsRecoverySection.exists == false, "Recovery section should be absent when no recovery rows exist")
         }
     }
 }

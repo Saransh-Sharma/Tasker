@@ -150,6 +150,26 @@ final class QuickFilterChromeTests: BaseUITest {
         XCTAssertTrue(reflectionTitle.waitForExistence(timeout: 3), "Reflection CTA should open the existing reflection sheet")
     }
 
+    func testReflectionSheetShowsNoLoadingSpinner() throws {
+        let homePage = HomePage(app: app)
+        let reflectionButton = homePage.reflectionReadyButton
+
+        guard reflectionButton.waitForExistence(timeout: 3) else {
+            throw XCTSkip("Reflection CTA is not visible in the current Today state")
+        }
+
+        reflectionButton.tap()
+
+        let reflectionScreen = app.descendants(matching: .any)["reflection.plan.screen"].firstMatch
+        XCTAssertTrue(reflectionScreen.waitForExistence(timeout: 3), "Reflection sheet should appear")
+
+        let loadingIndicator = reflectionScreen.activityIndicators.firstMatch
+        XCTAssertFalse(
+            loadingIndicator.waitForExistence(timeout: 1),
+            "Reflection sheet should not show a loading spinner"
+        )
+    }
+
     func testTodayShowsXPStatusAndOtherQuickViewsHideIt() throws {
         let homePage = HomePage(app: app)
         let xpLabel = homePage.topChromeXPLabel

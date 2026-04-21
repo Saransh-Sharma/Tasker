@@ -91,8 +91,48 @@ final class AppOnboardingTests: XCTestCase {
     func testOnboardingStepOrderUsesExplicitReorderedFlow() {
         XCTAssertEqual(
             OnboardingStep.orderedFlow,
-            [.welcome, .blocker, .lifeAreas, .projects, .firstTask, .habits, .focusRoom]
+            [.goal, .pain, .evaValue, .lifeAreas, .habitSetup, .streakPreview, .evaStyle, .processing, .firstTask, .focusRoom, .habitCheckIn, .calendarPermission, .notificationPermission, .success]
         )
+    }
+
+    func testOnboardingProgressUsesOrderedFlowAsSingleSource() {
+        XCTAssertEqual(OnboardingProgress(step: .goal)?.label, "Step 1 of 14")
+        XCTAssertEqual(OnboardingProgress(step: .success)?.label, "Step 14 of 14")
+        XCTAssertEqual(OnboardingStep.goal.accessibilitySummary, "Choose goal. Step 1 of 14. Select one goal to continue.")
+        XCTAssertEqual(OnboardingStep.success.accessibilitySummary, "Setup complete. Step 14 of 14. Go to Home.")
+        XCTAssertNil(OnboardingProgress(step: .welcome))
+    }
+
+    func testLegacyOnboardingStepsNormalizeBeforeRendering() {
+        XCTAssertEqual(OnboardingStep.blocker.normalizedForCurrentFlow, .goal)
+        XCTAssertEqual(OnboardingStep.projects.normalizedForCurrentFlow, .lifeAreas)
+        XCTAssertEqual(OnboardingStep.habits.normalizedForCurrentFlow, .habitSetup)
+    }
+
+    func testOnboardingCopyAvoidsGenericAIPhrases() {
+        for copy in OnboardingCopy.reviewedStrings {
+            XCTAssertFalse(copy.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+            XCTAssertLessThanOrEqual(copy.count, 120)
+            for phrase in OnboardingCopy.regressionPhrases {
+                XCTAssertFalse(
+                    copy.localizedCaseInsensitiveContains(phrase),
+                    "Copy should avoid generic phrase '\(phrase)': \(copy)"
+                )
+            }
+        }
+    }
+
+    func testOnboardingAccentPairsMeetWCAGContrast() {
+        let lightTraits = UITraitCollection(userInterfaceStyle: .light)
+        let darkTraits = UITraitCollection(userInterfaceStyle: .dark)
+        let tokens = TaskerTheme(index: 0).tokens.color
+
+        XCTAssertGreaterThanOrEqual(contrast(tokens.actionPrimary, tokens.accentOnPrimary, traits: lightTraits), 4.5)
+        XCTAssertGreaterThanOrEqual(contrast(tokens.actionPrimary, tokens.accentOnPrimary, traits: darkTraits), 4.5)
+        XCTAssertGreaterThanOrEqual(contrast(tokens.actionPrimary, tokens.surfacePrimary, traits: lightTraits), 3.0)
+        XCTAssertGreaterThanOrEqual(contrast(tokens.actionPrimary, tokens.surfacePrimary, traits: darkTraits), 3.0)
+        XCTAssertGreaterThanOrEqual(contrast(tokens.textPrimary, tokens.surfacePrimary, traits: lightTraits), 4.5)
+        XCTAssertGreaterThanOrEqual(contrast(tokens.textPrimary, tokens.surfacePrimary, traits: darkTraits), 4.5)
     }
 
     func testVisibleLifeAreasCollapseToCoreAreasUntilExpanded() {
@@ -114,6 +154,31 @@ final class AppOnboardingTests: XCTestCase {
         XCTAssertEqual(OnboardingStep(rawValue: 4), .firstTask)
         XCTAssertEqual(OnboardingStep(rawValue: 5), .focusRoom)
         XCTAssertEqual(OnboardingStep(rawValue: 6), .blocker)
+    }
+
+    @MainActor
+    func testPrepareForPresentationRemapsLegacyStoredSteps() {
+        let context = makeStoreContext()
+        defer { context.cleanup() }
+
+        let snapshot = OnboardingJourneySnapshot(
+            step: .projects,
+            mode: .guided,
+            selectedLifeAreaIDs: ["health-self"],
+            showAllLifeAreas: false,
+            projectDrafts: [],
+            resolvedLifeAreas: [],
+            resolvedProjects: [],
+            createdTasks: [],
+            createdTaskTemplateMap: [:],
+            focusIsActive: false,
+            hasSeenSuccess: false
+        )
+
+        let viewModel = OnboardingFlowModel(stateStore: context.store)
+        viewModel.prepareForPresentation(snapshot: snapshot)
+
+        XCTAssertEqual(viewModel.step, .lifeAreas)
     }
 
     func testCatalogReuseMatchesAliasesForExistingLifeAreasAndProjects() {
@@ -292,7 +357,7 @@ final class AppOnboardingTests: XCTestCase {
             StarterWorkspaceCatalog.defaultProjectDrafts(for: ["health-self"], mode: .guided).first
         )
         let snapshot = OnboardingJourneySnapshot(
-            step: .habits,
+            step: .habitSetup,
             mode: .guided,
             entryContext: .establishedWorkspace,
             frictionProfile: .starting,
@@ -327,7 +392,7 @@ final class AppOnboardingTests: XCTestCase {
         let viewModel = OnboardingFlowModel(stateStore: context.store)
         viewModel.prepareForPresentation(snapshot: snapshot)
 
-        XCTAssertEqual(viewModel.step, .habits)
+        XCTAssertEqual(viewModel.step, .habitSetup)
         XCTAssertEqual(viewModel.entryContext, .establishedWorkspace)
         XCTAssertEqual(viewModel.mode, .guided)
         XCTAssertEqual(viewModel.frictionProfile, .starting)
@@ -356,7 +421,7 @@ final class AppOnboardingTests: XCTestCase {
             StarterWorkspaceCatalog.defaultProjectDrafts(for: ["health-self"], mode: .guided).first
         )
         let snapshot = OnboardingJourneySnapshot(
-            step: .habits,
+            step: .habitSetup,
             mode: .custom,
             entryContext: .establishedWorkspace,
             frictionProfile: .choosing,
@@ -393,14 +458,14 @@ final class AppOnboardingTests: XCTestCase {
         context.store.storeJourney(snapshot)
 
         let restoredSnapshot = tryUnwrap(context.store.load().journeySnapshot)
-        XCTAssertEqual(restoredSnapshot.step, .habits)
+        XCTAssertEqual(restoredSnapshot.step, .habitSetup)
         XCTAssertEqual(restoredSnapshot.entryContext, .establishedWorkspace)
         XCTAssertEqual(restoredSnapshot.selectedLifeAreaIDs, ["health-self"])
 
         let viewModel = OnboardingFlowModel(stateStore: context.store)
         viewModel.prepareForPresentation(snapshot: restoredSnapshot)
 
-        XCTAssertEqual(viewModel.step, .habits)
+        XCTAssertEqual(viewModel.step, .habitSetup)
         XCTAssertEqual(viewModel.entryContext, .establishedWorkspace)
         XCTAssertEqual(viewModel.mode, .custom)
         XCTAssertEqual(viewModel.selectedLifeAreaIDs, Set(["health-self"]))
@@ -447,7 +512,7 @@ final class AppOnboardingTests: XCTestCase {
             estimatedDuration: 120
         )
         let snapshot = OnboardingJourneySnapshot(
-            step: .habits,
+            step: .habitSetup,
             mode: .guided,
             frictionProfile: .starting,
             selectedLifeAreaIDs: ["career", "home", "health"],
@@ -483,7 +548,7 @@ final class AppOnboardingTests: XCTestCase {
 
     func testJourneySnapshotDecodeDefaultsMissingEntryContextToFreshFlow() throws {
         let snapshot = OnboardingJourneySnapshot(
-            step: .projects,
+            step: .goal,
             mode: .guided,
             selectedLifeAreaIDs: ["health-self"],
             showAllLifeAreas: false,
@@ -572,7 +637,7 @@ final class AppOnboardingTests: XCTestCase {
 
         await viewModel.prepareEstablishedWorkspaceEntry()
 
-        XCTAssertEqual(viewModel.step, .blocker)
+        XCTAssertEqual(viewModel.step, .goal)
         XCTAssertEqual(viewModel.entryContext, .establishedWorkspace)
         XCTAssertEqual(viewModel.resolvedLifeAreas.map(\.lifeArea.name), ["Career", "Home"])
         XCTAssertEqual(viewModel.resolvedProjects.map(\.project.name), ["Ship one thing", "Home reset"])
@@ -604,10 +669,10 @@ final class AppOnboardingTests: XCTestCase {
             completedTaskCount: 1,
             completedTaskTitle: task.title,
             nextTaskTitle: nil,
-            promptReminderAfterSuccess: true
+            evaState: OnboardingEvaPreparationState(phase: .ready, selectedModelName: "fast", progress: 1, cellularConsentGranted: false, statusMessage: nil)
         )
         let snapshot = OnboardingJourneySnapshot(
-            step: .focusRoom,
+            step: .success,
             mode: .guided,
             frictionProfile: .starting,
             selectedLifeAreaIDs: ["health-self"],
@@ -637,7 +702,7 @@ final class AppOnboardingTests: XCTestCase {
         )
         viewModel.prepareForPresentation(snapshot: snapshot)
 
-        XCTAssertEqual(viewModel.step, .focusRoom)
+        XCTAssertEqual(viewModel.step, .success)
         XCTAssertEqual(viewModel.successSummary, summary)
         XCTAssertEqual(viewModel.resolvedLifeAreas.map(\.lifeArea.name), ["Health"])
         XCTAssertEqual(viewModel.resolvedProjects.map(\.project.name), ["Move your body"])
@@ -799,6 +864,35 @@ final class AppOnboardingTests: XCTestCase {
         XCTAssertEqual(context.store.load().journeySnapshot?.step, .focusRoom)
     }
 
+    #if targetEnvironment(simulator)
+    @MainActor
+    func testSkipToFocusRoomDefersEvaPreparationOnSimulator() async {
+        let context = makeStoreContext()
+        defer { context.cleanup() }
+
+        var createdTasks: [TaskDefinition] = []
+        let viewModel = OnboardingFlowModel(
+            stateStore: context.store,
+            fetchLifeAreas: { [] },
+            fetchProjects: { [] },
+            fetchTask: { taskID in createdTasks.first(where: { $0.id == taskID }) },
+            createTask: { request in
+                let task = request.toTaskDefinition(projectName: request.projectName)
+                createdTasks.append(task)
+                return task
+            },
+            isEvaBackgroundPreparationEnabled: true
+        )
+
+        await viewModel.skipToFocusRoom()
+
+        XCTAssertEqual(viewModel.step, .focusRoom)
+        XCTAssertEqual(viewModel.evaPreparationState.phase, .deferred)
+        XCTAssertEqual(viewModel.evaPreparationState.statusMessage, "EVA setup can finish on a compatible device.")
+        XCTAssertEqual(createdTasks.count, 1)
+    }
+    #endif
+
     @MainActor
     func testBreakdownPromotesFirstAddedChildTaskIntoFocus() async {
         let context = makeStoreContext()
@@ -920,11 +1014,11 @@ final class AppOnboardingTests: XCTestCase {
 
         await viewModel.completeFocusTask()
 
-        XCTAssertEqual(viewModel.reminderPromptState, .prompt)
+        XCTAssertEqual(viewModel.step, .habitCheckIn)
         XCTAssertEqual(viewModel.successSummary?.completedTaskTitle, "Fill your water bottle")
         XCTAssertEqual(viewModel.successSummary?.completedTaskCount, 1)
         XCTAssertNil(viewModel.successSummary?.nextTaskTitle)
-        XCTAssertEqual(viewModel.successSummary?.promptReminderAfterSuccess, true)
+        XCTAssertEqual(viewModel.successSummary?.evaState.phase, .idle)
     }
 
     private func makeStoreContext() -> StoreContext {
@@ -942,6 +1036,28 @@ final class AppOnboardingTests: XCTestCase {
             fatalError("Unreachable after XCTFail")
         }
         return value
+    }
+
+    private func contrast(_ foreground: UIColor, _ background: UIColor, traits: UITraitCollection) -> CGFloat {
+        let fg = foreground.resolvedColor(with: traits)
+        let bg = background.resolvedColor(with: traits)
+        let lighter = max(relativeLuminance(fg), relativeLuminance(bg))
+        let darker = min(relativeLuminance(fg), relativeLuminance(bg))
+        return (lighter + 0.05) / (darker + 0.05)
+    }
+
+    private func relativeLuminance(_ color: UIColor) -> CGFloat {
+        var red: CGFloat = 0
+        var green: CGFloat = 0
+        var blue: CGFloat = 0
+        var alpha: CGFloat = 0
+        XCTAssertTrue(color.getRed(&red, green: &green, blue: &blue, alpha: &alpha))
+
+        func channel(_ value: CGFloat) -> CGFloat {
+            value <= 0.03928 ? value / 12.92 : pow((value + 0.055) / 1.055, 2.4)
+        }
+
+        return 0.2126 * channel(red) + 0.7152 * channel(green) + 0.0722 * channel(blue)
     }
 }
 

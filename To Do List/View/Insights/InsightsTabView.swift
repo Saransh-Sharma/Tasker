@@ -2,19 +2,16 @@ import SwiftUI
 
 /// Root view for the Insights screen with Today / Week / Systems tabs.
 public struct InsightsTabView: View {
-    private static let scrollTraceIdleDelayNanoseconds: UInt64 = 250_000_000
-
     @ObservedObject var viewModel: InsightsViewModel
     let homeProgress: HomeProgressState
     let homeCompletionRate: Double
     let reflectionEligible: Bool
+    let dailyReflectionEntryState: DailyReflectionEntryState?
     let momentumGuidanceText: String
     let animateMomentumCard: Bool
     let onOpenReflection: () -> Void
     @Environment(\.taskerLayoutClass) private var layoutClass
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @State private var scrollTraceInterval: TaskerPerformanceInterval?
-    @State private var pendingScrollTraceIdleTask: Task<Void, Never>?
+    @State private var scrollTraceCoordinator = InsightsScrollTraceCoordinator()
 
     private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.currentTheme.tokens.spacing }
 
@@ -31,7 +28,7 @@ public struct InsightsTabView: View {
                         .fontWeight(.semibold)
                         .foregroundStyle(Color.tasker.textPrimary)
 
-                    Text("Today keeps the board operational, Week shows patterns, and Systems checks whether the product is helping you recover.")
+                    Text("Today for execution, Week for patterns, Systems for reliability.")
                         .font(.tasker(.caption1))
                         .foregroundStyle(Color.tasker.textSecondary)
                 }
@@ -51,20 +48,18 @@ public struct InsightsTabView: View {
                             homeProgress: homeProgress,
                             homeCompletionRate: homeCompletionRate,
                             reflectionEligible: reflectionEligible,
+                            dailyReflectionEntryState: dailyReflectionEntryState,
                             momentumGuidanceText: momentumGuidanceText,
                             animateMomentumCard: animateMomentumCard,
                             onOpenReflection: onOpenReflection
                         )
                             .accessibilityIdentifier("home.insights.content.today")
-                            .transition(contentTransition)
                     case .week:
                         InsightsWeekView(viewModel: viewModel)
                             .accessibilityIdentifier("home.insights.content.week")
-                            .transition(contentTransition)
                     case .systems:
                         InsightsSystemsView(viewModel: viewModel)
                             .accessibilityIdentifier("home.insights.content.systems")
-                            .transition(contentTransition)
                     }
                 }
                 .taskerReadableContent(maxWidth: layoutClass.isPad ? 980 : .infinity, alignment: .center)
@@ -76,24 +71,23 @@ public struct InsightsTabView: View {
                     max(0, geometry.contentOffset.y + geometry.contentInsets.top)
                 },
                 action: { oldOffset, newOffset in
-                    handleScrollOffsetChange(oldOffset: oldOffset, newOffset: newOffset)
+                    scrollTraceCoordinator.recordScrollActivity(
+                        oldOffset: oldOffset,
+                        newOffset: newOffset
+                    )
                 }
             )
             .onDisappear {
-                finishScrollTraceIfNeeded()
+                scrollTraceCoordinator.finishIfNeeded()
             }
             .accessibilityIdentifier("home.insights.scroll")
-            .animation(
-                reduceMotion ? nil : .easeOut(duration: 0.26),
-                value: viewModel.selectedTab
-            )
         }
         .accessibilityIdentifier("home.insights.container")
         .background(Color.tasker.bgCanvas.ignoresSafeArea())
         .onAppear { viewModel.onAppear() }
         .onChange(of: viewModel.selectedTab) { _, _ in
             TaskerPerformanceTrace.event("InsightsTabSwitch")
-            finishScrollTraceIfNeeded()
+            scrollTraceCoordinator.finishIfNeeded()
         }
     }
 
@@ -158,44 +152,6 @@ public struct InsightsTabView: View {
         }
     }
 
-    private func handleScrollOffsetChange(oldOffset: CGFloat, newOffset: CGFloat) {
-        guard abs(newOffset - oldOffset) > 1 else { return }
-
-        if scrollTraceInterval == nil {
-            scrollTraceInterval = TaskerPerformanceTrace.begin("AnalyticsScrollSession")
-        }
-
-        pendingScrollTraceIdleTask?.cancel()
-        pendingScrollTraceIdleTask = Task { @MainActor in
-            do {
-                try await Task.sleep(nanoseconds: Self.scrollTraceIdleDelayNanoseconds)
-            } catch {
-                return
-            }
-            finishScrollTraceIfNeeded()
-        }
-    }
-
-    private func finishScrollTraceIfNeeded() {
-        pendingScrollTraceIdleTask?.cancel()
-        pendingScrollTraceIdleTask = nil
-
-        if let scrollTraceInterval {
-            TaskerPerformanceTrace.end(scrollTraceInterval)
-            self.scrollTraceInterval = nil
-        }
-    }
-
-    private var contentTransition: AnyTransition {
-        if reduceMotion {
-            return .opacity
-        }
-        return .asymmetric(
-            insertion: .opacity.combined(with: .move(edge: .trailing)),
-            removal: .opacity.combined(with: .move(edge: .leading))
-        )
-    }
-
     private func tabSubtitle(for tab: InsightsViewModel.InsightsTab) -> String {
         switch tab {
         case .today:
@@ -227,5 +183,44 @@ public struct InsightsTabView: View {
         case .systems:
             return Color.tasker.statusSuccess
         }
+    }
+}
+
+@MainActor
+private final class InsightsScrollTraceCoordinator {
+    private static let scrollTraceIdleDelayNanoseconds: UInt64 = 250_000_000
+
+    private var interval: TaskerPerformanceInterval?
+    private var pendingIdleTask: Task<Void, Never>?
+
+    deinit {
+        pendingIdleTask?.cancel()
+    }
+
+    func recordScrollActivity(oldOffset: CGFloat, newOffset: CGFloat) {
+        guard abs(newOffset - oldOffset) > 1 else { return }
+
+        if interval == nil {
+            interval = TaskerPerformanceTrace.begin("AnalyticsScrollSession")
+        }
+
+        pendingIdleTask?.cancel()
+        pendingIdleTask = Task { @MainActor [weak self] in
+            do {
+                try await Task.sleep(nanoseconds: Self.scrollTraceIdleDelayNanoseconds)
+            } catch {
+                return
+            }
+            self?.finishIfNeeded()
+        }
+    }
+
+    func finishIfNeeded() {
+        pendingIdleTask?.cancel()
+        pendingIdleTask = nil
+
+        guard let interval else { return }
+        TaskerPerformanceTrace.end(interval)
+        self.interval = nil
     }
 }

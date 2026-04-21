@@ -217,6 +217,8 @@ public struct TaskerHeaderGradient {
 
 /// A SwiftUI view that renders the header gradient via UIKit layers.
 private final class HeaderGradientHostingView: UIView {
+    private var traitRegistration: (any UITraitChangeRegistration)?
+
     override init(frame: CGRect) {
         super.init(frame: frame)
         commonInit()
@@ -231,15 +233,14 @@ private final class HeaderGradientHostingView: UIView {
         backgroundColor = .clear
         isOpaque = false
         isUserInteractionEnabled = false
+        traitRegistration = registerForTraitChanges([UITraitUserInterfaceStyle.self]) {
+            (view: Self, _) in
+            view.applyGradientIfNeeded()
+        }
     }
 
     override func layoutSubviews() {
         super.layoutSubviews()
-        applyGradientIfNeeded()
-    }
-
-    override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
-        super.traitCollectionDidChange(previousTraitCollection)
         applyGradientIfNeeded()
     }
 

@@ -1186,8 +1186,7 @@ public final class TaskNotificationOrchestrator {
     }
 
     private func reflectionCompletedDateStamps() -> Set<String> {
-        let keys = UserDefaults.standard.stringArray(forKey: "gamification.reflection.completedDateKeys") ?? []
-        return Set(keys)
+        UserDefaultsDailyReflectionStore(defaults: .standard, calendar: calendar).completedDateStamps()
     }
 
     private func fingerprint(for request: TaskerLocalNotificationRequest) -> NotificationFingerprint {

@@ -2,13 +2,14 @@ import Foundation
 import CoreData
 
 public final class CoreDataHabitRepository: HabitRepositoryProtocol {
-    private let viewContext: NSManagedObjectContext
+    private let readContext: NSManagedObjectContext
     private let backgroundContext: NSManagedObjectContext
     private let schemaValidationError: NSError?
 
     /// Initializes a new instance.
     public init(container: NSPersistentContainer) {
-        self.viewContext = container.viewContext
+        self.readContext = container.newBackgroundContext()
+        self.readContext.mergePolicy = NSMergeByPropertyObjectTrumpMergePolicy
         self.backgroundContext = container.newBackgroundContext()
         self.backgroundContext.mergePolicy = NSMergeByPropertyObjectTrumpMergePolicy
         self.schemaValidationError = Self.schemaValidationError(in: container.managedObjectModel)
@@ -16,14 +17,14 @@ public final class CoreDataHabitRepository: HabitRepositoryProtocol {
 
     /// Executes fetchAll.
     public func fetchAll(completion: @escaping (Result<[HabitDefinitionRecord], Error>) -> Void) {
-        viewContext.perform {
+        readContext.perform {
             if let schemaValidationError = self.schemaValidationError {
                 completion(.failure(schemaValidationError))
                 return
             }
             do {
                 let objects = try V2CoreDataRepositorySupport.fetchObjects(
-                    in: self.viewContext,
+                    in: self.readContext,
                     entityName: HabitDefinitionMapper.entityName,
                     sort: [
                         NSSortDescriptor(key: "createdAt", ascending: true),
@@ -31,6 +32,27 @@ public final class CoreDataHabitRepository: HabitRepositoryProtocol {
                     ]
                 )
                 completion(.success(objects.map(HabitDefinitionMapper.toDomain)))
+            } catch {
+                completion(.failure(error))
+            }
+        }
+    }
+
+    /// Executes fetchByID.
+    public func fetchByID(id: UUID, completion: @escaping (Result<HabitDefinitionRecord?, Error>) -> Void) {
+        readContext.perform {
+            if let schemaValidationError = self.schemaValidationError {
+                completion(.failure(schemaValidationError))
+                return
+            }
+            do {
+                _ = try V2CoreDataRepositorySupport.requireID(id, field: "habit.id")
+                let object = try V2CoreDataRepositorySupport.fetchObject(
+                    in: self.readContext,
+                    entityName: HabitDefinitionMapper.entityName,
+                    predicate: NSPredicate(format: "id == %@", id as CVarArg)
+                )
+                completion(.success(object.map(HabitDefinitionMapper.toDomain)))
             } catch {
                 completion(.failure(error))
             }

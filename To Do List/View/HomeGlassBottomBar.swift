@@ -130,6 +130,7 @@ private struct BottomToolCluster: View {
     private let buttonWidth: CGFloat = 54
     private let buttonHeight: CGFloat = 44
     private let clusterHeight: CGFloat = 56
+    private let clusterCornerRadius: CGFloat = 28
     private let clusterSpacing: CGFloat = 4
     private let clusterHorizontalPadding: CGFloat = 8
     private let clusterVerticalPadding: CGFloat = 6
@@ -138,7 +139,14 @@ private struct BottomToolCluster: View {
     var body: some View {
         toolForeground
             .frame(width: clusterWidth, height: clusterHeight)
-            .background(clusterBackground)
+            .taskerPremiumSurface(
+                cornerRadius: clusterCornerRadius,
+                fillColor: Color.tasker.surfacePrimary.opacity(colorScheme == .dark ? 0.76 : 0.70),
+                strokeColor: Color.tasker.strokeHairline.opacity(colorScheme == .dark ? 0.70 : 0.62),
+                accentColor: Color.tasker.accentSecondary,
+                level: .e2,
+                useNativeGlass: true
+            )
             .frame(height: clusterHeight)
     }
 
@@ -146,15 +154,6 @@ private struct BottomToolCluster: View {
         let toolCount = CGFloat(Self.tools.count)
         let gapCount = CGFloat(max(Self.tools.count - 1, 0))
         return (toolCount * buttonWidth) + (gapCount * clusterSpacing) + (clusterHorizontalPadding * 2)
-    }
-
-    private var clusterBackground: some View {
-        Capsule(style: .continuous)
-            .fill(Color.tasker.surfacePrimary)
-            .overlay(
-                Capsule(style: .continuous)
-                    .stroke(Color.tasker.strokeHairline.opacity(colorScheme == .dark ? 0.72 : 0.92), lineWidth: 1)
-            )
     }
 
     private var toolForeground: some View {
@@ -192,10 +191,10 @@ private struct BottomToolCluster: View {
 
     private var selectionHighlight: some View {
         RoundedRectangle(cornerRadius: 16, style: .continuous)
-            .fill(Color.tasker.accentWash.opacity(colorScheme == .dark ? 0.34 : 0.90))
+            .fill(Color.tasker.accentWash.opacity(colorScheme == .dark ? 0.28 : 0.36))
             .overlay(
                 RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .stroke(Color.tasker.strokeHairline.opacity(colorScheme == .dark ? 0.52 : 0.82), lineWidth: 1)
+                    .stroke(Color.tasker.strokeHairline.opacity(colorScheme == .dark ? 0.42 : 0.56), lineWidth: 1)
             )
             .frame(width: buttonWidth, height: buttonHeight)
     }
@@ -208,6 +207,7 @@ private struct BottomAddTaskCTA: View {
     @Environment(\.colorScheme) private var colorScheme
 
     private var prefersReducedMotion: Bool { shellPhase != .interactive }
+    private let ctaCornerRadius: CGFloat = 28
 
     var body: some View {
         Button {
@@ -215,7 +215,14 @@ private struct BottomAddTaskCTA: View {
             onTap()
         } label: {
             ctaForeground
-                .background(ctaBackground)
+                .taskerPremiumSurface(
+                    cornerRadius: ctaCornerRadius,
+                    fillColor: Color.tasker.surfaceSecondary.opacity(colorScheme == .dark ? 0.78 : 0.72),
+                    strokeColor: Color.tasker.strokeHairline.opacity(colorScheme == .dark ? 0.72 : 0.64),
+                    accentColor: Color.tasker.accentPrimary,
+                    level: .e2,
+                    useNativeGlass: true
+                )
                 .taskerCTABezel(
                     style: .fab,
                     palette: .roseGold,
@@ -228,15 +235,6 @@ private struct BottomAddTaskCTA: View {
         .buttonStyle(BottomCTAPressStyle(prefersReducedMotion: prefersReducedMotion))
         .accessibilityIdentifier("home.addTaskButton")
         .accessibilityLabel("Add Task")
-    }
-
-    private var ctaBackground: some View {
-        Capsule(style: .continuous)
-            .fill(Color.tasker.surfaceSecondary)
-            .overlay(
-                Capsule(style: .continuous)
-                    .stroke(Color.tasker.strokeHairline.opacity(colorScheme == .dark ? 0.76 : 0.92), lineWidth: 1)
-            )
     }
 
     private var ctaForeground: some View {

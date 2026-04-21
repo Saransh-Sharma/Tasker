@@ -85,7 +85,7 @@ final class LLMModelRegistryTests: XCTestCase {
         XCTAssertTrue(model.extraEOSTokens.isEmpty)
     }
 
-    func testCompatibilityMarksAllTextModelsAsSupported() throws {
+    func testCompatibilityReflectsCurrentRuntimeSupport() throws {
         for modelName in [
             qwenPointSixName,
             qwenOptiQName,
@@ -93,10 +93,17 @@ final class LLMModelRegistryTests: XCTestCase {
             qwenClaudeDistilledName,
             bonsaiName
         ] {
+            let compatibility = LLMRuntimeSupportMatrix.compatibility(for: try XCTUnwrap(ModelConfiguration.getModelByName(modelName)))
+            #if targetEnvironment(simulator)
             XCTAssertEqual(
-                LLMRuntimeSupportMatrix.compatibility(for: try XCTUnwrap(ModelConfiguration.getModelByName(modelName))).availability,
-                .supported
+                compatibility.availability,
+                .temporarilyUnavailable
             )
+            XCTAssertFalse(compatibility.canActivate)
+            #else
+            XCTAssertEqual(compatibility.availability, .supported)
+            XCTAssertTrue(compatibility.canActivate)
+            #endif
         }
     }
 

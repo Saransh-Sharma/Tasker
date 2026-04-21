@@ -158,7 +158,8 @@ final class HomeChromeSnapshotPresentationTests: XCTestCase {
             completionRate: 1,
             weeklySummary: nil,
             projects: [],
-            reflectionEligible: true,
+            dailyReflectionEntryState: nil,
+            dailyPlanDraft: nil,
             momentumGuidanceText: ""
         )
 
@@ -170,7 +171,7 @@ final class HomeChromeSnapshotPresentationTests: XCTestCase {
         XCTAssertEqual(presentation.foregroundRelativeLabel, "TODAY")
         XCTAssertEqual(presentation.dateAccessibilityLabel, "Today, \(today.formatted(.dateTime.month(.wide).day()))")
         XCTAssertFalse(presentation.showsBackToToday)
-        XCTAssertTrue(presentation.showsReflectionCTA)
+        XCTAssertFalse(presentation.showsReflectionCTA)
         XCTAssertEqual(presentation.reflectionCTATitle, "Reflect")
         XCTAssertEqual(presentation.statusText, "18/250 XP · 100% · 1d")
         XCTAssertEqual(presentation.todayStatus?.xpText, "18/250 XP")
@@ -182,6 +183,73 @@ final class HomeChromeSnapshotPresentationTests: XCTestCase {
         XCTAssertEqual(presentation.xpProgress?.isStreakSafeToday, true)
         XCTAssertEqual(presentation.xpProgress?.accessibilityLabel, "XP progress, 18 of 250 XP")
         XCTAssertEqual(presentation.xpProgress?.progressFraction ?? -1, 18.0 / 250.0, accuracy: 0.0001)
+    }
+
+    func testHomeChromeSnapshotEqualityIncludesRichReflectionPreview() {
+        let today = Calendar.current.startOfDay(for: Date())
+        let sharedNarrative = ReflectionNarrativeSummary(
+            homeCardLine: "1 task closed. Keep tomorrow tight.",
+            planCardLine: "You closed 1 task, and tomorrow can stay narrow."
+        )
+        let lhs = HomeChromeSnapshot(
+            selectedDate: today,
+            activeScope: .today,
+            activeFilterState: .default,
+            savedHomeViews: [],
+            quickViewCounts: [:],
+            progressState: .empty,
+            dailyScore: 0,
+            completionRate: 0,
+            weeklySummary: nil,
+            projects: [],
+            dailyReflectionEntryState: DailyReflectionEntryState(
+                mode: .sameDay,
+                reflectionDate: today,
+                planningDate: Calendar.current.date(byAdding: .day, value: 1, to: today)!,
+                title: "Reflect & plan",
+                subtitle: "Close today cleanly, then shape tomorrow.",
+                summaryText: sharedNarrative.homeCardLine,
+                badgeText: nil,
+                closedTasks: [
+                    ReflectionTaskMiniRow(id: UUID(), title: "Closed task", projectName: "Inbox")
+                ],
+                habitGrid: [],
+                narrativeSummary: sharedNarrative
+            ),
+            dailyPlanDraft: nil,
+            momentumGuidanceText: ""
+        )
+
+        let rhs = HomeChromeSnapshot(
+            selectedDate: today,
+            activeScope: .today,
+            activeFilterState: .default,
+            savedHomeViews: [],
+            quickViewCounts: [:],
+            progressState: .empty,
+            dailyScore: 0,
+            completionRate: 0,
+            weeklySummary: nil,
+            projects: [],
+            dailyReflectionEntryState: DailyReflectionEntryState(
+                mode: .sameDay,
+                reflectionDate: today,
+                planningDate: Calendar.current.date(byAdding: .day, value: 1, to: today)!,
+                title: "Reflect & plan",
+                subtitle: "Close today cleanly, then shape tomorrow.",
+                summaryText: sharedNarrative.homeCardLine,
+                badgeText: nil,
+                closedTasks: [
+                    ReflectionTaskMiniRow(id: UUID(), title: "Different task", projectName: "Inbox")
+                ],
+                habitGrid: [],
+                narrativeSummary: sharedNarrative
+            ),
+            dailyPlanDraft: nil,
+            momentumGuidanceText: ""
+        )
+
+        XCTAssertNotEqual(lhs, rhs)
     }
 
     func testCustomDatePresentationShowsBackToTodayAndSuppressesReflection() {
@@ -198,7 +266,8 @@ final class HomeChromeSnapshotPresentationTests: XCTestCase {
             completionRate: 0,
             weeklySummary: nil,
             projects: [],
-            reflectionEligible: true,
+            dailyReflectionEntryState: nil,
+            dailyPlanDraft: nil,
             momentumGuidanceText: ""
         )
         let tasks = HomeTasksSnapshot(
@@ -284,7 +353,8 @@ final class HomeChromeSnapshotPresentationTests: XCTestCase {
             completionRate: 0,
             weeklySummary: nil,
             projects: [],
-            reflectionEligible: true,
+            dailyReflectionEntryState: nil,
+            dailyPlanDraft: nil,
             momentumGuidanceText: ""
         )
 
@@ -305,7 +375,8 @@ final class HomeChromeSnapshotPresentationTests: XCTestCase {
             completionRate: 0,
             weeklySummary: nil,
             projects: [],
-            reflectionEligible: false,
+            dailyReflectionEntryState: nil,
+            dailyPlanDraft: nil,
             momentumGuidanceText: ""
         )
         var tasks = HomeTasksSnapshot.empty
@@ -377,7 +448,8 @@ final class HomeChromeSnapshotPresentationTests: XCTestCase {
             completionRate: 1,
             weeklySummary: nil,
             projects: [],
-            reflectionEligible: true,
+            dailyReflectionEntryState: nil,
+            dailyPlanDraft: nil,
             momentumGuidanceText: ""
         )
 
@@ -408,7 +480,8 @@ final class HomeChromeSnapshotPresentationTests: XCTestCase {
             completionRate: 1.0 / 3.0,
             weeklySummary: nil,
             projects: [],
-            reflectionEligible: true,
+            dailyReflectionEntryState: nil,
+            dailyPlanDraft: nil,
             momentumGuidanceText: ""
         )
 
@@ -443,7 +516,8 @@ final class HomeChromeSnapshotPresentationTests: XCTestCase {
                 completionRate: 0,
                 weeklySummary: nil,
                 projects: [],
-                reflectionEligible: false,
+                dailyReflectionEntryState: nil,
+                dailyPlanDraft: nil,
                 momentumGuidanceText: ""
             )
 

@@ -73,6 +73,8 @@ public protocol TaskDependencyRepositoryProtocol {
 public protocol HabitRepositoryProtocol {
     /// Executes fetchAll.
     func fetchAll(completion: @escaping (Result<[HabitDefinitionRecord], Error>) -> Void)
+    /// Executes fetchByID.
+    func fetchByID(id: UUID, completion: @escaping (Result<HabitDefinitionRecord?, Error>) -> Void)
     /// Executes create.
     func create(_ habit: HabitDefinitionRecord, completion: @escaping (Result<HabitDefinitionRecord, Error>) -> Void)
     /// Executes update.
@@ -105,12 +107,64 @@ public protocol ScheduleRepositoryProtocol {
 public protocol OccurrenceRepositoryProtocol {
     /// Executes fetchInRange.
     func fetchInRange(start: Date, end: Date, completion: @escaping (Result<[OccurrenceDefinition], Error>) -> Void)
+    /// Executes fetchByID.
+    func fetchByID(id: UUID, completion: @escaping (Result<OccurrenceDefinition?, Error>) -> Void)
+    /// Executes fetchLatestForHabit.
+    func fetchLatestForHabit(habitID: UUID, on date: Date, completion: @escaping (Result<OccurrenceDefinition?, Error>) -> Void)
     /// Executes saveOccurrences.
     func saveOccurrences(_ occurrences: [OccurrenceDefinition], completion: @escaping (Result<Void, Error>) -> Void)
     /// Executes resolve.
     func resolve(_ resolution: OccurrenceResolutionDefinition, completion: @escaping (Result<Void, Error>) -> Void)
     /// Executes deleteOccurrences.
     func deleteOccurrences(ids: [UUID], completion: @escaping (Result<Void, Error>) -> Void)
+}
+
+public extension HabitRepositoryProtocol {
+    func fetchByID(id: UUID, completion: @escaping (Result<HabitDefinitionRecord?, Error>) -> Void) {
+        fetchAll { result in
+            switch result {
+            case .failure(let error):
+                completion(.failure(error))
+            case .success(let habits):
+                completion(.success(habits.first(where: { $0.id == id })))
+            }
+        }
+    }
+}
+
+public extension OccurrenceRepositoryProtocol {
+    func fetchByID(id: UUID, completion: @escaping (Result<OccurrenceDefinition?, Error>) -> Void) {
+        fetchInRange(start: .distantPast, end: .distantFuture) { result in
+            switch result {
+            case .failure(let error):
+                completion(.failure(error))
+            case .success(let occurrences):
+                completion(.success(occurrences.first(where: { $0.id == id })))
+            }
+        }
+    }
+
+    func fetchLatestForHabit(
+        habitID: UUID,
+        on date: Date,
+        completion: @escaping (Result<OccurrenceDefinition?, Error>) -> Void
+    ) {
+        let calendar = Calendar.current
+        let startOfDay = calendar.startOfDay(for: date)
+        let endOfDay = calendar.date(byAdding: .day, value: 1, to: startOfDay) ?? date
+        fetchInRange(start: startOfDay, end: endOfDay) { result in
+            switch result {
+            case .failure(let error):
+                completion(.failure(error))
+            case .success(let occurrences):
+                let latest = occurrences
+                    .filter { $0.sourceType == .habit && $0.sourceID == habitID }
+                    .sorted { HabitRuntimeSupport.occurrenceDate($0) < HabitRuntimeSupport.occurrenceDate($1) }
+                    .last
+                completion(.success(latest))
+            }
+        }
+    }
 }
 
 public protocol ReminderRepositoryProtocol {
@@ -128,6 +182,98 @@ public protocol ReminderRepositoryProtocol {
     func saveDelivery(_ delivery: ReminderDeliveryDefinition, completion: @escaping (Result<ReminderDeliveryDefinition, Error>) -> Void)
     /// Executes updateDelivery.
     func updateDelivery(_ delivery: ReminderDeliveryDefinition, completion: @escaping (Result<ReminderDeliveryDefinition, Error>) -> Void)
+    /// Executes fetchDeliveryResponseAggregate.
+    func fetchDeliveryResponseAggregate(
+        from startDate: Date?,
+        to endDate: Date?,
+        completion: @escaping (Result<ReminderDeliveryResponseAggregate, Error>) -> Void
+    )
+}
+
+public extension ReminderRepositoryProtocol {
+    func fetchDeliveryResponseAggregate(
+        from startDate: Date?,
+        to endDate: Date?,
+        completion: @escaping (Result<ReminderDeliveryResponseAggregate, Error>) -> Void
+    ) {
+        fetchReminders { reminderResult in
+            switch reminderResult {
+            case .failure(let error):
+                completion(.failure(error))
+            case .success(let reminders):
+                guard !reminders.isEmpty else {
+                    completion(.success(ReminderDeliveryResponseAggregate()))
+                    return
+                }
+
+                let group = DispatchGroup()
+                let lock = NSLock()
+                var firstError: Error?
+                var deliveries: [ReminderDeliveryDefinition] = []
+
+                for reminder in reminders {
+                    group.enter()
+                    fetchDeliveries(reminderID: reminder.id) { deliveryResult in
+                        lock.lock()
+                        defer { lock.unlock() }
+                        switch deliveryResult {
+                        case .failure(let error):
+                            if firstError == nil {
+                                firstError = error
+                            }
+                        case .success(let fetched):
+                            deliveries.append(contentsOf: fetched)
+                        }
+                        group.leave()
+                    }
+                }
+
+                group.notify(queue: .main) {
+                    if let firstError {
+                        completion(.failure(firstError))
+                        return
+                    }
+
+                    var acknowledged = 0
+                    var snoozed = 0
+                    var pending = 0
+
+                    for delivery in deliveries {
+                        if let startDate,
+                           delivery.createdAt < startDate {
+                            continue
+                        }
+                        if let endDate,
+                           delivery.createdAt >= endDate {
+                            continue
+                        }
+                        let normalizedStatus = delivery.status
+                            .trimmingCharacters(in: .whitespacesAndNewlines)
+                            .lowercased()
+                        if delivery.ackAt != nil || normalizedStatus == "acked" || normalizedStatus == "acknowledged" {
+                            acknowledged += 1
+                        } else if delivery.snoozedUntil != nil || normalizedStatus == "snoozed" {
+                            snoozed += 1
+                        } else {
+                            pending += 1
+                        }
+                    }
+
+                    completion(
+                        .success(
+                            ReminderDeliveryResponseAggregate(
+                                configuredReminderCount: reminders.count,
+                                totalDeliveries: acknowledged + snoozed + pending,
+                                acknowledgedDeliveries: acknowledged,
+                                snoozedDeliveries: snoozed,
+                                pendingDeliveries: pending
+                            )
+                        )
+                    )
+                }
+            }
+        }
+    }
 }
 
 public protocol WeeklyPlanRepositoryProtocol {
@@ -182,6 +328,24 @@ public protocol WeeklyReviewDraftStoreProtocol {
         weekStartDate: Date,
         completion: @escaping (Result<[WeeklyReviewTaskDecision], Error>) -> Void
     )
+}
+
+public protocol DailyReflectionStoreProtocol {
+    func isCompleted(on date: Date) -> Bool
+    func completedDateStamps() -> Set<String>
+    func fetchReflectionPayload(on date: Date) -> ReflectionPayload?
+    @discardableResult
+    func saveReflectionPayload(_ payload: ReflectionPayload) throws -> ReflectionPayload
+    @discardableResult
+    func markCompleted(
+        on reflectionDate: Date,
+        completedAt: Date,
+        payload: ReflectionPayload?
+    ) throws -> ReflectionPayload?
+    func fetchPlanDraft(on date: Date) -> DailyPlanDraft?
+    @discardableResult
+    func savePlanDraft(_ draft: DailyPlanDraft, replaceExisting: Bool) throws -> DailyPlanDraft
+    func clearPlanDraft(on date: Date) throws
 }
 
 public protocol ReflectionNoteRepositoryProtocol {

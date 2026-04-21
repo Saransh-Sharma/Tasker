@@ -1610,6 +1610,9 @@ private func makeLifeManagementViewModel(dependencies: CoordinatorDependencies) 
         weeklyReviewRepository: NoOpWeeklyReviewRepositoryStub(),
         weeklyReviewMutationRepository: NoOpWeeklyReviewMutationRepositoryStub(),
         weeklyReviewDraftStore: NoOpWeeklyReviewDraftStoreStub(),
+        dailyReflectionStore: UserDefaultsDailyReflectionStore(
+            defaults: UserDefaults(suiteName: "LifeManagementFeatureTests.\(UUID().uuidString)") ?? .standard
+        ),
         reflectionNoteRepository: NoOpReflectionNoteRepositoryStub(),
         gamificationRepository: NoOpGamificationRepositoryStub(),
         assistantActionRepository: NoOpAssistantActionRepositoryStub(),

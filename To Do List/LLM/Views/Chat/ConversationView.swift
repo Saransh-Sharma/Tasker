@@ -624,7 +624,7 @@ struct ConversationView: View {
         ScrollViewReader { scrollView in
             ScrollView(.vertical) {
                 LazyVStack(alignment: .leading, spacing: 0) {
-                    ForEach(Array(snapshot.messages.enumerated()), id: \.element.id) { index, message in
+                    ForEach(snapshot.messages, id: \.id) { message in
                         MessageView(
                             renderModel: message,
                             now: now,
@@ -632,7 +632,6 @@ struct ConversationView: View {
                         )
                         .padding(.horizontal, TaskerTheme.Spacing.lg)
                         .padding(.vertical, TaskerTheme.Spacing.sm)
-                        .staggeredAppearance(index: index)
                         .id(message.id.uuidString)
                     }
 
@@ -694,9 +693,12 @@ struct ConversationView: View {
                 }
             }
             .onChange(of: scrollID) { _, _ in
-                if shouldRenderLiveOutput {
-                    scrollInterrupted = true
+                guard shouldRenderLiveOutput else { return }
+                if scrollID == "bottom" || scrollID == "output" {
+                    scrollInterrupted = false
+                    return
                 }
+                scrollInterrupted = true
             }
         }
         .task(id: snapshot.containsUndoCard) {

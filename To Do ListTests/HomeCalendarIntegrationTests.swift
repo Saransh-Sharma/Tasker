@@ -333,8 +333,12 @@ final class HomeCalendarIntegrationTests: XCTestCase {
             calendar: CalendarTestClock.calendar
         ))
 
+        XCTAssertEqual(plan.startMinute, 9 * 60)
+        XCTAssertEqual(plan.endMinute, (11 * 60) + 15)
         XCTAssertEqual(plan.startHour, 9)
         XCTAssertEqual(plan.endHour, 11)
+        XCTAssertEqual(plan.hourMarkers, [9, 10, 11])
+        XCTAssertEqual(plan.endMinute - plan.startMinute, 135)
     }
 
     func testHomeDayTimelineLayoutPlannerClampsFixedWindowNearMidnight() throws {
@@ -348,6 +352,8 @@ final class HomeCalendarIntegrationTests: XCTestCase {
             calendar: CalendarTestClock.calendar
         ))
 
+        XCTAssertEqual(plan.startMinute, 0)
+        XCTAssertEqual(plan.endMinute, (2 * 60) + 15)
         XCTAssertEqual(plan.startHour, 0)
         XCTAssertEqual(plan.endHour, 2)
     }
@@ -363,6 +369,8 @@ final class HomeCalendarIntegrationTests: XCTestCase {
             calendar: CalendarTestClock.calendar
         ))
 
+        XCTAssertEqual(plan.startMinute, 21 * 60)
+        XCTAssertEqual(plan.endMinute, (23 * 60) + 15)
         XCTAssertEqual(plan.startHour, 21)
         XCTAssertEqual(plan.endHour, 23)
     }
@@ -379,8 +387,11 @@ final class HomeCalendarIntegrationTests: XCTestCase {
             calendar: CalendarTestClock.calendar
         ))
 
+        XCTAssertEqual(plan.startMinute, 9 * 60)
+        XCTAssertEqual(plan.endMinute, (11 * 60) + 15)
         XCTAssertEqual(plan.startHour, 9)
         XCTAssertEqual(plan.endHour, 11)
+        XCTAssertEqual(plan.endMinute - plan.startMinute, 135)
     }
 
     func testHomeDayTimelineLayoutPlannerOmitsEventsOutsideViewportAndClipsCrossingEvents() throws {

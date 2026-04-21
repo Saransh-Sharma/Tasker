@@ -356,9 +356,9 @@ enum HabitRuntimeSupport {
 
     static func dayState(
         for occurrence: OccurrenceDefinition,
-        day: Date,
-        referenceDay: Date,
-        calendar: Calendar = .current
+        day _: Date,
+        referenceDay _: Date,
+        calendar _: Calendar = .current
     ) -> HabitDayState {
         switch occurrence.state {
         case .completed:
@@ -368,7 +368,8 @@ enum HabitRuntimeSupport {
         case .skipped:
             return .skipped
         case .pending:
-            return day < referenceDay ? .failure : .none
+            // Pending days should remain visually neutral until the user explicitly resolves them.
+            return .none
         }
     }
 
@@ -1862,16 +1863,16 @@ public final class ResolveHabitOccurrenceUseCase {
         mutationContext: HabitMutationContext? = nil,
         completion: @escaping (Result<Void, Error>) -> Void
     ) {
-        habitRepository.fetchAll { result in
+        habitRepository.fetchByID(id: habitID) { result in
             switch result {
             case .failure(let error):
                 completion(.failure(error))
-            case .success(let habits):
-                guard let habit = habits.first(where: { $0.id == habitID }) else {
+            case .success(let habit):
+                guard let habit else {
                     completion(.failure(HabitRuntimeError.habitNotFound))
                     return
                 }
-                self.resolveOccurrenceID(habit: habit, occurrenceID: occurrenceID, date: date, action: action) { occurrenceResult in
+                self.resolveOccurrenceID(habit: habit, occurrenceID: occurrenceID, date: date) { occurrenceResult in
                     switch occurrenceResult {
                     case .failure(let error):
                         completion(.failure(error))
@@ -1924,19 +1925,15 @@ public final class ResolveHabitOccurrenceUseCase {
         habit: HabitDefinitionRecord,
         occurrenceID: UUID?,
         date: Date,
-        action: HabitOccurrenceAction,
         completion: @escaping (Result<UUID, Error>) -> Void
     ) {
-        let calendar = Calendar.current
-        let startOfDay = calendar.startOfDay(for: date)
-        let endOfDay = calendar.date(byAdding: .day, value: 1, to: startOfDay) ?? date
-        occurrenceRepository.fetchInRange(start: startOfDay, end: endOfDay) { result in
-            switch result {
-            case .failure(let error):
-                completion(.failure(error))
-            case .success(let occurrences):
-                if let occurrenceID {
-                    guard let suppliedOccurrence = occurrences.first(where: { $0.id == occurrenceID }) else {
+        if let occurrenceID {
+            occurrenceRepository.fetchByID(id: occurrenceID) { result in
+                switch result {
+                case .failure(let error):
+                    completion(.failure(error))
+                case .success(let suppliedOccurrence):
+                    guard let suppliedOccurrence else {
                         completion(.failure(HabitRuntimeError.occurrenceNotFound))
                         return
                     }
@@ -1945,20 +1942,21 @@ public final class ResolveHabitOccurrenceUseCase {
                         return
                     }
                     completion(.success(occurrenceID))
-                    return
                 }
-                let matches = occurrences
-                    .filter { $0.sourceType == .habit && $0.sourceID == habit.id }
-                    .sorted { HabitRuntimeSupport.occurrenceDate($0) < HabitRuntimeSupport.occurrenceDate($1) }
-                if let occurrence = matches.last {
+            }
+            return
+        }
+
+        occurrenceRepository.fetchLatestForHabit(habitID: habit.id, on: date) { result in
+            switch result {
+            case .failure(let error):
+                completion(.failure(error))
+            case .success(let occurrence):
+                if let occurrence {
                     completion(.success(occurrence.id))
-                    return
+                } else {
+                    self.materializeOccurrence(for: habit, date: date, completion: completion)
                 }
-                guard habit.trackingMode == .lapseOnly && action == .lapsed else {
-                    completion(.failure(HabitRuntimeError.occurrenceNotFound))
-                    return
-                }
-                self.materializeOccurrence(for: habit, date: date, completion: completion)
             }
         }
     }
@@ -2147,12 +2145,12 @@ public final class ResetHabitOccurrenceUseCase {
         mutationContext: HabitMutationContext? = nil,
         completion: @escaping (Result<Void, Error>) -> Void
     ) {
-        habitRepository.fetchAll { result in
+        habitRepository.fetchByID(id: habitID) { result in
             switch result {
             case .failure(let error):
                 completion(.failure(error))
-            case .success(let habits):
-                guard let habit = habits.first(where: { $0.id == habitID }) else {
+            case .success(let habit):
+                guard let habit else {
                     completion(.failure(HabitRuntimeError.habitNotFound))
                     return
                 }
@@ -2220,16 +2218,13 @@ public final class ResetHabitOccurrenceUseCase {
         on date: Date,
         completion: @escaping (Result<OccurrenceDefinition, Error>) -> Void
     ) {
-        let calendar = Calendar.current
-        let startOfDay = calendar.startOfDay(for: date)
-        let endOfDay = calendar.date(byAdding: .day, value: 1, to: startOfDay) ?? date
-        occurrenceRepository.fetchInRange(start: startOfDay, end: endOfDay) { result in
-            switch result {
-            case .failure(let error):
-                completion(.failure(error))
-            case .success(let occurrences):
-                if let occurrenceID {
-                    guard let suppliedOccurrence = occurrences.first(where: { $0.id == occurrenceID }) else {
+        if let occurrenceID {
+            occurrenceRepository.fetchByID(id: occurrenceID) { result in
+                switch result {
+                case .failure(let error):
+                    completion(.failure(error))
+                case .success(let suppliedOccurrence):
+                    guard let suppliedOccurrence else {
                         completion(.failure(HabitRuntimeError.occurrenceNotFound))
                         return
                     }
@@ -2238,18 +2233,20 @@ public final class ResetHabitOccurrenceUseCase {
                         return
                     }
                     completion(.success(suppliedOccurrence))
-                    return
                 }
+            }
+            return
+        }
 
-                let matches = occurrences
-                    .filter { $0.sourceType == .habit && $0.sourceID == habit.id }
-                    .sorted { HabitRuntimeSupport.occurrenceDate($0) < HabitRuntimeSupport.occurrenceDate($1) }
-
-                guard let occurrence = matches.last else {
+        occurrenceRepository.fetchLatestForHabit(habitID: habit.id, on: date) { result in
+            switch result {
+            case .failure(let error):
+                completion(.failure(error))
+            case .success(let occurrence):
+                guard let occurrence else {
                     completion(.failure(HabitRuntimeError.occurrenceNotFound))
                     return
                 }
-
                 completion(.success(occurrence))
             }
         }

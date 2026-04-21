@@ -1359,6 +1359,7 @@ final class HomeSearchState: ObservableObject {
 private enum HomePerformanceSignposts {
     private static let habitMutationIntervalName: StaticString = "HomeHabitMutationLatency"
     private static let lastCellTapIntervalName: StaticString = "HomeHabitLastCellTap"
+    private static let habitsSectionRenderEventName: StaticString = "home.habitsSection.render"
 
     // Points-of-interest signposts emit automatically while profiling with
     // Instruments. The verbose performance log still honors the explicit
@@ -1392,6 +1393,46 @@ private enum HomePerformanceSignposts {
 
     static func openDetailTap() {
         TaskerPerformanceTrace.event("home.openDetail.tap")
+    }
+
+    static func habitsSectionRendered(rowCount: Int) {
+        TaskerPerformanceTrace.event(habitsSectionRenderEventName, value: rowCount)
+    }
+}
+
+private struct HomeHabitSectionCardHost: View, Equatable {
+    let title: String
+    let summaryLine: String
+    let rows: [HomeHabitRow]
+    let accessibilityIdentifier: String
+    let onOpenBoard: () -> Void
+    let onPrimaryAction: (HomeHabitRow) -> Void
+    let onSecondaryAction: (HomeHabitRow) -> Void
+    let onRowAction: (HomeHabitRow) -> Void
+    let onLastCellAction: (HomeHabitRow) -> Void
+    let onOpenHabit: (HomeHabitRow) -> Void
+
+    static func == (lhs: HomeHabitSectionCardHost, rhs: HomeHabitSectionCardHost) -> Bool {
+        lhs.title == rhs.title
+            && lhs.summaryLine == rhs.summaryLine
+            && lhs.rows == rhs.rows
+            && lhs.accessibilityIdentifier == rhs.accessibilityIdentifier
+    }
+
+    var body: some View {
+        let _ = HomePerformanceSignposts.habitsSectionRendered(rowCount: rows.count)
+        return HabitHomeSectionCard(
+            title: title,
+            summaryLine: summaryLine,
+            rows: rows,
+            onOpenBoard: onOpenBoard,
+            onPrimaryAction: onPrimaryAction,
+            onSecondaryAction: onSecondaryAction,
+            onRowAction: onRowAction,
+            onLastCellAction: onLastCellAction,
+            onOpenHabit: onOpenHabit
+        )
+        .accessibilityIdentifier(accessibilityIdentifier)
     }
 }
 
@@ -2021,8 +2062,8 @@ struct HomeBackdropForedropRootView: View {
     @State private var showMilestone = false
     @State private var milestoneValue: XPCalculationEngine.Milestone?
     @State private var semanticCelebrationXP = 0
-    @State private var showReflectionSheet = false
-    @State private var reflectionClaimState: DailyReflectionClaimState = .ready
+    @State private var showDailyReflectPlan = false
+    @State private var dailyReflectPlanViewModel: DailyReflectPlanViewModel?
     @State private var activeNextActionFocusSession: FocusSessionDefinition?
     @State private var showNextActionFocusTimer = false
     @State private var nextActionFocusSummaryResult: FocusSessionResult?
@@ -2368,7 +2409,6 @@ struct HomeBackdropForedropRootView: View {
             searchDraftQuery = searchState.query
             hasMountedSearchSurface = activeFace == .search
             hasMountedAnalyticsSurface = activeFace == .analytics
-            refreshReflectionClaimState()
             triggerForedropHintIfEligible()
             presentHabitBoardIfRequestedForUITests()
         }
@@ -2567,31 +2607,23 @@ struct HomeBackdropForedropRootView: View {
                 )
             )
         }
-        .sheet(isPresented: $showReflectionSheet) {
-            DailyReflectionView(
-                tasksCompleted: max(viewModel.dailyCompletedTasks.count, faceCoordinator.insightsViewModel?.tasksCompletedToday ?? 0),
-                xpEarned: chromeSnapshot.dailyScore,
-                streakDays: viewModel.streak,
-                claimState: reflectionClaimState,
-                onComplete: {
-                    reflectionClaimState = .submitting
-                    viewModel.completeDailyReflection { result in
-                        switch result {
-                        case .success(let xpResult):
-                            if xpResult.awardedXP > 0 {
-                                reflectionClaimState = .claimed(xp: xpResult.awardedXP)
-                                DispatchQueue.main.asyncAfter(deadline: .now() + 0.7) {
-                                    showReflectionSheet = false
-                                }
-                            } else {
-                                reflectionClaimState = .alreadyClaimed
-                            }
-                        case .failure(let error):
-                            reflectionClaimState = .unavailable(message: error.localizedDescription)
-                        }
-                    }
-                }
-            )
+        .sheet(isPresented: Binding(
+            get: { layoutClass.isPad && showDailyReflectPlan },
+            set: { showDailyReflectPlan = $0 }
+        ), onDismiss: {
+            dailyReflectPlanViewModel = nil
+        }) {
+            reflectPlanPresentation
+                .presentationDetents([.large])
+                .presentationDragIndicator(.visible)
+        }
+        .fullScreenCover(isPresented: Binding(
+            get: { !layoutClass.isPad && showDailyReflectPlan },
+            set: { showDailyReflectPlan = $0 }
+        ), onDismiss: {
+            dailyReflectPlanViewModel = nil
+        }) {
+            reflectPlanPresentation
         }
     }
 
@@ -2639,6 +2671,11 @@ struct HomeBackdropForedropRootView: View {
                     ]
                 )
                 viewModel.clearHabitMutationErrorMessage()
+            }
+            .onReceive(viewModel.$habitMutationFeedback.compactMap { $0 }) { feedback in
+                snackbar = SnackbarData(message: feedback.message, autoDismissSeconds: 2)
+                playHabitMutationFeedbackHaptic(feedback.haptic)
+                viewModel.consumeHabitMutationFeedback(id: feedback.id)
             }
     }
 
@@ -2827,6 +2864,7 @@ struct HomeBackdropForedropRootView: View {
             TaskListView(
                 headerContent: AnyView(taskListScrollHeader),
                 footerContent: taskListFooterContent,
+                footerContentCountsAsContentForEmptyState: false,
                 morningTasks: tasksSnapshot.morningTasks,
                 eveningTasks: tasksSnapshot.eveningTasks,
                 overdueTasks: tasksSnapshot.overdueTasks,
@@ -2864,6 +2902,9 @@ struct HomeBackdropForedropRootView: View {
                 },
                 onLapseHabit: { habit in
                     viewModel.lapseHabit(habit, source: "task_list")
+                },
+                onCycleHabit: { habit in
+                    performHabitRowAction(habit, source: "task_list_row_tap")
                 },
                 onOpenHabit: { habit in
                     openHabitDetail(habit)
@@ -2945,11 +2986,12 @@ struct HomeBackdropForedropRootView: View {
                         viewModel: insightsViewModel,
                         homeProgress: chromeSnapshot.progressState,
                         homeCompletionRate: chromeSnapshot.completionRate,
-                        reflectionEligible: reflectionEligible,
+                        reflectionEligible: false,
+                        dailyReflectionEntryState: chromeSnapshot.dailyReflectionEntryState,
                         momentumGuidanceText: momentumGuidanceText,
                         animateMomentumCard: shellPhase == .interactive && !reduceMotion,
                         onOpenReflection: {
-                            openReflectionSheet()
+                            openDailyReflectPlan()
                         }
                     )
                 } else {
@@ -3213,7 +3255,7 @@ struct HomeBackdropForedropRootView: View {
                         openSearch(source: "scope_menu_search")
                     },
                     onOpenReflection: {
-                        openReflectionSheet()
+                        openDailyReflectPlan()
                     },
                     onOpenSettings: {
                         onOpenSettings()
@@ -3368,13 +3410,16 @@ struct HomeBackdropForedropRootView: View {
                         if habitsSnapshot.quietTrackingSummaryState.isVisible {
                             passiveTrackingRail
                         }
+                        if let entryState = chromeSnapshot.dailyReflectionEntryState {
+                            HomeDailyReflectionEntryCard(
+                                state: entryState,
+                                mode: .compact
+                            ) {
+                                openDailyReflectPlan(preferredReflectionDate: entryState.reflectionDate)
+                            }
+                        }
                         calendarScheduleModuleCard
                         focusStrip
-                        if chromeSnapshot.weeklySummary != nil
-                            || chromeSnapshot.weeklySummaryIsLoading
-                            || chromeSnapshot.weeklySummaryErrorMessage != nil {
-                            weeklySummaryCard
-                        }
                     }
                 }
             }
@@ -3574,13 +3619,21 @@ struct HomeBackdropForedropRootView: View {
     private var taskListFooterContent: AnyView? {
         guard tasksSnapshot.activeQuickView == .today else { return nil }
 
+        let hasWeeklySummary = chromeSnapshot.weeklySummary != nil
+            || chromeSnapshot.weeklySummaryIsLoading
+            || chromeSnapshot.weeklySummaryErrorMessage != nil
         let hasPrimaryHabits = habitsSnapshot.habitHomeSectionState.primaryRows.isEmpty == false
         let hasRecoveryHabits = habitsSnapshot.habitHomeSectionState.recoveryRows.isEmpty == false
 
-        guard hasPrimaryHabits || hasRecoveryHabits else { return nil }
+        guard hasWeeklySummary || hasPrimaryHabits || hasRecoveryHabits else { return nil }
 
         return AnyView(
             VStack(alignment: .leading, spacing: spacing.s12) {
+                if hasWeeklySummary {
+                    weeklySummaryCard
+                        .padding(.horizontal, -taskListHorizontalGutter)
+                }
+
                 if hasPrimaryHabits {
                     habitsSectionCard
                         .padding(.horizontal, -taskListHorizontalGutter)
@@ -3674,35 +3727,35 @@ struct HomeBackdropForedropRootView: View {
     }
 
     private var habitsSectionCard: some View {
-        HabitHomeSectionCard(
+        HomeHabitSectionCardHost(
             title: "Habits",
             summaryLine: "\(habitsSnapshot.habitHomeSectionState.totalCount) active · \(habitsSnapshot.habitHomeSectionState.onStreakCount) streak · \(habitsSnapshot.habitHomeSectionState.atRiskCount) risk",
             rows: habitsSnapshot.habitHomeSectionState.primaryRows,
-            onOpenBoard: {
-                showHabitBoardPresented = true
-            },
+            accessibilityIdentifier: "home.habits.section",
+            onOpenBoard: { showHabitBoardPresented = true },
             onPrimaryAction: handleHabitPrimaryAction(_:),
             onSecondaryAction: handleHabitSecondaryAction(_:),
+            onRowAction: handleHabitRowAction(_:),
             onLastCellAction: handleHabitLastCellAction(_:),
             onOpenHabit: openHabitDetail
         )
-        .accessibilityIdentifier("home.habits.section")
+        .equatable()
     }
 
     private var recoveryHabitsSectionCard: some View {
-        HabitHomeSectionCard(
+        HomeHabitSectionCardHost(
             title: "Recovery",
             summaryLine: "\(habitsSnapshot.habitHomeSectionState.recoveryRows.count) in recovery",
             rows: habitsSnapshot.habitHomeSectionState.recoveryRows,
-            onOpenBoard: {
-                showHabitBoardPresented = true
-            },
+            accessibilityIdentifier: "home.habits.recovery",
+            onOpenBoard: { showHabitBoardPresented = true },
             onPrimaryAction: handleHabitPrimaryAction(_:),
             onSecondaryAction: handleHabitSecondaryAction(_:),
+            onRowAction: handleHabitRowAction(_:),
             onLastCellAction: handleHabitLastCellAction(_:),
             onOpenHabit: openHabitDetail
         )
-        .accessibilityIdentifier("home.habits.recovery")
+        .equatable()
     }
 
     private func handleHabitPrimaryAction(_ habit: HomeHabitRow) {
@@ -3711,6 +3764,10 @@ struct HomeBackdropForedropRootView: View {
 
     private func handleHabitSecondaryAction(_ habit: HomeHabitRow) {
         performHabitSecondaryAction(habit, source: "habit_home")
+    }
+
+    private func handleHabitRowAction(_ habit: HomeHabitRow) {
+        performHabitRowAction(habit, source: "habit_home_row_tap")
     }
 
     private func handleHabitLastCellAction(_ habit: HomeHabitRow) {
@@ -3841,6 +3898,13 @@ struct HomeBackdropForedropRootView: View {
         }
     }
 
+    private func performHabitRowAction(_ habit: HomeHabitRow, source: String) {
+        TaskerPerformanceTrace.event("home.habitRowTap.accepted")
+        HomePerformanceSignposts.lastCellTapAccepted()
+        beginHabitMutationSignpost(trackLastCellTap: true)
+        viewModel.performHabitLastCellAction(habit, source: source)
+    }
+
     private func performHabitLastCellAction(_ habit: HomeHabitRow, source: String) {
         HomePerformanceSignposts.lastCellTapAccepted()
         beginHabitMutationSignpost(trackLastCellTap: true)
@@ -3925,8 +3989,14 @@ struct HomeBackdropForedropRootView: View {
                 onSecondaryAction: {
                     performHabitSecondaryAction(habit, source: "due_today_agenda")
                 },
+                onRowAction: {
+                    performHabitRowAction(habit, source: "due_today_agenda_row_tap")
+                },
                 onOpenDetail: {
                     openHabitDetail(habit)
+                },
+                onLastCellAction: {
+                    performHabitLastCellAction(habit, source: "due_today_agenda_last_cell")
                 }
             )
         }
@@ -3972,6 +4042,9 @@ struct HomeBackdropForedropRootView: View {
             },
             onLapseHabit: { habit in
                 viewModel.lapseHabit(habit, source: "focus_strip")
+            },
+            onCycleHabit: { habit in
+                performHabitRowAction(habit, source: "focus_strip_row_tap")
             },
             onOpenHabit: { habit in
                 openHabitDetail(habit)
@@ -4210,10 +4283,6 @@ struct HomeBackdropForedropRootView: View {
         }
     }
 
-    private var reflectionEligible: Bool {
-        chromeSnapshot.reflectionEligible
-    }
-
     private var momentumGuidanceText: String {
         chromeSnapshot.momentumGuidanceText
     }
@@ -4361,6 +4430,17 @@ struct HomeBackdropForedropRootView: View {
         )
     }
 
+    private func playHabitMutationFeedbackHaptic(_ haptic: HomeHabitMutationFeedbackHaptic) {
+        switch haptic {
+        case .selection:
+            TaskerFeedback.selection()
+        case .success:
+            TaskerFeedback.success()
+        case .warning:
+            TaskerFeedback.warning()
+        }
+    }
+
     private func startNextActionFocusTimer() {
         guard isNextActionFocusRequestInFlight == false else { return }
         isNextActionFocusRequestInFlight = true
@@ -4478,13 +4558,38 @@ struct HomeBackdropForedropRootView: View {
         return candidates.first(where: { $0.id == taskID })
     }
 
-    private func refreshReflectionClaimState() {
-        reflectionClaimState = viewModel.isDailyReflectionCompletedToday() ? .alreadyClaimed : .ready
+    @ViewBuilder
+    private var reflectPlanPresentation: some View {
+        if let dailyReflectPlanViewModel {
+            ReflectPlanScreen(
+                viewModel: dailyReflectPlanViewModel,
+                onClose: {
+                    showDailyReflectPlan = false
+                }
+            )
+        } else {
+            Color.clear
+                .ignoresSafeArea()
+                .onAppear {
+                    showDailyReflectPlan = false
+                }
+        }
     }
 
-    private func openReflectionSheet() {
-        refreshReflectionClaimState()
-        showReflectionSheet = true
+    private func openDailyReflectPlan(preferredReflectionDate: Date? = nil) {
+        dailyReflectPlanViewModel = PresentationDependencyContainer.shared.makeDailyReflectPlanViewModel(
+            preferredReflectionDate: preferredReflectionDate,
+            analyticsTracker: { action, metadata in
+                viewModel.trackHomeInteraction(action: action, metadata: metadata.reduce(into: [String: Any]()) { partialResult, item in
+                    partialResult[item.key] = item.value
+                })
+            },
+            onComplete: { result in
+                viewModel.refreshAfterDailyReflectPlanSave(planningDate: result.target.planningDate)
+                showDailyReflectPlan = false
+            }
+        )
+        showDailyReflectPlan = true
     }
 }
 

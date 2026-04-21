@@ -26,6 +26,7 @@ public struct FocusZone: View {
     let onCompleteHabit: (HomeHabitRow) -> Void
     let onSkipHabit: (HomeHabitRow) -> Void
     let onLapseHabit: (HomeHabitRow) -> Void
+    let onCycleHabit: ((HomeHabitRow) -> Void)?
     let onOpenHabit: (HomeHabitRow) -> Void
     let onDrop: ([NSItemProvider]) -> Bool
 
@@ -69,6 +70,7 @@ public struct FocusZone: View {
         onCompleteHabit: @escaping (HomeHabitRow) -> Void = { _ in },
         onSkipHabit: @escaping (HomeHabitRow) -> Void = { _ in },
         onLapseHabit: @escaping (HomeHabitRow) -> Void = { _ in },
+        onCycleHabit: ((HomeHabitRow) -> Void)? = nil,
         onOpenHabit: @escaping (HomeHabitRow) -> Void = { _ in },
         onDrop: @escaping ([NSItemProvider]) -> Bool
     ) {
@@ -88,6 +90,7 @@ public struct FocusZone: View {
         self.onCompleteHabit = onCompleteHabit
         self.onSkipHabit = onSkipHabit
         self.onLapseHabit = onLapseHabit
+        self.onCycleHabit = onCycleHabit
         self.onOpenHabit = onOpenHabit
         self.onDrop = onDrop
     }
@@ -238,6 +241,13 @@ public struct FocusZone: View {
                         onLapseHabit(habit)
                     case (.negative, .lapseOnly):
                         break
+                    }
+                },
+                onRowAction: {
+                    if let onCycleHabit {
+                        onCycleHabit(habit)
+                    } else {
+                        onOpenHabit(habit)
                     }
                 },
                 onOpenDetail: {

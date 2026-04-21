@@ -4,8 +4,6 @@ import SwiftUI
 struct InsightsWeekView: View {
 
     @ObservedObject var viewModel: InsightsViewModel
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @State private var didAppear = false
 
     private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.currentTheme.tokens.spacing }
     private var state: InsightsWeekState { viewModel.weekState }
@@ -26,18 +24,18 @@ struct InsightsWeekView: View {
     }
 
     var body: some View {
-        VStack(spacing: spacing.s12) {
+        LazyVStack(spacing: spacing.s12) {
             module(index: 0) {
                 heroCard
             }
             module(index: 1) {
-                weeklyOperatingCard
+                weeklyPatternCard
             }
             module(index: 2) {
                 weeklyMomentumCard
             }
             module(index: 3) {
-                weeklyPatternCard
+                weeklyOperatingCard
             }
             module(index: 4) {
                 leaderboardCard
@@ -45,23 +43,20 @@ struct InsightsWeekView: View {
             module(index: 5) {
                 mixCard(
                     eyebrow: "Priority mix",
-                    title: "What kind of work actually got finished",
+                    title: "What actually got finished",
                     items: state.priorityMix
                 )
             }
             module(index: 6) {
                 mixCard(
                     eyebrow: "Task-type mix",
-                    title: "When that work tends to land",
+                    title: "When that work lands",
                     items: state.taskTypeMix
                 )
             }
         }
         .padding(.horizontal, spacing.screenHorizontal)
         .padding(.bottom, spacing.s16)
-        .onAppear {
-            didAppear = true
-        }
     }
 
     @ViewBuilder
@@ -101,9 +96,14 @@ struct InsightsWeekView: View {
                         Text(weeklyOperating.recoverySummary)
                             .font(.tasker(.caption1))
                             .foregroundColor(Color.tasker.textSecondary)
-                        Text(weeklyOperating.recoveryNarrative)
-                            .font(.tasker(.caption1))
-                            .foregroundColor(Color.tasker.textSecondary)
+                        DisclosureGroup("Details") {
+                            Text(weeklyOperating.recoveryNarrative)
+                                .font(.tasker(.caption1))
+                                .foregroundColor(Color.tasker.textSecondary)
+                                .padding(.top, spacing.s4)
+                        }
+                        .font(.tasker(.caption1))
+                        .foregroundColor(Color.tasker.textTertiary)
                     }
 
                     if weeklyOperating.momentumDrivers.isEmpty == false {
@@ -136,13 +136,28 @@ struct InsightsWeekView: View {
                     )
                 }
 
-                Text(state.heroTitle)
+                Text(state.heroCard.title)
                     .font(.tasker(.title2))
                     .foregroundColor(Color.tasker.textPrimary)
 
-                Text(state.heroSummary)
-                    .font(.tasker(.callout))
+                Text(state.heroCard.metric)
+                    .font(.tasker(.headline))
+                    .foregroundColor(Color.tasker.textPrimary)
+
+                Text(state.heroCard.hint)
+                    .font(.tasker(.caption1))
                     .foregroundColor(Color.tasker.textSecondary)
+
+                if let detail = state.heroCard.detail, detail.isEmpty == false {
+                    DisclosureGroup("Details") {
+                        Text(detail)
+                            .font(.tasker(.caption1))
+                            .foregroundColor(Color.tasker.textSecondary)
+                            .padding(.top, spacing.s4)
+                    }
+                    .font(.tasker(.caption1))
+                    .foregroundColor(Color.tasker.textTertiary)
+                }
 
                 LazyVGrid(columns: [
                     GridItem(.flexible(), spacing: 12),
@@ -201,7 +216,7 @@ struct InsightsWeekView: View {
                     }
                 }
 
-                Text("Bottom labels show completions. Bars show XP intensity across the week.")
+                Text("Bars = XP, labels = completions.")
                     .font(.tasker(.caption2))
                     .foregroundColor(Color.tasker.textQuaternary)
             }
@@ -253,7 +268,7 @@ struct InsightsWeekView: View {
                     .foregroundColor(Color.tasker.textTertiary)
 
                 if state.projectLeaderboard.isEmpty {
-                    Text("Project signal appears once completed work clusters around named projects.")
+                    Text("Project signal appears after a few completions.")
                         .font(.tasker(.callout))
                         .foregroundColor(Color.tasker.textSecondary)
                 } else {
@@ -308,7 +323,7 @@ struct InsightsWeekView: View {
                     .foregroundColor(Color.tasker.textPrimary)
 
                 if items.isEmpty {
-                    Text("This view fills in after the week accumulates completed work.")
+                    Text("This fills in as completions land.")
                         .font(.tasker(.callout))
                         .foregroundColor(Color.tasker.textSecondary)
                 } else {
@@ -394,16 +409,8 @@ struct InsightsWeekView: View {
         }
     }
 
-    private func module<Content: View>(index: Int, @ViewBuilder content: () -> Content) -> some View {
-        let delay = Double(index) * 0.05
-        return content()
-            .opacity(reduceMotion || didAppear ? 1 : 0)
-            .scaleEffect(reduceMotion || didAppear ? 1 : 0.985)
-            .offset(y: reduceMotion || didAppear ? 0 : 14)
-            .animation(
-                reduceMotion ? nil : TaskerAnimation.gentle.delay(delay),
-                value: didAppear
-            )
+    private func module<Content: View>(index _: Int, @ViewBuilder content: () -> Content) -> some View {
+        content()
     }
 
     @ViewBuilder
@@ -411,12 +418,12 @@ struct InsightsWeekView: View {
         content()
             .padding(spacing.s16)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .taskerPremiumSurface(
+            .taskerAnalyticsSurface(
                 cornerRadius: 24,
                 fillColor: Color.tasker.surfacePrimary,
                 strokeColor: Color.tasker.strokeHairline.opacity(0.82),
                 accentColor: Color.tasker.accentSecondary,
-                level: .e2
+                level: .e1
             )
     }
 

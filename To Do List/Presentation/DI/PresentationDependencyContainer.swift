@@ -263,6 +263,21 @@ public final class PresentationDependencyContainer {
         )
     }
 
+    @MainActor
+    public func makeDailyReflectPlanViewModel(
+        preferredReflectionDate: Date? = nil,
+        analyticsTracker: ((String, [String: String]) -> Void)? = nil,
+        onComplete: ((SaveDailyReflectionAndPlanResult) -> Void)? = nil
+    ) -> DailyReflectPlanViewModel {
+        assertConfigured()
+        return DailyReflectPlanViewModel(
+            useCaseCoordinator: useCaseCoordinator,
+            preferredReflectionDate: preferredReflectionDate,
+            analyticsTracker: analyticsTracker,
+            onComplete: onComplete
+        )
+    }
+
     /// Get or create LifeManagementViewModel
     @MainActor
     public func makeLifeManagementViewModel() -> LifeManagementViewModel {

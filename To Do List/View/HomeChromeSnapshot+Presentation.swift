@@ -94,10 +94,6 @@ extension HomeChromeSnapshot {
     }
 
     private var shouldShowReflectionCTA: Bool {
-        // Reflection stays tied to the default Today scope, not custom-date views.
-        if case .today = activeScope {
-            return reflectionEligible
-        }
         return false
     }
 

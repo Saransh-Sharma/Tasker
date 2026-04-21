@@ -1434,6 +1434,32 @@ final class HomeViewModelPersistenceTests: XCTestCase {
         XCTAssertEqual(harness.viewModel.habitHomeSectionState.primaryRows.first?.state, .completedToday)
     }
 
+    func testHabitLastCellActionPublishesImmediateMutationFeedback() {
+        let harness = makeHabitMutationHarness()
+        waitForMainQueueFlush()
+
+        guard let row = firstLoadedHabitRow(in: harness.viewModel) else {
+            return XCTFail("Expected habit row after initial load")
+        }
+
+        var receivedFeedback: [HomeHabitMutationFeedback] = []
+        harness.viewModel.$habitMutationFeedback
+            .compactMap { $0 }
+            .sink { feedback in
+                receivedFeedback.append(feedback)
+            }
+            .store(in: &cancellables)
+
+        harness.schedulingEngine.deferResolveCompletion = true
+        harness.viewModel.performHabitLastCellAction(row, source: "test")
+
+        guard let latestFeedback = receivedFeedback.last else {
+            return XCTFail("Expected an immediate mutation feedback payload")
+        }
+        XCTAssertEqual(latestFeedback.haptic, .success)
+        XCTAssertTrue(latestFeedback.message.contains("Marked done"))
+    }
+
     func testHabitLastCellActionUpdatesVisibleStreakAndTrailingCellImmediately() {
         let harness = makeHabitMutationHarness()
         waitForMainQueueFlush()
@@ -2055,6 +2081,22 @@ final class HomeViewModelPersistenceTests: XCTestCase {
             expectation.fulfill()
         }
         wait(for: [expectation], timeout: seconds + 1.0)
+    }
+
+    private func firstLoadedHabitRow(
+        in viewModel: HomeViewModel,
+        timeout: TimeInterval = 1.2
+    ) -> HomeHabitRow? {
+        let deadline = Date().addingTimeInterval(timeout)
+        repeat {
+            let rows = viewModel.habitHomeSectionState.primaryRows
+                + viewModel.habitHomeSectionState.recoveryRows
+            if let row = rows.first {
+                return row
+            }
+            waitForMainQueueFlush(seconds: 0.05)
+        } while Date() < deadline
+        return nil
     }
 
     private func visibleFocusTaskIDs(in rows: [HomeTodayRow]) -> Set<UUID> {

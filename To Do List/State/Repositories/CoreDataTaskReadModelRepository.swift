@@ -139,24 +139,34 @@ public final class CoreDataTaskReadModelRepository: TaskReadModelRepositoryProto
         referenceDate: Date,
         completion: @escaping (Result<InsightsTodayTaskProjection, Error>) -> Void
     ) {
+        fetchInsightsTodayProjection(
+            query: InsightsTodayProjectionQuery(referenceDate: referenceDate),
+            completion: completion
+        )
+    }
+
+    public func fetchInsightsTodayProjection(
+        query: InsightsTodayProjectionQuery,
+        completion: @escaping (Result<InsightsTodayTaskProjection, Error>) -> Void
+    ) {
         context.perform {
             do {
                 let calendar = Calendar.current
-                let startOfToday = calendar.startOfDay(for: referenceDate)
-                let startOfTomorrow = calendar.date(byAdding: .day, value: 1, to: startOfToday) ?? referenceDate
+                let startOfToday = calendar.startOfDay(for: query.referenceDate)
+                let startOfTomorrow = calendar.date(byAdding: .day, value: 1, to: startOfToday) ?? query.referenceDate
 
                 let dueWindowEntities = try self.fetchTaskEntities(
                     predicate: NSCompoundPredicate(andPredicateWithSubpredicates: [
                         NSPredicate(format: "dueDate <= %@", startOfTomorrow as NSDate)
                     ]),
                     sortDescriptors: self.sortDescriptors(for: .dueDateAscending),
-                    limit: 600,
+                    limit: query.dueWindowLimit,
                     offset: 0
                 )
                 let recentEntities = try self.fetchTaskEntities(
                     predicate: nil,
                     sortDescriptors: self.sortDescriptors(for: .updatedAtDescending),
-                    limit: 600,
+                    limit: query.recentLimit,
                     offset: 0
                 )
 
@@ -173,10 +183,20 @@ public final class CoreDataTaskReadModelRepository: TaskReadModelRepositoryProto
         referenceDate: Date,
         completion: @escaping (Result<InsightsWeekTaskProjection, Error>) -> Void
     ) {
+        fetchInsightsWeekProjection(
+            query: InsightsWeekProjectionQuery(referenceDate: referenceDate),
+            completion: completion
+        )
+    }
+
+    public func fetchInsightsWeekProjection(
+        query: InsightsWeekProjectionQuery,
+        completion: @escaping (Result<InsightsWeekTaskProjection, Error>) -> Void
+    ) {
         context.perform {
             do {
                 let calendar = XPCalculationEngine.mondayCalendar()
-                let today = calendar.startOfDay(for: referenceDate)
+                let today = calendar.startOfDay(for: query.referenceDate)
                 let weekStart = XPCalculationEngine.mondayStartOfWeek(for: today, calendar: calendar)
                 let startOfTomorrow = calendar.date(byAdding: .day, value: 1, to: today) ?? today
                 let weekEnd = calendar.date(byAdding: .day, value: 6, to: weekStart) ?? weekStart
@@ -184,13 +204,13 @@ public final class CoreDataTaskReadModelRepository: TaskReadModelRepositoryProto
                 let recentEntities = try self.fetchTaskEntities(
                     predicate: nil,
                     sortDescriptors: self.sortDescriptors(for: .updatedAtDescending),
-                    limit: 600,
+                    limit: query.recentLimit,
                     offset: 0
                 )
                 let dueWindowEntities = try self.fetchTaskEntities(
                     predicate: NSPredicate(format: "dueDate <= %@", startOfTomorrow as NSDate),
                     sortDescriptors: self.sortDescriptors(for: .dueDateAscending),
-                    limit: 600,
+                    limit: query.dueWindowLimit,
                     offset: 0
                 )
                 let recentTasks = try CoreDataTaskDefinitionRepository.mapTaskDefinitions(recentEntities, context: self.context)
@@ -201,6 +221,63 @@ public final class CoreDataTaskReadModelRepository: TaskReadModelRepositoryProto
                     dueWindowTasks: dueWindowTasks,
                     projectScores: projectScores
                 )))
+            } catch {
+                completion(.failure(error))
+            }
+        }
+    }
+
+    public func fetchDailyReflectionProjection(
+        query: DailyReflectionTaskProjectionQuery,
+        completion: @escaping (Result<DailyReflectionTaskProjection, Error>) -> Void
+    ) {
+        context.perform {
+            do {
+                let calendar = Calendar.current
+                let reflectionDayStart = calendar.startOfDay(for: query.reflectionDate)
+                let reflectionDayEnd = calendar.date(byAdding: .day, value: 1, to: reflectionDayStart) ?? reflectionDayStart
+                let planningDayStart = calendar.startOfDay(for: query.planningDate)
+                let planningDayEnd = calendar.date(byAdding: .day, value: 1, to: planningDayStart) ?? planningDayStart
+
+                let completedEntities = try self.fetchTaskEntities(
+                    predicate: NSCompoundPredicate(andPredicateWithSubpredicates: [
+                        NSPredicate(format: "isComplete == YES"),
+                        NSPredicate(format: "dateCompleted >= %@", reflectionDayStart as NSDate),
+                        NSPredicate(format: "dateCompleted < %@", reflectionDayEnd as NSDate)
+                    ]),
+                    sortDescriptors: [
+                        NSSortDescriptor(key: "dateCompleted", ascending: false),
+                        NSSortDescriptor(key: "updatedAt", ascending: false),
+                        NSSortDescriptor(key: "taskID", ascending: true),
+                        NSSortDescriptor(key: "id", ascending: true)
+                    ],
+                    limit: query.completedLimit,
+                    offset: 0
+                )
+
+                let reflectionOpenEntities = try self.fetchTaskEntities(
+                    predicate: self.dailyReflectionOpenPredicate(dayEnd: reflectionDayEnd),
+                    sortDescriptors: self.sortDescriptors(for: .dueDateAscending),
+                    limit: query.openTaskLimit,
+                    offset: 0
+                )
+
+                let planningOpenEntities = try self.fetchTaskEntities(
+                    predicate: self.dailyReflectionOpenPredicate(dayEnd: planningDayEnd),
+                    sortDescriptors: self.sortDescriptors(for: .dueDateAscending),
+                    limit: query.openTaskLimit,
+                    offset: 0
+                )
+
+                completion(
+                    .success(
+                        DailyReflectionTaskProjection(
+                            reflectionCompletedTasks: try CoreDataTaskDefinitionRepository.mapTaskDefinitions(completedEntities, context: self.context),
+                            reflectionOpenTasks: try CoreDataTaskDefinitionRepository.mapTaskDefinitions(reflectionOpenEntities, context: self.context),
+                            planningOpenTasks: try CoreDataTaskDefinitionRepository.mapTaskDefinitions(planningOpenEntities, context: self.context)
+                        )
+                    )
+                )
             } catch {
                 completion(.failure(error))
             }
@@ -533,6 +610,17 @@ public final class CoreDataTaskReadModelRepository: TaskReadModelRepositoryProto
             totals[projectID, default: 0] += countValue * priority.scorePoints
         }
         return totals
+    }
+
+    private func dailyReflectionOpenPredicate(dayEnd: Date) -> NSPredicate {
+        NSCompoundPredicate(andPredicateWithSubpredicates: [
+            NSPredicate(format: "isComplete == NO"),
+            NSCompoundPredicate(orPredicateWithSubpredicates: [
+                NSPredicate(format: "taskType == %d", TaskType.morning.rawValue),
+                NSPredicate(format: "taskType == %d", TaskType.evening.rawValue),
+                NSPredicate(format: "dueDate < %@", dayEnd as NSDate)
+            ])
+        ])
     }
 
     /// Executes sortDescriptors.

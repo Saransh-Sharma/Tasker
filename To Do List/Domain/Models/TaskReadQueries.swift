@@ -139,6 +139,57 @@ public struct HomeProjectionQuery: Codable, Equatable {
     }
 }
 
+public struct InsightsTodayProjectionQuery: Codable, Equatable, Hashable {
+    public var referenceDate: Date
+    public var dueWindowLimit: Int
+    public var recentLimit: Int
+
+    public init(
+        referenceDate: Date,
+        dueWindowLimit: Int = 240,
+        recentLimit: Int = 240
+    ) {
+        self.referenceDate = referenceDate
+        self.dueWindowLimit = max(1, dueWindowLimit)
+        self.recentLimit = max(1, recentLimit)
+    }
+}
+
+public struct InsightsWeekProjectionQuery: Codable, Equatable, Hashable {
+    public var referenceDate: Date
+    public var dueWindowLimit: Int
+    public var recentLimit: Int
+
+    public init(
+        referenceDate: Date,
+        dueWindowLimit: Int = 260,
+        recentLimit: Int = 260
+    ) {
+        self.referenceDate = referenceDate
+        self.dueWindowLimit = max(1, dueWindowLimit)
+        self.recentLimit = max(1, recentLimit)
+    }
+}
+
+public struct DailyReflectionTaskProjectionQuery: Codable, Equatable, Hashable {
+    public var reflectionDate: Date
+    public var planningDate: Date
+    public var completedLimit: Int
+    public var openTaskLimit: Int
+
+    public init(
+        reflectionDate: Date,
+        planningDate: Date,
+        completedLimit: Int = 160,
+        openTaskLimit: Int = 240
+    ) {
+        self.reflectionDate = reflectionDate
+        self.planningDate = planningDate
+        self.completedLimit = max(1, completedLimit)
+        self.openTaskLimit = max(1, openTaskLimit)
+    }
+}
+
 public struct InsightsTodayTaskProjection: Codable, Equatable, Hashable {
     public let dueWindowTasks: [TaskDefinition]
     public let recentTasks: [TaskDefinition]
@@ -178,6 +229,22 @@ public struct WeekChartProjection: Codable, Equatable, Hashable {
         self.weekStart = weekStart
         self.dayScores = dayScores
         self.projectScores = projectScores
+    }
+}
+
+public struct DailyReflectionTaskProjection: Codable, Equatable, Hashable {
+    public let reflectionCompletedTasks: [TaskDefinition]
+    public let reflectionOpenTasks: [TaskDefinition]
+    public let planningOpenTasks: [TaskDefinition]
+
+    public init(
+        reflectionCompletedTasks: [TaskDefinition],
+        reflectionOpenTasks: [TaskDefinition],
+        planningOpenTasks: [TaskDefinition]
+    ) {
+        self.reflectionCompletedTasks = reflectionCompletedTasks
+        self.reflectionOpenTasks = reflectionOpenTasks
+        self.planningOpenTasks = planningOpenTasks
     }
 }
 

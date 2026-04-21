@@ -377,6 +377,30 @@ class HomePage {
         ).firstMatch
     }
 
+    var dailyReflectionEntryCompact: XCUIElement {
+        let card = app.otherElements.matching(
+            NSPredicate(format: "identifier == %@", AccessibilityIdentifiers.Home.dailyReflectionEntryCompact)
+        ).firstMatch
+        if card.exists {
+            return card
+        }
+        return app.descendants(matching: .any).matching(
+            NSPredicate(format: "identifier == %@", AccessibilityIdentifiers.Home.dailyReflectionEntryCompact)
+        ).firstMatch
+    }
+
+    var calendarCard: XCUIElement {
+        let card = app.otherElements.matching(
+            NSPredicate(format: "identifier == %@", AccessibilityIdentifiers.Home.calendarCard)
+        ).firstMatch
+        if card.exists {
+            return card
+        }
+        return app.descendants(matching: .any).matching(
+            NSPredicate(format: "identifier == %@", AccessibilityIdentifiers.Home.calendarCard)
+        ).firstMatch
+    }
+
     var passiveTrackingRail: XCUIElement {
         let rail = app.otherElements.matching(
             NSPredicate(format: "identifier == %@", AccessibilityIdentifiers.Home.passiveTrackingRail)

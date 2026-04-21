@@ -127,6 +127,71 @@ public final class CoreDataReminderRepository: ReminderRepositoryProtocol {
         }
     }
 
+    public func fetchDeliveryResponseAggregate(
+        from startDate: Date?,
+        to endDate: Date?,
+        completion: @escaping (Result<ReminderDeliveryResponseAggregate, Error>) -> Void
+    ) {
+        viewContext.perform {
+            do {
+                let reminderCount = try V2CoreDataRepositorySupport.fetchObjects(
+                    in: self.viewContext,
+                    entityName: "Reminder"
+                ).count
+
+                var predicates: [NSPredicate] = []
+                if let startDate {
+                    predicates.append(NSPredicate(format: "createdAt >= %@", startDate as NSDate))
+                }
+                if let endDate {
+                    predicates.append(NSPredicate(format: "createdAt < %@", endDate as NSDate))
+                }
+
+                let objects = try V2CoreDataRepositorySupport.fetchObjects(
+                    in: self.viewContext,
+                    entityName: "ReminderDelivery",
+                    predicate: predicates.isEmpty
+                        ? nil
+                        : NSCompoundPredicate(andPredicateWithSubpredicates: predicates)
+                )
+
+                var acknowledged = 0
+                var snoozed = 0
+                var pending = 0
+
+                for object in objects {
+                    let status = (object.value(forKey: "status") as? String ?? "")
+                        .trimmingCharacters(in: .whitespacesAndNewlines)
+                        .lowercased()
+                    let ackAt = object.value(forKey: "ackAt") as? Date
+                    let snoozedUntil = object.value(forKey: "snoozedUntil") as? Date
+
+                    if ackAt != nil || status == "acked" || status == "acknowledged" {
+                        acknowledged += 1
+                    } else if snoozedUntil != nil || status == "snoozed" {
+                        snoozed += 1
+                    } else {
+                        pending += 1
+                    }
+                }
+
+                completion(
+                    .success(
+                        ReminderDeliveryResponseAggregate(
+                            configuredReminderCount: reminderCount,
+                            totalDeliveries: acknowledged + snoozed + pending,
+                            acknowledgedDeliveries: acknowledged,
+                            snoozedDeliveries: snoozed,
+                            pendingDeliveries: pending
+                        )
+                    )
+                )
+            } catch {
+                completion(.failure(error))
+            }
+        }
+    }
+
     /// Executes saveDelivery.
     public func saveDelivery(_ delivery: ReminderDeliveryDefinition, completion: @escaping (Result<ReminderDeliveryDefinition, Error>) -> Void) {
         persistDelivery(delivery, completion: completion)

@@ -193,6 +193,7 @@ struct TaskListView: View {
 
     let headerContent: AnyView?
     let footerContent: AnyView?
+    let footerContentCountsAsContentForEmptyState: Bool
     let morningTasks: [TaskDefinition]
     let eveningTasks: [TaskDefinition]
     let overdueTasks: [TaskDefinition]
@@ -220,6 +221,7 @@ struct TaskListView: View {
     var onCompleteHabit: ((HomeHabitRow) -> Void)? = nil
     var onSkipHabit: ((HomeHabitRow) -> Void)? = nil
     var onLapseHabit: ((HomeHabitRow) -> Void)? = nil
+    var onCycleHabit: ((HomeHabitRow) -> Void)? = nil
     var onOpenHabit: ((HomeHabitRow) -> Void)? = nil
     var onReorderCustomProjects: (([UUID]) -> Void)? = nil
     var onInboxHeaderAction: (() -> Void)? = nil
@@ -245,6 +247,7 @@ struct TaskListView: View {
     init(
         headerContent: AnyView? = nil,
         footerContent: AnyView? = nil,
+        footerContentCountsAsContentForEmptyState: Bool = true,
         morningTasks: [TaskDefinition],
         eveningTasks: [TaskDefinition],
         overdueTasks: [TaskDefinition],
@@ -272,6 +275,7 @@ struct TaskListView: View {
         onCompleteHabit: ((HomeHabitRow) -> Void)? = nil,
         onSkipHabit: ((HomeHabitRow) -> Void)? = nil,
         onLapseHabit: ((HomeHabitRow) -> Void)? = nil,
+        onCycleHabit: ((HomeHabitRow) -> Void)? = nil,
         onOpenHabit: ((HomeHabitRow) -> Void)? = nil,
         onReorderCustomProjects: (([UUID]) -> Void)? = nil,
         onInboxHeaderAction: (() -> Void)? = nil,
@@ -289,6 +293,7 @@ struct TaskListView: View {
     ) {
         self.headerContent = headerContent
         self.footerContent = footerContent
+        self.footerContentCountsAsContentForEmptyState = footerContentCountsAsContentForEmptyState
         self.morningTasks = morningTasks
         self.eveningTasks = eveningTasks
         self.overdueTasks = overdueTasks
@@ -316,6 +321,7 @@ struct TaskListView: View {
         self.onCompleteHabit = onCompleteHabit
         self.onSkipHabit = onSkipHabit
         self.onLapseHabit = onLapseHabit
+        self.onCycleHabit = onCycleHabit
         self.onOpenHabit = onOpenHabit
         self.onReorderCustomProjects = onReorderCustomProjects
         self.onInboxHeaderAction = onInboxHeaderAction
@@ -524,6 +530,7 @@ struct TaskListView: View {
                     onCompleteHabit: onCompleteHabit,
                     onSkipHabit: onSkipHabit,
                     onLapseHabit: onLapseHabit,
+                    onCycleHabit: onCycleHabit,
                     onOpenHabit: onOpenHabit,
                     headerActionTitle: headerActionTitle(for: section, index: index),
                     onHeaderAction: headerAction(for: section, index: index),
@@ -829,7 +836,7 @@ struct TaskListView: View {
             if !agendaTailItems.isEmpty {
                 return false
             }
-            if footerContent != nil {
+            if footerContentCountsAsContentForEmptyState, footerContent != nil {
                 return false
             }
             return morningTasks.isEmpty
@@ -997,6 +1004,7 @@ struct TaskListView: View {
                             onCompleteHabit: onCompleteHabit,
                             onSkipHabit: onSkipHabit,
                             onLapseHabit: onLapseHabit,
+                            onCycleHabit: onCycleHabit,
                             onOpenHabit: onOpenHabit
                         )
 

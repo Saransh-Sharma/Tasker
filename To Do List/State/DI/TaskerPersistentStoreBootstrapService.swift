@@ -403,88 +403,108 @@ struct TaskerPersistentRuntimeInitializer {
     func initialize(container: NSPersistentCloudKitContainer) {
         let context = container.viewContext
         context.performAndWait {
-            do {
-                let repairReport = try LifeAreaIdentityRepair.repair(in: context)
-                if repairReport.merged > 0 || repairReport.normalized > 0 {
-                    logWarning(
-                        event: "life_area_identity_repair_applied",
-                        message: "Repaired duplicate or malformed life area rows during startup defaults",
-                        fields: [
-                            "scanned": String(repairReport.scanned),
-                            "normalized": String(repairReport.normalized),
-                            "merged": String(repairReport.merged),
-                            "duplicate_groups": String(repairReport.duplicateGroups),
-                            "repointed_projects": String(repairReport.repointedProjects),
-                            "repointed_tasks": String(repairReport.repointedTasks),
-                            "repointed_habits": String(repairReport.repointedHabits)
-                        ]
-                    )
-                }
+            self.performInitialization(in: context)
+        }
+    }
 
-                let lifeArea: NSManagedObject
-                let normalizedGeneralKey = LifeAreaIdentityRepair.normalizedNameKey("General")
-                if let canonicalGeneralID = repairReport.canonicalIDsByNormalizedName[normalizedGeneralKey],
-                   let existing = try fetchLifeArea(id: canonicalGeneralID, in: context) {
-                    lifeArea = existing
-                } else if let existing = try fetchGeneralLifeArea(in: context) {
-                    lifeArea = existing
-                } else {
-                    let created = NSEntityDescription.insertNewObject(forEntityName: "LifeArea", into: context)
-                    created.setValue(UUID(), forKey: "id")
-                    created.setValue("General", forKey: "name")
-                    created.setValue(LifeAreaConstants.generalSeedColor, forKey: "color")
-                    created.setValue("square.grid.2x2", forKey: "icon")
-                    created.setValue(Int32(0), forKey: "sortOrder")
-                    created.setValue(false, forKey: "isArchived")
-                    created.setValue(Date(), forKey: "createdAt")
-                    created.setValue(Date(), forKey: "updatedAt")
-                    created.setValue(Int32(1), forKey: "version")
-                    lifeArea = created
+    func initializeDeferred(
+        container: NSPersistentCloudKitContainer,
+        completion: (() -> Void)? = nil
+    ) {
+        let context = container.newBackgroundContext()
+        context.mergePolicy = NSMergeByPropertyObjectTrumpMergePolicy
+        context.perform {
+            self.performInitialization(in: context)
+            if let completion {
+                DispatchQueue.main.async {
+                    completion()
                 }
+            }
+        }
+    }
 
-                let inboxRequest = NSFetchRequest<NSManagedObject>(entityName: "Project")
-                inboxRequest.predicate = NSCompoundPredicate(orPredicateWithSubpredicates: [
-                    NSPredicate(format: "id == %@", ProjectConstants.inboxProjectID as CVarArg),
-                    NSPredicate(format: "isInbox == YES"),
-                    NSPredicate(format: "isDefault == YES"),
-                    NSPredicate(format: "name ==[c] %@", ProjectConstants.inboxProjectName)
-                ])
-                inboxRequest.fetchLimit = 1
-                let inbox = try context.fetch(inboxRequest).first
-                    ?? NSEntityDescription.insertNewObject(forEntityName: "Project", into: context)
-                inbox.setValue(ProjectConstants.inboxProjectID, forKey: "id")
-                inbox.setValue(lifeArea.value(forKey: "id") as? UUID, forKey: "lifeAreaID")
-                inbox.setValue(ProjectConstants.inboxProjectName, forKey: "name")
-                inbox.setValue(ProjectConstants.inboxProjectDescription, forKey: "projectDescription")
-                inbox.setValue(true, forKey: "isInbox")
-                inbox.setValue(true, forKey: "isDefault")
-                inbox.setValue(false, forKey: "isArchived")
-                inbox.setValue(false, forKey: "isFavorite")
-                inbox.setValue("gray", forKey: "color")
-                inbox.setValue("inbox", forKey: "icon")
-                inbox.setValue("active", forKey: "status")
-                inbox.setValue(Int32(1), forKey: "priority")
-                if inbox.value(forKey: "createdDate") == nil {
-                    inbox.setValue(Date(), forKey: "createdDate")
-                }
-                inbox.setValue(Date(), forKey: "modifiedDate")
-                inbox.setValue(Date(), forKey: "updatedAt")
-
-                try backfillTaskLifeAreaIDsIfNeeded(in: context)
-                try backfillHabitRuntimeFieldsIfNeeded(in: context)
-                try backfillOccurrenceKeysIfNeeded(in: context)
-                try backfillWeeklyPlanningBucketsIfNeeded(in: context)
-
-                if context.hasChanges {
-                    try context.save()
-                }
-            } catch {
-                logError(
-                    event: "v3_default_seed_failed",
-                    message: "Failed to seed V3 default life area/inbox",
-                    fields: ["error": error.localizedDescription]
+    private func performInitialization(in context: NSManagedObjectContext) {
+        do {
+            let repairReport = try LifeAreaIdentityRepair.repair(in: context)
+            if repairReport.merged > 0 || repairReport.normalized > 0 {
+                logWarning(
+                    event: "life_area_identity_repair_applied",
+                    message: "Repaired duplicate or malformed life area rows during startup defaults",
+                    fields: [
+                        "scanned": String(repairReport.scanned),
+                        "normalized": String(repairReport.normalized),
+                        "merged": String(repairReport.merged),
+                        "duplicate_groups": String(repairReport.duplicateGroups),
+                        "repointed_projects": String(repairReport.repointedProjects),
+                        "repointed_tasks": String(repairReport.repointedTasks),
+                        "repointed_habits": String(repairReport.repointedHabits)
+                    ]
                 )
             }
+
+            let lifeArea: NSManagedObject
+            let normalizedGeneralKey = LifeAreaIdentityRepair.normalizedNameKey("General")
+            if let canonicalGeneralID = repairReport.canonicalIDsByNormalizedName[normalizedGeneralKey],
+               let existing = try fetchLifeArea(id: canonicalGeneralID, in: context) {
+                lifeArea = existing
+            } else if let existing = try fetchGeneralLifeArea(in: context) {
+                lifeArea = existing
+            } else {
+                let created = NSEntityDescription.insertNewObject(forEntityName: "LifeArea", into: context)
+                created.setValue(UUID(), forKey: "id")
+                created.setValue("General", forKey: "name")
+                created.setValue(LifeAreaConstants.generalSeedColor, forKey: "color")
+                created.setValue("square.grid.2x2", forKey: "icon")
+                created.setValue(Int32(0), forKey: "sortOrder")
+                created.setValue(false, forKey: "isArchived")
+                created.setValue(Date(), forKey: "createdAt")
+                created.setValue(Date(), forKey: "updatedAt")
+                created.setValue(Int32(1), forKey: "version")
+                lifeArea = created
+            }
+
+            let inboxRequest = NSFetchRequest<NSManagedObject>(entityName: "Project")
+            inboxRequest.predicate = NSCompoundPredicate(orPredicateWithSubpredicates: [
+                NSPredicate(format: "id == %@", ProjectConstants.inboxProjectID as CVarArg),
+                NSPredicate(format: "isInbox == YES"),
+                NSPredicate(format: "isDefault == YES"),
+                NSPredicate(format: "name ==[c] %@", ProjectConstants.inboxProjectName)
+            ])
+            inboxRequest.fetchLimit = 1
+            let inbox = try context.fetch(inboxRequest).first
+                ?? NSEntityDescription.insertNewObject(forEntityName: "Project", into: context)
+            inbox.setValue(ProjectConstants.inboxProjectID, forKey: "id")
+            inbox.setValue(lifeArea.value(forKey: "id") as? UUID, forKey: "lifeAreaID")
+            inbox.setValue(ProjectConstants.inboxProjectName, forKey: "name")
+            inbox.setValue(ProjectConstants.inboxProjectDescription, forKey: "projectDescription")
+            inbox.setValue(true, forKey: "isInbox")
+            inbox.setValue(true, forKey: "isDefault")
+            inbox.setValue(false, forKey: "isArchived")
+            inbox.setValue(false, forKey: "isFavorite")
+            inbox.setValue("gray", forKey: "color")
+            inbox.setValue("inbox", forKey: "icon")
+            inbox.setValue("active", forKey: "status")
+            inbox.setValue(Int32(1), forKey: "priority")
+            if inbox.value(forKey: "createdDate") == nil {
+                inbox.setValue(Date(), forKey: "createdDate")
+            }
+            inbox.setValue(Date(), forKey: "modifiedDate")
+            inbox.setValue(Date(), forKey: "updatedAt")
+
+            try backfillTaskLifeAreaIDsIfNeeded(in: context)
+            try backfillHabitRuntimeFieldsIfNeeded(in: context)
+            try backfillOccurrenceKeysIfNeeded(in: context)
+            try backfillWeeklyPlanningBucketsIfNeeded(in: context)
+
+            if context.hasChanges {
+                try context.save()
+            }
+        } catch {
+            logError(
+                event: "v3_default_seed_failed",
+                message: "Failed to seed V3 default life area/inbox",
+                fields: ["error": error.localizedDescription]
+            )
         }
     }
 

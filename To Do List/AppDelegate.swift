@@ -1178,6 +1178,14 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         persistentRuntimeInitializer.initialize(container: container)
     }
 
+    private func ensureV3DefaultsDeferred(completion: (() -> Void)? = nil) {
+        guard let container = persistentContainer else {
+            completion?()
+            return
+        }
+        persistentRuntimeInitializer.initializeDeferred(container: container, completion: completion)
+    }
+
     private var shouldRunStartupMutationWorkflows: Bool {
         AppDelegate.isWriteClosed == false
     }
@@ -1464,7 +1472,6 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         }
 
         if shouldRunStartupMutationWorkflows {
-            ensureV3Defaults()
             repairProjectIdentityIfNeeded()
         } else {
             logWarning(
@@ -1496,8 +1503,10 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
             guard let self else { return }
 
             if self.shouldRunStartupMutationWorkflows {
-                DispatchQueue.main.async { [weak self] in
-                    self?.maintainHabitRuntimeIfNeeded(reason: "launch_deferred_warmup")
+                self.ensureV3DefaultsDeferred { [weak self] in
+                    DispatchQueue.main.async { [weak self] in
+                        self?.maintainHabitRuntimeIfNeeded(reason: "launch_deferred_warmup")
+                    }
                 }
             }
 

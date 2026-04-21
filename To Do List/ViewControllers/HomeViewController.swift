@@ -130,7 +130,8 @@ struct HomeChromeSnapshot: Equatable {
     let weeklySummaryIsLoading: Bool
     let weeklySummaryErrorMessage: String?
     let projects: [Project]
-    let reflectionEligible: Bool
+    let dailyReflectionEntryState: DailyReflectionEntryState?
+    let dailyPlanDraft: DailyPlanDraft?
     let momentumGuidanceText: String
 
     init(
@@ -146,7 +147,8 @@ struct HomeChromeSnapshot: Equatable {
         weeklySummaryIsLoading: Bool = false,
         weeklySummaryErrorMessage: String? = nil,
         projects: [Project],
-        reflectionEligible: Bool,
+        dailyReflectionEntryState: DailyReflectionEntryState?,
+        dailyPlanDraft: DailyPlanDraft?,
         momentumGuidanceText: String
     ) {
         self.selectedDate = selectedDate
@@ -161,7 +163,8 @@ struct HomeChromeSnapshot: Equatable {
         self.weeklySummaryIsLoading = weeklySummaryIsLoading
         self.weeklySummaryErrorMessage = weeklySummaryErrorMessage
         self.projects = projects
-        self.reflectionEligible = reflectionEligible
+        self.dailyReflectionEntryState = dailyReflectionEntryState
+        self.dailyPlanDraft = dailyPlanDraft
         self.momentumGuidanceText = momentumGuidanceText
     }
 
@@ -178,7 +181,8 @@ struct HomeChromeSnapshot: Equatable {
         weeklySummaryIsLoading: false,
         weeklySummaryErrorMessage: nil,
         projects: [],
-        reflectionEligible: false,
+        dailyReflectionEntryState: nil,
+        dailyPlanDraft: nil,
         momentumGuidanceText: ""
     )
 }
@@ -787,10 +791,13 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
             .receive(on: RunLoop.main)
             .sink { [weak self] activeFace in
                 self?.trackFaceSelection(activeFace)
-                if activeFace == .tasks {
+                switch activeFace {
+                case .tasks:
                     self?.scheduleOnboardingEvaluationIfNeeded()
                     self?.scheduleBackgroundSurfacePrewarmIfNeeded()
-                } else {
+                case .analytics:
+                    self?.cancelBackgroundSearchPrewarm()
+                case .search:
                     self?.cancelBackgroundSurfacePrewarm()
                 }
             }
@@ -937,7 +944,7 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
 
     private func openAnalytics(source: String, launchDefaultInsights: Bool) {
         guard faceCoordinator.activeFace != .analytics else { return }
-        cancelBackgroundSurfacePrewarm()
+        cancelBackgroundSearchPrewarm()
         pendingOnboardingEvaluationTask?.cancel()
         pendingOnboardingEvaluationTask = nil
         awaitsAnalyticsFirstInteractiveFrame = true
@@ -1016,9 +1023,6 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
         }
         awaitsAnalyticsFirstInteractiveFrame = false
         TaskerPerformanceTrace.event("HomeFaceSwitch")
-        faceCoordinator.insightsViewModel = nil
-        insightsViewModel = nil
-        viewModel.releaseInsightsViewModel()
         TaskerMemoryDiagnostics.checkpoint(
             event: "home_insights_close",
             message: "Closing insights surface",
@@ -1195,8 +1199,16 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
     }
 
     private func cancelBackgroundSurfacePrewarm() {
+        cancelBackgroundSearchPrewarm()
+        cancelBackgroundInsightsPrewarm()
+    }
+
+    private func cancelBackgroundSearchPrewarm() {
         pendingBackgroundSearchPrewarmTask?.cancel()
         pendingBackgroundSearchPrewarmTask = nil
+    }
+
+    private func cancelBackgroundInsightsPrewarm() {
         pendingBackgroundInsightsPrewarmTask?.cancel()
         pendingBackgroundInsightsPrewarmTask = nil
     }
@@ -3836,7 +3848,11 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
         case .weeklyReview:
             handleWeeklyReviewDeepLink()
         case .dailySummary(let kind, let dateStamp):
-            presentDailySummaryModal(kind: kind, dateStamp: dateStamp)
+            if kind == .nightly {
+                presentReflectPlanFlow(preferredReflectionDate: dateFromStamp(dateStamp))
+            } else {
+                presentDailySummaryModal(kind: kind, dateStamp: dateStamp)
+            }
         }
     }
 
@@ -4010,6 +4026,51 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
         }
     }
 
+    private func presentReflectPlanFlow(preferredReflectionDate: Date?) {
+        guard let viewModel else { return }
+
+        let reflectPlanViewModel = PresentationDependencyContainer.shared.makeDailyReflectPlanViewModel(
+            preferredReflectionDate: preferredReflectionDate,
+            analyticsTracker: { [weak self] action, metadata in
+                self?.viewModel?.trackHomeInteraction(
+                    action: action,
+                    metadata: metadata.reduce(into: [String: Any]()) { partialResult, item in
+                        partialResult[item.key] = item.value
+                    }
+                )
+            },
+            onComplete: { [weak self] result in
+                self?.viewModel?.refreshAfterDailyReflectPlanSave(planningDate: result.target.planningDate)
+                self?.dismiss(animated: true)
+            }
+        )
+
+        let hostingController = UIHostingController(
+            rootView: ReflectPlanScreen(
+                viewModel: reflectPlanViewModel,
+                onClose: { [weak self] in
+                    self?.dismiss(animated: true)
+                }
+            )
+        )
+
+        if traitCollection.horizontalSizeClass == .compact {
+            hostingController.modalPresentationStyle = .fullScreen
+        } else {
+            hostingController.modalPresentationStyle = .pageSheet
+            if let sheet = hostingController.sheetPresentationController {
+                sheet.detents = [.large()]
+                sheet.prefersGrabberVisible = true
+            }
+        }
+
+        present(hostingController, animated: true)
+        viewModel.trackHomeInteraction(
+            action: "reflection_opened",
+            metadata: ["source": "notification_nightly"]
+        )
+    }
+
     private func fallbackDailySummary(kind: TaskerDailySummaryKind, dateStamp: String?) -> DailySummaryModalData {
         let date = fallbackSummaryDate(from: dateStamp)
         switch kind {
@@ -4046,6 +4107,15 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
                 )
             )
         }
+    }
+
+    private func dateFromStamp(_ stamp: String?) -> Date? {
+        guard let stamp, stamp.isEmpty == false else { return nil }
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyyMMdd"
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.timeZone = Calendar.autoupdatingCurrent.timeZone
+        return formatter.date(from: stamp)
     }
 
     private func fallbackSummaryDate(from dateStamp: String?) -> Date {

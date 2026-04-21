@@ -247,6 +247,53 @@ public extension Font {
     }
 }
 
+private struct TaskerFontModifier: ViewModifier {
+    @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @Environment(\.colorSchemeContrast) private var colorSchemeContrast
+    @Environment(\.legibilityWeight) private var legibilityWeight
+    @Environment(\.taskerLayoutClass) private var layoutClass
+    let style: TaskerTextStyle
+
+    @MainActor
+    @ViewBuilder
+    func body(content: Content) -> some View {
+        let traits = taskerTokenTraits(
+            colorScheme: colorScheme,
+            dynamicTypeSize: dynamicTypeSize,
+            colorSchemeContrast: colorSchemeContrast
+        )
+        let traitCollection = UITraitCollection(
+            traitsFrom: [
+                UITraitCollection(userInterfaceStyle: colorScheme == .dark ? .dark : .light),
+                UITraitCollection(preferredContentSizeCategory: dynamicTypeSize.uiContentSizeCategory),
+                UITraitCollection(accessibilityContrast: colorSchemeContrast.uiAccessibilityContrast)
+            ]
+        )
+        let font = Font(
+            TaskerSwiftUITokens.typography(
+                for: layoutClass,
+                traits: traits
+            ).dynamicFont(for: style, compatibleWith: traitCollection)
+        )
+
+        if legibilityWeight == .bold {
+            content
+                .font(font)
+                .fontWeight(.semibold)
+        } else {
+            content.font(font)
+        }
+    }
+}
+
+@MainActor
+public extension View {
+    func taskerFont(_ style: TaskerTextStyle) -> some View {
+        modifier(TaskerFontModifier(style: style))
+    }
+}
+
 private struct TaskerElevationModifier: ViewModifier {
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
@@ -397,6 +444,35 @@ private struct TaskerPremiumSurfaceModifier: ViewModifier {
     }
 }
 
+private struct TaskerAnalyticsSurfaceModifier: ViewModifier {
+    let cornerRadius: CGFloat
+    let fillColor: Color
+    let strokeColor: Color
+    let accentColor: Color
+    let level: TaskerElevationLevel
+
+    func body(content: Content) -> some View {
+        let shape = RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+        return content
+            .background(
+                shape
+                    .fill(fillColor)
+                    .overlay(
+                        shape
+                            .stroke(strokeColor.opacity(0.7), lineWidth: 1)
+                    )
+                    .overlay(alignment: .topLeading) {
+                        Capsule(style: .continuous)
+                            .fill(accentColor.opacity(0.08))
+                            .frame(width: max(22, cornerRadius * 1.4), height: 8)
+                            .padding(.top, 10)
+                            .padding(.leading, 12)
+                    }
+            )
+            .taskerElevation(level, cornerRadius: cornerRadius, includesBorder: false)
+    }
+}
+
 public extension View {
     /// Executes taskerElevation.
     @MainActor
@@ -444,6 +520,25 @@ public extension View {
                 accentColor: accentColor ?? Color.tasker.accentSecondary,
                 level: level,
                 useNativeGlass: useNativeGlass
+            )
+        )
+    }
+
+    @MainActor
+    func taskerAnalyticsSurface(
+        cornerRadius: CGFloat,
+        fillColor: Color? = nil,
+        strokeColor: Color? = nil,
+        accentColor: Color? = nil,
+        level: TaskerElevationLevel = .e1
+    ) -> some View {
+        modifier(
+            TaskerAnalyticsSurfaceModifier(
+                cornerRadius: cornerRadius,
+                fillColor: fillColor ?? Color.tasker.surfacePrimary,
+                strokeColor: strokeColor ?? Color.tasker.strokeHairline,
+                accentColor: accentColor ?? Color.tasker.accentSecondary,
+                level: level
             )
         )
     }

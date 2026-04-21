@@ -2,6 +2,8 @@ import SwiftUI
 import UIKit
 
 struct HabitBoardLayoutMetrics: Equatable {
+    private static let fixedVisibleColumns = 7
+
     let leadingRailWidth: CGFloat
     let railTrailingPadding: CGFloat
     let iconSlotWidth: CGFloat
@@ -39,19 +41,29 @@ struct HabitBoardLayoutMetrics: Equatable {
         let expandedType = dynamicTypeSize >= .accessibility1
 
         if width < 390 {
+            let leadingRailWidth: CGFloat = expandedType ? 146 : 140
+            let railTrailingPadding: CGFloat = 10
+            let boardPadding: CGFloat = 16
             return HabitBoardLayoutMetrics(
-                leadingRailWidth: expandedType ? 146 : 140,
-                railTrailingPadding: 10,
+                leadingRailWidth: leadingRailWidth,
+                railTrailingPadding: railTrailingPadding,
                 iconSlotWidth: 22,
                 iconToTextSpacing: 10,
-                dayColumnWidth: expandedType ? 34 : 32,
+                dayColumnWidth: resolvedDayColumnWidth(
+                    containerWidth: width,
+                    leadingRailWidth: leadingRailWidth,
+                    railTrailingPadding: railTrailingPadding,
+                    boardPadding: boardPadding,
+                    minimum: expandedType ? 34 : 32,
+                    maximum: expandedType ? 40 : 36
+                ),
                 cellHeight: expandedType ? 60 : 56,
                 rowHeight: expandedType ? 60 : 56,
                 headerHeight: expandedType ? 74 : 70,
-                boardPadding: 16,
+                boardPadding: boardPadding,
                 cellGap: 0,
                 cellCornerRadius: 2,
-                visibleColumns: 7,
+                visibleColumns: fixedVisibleColumns,
                 historySpan: 28,
                 showsFullWeekday: false,
                 usesCompressedWeekday: true
@@ -59,19 +71,29 @@ struct HabitBoardLayoutMetrics: Equatable {
         }
 
         if width < 600 {
+            let leadingRailWidth: CGFloat = expandedType ? 148 : 144
+            let railTrailingPadding: CGFloat = 10
+            let boardPadding: CGFloat = 16
             return HabitBoardLayoutMetrics(
-                leadingRailWidth: expandedType ? 148 : 144,
-                railTrailingPadding: 10,
+                leadingRailWidth: leadingRailWidth,
+                railTrailingPadding: railTrailingPadding,
                 iconSlotWidth: 22,
                 iconToTextSpacing: 10,
-                dayColumnWidth: expandedType ? 36 : 34,
+                dayColumnWidth: resolvedDayColumnWidth(
+                    containerWidth: width,
+                    leadingRailWidth: leadingRailWidth,
+                    railTrailingPadding: railTrailingPadding,
+                    boardPadding: boardPadding,
+                    minimum: expandedType ? 36 : 34,
+                    maximum: expandedType ? 44 : 40
+                ),
                 cellHeight: expandedType ? 60 : 56,
                 rowHeight: expandedType ? 60 : 56,
                 headerHeight: expandedType ? 76 : 72,
-                boardPadding: 16,
+                boardPadding: boardPadding,
                 cellGap: 0,
                 cellCornerRadius: 2,
-                visibleColumns: 8,
+                visibleColumns: fixedVisibleColumns,
                 historySpan: 28,
                 showsFullWeekday: false,
                 usesCompressedWeekday: true
@@ -79,29 +101,54 @@ struct HabitBoardLayoutMetrics: Equatable {
         }
 
         let fullRegularWidth = width >= 900
+        let leadingRailWidth: CGFloat = expandedType ? 152 : 148
+        let railTrailingPadding: CGFloat = 12
+        let boardPadding: CGFloat = 18
         return HabitBoardLayoutMetrics(
-            leadingRailWidth: expandedType ? 152 : 148,
-            railTrailingPadding: 12,
+            leadingRailWidth: leadingRailWidth,
+            railTrailingPadding: railTrailingPadding,
             iconSlotWidth: 22,
             iconToTextSpacing: 10,
-            dayColumnWidth: expandedType ? 38 : 36,
+            dayColumnWidth: resolvedDayColumnWidth(
+                containerWidth: width,
+                leadingRailWidth: leadingRailWidth,
+                railTrailingPadding: railTrailingPadding,
+                boardPadding: boardPadding,
+                minimum: expandedType ? 40 : 38,
+                maximum: expandedType ? 56 : 52
+            ),
             cellHeight: expandedType ? 62 : 58,
             rowHeight: expandedType ? 62 : 58,
             headerHeight: expandedType ? 80 : 74,
-            boardPadding: 18,
+            boardPadding: boardPadding,
             cellGap: 0,
             cellCornerRadius: 2,
-            visibleColumns: fullRegularWidth ? 12 : 10,
+            visibleColumns: fixedVisibleColumns,
             historySpan: 42,
             showsFullWeekday: fullRegularWidth,
-            usesCompressedWeekday: !fullRegularWidth
+            usesCompressedWeekday: false
         )
+    }
+
+    private static func resolvedDayColumnWidth(
+        containerWidth: CGFloat,
+        leadingRailWidth: CGFloat,
+        railTrailingPadding: CGFloat,
+        boardPadding: CGFloat,
+        minimum: CGFloat,
+        maximum: CGFloat
+    ) -> CGFloat {
+        let horizontalInsets = boardPadding * 2
+        let availableGridWidth = containerWidth - horizontalInsets - leadingRailWidth - railTrailingPadding
+        let projectedCellWidth = floor(availableGridWidth / CGFloat(fixedVisibleColumns))
+        return min(maximum, max(minimum, projectedCellWidth))
     }
 }
 
 private enum HabitBoardAccessibilityID {
     static let view = "habitBoard.view"
     static let rangeTitle = "habitBoard.rangeTitle"
+    static let rangeSubtitle = "habitBoard.rangeSubtitle"
     static let previousWindow = "habitBoard.window.previous"
     static let nextWindow = "habitBoard.window.next"
     static let pinnedHeader = "habitBoard.pinned.header"
@@ -225,6 +272,7 @@ struct HabitHomeSectionCard: View {
     let onOpenBoard: (() -> Void)?
     let onPrimaryAction: (HomeHabitRow) -> Void
     let onSecondaryAction: (HomeHabitRow) -> Void
+    let onRowAction: (HomeHabitRow) -> Void
     let onLastCellAction: (HomeHabitRow) -> Void
     let onOpenHabit: ((HomeHabitRow) -> Void)?
 
@@ -239,6 +287,7 @@ struct HabitHomeSectionCard: View {
         onOpenBoard: (() -> Void)?,
         onPrimaryAction: @escaping (HomeHabitRow) -> Void,
         onSecondaryAction: @escaping (HomeHabitRow) -> Void,
+        onRowAction: @escaping (HomeHabitRow) -> Void,
         onLastCellAction: @escaping (HomeHabitRow) -> Void,
         onOpenHabit: ((HomeHabitRow) -> Void)? = nil
     ) {
@@ -248,6 +297,7 @@ struct HabitHomeSectionCard: View {
         self.onOpenBoard = onOpenBoard
         self.onPrimaryAction = onPrimaryAction
         self.onSecondaryAction = onSecondaryAction
+        self.onRowAction = onRowAction
         self.onLastCellAction = onLastCellAction
         self.onOpenHabit = onOpenHabit
     }
@@ -304,6 +354,7 @@ struct HabitHomeSectionCard: View {
                         row: row,
                         onPrimaryAction: { onPrimaryAction(row) },
                         onSecondaryAction: { onSecondaryAction(row) },
+                        onRowAction: { onRowAction(row) },
                         onOpenDetail: {
                             onOpenHabit?(row)
                         },
@@ -553,7 +604,7 @@ struct HabitBoardScreen: View {
                 viewModel.moveWindow(byDays: -viewModel.viewportColumnCount)
             }
 
-            HStack(alignment: .center, spacing: spacing.s8) {
+            VStack(alignment: .leading, spacing: 2) {
                 Text(rangeTitle)
                     .font(.tasker(.bodyStrong))
                     .foregroundStyle(Color.tasker.textPrimary)
@@ -561,7 +612,11 @@ struct HabitBoardScreen: View {
                     .minimumScaleFactor(0.88)
                     .accessibilityIdentifier(HabitBoardAccessibilityID.rangeTitle)
 
-                boardWindowBadge
+                Text("\(viewModel.viewportColumnCount)-day window")
+                    .font(.tasker(.caption1))
+                    .foregroundStyle(Color.tasker.textSecondary)
+                    .lineLimit(1)
+                    .accessibilityIdentifier(HabitBoardAccessibilityID.rangeSubtitle)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
 
@@ -575,25 +630,6 @@ struct HabitBoardScreen: View {
         }
         .padding(.horizontal, spacing.s16)
         .padding(.vertical, spacing.s12)
-    }
-
-    private var boardWindowBadge: some View {
-        Text("\(viewModel.viewportColumnCount) DAYS")
-            .font(.tasker(.caption2).weight(.semibold))
-            .foregroundStyle(Color.tasker.textSecondary)
-            .lineLimit(1)
-            .minimumScaleFactor(0.85)
-            .padding(.horizontal, 8)
-            .padding(.vertical, 5)
-            .background(
-                Capsule(style: .continuous)
-                    .fill(Color.tasker.surfaceSecondary.opacity(0.9))
-            )
-            .overlay(
-                Capsule(style: .continuous)
-                    .stroke(Color.tasker.strokeHairline.opacity(0.22), lineWidth: 1)
-            )
-            .fixedSize()
     }
 
     private var boardMatrix: some View {
@@ -622,7 +658,7 @@ struct HabitBoardScreen: View {
                     }
                 }
             }
-            .background(Color.tasker.surfaceSecondary.opacity(0.26))
+            .background(Color.tasker.surfaceSecondary.opacity(0.16))
             .frame(width: layoutMetrics.pinnedRailWidth, alignment: .leading)
 
             ScrollView(.horizontal, showsIndicators: false) {
@@ -793,9 +829,8 @@ private struct HabitBoardPinnedColumnHeader: View {
     var body: some View {
         ZStack {
             Text("Habits")
-                .font(.tasker(.caption1).weight(.semibold))
+                .font(.tasker(.support).weight(.semibold))
                 .foregroundStyle(Color.tasker.textSecondary)
-                .tracking(0.1)
                 .frame(maxWidth: .infinity, alignment: .center)
         }
         .frame(width: layoutMetrics.leadingRailWidth, height: layoutMetrics.headerHeight, alignment: .center)
@@ -854,7 +889,7 @@ private struct HabitBoardHeaderDayCell: View {
                 .background(todayBackground)
 
             Text(weekdayLabel)
-                .font(.tasker(.caption2).weight(.semibold))
+                .font(.tasker(.caption1).weight(.semibold))
                 .foregroundStyle(day.isToday ? Color.tasker.textPrimary : Color.tasker.textSecondary)
                 .lineLimit(1)
                 .minimumScaleFactor(0.8)
@@ -877,7 +912,6 @@ private struct HabitBoardHeaderDayCell: View {
                     RoundedRectangle(cornerRadius: 10, style: .continuous)
                         .stroke(HabitEverydayPalette.todayStroke(colorScheme: colorScheme), lineWidth: 1.4)
                 )
-                .shadow(color: HabitEverydayPalette.todayStroke(colorScheme: colorScheme).opacity(0.12), radius: 8, y: 2)
                 .padding(.horizontal, 1)
         } else {
             Color.clear
@@ -893,7 +927,7 @@ private struct HabitBoardHeaderDayCell: View {
     private var monthMarker: some View {
         if showsMonthMarker {
             Text(day.date.formatted(.dateTime.month(.abbreviated)).uppercased())
-                .font(.tasker(.caption2).weight(.semibold))
+                .font(.tasker(.caption1).weight(.semibold))
                 .foregroundStyle(Color.tasker.textSecondary)
                 .lineLimit(1)
                 .minimumScaleFactor(0.9)
@@ -937,17 +971,11 @@ private struct HabitBoardFlatSurfaceBackground: View {
 
     var body: some View {
         RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-            .fill(Color.tasker.surfacePrimary.opacity(0.98))
+            .fill(Color.tasker.surfacePrimary)
             .overlay(
                 RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                    .fill(Color.tasker.surfaceSecondary.opacity(0.18))
-                    .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
+                    .stroke(Color.tasker.strokeHairline.opacity(0.2), lineWidth: 1)
             )
-            .overlay(
-                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                    .stroke(Color.tasker.strokeHairline.opacity(0.24), lineWidth: 1)
-            )
-            .shadow(color: Color.black.opacity(0.03), radius: 14, y: 8)
     }
 }
 
@@ -960,10 +988,6 @@ private struct HabitBoardSurfaceBackground: View {
             .overlay(
                 RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
                     .stroke(Color.tasker.strokeHairline.opacity(0.58), lineWidth: 1)
-            )
-            .overlay(
-                PaperGrainOverlay()
-                    .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
             )
     }
 }
@@ -982,30 +1006,6 @@ private struct HabitBoardWidthPreferenceKey: PreferenceKey {
 
     static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
         value = nextValue()
-    }
-}
-
-private struct PaperGrainOverlay: View {
-    var body: some View {
-        GeometryReader { proxy in
-            Canvas { context, size in
-                let columns = max(8, Int(size.width / 28))
-                let rows = max(6, Int(size.height / 22))
-                for row in 0..<rows {
-                    for column in 0..<columns {
-                        var path = Path()
-                        let seed = CGFloat(((row * 17) + (column * 29)) % 11)
-                        let x = (CGFloat(column) + 0.35) * (size.width / CGFloat(columns))
-                        let y = (CGFloat(row) + 0.4) * (size.height / CGFloat(rows))
-                        let dot = CGRect(x: x, y: y, width: 0.7 + (seed * 0.02), height: 0.7 + (seed * 0.02))
-                        path.addEllipse(in: dot)
-                        context.fill(path, with: .color(Color.black.opacity(0.035)))
-                    }
-                }
-            }
-            .frame(width: proxy.size.width, height: proxy.size.height)
-        }
-        .allowsHitTesting(false)
     }
 }
 

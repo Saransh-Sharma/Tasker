@@ -32,7 +32,7 @@ public struct FilterCalendarEventsUseCase {
     }
 }
 
-public struct BuildCalendarBusyBlocksUseCase {
+public struct BuildCalendarBusyBlocksUseCase: Sendable {
     private let mergeGapThreshold: TimeInterval
 
     public init(mergeGapThreshold: TimeInterval = 5 * 60) {

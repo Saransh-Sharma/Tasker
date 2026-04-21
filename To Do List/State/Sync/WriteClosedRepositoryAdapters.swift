@@ -343,6 +343,10 @@ final class WriteClosedHabitRepositoryAdapter: HabitRepositoryProtocol {
         base.fetchAll(completion: completion)
     }
 
+    func fetchByID(id: UUID, completion: @escaping (Result<HabitDefinitionRecord?, Error>) -> Void) {
+        base.fetchByID(id: id, completion: completion)
+    }
+
     func create(_ habit: HabitDefinitionRecord, completion: @escaping (Result<HabitDefinitionRecord, Error>) -> Void) {
         gate.performWrite(operation: "HabitRepository.create", completion: completion) {
             self.base.create(habit, completion: completion)
@@ -425,6 +429,18 @@ final class WriteClosedOccurrenceRepositoryAdapter: OccurrenceRepositoryProtocol
         base.fetchInRange(start: start, end: end, completion: completion)
     }
 
+    func fetchByID(id: UUID, completion: @escaping (Result<OccurrenceDefinition?, Error>) -> Void) {
+        base.fetchByID(id: id, completion: completion)
+    }
+
+    func fetchLatestForHabit(
+        habitID: UUID,
+        on date: Date,
+        completion: @escaping (Result<OccurrenceDefinition?, Error>) -> Void
+    ) {
+        base.fetchLatestForHabit(habitID: habitID, on: date, completion: completion)
+    }
+
     func saveOccurrences(_ occurrences: [OccurrenceDefinition], completion: @escaping (Result<Void, Error>) -> Void) {
         gate.performWrite(operation: "OccurrenceRepository.saveOccurrences", completion: completion) {
             self.base.saveOccurrences(occurrences, completion: completion)
@@ -475,6 +491,14 @@ final class WriteClosedReminderRepositoryAdapter: ReminderRepositoryProtocol {
 
     func fetchDeliveries(reminderID: UUID, completion: @escaping (Result<[ReminderDeliveryDefinition], Error>) -> Void) {
         base.fetchDeliveries(reminderID: reminderID, completion: completion)
+    }
+
+    func fetchDeliveryResponseAggregate(
+        from startDate: Date?,
+        to endDate: Date?,
+        completion: @escaping (Result<ReminderDeliveryResponseAggregate, Error>) -> Void
+    ) {
+        base.fetchDeliveryResponseAggregate(from: startDate, to: endDate, completion: completion)
     }
 
     func saveDelivery(_ delivery: ReminderDeliveryDefinition, completion: @escaping (Result<ReminderDeliveryDefinition, Error>) -> Void) {

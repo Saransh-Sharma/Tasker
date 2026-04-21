@@ -29,6 +29,16 @@ struct LLMInferenceGenerationResult {
     let rawCapHitStage: String?
 }
 
+private struct LLMInferenceTokenRunResult: Sendable {
+    let rawOutput: String
+    let tokensPerSecond: Double
+    let generationTokenCount: Int
+    let removedTemplateArtifacts: Bool
+    let terminationReason: String
+    let answerPhaseStartTokenCount: Int?
+    let lastStopStage: String?
+}
+
 struct LLMGenerationRequestOptions {
     enum ChatMode {
         case answerOnly
@@ -121,7 +131,7 @@ actor LLMInferenceEngine {
     ) async throws -> LLMInferencePrepareResult {
         let wasAlreadyLoaded = loadedModelName == modelName
         _ = try await load(modelName: modelName, onProgress: onProgress)
-        let modelInfo = "Loaded \(modelName). Weights: \(MLX.GPU.activeMemory / 1024 / 1024)M"
+        let modelInfo = "Loaded \(modelName). Weights: \(MLX.Memory.activeMemory / 1024 / 1024)M"
         return LLMInferencePrepareResult(
             wasAlreadyLoaded: wasAlreadyLoaded,
             modelInfo: modelInfo
@@ -203,18 +213,7 @@ actor LLMInferenceEngine {
             throw CancellationError()
         }
 
-        var firstTokenLogged = false
-        var lastOutputUpdateNanoseconds: UInt64 = 0
-        var decodedTokenCount = 0
-        var streamedOutputText = ""
-        var limiter = LLMChatGenerationLimiter(
-            maxRawTokens: maxRawTokens,
-            minAnswerTokensAfterAnswerPhase: minAnswerTokens
-        )
-        var terminationReason = "eos"
-        var removedTemplateArtifacts = false
-
-        let result = try await modelContainer.perform { context in
+        let tokenRunResult = try await modelContainer.perform { context in
             let userInput = UserInput(
                 chat: chatMessages,
                 additionalContext: requestOptions.templateContext.isEmpty ? nil : requestOptions.templateContext
@@ -224,100 +223,145 @@ actor LLMInferenceEngine {
                 throw CancellationError()
             }
 
-            return try MLXLMCommon.generate(
+            var generatedTokens: [Int] = []
+            var firstTokenLogged = false
+            var lastOutputUpdateNanoseconds: UInt64 = 0
+            var decodedTokenCount = 0
+            var streamedOutputText = ""
+            var limiter = LLMChatGenerationLimiter(
+                maxRawTokens: maxRawTokens,
+                minAnswerTokensAfterAnswerPhase: minAnswerTokens
+            )
+            var terminationReason = "eos"
+            var removedTemplateArtifacts = false
+            var completionInfo: GenerateCompletionInfo?
+            var shouldStopEarly = false
+
+            let (tokenStream, generationTask) = try MLXLMCommon.generateTokensTask(
                 input: input,
                 parameters: generateParameters,
                 context: context
-            ) { tokens in
+            )
+
+            for await generation in tokenStream {
                 if Task.isCancelled || runCancellationToken.isCancelled {
-                    return .stop
+                    generationTask.cancel()
+                    throw CancellationError()
                 }
 
-                if !firstTokenLogged, !tokens.isEmpty {
-                    firstTokenLogged = true
-                    onFirstToken?()
-                    let firstTokenLatencyMs = Int(Date().timeIntervalSince(generationStartedAt) * 1_000)
-                    logWarning(
-                        event: "chat_first_token_latency_ms",
-                        message: "First token latency measured for chat generation",
-                        fields: [
-                            "model_name": modelName,
-                            "latency_ms": String(firstTokenLatencyMs),
-                            "prewarm_hit": prewarmHit ? "true" : "false"
-                        ]
+                switch generation {
+                case .token(let token):
+                    generatedTokens.append(token)
+                    let tokenCount = generatedTokens.count
+
+                    if !firstTokenLogged {
+                        firstTokenLogged = true
+                        onFirstToken?()
+                        let firstTokenLatencyMs = Int(Date().timeIntervalSince(generationStartedAt) * 1_000)
+                        logWarning(
+                            event: "chat_first_token_latency_ms",
+                            message: "First token latency measured for chat generation",
+                            fields: [
+                                "model_name": modelName,
+                                "latency_ms": String(firstTokenLatencyMs),
+                                "prewarm_hit": prewarmHit ? "true" : "false"
+                            ]
+                        )
+                    }
+
+                    let nowNanoseconds = DispatchTime.now().uptimeNanoseconds
+                    let shouldUpdateByStride = tokenCount % outputTokenStride == 0
+                    let shouldUpdateByTime = outputMinUpdateNanoseconds > 0 && (
+                        lastOutputUpdateNanoseconds == 0 ||
+                        nowNanoseconds &- lastOutputUpdateNanoseconds >= outputMinUpdateNanoseconds
                     )
-                }
+                    let shouldPublishUpdate = shouldUpdateByStride || shouldUpdateByTime || tokenCount == 1
 
-                let nowNanoseconds = DispatchTime.now().uptimeNanoseconds
-                let shouldUpdateByStride = tokens.count % outputTokenStride == 0
-                let shouldUpdateByTime = outputMinUpdateNanoseconds > 0 && (
-                    lastOutputUpdateNanoseconds == 0 ||
-                    nowNanoseconds &- lastOutputUpdateNanoseconds >= outputMinUpdateNanoseconds
-                )
-                let shouldPublishUpdate = shouldUpdateByStride || shouldUpdateByTime || tokens.count == 1
-
-                if shouldPublishUpdate {
-                    lastOutputUpdateNanoseconds = nowNanoseconds
-                    if tokens.count < decodedTokenCount {
-                        decodedTokenCount = tokens.count
-                        streamedOutputText = context.tokenizer.decode(tokens: tokens)
-                    } else if tokens.count == decodedTokenCount {
-                        if streamedOutputText.isEmpty, !tokens.isEmpty {
-                            streamedOutputText = context.tokenizer.decode(tokens: tokens)
+                    if shouldPublishUpdate {
+                        lastOutputUpdateNanoseconds = nowNanoseconds
+                        if tokenCount > decodedTokenCount {
+                            let deltaTokens = Array(generatedTokens.dropFirst(decodedTokenCount))
+                            streamedOutputText.append(context.tokenizer.decode(tokens: deltaTokens))
+                            decodedTokenCount = tokenCount
                         }
-                    } else {
-                        let deltaTokens = Array(tokens.dropFirst(decodedTokenCount))
-                        let deltaText = context.tokenizer.decode(tokens: deltaTokens)
-                        streamedOutputText.append(deltaText)
-                        decodedTokenCount = tokens.count
-                    }
 
-                    let rawText = streamedOutputText
-                    let visibleTextResult = LLMVisibleOutputFormatter.formatVisibleTextResult(
-                        rawText,
-                        profile: profile,
-                        modelName: modelName,
-                        closeOpenThinkingBlock: false
-                    )
-                    removedTemplateArtifacts = removedTemplateArtifacts || visibleTextResult.removedTemplateArtifacts
-                    let phaseTrigger = Self.answerPhaseTrigger(
-                        rawText: rawText,
-                        visibleText: visibleTextResult.text,
-                        isReasoningModel: isReasoningModel,
-                        requestOptions: requestOptions,
-                        modelName: modelName
-                    )
-                    if phaseTrigger != nil {
-                        limiter.markAnswerPhaseStarted(currentTokenCount: tokens.count)
-                    }
-                    onStreamUpdate?(
-                        LLMInferenceStreamUpdate(
+                        let rawText = streamedOutputText
+                        let visibleTextResult = LLMVisibleOutputFormatter.formatVisibleTextResult(
+                            rawText,
+                            profile: profile,
+                            modelName: modelName,
+                            closeOpenThinkingBlock: false
+                        )
+                        removedTemplateArtifacts = removedTemplateArtifacts || visibleTextResult.removedTemplateArtifacts
+                        let phaseTrigger = Self.answerPhaseTrigger(
                             rawText: rawText,
                             visibleText: visibleTextResult.text,
-                            phaseTrigger: phaseTrigger,
-                            tokenCount: tokens.count
+                            isReasoningModel: isReasoningModel,
+                            requestOptions: requestOptions,
+                            modelName: modelName
                         )
-                    )
-                }
+                        if phaseTrigger != nil {
+                            limiter.markAnswerPhaseStarted(currentTokenCount: tokenCount)
+                        }
+                        onStreamUpdate?(
+                            LLMInferenceStreamUpdate(
+                                rawText: rawText,
+                                visibleText: visibleTextResult.text,
+                                phaseTrigger: phaseTrigger,
+                                tokenCount: tokenCount
+                            )
+                        )
+                    }
 
-                if runCancellationToken.isCancelled {
-                    terminationReason = "user_cancel"
-                    return .stop
+                    if let stopReason = limiter.stopReason(currentTokenCount: tokenCount) {
+                        terminationReason = stopReason
+                        shouldStopEarly = true
+                        generationTask.cancel()
+                    }
+
+                    if shouldStopEarly {
+                        break
+                    }
+
+                case .info(let info):
+                    completionInfo = info
                 }
-                if let stopReason = limiter.stopReason(currentTokenCount: tokens.count) {
-                    terminationReason = stopReason
-                    return .stop
-                }
-                return .more
             }
+
+            await generationTask.value
+
+            if generatedTokens.count > decodedTokenCount {
+                let deltaTokens = Array(generatedTokens.dropFirst(decodedTokenCount))
+                streamedOutputText.append(context.tokenizer.decode(tokens: deltaTokens))
+                decodedTokenCount = generatedTokens.count
+            }
+
+            let finalRawOutput = generatedTokens.isEmpty
+                ? streamedOutputText
+                : context.tokenizer.decode(tokens: generatedTokens)
+            let tokensPerSecond = completionInfo?.tokensPerSecond ?? {
+                let elapsed = max(Date().timeIntervalSince(generationStartedAt), 0.001)
+                return Double(generatedTokens.count) / elapsed
+            }()
+
+            return LLMInferenceTokenRunResult(
+                rawOutput: finalRawOutput,
+                tokensPerSecond: tokensPerSecond,
+                generationTokenCount: generatedTokens.count,
+                removedTemplateArtifacts: removedTemplateArtifacts,
+                terminationReason: terminationReason,
+                answerPhaseStartTokenCount: limiter.answerPhaseStartTokenCount,
+                lastStopStage: limiter.lastStopStage
+            )
         }
 
         if Task.isCancelled || runCancellationToken.isCancelled {
             throw CancellationError()
         }
 
+        var removedTemplateArtifacts = tokenRunResult.removedTemplateArtifacts
         let finalVisibleOutputResult = LLMVisibleOutputFormatter.formatVisibleTextResult(
-            result.output,
+            tokenRunResult.rawOutput,
             profile: profile,
             modelName: modelName,
             closeOpenThinkingBlock: true
@@ -330,17 +374,17 @@ actor LLMInferenceEngine {
             modelName: modelName,
             closeOpenThinkingBlock: true
         )
-        let rawTailPreview = LoggingService.previewText(String(result.output.suffix(128)), maxLength: 128)
+        let rawTailPreview = LoggingService.previewText(String(tokenRunResult.rawOutput.suffix(128)), maxLength: 128)
             .replacingOccurrences(of: "\n", with: "\\n")
         let rawCapHitStage: String? = {
-            guard terminationReason == "raw_cap" || terminationReason == "answer_floor_reached" else { return nil }
-            if limiter.lastStopStage == "post_answer" {
+            guard tokenRunResult.terminationReason == "raw_cap" || tokenRunResult.terminationReason == "answer_floor_reached" else { return nil }
+            if tokenRunResult.lastStopStage == "post_answer" {
                 return "post_answer"
             }
             if thinkingExtraction.hasVisibleThinking && thinkingExtraction.hasAnswer == false {
                 return "thinking_only"
             }
-            return limiter.lastStopStage ?? "pre_answer"
+            return tokenRunResult.lastStopStage ?? "pre_answer"
         }()
 
         logWarning(
@@ -349,7 +393,7 @@ actor LLMInferenceEngine {
             fields: [
                 "model_name": modelName,
                 "latency_ms": String(firstResponseLatencyMs),
-                "tokens_per_second": String(format: "%.3f", result.tokensPerSecond),
+                "tokens_per_second": String(format: "%.3f", tokenRunResult.tokensPerSecond),
                 "prewarm_hit": prewarmHit ? "true" : "false"
             ]
         )
@@ -358,12 +402,12 @@ actor LLMInferenceEngine {
             message: "Chat generation completed",
             fields: [
                 "model_name": modelName,
-                "termination_reason": terminationReason,
-                "generated_tokens": String(result.generationTokenCount),
-                "raw_characters": String(result.output.count),
+                "termination_reason": tokenRunResult.terminationReason,
+                "generated_tokens": String(tokenRunResult.generationTokenCount),
+                "raw_characters": String(tokenRunResult.rawOutput.count),
                 "visible_characters": String(finalVisibleOutput.count),
                 "sanitized_template_artifacts": removedTemplateArtifacts ? "true" : "false",
-                "answer_phase_start_token": limiter.answerPhaseStartTokenCount.map(String.init) ?? "nil",
+                "answer_phase_start_token": tokenRunResult.answerPhaseStartTokenCount.map(String.init) ?? "nil",
                 "thinking_detected": thinkingExtraction.hasVisibleThinking ? "true" : "false",
                 "thinking_format_detected": thinkingExtraction.mode,
                 "raw_cap_threshold": String(maxRawTokens),
@@ -373,15 +417,15 @@ actor LLMInferenceEngine {
         )
 
         return LLMInferenceGenerationResult(
-            rawOutput: result.output,
+            rawOutput: tokenRunResult.rawOutput,
             visibleOutput: finalVisibleOutput,
-            tokensPerSecond: result.tokensPerSecond,
-            generationTokenCount: result.generationTokenCount,
+            tokensPerSecond: tokenRunResult.tokensPerSecond,
+            generationTokenCount: tokenRunResult.generationTokenCount,
             removedTemplateArtifacts: removedTemplateArtifacts,
-            terminationReason: terminationReason,
+            terminationReason: tokenRunResult.terminationReason,
             firstResponseLatencyMs: firstResponseLatencyMs,
             prewarmHit: prewarmHit,
-            answerPhaseStartTokenCount: limiter.answerPhaseStartTokenCount,
+            answerPhaseStartTokenCount: tokenRunResult.answerPhaseStartTokenCount,
             rawCapHitStage: rawCapHitStage
         )
     }
@@ -412,7 +456,7 @@ actor LLMInferenceEngine {
             self.inFlightLoadTask = nil
         }
 
-        MLX.GPU.set(cacheLimit: 20 * 1024 * 1024)
+        MLX.Memory.cacheLimit = 20 * 1024 * 1024
 
         let task = Task.detached(priority: .utility) { () async throws -> ModelContainer in
             try Task.checkCancellation()

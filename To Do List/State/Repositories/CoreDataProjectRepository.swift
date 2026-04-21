@@ -437,7 +437,7 @@ public final class CoreDataProjectRepository: ProjectRepositoryProtocol {
         fetchProject(withId: sourceProjectId) { [weak self] sourceResult in
             switch sourceResult {
             case .success(let sourceProject):
-                guard let sourceProject = sourceProject else {
+                guard sourceProject != nil else {
                     let error = NSError(domain: "ProjectRepository", code: 404,
                                       userInfo: [NSLocalizedDescriptionKey: "Source project not found"])
                     completion(.failure(error))

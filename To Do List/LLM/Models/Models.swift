@@ -599,11 +599,19 @@ struct LLMModelCompatibilityResult: Equatable {
 
 enum LLMRuntimeSupportMatrix {
     static func compatibility(for model: ModelConfiguration) -> LLMModelCompatibilityResult {
+        #if targetEnvironment(simulator)
+        return LLMModelCompatibilityResult(
+            modelName: model.name,
+            availability: .temporarilyUnavailable,
+            statusReason: "Local EVA models are not available in the iOS Simulator."
+        )
+        #else
         LLMModelCompatibilityResult(
             modelName: model.name,
             availability: .supported,
             statusReason: nil
         )
+        #endif
     }
 
     static func compatibility(for modelName: String) -> LLMModelCompatibilityResult? {
@@ -735,6 +743,7 @@ public extension ModelConfiguration {
         extraEOSTokens: LLMModelStopTokenRegistry.qwenStyle
     )
 
+    // Bonsai 1-bit requires Prism's MLX Swift fork with 1-bit quantization kernels.
     static let bonsai_1_7b_mlx_1bit = ModelConfiguration(
         id: "prism-ml/Bonsai-1.7B-mlx-1bit"
     )

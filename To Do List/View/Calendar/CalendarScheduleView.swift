@@ -944,9 +944,18 @@ struct TaskerCalendarTimelineLayoutPlan: Equatable {
         var id: String { event.id }
     }
 
-    let startHour: Int
-    let endHour: Int
+    let startMinute: Int
+    let endMinute: Int
     let positionedEvents: [PositionedEvent]
+
+    var startHour: Int {
+        startMinute / 60
+    }
+
+    var endHour: Int {
+        let inclusiveEndMinute = max(startMinute, endMinute - 1)
+        return max(startHour, inclusiveEndMinute / 60)
+    }
 
     var hourMarkers: [Int] {
         Array(startHour...endHour)
@@ -956,6 +965,7 @@ struct TaskerCalendarTimelineLayoutPlan: Equatable {
 enum TaskerCalendarTimelinePlanner {
     static let defaultWorkdayStartHour = 8
     static let defaultWorkdayEndHour = 18
+    private static let compactWindowDurationMinutes = 135
 
     private struct ClippedEvent {
         let event: TaskerCalendarEventSnapshot
@@ -1059,12 +1069,9 @@ enum TaskerCalendarTimelinePlanner {
             }
         }
 
-        let startHour = visibleRange.startMinute / 60
-        let endHour = max(startHour, (visibleRange.endMinute / 60) - 1)
-
         return TaskerCalendarTimelineLayoutPlan(
-            startHour: startHour,
-            endHour: endHour,
+            startMinute: visibleRange.startMinute,
+            endMinute: visibleRange.endMinute,
             positionedEvents: positionedEvents
         )
     }
@@ -1130,7 +1137,7 @@ enum TaskerCalendarTimelinePlanner {
             let anchorMinute = calendar.component(.hour, from: anchorDate) * 60
                 + calendar.component(.minute, from: anchorDate)
             let defaultStart = max(0, anchorMinute - 60)
-            let defaultEnd = min(24 * 60, defaultStart + 180)
+            let defaultEnd = min(24 * 60, defaultStart + compactWindowDurationMinutes)
             let defaultWindowContainsEvent = events.contains { event in
                 event.endMinute > defaultStart && event.startMinute < defaultEnd
             }
@@ -1152,9 +1159,10 @@ enum TaskerCalendarTimelinePlanner {
     }
 
     private static func alignedCompactWindow(startMinute: Int) -> (startMinute: Int, endMinute: Int) {
-        let roundedStartHour = max(0, min(21, Int(floor(Double(startMinute) / 60.0))))
+        let latestAllowedStartHour = Int(floor(Double((24 * 60) - compactWindowDurationMinutes) / 60.0))
+        let roundedStartHour = max(0, min(latestAllowedStartHour, Int(floor(Double(startMinute) / 60.0))))
         let visibleStartMinute = roundedStartHour * 60
-        let visibleEndMinute = min(24 * 60, visibleStartMinute + 180)
+        let visibleEndMinute = min(24 * 60, visibleStartMinute + compactWindowDurationMinutes)
         return (visibleStartMinute, visibleEndMinute)
     }
 
@@ -1338,7 +1346,7 @@ struct TaskerCalendarTimelineView: View {
         GeometryReader { proxy in
             timelineCanvas(layoutPlan: layoutPlan, anchorDate: anchorDate, totalWidth: proxy.size.width)
         }
-        .frame(height: CGFloat(layoutPlan.endHour - layoutPlan.startHour + 1) * metrics.hourHeight)
+        .frame(height: timelineHeight(for: layoutPlan))
     }
 
     private func expandedTimelineBody(
@@ -1349,7 +1357,7 @@ struct TaskerCalendarTimelineView: View {
             ScrollViewReader { scrollProxy in
                 ScrollView(.vertical) {
                     timelineCanvas(layoutPlan: layoutPlan, anchorDate: anchorDate, totalWidth: proxy.size.width)
-                        .frame(height: CGFloat(layoutPlan.endHour - layoutPlan.startHour + 1) * metrics.hourHeight)
+                        .frame(height: timelineHeight(for: layoutPlan))
                 }
                 .scrollIndicators(.visible)
                 .onAppear {
@@ -1412,7 +1420,7 @@ struct TaskerCalendarTimelineView: View {
         width: CGFloat,
         anchorDate: Date
     ) -> some View {
-        let totalHeight = CGFloat(plan.endHour - plan.startHour + 1) * metrics.hourHeight
+        let totalHeight = timelineHeight(for: plan)
 
         return ZStack(alignment: .topLeading) {
             Rectangle()
@@ -1424,8 +1432,8 @@ struct TaskerCalendarTimelineView: View {
                 .frame(width: 1, height: totalHeight)
                 .offset(x: metrics.labelColumnWidth)
 
-            ForEach(Array(plan.hourMarkers.enumerated()), id: \.offset) { offset, hour in
-                let y = CGFloat(offset) * metrics.hourHeight
+            ForEach(Array(plan.hourMarkers.enumerated()), id: \.offset) { _, hour in
+                let y = CGFloat((hour * 60) - plan.startMinute) / 60.0 * metrics.hourHeight
 
                 HStack(spacing: spacing.s8) {
                     Text(hourLabel(hour))
@@ -1497,7 +1505,7 @@ struct TaskerCalendarTimelineView: View {
         Text(emptyText)
             .font(.tasker(.callout))
             .foregroundStyle(Color.tasker.textSecondary)
-            .frame(width: width, height: CGFloat(plan.endHour - plan.startHour + 1) * metrics.hourHeight)
+            .frame(width: width, height: timelineHeight(for: plan))
             .offset(x: metrics.labelColumnWidth + metrics.laneInset, y: 0)
     }
 
@@ -1509,7 +1517,7 @@ struct TaskerCalendarTimelineView: View {
         let columnWidth = width / CGFloat(max(1, event.laneCount))
         let minX = CGFloat(event.lane) * columnWidth + metrics.laneInset
         let contentWidth = max(40, (columnWidth * CGFloat(event.columnSpan)) - (metrics.laneInset * 2) - 1)
-        let minY = CGFloat(event.startMinute - (plan.startHour * 60)) / 60.0 * metrics.hourHeight + metrics.verticalInset
+        let minY = CGFloat(event.startMinute - plan.startMinute) / 60.0 * metrics.hourHeight + metrics.verticalInset
         let height = max(
             metrics.minimumCardHeight,
             CGFloat(event.endMinute - event.startMinute) / 60.0 * metrics.hourHeight - (metrics.verticalInset * 2)
@@ -1540,11 +1548,15 @@ struct TaskerCalendarTimelineView: View {
 
         let nowMinute = calendar.component(.hour, from: anchorDate) * 60
             + calendar.component(.minute, from: anchorDate)
-        let startMinute = plan.startHour * 60
-        let endMinute = (plan.endHour + 1) * 60
+        let startMinute = plan.startMinute
+        let endMinute = plan.endMinute
         guard nowMinute >= startMinute, nowMinute <= endMinute else { return nil }
 
         return CGFloat(nowMinute - startMinute) / 60.0 * metrics.hourHeight
+    }
+
+    private func timelineHeight(for plan: TaskerCalendarTimelineLayoutPlan) -> CGFloat {
+        CGFloat(max(1, plan.endMinute - plan.startMinute)) / 60.0 * metrics.hourHeight
     }
 
     private func currentTimeIndicator(label: String, width: CGFloat) -> some View {

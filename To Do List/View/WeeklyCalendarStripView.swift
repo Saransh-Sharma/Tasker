@@ -142,7 +142,7 @@ struct WeeklyCalendarStripView: View {
             expandChevron
         }
         .animation(TaskerAnimation.snappy, value: isExpanded)
-        .onChange(of: selectedDate) { newDate in
+        .onChange(of: selectedDate) { _, newDate in
             let newWeekStart = calendar.taskerStartOfWeek(for: newDate)
             if !calendar.isDate(newWeekStart, inSameDayAs: displayedWeekStart) {
                 withAnimation(TaskerAnimation.snappy) {

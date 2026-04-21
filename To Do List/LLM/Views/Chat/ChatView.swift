@@ -275,7 +275,7 @@ struct ChatView: View {
                 contextCoordinator.remove(attachment)
             },
             onGenerate: {
-                generate()
+                submitPromptFromSendButton()
             },
             onStop: {
                 cancelActiveGeneration(reason: "stop_button")
@@ -335,6 +335,26 @@ struct ChatView: View {
         #else
         isPromptFocused = true
         generate()
+        #endif
+    }
+
+    @MainActor
+    private func submitPromptFromSendButton() {
+        #if os(macOS)
+        generate()
+        #else
+        // Force a focus commit before generation so the first tap reliably submits current composer text.
+        let wasPromptFocused = isPromptFocused
+        isProjectFieldFocused = false
+        if wasPromptFocused {
+            isPromptFocused = false
+            _Concurrency.Task { @MainActor in
+                await _Concurrency.Task.yield()
+                generate()
+            }
+        } else {
+            generate()
+        }
         #endif
     }
 
@@ -586,7 +606,7 @@ struct ChatView: View {
         let trimmed = prompt.trimmingCharacters(in: .whitespacesAndNewlines)
         commandFeedback = nil
 
-        if var invocation = slashDraft {
+        if let invocation = slashDraft {
             projectLookupTask?.cancel()
             if invocation.id.requiresArgument {
                 guard invocation.isReady else {
@@ -598,7 +618,6 @@ struct ChatView: View {
                     )
                     return
                 }
-                slashDraft = invocation
             }
 
             if invocation.id == .clear {
@@ -681,23 +700,20 @@ struct ChatView: View {
         }
     }
 
+    @MainActor
     private func executeSlashCommand(_ invocation: SlashCommandInvocation) async {
-        guard let thread = await MainActor.run(body: { ensureCurrentThread() }) else { return }
+        guard let thread = ensureCurrentThread() else { return }
 
         let commandLabel = invocation.commandLabel
-        await MainActor.run {
-            projectLookupTask?.cancel()
-            prompt = ""
-            slashDraft = nil
-            isProjectFieldFocused = false
-            appManager.playHaptic()
-            sendMessage(Message(role: .user, content: commandLabel, thread: thread))
-        }
+        projectLookupTask?.cancel()
+        prompt = ""
+        slashDraft = nil
+        isProjectFieldFocused = false
+        appManager.playHaptic()
+        sendMessage(Message(role: .user, content: commandLabel, thread: thread))
 
         guard let service = SlashCommandExecutionService.makeDefault() else {
-            await MainActor.run {
-                sendMessage(Message(role: .assistant, content: "Task context is unavailable. Please try again.", thread: thread))
-            }
+            sendMessage(Message(role: .assistant, content: "Task context is unavailable. Please try again.", thread: thread))
             return
         }
 
@@ -722,11 +738,9 @@ struct ChatView: View {
             )
             let cardMessage = AssistantCardCodec.encode(cardPayload)
 
-            await MainActor.run {
-                sendMessage(Message(role: .assistant, content: cardMessage, thread: thread))
-                recordRecentCommand(resolvedInvocation.id)
-                contextCoordinator.upsert(commandResult: result, threadID: thread.id)
-            }
+            sendMessage(Message(role: .assistant, content: cardMessage, thread: thread))
+            recordRecentCommand(resolvedInvocation.id)
+            contextCoordinator.upsert(commandResult: result, threadID: thread.id)
 
             logWarning(
                 event: "chat_slash_command_sent",
@@ -752,19 +766,17 @@ struct ChatView: View {
                 recoveryQuery = nil
             }
 
-            await MainActor.run {
-                sendMessage(Message(role: .assistant, content: failureMessage, thread: thread))
-                if resolvedInvocation.id.requiresArgument, let recoveryQuery {
-                    slashDraft = SlashCommandInvocation(
-                        id: resolvedInvocation.id,
-                        argumentQuery: recoveryQuery,
-                        resolvedArgument: nil
-                    )
-                    commandFeedback = failureMessage
-                    slashPickerQuery = resolvedInvocation.id == .area ? "area" : "project"
-                    showSlashPicker = true
-                    isProjectFieldFocused = true
-                }
+            sendMessage(Message(role: .assistant, content: failureMessage, thread: thread))
+            if resolvedInvocation.id.requiresArgument, let recoveryQuery {
+                slashDraft = SlashCommandInvocation(
+                    id: resolvedInvocation.id,
+                    argumentQuery: recoveryQuery,
+                    resolvedArgument: nil
+                )
+                commandFeedback = failureMessage
+                slashPickerQuery = resolvedInvocation.id == .area ? "area" : "project"
+                showSlashPicker = true
+                isProjectFieldFocused = true
             }
             logWarning(
                 event: "chat_slash_command_validation_error",
