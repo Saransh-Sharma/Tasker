@@ -394,6 +394,7 @@ struct HomeListRowView: View {
     var onCompleteHabit: ((HomeHabitRow) -> Void)?
     var onSkipHabit: ((HomeHabitRow) -> Void)?
     var onLapseHabit: ((HomeHabitRow) -> Void)?
+    var onCycleHabit: ((HomeHabitRow) -> Void)?
     var onOpenHabit: ((HomeHabitRow) -> Void)?
 
     init(
@@ -414,6 +415,7 @@ struct HomeListRowView: View {
         onCompleteHabit: ((HomeHabitRow) -> Void)? = nil,
         onSkipHabit: ((HomeHabitRow) -> Void)? = nil,
         onLapseHabit: ((HomeHabitRow) -> Void)? = nil,
+        onCycleHabit: ((HomeHabitRow) -> Void)? = nil,
         onOpenHabit: ((HomeHabitRow) -> Void)? = nil
     ) {
         self.row = row
@@ -433,6 +435,7 @@ struct HomeListRowView: View {
         self.onCompleteHabit = onCompleteHabit
         self.onSkipHabit = onSkipHabit
         self.onLapseHabit = onLapseHabit
+        self.onCycleHabit = onCycleHabit
         self.onOpenHabit = onOpenHabit
     }
 
@@ -486,6 +489,13 @@ struct HomeListRowView: View {
                         break
                     }
                 },
+                onRowAction: {
+                    if let onCycleHabit {
+                        onCycleHabit(habit)
+                    } else {
+                        onOpenHabit?(habit)
+                    }
+                },
                 onOpenDetail: {
                     onOpenHabit?(habit)
                 }
@@ -513,6 +523,7 @@ struct HomeListSectionView: View {
     var onCompleteHabit: ((HomeHabitRow) -> Void)?
     var onSkipHabit: ((HomeHabitRow) -> Void)?
     var onLapseHabit: ((HomeHabitRow) -> Void)?
+    var onCycleHabit: ((HomeHabitRow) -> Void)?
     var onOpenHabit: ((HomeHabitRow) -> Void)?
     var headerActionTitle: String? = nil
     var onHeaderAction: (() -> Void)? = nil
@@ -539,6 +550,7 @@ struct HomeListSectionView: View {
         onCompleteHabit: ((HomeHabitRow) -> Void)? = nil,
         onSkipHabit: ((HomeHabitRow) -> Void)? = nil,
         onLapseHabit: ((HomeHabitRow) -> Void)? = nil,
+        onCycleHabit: ((HomeHabitRow) -> Void)? = nil,
         onOpenHabit: ((HomeHabitRow) -> Void)? = nil,
         headerActionTitle: String? = nil,
         onHeaderAction: (() -> Void)? = nil,
@@ -562,6 +574,7 @@ struct HomeListSectionView: View {
         self.onCompleteHabit = onCompleteHabit
         self.onSkipHabit = onSkipHabit
         self.onLapseHabit = onLapseHabit
+        self.onCycleHabit = onCycleHabit
         self.onOpenHabit = onOpenHabit
         self.headerActionTitle = headerActionTitle
         self.onHeaderAction = onHeaderAction
@@ -628,6 +641,7 @@ struct HomeListSectionView: View {
                     onCompleteHabit: onCompleteHabit,
                     onSkipHabit: onSkipHabit,
                     onLapseHabit: onLapseHabit,
+                    onCycleHabit: onCycleHabit,
                     onOpenHabit: onOpenHabit
                 )
 
@@ -663,6 +677,7 @@ struct HomeListSectionView: View {
                             onCompleteHabit: onCompleteHabit,
                             onSkipHabit: onSkipHabit,
                             onLapseHabit: onLapseHabit,
+                            onCycleHabit: onCycleHabit,
                             onOpenHabit: onOpenHabit
                         )
 
