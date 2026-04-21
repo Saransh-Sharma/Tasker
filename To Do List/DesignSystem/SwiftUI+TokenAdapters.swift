@@ -247,6 +247,53 @@ public extension Font {
     }
 }
 
+private struct TaskerFontModifier: ViewModifier {
+    @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @Environment(\.colorSchemeContrast) private var colorSchemeContrast
+    @Environment(\.legibilityWeight) private var legibilityWeight
+    @Environment(\.taskerLayoutClass) private var layoutClass
+    let style: TaskerTextStyle
+
+    @MainActor
+    @ViewBuilder
+    func body(content: Content) -> some View {
+        let traits = taskerTokenTraits(
+            colorScheme: colorScheme,
+            dynamicTypeSize: dynamicTypeSize,
+            colorSchemeContrast: colorSchemeContrast
+        )
+        let traitCollection = UITraitCollection(
+            traitsFrom: [
+                UITraitCollection(userInterfaceStyle: colorScheme == .dark ? .dark : .light),
+                UITraitCollection(preferredContentSizeCategory: dynamicTypeSize.uiContentSizeCategory),
+                UITraitCollection(accessibilityContrast: colorSchemeContrast.uiAccessibilityContrast)
+            ]
+        )
+        let font = Font(
+            TaskerSwiftUITokens.typography(
+                for: layoutClass,
+                traits: traits
+            ).dynamicFont(for: style, compatibleWith: traitCollection)
+        )
+
+        if legibilityWeight == .bold {
+            content
+                .font(font)
+                .fontWeight(.semibold)
+        } else {
+            content.font(font)
+        }
+    }
+}
+
+@MainActor
+public extension View {
+    func taskerFont(_ style: TaskerTextStyle) -> some View {
+        modifier(TaskerFontModifier(style: style))
+    }
+}
+
 private struct TaskerElevationModifier: ViewModifier {
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize

@@ -31,6 +31,7 @@ public struct TaskerTypographyTokens: TaskerTokenGroup {
     public let caption2: UIFont
     public let button: UIFont
     public let buttonSmall: UIFont
+    public let layoutScale: CGFloat
 
     private static let cacheLock = NSLock()
     private static var cacheByLayoutClass: [TaskerLayoutClass: TaskerTypographyTokens] = [:]
@@ -64,7 +65,7 @@ public struct TaskerTypographyTokens: TaskerTokenGroup {
 
     /// Executes dynamicFont.
     public func dynamicFont(for style: TaskerTextStyle, compatibleWith traitCollection: UITraitCollection? = nil) -> UIFont {
-        Self.font(for: Self.spec(for: style, scale: 1.0), compatibleWith: traitCollection)
+        Self.font(for: Self.spec(for: style, scale: layoutScale), compatibleWith: traitCollection)
     }
 
     /// Executes makeDefault.
@@ -103,7 +104,8 @@ public struct TaskerTypographyTokens: TaskerTokenGroup {
             caption1: font(for: spec(for: .caption1, scale: scale), compatibleWith: nil),
             caption2: font(for: spec(for: .caption2, scale: scale), compatibleWith: nil),
             button: font(for: spec(for: .button, scale: scale), compatibleWith: nil),
-            buttonSmall: font(for: spec(for: .buttonSmall, scale: scale), compatibleWith: nil)
+            buttonSmall: font(for: spec(for: .buttonSmall, scale: scale), compatibleWith: nil),
+            layoutScale: scale
         )
 
         cacheLock.lock()
