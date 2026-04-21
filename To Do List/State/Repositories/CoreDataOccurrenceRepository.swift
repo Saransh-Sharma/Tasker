@@ -2,13 +2,15 @@ import Foundation
 import CoreData
 
 public final class CoreDataOccurrenceRepository: OccurrenceRepositoryProtocol {
-    private let viewContext: NSManagedObjectContext
+    private let readContext: NSManagedObjectContext
     private let backgroundContext: NSManagedObjectContext
 
     /// Initializes a new instance.
     public init(container: NSPersistentContainer) {
-        self.viewContext = container.viewContext
+        self.readContext = container.newBackgroundContext()
+        self.readContext.mergePolicy = NSMergeByPropertyObjectTrumpMergePolicy
         self.backgroundContext = container.newBackgroundContext()
+        self.backgroundContext.mergePolicy = NSMergeByPropertyObjectTrumpMergePolicy
     }
 
     /// Executes fetchInRange.
@@ -21,10 +23,10 @@ public final class CoreDataOccurrenceRepository: OccurrenceRepositoryProtocol {
             )))
             return
         }
-        viewContext.perform {
+        readContext.perform {
             do {
                 let objects = try V2CoreDataRepositorySupport.fetchObjects(
-                    in: self.viewContext,
+                    in: self.readContext,
                     entityName: "Occurrence",
                     predicate: NSPredicate(format: "scheduledAt >= %@ AND scheduledAt <= %@", start as NSDate, end as NSDate),
                     sort: [
@@ -32,31 +34,58 @@ public final class CoreDataOccurrenceRepository: OccurrenceRepositoryProtocol {
                         NSSortDescriptor(key: "id", ascending: true)
                     ]
                 )
-                let mapped = objects.map { object in
-                    let scheduleTemplateID = object.value(forKey: "scheduleTemplateID") as? UUID ?? UUID()
-                    let sourceID = object.value(forKey: "sourceID") as? UUID ?? UUID()
-                    let scheduledAt = object.value(forKey: "scheduledAt") as? Date ?? Date()
-                    let fallbackKey = Self.fallbackOccurrenceKey(
-                        scheduleTemplateID: scheduleTemplateID,
-                        scheduledAt: scheduledAt,
-                        sourceID: sourceID
-                    )
-                    return OccurrenceDefinition(
-                        id: object.value(forKey: "id") as? UUID ?? UUID(),
-                        occurrenceKey: object.value(forKey: "occurrenceKey") as? String ?? fallbackKey,
-                        scheduleTemplateID: scheduleTemplateID,
-                        sourceType: ScheduleSourceType(rawValue: object.value(forKey: "sourceType") as? String ?? "task") ?? .task,
-                        sourceID: sourceID,
-                        scheduledAt: scheduledAt,
-                        dueAt: object.value(forKey: "dueAt") as? Date,
-                        state: OccurrenceState(rawValue: object.value(forKey: "state") as? String ?? "pending") ?? .pending,
-                        isGenerated: object.value(forKey: "isGenerated") as? Bool ?? true,
-                        generationWindow: object.value(forKey: "generationWindow") as? String,
-                        createdAt: object.value(forKey: "createdAt") as? Date ?? Date(),
-                        updatedAt: object.value(forKey: "updatedAt") as? Date ?? Date()
-                    )
-                }
+                let mapped = objects.map(Self.mapOccurrence)
                 completion(.success(mapped))
+            } catch {
+                completion(.failure(error))
+            }
+        }
+    }
+
+    /// Executes fetchByID.
+    public func fetchByID(id: UUID, completion: @escaping (Result<OccurrenceDefinition?, Error>) -> Void) {
+        readContext.perform {
+            do {
+                let object = try V2CoreDataRepositorySupport.fetchObject(
+                    in: self.readContext,
+                    entityName: "Occurrence",
+                    predicate: NSPredicate(format: "id == %@", id as CVarArg),
+                    sort: [NSSortDescriptor(key: "id", ascending: true)]
+                )
+                completion(.success(object.map(Self.mapOccurrence)))
+            } catch {
+                completion(.failure(error))
+            }
+        }
+    }
+
+    /// Executes fetchLatestForHabit.
+    public func fetchLatestForHabit(
+        habitID: UUID,
+        on date: Date,
+        completion: @escaping (Result<OccurrenceDefinition?, Error>) -> Void
+    ) {
+        let calendar = Calendar.current
+        let startOfDay = calendar.startOfDay(for: date)
+        let endOfDay = calendar.date(byAdding: .day, value: 1, to: startOfDay) ?? date
+        readContext.perform {
+            do {
+                let object = try V2CoreDataRepositorySupport.fetchObject(
+                    in: self.readContext,
+                    entityName: "Occurrence",
+                    predicate: NSCompoundPredicate(andPredicateWithSubpredicates: [
+                        NSPredicate(format: "sourceType == %@", ScheduleSourceType.habit.rawValue),
+                        NSPredicate(format: "sourceID == %@", habitID as CVarArg),
+                        NSPredicate(format: "scheduledAt >= %@", startOfDay as NSDate),
+                        NSPredicate(format: "scheduledAt < %@", endOfDay as NSDate)
+                    ]),
+                    sort: [
+                        NSSortDescriptor(key: "scheduledAt", ascending: false),
+                        NSSortDescriptor(key: "updatedAt", ascending: false),
+                        NSSortDescriptor(key: "id", ascending: false)
+                    ]
+                )
+                completion(.success(object.map(Self.mapOccurrence)))
             } catch {
                 completion(.failure(error))
             }
@@ -195,6 +224,31 @@ public final class CoreDataOccurrenceRepository: OccurrenceRepositoryProtocol {
             scheduleTemplateID: scheduleTemplateID,
             scheduledAt: scheduledAt,
             sourceID: sourceID
+        )
+    }
+
+    private static func mapOccurrence(_ object: NSManagedObject) -> OccurrenceDefinition {
+        let scheduleTemplateID = object.value(forKey: "scheduleTemplateID") as? UUID ?? UUID()
+        let sourceID = object.value(forKey: "sourceID") as? UUID ?? UUID()
+        let scheduledAt = object.value(forKey: "scheduledAt") as? Date ?? Date()
+        let fallbackKey = fallbackOccurrenceKey(
+            scheduleTemplateID: scheduleTemplateID,
+            scheduledAt: scheduledAt,
+            sourceID: sourceID
+        )
+        return OccurrenceDefinition(
+            id: object.value(forKey: "id") as? UUID ?? UUID(),
+            occurrenceKey: object.value(forKey: "occurrenceKey") as? String ?? fallbackKey,
+            scheduleTemplateID: scheduleTemplateID,
+            sourceType: ScheduleSourceType(rawValue: object.value(forKey: "sourceType") as? String ?? "task") ?? .task,
+            sourceID: sourceID,
+            scheduledAt: scheduledAt,
+            dueAt: object.value(forKey: "dueAt") as? Date,
+            state: OccurrenceState(rawValue: object.value(forKey: "state") as? String ?? "pending") ?? .pending,
+            isGenerated: object.value(forKey: "isGenerated") as? Bool ?? true,
+            generationWindow: object.value(forKey: "generationWindow") as? String,
+            createdAt: object.value(forKey: "createdAt") as? Date ?? Date(),
+            updatedAt: object.value(forKey: "updatedAt") as? Date ?? Date()
         )
     }
 }

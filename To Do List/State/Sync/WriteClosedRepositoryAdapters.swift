@@ -343,6 +343,10 @@ final class WriteClosedHabitRepositoryAdapter: HabitRepositoryProtocol {
         base.fetchAll(completion: completion)
     }
 
+    func fetchByID(id: UUID, completion: @escaping (Result<HabitDefinitionRecord?, Error>) -> Void) {
+        base.fetchByID(id: id, completion: completion)
+    }
+
     func create(_ habit: HabitDefinitionRecord, completion: @escaping (Result<HabitDefinitionRecord, Error>) -> Void) {
         gate.performWrite(operation: "HabitRepository.create", completion: completion) {
             self.base.create(habit, completion: completion)
@@ -423,6 +427,18 @@ final class WriteClosedOccurrenceRepositoryAdapter: OccurrenceRepositoryProtocol
 
     func fetchInRange(start: Date, end: Date, completion: @escaping (Result<[OccurrenceDefinition], Error>) -> Void) {
         base.fetchInRange(start: start, end: end, completion: completion)
+    }
+
+    func fetchByID(id: UUID, completion: @escaping (Result<OccurrenceDefinition?, Error>) -> Void) {
+        base.fetchByID(id: id, completion: completion)
+    }
+
+    func fetchLatestForHabit(
+        habitID: UUID,
+        on date: Date,
+        completion: @escaping (Result<OccurrenceDefinition?, Error>) -> Void
+    ) {
+        base.fetchLatestForHabit(habitID: habitID, on: date, completion: completion)
     }
 
     func saveOccurrences(_ occurrences: [OccurrenceDefinition], completion: @escaping (Result<Void, Error>) -> Void) {
