@@ -66,4 +66,17 @@ final class TypographyTokenTests: XCTestCase {
         let scaledTitle1 = typography.dynamicFont(for: .title1, compatibleWith: largeAccessibility)
         XCTAssertGreaterThan(scaledTitle1.pointSize, 22)
     }
+
+    func testDynamicFontPreservesLayoutClassScale() {
+        let phoneTypography = TaskerTypographyTokens.make(for: .phone)
+        let padTypography = TaskerTypographyTokens.make(for: .padExpanded)
+        let largeAccessibility = UITraitCollection(preferredContentSizeCategory: .accessibilityExtraExtraExtraLarge)
+
+        XCTAssertEqual(phoneTypography.layoutScale, 1.0)
+        XCTAssertGreaterThan(padTypography.layoutScale, phoneTypography.layoutScale)
+        XCTAssertGreaterThan(
+            padTypography.dynamicFont(for: .body, compatibleWith: largeAccessibility).pointSize,
+            phoneTypography.dynamicFont(for: .body, compatibleWith: largeAccessibility).pointSize
+        )
+    }
 }

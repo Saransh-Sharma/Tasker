@@ -95,6 +95,46 @@ final class AppOnboardingTests: XCTestCase {
         )
     }
 
+    func testOnboardingProgressUsesOrderedFlowAsSingleSource() {
+        XCTAssertEqual(OnboardingProgress(step: .goal)?.label, "Step 1 of 14")
+        XCTAssertEqual(OnboardingProgress(step: .success)?.label, "Step 14 of 14")
+        XCTAssertEqual(OnboardingStep.goal.accessibilitySummary, "Choose goal. Step 1 of 14. Select one goal to continue.")
+        XCTAssertEqual(OnboardingStep.success.accessibilitySummary, "Setup complete. Step 14 of 14. Go to Home.")
+        XCTAssertNil(OnboardingProgress(step: .welcome))
+    }
+
+    func testLegacyOnboardingStepsNormalizeBeforeRendering() {
+        XCTAssertEqual(OnboardingStep.blocker.normalizedForCurrentFlow, .goal)
+        XCTAssertEqual(OnboardingStep.projects.normalizedForCurrentFlow, .lifeAreas)
+        XCTAssertEqual(OnboardingStep.habits.normalizedForCurrentFlow, .habitSetup)
+    }
+
+    func testOnboardingCopyAvoidsGenericAIPhrases() {
+        for copy in OnboardingCopy.reviewedStrings {
+            XCTAssertFalse(copy.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+            XCTAssertLessThanOrEqual(copy.count, 120)
+            for phrase in OnboardingCopy.regressionPhrases {
+                XCTAssertFalse(
+                    copy.localizedCaseInsensitiveContains(phrase),
+                    "Copy should avoid generic phrase '\(phrase)': \(copy)"
+                )
+            }
+        }
+    }
+
+    func testOnboardingAccentPairsMeetWCAGContrast() {
+        let lightTraits = UITraitCollection(userInterfaceStyle: .light)
+        let darkTraits = UITraitCollection(userInterfaceStyle: .dark)
+        let tokens = TaskerTheme(index: 0).tokens.color
+
+        XCTAssertGreaterThanOrEqual(contrast(tokens.actionPrimary, tokens.accentOnPrimary, traits: lightTraits), 4.5)
+        XCTAssertGreaterThanOrEqual(contrast(tokens.actionPrimary, tokens.accentOnPrimary, traits: darkTraits), 4.5)
+        XCTAssertGreaterThanOrEqual(contrast(tokens.actionPrimary, tokens.surfacePrimary, traits: lightTraits), 3.0)
+        XCTAssertGreaterThanOrEqual(contrast(tokens.actionPrimary, tokens.surfacePrimary, traits: darkTraits), 3.0)
+        XCTAssertGreaterThanOrEqual(contrast(tokens.textPrimary, tokens.surfacePrimary, traits: lightTraits), 4.5)
+        XCTAssertGreaterThanOrEqual(contrast(tokens.textPrimary, tokens.surfacePrimary, traits: darkTraits), 4.5)
+    }
+
     func testVisibleLifeAreasCollapseToCoreAreasUntilExpanded() {
         XCTAssertEqual(
             StarterWorkspaceCatalog.visibleLifeAreas(for: .starting, showAll: false).map(\.id),
@@ -114,6 +154,31 @@ final class AppOnboardingTests: XCTestCase {
         XCTAssertEqual(OnboardingStep(rawValue: 4), .firstTask)
         XCTAssertEqual(OnboardingStep(rawValue: 5), .focusRoom)
         XCTAssertEqual(OnboardingStep(rawValue: 6), .blocker)
+    }
+
+    @MainActor
+    func testPrepareForPresentationRemapsLegacyStoredSteps() {
+        let context = makeStoreContext()
+        defer { context.cleanup() }
+
+        let snapshot = OnboardingJourneySnapshot(
+            step: .projects,
+            mode: .guided,
+            selectedLifeAreaIDs: ["health-self"],
+            showAllLifeAreas: false,
+            projectDrafts: [],
+            resolvedLifeAreas: [],
+            resolvedProjects: [],
+            createdTasks: [],
+            createdTaskTemplateMap: [:],
+            focusIsActive: false,
+            hasSeenSuccess: false
+        )
+
+        let viewModel = OnboardingFlowModel(stateStore: context.store)
+        viewModel.prepareForPresentation(snapshot: snapshot)
+
+        XCTAssertEqual(viewModel.step, .lifeAreas)
     }
 
     func testCatalogReuseMatchesAliasesForExistingLifeAreasAndProjects() {
@@ -971,6 +1036,28 @@ final class AppOnboardingTests: XCTestCase {
             fatalError("Unreachable after XCTFail")
         }
         return value
+    }
+
+    private func contrast(_ foreground: UIColor, _ background: UIColor, traits: UITraitCollection) -> CGFloat {
+        let fg = foreground.resolvedColor(with: traits)
+        let bg = background.resolvedColor(with: traits)
+        let lighter = max(relativeLuminance(fg), relativeLuminance(bg))
+        let darker = min(relativeLuminance(fg), relativeLuminance(bg))
+        return (lighter + 0.05) / (darker + 0.05)
+    }
+
+    private func relativeLuminance(_ color: UIColor) -> CGFloat {
+        var red: CGFloat = 0
+        var green: CGFloat = 0
+        var blue: CGFloat = 0
+        var alpha: CGFloat = 0
+        XCTAssertTrue(color.getRed(&red, green: &green, blue: &blue, alpha: &alpha))
+
+        func channel(_ value: CGFloat) -> CGFloat {
+            value <= 0.03928 ? value / 12.92 : pow((value + 0.055) / 1.055, 2.4)
+        }
+
+        return 0.2126 * channel(red) + 0.7152 * channel(green) + 0.0722 * channel(blue)
     }
 }
 
