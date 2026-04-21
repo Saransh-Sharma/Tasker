@@ -291,6 +291,142 @@ final class HomeCalendarIntegrationTests: XCTestCase {
         XCTAssertTrue(timeline.week.days.contains { $0.allDayCount > 0 || $0.timedMarkers.isEmpty == false })
     }
 
+    func testHomeTimelineSnapshotUsesWorkspaceTimelineAnchorTimes() {
+        let sharedStore = TaskerWorkspacePreferencesStore.shared
+        let originalSharedPreferences = sharedStore.load()
+        defer { sharedStore.save(originalSharedPreferences) }
+
+        let preferences = TaskerWorkspacePreferences(
+            selectedCalendarIDs: ["work"],
+            includeDeclinedCalendarEvents: false,
+            includeCanceledCalendarEvents: false,
+            includeAllDayInAgenda: true,
+            includeAllDayInBusyStrip: false,
+            showCalendarEventsInTimeline: true,
+            timelineRiseAndShineHour: 6,
+            timelineRiseAndShineMinute: 30,
+            timelineWindDownHour: 21,
+            timelineWindDownMinute: 45
+        )
+        workspaceStore.save(preferences)
+        sharedStore.save(preferences)
+
+        let provider = CalendarEventsProviderStub()
+        provider.authorizationStatusValue = .authorized
+        provider.calendarsResult = .success([calendar(id: "work")])
+        provider.eventsResult = .success([])
+
+        let coordinator = makeCoordinator(provider: provider)
+        let defaults = makeUserDefaultsSuite(prefix: "HomeTimelineAnchorWorkspacePreferencesTests")
+        let viewModel = HomeViewModel(useCaseCoordinator: coordinator, userDefaults: defaults)
+
+        waitForMainQueue(seconds: 0.35)
+        let timeline = viewModel.buildTimelineSnapshot(
+            calendarSnapshot: viewModel.homeCalendarSnapshot,
+            foredropAnchor: .collapsed
+        )
+
+        let calendar = Calendar.current
+        XCTAssertEqual(calendar.component(.hour, from: timeline.day.wakeAnchor.time), 6)
+        XCTAssertEqual(calendar.component(.minute, from: timeline.day.wakeAnchor.time), 30)
+        XCTAssertEqual(calendar.component(.hour, from: timeline.day.sleepAnchor.time), 21)
+        XCTAssertEqual(calendar.component(.minute, from: timeline.day.sleepAnchor.time), 45)
+    }
+
+    func testHomeTimelineSnapshotIgnoresQuietHoursForTimelineAnchors() {
+        let sharedStore = TaskerWorkspacePreferencesStore.shared
+        let originalSharedPreferences = sharedStore.load()
+        defer { sharedStore.save(originalSharedPreferences) }
+
+        let notificationStore = TaskerNotificationPreferencesStore.shared
+        let originalNotificationPreferences = notificationStore.load()
+        defer { notificationStore.save(originalNotificationPreferences) }
+        var customNotificationPreferences = originalNotificationPreferences
+        customNotificationPreferences.quietHoursEnabled = true
+        customNotificationPreferences.quietHoursStartHour = 1
+        customNotificationPreferences.quietHoursStartMinute = 15
+        customNotificationPreferences.quietHoursEndHour = 5
+        customNotificationPreferences.quietHoursEndMinute = 45
+        notificationStore.save(customNotificationPreferences)
+
+        let preferences = TaskerWorkspacePreferences(
+            selectedCalendarIDs: ["work"],
+            includeDeclinedCalendarEvents: false,
+            includeCanceledCalendarEvents: false,
+            includeAllDayInAgenda: true,
+            includeAllDayInBusyStrip: false,
+            showCalendarEventsInTimeline: true,
+            timelineRiseAndShineHour: 9,
+            timelineRiseAndShineMinute: 10,
+            timelineWindDownHour: 20,
+            timelineWindDownMinute: 40
+        )
+        workspaceStore.save(preferences)
+        sharedStore.save(preferences)
+
+        let provider = CalendarEventsProviderStub()
+        provider.authorizationStatusValue = .authorized
+        provider.calendarsResult = .success([calendar(id: "work")])
+        provider.eventsResult = .success([])
+
+        let coordinator = makeCoordinator(provider: provider)
+        let defaults = makeUserDefaultsSuite(prefix: "HomeTimelineAnchorQuietHoursIndependenceTests")
+        let viewModel = HomeViewModel(useCaseCoordinator: coordinator, userDefaults: defaults)
+
+        waitForMainQueue(seconds: 0.35)
+        let timeline = viewModel.buildTimelineSnapshot(
+            calendarSnapshot: viewModel.homeCalendarSnapshot,
+            foredropAnchor: .collapsed
+        )
+
+        let calendar = Calendar.current
+        XCTAssertEqual(calendar.component(.hour, from: timeline.day.wakeAnchor.time), 9)
+        XCTAssertEqual(calendar.component(.minute, from: timeline.day.wakeAnchor.time), 10)
+        XCTAssertEqual(calendar.component(.hour, from: timeline.day.sleepAnchor.time), 20)
+        XCTAssertEqual(calendar.component(.minute, from: timeline.day.sleepAnchor.time), 40)
+    }
+
+    func testHomeTimelineSnapshotRollsWindDownToNextDayWhenItIsEarlierThanRiseAndShine() {
+        let sharedStore = TaskerWorkspacePreferencesStore.shared
+        let originalSharedPreferences = sharedStore.load()
+        defer { sharedStore.save(originalSharedPreferences) }
+
+        let preferences = TaskerWorkspacePreferences(
+            selectedCalendarIDs: ["work"],
+            includeDeclinedCalendarEvents: false,
+            includeCanceledCalendarEvents: false,
+            includeAllDayInAgenda: true,
+            includeAllDayInBusyStrip: false,
+            showCalendarEventsInTimeline: true,
+            timelineRiseAndShineHour: 22,
+            timelineRiseAndShineMinute: 30,
+            timelineWindDownHour: 6,
+            timelineWindDownMinute: 15
+        )
+        workspaceStore.save(preferences)
+        sharedStore.save(preferences)
+
+        let provider = CalendarEventsProviderStub()
+        provider.authorizationStatusValue = .authorized
+        provider.calendarsResult = .success([calendar(id: "work")])
+        provider.eventsResult = .success([])
+
+        let coordinator = makeCoordinator(provider: provider)
+        let defaults = makeUserDefaultsSuite(prefix: "HomeTimelineAnchorOvernightTests")
+        let viewModel = HomeViewModel(useCaseCoordinator: coordinator, userDefaults: defaults)
+
+        waitForMainQueue(seconds: 0.35)
+        let timeline = viewModel.buildTimelineSnapshot(
+            calendarSnapshot: viewModel.homeCalendarSnapshot,
+            foredropAnchor: .collapsed
+        )
+
+        let calendar = Calendar.current
+        XCTAssertTrue(timeline.day.sleepAnchor.time > timeline.day.wakeAnchor.time)
+        XCTAssertFalse(calendar.isDate(timeline.day.wakeAnchor.time, inSameDayAs: timeline.day.sleepAnchor.time))
+        XCTAssertGreaterThan(timeline.day.sleepAnchor.time.timeIntervalSince(timeline.day.wakeAnchor.time), 0)
+    }
+
     func testHomeTimelineSnapshotUsesCompactLayoutForEmptyDay() {
         let sharedStore = TaskerWorkspacePreferencesStore.shared
         let originalSharedPreferences = sharedStore.load()
