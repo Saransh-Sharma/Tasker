@@ -7645,20 +7645,22 @@ extension HomeViewModel {
         calendarSnapshot: HomeCalendarSnapshot,
         foredropAnchor: ForedropAnchor
     ) -> HomeTimelineSnapshot {
-        let notificationPreferences = TaskerNotificationPreferencesStore.shared.load()
         let workspacePreferences = TaskerWorkspacePreferencesStore.shared.load()
         let showCalendarEventsInTimeline = workspacePreferences.showCalendarEventsInTimeline
         let selectedDay = Calendar.current.startOfDay(for: selectedDate)
         let wakeTime = timelineAnchorTime(
             on: selectedDay,
-            hour: notificationPreferences.quietHoursEnabled ? notificationPreferences.quietHoursEndHour : 8,
-            minute: notificationPreferences.quietHoursEnabled ? notificationPreferences.quietHoursEndMinute : 0
+            hour: workspacePreferences.timelineRiseAndShineHour,
+            minute: workspacePreferences.timelineRiseAndShineMinute
         )
-        let sleepTime = timelineAnchorTime(
+        var sleepTime = timelineAnchorTime(
             on: selectedDay,
-            hour: notificationPreferences.quietHoursEnabled ? notificationPreferences.quietHoursStartHour : 22,
-            minute: notificationPreferences.quietHoursEnabled ? notificationPreferences.quietHoursStartMinute : 0
+            hour: workspacePreferences.timelineWindDownHour,
+            minute: workspacePreferences.timelineWindDownMinute
         )
+        if sleepTime <= wakeTime {
+            sleepTime = Calendar.current.date(byAdding: .day, value: 1, to: sleepTime) ?? sleepTime
+        }
         let wakeAnchor = TimelineAnchorItem(id: "wake", title: "Rise and shine", time: wakeTime, systemImageName: "alarm.fill")
         let sleepAnchor = TimelineAnchorItem(id: "sleep", title: "Wind down", time: sleepTime, systemImageName: "moon.fill")
         let dayTasks = timelineTasksForSelectedDay()
