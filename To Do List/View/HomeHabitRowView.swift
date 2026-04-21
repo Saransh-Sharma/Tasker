@@ -1,33 +1,49 @@
 import SwiftUI
 
 struct HomeHabitRowHitTargetMetrics: Equatable {
-    let detailRegionWidth: CGFloat
     let visualLastCellWidth: CGFloat
-    let interactiveLastCellWidth: CGFloat
 
-    init(stripWidth: CGFloat, cellCount: Int, hasLastCellInteraction: Bool) {
+    init(stripWidth: CGFloat, cellCount: Int, showsLastCellDecoration: Bool) {
         let resolvedStripWidth = max(stripWidth, 1)
         let resolvedCellCount = max(cellCount, 1)
-        let trailingCellWidth = hasLastCellInteraction
+        let trailingCellWidth = showsLastCellDecoration
             ? max(resolvedStripWidth / CGFloat(resolvedCellCount), 1)
-            : 0
-        let interactiveTrailingCellWidth = hasLastCellInteraction
-            ? min(max(trailingCellWidth * 2, 64), 80)
             : 0
 
         self.visualLastCellWidth = trailingCellWidth
-        self.interactiveLastCellWidth = min(max(interactiveTrailingCellWidth, trailingCellWidth), resolvedStripWidth)
-        self.detailRegionWidth = max(resolvedStripWidth - interactiveLastCellWidth, 0)
     }
 }
 
 private struct HomeHabitRowInteractiveButton<Label: View>: View {
+    enum Feedback {
+        case selection
+
+        @MainActor
+        func play() {
+            switch self {
+            case .selection:
+                TaskerFeedback.selection()
+            }
+        }
+    }
+
     let action: () -> Void
+    let feedback: Feedback?
     @ViewBuilder let label: () -> Label
+
+    init(
+        action: @escaping () -> Void,
+        feedback: Feedback? = nil,
+        @ViewBuilder label: @escaping () -> Label
+    ) {
+        self.action = action
+        self.feedback = feedback
+        self.label = label
+    }
 
     var body: some View {
         Button {
-            TaskerFeedback.selection()
+            feedback?.play()
             action()
         } label: {
             label()
@@ -41,65 +57,46 @@ private struct HomeHabitRowInteractiveSurface: View {
     let row: HomeHabitRow
     let boardCellCount: Int
     let colorScheme: ColorScheme
-    let lastCellInteraction: HomeHabitLastCellInteraction?
-    let accessibilityValue: String
+    let lastCellInteraction: HomeHabitLastCellInteraction
     let accessibilityHint: String
-    let onOpenDetail: (() -> Void)?
+    let onRowAction: (() -> Void)?
     let onLastCellAction: (() -> Void)?
 
     var body: some View {
         GeometryReader { proxy in
+            let stripAction = onRowAction ?? onLastCellAction
             let metrics = HomeHabitRowHitTargetMetrics(
                 stripWidth: proxy.size.width,
                 cellCount: boardCellCount,
-                hasLastCellInteraction: lastCellInteraction != nil && onLastCellAction != nil
+                showsLastCellDecoration: stripAction != nil
             )
 
-            HStack(spacing: 0) {
-                if let onOpenDetail {
-                    HomeHabitRowInteractiveButton(
-                        action: onOpenDetail
-                    ) {
-                        Color.clear
-                    }
-                    .frame(width: metrics.detailRegionWidth)
-                    .frame(maxHeight: .infinity)
-                    .accessibilityLabel(row.title)
-                    .accessibilityValue(accessibilityValue)
-                    .accessibilityHint(accessibilityHint)
-                } else if metrics.detailRegionWidth > 0 {
-                    Color.clear
-                        .frame(width: metrics.detailRegionWidth)
-                }
+            if let stripAction {
+                HomeHabitRowInteractiveButton(
+                    action: stripAction
+                ) {
+                    ZStack(alignment: .trailing) {
+                        // Non-zero opacity keeps the full strip in hit-testing across
+                        // scroll/gesture contention where fully clear content can drop taps.
+                        Color.black.opacity(0.001)
 
-                if let interaction = lastCellInteraction,
-                   let onLastCellAction,
-                   metrics.interactiveLastCellWidth > 0 {
-                    HomeHabitRowInteractiveButton(
-                        action: onLastCellAction
-                    ) {
-                        ZStack(alignment: .trailing) {
-                            Color.clear
-
+                        if metrics.visualLastCellWidth > 0 {
                             RoundedRectangle(cornerRadius: 1, style: .continuous)
                                 .stroke(HabitEverydayPalette.todayStroke(colorScheme: colorScheme), lineWidth: 1.2)
                                 .frame(width: metrics.visualLastCellWidth)
                         }
                     }
-                    .frame(width: metrics.interactiveLastCellWidth)
-                    .frame(maxHeight: .infinity)
-                    .contentShape(Rectangle())
-                    .accessibilityIdentifier("home.habitRow.lastCell.\(row.id)")
-                    .accessibilityLabel("\(row.title) status")
-                    .accessibilityValue("\(interaction.currentStateText). Next: \(interaction.nextActionText).")
-                    .accessibilityHint("Cycles the last habit cell for the selected date.")
-                    .zIndex(1)
-                } else if metrics.interactiveLastCellWidth > 0 {
-                    Color.clear
-                        .frame(width: metrics.interactiveLastCellWidth)
                 }
+                .frame(width: proxy.size.width, height: proxy.size.height, alignment: .leading)
+                .contentShape(Rectangle())
+                .accessibilityIdentifier("home.habitRow.lastCell.\(row.id)")
+                .accessibilityLabel("\(row.title) status")
+                .accessibilityValue("\(lastCellInteraction.currentStateText). Next: \(lastCellInteraction.nextActionText).")
+                .accessibilityHint(accessibilityHint)
+            } else {
+                Color.clear
+                    .frame(width: proxy.size.width, height: proxy.size.height, alignment: .leading)
             }
-            .frame(width: proxy.size.width, height: proxy.size.height, alignment: .leading)
         }
     }
 }
@@ -108,6 +105,7 @@ struct HomeHabitRowView: View {
     let row: HomeHabitRow
     var onPrimaryAction: (() -> Void)? = nil
     var onSecondaryAction: (() -> Void)? = nil
+    var onRowAction: (() -> Void)? = nil
     var onOpenDetail: (() -> Void)? = nil
     var onLastCellAction: (() -> Void)? = nil
 
@@ -115,12 +113,14 @@ struct HomeHabitRowView: View {
         row: HomeHabitRow,
         onPrimaryAction: (() -> Void)? = nil,
         onSecondaryAction: (() -> Void)? = nil,
+        onRowAction: (() -> Void)? = nil,
         onOpenDetail: (() -> Void)? = nil,
         onLastCellAction: (() -> Void)? = nil
     ) {
         self.row = row
         self.onPrimaryAction = onPrimaryAction
         self.onSecondaryAction = onSecondaryAction
+        self.onRowAction = onRowAction
         self.onOpenDetail = onOpenDetail
         self.onLastCellAction = onLastCellAction
     }
@@ -164,35 +164,13 @@ struct HomeHabitRowView: View {
         }
     }
 
-    private var lastCellInteraction: HomeHabitLastCellInteraction? {
+    private var lastCellInteraction: HomeHabitLastCellInteraction {
         HomeHabitLastCellInteraction.resolve(for: row)
     }
 
     var body: some View {
         rowBase
             .accessibilityIdentifier("home.habitRow.\(row.id)")
-            .swipeActions(edge: .leading, allowsFullSwipe: primaryActionTitle != nil) {
-                if let primaryActionTitle, let onPrimaryAction {
-                    Button {
-                        TaskerFeedback.light()
-                        onPrimaryAction()
-                    } label: {
-                        Label(primaryActionTitle, systemImage: primaryActionSymbolName)
-                    }
-                    .tint(primaryActionTint)
-                }
-            }
-            .swipeActions(edge: .trailing, allowsFullSwipe: false) {
-                if let secondaryActionTitle, let onSecondaryAction {
-                    Button {
-                        TaskerFeedback.light()
-                        onSecondaryAction()
-                    } label: {
-                        Label(secondaryActionTitle, systemImage: secondaryActionSymbolName)
-                    }
-                    .tint(secondaryActionTint)
-                }
-            }
             .contextMenu {
                 if let onOpenDetail {
                     Button {
@@ -234,7 +212,8 @@ struct HomeHabitRowView: View {
     private var iconTile: some View {
         if let onOpenDetail {
             HomeHabitRowInteractiveButton(
-                action: onOpenDetail
+                action: onOpenDetail,
+                feedback: .selection
             ) {
                 iconTileVisual
             }
@@ -274,9 +253,8 @@ struct HomeHabitRowView: View {
                 boardCellCount: boardCellCount,
                 colorScheme: colorScheme,
                 lastCellInteraction: lastCellInteraction,
-                accessibilityValue: accessibilityValue,
                 accessibilityHint: accessibilityHint,
-                onOpenDetail: onOpenDetail,
+                onRowAction: onRowAction,
                 onLastCellAction: onLastCellAction
             )
         }
@@ -400,47 +378,18 @@ struct HomeHabitRowView: View {
         }
     }
 
-    private var primaryActionTint: Color {
-        row.trackingMode == .lapseOnly ? Color.tasker.statusDanger : accentColor
-    }
-
-    private var secondaryActionTint: Color {
-        switch (row.kind, row.trackingMode) {
-        case (.positive, _):
-            return Color.tasker.textSecondary
-        case (.negative, .dailyCheckIn):
-            return Color.tasker.statusDanger
-        case (.negative, .lapseOnly):
-            return Color.tasker.textSecondary
-        }
-    }
-
-    private var accessibilityValue: String {
-        "\(stateText). Current streak \(row.currentStreak) days. Best streak \(row.bestStreak) days."
-    }
-
     private var accessibilityHint: String {
-        if primaryActionTitle != nil || secondaryActionTitle != nil || lastCellInteraction != nil {
-            return "Opens habit details. Swipe for quick actions."
+        if onRowAction != nil {
+            if onOpenDetail != nil {
+                return "Double-tap to cycle today. Tap the icon to open details. Long-press for quick actions."
+            }
+            return "Double-tap to cycle today. Long-press for quick actions."
+        }
+
+        if primaryActionTitle != nil || secondaryActionTitle != nil {
+            return "Opens habit details. Long-press for quick actions."
         }
         return "Opens habit details."
-    }
-
-    private var stateText: String {
-        switch row.state {
-        case .due:
-            return "Due today"
-        case .overdue:
-            return "Recovery needed"
-        case .completedToday:
-            return "Completed today"
-        case .lapsedToday:
-            return "Lapse logged today"
-        case .skippedToday:
-            return "Skipped today"
-        case .tracking:
-            return row.trackingMode == .lapseOnly ? "Tracking quietly" : "On track"
-        }
     }
 
     private var boardCells: [HabitBoardCell] {
