@@ -341,7 +341,7 @@ struct SettingsRootView: View {
     private func timelineSection(baseIndex: Int, includeHorizontalPadding: Bool = true) -> some View {
         SettingsSectionView(
             title: "Timeline",
-            subtitle: "Control whether calendar activity appears inside the Home timeline surfaces.",
+            subtitle: "Control timeline calendar overlays and daily start/end anchors.",
             topPadding: sectionTopPadding,
             includeHorizontalPadding: includeHorizontalPadding
         ) {
@@ -360,6 +360,68 @@ struct SettingsRootView: View {
                     )
                 }
                 .enhancedStaggeredAppearance(index: baseIndex)
+
+                TaskerSettingsFieldCard(
+                    title: "Timeline Anchors",
+                    subtitle: "Set the start and wind-down times shown in your Home timeline.",
+                    footer: "If Wind Down is earlier than Rise & Shine, the timeline carries into the next day.",
+                    accessibilityIdentifier: "settings.timeline.anchors.card"
+                ) {
+                    VStack(spacing: spacing.s12) {
+                        HStack(spacing: spacing.s12) {
+                            Text("Rise & Shine")
+                                .font(.tasker(.caption1))
+                                .foregroundStyle(Color.tasker(.textSecondary))
+
+                            Spacer()
+
+                            Text(viewModel.timelineRiseAndShineSummary)
+                                .font(.tasker(.caption1))
+                                .foregroundStyle(Color.tasker(.textSecondary))
+                                .accessibilityIdentifier("settings.timeline.riseAndShine.value")
+
+                            DatePicker(
+                                "",
+                                selection: Binding(
+                                    get: { viewModel.timelineRiseAndShineTime },
+                                    set: { viewModel.timelineRiseAndShineTime = $0 }
+                                ),
+                                displayedComponents: .hourAndMinute
+                            )
+                            .labelsHidden()
+                            .datePickerStyle(.compact)
+                            .tint(Color.tasker(.accentPrimary))
+                            .accessibilityIdentifier("settings.timeline.riseAndShine.picker")
+                        }
+
+                        HStack(spacing: spacing.s12) {
+                            Text("Wind Down")
+                                .font(.tasker(.caption1))
+                                .foregroundStyle(Color.tasker(.textSecondary))
+
+                            Spacer()
+
+                            Text(viewModel.timelineWindDownSummary)
+                                .font(.tasker(.caption1))
+                                .foregroundStyle(Color.tasker(.textSecondary))
+                                .accessibilityIdentifier("settings.timeline.windDown.value")
+
+                            DatePicker(
+                                "",
+                                selection: Binding(
+                                    get: { viewModel.timelineWindDownTime },
+                                    set: { viewModel.timelineWindDownTime = $0 }
+                                ),
+                                displayedComponents: .hourAndMinute
+                            )
+                            .labelsHidden()
+                            .datePickerStyle(.compact)
+                            .tint(Color.tasker(.accentPrimary))
+                            .accessibilityIdentifier("settings.timeline.windDown.picker")
+                        }
+                    }
+                }
+                .enhancedStaggeredAppearance(index: baseIndex + 1)
             }
         }
     }

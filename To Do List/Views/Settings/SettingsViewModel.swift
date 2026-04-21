@@ -89,6 +89,36 @@ final class SettingsViewModel: ObservableObject {
         }
     }
 
+    var timelineRiseAndShineTime: Date {
+        get {
+            dateFrom(
+                hour: workspacePreferences.timelineRiseAndShineHour,
+                minute: workspacePreferences.timelineRiseAndShineMinute
+            )
+        }
+        set {
+            let comps = Calendar.current.dateComponents([.hour, .minute], from: newValue)
+            workspacePreferences.timelineRiseAndShineHour = comps.hour ?? workspacePreferences.timelineRiseAndShineHour
+            workspacePreferences.timelineRiseAndShineMinute = comps.minute ?? workspacePreferences.timelineRiseAndShineMinute
+            saveWorkspacePreferences()
+        }
+    }
+
+    var timelineWindDownTime: Date {
+        get {
+            dateFrom(
+                hour: workspacePreferences.timelineWindDownHour,
+                minute: workspacePreferences.timelineWindDownMinute
+            )
+        }
+        set {
+            let comps = Calendar.current.dateComponents([.hour, .minute], from: newValue)
+            workspacePreferences.timelineWindDownHour = comps.hour ?? workspacePreferences.timelineWindDownHour
+            workspacePreferences.timelineWindDownMinute = comps.minute ?? workspacePreferences.timelineWindDownMinute
+            saveWorkspacePreferences()
+        }
+    }
+
     // MARK: - Version
 
     var appVersion: String {
@@ -212,6 +242,20 @@ final class SettingsViewModel: ObservableObject {
         return "\(formattedTime(hour: preferences.quietHoursStartHour, minute: preferences.quietHoursStartMinute))–\(formattedTime(hour: preferences.quietHoursEndHour, minute: preferences.quietHoursEndMinute))"
     }
 
+    var timelineRiseAndShineSummary: String {
+        formattedTime(
+            hour: workspacePreferences.timelineRiseAndShineHour,
+            minute: workspacePreferences.timelineRiseAndShineMinute
+        )
+    }
+
+    var timelineWindDownSummary: String {
+        formattedTime(
+            hour: workspacePreferences.timelineWindDownHour,
+            minute: workspacePreferences.timelineWindDownMinute
+        )
+    }
+
     var weekStartsOnSummary: String {
         workspacePreferences.weekStartsOn.displayTitle
     }
@@ -308,7 +352,7 @@ final class SettingsViewModel: ObservableObject {
     func updateWeekStartsOn(_ weekday: Weekday) {
         guard workspacePreferences.weekStartsOn != weekday else { return }
         workspacePreferences.weekStartsOn = weekday
-        workspacePreferencesStore.save(workspacePreferences)
+        saveWorkspacePreferences()
         TaskerFeedback.selection()
     }
 
@@ -426,7 +470,7 @@ final class SettingsViewModel: ObservableObject {
         guard workspacePreferences.showCalendarEventsInTimeline != show else { return }
         showCalendarEventsInTimeline = show
         workspacePreferences.showCalendarEventsInTimeline = show
-        workspacePreferencesStore.save(workspacePreferences)
+        saveWorkspacePreferences()
         TaskerFeedback.selection()
     }
 
@@ -442,12 +486,14 @@ final class SettingsViewModel: ObservableObject {
                 self.includeCanceledCalendarEvents = snapshot.includeCanceled
                 self.includeAllDayInAgenda = snapshot.includeAllDayInAgenda
                 self.includeAllDayInBusyStrip = snapshot.includeAllDayInBusyStrip
-                self.showCalendarEventsInTimeline = self.workspacePreferencesStore.load().showCalendarEventsInTimeline
+                self.workspacePreferences = self.workspacePreferencesStore.load()
+                self.showCalendarEventsInTimeline = self.workspacePreferences.showCalendarEventsInTimeline
             }
             .store(in: &cancellables)
     }
 
     private func refreshCalendarState() {
+        workspacePreferences = workspacePreferencesStore.load()
         let snapshot = calendarIntegrationService.snapshot
         calendarAuthorizationStatus = snapshot.authorizationStatus
         selectedCalendarIDs = snapshot.selectedCalendarIDs
@@ -457,6 +503,10 @@ final class SettingsViewModel: ObservableObject {
         includeAllDayInAgenda = snapshot.includeAllDayInAgenda
         includeAllDayInBusyStrip = snapshot.includeAllDayInBusyStrip
         showCalendarEventsInTimeline = workspacePreferences.showCalendarEventsInTimeline
+    }
+
+    private func saveWorkspacePreferences() {
+        workspacePreferencesStore.save(workspacePreferences)
     }
 
     private func reconcileNotifications(reason: String) {
