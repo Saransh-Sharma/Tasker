@@ -48,6 +48,7 @@ enum AccessibilityIdentifiers {
         static let primaryWidgetPageWeeklyOperating = "home.primaryWidget.page.weeklyOperating"
         static let primaryWidgetIndicatorFocusNow = "home.primaryWidget.indicator.focusNow"
         static let primaryWidgetIndicatorWeeklyOperating = "home.primaryWidget.indicator.weeklyOperating"
+        static let dailyReflectionEntryCompact = "home.dailyReflection.entry.compact"
         static let weeklySummaryCard = "home.weeklySummary.card"
         static let calendarCard = "home.calendar.card"
         static let calendarStateActive = "home.calendar.state.active"

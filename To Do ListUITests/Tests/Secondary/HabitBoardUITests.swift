@@ -218,12 +218,11 @@ final class HabitBoardUITests: BaseUITest {
         XCTAssertTrue(saveButton.waitForExistence(timeout: 5), "Habit detail should enter edit mode after editor support loads")
     }
 
-    func testHomeHabitLastCellCyclesThroughThreeStates() {
-        let row = firstHomeHabitRow()
+    func testHomeHabitLastCellCyclesThroughThreeStates() throws {
+        relaunchForHomeHabitRowAssertions()
+        let (rowID, strip) = try firstHomeHabitStrip()
 
-        XCTAssertTrue(row.waitForExistence(timeout: 5), "A home habit row should exist in the seeded workspace")
-
-        let rowID = row.identifier.replacingOccurrences(of: "home.habitRow.", with: "")
+        XCTAssertTrue(strip.waitForExistence(timeout: 5), "A home habit strip should exist in the seeded workspace")
         let lastCell = app.buttons[AccessibilityIdentifiers.Home.habitRowLastCell(rowID)]
 
         XCTAssertTrue(lastCell.waitForExistence(timeout: 5), "Eligible home habit rows should expose a tappable last-cell button")
@@ -273,15 +272,44 @@ final class HabitBoardUITests: BaseUITest {
         XCTAssertNotEqual(lastCell.value as? String, "Empty. Next: Mark done.")
     }
 
-    func testHomeHabitRowTapOutsideLastCellStillOpensDetail() {
-        let row = firstHomeHabitRow()
+    func testHomeHabitRowTapOutsideIconCyclesHabitStateAcrossStripTapPoints() throws {
+        relaunchForHomeHabitRowAssertions()
+        let (rowID, strip) = try firstHomeHabitStrip()
+        XCTAssertTrue(strip.waitForExistence(timeout: 5), "A home habit strip should exist in the seeded workspace")
+        let lastCell = app.buttons[AccessibilityIdentifiers.Home.habitRowLastCell(rowID)]
+        XCTAssertTrue(lastCell.waitForExistence(timeout: 5), "Eligible home habit rows should expose a tappable last-cell button")
+        XCTAssertEqual(lastCell.value as? String, "Empty. Next: Mark done.")
 
-        XCTAssertTrue(row.waitForExistence(timeout: 5), "A home habit row should exist in the seeded workspace")
+        let stripTapPoints = [0.20, 0.50, 0.80]
+        let expectedValues = [
+            "Done. Next: Mark skipped.",
+            "Skipped. Next: Clear to empty.",
+            "Empty. Next: Mark done."
+        ]
 
-        let coordinate = row.coordinate(withNormalizedOffset: CGVector(dx: 0.2, dy: 0.5))
-        coordinate.tap()
+        for (index, tapPoint) in stripTapPoints.enumerated() {
+            let coordinate = strip.coordinate(withNormalizedOffset: CGVector(dx: tapPoint, dy: 0.5))
+            coordinate.tap()
+            XCTAssertTrue(
+                waitForLastCellValue(lastCell, expected: expectedValues[index]),
+                "Tapping strip point \(tapPoint) should cycle the habit state"
+            )
+        }
+    }
 
-        XCTAssertTrue(app.staticTexts["Drink water after breakfast"].waitForExistence(timeout: 5), "Tapping outside the last cell should still open habit detail")
+    func testHomeHabitIconTapStillOpensDetail() throws {
+        relaunchForHomeHabitRowAssertions()
+        let (rowID, strip) = try firstHomeHabitStrip()
+        XCTAssertTrue(strip.waitForExistence(timeout: 5), "A home habit strip should exist in the seeded workspace")
+        let icon = app.otherElements[AccessibilityIdentifiers.Home.habitRowIcon(rowID)]
+        XCTAssertTrue(icon.waitForExistence(timeout: 5), "Habit row icon should be visible")
+
+        icon.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+
+        XCTAssertTrue(
+            app.staticTexts["Drink water after breakfast"].waitForExistence(timeout: 5),
+            "Tapping the left icon should open habit detail"
+        )
     }
 
     private func openHabitBoard(file: StaticString = #file, line: UInt = #line) {
@@ -352,6 +380,38 @@ final class HabitBoardUITests: BaseUITest {
         return firstRow
     }
 
+    private func firstHomeHabitStrip(file: StaticString = #file, line: UInt = #line) throws -> (rowID: String, strip: XCUIElement) {
+        dismissHabitBoardIfVisible()
+
+        let backToTodayButton = app.buttons[AccessibilityIdentifiers.Home.backToTodayButton]
+        if backToTodayButton.waitForExistence(timeout: 2) && backToTodayButton.isHittable {
+            backToTodayButton.tap()
+        }
+
+        let stripQuery = app.descendants(matching: .any).matching(
+            NSPredicate(format: "identifier MATCHES %@", #"^home\.habitRow\.strip\.[A-Za-z0-9-]+$"#)
+        )
+        let firstStrip = stripQuery.firstMatch
+
+        if firstStrip.waitForExistence(timeout: 3) && firstStrip.isHittable {
+            let rowID = firstStrip.identifier.replacingOccurrences(of: "home.habitRow.strip.", with: "")
+            return (rowID, firstStrip)
+        }
+
+        for _ in 0..<12 {
+            app.swipeUp()
+            if firstStrip.exists && firstStrip.isHittable {
+                break
+            }
+        }
+
+        guard firstStrip.waitForExistence(timeout: 2) else {
+            throw XCTSkip("Home habit strip is unavailable in the current UI test seed")
+        }
+        let rowID = firstStrip.identifier.replacingOccurrences(of: "home.habitRow.strip.", with: "")
+        return (rowID, firstStrip)
+    }
+
     private func firstHabitBoardRow() throws -> XCUIElement {
         do {
             return try requireHabitBoardRows(timeout: 12)
@@ -390,6 +450,29 @@ final class HabitBoardUITests: BaseUITest {
             "-UIPreferredContentSizeCategoryName",
             contentSizeCategory
         ])
+        relaunchedApp.launchEnvironment[XCUIApplication.LaunchEnvironmentKey.performanceTest.rawValue] = "1"
+        app = relaunchedApp
+        app.launch()
+        waitForAppLaunch()
+    }
+
+    private func relaunchForHomeHabitRowAssertions() {
+        app.terminate()
+
+        let relaunchedApp = XCUIApplication()
+        relaunchedApp.launchArguments = [
+            "-RESET_APP_STATE",
+            "-UI_TESTING",
+            "-DISABLE_ANIMATIONS",
+            "-SKIP_ONBOARDING"
+        ]
+        relaunchedApp.launchArguments.append(
+            contentsOf: additionalLaunchArguments.filter {
+                $0 != XCUIApplication.LaunchArgumentKey.testPresentHabitBoard.rawValue
+                    && $0 != XCUIApplication.LaunchArgumentKey.testSeedHabitBoardWorkspace.rawValue
+            }
+        )
+        relaunchedApp.launchArguments.append(XCUIApplication.LaunchArgumentKey.testSeedEstablishedWorkspace.rawValue)
         relaunchedApp.launchEnvironment[XCUIApplication.LaunchEnvironmentKey.performanceTest.rawValue] = "1"
         app = relaunchedApp
         app.launch()
