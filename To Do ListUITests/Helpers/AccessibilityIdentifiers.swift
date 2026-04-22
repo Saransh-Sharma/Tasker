@@ -194,6 +194,10 @@ enum AccessibilityIdentifiers {
         static let closeButton = "taskDetail.closeButton"
         static let editButton = "taskDetail.editButton"
         static let dueChip = "taskDetail.chip.due"
+        static let stepsDisclosure = "taskDetail.disclosure.steps"
+        static let detailsDisclosure = "taskDetail.disclosure.details"
+        static let relationshipsDisclosure = "taskDetail.disclosure.relationships"
+        static let contextDisclosure = "taskDetail.disclosure.context"
     }
 
     // MARK: - Inbox Screen

@@ -1,6 +1,10 @@
 import XCTest
 
 final class TaskBreakdownFlowTests: BaseUITest {
+    override var additionalLaunchArguments: [String] {
+        [XCUIApplication.LaunchArgumentKey.testSeedEstablishedWorkspace.rawValue]
+    }
+
     func testTaskDetailCanOpenBreakdownSheetWhenEntryIsVisible() throws {
         let homePage = HomePage(app: app)
         guard homePage.view.waitForExistence(timeout: 8) else {
@@ -23,6 +27,15 @@ final class TaskBreakdownFlowTests: BaseUITest {
         }
 
         let breakdownButton = app.buttons["Break down"]
+        if !breakdownButton.waitForExistence(timeout: 1.5) {
+            let stepsDisclosure = app.buttons[AccessibilityIdentifiers.TaskDetail.stepsDisclosure]
+            if stepsDisclosure.waitForExistence(timeout: 3) {
+                stepsDisclosure.tap()
+            } else if app.buttons["Steps"].waitForExistence(timeout: 2) {
+                app.buttons["Steps"].tap()
+            }
+        }
+
         guard breakdownButton.waitForExistence(timeout: 3) else {
             throw XCTSkip("Break down entry not visible (feature disabled or task already has steps)")
         }

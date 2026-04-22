@@ -1058,6 +1058,16 @@ class HomePage {
             return rowContainingTitle
         }
 
+        let genericContainingRows = app.otherElements.containing(.staticText, identifier: title)
+        if let hittableGenericRow = firstHittableElement(in: genericContainingRows) {
+            return hittableGenericRow
+        }
+
+        let genericContainingRow = genericContainingRows.firstMatch
+        if genericContainingRow.exists {
+            return genericContainingRow
+        }
+
         let rowsByLabel = taskRowQuery.matching(
             NSPredicate(format: "label CONTAINS[c] %@", title)
         )
@@ -1404,7 +1414,35 @@ class HomePage {
 
     /// Tap task cell to open detail view
     func tapTask(at index: Int) {
-        taskCell(at: index).tap()
+        let row = taskCell(at: index)
+        if row.exists {
+            tapElement(row)
+            return
+        }
+
+        let visibleTaskTitles = app.staticTexts.matching(
+            NSPredicate(format: "label.length > 0 AND identifier == ''")
+        )
+        let fallbackTitle = visibleTaskTitles.element(boundBy: index)
+        if fallbackTitle.exists {
+            tapElement(fallbackTitle)
+        }
+    }
+
+    /// Tap task row by title to open detail view.
+    func tapTask(containingTitle title: String) {
+        let row = taskRow(containingTitle: title)
+        if row.waitForExistence(timeout: 3) {
+            tapElement(row)
+            return
+        }
+
+        let titleElement = app.staticTexts.matching(
+            NSPredicate(format: "label == %@", title)
+        ).firstMatch
+        if titleElement.waitForExistence(timeout: 2) {
+            tapElement(titleElement)
+        }
     }
 
     /// Swipe to delete task at index

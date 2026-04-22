@@ -11,56 +11,58 @@ import XCTest
 class TaskEditingTests: BaseUITest {
 
     var homePage: HomePage!
+    private let seededTaskTitle = "Draft update"
+    private let seededProjectTitle = "Ship one thing"
+
+    override var additionalLaunchArguments: [String] {
+        [XCUIApplication.LaunchArgumentKey.testSeedEstablishedWorkspace.rawValue]
+    }
 
     override func setUpWithError() throws {
         try super.setUpWithError()
         homePage = HomePage(app: app)
-
-        // Create initial task for editing
-        createInitialTask()
+        XCTAssertTrue(homePage.waitForTask(withTitle: seededTaskTitle, timeout: 8), "Seeded task should be visible")
     }
 
-    // MARK: - Setup Helper
+    private func taskDetailTitleInput() -> XCUIElement {
+        let anyMatch = app.descendants(matching: .any)[AccessibilityIdentifiers.TaskDetail.titleField]
+        if anyMatch.exists {
+            return anyMatch
+        }
 
-    private func createInitialTask() {
-        let addTaskPage = homePage.tapAddTask()
-        addTaskPage.createTask(
-            title: "Task to Edit",
-            description: "Original description",
-            priority: .medium,
-            taskType: .morning
-        )
+        let textView = app.textViews[AccessibilityIdentifiers.TaskDetail.titleField]
+        if textView.exists {
+            return textView
+        }
 
-        XCTAssertTrue(homePage.waitForTask(withTitle: "Task to Edit", timeout: 5), "Initial task should be created")
+        return app.textFields[AccessibilityIdentifiers.TaskDetail.titleField]
+    }
+
+    private func expandMoreDetailsIfNeeded() {
+        let detailsDisclosure = app.buttons[AccessibilityIdentifiers.TaskDetail.detailsDisclosure]
+        if detailsDisclosure.waitForExistence(timeout: 2) {
+            detailsDisclosure.tap()
+            waitForAnimations(duration: 0.5)
+        }
     }
 
     // MARK: - Test 16: Edit Task Title
 
     func testEditTaskTitle() throws {
         // GIVEN: A task exists
-        XCTAssertTrue(homePage.verifyTaskExists(withTitle: "Task to Edit"), "Task should exist")
+        XCTAssertTrue(homePage.verifyTaskExists(withTitle: seededTaskTitle), "Task should exist")
 
         // WHEN: User opens task and edits the title
-        let taskIndex = findTaskIndex(withTitle: "Task to Edit")
-        homePage.tapTask(at: taskIndex)
+        homePage.tapTask(containingTitle: seededTaskTitle)
 
         // Wait for task detail or edit screen to appear
         waitForAnimations(duration: 1.0)
 
         // Find title field and edit it
-        let titleField = app.textFields.matching(NSPredicate(format: "value CONTAINS 'Task to Edit'")).firstMatch
+        let titleField = taskDetailTitleInput()
 
         if titleField.exists {
-            titleField.tap()
-            titleField.doubleTap() // Select text
-
-            // Clear and enter new title
-            if let currentValue = titleField.value as? String, !currentValue.isEmpty {
-                let deleteString = String(repeating: XCUIKeyboardKey.delete.rawValue, count: currentValue.count)
-                titleField.typeText(deleteString)
-            }
-
-            titleField.typeText("Edited Task Title")
+            clearAndTypeText(titleField, text: "Edited Task Title")
 
             // Save changes
             let saveButton = app.buttons["Save"]
@@ -79,49 +81,53 @@ class TaskEditingTests: BaseUITest {
         XCTAssertTrue(titleUpdated, "Task title should be updated")
 
         // Verify old title doesn't exist
-        XCTAssertFalse(homePage.verifyTaskExists(withTitle: "Task to Edit"), "Old title should not exist")
+        XCTAssertFalse(homePage.verifyTaskExists(withTitle: seededTaskTitle), "Old title should not exist")
 
         takeScreenshot(named: "edit_task_title")
+    }
+
+    func testLongTaskTitleWrapsInTaskDetail() throws {
+        XCTAssertTrue(homePage.verifyTaskExists(withTitle: seededTaskTitle), "Task should exist")
+
+        homePage.tapTask(containingTitle: seededTaskTitle)
+        waitForAnimations(duration: 1.0)
+
+        let longTitle = "Edited task title that is intentionally long enough to wrap across multiple lines so the full wording stays visible in task detail."
+        let titleField = taskDetailTitleInput()
+        XCTAssertTrue(titleField.waitForExistence(timeout: 3), "Task title field should exist")
+
+        clearAndTypeText(titleField, text: longTitle)
+        waitForAnimations(duration: 0.5)
+
+        XCTAssertEqual(titleField.value as? String, longTitle, "Long title should remain editable without truncating the value")
+        XCTAssertGreaterThan(titleField.frame.height, 44, "Long title field should grow taller than a single-line field")
+
+        takeScreenshot(named: "edit_task_long_title_wrap")
     }
 
     // MARK: - Test 17: Edit Task Priority
 
     func testEditTaskPriority() throws {
         // GIVEN: A task with Medium priority exists
-        XCTAssertTrue(homePage.verifyTaskExists(withTitle: "Task to Edit"), "Task should exist")
+        XCTAssertTrue(homePage.verifyTaskExists(withTitle: seededTaskTitle), "Task should exist")
 
         // WHEN: User changes priority from Medium to High (P1)
-        let taskIndex = findTaskIndex(withTitle: "Task to Edit")
-        homePage.tapTask(at: taskIndex)
+        homePage.tapTask(containingTitle: seededTaskTitle)
 
         waitForAnimations(duration: 1.0)
 
         // Find and tap priority control
-        let priorityControl = app.segmentedControls.firstMatch
-        if priorityControl.exists {
-            priorityControl.buttons["High"].tap()
+        expandMoreDetailsIfNeeded()
 
-            // Save changes
-            let saveButton = app.buttons["Save"]
-            if saveButton.exists {
-                saveButton.tap()
-            } else {
-                app.buttons["Done"].tap()
-            }
-        } else {
-            // Try finding priority buttons directly
-            let highPriorityButton = app.buttons.matching(NSPredicate(format: "label CONTAINS 'High' OR label CONTAINS 'P1'")).firstMatch
-            if highPriorityButton.exists {
-                highPriorityButton.tap()
-                app.buttons["Done"].tap()
-            }
-        }
+        let highPriorityButton = app.buttons.matching(NSPredicate(format: "label CONTAINS 'High' OR label CONTAINS 'P1'")).firstMatch
+        XCTAssertTrue(highPriorityButton.waitForExistence(timeout: 3), "High priority option should be visible")
+        highPriorityButton.tap()
 
         // THEN: Priority should be updated to High
         waitForAnimations(duration: 1.0)
 
         // Complete the task to verify it gives 4 points (P1 = High = 4 points)
-        let updatedTaskIndex = findTaskIndex(withTitle: "Task to Edit")
+        let updatedTaskIndex = findTaskIndex(withTitle: seededTaskTitle)
         homePage.completeTask(at: updatedTaskIndex)
         waitForAnimations(duration: 1.0)
 
@@ -136,11 +142,10 @@ class TaskEditingTests: BaseUITest {
 
     func testEditTaskDueDate() throws {
         // GIVEN: A task exists
-        XCTAssertTrue(homePage.verifyTaskExists(withTitle: "Task to Edit"), "Task should exist")
+        XCTAssertTrue(homePage.verifyTaskExists(withTitle: seededTaskTitle), "Task should exist")
 
         // WHEN: User opens task and changes due date
-        let taskIndex = findTaskIndex(withTitle: "Task to Edit")
-        homePage.tapTask(at: taskIndex)
+        homePage.tapTask(containingTitle: seededTaskTitle)
 
         waitForAnimations(duration: 1.0)
 
@@ -183,41 +188,25 @@ class TaskEditingTests: BaseUITest {
 
     func testEditTaskProject() throws {
         // GIVEN: A task exists (defaults to Inbox)
-        XCTAssertTrue(homePage.verifyTaskExists(withTitle: "Task to Edit"), "Task should exist")
+        XCTAssertTrue(homePage.verifyTaskExists(withTitle: seededTaskTitle), "Task should exist")
 
         // WHEN: User changes task project
-        let taskIndex = findTaskIndex(withTitle: "Task to Edit")
-        homePage.tapTask(at: taskIndex)
+        homePage.tapTask(containingTitle: seededTaskTitle)
 
         waitForAnimations(duration: 1.0)
 
-        // Look for project selector
-        let projectButton = app.buttons.matching(NSPredicate(format: "label CONTAINS 'project' OR label CONTAINS 'Inbox'")).firstMatch
+        expandMoreDetailsIfNeeded()
 
-        if projectButton.exists {
-            projectButton.tap()
-            waitForAnimations(duration: 0.5)
-
-            // Select a different project (if available)
-            // For now, just verify the project picker appeared
-            let projectPicker = app.collectionViews.firstMatch
-            XCTAssertTrue(projectPicker.exists || app.tables.firstMatch.exists, "Project picker should appear")
-
-            // Close picker
-            app.buttons["Done"].tap()
-        } else {
-            // Save and close
-            let saveButton = app.buttons["Save"]
-            if saveButton.exists {
-                saveButton.tap()
-            } else {
-                app.buttons["Done"].tap()
-            }
-        }
+        let addProjectButton = app.buttons["Add Project"]
+        let currentProjectLabel = app.staticTexts[seededProjectTitle]
+        XCTAssertTrue(
+            addProjectButton.waitForExistence(timeout: 3) || currentProjectLabel.waitForExistence(timeout: 3),
+            "Project controls should appear inside More details"
+        )
 
         // THEN: Task should still exist
         waitForAnimations(duration: 1.0)
-        XCTAssertTrue(homePage.verifyTaskExists(withTitle: "Task to Edit"), "Task should still exist")
+        XCTAssertTrue(homePage.verifyTaskExists(withTitle: seededTaskTitle), "Task should still exist")
 
         takeScreenshot(named: "edit_task_project")
     }
@@ -226,11 +215,10 @@ class TaskEditingTests: BaseUITest {
 
     func testEditTaskDescription() throws {
         // GIVEN: A task with description exists
-        XCTAssertTrue(homePage.verifyTaskExists(withTitle: "Task to Edit"), "Task should exist")
+        XCTAssertTrue(homePage.verifyTaskExists(withTitle: seededTaskTitle), "Task should exist")
 
         // WHEN: User edits the description
-        let taskIndex = findTaskIndex(withTitle: "Task to Edit")
-        homePage.tapTask(at: taskIndex)
+        homePage.tapTask(containingTitle: seededTaskTitle)
 
         waitForAnimations(duration: 1.0)
 
@@ -261,7 +249,7 @@ class TaskEditingTests: BaseUITest {
         waitForAnimations(duration: 1.0)
 
         // Verify task still exists
-        XCTAssertTrue(homePage.verifyTaskExists(withTitle: "Task to Edit"), "Task should still exist with updated description")
+        XCTAssertTrue(homePage.verifyTaskExists(withTitle: seededTaskTitle), "Task should still exist with updated description")
 
         takeScreenshot(named: "edit_task_description")
     }
@@ -293,11 +281,10 @@ class TaskEditingTests: BaseUITest {
 
     func testEditTaskType_MorningToEvening() throws {
         // GIVEN: A morning task exists
-        XCTAssertTrue(homePage.verifyTaskExists(withTitle: "Task to Edit"), "Morning task should exist")
+        XCTAssertTrue(homePage.verifyTaskExists(withTitle: seededTaskTitle), "Morning task should exist")
 
         // WHEN: User changes task type from Morning to Evening
-        let taskIndex = findTaskIndex(withTitle: "Task to Edit")
-        homePage.tapTask(at: taskIndex)
+        homePage.tapTask(containingTitle: seededTaskTitle)
 
         waitForAnimations(duration: 1.0)
 
@@ -330,7 +317,7 @@ class TaskEditingTests: BaseUITest {
         waitForAnimations(duration: 1.0)
 
         // Verify task still exists
-        XCTAssertTrue(homePage.verifyTaskExists(withTitle: "Task to Edit"), "Task should exist as evening task")
+        XCTAssertTrue(homePage.verifyTaskExists(withTitle: seededTaskTitle), "Task should exist as evening task")
 
         takeScreenshot(named: "edit_task_type_evening")
     }
