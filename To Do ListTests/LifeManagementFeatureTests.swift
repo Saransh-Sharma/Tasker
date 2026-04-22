@@ -650,7 +650,7 @@ final class TaskerPersistentRuntimeInitializerLifeAreaColorBackfillTests: XCTest
 }
 
 final class LifeManagementProjectionTests: XCTestCase {
-    func testProjectionBuildsOverviewAndGroupsActiveEntitiesByArea() {
+    func testProjectionBuildsTreeWithProjectsAndDirectHabitsUnderAreas() throws {
         let general = LifeArea(id: UUID(), name: "General", color: "#9E5F0A", icon: "square.grid.2x2")
         let career = LifeArea(id: UUID(), name: "Career", color: "#3B82F6", icon: "briefcase.fill")
 
@@ -707,27 +707,34 @@ final class LifeManagementProjectionTests: XCTestCase {
             bestStreak: 4
         )
 
-        let snapshot = LifeManagementProjection.build(
+        let context = LifeManagementProjection.prepare(
             lifeAreas: [general, career],
             projectStats: [inbox, roadmap],
             habitRows: [activeHabit, pausedHabit],
-            selectedScope: .overview,
-            selectedHabitFilter: .all,
-            searchQuery: "",
             generalLifeAreaID: general.id
         )
+        let snapshot = context.snapshot(searchQuery: "")
 
-        XCTAssertEqual(snapshot.overview.stats.map(\.value), ["2", "2", "2"])
-        XCTAssertEqual(snapshot.areaRows.count, 2)
-        XCTAssertEqual(snapshot.projectGroups.count, 2)
-        XCTAssertEqual(snapshot.habitGroups.count, 2)
-        XCTAssertEqual(snapshot.overview.attentionItems.filter { $0.kind == .emptyProject }.count, 1)
-        XCTAssertEqual(snapshot.overview.attentionItems.filter { $0.kind == .pausedHabit }.count, 1)
-        XCTAssertEqual(snapshot.projectGroups.first(where: { $0.title == "Career" })?.rows.first?.linkedHabitCount, 1)
-        XCTAssertEqual(snapshot.habitGroups.first(where: { $0.title == "Career" })?.rows.first?.row.colorHex, "#3B82F6")
+        let activeSection = try XCTUnwrap(snapshot.treeSections.first(where: { $0.kind == LifeManagementTreeSectionKind.active }))
+        XCTAssertEqual(activeSection.nodes.map(\.title), ["General", "Career"])
+
+        let generalNode = try XCTUnwrap(activeSection.nodes.first(where: { $0.title == "General" }))
+        XCTAssertEqual(generalNode.children.map(\.title), [ProjectConstants.inboxProjectName, "No late caffeine"])
+
+        let careerNode = try XCTUnwrap(activeSection.nodes.first(where: { $0.title == "Career" }))
+        XCTAssertEqual(careerNode.children.map(\.title), ["Roadmap"])
+
+        let roadmapNode = try XCTUnwrap(careerNode.children.first(where: { $0.title == "Roadmap" }))
+        XCTAssertEqual(roadmapNode.children.map(\.title), ["Deep work"])
+
+        if case .project(let projectRow) = roadmapNode.payload {
+            XCTAssertEqual(projectRow.linkedHabitCount, 1)
+        } else {
+            XCTFail("Expected roadmap node payload to be a project")
+        }
     }
 
-    func testProjectionSearchesArchivedEntitiesSeparately() {
+    func testProjectionSearchReturnsAncestorPreservingArchivedTreeSlice() throws {
         let general = LifeArea(id: UUID(), name: "General", color: "#9E5F0A", icon: "square.grid.2x2")
         let archivedArea = LifeArea(id: UUID(), name: "Travel", color: "#0EA5A3", icon: "airplane", isArchived: true)
 
@@ -761,64 +768,74 @@ final class LifeManagementProjectionTests: XCTestCase {
             bestStreak: 2
         )
 
-        let snapshot = LifeManagementProjection.build(
+        let context = LifeManagementProjection.prepare(
             lifeAreas: [general, archivedArea],
             projectStats: [archivedProject],
             habitRows: [archivedHabit],
-            selectedScope: .archive,
-            selectedHabitFilter: .all,
-            searchQuery: "japan",
             generalLifeAreaID: general.id
         )
+        let snapshot = context.snapshot(searchQuery: "japan")
 
-        XCTAssertEqual(snapshot.searchResults.areas.count, 0)
-        XCTAssertEqual(snapshot.searchResults.projects.map(\.project.name), ["Japan trip"])
-        XCTAssertEqual(snapshot.searchResults.habits.count, 0)
-        XCTAssertEqual(snapshot.archiveSections.areas.count, 1)
-        XCTAssertEqual(snapshot.archiveSections.projects.first?.rows.count, 1)
-        XCTAssertEqual(snapshot.archiveSections.habits.first?.rows.count, 1)
+        XCTAssertNil(snapshot.treeSections.first(where: { $0.kind == LifeManagementTreeSectionKind.active }))
+
+        let archivedSection = try XCTUnwrap(snapshot.treeSections.first(where: { $0.kind == LifeManagementTreeSectionKind.archived }))
+        XCTAssertEqual(archivedSection.nodes.map(\.title), ["Travel"])
+
+        let archivedAreaNode = try XCTUnwrap(archivedSection.nodes.first)
+        XCTAssertEqual(archivedAreaNode.children.map(\.title), ["Japan trip"])
+
+        let archivedProjectNode = try XCTUnwrap(archivedAreaNode.children.first)
+        XCTAssertEqual(archivedProjectNode.title, "Japan trip")
+        XCTAssertTrue(snapshot.searchExpandedAncestorNodeIDs.contains(archivedAreaNode.id))
     }
 
-    func testProjectionAppliesPausedHabitFilter() {
+    func testProjectionUsesGeneralAreaForOrphanedProjectsAndHabits() throws {
         let general = LifeArea(id: UUID(), name: "General", color: "#9E5F0A", icon: "square.grid.2x2")
-
-        let activeHabit = HabitLibraryRow(
-            habitID: UUID(),
-            title: "Read",
-            kind: .positive,
-            trackingMode: .dailyCheckIn,
-            lifeAreaID: general.id,
-            lifeAreaName: general.name,
-            isPaused: false,
-            isArchived: false,
-            currentStreak: 3,
-            bestStreak: 5
+        let orphanProject = ProjectWithStats(
+            project: Project(
+                id: UUID(),
+                lifeAreaID: nil,
+                name: "Loose ends",
+                projectDescription: "No explicit life area",
+                color: .orange,
+                icon: .folder
+            ),
+            taskCount: 0,
+            completedTaskCount: 0
         )
-        let pausedHabit = HabitLibraryRow(
+
+        let orphanHabit = HabitLibraryRow(
             habitID: UUID(),
-            title: "No sugar",
+            title: "Inbox reset",
             kind: .negative,
             trackingMode: .lapseOnly,
-            lifeAreaID: general.id,
+            lifeAreaID: nil,
             lifeAreaName: general.name,
-            isPaused: true,
+            projectID: nil,
+            isPaused: false,
             isArchived: false,
             currentStreak: 0,
             bestStreak: 7
         )
 
-        let snapshot = LifeManagementProjection.build(
+        let context = LifeManagementProjection.prepare(
             lifeAreas: [general],
-            projectStats: [],
-            habitRows: [activeHabit, pausedHabit],
-            selectedScope: .habits,
-            selectedHabitFilter: .paused,
-            searchQuery: "",
+            projectStats: [orphanProject],
+            habitRows: [orphanHabit],
             generalLifeAreaID: general.id
         )
+        let snapshot = context.snapshot(searchQuery: "")
 
-        XCTAssertEqual(snapshot.habitGroups.count, 1)
-        XCTAssertEqual(snapshot.habitGroups.first?.rows.map(\.row.title), ["No sugar"])
+        let activeSection = try XCTUnwrap(snapshot.treeSections.first(where: { $0.kind == LifeManagementTreeSectionKind.active }))
+        let generalNode = try XCTUnwrap(activeSection.nodes.first(where: { $0.title == "General" }))
+        XCTAssertEqual(generalNode.children.map(\.title), ["Loose ends", "Inbox reset"])
+
+        if case .area(let areaRow) = generalNode.payload {
+            XCTAssertEqual(areaRow.projectCount, 1)
+            XCTAssertEqual(areaRow.habitCount, 1)
+        } else {
+            XCTFail("Expected general node payload to be an area")
+        }
     }
 
     func testPreparedContextBuildsDetailSnapshotsAndPrecomputedCounts() {
@@ -890,9 +907,9 @@ final class LifeManagementProjectionTests: XCTestCase {
         XCTAssertEqual(context.allProjectCountByAreaID[career.id], 1)
         XCTAssertEqual(context.allHabitCountByAreaID[career.id], 2)
         XCTAssertEqual(context.allLinkedHabitCountByProjectID[roadmap.project.id], 2)
-        XCTAssertEqual(context.areaDetailByID[career.id]?.activeProjects.map(\.project.name), ["Roadmap"])
-        XCTAssertEqual(context.areaDetailByID[career.id]?.activeHabits.map(\.row.title), ["Deep work"])
-        XCTAssertEqual(context.projectDetailByID[roadmap.project.id]?.activeLinkedHabits.map(\.row.title), ["Deep work"])
+        XCTAssertEqual(context.areaDetailByID[career.id]?.projectRows.map(\.project.name), ["Roadmap"])
+        XCTAssertEqual(context.areaDetailByID[career.id]?.habitRows.map(\.row.title), ["Deep work"])
+        XCTAssertEqual(context.projectDetailByID[roadmap.project.id]?.linkedHabits.map(\.row.title), ["Deep work"])
     }
 }
 
@@ -976,7 +993,7 @@ final class LifeAreaProjectDropValidationTests: XCTestCase {
 
 @MainActor
 final class LifeManagementViewModelInteractionTests: XCTestCase {
-    func testHandleProjectDropResetsDragStateWhenMoveFails() async {
+    func testMoveProjectFromDraftKeepsDraftAndSurfacesErrorWhenMoveFails() async {
         let sourceAreaID = UUID()
         let destinationAreaID = UUID()
         let projectID = UUID()
@@ -995,19 +1012,24 @@ final class LifeManagementViewModelInteractionTests: XCTestCase {
             userInfo: [NSLocalizedDescriptionKey: "Move failed"]
         )
         let viewModel = makeLifeManagementViewModel(dependencies: repositories)
-
-        let provider = viewModel.beginProjectDrag(projectID)
-        viewModel.setDropTarget(destinationAreaID)
-
-        XCTAssertTrue(viewModel.handleProjectDrop(providers: [provider], targetLifeAreaID: destinationAreaID))
+        viewModel.loadIfNeeded()
 
         await waitUntil {
-            viewModel.isMutating == false &&
-            viewModel.draggingProjectID == nil &&
-            viewModel.activeDropLifeAreaID == nil
+            viewModel.projectRow(for: projectID) != nil
         }
 
-        XCTAssertEqual(viewModel.errorMessage, "Move failed")
+        viewModel.beginMoveProject(projectID)
+        XCTAssertEqual(viewModel.moveProjectDraft?.projectID, projectID)
+
+        viewModel.moveProjectDraft?.targetLifeAreaID = destinationAreaID
+        viewModel.moveProjectFromDraft()
+
+        await waitUntil {
+            viewModel.isMutating == false
+        }
+
+        XCTAssertTrue(viewModel.errorMessage?.contains("Move failed") == true)
+        XCTAssertEqual(viewModel.moveProjectDraft?.projectID, projectID)
     }
 
     func testMergeLifeAreasPrefersResolvedActiveGeneralOverArchivedDuplicate() {

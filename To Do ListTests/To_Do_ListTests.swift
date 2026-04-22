@@ -959,8 +959,8 @@ final class HabitCoreDataSchemaRegressionTests: XCTestCase {
         let created = try awaitResult { completion in
             repository.create(
                 TaskDefinition(
-                    title: "Icon Persistence Task",
                     iconSymbolName: "star.fill",
+                    title: "Icon Persistence Task",
                     createdAt: createdAt,
                     updatedAt: createdAt
                 ),
