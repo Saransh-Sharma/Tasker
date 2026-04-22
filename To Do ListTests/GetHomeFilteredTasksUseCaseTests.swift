@@ -37,6 +37,68 @@ final class GetHomeFilteredTasksUseCaseTests: XCTestCase {
         XCTAssertEqual(captured?.doneTimelineTasks.count, 0)
     }
 
+    func testTodayScopeIncludesPastScheduledTaskWithoutDueDate() {
+        let calendar = Calendar.current
+        let startOfToday = calendar.startOfDay(for: Date())
+        let yesterdayScheduled = calendar.date(byAdding: .day, value: -1, to: calendar.date(byAdding: .hour, value: 10, to: startOfToday)!)!
+        let tomorrowScheduled = calendar.date(byAdding: .day, value: 1, to: calendar.date(byAdding: .hour, value: 10, to: startOfToday)!)!
+        let dueToday = calendar.date(byAdding: .hour, value: 9, to: startOfToday)!
+
+        let scheduledCarryOver = makeTask(name: "Scheduled Carry Over", dueDate: nil, scheduledStartAt: yesterdayScheduled, isComplete: false)
+        let scheduledFuture = makeTask(name: "Scheduled Future", dueDate: nil, scheduledStartAt: tomorrowScheduled, isComplete: false)
+        let openToday = makeTask(name: "Due Today", dueDate: dueToday, isComplete: false)
+
+        let repository = MockTaskRepository(tasks: [scheduledCarryOver, scheduledFuture, openToday])
+        let useCase = GetHomeFilteredTasksUseCase(taskRepository: repository)
+
+        let expectation = expectation(description: "Today includes scheduled carry-over")
+        var captured: HomeFilteredTasksResult?
+
+        useCase.execute(state: .default, scope: .today) { result in
+            if case let .success(value) = result {
+                captured = value
+            }
+            expectation.fulfill()
+        }
+
+        waitForExpectations(timeout: 1.0)
+
+        XCTAssertEqual(
+            Set(captured?.openTasks.map(\.title) ?? []),
+            Set(["Scheduled Carry Over", "Due Today"])
+        )
+        XCTAssertEqual(captured?.quickViewCounts[.today], 2)
+    }
+
+    func testCustomDateScopeIncludesScheduledTaskBeforeAnchorWithoutDueDate() {
+        let calendar = Calendar.current
+        let anchor = calendar.date(from: DateComponents(year: 2026, month: 2, day: 10, hour: 10, minute: 0, second: 0))!
+        let startOfAnchor = calendar.startOfDay(for: anchor)
+        let previousDayScheduled = calendar.date(byAdding: .day, value: -1, to: calendar.date(byAdding: .hour, value: 10, to: startOfAnchor)!)!
+        let nextDayScheduled = calendar.date(byAdding: .day, value: 1, to: calendar.date(byAdding: .hour, value: 10, to: startOfAnchor)!)!
+
+        let scheduledCarryOver = makeTask(name: "Scheduled Before Anchor", dueDate: nil, scheduledStartAt: previousDayScheduled, isComplete: false)
+        let scheduledFuture = makeTask(name: "Scheduled After Anchor", dueDate: nil, scheduledStartAt: nextDayScheduled, isComplete: false)
+
+        let repository = MockTaskRepository(tasks: [scheduledCarryOver, scheduledFuture])
+        let useCase = GetHomeFilteredTasksUseCase(taskRepository: repository)
+
+        let expectation = expectation(description: "Custom date includes scheduled carry-over")
+        var captured: HomeFilteredTasksResult?
+
+        useCase.execute(state: .default, scope: .customDate(anchor)) { result in
+            if case let .success(value) = result {
+                captured = value
+            }
+            expectation.fulfill()
+        }
+
+        waitForExpectations(timeout: 1.0)
+
+        XCTAssertEqual(captured?.openTasks.map(\.title), ["Scheduled Before Anchor"])
+        XCTAssertEqual(captured?.quickViewCounts[.today], 1)
+    }
+
     func testCustomDateScopeComputesTodayQuickCountFromAnchorDate() {
         let calendar = Calendar.current
         let anchor = calendar.date(from: DateComponents(year: 2026, month: 2, day: 8, hour: 10, minute: 0, second: 0))!
@@ -469,18 +531,19 @@ final class GetHomeFilteredTasksUseCaseTests: XCTestCase {
         useCase.execute(state: state, scope: .today, revision: HomeDataRevision(rawValue: 1)) { _ in
             firstExpectation.fulfill()
         }
+        wait(for: [firstExpectation], timeout: 1.0)
 
         let secondExpectation = expectation(description: "Cached fetch")
         useCase.execute(state: state, scope: .today, revision: HomeDataRevision(rawValue: 1)) { _ in
             secondExpectation.fulfill()
         }
+        wait(for: [secondExpectation], timeout: 1.0)
 
         let thirdExpectation = expectation(description: "Revision invalidated fetch")
         useCase.execute(state: state, scope: .today, revision: HomeDataRevision(rawValue: 2)) { _ in
             thirdExpectation.fulfill()
         }
-
-        waitForExpectations(timeout: 1.0)
+        wait(for: [thirdExpectation], timeout: 1.0)
 
         XCTAssertEqual(repository.fetchCount, 2)
     }
@@ -511,26 +574,69 @@ final class GetHomeFilteredTasksUseCaseTests: XCTestCase {
         waitForExpectations(timeout: 1.0)
 
         XCTAssertEqual(captured?.quickViewCounts[.today], 930)
-        XCTAssertEqual(captured?.pointsPotential, 930)
+        XCTAssertEqual(captured?.pointsPotential, 930 * TaskPriority.low.scorePoints)
         XCTAssertEqual(captured?.openTasks.count, 360)
+        XCTAssertEqual(captured?.matchingOpenTasks.count, 930)
+        XCTAssertEqual(repository.observedHomeProjectionPages.map { [$0.offset, $0.limit, $0.count] }, [[0, 400, 400], [400, 400, 400], [800, 400, 130]])
         XCTAssertEqual(repository.fetchCount, 3)
+    }
+
+    func testMatchingOpenTasksPreservesTasksOutsideVisibleWindow() {
+        let calendar = Calendar.current
+        let startOfToday = calendar.startOfDay(for: Date())
+        let visibleTasks = (0..<370).map { index in
+            makeTask(
+                name: "Visible \(index)",
+                dueDate: calendar.date(byAdding: .minute, value: index, to: startOfToday),
+                isComplete: false,
+                priority: .max
+            )
+        }
+        let yesterdayScheduled = calendar.date(byAdding: .day, value: -1, to: calendar.date(byAdding: .hour, value: 9, to: startOfToday)!)!
+        let clippedCandidate = makeTask(
+            name: "Clipped Scheduled Candidate",
+            dueDate: nil,
+            scheduledStartAt: yesterdayScheduled,
+            isComplete: false,
+            priority: .low
+        )
+        let repository = CountingReadModelRepository(tasks: visibleTasks + [clippedCandidate])
+        let useCase = GetHomeFilteredTasksUseCase(readModelRepository: repository)
+
+        let expectation = expectation(description: "Matching open tasks include clipped candidate")
+        var captured: HomeFilteredTasksResult?
+
+        useCase.execute(state: .default, scope: .today, revision: HomeDataRevision(rawValue: 9)) { result in
+            if case let .success(value) = result {
+                captured = value
+            }
+            expectation.fulfill()
+        }
+
+        waitForExpectations(timeout: 1.0)
+
+        XCTAssertFalse(captured?.openTasks.contains(where: { $0.title == "Clipped Scheduled Candidate" }) ?? true)
+        XCTAssertTrue(captured?.matchingOpenTasks.contains(where: { $0.title == "Clipped Scheduled Candidate" }) ?? false)
     }
 
     private func makeTask(
         name: String,
         projectID: UUID = UUID(),
         dueDate: Date? = Date(),
+        scheduledStartAt: Date? = nil,
         isComplete: Bool = false,
         type: TaskType = .morning,
         priority: TaskPriority = .low,
         completionDate: Date? = nil
     ) -> Task {
-        Task(
+        TaskDefinition(
             projectID: projectID,
-            name: name,
-            type: type,
+            projectName: ProjectConstants.inboxProjectName,
+            title: name,
             priority: priority,
+            type: type,
             dueDate: dueDate,
+            scheduledStartAt: scheduledStartAt,
             isComplete: isComplete,
             dateCompleted: completionDate
         )
@@ -599,20 +705,34 @@ private final class MockTaskRepository: LegacyTaskRepositoryShim {
 private final class CountingReadModelRepository: TaskReadModelRepositoryProtocol {
     private let tasks: [TaskDefinition]
     private(set) var fetchCount: Int = 0
+    private(set) var observedHomeProjectionPages: [(offset: Int, limit: Int, count: Int)] = []
 
     init(tasks: [TaskDefinition]) {
         self.tasks = tasks
     }
 
     func fetchTasks(query: TaskReadQuery, completion: @escaping (Result<TaskDefinitionSliceResult, Error>) -> Void) {
+        completeSlice(limit: query.limit, offset: query.offset, completion: completion)
+    }
+
+    func fetchHomeProjection(query: HomeProjectionQuery, completion: @escaping (Result<TaskDefinitionSliceResult, Error>) -> Void) {
+        completeSlice(limit: query.limit, offset: query.offset, completion: completion)
+    }
+
+    private func completeSlice(
+        limit: Int,
+        offset: Int,
+        completion: @escaping (Result<TaskDefinitionSliceResult, Error>) -> Void
+    ) {
         fetchCount += 1
-        let start = min(query.offset, tasks.count)
-        let end = min(start + query.limit, tasks.count)
+        let start = min(offset, tasks.count)
+        let end = min(start + limit, tasks.count)
+        observedHomeProjectionPages.append((offset, limit, end - start))
         completion(.success(TaskDefinitionSliceResult(
             tasks: Array(tasks[start..<end]),
             totalCount: tasks.count,
-            limit: query.limit,
-            offset: query.offset
+            limit: limit,
+            offset: offset
         )))
     }
 

@@ -727,6 +727,83 @@ final class HomeTaskSectionBuilderTests: XCTestCase {
         )
     }
 
+    func testHomeTaskTintResolverPrefersLifeAreaTintForMixedTaskRows() {
+        let career = LifeArea(id: UUID(), name: "Career", color: "#1A2B3C")
+        let work = Project(id: UUID(), lifeAreaID: career.id, name: "Work", icon: .work)
+        let task = makeTask(name: "Send recap", project: work, dueDate: Date())
+
+        let resolved = HomeTaskTintResolver.taskAccentHex(
+            for: task,
+            projectsByID: [work.id: work],
+            lifeAreasByID: [career.id: career]
+        )
+
+        XCTAssertEqual(resolved, LifeAreaColorPalette.normalizeOrMap(hex: career.color, for: career.id))
+    }
+
+    func testHomeTaskTintResolverUsesProjectTintWhenNoLifeAreaIsAvailable() {
+        let project = Project(id: UUID(), name: "Side", color: .purple, icon: .creative)
+        let task = makeTask(name: "Sketch", project: project, dueDate: Date())
+
+        let resolved = HomeTaskTintResolver.taskAccentHex(
+            for: task,
+            projectsByID: [project.id: project],
+            lifeAreasByID: [:]
+        )
+
+        XCTAssertEqual(resolved, project.color.hexString)
+    }
+
+    func testHomeTaskTintResolverUsesProjectColorForProjectAnchors() {
+        let project = Project(id: UUID(), name: "Work", color: .teal, icon: .work)
+        let anchor = HomeSectionAnchor.project(
+            id: project.id,
+            name: project.name,
+            iconSystemName: project.icon.systemImageName,
+            isInbox: false
+        )
+
+        let resolved = HomeTaskTintResolver.sectionAccentHex(
+            for: anchor,
+            projectsByID: [project.id: project],
+            lifeAreasByID: [:]
+        )
+
+        XCTAssertEqual(resolved, project.color.hexString)
+    }
+
+    func testHomeTaskTintResolverUsesLifeAreaColorForLifeAreaAnchors() {
+        let lifeArea = LifeArea(id: UUID(), name: "Career", color: "#1A2B3C")
+        let anchor = HomeSectionAnchor.lifeArea(
+            id: lifeArea.id,
+            name: lifeArea.name,
+            iconSystemName: "square.grid.2x2.fill"
+        )
+
+        let resolved = HomeTaskTintResolver.sectionAccentHex(
+            for: anchor,
+            projectsByID: [:],
+            lifeAreasByID: [lifeArea.id: lifeArea]
+        )
+
+        XCTAssertEqual(resolved, LifeAreaColorPalette.normalizeOrMap(hex: lifeArea.color, for: lifeArea.id))
+    }
+
+    func testMixedTodaySectionsCarrySectionAccentHex() {
+        let inbox = Project.createInbox()
+        let career = LifeArea(id: UUID(), name: "Career", color: "#1A2B3C")
+        let work = Project(id: UUID(), lifeAreaID: career.id, name: "Work", icon: .work)
+        let task = makeTask(name: "Send recap", project: work, dueDate: Date())
+        let sections = HomeMixedSectionBuilder.buildTodaySections(
+            taskRows: [task],
+            habitRows: [],
+            projects: [inbox, work],
+            lifeAreas: [career]
+        )
+
+        XCTAssertEqual(sections.first?.accentHex, LifeAreaColorPalette.normalizeOrMap(hex: career.color, for: career.id))
+    }
+
     func testAdaptiveDayGroupingKeepsUnifiedPlainListWhenNoProjectCrossesThreshold() {
         let inbox = Project.createInbox()
         let alpha = Project(id: UUID(), name: "Alpha", icon: .folder)

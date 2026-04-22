@@ -119,9 +119,18 @@ final class HomeViewModelPersistenceTests: XCTestCase {
         let calendar = Calendar.current
         let yesterday = calendar.date(byAdding: .day, value: -1, to: calendar.startOfDay(for: Date()))!
         let yesterdayTimed = calendar.date(bySettingHour: 10, minute: 30, second: 0, of: yesterday)!
+        let yesterdayScheduledOnly = calendar.date(bySettingHour: 11, minute: 0, second: 0, of: yesterday)!
         let todayTimed = calendar.date(bySettingHour: 10, minute: 30, second: 0, of: calendar.startOfDay(for: Date()))!
 
         let included = makeDefinition(title: "Included", start: yesterdayTimed)
+        let scheduledOnly = TaskDefinition(
+            title: "Scheduled Only",
+            dueDate: nil,
+            scheduledStartAt: yesterdayScheduledOnly,
+            scheduledEndAt: yesterdayScheduledOnly.addingTimeInterval(30 * 60),
+            isAllDay: false,
+            isComplete: false
+        )
         let recurring = makeDefinition(title: "Recurring", start: yesterdayTimed, repeatPattern: .daily)
         let allDay = makeDefinition(title: "All day", start: yesterday, isAllDay: true)
         let habit = makeDefinition(title: "Habit", start: yesterdayTimed, habitDefinitionID: UUID())
@@ -147,10 +156,94 @@ final class HomeViewModelPersistenceTests: XCTestCase {
         waitForMainQueueFlush()
 
         let candidates = viewModel.needsReplanCandidatesForTesting(
-            from: [included, recurring, allDay, habit, completed, today, inbox]
+            from: [included, scheduledOnly, recurring, allDay, habit, completed, today, inbox]
         )
 
-        XCTAssertEqual(candidates.map { $0.task.title }, ["Included"])
+        XCTAssertEqual(candidates.map { $0.task.title }, ["Scheduled Only", "Included"])
+        defaults.removePersistentDomain(forName: suiteName)
+    }
+
+    func testNeedsReplanTrayAppearsForPastScheduledTaskWithoutDueDate() {
+        let suiteName = "HomeViewModelPersistenceTests.ScheduledReplanTray.\(UUID().uuidString)"
+        guard let defaults = UserDefaults(suiteName: suiteName) else {
+            return XCTFail("Failed to create test UserDefaults suite")
+        }
+        defaults.removePersistentDomain(forName: suiteName)
+
+        let calendar = Calendar.current
+        let todayStart = calendar.startOfDay(for: Date())
+        let yesterdayScheduled = calendar.date(byAdding: .day, value: -1, to: calendar.date(byAdding: .hour, value: 9, to: todayStart)!)!
+        let task = TaskDefinition(
+            title: "Past Timeline Task",
+            dueDate: nil,
+            scheduledStartAt: yesterdayScheduled,
+            scheduledEndAt: yesterdayScheduled.addingTimeInterval(30 * 60),
+            isAllDay: false,
+            isComplete: false
+        )
+        let coordinator = UseCaseCoordinator(
+            taskRepository: HomeViewModelMockTaskRepository(tasks: [task]),
+            projectRepository: HomeViewModelMockProjectRepository(projects: [Project.createInbox()])
+        )
+        let viewModel = HomeViewModel(useCaseCoordinator: coordinator, userDefaults: defaults)
+        viewModel.loadTodayTasks()
+        waitForMainQueueFlush()
+
+        guard case .trayVisible(let summary) = viewModel.homeReplanState.phase else {
+            return XCTFail("Expected Needs Replan tray for past scheduled-only task")
+        }
+        XCTAssertEqual(summary.count, 1)
+
+        let weekStart: Weekday = calendar.component(.weekday, from: todayStart) == 2 ? .sunday : .monday
+        let weekSummary = viewModel.timelineWeekSummary(weekStartsOn: weekStart, includeCalendarEvents: false)
+        let originalDay = weekSummary.days.first {
+            calendar.isDate($0.date, inSameDayAs: yesterdayScheduled)
+        }
+        XCTAssertEqual(originalDay?.replanEligibleCount, 1)
+
+        defaults.removePersistentDomain(forName: suiteName)
+    }
+
+    func testNeedsReplanTrayUsesMatchingOpenTasksOutsideVisibleWindow() {
+        let suiteName = "HomeViewModelPersistenceTests.ScheduledReplanWindow.\(UUID().uuidString)"
+        guard let defaults = UserDefaults(suiteName: suiteName) else {
+            return XCTFail("Failed to create test UserDefaults suite")
+        }
+        defaults.removePersistentDomain(forName: suiteName)
+
+        let calendar = Calendar.current
+        let todayStart = calendar.startOfDay(for: Date())
+        let visibleTasks = (0..<370).map { index in
+            TaskDefinition(
+                title: "Visible \(index)",
+                priority: .max,
+                dueDate: calendar.date(byAdding: .minute, value: index, to: todayStart),
+                isComplete: false
+            )
+        }
+        let yesterdayScheduled = calendar.date(byAdding: .day, value: -1, to: calendar.date(byAdding: .hour, value: 9, to: todayStart)!)!
+        let clippedCandidate = TaskDefinition(
+            title: "Clipped Replan Candidate",
+            dueDate: nil,
+            scheduledStartAt: yesterdayScheduled,
+            scheduledEndAt: yesterdayScheduled.addingTimeInterval(30 * 60),
+            isAllDay: false,
+            isComplete: false
+        )
+        let coordinator = UseCaseCoordinator(
+            taskRepository: HomeViewModelMockTaskRepository(tasks: visibleTasks + [clippedCandidate]),
+            projectRepository: HomeViewModelMockProjectRepository(projects: [Project.createInbox()])
+        )
+        let viewModel = HomeViewModel(useCaseCoordinator: coordinator, userDefaults: defaults)
+        viewModel.loadTodayTasks()
+        waitForMainQueueFlush()
+
+        XCTAssertFalse(viewModel.morningTasks.contains(where: { $0.title == "Clipped Replan Candidate" }))
+        guard case .trayVisible(let summary) = viewModel.homeReplanState.phase else {
+            return XCTFail("Expected Needs Replan tray from matchingOpenTasks outside visible window")
+        }
+        XCTAssertEqual(summary.count, 1)
+
         defaults.removePersistentDomain(forName: suiteName)
     }
 
