@@ -93,6 +93,11 @@ public struct AddTaskPrefillTemplate: Equatable {
 /// Manages task creation state and validation
 public final class AddTaskViewModel: ObservableObject {
     public static let defaultEstimatedDuration: TimeInterval = 15 * 60
+
+    private struct TaskIconSearchCacheKey: Equatable {
+        let query: String
+        let preferredSymbols: [String]
+    }
     
     // MARK: - Published Properties (Observable State)
     
@@ -109,6 +114,11 @@ public final class AddTaskViewModel: ObservableObject {
     @Published var aiSuggestion: TaskFieldSuggestion?
     @Published var isGeneratingSuggestion: Bool = false
     @Published public private(set) var aiSuggestionIsRefined: Bool = false
+    @Published var taskIconSearchQuery: String = ""
+    @Published private(set) var selectedTaskIconSymbolName: String = "checklist"
+    @Published private(set) var autoSuggestedTaskIconSymbolName: String?
+    @Published private(set) var taskIconSelectionSource: TaskIconSelectionSource = .auto
+    @Published private(set) var suggestedTaskIcons: [TaskIconOption] = []
     
     // Form state — Primary Capture
     @Published public var taskName: String = ""
@@ -236,6 +246,43 @@ public final class AddTaskViewModel: ObservableObject {
         return parts.joined(separator: ", ")
     }
 
+    var displayedTaskIconSymbolName: String {
+        selectedTaskIconSymbolName
+    }
+
+    var displayedTaskIconLabel: String {
+        taskIconResolver.option(for: displayedTaskIconSymbolName)?.displayName
+            ?? DefaultTaskIconResolver.humanizedDisplayName(for: displayedTaskIconSymbolName)
+    }
+
+    var preferredTaskIconSearchSymbols: [String] {
+        [
+            selectedTaskIconSymbolName,
+            autoSuggestedTaskIconSymbolName,
+            selectedProjectObject?.icon.systemImageName,
+            categoryFallbackTaskIconSymbolName
+        ]
+        .compactMap { $0 }
+    }
+
+    var availableTaskIconOptions: [TaskIconOption] {
+        let cacheKey = TaskIconSearchCacheKey(
+            query: taskIconSearchQuery.trimmingCharacters(in: .whitespacesAndNewlines).lowercased(),
+            preferredSymbols: preferredTaskIconSearchSymbols
+        )
+        if let taskIconSearchCache, taskIconSearchCache.key == cacheKey {
+            return taskIconSearchCache.options
+        }
+
+        let options = taskIconResolver.search(
+            query: taskIconSearchQuery,
+            preferredSymbols: preferredTaskIconSearchSymbols,
+            limit: 60
+        )
+        taskIconSearchCache = (cacheKey, options)
+        return options
+    }
+
     public var relationshipsSummary: String {
         var parts: [String] = []
         if let selectedParentTaskID,
@@ -250,6 +297,35 @@ public final class AddTaskViewModel: ObservableObject {
 
     public var inboxProject: Project? {
         projects.first(where: { $0.id == ProjectConstants.inboxProjectID })
+    }
+
+    var selectedProjectObject: Project? {
+        projects.first(where: { $0.name == selectedProject })
+    }
+
+    var categoryFallbackTaskIconSymbolName: String? {
+        switch selectedCategory {
+        case .work:
+            return "briefcase.fill"
+        case .health:
+            return "heart.fill"
+        case .personal:
+            return "person.fill"
+        case .learning:
+            return "book.fill"
+        case .creative:
+            return "paintpalette.fill"
+        case .social:
+            return "person.2.fill"
+        case .maintenance:
+            return "wrench.and.screwdriver.fill"
+        case .shopping:
+            return "cart.fill"
+        case .finance:
+            return "dollarsign.circle.fill"
+        case .general:
+            return nil
+        }
     }
 
     public var filteredProjectsForSelectedLifeArea: [Project] {
@@ -272,16 +348,22 @@ public final class AddTaskViewModel: ObservableObject {
     private let manageTagsUseCase: ManageTagsUseCase?
     private let gamificationEngine: GamificationEngine?
     private let aiSuggestionService: AISuggestionService?
+    private let taskIconResolver: TaskIconResolver
     private let isAISuggestionRefinementReady: @MainActor () -> Bool
     private let nowProvider: () -> Date
+    private let taskIconResolutionQueue = DispatchQueue(label: "tasker.add-task-icon-resolution", qos: .userInitiated)
     private var cancellables = Set<AnyCancellable>()
     private var suggestionTask: Task<Void, Never>?
     private var suggestionRequestToken = UUID()
     private var pendingPrefillTemplate: AddTaskPrefillTemplate?
     private let suggestionDebounceMilliseconds = 650
+    private let taskIconDebounceMilliseconds = 140
     private var loadedTaskMetadataProjectID: UUID?
     private var pristineScheduledStartAt: Date?
     private var pristineEstimatedDuration: TimeInterval?
+    private var taskIconSearchCache: (key: TaskIconSearchCacheKey, options: [TaskIconOption])?
+    private var lastTaskIconLogSignature: String?
+    private var taskIconResolutionToken: Int = 0
     
     // MARK: - Initialization
     
@@ -297,6 +379,7 @@ public final class AddTaskViewModel: ObservableObject {
         manageTagsUseCase: ManageTagsUseCase? = nil,
         gamificationEngine: GamificationEngine? = nil,
         aiSuggestionService: AISuggestionService? = nil,
+        taskIconResolver: TaskIconResolver = DefaultTaskIconResolver.shared,
         nowProvider: @escaping () -> Date = Date.init,
         isAISuggestionRefinementReady: (@MainActor () -> Bool)? = nil
     ) {
@@ -310,6 +393,7 @@ public final class AddTaskViewModel: ObservableObject {
         self.manageTagsUseCase = manageTagsUseCase
         self.gamificationEngine = gamificationEngine
         self.aiSuggestionService = aiSuggestionService
+        self.taskIconResolver = taskIconResolver
         self.nowProvider = nowProvider
         self.isAISuggestionRefinementReady = isAISuggestionRefinementReady ?? {
             let evaluator = LLMRuntimeCoordinator.shared.evaluator
@@ -321,11 +405,16 @@ public final class AddTaskViewModel: ObservableObject {
 
         setupValidation()
         setupAISuggestionPipeline()
+        setupTaskIconPipeline()
         setupGamificationXPObservation()
+        if V2FeatureFlags.autoTaskIconsEnabled {
+            taskIconResolver.warmIfNeeded()
+        }
         loadProjects()
         loadLifeAreas()
         loadTags()
         loadWeeklyPlanningOptions()
+        refreshTaskIcon(using: taskName, logEvents: false)
     }
 
     deinit {
@@ -405,6 +494,7 @@ public final class AddTaskViewModel: ObservableObject {
             details: taskDetails.isEmpty ? nil : taskDetails,
             projectID: projectID,
             projectName: selectedProject,
+            iconSymbolName: V2FeatureFlags.autoTaskIconsEnabled ? displayedTaskIconSymbolName : nil,
             lifeAreaID: selectedLifeAreaID,
             sectionID: selectedSectionID,
             dueDate: resolvedScheduledStartAt ?? dueDate,
@@ -493,6 +583,7 @@ public final class AddTaskViewModel: ObservableObject {
                     } else {
                         self?.clearDeferredTaskMetadataOptions()
                     }
+                    self?.refreshTaskIcon(using: self?.taskName ?? "", logEvents: false)
                     self?.applyPendingPrefillIfPossible()
                     
                 case .failure(let error):
@@ -633,6 +724,13 @@ public final class AddTaskViewModel: ObservableObject {
         aiSuggestion = nil
         isGeneratingSuggestion = false
         aiSuggestionIsRefined = false
+        taskIconSearchQuery = ""
+        autoSuggestedTaskIconSymbolName = nil
+        taskIconSelectionSource = .auto
+        suggestedTaskIcons = []
+        taskIconSearchCache = nil
+        lastTaskIconLogSignature = nil
+        refreshTaskIcon(using: taskName, logEvents: false)
     }
 
     private func loadWeeklyPlanningOptions() {
@@ -761,6 +859,7 @@ public final class AddTaskViewModel: ObservableObject {
                         self.loadRelationshipTaskOptionsIfNeeded()
                     }
                 }
+                self.refreshTaskIcon(using: self.taskName, logEvents: false)
             }
             .store(in: &cancellables)
 
@@ -768,6 +867,7 @@ public final class AddTaskViewModel: ObservableObject {
             .removeDuplicates { $0 == $1 }
             .sink { [weak self] _ in
                 self?.normalizeProjectSelectionForSelectedLifeArea()
+                self?.refreshTaskIcon(using: self?.taskName ?? "", logEvents: false)
             }
             .store(in: &cancellables)
 
@@ -776,6 +876,23 @@ public final class AddTaskViewModel: ObservableObject {
             .sink { [weak self] selectedParentTaskID in
                 guard let selectedParentTaskID else { return }
                 self?.selectedDependencyTaskIDs.remove(selectedParentTaskID)
+            }
+            .store(in: &cancellables)
+    }
+
+    private func setupTaskIconPipeline() {
+        guard V2FeatureFlags.autoTaskIconsEnabled else {
+            selectedTaskIconSymbolName = "checklist"
+            autoSuggestedTaskIconSymbolName = nil
+            suggestedTaskIcons = []
+            taskIconSelectionSource = .auto
+            return
+        }
+
+        Publishers.CombineLatest($taskName, $selectedCategory)
+            .debounce(for: .milliseconds(taskIconDebounceMilliseconds), scheduler: RunLoop.main)
+            .sink { [weak self] taskName, _ in
+                self?.refreshTaskIcon(using: taskName)
             }
             .store(in: &cancellables)
     }
@@ -955,6 +1072,102 @@ public final class AddTaskViewModel: ObservableObject {
         }
     }
 
+    public func applyManualTaskIconSelection(symbolName: String) {
+        selectedTaskIconSymbolName = symbolName
+        taskIconSelectionSource = .manual
+        taskIconSearchCache = nil
+        logWarning(
+            event: "task_icon_manual_override",
+            message: "Task icon manually overridden in add-task flow",
+            fields: ["symbol_name": symbolName]
+        )
+    }
+
+    public func resetTaskIconToAuto() {
+        taskIconSelectionSource = .auto
+        taskIconSearchCache = nil
+        refreshTaskIcon(using: taskName)
+    }
+
+    private func refreshTaskIcon(using taskName: String, logEvents: Bool = true) {
+        guard V2FeatureFlags.autoTaskIconsEnabled else {
+            selectedTaskIconSymbolName = "checklist"
+            autoSuggestedTaskIconSymbolName = nil
+            suggestedTaskIcons = []
+            taskIconSearchCache = nil
+            return
+        }
+
+        let projectName = selectedProjectObject?.name
+        let projectIconSymbolName = selectedProjectObject?.icon.systemImageName
+        let lifeAreaName = selectedLifeAreaID.flatMap { id in
+            lifeAreas.first(where: { $0.id == id })?.name
+        }
+        let category = selectedCategory
+        let selectionSource = taskIconSelectionSource
+        let currentSymbolName = selectionSource == .auto ? selectedTaskIconSymbolName : autoSuggestedTaskIconSymbolName
+        taskIconResolutionToken += 1
+        let token = taskIconResolutionToken
+
+        taskIconResolutionQueue.async { [weak self] in
+            guard let self else { return }
+            let interval = TaskerPerformanceTrace.begin("AddTaskIconResolve")
+            let resolution = self.taskIconResolver.resolve(
+                title: taskName,
+                projectName: projectName,
+                projectIconSymbolName: projectIconSymbolName,
+                lifeAreaName: lifeAreaName,
+                category: category,
+                currentSymbolName: currentSymbolName,
+                selectionSource: selectionSource
+            )
+            TaskerPerformanceTrace.end(interval)
+
+            DispatchQueue.main.async {
+                guard self.taskIconResolutionToken == token else { return }
+                self.autoSuggestedTaskIconSymbolName = resolution.autoSuggestedSymbolName
+                self.suggestedTaskIcons = resolution.rankedSuggestions
+                self.taskIconSearchCache = nil
+
+                if self.taskIconSelectionSource == .auto {
+                    self.selectedTaskIconSymbolName = resolution.selectedSymbolName
+                }
+
+                guard logEvents else { return }
+                let logSignature = [
+                    self.selectedTaskIconSymbolName,
+                    self.autoSuggestedTaskIconSymbolName ?? "none",
+                    resolution.fallbackReason.rawValue,
+                    String(format: "%.2f", resolution.confidence),
+                    self.taskIconSelectionSource == .manual ? "manual" : "auto"
+                ].joined(separator: "|")
+                guard logSignature != self.lastTaskIconLogSignature else { return }
+                self.lastTaskIconLogSignature = logSignature
+
+                if resolution.didUseFallback {
+                    logDebug(
+                        event: "task_icon_fallback_used",
+                        message: "Task icon resolver used fallback icon",
+                        fields: [
+                            "symbol_name": resolution.selectedSymbolName,
+                            "fallback": resolution.fallbackReason.rawValue,
+                            "confidence": String(format: "%.2f", resolution.confidence)
+                        ]
+                    )
+                } else {
+                    logDebug(
+                        event: "task_icon_auto_suggested",
+                        message: "Task icon resolver suggested semantic icon",
+                        fields: [
+                            "symbol_name": resolution.selectedSymbolName,
+                            "confidence": String(format: "%.2f", resolution.confidence)
+                        ]
+                    )
+                }
+            }
+        }
+    }
+
     /// Executes dedupeProjects.
     private func dedupeProjects(_ projects: [Project]) -> [Project] {
         var byID: [UUID: Project] = [:]
@@ -1013,6 +1226,7 @@ public final class AddTaskViewModel: ObservableObject {
                     } else {
                         self.selectedLifeAreaID = nil
                     }
+                    self.refreshTaskIcon(using: self.taskName, logEvents: false)
                     self.applyPendingPrefillIfPossible()
                 case .failure(let error):
                     self?.errorMessage = error.localizedDescription

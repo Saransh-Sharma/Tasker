@@ -912,10 +912,12 @@ public final class LifeManagementViewModel: ObservableObject {
 
     /// Executes beginCreateLifeArea.
     public func beginCreateLifeArea(prefillName: String = "") {
+        let draftID = UUID()
         lifeAreaDraft = LifeManagementLifeAreaDraft(
+            id: draftID,
             existingID: nil,
             name: prefillName,
-            colorHex: LifeAreaConstants.generalSeedColor,
+            colorHex: LifeAreaColorPalette.defaultHex(for: draftID),
             iconSymbolName: "square.grid.2x2"
         )
     }
@@ -926,7 +928,7 @@ public final class LifeManagementViewModel: ObservableObject {
         lifeAreaDraft = LifeManagementLifeAreaDraft(
             existingID: area.id,
             name: area.name,
-            colorHex: area.color ?? "",
+            colorHex: LifeAreaColorPalette.normalizeOrMap(hex: area.color, for: area.id),
             iconSymbolName: area.icon ?? "square.grid.2x2"
         )
     }
@@ -1543,7 +1545,7 @@ public final class LifeManagementViewModel: ObservableObject {
             return try await awaitResult { completion in
                 self.manageLifeAreasUseCase.create(
                     name: LifeManagementConstants.generalDisplayName,
-                    color: LifeAreaConstants.generalSeedColor,
+                    color: nil,
                     icon: "square.grid.2x2",
                     completion: completion
                 )

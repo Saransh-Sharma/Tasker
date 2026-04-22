@@ -8125,6 +8125,9 @@ extension HomeViewModel {
     }
 
     func timelineSystemImageName(for task: TaskDefinition) -> String {
+        if let iconSymbolName = task.iconSymbolName, iconSymbolName.isEmpty == false {
+            return iconSymbolName
+        }
         if let project = projects.first(where: { $0.id == task.projectID }) {
             return project.icon.systemImageName
         }
