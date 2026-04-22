@@ -1,11 +1,5 @@
 import SwiftUI
-import UniformTypeIdentifiers
 import UIKit
-
-private enum LifeManagementDestination: Hashable {
-    case area(UUID)
-    case project(UUID)
-}
 
 private enum LifeManagementComposerRoute: Identifiable, Equatable {
     case area(LifeManagementLifeAreaDraft)
@@ -19,6 +13,11 @@ private enum LifeManagementComposerRoute: Identifiable, Equatable {
             return draft.id
         }
     }
+}
+
+private enum LifeManagementTreeInteractionMode {
+    case push
+    case select
 }
 
 struct LifeManagementView: View {
@@ -35,20 +34,8 @@ struct LifeManagementView: View {
         TaskerThemeManager.shared.tokens(for: layoutClass).spacing
     }
 
-    /// Initializes a new instance.
     init(viewModel: LifeManagementViewModel) {
         _viewModel = StateObject(wrappedValue: viewModel)
-    }
-
-    private var isSearching: Bool {
-        viewModel.searchQuery.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false
-    }
-
-    private var isEmptyState: Bool {
-        viewModel.areaRows.isEmpty &&
-        viewModel.projectGroups.isEmpty &&
-        viewModel.habitGroups.isEmpty &&
-        viewModel.archiveSections.hasContent == false
     }
 
     private var activeComposerRoute: Binding<LifeManagementComposerRoute?> {
@@ -80,77 +67,56 @@ struct LifeManagementView: View {
 
     private var compactComposerRoute: Binding<LifeManagementComposerRoute?> {
         Binding(
-            get: {
-                layoutClass == .phone ? activeComposerRoute.wrappedValue : nil
-            },
-            set: { newValue in
-                activeComposerRoute.wrappedValue = newValue
-            }
+            get: { layoutClass == .phone ? activeComposerRoute.wrappedValue : nil },
+            set: { activeComposerRoute.wrappedValue = $0 }
         )
     }
 
     private var regularComposerRoute: Binding<LifeManagementComposerRoute?> {
         Binding(
-            get: {
-                layoutClass == .phone ? nil : activeComposerRoute.wrappedValue
-            },
-            set: { newValue in
-                activeComposerRoute.wrappedValue = newValue
-            }
+            get: { layoutClass == .phone ? nil : activeComposerRoute.wrappedValue },
+            set: { activeComposerRoute.wrappedValue = $0 }
         )
     }
 
+    private var isSearching: Bool {
+        viewModel.searchQuery.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false
+    }
+
+    private var hasTreeContent: Bool {
+        viewModel.treeSections.isEmpty == false
+    }
+
+    private var activeTreeIsEmpty: Bool {
+        viewModel.treeSections.first(where: { $0.kind == .active })?.nodes.isEmpty != false
+    }
+
+    private var selectedAreaID: UUID? {
+        guard case .area(let id) = viewModel.selectedNode else { return nil }
+        return id
+    }
+
+    private var selectedProjectID: UUID? {
+        guard case .project(let id) = viewModel.selectedNode else { return nil }
+        return id
+    }
+
     var body: some View {
-        ScrollView {
-            LazyVStack(spacing: spacing.s16, pinnedViews: [.sectionHeaders]) {
-                heroCard
-                    .enhancedStaggeredAppearance(index: 0)
-
-                if let errorMessage = viewModel.errorMessage {
-                    errorCard(message: errorMessage)
-                        .enhancedStaggeredAppearance(index: 1)
-                }
-
-                Section {
-                    if isSearching {
-                        searchResultsContent
-                    } else {
-                        scopeContent
-                    }
-                } header: {
-                    scopeRail
-                }
+        Group {
+            if layoutClass.isPad {
+                splitBrowser
+            } else {
+                compactBrowser
             }
-            .taskerReadableContent(maxWidth: 1100, alignment: .center)
-            .padding(.horizontal, spacing.screenHorizontal)
-            .padding(.top, spacing.s16)
-            .padding(.bottom, spacing.sectionGap)
         }
         .background(Color.tasker(.bgCanvas))
         .navigationTitle("Life Management")
         .navigationBarTitleDisplayMode(.inline)
-        .accessibilityIdentifier("settings.lifeManagement.console")
+        .accessibilityIdentifier("settings.lifeManagement.view")
         .searchable(text: $viewModel.searchQuery, prompt: "Search areas, projects, habits")
-        .toolbar {
-            ToolbarItem(placement: .topBarTrailing) {
-                Menu {
-                    Button("Add Area", systemImage: "square.grid.2x2") {
-                        viewModel.beginCreateLifeArea()
-                    }
-                    Button("Add Project", systemImage: "folder.badge.plus") {
-                        viewModel.beginCreateProject()
-                    }
-                    Button("Add Habit", systemImage: "repeat") {
-                        presentHabitComposer()
-                    }
-                } label: {
-                    LifeManagementMenuLabel(title: "Add", systemImage: "plus")
-                }
-                .accessibilityIdentifier("settings.lifeManagement.addMenu")
-            }
-        }
+        .toolbar { toolbarContent }
         .overlay {
-            if viewModel.isLoading && isEmptyState {
+            if viewModel.isLoading && hasTreeContent == false {
                 ProgressView("Loading life management...")
                     .font(.tasker(.body))
                     .padding(.horizontal, spacing.s16)
@@ -172,54 +138,6 @@ struct LifeManagementView: View {
         }
         .refreshable {
             viewModel.reload()
-        }
-        .navigationDestination(for: LifeManagementDestination.self) { destination in
-            switch destination {
-            case .area(let areaID):
-                LifeManagementAreaDetailView(
-                    snapshot: viewModel.areaDetailSnapshot(for: areaID),
-                    onOpenHabit: { row in
-                        selectedHabitRow = row
-                    },
-                    onCreateHabit: { template in
-                        presentHabitComposer(prefill: template)
-                    },
-                    onArchiveArea: { areaID in
-                        viewModel.archiveLifeArea(areaID)
-                    },
-                    onRestoreArea: { areaID in
-                        viewModel.restoreLifeArea(areaID)
-                    },
-                    onDeleteArea: { areaID in
-                        viewModel.beginDeleteArea(areaID)
-                    },
-                    onBeginCreateProject: { areaID in
-                        viewModel.beginCreateProject(prefillLifeAreaID: areaID)
-                    }
-                )
-            case .project(let projectID):
-                LifeManagementProjectDetailView(
-                    snapshot: viewModel.projectDetailSnapshot(for: projectID),
-                    onOpenHabit: { row in
-                        selectedHabitRow = row
-                    },
-                    onCreateHabit: { template in
-                        presentHabitComposer(prefill: template)
-                    },
-                    onBeginMoveProject: { projectID in
-                        viewModel.beginMoveProject(projectID)
-                    },
-                    onArchiveProject: { projectID in
-                        viewModel.archiveProject(projectID)
-                    },
-                    onRestoreProject: { projectID in
-                        viewModel.restoreProject(projectID)
-                    },
-                    onDeleteProject: { projectID in
-                        viewModel.beginDeleteProject(projectID)
-                    }
-                )
-            }
         }
         .fullScreenCover(item: compactComposerRoute) { route in
             composerDestination(for: route, containerMode: .sheet)
@@ -304,6 +222,441 @@ struct LifeManagementView: View {
         }
     }
 
+    private var compactBrowser: some View {
+        ScrollView {
+            browserContent(interactionMode: .push)
+                .taskerReadableContent(maxWidth: 980, alignment: .center)
+                .padding(.horizontal, spacing.screenHorizontal)
+                .padding(.vertical, spacing.s16)
+        }
+        .navigationDestination(for: LifeManagementSelection.self) { selection in
+            detailDestination(for: selection)
+        }
+    }
+
+    private var splitBrowser: some View {
+        NavigationSplitView {
+            ScrollView {
+                browserContent(interactionMode: .select)
+                    .padding(.horizontal, spacing.screenHorizontal)
+                    .padding(.vertical, spacing.s16)
+            }
+        } detail: {
+            detailPane
+        }
+        .navigationSplitViewStyle(.balanced)
+    }
+
+    @ViewBuilder
+    private func browserContent(interactionMode: LifeManagementTreeInteractionMode) -> some View {
+        LazyVStack(spacing: spacing.s16, pinnedViews: []) {
+            if let errorMessage = viewModel.errorMessage {
+                errorCard(message: errorMessage)
+            }
+
+            if hasTreeContent == false && viewModel.isLoading == false {
+                emptyStateCard(
+                    title: "Start with a life area",
+                    body: "Create an area first, then place projects and habits inside it.",
+                    actionTitle: "Add Area",
+                    action: {
+                        viewModel.beginCreateLifeArea()
+                    }
+                )
+            } else if isSearching && hasTreeContent == false {
+                emptyStateCard(
+                    title: "No matches",
+                    body: "Try a different search across areas, projects, and habits.",
+                    actionTitle: nil,
+                    action: nil
+                )
+            } else {
+                ForEach(viewModel.treeSections) { section in
+                    treeSection(section, interactionMode: interactionMode)
+                }
+            }
+        }
+    }
+
+    private func treeSection(_ section: LifeManagementTreeSection, interactionMode: LifeManagementTreeInteractionMode) -> some View {
+        TaskerSettingsCard(active: section.kind == .archived && viewModel.isSectionExpanded(section.kind)) {
+            VStack(alignment: .leading, spacing: spacing.s12) {
+                Button {
+                    guard section.kind == .archived else { return }
+                    withAnimation(accessibilityReduceMotion ? nil : TaskerAnimation.quick) {
+                        viewModel.toggleSectionExpansion(section.kind)
+                    }
+                } label: {
+                    HStack(spacing: spacing.s8) {
+                        Text(section.title)
+                            .font(.tasker(.headline))
+                            .foregroundStyle(Color.tasker(.textPrimary))
+                        Text("\(section.nodes.count)")
+                            .font(.tasker(.caption1))
+                            .foregroundStyle(Color.tasker(.textSecondary))
+                        Spacer()
+                        if section.kind == .archived {
+                            Image(systemName: viewModel.isSectionExpanded(section.kind) ? "chevron.down" : "chevron.right")
+                                .font(.system(size: 13, weight: .semibold))
+                                .foregroundStyle(Color.tasker(.textTertiary))
+                        }
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                }
+                .buttonStyle(.plain)
+                .disabled(section.kind != .archived)
+
+                if viewModel.isSectionExpanded(section.kind) {
+                    VStack(alignment: .leading, spacing: spacing.s8) {
+                        ForEach(section.nodes) { node in
+                            treeNode(node, depth: 0, interactionMode: interactionMode)
+                        }
+                    }
+                }
+            }
+        }
+        .accessibilityIdentifier(section.accessibilityIdentifier)
+    }
+
+    private func treeNode(
+        _ node: LifeManagementTreeNode,
+        depth: Int,
+        interactionMode: LifeManagementTreeInteractionMode
+    ) -> AnyView {
+        AnyView(
+            VStack(alignment: .leading, spacing: spacing.s8) {
+                HStack(alignment: .top, spacing: spacing.s8) {
+                    if node.isExpandable {
+                        Button {
+                            withAnimation(accessibilityReduceMotion ? nil : TaskerAnimation.quick) {
+                                viewModel.toggleNodeExpansion(node.selection)
+                            }
+                        } label: {
+                            Image(systemName: viewModel.isNodeExpanded(node.selection) ? "chevron.down" : "chevron.right")
+                                .font(.system(size: 12, weight: .semibold))
+                                .foregroundStyle(Color.tasker(.textTertiary))
+                                .frame(width: 24, height: 24)
+                        }
+                        .buttonStyle(.plain)
+                    } else {
+                        Color.clear
+                            .frame(width: 24, height: 24)
+                    }
+
+                    primaryNodeControl(node, interactionMode: interactionMode)
+
+                    nodeMenu(node)
+                }
+                .padding(.leading, CGFloat(depth) * spacing.s16)
+
+                if node.isExpandable && viewModel.isNodeExpanded(node.selection) {
+                    VStack(alignment: .leading, spacing: spacing.s8) {
+                        ForEach(node.children) { child in
+                            treeNode(child, depth: depth + 1, interactionMode: interactionMode)
+                        }
+                    }
+                }
+            }
+        )
+    }
+
+    @ViewBuilder
+    private func primaryNodeControl(
+        _ node: LifeManagementTreeNode,
+        interactionMode: LifeManagementTreeInteractionMode
+    ) -> some View {
+        let content = nodeRowContent(node)
+
+        switch (interactionMode, node.selection) {
+        case (.push, .area), (.push, .project):
+            NavigationLink(value: node.selection) {
+                content
+            }
+            .buttonStyle(.plain)
+            .simultaneousGesture(TapGesture().onEnded {
+                viewModel.selectNode(node.selection)
+            })
+        case (.select, _):
+            Button {
+                viewModel.selectNode(node.selection)
+                if case .habit(let id) = node.selection, let row = viewModel.habitRow(for: id) {
+                    selectedHabitRow = row.row
+                }
+            } label: {
+                content
+            }
+            .buttonStyle(.plain)
+        default:
+            Button {
+                viewModel.selectNode(node.selection)
+                if case .habit(let id) = node.selection, let row = viewModel.habitRow(for: id) {
+                    selectedHabitRow = row.row
+                }
+            } label: {
+                content
+            }
+            .buttonStyle(.plain)
+        }
+    }
+
+    private func nodeRowContent(_ node: LifeManagementTreeNode) -> some View {
+        let isSelected = viewModel.selectedNode == node.selection
+        return HStack(alignment: .top, spacing: spacing.s12) {
+            AccentIconBadge(
+                symbolName: node.symbolName,
+                accentHex: node.accentHex
+            )
+
+            VStack(alignment: .leading, spacing: 4) {
+                HStack(spacing: 8) {
+                    Text(node.title)
+                        .font(.tasker(.bodyEmphasis))
+                        .foregroundStyle(Color.tasker(.textPrimary))
+                    if let badgeTitle = nodeBadgeTitle(node) {
+                        InlineToneBadge(title: badgeTitle)
+                    }
+                }
+
+                Text(node.subtitle)
+                    .font(.tasker(.caption1))
+                    .foregroundStyle(Color.tasker(.textSecondary))
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal, spacing.s12)
+        .padding(.vertical, spacing.s8)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .fill(isSelected ? Color.tasker(.accentWash) : Color.tasker(.surfaceSecondary))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .stroke(isSelected ? Color.tasker(.accentPrimary) : Color.tasker(.strokeHairline), lineWidth: isSelected ? 1.5 : 1)
+        )
+        .contentShape(Rectangle())
+        .accessibilityIdentifier(node.accessibilityIdentifier)
+    }
+
+    private func nodeBadgeTitle(_ node: LifeManagementTreeNode) -> String? {
+        switch node.payload {
+        case .area(let row):
+            if row.lifeArea.isArchived || node.isArchived { return "Archived" }
+            if row.isGeneral { return "Pinned" }
+            return nil
+        case .project(let row):
+            if row.project.isArchived || node.isArchived { return "Archived" }
+            if row.isInbox { return "Inbox" }
+            return nil
+        case .habit(let row):
+            if row.row.isArchived || node.isArchived { return "Archived" }
+            if row.row.isPaused { return "Paused" }
+            return nil
+        }
+    }
+
+    @ViewBuilder
+    private func nodeMenu(_ node: LifeManagementTreeNode) -> some View {
+        Menu {
+            switch node.payload {
+            case .area(let row):
+                if row.lifeArea.isArchived {
+                    Button("Restore", systemImage: "arrow.uturn.backward") {
+                        viewModel.restoreLifeArea(row.id)
+                    }
+                    if row.isGeneral == false {
+                        Button("Delete Permanently", systemImage: "trash", role: .destructive) {
+                            viewModel.beginDeleteArea(row.id)
+                        }
+                    }
+                } else {
+                    Button("Edit", systemImage: "pencil") {
+                        viewModel.beginEditLifeArea(row.id)
+                    }
+                    Button("Add Project", systemImage: "folder.badge.plus") {
+                        viewModel.beginCreateProject(prefillLifeAreaID: row.id)
+                    }
+                    Button("Add Habit", systemImage: "repeat") {
+                        presentHabitComposer(prefill: AddHabitPrefillTemplate(title: "", lifeAreaID: row.id))
+                    }
+                    if row.isGeneral == false {
+                        Button("Archive", systemImage: "archivebox") {
+                            viewModel.archiveLifeArea(row.id)
+                        }
+                        Button("Delete", systemImage: "trash", role: .destructive) {
+                            viewModel.beginDeleteArea(row.id)
+                        }
+                    }
+                }
+            case .project(let row):
+                if row.project.isArchived || node.isArchived {
+                    Button("Restore", systemImage: "arrow.uturn.backward") {
+                        viewModel.restoreProject(row.id)
+                    }
+                    if row.project.isDefault == false {
+                        Button("Delete Permanently", systemImage: "trash", role: .destructive) {
+                            viewModel.beginDeleteProject(row.id)
+                        }
+                    }
+                } else {
+                    Button("Edit", systemImage: "pencil") {
+                        viewModel.beginEditProject(row.id)
+                    }
+                    Button("Add Habit", systemImage: "repeat") {
+                        presentHabitComposer(
+                            prefill: AddHabitPrefillTemplate(
+                                title: "",
+                                lifeAreaID: row.project.lifeAreaID,
+                                projectID: row.project.id
+                            )
+                        )
+                    }
+                    if row.isMoveLocked == false {
+                        Button("Move Project", systemImage: "arrow.left.arrow.right") {
+                            viewModel.beginMoveProject(row.id)
+                        }
+                    }
+                    if row.isInbox == false {
+                        Button("Archive", systemImage: "archivebox") {
+                            viewModel.archiveProject(row.id)
+                        }
+                    }
+                    if row.project.isDefault == false {
+                        Button("Delete", systemImage: "trash", role: .destructive) {
+                            viewModel.beginDeleteProject(row.id)
+                        }
+                    }
+                }
+            case .habit(let row):
+                Button("Open", systemImage: "slider.horizontal.3") {
+                    selectedHabitRow = row.row
+                    viewModel.selectNode(.habit(row.id))
+                }
+                if row.row.isArchived || node.isArchived {
+                    Button("Restore", systemImage: "arrow.uturn.backward") {
+                        viewModel.restoreHabit(row.id)
+                    }
+                    Button("Delete Permanently", systemImage: "trash", role: .destructive) {
+                        viewModel.beginDeleteHabit(row.id)
+                    }
+                } else {
+                    Button(row.row.isPaused ? "Resume" : "Pause", systemImage: row.row.isPaused ? "play.fill" : "pause.fill") {
+                        viewModel.toggleHabitPause(row.id)
+                    }
+                    Button("Archive", systemImage: "archivebox") {
+                        viewModel.archiveHabit(row.id)
+                    }
+                }
+            }
+        } label: {
+            LifeManagementMenuLabel(title: "More actions", systemImage: "ellipsis.circle")
+        }
+        .buttonStyle(.plain)
+    }
+
+    @ViewBuilder
+    private var detailPane: some View {
+        switch viewModel.selectedNode {
+        case .area(let areaID):
+            detailDestination(for: .area(areaID))
+        case .project(let projectID):
+            detailDestination(for: .project(projectID))
+        case .habit:
+            ContentUnavailableView(
+                "Habit Editor Opened",
+                systemImage: "repeat",
+                description: Text("Habits open in the editor sheet so you can update cadence, notes, and status in one place.")
+            )
+        case nil:
+            ContentUnavailableView(
+                "Select a Life Area",
+                systemImage: "square.grid.2x2",
+                description: Text("Choose an area, project, or habit from the hierarchy to inspect or edit it.")
+            )
+        }
+    }
+
+    @ViewBuilder
+    private func detailDestination(for selection: LifeManagementSelection) -> some View {
+        switch selection {
+        case .area(let areaID):
+            LifeManagementAreaDetailView(
+                snapshot: viewModel.areaDetailSnapshot(for: areaID),
+                onEditArea: { areaID in
+                    viewModel.beginEditLifeArea(areaID)
+                },
+                onOpenHabit: { row in
+                    selectedHabitRow = row
+                    viewModel.selectNode(.habit(row.habitID))
+                },
+                onCreateHabit: { template in
+                    presentHabitComposer(prefill: template)
+                },
+                onArchiveArea: { areaID in
+                    viewModel.archiveLifeArea(areaID)
+                },
+                onRestoreArea: { areaID in
+                    viewModel.restoreLifeArea(areaID)
+                },
+                onDeleteArea: { areaID in
+                    viewModel.beginDeleteArea(areaID)
+                },
+                onBeginCreateProject: { areaID in
+                    viewModel.beginCreateProject(prefillLifeAreaID: areaID)
+                }
+            )
+            .onAppear {
+                viewModel.selectNode(selection)
+            }
+        case .project(let projectID):
+            LifeManagementProjectDetailView(
+                snapshot: viewModel.projectDetailSnapshot(for: projectID),
+                onEditProject: { projectID in
+                    viewModel.beginEditProject(projectID)
+                },
+                onOpenHabit: { row in
+                    selectedHabitRow = row
+                    viewModel.selectNode(.habit(row.habitID))
+                },
+                onCreateHabit: { template in
+                    presentHabitComposer(prefill: template)
+                },
+                onBeginMoveProject: { projectID in
+                    viewModel.beginMoveProject(projectID)
+                },
+                onArchiveProject: { projectID in
+                    viewModel.archiveProject(projectID)
+                },
+                onRestoreProject: { projectID in
+                    viewModel.restoreProject(projectID)
+                },
+                onDeleteProject: { projectID in
+                    viewModel.beginDeleteProject(projectID)
+                }
+            )
+            .onAppear {
+                viewModel.selectNode(selection)
+            }
+        case .habit(let habitID):
+            if let row = viewModel.habitRow(for: habitID) {
+                Color.clear
+                    .onAppear {
+                        selectedHabitRow = row.row
+                        viewModel.selectNode(selection)
+                    }
+            } else {
+                Color.tasker(.bgCanvas)
+                    .overlay {
+                        Text("This habit is no longer available.")
+                            .font(.tasker(.body))
+                            .foregroundStyle(Color.tasker(.textSecondary))
+                    }
+            }
+        }
+    }
+
     @ViewBuilder
     private func composerDestination(for route: LifeManagementComposerRoute, containerMode: AddTaskContainerMode) -> some View {
         switch route {
@@ -341,34 +694,38 @@ struct LifeManagementView: View {
         }
     }
 
-    private var heroCard: some View {
-        TaskerSettingsHeroCard(
-            eyebrow: "Manage your setup",
-            title: "Life Management",
-            subtitle: heroSubtitle,
-            statusItems: heroStatusItems,
-            accessibilityIdentifier: "settings.lifeManagement.hero"
-        )
-    }
-
-    private var heroSubtitle: String {
-        let stats = viewModel.overview.stats
-        let summary = stats.map { "\($0.value) \($0.title.lowercased())" }.joined(separator: " · ")
-        if summary.isEmpty {
-            return "Create and organize areas, projects, and habits from one place."
-        }
-        return "\(summary). Rename, move, archive, and restore everything from here."
-    }
-
-    private var heroStatusItems: [TaskerSettingsStatusDescriptor] {
-        viewModel.overview.stats.map { stat in
-            TaskerSettingsStatusDescriptor(
-                id: stat.id,
-                title: stat.title,
-                value: stat.value,
-                systemImage: stat.symbolName,
-                tone: .accent
-            )
+    @ToolbarContentBuilder
+    private var toolbarContent: some ToolbarContent {
+        ToolbarItem(placement: .topBarTrailing) {
+            Menu {
+                switch viewModel.selectedNode {
+                case .area(let areaID):
+                    Button("Add Project", systemImage: "folder.badge.plus") {
+                        viewModel.beginCreateProject(prefillLifeAreaID: areaID)
+                    }
+                    Button("Add Habit", systemImage: "repeat") {
+                        presentHabitComposer(prefill: AddHabitPrefillTemplate(title: "", lifeAreaID: areaID))
+                    }
+                case .project(let projectID):
+                    let lifeAreaID = viewModel.projectRow(for: projectID)?.project.lifeAreaID
+                    Button("Add Habit", systemImage: "repeat") {
+                        presentHabitComposer(
+                            prefill: AddHabitPrefillTemplate(
+                                title: "",
+                                lifeAreaID: lifeAreaID,
+                                projectID: projectID
+                            )
+                        )
+                    }
+                default:
+                    Button("Add Area", systemImage: "square.grid.2x2") {
+                        viewModel.beginCreateLifeArea()
+                    }
+                }
+            } label: {
+                LifeManagementMenuLabel(title: "Add", systemImage: "plus")
+            }
+            .accessibilityIdentifier("settings.lifeManagement.addMenu")
         }
     }
 
@@ -396,522 +753,6 @@ struct LifeManagementView: View {
                     .buttonStyle(.bordered)
                 }
             }
-        }
-    }
-
-    private var scopeRail: some View {
-        ZStack {
-            Color.tasker(.bgCanvas)
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: spacing.s8) {
-                    ForEach(LifeManagementScope.allCases) { scope in
-                        Button {
-                            withAnimation(accessibilityReduceMotion ? nil : TaskerAnimation.quick) {
-                                viewModel.selectedScope = scope
-                            }
-                        } label: {
-                            Text(scope.title)
-                                .font(.tasker(.callout).weight(.semibold))
-                                .foregroundStyle(viewModel.selectedScope == scope ? Color.tasker(.accentOnPrimary) : Color.tasker(.textSecondary))
-                                .padding(.horizontal, spacing.s12)
-                                .frame(minHeight: TaskerSettingsMetrics.chipMinHeight)
-                                .background(
-                                    Capsule()
-                                        .fill(viewModel.selectedScope == scope ? Color.tasker(.accentPrimary) : Color.tasker(.surfacePrimary))
-                                )
-                                .overlay(
-                                    Capsule()
-                                        .stroke(Color.tasker(.strokeHairline), lineWidth: viewModel.selectedScope == scope ? 0 : 1)
-                                )
-                        }
-                        .buttonStyle(.plain)
-                        .scaleOnPress()
-                    }
-                }
-                .padding(.vertical, spacing.s8)
-            }
-        }
-    }
-
-    @ViewBuilder
-    private var scopeContent: some View {
-        switch viewModel.selectedScope {
-        case .overview:
-            overviewContent
-        case .areas:
-            areasContent
-        case .projects:
-            projectsContent
-        case .habits:
-            habitsContent
-        case .archive:
-            archiveContent
-        }
-    }
-
-    private var overviewContent: some View {
-        VStack(spacing: spacing.s16) {
-            if viewModel.overview.attentionItems.isEmpty == false {
-                TaskerSettingsCard {
-                    VStack(alignment: .leading, spacing: spacing.s12) {
-                        sectionHeader(title: "Needs attention", subtitle: "Quick cleanup that is easier to handle from here.")
-                        VStack(spacing: spacing.chipSpacing) {
-                            ForEach(viewModel.overview.attentionItems) { item in
-                                attentionRow(item)
-                            }
-                        }
-                    }
-                }
-                .enhancedStaggeredAppearance(index: 2)
-            }
-
-            pairedCards(
-                first: {
-                    TaskerSettingsCard {
-                        VStack(alignment: .leading, spacing: spacing.s12) {
-                            sectionHeader(title: "Areas", subtitle: "Your top-level buckets for projects and habits.")
-                            if viewModel.overview.topAreas.isEmpty {
-                                Text("Add an area so projects and habits have a clear home.")
-                                    .font(.tasker(.callout))
-                                    .foregroundStyle(Color.tasker(.textSecondary))
-                            } else {
-                                VStack(spacing: spacing.chipSpacing) {
-                                    ForEach(viewModel.overview.topAreas) { row in
-                                        NavigationLink(value: LifeManagementDestination.area(row.id)) {
-                                            AreaSummaryRow(row: row)
-                                        }
-                                        .buttonStyle(.plain)
-                                    }
-                                }
-                            }
-                        }
-                    }
-                },
-                second: {
-                    TaskerSettingsCard {
-                        VStack(alignment: .leading, spacing: spacing.s12) {
-                            sectionHeader(title: "Projects to review", subtitle: "Empty projects usually need work, a move, or an archive.")
-                            if viewModel.overview.attentionProjects.isEmpty {
-                                Text("No empty projects need attention right now.")
-                                    .font(.tasker(.callout))
-                                    .foregroundStyle(Color.tasker(.textSecondary))
-                            } else {
-                                VStack(spacing: spacing.chipSpacing) {
-                                    ForEach(viewModel.overview.attentionProjects) { row in
-                                        NavigationLink(value: LifeManagementDestination.project(row.id)) {
-                                            ProjectSummaryRow(row: row)
-                                        }
-                                        .buttonStyle(.plain)
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            )
-            .enhancedStaggeredAppearance(index: 3)
-
-            TaskerSettingsCard {
-                VStack(alignment: .leading, spacing: spacing.s12) {
-                    sectionHeader(title: "Habits to review", subtitle: "Paused habits stay here until you resume, archive, or delete them.")
-                    if viewModel.overview.attentionHabits.isEmpty {
-                        Text("No paused habits need attention right now.")
-                            .font(.tasker(.callout))
-                            .foregroundStyle(Color.tasker(.textSecondary))
-                    } else {
-                        VStack(spacing: spacing.chipSpacing) {
-                            ForEach(viewModel.overview.attentionHabits) { row in
-                                HabitSummaryRow(row: row) {
-                                    selectedHabitRow = row.row
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-            .enhancedStaggeredAppearance(index: 4)
-
-            if viewModel.overview.attentionItems.isEmpty &&
-                viewModel.overview.topAreas.isEmpty &&
-                viewModel.overview.attentionProjects.isEmpty &&
-                viewModel.overview.attentionHabits.isEmpty {
-                emptyStateCard(
-                    title: "Start here",
-                    body: "Add an area first, then place projects and habits inside it.",
-                    actionTitle: "Add Area",
-                    action: {
-                        viewModel.beginCreateLifeArea()
-                    }
-                )
-            }
-        }
-    }
-
-    private var areasContent: some View {
-        VStack(spacing: spacing.s12) {
-            if viewModel.areaRows.isEmpty {
-                emptyStateCard(
-                    title: "No areas yet",
-                    body: "Areas are the top-level homes for projects and habits. Start there.",
-                    actionTitle: "Add Area",
-                    action: {
-                        viewModel.beginCreateLifeArea()
-                    }
-                )
-            } else {
-                ForEach(viewModel.areaRows) { row in
-                    TaskerSettingsCard {
-                        HStack(alignment: .top, spacing: spacing.s12) {
-                            NavigationLink(value: LifeManagementDestination.area(row.id)) {
-                                AreaListRow(row: row)
-                            }
-                            .buttonStyle(.plain)
-
-                            Menu {
-                                Button("Edit", systemImage: "pencil") {
-                                    viewModel.beginEditLifeArea(row.id)
-                                }
-                                Button("Add Project", systemImage: "folder.badge.plus") {
-                                    viewModel.beginCreateProject(prefillLifeAreaID: row.id)
-                                }
-                                Button("Add Habit", systemImage: "repeat") {
-                                    presentHabitComposer(
-                                        prefill: AddHabitPrefillTemplate(
-                                            title: "",
-                                            lifeAreaID: row.id
-                                        )
-                                    )
-                                }
-                                if row.isGeneral == false {
-                                    Button(String(localized: "Archive", defaultValue: "Archive"), systemImage: "archivebox") {
-                                        viewModel.archiveLifeArea(row.id)
-                                    }
-                                    Button("Delete", systemImage: "trash", role: .destructive) {
-                                        viewModel.beginDeleteArea(row.id)
-                                    }
-                                }
-                            } label: {
-                                LifeManagementMenuLabel(title: "More actions", systemImage: "ellipsis.circle")
-                            }
-                            .buttonStyle(.plain)
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    private var projectsContent: some View {
-        VStack(spacing: spacing.s12) {
-            if viewModel.projectGroups.isEmpty {
-                emptyStateCard(
-                    title: "No projects yet",
-                    body: "Projects hold related tasks inside an area. Add one here or from an area detail.",
-                    actionTitle: "Add Project",
-                    action: {
-                        viewModel.beginCreateProject()
-                    }
-                )
-            } else {
-                ForEach(viewModel.projectGroups) { group in
-                    projectGroupCard(group)
-                }
-            }
-        }
-    }
-
-    private var habitsContent: some View {
-        VStack(spacing: spacing.s12) {
-            habitFilterRail
-
-            if viewModel.habitGroups.isEmpty {
-                emptyStateCard(
-                    title: "No habits in this filter",
-                    body: "Build, quit, and paused habits all live here with the same controls as areas and projects.",
-                    actionTitle: "Add Habit",
-                    action: {
-                        presentHabitComposer()
-                    }
-                )
-            } else {
-                ForEach(Array(viewModel.habitGroups), id: \.id) { group in
-                    TaskerSettingsCard {
-                        VStack(alignment: .leading, spacing: spacing.s12) {
-                            groupHeader(title: group.title, subtitle: "\(group.rows.count) habit\(group.rows.count == 1 ? "" : "s")")
-                            VStack(spacing: spacing.chipSpacing) {
-                                ForEach(group.rows) { row in
-                                    HabitListRow(
-                                        row: row,
-                                        onOpen: {
-                                            selectedHabitRow = row.row
-                                        },
-                                        onTogglePause: {
-                                            viewModel.toggleHabitPause(row.id)
-                                        },
-                                        onArchive: {
-                                            viewModel.archiveHabit(row.id)
-                                        }
-                                    )
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    private var archiveContent: some View {
-        VStack(spacing: spacing.s12) {
-            if viewModel.archiveSections.hasContent == false {
-                emptyStateCard(
-                    title: "Archive is clear",
-                    body: "Archived areas, projects, and habits show up here for restore or permanent delete.",
-                    actionTitle: nil,
-                    action: nil
-                )
-            } else {
-                if viewModel.archiveSections.areas.isEmpty == false {
-                    archiveAreaSection
-                }
-                if viewModel.archiveSections.projects.isEmpty == false {
-                    archiveProjectSection
-                }
-                if viewModel.archiveSections.habits.isEmpty == false {
-                    archiveHabitSection
-                }
-            }
-        }
-    }
-
-    private var searchResultsContent: some View {
-        VStack(spacing: spacing.s12) {
-            if viewModel.searchResults.isEmpty {
-                emptyStateCard(
-                    title: "No matches",
-                    body: viewModel.selectedScope == .archive
-                        ? "Try a different search in archived areas, projects, or habits."
-                        : "Try a different search in active areas, projects, or habits.",
-                    actionTitle: nil,
-                    action: nil
-                )
-            } else {
-                if viewModel.searchResults.areas.isEmpty == false {
-                    TaskerSettingsCard {
-                        VStack(alignment: .leading, spacing: spacing.s12) {
-                            sectionHeader(title: "Areas", subtitle: "Search matches in top-level structure.")
-                            VStack(spacing: spacing.chipSpacing) {
-                                ForEach(viewModel.searchResults.areas) { row in
-                                    NavigationLink(value: LifeManagementDestination.area(row.id)) {
-                                        AreaSummaryRow(row: row)
-                                    }
-                                    .buttonStyle(.plain)
-                                }
-                            }
-                        }
-                    }
-                }
-
-                if viewModel.searchResults.projects.isEmpty == false {
-                    TaskerSettingsCard {
-                        VStack(alignment: .leading, spacing: spacing.s12) {
-                            sectionHeader(title: "Projects", subtitle: "Search matches in project names and metadata.")
-                            VStack(spacing: spacing.chipSpacing) {
-                                ForEach(viewModel.searchResults.projects) { row in
-                                    NavigationLink(value: LifeManagementDestination.project(row.id)) {
-                                        ProjectSummaryRow(row: row)
-                                    }
-                                    .buttonStyle(.plain)
-                                }
-                            }
-                        }
-                    }
-                }
-
-                if viewModel.searchResults.habits.isEmpty == false {
-                    TaskerSettingsCard {
-                        VStack(alignment: .leading, spacing: spacing.s12) {
-                            sectionHeader(title: "Habits", subtitle: "Search matches in habit names, area, project, and notes.")
-                            VStack(spacing: spacing.chipSpacing) {
-                                ForEach(viewModel.searchResults.habits) { row in
-                                    HabitSummaryRow(row: row) {
-                                        selectedHabitRow = row.row
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    private var archiveAreaSection: some View {
-        TaskerSettingsCard {
-            VStack(alignment: .leading, spacing: spacing.s12) {
-                sectionHeader(title: "Archived Areas", subtitle: "Restore areas that still matter, or delete with reassignment.")
-                VStack(spacing: spacing.chipSpacing) {
-                    ForEach(viewModel.archiveSections.areas) { row in
-                        HStack(alignment: .top, spacing: spacing.s12) {
-                            NavigationLink(value: LifeManagementDestination.area(row.id)) {
-                                AreaSummaryRow(row: row)
-                            }
-                            .buttonStyle(.plain)
-
-                            Menu {
-                                Button("Restore", systemImage: "arrow.uturn.backward") {
-                                    viewModel.restoreLifeArea(row.id)
-                                }
-                                if row.isGeneral == false {
-                                    Button("Delete Permanently", systemImage: "trash", role: .destructive) {
-                                        viewModel.beginDeleteArea(row.id)
-                                    }
-                                }
-                            } label: {
-                                LifeManagementMenuLabel(title: "More actions", systemImage: "ellipsis.circle")
-                            }
-                            .buttonStyle(.plain)
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    private var archiveProjectSection: some View {
-        VStack(spacing: spacing.s12) {
-            ForEach(Array(viewModel.archiveSections.projects), id: \.id) { group in
-                TaskerSettingsCard {
-                    VStack(alignment: .leading, spacing: spacing.s12) {
-                        groupHeader(title: group.title, subtitle: "Archived projects")
-                        VStack(spacing: spacing.chipSpacing) {
-                            ForEach(group.rows) { row in
-                                HStack(alignment: .top, spacing: spacing.s12) {
-                                    NavigationLink(value: LifeManagementDestination.project(row.id)) {
-                                        ProjectSummaryRow(row: row)
-                                    }
-                                    .buttonStyle(.plain)
-
-                                    Menu {
-                                        Button("Restore", systemImage: "arrow.uturn.backward") {
-                                            viewModel.restoreProject(row.id)
-                                        }
-                                        Button("Delete Permanently", systemImage: "trash", role: .destructive) {
-                                            viewModel.beginDeleteProject(row.id)
-                                        }
-                                    } label: {
-                                        LifeManagementMenuLabel(title: "More actions", systemImage: "ellipsis.circle")
-                                    }
-                                    .buttonStyle(.plain)
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    private var archiveHabitSection: some View {
-        VStack(spacing: spacing.s12) {
-            ForEach(Array(viewModel.archiveSections.habits), id: \.id) { group in
-                TaskerSettingsCard {
-                    VStack(alignment: .leading, spacing: spacing.s12) {
-                        groupHeader(title: group.title, subtitle: "Archived habits")
-                        VStack(spacing: spacing.chipSpacing) {
-                            ForEach(group.rows) { row in
-                                HabitArchiveRow(
-                                    row: row,
-                                    onOpen: {
-                                        selectedHabitRow = row.row
-                                    },
-                                    onRestore: {
-                                        viewModel.restoreHabit(row.id)
-                                    },
-                                    onDelete: {
-                                        viewModel.beginDeleteHabit(row.id)
-                                    }
-                                )
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    private var habitFilterRail: some View {
-        TaskerSettingsCard {
-            HStack(spacing: spacing.s8) {
-                ForEach(LifeManagementHabitFilter.allCases) { filter in
-                    Button {
-                        withAnimation(accessibilityReduceMotion ? nil : TaskerAnimation.quick) {
-                            viewModel.selectedHabitFilter = filter
-                        }
-                    } label: {
-                        Text(filter.title)
-                            .font(.tasker(.caption1).weight(.semibold))
-                            .foregroundStyle(viewModel.selectedHabitFilter == filter ? Color.tasker(.accentOnPrimary) : Color.tasker(.textSecondary))
-                            .padding(.horizontal, spacing.chipSpacing)
-                            .frame(minHeight: TaskerSettingsMetrics.chipMinHeight)
-                            .background(
-                                Capsule()
-                                    .fill(viewModel.selectedHabitFilter == filter ? Color.tasker(.accentPrimary) : Color.tasker(.surfaceSecondary))
-                            )
-                    }
-                    .buttonStyle(.plain)
-                    .scaleOnPress()
-                }
-                Spacer(minLength: 0)
-            }
-        }
-    }
-
-    private func projectGroupCard(_ group: LifeManagementProjectGroup) -> some View {
-        let lifeAreaID = group.lifeArea?.id
-        return TaskerSettingsCard(active: viewModel.activeDropLifeAreaID == lifeAreaID) {
-            VStack(alignment: .leading, spacing: spacing.s12) {
-                groupHeader(
-                    title: group.title,
-                    subtitle: group.rows.count == 1 ? "1 project" : "\(group.rows.count) projects"
-                )
-
-                VStack(spacing: spacing.chipSpacing) {
-                    ForEach(group.rows) { row in
-                        ProjectListRow(
-                            row: row,
-                            destination: .project(row.id),
-                            onEdit: {
-                                viewModel.beginEditProject(row.id)
-                            },
-                            onMove: row.isMoveLocked ? nil : {
-                                viewModel.beginMoveProject(row.id)
-                            },
-                            onArchive: row.isInbox ? nil : {
-                                viewModel.archiveProject(row.id)
-                            },
-                            onDelete: row.project.isDefault ? nil : {
-                                viewModel.beginDeleteProject(row.id)
-                            },
-                            onDrag: {
-                                viewModel.beginProjectDrag(row.id)
-                            }
-                        )
-                    }
-                }
-            }
-        }
-        .onDrop(
-            of: [UTType.text],
-            isTargeted: Binding(
-                get: { viewModel.activeDropLifeAreaID == lifeAreaID && lifeAreaID != nil },
-                set: { targeted in
-                    viewModel.setDropTarget(targeted ? lifeAreaID : nil)
-                }
-            )
-        ) { providers in
-            guard let lifeAreaID else { return false }
-            return viewModel.handleProjectDrop(providers: providers, targetLifeAreaID: lifeAreaID)
         }
     }
 
@@ -966,73 +807,6 @@ struct LifeManagementView: View {
         .padding(.bottom, spacing.s8)
     }
 
-    private func pairedCards<First: View, Second: View>(
-        @ViewBuilder first: () -> First,
-        @ViewBuilder second: () -> Second
-    ) -> some View {
-        ViewThatFits(in: .horizontal) {
-            HStack(alignment: .top, spacing: spacing.s16) {
-                first()
-                    .frame(maxWidth: .infinity, alignment: .top)
-                second()
-                    .frame(maxWidth: .infinity, alignment: .top)
-            }
-
-            VStack(spacing: spacing.s16) {
-                first()
-                second()
-            }
-        }
-    }
-
-    private func sectionHeader(title: String, subtitle: String) -> some View {
-        VStack(alignment: .leading, spacing: spacing.s4) {
-            Text(title)
-                .font(.tasker(.headline))
-                .foregroundStyle(Color.tasker(.textPrimary))
-            Text(subtitle)
-                .font(.tasker(.caption1))
-                .foregroundStyle(Color.tasker(.textSecondary))
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-    }
-
-    private func groupHeader(title: String, subtitle: String) -> some View {
-        HStack(alignment: .firstTextBaseline, spacing: spacing.s8) {
-            Text(title)
-                .font(.tasker(.headline))
-                .foregroundStyle(Color.tasker(.textPrimary))
-            Text(subtitle)
-                .font(.tasker(.caption1))
-                .foregroundStyle(Color.tasker(.textSecondary))
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-    }
-
-    private func attentionRow(_ item: LifeManagementAttentionItem) -> some View {
-        HStack(alignment: .top, spacing: spacing.chipSpacing) {
-            Image(systemName: item.symbolName)
-                .font(.system(size: 15, weight: .semibold))
-                .foregroundStyle(Color.tasker(.accentPrimary))
-                .frame(width: 28, height: 28)
-                .background(
-                    Circle()
-                        .fill(Color.tasker(.accentWash))
-                )
-
-            VStack(alignment: .leading, spacing: 4) {
-                Text(item.title)
-                    .font(.tasker(.bodyEmphasis))
-                    .foregroundStyle(Color.tasker(.textPrimary))
-                Text(item.detail)
-                    .font(.tasker(.caption1))
-                    .foregroundStyle(Color.tasker(.textSecondary))
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-            Spacer(minLength: 0)
-        }
-    }
-
     private func emptyStateCard(
         title: String,
         body: String,
@@ -1060,7 +834,6 @@ struct LifeManagementView: View {
         }
     }
 }
-
 private struct LifeManagementMenuLabel: View {
     let title: String
     let systemImage: String
@@ -1181,7 +954,7 @@ private struct AreaSummaryRow: View {
 
 private struct ProjectListRow: View {
     let row: LifeManagementProjectRow
-    let destination: LifeManagementDestination
+    let destination: LifeManagementSelection
     let onEdit: () -> Void
     let onMove: (() -> Void)?
     let onArchive: (() -> Void)?
@@ -1423,6 +1196,7 @@ private struct InlineToneBadge: View {
 
 private struct LifeManagementAreaDetailView: View {
     let snapshot: LifeManagementAreaDetailSnapshot?
+    let onEditArea: (UUID) -> Void
     let onOpenHabit: (HabitLibraryRow) -> Void
     let onCreateHabit: (AddHabitPrefillTemplate) -> Void
     let onArchiveArea: (UUID) -> Void
@@ -1450,6 +1224,12 @@ private struct LifeManagementAreaDetailView: View {
                                     accentHex: lifeManagementAreaAccentHex(row.lifeArea),
                                     value: "Palette color"
                                 )
+                                if row.lifeArea.isArchived == false {
+                                    Button("Edit Area") {
+                                        onEditArea(row.id)
+                                    }
+                                    .buttonStyle(.bordered)
+                                }
                             }
                         }
 
@@ -1475,14 +1255,14 @@ private struct LifeManagementAreaDetailView: View {
                                     .frame(maxWidth: .infinity, alignment: .leading)
                                 }
 
-                                if snapshot.activeProjects.isEmpty {
+                                if snapshot.projectRows.isEmpty {
                                     Text("No projects in this area yet.")
                                         .font(.tasker(.callout))
                                         .foregroundStyle(Color.tasker(.textSecondary))
                                 } else {
                                     VStack(spacing: spacing.chipSpacing) {
-                                        ForEach(snapshot.activeProjects) { projectRow in
-                                            NavigationLink(value: LifeManagementDestination.project(projectRow.id)) {
+                                        ForEach(snapshot.projectRows) { projectRow in
+                                            NavigationLink(value: LifeManagementSelection.project(projectRow.id)) {
                                                 ProjectSummaryRow(row: projectRow)
                                             }
                                             .buttonStyle(.plain)
@@ -1524,13 +1304,13 @@ private struct LifeManagementAreaDetailView: View {
                                     .frame(maxWidth: .infinity, alignment: .leading)
                                 }
 
-                                if snapshot.activeHabits.isEmpty {
+                                if snapshot.habitRows.isEmpty {
                                     Text("No habits in this area yet.")
                                         .font(.tasker(.callout))
                                         .foregroundStyle(Color.tasker(.textSecondary))
                                 } else {
                                     VStack(spacing: spacing.chipSpacing) {
-                                        ForEach(snapshot.activeHabits) { habitRow in
+                                        ForEach(snapshot.habitRows) { habitRow in
                                             HabitSummaryRow(row: habitRow) {
                                                 onOpenHabit(habitRow.row)
                                             }
@@ -1606,6 +1386,7 @@ private struct LifeManagementAreaDetailView: View {
 
 private struct LifeManagementProjectDetailView: View {
     let snapshot: LifeManagementProjectDetailSnapshot?
+    let onEditProject: (UUID) -> Void
     let onOpenHabit: (HabitLibraryRow) -> Void
     let onCreateHabit: (AddHabitPrefillTemplate) -> Void
     let onBeginMoveProject: (UUID) -> Void
@@ -1634,6 +1415,12 @@ private struct LifeManagementProjectDetailView: View {
                                 Text(row.project.projectDescription?.nilIfBlank ?? "No project description yet.")
                                     .font(.tasker(.callout))
                                     .foregroundStyle(Color.tasker(.textSecondary))
+                                if row.project.isArchived == false {
+                                    Button("Edit Project") {
+                                        onEditProject(row.id)
+                                    }
+                                    .buttonStyle(.bordered)
+                                }
                             }
                         }
 
@@ -1645,7 +1432,7 @@ private struct LifeManagementProjectDetailView: View {
 
                                 detailLine(title: "Area", value: row.lifeArea?.name ?? "No Area")
                                 detailLine(title: "Open tasks", value: "\(row.taskCount)")
-                                detailLine(title: "Linked habits", value: "\(snapshot.activeLinkedHabits.count)")
+                                detailLine(title: "Linked habits", value: "\(snapshot.linkedHabits.count)")
                             }
                         }
 
@@ -1687,13 +1474,13 @@ private struct LifeManagementProjectDetailView: View {
                                     .frame(maxWidth: .infinity, alignment: .leading)
                                 }
 
-                                if snapshot.activeLinkedHabits.isEmpty {
+                                if snapshot.linkedHabits.isEmpty {
                                     Text("No habits are linked to this project.")
                                         .font(.tasker(.callout))
                                         .foregroundStyle(Color.tasker(.textSecondary))
                                 } else {
                                     VStack(spacing: spacing.chipSpacing) {
-                                        ForEach(snapshot.activeLinkedHabits) { habitRow in
+                                        ForEach(snapshot.linkedHabits) { habitRow in
                                             HabitSummaryRow(row: habitRow) {
                                                 onOpenHabit(habitRow.row)
                                             }
