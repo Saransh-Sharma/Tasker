@@ -7661,8 +7661,20 @@ extension HomeViewModel {
         if sleepTime <= wakeTime {
             sleepTime = Calendar.current.date(byAdding: .day, value: 1, to: sleepTime) ?? sleepTime
         }
-        let wakeAnchor = TimelineAnchorItem(id: "wake", title: "Rise and shine", time: wakeTime, systemImageName: "alarm.fill")
-        let sleepAnchor = TimelineAnchorItem(id: "sleep", title: "Wind down", time: sleepTime, systemImageName: "moon.fill")
+        let wakeAnchor = TimelineAnchorItem(
+            id: "wake",
+            title: "Rise and shine",
+            time: wakeTime,
+            systemImageName: "alarm.fill",
+            subtitle: "Start the day"
+        )
+        let sleepAnchor = TimelineAnchorItem(
+            id: "sleep",
+            title: "Wind down",
+            time: sleepTime,
+            systemImageName: "moon.fill",
+            subtitle: "Close the day"
+        )
         let dayTasks = timelineTasksForSelectedDay()
         let allDayTasks = dayTasks.filter { task in
             task.isAllDay || timelineIsDateOnlyDueDate(task.dueDate)
@@ -7674,7 +7686,8 @@ extension HomeViewModel {
                 && task.isAllDay == false
                 && task.dueDate == nil
         }
-        let timedTaskItems = dayTasks.compactMap { timelinePlanItem(from: $0, on: selectedDay) }
+        let taskIndexByID = timelineTaskUniverseByID()
+        let timedTaskItems = dayTasks.compactMap { timelinePlanItem(from: $0, on: selectedDay, taskIndexByID: taskIndexByID) }
         let calendarAllDayItems = showCalendarEventsInTimeline
             ? calendarSnapshot.selectedDayEvents
                 .filter(\.isAllDay)
@@ -7690,8 +7703,8 @@ extension HomeViewModel {
                 }
             : []
 
-        let allDayItems = (allDayTasks.map(timelinePlanItem(from:)) + calendarAllDayItems)
-        let inboxItems = inboxTasks.map(timelinePlanItem(from:))
+        let allDayItems = (allDayTasks.map { timelinePlanItem(from: $0, taskIndexByID: taskIndexByID) } + calendarAllDayItems)
+        let inboxItems = inboxTasks.map { timelinePlanItem(from: $0, taskIndexByID: taskIndexByID) }
         let timedItems = (timedTaskItems + calendarTimedItems)
             .sorted { lhs, rhs in
                 guard let lhsStart = lhs.startDate, let rhsStart = rhs.startDate else { return lhs.title < rhs.title }
@@ -7861,7 +7874,31 @@ extension HomeViewModel {
         )
     }
 
-    func timelinePlanItem(from task: TaskDefinition) -> TimelinePlanItem {
+    func timelineTaskUniverseByID() -> [UUID: TaskDefinition] {
+        var universe = uniqueTasks(
+            morningTasks
+            + eveningTasks
+            + overdueTasks
+            + dailyCompletedTasks
+            + upcomingTasks
+            + completedTasks
+            + doneTimelineTasks
+            + focusTasks
+        )
+        universe.append(contentsOf: dueTodayRows.compactMap { row in
+            guard case .task(let task) = row else { return nil }
+            return task
+        })
+        todaySections.forEach { section in
+            universe.append(contentsOf: section.rows.compactMap { row in
+                guard case .task(let task) = row else { return nil }
+                return task
+            })
+        }
+        return Dictionary(uniqueKeysWithValues: uniqueTasks(universe).map { ($0.id, $0) })
+    }
+
+    func timelinePlanItem(from task: TaskDefinition, taskIndexByID: [UUID: TaskDefinition]? = nil) -> TimelinePlanItem {
         // Prefer explicit schedule fields. The dueDate fallback is temporary legacy support.
         let startDate = timelinePlacementDate(for: task)
         let resolvedDuration = task.scheduledEndAt?.timeIntervalSince(startDate ?? task.createdAt)
@@ -7870,6 +7907,11 @@ extension HomeViewModel {
         let endDate = startDate.map { start in
             task.scheduledEndAt ?? start.addingTimeInterval(max(resolvedDuration, 15 * 60))
         }
+        let checklistSummary = timelineChecklistSummary(for: task, taskIndexByID: taskIndexByID)
+        let hasProjectUtility = {
+            guard let projectName = task.projectName?.trimmingCharacters(in: .whitespacesAndNewlines) else { return false }
+            return projectName.isEmpty == false && projectName.caseInsensitiveCompare(ProjectConstants.inboxProjectName) != .orderedSame
+        }()
         return TimelinePlanItem(
             id: "task:\(task.id.uuidString)",
             source: .task,
@@ -7883,12 +7925,17 @@ extension HomeViewModel {
             isComplete: task.isComplete,
             tintHex: timelineTintHex(for: task),
             systemImageName: timelineSystemImageName(for: task),
-            accessoryText: timelineAccessoryText(for: task)
+            accessoryText: timelineAccessoryText(for: task),
+            hasNotes: task.details?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false,
+            isRecurring: task.repeatPattern != nil || task.recurrenceSeriesID != nil,
+            checklistSummary: checklistSummary,
+            showsProjectUtility: hasProjectUtility,
+            isMeetingLike: task.context == .meeting
         )
     }
 
-    func timelinePlanItem(from task: TaskDefinition, on selectedDay: Date) -> TimelinePlanItem? {
-        let item = timelinePlanItem(from: task)
+    func timelinePlanItem(from task: TaskDefinition, on selectedDay: Date, taskIndexByID: [UUID: TaskDefinition]? = nil) -> TimelinePlanItem? {
+        let item = timelinePlanItem(from: task, taskIndexByID: taskIndexByID)
         if item.isAllDay {
             return nil
         }
@@ -7911,7 +7958,12 @@ extension HomeViewModel {
             isComplete: false,
             tintHex: event.calendarColorHex,
             systemImageName: "calendar",
-            accessoryText: nil
+            accessoryText: nil,
+            hasNotes: event.notes?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false,
+            isRecurring: false,
+            checklistSummary: nil,
+            showsProjectUtility: false,
+            isMeetingLike: timelineIsMeetingLikeEvent(event)
         )
     }
 
@@ -7950,8 +8002,8 @@ extension HomeViewModel {
             } else {
                 emphasis = .openTime
             }
-            let primaryAction: TimelineGapAction = inboxCount > 0 ? .scheduleInbox : .addTask
-            let secondaryAction: TimelineGapAction? = inboxCount > 0 ? .addTask : nil
+            let primaryAction: TimelineGapAction = .addTask
+            let secondaryAction: TimelineGapAction? = .planBlock
             let copy = timelineGapCopy(
                 duration: gapDuration,
                 inboxCount: inboxCount,
@@ -8089,26 +8141,41 @@ extension HomeViewModel {
         switch emphasis {
         case .quietWindow:
             return (
-                headline: "Open evening",
-                supportingText: inboxCount > 0
-                    ? "Use this \(durationText) stretch to place something from Inbox before you wind down."
-                    : "You have \(durationText) free before the night closes out."
+                headline: "Evening buffer",
+                supportingText: "Need a lighter close with \(durationText)?"
             )
         case .prepWindow:
             return (
-                headline: "Prep window",
-                supportingText: primaryAction == .scheduleInbox
-                    ? "There is \(durationText) before the next block. Place one quick inbox task here."
-                    : "There is \(durationText) before the next block. Add one focused task that fits cleanly."
+                headline: "Short opening",
+                supportingText: "Need a short block for \(durationText)?"
             )
         case .openTime:
             return (
-                headline: "Free for \(durationText)",
-                supportingText: primaryAction == .scheduleInbox
-                    ? "This is the clearest opening to pull something meaningful out of Inbox."
-                    : "Shape this open time by placing work directly into your day."
+                headline: "Open time",
+                supportingText: isFinalGap ? "Keep \(durationText) open." : "Want to use \(durationText) well?"
             )
         }
+    }
+
+    func timelineChecklistSummary(
+        for task: TaskDefinition,
+        taskIndexByID: [UUID: TaskDefinition]?
+    ) -> TimelineChecklistSummary? {
+        guard task.subtasks.isEmpty == false, let taskIndexByID else { return nil }
+        let childTasks = task.subtasks.compactMap { taskIndexByID[$0] }
+        guard childTasks.count == task.subtasks.count else { return nil }
+        return TimelineChecklistSummary(
+            completedCount: childTasks.filter(\.isComplete).count,
+            totalCount: childTasks.count
+        )
+    }
+
+    func timelineIsMeetingLikeEvent(_ event: TaskerCalendarEventSnapshot) -> Bool {
+        let normalized = "\(event.title) \(event.calendarTitle)".lowercased()
+        return normalized.contains("meet")
+            || normalized.contains("zoom")
+            || normalized.contains("call")
+            || normalized.contains("video")
     }
 
     func timelineDurationText(_ duration: TimeInterval) -> String {
