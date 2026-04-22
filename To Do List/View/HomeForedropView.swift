@@ -3945,11 +3945,8 @@ struct HomeBackdropForedropRootView: View {
 
             ScrollView {
                 VStack(alignment: .leading, spacing: spacing.s12) {
-                    if habitsSnapshot.quietTrackingSummaryState.isVisible {
-                        fullBleedTaskListHeaderModule {
-                            passiveTrackingRail
-                        }
-                    }
+                    calendarScheduleModuleCard
+                        .reportHeight(to: TimelineCalendarCardHeightPreferenceKey.self)
 
                     if case .trayVisible(let summary) = overlaySnapshot.replanState.phase {
                         NeedsReplanTrayView(summary: summary) {
@@ -3958,9 +3955,6 @@ struct HomeBackdropForedropRootView: View {
                         .padding(.horizontal, spacing.s16)
                         .transition(.opacity.combined(with: .move(edge: .top)))
                     }
-
-                    calendarScheduleModuleCard
-                        .reportHeight(to: TimelineCalendarCardHeightPreferenceKey.self)
 
                     TimelineForedropView(
                         snapshot: timelineSnapshot,
@@ -4023,13 +4017,19 @@ struct HomeBackdropForedropRootView: View {
                         .padding(.horizontal, spacing.s16)
                     }
 
+                    if let footerContent = timelineFooterModules {
+                        footerContent
+                    }
+
+                    if habitsSnapshot.quietTrackingSummaryState.isVisible {
+                        fullBleedTaskListHeaderModule {
+                            passiveTrackingRail
+                        }
+                    }
+
                     if let guidanceState = overlaySnapshot.guidanceState {
                         HomeOnboardingGuidanceBanner(state: guidanceState)
                             .padding(.horizontal, spacing.s16)
-                    }
-
-                    if let footerContent = timelineFooterModules {
-                        footerContent
                     }
                 }
                 .padding(.top, spacing.s8)
@@ -4242,11 +4242,6 @@ struct HomeBackdropForedropRootView: View {
 
         return AnyView(
             VStack(alignment: .leading, spacing: spacing.s12) {
-                if hasWeeklySummary {
-                    weeklySummaryCard
-                        .padding(.horizontal, spacing.s16)
-                }
-
                 if hasPrimaryHabits {
                     habitsSectionCard
                         .padding(.horizontal, spacing.s16)
@@ -4254,6 +4249,11 @@ struct HomeBackdropForedropRootView: View {
 
                 if hasRecoveryHabits {
                     recoveryHabitsSectionCard
+                        .padding(.horizontal, spacing.s16)
+                }
+
+                if hasWeeklySummary {
+                    weeklySummaryCard
                         .padding(.horizontal, spacing.s16)
                 }
             }
