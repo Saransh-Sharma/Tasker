@@ -8,6 +8,25 @@
 import Foundation
 
 enum HomeTaskTintResolver {
+    static func owningSectionAccentHex(
+        for task: TaskDefinition,
+        projectsByID: [UUID: Project],
+        lifeAreasByID: [UUID: LifeArea]
+    ) -> String? {
+        if let directLifeAreaAccent = lifeAreaAccentHex(
+            for: task.lifeAreaID,
+            lifeAreasByID: lifeAreasByID
+        ) {
+            return directLifeAreaAccent
+        }
+
+        return projectAccentHex(
+            for: task.projectID,
+            projectsByID: projectsByID,
+            lifeAreasByID: lifeAreasByID
+        )
+    }
+
     static func sectionAccentHex(
         for anchor: HomeSectionAnchor,
         projectsByID: [UUID: Project],
@@ -15,11 +34,14 @@ enum HomeTaskTintResolver {
     ) -> String? {
         switch anchor {
         case .project(let id, _, _, _):
-            return projectsByID[id]?.color.hexString
+            return projectAccentHex(
+                for: id,
+                projectsByID: projectsByID,
+                lifeAreasByID: lifeAreasByID
+            )
 
         case .lifeArea(let id, _, _):
-            guard let id, let lifeArea = lifeAreasByID[id] else { return nil }
-            return LifeAreaColorPalette.normalizeOrMap(hex: lifeArea.color, for: lifeArea.id)
+            return lifeAreaAccentHex(for: id, lifeAreasByID: lifeAreasByID)
 
         case .dueTodaySummary, .focusNow, .plainList:
             return nil
@@ -31,20 +53,60 @@ enum HomeTaskTintResolver {
         projectsByID: [UUID: Project],
         lifeAreasByID: [UUID: LifeArea]
     ) -> String? {
-        if let lifeAreaID = task.lifeAreaID,
-           let lifeArea = lifeAreasByID[lifeAreaID] {
-            return LifeAreaColorPalette.normalizeOrMap(hex: lifeArea.color, for: lifeArea.id)
-        }
+        owningSectionAccentHex(
+            for: task,
+            projectsByID: projectsByID,
+            lifeAreasByID: lifeAreasByID
+        )
+    }
 
-        if let project = projectsByID[task.projectID] {
-            if let projectLifeAreaID = project.lifeAreaID,
-               let lifeArea = lifeAreasByID[projectLifeAreaID] {
-                return LifeAreaColorPalette.normalizeOrMap(hex: lifeArea.color, for: lifeArea.id)
+    static func rowAccentHex(
+        for row: HomeTodayRow,
+        projectsByID: [UUID: Project],
+        lifeAreasByID: [UUID: LifeArea]
+    ) -> String? {
+        switch row {
+        case .task(let task):
+            return owningSectionAccentHex(
+                for: task,
+                projectsByID: projectsByID,
+                lifeAreasByID: lifeAreasByID
+            )
+        case .habit(let habit):
+            if let accentHex = habit.accentHex {
+                return accentHex
+            }
+            return lifeAreaAccentHex(
+                for: habit.lifeAreaID,
+                lifeAreasByID: lifeAreasByID
+            )
+        }
+    }
+
+    private static func lifeAreaAccentHex(
+        for lifeAreaID: UUID?,
+        lifeAreasByID: [UUID: LifeArea]
+    ) -> String? {
+        guard let lifeAreaID, let lifeArea = lifeAreasByID[lifeAreaID] else { return nil }
+        return LifeAreaColorPalette.normalizeOrMap(hex: lifeArea.color, for: lifeArea.id)
+    }
+
+    private static func projectAccentHex(
+        for projectID: UUID,
+        projectsByID: [UUID: Project],
+        lifeAreasByID: [UUID: LifeArea]
+    ) -> String? {
+        if let project = projectsByID[projectID] {
+            if let inheritedLifeAreaAccent = lifeAreaAccentHex(
+                for: project.lifeAreaID,
+                lifeAreasByID: lifeAreasByID
+            ) {
+                return inheritedLifeAreaAccent
             }
             return project.color.hexString
         }
 
-        if task.projectID == ProjectConstants.inboxProjectID {
+        if projectID == ProjectConstants.inboxProjectID {
             return Project.createInbox().color.hexString
         }
 

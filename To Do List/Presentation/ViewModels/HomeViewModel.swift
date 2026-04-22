@@ -8076,19 +8076,18 @@ extension HomeViewModel {
     }
 
     func timelineTintHex(for task: TaskDefinition) -> String? {
-        if let project = projects.first(where: { $0.id == task.projectID }) {
-            return project.color.hexString
+        let projectsByID = Dictionary(projects.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
+        let lifeAreasByID = Dictionary(lifeAreas.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
+        if let owningTint = HomeTaskTintResolver.owningSectionAccentHex(
+            for: task,
+            projectsByID: projectsByID,
+            lifeAreasByID: lifeAreasByID
+        ) {
+            return owningTint
         }
-        switch task.priority {
-        case .max:
-            return ProjectColor.red.hexString
-        case .high:
-            return ProjectColor.pink.hexString
-        case .low:
-            return ProjectColor.green.hexString
-        case .none:
-            return ProjectColor.gray.hexString
-        }
+
+        // Preserve historical timeline fallback when ownership tint cannot be resolved.
+        return projectsByID[task.projectID]?.color.hexString ?? task.priority.colorHex
     }
 
     func timelineDayKey(for date: Date, calendar: Calendar) -> String {
