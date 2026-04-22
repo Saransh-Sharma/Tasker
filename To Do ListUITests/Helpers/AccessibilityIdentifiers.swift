@@ -130,6 +130,10 @@ enum AccessibilityIdentifiers {
         static let modeTask = "addItem.mode.task"
         static let modeHabit = "addItem.mode.habit"
         static let titleField = "addTask.titleField"
+        static let iconButton = "addTask.iconButton"
+        static let iconPickerSheet = "addTask.iconPickerSheet"
+        static let iconSearchField = "addTask.iconSearchField"
+        static let iconResetButton = "addTask.iconResetButton"
         static let descriptionField = "addTask.descriptionField"
         static let prioritySegmentedControl = "addTask.prioritySegmentedControl"
         static let dueDatePicker = "addTask.dueDatePicker"
@@ -165,6 +169,7 @@ enum AccessibilityIdentifiers {
         // Project Pills
         static func projectPill(projectId: String) -> String { "addTask.projectPill.\(projectId)" }
         static func scheduleDurationChip(minutes: Int) -> String { "addTask.schedule.duration.\(minutes)" }
+        static func iconOption(_ symbolName: String) -> String { "addTask.iconOption.\(symbolName)" }
     }
 
     enum DatePickerSheet {

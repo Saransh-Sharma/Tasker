@@ -46,6 +46,22 @@ class AddTaskPage {
         return field
     }
 
+    var iconButton: XCUIElement {
+        app.buttons[AccessibilityIdentifiers.AddTask.iconButton]
+    }
+
+    var iconPickerSheet: XCUIElement {
+        app.otherElements[AccessibilityIdentifiers.AddTask.iconPickerSheet]
+    }
+
+    var iconSearchField: XCUIElement {
+        app.textFields[AccessibilityIdentifiers.AddTask.iconSearchField]
+    }
+
+    var iconResetButton: XCUIElement {
+        app.buttons[AccessibilityIdentifiers.AddTask.iconResetButton]
+    }
+
     var modePicker: XCUIElement {
         app.otherElements[AccessibilityIdentifiers.AddTask.modePicker]
     }
@@ -264,6 +280,24 @@ class AddTaskPage {
         let button = habitModeButton
         if button.waitForExistence(timeout: 3) {
             button.tap()
+        }
+    }
+
+    func openIconPicker() {
+        let button = iconButton
+        if button.waitForExistence(timeout: 3) {
+            button.tap()
+        }
+    }
+
+    func iconOption(_ symbolName: String) -> XCUIElement {
+        app.buttons[AccessibilityIdentifiers.AddTask.iconOption(symbolName)]
+    }
+
+    func selectTaskIcon(_ symbolName: String) {
+        let option = iconOption(symbolName)
+        if option.waitForExistence(timeout: 3) {
+            option.tap()
         }
     }
 

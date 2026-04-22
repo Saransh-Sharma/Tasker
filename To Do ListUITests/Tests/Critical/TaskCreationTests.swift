@@ -75,6 +75,28 @@ class TaskCreationTests: BaseUITest {
         takeScreenshot(named: "evening_task_minimal_info")
     }
 
+    func testCreateTaskWithManualIconSelectionPersistsIconOnHome() throws {
+        let taskTitle = "Dentist icon \(UUID().uuidString.prefix(6))"
+
+        let addTaskPage = homePage.tapAddTask()
+        XCTAssertTrue(addTaskPage.verifyIsDisplayed(), "Add Task screen should appear")
+
+        addTaskPage.enterTitle(taskTitle)
+        addTaskPage.openIconPicker()
+        XCTAssertTrue(addTaskPage.iconPickerSheet.waitForExistence(timeout: 3), "Icon picker should open")
+        addTaskPage.selectTaskIcon("stethoscope")
+        addTaskPage.tapSave()
+        XCTAssertTrue(addTaskPage.waitForDismissal(timeout: 3), "Add Task screen should dismiss after Save")
+
+        XCTAssertTrue(homePage.waitForTask(withTitle: taskTitle, timeout: 5), "Task should appear in task list")
+        let row = homePage.taskRow(containingTitle: taskTitle)
+        XCTAssertTrue(row.waitForExistence(timeout: 2), "Created task row should appear")
+        XCTAssertTrue(
+            row.label.lowercased().contains("icon: stethoscope"),
+            "Task row should expose the persisted icon in its accessibility label"
+        )
+    }
+
     // MARK: - Regression: Keyboard Done Creates Task and Dismisses
 
     func testKeyboardDoneOnTitleFieldCreatesTaskAndDismissesSheet() throws {

@@ -40,6 +40,30 @@ final class AddTaskSuggestionFlowTests: BaseUITest {
         XCTAssertTrue(habitSurface.waitForExistence(timeout: 3))
     }
 
+    func testTypingTaskTitleShowsIconPreviewAndPicker() throws {
+        let homePage = HomePage(app: app)
+        let addTaskPage = homePage.tapAddTask()
+
+        guard addTaskPage.verifyIsDisplayed(timeout: 8) else {
+            throw XCTSkip("Add Task surface did not open in this launch state")
+        }
+
+        XCTAssertTrue(addTaskPage.iconButton.waitForExistence(timeout: 3))
+
+        addTaskPage.enterTitle("call dentist after lunch")
+        Thread.sleep(forTimeInterval: 0.4)
+
+        let iconButtonLabel = addTaskPage.iconButton.label.lowercased()
+        XCTAssertTrue(
+            iconButtonLabel.contains("stethoscope") || iconButtonLabel.contains("icon"),
+            "Expected task icon preview button to expose an icon-focused accessibility label"
+        )
+
+        addTaskPage.openIconPicker()
+        XCTAssertTrue(addTaskPage.iconPickerSheet.waitForExistence(timeout: 3))
+        XCTAssertTrue(addTaskPage.iconSearchField.exists)
+    }
+
     func testAddTaskScheduleEditorShowsBelowTitleAndSupportsTimeAndDurationControls() throws {
         let homePage = HomePage(app: app)
         let addTaskPage = homePage.tapAddTask()
