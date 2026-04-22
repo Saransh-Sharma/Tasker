@@ -3925,6 +3925,28 @@ struct HomeBackdropForedropRootView: View {
         }
     }
 
+    private var timelineColumnMaxWidth: CGFloat? {
+        switch layoutClass {
+        case .padRegular:
+            return 760
+        case .padExpanded:
+            return 840
+        default:
+            return nil
+        }
+    }
+
+    @ViewBuilder
+    private func timelineColumnContent<Content: View>(@ViewBuilder _ content: () -> Content) -> some View {
+        if let maxWidth = timelineColumnMaxWidth {
+            content()
+                .frame(maxWidth: maxWidth, alignment: .leading)
+                .frame(maxWidth: .infinity, alignment: .leading)
+        } else {
+            content()
+        }
+    }
+
     private func todayTimelineSurface(taskListBottomInset: CGFloat) -> some View {
         VStack(spacing: 0) {
             TimelineForedropBar(
@@ -3945,76 +3967,84 @@ struct HomeBackdropForedropRootView: View {
 
             ScrollView {
                 VStack(alignment: .leading, spacing: spacing.s12) {
-                    calendarScheduleModuleCard
-                        .reportHeight(to: TimelineCalendarCardHeightPreferenceKey.self)
-
-                    if case .trayVisible(let summary) = overlaySnapshot.replanState.phase {
-                        NeedsReplanTrayView(summary: summary) {
-                            viewModel.openNeedsReplanLauncher()
-                        }
-                        .padding(.horizontal, spacing.s16)
-                        .transition(.opacity.combined(with: .move(edge: .top)))
+                    timelineColumnContent {
+                        calendarScheduleModuleCard
+                            .reportHeight(to: TimelineCalendarCardHeightPreferenceKey.self)
                     }
 
-                    TimelineForedropView(
-                        snapshot: timelineSnapshot,
-                        layoutClass: layoutClass,
-                        showsRevealHandle: false,
-                        onSelectDate: { date in
-                            timelineViewModel.syncSelectedDate(date)
-                            viewModel.selectDate(date)
-                        },
-                        onSnapAnchor: { anchor in
-                            withAnimation(foredropFlipAnimation) {
-                                timelineViewModel.snap(to: anchor)
+                    if case .trayVisible(let summary) = overlaySnapshot.replanState.phase {
+                        timelineColumnContent {
+                            NeedsReplanTrayView(summary: summary) {
+                                viewModel.openNeedsReplanLauncher()
                             }
-                        },
-                        onDragChanged: { translation in
-                            timelineViewModel.updateDrag(translation, metrics: timelineLayoutMetrics)
-                        },
-                        onDragEnded: { translation in
-                            timelineViewModel.endDrag(predictedTranslation: translation, metrics: timelineLayoutMetrics)
-                        },
-                        onTaskTap: { item in
-                            if let taskID = item.taskID, let task = viewModel.taskSnapshot(for: taskID) {
-                                onTaskTap(task)
-                            }
-                        },
-                        onToggleComplete: { item in
-                            guard let taskID = item.taskID, let task = viewModel.taskSnapshot(for: taskID) else { return }
-                            trackTaskToggle(task, source: "timeline")
-                            onToggleComplete(task)
-                        },
-                        onAddTask: onAddTask,
-                        onScheduleInbox: {
-                            viewModel.startTriage()
-                        },
-                        onPlaceReplanAtTime: { candidate, date in
-                            viewModel.placeReplanCandidate(taskID: candidate.taskID, at: date)
-                        },
-                        onPlaceReplanAllDay: { candidate, date in
-                            viewModel.placeReplanCandidateAllDay(taskID: candidate.taskID, on: date)
-                        },
-                        onCancelReplanPlacement: {
-                            viewModel.cancelCurrentReplanPlacement()
-                        },
-                        onSkipReplanPlacement: {
-                            viewModel.skipCurrentReplanCandidate()
-                        },
-                        onClearReplanError: {
-                            viewModel.clearReplanError()
+                            .padding(.horizontal, spacing.s16)
+                            .transition(.opacity.combined(with: .move(edge: .top)))
                         }
-                    )
-                    .padding(.horizontal, spacing.s16)
+                    }
+
+                    timelineColumnContent {
+                        TimelineForedropView(
+                            snapshot: timelineSnapshot,
+                            layoutClass: layoutClass,
+                            showsRevealHandle: false,
+                            onSelectDate: { date in
+                                timelineViewModel.syncSelectedDate(date)
+                                viewModel.selectDate(date)
+                            },
+                            onSnapAnchor: { anchor in
+                                withAnimation(foredropFlipAnimation) {
+                                    timelineViewModel.snap(to: anchor)
+                                }
+                            },
+                            onDragChanged: { translation in
+                                timelineViewModel.updateDrag(translation, metrics: timelineLayoutMetrics)
+                            },
+                            onDragEnded: { translation in
+                                timelineViewModel.endDrag(predictedTranslation: translation, metrics: timelineLayoutMetrics)
+                            },
+                            onTaskTap: { item in
+                                if let taskID = item.taskID, let task = viewModel.taskSnapshot(for: taskID) {
+                                    onTaskTap(task)
+                                }
+                            },
+                            onToggleComplete: { item in
+                                guard let taskID = item.taskID, let task = viewModel.taskSnapshot(for: taskID) else { return }
+                                trackTaskToggle(task, source: "timeline")
+                                onToggleComplete(task)
+                            },
+                            onAddTask: onAddTask,
+                            onScheduleInbox: {
+                                viewModel.startTriage()
+                            },
+                            onPlaceReplanAtTime: { candidate, date in
+                                viewModel.placeReplanCandidate(taskID: candidate.taskID, at: date)
+                            },
+                            onPlaceReplanAllDay: { candidate, date in
+                                viewModel.placeReplanCandidateAllDay(taskID: candidate.taskID, on: date)
+                            },
+                            onCancelReplanPlacement: {
+                                viewModel.cancelCurrentReplanPlacement()
+                            },
+                            onSkipReplanPlacement: {
+                                viewModel.skipCurrentReplanCandidate()
+                            },
+                            onClearReplanError: {
+                                viewModel.clearReplanError()
+                            }
+                        )
+                        .padding(.horizontal, spacing.s16)
+                    }
 
                     if let entryState = chromeSnapshot.dailyReflectionEntryState {
-                        HomeDailyReflectionEntryCard(
-                            state: entryState,
-                            mode: .compact
-                        ) {
-                            openDailyReflectPlan(preferredReflectionDate: entryState.reflectionDate)
+                        timelineColumnContent {
+                            HomeDailyReflectionEntryCard(
+                                state: entryState,
+                                mode: .compact
+                            ) {
+                                openDailyReflectPlan(preferredReflectionDate: entryState.reflectionDate)
+                            }
+                            .padding(.horizontal, spacing.s16)
                         }
-                        .padding(.horizontal, spacing.s16)
                     }
 
                     if let footerContent = timelineFooterModules {

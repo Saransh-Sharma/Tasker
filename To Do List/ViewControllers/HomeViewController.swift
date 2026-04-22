@@ -359,6 +359,13 @@ enum TimelinePlanItemSource: Equatable {
     case calendarEvent
 }
 
+struct TimelineChecklistSummary: Equatable, Hashable {
+    let completedCount: Int
+    let totalCount: Int
+
+    var isEmpty: Bool { totalCount <= 0 }
+}
+
 struct TimelinePlanItem: Equatable, Identifiable {
     let id: String
     let source: TimelinePlanItemSource
@@ -373,6 +380,51 @@ struct TimelinePlanItem: Equatable, Identifiable {
     let tintHex: String?
     let systemImageName: String
     let accessoryText: String?
+    let hasNotes: Bool
+    let isRecurring: Bool
+    let checklistSummary: TimelineChecklistSummary?
+    let showsProjectUtility: Bool
+    let isMeetingLike: Bool
+
+    init(
+        id: String,
+        source: TimelinePlanItemSource,
+        taskID: UUID?,
+        eventID: String?,
+        title: String,
+        subtitle: String?,
+        startDate: Date?,
+        endDate: Date?,
+        isAllDay: Bool,
+        isComplete: Bool,
+        tintHex: String?,
+        systemImageName: String,
+        accessoryText: String?,
+        hasNotes: Bool = false,
+        isRecurring: Bool = false,
+        checklistSummary: TimelineChecklistSummary? = nil,
+        showsProjectUtility: Bool = false,
+        isMeetingLike: Bool = false
+    ) {
+        self.id = id
+        self.source = source
+        self.taskID = taskID
+        self.eventID = eventID
+        self.title = title
+        self.subtitle = subtitle
+        self.startDate = startDate
+        self.endDate = endDate
+        self.isAllDay = isAllDay
+        self.isComplete = isComplete
+        self.tintHex = tintHex
+        self.systemImageName = systemImageName
+        self.accessoryText = accessoryText
+        self.hasNotes = hasNotes
+        self.isRecurring = isRecurring
+        self.checklistSummary = checklistSummary
+        self.showsProjectUtility = showsProjectUtility
+        self.isMeetingLike = isMeetingLike
+    }
 
     var duration: TimeInterval? {
         guard let startDate, let endDate else { return nil }
@@ -388,6 +440,8 @@ struct TimelinePlanItem: Equatable, Identifiable {
 enum TimelineGapAction: String, Equatable {
     case addTask
     case scheduleInbox
+    case planBlock
+    case dismiss
 
     var title: String {
         switch self {
@@ -395,6 +449,10 @@ enum TimelineGapAction: String, Equatable {
             return "Add Task"
         case .scheduleInbox:
             return "Schedule Inbox"
+        case .planBlock:
+            return "Plan Block"
+        case .dismiss:
+            return "Dismiss"
         }
     }
 }
@@ -456,6 +514,24 @@ struct TimelineAnchorItem: Equatable, Identifiable {
     let title: String
     let time: Date
     let systemImageName: String
+    let subtitle: String?
+    let isActionable: Bool
+
+    init(
+        id: String,
+        title: String,
+        time: Date,
+        systemImageName: String,
+        subtitle: String? = nil,
+        isActionable: Bool = false
+    ) {
+        self.id = id
+        self.title = title
+        self.time = time
+        self.systemImageName = systemImageName
+        self.subtitle = subtitle
+        self.isActionable = isActionable
+    }
 }
 
 enum TimelineDayLayoutMode: Equatable {
@@ -474,6 +550,62 @@ struct TimelineDayProjection: Equatable {
     let sleepAnchor: TimelineAnchorItem
     let activeItemID: String?
     let currentTime: Date
+}
+
+enum TimelineRowKind: Equatable, Hashable {
+    case task
+    case gap
+    case anchor
+}
+
+enum TimelineTemporalState: Equatable, Hashable {
+    case pastCompleted
+    case pastIncomplete
+    case currentTask
+    case futureTask
+    case activeGap
+    case futureGap
+    case anchor
+}
+
+enum TimelineMetadataMode: Equatable, Hashable {
+    case scheduled
+    case remainingTime(Int)
+    case done
+}
+
+enum TimelineUtilityItem: Equatable, Hashable {
+    case checklist(TimelineChecklistSummary)
+    case note
+    case recurring
+    case calendar
+    case meeting
+    case project(String)
+}
+
+enum TimelineStemSegmentState: Equatable, Hashable {
+    case pastCompletedSegment(String?)
+    case pastIncompleteSegment(String?)
+    case currentElapsedSegment(String?, progress: CGFloat)
+    case currentRemainingSegment
+    case futureSegment
+    case gapPastSegment
+    case gapFutureSegment
+}
+
+struct TimelineRenderableRow: Equatable, Identifiable {
+    let id: String
+    let kind: TimelineRowKind
+    let temporalState: TimelineTemporalState
+    let metadataMode: TimelineMetadataMode?
+    let utilityItems: [TimelineUtilityItem]
+    let progressRatio: CGFloat
+    let title: String
+    let subtitle: String?
+    let isInteractiveRing: Bool
+    let stemLeading: TimelineStemSegmentState
+    let stemTrailing: TimelineStemSegmentState
+    let isCurrentRailEmphasis: Bool
 }
 
 enum TimelineDayLoadLevel: Equatable {
@@ -823,6 +955,7 @@ private struct HomeBottomBarContainer: View {
     let onChat: () -> Void
     let onCreate: () -> Void
     let layoutClass: TaskerLayoutClass
+    let onHeightChange: (CGFloat) -> Void
 
     var body: some View {
         HomeGlassBottomBar(
@@ -838,6 +971,17 @@ private struct HomeBottomBarContainer: View {
         .padding(.bottom, 0)
         .ignoresSafeArea(.container, edges: .bottom)
         .offset(y: 6)
+        .background {
+            GeometryReader { proxy in
+                Color.clear
+                    .onAppear {
+                        onHeightChange(proxy.size.height + 6)
+                    }
+                    .onChange(of: proxy.size.height) { _, newValue in
+                        onHeightChange(newValue + 6)
+                    }
+            }
+        }
     }
 }
 
@@ -917,6 +1061,7 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
     private var completedOnboardingEvaluationSceneToken: Int = 0
     private var lastAppliedHomeRenderTransaction: HomeRenderTransaction = .empty
     private var keyboardOverlapHeight: CGFloat = 0
+    private var measuredBottomBarHeight: CGFloat = 0
 
 
     // MARK: - Lifecycle
@@ -1577,8 +1722,13 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
         let height = view.bounds.height
         let tokens = TaskerThemeManager.shared.tokens(for: currentLayoutClass)
         let spacing = tokens.spacing
-        let bottomOverlayObstruction = currentLayoutClass == .phone ? ((spacing.s12 * 2) + 56 + 6) : 0
-        let taskListBottomInset = bottomOverlayObstruction + safeAreaInsets.bottom + spacing.s20
+        let defaultBottomBarHeight = (spacing.s12 * 2) + 56 + 6
+        let bottomOverlayObstruction = currentLayoutClass == .phone
+            ? max(measuredBottomBarHeight, defaultBottomBarHeight)
+            : 0
+        let taskListBottomInset = currentLayoutClass == .phone
+            ? bottomOverlayObstruction + spacing.s16
+            : spacing.s24
         let chartViewportHeight = min(max(height * 0.66, 560), max(560, height - 150))
 
         return HomeLayoutMetrics(
@@ -1706,6 +1856,10 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
             && faceCoordinator.shellPhase == .interactive
             && overlayStore.snapshot.replanState.suppressesBottomBar == false
         if shouldShowBottomBar == false {
+            if measuredBottomBarHeight != 0 {
+                measuredBottomBarHeight = 0
+                refreshLayoutMetrics()
+            }
             if let bottomBarHostingController {
                 bottomBarHostingController.willMove(toParent: nil)
                 bottomBarHostingController.view.removeFromSuperview()
@@ -1766,8 +1920,18 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
                     self?.AddTaskAction()
                 }
             },
-            layoutClass: currentLayoutClass
+            layoutClass: currentLayoutClass,
+            onHeightChange: { [weak self] height in
+                self?.setMeasuredBottomBarHeight(height)
+            }
         )
+    }
+
+    private func setMeasuredBottomBarHeight(_ newValue: CGFloat) {
+        let sanitizedValue = max(0, newValue)
+        guard abs(measuredBottomBarHeight - sanitizedValue) > 0.5 else { return }
+        measuredBottomBarHeight = sanitizedValue
+        refreshLayoutMetrics()
     }
 
     /// Executes mountHomeShell.
