@@ -6,6 +6,7 @@ private struct TaskEntitySnapshot {
         "id",
         "taskID",
         "projectID",
+        "iconSymbolName",
         "recurrenceSeriesID",
         "habitDefinitionID",
         "lifeAreaID",
@@ -39,8 +40,16 @@ private struct TaskEntitySnapshot {
         "updatedAt"
     ]
 
+    private static func snapshotValues(from entity: NSManagedObject) -> [String: Any] {
+        let availableKeys = Set(entity.entity.attributesByName.keys)
+        let readableKeys = Self.keys.filter { availableKeys.contains($0) }
+        guard readableKeys.isEmpty == false else { return [:] }
+        return entity.dictionaryWithValues(forKeys: readableKeys)
+    }
+
     let taskID: UUID
     let projectID: UUID
+    let iconSymbolName: String?
     let recurrenceSeriesID: UUID?
     let habitDefinitionID: UUID?
     let lifeAreaID: UUID?
@@ -75,9 +84,10 @@ private struct TaskEntitySnapshot {
     let fallbackProjectName: String?
 
     init(entity: NSManagedObject) {
-        let values = entity.dictionaryWithValues(forKeys: Self.keys)
+        let values = Self.snapshotValues(from: entity)
         self.taskID = (values["taskID"] as? UUID) ?? (values["id"] as? UUID) ?? UUID()
         self.projectID = (values["projectID"] as? UUID) ?? ProjectConstants.inboxProjectID
+        self.iconSymbolName = values["iconSymbolName"] as? String
         self.recurrenceSeriesID = values["recurrenceSeriesID"] as? UUID
         self.habitDefinitionID = values["habitDefinitionID"] as? UUID
         self.lifeAreaID = values["lifeAreaID"] as? UUID
@@ -110,7 +120,8 @@ private struct TaskEntitySnapshot {
         self.createdAt = (values["createdAt"] as? Date) ?? Date()
         self.updatedAt = (values["updatedAt"] as? Date) ?? Date()
 
-        if let projectRef = entity.value(forKey: "projectRef") as? NSManagedObject {
+        if entity.entity.relationshipsByName["projectRef"] != nil,
+           let projectRef = entity.value(forKey: "projectRef") as? NSManagedObject {
             let projectValues = projectRef.dictionaryWithValues(forKeys: ["name"])
             self.fallbackProjectName = projectValues["name"] as? String
         } else {
@@ -169,6 +180,7 @@ enum TaskDefinitionMutationApplier {
         setAttribute("id", value: request.id, on: entity)
         setAttribute("taskID", value: request.id, on: entity)
         setAttribute("projectID", value: request.projectID, on: entity)
+        setAttribute("iconSymbolName", value: request.iconSymbolName, on: entity)
         setAttribute("lifeAreaID", value: request.lifeAreaID, on: entity)
         setAttribute("sectionID", value: request.sectionID, on: entity)
         setAttribute("parentTaskID", value: request.parentTaskID, on: entity)
@@ -213,6 +225,11 @@ enum TaskDefinitionMutationApplier {
         }
         if let projectID = request.projectID {
             setAttribute("projectID", value: projectID, on: entity)
+        }
+        if request.clearIconSymbolName {
+            setAttribute("iconSymbolName", value: nil, on: entity)
+        } else if request.iconSymbolName != nil {
+            setAttribute("iconSymbolName", value: request.iconSymbolName, on: entity)
         }
         if request.clearLifeArea {
             setAttribute("lifeAreaID", value: nil, on: entity)
@@ -452,6 +469,7 @@ public final class CoreDataTaskDefinitionRepository: TaskDefinitionRepositoryPro
             details: task.details,
             projectID: task.projectID,
             projectName: task.projectName,
+            iconSymbolName: task.iconSymbolName,
             lifeAreaID: task.lifeAreaID,
             sectionID: task.sectionID,
             dueDate: task.dueDate,
@@ -522,6 +540,8 @@ public final class CoreDataTaskDefinitionRepository: TaskDefinitionRepositoryPro
             title: task.title,
             details: task.details,
             projectID: task.projectID,
+            iconSymbolName: task.iconSymbolName,
+            clearIconSymbolName: task.iconSymbolName == nil,
             lifeAreaID: task.lifeAreaID,
             sectionID: task.sectionID,
             dueDate: task.dueDate,
@@ -642,6 +662,7 @@ public final class CoreDataTaskDefinitionRepository: TaskDefinitionRepositoryPro
             habitDefinitionID: snapshot.habitDefinitionID,
             projectID: snapshot.projectID,
             projectName: projectName,
+            iconSymbolName: snapshot.iconSymbolName,
             lifeAreaID: snapshot.lifeAreaID,
             sectionID: snapshot.sectionID,
             parentTaskID: snapshot.parentTaskID,
@@ -705,6 +726,7 @@ public final class CoreDataTaskDefinitionRepository: TaskDefinitionRepositoryPro
             habitDefinitionID: attributeValue("habitDefinitionID", from: entity),
             projectID: projectID,
             projectName: projectName,
+            iconSymbolName: attributeValue("iconSymbolName", from: entity),
             lifeAreaID: attributeValue("lifeAreaID", from: entity),
             sectionID: attributeValue("sectionID", from: entity),
             parentTaskID: attributeValue("parentTaskID", from: entity),

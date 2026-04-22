@@ -37,6 +37,7 @@ public enum StateTaskDefinitionMapper {
             habitDefinitionID: entity.habitDefinitionID,
             projectID: projectID,
             projectName: projectRef?.name ?? ProjectConstants.inboxProjectName,
+            iconSymbolName: entity.value(forKey: "iconSymbolName") as? String,
             lifeAreaID: entity.lifeAreaID,
             sectionID: entity.sectionID,
             parentTaskID: entity.parentTaskID,
@@ -77,6 +78,7 @@ public enum StateTaskDefinitionMapper {
         entity.id = model.id
         entity.taskID = model.id
         entity.projectID = model.projectID
+        entity.setValue(model.iconSymbolName, forKey: "iconSymbolName")
         entity.lifeAreaID = model.lifeAreaID
         entity.sectionID = model.sectionID
         entity.parentTaskID = model.parentTaskID

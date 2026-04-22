@@ -25,6 +25,11 @@ public enum V2FeatureFlags {
         set { defaults.set(newValue, forKey: "feature.reminders.sync") }
     }
 
+    public static var autoTaskIconsEnabled: Bool {
+        get { defaults.object(forKey: "feature.tasks.auto_icons") as? Bool ?? true }
+        set { defaults.set(newValue, forKey: "feature.tasks.auto_icons") }
+    }
+
     public static var liquidMetalCTAEnabled: Bool {
         get {
             if launchArguments.contains("-TASKER_ENABLE_LIQUID_METAL_CTA") {

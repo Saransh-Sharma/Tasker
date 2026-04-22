@@ -390,6 +390,10 @@ struct TaskerPersistentRuntimeInitializer {
         static let backfillKey = "tasker.occurrence.key_backfill.v1"
     }
 
+    private enum LifeAreaColorMigration {
+        static let backfillKey = "tasker.life_area_color_palette_backfill.v1"
+    }
+
     static func shouldRunRepair(defaults: UserDefaults = .standard) -> Bool {
         defaults.bool(forKey: HabitRuntimeMigration.repairRequiredKey)
             && defaults.bool(forKey: HabitRuntimeMigration.repairCompletedKey) == false
@@ -451,9 +455,10 @@ struct TaskerPersistentRuntimeInitializer {
                 lifeArea = existing
             } else {
                 let created = NSEntityDescription.insertNewObject(forEntityName: "LifeArea", into: context)
-                created.setValue(UUID(), forKey: "id")
+                let lifeAreaID = UUID()
+                created.setValue(lifeAreaID, forKey: "id")
                 created.setValue("General", forKey: "name")
-                created.setValue(LifeAreaConstants.generalSeedColor, forKey: "color")
+                created.setValue(LifeAreaColorPalette.defaultHex(for: lifeAreaID), forKey: "color")
                 created.setValue("square.grid.2x2", forKey: "icon")
                 created.setValue(Int32(0), forKey: "sortOrder")
                 created.setValue(false, forKey: "isArchived")
@@ -491,6 +496,7 @@ struct TaskerPersistentRuntimeInitializer {
             inbox.setValue(Date(), forKey: "modifiedDate")
             inbox.setValue(Date(), forKey: "updatedAt")
 
+            try backfillLifeAreaColorsIfNeeded(in: context)
             try backfillTaskLifeAreaIDsIfNeeded(in: context)
             try backfillHabitRuntimeFieldsIfNeeded(in: context)
             try backfillOccurrenceKeysIfNeeded(in: context)
@@ -521,6 +527,70 @@ struct TaskerPersistentRuntimeInitializer {
         request.predicate = NSPredicate(format: "id == %@", id as CVarArg)
         request.fetchLimit = 1
         return try context.fetch(request).first
+    }
+
+    private func backfillLifeAreaColorsIfNeeded(in context: NSManagedObjectContext) throws {
+        let defaults = UserDefaults.standard
+        guard defaults.bool(forKey: LifeAreaColorMigration.backfillKey) == false else {
+            return
+        }
+
+        let request = NSFetchRequest<NSManagedObject>(entityName: "LifeArea")
+        let lifeAreas = try context.fetch(request)
+        guard lifeAreas.isEmpty == false else {
+            defaults.set(true, forKey: LifeAreaColorMigration.backfillKey)
+            return
+        }
+
+        let now = Date()
+        var updatedCount = 0
+        var missingCount = 0
+        var invalidCount = 0
+        var mappedLegacyCount = 0
+
+        for area in lifeAreas {
+            guard let id = area.value(forKey: "id") as? UUID else { continue }
+            let original = area.value(forKey: "color") as? String
+            let resolution = LifeAreaColorPalette.resolve(hex: original, for: id)
+            guard original != resolution.hex else { continue }
+
+            area.setValue(resolution.hex, forKey: "color")
+            area.setValue(now, forKey: "updatedAt")
+            updatedCount += 1
+
+            switch resolution.reason {
+            case .mappedLegacy:
+                mappedLegacyCount += 1
+            case .missingOrInvalid:
+                if lifeAreaColorInputIsMissing(original) {
+                    missingCount += 1
+                } else {
+                    invalidCount += 1
+                }
+            case .exactPaletteMatch:
+                break
+            }
+        }
+
+        if updatedCount > 0 {
+            logWarning(
+                event: "life_area_color_palette_backfill_applied",
+                message: "Backfilled LifeArea.color into canonical habit palette values",
+                fields: [
+                    "updated_count": String(updatedCount),
+                    "missing": String(missingCount),
+                    "invalid": String(invalidCount),
+                    "mapped_legacy": String(mappedLegacyCount)
+                ]
+            )
+        }
+
+        defaults.set(true, forKey: LifeAreaColorMigration.backfillKey)
+    }
+
+    private func lifeAreaColorInputIsMissing(_ value: String?) -> Bool {
+        guard let value else { return true }
+        return value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
 
     private func backfillTaskLifeAreaIDsIfNeeded(in context: NSManagedObjectContext) throws {
@@ -1404,10 +1474,7 @@ final class TaskerPersistentStoreBootstrapService {
             named: "TaskModelV3_Habits.mom",
             bundleURL: modelBundleURL
         )
-        let destinationModel = try compiledTaskModel(
-            named: "TaskModelV3_WeeklyPlanning.mom",
-            bundleURL: modelBundleURL
-        )
+        let destinationModel = try currentCompiledTaskModel(bundleURL: modelBundleURL)
 
         for store in TaskerSplitPersistentStore.allCases {
             let compatibility = compatibilityReport(
@@ -1438,7 +1505,7 @@ final class TaskerPersistentStoreBootstrapService {
 
             logWarning(
                 event: "persistent_store_preflight_migration_started",
-                message: "Migrating split store to the current TaskModelV3_WeeklyPlanning schema before bootstrap",
+                message: "Migrating split store to the current TaskModelV3 schema before bootstrap",
                 fields: [
                     "store": store.label,
                     "configuration": store.configurationName,
@@ -1472,7 +1539,7 @@ final class TaskerPersistentStoreBootstrapService {
                 try storeLocationService.replaceStoreFiles(for: store, withMigratedBaseURL: tempURL)
                 logWarning(
                     event: "persistent_store_preflight_migration_succeeded",
-                    message: "Migrated split store to the current TaskModelV3_WeeklyPlanning schema before bootstrap",
+                    message: "Migrated split store to the current TaskModelV3 schema before bootstrap",
                     fields: [
                         "store": store.label,
                         "configuration": store.configurationName,
@@ -1566,6 +1633,19 @@ final class TaskerPersistentStoreBootstrapService {
                 code: 3,
                 userInfo: [
                     NSLocalizedDescriptionKey: "Unable to load compiled model \(fileName)"
+                ]
+            )
+        }
+        return model
+    }
+
+    private func currentCompiledTaskModel(bundleURL: URL) throws -> NSManagedObjectModel {
+        guard let model = NSManagedObjectModel(contentsOf: bundleURL) else {
+            throw NSError(
+                domain: "TaskerPersistentStoreBootstrapService.Model",
+                code: 4,
+                userInfo: [
+                    NSLocalizedDescriptionKey: "Unable to load current compiled TaskModelV3 model"
                 ]
             )
         }
@@ -1728,6 +1808,7 @@ final class TaskerPersistentStoreBootstrapService {
         requireAttributes(
             entityName: "TaskDefinition",
             attributes: [
+                "iconSymbolName",
                 "planningBucketRaw",
                 "weeklyOutcomeID",
                 "deferredFromWeekStart",
