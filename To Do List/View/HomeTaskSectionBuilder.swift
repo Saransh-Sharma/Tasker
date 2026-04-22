@@ -351,7 +351,8 @@ enum HomeMixedSectionBuilder {
                         iconSystemName: "tray.full.fill",
                         isInbox: isInboxProject(project)
                     ),
-                    rows: rowsByProjectID[project.id] ?? []
+                    rows: rowsByProjectID[project.id] ?? [],
+                    accentHex: project.color.hexString
                 )
             )
         }
@@ -368,12 +369,19 @@ enum HomeMixedSectionBuilder {
     ) -> [HomeListSection] {
         guard rows.isEmpty == false else { return [] }
 
+        let projectsByID = Dictionary(projects.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
+        let lifeAreasByID = Dictionary(lifeAreas.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
         let grouped = Dictionary(grouping: rows, by: { anchor(for: $0, projects: projects, lifeAreas: lifeAreas) })
         var sections = grouped.map { anchor, groupedRows in
             HomeListSection(
                 anchor: anchor,
                 rows: sortRows(groupedRows),
-                isOverdueSection: isOverdueSection
+                isOverdueSection: isOverdueSection,
+                accentHex: HomeTaskTintResolver.sectionAccentHex(
+                    for: anchor,
+                    projectsByID: projectsByID,
+                    lifeAreasByID: lifeAreasByID
+                )
             )
         }
 

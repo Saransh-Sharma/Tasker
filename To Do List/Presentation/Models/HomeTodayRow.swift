@@ -81,19 +81,22 @@ public struct HomeListSection: Equatable, Identifiable {
     public let rows: [HomeTodayRow]
     public let isOverdueSection: Bool
     public let displayStyle: DisplayStyle
+    public let accentHex: String?
 
     public init(
         anchor: HomeSectionAnchor,
         rows: [HomeTodayRow],
         isOverdueSection: Bool = false,
         displayStyle: DisplayStyle = .sectioned,
-        identifier: String? = nil
+        identifier: String? = nil,
+        accentHex: String? = nil
     ) {
         self.identifier = identifier ?? Self.defaultIdentifier(anchor: anchor, isOverdueSection: isOverdueSection)
         self.anchor = anchor
         self.rows = rows
         self.isOverdueSection = isOverdueSection
         self.displayStyle = displayStyle
+        self.accentHex = accentHex
     }
 
     public var id: String {

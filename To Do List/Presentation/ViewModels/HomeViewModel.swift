@@ -4649,7 +4649,8 @@ public final class HomeViewModel: ObservableObject {
             HomeListSection(
                 anchor: section.anchor,
                 rows: rows,
-                isOverdueSection: section.isOverdueSection
+                isOverdueSection: section.isOverdueSection,
+                accentHex: section.accentHex
             )
         }
     }
@@ -5342,7 +5343,7 @@ public final class HomeViewModel: ObservableObject {
             assignIfChanged(\.emptyStateMessage, "No completed tasks in last 30 days")
             assignIfChanged(\.emptyStateActionTitle, nil)
             updateCompletionRateFromFocusResult(openTasks: openTasks, doneTasks: doneTasks)
-            refreshNeedsReplanCandidatesFromVisibleTasks()
+            refreshNeedsReplanCandidates(from: result.matchingOpenTasks)
             writeTaskListWidgetSnapshot(reason: "apply_result_done")
             return
         }
@@ -5405,7 +5406,7 @@ public final class HomeViewModel: ObservableObject {
         }
 
         updateCompletionRateFromFocusResult(openTasks: openTasks, doneTasks: doneTasks)
-        refreshNeedsReplanCandidatesFromVisibleTasks()
+        refreshNeedsReplanCandidates(from: result.matchingOpenTasks)
         writeTaskListWidgetSnapshot(reason: "apply_result_\(activeScope.quickView.rawValue)")
     }
 
@@ -6272,7 +6273,6 @@ public final class HomeViewModel: ObservableObject {
     // MARK: - Needs Replan
 
     public func openNeedsReplanLauncher() {
-        refreshNeedsReplanCandidatesFromVisibleTasks()
         beginReplanLauncher(with: needsReplanCandidates, scopedTo: nil)
     }
 
@@ -6307,7 +6307,9 @@ public final class HomeViewModel: ObservableObject {
     public func openNeedsReplanLauncher(for date: Date) {
         let calendar = Calendar.current
         guard calendar.startOfDay(for: date) < calendar.startOfDay(for: Date()) else { return }
-        let scopedCandidates = deriveNeedsReplanCandidates(from: timelineTaskCandidates(), scopedTo: date)
+        let scopedCandidates = needsReplanCandidates.filter {
+            calendar.isDate($0.originalDate, inSameDayAs: date)
+        }
         beginReplanLauncher(with: scopedCandidates, scopedTo: date)
     }
 
@@ -6515,8 +6517,8 @@ public final class HomeViewModel: ObservableObject {
         updateReplanState(phase: .launcher(summary))
     }
 
-    private func refreshNeedsReplanCandidatesFromVisibleTasks() {
-        needsReplanCandidates = deriveNeedsReplanCandidates(from: timelineTaskCandidates(), scopedTo: nil)
+    private func refreshNeedsReplanCandidates(from tasks: [TaskDefinition]) {
+        needsReplanCandidates = deriveNeedsReplanCandidates(from: tasks, scopedTo: nil)
         refreshPassiveNeedsReplanState()
     }
 

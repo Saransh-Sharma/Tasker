@@ -2530,6 +2530,9 @@ struct HomeBackdropForedropRootView: View {
         guard isRescueEnabled else { return [] }
         return tasksSnapshot.agendaTailItems
     }
+    private var lifeAreasByID: [UUID: LifeArea] {
+        Dictionary(viewModel.lifeAreas.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
+    }
     private var agendaTailExpansionResetKey: String {
         let selectedDay = Calendar.current.startOfDay(for: chromeSnapshot.selectedDate).timeIntervalSince1970
         let compactTailSignature = visibleAgendaTailItems.compactMap { item -> String? in
@@ -3382,6 +3385,7 @@ struct HomeBackdropForedropRootView: View {
                     overdueTasks: tasksSnapshot.overdueTasks,
                     inlineCompletedTasks: tasksSnapshot.inlineCompletedTasks,
                     projects: tasksSnapshot.projects,
+                    lifeAreas: viewModel.lifeAreas,
                     doneTimelineTasks: tasksSnapshot.doneTimelineTasks,
                     tagNameByID: tasksSnapshot.tagNameByID,
                     activeQuickView: tasksSnapshot.activeQuickView,
@@ -3967,6 +3971,11 @@ struct HomeBackdropForedropRootView: View {
 
             ScrollView {
                 VStack(alignment: .leading, spacing: spacing.s12) {
+                    if habitsSnapshot.quietTrackingSummaryState.isVisible {
+                        passiveTrackingRail
+                            .padding(.horizontal, passiveTrackingRailHorizontalInset)
+                    }
+
                     timelineColumnContent {
                         calendarScheduleModuleCard
                             .reportHeight(to: TimelineCalendarCardHeightPreferenceKey.self)
@@ -4049,12 +4058,6 @@ struct HomeBackdropForedropRootView: View {
 
                     if let footerContent = timelineFooterModules {
                         footerContent
-                    }
-
-                    if habitsSnapshot.quietTrackingSummaryState.isVisible {
-                        fullBleedTaskListHeaderModule {
-                            passiveTrackingRail
-                        }
                     }
 
                     if let guidanceState = overlaySnapshot.guidanceState {
@@ -4279,12 +4282,10 @@ struct HomeBackdropForedropRootView: View {
 
                 if hasRecoveryHabits {
                     recoveryHabitsSectionCard
-                        .padding(.horizontal, spacing.s16)
                 }
 
                 if hasWeeklySummary {
                     weeklySummaryCard
-                        .padding(.horizontal, spacing.s16)
                 }
             }
         )
@@ -4296,6 +4297,10 @@ struct HomeBackdropForedropRootView: View {
 
     private var passiveTrackingRailCards: [QuietTrackingRailCardPresentation] {
         habitsSnapshot.quietTrackingSummaryState.railCards
+    }
+
+    private var passiveTrackingRailHorizontalInset: CGFloat {
+        5
     }
 
     private var passiveTrackingRailLayout: QuietTrackingRailLayoutSpec {
@@ -4605,6 +4610,7 @@ struct HomeBackdropForedropRootView: View {
             TaskRowView(
                 task: task,
                 fallbackIconSymbolName: fallbackIconSymbolName,
+                accentHex: taskRowAccentHex(for: task),
                 showTypeBadge: showTypeBadge,
                 isInOverdueSection: task.isOverdue,
                 tagNameByID: tasksSnapshot.tagNameByID,
@@ -4648,6 +4654,14 @@ struct HomeBackdropForedropRootView: View {
 
     private func projectIconSymbolName(for projectID: UUID) -> String? {
         tasksSnapshot.projectsByID[projectID]?.icon.systemImageName
+    }
+
+    private func taskRowAccentHex(for task: TaskDefinition) -> String? {
+        return HomeTaskTintResolver.taskAccentHex(
+            for: task,
+            projectsByID: tasksSnapshot.projectsByID,
+            lifeAreasByID: lifeAreasByID
+        )
     }
 
     private var focusStrip: some View {
