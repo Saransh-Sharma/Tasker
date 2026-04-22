@@ -13,6 +13,7 @@ public struct TaskDefinition: Codable, Equatable, Hashable {
     public var habitDefinitionID: UUID?
     public var projectID: UUID
     public var projectName: String?
+    public var iconSymbolName: String?
     public var lifeAreaID: UUID?
     public var sectionID: UUID?
     public var parentTaskID: UUID?
@@ -53,6 +54,7 @@ public struct TaskDefinition: Codable, Equatable, Hashable {
         habitDefinitionID: UUID? = nil,
         projectID: UUID = ProjectConstants.inboxProjectID,
         projectName: String? = ProjectConstants.inboxProjectName,
+        iconSymbolName: String? = nil,
         lifeAreaID: UUID? = nil,
         sectionID: UUID? = nil,
         parentTaskID: UUID? = nil,
@@ -91,6 +93,7 @@ public struct TaskDefinition: Codable, Equatable, Hashable {
         self.habitDefinitionID = habitDefinitionID
         self.projectID = projectID
         self.projectName = projectName
+        self.iconSymbolName = iconSymbolName
         self.lifeAreaID = lifeAreaID
         self.sectionID = sectionID
         self.parentTaskID = parentTaskID
@@ -460,6 +463,7 @@ public struct CreateTaskDefinitionRequest: Codable, Equatable, Hashable {
     public var details: String?
     public var projectID: UUID
     public var projectName: String?
+    public var iconSymbolName: String?
     public var lifeAreaID: UUID?
     public var sectionID: UUID?
     public var dueDate: Date?
@@ -494,6 +498,7 @@ public struct CreateTaskDefinitionRequest: Codable, Equatable, Hashable {
         details: String? = nil,
         projectID: UUID,
         projectName: String? = nil,
+        iconSymbolName: String? = nil,
         lifeAreaID: UUID? = nil,
         sectionID: UUID? = nil,
         dueDate: Date? = nil,
@@ -526,6 +531,7 @@ public struct CreateTaskDefinitionRequest: Codable, Equatable, Hashable {
         self.details = details
         self.projectID = projectID
         self.projectName = projectName
+        self.iconSymbolName = iconSymbolName
         self.lifeAreaID = lifeAreaID
         self.sectionID = sectionID
         self.dueDate = dueDate
@@ -560,6 +566,7 @@ public struct CreateTaskDefinitionRequest: Codable, Equatable, Hashable {
             habitDefinitionID: habitDefinitionID,
             projectID: projectID,
             projectName: projectName ?? self.projectName ?? ProjectConstants.inboxProjectName,
+            iconSymbolName: iconSymbolName,
             lifeAreaID: lifeAreaID,
             sectionID: sectionID,
             parentTaskID: parentTaskID,
@@ -603,6 +610,8 @@ public struct UpdateTaskDefinitionRequest: Codable, Equatable, Hashable {
     public var title: String?
     public var details: String?
     public var projectID: UUID?
+    public var iconSymbolName: String?
+    public var clearIconSymbolName: Bool
     public var lifeAreaID: UUID?
     public var clearLifeArea: Bool
     public var sectionID: UUID?
@@ -649,6 +658,8 @@ public struct UpdateTaskDefinitionRequest: Codable, Equatable, Hashable {
         title: String? = nil,
         details: String? = nil,
         projectID: UUID? = nil,
+        iconSymbolName: String? = nil,
+        clearIconSymbolName: Bool = false,
         lifeAreaID: UUID? = nil,
         clearLifeArea: Bool = false,
         sectionID: UUID? = nil,
@@ -693,6 +704,8 @@ public struct UpdateTaskDefinitionRequest: Codable, Equatable, Hashable {
         self.title = title
         self.details = details
         self.projectID = projectID
+        self.iconSymbolName = iconSymbolName
+        self.clearIconSymbolName = clearIconSymbolName
         self.lifeAreaID = lifeAreaID
         self.clearLifeArea = clearLifeArea
         self.sectionID = sectionID
