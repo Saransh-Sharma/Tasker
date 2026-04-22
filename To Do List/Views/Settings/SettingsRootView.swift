@@ -139,7 +139,7 @@ struct SettingsRootView: View {
     private func workspaceSection(baseIndex: Int, includeHorizontalPadding: Bool = true) -> some View {
         SettingsSectionView(
             title: "Workspace",
-            subtitle: "Manage life areas, projects, and structure.",
+            subtitle: "Manage life areas, projects, habits, and structure.",
             topPadding: sectionTopPadding,
             includeHorizontalPadding: includeHorizontalPadding
         ) {
@@ -156,19 +156,6 @@ struct SettingsRootView: View {
                     )
                 }
                 .enhancedStaggeredAppearance(index: baseIndex)
-
-                TaskerSettingsCard {
-                    SettingsNavigationRow(
-                        descriptor: TaskerSettingsDestinationDescriptor(
-                            iconName: "folder.fill",
-                            title: "Projects",
-                            subtitle: "Create, organize, and inspect project progress.",
-                            accessibilityIdentifier: "settings.workspace.projects.row"
-                        ),
-                        action: viewModel.onNavigateToProjects
-                    )
-                }
-                .enhancedStaggeredAppearance(index: baseIndex + 1)
 
                 TaskerSettingsCard {
                     VStack(alignment: .leading, spacing: TaskerSettingsMetrics.cardInnerPadding) {
@@ -189,7 +176,7 @@ struct SettingsRootView: View {
                         )
                     }
                 }
-                .enhancedStaggeredAppearance(index: baseIndex + 2)
+                .enhancedStaggeredAppearance(index: baseIndex + 1)
             }
         }
     }
