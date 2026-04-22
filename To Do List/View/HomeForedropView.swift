@@ -5993,7 +5993,6 @@ private struct QuietTrackingRailStreakWidget: View {
 }
 
 struct HomeiPadSettingsContainer: View {
-    let onNavigateToProjects: () -> Void
     let onNavigateToLifeManagement: () -> Void
     let onNavigateToChats: () -> Void
     let onNavigateToModels: () -> Void
@@ -6003,7 +6002,6 @@ struct HomeiPadSettingsContainer: View {
     @StateObject private var viewModel: SettingsViewModel
 
     init(
-        onNavigateToProjects: @escaping () -> Void,
         onNavigateToLifeManagement: @escaping () -> Void,
         onNavigateToChats: @escaping () -> Void,
         onNavigateToModels: @escaping () -> Void,
@@ -6011,7 +6009,6 @@ struct HomeiPadSettingsContainer: View {
         calendarIntegrationService: CalendarIntegrationService,
         onOpenCalendarChooser: @escaping () -> Void
     ) {
-        self.onNavigateToProjects = onNavigateToProjects
         self.onNavigateToLifeManagement = onNavigateToLifeManagement
         self.onNavigateToChats = onNavigateToChats
         self.onNavigateToModels = onNavigateToModels
@@ -6028,7 +6025,6 @@ struct HomeiPadSettingsContainer: View {
         NavigationStack {
             SettingsRootView(viewModel: viewModel)
                 .onAppear {
-                    viewModel.onNavigateToProjects = onNavigateToProjects
                     viewModel.onNavigateToLifeManagement = onNavigateToLifeManagement
                     viewModel.onNavigateToChats = onNavigateToChats
                     viewModel.onNavigateToModels = onNavigateToModels

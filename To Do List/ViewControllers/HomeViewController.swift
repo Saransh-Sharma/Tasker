@@ -2042,9 +2042,6 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
         }
         return AnyView(
             HomeiPadSettingsContainer(
-                onNavigateToProjects: { [weak self] in
-                    self?.iPadShellState.destination = .projects
-                },
                 onNavigateToLifeManagement: { [weak self] in
                     self?.iPadShellState.destination = .lifeManagement
                 },
