@@ -60,6 +60,25 @@ class ProjectManagementPage {
         return button
     }
 
+    var addAreaButton: XCUIElement {
+        let unifiedButton = app.buttons["settings.lifeManagement.addAreaButton"]
+        if unifiedButton.exists {
+            return unifiedButton
+        }
+        let cardScopedButton = app.otherElements["settings.lifeManagement.addAreaCard"]
+            .buttons
+            .matching(NSPredicate(format: "label ==[c] 'Add Area'"))
+            .firstMatch
+        if cardScopedButton.exists {
+            return cardScopedButton
+        }
+        return app.buttons["Add Area"]
+    }
+
+    var areaComposer: XCUIElement {
+        app.descendants(matching: .any)["settings.lifeManagement.areaComposer"]
+    }
+
     var projectsList: XCUIElement {
         let identifiedTable = app.tables[AccessibilityIdentifiers.ProjectManagement.projectsList]
         if identifiedTable.exists {
@@ -102,6 +121,17 @@ class ProjectManagementPage {
             addProjectAction.tap()
         }
         return NewProjectPage(app: app)
+    }
+
+    /// Tap in-content add area button
+    @discardableResult
+    func tapAddArea() -> Bool {
+        let button = addAreaButton
+        if button.waitForExistence(timeout: 5) == false {
+            return false
+        }
+        button.tap()
+        return areaComposer.waitForExistence(timeout: 5)
     }
 
     /// Get project cell at index
@@ -234,6 +264,11 @@ class ProjectManagementPage {
     /// Verify add project button is visible
     func verifyAddProjectButtonVisible() -> Bool {
         return addProjectButton.exists
+    }
+
+    /// Verify in-content add area button is visible
+    func verifyAddAreaButtonVisible() -> Bool {
+        return addAreaButton.exists
     }
 
     // MARK: - Wait Helpers
