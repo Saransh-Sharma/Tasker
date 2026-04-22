@@ -250,6 +250,7 @@ struct TaskSectionView: View {
             ForEach(Array(derivedState.openRenderItems.enumerated()), id: \.element.task.id) { index, item in
                 TaskRowView(
                     task: item.task,
+                    fallbackIconSymbolName: project.icon.systemImageName,
                     showTypeBadge: derivedState.hasMixedTypes,
                     isInOverdueSection: isOverdueSection,
                     tagNameByID: tagNameByID,
@@ -287,6 +288,7 @@ struct TaskSectionView: View {
                     ForEach(Array(derivedState.completedRenderItems.enumerated()), id: \.element.task.id) { index, item in
                         TaskRowView(
                             task: item.task,
+                            fallbackIconSymbolName: project.icon.systemImageName,
                             showTypeBadge: derivedState.hasMixedTypes,
                             isInOverdueSection: isOverdueSection,
                             tagNameByID: tagNameByID,

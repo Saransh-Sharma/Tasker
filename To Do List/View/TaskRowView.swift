@@ -234,6 +234,7 @@ private struct TaskRowDerivedStateCacheKey: Hashable {
     let dateCompleted: Date?
     let title: String
     let details: String?
+    let displayedIconSymbolName: String?
     let dueDate: Date?
     let priorityRaw: Int32
     let estimatedDuration: TimeInterval?
@@ -271,9 +272,11 @@ private enum TaskRowDerivedStateCache {
         hasDeleteAction: Bool,
         hasRescheduleAction: Bool,
         hasPromoteAction: Bool,
+        fallbackIconSymbolName: String?,
         metadataPolicy: TaskRowMetadataPolicy
     ) -> TaskRowDerivedState {
         let tagDisplaySignature = task.tagIDs.compactMap { tagNameByID[$0] }.sorted()
+        let displayedIconSymbolName = task.iconSymbolName ?? fallbackIconSymbolName
         let key = TaskRowDerivedStateCacheKey(
             taskID: task.id,
             updatedAt: task.updatedAt,
@@ -281,6 +284,7 @@ private enum TaskRowDerivedStateCache {
             dateCompleted: task.dateCompleted,
             title: task.title,
             details: task.details,
+            displayedIconSymbolName: displayedIconSymbolName,
             dueDate: task.dueDate,
             priorityRaw: task.priority.rawValue,
             estimatedDuration: task.estimatedDuration,
@@ -338,6 +342,9 @@ private enum TaskRowDerivedStateCache {
 
         let accessibilityStateValue = task.isComplete ? "done" : "open"
         var labelParts: [String] = ["Task: \(task.title)"]
+        if let displayedIconSymbolName {
+            labelParts.append("Icon: \(DefaultTaskIconResolver.humanizedDisplayName(for: displayedIconSymbolName))")
+        }
         if task.isComplete {
             labelParts.append("completed")
         }
@@ -391,6 +398,7 @@ private enum TaskRowDerivedStateCache {
 
 struct TaskRowView: View, Equatable {
     let task: TaskDefinition
+    let fallbackIconSymbolName: String?
     let showTypeBadge: Bool
     let isInOverdueSection: Bool
     let tagNameByID: [UUID: String]
@@ -415,6 +423,7 @@ struct TaskRowView: View, Equatable {
     /// Initializes a new instance.
     init(
         task: TaskDefinition,
+        fallbackIconSymbolName: String? = nil,
         showTypeBadge: Bool,
         isInOverdueSection: Bool = false,
         tagNameByID: [UUID: String] = [:],
@@ -432,6 +441,7 @@ struct TaskRowView: View, Equatable {
         onTaskDragStarted: ((TaskDefinition) -> Void)? = nil
     ) {
         self.task = task
+        self.fallbackIconSymbolName = fallbackIconSymbolName
         self.showTypeBadge = showTypeBadge
         self.isInOverdueSection = isInOverdueSection
         self.tagNameByID = tagNameByID
@@ -454,6 +464,7 @@ struct TaskRowView: View, Equatable {
             hasDeleteAction: onDelete != nil,
             hasRescheduleAction: onReschedule != nil,
             hasPromoteAction: onPromoteToFocus != nil,
+            fallbackIconSymbolName: fallbackIconSymbolName,
             metadataPolicy: metadataPolicy
         )
         self.onTap = onTap
@@ -477,6 +488,7 @@ struct TaskRowView: View, Equatable {
         lhs.task.updatedAt == rhs.task.updatedAt &&
         lhs.task.isComplete == rhs.task.isComplete &&
         lhs.task.dateCompleted == rhs.task.dateCompleted &&
+        lhs.fallbackIconSymbolName == rhs.fallbackIconSymbolName &&
         lhs.showTypeBadge == rhs.showTypeBadge &&
         lhs.isInOverdueSection == rhs.isInOverdueSection &&
         lhs.todayXPSoFar == rhs.todayXPSoFar &&
@@ -622,6 +634,14 @@ struct TaskRowView: View, Equatable {
                 .accessibilityLabel("Toggle completion for \(task.title)")
                 .accessibilityHint(task.isComplete ? "Double tap to mark as open" : "Double tap to mark as completed")
                 .accessibilityValue(accessibilityStateValue)
+
+                if let iconSymbolName = task.iconSymbolName ?? fallbackIconSymbolName {
+                    Image(systemName: iconSymbolName)
+                        .font(.system(size: isPad ? 16 : 15, weight: .semibold))
+                        .foregroundStyle(task.isComplete ? Color.tasker.textQuaternary : Color.tasker.accentPrimary)
+                        .frame(width: 20, alignment: .center)
+                        .accessibilityHidden(true)
+                }
 
                 VStack(alignment: .leading, spacing: isPad ? 3 : 1) {
                     Text(task.title)

@@ -1159,6 +1159,7 @@ private struct OverdueGroupedSectionView: View {
                             ForEach(Array(group.tasks.enumerated()), id: \.element.id) { taskIndex, task in
                             TaskRowView(
                                 task: task,
+                                fallbackIconSymbolName: group.project.icon.systemImageName,
                                 showTypeBadge: false,
                                 isInOverdueSection: true,
                                 tagNameByID: tagNameByID,

@@ -10,9 +10,16 @@ import SwiftUI
 
 // MARK: - UUID-Based Entity Picker (Life Area, Section)
 
+struct AddTaskEntityPickerItem: Identifiable, Equatable {
+    let id: UUID
+    let name: String
+    let icon: String?
+    let accentHex: String?
+}
+
 struct AddTaskEntityPicker: View {
     let label: String
-    let items: [(id: UUID, name: String, icon: String?)]
+    let items: [AddTaskEntityPickerItem]
     @Binding var selectedID: UUID?
 
     private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.currentTheme.tokens.spacing }
@@ -39,7 +46,8 @@ struct AddTaskEntityPicker: View {
                         AddTaskMetadataChip(
                             icon: item.icon ?? "circle",
                             text: item.name,
-                            isActive: selectedID == item.id
+                            isActive: selectedID == item.id,
+                            tintHex: item.accentHex
                         ) {
                             withAnimation(TaskerAnimation.snappy) {
                                 selectedID = item.id

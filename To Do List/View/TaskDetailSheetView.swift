@@ -768,7 +768,14 @@ struct TaskDetailSheetView: View {
                 if !viewModel.lifeAreas.isEmpty {
                     AddTaskEntityPicker(
                         label: "Life Area",
-                        items: viewModel.lifeAreas.map { (id: $0.id, name: $0.name, icon: $0.icon) },
+                        items: viewModel.lifeAreas.map {
+                            AddTaskEntityPickerItem(
+                                id: $0.id,
+                                name: $0.name,
+                                icon: $0.icon,
+                                accentHex: LifeAreaColorPalette.normalizeOrMap(hex: $0.color, for: $0.id)
+                            )
+                        },
                         selectedID: $viewModel.selectedLifeAreaID
                     )
                     .accessibilityIdentifier("taskDetail.lifeAreaPicker")
@@ -777,7 +784,14 @@ struct TaskDetailSheetView: View {
                 if !viewModel.sections.isEmpty {
                     AddTaskEntityPicker(
                         label: "Section",
-                        items: viewModel.sections.map { (id: $0.id, name: $0.name, icon: nil as String?) },
+                        items: viewModel.sections.map {
+                            AddTaskEntityPickerItem(
+                                id: $0.id,
+                                name: $0.name,
+                                icon: nil,
+                                accentHex: nil
+                            )
+                        },
                         selectedID: $viewModel.selectedSectionID
                     )
                     .accessibilityIdentifier("taskDetail.sectionPicker")

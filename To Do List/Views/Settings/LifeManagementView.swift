@@ -1105,6 +1105,11 @@ private func lifeManagementHabitStatusText(_ row: HabitLibraryRow) -> String {
     return lifeManagementHabitCadenceLabel(row.cadence)
 }
 
+private func lifeManagementAreaAccentHex(_ area: LifeArea?) -> String {
+    guard let area else { return HabitColorFamily.green.canonicalHex }
+    return LifeAreaColorPalette.normalizeOrMap(hex: area.color, for: area.id)
+}
+
 private func lifeManagementHabitCadenceLabel(_ cadence: HabitCadenceDraft) -> String {
     switch cadence {
     case .daily:
@@ -1121,7 +1126,7 @@ private struct AreaListRow: View {
         HStack(alignment: .top, spacing: 12) {
             AccentIconBadge(
                 symbolName: row.lifeArea.icon ?? "square.grid.2x2",
-                accentHex: row.lifeArea.color ?? LifeAreaConstants.generalSeedColor
+                accentHex: lifeManagementAreaAccentHex(row.lifeArea)
             )
 
             VStack(alignment: .leading, spacing: 4) {
@@ -1156,7 +1161,7 @@ private struct AreaSummaryRow: View {
         HStack(alignment: .top, spacing: 12) {
             AccentIconBadge(
                 symbolName: row.lifeArea.icon ?? "square.grid.2x2",
-                accentHex: row.lifeArea.color ?? LifeAreaConstants.generalSeedColor
+                accentHex: lifeManagementAreaAccentHex(row.lifeArea)
             )
 
             VStack(alignment: .leading, spacing: 4) {
@@ -1290,7 +1295,7 @@ private struct HabitListRow: View {
                 HStack(alignment: .top, spacing: 12) {
                     AccentIconBadge(
                         symbolName: row.row.icon?.symbolName ?? "circle.dashed",
-                        accentHex: row.row.colorHex ?? row.lifeArea?.color ?? LifeAreaConstants.generalSeedColor
+                        accentHex: row.row.colorHex ?? lifeManagementAreaAccentHex(row.lifeArea)
                     )
 
                     VStack(alignment: .leading, spacing: 4) {
@@ -1339,7 +1344,7 @@ private struct HabitSummaryRow: View {
             HStack(alignment: .top, spacing: 12) {
                 AccentIconBadge(
                     symbolName: row.row.icon?.symbolName ?? "circle.dashed",
-                    accentHex: row.row.colorHex ?? row.lifeArea?.color ?? LifeAreaConstants.generalSeedColor
+                    accentHex: row.row.colorHex ?? lifeManagementAreaAccentHex(row.lifeArea)
                 )
 
                 VStack(alignment: .leading, spacing: 4) {
@@ -1442,8 +1447,8 @@ private struct LifeManagementAreaDetailView: View {
                                 AreaSummaryRow(row: row)
                                 LifeManagementAppearanceLine(
                                     title: "Appearance",
-                                    accentHex: row.lifeArea.color ?? LifeAreaConstants.generalSeedColor,
-                                    value: row.lifeArea.color?.nilIfBlank == nil ? "Default area color" : "Custom area color"
+                                    accentHex: lifeManagementAreaAccentHex(row.lifeArea),
+                                    value: "Palette color"
                                 )
                             }
                         }
@@ -1779,7 +1784,6 @@ private struct LifeManagementProjectDetailView: View {
 
 private struct LifeManagementAreaComposerView: View {
     @State private var draft: LifeManagementLifeAreaDraft
-    @State private var showCustomColorField: Bool
     @State private var errorShakeTrigger = false
     @FocusState private var titleFieldFocused: Bool
 
@@ -1812,7 +1816,6 @@ private struct LifeManagementAreaComposerView: View {
         onCancel: @escaping () -> Void
     ) {
         _draft = State(initialValue: draft)
-        _showCustomColorField = State(initialValue: lifeManagementAreaPaletteMatch(for: draft.colorHex) == nil && draft.colorHex.nilIfBlank != nil)
         self.iconOptions = iconOptions
         self.containerMode = containerMode
         self.isSaving = isSaving
@@ -1826,10 +1829,8 @@ private struct LifeManagementAreaComposerView: View {
     }
 
     private var selectedColorTitle: String {
-        if showCustomColorField {
-            return draft.colorHex.nilIfBlank == nil ? "Custom" : "Custom hex"
-        }
-        return lifeManagementAreaPaletteMatch(for: draft.colorHex)?.title ?? "Default"
+        lifeManagementAreaPaletteMatch(for: draft.colorHex)?.title
+            ?? HabitColorFamily.family(for: draft.colorHex, fallback: .green).title
     }
 
     private var selectedIconTitle: String {
@@ -1882,12 +1883,11 @@ private struct LifeManagementAreaComposerView: View {
                         VStack(alignment: .leading, spacing: spacing.s16) {
                             LifeManagementComposerFieldLabel(
                                 title: "Accent",
-                                detail: "Start with the Tasker palette, or switch to a custom hex when you need one."
+                                detail: "Choose from the same pastel palette used for habit accents."
                             )
 
                             LifeManagementAreaSwatchPicker(
-                                selectedHex: $draft.colorHex,
-                                showCustomField: $showCustomColorField
+                                selectedHex: $draft.colorHex
                             )
 
                             LifeManagementComposerFieldLabel(
@@ -1903,27 +1903,13 @@ private struct LifeManagementAreaComposerView: View {
                     }
                     .enhancedStaggeredAppearance(index: 2)
 
-                    if showCustomColorField {
-                        LifeManagementComposerSectionCard(
-                            title: "Custom accent",
-                            subtitle: "Paste a hex code to keep an existing area color or use a one-off accent.",
-                            iconSystemName: "eyedropper.halffull"
-                        ) {
-                            TextField("Accent hex", text: $draft.colorHex)
-                                .textFieldStyle(TaskerTextFieldStyle())
-                                .textInputAutocapitalization(.never)
-                                .autocorrectionDisabled()
-                        }
-                        .enhancedStaggeredAppearance(index: 3)
-                    }
-
                     if let errorMessage {
                         LifeManagementComposerInlineMessage(
                             title: "Couldn’t save area",
                             message: errorMessage
                         )
                         .bellShake(trigger: $errorShakeTrigger)
-                        .enhancedStaggeredAppearance(index: 4)
+                        .enhancedStaggeredAppearance(index: 3)
                     }
                 }
                 .padding(.horizontal, spacing.s16)
@@ -2079,7 +2065,14 @@ private struct LifeManagementProjectComposerView: View {
 
                             AddTaskEntityPicker(
                                 label: "Area",
-                                items: availableAreas.map { (id: $0.id, name: $0.lifeArea.name, icon: $0.lifeArea.icon) },
+                                items: availableAreas.map {
+                                    AddTaskEntityPickerItem(
+                                        id: $0.id,
+                                        name: $0.lifeArea.name,
+                                        icon: $0.lifeArea.icon,
+                                        accentHex: LifeAreaColorPalette.normalizeOrMap(hex: $0.lifeArea.color, for: $0.id)
+                                    )
+                                },
                                 selectedID: $draft.lifeAreaID
                             )
                         }
@@ -2168,7 +2161,6 @@ private struct LifeManagementAreaPaletteOption: Identifiable, Equatable {
     let id: String
     let title: String
     let hex: String
-    let systemImage: String?
 }
 
 private struct LifeManagementComposerPreviewCard: View {
@@ -2397,7 +2389,6 @@ private struct LifeManagementComposerInlineMessage: View {
 
 private struct LifeManagementAreaSwatchPicker: View {
     @Binding var selectedHex: String
-    @Binding var showCustomField: Bool
 
     @Environment(\.taskerLayoutClass) private var layoutClass
 
@@ -2409,25 +2400,13 @@ private struct LifeManagementAreaSwatchPicker: View {
                 ForEach(lifeManagementAreaPaletteOptions()) { option in
                     LifeManagementColorSwatchButton(
                         title: option.title,
-                        color: option.hex.nilIfBlank.flatMap { _ in lifeManagementResolvedColor(hex: option.hex, fallback: Color.tasker.surfaceSecondary) },
-                        systemImage: option.systemImage,
-                        isSelected: lifeManagementNormalizedHex(selectedHex) == lifeManagementNormalizedHex(option.hex) && showCustomField == false
+                        color: lifeManagementResolvedColor(hex: option.hex, fallback: Color.tasker.surfaceSecondary),
+                        systemImage: nil,
+                        isSelected: lifeManagementNormalizedHex(selectedHex) == lifeManagementNormalizedHex(option.hex)
                     ) {
                         withAnimation(TaskerAnimation.snappy) {
                             selectedHex = option.hex
-                            showCustomField = false
                         }
-                    }
-                }
-
-                LifeManagementColorSwatchButton(
-                    title: "Custom",
-                    color: nil,
-                    systemImage: "eyedropper.halffull",
-                    isSelected: showCustomField
-                ) {
-                    withAnimation(TaskerAnimation.snappy) {
-                        showCustomField = true
                     }
                 }
             }
@@ -2623,15 +2602,13 @@ private struct LifeManagementIconTile: View {
 
 @MainActor
 private func lifeManagementAreaPaletteOptions() -> [LifeManagementAreaPaletteOption] {
-    let palette = TaskerThemeManager.shared.currentTheme.palette
-    return [
-        LifeManagementAreaPaletteOption(id: "default", title: "Default", hex: "", systemImage: "circle.dashed"),
-        LifeManagementAreaPaletteOption(id: "sandstone", title: "Sandstone", hex: lifeManagementHexString(from: palette.brandSandstone), systemImage: nil),
-        LifeManagementAreaPaletteOption(id: "emerald", title: "Emerald", hex: lifeManagementHexString(from: palette.brandEmerald), systemImage: nil),
-        LifeManagementAreaPaletteOption(id: "magenta", title: "Magenta", hex: lifeManagementHexString(from: palette.brandMagenta), systemImage: nil),
-        LifeManagementAreaPaletteOption(id: "marigold", title: "Marigold", hex: lifeManagementHexString(from: palette.brandMarigold), systemImage: nil),
-        LifeManagementAreaPaletteOption(id: "red", title: "Red", hex: lifeManagementHexString(from: palette.brandRed), systemImage: nil)
-    ]
+    HabitColorFamily.allCases.map { family in
+        LifeManagementAreaPaletteOption(
+            id: family.rawValue,
+            title: family.title,
+            hex: family.canonicalHex
+        )
+    }
 }
 
 @MainActor
@@ -2653,22 +2630,6 @@ private func lifeManagementResolvedHex(_ hex: String?) -> String? {
         return nil
     }
     return normalized
-}
-
-private func lifeManagementHexString(from color: UIColor) -> String {
-    var red: CGFloat = 0
-    var green: CGFloat = 0
-    var blue: CGFloat = 0
-    var alpha: CGFloat = 0
-
-    guard color.getRed(&red, green: &green, blue: &blue, alpha: &alpha) else {
-        return ""
-    }
-
-    let redValue = Int(round(red * 255))
-    let greenValue = Int(round(green * 255))
-    let blueValue = Int(round(blue * 255))
-    return String(format: "%02X%02X%02X", redValue, greenValue, blueValue)
 }
 
 private func lifeManagementNormalizedHex(_ hex: String) -> String {

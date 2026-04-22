@@ -4571,8 +4571,10 @@ struct HomeBackdropForedropRootView: View {
     private func dueTodayAgendaRow(_ row: HomeTodayRow, showTypeBadge: Bool) -> some View {
         switch row {
         case .task(let task):
+            let fallbackIconSymbolName = projectIconSymbolName(for: task.projectID)
             TaskRowView(
                 task: task,
+                fallbackIconSymbolName: fallbackIconSymbolName,
                 showTypeBadge: showTypeBadge,
                 isInOverdueSection: task.isOverdue,
                 tagNameByID: tasksSnapshot.tagNameByID,
@@ -4612,6 +4614,10 @@ struct HomeBackdropForedropRootView: View {
                 }
             )
         }
+    }
+
+    private func projectIconSymbolName(for projectID: UUID) -> String? {
+        tasksSnapshot.projectsByID[projectID]?.icon.systemImageName
     }
 
     private var focusStrip: some View {

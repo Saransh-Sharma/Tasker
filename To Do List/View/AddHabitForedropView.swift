@@ -366,7 +366,14 @@ struct AddHabitForedropView: View {
             TaskerComposerOptionGrid(
                 title: "Life Area",
                 helperText: "Every habit needs a home.",
-                options: viewModel.lifeAreas.map { TaskerComposerOption(id: $0.id, title: $0.name, icon: $0.icon) },
+                options: viewModel.lifeAreas.map {
+                    TaskerComposerOption(
+                        id: $0.id,
+                        title: $0.name,
+                        icon: $0.icon,
+                        accentHex: LifeAreaColorPalette.normalizeOrMap(hex: $0.color, for: $0.id)
+                    )
+                },
                 selectedID: viewModel.selectedLifeAreaID,
                 noneOptionTitle: nil,
                 emptyStateText: viewModel.lifeAreas.isEmpty ? "No life areas yet." : nil,
@@ -381,7 +388,7 @@ struct AddHabitForedropView: View {
                 title: "Project",
                 helperText: "Optional. Filtered to the selected area.",
                 options: viewModel.filteredProjectsForSelectedLifeArea.map {
-                    TaskerComposerOption(id: $0.project.id, title: $0.project.name, icon: nil)
+                    TaskerComposerOption(id: $0.project.id, title: $0.project.name, icon: nil, accentHex: nil)
                 },
                 selectedID: viewModel.selectedProjectID,
                 noneOptionTitle: "No project",
@@ -1231,13 +1238,27 @@ struct HabitDetailSheetView: View {
                 VStack(alignment: .leading, spacing: spacing.s12) {
                     AddTaskEntityPicker(
                         label: "Area",
-                        items: viewModel.lifeAreas.map { (id: $0.id, name: $0.name, icon: $0.icon) },
+                        items: viewModel.lifeAreas.map {
+                            AddTaskEntityPickerItem(
+                                id: $0.id,
+                                name: $0.name,
+                                icon: $0.icon,
+                                accentHex: LifeAreaColorPalette.normalizeOrMap(hex: $0.color, for: $0.id)
+                            )
+                        },
                         selectedID: $viewModel.draft.lifeAreaID
                     )
 
                     AddTaskEntityPicker(
                         label: "Project",
-                        items: viewModel.projects.map { (id: $0.project.id, name: $0.project.name, icon: nil as String?) },
+                        items: viewModel.projects.map {
+                            AddTaskEntityPickerItem(
+                                id: $0.project.id,
+                                name: $0.project.name,
+                                icon: nil,
+                                accentHex: nil
+                            )
+                        },
                         selectedID: $viewModel.draft.projectID
                     )
                 }
