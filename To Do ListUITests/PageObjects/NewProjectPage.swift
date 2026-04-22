@@ -16,6 +16,10 @@ class NewProjectPage {
     // MARK: - Elements
 
     var view: XCUIElement {
+        let unifiedComposer = app.otherElements["settings.lifeManagement.projectComposer"]
+        if unifiedComposer.exists {
+            return unifiedComposer
+        }
         return app.otherElements[AccessibilityIdentifiers.NewProject.view]
     }
 
@@ -42,12 +46,23 @@ class NewProjectPage {
 
         // Fallback: find by placeholder
         if !field.exists {
-            field = app.textViews.matching(NSPredicate(format: "placeholderValue CONTAINS[c] 'description' OR label CONTAINS[c] 'description'")).firstMatch
+            field = app.textViews.matching(
+                NSPredicate(format: "placeholderValue CONTAINS[c] 'description' OR label CONTAINS[c] 'description' OR placeholderValue CONTAINS[c] 'project for'")
+            ).firstMatch
         }
 
         // Try text fields if text view not found
         if !field.exists {
-            field = app.textFields.matching(NSPredicate(format: "placeholderValue CONTAINS[c] 'description'")).firstMatch
+            field = app.textFields.matching(
+                NSPredicate(format: "placeholderValue CONTAINS[c] 'description' OR placeholderValue CONTAINS[c] 'project for'")
+            ).firstMatch
+        }
+
+        if !field.exists {
+            let textFields = app.textFields.allElementsBoundByIndex
+            if textFields.count > 1 {
+                field = textFields[1]
+            }
         }
 
         return field
@@ -63,7 +78,7 @@ class NewProjectPage {
 
     var saveButton: XCUIElement {
         let saveLabelPredicate = NSPredicate(
-            format: "label ==[c] 'Create' OR label ==[c] 'Save' OR identifier == %@",
+            format: "label ==[c] 'Create' OR label ==[c] 'Save' OR label ==[c] 'Add Project' OR label ==[c] 'Save Project' OR identifier == %@",
             AccessibilityIdentifiers.NewProject.saveButton
         )
 
@@ -292,10 +307,11 @@ class NewProjectPage {
     func verifyIsDisplayed(timeout: TimeInterval = 5) -> Bool {
         // Check for name field or navigation bar
         let navBar = app.navigationBars.firstMatch
+        let composerExists = view.waitForExistence(timeout: timeout)
         let nameFieldExists = nameField.waitForExistence(timeout: timeout)
         let navBarExists = navBar.waitForExistence(timeout: timeout)
 
-        return nameFieldExists || navBarExists
+        return composerExists || nameFieldExists || navBarExists
     }
 
     /// Verify validation error is shown

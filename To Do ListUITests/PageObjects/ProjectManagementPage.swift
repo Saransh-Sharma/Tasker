@@ -16,10 +16,18 @@ class ProjectManagementPage {
     // MARK: - Elements
 
     var view: XCUIElement {
+        let unifiedView = app.otherElements["settings.lifeManagement.view"]
+        if unifiedView.exists {
+            return unifiedView
+        }
         return app.otherElements[AccessibilityIdentifiers.ProjectManagement.view]
     }
 
     var navigationBar: XCUIElement {
+        let unifiedBar = app.navigationBars["Life Management"]
+        if unifiedBar.exists {
+            return unifiedBar
+        }
         return app.navigationBars[AccessibilityIdentifiers.ProjectManagement.navigationBar]
     }
 
@@ -28,6 +36,11 @@ class ProjectManagementPage {
     }
 
     var addProjectButton: XCUIElement {
+        let unifiedAddMenu = app.buttons["settings.lifeManagement.addMenu"]
+        if unifiedAddMenu.exists {
+            return unifiedAddMenu
+        }
+
         // Try accessibility identifier first
         var button = app.buttons[AccessibilityIdentifiers.ProjectManagement.addProjectButton]
 
@@ -51,6 +64,10 @@ class ProjectManagementPage {
         let identifiedTable = app.tables[AccessibilityIdentifiers.ProjectManagement.projectsList]
         if identifiedTable.exists {
             return identifiedTable
+        }
+        let unifiedScrollView = view.scrollViews.firstMatch
+        if unifiedScrollView.exists {
+            return unifiedScrollView
         }
         return app.tables.firstMatch
     }
@@ -77,7 +94,13 @@ class ProjectManagementPage {
     /// Tap add project button
     @discardableResult
     func tapAddProject() -> NewProjectPage {
-        addProjectButton.tap()
+        let button = addProjectButton
+        button.tap()
+
+        let addProjectAction = app.buttons["Add Project"]
+        if addProjectAction.waitForExistence(timeout: 2) {
+            addProjectAction.tap()
+        }
         return NewProjectPage(app: app)
     }
 
@@ -107,9 +130,9 @@ class ProjectManagementPage {
 
     /// Tap project with name
     func tapProject(named name: String) {
-        let projectCell = projectsList.cells.staticTexts[name]
-        if projectCell.exists {
-            projectCell.tap()
+        let namedProject = view.descendants(matching: .any).matching(NSPredicate(format: "label == %@", name)).firstMatch
+        if namedProject.exists {
+            namedProject.tap()
         }
     }
 
@@ -143,16 +166,21 @@ class ProjectManagementPage {
     /// Verify project management screen is displayed
     @discardableResult
     func verifyIsDisplayed(timeout: TimeInterval = 5) -> Bool {
-        return navigationBar.waitForExistence(timeout: timeout)
+        return view.waitForExistence(timeout: timeout) || navigationBar.waitForExistence(timeout: timeout)
     }
 
     /// Verify project exists with name
     func verifyProjectExists(named name: String) -> Bool {
+        let predicate = NSPredicate(format: "label CONTAINS[c] %@", name)
+
+        if view.descendants(matching: .any).matching(predicate).firstMatch.exists {
+            return true
+        }
+
         if projectsList.staticTexts[name].exists {
             return true
         }
 
-        let predicate = NSPredicate(format: "label CONTAINS[c] %@", name)
         if projectsList.descendants(matching: .staticText).matching(predicate).firstMatch.exists {
             return true
         }
@@ -167,6 +195,13 @@ class ProjectManagementPage {
 
     /// Get project count
     func getProjectCount() -> Int {
+        let unifiedProjectNodes = view.descendants(matching: .any).matching(
+            NSPredicate(format: "identifier BEGINSWITH %@", "settings.lifeManagement.node.project.")
+        )
+        if unifiedProjectNodes.count > 0 {
+            return unifiedProjectNodes.count
+        }
+
         if projectsList.exists {
             return projectsList.cells.count
         }
@@ -206,11 +241,17 @@ class ProjectManagementPage {
     /// Wait for project to appear
     @discardableResult
     func waitForProject(named name: String, timeout: TimeInterval = 5) -> Bool {
+        let predicate = NSPredicate(format: "label CONTAINS[c] %@", name)
+
+        let unifiedMatch = view.descendants(matching: .any).matching(predicate).firstMatch
+        if unifiedMatch.waitForExistence(timeout: timeout) {
+            return true
+        }
+
         if projectsList.staticTexts[name].waitForExistence(timeout: timeout) {
             return true
         }
 
-        let predicate = NSPredicate(format: "label CONTAINS[c] %@", name)
         let listMatch = projectsList.descendants(matching: .staticText).matching(predicate).firstMatch
         if listMatch.waitForExistence(timeout: timeout) {
             return true
