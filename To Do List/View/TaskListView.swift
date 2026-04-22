@@ -513,6 +513,8 @@ struct TaskListView: View {
                 let sectionView = HomeListSectionView(
                     section: section,
                     tagNameByID: tagNameByID,
+                    projectsByID: projectsByID,
+                    lifeAreasByID: lifeAreasByID,
                     todayXPSoFar: todayXPSoFar,
                     isGamificationV2Enabled: isGamificationV2Enabled,
                     isTaskDragEnabled: isTaskDragEnabled,
@@ -903,19 +905,20 @@ struct TaskListView: View {
         return UUID(uuidString: "00000000-0000-0000-0000-\(tail)") ?? ProjectConstants.inboxProjectID
     }
 
+    private var projectsByID: [UUID: Project] {
+        Dictionary(projects.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
+    }
+
+    private var lifeAreasByID: [UUID: LifeArea] {
+        Dictionary(lifeAreas.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
+    }
+
     private func taskRowAccentHex(for row: HomeTodayRow) -> String? {
-        switch row {
-        case .task(let task):
-            let lifeAreasByID = Dictionary(lifeAreas.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
-            let projectsByID = Dictionary(projects.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
-            return HomeTaskTintResolver.taskAccentHex(
-                for: task,
-                projectsByID: projectsByID,
-                lifeAreasByID: lifeAreasByID
-            )
-        case .habit:
-            return nil
-        }
+        HomeTaskTintResolver.rowAccentHex(
+            for: row,
+            projectsByID: projectsByID,
+            lifeAreasByID: lifeAreasByID
+        )
     }
 
     @ViewBuilder

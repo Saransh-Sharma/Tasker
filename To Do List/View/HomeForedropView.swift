@@ -4610,7 +4610,11 @@ struct HomeBackdropForedropRootView: View {
             TaskRowView(
                 task: task,
                 fallbackIconSymbolName: fallbackIconSymbolName,
-                accentHex: taskRowAccentHex(for: task),
+                accentHex: HomeTaskTintResolver.rowAccentHex(
+                    for: row,
+                    projectsByID: tasksSnapshot.projectsByID,
+                    lifeAreasByID: lifeAreasByID
+                ),
                 showTypeBadge: showTypeBadge,
                 isInOverdueSection: task.isOverdue,
                 tagNameByID: tasksSnapshot.tagNameByID,
@@ -4654,14 +4658,6 @@ struct HomeBackdropForedropRootView: View {
 
     private func projectIconSymbolName(for projectID: UUID) -> String? {
         tasksSnapshot.projectsByID[projectID]?.icon.systemImageName
-    }
-
-    private func taskRowAccentHex(for task: TaskDefinition) -> String? {
-        return HomeTaskTintResolver.taskAccentHex(
-            for: task,
-            projectsByID: tasksSnapshot.projectsByID,
-            lifeAreasByID: lifeAreasByID
-        )
     }
 
     private var focusStrip: some View {
