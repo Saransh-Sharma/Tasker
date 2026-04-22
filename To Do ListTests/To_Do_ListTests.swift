@@ -122,6 +122,7 @@ final class HabitCoreDataSchemaRegressionTests: XCTestCase {
     func testCurrentCompiledTaskModelIncludesHabitRuntimeAndGamificationSchema() throws {
         let model = try currentCompiledTaskModel()
         let habitEntity = try XCTUnwrap(model.entitiesByName["HabitDefinition"])
+        let taskEntity = try XCTUnwrap(model.entitiesByName["TaskDefinition"])
         let expectedHabitFields: Set<String> = [
             "kindRaw",
             "trackingModeRaw",
@@ -134,8 +135,12 @@ final class HabitCoreDataSchemaRegressionTests: XCTestCase {
             "failureMask14Raw",
             "lastHistoryRollDate"
         ]
+        let expectedTaskFields: Set<String> = [
+            "iconSymbolName"
+        ]
 
         XCTAssertTrue(expectedHabitFields.isSubset(of: Set(habitEntity.attributesByName.keys)))
+        XCTAssertTrue(expectedTaskFields.isSubset(of: Set(taskEntity.attributesByName.keys)))
         XCTAssertNil(CoreDataHabitRepository.schemaValidationError(in: model))
         XCTAssertNil(CoreDataGamificationRepository.schemaValidationError(in: model))
     }
@@ -157,14 +162,14 @@ final class HabitCoreDataSchemaRegressionTests: XCTestCase {
         XCTAssertFalse(legacyFields.contains("lastHistoryRollDate"))
     }
 
-    func testTaskModelCurrentVersionPointsToWeeklyPlanningSourceModel() throws {
+    func testTaskModelCurrentVersionPointsToTaskIconsSourceModel() throws {
         let currentVersionFile = URL(fileURLWithPath: #filePath)
             .deletingLastPathComponent()
             .deletingLastPathComponent()
             .appendingPathComponent("To Do List/TaskModelV3.xcdatamodeld/.xccurrentversion")
         let contents = try String(contentsOf: currentVersionFile, encoding: .utf8)
 
-        XCTAssertTrue(contents.contains("TaskModelV3_WeeklyPlanning.xcdatamodel"))
+        XCTAssertTrue(contents.contains("TaskModelV3_TaskIcons.xcdatamodel"))
     }
 
     func testBootstrapSchemaValidationRejectsMissingHabitRuntimeFields() {
@@ -175,6 +180,17 @@ final class HabitCoreDataSchemaRegressionTests: XCTestCase {
         let schemaError = try? XCTUnwrap(error)
         XCTAssertEqual(schemaError?.domain, "CoreDataHabitRepository.Schema")
         XCTAssertTrue((schemaError?.userInfo["missingRequirements"] as? String)?.contains("kindRaw") ?? false)
+    }
+
+    func testBootstrapSchemaValidationRejectsMissingTaskIconField() throws {
+        let model = try compiledTaskModelVersion(named: "TaskModelV3_Timeline.mom")
+
+        let error = TaskerPersistentStoreBootstrapService.validateRuntimeSchema(in: model)
+
+        let schemaError = try XCTUnwrap(error)
+        XCTAssertEqual(schemaError.domain, "TaskerPersistentStoreBootstrapService")
+        XCTAssertEqual(schemaError.code, 301)
+        XCTAssertTrue((schemaError.userInfo["missingRequirements"] as? String)?.contains("TaskDefinition.iconSymbolName") ?? false)
     }
 
     func testCoreDataHabitRepositoryReturnsSchemaErrorWhenModelMissesKindRaw() throws {
@@ -832,6 +848,143 @@ final class HabitCoreDataSchemaRegressionTests: XCTestCase {
         XCTAssertEqual(try container.viewContext.count(for: profileRequest), 1)
         XCTAssertTrue(FileManager.default.fileExists(atPath: cloudURL.path))
         unloadPersistentStores(from: container)
+    }
+
+    func testSnapshotMappingHandlesLegacyTimelineModelWithoutTaskIconField() throws {
+        let legacyModel = try compiledTaskModelVersion(named: "TaskModelV3_Timeline.mom")
+        let container = try makeContainer(
+            name: "TaskModelV3",
+            model: legacyModel,
+            storeType: NSInMemoryStoreType
+        )
+        defer { unloadPersistentStores(from: container) }
+
+        let originalFlag = V2FeatureFlags.iPadPerfCoreDataMappingSnapshotV3Enabled
+        V2FeatureFlags.iPadPerfCoreDataMappingSnapshotV3Enabled = true
+        defer { V2FeatureFlags.iPadPerfCoreDataMappingSnapshotV3Enabled = originalFlag }
+
+        let taskID = UUID()
+        let projectID = UUID()
+        let now = Date(timeIntervalSince1970: 1_704_067_200)
+        container.viewContext.performAndWait {
+            let task = NSEntityDescription.insertNewObject(forEntityName: "TaskDefinition", into: container.viewContext)
+            task.setValue(taskID, forKey: "id")
+            task.setValue(taskID, forKey: "taskID")
+            task.setValue(projectID, forKey: "projectID")
+            task.setValue("Legacy Snapshot Task", forKey: "title")
+            task.setValue(Int32(TaskPriority.low.rawValue), forKey: "priority")
+            task.setValue(Int32(TaskType.morning.rawValue), forKey: "taskType")
+            task.setValue(false, forKey: "isComplete")
+            task.setValue(now, forKey: "dateAdded")
+            task.setValue(false, forKey: "isEveningTask")
+            task.setValue(now, forKey: "createdAt")
+            task.setValue(now, forKey: "updatedAt")
+            task.setValue("pending", forKey: "status")
+            try? container.viewContext.save()
+        }
+
+        let repository = CoreDataTaskDefinitionRepository(container: container)
+        let fetched = try awaitResult { completion in
+            repository.fetchAll(query: nil, completion: completion)
+        }
+
+        XCTAssertEqual(fetched.count, 1)
+        XCTAssertEqual(fetched.first?.id, taskID)
+        XCTAssertNil(fetched.first?.iconSymbolName)
+    }
+
+    func testTaskRepositoryMigratesTimelineStoreToCurrentModelWithTaskIconField() throws {
+        let storeURL = temporaryStoreURL(name: "task-icon-migration")
+        defer { removeSQLiteArtifacts(at: storeURL) }
+
+        let legacyModel = try compiledTaskModelVersion(named: "TaskModelV3_Timeline.mom")
+        let legacyContainer = try makeContainer(
+            name: "TaskModelV3",
+            model: legacyModel,
+            storeType: NSSQLiteStoreType,
+            url: storeURL
+        )
+
+        let taskID = UUID()
+        let projectID = UUID()
+        let now = Date(timeIntervalSince1970: 1_704_067_200)
+        legacyContainer.viewContext.performAndWait {
+            let task = NSEntityDescription.insertNewObject(forEntityName: "TaskDefinition", into: legacyContainer.viewContext)
+            task.setValue(taskID, forKey: "id")
+            task.setValue(taskID, forKey: "taskID")
+            task.setValue(projectID, forKey: "projectID")
+            task.setValue("Migrated Icon Task", forKey: "title")
+            task.setValue(Int32(TaskPriority.low.rawValue), forKey: "priority")
+            task.setValue(Int32(TaskType.morning.rawValue), forKey: "taskType")
+            task.setValue(false, forKey: "isComplete")
+            task.setValue(now, forKey: "dateAdded")
+            task.setValue(false, forKey: "isEveningTask")
+            task.setValue(now, forKey: "createdAt")
+            task.setValue(now, forKey: "updatedAt")
+            task.setValue("pending", forKey: "status")
+            try? legacyContainer.viewContext.save()
+        }
+        unloadPersistentStores(from: legacyContainer)
+
+        let migratedContainer = try makeContainer(
+            name: "TaskModelV3",
+            model: try currentCompiledTaskModel(),
+            storeType: NSSQLiteStoreType,
+            url: storeURL
+        )
+        defer { unloadPersistentStores(from: migratedContainer) }
+
+        let repository = CoreDataTaskDefinitionRepository(container: migratedContainer)
+        let fetched = try awaitResult { completion in
+            repository.fetchAll(query: nil, completion: completion)
+        }
+
+        XCTAssertEqual(fetched.count, 1)
+        XCTAssertEqual(fetched.first?.id, taskID)
+        XCTAssertEqual(fetched.first?.title, "Migrated Icon Task")
+        XCTAssertNil(fetched.first?.iconSymbolName)
+    }
+
+    func testTaskIconPersistsAndClearsWithCurrentModel() throws {
+        let container = try makeContainer(
+            name: "TaskModelV3",
+            model: try currentCompiledTaskModel(),
+            storeType: NSInMemoryStoreType
+        )
+        defer { unloadPersistentStores(from: container) }
+
+        let repository = CoreDataTaskDefinitionRepository(container: container)
+        let createdAt = Date(timeIntervalSince1970: 1_704_067_200)
+
+        let created = try awaitResult { completion in
+            repository.create(
+                TaskDefinition(
+                    title: "Icon Persistence Task",
+                    iconSymbolName: "star.fill",
+                    createdAt: createdAt,
+                    updatedAt: createdAt
+                ),
+                completion: completion
+            )
+        }
+        XCTAssertEqual(created.iconSymbolName, "star.fill")
+
+        let fetchedCreated = try awaitResult { completion in
+            repository.fetchTaskDefinition(id: created.id, completion: completion)
+        }
+        XCTAssertEqual(fetchedCreated?.iconSymbolName, "star.fill")
+
+        var updatedTask = created
+        updatedTask.iconSymbolName = nil
+        updatedTask.updatedAt = createdAt.addingTimeInterval(60)
+        _ = try awaitResult { completion in
+            repository.update(updatedTask, completion: completion)
+        }
+
+        let fetchedUpdated = try awaitResult { completion in
+            repository.fetchTaskDefinition(id: created.id, completion: completion)
+        }
+        XCTAssertNil(fetchedUpdated?.iconSymbolName)
     }
 
     func testWriteClosedLaunchSkipsStartupMutationWorkflows() throws {
@@ -6768,12 +6921,14 @@ private final class CapturingAddTaskRepository: TaskDefinitionRepositoryProtocol
 
 private func makeAddTaskScheduleViewModel(
     now: Date = Date(timeIntervalSince1970: 1_777_000_000),
-    repository: TaskDefinitionRepositoryProtocol = CapturingAddTaskRepository()
+    repository: TaskDefinitionRepositoryProtocol = CapturingAddTaskRepository(),
+    projects: [Project] = [Project.createInbox()],
+    taskIconResolver: TaskIconResolver = DefaultTaskIconResolver.shared
 ) -> AddTaskViewModel {
     AddTaskViewModel(
         taskReadModelRepository: nil,
         manageProjectsUseCase: ManageProjectsUseCase(
-            projectRepository: MockProjectRepository(projects: [Project.createInbox()])
+            projectRepository: MockProjectRepository(projects: projects)
         ),
         createTaskDefinitionUseCase: CreateTaskDefinitionUseCase(
             repository: repository,
@@ -6784,8 +6939,59 @@ private func makeAddTaskScheduleViewModel(
         manageLifeAreasUseCase: nil,
         manageSectionsUseCase: nil,
         manageTagsUseCase: nil,
+        taskIconResolver: taskIconResolver,
         nowProvider: { now }
     )
+}
+
+private final class StubTaskIconResolver: TaskIconResolver {
+    var nextResolution = TaskIconResolution(
+        selectedSymbolName: "checklist",
+        autoSuggestedSymbolName: "checklist",
+        rankedSuggestions: [
+            TaskIconOption(
+                symbolName: "checklist",
+                displayName: "Checklist",
+                searchTerms: [],
+                aliases: [],
+                categories: []
+            )
+        ],
+        confidence: 0.9,
+        didUseFallback: false,
+        fallbackReason: .semantic
+    )
+    var optionBySymbol: [String: TaskIconOption] = [
+        "checklist": TaskIconOption(symbolName: "checklist", displayName: "Checklist", searchTerms: [], aliases: [], categories: []),
+        "stethoscope": TaskIconOption(symbolName: "stethoscope", displayName: "Stethoscope", searchTerms: [], aliases: [], categories: []),
+        "phone.fill": TaskIconOption(symbolName: "phone.fill", displayName: "Phone Fill", searchTerms: [], aliases: [], categories: []),
+        "briefcase.fill": TaskIconOption(symbolName: "briefcase.fill", displayName: "Briefcase Fill", searchTerms: [], aliases: [], categories: [])
+    ]
+    private(set) var resolveCallCount = 0
+
+    func warmIfNeeded() {}
+
+    func resolve(
+        title: String,
+        projectName: String?,
+        projectIconSymbolName: String?,
+        lifeAreaName: String?,
+        category: TaskCategory,
+        currentSymbolName: String?,
+        selectionSource: TaskIconSelectionSource
+    ) -> TaskIconResolution {
+        resolveCallCount += 1
+        return nextResolution
+    }
+
+    func search(query: String, preferredSymbols: [String], limit: Int) -> [TaskIconOption] {
+        let preferred = preferredSymbols.compactMap { optionBySymbol[$0] }
+        return Array(preferred.prefix(limit))
+    }
+
+    func option(for symbolName: String) -> TaskIconOption? {
+        optionBySymbol[symbolName]
+    }
 }
 
 final class AddTaskViewModelLifeAreaDedupeTests: XCTestCase {
@@ -7154,6 +7360,222 @@ final class AddTaskViewModelAISuggestionPerformanceTests: XCTestCase {
         let data = try? JSONEncoder().encode(models)
         UserDefaults.standard.set(data, forKey: "installedModels")
         UserDefaults.standard.removeObject(forKey: "currentModelName")
+    }
+}
+
+final class DefaultTaskIconResolverTests: XCTestCase {
+    func testSearchUsesBundledSymbolManifest() {
+        let results = DefaultTaskIconResolver.shared.search(
+            query: "stethoscope",
+            preferredSymbols: [],
+            limit: 8
+        )
+
+        XCTAssertTrue(results.contains(where: { $0.symbolName == "stethoscope" }))
+    }
+
+    func testResolveSelectsSemanticSymbolForStrongTitle() {
+        let resolution = DefaultTaskIconResolver.shared.resolve(
+            title: "phone call vendor",
+            projectName: nil,
+            projectIconSymbolName: nil,
+            lifeAreaName: nil,
+            category: .general,
+            currentSymbolName: nil,
+            selectionSource: .auto
+        )
+
+        XCTAssertEqual(resolution.selectedSymbolName, "phone.fill")
+        XCTAssertEqual(resolution.fallbackReason, .semantic)
+        XCTAssertFalse(resolution.didUseFallback)
+    }
+
+    func testResolveUsesCategoryFallbackForGenericTitle() {
+        let resolution = DefaultTaskIconResolver.shared.resolve(
+            title: "misc admin",
+            projectName: nil,
+            projectIconSymbolName: nil,
+            lifeAreaName: nil,
+            category: .shopping,
+            currentSymbolName: nil,
+            selectionSource: .auto
+        )
+
+        XCTAssertEqual(resolution.selectedSymbolName, "cart.fill")
+        XCTAssertEqual(resolution.fallbackReason, .category)
+        XCTAssertTrue(resolution.didUseFallback)
+    }
+}
+
+@MainActor
+final class AddTaskViewModelTaskIconTests: XCTestCase {
+    override func tearDown() {
+        V2FeatureFlags.autoTaskIconsEnabled = true
+        super.tearDown()
+    }
+
+    func testAutoResolvedIconIsPersistedInCreateRequest() {
+        V2FeatureFlags.autoTaskIconsEnabled = true
+        let repository = CapturingAddTaskRepository()
+        let resolver = StubTaskIconResolver()
+        resolver.nextResolution = TaskIconResolution(
+            selectedSymbolName: "phone.fill",
+            autoSuggestedSymbolName: "phone.fill",
+            rankedSuggestions: [
+                TaskIconOption(symbolName: "phone.fill", displayName: "Phone Fill", searchTerms: [], aliases: [], categories: [])
+            ],
+            confidence: 0.95,
+            didUseFallback: false,
+            fallbackReason: .semantic
+        )
+        let viewModel = makeAddTaskScheduleViewModel(repository: repository, taskIconResolver: resolver)
+
+        viewModel.taskName = "call pharmacy"
+
+        let iconResolved = expectation(description: "icon resolved")
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) {
+            XCTAssertEqual(viewModel.displayedTaskIconSymbolName, "phone.fill")
+            viewModel.createTask()
+            iconResolved.fulfill()
+        }
+
+        waitForExpectations(timeout: 1.0)
+        XCTAssertEqual(repository.lastCreateRequest?.iconSymbolName, "phone.fill")
+    }
+
+    func testManualIconOverrideSurvivesFurtherTyping() {
+        V2FeatureFlags.autoTaskIconsEnabled = true
+        let resolver = StubTaskIconResolver()
+        resolver.nextResolution = TaskIconResolution(
+            selectedSymbolName: "phone.fill",
+            autoSuggestedSymbolName: "phone.fill",
+            rankedSuggestions: [
+                TaskIconOption(symbolName: "phone.fill", displayName: "Phone Fill", searchTerms: [], aliases: [], categories: []),
+                TaskIconOption(symbolName: "stethoscope", displayName: "Stethoscope", searchTerms: [], aliases: [], categories: [])
+            ],
+            confidence: 0.95,
+            didUseFallback: false,
+            fallbackReason: .semantic
+        )
+        let viewModel = makeAddTaskScheduleViewModel(taskIconResolver: resolver)
+
+        viewModel.taskName = "call pharmacy"
+
+        let expectation = expectation(description: "manual override retained")
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) {
+            viewModel.applyManualTaskIconSelection(symbolName: "stethoscope")
+            resolver.nextResolution = TaskIconResolution(
+                selectedSymbolName: "briefcase.fill",
+                autoSuggestedSymbolName: "briefcase.fill",
+                rankedSuggestions: [
+                    TaskIconOption(symbolName: "briefcase.fill", displayName: "Briefcase Fill", searchTerms: [], aliases: [], categories: [])
+                ],
+                confidence: 0.95,
+                didUseFallback: false,
+                fallbackReason: .semantic
+            )
+            viewModel.taskName = "draft roadmap"
+
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) {
+                XCTAssertEqual(viewModel.displayedTaskIconSymbolName, "stethoscope")
+                XCTAssertEqual(viewModel.autoSuggestedTaskIconSymbolName, "briefcase.fill")
+                XCTAssertEqual(viewModel.taskIconSelectionSource, .manual)
+                expectation.fulfill()
+            }
+        }
+
+        waitForExpectations(timeout: 1.0)
+    }
+
+    func testResetTaskIconToAutoRestoresSuggestedSymbol() {
+        V2FeatureFlags.autoTaskIconsEnabled = true
+        let resolver = StubTaskIconResolver()
+        resolver.nextResolution = TaskIconResolution(
+            selectedSymbolName: "phone.fill",
+            autoSuggestedSymbolName: "phone.fill",
+            rankedSuggestions: [
+                TaskIconOption(symbolName: "phone.fill", displayName: "Phone Fill", searchTerms: [], aliases: [], categories: [])
+            ],
+            confidence: 0.95,
+            didUseFallback: false,
+            fallbackReason: .semantic
+        )
+        let viewModel = makeAddTaskScheduleViewModel(taskIconResolver: resolver)
+        viewModel.taskName = "call pharmacy"
+
+        let expectation = expectation(description: "reset returns to auto")
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) {
+            viewModel.applyManualTaskIconSelection(symbolName: "stethoscope")
+            resolver.nextResolution = TaskIconResolution(
+                selectedSymbolName: "briefcase.fill",
+                autoSuggestedSymbolName: "briefcase.fill",
+                rankedSuggestions: [
+                    TaskIconOption(symbolName: "briefcase.fill", displayName: "Briefcase Fill", searchTerms: [], aliases: [], categories: [])
+                ],
+                confidence: 0.95,
+                didUseFallback: false,
+                fallbackReason: .semantic
+            )
+            viewModel.resetTaskIconToAuto()
+
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) {
+                XCTAssertEqual(viewModel.displayedTaskIconSymbolName, "briefcase.fill")
+                XCTAssertEqual(viewModel.taskIconSelectionSource, .auto)
+                expectation.fulfill()
+            }
+        }
+
+        waitForExpectations(timeout: 1.0)
+    }
+
+    func testDisabledAutoIconsDoNotPersistFallbackIcon() {
+        V2FeatureFlags.autoTaskIconsEnabled = false
+        let repository = CapturingAddTaskRepository()
+        let viewModel = makeAddTaskScheduleViewModel(repository: repository)
+
+        viewModel.taskName = "call vendor"
+        viewModel.createTask()
+
+        XCTAssertNil(repository.lastCreateRequest?.iconSymbolName)
+    }
+}
+
+final class HomeViewModelTaskIconTimelineTests: XCTestCase {
+    func testTimelinePrefersPersistedTaskIconOverProjectIcon() {
+        let suiteName = "HomeViewModelTaskIconTimelineTests.\(UUID().uuidString)"
+        guard let defaults = UserDefaults(suiteName: suiteName) else {
+            return XCTFail("Failed to create isolated defaults suite")
+        }
+        defaults.removePersistentDomain(forName: suiteName)
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+
+        let inbox = Project.createInbox()
+        let workProject = Project(
+            id: UUID(),
+            name: "Ops",
+            color: .blue,
+            icon: .work
+        )
+        let task = TaskDefinition(
+            id: UUID(),
+            projectID: workProject.id,
+            iconSymbolName: "phone.fill",
+            title: "Call vendor",
+            category: .work
+        )
+        let coordinator = UseCaseCoordinator(
+            taskRepository: MockTaskRepository(seed: task),
+            projectRepository: MockProjectRepository(projects: [inbox, workProject])
+        )
+        let viewModel = HomeViewModel(useCaseCoordinator: coordinator, userDefaults: defaults)
+        let projectsLoaded = expectation(description: "projects loaded")
+
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+            XCTAssertEqual(viewModel.timelineSystemImageName(for: task), "phone.fill")
+            projectsLoaded.fulfill()
+        }
+
+        waitForExpectations(timeout: 1.0)
     }
 }
 
