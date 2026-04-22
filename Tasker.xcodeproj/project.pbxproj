@@ -125,6 +125,7 @@
 		753EFCAA2445A24700A739E3 /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 753EFCA82445A24700A739E3 /* LaunchScreen.storyboard */; };
 		753EFCB52445A24700A739E3 /* To_Do_ListTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 753EFCB42445A24700A739E3 /* To_Do_ListTests.swift */; };
 		753EFCC02445A24800A739E3 /* To_Do_ListUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 753EFCBF2445A24800A739E3 /* To_Do_ListUITests.swift */; };
+		F1C0A1234B56789000ABCD02 /* TaskDetailViewModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1C0A1234B56789000ABCD01 /* TaskDetailViewModelTests.swift */; };
 		7551BCCE2EAB665F003C6916 /* PerformanceMetrics.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7551BCB12EAB665F003C6916 /* PerformanceMetrics.swift */; };
 		7551BCCF2EAB665F003C6916 /* TaskDeletionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7551BCC02EAB665F003C6916 /* TaskDeletionTests.swift */; };
 		7551BCD02EAB665F003C6916 /* XCUIApplication+LaunchArguments.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7551BCAE2EAB665F003C6916 /* XCUIApplication+LaunchArguments.swift */; };
@@ -698,6 +699,7 @@
 		753EFCAB2445A24700A739E3 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		753EFCB02445A24700A739E3 /* To Do ListTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "To Do ListTests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
 		753EFCB42445A24700A739E3 /* To_Do_ListTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = To_Do_ListTests.swift; sourceTree = "<group>"; };
+		F1C0A1234B56789000ABCD01 /* TaskDetailViewModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TaskDetailViewModelTests.swift; sourceTree = "<group>"; };
 		753EFCB62445A24800A739E3 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		753EFCBB2445A24800A739E3 /* To Do ListUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "To Do ListUITests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
 		753EFCBF2445A24800A739E3 /* To_Do_ListUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = To_Do_ListUITests.swift; sourceTree = "<group>"; };
@@ -1583,6 +1585,7 @@
 			isa = PBXGroup;
 			children = (
 				753EFCB42445A24700A739E3 /* To_Do_ListTests.swift */,
+				F1C0A1234B56789000ABCD01 /* TaskDetailViewModelTests.swift */,
 				F5A100022F6A200100ABC001 /* TaskerAppShortcutsTests.swift */,
 				A1C2D3E4F5A60718293B4C5C /* AssistantPlannerServiceTests.swift */,
 				A1F0D0B42F5A100100ABC001 /* AppOnboardingTests.swift */,
@@ -3201,6 +3204,7 @@
 				C1A2B3C4D5E6F70011223354 /* ChatTranscriptSnapshotTests.swift in Sources */,
 				C1A2B3C4D5E6F7001122334A /* LLMProjectionTimeoutTests.swift in Sources */,
 				753EFCB52445A24700A739E3 /* To_Do_ListTests.swift in Sources */,
+				F1C0A1234B56789000ABCD02 /* TaskDetailViewModelTests.swift in Sources */,
 				F5A100032F6A200100ABC001 /* TaskerAppShortcutsTests.swift in Sources */,
 				0512DBCE948D6692B0F1857F /* TaskerThemeManagerTests.swift in Sources */,
 				27F1CA9185082A8916CE7149 /* ColorTokenGenerationTests.swift in Sources */,
