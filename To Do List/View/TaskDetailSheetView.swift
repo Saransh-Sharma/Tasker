@@ -221,29 +221,26 @@ struct TaskDetailSheetView: View {
 
     private var baseContentView: some View {
         ScrollView(.vertical, showsIndicators: false) {
-            VStack(alignment: .leading, spacing: TaskerTheme.Spacing.md) {
-                Rectangle()
-                    .fill(priorityColor)
-                    .frame(height: 4)
-                    .animation(TaskerAnimation.gentle, value: viewModel.selectedPriority)
-
+            VStack(alignment: .leading, spacing: TaskerTheme.Spacing.lg) {
                 topBar
                 headerSection
                     .enhancedStaggeredAppearance(index: 0)
-                primaryActionsRow
+                scheduleSection
                     .enhancedStaggeredAppearance(index: 1)
                 notesSection
                     .enhancedStaggeredAppearance(index: 2)
                 stepsSection
                     .enhancedStaggeredAppearance(index: 3)
-                scheduleSection
+                moreDetailsSection
                     .enhancedStaggeredAppearance(index: 4)
-                organizeSection
-                    .enhancedStaggeredAppearance(index: 5)
-                executionSection
-                    .enhancedStaggeredAppearance(index: 6)
-                relationshipsSection
-                    .enhancedStaggeredAppearance(index: 7)
+                if viewModel.shouldShowRelationshipsSection {
+                    relationshipsSection
+                        .enhancedStaggeredAppearance(index: 5)
+                }
+                if showsContextSection {
+                    contextSection
+                        .enhancedStaggeredAppearance(index: 6)
+                }
                 destructiveSection
                 metadataFooter
             }
@@ -350,86 +347,47 @@ struct TaskDetailSheetView: View {
                 .buttonStyle(.plain)
                 .accessibilityIdentifier("taskDetail.closeButton")
                 .accessibilityLabel("Close task details")
-            } else {
-                Color.clear
-                    .frame(width: 30, height: 30)
             }
 
             Spacer()
-
-            Text("Task")
-                .font(.tasker(.headline))
-                .foregroundColor(Color.tasker.textPrimary)
-
-            Spacer()
-
-            Color.clear
-                .frame(width: 30, height: 30)
         }
         .padding(.horizontal, TaskerTheme.Spacing.screenHorizontal)
         .padding(.top, TaskerTheme.Spacing.sm)
     }
 
     private var headerSection: some View {
-        VStack(alignment: .leading, spacing: TaskerTheme.Spacing.md) {
+        VStack(alignment: .leading, spacing: TaskerTheme.Spacing.sm) {
             HStack(alignment: .top, spacing: TaskerTheme.Spacing.md) {
                 CompletionCheckbox(isComplete: viewModel.isComplete) {
                     viewModel.toggleRootCompletion()
                 }
                 .accessibilityIdentifier("taskDetail.completeButton")
                 .accessibilityHint("Double tap to toggle completion")
+                .padding(.top, 6)
 
-                TextField("Task title", text: $viewModel.taskName)
-                    .font(.tasker(.title2))
+                TextField("Task title", text: $viewModel.taskName, axis: .vertical)
+                    .font(.tasker(.title1))
+                    .fontWeight(.semibold)
+                    .multilineTextAlignment(.leading)
+                    .lineLimit(3...5)
+                    .fixedSize(horizontal: false, vertical: true)
                     .foregroundColor(Color.tasker.textPrimary)
                     .focused($titleFocused)
                     .textFieldStyle(.plain)
                     .accessibilityIdentifier("taskDetail.titleField")
             }
 
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: TaskerTheme.Spacing.xs) {
-                    PriorityBadge(priority: viewModel.selectedPriority.rawValue)
-                    ScoreBadge(
-                        preview: detailXPPreview,
-                        reasonHint: XPCalculationEngine.estimateReasonHints(
-                            estimatedDuration: viewModel.estimatedDuration,
-                            isFocusSessionActive: false,
-                            isPinnedInFocusStrip: false
-                        )
-                    )
-                    TaskerStatusPill(
-                        text: viewModel.selectedType.displayName,
-                        systemImage: typeSymbol,
-                        tone: .accent
-                    )
-                    TaskerStatusPill(
-                        text: statusText,
-                        systemImage: statusSymbol,
-                        tone: statusTone
-                    )
-                }
-            }
+            Text(headerSummaryText)
+                .font(.tasker(.callout))
+                .foregroundStyle(Color.tasker.textSecondary)
+                .fixedSize(horizontal: false, vertical: true)
+                .accessibilityIdentifier("taskDetail.projectLabel")
 
-            HStack(spacing: TaskerTheme.Spacing.sm) {
-                TaskerHeroMetricTile(
-                    title: "Project",
-                    value: viewModel.selectedProjectName,
-                    detail: viewModel.dueDate.map { "Due \($0.formatted(date: .abbreviated, time: .omitted))" } ?? "No due date",
-                    tone: .accent
-                )
-                TaskerHeroMetricTile(
-                    title: "Execution",
-                    value: estimatedDurationSummary,
-                    detail: viewModel.selectedEnergy.displayName,
-                    tone: viewModel.estimatedDuration == nil ? .warning : .neutral
-                )
-                TaskerHeroMetricTile(
-                    title: "Structure",
-                    value: viewModel.childSteps.isEmpty ? "Not broken down" : "\(viewModel.childSteps.count) steps",
-                    detail: descriptionIsEmpty ? "Notes still lean" : "Notes captured",
-                    tone: viewModel.childSteps.isEmpty ? .warning : .success
-                )
+            if viewModel.scheduleExtrasSummary.isEmpty == false {
+                Text(viewModel.scheduleExtrasSummary)
+                    .font(.tasker(.meta))
+                    .foregroundStyle(Color.tasker.textTertiary)
+                    .fixedSize(horizontal: false, vertical: true)
             }
 
             if viewModel.autosaveState != .idle {
@@ -438,11 +396,10 @@ struct TaskDetailSheetView: View {
         }
         .padding(.horizontal, TaskerTheme.Spacing.screenHorizontal)
         .padding(.vertical, TaskerTheme.Spacing.md)
-        .taskerPremiumSurface(
+        .taskerDenseSurface(
             cornerRadius: TaskerTheme.CornerRadius.card,
             fillColor: Color.tasker.surfacePrimary,
-            accentColor: priorityColor,
-            level: .e2
+            strokeColor: Color.tasker.strokeHairline.opacity(0.72)
         )
         .padding(.horizontal, TaskerTheme.Spacing.screenHorizontal)
     }
@@ -472,9 +429,9 @@ struct TaskDetailSheetView: View {
         if viewModel.autosaveState != .idle {
             HStack(spacing: TaskerTheme.Spacing.xs) {
                 Image(systemName: autosaveSymbol)
-                    .font(.system(size: 11, weight: .semibold))
+                    .font(.system(size: 12, weight: .semibold))
                 Text(viewModel.autosaveState.label)
-                    .font(.tasker(.caption2).weight(.semibold))
+                    .font(.tasker(.meta).weight(.semibold))
             }
             .foregroundStyle(autosaveColor)
             .padding(.horizontal, TaskerTheme.Spacing.sm)
@@ -491,41 +448,6 @@ struct TaskDetailSheetView: View {
                 removal: .opacity
             ))
         }
-    }
-
-    private var primaryActionsRow: some View {
-        HStack(spacing: TaskerTheme.Spacing.sm) {
-            actionChip(
-                icon: viewModel.isComplete ? "arrow.uturn.backward.circle.fill" : "checkmark.circle.fill",
-                title: viewModel.isComplete ? "Reopen" : "Complete",
-                tint: viewModel.isComplete ? Color.tasker.statusWarning : Color.tasker.statusSuccess
-            ) {
-                viewModel.toggleRootCompletion()
-            }
-            .accessibilityIdentifier("taskDetail.completeButton.action")
-
-            actionChip(icon: "list.bullet", title: "Make smaller", tint: Color.tasker.accentPrimary) {
-                stepFocused = true
-            }
-            .accessibilityHint("Focus add step input")
-
-            if V2FeatureFlags.assistantBreakdownEnabled && viewModel.childSteps.isEmpty {
-                actionChip(
-                    icon: viewModel.isGeneratingAIBreakdown ? "hourglass" : "sparkles",
-                    title: viewModel.isGeneratingAIBreakdown ? "Thinking..." : "Break down",
-                    tint: Color.tasker.accentPrimary
-                ) {
-                    viewModel.generateAIBreakdown {
-                        selectedBreakdownSteps = Set(viewModel.aiBreakdownSteps)
-                        showBreakdownSheet = true
-                    }
-                }
-                .disabled(viewModel.isGeneratingAIBreakdown)
-                .accessibilityHint("Generate AI subtask suggestions")
-            }
-        }
-        .padding(.horizontal, TaskerTheme.Spacing.screenHorizontal)
-        .accessibilityIdentifier("taskDetail.actionRow")
     }
 
     /// Executes reconcileBreakdownSelection.
@@ -545,48 +467,11 @@ struct TaskDetailSheetView: View {
         selectedBreakdownSteps = Set(updatedSteps.prefix(min(selectedBreakdownSteps.count, updatedSteps.count)))
     }
 
-    /// Executes actionChip.
-    private func actionChip(icon: String, title: String, tint: Color, action: @escaping () -> Void) -> some View {
-        Button {
-            TaskerFeedback.selection()
-            action()
-        } label: {
-            HStack(spacing: 8) {
-                ZStack {
-                    Circle()
-                        .fill(tint.opacity(0.12))
-                        .frame(width: 28, height: 28)
-                    Image(systemName: icon)
-                        .font(.system(size: 13, weight: .semibold))
-                }
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(title)
-                    Text("Keeps this task moving")
-                        .font(.tasker(.caption2))
-                        .foregroundStyle(Color.tasker.textSecondary)
-                }
-                Spacer(minLength: 0)
-            }
-            .font(.tasker(.callout))
-            .foregroundStyle(tint)
-            .frame(maxWidth: .infinity)
-            .padding(.horizontal, TaskerTheme.Spacing.md)
-            .padding(.vertical, 12)
-            .taskerDenseSurface(
-                cornerRadius: TaskerTheme.CornerRadius.md,
-                fillColor: tint.opacity(0.1),
-                strokeColor: tint.opacity(0.2)
-            )
-        }
-        .buttonStyle(.plain)
-        .scaleOnPress()
-    }
-
     private var notesSection: some View {
         VStack(alignment: .leading, spacing: TaskerTheme.Spacing.sm) {
             HStack {
                 Text("Notes")
-                    .font(.tasker(.headline))
+                    .font(.tasker(.headline).leading(.tight))
                     .foregroundColor(Color.tasker.textPrimary)
                 Spacer()
                 Button(showDescriptionEditor ? "Done" : "Edit") {
@@ -605,133 +490,169 @@ struct TaskDetailSheetView: View {
                 AddTaskDescriptionField(text: $viewModel.taskDescription, isFocused: $descriptionFocused)
                     .accessibilityIdentifier("taskDetail.descriptionField")
             } else {
-                Group {
-                    if descriptionIsEmpty {
-                        Text(descriptionPreview)
-                            .font(.tasker(.body))
-                            .foregroundStyle(Color.tasker.textQuaternary)
-                            .italic()
-                    } else {
-                        Text(descriptionPreview)
-                            .font(.tasker(.body))
-                            .foregroundStyle(Color.tasker.textSecondary)
+                Button {
+                    showDescriptionEditor = true
+                    descriptionFocused = true
+                } label: {
+                    Group {
+                        if descriptionIsEmpty {
+                            Text(descriptionPreview)
+                                .font(.tasker(.body))
+                                .foregroundStyle(Color.tasker.textQuaternary)
+                                .italic()
+                        } else {
+                            Text(descriptionPreview)
+                                .font(.tasker(.body))
+                                .foregroundStyle(Color.tasker.textSecondary)
+                        }
                     }
+                    .lineLimit(5)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(TaskerTheme.Spacing.md)
+                    .background(
+                        RoundedRectangle(cornerRadius: TaskerTheme.CornerRadius.md, style: .continuous)
+                            .fill(Color.tasker.surfaceSecondary.opacity(0.68))
+                    )
                 }
-                .lineLimit(3)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(TaskerTheme.Spacing.md)
-                .taskerDenseSurface(
-                    cornerRadius: TaskerTheme.CornerRadius.md,
-                    fillColor: Color.tasker.surfaceSecondary,
-                    strokeColor: Color.tasker.strokeHairline.opacity(0.72)
-                )
+                .buttonStyle(.plain)
                 .accessibilityIdentifier("taskDetail.descriptionField")
             }
         }
         .padding(.horizontal, TaskerTheme.Spacing.screenHorizontal)
+        .padding(.vertical, TaskerTheme.Spacing.md)
+        .taskerDenseSurface(
+            cornerRadius: TaskerTheme.CornerRadius.card,
+            fillColor: Color.tasker.surfacePrimary,
+            strokeColor: Color.tasker.strokeHairline.opacity(0.72)
+        )
+        .padding(.horizontal, TaskerTheme.Spacing.screenHorizontal)
     }
 
     private var stepsSection: some View {
-        VStack(alignment: .leading, spacing: TaskerTheme.Spacing.sm) {
-            Text("Steps")
-                .font(.tasker(.headline))
-                .foregroundColor(Color.tasker.textPrimary)
+        detailDisclosureCard(
+            title: "Steps",
+            systemImage: "list.bullet",
+            summary: viewModel.summary(for: .steps),
+            section: .steps,
+            accessibilityIdentifier: "taskDetail.disclosure.steps"
+        ) {
+            VStack(alignment: .leading, spacing: TaskerTheme.Spacing.sm) {
+                Text(viewModel.stepCreationHint)
+                    .font(.tasker(.meta))
+                    .foregroundStyle(Color.tasker.textSecondary)
 
-            if viewModel.childSteps.isEmpty {
-                Text("Break the task into tiny steps to make starting easier.")
-                    .font(.tasker(.caption1))
-                    .foregroundColor(Color.tasker.textTertiary)
-                    .padding(.vertical, TaskerTheme.Spacing.xs)
-            }
-
-            ForEach(viewModel.childSteps, id: \.id) { step in
-                HStack(spacing: TaskerTheme.Spacing.sm) {
-                    CompletionCheckbox(isComplete: step.isComplete, compact: true) {
-                        viewModel.toggleStepCompletion(step)
+                HStack(spacing: TaskerTheme.Spacing.md) {
+                    Button("Make smaller") {
+                        stepFocused = true
                     }
-                    .accessibilityHint("Toggle step completion")
+                    .font(.tasker(.callout))
+                    .buttonStyle(.plain)
+                    .foregroundStyle(Color.tasker.accentPrimary)
 
-                    Text(step.title)
+                    if V2FeatureFlags.assistantBreakdownEnabled && viewModel.childSteps.isEmpty {
+                        Button(viewModel.isGeneratingAIBreakdown ? "Thinking..." : "Break down") {
+                            viewModel.generateAIBreakdown {
+                                selectedBreakdownSteps = Set(viewModel.aiBreakdownSteps)
+                                showBreakdownSheet = true
+                            }
+                        }
                         .font(.tasker(.callout))
-                        .foregroundColor(step.isComplete ? Color.tasker.textTertiary : Color.tasker.textPrimary)
-                        .strikethrough(step.isComplete, color: Color.tasker.textTertiary)
-                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .buttonStyle(.plain)
+                        .foregroundStyle(Color.tasker.accentPrimary)
+                        .disabled(viewModel.isGeneratingAIBreakdown)
+                    }
+                }
 
-                    Menu {
-                        Button("Move up") {
-                            viewModel.moveStepUp(step)
+                ForEach(viewModel.childSteps, id: \.id) { step in
+                    HStack(spacing: TaskerTheme.Spacing.sm) {
+                        CompletionCheckbox(isComplete: step.isComplete, compact: true) {
+                            viewModel.toggleStepCompletion(step)
                         }
-                        Button("Move down") {
-                            viewModel.moveStepDown(step)
+                        .accessibilityHint("Toggle step completion")
+
+                        Text(step.title)
+                            .font(.tasker(.callout))
+                            .foregroundColor(step.isComplete ? Color.tasker.textTertiary : Color.tasker.textPrimary)
+                            .strikethrough(step.isComplete, color: Color.tasker.textTertiary)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+
+                        Menu {
+                            Button("Move up") {
+                                viewModel.moveStepUp(step)
+                            }
+                            Button("Move down") {
+                                viewModel.moveStepDown(step)
+                            }
+                            Button("Delete", role: .destructive) {
+                                viewModel.deleteStep(step)
+                            }
+                        } label: {
+                            Image(systemName: "ellipsis")
+                                .font(.system(size: 13, weight: .semibold))
+                                .foregroundColor(Color.tasker.textSecondary)
+                                .frame(width: 28, height: 28)
                         }
-                        Button("Delete", role: .destructive) {
-                            viewModel.deleteStep(step)
+                        .buttonStyle(.plain)
+                    }
+                    .padding(.horizontal, TaskerTheme.Spacing.md)
+                    .padding(.vertical, TaskerTheme.Spacing.sm)
+                    .taskerDenseSurface(
+                        cornerRadius: TaskerTheme.CornerRadius.md,
+                        fillColor: Color.tasker.surfaceSecondary.opacity(0.7),
+                        strokeColor: Color.tasker.strokeHairline.opacity(0.72)
+                    )
+                    .taskCompletionTransition(isComplete: step.isComplete)
+                    .accessibilityIdentifier("taskDetail.step.\(step.id.uuidString)")
+                }
+
+                HStack(spacing: TaskerTheme.Spacing.sm) {
+                    TextField("Add a step...", text: $newStepTitle)
+                        .font(.tasker(.callout))
+                        .focused($stepFocused)
+                        .textFieldStyle(.plain)
+                        .onSubmit {
+                            addStep()
                         }
+                        .accessibilityIdentifier("taskDetail.stepInput")
+
+                    Button {
+                        addStep()
                     } label: {
-                        Image(systemName: "ellipsis")
-                            .font(.system(size: 13, weight: .semibold))
-                            .foregroundColor(Color.tasker.textSecondary)
-                            .frame(width: 28, height: 28)
+                        Image(systemName: "plus.circle.fill")
+                            .font(.system(size: 18, weight: .medium))
+                            .foregroundColor(Color.tasker.accentPrimary)
                     }
                     .buttonStyle(.plain)
+                    .disabled(newStepTitle.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                    .accessibilityLabel("Add step")
                 }
                 .padding(.horizontal, TaskerTheme.Spacing.md)
                 .padding(.vertical, TaskerTheme.Spacing.sm)
                 .taskerDenseSurface(
                     cornerRadius: TaskerTheme.CornerRadius.md,
-                    fillColor: Color.tasker.surfaceSecondary,
+                    fillColor: Color.tasker.surfaceSecondary.opacity(0.7),
                     strokeColor: Color.tasker.strokeHairline.opacity(0.72)
                 )
-                .taskCompletionTransition(isComplete: step.isComplete)
-                .accessibilityIdentifier("taskDetail.step.\(step.id.uuidString)")
             }
-
-            HStack(spacing: TaskerTheme.Spacing.sm) {
-                TextField("Add a step...", text: $newStepTitle)
-                    .font(.tasker(.callout))
-                    .focused($stepFocused)
-                    .textFieldStyle(.plain)
-                    .onSubmit {
-                        addStep()
-                    }
-                    .accessibilityIdentifier("taskDetail.stepInput")
-
-                Button {
-                    addStep()
-                } label: {
-                    Image(systemName: "plus.circle.fill")
-                        .font(.system(size: 18, weight: .medium))
-                        .foregroundColor(Color.tasker.accentPrimary)
-                }
-                .buttonStyle(.plain)
-                .disabled(newStepTitle.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-                .accessibilityLabel("Add step")
-            }
-            .padding(.horizontal, TaskerTheme.Spacing.md)
-            .padding(.vertical, TaskerTheme.Spacing.sm)
-            .taskerDenseSurface(
-                cornerRadius: TaskerTheme.CornerRadius.md,
-                fillColor: Color.tasker.surfaceSecondary,
-                strokeColor: Color.tasker.strokeHairline.opacity(0.72)
-            )
         }
-        .padding(.horizontal, TaskerTheme.Spacing.screenHorizontal)
     }
 
     private var scheduleSection: some View {
-        sectionCard(.schedule) {
+        VStack(alignment: .leading, spacing: TaskerTheme.Spacing.sm) {
+            Text("Schedule")
+                .font(.tasker(.headline).leading(.tight))
+                .foregroundStyle(Color.tasker.textPrimary)
+
             VStack(alignment: .leading, spacing: TaskerTheme.Spacing.sm) {
-                AddTaskDatePresetRow(dueDate: $viewModel.dueDate)
+                AddTaskDatePresetRow(
+                    dueDate: $viewModel.dueDate,
+                    customChipAccessibilityIdentifier: "taskDetail.chip.due"
+                )
 
                 AddTaskReminderChip(
                     hasReminder: hasReminderBinding,
                     reminderTime: reminderTimeBinding
                 )
-
-                AddTaskTypeChips(selectedType: $viewModel.selectedType)
-
-                AddTaskRepeatEditor(repeatPattern: $viewModel.repeatPattern)
-                    .accessibilityIdentifier("taskDetail.repeatPicker")
 
                 if viewModel.dueDate != nil {
                     Button("Clear due date") {
@@ -752,11 +673,25 @@ struct TaskDetailSheetView: View {
                 }
             }
         }
+        .padding(.horizontal, TaskerTheme.Spacing.screenHorizontal)
+        .padding(.vertical, TaskerTheme.Spacing.md)
+        .taskerDenseSurface(
+            cornerRadius: TaskerTheme.CornerRadius.card,
+            fillColor: Color.tasker.surfacePrimary,
+            strokeColor: Color.tasker.strokeHairline.opacity(0.72)
+        )
+        .padding(.horizontal, TaskerTheme.Spacing.screenHorizontal)
     }
 
-    private var organizeSection: some View {
-        sectionCard(.organize) {
-            VStack(alignment: .leading, spacing: TaskerTheme.Spacing.sm) {
+    private var moreDetailsSection: some View {
+        detailDisclosureCard(
+            title: "More details",
+            systemImage: "slider.horizontal.3",
+            summary: viewModel.summary(for: .details),
+            section: .details,
+            accessibilityIdentifier: "taskDetail.disclosure.details"
+        ) {
+            VStack(alignment: .leading, spacing: TaskerTheme.Spacing.md) {
                 AddTaskProjectBar(
                     selectedProject: selectedProjectNameBinding,
                     projects: viewModel.projects,
@@ -764,6 +699,7 @@ struct TaskDetailSheetView: View {
                         viewModel.createProject(name: name) { _ in }
                     }
                 )
+                .accessibilityIdentifier("taskDetail.projectLabel")
 
                 if !viewModel.lifeAreas.isEmpty {
                     AddTaskEntityPicker(
@@ -805,18 +741,11 @@ struct TaskDetailSheetView: View {
                     }
                 )
 
-                planningSection
+                AddTaskTypeChips(selectedType: $viewModel.selectedType)
 
-                if let motivation = viewModel.projectMotivation, !motivation.isEmpty {
-                    projectMotivationCard(motivation)
-                }
-            }
-        }
-    }
+                AddTaskRepeatEditor(repeatPattern: $viewModel.repeatPattern)
+                    .accessibilityIdentifier("taskDetail.repeatPicker")
 
-    private var executionSection: some View {
-        sectionCard(.execution) {
-            VStack(alignment: .leading, spacing: TaskerTheme.Spacing.sm) {
                 AddTaskPriorityPicker(selectedPriority: $viewModel.selectedPriority)
                     .accessibilityIdentifier("taskDetail.priorityControl")
 
@@ -849,7 +778,27 @@ struct TaskDetailSheetView: View {
                 )
                 .accessibilityIdentifier("taskDetail.contextPicker")
 
-                recentReflectionsCard
+                if viewModel.shouldShowRelationshipsSection == false {
+                    if !viewModel.availableParentTasks.isEmpty {
+                        AddTaskTaskPicker(
+                            label: "Parent Task",
+                            tasks: viewModel.availableParentTasks,
+                            selectedTaskID: $viewModel.selectedParentTaskID
+                        )
+                        .accessibilityIdentifier("taskDetail.parentTaskPicker")
+                    }
+
+                    if !viewModel.availableDependencyTasks.isEmpty {
+                        AddTaskDependenciesPicker(
+                            tasks: viewModel.availableDependencyTasks,
+                            selectedTaskIDs: $viewModel.selectedDependencyTaskIDs,
+                            dependencyKind: $viewModel.selectedDependencyKind
+                        )
+                        .accessibilityIdentifier("taskDetail.dependenciesPicker")
+                    }
+                }
+
+                planningSection
             }
         }
     }
@@ -867,7 +816,7 @@ struct TaskDetailSheetView: View {
             VStack(alignment: .leading, spacing: 2) {
                 HStack(spacing: 6) {
                     Text("Task fit")
-                        .font(.tasker(.caption1).weight(.semibold))
+                        .font(.tasker(.meta).weight(.semibold))
                         .foregroundStyle(Color.tasker.textPrimary)
                     if viewModel.isLoadingTaskFitHint {
                         ProgressView()
@@ -875,13 +824,13 @@ struct TaskDetailSheetView: View {
                     }
                 }
                 Text(hint.message)
-                    .font(.tasker(.caption2))
+                    .font(.tasker(.caption1))
                     .foregroundStyle(style.tint)
                     .fixedSize(horizontal: false, vertical: true)
 
                 if let window = taskFitWindowSummary(hint) {
                     Text(window)
-                        .font(.tasker(.caption2))
+                        .font(.tasker(.meta))
                         .foregroundStyle(Color.tasker.textSecondary)
                 }
             }
@@ -918,7 +867,13 @@ struct TaskDetailSheetView: View {
     }
 
     private var relationshipsSection: some View {
-        sectionCard(.relationships) {
+        detailDisclosureCard(
+            title: "Relationships",
+            systemImage: "link",
+            summary: viewModel.summary(for: .relationships),
+            section: .relationships,
+            accessibilityIdentifier: "taskDetail.disclosure.relationships"
+        ) {
             VStack(alignment: .leading, spacing: TaskerTheme.Spacing.sm) {
                 if !viewModel.availableParentTasks.isEmpty {
                     AddTaskTaskPicker(
@@ -941,11 +896,48 @@ struct TaskDetailSheetView: View {
         }
     }
 
+    private var contextSection: some View {
+        detailDisclosureCard(
+            title: "More context",
+            systemImage: "text.bubble",
+            summary: contextSummaryText,
+            section: .context,
+            accessibilityIdentifier: "taskDetail.disclosure.context"
+        ) {
+            VStack(alignment: .leading, spacing: TaskerTheme.Spacing.md) {
+                if let preview = detailXPPreview {
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("Reward")
+                            .font(.tasker(.meta))
+                            .foregroundStyle(Color.tasker.textTertiary)
+                        Text("Complete now for \(preview.shortLabel).")
+                            .font(.tasker(.callout))
+                            .foregroundStyle(Color.tasker.textPrimary)
+                    }
+                    .padding(TaskerTheme.Spacing.md)
+                    .taskerDenseSurface(
+                        cornerRadius: TaskerTheme.CornerRadius.md,
+                        fillColor: Color.tasker.accentWash.opacity(0.72),
+                        strokeColor: Color.tasker.accentPrimary.opacity(0.14)
+                    )
+                }
+
+                if viewModel.recentReflectionNotes.isEmpty == false {
+                    recentReflectionsCard
+                }
+
+                if let motivation = viewModel.projectMotivation, !motivation.isEmpty {
+                    projectMotivationCard(motivation)
+                }
+            }
+        }
+    }
+
     private var destructiveSection: some View {
         VStack(alignment: .leading, spacing: TaskerTheme.Spacing.sm) {
             Text("Danger zone")
-                .font(.tasker(.caption1).weight(.semibold))
-                .foregroundStyle(Color.tasker.statusDanger)
+                .font(.tasker(.meta).weight(.semibold))
+                .foregroundStyle(Color.tasker.textTertiary)
 
             Button(role: .destructive) {
                 promptDeleteTask()
@@ -962,21 +954,27 @@ struct TaskDetailSheetView: View {
         .padding(TaskerTheme.Spacing.md)
         .taskerDenseSurface(
             cornerRadius: TaskerTheme.CornerRadius.md,
-            fillColor: Color.tasker.statusDanger.opacity(0.08),
-            strokeColor: Color.tasker.statusDanger.opacity(0.16)
+            fillColor: Color.tasker.surfacePrimary,
+            strokeColor: Color.tasker.strokeHairline.opacity(0.72)
         )
         .padding(.horizontal, TaskerTheme.Spacing.screenHorizontal)
     }
 
     @ViewBuilder
-    private func sectionCard<Content: View>(
-        _ section: TaskEditorSection,
+    private func detailDisclosureCard<Content: View>(
+        title: String,
+        systemImage: String,
+        summary: String,
+        section: TaskDetailDisclosureSection,
+        accessibilityIdentifier: String,
         @ViewBuilder content: () -> Content
     ) -> some View {
         TaskEditorSectionCard(
-            section: section,
-            summary: viewModel.summary(for: section),
-            isExpanded: viewModel.isSectionExpanded(section)
+            title: title,
+            systemImage: systemImage,
+            summary: summary,
+            isExpanded: viewModel.isSectionExpanded(section),
+            accessibilityIdentifier: accessibilityIdentifier
         ) {
             TaskerFeedback.light()
             viewModel.toggleSection(section)
@@ -989,12 +987,12 @@ struct TaskDetailSheetView: View {
     private var metadataFooter: some View {
         VStack(alignment: .leading, spacing: TaskerTheme.Spacing.xs) {
             Text("Added \(DateUtils.formatDateTime(viewModel.persistedTask.dateAdded))")
-                .font(.tasker(.caption2))
+                .font(.tasker(.caption1))
                 .foregroundColor(Color.tasker.textTertiary)
 
             if viewModel.isComplete, let completedAt = viewModel.persistedTask.dateCompleted {
                 Text("Completed \(DateUtils.formatDateTime(completedAt))")
-                    .font(.tasker(.caption2))
+                    .font(.tasker(.caption1))
                     .foregroundColor(Color.tasker.textTertiary)
             }
         }
@@ -1093,20 +1091,20 @@ struct TaskDetailSheetView: View {
         VStack(alignment: .leading, spacing: TaskerTheme.Spacing.sm) {
             HStack {
                 Text("Recent reflection")
-                    .font(.tasker(.caption1))
+                    .font(.tasker(.meta))
                     .foregroundColor(Color.tasker.textTertiary)
                 Spacer()
                 Button(viewModel.isComplete ? "Capture completion note" : "Capture note") {
                     showingReflectionComposer = true
                 }
-                .font(.tasker(.caption1))
+                .font(.tasker(.callout))
                 .buttonStyle(.plain)
                 .foregroundStyle(Color.tasker.accentPrimary)
             }
 
             if viewModel.recentReflectionNotes.isEmpty {
                 Text("Recent task and project reflections appear here once you capture them.")
-                    .font(.tasker(.caption1))
+                    .font(.tasker(.callout))
                     .foregroundColor(Color.tasker.textSecondary)
             } else {
                 VStack(alignment: .leading, spacing: TaskerTheme.Spacing.xs) {
@@ -1114,14 +1112,14 @@ struct TaskDetailSheetView: View {
                         VStack(alignment: .leading, spacing: 4) {
                             if let prompt = note.prompt, prompt.isEmpty == false {
                                 Text(prompt)
-                                    .font(.tasker(.caption2))
+                                    .font(.tasker(.meta))
                                     .foregroundColor(Color.tasker.textTertiary)
                             }
                             Text(note.noteText)
                                 .font(.tasker(.callout))
                                 .foregroundColor(Color.tasker.textPrimary)
                             Text(DateUtils.formatDateTime(note.createdAt))
-                                .font(.tasker(.caption2))
+                                .font(.tasker(.caption1))
                                 .foregroundColor(Color.tasker.textQuaternary)
                         }
                         .frame(maxWidth: .infinity, alignment: .leading)
@@ -1139,7 +1137,7 @@ struct TaskDetailSheetView: View {
     private func projectMotivationCard(_ motivation: ProjectWeeklyMotivation) -> some View {
         VStack(alignment: .leading, spacing: TaskerTheme.Spacing.sm) {
             Text("Project motivation")
-                .font(.tasker(.caption1))
+                .font(.tasker(.meta))
                 .foregroundColor(Color.tasker.textTertiary)
 
             if let why = motivation.why, why.isEmpty == false {
@@ -1163,7 +1161,7 @@ struct TaskDetailSheetView: View {
     private func motivationRow(title: String, value: String) -> some View {
         VStack(alignment: .leading, spacing: 2) {
             Text(title)
-                .font(.tasker(.caption2))
+                .font(.tasker(.meta))
                 .foregroundColor(Color.tasker.textTertiary)
             Text(value)
                 .font(.tasker(.callout))
@@ -1198,48 +1196,6 @@ struct TaskDetailSheetView: View {
         }
     }
 
-    private var priorityColor: Color {
-        switch viewModel.selectedPriority {
-        case .none: return Color.tasker.priorityNone
-        case .low: return Color.tasker.priorityLow
-        case .high: return Color.tasker.priorityHigh
-        case .max: return Color.tasker.priorityMax
-        }
-    }
-
-    private var statusTone: TaskerStatusPillTone {
-        if viewModel.isComplete {
-            return .success
-        }
-        if viewModel.dueDate == nil {
-            return .quiet
-        }
-        return .warning
-    }
-
-    private var statusSymbol: String {
-        if viewModel.isComplete {
-            return "checkmark.circle.fill"
-        }
-        if viewModel.dueDate == nil {
-            return "pause.circle"
-        }
-        return "clock.fill"
-    }
-
-    private var typeSymbol: String {
-        switch viewModel.selectedType {
-        case .morning:
-            return "sun.max.fill"
-        case .evening:
-            return "moon.stars.fill"
-        case .upcoming:
-            return "arrow.right.circle.fill"
-        case .inbox:
-            return "tray.full.fill"
-        }
-    }
-
     private var descriptionIsEmpty: Bool {
         viewModel.taskDescription.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
@@ -1248,16 +1204,24 @@ struct TaskDetailSheetView: View {
         descriptionIsEmpty ? "Add details you'll want later (optional)." : viewModel.taskDescription
     }
 
-    private var estimatedDurationSummary: String {
-        guard let estimatedDuration = viewModel.estimatedDuration, estimatedDuration > 0 else {
-            return "No estimate"
-        }
+    private var headerSummaryText: String {
+        viewModel.headerSummary.isEmpty ? statusText : viewModel.headerSummary
+    }
 
-        let minutes = max(1, Int((estimatedDuration / 60).rounded()))
-        if minutes >= 60 {
-            return String(format: "%.1fh", Double(minutes) / 60.0)
+    private var contextSummaryText: String {
+        var parts: [String] = []
+        if detailXPPreview != nil {
+            parts.append("Reward preview")
         }
-        return "\(minutes)m"
+        let modelSummary = viewModel.summary(for: .context)
+        if modelSummary.isEmpty == false && modelSummary != "Extra context is hidden" {
+            parts.append(modelSummary)
+        }
+        return parts.isEmpty ? "Extra context is hidden" : parts.joined(separator: " · ")
+    }
+
+    private var showsContextSection: Bool {
+        detailXPPreview != nil || viewModel.shouldShowContextSection
     }
 
     /// Executes addStep.

@@ -210,7 +210,7 @@ struct TaskerStatusPill: View {
             Text(text)
                 .lineLimit(1)
         }
-        .font(.tasker(.caption2).weight(.semibold))
+        .font(.tasker(.caption1).weight(.semibold))
         .foregroundStyle(tone.textColor)
         .padding(.horizontal, 9)
         .padding(.vertical, 6)
@@ -280,20 +280,21 @@ struct TaskerHeroMetricTile: View {
     var body: some View {
         let tile = VStack(alignment: .leading, spacing: 4) {
             Text(title)
-                .font(.tasker(.caption2))
+                .font(.tasker(.meta))
                 .foregroundStyle(Color.tasker.textTertiary)
             Text(value)
-                .font(.tasker(.bodyEmphasis))
+                .font(.tasker(.headline))
                 .foregroundStyle(tone.valueColor)
-                .lineLimit(1)
-                .minimumScaleFactor(0.78)
+                .lineLimit(2)
+                .fixedSize(horizontal: false, vertical: true)
                 .monospacedDigit()
                 .contentTransition(.numericText())
             if let detail, detail.isEmpty == false {
                 Text(detail)
-                    .font(.tasker(.caption2))
+                    .font(.tasker(.caption1))
                     .foregroundStyle(Color.tasker.textSecondary)
-                    .lineLimit(1)
+                    .lineLimit(2)
+                    .fixedSize(horizontal: false, vertical: true)
             }
         }
         .frame(maxWidth: .infinity, minHeight: 74, alignment: .leading)
@@ -480,11 +481,10 @@ struct TaskDetailSectionDivider: View {
     var body: some View {
         HStack(spacing: TaskerTheme.Spacing.sm) {
             if let title {
-                Text(title.uppercased())
-                    .font(.tasker(.caption2))
+                Text(title)
+                    .font(.tasker(.caption1))
                     .fontWeight(.semibold)
                     .foregroundColor(Color.tasker.textTertiary)
-                    .tracking(0.8)
             }
             Rectangle()
                 .fill(Color.tasker.strokeHairline)
