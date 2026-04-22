@@ -23,11 +23,15 @@ struct SettingsProfileHeaderView: View {
 
                 Spacer()
 
-                // Brand accent marker
-                Circle()
-                    .fill(Color.tasker(.brandHighlight))
-                    .frame(width: 12, height: 12)
-                    .shadow(color: Color.tasker(.brandHighlight).opacity(0.28), radius: 4)
+                Image("LifeBoardLogo")
+                    .resizable()
+                    .interpolation(.high)
+                    .frame(width: 28, height: 28)
+                    .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 8, style: .continuous)
+                            .stroke(Color.white.opacity(0.22), lineWidth: 1)
+                    )
             }
             .padding(.horizontal, TaskerSwiftUITokens.spacing.screenHorizontal)
             .padding(.top, TaskerSwiftUITokens.spacing.s8)
