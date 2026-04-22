@@ -90,6 +90,9 @@
 		722536ED9234849F6B954FAF /* To Do List/UseCases/Schedule/MaintainOccurrencesUseCase.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9251C0BF9A1E5D8BB7B9FC05 /* To Do List/UseCases/Schedule/MaintainOccurrencesUseCase.swift */; };
 		7225854435E82849B5E3C425 /* HomeQuickFilterTriggerButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5A05E16369BC6D8B09B0D460 /* HomeQuickFilterTriggerButton.swift */; };
 		75018BBB2E8D0C7C00EA3D0D /* AnalyticsServiceProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75018BB42E8D0C7C00EA3D0D /* AnalyticsServiceProtocol.swift */; };
+		F8C1A0019AB24E01A11C0001 /* TaskIconSupport.swift in Sources */ = {isa = PBXBuildFile; fileRef = F8C1A0019AB24E01A11C1001 /* TaskIconSupport.swift */; };
+		F8C1A0019AB24E01A11C0002 /* TaskIconSymbolManifest.generated.swift in Sources */ = {isa = PBXBuildFile; fileRef = F8C1A0019AB24E01A11C1002 /* TaskIconSymbolManifest.generated.swift */; };
+		F8C1A0019AB24E01A11C0003 /* TaskIconSymbolManifest.generated.json in Resources */ = {isa = PBXBuildFile; fileRef = F8C1A0019AB24E01A11C1003 /* TaskIconSymbolManifest.generated.json */; };
 		75079DA69ABE1FCA5EE19B2B /* NotificationTypesCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = C1429E78D48CAF30D016B671 /* NotificationTypesCard.swift */; };
 		750894CC2E8D3C390037FACE /* AnalyticsRepositoryProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = 750894C92E8D3C390037FACE /* AnalyticsRepositoryProtocol.swift */; };
 		7509A0192F13D806009162CD /* AddTaskViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7509A00C2F13D806009162CD /* AddTaskViewModel.swift */; };
@@ -661,6 +664,9 @@
 		741573708CF6B514C62FF327 /* UnifiedThemePickerCell.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UnifiedThemePickerCell.swift; sourceTree = "<group>"; };
 		74615C475C9EB3F67E96D7FE /* To Do List/Domain/Interfaces/OccurrenceRepositoryProtocol.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "To Do List/Domain/Interfaces/OccurrenceRepositoryProtocol.swift"; sourceTree = SOURCE_ROOT; };
 		75018BB42E8D0C7C00EA3D0D /* AnalyticsServiceProtocol.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AnalyticsServiceProtocol.swift; sourceTree = "<group>"; };
+		F8C1A0019AB24E01A11C1001 /* TaskIconSupport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TaskIconSupport.swift; sourceTree = "<group>"; };
+		F8C1A0019AB24E01A11C1002 /* TaskIconSymbolManifest.generated.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "TaskIconSymbolManifest.generated.swift"; sourceTree = "<group>"; };
+		F8C1A0019AB24E01A11C1003 /* TaskIconSymbolManifest.generated.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = "TaskIconSymbolManifest.generated.json"; sourceTree = "<group>"; };
 		750894C92E8D3C390037FACE /* AnalyticsRepositoryProtocol.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AnalyticsRepositoryProtocol.swift; sourceTree = "<group>"; };
 		7509A00A2F13D806009162CD /* PresentationDependencyContainer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PresentationDependencyContainer.swift; sourceTree = "<group>"; };
 		7509A00C2F13D806009162CD /* AddTaskViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddTaskViewModel.swift; sourceTree = "<group>"; };
@@ -896,6 +902,7 @@
 		A7B8C9D0E1F20123456789A5 /* HabitLastCellRuntimeTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HabitLastCellRuntimeTests.swift; sourceTree = "<group>"; };
 		A7B8C9D0E1F20123456789A7 /* QuietTrackingRailPresentationTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = QuietTrackingRailPresentationTests.swift; sourceTree = "<group>"; };
 		A7B8C9D0E1F2030405060708 /* TaskModelV3_Timeline.xcdatamodel */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcdatamodel; path = TaskModelV3_Timeline.xcdatamodel; sourceTree = "<group>"; };
+		D4E5F6A7B8C9D0E1F2030407 /* TaskModelV3_TaskIcons.xcdatamodel */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcdatamodel; path = TaskModelV3_TaskIcons.xcdatamodel; sourceTree = "<group>"; };
 		A7B8C9D12F13D806009162CD /* TaskDetailViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TaskDetailViewModel.swift; sourceTree = "<group>"; };
 		A8699B1ED0E60EAAE73AE2E3 /* To Do List/UseCases/LLM/AssistantCommandExecutor.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "To Do List/UseCases/LLM/AssistantCommandExecutor.swift"; sourceTree = SOURCE_ROOT; };
 		A8F1D2045E9C44A100112233 /* TaskerLayoutContext.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TaskerLayoutContext.swift; sourceTree = "<group>"; };
@@ -1413,6 +1420,9 @@
 			isa = PBXGroup;
 			children = (
 				7509A00C2F13D806009162CD /* AddTaskViewModel.swift */,
+				F8C1A0019AB24E01A11C1001 /* TaskIconSupport.swift */,
+				F8C1A0019AB24E01A11C1002 /* TaskIconSymbolManifest.generated.swift */,
+				F8C1A0019AB24E01A11C1003 /* TaskIconSymbolManifest.generated.json */,
 				ABCD00000000000000000021 /* AddHabitViewModel.swift */,
 				ABCD00000000000000000022 /* AddItemViewModel.swift */,
 				ABCD00000000000000000023 /* To Do List/Presentation/Habits/HabitIconCatalog.swift */,
@@ -2590,6 +2600,7 @@
 				E0A10000000000000000000B /* EvaIntroVideo.mp4 in Resources */,
 				E0A10000000000000000000C /* EvaLottie00-lite.json in Resources */,
 				E0A10000000000000000000E /* HeroWelcomeHighCompressMb.mp4 in Resources */,
+				F8C1A0019AB24E01A11C0003 /* TaskIconSymbolManifest.generated.json in Resources */,
 				7529F7052DFDF7E3000CBE36 /* loading-animation.json in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -2823,6 +2834,8 @@
 				75E929C42E8C686300207270 /* TaskPriority.swift in Sources */,
 				75DFF3212DF4E2BE00EB8850 /* BalloonMarker.swift in Sources */,
 				7509A0192F13D806009162CD /* AddTaskViewModel.swift in Sources */,
+				F8C1A0019AB24E01A11C0001 /* TaskIconSupport.swift in Sources */,
+				F8C1A0019AB24E01A11C0002 /* TaskIconSymbolManifest.generated.swift in Sources */,
 				7509A01A2F13D806009162CD /* HomeViewModel.swift in Sources */,
 				A7B8C9D22F13D806009162CD /* TaskDetailViewModel.swift in Sources */,
 				7509A01B2F13D806009162CD /* PresentationDependencyContainer.swift in Sources */,
@@ -3757,8 +3770,9 @@
 				D4E5F6A7B8C9D0E1F2030405 /* TaskModelV3_Habits.xcdatamodel */,
 				D4E5F6A7B8C9D0E1F2030406 /* TaskModelV3_WeeklyPlanning.xcdatamodel */,
 				A7B8C9D0E1F2030405060708 /* TaskModelV3_Timeline.xcdatamodel */,
+				D4E5F6A7B8C9D0E1F2030407 /* TaskModelV3_TaskIcons.xcdatamodel */,
 			);
-			currentVersion = A7B8C9D0E1F2030405060708 /* TaskModelV3_Timeline.xcdatamodel */;
+			currentVersion = D4E5F6A7B8C9D0E1F2030407 /* TaskModelV3_TaskIcons.xcdatamodel */;
 			path = TaskModelV3.xcdatamodeld;
 			sourceTree = "<group>";
 			versionGroupType = wrapper.xcdatamodel;
