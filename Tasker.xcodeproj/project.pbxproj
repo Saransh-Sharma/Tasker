@@ -40,6 +40,7 @@
 		3494FE9BF173433EE0791F1B /* TypographyTokenTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 32CFD17024C4F8FF10386CE1 /* TypographyTokenTests.swift */; };
 		350E661527174B8BDEE11FCC /* TaskRowView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D379A868382E81C83D874E36 /* TaskRowView.swift */; };
 		355015C0A77A72D864F1AC64 /* HomeForedropView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BF5D7161411B42651DF00D60 /* HomeForedropView.swift */; };
+		B2E100000000000000000207 /* To Do List/Presentation/Models/HomeTaskTintResolver.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2E100000000000000000107 /* To Do List/Presentation/Models/HomeTaskTintResolver.swift */; };
 		36235D01BFCF2D2001A39CCE /* To Do List/UseCases/Gamification/FocusSessionUseCase.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7CC4B584282446580AA72B44 /* To Do List/UseCases/Gamification/FocusSessionUseCase.swift */; };
 		37A2B8A6A25F06C72606019E /* To Do List/Domain/Mappers/TaskDefinitionMapper.swift in Sources */ = {isa = PBXBuildFile; fileRef = 592346DCA3C3FE56E12617C2 /* To Do List/Domain/Mappers/TaskDefinitionMapper.swift */; };
 		3A549BEBEF3902410F96971A /* To Do List/View/FocusTimerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 37E2466DBE2A76A73458F530 /* To Do List/View/FocusTimerView.swift */; };
@@ -947,6 +948,7 @@
 		B1C2D3EB2F90000100AA1001 /* TaskerWidgets/TaskWidgetDesignSystemCompat.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = TaskerWidgets/TaskWidgetDesignSystemCompat.swift; sourceTree = SOURCE_ROOT; };
 		B2D4E5F6A7B8C9D0E1F2A3B4 /* KeyboardShortcutsCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeyboardShortcutsCard.swift; sourceTree = "<group>"; };
 		B2E100000000000000000101 /* To Do List/Presentation/Models/HomeTodayRow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "To Do List/Presentation/Models/HomeTodayRow.swift"; sourceTree = SOURCE_ROOT; };
+		B2E100000000000000000107 /* To Do List/Presentation/Models/HomeTaskTintResolver.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "To Do List/Presentation/Models/HomeTaskTintResolver.swift"; sourceTree = SOURCE_ROOT; };
 		B2E100000000000000000102 /* To Do List/Presentation/Models/HomeHabitRow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "To Do List/Presentation/Models/HomeHabitRow.swift"; sourceTree = SOURCE_ROOT; };
 		B2E100000000000000000103 /* To Do List/UseCases/Home/BuildHomeAgendaUseCase.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "To Do List/UseCases/Home/BuildHomeAgendaUseCase.swift"; sourceTree = SOURCE_ROOT; };
 		B2E100000000000000000104 /* To Do List/View/HomeHabitRowView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "To Do List/View/HomeHabitRowView.swift"; sourceTree = SOURCE_ROOT; };
@@ -1460,6 +1462,7 @@
 			isa = PBXGroup;
 			children = (
 				B2E100000000000000000101 /* To Do List/Presentation/Models/HomeTodayRow.swift */,
+				B2E100000000000000000107 /* To Do List/Presentation/Models/HomeTaskTintResolver.swift */,
 				B2E100000000000000000102 /* To Do List/Presentation/Models/HomeHabitRow.swift */,
 				B2E100000000000000000106 /* To Do List/Presentation/Models/HomeHabitLastCellInteraction.swift */,
 				B2E100000000000000000105 /* To Do List/Presentation/Models/HomeSectionState.swift */,
@@ -2981,6 +2984,7 @@
 				50117460BC314EEA54344A9E /* GetHomeFilteredTasksUseCase.swift in Sources */,
 				B2E100000000000000000201 /* To Do List/UseCases/Home/BuildHomeAgendaUseCase.swift in Sources */,
 				B2E100000000000000000202 /* To Do List/Presentation/Models/HomeTodayRow.swift in Sources */,
+				B2E100000000000000000207 /* To Do List/Presentation/Models/HomeTaskTintResolver.swift in Sources */,
 				B2E100000000000000000203 /* To Do List/Presentation/Models/HomeHabitRow.swift in Sources */,
 				B2E100000000000000000206 /* To Do List/Presentation/Models/HomeHabitLastCellInteraction.swift in Sources */,
 				B2E100000000000000000205 /* To Do List/Presentation/Models/HomeSectionState.swift in Sources */,
