@@ -254,6 +254,8 @@ struct LifeManagementView: View {
                 errorCard(message: errorMessage)
             }
 
+            lifeManagementPrimaryActionCard
+
             if hasTreeContent == false && viewModel.isLoading == false {
                 emptyStateCard(
                     title: "Start with a life area",
@@ -276,6 +278,42 @@ struct LifeManagementView: View {
                 }
             }
         }
+    }
+
+    private var lifeManagementPrimaryActionCard: some View {
+        TaskerSettingsCard(active: true) {
+            VStack(alignment: .leading, spacing: spacing.s12) {
+                HStack(alignment: .top, spacing: spacing.s8) {
+                    Image(systemName: "square.grid.2x2.fill")
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundStyle(Color.tasker(.accentPrimary))
+                        .frame(width: 22, height: 22)
+                        .accessibilityHidden(true)
+
+                    VStack(alignment: .leading, spacing: spacing.s4) {
+                        Text("Life Areas")
+                            .font(.tasker(.headline))
+                            .foregroundStyle(Color.tasker(.textPrimary))
+
+                        Text("Create a new area to organize related projects and habits.")
+                            .font(.tasker(.callout))
+                            .foregroundStyle(Color.tasker(.textSecondary))
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                }
+
+                Button {
+                    viewModel.beginCreateLifeArea()
+                } label: {
+                    Label("Add Area", systemImage: "plus.circle.fill")
+                }
+                .buttonStyle(.borderedProminent)
+                .disabled(viewModel.isMutating)
+                .accessibilityIdentifier("settings.lifeManagement.addAreaButton")
+            }
+        }
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("settings.lifeManagement.addAreaCard")
     }
 
     private func treeSection(_ section: LifeManagementTreeSection, interactionMode: LifeManagementTreeInteractionMode) -> some View {
@@ -2063,7 +2101,7 @@ private struct LifeManagementComposerMetricTile: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 2) {
             Text(metric.title)
-                .font(.tasker(.caption2))
+                .font(.tasker(.caption1))
                 .foregroundStyle(Color.white.opacity(0.72))
 
             Text(metric.value)
@@ -2134,14 +2172,17 @@ private struct LifeManagementComposerFieldLabel: View {
     let title: String
     let detail: String
 
+    @Environment(\.taskerLayoutClass) private var layoutClass
+    private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.tokens(for: layoutClass).spacing }
+
     var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
+        VStack(alignment: .leading, spacing: spacing.s4) {
             Text(title)
                 .font(.tasker(.caption1).weight(.semibold))
                 .foregroundStyle(Color.tasker.textPrimary)
 
             Text(detail)
-                .font(.tasker(.caption2))
+                .font(.tasker(.caption1))
                 .foregroundStyle(Color.tasker.textSecondary)
         }
     }
@@ -2161,7 +2202,7 @@ private struct LifeManagementComposerInlineMessage: View {
                 .foregroundStyle(Color.tasker.statusDanger)
 
             Text(message)
-                .font(.tasker(.caption2))
+                .font(.tasker(.caption1))
                 .foregroundStyle(Color.tasker.textSecondary)
                 .fixedSize(horizontal: false, vertical: true)
         }
@@ -2238,13 +2279,16 @@ private struct LifeManagementColorSwatchButton: View {
     let action: () -> Void
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.taskerLayoutClass) private var layoutClass
+
+    private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.tokens(for: layoutClass).spacing }
 
     var body: some View {
         Button {
             TaskerFeedback.selection()
             action()
         } label: {
-            VStack(spacing: 8) {
+            VStack(spacing: spacing.s8) {
                 ZStack {
                     Circle()
                         .fill(color ?? Color.tasker.surfaceSecondary)
@@ -2262,13 +2306,13 @@ private struct LifeManagementColorSwatchButton: View {
                 )
 
                 Text(title)
-                    .font(.tasker(.caption2))
+                    .font(.tasker(.caption1))
                     .foregroundStyle(isSelected ? Color.tasker.textPrimary : Color.tasker.textSecondary)
                     .lineLimit(1)
             }
             .frame(width: 74)
             .frame(minHeight: 76)
-            .padding(.vertical, 8)
+            .padding(.vertical, spacing.s8)
             .background(
                 RoundedRectangle(cornerRadius: TaskerTheme.CornerRadius.md, style: .continuous)
                     .fill(isSelected ? Color.tasker.accentWash : Color.tasker.surfaceSecondary)
@@ -2347,12 +2391,15 @@ private struct LifeManagementIconTile: View {
     let isSelected: Bool
     let action: () -> Void
 
+    @Environment(\.taskerLayoutClass) private var layoutClass
+    private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.tokens(for: layoutClass).spacing }
+
     var body: some View {
         Button {
             TaskerFeedback.selection()
             action()
         } label: {
-            VStack(spacing: 8) {
+            VStack(spacing: spacing.s8) {
                 RoundedRectangle(cornerRadius: 16, style: .continuous)
                     .fill(isSelected ? Color.tasker.accentWash : Color.tasker.surfaceSecondary)
                     .frame(height: 46)
@@ -2363,13 +2410,13 @@ private struct LifeManagementIconTile: View {
                     }
 
                 Text(title)
-                    .font(.tasker(.caption2))
+                    .font(.tasker(.caption1))
                     .foregroundStyle(isSelected ? Color.tasker.textPrimary : Color.tasker.textSecondary)
                     .lineLimit(2)
                     .multilineTextAlignment(.center)
                     .frame(maxWidth: .infinity)
             }
-            .padding(8)
+            .padding(spacing.s8)
             .frame(minHeight: 96)
             .background(
                 RoundedRectangle(cornerRadius: TaskerTheme.CornerRadius.md, style: .continuous)
