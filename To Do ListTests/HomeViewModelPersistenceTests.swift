@@ -247,6 +247,84 @@ final class HomeViewModelPersistenceTests: XCTestCase {
         defaults.removePersistentDomain(forName: suiteName)
     }
 
+    func testTimelineTintHexPrefersLifeAreaColorWhenProjectBelongsToLifeArea() {
+        let suiteName = "HomeViewModelPersistenceTests.TimelineTintLifeArea.\(UUID().uuidString)"
+        guard let defaults = UserDefaults(suiteName: suiteName) else {
+            return XCTFail("Failed to create test UserDefaults suite")
+        }
+        defaults.removePersistentDomain(forName: suiteName)
+
+        let lifeArea = LifeArea(id: UUID(), name: "Career", color: "#1A2B3C")
+        let project = Project(id: UUID(), lifeAreaID: lifeArea.id, name: "Work", color: .purple, icon: .work)
+        let coordinator = makeTimelineTintCoordinator(projects: [Project.createInbox(), project], lifeAreas: [lifeArea])
+        let viewModel = HomeViewModel(useCaseCoordinator: coordinator, userDefaults: defaults)
+        waitForMainQueueFlush()
+        waitUntilProjectLoaded(project.id, in: viewModel)
+
+        let task = TaskDefinition(
+            projectID: project.id,
+            projectName: project.name,
+            title: "Prepare weekly brief",
+            dueDate: Date()
+        )
+
+        XCTAssertEqual(
+            viewModel.timelineTintHex(for: task),
+            LifeAreaColorPalette.normalizeOrMap(hex: lifeArea.color, for: lifeArea.id)
+        )
+
+        defaults.removePersistentDomain(forName: suiteName)
+    }
+
+    func testTimelineTintHexFallsBackToProjectColorWithoutLifeArea() {
+        let suiteName = "HomeViewModelPersistenceTests.TimelineTintProjectFallback.\(UUID().uuidString)"
+        guard let defaults = UserDefaults(suiteName: suiteName) else {
+            return XCTFail("Failed to create test UserDefaults suite")
+        }
+        defaults.removePersistentDomain(forName: suiteName)
+
+        let project = Project(id: UUID(), name: "Side", color: .teal, icon: .creative)
+        let coordinator = makeTimelineTintCoordinator(projects: [Project.createInbox(), project], lifeAreas: [])
+        let viewModel = HomeViewModel(useCaseCoordinator: coordinator, userDefaults: defaults)
+        waitForMainQueueFlush()
+        waitUntilProjectLoaded(project.id, in: viewModel)
+
+        let task = TaskDefinition(
+            projectID: project.id,
+            projectName: project.name,
+            title: "Sketch MVP",
+            dueDate: Date()
+        )
+
+        XCTAssertEqual(viewModel.timelineTintHex(for: task), project.color.hexString)
+
+        defaults.removePersistentDomain(forName: suiteName)
+    }
+
+    func testTimelineTintHexReturnsNilWhenOwningSectionCannotBeResolved() {
+        let suiteName = "HomeViewModelPersistenceTests.TimelineTintUnresolved.\(UUID().uuidString)"
+        guard let defaults = UserDefaults(suiteName: suiteName) else {
+            return XCTFail("Failed to create test UserDefaults suite")
+        }
+        defaults.removePersistentDomain(forName: suiteName)
+
+        let coordinator = makeTimelineTintCoordinator(projects: [Project.createInbox()], lifeAreas: [])
+        let viewModel = HomeViewModel(useCaseCoordinator: coordinator, userDefaults: defaults)
+        waitForMainQueueFlush()
+
+        let task = TaskDefinition(
+            projectID: UUID(),
+            projectName: "Missing Project",
+            title: "Unknown color",
+            priority: .high,
+            dueDate: Date()
+        )
+
+        XCTAssertEqual(viewModel.timelineTintHex(for: task), task.priority.colorHex)
+
+        defaults.removePersistentDomain(forName: suiteName)
+    }
+
     func testNeedsReplanManualScopeLimitsToTappedPastDate() {
         let suiteName = "HomeViewModelPersistenceTests.Scope.\(UUID().uuidString)"
         let defaults = UserDefaults(suiteName: suiteName)!
@@ -2397,6 +2475,17 @@ final class HomeViewModelPersistenceTests: XCTestCase {
         wait(for: [expectation], timeout: seconds + 1.0)
     }
 
+    private func waitUntilProjectLoaded(_ projectID: UUID, in viewModel: HomeViewModel, timeout: TimeInterval = 1.0) {
+        let deadline = Date().addingTimeInterval(timeout)
+        while Date() < deadline {
+            if viewModel.projects.contains(where: { $0.id == projectID }) {
+                return
+            }
+            waitForMainQueueFlush(seconds: 0.05)
+        }
+        XCTFail("Expected project \(projectID) to be loaded in HomeViewModel.projects")
+    }
+
     private func firstLoadedHabitRow(
         in viewModel: HomeViewModel,
         timeout: TimeInterval = 1.2
@@ -2439,6 +2528,18 @@ final class HomeViewModelPersistenceTests: XCTestCase {
             guard case .task(let task) = row else { return nil }
             return task.title
         }
+    }
+
+    private func makeTimelineTintCoordinator(
+        projects: [Project],
+        lifeAreas: [LifeArea]
+    ) -> UseCaseCoordinator {
+        V3TestHarness.makeCoordinator(
+            taskDefinitionRepository: InMemoryTaskDefinitionRepositoryStub(seed: []),
+            taskReadModelRepository: InMemoryTaskReadModelRepositoryStub(tasks: []),
+            projectRepository: HomeViewModelMockProjectRepository(projects: projects),
+            lifeAreaRepository: HomeViewModelMockLifeAreaRepository(areas: lifeAreas)
+        )
     }
 
     private func makeTask(
@@ -2487,6 +2588,35 @@ final class HomeViewModelPersistenceTests: XCTestCase {
     override func tearDown() {
         cancellables.removeAll()
         super.tearDown()
+    }
+}
+
+private final class HomeViewModelMockLifeAreaRepository: LifeAreaRepositoryProtocol {
+    private var areas: [LifeArea]
+
+    init(areas: [LifeArea]) {
+        self.areas = areas
+    }
+
+    func fetchAll(completion: @escaping (Result<[LifeArea], Error>) -> Void) {
+        completion(.success(areas))
+    }
+
+    func create(_ area: LifeArea, completion: @escaping (Result<LifeArea, Error>) -> Void) {
+        areas.append(area)
+        completion(.success(area))
+    }
+
+    func update(_ area: LifeArea, completion: @escaping (Result<LifeArea, Error>) -> Void) {
+        if let index = areas.firstIndex(where: { $0.id == area.id }) {
+            areas[index] = area
+        }
+        completion(.success(area))
+    }
+
+    func delete(id: UUID, completion: @escaping (Result<Void, Error>) -> Void) {
+        areas.removeAll { $0.id == id }
+        completion(.success(()))
     }
 }
 

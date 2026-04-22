@@ -8,6 +8,7 @@ enum V3TestHarness {
         taskDefinitionRepository: TaskDefinitionRepositoryProtocol,
         taskReadModelRepository: TaskReadModelRepositoryProtocol? = nil,
         projectRepository: ProjectRepositoryProtocol,
+        lifeAreaRepository: LifeAreaRepositoryProtocol = NoopLifeAreaRepository(),
         habitRepository: HabitRepositoryProtocol = NoopHabitRepository(),
         habitRuntimeReadRepository: HabitRuntimeReadRepositoryProtocol = NoopHabitRuntimeReadRepository(),
         scheduleRepository: ScheduleRepositoryProtocol = NoopScheduleRepository(),
@@ -21,7 +22,7 @@ enum V3TestHarness {
     ) -> UseCaseCoordinator {
         let dependencies = UseCaseCoordinator.V2Dependencies(
             projectRepository: projectRepository,
-            lifeAreaRepository: NoopLifeAreaRepository(),
+            lifeAreaRepository: lifeAreaRepository,
             sectionRepository: NoopSectionRepository(),
             tagRepository: NoopTagRepository(),
             taskDefinitionRepository: taskDefinitionRepository,
