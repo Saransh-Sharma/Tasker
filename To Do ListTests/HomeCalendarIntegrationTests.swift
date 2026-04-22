@@ -586,13 +586,13 @@ final class HomeCalendarIntegrationTests: XCTestCase {
         )
 
         XCTAssertEqual(gaps.count, 3)
-        XCTAssertEqual(gaps.first?.primaryAction, .scheduleInbox)
-        XCTAssertEqual(gaps.first?.secondaryAction, .addTask)
+        XCTAssertEqual(gaps.first?.primaryAction, .addTask)
+        XCTAssertEqual(gaps.first?.secondaryAction, .planBlock)
         XCTAssertEqual(gaps.first?.emphasis, .openTime)
-        XCTAssertTrue(gaps.first?.headline.contains("Free for") == true)
+        XCTAssertEqual(gaps.first?.headline, "Open time")
         XCTAssertEqual(gaps[1].emphasis, .prepWindow)
         XCTAssertEqual(gaps.last?.emphasis, .quietWindow)
-        XCTAssertEqual(gaps.last?.headline, "Open evening")
+        XCTAssertEqual(gaps.last?.headline, "Evening buffer")
     }
 
     func testHomeTimelineSnapshotBuildsStableWeekDayKeysAndOpenSummaries() {

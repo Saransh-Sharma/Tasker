@@ -312,7 +312,34 @@ final class HomeForedropLayoutMetricsTests: XCTestCase {
         let expandedPlan = TimelineCanvasLayoutPlan(projection: projection, pointsPerMinute: 1, minimumItemHeight: 44, calendar: calendar)
 
         XCTAssertLessThan(compactPlan.contentHeight, 520)
-        XCTAssertLessThan(compactPlan.contentHeight, expandedPlan.contentHeight * 0.55)
+        XCTAssertLessThan(compactPlan.contentHeight, expandedPlan.contentHeight * 0.57)
+    }
+
+    func testTimelineSurfaceMetricsUsePadCompactSpecificCompactValues() {
+        let metrics = TimelineSurfaceMetrics.make(for: .padCompact)
+
+        XCTAssertEqual(metrics.compactTimeGutter, 72, accuracy: 0.001)
+        XCTAssertEqual(metrics.compactLaneWidth, 60, accuracy: 0.001)
+        XCTAssertEqual(metrics.compactTrailingLaneWidth, 48, accuracy: 0.001)
+        XCTAssertEqual(metrics.compactConnectorHeight, 12, accuracy: 0.001)
+        XCTAssertEqual(metrics.compactAnchorRowHeight, 60, accuracy: 0.001)
+        XCTAssertEqual(metrics.compactGapRowHeight, 62, accuracy: 0.001)
+        XCTAssertEqual(metrics.compactItemMinRowHeight, 78, accuracy: 0.001)
+        XCTAssertEqual(metrics.compactReadableWidth ?? 0, 680, accuracy: 0.001)
+    }
+
+    func testTimelineSurfaceMetricsUsePadExpandedReadableWidthAndExpandedValues() {
+        let metrics = TimelineSurfaceMetrics.make(for: .padExpanded)
+
+        XCTAssertEqual(metrics.expandedTimeGutter, 76, accuracy: 0.001)
+        XCTAssertEqual(metrics.expandedSpineLaneWidth, 84, accuracy: 0.001)
+        XCTAssertEqual(metrics.expandedTrailingLaneWidth, 52, accuracy: 0.001)
+        XCTAssertEqual(metrics.expandedContentInset, 16, accuracy: 0.001)
+        XCTAssertEqual(metrics.expandedTimeToSpineGap, 12, accuracy: 0.001)
+        XCTAssertEqual(metrics.expandedCapsuleMinWidth, 64, accuracy: 0.001)
+        XCTAssertEqual(metrics.expandedSingleColumnTextMaxWidth, 420, accuracy: 0.001)
+        XCTAssertEqual(metrics.expandedOverlappingTextMaxWidth, 320, accuracy: 0.001)
+        XCTAssertEqual(metrics.timelineBottomPadding, 24, accuracy: 0.001)
     }
 
     func testCompactTimelineLayoutPlanScalesItemRowsByDuration() {
@@ -345,12 +372,38 @@ final class HomeForedropLayoutMetricsTests: XCTestCase {
         let items = Self.compactItemEntries(plan.entries)
 
         XCTAssertEqual(items.count, 2)
-        XCTAssertEqual(items[0].capsuleHeight, 64, accuracy: 0.001)
-        XCTAssertEqual(items[0].rowHeight, 84, accuracy: 0.001)
-        XCTAssertEqual(items[1].capsuleHeight, 112, accuracy: 0.001)
-        XCTAssertEqual(items[1].rowHeight, 132, accuracy: 0.001)
+        XCTAssertEqual(items[0].capsuleHeight, 90, accuracy: 0.001)
+        XCTAssertEqual(items[0].rowHeight, 110, accuracy: 0.001)
+        XCTAssertEqual(items[1].capsuleHeight, 168, accuracy: 0.001)
+        XCTAssertEqual(items[1].rowHeight, 188, accuracy: 0.001)
         XCTAssertGreaterThan(items[1].capsuleHeight, items[0].capsuleHeight)
         XCTAssertGreaterThan(items[1].rowHeight, items[0].rowHeight)
+    }
+
+    func testPadCompactTimelineLayoutPlanUsesAdaptedAnchorGapAndItemHeights() {
+        let calendar = Self.fixedCalendar
+        let wake = Self.date(calendar: calendar, year: 2026, month: 4, day: 21, hour: 8, minute: 0)
+        let itemStart = Self.date(calendar: calendar, year: 2026, month: 4, day: 21, hour: 9, minute: 0)
+        let itemEnd = Self.date(calendar: calendar, year: 2026, month: 4, day: 21, hour: 9, minute: 30)
+        let sleep = Self.date(calendar: calendar, year: 2026, month: 4, day: 21, hour: 22, minute: 0)
+        let projection = Self.makeProjection(
+            calendar: calendar,
+            wake: wake,
+            sleep: sleep,
+            timedItems: [
+                Self.makeTimedItem(id: "focus", title: "Focus", start: itemStart, end: itemEnd)
+            ],
+            gaps: [
+                TimelineGap(startDate: wake, endDate: itemStart, suggestedTaskCount: 0),
+                TimelineGap(startDate: itemEnd, endDate: sleep, suggestedTaskCount: 0)
+            ],
+            layoutMode: .compact
+        )
+
+        let plan = TimelineCompactLayoutPlan(projection: projection, layoutClass: .padCompact)
+
+        XCTAssertEqual(plan.entries.map(\.rowHeight), [60, 62, 110, 62, 60])
+        XCTAssertEqual(Self.compactItemEntries(plan.entries).first?.capsuleHeight ?? 0, 90, accuracy: 0.001)
     }
 
     func testCompactTimelineLayoutPlanCapsVeryLongDurationRows() {
@@ -375,8 +428,8 @@ final class HomeForedropLayoutMetricsTests: XCTestCase {
         let plan = TimelineCompactLayoutPlan(projection: projection)
         let item = Self.compactItemEntries(plan.entries).first
 
-        XCTAssertEqual(item?.capsuleHeight ?? 0, 132, accuracy: 0.001)
-        XCTAssertEqual(item?.rowHeight ?? 0, 152, accuracy: 0.001)
+        XCTAssertEqual(item?.capsuleHeight ?? 0, 176, accuracy: 0.001)
+        XCTAssertEqual(item?.rowHeight ?? 0, 196, accuracy: 0.001)
     }
 
     func testCompactTimelineLayoutPlanKeepsWakeAndSleepAnchorsAroundEmptyDayGap() {
