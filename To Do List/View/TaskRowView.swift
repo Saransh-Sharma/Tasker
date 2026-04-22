@@ -399,6 +399,7 @@ private enum TaskRowDerivedStateCache {
 struct TaskRowView: View, Equatable {
     let task: TaskDefinition
     let fallbackIconSymbolName: String?
+    let accentHex: String?
     let showTypeBadge: Bool
     let isInOverdueSection: Bool
     let tagNameByID: [UUID: String]
@@ -424,6 +425,7 @@ struct TaskRowView: View, Equatable {
     init(
         task: TaskDefinition,
         fallbackIconSymbolName: String? = nil,
+        accentHex: String? = nil,
         showTypeBadge: Bool,
         isInOverdueSection: Bool = false,
         tagNameByID: [UUID: String] = [:],
@@ -442,6 +444,7 @@ struct TaskRowView: View, Equatable {
     ) {
         self.task = task
         self.fallbackIconSymbolName = fallbackIconSymbolName
+        self.accentHex = accentHex
         self.showTypeBadge = showTypeBadge
         self.isInOverdueSection = isInOverdueSection
         self.tagNameByID = tagNameByID
@@ -489,6 +492,7 @@ struct TaskRowView: View, Equatable {
         lhs.task.isComplete == rhs.task.isComplete &&
         lhs.task.dateCompleted == rhs.task.dateCompleted &&
         lhs.fallbackIconSymbolName == rhs.fallbackIconSymbolName &&
+        lhs.accentHex == rhs.accentHex &&
         lhs.showTypeBadge == rhs.showTypeBadge &&
         lhs.isInOverdueSection == rhs.isInOverdueSection &&
         lhs.todayXPSoFar == rhs.todayXPSoFar &&
@@ -622,6 +626,10 @@ struct TaskRowView: View, Equatable {
         isOnboardingHighlighted ? Color.tasker.accentPrimary : Color.tasker.strokeHairline
     }
 
+    private var resolvedIconTint: Color {
+        TaskerHexColor.color(accentHex, fallback: Color.tasker.accentPrimary)
+    }
+
     private var rowContent: some View {
         HStack(spacing: 0) {
             priorityStripe
@@ -638,7 +646,7 @@ struct TaskRowView: View, Equatable {
                 if let iconSymbolName = task.iconSymbolName ?? fallbackIconSymbolName {
                     Image(systemName: iconSymbolName)
                         .font(.system(size: isPad ? 16 : 15, weight: .semibold))
-                        .foregroundStyle(task.isComplete ? Color.tasker.textQuaternary : Color.tasker.accentPrimary)
+                        .foregroundStyle(task.isComplete ? Color.tasker.textQuaternary : resolvedIconTint)
                         .frame(width: 20, alignment: .center)
                         .accessibilityHidden(true)
                 }

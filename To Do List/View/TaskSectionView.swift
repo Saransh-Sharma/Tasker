@@ -251,6 +251,7 @@ struct TaskSectionView: View {
                 TaskRowView(
                     task: item.task,
                     fallbackIconSymbolName: project.icon.systemImageName,
+                    accentHex: project.color.hexString,
                     showTypeBadge: derivedState.hasMixedTypes,
                     isInOverdueSection: isOverdueSection,
                     tagNameByID: tagNameByID,
@@ -289,6 +290,7 @@ struct TaskSectionView: View {
                         TaskRowView(
                             task: item.task,
                             fallbackIconSymbolName: project.icon.systemImageName,
+                            accentHex: project.color.hexString,
                             showTypeBadge: derivedState.hasMixedTypes,
                             isInOverdueSection: isOverdueSection,
                             tagNameByID: tagNameByID,
@@ -381,6 +383,7 @@ struct TaskSectionView: View {
 struct HomeListRowView: View {
     let row: HomeTodayRow
     let tagNameByID: [UUID: String]
+    let accentHex: String?
     let todayXPSoFar: Int?
     let isGamificationV2Enabled: Bool
     let isTaskDragEnabled: Bool
@@ -402,6 +405,7 @@ struct HomeListRowView: View {
     init(
         row: HomeTodayRow,
         tagNameByID: [UUID: String],
+        accentHex: String? = nil,
         todayXPSoFar: Int?,
         isGamificationV2Enabled: Bool,
         isTaskDragEnabled: Bool,
@@ -422,6 +426,7 @@ struct HomeListRowView: View {
     ) {
         self.row = row
         self.tagNameByID = tagNameByID
+        self.accentHex = accentHex
         self.todayXPSoFar = todayXPSoFar
         self.isGamificationV2Enabled = isGamificationV2Enabled
         self.isTaskDragEnabled = isTaskDragEnabled
@@ -446,6 +451,7 @@ struct HomeListRowView: View {
         case .task(let task):
             TaskRowView(
                 task: task,
+                accentHex: accentHex,
                 showTypeBadge: false,
                 isInOverdueSection: row.isOverdueLike,
                 tagNameByID: tagNameByID,
@@ -628,6 +634,7 @@ struct HomeListSectionView: View {
                 HomeListRowView(
                     row: row,
                     tagNameByID: tagNameByID,
+                    accentHex: section.accentHex,
                     todayXPSoFar: todayXPSoFar,
                     isGamificationV2Enabled: isGamificationV2Enabled,
                     isTaskDragEnabled: isTaskDragEnabled,
@@ -665,6 +672,7 @@ struct HomeListSectionView: View {
                         HomeListRowView(
                             row: row,
                             tagNameByID: tagNameByID,
+                            accentHex: section.accentHex,
                             todayXPSoFar: todayXPSoFar,
                             isGamificationV2Enabled: isGamificationV2Enabled,
                             isTaskDragEnabled: false,

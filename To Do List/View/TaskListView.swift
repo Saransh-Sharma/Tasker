@@ -199,6 +199,7 @@ struct TaskListView: View {
     let overdueTasks: [TaskDefinition]
     let inlineCompletedTasks: [TaskDefinition]
     let projects: [Project]
+    let lifeAreas: [LifeArea]
     let doneTimelineTasks: [TaskDefinition]
     let tagNameByID: [UUID: String]
     let activeQuickView: HomeQuickView?
@@ -253,6 +254,7 @@ struct TaskListView: View {
         overdueTasks: [TaskDefinition],
         inlineCompletedTasks: [TaskDefinition] = [],
         projects: [Project],
+        lifeAreas: [LifeArea] = [],
         doneTimelineTasks: [TaskDefinition] = [],
         tagNameByID: [UUID: String] = [:],
         activeQuickView: HomeQuickView? = nil,
@@ -299,6 +301,7 @@ struct TaskListView: View {
         self.overdueTasks = overdueTasks
         self.inlineCompletedTasks = inlineCompletedTasks
         self.projects = projects
+        self.lifeAreas = lifeAreas
         self.doneTimelineTasks = doneTimelineTasks
         self.tagNameByID = tagNameByID
         self.activeQuickView = activeQuickView
@@ -900,6 +903,21 @@ struct TaskListView: View {
         return UUID(uuidString: "00000000-0000-0000-0000-\(tail)") ?? ProjectConstants.inboxProjectID
     }
 
+    private func taskRowAccentHex(for row: HomeTodayRow) -> String? {
+        switch row {
+        case .task(let task):
+            let lifeAreasByID = Dictionary(lifeAreas.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
+            let projectsByID = Dictionary(projects.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
+            return HomeTaskTintResolver.taskAccentHex(
+                for: task,
+                projectsByID: projectsByID,
+                lifeAreasByID: lifeAreasByID
+            )
+        case .habit:
+            return nil
+        }
+    }
+
     @ViewBuilder
     private func agendaTailItemView(_ item: HomeAgendaTailItem) -> some View {
         switch item {
@@ -989,6 +1007,7 @@ struct TaskListView: View {
                         HomeListRowView(
                             row: row,
                             tagNameByID: tagNameByID,
+                            accentHex: taskRowAccentHex(for: row),
                             todayXPSoFar: todayXPSoFar,
                             isGamificationV2Enabled: isGamificationV2Enabled,
                             isTaskDragEnabled: false,
@@ -1160,6 +1179,7 @@ private struct OverdueGroupedSectionView: View {
                             TaskRowView(
                                 task: task,
                                 fallbackIconSymbolName: group.project.icon.systemImageName,
+                                accentHex: group.project.color.hexString,
                                 showTypeBadge: false,
                                 isInOverdueSection: true,
                                 tagNameByID: tagNameByID,
