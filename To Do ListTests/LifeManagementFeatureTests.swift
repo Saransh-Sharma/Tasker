@@ -483,15 +483,28 @@ final class CoreDataProjectRepositoryLifeAreaMutationTests: XCTestCase {
 
 final class TaskerPersistentRuntimeInitializerLifeAreaColorBackfillTests: XCTestCase {
     private let backfillKey = "tasker.life_area_color_palette_backfill.v1"
+    private let runtimeMarkerKeys = [
+        "tasker.habit.runtime.field_backfill.v1",
+        "tasker.habit.runtime.repair_required.v1",
+        "tasker.habit.runtime.repair_completed.v1",
+        "tasker.occurrence.key_backfill.v1",
+        "tasker.life_area_color_palette_backfill.v1"
+    ]
 
     override func setUp() {
         super.setUp()
-        UserDefaults.standard.removeObject(forKey: backfillKey)
+        clearRuntimeInitializerMarkers()
     }
 
     override func tearDown() {
-        UserDefaults.standard.removeObject(forKey: backfillKey)
+        clearRuntimeInitializerMarkers()
         super.tearDown()
+    }
+
+    private func clearRuntimeInitializerMarkers() {
+        for key in runtimeMarkerKeys {
+            UserDefaults.standard.removeObject(forKey: key)
+        }
     }
 
     func testInitializeBackfillsLifeAreaColorsIntoPalette() throws {

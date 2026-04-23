@@ -3167,37 +3167,7 @@ private final class NoopTaskDefinitionRepository: TaskDefinitionRepositoryProtoc
     func fetchTaskDefinition(id: UUID, completion: @escaping (Result<TaskDefinition?, Error>) -> Void) { completion(.success(nil)) }
     func create(_ task: TaskDefinition, completion: @escaping (Result<TaskDefinition, Error>) -> Void) { completion(.success(task)) }
     func create(request: CreateTaskDefinitionRequest, completion: @escaping (Result<TaskDefinition, Error>) -> Void) {
-        completion(.success(TaskDefinition(
-            id: request.id,
-            projectID: request.projectID,
-            projectName: request.projectName ?? ProjectConstants.inboxProjectName,
-            lifeAreaID: request.lifeAreaID,
-            sectionID: request.sectionID,
-            parentTaskID: request.parentTaskID,
-            title: request.title,
-            details: request.details,
-            priority: request.priority,
-            type: request.type,
-            energy: request.energy,
-            category: request.category,
-            context: request.context,
-            dueDate: request.dueDate,
-            scheduledStartAt: request.scheduledStartAt,
-            scheduledEndAt: request.scheduledEndAt,
-            isAllDay: request.isAllDay,
-            isComplete: false,
-            dateAdded: request.createdAt,
-            isEveningTask: request.isEveningTask,
-            alertReminderTime: request.alertReminderTime,
-            tagIDs: request.tagIDs,
-            dependencies: request.dependencies,
-            estimatedDuration: request.estimatedDuration,
-            repeatPattern: request.repeatPattern,
-            planningBucket: request.planningBucket,
-            weeklyOutcomeID: request.weeklyOutcomeID,
-            createdAt: request.createdAt,
-            updatedAt: request.createdAt
-        )))
+        completion(.success(request.toTaskDefinition(projectName: request.projectName)))
     }
     func update(_ task: TaskDefinition, completion: @escaping (Result<TaskDefinition, Error>) -> Void) { completion(.success(task)) }
     func update(request: UpdateTaskDefinitionRequest, completion: @escaping (Result<TaskDefinition, Error>) -> Void) {
@@ -7235,8 +7205,15 @@ final class AddTaskViewModelTagCreationTests: XCTestCase {
 
 @MainActor
 final class AddTaskViewModelAISuggestionPerformanceTests: XCTestCase {
+    private var originalAssistantCopilotEnabled = V2FeatureFlags.assistantCopilotEnabled
+
+    override func setUp() {
+        super.setUp()
+        originalAssistantCopilotEnabled = V2FeatureFlags.assistantCopilotEnabled
+    }
+
     override func tearDown() {
-        V2FeatureFlags.assistantCopilotEnabled = true
+        V2FeatureFlags.assistantCopilotEnabled = originalAssistantCopilotEnabled
         UserDefaults.standard.removeObject(forKey: "currentModelName")
         UserDefaults.standard.removeObject(forKey: "installedModels")
         super.tearDown()
@@ -7409,8 +7386,15 @@ final class DefaultTaskIconResolverTests: XCTestCase {
 
 @MainActor
 final class AddTaskViewModelTaskIconTests: XCTestCase {
+    private var originalAutoTaskIconsEnabled = V2FeatureFlags.autoTaskIconsEnabled
+
+    override func setUp() {
+        super.setUp()
+        originalAutoTaskIconsEnabled = V2FeatureFlags.autoTaskIconsEnabled
+    }
+
     override func tearDown() {
-        V2FeatureFlags.autoTaskIconsEnabled = true
+        V2FeatureFlags.autoTaskIconsEnabled = originalAutoTaskIconsEnabled
         super.tearDown()
     }
 
@@ -7568,14 +7552,13 @@ final class HomeViewModelTaskIconTimelineTests: XCTestCase {
             projectRepository: MockProjectRepository(projects: [inbox, workProject])
         )
         let viewModel = HomeViewModel(useCaseCoordinator: coordinator, userDefaults: defaults)
-        let projectsLoaded = expectation(description: "projects loaded")
-
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
-            XCTAssertEqual(viewModel.timelineSystemImageName(for: task), "phone.fill")
-            projectsLoaded.fulfill()
+        let predicate = NSPredicate { _, _ in
+            viewModel.timelineSystemImageName(for: task) == "phone.fill"
         }
-
-        waitForExpectations(timeout: 1.0)
+        let expectation = XCTNSPredicateExpectation(predicate: predicate, object: nil)
+        let result = XCTWaiter.wait(for: [expectation], timeout: 1.0)
+        XCTAssertEqual(result, .completed)
+        XCTAssertEqual(viewModel.timelineSystemImageName(for: task), "phone.fill")
     }
 }
 

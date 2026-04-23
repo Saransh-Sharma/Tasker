@@ -45,7 +45,7 @@ final class HomeCalendarIntegrationTests: XCTestCase {
 
         let coordinator = makeCoordinator(provider: provider)
         let defaults = makeUserDefaultsSuite(prefix: "HomeCalendarIntegrationTests")
-        let viewModel = HomeViewModel(useCaseCoordinator: coordinator, userDefaults: defaults)
+        let viewModel = makeHomeViewModel(coordinator: coordinator, defaults: defaults)
 
         waitForMainQueue(seconds: 0.45)
         XCTAssertEqual(viewModel.homeCalendarSnapshot.moduleState, .active)
@@ -99,7 +99,7 @@ final class HomeCalendarIntegrationTests: XCTestCase {
 
         let coordinator = makeCoordinator(provider: provider)
         let defaults = makeUserDefaultsSuite(prefix: "HomeCalendarSettingsPropagationTests")
-        let viewModel = HomeViewModel(useCaseCoordinator: coordinator, userDefaults: defaults)
+        let viewModel = makeHomeViewModel(coordinator: coordinator, defaults: defaults)
 
         waitForMainQueue(seconds: 0.45)
         XCTAssertEqual(viewModel.homeCalendarSnapshot.moduleState, .allDayOnly)
@@ -136,7 +136,7 @@ final class HomeCalendarIntegrationTests: XCTestCase {
 
         let coordinator = makeCoordinator(provider: provider)
         let defaults = makeUserDefaultsSuite(prefix: "HomeCalendarCanceledDefaultTests")
-        let viewModel = HomeViewModel(useCaseCoordinator: coordinator, userDefaults: defaults)
+        let viewModel = makeHomeViewModel(coordinator: coordinator, defaults: defaults)
 
         waitForMainQueue(seconds: 0.45)
         XCTAssertEqual(viewModel.homeCalendarSnapshot.moduleState, .empty)
@@ -161,7 +161,7 @@ final class HomeCalendarIntegrationTests: XCTestCase {
 
         let coordinator = makeCoordinator(provider: provider)
         let defaults = makeUserDefaultsSuite(prefix: "HomeCalendarCanceledIncludedTests")
-        let viewModel = HomeViewModel(useCaseCoordinator: coordinator, userDefaults: defaults)
+        let viewModel = makeHomeViewModel(coordinator: coordinator, defaults: defaults)
 
         waitForMainQueue(seconds: 0.45)
         XCTAssertEqual(viewModel.homeCalendarSnapshot.moduleState, .active)
@@ -191,7 +191,7 @@ final class HomeCalendarIntegrationTests: XCTestCase {
 
         let coordinator = makeCoordinator(provider: provider)
         let defaults = makeUserDefaultsSuite(prefix: "HomeCalendarSelectedDateTests")
-        let viewModel = HomeViewModel(useCaseCoordinator: coordinator, userDefaults: defaults)
+        let viewModel = makeHomeViewModel(coordinator: coordinator, defaults: defaults)
 
         waitForMainQueue(seconds: 0.45)
         XCTAssertEqual(viewModel.homeCalendarSnapshot.selectedDayTimelineEvents.map(\.id), ["today_event"])
@@ -211,10 +211,6 @@ final class HomeCalendarIntegrationTests: XCTestCase {
     }
 
     func testHomeTimelineSnapshotHidesCalendarEventsWhenTimelineSettingIsDisabled() {
-        let sharedStore = TaskerWorkspacePreferencesStore.shared
-        let originalSharedPreferences = sharedStore.load()
-        defer { sharedStore.save(originalSharedPreferences) }
-
         let timelineHiddenPreferences = TaskerWorkspacePreferences(
             selectedCalendarIDs: ["work"],
             includeDeclinedCalendarEvents: false,
@@ -224,7 +220,6 @@ final class HomeCalendarIntegrationTests: XCTestCase {
             showCalendarEventsInTimeline: false
         )
         workspaceStore.save(timelineHiddenPreferences)
-        sharedStore.save(timelineHiddenPreferences)
 
         let provider = CalendarEventsProviderStub()
         provider.authorizationStatusValue = .authorized
@@ -236,7 +231,11 @@ final class HomeCalendarIntegrationTests: XCTestCase {
 
         let coordinator = makeCoordinator(provider: provider)
         let defaults = makeUserDefaultsSuite(prefix: "HomeTimelineCalendarToggleOffTests")
-        let viewModel = HomeViewModel(useCaseCoordinator: coordinator, userDefaults: defaults)
+        let viewModel = makeHomeViewModel(
+            coordinator: coordinator,
+            defaults: defaults,
+            workspacePreferences: timelineHiddenPreferences
+        )
 
         waitForMainQueue(seconds: 0.45)
         XCTAssertEqual(viewModel.homeCalendarSnapshot.selectedDayEvents.map(\.id), ["all_day", "timed"])
@@ -253,10 +252,6 @@ final class HomeCalendarIntegrationTests: XCTestCase {
     }
 
     func testHomeTimelineSnapshotIncludesCalendarEventsWhenTimelineSettingIsEnabled() {
-        let sharedStore = TaskerWorkspacePreferencesStore.shared
-        let originalSharedPreferences = sharedStore.load()
-        defer { sharedStore.save(originalSharedPreferences) }
-
         let timelineVisiblePreferences = TaskerWorkspacePreferences(
             selectedCalendarIDs: ["work"],
             includeDeclinedCalendarEvents: false,
@@ -266,7 +261,6 @@ final class HomeCalendarIntegrationTests: XCTestCase {
             showCalendarEventsInTimeline: true
         )
         workspaceStore.save(timelineVisiblePreferences)
-        sharedStore.save(timelineVisiblePreferences)
 
         let provider = CalendarEventsProviderStub()
         provider.authorizationStatusValue = .authorized
@@ -278,7 +272,11 @@ final class HomeCalendarIntegrationTests: XCTestCase {
 
         let coordinator = makeCoordinator(provider: provider)
         let defaults = makeUserDefaultsSuite(prefix: "HomeTimelineCalendarToggleOnTests")
-        let viewModel = HomeViewModel(useCaseCoordinator: coordinator, userDefaults: defaults)
+        let viewModel = makeHomeViewModel(
+            coordinator: coordinator,
+            defaults: defaults,
+            workspacePreferences: timelineVisiblePreferences
+        )
 
         waitForMainQueue(seconds: 0.45)
         let timeline = viewModel.buildTimelineSnapshot(
@@ -292,10 +290,6 @@ final class HomeCalendarIntegrationTests: XCTestCase {
     }
 
     func testHomeTimelineSnapshotUsesWorkspaceTimelineAnchorTimes() {
-        let sharedStore = TaskerWorkspacePreferencesStore.shared
-        let originalSharedPreferences = sharedStore.load()
-        defer { sharedStore.save(originalSharedPreferences) }
-
         let preferences = TaskerWorkspacePreferences(
             selectedCalendarIDs: ["work"],
             includeDeclinedCalendarEvents: false,
@@ -309,7 +303,6 @@ final class HomeCalendarIntegrationTests: XCTestCase {
             timelineWindDownMinute: 45
         )
         workspaceStore.save(preferences)
-        sharedStore.save(preferences)
 
         let provider = CalendarEventsProviderStub()
         provider.authorizationStatusValue = .authorized
@@ -318,7 +311,11 @@ final class HomeCalendarIntegrationTests: XCTestCase {
 
         let coordinator = makeCoordinator(provider: provider)
         let defaults = makeUserDefaultsSuite(prefix: "HomeTimelineAnchorWorkspacePreferencesTests")
-        let viewModel = HomeViewModel(useCaseCoordinator: coordinator, userDefaults: defaults)
+        let viewModel = makeHomeViewModel(
+            coordinator: coordinator,
+            defaults: defaults,
+            workspacePreferences: preferences
+        )
 
         waitForMainQueue(seconds: 0.35)
         let timeline = viewModel.buildTimelineSnapshot(
@@ -334,10 +331,6 @@ final class HomeCalendarIntegrationTests: XCTestCase {
     }
 
     func testHomeTimelineSnapshotIgnoresQuietHoursForTimelineAnchors() {
-        let sharedStore = TaskerWorkspacePreferencesStore.shared
-        let originalSharedPreferences = sharedStore.load()
-        defer { sharedStore.save(originalSharedPreferences) }
-
         let notificationStore = TaskerNotificationPreferencesStore.shared
         let originalNotificationPreferences = notificationStore.load()
         defer { notificationStore.save(originalNotificationPreferences) }
@@ -362,7 +355,6 @@ final class HomeCalendarIntegrationTests: XCTestCase {
             timelineWindDownMinute: 40
         )
         workspaceStore.save(preferences)
-        sharedStore.save(preferences)
 
         let provider = CalendarEventsProviderStub()
         provider.authorizationStatusValue = .authorized
@@ -371,7 +363,11 @@ final class HomeCalendarIntegrationTests: XCTestCase {
 
         let coordinator = makeCoordinator(provider: provider)
         let defaults = makeUserDefaultsSuite(prefix: "HomeTimelineAnchorQuietHoursIndependenceTests")
-        let viewModel = HomeViewModel(useCaseCoordinator: coordinator, userDefaults: defaults)
+        let viewModel = makeHomeViewModel(
+            coordinator: coordinator,
+            defaults: defaults,
+            workspacePreferences: preferences
+        )
 
         waitForMainQueue(seconds: 0.35)
         let timeline = viewModel.buildTimelineSnapshot(
@@ -387,10 +383,6 @@ final class HomeCalendarIntegrationTests: XCTestCase {
     }
 
     func testHomeTimelineSnapshotRollsWindDownToNextDayWhenItIsEarlierThanRiseAndShine() {
-        let sharedStore = TaskerWorkspacePreferencesStore.shared
-        let originalSharedPreferences = sharedStore.load()
-        defer { sharedStore.save(originalSharedPreferences) }
-
         let preferences = TaskerWorkspacePreferences(
             selectedCalendarIDs: ["work"],
             includeDeclinedCalendarEvents: false,
@@ -404,7 +396,6 @@ final class HomeCalendarIntegrationTests: XCTestCase {
             timelineWindDownMinute: 15
         )
         workspaceStore.save(preferences)
-        sharedStore.save(preferences)
 
         let provider = CalendarEventsProviderStub()
         provider.authorizationStatusValue = .authorized
@@ -413,7 +404,11 @@ final class HomeCalendarIntegrationTests: XCTestCase {
 
         let coordinator = makeCoordinator(provider: provider)
         let defaults = makeUserDefaultsSuite(prefix: "HomeTimelineAnchorOvernightTests")
-        let viewModel = HomeViewModel(useCaseCoordinator: coordinator, userDefaults: defaults)
+        let viewModel = makeHomeViewModel(
+            coordinator: coordinator,
+            defaults: defaults,
+            workspacePreferences: preferences
+        )
 
         waitForMainQueue(seconds: 0.35)
         let timeline = viewModel.buildTimelineSnapshot(
@@ -428,10 +423,6 @@ final class HomeCalendarIntegrationTests: XCTestCase {
     }
 
     func testHomeTimelineSnapshotUsesCompactLayoutForEmptyDay() {
-        let sharedStore = TaskerWorkspacePreferencesStore.shared
-        let originalSharedPreferences = sharedStore.load()
-        defer { sharedStore.save(originalSharedPreferences) }
-
         let preferences = TaskerWorkspacePreferences(
             selectedCalendarIDs: ["work"],
             includeDeclinedCalendarEvents: false,
@@ -441,7 +432,6 @@ final class HomeCalendarIntegrationTests: XCTestCase {
             showCalendarEventsInTimeline: true
         )
         workspaceStore.save(preferences)
-        sharedStore.save(preferences)
 
         let provider = CalendarEventsProviderStub()
         provider.authorizationStatusValue = .authorized
@@ -450,7 +440,11 @@ final class HomeCalendarIntegrationTests: XCTestCase {
 
         let coordinator = makeCoordinator(provider: provider)
         let defaults = makeUserDefaultsSuite(prefix: "HomeTimelineCompactEmptyTests")
-        let viewModel = HomeViewModel(useCaseCoordinator: coordinator, userDefaults: defaults)
+        let viewModel = makeHomeViewModel(
+            coordinator: coordinator,
+            defaults: defaults,
+            workspacePreferences: preferences
+        )
 
         waitForMainQueue(seconds: 0.35)
         let timeline = viewModel.buildTimelineSnapshot(
@@ -463,10 +457,6 @@ final class HomeCalendarIntegrationTests: XCTestCase {
     }
 
     func testHomeTimelineSnapshotUsesCompactLayoutForSparseDay() {
-        let sharedStore = TaskerWorkspacePreferencesStore.shared
-        let originalSharedPreferences = sharedStore.load()
-        defer { sharedStore.save(originalSharedPreferences) }
-
         let preferences = TaskerWorkspacePreferences(
             selectedCalendarIDs: ["work"],
             includeDeclinedCalendarEvents: false,
@@ -476,7 +466,6 @@ final class HomeCalendarIntegrationTests: XCTestCase {
             showCalendarEventsInTimeline: true
         )
         workspaceStore.save(preferences)
-        sharedStore.save(preferences)
 
         let provider = CalendarEventsProviderStub()
         provider.authorizationStatusValue = .authorized
@@ -488,7 +477,11 @@ final class HomeCalendarIntegrationTests: XCTestCase {
 
         let coordinator = makeCoordinator(provider: provider)
         let defaults = makeUserDefaultsSuite(prefix: "HomeTimelineCompactSparseTests")
-        let viewModel = HomeViewModel(useCaseCoordinator: coordinator, userDefaults: defaults)
+        let viewModel = makeHomeViewModel(
+            coordinator: coordinator,
+            defaults: defaults,
+            workspacePreferences: preferences
+        )
 
         waitForMainQueue(seconds: 0.35)
         let timeline = viewModel.buildTimelineSnapshot(
@@ -501,10 +494,6 @@ final class HomeCalendarIntegrationTests: XCTestCase {
     }
 
     func testHomeTimelineSnapshotKeepsExpandedLayoutForBusyDay() {
-        let sharedStore = TaskerWorkspacePreferencesStore.shared
-        let originalSharedPreferences = sharedStore.load()
-        defer { sharedStore.save(originalSharedPreferences) }
-
         let preferences = TaskerWorkspacePreferences(
             selectedCalendarIDs: ["work"],
             includeDeclinedCalendarEvents: false,
@@ -514,7 +503,6 @@ final class HomeCalendarIntegrationTests: XCTestCase {
             showCalendarEventsInTimeline: true
         )
         workspaceStore.save(preferences)
-        sharedStore.save(preferences)
 
         let provider = CalendarEventsProviderStub()
         provider.authorizationStatusValue = .authorized
@@ -527,7 +515,11 @@ final class HomeCalendarIntegrationTests: XCTestCase {
 
         let coordinator = makeCoordinator(provider: provider)
         let defaults = makeUserDefaultsSuite(prefix: "HomeTimelineExpandedBusyTests")
-        let viewModel = HomeViewModel(useCaseCoordinator: coordinator, userDefaults: defaults)
+        let viewModel = makeHomeViewModel(
+            coordinator: coordinator,
+            defaults: defaults,
+            workspacePreferences: preferences
+        )
 
         waitForMainQueue(seconds: 0.35)
         let timeline = viewModel.buildTimelineSnapshot(
@@ -543,7 +535,7 @@ final class HomeCalendarIntegrationTests: XCTestCase {
         let provider = CalendarEventsProviderStub()
         let coordinator = makeCoordinator(provider: provider)
         let defaults = makeUserDefaultsSuite(prefix: "HomeTimelineGapCopyTests")
-        let viewModel = HomeViewModel(useCaseCoordinator: coordinator, userDefaults: defaults)
+        let viewModel = makeHomeViewModel(coordinator: coordinator, defaults: defaults)
 
         let wake = CalendarTestClock.date(hour: 8, minute: 0)
         let sleep = CalendarTestClock.date(hour: 22, minute: 0)
@@ -599,7 +591,7 @@ final class HomeCalendarIntegrationTests: XCTestCase {
         let provider = CalendarEventsProviderStub()
         let coordinator = makeCoordinator(provider: provider)
         let defaults = makeUserDefaultsSuite(prefix: "HomeTimelineWeekSummaryTests")
-        let viewModel = HomeViewModel(useCaseCoordinator: coordinator, userDefaults: defaults)
+        let viewModel = makeHomeViewModel(coordinator: coordinator, defaults: defaults)
 
         waitForMainQueue(seconds: 0.2)
         let timeline = viewModel.buildTimelineSnapshot(
@@ -617,7 +609,7 @@ final class HomeCalendarIntegrationTests: XCTestCase {
         let provider = CalendarEventsProviderStub()
         let coordinator = makeCoordinator(provider: provider)
         let defaults = makeUserDefaultsSuite(prefix: "HomeTimelineSummaryHelperTests")
-        let viewModel = HomeViewModel(useCaseCoordinator: coordinator, userDefaults: defaults)
+        let viewModel = makeHomeViewModel(coordinator: coordinator, defaults: defaults)
 
         XCTAssertEqual(viewModel.timelineLoadLevel(for: 1), .light)
         XCTAssertEqual(viewModel.timelineLoadLevel(for: 3), .balanced)
@@ -654,7 +646,7 @@ final class HomeCalendarIntegrationTests: XCTestCase {
         )
 
         let defaults = makeUserDefaultsSuite(prefix: "HomeCalendarControllerRefreshTests")
-        let viewModel = HomeViewModel(useCaseCoordinator: coordinator, userDefaults: defaults)
+        let viewModel = makeHomeViewModel(coordinator: coordinator, defaults: defaults)
 
         let presentationContainer = PresentationDependencyContainer.shared
         presentationContainer.configure(
@@ -895,6 +887,21 @@ final class HomeCalendarIntegrationTests: XCTestCase {
         let badges = TaskerCalendarPresentation.badges(for: event)
 
         XCTAssertEqual(badges.map(\.title), ["All Day", "Declined", "Canceled"])
+    }
+
+    private func makeHomeViewModel(
+        coordinator: UseCaseCoordinator,
+        defaults: UserDefaults,
+        workspacePreferences: TaskerWorkspacePreferences? = nil
+    ) -> HomeViewModel {
+        if let workspacePreferences {
+            return HomeViewModel(
+                useCaseCoordinator: coordinator,
+                workspacePreferencesProvider: { workspacePreferences },
+                userDefaults: defaults
+            )
+        }
+        return HomeViewModel(useCaseCoordinator: coordinator, userDefaults: defaults)
     }
 
     private func makeCoordinator(provider: CalendarEventsProviderProtocol) -> UseCaseCoordinator {
