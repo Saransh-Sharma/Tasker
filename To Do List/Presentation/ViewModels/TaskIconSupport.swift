@@ -153,6 +153,24 @@ final class DefaultTaskIconResolver: TaskIconResolver {
         )
         let bestConfidence = confidence(bestScore: bestSemantic?.1 ?? 0, runnerUpScore: scored.dropFirst().first?.1 ?? 0)
         let semanticSuggestions = dedupeSymbols(scored.prefix(10).map(\.0))
+
+        if selectionSource == .manual, let currentSymbolName {
+            let combinedSuggestions = dedupeSymbols(
+                [currentSymbolName]
+                    .compactMap(option(for:))
+                    + semanticSuggestions
+                    + defaultPreferredOptions(storage: storage)
+            )
+            return TaskIconResolution(
+                selectedSymbolName: currentSymbolName,
+                autoSuggestedSymbolName: bestSemantic?.0.symbolName,
+                rankedSuggestions: Array(combinedSuggestions.prefix(12)),
+                confidence: bestConfidence,
+                didUseFallback: false,
+                fallbackReason: .semantic
+            )
+        }
+
         let fallbackReason: TaskIconFallbackReason
         let selectedSymbolName: String
 

@@ -491,10 +491,10 @@ public struct TaskerWorkspacePreferences: Codable, Equatable {
         self.includeAllDayInAgenda = includeAllDayInAgenda
         self.includeAllDayInBusyStrip = includeAllDayInBusyStrip
         self.showCalendarEventsInTimeline = showCalendarEventsInTimeline
-        self.timelineRiseAndShineHour = timelineRiseAndShineHour
-        self.timelineRiseAndShineMinute = timelineRiseAndShineMinute
-        self.timelineWindDownHour = timelineWindDownHour
-        self.timelineWindDownMinute = timelineWindDownMinute
+        self.timelineRiseAndShineHour = Self.clampedHour(timelineRiseAndShineHour)
+        self.timelineRiseAndShineMinute = Self.clampedMinute(timelineRiseAndShineMinute)
+        self.timelineWindDownHour = Self.clampedHour(timelineWindDownHour)
+        self.timelineWindDownMinute = Self.clampedMinute(timelineWindDownMinute)
     }
 
     private enum CodingKeys: String, CodingKey {
@@ -522,10 +522,10 @@ public struct TaskerWorkspacePreferences: Codable, Equatable {
         includeAllDayInAgenda = try container.decodeIfPresent(Bool.self, forKey: .includeAllDayInAgenda) ?? true
         includeAllDayInBusyStrip = try container.decodeIfPresent(Bool.self, forKey: .includeAllDayInBusyStrip) ?? false
         showCalendarEventsInTimeline = try container.decodeIfPresent(Bool.self, forKey: .showCalendarEventsInTimeline) ?? false
-        timelineRiseAndShineHour = try container.decodeIfPresent(Int.self, forKey: .timelineRiseAndShineHour) ?? 8
-        timelineRiseAndShineMinute = try container.decodeIfPresent(Int.self, forKey: .timelineRiseAndShineMinute) ?? 0
-        timelineWindDownHour = try container.decodeIfPresent(Int.self, forKey: .timelineWindDownHour) ?? 22
-        timelineWindDownMinute = try container.decodeIfPresent(Int.self, forKey: .timelineWindDownMinute) ?? 0
+        timelineRiseAndShineHour = Self.clampedHour(try container.decodeIfPresent(Int.self, forKey: .timelineRiseAndShineHour) ?? 8)
+        timelineRiseAndShineMinute = Self.clampedMinute(try container.decodeIfPresent(Int.self, forKey: .timelineRiseAndShineMinute) ?? 0)
+        timelineWindDownHour = Self.clampedHour(try container.decodeIfPresent(Int.self, forKey: .timelineWindDownHour) ?? 22)
+        timelineWindDownMinute = Self.clampedMinute(try container.decodeIfPresent(Int.self, forKey: .timelineWindDownMinute) ?? 0)
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -552,10 +552,10 @@ public struct TaskerWorkspacePreferences: Codable, Equatable {
             includeAllDayInAgenda: includeAllDayInAgenda,
             includeAllDayInBusyStrip: includeAllDayInBusyStrip,
             showCalendarEventsInTimeline: showCalendarEventsInTimeline,
-            timelineRiseAndShineHour: timelineRiseAndShineHour,
-            timelineRiseAndShineMinute: timelineRiseAndShineMinute,
-            timelineWindDownHour: timelineWindDownHour,
-            timelineWindDownMinute: timelineWindDownMinute
+            timelineRiseAndShineHour: Self.clampedHour(timelineRiseAndShineHour),
+            timelineRiseAndShineMinute: Self.clampedMinute(timelineRiseAndShineMinute),
+            timelineWindDownHour: Self.clampedHour(timelineWindDownHour),
+            timelineWindDownMinute: Self.clampedMinute(timelineWindDownMinute)
         )
     }
 
@@ -569,6 +569,14 @@ public struct TaskerWorkspacePreferences: Codable, Equatable {
         }
 
         return deduped.sorted()
+    }
+
+    private static func clampedHour(_ value: Int) -> Int {
+        max(0, min(23, value))
+    }
+
+    private static func clampedMinute(_ value: Int) -> Int {
+        max(0, min(59, value))
     }
 }
 

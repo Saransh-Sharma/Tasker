@@ -257,6 +257,7 @@ struct TaskScheduleNormalizationResult: Equatable {
     let scheduledStartAt: Date?
     let scheduledEndAt: Date?
     let isAllDay: Bool
+    let explicitAllDayIntent: Bool?
     let clearScheduledStartAt: Bool
     let clearScheduledEndAt: Bool
 }
@@ -270,6 +271,7 @@ enum TaskScheduleNormalizer {
         existingScheduledEndAt: Date?,
         estimatedDuration: TimeInterval?,
         preserveExistingDuration: Bool,
+        allDayIntent: Bool? = nil,
         calendar: Calendar = .current
     ) -> TaskScheduleNormalizationResult {
         guard let deadlineDate else {
@@ -278,17 +280,19 @@ enum TaskScheduleNormalizer {
                 scheduledStartAt: nil,
                 scheduledEndAt: nil,
                 isAllDay: false,
+                explicitAllDayIntent: allDayIntent,
                 clearScheduledStartAt: true,
                 clearScheduledEndAt: true
             )
         }
 
-        if isDateOnly(deadlineDate, calendar: calendar) {
+        if allDayIntent == true {
             return TaskScheduleNormalizationResult(
-                dueDate: deadlineDate,
+                dueDate: calendar.startOfDay(for: deadlineDate),
                 scheduledStartAt: nil,
                 scheduledEndAt: nil,
                 isAllDay: true,
+                explicitAllDayIntent: true,
                 clearScheduledStartAt: true,
                 clearScheduledEndAt: true
             )
@@ -311,6 +315,7 @@ enum TaskScheduleNormalizer {
             scheduledStartAt: deadlineDate,
             scheduledEndAt: deadlineDate.addingTimeInterval(resolvedDuration),
             isAllDay: false,
+            explicitAllDayIntent: allDayIntent,
             clearScheduledStartAt: false,
             clearScheduledEndAt: false
         )
