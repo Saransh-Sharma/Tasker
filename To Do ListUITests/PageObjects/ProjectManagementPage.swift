@@ -13,22 +13,36 @@ class ProjectManagementPage {
 
     private let app: XCUIApplication
 
+    private var unifiedView: XCUIElement {
+        app.otherElements["settings.lifeManagement.view"]
+    }
+
+    private var legacyView: XCUIElement {
+        app.otherElements[AccessibilityIdentifiers.ProjectManagement.view]
+    }
+
+    private var unifiedNavigationBar: XCUIElement {
+        app.navigationBars["Life Management"]
+    }
+
+    private var legacyNavigationBar: XCUIElement {
+        app.navigationBars[AccessibilityIdentifiers.ProjectManagement.navigationBar]
+    }
+
     // MARK: - Elements
 
     var view: XCUIElement {
-        let unifiedView = app.otherElements["settings.lifeManagement.view"]
         if unifiedView.exists {
             return unifiedView
         }
-        return app.otherElements[AccessibilityIdentifiers.ProjectManagement.view]
+        return legacyView
     }
 
     var navigationBar: XCUIElement {
-        let unifiedBar = app.navigationBars["Life Management"]
-        if unifiedBar.exists {
-            return unifiedBar
+        if unifiedNavigationBar.exists {
+            return unifiedNavigationBar
         }
-        return app.navigationBars[AccessibilityIdentifiers.ProjectManagement.navigationBar]
+        return legacyNavigationBar
     }
 
     var backButton: XCUIElement {
@@ -113,11 +127,22 @@ class ProjectManagementPage {
     /// Tap add project button
     @discardableResult
     func tapAddProject() -> NewProjectPage {
-        let button = addProjectButton
-        button.tap()
-
         let addProjectAction = app.buttons["Add Project"]
-        if addProjectAction.waitForExistence(timeout: 2) {
+        let unifiedAddMenu = app.buttons["settings.lifeManagement.addMenu"]
+        if unifiedAddMenu.waitForExistence(timeout: 2) {
+            unifiedAddMenu.tap()
+            if addProjectAction.waitForExistence(timeout: 2) {
+                addProjectAction.tap()
+            }
+            return NewProjectPage(app: app)
+        }
+
+        let button = addProjectButton
+        if button.waitForExistence(timeout: 2) {
+            button.tap()
+        }
+
+        if addProjectAction.exists {
             addProjectAction.tap()
         }
         return NewProjectPage(app: app)
@@ -196,7 +221,16 @@ class ProjectManagementPage {
     /// Verify project management screen is displayed
     @discardableResult
     func verifyIsDisplayed(timeout: TimeInterval = 5) -> Bool {
-        return view.waitForExistence(timeout: timeout) || navigationBar.waitForExistence(timeout: timeout)
+        if unifiedView.waitForExistence(timeout: timeout) {
+            return true
+        }
+        if legacyView.waitForExistence(timeout: timeout) {
+            return true
+        }
+        if unifiedNavigationBar.waitForExistence(timeout: timeout) {
+            return true
+        }
+        return legacyNavigationBar.waitForExistence(timeout: timeout)
     }
 
     /// Verify project exists with name

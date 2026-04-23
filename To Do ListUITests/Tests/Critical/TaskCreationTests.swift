@@ -85,6 +85,10 @@ class TaskCreationTests: BaseUITest {
         addTaskPage.openIconPicker()
         XCTAssertTrue(addTaskPage.iconPickerSheet.waitForExistence(timeout: 3), "Icon picker should open")
         addTaskPage.selectTaskIcon("stethoscope")
+        XCTAssertTrue(
+            addTaskPage.waitForIconButtonLabel(containing: "stethoscope", timeout: 2),
+            "Manual icon selection should be reflected before saving"
+        )
         addTaskPage.tapSave()
         XCTAssertTrue(addTaskPage.waitForDismissal(timeout: 3), "Add Task screen should dismiss after Save")
 

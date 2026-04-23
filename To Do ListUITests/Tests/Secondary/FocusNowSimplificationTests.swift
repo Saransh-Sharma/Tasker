@@ -243,6 +243,8 @@ final class FocusNowSimplificationTests: BaseUITest {
         XCTAssertGreaterThan(homePage.weeklySummaryCard.frame.minY, taskListBottom, "Weekly summary should render below the visible task list")
 
         let windowFrame = app.windows.firstMatch.frame
+        XCTAssertLessThanOrEqual(homePage.habitsSection.frame.minX, 2, "Habits section should start at the screen edge")
+        XCTAssertLessThanOrEqual(windowFrame.maxX - homePage.habitsSection.frame.maxX, 2, "Habits section should end at the screen edge")
         XCTAssertLessThanOrEqual(homePage.weeklySummaryCard.frame.minX, 2, "Weekly summary should start at the screen edge")
         XCTAssertLessThanOrEqual(windowFrame.maxX - homePage.weeklySummaryCard.frame.maxX, 2, "Weekly summary should end at the screen edge")
 

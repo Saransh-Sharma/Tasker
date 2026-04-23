@@ -75,7 +75,11 @@ class SettingsPage {
     /// Backward-compatible alias for older tests.
     @discardableResult
     func navigateToProjectManagement() -> ProjectManagementPage {
-        lifeManagementRow.tap()
+        if lifeManagementRow.waitForExistence(timeout: 2) {
+            lifeManagementRow.tap()
+        } else if projectsRow.waitForExistence(timeout: 2) {
+            projectsRow.tap()
+        }
         return ProjectManagementPage(app: app)
     }
 
@@ -109,7 +113,7 @@ class SettingsPage {
 
     /// Backward-compatible alias for older tests.
     func verifyProjectManagementRowExists() -> Bool {
-        return false
+        return lifeManagementRow.exists || projectsRow.exists
     }
 
     /// Backward-compatible alias for older tests.
@@ -150,6 +154,9 @@ class SettingsPage {
     @discardableResult
     func waitForProjectManagement(timeout: TimeInterval = 5) -> Bool {
         let lifeManagementView = app.descendants(matching: .any)["settings.lifeManagement.view"]
-        return lifeManagementView.waitForExistence(timeout: timeout)
+        if lifeManagementView.waitForExistence(timeout: timeout) {
+            return true
+        }
+        return app.otherElements[AccessibilityIdentifiers.ProjectManagement.view].waitForExistence(timeout: timeout)
     }
 }

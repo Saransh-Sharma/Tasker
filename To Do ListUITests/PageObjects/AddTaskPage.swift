@@ -301,6 +301,13 @@ class AddTaskPage {
         }
     }
 
+    @discardableResult
+    func waitForIconButtonLabel(containing value: String, timeout: TimeInterval = 2) -> Bool {
+        let predicate = NSPredicate(format: "label CONTAINS[c] %@", value)
+        let expectation = XCTNSPredicateExpectation(predicate: predicate, object: iconButton)
+        return XCTWaiter.wait(for: [expectation], timeout: timeout) == .completed
+    }
+
     func openScheduleTimePicker() {
         let row = scheduleTimeRow
         if row.waitForExistence(timeout: 3) {

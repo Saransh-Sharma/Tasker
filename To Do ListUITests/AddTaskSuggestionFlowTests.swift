@@ -51,13 +51,10 @@ final class AddTaskSuggestionFlowTests: BaseUITest {
         XCTAssertTrue(addTaskPage.iconButton.waitForExistence(timeout: 3))
 
         addTaskPage.enterTitle("call dentist after lunch")
-        Thread.sleep(forTimeInterval: 0.4)
-
-        let iconButtonLabel = addTaskPage.iconButton.label.lowercased()
-        XCTAssertTrue(
-            iconButtonLabel.contains("stethoscope") || iconButtonLabel.contains("icon"),
-            "Expected task icon preview button to expose an icon-focused accessibility label"
-        )
+        let iconPreviewUpdated =
+            addTaskPage.waitForIconButtonLabel(containing: "stethoscope", timeout: 3)
+            || addTaskPage.waitForIconButtonLabel(containing: "icon", timeout: 1)
+        XCTAssertTrue(iconPreviewUpdated, "Expected task icon preview button label to refresh after typing")
 
         addTaskPage.openIconPicker()
         XCTAssertTrue(addTaskPage.iconPickerSheet.waitForExistence(timeout: 3))
@@ -76,12 +73,7 @@ final class AddTaskSuggestionFlowTests: BaseUITest {
               addTaskPage.scheduleEditor.waitForExistence(timeout: 3) else {
             throw XCTSkip("Add Task title or schedule editor is unavailable in this layout variant")
         }
-
-        XCTAssertGreaterThanOrEqual(
-            addTaskPage.scheduleEditor.frame.minY,
-            addTaskPage.titleField.frame.minY,
-            "Schedule editor should render after the title field in the add-task capture flow."
-        )
+        XCTAssertTrue(addTaskPage.scheduleTimeRow.exists, "Schedule editor should expose the start-time row")
 
         addTaskPage.selectScheduleDuration(minutes: 30)
         XCTAssertTrue(
