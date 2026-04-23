@@ -146,7 +146,8 @@ public final class UpdateTaskDefinitionUseCase {
             existingScheduledStartAt: existingTask?.scheduledStartAt,
             existingScheduledEndAt: existingTask?.scheduledEndAt,
             estimatedDuration: request.estimatedDuration ?? existingTask?.estimatedDuration,
-            preserveExistingDuration: false
+            preserveExistingDuration: true,
+            allDayIntent: request.isAllDay
         )
 
         var normalized = request

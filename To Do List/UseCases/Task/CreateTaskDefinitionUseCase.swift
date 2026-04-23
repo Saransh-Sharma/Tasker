@@ -153,19 +153,62 @@ public final class CreateTaskDefinitionUseCase {
 
     private func normalizedRequestForStorage(_ request: CreateTaskDefinitionRequest) -> CreateTaskDefinitionRequest {
         var normalized = normalizedRequestForSeriesRoot(request)
-        guard normalized.scheduledStartAt == nil,
-              normalized.scheduledEndAt == nil,
-              normalized.isAllDay == false
-        else {
+
+        if normalized.isAllDay {
+            let allDayAnchorDate = normalized.dueDate ?? normalized.scheduledStartAt ?? normalized.scheduledEndAt
+            guard let allDayAnchorDate else {
+                normalized.scheduledStartAt = nil
+                normalized.scheduledEndAt = nil
+                return normalized
+            }
+            let schedule = TaskScheduleNormalizer.normalize(
+                deadlineDate: allDayAnchorDate,
+                existingScheduledStartAt: nil,
+                existingScheduledEndAt: nil,
+                estimatedDuration: normalized.estimatedDuration,
+                preserveExistingDuration: false,
+                allDayIntent: true
+            )
+            normalized.dueDate = schedule.dueDate
+            normalized.scheduledStartAt = nil
+            normalized.scheduledEndAt = nil
+            normalized.isAllDay = schedule.isAllDay
             return normalized
         }
 
+        let hasAnyScheduleInput = normalized.dueDate != nil
+            || normalized.scheduledStartAt != nil
+            || normalized.scheduledEndAt != nil
+        guard hasAnyScheduleInput else { return normalized }
+
+        if let start = normalized.scheduledStartAt,
+           let end = normalized.scheduledEndAt,
+           end > start {
+            normalized.dueDate = normalized.dueDate ?? start
+            normalized.isAllDay = false
+            return normalized
+        }
+
+        let fallbackDuration = max(normalized.estimatedDuration ?? (30 * 60), 60)
+        let startCandidate = normalized.scheduledStartAt
+            ?? normalized.dueDate
+            ?? normalized.scheduledEndAt.map { $0.addingTimeInterval(-fallbackDuration) }
+        guard let startCandidate else { return normalized }
+
+        let inferredDuration: TimeInterval?
+        if let scheduledEndAt = normalized.scheduledEndAt, scheduledEndAt > startCandidate {
+            inferredDuration = scheduledEndAt.timeIntervalSince(startCandidate)
+        } else {
+            inferredDuration = normalized.estimatedDuration
+        }
+
         let schedule = TaskScheduleNormalizer.normalize(
-            deadlineDate: normalized.dueDate,
+            deadlineDate: startCandidate,
             existingScheduledStartAt: nil,
             existingScheduledEndAt: nil,
-            estimatedDuration: normalized.estimatedDuration,
-            preserveExistingDuration: false
+            estimatedDuration: inferredDuration,
+            preserveExistingDuration: false,
+            allDayIntent: false
         )
         normalized.dueDate = schedule.dueDate
         normalized.scheduledStartAt = schedule.scheduledStartAt
@@ -364,7 +407,8 @@ private final class RecurringTaskMaterializer {
                         existingScheduledStartAt: rootTask.scheduledStartAt,
                         existingScheduledEndAt: rootTask.scheduledEndAt,
                         estimatedDuration: rootTask.estimatedDuration,
-                        preserveExistingDuration: true
+                        preserveExistingDuration: true,
+                        allDayIntent: rootTask.isAllDay ? true : nil
                     )
                     let request = CreateTaskDefinitionRequest(
                         id: UUID(),

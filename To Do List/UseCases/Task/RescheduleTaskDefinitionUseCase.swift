@@ -1,6 +1,17 @@
 import Foundation
 
 public final class RescheduleTaskDefinitionUseCase {
+    private enum RescheduleTaskError: LocalizedError {
+        case taskNotFound(UUID)
+
+        var errorDescription: String? {
+            switch self {
+            case .taskNotFound(let taskID):
+                return "Task not found for reschedule: \(taskID.uuidString)"
+            }
+        }
+    }
+
     private let updateTaskDefinition: UpdateTaskDefinitionUseCase
     private let repository: TaskDefinitionRepositoryProtocol
 
@@ -40,12 +51,17 @@ public final class RescheduleTaskDefinitionUseCase {
             case .failure(let error):
                 completion(.failure(error))
             case .success(let task):
+                guard let task else {
+                    completion(.failure(RescheduleTaskError.taskNotFound(taskID)))
+                    return
+                }
                 let schedule = TaskScheduleNormalizer.normalize(
                     deadlineDate: newDate,
-                    existingScheduledStartAt: task?.scheduledStartAt,
-                    existingScheduledEndAt: task?.scheduledEndAt,
-                    estimatedDuration: task?.estimatedDuration,
-                    preserveExistingDuration: true
+                    existingScheduledStartAt: task.scheduledStartAt,
+                    existingScheduledEndAt: task.scheduledEndAt,
+                    estimatedDuration: task.estimatedDuration,
+                    preserveExistingDuration: true,
+                    allDayIntent: task.isAllDay ? true : nil
                 )
                 let request = UpdateTaskDefinitionRequest(
                     id: taskID,
