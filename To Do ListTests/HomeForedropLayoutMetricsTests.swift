@@ -279,6 +279,44 @@ final class HomeForedropLayoutMetricsTests: XCTestCase {
         ])
     }
 
+    func testCompactTimelineLayoutPlanRendersOffWindowItemsAsRowsAroundAnchors() {
+        let calendar = Self.fixedCalendar
+        let wake = Self.date(calendar: calendar, year: 2026, month: 4, day: 21, hour: 8, minute: 0)
+        let sleep = Self.date(calendar: calendar, year: 2026, month: 4, day: 21, hour: 22, minute: 0)
+        let beforeStart = Self.date(calendar: calendar, year: 2026, month: 4, day: 21, hour: 1, minute: 51)
+        let focusStart = Self.date(calendar: calendar, year: 2026, month: 4, day: 21, hour: 11, minute: 30)
+        let afterStart = Self.date(calendar: calendar, year: 2026, month: 4, day: 21, hour: 23, minute: 15)
+        let projection = Self.makeProjection(
+            calendar: calendar,
+            wake: wake,
+            sleep: sleep,
+            timedItems: [
+                Self.makeTimedItem(id: "focus", title: "Focus", start: focusStart, end: focusStart.addingTimeInterval(30 * 60))
+            ],
+            beforeWakeItems: [
+                Self.makeTimedItem(id: "late-night", title: "Late night", start: beforeStart, end: beforeStart.addingTimeInterval(15 * 60))
+            ],
+            afterSleepItems: [
+                Self.makeTimedItem(id: "after-sleep", title: "After sleep", start: afterStart, end: afterStart.addingTimeInterval(15 * 60))
+            ],
+            gaps: [
+                TimelineGap(startDate: focusStart.addingTimeInterval(30 * 60), endDate: sleep, suggestedTaskCount: 0)
+            ],
+            layoutMode: .compact
+        )
+
+        let plan = TimelineCompactLayoutPlan(projection: projection)
+
+        XCTAssertEqual(Self.compactEntryIDs(plan.entries), [
+            "item:task:late-night",
+            "anchor:wake",
+            "item:task:focus",
+            "gap:\(focusStart.addingTimeInterval(30 * 60).timeIntervalSince1970)-\(sleep.timeIntervalSince1970)",
+            "anchor:sleep",
+            "item:task:after-sleep"
+        ])
+    }
+
     func testCompactTimelineRailUsesSubtleContinuousConnector() {
         let spec = TimelineRailPresentationSpec.compactConnector
 
@@ -313,6 +351,39 @@ final class HomeForedropLayoutMetricsTests: XCTestCase {
 
         XCTAssertLessThan(compactPlan.contentHeight, 520)
         XCTAssertLessThan(compactPlan.contentHeight, expandedPlan.contentHeight * 0.57)
+    }
+
+    func testExpandedTimelineCompressesOffWindowRowsAroundOperationalWindow() {
+        let calendar = Self.fixedCalendar
+        let wake = Self.date(calendar: calendar, year: 2026, month: 4, day: 21, hour: 8, minute: 0)
+        let sleep = Self.date(calendar: calendar, year: 2026, month: 4, day: 21, hour: 22, minute: 0)
+        let beforeStart = Self.date(calendar: calendar, year: 2026, month: 4, day: 21, hour: 1, minute: 51)
+        let operationalStart = Self.date(calendar: calendar, year: 2026, month: 4, day: 21, hour: 11, minute: 30)
+        let afterStart = Self.date(calendar: calendar, year: 2026, month: 4, day: 21, hour: 23, minute: 15)
+        let projection = Self.makeProjection(
+            calendar: calendar,
+            wake: wake,
+            sleep: sleep,
+            timedItems: [
+                Self.makeTimedItem(id: "focus", title: "Focus", start: operationalStart, end: operationalStart.addingTimeInterval(30 * 60))
+            ],
+            beforeWakeItems: [
+                Self.makeTimedItem(id: "late-night", title: "Late night", start: beforeStart, end: beforeStart.addingTimeInterval(15 * 60))
+            ],
+            afterSleepItems: [
+                Self.makeTimedItem(id: "after-sleep", title: "After sleep", start: afterStart, end: afterStart.addingTimeInterval(15 * 60))
+            ],
+            layoutMode: .expanded
+        )
+
+        let plan = TimelineCanvasLayoutPlan(projection: projection, pointsPerMinute: 1, minimumItemHeight: 44, calendar: calendar)
+        let positionedItems = Dictionary(uniqueKeysWithValues: plan.items.map { ($0.item.id, $0) })
+
+        XCTAssertLessThan(positionedItems["task:late-night"]?.y ?? .greatestFiniteMagnitude, plan.wakeAnchor.y)
+        XCTAssertEqual(plan.wakeAnchor.y, 128, accuracy: 0.001)
+        XCTAssertGreaterThan(positionedItems["task:after-sleep"]?.y ?? 0, plan.sleepAnchor.y)
+        XCTAssertEqual(positionedItems["task:focus"]?.y ?? 0, plan.wakeAnchor.y + 210, accuracy: 0.001)
+        XCTAssertLessThan(plan.contentHeight, 1_150)
     }
 
     func testTimelineSurfaceMetricsUsePadCompactSpecificCompactValues() {
@@ -653,6 +724,8 @@ private extension HomeForedropLayoutMetricsTests {
         wake: Date,
         sleep: Date,
         timedItems: [TimelinePlanItem],
+        beforeWakeItems: [TimelinePlanItem] = [],
+        afterSleepItems: [TimelinePlanItem] = [],
         gaps: [TimelineGap] = [],
         layoutMode: TimelineDayLayoutMode = .expanded
     ) -> TimelineDayProjection {
@@ -662,6 +735,8 @@ private extension HomeForedropLayoutMetricsTests {
             inboxItems: [],
             timedItems: timedItems,
             gaps: gaps,
+            beforeWakeSummaryItems: beforeWakeItems,
+            afterSleepSummaryItems: afterSleepItems,
             layoutMode: layoutMode,
             wakeAnchor: TimelineAnchorItem(id: "wake", title: "Wake", time: wake, systemImageName: "sun.max.fill"),
             sleepAnchor: TimelineAnchorItem(id: "sleep", title: "Sleep", time: sleep, systemImageName: "moon.fill"),
