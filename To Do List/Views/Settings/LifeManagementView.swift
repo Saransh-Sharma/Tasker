@@ -101,6 +101,16 @@ struct LifeManagementView: View {
         return id
     }
 
+    private var selectedAreaIsArchived: Bool {
+        guard let selectedAreaID else { return false }
+        return viewModel.areaRow(for: selectedAreaID)?.lifeArea.isArchived == true
+    }
+
+    private var selectedProjectAllowsChildHabits: Bool {
+        guard let selectedProjectID, let row = viewModel.projectRow(for: selectedProjectID) else { return false }
+        return row.project.isArchived == false && row.lifeArea?.isArchived != true
+    }
+
     var body: some View {
         Group {
             if layoutClass.isPad {
@@ -256,7 +266,14 @@ struct LifeManagementView: View {
 
             lifeManagementPrimaryActionCard
 
-            if hasTreeContent == false && viewModel.isLoading == false {
+            if isSearching && hasTreeContent == false {
+                emptyStateCard(
+                    title: "No matches",
+                    body: "Try a different search across areas, projects, and habits.",
+                    actionTitle: nil,
+                    action: nil
+                )
+            } else if hasTreeContent == false && viewModel.isLoading == false {
                 emptyStateCard(
                     title: "Start with a life area",
                     body: "Create an area first, then place projects and habits inside it.",
@@ -264,13 +281,6 @@ struct LifeManagementView: View {
                     action: {
                         viewModel.beginCreateLifeArea()
                     }
-                )
-            } else if isSearching && hasTreeContent == false {
-                emptyStateCard(
-                    title: "No matches",
-                    body: "Try a different search across areas, projects, and habits.",
-                    actionTitle: nil,
-                    action: nil
                 )
             } else {
                 ForEach(viewModel.treeSections) { section in
@@ -516,9 +526,11 @@ struct LifeManagementView: View {
                     Button("Add Project", systemImage: "folder.badge.plus") {
                         viewModel.beginCreateProject(prefillLifeAreaID: row.id)
                     }
+                    .disabled(row.lifeArea.isArchived || viewModel.isMutating)
                     Button("Add Habit", systemImage: "repeat") {
                         presentHabitComposer(prefill: AddHabitPrefillTemplate(title: "", lifeAreaID: row.id))
                     }
+                    .disabled(row.lifeArea.isArchived || viewModel.isMutating)
                     if row.isGeneral == false {
                         Button("Archive", systemImage: "archivebox") {
                             viewModel.archiveLifeArea(row.id)
@@ -551,6 +563,7 @@ struct LifeManagementView: View {
                             )
                         )
                     }
+                    .disabled(row.project.isArchived || row.lifeArea?.isArchived == true || viewModel.isMutating)
                     if row.isMoveLocked == false {
                         Button("Move Project", systemImage: "arrow.left.arrow.right") {
                             viewModel.beginMoveProject(row.id)
@@ -741,9 +754,11 @@ struct LifeManagementView: View {
                     Button("Add Project", systemImage: "folder.badge.plus") {
                         viewModel.beginCreateProject(prefillLifeAreaID: areaID)
                     }
+                    .disabled(selectedAreaIsArchived || viewModel.isMutating)
                     Button("Add Habit", systemImage: "repeat") {
                         presentHabitComposer(prefill: AddHabitPrefillTemplate(title: "", lifeAreaID: areaID))
                     }
+                    .disabled(selectedAreaIsArchived || viewModel.isMutating)
                 case .project(let projectID):
                     let lifeAreaID = viewModel.projectRow(for: projectID)?.project.lifeAreaID
                     Button("Add Habit", systemImage: "repeat") {
@@ -755,6 +770,7 @@ struct LifeManagementView: View {
                             )
                         )
                     }
+                    .disabled(selectedProjectAllowsChildHabits == false || viewModel.isMutating)
                 default:
                     Button("Add Area", systemImage: "square.grid.2x2") {
                         viewModel.beginCreateLifeArea()
@@ -1281,6 +1297,7 @@ private struct LifeManagementAreaDetailView: View {
                                             onBeginCreateProject(row.id)
                                         }
                                         .buttonStyle(.bordered)
+                                        .disabled(row.lifeArea.isArchived)
                                     }
 
                                     VStack(alignment: .leading, spacing: spacing.s8) {
@@ -1289,6 +1306,7 @@ private struct LifeManagementAreaDetailView: View {
                                             onBeginCreateProject(row.id)
                                         }
                                         .buttonStyle(.bordered)
+                                        .disabled(row.lifeArea.isArchived)
                                     }
                                     .frame(maxWidth: .infinity, alignment: .leading)
                                 }
@@ -1325,6 +1343,7 @@ private struct LifeManagementAreaDetailView: View {
                                             )
                                         }
                                         .buttonStyle(.bordered)
+                                        .disabled(row.lifeArea.isArchived)
                                     }
 
                                     VStack(alignment: .leading, spacing: spacing.s8) {
@@ -1338,6 +1357,7 @@ private struct LifeManagementAreaDetailView: View {
                                             )
                                         }
                                         .buttonStyle(.bordered)
+                                        .disabled(row.lifeArea.isArchived)
                                     }
                                     .frame(maxWidth: .infinity, alignment: .leading)
                                 }
@@ -1442,6 +1462,7 @@ private struct LifeManagementProjectDetailView: View {
         Group {
             if let snapshot {
                 let row = snapshot.row
+                let canAddLinkedHabits = row.project.isArchived == false && row.lifeArea?.isArchived != true
                 ScrollView {
                     VStack(spacing: spacing.s16) {
                         TaskerSettingsCard {
@@ -1492,6 +1513,7 @@ private struct LifeManagementProjectDetailView: View {
                                             )
                                         }
                                         .buttonStyle(.bordered)
+                                        .disabled(canAddLinkedHabits == false)
                                     }
 
                                     VStack(alignment: .leading, spacing: spacing.s8) {
@@ -1508,6 +1530,7 @@ private struct LifeManagementProjectDetailView: View {
                                             )
                                         }
                                         .buttonStyle(.bordered)
+                                        .disabled(canAddLinkedHabits == false)
                                     }
                                     .frame(maxWidth: .infinity, alignment: .leading)
                                 }
@@ -1708,7 +1731,7 @@ private struct LifeManagementAreaComposerView: View {
                         VStack(alignment: .leading, spacing: spacing.s16) {
                             LifeManagementComposerFieldLabel(
                                 title: "Accent",
-                                detail: "Choose from the same pastel palette used for habit accents."
+                                detail: "Choose from the same palette used for habit accents."
                             )
 
                             LifeManagementAreaSwatchPicker(

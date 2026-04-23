@@ -327,10 +327,12 @@ final class SettingsViewModel: ObservableObject {
         self.workspacePreferencesStore = workspacePreferencesStore
         self.calendarIntegrationService = calendarIntegrationService
         self.preferences = notificationPreferencesStore.load()
-        self.workspacePreferences = workspacePreferencesStore.load()
+        let loadedWorkspacePreferences = workspacePreferencesStore.load()
+        self.workspacePreferences = loadedWorkspacePreferences
         self.currentModelDisplayName = appManager.compactModelDisplayName(appManager.currentModelName ?? "")
         self.decorativeButtonEffectsEnabled = V2FeatureFlags.userDecorativeCTAEffectsEnabled
         self.homeBackdropNoiseAmount = V2FeatureFlags.homeBackdropNoiseAmount
+        self.showCalendarEventsInTimeline = loadedWorkspacePreferences.showCalendarEventsInTimeline
         bindCalendarService()
     }
 

@@ -327,8 +327,8 @@ struct SettingsRootView: View {
 
     private func timelineSection(baseIndex: Int, includeHorizontalPadding: Bool = true) -> some View {
         SettingsSectionView(
-            title: "Timeline",
-            subtitle: "Control timeline calendar overlays and daily start/end anchors.",
+            title: String(localized: "Timeline"),
+            subtitle: String(localized: "Control timeline calendar overlays and daily start/end anchors."),
             topPadding: sectionTopPadding,
             includeHorizontalPadding: includeHorizontalPadding
         ) {
@@ -336,8 +336,8 @@ struct SettingsRootView: View {
                 TaskerSettingsCard {
                     TaskerSettingsToggleRow(
                         iconName: "calendar.badge.clock",
-                        title: "Show calendar events in timeline",
-                        subtitle: "Affects Home timeline rows and weekly timeline markers. The calendar card stays unchanged.",
+                        title: String(localized: "Show calendar events in timeline"),
+                        subtitle: String(localized: "Affects Home timeline rows and weekly timeline markers. The calendar card stays unchanged."),
                         isOn: Binding(
                             get: { viewModel.showCalendarEventsInTimeline },
                             set: { viewModel.setShowCalendarEventsInTimeline($0) }
@@ -349,23 +349,18 @@ struct SettingsRootView: View {
                 .enhancedStaggeredAppearance(index: baseIndex)
 
                 TaskerSettingsFieldCard(
-                    title: "Timeline Anchors",
-                    subtitle: "Set the start and wind-down times shown in your Home timeline.",
-                    footer: "If Wind Down is earlier than Rise & Shine, the timeline carries into the next day.",
+                    title: String(localized: "Timeline Anchors"),
+                    subtitle: String(localized: "Set the start and wind-down times shown in your Home timeline."),
+                    footer: String(localized: "If Wind Down is earlier than Rise & Shine, the timeline carries into the next day."),
                     accessibilityIdentifier: "settings.timeline.anchors.card"
                 ) {
                     VStack(spacing: spacing.s12) {
                         HStack(spacing: spacing.s12) {
-                            Text("Rise & Shine")
+                            Text(String(localized: "Rise & Shine"))
                                 .font(.tasker(.caption1))
                                 .foregroundStyle(Color.tasker(.textSecondary))
 
                             Spacer()
-
-                            Text(viewModel.timelineRiseAndShineSummary)
-                                .font(.tasker(.caption1))
-                                .foregroundStyle(Color.tasker(.textSecondary))
-                                .accessibilityIdentifier("settings.timeline.riseAndShine.value")
 
                             DatePicker(
                                 "",
@@ -379,19 +374,15 @@ struct SettingsRootView: View {
                             .datePickerStyle(.compact)
                             .tint(Color.tasker(.accentPrimary))
                             .accessibilityIdentifier("settings.timeline.riseAndShine.picker")
+                            .accessibilityValue(viewModel.timelineRiseAndShineSummary)
                         }
 
                         HStack(spacing: spacing.s12) {
-                            Text("Wind Down")
+                            Text(String(localized: "Wind Down"))
                                 .font(.tasker(.caption1))
                                 .foregroundStyle(Color.tasker(.textSecondary))
 
                             Spacer()
-
-                            Text(viewModel.timelineWindDownSummary)
-                                .font(.tasker(.caption1))
-                                .foregroundStyle(Color.tasker(.textSecondary))
-                                .accessibilityIdentifier("settings.timeline.windDown.value")
 
                             DatePicker(
                                 "",
@@ -405,6 +396,7 @@ struct SettingsRootView: View {
                             .datePickerStyle(.compact)
                             .tint(Color.tasker(.accentPrimary))
                             .accessibilityIdentifier("settings.timeline.windDown.picker")
+                            .accessibilityValue(viewModel.timelineWindDownSummary)
                         }
                     }
                 }
