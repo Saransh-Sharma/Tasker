@@ -496,7 +496,7 @@ struct TaskerPersistentRuntimeInitializer {
             inbox.setValue(Date(), forKey: "modifiedDate")
             inbox.setValue(Date(), forKey: "updatedAt")
 
-            try backfillLifeAreaColorsIfNeeded(in: context)
+            let shouldMarkLifeAreaColorBackfill = try backfillLifeAreaColorsIfNeeded(in: context)
             try backfillTaskLifeAreaIDsIfNeeded(in: context)
             try backfillHabitRuntimeFieldsIfNeeded(in: context)
             try backfillOccurrenceKeysIfNeeded(in: context)
@@ -505,6 +505,9 @@ struct TaskerPersistentRuntimeInitializer {
 
             if context.hasChanges {
                 try context.save()
+            }
+            if shouldMarkLifeAreaColorBackfill {
+                UserDefaults.standard.set(true, forKey: LifeAreaColorMigration.backfillKey)
             }
         } catch {
             logError(
@@ -529,17 +532,16 @@ struct TaskerPersistentRuntimeInitializer {
         return try context.fetch(request).first
     }
 
-    private func backfillLifeAreaColorsIfNeeded(in context: NSManagedObjectContext) throws {
+    private func backfillLifeAreaColorsIfNeeded(in context: NSManagedObjectContext) throws -> Bool {
         let defaults = UserDefaults.standard
         guard defaults.bool(forKey: LifeAreaColorMigration.backfillKey) == false else {
-            return
+            return false
         }
 
         let request = NSFetchRequest<NSManagedObject>(entityName: "LifeArea")
         let lifeAreas = try context.fetch(request)
         guard lifeAreas.isEmpty == false else {
-            defaults.set(true, forKey: LifeAreaColorMigration.backfillKey)
-            return
+            return true
         }
 
         let now = Date()
@@ -585,7 +587,7 @@ struct TaskerPersistentRuntimeInitializer {
             )
         }
 
-        defaults.set(true, forKey: LifeAreaColorMigration.backfillKey)
+        return true
     }
 
     private func lifeAreaColorInputIsMissing(_ value: String?) -> Bool {

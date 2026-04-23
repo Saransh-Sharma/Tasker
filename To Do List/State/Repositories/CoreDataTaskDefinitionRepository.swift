@@ -204,7 +204,7 @@ enum TaskDefinitionMutationApplier {
         setAttribute("weeklyOutcomeID", value: request.weeklyOutcomeID, on: entity)
         setAttribute("deferredFromWeekStart", value: request.deferredFromWeekStart, on: entity)
         setAttribute("deferredCount", value: Int32(request.deferredCount), on: entity)
-        setAttribute("replanCount", value: Int32(request.replanCount), on: entity)
+        setAttribute("replanCount", value: Int32(max(0, request.replanCount)), on: entity)
         setAttribute("isComplete", value: false, on: entity)
         setAttribute("dateAdded", value: request.createdAt, on: entity)
         setAttribute("dateCompleted", value: nil, on: entity)
