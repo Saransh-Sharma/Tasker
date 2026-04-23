@@ -7658,30 +7658,18 @@ extension HomeViewModel {
         let workspacePreferences = workspacePreferencesProvider()
         let showCalendarEventsInTimeline = workspacePreferences.showCalendarEventsInTimeline
         let selectedDay = Calendar.current.startOfDay(for: selectedDate)
-        let wakeTime = timelineAnchorTime(
-            on: selectedDay,
-            hour: workspacePreferences.timelineRiseAndShineHour,
-            minute: workspacePreferences.timelineRiseAndShineMinute
-        )
-        var sleepTime = timelineAnchorTime(
-            on: selectedDay,
-            hour: workspacePreferences.timelineWindDownHour,
-            minute: workspacePreferences.timelineWindDownMinute
-        )
-        if sleepTime <= wakeTime {
-            sleepTime = Calendar.current.date(byAdding: .day, value: 1, to: sleepTime) ?? sleepTime
-        }
+        let anchorWindow = resolvedTimelineAnchorWindow(on: selectedDay, preferences: workspacePreferences)
         let wakeAnchor = TimelineAnchorItem(
             id: "wake",
             title: "Rise and shine",
-            time: wakeTime,
+            time: anchorWindow.wake,
             systemImageName: "alarm.fill",
             subtitle: "Start the day"
         )
         let sleepAnchor = TimelineAnchorItem(
             id: "sleep",
             title: "Wind down",
-            time: sleepTime,
+            time: anchorWindow.sleep,
             systemImageName: "moon.fill",
             subtitle: "Close the day"
         )
@@ -7698,7 +7686,11 @@ extension HomeViewModel {
                 && task.dueDate == nil
         }
         let taskIndexByID = timelineTaskUniverseByID()
-        let timedTaskItems = dayTasks.compactMap { timelinePlanItem(from: $0, on: selectedDay, taskIndexByID: taskIndexByID) }
+        let timedTaskItems = dayTasks.compactMap { task -> TimelinePlanItem? in
+            let item = timelinePlanItem(from: task, taskIndexByID: taskIndexByID)
+            guard item.isAllDay == false, item.startDate != nil else { return nil }
+            return item
+        }
         let calendarAllDayItems = showCalendarEventsInTimeline
             ? calendarSnapshot.selectedDayEvents
                 .filter(\.isAllDay)
@@ -7716,25 +7708,39 @@ extension HomeViewModel {
 
         let allDayItems = (allDayTasks.map { timelinePlanItem(from: $0, taskIndexByID: taskIndexByID) } + calendarAllDayItems)
         let inboxItems = inboxTasks.map { timelinePlanItem(from: $0, taskIndexByID: taskIndexByID) }
-        let timedItems = (timedTaskItems + calendarTimedItems)
+        let baseTimedItems = (timedTaskItems + calendarTimedItems)
             .sorted { lhs, rhs in
                 guard let lhsStart = lhs.startDate, let rhsStart = rhs.startDate else { return lhs.title < rhs.title }
                 if lhsStart != rhsStart { return lhsStart < rhsStart }
                 return (lhs.endDate ?? lhsStart) < (rhs.endDate ?? rhsStart)
             }
-        let gaps = timelineGaps(
-            between: timedItems,
+        let timedBuckets = partitionTimelineItems(
+            baseTimedItems,
+            wakeAnchor: wakeAnchor,
+            sleepAnchor: sleepAnchor
+        )
+        let now = Date()
+        let allOperationalGaps = timelineOperationalGaps(
+            between: timedBuckets.operationalItems,
             wakeAnchor: wakeAnchor,
             sleepAnchor: sleepAnchor,
             inboxCount: inboxItems.count
         )
+        let gaps = timelineGaps(
+            between: timedBuckets.operationalItems,
+            wakeAnchor: wakeAnchor,
+            sleepAnchor: sleepAnchor,
+            inboxCount: inboxItems.count,
+            selectedDate: selectedDate,
+            now: now
+        )
         let layoutMode = timelineDayLayoutMode(
-            timedItems: timedItems,
-            gaps: gaps,
+            timedItems: timedBuckets.operationalItems,
+            gaps: allOperationalGaps,
             wakeAnchor: wakeAnchor,
             sleepAnchor: sleepAnchor
         )
-        let activeItemID = timedItems.first(where: { $0.isActive(at: Date()) })?.id
+        let currentItemID = timedBuckets.allItems.first(where: { $0.isActive(at: now) })?.id
 
         return HomeTimelineSnapshot(
             selectedDate: selectedDate,
@@ -7743,13 +7749,19 @@ extension HomeViewModel {
                 date: selectedDate,
                 allDayItems: allDayItems,
                 inboxItems: inboxItems,
-                timedItems: timedItems,
+                timedItems: timedBuckets.operationalItems,
                 gaps: gaps,
+                operationalItems: timedBuckets.operationalItems,
+                beforeWakeSummaryItems: timedBuckets.beforeWakeItems,
+                afterSleepSummaryItems: timedBuckets.afterSleepItems,
+                bridgeItems: timedBuckets.bridgeItems,
+                actionableGaps: gaps,
                 layoutMode: layoutMode,
                 wakeAnchor: wakeAnchor,
                 sleepAnchor: sleepAnchor,
-                activeItemID: activeItemID,
-                currentTime: Date()
+                activeItemID: currentItemID,
+                currentItemID: currentItemID,
+                currentTime: now
             ),
             week: timelineWeekSummary(
                 weekStartsOn: workspacePreferences.weekStartsOn,
@@ -7762,6 +7774,25 @@ extension HomeViewModel {
     func timelineWeekStartsOn() -> Weekday {
         calendarIntegrationService.weekStartsOn
     }
+}
+
+struct TimelineWindowBuckets {
+    let allItems: [TimelinePlanItem]
+    let beforeWakeItems: [TimelinePlanItem]
+    let bridgeIntoWakeItems: [TimelinePlanItem]
+    let operationalItems: [TimelinePlanItem]
+    let bridgePastSleepItems: [TimelinePlanItem]
+    let afterSleepItems: [TimelinePlanItem]
+
+    var bridgeItems: [TimelinePlanItem] {
+        bridgeIntoWakeItems + bridgePastSleepItems
+    }
+}
+
+private func timelinePlanItemSort(lhs: TimelinePlanItem, rhs: TimelinePlanItem) -> Bool {
+    guard let lhsStart = lhs.startDate, let rhsStart = rhs.startDate else { return lhs.title < rhs.title }
+    if lhsStart != rhsStart { return lhsStart < rhsStart }
+    return (lhs.endDate ?? lhsStart) < (rhs.endDate ?? rhsStart)
 }
 
 extension HomeViewModel {
@@ -7800,13 +7831,19 @@ extension HomeViewModel {
         let calendar = Calendar.current
         let selectedDay = calendar.startOfDay(for: selectedDate)
         let selectedDayEnd = calendar.date(byAdding: .day, value: 1, to: selectedDay) ?? selectedDay
+        let workspacePreferences = workspacePreferencesProvider()
+        let previousDay = calendar.date(byAdding: .day, value: -1, to: selectedDay) ?? selectedDay
+        let previousWindow = resolvedTimelineAnchorWindow(on: previousDay, preferences: workspacePreferences, calendar: calendar)
 
         let filtered = timelineTaskCandidates().filter { task in
             let relevantDate = timelinePlacementDate(for: task)
             let isScheduledForDay = relevantDate.map { $0 < selectedDayEnd && $0 >= selectedDay } ?? false
+            let isPreviousNightContext = relevantDate.map { date in
+                date >= previousWindow.sleep && date < selectedDay
+            } ?? false
             let isAllDayForDay = timelineAllDayDate(for: task).map { calendar.isDate($0, inSameDayAs: selectedDate) } ?? false
             let isUnscheduledInbox = task.scheduledStartAt == nil && task.dueDate == nil && task.isComplete == false
-            return isScheduledForDay || isAllDayForDay || isUnscheduledInbox
+            return isScheduledForDay || isPreviousNightContext || isAllDayForDay || isUnscheduledInbox
         }
 
         return timelineSortedTasks(filtered)
@@ -7978,7 +8015,149 @@ extension HomeViewModel {
         )
     }
 
+    func resolvedTimelineAnchorWindow(
+        on day: Date,
+        preferences: TaskerWorkspacePreferences,
+        calendar: Calendar = .current
+    ) -> (wake: Date, sleep: Date) {
+        let fallbackWake = timelineAnchorTime(on: day, hour: 5, minute: 0)
+        let fallbackSleepBase = timelineAnchorTime(on: day, hour: 2, minute: 0)
+        let fallbackSleep = calendar.date(byAdding: .day, value: 1, to: fallbackSleepBase) ?? fallbackSleepBase
+
+        let wake = timelineAnchorTime(
+            on: day,
+            hour: preferences.timelineRiseAndShineHour,
+            minute: preferences.timelineRiseAndShineMinute
+        )
+        var sleep = timelineAnchorTime(
+            on: day,
+            hour: preferences.timelineWindDownHour,
+            minute: preferences.timelineWindDownMinute
+        )
+        if sleep <= wake {
+            sleep = calendar.date(byAdding: .day, value: 1, to: sleep) ?? sleep
+        }
+
+        let span = sleep.timeIntervalSince(wake)
+        guard span >= 60 * 60, span <= 22 * 60 * 60 else {
+            return (fallbackWake, fallbackSleep)
+        }
+        return (wake, sleep)
+    }
+
+    func partitionTimelineItems(
+        _ items: [TimelinePlanItem],
+        wakeAnchor: TimelineAnchorItem,
+        sleepAnchor: TimelineAnchorItem
+    ) -> TimelineWindowBuckets {
+        let decoratedItems = items.map { item in
+            decorateTimelineItem(item, wakeAnchor: wakeAnchor, sleepAnchor: sleepAnchor)
+        }
+        let beforeWakeItems = decoratedItems.filter { $0.windowRelation == .beforeWake }
+        let afterSleepItems = decoratedItems.filter { $0.windowRelation == .afterSleep }
+        let bridgeIntoWakeItems = decoratedItems.filter { $0.windowRelation == .bridgeIntoWake }
+        let bridgePastSleepItems = decoratedItems.filter { $0.windowRelation == .bridgePastSleep }
+        let operationalItems = (bridgeIntoWakeItems
+            + decoratedItems.filter { $0.windowRelation == .operational }
+            + bridgePastSleepItems)
+            .sorted(by: timelinePlanItemSort)
+
+        return TimelineWindowBuckets(
+            allItems: decoratedItems.sorted(by: timelinePlanItemSort),
+            beforeWakeItems: beforeWakeItems.sorted(by: timelinePlanItemSort),
+            bridgeIntoWakeItems: bridgeIntoWakeItems.sorted(by: timelinePlanItemSort),
+            operationalItems: operationalItems,
+            bridgePastSleepItems: bridgePastSleepItems.sorted(by: timelinePlanItemSort),
+            afterSleepItems: afterSleepItems.sorted(by: timelinePlanItemSort)
+        )
+    }
+
+    func decorateTimelineItem(
+        _ item: TimelinePlanItem,
+        wakeAnchor: TimelineAnchorItem,
+        sleepAnchor: TimelineAnchorItem
+    ) -> TimelinePlanItem {
+        guard let start = item.startDate, let end = item.endDate, end > start else {
+            return item
+        }
+
+        let overlapsWake = start < wakeAnchor.time && end > wakeAnchor.time
+        let overlapsSleep = start < sleepAnchor.time && end > sleepAnchor.time
+        let windowRelation: TimelineWindowRelation
+        if end <= wakeAnchor.time {
+            windowRelation = .beforeWake
+        } else if start >= sleepAnchor.time {
+            windowRelation = .afterSleep
+        } else if overlapsWake {
+            windowRelation = .bridgeIntoWake
+        } else if overlapsSleep {
+            windowRelation = .bridgePastSleep
+        } else {
+            windowRelation = .operational
+        }
+
+        return TimelinePlanItem(
+            id: item.id,
+            source: item.source,
+            taskID: item.taskID,
+            eventID: item.eventID,
+            title: item.title,
+            subtitle: item.subtitle,
+            startDate: item.startDate,
+            endDate: item.endDate,
+            isAllDay: item.isAllDay,
+            isComplete: item.isComplete,
+            tintHex: item.tintHex,
+            systemImageName: item.systemImageName,
+            accessoryText: item.accessoryText,
+            hasNotes: item.hasNotes,
+            isRecurring: item.isRecurring,
+            checklistSummary: item.checklistSummary,
+            showsProjectUtility: item.showsProjectUtility,
+            isMeetingLike: item.isMeetingLike,
+            windowRelation: windowRelation,
+            overlapsWake: overlapsWake,
+            overlapsSleep: overlapsSleep
+        )
+    }
+
     func timelineGaps(
+        between timedItems: [TimelinePlanItem],
+        wakeAnchor: TimelineAnchorItem,
+        sleepAnchor: TimelineAnchorItem,
+        inboxCount: Int,
+        selectedDate: Date,
+        now: Date,
+        actionableHorizon: TimeInterval = 4 * 60 * 60,
+        calendar: Calendar = .current
+    ) -> [TimelineGap] {
+        let gaps = timelineOperationalGaps(
+            between: timedItems,
+            wakeAnchor: wakeAnchor,
+            sleepAnchor: sleepAnchor,
+            inboxCount: inboxCount
+        )
+
+        let selectedDay = calendar.startOfDay(for: selectedDate)
+        let today = calendar.startOfDay(for: now)
+        if selectedDay < today {
+            return []
+        }
+        if selectedDay > today {
+            return gaps
+        }
+
+        let horizonEnd = now.addingTimeInterval(actionableHorizon)
+        return gaps.filter { gap in
+            guard gap.endDate > now else { return false }
+            if gap.startDate <= now && now < gap.endDate {
+                return true
+            }
+            return gap.startDate <= horizonEnd
+        }
+    }
+
+    func timelineOperationalGaps(
         between timedItems: [TimelinePlanItem],
         wakeAnchor: TimelineAnchorItem,
         sleepAnchor: TimelineAnchorItem,
@@ -7991,8 +8170,11 @@ extension HomeViewModel {
         }
 
         let sortedIntervals: [(start: Date, end: Date)] = timedItems.compactMap { item in
-            guard let start = item.startDate, let end = item.endDate else { return nil }
-            return (start: start, end: end)
+            guard let start = item.startDate, let end = item.endDate, end > start else { return nil }
+            let clippedStart = max(start, wakeAnchor.time)
+            let clippedEnd = min(end, sleepAnchor.time)
+            guard clippedEnd > clippedStart else { return nil }
+            return (start: clippedStart, end: clippedEnd)
         }
         .sorted { lhs, rhs in
             if lhs.start != rhs.start { return lhs.start < rhs.start }
