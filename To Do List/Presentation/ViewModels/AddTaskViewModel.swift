@@ -192,7 +192,7 @@ public final class AddTaskViewModel: ObservableObject {
     public var scheduleSummary: String {
         var parts: [String] = []
         if let scheduledStartAt {
-            parts.append(Self.scheduleRangeLabel(start: scheduledStartAt, end: scheduledEndAt))
+            parts.append(Self.scheduleDateTimeSummary(start: scheduledStartAt, end: scheduledEndAt))
         } else if let dueDate {
             parts.append(DateUtils.formatDate(dueDate))
         } else {
@@ -1286,7 +1286,7 @@ public final class AddTaskViewModel: ObservableObject {
         selectedCategory = template.category
         selectedContext = template.context
         estimatedDuration = template.estimatedDuration ?? Self.defaultEstimatedDuration
-        applyPrefillDueDate(template.dueDateIntent.resolvedDate())
+        applyPrefillDueDate(template.dueDateIntent.resolvedDate(now: nowProvider()))
         isCoreDetailsExpanded = (template.details?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false)
 
         var resolvedAllSelections = true
@@ -1397,6 +1397,12 @@ public final class AddTaskViewModel: ObservableObject {
             return formatter.string(from: start)
         }
         return "\(formatter.string(from: start)) - \(formatter.string(from: end))"
+    }
+
+    public static func scheduleDateTimeSummary(start: Date, end: Date?) -> String {
+        let dateText = DateUtils.formatDate(start)
+        let rangeText = scheduleRangeLabel(start: start, end: end)
+        return "\(dateText), \(rangeText)"
     }
 
     private static func clearingSubminuteComponents(_ date: Date, calendar: Calendar = .current) -> Date {

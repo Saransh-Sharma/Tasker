@@ -329,6 +329,7 @@ struct LifeManagementProjection {
     struct Snapshot: Equatable {
         let treeSections: [LifeManagementTreeSection]
         let searchExpandedAncestorNodeIDs: Set<String>
+        let searchExpandedSectionKinds: Set<LifeManagementTreeSectionKind>
     }
 
     struct Context: Equatable {
@@ -359,7 +360,11 @@ struct LifeManagementProjection {
         func snapshot(searchQuery: String) -> Snapshot {
             let normalizedQuery = searchQuery.trimmingCharacters(in: .whitespacesAndNewlines)
             guard normalizedQuery.isEmpty == false else {
-                return Snapshot(treeSections: sections, searchExpandedAncestorNodeIDs: [])
+                return Snapshot(
+                    treeSections: sections,
+                    searchExpandedAncestorNodeIDs: [],
+                    searchExpandedSectionKinds: []
+                )
             }
 
             var expandedAncestors = Set<String>()
@@ -368,7 +373,12 @@ struct LifeManagementProjection {
                 guard filteredNodes.isEmpty == false else { return nil }
                 return LifeManagementTreeSection(kind: section.kind, title: section.title, nodes: filteredNodes)
             }
-            return Snapshot(treeSections: filteredSections, searchExpandedAncestorNodeIDs: expandedAncestors)
+            let expandedSectionKinds = Set(filteredSections.map(\.kind))
+            return Snapshot(
+                treeSections: filteredSections,
+                searchExpandedAncestorNodeIDs: expandedAncestors,
+                searchExpandedSectionKinds: expandedSectionKinds
+            )
         }
     }
 
@@ -379,6 +389,8 @@ struct LifeManagementProjection {
         generalLifeAreaID: UUID?
     ) -> Context {
         let areasByID = Dictionary(uniqueKeysWithValues: lifeAreas.map { ($0.id, $0) })
+        let linkedHabitCountByProjectID = Dictionary(grouping: habitRows.compactMap(\.projectID), by: { $0 })
+            .mapValues(\.count)
 
         let projectRows = projectStats.map { entry in
             let resolvedAreaID = entry.project.lifeAreaID ?? generalLifeAreaID
@@ -389,21 +401,6 @@ struct LifeManagementProjection {
                 linkedHabitCount: 0
             )
         }
-        let projectsByID = Dictionary(uniqueKeysWithValues: projectRows.map { ($0.project.id, $0.project) })
-
-        let habitViewRows = habitRows.map { row in
-            let resolvedLifeAreaID = row.lifeAreaID ?? generalLifeAreaID
-            return LifeManagementHabitRow(
-                row: row,
-                lifeArea: resolvedLifeAreaID.flatMap { areasByID[$0] },
-                project: row.projectID.flatMap { projectsByID[$0] }
-            )
-        }
-
-        let allHabitRowsByProjectID = groupedHabitRowsByProjectID(habitViewRows)
-        let linkedHabitCountByProjectID = Dictionary(
-            uniqueKeysWithValues: projectRows.map { ($0.id, (allHabitRowsByProjectID[$0.id] ?? []).count) }
-        )
         let resolvedProjectRows = projectRows.map { row in
             LifeManagementProjectRow(
                 project: row.project,
@@ -423,6 +420,7 @@ struct LifeManagementProjection {
                 project: row.projectID.flatMap { resolvedProjectsByID[$0] }
             )
         }
+        let allHabitRowsByProjectID = groupedHabitRowsByProjectID(resolvedHabitRows)
         let habitRowsByID = Dictionary(uniqueKeysWithValues: resolvedHabitRows.map { ($0.id, $0) })
 
         let activeAreas = sortAreas(lifeAreas.filter { $0.isArchived == false })
@@ -519,20 +517,18 @@ struct LifeManagementProjection {
             )
         })
 
-        let allProjectCountByAreaID = Dictionary(
-            uniqueKeysWithValues: allAreas.map { area in
-                let count = resolvedProjectRows.filter { $0.lifeArea?.id == area.id }.count
-                return (area.id, count)
-            }
-        )
-        let allHabitCountByAreaID = Dictionary(
-            uniqueKeysWithValues: allAreas.map { area in
-                let count = resolvedHabitRows.filter { $0.lifeArea?.id == area.id }.count
-                return (area.id, count)
-            }
-        )
+        let allProjectRowsByAreaID = groupedProjectRowsByAreaID(resolvedProjectRows).mapValues(\.count)
+        let allHabitRowsByAreaID = groupedHabitRowsByAreaID(resolvedHabitRows).mapValues(\.count)
+        let allProjectCountByAreaID = Dictionary(uniqueKeysWithValues: allAreas.map { area in
+            (area.id, allProjectRowsByAreaID[area.id] ?? 0)
+        })
+        let allHabitCountByAreaID = Dictionary(uniqueKeysWithValues: allAreas.map { area in
+            (area.id, allHabitRowsByAreaID[area.id] ?? 0)
+        })
         let allLinkedHabitCountByProjectID = Dictionary(
-            uniqueKeysWithValues: resolvedProjectRows.map { ($0.id, (allHabitRowsByProjectID[$0.id] ?? []).count) }
+            uniqueKeysWithValues: resolvedProjectRows.map { row in
+                (row.id, allHabitRowsByProjectID[row.id]?.count ?? 0)
+            }
         )
 
         var ancestorNodeIDsBySelection: [LifeManagementSelection: Set<String>] = [:]
@@ -1381,6 +1377,9 @@ public final class LifeManagementViewModel: ObservableObject {
         let snapshot = projectionContext.snapshot(searchQuery: searchQuery)
         treeSections = snapshot.treeSections
         searchExpandedNodeIDs = snapshot.searchExpandedAncestorNodeIDs
+        if searchQuery.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false {
+            expandedSectionKinds.formUnion(snapshot.searchExpandedSectionKinds)
+        }
         areaRows = treeSections
             .first(where: { $0.kind == .active })?
             .nodes

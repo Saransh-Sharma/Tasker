@@ -542,6 +542,7 @@ public final class HomeViewModel: ObservableObject {
     private let analyticsService: AnalyticsServiceProtocol?
     private let aiSuggestionService: AISuggestionService?
     private let userDefaults: UserDefaults
+    private let workspacePreferencesProvider: () -> TaskerWorkspacePreferences
     private var cancellables = Set<AnyCancellable>()
     private var retainedInsightsViewModel: InsightsViewModel?
     private var retainedHomeSearchViewModel: LGSearchViewModel?
@@ -1152,6 +1153,7 @@ public final class HomeViewModel: ObservableObject {
         savedHomeViewRepository: SavedHomeViewRepositoryProtocol = UserDefaultsSavedHomeViewRepository(),
         analyticsService: AnalyticsServiceProtocol? = nil,
         aiSuggestionService: AISuggestionService? = nil,
+        workspacePreferencesProvider: @escaping () -> TaskerWorkspacePreferences = { TaskerWorkspacePreferencesStore.shared.load() },
         userDefaults: UserDefaults = .standard
     ) {
         self.useCaseCoordinator = useCaseCoordinator
@@ -1171,6 +1173,7 @@ public final class HomeViewModel: ObservableObject {
         self.savedHomeViewRepository = savedHomeViewRepository
         self.analyticsService = analyticsService
         self.aiSuggestionService = aiSuggestionService
+        self.workspacePreferencesProvider = workspacePreferencesProvider
         self.userDefaults = userDefaults
         self.homeCalendarSnapshot = Self.buildHomeCalendarSnapshot(
             from: calendarIntegrationService.snapshot,
@@ -6332,9 +6335,15 @@ public final class HomeViewModel: ObservableObject {
 
     public func finishNeedsReplanSession() {
         guard replanApplyingAction == nil else { return }
-        if skippedReplanCandidates.isEmpty == false {
+        if skippedReplanCandidates.isEmpty == false, replanScopedDate == nil {
             userDefaults.set(needsReplanDayKey(for: Date()), forKey: Self.needsReplanDismissedDayKey)
         }
+        resetReplanSession(keepPassiveCandidates: true)
+        refreshPassiveNeedsReplanState()
+    }
+
+    public func dismissNeedsReplanSessionUI() {
+        guard replanApplyingAction == nil else { return }
         resetReplanSession(keepPassiveCandidates: true)
         refreshPassiveNeedsReplanState()
     }
@@ -6429,7 +6438,7 @@ public final class HomeViewModel: ObservableObject {
     public func placeReplanCandidate(taskID: UUID, at startDate: Date) {
         guard replanApplyingAction == nil else { return }
         guard let candidate = activeReplanCandidates.first(where: { $0.task.id == taskID }) else { return }
-        let duration = candidate.task.scheduledEndAt?.timeIntervalSince(candidate.originalDate)
+        let duration = candidate.originalEndDate?.timeIntervalSince(candidate.originalDate)
             ?? candidate.task.estimatedDuration
             ?? (30 * 60)
         let roundedStart = roundedToNearestQuarterHour(startDate)
@@ -6557,7 +6566,6 @@ public final class HomeViewModel: ObservableObject {
                   task.recurrenceSeriesID == nil,
                   task.habitDefinitionID == nil,
                   task.isAllDay == false,
-                  timelineIsDateOnlyDueDate(task.dueDate) == false,
                   let originalDate = timelinePlacementDate(for: task) else {
                 return nil
             }
@@ -7647,7 +7655,7 @@ extension HomeViewModel {
         calendarSnapshot: HomeCalendarSnapshot,
         foredropAnchor: ForedropAnchor
     ) -> HomeTimelineSnapshot {
-        let workspacePreferences = TaskerWorkspacePreferencesStore.shared.load()
+        let workspacePreferences = workspacePreferencesProvider()
         let showCalendarEventsInTimeline = workspacePreferences.showCalendarEventsInTimeline
         let selectedDay = Calendar.current.startOfDay(for: selectedDate)
         let wakeTime = timelineAnchorTime(
@@ -7683,6 +7691,7 @@ extension HomeViewModel {
         }
         let inboxTasks = dayTasks.filter { task in
             task.isComplete == false
+                && task.projectID == ProjectConstants.inboxProjectID
                 && task.scheduledStartAt == nil
                 && task.scheduledEndAt == nil
                 && task.isAllDay == false
@@ -7864,7 +7873,7 @@ extension HomeViewModel {
                 replanEligibleCount: replanEligibleCount,
                 timedMarkers: (taskMarkers + eventMarkers).sorted(),
                 tintHexes: Array(tints.prefix(4)),
-                summaryText: timelineWeekSummaryText(taskCount: tasks.count, eventCount: eventMarkers.count, allDayCount: allDayCount),
+                summaryText: timelineWeekSummaryText(taskCount: taskMarkers.count, eventCount: eventMarkers.count, allDayCount: allDayCount),
                 loadLevel: timelineLoadLevel(for: totalCount)
             )
         }
@@ -7981,10 +7990,27 @@ extension HomeViewModel {
             let isSleepAnchor: Bool
         }
 
-        var boundaries: [Boundary] = [.init(start: wakeAnchor.time, end: wakeAnchor.time, isSleepAnchor: false)]
-        boundaries.append(contentsOf: timedItems.compactMap { item in
+        let sortedIntervals: [(start: Date, end: Date)] = timedItems.compactMap { item in
             guard let start = item.startDate, let end = item.endDate else { return nil }
-            return Boundary(start: start, end: end, isSleepAnchor: false)
+            return (start: start, end: end)
+        }
+        .sorted { lhs, rhs in
+            if lhs.start != rhs.start { return lhs.start < rhs.start }
+            return lhs.end < rhs.end
+        }
+
+        var mergedIntervals: [(start: Date, end: Date)] = []
+        for interval in sortedIntervals {
+            if let last = mergedIntervals.last, interval.start <= last.end {
+                mergedIntervals[mergedIntervals.count - 1] = (last.start, max(last.end, interval.end))
+            } else {
+                mergedIntervals.append(interval)
+            }
+        }
+
+        var boundaries: [Boundary] = [.init(start: wakeAnchor.time, end: wakeAnchor.time, isSleepAnchor: false)]
+        boundaries.append(contentsOf: mergedIntervals.map { interval in
+            Boundary(start: interval.start, end: interval.end, isSleepAnchor: false)
         })
         boundaries.append(.init(start: sleepAnchor.time, end: sleepAnchor.time, isSleepAnchor: true))
         boundaries.sort { lhs, rhs in lhs.start < rhs.start }
