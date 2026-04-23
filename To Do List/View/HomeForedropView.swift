@@ -2590,9 +2590,9 @@ struct HomeBackdropForedropRootView: View {
                 onViewToday: {
                     timelineViewModel.syncSelectedDate(Date())
                     viewModel.selectDate(Date())
-                    viewModel.finishNeedsReplanSession()
+                    viewModel.dismissNeedsReplanSessionUI()
                 },
-                onDone: { viewModel.finishNeedsReplanSession() }
+                onDone: { viewModel.dismissNeedsReplanSessionUI() }
             )
             .padding(.horizontal, spacing.s16)
             .padding(.bottom, layoutMetrics.safeAreaBottom + spacing.s20)
@@ -3020,7 +3020,7 @@ struct HomeBackdropForedropRootView: View {
                     if overlaySnapshot.replanState.launcherSummary?.count == 0 {
                         timelineViewModel.syncSelectedDate(Date())
                         viewModel.selectDate(Date())
-                        viewModel.finishNeedsReplanSession()
+                        viewModel.dismissNeedsReplanSessionUI()
                     } else {
                         viewModel.startNeedsReplanSession()
                     }
@@ -4074,13 +4074,16 @@ struct HomeBackdropForedropRootView: View {
     }
 
     private var calendarScheduleModuleCard: some View {
-        VStack(alignment: .leading, spacing: spacing.s8) {
-            calendarSummaryHeader
-            calendarModuleBody
+        Button(action: handleOpenScheduleAction) {
+            VStack(alignment: .leading, spacing: spacing.s8) {
+                calendarSummaryHeader
+                calendarModuleBody
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
+        .buttonStyle(.plain)
         .padding(.horizontal, spacing.s16)
         .padding(.vertical, spacing.s12)
-        .frame(maxWidth: .infinity, alignment: .leading)
         .background(
             RoundedRectangle(cornerRadius: TaskerTheme.CornerRadius.card, style: .continuous)
                 .fill(Color.tasker.surfacePrimary)
@@ -4089,15 +4092,10 @@ struct HomeBackdropForedropRootView: View {
             RoundedRectangle(cornerRadius: TaskerTheme.CornerRadius.card, style: .continuous)
                 .stroke(Color.tasker.strokeHairline.opacity(0.72), lineWidth: 1)
         )
-        .contentShape(Rectangle())
-        .onTapGesture {
-            handleOpenScheduleAction()
-        }
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("home.calendar.card")
         .accessibilityLabel(calendarCardAccessibilityLabel)
         .accessibilityHint(String(localized: "Opens the full calendar schedule"))
-        .accessibilityAddTraits(.isButton)
     }
 
     private var calendarSummaryHeader: some View {
@@ -4277,7 +4275,6 @@ struct HomeBackdropForedropRootView: View {
             VStack(alignment: .leading, spacing: spacing.s12) {
                 if hasPrimaryHabits {
                     habitsSectionCard
-                        .padding(.horizontal, spacing.s16)
                 }
 
                 if hasRecoveryHabits {

@@ -721,7 +721,7 @@ struct AddTaskScheduleQuickEditor: View {
 
             Button("Set") {
                 guard let minutes = Int(customDurationMinutes), minutes > 0 else { return }
-                viewModel.setEstimatedDuration(TimeInterval(minutes * 60))
+                viewModel.setEstimatedDuration(TimeInterval(minutes) * 60)
                 showCustomDuration = false
             }
             .font(.tasker(.callout).weight(.semibold))
@@ -1194,9 +1194,15 @@ private struct AddTaskIconPickerSheet: View {
                 Spacer(minLength: 0)
             }
 
-            if let autoSuggested = viewModel.autoSuggestedTaskIconSymbolName,
-               autoSuggested != viewModel.displayedTaskIconSymbolName {
-                Button("Use Suggested Icon", systemImage: autoSuggested) {
+            let shouldShowResetAction = viewModel.taskIconSelectionSource == .manual
+            if shouldShowResetAction {
+                let autoSuggested = viewModel.autoSuggestedTaskIconSymbolName
+                let title = {
+                    guard let autoSuggested else { return "Reset to Auto" }
+                    return autoSuggested == viewModel.displayedTaskIconSymbolName ? "Reset to Auto" : "Use Suggested Icon"
+                }()
+                let systemImage = autoSuggested ?? "wand.and.stars"
+                Button(title, systemImage: systemImage) {
                     TaskerFeedback.selection()
                     viewModel.resetTaskIconToAuto()
                 }

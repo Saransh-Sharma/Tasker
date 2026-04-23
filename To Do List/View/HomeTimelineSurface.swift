@@ -153,7 +153,9 @@ struct TimelineCanvasLayoutPlan: Equatable {
 
     func date(atY y: CGFloat, calendar: Calendar = .current) -> Date {
         let rawMinutes = max(0, (y - topInset) / pointsPerMinute)
-        let roundedMinutes = Int((rawMinutes / 15).rounded() * 15)
+        let visibleSpanMinutes = CGFloat(calendar.dateComponents([.minute], from: visibleStart, to: visibleEnd).minute ?? 0)
+        let clampedMinutes = min(rawMinutes, max(visibleSpanMinutes, 0))
+        let roundedMinutes = Int((clampedMinutes / 15).rounded() * 15)
         return calendar.date(byAdding: .minute, value: roundedMinutes, to: visibleStart) ?? visibleStart
     }
 
@@ -2763,7 +2765,7 @@ private struct TimelineWeekDayCell: View {
 
             if canStartReplan {
                 Button(action: onStartReplan) {
-                    Label("Replan \(day.replanEligibleCount)", systemImage: "arrow.triangle.2.circlepath")
+                    Label(replanActionTitle, systemImage: "arrow.triangle.2.circlepath")
                         .font(.tasker(.support).weight(.semibold))
                         .foregroundStyle(Color.tasker.textPrimary)
                         .lineLimit(1)
@@ -2773,7 +2775,7 @@ private struct TimelineWeekDayCell: View {
                         .background(Color.tasker.accentWash.opacity(0.72), in: Capsule())
                 }
                 .buttonStyle(.plain)
-                .accessibilityLabel("Replan \(day.replanEligibleCount) tasks")
+                .accessibilityLabel(replanAccessibilityLabel)
                 .accessibilityHint("Starts Plan the Day for this past date.")
             }
         }
@@ -2790,12 +2792,12 @@ private struct TimelineWeekDayCell: View {
         )
         .contextMenu {
             if canStartReplan {
-                Button("Replan \(day.replanEligibleCount) tasks", systemImage: "arrow.triangle.2.circlepath") {
+                Button(replanAccessibilityLabel, systemImage: "arrow.triangle.2.circlepath") {
                     onStartReplan()
                 }
             }
         }
-        .accessibilityAction(named: Text("Replan \(day.replanEligibleCount) tasks")) {
+        .accessibilityAction(named: Text(replanAccessibilityLabel)) {
             if canStartReplan {
                 onStartReplan()
             }
@@ -2863,5 +2865,13 @@ private struct TimelineWeekDayCell: View {
         let calendar = Calendar.current
         return day.replanEligibleCount > 0
             && calendar.startOfDay(for: day.date) < calendar.startOfDay(for: Date())
+    }
+
+    private var replanActionTitle: String {
+        day.replanEligibleCount == 1 ? "Replan 1 task" : "Replan \(day.replanEligibleCount) tasks"
+    }
+
+    private var replanAccessibilityLabel: String {
+        day.replanEligibleCount == 1 ? "Replan 1 task" : "Replan \(day.replanEligibleCount) tasks"
     }
 }

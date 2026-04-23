@@ -642,10 +642,22 @@ struct NeedsReplanSummary: Equatable {
             return "No unfinished past tasks need replanning."
         }
         if count == 1 {
-            return "1 unfinished task from yesterday"
+            if let newestDate, Calendar.current.isDateInYesterday(newestDate) {
+                return "1 unfinished task from yesterday"
+            }
+            if let newestDate {
+                return "1 unfinished task from \(newestDate.formatted(.dateTime.month().day()))"
+            }
+            return "1 unfinished task from a past day"
         }
         if dayCount <= 1 {
-            return "\(count) unfinished from yesterday"
+            if let newestDate, Calendar.current.isDateInYesterday(newestDate) {
+                return "\(count) unfinished from yesterday"
+            }
+            if let newestDate {
+                return "\(count) unfinished from \(newestDate.formatted(.dateTime.month().day()))"
+            }
+            return "\(count) unfinished from a past day"
         }
         if count >= 10 {
             return "\(count) unfinished - start with the most recent"
@@ -745,7 +757,7 @@ struct HomeReplanSessionState: Equatable {
 
     var placementCandidate: TimelinePlacementCandidate? {
         guard case .placement(let candidate, _) = phase else { return nil }
-        let duration = candidate.task.scheduledEndAt?.timeIntervalSince(candidate.originalDate)
+        let duration = candidate.originalEndDate?.timeIntervalSince(candidate.originalDate)
             ?? candidate.task.estimatedDuration
             ?? (30 * 60)
         return TimelinePlacementCandidate(
