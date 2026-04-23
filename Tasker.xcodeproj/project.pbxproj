@@ -3417,7 +3417,7 @@
 				SDKROOT = iphoneos;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
-				TASKER_MARKETING_VERSION = 1.8.7;
+					TASKER_MARKETING_VERSION = 1.8.9;
 			};
 			name = Debug;
 		};
@@ -3472,7 +3472,7 @@
 				SDKROOT = iphoneos;
 				SWIFT_COMPILATION_MODE = wholemodule;
 				SWIFT_OPTIMIZATION_LEVEL = "-O";
-				TASKER_MARKETING_VERSION = 1.8.7;
+					TASKER_MARKETING_VERSION = 1.8.9;
 				VALIDATE_PRODUCT = YES;
 			};
 			name = Release;
@@ -3494,7 +3494,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.8.9;
+					MARKETING_VERSION = "$(TASKER_MARKETING_VERSION)";
 				OTHER_LDFLAGS = (
 					"$(inherited)",
 					"-Wl,-no_warn_duplicate_libraries",
@@ -3524,7 +3524,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.8.9;
+					MARKETING_VERSION = "$(TASKER_MARKETING_VERSION)";
 				OTHER_LDFLAGS = (
 					"$(inherited)",
 					"-Wl,-no_warn_duplicate_libraries",
