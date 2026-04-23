@@ -366,6 +366,14 @@ struct TimelineChecklistSummary: Equatable, Hashable {
     var isEmpty: Bool { totalCount <= 0 }
 }
 
+enum TimelineWindowRelation: Equatable, Hashable {
+    case beforeWake
+    case bridgeIntoWake
+    case operational
+    case bridgePastSleep
+    case afterSleep
+}
+
 struct TimelinePlanItem: Equatable, Identifiable {
     let id: String
     let source: TimelinePlanItemSource
@@ -385,6 +393,9 @@ struct TimelinePlanItem: Equatable, Identifiable {
     let checklistSummary: TimelineChecklistSummary?
     let showsProjectUtility: Bool
     let isMeetingLike: Bool
+    let windowRelation: TimelineWindowRelation
+    let overlapsWake: Bool
+    let overlapsSleep: Bool
 
     init(
         id: String,
@@ -404,7 +415,10 @@ struct TimelinePlanItem: Equatable, Identifiable {
         isRecurring: Bool = false,
         checklistSummary: TimelineChecklistSummary? = nil,
         showsProjectUtility: Bool = false,
-        isMeetingLike: Bool = false
+        isMeetingLike: Bool = false,
+        windowRelation: TimelineWindowRelation = .operational,
+        overlapsWake: Bool = false,
+        overlapsSleep: Bool = false
     ) {
         self.id = id
         self.source = source
@@ -424,6 +438,9 @@ struct TimelinePlanItem: Equatable, Identifiable {
         self.checklistSummary = checklistSummary
         self.showsProjectUtility = showsProjectUtility
         self.isMeetingLike = isMeetingLike
+        self.windowRelation = windowRelation
+        self.overlapsWake = overlapsWake
+        self.overlapsSleep = overlapsSleep
     }
 
     var duration: TimeInterval? {
@@ -545,11 +562,91 @@ struct TimelineDayProjection: Equatable {
     let inboxItems: [TimelinePlanItem]
     let timedItems: [TimelinePlanItem]
     let gaps: [TimelineGap]
+    let operationalItems: [TimelinePlanItem]
+    let beforeWakeSummaryItems: [TimelinePlanItem]
+    let afterSleepSummaryItems: [TimelinePlanItem]
+    let bridgeItems: [TimelinePlanItem]
+    let actionableGaps: [TimelineGap]
     let layoutMode: TimelineDayLayoutMode
     let wakeAnchor: TimelineAnchorItem
     let sleepAnchor: TimelineAnchorItem
     let activeItemID: String?
+    let currentItemID: String?
     let currentTime: Date
+
+    init(
+        date: Date,
+        allDayItems: [TimelinePlanItem],
+        inboxItems: [TimelinePlanItem],
+        timedItems: [TimelinePlanItem],
+        gaps: [TimelineGap],
+        operationalItems: [TimelinePlanItem]? = nil,
+        beforeWakeSummaryItems: [TimelinePlanItem] = [],
+        afterSleepSummaryItems: [TimelinePlanItem] = [],
+        bridgeItems: [TimelinePlanItem]? = nil,
+        actionableGaps: [TimelineGap]? = nil,
+        layoutMode: TimelineDayLayoutMode,
+        wakeAnchor: TimelineAnchorItem,
+        sleepAnchor: TimelineAnchorItem,
+        activeItemID: String?,
+        currentItemID: String? = nil,
+        currentTime: Date
+    ) {
+        self.date = date
+        self.allDayItems = allDayItems
+        self.inboxItems = inboxItems
+        self.timedItems = timedItems
+        self.gaps = gaps
+        self.operationalItems = operationalItems ?? timedItems
+        self.beforeWakeSummaryItems = beforeWakeSummaryItems
+        self.afterSleepSummaryItems = afterSleepSummaryItems
+        self.bridgeItems = bridgeItems ?? timedItems.filter { $0.overlapsWake || $0.overlapsSleep }
+        self.actionableGaps = actionableGaps ?? gaps
+        self.layoutMode = layoutMode
+        self.wakeAnchor = wakeAnchor
+        self.sleepAnchor = sleepAnchor
+        self.activeItemID = activeItemID
+        self.currentItemID = currentItemID ?? activeItemID
+        self.currentTime = currentTime
+    }
+
+    var allTimedItems: [TimelinePlanItem] {
+        beforeWakeSummaryItems + timedItems + afterSleepSummaryItems
+    }
+
+    var beforeWakeItems: [TimelinePlanItem] {
+        beforeWakeSummaryItems
+    }
+
+    var afterSleepItems: [TimelinePlanItem] {
+        afterSleepSummaryItems
+    }
+
+    func displayStartDate(for item: TimelinePlanItem) -> Date? {
+        guard let start = item.startDate else { return nil }
+        switch item.windowRelation {
+        case .beforeWake, .afterSleep:
+            return start
+        case .bridgeIntoWake:
+            return wakeAnchor.time
+        case .operational, .bridgePastSleep:
+            return max(start, wakeAnchor.time)
+        }
+    }
+
+    func layoutInterval(for item: TimelinePlanItem) -> (start: Date, end: Date)? {
+        guard let start = item.startDate, let end = item.endDate, end > start else { return nil }
+        let clippedStart = max(start, wakeAnchor.time)
+        let clippedEnd = min(end, sleepAnchor.time)
+
+        switch item.windowRelation {
+        case .beforeWake, .afterSleep:
+            return (start, end)
+        case .bridgeIntoWake, .operational, .bridgePastSleep:
+            guard clippedEnd > clippedStart else { return nil }
+            return (clippedStart, clippedEnd)
+        }
+    }
 }
 
 enum TimelineRowKind: Equatable, Hashable {

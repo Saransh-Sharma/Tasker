@@ -104,18 +104,40 @@ struct TimelineCanvasLayoutPlan: Equatable {
         self.topInset = topInset
         self.bottomInset = bottomInset
 
-        let wakeY: CGFloat = topInset
-        let sleepY = topInset + Self.yPosition(for: end, start: start, pointsPerMinute: pointsPerMinute, calendar: calendar)
+        let compressedRowStride = minimumItemHeight + 24
+        let beforeWakeItems = projection.beforeWakeItems.sorted {
+            ($0.startDate ?? .distantPast) < ($1.startDate ?? .distantPast)
+        }
+        let afterSleepItems = projection.afterSleepItems.sorted {
+            ($0.startDate ?? .distantPast) < ($1.startDate ?? .distantPast)
+        }
+        let beforeBandHeight = CGFloat(beforeWakeItems.count) * compressedRowStride
+        let wakeY = topInset + beforeBandHeight + (beforeWakeItems.isEmpty ? 0 : 24)
+        let sleepY = wakeY + Self.yPosition(for: end, start: start, pointsPerMinute: pointsPerMinute, calendar: calendar)
         self.wakeAnchor = PositionedAnchor(anchor: projection.wakeAnchor, y: wakeY)
         self.sleepAnchor = PositionedAnchor(anchor: projection.sleepAnchor, y: sleepY)
 
-        let candidates = projection.timedItems.compactMap { item -> Candidate? in
-            guard let startDate = item.startDate else { return nil }
-            let inferredEnd = item.endDate ?? startDate.addingTimeInterval(item.duration ?? (30 * 60))
+        let beforeCandidates = beforeWakeItems.enumerated().compactMap { index, item -> Candidate? in
+            guard item.startDate != nil else { return nil }
+            let renderedHeight = max(timelineCapsuleHeight(for: item.duration), minimumItemHeight)
+            let compressedMinute = CGFloat(index) * 10 - CGFloat(max(beforeWakeItems.count, 1)) * 10
+            return Candidate(
+                item: item,
+                startMinute: compressedMinute,
+                endMinute: compressedMinute + 1,
+                y: topInset + CGFloat(index) * compressedRowStride,
+                height: renderedHeight
+            )
+        }
+
+        let operationalCandidates = projection.timedItems.compactMap { item -> Candidate? in
+            guard let interval = projection.layoutInterval(for: item) else { return nil }
+            let startDate = interval.start
+            let inferredEnd = interval.end
             let clampedEnd = max(inferredEnd, startDate.addingTimeInterval(60))
             let startMinute = Self.minuteOffset(for: startDate, start: start, calendar: calendar)
             let endMinute = max(Self.minuteOffset(for: clampedEnd, start: start, calendar: calendar), startMinute + 1)
-            let y = topInset + (startMinute * pointsPerMinute)
+            let y = wakeY + (startMinute * pointsPerMinute)
             let renderedHeight = max((endMinute - startMinute) * pointsPerMinute, minimumItemHeight)
             return Candidate(
                 item: item,
@@ -125,6 +147,21 @@ struct TimelineCanvasLayoutPlan: Equatable {
                 height: renderedHeight
             )
         }
+
+        let afterCandidates = afterSleepItems.enumerated().compactMap { index, item -> Candidate? in
+            guard item.startDate != nil else { return nil }
+            let renderedHeight = max(timelineCapsuleHeight(for: item.duration), minimumItemHeight)
+            let compressedMinute = 100_000 + CGFloat(index) * 10
+            return Candidate(
+                item: item,
+                startMinute: compressedMinute,
+                endMinute: compressedMinute + 1,
+                y: sleepY + 24 + CGFloat(index) * compressedRowStride,
+                height: renderedHeight
+            )
+        }
+
+        let candidates = (beforeCandidates + operationalCandidates + afterCandidates)
         .sorted {
             if $0.startMinute == $1.startMinute {
                 return $0.endMinute < $1.endMinute
@@ -141,7 +178,7 @@ struct TimelineCanvasLayoutPlan: Equatable {
             guard gapHeight > 0 else { return nil }
             return PositionedGap(
                 gap: gap,
-                startY: topInset + (startMinute * pointsPerMinute),
+                startY: wakeY + (startMinute * pointsPerMinute),
                 height: gapHeight
             )
         }
@@ -152,7 +189,7 @@ struct TimelineCanvasLayoutPlan: Equatable {
     }
 
     func date(atY y: CGFloat, calendar: Calendar = .current) -> Date {
-        let rawMinutes = max(0, (y - topInset) / pointsPerMinute)
+        let rawMinutes = max(0, (y - wakeAnchor.y) / pointsPerMinute)
         let visibleSpanMinutes = CGFloat(calendar.dateComponents([.minute], from: visibleStart, to: visibleEnd).minute ?? 0)
         let clampedMinutes = min(rawMinutes, max(visibleSpanMinutes, 0))
         let roundedMinutes = Int((clampedMinutes / 15).rounded() * 15)
@@ -301,16 +338,23 @@ struct TimelineCompactLayoutPlan: Equatable {
         self.topInset = topInset
         self.bottomInset = bottomInset
 
+        let beforeWakeItems = projection.beforeWakeItems.sorted {
+            ($0.startDate ?? .distantPast) < ($1.startDate ?? .distantPast)
+        }
         let sortedItems = projection.timedItems.sorted {
             ($0.startDate ?? .distantPast) < ($1.startDate ?? .distantPast)
         }
-        let sortedGaps = projection.gaps.sorted { $0.startDate < $1.startDate }
+        let afterSleepItems = projection.afterSleepItems.sorted {
+            ($0.startDate ?? .distantPast) < ($1.startDate ?? .distantPast)
+        }
+        let sortedGaps = projection.actionableGaps.sorted { $0.startDate < $1.startDate }
 
         var itemIndex = 0
         var gapIndex = 0
-        var resolvedEntries: [Entry] = [
-            .anchor(.init(anchor: projection.wakeAnchor, rowHeight: resolvedAnchorHeight))
-        ]
+        var resolvedEntries = beforeWakeItems.map {
+            Self.itemEntry(for: $0, minimumRowHeight: resolvedItemHeight)
+        }
+        resolvedEntries.append(.anchor(.init(anchor: projection.wakeAnchor, rowHeight: resolvedAnchorHeight)))
 
         while itemIndex < sortedItems.count || gapIndex < sortedGaps.count {
             if itemIndex >= sortedItems.count {
@@ -334,6 +378,9 @@ struct TimelineCompactLayoutPlan: Equatable {
         }
 
         resolvedEntries.append(.anchor(.init(anchor: projection.sleepAnchor, rowHeight: resolvedAnchorHeight)))
+        resolvedEntries.append(contentsOf: afterSleepItems.map {
+            Self.itemEntry(for: $0, minimumRowHeight: resolvedItemHeight)
+        })
         self.entries = resolvedEntries
     }
 
@@ -419,10 +466,10 @@ private struct TimelineDayPresentation {
             dayRelation = .today
         }
 
-        let sortedItems = projection.timedItems.sorted {
+        let sortedItems = projection.allTimedItems.sorted {
             ($0.startDate ?? .distantPast) < ($1.startDate ?? .distantPast)
         }
-        let sortedGaps = projection.gaps.sorted { $0.startDate < $1.startDate }
+        let sortedGaps = projection.actionableGaps.sorted { $0.startDate < $1.startDate }
 
         let currentItem = sortedItems.first(where: { item in
             guard let start = item.startDate, let end = item.endDate, item.isComplete == false else { return false }
@@ -435,10 +482,10 @@ private struct TimelineDayPresentation {
 
         currentBoundaryDate = dayRelation == .today ? min(max(now, projection.wakeAnchor.time), projection.sleepAnchor.time) : nil
         currentTintHex = currentItem?.tintHex
-            ?? projection.timedItems.first(where: { $0.isComplete && $0.tintHex != nil })?.tintHex
+            ?? projection.allTimedItems.first(where: { $0.isComplete && $0.tintHex != nil })?.tintHex
 
         var resolvedTaskRows: [String: TimelineRenderableRow] = [:]
-        for item in projection.timedItems {
+        for item in projection.allTimedItems {
             let state = TimelineDayPresentation.resolveTaskState(
                 item: item,
                 now: now,
@@ -480,7 +527,7 @@ private struct TimelineDayPresentation {
         }
 
         var resolvedGapRows: [String: TimelineRenderableRow] = [:]
-        for gap in projection.gaps {
+        for gap in projection.actionableGaps {
             let state: TimelineTemporalState
             switch dayRelation {
             case .today:
@@ -1750,7 +1797,7 @@ struct DailyTimelineCanvas: View {
             return nil
         }
         let minutes = CGFloat(Calendar.current.dateComponents([.minute], from: plan.visibleStart, to: now).minute ?? 0)
-        return plan.topInset + (minutes * plan.pointsPerMinute)
+        return plan.wakeAnchor.y + (minutes * plan.pointsPerMinute)
     }
 
     @ViewBuilder
@@ -2314,13 +2361,20 @@ private struct DailyTimelineAgendaView: View {
     }
 
     private var entries: [Entry] {
+        let beforeWakeItems = projection.beforeWakeItems.sorted {
+            ($0.startDate ?? .distantPast) < ($1.startDate ?? .distantPast)
+        }
         let items = projection.timedItems.sorted {
             ($0.startDate ?? .distantPast) < ($1.startDate ?? .distantPast)
         }
-        let gaps = projection.gaps.sorted { $0.startDate < $1.startDate }
+        let afterSleepItems = projection.afterSleepItems.sorted {
+            ($0.startDate ?? .distantPast) < ($1.startDate ?? .distantPast)
+        }
+        let gaps = projection.actionableGaps.sorted { $0.startDate < $1.startDate }
         var itemIndex = 0
         var gapIndex = 0
-        var result: [Entry] = [.anchor(projection.wakeAnchor)]
+        var result = beforeWakeItems.map(Entry.item)
+        result.append(.anchor(projection.wakeAnchor))
 
         while itemIndex < items.count || gapIndex < gaps.count {
             if itemIndex >= items.count {
@@ -2343,6 +2397,7 @@ private struct DailyTimelineAgendaView: View {
         }
 
         result.append(.anchor(projection.sleepAnchor))
+        result.append(contentsOf: afterSleepItems.map(Entry.item))
         return result
     }
 
