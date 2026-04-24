@@ -1832,8 +1832,11 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
         let tokens = TaskerThemeManager.shared.tokens(for: currentLayoutClass)
         let spacing = tokens.spacing
         let defaultBottomBarHeight = (spacing.s12 * 2) + 56 + 6
+        let shouldShowBottomBar = currentLayoutClass == .phone
+            && faceCoordinator.shellPhase == .interactive
+            && overlayStore.snapshot.replanState.suppressesBottomBar == false
         let bottomOverlayObstruction = currentLayoutClass == .phone
-            ? max(measuredBottomBarHeight, defaultBottomBarHeight)
+            ? (shouldShowBottomBar ? max(measuredBottomBarHeight, defaultBottomBarHeight) : 0)
             : 0
         let taskListBottomInset = currentLayoutClass == .phone
             ? bottomOverlayObstruction + spacing.s16
