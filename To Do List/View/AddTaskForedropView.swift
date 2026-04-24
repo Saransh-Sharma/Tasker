@@ -550,8 +550,10 @@ struct AddTaskScheduleQuickEditor: View {
         )
         .accessibilityIdentifier(AddTaskScheduleAccessibilityID.editor)
         .sheet(isPresented: $showDatePicker) {
+            let todayStart = Calendar.current.startOfDay(for: Date())
+            let initialDate = max(viewModel.scheduledStartAt ?? Date(), todayStart)
             AddTaskScheduleDatePickerSheet(
-                initialDate: viewModel.scheduledStartAt ?? Date(),
+                initialDate: initialDate,
                 onSet: { date in
                     viewModel.setScheduledDate(date)
                 }

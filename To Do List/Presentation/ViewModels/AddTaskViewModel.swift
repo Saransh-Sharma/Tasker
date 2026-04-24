@@ -803,6 +803,7 @@ public final class AddTaskViewModel: ObservableObject {
     @discardableResult
     public func validateInput() -> Bool {
         validationErrors = []
+        let now = nowProvider()
         
         // Validate task name
         if taskName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
@@ -811,13 +812,15 @@ public final class AddTaskViewModel: ObservableObject {
             validationErrors.append(.taskNameTooLong)
         }
         
-        // Validate due date (nil is valid — "Someday")
-        if let dueDate, dueDate < Calendar.current.startOfDay(for: Date()) {
+        // Validate due date/schedule (nil is valid — "Someday")
+        if let scheduledStartAt, scheduledStartAt < now {
+            validationErrors.append(.pastDueDate)
+        } else if let dueDate, dueDate < Calendar.current.startOfDay(for: now) {
             validationErrors.append(.pastDueDate)
         }
         
         // Validate reminder time
-        if hasReminder && reminderTime < Date() {
+        if hasReminder && reminderTime < now {
             validationErrors.append(.pastReminderTime)
         }
         
