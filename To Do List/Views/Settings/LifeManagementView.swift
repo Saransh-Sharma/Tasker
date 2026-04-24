@@ -631,8 +631,7 @@ struct LifeManagementView: View {
 
     @ViewBuilder
     private func detailDestination(for selection: LifeManagementSelection) -> some View {
-        switch selection {
-        case .area(let areaID):
+        if case .area(let areaID) = selection {
             LifeManagementAreaDetailView(
                 snapshot: viewModel.areaDetailSnapshot(for: areaID),
                 onEditArea: { areaID in
@@ -661,7 +660,7 @@ struct LifeManagementView: View {
             .onAppear {
                 viewModel.selectNode(selection)
             }
-        case .project(let projectID):
+        } else if case .project(let projectID) = selection {
             LifeManagementProjectDetailView(
                 snapshot: viewModel.projectDetailSnapshot(for: projectID),
                 onEditProject: { projectID in
@@ -690,21 +689,8 @@ struct LifeManagementView: View {
             .onAppear {
                 viewModel.selectNode(selection)
             }
-        case .habit(let habitID):
-            if let row = viewModel.habitRow(for: habitID) {
-                Color.clear
-                    .onAppear {
-                        selectedHabitRow = row.row
-                        viewModel.selectNode(selection)
-                    }
-            } else {
-                Color.tasker(.bgCanvas)
-                    .overlay {
-                        Text("This habit is no longer available.")
-                            .font(.tasker(.body))
-                            .foregroundStyle(Color.tasker(.textSecondary))
-                    }
-            }
+        } else {
+            EmptyView()
         }
     }
 
