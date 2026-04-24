@@ -377,23 +377,23 @@ class NewProjectPage {
     }
 
     private func resolveSaveButton(timeout: TimeInterval) -> XCUIElement? {
-        var saveCandidates: [XCUIElement] = [
+        let saveCandidates: [XCUIElement] = [
             app.buttons[AccessibilityIdentifiers.NewProject.saveButton],
             app.buttons["Add Project"],
             app.buttons["Save Project"],
             app.buttons["Create"],
             app.buttons["Save"]
         ]
-        let navButtons = app.navigationBars.firstMatch.buttons
-        if navButtons.count > 0 {
-            saveCandidates.append(navButtons.element(boundBy: navButtons.count - 1))
-        }
         if let existing = saveCandidates.first(where: \.exists) {
             return existing
         }
         for candidate in saveCandidates where candidate.waitForExistence(timeout: timeout) {
             return candidate
         }
-        return nil
+        let navButtons = app.navigationBars.firstMatch.buttons
+        guard navButtons.count > 0 else { return nil }
+        let trailingNavButton = navButtons.element(boundBy: navButtons.count - 1)
+        guard trailingNavButton.waitForExistence(timeout: timeout) else { return nil }
+        return trailingNavButton
     }
 }
