@@ -7116,6 +7116,33 @@ final class AddTaskViewModelLifeAreaDedupeTests: XCTestCase {
         waitForExpectations(timeout: 1.0)
     }
 
+    func testValidateInputRejectsScheduledStartEarlierThanInjectedNow() {
+        let calendar = Calendar.current
+        let now = calendar.date(from: DateComponents(year: 2030, month: 5, day: 20, hour: 10, minute: 0, second: 0))!
+        let viewModel = makeAddTaskScheduleViewModel(now: now)
+        let pastStart = now.addingTimeInterval(-5 * 60)
+        viewModel.taskName = "Timed task"
+        viewModel.scheduledStartAt = pastStart
+        viewModel.dueDate = pastStart
+        viewModel.hasReminder = false
+
+        XCTAssertFalse(viewModel.validateInput())
+        XCTAssertTrue(viewModel.validationErrors.contains(.pastDueDate))
+    }
+
+    func testValidateInputUsesInjectedClockForReminderValidation() {
+        let calendar = Calendar.current
+        let now = calendar.date(from: DateComponents(year: 2030, month: 5, day: 20, hour: 10, minute: 0, second: 0))!
+        let viewModel = makeAddTaskScheduleViewModel(now: now)
+        viewModel.taskName = "Reminder task"
+        viewModel.clearSchedule()
+        viewModel.hasReminder = true
+        viewModel.reminderTime = now.addingTimeInterval(-60)
+
+        XCTAssertFalse(viewModel.validateInput())
+        XCTAssertTrue(viewModel.validationErrors.contains(.pastReminderTime))
+    }
+
     func testAddTaskViewModelStartsInAnyAreaStateAfterLifeAreasLoad() {
         let health = LifeArea(id: UUID(), name: "Health", color: "#00AA00", icon: "heart")
         let repository = CapturingLifeAreaRepository(storedAreas: [health])

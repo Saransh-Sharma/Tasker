@@ -348,6 +348,45 @@ final class HomeViewModelPersistenceTests: XCTestCase {
         defaults.removePersistentDomain(forName: suiteName)
     }
 
+    func testDismissNeedsReplanLaterKeepsTodayPassiveTrayVisibleAfterScopedLauncher() {
+        let suiteName = "HomeViewModelPersistenceTests.ScopeDismiss.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        let calendar = Calendar.current
+        let yesterday = calendar.date(byAdding: .day, value: -1, to: calendar.startOfDay(for: Date()))!
+        let twoDaysAgo = calendar.date(byAdding: .day, value: -2, to: calendar.startOfDay(for: Date()))!
+        let olderTask = makeDefinition(
+            title: "Older",
+            start: calendar.date(bySettingHour: 11, minute: 0, second: 0, of: twoDaysAgo)!
+        )
+        let yesterdayTask = makeDefinition(
+            title: "Yesterday",
+            start: calendar.date(bySettingHour: 11, minute: 0, second: 0, of: yesterday)!
+        )
+        let viewModel = HomeViewModel(
+            useCaseCoordinator: UseCaseCoordinator(
+                taskRepository: HomeViewModelMockTaskRepository(tasks: [olderTask, yesterdayTask]),
+                projectRepository: HomeViewModelMockProjectRepository(projects: [Project.createInbox()])
+            ),
+            userDefaults: defaults
+        )
+        waitForMainQueueFlush()
+
+        viewModel.openNeedsReplanLauncher(for: twoDaysAgo)
+        guard case .launcher = viewModel.homeReplanState.phase else {
+            defaults.removePersistentDomain(forName: suiteName)
+            return XCTFail("Expected scoped needs replan launcher")
+        }
+
+        viewModel.dismissNeedsReplanLater()
+
+        guard case .trayVisible(let summary) = viewModel.homeReplanState.phase else {
+            defaults.removePersistentDomain(forName: suiteName)
+            return XCTFail("Dismissing a scoped launcher should not hide today's passive tray")
+        }
+        XCTAssertEqual(summary.count, 2)
+        defaults.removePersistentDomain(forName: suiteName)
+    }
+
     func testDefaultReplanPlacementDaySwitchesAtFivePM() {
         let suiteName = "HomeViewModelPersistenceTests.Cutoff.\(UUID().uuidString)"
         let defaults = UserDefaults(suiteName: suiteName)!
@@ -398,6 +437,21 @@ final class HomeViewModelPersistenceTests: XCTestCase {
         XCTAssertEqual(restored.scheduledEndAt, end)
         XCTAssertFalse(restored.isAllDay)
         XCTAssertEqual(restored.replanCount, 3)
+    }
+
+    func testAssistantSnapshotDecodesLegacyPayloadWithoutReplanCount() throws {
+        let task = TaskDefinition(title: "Legacy Snapshot")
+        let snapshot = AssistantTaskSnapshot(task: task)
+        let encoded = try JSONEncoder().encode(snapshot)
+        var jsonObject = try XCTUnwrap(JSONSerialization.jsonObject(with: encoded) as? [String: Any])
+        jsonObject.removeValue(forKey: "replanCount")
+        let legacyPayload = try JSONSerialization.data(withJSONObject: jsonObject)
+
+        let decoded = try JSONDecoder().decode(AssistantTaskSnapshot.self, from: legacyPayload)
+
+        XCTAssertEqual(decoded.id, snapshot.id)
+        XCTAssertEqual(decoded.title, snapshot.title)
+        XCTAssertEqual(decoded.replanCount, 0)
     }
 
     func testNeedsReplanBottomBarSuppressionByPhase() {
