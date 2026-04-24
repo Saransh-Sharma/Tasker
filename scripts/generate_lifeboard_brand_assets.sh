@@ -45,6 +45,13 @@ resize_png() {
   sips -z "${size}" "${size}" "${source_png}" --out "${output}" >/dev/null
 }
 
+png_has_alpha() {
+  local file="$1"
+  local has_alpha
+  has_alpha="$(sips -g hasAlpha "${file}" 2>/dev/null | awk '/hasAlpha:/ {print $2}' | tr '[:upper:]' '[:lower:]')"
+  [[ "${has_alpha}" == "yes" ]]
+}
+
 generate_icon_set() {
   local set_dir="$1"
   local -a targets=(
@@ -77,6 +84,25 @@ generate_icon_set() {
 
 generate_icon_set "${ICON_SET_MAIN}"
 generate_icon_set "${ICON_SET_WHITE}"
+
+validate_icon_set_opaque() {
+  local set_dir="$1"
+  local failed=0
+  while IFS= read -r icon_path; do
+    if png_has_alpha "${icon_path}"; then
+      echo "Generated icon contains alpha channel (not allowed): ${icon_path}" >&2
+      failed=1
+    fi
+  done < <(find "${set_dir}" -maxdepth 1 -type f -name '*.png' | sort)
+
+  if [[ "${failed}" -ne 0 ]]; then
+    echo "Aborting because generated app icons must be opaque." >&2
+    exit 1
+  fi
+}
+
+validate_icon_set_opaque "${ICON_SET_MAIN}"
+validate_icon_set_opaque "${ICON_SET_WHITE}"
 
 resize_png 64 "${IN_APP_LOGO_SET}/LifeBoardLogo@1x.png"
 resize_png 128 "${IN_APP_LOGO_SET}/LifeBoardLogo@2x.png"
