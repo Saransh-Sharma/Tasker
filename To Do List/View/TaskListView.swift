@@ -199,6 +199,7 @@ struct TaskListView: View {
     let overdueTasks: [TaskDefinition]
     let inlineCompletedTasks: [TaskDefinition]
     let projects: [Project]
+    let lifeAreas: [LifeArea]
     let doneTimelineTasks: [TaskDefinition]
     let tagNameByID: [UUID: String]
     let activeQuickView: HomeQuickView?
@@ -253,6 +254,7 @@ struct TaskListView: View {
         overdueTasks: [TaskDefinition],
         inlineCompletedTasks: [TaskDefinition] = [],
         projects: [Project],
+        lifeAreas: [LifeArea] = [],
         doneTimelineTasks: [TaskDefinition] = [],
         tagNameByID: [UUID: String] = [:],
         activeQuickView: HomeQuickView? = nil,
@@ -299,6 +301,7 @@ struct TaskListView: View {
         self.overdueTasks = overdueTasks
         self.inlineCompletedTasks = inlineCompletedTasks
         self.projects = projects
+        self.lifeAreas = lifeAreas
         self.doneTimelineTasks = doneTimelineTasks
         self.tagNameByID = tagNameByID
         self.activeQuickView = activeQuickView
@@ -510,6 +513,8 @@ struct TaskListView: View {
                 let sectionView = HomeListSectionView(
                     section: section,
                     tagNameByID: tagNameByID,
+                    projectsByID: projectsByID,
+                    lifeAreasByID: lifeAreasByID,
                     todayXPSoFar: todayXPSoFar,
                     isGamificationV2Enabled: isGamificationV2Enabled,
                     isTaskDragEnabled: isTaskDragEnabled,
@@ -900,6 +905,22 @@ struct TaskListView: View {
         return UUID(uuidString: "00000000-0000-0000-0000-\(tail)") ?? ProjectConstants.inboxProjectID
     }
 
+    private var projectsByID: [UUID: Project] {
+        Dictionary(projects.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
+    }
+
+    private var lifeAreasByID: [UUID: LifeArea] {
+        Dictionary(lifeAreas.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
+    }
+
+    private func taskRowAccentHex(for row: HomeTodayRow) -> String? {
+        HomeTaskTintResolver.rowAccentHex(
+            for: row,
+            projectsByID: projectsByID,
+            lifeAreasByID: lifeAreasByID
+        )
+    }
+
     @ViewBuilder
     private func agendaTailItemView(_ item: HomeAgendaTailItem) -> some View {
         switch item {
@@ -989,6 +1010,7 @@ struct TaskListView: View {
                         HomeListRowView(
                             row: row,
                             tagNameByID: tagNameByID,
+                            accentHex: taskRowAccentHex(for: row),
                             todayXPSoFar: todayXPSoFar,
                             isGamificationV2Enabled: isGamificationV2Enabled,
                             isTaskDragEnabled: false,
@@ -1159,6 +1181,8 @@ private struct OverdueGroupedSectionView: View {
                             ForEach(Array(group.tasks.enumerated()), id: \.element.id) { taskIndex, task in
                             TaskRowView(
                                 task: task,
+                                fallbackIconSymbolName: group.project.icon.systemImageName,
+                                accentHex: group.project.color.hexString,
                                 showTypeBadge: false,
                                 isInOverdueSection: true,
                                 tagNameByID: tagNameByID,

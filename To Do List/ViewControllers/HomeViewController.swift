@@ -354,6 +354,543 @@ struct HomeCalendarSnapshot: Equatable {
     )
 }
 
+enum TimelinePlanItemSource: Equatable {
+    case task
+    case calendarEvent
+}
+
+struct TimelineChecklistSummary: Equatable, Hashable {
+    let completedCount: Int
+    let totalCount: Int
+
+    var isEmpty: Bool { totalCount <= 0 }
+}
+
+enum TimelineWindowRelation: Equatable, Hashable {
+    case beforeWake
+    case bridgeIntoWake
+    case operational
+    case bridgePastSleep
+    case afterSleep
+}
+
+struct TimelinePlanItem: Equatable, Identifiable {
+    let id: String
+    let source: TimelinePlanItemSource
+    let taskID: UUID?
+    let eventID: String?
+    let title: String
+    let subtitle: String?
+    let startDate: Date?
+    let endDate: Date?
+    let isAllDay: Bool
+    let isComplete: Bool
+    let tintHex: String?
+    let systemImageName: String
+    let accessoryText: String?
+    let hasNotes: Bool
+    let isRecurring: Bool
+    let checklistSummary: TimelineChecklistSummary?
+    let showsProjectUtility: Bool
+    let isMeetingLike: Bool
+    let windowRelation: TimelineWindowRelation
+    let overlapsWake: Bool
+    let overlapsSleep: Bool
+
+    init(
+        id: String,
+        source: TimelinePlanItemSource,
+        taskID: UUID?,
+        eventID: String?,
+        title: String,
+        subtitle: String?,
+        startDate: Date?,
+        endDate: Date?,
+        isAllDay: Bool,
+        isComplete: Bool,
+        tintHex: String?,
+        systemImageName: String,
+        accessoryText: String?,
+        hasNotes: Bool = false,
+        isRecurring: Bool = false,
+        checklistSummary: TimelineChecklistSummary? = nil,
+        showsProjectUtility: Bool = false,
+        isMeetingLike: Bool = false,
+        windowRelation: TimelineWindowRelation = .operational,
+        overlapsWake: Bool = false,
+        overlapsSleep: Bool = false
+    ) {
+        self.id = id
+        self.source = source
+        self.taskID = taskID
+        self.eventID = eventID
+        self.title = title
+        self.subtitle = subtitle
+        self.startDate = startDate
+        self.endDate = endDate
+        self.isAllDay = isAllDay
+        self.isComplete = isComplete
+        self.tintHex = tintHex
+        self.systemImageName = systemImageName
+        self.accessoryText = accessoryText
+        self.hasNotes = hasNotes
+        self.isRecurring = isRecurring
+        self.checklistSummary = checklistSummary
+        self.showsProjectUtility = showsProjectUtility
+        self.isMeetingLike = isMeetingLike
+        self.windowRelation = windowRelation
+        self.overlapsWake = overlapsWake
+        self.overlapsSleep = overlapsSleep
+    }
+
+    var duration: TimeInterval? {
+        guard let startDate, let endDate else { return nil }
+        return max(0, endDate.timeIntervalSince(startDate))
+    }
+
+    func isActive(at date: Date) -> Bool {
+        guard let startDate, let endDate, isComplete == false else { return false }
+        return startDate <= date && endDate > date
+    }
+}
+
+enum TimelineGapAction: String, Equatable {
+    case addTask
+    case scheduleInbox
+    case planBlock
+    case dismiss
+
+    var title: String {
+        switch self {
+        case .addTask:
+            return "Add Task"
+        case .scheduleInbox:
+            return "Schedule Inbox"
+        case .planBlock:
+            return "Plan Block"
+        case .dismiss:
+            return "Dismiss"
+        }
+    }
+}
+
+enum TimelineGapEmphasis: Equatable {
+    case openTime
+    case prepWindow
+    case quietWindow
+}
+
+struct TimelineGap: Equatable, Identifiable {
+    let startDate: Date
+    let endDate: Date
+    let suggestedTaskCount: Int
+    let headline: String
+    let supportingText: String
+    let primaryAction: TimelineGapAction
+    let secondaryAction: TimelineGapAction?
+    let emphasis: TimelineGapEmphasis
+
+    init(
+        startDate: Date,
+        endDate: Date,
+        suggestedTaskCount: Int,
+        headline: String? = nil,
+        supportingText: String? = nil,
+        primaryAction: TimelineGapAction? = nil,
+        secondaryAction: TimelineGapAction? = nil,
+        emphasis: TimelineGapEmphasis = .openTime
+    ) {
+        self.startDate = startDate
+        self.endDate = endDate
+        self.suggestedTaskCount = suggestedTaskCount
+        self.headline = headline ?? "Open time"
+        self.supportingText = supportingText ?? "Place something meaningful into this window."
+        let resolvedPrimary = primaryAction ?? (suggestedTaskCount > 0 ? .scheduleInbox : .addTask)
+        self.primaryAction = resolvedPrimary
+        if let secondaryAction {
+            self.secondaryAction = secondaryAction
+        } else if suggestedTaskCount > 0 {
+            self.secondaryAction = resolvedPrimary == .scheduleInbox ? .addTask : .scheduleInbox
+        } else {
+            self.secondaryAction = nil
+        }
+        self.emphasis = emphasis
+    }
+
+    var id: String {
+        "\(startDate.timeIntervalSince1970)-\(endDate.timeIntervalSince1970)"
+    }
+
+    var duration: TimeInterval {
+        max(0, endDate.timeIntervalSince(startDate))
+    }
+}
+
+struct TimelineAnchorItem: Equatable, Identifiable {
+    let id: String
+    let title: String
+    let time: Date
+    let systemImageName: String
+    let subtitle: String?
+    let isActionable: Bool
+
+    init(
+        id: String,
+        title: String,
+        time: Date,
+        systemImageName: String,
+        subtitle: String? = nil,
+        isActionable: Bool = false
+    ) {
+        self.id = id
+        self.title = title
+        self.time = time
+        self.systemImageName = systemImageName
+        self.subtitle = subtitle
+        self.isActionable = isActionable
+    }
+}
+
+enum TimelineDayLayoutMode: Equatable {
+    case expanded
+    case compact
+}
+
+struct TimelineDayProjection: Equatable {
+    let date: Date
+    let allDayItems: [TimelinePlanItem]
+    let inboxItems: [TimelinePlanItem]
+    let timedItems: [TimelinePlanItem]
+    let gaps: [TimelineGap]
+    let operationalItems: [TimelinePlanItem]
+    let beforeWakeSummaryItems: [TimelinePlanItem]
+    let afterSleepSummaryItems: [TimelinePlanItem]
+    let bridgeItems: [TimelinePlanItem]
+    let actionableGaps: [TimelineGap]
+    let layoutMode: TimelineDayLayoutMode
+    let wakeAnchor: TimelineAnchorItem
+    let sleepAnchor: TimelineAnchorItem
+    let activeItemID: String?
+    let currentItemID: String?
+    let currentTime: Date
+
+    init(
+        date: Date,
+        allDayItems: [TimelinePlanItem],
+        inboxItems: [TimelinePlanItem],
+        timedItems: [TimelinePlanItem],
+        gaps: [TimelineGap],
+        operationalItems: [TimelinePlanItem]? = nil,
+        beforeWakeSummaryItems: [TimelinePlanItem] = [],
+        afterSleepSummaryItems: [TimelinePlanItem] = [],
+        bridgeItems: [TimelinePlanItem]? = nil,
+        actionableGaps: [TimelineGap]? = nil,
+        layoutMode: TimelineDayLayoutMode,
+        wakeAnchor: TimelineAnchorItem,
+        sleepAnchor: TimelineAnchorItem,
+        activeItemID: String?,
+        currentItemID: String? = nil,
+        currentTime: Date
+    ) {
+        self.date = date
+        self.allDayItems = allDayItems
+        self.inboxItems = inboxItems
+        self.timedItems = timedItems
+        self.gaps = gaps
+        self.operationalItems = operationalItems ?? timedItems
+        self.beforeWakeSummaryItems = beforeWakeSummaryItems
+        self.afterSleepSummaryItems = afterSleepSummaryItems
+        self.bridgeItems = bridgeItems ?? timedItems.filter { $0.overlapsWake || $0.overlapsSleep }
+        self.actionableGaps = actionableGaps ?? gaps
+        self.layoutMode = layoutMode
+        self.wakeAnchor = wakeAnchor
+        self.sleepAnchor = sleepAnchor
+        self.activeItemID = activeItemID
+        self.currentItemID = currentItemID ?? activeItemID
+        self.currentTime = currentTime
+    }
+
+    var allTimedItems: [TimelinePlanItem] {
+        beforeWakeSummaryItems + timedItems + afterSleepSummaryItems
+    }
+
+    var beforeWakeItems: [TimelinePlanItem] {
+        beforeWakeSummaryItems
+    }
+
+    var afterSleepItems: [TimelinePlanItem] {
+        afterSleepSummaryItems
+    }
+
+    func displayStartDate(for item: TimelinePlanItem) -> Date? {
+        guard let start = item.startDate else { return nil }
+        switch item.windowRelation {
+        case .beforeWake, .afterSleep:
+            return start
+        case .bridgeIntoWake:
+            return wakeAnchor.time
+        case .operational, .bridgePastSleep:
+            return max(start, wakeAnchor.time)
+        }
+    }
+
+    func layoutInterval(for item: TimelinePlanItem) -> (start: Date, end: Date)? {
+        guard let start = item.startDate, let end = item.endDate, end > start else { return nil }
+        let clippedStart = max(start, wakeAnchor.time)
+        let clippedEnd = min(end, sleepAnchor.time)
+
+        switch item.windowRelation {
+        case .beforeWake, .afterSleep:
+            return (start, end)
+        case .bridgeIntoWake, .operational, .bridgePastSleep:
+            guard clippedEnd > clippedStart else { return nil }
+            return (clippedStart, clippedEnd)
+        }
+    }
+}
+
+enum TimelineRowKind: Equatable, Hashable {
+    case task
+    case gap
+    case anchor
+}
+
+enum TimelineTemporalState: Equatable, Hashable {
+    case pastCompleted
+    case pastIncomplete
+    case currentTask
+    case futureTask
+    case activeGap
+    case futureGap
+    case anchor
+}
+
+enum TimelineMetadataMode: Equatable, Hashable {
+    case scheduled
+    case remainingTime(Int)
+    case done
+}
+
+enum TimelineUtilityItem: Equatable, Hashable {
+    case checklist(TimelineChecklistSummary)
+    case note
+    case recurring
+    case calendar
+    case meeting
+    case project(String)
+}
+
+enum TimelineStemSegmentState: Equatable, Hashable {
+    case pastCompletedSegment(String?)
+    case pastIncompleteSegment(String?)
+    case currentElapsedSegment(String?, progress: CGFloat)
+    case currentRemainingSegment
+    case futureSegment
+    case gapPastSegment
+    case gapFutureSegment
+}
+
+struct TimelineRenderableRow: Equatable, Identifiable {
+    let id: String
+    let kind: TimelineRowKind
+    let temporalState: TimelineTemporalState
+    let metadataMode: TimelineMetadataMode?
+    let utilityItems: [TimelineUtilityItem]
+    let progressRatio: CGFloat
+    let title: String
+    let subtitle: String?
+    let isInteractiveRing: Bool
+    let stemLeading: TimelineStemSegmentState
+    let stemTrailing: TimelineStemSegmentState
+    let isCurrentRailEmphasis: Bool
+}
+
+enum TimelineDayLoadLevel: Equatable {
+    case light
+    case balanced
+    case busy
+}
+
+struct TimelineWeekDaySummary: Equatable, Identifiable {
+    let date: Date
+    let dayKey: String
+    let allDayCount: Int
+    let replanEligibleCount: Int
+    let timedMarkers: [Date]
+    let tintHexes: [String]
+    let summaryText: String
+    let loadLevel: TimelineDayLoadLevel
+
+    var id: String {
+        dayKey
+    }
+}
+
+struct NeedsReplanSummary: Equatable {
+    let count: Int
+    let dayCount: Int
+    let newestDate: Date?
+    let oldestDate: Date?
+
+    var title: String { "Needs Replan" }
+
+    var subtitle: String {
+        if count == 0 {
+            return "No unfinished past tasks need replanning."
+        }
+        if count == 1 {
+            if let newestDate, Calendar.current.isDateInYesterday(newestDate) {
+                return "1 unfinished task from yesterday"
+            }
+            if let newestDate {
+                return "1 unfinished task from \(newestDate.formatted(.dateTime.month().day()))"
+            }
+            return "1 unfinished task from a past day"
+        }
+        if dayCount <= 1 {
+            if let newestDate, Calendar.current.isDateInYesterday(newestDate) {
+                return "\(count) unfinished from yesterday"
+            }
+            if let newestDate {
+                return "\(count) unfinished from \(newestDate.formatted(.dateTime.month().day()))"
+            }
+            return "\(count) unfinished from a past day"
+        }
+        if count >= 10 {
+            return "\(count) unfinished - start with the most recent"
+        }
+        return "\(count) unfinished from past days"
+    }
+
+    var callToAction: String {
+        if count == 0 { return "Go to Today" }
+        if count == 1 { return "Resolve" }
+        if dayCount <= 1 { return "Plan the Day" }
+        if count >= 10 { return "Start" }
+        return "Review"
+    }
+}
+
+struct HomeReplanCandidate: Equatable, Identifiable {
+    let task: TaskDefinition
+    let originalDate: Date
+    let originalEndDate: Date?
+    let projectName: String?
+
+    var id: UUID { task.id }
+}
+
+struct HomeReplanOutcomeSummary: Equatable {
+    var rescheduled: Int = 0
+    var movedToInbox: Int = 0
+    var completed: Int = 0
+    var deleted: Int = 0
+
+    var totalResolved: Int {
+        rescheduled + movedToInbox + completed + deleted
+    }
+}
+
+struct TimelinePlacementCandidate: Equatable, Identifiable {
+    let taskID: UUID
+    let title: String
+    let duration: TimeInterval
+    let tintHex: String?
+    let isApplying: Bool
+    let errorMessage: String?
+
+    var id: UUID { taskID }
+}
+
+enum HomeReplanApplyingAction: Equatable {
+    case moveToInbox
+    case reschedule
+    case checkOff
+    case delete
+    case undo
+}
+
+enum HomeReplanSessionPhase: Equatable {
+    case trayHidden
+    case trayVisible(NeedsReplanSummary)
+    case launcher(NeedsReplanSummary)
+    case card(candidateIndex: Int)
+    case placement(HomeReplanCandidate, defaultDay: Date)
+    case summary(HomeReplanOutcomeSummary, skippedCount: Int)
+    case skippedReview
+}
+
+struct HomeReplanSessionState: Equatable {
+    let phase: HomeReplanSessionPhase
+    let summary: NeedsReplanSummary?
+    let currentCandidate: HomeReplanCandidate?
+    let candidateIndex: Int
+    let candidateTotal: Int
+    let canUndo: Bool
+    let outcomes: HomeReplanOutcomeSummary
+    let skippedCount: Int
+    let isApplying: Bool
+    let applyingAction: HomeReplanApplyingAction?
+    let errorMessage: String?
+
+    static let hidden = HomeReplanSessionState(
+        phase: .trayHidden,
+        summary: nil,
+        currentCandidate: nil,
+        candidateIndex: 0,
+        candidateTotal: 0,
+        canUndo: false,
+        outcomes: HomeReplanOutcomeSummary(),
+        skippedCount: 0,
+        isApplying: false,
+        applyingAction: nil,
+        errorMessage: nil
+    )
+
+    var launcherSummary: NeedsReplanSummary? {
+        guard case .launcher(let summary) = phase else { return nil }
+        return summary
+    }
+
+    var placementCandidate: TimelinePlacementCandidate? {
+        guard case .placement(let candidate, _) = phase else { return nil }
+        let duration = candidate.originalEndDate?.timeIntervalSince(candidate.originalDate)
+            ?? candidate.task.estimatedDuration
+            ?? (30 * 60)
+        return TimelinePlacementCandidate(
+            taskID: candidate.task.id,
+            title: candidate.task.title,
+            duration: max(duration, 15 * 60),
+            tintHex: nil,
+            isApplying: isApplying,
+            errorMessage: errorMessage
+        )
+    }
+
+    var suppressesBottomBar: Bool {
+        switch phase {
+        case .card, .placement, .summary, .skippedReview:
+            return true
+        case .trayHidden, .trayVisible, .launcher:
+            return false
+        }
+    }
+}
+
+struct TimelineWeekSummary: Equatable {
+    let weekStart: Date
+    let weekStartsOn: Weekday
+    let days: [TimelineWeekDaySummary]
+}
+
+struct HomeTimelineSnapshot: Equatable {
+    let selectedDate: Date
+    let foredropAnchor: ForedropAnchor
+    let day: TimelineDayProjection
+    let week: TimelineWeekSummary
+    let placementCandidate: TimelinePlacementCandidate?
+}
+
 struct HomeOverlaySnapshot: Equatable {
     let guidanceState: HomeOnboardingGuidanceModel.State?
     let focusWhyPresented: Bool
@@ -366,6 +903,7 @@ struct HomeOverlaySnapshot: Equatable {
     let rescuePlan: EvaRescuePlan?
     let lastBatchRunID: UUID?
     let lastXPResult: XPEventResult?
+    let replanState: HomeReplanSessionState
 
     static let empty = HomeOverlaySnapshot(
         guidanceState: nil,
@@ -378,7 +916,8 @@ struct HomeOverlaySnapshot: Equatable {
         rescuePresented: false,
         rescuePlan: nil,
         lastBatchRunID: nil,
-        lastXPResult: nil
+        lastXPResult: nil,
+        replanState: .hidden
     )
 
     static func == (lhs: HomeOverlaySnapshot, rhs: HomeOverlaySnapshot) -> Bool {
@@ -393,6 +932,7 @@ struct HomeOverlaySnapshot: Equatable {
             && String(describing: lhs.rescuePlan) == String(describing: rhs.rescuePlan)
             && lhs.lastBatchRunID == rhs.lastBatchRunID
             && String(describing: lhs.lastXPResult) == String(describing: rhs.lastXPResult)
+            && lhs.replanState == rhs.replanState
     }
 }
 
@@ -524,6 +1064,7 @@ private struct HomeBottomBarContainer: View {
     let onChat: () -> Void
     let onCreate: () -> Void
     let layoutClass: TaskerLayoutClass
+    let onHeightChange: (CGFloat) -> Void
 
     var body: some View {
         HomeGlassBottomBar(
@@ -539,6 +1080,17 @@ private struct HomeBottomBarContainer: View {
         .padding(.bottom, 0)
         .ignoresSafeArea(.container, edges: .bottom)
         .offset(y: 6)
+        .background {
+            GeometryReader { proxy in
+                Color.clear
+                    .onAppear {
+                        onHeightChange(proxy.size.height + 6)
+                    }
+                    .onChange(of: proxy.size.height) { _, newValue in
+                        onHeightChange(newValue + 6)
+                    }
+            }
+        }
     }
 }
 
@@ -618,6 +1170,7 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
     private var completedOnboardingEvaluationSceneToken: Int = 0
     private var lastAppliedHomeRenderTransaction: HomeRenderTransaction = .empty
     private var keyboardOverlapHeight: CGFloat = 0
+    private var measuredBottomBarHeight: CGFloat = 0
 
 
     // MARK: - Lifecycle
@@ -1278,8 +1831,16 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
         let height = view.bounds.height
         let tokens = TaskerThemeManager.shared.tokens(for: currentLayoutClass)
         let spacing = tokens.spacing
-        let bottomOverlayObstruction = currentLayoutClass == .phone ? ((spacing.s12 * 2) + 56 + 6) : 0
-        let taskListBottomInset = bottomOverlayObstruction + safeAreaInsets.bottom + spacing.s20
+        let defaultBottomBarHeight = (spacing.s12 * 2) + 56 + 6
+        let shouldShowBottomBar = currentLayoutClass == .phone
+            && faceCoordinator.shellPhase == .interactive
+            && overlayStore.snapshot.replanState.suppressesBottomBar == false
+        let bottomOverlayObstruction = currentLayoutClass == .phone
+            ? (shouldShowBottomBar ? max(measuredBottomBarHeight, defaultBottomBarHeight) : 0)
+            : 0
+        let taskListBottomInset = currentLayoutClass == .phone
+            ? bottomOverlayObstruction + spacing.s16
+            : spacing.s24
         let chartViewportHeight = min(max(height * 0.66, 560), max(560, height - 150))
 
         return HomeLayoutMetrics(
@@ -1395,14 +1956,22 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
                 rescuePresented: state.rescuePresented,
                 rescuePlan: state.rescuePlan,
                 lastBatchRunID: state.lastBatchRunID,
-                lastXPResult: state.lastXPResult
+                lastXPResult: state.lastXPResult,
+                replanState: state.replanState
             )
         )
+        mountBottomBarOverlayIfNeeded()
     }
 
     private func mountBottomBarOverlayIfNeeded() {
-        let shouldShowBottomBar = currentLayoutClass == .phone && faceCoordinator.shellPhase == .interactive
+        let shouldShowBottomBar = currentLayoutClass == .phone
+            && faceCoordinator.shellPhase == .interactive
+            && overlayStore.snapshot.replanState.suppressesBottomBar == false
         if shouldShowBottomBar == false {
+            if measuredBottomBarHeight != 0 {
+                measuredBottomBarHeight = 0
+                refreshLayoutMetrics()
+            }
             if let bottomBarHostingController {
                 bottomBarHostingController.willMove(toParent: nil)
                 bottomBarHostingController.view.removeFromSuperview()
@@ -1463,8 +2032,18 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
                     self?.AddTaskAction()
                 }
             },
-            layoutClass: currentLayoutClass
+            layoutClass: currentLayoutClass,
+            onHeightChange: { [weak self] height in
+                self?.setMeasuredBottomBarHeight(height)
+            }
         )
+    }
+
+    private func setMeasuredBottomBarHeight(_ newValue: CGFloat) {
+        let sanitizedValue = max(0, newValue)
+        guard abs(measuredBottomBarHeight - sanitizedValue) > 0.5 else { return }
+        measuredBottomBarHeight = sanitizedValue
+        refreshLayoutMetrics()
     }
 
     /// Executes mountHomeShell.
@@ -1739,9 +2318,6 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
         }
         return AnyView(
             HomeiPadSettingsContainer(
-                onNavigateToProjects: { [weak self] in
-                    self?.iPadShellState.destination = .projects
-                },
                 onNavigateToLifeManagement: { [weak self] in
                     self?.iPadShellState.destination = .lifeManagement
                 },

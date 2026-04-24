@@ -50,6 +50,34 @@ final class HomeTaskSurfaceStyleTests: XCTestCase {
         XCTAssertTrue(taskSectionSource.contains("metadataPolicy: layoutStyle.taskMetadataPolicy"))
     }
 
+    func testHomeListSectionHeadersUseSectionAccentHexWhenAvailable() throws {
+        let source = try loadWorkspaceFile("To Do List/View/TaskSectionView.swift")
+
+        XCTAssertTrue(source.contains("guard let accentHex = section.accentHex"))
+        XCTAssertTrue(source.contains("TaskerHexColor.color(accentHex, fallback: Color.tasker.accentPrimary)"))
+    }
+
+    func testHomeListSectionRowsUseSharedResolverForPlainSections() throws {
+        let source = try loadWorkspaceFile("To Do List/View/TaskSectionView.swift")
+
+        XCTAssertTrue(source.contains("if section.showsHeader, let sectionAccentHex = section.accentHex"))
+        XCTAssertTrue(source.contains("HomeTaskTintResolver.rowAccentHex("))
+    }
+
+    func testDueTodayAndRescueRowsUseSharedRowTintResolver() throws {
+        let taskListSource = try loadWorkspaceFile("To Do List/View/TaskListView.swift")
+        let foredropSource = try loadWorkspaceFile("To Do List/View/HomeForedropView.swift")
+
+        XCTAssertTrue(taskListSource.contains("HomeTaskTintResolver.rowAccentHex("))
+        XCTAssertTrue(foredropSource.contains("HomeTaskTintResolver.rowAccentHex("))
+    }
+
+    func testTimelineTintUsesCanonicalHomeTaskTintResolver() throws {
+        let source = try loadWorkspaceFile("To Do List/Presentation/ViewModels/HomeViewModel.swift")
+
+        XCTAssertTrue(source.contains("HomeTaskTintResolver.owningSectionAccentHex("))
+    }
+
     private func loadWorkspaceFile(_ relativePath: String) throws -> String {
         let testsFilePath = URL(fileURLWithPath: #filePath)
         let workspaceRoot = testsFilePath.deletingLastPathComponent().deletingLastPathComponent()

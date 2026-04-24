@@ -11,7 +11,7 @@ final class HomeCalendarModuleUITests: XCTestCase {
         assertCalendarMode("allDayOnly", expectedStateID: "home.calendar.state.allDayOnly", expectsRetry: false)
         assertCalendarMode("empty", expectedStateID: "home.calendar.state.empty", expectsRetry: false)
         assertCalendarMode("active", expectedStateID: "home.calendar.state.active", expectsRetry: false)
-        assertCalendarMode("error", expectedStateID: "home.calendar.state.error", expectsRetry: true)
+        assertCalendarMode("error", expectedStateID: "home.calendar.state.error", expectsRetry: false)
     }
 
     func testSettingsCalendarControlsSmokePath() throws {
@@ -39,19 +39,50 @@ final class HomeCalendarModuleUITests: XCTestCase {
         XCTAssertTrue(includeAllDayBusy.isHittable || includeAllDayBusy.isEnabled)
     }
 
-    func testCalendarTimelinePreviewOpensSchedule() throws {
+    func testCalendarCardOpensSchedule() throws {
         let app = launchApp(calendarMode: "active")
 
-        let timelinePreview = homeTimelinePreview(in: app)
+        let card = homeCalendarCard(in: app)
         XCTAssertTrue(
-            waitForElementWithScrolling(timelinePreview, in: app, timeout: 10, scrollAttempts: 4),
-            "Expected timeline preview to be visible in active calendar mode."
+            waitForElementWithScrolling(card, in: app, timeout: 10, scrollAttempts: 4),
+            "Expected calendar card to be visible in active calendar mode."
         )
-        tapElement(timelinePreview, in: app)
+        tapElement(card, in: app)
         XCTAssertTrue(scheduleSurfaceIsVisible(in: app, timeout: 8))
 
         XCTAssertTrue(scheduleSurfaceIsVisible(in: app, timeout: 8))
         XCTAssertTrue(app.descendants(matching: .any)["schedule.list"].exists)
+    }
+
+    func testCalendarCardShowsInlineNextUpHeader() throws {
+        let app = launchApp(calendarMode: "active")
+
+        let nextMeeting = app.descendants(matching: .any)["home.calendar.nextMeeting"]
+        XCTAssertTrue(
+            waitForElementWithScrolling(nextMeeting, in: app, timeout: 10, scrollAttempts: 4),
+            "Expected inline next-up header to be visible in active calendar mode."
+        )
+        XCTAssertTrue(
+            nextMeeting.label.contains("Next up: Design Review"),
+            "Expected next-up header to include the stub meeting title. Actual label: \(nextMeeting.label)"
+        )
+    }
+
+    func testCalendarCardOpensScheduleAcrossHomeStates() throws {
+        for mode in ["active", "empty", "allDayOnly", "noCalendars", "error"] {
+            let app = launchApp(calendarMode: mode)
+            let card = homeCalendarCard(in: app)
+            XCTAssertTrue(
+                waitForElementWithScrolling(card, in: app, timeout: 10, scrollAttempts: 4),
+                "Expected calendar card to be visible in \(mode) mode."
+            )
+            tapElement(card, in: app)
+            XCTAssertTrue(
+                scheduleSurfaceIsVisible(in: app, timeout: 8),
+                "Expected tapping calendar card to open schedule in \(mode) mode."
+            )
+            app.terminate()
+        }
     }
 
     func testScheduleSwitchesBetweenTodayAndWeekTabs() throws {
@@ -235,7 +266,7 @@ final class HomeCalendarModuleUITests: XCTestCase {
     }
 
     private func openScheduleFromCardOrTimeline(from app: XCUIApplication) {
-        let card = app.descendants(matching: .any)["home.calendar.card"]
+        let card = homeCalendarCard(in: app)
         XCTAssertTrue(waitForElementWithScrolling(card, in: app, timeout: 8))
         tapElement(card, in: app)
         if scheduleSurfaceIsVisible(in: app, timeout: 2) {
@@ -282,6 +313,14 @@ final class HomeCalendarModuleUITests: XCTestCase {
             return button
         }
         return app.descendants(matching: .any)["home.calendar.timelinePreview"]
+    }
+
+    private func homeCalendarCard(in app: XCUIApplication) -> XCUIElement {
+        let button = app.buttons["home.calendar.card"]
+        if button.exists {
+            return button
+        }
+        return app.descendants(matching: .any)["home.calendar.card"]
     }
 
     private func dismissScheduleEventDetailIfPresented(in app: XCUIApplication) -> Bool {

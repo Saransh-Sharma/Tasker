@@ -390,6 +390,10 @@ struct TaskerPersistentRuntimeInitializer {
         static let backfillKey = "tasker.occurrence.key_backfill.v1"
     }
 
+    private enum LifeAreaColorMigration {
+        static let backfillKey = "tasker.life_area_color_palette_backfill.v1"
+    }
+
     static func shouldRunRepair(defaults: UserDefaults = .standard) -> Bool {
         defaults.bool(forKey: HabitRuntimeMigration.repairRequiredKey)
             && defaults.bool(forKey: HabitRuntimeMigration.repairCompletedKey) == false
@@ -451,9 +455,10 @@ struct TaskerPersistentRuntimeInitializer {
                 lifeArea = existing
             } else {
                 let created = NSEntityDescription.insertNewObject(forEntityName: "LifeArea", into: context)
-                created.setValue(UUID(), forKey: "id")
+                let lifeAreaID = UUID()
+                created.setValue(lifeAreaID, forKey: "id")
                 created.setValue("General", forKey: "name")
-                created.setValue(LifeAreaConstants.generalSeedColor, forKey: "color")
+                created.setValue(LifeAreaColorPalette.defaultHex(for: lifeAreaID), forKey: "color")
                 created.setValue("square.grid.2x2", forKey: "icon")
                 created.setValue(Int32(0), forKey: "sortOrder")
                 created.setValue(false, forKey: "isArchived")
@@ -491,13 +496,18 @@ struct TaskerPersistentRuntimeInitializer {
             inbox.setValue(Date(), forKey: "modifiedDate")
             inbox.setValue(Date(), forKey: "updatedAt")
 
+            let shouldMarkLifeAreaColorBackfill = try backfillLifeAreaColorsIfNeeded(in: context)
             try backfillTaskLifeAreaIDsIfNeeded(in: context)
             try backfillHabitRuntimeFieldsIfNeeded(in: context)
             try backfillOccurrenceKeysIfNeeded(in: context)
             try backfillWeeklyPlanningBucketsIfNeeded(in: context)
+            try backfillTimelineScheduleFieldsIfNeeded(in: context)
 
             if context.hasChanges {
                 try context.save()
+            }
+            if shouldMarkLifeAreaColorBackfill {
+                UserDefaults.standard.set(true, forKey: LifeAreaColorMigration.backfillKey)
             }
         } catch {
             logError(
@@ -520,6 +530,69 @@ struct TaskerPersistentRuntimeInitializer {
         request.predicate = NSPredicate(format: "id == %@", id as CVarArg)
         request.fetchLimit = 1
         return try context.fetch(request).first
+    }
+
+    private func backfillLifeAreaColorsIfNeeded(in context: NSManagedObjectContext) throws -> Bool {
+        let defaults = UserDefaults.standard
+        guard defaults.bool(forKey: LifeAreaColorMigration.backfillKey) == false else {
+            return false
+        }
+
+        let request = NSFetchRequest<NSManagedObject>(entityName: "LifeArea")
+        let lifeAreas = try context.fetch(request)
+        guard lifeAreas.isEmpty == false else {
+            return true
+        }
+
+        let now = Date()
+        var updatedCount = 0
+        var missingCount = 0
+        var invalidCount = 0
+        var mappedLegacyCount = 0
+
+        for area in lifeAreas {
+            guard let id = area.value(forKey: "id") as? UUID else { continue }
+            let original = area.value(forKey: "color") as? String
+            let resolution = LifeAreaColorPalette.resolve(hex: original, for: id)
+            guard original != resolution.hex else { continue }
+
+            area.setValue(resolution.hex, forKey: "color")
+            area.setValue(now, forKey: "updatedAt")
+            updatedCount += 1
+
+            switch resolution.reason {
+            case .mappedLegacy:
+                mappedLegacyCount += 1
+            case .missingOrInvalid:
+                if lifeAreaColorInputIsMissing(original) {
+                    missingCount += 1
+                } else {
+                    invalidCount += 1
+                }
+            case .exactPaletteMatch:
+                break
+            }
+        }
+
+        if updatedCount > 0 {
+            logWarning(
+                event: "life_area_color_palette_backfill_applied",
+                message: "Backfilled LifeArea.color into canonical habit palette values",
+                fields: [
+                    "updated_count": String(updatedCount),
+                    "missing": String(missingCount),
+                    "invalid": String(invalidCount),
+                    "mapped_legacy": String(mappedLegacyCount)
+                ]
+            )
+        }
+
+        return true
+    }
+
+    private func lifeAreaColorInputIsMissing(_ value: String?) -> Bool {
+        guard let value else { return true }
+        return value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
 
     private func backfillTaskLifeAreaIDsIfNeeded(in context: NSManagedObjectContext) throws {
@@ -954,6 +1027,56 @@ struct TaskerPersistentRuntimeInitializer {
         )
     }
 
+    private func backfillTimelineScheduleFieldsIfNeeded(in context: NSManagedObjectContext) throws {
+        guard
+            let taskEntity = NSEntityDescription.entity(forEntityName: "TaskDefinition", in: context),
+            taskEntity.attributesByName["scheduledStartAt"] != nil,
+            taskEntity.attributesByName["scheduledEndAt"] != nil,
+            taskEntity.attributesByName["isAllDay"] != nil
+        else {
+            return
+        }
+
+        let request = NSFetchRequest<NSManagedObject>(entityName: "TaskDefinition")
+        request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
+            NSPredicate(format: "dueDate != nil"),
+            NSPredicate(format: "scheduledStartAt == nil"),
+            NSPredicate(format: "scheduledEndAt == nil"),
+            NSPredicate(format: "isAllDay == NO")
+        ])
+
+        let tasks = try context.fetch(request)
+        guard tasks.isEmpty == false else {
+            return
+        }
+
+        let calendar = Calendar.current
+        for task in tasks {
+            guard let dueDate = task.value(forKey: "dueDate") as? Date else { continue }
+            let estimatedDuration = (task.value(forKey: "estimatedDuration") as? Double).flatMap { $0 > 0 ? $0 : nil } ?? (30 * 60)
+            let dueComponents = calendar.dateComponents([.hour, .minute, .second], from: dueDate)
+            let isDateOnlyDueDate =
+                (dueComponents.hour ?? 0) == 0
+                && (dueComponents.minute ?? 0) == 0
+                && (dueComponents.second ?? 0) == 0
+
+            if isDateOnlyDueDate {
+                task.setValue(true, forKey: "isAllDay")
+                task.setValue(nil, forKey: "scheduledStartAt")
+                task.setValue(nil, forKey: "scheduledEndAt")
+            } else {
+                task.setValue(dueDate, forKey: "scheduledStartAt")
+                task.setValue(dueDate.addingTimeInterval(estimatedDuration), forKey: "scheduledEndAt")
+            }
+        }
+
+        logWarning(
+            event: "timeline_schedule_backfill_applied",
+            message: "Backfilled TaskDefinition timeline schedule fields for legacy rows",
+            fields: ["updated_count": String(tasks.count)]
+        )
+    }
+
     private func occurrenceStateRank(_ rawValue: String?) -> Int {
         switch rawValue {
         case OccurrenceState.completed.rawValue:
@@ -1353,10 +1476,7 @@ final class TaskerPersistentStoreBootstrapService {
             named: "TaskModelV3_Habits.mom",
             bundleURL: modelBundleURL
         )
-        let destinationModel = try compiledTaskModel(
-            named: "TaskModelV3_WeeklyPlanning.mom",
-            bundleURL: modelBundleURL
-        )
+        let destinationModel = try currentCompiledTaskModel(bundleURL: modelBundleURL)
 
         for store in TaskerSplitPersistentStore.allCases {
             let compatibility = compatibilityReport(
@@ -1387,7 +1507,7 @@ final class TaskerPersistentStoreBootstrapService {
 
             logWarning(
                 event: "persistent_store_preflight_migration_started",
-                message: "Migrating split store to the current TaskModelV3_WeeklyPlanning schema before bootstrap",
+                message: "Migrating split store to the current TaskModelV3 schema before bootstrap",
                 fields: [
                     "store": store.label,
                     "configuration": store.configurationName,
@@ -1421,7 +1541,7 @@ final class TaskerPersistentStoreBootstrapService {
                 try storeLocationService.replaceStoreFiles(for: store, withMigratedBaseURL: tempURL)
                 logWarning(
                     event: "persistent_store_preflight_migration_succeeded",
-                    message: "Migrated split store to the current TaskModelV3_WeeklyPlanning schema before bootstrap",
+                    message: "Migrated split store to the current TaskModelV3 schema before bootstrap",
                     fields: [
                         "store": store.label,
                         "configuration": store.configurationName,
@@ -1515,6 +1635,19 @@ final class TaskerPersistentStoreBootstrapService {
                 code: 3,
                 userInfo: [
                     NSLocalizedDescriptionKey: "Unable to load compiled model \(fileName)"
+                ]
+            )
+        }
+        return model
+    }
+
+    private func currentCompiledTaskModel(bundleURL: URL) throws -> NSManagedObjectModel {
+        guard let model = NSManagedObjectModel(contentsOf: bundleURL) else {
+            throw NSError(
+                domain: "TaskerPersistentStoreBootstrapService.Model",
+                code: 4,
+                userInfo: [
+                    NSLocalizedDescriptionKey: "Unable to load current compiled TaskModelV3 model"
                 ]
             )
         }
@@ -1677,10 +1810,15 @@ final class TaskerPersistentStoreBootstrapService {
         requireAttributes(
             entityName: "TaskDefinition",
             attributes: [
+                "iconSymbolName",
                 "planningBucketRaw",
                 "weeklyOutcomeID",
                 "deferredFromWeekStart",
-                "deferredCount"
+                "deferredCount",
+                "replanCount",
+                "scheduledStartAt",
+                "scheduledEndAt",
+                "isAllDay"
             ]
         )
         requireAttributes(

@@ -45,11 +45,15 @@ extension TaskDefinitionEntity {
     @NSManaged public var version: Int32
     @NSManaged public var isComplete: Bool
     @NSManaged public var dueDate: NSDate?
+    @NSManaged public var scheduledStartAt: NSDate?
+    @NSManaged public var scheduledEndAt: NSDate?
+    @NSManaged public var isAllDay: Bool
     @NSManaged public var taskType: Int32 //1-4 where 1 is morning; 2 is evening; 3 is upcoming; 4 is inbox; default is 1(morning)
     @NSManaged public var alertReminderTime: NSDate?
     @NSManaged public var dateAdded: NSDate?
     @NSManaged public var isEveningTask: Bool
     @NSManaged public var dateCompleted: NSDate? //date its marked done
+    @NSManaged public var replanCount: Int32
 
     
 

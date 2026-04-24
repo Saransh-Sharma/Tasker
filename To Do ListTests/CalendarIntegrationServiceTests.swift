@@ -117,6 +117,18 @@ final class CalendarIntegrationServiceTests: XCTestCase {
         XCTAssertFalse(TaskerWorkspacePreferences().includeCanceledCalendarEvents)
     }
 
+    func testWorkspacePreferencesDefaultTimelineCalendarSettingIsFalse() {
+        XCTAssertFalse(TaskerWorkspacePreferences().showCalendarEventsInTimeline)
+    }
+
+    func testWorkspacePreferencesDefaultTimelineAnchorTimes() {
+        let preferences = TaskerWorkspacePreferences()
+        XCTAssertEqual(preferences.timelineRiseAndShineHour, 8)
+        XCTAssertEqual(preferences.timelineRiseAndShineMinute, 0)
+        XCTAssertEqual(preferences.timelineWindDownHour, 22)
+        XCTAssertEqual(preferences.timelineWindDownMinute, 0)
+    }
+
     func testWorkspacePreferencesDecodeMissingCanceledFieldDefaultsToFalse() throws {
         let legacyJSON = """
         {
@@ -133,6 +145,46 @@ final class CalendarIntegrationServiceTests: XCTestCase {
         XCTAssertEqual(decoded.selectedCalendarIDs, ["work"])
         XCTAssertTrue(decoded.includeDeclinedCalendarEvents)
         XCTAssertFalse(decoded.includeCanceledCalendarEvents)
+    }
+
+    func testWorkspacePreferencesDecodeMissingTimelineCalendarFieldDefaultsToFalse() throws {
+        let legacyJSON = """
+        {
+          "weekStartsOn": "monday",
+          "selectedCalendarIDs": ["work"],
+          "includeDeclinedCalendarEvents": true,
+          "includeCanceledCalendarEvents": false,
+          "includeAllDayInAgenda": true,
+          "includeAllDayInBusyStrip": false
+        }
+        """.data(using: .utf8)!
+
+        let decoded = try JSONDecoder().decode(TaskerWorkspacePreferences.self, from: legacyJSON)
+
+        XCTAssertEqual(decoded.selectedCalendarIDs, ["work"])
+        XCTAssertFalse(decoded.showCalendarEventsInTimeline)
+    }
+
+    func testWorkspacePreferencesDecodeMissingTimelineAnchorFieldsUsesDefaults() throws {
+        let legacyJSON = """
+        {
+          "weekStartsOn": "monday",
+          "selectedCalendarIDs": ["work"],
+          "includeDeclinedCalendarEvents": true,
+          "includeCanceledCalendarEvents": false,
+          "includeAllDayInAgenda": true,
+          "includeAllDayInBusyStrip": false,
+          "showCalendarEventsInTimeline": true
+        }
+        """.data(using: .utf8)!
+
+        let decoded = try JSONDecoder().decode(TaskerWorkspacePreferences.self, from: legacyJSON)
+
+        XCTAssertEqual(decoded.selectedCalendarIDs, ["work"])
+        XCTAssertEqual(decoded.timelineRiseAndShineHour, 8)
+        XCTAssertEqual(decoded.timelineRiseAndShineMinute, 0)
+        XCTAssertEqual(decoded.timelineWindDownHour, 22)
+        XCTAssertEqual(decoded.timelineWindDownMinute, 0)
     }
 
     func testWorkspacePreferencesDecodeMissingAllDayFieldsPreservesDefaults() throws {
@@ -159,6 +211,36 @@ final class CalendarIntegrationServiceTests: XCTestCase {
         ))
 
         XCTAssertEqual(store.load().selectedCalendarIDs, ["archive", "personal", "work"])
+    }
+
+    func testWorkspacePreferencesStorePersistsTimelineCalendarSetting() {
+        let store = TaskerWorkspacePreferencesStore(defaults: defaults)
+        store.save(TaskerWorkspacePreferences(
+            selectedCalendarIDs: ["work"],
+            showCalendarEventsInTimeline: true
+        ))
+
+        let loaded = store.load()
+        XCTAssertEqual(loaded.selectedCalendarIDs, ["work"])
+        XCTAssertTrue(loaded.showCalendarEventsInTimeline)
+    }
+
+    func testWorkspacePreferencesStorePersistsTimelineAnchorTimes() {
+        let store = TaskerWorkspacePreferencesStore(defaults: defaults)
+        store.save(TaskerWorkspacePreferences(
+            selectedCalendarIDs: ["work"],
+            timelineRiseAndShineHour: 6,
+            timelineRiseAndShineMinute: 30,
+            timelineWindDownHour: 23,
+            timelineWindDownMinute: 15
+        ))
+
+        let loaded = store.load()
+        XCTAssertEqual(loaded.selectedCalendarIDs, ["work"])
+        XCTAssertEqual(loaded.timelineRiseAndShineHour, 6)
+        XCTAssertEqual(loaded.timelineRiseAndShineMinute, 30)
+        XCTAssertEqual(loaded.timelineWindDownHour, 23)
+        XCTAssertEqual(loaded.timelineWindDownMinute, 15)
     }
 
     func testWorkspacePreferencesStoreSkipsNoopSaveAndDoesNotEmitDidChange() {

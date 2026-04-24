@@ -465,6 +465,11 @@ public struct TaskerWorkspacePreferences: Codable, Equatable {
     public var includeCanceledCalendarEvents: Bool
     public var includeAllDayInAgenda: Bool
     public var includeAllDayInBusyStrip: Bool
+    public var showCalendarEventsInTimeline: Bool
+    public var timelineRiseAndShineHour: Int
+    public var timelineRiseAndShineMinute: Int
+    public var timelineWindDownHour: Int
+    public var timelineWindDownMinute: Int
 
     public init(
         weekStartsOn: Weekday = .monday,
@@ -472,7 +477,12 @@ public struct TaskerWorkspacePreferences: Codable, Equatable {
         includeDeclinedCalendarEvents: Bool = false,
         includeCanceledCalendarEvents: Bool = false,
         includeAllDayInAgenda: Bool = true,
-        includeAllDayInBusyStrip: Bool = false
+        includeAllDayInBusyStrip: Bool = false,
+        showCalendarEventsInTimeline: Bool = false,
+        timelineRiseAndShineHour: Int = 8,
+        timelineRiseAndShineMinute: Int = 0,
+        timelineWindDownHour: Int = 22,
+        timelineWindDownMinute: Int = 0
     ) {
         self.weekStartsOn = weekStartsOn
         self.selectedCalendarIDs = Self.normalizeSelectedCalendarIDs(selectedCalendarIDs)
@@ -480,6 +490,11 @@ public struct TaskerWorkspacePreferences: Codable, Equatable {
         self.includeCanceledCalendarEvents = includeCanceledCalendarEvents
         self.includeAllDayInAgenda = includeAllDayInAgenda
         self.includeAllDayInBusyStrip = includeAllDayInBusyStrip
+        self.showCalendarEventsInTimeline = showCalendarEventsInTimeline
+        self.timelineRiseAndShineHour = Self.clampedHour(timelineRiseAndShineHour)
+        self.timelineRiseAndShineMinute = Self.clampedMinute(timelineRiseAndShineMinute)
+        self.timelineWindDownHour = Self.clampedHour(timelineWindDownHour)
+        self.timelineWindDownMinute = Self.clampedMinute(timelineWindDownMinute)
     }
 
     private enum CodingKeys: String, CodingKey {
@@ -489,6 +504,11 @@ public struct TaskerWorkspacePreferences: Codable, Equatable {
         case includeCanceledCalendarEvents
         case includeAllDayInAgenda
         case includeAllDayInBusyStrip
+        case showCalendarEventsInTimeline
+        case timelineRiseAndShineHour
+        case timelineRiseAndShineMinute
+        case timelineWindDownHour
+        case timelineWindDownMinute
     }
 
     public init(from decoder: Decoder) throws {
@@ -501,6 +521,11 @@ public struct TaskerWorkspacePreferences: Codable, Equatable {
         includeCanceledCalendarEvents = try container.decodeIfPresent(Bool.self, forKey: .includeCanceledCalendarEvents) ?? false
         includeAllDayInAgenda = try container.decodeIfPresent(Bool.self, forKey: .includeAllDayInAgenda) ?? true
         includeAllDayInBusyStrip = try container.decodeIfPresent(Bool.self, forKey: .includeAllDayInBusyStrip) ?? false
+        showCalendarEventsInTimeline = try container.decodeIfPresent(Bool.self, forKey: .showCalendarEventsInTimeline) ?? false
+        timelineRiseAndShineHour = Self.clampedHour(try container.decodeIfPresent(Int.self, forKey: .timelineRiseAndShineHour) ?? 8)
+        timelineRiseAndShineMinute = Self.clampedMinute(try container.decodeIfPresent(Int.self, forKey: .timelineRiseAndShineMinute) ?? 0)
+        timelineWindDownHour = Self.clampedHour(try container.decodeIfPresent(Int.self, forKey: .timelineWindDownHour) ?? 22)
+        timelineWindDownMinute = Self.clampedMinute(try container.decodeIfPresent(Int.self, forKey: .timelineWindDownMinute) ?? 0)
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -511,6 +536,11 @@ public struct TaskerWorkspacePreferences: Codable, Equatable {
         try container.encode(includeCanceledCalendarEvents, forKey: .includeCanceledCalendarEvents)
         try container.encode(includeAllDayInAgenda, forKey: .includeAllDayInAgenda)
         try container.encode(includeAllDayInBusyStrip, forKey: .includeAllDayInBusyStrip)
+        try container.encode(showCalendarEventsInTimeline, forKey: .showCalendarEventsInTimeline)
+        try container.encode(timelineRiseAndShineHour, forKey: .timelineRiseAndShineHour)
+        try container.encode(timelineRiseAndShineMinute, forKey: .timelineRiseAndShineMinute)
+        try container.encode(timelineWindDownHour, forKey: .timelineWindDownHour)
+        try container.encode(timelineWindDownMinute, forKey: .timelineWindDownMinute)
     }
 
     public func normalizedForPersistence() -> TaskerWorkspacePreferences {
@@ -520,7 +550,12 @@ public struct TaskerWorkspacePreferences: Codable, Equatable {
             includeDeclinedCalendarEvents: includeDeclinedCalendarEvents,
             includeCanceledCalendarEvents: includeCanceledCalendarEvents,
             includeAllDayInAgenda: includeAllDayInAgenda,
-            includeAllDayInBusyStrip: includeAllDayInBusyStrip
+            includeAllDayInBusyStrip: includeAllDayInBusyStrip,
+            showCalendarEventsInTimeline: showCalendarEventsInTimeline,
+            timelineRiseAndShineHour: Self.clampedHour(timelineRiseAndShineHour),
+            timelineRiseAndShineMinute: Self.clampedMinute(timelineRiseAndShineMinute),
+            timelineWindDownHour: Self.clampedHour(timelineWindDownHour),
+            timelineWindDownMinute: Self.clampedMinute(timelineWindDownMinute)
         )
     }
 
@@ -534,6 +569,14 @@ public struct TaskerWorkspacePreferences: Codable, Equatable {
         }
 
         return deduped.sorted()
+    }
+
+    private static func clampedHour(_ value: Int) -> Int {
+        max(0, min(23, value))
+    }
+
+    private static func clampedMinute(_ value: Int) -> Int {
+        max(0, min(59, value))
     }
 }
 

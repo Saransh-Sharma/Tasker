@@ -13,10 +13,21 @@ class NewProjectPage {
 
     private let app: XCUIApplication
 
+    private var unifiedComposer: XCUIElement {
+        app.otherElements["settings.lifeManagement.projectComposer"]
+    }
+
+    private var legacyComposer: XCUIElement {
+        app.otherElements[AccessibilityIdentifiers.NewProject.view]
+    }
+
     // MARK: - Elements
 
     var view: XCUIElement {
-        return app.otherElements[AccessibilityIdentifiers.NewProject.view]
+        if unifiedComposer.exists {
+            return unifiedComposer
+        }
+        return legacyComposer
     }
 
     var nameField: XCUIElement {
@@ -42,12 +53,23 @@ class NewProjectPage {
 
         // Fallback: find by placeholder
         if !field.exists {
-            field = app.textViews.matching(NSPredicate(format: "placeholderValue CONTAINS[c] 'description' OR label CONTAINS[c] 'description'")).firstMatch
+            field = app.textViews.matching(
+                NSPredicate(format: "placeholderValue CONTAINS[c] 'description' OR label CONTAINS[c] 'description' OR placeholderValue CONTAINS[c] 'project for'")
+            ).firstMatch
         }
 
         // Try text fields if text view not found
         if !field.exists {
-            field = app.textFields.matching(NSPredicate(format: "placeholderValue CONTAINS[c] 'description'")).firstMatch
+            field = app.textFields.matching(
+                NSPredicate(format: "placeholderValue CONTAINS[c] 'description' OR placeholderValue CONTAINS[c] 'project for'")
+            ).firstMatch
+        }
+
+        if !field.exists {
+            let textFields = app.textFields.allElementsBoundByIndex
+            if textFields.count > 1 {
+                field = textFields[1]
+            }
         }
 
         return field
@@ -63,7 +85,7 @@ class NewProjectPage {
 
     var saveButton: XCUIElement {
         let saveLabelPredicate = NSPredicate(
-            format: "label ==[c] 'Create' OR label ==[c] 'Save' OR identifier == %@",
+            format: "label ==[c] 'Create' OR label ==[c] 'Save' OR label ==[c] 'Add Project' OR label ==[c] 'Save Project' OR identifier == %@",
             AccessibilityIdentifiers.NewProject.saveButton
         )
 
@@ -191,8 +213,7 @@ class NewProjectPage {
     /// Tap save button
     @discardableResult
     func tapSave() -> ProjectManagementPage {
-        let button = saveButton
-        if button.waitForExistence(timeout: 2) {
+        if let button = resolveSaveButton(timeout: 2) {
             if button.isHittable {
                 button.tap()
             } else {
@@ -290,12 +311,13 @@ class NewProjectPage {
     /// Verify new project screen is displayed
     @discardableResult
     func verifyIsDisplayed(timeout: TimeInterval = 5) -> Bool {
-        // Check for name field or navigation bar
-        let navBar = app.navigationBars.firstMatch
-        let nameFieldExists = nameField.waitForExistence(timeout: timeout)
-        let navBarExists = navBar.waitForExistence(timeout: timeout)
-
-        return nameFieldExists || navBarExists
+        if unifiedComposer.waitForExistence(timeout: timeout) {
+            return true
+        }
+        if legacyComposer.waitForExistence(timeout: timeout) {
+            return true
+        }
+        return nameField.waitForExistence(timeout: timeout)
     }
 
     /// Verify validation error is shown
@@ -343,10 +365,35 @@ class NewProjectPage {
     /// Wait for screen to be dismissed
     @discardableResult
     func waitForDismissal(timeout: TimeInterval = 5) -> Bool {
-        let predicate = NSPredicate(format: "exists == false")
-        let expectation = XCTNSPredicateExpectation(predicate: predicate, object: nameField)
+        let predicate = NSPredicate { _, _ in
+            self.unifiedComposer.exists == false
+                && self.legacyComposer.exists == false
+                && self.nameField.exists == false
+        }
+        let expectation = XCTNSPredicateExpectation(predicate: predicate, object: nil)
 
         let result = XCTWaiter.wait(for: [expectation], timeout: timeout)
         return result == .completed
+    }
+
+    private func resolveSaveButton(timeout: TimeInterval) -> XCUIElement? {
+        let saveCandidates: [XCUIElement] = [
+            app.buttons[AccessibilityIdentifiers.NewProject.saveButton],
+            app.buttons["Add Project"],
+            app.buttons["Save Project"],
+            app.buttons["Create"],
+            app.buttons["Save"]
+        ]
+        if let existing = saveCandidates.first(where: \.exists) {
+            return existing
+        }
+        for candidate in saveCandidates where candidate.waitForExistence(timeout: timeout) {
+            return candidate
+        }
+        let navButtons = app.navigationBars.firstMatch.buttons
+        guard navButtons.count > 0 else { return nil }
+        let trailingNavButton = navButtons.element(boundBy: navButtons.count - 1)
+        guard trailingNavButton.waitForExistence(timeout: timeout) else { return nil }
+        return trailingNavButton
     }
 }

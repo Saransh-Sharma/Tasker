@@ -7,6 +7,7 @@ final class ManageLifeAreasUseCaseTests: XCTestCase {
         let area = LifeArea(id: UUID(), name: "Health", color: "#22C55E", icon: "heart.fill")
         let repository = LifeAreaRepositoryStub(areas: [area])
         let useCase = ManageLifeAreasUseCase(repository: repository)
+        let expectedColor = LifeAreaColorPalette.normalizeOrMap(hex: "#16A34A", for: area.id)
 
         let expectation = expectation(description: "update life area")
         useCase.update(
@@ -18,9 +19,10 @@ final class ManageLifeAreasUseCaseTests: XCTestCase {
             switch result {
             case .success(let updated):
                 XCTAssertEqual(updated.name, "Wellness")
-                XCTAssertEqual(updated.color, "#16A34A")
+                XCTAssertEqual(updated.color, expectedColor)
                 XCTAssertEqual(updated.icon, "leaf.fill")
                 XCTAssertEqual(repository.areas.first?.name, "Wellness")
+                XCTAssertEqual(repository.areas.first?.color, expectedColor)
                 XCTAssertEqual(repository.areas.first?.icon, "leaf.fill")
             case .failure(let error):
                 XCTFail("Expected success, got \(error)")
@@ -85,6 +87,110 @@ final class ManageLifeAreasUseCaseTests: XCTestCase {
         }
 
         waitForExpectations(timeout: 1.0)
+    }
+
+    func testCreateAssignsDeterministicPaletteDefaultWhenColorIsMissing() {
+        let repository = LifeAreaRepositoryStub(areas: [])
+        let useCase = ManageLifeAreasUseCase(repository: repository)
+
+        let expectation = expectation(description: "create life area with default palette color")
+        useCase.create(name: "Health", color: nil, icon: nil) { result in
+            switch result {
+            case .success(let created):
+                let expected = LifeAreaColorPalette.defaultHex(for: created.id)
+                XCTAssertEqual(created.color, expected)
+                XCTAssertEqual(repository.areas.first?.color, expected)
+                XCTAssertTrue(HabitColorFamily.allCases.map(\.canonicalHex).contains(expected))
+            case .failure(let error):
+                XCTFail("Expected success, got \(error)")
+            }
+            expectation.fulfill()
+        }
+
+        waitForExpectations(timeout: 1.0)
+    }
+
+    func testUpdateCanonicalizesPaletteHex() {
+        let area = LifeArea(id: UUID(), name: "Health", color: "#4E9A2F", icon: "heart.fill")
+        let repository = LifeAreaRepositoryStub(areas: [area])
+        let useCase = ManageLifeAreasUseCase(repository: repository)
+
+        let expectation = expectation(description: "update canonical palette hex")
+        useCase.update(
+            id: area.id,
+            name: "Health",
+            color: "4e9a2f",
+            icon: "heart.fill"
+        ) { result in
+            switch result {
+            case .success(let updated):
+                XCTAssertEqual(updated.color, HabitColorFamily.green.canonicalHex)
+                XCTAssertEqual(repository.areas.first?.color, HabitColorFamily.green.canonicalHex)
+            case .failure(let error):
+                XCTFail("Expected success, got \(error)")
+            }
+            expectation.fulfill()
+        }
+
+        waitForExpectations(timeout: 1.0)
+    }
+
+    func testUpdateMapsLegacyHexToNearestPaletteColor() {
+        let area = LifeArea(id: UUID(), name: "Career", color: "#4E9A2F", icon: "briefcase.fill")
+        let repository = LifeAreaRepositoryStub(areas: [area])
+        let useCase = ManageLifeAreasUseCase(repository: repository)
+        let expected = LifeAreaColorPalette.normalizeOrMap(hex: "#3B82F6", for: area.id)
+
+        let expectation = expectation(description: "update maps legacy hex")
+        useCase.update(
+            id: area.id,
+            name: "Career",
+            color: "#3B82F6",
+            icon: "briefcase.fill"
+        ) { result in
+            switch result {
+            case .success(let updated):
+                XCTAssertEqual(updated.color, expected)
+                XCTAssertEqual(repository.areas.first?.color, expected)
+            case .failure(let error):
+                XCTFail("Expected success, got \(error)")
+            }
+            expectation.fulfill()
+        }
+
+        waitForExpectations(timeout: 1.0)
+    }
+}
+
+final class LifeAreaColorPaletteTests: XCTestCase {
+    func testDefaultHexIsStablePerUUID() {
+        let id = UUID(uuidString: "4E59F2B2-9B93-4EFC-8CB6-AC3F880D0B6A")!
+        let first = LifeAreaColorPalette.defaultHex(for: id)
+        let second = LifeAreaColorPalette.defaultHex(for: id)
+        XCTAssertEqual(first, second)
+        XCTAssertTrue(HabitColorFamily.allCases.map(\.canonicalHex).contains(first))
+    }
+
+    func testNormalizeOrMapKeepsCanonicalPaletteHex() {
+        let id = UUID()
+        let resolved = LifeAreaColorPalette.resolve(hex: "4a86e8", for: id)
+        XCTAssertEqual(resolved.hex, HabitColorFamily.blue.canonicalHex)
+        XCTAssertEqual(resolved.reason, .exactPaletteMatch)
+    }
+
+    func testNormalizeOrMapMapsLegacyHexToNearestPalette() {
+        let id = UUID()
+        let resolved = LifeAreaColorPalette.resolve(hex: "#4B85E7", for: id)
+        XCTAssertEqual(resolved.hex, HabitColorFamily.blue.canonicalHex)
+        XCTAssertEqual(resolved.reason, .mappedLegacy)
+    }
+
+    func testNormalizeOrMapFallsBackToDefaultForInvalidInput() {
+        let id = UUID()
+        let expected = LifeAreaColorPalette.defaultHex(for: id)
+        let resolved = LifeAreaColorPalette.resolve(hex: "not-a-hex", for: id)
+        XCTAssertEqual(resolved.hex, expected)
+        XCTAssertEqual(resolved.reason, .missingOrInvalid)
     }
 }
 
@@ -375,8 +481,189 @@ final class CoreDataProjectRepositoryLifeAreaMutationTests: XCTestCase {
     }
 }
 
+final class TaskerPersistentRuntimeInitializerLifeAreaColorBackfillTests: XCTestCase {
+    private let backfillKey = "tasker.life_area_color_palette_backfill.v1"
+    private let runtimeMarkerKeys = [
+        "tasker.habit.runtime.field_backfill.v1",
+        "tasker.habit.runtime.repair_required.v1",
+        "tasker.habit.runtime.repair_completed.v1",
+        "tasker.occurrence.key_backfill.v1",
+        "tasker.life_area_color_palette_backfill.v1"
+    ]
+
+    override func setUp() {
+        super.setUp()
+        clearRuntimeInitializerMarkers()
+    }
+
+    override func tearDown() {
+        clearRuntimeInitializerMarkers()
+        super.tearDown()
+    }
+
+    private func clearRuntimeInitializerMarkers() {
+        for key in runtimeMarkerKeys {
+            UserDefaults.standard.removeObject(forKey: key)
+        }
+    }
+
+    func testInitializeBackfillsLifeAreaColorsIntoPalette() throws {
+        let container = try makeInMemoryCloudKitContainer()
+        let context = container.viewContext
+
+        let missingID = UUID()
+        let invalidID = UUID()
+        let legacyID = UUID()
+
+        context.performAndWait {
+            _ = insertLifeArea(in: context, id: UUID(), name: "General", color: nil)
+            _ = insertLifeArea(in: context, id: missingID, name: "Health", color: nil)
+            _ = insertLifeArea(in: context, id: invalidID, name: "Career", color: "not-a-hex")
+            _ = insertLifeArea(in: context, id: legacyID, name: "Learning", color: "#3B82F6")
+            try? context.save()
+        }
+
+        TaskerPersistentRuntimeInitializer().initialize(container: container)
+
+        context.performAndWait {
+            let missingColor = fetchLifeAreaColor(in: context, id: missingID)
+            let invalidColor = fetchLifeAreaColor(in: context, id: invalidID)
+            let legacyColor = fetchLifeAreaColor(in: context, id: legacyID)
+            XCTAssertEqual(missingColor, LifeAreaColorPalette.defaultHex(for: missingID))
+            XCTAssertEqual(invalidColor, LifeAreaColorPalette.defaultHex(for: invalidID))
+            XCTAssertEqual(legacyColor, LifeAreaColorPalette.normalizeOrMap(hex: "#3B82F6", for: legacyID))
+            XCTAssertTrue(HabitColorFamily.allCases.map(\.canonicalHex).contains(missingColor ?? ""))
+            XCTAssertTrue(HabitColorFamily.allCases.map(\.canonicalHex).contains(invalidColor ?? ""))
+            XCTAssertTrue(HabitColorFamily.allCases.map(\.canonicalHex).contains(legacyColor ?? ""))
+        }
+
+        XCTAssertTrue(UserDefaults.standard.bool(forKey: backfillKey))
+    }
+
+    func testInitializeSkipsColorBackfillAfterMarkerIsSet() throws {
+        let container = try makeInMemoryCloudKitContainer()
+        let context = container.viewContext
+        let areaID = UUID()
+
+        context.performAndWait {
+            _ = insertLifeArea(in: context, id: UUID(), name: "General", color: nil)
+            _ = insertLifeArea(in: context, id: areaID, name: "Health", color: nil)
+            try? context.save()
+        }
+
+        let initializer = TaskerPersistentRuntimeInitializer()
+        initializer.initialize(container: container)
+
+        context.performAndWait {
+            let request = NSFetchRequest<NSManagedObject>(entityName: "LifeArea")
+            request.predicate = NSPredicate(format: "id == %@", areaID as CVarArg)
+            request.fetchLimit = 1
+            let area = try? context.fetch(request).first
+            area?.setValue(nil, forKey: "color")
+            try? context.save()
+        }
+
+        initializer.initialize(container: container)
+
+        context.performAndWait {
+            XCTAssertNil(fetchLifeAreaColor(in: context, id: areaID))
+        }
+    }
+
+    func testInitializeDoesNotMutateHabitColorHex() throws {
+        let container = try makeInMemoryCloudKitContainer()
+        let context = container.viewContext
+        let areaID = UUID()
+        let habitID = UUID()
+
+        context.performAndWait {
+            _ = insertLifeArea(in: context, id: UUID(), name: "General", color: nil)
+            _ = insertLifeArea(in: context, id: areaID, name: "Health", color: nil)
+            _ = insertHabit(in: context, id: habitID, lifeAreaID: areaID, colorHex: "#8A46B5")
+            try? context.save()
+        }
+
+        TaskerPersistentRuntimeInitializer().initialize(container: container)
+
+        context.performAndWait {
+            let request = NSFetchRequest<NSManagedObject>(entityName: "HabitDefinition")
+            request.predicate = NSPredicate(format: "id == %@", habitID as CVarArg)
+            request.fetchLimit = 1
+            let habit = try? context.fetch(request).first
+            XCTAssertEqual(habit?.value(forKey: "colorHex") as? String, "#8A46B5")
+        }
+    }
+
+    private func makeInMemoryCloudKitContainer() throws -> NSPersistentCloudKitContainer {
+        let bundles = [Bundle.main, Bundle(for: type(of: self))]
+        guard let model = NSManagedObjectModel.mergedModel(from: bundles),
+              model.entitiesByName["LifeArea"] != nil,
+              model.entitiesByName["HabitDefinition"] != nil else {
+            throw NSError(
+                domain: "LifeManagementFeatureTests",
+                code: 2,
+                userInfo: [NSLocalizedDescriptionKey: "Unable to load TaskModelV3 for runtime initializer tests"]
+            )
+        }
+
+        let container = NSPersistentCloudKitContainer(name: "TaskModelV3", managedObjectModel: model)
+        let description = NSPersistentStoreDescription()
+        description.type = NSInMemoryStoreType
+        description.shouldAddStoreAsynchronously = false
+        container.persistentStoreDescriptions = [description]
+
+        var loadError: Error?
+        container.loadPersistentStores { _, error in
+            loadError = error
+        }
+        if let loadError {
+            throw loadError
+        }
+        return container
+    }
+
+    @discardableResult
+    private func insertLifeArea(in context: NSManagedObjectContext, id: UUID, name: String, color: String?) -> NSManagedObject {
+        let object = NSEntityDescription.insertNewObject(forEntityName: "LifeArea", into: context)
+        object.setValue(id, forKey: "id")
+        object.setValue(name, forKey: "name")
+        object.setValue(color, forKey: "color")
+        object.setValue("square.grid.2x2", forKey: "icon")
+        object.setValue(Int32(0), forKey: "sortOrder")
+        object.setValue(false, forKey: "isArchived")
+        object.setValue(Date(), forKey: "createdAt")
+        object.setValue(Date(), forKey: "updatedAt")
+        object.setValue(Int32(1), forKey: "version")
+        return object
+    }
+
+    @discardableResult
+    private func insertHabit(in context: NSManagedObjectContext, id: UUID, lifeAreaID: UUID, colorHex: String) -> NSManagedObject {
+        let object = NSEntityDescription.insertNewObject(forEntityName: "HabitDefinition", into: context)
+        object.setValue(id, forKey: "id")
+        object.setValue(lifeAreaID, forKey: "lifeAreaID")
+        object.setValue("Hydrate", forKey: "title")
+        object.setValue("check_in", forKey: "habitType")
+        object.setValue(colorHex, forKey: "colorHex")
+        object.setValue(false, forKey: "isPaused")
+        object.setValue(Int32(0), forKey: "streakCurrent")
+        object.setValue(Int32(0), forKey: "streakBest")
+        object.setValue(Date(), forKey: "createdAt")
+        object.setValue(Date(), forKey: "updatedAt")
+        return object
+    }
+
+    private func fetchLifeAreaColor(in context: NSManagedObjectContext, id: UUID) -> String? {
+        let request = NSFetchRequest<NSManagedObject>(entityName: "LifeArea")
+        request.predicate = NSPredicate(format: "id == %@", id as CVarArg)
+        request.fetchLimit = 1
+        let area = try? context.fetch(request).first
+        return area?.value(forKey: "color") as? String
+    }
+}
+
 final class LifeManagementProjectionTests: XCTestCase {
-    func testProjectionBuildsOverviewAndGroupsActiveEntitiesByArea() {
+    func testProjectionBuildsTreeWithProjectsAndDirectHabitsUnderAreas() throws {
         let general = LifeArea(id: UUID(), name: "General", color: "#9E5F0A", icon: "square.grid.2x2")
         let career = LifeArea(id: UUID(), name: "Career", color: "#3B82F6", icon: "briefcase.fill")
 
@@ -433,27 +720,34 @@ final class LifeManagementProjectionTests: XCTestCase {
             bestStreak: 4
         )
 
-        let snapshot = LifeManagementProjection.build(
+        let context = LifeManagementProjection.prepare(
             lifeAreas: [general, career],
             projectStats: [inbox, roadmap],
             habitRows: [activeHabit, pausedHabit],
-            selectedScope: .overview,
-            selectedHabitFilter: .all,
-            searchQuery: "",
             generalLifeAreaID: general.id
         )
+        let snapshot = context.snapshot(searchQuery: "")
 
-        XCTAssertEqual(snapshot.overview.stats.map(\.value), ["2", "2", "2"])
-        XCTAssertEqual(snapshot.areaRows.count, 2)
-        XCTAssertEqual(snapshot.projectGroups.count, 2)
-        XCTAssertEqual(snapshot.habitGroups.count, 2)
-        XCTAssertEqual(snapshot.overview.attentionItems.filter { $0.kind == .emptyProject }.count, 1)
-        XCTAssertEqual(snapshot.overview.attentionItems.filter { $0.kind == .pausedHabit }.count, 1)
-        XCTAssertEqual(snapshot.projectGroups.first(where: { $0.title == "Career" })?.rows.first?.linkedHabitCount, 1)
-        XCTAssertEqual(snapshot.habitGroups.first(where: { $0.title == "Career" })?.rows.first?.row.colorHex, "#3B82F6")
+        let activeSection = try XCTUnwrap(snapshot.treeSections.first(where: { $0.kind == LifeManagementTreeSectionKind.active }))
+        XCTAssertEqual(activeSection.nodes.map(\.title), ["General", "Career"])
+
+        let generalNode = try XCTUnwrap(activeSection.nodes.first(where: { $0.title == "General" }))
+        XCTAssertEqual(generalNode.children.map(\.title), [ProjectConstants.inboxProjectName, "No late caffeine"])
+
+        let careerNode = try XCTUnwrap(activeSection.nodes.first(where: { $0.title == "Career" }))
+        XCTAssertEqual(careerNode.children.map(\.title), ["Roadmap"])
+
+        let roadmapNode = try XCTUnwrap(careerNode.children.first(where: { $0.title == "Roadmap" }))
+        XCTAssertEqual(roadmapNode.children.map(\.title), ["Deep work"])
+
+        if case .project(let projectRow) = roadmapNode.payload {
+            XCTAssertEqual(projectRow.linkedHabitCount, 1)
+        } else {
+            XCTFail("Expected roadmap node payload to be a project")
+        }
     }
 
-    func testProjectionSearchesArchivedEntitiesSeparately() {
+    func testProjectionSearchReturnsAncestorPreservingArchivedTreeSlice() throws {
         let general = LifeArea(id: UUID(), name: "General", color: "#9E5F0A", icon: "square.grid.2x2")
         let archivedArea = LifeArea(id: UUID(), name: "Travel", color: "#0EA5A3", icon: "airplane", isArchived: true)
 
@@ -487,64 +781,74 @@ final class LifeManagementProjectionTests: XCTestCase {
             bestStreak: 2
         )
 
-        let snapshot = LifeManagementProjection.build(
+        let context = LifeManagementProjection.prepare(
             lifeAreas: [general, archivedArea],
             projectStats: [archivedProject],
             habitRows: [archivedHabit],
-            selectedScope: .archive,
-            selectedHabitFilter: .all,
-            searchQuery: "japan",
             generalLifeAreaID: general.id
         )
+        let snapshot = context.snapshot(searchQuery: "japan")
 
-        XCTAssertEqual(snapshot.searchResults.areas.count, 0)
-        XCTAssertEqual(snapshot.searchResults.projects.map(\.project.name), ["Japan trip"])
-        XCTAssertEqual(snapshot.searchResults.habits.count, 0)
-        XCTAssertEqual(snapshot.archiveSections.areas.count, 1)
-        XCTAssertEqual(snapshot.archiveSections.projects.first?.rows.count, 1)
-        XCTAssertEqual(snapshot.archiveSections.habits.first?.rows.count, 1)
+        XCTAssertNil(snapshot.treeSections.first(where: { $0.kind == LifeManagementTreeSectionKind.active }))
+
+        let archivedSection = try XCTUnwrap(snapshot.treeSections.first(where: { $0.kind == LifeManagementTreeSectionKind.archived }))
+        XCTAssertEqual(archivedSection.nodes.map(\.title), ["Travel"])
+
+        let archivedAreaNode = try XCTUnwrap(archivedSection.nodes.first)
+        XCTAssertEqual(archivedAreaNode.children.map(\.title), ["Japan trip"])
+
+        let archivedProjectNode = try XCTUnwrap(archivedAreaNode.children.first)
+        XCTAssertEqual(archivedProjectNode.title, "Japan trip")
+        XCTAssertTrue(snapshot.searchExpandedAncestorNodeIDs.contains(archivedAreaNode.id))
     }
 
-    func testProjectionAppliesPausedHabitFilter() {
+    func testProjectionUsesGeneralAreaForOrphanedProjectsAndHabits() throws {
         let general = LifeArea(id: UUID(), name: "General", color: "#9E5F0A", icon: "square.grid.2x2")
-
-        let activeHabit = HabitLibraryRow(
-            habitID: UUID(),
-            title: "Read",
-            kind: .positive,
-            trackingMode: .dailyCheckIn,
-            lifeAreaID: general.id,
-            lifeAreaName: general.name,
-            isPaused: false,
-            isArchived: false,
-            currentStreak: 3,
-            bestStreak: 5
+        let orphanProject = ProjectWithStats(
+            project: Project(
+                id: UUID(),
+                lifeAreaID: nil,
+                name: "Loose ends",
+                projectDescription: "No explicit life area",
+                color: .orange,
+                icon: .folder
+            ),
+            taskCount: 0,
+            completedTaskCount: 0
         )
-        let pausedHabit = HabitLibraryRow(
+
+        let orphanHabit = HabitLibraryRow(
             habitID: UUID(),
-            title: "No sugar",
+            title: "Inbox reset",
             kind: .negative,
             trackingMode: .lapseOnly,
-            lifeAreaID: general.id,
+            lifeAreaID: nil,
             lifeAreaName: general.name,
-            isPaused: true,
+            projectID: nil,
+            isPaused: false,
             isArchived: false,
             currentStreak: 0,
             bestStreak: 7
         )
 
-        let snapshot = LifeManagementProjection.build(
+        let context = LifeManagementProjection.prepare(
             lifeAreas: [general],
-            projectStats: [],
-            habitRows: [activeHabit, pausedHabit],
-            selectedScope: .habits,
-            selectedHabitFilter: .paused,
-            searchQuery: "",
+            projectStats: [orphanProject],
+            habitRows: [orphanHabit],
             generalLifeAreaID: general.id
         )
+        let snapshot = context.snapshot(searchQuery: "")
 
-        XCTAssertEqual(snapshot.habitGroups.count, 1)
-        XCTAssertEqual(snapshot.habitGroups.first?.rows.map(\.row.title), ["No sugar"])
+        let activeSection = try XCTUnwrap(snapshot.treeSections.first(where: { $0.kind == LifeManagementTreeSectionKind.active }))
+        let generalNode = try XCTUnwrap(activeSection.nodes.first(where: { $0.title == "General" }))
+        XCTAssertEqual(generalNode.children.map(\.title), ["Loose ends", "Inbox reset"])
+
+        if case .area(let areaRow) = generalNode.payload {
+            XCTAssertEqual(areaRow.projectCount, 1)
+            XCTAssertEqual(areaRow.habitCount, 1)
+        } else {
+            XCTFail("Expected general node payload to be an area")
+        }
     }
 
     func testPreparedContextBuildsDetailSnapshotsAndPrecomputedCounts() {
@@ -616,9 +920,9 @@ final class LifeManagementProjectionTests: XCTestCase {
         XCTAssertEqual(context.allProjectCountByAreaID[career.id], 1)
         XCTAssertEqual(context.allHabitCountByAreaID[career.id], 2)
         XCTAssertEqual(context.allLinkedHabitCountByProjectID[roadmap.project.id], 2)
-        XCTAssertEqual(context.areaDetailByID[career.id]?.activeProjects.map(\.project.name), ["Roadmap"])
-        XCTAssertEqual(context.areaDetailByID[career.id]?.activeHabits.map(\.row.title), ["Deep work"])
-        XCTAssertEqual(context.projectDetailByID[roadmap.project.id]?.activeLinkedHabits.map(\.row.title), ["Deep work"])
+        XCTAssertEqual(context.areaDetailByID[career.id]?.projectRows.map(\.project.name), ["Roadmap"])
+        XCTAssertEqual(context.areaDetailByID[career.id]?.habitRows.map(\.row.title), ["Deep work"])
+        XCTAssertEqual(context.projectDetailByID[roadmap.project.id]?.linkedHabits.map(\.row.title), ["Deep work"])
     }
 }
 
@@ -702,7 +1006,7 @@ final class LifeAreaProjectDropValidationTests: XCTestCase {
 
 @MainActor
 final class LifeManagementViewModelInteractionTests: XCTestCase {
-    func testHandleProjectDropResetsDragStateWhenMoveFails() async {
+    func testMoveProjectFromDraftKeepsDraftAndSurfacesErrorWhenMoveFails() async {
         let sourceAreaID = UUID()
         let destinationAreaID = UUID()
         let projectID = UUID()
@@ -721,19 +1025,24 @@ final class LifeManagementViewModelInteractionTests: XCTestCase {
             userInfo: [NSLocalizedDescriptionKey: "Move failed"]
         )
         let viewModel = makeLifeManagementViewModel(dependencies: repositories)
-
-        let provider = viewModel.beginProjectDrag(projectID)
-        viewModel.setDropTarget(destinationAreaID)
-
-        XCTAssertTrue(viewModel.handleProjectDrop(providers: [provider], targetLifeAreaID: destinationAreaID))
+        viewModel.loadIfNeeded()
 
         await waitUntil {
-            viewModel.isMutating == false &&
-            viewModel.draggingProjectID == nil &&
-            viewModel.activeDropLifeAreaID == nil
+            viewModel.projectRow(for: projectID) != nil
         }
 
-        XCTAssertEqual(viewModel.errorMessage, "Move failed")
+        viewModel.beginMoveProject(projectID)
+        XCTAssertEqual(viewModel.moveProjectDraft?.projectID, projectID)
+
+        viewModel.moveProjectDraft?.targetLifeAreaID = destinationAreaID
+        viewModel.moveProjectFromDraft()
+
+        await waitUntil {
+            viewModel.isMutating == false
+        }
+
+        XCTAssertTrue(viewModel.errorMessage?.contains("Move failed") == true)
+        XCTAssertEqual(viewModel.moveProjectDraft?.projectID, projectID)
     }
 
     func testMergeLifeAreasPrefersResolvedActiveGeneralOverArchivedDuplicate() {

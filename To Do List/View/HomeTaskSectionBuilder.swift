@@ -248,7 +248,8 @@ enum HomeMixedSectionBuilder {
         if useAdaptiveDayGrouping, habitRows.isEmpty {
             return buildAdaptiveDayTaskSections(
                 taskRows: taskRows,
-                projects: projects
+                projects: projects,
+                lifeAreas: lifeAreas
             )
         }
 
@@ -270,12 +271,14 @@ enum HomeMixedSectionBuilder {
 
     private static func buildAdaptiveDayTaskSections(
         taskRows: [TaskDefinition],
-        projects: [Project]
+        projects: [Project],
+        lifeAreas: [LifeArea]
     ) -> [HomeListSection] {
         guard taskRows.isEmpty == false else { return [] }
 
         var rowsByProjectID: [UUID: [HomeTodayRow]] = [:]
         var projectByID: [UUID: Project] = [:]
+        let lifeAreasByID = Dictionary(lifeAreas.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
 
         for task in taskRows {
             let project = resolveProject(
@@ -351,7 +354,17 @@ enum HomeMixedSectionBuilder {
                         iconSystemName: "tray.full.fill",
                         isInbox: isInboxProject(project)
                     ),
-                    rows: rowsByProjectID[project.id] ?? []
+                    rows: rowsByProjectID[project.id] ?? [],
+                    accentHex: HomeTaskTintResolver.sectionAccentHex(
+                        for: .project(
+                            id: project.id,
+                            name: project.name,
+                            iconSystemName: "tray.full.fill",
+                            isInbox: isInboxProject(project)
+                        ),
+                        projectsByID: projectByID,
+                        lifeAreasByID: lifeAreasByID
+                    )
                 )
             )
         }
@@ -368,12 +381,19 @@ enum HomeMixedSectionBuilder {
     ) -> [HomeListSection] {
         guard rows.isEmpty == false else { return [] }
 
+        let projectsByID = Dictionary(projects.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
+        let lifeAreasByID = Dictionary(lifeAreas.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
         let grouped = Dictionary(grouping: rows, by: { anchor(for: $0, projects: projects, lifeAreas: lifeAreas) })
         var sections = grouped.map { anchor, groupedRows in
             HomeListSection(
                 anchor: anchor,
                 rows: sortRows(groupedRows),
-                isOverdueSection: isOverdueSection
+                isOverdueSection: isOverdueSection,
+                accentHex: HomeTaskTintResolver.sectionAccentHex(
+                    for: anchor,
+                    projectsByID: projectsByID,
+                    lifeAreasByID: lifeAreasByID
+                )
             )
         }
 

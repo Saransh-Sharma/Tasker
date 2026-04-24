@@ -80,9 +80,6 @@ class SettingsPageViewController: UIViewController, PresentationDependencyContai
         viewModel.onNavigateToLifeManagement = { [weak self] in
             self?.navigateToLifeManagement()
         }
-        viewModel.onNavigateToProjects = { [weak self] in
-            self?.navigateToProjectManagement()
-        }
         viewModel.onNavigateToAISettings = { [weak self] in
             self?.navigateToAISettings()
         }

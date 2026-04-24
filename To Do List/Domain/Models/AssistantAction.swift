@@ -38,6 +38,7 @@ public struct AssistantCommandEnvelope: Codable, Equatable, Hashable {
 public struct AssistantTaskSnapshot: Codable, Equatable, Hashable {
     public var id: UUID
     public var recurrenceSeriesID: UUID?
+    public var habitDefinitionID: UUID?
     public var projectID: UUID
     public var projectName: String?
     public var lifeAreaID: UUID?
@@ -51,6 +52,9 @@ public struct AssistantTaskSnapshot: Codable, Equatable, Hashable {
     public var category: TaskCategory
     public var context: TaskContext
     public var dueDate: Date?
+    public var scheduledStartAt: Date?
+    public var scheduledEndAt: Date?
+    public var isAllDay: Bool?
     public var isComplete: Bool
     public var dateAdded: Date
     public var dateCompleted: Date?
@@ -66,13 +70,55 @@ public struct AssistantTaskSnapshot: Codable, Equatable, Hashable {
     public var weeklyOutcomeID: UUID?
     public var deferredFromWeekStart: Date?
     public var deferredCount: Int
+    public var replanCount: Int
     public var createdAt: Date
     public var updatedAt: Date
+
+    private enum CodingKeys: String, CodingKey {
+        case id
+        case recurrenceSeriesID
+        case habitDefinitionID
+        case projectID
+        case projectName
+        case lifeAreaID
+        case sectionID
+        case parentTaskID
+        case title
+        case details
+        case priority
+        case type
+        case energy
+        case category
+        case context
+        case dueDate
+        case scheduledStartAt
+        case scheduledEndAt
+        case isAllDay
+        case isComplete
+        case dateAdded
+        case dateCompleted
+        case isEveningTask
+        case alertReminderTime
+        case tagIDs
+        case dependencies
+        case estimatedDuration
+        case actualDuration
+        case subtasks
+        case repeatPattern
+        case planningBucket
+        case weeklyOutcomeID
+        case deferredFromWeekStart
+        case deferredCount
+        case replanCount
+        case createdAt
+        case updatedAt
+    }
 
     /// Initializes a new instance.
     public init(task: TaskDefinition) {
         self.id = task.id
         self.recurrenceSeriesID = task.recurrenceSeriesID
+        self.habitDefinitionID = task.habitDefinitionID
         self.projectID = task.projectID
         self.projectName = task.projectName
         self.lifeAreaID = task.lifeAreaID
@@ -86,6 +132,9 @@ public struct AssistantTaskSnapshot: Codable, Equatable, Hashable {
         self.category = task.category
         self.context = task.context
         self.dueDate = task.dueDate
+        self.scheduledStartAt = task.scheduledStartAt
+        self.scheduledEndAt = task.scheduledEndAt
+        self.isAllDay = task.isAllDay
         self.isComplete = task.isComplete
         self.dateAdded = task.dateAdded
         self.dateCompleted = task.dateCompleted
@@ -104,8 +153,50 @@ public struct AssistantTaskSnapshot: Codable, Equatable, Hashable {
         self.weeklyOutcomeID = task.weeklyOutcomeID
         self.deferredFromWeekStart = task.deferredFromWeekStart
         self.deferredCount = task.deferredCount
+        self.replanCount = task.replanCount
         self.createdAt = task.createdAt
         self.updatedAt = task.updatedAt
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decode(UUID.self, forKey: .id)
+        recurrenceSeriesID = try container.decodeIfPresent(UUID.self, forKey: .recurrenceSeriesID)
+        habitDefinitionID = try container.decodeIfPresent(UUID.self, forKey: .habitDefinitionID)
+        projectID = try container.decode(UUID.self, forKey: .projectID)
+        projectName = try container.decodeIfPresent(String.self, forKey: .projectName)
+        lifeAreaID = try container.decodeIfPresent(UUID.self, forKey: .lifeAreaID)
+        sectionID = try container.decodeIfPresent(UUID.self, forKey: .sectionID)
+        parentTaskID = try container.decodeIfPresent(UUID.self, forKey: .parentTaskID)
+        title = try container.decode(String.self, forKey: .title)
+        details = try container.decodeIfPresent(String.self, forKey: .details)
+        priority = try container.decode(TaskPriority.self, forKey: .priority)
+        type = try container.decode(TaskType.self, forKey: .type)
+        energy = try container.decode(TaskEnergy.self, forKey: .energy)
+        category = try container.decode(TaskCategory.self, forKey: .category)
+        context = try container.decode(TaskContext.self, forKey: .context)
+        dueDate = try container.decodeIfPresent(Date.self, forKey: .dueDate)
+        scheduledStartAt = try container.decodeIfPresent(Date.self, forKey: .scheduledStartAt)
+        scheduledEndAt = try container.decodeIfPresent(Date.self, forKey: .scheduledEndAt)
+        isAllDay = try container.decodeIfPresent(Bool.self, forKey: .isAllDay)
+        isComplete = try container.decode(Bool.self, forKey: .isComplete)
+        dateAdded = try container.decode(Date.self, forKey: .dateAdded)
+        dateCompleted = try container.decodeIfPresent(Date.self, forKey: .dateCompleted)
+        isEveningTask = try container.decode(Bool.self, forKey: .isEveningTask)
+        alertReminderTime = try container.decodeIfPresent(Date.self, forKey: .alertReminderTime)
+        tagIDs = try container.decode([UUID].self, forKey: .tagIDs)
+        dependencies = try container.decode([TaskDependencyLinkDefinition].self, forKey: .dependencies)
+        estimatedDuration = try container.decodeIfPresent(TimeInterval.self, forKey: .estimatedDuration)
+        actualDuration = try container.decodeIfPresent(TimeInterval.self, forKey: .actualDuration)
+        subtasks = try container.decodeIfPresent([UUID].self, forKey: .subtasks)
+        repeatPattern = try container.decodeIfPresent(TaskRepeatPattern.self, forKey: .repeatPattern)
+        planningBucket = try container.decode(TaskPlanningBucket.self, forKey: .planningBucket)
+        weeklyOutcomeID = try container.decodeIfPresent(UUID.self, forKey: .weeklyOutcomeID)
+        deferredFromWeekStart = try container.decodeIfPresent(Date.self, forKey: .deferredFromWeekStart)
+        deferredCount = try container.decode(Int.self, forKey: .deferredCount)
+        replanCount = try container.decodeIfPresent(Int.self, forKey: .replanCount) ?? 0
+        createdAt = try container.decode(Date.self, forKey: .createdAt)
+        updatedAt = try container.decode(Date.self, forKey: .updatedAt)
     }
 
     /// Executes toTaskDefinition.
@@ -113,6 +204,7 @@ public struct AssistantTaskSnapshot: Codable, Equatable, Hashable {
         TaskDefinition(
             id: id,
             recurrenceSeriesID: recurrenceSeriesID,
+            habitDefinitionID: habitDefinitionID,
             projectID: projectID,
             projectName: projectName,
             lifeAreaID: lifeAreaID,
@@ -126,6 +218,9 @@ public struct AssistantTaskSnapshot: Codable, Equatable, Hashable {
             category: category,
             context: context,
             dueDate: dueDate,
+            scheduledStartAt: scheduledStartAt,
+            scheduledEndAt: scheduledEndAt,
+            isAllDay: isAllDay ?? false,
             isComplete: isComplete,
             dateAdded: dateAdded,
             dateCompleted: dateCompleted,
@@ -141,6 +236,7 @@ public struct AssistantTaskSnapshot: Codable, Equatable, Hashable {
             weeklyOutcomeID: weeklyOutcomeID,
             deferredFromWeekStart: deferredFromWeekStart,
             deferredCount: deferredCount,
+            replanCount: replanCount,
             createdAt: createdAt,
             updatedAt: updatedAt
         )

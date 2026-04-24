@@ -24,6 +24,7 @@ struct AddTaskForedropView: View {
     @FocusState private var descriptionFieldFocused: Bool
     @State private var errorShakeTrigger = false
     @State private var didAutoFocusTitleField = false
+    @State private var isTaskIconPickerPresented = false
     @Environment(\.taskerLayoutClass) private var layoutClass
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
@@ -49,14 +50,20 @@ struct AddTaskForedropView: View {
                     AddTaskTitleField(
                         text: $viewModel.taskName,
                         isFocused: $titleFieldFocused,
+                        iconSystemName: V2FeatureFlags.autoTaskIconsEnabled ? viewModel.displayedTaskIconSymbolName : nil,
+                        iconAccessibilityLabel: V2FeatureFlags.autoTaskIconsEnabled ? viewModel.displayedTaskIconLabel : nil,
+                        onIconTap: V2FeatureFlags.autoTaskIconsEnabled ? { isTaskIconPickerPresented = true } : nil,
                         placeholder: "What do you want to do?",
                         helperText: "Keep it short. You can clarify later.",
                         onSubmit: submitTask
                     )
                     .enhancedStaggeredAppearance(index: 0)
 
-                    baseComposerSections
+                    AddTaskScheduleQuickEditor(viewModel: viewModel)
                         .enhancedStaggeredAppearance(index: 1)
+
+                    baseComposerSections
+                        .enhancedStaggeredAppearance(index: 2)
 
                     if viewModel.isCoreDetailsExpanded {
                         detailedSections
@@ -92,6 +99,12 @@ struct AddTaskForedropView: View {
         }
         .background(Color.tasker.surfacePrimary)
         .accessibilityIdentifier("addTask.view")
+        .sheet(isPresented: $isTaskIconPickerPresented) {
+            AddTaskIconPickerSheet(
+                viewModel: viewModel,
+                isPresented: $isTaskIconPickerPresented
+            )
+        }
         .overlay(
             Color.tasker.statusSuccess
                 .opacity(successFlash ? 0.05 : 0)
@@ -120,24 +133,7 @@ struct AddTaskForedropView: View {
 
     private var baseComposerSections: some View {
         VStack(spacing: spacing.s16) {
-            if dynamicTypeSize.isAccessibilitySize {
-                dueDateSection
-                ownershipSection
-            } else {
-                ViewThatFits(in: .horizontal) {
-                    HStack(alignment: .top, spacing: spacing.s16) {
-                        dueDateSection
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                        ownershipSection
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                    }
-
-                    VStack(spacing: spacing.s16) {
-                        dueDateSection
-                        ownershipSection
-                    }
-                }
-            }
+            ownershipSection
 
             TaskerComposerDisclosureRow(
                 title: "Add details",
@@ -169,7 +165,14 @@ struct AddTaskForedropView: View {
             TaskerComposerOptionGrid(
                 title: "Life Area",
                 helperText: "Pick an area to narrow projects.",
-                options: viewModel.lifeAreas.map { TaskerComposerOption(id: $0.id, title: $0.name, icon: $0.icon) },
+                options: viewModel.lifeAreas.map {
+                    TaskerComposerOption(
+                        id: $0.id,
+                        title: $0.name,
+                        icon: $0.icon,
+                        accentHex: LifeAreaColorPalette.normalizeOrMap(hex: $0.color, for: $0.id)
+                    )
+                },
                 selectedID: viewModel.selectedLifeAreaID,
                 noneOptionTitle: "Any area",
                 emptyStateText: viewModel.lifeAreas.isEmpty ? "No life areas yet." : nil,
@@ -183,7 +186,9 @@ struct AddTaskForedropView: View {
             TaskerComposerOptionGrid(
                 title: "Project",
                 helperText: "Choose a project or leave this in Inbox.",
-                options: viewModel.filteredProjectsForSelectedLifeArea.map { TaskerComposerOption(id: $0.name, title: $0.name, icon: nil) },
+                options: viewModel.filteredProjectsForSelectedLifeArea.map {
+                    TaskerComposerOption(id: $0.name, title: $0.name, icon: nil, accentHex: nil)
+                },
                 selectedID: viewModel.selectedProject == ProjectConstants.inboxProjectName ? nil : viewModel.selectedProject,
                 noneOptionTitle: "Inbox",
                 emptyStateText: viewModel.filteredProjectsForSelectedLifeArea.isEmpty ? "No projects in this area." : nil,
@@ -231,9 +236,9 @@ struct AddTaskForedropView: View {
 
                     AddTaskRepeatEditor(repeatPattern: $viewModel.repeatPattern)
 
-                    if viewModel.dueDate != nil {
-                        Button("Clear due date") {
-                            viewModel.dueDate = nil
+                    if viewModel.scheduledStartAt != nil {
+                        Button("Clear schedule") {
+                            viewModel.clearSchedule()
                         }
                         .font(.tasker(.meta))
                         .foregroundStyle(Color.tasker.statusWarning)
@@ -247,7 +252,14 @@ struct AddTaskForedropView: View {
                     if !viewModel.sections.isEmpty {
                         AddTaskEntityPicker(
                             label: "Section",
-                            items: viewModel.sections.map { (id: $0.id, name: $0.name, icon: nil as String?) },
+                            items: viewModel.sections.map {
+                                AddTaskEntityPickerItem(
+                                    id: $0.id,
+                                    name: $0.name,
+                                    icon: nil,
+                                    accentHex: nil
+                                )
+                            },
                             selectedID: $viewModel.selectedSectionID
                         )
                     }
@@ -264,8 +276,6 @@ struct AddTaskForedropView: View {
 
             sectionCard(.execution, index: 4) {
                 VStack(alignment: .leading, spacing: spacing.s12) {
-                    AddTaskDurationPicker(duration: $viewModel.estimatedDuration)
-
                     AddTaskEnumChipRow(
                         label: "Energy",
                         displayName: { $0.displayName },
@@ -462,6 +472,433 @@ struct AddTaskForedropView: View {
     }
 }
 
+// MARK: - Schedule Quick Editor
+
+private enum AddTaskScheduleAccessibilityID {
+    static let editor = "addTask.scheduleEditor"
+    static let dateToday = "addTask.schedule.date.today"
+    static let dateTomorrow = "addTask.schedule.date.tomorrow"
+    static let dateCustom = "addTask.schedule.date.custom"
+    static let dateSomeday = "addTask.schedule.date.someday"
+    static let timeRow = "addTask.schedule.timeRow"
+    static let timePickerSheet = "addTask.schedule.timePickerSheet"
+    static let timePicker = "addTask.schedule.timePicker"
+    static let timePickerConfirm = "addTask.schedule.timePickerConfirm"
+    static let datePickerSheet = "addTask.schedule.datePickerSheet"
+    static let datePicker = "addTask.schedule.datePicker"
+    static let datePickerConfirm = "addTask.schedule.datePickerConfirm"
+    static let customDurationField = "addTask.schedule.customDurationField"
+
+    static func durationChip(_ minutes: Int) -> String {
+        "addTask.schedule.duration.\(minutes)"
+    }
+}
+
+struct AddTaskScheduleQuickEditor: View {
+    @ObservedObject var viewModel: AddTaskViewModel
+
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @State private var showDatePicker = false
+    @State private var showTimePicker = false
+    @State private var showCustomDuration = false
+    @State private var customDurationMinutes = ""
+
+    private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.currentTheme.tokens.spacing }
+    private var corner: TaskerCornerTokens { TaskerThemeManager.shared.currentTheme.tokens.corner }
+
+    private let durationPresets: [(label: String, seconds: TimeInterval, minutes: Int)] = [
+        ("15m", 15 * 60, 15),
+        ("30m", 30 * 60, 30),
+        ("1h", 60 * 60, 60),
+        ("1h 30m", 90 * 60, 90),
+        ("2h", 2 * 60 * 60, 120),
+    ]
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: spacing.s12) {
+            HStack(spacing: spacing.s8) {
+                Image(systemName: "clock")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(Color.tasker.accentPrimary)
+                Text("Schedule")
+                    .font(.tasker(.caption1).weight(.semibold))
+                    .foregroundStyle(Color.tasker.textSecondary)
+                Spacer(minLength: 0)
+            }
+
+            datePresetRow
+            timeRow
+            durationRow
+
+            if showCustomDuration {
+                customDurationRow
+                    .transition(.asymmetric(
+                        insertion: .opacity.combined(with: .move(edge: .top)),
+                        removal: .opacity
+                    ))
+            }
+        }
+        .padding(.horizontal, spacing.s12)
+        .padding(.vertical, spacing.s12)
+        .background(
+            RoundedRectangle(cornerRadius: corner.r3)
+                .fill(Color.tasker.surfaceSecondary)
+                .overlay(
+                    RoundedRectangle(cornerRadius: corner.r3)
+                        .stroke(Color.tasker.strokeHairline, lineWidth: 1)
+                )
+        )
+        .accessibilityIdentifier(AddTaskScheduleAccessibilityID.editor)
+        .sheet(isPresented: $showDatePicker) {
+            let todayStart = Calendar.current.startOfDay(for: Date())
+            let initialDate = max(viewModel.scheduledStartAt ?? Date(), todayStart)
+            AddTaskScheduleDatePickerSheet(
+                initialDate: initialDate,
+                onSet: { date in
+                    viewModel.setScheduledDate(date)
+                }
+            )
+        }
+        .sheet(isPresented: $showTimePicker) {
+            AddTaskScheduleTimePickerSheet(
+                initialTime: viewModel.scheduledStartAt ?? AddTaskViewModel.defaultScheduledStart(),
+                onSet: { time in
+                    viewModel.setScheduledStartTime(time)
+                }
+            )
+        }
+        .animation(TaskerAnimation.snappy, value: showCustomDuration)
+    }
+
+    private var datePresetRow: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: spacing.chipSpacing) {
+                AddTaskMetadataChip(
+                    icon: "sun.horizon",
+                    text: "Today",
+                    isActive: isScheduledToday
+                ) {
+                    if let today = DatePreset.today.resolvedDueDate() {
+                        viewModel.setScheduledDate(today)
+                    }
+                }
+                .accessibilityIdentifier(AddTaskScheduleAccessibilityID.dateToday)
+
+                AddTaskMetadataChip(
+                    icon: "sunrise",
+                    text: "Tomorrow",
+                    isActive: isScheduledTomorrow
+                ) {
+                    if let tomorrow = DatePreset.tomorrow.resolvedDueDate() {
+                        viewModel.setScheduledDate(tomorrow)
+                    }
+                }
+                .accessibilityIdentifier(AddTaskScheduleAccessibilityID.dateTomorrow)
+
+                AddTaskMetadataChip(
+                    icon: "calendar.badge.plus",
+                    text: customDateText,
+                    isActive: isCustomDateSelected
+                ) {
+                    if viewModel.scheduledStartAt == nil {
+                        viewModel.restoreDefaultSchedule()
+                    }
+                    showDatePicker = true
+                }
+                .accessibilityIdentifier(AddTaskScheduleAccessibilityID.dateCustom)
+
+                AddTaskMetadataChip(
+                    icon: "tray",
+                    text: "Someday",
+                    isActive: viewModel.scheduledStartAt == nil
+                ) {
+                    withAnimation(TaskerAnimation.snappy) {
+                        viewModel.clearSchedule()
+                    }
+                }
+                .accessibilityIdentifier(AddTaskScheduleAccessibilityID.dateSomeday)
+            }
+        }
+    }
+
+    private var timeRow: some View {
+        Button {
+            if viewModel.scheduledStartAt == nil {
+                viewModel.restoreDefaultSchedule()
+            }
+            showTimePicker = true
+        } label: {
+            HStack(spacing: spacing.s12) {
+                Image(systemName: "clock.fill")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(Color.tasker.accentPrimary)
+                    .frame(width: 24, height: 24)
+                    .background(Circle().fill(Color.tasker.accentWash))
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Time")
+                        .font(.tasker(.caption1))
+                        .foregroundStyle(Color.tasker.textTertiary)
+                    Text(timeRangeText)
+                        .font(.tasker(.callout).weight(.semibold))
+                        .foregroundStyle(Color.tasker.textPrimary)
+                        .lineLimit(dynamicTypeSize.isAccessibilitySize ? 2 : 1)
+                }
+
+                Spacer(minLength: spacing.s8)
+
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(Color.tasker.textQuaternary)
+            }
+            .padding(.horizontal, spacing.s12)
+            .padding(.vertical, spacing.s8)
+            .background(
+                RoundedRectangle(cornerRadius: corner.r2)
+                    .fill(Color.tasker.surfacePrimary)
+            )
+        }
+        .buttonStyle(.plain)
+        .scaleOnPress()
+        .accessibilityIdentifier(AddTaskScheduleAccessibilityID.timeRow)
+    }
+
+    private var durationRow: some View {
+        VStack(alignment: .leading, spacing: spacing.s8) {
+            Text("Duration")
+                .font(.tasker(.caption1))
+                .foregroundStyle(Color.tasker.textTertiary)
+
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: spacing.chipSpacing) {
+                    ForEach(durationPresets, id: \.minutes) { preset in
+                        AddTaskMetadataChip(
+                            icon: "timer",
+                            text: preset.label,
+                            isActive: durationMatches(preset.seconds)
+                        ) {
+                            withAnimation(TaskerAnimation.snappy) {
+                                viewModel.setEstimatedDuration(preset.seconds)
+                                showCustomDuration = false
+                            }
+                        }
+                        .accessibilityIdentifier(AddTaskScheduleAccessibilityID.durationChip(preset.minutes))
+                    }
+
+                    AddTaskMetadataChip(
+                        icon: "pencil",
+                        text: customDurationChipText,
+                        isActive: showCustomDuration || isCustomDurationSelected
+                    ) {
+                        customDurationMinutes = currentDurationMinutesText
+                        withAnimation(TaskerAnimation.snappy) {
+                            showCustomDuration.toggle()
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private var customDurationRow: some View {
+        HStack(spacing: spacing.s8) {
+            TextField("Minutes", text: $customDurationMinutes)
+                .font(.tasker(.callout))
+                .keyboardType(.numberPad)
+                .foregroundStyle(Color.tasker.textPrimary)
+                .padding(.horizontal, spacing.s12)
+                .padding(.vertical, spacing.s8)
+                .background(
+                    RoundedRectangle(cornerRadius: corner.r2)
+                        .fill(Color.tasker.surfacePrimary)
+                )
+                .frame(width: 112)
+                .accessibilityIdentifier(AddTaskScheduleAccessibilityID.customDurationField)
+
+            Text("minutes")
+                .font(.tasker(.callout))
+                .foregroundStyle(Color.tasker.textTertiary)
+
+            Spacer(minLength: 0)
+
+            Button("Set") {
+                guard let minutes = Int(customDurationMinutes), minutes > 0 else { return }
+                viewModel.setEstimatedDuration(TimeInterval(minutes) * 60)
+                showCustomDuration = false
+            }
+            .font(.tasker(.callout).weight(.semibold))
+            .foregroundStyle(Color.tasker.accentPrimary)
+            .buttonStyle(.plain)
+        }
+    }
+
+    private var isScheduledToday: Bool {
+        guard let scheduledStartAt = viewModel.scheduledStartAt else { return false }
+        return Calendar.current.isDateInToday(scheduledStartAt)
+    }
+
+    private var isScheduledTomorrow: Bool {
+        guard let scheduledStartAt = viewModel.scheduledStartAt else { return false }
+        return Calendar.current.isDateInTomorrow(scheduledStartAt)
+    }
+
+    private var isCustomDateSelected: Bool {
+        guard viewModel.scheduledStartAt != nil else { return false }
+        return isScheduledToday == false && isScheduledTomorrow == false
+    }
+
+    private var customDateText: String {
+        guard isCustomDateSelected, let scheduledStartAt = viewModel.scheduledStartAt else {
+            return "Pick date"
+        }
+        let formatter = DateFormatter()
+        formatter.setLocalizedDateFormatFromTemplate("EEE MMM d")
+        return formatter.string(from: scheduledStartAt)
+    }
+
+    private var timeRangeText: String {
+        guard let scheduledStartAt = viewModel.scheduledStartAt else {
+            return "No start time"
+        }
+        return AddTaskViewModel.scheduleRangeLabel(start: scheduledStartAt, end: viewModel.scheduledEndAt)
+    }
+
+    private var customDurationChipText: String {
+        guard isCustomDurationSelected, let duration = viewModel.estimatedDuration else {
+            return "Custom"
+        }
+        return durationLabel(for: duration)
+    }
+
+    private var currentDurationMinutesText: String {
+        guard let duration = viewModel.estimatedDuration else { return "" }
+        return "\(max(1, Int((duration / 60).rounded())))"
+    }
+
+    private var isCustomDurationSelected: Bool {
+        guard let duration = viewModel.estimatedDuration else { return false }
+        return durationPresets.contains(where: { abs($0.seconds - duration) < 1 }) == false
+    }
+
+    private func durationMatches(_ duration: TimeInterval) -> Bool {
+        guard let selected = viewModel.estimatedDuration else { return false }
+        return abs(selected - duration) < 1
+    }
+
+    private func durationLabel(for duration: TimeInterval) -> String {
+        let minutes = max(1, Int((duration / 60).rounded()))
+        if minutes < 60 {
+            return "\(minutes)m"
+        }
+        let hours = minutes / 60
+        let remainder = minutes % 60
+        if remainder == 0 {
+            return "\(hours)h"
+        }
+        return "\(hours)h \(remainder)m"
+    }
+}
+
+private struct AddTaskScheduleDatePickerSheet: View {
+    let onSet: (Date) -> Void
+    @Environment(\.dismiss) private var dismiss
+    @State private var selectedDate: Date
+
+    private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.currentTheme.tokens.spacing }
+
+    init(initialDate: Date, onSet: @escaping (Date) -> Void) {
+        _selectedDate = State(initialValue: initialDate)
+        self.onSet = onSet
+    }
+
+    var body: some View {
+        NavigationStack {
+            VStack(spacing: spacing.s20) {
+                DatePicker(
+                    "Date",
+                    selection: $selectedDate,
+                    in: Calendar.current.startOfDay(for: Date())...,
+                    displayedComponents: .date
+                )
+                .datePickerStyle(.graphical)
+                .padding(.horizontal, spacing.s16)
+                .accessibilityIdentifier(AddTaskScheduleAccessibilityID.datePicker)
+
+                Spacer(minLength: 0)
+            }
+            .accessibilityIdentifier(AddTaskScheduleAccessibilityID.datePickerSheet)
+            .navigationTitle("Pick Date")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") {
+                        dismiss()
+                    }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Set Date") {
+                        onSet(selectedDate)
+                        TaskerFeedback.success()
+                        dismiss()
+                    }
+                    .accessibilityIdentifier(AddTaskScheduleAccessibilityID.datePickerConfirm)
+                }
+            }
+        }
+        .presentationDetents([.medium, .large])
+    }
+}
+
+private struct AddTaskScheduleTimePickerSheet: View {
+    let onSet: (Date) -> Void
+    @Environment(\.dismiss) private var dismiss
+    @State private var selectedTime: Date
+
+    private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.currentTheme.tokens.spacing }
+
+    init(initialTime: Date, onSet: @escaping (Date) -> Void) {
+        _selectedTime = State(initialValue: initialTime)
+        self.onSet = onSet
+    }
+
+    var body: some View {
+        NavigationStack {
+            VStack(spacing: spacing.s16) {
+                DatePicker(
+                    "Start Time",
+                    selection: $selectedTime,
+                    displayedComponents: .hourAndMinute
+                )
+                .datePickerStyle(.wheel)
+                .labelsHidden()
+                .padding(.horizontal, spacing.s16)
+                .accessibilityIdentifier(AddTaskScheduleAccessibilityID.timePicker)
+
+                Spacer(minLength: 0)
+            }
+            .accessibilityIdentifier(AddTaskScheduleAccessibilityID.timePickerSheet)
+            .navigationTitle("Start Time")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") {
+                        dismiss()
+                    }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Set Time") {
+                        onSet(selectedTime)
+                        TaskerFeedback.success()
+                        dismiss()
+                    }
+                    .accessibilityIdentifier(AddTaskScheduleAccessibilityID.timePickerConfirm)
+                }
+            }
+        }
+        .presentationDetents([.height(320), .medium])
+    }
+}
+
 // MARK: - Task Type Chips
 
 struct AddTaskTypeChips: View {
@@ -496,6 +933,7 @@ struct TaskerComposerOption<ID: Hashable>: Identifiable {
     let id: ID
     let title: String
     let icon: String?
+    let accentHex: String?
 }
 
 struct TaskerComposerOptionGrid<ID: Hashable>: View {
@@ -537,6 +975,7 @@ struct TaskerComposerOptionGrid<ID: Hashable>: View {
                     optionButton(
                         title: noneOptionTitle,
                         icon: "minus",
+                        accentHex: nil,
                         isSelected: selectedID == nil
                     ) {
                         onSelect(nil)
@@ -547,6 +986,7 @@ struct TaskerComposerOptionGrid<ID: Hashable>: View {
                     optionButton(
                         title: option.title,
                         icon: option.icon,
+                        accentHex: option.accentHex,
                         isSelected: selectedID == option.id
                     ) {
                         onSelect(option.id)
@@ -568,10 +1008,13 @@ struct TaskerComposerOptionGrid<ID: Hashable>: View {
     private func optionButton(
         title: String,
         icon: String?,
+        accentHex: String?,
         isSelected: Bool,
         action: @escaping () -> Void
     ) -> some View {
-        Button {
+        let hasAccent = TaskerHexColor.normalized(accentHex) != nil
+        let accentColor = TaskerHexColor.color(accentHex, fallback: Color.tasker.accentPrimary)
+        return Button {
             TaskerFeedback.selection()
             action()
         } label: {
@@ -579,7 +1022,11 @@ struct TaskerComposerOptionGrid<ID: Hashable>: View {
                 if let icon, icon.isEmpty == false {
                     Image(systemName: icon)
                         .font(.system(size: 12, weight: .semibold))
-                        .foregroundStyle(isSelected ? Color.tasker.accentPrimary : Color.tasker.textTertiary)
+                        .foregroundStyle(
+                            isSelected
+                                ? (hasAccent ? accentColor : Color.tasker.accentPrimary)
+                                : (hasAccent ? accentColor.opacity(0.86) : Color.tasker.textTertiary)
+                        )
                 }
 
                 Text(title)
@@ -592,7 +1039,7 @@ struct TaskerComposerOptionGrid<ID: Hashable>: View {
                 if isSelected {
                     Image(systemName: "checkmark")
                         .font(.system(size: 12, weight: .bold))
-                        .foregroundStyle(Color.tasker.accentPrimary)
+                        .foregroundStyle(hasAccent ? accentColor : Color.tasker.accentPrimary)
                         .accessibilityHidden(true)
                 }
             }
@@ -601,11 +1048,20 @@ struct TaskerComposerOptionGrid<ID: Hashable>: View {
             .padding(.vertical, spacing.s8)
             .background(
                 RoundedRectangle(cornerRadius: corner.r2, style: .continuous)
-                    .fill(isSelected ? Color.tasker.accentWash : Color.tasker.surfaceSecondary)
+                    .fill(
+                        isSelected
+                            ? (hasAccent ? accentColor.opacity(0.18) : Color.tasker.accentWash)
+                            : (hasAccent ? accentColor.opacity(0.08) : Color.tasker.surfaceSecondary)
+                    )
             )
             .overlay(
                 RoundedRectangle(cornerRadius: corner.r2, style: .continuous)
-                    .stroke(isSelected ? Color.tasker.accentRing : Color.tasker.strokeHairline, lineWidth: isSelected ? 1.5 : 1)
+                    .stroke(
+                        isSelected
+                            ? (hasAccent ? accentColor.opacity(0.52) : Color.tasker.accentRing)
+                            : (hasAccent ? accentColor.opacity(0.24) : Color.tasker.strokeHairline),
+                        lineWidth: isSelected ? 1.5 : 1
+                    )
             )
         }
         .buttonStyle(.plain)
@@ -668,5 +1124,162 @@ struct TaskerComposerDisclosureRow: View {
         .accessibilityLabel("\(title). \(summary)")
         .accessibilityHint(isExpanded ? "Collapse details" : "Expand details")
         .animation(TaskerAnimation.snappy, value: isExpanded)
+    }
+}
+
+private struct AddTaskIconPickerSheet: View {
+    @ObservedObject var viewModel: AddTaskViewModel
+    @Binding var isPresented: Bool
+
+    @Environment(\.taskerLayoutClass) private var layoutClass
+
+    private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.tokens(for: layoutClass).spacing }
+    private let columns = [GridItem(.adaptive(minimum: 88), spacing: 12)]
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: spacing.s16) {
+                    currentSelectionCard
+                    searchField
+                    LazyVGrid(columns: columns, spacing: spacing.s12) {
+                        ForEach(viewModel.availableTaskIconOptions) { option in
+                            AddTaskIconOptionButton(
+                                option: option,
+                                isSelected: viewModel.displayedTaskIconSymbolName == option.symbolName
+                            ) {
+                                TaskerFeedback.selection()
+                                viewModel.applyManualTaskIconSelection(symbolName: option.symbolName)
+                                isPresented = false
+                            }
+                        }
+                    }
+                }
+                .padding(spacing.s16)
+            }
+            .background(Color.tasker.surfacePrimary)
+            .navigationTitle("Task Icon")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Done") {
+                        isPresented = false
+                    }
+                }
+            }
+        }
+        .accessibilityIdentifier("addTask.iconPickerSheet")
+    }
+
+    private var currentSelectionCard: some View {
+        VStack(alignment: .leading, spacing: spacing.s12) {
+            HStack(spacing: spacing.s12) {
+                Image(systemName: viewModel.displayedTaskIconSymbolName)
+                    .font(.system(size: 26, weight: .semibold))
+                    .foregroundStyle(Color.tasker.accentPrimary)
+                    .frame(width: 40, height: 40)
+                    .background(
+                        RoundedRectangle(cornerRadius: 12, style: .continuous)
+                            .fill(Color.tasker.accentWash)
+                    )
+                    .accessibilityHidden(true)
+
+                VStack(alignment: .leading, spacing: spacing.s4) {
+                    Text(viewModel.displayedTaskIconLabel)
+                        .font(.tasker(.callout).weight(.semibold))
+                        .foregroundStyle(Color.tasker.textPrimary)
+                    Text(viewModel.taskIconSelectionSource == .manual ? "Manual override" : "Live suggestion")
+                        .font(.tasker(.meta))
+                        .foregroundStyle(Color.tasker.textSecondary)
+                }
+
+                Spacer(minLength: 0)
+            }
+
+            let shouldShowResetAction = viewModel.taskIconSelectionSource == .manual
+            if shouldShowResetAction {
+                let autoSuggested = viewModel.autoSuggestedTaskIconSymbolName
+                let title = {
+                    guard let autoSuggested else { return "Reset to Auto" }
+                    return autoSuggested == viewModel.displayedTaskIconSymbolName ? "Reset to Auto" : "Use Suggested Icon"
+                }()
+                let systemImage = autoSuggested ?? "wand.and.stars"
+                Button(title, systemImage: systemImage) {
+                    TaskerFeedback.selection()
+                    viewModel.resetTaskIconToAuto()
+                }
+                .accessibilityIdentifier("addTask.iconResetButton")
+            }
+        }
+        .padding(spacing.s16)
+        .background(
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .fill(Color.tasker.surfaceSecondary)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .stroke(Color.tasker.strokeHairline, lineWidth: 1)
+        )
+    }
+
+    private var searchField: some View {
+        TextField("Search SF Symbols", text: $viewModel.taskIconSearchQuery)
+            .textInputAutocapitalization(.never)
+            .disableAutocorrection(true)
+            .font(.tasker(.body))
+            .padding(.horizontal, spacing.s12)
+            .padding(.vertical, spacing.s8)
+            .background(
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .fill(Color.tasker.surfaceSecondary)
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .stroke(Color.tasker.strokeHairline, lineWidth: 1)
+            )
+            .accessibilityIdentifier("addTask.iconSearchField")
+    }
+}
+
+private struct AddTaskIconOptionButton: View {
+    let option: TaskIconOption
+    let isSelected: Bool
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            VStack(spacing: 8) {
+                Image(systemName: option.symbolName)
+                    .font(.system(size: 22, weight: .semibold))
+                    .foregroundStyle(isSelected ? Color.tasker.accentPrimary : Color.tasker.textPrimary)
+                    .frame(width: 44, height: 44)
+                    .background(
+                        RoundedRectangle(cornerRadius: 12, style: .continuous)
+                            .fill(isSelected ? Color.tasker.accentWash : Color.tasker.surfacePrimary)
+                    )
+                    .accessibilityHidden(true)
+
+                Text(option.displayName)
+                    .font(.tasker(.meta))
+                    .foregroundStyle(Color.tasker.textSecondary)
+                    .multilineTextAlignment(.center)
+                    .lineLimit(2)
+                    .frame(maxWidth: .infinity)
+            }
+            .padding(10)
+            .frame(maxWidth: .infinity, minHeight: 110)
+            .background(
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .fill(Color.tasker.surfaceSecondary)
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .stroke(isSelected ? Color.tasker.accentRing : Color.tasker.strokeHairline, lineWidth: isSelected ? 1.5 : 1)
+            )
+        }
+        .buttonStyle(.plain)
+        .accessibilityIdentifier("addTask.iconOption.\(option.symbolName)")
+        .accessibilityLabel(option.displayName)
+        .accessibilityValue(isSelected ? "Selected" : "Not selected")
     }
 }

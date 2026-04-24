@@ -13,6 +13,15 @@ final class QuietTrackingUITests: BaseUITest {
 
         XCTAssertTrue(homePage.passiveTrackingRail.waitForExistence(timeout: 8), "Passive tracking rail should appear in the seeded workspace")
 
+        let windowFrame = app.windows.firstMatch.frame
+        let railFrame = homePage.passiveTrackingRail.frame
+        let leftInset = railFrame.minX - windowFrame.minX
+        let rightInset = windowFrame.maxX - railFrame.maxX
+        XCTAssertGreaterThanOrEqual(leftInset, 4.0, "Passive tracking rail should inset from the leading edge")
+        XCTAssertLessThanOrEqual(leftInset, 7.0, "Passive tracking rail leading inset should stay close to 5 px")
+        XCTAssertGreaterThanOrEqual(rightInset, 4.0, "Passive tracking rail should inset from the trailing edge")
+        XCTAssertLessThanOrEqual(rightInset, 7.0, "Passive tracking rail trailing inset should stay close to 5 px")
+
         let passiveTrackingCards = app.buttons.matching(
             NSPredicate(format: "identifier BEGINSWITH %@", AccessibilityIdentifiers.Home.passiveTrackingCard(""))
         )

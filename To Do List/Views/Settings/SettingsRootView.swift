@@ -104,10 +104,11 @@ struct SettingsRootView: View {
             // baseIndex controls stagger ordering; gaps leave room for expanded card content.
             workspaceSection(baseIndex: 1)
             calendarSection(baseIndex: 4)
-            aiAssistantSection(baseIndex: 8)
-            notificationsSection(baseIndex: 10)
-            appearanceSection(baseIndex: 18)
-            helpSection(baseIndex: 20)
+            timelineSection(baseIndex: 8)
+            aiAssistantSection(baseIndex: 10)
+            notificationsSection(baseIndex: 12)
+            appearanceSection(baseIndex: 20)
+            helpSection(baseIndex: 22)
         }
     }
 
@@ -118,14 +119,15 @@ struct SettingsRootView: View {
                     // Keep the same stagger ordering across compact and regular layouts.
                     workspaceSection(baseIndex: 1, includeHorizontalPadding: false)
                     calendarSection(baseIndex: 4, includeHorizontalPadding: false)
-                    aiAssistantSection(baseIndex: 8, includeHorizontalPadding: false)
-                    appearanceSection(baseIndex: 18, includeHorizontalPadding: false)
-                    helpSection(baseIndex: 20, includeHorizontalPadding: false)
+                    timelineSection(baseIndex: 8, includeHorizontalPadding: false)
+                    aiAssistantSection(baseIndex: 10, includeHorizontalPadding: false)
+                    appearanceSection(baseIndex: 20, includeHorizontalPadding: false)
+                    helpSection(baseIndex: 22, includeHorizontalPadding: false)
                 }
                 .frame(maxWidth: 560, alignment: .top)
 
                 VStack(spacing: 0) {
-                    notificationsSection(baseIndex: 10, includeHorizontalPadding: false)
+                    notificationsSection(baseIndex: 12, includeHorizontalPadding: false)
                 }
                 .frame(maxWidth: 560, alignment: .top)
             }
@@ -137,7 +139,7 @@ struct SettingsRootView: View {
     private func workspaceSection(baseIndex: Int, includeHorizontalPadding: Bool = true) -> some View {
         SettingsSectionView(
             title: "Workspace",
-            subtitle: "Manage life areas, projects, and structure.",
+            subtitle: "Manage life areas, projects, habits, and structure.",
             topPadding: sectionTopPadding,
             includeHorizontalPadding: includeHorizontalPadding
         ) {
@@ -154,19 +156,6 @@ struct SettingsRootView: View {
                     )
                 }
                 .enhancedStaggeredAppearance(index: baseIndex)
-
-                TaskerSettingsCard {
-                    SettingsNavigationRow(
-                        descriptor: TaskerSettingsDestinationDescriptor(
-                            iconName: "folder.fill",
-                            title: "Projects",
-                            subtitle: "Create, organize, and inspect project progress.",
-                            accessibilityIdentifier: "settings.workspace.projects.row"
-                        ),
-                        action: viewModel.onNavigateToProjects
-                    )
-                }
-                .enhancedStaggeredAppearance(index: baseIndex + 1)
 
                 TaskerSettingsCard {
                     VStack(alignment: .leading, spacing: TaskerSettingsMetrics.cardInnerPadding) {
@@ -187,7 +176,7 @@ struct SettingsRootView: View {
                         )
                     }
                 }
-                .enhancedStaggeredAppearance(index: baseIndex + 2)
+                .enhancedStaggeredAppearance(index: baseIndex + 1)
             }
         }
     }
@@ -330,6 +319,86 @@ struct SettingsRootView: View {
                         ),
                         action: viewModel.onNavigateToModels
                     )
+                }
+                .enhancedStaggeredAppearance(index: baseIndex + 1)
+            }
+        }
+    }
+
+    private func timelineSection(baseIndex: Int, includeHorizontalPadding: Bool = true) -> some View {
+        SettingsSectionView(
+            title: String(localized: "Timeline"),
+            subtitle: String(localized: "Control timeline calendar overlays and daily start/end anchors."),
+            topPadding: sectionTopPadding,
+            includeHorizontalPadding: includeHorizontalPadding
+        ) {
+            VStack(spacing: spacing.cardStackVertical) {
+                TaskerSettingsCard {
+                    TaskerSettingsToggleRow(
+                        iconName: "calendar.badge.clock",
+                        title: String(localized: "Show calendar events in timeline"),
+                        subtitle: String(localized: "Affects Home timeline rows and weekly timeline markers. The calendar card stays unchanged."),
+                        isOn: Binding(
+                            get: { viewModel.showCalendarEventsInTimeline },
+                            set: { viewModel.setShowCalendarEventsInTimeline($0) }
+                        ),
+                        tone: .neutral,
+                        accessibilityIdentifier: "settings.timeline.showCalendarEvents.toggle"
+                    )
+                }
+                .enhancedStaggeredAppearance(index: baseIndex)
+
+                TaskerSettingsFieldCard(
+                    title: String(localized: "Timeline Anchors"),
+                    subtitle: String(localized: "Set the start and wind-down times shown in your Home timeline."),
+                    footer: String(localized: "If Wind Down is earlier than Rise & Shine, the timeline carries into the next day."),
+                    accessibilityIdentifier: "settings.timeline.anchors.card"
+                ) {
+                    VStack(spacing: spacing.s12) {
+                        HStack(spacing: spacing.s12) {
+                            Text(String(localized: "Rise & Shine"))
+                                .font(.tasker(.caption1))
+                                .foregroundStyle(Color.tasker(.textSecondary))
+
+                            Spacer()
+
+                            DatePicker(
+                                "",
+                                selection: Binding(
+                                    get: { viewModel.timelineRiseAndShineTime },
+                                    set: { viewModel.timelineRiseAndShineTime = $0 }
+                                ),
+                                displayedComponents: .hourAndMinute
+                            )
+                            .labelsHidden()
+                            .datePickerStyle(.compact)
+                            .tint(Color.tasker(.accentPrimary))
+                            .accessibilityIdentifier("settings.timeline.riseAndShine.picker")
+                            .accessibilityValue(viewModel.timelineRiseAndShineSummary)
+                        }
+
+                        HStack(spacing: spacing.s12) {
+                            Text(String(localized: "Wind Down"))
+                                .font(.tasker(.caption1))
+                                .foregroundStyle(Color.tasker(.textSecondary))
+
+                            Spacer()
+
+                            DatePicker(
+                                "",
+                                selection: Binding(
+                                    get: { viewModel.timelineWindDownTime },
+                                    set: { viewModel.timelineWindDownTime = $0 }
+                                ),
+                                displayedComponents: .hourAndMinute
+                            )
+                            .labelsHidden()
+                            .datePickerStyle(.compact)
+                            .tint(Color.tasker(.accentPrimary))
+                            .accessibilityIdentifier("settings.timeline.windDown.picker")
+                            .accessibilityValue(viewModel.timelineWindDownSummary)
+                        }
+                    }
                 }
                 .enhancedStaggeredAppearance(index: baseIndex + 1)
             }

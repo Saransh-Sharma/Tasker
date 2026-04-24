@@ -130,6 +130,10 @@ enum AccessibilityIdentifiers {
         static let modeTask = "addItem.mode.task"
         static let modeHabit = "addItem.mode.habit"
         static let titleField = "addTask.titleField"
+        static let iconButton = "addTask.iconButton"
+        static let iconPickerSheet = "addTask.iconPickerSheet"
+        static let iconSearchField = "addTask.iconSearchField"
+        static let iconResetButton = "addTask.iconResetButton"
         static let descriptionField = "addTask.descriptionField"
         static let prioritySegmentedControl = "addTask.prioritySegmentedControl"
         static let dueDatePicker = "addTask.dueDatePicker"
@@ -143,6 +147,16 @@ enum AccessibilityIdentifiers {
         static let lifeAreaSelector = "addTask.lifeAreaSelector"
         static let projectSelector = "addTask.projectSelector"
         static let detailsDisclosure = "addTask.detailsDisclosure"
+        static let scheduleEditor = "addTask.scheduleEditor"
+        static let scheduleDateToday = "addTask.schedule.date.today"
+        static let scheduleDateTomorrow = "addTask.schedule.date.tomorrow"
+        static let scheduleDateCustom = "addTask.schedule.date.custom"
+        static let scheduleDateSomeday = "addTask.schedule.date.someday"
+        static let scheduleTimeRow = "addTask.schedule.timeRow"
+        static let scheduleTimePickerSheet = "addTask.schedule.timePickerSheet"
+        static let scheduleTimePicker = "addTask.schedule.timePicker"
+        static let scheduleTimePickerConfirm = "addTask.schedule.timePickerConfirm"
+        static let scheduleCustomDurationField = "addTask.schedule.customDurationField"
         static let reminderToggle = "addTask.reminderToggle"
         static let reminderTimePicker = "addTask.reminderTimePicker"
         static let saveButton = "addTask.saveButton"
@@ -154,6 +168,8 @@ enum AccessibilityIdentifiers {
 
         // Project Pills
         static func projectPill(projectId: String) -> String { "addTask.projectPill.\(projectId)" }
+        static func scheduleDurationChip(minutes: Int) -> String { "addTask.schedule.duration.\(minutes)" }
+        static func iconOption(_ symbolName: String) -> String { "addTask.iconOption.\(symbolName)" }
     }
 
     enum DatePickerSheet {
@@ -178,6 +194,10 @@ enum AccessibilityIdentifiers {
         static let closeButton = "taskDetail.closeButton"
         static let editButton = "taskDetail.editButton"
         static let dueChip = "taskDetail.chip.due"
+        static let stepsDisclosure = "taskDetail.disclosure.steps"
+        static let detailsDisclosure = "taskDetail.disclosure.details"
+        static let relationshipsDisclosure = "taskDetail.disclosure.relationships"
+        static let contextDisclosure = "taskDetail.disclosure.context"
     }
 
     // MARK: - Inbox Screen
@@ -223,6 +243,12 @@ enum AccessibilityIdentifiers {
         static let calendarIncludeDeclinedToggle = "settings.calendar.includeDeclined.toggle"
         static let calendarIncludeAllDayAgendaToggle = "settings.calendar.includeAllDayAgenda.toggle"
         static let calendarIncludeAllDayBusyToggle = "settings.calendar.includeAllDayBusy.toggle"
+        static let timelineShowCalendarEventsToggle = "settings.timeline.showCalendarEvents.toggle"
+        static let timelineAnchorsCard = "settings.timeline.anchors.card"
+        static let timelineRiseAndShinePicker = "settings.timeline.riseAndShine.picker"
+        static let timelineRiseAndShineValue = "settings.timeline.riseAndShine.value"
+        static let timelineWindDownPicker = "settings.timeline.windDown.picker"
+        static let timelineWindDownValue = "settings.timeline.windDown.value"
         static let appearanceInfo = "settings.appearance.info"
         static let decorativeButtonEffectsCard = "settings.appearance.decorativeButtonEffects.card"
         static let decorativeButtonEffectsToggle = "settings.appearance.decorativeButtonEffects.toggle"

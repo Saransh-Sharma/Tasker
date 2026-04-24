@@ -205,11 +205,21 @@ class BaseUITest: XCTestCase {
             element.tap()
             element.doubleTap() // Select word
 
-            // Try triple tap for full text
             if #available(iOS 15.0, *) {
-                element.buttons["Select All"].tap()
+                let selectAllCandidates: [XCUIElement] = [
+                    app.menuItems["Select All"],
+                    app.buttons["Select All"],
+                    app.descendants(matching: .any)["Select All"]
+                ]
+
+                if let selectAll = selectAllCandidates.first(where: { $0.waitForExistence(timeout: 1) }) {
+                    selectAll.tap()
+                    app.typeText(XCUIKeyboardKey.delete.rawValue)
+                } else {
+                    let deleteString = String(repeating: XCUIKeyboardKey.delete.rawValue, count: currentValue.count)
+                    element.typeText(deleteString)
+                }
             } else {
-                // Fallback for older iOS
                 let deleteString = String(repeating: XCUIKeyboardKey.delete.rawValue, count: currentValue.count)
                 element.typeText(deleteString)
             }

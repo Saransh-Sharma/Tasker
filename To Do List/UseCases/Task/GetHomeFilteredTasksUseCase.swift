@@ -10,6 +10,7 @@ import Foundation
 public struct HomeFilteredTasksResult {
     public let visibleOpenTasks: [TaskDefinition]
     public let visibleDoneTimelineTasks: [TaskDefinition]
+    public let matchingOpenTasks: [TaskDefinition]
     public let quickViewCounts: [HomeQuickView: Int]
     public let pointsPotential: Int
 
@@ -19,11 +20,13 @@ public struct HomeFilteredTasksResult {
     public init(
         visibleOpenTasks: [TaskDefinition],
         visibleDoneTimelineTasks: [TaskDefinition],
+        matchingOpenTasks: [TaskDefinition],
         quickViewCounts: [HomeQuickView: Int],
         pointsPotential: Int
     ) {
         self.visibleOpenTasks = visibleOpenTasks
         self.visibleDoneTimelineTasks = visibleDoneTimelineTasks
+        self.matchingOpenTasks = matchingOpenTasks
         self.quickViewCounts = quickViewCounts
         self.pointsPotential = pointsPotential
     }
@@ -53,6 +56,7 @@ public final class GetHomeFilteredTasksUseCase {
         let windowLimit: Int
         var quickViewCounts = Dictionary(uniqueKeysWithValues: HomeQuickView.allCases.map { ($0, 0) })
         var pointsPotential = 0
+        var matchingOpenTasks: [TaskDefinition] = []
         var openTasks: [TaskDefinition] = []
         var doneTimelineTasks: [TaskDefinition] = []
     }
@@ -120,6 +124,7 @@ public final class GetHomeFilteredTasksUseCase {
                 let payload = HomeFilteredTasksResult(
                     visibleOpenTasks: visibleTasks.openTasks,
                     visibleDoneTimelineTasks: visibleTasks.doneTimelineTasks,
+                    matchingOpenTasks: accumulator.matchingOpenTasks,
                     quickViewCounts: accumulator.quickViewCounts,
                     pointsPotential: accumulator.pointsPotential
                 )
@@ -178,11 +183,16 @@ public final class GetHomeFilteredTasksUseCase {
                             )
                         } else {
                             accumulator.pointsPotential += task.priority.scorePoints
+                            self.insertSortedTask(
+                                task,
+                                into: &accumulator.matchingOpenTasks,
+                                by: self.sortByPriorityThenSchedule
+                            )
                             self.insertBoundedSortedTask(
                                 task,
                                 into: &accumulator.openTasks,
                                 limit: accumulator.windowLimit,
-                                by: self.sortByPriorityThenDue
+                                by: self.sortByPriorityThenSchedule
                             )
                         }
                     }
@@ -257,7 +267,9 @@ public final class GetHomeFilteredTasksUseCase {
         let dueDate = task.dueDate
         let dueOnAnchorDay = dueDate.map { $0 >= startOfAnchorDay && $0 < startOfNextDay } ?? false
         let overdue = dueDate.map { $0 < startOfAnchorDay } ?? false
-        return dueOnAnchorDay || overdue
+        let scheduledCarryOver = dueDate == nil
+            && (task.scheduledStartAt.map { $0 < startOfNextDay } ?? false)
+        return dueOnAnchorDay || overdue || scheduledCarryOver
     }
 
     private func homeWindowLimit(for state: HomeFilterState, scope: HomeListScope) -> Int {
@@ -364,13 +376,27 @@ public final class GetHomeFilteredTasksUseCase {
         }
     }
 
+    private func insertSortedTask(
+        _ task: TaskDefinition,
+        into tasks: inout [TaskDefinition],
+        by areInIncreasingOrder: (TaskDefinition, TaskDefinition) -> Bool
+    ) {
+        let insertionIndex = tasks.firstIndex { !areInIncreasingOrder($0, task) } ?? tasks.endIndex
+        tasks.insert(task, at: insertionIndex)
+    }
+
     /// Executes applyResidualAdvancedFacets.
     private func applyResidualAdvancedFacets(_ tasks: [TaskDefinition], state: HomeFilterState) -> [TaskDefinition] {
+        let projectIDs = Set(state.selectedProjectIDs)
+        let projectFilteredTasks = projectIDs.isEmpty
+            ? tasks
+            : tasks.filter { projectIDs.contains($0.projectID) }
+
         guard let advanced = state.advancedFilter, !advanced.isEmpty else {
-            return tasks
+            return projectFilteredTasks
         }
 
-        return tasks.filter { task in
+        return projectFilteredTasks.filter { task in
             if !advanced.tags.isEmpty {
                 let requestedTagIDs = Set(
                     advanced.tags.compactMap { rawValue in
@@ -511,6 +537,19 @@ public final class GetHomeFilteredTasksUseCase {
         let lhsDate = lhs.dueDate ?? Date.distantFuture
         let rhsDate = rhs.dueDate ?? Date.distantFuture
         return lhsDate < rhsDate
+    }
+
+    private func sortByPriorityThenSchedule(lhs: TaskDefinition, rhs: TaskDefinition) -> Bool {
+        if lhs.priority.scorePoints != rhs.priority.scorePoints {
+            return lhs.priority.scorePoints > rhs.priority.scorePoints
+        }
+
+        let lhsDate = lhs.dueDate ?? lhs.scheduledStartAt ?? Date.distantFuture
+        let rhsDate = rhs.dueDate ?? rhs.scheduledStartAt ?? Date.distantFuture
+        if lhsDate != rhsDate {
+            return lhsDate < rhsDate
+        }
+        return lhs.title.localizedStandardCompare(rhs.title) == .orderedAscending
     }
 
     /// Executes sortDoneTimeline.

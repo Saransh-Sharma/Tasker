@@ -50,6 +50,19 @@ public struct HomeDataRevision: Equatable, Hashable {
     }
 }
 
+private enum HomeReplanResolutionKind: Equatable {
+    case rescheduled
+    case movedToInbox
+    case completed
+    case deleted
+}
+
+private struct HomeReplanUndoEntry: Equatable {
+    let runID: UUID
+    let action: HomeReplanResolutionKind
+    let candidate: HomeReplanCandidate
+}
+
 public struct HabitRecoveryReflectionPrompt: Equatable, Identifiable {
     public let habitID: UUID
     public let habitTitle: String
@@ -354,7 +367,10 @@ public final class HomeViewModel: ObservableObject {
 
     @Published public private(set) var todayTasks: TodayTasksResult?
     @Published public private(set) var selectedDate: Date = Date() {
-        didSet { scheduleHomeRenderStateRefresh() }
+        didSet {
+            refreshPassiveNeedsReplanState()
+            scheduleHomeRenderStateRefresh()
+        }
     }
     @Published public private(set) var selectedProject: String = "All"
     @Published public private(set) var isLoading: Bool = false
@@ -475,6 +491,9 @@ public final class HomeViewModel: ObservableObject {
     @Published public private(set) var evaLastBatchRunID: UUID? {
         didSet { scheduleHomeRenderStateRefresh() }
     }
+    @Published private(set) var homeReplanState: HomeReplanSessionState = .hidden {
+        didSet { scheduleHomeRenderStateRefresh() }
+    }
     @Published private(set) var homeCalendarSnapshot: HomeCalendarSnapshot = .empty {
         didSet { scheduleHomeRenderStateRefresh() }
     }
@@ -523,15 +542,27 @@ public final class HomeViewModel: ObservableObject {
     private let analyticsService: AnalyticsServiceProtocol?
     private let aiSuggestionService: AISuggestionService?
     private let userDefaults: UserDefaults
+    private let workspacePreferencesProvider: () -> TaskerWorkspacePreferences
     private var cancellables = Set<AnyCancellable>()
     private var retainedInsightsViewModel: InsightsViewModel?
     private var retainedHomeSearchViewModel: LGSearchViewModel?
+    private var needsReplanCandidates: [HomeReplanCandidate] = []
+    private var activeReplanCandidates: [HomeReplanCandidate] = []
+    private var skippedReplanCandidates: [HomeReplanCandidate] = []
+    private var replanUndoStack: [HomeReplanUndoEntry] = []
+    private var replanOutcomes = HomeReplanOutcomeSummary()
+    private var replanSessionTotal: Int = 0
+    private var replanSessionProgress: Int = 0
+    private var replanScopedDate: Date?
+    private var replanApplyingAction: HomeReplanApplyingAction?
+    private var replanErrorMessage: String?
 
     // MARK: - Persistence Keys
 
     private static let lastFilterStateKey = "home.focus.lastFilterState.v2"
     private static let pinnedFocusTaskIDsKey = "home.focus.pinnedTaskIDs.v2"
     private static let recentShuffleTaskIDsKey = "home.eva.recentShuffleTaskIDs.v1"
+    private static let needsReplanDismissedDayKey = "home.needsReplan.dismissedDayKey.v1"
     private static let maxPinnedFocusTasks = 3
     private static let maxShuffleHistorySize = 10
     private static let defaultShuffleExclusionWindow = 3
@@ -818,7 +849,8 @@ public final class HomeViewModel: ObservableObject {
             rescuePresented: evaRescueSheetPresented,
             rescuePlan: evaRescuePlan,
             lastBatchRunID: evaLastBatchRunID,
-            lastXPResult: lastXPResult
+            lastXPResult: lastXPResult,
+            replanState: homeReplanState
         )
     }
 
@@ -1105,6 +1137,7 @@ public final class HomeViewModel: ObservableObject {
              \HomeViewModel.evaTriageQueue,
              \HomeViewModel.evaRescuePlan,
              \HomeViewModel.evaLastBatchRunID,
+             \HomeViewModel.homeReplanState,
              \HomeViewModel.homeCalendarSnapshot:
             return true
         default:
@@ -1120,6 +1153,7 @@ public final class HomeViewModel: ObservableObject {
         savedHomeViewRepository: SavedHomeViewRepositoryProtocol = UserDefaultsSavedHomeViewRepository(),
         analyticsService: AnalyticsServiceProtocol? = nil,
         aiSuggestionService: AISuggestionService? = nil,
+        workspacePreferencesProvider: @escaping () -> TaskerWorkspacePreferences = { TaskerWorkspacePreferencesStore.shared.load() },
         userDefaults: UserDefaults = .standard
     ) {
         self.useCaseCoordinator = useCaseCoordinator
@@ -1139,6 +1173,7 @@ public final class HomeViewModel: ObservableObject {
         self.savedHomeViewRepository = savedHomeViewRepository
         self.analyticsService = analyticsService
         self.aiSuggestionService = aiSuggestionService
+        self.workspacePreferencesProvider = workspacePreferencesProvider
         self.userDefaults = userDefaults
         self.homeCalendarSnapshot = Self.buildHomeCalendarSnapshot(
             from: calendarIntegrationService.snapshot,
@@ -4617,7 +4652,8 @@ public final class HomeViewModel: ObservableObject {
             HomeListSection(
                 anchor: section.anchor,
                 rows: rows,
-                isOverdueSection: section.isOverdueSection
+                isOverdueSection: section.isOverdueSection,
+                accentHex: section.accentHex
             )
         }
     }
@@ -5310,6 +5346,7 @@ public final class HomeViewModel: ObservableObject {
             assignIfChanged(\.emptyStateMessage, "No completed tasks in last 30 days")
             assignIfChanged(\.emptyStateActionTitle, nil)
             updateCompletionRateFromFocusResult(openTasks: openTasks, doneTasks: doneTasks)
+            refreshNeedsReplanCandidates(from: result.matchingOpenTasks)
             writeTaskListWidgetSnapshot(reason: "apply_result_done")
             return
         }
@@ -5372,6 +5409,7 @@ public final class HomeViewModel: ObservableObject {
         }
 
         updateCompletionRateFromFocusResult(openTasks: openTasks, doneTasks: doneTasks)
+        refreshNeedsReplanCandidates(from: result.matchingOpenTasks)
         writeTaskListWidgetSnapshot(reason: "apply_result_\(activeScope.quickView.rawValue)")
     }
 
@@ -6235,6 +6273,530 @@ public final class HomeViewModel: ObservableObject {
         }
     }
 
+    // MARK: - Needs Replan
+
+    public func openNeedsReplanLauncher() {
+        beginReplanLauncher(with: needsReplanCandidates, scopedTo: nil)
+    }
+
+    func needsReplanCandidatesForTesting(
+        from tasks: [TaskDefinition],
+        scopedTo date: Date? = nil
+    ) -> [HomeReplanCandidate] {
+        deriveNeedsReplanCandidates(from: tasks, scopedTo: date)
+    }
+
+    func defaultReplanPlacementDayForTesting(now: Date) -> Date {
+        defaultReplanPlacementDay(now: now)
+    }
+
+    func beginReplanPlacementForTesting(candidate: HomeReplanCandidate) {
+        activeReplanCandidates = [candidate]
+        skippedReplanCandidates = []
+        replanUndoStack = []
+        replanOutcomes = HomeReplanOutcomeSummary()
+        replanSessionTotal = 1
+        replanSessionProgress = 0
+        replanApplyingAction = nil
+        replanErrorMessage = nil
+        updateReplanState(phase: .placement(candidate, defaultDay: Date()))
+    }
+
+    func setReplanApplyingForTesting(_ action: HomeReplanApplyingAction?) {
+        replanApplyingAction = action
+        updateReplanState(phase: homeReplanState.phase)
+    }
+
+    public func openNeedsReplanLauncher(for date: Date) {
+        let calendar = Calendar.current
+        guard calendar.startOfDay(for: date) < calendar.startOfDay(for: Date()) else { return }
+        let scopedCandidates = needsReplanCandidates.filter {
+            calendar.isDate($0.originalDate, inSameDayAs: date)
+        }
+        beginReplanLauncher(with: scopedCandidates, scopedTo: date)
+    }
+
+    public func startNeedsReplanSession() {
+        guard replanApplyingAction == nil else { return }
+        replanErrorMessage = nil
+        guard activeReplanCandidates.isEmpty == false else {
+            updateReplanState(phase: .summary(replanOutcomes, skippedCount: 0))
+            return
+        }
+        updateReplanState(phase: .card(candidateIndex: replanSessionProgress + 1))
+    }
+
+    public func dismissNeedsReplanLater() {
+        guard replanApplyingAction == nil else { return }
+        let dismissedDate = replanScopedDate ?? Date()
+        userDefaults.set(needsReplanDayKey(for: dismissedDate), forKey: Self.needsReplanDismissedDayKey)
+        resetReplanSession(keepPassiveCandidates: true)
+        refreshPassiveNeedsReplanState()
+    }
+
+    public func finishNeedsReplanSession() {
+        guard replanApplyingAction == nil else { return }
+        if skippedReplanCandidates.isEmpty == false, replanScopedDate == nil {
+            userDefaults.set(needsReplanDayKey(for: Date()), forKey: Self.needsReplanDismissedDayKey)
+        }
+        resetReplanSession(keepPassiveCandidates: true)
+        refreshPassiveNeedsReplanState()
+    }
+
+    public func dismissNeedsReplanSessionUI() {
+        guard replanApplyingAction == nil else { return }
+        resetReplanSession(keepPassiveCandidates: true)
+        refreshPassiveNeedsReplanState()
+    }
+
+    public func reviewSkippedReplanCandidates() {
+        guard replanApplyingAction == nil else { return }
+        guard skippedReplanCandidates.isEmpty == false else {
+            finishNeedsReplanSession()
+            return
+        }
+        replanErrorMessage = nil
+        activeReplanCandidates = skippedReplanCandidates
+        skippedReplanCandidates = []
+        replanSessionTotal = activeReplanCandidates.count
+        replanSessionProgress = 0
+        updateReplanState(phase: .skippedReview)
+        updateReplanState(phase: .card(candidateIndex: 1))
+    }
+
+    public func skipCurrentReplanCandidate() {
+        guard replanApplyingAction == nil else { return }
+        guard let candidate = activeReplanCandidates.first else { return }
+        replanErrorMessage = nil
+        skippedReplanCandidates.append(candidate)
+        activeReplanCandidates.removeFirst()
+        replanSessionProgress += 1
+        advanceReplanSession()
+    }
+
+    public func moveCurrentReplanCandidateToInbox() {
+        guard replanApplyingAction == nil else { return }
+        guard let candidate = activeReplanCandidates.first else { return }
+        var updated = candidate.task
+        updated.projectID = ProjectConstants.inboxProjectID
+        updated.projectName = ProjectConstants.inboxProjectName
+        updated.type = .inbox
+        updated.dueDate = nil
+        updated.scheduledStartAt = nil
+        updated.scheduledEndAt = nil
+        updated.isAllDay = false
+        updated.updatedAt = Date()
+        applyReplanCommand(
+            .restoreTaskSnapshot(snapshot: AssistantTaskSnapshot(task: updated)),
+            action: .movedToInbox,
+            candidate: candidate,
+            reloadReason: .projectChanged
+        )
+    }
+
+    public func checkOffCurrentReplanCandidate() {
+        guard replanApplyingAction == nil else { return }
+        guard let candidate = activeReplanCandidates.first else { return }
+        var updated = candidate.task
+        updated.isComplete = true
+        updated.dateCompleted = candidate.originalDate
+        updated.updatedAt = Date()
+        applyReplanCommand(
+            .restoreTaskSnapshot(snapshot: AssistantTaskSnapshot(task: updated)),
+            action: .completed,
+            candidate: candidate,
+            reloadReason: .completed
+        )
+    }
+
+    public func deleteCurrentReplanCandidate() {
+        guard replanApplyingAction == nil else { return }
+        guard let candidate = activeReplanCandidates.first else { return }
+        applyReplanCommand(
+            .deleteTask(taskID: candidate.task.id),
+            action: .deleted,
+            candidate: candidate,
+            reloadReason: .deleted
+        )
+    }
+
+    public func beginCurrentReplanPlacement() {
+        guard replanApplyingAction == nil else { return }
+        guard let candidate = activeReplanCandidates.first else { return }
+        replanErrorMessage = nil
+        let defaultDay = defaultReplanPlacementDay()
+        selectDate(defaultDay)
+        updateReplanState(phase: .placement(candidate, defaultDay: defaultDay))
+    }
+
+    public func cancelCurrentReplanPlacement() {
+        guard replanApplyingAction == nil else { return }
+        guard case .placement = homeReplanState.phase else { return }
+        replanErrorMessage = nil
+        updateReplanState(phase: .card(candidateIndex: replanSessionProgress + 1))
+    }
+
+    public func placeReplanCandidate(taskID: UUID, at startDate: Date) {
+        guard replanApplyingAction == nil else { return }
+        guard let candidate = activeReplanCandidates.first(where: { $0.task.id == taskID }) else { return }
+        let duration = candidate.originalEndDate?.timeIntervalSince(candidate.originalDate)
+            ?? candidate.task.estimatedDuration
+            ?? (30 * 60)
+        let roundedStart = roundedToNearestQuarterHour(startDate)
+        var updated = candidate.task
+        updated.dueDate = roundedStart
+        updated.scheduledStartAt = roundedStart
+        updated.scheduledEndAt = roundedStart.addingTimeInterval(max(duration, 15 * 60))
+        updated.isAllDay = false
+        updated.replanCount = max(0, updated.replanCount) + 1
+        updated.updatedAt = Date()
+        applyReplanCommand(
+            .restoreTaskSnapshot(snapshot: AssistantTaskSnapshot(task: updated)),
+            action: .rescheduled,
+            candidate: candidate,
+            reloadReason: .rescheduled
+        )
+    }
+
+    public func placeReplanCandidateAllDay(taskID: UUID, on day: Date) {
+        guard replanApplyingAction == nil else { return }
+        guard let candidate = activeReplanCandidates.first(where: { $0.task.id == taskID }) else { return }
+        let normalizedDay = Calendar.current.startOfDay(for: day)
+        var updated = candidate.task
+        updated.dueDate = normalizedDay
+        updated.scheduledStartAt = nil
+        updated.scheduledEndAt = nil
+        updated.isAllDay = true
+        updated.replanCount = max(0, updated.replanCount) + 1
+        updated.updatedAt = Date()
+        applyReplanCommand(
+            .restoreTaskSnapshot(snapshot: AssistantTaskSnapshot(task: updated)),
+            action: .rescheduled,
+            candidate: candidate,
+            reloadReason: .rescheduled
+        )
+    }
+
+    public func undoLastReplanAction() {
+        guard replanApplyingAction == nil else { return }
+        guard let entry = replanUndoStack.last else { return }
+        beginReplanApplying(.undo)
+        useCaseCoordinator.assistantActionPipeline.undoAppliedRun(id: entry.runID) { [weak self] result in
+            DispatchQueue.main.async {
+                guard let self else { return }
+                switch result {
+                case .success:
+                    self.replanUndoStack.removeLast()
+                    self.decrementOutcome(for: entry.action)
+                    if self.activeReplanCandidates.contains(where: { $0.id == entry.candidate.id }) == false {
+                        self.activeReplanCandidates.insert(entry.candidate, at: 0)
+                    }
+                    self.replanSessionProgress = max(0, self.replanSessionProgress - 1)
+                    self.enqueueReload(
+                        source: "needs_replan_undo",
+                        reason: .bulkChanged,
+                        invalidateCaches: true,
+                        includeAnalytics: false,
+                        repostEvent: true
+                    )
+                    self.endReplanApplying()
+                    self.updateReplanState(phase: .card(candidateIndex: self.replanSessionProgress + 1))
+                case .failure(let error):
+                    self.recordReplanFailure(error)
+                }
+            }
+        }
+    }
+
+    public func clearReplanError() {
+        replanErrorMessage = nil
+        updateReplanState(phase: homeReplanState.phase)
+    }
+
+    private func beginReplanLauncher(with candidates: [HomeReplanCandidate], scopedTo date: Date?) {
+        activeReplanCandidates = candidates
+        skippedReplanCandidates = []
+        replanUndoStack = []
+        replanOutcomes = HomeReplanOutcomeSummary()
+        replanSessionTotal = candidates.count
+        replanSessionProgress = 0
+        replanScopedDate = date
+        replanApplyingAction = nil
+        replanErrorMessage = nil
+        let summary = makeNeedsReplanSummary(for: candidates)
+        updateReplanState(phase: .launcher(summary))
+    }
+
+    private func refreshNeedsReplanCandidates(from tasks: [TaskDefinition]) {
+        needsReplanCandidates = deriveNeedsReplanCandidates(from: tasks, scopedTo: nil)
+        refreshPassiveNeedsReplanState()
+    }
+
+    private func refreshPassiveNeedsReplanState() {
+        switch homeReplanState.phase {
+        case .launcher, .card, .placement, .summary, .skippedReview:
+            return
+        case .trayHidden, .trayVisible:
+            break
+        }
+
+        let calendar = Calendar.current
+        guard calendar.isDate(selectedDate, inSameDayAs: Date()),
+              needsReplanCandidates.isEmpty == false,
+              userDefaults.string(forKey: Self.needsReplanDismissedDayKey) != needsReplanDayKey(for: Date()) else {
+            updateReplanState(phase: .trayHidden)
+            return
+        }
+        updateReplanState(phase: .trayVisible(makeNeedsReplanSummary(for: needsReplanCandidates)))
+    }
+
+    private func deriveNeedsReplanCandidates(
+        from tasks: [TaskDefinition],
+        scopedTo scopedDate: Date?
+    ) -> [HomeReplanCandidate] {
+        let calendar = Calendar.current
+        let todayStart = calendar.startOfDay(for: Date())
+        let scopedStart = scopedDate.map { calendar.startOfDay(for: $0) }
+        var seen: Set<UUID> = []
+
+        return tasks.compactMap { task -> HomeReplanCandidate? in
+            guard seen.insert(task.id).inserted else { return nil }
+            guard task.isComplete == false,
+                  task.parentTaskID == nil,
+                  task.repeatPattern == nil,
+                  task.recurrenceSeriesID == nil,
+                  task.habitDefinitionID == nil,
+                  task.isAllDay == false,
+                  let originalDate = timelinePlacementDate(for: task) else {
+                return nil
+            }
+            let originalDay = calendar.startOfDay(for: originalDate)
+            guard originalDay < todayStart else { return nil }
+            if let scopedStart, calendar.isDate(originalDay, inSameDayAs: scopedStart) == false {
+                return nil
+            }
+            let isUnscheduledInbox = task.projectID == ProjectConstants.inboxProjectID
+                && task.scheduledStartAt == nil
+                && task.dueDate == nil
+            guard isUnscheduledInbox == false else { return nil }
+
+            return HomeReplanCandidate(
+                task: task,
+                originalDate: originalDate,
+                originalEndDate: task.scheduledEndAt,
+                projectName: task.projectName
+            )
+        }
+        .sorted { lhs, rhs in
+            let lhsDay = calendar.startOfDay(for: lhs.originalDate)
+            let rhsDay = calendar.startOfDay(for: rhs.originalDate)
+            if lhsDay != rhsDay { return lhsDay > rhsDay }
+            if lhs.originalDate != rhs.originalDate { return lhs.originalDate > rhs.originalDate }
+            return lhs.task.title.localizedStandardCompare(rhs.task.title) == .orderedAscending
+        }
+    }
+
+    private func makeNeedsReplanSummary(for candidates: [HomeReplanCandidate]) -> NeedsReplanSummary {
+        let dayKeys = Set(candidates.map { needsReplanDayKey(for: $0.originalDate) })
+        return NeedsReplanSummary(
+            count: candidates.count,
+            dayCount: dayKeys.count,
+            newestDate: candidates.first?.originalDate,
+            oldestDate: candidates.last?.originalDate
+        )
+    }
+
+    private func updateReplanState(phase: HomeReplanSessionPhase) {
+        let currentCandidate = activeReplanCandidates.first
+        let candidateIndex = currentCandidate == nil ? 0 : min(max(replanSessionProgress + 1, 1), max(replanSessionTotal, 1))
+        let nextState = HomeReplanSessionState(
+            phase: phase,
+            summary: makeNeedsReplanSummary(for: activeReplanCandidates + skippedReplanCandidates),
+            currentCandidate: currentCandidate,
+            candidateIndex: candidateIndex,
+            candidateTotal: max(replanSessionTotal, activeReplanCandidates.count + skippedReplanCandidates.count),
+            canUndo: replanUndoStack.isEmpty == false,
+            outcomes: replanOutcomes,
+            skippedCount: skippedReplanCandidates.count,
+            isApplying: replanApplyingAction != nil,
+            applyingAction: replanApplyingAction,
+            errorMessage: replanErrorMessage
+        )
+        guard homeReplanState != nextState else { return }
+        homeReplanState = nextState
+    }
+
+    private func advanceReplanSession() {
+        if let next = activeReplanCandidates.first {
+            updateReplanState(phase: .card(candidateIndex: replanSessionProgress + 1))
+            trackHomeInteraction(action: "needs_replan_next", metadata: [
+                "task_id": next.task.id.uuidString
+            ])
+            return
+        }
+
+        updateReplanState(phase: .summary(replanOutcomes, skippedCount: skippedReplanCandidates.count))
+    }
+
+    private func resetReplanSession(keepPassiveCandidates: Bool) {
+        activeReplanCandidates = []
+        skippedReplanCandidates = []
+        replanUndoStack = []
+        replanOutcomes = HomeReplanOutcomeSummary()
+        replanSessionTotal = 0
+        replanSessionProgress = 0
+        replanScopedDate = nil
+        replanApplyingAction = nil
+        replanErrorMessage = nil
+        if keepPassiveCandidates == false {
+            needsReplanCandidates = []
+        }
+        updateReplanState(phase: .trayHidden)
+    }
+
+    private func applyReplanCommand(
+        _ command: AssistantCommand,
+        action: HomeReplanResolutionKind,
+        candidate: HomeReplanCandidate,
+        reloadReason: HomeTaskMutationEvent
+    ) {
+        beginReplanApplying(applyingAction(for: action))
+        let envelope = AssistantCommandEnvelope(
+            schemaVersion: 2,
+            commands: [command],
+            rationaleText: "Needs Replan"
+        )
+        let threadID = "home-needs-replan-\(UUID().uuidString)"
+        useCaseCoordinator.assistantActionPipeline.propose(threadID: threadID, envelope: envelope) { [weak self] proposeResult in
+            switch proposeResult {
+            case .failure(let error):
+                DispatchQueue.main.async { self?.recordReplanFailure(error) }
+            case .success(let proposedRun):
+                self?.useCaseCoordinator.assistantActionPipeline.confirm(runID: proposedRun.id) { confirmResult in
+                    switch confirmResult {
+                    case .failure(let error):
+                        DispatchQueue.main.async { self?.recordReplanFailure(error) }
+                    case .success:
+                        self?.useCaseCoordinator.assistantActionPipeline.applyConfirmedRun(id: proposedRun.id) { applyResult in
+                            DispatchQueue.main.async {
+                                guard let self else { return }
+                                switch applyResult {
+                                case .failure(let error):
+                                    self.recordReplanFailure(error)
+                                case .success(let appliedRun):
+                                    self.completeReplanResolution(
+                                        action: action,
+                                        candidate: candidate,
+                                        runID: appliedRun.id,
+                                        reloadReason: reloadReason
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private func completeReplanResolution(
+        action: HomeReplanResolutionKind,
+        candidate: HomeReplanCandidate,
+        runID: UUID,
+        reloadReason: HomeTaskMutationEvent
+    ) {
+        activeReplanCandidates.removeAll { $0.id == candidate.id }
+        needsReplanCandidates.removeAll { $0.id == candidate.id }
+        replanSessionProgress += 1
+        incrementOutcome(for: action)
+        replanUndoStack.append(HomeReplanUndoEntry(runID: runID, action: action, candidate: candidate))
+        enqueueReload(
+            source: "needs_replan_resolution",
+            reason: reloadReason,
+            taskID: candidate.id,
+            invalidateCaches: true,
+            includeAnalytics: action == .completed,
+            repostEvent: true
+        )
+        endReplanApplying()
+        advanceReplanSession()
+    }
+
+    private func beginReplanApplying(_ action: HomeReplanApplyingAction) {
+        replanApplyingAction = action
+        replanErrorMessage = nil
+        updateReplanState(phase: homeReplanState.phase)
+    }
+
+    private func endReplanApplying() {
+        replanApplyingAction = nil
+        replanErrorMessage = nil
+    }
+
+    private func recordReplanFailure(_ error: Error) {
+        replanApplyingAction = nil
+        replanErrorMessage = "Couldn't update this task. Try again."
+        errorMessage = error.localizedDescription
+        updateReplanState(phase: homeReplanState.phase)
+    }
+
+    private func applyingAction(for action: HomeReplanResolutionKind) -> HomeReplanApplyingAction {
+        switch action {
+        case .rescheduled:
+            return .reschedule
+        case .movedToInbox:
+            return .moveToInbox
+        case .completed:
+            return .checkOff
+        case .deleted:
+            return .delete
+        }
+    }
+
+    private func incrementOutcome(for action: HomeReplanResolutionKind) {
+        switch action {
+        case .rescheduled:
+            replanOutcomes.rescheduled += 1
+        case .movedToInbox:
+            replanOutcomes.movedToInbox += 1
+        case .completed:
+            replanOutcomes.completed += 1
+        case .deleted:
+            replanOutcomes.deleted += 1
+        }
+    }
+
+    private func decrementOutcome(for action: HomeReplanResolutionKind) {
+        switch action {
+        case .rescheduled:
+            replanOutcomes.rescheduled = max(0, replanOutcomes.rescheduled - 1)
+        case .movedToInbox:
+            replanOutcomes.movedToInbox = max(0, replanOutcomes.movedToInbox - 1)
+        case .completed:
+            replanOutcomes.completed = max(0, replanOutcomes.completed - 1)
+        case .deleted:
+            replanOutcomes.deleted = max(0, replanOutcomes.deleted - 1)
+        }
+    }
+
+    private func defaultReplanPlacementDay(now: Date = Date()) -> Date {
+        let calendar = Calendar.current
+        let hour = calendar.component(.hour, from: now)
+        let today = calendar.startOfDay(for: now)
+        if hour < 17 { return today }
+        return calendar.date(byAdding: .day, value: 1, to: today) ?? today
+    }
+
+    private func roundedToNearestQuarterHour(_ date: Date) -> Date {
+        let interval = (date.timeIntervalSinceReferenceDate / 900).rounded() * 900
+        return Date(timeIntervalSinceReferenceDate: interval)
+    }
+
+    private func needsReplanDayKey(for date: Date) -> String {
+        let components = Calendar.current.dateComponents([.year, .month, .day], from: date)
+        return "\(components.year ?? 0)-\(components.month ?? 0)-\(components.day ?? 0)"
+    }
+
     /// Executes trackFirstCompletionLatencyIfNeeded.
     private func trackFirstCompletionLatencyIfNeeded() {
         guard !didTrackFirstCompletionLatency else { return }
@@ -7032,6 +7594,890 @@ public enum DailySummaryModalData: Equatable {
                 "streak_count": summary.streakCount
             ]
         }
+    }
+}
+
+@MainActor
+final class HomeTimelineViewModel: ObservableObject {
+    @Published private(set) var selectedDate: Date
+    @Published private(set) var foredropAnchor: ForedropAnchor
+    @Published private(set) var dragTranslation: CGFloat
+
+    init(
+        selectedDate: Date = Date(),
+        foredropAnchor: ForedropAnchor = .collapsed,
+        dragTranslation: CGFloat = 0
+    ) {
+        self.selectedDate = selectedDate
+        self.foredropAnchor = foredropAnchor
+        self.dragTranslation = dragTranslation
+    }
+
+    func syncSelectedDate(_ date: Date) {
+        guard Calendar.current.isDate(date, inSameDayAs: selectedDate) == false else { return }
+        selectedDate = date
+    }
+
+    func snap(to anchor: ForedropAnchor) {
+        foredropAnchor = anchor
+        dragTranslation = 0
+    }
+
+    func updateDrag(_ translation: CGFloat, metrics: HomeForedropLayoutMetrics) {
+        let baseOffset = metrics.offset(for: foredropAnchor)
+        let proposed = baseOffset + translation
+        let clamped = min(max(proposed, metrics.offset(for: .collapsed)), metrics.offset(for: .fullReveal))
+        dragTranslation = clamped - baseOffset
+    }
+
+    func endDrag(predictedTranslation: CGFloat, metrics: HomeForedropLayoutMetrics) {
+        let current = interactiveOffset(metrics: metrics)
+        let projected = min(
+            max(current + (predictedTranslation - dragTranslation), metrics.offset(for: .collapsed)),
+            metrics.offset(for: .fullReveal)
+        )
+        let anchors: [ForedropAnchor] = [.collapsed, .midReveal, .fullReveal]
+        let target = anchors.min { lhs, rhs in
+            abs(metrics.offset(for: lhs) - projected) < abs(metrics.offset(for: rhs) - projected)
+        } ?? .collapsed
+        foredropAnchor = target
+        dragTranslation = 0
+    }
+
+    func interactiveOffset(metrics: HomeForedropLayoutMetrics) -> CGFloat {
+        let baseOffset = metrics.offset(for: foredropAnchor)
+        let proposed = baseOffset + dragTranslation
+        return min(max(proposed, metrics.offset(for: .collapsed)), metrics.offset(for: .fullReveal))
+    }
+}
+
+extension HomeViewModel {
+    func buildTimelineSnapshot(
+        calendarSnapshot: HomeCalendarSnapshot,
+        foredropAnchor: ForedropAnchor
+    ) -> HomeTimelineSnapshot {
+        let workspacePreferences = workspacePreferencesProvider()
+        let showCalendarEventsInTimeline = workspacePreferences.showCalendarEventsInTimeline
+        let selectedDay = Calendar.current.startOfDay(for: selectedDate)
+        let anchorWindow = resolvedTimelineAnchorWindow(on: selectedDay, preferences: workspacePreferences)
+        let wakeAnchor = TimelineAnchorItem(
+            id: "wake",
+            title: "Rise and shine",
+            time: anchorWindow.wake,
+            systemImageName: "alarm.fill",
+            subtitle: "Start the day"
+        )
+        let sleepAnchor = TimelineAnchorItem(
+            id: "sleep",
+            title: "Wind down",
+            time: anchorWindow.sleep,
+            systemImageName: "moon.fill",
+            subtitle: "Close the day"
+        )
+        let dayTasks = timelineTasksForSelectedDay()
+        let allDayTasks = dayTasks.filter { task in
+            task.isAllDay || timelineIsDateOnlyDueDate(task.dueDate)
+        }
+        let inboxTasks = dayTasks.filter { task in
+            task.isComplete == false
+                && task.projectID == ProjectConstants.inboxProjectID
+                && task.scheduledStartAt == nil
+                && task.scheduledEndAt == nil
+                && task.isAllDay == false
+                && task.dueDate == nil
+        }
+        let taskIndexByID = timelineTaskUniverseByID()
+        let timedTaskItems = dayTasks.compactMap { task -> TimelinePlanItem? in
+            let item = timelinePlanItem(from: task, taskIndexByID: taskIndexByID)
+            guard item.isAllDay == false, item.startDate != nil else { return nil }
+            return item
+        }
+        let calendarAllDayItems = showCalendarEventsInTimeline
+            ? calendarSnapshot.selectedDayEvents
+                .filter(\.isAllDay)
+                .map(timelinePlanItem(from:))
+            : []
+        let calendarTimedItems = showCalendarEventsInTimeline
+            ? calendarSnapshot.selectedDayTimelineEvents
+                .map(timelinePlanItem(from:))
+                .sorted { lhs, rhs in
+                    guard let lhsStart = lhs.startDate, let rhsStart = rhs.startDate else { return lhs.title < rhs.title }
+                    if lhsStart != rhsStart { return lhsStart < rhsStart }
+                    return (lhs.endDate ?? lhsStart) < (rhs.endDate ?? rhsStart)
+                }
+            : []
+
+        let allDayItems = (allDayTasks.map { timelinePlanItem(from: $0, taskIndexByID: taskIndexByID) } + calendarAllDayItems)
+        let inboxItems = inboxTasks.map { timelinePlanItem(from: $0, taskIndexByID: taskIndexByID) }
+        let baseTimedItems = (timedTaskItems + calendarTimedItems)
+            .sorted { lhs, rhs in
+                guard let lhsStart = lhs.startDate, let rhsStart = rhs.startDate else { return lhs.title < rhs.title }
+                if lhsStart != rhsStart { return lhsStart < rhsStart }
+                return (lhs.endDate ?? lhsStart) < (rhs.endDate ?? rhsStart)
+            }
+        let timedBuckets = partitionTimelineItems(
+            baseTimedItems,
+            wakeAnchor: wakeAnchor,
+            sleepAnchor: sleepAnchor
+        )
+        let now = Date()
+        let allOperationalGaps = timelineOperationalGaps(
+            between: timedBuckets.operationalItems,
+            wakeAnchor: wakeAnchor,
+            sleepAnchor: sleepAnchor,
+            inboxCount: inboxItems.count
+        )
+        let gaps = timelineGaps(
+            between: timedBuckets.operationalItems,
+            wakeAnchor: wakeAnchor,
+            sleepAnchor: sleepAnchor,
+            inboxCount: inboxItems.count,
+            selectedDate: selectedDate,
+            now: now
+        )
+        let layoutMode = timelineDayLayoutMode(
+            timedItems: timedBuckets.operationalItems,
+            gaps: allOperationalGaps,
+            wakeAnchor: wakeAnchor,
+            sleepAnchor: sleepAnchor
+        )
+        let currentItemID = timedBuckets.allItems.first(where: { $0.isActive(at: now) })?.id
+
+        return HomeTimelineSnapshot(
+            selectedDate: selectedDate,
+            foredropAnchor: foredropAnchor,
+            day: TimelineDayProjection(
+                date: selectedDate,
+                allDayItems: allDayItems,
+                inboxItems: inboxItems,
+                timedItems: timedBuckets.operationalItems,
+                gaps: gaps,
+                operationalItems: timedBuckets.operationalItems,
+                beforeWakeSummaryItems: timedBuckets.beforeWakeItems,
+                afterSleepSummaryItems: timedBuckets.afterSleepItems,
+                bridgeItems: timedBuckets.bridgeItems,
+                actionableGaps: gaps,
+                layoutMode: layoutMode,
+                wakeAnchor: wakeAnchor,
+                sleepAnchor: sleepAnchor,
+                activeItemID: currentItemID,
+                currentItemID: currentItemID,
+                currentTime: now
+            ),
+            week: timelineWeekSummary(
+                weekStartsOn: workspacePreferences.weekStartsOn,
+                includeCalendarEvents: showCalendarEventsInTimeline
+            ),
+            placementCandidate: homeReplanState.placementCandidate
+        )
+    }
+
+    func timelineWeekStartsOn() -> Weekday {
+        calendarIntegrationService.weekStartsOn
+    }
+}
+
+struct TimelineWindowBuckets {
+    let allItems: [TimelinePlanItem]
+    let beforeWakeItems: [TimelinePlanItem]
+    let bridgeIntoWakeItems: [TimelinePlanItem]
+    let operationalItems: [TimelinePlanItem]
+    let bridgePastSleepItems: [TimelinePlanItem]
+    let afterSleepItems: [TimelinePlanItem]
+
+    var bridgeItems: [TimelinePlanItem] {
+        bridgeIntoWakeItems + bridgePastSleepItems
+    }
+}
+
+private func timelinePlanItemSort(lhs: TimelinePlanItem, rhs: TimelinePlanItem) -> Bool {
+    guard let lhsStart = lhs.startDate, let rhsStart = rhs.startDate else { return lhs.title < rhs.title }
+    if lhsStart != rhsStart { return lhsStart < rhsStart }
+    return (lhs.endDate ?? lhsStart) < (rhs.endDate ?? rhsStart)
+}
+
+extension HomeViewModel {
+    func timelineTaskCandidates() -> [TaskDefinition] {
+        var tasksByID: [UUID: TaskDefinition] = [:]
+
+        func insert(_ task: TaskDefinition) {
+            guard task.parentTaskID == nil else { return }
+            let relevantDate = timelinePlacementDate(for: task)
+            let isScheduled = relevantDate != nil
+            let isAllDayTask = task.isAllDay || timelineIsDateOnlyDueDate(task.dueDate)
+            let isUnscheduledInbox = task.scheduledStartAt == nil && task.dueDate == nil && task.isComplete == false
+            guard isScheduled || isAllDayTask || isUnscheduledInbox else { return }
+            tasksByID[task.id] = task
+        }
+
+        (morningTasks + eveningTasks + overdueTasks + dailyCompletedTasks + completedTasks + focusTasks)
+            .forEach(insert)
+
+        todaySections.forEach { section in
+            section.rows.forEach { row in
+                guard case .task(let task) = row else { return }
+                insert(task)
+            }
+        }
+
+        dueTodayRows.forEach { row in
+            guard case .task(let task) = row else { return }
+            insert(task)
+        }
+
+        return timelineSortedTasks(Array(tasksByID.values))
+    }
+
+    func timelineTasksForSelectedDay() -> [TaskDefinition] {
+        let calendar = Calendar.current
+        let selectedDay = calendar.startOfDay(for: selectedDate)
+        let selectedDayEnd = calendar.date(byAdding: .day, value: 1, to: selectedDay) ?? selectedDay
+        let workspacePreferences = workspacePreferencesProvider()
+        let previousDay = calendar.date(byAdding: .day, value: -1, to: selectedDay) ?? selectedDay
+        let previousWindow = resolvedTimelineAnchorWindow(on: previousDay, preferences: workspacePreferences, calendar: calendar)
+
+        let filtered = timelineTaskCandidates().filter { task in
+            let relevantDate = timelinePlacementDate(for: task)
+            let isScheduledForDay = relevantDate.map { $0 < selectedDayEnd && $0 >= selectedDay } ?? false
+            let isPreviousNightContext = relevantDate.map { date in
+                date >= previousWindow.sleep && date < selectedDay
+            } ?? false
+            let isAllDayForDay = timelineAllDayDate(for: task).map { calendar.isDate($0, inSameDayAs: selectedDate) } ?? false
+            let isUnscheduledInbox = task.scheduledStartAt == nil && task.dueDate == nil && task.isComplete == false
+            return isScheduledForDay || isPreviousNightContext || isAllDayForDay || isUnscheduledInbox
+        }
+
+        return timelineSortedTasks(filtered)
+    }
+
+    func timelineTasksForWeek(weekStart: Date, weekEnd: Date) -> [TaskDefinition] {
+        let filtered = timelineTaskCandidates().filter { task in
+            guard task.scheduledStartAt != nil || task.dueDate != nil else { return false }
+            if let placementDate = timelinePlacementDate(for: task) {
+                return placementDate >= weekStart && placementDate < weekEnd
+            }
+            if let allDayDate = timelineAllDayDate(for: task) {
+                return allDayDate >= weekStart && allDayDate < weekEnd
+            }
+            return false
+        }
+
+        return timelineSortedTasks(filtered)
+    }
+
+    func timelineSortedTasks(_ tasks: [TaskDefinition]) -> [TaskDefinition] {
+        return tasks.sorted { lhs, rhs in
+            let lhsDate = timelinePlacementDate(for: lhs) ?? timelineAllDayDate(for: lhs) ?? lhs.createdAt
+            let rhsDate = timelinePlacementDate(for: rhs) ?? timelineAllDayDate(for: rhs) ?? rhs.createdAt
+            if lhsDate != rhsDate { return lhsDate < rhsDate }
+            return lhs.title.localizedStandardCompare(rhs.title) == .orderedAscending
+        }
+    }
+
+    func timelineWeekSummary(weekStartsOn: Weekday, includeCalendarEvents: Bool) -> TimelineWeekSummary {
+        let calendar = Calendar.current
+        let weekStart = XPCalculationEngine.startOfWeek(for: selectedDate, startingOn: weekStartsOn)
+        let weekEnd = calendar.date(byAdding: .day, value: 7, to: weekStart) ?? weekStart
+        let calendarAgenda = includeCalendarEvents
+            ? calendarIntegrationService.weekAgenda(anchorDate: selectedDate, weekStartsOn: weekStartsOn)
+            : []
+        let weekTasks = timelineTasksForWeek(weekStart: weekStart, weekEnd: weekEnd)
+        let days = (0..<7).compactMap { offset -> TimelineWeekDaySummary? in
+            guard let day = calendar.date(byAdding: .day, value: offset, to: weekStart) else { return nil }
+            let normalizedDay = calendar.startOfDay(for: day)
+            let agenda = calendarAgenda.first(where: { calendar.isDate($0.date, inSameDayAs: normalizedDay) })
+            let tasks = weekTasks.filter {
+                if let placementDate = timelinePlacementDate(for: $0) {
+                    return calendar.isDate(placementDate, inSameDayAs: normalizedDay)
+                }
+                if let allDayDate = timelineAllDayDate(for: $0) {
+                    return calendar.isDate(allDayDate, inSameDayAs: normalizedDay)
+                }
+                return false
+            }
+            let taskMarkers = tasks.compactMap { timelinePlacementDate(for: $0) }
+            let eventMarkers = includeCalendarEvents ? (agenda?.events.filter { !$0.isAllDay }.map(\.startDate) ?? []) : []
+            let tints = tasks.compactMap { timelineTintHex(for: $0) } + (includeCalendarEvents ? (agenda?.events.compactMap(\.calendarColorHex) ?? []) : [])
+            let allDayCount = tasks.filter { timelineAllDayDate(for: $0) != nil }.count + (includeCalendarEvents ? (agenda?.events.filter(\.isAllDay).count ?? 0) : 0)
+            let timedCount = taskMarkers.count + eventMarkers.count
+            let totalCount = allDayCount + timedCount
+            let replanEligibleCount = needsReplanCandidates.filter {
+                calendar.isDate($0.originalDate, inSameDayAs: normalizedDay)
+            }.count
+            return TimelineWeekDaySummary(
+                date: normalizedDay,
+                dayKey: timelineDayKey(for: normalizedDay, calendar: calendar),
+                allDayCount: allDayCount,
+                replanEligibleCount: replanEligibleCount,
+                timedMarkers: (taskMarkers + eventMarkers).sorted(),
+                tintHexes: Array(tints.prefix(4)),
+                summaryText: timelineWeekSummaryText(taskCount: taskMarkers.count, eventCount: eventMarkers.count, allDayCount: allDayCount),
+                loadLevel: timelineLoadLevel(for: totalCount)
+            )
+        }
+
+        return TimelineWeekSummary(
+            weekStart: weekStart,
+            weekStartsOn: weekStartsOn,
+            days: days
+        )
+    }
+
+    func timelineTaskUniverseByID() -> [UUID: TaskDefinition] {
+        var universe = uniqueTasks(
+            morningTasks
+            + eveningTasks
+            + overdueTasks
+            + dailyCompletedTasks
+            + upcomingTasks
+            + completedTasks
+            + doneTimelineTasks
+            + focusTasks
+        )
+        universe.append(contentsOf: dueTodayRows.compactMap { row in
+            guard case .task(let task) = row else { return nil }
+            return task
+        })
+        todaySections.forEach { section in
+            universe.append(contentsOf: section.rows.compactMap { row in
+                guard case .task(let task) = row else { return nil }
+                return task
+            })
+        }
+        return Dictionary(uniqueKeysWithValues: uniqueTasks(universe).map { ($0.id, $0) })
+    }
+
+    func timelinePlanItem(from task: TaskDefinition, taskIndexByID: [UUID: TaskDefinition]? = nil) -> TimelinePlanItem {
+        // Prefer explicit schedule fields. The dueDate fallback is temporary legacy support.
+        let startDate = timelinePlacementDate(for: task)
+        let resolvedDuration = task.scheduledEndAt?.timeIntervalSince(startDate ?? task.createdAt)
+            ?? task.estimatedDuration
+            ?? (30 * 60)
+        let endDate = startDate.map { start in
+            task.scheduledEndAt ?? start.addingTimeInterval(max(resolvedDuration, 15 * 60))
+        }
+        let checklistSummary = timelineChecklistSummary(for: task, taskIndexByID: taskIndexByID)
+        let hasProjectUtility = {
+            guard let projectName = task.projectName?.trimmingCharacters(in: .whitespacesAndNewlines) else { return false }
+            return projectName.isEmpty == false && projectName.caseInsensitiveCompare(ProjectConstants.inboxProjectName) != .orderedSame
+        }()
+        return TimelinePlanItem(
+            id: "task:\(task.id.uuidString)",
+            source: .task,
+            taskID: task.id,
+            eventID: nil,
+            title: task.title,
+            subtitle: task.projectName,
+            startDate: startDate,
+            endDate: endDate,
+            isAllDay: timelineAllDayDate(for: task) != nil,
+            isComplete: task.isComplete,
+            tintHex: timelineTintHex(for: task),
+            systemImageName: timelineSystemImageName(for: task),
+            accessoryText: timelineAccessoryText(for: task),
+            hasNotes: task.details?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false,
+            isRecurring: task.repeatPattern != nil || task.recurrenceSeriesID != nil,
+            checklistSummary: checklistSummary,
+            showsProjectUtility: hasProjectUtility,
+            isMeetingLike: task.context == .meeting
+        )
+    }
+
+    func timelinePlanItem(from task: TaskDefinition, on selectedDay: Date, taskIndexByID: [UUID: TaskDefinition]? = nil) -> TimelinePlanItem? {
+        let item = timelinePlanItem(from: task, taskIndexByID: taskIndexByID)
+        if item.isAllDay {
+            return nil
+        }
+        guard let startDate = item.startDate else { return nil }
+        guard Calendar.current.isDate(startDate, inSameDayAs: selectedDay) else { return nil }
+        return item
+    }
+
+    func timelinePlanItem(from event: TaskerCalendarEventSnapshot) -> TimelinePlanItem {
+        TimelinePlanItem(
+            id: "event:\(event.id)",
+            source: .calendarEvent,
+            taskID: nil,
+            eventID: event.id,
+            title: event.title,
+            subtitle: event.calendarTitle,
+            startDate: event.startDate,
+            endDate: event.endDate,
+            isAllDay: event.isAllDay,
+            isComplete: false,
+            tintHex: event.calendarColorHex,
+            systemImageName: "calendar",
+            accessoryText: nil,
+            hasNotes: event.notes?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false,
+            isRecurring: false,
+            checklistSummary: nil,
+            showsProjectUtility: false,
+            isMeetingLike: timelineIsMeetingLikeEvent(event)
+        )
+    }
+
+    func resolvedTimelineAnchorWindow(
+        on day: Date,
+        preferences: TaskerWorkspacePreferences,
+        calendar: Calendar = .current
+    ) -> (wake: Date, sleep: Date) {
+        let fallbackWake = timelineAnchorTime(on: day, hour: 5, minute: 0)
+        let fallbackSleepBase = timelineAnchorTime(on: day, hour: 2, minute: 0)
+        let fallbackSleep = calendar.date(byAdding: .day, value: 1, to: fallbackSleepBase) ?? fallbackSleepBase
+
+        let wake = timelineAnchorTime(
+            on: day,
+            hour: preferences.timelineRiseAndShineHour,
+            minute: preferences.timelineRiseAndShineMinute
+        )
+        var sleep = timelineAnchorTime(
+            on: day,
+            hour: preferences.timelineWindDownHour,
+            minute: preferences.timelineWindDownMinute
+        )
+        if sleep <= wake {
+            sleep = calendar.date(byAdding: .day, value: 1, to: sleep) ?? sleep
+        }
+
+        let span = sleep.timeIntervalSince(wake)
+        guard span >= 60 * 60, span <= 22 * 60 * 60 else {
+            return (fallbackWake, fallbackSleep)
+        }
+        return (wake, sleep)
+    }
+
+    func partitionTimelineItems(
+        _ items: [TimelinePlanItem],
+        wakeAnchor: TimelineAnchorItem,
+        sleepAnchor: TimelineAnchorItem
+    ) -> TimelineWindowBuckets {
+        let decoratedItems = items.map { item in
+            decorateTimelineItem(item, wakeAnchor: wakeAnchor, sleepAnchor: sleepAnchor)
+        }
+        let beforeWakeItems = decoratedItems.filter { $0.windowRelation == .beforeWake }
+        let afterSleepItems = decoratedItems.filter { $0.windowRelation == .afterSleep }
+        let bridgeIntoWakeItems = decoratedItems.filter { $0.windowRelation == .bridgeIntoWake }
+        let bridgePastSleepItems = decoratedItems.filter { $0.windowRelation == .bridgePastSleep }
+        let operationalItems = (bridgeIntoWakeItems
+            + decoratedItems.filter { $0.windowRelation == .operational }
+            + bridgePastSleepItems)
+            .sorted(by: timelinePlanItemSort)
+
+        return TimelineWindowBuckets(
+            allItems: decoratedItems.sorted(by: timelinePlanItemSort),
+            beforeWakeItems: beforeWakeItems.sorted(by: timelinePlanItemSort),
+            bridgeIntoWakeItems: bridgeIntoWakeItems.sorted(by: timelinePlanItemSort),
+            operationalItems: operationalItems,
+            bridgePastSleepItems: bridgePastSleepItems.sorted(by: timelinePlanItemSort),
+            afterSleepItems: afterSleepItems.sorted(by: timelinePlanItemSort)
+        )
+    }
+
+    func decorateTimelineItem(
+        _ item: TimelinePlanItem,
+        wakeAnchor: TimelineAnchorItem,
+        sleepAnchor: TimelineAnchorItem
+    ) -> TimelinePlanItem {
+        guard let start = item.startDate, let end = item.endDate, end > start else {
+            return item
+        }
+
+        let overlapsWake = start < wakeAnchor.time && end > wakeAnchor.time
+        let overlapsSleep = start < sleepAnchor.time && end > sleepAnchor.time
+        let windowRelation: TimelineWindowRelation
+        if end <= wakeAnchor.time {
+            windowRelation = .beforeWake
+        } else if start >= sleepAnchor.time {
+            windowRelation = .afterSleep
+        } else if overlapsWake {
+            windowRelation = .bridgeIntoWake
+        } else if overlapsSleep {
+            windowRelation = .bridgePastSleep
+        } else {
+            windowRelation = .operational
+        }
+
+        return TimelinePlanItem(
+            id: item.id,
+            source: item.source,
+            taskID: item.taskID,
+            eventID: item.eventID,
+            title: item.title,
+            subtitle: item.subtitle,
+            startDate: item.startDate,
+            endDate: item.endDate,
+            isAllDay: item.isAllDay,
+            isComplete: item.isComplete,
+            tintHex: item.tintHex,
+            systemImageName: item.systemImageName,
+            accessoryText: item.accessoryText,
+            hasNotes: item.hasNotes,
+            isRecurring: item.isRecurring,
+            checklistSummary: item.checklistSummary,
+            showsProjectUtility: item.showsProjectUtility,
+            isMeetingLike: item.isMeetingLike,
+            windowRelation: windowRelation,
+            overlapsWake: overlapsWake,
+            overlapsSleep: overlapsSleep
+        )
+    }
+
+    func timelineGaps(
+        between timedItems: [TimelinePlanItem],
+        wakeAnchor: TimelineAnchorItem,
+        sleepAnchor: TimelineAnchorItem,
+        inboxCount: Int,
+        selectedDate: Date,
+        now: Date,
+        actionableHorizon: TimeInterval = 4 * 60 * 60,
+        calendar: Calendar = .current
+    ) -> [TimelineGap] {
+        let gaps = timelineOperationalGaps(
+            between: timedItems,
+            wakeAnchor: wakeAnchor,
+            sleepAnchor: sleepAnchor,
+            inboxCount: inboxCount
+        )
+
+        let selectedDay = calendar.startOfDay(for: selectedDate)
+        let today = calendar.startOfDay(for: now)
+        if selectedDay < today {
+            return []
+        }
+        if selectedDay > today {
+            return gaps
+        }
+
+        let horizonEnd = now.addingTimeInterval(actionableHorizon)
+        return gaps.filter { gap in
+            guard gap.endDate > now else { return false }
+            if gap.startDate <= now && now < gap.endDate {
+                return true
+            }
+            return gap.startDate <= horizonEnd
+        }
+    }
+
+    func timelineOperationalGaps(
+        between timedItems: [TimelinePlanItem],
+        wakeAnchor: TimelineAnchorItem,
+        sleepAnchor: TimelineAnchorItem,
+        inboxCount: Int
+    ) -> [TimelineGap] {
+        struct Boundary {
+            let start: Date
+            let end: Date
+            let isSleepAnchor: Bool
+        }
+
+        let sortedIntervals: [(start: Date, end: Date)] = timedItems.compactMap { item in
+            guard let start = item.startDate, let end = item.endDate, end > start else { return nil }
+            let clippedStart = max(start, wakeAnchor.time)
+            let clippedEnd = min(end, sleepAnchor.time)
+            guard clippedEnd > clippedStart else { return nil }
+            return (start: clippedStart, end: clippedEnd)
+        }
+        .sorted { lhs, rhs in
+            if lhs.start != rhs.start { return lhs.start < rhs.start }
+            return lhs.end < rhs.end
+        }
+
+        var mergedIntervals: [(start: Date, end: Date)] = []
+        for interval in sortedIntervals {
+            if let last = mergedIntervals.last, interval.start <= last.end {
+                mergedIntervals[mergedIntervals.count - 1] = (last.start, max(last.end, interval.end))
+            } else {
+                mergedIntervals.append(interval)
+            }
+        }
+
+        var boundaries: [Boundary] = [.init(start: wakeAnchor.time, end: wakeAnchor.time, isSleepAnchor: false)]
+        boundaries.append(contentsOf: mergedIntervals.map { interval in
+            Boundary(start: interval.start, end: interval.end, isSleepAnchor: false)
+        })
+        boundaries.append(.init(start: sleepAnchor.time, end: sleepAnchor.time, isSleepAnchor: true))
+        boundaries.sort { lhs, rhs in lhs.start < rhs.start }
+
+        var gaps: [TimelineGap] = []
+        for index in 0..<(boundaries.count - 1) {
+            let currentEnd = boundaries[index].end
+            let nextStart = boundaries[index + 1].start
+            let gapDuration = nextStart.timeIntervalSince(currentEnd)
+            guard gapDuration >= 20 * 60 else { continue }
+            let isFinalGap = boundaries[index + 1].isSleepAnchor
+            let emphasis: TimelineGapEmphasis
+            if isFinalGap {
+                emphasis = .quietWindow
+            } else if gapDuration <= 45 * 60 {
+                emphasis = .prepWindow
+            } else {
+                emphasis = .openTime
+            }
+            let primaryAction: TimelineGapAction = .addTask
+            let secondaryAction: TimelineGapAction? = .planBlock
+            let copy = timelineGapCopy(
+                duration: gapDuration,
+                inboxCount: inboxCount,
+                isFinalGap: isFinalGap,
+                emphasis: emphasis,
+                primaryAction: primaryAction
+            )
+            gaps.append(TimelineGap(
+                startDate: currentEnd,
+                endDate: nextStart,
+                suggestedTaskCount: inboxCount,
+                headline: copy.headline,
+                supportingText: copy.supportingText,
+                primaryAction: primaryAction,
+                secondaryAction: secondaryAction,
+                emphasis: emphasis
+            ))
+        }
+        return gaps
+    }
+
+    func timelineDayLayoutMode(
+        timedItems: [TimelinePlanItem],
+        gaps: [TimelineGap],
+        wakeAnchor: TimelineAnchorItem,
+        sleepAnchor: TimelineAnchorItem
+    ) -> TimelineDayLayoutMode {
+        guard timedItems.isEmpty == false else { return .compact }
+
+        let daySpan = max(sleepAnchor.time.timeIntervalSince(wakeAnchor.time), 1)
+        let largestGap = gaps.map(\.duration).max() ?? 0
+        guard largestGap >= 4 * 60 * 60 else { return .expanded }
+
+        let timedCoverage = timelineCoveredDuration(for: timedItems)
+        return (timedCoverage / daySpan) <= 0.22 ? .compact : .expanded
+    }
+
+    func timelineCoveredDuration(for timedItems: [TimelinePlanItem]) -> TimeInterval {
+        let intervals = timedItems.compactMap { item -> (start: Date, end: Date)? in
+            guard let start = item.startDate, let end = item.endDate, end > start else { return nil }
+            return (start, end)
+        }
+        .sorted { lhs, rhs in
+            if lhs.start != rhs.start {
+                return lhs.start < rhs.start
+            }
+            return lhs.end < rhs.end
+        }
+
+        guard let first = intervals.first else { return 0 }
+
+        var mergedStart = first.start
+        var mergedEnd = first.end
+        var total: TimeInterval = 0
+
+        for interval in intervals.dropFirst() {
+            if interval.start <= mergedEnd {
+                mergedEnd = max(mergedEnd, interval.end)
+            } else {
+                total += mergedEnd.timeIntervalSince(mergedStart)
+                mergedStart = interval.start
+                mergedEnd = interval.end
+            }
+        }
+
+        total += mergedEnd.timeIntervalSince(mergedStart)
+        return total
+    }
+
+    func timelineTintHex(for task: TaskDefinition) -> String? {
+        let projectsByID = Dictionary(projects.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
+        let lifeAreasByID = Dictionary(lifeAreas.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
+        if let owningTint = HomeTaskTintResolver.owningSectionAccentHex(
+            for: task,
+            projectsByID: projectsByID,
+            lifeAreasByID: lifeAreasByID
+        ) {
+            return owningTint
+        }
+
+        // Preserve historical timeline fallback when ownership tint cannot be resolved.
+        return projectsByID[task.projectID]?.color.hexString ?? task.priority.colorHex
+    }
+
+    func timelineDayKey(for date: Date, calendar: Calendar) -> String {
+        let components = calendar.dateComponents([.year, .month, .day], from: date)
+        let year = components.year ?? 0
+        let month = components.month ?? 0
+        let day = components.day ?? 0
+        return String(format: "%04d-%02d-%02d", year, month, day)
+    }
+
+    func timelineLoadLevel(for totalCount: Int) -> TimelineDayLoadLevel {
+        switch totalCount {
+        case ..<2:
+            return .light
+        case 2...4:
+            return .balanced
+        default:
+            return .busy
+        }
+    }
+
+    func timelineWeekSummaryText(taskCount: Int, eventCount: Int, allDayCount: Int) -> String {
+        let totalCount = taskCount + eventCount + allDayCount
+        if totalCount == 0 {
+            return "Open"
+        }
+        if totalCount >= 5 {
+            return "Busy"
+        }
+        if eventCount > 0 && taskCount > 0 {
+            let taskText = taskCount == 1 ? "1 task" : "\(taskCount) tasks"
+            let eventText = eventCount == 1 ? "1 event" : "\(eventCount) events"
+            return "\(taskText) · \(eventText)"
+        }
+        if taskCount > 0 {
+            return taskCount == 1 ? "1 task" : "\(taskCount) tasks"
+        }
+        if eventCount > 0 {
+            return eventCount == 1 ? "1 event" : "\(eventCount) events"
+        }
+        return allDayCount == 1 ? "1 all-day" : "\(allDayCount) all-day"
+    }
+
+    func timelineGapCopy(
+        duration: TimeInterval,
+        inboxCount: Int,
+        isFinalGap: Bool,
+        emphasis: TimelineGapEmphasis,
+        primaryAction: TimelineGapAction
+    ) -> (headline: String, supportingText: String) {
+        let durationText = timelineDurationText(duration)
+        switch emphasis {
+        case .quietWindow:
+            return (
+                headline: "Evening buffer",
+                supportingText: "Need a lighter close with \(durationText)?"
+            )
+        case .prepWindow:
+            return (
+                headline: "Short opening",
+                supportingText: "Need a short block for \(durationText)?"
+            )
+        case .openTime:
+            return (
+                headline: "Open time",
+                supportingText: isFinalGap ? "Keep \(durationText) open." : "Want to use \(durationText) well?"
+            )
+        }
+    }
+
+    func timelineChecklistSummary(
+        for task: TaskDefinition,
+        taskIndexByID: [UUID: TaskDefinition]?
+    ) -> TimelineChecklistSummary? {
+        guard task.subtasks.isEmpty == false, let taskIndexByID else { return nil }
+        let childTasks = task.subtasks.compactMap { taskIndexByID[$0] }
+        guard childTasks.count == task.subtasks.count else { return nil }
+        return TimelineChecklistSummary(
+            completedCount: childTasks.filter(\.isComplete).count,
+            totalCount: childTasks.count
+        )
+    }
+
+    func timelineIsMeetingLikeEvent(_ event: TaskerCalendarEventSnapshot) -> Bool {
+        let normalized = "\(event.title) \(event.calendarTitle)".lowercased()
+        return normalized.contains("meet")
+            || normalized.contains("zoom")
+            || normalized.contains("call")
+            || normalized.contains("video")
+    }
+
+    func timelineDurationText(_ duration: TimeInterval) -> String {
+        let totalMinutes = Int((duration / 60).rounded())
+        let hours = totalMinutes / 60
+        let minutes = totalMinutes % 60
+        if hours > 0 && minutes > 0 {
+            return "\(hours)h \(minutes)m"
+        }
+        if hours > 0 {
+            return "\(hours)h"
+        }
+        return "\(max(minutes, 1))m"
+    }
+
+    func timelineSystemImageName(for task: TaskDefinition) -> String {
+        if let iconSymbolName = task.iconSymbolName, iconSymbolName.isEmpty == false {
+            return iconSymbolName
+        }
+        if let project = projects.first(where: { $0.id == task.projectID }) {
+            return project.icon.systemImageName
+        }
+        switch task.category {
+        case .work:
+            return "briefcase.fill"
+        case .health:
+            return "heart.fill"
+        case .personal:
+            return "person.fill"
+        case .shopping:
+            return "cart.fill"
+        default:
+            return "checklist"
+        }
+    }
+
+    func timelineAccessoryText(for task: TaskDefinition) -> String? {
+        if task.isComplete {
+            return "Done"
+        }
+        let now = Date()
+        guard let start = timelinePlacementDate(for: task) else {
+            return task.estimatedDuration.map(Self.timelineDurationText)
+        }
+        let end = task.scheduledEndAt ?? start.addingTimeInterval(max(task.estimatedDuration ?? 30 * 60, 15 * 60))
+        guard start <= now, end > now else {
+            return task.estimatedDuration.map(Self.timelineDurationText)
+        }
+        let roundedMinutes = max(1, Int(ceil(end.timeIntervalSince(now) / 60)))
+        return "\(roundedMinutes)m remaining"
+    }
+
+    func timelineAnchorTime(on day: Date, hour: Int, minute: Int) -> Date {
+        Calendar.current.date(
+            bySettingHour: max(0, min(23, hour)),
+            minute: max(0, min(59, minute)),
+            second: 0,
+            of: day
+        ) ?? day
+    }
+
+    func timelineIsDateOnlyDueDate(_ date: Date?) -> Bool {
+        guard let date else { return false }
+        let components = Calendar.current.dateComponents([.hour, .minute, .second], from: date)
+        return (components.hour ?? 0) == 0 && (components.minute ?? 0) == 0 && (components.second ?? 0) == 0
+    }
+
+    func timelinePlacementDate(for task: TaskDefinition) -> Date? {
+        task.scheduledStartAt ?? (timelineIsDateOnlyDueDate(task.dueDate) ? nil : task.dueDate)
+    }
+
+    func timelineAllDayDate(for task: TaskDefinition) -> Date? {
+        if task.isAllDay {
+            return task.dueDate ?? task.scheduledStartAt
+        }
+        if timelineIsDateOnlyDueDate(task.dueDate) {
+            return task.dueDate
+        }
+        return nil
+    }
+
+    static func timelineDurationText(_ duration: TimeInterval) -> String {
+        let totalMinutes = Int((duration / 60).rounded())
+        let hours = totalMinutes / 60
+        let minutes = totalMinutes % 60
+        if hours > 0 && minutes > 0 {
+            return "\(hours)h \(minutes)m"
+        }
+        if hours > 0 {
+            return "\(hours)h"
+        }
+        return "\(max(minutes, 1))m"
     }
 }
 

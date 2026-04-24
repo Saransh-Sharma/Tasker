@@ -23,11 +23,12 @@ public final class UpdateTaskDefinitionUseCase {
     ) {
         repository.fetchTaskDefinition(id: request.id) { existingResult in
             let previousTask = try? existingResult.get().flatMap { $0 }
+            let normalizedRequest = self.normalizedRequest(request, existingTask: previousTask)
 
-            self.repository.update(request: request) { result in
+            self.repository.update(request: normalizedRequest) { result in
                 switch result {
                 case .success(let updatedTask):
-                    self.persistLinks(taskID: updatedTask.id, request: request) { linkResult in
+                    self.persistLinks(taskID: updatedTask.id, request: normalizedRequest) { linkResult in
                         switch linkResult {
                         case .success:
                             TaskNotificationDispatcher.postOnMain(
@@ -120,5 +121,43 @@ public final class UpdateTaskDefinitionUseCase {
                 completion(.success(()))
             }
         }
+    }
+
+    private func normalizedRequest(
+        _ request: UpdateTaskDefinitionRequest,
+        existingTask: TaskDefinition?
+    ) -> UpdateTaskDefinitionRequest {
+        let touchesScheduleSemantics =
+            request.dueDate != nil
+            || request.clearDueDate
+        let hasExplicitScheduleMutation =
+            request.scheduledStartAt != nil
+            || request.clearScheduledStartAt
+            || request.scheduledEndAt != nil
+            || request.clearScheduledEndAt
+            || request.isAllDay != nil
+
+        guard touchesScheduleSemantics, hasExplicitScheduleMutation == false else {
+            return request
+        }
+
+        let schedule = TaskScheduleNormalizer.normalize(
+            deadlineDate: request.clearDueDate ? nil : request.dueDate,
+            existingScheduledStartAt: existingTask?.scheduledStartAt,
+            existingScheduledEndAt: existingTask?.scheduledEndAt,
+            estimatedDuration: request.estimatedDuration ?? existingTask?.estimatedDuration,
+            preserveExistingDuration: true,
+            allDayIntent: request.isAllDay
+        )
+
+        var normalized = request
+        normalized.dueDate = schedule.dueDate
+        normalized.clearDueDate = schedule.dueDate == nil
+        normalized.scheduledStartAt = schedule.scheduledStartAt
+        normalized.clearScheduledStartAt = schedule.clearScheduledStartAt
+        normalized.scheduledEndAt = schedule.scheduledEndAt
+        normalized.clearScheduledEndAt = schedule.clearScheduledEndAt
+        normalized.isAllDay = schedule.isAllDay
+        return normalized
     }
 }

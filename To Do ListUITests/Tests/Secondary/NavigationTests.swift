@@ -170,18 +170,18 @@ class NavigationTests: BaseUITest {
         XCTAssertTrue(homePage.waitForBottomBarState("expanded", timeout: 2), "Bottom bar should expand after upward scroll")
     }
 
-    // MARK: - Bonus: Navigation Stack - Settings → Projects → Back
+    // MARK: - Bonus: Navigation Stack - Settings → Life Management → Back
 
     func testNavigationStack_SettingsProjectsBack() throws {
         // GIVEN: User is on home screen
         XCTAssertTrue(homePage.verifyIsDisplayed(), "Home screen should be displayed")
 
-        // WHEN: User navigates through Settings → Projects
+        // WHEN: User navigates through Settings → Life Management
         var settingsPage = homePage.tapSettings()
         XCTAssertTrue(settingsPage.verifyIsDisplayed(), "Settings should appear")
 
         let projectPage = settingsPage.navigateToProjectManagement()
-        XCTAssertTrue(projectPage.verifyIsDisplayed(), "Projects should appear")
+        XCTAssertTrue(projectPage.verifyIsDisplayed(), "Life Management should appear")
 
         // Navigate back
         settingsPage = projectPage.tapBack()

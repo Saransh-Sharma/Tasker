@@ -215,6 +215,42 @@ class ProjectManagementTests: BaseUITest {
         takeScreenshot(named: "project_statistics")
     }
 
+    // MARK: - Test 30A: In-Content Add Area CTA
+
+    func testLifeManagementShowsPersistentAddAreaCTA() throws {
+        // GIVEN: User navigates to Life Management
+        let projectPage = navigateToProjectManagement()
+
+        // THEN: Persistent Add Area CTA should be visible
+        XCTAssertTrue(projectPage.verifyAddAreaButtonVisible(), "Add Area CTA should be visible")
+    }
+
+    // MARK: - Test 30B: Add Area CTA Opens Composer and Add Project Still Works
+
+    func testAddAreaCTAOpensComposerAndAddProjectFlowStillWorks() throws {
+        // GIVEN: User is on Life Management
+        let projectPage = navigateToProjectManagement()
+
+        // WHEN: User taps Add Area CTA
+        XCTAssertTrue(projectPage.tapAddArea(), "Add Area CTA should open area composer")
+
+        // THEN: Area composer should be visible and dismissible
+        let areaComposer = app.descendants(matching: .any)["settings.lifeManagement.areaComposer"]
+        XCTAssertTrue(areaComposer.exists, "Area composer should be visible")
+
+        let cancelButton = app.buttons["Cancel"].firstMatch
+        XCTAssertTrue(cancelButton.waitForExistence(timeout: 2), "Cancel button should exist in area composer")
+        cancelButton.tap()
+
+        XCTAssertFalse(areaComposer.waitForExistence(timeout: 3), "Area composer should dismiss on cancel")
+        XCTAssertTrue(projectPage.verifyIsDisplayed(timeout: 3), "Life Management should be visible after dismissing composer")
+
+        // AND: Existing add-project flow still opens project composer
+        let newProjectPage = projectPage.tapAddProject()
+        XCTAssertTrue(newProjectPage.verifyIsDisplayed(), "New project composer should still open from Add menu")
+        _ = newProjectPage.tapCancel()
+    }
+
     // MARK: - Test 31: Create Project Validation - Empty Name
 
     func testCreateProjectValidation_EmptyName() throws {

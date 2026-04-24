@@ -23,10 +23,10 @@ final class SettingsViewModel: ObservableObject {
     @Published var includeCanceledCalendarEvents: Bool = false
     @Published var includeAllDayInAgenda: Bool = true
     @Published var includeAllDayInBusyStrip: Bool = false
+    @Published var showCalendarEventsInTimeline: Bool = false
 
     // MARK: - Navigation callbacks (set by SettingsPageViewController)
 
-    var onNavigateToProjects: (() -> Void)?
     var onNavigateToLifeManagement: (() -> Void)?
     var onNavigateToAISettings: (() -> Void)?
     var onNavigateToChats: (() -> Void)?
@@ -85,6 +85,36 @@ final class SettingsViewModel: ObservableObject {
             preferences.quietHoursEndHour = comps.hour ?? preferences.quietHoursEndHour
             preferences.quietHoursEndMinute = comps.minute ?? preferences.quietHoursEndMinute
             saveAndReconcile()
+        }
+    }
+
+    var timelineRiseAndShineTime: Date {
+        get {
+            dateFrom(
+                hour: workspacePreferences.timelineRiseAndShineHour,
+                minute: workspacePreferences.timelineRiseAndShineMinute
+            )
+        }
+        set {
+            let comps = Calendar.current.dateComponents([.hour, .minute], from: newValue)
+            workspacePreferences.timelineRiseAndShineHour = comps.hour ?? workspacePreferences.timelineRiseAndShineHour
+            workspacePreferences.timelineRiseAndShineMinute = comps.minute ?? workspacePreferences.timelineRiseAndShineMinute
+            saveWorkspacePreferences()
+        }
+    }
+
+    var timelineWindDownTime: Date {
+        get {
+            dateFrom(
+                hour: workspacePreferences.timelineWindDownHour,
+                minute: workspacePreferences.timelineWindDownMinute
+            )
+        }
+        set {
+            let comps = Calendar.current.dateComponents([.hour, .minute], from: newValue)
+            workspacePreferences.timelineWindDownHour = comps.hour ?? workspacePreferences.timelineWindDownHour
+            workspacePreferences.timelineWindDownMinute = comps.minute ?? workspacePreferences.timelineWindDownMinute
+            saveWorkspacePreferences()
         }
     }
 
@@ -211,6 +241,20 @@ final class SettingsViewModel: ObservableObject {
         return "\(formattedTime(hour: preferences.quietHoursStartHour, minute: preferences.quietHoursStartMinute))–\(formattedTime(hour: preferences.quietHoursEndHour, minute: preferences.quietHoursEndMinute))"
     }
 
+    var timelineRiseAndShineSummary: String {
+        formattedTime(
+            hour: workspacePreferences.timelineRiseAndShineHour,
+            minute: workspacePreferences.timelineRiseAndShineMinute
+        )
+    }
+
+    var timelineWindDownSummary: String {
+        formattedTime(
+            hour: workspacePreferences.timelineWindDownHour,
+            minute: workspacePreferences.timelineWindDownMinute
+        )
+    }
+
     var weekStartsOnSummary: String {
         workspacePreferences.weekStartsOn.displayTitle
     }
@@ -283,10 +327,12 @@ final class SettingsViewModel: ObservableObject {
         self.workspacePreferencesStore = workspacePreferencesStore
         self.calendarIntegrationService = calendarIntegrationService
         self.preferences = notificationPreferencesStore.load()
-        self.workspacePreferences = workspacePreferencesStore.load()
+        let loadedWorkspacePreferences = workspacePreferencesStore.load()
+        self.workspacePreferences = loadedWorkspacePreferences
         self.currentModelDisplayName = appManager.compactModelDisplayName(appManager.currentModelName ?? "")
         self.decorativeButtonEffectsEnabled = V2FeatureFlags.userDecorativeCTAEffectsEnabled
         self.homeBackdropNoiseAmount = V2FeatureFlags.homeBackdropNoiseAmount
+        self.showCalendarEventsInTimeline = loadedWorkspacePreferences.showCalendarEventsInTimeline
         bindCalendarService()
     }
 
@@ -307,7 +353,8 @@ final class SettingsViewModel: ObservableObject {
     func updateWeekStartsOn(_ weekday: Weekday) {
         guard workspacePreferences.weekStartsOn != weekday else { return }
         workspacePreferences.weekStartsOn = weekday
-        workspacePreferencesStore.save(workspacePreferences)
+        saveWorkspacePreferences()
+        TaskerFeedback.selection()
     }
 
     func setDecorativeButtonEffectsEnabled(_ isEnabled: Bool) {
@@ -420,6 +467,14 @@ final class SettingsViewModel: ObservableObject {
         calendarIntegrationService.setIncludeAllDayInBusyStrip(include)
     }
 
+    func setShowCalendarEventsInTimeline(_ show: Bool) {
+        guard workspacePreferences.showCalendarEventsInTimeline != show else { return }
+        showCalendarEventsInTimeline = show
+        workspacePreferences.showCalendarEventsInTimeline = show
+        saveWorkspacePreferences()
+        TaskerFeedback.selection()
+    }
+
     private func bindCalendarService() {
         calendarIntegrationService.$snapshot
             .receive(on: DispatchQueue.main)
@@ -432,11 +487,14 @@ final class SettingsViewModel: ObservableObject {
                 self.includeCanceledCalendarEvents = snapshot.includeCanceled
                 self.includeAllDayInAgenda = snapshot.includeAllDayInAgenda
                 self.includeAllDayInBusyStrip = snapshot.includeAllDayInBusyStrip
+                self.workspacePreferences = self.workspacePreferencesStore.load()
+                self.showCalendarEventsInTimeline = self.workspacePreferences.showCalendarEventsInTimeline
             }
             .store(in: &cancellables)
     }
 
     private func refreshCalendarState() {
+        workspacePreferences = workspacePreferencesStore.load()
         let snapshot = calendarIntegrationService.snapshot
         calendarAuthorizationStatus = snapshot.authorizationStatus
         selectedCalendarIDs = snapshot.selectedCalendarIDs
@@ -445,6 +503,11 @@ final class SettingsViewModel: ObservableObject {
         includeCanceledCalendarEvents = snapshot.includeCanceled
         includeAllDayInAgenda = snapshot.includeAllDayInAgenda
         includeAllDayInBusyStrip = snapshot.includeAllDayInBusyStrip
+        showCalendarEventsInTimeline = workspacePreferences.showCalendarEventsInTimeline
+    }
+
+    private func saveWorkspacePreferences() {
+        workspacePreferencesStore.save(workspacePreferences)
     }
 
     private func reconcileNotifications(reason: String) {

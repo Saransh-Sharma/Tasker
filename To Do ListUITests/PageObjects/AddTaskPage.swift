@@ -46,6 +46,22 @@ class AddTaskPage {
         return field
     }
 
+    var iconButton: XCUIElement {
+        app.buttons[AccessibilityIdentifiers.AddTask.iconButton]
+    }
+
+    var iconPickerSheet: XCUIElement {
+        app.otherElements[AccessibilityIdentifiers.AddTask.iconPickerSheet]
+    }
+
+    var iconSearchField: XCUIElement {
+        app.textFields[AccessibilityIdentifiers.AddTask.iconSearchField]
+    }
+
+    var iconResetButton: XCUIElement {
+        app.buttons[AccessibilityIdentifiers.AddTask.iconResetButton]
+    }
+
     var modePicker: XCUIElement {
         app.otherElements[AccessibilityIdentifiers.AddTask.modePicker]
     }
@@ -85,6 +101,26 @@ class AddTaskPage {
 
     var projectSelector: XCUIElement {
         app.otherElements[AccessibilityIdentifiers.AddTask.projectSelector]
+    }
+
+    var scheduleEditor: XCUIElement {
+        app.descendants(matching: .any)[AccessibilityIdentifiers.AddTask.scheduleEditor]
+    }
+
+    var scheduleTimeRow: XCUIElement {
+        app.descendants(matching: .any)[AccessibilityIdentifiers.AddTask.scheduleTimeRow]
+    }
+
+    var scheduleTimePickerSheet: XCUIElement {
+        app.descendants(matching: .any)[AccessibilityIdentifiers.AddTask.scheduleTimePickerSheet]
+    }
+
+    var scheduleTimePicker: XCUIElement {
+        app.datePickers[AccessibilityIdentifiers.AddTask.scheduleTimePicker]
+    }
+
+    var scheduleTimePickerConfirmButton: XCUIElement {
+        app.buttons[AccessibilityIdentifiers.AddTask.scheduleTimePickerConfirm]
     }
 
     var prioritySegmentedControl: XCUIElement {
@@ -244,6 +280,46 @@ class AddTaskPage {
         let button = habitModeButton
         if button.waitForExistence(timeout: 3) {
             button.tap()
+        }
+    }
+
+    func openIconPicker() {
+        let button = iconButton
+        if button.waitForExistence(timeout: 3) {
+            button.tap()
+        }
+    }
+
+    func iconOption(_ symbolName: String) -> XCUIElement {
+        app.buttons[AccessibilityIdentifiers.AddTask.iconOption(symbolName)]
+    }
+
+    func selectTaskIcon(_ symbolName: String) {
+        let option = iconOption(symbolName)
+        if option.waitForExistence(timeout: 3) {
+            option.tap()
+        }
+    }
+
+    @discardableResult
+    func waitForIconButtonLabel(containing value: String, timeout: TimeInterval = 2) -> Bool {
+        let predicate = NSPredicate(format: "label CONTAINS[c] %@", value)
+        let expectation = XCTNSPredicateExpectation(predicate: predicate, object: iconButton)
+        return XCTWaiter.wait(for: [expectation], timeout: timeout) == .completed
+    }
+
+    func openScheduleTimePicker() {
+        let row = scheduleTimeRow
+        if row.waitForExistence(timeout: 3) {
+            tapElementCenter(row)
+        }
+    }
+
+    func selectScheduleDuration(minutes: Int) {
+        let identifier = AccessibilityIdentifiers.AddTask.scheduleDurationChip(minutes: minutes)
+        let chip = app.descendants(matching: .any)[identifier]
+        if chip.waitForExistence(timeout: 3) {
+            tapElementCenter(chip)
         }
     }
 

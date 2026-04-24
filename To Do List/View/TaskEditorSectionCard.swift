@@ -1,23 +1,46 @@
 import SwiftUI
 
 struct TaskEditorSectionCard<Content: View>: View {
-    let section: TaskEditorSection
+    let title: String
+    let systemImage: String
     let summary: String
     let isExpanded: Bool
     let action: () -> Void
     let content: Content
+    let accessibilityIdentifier: String?
 
     init(
         section: TaskEditorSection,
         summary: String,
         isExpanded: Bool,
+        accessibilityIdentifier: String? = nil,
         action: @escaping () -> Void,
         @ViewBuilder content: () -> Content
     ) {
-        self.section = section
+        self.title = section.title
+        self.systemImage = section.icon
         self.summary = summary
         self.isExpanded = isExpanded
         self.action = action
+        self.accessibilityIdentifier = accessibilityIdentifier
+        self.content = content()
+    }
+
+    init(
+        title: String,
+        systemImage: String,
+        summary: String,
+        isExpanded: Bool,
+        accessibilityIdentifier: String? = nil,
+        action: @escaping () -> Void,
+        @ViewBuilder content: () -> Content
+    ) {
+        self.title = title
+        self.systemImage = systemImage
+        self.summary = summary
+        self.isExpanded = isExpanded
+        self.action = action
+        self.accessibilityIdentifier = accessibilityIdentifier
         self.content = content()
     }
 
@@ -28,30 +51,22 @@ struct TaskEditorSectionCard<Content: View>: View {
             Button(action: action) {
                 HStack(alignment: .top, spacing: spacing.s12) {
                     ZStack {
-                        RoundedRectangle(cornerRadius: 12, style: .continuous)
-                            .fill(isExpanded ? Color.tasker.accentWash : Color.tasker.surfacePrimary)
-                            .frame(width: 34, height: 34)
+                        RoundedRectangle(cornerRadius: 10, style: .continuous)
+                            .fill(isExpanded ? Color.tasker.accentWash : Color.tasker.surfacePrimary.opacity(0.92))
+                            .frame(width: 32, height: 32)
 
-                        Image(systemName: section.icon)
-                            .font(.system(size: 15, weight: .semibold))
+                        Image(systemName: systemImage)
+                            .font(.system(size: 14, weight: .semibold))
                             .foregroundStyle(isExpanded ? Color.tasker.accentPrimary : Color.tasker.textSecondary)
                     }
 
                     VStack(alignment: .leading, spacing: spacing.s4) {
-                        HStack(spacing: spacing.s8) {
-                            Text(section.title)
-                                .font(.tasker(.callout).weight(.semibold))
-                                .foregroundStyle(Color.tasker.textPrimary)
-
-                            TaskerStatusPill(
-                                text: isExpanded ? "Open" : "Collapsed",
-                                systemImage: isExpanded ? "eye.fill" : "ellipsis",
-                                tone: isExpanded ? .accent : .quiet
-                            )
-                        }
+                        Text(title)
+                            .font(.tasker(.headline))
+                            .foregroundStyle(Color.tasker.textPrimary)
 
                         Text(summary)
-                            .font(.tasker(.caption1))
+                            .font(.tasker(.meta))
                             .foregroundStyle(Color.tasker.textSecondary)
                             .multilineTextAlignment(.leading)
                             .lineLimit(2)
@@ -62,7 +77,7 @@ struct TaskEditorSectionCard<Content: View>: View {
 
                     ZStack {
                         Circle()
-                            .fill(Color.tasker.surfacePrimary.opacity(isExpanded ? 1 : 0.7))
+                            .fill(Color.tasker.surfacePrimary.opacity(isExpanded ? 1 : 0.72))
                             .frame(width: 28, height: 28)
 
                         Image(systemName: "chevron.right")
@@ -74,8 +89,9 @@ struct TaskEditorSectionCard<Content: View>: View {
             }
             .buttonStyle(.plain)
             .scaleOnPress()
-            .accessibilityLabel("\(section.title). \(summary)")
+            .accessibilityLabel("\(title). \(summary)")
             .accessibilityHint(isExpanded ? "Collapse section" : "Expand section")
+            .accessibilityIdentifier(accessibilityIdentifier ?? "")
 
             if isExpanded {
                 content
@@ -88,8 +104,8 @@ struct TaskEditorSectionCard<Content: View>: View {
         .padding(spacing.s12)
         .taskerDenseSurface(
             cornerRadius: TaskerTheme.CornerRadius.card,
-            fillColor: isExpanded ? Color.tasker.surfacePrimary : Color.tasker.surfaceSecondary.opacity(0.72),
-            strokeColor: isExpanded ? Color.tasker.accentSecondary.opacity(0.34) : Color.tasker.strokeHairline.opacity(0.82)
+            fillColor: isExpanded ? Color.tasker.surfacePrimary : Color.tasker.surfaceSecondary.opacity(0.55),
+            strokeColor: isExpanded ? Color.tasker.accentSecondary.opacity(0.24) : Color.tasker.strokeHairline.opacity(0.72)
         )
         .taskerElevation(isExpanded ? .e1 : .e0, cornerRadius: TaskerTheme.CornerRadius.card, includesBorder: false)
         .animation(TaskerAnimation.snappy, value: isExpanded)

@@ -41,7 +41,14 @@ public final class ManageLifeAreasUseCase {
                     return
                 }
 
-                let model = LifeArea(name: normalizedDisplayName, color: color, icon: icon)
+                let newID = UUID()
+                let resolvedColor = LifeAreaColorPalette.normalizeOrMap(hex: color, for: newID)
+                let model = LifeArea(
+                    id: newID,
+                    name: normalizedDisplayName,
+                    color: resolvedColor,
+                    icon: icon
+                )
                 self.repository.create(model, completion: completion)
 
             case .failure(let error):
@@ -83,7 +90,7 @@ public final class ManageLifeAreasUseCase {
                 }
 
                 existing.name = normalizedDisplayName
-                existing.color = color
+                existing.color = LifeAreaColorPalette.normalizeOrMap(hex: color, for: existing.id)
                 existing.icon = icon
                 existing.updatedAt = Date()
                 self.repository.update(existing, completion: completion)

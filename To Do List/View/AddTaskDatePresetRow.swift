@@ -18,6 +18,7 @@ private enum AddTaskDatePickerAccessibilityID {
 
 struct AddTaskDatePresetRow: View {
     @Binding var dueDate: Date?
+    let customChipAccessibilityIdentifier: String?
     @State private var showDatePicker = false
 
     private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.currentTheme.tokens.spacing }
@@ -34,6 +35,14 @@ struct AddTaskDatePresetRow: View {
             return .thisWeek
         }
         return nil // custom date
+    }
+
+    init(
+        dueDate: Binding<Date?>,
+        customChipAccessibilityIdentifier: String? = nil
+    ) {
+        self._dueDate = dueDate
+        self.customChipAccessibilityIdentifier = customChipAccessibilityIdentifier
     }
 
     var body: some View {
@@ -64,7 +73,7 @@ struct AddTaskDatePresetRow: View {
                     ) {
                         showDatePicker = true
                     }
-                    .accessibilityIdentifier(AddTaskDatePickerAccessibilityID.customDateChip)
+                    .accessibilityIdentifier(customChipAccessibilityIdentifier ?? AddTaskDatePickerAccessibilityID.customDateChip)
                 }
             }
         }

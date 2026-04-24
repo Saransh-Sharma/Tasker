@@ -7,46 +7,21 @@ private enum LifeManagementConstants {
     static let generalNormalizedName = "general"
 }
 
-public enum LifeManagementScope: String, CaseIterable, Identifiable {
-    case overview
-    case areas
-    case projects
-    case habits
-    case archive
-
-    public var id: String { rawValue }
-
-    public var title: String {
-        switch self {
-        case .overview:
-            return String(localized: "Overview", defaultValue: "Overview")
-        case .areas:
-            return String(localized: "Areas", defaultValue: "Areas")
-        case .projects:
-            return String(localized: "Projects", defaultValue: "Projects")
-        case .habits:
-            return String(localized: "Habits", defaultValue: "Habits")
-        case .archive:
-            return String(localized: "Archive", defaultValue: "Archive")
-        }
-    }
+private func lifeManagementTreeAreaAccentHex(_ area: LifeArea?) -> String {
+    guard let area else { return HabitColorFamily.green.canonicalHex }
+    return LifeAreaColorPalette.normalizeOrMap(hex: area.color, for: area.id)
 }
 
-public enum LifeManagementHabitFilter: String, CaseIterable, Identifiable, Hashable {
-    case all
-    case build
-    case quit
-    case paused
+private func lifeManagementTreeHabitStatusText(_ row: HabitLibraryRow) -> String {
+    if row.isArchived { return "Archived" }
+    if row.isPaused { return "Paused" }
+    if row.currentStreak > 0 { return "\(row.currentStreak)d streak" }
 
-    public var id: String { rawValue }
-
-    public var title: String {
-        switch self {
-        case .all: return "All"
-        case .build: return "Build"
-        case .quit: return "Quit"
-        case .paused: return "Paused"
-        }
+    switch row.cadence {
+    case .daily:
+        return "Daily"
+    case .weekly(let days, _, _):
+        return days.count == 1 ? "Weekly" : "\(days.count)x weekly"
     }
 }
 
@@ -56,65 +31,10 @@ public struct LifeAreaIconOption: Identifiable, Equatable, Hashable {
 
     public var id: String { symbolName }
 
-    /// Initializes a new instance.
     public init(symbolName: String, keywords: [String]) {
         self.symbolName = symbolName
         self.keywords = keywords
     }
-}
-
-public struct LifeManagementOverviewStat: Identifiable, Equatable {
-    public let title: String
-    public let value: String
-    public let symbolName: String
-
-    public var id: String { title }
-
-    /// Initializes a new instance.
-    public init(title: String, value: String, symbolName: String) {
-        self.title = title
-        self.value = value
-        self.symbolName = symbolName
-    }
-}
-
-public enum LifeManagementAttentionItemKind: String, Equatable {
-    case emptyProject = "empty_project"
-    case pausedHabit = "paused_habit"
-    case archivedItem = "archived_item"
-}
-
-public struct LifeManagementAttentionItem: Identifiable, Equatable {
-    public let kind: LifeManagementAttentionItemKind
-    public let title: String
-    public let detail: String
-    public let symbolName: String
-
-    public var id: String { kind.rawValue }
-
-    /// Initializes a new instance.
-    public init(kind: LifeManagementAttentionItemKind, title: String, detail: String, symbolName: String) {
-        self.kind = kind
-        self.title = title
-        self.detail = detail
-        self.symbolName = symbolName
-    }
-}
-
-public struct LifeManagementOverview: Equatable {
-    public var stats: [LifeManagementOverviewStat]
-    public var attentionItems: [LifeManagementAttentionItem]
-    public var topAreas: [LifeManagementAreaRow]
-    public var attentionProjects: [LifeManagementProjectRow]
-    public var attentionHabits: [LifeManagementHabitRow]
-
-    public static let empty = LifeManagementOverview(
-        stats: [],
-        attentionItems: [],
-        topAreas: [],
-        attentionProjects: [],
-        attentionHabits: []
-    )
 }
 
 public struct LifeManagementAreaRow: Identifiable, Equatable {
@@ -146,43 +66,160 @@ public struct LifeManagementHabitRow: Identifiable, Equatable {
     public var id: UUID { row.habitID }
 }
 
-public struct LifeManagementProjectGroup: Identifiable, Equatable {
-    public let lifeArea: LifeArea?
-    public let title: String
-    public let rows: [LifeManagementProjectRow]
+public enum LifeManagementSelection: Hashable, Identifiable {
+    case area(UUID)
+    case project(UUID)
+    case habit(UUID)
 
-    public var id: String { lifeArea?.id.uuidString ?? title }
-}
-
-public struct LifeManagementHabitGroup: Identifiable, Equatable {
-    public let lifeArea: LifeArea?
-    public let title: String
-    public let rows: [LifeManagementHabitRow]
-
-    public var id: String { lifeArea?.id.uuidString ?? title }
-}
-
-public struct LifeManagementArchiveSections: Equatable {
-    public let areas: [LifeManagementAreaRow]
-    public let projects: [LifeManagementProjectGroup]
-    public let habits: [LifeManagementHabitGroup]
-
-    public static let empty = LifeManagementArchiveSections(areas: [], projects: [], habits: [])
-
-    public var hasContent: Bool {
-        areas.isEmpty == false || projects.isEmpty == false || habits.isEmpty == false
+    public var id: String {
+        switch self {
+        case .area(let id):
+            return "area:\(id.uuidString)"
+        case .project(let id):
+            return "project:\(id.uuidString)"
+        case .habit(let id):
+            return "habit:\(id.uuidString)"
+        }
     }
 }
 
-public struct LifeManagementSearchResults: Equatable {
-    public let areas: [LifeManagementAreaRow]
-    public let projects: [LifeManagementProjectRow]
-    public let habits: [LifeManagementHabitRow]
+public enum LifeManagementTreeSectionKind: String, Hashable, Identifiable {
+    case active
+    case archived
 
-    public static let empty = LifeManagementSearchResults(areas: [], projects: [], habits: [])
+    public var id: String { rawValue }
 
-    public var isEmpty: Bool {
-        areas.isEmpty && projects.isEmpty && habits.isEmpty
+    public var title: String {
+        switch self {
+        case .active:
+            return "Life Areas"
+        case .archived:
+            return "Archived"
+        }
+    }
+}
+
+public enum LifeManagementTreeNodePayload: Equatable {
+    case area(LifeManagementAreaRow)
+    case project(LifeManagementProjectRow)
+    case habit(LifeManagementHabitRow)
+}
+
+public struct LifeManagementTreeNode: Identifiable, Equatable {
+    public let payload: LifeManagementTreeNodePayload
+    public let children: [LifeManagementTreeNode]
+    public let isArchived: Bool
+
+    public init(
+        payload: LifeManagementTreeNodePayload,
+        children: [LifeManagementTreeNode] = [],
+        isArchived: Bool
+    ) {
+        self.payload = payload
+        self.children = children
+        self.isArchived = isArchived
+    }
+
+    public var selection: LifeManagementSelection {
+        switch payload {
+        case .area(let row):
+            return .area(row.id)
+        case .project(let row):
+            return .project(row.id)
+        case .habit(let row):
+            return .habit(row.id)
+        }
+    }
+
+    public var id: String { selection.id }
+
+    public var accessibilityIdentifier: String {
+        switch selection {
+        case .area(let id):
+            return "settings.lifeManagement.node.area.\(id.uuidString)"
+        case .project(let id):
+            return "settings.lifeManagement.node.project.\(id.uuidString)"
+        case .habit(let id):
+            return "settings.lifeManagement.node.habit.\(id.uuidString)"
+        }
+    }
+
+    public var title: String {
+        switch payload {
+        case .area(let row):
+            return row.lifeArea.name
+        case .project(let row):
+            return row.project.name
+        case .habit(let row):
+            return row.row.title
+        }
+    }
+
+    public var subtitle: String {
+        switch payload {
+        case .area(let row):
+            return "\(row.projectCount) projects · \(row.habitCount) habits"
+        case .project(let row):
+            var parts: [String] = [row.lifeArea?.name ?? LifeManagementConstants.generalDisplayName]
+            parts.append(row.taskCount == 0 ? "Empty" : "\(row.taskCount) open tasks")
+            if row.linkedHabitCount > 0 {
+                parts.append("\(row.linkedHabitCount) habits")
+            }
+            return parts.joined(separator: " · ")
+        case .habit(let row):
+            var parts: [String] = [row.row.kind == .positive ? "Build" : "Quit"]
+            if let projectName = row.row.projectName?.nilIfBlank {
+                parts.append(projectName)
+            } else if let lifeAreaName = row.lifeArea?.name.nilIfBlank {
+                parts.append(lifeAreaName)
+            }
+            parts.append(lifeManagementTreeHabitStatusText(row.row))
+            return parts.joined(separator: " · ")
+        }
+    }
+
+    public var symbolName: String {
+        switch payload {
+        case .area(let row):
+            return row.lifeArea.icon ?? "square.grid.2x2"
+        case .project(let row):
+            return row.project.icon.systemImageName
+        case .habit(let row):
+            return row.row.icon?.symbolName ?? "circle.dashed"
+        }
+    }
+
+    public var accentHex: String {
+        switch payload {
+        case .area(let row):
+            return LifeAreaColorPalette.normalizeOrMap(hex: row.lifeArea.color, for: row.id)
+        case .project(let row):
+            return row.project.color.hexString
+        case .habit(let row):
+            return row.row.colorHex ?? lifeManagementTreeAreaAccentHex(row.lifeArea)
+        }
+    }
+
+    public var isExpandable: Bool {
+        children.isEmpty == false
+    }
+}
+
+public struct LifeManagementTreeSection: Identifiable, Equatable {
+    public let kind: LifeManagementTreeSectionKind
+    public let title: String
+    public let nodes: [LifeManagementTreeNode]
+
+    public init(kind: LifeManagementTreeSectionKind, title: String, nodes: [LifeManagementTreeNode]) {
+        self.kind = kind
+        self.title = title
+        self.nodes = nodes
+    }
+
+    public var id: String { kind.rawValue }
+
+    public var accessibilityIdentifier: String {
+        "settings.lifeManagement.section.\(kind.rawValue)"
     }
 }
 
@@ -195,7 +232,6 @@ public struct LifeManagementLifeAreaDraft: Identifiable, Equatable {
 
     public var isNew: Bool { existingID == nil }
 
-    /// Initializes a new instance.
     public init(
         id: UUID = UUID(),
         existingID: UUID? = nil,
@@ -222,7 +258,6 @@ public struct LifeManagementProjectDraft: Identifiable, Equatable {
 
     public var isNew: Bool { existingID == nil }
 
-    /// Initializes a new instance.
     public init(
         id: UUID = UUID(),
         existingID: UUID? = nil,
@@ -281,35 +316,24 @@ private enum LifeManagementUndoAction {
 
 struct LifeManagementAreaDetailSnapshot: Equatable {
     let row: LifeManagementAreaRow
-    let activeProjects: [LifeManagementProjectRow]
-    let activeHabits: [LifeManagementHabitRow]
+    let projectRows: [LifeManagementProjectRow]
+    let habitRows: [LifeManagementHabitRow]
 }
 
 struct LifeManagementProjectDetailSnapshot: Equatable {
     let row: LifeManagementProjectRow
-    let activeLinkedHabits: [LifeManagementHabitRow]
+    let linkedHabits: [LifeManagementHabitRow]
 }
 
 struct LifeManagementProjection {
     struct Snapshot: Equatable {
-        let overview: LifeManagementOverview
-        let areaRows: [LifeManagementAreaRow]
-        let projectGroups: [LifeManagementProjectGroup]
-        let habitGroups: [LifeManagementHabitGroup]
-        let archiveSections: LifeManagementArchiveSections
-        let searchResults: LifeManagementSearchResults
+        let treeSections: [LifeManagementTreeSection]
+        let searchExpandedAncestorNodeIDs: Set<String>
+        let searchExpandedSectionKinds: Set<LifeManagementTreeSectionKind>
     }
 
     struct Context: Equatable {
-        let overview: LifeManagementOverview
-        let activeAreaRows: [LifeManagementAreaRow]
-        let activeProjects: [LifeManagementProjectRow]
-        let archivedProjects: [LifeManagementProjectRow]
-        let activeHabits: [LifeManagementHabitRow]
-        let archivedHabits: [LifeManagementHabitRow]
-        let activeProjectGroups: [LifeManagementProjectGroup]
-        let activeHabitGroupsByFilter: [LifeManagementHabitFilter: [LifeManagementHabitGroup]]
-        let archiveSections: LifeManagementArchiveSections
+        let sections: [LifeManagementTreeSection]
         let areaRowsByID: [UUID: LifeManagementAreaRow]
         let projectRowsByID: [UUID: LifeManagementProjectRow]
         let habitRowsByID: [UUID: LifeManagementHabitRow]
@@ -318,19 +342,10 @@ struct LifeManagementProjection {
         let allProjectCountByAreaID: [UUID: Int]
         let allHabitCountByAreaID: [UUID: Int]
         let allLinkedHabitCountByProjectID: [UUID: Int]
+        let ancestorNodeIDsBySelection: [LifeManagementSelection: Set<String>]
 
         static let empty = Context(
-            overview: .empty,
-            activeAreaRows: [],
-            activeProjects: [],
-            archivedProjects: [],
-            activeHabits: [],
-            archivedHabits: [],
-            activeProjectGroups: [],
-            activeHabitGroupsByFilter: Dictionary(
-                uniqueKeysWithValues: LifeManagementHabitFilter.allCases.map { ($0, []) }
-            ),
-            archiveSections: .empty,
+            sections: [],
             areaRowsByID: [:],
             projectRowsByID: [:],
             habitRowsByID: [:],
@@ -338,39 +353,31 @@ struct LifeManagementProjection {
             projectDetailByID: [:],
             allProjectCountByAreaID: [:],
             allHabitCountByAreaID: [:],
-            allLinkedHabitCountByProjectID: [:]
+            allLinkedHabitCountByProjectID: [:],
+            ancestorNodeIDsBySelection: [:]
         )
 
-        func snapshot(
-            selectedScope: LifeManagementScope,
-            selectedHabitFilter: LifeManagementHabitFilter,
-            searchQuery: String
-        ) -> Snapshot {
-            let habitGroups = activeHabitGroupsByFilter[selectedHabitFilter] ?? []
-            let searchResults: LifeManagementSearchResults
-            if searchQuery.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                searchResults = .empty
-            } else if selectedScope == .archive {
-                searchResults = LifeManagementSearchResults(
-                    areas: archiveSections.areas.filter { LifeManagementProjection.matchesSearch(areaRow: $0, query: searchQuery) },
-                    projects: archivedProjects.filter { LifeManagementProjection.matchesSearch(projectRow: $0, query: searchQuery) },
-                    habits: archivedHabits.filter { LifeManagementProjection.matchesSearch(habitRow: $0, query: searchQuery) }
-                )
-            } else {
-                searchResults = LifeManagementSearchResults(
-                    areas: activeAreaRows.filter { LifeManagementProjection.matchesSearch(areaRow: $0, query: searchQuery) },
-                    projects: activeProjects.filter { LifeManagementProjection.matchesSearch(projectRow: $0, query: searchQuery) },
-                    habits: activeHabits.filter { LifeManagementProjection.matchesSearch(habitRow: $0, query: searchQuery) }
+        func snapshot(searchQuery: String) -> Snapshot {
+            let normalizedQuery = searchQuery.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard normalizedQuery.isEmpty == false else {
+                return Snapshot(
+                    treeSections: sections,
+                    searchExpandedAncestorNodeIDs: [],
+                    searchExpandedSectionKinds: []
                 )
             }
 
+            var expandedAncestors = Set<String>()
+            let filteredSections = sections.compactMap { section -> LifeManagementTreeSection? in
+                let filteredNodes = section.nodes.compactMap { LifeManagementProjection.filteredNode($0, query: normalizedQuery, expandedAncestors: &expandedAncestors) }
+                guard filteredNodes.isEmpty == false else { return nil }
+                return LifeManagementTreeSection(kind: section.kind, title: section.title, nodes: filteredNodes)
+            }
+            let expandedSectionKinds = Set(filteredSections.map(\.kind))
             return Snapshot(
-                overview: overview,
-                areaRows: activeAreaRows,
-                projectGroups: activeProjectGroups,
-                habitGroups: habitGroups,
-                archiveSections: archiveSections,
-                searchResults: searchResults
+                treeSections: filteredSections,
+                searchExpandedAncestorNodeIDs: expandedAncestors,
+                searchExpandedSectionKinds: expandedSectionKinds
             )
         }
     }
@@ -382,13 +389,8 @@ struct LifeManagementProjection {
         generalLifeAreaID: UUID?
     ) -> Context {
         let areasByID = Dictionary(uniqueKeysWithValues: lifeAreas.map { ($0.id, $0) })
-        let activeLinkedHabitCountByProjectID = Dictionary(
-            habitRows.lazy.compactMap { row -> (UUID, Int)? in
-                guard let projectID = row.projectID, row.isArchived == false else { return nil }
-                return (projectID, 1)
-            },
-            uniquingKeysWith: +
-        )
+        let linkedHabitCountByProjectID = Dictionary(grouping: habitRows.compactMap(\.projectID), by: { $0 })
+            .mapValues(\.count)
 
         let projectRows = projectStats.map { entry in
             let resolvedAreaID = entry.project.lifeAreaID ?? generalLifeAreaID
@@ -396,147 +398,146 @@ struct LifeManagementProjection {
                 project: entry.project,
                 taskCount: entry.taskCount,
                 lifeArea: resolvedAreaID.flatMap { areasByID[$0] },
-                linkedHabitCount: activeLinkedHabitCountByProjectID[entry.project.id] ?? 0
+                linkedHabitCount: 0
             )
         }
-        let projectRowsByID = Dictionary(uniqueKeysWithValues: projectRows.map { ($0.id, $0) })
+        let resolvedProjectRows = projectRows.map { row in
+            LifeManagementProjectRow(
+                project: row.project,
+                taskCount: row.taskCount,
+                lifeArea: row.lifeArea,
+                linkedHabitCount: linkedHabitCountByProjectID[row.id] ?? 0
+            )
+        }
+        let projectRowsByID = Dictionary(uniqueKeysWithValues: resolvedProjectRows.map { ($0.id, $0) })
+        let resolvedProjectsByID = Dictionary(uniqueKeysWithValues: resolvedProjectRows.map { ($0.id, $0.project) })
 
-        let projectsByID = Dictionary(uniqueKeysWithValues: projectRows.map { ($0.project.id, $0.project) })
-        let habitViewRows = habitRows.map { row in
-            LifeManagementHabitRow(
+        let resolvedHabitRows = habitRows.map { row in
+            let resolvedLifeAreaID = row.lifeAreaID ?? generalLifeAreaID
+            return LifeManagementHabitRow(
                 row: row,
-                lifeArea: row.lifeAreaID.flatMap { areasByID[$0] },
-                project: row.projectID.flatMap { projectsByID[$0] }
+                lifeArea: resolvedLifeAreaID.flatMap { areasByID[$0] },
+                project: row.projectID.flatMap { resolvedProjectsByID[$0] }
             )
         }
-        let habitRowsByID = Dictionary(uniqueKeysWithValues: habitViewRows.map { ($0.id, $0) })
-
-        let projectRowsByAreaID = Dictionary(grouping: projectRows.compactMap { row -> (UUID, LifeManagementProjectRow)? in
-            guard let lifeAreaID = row.lifeArea?.id else { return nil }
-            return (lifeAreaID, row)
-        }, by: \.0)
-            .mapValues { entries in entries.map(\.1) }
-        let habitRowsByAreaID = Dictionary(grouping: habitViewRows.compactMap { row -> (UUID, LifeManagementHabitRow)? in
-            guard let lifeAreaID = row.lifeArea?.id else { return nil }
-            return (lifeAreaID, row)
-        }, by: \.0)
-            .mapValues { entries in entries.map(\.1) }
-        let habitRowsByProjectID = Dictionary(grouping: habitViewRows.compactMap { row -> (UUID, LifeManagementHabitRow)? in
-            guard let projectID = row.project?.id else { return nil }
-            return (projectID, row)
-        }, by: \.0)
-            .mapValues { entries in entries.map(\.1) }
+        let allHabitRowsByProjectID = groupedHabitRowsByProjectID(resolvedHabitRows)
+        let habitRowsByID = Dictionary(uniqueKeysWithValues: resolvedHabitRows.map { ($0.id, $0) })
 
         let activeAreas = sortAreas(lifeAreas.filter { $0.isArchived == false })
-        let archivedAreas = sortAreas(lifeAreas.filter(\.isArchived))
+        let allAreas = sortAreas(lifeAreas)
+
+        let activeProjects = sortProjectRows(resolvedProjectRows.filter { isArchived(projectRow: $0) == false })
+        let archivedProjects = sortProjectRows(resolvedProjectRows.filter { isArchived(projectRow: $0) })
+        let activeHabits = sortHabitRows(resolvedHabitRows.filter { isArchived(habitRow: $0) == false })
+        let archivedHabits = sortHabitRows(resolvedHabitRows.filter { isArchived(habitRow: $0) })
+
+        let activeProjectsByAreaID = groupedProjectRowsByAreaID(activeProjects)
+        let archivedProjectsByAreaID = groupedProjectRowsByAreaID(archivedProjects)
+        let activeDirectHabitsByAreaID = groupedDirectHabitRowsByAreaID(activeHabits)
+        let archivedDirectHabitsByAreaID = groupedDirectHabitRowsByAreaID(archivedHabits)
+        let activeHabitsByAreaID = groupedHabitRowsByAreaID(activeHabits)
+        let archivedHabitsByAreaID = groupedHabitRowsByAreaID(archivedHabits)
+        let activeHabitsByProjectID = groupedHabitRowsByProjectID(activeHabits)
+        let archivedHabitsByProjectID = groupedHabitRowsByProjectID(archivedHabits)
 
         let activeAreaRows = activeAreas.map { area in
             buildAreaRow(
                 area: area,
-                projectRows: projectRowsByAreaID[area.id] ?? [],
-                habitRows: habitRowsByAreaID[area.id] ?? []
+                projectRows: activeProjectsByAreaID[area.id] ?? [],
+                habitRows: activeHabitsByAreaID[area.id] ?? []
             )
         }
-        let archivedAreaRows = archivedAreas.map { area in
-            buildAreaRow(
-                area: area,
-                projectRows: projectRowsByAreaID[area.id] ?? [],
-                habitRows: habitRowsByAreaID[area.id] ?? []
-            )
-        }
+        let activeAreaRowsByID = Dictionary(uniqueKeysWithValues: activeAreaRows.map { ($0.id, $0) })
 
-        let activeProjects = sortProjectRows(projectRows.filter { row in
-            row.project.isArchived == false && row.lifeArea?.isArchived != true
-        })
-        let archivedProjects = sortProjectRows(projectRows.filter { row in
-            row.project.isArchived || row.lifeArea?.isArchived == true
-        })
-        let activeHabits = sortHabitRows(habitViewRows.filter { row in
-            row.row.isArchived == false && row.lifeArea?.isArchived != true
-        })
-        let archivedHabits = sortHabitRows(habitViewRows.filter { row in
-            row.row.isArchived || row.lifeArea?.isArchived == true
-        })
-
-        let activeProjectGroups = groupProjects(activeProjects, activeAreas: activeAreas)
-        let activeHabitGroupsByFilter = Dictionary(
-            uniqueKeysWithValues: LifeManagementHabitFilter.allCases.map { filter in
-                (
-                    filter,
-                    groupHabits(
-                        filteredHabits(activeHabits, filter: filter),
-                        activeAreas: activeAreas
-                    )
-                )
+        let archivedAreaRows = allAreas.compactMap { area -> LifeManagementAreaRow? in
+            let projectRows = archivedProjectsByAreaID[area.id] ?? []
+            let areaHabitRows = archivedHabitsByAreaID[area.id] ?? []
+            guard area.isArchived || projectRows.isEmpty == false || areaHabitRows.isEmpty == false else {
+                return nil
             }
-        )
+            return buildAreaRow(area: area, projectRows: projectRows, habitRows: areaHabitRows)
+        }
+        let archivedAreaRowsByID = Dictionary(uniqueKeysWithValues: archivedAreaRows.map { ($0.id, $0) })
 
-        let archiveSections = LifeManagementArchiveSections(
-            areas: archivedAreaRows,
-            projects: groupProjects(archivedProjects, activeAreas: sortAreas(lifeAreas)),
-            habits: groupHabits(archivedHabits, activeAreas: sortAreas(lifeAreas))
-        )
-
-        let overview = buildOverview(
-            areaRows: activeAreaRows,
-            activeProjects: activeProjects,
-            activeHabits: activeHabits,
-            archivedAreas: archiveSections.areas,
-            archivedProjects: archivedProjects,
-            archivedHabits: archivedHabits
-        )
-
-        let areaRowsByID = Dictionary(
-            uniqueKeysWithValues: (activeAreaRows + archivedAreaRows).map { ($0.id, $0) }
-        )
-        let areaDetailByID = Dictionary(uniqueKeysWithValues: areaRowsByID.values.map { row in
-            let activeProjects = sortProjectRows(
-                (projectRowsByAreaID[row.id] ?? []).filter { $0.project.isArchived == false }
+        let activeNodes = activeAreaRows.map { areaRow in
+            areaNode(
+                row: areaRow,
+                projectRows: activeProjectsByAreaID[areaRow.id] ?? [],
+                directHabitRows: activeDirectHabitsByAreaID[areaRow.id] ?? [],
+                habitsByProjectID: activeHabitsByProjectID,
+                isArchivedSection: false
             )
-            let activeHabits = sortHabitRows(
-                (habitRowsByAreaID[row.id] ?? []).filter { $0.row.isArchived == false }
+        }
+        let archivedNodes = archivedAreaRows.map { areaRow in
+            areaNode(
+                row: areaRow,
+                projectRows: archivedProjectsByAreaID[areaRow.id] ?? [],
+                directHabitRows: archivedDirectHabitsByAreaID[areaRow.id] ?? [],
+                habitsByProjectID: archivedHabitsByProjectID,
+                isArchivedSection: true
             )
+        }
+
+        let sections = [
+            LifeManagementTreeSection(kind: .active, title: LifeManagementTreeSectionKind.active.title, nodes: activeNodes),
+            LifeManagementTreeSection(kind: .archived, title: LifeManagementTreeSectionKind.archived.title, nodes: archivedNodes)
+        ].filter { $0.nodes.isEmpty == false }
+
+        let areaRowsByID = activeAreaRows.reduce(into: archivedAreaRowsByID) { partialResult, row in
+            partialResult[row.id] = row
+        }
+        let areaDetailByID = Dictionary(uniqueKeysWithValues: allAreas.compactMap { area -> (UUID, LifeManagementAreaDetailSnapshot)? in
+            let row = activeAreaRowsByID[area.id] ?? archivedAreaRowsByID[area.id]
+            guard let row else { return nil }
+            let projectRows = area.isArchived
+                ? sortProjectRows(archivedProjectsByAreaID[area.id] ?? [])
+                : sortProjectRows(activeProjectsByAreaID[area.id] ?? [])
+            let habitRows = area.isArchived
+                ? sortHabitRows(archivedHabitsByAreaID[area.id] ?? [])
+                : sortHabitRows(activeHabitsByAreaID[area.id] ?? [])
             return (
-                row.id,
+                area.id,
                 LifeManagementAreaDetailSnapshot(
                     row: row,
-                    activeProjects: activeProjects,
-                    activeHabits: activeHabits
+                    projectRows: projectRows,
+                    habitRows: habitRows
                 )
             )
         })
-        let projectDetailByID = Dictionary(uniqueKeysWithValues: projectRows.map { row in
-            (
+        let projectDetailByID = Dictionary(uniqueKeysWithValues: resolvedProjectRows.map { row in
+            let linkedHabits = isArchived(projectRow: row)
+                ? sortHabitRows(archivedHabitsByProjectID[row.id] ?? [])
+                : sortHabitRows(activeHabitsByProjectID[row.id] ?? [])
+            return (
                 row.id,
                 LifeManagementProjectDetailSnapshot(
                     row: row,
-                    activeLinkedHabits: sortHabitRows(
-                        (habitRowsByProjectID[row.id] ?? []).filter { $0.row.isArchived == false }
-                    )
+                    linkedHabits: linkedHabits
                 )
             )
         })
 
-        let allProjectCountByAreaID = Dictionary(
-            uniqueKeysWithValues: lifeAreas.map { ($0.id, (projectRowsByAreaID[$0.id] ?? []).count) }
-        )
-        let allHabitCountByAreaID = Dictionary(
-            uniqueKeysWithValues: lifeAreas.map { ($0.id, (habitRowsByAreaID[$0.id] ?? []).count) }
-        )
+        let allProjectRowsByAreaID = groupedProjectRowsByAreaID(resolvedProjectRows).mapValues(\.count)
+        let allHabitRowsByAreaID = groupedHabitRowsByAreaID(resolvedHabitRows).mapValues(\.count)
+        let allProjectCountByAreaID = Dictionary(uniqueKeysWithValues: allAreas.map { area in
+            (area.id, allProjectRowsByAreaID[area.id] ?? 0)
+        })
+        let allHabitCountByAreaID = Dictionary(uniqueKeysWithValues: allAreas.map { area in
+            (area.id, allHabitRowsByAreaID[area.id] ?? 0)
+        })
         let allLinkedHabitCountByProjectID = Dictionary(
-            uniqueKeysWithValues: projectRows.map { ($0.id, (habitRowsByProjectID[$0.id] ?? []).count) }
+            uniqueKeysWithValues: resolvedProjectRows.map { row in
+                (row.id, allHabitRowsByProjectID[row.id]?.count ?? 0)
+            }
         )
 
+        var ancestorNodeIDsBySelection: [LifeManagementSelection: Set<String>] = [:]
+        for section in sections {
+            populateAncestorMap(nodes: section.nodes, ancestors: [], result: &ancestorNodeIDsBySelection)
+        }
+
         return Context(
-            overview: overview,
-            activeAreaRows: activeAreaRows,
-            activeProjects: activeProjects,
-            archivedProjects: archivedProjects,
-            activeHabits: activeHabits,
-            archivedHabits: archivedHabits,
-            activeProjectGroups: activeProjectGroups,
-            activeHabitGroupsByFilter: activeHabitGroupsByFilter,
-            archiveSections: archiveSections,
+            sections: sections,
             areaRowsByID: areaRowsByID,
             projectRowsByID: projectRowsByID,
             habitRowsByID: habitRowsByID,
@@ -544,97 +545,105 @@ struct LifeManagementProjection {
             projectDetailByID: projectDetailByID,
             allProjectCountByAreaID: allProjectCountByAreaID,
             allHabitCountByAreaID: allHabitCountByAreaID,
-            allLinkedHabitCountByProjectID: allLinkedHabitCountByProjectID
+            allLinkedHabitCountByProjectID: allLinkedHabitCountByProjectID,
+            ancestorNodeIDsBySelection: ancestorNodeIDsBySelection
         )
     }
 
-    static func build(
-        lifeAreas: [LifeArea],
-        projectStats: [ProjectWithStats],
-        habitRows: [HabitLibraryRow],
-        selectedScope: LifeManagementScope,
-        selectedHabitFilter: LifeManagementHabitFilter,
-        searchQuery: String,
-        generalLifeAreaID: UUID?
-    ) -> Snapshot {
-        prepare(
-            lifeAreas: lifeAreas,
-            projectStats: projectStats,
-            habitRows: habitRows,
-            generalLifeAreaID: generalLifeAreaID
-        )
-        .snapshot(
-            selectedScope: selectedScope,
-            selectedHabitFilter: selectedHabitFilter,
-            searchQuery: searchQuery
+    private static func areaNode(
+        row: LifeManagementAreaRow,
+        projectRows: [LifeManagementProjectRow],
+        directHabitRows: [LifeManagementHabitRow],
+        habitsByProjectID: [UUID: [LifeManagementHabitRow]],
+        isArchivedSection: Bool
+    ) -> LifeManagementTreeNode {
+        let projectNodes = sortProjectRows(projectRows).map { projectRow in
+            projectNode(
+                row: projectRow,
+                habitRows: habitsByProjectID[projectRow.id] ?? [],
+                isArchivedSection: isArchivedSection
+            )
+        }
+        let directHabitNodes = sortHabitRows(directHabitRows).map { habitRow in
+            habitNode(row: habitRow, isArchivedSection: isArchivedSection)
+        }
+        return LifeManagementTreeNode(
+            payload: .area(row),
+            children: projectNodes + directHabitNodes,
+            isArchived: isArchivedSection || row.lifeArea.isArchived
         )
     }
 
-    private static func buildOverview(
-        areaRows: [LifeManagementAreaRow],
-        activeProjects: [LifeManagementProjectRow],
-        activeHabits: [LifeManagementHabitRow],
-        archivedAreas: [LifeManagementAreaRow],
-        archivedProjects: [LifeManagementProjectRow],
-        archivedHabits: [LifeManagementHabitRow]
-    ) -> LifeManagementOverview {
-        var attentionItems: [LifeManagementAttentionItem] = []
-
-        let emptyProjects = activeProjects.filter { $0.isInbox == false && $0.taskCount == 0 }
-        if emptyProjects.isEmpty == false {
-            attentionItems.append(
-                LifeManagementAttentionItem(
-                    kind: .emptyProject,
-                    title: "\(emptyProjects.count) empty project\(emptyProjects.count == 1 ? "" : "s")",
-                    detail: "Projects with no open tasks are easiest to clean up here.",
-                    symbolName: "tray"
-                )
-            )
-        }
-
-        let pausedHabits = activeHabits.filter(\.row.isPaused)
-        if pausedHabits.isEmpty == false {
-            attentionItems.append(
-                LifeManagementAttentionItem(
-                    kind: .pausedHabit,
-                    title: "\(pausedHabits.count) paused habit\(pausedHabits.count == 1 ? "" : "s")",
-                    detail: "Paused habits stay recoverable, but still need a structural decision.",
-                    symbolName: "pause.circle"
-                )
-            )
-        }
-
-        let archivedCount = archivedAreas.count + archivedProjects.count + archivedHabits.count
-        if archivedCount > 0 {
-            attentionItems.append(
-                LifeManagementAttentionItem(
-                    kind: .archivedItem,
-                    title: "\(archivedCount) archived item\(archivedCount == 1 ? "" : "s")",
-                    detail: "Restore what still matters. Delete what is finished for good.",
-                    symbolName: "archivebox"
-                )
-            )
-        }
-
-        let stats = [
-            LifeManagementOverviewStat(title: "Areas", value: "\(areaRows.count)", symbolName: "square.grid.2x2"),
-            LifeManagementOverviewStat(title: "Projects", value: "\(activeProjects.count)", symbolName: "folder"),
-            LifeManagementOverviewStat(title: "Habits", value: "\(activeHabits.count)", symbolName: "repeat")
-        ]
-
-        let topAreas = Array(areaRows.sorted { lhs, rhs in
-            if lhs.projectCount != rhs.projectCount { return lhs.projectCount > rhs.projectCount }
-            if lhs.habitCount != rhs.habitCount { return lhs.habitCount > rhs.habitCount }
-            return lhs.lifeArea.name.localizedCaseInsensitiveCompare(rhs.lifeArea.name) == .orderedAscending
-        }.prefix(4))
-
-        return LifeManagementOverview(
-            stats: stats,
-            attentionItems: attentionItems,
-            topAreas: topAreas,
-            attentionProjects: Array(emptyProjects.prefix(4)),
-            attentionHabits: Array(pausedHabits.prefix(4))
+    private static func projectNode(
+        row: LifeManagementProjectRow,
+        habitRows: [LifeManagementHabitRow],
+        isArchivedSection: Bool
+    ) -> LifeManagementTreeNode {
+        let childNodes = sortHabitRows(habitRows).map { habitNode(row: $0, isArchivedSection: isArchivedSection) }
+        return LifeManagementTreeNode(
+            payload: .project(row),
+            children: childNodes,
+            isArchived: isArchivedSection || isArchived(projectRow: row)
         )
+    }
+
+    private static func habitNode(
+        row: LifeManagementHabitRow,
+        isArchivedSection: Bool
+    ) -> LifeManagementTreeNode {
+        LifeManagementTreeNode(
+            payload: .habit(row),
+            children: [],
+            isArchived: isArchivedSection || isArchived(habitRow: row)
+        )
+    }
+
+    private static func filteredNode(
+        _ node: LifeManagementTreeNode,
+        query: String,
+        expandedAncestors: inout Set<String>
+    ) -> LifeManagementTreeNode? {
+        let filteredChildren = node.children.compactMap { filteredNode($0, query: query, expandedAncestors: &expandedAncestors) }
+        let matchesSelf = matchesSearch(node: node, query: query)
+        guard matchesSelf || filteredChildren.isEmpty == false else {
+            return nil
+        }
+        if filteredChildren.isEmpty == false {
+            expandedAncestors.insert(node.id)
+        }
+        return LifeManagementTreeNode(payload: node.payload, children: filteredChildren, isArchived: node.isArchived)
+    }
+
+    private static func groupedProjectRowsByAreaID(_ rows: [LifeManagementProjectRow]) -> [UUID: [LifeManagementProjectRow]] {
+        Dictionary(grouping: rows.compactMap { row -> (UUID, LifeManagementProjectRow)? in
+            guard let lifeAreaID = row.lifeArea?.id else { return nil }
+            return (lifeAreaID, row)
+        }, by: \.0)
+        .mapValues { $0.map(\.1) }
+    }
+
+    private static func groupedHabitRowsByAreaID(_ rows: [LifeManagementHabitRow]) -> [UUID: [LifeManagementHabitRow]] {
+        Dictionary(grouping: rows.compactMap { row -> (UUID, LifeManagementHabitRow)? in
+            guard let lifeAreaID = row.lifeArea?.id else { return nil }
+            return (lifeAreaID, row)
+        }, by: \.0)
+        .mapValues { $0.map(\.1) }
+    }
+
+    private static func groupedDirectHabitRowsByAreaID(_ rows: [LifeManagementHabitRow]) -> [UUID: [LifeManagementHabitRow]] {
+        Dictionary(grouping: rows.compactMap { row -> (UUID, LifeManagementHabitRow)? in
+            guard row.project == nil, let lifeAreaID = row.lifeArea?.id else { return nil }
+            return (lifeAreaID, row)
+        }, by: \.0)
+        .mapValues { $0.map(\.1) }
+    }
+
+    private static func groupedHabitRowsByProjectID(_ rows: [LifeManagementHabitRow]) -> [UUID: [LifeManagementHabitRow]] {
+        Dictionary(grouping: rows.compactMap { row -> (UUID, LifeManagementHabitRow)? in
+            guard let projectID = row.project?.id else { return nil }
+            return (projectID, row)
+        }, by: \.0)
+        .mapValues { $0.map(\.1) }
     }
 
     private static func buildAreaRow(
@@ -642,80 +651,42 @@ struct LifeManagementProjection {
         projectRows: [LifeManagementProjectRow],
         habitRows: [LifeManagementHabitRow]
     ) -> LifeManagementAreaRow {
-        return LifeManagementAreaRow(
+        LifeManagementAreaRow(
             lifeArea: area,
-            projectCount: projectRows.filter { $0.project.isArchived == false }.count,
-            habitCount: habitRows.filter { $0.row.isArchived == false }.count,
-            taskCount: projectRows.filter { $0.project.isArchived == false }.reduce(0) { $0 + $1.taskCount },
+            projectCount: projectRows.count,
+            habitCount: habitRows.count,
+            taskCount: projectRows.reduce(0) { $0 + $1.taskCount },
             isGeneral: normalizedAreaName(area.name) == LifeManagementConstants.generalNormalizedName
         )
     }
 
-    private static func groupProjects(
-        _ rows: [LifeManagementProjectRow],
-        activeAreas: [LifeArea]
-    ) -> [LifeManagementProjectGroup] {
-        let grouped = Dictionary(grouping: rows) { row in
-            row.lifeArea?.id
+    private static func populateAncestorMap(
+        nodes: [LifeManagementTreeNode],
+        ancestors: Set<String>,
+        result: inout [LifeManagementSelection: Set<String>]
+    ) {
+        for node in nodes {
+            result[node.selection] = ancestors
+            populateAncestorMap(nodes: node.children, ancestors: ancestors.union([node.id]), result: &result)
         }
-
-        var results: [LifeManagementProjectGroup] = activeAreas.compactMap { area in
-            guard let rows = grouped[area.id], rows.isEmpty == false else { return nil }
-            return LifeManagementProjectGroup(lifeArea: area, title: area.name, rows: sortProjectRows(rows))
-        }
-
-        if let unassigned = grouped[nil], unassigned.isEmpty == false {
-            results.append(
-                LifeManagementProjectGroup(
-                    lifeArea: nil,
-                    title: "No Area",
-                    rows: sortProjectRows(unassigned)
-                )
-            )
-        }
-
-        return results
     }
 
-    private static func groupHabits(
-        _ rows: [LifeManagementHabitRow],
-        activeAreas: [LifeArea]
-    ) -> [LifeManagementHabitGroup] {
-        let grouped = Dictionary(grouping: rows) { row in
-            row.row.lifeAreaID
-        }
-
-        var results: [LifeManagementHabitGroup] = activeAreas.compactMap { area in
-            guard let rows = grouped[area.id], rows.isEmpty == false else { return nil }
-            return LifeManagementHabitGroup(lifeArea: area, title: area.name, rows: sortHabitRows(rows))
-        }
-
-        if let unassigned = grouped[nil], unassigned.isEmpty == false {
-            results.append(
-                LifeManagementHabitGroup(
-                    lifeArea: nil,
-                    title: "No Area",
-                    rows: sortHabitRows(unassigned)
-                )
-            )
-        }
-
-        return results
+    private static func isArchived(projectRow: LifeManagementProjectRow) -> Bool {
+        projectRow.project.isArchived || projectRow.lifeArea?.isArchived == true
     }
 
-    private static func filteredHabits(
-        _ rows: [LifeManagementHabitRow],
-        filter: LifeManagementHabitFilter
-    ) -> [LifeManagementHabitRow] {
-        switch filter {
-        case .all:
-            return rows
-        case .build:
-            return rows.filter { $0.row.kind == .positive }
-        case .quit:
-            return rows.filter { $0.row.kind == .negative }
-        case .paused:
-            return rows.filter(\.row.isPaused)
+    private static func isArchived(habitRow: LifeManagementHabitRow) -> Bool {
+        habitRow.row.isArchived || habitRow.lifeArea?.isArchived == true || habitRow.project?.isArchived == true
+    }
+
+    private static func matchesSearch(node: LifeManagementTreeNode, query: String) -> Bool {
+        switch node.payload {
+        case .area(let row):
+            return matchesSearch(areaRow: row, query: query)
+        case .project(let row):
+            return matchesSearch(projectRow: row, query: query)
+        case .habit(let row):
+            return matchesSearch(habitRow: row, query: query)
         }
     }
 
@@ -799,26 +770,23 @@ struct LifeManagementProjection {
 
 @MainActor
 public final class LifeManagementViewModel: ObservableObject {
-    @Published public var selectedScope: LifeManagementScope = .overview {
-        didSet { rebuildDerivedState() }
-    }
     @Published public var searchQuery = "" {
         didSet { rebuildDerivedState() }
     }
-    @Published public var selectedHabitFilter: LifeManagementHabitFilter = .all {
-        didSet { rebuildDerivedState() }
+    @Published public var selectedNode: LifeManagementSelection? {
+        didSet {
+            guard selectedNode != oldValue else { return }
+            expandAncestors(for: selectedNode)
+        }
     }
-    @Published public private(set) var overview: LifeManagementOverview = .empty
+    @Published public var expandedNodeIDs: Set<String> = []
+    @Published public var expandedSectionKinds: Set<LifeManagementTreeSectionKind> = [.active]
+    @Published public private(set) var treeSections: [LifeManagementTreeSection] = []
+    @Published public private(set) var searchExpandedNodeIDs: Set<String> = []
     @Published public private(set) var areaRows: [LifeManagementAreaRow] = []
-    @Published public private(set) var projectGroups: [LifeManagementProjectGroup] = []
-    @Published public private(set) var habitGroups: [LifeManagementHabitGroup] = []
-    @Published public private(set) var archiveSections: LifeManagementArchiveSections = .empty
-    @Published public private(set) var searchResults: LifeManagementSearchResults = .empty
     @Published public private(set) var isLoading = false
     @Published public private(set) var isMutating = false
     @Published public private(set) var errorMessage: String?
-    @Published public private(set) var draggingProjectID: UUID?
-    @Published public private(set) var activeDropLifeAreaID: UUID?
     @Published var snackbar: SnackbarData?
     @Published public var lifeAreaDraft: LifeManagementLifeAreaDraft?
     @Published public var projectDraft: LifeManagementProjectDraft?
@@ -866,7 +834,6 @@ public final class LifeManagementViewModel: ObservableObject {
     private var hasPerformedBackfill = false
     private var pendingUndoAction: LifeManagementUndoAction?
 
-    /// Initializes a new instance.
     public init(
         useCaseCoordinator: UseCaseCoordinator,
         projectRepository: ProjectRepositoryProtocol? = nil
@@ -879,7 +846,6 @@ public final class LifeManagementViewModel: ObservableObject {
         self.lifeAreaRepository = useCaseCoordinator.lifeAreaRepository
     }
 
-    /// Executes loadIfNeeded.
     public func loadIfNeeded() {
         guard hasLoadedOnce == false else { return }
         hasLoadedOnce = true
@@ -888,19 +854,16 @@ public final class LifeManagementViewModel: ObservableObject {
         }
     }
 
-    /// Executes reload.
     public func reload() {
         Task {
             await load(runBackfill: hasPerformedBackfill == false, showsLoading: true)
         }
     }
 
-    /// Executes clearError.
     public func clearError() {
         errorMessage = nil
     }
 
-    /// Executes filteredIconOptions.
     public func filteredIconOptions(query: String) -> [LifeAreaIconOption] {
         let normalized = query.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
         guard normalized.isEmpty == false else { return lifeAreaIconCatalog }
@@ -910,33 +873,61 @@ public final class LifeManagementViewModel: ObservableObject {
         }
     }
 
-    /// Executes beginCreateLifeArea.
+    public func selectNode(_ selection: LifeManagementSelection?) {
+        selectedNode = selection
+    }
+
+    public func toggleNodeExpansion(_ selection: LifeManagementSelection) {
+        let nodeID = selection.id
+        if expandedNodeIDs.contains(nodeID) {
+            expandedNodeIDs.remove(nodeID)
+        } else {
+            expandedNodeIDs.insert(nodeID)
+        }
+    }
+
+    public func isNodeExpanded(_ selection: LifeManagementSelection) -> Bool {
+        let nodeID = selection.id
+        return expandedNodeIDs.contains(nodeID) || searchExpandedNodeIDs.contains(nodeID)
+    }
+
+    public func toggleSectionExpansion(_ kind: LifeManagementTreeSectionKind) {
+        if expandedSectionKinds.contains(kind) {
+            expandedSectionKinds.remove(kind)
+        } else {
+            expandedSectionKinds.insert(kind)
+        }
+    }
+
+    public func isSectionExpanded(_ kind: LifeManagementTreeSectionKind) -> Bool {
+        expandedSectionKinds.contains(kind)
+    }
+
     public func beginCreateLifeArea(prefillName: String = "") {
+        let draftID = UUID()
         lifeAreaDraft = LifeManagementLifeAreaDraft(
+            id: draftID,
             existingID: nil,
             name: prefillName,
-            colorHex: LifeAreaConstants.generalSeedColor,
+            colorHex: LifeAreaColorPalette.defaultHex(for: draftID),
             iconSymbolName: "square.grid.2x2"
         )
     }
 
-    /// Executes beginEditLifeArea.
     public func beginEditLifeArea(_ lifeAreaID: UUID) {
         guard let area = sourceLifeAreas.first(where: { $0.id == lifeAreaID }) else { return }
         lifeAreaDraft = LifeManagementLifeAreaDraft(
             existingID: area.id,
             name: area.name,
-            colorHex: area.color ?? "",
+            colorHex: LifeAreaColorPalette.normalizeOrMap(hex: area.color, for: area.id),
             iconSymbolName: area.icon ?? "square.grid.2x2"
         )
     }
 
-    /// Executes dismissLifeAreaDraft.
     public func dismissLifeAreaDraft() {
         lifeAreaDraft = nil
     }
 
-    /// Executes saveLifeAreaDraft.
     public func saveLifeAreaDraft() {
         guard let draft = lifeAreaDraft else { return }
         performMutation {
@@ -974,19 +965,17 @@ public final class LifeManagementViewModel: ObservableObject {
         }
     }
 
-    /// Executes beginCreateProject.
     public func beginCreateProject(prefillLifeAreaID: UUID? = nil) {
         projectDraft = LifeManagementProjectDraft(
             existingID: nil,
             name: "",
             description: "",
-            lifeAreaID: prefillLifeAreaID ?? generalLifeAreaID ?? areaRows.first?.id,
+            lifeAreaID: prefillLifeAreaID ?? selectedAreaID ?? generalLifeAreaID ?? areaRows.first?.id,
             color: .blue,
             icon: .folder
         )
     }
 
-    /// Executes beginEditProject.
     public func beginEditProject(_ projectID: UUID) {
         guard let row = projectRow(for: projectID) else { return }
         projectDraft = LifeManagementProjectDraft(
@@ -999,12 +988,10 @@ public final class LifeManagementViewModel: ObservableObject {
         )
     }
 
-    /// Executes dismissProjectDraft.
     public func dismissProjectDraft() {
         projectDraft = nil
     }
 
-    /// Executes saveProjectDraft.
     public func saveProjectDraft() {
         guard let draft = projectDraft else { return }
         performMutation {
@@ -1114,7 +1101,6 @@ public final class LifeManagementViewModel: ObservableObject {
         }
     }
 
-    /// Executes beginMoveProject.
     public func beginMoveProject(_ projectID: UUID) {
         guard let row = projectRow(for: projectID), row.isMoveLocked == false else { return }
         let fallbackTarget = availableAreaTargets(excluding: row.lifeArea?.id).first?.id
@@ -1126,12 +1112,10 @@ public final class LifeManagementViewModel: ObservableObject {
         )
     }
 
-    /// Executes dismissMoveProjectDraft.
     public func dismissMoveProjectDraft() {
         moveProjectDraft = nil
     }
 
-    /// Executes moveProjectFromDraft.
     public func moveProjectFromDraft() {
         guard let draft = moveProjectDraft, let targetLifeAreaID = draft.targetLifeAreaID else { return }
         performMutation {
@@ -1146,7 +1130,6 @@ public final class LifeManagementViewModel: ObservableObject {
         }
     }
 
-    /// Executes beginDeleteArea.
     public func beginDeleteArea(_ lifeAreaID: UUID) {
         guard let area = sourceLifeAreas.first(where: { $0.id == lifeAreaID }), isGeneralArea(area) == false else { return }
         let defaultTarget = availableAreaTargets(excluding: lifeAreaID).first?.id
@@ -1160,12 +1143,10 @@ public final class LifeManagementViewModel: ObservableObject {
         )
     }
 
-    /// Executes dismissDeleteAreaDraft.
     public func dismissDeleteAreaDraft() {
         deleteAreaDraft = nil
     }
 
-    /// Executes confirmDeleteArea.
     public func confirmDeleteArea() {
         guard let draft = deleteAreaDraft else { return }
         performMutation {
@@ -1191,7 +1172,6 @@ public final class LifeManagementViewModel: ObservableObject {
         }
     }
 
-    /// Executes beginDeleteProject.
     public func beginDeleteProject(_ projectID: UUID) {
         guard let row = projectRow(for: projectID), row.project.isDefault == false else { return }
         let fallbackProjectID = availableProjectDeleteTargets(excluding: projectID).first?.id
@@ -1205,12 +1185,10 @@ public final class LifeManagementViewModel: ObservableObject {
         )
     }
 
-    /// Executes dismissDeleteProjectDraft.
     public func dismissDeleteProjectDraft() {
         deleteProjectDraft = nil
     }
 
-    /// Executes confirmDeleteProject.
     public func confirmDeleteProject() {
         guard let draft = deleteProjectDraft else { return }
         performMutation {
@@ -1236,7 +1214,6 @@ public final class LifeManagementViewModel: ObservableObject {
         }
     }
 
-    /// Executes beginDeleteHabit.
     public func beginDeleteHabit(_ habitID: UUID) {
         guard let row = habitRow(for: habitID) else { return }
         deleteHabitDraft = LifeManagementDeleteHabitDraft(
@@ -1246,12 +1223,10 @@ public final class LifeManagementViewModel: ObservableObject {
         )
     }
 
-    /// Executes dismissDeleteHabitDraft.
     public func dismissDeleteHabitDraft() {
         deleteHabitDraft = nil
     }
 
-    /// Executes confirmDeleteHabit.
     public func confirmDeleteHabit() {
         guard let draft = deleteHabitDraft else { return }
         performMutation {
@@ -1262,7 +1237,6 @@ public final class LifeManagementViewModel: ObservableObject {
         }
     }
 
-    /// Executes archiveLifeArea.
     public func archiveLifeArea(_ lifeAreaID: UUID) {
         guard let row = areaRow(for: lifeAreaID), row.isGeneral == false else { return }
         performMutation {
@@ -1273,7 +1247,6 @@ public final class LifeManagementViewModel: ObservableObject {
         }
     }
 
-    /// Executes restoreLifeArea.
     public func restoreLifeArea(_ lifeAreaID: UUID) {
         performMutation {
             _ = try await self.awaitResult { completion in
@@ -1282,7 +1255,6 @@ public final class LifeManagementViewModel: ObservableObject {
         }
     }
 
-    /// Executes archiveProject.
     public func archiveProject(_ projectID: UUID) {
         guard let row = projectRow(for: projectID), row.isInbox == false else { return }
         performMutation {
@@ -1293,7 +1265,6 @@ public final class LifeManagementViewModel: ObservableObject {
         }
     }
 
-    /// Executes restoreProject.
     public func restoreProject(_ projectID: UUID) {
         performMutation {
             _ = try await self.awaitProjectResult { completion in
@@ -1302,7 +1273,6 @@ public final class LifeManagementViewModel: ObservableObject {
         }
     }
 
-    /// Executes archiveHabit.
     public func archiveHabit(_ habitID: UUID) {
         guard let row = habitRow(for: habitID) else { return }
         performMutation {
@@ -1313,7 +1283,6 @@ public final class LifeManagementViewModel: ObservableObject {
         }
     }
 
-    /// Executes restoreHabit.
     public func restoreHabit(_ habitID: UUID) {
         performMutation {
             _ = try await self.awaitResult { completion in
@@ -1322,7 +1291,6 @@ public final class LifeManagementViewModel: ObservableObject {
         }
     }
 
-    /// Executes toggleHabitPause.
     public func toggleHabitPause(_ habitID: UUID) {
         guard let row = habitRow(for: habitID) else { return }
         performMutation {
@@ -1336,7 +1304,6 @@ public final class LifeManagementViewModel: ObservableObject {
         }
     }
 
-    /// Executes undoArchive.
     public func undoArchive() {
         guard let pendingUndoAction else { return }
         self.pendingUndoAction = nil
@@ -1351,17 +1318,14 @@ public final class LifeManagementViewModel: ObservableObject {
         }
     }
 
-    /// Executes areaRow.
     public func areaRow(for lifeAreaID: UUID) -> LifeManagementAreaRow? {
         projectionContext.areaRowsByID[lifeAreaID]
     }
 
-    /// Executes projectRow.
     public func projectRow(for projectID: UUID) -> LifeManagementProjectRow? {
         projectionContext.projectRowsByID[projectID]
     }
 
-    /// Executes habitRow.
     public func habitRow(for habitID: UUID) -> LifeManagementHabitRow? {
         projectionContext.habitRowsByID[habitID]
     }
@@ -1374,17 +1338,14 @@ public final class LifeManagementViewModel: ObservableObject {
         projectionContext.projectDetailByID[projectID]
     }
 
-    /// Executes availableAreaTargets.
     public func availableAreaTargets(excluding lifeAreaID: UUID?) -> [LifeManagementAreaRow] {
         areaRows.filter { row in
             row.id != lifeAreaID && row.lifeArea.isArchived == false
         }
     }
 
-    /// Executes availableProjectDeleteTargets.
     public func availableProjectDeleteTargets(excluding projectID: UUID?) -> [LifeManagementProjectRow] {
-        projectGroups
-            .flatMap(\.rows)
+        projectionContext.projectRowsByID.values
             .filter { row in
                 row.id != projectID && row.project.isArchived == false
             }
@@ -1394,62 +1355,55 @@ public final class LifeManagementViewModel: ObservableObject {
             }
     }
 
-    /// Executes beginProjectDrag.
-    public func beginProjectDrag(_ projectID: UUID) -> NSItemProvider {
-        draggingProjectID = projectID
-        return NSItemProvider(object: projectID.uuidString as NSString)
+    private var selectedAreaID: UUID? {
+        switch selectedNode {
+        case .area(let id):
+            return id
+        case .project(let id):
+            return projectRow(for: id)?.lifeArea?.id
+        case .habit(let id):
+            return habitRow(for: id)?.lifeArea?.id
+        case nil:
+            return nil
+        }
     }
 
-    /// Executes setDropTarget.
-    public func setDropTarget(_ lifeAreaID: UUID?) {
-        activeDropLifeAreaID = lifeAreaID
-    }
-
-    /// Executes handleProjectDrop.
-    public func handleProjectDrop(providers: [NSItemProvider], targetLifeAreaID: UUID) -> Bool {
-        guard let provider = providers.first(where: { $0.canLoadObject(ofClass: NSString.self) }) else {
-            resetDragState()
-            return false
-        }
-
-        provider.loadObject(ofClass: NSString.self) { [weak self] object, _ in
-            guard let self, let value = object as? NSString, let projectID = UUID(uuidString: value as String) else {
-                Task { @MainActor in
-                    self?.resetDragState()
-                }
-                return
-            }
-            Task { @MainActor in
-                let started = self.performMutation {
-                    defer { self.resetDragState() }
-                    _ = try await self.awaitProjectResult { completion in
-                        self.manageProjectsUseCase.moveProjectToLifeArea(
-                            projectId: projectID,
-                            lifeAreaID: targetLifeAreaID,
-                            completion: completion
-                        )
-                    }
-                }
-                if started == false {
-                    self.resetDragState()
-                }
-            }
-        }
-        return true
+    private func expandAncestors(for selection: LifeManagementSelection?) {
+        guard let selection, let ancestors = projectionContext.ancestorNodeIDsBySelection[selection] else { return }
+        expandedNodeIDs.formUnion(ancestors)
     }
 
     private func rebuildDerivedState() {
-        let snapshot = projectionContext.snapshot(
-            selectedScope: selectedScope,
-            selectedHabitFilter: selectedHabitFilter,
-            searchQuery: searchQuery
-        )
-        overview = snapshot.overview
-        areaRows = snapshot.areaRows
-        projectGroups = snapshot.projectGroups
-        habitGroups = snapshot.habitGroups
-        archiveSections = snapshot.archiveSections
-        searchResults = snapshot.searchResults
+        let snapshot = projectionContext.snapshot(searchQuery: searchQuery)
+        treeSections = snapshot.treeSections
+        searchExpandedNodeIDs = snapshot.searchExpandedAncestorNodeIDs
+        if searchQuery.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false {
+            expandedSectionKinds.formUnion(snapshot.searchExpandedSectionKinds)
+        }
+        areaRows = treeSections
+            .first(where: { $0.kind == .active })?
+            .nodes
+            .compactMap { node in
+                if case .area(let row) = node.payload {
+                    return row
+                }
+                return nil
+            } ?? []
+
+        if let selectedNode, rowExists(for: selectedNode) == false {
+            self.selectedNode = nil
+        }
+    }
+
+    private func rowExists(for selection: LifeManagementSelection) -> Bool {
+        switch selection {
+        case .area(let id):
+            return projectionContext.areaRowsByID[id] != nil
+        case .project(let id):
+            return projectionContext.projectRowsByID[id] != nil
+        case .habit(let id):
+            return projectionContext.habitRowsByID[id] != nil
+        }
     }
 
     private func presentArchiveUndo(message: String, action: LifeManagementUndoAction) {
@@ -1525,6 +1479,7 @@ public final class LifeManagementViewModel: ObservableObject {
                 generalLifeAreaID: generalArea.id
             )
             rebuildDerivedState()
+            expandAncestors(for: selectedNode)
         } catch {
             errorMessage = error.localizedDescription
         }
@@ -1543,7 +1498,7 @@ public final class LifeManagementViewModel: ObservableObject {
             return try await awaitResult { completion in
                 self.manageLifeAreasUseCase.create(
                     name: LifeManagementConstants.generalDisplayName,
-                    color: LifeAreaConstants.generalSeedColor,
+                    color: nil,
                     icon: "square.grid.2x2",
                     completion: completion
                 )
@@ -1630,11 +1585,6 @@ public final class LifeManagementViewModel: ObservableObject {
 
     private func isGeneralArea(_ area: LifeArea) -> Bool {
         normalizedLifeAreaName(area.name) == LifeManagementConstants.generalNormalizedName
-    }
-
-    private func resetDragState() {
-        draggingProjectID = nil
-        activeDropLifeAreaID = nil
     }
 
     private func awaitResult<T>(

@@ -92,6 +92,12 @@ public struct AddTaskPrefillTemplate: Equatable {
 /// ViewModel for the Add Task screen
 /// Manages task creation state and validation
 public final class AddTaskViewModel: ObservableObject {
+    public static let defaultEstimatedDuration: TimeInterval = 15 * 60
+
+    private struct TaskIconSearchCacheKey: Equatable {
+        let query: String
+        let preferredSymbols: [String]
+    }
     
     // MARK: - Published Properties (Observable State)
     
@@ -108,6 +114,11 @@ public final class AddTaskViewModel: ObservableObject {
     @Published var aiSuggestion: TaskFieldSuggestion?
     @Published var isGeneratingSuggestion: Bool = false
     @Published public private(set) var aiSuggestionIsRefined: Bool = false
+    @Published var taskIconSearchQuery: String = ""
+    @Published private(set) var selectedTaskIconSymbolName: String = "checklist"
+    @Published private(set) var autoSuggestedTaskIconSymbolName: String?
+    @Published private(set) var taskIconSelectionSource: TaskIconSelectionSource = .auto
+    @Published private(set) var suggestedTaskIcons: [TaskIconOption] = []
     
     // Form state — Primary Capture
     @Published public var taskName: String = ""
@@ -115,7 +126,8 @@ public final class AddTaskViewModel: ObservableObject {
     @Published public var selectedPriority: TaskPriority = .low
     @Published public var selectedType: TaskType = .morning
     @Published public var selectedProject: String = "Inbox"
-    @Published public var dueDate: Date? = Date()
+    @Published public var dueDate: Date?
+    @Published public var scheduledStartAt: Date?
     @Published public var hasReminder: Bool = false
     @Published public var reminderTime: Date = Date()
 
@@ -131,7 +143,7 @@ public final class AddTaskViewModel: ObservableObject {
     @Published public var selectedEnergy: TaskEnergy = .medium
     @Published public var selectedCategory: TaskCategory = .general
     @Published public var selectedContext: TaskContext = .anywhere
-    @Published public var estimatedDuration: TimeInterval? = nil
+    @Published public var estimatedDuration: TimeInterval?
     @Published public var repeatPattern: TaskRepeatPattern? = nil
     @Published public var selectedPlanningBucket: TaskPlanningBucket = .thisWeek
     @Published public var selectedWeeklyOutcomeID: UUID? {
@@ -151,6 +163,13 @@ public final class AddTaskViewModel: ObservableObject {
     @Published public private(set) var availableParentTasks: [TaskDefinition] = []
     @Published public private(set) var availableDependencyTasks: [TaskDefinition] = []
 
+    public var scheduledEndAt: Date? {
+        guard let scheduledStartAt,
+              let estimatedDuration,
+              estimatedDuration > 0 else { return nil }
+        return scheduledStartAt.addingTimeInterval(estimatedDuration)
+    }
+
     /// True when the form has any user-entered content (used for discard confirmation)
     public var hasUnsavedChanges: Bool {
         !taskName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
@@ -158,12 +177,13 @@ public final class AddTaskViewModel: ObservableObject {
         || selectedPriority != .low
         || selectedType != .morning
         || selectedProject != "Inbox"
+        || areDatesDifferent(scheduledStartAt, pristineScheduledStartAt)
         || hasReminder
         || selectedLifeAreaID != nil
         || selectedTagIDs.isEmpty == false
         || selectedParentTaskID != nil
         || selectedDependencyTaskIDs.isEmpty == false
-        || estimatedDuration != nil
+        || areDurationsDifferent(estimatedDuration, pristineEstimatedDuration)
         || repeatPattern != nil
         || selectedPlanningBucket != .thisWeek
         || selectedWeeklyOutcomeID != nil
@@ -171,10 +191,12 @@ public final class AddTaskViewModel: ObservableObject {
 
     public var scheduleSummary: String {
         var parts: [String] = []
-        if let dueDate {
+        if let scheduledStartAt {
+            parts.append(Self.scheduleDateTimeSummary(start: scheduledStartAt, end: scheduledEndAt))
+        } else if let dueDate {
             parts.append(DateUtils.formatDate(dueDate))
         } else {
-            parts.append("No due date")
+            parts.append("No schedule")
         }
         if hasReminder {
             parts.append(formatTime(reminderTime))
@@ -224,6 +246,43 @@ public final class AddTaskViewModel: ObservableObject {
         return parts.joined(separator: ", ")
     }
 
+    var displayedTaskIconSymbolName: String {
+        selectedTaskIconSymbolName
+    }
+
+    var displayedTaskIconLabel: String {
+        taskIconResolver.option(for: displayedTaskIconSymbolName)?.displayName
+            ?? DefaultTaskIconResolver.humanizedDisplayName(for: displayedTaskIconSymbolName)
+    }
+
+    var preferredTaskIconSearchSymbols: [String] {
+        [
+            selectedTaskIconSymbolName,
+            autoSuggestedTaskIconSymbolName,
+            selectedProjectObject?.icon.systemImageName,
+            categoryFallbackTaskIconSymbolName
+        ]
+        .compactMap { $0 }
+    }
+
+    var availableTaskIconOptions: [TaskIconOption] {
+        let cacheKey = TaskIconSearchCacheKey(
+            query: taskIconSearchQuery.trimmingCharacters(in: .whitespacesAndNewlines).lowercased(),
+            preferredSymbols: preferredTaskIconSearchSymbols
+        )
+        if let taskIconSearchCache, taskIconSearchCache.key == cacheKey {
+            return taskIconSearchCache.options
+        }
+
+        let options = taskIconResolver.search(
+            query: taskIconSearchQuery,
+            preferredSymbols: preferredTaskIconSearchSymbols,
+            limit: 60
+        )
+        taskIconSearchCache = (cacheKey, options)
+        return options
+    }
+
     public var relationshipsSummary: String {
         var parts: [String] = []
         if let selectedParentTaskID,
@@ -238,6 +297,35 @@ public final class AddTaskViewModel: ObservableObject {
 
     public var inboxProject: Project? {
         projects.first(where: { $0.id == ProjectConstants.inboxProjectID })
+    }
+
+    var selectedProjectObject: Project? {
+        projects.first(where: { $0.name == selectedProject })
+    }
+
+    var categoryFallbackTaskIconSymbolName: String? {
+        switch selectedCategory {
+        case .work:
+            return "briefcase.fill"
+        case .health:
+            return "heart.fill"
+        case .personal:
+            return "person.fill"
+        case .learning:
+            return "book.fill"
+        case .creative:
+            return "paintpalette.fill"
+        case .social:
+            return "person.2.fill"
+        case .maintenance:
+            return "wrench.and.screwdriver.fill"
+        case .shopping:
+            return "cart.fill"
+        case .finance:
+            return "dollarsign.circle.fill"
+        case .general:
+            return nil
+        }
     }
 
     public var filteredProjectsForSelectedLifeArea: [Project] {
@@ -260,13 +348,22 @@ public final class AddTaskViewModel: ObservableObject {
     private let manageTagsUseCase: ManageTagsUseCase?
     private let gamificationEngine: GamificationEngine?
     private let aiSuggestionService: AISuggestionService?
+    private let taskIconResolver: TaskIconResolver
     private let isAISuggestionRefinementReady: @MainActor () -> Bool
+    private let nowProvider: () -> Date
+    private let taskIconResolutionQueue = DispatchQueue(label: "tasker.add-task-icon-resolution", qos: .userInitiated)
     private var cancellables = Set<AnyCancellable>()
     private var suggestionTask: Task<Void, Never>?
     private var suggestionRequestToken = UUID()
     private var pendingPrefillTemplate: AddTaskPrefillTemplate?
     private let suggestionDebounceMilliseconds = 650
+    private let taskIconDebounceMilliseconds = 140
     private var loadedTaskMetadataProjectID: UUID?
+    private var pristineScheduledStartAt: Date?
+    private var pristineEstimatedDuration: TimeInterval?
+    private var taskIconSearchCache: (key: TaskIconSearchCacheKey, options: [TaskIconOption])?
+    private var lastTaskIconLogSignature: String?
+    private var taskIconResolutionToken: Int = 0
     
     // MARK: - Initialization
     
@@ -282,6 +379,8 @@ public final class AddTaskViewModel: ObservableObject {
         manageTagsUseCase: ManageTagsUseCase? = nil,
         gamificationEngine: GamificationEngine? = nil,
         aiSuggestionService: AISuggestionService? = nil,
+        taskIconResolver: TaskIconResolver = DefaultTaskIconResolver.shared,
+        nowProvider: @escaping () -> Date = Date.init,
         isAISuggestionRefinementReady: (@MainActor () -> Bool)? = nil
     ) {
         self.taskReadModelRepository = taskReadModelRepository
@@ -294,18 +393,28 @@ public final class AddTaskViewModel: ObservableObject {
         self.manageTagsUseCase = manageTagsUseCase
         self.gamificationEngine = gamificationEngine
         self.aiSuggestionService = aiSuggestionService
+        self.taskIconResolver = taskIconResolver
+        self.nowProvider = nowProvider
         self.isAISuggestionRefinementReady = isAISuggestionRefinementReady ?? {
             let evaluator = LLMRuntimeCoordinator.shared.evaluator
             return evaluator.loadedModelName != nil && evaluator.runtimePhase != .preparing
         }
 
+        applyDefaultScheduleAsPristine()
+        reminderTime = nowProvider()
+
         setupValidation()
         setupAISuggestionPipeline()
+        setupTaskIconPipeline()
         setupGamificationXPObservation()
+        if V2FeatureFlags.autoTaskIconsEnabled {
+            taskIconResolver.warmIfNeeded()
+        }
         loadProjects()
         loadLifeAreas()
         loadTags()
         loadWeeklyPlanningOptions()
+        refreshTaskIcon(using: taskName, logEvents: false)
     }
 
     deinit {
@@ -313,6 +422,53 @@ public final class AddTaskViewModel: ObservableObject {
     }
     
     // MARK: - Public Methods
+
+    public func setScheduledDate(_ date: Date, calendar: Calendar = .current) {
+        let currentStart = scheduledStartAt ?? Self.defaultScheduledStart(now: nowProvider(), calendar: calendar)
+        let timeComponents = calendar.dateComponents([.hour, .minute], from: currentStart)
+        let day = calendar.startOfDay(for: date)
+        let updated = calendar.date(
+            bySettingHour: timeComponents.hour ?? 0,
+            minute: timeComponents.minute ?? 0,
+            second: 0,
+            of: day
+        ) ?? currentStart
+        scheduledStartAt = Self.clearingSubminuteComponents(updated, calendar: calendar)
+        dueDate = scheduledStartAt
+    }
+
+    public func setScheduledStartTime(_ time: Date, calendar: Calendar = .current) {
+        let currentStart = scheduledStartAt ?? Self.defaultScheduledStart(now: nowProvider(), calendar: calendar)
+        let timeComponents = calendar.dateComponents([.hour, .minute], from: time)
+        let updated = calendar.date(
+            bySettingHour: timeComponents.hour ?? 0,
+            minute: timeComponents.minute ?? 0,
+            second: 0,
+            of: currentStart
+        ) ?? currentStart
+        scheduledStartAt = Self.clearingSubminuteComponents(updated, calendar: calendar)
+        dueDate = scheduledStartAt
+    }
+
+    public func setEstimatedDuration(_ duration: TimeInterval?) {
+        guard let duration else {
+            estimatedDuration = nil
+            return
+        }
+        estimatedDuration = max(60, duration)
+    }
+
+    public func clearSchedule() {
+        scheduledStartAt = nil
+        dueDate = nil
+    }
+
+    public func restoreDefaultSchedule() {
+        let start = Self.defaultScheduledStart(now: nowProvider())
+        scheduledStartAt = start
+        dueDate = start
+        estimatedDuration = Self.defaultEstimatedDuration
+    }
     
     /// Create a new task
     public func createTask() {
@@ -330,15 +486,21 @@ public final class AddTaskViewModel: ObservableObject {
 
         let resolvedTagIDs = selectedTagIDs.isEmpty ? parseImplicitTagIDs(from: taskName) : selectedTagIDs
         let requestID = UUID()
+        let resolvedScheduledStartAt = scheduledStartAt
+        let resolvedScheduledEndAt = scheduledEndAt
         let definitionRequest = CreateTaskDefinitionRequest(
             id: requestID,
             title: taskName,
             details: taskDetails.isEmpty ? nil : taskDetails,
             projectID: projectID,
             projectName: selectedProject,
+            iconSymbolName: V2FeatureFlags.autoTaskIconsEnabled ? displayedTaskIconSymbolName : nil,
             lifeAreaID: selectedLifeAreaID,
             sectionID: selectedSectionID,
-            dueDate: dueDate,
+            dueDate: resolvedScheduledStartAt ?? dueDate,
+            scheduledStartAt: resolvedScheduledStartAt,
+            scheduledEndAt: resolvedScheduledEndAt,
+            isAllDay: false,
             parentTaskID: selectedParentTaskID,
             tagIDs: Array(resolvedTagIDs),
             dependencies: selectedDependencyTaskIDs.map { dependsOnTaskID in
@@ -421,6 +583,7 @@ public final class AddTaskViewModel: ObservableObject {
                     } else {
                         self?.clearDeferredTaskMetadataOptions()
                     }
+                    self?.refreshTaskIcon(using: self?.taskName ?? "", logEvents: false)
                     self?.applyPendingPrefillIfPossible()
                     
                 case .failure(let error):
@@ -545,13 +708,12 @@ public final class AddTaskViewModel: ObservableObject {
         selectedEnergy = .medium
         selectedCategory = .general
         selectedContext = .anywhere
-        estimatedDuration = nil
         repeatPattern = nil
         selectedPlanningBucket = .thisWeek
         selectedWeeklyOutcomeID = nil
-        dueDate = Date()
+        applyDefaultScheduleAsPristine()
         hasReminder = false
-        reminderTime = Date()
+        reminderTime = nowProvider()
         expandedSections = []
         isCoreDetailsExpanded = false
         validationErrors = []
@@ -562,6 +724,13 @@ public final class AddTaskViewModel: ObservableObject {
         aiSuggestion = nil
         isGeneratingSuggestion = false
         aiSuggestionIsRefined = false
+        taskIconSearchQuery = ""
+        autoSuggestedTaskIconSymbolName = nil
+        taskIconSelectionSource = .auto
+        suggestedTaskIcons = []
+        taskIconSearchCache = nil
+        lastTaskIconLogSignature = nil
+        refreshTaskIcon(using: taskName, logEvents: false)
     }
 
     private func loadWeeklyPlanningOptions() {
@@ -634,6 +803,7 @@ public final class AddTaskViewModel: ObservableObject {
     @discardableResult
     public func validateInput() -> Bool {
         validationErrors = []
+        let now = nowProvider()
         
         // Validate task name
         if taskName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
@@ -642,13 +812,15 @@ public final class AddTaskViewModel: ObservableObject {
             validationErrors.append(.taskNameTooLong)
         }
         
-        // Validate due date (nil is valid — "Someday")
-        if let dueDate, dueDate < Calendar.current.startOfDay(for: Date()) {
+        // Validate due date/schedule (nil is valid — "Someday")
+        if let scheduledStartAt, scheduledStartAt < now {
+            validationErrors.append(.pastDueDate)
+        } else if let dueDate, dueDate < Calendar.current.startOfDay(for: now) {
             validationErrors.append(.pastDueDate)
         }
         
         // Validate reminder time
-        if hasReminder && reminderTime < Date() {
+        if hasReminder && reminderTime < now {
             validationErrors.append(.pastReminderTime)
         }
         
@@ -690,6 +862,7 @@ public final class AddTaskViewModel: ObservableObject {
                         self.loadRelationshipTaskOptionsIfNeeded()
                     }
                 }
+                self.refreshTaskIcon(using: self.taskName, logEvents: false)
             }
             .store(in: &cancellables)
 
@@ -697,6 +870,7 @@ public final class AddTaskViewModel: ObservableObject {
             .removeDuplicates { $0 == $1 }
             .sink { [weak self] _ in
                 self?.normalizeProjectSelectionForSelectedLifeArea()
+                self?.refreshTaskIcon(using: self?.taskName ?? "", logEvents: false)
             }
             .store(in: &cancellables)
 
@@ -705,6 +879,23 @@ public final class AddTaskViewModel: ObservableObject {
             .sink { [weak self] selectedParentTaskID in
                 guard let selectedParentTaskID else { return }
                 self?.selectedDependencyTaskIDs.remove(selectedParentTaskID)
+            }
+            .store(in: &cancellables)
+    }
+
+    private func setupTaskIconPipeline() {
+        guard V2FeatureFlags.autoTaskIconsEnabled else {
+            selectedTaskIconSymbolName = "checklist"
+            autoSuggestedTaskIconSymbolName = nil
+            suggestedTaskIcons = []
+            taskIconSelectionSource = .auto
+            return
+        }
+
+        Publishers.CombineLatest($taskName, $selectedCategory)
+            .debounce(for: .milliseconds(taskIconDebounceMilliseconds), scheduler: RunLoop.main)
+            .sink { [weak self] taskName, _ in
+                self?.refreshTaskIcon(using: taskName)
             }
             .store(in: &cancellables)
     }
@@ -884,6 +1075,102 @@ public final class AddTaskViewModel: ObservableObject {
         }
     }
 
+    public func applyManualTaskIconSelection(symbolName: String) {
+        selectedTaskIconSymbolName = symbolName
+        taskIconSelectionSource = .manual
+        taskIconSearchCache = nil
+        logWarning(
+            event: "task_icon_manual_override",
+            message: "Task icon manually overridden in add-task flow",
+            fields: ["symbol_name": symbolName]
+        )
+    }
+
+    public func resetTaskIconToAuto() {
+        taskIconSelectionSource = .auto
+        taskIconSearchCache = nil
+        refreshTaskIcon(using: taskName)
+    }
+
+    private func refreshTaskIcon(using taskName: String, logEvents: Bool = true) {
+        guard V2FeatureFlags.autoTaskIconsEnabled else {
+            selectedTaskIconSymbolName = "checklist"
+            autoSuggestedTaskIconSymbolName = nil
+            suggestedTaskIcons = []
+            taskIconSearchCache = nil
+            return
+        }
+
+        let projectName = selectedProjectObject?.name
+        let projectIconSymbolName = selectedProjectObject?.icon.systemImageName
+        let lifeAreaName = selectedLifeAreaID.flatMap { id in
+            lifeAreas.first(where: { $0.id == id })?.name
+        }
+        let category = selectedCategory
+        let selectionSource = taskIconSelectionSource
+        let currentSymbolName = selectionSource == .auto ? selectedTaskIconSymbolName : autoSuggestedTaskIconSymbolName
+        taskIconResolutionToken += 1
+        let token = taskIconResolutionToken
+
+        taskIconResolutionQueue.async { [weak self] in
+            guard let self else { return }
+            let interval = TaskerPerformanceTrace.begin("AddTaskIconResolve")
+            let resolution = self.taskIconResolver.resolve(
+                title: taskName,
+                projectName: projectName,
+                projectIconSymbolName: projectIconSymbolName,
+                lifeAreaName: lifeAreaName,
+                category: category,
+                currentSymbolName: currentSymbolName,
+                selectionSource: selectionSource
+            )
+            TaskerPerformanceTrace.end(interval)
+
+            DispatchQueue.main.async {
+                guard self.taskIconResolutionToken == token else { return }
+                self.autoSuggestedTaskIconSymbolName = resolution.autoSuggestedSymbolName
+                self.suggestedTaskIcons = resolution.rankedSuggestions
+                self.taskIconSearchCache = nil
+
+                if self.taskIconSelectionSource == .auto {
+                    self.selectedTaskIconSymbolName = resolution.selectedSymbolName
+                }
+
+                guard logEvents else { return }
+                let logSignature = [
+                    self.selectedTaskIconSymbolName,
+                    self.autoSuggestedTaskIconSymbolName ?? "none",
+                    resolution.fallbackReason.rawValue,
+                    String(format: "%.2f", resolution.confidence),
+                    self.taskIconSelectionSource == .manual ? "manual" : "auto"
+                ].joined(separator: "|")
+                guard logSignature != self.lastTaskIconLogSignature else { return }
+                self.lastTaskIconLogSignature = logSignature
+
+                if resolution.didUseFallback {
+                    logDebug(
+                        event: "task_icon_fallback_used",
+                        message: "Task icon resolver used fallback icon",
+                        fields: [
+                            "symbol_name": resolution.selectedSymbolName,
+                            "fallback": resolution.fallbackReason.rawValue,
+                            "confidence": String(format: "%.2f", resolution.confidence)
+                        ]
+                    )
+                } else {
+                    logDebug(
+                        event: "task_icon_auto_suggested",
+                        message: "Task icon resolver suggested semantic icon",
+                        fields: [
+                            "symbol_name": resolution.selectedSymbolName,
+                            "confidence": String(format: "%.2f", resolution.confidence)
+                        ]
+                    )
+                }
+            }
+        }
+    }
+
     /// Executes dedupeProjects.
     private func dedupeProjects(_ projects: [Project]) -> [Project] {
         var byID: [UUID: Project] = [:]
@@ -942,6 +1229,7 @@ public final class AddTaskViewModel: ObservableObject {
                     } else {
                         self.selectedLifeAreaID = nil
                     }
+                    self.refreshTaskIcon(using: self.taskName, logEvents: false)
                     self.applyPendingPrefillIfPossible()
                 case .failure(let error):
                     self?.errorMessage = error.localizedDescription
@@ -1000,8 +1288,8 @@ public final class AddTaskViewModel: ObservableObject {
         selectedEnergy = template.energy
         selectedCategory = template.category
         selectedContext = template.context
-        estimatedDuration = template.estimatedDuration
-        dueDate = template.dueDateIntent.resolvedDate()
+        estimatedDuration = template.estimatedDuration ?? Self.defaultEstimatedDuration
+        applyPrefillDueDate(template.dueDateIntent.resolvedDate(now: nowProvider()))
         isCoreDetailsExpanded = (template.details?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false)
 
         var resolvedAllSelections = true
@@ -1066,7 +1354,7 @@ public final class AddTaskViewModel: ObservableObject {
         if selectedEnergy != .medium
             || selectedCategory != .general
             || selectedContext != .anywhere
-            || estimatedDuration != nil {
+            || areDurationsDifferent(estimatedDuration, Self.defaultEstimatedDuration) {
             sections.insert(.execution)
         }
 
@@ -1075,6 +1363,76 @@ public final class AddTaskViewModel: ObservableObject {
         }
 
         return sections
+    }
+
+    private func applyDefaultScheduleAsPristine(calendar: Calendar = .current) {
+        let start = Self.defaultScheduledStart(now: nowProvider(), calendar: calendar)
+        scheduledStartAt = start
+        dueDate = start
+        estimatedDuration = Self.defaultEstimatedDuration
+        pristineScheduledStartAt = start
+        pristineEstimatedDuration = Self.defaultEstimatedDuration
+    }
+
+    private func applyPrefillDueDate(_ date: Date?, calendar: Calendar = .current) {
+        guard let date else {
+            clearSchedule()
+            return
+        }
+        if TaskScheduleNormalizer.isDateOnly(date, calendar: calendar) {
+            setScheduledDate(date, calendar: calendar)
+        } else {
+            let start = Self.clearingSubminuteComponents(date, calendar: calendar)
+            scheduledStartAt = start
+            dueDate = start
+        }
+    }
+
+    public static func defaultScheduledStart(now: Date = Date(), calendar: Calendar = .current) -> Date {
+        let start = calendar.date(byAdding: .minute, value: 20, to: now) ?? now.addingTimeInterval(20 * 60)
+        return clearingSubminuteComponents(start, calendar: calendar)
+    }
+
+    public static func scheduleRangeLabel(start: Date, end: Date?) -> String {
+        let formatter = DateFormatter()
+        formatter.timeStyle = .short
+        guard let end else {
+            return formatter.string(from: start)
+        }
+        return "\(formatter.string(from: start)) - \(formatter.string(from: end))"
+    }
+
+    public static func scheduleDateTimeSummary(start: Date, end: Date?) -> String {
+        let dateText = DateUtils.formatDate(start)
+        let rangeText = scheduleRangeLabel(start: start, end: end)
+        return "\(dateText), \(rangeText)"
+    }
+
+    private static func clearingSubminuteComponents(_ date: Date, calendar: Calendar = .current) -> Date {
+        let components = calendar.dateComponents([.year, .month, .day, .hour, .minute], from: date)
+        return calendar.date(from: components) ?? date
+    }
+
+    private func areDatesDifferent(_ lhs: Date?, _ rhs: Date?) -> Bool {
+        switch (lhs, rhs) {
+        case (.none, .none):
+            return false
+        case let (.some(lhs), .some(rhs)):
+            return abs(lhs.timeIntervalSince(rhs)) >= 1
+        default:
+            return true
+        }
+    }
+
+    private func areDurationsDifferent(_ lhs: TimeInterval?, _ rhs: TimeInterval?) -> Bool {
+        switch (lhs, rhs) {
+        case (.none, .none):
+            return false
+        case let (.some(lhs), .some(rhs)):
+            return abs(lhs - rhs) >= 1
+        default:
+            return true
+        }
     }
 
     private static func durationLabel(for duration: TimeInterval) -> String {

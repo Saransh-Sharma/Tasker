@@ -250,6 +250,8 @@ struct TaskSectionView: View {
             ForEach(Array(derivedState.openRenderItems.enumerated()), id: \.element.task.id) { index, item in
                 TaskRowView(
                     task: item.task,
+                    fallbackIconSymbolName: project.icon.systemImageName,
+                    accentHex: project.color.hexString,
                     showTypeBadge: derivedState.hasMixedTypes,
                     isInOverdueSection: isOverdueSection,
                     tagNameByID: tagNameByID,
@@ -287,6 +289,8 @@ struct TaskSectionView: View {
                     ForEach(Array(derivedState.completedRenderItems.enumerated()), id: \.element.task.id) { index, item in
                         TaskRowView(
                             task: item.task,
+                            fallbackIconSymbolName: project.icon.systemImageName,
+                            accentHex: project.color.hexString,
                             showTypeBadge: derivedState.hasMixedTypes,
                             isInOverdueSection: isOverdueSection,
                             tagNameByID: tagNameByID,
@@ -379,6 +383,7 @@ struct TaskSectionView: View {
 struct HomeListRowView: View {
     let row: HomeTodayRow
     let tagNameByID: [UUID: String]
+    let accentHex: String?
     let todayXPSoFar: Int?
     let isGamificationV2Enabled: Bool
     let isTaskDragEnabled: Bool
@@ -400,6 +405,7 @@ struct HomeListRowView: View {
     init(
         row: HomeTodayRow,
         tagNameByID: [UUID: String],
+        accentHex: String? = nil,
         todayXPSoFar: Int?,
         isGamificationV2Enabled: Bool,
         isTaskDragEnabled: Bool,
@@ -420,6 +426,7 @@ struct HomeListRowView: View {
     ) {
         self.row = row
         self.tagNameByID = tagNameByID
+        self.accentHex = accentHex
         self.todayXPSoFar = todayXPSoFar
         self.isGamificationV2Enabled = isGamificationV2Enabled
         self.isTaskDragEnabled = isTaskDragEnabled
@@ -444,6 +451,7 @@ struct HomeListRowView: View {
         case .task(let task):
             TaskRowView(
                 task: task,
+                accentHex: accentHex,
                 showTypeBadge: false,
                 isInOverdueSection: row.isOverdueLike,
                 tagNameByID: tagNameByID,
@@ -507,6 +515,8 @@ struct HomeListRowView: View {
 struct HomeListSectionView: View {
     let section: HomeListSection
     let tagNameByID: [UUID: String]
+    let projectsByID: [UUID: Project]
+    let lifeAreasByID: [UUID: LifeArea]
     let todayXPSoFar: Int?
     let isGamificationV2Enabled: Bool
     let isTaskDragEnabled: Bool
@@ -534,6 +544,8 @@ struct HomeListSectionView: View {
     init(
         section: HomeListSection,
         tagNameByID: [UUID: String],
+        projectsByID: [UUID: Project] = [:],
+        lifeAreasByID: [UUID: LifeArea] = [:],
         todayXPSoFar: Int?,
         isGamificationV2Enabled: Bool,
         isTaskDragEnabled: Bool,
@@ -558,6 +570,8 @@ struct HomeListSectionView: View {
     ) {
         self.section = section
         self.tagNameByID = tagNameByID
+        self.projectsByID = projectsByID
+        self.lifeAreasByID = lifeAreasByID
         self.todayXPSoFar = todayXPSoFar
         self.isGamificationV2Enabled = isGamificationV2Enabled
         self.isTaskDragEnabled = isTaskDragEnabled
@@ -626,6 +640,7 @@ struct HomeListSectionView: View {
                 HomeListRowView(
                     row: row,
                     tagNameByID: tagNameByID,
+                    accentHex: rowAccentHex(for: row),
                     todayXPSoFar: todayXPSoFar,
                     isGamificationV2Enabled: isGamificationV2Enabled,
                     isTaskDragEnabled: isTaskDragEnabled,
@@ -663,6 +678,7 @@ struct HomeListSectionView: View {
                         HomeListRowView(
                             row: row,
                             tagNameByID: tagNameByID,
+                            accentHex: rowAccentHex(for: row),
                             todayXPSoFar: todayXPSoFar,
                             isGamificationV2Enabled: isGamificationV2Enabled,
                             isTaskDragEnabled: false,
@@ -696,7 +712,25 @@ struct HomeListSectionView: View {
     }
 
     private var accentColor: Color {
-        section.isOverdueSection ? Color.tasker.statusDanger : Color.tasker.accentPrimary
+        if section.isOverdueSection {
+            return Color.tasker.statusDanger
+        }
+
+        guard let accentHex = section.accentHex else {
+            return Color.tasker.accentPrimary
+        }
+        return TaskerHexColor.color(accentHex, fallback: Color.tasker.accentPrimary)
+    }
+
+    private func rowAccentHex(for row: HomeTodayRow) -> String? {
+        if section.showsHeader, let sectionAccentHex = section.accentHex {
+            return sectionAccentHex
+        }
+        return HomeTaskTintResolver.rowAccentHex(
+            for: row,
+            projectsByID: projectsByID,
+            lifeAreasByID: lifeAreasByID
+        )
     }
 
     private var isResolvedCollapsed: Bool {
