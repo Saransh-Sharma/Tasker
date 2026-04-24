@@ -6328,7 +6328,8 @@ public final class HomeViewModel: ObservableObject {
 
     public func dismissNeedsReplanLater() {
         guard replanApplyingAction == nil else { return }
-        userDefaults.set(needsReplanDayKey(for: Date()), forKey: Self.needsReplanDismissedDayKey)
+        let dismissedDate = replanScopedDate ?? Date()
+        userDefaults.set(needsReplanDayKey(for: dismissedDate), forKey: Self.needsReplanDismissedDayKey)
         resetReplanSession(keepPassiveCandidates: true)
         refreshPassiveNeedsReplanState()
     }

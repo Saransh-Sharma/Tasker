@@ -2522,6 +2522,9 @@ struct HomeBackdropForedropRootView: View {
     }
     private var isSearchOpen: Bool { activeFace == .search }
     private var isBackFaceVisible: Bool { activeFace.isBackFace }
+    private var isTodayTimelineVisible: Bool {
+        activeFace == .tasks && tasksSnapshot.activeQuickView == .today
+    }
     private var homeBackdropNoiseAmount: Int {
         V2FeatureFlags.clampedHomeBackdropNoiseAmount(homeBackdropNoiseAmountStorage)
     }
@@ -2602,7 +2605,7 @@ struct HomeBackdropForedropRootView: View {
         }
     }
     private var foredropInteractiveOffset: CGFloat {
-        guard activeFace == .tasks else { return 0 }
+        guard isTodayTimelineVisible else { return 0 }
         return timelineViewModel.interactiveOffset(metrics: timelineLayoutMetrics)
     }
     private var foredropFlipAnimation: Animation {
@@ -3322,6 +3325,8 @@ struct HomeBackdropForedropRootView: View {
                     .padding(.horizontal, spacing.s16)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .opacity(isBackFaceVisible ? 0.001 : 1)
+                    .allowsHitTesting(!isBackFaceVisible)
+                    .accessibilityHidden(isBackFaceVisible)
                 }
             Spacer(minLength: 0)
         }
