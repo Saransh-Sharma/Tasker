@@ -310,6 +310,35 @@ final class LLMRuntimeCoordinatorTests: XCTestCase {
         XCTAssertEqual(evaluator.runtimePhase, .stopping)
     }
 
+    func testBeginUserTurnClearsCancelledOutputStateWithoutUnloadingModel() {
+        let evaluator = LLMEvaluator()
+        evaluator.loadedModelName = qwenPointSixName
+        evaluator.cancelled = true
+        evaluator.output = "stale output"
+        evaluator.stat = "stale stats"
+        evaluator.thinkingTime = 1.5
+        evaluator.lastGenerationTimedOut = true
+        evaluator.lastTerminationReason = "user_cancel"
+        evaluator.lastRawOutput = "raw"
+        evaluator.lastGeneratedTokenCount = 12
+        evaluator.lastVisibleCharacterCount = 8
+        evaluator.lastSanitizedTemplateArtifacts = true
+
+        evaluator.beginUserTurn(runID: UUID())
+
+        XCTAssertFalse(evaluator.cancelled)
+        XCTAssertEqual(evaluator.output, "")
+        XCTAssertEqual(evaluator.stat, "")
+        XCTAssertNil(evaluator.thinkingTime)
+        XCTAssertFalse(evaluator.lastGenerationTimedOut)
+        XCTAssertNil(evaluator.lastTerminationReason)
+        XCTAssertEqual(evaluator.lastRawOutput, "")
+        XCTAssertEqual(evaluator.lastGeneratedTokenCount, 0)
+        XCTAssertEqual(evaluator.lastVisibleCharacterCount, 0)
+        XCTAssertFalse(evaluator.lastSanitizedTemplateArtifacts)
+        XCTAssertEqual(evaluator.loadedModelName, qwenPointSixName)
+    }
+
     func testPromptFocusPrewarmHonorsRequestedDelay() async {
         V2FeatureFlags.llmChatPrewarmMode = .adaptiveOnDemand
         let defaults = UserDefaults(suiteName: "LLMRuntimeCoordinatorTests.Deferred.\(UUID().uuidString)")!

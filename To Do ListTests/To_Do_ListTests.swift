@@ -6123,6 +6123,66 @@ final class AssistantPipelineTransactionalTests: XCTestCase {
         }
         XCTAssertEqual(taskAfterUndo?.title, "Before Undo")
     }
+
+    func testAppliedRunCannotBeConfirmedOrAppliedAgain() throws {
+        let taskID = UUID()
+        let projectID = UUID()
+        let initialTask = TaskDefinition(
+            id: taskID,
+            projectID: projectID,
+            projectName: "Inbox",
+            title: "Before Apply",
+            dueDate: nil,
+            isComplete: false,
+            dateAdded: Date(),
+            createdAt: Date(),
+            updatedAt: Date()
+        )
+        let taskRepository = InMemoryTaskDefinitionRepository(seed: [initialTask])
+        let actionRepository = InMemoryAssistantActionRepository()
+        let useCase = AssistantActionPipelineUseCase(
+            repository: actionRepository,
+            taskRepository: taskRepository
+        )
+
+        let runID = UUID()
+        let envelope = AssistantCommandEnvelope(
+            schemaVersion: 1,
+            commands: [.updateTask(taskID: taskID, title: "After Apply", dueDate: nil)]
+        )
+        let run = AssistantActionRunDefinition(
+            id: runID,
+            threadID: "thread",
+            proposalData: try JSONEncoder().encode(envelope),
+            status: .confirmed,
+            confirmedAt: Date(),
+            createdAt: Date()
+        )
+        _ = try awaitResult { completion in
+            actionRepository.createRun(run, completion: completion)
+        }
+
+        _ = try awaitResult { completion in
+            useCase.applyConfirmedRun(id: runID, completion: completion)
+        }
+
+        XCTAssertThrowsError(try awaitResult { completion in
+            useCase.confirm(runID: runID, completion: completion)
+        }) { error in
+            XCTAssertEqual((error as NSError).code, 409)
+        }
+
+        XCTAssertThrowsError(try awaitResult { completion in
+            useCase.applyConfirmedRun(id: runID, completion: completion)
+        }) { error in
+            XCTAssertEqual((error as NSError).code, 409)
+        }
+
+        let persistedRun = try awaitResult { completion in
+            actionRepository.fetchRun(id: runID, completion: completion)
+        }
+        XCTAssertEqual(persistedRun?.status, .applied)
+    }
 }
 
 final class AssistantUndoWindowTests: XCTestCase {
