@@ -284,6 +284,7 @@
 		A1B2C3D52EAA11BB00CCDDEE /* LLMModelRegistryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D42EAA11BB00CCDDEE /* LLMModelRegistryTests.swift */; };
 		A1B2C3D52F90000100AA1001 /* TaskEditorSectionCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D72F90000100AA1001 /* TaskEditorSectionCard.swift */; };
 		A1C2D3E4F5A60718293B4C5D /* AssistantPlannerServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1C2D3E4F5A60718293B4C5C /* AssistantPlannerServiceTests.swift */; };
+		A1C2D3E4F5A60718293B4C5E /* AssistantEnvelopeValidatorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1C2D3E4F5A60718293B4C5F /* AssistantEnvelopeValidatorTests.swift */; };
 		A1C3D4E5F6A7B8C9D0E1F2A3 /* KeyboardShortcutsCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2D4E5F6A7B8C9D0E1F2A3B4 /* KeyboardShortcutsCard.swift */; };
 		A1D100012F90000100AA2001 /* Shared/ShortcutHandoffStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1D100032F90000100AA2001 /* Shared/ShortcutHandoffStore.swift */; };
 		A1D100022F90000100AA2001 /* To Do List/State/DI/TaskerPersistentStoreBootstrapService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1D100042F90000100AA2001 /* To Do List/State/DI/TaskerPersistentStoreBootstrapService.swift */; };
@@ -313,6 +314,7 @@
 		A6E1D4032F3C120100B1C2D3 /* AssistantDiffPreviewBuilder.swift in Sources */ = {isa = PBXBuildFile; fileRef = A6E1D4042F3C120100B1C2D3 /* AssistantDiffPreviewBuilder.swift */; };
 		A6E1D4052F3C120100B1C2D3 /* AssistantEnvelopeValidator.swift in Sources */ = {isa = PBXBuildFile; fileRef = A6E1D4062F3C120100B1C2D3 /* AssistantEnvelopeValidator.swift */; };
 		A6E1D4072F3C120100B1C2D3 /* AssistantPlannerService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A6E1D4082F3C120100B1C2D3 /* AssistantPlannerService.swift */; };
+		A6E1D4192F3C120100B1C2D3 /* EvaProposalCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = A6E1D41A2F3C120100B1C2D3 /* EvaProposalCard.swift */; };
 		A6E1D4092F3C120100B1C2D3 /* DailyBriefService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A6E1D40A2F3C120100B1C2D3 /* DailyBriefService.swift */; };
 		A6E1D40B2F3C120100B1C2D3 /* LLMAssistantPipelineProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = A6E1D40C2F3C120100B1C2D3 /* LLMAssistantPipelineProvider.swift */; };
 		A6E1D40D2F3C120100B1C2D3 /* OverdueTriageService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A6E1D40E2F3C120100B1C2D3 /* OverdueTriageService.swift */; };
@@ -870,6 +872,7 @@
 		A1B2C3D62F90000100AA1001 /* TaskEditorSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TaskEditorSection.swift; sourceTree = "<group>"; };
 		A1B2C3D72F90000100AA1001 /* TaskEditorSectionCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TaskEditorSectionCard.swift; sourceTree = "<group>"; };
 		A1C2D3E4F5A60718293B4C5C /* AssistantPlannerServiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AssistantPlannerServiceTests.swift; sourceTree = "<group>"; };
+		A1C2D3E4F5A60718293B4C5F /* AssistantEnvelopeValidatorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AssistantEnvelopeValidatorTests.swift; sourceTree = "<group>"; };
 		A1D100032F90000100AA2001 /* Shared/ShortcutHandoffStore.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = Shared/ShortcutHandoffStore.swift; sourceTree = SOURCE_ROOT; };
 		A1D100042F90000100AA2001 /* To Do List/State/DI/TaskerPersistentStoreBootstrapService.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "To Do List/State/DI/TaskerPersistentStoreBootstrapService.swift"; sourceTree = SOURCE_ROOT; };
 		A1E5C40F2F1A4B9D9C1E8A12 /* To Do List/Domain/Interfaces/AppleRemindersProviderProtocol.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "To Do List/Domain/Interfaces/AppleRemindersProviderProtocol.swift"; sourceTree = SOURCE_ROOT; };
@@ -888,6 +891,7 @@
 		A6E1D4042F3C120100B1C2D3 /* AssistantDiffPreviewBuilder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AssistantDiffPreviewBuilder.swift; sourceTree = "<group>"; };
 		A6E1D4062F3C120100B1C2D3 /* AssistantEnvelopeValidator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AssistantEnvelopeValidator.swift; sourceTree = "<group>"; };
 		A6E1D4082F3C120100B1C2D3 /* AssistantPlannerService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AssistantPlannerService.swift; sourceTree = "<group>"; };
+		A6E1D41A2F3C120100B1C2D3 /* EvaProposalCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EvaProposalCard.swift; sourceTree = "<group>"; };
 		A6E1D40A2F3C120100B1C2D3 /* DailyBriefService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DailyBriefService.swift; sourceTree = "<group>"; };
 		A6E1D40C2F3C120100B1C2D3 /* LLMAssistantPipelineProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LLMAssistantPipelineProvider.swift; sourceTree = "<group>"; };
 		A6E1D40E2F3C120100B1C2D3 /* OverdueTriageService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OverdueTriageService.swift; sourceTree = "<group>"; };
@@ -1591,6 +1595,7 @@
 				F1C0A1234B56789000ABCD01 /* TaskDetailViewModelTests.swift */,
 				F5A100022F6A200100ABC001 /* TaskerAppShortcutsTests.swift */,
 				A1C2D3E4F5A60718293B4C5C /* AssistantPlannerServiceTests.swift */,
+				A1C2D3E4F5A60718293B4C5F /* AssistantEnvelopeValidatorTests.swift */,
 				A1F0D0B42F5A100100ABC001 /* AppOnboardingTests.swift */,
 				E0A100000000000000000302 /* EvaActivationTests.swift */,
 				B8F9A0B1C2D3E4F506172838 /* LLMPersonalMemoryStoreTests.swift */,
@@ -2230,6 +2235,7 @@
 				A6E1D4042F3C120100B1C2D3 /* AssistantDiffPreviewBuilder.swift */,
 				A6E1D4062F3C120100B1C2D3 /* AssistantEnvelopeValidator.swift */,
 				A6E1D4082F3C120100B1C2D3 /* AssistantPlannerService.swift */,
+				A6E1D41A2F3C120100B1C2D3 /* EvaProposalCard.swift */,
 				A6E1D40A2F3C120100B1C2D3 /* DailyBriefService.swift */,
 				A6E1D40C2F3C120100B1C2D3 /* LLMAssistantPipelineProvider.swift */,
 				A6E1D40E2F3C120100B1C2D3 /* OverdueTriageService.swift */,
@@ -2896,6 +2902,7 @@
 				A6E1D4032F3C120100B1C2D3 /* AssistantDiffPreviewBuilder.swift in Sources */,
 				A6E1D4052F3C120100B1C2D3 /* AssistantEnvelopeValidator.swift in Sources */,
 				A6E1D4072F3C120100B1C2D3 /* AssistantPlannerService.swift in Sources */,
+				A6E1D4192F3C120100B1C2D3 /* EvaProposalCard.swift in Sources */,
 				A6E1D4092F3C120100B1C2D3 /* DailyBriefService.swift in Sources */,
 				A6E1D40B2F3C120100B1C2D3 /* LLMAssistantPipelineProvider.swift in Sources */,
 				A6E1D40D2F3C120100B1C2D3 /* OverdueTriageService.swift in Sources */,
@@ -3203,6 +3210,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				A1C2D3E4F5A60718293B4C5D /* AssistantPlannerServiceTests.swift in Sources */,
+				A1C2D3E4F5A60718293B4C5E /* AssistantEnvelopeValidatorTests.swift in Sources */,
 				A1B2C3D52EAA11BB00CCDDEE /* LLMModelRegistryTests.swift in Sources */,
 				C1A2B3C4D5E6F70011223348 /* LLMRuntimeCoordinatorTests.swift in Sources */,
 				C1A2B3C4D5E6F70011223354 /* ChatTranscriptSnapshotTests.swift in Sources */,
