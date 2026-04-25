@@ -44,11 +44,17 @@ struct ChatView: View {
     @State private var pendingResponsePhase: ChatPendingResponsePhase = .idle
     @State private var chatOpenTraceInterval: TaskerPerformanceInterval?
     @State private var promptSubmitTraceInterval: TaskerPerformanceInterval?
+    @State private var evaSubmittedDraft: EvaSubmittedDraft?
     @State private var hasCompletedInitialTranscriptRender = false
     @StateObject private var contextCoordinator = ChatContextCoordinator()
     @FocusState private var isProjectFieldFocused: Bool
 
     static private let contextInjectionTracker = ChatContextInjectionTracker()
+
+    private struct EvaSubmittedDraft: Equatable {
+        let runID: UUID
+        let text: String
+    }
 
     private var chatBudgets: LLMChatBudgets {
         LLMChatBudgets.active
@@ -68,6 +74,10 @@ struct ChatView: View {
 
     private var contextFetchTimeoutMs: UInt64 {
         chatBudgets.projectionTimeoutMs
+    }
+
+    private var evaPlanContextFetchTimeoutMs: UInt64 {
+        max(contextFetchTimeoutMs, 2_500)
     }
 
     private var contextInjectionPolicy: ChatContextInjectionPolicy {
@@ -694,9 +704,216 @@ struct ChatView: View {
         }
         let runID = UUID()
         generationRunID = runID
+        llm.beginUserTurn(runID: runID)
         promptSubmitTraceInterval = TaskerPerformanceTrace.begin("ChatPromptSubmitToFirstStateChange")
+        let evaRoute = V2FeatureFlags.evaPlanWithText ? EvaTurnRouter.route(for: message) : nil
+        if let evaRoute, evaRoute != .chatAnswer {
+            rememberEvaSubmittedDraft(message, runID: runID)
+        }
         generationTask = _Concurrency.Task {
-            await runStandardGeneration(message: message, thread: thread, runID: runID)
+            if let route = evaRoute {
+                let traceContext = EvaTurnTraceContext(runID: runID, threadID: thread.id, route: route)
+                logWarning(
+                    event: "eva_turn_routed",
+                    message: "Routed EVA chat turn",
+                    fields: traceContext.logFields.merging([
+                        "prompt_chars": String(message.count)
+                    ]) { _, new in new }
+                )
+                switch route {
+                case .chatAnswer:
+                    await runStandardGeneration(message: message, thread: thread, runID: runID)
+                case .readOnlyReview, .taskMutation, .habitMutation, .dayPlanning, .weeklyPlanning, .clarification:
+                    await runEvaPlanGeneration(message: message, thread: thread, traceContext: traceContext)
+                }
+            } else {
+                await runStandardGeneration(message: message, thread: thread, runID: runID)
+            }
+        }
+    }
+
+    private func runEvaPlanGeneration(message: String, thread: Thread, traceContext: EvaTurnTraceContext) async {
+        let threadID = thread.id
+        let runID = traceContext.runID
+        let route = traceContext.route
+        await MainActor.run {
+            LLMRuntimeCoordinator.shared.cancelDeferredPrewarm(reason: "eva_plan_generation_started")
+            LLMRuntimeCoordinator.shared.acquireSession(reason: "eva_plan_generation")
+        }
+        defer {
+            Task { @MainActor in
+                LLMRuntimeCoordinator.shared.releaseSession(reason: "eva_plan_generation")
+                if generationRunID == runID {
+                    generationTask = nil
+                    generationRunID = nil
+                    if generatingThreadID == threadID {
+                        generatingThreadID = nil
+                    }
+                    llm.isThinking = false
+                    pendingResponsePhase = .idle
+                }
+            }
+        }
+
+        await MainActor.run {
+            updatePendingResponsePhase(.buildingContext, for: runID)
+            prompt = ""
+            appManager.playHaptic()
+            sendMessage(Message(role: .user, content: message, thread: thread))
+            llm.isThinking = true
+        }
+
+        let contextPayload = await buildEvaPlanContextPayloadForCurrentTurn(
+            threadID: threadID,
+            timeoutMs: evaPlanContextFetchTimeoutMs,
+            traceContext: traceContext
+        )
+        let contextPolicy = EvaContextPolicy.evaluate(route: route, contextPayload: contextPayload.payload)
+        logWarning(
+            event: "eva_plan_context_policy",
+            message: "Evaluated route-specific EVA context readiness",
+            fields: traceContext.logFields.merging([
+                "required_context_ready": contextPolicy.requiredContextReady ? "true" : "false",
+                "optional_context_partial": contextPolicy.optionalContextPartial ? "true" : "false",
+                "fallback_used": contextPayload.usedTimeoutFallback ? "true" : "false"
+            ]) { _, new in new }
+        )
+        guard !Task.isCancelled else {
+            logWarning(
+                event: "eva_plan_after_context_cancelled",
+                message: "EVA plan task cancelled after context build",
+                fields: traceContext.logFields
+            )
+            return
+        }
+        if contextPolicy.requiredContextReady == false {
+            await MainActor.run {
+                let result = deliverEvaPlanPayload(
+                    .text(
+                        content: "I couldn't load enough planning context right now, so I won't invent a plan. Try again once your task context finishes loading.",
+                        sourceModelName: nil
+                    ),
+                    thread: thread,
+                    traceContext: traceContext,
+                    usesModelGenerationForDeliveryGate: false
+                )
+                if case .persisted = result {
+                    restoreEvaSubmittedDraftIfNeeded(runID: runID, reason: "required_context_unavailable")
+                }
+            }
+            return
+        }
+
+        await MainActor.run {
+            updatePendingResponsePhase(.generating, for: runID)
+        }
+
+        let service = AssistantPlannerService(llm: llm)
+        let planResult = await service.generatePlan(
+            userPrompt: message,
+            thread: thread,
+            contextPayload: contextPayload.payload,
+            taskTitleByID: [:],
+            projectNameByID: [:],
+            knownTaskIDs: [],
+            route: route,
+            traceContext: traceContext
+        )
+
+        await MainActor.run {
+            switch planResult {
+            case .failure(let error):
+                _ = deliverEvaPlanPayload(
+                    .text(
+                        content: "EVA could not finish this plan. Your prompt is saved; try again or create tasks manually. \(error.localizedDescription)",
+                        sourceModelName: nil
+                    ),
+                    thread: thread,
+                    traceContext: traceContext,
+                    usesModelGenerationForDeliveryGate: true
+                )
+                restoreEvaSubmittedDraftIfNeeded(runID: runID, reason: "plan_generation_failed")
+            case .success(let plan):
+                if plan.envelope.commands.isEmpty {
+                    let result = deliverEvaPlanPayload(
+                        EvaPlanResponseDelivery.textPayload(for: plan),
+                        thread: thread,
+                        traceContext: traceContext,
+                        usesModelGenerationForDeliveryGate: plan.usesModelGenerationForDeliveryGate
+                    )
+                    if case .persisted = result {
+                        clearEvaSubmittedDraft(runID: runID, reason: "zero_command_response_persisted")
+                    }
+                    return
+                }
+
+                guard let pipeline = LLMAssistantPipelineProvider.pipeline else {
+                    _ = deliverEvaPlanPayload(
+                        .text(
+                            content: "EVA can preview this plan, but the apply pipeline is unavailable.",
+                            sourceModelName: plan.modelName
+                        ),
+                        thread: thread,
+                        traceContext: traceContext,
+                        usesModelGenerationForDeliveryGate: plan.usesModelGenerationForDeliveryGate
+                    )
+                    restoreEvaSubmittedDraftIfNeeded(runID: runID, reason: "apply_pipeline_unavailable")
+                    return
+                }
+
+                pipeline.propose(threadID: thread.id.uuidString, envelope: plan.envelope) { result in
+                    DispatchQueue.main.async {
+                        switch result {
+                        case .failure(let error):
+                            _ = self.deliverEvaPlanPayload(
+                                .text(
+                                    content: "EVA could not save this plan for review. \(error.localizedDescription)",
+                                    sourceModelName: plan.modelName
+                                ),
+                                thread: thread,
+                                traceContext: traceContext,
+                                usesModelGenerationForDeliveryGate: plan.usesModelGenerationForDeliveryGate
+                            )
+                            self.restoreEvaSubmittedDraftIfNeeded(runID: runID, reason: "proposal_save_failed")
+                        case .success(let run):
+                            let cards = EvaProposalCardBuilder.build(
+                                commands: plan.envelope.commands,
+                                taskTitleByID: [:],
+                                runID: run.id
+                            )
+                            let review = EvaProposalReviewPayload(
+                                prompt: message,
+                                summary: plan.rationale.isEmpty ? "Here's how your day is planned:" : plan.rationale,
+                                contextReceipt: plan.contextReceipt,
+                                cards: cards
+                            )
+                            let cardPayload = AssistantCardPayload(
+                                cardType: .proposal,
+                                runID: run.id,
+                                threadID: thread.id.uuidString,
+                                status: .pending,
+                                rationale: plan.rationale,
+                                diffLines: plan.diffLines,
+                                destructiveCount: AssistantDiffPreviewBuilder.destructiveCount(for: plan.envelope.commands),
+                                affectedTaskCount: AssistantDiffPreviewBuilder.affectedTaskCount(for: plan.envelope.commands),
+                                evaProposal: review
+                            )
+                            let result = self.deliverEvaPlanPayload(
+                                .proposalCard(
+                                    content: AssistantCardCodec.encode(cardPayload),
+                                    sourceModelName: plan.modelName
+                                ),
+                                thread: thread,
+                                traceContext: traceContext,
+                                usesModelGenerationForDeliveryGate: plan.usesModelGenerationForDeliveryGate
+                            )
+                            if case .persisted = result {
+                                self.clearEvaSubmittedDraft(runID: runID, reason: "proposal_card_persisted")
+                            }
+                        }
+                    }
+                }
+            }
         }
     }
 
@@ -1358,7 +1575,60 @@ struct ChatView: View {
     }
 
     @MainActor
+    private func rememberEvaSubmittedDraft(_ text: String, runID: UUID) {
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard trimmed.isEmpty == false else { return }
+        evaSubmittedDraft = EvaSubmittedDraft(runID: runID, text: text)
+        logWarning(
+            event: "eva_draft_preserved",
+            message: "Preserved EVA prompt draft for active planner turn",
+            fields: [
+                "run_id": runID.uuidString,
+                "draft_chars": String(text.count)
+            ]
+        )
+    }
+
+    @MainActor
+    private func restoreEvaSubmittedDraftIfNeeded(runID: UUID?, reason: String) {
+        guard let draft = evaSubmittedDraft else { return }
+        if let runID, draft.runID != runID { return }
+        guard prompt.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
+        prompt = draft.text
+        logWarning(
+            event: "eva_draft_restored",
+            message: "Restored EVA prompt draft after interrupted planner turn",
+            fields: [
+                "run_id": draft.runID.uuidString,
+                "reason": reason,
+                "draft_chars": String(draft.text.count)
+            ]
+        )
+    }
+
+    @MainActor
+    private func clearEvaSubmittedDraft(runID: UUID?, reason: String) {
+        guard let draft = evaSubmittedDraft else { return }
+        if let runID, draft.runID != runID { return }
+        evaSubmittedDraft = nil
+        logWarning(
+            event: "eva_draft_cleared",
+            message: "Cleared EVA prompt draft after terminal planner outcome",
+            fields: [
+                "run_id": draft.runID.uuidString,
+                "reason": reason
+            ]
+        )
+    }
+
+    @MainActor
     private func cancelActiveGeneration(reason: String) {
+        let cancelledRunID = generationRunID
+        let shouldCancelEvaluator = llm.running ||
+            llm.runtimePhase == .preparing ||
+            llm.runtimePhase == .thinking ||
+            llm.runtimePhase == .answering ||
+            llm.runtimePhase == .stopping
         generationTask?.cancel()
         generationTask = nil
         generationRunID = nil
@@ -1369,8 +1639,13 @@ struct ChatView: View {
         }
         pendingResponsePhase = .idle
         llm.isThinking = false
-        llm.cancelGeneration(reason: reason)
-        LLMRuntimeCoordinator.shared.cancelGenerationIfActive(reason: reason)
+        if shouldCancelEvaluator {
+            llm.cancelGeneration(reason: reason)
+            LLMRuntimeCoordinator.shared.cancelGenerationIfActive(reason: reason)
+        }
+        if reason == "stop_button" || reason == "chat_view_disappear" {
+            restoreEvaSubmittedDraftIfNeeded(runID: cancelledRunID, reason: reason)
+        }
     }
 
     @MainActor
@@ -1384,11 +1659,47 @@ struct ChatView: View {
         pendingResponsePhase = phase
     }
 
+    @MainActor
+    @discardableResult
+    private func deliverEvaPlanPayload(
+        _ payload: EvaPlanResponsePayload,
+        thread: Thread,
+        traceContext: EvaTurnTraceContext,
+        usesModelGenerationForDeliveryGate: Bool
+    ) -> EvaPlanResponseDeliveryResult {
+        EvaPlanResponseDelivery.deliver(
+            payload: payload,
+            traceContext: traceContext,
+            gateState: EvaPlanResponseDelivery.GateState(
+                taskCancelled: Task.isCancelled,
+                runIDMatches: generationRunID == traceContext.runID,
+                evaluatorCancelled: llm.cancelled
+            ),
+            usesModelGenerationForDeliveryGate: usesModelGenerationForDeliveryGate,
+            send: { payload in
+                sendMessage(
+                    Message(
+                        role: .assistant,
+                        content: payload.content,
+                        thread: thread,
+                        generatingTime: llm.thinkingTime,
+                        sourceModelName: payload.sourceModelName
+                    )
+                )
+            }
+        )
+    }
+
     /// Executes sendMessage.
     @MainActor
-    private func sendMessage(_ message: Message) {
+    @discardableResult
+    private func sendMessage(_ message: Message) -> ChatMessageSendOutcome {
+        let contentType = AssistantCardCodec.isCard(message.content) ? "card" : "text"
+        var preSanitizeLength = message.content.count
+        var postSanitizeLength = message.content.count
+        let threadID = message.thread?.id ?? currentThread?.id
         if message.role == .assistant && AssistantCardCodec.isCard(message.content) == false {
-            let preSanitizeLength = message.content.count
+            preSanitizeLength = message.content.count
             let sanitizedText = LLMChatTextSanitizer.sanitizeForDisplay(
                 message.content,
                 modelName: message.sourceModelName ?? appManager.currentModelName
@@ -1398,7 +1709,7 @@ struct ChatView: View {
                 removedReasoningBlocks: false,
                 removedTemplateArtifacts: sanitizedText != message.content
             )
-            let postSanitizeLength = sanitizedResult.text.count
+            postSanitizeLength = sanitizedResult.text.count
             logWarning(
                 event: "chat_sendMessage_display_sanitize",
                 message: "Sanitized assistant message for display persistence",
@@ -1411,17 +1722,33 @@ struct ChatView: View {
                 ]
             )
             guard sanitizedResult.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false else {
+                let outcome = ChatMessageSendOutcome(
+                    status: .emptySanitizedText,
+                    messageID: message.id,
+                    role: String(describing: message.role),
+                    contentType: contentType,
+                    preSanitizeLength: preSanitizeLength,
+                    postSanitizeLength: postSanitizeLength,
+                    threadID: threadID,
+                    errorDescription: nil
+                )
                 logWarning(
                     event: "chat_sendMessage_display_dropped",
                     message: "Assistant message was dropped after display sanitization",
                     fields: [
+                        "role": outcome.role,
+                        "content_type": outcome.contentType,
+                        "message_id": outcome.messageID.uuidString,
+                        "thread_id": outcome.threadID?.uuidString ?? "nil",
                         "pre_sanitize_length": String(preSanitizeLength),
-                        "post_sanitize_length": String(postSanitizeLength)
+                        "post_sanitize_length": String(postSanitizeLength),
+                        "save_result": outcome.status.rawValue
                     ]
                 )
-                return
+                return outcome
             }
             message.content = sanitizedResult.text
+            postSanitizeLength = sanitizedResult.text.count
         }
         appManager.playHaptic()
         modelContext.insert(message)
@@ -1445,12 +1772,56 @@ struct ChatView: View {
                     break
                 }
             }
+            let outcome = ChatMessageSendOutcome(
+                status: .persisted,
+                messageID: message.id,
+                role: String(describing: message.role),
+                contentType: contentType,
+                preSanitizeLength: preSanitizeLength,
+                postSanitizeLength: postSanitizeLength,
+                threadID: threadID,
+                errorDescription: nil
+            )
+            logWarning(
+                event: "chat_sendMessage_completed",
+                message: "Chat message persistence completed",
+                fields: [
+                    "role": outcome.role,
+                    "content_type": outcome.contentType,
+                    "message_id": outcome.messageID.uuidString,
+                    "thread_id": outcome.threadID?.uuidString ?? "nil",
+                    "pre_sanitize_length": String(outcome.preSanitizeLength),
+                    "post_sanitize_length": String(outcome.postSanitizeLength),
+                    "save_result": outcome.status.rawValue
+                ]
+            )
+            return outcome
         } catch {
+            let outcome = ChatMessageSendOutcome(
+                status: .saveFailed,
+                messageID: message.id,
+                role: String(describing: message.role),
+                contentType: contentType,
+                preSanitizeLength: preSanitizeLength,
+                postSanitizeLength: postSanitizeLength,
+                threadID: threadID,
+                errorDescription: error.localizedDescription
+            )
             logError(
                 event: "chat_message_save_failed",
                 message: "Failed to save chat message",
-                fields: ["error": error.localizedDescription]
+                fields: [
+                    "role": outcome.role,
+                    "content_type": outcome.contentType,
+                    "message_id": outcome.messageID.uuidString,
+                    "thread_id": outcome.threadID?.uuidString ?? "nil",
+                    "pre_sanitize_length": String(outcome.preSanitizeLength),
+                    "post_sanitize_length": String(outcome.postSanitizeLength),
+                    "save_result": outcome.status.rawValue,
+                    "error": error.localizedDescription
+                ]
             )
+            return outcome
         }
     }
 
@@ -1475,6 +1846,33 @@ struct ChatView: View {
             model: activeModelConfiguration
         )
         return (result.payload, result.usedTimeoutFallback)
+    }
+
+    private func buildEvaPlanContextPayloadForCurrentTurn(
+        threadID: UUID,
+        timeoutMs: UInt64,
+        traceContext: EvaTurnTraceContext
+    ) async -> (payload: String, usedTimeoutFallback: Bool, fromCache: Bool) {
+        let built = await LLMChatContextEnvelopeBuilder.build(
+            timeoutMs: timeoutMs,
+            service: LLMContextRepositoryProvider.makeService(
+                maxTasksPerSlice: chatBudgets.maxProjectionTasksPerSlice,
+                compactTaskPayload: V2FeatureFlags.llmChatContextStrategy == .bounded
+            ),
+            injectionPolicy: "eva_plan",
+            budgets: chatBudgets,
+            contextStrategy: V2FeatureFlags.llmChatContextStrategy
+        )
+        logWarning(
+            event: "eva_plan_context_build_ms",
+            message: "Built EVA plan context payload for current turn",
+            fields: traceContext.logFields.merging([
+                "timeout_fallback_used": built.usedTimeoutFallback ? "true" : "false",
+                "context_partial": built.envelope.metadata.contextPartial ? "true" : "false",
+                "partial_reasons": built.envelope.metadata.partialReasons.joined(separator: ",")
+            ]) { _, new in new }
+        )
+        return (built.payload, built.usedTimeoutFallback, false)
     }
 
     /// Executes buildContextPayloadForCurrentTurn.

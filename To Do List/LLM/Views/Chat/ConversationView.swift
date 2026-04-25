@@ -155,6 +155,11 @@ private struct EvaLiveWorkingStatusView: View {
 struct MessageView: View {
     @State private var collapsed = true
     @State private var undoExpiredLogged = false
+    @State private var selectedEvaCardIDs: Set<UUID> = []
+    @State private var expandedEvaCardID: UUID?
+    @State private var evaApplyMessage: String?
+    @State private var isApplyingEvaProposal = false
+    @State private var appliedEvaRunIDs: Set<UUID> = []
 
     let renderModel: ChatMessageRenderModel
     let now: Date
@@ -407,7 +412,9 @@ struct MessageView: View {
 
     @ViewBuilder
     private func assistantCardView(payload: AssistantCardPayload) -> some View {
-        if payload.cardType == .commandResult, let commandResult = payload.commandResult {
+        if let evaProposal = payload.evaProposal {
+            evaProposalCardView(payload: payload, proposal: evaProposal)
+        } else if payload.cardType == .commandResult, let commandResult = payload.commandResult {
             commandResultCardView(commandResult)
         } else {
             VStack(alignment: .leading, spacing: TaskerTheme.Spacing.sm) {
@@ -475,6 +482,486 @@ struct MessageView: View {
                         .foregroundStyle(Color.tasker(.textTertiary))
                 }
             }
+        }
+    }
+
+    private func evaProposalCardView(payload: AssistantCardPayload, proposal: EvaProposalReviewPayload) -> some View {
+        let isApplyable = payload.runID != nil && proposal.cards.contains { $0.commandIndexes.isEmpty == false }
+        return VStack(alignment: .leading, spacing: TaskerTheme.Spacing.md) {
+            evaPromptCard(prompt: proposal.prompt)
+
+            HStack(alignment: .top, spacing: TaskerTheme.Spacing.sm) {
+                Image(systemName: "info.circle.fill")
+                    .foregroundStyle(Color.tasker(.textTertiary))
+                Text("The AI may make mistakes or produce inaccurate information. Be sure to check important tasks.")
+                    .font(.tasker(.caption1))
+                    .foregroundStyle(Color.tasker(.textSecondary))
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .padding(.horizontal, TaskerTheme.Spacing.md)
+            .padding(.vertical, TaskerTheme.Spacing.sm)
+            .background(Color.tasker(.surfaceSecondary))
+            .clipShape(RoundedRectangle(cornerRadius: TaskerTheme.CornerRadius.lg, style: .continuous))
+
+            DisclosureGroup {
+                Text(proposal.contextReceipt.sources.joined(separator: "\n"))
+                    .font(.tasker(.caption1))
+                    .foregroundStyle(Color.tasker(.textSecondary))
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.top, TaskerTheme.Spacing.xs)
+            } label: {
+                Label(proposal.contextReceipt.collapsedText, systemImage: "lock.shield")
+                    .font(.tasker(.caption1))
+                    .foregroundStyle(Color.tasker(.textSecondary))
+            }
+
+            Text(summaryText(proposal.summary))
+                .font(.tasker(.body))
+                .foregroundStyle(Color.tasker(.textPrimary))
+                .fixedSize(horizontal: false, vertical: true)
+                .padding(TaskerTheme.Spacing.md)
+                .background(Color.tasker(.surfaceSecondary))
+                .clipShape(RoundedRectangle(cornerRadius: TaskerTheme.CornerRadius.lg, style: .continuous))
+
+            ForEach(EvaProposalCardBuilder.groups(for: proposal.cards)) { group in
+                VStack(alignment: .leading, spacing: TaskerTheme.Spacing.sm) {
+                    Text(group.title)
+                        .font(.tasker(.caption1))
+                        .fontWeight(.semibold)
+                        .foregroundStyle(Color.tasker(.textTertiary))
+                        .padding(.horizontal, TaskerTheme.Spacing.xs)
+
+                    ForEach(group.cards) { card in
+                        evaProposalRow(card)
+                    }
+                }
+            }
+
+            HStack(spacing: TaskerTheme.Spacing.sm) {
+                Button {
+                    selectedEvaCardIDs = Set(proposal.cards.filter(\.isSelectedByDefault).map(\.id))
+                    expandedEvaCardID = nil
+                    evaApplyMessage = nil
+                } label: {
+                    Label("Start New", systemImage: "square.and.pencil")
+                }
+                .buttonStyle(.bordered)
+                .tint(Color.tasker(.accentPrimary))
+
+                Spacer()
+
+                Button {
+                    evaApplyMessage = "Thanks for the feedback."
+                } label: {
+                    Image(systemName: "hand.thumbsup")
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(Color.tasker(.textTertiary))
+                .accessibilityLabel("Helpful")
+
+                Button {
+                    evaApplyMessage = "Thanks. EVA will use this feedback later."
+                } label: {
+                    Image(systemName: "hand.thumbsdown")
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(Color.tasker(.textTertiary))
+                .accessibilityLabel("Not helpful")
+            }
+
+            if let evaApplyMessage {
+                Text(evaApplyMessage)
+                    .font(.tasker(.caption1))
+                    .foregroundStyle(Color.tasker(.textSecondary))
+            }
+
+            if isApplyable {
+                Button {
+                    applyEvaProposal(payload: payload, proposal: proposal)
+                } label: {
+                    HStack {
+                        Spacer()
+                        Text(applyButtonTitle(cards: proposal.cards))
+                            .font(.tasker(.buttonSmall))
+                        Spacer()
+                    }
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(Color.tasker(.accentPrimary))
+                .disabled(
+                    isApplyingEvaProposal
+                        || selectedEvaCardIDs.isEmpty
+                        || payload.runID == nil
+                        || payload.runID.map { appliedEvaRunIDs.contains($0) } == true
+                )
+                .accessibilityIdentifier("eva.proposal.apply_selected")
+            }
+        }
+        .onAppear {
+            if isApplyable && selectedEvaCardIDs.isEmpty {
+                selectedEvaCardIDs = Set(proposal.cards.filter(\.isSelectedByDefault).map(\.id))
+            }
+        }
+    }
+
+    private func evaPromptCard(prompt: String) -> some View {
+        VStack(alignment: .leading, spacing: TaskerTheme.Spacing.sm) {
+            HStack(spacing: TaskerTheme.Spacing.xs) {
+                Image(systemName: "chevron.right")
+                    .font(.tasker(.caption1))
+                    .foregroundStyle(Color.tasker(.textTertiary))
+                Text("Your plans")
+                    .font(.tasker(.headline))
+                    .foregroundStyle(Color.tasker(.textSecondary))
+            }
+            Text(prompt)
+                .font(.tasker(.body))
+                .foregroundStyle(Color.tasker(.textPrimary))
+        }
+        .padding(TaskerTheme.Spacing.md)
+        .background(Color.tasker(.surfacePrimary))
+        .clipShape(RoundedRectangle(cornerRadius: TaskerTheme.CornerRadius.lg, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: TaskerTheme.CornerRadius.lg, style: .continuous)
+                .stroke(Color.tasker(.accentPrimary), lineWidth: 1.5)
+        )
+    }
+
+    private func evaProposalRow(_ card: EvaProposalCard) -> some View {
+        let isSelected = selectedEvaCardIDs.contains(card.id)
+        let isExpanded = expandedEvaCardID == card.id
+
+        return VStack(spacing: 0) {
+            Button {
+                if isExpanded {
+                    expandedEvaCardID = nil
+                } else {
+                    expandedEvaCardID = card.id
+                }
+            } label: {
+                HStack(alignment: .center, spacing: TaskerTheme.Spacing.md) {
+                    Image(systemName: iconName(for: card))
+                        .font(.tasker(.title3))
+                        .foregroundStyle(toneColor(card.tone))
+                        .frame(width: 36)
+
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(card.subtitle)
+                            .font(.tasker(.caption1))
+                            .foregroundStyle(Color.tasker(.textTertiary))
+                            .lineLimit(2)
+                        Text(card.title)
+                            .font(.tasker(.headline))
+                            .foregroundStyle(Color.tasker(.textPrimary))
+                            .lineLimit(2)
+                    }
+
+                    Spacer(minLength: TaskerTheme.Spacing.sm)
+
+                    VStack(alignment: .trailing, spacing: TaskerTheme.Spacing.xs) {
+                        Text(card.badgeText)
+                            .font(.tasker(.caption2))
+                            .fontWeight(.semibold)
+                            .foregroundStyle(toneColor(card.tone))
+                            .padding(.horizontal, TaskerTheme.Spacing.xs)
+                            .padding(.vertical, 3)
+                            .background(toneColor(card.tone).opacity(0.14))
+                            .clipShape(Capsule())
+
+                        Button {
+                            toggleEvaSelection(card)
+                        } label: {
+                            Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
+                                .font(.system(size: 24, weight: .semibold))
+                                .foregroundStyle(isSelected ? Color.tasker(.accentPrimary) : Color.tasker(.accentMuted))
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel(isSelected ? "Deselect \(card.title)" : "Select \(card.title)")
+                    }
+                }
+                .padding(TaskerTheme.Spacing.md)
+            }
+            .buttonStyle(.plain)
+
+            if isExpanded {
+                HStack(spacing: TaskerTheme.Spacing.sm) {
+                    ForEach(availableEvaActions(for: card), id: \.self) { action in
+                        evaCardActionButton(action, card: card)
+                    }
+                }
+                .padding(TaskerTheme.Spacing.sm)
+                .background(Color.tasker(.accentWash).opacity(0.48))
+            }
+        }
+        .background(Color.tasker(.surfacePrimary))
+        .clipShape(RoundedRectangle(cornerRadius: TaskerTheme.CornerRadius.lg, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: TaskerTheme.CornerRadius.lg, style: .continuous)
+                .stroke(isExpanded || isSelected ? Color.tasker(.accentPrimary) : Color.tasker(.strokeHairline), lineWidth: isExpanded ? 1.5 : 1)
+        )
+    }
+
+    private func evaCardActionButton(_ action: EvaProposalAction, card: EvaProposalCard) -> some View {
+        Button {
+            switch action {
+            case .discard:
+                selectedEvaCardIDs.remove(card.id)
+                expandedEvaCardID = nil
+            case .show:
+                openEvaProposalCard(card)
+            case .edit:
+                openEvaProposalCard(card)
+            case .add, .save:
+                selectedEvaCardIDs.insert(card.id)
+            }
+        } label: {
+            Label(action.rawValue, systemImage: actionIcon(action))
+                .font(.tasker(.buttonSmall))
+                .frame(maxWidth: .infinity)
+        }
+        .buttonStyle(.borderedProminent)
+        .tint(action == .discard ? Color.tasker(.statusDanger) : Color.tasker(.accentPrimary))
+    }
+
+    private func availableEvaActions(for card: EvaProposalCard) -> [EvaProposalAction] {
+        var actions = [card.primaryAction]
+        for action in card.secondaryActions where actions.contains(action) == false {
+            switch action {
+            case .show, .edit:
+                if evaTaskDefinition(for: card) != nil, onOpenTaskFromCard != nil {
+                    actions.append(action)
+                }
+            case .discard, .add, .save:
+                actions.append(action)
+            }
+        }
+        return actions
+    }
+
+    private func openEvaProposalCard(_ card: EvaProposalCard) {
+        guard let task = evaTaskDefinition(for: card) else { return }
+        onOpenTaskFromCard?(task)
+    }
+
+    private func evaTaskDefinition(for card: EvaProposalCard) -> TaskDefinition? {
+        guard let snapshot = card.after ?? card.before,
+              let taskID = snapshot.taskID else {
+            return nil
+        }
+        return TaskDefinition(
+            id: taskID,
+            iconSymbolName: snapshot.iconSymbolName,
+            title: snapshot.title,
+            dueDate: snapshot.dueDate,
+            scheduledStartAt: snapshot.scheduledStartAt,
+            scheduledEndAt: snapshot.scheduledEndAt,
+            estimatedDuration: snapshot.estimatedDuration
+        )
+    }
+
+    private func toggleEvaSelection(_ card: EvaProposalCard) {
+        if selectedEvaCardIDs.contains(card.id) {
+            selectedEvaCardIDs.remove(card.id)
+        } else {
+            selectedEvaCardIDs.insert(card.id)
+        }
+    }
+
+    private func applyEvaProposal(payload: AssistantCardPayload, proposal: EvaProposalReviewPayload) {
+        guard let runID = payload.runID, let pipeline = LLMAssistantPipelineProvider.pipeline else {
+            evaApplyMessage = "EVA cannot apply this plan right now."
+            return
+        }
+        let selectedCards = proposal.cards.filter { selectedEvaCardIDs.contains($0.id) }
+        let gate = EvaProposalApplyGate.validate(selectedCards: selectedCards)
+        guard case .allowed(let appliedCount) = gate else {
+            if case .blocked(let message) = gate {
+                evaApplyMessage = message
+            }
+            return
+        }
+        isApplyingEvaProposal = true
+        evaApplyMessage = "Applying selected changes..."
+
+        pipeline.fetchRun(id: runID) { fetchResult in
+            switch fetchResult {
+            case .failure(let error):
+                finishEvaApply(message: error.localizedDescription)
+            case .success(let run):
+                guard
+                    let run,
+                    let data = run.proposalData,
+                    let envelope = try? JSONDecoder().decode(AssistantCommandEnvelope.self, from: data)
+                else {
+                    finishEvaApply(message: "EVA could not read this proposal.")
+                    return
+                }
+
+                let selectedEnvelope = EvaProposalCardBuilder.selectedEnvelope(
+                    from: envelope,
+                    selectedCardIDs: selectedEvaCardIDs,
+                    cards: proposal.cards
+                )
+                if selectedEnvelope.commands.count == envelope.commands.count {
+                    confirmAndApply(
+                        pipeline: pipeline,
+                        runID: runID,
+                        appliedCount: appliedCount,
+                        payload: payload,
+                        proposal: proposal,
+                        selectedCards: selectedCards
+                    )
+                } else {
+                    pipeline.propose(threadID: run.threadID ?? "eva-selected-\(UUID().uuidString)", envelope: selectedEnvelope) { proposeResult in
+                        switch proposeResult {
+                        case .failure(let error):
+                            finishEvaApply(message: error.localizedDescription)
+                        case .success(let selectedRun):
+                            confirmAndApply(
+                                pipeline: pipeline,
+                                runID: selectedRun.id,
+                                appliedCount: appliedCount,
+                                payload: payload,
+                                proposal: proposal,
+                                selectedCards: selectedCards
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private func confirmAndApply(
+        pipeline: AssistantActionPipelineUseCase,
+        runID: UUID,
+        appliedCount: Int,
+        payload: AssistantCardPayload,
+        proposal: EvaProposalReviewPayload,
+        selectedCards: [EvaProposalCard]
+    ) {
+        pipeline.confirm(runID: runID) { confirmResult in
+            switch confirmResult {
+            case .failure(let error):
+                finishEvaApply(message: error.localizedDescription)
+            case .success:
+                pipeline.applyConfirmedRun(id: runID) { applyResult in
+                    switch applyResult {
+                    case .failure(let error):
+                        finishEvaApply(message: error.localizedDescription)
+                    case .success:
+                        recordEvaAppliedRunHistory(
+                            runID: runID,
+                            payload: payload,
+                            proposal: proposal,
+                            selectedCards: selectedCards
+                        )
+                        finishEvaApply(message: "EVA updated \(appliedCount) tasks. Undo for 30 min.", appliedRunID: runID)
+                    }
+                }
+            }
+        }
+    }
+
+    private func recordEvaAppliedRunHistory(
+        runID: UUID,
+        payload: AssistantCardPayload,
+        proposal: EvaProposalReviewPayload,
+        selectedCards: [EvaProposalCard]
+    ) {
+        guard V2FeatureFlags.evaAppliedRunHistory else { return }
+        let appliedAt = Date()
+        let entry = EvaAppliedRunHistoryEntry(
+            runID: runID,
+            threadID: payload.threadID,
+            prompt: proposal.prompt,
+            summary: summaryText(proposal.summary),
+            appliedCards: selectedCards,
+            discardedCardCount: max(0, proposal.cards.count - selectedCards.count),
+            contextReceipt: proposal.contextReceipt,
+            appliedAt: appliedAt,
+            undoExpiresAt: appliedAt.addingTimeInterval(30 * 60),
+            status: AssistantCardStatus.applied.rawValue,
+            undoStatus: AssistantCardStatus.undoAvailable.rawValue
+        )
+        EvaAppliedRunHistoryStore.shared.record(entry)
+    }
+
+    private func finishEvaApply(message: String, appliedRunID: UUID? = nil) {
+        DispatchQueue.main.async {
+            isApplyingEvaProposal = false
+            evaApplyMessage = message
+            if let appliedRunID {
+                appliedEvaRunIDs.insert(appliedRunID)
+                selectedEvaCardIDs.removeAll()
+            }
+        }
+    }
+
+    private func applyButtonTitle(cards: [EvaProposalCard]) -> String {
+        let defaultIDs = Set(cards.filter(\.isSelectedByDefault).map(\.id))
+        return selectedEvaCardIDs == defaultIDs ? "Apply selected" : "Apply selected"
+    }
+
+    private func summaryText(_ summary: String) -> String {
+        summary.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            ? "Here's how your day is planned:"
+            : summary
+    }
+
+    private func toneColor(_ tone: EvaProposalTone) -> Color {
+        switch tone {
+        case .create:
+            return Color.tasker(.accentPrimary)
+        case .edit:
+            return Color.tasker(.statusWarning)
+        case .neutral:
+            return Color.tasker(.textTertiary)
+        case .warning:
+            return Color.tasker(.statusWarning)
+        case .destructive:
+            return Color.tasker(.statusDanger)
+        }
+    }
+
+    private func iconName(for card: EvaProposalCard) -> String {
+        if let icon = card.after?.iconSymbolName ?? card.before?.iconSymbolName {
+            return icon
+        }
+        switch card.kind {
+        case .create:
+            return "sparkles"
+        case .move:
+            return "arrow.right"
+        case .shorten:
+            return "timer"
+        case .deferred:
+            return "arrow.uturn.forward"
+        case .drop, .delete:
+            return "trash"
+        case .unchanged:
+            return "checkmark.seal"
+        case .noOp:
+            return "info.circle"
+        case .needsReview:
+            return "exclamationmark.triangle"
+        case .edit:
+            return "pencil"
+        }
+    }
+
+    private func actionIcon(_ action: EvaProposalAction) -> String {
+        switch action {
+        case .add:
+            return "plus"
+        case .save:
+            return "checkmark"
+        case .edit:
+            return "pencil"
+        case .discard:
+            return "xmark"
+        case .show:
+            return "eye"
         }
     }
 

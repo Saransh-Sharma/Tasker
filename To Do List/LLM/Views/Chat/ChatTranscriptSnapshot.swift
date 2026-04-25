@@ -38,13 +38,13 @@ enum ChatPendingResponseStatusText {
         case .idle:
             return nil
         case .buildingContext:
-            return "Reviewing your context..."
+            return "Checking the forecast..."
         case .assemblingPrompt:
-            return "Organizing the big picture..."
+            return "Sorting your timeline..."
         case .preparingModel:
-            return "Getting the model ready..."
+            return "Finding open space..."
         case .generating:
-            return "Preparing a focused response..."
+            return "Protecting routines..."
         }
     }
 }

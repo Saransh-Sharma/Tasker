@@ -143,7 +143,10 @@ struct ChatEmptyStateView: View {
     }
 
     var body: some View {
-        VStack(spacing: TaskerTheme.Spacing.lg) {
+        if V2FeatureFlags.evaStructuredComposer && isActivationPresentation == false {
+            structuredPlanEmptyState
+        } else {
+            VStack(spacing: TaskerTheme.Spacing.lg) {
             Spacer()
 
             if isActivationPresentation {
@@ -213,6 +216,79 @@ struct ChatEmptyStateView: View {
             Spacer()
         }
         .accessibilityIdentifier("chat.emptyState.container")
+        }
+    }
+
+    private var structuredPlanEmptyState: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            HStack {
+                Spacer()
+                Image(systemName: "questionmark")
+                    .font(.system(size: 24, weight: .semibold))
+                    .foregroundStyle(Color.tasker(.textPrimary))
+                    .frame(width: 56, height: 56)
+                    .background(Color.tasker(.surfacePrimary), in: Circle())
+                    .accessibilityLabel("EVA help")
+                    .accessibilityIdentifier("eva.structured.help")
+            }
+            .padding(.horizontal, TaskerTheme.Spacing.xl)
+            .padding(.top, TaskerTheme.Spacing.xl)
+
+            VStack(alignment: .leading, spacing: TaskerTheme.Spacing.xs) {
+                Text("Hi there!")
+                    .font(.system(size: 34, weight: .bold, design: .rounded))
+                    .foregroundStyle(Color.tasker(.accentPrimary))
+                Text("What do you need to plan?")
+                    .font(.system(size: 32, weight: .bold, design: .rounded))
+                    .foregroundStyle(Color.tasker(.textPrimary))
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .padding(.horizontal, TaskerTheme.Spacing.xl)
+            .padding(.top, TaskerTheme.Spacing.xl)
+
+            Spacer(minLength: TaskerTheme.Spacing.xl)
+
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: TaskerTheme.Spacing.md) {
+                    structuredExampleChip(icon: "arrow.triangle.2.circlepath", title: "Move Uncompleted Tasks", subtitle: "Reschedule my unfinished tasks...")
+                    structuredExampleChip(icon: "graduationcap.fill", title: "Breakdown a study day", subtitle: "Plan my study day where I have...")
+                    structuredExampleChip(icon: "checklist", title: "Turn list into step-by-step", subtitle: "Turn this messy list of thoughts...")
+                }
+                .padding(.horizontal, TaskerTheme.Spacing.xl)
+                .padding(.bottom, TaskerTheme.Spacing.sm)
+            }
+        }
+        .accessibilityIdentifier("chat.emptyState.container")
+    }
+
+    private func structuredExampleChip(icon: String, title: String, subtitle: String) -> some View {
+        Button {
+            onSelectStarterPrompt(EvaStarterPrompt(id: title, title: title, submissionText: title, style: .naturalLanguage, isRecommended: false))
+        } label: {
+            HStack(alignment: .top, spacing: TaskerTheme.Spacing.sm) {
+                Image(systemName: icon)
+                    .font(.tasker(.caption1))
+                    .foregroundStyle(Color.tasker(.accentPrimary))
+                    .frame(width: 20)
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(title)
+                        .font(.tasker(.callout))
+                        .foregroundStyle(Color.tasker(.textPrimary))
+                        .lineLimit(1)
+                    Text(subtitle)
+                        .font(.tasker(.caption1))
+                        .foregroundStyle(Color.tasker(.textTertiary))
+                        .lineLimit(1)
+                }
+            }
+            .padding(.horizontal, TaskerTheme.Spacing.md)
+            .padding(.vertical, TaskerTheme.Spacing.sm)
+            .frame(width: 230, alignment: .leading)
+            .background(Color.tasker(.surfacePrimary))
+            .clipShape(RoundedRectangle(cornerRadius: TaskerTheme.CornerRadius.lg, style: .continuous))
+        }
+        .buttonStyle(.plain)
+        .taskerPressFeedback(reduceMotion: reduceMotion)
     }
 
     @ViewBuilder
@@ -306,6 +382,7 @@ struct ChatComposerView: View {
     let onSubmitPrompt: () -> Void
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var structuredDeferredFeedback: String?
 
     private var isActivationPresentation: Bool {
         if case .activation = presentationMode {
@@ -326,6 +403,9 @@ struct ChatComposerView: View {
     }
 
     var body: some View {
+        if V2FeatureFlags.evaStructuredComposer && isActivationPresentation == false {
+            structuredComposer
+        } else {
         VStack(alignment: .leading, spacing: TaskerTheme.Spacing.xs) {
             if activeAttachments.isEmpty == false {
                 activeAttachmentRow
@@ -403,6 +483,85 @@ struct ChatComposerView: View {
         )
         #endif
         .accessibilityIdentifier("chat.composer.container")
+        }
+    }
+
+    private var structuredComposer: some View {
+        VStack(alignment: .leading, spacing: TaskerTheme.Spacing.xs) {
+            if activeAttachments.isEmpty == false {
+                activeAttachmentRow
+            }
+
+            if let commandFeedback, !commandFeedback.isEmpty {
+                Text(commandFeedback)
+                    .font(.tasker(.caption1))
+                    .foregroundStyle(Color.tasker(.statusDanger))
+                    .padding(.horizontal, TaskerTheme.Spacing.md)
+                    .accessibilityIdentifier("chat.command_feedback")
+                    .transition(.opacity)
+            }
+
+            HStack(alignment: .bottom, spacing: TaskerTheme.Spacing.xs) {
+                TextField("Tell me your plans...", text: $prompt, axis: .vertical)
+                    .focused($isPromptFocused)
+                    .textFieldStyle(.plain)
+                    .font(.system(size: 22, weight: .regular, design: .rounded))
+                    .foregroundStyle(Color.tasker(.textPrimary))
+                    .tint(Color.tasker(.accentPrimary))
+                    .padding(.horizontal, TaskerTheme.Spacing.md)
+                    .padding(.vertical, TaskerTheme.Spacing.sm)
+                    .frame(minHeight: 52)
+                    .onSubmit(onSubmitPrompt)
+
+                if V2FeatureFlags.evaVoiceDeferred {
+                    structuredDeferredIcon(systemName: "mic.fill", label: "Voice planning")
+                }
+                if V2FeatureFlags.evaScanDeferred {
+                    structuredDeferredIcon(systemName: "viewfinder", label: "Scan planning")
+                }
+
+                if isGenerationInFlight {
+                    stopButton
+                        .padding(.leading, 0)
+                } else if canSubmit {
+                    generateButton
+                        .padding(.leading, 0)
+                    }
+            }
+
+            if let structuredDeferredFeedback {
+                Text(structuredDeferredFeedback)
+                    .font(.tasker(.caption1))
+                    .foregroundStyle(Color.tasker(.textSecondary))
+                    .padding(.horizontal, TaskerTheme.Spacing.md)
+                    .accessibilityIdentifier("eva.structured.deferred.feedback")
+            }
+        }
+        .padding(.vertical, TaskerTheme.Spacing.xs)
+        .background(Color.tasker(.surfacePrimary))
+        .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 24, style: .continuous)
+                .stroke(Color.tasker(.accentPrimary), lineWidth: 1.4)
+        )
+        .shadow(color: Color.tasker(.accentPrimary).opacity(0.18), radius: 8, y: 2)
+        .accessibilityIdentifier("eva.structured.composer")
+    }
+
+    private func structuredDeferredIcon(systemName: String, label: String) -> some View {
+        Button {
+            structuredDeferredFeedback = "\(label) is coming later."
+        } label: {
+            Image(systemName: systemName)
+                .font(.system(size: 22, weight: .semibold))
+                .foregroundStyle(Color.tasker(.accentPrimary).opacity(0.82))
+                .frame(width: 36, height: 44)
+                .padding(.bottom, 4)
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("\(label) coming later")
+        .accessibilityHint("No permission will be requested.")
+        .accessibilityIdentifier("eva.structured.deferred.\(systemName)")
     }
 
     private var composerSuggestionStrip: some View {
@@ -727,6 +886,10 @@ struct ChatScaffoldView: View {
         transcriptSnapshot.messages.contains { $0.role == .assistant }
     }
 
+    private var usesStructuredPlanningChrome: Bool {
+        V2FeatureFlags.evaStructuredComposer && isActivationPresentation == false
+    }
+
     private var headerTitle: String {
         if currentThread == nil {
             return isActivationPresentation ? "First win" : "Planning workspace"
@@ -748,7 +911,7 @@ struct ChatScaffoldView: View {
     var body: some View {
         NavigationStack {
             VStack(spacing: 0) {
-                if isActivationPresentation == false {
+                if isActivationPresentation == false && !(usesStructuredPlanningChrome && currentThread == nil) {
                     ChatHeaderView(
                         title: headerTitle,
                         subtitle: headerSubtitle,
@@ -783,7 +946,7 @@ struct ChatScaffoldView: View {
                 }
 
                 HStack(alignment: .bottom, spacing: TaskerTheme.Spacing.md) {
-                    if activationConfiguration?.hideUtilityActions != true {
+                    if activationConfiguration?.hideUtilityActions != true && !(usesStructuredPlanningChrome && currentThread == nil) {
                         ChatModelPickerButton(isPresented: showModelPicker)
                     }
                     ChatComposerView(
