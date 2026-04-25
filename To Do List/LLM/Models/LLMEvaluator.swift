@@ -177,6 +177,28 @@ class LLMEvaluator {
         cancelGeneration(reason: "stop_button")
     }
 
+    func beginUserTurn(runID: UUID) {
+        cancelled = false
+        output = ""
+        pendingVisibleOutput = ""
+        hasPendingVisibleOutput = false
+        lastVisibleOutputPublishAt = .distantPast
+        stat = ""
+        thinkingTime = nil
+        lastGenerationTimedOut = false
+        lastTerminationReason = nil
+        lastRawOutput = ""
+        lastGeneratedTokenCount = 0
+        lastVisibleCharacterCount = 0
+        lastSanitizedTemplateArtifacts = false
+        didEmitAnswerPhaseSignalForRun = false
+        logWarning(
+            event: "chat_user_turn_started",
+            message: "Cleared stale evaluator output state for accepted chat turn",
+            fields: ["run_id": runID.uuidString]
+        )
+    }
+
     /// Executes generate.
     func generate(
         modelName: String,
@@ -258,7 +280,34 @@ class LLMEvaluator {
         requestOptions: LLMGenerationRequestOptions?,
         onFirstToken: (@MainActor () -> Void)?
     ) async -> String {
-        guard !running else { return "" }
+        if running {
+            let waitStartedAt = Date()
+            logWarning(
+                event: "chat_generation_queue_waiting",
+                message: "Generation requested while evaluator is busy; waiting for active generation to finish",
+                fields: ["model_name": modelName]
+            )
+            while running {
+                if _Concurrency.Task.isCancelled {
+                    lastTerminationReason = "cancelled_while_waiting_for_generation_slot"
+                    return ""
+                }
+                do {
+                    try await _Concurrency.Task.sleep(nanoseconds: 50_000_000)
+                } catch {
+                    lastTerminationReason = "cancelled_while_waiting_for_generation_slot"
+                    return ""
+                }
+            }
+            logWarning(
+                event: "chat_generation_queue_acquired",
+                message: "Queued generation acquired evaluator slot",
+                fields: [
+                    "model_name": modelName,
+                    "wait_ms": String(Int(Date().timeIntervalSince(waitStartedAt) * 1_000))
+                ]
+            )
+        }
         guard let model = ModelConfiguration.getModelByName(modelName) else {
             runtimePhase = .failed
             output = "Failed: model not found"

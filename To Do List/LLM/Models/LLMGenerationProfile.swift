@@ -101,7 +101,17 @@ struct LLMGenerationProfile {
     static let dailyBrief = LLMGenerationProfile(timeoutSeconds: 8)
     static let topThree = LLMGenerationProfile(timeoutSeconds: 10)
     static let breakdown = LLMGenerationProfile(timeoutSeconds: 10)
-    static let chatPlanJSON = LLMGenerationProfile(timeoutSeconds: 12)
+    static let chatPlanJSON = LLMGenerationProfile(
+        timeoutSeconds: 12,
+        regularMaxRawTokens: 768,
+        reasoningMaxRawTokens: 768,
+        temperature: 0.1,
+        topP: 0.85,
+        repetitionPenalty: 1.05,
+        repetitionContextSize: 64,
+        stripReasoningBlocks: true,
+        stripTemplateArtifacts: true
+    )
 }
 
 struct LLMVisibleTextFormattingResult {
