@@ -1494,6 +1494,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
             tagRepository: stateContainer.tagRepository,
             habitRuntimeReadRepository: stateContainer.habitRuntimeReadRepository
         )
+        LLMAssistantPipelineProvider.configure(pipeline: stateContainer.useCaseCoordinator.assistantActionPipeline)
         configureSemanticRetrievalLifecycle(stateContainer: stateContainer)
         return true
     }
