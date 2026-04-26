@@ -162,6 +162,8 @@
 		75A328B62DFB604000F36C31 /* MLXRandom in Frameworks */ = {isa = PBXBuildFile; productRef = 75A328B52DFB604000F36C31 /* MLXRandom */; };
 		75A328B92DFB606700F36C31 /* MLXLLM in Frameworks */ = {isa = PBXBuildFile; productRef = 75A328B82DFB606700F36C31 /* MLXLLM */; };
 		75A328BB2DFB606700F36C31 /* MLXLMCommon in Frameworks */ = {isa = PBXBuildFile; productRef = 75A328BA2DFB606700F36C31 /* MLXLMCommon */; };
+		75A328C12DFB606700F36C31 /* Hub in Frameworks */ = {isa = PBXBuildFile; productRef = 75A328BF2DFB606700F36C31 /* Hub */; };
+		75A328C22DFB606700F36C31 /* Tokenizers in Frameworks */ = {isa = PBXBuildFile; productRef = 75A328C02DFB606700F36C31 /* Tokenizers */; };
 		75A400FD248C57DD002F0E7A /* ToDoAnimations.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75A400FC248C57DC002F0E7A /* ToDoAnimations.swift */; };
 		75A631602E8BDAB9006EEA59 /* LGSearchViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75A6315C2E8BDAB9006EEA59 /* LGSearchViewController.swift */; };
 		75A631612E8BDAB9006EEA59 /* LGSearchViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75A6315D2E8BDAB9006EEA59 /* LGSearchViewModel.swift */; };
@@ -1156,11 +1158,13 @@
 				75A328B22DFB604000F36C31 /* MLX in Frameworks */,
 				7529F6FD2DFDEFB3000CBE36 /* Lottie in Frameworks */,
 				750F9EDC2685CC9F00C008C4 /* CloudKit.framework in Frameworks */,
-				75F89FB22DFC62C3009EDD8F /* MarkdownUI in Frameworks */,
-				75A328B62DFB604000F36C31 /* MLXRandom in Frameworks */,
-				75A328BB2DFB606700F36C31 /* MLXLMCommon in Frameworks */,
-				521748F5D68F9EB9E2D40DF8 /* Pods_Tasker.framework in Frameworks */,
-			);
+					75F89FB22DFC62C3009EDD8F /* MarkdownUI in Frameworks */,
+					75A328B62DFB604000F36C31 /* MLXRandom in Frameworks */,
+					75A328BB2DFB606700F36C31 /* MLXLMCommon in Frameworks */,
+					75A328C12DFB606700F36C31 /* Hub in Frameworks */,
+					75A328C22DFB606700F36C31 /* Tokenizers in Frameworks */,
+					521748F5D68F9EB9E2D40DF8 /* Pods_Tasker.framework in Frameworks */,
+				);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 		753EFCAD2445A24700A739E3 /* Frameworks */ = {
@@ -2478,10 +2482,12 @@
 				75A328B82DFB606700F36C31 /* MLXLLM */,
 				75A328B12DFB604000F36C31 /* MLX */,
 				7529F6FC2DFDEFB3000CBE36 /* Lottie */,
-				75F89FB12DFC62C3009EDD8F /* MarkdownUI */,
-				75A328B52DFB604000F36C31 /* MLXRandom */,
-				75A328BA2DFB606700F36C31 /* MLXLMCommon */,
-			);
+					75F89FB12DFC62C3009EDD8F /* MarkdownUI */,
+					75A328B52DFB604000F36C31 /* MLXRandom */,
+					75A328BA2DFB606700F36C31 /* MLXLMCommon */,
+					75A328BF2DFB606700F36C31 /* Hub */,
+					75A328C02DFB606700F36C31 /* Tokenizers */,
+				);
 			productName = "To Do List";
 			productReference = 753EFC9A2445A24500A739E3 /* This Day.app */;
 			productType = "com.apple.product-type.application";
@@ -2575,11 +2581,12 @@
 			);
 			mainGroup = 753EFC912445A24500A739E3;
 			packageReferences = (
-				75A328B02DFB603F00F36C31 /* XCRemoteSwiftPackageReference "mlx-swift" */,
-				75A328B72DFB606700F36C31 /* XCRemoteSwiftPackageReference "mlx-swift-lm" */,
-				75F89FB02DFC62C3009EDD8F /* XCRemoteSwiftPackageReference "swift-markdown-ui" */,
-				7529F6FB2DFDEFB3000CBE36 /* XCRemoteSwiftPackageReference "lottie-ios" */,
-			);
+					75A328B02DFB603F00F36C31 /* XCRemoteSwiftPackageReference "mlx-swift" */,
+					75A328B72DFB606700F36C31 /* XCRemoteSwiftPackageReference "mlx-swift-lm" */,
+					75A328BE2DFB606700F36C31 /* XCRemoteSwiftPackageReference "swift-transformers" */,
+					75F89FB02DFC62C3009EDD8F /* XCRemoteSwiftPackageReference "swift-markdown-ui" */,
+					7529F6FB2DFDEFB3000CBE36 /* XCRemoteSwiftPackageReference "lottie-ios" */,
+				);
 			productRefGroup = 753EFC9B2445A24500A739E3 /* Products */;
 			projectDirPath = "";
 			projectRoot = "";
@@ -3720,20 +3727,28 @@
 		};
 		75A328B02DFB603F00F36C31 /* XCRemoteSwiftPackageReference "mlx-swift" */ = {
 			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "https://github.com/PrismML-Eng/mlx-swift.git";
-			requirement = {
-				branch = v0.30.6_prism;
-				kind = branch;
-			};
-		};
-		75A328B72DFB606700F36C31 /* XCRemoteSwiftPackageReference "mlx-swift-lm" */ = {
-			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "https://github.com/ml-explore/mlx-swift-lm.git";
+			repositoryURL = "https://github.com/ml-explore/mlx-swift.git";
 			requirement = {
 				kind = upToNextMinorVersion;
-				minimumVersion = 2.30.6;
+				minimumVersion = 0.31.3;
 			};
 		};
+			75A328B72DFB606700F36C31 /* XCRemoteSwiftPackageReference "mlx-swift-lm" */ = {
+				isa = XCRemoteSwiftPackageReference;
+				repositoryURL = "https://github.com/ml-explore/mlx-swift-lm.git";
+				requirement = {
+					kind = upToNextMinorVersion;
+					minimumVersion = 3.31.3;
+				};
+			};
+			75A328BE2DFB606700F36C31 /* XCRemoteSwiftPackageReference "swift-transformers" */ = {
+				isa = XCRemoteSwiftPackageReference;
+				repositoryURL = "https://github.com/huggingface/swift-transformers.git";
+				requirement = {
+					kind = upToNextMajorVersion;
+					minimumVersion = 1.3.0;
+				};
+			};
 		75F89FB02DFC62C3009EDD8F /* XCRemoteSwiftPackageReference "swift-markdown-ui" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/gonzalezreal/swift-markdown-ui";
@@ -3769,6 +3784,16 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 75A328B72DFB606700F36C31 /* XCRemoteSwiftPackageReference "mlx-swift-lm" */;
 			productName = MLXLMCommon;
+		};
+		75A328BF2DFB606700F36C31 /* Hub */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 75A328BE2DFB606700F36C31 /* XCRemoteSwiftPackageReference "swift-transformers" */;
+			productName = Hub;
+		};
+		75A328C02DFB606700F36C31 /* Tokenizers */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 75A328BE2DFB606700F36C31 /* XCRemoteSwiftPackageReference "swift-transformers" */;
+			productName = Tokenizers;
 		};
 		75F89FB12DFC62C3009EDD8F /* MarkdownUI */ = {
 			isa = XCSwiftPackageProductDependency;
