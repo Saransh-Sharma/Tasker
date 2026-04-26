@@ -31,6 +31,12 @@ Canonical boot/runtime anchors:
 - Presentation never imports CoreData.
 - Runtime is fail-closed if required V2 dependencies are missing.
 
+## Local LLM / EVA
+
+The local assistant architecture is documented in `docs/architecture/LOCAL_LLM_EVA_ARCHITECTURE.md`.
+
+LLM-driven task changes still follow the V2 runtime boundaries: UI routes user intent, the planner emits schema-validated commands, `AssistantActionPipelineUseCase` validates and applies mutations, and repositories persist state. Chat or proposal UI must not write task state directly.
+
 ## Cutover Policy
 
 - Store epoch key: `tasker.v3.store.epoch`

@@ -6,6 +6,7 @@
 - [x] Build Structured-style EVA home, composer, processing, and review UI.
 - [ ] Add inline timeline diff preview hooks.
 - [x] Wire strict gates, selected apply, undo, and applied-run history foundation.
+- [x] Document LLM/EVA feature, use cases, architecture decisions, risks, and manual test guidance.
 - [ ] Add full unit/UI coverage for schema, cards, selection, apply, undo, and review UI.
 
 ## EVA Plan Generation Parse Recovery

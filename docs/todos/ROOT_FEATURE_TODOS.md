@@ -43,6 +43,18 @@ Source: `PERF_ANALYTICS_REMEDIATION_TODO.md`
 - [x] 9) Add focused regression + perf tests
 - [x] 10) Build and build-for-testing verification
 
+## Calendar + Timeline Documentation Refresh
+
+Source: `docs/calendar/README.md`
+
+- [x] Create the canonical calendar + timeline documentation package
+- [x] Document the read-only schedule-context contract and timeline terminology
+- [x] Document runtime contracts for authorization, selection, refresh, and derived projections
+- [x] Document calendar and timeline risks, non-goals, and phased roadmap
+- [x] Link the package from the root README and docs index
+- [x] Link the package from the product requirements document
+- [ ] Review markdown links and confirm no stale duplicate calendar/timeline contract docs remain
+
 ## Home Rescue Follow-Through
 
 Source: `TODO.home-rescue-followthrough.md`

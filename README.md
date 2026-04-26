@@ -28,6 +28,39 @@ Tasker is a personal execution system with two codebases in one repository:
 - `To Do ListTests/` and `To Do ListUITests/` cover unit, integration, and UI regressions.
 - `Shared/` and `TaskerWidgets/` contain shared code and widget targets.
 
+## Documentation
+
+- `docs/README.md` is the main docs index.
+- `docs/habits/README.md` documents Tasker's habit streak system, product behavior, runtime contract, risks, and roadmap.
+- `docs/calendar/README.md` documents Tasker's read-only calendar integration, timeline context, risks, and roadmap.
+- `docs/audits/HABITS_IOS_UX_AUDIT_2026-04-17.md` captures the current habit UX audit findings and follow-up items.
+
+## Local EVA / LLM
+
+EVA is Tasker's local assistant layer. It uses on-device MLX inference and deterministic planner guards; prompts and task context are not sent to a cloud AI service.
+
+Current LLM-backed and planner-backed use cases include:
+
+- Chat answers over the current task context.
+- Read-only task and day review prompts, such as "What are my tasks?"
+- Plan with EVA text prompts that can produce either visible assistant text or proposal cards.
+- Proposal review cards with selected apply for non-empty, applyable task command runs.
+- Slash-command context, daily brief, top three, task breakdown, dynamic chips, and task suggestions.
+
+See `docs/architecture/LOCAL_LLM_EVA_ARCHITECTURE.md` for the LLM/EVA architecture, use cases, decisions, risks, and manual test guide. Use `Tasker.xcworkspace` for iOS builds and tests because CocoaPods dependencies are required.
+
+## Calendar And Timeline
+
+Tasker’s calendar integration is view-only schedule context, not a calendar editing system.
+
+The feature is documented in `docs/calendar/README.md` and covers:
+
+- Calendar permission onboarding and recovery
+- Local multi-calendar selection
+- Next meeting and busy-block projections
+- Task-fit hints based on the user’s current availability
+- Timeline surfaces that remain task-first while using calendar context
+
 ## Workflows
 
 - Prefer `taskerctl` for repeatable local build and test flows.

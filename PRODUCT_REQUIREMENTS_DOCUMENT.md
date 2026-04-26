@@ -1,7 +1,7 @@
 # Tasker iOS - Product Requirements Document
 
-**Version:** 4.4  
-**Last Updated:** March 22, 2026  
+**Version:** 4.5  
+**Last Updated:** April 25, 2026  
 **Platform:** iOS 16.0+  
 **Status:** Active Product Direction
 
@@ -148,6 +148,9 @@ Tasker intentionally adopts patterns that reduce day-level overwhelm and increas
 - No clinical or diagnostic positioning.
 - No engagement-at-all-costs notification strategy.
 - No automation path that bypasses explicit user control for impactful changes.
+- No social habit sharing or public streak leaderboards in this PRD cycle.
+- No punitive streak-insurance mechanics or shame-based loss-aversion loops.
+- No passive sensor-based lapse detection or automatic relapse inference.
 - No roadmap commitments to platforms outside iOS in this document.
 
 ## Current Product Constraints (Release 4.x)
@@ -173,6 +176,23 @@ Tasker intentionally adopts patterns that reduce day-level overwhelm and increas
 - Return-to-context utilization: percentage of sessions where resume actions are used after interruption.
 - Post-interruption completion rate: completion probability for tasks in progress before an inactivity gap greater than 30 minutes.
 
+### Habit Activation Metrics
+- First-habit creation rate: percentage of new users who create at least one habit within their first 7 days.
+- Time-to-first-habit-check-in: median time from first habit creation to first logged habit outcome.
+
+### Habit Consistency Metrics
+- 7-day active-habit adherence: percentage of scheduled habit opportunities resolved as success for active habits.
+- 14-day habit retention: percentage of users who still have at least one active habit receiving outcomes after 14 days.
+
+### Habit Recovery Metrics
+- Next-scheduled-day recovery rate: percentage of misses or lapses followed by a success on the next scheduled opportunity.
+- 72-hour recovery rate: percentage of broken habits that receive a successful restart within 72 hours.
+- Never-miss-twice rate: percentage of first misses not followed by another miss on the next scheduled opportunity.
+
+### Habit System Health Metrics
+- Consecutive skip rate: percentage of habits with two or more scheduled skips in a row.
+- Overcommitment signal: relationship between number of newly created habits and subsequent adherence collapse.
+
 ### Backlog Health Metrics
 - Overdue carry-over ratio: overdue tasks at day end divided by overdue tasks at day start.
 - Stale backlog size: count of open tasks untouched for 14+ days per active user.
@@ -194,8 +214,11 @@ Tasker intentionally adopts patterns that reduce day-level overwhelm and increas
 ## Metric Interpretation Guardrails
 
 - Favor sustained movement over short spikes.
-- Review metric movement alongside user-reported overwhelm and friction.
+- Review metric movement alongside user-reported overwhelm, friction, and honest logging behavior.
 - Treat reminder and assistant metrics as quality metrics first and volume metrics second.
+- Do not optimize for longer streaks at the expense of truthful habit outcomes.
+- Do not optimize notification volume if it increases avoidance or reduces trust.
+- Treat skips and lapse visibility as truth-preserving behaviors, not churn to be hidden.
 - Do not ship growth tactics that improve short-term activity while degrading trust.
 
 ## Detailed Product Requirements
@@ -225,7 +248,9 @@ Requirements:
 
 ### Habits
 Purpose:
-- Support recurring behavior loops that help users build consistency, notice risk early, and recover quickly after misses.
+- Support recurring behavior loops that help users build consistency, visualize patterns, notice risk early, and recover quickly after misses.
+- Make habit health legible at a glance without forcing users into a separate planning mode.
+- Preserve a shame-free experience where misses are visible, honest, and recoverable.
 
 Requirements:
 - Habits are first-class recurring behaviors and are distinct from finite tasks.
@@ -237,18 +262,122 @@ Requirements:
   - `dailyCheckIn`
   - `lapseOnly`
 - Positive habits always behave as `dailyCheckIn` habits even if older/invalid stored data exists.
-- Home includes a mixed Due Today section that can contain both tasks and habits without removing existing task sections.
+- Supported cadence in this PRD cycle includes every day, weekdays only, weekends only, and custom weekday selection.
 - Positive habits support `Done` and `Skip`.
 - Negative `dailyCheckIn` habits support `Stayed Clean` and `Lapsed`.
-- Negative `lapseOnly` habits do not create standard due rows by default and instead support manual lapse logging from detail or quick actions.
-- Habit detail and library flows support create, edit, pause, unpause, archive, icon selection, notes, and history visibility.
-- Edit surfaces must allow schedule and reminder-window management, not only descriptive metadata changes.
-- Streaks, 14-day history, and risk indicators must help recovery framing rather than punish misses.
-- Paused habits must be excluded from active Home, analytics, daily brief, Eva, and LLM signal projections.
+- Negative `lapseOnly` habits do not create standard due rows by default and instead support manual lapse logging from detail or quick actions, while abstinent days are preserved automatically by maintenance or runtime projection logic.
+- Home includes a mixed Due Today section that can contain both tasks and due/tracking habits without removing existing task sections.
+- List rows show only the most decision-relevant metadata. For task rows this includes due, priority, steps, and project indicator. For habit rows this includes icon, ownership line, state badge, separate risk badge, streak chip, and compact recent-history strip.
+- Habit rows must keep primary actions one tap away:
+  - positive: `Done`, `Skip`
+  - negative `dailyCheckIn`: `Stayed Clean`, `Lapsed`
+  - negative `lapseOnly`: `Log Lapse`
+- Stable `lapseOnly` habits should default into a quiet tracking summary instead of dominating the prime agenda.
+- Recently resolved habit rows may remain visible in subdued form for the current session or day to reinforce progress and allow quick correction.
+- Habit detail and library flows support create, edit, pause, unpause, archive, icon selection, notes, history visibility, and recent-history correction.
+- Edit surfaces must allow cadence and reminder-window management, not only descriptive metadata changes.
+- Streaks, history, and risk indicators must help recovery framing rather than punish misses.
+- Paused habits preserve history but are excluded from active Home, analytics, daily brief, Eva, and LLM signal projections until unpaused.
+- Archived habits are soft-archived only, hidden from default active surfaces while preserving full history.
 - Habit analytics remain separate from task productivity metrics and are merged only in presentation where needed.
-- Habit AI/assistant surfaces consume habit signals and metadata directly; they must not route habits through fake tasks.
+- Habit AI and assistant surfaces consume habit signals and metadata directly; they must not route habits through fake tasks.
 - Empty, loading, and error states must remain explicit on habit surfaces.
 - Habit controls must meet accessibility expectations for labels, touch targets, readable status narration, and non-gesture alternatives.
+
+#### Habit Streak Contract
+Purpose:
+- Define how streaks, skips, and misses behave so that UI, analytics, assistant outputs, and roadmap work share the same mental model.
+
+Requirements:
+- `currentStreak` is the count of consecutive scheduled success days up to the most recent relevant day.
+- `bestStreak` is the longest historical run of scheduled success days.
+- `Skip` and `notScheduled` days are bridge days: they preserve continuity without adding a success.
+- `Missed` and `Lapsed` days break streaks.
+- `TodayPending` does not help or hurt streaks until the day resolves.
+- Risk state may be surfaced as `stable`, `atRisk`, or `broken`.
+- Risk answers how fragile this habit is right now and never replaces actual due-state.
+- Visual and copy treatment must make recovery legible without using hostile or moralizing language.
+
+#### Habit Board And Visual Streaks
+Purpose:
+- Make consistency visible in under two seconds.
+- Give users a satisfying pattern-recognition surface while still fitting Tasker's task and life-area model.
+
+Requirements:
+- Tasker must include a dedicated Habit Board reachable from habit library, habit detail, insights or systems, and contextual links from Home.
+- The board shows one row per active habit and one cell per calendar day.
+- Minimum supported windows:
+  - compact Home strip: last 14 days
+  - default board: rolling 28-day board with 7 visible columns at a time
+  - detail and insights summaries: last 7, 30, and 365 day counts plus current and best streak
+- Success cells deepen in intensity as streak depth grows.
+- `Skip` and `notScheduled` days render as bridge cells that preserve continuity without falsely claiming success.
+- `Missed` and `Lapsed` days interrupt the chain clearly, without punitive styling.
+- `TodayPending` is visually distinct from both success and failure.
+- Future cells are muted.
+- Negative habits visualize abstinence or clean streaks as progress.
+- The board supports sort by title, current streak, risk, `LifeArea`, and most in need of attention.
+- The board supports grouping by none, `LifeArea`, `Project`, and habit kind.
+- The board includes a top aggregate day strip showing how many active habits were successful, bridged or skipped, or broken per day.
+- Quick actions must support tap to resolve today's cell when appropriate and a secondary action to inspect or correct history.
+- The board must remain beautiful and motivating without pressuring users to hide misses.
+- Every board row and cell must expose accessible narration including habit name, date, state, and streak context.
+
+#### Habit Library And Detail
+Purpose:
+- Make habits manageable as systems, not just checkboxes.
+
+Requirements:
+- The habit library is the canonical browse and management surface for all habits.
+- Library supports search by title, `LifeArea`, `Project`, notes, and visible metadata.
+- Library supports filters for active, paused, archived, positive, negative, stable, at-risk, and broken habits.
+- Library sorts by title, current streak, risk, last activity, and recently created.
+- Habit detail is read-first and edit-second.
+- Read mode contains hero summary, state, risk, current streak, best streak, ownership, notes or context, history surface, and recovery cues.
+- Detail supports manual lapse logging for `lapseOnly` habits, pause or unpause, archive, and recent history correction.
+- Editing must never silently destroy history.
+- Cadence changes rebuild unresolved future schedule state while preserving past outcomes.
+- Re-activating a paused habit must not synthesize false misses for paused dates.
+- Detail should help the user understand why a streak broke and what the smallest next step is.
+
+#### Habit Use Cases
+1. Positive daily habit with a travel skip
+   - User tracks a small daily action.
+   - They complete four days, skip one travel day, then complete the next day.
+   - The board shows four deepening success cells, one bridge or skip cell, then a resumed success cell.
+   - Streak continuity is preserved, but the skip does not count as an extra success.
+
+2. Weekday-only positive habit
+   - User tracks a weekday habit.
+   - Saturday and Sunday render as bridge or not-scheduled cells, not misses.
+   - Monday continues the streak if completed.
+
+3. Negative daily check-in habit
+   - User tracks a behavior they want to reduce.
+   - Clean days deepen the streak.
+   - One lapse breaks the streak, marks the row as recovery-focused, and prompts restart framing on the next due day.
+   - The lapse remains visible historically without punitive language.
+
+4. Negative lapse-only habit
+   - User tracks a habit in lapse-only mode.
+   - Stable clean days do not require noisy daily check-ins.
+   - The habit lives in quiet tracking until the user logs a lapse.
+   - Logging a lapse creates a same-day broken state and moves the habit into recovery priority.
+
+5. Overcommitted user starts too many habits
+   - User creates several new habits in one week.
+   - Insights detects low adherence and the product suggests reducing scope: pause some habits, shrink one, and keep the core habits.
+   - The system supports simplification instead of demanding more discipline.
+
+6. Paused habit
+   - User pauses a habit during a busy period.
+   - The habit disappears from active Home, default board views, and insight rollups.
+   - On unpause, old history remains intact and no false misses are inserted for paused dates.
+
+7. History correction
+   - User accidentally logs the wrong outcome yesterday.
+   - From detail, they correct the outcome.
+   - Streaks, board visuals, and analytics update consistently, and the system preserves explicit correction provenance where supported.
 
 ### Tasks Browse And Search
 Purpose:
@@ -267,8 +396,11 @@ Purpose:
 
 Requirements:
 - Ask mode is read-only and clearly labeled as non-mutating.
+- Ask and Plan surfaces may summarize due habits, current streaks, recently broken habits, at-risk habits, and suggested recovery actions.
 - Plan mode outputs proposal cards with rationale.
+- Plan mode may suggest shrinking a habit, moving a reminder window, pausing an overloaded habit, or converting a difficult daily habit into a smaller or weekday-only version.
 - Apply mode requires propose -> confirm -> apply sequence.
+- Habit outcomes (`Done`, `Skip`, `Stayed Clean`, `Lapsed`) are never auto-logged by the assistant.
 - Diff preview is mandatory before apply.
 - Undo is visible and bounded by pipeline constraints.
 - Destructive operations require stronger confirmation copy and styling.
@@ -303,6 +435,10 @@ Requirements:
   - Reminder response quality based on delivery status, acknowledgements, and snoozes.
   - Focus ritual health metrics.
   - Recovery loop health metrics across recover/reschedule, decomposition, and reflection behavior.
+- Habit analytics remain separate from task productivity metrics and merge with task analytics only in presentation where useful.
+- `Today` includes a habit momentum module showing due habits, completed or clean habits today, skipped habits today, lapsed or broken habits today, and at-risk habits needing rescue.
+- `Week` includes habit adherence by weekday, skip distribution, lapse clusters, next-scheduled-day recovery rate, and `LifeArea` distribution of adherence.
+- `Systems` includes habit stability distribution (`stable`, `atRisk`, `broken`), current and best streak leaderboards, comeback behavior after misses, quiet-tracking health for `lapseOnly` habits, and habit load health.
 - Insights reuses the existing task, gamification, reminder, focus-session, and analytics models; no schema change is required for richer analysis.
 - Copy is action-first and shame-free, with explicit no-data states instead of blank or thin dashboards.
 - Reduced-motion fallback is required for transitions and animated module reveals.
@@ -313,10 +449,15 @@ Purpose:
 - Keep controls explicit for execution behavior, assistant behavior, and accessibility.
 
 Requirements:
-- Notifications and reminder controls are user-configurable.
+- Notifications and reminder controls are user-configurable for both tasks and habits.
+- Habit reminder windows remain configurable per habit.
+- Gentle recovery nudges after a miss or lapse are configurable and optional.
+- `lapseOnly` habits default to quieter notification behavior than `dailyCheckIn` habits.
+- Notification batching should reduce overwhelm by grouping habit nudges by time window or `LifeArea` where useful.
 - Focus options expose start ritual and timer preferences.
+- Weekly habit reflection prompts remain optional and non-blocking.
 - Assistant controls include model/privacy posture and history clearing.
-- Accessibility controls support larger spacing, reduced motion, and visibility accommodations where supported.
+- Accessibility controls support larger spacing, reduced motion, and visibility accommodations where supported, including lower-intensity board rendering that preserves meaning.
 - Privacy controls clearly disclose data sharing posture.
 
 ## Core Interaction Flows
@@ -354,6 +495,25 @@ flowchart TD
   E --> G{Add and start enabled}
   G -->|Yes| H[Start ritual]
   G -->|No| I[Return to previous screen]
+```
+
+### Habit Check-In And Recovery Flow
+
+```mermaid
+flowchart TD
+  A[Open Home, Habit Board, or Habit Detail] --> B{Habit kind and mode}
+  B -->|Positive| C[Choose Done or Skip]
+  B -->|Negative dailyCheckIn| D[Choose Stayed Clean or Lapsed]
+  B -->|Negative lapseOnly| E[Log Lapse or leave clean tracking untouched]
+  C --> F[Resolve today]
+  D --> F
+  E --> F
+  F --> G[Recompute streak, risk, and history]
+  G --> H{Outcome broke streak}
+  H -->|No| I[Show reinforcing streak and recent-history update]
+  H -->|Yes| J[Show recovery framing and next-step suggestion]
+  I --> K[Return to Home, Board, Detail, or Insights]
+  J --> K
 ```
 
 ### Assistant Propose -> Confirm -> Apply -> Undo
@@ -450,12 +610,19 @@ This table maps product surfaces to existing runtime usecases for implementation
 ### Habits
 - Habit creation requires a title and `LifeArea`, while `Project` remains optional.
 - Positive, negative `dailyCheckIn`, and negative `lapseOnly` habits all save and render with the correct action semantics.
+- Current streak and best streak remain correct across scheduled success, skips, not-scheduled bridge days, missed days, lapsed days, and paused periods.
+- Home history strips, the Habit Board, detail, and insights agree on day state and streak values for the same habit and date.
+- Weekday-only habits render weekend bridge cells instead of missed cells.
 - Editing a habit supports title, kind, tracking mode, cadence, reminder window, ownership, icon, and notes without data loss.
+- Recent history correction recomputes streaks, board visuals, and analytics consistently.
 - Paused habits disappear from active agenda and signal-driven surfaces until unpaused.
+- Archived habits remain discoverable in management flows but are absent from default active flows.
 - `lapseOnly` habits correctly repair abstinent history after extended inactivity and preserve streak correctness.
+- Stable `lapseOnly` habits appear in quiet tracking rather than the primary action queue.
 - Reminder windows reject invalid same-day ranges and never produce inverted due times in runtime projections.
-- Home habit rows expose readable state, streak, and history cues with accessible controls and labels.
+- Home habit rows and Habit Board cells expose readable state, streak, and history cues with accessible controls and labels.
 - Habit analytics remain separate from task completion analytics and refresh after same-day habit mutations.
+- Reduced-motion settings preserve board meaning without relying on animation alone.
 
 ### Tasks Browse And Search
 - Search returns results within target latency for typical datasets.
@@ -489,17 +656,19 @@ This table maps product surfaces to existing runtime usecases for implementation
 ## Product Roadmap Themes
 
 ### Near-Term
+- Ship a richer Habit Board with visual streak depth, bridge-day semantics, and recovery-oriented history correction.
 - Expand smart view creation and saved filter ergonomics.
 - Add transparent and user-controlled Focus suggestions.
 - Improve task breakdown templates and decomposition assists.
 
 ### Mid-Term
-- Offer optional calendar-first planning modes without forcing calendar workflows.
+- Expand the calendar + timeline package’s schedule-context behavior without turning Tasker into a calendar-first app.
 - Deepen habit-task linkage where useful while keeping habits analytically distinct from tasks.
+- Add more flexible count-based or frequency-based habits once the visual streak contract is stable.
 - Improve on-device assistant planning quality.
 
 ### Long-Term
-- Personalized focus scoping based on explainable behavior patterns.
+- Expand read-only schedule context carefully where it improves execution, while preserving task-first chronology.
 - Broader platform strategy beyond iOS.
 
 ## Technical References
@@ -507,24 +676,23 @@ This table maps product surfaces to existing runtime usecases for implementation
 Technical implementation details are intentionally kept out of this PRD. Use the architecture docs:
 - `docs/README.md`
 - `docs/habits/README.md`
+- `docs/calendar/README.md`
 - `docs/habits/product-feature.md`
 - `docs/habits/data-model-and-runtime.md`
 - `docs/habits/risk-register.md`
 - `docs/habits/roadmap.md`
-- `docs/architecture/README.md`
-- `docs/architecture/data-model-v2.md`
-- `docs/architecture/clean-architecture-v2.md`
-- `docs/architecture/usecases-v2.md`
-- `docs/architecture/risk-register-v2.md`
-- `docs/architecture/state-repositories-and-services-v2.md`
-- `docs/architecture/domain-events-and-observability-v2.md`
-- `docs/architecture/llm-assistant-stack-v2.md`
-- `docs/architecture/v3-runtime-cutover-todo.md`
-- `docs/operations/ci-release-and-guardrails.md`
-- `docs/operations/developer-tooling-and-flowctl.md`
+- `docs/calendar/product-feature.md`
+- `docs/calendar/data-model-and-runtime.md`
+- `docs/calendar/risk-register.md`
+- `docs/calendar/roadmap.md`
+- `docs/architecture/LOCAL_LLM_EVA_ARCHITECTURE.md`
+- `docs/architecture/TASKER_V2_ARCHITECTURE_GUIDE.md`
+- `docs/audits/HABITS_IOS_UX_AUDIT_2026-04-17.md`
 
 ## Document History
 
+- **v4.5 (April 25, 2026):** Expanded the habits contract with a Tasker-native streak model, dedicated Habit Board semantics, recovery-first behavior, a canonical habits docs package, and updated roadmap coverage for remaining UX gaps.
+- **v4.6 (April 25, 2026):** Added the canonical calendar + timeline docs package and linked the read-only schedule-context roadmap into the product reference set.
 - **v4.4 (March 22, 2026):** Added dedicated habits requirements summary and linked the new habits product, runtime, risk, and roadmap documentation package.
 - **v4.3 (March 11, 2026):** Updated Insights requirements to match the redesigned Today, Week, and Systems analytics surfaces, including richer widgets, empty-state behavior, and system-health framing.
 - **v4.2 (February 19, 2026):** Consolidated deep-research inputs into a detailed product-only PRD, added mental loop model, detailed screen requirements, implementation alignment table, interaction flows, explicit non-functional requirements, QA acceptance criteria, and horizon-based roadmap framing.
