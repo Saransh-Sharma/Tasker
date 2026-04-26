@@ -15,6 +15,7 @@ final class LLMRuntimeCoordinator {
     typealias PrepareHandler = @MainActor (String) async throws -> LLMEvaluator.PrepareResult
     typealias SwitchHandler = @MainActor (String) async throws -> Bool
     typealias UnloadHandler = @MainActor (String) async -> Void
+    typealias CompatibilityProvider = @MainActor (String) -> LLMModelCompatibilityResult?
 
     @MainActor static let shared = LLMRuntimeCoordinator()
 
@@ -25,6 +26,7 @@ final class LLMRuntimeCoordinator {
     private let prepareHandler: PrepareHandler
     private let switchHandler: SwitchHandler
     private let unloadHandler: UnloadHandler
+    private let compatibilityProvider: CompatibilityProvider
     private let backgroundUnloadDelayNanoseconds: UInt64
     private let idleUnloadDelayNanoseconds: UInt64
 
@@ -46,6 +48,7 @@ final class LLMRuntimeCoordinator {
         prepareHandler: PrepareHandler? = nil,
         switchHandler: SwitchHandler? = nil,
         unloadHandler: UnloadHandler? = nil,
+        compatibilityProvider: CompatibilityProvider? = nil,
         backgroundUnloadDelayNanoseconds: UInt64 = 5 * 60 * 1_000_000_000,
         idleUnloadDelayNanoseconds: UInt64 = 20 * 1_000_000_000,
         registerLifecycleObservers: Bool = true
@@ -66,6 +69,9 @@ final class LLMRuntimeCoordinator {
         }
         self.unloadHandler = unloadHandler ?? { _ in
             await runtimeEvaluator.unloadNow()
+        }
+        self.compatibilityProvider = compatibilityProvider ?? { modelName in
+            LLMRuntimeSupportMatrix.compatibility(for: modelName)
         }
         self.backgroundUnloadDelayNanoseconds = backgroundUnloadDelayNanoseconds
         self.idleUnloadDelayNanoseconds = idleUnloadDelayNanoseconds
@@ -104,7 +110,7 @@ final class LLMRuntimeCoordinator {
         guard V2FeatureFlags.llmChatPrewarmMode != .disabled else { return }
         guard let modelName = normalizedCurrentModelName(), !modelName.isEmpty else { return }
         guard let model = ModelConfiguration.getModelByName(modelName) else { return }
-        guard LLMRuntimeSupportMatrix.compatibility(for: model).canActivate else {
+        guard compatibilityProvider(model.name)?.canActivate == true else {
             logWarning(
                 event: "chat_prewarm_skipped_unsupported_model",
                 message: "Skipped model prewarm because the selected model is unsupported by the current runtime",
@@ -142,7 +148,7 @@ final class LLMRuntimeCoordinator {
         guard V2FeatureFlags.llmChatPrewarmMode != .disabled else { return }
         guard let currentModelName = normalizedCurrentModelName(), !currentModelName.isEmpty else { return }
         guard let model = ModelConfiguration.getModelByName(currentModelName) else { return }
-        guard LLMRuntimeSupportMatrix.compatibility(for: model).canActivate else {
+        guard compatibilityProvider(model.name)?.canActivate == true else {
             logWarning(
                 event: "chat_prewarm_skipped_unsupported_model",
                 message: "Skipped current model prewarm because the runtime does not support it",
@@ -330,7 +336,7 @@ final class LLMRuntimeCoordinator {
 
     func ensureReady(modelName: String) async -> EnsureReadyResult {
         cancelIdleUnload()
-        guard let compatibility = LLMRuntimeSupportMatrix.compatibility(for: modelName) else {
+        guard let compatibility = compatibilityProvider(modelName) else {
             return EnsureReadyResult(
                 prewarmEligible: false,
                 prewarmHit: false,
@@ -348,6 +354,39 @@ final class LLMRuntimeCoordinator {
                     "reason": compatibility.statusReason ?? "unsupported_runtime"
                 ]
             )
+            if let fallbackModelName = preferredFallbackModelName(afterPrepareFailureFor: modelName),
+               fallbackModelName != modelName {
+                do {
+                    _ = try await prepareHandler(fallbackModelName)
+                    activeModelName = fallbackModelName
+                    defaults.set(fallbackModelName, forKey: LLMPersistedModelSelection.currentModelKey)
+                    logWarning(
+                        event: "chat_model_prepare_fallback_succeeded",
+                        message: "Prepared fallback local model after selected model was unsupported",
+                        fields: [
+                            "failed_model_name": modelName,
+                            "fallback_model_name": fallbackModelName
+                        ]
+                    )
+                    return EnsureReadyResult(
+                        prewarmEligible: ModelConfiguration.getModelByName(fallbackModelName).map { canPrimeOnChatEntry(model: $0) } ?? false,
+                        prewarmHit: evaluator.loadedModelName == fallbackModelName,
+                        ready: true,
+                        resolvedModelName: fallbackModelName,
+                        failureMessage: nil
+                    )
+                } catch {
+                    logError(
+                        event: "chat_model_prepare_fallback_failed",
+                        message: "Failed to prepare fallback local model after selected model was unsupported",
+                        fields: [
+                            "failed_model_name": modelName,
+                            "fallback_model_name": fallbackModelName,
+                            "error": error.localizedDescription
+                        ]
+                    )
+                }
+            }
             return EnsureReadyResult(
                 prewarmEligible: false,
                 prewarmHit: false,
@@ -440,7 +479,7 @@ final class LLMRuntimeCoordinator {
 
     func switchModelIfNeeded(modelName: String) async -> Bool {
         cancelIdleUnload()
-        if let compatibility = LLMRuntimeSupportMatrix.compatibility(for: modelName),
+        if let compatibility = compatibilityProvider(modelName),
            compatibility.canActivate == false {
             logWarning(
                 event: "chat_model_switch_skipped_unsupported_runtime",
@@ -653,7 +692,7 @@ final class LLMRuntimeCoordinator {
     }
 
     private func canPrimeOnChatEntry(model: ModelConfiguration) -> Bool {
-        guard LLMRuntimeSupportMatrix.compatibility(for: model).canActivate else {
+        guard compatibilityProvider(model.name)?.canActivate == true else {
             return false
         }
         guard isThermalStateBelowSerious(ProcessInfo.processInfo.thermalState) else {
@@ -690,7 +729,7 @@ final class LLMRuntimeCoordinator {
         let defaultModelName = ModelConfiguration.defaultModel.name
         guard modelName != defaultModelName else { return nil }
         guard installedSet.contains(defaultModelName) else { return nil }
-        guard LLMRuntimeSupportMatrix.compatibility(for: defaultModelName)?.canActivate == true else {
+        guard compatibilityProvider(defaultModelName)?.canActivate == true else {
             return nil
         }
         return defaultModelName

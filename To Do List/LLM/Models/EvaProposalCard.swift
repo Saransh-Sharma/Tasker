@@ -129,6 +129,13 @@ enum EvaProposalApplyGate: Equatable {
     }
 }
 
+enum EvaProposalApplyButtonTitleResolver {
+    static func title(cards: [EvaProposalCard], selectedCardIDs: Set<UUID>) -> String {
+        let defaultIDs = Set(cards.filter(\.isSelectedByDefault).map(\.id))
+        return selectedCardIDs == defaultIDs ? "Apply all" : "Apply selected"
+    }
+}
+
 struct EvaAppliedRunHistoryEntry: Codable, Equatable, Identifiable {
     var id: UUID { runID }
     let runID: UUID

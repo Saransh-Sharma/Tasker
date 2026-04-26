@@ -222,7 +222,13 @@ enum LLMTemplateCompatibility {
             "<|im_start|>",
             "<|im_start|>assistant",
             "<|im_start|>user",
-            "<|im_start|>system"
+            "<|im_start|>system",
+            "<｜Assistant｜>",
+            "<｜assistant｜>",
+            "<｜User｜>",
+            "<｜user｜>",
+            "<｜System｜>",
+            "<｜system｜>"
         ],
         terminalControlMarkers: [
             "<end_of_turn>",
@@ -230,7 +236,9 @@ enum LLMTemplateCompatibility {
             "<|im_end|>",
             "<|end|>",
             "<|eot_id|>",
-            "<start_of_turn>"
+            "<start_of_turn>",
+            "<｜end▁of▁sentence｜>",
+            "<｜begin▁of▁sentence｜>"
         ]
     )
 
@@ -716,10 +724,22 @@ enum LLMChatOutputClassifier {
 
 enum LLMVisibleThinkingExtractor {
     private static let plainTextThinkingPrefixes = [
+        "thinking ",
+        "thinking.",
         "thinking process:",
+        "thinking through",
+        "thinking this through",
+        "thinking this off",
         "thought process:",
         "reasoning:",
-        "analysis:"
+        "analysis:",
+        "i need to clarify",
+        "i need to figure",
+        "i need to answer",
+        "i should clarify",
+        "i should answer",
+        "let me think",
+        "we need to"
     ]
 
     private static let plainTextAnswerMarkers = [
@@ -758,13 +778,8 @@ enum LLMVisibleThinkingExtractor {
             )
         }
 
-        switch model.thinkingFormat {
-        case .plainTextPreamble:
-            if let plainText = extractPlainTextThinking(from: trimmed, closeOpenThinkingBlock: closeOpenThinkingBlock) {
-                return plainText
-            }
-        case .taggedThinkBlocks, .none:
-            break
+        if let plainText = extractPlainTextThinking(from: trimmed, closeOpenThinkingBlock: closeOpenThinkingBlock) {
+            return plainText
         }
 
         return LLMVisibleThinkingExtractionResult(
@@ -1068,6 +1083,11 @@ enum LLMChatTextSanitizer {
         if let fenceRange = sanitized.range(of: "```", options: .backwards),
            (fenceCount % 2) != 0 {
             sanitized = String(sanitized[..<fenceRange.lowerBound]).trimmingCharacters(in: .whitespacesAndNewlines)
+            removed = true
+        }
+
+        while let boundary = trailingTemplateArtifactBoundary(in: sanitized, profile: profile) {
+            sanitized = String(sanitized[..<boundary]).trimmingCharacters(in: .whitespacesAndNewlines)
             removed = true
         }
 
