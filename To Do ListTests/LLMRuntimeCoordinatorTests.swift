@@ -1,5 +1,6 @@
 import XCTest
 import UIKit
+import MLXLMCommon
 @testable import To_Do_List
 
 @MainActor
@@ -180,6 +181,13 @@ final class LLMRuntimeCoordinatorTests: XCTestCase {
                 }
                 return LLMEvaluator.PrepareResult(wasAlreadyLoaded: false)
             },
+            compatibilityProvider: { modelName in
+                LLMModelCompatibilityResult(
+                    modelName: modelName,
+                    availability: .supported,
+                    statusReason: nil
+                )
+            },
             registerLifecycleObservers: false
         )
 
@@ -190,6 +198,47 @@ final class LLMRuntimeCoordinatorTests: XCTestCase {
             preparedModelNames,
             ["mlx-community/Qwen3.5-0.8B-OptiQ-4bit", qwenPointSixName]
         )
+        XCTAssertEqual(result.resolvedModelName, qwenPointSixName)
+        XCTAssertEqual(defaults.string(forKey: LLMPersistedModelSelection.currentModelKey), qwenPointSixName)
+    }
+
+    func testEnsureReadyFallsBackToDefaultTextModelWhenSelectedModelUnsupported() async {
+        let suiteName = "LLMRuntimeCoordinatorTests.UnsupportedFallback.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+
+        let bonsaiName = ModelConfiguration.bonsai_1_7b_mlx_1bit.name
+        LLMPersistedModelSelection.persistInstalledModels([bonsaiName, qwenPointSixName], defaults: defaults)
+        defaults.set(bonsaiName, forKey: LLMPersistedModelSelection.currentModelKey)
+
+        var preparedModelNames: [String] = []
+        let coordinator = LLMRuntimeCoordinator(
+            defaults: defaults,
+            prepareHandler: { modelName in
+                preparedModelNames.append(modelName)
+                return LLMEvaluator.PrepareResult(wasAlreadyLoaded: false)
+            },
+            compatibilityProvider: { modelName in
+                if modelName == bonsaiName {
+                    return LLMModelCompatibilityResult(
+                        modelName: modelName,
+                        availability: .temporarilyUnavailable,
+                        statusReason: "Bonsai 1-bit requires Prism-specific MLX kernels."
+                    )
+                }
+                return LLMModelCompatibilityResult(
+                    modelName: modelName,
+                    availability: .supported,
+                    statusReason: nil
+                )
+            },
+            registerLifecycleObservers: false
+        )
+
+        let result = await coordinator.ensureReady(modelName: bonsaiName)
+
+        XCTAssertTrue(result.ready)
+        XCTAssertEqual(preparedModelNames, [qwenPointSixName])
         XCTAssertEqual(result.resolvedModelName, qwenPointSixName)
         XCTAssertEqual(defaults.string(forKey: LLMPersistedModelSelection.currentModelKey), qwenPointSixName)
     }

@@ -12,6 +12,10 @@ final class AssistantPlannerServiceTests: XCTestCase {
         XCTAssertEqual(EvaTurnRouter.route(for: "Help me plan making tech debts doc"), .taskMutation)
         XCTAssertEqual(EvaTurnRouter.route(for: "Design review at 4 PM for 45 minutes"), .taskMutation)
         XCTAssertEqual(EvaTurnRouter.route(for: "Create Design review at 4 PM for 45 minutes"), .taskMutation)
+        XCTAssertEqual(EvaTurnRouter.route(for: "I need to go for a 15 min run. Setup this task"), .taskMutation)
+        XCTAssertEqual(EvaTurnRouter.route(for: "Add task to go for a run for 20 mins"), .taskMutation)
+        XCTAssertEqual(EvaTurnRouter.route(for: "Add task to go for run"), .taskMutation)
+        XCTAssertEqual(EvaTurnRouter.route(for: "Set up a 15 min run at 6 PM"), .taskMutation)
         XCTAssertEqual(EvaTurnRouter.route(for: "Create a habit to drink water"), .habitMutation)
         XCTAssertEqual(EvaTurnRouter.route(for: "Plan next week"), .weeklyPlanning)
     }
@@ -233,6 +237,104 @@ final class AssistantPlannerServiceTests: XCTestCase {
         }
         XCTAssertEqual(title, "Design review")
         XCTAssertEqual(duration, 45 * 60)
+    }
+
+    func testDeterministicFallbackCreatesInboxTaskForDurationOnlySetupPrompt() {
+        let output = AssistantDeterministicPlanner.plan(context: .init(
+            userPrompt: "I need to go for a 15 min run. Setup this task",
+            contextPayload: "{}",
+            taskTitleByID: [:],
+            projectNameByID: [:],
+            knownTaskIDs: [],
+            now: Date(timeIntervalSince1970: 1_777_000_000)
+        ))
+
+        XCTAssertEqual(output?.envelope.commands.count, 1)
+        guard case .createInboxTask(_, let title, let duration, _, _, _, _, _) = output?.envelope.commands.first else {
+            return XCTFail("Expected createInboxTask")
+        }
+        XCTAssertEqual(title, "go for a run")
+        XCTAssertEqual(duration, 15 * 60)
+        XCTAssertEqual(output?.cards.first?.subtitle, "Inbox (15 min)")
+    }
+
+    func testDeterministicFallbackCreatesInboxTaskForScreenshotAddPrompt() {
+        let output = AssistantDeterministicPlanner.plan(context: .init(
+            userPrompt: "Add task to go for a run for 20 mins",
+            contextPayload: "{}",
+            taskTitleByID: [:],
+            projectNameByID: [:],
+            knownTaskIDs: [],
+            now: Date(timeIntervalSince1970: 1_777_000_000)
+        ))
+
+        XCTAssertEqual(output?.envelope.commands.count, 1)
+        guard case .createInboxTask(_, let title, let duration, _, _, _, _, _) = output?.envelope.commands.first else {
+            return XCTFail("Expected createInboxTask")
+        }
+        XCTAssertEqual(title, "go for a run")
+        XCTAssertEqual(duration, 20 * 60)
+        XCTAssertEqual(output?.cards.first?.badgeText, "CREATE")
+        XCTAssertEqual(output?.cards.first?.subtitle, "Inbox (20 min)")
+    }
+
+    func testDeterministicFallbackCreatesInboxTaskForAddPromptWithoutDuration() {
+        let output = AssistantDeterministicPlanner.plan(context: .init(
+            userPrompt: "Add task to go for run",
+            contextPayload: "{}",
+            taskTitleByID: [:],
+            projectNameByID: [:],
+            knownTaskIDs: [],
+            now: Date(timeIntervalSince1970: 1_777_000_000)
+        ))
+
+        XCTAssertEqual(output?.envelope.commands.count, 1)
+        guard case .createInboxTask(_, let title, let duration, _, _, _, _, _) = output?.envelope.commands.first else {
+            return XCTFail("Expected createInboxTask")
+        }
+        XCTAssertEqual(title, "go for run")
+        XCTAssertNil(duration)
+        XCTAssertEqual(output?.cards.first?.badgeText, "CREATE")
+        XCTAssertEqual(output?.cards.first?.subtitle, "Inbox")
+    }
+
+    func testGeneratePlanUsesDeterministicCardsForScreenshotAddPrompt() async throws {
+        let evaluator = PlannerEvaluatorSpy()
+        let service = AssistantPlannerService(llm: evaluator)
+        let result = await service.generatePlan(
+            userPrompt: "Add task to go for a run for 20 mins",
+            thread: Thread(),
+            contextPayload: "{}",
+            taskTitleByID: [:],
+            projectNameByID: [:],
+            knownTaskIDs: []
+        )
+
+        guard case .success(let plan) = result else {
+            return XCTFail("Expected planner to produce proposal cards")
+        }
+        XCTAssertEqual(plan.envelope.commands.count, 1)
+        XCTAssertEqual(plan.proposalCards.first?.badgeText, "CREATE")
+        XCTAssertEqual(plan.generationSource, "deterministic_intent_gate")
+        XCTAssertNil(evaluator.capturedModelName)
+    }
+
+    func testDeterministicFallbackCreatesScheduledTaskForDurationFirstSetupPrompt() {
+        let output = AssistantDeterministicPlanner.plan(context: .init(
+            userPrompt: "Set up a 15 min run at 6 PM",
+            contextPayload: "{}",
+            taskTitleByID: [:],
+            projectNameByID: [:],
+            knownTaskIDs: [],
+            now: Date(timeIntervalSince1970: 1_777_000_000)
+        ))
+
+        XCTAssertEqual(output?.envelope.commands.count, 1)
+        guard case .createScheduledTask(_, let title, _, _, let duration, _, _, _, _, _, _, _) = output?.envelope.commands.first else {
+            return XCTFail("Expected createScheduledTask")
+        }
+        XCTAssertEqual(title, "run")
+        XCTAssertEqual(duration, 15 * 60)
     }
 
     func testDeterministicFallbackCreatesScheduleFirstTimedScheduleCards() {
@@ -459,18 +561,16 @@ final class AssistantPlannerServiceTests: XCTestCase {
         let evaluator = PlannerEvaluatorSpy()
         evaluator.stubbedOutput = """
         {
-          "type": "createScheduledTask",
+          "type": "createInboxTask",
           "projectID": "\(ProjectConstants.inboxProjectID.uuidString)",
           "title": "Design review",
-          "scheduledStartAt": "2026-04-24T10:00:00Z",
-          "scheduledEndAt": "2026-04-24T10:45:00Z",
-          "estimatedDuration": 2700,
+          "estimatedDuration": null,
           "tagIDs": []
         }
         """
         let service = AssistantPlannerService(llm: evaluator)
         let result = await service.generatePlan(
-            userPrompt: "Design review at 4 PM for 45 minutes",
+            userPrompt: "Schedule Design review sometime",
             thread: Thread(),
             contextPayload: "{}",
             taskTitleByID: [:],
@@ -621,6 +721,57 @@ final class AssistantPlannerServiceTests: XCTestCase {
         XCTAssertFalse(AssistantCardCodec.isCard(payload.content))
     }
 
+    func testEvaPlanProposalPersistenceWaitsForDelayedCompletion() async throws {
+        let runID = UUID()
+
+        let result = await EvaPlanProposalPersistence.awaitResult { completion in
+            _Concurrency.Task {
+                try? await _Concurrency.Task.sleep(nanoseconds: 50_000_000)
+                completion(.success(AssistantActionRunDefinition(
+                    id: runID,
+                    threadID: "thread",
+                    proposalData: nil,
+                    status: .pending,
+                    createdAt: Date(timeIntervalSince1970: 1_800_000_000)
+                )))
+            }
+        }
+
+        guard case .success(let run) = result else {
+            return XCTFail("Expected delayed proposal completion to succeed")
+        }
+        XCTAssertEqual(run.id, runID)
+    }
+
+    func testEvaPlanDeliveryPersistsProposalCardWhenRunMatches() {
+        let traceContext = EvaTurnTraceContext(runID: UUID(), threadID: UUID(), route: .taskMutation)
+        var sentPayloads: [EvaPlanResponsePayload] = []
+        var loggedDrops: [[String: String]] = []
+
+        let result = EvaPlanResponseDelivery.deliver(
+            payload: .proposalCard(content: "encoded-card", sourceModelName: "deterministic_intent_gate"),
+            traceContext: traceContext,
+            gateState: .init(taskCancelled: false, runIDMatches: true, evaluatorCancelled: false),
+            usesModelGenerationForDeliveryGate: false,
+            send: { payload in
+                sentPayloads.append(payload)
+                return makeSendOutcome(status: .persisted, traceContext: traceContext)
+            },
+            log: { event, _, fields in
+                if event == "eva_plan_response_drop" {
+                    loggedDrops.append(fields)
+                }
+            }
+        )
+
+        guard case .persisted = result else {
+            return XCTFail("Expected active proposal card to persist")
+        }
+        XCTAssertEqual(sentPayloads.count, 1)
+        XCTAssertEqual(sentPayloads.first?.contentType, "proposal_card")
+        XCTAssertTrue(loggedDrops.isEmpty)
+    }
+
     func testEvaPlanDeliveryDropsRunIDMismatchWithoutSending() {
         let traceContext = EvaTurnTraceContext(runID: UUID(), threadID: UUID(), route: .dayPlanning)
         var didSend = false
@@ -645,6 +796,35 @@ final class AssistantPlannerServiceTests: XCTestCase {
         XCTAssertEqual(result, .dropped(.runIDMismatch))
         XCTAssertFalse(didSend)
         XCTAssertEqual(loggedReason, "run_id_mismatch")
+    }
+
+    func testEvaPlanDeliveryDropsStaleProposalCardWithoutSending() {
+        let traceContext = EvaTurnTraceContext(runID: UUID(), threadID: UUID(), route: .taskMutation)
+        var didSend = false
+        var loggedReason: String?
+        var loggedContentType: String?
+
+        let result = EvaPlanResponseDelivery.deliver(
+            payload: .proposalCard(content: "encoded-card", sourceModelName: "deterministic_intent_gate"),
+            traceContext: traceContext,
+            gateState: .init(taskCancelled: false, runIDMatches: false, evaluatorCancelled: false),
+            usesModelGenerationForDeliveryGate: false,
+            send: { _ in
+                didSend = true
+                return makeSendOutcome(status: .persisted, traceContext: traceContext)
+            },
+            log: { event, _, fields in
+                if event == "eva_plan_response_drop" {
+                    loggedReason = fields["reason"]
+                    loggedContentType = fields["content_type"]
+                }
+            }
+        )
+
+        XCTAssertEqual(result, .dropped(.runIDMismatch))
+        XCTAssertFalse(didSend)
+        XCTAssertEqual(loggedReason, "run_id_mismatch")
+        XCTAssertEqual(loggedContentType, "proposal_card")
     }
 
     func testEvaPlanDeliveryDropsModelBackedResponseWhenEvaluatorCancelled() {
@@ -755,6 +935,23 @@ final class AssistantPlannerServiceTests: XCTestCase {
         XCTAssertEqual(
             EvaProposalApplyGate.validate(selectedCards: largeSafeSelection),
             .blocked(message: "This plan changes 5 or more tasks. Apply a smaller selection first.")
+        )
+    }
+
+    func testEvaProposalApplyButtonTitleReflectsSelectionState() {
+        let cards = EvaProposalCardBuilder.build(commands: [
+            .createInboxTask(projectID: UUID(), title: "Call dentist", estimatedDuration: nil, lifeAreaID: nil, priority: nil, category: nil, details: nil, tagIDs: []),
+            .createInboxTask(projectID: UUID(), title: "Buy groceries", estimatedDuration: nil, lifeAreaID: nil, priority: nil, category: nil, details: nil, tagIDs: [])
+        ])
+        let defaultSelection = Set(cards.filter(\.isSelectedByDefault).map(\.id))
+
+        XCTAssertEqual(
+            EvaProposalApplyButtonTitleResolver.title(cards: cards, selectedCardIDs: defaultSelection),
+            "Apply all"
+        )
+        XCTAssertEqual(
+            EvaProposalApplyButtonTitleResolver.title(cards: cards, selectedCardIDs: [cards[0].id]),
+            "Apply selected"
         )
     }
 

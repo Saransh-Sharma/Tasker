@@ -609,6 +609,27 @@ final class LLMChatTextSanitizerTests: XCTestCase {
 
         XCTAssertEqual(sanitized, "Focus on the release checklist.")
     }
+
+    func testClassifierTreatsUntaggedThinkingPreambleAsReasoningOnly() {
+        let raw = """
+        Thinking this off because I'm an AI assistant and need to infer what the user wants.
+
+        I need to clarify with the user what specific information they want help with.
+        """
+
+        let assessment = LLMChatOutputClassifier.assess(
+            rawOutput: raw,
+            modelName: ModelConfiguration.qwen_3_0_6b_4bit.name,
+            userPrompt: "Hi",
+            terminationReason: nil
+        )
+
+        XCTAssertTrue(assessment.hasVisibleThinking)
+        XCTAssertTrue(assessment.thinkingOnlyOutput)
+        XCTAssertFalse(assessment.hasAnswer)
+        XCTAssertTrue(assessment.qualityAssessment.shouldRetry)
+        XCTAssertEqual(assessment.qualityAssessment.hardFailureReasons, ["answer_missing_after_thinking"])
+    }
 }
 
 final class LLMPromptHistoryFormattingTests: XCTestCase {
