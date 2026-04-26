@@ -106,6 +106,18 @@ enum EvaPlanResponseDeliveryResult: Equatable {
     case dropped(EvaPlanResponseDropReason)
 }
 
+enum EvaPlanProposalPersistence {
+    static func awaitResult(
+        _ start: (@escaping (Result<AssistantActionRunDefinition, Error>) -> Void) -> Void
+    ) async -> Result<AssistantActionRunDefinition, Error> {
+        await withCheckedContinuation { continuation in
+            start { result in
+                continuation.resume(returning: result)
+            }
+        }
+    }
+}
+
 struct EvaPlanResponseDelivery {
     struct GateState: Equatable {
         let taskCancelled: Bool
@@ -741,7 +753,7 @@ enum EvaTurnRouter {
 
         let habitMarkers = ["habit", "habits", "streak", "check in", "check-in", "pause habit", "resume habit"]
         let mutationMarkers = [
-            "add", "create", "schedule", "make", "write", "plan", "move", "reschedule", "defer",
+            "add", "create", "schedule", "setup", "set up", "make", "write", "plan", "move", "reschedule", "defer",
             "drop", "mark", "rename", "complete", "shift", "pause", "resume", "log"
         ]
         if habitMarkers.contains(where: { lower.contains($0) }) &&
@@ -768,7 +780,7 @@ enum EvaTurnRouter {
             return .taskMutation
         }
 
-        if mentionsTime(lower) && lower.contains("?") == false {
+        if (mentionsTime(lower) || mentionsDuration(lower)) && lower.contains("?") == false {
             return .taskMutation
         }
 
@@ -777,7 +789,11 @@ enum EvaTurnRouter {
             return .taskMutation
         }
 
-        let createMarkers = ["add", "create", "schedule", "make", "write"]
+        if lower.hasPrefix("i need to ") && lower.contains("?") == false {
+            return .taskMutation
+        }
+
+        let createMarkers = ["add", "create", "schedule", "setup", "set up", "make", "write"]
         if createMarkers.contains(where: { containsWord(lower, $0) && hasConcreteCreateObject(after: $0, in: lower) }) {
             return .taskMutation
         }
@@ -812,6 +828,11 @@ enum EvaTurnRouter {
 
     private static func mentionsTime(_ text: String) -> Bool {
         let pattern = #"\b\d{1,2}(?::\d{2})?\s*(am|pm)\b|\bfor\s+\d+\s*(minutes?|mins?|min|hours?|hrs?|hr)\b"#
+        return text.range(of: pattern, options: .regularExpression) != nil
+    }
+
+    private static func mentionsDuration(_ text: String) -> Bool {
+        let pattern = #"\b\d+\s*(minutes?|mins?|min|hours?|hrs?|hr)\b"#
         return text.range(of: pattern, options: .regularExpression) != nil
     }
 }
@@ -1083,6 +1104,11 @@ struct AssistantDeterministicPlanner {
         let duration: TimeInterval
     }
 
+    private struct UntimedTaskSpec: Hashable {
+        let title: String
+        let estimatedDuration: TimeInterval?
+    }
+
     static func taskTitleByID(from contextPayload: String) -> [UUID: String] {
         Dictionary(uniqueKeysWithValues: extractContextTasks(from: contextPayload).map { ($0.id, $0.title) })
     }
@@ -1157,7 +1183,7 @@ struct AssistantDeterministicPlanner {
             let envelope = AssistantCommandEnvelope(
                 schemaVersion: 3,
                 commands: untimed.map {
-                    .createInboxTask(projectID: ProjectConstants.inboxProjectID, title: $0, estimatedDuration: nil, lifeAreaID: nil, priority: nil, category: nil, details: nil, tagIDs: [])
+                    .createInboxTask(projectID: ProjectConstants.inboxProjectID, title: $0.title, estimatedDuration: $0.estimatedDuration, lifeAreaID: nil, priority: nil, category: nil, details: nil, tagIDs: [])
                 },
                 rationaleText: "I added this to your Inbox for review."
             )
@@ -1195,7 +1221,7 @@ struct AssistantDeterministicPlanner {
         return nil
     }
 
-    private static func untimedCreatePlan(prompt: String) -> [String]? {
+    private static func untimedCreatePlan(prompt: String) -> [UntimedTaskSpec]? {
         let lower = prompt.lowercased()
         let genericPlanningPrompts = [
             "help me plan my day",
@@ -1212,19 +1238,25 @@ struct AssistantDeterministicPlanner {
             || lower.contains("write ")
             || lower.contains("create ")
             || lower.contains("add ")
-            || lower.contains("plan ") else {
+            || lower.contains("setup")
+            || lower.contains("set up")
+            || lower.contains("plan ")
+            || lower.hasPrefix("i need to ")
+            || lower.contains(" this task") else {
             return nil
         }
 
-        let stripped = prompt
+        let source = firstTaskSentence(from: prompt)
+        let duration = durationSeconds(in: source)
+        let stripped = source
             .replacingOccurrences(
-                of: #"(?i)^\s*(please\s+)?(can you\s+)?(help me\s+)?(plan|make|write|create|add)\s+(making\s+|writing\s+)?"#,
+                of: #"(?i)^\s*(please\s+)?(can you\s+)?(help me\s+)?(i\s+need\s+to\s+)?(plan|make|write|create|add|setup|set\s+up)\s+(?:a\s+|an\s+|the\s+)?(?:(?:task|todo|to-do|item)\s+(?:to|for)\s+)?(making\s+|writing\s+)?"#,
                 with: "",
                 options: .regularExpression
             )
         let title = cleanTitle(stripped)
         guard title.count > 1 else { return nil }
-        return [title]
+        return [UntimedTaskSpec(title: title, estimatedDuration: duration)]
     }
 
     private static func inboxPlan(prompt: String) -> [String]? {
@@ -1271,6 +1303,17 @@ struct AssistantDeterministicPlanner {
             titleGroup: 1,
             durationGroup: 2,
             unitGroup: 3,
+            day: day,
+            seen: &seen,
+            specs: &specs
+        )
+        appendTimedSpecs(
+            from: prompt,
+            pattern: #"(?i)(?:^|[,;\n])\s*(?:(?:schedule|create|add|setup|set\s+up)\s+)?(?:a|an|the)?\s*(\d+)\s*(minutes?|mins?|min|hours?|hrs?|hr)\s+(.+?)\s+(?:at|starting at|from)\s+(\d{1,2}(?::\d{2})?\s*(?:am|pm))(?=\s*(?:,|;|\band\b|$))"#,
+            timeGroup: 4,
+            titleGroup: 3,
+            durationGroup: 1,
+            unitGroup: 2,
             day: day,
             seen: &seen,
             specs: &specs
@@ -1455,6 +1498,26 @@ struct AssistantDeterministicPlanner {
         return unit.hasPrefix("h") ? value * 3_600 : value * 60
     }
 
+    private static func durationSeconds(in text: String) -> TimeInterval? {
+        guard let regex = try? NSRegularExpression(pattern: #"(?i)\b(\d+)\s*(minutes?|mins?|min|hours?|hrs?|hr)\b"#),
+              let match = regex.firstMatch(in: text, range: NSRange(text.startIndex..<text.endIndex, in: text)) else {
+            return nil
+        }
+        return durationSeconds(match: match, prompt: text, valueGroup: 1, unitGroup: 2)
+    }
+
+    private static func firstTaskSentence(from prompt: String) -> String {
+        let setupSuffix = #"(?i)\s*(setup|set\s+up|create|add)\s+(this\s+)?(task|todo|to-do|item)\s*$"#
+        let durationSentence = prompt
+            .components(separatedBy: CharacterSet(charactersIn: ".?!\n"))
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .first { $0.isEmpty == false && durationSeconds(in: $0) != nil }
+        let source = durationSentence ?? prompt
+        return source
+            .replacingOccurrences(of: setupSuffix, with: "", options: .regularExpression)
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
     private static func parseDate(_ value: Any?) -> Date? {
         guard let string = value as? String else { return nil }
         if let date = ISO8601DateFormatter.taskerPlannerWithFraction.date(from: string) {
@@ -1466,7 +1529,13 @@ struct AssistantDeterministicPlanner {
     private static func cleanTitle(_ raw: String) -> String {
         raw
             .replacingOccurrences(of: #"(?i)\b(for|at)\s+\d+\s*(minutes?|mins?|min|hours?|hrs?|hr)\b"#, with: "", options: .regularExpression)
-            .replacingOccurrences(of: #"(?i)^\s*(schedule|create|add)\s+"#, with: "", options: .regularExpression)
+            .replacingOccurrences(of: #"(?i)\b\d+\s*(minutes?|mins?|min|hours?|hrs?|hr)\b"#, with: "", options: .regularExpression)
+            .replacingOccurrences(of: #"(?i)^\s*i\s+need\s+to\s+"#, with: "", options: .regularExpression)
+            .replacingOccurrences(of: #"(?i)^\s*(schedule|create|add|setup|set\s+up)\s+"#, with: "", options: .regularExpression)
+            .replacingOccurrences(of: #"(?i)^\s*(a|an|the)?\s*(task|todo|to-do|item)\s+(to|for)\s+"#, with: "", options: .regularExpression)
+            .replacingOccurrences(of: #"(?i)\s+(this\s+)?(task|todo|to-do|item)\s*$"#, with: "", options: .regularExpression)
+            .replacingOccurrences(of: #"(?i)^\s*(a|an|the)\s+"#, with: "", options: .regularExpression)
+            .replacingOccurrences(of: #"\s+"#, with: " ", options: .regularExpression)
             .trimmingCharacters(in: CharacterSet.whitespacesAndNewlines.union(.punctuationCharacters))
     }
 }
