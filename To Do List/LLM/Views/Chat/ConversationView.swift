@@ -899,8 +899,7 @@ struct MessageView: View {
     }
 
     private func applyButtonTitle(cards: [EvaProposalCard]) -> String {
-        let defaultIDs = Set(cards.filter(\.isSelectedByDefault).map(\.id))
-        return selectedEvaCardIDs == defaultIDs ? "Apply selected" : "Apply selected"
+        EvaProposalApplyButtonTitleResolver.title(cards: cards, selectedCardIDs: selectedEvaCardIDs)
     }
 
     private func summaryText(_ summary: String) -> String {

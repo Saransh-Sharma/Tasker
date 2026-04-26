@@ -820,9 +820,9 @@ struct ChatView: View {
             traceContext: traceContext
         )
 
-        await MainActor.run {
-            switch planResult {
-            case .failure(let error):
+        switch planResult {
+        case .failure(let error):
+            await MainActor.run {
                 _ = deliverEvaPlanPayload(
                     .text(
                         content: "EVA could not finish this plan. Your prompt is saved; try again or create tasks manually. \(error.localizedDescription)",
@@ -833,8 +833,10 @@ struct ChatView: View {
                     usesModelGenerationForDeliveryGate: true
                 )
                 restoreEvaSubmittedDraftIfNeeded(runID: runID, reason: "plan_generation_failed")
-            case .success(let plan):
-                if plan.envelope.commands.isEmpty {
+            }
+        case .success(let plan):
+            if plan.envelope.commands.isEmpty {
+                await MainActor.run {
                     let result = deliverEvaPlanPayload(
                         EvaPlanResponseDelivery.textPayload(for: plan),
                         thread: thread,
@@ -844,10 +846,15 @@ struct ChatView: View {
                     if case .persisted = result {
                         clearEvaSubmittedDraft(runID: runID, reason: "zero_command_response_persisted")
                     }
-                    return
                 }
+                return
+            }
 
-                guard let pipeline = LLMAssistantPipelineProvider.pipeline else {
+            let pipeline = await MainActor.run {
+                LLMAssistantPipelineProvider.pipeline
+            }
+            guard let pipeline else {
+                await MainActor.run {
                     _ = deliverEvaPlanPayload(
                         .text(
                             content: "EVA can preview this plan, but the apply pipeline is unavailable.",
@@ -858,59 +865,84 @@ struct ChatView: View {
                         usesModelGenerationForDeliveryGate: plan.usesModelGenerationForDeliveryGate
                     )
                     restoreEvaSubmittedDraftIfNeeded(runID: runID, reason: "apply_pipeline_unavailable")
-                    return
                 }
+                return
+            }
 
+            logWarning(
+                event: "eva_plan_proposal_save_started",
+                message: "Saving EVA proposal run before rendering proposal card",
+                fields: traceContext.logFields.merging([
+                    "command_count": String(plan.envelope.commands.count)
+                ]) { _, new in new }
+            )
+            let proposalResult = await EvaPlanProposalPersistence.awaitResult { completion in
                 pipeline.propose(threadID: thread.id.uuidString, envelope: plan.envelope) { result in
-                    DispatchQueue.main.async {
-                        switch result {
-                        case .failure(let error):
-                            _ = self.deliverEvaPlanPayload(
-                                .text(
-                                    content: "EVA could not save this plan for review. \(error.localizedDescription)",
-                                    sourceModelName: plan.modelName
-                                ),
-                                thread: thread,
-                                traceContext: traceContext,
-                                usesModelGenerationForDeliveryGate: plan.usesModelGenerationForDeliveryGate
-                            )
-                            self.restoreEvaSubmittedDraftIfNeeded(runID: runID, reason: "proposal_save_failed")
-                        case .success(let run):
-                            let cards = EvaProposalCardBuilder.build(
-                                commands: plan.envelope.commands,
-                                taskTitleByID: [:],
-                                runID: run.id
-                            )
-                            let review = EvaProposalReviewPayload(
-                                prompt: message,
-                                summary: plan.rationale.isEmpty ? "Here's how your day is planned:" : plan.rationale,
-                                contextReceipt: plan.contextReceipt,
-                                cards: cards
-                            )
-                            let cardPayload = AssistantCardPayload(
-                                cardType: .proposal,
-                                runID: run.id,
-                                threadID: thread.id.uuidString,
-                                status: .pending,
-                                rationale: plan.rationale,
-                                diffLines: plan.diffLines,
-                                destructiveCount: AssistantDiffPreviewBuilder.destructiveCount(for: plan.envelope.commands),
-                                affectedTaskCount: AssistantDiffPreviewBuilder.affectedTaskCount(for: plan.envelope.commands),
-                                evaProposal: review
-                            )
-                            let result = self.deliverEvaPlanPayload(
-                                .proposalCard(
-                                    content: AssistantCardCodec.encode(cardPayload),
-                                    sourceModelName: plan.modelName
-                                ),
-                                thread: thread,
-                                traceContext: traceContext,
-                                usesModelGenerationForDeliveryGate: plan.usesModelGenerationForDeliveryGate
-                            )
-                            if case .persisted = result {
-                                self.clearEvaSubmittedDraft(runID: runID, reason: "proposal_card_persisted")
-                            }
-                        }
+                    completion(result)
+                }
+            }
+            let proposalSaveResultLabel: String
+            switch proposalResult {
+            case .success:
+                proposalSaveResultLabel = "success"
+            case .failure:
+                proposalSaveResultLabel = "failure"
+            }
+            logWarning(
+                event: "eva_plan_proposal_save_completed",
+                message: "Completed EVA proposal run save before rendering proposal card",
+                fields: traceContext.logFields.merging([
+                    "result": proposalSaveResultLabel
+                ]) { _, new in new }
+            )
+
+            await MainActor.run {
+                switch proposalResult {
+                case .failure(let error):
+                    _ = deliverEvaPlanPayload(
+                        .text(
+                            content: "EVA could not save this plan for review. \(error.localizedDescription)",
+                            sourceModelName: plan.modelName
+                        ),
+                        thread: thread,
+                        traceContext: traceContext,
+                        usesModelGenerationForDeliveryGate: plan.usesModelGenerationForDeliveryGate
+                    )
+                    restoreEvaSubmittedDraftIfNeeded(runID: runID, reason: "proposal_save_failed")
+                case .success(let run):
+                    let cards = EvaProposalCardBuilder.build(
+                        commands: plan.envelope.commands,
+                        taskTitleByID: [:],
+                        runID: run.id
+                    )
+                    let review = EvaProposalReviewPayload(
+                        prompt: message,
+                        summary: plan.rationale.isEmpty ? "Here's how your day is planned:" : plan.rationale,
+                        contextReceipt: plan.contextReceipt,
+                        cards: cards
+                    )
+                    let cardPayload = AssistantCardPayload(
+                        cardType: .proposal,
+                        runID: run.id,
+                        threadID: thread.id.uuidString,
+                        status: .pending,
+                        rationale: plan.rationale,
+                        diffLines: plan.diffLines,
+                        destructiveCount: AssistantDiffPreviewBuilder.destructiveCount(for: plan.envelope.commands),
+                        affectedTaskCount: AssistantDiffPreviewBuilder.affectedTaskCount(for: plan.envelope.commands),
+                        evaProposal: review
+                    )
+                    let result = deliverEvaPlanPayload(
+                        .proposalCard(
+                            content: AssistantCardCodec.encode(cardPayload),
+                            sourceModelName: plan.modelName
+                        ),
+                        thread: thread,
+                        traceContext: traceContext,
+                        usesModelGenerationForDeliveryGate: plan.usesModelGenerationForDeliveryGate
+                    )
+                    if case .persisted = result {
+                        clearEvaSubmittedDraft(runID: runID, reason: "proposal_card_persisted")
                     }
                 }
             }
