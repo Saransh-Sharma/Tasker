@@ -152,6 +152,344 @@ private struct EvaLiveWorkingStatusView: View {
     }
 }
 
+private struct EvaDayTaskOverlayState {
+    var isHidden = false
+    var isProcessing = false
+    var statusMessage: String?
+}
+
+private struct EvaDayHabitOverlayState {
+    var isProcessing = false
+    var statusMessage: String?
+    var statusChips: [EvaDayStatusChip]?
+    var actions: [EvaDayHabitAction]?
+}
+
+private struct EvaDayStatusChipsView: View {
+    let chips: [EvaDayStatusChip]
+    let colorProvider: (String) -> Color
+
+    var body: some View {
+        if chips.isEmpty {
+            EmptyView()
+        } else {
+            VStack(alignment: .trailing, spacing: 4) {
+                ForEach(chips, id: \.self) { chip in
+                    let color = colorProvider(chip.tone)
+                    Text(chip.text)
+                        .font(.tasker(.caption2))
+                        .fontWeight(.semibold)
+                        .foregroundStyle(color)
+                        .padding(.horizontal, TaskerTheme.Spacing.xs)
+                        .padding(.vertical, 3)
+                        .background(color.opacity(0.14))
+                        .clipShape(Capsule())
+                }
+            }
+        }
+    }
+}
+
+private struct EvaDayTaskRowView: View {
+    let card: EvaDayTaskCard
+    let overlay: EvaDayTaskOverlayState
+    let chipColorProvider: (String) -> Color
+    let actionTitle: (EvaDayTaskAction) -> String
+    let actionHandler: (EvaDayTaskAction) -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: TaskerTheme.Spacing.sm) {
+            EvaDayTaskHeaderView(
+                card: card,
+                overlay: overlay,
+                chipColorProvider: chipColorProvider
+            )
+
+            EvaDayTaskActionsView(
+                actions: card.actions,
+                isProcessing: overlay.isProcessing,
+                actionTitle: actionTitle,
+                actionHandler: actionHandler
+            )
+
+            if let statusMessage = overlay.statusMessage, statusMessage.isEmpty == false {
+                Text(statusMessage)
+                    .font(.tasker(.caption1))
+                    .foregroundStyle(Color.tasker(.textSecondary))
+            }
+        }
+        .padding(TaskerTheme.Spacing.md)
+        .background(Color.tasker(.surfaceSecondary))
+        .clipShape(RoundedRectangle(cornerRadius: TaskerTheme.CornerRadius.lg, style: .continuous))
+    }
+}
+
+private struct EvaDayHabitHistoryStripView: View {
+    let last14Days: [HabitDayMark]
+    let colorProvider: (HabitDayState) -> Color
+
+    var body: some View {
+        if last14Days.isEmpty == false {
+            HStack(spacing: 4) {
+                ForEach(Array(last14Days.suffix(14).enumerated()), id: \.offset) { _, mark in
+                    Circle()
+                        .fill(colorProvider(mark.state))
+                        .frame(width: 7, height: 7)
+                }
+            }
+        }
+    }
+}
+
+private struct EvaDayHabitRowView: View {
+    let card: EvaDayHabitCard
+    let overlay: EvaDayHabitOverlayState
+    let chips: [EvaDayStatusChip]
+    let actions: [EvaDayHabitAction]
+    let chipColorProvider: (String) -> Color
+    let markColorProvider: (HabitDayState) -> Color
+    let actionTitle: (EvaDayHabitAction) -> String
+    let actionHandler: (EvaDayHabitAction) -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: TaskerTheme.Spacing.sm) {
+            EvaDayHabitHeaderView(
+                card: card,
+                overlay: overlay,
+                chips: chips,
+                chipColorProvider: chipColorProvider
+            )
+
+            EvaDayHabitHistoryStripView(
+                last14Days: card.last14Days,
+                colorProvider: markColorProvider
+            )
+
+            EvaDayHabitActionsView(
+                actions: actions,
+                isProcessing: overlay.isProcessing,
+                actionTitle: actionTitle,
+                actionHandler: actionHandler
+            )
+
+            if let statusMessage = overlay.statusMessage, statusMessage.isEmpty == false {
+                Text(statusMessage)
+                    .font(.tasker(.caption1))
+                    .foregroundStyle(Color.tasker(.textSecondary))
+            }
+        }
+        .padding(TaskerTheme.Spacing.md)
+        .background(Color.tasker(.surfacePrimary))
+        .clipShape(RoundedRectangle(cornerRadius: TaskerTheme.CornerRadius.lg, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: TaskerTheme.CornerRadius.lg, style: .continuous)
+                .stroke(Color.tasker(.strokeHairline), lineWidth: 1)
+        )
+    }
+}
+
+private struct EvaDayTaskHeaderView: View {
+    let card: EvaDayTaskCard
+    let overlay: EvaDayTaskOverlayState
+    let chipColorProvider: (String) -> Color
+
+    var body: some View {
+        HStack(alignment: .top, spacing: TaskerTheme.Spacing.sm) {
+            VStack(alignment: .leading, spacing: TaskerTheme.Spacing.xs) {
+                Text(card.title)
+                    .font(.tasker(.headline))
+                    .foregroundStyle(Color.tasker(.textPrimary))
+                    .multilineTextAlignment(.leading)
+
+                EvaDayTaskMetadataView(card: card)
+            }
+
+            Spacer(minLength: TaskerTheme.Spacing.sm)
+
+            if overlay.isProcessing {
+                ProgressView()
+                    .controlSize(.small)
+            } else {
+                EvaDayStatusChipsView(
+                    chips: card.statusChips,
+                    colorProvider: chipColorProvider
+                )
+            }
+        }
+    }
+}
+
+private struct EvaDayTaskMetadataView: View {
+    let card: EvaDayTaskCard
+
+    var body: some View {
+        HStack(spacing: TaskerTheme.Spacing.xs) {
+            if let dueLabel = card.dueLabel, dueLabel.isEmpty == false {
+                Text(dueLabel)
+                    .font(.tasker(.caption1))
+                    .foregroundStyle(card.isOverdue ? Color.tasker(.statusDanger) : Color.tasker(.textSecondary))
+            }
+            Text(card.projectName)
+                .font(.tasker(.caption1))
+                .foregroundStyle(Color.tasker(.textTertiary))
+            if let durationLabel = card.durationLabel, durationLabel.isEmpty == false {
+                Text(durationLabel)
+                    .font(.tasker(.caption1))
+                    .foregroundStyle(Color.tasker(.textTertiary))
+            }
+        }
+    }
+}
+
+private struct EvaDayTaskActionsView: View {
+    let actions: [EvaDayTaskAction]
+    let isProcessing: Bool
+    let actionTitle: (EvaDayTaskAction) -> String
+    let actionHandler: (EvaDayTaskAction) -> Void
+
+    var body: some View {
+        HStack(spacing: TaskerTheme.Spacing.xs) {
+            ForEach(actions, id: \.rawValue) { action in
+                EvaDayTaskActionButtonView(
+                    action: action,
+                    title: actionTitle(action),
+                    isProcessing: isProcessing,
+                    actionHandler: actionHandler
+                )
+            }
+        }
+    }
+}
+
+private struct EvaDayTaskActionButtonView: View {
+    let action: EvaDayTaskAction
+    let title: String
+    let isProcessing: Bool
+    let actionHandler: (EvaDayTaskAction) -> Void
+
+    var body: some View {
+        if action == .done {
+            Button(title) {
+                actionHandler(action)
+            }
+            .buttonStyle(.borderedProminent)
+            .tint(Color.tasker(.accentPrimary))
+            .disabled(isProcessing)
+        } else {
+            Button(title) {
+                actionHandler(action)
+            }
+            .buttonStyle(.bordered)
+            .tint(Color.tasker(.accentMuted))
+            .disabled(isProcessing)
+        }
+    }
+}
+
+private struct EvaDayHabitHeaderView: View {
+    let card: EvaDayHabitCard
+    let overlay: EvaDayHabitOverlayState
+    let chips: [EvaDayStatusChip]
+    let chipColorProvider: (String) -> Color
+
+    var body: some View {
+        HStack(alignment: .top, spacing: TaskerTheme.Spacing.sm) {
+            Image(systemName: card.iconSymbolName ?? "repeat.circle")
+                .font(.tasker(.title3))
+                .foregroundStyle(Color.tasker(.accentPrimary))
+                .frame(width: 32)
+
+            VStack(alignment: .leading, spacing: TaskerTheme.Spacing.xs) {
+                Text(card.title)
+                    .font(.tasker(.headline))
+                    .foregroundStyle(Color.tasker(.textPrimary))
+                    .multilineTextAlignment(.leading)
+
+                EvaDayHabitMetadataView(card: card)
+            }
+
+            Spacer(minLength: TaskerTheme.Spacing.sm)
+
+            if overlay.isProcessing {
+                ProgressView()
+                    .controlSize(.small)
+            } else {
+                EvaDayStatusChipsView(
+                    chips: chips,
+                    colorProvider: chipColorProvider
+                )
+            }
+        }
+    }
+}
+
+private struct EvaDayHabitMetadataView: View {
+    let card: EvaDayHabitCard
+
+    var body: some View {
+        HStack(spacing: TaskerTheme.Spacing.xs) {
+            Text(card.cadenceLabel)
+                .font(.tasker(.caption1))
+                .foregroundStyle(Color.tasker(.textSecondary))
+            if let dueLabel = card.dueLabel, dueLabel.isEmpty == false {
+                Text(dueLabel)
+                    .font(.tasker(.caption1))
+                    .foregroundStyle(Color.tasker(.textTertiary))
+            }
+            if card.currentStreak > 0 {
+                Text("\(card.currentStreak) day streak")
+                    .font(.tasker(.caption1))
+                    .foregroundStyle(Color.tasker(.textTertiary))
+            }
+        }
+    }
+}
+
+private struct EvaDayHabitActionsView: View {
+    let actions: [EvaDayHabitAction]
+    let isProcessing: Bool
+    let actionTitle: (EvaDayHabitAction) -> String
+    let actionHandler: (EvaDayHabitAction) -> Void
+
+    var body: some View {
+        HStack(spacing: TaskerTheme.Spacing.xs) {
+            ForEach(actions, id: \.rawValue) { action in
+                EvaDayHabitActionButtonView(
+                    action: action,
+                    title: actionTitle(action),
+                    isProcessing: isProcessing,
+                    actionHandler: actionHandler
+                )
+            }
+        }
+    }
+}
+
+private struct EvaDayHabitActionButtonView: View {
+    let action: EvaDayHabitAction
+    let title: String
+    let isProcessing: Bool
+    let actionHandler: (EvaDayHabitAction) -> Void
+
+    var body: some View {
+        if action == .done || action == .stayedClean {
+            Button(title) {
+                actionHandler(action)
+            }
+            .buttonStyle(.borderedProminent)
+            .tint(Color.tasker(.accentPrimary))
+            .disabled(isProcessing)
+        } else {
+            Button(title) {
+                actionHandler(action)
+            }
+            .buttonStyle(.bordered)
+            .tint(Color.tasker(.accentMuted))
+            .disabled(isProcessing)
+        }
+    }
+}
+
 struct MessageView: View {
     @State private var collapsed = true
     @State private var undoExpiredLogged = false
@@ -160,6 +498,9 @@ struct MessageView: View {
     @State private var evaApplyMessage: String?
     @State private var isApplyingEvaProposal = false
     @State private var appliedEvaRunIDs: Set<UUID> = []
+    @State private var dayTaskOverlayStates: [UUID: EvaDayTaskOverlayState] = [:]
+    @State private var dayHabitOverlayStates: [UUID: EvaDayHabitOverlayState] = [:]
+    @State private var dayOverviewNotices: [String] = []
 
     let renderModel: ChatMessageRenderModel
     let now: Date
@@ -169,6 +510,9 @@ struct MessageView: View {
     var pendingPhase: ChatPendingResponsePhase = .idle
     var pendingStatusText: String? = nil
     var onOpenTaskFromCard: ((TaskDefinition) -> Void)?
+    var onOpenHabitFromCard: ((UUID) -> Void)?
+    var onPerformDayTaskAction: EvaDayTaskActionHandler?
+    var onPerformDayHabitAction: EvaDayHabitActionHandler?
 
     private var runtimeRunning: Bool {
         runtime?.running ?? false
@@ -414,6 +758,8 @@ struct MessageView: View {
     private func assistantCardView(payload: AssistantCardPayload) -> some View {
         if let evaProposal = payload.evaProposal {
             evaProposalCardView(payload: payload, proposal: evaProposal)
+        } else if let dayOverview = payload.dayOverview {
+            dayOverviewCardView(payload: payload, overview: dayOverview)
         } else if payload.cardType == .commandResult, let commandResult = payload.commandResult {
             commandResultCardView(commandResult)
         } else {
@@ -625,6 +971,315 @@ struct MessageView: View {
             RoundedRectangle(cornerRadius: TaskerTheme.CornerRadius.lg, style: .continuous)
                 .stroke(Color.tasker(.accentPrimary), lineWidth: 1.5)
         )
+    }
+
+    private func dayOverviewCardView(payload: AssistantCardPayload, overview: EvaDayOverviewPayload) -> some View {
+        let sections = visibleDayOverviewSections(for: overview)
+
+        return VStack(alignment: .leading, spacing: TaskerTheme.Spacing.md) {
+            evaPromptCard(prompt: overview.prompt)
+
+            if overview.isPartialContext {
+                HStack(alignment: .top, spacing: TaskerTheme.Spacing.sm) {
+                    Image(systemName: "exclamationmark.triangle.fill")
+                        .foregroundStyle(Color.tasker(.statusWarning))
+                    Text("Context is partial. EVA is only showing grounded tasks and habits from the slices that loaded.")
+                        .font(.tasker(.caption1))
+                        .foregroundStyle(Color.tasker(.textSecondary))
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                .padding(.horizontal, TaskerTheme.Spacing.md)
+                .padding(.vertical, TaskerTheme.Spacing.sm)
+                .background(Color.tasker(.surfaceSecondary))
+                .clipShape(RoundedRectangle(cornerRadius: TaskerTheme.CornerRadius.lg, style: .continuous))
+            }
+
+            DisclosureGroup {
+                Text(overview.contextReceipt.sources.joined(separator: "\n"))
+                    .font(.tasker(.caption1))
+                    .foregroundStyle(Color.tasker(.textSecondary))
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.top, TaskerTheme.Spacing.xs)
+            } label: {
+                Label(overview.contextReceipt.collapsedText, systemImage: "lock.shield")
+                    .font(.tasker(.caption1))
+                    .foregroundStyle(Color.tasker(.textSecondary))
+            }
+
+            markdownText(overview.summaryMarkdown, color: Color.tasker(.textPrimary))
+                .padding(TaskerTheme.Spacing.md)
+                .background(Color.tasker(.surfaceSecondary))
+                .clipShape(RoundedRectangle(cornerRadius: TaskerTheme.CornerRadius.lg, style: .continuous))
+
+            if dayOverviewNotices.isEmpty == false {
+                VStack(alignment: .leading, spacing: TaskerTheme.Spacing.xs) {
+                    ForEach(Array(dayOverviewNotices.enumerated()), id: \.offset) { _, notice in
+                        Text(notice)
+                            .font(.tasker(.caption1))
+                            .foregroundStyle(Color.tasker(.textSecondary))
+                    }
+                }
+                .padding(.horizontal, TaskerTheme.Spacing.md)
+                .padding(.vertical, TaskerTheme.Spacing.sm)
+                .background(Color.tasker(.accentWash).opacity(0.45))
+                .clipShape(RoundedRectangle(cornerRadius: TaskerTheme.CornerRadius.lg, style: .continuous))
+            }
+
+            if sections.isEmpty {
+                Text("Everything visible in this brief has already been handled.")
+                    .font(.tasker(.caption1))
+                    .foregroundStyle(Color.tasker(.textTertiary))
+            } else {
+                ForEach(sections) { section in
+                    dayOverviewSectionView(section)
+                }
+            }
+        }
+    }
+
+    private func visibleDayOverviewSections(for overview: EvaDayOverviewPayload) -> [EvaDayOverviewSection] {
+        overview.sections.compactMap { section in
+            let visibleTaskCards = section.taskCards.filter { !(dayTaskOverlayStates[$0.taskID]?.isHidden ?? false) }
+            let visibleHabitCards = section.habitCards
+
+            if visibleTaskCards.isEmpty && visibleHabitCards.isEmpty {
+                guard section.kind == .emptyState || section.message?.isEmpty == false else {
+                    return nil
+                }
+            }
+
+            return EvaDayOverviewSection(
+                kind: section.kind,
+                title: section.title,
+                subtitle: section.subtitle,
+                taskCards: visibleTaskCards,
+                habitCards: visibleHabitCards,
+                message: section.message
+            )
+        }
+    }
+
+    private func dayOverviewSectionView(_ section: EvaDayOverviewSection) -> some View {
+        VStack(alignment: .leading, spacing: TaskerTheme.Spacing.sm) {
+            VStack(alignment: .leading, spacing: 4) {
+                Text(section.title)
+                    .font(.tasker(.caption1))
+                    .fontWeight(.semibold)
+                    .foregroundStyle(Color.tasker(.textTertiary))
+                if let subtitle = section.subtitle, subtitle.isEmpty == false {
+                    Text(subtitle)
+                        .font(.tasker(.caption2))
+                        .foregroundStyle(Color.tasker(.textTertiary))
+                }
+            }
+            .padding(.horizontal, TaskerTheme.Spacing.xs)
+
+            if let message = section.message, message.isEmpty == false,
+               section.taskCards.isEmpty && section.habitCards.isEmpty {
+                Text(message)
+                    .font(.tasker(.callout))
+                    .foregroundStyle(Color.tasker(.textSecondary))
+                    .padding(TaskerTheme.Spacing.md)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(Color.tasker(.surfaceSecondary))
+                    .clipShape(RoundedRectangle(cornerRadius: TaskerTheme.CornerRadius.lg, style: .continuous))
+            }
+
+            ForEach(section.taskCards) { card in
+                dayTaskRow(card)
+            }
+
+            ForEach(section.habitCards) { card in
+                dayHabitRow(card)
+            }
+        }
+    }
+
+    private func dayTaskRow(_ card: EvaDayTaskCard) -> some View {
+        let overlay = dayTaskOverlayStates[card.taskID] ?? EvaDayTaskOverlayState()
+        return EvaDayTaskRowView(
+            card: card,
+            overlay: overlay,
+            chipColorProvider: dayChipColor,
+            actionTitle: taskActionTitle,
+            actionHandler: { action in
+                handleDayTaskAction(action, card: card)
+            }
+        )
+    }
+
+    private func dayHabitRow(_ card: EvaDayHabitCard) -> some View {
+        let overlay = dayHabitOverlayStates[card.habitID] ?? EvaDayHabitOverlayState()
+        let chips = overlay.statusChips ?? card.statusChips
+        let actions = overlay.actions ?? card.actions
+
+        return EvaDayHabitRowView(
+            card: card,
+            overlay: overlay,
+            chips: chips,
+            actions: actions,
+            chipColorProvider: dayChipColor,
+            markColorProvider: dayMarkColor,
+            actionTitle: habitActionTitle,
+            actionHandler: { action in
+                handleDayHabitAction(action, card: card)
+            }
+        )
+    }
+
+    @ViewBuilder
+    private func dayStatusChips(_ chips: [EvaDayStatusChip]) -> some View {
+        EvaDayStatusChipsView(chips: chips, colorProvider: dayChipColor)
+    }
+
+    private func handleDayTaskAction(_ action: EvaDayTaskAction, card: EvaDayTaskCard) {
+        if action == .open {
+            onOpenTaskFromCard?(card.taskSnapshot)
+            return
+        }
+        guard let onPerformDayTaskAction else {
+            appendDayOverviewNotice("Task actions are unavailable right now.")
+            return
+        }
+
+        var overlay = dayTaskOverlayStates[card.taskID] ?? EvaDayTaskOverlayState()
+        overlay.isProcessing = true
+        overlay.statusMessage = nil
+        dayTaskOverlayStates[card.taskID] = overlay
+
+        onPerformDayTaskAction(action, card) { result in
+            DispatchQueue.main.async {
+                var resolved = dayTaskOverlayStates[card.taskID] ?? EvaDayTaskOverlayState()
+                resolved.isProcessing = false
+                switch result {
+                case .success:
+                    switch action {
+                    case .done:
+                        resolved.isHidden = true
+                        appendDayOverviewNotice("Marked \"\(card.title)\" done.")
+                    case .reopen:
+                        resolved.isHidden = true
+                        appendDayOverviewNotice("Reopened \"\(card.title)\".")
+                    case .tomorrow:
+                        resolved.isHidden = true
+                        appendDayOverviewNotice("Moved \"\(card.title)\" to tomorrow.")
+                    case .open:
+                        break
+                    }
+                case .failure(let error):
+                    resolved.statusMessage = error.localizedDescription
+                }
+                dayTaskOverlayStates[card.taskID] = resolved
+            }
+        }
+    }
+
+    private func handleDayHabitAction(_ action: EvaDayHabitAction, card: EvaDayHabitCard) {
+        if action == .open {
+            onOpenHabitFromCard?(card.habitID)
+            return
+        }
+        guard let onPerformDayHabitAction else {
+            appendDayOverviewNotice("Habit actions are unavailable right now.")
+            return
+        }
+
+        var overlay = dayHabitOverlayStates[card.habitID] ?? EvaDayHabitOverlayState()
+        overlay.isProcessing = true
+        overlay.statusMessage = nil
+        dayHabitOverlayStates[card.habitID] = overlay
+
+        onPerformDayHabitAction(action, card) { result in
+            DispatchQueue.main.async {
+                var resolved = dayHabitOverlayStates[card.habitID] ?? EvaDayHabitOverlayState()
+                resolved.isProcessing = false
+                switch result {
+                case .success:
+                    resolved.statusMessage = habitActionSuccessMessage(action)
+                    resolved.actions = [.open]
+                    resolved.statusChips = [EvaDayStatusChip(
+                        text: habitResolvedChipTitle(action),
+                        tone: action == .lapsed || action == .logLapse ? "warning" : "accent"
+                    )]
+                    appendDayOverviewNotice("\(habitActionSuccessMessage(action)) \(card.title).")
+                case .failure(let error):
+                    resolved.statusMessage = error.localizedDescription
+                }
+                dayHabitOverlayStates[card.habitID] = resolved
+            }
+        }
+    }
+
+    private func appendDayOverviewNotice(_ notice: String) {
+        guard dayOverviewNotices.contains(notice) == false else { return }
+        dayOverviewNotices.append(notice)
+    }
+
+    private func taskActionTitle(_ action: EvaDayTaskAction) -> String {
+        switch action {
+        case .done: return "Done"
+        case .reopen: return "Reopen"
+        case .tomorrow: return "Tomorrow"
+        case .open: return "Open"
+        }
+    }
+
+    private func habitActionTitle(_ action: EvaDayHabitAction) -> String {
+        switch action {
+        case .done: return "Done"
+        case .skip: return "Skip"
+        case .stayedClean: return "Stayed Clean"
+        case .lapsed: return "Lapsed"
+        case .logLapse: return "Log Lapse"
+        case .open: return "Open"
+        }
+    }
+
+    private func habitResolvedChipTitle(_ action: EvaDayHabitAction) -> String {
+        switch action {
+        case .done: return "Done"
+        case .skip: return "Skipped"
+        case .stayedClean: return "Stayed clean"
+        case .lapsed, .logLapse: return "Lapsed"
+        case .open: return "Open"
+        }
+    }
+
+    private func habitActionSuccessMessage(_ action: EvaDayHabitAction) -> String {
+        switch action {
+        case .done: return "Logged completion for"
+        case .skip: return "Skipped"
+        case .stayedClean: return "Logged stayed clean for"
+        case .lapsed: return "Logged a lapse for"
+        case .logLapse: return "Logged a lapse for"
+        case .open: return "Opened"
+        }
+    }
+
+    private func dayChipColor(_ tone: String) -> Color {
+        switch tone {
+        case "danger":
+            return Color.tasker(.statusDanger)
+        case "warning":
+            return Color.tasker(.statusWarning)
+        default:
+            return Color.tasker(.accentPrimary)
+        }
+    }
+
+    private func dayMarkColor(_ state: HabitDayState) -> Color {
+        switch state {
+        case .success:
+            return Color.tasker(.accentPrimary)
+        case .failure:
+            return Color.tasker(.statusDanger)
+        case .skipped:
+            return Color.tasker(.statusWarning)
+        case .future:
+            return Color.tasker(.strokeHairline)
+        case .none:
+            return Color.tasker(.accentMuted)
+        }
     }
 
     private func evaProposalRow(_ card: EvaProposalCard) -> some View {
@@ -1093,6 +1748,9 @@ struct ConversationView: View {
     let snapshot: ChatTranscriptSnapshot
     let liveOutput: ChatLiveOutputState
     var onOpenTaskFromCard: ((TaskDefinition) -> Void)?
+    var onOpenHabitFromCard: ((UUID) -> Void)?
+    var onPerformDayTaskAction: EvaDayTaskActionHandler?
+    var onPerformDayHabitAction: EvaDayHabitActionHandler?
 
     @State private var scrollID: String?
     @State private var scrollInterrupted = false
@@ -1114,7 +1772,10 @@ struct ConversationView: View {
                         MessageView(
                             renderModel: message,
                             now: now,
-                            onOpenTaskFromCard: onOpenTaskFromCard
+                            onOpenTaskFromCard: onOpenTaskFromCard,
+                            onOpenHabitFromCard: onOpenHabitFromCard,
+                            onPerformDayTaskAction: onPerformDayTaskAction,
+                            onPerformDayHabitAction: onPerformDayHabitAction
                         )
                         .padding(.horizontal, TaskerTheme.Spacing.lg)
                         .padding(.vertical, TaskerTheme.Spacing.sm)
@@ -1129,7 +1790,10 @@ struct ConversationView: View {
                             isLiveOutput: true,
                             workingStatuses: liveWorkingStatuses,
                             pendingPhase: liveOutput.pendingPhase,
-                            pendingStatusText: liveOutput.pendingStatusText
+                            pendingStatusText: liveOutput.pendingStatusText,
+                            onOpenHabitFromCard: onOpenHabitFromCard,
+                            onPerformDayTaskAction: onPerformDayTaskAction,
+                            onPerformDayHabitAction: onPerformDayHabitAction
                         )
                         .padding(.horizontal, TaskerTheme.Spacing.lg)
                         .padding(.vertical, TaskerTheme.Spacing.sm)

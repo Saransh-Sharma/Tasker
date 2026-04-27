@@ -9,6 +9,22 @@ import SwiftData
 import SwiftUI
 import os
 
+struct ChatThreadChangeCancellationPolicy {
+    static func shouldCancelActiveGeneration(
+        oldThreadID: UUID?,
+        newThreadID: UUID?,
+        generatingThreadID: UUID?,
+        hasActiveGeneration: Bool
+    ) -> Bool {
+        guard hasActiveGeneration else { return false }
+        guard oldThreadID != newThreadID else { return false }
+        if oldThreadID == nil, newThreadID == generatingThreadID {
+            return false
+        }
+        return true
+    }
+}
+
 struct ChatView: View {
     @EnvironmentObject var appManager: AppManager
     @Environment(\.modelContext) var modelContext
@@ -25,6 +41,9 @@ struct ChatView: View {
     var presentationMode: ChatPresentationMode = .normal
     var onActivationChatEvent: ((EvaActivationChatEvent) -> Void)? = nil
     var onOpenTaskDetail: ((TaskDefinition) -> Void)? = nil
+    var onOpenHabitDetail: ((UUID) -> Void)? = nil
+    var onPerformDayTaskAction: EvaDayTaskActionHandler? = nil
+    var onPerformDayHabitAction: EvaDayHabitActionHandler? = nil
 
     @State var thinkingTime: TimeInterval?
 
@@ -262,6 +281,9 @@ struct ChatView: View {
             llmCancelled: llm.cancelled,
             chatTitle: chatTitle,
             onOpenTaskDetail: onOpenTaskDetail,
+            onOpenHabitDetail: onOpenHabitDetail,
+            onPerformDayTaskAction: onPerformDayTaskAction,
+            onPerformDayHabitAction: onPerformDayHabitAction,
             starterPrompts: activationStarterPrompts,
             activeAttachments: contextCoordinator.activeAttachments,
             onOpenSlashPicker: {
@@ -310,8 +332,8 @@ struct ChatView: View {
             }
             isProjectFieldFocused = true
         }
-        .onChange(of: currentThread?.id) { _, _ in
-            handleCurrentThreadChanged()
+        .onChange(of: currentThread?.id) { oldThreadID, newThreadID in
+            handleCurrentThreadChanged(from: oldThreadID, to: newThreadID)
         }
         .onChange(of: isPromptFocused) { _, focused in
             handlePromptFocusChanged(focused)
@@ -433,13 +455,29 @@ struct ChatView: View {
     }
 
     @MainActor
-    private func handleCurrentThreadChanged() {
+    private func handleCurrentThreadChanged(from oldThreadID: UUID?, to newThreadID: UUID?) {
         activationFocusTask?.cancel()
         activationFocusTask = nil
         projectLookupTask?.cancel()
         contextInvalidationTask?.cancel()
         contextInvalidationTask = nil
-        cancelActiveGeneration(reason: "thread_changed")
+        let shouldCancelGeneration = ChatThreadChangeCancellationPolicy.shouldCancelActiveGeneration(
+            oldThreadID: oldThreadID,
+            newThreadID: newThreadID,
+            generatingThreadID: generatingThreadID,
+            hasActiveGeneration: generationTask != nil || llm.running
+        )
+        if shouldCancelGeneration {
+            cancelActiveGeneration(reason: "thread_changed")
+        } else if oldThreadID == nil, newThreadID == generatingThreadID, generationTask != nil || llm.running {
+            logWarning(
+                event: "chat_thread_change_generation_preserved",
+                message: "Preserved active generation after first chat thread attach",
+                fields: [
+                    "thread_id": newThreadID?.uuidString ?? "nil"
+                ]
+            )
+        }
         refreshTranscriptSnapshot()
         contextCoordinator.loadAttachments(for: currentThread?.id)
     }
@@ -837,8 +875,12 @@ struct ChatView: View {
         case .success(let plan):
             if plan.envelope.commands.isEmpty {
                 await MainActor.run {
+                    let payload = EvaPlanResponseDelivery.dayOverviewPayload(
+                        for: plan,
+                        threadID: thread.id.uuidString
+                    ) ?? EvaPlanResponseDelivery.textPayload(for: plan)
                     let result = deliverEvaPlanPayload(
-                        EvaPlanResponseDelivery.textPayload(for: plan),
+                        payload,
                         thread: thread,
                         traceContext: traceContext,
                         usesModelGenerationForDeliveryGate: plan.usesModelGenerationForDeliveryGate

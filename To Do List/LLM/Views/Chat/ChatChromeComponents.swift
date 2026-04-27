@@ -121,6 +121,7 @@ struct ChatEmptyStateView: View {
     let commandSuggestions: [SlashCommandDescriptor]
     let onSelectStarterPrompt: (EvaStarterPrompt) -> Void
     let onSelectSuggestion: (SlashCommandDescriptor) -> Void
+    let onOpenEvaGuide: () -> Void
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
@@ -140,6 +141,10 @@ struct ChatEmptyStateView: View {
         let prompts = starterPrompts
         guard let activationConfiguration else { return prompts }
         return Array(prompts.prefix(activationConfiguration.visibleStarterLimit))
+    }
+
+    private var dayOverviewStarterPrompt: EvaStarterPrompt {
+        EvaStarterPrompt.dayOverviewPrompt
     }
 
     var body: some View {
@@ -223,13 +228,18 @@ struct ChatEmptyStateView: View {
         VStack(alignment: .leading, spacing: 0) {
             HStack {
                 Spacer()
-                Image(systemName: "questionmark")
-                    .font(.system(size: 24, weight: .semibold))
-                    .foregroundStyle(Color.tasker(.textPrimary))
-                    .frame(width: 56, height: 56)
-                    .background(Color.tasker(.surfacePrimary), in: Circle())
-                    .accessibilityLabel("EVA help")
-                    .accessibilityIdentifier("eva.structured.help")
+                Button(action: onOpenEvaGuide) {
+                    Image(systemName: "questionmark")
+                        .font(.system(size: 24, weight: .semibold))
+                        .foregroundStyle(Color.tasker(.textPrimary))
+                        .frame(width: 56, height: 56)
+                        .background(Color.tasker(.surfacePrimary), in: Circle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Eva help")
+                .accessibilityHint("Shows ways to use Eva as your chief of staff.")
+                .accessibilityIdentifier("eva.structured.help")
+                .taskerPressFeedback(reduceMotion: reduceMotion)
             }
             .padding(.horizontal, TaskerTheme.Spacing.xl)
             .padding(.top, TaskerTheme.Spacing.xl)
@@ -356,6 +366,268 @@ struct ChatEmptyStateView: View {
     }
 }
 
+private struct EvaChiefOfStaffGuideSection: Identifiable {
+    let id: String
+    let icon: String
+    let title: String
+    let body: String
+    let prompts: [EvaStarterPrompt]
+}
+
+struct EvaChiefOfStaffGuideView: View {
+    let onSelectPrompt: (EvaStarterPrompt) -> Void
+
+    @Environment(\.dismiss) private var dismiss
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    private var sections: [EvaChiefOfStaffGuideSection] {
+        [
+            EvaChiefOfStaffGuideSection(
+                id: "how_eva_helps",
+                icon: "sparkles",
+                title: "How Eva helps",
+                body: "Eva is your private, on-device chief of staff. She reads your current task context, summarizes what matters, helps you decide what to do next, and proposes changes before anything is applied.",
+                prompts: [
+                    guidePrompt(
+                        id: "how_is_my_day",
+                        title: "How is my day?",
+                        submissionText: "How is my day looking today?"
+                    )
+                ]
+            ),
+            EvaChiefOfStaffGuideSection(
+                id: "command_your_day",
+                icon: "sun.max",
+                title: "Command your day",
+                body: "Ask Eva for a quick operating brief, a focus recommendation, or a recovery view when overdue work is crowding the day.",
+                prompts: [
+                    guidePrompt(
+                        id: "focus_first",
+                        title: "Focus first",
+                        submissionText: "What should I focus on first today?"
+                    ),
+                    guidePrompt(
+                        id: "recover_overdue",
+                        title: "Recover overdue",
+                        submissionText: "Show me what is overdue and what I should recover first."
+                    )
+                ]
+            ),
+            EvaChiefOfStaffGuideSection(
+                id: "plan_and_repair",
+                icon: "arrow.triangle.2.circlepath",
+                title: "Plan and repair",
+                body: "Use Eva when the day needs structure. She can turn your existing tasks and habits into a realistic plan, then explain what should move, wait, or stay protected.",
+                prompts: [
+                    guidePrompt(
+                        id: "plan_today_existing",
+                        title: "Plan today",
+                        submissionText: "Help me plan today around my existing tasks and habits."
+                    )
+                ]
+            ),
+            EvaChiefOfStaffGuideSection(
+                id: "break_work_down",
+                icon: "checklist",
+                title: "Break work down",
+                body: "Bring Eva a vague priority, messy note, or large task. Ask for next steps so the first action is obvious instead of another decision.",
+                prompts: [
+                    guidePrompt(
+                        id: "break_top_priority",
+                        title: "Break down priority",
+                        submissionText: "Help me break down my top priority into next steps."
+                    )
+                ]
+            ),
+            EvaChiefOfStaffGuideSection(
+                id: "structured_context",
+                icon: "command",
+                title: "Use structured context",
+                body: "Type commands when you want Eva to pull a specific slice of your system. Commands like /today, /week, /project, /area, /recent, and /overdue can also pin context into the current chat.",
+                prompts: [
+                    guidePrompt(id: "slash_today", title: "/today", submissionText: "/today", style: .slashCommand),
+                    guidePrompt(id: "slash_week", title: "/week", submissionText: "/week", style: .slashCommand),
+                    guidePrompt(id: "slash_project_inbox", title: "/project Inbox", submissionText: "/project Inbox", style: .slashCommand),
+                    guidePrompt(id: "slash_recent", title: "/recent", submissionText: "/recent", style: .slashCommand)
+                ]
+            ),
+            EvaChiefOfStaffGuideSection(
+                id: "review_before_apply",
+                icon: "checkmark.shield",
+                title: "Review before apply",
+                body: "For task changes, Eva should show proposal cards first. You choose what to apply, use selected apply for safe batches, and undo where the applied action supports it.",
+                prompts: [
+                    guidePrompt(
+                        id: "plan_today_for_review",
+                        title: "Make a reviewable plan",
+                        submissionText: "Help me plan today around my existing tasks and habits."
+                    )
+                ]
+            )
+        ]
+    }
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: TaskerTheme.Spacing.lg) {
+                    hero
+
+                    ForEach(Array(sections.enumerated()), id: \.element.id) { index, section in
+                        sectionCard(section)
+                            .enhancedStaggeredAppearance(index: index + 1)
+                    }
+                }
+                .padding(.horizontal, TaskerTheme.Spacing.lg)
+                .padding(.vertical, TaskerTheme.Spacing.lg)
+            }
+            .background(Color.tasker(.bgElevated))
+            .navigationTitle("Eva guide")
+            #if os(iOS) || os(visionOS)
+            .navigationBarTitleDisplayMode(.inline)
+            #endif
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("Close") {
+                        dismiss()
+                    }
+                    .accessibilityIdentifier("eva.guide.close")
+                }
+            }
+        }
+        .accessibilityIdentifier("eva.guide.sheet")
+    }
+
+    private var hero: some View {
+        VStack(alignment: .leading, spacing: TaskerTheme.Spacing.sm) {
+            HStack(spacing: TaskerTheme.Spacing.sm) {
+                Image(systemName: "person.crop.circle.badge.checkmark")
+                    .font(.system(size: 28, weight: .semibold))
+                    .foregroundStyle(Color.tasker(.accentPrimary))
+                    .frame(width: 48, height: 48)
+                    .background(Color.tasker(.accentWash), in: Circle())
+
+                VStack(alignment: .leading, spacing: 3) {
+                    Text("Eva as Chief of Staff")
+                        .font(.tasker(.title2))
+                        .foregroundStyle(Color.tasker(.textPrimary))
+                    Text("Plan, triage, and apply with confirmation.")
+                        .font(.tasker(.callout))
+                        .foregroundStyle(Color.tasker(.textSecondary))
+                }
+            }
+
+            Text("Start with one of these prompts, or read the examples to learn when Eva is strongest.")
+                .font(.tasker(.body))
+                .foregroundStyle(Color.tasker(.textSecondary))
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .padding(TaskerTheme.Spacing.lg)
+        .taskerPremiumSurface(
+            cornerRadius: TaskerTheme.CornerRadius.xl,
+            fillColor: Color.tasker(.surfacePrimary),
+            strokeColor: Color.tasker(.strokeHairline),
+            accentColor: Color.tasker(.accentSecondary),
+            level: .e1
+        )
+        .enhancedStaggeredAppearance(index: 0)
+    }
+
+    private func sectionCard(_ section: EvaChiefOfStaffGuideSection) -> some View {
+        VStack(alignment: .leading, spacing: TaskerTheme.Spacing.md) {
+            HStack(alignment: .top, spacing: TaskerTheme.Spacing.sm) {
+                Image(systemName: section.icon)
+                    .font(.tasker(.headline))
+                    .foregroundStyle(Color.tasker(.accentPrimary))
+                    .frame(width: 28, height: 28)
+
+                VStack(alignment: .leading, spacing: TaskerTheme.Spacing.xs) {
+                    Text(section.title)
+                        .font(.tasker(.headline))
+                        .foregroundStyle(Color.tasker(.textPrimary))
+                    Text(section.body)
+                        .font(.tasker(.callout))
+                        .foregroundStyle(Color.tasker(.textSecondary))
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+
+            FlowPromptChipsView(
+                prompts: section.prompts,
+                reduceMotion: reduceMotion,
+                onSelectPrompt: { prompt in
+                    dismiss()
+                    onSelectPrompt(prompt)
+                }
+            )
+        }
+        .padding(TaskerTheme.Spacing.md)
+        .taskerChromeSurface(
+            cornerRadius: TaskerTheme.CornerRadius.lg,
+            accentColor: Color.tasker(.accentSecondary),
+            level: .e1
+        )
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("eva.guide.section.\(section.id)")
+    }
+
+    private func guidePrompt(
+        id: String,
+        title: String,
+        submissionText: String,
+        style: EvaStarterPrompt.Style = .naturalLanguage
+    ) -> EvaStarterPrompt {
+        EvaStarterPrompt(
+            id: "eva_guide_\(id)",
+            title: title,
+            submissionText: submissionText,
+            style: style,
+            isRecommended: false
+        )
+    }
+}
+
+private struct FlowPromptChipsView: View {
+    let prompts: [EvaStarterPrompt]
+    let reduceMotion: Bool
+    let onSelectPrompt: (EvaStarterPrompt) -> Void
+
+    var body: some View {
+        LazyVGrid(
+            columns: [GridItem(.adaptive(minimum: 138), spacing: TaskerTheme.Spacing.xs, alignment: .leading)],
+            alignment: .leading,
+            spacing: TaskerTheme.Spacing.xs
+        ) {
+            ForEach(prompts) { prompt in
+                Button {
+                    onSelectPrompt(prompt)
+                } label: {
+                    HStack(spacing: 6) {
+                        Image(systemName: prompt.style == .slashCommand ? "command" : "arrow.up.message")
+                            .font(.tasker(.caption2))
+                        Text(prompt.title)
+                            .font(.tasker(.caption1))
+                            .fontWeight(.semibold)
+                            .lineLimit(2)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                    .foregroundStyle(Color.tasker(.accentPrimary))
+                    .padding(.horizontal, TaskerTheme.Spacing.sm)
+                    .padding(.vertical, TaskerTheme.Spacing.xs)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(Color.tasker(.accentWash))
+                    .clipShape(Capsule())
+                    .overlay(Capsule().stroke(Color.tasker(.accentMuted), lineWidth: 1))
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Send prompt: \(prompt.submissionText)")
+                .accessibilityIdentifier("eva.guide.prompt.\(prompt.id)")
+                .taskerPressFeedback(reduceMotion: reduceMotion)
+            }
+        }
+    }
+}
+
 struct ChatComposerView: View {
     let presentationMode: ChatPresentationMode
     let slashDraft: SlashCommandInvocation?
@@ -400,6 +672,10 @@ struct ChatComposerView: View {
         let prompts = starterPrompts
         guard let activationConfiguration else { return prompts }
         return Array(prompts.prefix(activationConfiguration.visibleStarterLimit))
+    }
+
+    private var dayOverviewStarterPrompt: EvaStarterPrompt {
+        EvaStarterPrompt.dayOverviewPrompt
     }
 
     var body: some View {
@@ -595,6 +871,30 @@ struct ChatComposerView: View {
                         .enhancedStaggeredAppearance(index: index)
                     }
                 } else {
+                    Button {
+                        onSelectStarterPrompt(dayOverviewStarterPrompt)
+                    } label: {
+                        HStack(spacing: 6) {
+                            Image(systemName: "sparkle")
+                                .font(.tasker(.caption2))
+                            Text(dayOverviewStarterPrompt.title)
+                                .font(.tasker(.caption1))
+                        }
+                        .foregroundStyle(Color.tasker(.accentOnPrimary))
+                        .padding(.horizontal, TaskerTheme.Spacing.sm)
+                        .padding(.vertical, TaskerTheme.Spacing.xs)
+                        .background(Color.tasker(.accentPrimary))
+                        .clipShape(Capsule())
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("Send \(dayOverviewStarterPrompt.title)")
+                    .accessibilityIdentifier("chat.command_composer_starter.\(dayOverviewStarterPrompt.id)")
+                    .overlay(
+                        Capsule()
+                            .stroke(Color.tasker(.accentPrimary), lineWidth: 1)
+                    )
+                    .taskerPressFeedback(reduceMotion: reduceMotion)
+
                     ForEach(commandSuggestions, id: \.id) { descriptor in
                         Button {
                             onSelectSuggestion(descriptor)
@@ -832,6 +1132,7 @@ struct ChatScaffoldView: View {
     @EnvironmentObject private var appManager: AppManager
     @Environment(LLMEvaluator.self) private var llm
     @Environment(\.taskerLayoutClass) private var layoutClass
+    @State private var showEvaGuide = false
 
     @Binding var currentThread: Thread?
     let transcriptSnapshot: ChatTranscriptSnapshot
@@ -858,6 +1159,9 @@ struct ChatScaffoldView: View {
     let llmCancelled: Bool
     let chatTitle: String
     let onOpenTaskDetail: ((TaskDefinition) -> Void)?
+    let onOpenHabitDetail: ((UUID) -> Void)?
+    let onPerformDayTaskAction: EvaDayTaskActionHandler?
+    let onPerformDayHabitAction: EvaDayHabitActionHandler?
     let starterPrompts: [EvaStarterPrompt]
     let activeAttachments: [ThreadContextAttachmentRecord]
     let onOpenSlashPicker: () -> Void
@@ -933,7 +1237,10 @@ struct ChatScaffoldView: View {
                         liveOutput: liveOutput,
                         onOpenTaskFromCard: { task in
                             onOpenTaskDetail?(task)
-                        }
+                        },
+                        onOpenHabitFromCard: onOpenHabitDetail,
+                        onPerformDayTaskAction: onPerformDayTaskAction,
+                        onPerformDayHabitAction: onPerformDayHabitAction
                     )
                 } else {
                     ChatEmptyStateView(
@@ -941,7 +1248,11 @@ struct ChatScaffoldView: View {
                         starterPrompts: starterPrompts,
                         commandSuggestions: commandSuggestions,
                         onSelectStarterPrompt: onSelectStarterPrompt,
-                        onSelectSuggestion: onSelectSuggestion
+                        onSelectSuggestion: onSelectSuggestion,
+                        onOpenEvaGuide: {
+                            appManager.playHaptic()
+                            showEvaGuide = true
+                        }
                     )
                 }
 
@@ -1058,6 +1369,17 @@ struct ChatScaffoldView: View {
                     .presentationBackground(Color.tasker(.bgElevated))
                     .presentationDragIndicator(.visible)
                     .presentationDetents(layoutClass == .phone ? [.medium, .large] : [.large])
+                }
+                .sheet(isPresented: $showEvaGuide) {
+                    EvaChiefOfStaffGuideView { prompt in
+                        onSelectStarterPrompt(prompt)
+                    }
+                    #if os(iOS)
+                    .presentationBackground(Color.tasker(.bgElevated))
+                    .presentationCornerRadius(TaskerTheme.CornerRadius.xl)
+                    .presentationDragIndicator(.visible)
+                    .presentationDetents([.large])
+                    #endif
                 }
                 .alert("Clear this chat?", isPresented: showClearConfirmation) {
                     Button("Cancel", role: .cancel) {}

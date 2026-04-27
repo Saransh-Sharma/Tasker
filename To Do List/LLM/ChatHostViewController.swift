@@ -153,6 +153,15 @@ class ChatHostViewController: UIViewController, PresentationDependencyContainerA
                     },
                     onOpenTaskDetail: { [weak self] task in
                         self?.presentTaskDetailSheet(for: task)
+                    },
+                    onOpenHabitDetail: { [weak self] habitID in
+                        self?.presentHabitDetailSheet(for: habitID)
+                    },
+                    onPerformDayTaskAction: { [weak self] action, card, completion in
+                        self?.performDayTaskAction(action, card: card, completion: completion)
+                    },
+                    onPerformDayHabitAction: { [weak self] action, card, completion in
+                        self?.performDayHabitAction(action, card: card, completion: completion)
                     }
                 )
                 .environmentObject(appManager)
@@ -380,6 +389,137 @@ class ChatHostViewController: UIViewController, PresentationDependencyContainerA
         )
         alert.addAction(UIAlertAction(title: "OK", style: .default))
         present(alert, animated: true)
+    }
+
+    private func presentHabitDetailSheet(for habitID: UUID) {
+        guard let coordinator = resolvedUseCaseCoordinator else {
+            showHabitDetailUnavailableAlert()
+            return
+        }
+
+        coordinator.getHabitLibrary.execute(habitID: habitID, includeArchived: true) { [weak self] result in
+            DispatchQueue.main.async {
+                guard let self else { return }
+                switch result {
+                case .failure:
+                    self.showHabitDetailUnavailableAlert()
+                case .success(let row):
+                    guard let row else {
+                        self.showHabitDetailUnavailableAlert()
+                        return
+                    }
+
+                    let detailView = HabitDetailSheetView(
+                        viewModel: PresentationDependencyContainer.shared.makeHabitDetailViewModel(row: row),
+                        onMutation: {}
+                    )
+                    let layoutClass = TaskerLayoutResolver.classify(view: self.view)
+                    let hostingController = UIHostingController(rootView: detailView.taskerLayoutClass(layoutClass))
+                    hostingController.view.backgroundColor = TaskerThemeManager.shared.currentTheme.tokens.color.bgCanvas
+                    hostingController.modalPresentationStyle = .pageSheet
+
+                    if let sheet = hostingController.sheetPresentationController {
+                        sheet.detents = [.medium(), .large()]
+                        sheet.preferredCornerRadius = TaskerThemeManager.shared.currentTheme.tokens.corner.modal
+                        sheet.prefersScrollingExpandsWhenScrolledToEdge = true
+                    }
+
+                    self.present(hostingController, animated: true)
+                }
+            }
+        }
+    }
+
+    private func showHabitDetailUnavailableAlert() {
+        let alert = UIAlertController(
+            title: "Habit details unavailable",
+            message: "Could not open habit details from chat right now. Please try again from Home.",
+            preferredStyle: .alert
+        )
+        alert.addAction(UIAlertAction(title: "OK", style: .default))
+        present(alert, animated: true)
+    }
+
+    private func performDayTaskAction(
+        _ action: EvaDayTaskAction,
+        card: EvaDayTaskCard,
+        completion: @escaping (Result<Void, Error>) -> Void
+    ) {
+        guard let coordinator = resolvedUseCaseCoordinator else {
+            completion(.failure(NSError(
+                domain: "ChatHostViewController",
+                code: 12,
+                userInfo: [NSLocalizedDescriptionKey: "Coordinator unavailable"]
+            )))
+            return
+        }
+
+        switch action {
+        case .done:
+            coordinator.completeTaskDefinition.setCompletion(taskID: card.taskID, to: true) { result in
+                DispatchQueue.main.async { completion(result.map { _ in }) }
+            }
+        case .reopen:
+            coordinator.completeTaskDefinition.setCompletion(taskID: card.taskID, to: false) { result in
+                DispatchQueue.main.async { completion(result.map { _ in }) }
+            }
+        case .tomorrow:
+            let calendar = Calendar.current
+            let baseDay = calendar.startOfDay(for: Date())
+            guard let tomorrow = calendar.date(byAdding: .day, value: 1, to: baseDay) else {
+                completion(.failure(NSError(
+                    domain: "ChatHostViewController",
+                    code: 13,
+                    userInfo: [NSLocalizedDescriptionKey: "Could not compute tomorrow"]
+                )))
+                return
+            }
+            coordinator.rescheduleTaskDefinition.execute(taskID: card.taskID, newDate: tomorrow) { result in
+                DispatchQueue.main.async { completion(result.map { _ in }) }
+            }
+        case .open:
+            presentTaskDetailSheet(for: card.taskSnapshot)
+            completion(.success(()))
+        }
+    }
+
+    private func performDayHabitAction(
+        _ action: EvaDayHabitAction,
+        card: EvaDayHabitCard,
+        completion: @escaping (Result<Void, Error>) -> Void
+    ) {
+        guard let coordinator = resolvedUseCaseCoordinator else {
+            completion(.failure(NSError(
+                domain: "ChatHostViewController",
+                code: 14,
+                userInfo: [NSLocalizedDescriptionKey: "Coordinator unavailable"]
+            )))
+            return
+        }
+
+        let habitAction: HabitOccurrenceAction?
+        switch action {
+        case .done:
+            habitAction = .complete
+        case .skip:
+            habitAction = .skip
+        case .stayedClean:
+            habitAction = .abstained
+        case .lapsed, .logLapse:
+            habitAction = .lapsed
+        case .open:
+            presentHabitDetailSheet(for: card.habitID)
+            completion(.success(()))
+            return
+        }
+
+        coordinator.resolveHabitOccurrence.execute(
+            habitID: card.habitID,
+            action: habitAction ?? .complete,
+            on: card.dueAt ?? Date()
+        ) { result in
+            DispatchQueue.main.async { completion(result) }
+        }
     }
 
     private func loadProjectsIfNeeded(
@@ -768,6 +908,9 @@ struct ChatContainerView: View {
     var presentationMode: ChatPresentationMode = .normal
     var onActivationChatEvent: ((EvaActivationChatEvent) -> Void)? = nil
     var onOpenTaskDetail: (TaskDefinition) -> Void
+    var onOpenHabitDetail: ((UUID) -> Void)? = nil
+    var onPerformDayTaskAction: EvaDayTaskActionHandler? = nil
+    var onPerformDayHabitAction: EvaDayHabitActionHandler? = nil
 
     @State private var currentThread: Thread? = nil
     @FocusState private var isPromptFocused: Bool
@@ -796,7 +939,10 @@ struct ChatContainerView: View {
                         showSettings: $showSettings,
                         presentationMode: presentationMode,
                         onActivationChatEvent: onActivationChatEvent,
-                        onOpenTaskDetail: onOpenTaskDetail
+                        onOpenTaskDetail: onOpenTaskDetail,
+                        onOpenHabitDetail: onOpenHabitDetail,
+                        onPerformDayTaskAction: onPerformDayTaskAction,
+                        onPerformDayHabitAction: onPerformDayHabitAction
                     )
                 }
                 .navigationSplitViewStyle(.balanced)
@@ -808,7 +954,10 @@ struct ChatContainerView: View {
                     showSettings: $showSettings,
                     presentationMode: presentationMode,
                     onActivationChatEvent: onActivationChatEvent,
-                    onOpenTaskDetail: onOpenTaskDetail
+                    onOpenTaskDetail: onOpenTaskDetail,
+                    onOpenHabitDetail: onOpenHabitDetail,
+                    onPerformDayTaskAction: onPerformDayTaskAction,
+                    onPerformDayHabitAction: onPerformDayHabitAction
                 )
             }
         }
