@@ -26,6 +26,7 @@ struct AssistantPlanResult {
     let rationale: String
     let diffLines: [AssistantDiffLine]
     let proposalCards: [EvaProposalCard]
+    let dayOverviewPayload: EvaDayOverviewPayload?
     let contextReceipt: EvaContextReceipt
     let modelName: String
     let routeBanner: String?
@@ -76,17 +77,18 @@ enum EvaPlanResponseDropReason: String, Equatable {
 enum EvaPlanResponsePayload: Equatable {
     case text(content: String, sourceModelName: String?)
     case proposalCard(content: String, sourceModelName: String?)
+    case dayOverviewCard(content: String, sourceModelName: String?)
 
     var content: String {
         switch self {
-        case .text(let content, _), .proposalCard(let content, _):
+        case .text(let content, _), .proposalCard(let content, _), .dayOverviewCard(let content, _):
             return content
         }
     }
 
     var sourceModelName: String? {
         switch self {
-        case .text(_, let sourceModelName), .proposalCard(_, let sourceModelName):
+        case .text(_, let sourceModelName), .proposalCard(_, let sourceModelName), .dayOverviewCard(_, let sourceModelName):
             return sourceModelName
         }
     }
@@ -97,6 +99,8 @@ enum EvaPlanResponsePayload: Equatable {
             return "text"
         case .proposalCard:
             return "proposal_card"
+        case .dayOverviewCard:
+            return "day_overview_card"
         }
     }
 }
@@ -129,6 +133,25 @@ struct EvaPlanResponseDelivery {
         let trimmedRationale = plan.rationale.trimmingCharacters(in: .whitespacesAndNewlines)
         return .text(
             content: trimmedRationale.isEmpty ? "Tell me what you want to create, change, or review." : trimmedRationale,
+            sourceModelName: plan.modelName
+        )
+    }
+
+    static func dayOverviewPayload(
+        for plan: AssistantPlanResult,
+        threadID: String
+    ) -> EvaPlanResponsePayload? {
+        guard let dayOverview = plan.dayOverviewPayload else { return nil }
+        let cardPayload = AssistantCardPayload(
+            cardType: .dayOverview,
+            threadID: threadID,
+            status: .applied,
+            rationale: plan.rationale,
+            message: plan.rationale,
+            dayOverview: dayOverview
+        )
+        return .dayOverviewCard(
+            content: AssistantCardCodec.encode(cardPayload),
             sourceModelName: plan.modelName
         )
     }
@@ -266,6 +289,7 @@ final class AssistantPlannerService {
             return .success(buildResult(
                 envelope: output.envelope,
                 proposalCards: output.cards,
+                dayOverviewPayload: output.dayOverviewPayload,
                 taskTitleByID: effectiveTaskTitleByID,
                 projectNameByID: projectNameByID,
                 modelName: "deterministic_intent_gate",
@@ -634,6 +658,7 @@ final class AssistantPlannerService {
     private func buildResult(
         envelope: AssistantCommandEnvelope,
         proposalCards: [EvaProposalCard],
+        dayOverviewPayload: EvaDayOverviewPayload? = nil,
         taskTitleByID: [UUID: String],
         projectNameByID: [UUID: String],
         modelName: String,
@@ -658,6 +683,7 @@ final class AssistantPlannerService {
                 projectNameByID: projectNameByID
             ),
             proposalCards: proposalCards,
+            dayOverviewPayload: dayOverviewPayload,
             contextReceipt: EvaContextReceipt(sources: ["Today timeline", "Inbox", "Projects", "Habits", "Calendar"]),
             modelName: modelName,
             routeBanner: route.bannerMessage,
@@ -733,24 +759,6 @@ enum EvaTurnRouter {
         let lower = normalized(prompt)
         guard lower.isEmpty == false else { return .clarification }
 
-        let readOnlyMarkers = [
-            "what are my tasks",
-            "what tasks",
-            "review my day",
-            "review the day",
-            "what should i focus",
-            "what shall i focus",
-            "what do i have",
-            "show me my tasks",
-            "list my tasks",
-            "how is my day",
-            "what's on my plate",
-            "whats on my plate"
-        ]
-        if readOnlyMarkers.contains(where: { lower.contains($0) }) {
-            return .readOnlyReview
-        }
-
         let habitMarkers = ["habit", "habits", "streak", "check in", "check-in", "pause habit", "resume habit"]
         let mutationMarkers = [
             "add", "create", "schedule", "setup", "set up", "make", "write", "plan", "move", "reschedule", "defer",
@@ -763,6 +771,10 @@ enum EvaTurnRouter {
 
         if lower.contains("week") && (lower.contains("plan") || lower.contains("review")) {
             return .weeklyPlanning
+        }
+
+        if isReadOnlyReviewPrompt(lower) {
+            return .readOnlyReview
         }
 
         if lower.contains("help me plan my day")
@@ -802,7 +814,11 @@ enum EvaTurnRouter {
     }
 
     private static func normalized(_ prompt: String) -> String {
-        prompt.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        prompt
+            .lowercased()
+            .replacingOccurrences(of: "[^a-z0-9\\s]", with: " ", options: .regularExpression)
+            .replacingOccurrences(of: "\\s+", with: " ", options: .regularExpression)
+            .trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
     private static func containsWord(_ text: String, _ word: String) -> Bool {
@@ -835,6 +851,76 @@ enum EvaTurnRouter {
         let pattern = #"\b\d+\s*(minutes?|mins?|min|hours?|hrs?|hr)\b"#
         return text.range(of: pattern, options: .regularExpression) != nil
     }
+
+    fileprivate static func isReadOnlyReviewPrompt(_ text: String) -> Bool {
+        if dayReviewPhrases.contains(where: { text.contains($0) }) {
+            return true
+        }
+
+        if fuzzyDayReviewSignals(text) {
+            return true
+        }
+
+        return false
+    }
+
+    private static func fuzzyDayReviewSignals(_ text: String) -> Bool {
+        let asksForReview = [
+            "what", "show", "list", "review", "brief", "walk me through", "give me", "how"
+        ].contains(where: text.contains)
+        guard asksForReview else { return false }
+
+        let workTargets = [
+            "tasks", "task", "habits", "habit", "open work", "open items", "open tasks", "plate",
+            "agenda", "day", "today", "pending", "due", "left", "focus", "work on", "attention"
+        ]
+        return workTargets.contains(where: text.contains)
+    }
+
+    private static let dayReviewPhrases: [String] = [
+        "what are my tasks today",
+        "what are my tasks for today",
+        "what do i need to do today",
+        "what do i have today",
+        "what s on my plate",
+        "what is on my plate",
+        "what s on my agenda",
+        "what is on my agenda",
+        "show my open tasks",
+        "show me my open tasks",
+        "show my tasks",
+        "show me my tasks",
+        "list my tasks",
+        "list my open tasks",
+        "what s due today",
+        "what is due today",
+        "what s left today",
+        "what is left today",
+        "what do i still need to do today",
+        "what should i focus on today",
+        "what should i work on today",
+        "what needs attention today",
+        "what s pending today",
+        "what is pending today",
+        "give me my day",
+        "give me today s tasks",
+        "give me my open items",
+        "how is my day",
+        "how does my day look",
+        "how is my day looking",
+        "walk me through today",
+        "brief me on today",
+        "give me a quick overview of today",
+        "what do i have open",
+        "what s open today",
+        "what is open today",
+        "what tasks and habits do i have today",
+        "show today s tasks and habits",
+        "review my day",
+        "review the day",
+        "today s open work",
+        "this morning s tasks"
+    ]
 }
 
 enum EvaContextPolicy {
@@ -900,7 +986,16 @@ enum EvaContextPolicy {
         }
 
         private static func decode(_ payload: String) -> [String: Any] {
-            guard let data = payload.data(using: .utf8),
+            let rawJSON: String
+            if let start = payload.firstIndex(of: "{"),
+               let end = payload.lastIndex(of: "}"),
+               start <= end {
+                rawJSON = String(payload[start...end])
+            } else {
+                rawJSON = payload
+            }
+
+            guard let data = rawJSON.data(using: .utf8),
                   let object = try? JSONSerialization.jsonObject(with: data, options: []),
                   let dictionary = object as? [String: Any] else {
                 return [:]
@@ -942,18 +1037,11 @@ enum EvaPlannerIntent: Equatable {
         }
 
         let lower = prompt.lowercased()
-        let readOnlyMarkers = [
-            "what are my tasks",
-            "what tasks",
-            "review my day",
-            "review the day",
-            "what should i focus",
-            "what shall i focus",
-            "what do i have",
-            "show me my tasks",
-            "list my tasks"
-        ]
-        if readOnlyMarkers.contains(where: { lower.contains($0) }) {
+        let normalized = lower
+            .replacingOccurrences(of: "[^a-z0-9\\s]", with: " ", options: .regularExpression)
+            .replacingOccurrences(of: "\\s+", with: " ", options: .regularExpression)
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        if EvaTurnRouter.isReadOnlyReviewPrompt(normalized) {
             return .readOnlyReview
         }
 
@@ -1088,6 +1176,7 @@ struct AssistantDeterministicPlanner {
     struct Output {
         let envelope: AssistantCommandEnvelope
         let cards: [EvaProposalCard]
+        let dayOverviewPayload: EvaDayOverviewPayload?
     }
 
     private struct ContextTask {
@@ -1114,24 +1203,18 @@ struct AssistantDeterministicPlanner {
     }
 
     static func reviewPlan(context: Context, contextIsPartial: Bool) -> Output {
-        let message: String
-        if contextIsPartial {
-            message = "I couldn't load your tasks right now, so I won't invent a plan. Try again once task context is available."
-        } else {
-            let openTasks = extractContextTasks(from: context.contextPayload)
-                .filter { $0.isCompleted == false }
-                .prefix(6)
-                .map(\.title)
-            if openTasks.isEmpty {
-                message = "I didn't find open tasks in the available context for today."
-            } else {
-                message = "I found these open tasks: \(openTasks.joined(separator: ", "))."
-            }
-        }
+        let dayOverview = EvaDayOverviewBuilder.build(
+            prompt: context.userPrompt,
+            contextPayload: context.contextPayload,
+            contextReceipt: EvaContextReceipt(sources: ["Today timeline", "Inbox", "Projects", "Habits", "Calendar"]),
+            generatedAt: context.now
+        )
+        let message = dayOverview.summary
         let envelope = AssistantCommandEnvelope(schemaVersion: 3, commands: [], rationaleText: message)
         return Output(
             envelope: envelope,
-            cards: [EvaProposalCardBuilder.noOpCard(title: "Review only", subtitle: message)]
+            cards: [],
+            dayOverviewPayload: dayOverview.payload
         )
     }
 
@@ -1140,7 +1223,8 @@ struct AssistantDeterministicPlanner {
         let envelope = AssistantCommandEnvelope(schemaVersion: 3, commands: [], rationaleText: message)
         return Output(
             envelope: envelope,
-            cards: [EvaProposalCardBuilder.noOpCard(title: "Needs more detail", subtitle: message)]
+            cards: [EvaProposalCardBuilder.noOpCard(title: "Needs more detail", subtitle: message)],
+            dayOverviewPayload: nil
         )
     }
 
@@ -1149,7 +1233,8 @@ struct AssistantDeterministicPlanner {
         let envelope = AssistantCommandEnvelope(schemaVersion: 3, commands: [], rationaleText: message)
         return Output(
             envelope: envelope,
-            cards: [EvaProposalCardBuilder.noOpCard(title: "Habit review only", subtitle: message)]
+            cards: [EvaProposalCardBuilder.noOpCard(title: "Habit review only", subtitle: message)],
+            dayOverviewPayload: nil
         )
     }
 
@@ -1165,7 +1250,11 @@ struct AssistantDeterministicPlanner {
                 commands: timed,
                 rationaleText: "Here's how your day is planned:"
             )
-            return Output(envelope: envelope, cards: EvaProposalCardBuilder.build(commands: envelope.commands, taskTitleByID: titleByID))
+            return Output(
+                envelope: envelope,
+                cards: EvaProposalCardBuilder.build(commands: envelope.commands, taskTitleByID: titleByID),
+                dayOverviewPayload: nil
+            )
         }
 
         if let inbox = inboxPlan(prompt: prompt) {
@@ -1176,7 +1265,11 @@ struct AssistantDeterministicPlanner {
                 },
                 rationaleText: "Here's how your day is planned:"
             )
-            return Output(envelope: envelope, cards: EvaProposalCardBuilder.build(commands: envelope.commands, taskTitleByID: titleByID))
+            return Output(
+                envelope: envelope,
+                cards: EvaProposalCardBuilder.build(commands: envelope.commands, taskTitleByID: titleByID),
+                dayOverviewPayload: nil
+            )
         }
 
         if let untimed = untimedCreatePlan(prompt: prompt) {
@@ -1187,12 +1280,20 @@ struct AssistantDeterministicPlanner {
                 },
                 rationaleText: "I added this to your Inbox for review."
             )
-            return Output(envelope: envelope, cards: EvaProposalCardBuilder.build(commands: envelope.commands, taskTitleByID: titleByID))
+            return Output(
+                envelope: envelope,
+                cards: EvaProposalCardBuilder.build(commands: envelope.commands, taskTitleByID: titleByID),
+                dayOverviewPayload: nil
+            )
         }
 
         if let edit = editPlan(prompt: prompt, tasks: tasks, now: context.now) {
             let envelope = AssistantCommandEnvelope(schemaVersion: 3, commands: [edit], rationaleText: "Here's how your day is planned:")
-            return Output(envelope: envelope, cards: EvaProposalCardBuilder.build(commands: envelope.commands, taskTitleByID: titleByID))
+            return Output(
+                envelope: envelope,
+                cards: EvaProposalCardBuilder.build(commands: envelope.commands, taskTitleByID: titleByID),
+                dayOverviewPayload: nil
+            )
         }
 
         if prompt.localizedCaseInsensitiveContains("late") || prompt.localizedCaseInsensitiveContains("shift") {
@@ -1204,7 +1305,8 @@ struct AssistantDeterministicPlanner {
                 let envelope = AssistantCommandEnvelope(schemaVersion: 3, commands: [], rationaleText: message)
                 return Output(
                     envelope: envelope,
-                    cards: [EvaProposalCardBuilder.noOpCard(title: "No matching tasks found", subtitle: message)]
+                    cards: [EvaProposalCardBuilder.noOpCard(title: "No matching tasks found", subtitle: message)],
+                    dayOverviewPayload: nil
                 )
             }
         }
@@ -1214,7 +1316,8 @@ struct AssistantDeterministicPlanner {
             let envelope = AssistantCommandEnvelope(schemaVersion: 3, commands: [], rationaleText: message)
             return Output(
                 envelope: envelope,
-                cards: [EvaProposalCardBuilder.noOpCard(title: "Tell me your plans", subtitle: message)]
+                cards: [EvaProposalCardBuilder.noOpCard(title: "Tell me your plans", subtitle: message)],
+                dayOverviewPayload: nil
             )
         }
 

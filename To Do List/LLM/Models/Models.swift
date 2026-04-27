@@ -962,6 +962,11 @@ public extension ModelConfiguration {
             return sanitized
         }
 
+        if let dayOverview = payload.dayOverview,
+           let sanitized = formatForTokenizer(dayOverview.summaryMarkdown) {
+            return sanitized
+        }
+
         if let message = payload.message,
            let sanitized = formatForTokenizer(message) {
             return sanitized
