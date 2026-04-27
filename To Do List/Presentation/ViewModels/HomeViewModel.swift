@@ -3919,7 +3919,9 @@ public final class HomeViewModel: ObservableObject {
                 outcomeRaw: habitOutcomeRaw(for: row.state),
                 occurredAt: row.dueAt,
                 keywords: [row.title, row.lifeAreaName, row.projectName].compactMap { $0 },
-                last14Days: row.last14Days
+                last14Days: row.last14Days,
+                colorHex: row.accentHex,
+                cadence: row.cadence
             )
         }
     }
