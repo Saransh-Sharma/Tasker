@@ -163,6 +163,7 @@ private struct EvaDayHabitOverlayState {
     var statusMessage: String?
     var statusChips: [EvaDayStatusChip]?
     var actions: [EvaDayHabitAction]?
+    var resolvedTodayState: HabitDayState?
 }
 
 private struct EvaDayStatusChipsView: View {
@@ -224,46 +225,57 @@ private struct EvaDayTaskRowView: View {
     }
 }
 
-private struct EvaDayHabitHistoryStripView: View {
-    let last14Days: [HabitDayMark]
-    let colorProvider: (HabitDayState) -> Color
-
-    var body: some View {
-        if last14Days.isEmpty == false {
-            HStack(spacing: 4) {
-                ForEach(Array(last14Days.suffix(14).enumerated()), id: \.offset) { _, mark in
-                    Circle()
-                        .fill(colorProvider(mark.state))
-                        .frame(width: 7, height: 7)
-                }
-            }
-        }
-    }
-}
-
 private struct EvaDayHabitRowView: View {
     let card: EvaDayHabitCard
     let overlay: EvaDayHabitOverlayState
     let chips: [EvaDayStatusChip]
     let actions: [EvaDayHabitAction]
     let chipColorProvider: (String) -> Color
-    let markColorProvider: (HabitDayState) -> Color
     let actionTitle: (EvaDayHabitAction) -> String
     let actionHandler: (EvaDayHabitAction) -> Void
 
+    private var family: HabitColorFamily {
+        HabitColorFamily.family(
+            for: card.accentHex,
+            fallback: card.kind == .positive ? .green : .coral
+        )
+    }
+
+    private var cadence: HabitCadenceDraft {
+        card.cadence ?? .daily()
+    }
+
+    private var boardCells: [HabitBoardCell] {
+        HabitBoardPresentationBuilder.buildCells(
+            marks: resolvedMarks,
+            cadence: cadence,
+            referenceDate: Date(),
+            dayCount: 14
+        )
+    }
+
+    private var resolvedMarks: [HabitDayMark] {
+        guard let resolvedTodayState = overlay.resolvedTodayState else {
+            return card.last14Days
+        }
+        let calendar = Calendar.current
+        let today = calendar.startOfDay(for: Date())
+        var marks = card.last14Days.filter { !calendar.isDate($0.date, inSameDayAs: today) }
+        marks.append(HabitDayMark(date: today, state: resolvedTodayState))
+        return marks.sorted { $0.date < $1.date }
+    }
+
+    private var accentColor: Color {
+        HabitEverydayPalette.familyPreview(family)
+    }
+
+    private var streakLabel: String {
+        card.currentStreak > 0 ? "\(card.currentStreak)d streak" : "Streak ready"
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: TaskerTheme.Spacing.sm) {
-            EvaDayHabitHeaderView(
-                card: card,
-                overlay: overlay,
-                chips: chips,
-                chipColorProvider: chipColorProvider
-            )
-
-            EvaDayHabitHistoryStripView(
-                last14Days: card.last14Days,
-                colorProvider: markColorProvider
-            )
+            habitTile
 
             EvaDayHabitActionsView(
                 actions: actions,
@@ -285,6 +297,79 @@ private struct EvaDayHabitRowView: View {
             RoundedRectangle(cornerRadius: TaskerTheme.CornerRadius.lg, style: .continuous)
                 .stroke(Color.tasker(.strokeHairline), lineWidth: 1)
         )
+    }
+
+    private var habitTile: some View {
+        Button {
+            actionHandler(.open)
+        } label: {
+            VStack(alignment: .leading, spacing: TaskerTheme.Spacing.sm) {
+                HStack(alignment: .top, spacing: TaskerTheme.Spacing.sm) {
+                    ZStack {
+                        accentColor.opacity(0.14)
+                        Image(systemName: card.iconSymbolName ?? "circle.dashed")
+                            .font(.system(size: 17, weight: .semibold))
+                            .foregroundStyle(accentColor)
+                            .symbolRenderingMode(.hierarchical)
+                    }
+                    .frame(width: 36, height: 36)
+                    .clipShape(RoundedRectangle(cornerRadius: TaskerTheme.CornerRadius.md, style: .continuous))
+
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text(card.title)
+                            .font(.tasker(.headline))
+                            .foregroundStyle(Color.tasker(.textPrimary))
+                            .lineLimit(2)
+                            .multilineTextAlignment(.leading)
+
+                        HStack(spacing: TaskerTheme.Spacing.xs) {
+                            Text(card.cadenceLabel)
+                                .font(.tasker(.caption1))
+                                .foregroundStyle(Color.tasker(.textSecondary))
+                                .lineLimit(1)
+                            Text(streakLabel)
+                                .font(.tasker(.caption1))
+                                .foregroundStyle(Color.tasker(.textTertiary))
+                                .lineLimit(1)
+                            if let projectName = card.projectName, projectName.isEmpty == false {
+                                Text(projectName)
+                                    .font(.tasker(.caption1))
+                                    .foregroundStyle(Color.tasker(.textTertiary))
+                                    .lineLimit(1)
+                            }
+                        }
+                    }
+
+                    Spacer(minLength: TaskerTheme.Spacing.sm)
+
+                    if overlay.isProcessing {
+                        ProgressView()
+                            .controlSize(.small)
+                    } else {
+                        EvaDayStatusChipsView(
+                            chips: chips,
+                            colorProvider: chipColorProvider
+                        )
+                    }
+                }
+
+                HabitBoardStripView(
+                    cells: boardCells,
+                    family: family,
+                    mode: .compact,
+                    cellSizeOverride: 13,
+                    cellWidthOverride: 13,
+                    cellHeightOverride: 13
+                )
+                .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(card.title)
+        .accessibilityValue("\(streakLabel). Last \(boardCells.count) days shown.")
+        .accessibilityHint("Opens habit details.")
+        .accessibilityIdentifier("chat.dayOverview.habitTile.\(card.habitID.uuidString)")
     }
 }
 
@@ -1172,7 +1257,6 @@ struct MessageView: View {
             chips: chips,
             actions: actions,
             chipColorProvider: dayChipColor,
-            markColorProvider: dayMarkColor,
             actionTitle: habitActionTitle,
             actionHandler: { action in
                 handleDayHabitAction(action, card: card)
@@ -1250,6 +1334,7 @@ struct MessageView: View {
                 case .success:
                     resolved.statusMessage = habitActionSuccessMessage(action)
                     resolved.actions = [.open]
+                    resolved.resolvedTodayState = habitActionDayState(action)
                     resolved.statusChips = [EvaDayStatusChip(
                         text: habitResolvedChipTitle(action),
                         tone: action == .lapsed || action == .logLapse ? "warning" : "accent"
@@ -1309,6 +1394,19 @@ struct MessageView: View {
         }
     }
 
+    private func habitActionDayState(_ action: EvaDayHabitAction) -> HabitDayState? {
+        switch action {
+        case .done, .stayedClean:
+            return .success
+        case .skip:
+            return .skipped
+        case .lapsed, .logLapse:
+            return .failure
+        case .open:
+            return nil
+        }
+    }
+
     private func dayChipColor(_ tone: String) -> Color {
         switch tone {
         case "danger":
@@ -1317,21 +1415,6 @@ struct MessageView: View {
             return Color.tasker(.statusWarning)
         default:
             return Color.tasker(.accentPrimary)
-        }
-    }
-
-    private func dayMarkColor(_ state: HabitDayState) -> Color {
-        switch state {
-        case .success:
-            return Color.tasker(.accentPrimary)
-        case .failure:
-            return Color.tasker(.statusDanger)
-        case .skipped:
-            return Color.tasker(.statusWarning)
-        case .future:
-            return Color.tasker(.strokeHairline)
-        case .none:
-            return Color.tasker(.accentMuted)
         }
     }
 

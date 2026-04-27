@@ -75,46 +75,6 @@ struct ChatHeaderView: View {
     }
 }
 
-struct ChatModelPickerButton: View {
-    @Binding var isPresented: Bool
-
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-
-    var body: some View {
-        Button {
-            isPresented.toggle()
-        } label: {
-            Group {
-                Image(systemName: "chevron.up")
-                    .resizable()
-                    .aspectRatio(contentMode: .fit)
-                #if os(iOS) || os(visionOS)
-                    .frame(width: 16)
-                #elseif os(macOS)
-                    .frame(width: 12)
-                #endif
-                    .fontWeight(.semibold)
-                    .foregroundStyle(Color.tasker(.accentPrimary))
-            }
-            #if os(iOS) || os(visionOS)
-            .frame(width: 48, height: 48)
-            #elseif os(macOS)
-            .frame(width: 32, height: 32)
-            #endif
-            .taskerChromeSurface(
-                cornerRadius: 24,
-                accentColor: Color.tasker(.accentSecondary),
-                level: .e1
-            )
-        }
-        #if os(macOS) || os(visionOS)
-        .buttonStyle(.plain)
-        #endif
-        .accessibilityLabel("Models")
-        .taskerPressFeedback(reduceMotion: reduceMotion)
-    }
-}
-
 struct ChatEmptyStateView: View {
     let presentationMode: ChatPresentationMode
     let starterPrompts: [EvaStarterPrompt]
@@ -1143,7 +1103,6 @@ struct ChatScaffoldView: View {
     let isProjectFieldFocused: FocusState<Bool>.Binding
     let showChats: Binding<Bool>
     let showSettings: Binding<Bool>
-    let showModelPicker: Binding<Bool>
     let showSlashPicker: Binding<Bool>
     let showClearConfirmation: Binding<Bool>
     let slashDraft: Binding<SlashCommandInvocation?>
@@ -1257,9 +1216,6 @@ struct ChatScaffoldView: View {
                 }
 
                 HStack(alignment: .bottom, spacing: TaskerTheme.Spacing.md) {
-                    if activationConfiguration?.hideUtilityActions != true && !(usesStructuredPlanningChrome && currentThread == nil) {
-                        ChatModelPickerButton(isPresented: showModelPicker)
-                    }
                     ChatComposerView(
                         presentationMode: presentationMode,
                         slashDraft: slashDraft.wrappedValue,
@@ -1300,35 +1256,6 @@ struct ChatScaffoldView: View {
                 .navigationBarTitleDisplayMode(.inline)
                 .navigationBarHidden(true)
             #endif
-                .sheet(isPresented: showModelPicker) {
-                    NavigationStack {
-                        ModelsSettingsView()
-                            .environment(llm)
-                        #if os(visionOS)
-                            .toolbar {
-                                ToolbarItem(placement: .topBarLeading) {
-                                    Button(action: { showModelPicker.wrappedValue.toggle() }) {
-                                        Image(systemName: "xmark")
-                                    }
-                                }
-                            }
-                        #endif
-                    }
-                    #if os(iOS)
-                    .presentationBackground(Color.tasker(.bgElevated))
-                    .presentationCornerRadius(TaskerTheme.CornerRadius.xl)
-                    .presentationDragIndicator(.visible)
-                    .presentationDetents(layoutClass == .phone ? [.medium] : [.large])
-                    #elseif os(macOS)
-                    .toolbar {
-                        ToolbarItem(placement: .destructiveAction) {
-                            Button(action: { showModelPicker.wrappedValue.toggle() }) {
-                                Text("close")
-                            }
-                        }
-                    }
-                    #endif
-                }
                 .sheet(isPresented: showSettings) {
                     NavigationStack {
                         LLMSettingsView(currentThread: $currentThread, showsCloseButton: true)

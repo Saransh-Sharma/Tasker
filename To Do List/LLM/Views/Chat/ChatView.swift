@@ -51,7 +51,6 @@ struct ChatView: View {
     @Binding var currentThread: Thread?
     @Environment(LLMEvaluator.self) var llm
     @Namespace var bottomID
-    @State var showModelPicker = false
     @State var prompt = ""
     @FocusState.Binding var isPromptFocused: Bool
     @Binding var showChats: Bool
@@ -285,7 +284,6 @@ struct ChatView: View {
             isProjectFieldFocused: $isProjectFieldFocused,
             showChats: $showChats,
             showSettings: $showSettings,
-            showModelPicker: $showModelPicker,
             showSlashPicker: $showSlashPicker,
             showClearConfirmation: $showClearConfirmation,
             slashDraft: $slashDraft,
