@@ -8,7 +8,10 @@ final class AssistantPlannerServiceTests: XCTestCase {
         XCTAssertEqual(EvaTurnRouter.route(for: "Can you explain why I keep overplanning?"), .chatAnswer)
         XCTAssertEqual(EvaTurnRouter.route(for: "What are my tasks for today"), .readOnlyReview)
         XCTAssertEqual(EvaTurnRouter.route(for: "Help me plan my day. What are my tasks?"), .readOnlyReview)
+        XCTAssertEqual(EvaTurnRouter.route(for: "How is my day?"), .readOnlyReview)
+        XCTAssertEqual(EvaTurnRouter.route(for: "What's on my plate today?"), .readOnlyReview)
         XCTAssertEqual(EvaTurnRouter.route(for: "Help me plan my day"), .dayPlanning)
+        XCTAssertEqual(EvaTurnRouter.route(for: "Move my open tasks to tomorrow"), .taskMutation)
         XCTAssertEqual(EvaTurnRouter.route(for: "Help me plan making tech debts doc"), .taskMutation)
         XCTAssertEqual(EvaTurnRouter.route(for: "Design review at 4 PM for 45 minutes"), .taskMutation)
         XCTAssertEqual(EvaTurnRouter.route(for: "Create Design review at 4 PM for 45 minutes"), .taskMutation)
@@ -379,7 +382,7 @@ final class AssistantPlannerServiceTests: XCTestCase {
         let result = await service.generatePlan(
             userPrompt: "What are my tasks for today",
             thread: Thread(),
-            contextPayload: #"{"today":{"tasks":[{"id":"\#(UUID().uuidString)","title":"Ship EVA fix","is_completed":false,"due_date":"2026-04-24T10:00:00Z"}]},"metadata":{"context_partial":false}}"#,
+            contextPayload: #"{"today":{"tasks":[{"id":"\#(UUID().uuidString)","title":"Ship EVA fix","is_completed":false,"due_date":"2026-04-27T10:00:00Z"}]},"metadata":{"context_partial":false}}"#,
             taskTitleByID: [:],
             projectNameByID: [:],
             knownTaskIDs: []
@@ -392,6 +395,8 @@ final class AssistantPlannerServiceTests: XCTestCase {
         XCTAssertEqual(plan.generationSource, "deterministic_intent_gate")
         XCTAssertNil(evaluator.capturedModelName)
         XCTAssertFalse(encodedEnvelope(plan.envelope).contains("Design review"))
+        XCTAssertNotNil(plan.dayOverviewPayload)
+        XCTAssertEqual(plan.dayOverviewPayload?.sections.first?.kind, .todayTasks)
     }
 
     func testReadOnlyTodayTasksPromptWithPartialContextDoesNotProceedToModel() async throws {
@@ -413,7 +418,8 @@ final class AssistantPlannerServiceTests: XCTestCase {
             return XCTFail("Expected read-only partial-context fallback")
         }
         XCTAssertEqual(plan.envelope.commands.count, 0)
-        XCTAssertTrue(plan.rationale.contains("couldn't load your tasks"))
+        XCTAssertEqual(plan.dayOverviewPayload?.sections.first?.kind, .emptyState)
+        XCTAssertTrue(plan.dayOverviewPayload?.sections.first?.message?.contains("avoiding guesswork") ?? false)
         XCTAssertNil(evaluator.capturedModelName)
     }
 
@@ -451,7 +457,67 @@ final class AssistantPlannerServiceTests: XCTestCase {
         }
         XCTAssertEqual(plan.envelope.commands.count, 0)
         XCTAssertTrue(plan.rationale.contains("Ship EVA fix"))
-        XCTAssertFalse(plan.rationale.contains("couldn't load your tasks"))
+        XCTAssertFalse(plan.rationale.contains("couldn’t load a complete day view"))
+        XCTAssertNil(evaluator.capturedModelName)
+    }
+
+    func testReadOnlyTodayTasksPromptBuildsTaskAndHabitSections() async throws {
+        let evaluator = PlannerEvaluatorSpy()
+        let service = AssistantPlannerService(llm: evaluator)
+        let taskID = UUID()
+        let habitID = UUID()
+
+        let result = await service.generatePlan(
+            userPrompt: "What tasks and habits do I have today?",
+            thread: Thread(),
+            contextPayload: """
+            {
+              "today": {
+                "tasks": [
+                  {
+                    "id": "\(taskID.uuidString)",
+                    "title": "Ship EVA fix",
+                    "project": "Inbox",
+                    "is_completed": false,
+                    "due_date": "2026-04-27T10:00:00Z",
+                    "priority": 2,
+                    "estimated_duration_minutes": 30
+                  }
+                ]
+              },
+              "habits": {
+                "habits": [
+                  {
+                    "id": "\(habitID.uuidString)",
+                    "title": "Morning review",
+                    "is_positive": true,
+                    "tracking_mode": "dailyCheckIn",
+                    "is_due_today": true,
+                    "current_streak": 4,
+                    "best_streak": 7,
+                    "risk_state": "stable"
+                  }
+                ]
+              },
+              "metadata": {
+                "context_partial": false
+              }
+            }
+            """,
+            taskTitleByID: [:],
+            projectNameByID: [:],
+            knownTaskIDs: []
+        )
+
+        guard case .success(let plan) = result else {
+            return XCTFail("Expected day overview plan")
+        }
+        let overview = try XCTUnwrap(plan.dayOverviewPayload)
+        XCTAssertEqual(plan.envelope.commands.count, 0)
+        XCTAssertEqual(overview.sections.map(\.kind), [.todayTasks, .dueHabits])
+        XCTAssertEqual(overview.sections.first?.taskCards.first?.title, "Ship EVA fix")
+        XCTAssertEqual(overview.sections.last?.habitCards.first?.title, "Morning review")
+        XCTAssertTrue(overview.summaryMarkdown.contains("Next focus: **Ship EVA fix**"))
         XCTAssertNil(evaluator.capturedModelName)
     }
 
@@ -1062,6 +1128,7 @@ private func makePlanResult(commandCount: Int, usesModelGate: Bool) -> Assistant
         rationale: envelope.rationaleText ?? "",
         diffLines: [],
         proposalCards: [],
+        dayOverviewPayload: nil,
         contextReceipt: EvaContextReceipt(sources: []),
         modelName: usesModelGate ? "model" : "deterministic_intent_gate",
         routeBanner: nil,

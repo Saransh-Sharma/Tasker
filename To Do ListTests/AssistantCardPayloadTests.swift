@@ -81,4 +81,66 @@ final class AssistantCardPayloadTests: XCTestCase {
         XCTAssertTrue(AssistantCardCodec.isCard(encoded))
         XCTAssertEqual(decoded, payload)
     }
+
+    func testCardCodecRoundTripPreservesDayOverviewPayload() {
+        let task = TaskDefinition(
+            id: UUID(),
+            projectID: ProjectConstants.inboxProjectID,
+            projectName: "Inbox",
+            title: "Ship EVA fix",
+            priority: .high,
+            dueDate: Date(timeIntervalSince1970: 1_700_000_100),
+            scheduledStartAt: nil,
+            scheduledEndAt: nil,
+            isComplete: false,
+            estimatedDuration: 1_800,
+            updatedAt: Date(timeIntervalSince1970: 1_700_000_000)
+        )
+
+        let payload = AssistantCardPayload(
+            cardType: .dayOverview,
+            threadID: UUID().uuidString,
+            status: .applied,
+            rationale: "### Today’s brief\n- 1 open task is queued for today.",
+            dayOverview: EvaDayOverviewPayload(
+                prompt: "How is my day looking today?",
+                summaryMarkdown: "### Today’s brief\n- 1 open task is queued for today.",
+                contextReceipt: EvaContextReceipt(sources: []),
+                isPartialContext: false,
+                sections: [
+                    EvaDayOverviewSection(
+                        kind: .todayTasks,
+                        title: "Today’s tasks",
+                        subtitle: "1 open for today",
+                        taskCards: [
+                            EvaDayTaskCard(
+                                taskID: task.id,
+                                taskSnapshot: task,
+                                title: task.title,
+                                projectName: task.projectName ?? "Inbox",
+                                dueLabel: "10:15 AM",
+                                priorityLabel: "High",
+                                durationLabel: "30 min",
+                                scheduledStartAt: nil,
+                                scheduledEndAt: nil,
+                                dueDate: task.dueDate,
+                                isOverdue: false,
+                                statusChips: [EvaDayStatusChip(text: "Today", tone: "accent")],
+                                actions: [.done, .tomorrow, .open]
+                            )
+                        ],
+                        habitCards: [],
+                        message: nil
+                    )
+                ],
+                generatedAt: Date(timeIntervalSince1970: 1_700_000_000)
+            )
+        )
+
+        let encoded = AssistantCardCodec.encode(payload)
+        let decoded = AssistantCardCodec.decode(from: encoded)
+
+        XCTAssertTrue(AssistantCardCodec.isCard(encoded))
+        XCTAssertEqual(decoded, payload)
+    }
 }

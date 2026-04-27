@@ -109,7 +109,7 @@ final class HomeViewModelPersistenceTests: XCTestCase {
         defaults.removePersistentDomain(forName: suiteName)
     }
 
-    func testNeedsReplanEligibilityIncludesOnlyPastOpenTimedTasks() {
+    func testNeedsReplanEligibilityIncludesPastDueCarryOverAndUnscheduledBacklog() {
         let suiteName = "HomeViewModelPersistenceTests.NeedsReplan.\(UUID().uuidString)"
         guard let defaults = UserDefaults(suiteName: suiteName) else {
             return XCTFail("Failed to create test UserDefaults suite")
@@ -159,7 +159,7 @@ final class HomeViewModelPersistenceTests: XCTestCase {
             from: [included, scheduledOnly, recurring, allDay, habit, completed, today, inbox]
         )
 
-        XCTAssertEqual(candidates.map { $0.task.title }, ["Scheduled Only", "Included"])
+        XCTAssertEqual(candidates.map { $0.task.title }, ["Scheduled Only", "Included", "All day", "Inbox"])
         defaults.removePersistentDomain(forName: suiteName)
     }
 
@@ -333,6 +333,7 @@ final class HomeViewModelPersistenceTests: XCTestCase {
         let twoDaysAgo = calendar.date(byAdding: .day, value: -2, to: calendar.startOfDay(for: Date()))!
         let yesterdayTask = makeDefinition(title: "Yesterday", start: calendar.date(bySettingHour: 11, minute: 0, second: 0, of: yesterday)!)
         let olderTask = makeDefinition(title: "Older", start: calendar.date(bySettingHour: 11, minute: 0, second: 0, of: twoDaysAgo)!)
+        let unscheduled = TaskDefinition(title: "Backlog", dueDate: nil, scheduledStartAt: nil, scheduledEndAt: nil, isComplete: false)
         let viewModel = HomeViewModel(
             useCaseCoordinator: UseCaseCoordinator(
                 taskRepository: HomeViewModelMockTaskRepository(tasks: []),
@@ -342,7 +343,7 @@ final class HomeViewModelPersistenceTests: XCTestCase {
         )
         waitForMainQueueFlush()
 
-        let scoped = viewModel.needsReplanCandidatesForTesting(from: [olderTask, yesterdayTask], scopedTo: twoDaysAgo)
+        let scoped = viewModel.needsReplanCandidatesForTesting(from: [olderTask, yesterdayTask, unscheduled], scopedTo: twoDaysAgo)
 
         XCTAssertEqual(scoped.map { $0.task.title }, ["Older"])
         defaults.removePersistentDomain(forName: suiteName)
@@ -387,6 +388,172 @@ final class HomeViewModelPersistenceTests: XCTestCase {
         defaults.removePersistentDomain(forName: suiteName)
     }
 
+    func testDismissNeedsReplanLaterHidesTopTrayButKeepsPersistentReplanEntry() {
+        let suiteName = "HomeViewModelPersistenceTests.ReplanPersistentEntry.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        let calendar = Calendar.current
+        let yesterday = calendar.date(byAdding: .day, value: -1, to: calendar.startOfDay(for: Date()))!
+        let overdue = makeDefinition(title: "Overdue", start: calendar.date(bySettingHour: 9, minute: 0, second: 0, of: yesterday)!)
+        let viewModel = HomeViewModel(
+            useCaseCoordinator: UseCaseCoordinator(
+                taskRepository: HomeViewModelMockTaskRepository(tasks: [overdue]),
+                projectRepository: HomeViewModelMockProjectRepository(projects: [Project.createInbox()])
+            ),
+            userDefaults: defaults
+        )
+        viewModel.loadTodayTasks()
+        waitForMainQueueFlush()
+
+        guard case .trayVisible = viewModel.homeReplanState.phase else {
+            defaults.removePersistentDomain(forName: suiteName)
+            return XCTFail("Expected top replan tray before dismissal")
+        }
+        XCTAssertEqual(viewModel.homeReplanState.persistentSummary.count, 1)
+
+        viewModel.dismissNeedsReplanLater()
+
+        guard case .trayHidden = viewModel.homeReplanState.phase else {
+            defaults.removePersistentDomain(forName: suiteName)
+            return XCTFail("Expected top replan tray to stay hidden after dismissal")
+        }
+        XCTAssertEqual(viewModel.homeReplanState.persistentSummary.count, 1)
+        XCTAssertEqual(viewModel.homeReplanState.persistentSummary.persistentTitle, "Replan Day")
+        defaults.removePersistentDomain(forName: suiteName)
+    }
+
+    func testNeedsReplanTrayReturnsAfterDayRollover() {
+        let suiteName = "HomeViewModelPersistenceTests.ReplanDayRollover.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        let calendar = Calendar.current
+        let todayStart = calendar.startOfDay(for: Date())
+        let yesterday = calendar.date(byAdding: .day, value: -1, to: todayStart)!
+        let twoDaysAgo = calendar.date(byAdding: .day, value: -2, to: todayStart)!
+        let overdue = makeDefinition(
+            title: "Overdue",
+            start: calendar.date(bySettingHour: 9, minute: 0, second: 0, of: yesterday)!
+        )
+        defaults.set(dayKey(for: twoDaysAgo), forKey: "home.needsReplan.dismissedDayKey.v1")
+
+        let viewModel = HomeViewModel(
+            useCaseCoordinator: UseCaseCoordinator(
+                taskRepository: HomeViewModelMockTaskRepository(tasks: [overdue]),
+                projectRepository: HomeViewModelMockProjectRepository(projects: [Project.createInbox()])
+            ),
+            userDefaults: defaults
+        )
+        viewModel.loadTodayTasks()
+        waitForMainQueueFlush()
+
+        guard case .trayVisible(let summary) = viewModel.homeReplanState.phase else {
+            defaults.removePersistentDomain(forName: suiteName)
+            return XCTFail("Expected top replan tray to return on a new day")
+        }
+        XCTAssertEqual(summary.count, 1)
+        defaults.removePersistentDomain(forName: suiteName)
+    }
+
+    func testPersistentReplanSummaryIncludesOlderOverdueTasksAcrossPastDays() {
+        let suiteName = "HomeViewModelPersistenceTests.ReplanOlderDebt.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        let calendar = Calendar.current
+        let todayStart = calendar.startOfDay(for: Date())
+        let yesterday = calendar.date(byAdding: .day, value: -1, to: todayStart)!
+        let oneWeekAgo = calendar.date(byAdding: .day, value: -7, to: todayStart)!
+        let recent = makeDefinition(
+            title: "Recent overdue",
+            start: calendar.date(bySettingHour: 9, minute: 0, second: 0, of: yesterday)!
+        )
+        let older = makeDefinition(
+            title: "Week-old overdue",
+            start: calendar.date(bySettingHour: 14, minute: 0, second: 0, of: oneWeekAgo)!
+        )
+        let viewModel = HomeViewModel(
+            useCaseCoordinator: UseCaseCoordinator(
+                taskRepository: HomeViewModelMockTaskRepository(tasks: [older, recent]),
+                projectRepository: HomeViewModelMockProjectRepository(projects: [Project.createInbox()])
+            ),
+            userDefaults: defaults
+        )
+        viewModel.loadTodayTasks()
+        waitForMainQueueFlush()
+
+        XCTAssertEqual(viewModel.homeReplanState.persistentSummary.count, 2)
+        XCTAssertEqual(viewModel.homeReplanState.persistentSummary.dayCount, 2)
+        XCTAssertEqual(
+            viewModel.needsReplanCandidatesForTesting(from: [older, recent]).map(\.task.title),
+            ["Recent overdue", "Week-old overdue"]
+        )
+        defaults.removePersistentDomain(forName: suiteName)
+    }
+
+    func testPersistentReplanSummaryIgnoresProjectFilterAndQuickView() {
+        let suiteName = "HomeViewModelPersistenceTests.ReplanGlobalQueue.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        let calendar = Calendar.current
+        let inbox = Project.createInbox()
+        let work = Project(id: UUID(), name: "Work", icon: .folder)
+        let yesterday = calendar.date(byAdding: .day, value: -1, to: calendar.startOfDay(for: Date()))!
+        let tomorrow = calendar.date(byAdding: .day, value: 1, to: calendar.startOfDay(for: Date()))!
+        let overdueInbox = makeTask(name: "Inbox overdue", project: inbox, dueDate: yesterday)
+        let upcomingWork = makeTask(name: "Work upcoming", project: work, dueDate: tomorrow)
+        let viewModel = HomeViewModel(
+            useCaseCoordinator: UseCaseCoordinator(
+                taskRepository: HomeViewModelMockTaskRepository(tasks: [overdueInbox, upcomingWork]),
+                projectRepository: HomeViewModelMockProjectRepository(projects: [inbox, work])
+            ),
+            userDefaults: defaults
+        )
+        waitForMainQueueFlush()
+
+        viewModel.setProjectFilters([work.id])
+        waitForMainQueueFlush()
+        viewModel.setQuickView(.upcoming)
+        waitForMainQueueFlush()
+
+        XCTAssertTrue(viewModel.upcomingTasks.contains(where: { $0.title == "Work upcoming" }))
+        XCTAssertFalse(viewModel.upcomingTasks.contains(where: { $0.title == "Inbox overdue" }))
+        XCTAssertEqual(viewModel.homeReplanState.persistentSummary.count, 1)
+        defaults.removePersistentDomain(forName: suiteName)
+    }
+
+    func testZeroBacklogPersistentReplanSummaryOffersAddTask() {
+        let suiteName = "HomeViewModelPersistenceTests.ReplanEmptyState.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        let viewModel = HomeViewModel(
+            useCaseCoordinator: UseCaseCoordinator(
+                taskRepository: HomeViewModelMockTaskRepository(tasks: []),
+                projectRepository: HomeViewModelMockProjectRepository(projects: [Project.createInbox()])
+            ),
+            userDefaults: defaults
+        )
+        waitForMainQueueFlush()
+
+        XCTAssertEqual(viewModel.homeReplanState.persistentSummary.count, 0)
+        XCTAssertEqual(viewModel.homeReplanState.persistentSummary.persistentTitle, "Replan Day")
+        XCTAssertEqual(viewModel.homeReplanState.persistentSummary.persistentCallToAction, "Add Task")
+        XCTAssertFalse(viewModel.homeReplanState.persistentSummary.persistentSubtitle.isEmpty)
+        defaults.removePersistentDomain(forName: suiteName)
+    }
+
+    func testDismissingZeroBacklogLauncherDoesNotSuppressFutureTopPrompt() {
+        let suiteName = "HomeViewModelPersistenceTests.ReplanEmptyDismiss.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        let viewModel = HomeViewModel(
+            useCaseCoordinator: UseCaseCoordinator(
+                taskRepository: HomeViewModelMockTaskRepository(tasks: []),
+                projectRepository: HomeViewModelMockProjectRepository(projects: [Project.createInbox()])
+            ),
+            userDefaults: defaults
+        )
+        waitForMainQueueFlush()
+
+        viewModel.openNeedsReplanLauncher()
+        viewModel.dismissNeedsReplanLater()
+
+        XCTAssertNil(defaults.string(forKey: "home.needsReplan.dismissedDayKey.v1"))
+        defaults.removePersistentDomain(forName: suiteName)
+    }
+
     func testDefaultReplanPlacementDaySwitchesAtFivePM() {
         let suiteName = "HomeViewModelPersistenceTests.Cutoff.\(UUID().uuidString)"
         let defaults = UserDefaults(suiteName: suiteName)!
@@ -411,11 +578,20 @@ final class HomeViewModelPersistenceTests: XCTestCase {
     }
 
     func testNeedsReplanSummaryCopy() {
-        let summary = NeedsReplanSummary(count: 12, dayCount: 3, newestDate: nil, oldestDate: nil)
+        let summary = NeedsReplanSummary(count: 12, datedCount: 12, unscheduledCount: 0, dayCount: 3, newestDate: nil, oldestDate: nil)
 
         XCTAssertEqual(summary.title, "Needs Replan")
         XCTAssertEqual(summary.subtitle, "12 unfinished - start with the most recent")
         XCTAssertEqual(summary.callToAction, "Start")
+    }
+
+    func testNeedsReplanPersistentSummaryCopyForMixedBacklog() {
+        let summary = NeedsReplanSummary(count: 5, datedCount: 3, unscheduledCount: 2, dayCount: 2, newestDate: nil, oldestDate: nil)
+
+        XCTAssertEqual(summary.persistentTitle, "Replan Day")
+        XCTAssertEqual(summary.subtitle, "3 overdue or carry-over, 2 unscheduled")
+        XCTAssertEqual(summary.persistentSubtitle, "3 overdue or carry-over, 2 unscheduled")
+        XCTAssertEqual(summary.persistentCallToAction, "Open")
     }
 
     func testAssistantSnapshotRoundTripsReplanScheduleFields() {
@@ -455,11 +631,12 @@ final class HomeViewModelPersistenceTests: XCTestCase {
     }
 
     func testNeedsReplanBottomBarSuppressionByPhase() {
-        let summary = NeedsReplanSummary(count: 2, dayCount: 1, newestDate: Date(), oldestDate: Date())
+        let summary = NeedsReplanSummary(count: 2, datedCount: 2, unscheduledCount: 0, dayCount: 1, newestDate: Date(), oldestDate: Date())
         let candidate = HomeReplanCandidate(
             task: makeDefinition(title: "Replan", start: Date()),
-            originalDate: Date(),
-            originalEndDate: nil,
+            kind: .scheduledCarryOver,
+            anchorDate: Date(),
+            anchorEndDate: nil,
             projectName: nil
         )
         let outcomes = HomeReplanOutcomeSummary()
@@ -468,6 +645,7 @@ final class HomeViewModelPersistenceTests: XCTestCase {
             HomeReplanSessionState(
                 phase: phase,
                 summary: summary,
+                persistentSummary: summary,
                 currentCandidate: candidate,
                 candidateIndex: 1,
                 candidateTotal: 2,
@@ -496,8 +674,9 @@ final class HomeViewModelPersistenceTests: XCTestCase {
         let start = calendar.date(bySettingHour: 10, minute: 0, second: 0, of: calendar.startOfDay(for: Date()))!
         let candidate = HomeReplanCandidate(
             task: makeDefinition(title: "Place me", start: start),
-            originalDate: start,
-            originalEndDate: start.addingTimeInterval(30 * 60),
+            kind: .scheduledCarryOver,
+            anchorDate: start,
+            anchorEndDate: start.addingTimeInterval(30 * 60),
             projectName: "Home"
         )
         let viewModel = HomeViewModel(
@@ -528,8 +707,9 @@ final class HomeViewModelPersistenceTests: XCTestCase {
         let start = calendar.date(bySettingHour: 10, minute: 0, second: 0, of: calendar.startOfDay(for: Date()))!
         let candidate = HomeReplanCandidate(
             task: makeDefinition(title: "Busy", start: start),
-            originalDate: start,
-            originalEndDate: start.addingTimeInterval(30 * 60),
+            kind: .scheduledCarryOver,
+            anchorDate: start,
+            anchorEndDate: start.addingTimeInterval(30 * 60),
             projectName: nil
         )
         let viewModel = HomeViewModel(
@@ -552,6 +732,40 @@ final class HomeViewModelPersistenceTests: XCTestCase {
         } else {
             XCTFail("Applying state should keep placement active")
         }
+        defaults.removePersistentDomain(forName: suiteName)
+    }
+
+    func testPastDueReplanPlacementPreservesScheduledDuration() {
+        let suiteName = "HomeViewModelPersistenceTests.ReplanPastDueDuration.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        let calendar = Calendar.current
+        let start = calendar.date(bySettingHour: 10, minute: 0, second: 0, of: calendar.startOfDay(for: Date()))!
+        let task = TaskDefinition(
+            title: "Due with block",
+            dueDate: start,
+            scheduledStartAt: start,
+            scheduledEndAt: start.addingTimeInterval(45 * 60),
+            isAllDay: false,
+            isComplete: false
+        )
+        let candidate = HomeReplanCandidate(
+            task: task,
+            kind: .pastDue,
+            anchorDate: start,
+            anchorEndDate: nil,
+            projectName: nil
+        )
+        let viewModel = HomeViewModel(
+            useCaseCoordinator: UseCaseCoordinator(
+                taskRepository: HomeViewModelMockTaskRepository(tasks: []),
+                projectRepository: HomeViewModelMockProjectRepository(projects: [Project.createInbox()])
+            ),
+            userDefaults: defaults
+        )
+
+        viewModel.beginReplanPlacementForTesting(candidate: candidate)
+
+        XCTAssertEqual(viewModel.homeReplanState.placementCandidate?.duration, 45 * 60)
         defaults.removePersistentDomain(forName: suiteName)
     }
 
@@ -2637,6 +2851,11 @@ final class HomeViewModelPersistenceTests: XCTestCase {
             isComplete: isComplete,
             repeatPattern: repeatPattern
         )
+    }
+
+    private func dayKey(for date: Date) -> String {
+        let components = Calendar.current.dateComponents([.year, .month, .day], from: date)
+        return "\(components.year ?? 0)-\(components.month ?? 0)-\(components.day ?? 0)"
     }
 
     override func tearDown() {

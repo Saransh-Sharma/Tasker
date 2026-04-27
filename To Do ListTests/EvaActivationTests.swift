@@ -4,6 +4,54 @@ import XCTest
 
 @MainActor
 final class EvaActivationTests: XCTestCase {
+    func testActivationStarterPromptsLeadWithDayOverview() {
+        XCTAssertEqual(EvaStarterPrompt.activationDefaults.first, EvaStarterPrompt.dayOverviewPrompt)
+        XCTAssertEqual(EvaStarterPrompt.dayOverviewPrompt.submissionText, "How is my day looking today?")
+    }
+
+    func testThreadChangePolicyPreservesFirstThreadAttachDuringGeneration() {
+        let firstThreadID = UUID()
+
+        XCTAssertFalse(ChatThreadChangeCancellationPolicy.shouldCancelActiveGeneration(
+            oldThreadID: nil,
+            newThreadID: firstThreadID,
+            generatingThreadID: firstThreadID,
+            hasActiveGeneration: true
+        ))
+    }
+
+    func testThreadChangePolicyCancelsRealSwitchDuringGeneration() {
+        let originalThreadID = UUID()
+        let switchedThreadID = UUID()
+
+        XCTAssertTrue(ChatThreadChangeCancellationPolicy.shouldCancelActiveGeneration(
+            oldThreadID: originalThreadID,
+            newThreadID: switchedThreadID,
+            generatingThreadID: originalThreadID,
+            hasActiveGeneration: true
+        ))
+    }
+
+    func testThreadChangePolicyCancelsClearDuringGeneration() {
+        let originalThreadID = UUID()
+
+        XCTAssertTrue(ChatThreadChangeCancellationPolicy.shouldCancelActiveGeneration(
+            oldThreadID: originalThreadID,
+            newThreadID: nil,
+            generatingThreadID: originalThreadID,
+            hasActiveGeneration: true
+        ))
+    }
+
+    func testThreadChangePolicyDoesNotCancelWhenNoGenerationIsActive() {
+        XCTAssertFalse(ChatThreadChangeCancellationPolicy.shouldCancelActiveGeneration(
+            oldThreadID: UUID(),
+            newThreadID: UUID(),
+            generatingThreadID: nil,
+            hasActiveGeneration: false
+        ))
+    }
+
     func testMemoryMapperPrependsNewUniqueEntriesAndRespectsLimits() {
         let existing = LLMPersonalMemoryStoreV1(
             preferences: [
