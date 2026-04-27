@@ -138,8 +138,12 @@ struct AIChatModeRouter {
     }
 
     static func idealModelName(for feature: AIFeatureRoute) -> String {
-        _ = feature
-        return ModelConfiguration.defaultModel.name
+        switch feature {
+        case .addTaskSuggestion, .dynamicChips:
+            return ModelConfiguration.qwen_3_0_6b_4bit.name
+        case .dailyBrief, .planMode, .topThree, .breakdown:
+            return ModelConfiguration.qwen_3_5_0_8b_optiq_4bit.name
+        }
     }
 
     private static func isAllowedByDeviceBudget(

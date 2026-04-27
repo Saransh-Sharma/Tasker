@@ -884,7 +884,7 @@ struct LLMContextProjectionService {
             return projected
         }
         let habitPayloads: [[String: Any]] = habits.map { habit in
-            [
+            var payload: [String: Any] = [
                 "id": habit.habitID.uuidString,
                 "title": habit.title,
                 "is_positive": habit.isPositive,
@@ -903,6 +903,15 @@ struct LLMContextProjectionService {
                 "occurred_at": habit.occurredAt?.ISO8601Format() ?? NSNull(),
                 "keywords": habit.keywords
             ]
+            if habit.last14Days.isEmpty == false {
+                payload["last_14_days"] = habit.last14Days.map { mark in
+                    [
+                        "date": mark.date.ISO8601Format(),
+                        "state": Self.habitDayStateRaw(mark.state)
+                    ]
+                }
+            }
+            return payload
         }
         var payload: [String: Any] = [
             "context_type": contextType,
@@ -922,6 +931,16 @@ struct LLMContextProjectionService {
             return "{}"
         }
         return String(decoding: data, as: UTF8.self)
+    }
+
+    private static func habitDayStateRaw(_ state: HabitDayState) -> String {
+        switch state {
+        case .success: return "success"
+        case .failure: return "failure"
+        case .skipped: return "skipped"
+        case .none: return "none"
+        case .future: return "future"
+        }
     }
 
     private static func buildListSection(

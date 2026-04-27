@@ -40,6 +40,38 @@ final class LLMGenerationCancellationToken: @unchecked Sendable {
     }
 }
 
+private actor LLMGenerationSlot {
+    private var isOccupied = false
+    private var waiters: [CheckedContinuation<Void, Never>] = []
+
+    func acquire() async -> LLMGenerationSlotLease {
+        if isOccupied == false {
+            isOccupied = true
+            return LLMGenerationSlotLease(slot: self)
+        }
+        await withCheckedContinuation { continuation in
+            waiters.append(continuation)
+        }
+        return LLMGenerationSlotLease(slot: self)
+    }
+
+    fileprivate func release() {
+        if waiters.isEmpty {
+            isOccupied = false
+        } else {
+            waiters.removeFirst().resume()
+        }
+    }
+}
+
+private struct LLMGenerationSlotLease: Sendable {
+    fileprivate let slot: LLMGenerationSlot
+
+    func release() async {
+        await slot.release()
+    }
+}
+
 @Observable
 @MainActor
 class LLMEvaluator {
@@ -82,6 +114,7 @@ class LLMEvaluator {
     private var hasPendingVisibleOutput = false
     private var lastVisibleOutputPublishAt = Date.distantPast
     private let inferenceEngine: LLMInferenceEngine
+    private let generationSlot = LLMGenerationSlot()
     private let streamPublishThrottleInterval: TimeInterval = 1.0 / 24.0
 
     var modelConfiguration = ModelConfiguration.defaultModel
@@ -280,25 +313,22 @@ class LLMEvaluator {
         requestOptions: LLMGenerationRequestOptions?,
         onFirstToken: (@MainActor () -> Void)?
     ) async -> String {
-        if running {
-            let waitStartedAt = Date()
+        let waitStartedAt = Date()
+        let wasQueued = running
+        if wasQueued {
             logWarning(
                 event: "chat_generation_queue_waiting",
                 message: "Generation requested while evaluator is busy; waiting for active generation to finish",
                 fields: ["model_name": modelName]
             )
-            while running {
-                if _Concurrency.Task.isCancelled {
-                    lastTerminationReason = "cancelled_while_waiting_for_generation_slot"
-                    return ""
-                }
-                do {
-                    try await _Concurrency.Task.sleep(nanoseconds: 50_000_000)
-                } catch {
-                    lastTerminationReason = "cancelled_while_waiting_for_generation_slot"
-                    return ""
-                }
-            }
+        }
+        let slotLease = await generationSlot.acquire()
+        if _Concurrency.Task.isCancelled {
+            await slotLease.release()
+            lastTerminationReason = "cancelled_while_waiting_for_generation_slot"
+            return ""
+        }
+        if wasQueued {
             logWarning(
                 event: "chat_generation_queue_acquired",
                 message: "Queued generation acquired evaluator slot",
@@ -309,6 +339,7 @@ class LLMEvaluator {
             )
         }
         guard let model = ModelConfiguration.getModelByName(modelName) else {
+            await slotLease.release()
             runtimePhase = .failed
             output = "Failed: model not found"
             return output
@@ -333,6 +364,9 @@ class LLMEvaluator {
         var lastRawCapHitStage: String?
 
         defer {
+            _Concurrency.Task {
+                await slotLease.release()
+            }
             runCancellationToken.cancel()
             running = false
             isThinking = false

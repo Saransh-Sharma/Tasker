@@ -41,6 +41,21 @@ private struct LLMInferenceTokenRunResult: Sendable {
     let lastStopStage: String?
 }
 
+private enum LLMWiredMemoryCoordinator {
+    private static let activeGenerationPolicy = WiredMaxPolicy(
+        id: UUID(uuidString: "7D586D07-61E3-4D3B-A9B7-4A83709C7B7B") ?? UUID()
+    )
+    private static let activeGenerationBytes = 384 * 1024 * 1024
+
+    static func activeGenerationTicket() -> WiredMemoryTicket {
+        WiredMemoryTicket(
+            size: activeGenerationBytes,
+            policy: activeGenerationPolicy,
+            kind: .active
+        )
+    }
+}
+
 private struct HuggingFaceSnapshotDownloader: Downloader {
     func download(
         id: String,
@@ -254,10 +269,15 @@ actor LLMInferenceEngine {
         )
         let generateParameters = GenerateParameters(
             maxTokens: maxRawTokens,
+            maxKVSize: 2_048,
+            kvBits: 8,
+            kvGroupSize: 64,
+            quantizedKVStart: 128,
             temperature: profile.temperature,
             topP: profile.topP,
             repetitionPenalty: profile.repetitionPenalty,
-            repetitionContextSize: profile.repetitionContextSize
+            repetitionContextSize: profile.repetitionContextSize,
+            prefillStepSize: 512
         )
 
         logWarning(
@@ -273,6 +293,9 @@ actor LLMInferenceEngine {
                 "min_answer_tokens_after_answer_phase": String(minAnswerTokens),
                 "temperature": String(format: "%.2f", profile.temperature),
                 "top_p": String(format: "%.2f", profile.topP),
+                "max_kv_size": "2048",
+                "kv_bits": "8",
+                "prefill_step_size": "512",
                 "repetition_penalty": profile.repetitionPenalty.map { String(format: "%.2f", $0) } ?? "nil",
                 "output_token_stride": String(outputTokenStride)
             ]
@@ -307,10 +330,12 @@ actor LLMInferenceEngine {
             var completionInfo: GenerateCompletionInfo?
             var shouldStopEarly = false
 
+            let wiredMemoryTicket = LLMWiredMemoryCoordinator.activeGenerationTicket()
             let (tokenStream, generationTask) = try MLXLMCommon.generateTokensTask(
                 input: input,
                 parameters: generateParameters,
-                context: context
+                context: context,
+                wiredMemoryTicket: wiredMemoryTicket
             )
 
             for await generation in tokenStream {
