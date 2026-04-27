@@ -6,6 +6,7 @@ EVA is Tasker's local assistant layer for chat, task review, and planner-assiste
 
 - Chat over task context: answer user questions using the current projected task context.
 - Read-only review: summarize tasks or the day without creating applyable mutations.
+- Chief-of-staff day overview: answer natural-language day-status prompts with a brief plus editable task and habit cards.
 - Plan with EVA: route planning prompts to a planner that can return visible text or proposal cards.
 - Proposal review: show schema v3 task command cards, allow selected apply, and avoid cards for empty command runs.
 - Context shortcuts: include slash-command context and task projections in prompts.
@@ -25,13 +26,17 @@ Context is built through the LLM context projection and envelope builders, with 
 
 Proposal cards are built from schema v3 assistant command envelopes. Non-empty, applyable commands can be reviewed and selectively applied. The apply path goes through `AssistantActionPipelineUseCase`, repository validation, transactional persistence, and undo command storage; UI code does not mutate task state directly.
 
+Read-only day review now has a parallel card contract. `AssistantCardType.dayOverview` carries `EvaDayOverviewPayload`, which contains `summaryMarkdown`, `contextReceipt`, `isPartialContext`, and ordered sections for overdue tasks, today tasks, focus candidates, due habits, recovery habits, quiet tracking, or an empty/degraded state. These cards persist as assistant messages, but post-render quick-action state is maintained as chat-local overlay state so the transcript remains immutable.
+
 Chat messages and threads are persisted through the chat message flow. Assistant action runs use the Core Data assistant action repository. Applied-run history currently has a foundation behind feature flags, but the complete activity/history UI is not finished.
 
 ## Architecture Decisions
 
 - Local-only inference: EVA uses on-device MLX models to preserve task privacy and offline behavior. The docs and UI should avoid implying cloud AI processing.
 - Deterministic-first planner guards: review, no-op, habit guard, fallback, and grounding-rejected responses can return visible text without requiring a model generation reset.
+- Day overview is a dedicated read-only surface: review prompts return `dayOverview` cards instead of proposal cards or plain no-op text.
 - Schema v3 planner contracts: task mutations flow through structured command envelopes, proposal cards, validation, selected apply, and undo.
+- Quick actions stay first-party: task and habit buttons on day overview cards invoke existing task and habit use cases directly because the user tapped them; they do not enter propose -> apply -> undo.
 - Empty commands are text-only: zero-command planner results persist assistant text and do not create proposal cards or apply buttons.
 - Required context is fail-closed: when policy says context is required but unavailable, EVA sends a visible failure/clarification message.
 - Cancellation state is split: `cancelGeneration()` still cancels active model generation, while `beginUserTurn(runID:)` clears stale output and cancellation metadata for a new accepted UI turn without unloading or preparing the model.
@@ -45,6 +50,7 @@ Chat messages and threads are persisted through the chat message flow. Assistant
 - Small-model drift: compact local models may produce malformed or partially grounded JSON; repair, normalization, and deterministic fallbacks are required.
 - Cancellation regressions: stale `llm.cancelled`, run ID mismatch, task cancellation, empty sanitized text, or save failure can still drop responses if delivery gates regress.
 - Context limits: bounded projection budgets and context timeouts may produce conservative responses or visible context-failure messages.
+- Partial day overviews: missing task or habit slices must degrade to explicit empty/degraded sections instead of inferred prose.
 - Memory pressure: model routing must keep respecting installed model availability, runtime support, and device memory limits.
 - Draft recovery: prompt/draft preservation during stop, backgrounding, or model failure remains stateful in `ChatView` and should be tested before expanding workflows.
 - Incomplete review surfaces: inline timeline diff preview hooks, complete applied-run history/activity UI, and voice/scan interactions are not complete.
@@ -78,15 +84,19 @@ Run these scenarios in the simulator or on device:
    - Expected logs: `chat_user_turn_started`, route/context logs, `eva_plan_response_send_attempted`, `chat_sendMessage_completed`, and `eva_plan_response_persisted`.
 2. Send `Help me plan my day. What are my tasks?`.
    - Expected route: read-only review.
-   - Expected UI: visible summary/review text with no mutation proposal.
-3. Send `Help me plan my day`.
+   - Expected UI: `dayOverview` card with markdown brief plus task and habit sections, no mutation proposal.
+3. Send `How is my day?` or tap the first composer chip above the text box.
+   - Expected route: read-only review.
+   - Expected UI: same `dayOverview` card path as natural-language day review.
+   - Expected interactions: task cards show task-style actions, habit cards show habit-style actions, and `Open` uses the existing detail sheet for that entity.
+4. Send `Help me plan my day`.
    - Expected route: day planning.
    - Expected UI: visible summary or clarification text with no proposal card.
-4. Send `Create Design review at 4 PM for 45 minutes`.
+5. Send `Create Design review at 4 PM for 45 minutes`.
    - Expected route: task mutation.
    - Expected UI: proposal card appears with selected safe card and `Apply selected`.
    - Expected apply behavior: action pipeline applies the task change and shows the undo affordance.
-5. While an EVA turn is building or generating, tap Stop.
+6. While an EVA turn is building or generating, tap Stop.
    - Expected behavior: no silent hang; logs show an explicit cancellation/drop or the UI returns cleanly to idle.
 
 Every EVA turn should end with one terminal event: persisted text, persisted proposal card, explicit response drop, or explicit cancellation.

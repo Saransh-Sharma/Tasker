@@ -316,6 +316,7 @@
 		A6E1D4032F3C120100B1C2D3 /* AssistantDiffPreviewBuilder.swift in Sources */ = {isa = PBXBuildFile; fileRef = A6E1D4042F3C120100B1C2D3 /* AssistantDiffPreviewBuilder.swift */; };
 		A6E1D4052F3C120100B1C2D3 /* AssistantEnvelopeValidator.swift in Sources */ = {isa = PBXBuildFile; fileRef = A6E1D4062F3C120100B1C2D3 /* AssistantEnvelopeValidator.swift */; };
 		A6E1D4072F3C120100B1C2D3 /* AssistantPlannerService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A6E1D4082F3C120100B1C2D3 /* AssistantPlannerService.swift */; };
+		A6E1D41C2F3C120100B1C2D3 /* EvaDayOverview.swift in Sources */ = {isa = PBXBuildFile; fileRef = A6E1D41B2F3C120100B1C2D3 /* EvaDayOverview.swift */; };
 		A6E1D4192F3C120100B1C2D3 /* EvaProposalCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = A6E1D41A2F3C120100B1C2D3 /* EvaProposalCard.swift */; };
 		A6E1D4092F3C120100B1C2D3 /* DailyBriefService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A6E1D40A2F3C120100B1C2D3 /* DailyBriefService.swift */; };
 		A6E1D40B2F3C120100B1C2D3 /* LLMAssistantPipelineProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = A6E1D40C2F3C120100B1C2D3 /* LLMAssistantPipelineProvider.swift */; };
@@ -442,6 +443,7 @@
 		CA1A1000000000000000000B /* HomeCalendarIntegrationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA1A2000000000000000000B /* HomeCalendarIntegrationTests.swift */; };
 		CA1A1000000000000000000C /* CalendarTestSupport.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA1A2000000000000000000C /* CalendarTestSupport.swift */; };
 		CA1A1000000000000000000D /* HomeCalendarModuleUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA1A2000000000000000000D /* HomeCalendarModuleUITests.swift */; };
+		E1A100000000000000000001 /* HomeReplanDayUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1A200000000000000000001 /* HomeReplanDayUITests.swift */; };
 		CD83FC6E516299A8FB19F781 /* TaskerWidgets/TodayXPWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3A74DF0E9DCAEB8A8179F375 /* TaskerWidgets/TodayXPWidget.swift */; };
 		CEA4FD3F132804749E69A4B3 /* To Do List/Domain/Mappers/SectionMapper.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6956BC00E9F0B0BC847DD7AA /* To Do List/Domain/Mappers/SectionMapper.swift */; };
 		D1855A230115C554ADB92AEA /* To Do List/Domain/Models/DailyXPAggregateDefinition.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4AF3952DBA8C2ACE185FEF0 /* To Do List/Domain/Models/DailyXPAggregateDefinition.swift */; };
@@ -893,6 +895,7 @@
 		A6E1D4042F3C120100B1C2D3 /* AssistantDiffPreviewBuilder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AssistantDiffPreviewBuilder.swift; sourceTree = "<group>"; };
 		A6E1D4062F3C120100B1C2D3 /* AssistantEnvelopeValidator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AssistantEnvelopeValidator.swift; sourceTree = "<group>"; };
 		A6E1D4082F3C120100B1C2D3 /* AssistantPlannerService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AssistantPlannerService.swift; sourceTree = "<group>"; };
+		A6E1D41B2F3C120100B1C2D3 /* EvaDayOverview.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EvaDayOverview.swift; sourceTree = "<group>"; };
 		A6E1D41A2F3C120100B1C2D3 /* EvaProposalCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EvaProposalCard.swift; sourceTree = "<group>"; };
 		A6E1D40A2F3C120100B1C2D3 /* DailyBriefService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DailyBriefService.swift; sourceTree = "<group>"; };
 		A6E1D40C2F3C120100B1C2D3 /* LLMAssistantPipelineProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LLMAssistantPipelineProvider.swift; sourceTree = "<group>"; };
@@ -1029,6 +1032,7 @@
 		CA1A2000000000000000000B /* HomeCalendarIntegrationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeCalendarIntegrationTests.swift; sourceTree = "<group>"; };
 		CA1A2000000000000000000C /* CalendarTestSupport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalendarTestSupport.swift; sourceTree = "<group>"; };
 		CA1A2000000000000000000D /* HomeCalendarModuleUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeCalendarModuleUITests.swift; sourceTree = "<group>"; };
+		E1A200000000000000000001 /* HomeReplanDayUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeReplanDayUITests.swift; sourceTree = "<group>"; };
 		CA35E641ED7341169B9EC48D /* TypographyTokens.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = TypographyTokens.swift; sourceTree = "<group>"; };
 		CCBCDF94E1BBCA170FD4E6C2 /* HomeQuickView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HomeQuickView.swift; sourceTree = "<group>"; };
 		CD059BC932A17FD845CAC6CD /* To Do List/Domain/Mappers/TombstoneMapper.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "To Do List/Domain/Mappers/TombstoneMapper.swift"; sourceTree = SOURCE_ROOT; };
@@ -1655,6 +1659,7 @@
 				A1F0D0B62F5A100100ABC001 /* OnboardingUITests.swift */,
 				B7C8D9E12F6A100100ABC123 /* ChatPlanApplyUndoTests.swift */,
 				CA1A2000000000000000000D /* HomeCalendarModuleUITests.swift */,
+				E1A200000000000000000001 /* HomeReplanDayUITests.swift */,
 				7551BCCC2EAB665F003C6916 /* Tests */,
 			);
 			path = "To Do ListUITests";
@@ -2239,6 +2244,7 @@
 				A6E1D4042F3C120100B1C2D3 /* AssistantDiffPreviewBuilder.swift */,
 				A6E1D4062F3C120100B1C2D3 /* AssistantEnvelopeValidator.swift */,
 				A6E1D4082F3C120100B1C2D3 /* AssistantPlannerService.swift */,
+				A6E1D41B2F3C120100B1C2D3 /* EvaDayOverview.swift */,
 				A6E1D41A2F3C120100B1C2D3 /* EvaProposalCard.swift */,
 				A6E1D40A2F3C120100B1C2D3 /* DailyBriefService.swift */,
 				A6E1D40C2F3C120100B1C2D3 /* LLMAssistantPipelineProvider.swift */,
@@ -2909,6 +2915,7 @@
 				A6E1D4032F3C120100B1C2D3 /* AssistantDiffPreviewBuilder.swift in Sources */,
 				A6E1D4052F3C120100B1C2D3 /* AssistantEnvelopeValidator.swift in Sources */,
 				A6E1D4072F3C120100B1C2D3 /* AssistantPlannerService.swift in Sources */,
+				A6E1D41C2F3C120100B1C2D3 /* EvaDayOverview.swift in Sources */,
 				A6E1D4192F3C120100B1C2D3 /* EvaProposalCard.swift in Sources */,
 				A6E1D4092F3C120100B1C2D3 /* DailyBriefService.swift in Sources */,
 				A6E1D40B2F3C120100B1C2D3 /* LLMAssistantPipelineProvider.swift in Sources */,
@@ -3302,6 +3309,7 @@
 				C8A4F1023D6E4B7A91C2D304 /* HabitBoardUITests.swift in Sources */,
 				D2A100000000000000000006 /* QuietTrackingUITests.swift in Sources */,
 				CA1A1000000000000000000D /* HomeCalendarModuleUITests.swift in Sources */,
+				E1A100000000000000000001 /* HomeReplanDayUITests.swift in Sources */,
 				753EFCC02445A24800A739E3 /* To_Do_ListUITests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

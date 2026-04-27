@@ -396,10 +396,17 @@ Purpose:
 
 Requirements:
 - Ask mode is read-only and clearly labeled as non-mutating.
+- Day-review prompts such as `what are my tasks today`, `what's on my plate`, `show my open tasks`, `how is my day`, `what tasks and habits do I have today`, and close natural-language variants route to a dedicated chief-of-staff day overview response.
+- The day overview response shape is: short markdown brief first, then card sections with tasks and habits rendered differently.
+- Task day cards must emphasize project, due state, priority, and execution actions.
+- Habit day cards must emphasize cadence, streak, risk, and habit-specific outcome actions.
+- Day overview sections should prefer this order when populated: overdue tasks, today tasks, focus candidates, due habits, recovery habits, quiet tracking.
 - Ask and Plan surfaces may summarize due habits, current streaks, recently broken habits, at-risk habits, and suggested recovery actions.
 - Plan mode outputs proposal cards with rationale.
 - Plan mode may suggest shrinking a habit, moving a reminder window, pausing an overloaded habit, or converting a difficult daily habit into a smaller or weekday-only version.
 - Apply mode requires propose -> confirm -> apply sequence.
+- Day overview quick actions are explicit user actions, not assistant auto-apply behavior.
+- Day overview task quick actions support `Done`, `Tomorrow`, and `Open`; habit quick actions support `Done` / `Skip` / `Stayed Clean` / `Lapsed` / `Log Lapse` according to habit type and tracking mode.
 - Habit outcomes (`Done`, `Skip`, `Stayed Clean`, `Lapsed`) are never auto-logged by the assistant.
 - Diff preview is mandatory before apply.
 - Undo is visible and bounded by pipeline constraints.
@@ -632,6 +639,8 @@ This table maps product surfaces to existing runtime usecases for implementation
 
 ### Assistant
 - Ask mode produces no task mutations.
+- Day-review prompts produce a read-only brief plus differentiated task and habit cards instead of proposal cards.
+- Day overview cards expose direct first-party quick actions and detail-sheet entry points without bypassing assistant trust boundaries.
 - Plan mode returns either proposals or explicit no-suggestion states.
 - Apply mode enforces diff preview and explicit confirmation before mutation.
 - Undo behavior is shown only while available; expired states are explicit.
