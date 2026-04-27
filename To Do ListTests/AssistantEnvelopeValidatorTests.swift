@@ -81,6 +81,44 @@ final class AssistantEnvelopeValidatorTests: XCTestCase {
         XCTAssertEqual(parsed.envelope.commands.count, 0)
     }
 
+    func testValidateRejectsExcessiveCommandCount() {
+        let envelope = AssistantCommandEnvelope(
+            schemaVersion: 3,
+            commands: (0..<9).map {
+                .createInboxTask(
+                    projectID: ProjectConstants.inboxProjectID,
+                    title: "Task \($0)",
+                    estimatedDuration: nil,
+                    lifeAreaID: nil,
+                    priority: nil,
+                    category: nil,
+                    details: nil,
+                    tagIDs: []
+                )
+            }
+        )
+
+        XCTAssertThrowsError(try AssistantEnvelopeValidator.validate(envelope: envelope)) { error in
+            guard case AssistantEnvelopeValidationError.tooManyCommands(9) = error else {
+                return XCTFail("Unexpected error: \(error)")
+            }
+        }
+    }
+
+    func testValidateRejectsEmptyAndOverlongTitles() {
+        let emptyTitle = AssistantCommandEnvelope(
+            schemaVersion: 3,
+            commands: [.createTask(projectID: ProjectConstants.inboxProjectID, title: "   ")]
+        )
+        XCTAssertThrowsError(try AssistantEnvelopeValidator.validate(envelope: emptyTitle))
+
+        let longTitle = AssistantCommandEnvelope(
+            schemaVersion: 3,
+            commands: [.createTask(projectID: ProjectConstants.inboxProjectID, title: String(repeating: "x", count: 121))]
+        )
+        XCTAssertThrowsError(try AssistantEnvelopeValidator.validate(envelope: longTitle))
+    }
+
     func testValidateRejectsUnknownTaskReference() {
         let knownTaskID = UUID()
         let unknownTaskID = UUID()

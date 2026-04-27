@@ -29,11 +29,13 @@ final class AssistantCardPayloadTests: XCTestCase {
             .applied,
             .rejected,
             .rollbackFailed,
-            .rollbackComplete
+            .rollbackComplete,
+            .undone
         ]
 
         XCTAssertTrue(statuses.contains(.rollbackFailed))
         XCTAssertTrue(statuses.contains(.rollbackComplete))
+        XCTAssertTrue(statuses.contains(.undone))
     }
 
     func testCardCodecRoundTripPreservesCommandResultPayload() {

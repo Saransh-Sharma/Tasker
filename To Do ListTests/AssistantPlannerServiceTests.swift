@@ -21,6 +21,7 @@ final class AssistantPlannerServiceTests: XCTestCase {
         XCTAssertEqual(EvaTurnRouter.route(for: "Set up a 15 min run at 6 PM"), .taskMutation)
         XCTAssertEqual(EvaTurnRouter.route(for: "Create a habit to drink water"), .habitMutation)
         XCTAssertEqual(EvaTurnRouter.route(for: "Plan next week"), .weeklyPlanning)
+        XCTAssertEqual(EvaTurnRouter.route(for: "How do I plan my day better?"), .chatAnswer)
     }
 
     func testEvaContextPolicyAllowsTodayReviewWithOptionalPartialContext() {
@@ -459,6 +460,94 @@ final class AssistantPlannerServiceTests: XCTestCase {
         XCTAssertTrue(plan.rationale.contains("Ship EVA fix"))
         XCTAssertFalse(plan.rationale.contains("couldn’t load a complete day view"))
         XCTAssertNil(evaluator.capturedModelName)
+    }
+
+    func testDayOverviewPreservesProjectHistoryQuietTrackingAndDueFiltering() async throws {
+        let service = AssistantPlannerService(llm: PlannerEvaluatorSpy())
+        let projectID = UUID()
+        let taskID = UUID()
+        let dueHabitID = UUID()
+        let quietHabitID = UUID()
+        let notDueHabitID = UUID()
+
+        let result = await service.generatePlan(
+            userPrompt: "How is my day looking today?",
+            thread: Thread(),
+            contextPayload: """
+            {
+              "today": {
+                "tasks": [
+                  {
+                    "id": "\(taskID.uuidString)",
+                    "title": "Ship EVA cards",
+                    "project": "EVA",
+                    "project_id": "\(projectID.uuidString)",
+                    "is_completed": false,
+                    "due_date": "2026-04-27T10:00:00Z"
+                  }
+                ]
+              },
+              "habits": {
+                "habits": [
+                  {
+                    "id": "\(dueHabitID.uuidString)",
+                    "title": "Morning review",
+                    "is_positive": true,
+                    "tracking_mode": "dailyCheckIn",
+                    "is_due_today": true,
+                    "current_streak": 2,
+                    "best_streak": 4,
+                    "risk_state": "stable",
+                    "last_14_days": [
+                      { "date": "2026-04-26T00:00:00Z", "state": "success" }
+                    ]
+                  },
+                  {
+                    "id": "\(quietHabitID.uuidString)",
+                    "title": "No nicotine",
+                    "is_positive": false,
+                    "tracking_mode": "lapseOnly",
+                    "is_due_today": false,
+                    "current_streak": 8,
+                    "best_streak": 10,
+                    "risk_state": "stable"
+                  },
+                  {
+                    "id": "\(notDueHabitID.uuidString)",
+                    "title": "Read",
+                    "is_positive": true,
+                    "tracking_mode": "dailyCheckIn",
+                    "is_due_today": false,
+                    "current_streak": 0,
+                    "best_streak": 1,
+                    "risk_state": "stable"
+                  }
+                ]
+              },
+              "metadata": { "context_partial": false }
+            }
+            """,
+            taskTitleByID: [:],
+            projectNameByID: [:],
+            knownTaskIDs: []
+        )
+
+        guard case .success(let plan) = result,
+              let overview = plan.dayOverviewPayload else {
+            return XCTFail("Expected day overview")
+        }
+
+        let taskCard = try XCTUnwrap(overview.sections.first(where: { $0.kind == .todayTasks })?.taskCards.first)
+        XCTAssertEqual(taskCard.taskSnapshot.projectID, projectID)
+        XCTAssertEqual(taskCard.projectName, "EVA")
+
+        let dueHabit = try XCTUnwrap(overview.sections.first(where: { $0.kind == .dueHabits })?.habitCards.first)
+        XCTAssertEqual(dueHabit.habitID, dueHabitID)
+        XCTAssertEqual(dueHabit.last14Days.first?.state, .success)
+
+        let quietHabit = try XCTUnwrap(overview.sections.first(where: { $0.kind == .quietTracking })?.habitCards.first)
+        XCTAssertEqual(quietHabit.habitID, quietHabitID)
+        XCTAssertFalse(overview.sections.flatMap(\.habitCards).contains { $0.habitID == notDueHabitID })
     }
 
     func testReadOnlyTodayTasksPromptBuildsTaskAndHabitSections() async throws {

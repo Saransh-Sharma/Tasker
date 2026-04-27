@@ -20,6 +20,19 @@ final class EvaActivationTests: XCTestCase {
         ))
     }
 
+    func testChatViewGenerateFirstThreadAttachPreservesGenerationLifecycle() {
+        let internallyCreatedThreadID = UUID()
+
+        let decision = ChatThreadChangeCancellationPolicy.decision(
+            oldThreadID: nil,
+            newThreadID: internallyCreatedThreadID,
+            generatingThreadID: internallyCreatedThreadID,
+            hasActiveGeneration: true
+        )
+
+        XCTAssertEqual(decision, .preserveFirstGeneratedThreadAttach)
+    }
+
     func testThreadChangePolicyCancelsRealSwitchDuringGeneration() {
         let originalThreadID = UUID()
         let switchedThreadID = UUID()

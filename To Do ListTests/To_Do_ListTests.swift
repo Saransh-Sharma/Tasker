@@ -6116,7 +6116,7 @@ final class AssistantPipelineTransactionalTests: XCTestCase {
         let undoneRun = try awaitResult { completion in
             actionRepository.fetchRun(id: runID, completion: completion)
         }
-        XCTAssertEqual(undoneRun?.status, .confirmed)
+        XCTAssertEqual(undoneRun?.status, .undone)
 
         let taskAfterUndo = try awaitResult { completion in
             taskRepository.fetchTaskDefinition(id: taskID, completion: completion)
