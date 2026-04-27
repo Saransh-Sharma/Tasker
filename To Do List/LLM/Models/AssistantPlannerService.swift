@@ -122,6 +122,68 @@ enum EvaPlanProposalPersistence {
     }
 }
 
+enum EvaContextReceiptBuilder {
+    static func receipt(from contextPayload: String) -> EvaContextReceipt {
+        guard let dictionary = decodeDictionary(from: contextPayload) else {
+            return EvaContextReceipt(sources: ["Planning context unavailable"])
+        }
+
+        var sources: [String] = []
+        if let today = dictionary["today"] as? [String: Any] {
+            sources.append(sourceLabel("Today timeline", payload: today, itemKey: "tasks"))
+        }
+        if let overdue = dictionary["overdue"] as? [String: Any] {
+            sources.append(sourceLabel("Overdue tasks", payload: overdue, itemKey: "tasks"))
+        }
+        if let upcoming = dictionary["upcoming"] as? [String: Any] {
+            sources.append(sourceLabel("Upcoming tasks", payload: upcoming, itemKey: "tasks"))
+        }
+        if let habits = dictionary["habits"] as? [String: Any] {
+            sources.append(sourceLabel("Habits", payload: habits, itemKey: "habits"))
+        }
+
+        let metadata = (dictionary["metadata"] as? [String: Any]) ?? [:]
+        let partialFlags = (dictionary["partial_flags"] as? [String: Any]) ?? [:]
+        if (metadata["missing_service"] as? Bool) == true || (partialFlags["missing_service"] as? Bool) == true {
+            sources.append("Context service unavailable")
+        }
+        let reasons = (metadata["partial_reasons"] as? [String])
+            ?? (partialFlags["partial_reasons"] as? [String])
+            ?? []
+        sources.append(contentsOf: reasons.map { "Partial: \($0)" })
+
+        if sources.isEmpty {
+            sources.append("Planning context loaded")
+        }
+        return EvaContextReceipt(sources: sources)
+    }
+
+    private static func sourceLabel(_ name: String, payload: [String: Any], itemKey: String) -> String {
+        let count = (payload[itemKey] as? [[String: Any]])?.count
+            ?? (payload["count"] as? NSNumber)?.intValue
+            ?? (payload["count"] as? Int)
+        guard let count else { return name }
+        return "\(name): \(count)"
+    }
+
+    private static func decodeDictionary(from payload: String) -> [String: Any]? {
+        let rawJSON: String
+        if let start = payload.firstIndex(of: "{"),
+           let end = payload.lastIndex(of: "}"),
+           start <= end {
+            rawJSON = String(payload[start...end])
+        } else {
+            rawJSON = payload
+        }
+        guard let data = rawJSON.data(using: .utf8),
+              let object = try? JSONSerialization.jsonObject(with: data, options: []),
+              let dictionary = object as? [String: Any] else {
+            return nil
+        }
+        return dictionary
+    }
+}
+
 struct EvaPlanResponseDelivery {
     struct GateState: Equatable {
         let taskCancelled: Bool
@@ -255,12 +317,14 @@ final class AssistantPlannerService {
         let contextTaskTitleByID = AssistantDeterministicPlanner.taskTitleByID(from: contextPayload)
         let effectiveTaskTitleByID = contextTaskTitleByID.merging(taskTitleByID) { _, explicit in explicit }
         let effectiveKnownTaskIDs = knownTaskIDs.isEmpty ? Set(contextTaskTitleByID.keys) : knownTaskIDs
+        let contextReceipt = EvaContextReceiptBuilder.receipt(from: contextPayload)
         let fallbackContext = AssistantDeterministicPlanner.Context(
             userPrompt: userPrompt,
             contextPayload: contextPayload,
             taskTitleByID: effectiveTaskTitleByID,
             projectNameByID: projectNameByID,
             knownTaskIDs: effectiveKnownTaskIDs,
+            contextReceipt: contextReceipt,
             now: Date()
         )
         let intent = EvaPlannerIntent.classify(userPrompt, route: turnRoute)
@@ -277,6 +341,7 @@ final class AssistantPlannerService {
                 modelName: "deterministic_habit_guard",
                 route: modelRoute,
                 generationSource: "deterministic_habit_guard",
+                contextReceipt: contextReceipt,
                 traceContext: traceContext
             ))
         }
@@ -295,6 +360,7 @@ final class AssistantPlannerService {
                 modelName: "deterministic_intent_gate",
                 route: modelRoute,
                 generationSource: "deterministic_intent_gate",
+                contextReceipt: contextReceipt,
                 traceContext: traceContext
             ))
         }
@@ -308,6 +374,7 @@ final class AssistantPlannerService {
                 modelName: "deterministic_intent_gate",
                 route: modelRoute,
                 generationSource: "deterministic_intent_gate",
+                contextReceipt: contextReceipt,
                 traceContext: traceContext
             ))
         }
@@ -322,6 +389,7 @@ final class AssistantPlannerService {
                 modelName: "deterministic_intent_gate",
                 route: modelRoute,
                 generationSource: "deterministic_intent_gate",
+                contextReceipt: contextReceipt,
                 traceContext: traceContext
             ))
         }
@@ -333,7 +401,7 @@ final class AssistantPlannerService {
             return .failure(.noModelConfigured)
         }
 
-        let systemPrompt = planSystemPrompt()
+        let systemPrompt = planSystemPrompt(referenceDate: fallbackContext.now)
         let plannerThread = cleanPlannerThread(userPrompt: userPrompt, contextPayload: contextPayload)
         logWarning(
             event: "eva_plan_started",
@@ -395,6 +463,7 @@ final class AssistantPlannerService {
                     modelName: model.name,
                     route: modelRoute,
                     generationSource: repaired.didNormalize ? "repair_normalized" : "repair",
+                    contextReceipt: contextReceipt,
                     traceContext: traceContext
                 ))
             }
@@ -415,6 +484,7 @@ final class AssistantPlannerService {
                     modelName: model.name,
                     route: modelRoute,
                     generationSource: "deterministic_fallback",
+                    contextReceipt: contextReceipt,
                     traceContext: traceContext
                 ))
             }
@@ -453,6 +523,7 @@ final class AssistantPlannerService {
                     modelName: model.name,
                     route: modelRoute,
                     generationSource: "grounding_rejected",
+                    contextReceipt: contextReceipt,
                     traceContext: traceContext
                 ))
             }
@@ -465,14 +536,21 @@ final class AssistantPlannerService {
                 modelName: model.name,
                 route: modelRoute,
                 generationSource: parsed.didNormalize ? "model_normalized" : "model",
+                contextReceipt: contextReceipt,
                 traceContext: traceContext
             ))
         }
     }
 
     /// Executes planSystemPrompt.
-    private func planSystemPrompt() -> String {
-        """
+    private func planSystemPrompt(referenceDate: Date = Date()) -> String {
+        let calendar = Calendar.current
+        let dayStart = calendar.startOfDay(for: referenceDate)
+        let scheduledStart = calendar.date(byAdding: .hour, value: 10, to: dayStart) ?? referenceDate
+        let scheduledEnd = calendar.date(byAdding: .minute, value: 45, to: scheduledStart) ?? scheduledStart
+        let updateStart = calendar.date(byAdding: .hour, value: 16, to: dayStart) ?? referenceDate
+        let updateEnd = calendar.date(byAdding: .minute, value: 30, to: updateStart) ?? updateStart
+        return """
         You are Eva in planning mode.
         Return ONLY valid JSON for AssistantCommandEnvelope.
         Never add markdown, prose, or code fences.
@@ -491,8 +569,8 @@ final class AssistantPlannerService {
               "type": "createScheduledTask",
               "projectID": "00000000-0000-0000-0000-000000000001",
               "title": "<title from user_prompt>",
-              "scheduledStartAt": "2026-04-24T10:00:00Z",
-              "scheduledEndAt": "2026-04-24T10:45:00Z",
+              "scheduledStartAt": "\(scheduledStart.ISO8601Format())",
+              "scheduledEndAt": "\(scheduledEnd.ISO8601Format())",
               "estimatedDuration": 2700,
               "tagIDs": []
             }
@@ -522,10 +600,10 @@ final class AssistantPlannerService {
             {
               "type": "updateTaskSchedule",
               "taskID": "<task id from context>",
-              "scheduledStartAt": "2026-04-24T16:00:00Z",
-              "scheduledEndAt": "2026-04-24T16:30:00Z",
+              "scheduledStartAt": "\(updateStart.ISO8601Format())",
+              "scheduledEndAt": "\(updateEnd.ISO8601Format())",
               "estimatedDuration": 1800,
-              "dueDate": "2026-04-24T16:00:00Z"
+              "dueDate": "\(updateStart.ISO8601Format())"
             }
           ],
           "rationaleText": "I moved the matching task for review."
@@ -664,6 +742,7 @@ final class AssistantPlannerService {
         modelName: String,
         route: AIModelRoute,
         generationSource: String,
+        contextReceipt: EvaContextReceipt,
         traceContext: EvaTurnTraceContext? = nil
     ) -> AssistantPlanResult {
         logWarning(
@@ -684,7 +763,7 @@ final class AssistantPlannerService {
             ),
             proposalCards: proposalCards,
             dayOverviewPayload: dayOverviewPayload,
-            contextReceipt: EvaContextReceipt(sources: ["Today timeline", "Inbox", "Projects", "Habits", "Calendar"]),
+            contextReceipt: contextReceipt,
             modelName: modelName,
             routeBanner: route.bannerMessage,
             shouldPromptDownload: route.shouldPromptDownload,
@@ -777,6 +856,10 @@ enum EvaTurnRouter {
             return .readOnlyReview
         }
 
+        if isPlanningCoachingPrompt(lower) {
+            return .chatAnswer
+        }
+
         if lower.contains("help me plan my day")
             || lower.contains("plan my day")
             || lower.contains("plan today")
@@ -811,6 +894,14 @@ enum EvaTurnRouter {
         }
 
         return .chatAnswer
+    }
+
+    private static func isPlanningCoachingPrompt(_ text: String) -> Bool {
+        let asksHow = text.hasPrefix("how do i ")
+            || text.hasPrefix("how can i ")
+            || text.hasPrefix("how should i ")
+            || text.hasPrefix("what is the best way")
+        return asksHow && (text.contains("plan my day") || text.contains("plan today"))
     }
 
     private static func normalized(_ prompt: String) -> String {
@@ -865,6 +956,9 @@ enum EvaTurnRouter {
     }
 
     private static func fuzzyDayReviewSignals(_ text: String) -> Bool {
+        if text.contains("how do i plan") || text.contains("how can i plan") {
+            return false
+        }
         let asksForReview = [
             "what", "show", "list", "review", "brief", "walk me through", "give me", "how"
         ].contains(where: text.contains)
@@ -1170,6 +1264,7 @@ struct AssistantDeterministicPlanner {
         let taskTitleByID: [UUID: String]
         let projectNameByID: [UUID: String]
         let knownTaskIDs: Set<UUID>
+        var contextReceipt: EvaContextReceipt = EvaContextReceipt(sources: [])
         let now: Date
     }
 
@@ -1206,7 +1301,7 @@ struct AssistantDeterministicPlanner {
         let dayOverview = EvaDayOverviewBuilder.build(
             prompt: context.userPrompt,
             contextPayload: context.contextPayload,
-            contextReceipt: EvaContextReceipt(sources: ["Today timeline", "Inbox", "Projects", "Habits", "Calendar"]),
+            contextReceipt: context.contextReceipt,
             generatedAt: context.now
         )
         let message = dayOverview.summary

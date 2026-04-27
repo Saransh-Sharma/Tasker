@@ -6,6 +6,8 @@ enum AssistantEnvelopeValidationError: LocalizedError {
     case emptyCommands
     case invalidTaskReference(UUID)
     case invalidSchedule(String)
+    case tooManyCommands(Int)
+    case invalidTitle(String)
 
     var errorDescription: String? {
         switch self {
@@ -19,12 +21,19 @@ enum AssistantEnvelopeValidationError: LocalizedError {
             return "Command references missing task \(taskID.uuidString)."
         case let .invalidSchedule(message):
             return message
+        case let .tooManyCommands(count):
+            return "Assistant proposal contains too many commands (\(count))."
+        case let .invalidTitle(message):
+            return message
         }
     }
 }
 
 struct AssistantEnvelopeValidator {
     private static let supportedSchemas = Set([1, 2, 3])
+    private static let maximumCommandCount = 8
+    private static let maximumTitleLength = 120
+    private static let maximumScheduleHorizon: TimeInterval = 366 * 24 * 60 * 60
 
     enum JSONShape: String {
         case envelope
@@ -211,6 +220,9 @@ struct AssistantEnvelopeValidator {
         guard envelope.commands.isEmpty == false || allowEmptyCommands else {
             throw AssistantEnvelopeValidationError.emptyCommands
         }
+        guard envelope.commands.count <= maximumCommandCount else {
+            throw AssistantEnvelopeValidationError.tooManyCommands(envelope.commands.count)
+        }
 
         if knownTaskIDs.isEmpty == false {
             for command in envelope.commands {
@@ -221,6 +233,7 @@ struct AssistantEnvelopeValidator {
             }
         }
         for command in envelope.commands {
+            try validateTitle(command)
             try validateSchedule(command)
         }
         return envelope
@@ -257,11 +270,14 @@ struct AssistantEnvelopeValidator {
     }
 
     private static func validateSchedule(_ command: AssistantCommand) throws {
+        let now = Date()
         switch command {
         case .createScheduledTask(_, _, let start, let end, let estimatedDuration, _, _, _, _, _, _, _):
             guard end > start else {
                 throw AssistantEnvelopeValidationError.invalidSchedule("Scheduled task end must be after start.")
             }
+            try validateDateHorizon(start, now: now)
+            try validateDateHorizon(end, now: now)
             if let estimatedDuration, estimatedDuration <= 0 {
                 throw AssistantEnvelopeValidationError.invalidSchedule("Estimated duration must be greater than zero.")
             }
@@ -269,6 +285,8 @@ struct AssistantEnvelopeValidator {
             if let start, let end, end <= start {
                 throw AssistantEnvelopeValidationError.invalidSchedule("Scheduled task end must be after start.")
             }
+            if let start { try validateDateHorizon(start, now: now) }
+            if let end { try validateDateHorizon(end, now: now) }
             if let estimatedDuration, estimatedDuration <= 0 {
                 throw AssistantEnvelopeValidationError.invalidSchedule("Estimated duration must be greater than zero.")
             }
@@ -278,6 +296,38 @@ struct AssistantEnvelopeValidator {
             }
         default:
             break
+        }
+    }
+
+    private static func validateTitle(_ command: AssistantCommand) throws {
+        guard let title = title(for: command) else { return }
+        let trimmed = title.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard trimmed.isEmpty == false else {
+            throw AssistantEnvelopeValidationError.invalidTitle("Task title cannot be empty.")
+        }
+        guard trimmed.count <= maximumTitleLength else {
+            throw AssistantEnvelopeValidationError.invalidTitle("Task title is too long.")
+        }
+    }
+
+    private static func title(for command: AssistantCommand) -> String? {
+        switch command {
+        case .createTask(_, let title),
+             .createInboxTask(_, let title, _, _, _, _, _, _),
+             .createScheduledTask(_, let title, _, _, _, _, _, _, _, _, _, _):
+            return title
+        case .updateTask(_, let title, _):
+            return title
+        case .updateTaskFields(_, let title, _, _, _, _, _, _, _):
+            return title
+        default:
+            return nil
+        }
+    }
+
+    private static func validateDateHorizon(_ date: Date, now: Date) throws {
+        guard abs(date.timeIntervalSince(now)) <= maximumScheduleHorizon else {
+            throw AssistantEnvelopeValidationError.invalidSchedule("Scheduled date is outside EVA's supported planning horizon.")
         }
     }
 

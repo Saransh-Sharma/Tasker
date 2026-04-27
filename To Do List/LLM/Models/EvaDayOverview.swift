@@ -122,7 +122,7 @@ enum EvaDayOverviewBuilder {
             generatedAt: generatedAt
         )
         let todayTasks = buildTaskCards(
-            from: envelope.todayTasks.filter { $0.isCompleted == false && $0.isOverdue == false },
+            from: envelope.todayTasks.filter { $0.isCompleted == false && $0.isOverdue(referenceDate: generatedAt) == false },
             defaultActions: [.done, .tomorrow, .open],
             generatedAt: generatedAt
         )
@@ -145,14 +145,17 @@ enum EvaDayOverviewBuilder {
 
         let dueHabits = buildHabitCards(
             from: envelope.habits.filter {
-                ($0.isDueToday || $0.outcomeRaw == nil) && !$0.isRecoveryHabit
-            }
+                $0.isDueToday && !$0.isRecoveryHabit && !$0.isQuietTracking
+            },
+            referenceDate: generatedAt
         )
         let recoveryHabits = buildHabitCards(
-            from: envelope.habits.filter(\.isRecoveryHabit)
+            from: envelope.habits.filter(\.isRecoveryHabit),
+            referenceDate: generatedAt
         )
         let quietTracking = buildHabitCards(
-            from: envelope.habits.filter(\.isQuietTracking)
+            from: envelope.habits.filter(\.isQuietTracking),
+            referenceDate: generatedAt
         )
 
         var sections: [EvaDayOverviewSection] = []
@@ -216,7 +219,7 @@ enum EvaDayOverviewBuilder {
                 )
             )
         }
-        if promptIntent.mentionsHabits && quietTracking.isEmpty == false {
+        if quietTracking.isEmpty == false {
             sections.append(
                 EvaDayOverviewSection(
                     kind: .quietTracking,
@@ -338,9 +341,9 @@ enum EvaDayOverviewBuilder {
     ) -> [EvaDayTaskCard] {
         tasks.map { task in
             var chips: [EvaDayStatusChip] = []
-            if task.isOverdue {
+            if task.isOverdue(referenceDate: generatedAt) {
                 chips.append(EvaDayStatusChip(text: "Overdue", tone: "danger"))
-            } else if task.isDueToday {
+            } else if task.isDueToday(referenceDate: generatedAt) {
                 chips.append(EvaDayStatusChip(text: "Today", tone: "accent"))
             }
             if let priorityLabel = task.priorityLabel, priorityLabel != "None" {
@@ -351,20 +354,20 @@ enum EvaDayOverviewBuilder {
                 taskSnapshot: task.makeTaskDefinition(referenceDate: generatedAt),
                 title: task.title,
                 projectName: task.projectName,
-                dueLabel: task.dueLabel,
+                dueLabel: task.dueLabel(referenceDate: generatedAt),
                 priorityLabel: task.priorityLabel,
                 durationLabel: task.durationLabel,
                 scheduledStartAt: task.scheduledStartAt,
                 scheduledEndAt: task.scheduledEndAt,
                 dueDate: task.dueDate,
-                isOverdue: task.isOverdue,
+                isOverdue: task.isOverdue(referenceDate: generatedAt),
                 statusChips: chips,
                 actions: defaultActions
             )
         }
     }
 
-    private static func buildHabitCards(from habits: [ParsedHabit]) -> [EvaDayHabitCard] {
+    private static func buildHabitCards(from habits: [ParsedHabit], referenceDate: Date) -> [EvaDayHabitCard] {
         habits.map { habit in
             EvaDayHabitCard(
                 habitID: habit.habitID,
@@ -376,7 +379,7 @@ enum EvaDayOverviewBuilder {
                 iconSymbolName: habit.iconSymbolName,
                 cadenceLabel: habit.cadenceLabel,
                 dueAt: habit.dueAt,
-                dueLabel: habit.dueLabel,
+                dueLabel: habit.dueLabel(referenceDate: referenceDate),
                 currentStreak: habit.currentStreak,
                 bestStreak: habit.bestStreak,
                 riskState: habit.riskState,
@@ -430,9 +433,7 @@ private extension EvaDayOverviewBuilder {
                 let start = payload.firstIndex(of: "{"),
                 let end = payload.lastIndex(of: "}"),
                 start <= end,
-                let data = String(payload[start...end]).data(using: .utf8),
-                let object = try? JSONSerialization.jsonObject(with: data, options: []),
-                let dictionary = object as? [String: Any]
+                let dictionary = ContextJSON.decodeDictionary(from: String(payload[start...end]))
             else {
                 return ParsedContextEnvelope(
                     todayTasks: [],
@@ -473,6 +474,7 @@ private extension EvaDayOverviewBuilder {
     struct ParsedTask {
         let taskID: UUID
         let title: String
+        let projectID: UUID
         let projectName: String
         let dueDate: Date?
         let priorityRawValue: Int?
@@ -496,6 +498,12 @@ private extension EvaDayOverviewBuilder {
             }
             self.taskID = taskID
             self.title = title
+            if let projectIDRaw = dictionary["project_id"] as? String,
+               let projectID = UUID(uuidString: projectIDRaw) {
+                self.projectID = projectID
+            } else {
+                self.projectID = ProjectConstants.inboxProjectID
+            }
             self.projectName = (dictionary["project"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? "Inbox"
             self.dueDate = Self.date(from: dictionary["due_date"])
             self.priorityRawValue = (dictionary["priority"] as? NSNumber)?.intValue
@@ -512,22 +520,22 @@ private extension EvaDayOverviewBuilder {
             return ISO8601DateFormatter().date(from: value)
         }
 
-        var isOverdue: Bool {
+        func isOverdue(referenceDate: Date) -> Bool {
             guard let dueDate else { return false }
-            return dueDate < Calendar.current.startOfDay(for: Date())
+            return dueDate < Calendar.current.startOfDay(for: referenceDate)
         }
 
-        var isDueToday: Bool {
+        func isDueToday(referenceDate: Date) -> Bool {
             guard let dueDate else { return false }
-            return Calendar.current.isDateInToday(dueDate)
+            return Calendar.current.isDate(dueDate, inSameDayAs: referenceDate)
         }
 
-        var dueLabel: String? {
+        func dueLabel(referenceDate: Date) -> String? {
             guard let dueDate else { return nil }
-            if isOverdue {
-                return OverdueAgeFormatter.lateLabel(dueDate: dueDate, now: Date()) ?? "Overdue"
+            if isOverdue(referenceDate: referenceDate) {
+                return OverdueAgeFormatter.lateLabel(dueDate: dueDate, now: referenceDate) ?? "Overdue"
             }
-            if Calendar.current.isDateInToday(dueDate) {
+            if Calendar.current.isDate(dueDate, inSameDayAs: referenceDate) {
                 return dueDate.formatted(date: .omitted, time: .shortened)
             }
             return dueDate.formatted(date: .abbreviated, time: .shortened)
@@ -551,7 +559,7 @@ private extension EvaDayOverviewBuilder {
         func makeTaskDefinition(referenceDate: Date) -> TaskDefinition {
             let task = TaskDefinition(
                 id: taskID,
-                projectID: ProjectConstants.inboxProjectID,
+                projectID: projectID,
                 projectName: projectName,
                 title: title,
                 priority: priority(from: priorityRawValue),
@@ -590,6 +598,7 @@ private extension EvaDayOverviewBuilder {
         let bestStreak: Int
         let riskState: HabitRiskState
         let outcomeRaw: String?
+        let last14Days: [HabitDayMark]
 
         static func hasPayload(in dictionary: [String: Any]) -> Bool {
             guard let habits = dictionary["habits"] as? [[String: Any]] else { return false }
@@ -624,12 +633,13 @@ private extension EvaDayOverviewBuilder {
             self.bestStreak = (dictionary["best_streak"] as? NSNumber)?.intValue ?? 0
             self.riskState = HabitRiskState(rawValue: (dictionary["risk_state"] as? String) ?? "") ?? .stable
             self.outcomeRaw = dictionary["outcome"] as? String
+            self.last14Days = Self.last14Days(from: dictionary["last_14_days"])
         }
 
-        var dueLabel: String? {
+        func dueLabel(referenceDate: Date) -> String? {
             guard let dueAt else { return nil }
             if isOverdue { return "Overdue" }
-            if Calendar.current.isDateInToday(dueAt) {
+            if Calendar.current.isDate(dueAt, inSameDayAs: referenceDate) {
                 return dueAt.formatted(date: .omitted, time: .shortened)
             }
             return dueAt.formatted(date: .abbreviated, time: .shortened)
@@ -642,10 +652,6 @@ private extension EvaDayOverviewBuilder {
             case .lapseOnly:
                 return "Quiet tracking"
             }
-        }
-
-        var last14Days: [HabitDayMark] {
-            []
         }
 
         var isRecoveryHabit: Bool {
@@ -678,6 +684,38 @@ private extension EvaDayOverviewBuilder {
             case (.negative, .lapseOnly):
                 return [.logLapse, .open]
             }
+        }
+
+        private static func last14Days(from value: Any?) -> [HabitDayMark] {
+            guard let rows = value as? [[String: Any]] else { return [] }
+            return rows.compactMap { row in
+                guard
+                    let date = ParsedTask.date(from: row["date"]),
+                    let stateRaw = row["state"] as? String
+                else { return nil }
+                return HabitDayMark(date: date, state: habitDayState(from: stateRaw))
+            }
+        }
+
+        private static func habitDayState(from raw: String) -> HabitDayState {
+            switch raw {
+            case "success": return .success
+            case "failure": return .failure
+            case "skipped": return .skipped
+            case "future": return .future
+            default: return .none
+            }
+        }
+    }
+
+    enum ContextJSON {
+        static func decodeDictionary(from raw: String) -> [String: Any]? {
+            guard let data = raw.data(using: .utf8),
+                  let object = try? JSONSerialization.jsonObject(with: data, options: []),
+                  let dictionary = object as? [String: Any] else {
+                return nil
+            }
+            return dictionary
         }
     }
 }

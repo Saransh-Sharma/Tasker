@@ -4,6 +4,7 @@ public enum AssistantActionStatus: String, Codable {
     case pending
     case confirmed
     case applied
+    case undone
     case rejected
     case failed
 }
