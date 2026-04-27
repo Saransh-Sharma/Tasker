@@ -131,7 +131,33 @@ final class AssistantCardPayloadTests: XCTestCase {
                                 actions: [.done, .tomorrow, .open]
                             )
                         ],
-                        habitCards: [],
+                        habitCards: [
+                            EvaDayHabitCard(
+                                habitID: UUID(),
+                                title: "Morning review",
+                                kind: .positive,
+                                trackingMode: .dailyCheckIn,
+                                lifeAreaName: "Health",
+                                projectName: nil,
+                                iconSymbolName: "flame.fill",
+                                accentHex: "#4E9A2F",
+                                cadence: .daily(),
+                                cadenceLabel: "Every day",
+                                dueAt: Date(timeIntervalSince1970: 1_700_000_200),
+                                dueLabel: "10:16 AM",
+                                currentStreak: 4,
+                                bestStreak: 7,
+                                riskState: .stable,
+                                last14Days: [
+                                    HabitDayMark(
+                                        date: Date(timeIntervalSince1970: 1_700_000_000),
+                                        state: .success
+                                    )
+                                ],
+                                statusChips: [EvaDayStatusChip(text: "Due today", tone: "accent")],
+                                actions: [.done, .skip, .open]
+                            )
+                        ],
                         message: nil
                     )
                 ],

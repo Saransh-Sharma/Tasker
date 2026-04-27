@@ -462,7 +462,7 @@ final class AssistantPlannerServiceTests: XCTestCase {
         XCTAssertNil(evaluator.capturedModelName)
     }
 
-    func testDayOverviewPreservesProjectHistoryQuietTrackingAndDueFiltering() async throws {
+    func testDayOverviewPreservesProjectHistoryQuietTrackingAndActiveHabits() async throws {
         let service = AssistantPlannerService(llm: PlannerEvaluatorSpy())
         let projectID = UUID()
         let taskID = UUID()
@@ -547,7 +547,63 @@ final class AssistantPlannerServiceTests: XCTestCase {
 
         let quietHabit = try XCTUnwrap(overview.sections.first(where: { $0.kind == .quietTracking })?.habitCards.first)
         XCTAssertEqual(quietHabit.habitID, quietHabitID)
-        XCTAssertFalse(overview.sections.flatMap(\.habitCards).contains { $0.habitID == notDueHabitID })
+        XCTAssertTrue(overview.sections.flatMap(\.habitCards).contains { $0.habitID == notDueHabitID })
+        XCTAssertEqual(Set(overview.sections.flatMap(\.habitCards).map(\.habitID)), [dueHabitID, quietHabitID, notDueHabitID])
+    }
+
+    func testDayOverviewCoalescesHabitOccurrenceDumpIntoOneCardPerActiveHabit() {
+        let generatedAt = ISO8601DateFormatter().date(from: "2026-04-27T12:00:00Z")!
+        let habitIDs = [UUID(), UUID(), UUID()]
+        let habitRows = habitIDs.enumerated().flatMap { habitIndex, habitID in
+            (0..<14).map { offset in
+                let day = 14 + offset
+                let isToday = offset == 13
+                return """
+                  {
+                    "id": "\(habitID.uuidString)",
+                    "title": "Habit \(habitIndex + 1)",
+                    "is_positive": true,
+                    "tracking_mode": "dailyCheckIn",
+                    "life_area": "Health",
+                    "icon_symbol": "flame.fill",
+                    "color_hex": "#4E9A2F",
+                    "cadence": { "rule_type": "daily" },
+                    "due_at": "2026-04-\(String(format: "%02d", day))T08:00:00Z",
+                    "is_due_today": \(isToday ? "true" : "false"),
+                    "current_streak": \(offset + 1),
+                    "best_streak": 14,
+                    "risk_state": "stable",
+                    "last_14_days": [
+                      { "date": "2026-04-\(String(format: "%02d", day))T00:00:00Z", "state": "success" }
+                    ]
+                  }
+                """
+            }
+        }.joined(separator: ",\n")
+
+        let output = EvaDayOverviewBuilder.build(
+            prompt: "What tasks and habits do I have today?",
+            contextPayload: """
+            {
+              "today": { "tasks": [] },
+              "habits": {
+                "habits": [
+            \(habitRows)
+                ]
+              },
+              "metadata": { "context_partial": false }
+            }
+            """,
+            contextReceipt: EvaContextReceipt(sources: []),
+            generatedAt: generatedAt
+        )
+
+        let habitCards = output.payload.sections.flatMap(\.habitCards)
+        XCTAssertEqual(habitCards.count, habitIDs.count)
+        XCTAssertEqual(Set(habitCards.map(\.habitID)), Set(habitIDs))
+        XCTAssertTrue(habitCards.allSatisfy { $0.last14Days.count == 14 })
+        XCTAssertTrue(habitCards.allSatisfy { $0.cadence == .daily() })
+        XCTAssertTrue(habitCards.allSatisfy { $0.accentHex == "#4E9A2F" })
     }
 
     func testReadOnlyTodayTasksPromptBuildsTaskAndHabitSections() async throws {
