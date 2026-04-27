@@ -10,18 +10,38 @@ import SwiftUI
 import os
 
 struct ChatThreadChangeCancellationPolicy {
+    enum Decision: Equatable {
+        case ignore
+        case preserveFirstGeneratedThreadAttach
+        case cancel
+    }
+
+    static func decision(
+        oldThreadID: UUID?,
+        newThreadID: UUID?,
+        generatingThreadID: UUID?,
+        hasActiveGeneration: Bool
+    ) -> Decision {
+        guard hasActiveGeneration else { return .ignore }
+        guard oldThreadID != newThreadID else { return .ignore }
+        if oldThreadID == nil, newThreadID == generatingThreadID {
+            return .preserveFirstGeneratedThreadAttach
+        }
+        return .cancel
+    }
+
     static func shouldCancelActiveGeneration(
         oldThreadID: UUID?,
         newThreadID: UUID?,
         generatingThreadID: UUID?,
         hasActiveGeneration: Bool
     ) -> Bool {
-        guard hasActiveGeneration else { return false }
-        guard oldThreadID != newThreadID else { return false }
-        if oldThreadID == nil, newThreadID == generatingThreadID {
-            return false
-        }
-        return true
+        decision(
+            oldThreadID: oldThreadID,
+            newThreadID: newThreadID,
+            generatingThreadID: generatingThreadID,
+            hasActiveGeneration: hasActiveGeneration
+        ) == .cancel
     }
 }
 
@@ -461,15 +481,16 @@ struct ChatView: View {
         projectLookupTask?.cancel()
         contextInvalidationTask?.cancel()
         contextInvalidationTask = nil
-        let shouldCancelGeneration = ChatThreadChangeCancellationPolicy.shouldCancelActiveGeneration(
+        let threadChangeDecision = ChatThreadChangeCancellationPolicy.decision(
             oldThreadID: oldThreadID,
             newThreadID: newThreadID,
             generatingThreadID: generatingThreadID,
             hasActiveGeneration: generationTask != nil || llm.running
         )
-        if shouldCancelGeneration {
+        switch threadChangeDecision {
+        case .cancel:
             cancelActiveGeneration(reason: "thread_changed")
-        } else if oldThreadID == nil, newThreadID == generatingThreadID, generationTask != nil || llm.running {
+        case .preserveFirstGeneratedThreadAttach:
             logWarning(
                 event: "chat_thread_change_generation_preserved",
                 message: "Preserved active generation after first chat thread attach",
@@ -477,6 +498,8 @@ struct ChatView: View {
                     "thread_id": newThreadID?.uuidString ?? "nil"
                 ]
             )
+        case .ignore:
+            break
         }
         refreshTranscriptSnapshot()
         contextCoordinator.loadAttachments(for: currentThread?.id)

@@ -498,6 +498,9 @@ struct MessageView: View {
     @State private var evaApplyMessage: String?
     @State private var isApplyingEvaProposal = false
     @State private var appliedEvaRunIDs: Set<UUID> = []
+    @State private var appliedEvaRunIDByPayloadRunID: [UUID: UUID] = [:]
+    @State private var pendingEvaApplyConfirmationIDs: Set<UUID>?
+    @State private var isUndoingEvaRun = false
     @State private var dayTaskOverlayStates: [UUID: EvaDayTaskOverlayState] = [:]
     @State private var dayHabitOverlayStates: [UUID: EvaDayHabitOverlayState] = [:]
     @State private var dayOverviewNotices: [String] = []
@@ -800,9 +803,13 @@ struct MessageView: View {
                             .font(.tasker(.caption1))
                             .foregroundStyle(Color.tasker(.textSecondary))
                         Spacer()
-                        Button("Undo") {}
+                        Button("Undo") {
+                            if let runID = payload.runID {
+                                undoEvaRun(runID, payloadRunID: payload.runID)
+                            }
+                        }
                             .buttonStyle(.borderedProminent)
-                            .disabled(isUndoExpired(payload: payload))
+                            .disabled(isUndoExpired(payload: payload) || isUndoingEvaRun || payload.runID == nil)
                     }
                 } else if payload.cardType == .proposal {
                     if payload.runID == nil {
@@ -888,6 +895,7 @@ struct MessageView: View {
                     selectedEvaCardIDs = Set(proposal.cards.filter(\.isSelectedByDefault).map(\.id))
                     expandedEvaCardID = nil
                     evaApplyMessage = nil
+                    pendingEvaApplyConfirmationIDs = nil
                 } label: {
                     Label("Start New", systemImage: "square.and.pencil")
                 }
@@ -922,25 +930,70 @@ struct MessageView: View {
             }
 
             if isApplyable {
-                Button {
-                    applyEvaProposal(payload: payload, proposal: proposal)
-                } label: {
-                    HStack {
-                        Spacer()
-                        Text(applyButtonTitle(cards: proposal.cards))
-                            .font(.tasker(.buttonSmall))
-                        Spacer()
+                if let payloadRunID = payload.runID,
+                   let appliedRunID = appliedEvaRunIDByPayloadRunID[payloadRunID] {
+                    HStack(spacing: TaskerTheme.Spacing.sm) {
+                        Button {
+                            undoEvaRun(appliedRunID, payloadRunID: payloadRunID)
+                        } label: {
+                            Label("Undo", systemImage: "arrow.uturn.backward")
+                                .font(.tasker(.buttonSmall))
+                                .frame(maxWidth: .infinity)
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .tint(Color.tasker(.accentPrimary))
+                        .disabled(isUndoingEvaRun)
+                        .accessibilityIdentifier("eva.proposal.undo")
+                    }
+                } else {
+                    if pendingEvaApplyConfirmationIDs == selectedEvaCardIDs {
+                        VStack(alignment: .leading, spacing: TaskerTheme.Spacing.sm) {
+                            Text("Confirm before EVA changes your tasks.")
+                                .font(.tasker(.caption1))
+                                .foregroundStyle(Color.tasker(.textSecondary))
+
+                            HStack(spacing: TaskerTheme.Spacing.sm) {
+                                Button("Cancel") {
+                                    pendingEvaApplyConfirmationIDs = nil
+                                    evaApplyMessage = nil
+                                }
+                                .buttonStyle(.bordered)
+
+                                Button {
+                                    applyEvaProposal(payload: payload, proposal: proposal)
+                                } label: {
+                                    Text("Confirm Apply")
+                                        .font(.tasker(.buttonSmall))
+                                        .frame(maxWidth: .infinity)
+                                }
+                                .buttonStyle(.borderedProminent)
+                                .tint(Color.tasker(.accentPrimary))
+                                .disabled(isApplyingEvaProposal || selectedEvaCardIDs.isEmpty || payload.runID == nil)
+                                .accessibilityIdentifier("eva.proposal.confirm_apply")
+                            }
+                        }
+                    } else {
+                        Button {
+                            prepareEvaProposalConfirmation(proposal: proposal)
+                        } label: {
+                            HStack {
+                                Spacer()
+                                Text(applyButtonTitle(cards: proposal.cards))
+                                    .font(.tasker(.buttonSmall))
+                                Spacer()
+                            }
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .tint(Color.tasker(.accentPrimary))
+                        .disabled(
+                            isApplyingEvaProposal
+                                || selectedEvaCardIDs.isEmpty
+                                || payload.runID == nil
+                                || payload.runID.map { appliedEvaRunIDs.contains($0) } == true
+                        )
+                        .accessibilityIdentifier("eva.proposal.apply_selected")
                     }
                 }
-                .buttonStyle(.borderedProminent)
-                .tint(Color.tasker(.accentPrimary))
-                .disabled(
-                    isApplyingEvaProposal
-                        || selectedEvaCardIDs.isEmpty
-                        || payload.runID == nil
-                        || payload.runID.map { appliedEvaRunIDs.contains($0) } == true
-                )
-                .accessibilityIdentifier("eva.proposal.apply_selected")
             }
         }
         .onAppear {
@@ -1148,7 +1201,7 @@ struct MessageView: View {
         dayTaskOverlayStates[card.taskID] = overlay
 
         onPerformDayTaskAction(action, card) { result in
-            DispatchQueue.main.async {
+            Task { @MainActor in
                 var resolved = dayTaskOverlayStates[card.taskID] ?? EvaDayTaskOverlayState()
                 resolved.isProcessing = false
                 switch result {
@@ -1190,7 +1243,7 @@ struct MessageView: View {
         dayHabitOverlayStates[card.habitID] = overlay
 
         onPerformDayHabitAction(action, card) { result in
-            DispatchQueue.main.async {
+            Task { @MainActor in
                 var resolved = dayHabitOverlayStates[card.habitID] ?? EvaDayHabitOverlayState()
                 resolved.isProcessing = false
                 switch result {
@@ -1420,11 +1473,29 @@ struct MessageView: View {
         } else {
             selectedEvaCardIDs.insert(card.id)
         }
+        pendingEvaApplyConfirmationIDs = nil
+    }
+
+    private func prepareEvaProposalConfirmation(proposal: EvaProposalReviewPayload) {
+        let selectedCards = proposal.cards.filter { selectedEvaCardIDs.contains($0.id) }
+        let gate = EvaProposalApplyGate.validate(selectedCards: selectedCards)
+        guard case .allowed = gate else {
+            if case .blocked(let message) = gate {
+                evaApplyMessage = message
+            }
+            return
+        }
+        pendingEvaApplyConfirmationIDs = selectedEvaCardIDs
+        evaApplyMessage = "Review the selected changes, then confirm to apply."
     }
 
     private func applyEvaProposal(payload: AssistantCardPayload, proposal: EvaProposalReviewPayload) {
         guard let runID = payload.runID, let pipeline = LLMAssistantPipelineProvider.pipeline else {
             evaApplyMessage = "EVA cannot apply this plan right now."
+            return
+        }
+        guard pendingEvaApplyConfirmationIDs == selectedEvaCardIDs else {
+            prepareEvaProposalConfirmation(proposal: proposal)
             return
         }
         let selectedCards = proposal.cards.filter { selectedEvaCardIDs.contains($0.id) }
@@ -1464,7 +1535,8 @@ struct MessageView: View {
                         appliedCount: appliedCount,
                         payload: payload,
                         proposal: proposal,
-                        selectedCards: selectedCards
+                        selectedCards: selectedCards,
+                        payloadRunID: runID
                     )
                 } else {
                     pipeline.propose(threadID: run.threadID ?? "eva-selected-\(UUID().uuidString)", envelope: selectedEnvelope) { proposeResult in
@@ -1478,7 +1550,8 @@ struct MessageView: View {
                                 appliedCount: appliedCount,
                                 payload: payload,
                                 proposal: proposal,
-                                selectedCards: selectedCards
+                                selectedCards: selectedCards,
+                                payloadRunID: runID
                             )
                         }
                     }
@@ -1493,7 +1566,8 @@ struct MessageView: View {
         appliedCount: Int,
         payload: AssistantCardPayload,
         proposal: EvaProposalReviewPayload,
-        selectedCards: [EvaProposalCard]
+        selectedCards: [EvaProposalCard],
+        payloadRunID: UUID
     ) {
         pipeline.confirm(runID: runID) { confirmResult in
             switch confirmResult {
@@ -1511,7 +1585,11 @@ struct MessageView: View {
                             proposal: proposal,
                             selectedCards: selectedCards
                         )
-                        finishEvaApply(message: "EVA updated \(appliedCount) tasks. Undo for 30 min.", appliedRunID: runID)
+                        finishEvaApply(
+                            message: "EVA updated \(appliedCount) tasks. Undo for 30 min.",
+                            appliedRunID: runID,
+                            payloadRunID: payloadRunID
+                        )
                     }
                 }
             }
@@ -1542,13 +1620,41 @@ struct MessageView: View {
         EvaAppliedRunHistoryStore.shared.record(entry)
     }
 
-    private func finishEvaApply(message: String, appliedRunID: UUID? = nil) {
-        DispatchQueue.main.async {
+    private func finishEvaApply(message: String, appliedRunID: UUID? = nil, payloadRunID: UUID? = nil) {
+        Task { @MainActor in
             isApplyingEvaProposal = false
             evaApplyMessage = message
+            pendingEvaApplyConfirmationIDs = nil
             if let appliedRunID {
                 appliedEvaRunIDs.insert(appliedRunID)
+                if let payloadRunID {
+                    appliedEvaRunIDByPayloadRunID[payloadRunID] = appliedRunID
+                }
                 selectedEvaCardIDs.removeAll()
+            }
+        }
+    }
+
+    private func undoEvaRun(_ runID: UUID, payloadRunID: UUID?) {
+        guard let pipeline = LLMAssistantPipelineProvider.pipeline else {
+            evaApplyMessage = "EVA cannot undo this plan right now."
+            return
+        }
+        isUndoingEvaRun = true
+        evaApplyMessage = "Undoing EVA changes..."
+        pipeline.undoAppliedRun(id: runID) { result in
+            Task { @MainActor in
+                isUndoingEvaRun = false
+                switch result {
+                case .success:
+                    appliedEvaRunIDs.remove(runID)
+                    if let payloadRunID {
+                        appliedEvaRunIDByPayloadRunID[payloadRunID] = nil
+                    }
+                    evaApplyMessage = "EVA reverted those changes."
+                case .failure(let error):
+                    evaApplyMessage = error.localizedDescription
+                }
             }
         }
     }
@@ -1791,6 +1897,7 @@ struct ConversationView: View {
                             workingStatuses: liveWorkingStatuses,
                             pendingPhase: liveOutput.pendingPhase,
                             pendingStatusText: liveOutput.pendingStatusText,
+                            onOpenTaskFromCard: onOpenTaskFromCard,
                             onOpenHabitFromCard: onOpenHabitFromCard,
                             onPerformDayTaskAction: onPerformDayTaskAction,
                             onPerformDayHabitAction: onPerformDayHabitAction

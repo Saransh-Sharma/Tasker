@@ -42,7 +42,7 @@ enum ChatPendingResponseStatusText {
         case .assemblingPrompt:
             return "Sorting your timeline..."
         case .preparingModel:
-            return "Finding open space..."
+            return "Getting the model ready..."
         case .generating:
             return "Protecting routines..."
         }
