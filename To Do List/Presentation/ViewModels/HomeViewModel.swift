@@ -3918,7 +3918,8 @@ public final class HomeViewModel: ObservableObject {
                 riskStateRaw: row.riskState.rawValue,
                 outcomeRaw: habitOutcomeRaw(for: row.state),
                 occurredAt: row.dueAt,
-                keywords: [row.title, row.lifeAreaName, row.projectName].compactMap { $0 }
+                keywords: [row.title, row.lifeAreaName, row.projectName].compactMap { $0 },
+                last14Days: row.last14Days
             )
         }
     }
