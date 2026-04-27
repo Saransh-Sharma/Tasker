@@ -57,6 +57,8 @@ struct EvaDayHabitCard: Codable, Equatable, Hashable, Identifiable {
     let lifeAreaName: String?
     let projectName: String?
     let iconSymbolName: String?
+    let accentHex: String?
+    let cadence: HabitCadenceDraft?
     let cadenceLabel: String
     let dueAt: Date?
     let dueLabel: String?
@@ -143,18 +145,19 @@ enum EvaDayOverviewBuilder {
             focusCards = []
         }
 
+        let activeHabits = coalesceHabits(envelope.habits, referenceDate: generatedAt)
         let dueHabits = buildHabitCards(
-            from: envelope.habits.filter {
-                $0.isDueToday && !$0.isRecoveryHabit && !$0.isQuietTracking
+            from: activeHabits.filter {
+                !$0.isRecoveryHabit && !$0.isQuietTracking
             },
             referenceDate: generatedAt
         )
         let recoveryHabits = buildHabitCards(
-            from: envelope.habits.filter(\.isRecoveryHabit),
+            from: activeHabits.filter(\.isRecoveryHabit),
             referenceDate: generatedAt
         )
         let quietTracking = buildHabitCards(
-            from: envelope.habits.filter(\.isQuietTracking),
+            from: activeHabits.filter(\.isQuietTracking),
             referenceDate: generatedAt
         )
 
@@ -199,8 +202,8 @@ enum EvaDayOverviewBuilder {
             sections.append(
                 EvaDayOverviewSection(
                     kind: .dueHabits,
-                    title: "Due habits",
-                    subtitle: "\(dueHabits.count) need a check-in",
+                    title: "Habit streaks",
+                    subtitle: "\(dueHabits.count) active habit\(dueHabits.count == 1 ? "" : "s")",
                     taskCards: [],
                     habitCards: dueHabits,
                     message: nil
@@ -293,7 +296,7 @@ enum EvaDayOverviewBuilder {
             if recoveryHabits.isEmpty == false {
                 lines.append("- \(recoveryHabits.count) habit\(recoveryHabits.count == 1 ? "" : "s") need recovery attention.")
             } else if dueHabits.isEmpty == false {
-                lines.append("- \(dueHabits.count) habit check-in\(dueHabits.count == 1 ? "" : "s") are due.")
+                lines.append("- \(dueHabits.count) active habit streak\(dueHabits.count == 1 ? "" : "s") are visible.")
             }
         }
         if isPartialContext {
@@ -377,6 +380,8 @@ enum EvaDayOverviewBuilder {
                 lifeAreaName: habit.lifeAreaName,
                 projectName: habit.projectName,
                 iconSymbolName: habit.iconSymbolName,
+                accentHex: habit.accentHex,
+                cadence: habit.cadence,
                 cadenceLabel: habit.cadenceLabel,
                 dueAt: habit.dueAt,
                 dueLabel: habit.dueLabel(referenceDate: referenceDate),
@@ -388,6 +393,43 @@ enum EvaDayOverviewBuilder {
                 actions: habit.actions
             )
         }
+    }
+
+    private static func coalesceHabits(_ habits: [ParsedHabit], referenceDate: Date) -> [ParsedHabit] {
+        let grouped = Dictionary(grouping: habits, by: \.habitID)
+        return grouped.values.compactMap { group in
+            guard let representative = group.sorted(by: { lhs, rhs in
+                habitRepresentativeScore(lhs, referenceDate: referenceDate) > habitRepresentativeScore(rhs, referenceDate: referenceDate)
+            }).first else {
+                return nil
+            }
+            return representative.withMergedHistory(from: group)
+        }
+        .sorted { lhs, rhs in
+            let lhsDue = lhs.dueAt ?? .distantFuture
+            let rhsDue = rhs.dueAt ?? .distantFuture
+            if lhs.isRecoveryHabit != rhs.isRecoveryHabit {
+                return lhs.isRecoveryHabit && !rhs.isRecoveryHabit
+            }
+            if lhsDue != rhsDue {
+                return lhsDue < rhsDue
+            }
+            return lhs.title.localizedCaseInsensitiveCompare(rhs.title) == .orderedAscending
+        }
+    }
+
+    private static func habitRepresentativeScore(_ habit: ParsedHabit, referenceDate: Date) -> Int {
+        var score = 0
+        if habit.isDueToday { score += 10_000 }
+        if habit.isRecoveryHabit { score += 5_000 }
+        if let dueAt = habit.dueAt {
+            let delta = abs(Int(dueAt.timeIntervalSince(referenceDate) / 60))
+            score += max(0, 2_000 - min(delta, 2_000))
+            if dueAt <= referenceDate { score += 500 }
+        }
+        score += min(habit.last14Days.count, 14) * 10
+        score += habit.currentStreak
+        return score
     }
 }
 
@@ -591,6 +633,8 @@ private extension EvaDayOverviewBuilder {
         let lifeAreaName: String?
         let projectName: String?
         let iconSymbolName: String?
+        let accentHex: String?
+        let cadence: HabitCadenceDraft
         let dueAt: Date?
         let isDueToday: Bool
         let isOverdue: Bool
@@ -626,6 +670,8 @@ private extension EvaDayOverviewBuilder {
             self.lifeAreaName = dictionary["life_area"] as? String
             self.projectName = dictionary["project"] as? String
             self.iconSymbolName = dictionary["icon_symbol"] as? String
+            self.accentHex = dictionary["color_hex"] as? String
+            self.cadence = Self.cadence(from: dictionary["cadence"]) ?? .daily()
             self.dueAt = ParsedTask.date(from: dictionary["due_at"])
             self.isDueToday = (dictionary["is_due_today"] as? Bool) ?? false
             self.isOverdue = (dictionary["is_overdue"] as? Bool) ?? false
@@ -634,6 +680,67 @@ private extension EvaDayOverviewBuilder {
             self.riskState = HabitRiskState(rawValue: (dictionary["risk_state"] as? String) ?? "") ?? .stable
             self.outcomeRaw = dictionary["outcome"] as? String
             self.last14Days = Self.last14Days(from: dictionary["last_14_days"])
+        }
+
+        private init(
+            habitID: UUID,
+            title: String,
+            kind: HabitKind,
+            trackingMode: HabitTrackingMode,
+            lifeAreaName: String?,
+            projectName: String?,
+            iconSymbolName: String?,
+            accentHex: String?,
+            cadence: HabitCadenceDraft,
+            dueAt: Date?,
+            isDueToday: Bool,
+            isOverdue: Bool,
+            currentStreak: Int,
+            bestStreak: Int,
+            riskState: HabitRiskState,
+            outcomeRaw: String?,
+            last14Days: [HabitDayMark]
+        ) {
+            self.habitID = habitID
+            self.title = title
+            self.kind = kind
+            self.trackingMode = trackingMode
+            self.lifeAreaName = lifeAreaName
+            self.projectName = projectName
+            self.iconSymbolName = iconSymbolName
+            self.accentHex = accentHex
+            self.cadence = cadence
+            self.dueAt = dueAt
+            self.isDueToday = isDueToday
+            self.isOverdue = isOverdue
+            self.currentStreak = currentStreak
+            self.bestStreak = bestStreak
+            self.riskState = riskState
+            self.outcomeRaw = outcomeRaw
+            self.last14Days = last14Days
+        }
+
+        func withMergedHistory(from habits: [ParsedHabit]) -> ParsedHabit {
+            let mergedHistory = Self.mergeHistory(habits.flatMap(\.last14Days))
+            return ParsedHabit(
+                habitID: habitID,
+                title: title,
+                kind: kind,
+                trackingMode: trackingMode,
+                lifeAreaName: lifeAreaName,
+                projectName: projectName,
+                iconSymbolName: iconSymbolName,
+                accentHex: accentHex,
+                cadence: cadence,
+                dueAt: dueAt,
+                isDueToday: isDueToday,
+                isOverdue: isOverdue,
+                currentStreak: currentStreak,
+                bestStreak: bestStreak,
+                riskState: riskState,
+                outcomeRaw: outcomeRaw,
+                last14Days: mergedHistory.isEmpty ? last14Days : mergedHistory
+            )
         }
 
         func dueLabel(referenceDate: Date) -> String? {
@@ -646,12 +753,7 @@ private extension EvaDayOverviewBuilder {
         }
 
         var cadenceLabel: String {
-            switch trackingMode {
-            case .dailyCheckIn:
-                return "Daily check-in"
-            case .lapseOnly:
-                return "Quiet tracking"
-            }
+            HabitBoardPresentationBuilder.cadenceLabel(for: cadence)
         }
 
         var isRecoveryHabit: Bool {
@@ -694,6 +796,52 @@ private extension EvaDayOverviewBuilder {
                     let stateRaw = row["state"] as? String
                 else { return nil }
                 return HabitDayMark(date: date, state: habitDayState(from: stateRaw))
+            }
+        }
+
+        private static func mergeHistory(_ marks: [HabitDayMark]) -> [HabitDayMark] {
+            let calendar = Calendar.current
+            var byDay: [Date: HabitDayMark] = [:]
+            for mark in marks {
+                let day = calendar.startOfDay(for: mark.date)
+                if let existing = byDay[day] {
+                    byDay[day] = preferredMark(existing, mark)
+                } else {
+                    byDay[day] = HabitDayMark(date: day, state: mark.state)
+                }
+            }
+            return Array(byDay.values.sorted { $0.date < $1.date }.suffix(14))
+        }
+
+        private static func preferredMark(_ lhs: HabitDayMark, _ rhs: HabitDayMark) -> HabitDayMark {
+            rank(rhs.state) > rank(lhs.state) ? rhs : lhs
+        }
+
+        private static func rank(_ state: HabitDayState) -> Int {
+            switch state {
+            case .success: return 5
+            case .failure: return 4
+            case .skipped: return 3
+            case .none: return 2
+            case .future: return 1
+            }
+        }
+
+        private static func cadence(from value: Any?) -> HabitCadenceDraft? {
+            guard let dictionary = value as? [String: Any] else { return nil }
+            let ruleType = dictionary["rule_type"] as? String
+            let hour = (dictionary["hour"] as? NSNumber)?.intValue ?? dictionary["hour"] as? Int
+            let minute = (dictionary["minute"] as? NSNumber)?.intValue ?? dictionary["minute"] as? Int
+            switch ruleType {
+            case "weekly":
+                let days = (dictionary["days_of_week"] as? [NSNumber])?.map(\.intValue)
+                    ?? dictionary["days_of_week"] as? [Int]
+                    ?? []
+                return .weekly(daysOfWeek: days, hour: hour, minute: minute)
+            case "daily":
+                return .daily(hour: hour, minute: minute)
+            default:
+                return nil
             }
         }
 

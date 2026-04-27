@@ -893,6 +893,8 @@ struct LLMContextProjectionService {
                 "project": habit.projectName ?? "",
                 "icon_symbol": habit.iconSymbolName ?? "",
                 "icon_category": habit.iconCategoryKey ?? "",
+                "color_hex": habit.colorHex ?? "",
+                "cadence": Self.habitCadencePayload(habit.cadence),
                 "due_at": habit.dueAt?.ISO8601Format() ?? NSNull(),
                 "is_due_today": habit.isDueToday,
                 "is_overdue": habit.isOverdue,
@@ -931,6 +933,28 @@ struct LLMContextProjectionService {
             return "{}"
         }
         return String(decoding: data, as: UTF8.self)
+    }
+
+    private static func habitCadencePayload(_ cadence: HabitCadenceDraft?) -> [String: Any] {
+        guard let cadence else {
+            return ["rule_type": "daily"]
+        }
+
+        switch cadence {
+        case .daily(let hour, let minute):
+            var payload: [String: Any] = ["rule_type": "daily"]
+            if let hour { payload["hour"] = hour }
+            if let minute { payload["minute"] = minute }
+            return payload
+        case .weekly(let daysOfWeek, let hour, let minute):
+            var payload: [String: Any] = [
+                "rule_type": "weekly",
+                "days_of_week": daysOfWeek.sorted()
+            ]
+            if let hour { payload["hour"] = hour }
+            if let minute { payload["minute"] = minute }
+            return payload
+        }
     }
 
     private static func habitDayStateRaw(_ state: HabitDayState) -> String {
