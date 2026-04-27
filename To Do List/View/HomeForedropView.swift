@@ -46,7 +46,12 @@ private struct EvaRescueSplitComposerState {
 }
 
 private struct NeedsReplanTrayView: View {
-    let summary: NeedsReplanSummary
+    let title: String
+    let subtitle: String
+    let callToAction: String
+    let accessibilityHint: String
+    let accessibilityIdentifier: String
+    let isProminent: Bool
     let onTap: () -> Void
 
     var body: some View {
@@ -60,10 +65,10 @@ private struct NeedsReplanTrayView: View {
                     .accessibilityHidden(true)
 
                 VStack(alignment: .leading, spacing: 3) {
-                    Text(summary.title)
+                    Text(title)
                         .font(.tasker(.headline).weight(.semibold))
                         .foregroundStyle(Color.tasker.textPrimary)
-                    Text(summary.subtitle)
+                    Text(subtitle)
                         .font(.tasker(.support))
                         .foregroundStyle(Color.tasker.textSecondary)
                         .lineLimit(2)
@@ -72,7 +77,7 @@ private struct NeedsReplanTrayView: View {
 
                 Spacer(minLength: 8)
 
-                Text(summary.callToAction)
+                Text(callToAction)
                     .font(.tasker(.support).weight(.semibold))
                     .foregroundStyle(Color.tasker.textPrimary)
                     .padding(.horizontal, 12)
@@ -84,18 +89,18 @@ private struct NeedsReplanTrayView: View {
             .padding(.vertical, 12)
             .background(
                 RoundedRectangle(cornerRadius: 24, style: .continuous)
-                    .fill(Color.tasker.accentWash.opacity(0.34))
+                    .fill(Color.tasker.accentWash.opacity(isProminent ? 0.34 : 0.18))
             )
             .overlay(
                 RoundedRectangle(cornerRadius: 24, style: .continuous)
-                    .stroke(Color.tasker.accentPrimary.opacity(0.12), lineWidth: 1)
+                    .stroke(Color.tasker.accentPrimary.opacity(isProminent ? 0.12 : 0.08), lineWidth: 1)
             )
         }
         .buttonStyle(.plain)
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel("\(summary.title), \(summary.subtitle)")
-        .accessibilityHint("Opens Plan the Day.")
-        .accessibilityIdentifier("home.needsReplan.tray")
+        .accessibilityLabel("\(title), \(subtitle)")
+        .accessibilityHint(accessibilityHint)
+        .accessibilityIdentifier(accessibilityIdentifier)
     }
 }
 
@@ -113,10 +118,10 @@ private struct NeedsReplanLauncherSheet: View {
                 .accessibilityHidden(true)
 
             VStack(alignment: .leading, spacing: 6) {
-                Text(summary.count == 0 ? "You're all caught up" : "Plan the Day")
+                Text(summary.launcherTitle)
                     .font(.tasker(.title1).weight(.semibold))
                     .foregroundStyle(Color.tasker.textPrimary)
-                Text(summary.count == 0 ? summary.subtitle : "Resolve unfinished tasks from the past before you shape today.")
+                Text(summary.launcherBodyText)
                     .font(.tasker(.body))
                     .foregroundStyle(Color.tasker.textSecondary)
                     .lineSpacing(2)
@@ -126,9 +131,19 @@ private struct NeedsReplanLauncherSheet: View {
             if summary.count > 0 {
                 VStack(alignment: .leading, spacing: 10) {
                     launcherRow(summary.count == 1 ? "1 task needs a decision" : "\(summary.count) tasks need a decision", systemImage: "checklist")
-                    if summary.dayCount <= 1 {
-                        launcherRow("All from the most recent past day", systemImage: "calendar")
-                    } else {
+                    if summary.datedCount > 0 {
+                        let datedLabel = summary.datedCount == 1
+                            ? "1 overdue or carry-over task"
+                            : "\(summary.datedCount) overdue or carry-over tasks"
+                        launcherRow(datedLabel, systemImage: "calendar.badge.exclamationmark")
+                    }
+                    if summary.unscheduledCount > 0 {
+                        let unscheduledLabel = summary.unscheduledCount == 1
+                            ? "1 task has no due date or time"
+                            : "\(summary.unscheduledCount) tasks have no due date or time"
+                        launcherRow(unscheduledLabel, systemImage: "tray")
+                    }
+                    if summary.dayCount > 1 {
                         launcherRow("Spanning \(summary.dayCount) past days", systemImage: "calendar")
                     }
                     if let newestDate = summary.newestDate {
@@ -137,7 +152,7 @@ private struct NeedsReplanLauncherSheet: View {
                 }
             }
 
-            Button(summary.count == 0 ? "Go to Today" : "Start Replan", action: onStart)
+            Button(summary.launcherPrimaryActionTitle, action: onStart)
                 .buttonStyle(.borderedProminent)
                 .accessibilityIdentifier("home.needsReplan.start")
 
@@ -284,12 +299,24 @@ private struct NeedsReplanCardOverlay: View {
     }
 
     private func originalLine(for candidate: HomeReplanCandidate) -> String {
-        let start = candidate.originalDate.formatted(.dateTime.weekday(.wide).hour().minute())
-        if let end = candidate.originalEndDate {
-            let durationMinutes = max(Int(end.timeIntervalSince(candidate.originalDate) / 60), 1)
-            return "\(start) • \(durationMinutes)m"
+        switch candidate.kind {
+        case .pastDue:
+            guard let anchorDate = candidate.anchorDate else { return "Due date needs a plan" }
+            if candidate.task.isAllDay || isDateOnly(anchorDate) {
+                return "Due \(anchorDate.formatted(.dateTime.weekday(.wide).month().day()))"
+            }
+            return "Due \(anchorDate.formatted(.dateTime.weekday(.wide).month().day().hour().minute()))"
+        case .scheduledCarryOver:
+            guard let anchorDate = candidate.anchorDate else { return "Scheduled on a past day" }
+            return "Scheduled \(anchorDate.formatted(.dateTime.weekday(.wide).month().day().hour().minute()))"
+        case .unscheduledBacklog:
+            return "No due date or time • Added \(candidate.task.createdAt.formatted(.dateTime.weekday(.wide).month().day()))"
         }
-        return start
+    }
+
+    private func isDateOnly(_ date: Date) -> Bool {
+        let components = Calendar.current.dateComponents([.hour, .minute, .second], from: date)
+        return (components.hour ?? 0) == 0 && (components.minute ?? 0) == 0 && (components.second ?? 0) == 0
     }
 
     private func fullWidthAction(
@@ -3013,17 +3040,11 @@ struct HomeBackdropForedropRootView: View {
             }
         )) {
             NeedsReplanLauncherSheet(
-                summary: overlaySnapshot.replanState.launcherSummary ?? NeedsReplanSummary(
-                    count: 0,
-                    dayCount: 0,
-                    newestDate: nil,
-                    oldestDate: nil
-                ),
+                summary: overlaySnapshot.replanState.launcherSummary ?? .empty,
                 onStart: {
                     if overlaySnapshot.replanState.launcherSummary?.count == 0 {
-                        timelineViewModel.syncSelectedDate(Date())
-                        viewModel.selectDate(Date())
                         viewModel.dismissNeedsReplanSessionUI()
+                        onAddTask()
                     } else {
                         viewModel.startNeedsReplanSession()
                     }
@@ -3988,7 +4009,14 @@ struct HomeBackdropForedropRootView: View {
 
                     if case .trayVisible(let summary) = overlaySnapshot.replanState.phase {
                         timelineColumnContent {
-                            NeedsReplanTrayView(summary: summary) {
+                            NeedsReplanTrayView(
+                                title: summary.title,
+                                subtitle: summary.subtitle,
+                                callToAction: summary.callToAction,
+                                accessibilityHint: "Opens Plan the Day.",
+                                accessibilityIdentifier: "home.needsReplan.tray",
+                                isProminent: true
+                            ) {
                                 viewModel.openNeedsReplanLauncher()
                             }
                             .padding(.horizontal, spacing.s16)
@@ -4067,6 +4095,11 @@ struct HomeBackdropForedropRootView: View {
 
                     if let guidanceState = overlaySnapshot.guidanceState {
                         HomeOnboardingGuidanceBanner(state: guidanceState)
+                            .padding(.horizontal, spacing.s16)
+                    }
+
+                    timelineColumnContent {
+                        persistentReplanDayEntry
                             .padding(.horizontal, spacing.s16)
                     }
                 }
@@ -4260,9 +4293,12 @@ struct HomeBackdropForedropRootView: View {
     }
 
     private var taskListFooterContent: AnyView? {
-        guard tasksSnapshot.activeQuickView == .today else { return nil }
-
-        return timelineFooterModules
+        guard tasksSnapshot.activeQuickView != .today else { return nil }
+        return AnyView(
+            persistentReplanDayEntry
+                .padding(.horizontal, spacing.s16)
+                .padding(.top, spacing.s8)
+        )
     }
 
     private var timelineFooterModules: AnyView? {
@@ -4291,6 +4327,20 @@ struct HomeBackdropForedropRootView: View {
                 }
             }
         )
+    }
+
+    private var persistentReplanDayEntry: some View {
+        let summary = overlaySnapshot.replanState.persistentSummary
+        return NeedsReplanTrayView(
+            title: summary.persistentTitle,
+            subtitle: summary.persistentSubtitle,
+            callToAction: summary.persistentCallToAction,
+            accessibilityHint: "Opens Replan Day.",
+            accessibilityIdentifier: "home.replanDay.entry",
+            isProminent: false
+        ) {
+            viewModel.openNeedsReplanLauncher()
+        }
     }
 
     private var shouldShowDueTodayAgenda: Bool {

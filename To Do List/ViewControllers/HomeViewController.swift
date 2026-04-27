@@ -728,15 +728,35 @@ struct TimelineWeekDaySummary: Equatable, Identifiable {
 
 struct NeedsReplanSummary: Equatable {
     let count: Int
+    let datedCount: Int
+    let unscheduledCount: Int
     let dayCount: Int
     let newestDate: Date?
     let oldestDate: Date?
 
+    static let empty = NeedsReplanSummary(
+        count: 0,
+        datedCount: 0,
+        unscheduledCount: 0,
+        dayCount: 0,
+        newestDate: nil,
+        oldestDate: nil
+    )
+
     var title: String { "Needs Replan" }
+    var persistentTitle: String { "Replan Day" }
 
     var subtitle: String {
         if count == 0 {
             return "No unfinished past tasks need replanning."
+        }
+        if unscheduledCount > 0, datedCount > 0 {
+            return "\(datedCount) overdue or carry-over, \(unscheduledCount) unscheduled"
+        }
+        if unscheduledCount > 0 {
+            return unscheduledCount == 1
+                ? "1 unscheduled task needs a plan"
+                : "\(unscheduledCount) unscheduled tasks need a plan"
         }
         if count == 1 {
             if let newestDate, Calendar.current.isDateInYesterday(newestDate) {
@@ -762,6 +782,24 @@ struct NeedsReplanSummary: Equatable {
         return "\(count) unfinished from past days"
     }
 
+    var persistentSubtitle: String {
+        if count == 0 {
+            return emptyStateMessage
+        }
+        if unscheduledCount > 0, datedCount > 0 {
+            return "\(datedCount) overdue or carry-over, \(unscheduledCount) unscheduled"
+        }
+        if unscheduledCount > 0 {
+            return unscheduledCount == 1
+                ? "1 unscheduled task needs a plan"
+                : "\(unscheduledCount) unscheduled tasks need a plan"
+        }
+        if count == 1 {
+            return "1 task still needs a decision"
+        }
+        return "\(count) tasks still need a decision"
+    }
+
     var callToAction: String {
         if count == 0 { return "Go to Today" }
         if count == 1 { return "Resolve" }
@@ -769,15 +807,68 @@ struct NeedsReplanSummary: Equatable {
         if count >= 10 { return "Start" }
         return "Review"
     }
+
+    var persistentCallToAction: String {
+        count == 0 ? "Add Task" : "Open"
+    }
+
+    var launcherTitle: String {
+        count == 0 ? "You're all caught up" : "Plan the Day"
+    }
+
+    var launcherBodyText: String {
+        if count == 0 {
+            return emptyStateMessage
+        }
+        return "Resolve overdue, carry-over, and unscheduled work before you shape what happens next."
+    }
+
+    var launcherPrimaryActionTitle: String {
+        count == 0 ? "Add Task" : "Start Replan"
+    }
+
+    private var emptyStateMessage: String {
+        let variants = [
+            "Your day is clear. Add one task that makes today count.",
+            "Nothing needs recovery right now. Add a task to build momentum.",
+            "No backlog to clean up. Add a task and give today a target."
+        ]
+        let dayKey = Calendar.current.dateComponents([.year, .month, .day], from: Date())
+        let stableIndex = abs(((dayKey.year ?? 0) * 10_000) + ((dayKey.month ?? 0) * 100) + (dayKey.day ?? 0)) % variants.count
+        return variants[stableIndex]
+    }
+}
+
+enum HomeReplanCandidateKind: Equatable {
+    case pastDue
+    case scheduledCarryOver
+    case unscheduledBacklog
 }
 
 struct HomeReplanCandidate: Equatable, Identifiable {
     let task: TaskDefinition
-    let originalDate: Date
-    let originalEndDate: Date?
+    let kind: HomeReplanCandidateKind
+    let anchorDate: Date?
+    let anchorEndDate: Date?
     let projectName: String?
 
     var id: UUID { task.id }
+
+    var anchorDay: Date? {
+        anchorDate.map { Calendar.current.startOfDay(for: $0) }
+    }
+
+    var rescheduleDuration: TimeInterval {
+        if let scheduledStartAt = task.scheduledStartAt,
+           let scheduledEndAt = task.scheduledEndAt {
+            return max(scheduledEndAt.timeIntervalSince(scheduledStartAt), 15 * 60)
+        }
+        if let anchorDate,
+           let anchorEndDate {
+            return max(anchorEndDate.timeIntervalSince(anchorDate), 15 * 60)
+        }
+        return max(task.estimatedDuration ?? (30 * 60), 15 * 60)
+    }
 }
 
 struct HomeReplanOutcomeSummary: Equatable {
@@ -823,6 +914,7 @@ enum HomeReplanSessionPhase: Equatable {
 struct HomeReplanSessionState: Equatable {
     let phase: HomeReplanSessionPhase
     let summary: NeedsReplanSummary?
+    let persistentSummary: NeedsReplanSummary
     let currentCandidate: HomeReplanCandidate?
     let candidateIndex: Int
     let candidateTotal: Int
@@ -836,6 +928,7 @@ struct HomeReplanSessionState: Equatable {
     static let hidden = HomeReplanSessionState(
         phase: .trayHidden,
         summary: nil,
+        persistentSummary: .empty,
         currentCandidate: nil,
         candidateIndex: 0,
         candidateTotal: 0,
@@ -854,13 +947,10 @@ struct HomeReplanSessionState: Equatable {
 
     var placementCandidate: TimelinePlacementCandidate? {
         guard case .placement(let candidate, _) = phase else { return nil }
-        let duration = candidate.originalEndDate?.timeIntervalSince(candidate.originalDate)
-            ?? candidate.task.estimatedDuration
-            ?? (30 * 60)
         return TimelinePlacementCandidate(
             taskID: candidate.task.id,
             title: candidate.task.title,
-            duration: max(duration, 15 * 60),
+            duration: candidate.rescheduleDuration,
             tintHex: nil,
             isApplying: isApplying,
             errorMessage: errorMessage

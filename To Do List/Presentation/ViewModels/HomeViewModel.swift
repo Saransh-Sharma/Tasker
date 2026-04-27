@@ -556,6 +556,8 @@ public final class HomeViewModel: ObservableObject {
     private var replanScopedDate: Date?
     private var replanApplyingAction: HomeReplanApplyingAction?
     private var replanErrorMessage: String?
+    private var cachedGlobalReplanRevision: HomeDataRevision?
+    private var activeGlobalReplanFetchToken = UUID()
 
     // MARK: - Persistence Keys
 
@@ -2281,6 +2283,7 @@ public final class HomeViewModel: ObservableObject {
         useCaseCoordinator.calculateAnalytics.invalidateCaches()
         homeFilteredTasksUseCase.invalidateCaches()
         dataRevision.advance()
+        cachedGlobalReplanRevision = nil
         TaskerPerformanceTrace.event("HomeDataInvalidated")
         logDebug("HOME_CACHE invalidated scope=all")
     }
@@ -5346,7 +5349,7 @@ public final class HomeViewModel: ObservableObject {
             assignIfChanged(\.emptyStateMessage, "No completed tasks in last 30 days")
             assignIfChanged(\.emptyStateActionTitle, nil)
             updateCompletionRateFromFocusResult(openTasks: openTasks, doneTasks: doneTasks)
-            refreshNeedsReplanCandidates(from: result.matchingOpenTasks)
+            refreshNeedsReplanCandidates()
             writeTaskListWidgetSnapshot(reason: "apply_result_done")
             return
         }
@@ -5409,7 +5412,7 @@ public final class HomeViewModel: ObservableObject {
         }
 
         updateCompletionRateFromFocusResult(openTasks: openTasks, doneTasks: doneTasks)
-        refreshNeedsReplanCandidates(from: result.matchingOpenTasks)
+        refreshNeedsReplanCandidates()
         writeTaskListWidgetSnapshot(reason: "apply_result_\(activeScope.quickView.rawValue)")
     }
 
@@ -6311,7 +6314,8 @@ public final class HomeViewModel: ObservableObject {
         let calendar = Calendar.current
         guard calendar.startOfDay(for: date) < calendar.startOfDay(for: Date()) else { return }
         let scopedCandidates = needsReplanCandidates.filter {
-            calendar.isDate($0.originalDate, inSameDayAs: date)
+            guard let anchorDate = $0.anchorDate else { return false }
+            return calendar.isDate(anchorDate, inSameDayAs: date)
         }
         beginReplanLauncher(with: scopedCandidates, scopedTo: date)
     }
@@ -6328,8 +6332,10 @@ public final class HomeViewModel: ObservableObject {
 
     public func dismissNeedsReplanLater() {
         guard replanApplyingAction == nil else { return }
-        let dismissedDate = replanScopedDate ?? Date()
-        userDefaults.set(needsReplanDayKey(for: dismissedDate), forKey: Self.needsReplanDismissedDayKey)
+        if replanScopedDate == nil,
+           activeReplanCandidates.isEmpty == false {
+            userDefaults.set(needsReplanDayKey(for: Date()), forKey: Self.needsReplanDismissedDayKey)
+        }
         resetReplanSession(keepPassiveCandidates: true)
         refreshPassiveNeedsReplanState()
     }
@@ -6399,7 +6405,7 @@ public final class HomeViewModel: ObservableObject {
         guard let candidate = activeReplanCandidates.first else { return }
         var updated = candidate.task
         updated.isComplete = true
-        updated.dateCompleted = candidate.originalDate
+        updated.dateCompleted = candidate.anchorDate ?? Date()
         updated.updatedAt = Date()
         applyReplanCommand(
             .restoreTaskSnapshot(snapshot: AssistantTaskSnapshot(task: updated)),
@@ -6439,14 +6445,11 @@ public final class HomeViewModel: ObservableObject {
     public func placeReplanCandidate(taskID: UUID, at startDate: Date) {
         guard replanApplyingAction == nil else { return }
         guard let candidate = activeReplanCandidates.first(where: { $0.task.id == taskID }) else { return }
-        let duration = candidate.originalEndDate?.timeIntervalSince(candidate.originalDate)
-            ?? candidate.task.estimatedDuration
-            ?? (30 * 60)
         let roundedStart = roundedToNearestQuarterHour(startDate)
         var updated = candidate.task
         updated.dueDate = roundedStart
         updated.scheduledStartAt = roundedStart
-        updated.scheduledEndAt = roundedStart.addingTimeInterval(max(duration, 15 * 60))
+        updated.scheduledEndAt = roundedStart.addingTimeInterval(candidate.rescheduleDuration)
         updated.isAllDay = false
         updated.replanCount = max(0, updated.replanCount) + 1
         updated.updatedAt = Date()
@@ -6527,9 +6530,83 @@ public final class HomeViewModel: ObservableObject {
         updateReplanState(phase: .launcher(summary))
     }
 
-    private func refreshNeedsReplanCandidates(from tasks: [TaskDefinition]) {
-        needsReplanCandidates = deriveNeedsReplanCandidates(from: tasks, scopedTo: nil)
-        refreshPassiveNeedsReplanState()
+    private func refreshNeedsReplanCandidates() {
+        guard let readModelRepository = useCaseCoordinator.taskReadModelRepository else {
+            needsReplanCandidates = []
+            cachedGlobalReplanRevision = dataRevision
+            refreshPassiveNeedsReplanState()
+            updateReplanState(phase: homeReplanState.phase)
+            return
+        }
+        guard cachedGlobalReplanRevision != dataRevision else {
+            refreshPassiveNeedsReplanState()
+            updateReplanState(phase: homeReplanState.phase)
+            return
+        }
+
+        let fetchToken = UUID()
+        activeGlobalReplanFetchToken = fetchToken
+        fetchGlobalOpenTasks(
+            readModelRepository: readModelRepository,
+            limit: 400,
+            offset: 0,
+            accumulated: []
+        ) { [weak self] result in
+            DispatchQueue.main.async {
+                guard let self else { return }
+                guard self.activeGlobalReplanFetchToken == fetchToken else { return }
+                switch result {
+                case .success(let tasks):
+                    self.needsReplanCandidates = self.deriveNeedsReplanCandidates(from: tasks, scopedTo: nil)
+                    self.cachedGlobalReplanRevision = self.dataRevision
+                case .failure(let error):
+                    self.errorMessage = error.localizedDescription
+                    self.needsReplanCandidates = []
+                    self.cachedGlobalReplanRevision = self.dataRevision
+                }
+                self.refreshPassiveNeedsReplanState()
+                self.updateReplanState(phase: self.homeReplanState.phase)
+            }
+        }
+    }
+
+    private func fetchGlobalOpenTasks(
+        readModelRepository: TaskReadModelRepositoryProtocol,
+        limit: Int,
+        offset: Int,
+        accumulated: [TaskDefinition],
+        completion: @escaping (Result<[TaskDefinition], Error>) -> Void
+    ) {
+        readModelRepository.fetchTasks(
+            query: TaskReadQuery(
+                includeCompleted: false,
+                sortBy: .updatedAtDescending,
+                needsTotalCount: false,
+                limit: limit,
+                offset: offset
+            )
+        ) { [weak self] result in
+            guard self != nil else { return }
+            switch result {
+            case .failure(let error):
+                completion(.failure(error))
+            case .success(let slice):
+                let merged = accumulated + slice.tasks
+                let nextOffset = offset + slice.tasks.count
+                let loadedAllTasks = nextOffset >= slice.totalCount || slice.tasks.isEmpty
+                if loadedAllTasks {
+                    completion(.success(merged))
+                    return
+                }
+                self?.fetchGlobalOpenTasks(
+                    readModelRepository: readModelRepository,
+                    limit: limit,
+                    offset: nextOffset,
+                    accumulated: merged,
+                    completion: completion
+                )
+            }
+        }
     }
 
     private func refreshPassiveNeedsReplanState() {
@@ -6541,13 +6618,14 @@ public final class HomeViewModel: ObservableObject {
         }
 
         let calendar = Calendar.current
+        let summary = makeNeedsReplanSummary(for: needsReplanCandidates)
         guard calendar.isDate(selectedDate, inSameDayAs: Date()),
-              needsReplanCandidates.isEmpty == false,
+              summary.count > 0,
               userDefaults.string(forKey: Self.needsReplanDismissedDayKey) != needsReplanDayKey(for: Date()) else {
             updateReplanState(phase: .trayHidden)
             return
         }
-        updateReplanState(phase: .trayVisible(makeNeedsReplanSummary(for: needsReplanCandidates)))
+        updateReplanState(phase: .trayVisible(summary))
     }
 
     private func deriveNeedsReplanCandidates(
@@ -6565,44 +6643,84 @@ public final class HomeViewModel: ObservableObject {
                   task.parentTaskID == nil,
                   task.repeatPattern == nil,
                   task.recurrenceSeriesID == nil,
-                  task.habitDefinitionID == nil,
-                  task.isAllDay == false,
-                  let originalDate = timelinePlacementDate(for: task) else {
+                  task.habitDefinitionID == nil else {
                 return nil
             }
-            let originalDay = calendar.startOfDay(for: originalDate)
-            guard originalDay < todayStart else { return nil }
-            if let scopedStart, calendar.isDate(originalDay, inSameDayAs: scopedStart) == false {
-                return nil
-            }
-            let isUnscheduledInbox = task.projectID == ProjectConstants.inboxProjectID
-                && task.scheduledStartAt == nil
-                && task.dueDate == nil
-            guard isUnscheduledInbox == false else { return nil }
 
+            if let dueDate = task.dueDate,
+               calendar.startOfDay(for: dueDate) < todayStart {
+                if let scopedStart,
+                   calendar.isDate(calendar.startOfDay(for: dueDate), inSameDayAs: scopedStart) == false {
+                    return nil
+                }
+                return HomeReplanCandidate(
+                    task: task,
+                    kind: .pastDue,
+                    anchorDate: dueDate,
+                    anchorEndDate: task.scheduledEndAt,
+                    projectName: task.projectName
+                )
+            }
+
+            if let scheduledStartAt = task.scheduledStartAt,
+               calendar.startOfDay(for: scheduledStartAt) < todayStart {
+                if let scopedStart,
+                   calendar.isDate(calendar.startOfDay(for: scheduledStartAt), inSameDayAs: scopedStart) == false {
+                    return nil
+                }
+                return HomeReplanCandidate(
+                    task: task,
+                    kind: .scheduledCarryOver,
+                    anchorDate: scheduledStartAt,
+                    anchorEndDate: task.scheduledEndAt,
+                    projectName: task.projectName
+                )
+            }
+
+            guard scopedStart == nil,
+                  task.dueDate == nil,
+                  task.scheduledStartAt == nil,
+                  task.scheduledEndAt == nil else {
+                return nil
+            }
             return HomeReplanCandidate(
                 task: task,
-                originalDate: originalDate,
-                originalEndDate: task.scheduledEndAt,
+                kind: .unscheduledBacklog,
+                anchorDate: nil,
+                anchorEndDate: nil,
                 projectName: task.projectName
             )
         }
         .sorted { lhs, rhs in
-            let lhsDay = calendar.startOfDay(for: lhs.originalDate)
-            let rhsDay = calendar.startOfDay(for: rhs.originalDate)
-            if lhsDay != rhsDay { return lhsDay > rhsDay }
-            if lhs.originalDate != rhs.originalDate { return lhs.originalDate > rhs.originalDate }
+            let lhsIsDated = lhs.anchorDate != nil
+            let rhsIsDated = rhs.anchorDate != nil
+            if lhsIsDated != rhsIsDated { return lhsIsDated }
+            if let lhsDay = lhs.anchorDay, let rhsDay = rhs.anchorDay, lhsDay != rhsDay {
+                return lhsDay > rhsDay
+            }
+            if let lhsAnchor = lhs.anchorDate, let rhsAnchor = rhs.anchorDate, lhsAnchor != rhsAnchor {
+                return lhsAnchor > rhsAnchor
+            }
+            if lhs.task.priority.scorePoints != rhs.task.priority.scorePoints {
+                return lhs.task.priority.scorePoints > rhs.task.priority.scorePoints
+            }
+            if lhs.anchorDate == nil, rhs.anchorDate == nil, lhs.task.updatedAt != rhs.task.updatedAt {
+                return lhs.task.updatedAt < rhs.task.updatedAt
+            }
             return lhs.task.title.localizedStandardCompare(rhs.task.title) == .orderedAscending
         }
     }
 
     private func makeNeedsReplanSummary(for candidates: [HomeReplanCandidate]) -> NeedsReplanSummary {
-        let dayKeys = Set(candidates.map { needsReplanDayKey(for: $0.originalDate) })
+        let datedCandidates = candidates.filter { $0.anchorDate != nil }
+        let dayKeys = Set(datedCandidates.compactMap { $0.anchorDate.map(needsReplanDayKey(for:)) })
         return NeedsReplanSummary(
             count: candidates.count,
+            datedCount: datedCandidates.count,
+            unscheduledCount: candidates.filter { $0.kind == .unscheduledBacklog }.count,
             dayCount: dayKeys.count,
-            newestDate: candidates.first?.originalDate,
-            oldestDate: candidates.last?.originalDate
+            newestDate: datedCandidates.first?.anchorDate,
+            oldestDate: datedCandidates.last?.anchorDate
         )
     }
 
@@ -6612,6 +6730,7 @@ public final class HomeViewModel: ObservableObject {
         let nextState = HomeReplanSessionState(
             phase: phase,
             summary: makeNeedsReplanSummary(for: activeReplanCandidates + skippedReplanCandidates),
+            persistentSummary: makeNeedsReplanSummary(for: needsReplanCandidates),
             currentCandidate: currentCandidate,
             candidateIndex: candidateIndex,
             candidateTotal: max(replanSessionTotal, activeReplanCandidates.count + skippedReplanCandidates.count),
@@ -7902,7 +8021,8 @@ extension HomeViewModel {
             let timedCount = taskMarkers.count + eventMarkers.count
             let totalCount = allDayCount + timedCount
             let replanEligibleCount = needsReplanCandidates.filter {
-                calendar.isDate($0.originalDate, inSameDayAs: normalizedDay)
+                guard let anchorDate = $0.anchorDate else { return false }
+                return calendar.isDate(anchorDate, inSameDayAs: normalizedDay)
             }.count
             return TimelineWeekDaySummary(
                 date: normalizedDay,
