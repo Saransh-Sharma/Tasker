@@ -316,8 +316,6 @@
 		A6E1D4032F3C120100B1C2D3 /* AssistantDiffPreviewBuilder.swift in Sources */ = {isa = PBXBuildFile; fileRef = A6E1D4042F3C120100B1C2D3 /* AssistantDiffPreviewBuilder.swift */; };
 		A6E1D4052F3C120100B1C2D3 /* AssistantEnvelopeValidator.swift in Sources */ = {isa = PBXBuildFile; fileRef = A6E1D4062F3C120100B1C2D3 /* AssistantEnvelopeValidator.swift */; };
 		A6E1D4072F3C120100B1C2D3 /* AssistantPlannerService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A6E1D4082F3C120100B1C2D3 /* AssistantPlannerService.swift */; };
-		A6E1D41C2F3C120100B1C2D3 /* EvaDayOverview.swift in Sources */ = {isa = PBXBuildFile; fileRef = A6E1D41B2F3C120100B1C2D3 /* EvaDayOverview.swift */; };
-		A6E1D4192F3C120100B1C2D3 /* EvaProposalCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = A6E1D41A2F3C120100B1C2D3 /* EvaProposalCard.swift */; };
 		A6E1D4092F3C120100B1C2D3 /* DailyBriefService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A6E1D40A2F3C120100B1C2D3 /* DailyBriefService.swift */; };
 		A6E1D40B2F3C120100B1C2D3 /* LLMAssistantPipelineProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = A6E1D40C2F3C120100B1C2D3 /* LLMAssistantPipelineProvider.swift */; };
 		A6E1D40D2F3C120100B1C2D3 /* OverdueTriageService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A6E1D40E2F3C120100B1C2D3 /* OverdueTriageService.swift */; };
@@ -326,6 +324,8 @@
 		A6E1D4132F3C120100B1C2D3 /* TaskSemanticIndexStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = A6E1D4142F3C120100B1C2D3 /* TaskSemanticIndexStore.swift */; };
 		A6E1D4152F3C120100B1C2D3 /* TaskSemanticRetrievalService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A6E1D4162F3C120100B1C2D3 /* TaskSemanticRetrievalService.swift */; };
 		A6E1D4172F3C120100B1C2D3 /* LLMGenerationProfile.swift in Sources */ = {isa = PBXBuildFile; fileRef = A6E1D4182F3C120100B1C2D3 /* LLMGenerationProfile.swift */; };
+		A6E1D4192F3C120100B1C2D3 /* EvaProposalCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = A6E1D41A2F3C120100B1C2D3 /* EvaProposalCard.swift */; };
+		A6E1D41C2F3C120100B1C2D3 /* EvaDayOverview.swift in Sources */ = {isa = PBXBuildFile; fileRef = A6E1D41B2F3C120100B1C2D3 /* EvaDayOverview.swift */; };
 		A7B8C9D0E1F20123456789A2 /* HabitBoardPresentationBuilderTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A7B8C9D0E1F20123456789A1 /* HabitBoardPresentationBuilderTests.swift */; };
 		A7B8C9D0E1F20123456789A4 /* HomeHabitLastCellInteractionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A7B8C9D0E1F20123456789A3 /* HomeHabitLastCellInteractionTests.swift */; };
 		A7B8C9D0E1F20123456789A6 /* HabitLastCellRuntimeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A7B8C9D0E1F20123456789A5 /* HabitLastCellRuntimeTests.swift */; };
@@ -443,7 +443,6 @@
 		CA1A1000000000000000000B /* HomeCalendarIntegrationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA1A2000000000000000000B /* HomeCalendarIntegrationTests.swift */; };
 		CA1A1000000000000000000C /* CalendarTestSupport.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA1A2000000000000000000C /* CalendarTestSupport.swift */; };
 		CA1A1000000000000000000D /* HomeCalendarModuleUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA1A2000000000000000000D /* HomeCalendarModuleUITests.swift */; };
-		E1A100000000000000000001 /* HomeReplanDayUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1A200000000000000000001 /* HomeReplanDayUITests.swift */; };
 		CD83FC6E516299A8FB19F781 /* TaskerWidgets/TodayXPWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3A74DF0E9DCAEB8A8179F375 /* TaskerWidgets/TodayXPWidget.swift */; };
 		CEA4FD3F132804749E69A4B3 /* To Do List/Domain/Mappers/SectionMapper.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6956BC00E9F0B0BC847DD7AA /* To Do List/Domain/Mappers/SectionMapper.swift */; };
 		D1855A230115C554ADB92AEA /* To Do List/Domain/Models/DailyXPAggregateDefinition.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4AF3952DBA8C2ACE185FEF0 /* To Do List/Domain/Models/DailyXPAggregateDefinition.swift */; };
@@ -521,6 +520,7 @@
 		E0A10000000000000000000E /* HeroWelcomeHighCompressMb.mp4 in Resources */ = {isa = PBXBuildFile; fileRef = E0A10000000000000000010E /* HeroWelcomeHighCompressMb.mp4 */; };
 		E0A100000000000000000301 /* EvaActivationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E0A100000000000000000302 /* EvaActivationTests.swift */; };
 		E15729081BE877C1AF53C8C8 /* To Do List/Domain/Models/ExternalSyncModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3CAA3A6573B0FE5C495C67AC /* To Do List/Domain/Models/ExternalSyncModels.swift */; };
+		E1A100000000000000000001 /* HomeReplanDayUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1A200000000000000000001 /* HomeReplanDayUITests.swift */; };
 		E1C5A4B1D2E3F40123456789 /* To Do List/UseCases/Task/UpdateTaskDefinitionUseCase.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1C5A4B1D2E3F4012345678C /* To Do List/UseCases/Task/UpdateTaskDefinitionUseCase.swift */; };
 		E1C5A4B1D2E3F4012345678A /* To Do List/UseCases/Task/DeleteTaskDefinitionUseCase.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1C5A4B1D2E3F4012345678D /* To Do List/UseCases/Task/DeleteTaskDefinitionUseCase.swift */; };
 		E1C5A4B1D2E3F4012345678B /* To Do List/UseCases/Task/RescheduleTaskDefinitionUseCase.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1C5A4B1D2E3F4012345678E /* To Do List/UseCases/Task/RescheduleTaskDefinitionUseCase.swift */; };
@@ -895,8 +895,6 @@
 		A6E1D4042F3C120100B1C2D3 /* AssistantDiffPreviewBuilder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AssistantDiffPreviewBuilder.swift; sourceTree = "<group>"; };
 		A6E1D4062F3C120100B1C2D3 /* AssistantEnvelopeValidator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AssistantEnvelopeValidator.swift; sourceTree = "<group>"; };
 		A6E1D4082F3C120100B1C2D3 /* AssistantPlannerService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AssistantPlannerService.swift; sourceTree = "<group>"; };
-		A6E1D41B2F3C120100B1C2D3 /* EvaDayOverview.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EvaDayOverview.swift; sourceTree = "<group>"; };
-		A6E1D41A2F3C120100B1C2D3 /* EvaProposalCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EvaProposalCard.swift; sourceTree = "<group>"; };
 		A6E1D40A2F3C120100B1C2D3 /* DailyBriefService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DailyBriefService.swift; sourceTree = "<group>"; };
 		A6E1D40C2F3C120100B1C2D3 /* LLMAssistantPipelineProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LLMAssistantPipelineProvider.swift; sourceTree = "<group>"; };
 		A6E1D40E2F3C120100B1C2D3 /* OverdueTriageService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OverdueTriageService.swift; sourceTree = "<group>"; };
@@ -905,6 +903,8 @@
 		A6E1D4142F3C120100B1C2D3 /* TaskSemanticIndexStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TaskSemanticIndexStore.swift; sourceTree = "<group>"; };
 		A6E1D4162F3C120100B1C2D3 /* TaskSemanticRetrievalService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TaskSemanticRetrievalService.swift; sourceTree = "<group>"; };
 		A6E1D4182F3C120100B1C2D3 /* LLMGenerationProfile.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LLMGenerationProfile.swift; sourceTree = "<group>"; };
+		A6E1D41A2F3C120100B1C2D3 /* EvaProposalCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EvaProposalCard.swift; sourceTree = "<group>"; };
+		A6E1D41B2F3C120100B1C2D3 /* EvaDayOverview.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EvaDayOverview.swift; sourceTree = "<group>"; };
 		A7B8C9D0E1F20123456789A1 /* HabitBoardPresentationBuilderTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HabitBoardPresentationBuilderTests.swift; sourceTree = "<group>"; };
 		A7B8C9D0E1F20123456789A3 /* HomeHabitLastCellInteractionTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HomeHabitLastCellInteractionTests.swift; sourceTree = "<group>"; };
 		A7B8C9D0E1F20123456789A5 /* HabitLastCellRuntimeTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HabitLastCellRuntimeTests.swift; sourceTree = "<group>"; };
@@ -1032,7 +1032,6 @@
 		CA1A2000000000000000000B /* HomeCalendarIntegrationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeCalendarIntegrationTests.swift; sourceTree = "<group>"; };
 		CA1A2000000000000000000C /* CalendarTestSupport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalendarTestSupport.swift; sourceTree = "<group>"; };
 		CA1A2000000000000000000D /* HomeCalendarModuleUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeCalendarModuleUITests.swift; sourceTree = "<group>"; };
-		E1A200000000000000000001 /* HomeReplanDayUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeReplanDayUITests.swift; sourceTree = "<group>"; };
 		CA35E641ED7341169B9EC48D /* TypographyTokens.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = TypographyTokens.swift; sourceTree = "<group>"; };
 		CCBCDF94E1BBCA170FD4E6C2 /* HomeQuickView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HomeQuickView.swift; sourceTree = "<group>"; };
 		CD059BC932A17FD845CAC6CD /* To Do List/Domain/Mappers/TombstoneMapper.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "To Do List/Domain/Mappers/TombstoneMapper.swift"; sourceTree = SOURCE_ROOT; };
@@ -1102,6 +1101,7 @@
 		E0A10000000000000000010D /* EvaActivationComponents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EvaActivationComponents.swift; sourceTree = "<group>"; };
 		E0A10000000000000000010E /* HeroWelcomeHighCompressMb.mp4 */ = {isa = PBXFileReference; lastKnownFileType = file; path = HeroWelcomeHighCompressMb.mp4; sourceTree = SOURCE_ROOT; };
 		E0A100000000000000000302 /* EvaActivationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EvaActivationTests.swift; sourceTree = "<group>"; };
+		E1A200000000000000000001 /* HomeReplanDayUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeReplanDayUITests.swift; sourceTree = "<group>"; };
 		E1C5A4B1D2E3F4012345678C /* To Do List/UseCases/Task/UpdateTaskDefinitionUseCase.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "To Do List/UseCases/Task/UpdateTaskDefinitionUseCase.swift"; sourceTree = SOURCE_ROOT; };
 		E1C5A4B1D2E3F4012345678D /* To Do List/UseCases/Task/DeleteTaskDefinitionUseCase.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "To Do List/UseCases/Task/DeleteTaskDefinitionUseCase.swift"; sourceTree = SOURCE_ROOT; };
 		E1C5A4B1D2E3F4012345678E /* To Do List/UseCases/Task/RescheduleTaskDefinitionUseCase.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "To Do List/UseCases/Task/RescheduleTaskDefinitionUseCase.swift"; sourceTree = SOURCE_ROOT; };
@@ -1162,13 +1162,13 @@
 				75A328B22DFB604000F36C31 /* MLX in Frameworks */,
 				7529F6FD2DFDEFB3000CBE36 /* Lottie in Frameworks */,
 				750F9EDC2685CC9F00C008C4 /* CloudKit.framework in Frameworks */,
-					75F89FB22DFC62C3009EDD8F /* MarkdownUI in Frameworks */,
-					75A328B62DFB604000F36C31 /* MLXRandom in Frameworks */,
-					75A328BB2DFB606700F36C31 /* MLXLMCommon in Frameworks */,
-					75A328C12DFB606700F36C31 /* Hub in Frameworks */,
-					75A328C22DFB606700F36C31 /* Tokenizers in Frameworks */,
-					521748F5D68F9EB9E2D40DF8 /* Pods_Tasker.framework in Frameworks */,
-				);
+				75F89FB22DFC62C3009EDD8F /* MarkdownUI in Frameworks */,
+				75A328B62DFB604000F36C31 /* MLXRandom in Frameworks */,
+				75A328BB2DFB606700F36C31 /* MLXLMCommon in Frameworks */,
+				75A328C12DFB606700F36C31 /* Hub in Frameworks */,
+				75A328C22DFB606700F36C31 /* Tokenizers in Frameworks */,
+				521748F5D68F9EB9E2D40DF8 /* Pods_Tasker.framework in Frameworks */,
+			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 		753EFCAD2445A24700A739E3 /* Frameworks */ = {
@@ -2488,12 +2488,12 @@
 				75A328B82DFB606700F36C31 /* MLXLLM */,
 				75A328B12DFB604000F36C31 /* MLX */,
 				7529F6FC2DFDEFB3000CBE36 /* Lottie */,
-					75F89FB12DFC62C3009EDD8F /* MarkdownUI */,
-					75A328B52DFB604000F36C31 /* MLXRandom */,
-					75A328BA2DFB606700F36C31 /* MLXLMCommon */,
-					75A328BF2DFB606700F36C31 /* Hub */,
-					75A328C02DFB606700F36C31 /* Tokenizers */,
-				);
+				75F89FB12DFC62C3009EDD8F /* MarkdownUI */,
+				75A328B52DFB604000F36C31 /* MLXRandom */,
+				75A328BA2DFB606700F36C31 /* MLXLMCommon */,
+				75A328BF2DFB606700F36C31 /* Hub */,
+				75A328C02DFB606700F36C31 /* Tokenizers */,
+			);
 			productName = "To Do List";
 			productReference = 753EFC9A2445A24500A739E3 /* This Day.app */;
 			productType = "com.apple.product-type.application";
@@ -2587,12 +2587,12 @@
 			);
 			mainGroup = 753EFC912445A24500A739E3;
 			packageReferences = (
-					75A328B02DFB603F00F36C31 /* XCRemoteSwiftPackageReference "mlx-swift" */,
-					75A328B72DFB606700F36C31 /* XCRemoteSwiftPackageReference "mlx-swift-lm" */,
-					75A328BE2DFB606700F36C31 /* XCRemoteSwiftPackageReference "swift-transformers" */,
-					75F89FB02DFC62C3009EDD8F /* XCRemoteSwiftPackageReference "swift-markdown-ui" */,
-					7529F6FB2DFDEFB3000CBE36 /* XCRemoteSwiftPackageReference "lottie-ios" */,
-				);
+				75A328B02DFB603F00F36C31 /* XCRemoteSwiftPackageReference "mlx-swift" */,
+				75A328B72DFB606700F36C31 /* XCRemoteSwiftPackageReference "mlx-swift-lm" */,
+				75A328BE2DFB606700F36C31 /* XCRemoteSwiftPackageReference "swift-transformers" */,
+				75F89FB02DFC62C3009EDD8F /* XCRemoteSwiftPackageReference "swift-markdown-ui" */,
+				7529F6FB2DFDEFB3000CBE36 /* XCRemoteSwiftPackageReference "lottie-ios" */,
+			);
 			productRefGroup = 753EFC9B2445A24500A739E3 /* Products */;
 			projectDirPath = "";
 			projectRoot = "";
@@ -3440,7 +3440,7 @@
 				SDKROOT = iphoneos;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
-					TASKER_MARKETING_VERSION = 1.8.9;
+				TASKER_MARKETING_VERSION = 1.8.9;
 			};
 			name = Debug;
 		};
@@ -3495,7 +3495,7 @@
 				SDKROOT = iphoneos;
 				SWIFT_COMPILATION_MODE = wholemodule;
 				SWIFT_OPTIMIZATION_LEVEL = "-O";
-					TASKER_MARKETING_VERSION = 1.8.9;
+				TASKER_MARKETING_VERSION = 1.8.9;
 				VALIDATE_PRODUCT = YES;
 			};
 			name = Release;
@@ -3517,7 +3517,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-					MARKETING_VERSION = "$(TASKER_MARKETING_VERSION)";
+				MARKETING_VERSION = 1.9.0;
 				OTHER_LDFLAGS = (
 					"$(inherited)",
 					"-Wl,-no_warn_duplicate_libraries",
@@ -3547,7 +3547,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-					MARKETING_VERSION = "$(TASKER_MARKETING_VERSION)";
+				MARKETING_VERSION = 1.9.0;
 				OTHER_LDFLAGS = (
 					"$(inherited)",
 					"-Wl,-no_warn_duplicate_libraries",
@@ -3741,22 +3741,22 @@
 				minimumVersion = 0.31.3;
 			};
 		};
-			75A328B72DFB606700F36C31 /* XCRemoteSwiftPackageReference "mlx-swift-lm" */ = {
-				isa = XCRemoteSwiftPackageReference;
-				repositoryURL = "https://github.com/ml-explore/mlx-swift-lm.git";
-				requirement = {
-					kind = upToNextMinorVersion;
-					minimumVersion = 3.31.3;
-				};
+		75A328B72DFB606700F36C31 /* XCRemoteSwiftPackageReference "mlx-swift-lm" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/ml-explore/mlx-swift-lm.git";
+			requirement = {
+				kind = upToNextMinorVersion;
+				minimumVersion = 3.31.3;
 			};
-			75A328BE2DFB606700F36C31 /* XCRemoteSwiftPackageReference "swift-transformers" */ = {
-				isa = XCRemoteSwiftPackageReference;
-				repositoryURL = "https://github.com/huggingface/swift-transformers.git";
-				requirement = {
-					kind = upToNextMajorVersion;
-					minimumVersion = 1.3.0;
-				};
+		};
+		75A328BE2DFB606700F36C31 /* XCRemoteSwiftPackageReference "swift-transformers" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/huggingface/swift-transformers.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 1.3.0;
 			};
+		};
 		75F89FB02DFC62C3009EDD8F /* XCRemoteSwiftPackageReference "swift-markdown-ui" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/gonzalezreal/swift-markdown-ui";
