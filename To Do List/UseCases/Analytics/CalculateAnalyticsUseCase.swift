@@ -966,6 +966,7 @@ public struct TaskerHabitSignal: Equatable, Sendable {
     public let outcomeRaw: String?
     public let occurredAt: Date?
     public let keywords: [String]
+    public let last14Days: [HabitDayMark]
 
     public init(
         habitID: UUID,
@@ -984,7 +985,8 @@ public struct TaskerHabitSignal: Equatable, Sendable {
         riskStateRaw: String?,
         outcomeRaw: String?,
         occurredAt: Date?,
-        keywords: [String]
+        keywords: [String],
+        last14Days: [HabitDayMark] = []
     ) {
         self.habitID = habitID
         self.title = title
@@ -1003,6 +1005,7 @@ public struct TaskerHabitSignal: Equatable, Sendable {
         self.outcomeRaw = outcomeRaw
         self.occurredAt = occurredAt
         self.keywords = keywords
+        self.last14Days = last14Days
     }
 
     public init(summary: HabitOccurrenceSummary, referenceDate: Date = Date()) {
@@ -1034,7 +1037,8 @@ public struct TaskerHabitSignal: Equatable, Sendable {
             riskStateRaw: summary.riskState.rawValue,
             outcomeRaw: Self.outcomeRaw(for: summary.state),
             occurredAt: dueAt,
-            keywords: [summary.title, summary.lifeAreaName, summary.projectName, summary.icon?.categoryKey].compactMap { $0 }
+            keywords: [summary.title, summary.lifeAreaName, summary.projectName, summary.icon?.categoryKey].compactMap { $0 },
+            last14Days: summary.last14Days
         )
     }
 

@@ -94,7 +94,7 @@ public final class AssistantActionPipelineUseCase {
                     return
                 }
                 switch run.status {
-                case .applied, .rejected, .failed:
+                case .applied, .undone, .rejected, .failed:
                     completion(.failure(NSError(
                         domain: "AssistantActionPipelineUseCase",
                         code: 409,
@@ -299,9 +299,8 @@ public final class AssistantActionPipelineUseCase {
                 self.executeTransaction(runID: id, commands: undoCommands) { undoResult in
                     switch undoResult {
                     case .success:
-                        run.status = .confirmed
+                        run.status = .undone
                         run.resultSummary = "Undo applied (\(undoCommands.count) commands)"
-                        run.appliedAt = nil
                         run.rollbackStatus = .verified
                         run.rollbackVerifiedAt = Date()
                         run.lastErrorCode = nil
