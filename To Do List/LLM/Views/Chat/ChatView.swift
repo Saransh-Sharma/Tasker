@@ -314,6 +314,9 @@ struct ChatView: View {
             onSelectSuggestion: { descriptor in
                 selectSlashCommand(descriptor)
             },
+            onStartNewChat: {
+                startNewChat()
+            },
             onCancelDraft: {
                 projectLookupTask?.cancel()
                 slashDraft = nil
@@ -632,6 +635,33 @@ struct ChatView: View {
             message: "Executed slash command",
             fields: ["command_id": SlashCommandID.clear.rawValue]
         )
+    }
+
+    @MainActor
+    private func startNewChat() {
+        projectLookupTask?.cancel()
+        if isGenerationInFlight {
+            cancelActiveGeneration(reason: "start_new_chat")
+        }
+
+        currentThread = nil
+        transcriptSnapshot = .empty
+        prompt = ""
+        slashDraft = nil
+        commandFeedback = nil
+        showSlashPicker = false
+        slashPickerQuery = ""
+        generatingThreadID = nil
+        pendingResponsePhase = .idle
+        evaSubmittedDraft = nil
+        generationRunID = nil
+        llm.isThinking = false
+        isProjectFieldFocused = false
+        contextCoordinator.clear(threadID: nil)
+
+        _Concurrency.Task { @MainActor in
+            isPromptFocused = true
+        }
     }
 
     @MainActor

@@ -127,7 +127,7 @@ private struct EvaLiveWorkingStatusView: View {
                 .font(.tasker(.caption2))
                 .foregroundStyle(Color.tasker(.accentPrimary))
             Text(currentStatus)
-                .font(.tasker(.caption1))
+                .taskerFont(.caption1)
                 .foregroundStyle(Color.tasker(.textTertiary))
                 .lineLimit(2)
             Spacer(minLength: 0)
@@ -576,6 +576,7 @@ private struct EvaDayHabitActionButtonView: View {
 }
 
 struct MessageView: View {
+    @Environment(\.taskerLayoutClass) private var layoutClass
     @State private var collapsed = true
     @State private var undoExpiredLogged = false
     @State private var selectedEvaCardIDs: Set<UUID> = []
@@ -646,6 +647,30 @@ struct MessageView: View {
         return "0s"
     }
 
+    private var messageMaxWidth: CGFloat {
+        switch layoutClass {
+        case .phone:
+            return .infinity
+        case .padCompact:
+            return 620
+        case .padRegular:
+            return 680
+        case .padExpanded:
+            return 720
+        }
+    }
+
+    private var oppositeSideInset: CGFloat {
+        switch layoutClass {
+        case .phone:
+            return 32
+        case .padCompact:
+            return 48
+        case .padRegular, .padExpanded:
+            return 64
+        }
+    }
+
     private var thinkingLabel: some View {
         HStack(spacing: TaskerTheme.Spacing.sm) {
             Button {
@@ -658,7 +683,7 @@ struct MessageView: View {
             }
 
             Text("\(isThinking ? "thinking..." : "thought for") \(time)")
-                .font(.tasker(.caption1))
+                .taskerFont(.caption1)
                 .italic()
                 .foregroundStyle(Color.tasker(.textTertiary))
         }
@@ -742,7 +767,8 @@ struct MessageView: View {
                     accentColor: Color.tasker(.accentSecondary),
                     level: .e2
                 )
-                .padding(.trailing, 48)
+                .frame(maxWidth: messageMaxWidth, alignment: .leading)
+                .padding(.trailing, oppositeSideInset)
         } else {
             VStack(alignment: .leading, spacing: TaskerTheme.Spacing.lg) {
                 if shouldShowLiveWorkingStatus {
@@ -795,7 +821,8 @@ struct MessageView: View {
                 accentColor: Color.tasker(.accentSecondary),
                 level: .e2
             )
-            .padding(.trailing, 48)
+            .frame(maxWidth: messageMaxWidth, alignment: .leading)
+            .padding(.trailing, oppositeSideInset)
         }
     }
 
@@ -822,14 +849,15 @@ struct MessageView: View {
                 RoundedRectangle(cornerRadius: TaskerTheme.CornerRadius.lg, style: .continuous)
                     .stroke(Color.tasker(.accentPrimary).opacity(0.18), lineWidth: 1)
             )
-            .padding(.leading, 48)
+            .frame(maxWidth: messageMaxWidth, alignment: .trailing)
+            .padding(.leading, oppositeSideInset)
     }
 
     @ViewBuilder
     private func markdownText(_ text: String, color: Color) -> some View {
         if isLiveOutput && runtimeRunning {
             Text(text)
-                .font(.tasker(.body))
+                .taskerFont(.body)
                 .foregroundStyle(color)
                 .textSelection(.enabled)
         } else {

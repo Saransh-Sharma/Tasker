@@ -3,8 +3,9 @@ import SwiftUI
 struct ChatHeaderView: View {
     let title: String
     let subtitle: String
+    let showsNewChatAction: Bool
     let showsUtilityActions: Bool
-    let onShowChats: () -> Void
+    let onStartNewChat: () -> Void
     let onShowSettings: () -> Void
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -13,16 +14,16 @@ struct ChatHeaderView: View {
         HStack(alignment: .top, spacing: TaskerTheme.Spacing.md) {
             VStack(alignment: .leading, spacing: 4) {
                 Text("Eva")
-                    .font(.tasker(.caption1))
-                    .foregroundStyle(Color.tasker(.textTertiary))
+                    .taskerFont(.display)
+                    .foregroundStyle(Color.tasker(.textPrimary))
 
                 Text(title)
-                    .font(.tasker(.headline))
-                    .foregroundStyle(Color.tasker(.textPrimary))
+                    .taskerFont(.caption1)
+                    .foregroundStyle(Color.tasker(.textSecondary))
                     .lineLimit(1)
 
                 Text(subtitle)
-                    .font(.tasker(.caption1))
+                    .taskerFont(.caption1)
                     .foregroundStyle(Color.tasker(.textSecondary))
                     .lineLimit(2)
             }
@@ -31,12 +32,10 @@ struct ChatHeaderView: View {
 
             if showsUtilityActions {
                 HStack(spacing: TaskerTheme.Spacing.xs) {
-                    iconButton(
-                        systemName: "text.bubble",
-                        identifier: "chat.header.chats",
-                        label: "Chats",
-                        action: onShowChats
-                    )
+                    if showsNewChatAction {
+                        newChatButton
+                    }
+
                     iconButton(
                         systemName: "gearshape",
                         identifier: "chat.header.settings",
@@ -49,6 +48,40 @@ struct ChatHeaderView: View {
         .padding(.horizontal, TaskerTheme.Spacing.lg)
         .padding(.top, TaskerTheme.Spacing.sm)
         .padding(.bottom, TaskerTheme.Spacing.sm)
+    }
+
+    private var newChatButton: some View {
+        Button(action: onStartNewChat) {
+            ViewThatFits(in: .horizontal) {
+                Label("New chat", systemImage: "plus.message")
+                    .font(.tasker(.buttonSmall))
+                    .fontWeight(.semibold)
+                    .foregroundStyle(Color.tasker(.accentPrimary))
+                    .lineLimit(1)
+                    .padding(.horizontal, TaskerTheme.Spacing.md)
+                    .frame(height: 44)
+                    .taskerChromeSurface(
+                        cornerRadius: 22,
+                        accentColor: Color.tasker(.accentSecondary),
+                        level: .e1
+                    )
+
+                Image(systemName: "plus.message")
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundStyle(Color.tasker(.accentPrimary))
+                    .frame(width: 44, height: 44)
+                    .taskerChromeSurface(
+                        cornerRadius: 22,
+                        accentColor: Color.tasker(.accentSecondary),
+                        level: .e1
+                    )
+            }
+        }
+        .buttonStyle(.plain)
+        .accessibilityIdentifier("chat.header.new_chat")
+        .accessibilityLabel("New chat")
+        .accessibilityHint("Starts a fresh chat without deleting this one.")
+        .taskerPressFeedback(reduceMotion: reduceMotion)
     }
 
     private func iconButton(
@@ -154,14 +187,14 @@ struct ChatEmptyStateView: View {
                         )
                 }
                 VStack(spacing: TaskerTheme.Spacing.xs) {
-                    Text("ask Eva anything")
-                    .font(.tasker(.title2))
-                    .foregroundStyle(Color.tasker(.textPrimary))
-                    .accessibilityIdentifier("chat.emptyState.title")
+                    Text("Ask Eva anything")
+                        .font(.tasker(.title2))
+                        .foregroundStyle(Color.tasker(.textPrimary))
+                        .accessibilityIdentifier("chat.emptyState.title")
                     Text("Type / for commands")
-                    .font(.tasker(.callout))
-                    .foregroundStyle(Color.tasker(.textTertiary))
-                    .multilineTextAlignment(.center)
+                        .font(.tasker(.callout))
+                        .foregroundStyle(Color.tasker(.textTertiary))
+                        .multilineTextAlignment(.center)
                 }
                 .padding(.horizontal, TaskerTheme.Spacing.xl)
                 .padding(.vertical, TaskerTheme.Spacing.lg)
@@ -206,10 +239,10 @@ struct ChatEmptyStateView: View {
 
             VStack(alignment: .leading, spacing: TaskerTheme.Spacing.xs) {
                 Text("Hi there!")
-                    .font(.system(size: 34, weight: .bold, design: .rounded))
+                    .taskerFont(.screenTitle)
                     .foregroundStyle(Color.tasker(.accentPrimary))
                 Text("What do you need to plan?")
-                    .font(.system(size: 32, weight: .bold, design: .rounded))
+                    .taskerFont(.title1)
                     .foregroundStyle(Color.tasker(.textPrimary))
                     .fixedSize(horizontal: false, vertical: true)
             }
@@ -220,9 +253,9 @@ struct ChatEmptyStateView: View {
 
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: TaskerTheme.Spacing.md) {
-                    structuredExampleChip(icon: "arrow.triangle.2.circlepath", title: "Move Uncompleted Tasks", subtitle: "Reschedule my unfinished tasks...")
-                    structuredExampleChip(icon: "graduationcap.fill", title: "Breakdown a study day", subtitle: "Plan my study day where I have...")
-                    structuredExampleChip(icon: "checklist", title: "Turn list into step-by-step", subtitle: "Turn this messy list of thoughts...")
+                    structuredExampleChip(icon: "arrow.triangle.2.circlepath", title: "Move unfinished tasks", subtitle: "Reschedule my unfinished tasks")
+                    structuredExampleChip(icon: "graduationcap.fill", title: "Break down a study day", subtitle: "Plan my study day around classes")
+                    structuredExampleChip(icon: "checklist", title: "Turn list into steps", subtitle: "Turn this messy list into next actions")
                 }
                 .padding(.horizontal, TaskerTheme.Spacing.xl)
                 .padding(.bottom, TaskerTheme.Spacing.sm)
@@ -237,25 +270,32 @@ struct ChatEmptyStateView: View {
         } label: {
             HStack(alignment: .top, spacing: TaskerTheme.Spacing.sm) {
                 Image(systemName: icon)
-                    .font(.tasker(.caption1))
+                    .taskerFont(.caption1)
                     .foregroundStyle(Color.tasker(.accentPrimary))
-                    .frame(width: 20)
-                VStack(alignment: .leading, spacing: 3) {
+                    .frame(width: 32, height: 32)
+                    .background(Color.tasker(.accentWash), in: Circle())
+                VStack(alignment: .leading, spacing: 4) {
                     Text(title)
-                        .font(.tasker(.callout))
+                        .taskerFont(.callout)
                         .foregroundStyle(Color.tasker(.textPrimary))
-                        .lineLimit(1)
+                        .lineLimit(2)
+                        .fixedSize(horizontal: false, vertical: true)
                     Text(subtitle)
-                        .font(.tasker(.caption1))
+                        .taskerFont(.caption1)
                         .foregroundStyle(Color.tasker(.textTertiary))
-                        .lineLimit(1)
+                        .lineLimit(2)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
             }
             .padding(.horizontal, TaskerTheme.Spacing.md)
-            .padding(.vertical, TaskerTheme.Spacing.sm)
-            .frame(width: 230, alignment: .leading)
-            .background(Color.tasker(.surfacePrimary))
-            .clipShape(RoundedRectangle(cornerRadius: TaskerTheme.CornerRadius.lg, style: .continuous))
+            .padding(.vertical, TaskerTheme.Spacing.md)
+            .frame(width: 236, alignment: .leading)
+            .frame(minHeight: 78, alignment: .leading)
+            .taskerChromeSurface(
+                cornerRadius: TaskerTheme.CornerRadius.lg,
+                accentColor: Color.tasker(.accentSecondary),
+                level: .e1
+            )
         }
         .buttonStyle(.plain)
         .taskerPressFeedback(reduceMotion: reduceMotion)
@@ -741,7 +781,7 @@ struct ChatComposerView: View {
                 TextField("Tell me your plans...", text: $prompt, axis: .vertical)
                     .focused($isPromptFocused)
                     .textFieldStyle(.plain)
-                    .font(.system(size: 22, weight: .regular, design: .rounded))
+                    .taskerFont(.body)
                     .foregroundStyle(Color.tasker(.textPrimary))
                     .tint(Color.tasker(.accentPrimary))
                     .padding(.horizontal, TaskerTheme.Spacing.md)
@@ -759,10 +799,10 @@ struct ChatComposerView: View {
                 if isGenerationInFlight {
                     stopButton
                         .padding(.leading, 0)
-                } else if canSubmit {
+                } else {
                     generateButton
                         .padding(.leading, 0)
-                    }
+                }
             }
 
             if let structuredDeferredFeedback {
@@ -778,9 +818,17 @@ struct ChatComposerView: View {
         .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
         .overlay(
             RoundedRectangle(cornerRadius: 24, style: .continuous)
-                .stroke(Color.tasker(.accentPrimary), lineWidth: 1.4)
+                .stroke(
+                    isPromptFocused ? Color.tasker(.accentRing) : Color.tasker(.strokeHairline),
+                    lineWidth: isPromptFocused ? 1.2 : 1
+                )
         )
-        .shadow(color: Color.tasker(.accentPrimary).opacity(0.18), radius: 8, y: 2)
+        .shadow(
+            color: isPromptFocused ? Color.tasker(.accentPrimary).opacity(0.12) : Color.tasker(.textPrimary).opacity(0.04),
+            radius: isPromptFocused ? 8 : 4,
+            y: isPromptFocused ? 2 : 1
+        )
+        .animation(reduceMotion ? nil : TaskerAnimation.quick, value: isPromptFocused)
         .accessibilityIdentifier("eva.structured.composer")
     }
 
@@ -1126,6 +1174,7 @@ struct ChatScaffoldView: View {
     let onOpenSlashPicker: () -> Void
     let onSelectStarterPrompt: (EvaStarterPrompt) -> Void
     let onSelectSuggestion: (SlashCommandDescriptor) -> Void
+    let onStartNewChat: () -> Void
     let onCancelDraft: () -> Void
     let onRemoveAttachment: (ThreadContextAttachmentRecord) -> Void
     let onGenerate: () -> Void
@@ -1149,8 +1198,8 @@ struct ChatScaffoldView: View {
         transcriptSnapshot.messages.contains { $0.role == .assistant }
     }
 
-    private var usesStructuredPlanningChrome: Bool {
-        V2FeatureFlags.evaStructuredComposer && isActivationPresentation == false
+    private var showsHeader: Bool {
+        isActivationPresentation == false
     }
 
     private var headerTitle: String {
@@ -1174,14 +1223,15 @@ struct ChatScaffoldView: View {
     var body: some View {
         NavigationStack {
             VStack(spacing: 0) {
-                if isActivationPresentation == false && !(usesStructuredPlanningChrome && currentThread == nil) {
+                if showsHeader {
                     ChatHeaderView(
                         title: headerTitle,
                         subtitle: headerSubtitle,
+                        showsNewChatAction: currentThread != nil,
                         showsUtilityActions: activationConfiguration?.hideUtilityActions != true,
-                        onShowChats: {
+                        onStartNewChat: {
                             appManager.playHaptic()
-                            showChats.wrappedValue.toggle()
+                            onStartNewChat()
                         },
                         onShowSettings: {
                             appManager.playHaptic()
