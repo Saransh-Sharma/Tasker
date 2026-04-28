@@ -6,6 +6,7 @@ struct EvaActivationRootView: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private let onDismiss: () -> Void
+    private let onNavigationChromeChange: ((EvaChatNavigationChromeState) -> Void)?
     private let onOpenTaskDetail: (TaskDefinition) -> Void
     private let onOpenHabitDetail: ((UUID) -> Void)?
     private let onPerformDayTaskAction: EvaDayTaskActionHandler?
@@ -14,6 +15,7 @@ struct EvaActivationRootView: View {
     init(
         coordinator: EvaActivationCoordinator,
         onDismiss: @escaping () -> Void,
+        onNavigationChromeChange: ((EvaChatNavigationChromeState) -> Void)? = nil,
         onOpenTaskDetail: @escaping (TaskDefinition) -> Void,
         onOpenHabitDetail: ((UUID) -> Void)? = nil,
         onPerformDayTaskAction: EvaDayTaskActionHandler? = nil,
@@ -21,6 +23,7 @@ struct EvaActivationRootView: View {
     ) {
         self.coordinator = coordinator
         self.onDismiss = onDismiss
+        self.onNavigationChromeChange = onNavigationChromeChange
         self.onOpenTaskDetail = onOpenTaskDetail
         self.onOpenHabitDetail = onOpenHabitDetail
         self.onPerformDayTaskAction = onPerformDayTaskAction
@@ -103,6 +106,7 @@ struct EvaActivationRootView: View {
                 onActivationChatEvent: { event in
                     coordinator.noteChatEvent(event)
                 },
+                onNavigationChromeChange: onNavigationChromeChange,
                 onOpenTaskDetail: onOpenTaskDetail,
                 onOpenHabitDetail: onOpenHabitDetail,
                 onPerformDayTaskAction: onPerformDayTaskAction,

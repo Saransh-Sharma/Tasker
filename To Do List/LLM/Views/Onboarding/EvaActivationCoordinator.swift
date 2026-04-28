@@ -58,6 +58,9 @@ final class EvaActivationCoordinator: ObservableObject {
         appManager: AppManager,
         defaults: UserDefaults = .standard,
         deviceSupportsLocalEvaProvider: @escaping () -> Bool = {
+            if ProcessInfo.processInfo.arguments.contains("-TASKER_TEST_EVA_ACTIVATION_COMPLETED") {
+                return true
+            }
             #if os(iOS)
             guard let device = MTLCreateSystemDefaultDevice() else { return false }
             return device.supportsFamily(.metal3)
