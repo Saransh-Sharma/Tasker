@@ -1,8 +1,8 @@
 # Tasker iOS - Product Requirements Document
 
-**Version:** 4.5  
-**Last Updated:** April 25, 2026  
-**Platform:** iOS 16.0+  
+**Version:** 4.6
+**Last Updated:** April 25, 2026
+**Platform:** iOS 16.0+
 **Status:** Active Product Direction
 
 ## Vision And Positioning
@@ -700,8 +700,8 @@ Technical implementation details are intentionally kept out of this PRD. Use the
 
 ## Document History
 
-- **v4.5 (April 25, 2026):** Expanded the habits contract with a Tasker-native streak model, dedicated Habit Board semantics, recovery-first behavior, a canonical habits docs package, and updated roadmap coverage for remaining UX gaps.
 - **v4.6 (April 25, 2026):** Added the canonical calendar + timeline docs package and linked the read-only schedule-context roadmap into the product reference set.
+- **v4.5 (April 25, 2026):** Expanded the habits contract with a Tasker-native streak model, dedicated Habit Board semantics, recovery-first behavior, a canonical habits docs package, and updated roadmap coverage for remaining UX gaps.
 - **v4.4 (March 22, 2026):** Added dedicated habits requirements summary and linked the new habits product, runtime, risk, and roadmap documentation package.
 - **v4.3 (March 11, 2026):** Updated Insights requirements to match the redesigned Today, Week, and Systems analytics surfaces, including richer widgets, empty-state behavior, and system-health framing.
 - **v4.2 (February 19, 2026):** Consolidated deep-research inputs into a detailed product-only PRD, added mental loop model, detailed screen requirements, implementation alignment table, interaction flows, explicit non-functional requirements, QA acceptance criteria, and horizon-based roadmap framing.

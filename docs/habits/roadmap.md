@@ -25,7 +25,7 @@ This roadmap tracks remaining work for Habit Streaks in Tasker after the core ex
 - Improve habit-task linkage without collapsing habits into tasks.
 - Build more explainable simplification guidance for overloaded users.
 
-## Not In Scope
+## Non-Goals
 
 - Social streak leaderboards
 - Punitive loss-aversion mechanics

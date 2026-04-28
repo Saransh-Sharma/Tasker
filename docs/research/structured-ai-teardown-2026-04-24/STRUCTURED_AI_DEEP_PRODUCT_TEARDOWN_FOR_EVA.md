@@ -392,7 +392,7 @@ struct EvaProposalCard: Identifiable, Codable, Equatable {
         case edit
         case move
         case shorten
-        case defer
+        case deferred
         case drop
         case delete
         case noOp

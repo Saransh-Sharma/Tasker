@@ -44,7 +44,7 @@ Current LLM-backed and planner-backed use cases include:
 - Chat answers over the current task context.
 - Read-only task and day review prompts, such as "What are my tasks?"
 - Plan with EVA text prompts that can produce either visible assistant text or proposal cards.
-- Proposal review cards with selected apply for non-empty, applyable task command runs.
+- Proposal review cards with selected apply for non-empty task command runs that can be applied.
 - Slash-command context, daily brief, top three, task breakdown, dynamic chips, and task suggestions.
 
 See `docs/architecture/LOCAL_LLM_EVA_ARCHITECTURE.md` for the LLM/EVA architecture, use cases, decisions, risks, and manual test guide. Use `Tasker.xcworkspace` for iOS builds and tests because CocoaPods dependencies are required.

@@ -5,7 +5,7 @@ EVA is Tasker's local assistant layer for chat, task review, and planner-assiste
 ## Use Cases
 
 - Chat over task context: answer user questions using the current projected task context.
-- Read-only review: summarize tasks or the day without creating applyable mutations.
+- Read-only review: summarize tasks or the day without creating mutations that can be applied.
 - Chief-of-staff day overview: answer natural-language day-status prompts with a brief plus editable task and habit cards.
 - Plan with EVA: route planning prompts to a planner that can return visible text or proposal cards.
 - Proposal review: show schema v3 task command cards, allow selected apply, and avoid cards for empty command runs.
@@ -24,7 +24,7 @@ Context is built through the LLM context projection and envelope builders, with 
 
 `EvaPlanResponseDelivery` is the testable delivery gate. It allows deterministic text and proposal delivery when the task is still active and the run ID matches. It checks `llm.cancelled` only for model-backed planner results. Delivery logs terminal events for persisted responses and explicit drops.
 
-Proposal cards are built from schema v3 assistant command envelopes. Non-empty, applyable commands can be reviewed and selectively applied. The apply path goes through `AssistantActionPipelineUseCase`, repository validation, transactional persistence, and undo command storage; UI code does not mutate task state directly.
+Proposal cards are built from schema v3 assistant command envelopes. Non-empty commands that can be applied are reviewed and selectively applied. The apply path goes through `AssistantActionPipelineUseCase`, repository validation, transactional persistence, and undo command storage; UI code does not mutate task state directly.
 
 Read-only day review now has a parallel card contract. `AssistantCardType.dayOverview` carries `EvaDayOverviewPayload`, which contains `summaryMarkdown`, `contextReceipt`, `isPartialContext`, and ordered sections for overdue tasks, today tasks, focus candidates, due habits, recovery habits, quiet tracking, or an empty/degraded state. These cards persist as assistant messages, but post-render quick-action state is maintained as chat-local overlay state so the transcript remains immutable.
 

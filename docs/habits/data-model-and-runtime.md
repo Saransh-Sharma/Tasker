@@ -10,6 +10,7 @@ This document describes the habit lifecycle, streak semantics, and runtime proje
 - Skip: a deliberate bridge day that preserves continuity without counting as success.
 - Miss or lapse: a day that breaks continuity.
 - Pending: a day that has not resolved yet.
+- Future: a scheduled day that has not arrived yet and should not affect streaks.
 
 ## Habit Types
 
@@ -28,6 +29,7 @@ This document describes the habit lifecycle, streak semantics, and runtime proje
 - `Skip` and `notScheduled` days preserve continuity but do not increment the streak.
 - `Missed` and `Lapsed` days break the streak.
 - `Pending` days are neutral until they resolve.
+- `Future` days are ignored until they become actionable.
 - Recovery is measured by how quickly the habit returns to a success state after a break.
 
 ## Runtime Projection
