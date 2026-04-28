@@ -8,6 +8,7 @@ enum AssistantEnvelopeValidationError: LocalizedError {
     case invalidSchedule(String)
     case tooManyCommands(Int)
     case invalidTitle(String)
+    case invalidFieldUpdate(String)
 
     var errorDescription: String? {
         switch self {
@@ -25,6 +26,8 @@ enum AssistantEnvelopeValidationError: LocalizedError {
             return "Assistant proposal contains too many commands (\(count))."
         case let .invalidTitle(message):
             return message
+        case let .invalidFieldUpdate(message):
+            return message
         }
     }
 }
@@ -32,6 +35,7 @@ enum AssistantEnvelopeValidationError: LocalizedError {
 struct AssistantEnvelopeValidator {
     private static let supportedSchemas = Set([1, 2, 3])
     private static let maximumCommandCount = 8
+    private static let maximumSafeBatchCommandCount = 20
     private static let maximumTitleLength = 120
     private static let maximumScheduleHorizon: TimeInterval = 366 * 24 * 60 * 60
 
@@ -220,7 +224,10 @@ struct AssistantEnvelopeValidator {
         guard envelope.commands.isEmpty == false || allowEmptyCommands else {
             throw AssistantEnvelopeValidationError.emptyCommands
         }
-        guard envelope.commands.count <= maximumCommandCount else {
+        let commandLimit = isHomogeneousSafeRescheduleBatch(envelope.commands)
+            ? maximumSafeBatchCommandCount
+            : maximumCommandCount
+        guard envelope.commands.count <= commandLimit else {
             throw AssistantEnvelopeValidationError.tooManyCommands(envelope.commands.count)
         }
 
@@ -235,6 +242,7 @@ struct AssistantEnvelopeValidator {
         for command in envelope.commands {
             try validateTitle(command)
             try validateSchedule(command)
+            try validateFieldUpdates(command)
         }
         return envelope
     }
@@ -285,8 +293,8 @@ struct AssistantEnvelopeValidator {
             if let start, let end, end <= start {
                 throw AssistantEnvelopeValidationError.invalidSchedule("Scheduled task end must be after start.")
             }
-            if let start { try validateDateHorizon(start, now: now) }
-            if let end { try validateDateHorizon(end, now: now) }
+            if let start { try validateDateHorizon(start, now: now, allowsPast: true) }
+            if let end { try validateDateHorizon(end, now: now, allowsPast: true) }
             if let estimatedDuration, estimatedDuration <= 0 {
                 throw AssistantEnvelopeValidationError.invalidSchedule("Estimated duration must be greater than zero.")
             }
@@ -296,6 +304,18 @@ struct AssistantEnvelopeValidator {
             }
         default:
             break
+        }
+    }
+
+    private static func isHomogeneousSafeRescheduleBatch(_ commands: [AssistantCommand]) -> Bool {
+        guard commands.isEmpty == false else { return false }
+        return commands.allSatisfy { command in
+            switch command {
+            case .updateTaskSchedule, .deferTask:
+                return true
+            default:
+                return false
+            }
         }
     }
 
@@ -319,14 +339,33 @@ struct AssistantEnvelopeValidator {
         case .updateTask(_, let title, _):
             return title
         case .updateTaskFields(_, let title, _, _, _, _, _, _, _):
-            return title
+            return title.setValue
         default:
             return nil
         }
     }
 
-    private static func validateDateHorizon(_ date: Date, now: Date) throws {
-        guard abs(date.timeIntervalSince(now)) <= maximumScheduleHorizon else {
+    private static func validateFieldUpdates(_ command: AssistantCommand) throws {
+        guard case let .updateTaskFields(_, title, _, priority, energy, category, context, _, _) = command else {
+            return
+        }
+        let disallowedClears: [(String, Bool)] = [
+            ("title", title == .clear),
+            ("priority", priority == .clear),
+            ("energy", energy == .clear),
+            ("category", category == .clear),
+            ("context", context == .clear)
+        ]
+        if let field = disallowedClears.first(where: \.1)?.0 {
+            throw AssistantEnvelopeValidationError.invalidFieldUpdate("Field '\(field)' cannot be cleared.")
+        }
+    }
+
+    private static func validateDateHorizon(_ date: Date, now: Date, allowsPast: Bool = false) throws {
+        let delta = date.timeIntervalSince(now)
+        let withinFuture = delta <= maximumScheduleHorizon
+        let withinPast = allowsPast || delta >= -maximumScheduleHorizon
+        guard withinFuture, withinPast else {
             throw AssistantEnvelopeValidationError.invalidSchedule("Scheduled date is outside EVA's supported planning horizon.")
         }
     }
@@ -359,7 +398,7 @@ struct AssistantEnvelopeValidator {
            (try? JSONSerialization.jsonObject(with: arrayData)) != nil {
             return arrayData
         }
-        return repaired.data(using: .utf8)
+        return nil
     }
 
     private static func validJSONData(from string: String) -> Data? {
