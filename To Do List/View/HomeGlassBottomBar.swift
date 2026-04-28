@@ -45,7 +45,8 @@ struct HomeGlassBottomBar: View {
             )
         }
         .padding(.horizontal, spacing.s16)
-        .padding(.vertical, spacing.s12)
+        .padding(.top, spacing.s12)
+        .padding(.bottom, 0)
         .accessibilityIdentifier("home.bottomBar")
         .accessibilityValue(state.isMinimized ? "minimized" : "expanded")
     }
