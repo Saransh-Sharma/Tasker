@@ -9,6 +9,29 @@ final class EvaActivationTests: XCTestCase {
         XCTAssertEqual(EvaStarterPrompt.dayOverviewPrompt.submissionText, "How is my day looking today?")
     }
 
+    func testChiefOfStaffGuideIncludesReschedulePromptSection() throws {
+        let section = try XCTUnwrap(EvaChiefOfStaffGuideContent.sections.first { $0.id == "reschedule_open_tasks" })
+
+        XCTAssertEqual(section.title, "Reschedule open tasks")
+        XCTAssertEqual(section.icon, "calendar.badge.clock")
+        XCTAssertTrue(section.body.contains("review cards"))
+        XCTAssertEqual(section.prompts.map(\.style), Array(repeating: .naturalLanguage, count: 5))
+        XCTAssertEqual(section.prompts.map(\.title), [
+            "Reschedule unfinished tasks",
+            "Carry today to tomorrow",
+            "Push by 20 minutes",
+            "Start tomorrow morning",
+            "Overdue to today"
+        ])
+        XCTAssertEqual(section.prompts.map(\.submissionText), [
+            "Reschedule my unfinished tasks",
+            "Move all my unfinished tasks from today to tomorrow",
+            "Move all my unfinished tasks from today forward by 20 minutes",
+            "Move my open tasks to tomorrow morning",
+            "Move overdue tasks to today"
+        ])
+    }
+
     func testThreadChangePolicyPreservesFirstThreadAttachDuringGeneration() {
         let firstThreadID = UUID()
 

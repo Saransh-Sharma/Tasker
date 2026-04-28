@@ -117,6 +117,24 @@ final class LLMRuntimeCoordinatorTests: XCTestCase {
         XCTAssertNil(evaluator.loadedModelName)
     }
 
+    func testSwitchModelRejectsUnknownCompatibility() async {
+        var switchedModelNames: [String] = []
+        let coordinator = LLMRuntimeCoordinator(
+            switchHandler: { modelName in
+                switchedModelNames.append(modelName)
+                return true
+            },
+            compatibilityProvider: { _ in nil },
+            registerLifecycleObservers: false
+        )
+
+        let switched = await coordinator.switchModelIfNeeded(modelName: qwenPointSixName)
+
+        XCTAssertFalse(switched)
+        XCTAssertNil(coordinator.activeModelName)
+        XCTAssertTrue(switchedModelNames.isEmpty)
+    }
+
     func testSwitchModelSupportsQwen35TextCatalogEntry() async {
         var switchedModelNames: [String] = []
         let coordinator = LLMRuntimeCoordinator(

@@ -6124,6 +6124,71 @@ final class AssistantPipelineTransactionalTests: XCTestCase {
         XCTAssertEqual(taskAfterUndo?.title, "Before Undo")
     }
 
+    func testUpdateTaskSchedulePreservesExistingEndWhenOnlyStartChanges() throws {
+        let taskID = UUID()
+        let projectID = UUID()
+        let originalStart = Date(timeIntervalSince1970: 1_800_000_000)
+        let originalEnd = originalStart.addingTimeInterval(60 * 60)
+        let updatedStart = originalStart.addingTimeInterval(15 * 60)
+        var initialTask = TaskDefinition(
+            id: taskID,
+            projectID: projectID,
+            projectName: "Inbox",
+            title: "Design review",
+            dueDate: originalStart,
+            scheduledStartAt: originalStart,
+            scheduledEndAt: originalEnd,
+            isComplete: false,
+            dateAdded: Date(),
+            createdAt: Date(),
+            updatedAt: Date()
+        )
+        initialTask.estimatedDuration = 60 * 60
+        let taskRepository = InMemoryTaskDefinitionRepository(seed: [initialTask])
+        let actionRepository = InMemoryAssistantActionRepository()
+        let useCase = AssistantActionPipelineUseCase(
+            repository: actionRepository,
+            taskRepository: taskRepository
+        )
+
+        let runID = UUID()
+        let envelope = AssistantCommandEnvelope(
+            schemaVersion: 3,
+            commands: [
+                .updateTaskSchedule(
+                    taskID: taskID,
+                    scheduledStartAt: updatedStart,
+                    scheduledEndAt: nil,
+                    estimatedDuration: nil,
+                    dueDate: nil
+                )
+            ]
+        )
+        let run = AssistantActionRunDefinition(
+            id: runID,
+            threadID: "thread",
+            proposalData: try JSONEncoder().encode(envelope),
+            status: .confirmed,
+            confirmedAt: Date(),
+            createdAt: Date()
+        )
+        _ = try awaitResult { completion in
+            actionRepository.createRun(run, completion: completion)
+        }
+
+        _ = try awaitResult { completion in
+            useCase.applyConfirmedRun(id: runID, completion: completion)
+        }
+
+        let updatedTask = try awaitResult { completion in
+            taskRepository.fetchTaskDefinition(id: taskID, completion: completion)
+        }
+        XCTAssertEqual(updatedTask?.scheduledStartAt, updatedStart)
+        XCTAssertEqual(updatedTask?.scheduledEndAt, originalEnd)
+        XCTAssertEqual(updatedTask?.estimatedDuration, originalEnd.timeIntervalSince(updatedStart))
+        XCTAssertEqual(updatedTask?.dueDate, updatedStart)
+    }
+
     func testAppliedRunCannotBeConfirmedOrAppliedAgain() throws {
         let taskID = UUID()
         let projectID = UUID()

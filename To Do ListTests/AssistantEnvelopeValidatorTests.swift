@@ -137,6 +137,67 @@ final class AssistantEnvelopeValidatorTests: XCTestCase {
         }
     }
 
+    func testUpdateTaskFieldsDistinguishesAbsentSetAndExplicitNull() throws {
+        let taskID = UUID()
+        let raw = """
+        {
+          "type": "updateTaskFields",
+          "taskID": "\(taskID.uuidString)",
+          "title": "Renamed",
+          "details": null,
+          "tagIDs": null
+        }
+        """
+
+        let command = try JSONDecoder().decode(AssistantCommand.self, from: Data(raw.utf8))
+        guard case let .updateTaskFields(_, title, details, priority, _, _, _, lifeAreaID, tagIDs) = command else {
+            return XCTFail("Expected updateTaskFields")
+        }
+        XCTAssertEqual(title, .set("Renamed"))
+        XCTAssertEqual(details, .clear)
+        XCTAssertEqual(priority, .absent)
+        XCTAssertEqual(lifeAreaID, .absent)
+        XCTAssertEqual(tagIDs, .clear)
+
+        let encoded = try JSONEncoder().encode(command)
+        let object = try XCTUnwrap(JSONSerialization.jsonObject(with: encoded) as? [String: Any])
+        XCTAssertEqual(object["title"] as? String, "Renamed")
+        XCTAssertTrue(object.keys.contains("details"))
+        XCTAssertTrue(object["details"] is NSNull)
+        XCTAssertFalse(object.keys.contains("priority"))
+        XCTAssertFalse(object.keys.contains("lifeAreaID"))
+        XCTAssertTrue(object["tagIDs"] is NSNull)
+    }
+
+    func testValidateRejectsClearingNonClearableTaskFields() {
+        let taskID = UUID()
+        let envelope = AssistantCommandEnvelope(
+            schemaVersion: 3,
+            commands: [
+                .updateTaskFields(
+                    taskID: taskID,
+                    title: .clear,
+                    details: .clear,
+                    priority: .absent,
+                    energy: .absent,
+                    category: .absent,
+                    context: .absent,
+                    lifeAreaID: .absent,
+                    tagIDs: .absent
+                )
+            ]
+        )
+
+        XCTAssertThrowsError(
+            try AssistantEnvelopeValidator.validate(envelope: envelope, knownTaskIDs: [taskID])
+        ) { error in
+            guard case AssistantEnvelopeValidationError.invalidFieldUpdate(let field) = error else {
+                return XCTFail("Unexpected error: \(error)")
+            }
+            XCTAssertTrue(field.contains("title"))
+        }
+    }
+
     func testParseAndValidateReturnsParseFailureForNonJSONOutput() {
         let result = AssistantEnvelopeValidator.parseAndValidate(rawOutput: "plan: move things around")
 

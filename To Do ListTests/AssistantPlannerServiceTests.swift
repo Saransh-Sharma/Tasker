@@ -4,6 +4,8 @@ import MLXLMCommon
 
 @MainActor
 final class AssistantPlannerServiceTests: XCTestCase {
+    private static let plannerReferenceDate = ISO8601DateFormatter().date(from: "2026-04-27T09:00:00Z")!
+
     func testEvaTurnRouterKeepsNormalChatOutOfProposalPlanner() {
         XCTAssertEqual(EvaTurnRouter.route(for: "Can you explain why I keep overplanning?"), .chatAnswer)
         XCTAssertEqual(EvaTurnRouter.route(for: "What are my tasks for today"), .readOnlyReview)
@@ -379,7 +381,7 @@ final class AssistantPlannerServiceTests: XCTestCase {
 
     func testReadOnlyTodayTasksPromptDoesNotCreateCopiedExampleTask() async throws {
         let evaluator = PlannerEvaluatorSpy()
-        let service = AssistantPlannerService(llm: evaluator)
+        let service = AssistantPlannerService(llm: evaluator, nowProvider: { Self.plannerReferenceDate })
         let result = await service.generatePlan(
             userPrompt: "What are my tasks for today",
             thread: Thread(),
@@ -463,7 +465,7 @@ final class AssistantPlannerServiceTests: XCTestCase {
     }
 
     func testDayOverviewPreservesProjectHistoryQuietTrackingAndActiveHabits() async throws {
-        let service = AssistantPlannerService(llm: PlannerEvaluatorSpy())
+        let service = AssistantPlannerService(llm: PlannerEvaluatorSpy(), nowProvider: { Self.plannerReferenceDate })
         let projectID = UUID()
         let taskID = UUID()
         let dueHabitID = UUID()
@@ -608,7 +610,7 @@ final class AssistantPlannerServiceTests: XCTestCase {
 
     func testReadOnlyTodayTasksPromptBuildsTaskAndHabitSections() async throws {
         let evaluator = PlannerEvaluatorSpy()
-        let service = AssistantPlannerService(llm: evaluator)
+        let service = AssistantPlannerService(llm: evaluator, nowProvider: { Self.plannerReferenceDate })
         let taskID = UUID()
         let habitID = UUID()
 
@@ -741,7 +743,307 @@ final class AssistantPlannerServiceTests: XCTestCase {
 
         XCTAssertEqual(output?.envelope.commands.count, 0)
         XCTAssertEqual(output?.cards.first?.kind, .noOp)
-        XCTAssertEqual(output?.cards.first?.title, "No matching tasks found")
+        XCTAssertEqual(output?.cards.first?.title, "No matching open tasks")
+    }
+
+    func testDeterministicContextExtractionUsesTaskArraysAndScheduledFields() throws {
+        let taskID = UUID()
+        let habitID = UUID()
+        let payload = """
+        {
+          "today": {
+            "tasks": [
+              {
+                "id": "\(taskID.uuidString)",
+                "title": "Design review",
+                "is_completed": false,
+                "scheduled_start_at": "2026-04-27T10:00:00Z",
+                "scheduled_end_at": "2026-04-27T10:45:00Z"
+              }
+            ]
+          },
+          "habits": {
+            "habits": [
+              {
+                "id": "\(habitID.uuidString)",
+                "title": "Design review",
+                "state": "due"
+              }
+            ]
+          }
+        }
+        """
+
+        let titleByID = AssistantDeterministicPlanner.taskTitleByID(from: payload)
+        XCTAssertEqual(titleByID[taskID], "Design review")
+        XCTAssertNil(titleByID[habitID])
+
+        let output = AssistantDeterministicPlanner.plan(context: .init(
+            userPrompt: "Move Design review to 4 PM",
+            contextPayload: payload,
+            taskTitleByID: [:],
+            projectNameByID: [:],
+            knownTaskIDs: [taskID],
+            now: ISO8601DateFormatter().date(from: "2026-04-27T09:00:00Z")!
+        ))
+
+        guard case let .updateTaskSchedule(commandTaskID, start, end, duration, _) = output?.envelope.commands.first else {
+            return XCTFail("Expected updateTaskSchedule")
+        }
+        XCTAssertEqual(commandTaskID, taskID)
+        XCTAssertEqual(duration, 45 * 60)
+        let scheduledStart = try XCTUnwrap(start)
+        let scheduledEnd = try XCTUnwrap(end)
+        XCTAssertEqual(scheduledEnd.timeIntervalSince(scheduledStart), 45 * 60, accuracy: 0.001)
+    }
+
+    func testDeterministicBatchReschedulesUnfinishedTodayTasksToTomorrow() async throws {
+        let evaluator = PlannerEvaluatorSpy()
+        let now = ISO8601DateFormatter().date(from: "2026-04-27T09:00:00Z")!
+        let service = AssistantPlannerService(llm: evaluator, nowProvider: { now })
+        let scheduledID = UUID()
+        let dueOnlyID = UUID()
+        let completedID = UUID()
+        let payload = """
+        {"today":{"tasks":[
+          {"id":"\(scheduledID.uuidString)","title":"Design review","is_completed":false,"due_date":"2026-04-27T10:00:00Z","scheduled_start_at":"2026-04-27T10:00:00Z","scheduled_end_at":"2026-04-27T10:45:00Z"},
+          {"id":"\(dueOnlyID.uuidString)","title":"Send invoice","is_completed":false,"due_date":"2026-04-27T12:00:00Z","scheduled_start_at":null,"scheduled_end_at":null},
+          {"id":"\(completedID.uuidString)","title":"Already done","is_completed":true,"due_date":"2026-04-27T13:00:00Z","scheduled_start_at":"2026-04-27T13:00:00Z","scheduled_end_at":"2026-04-27T13:30:00Z"}
+        ]}}
+        """
+
+        let result = await service.generatePlan(
+            userPrompt: "Reschedule my unfinished tasks",
+            thread: Thread(),
+            contextPayload: payload,
+            taskTitleByID: [:],
+            projectNameByID: [:],
+            knownTaskIDs: [],
+            route: .taskMutation
+        )
+
+        guard case .success(let plan) = result else {
+            return XCTFail("Expected deterministic batch reschedule plan")
+        }
+        XCTAssertNil(evaluator.capturedModelName)
+        XCTAssertEqual(plan.generationSource, "deterministic_intent_gate")
+        XCTAssertEqual(plan.envelope.commands.count, 2)
+        guard case let .updateTaskSchedule(firstID, start, end, duration, _) = plan.envelope.commands[0] else {
+            return XCTFail("Expected scheduled task update")
+        }
+        XCTAssertEqual(firstID, scheduledID)
+        let newStart = try XCTUnwrap(start)
+        let newEnd = try XCTUnwrap(end)
+        XCTAssertTrue(Calendar.current.isDate(newStart, inSameDayAs: Calendar.current.date(byAdding: .day, value: 1, to: now)!))
+        XCTAssertEqual(newEnd.timeIntervalSince(newStart), 45 * 60, accuracy: 0.001)
+        XCTAssertEqual(duration, 45 * 60)
+        guard case let .deferTask(secondID, targetDate, _) = plan.envelope.commands[1] else {
+            return XCTFail("Expected due-only task deferral")
+        }
+        XCTAssertEqual(secondID, dueOnlyID)
+        XCTAssertTrue(Calendar.current.isDate(targetDate, inSameDayAs: Calendar.current.date(byAdding: .day, value: 1, to: now)!))
+        XCTAssertEqual(plan.proposalCards.map(\.title), ["Design review", "Send invoice"])
+    }
+
+    func testDeterministicBatchShiftPreservesDurations() throws {
+        let taskID = UUID()
+        let payload = """
+        {"today":{"tasks":[
+          {"id":"\(taskID.uuidString)","title":"Reset surface","is_completed":false,"due_date":"2026-04-27T15:00:00Z","scheduled_start_at":"2026-04-27T15:00:00Z","scheduled_end_at":"2026-04-27T15:30:00Z"}
+        ]}}
+        """
+        let output = AssistantDeterministicPlanner.plan(context: .init(
+            userPrompt: "Move all my unfinished task from today, forward by 20 minutes",
+            contextPayload: payload,
+            taskTitleByID: [:],
+            projectNameByID: [:],
+            knownTaskIDs: [taskID],
+            now: ISO8601DateFormatter().date(from: "2026-04-27T09:00:00Z")!
+        ))
+
+        guard case let .updateTaskSchedule(commandTaskID, start, end, duration, _) = output?.envelope.commands.first else {
+            return XCTFail("Expected shifted updateTaskSchedule")
+        }
+        XCTAssertEqual(commandTaskID, taskID)
+        let shiftedStart = try XCTUnwrap(start)
+        let shiftedEnd = try XCTUnwrap(end)
+        XCTAssertEqual(shiftedStart.timeIntervalSince(ISO8601DateFormatter().date(from: "2026-04-27T15:20:00Z")!), 0, accuracy: 0.001)
+        XCTAssertEqual(shiftedEnd.timeIntervalSince(ISO8601DateFormatter().date(from: "2026-04-27T15:50:00Z")!), 0, accuracy: 0.001)
+        XCTAssertEqual(duration, 30 * 60)
+    }
+
+    func testDeterministicBatchAnchorsTasksSequentially() {
+        let firstID = UUID()
+        let secondID = UUID()
+        let payload = """
+        {"today":{"tasks":[
+          {"id":"\(firstID.uuidString)","title":"First","is_completed":false,"due_date":"2026-04-27T10:00:00Z","scheduled_start_at":"2026-04-27T10:00:00Z","scheduled_end_at":"2026-04-27T10:30:00Z"},
+          {"id":"\(secondID.uuidString)","title":"Second","is_completed":false,"due_date":"2026-04-27T11:00:00Z","scheduled_start_at":"2026-04-27T11:00:00Z","scheduled_end_at":"2026-04-27T12:00:00Z"}
+        ]}}
+        """
+        let output = AssistantDeterministicPlanner.plan(context: .init(
+            userPrompt: "Move unfinished tasks to tomorrow at 10 AM",
+            contextPayload: payload,
+            taskTitleByID: [:],
+            projectNameByID: [:],
+            knownTaskIDs: [firstID, secondID],
+            now: ISO8601DateFormatter().date(from: "2026-04-27T09:00:00Z")!
+        ))
+
+        guard output?.envelope.commands.count == 2,
+              case let .updateTaskSchedule(_, firstStart, firstEnd, _, _) = output?.envelope.commands[0],
+              case let .updateTaskSchedule(_, secondStart, secondEnd, _, _) = output?.envelope.commands[1] else {
+            return XCTFail("Expected sequential anchored schedule updates")
+        }
+        XCTAssertEqual(firstEnd, secondStart)
+        XCTAssertEqual(firstEnd!.timeIntervalSince(firstStart!), 30 * 60, accuracy: 0.001)
+        XCTAssertEqual(secondEnd!.timeIntervalSince(secondStart!), 60 * 60, accuracy: 0.001)
+    }
+
+    func testDeterministicBatchUsesRepositoryQueryForScheduledTasksMissingFromContext() async throws {
+        let taskID = UUID()
+        let start = ISO8601DateFormatter().date(from: "2026-04-27T15:00:00Z")!
+        let task = TaskDefinition(
+            id: taskID,
+            title: "Repository scheduled task",
+            dueDate: nil,
+            scheduledStartAt: start,
+            scheduledEndAt: start.addingTimeInterval(30 * 60),
+            isComplete: false
+        )
+        let repository = AssistantPlannerTaskReadRepositoryStub(tasks: [task])
+        let service = AssistantPlannerService(
+            llm: PlannerEvaluatorSpy(),
+            taskReadModelRepository: repository,
+            nowProvider: { ISO8601DateFormatter().date(from: "2026-04-27T09:00:00Z")! }
+        )
+
+        let result = await service.generatePlan(
+            userPrompt: "Carry over today’s open tasks",
+            thread: Thread(),
+            contextPayload: "{}",
+            taskTitleByID: [:],
+            projectNameByID: [:],
+            knownTaskIDs: [],
+            route: .taskMutation
+        )
+
+        guard case .success(let plan) = result else {
+            return XCTFail("Expected repository-backed deterministic plan")
+        }
+        XCTAssertEqual(repository.fetchQueries.first?.includeCompleted, false)
+        XCTAssertEqual(repository.fetchQueries.first?.sortBy, .dueDateAscending)
+        XCTAssertEqual(plan.envelope.commands.count, 1)
+        XCTAssertEqual(plan.proposalCards.first?.title, "Repository scheduled task")
+    }
+
+    func testDeterministicBatchNoOpsWhenNoOpenMatches() {
+        let output = AssistantDeterministicPlanner.plan(context: .init(
+            userPrompt: "Move my open tasks to tomorrow",
+            contextPayload: #"{"today":{"tasks":[]}}"#,
+            taskTitleByID: [:],
+            projectNameByID: [:],
+            knownTaskIDs: [],
+            now: ISO8601DateFormatter().date(from: "2026-04-27T09:00:00Z")!
+        ))
+
+        XCTAssertEqual(output?.envelope.commands.count, 0)
+        XCTAssertEqual(output?.cards.first?.kind, .noOp)
+        XCTAssertEqual(output?.cards.first?.title, "No matching open tasks")
+    }
+
+    func testDeterministicBatchRecognizesRescheduleVariationGroups() throws {
+        let todayID = UUID()
+        let overdueID = UUID()
+        let tomorrowID = UUID()
+        let unscheduledID = UUID()
+        let payload = """
+        {"tasks":[
+          {"id":"\(todayID.uuidString)","title":"Today scheduled","is_completed":false,"due_date":"2026-04-27T10:00:00Z","scheduled_start_at":"2026-04-27T10:00:00Z","scheduled_end_at":"2026-04-27T10:30:00Z","project":"Ops","tag_names":["deep"]},
+          {"id":"\(overdueID.uuidString)","title":"Overdue item","is_completed":false,"due_date":"2026-04-26T10:00:00Z","scheduled_start_at":null,"scheduled_end_at":null,"project":"Ops","tag_names":["admin"]},
+          {"id":"\(tomorrowID.uuidString)","title":"Tomorrow item","is_completed":false,"due_date":"2026-04-28T10:00:00Z","scheduled_start_at":null,"scheduled_end_at":null,"project":"Growth","tag_names":["admin"]},
+          {"id":"\(unscheduledID.uuidString)","title":"Loose item","is_completed":false,"due_date":null,"scheduled_start_at":null,"scheduled_end_at":null,"project":"Inbox","tag_names":["loose"]}
+        ]}
+        """
+        let now = ISO8601DateFormatter().date(from: "2026-04-27T09:00:00Z")!
+
+        let cases: [(String, UUID, (AssistantCommand) throws -> Void)] = [
+            ("Move all my unfinished task from today to tomorrow", todayID, { command in
+                guard case let .updateTaskSchedule(taskID, start, _, _, _) = command else {
+                    return XCTFail("Expected scheduled move")
+                }
+                XCTAssertEqual(taskID, todayID)
+                XCTAssertTrue(Calendar.current.isDate(try XCTUnwrap(start), inSameDayAs: ISO8601DateFormatter().date(from: "2026-04-28T10:00:00Z")!))
+            }),
+            ("Push all remaining work to tomorrow", todayID, { command in
+                guard case let .updateTaskSchedule(taskID, _, _, _, _) = command else {
+                    return XCTFail("Expected remaining work move")
+                }
+                XCTAssertEqual(taskID, todayID)
+            }),
+            ("Move tomorrow's open tasks to Friday", tomorrowID, { command in
+                guard case let .deferTask(taskID, targetDate, _) = command else {
+                    return XCTFail("Expected tomorrow source deferral")
+                }
+                XCTAssertEqual(taskID, tomorrowID)
+                XCTAssertTrue(Calendar.current.isDate(targetDate, inSameDayAs: ISO8601DateFormatter().date(from: "2026-05-01T00:00:00Z")!))
+            }),
+            ("Move overdue tasks to today", overdueID, { command in
+                guard case let .deferTask(taskID, targetDate, _) = command else {
+                    return XCTFail("Expected overdue deferral")
+                }
+                XCTAssertEqual(taskID, overdueID)
+                XCTAssertTrue(Calendar.current.isDate(targetDate, inSameDayAs: now))
+            }),
+            ("Move tomorrow's unfinished tasks in project Growth to April 29", tomorrowID, { command in
+                guard case let .deferTask(taskID, targetDate, _) = command else {
+                    return XCTFail("Expected project-scoped deferral")
+                }
+                XCTAssertEqual(taskID, tomorrowID)
+                XCTAssertTrue(Calendar.current.isDate(targetDate, inSameDayAs: ISO8601DateFormatter().date(from: "2026-04-29T00:00:00Z")!))
+            }),
+            ("Move unfinished tasks tagged deep after 2 PM", todayID, { command in
+                guard case let .updateTaskSchedule(taskID, start, _, _, _) = command else {
+                    return XCTFail("Expected anchored tagged schedule")
+                }
+                XCTAssertEqual(taskID, todayID)
+                XCTAssertEqual(Calendar.current.component(.hour, from: try XCTUnwrap(start)), 14)
+            })
+        ]
+
+        for (prompt, expectedTaskID, assertion) in cases {
+            let output = AssistantDeterministicPlanner.plan(context: .init(
+                userPrompt: prompt,
+                contextPayload: payload,
+                taskTitleByID: [:],
+                projectNameByID: [:],
+                knownTaskIDs: [todayID, overdueID, tomorrowID, unscheduledID],
+                now: now
+            ))
+            let command = try XCTUnwrap(output?.envelope.commands.first, "Expected command for prompt: \(prompt)")
+            try assertion(command)
+            XCTAssertTrue(output?.cards.contains(where: { $0.title == title(for: expectedTaskID) }) ?? false, "Expected selected task card for prompt: \(prompt)")
+        }
+
+        let unscheduledOutput = AssistantDeterministicPlanner.plan(context: .init(
+            userPrompt: "Move all open tasks to tomorrow",
+            contextPayload: payload,
+            taskTitleByID: [:],
+            projectNameByID: [:],
+            knownTaskIDs: [todayID, overdueID, tomorrowID, unscheduledID],
+            now: now
+        ))
+        XCTAssertTrue(unscheduledOutput?.cards.contains(where: { $0.title == "Loose item" }) ?? false)
+
+        func title(for id: UUID) -> String {
+            switch id {
+            case todayID: return "Today scheduled"
+            case overdueID: return "Overdue item"
+            case tomorrowID: return "Tomorrow item"
+            case unscheduledID: return "Loose item"
+            default: return ""
+            }
+        }
     }
 
     func testPlannerFallsBackWhenModelReturnsProse() async throws {
@@ -763,6 +1065,32 @@ final class AssistantPlannerServiceTests: XCTestCase {
         XCTAssertEqual(plan.generationSource, "deterministic_intent_gate")
         XCTAssertEqual(plan.envelope.commands.count, 2)
         XCTAssertNil(evaluator.capturedModelName)
+    }
+
+    func testPlannerReportsParseFailureWhenModelOnlyReturnsProse() async throws {
+        let restoreDefaults = try configureSupportedPlanRouteOrSkip()
+        defer { restoreDefaults() }
+
+        let evaluator = PlannerEvaluatorSpy()
+        evaluator.stubbedOutput = "I can help you plan. Please share more details."
+        let service = AssistantPlannerService(llm: evaluator)
+        let result = await service.generatePlan(
+            userPrompt: "Schedule alpha backlog",
+            thread: Thread(),
+            contextPayload: #"{"today":{"tasks":[]}}"#,
+            taskTitleByID: [:],
+            projectNameByID: [:],
+            knownTaskIDs: [],
+            route: .taskMutation
+        )
+
+        guard case .failure(let error) = result else {
+            return XCTFail("Expected model prose to fail validation when deterministic planner cannot recover")
+        }
+        guard case AssistantPlannerError.parseFailed = error else {
+            return XCTFail("Unexpected error: \(error)")
+        }
+        XCTAssertEqual(evaluator.capturedModelName, ModelConfiguration.defaultModel.name)
     }
 
     func testPlannerNormalizesBareCommandModelOutput() async throws {
@@ -1107,11 +1435,17 @@ final class AssistantPlannerServiceTests: XCTestCase {
     }
 
     func testSelectedEnvelopeCompilesOnlySelectedCommandIndexes() {
+        let firstTaskID = UUID()
+        let secondTaskID = UUID()
         let envelope = AssistantCommandEnvelope(
             schemaVersion: 3,
             commands: [
                 .createInboxTask(projectID: UUID(), title: "Call dentist", estimatedDuration: nil, lifeAreaID: nil, priority: nil, category: nil, details: nil, tagIDs: []),
                 .createInboxTask(projectID: UUID(), title: "Buy groceries", estimatedDuration: nil, lifeAreaID: nil, priority: nil, category: nil, details: nil, tagIDs: [])
+            ],
+            undoCommands: [
+                .deleteTask(taskID: firstTaskID),
+                .deleteTask(taskID: secondTaskID)
             ],
             rationaleText: "Inbox capture."
         )
@@ -1125,10 +1459,15 @@ final class AssistantPlannerServiceTests: XCTestCase {
 
         XCTAssertEqual(selected.schemaVersion, 3)
         XCTAssertEqual(selected.commands.count, 1)
+        XCTAssertEqual(selected.undoCommands?.count, 1)
         guard case .createInboxTask(_, let title, _, _, _, _, _, _) = selected.commands.first else {
             return XCTFail("Expected createInboxTask")
         }
         XCTAssertEqual(title, "Buy groceries")
+        guard case .deleteTask(let undoTaskID) = selected.undoCommands?.first else {
+            return XCTFail("Expected selected undo command")
+        }
+        XCTAssertEqual(undoTaskID, secondTaskID)
     }
 
     func testEvaProposalApplyGateAllowsSmallSafeSelectionsOnly() {
@@ -1163,6 +1502,36 @@ final class AssistantPlannerServiceTests: XCTestCase {
         XCTAssertEqual(
             EvaProposalApplyButtonTitleResolver.title(cards: cards, selectedCardIDs: [cards[0].id]),
             "Apply selected"
+        )
+    }
+
+    func testEvaContextReceiptCompactReviewTextUsesReadableSourceLabels() {
+        let receipt = EvaContextReceipt(sources: [
+            "Today timeline: 4",
+            "Overdue tasks: 13",
+            "Upcoming tasks: 2",
+            "Habits: 201"
+        ])
+
+        XCTAssertEqual(receipt.compactSourceText, "Today, overdue, upcoming, habits")
+        XCTAssertEqual(receipt.compactReviewText, "Review before applying • Context: Today, overdue, upcoming, habits")
+    }
+
+    func testEvaContextReceiptCompactReviewTextFallsBackWithoutVerboseReceiptCopy() {
+        let unknownReceipt = EvaContextReceipt(sources: [
+            "A very long internal context source that should not be shown raw in the collapsed proposal UI"
+        ])
+
+        XCTAssertEqual(EvaContextReceipt.empty.compactSourceText, "task context")
+        XCTAssertEqual(unknownReceipt.compactSourceText, "task context")
+        XCTAssertFalse(unknownReceipt.compactReviewText.contains("EVA used"))
+        XCTAssertFalse(unknownReceipt.compactReviewText.contains("very long internal context source"))
+    }
+
+    func testEvaProposalActionLabelsStayCompactForActionChips() {
+        XCTAssertEqual(
+            [EvaProposalAction.save, .show, .edit, .discard].map(\.rawValue),
+            ["Save", "Show", "Edit", "Discard"]
         )
     }
 
@@ -1335,5 +1704,63 @@ private final class PlannerEvaluatorSpy: LLMEvaluator {
         )
         let data = try! JSONEncoder().encode(envelope)
         return String(decoding: data, as: UTF8.self)
+    }
+}
+
+private final class AssistantPlannerTaskReadRepositoryStub: TaskReadModelRepositoryProtocol {
+    var tasks: [TaskDefinition]
+    private(set) var fetchQueries: [TaskReadQuery] = []
+
+    init(tasks: [TaskDefinition]) {
+        self.tasks = tasks
+    }
+
+    func fetchTasks(query: TaskReadQuery, completion: @escaping (Result<TaskDefinitionSliceResult, Error>) -> Void) {
+        fetchQueries.append(query)
+        let filtered = tasks.filter { task in
+            if query.includeCompleted == false, task.isComplete {
+                return false
+            }
+            if let start = query.dueDateStart, let dueDate = task.dueDate, dueDate < start {
+                return false
+            }
+            if let start = query.dueDateStart, task.dueDate == nil, task.scheduledStartAt == nil {
+                return false
+            }
+            if let end = query.dueDateEnd, let dueDate = task.dueDate, dueDate > end {
+                return false
+            }
+            return true
+        }
+        completion(.success(TaskDefinitionSliceResult(
+            tasks: filtered,
+            totalCount: filtered.count,
+            limit: query.limit,
+            offset: query.offset
+        )))
+    }
+
+    func searchTasks(query: TaskSearchQuery, completion: @escaping (Result<TaskDefinitionSliceResult, Error>) -> Void) {
+        completion(.success(TaskDefinitionSliceResult(tasks: [], totalCount: 0, limit: query.limit, offset: query.offset)))
+    }
+
+    func searchTasks(query: TaskRepositorySearchQuery, completion: @escaping (Result<TaskDefinitionSliceResult, Error>) -> Void) {
+        completion(.success(TaskDefinitionSliceResult(tasks: [], totalCount: 0, limit: query.limit, offset: query.offset)))
+    }
+
+    func fetchHomeProjection(query: HomeProjectionQuery, completion: @escaping (Result<TaskDefinitionSliceResult, Error>) -> Void) {
+        completion(.success(TaskDefinitionSliceResult(tasks: [], totalCount: 0, limit: query.limit, offset: query.offset)))
+    }
+
+    func fetchProjectTaskCounts(includeCompleted: Bool, completion: @escaping (Result<[UUID: Int], Error>) -> Void) {
+        completion(.success([:]))
+    }
+
+    func fetchProjectCompletionScoreTotals(
+        from startDate: Date,
+        to endDate: Date,
+        completion: @escaping (Result<[UUID: Int], Error>) -> Void
+    ) {
+        completion(.success([:]))
     }
 }

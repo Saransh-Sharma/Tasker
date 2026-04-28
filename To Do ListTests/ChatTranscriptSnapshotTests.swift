@@ -37,7 +37,9 @@ final class ChatTranscriptSnapshotTests: XCTestCase {
     }
 
     func testLiveOutputStateBuildsAssistantRenderModel() {
+        let responseID = UUID()
         let liveOutput = ChatLiveOutputState(
+            responseID: responseID,
             threadID: UUID(),
             text: "<think>Reason</think>\nAnswer",
             sourceModelName: ModelConfiguration.qwen_3_0_6b_4bit.name,
@@ -48,13 +50,42 @@ final class ChatTranscriptSnapshotTests: XCTestCase {
         )
 
         XCTAssertTrue(liveOutput.shouldRender)
+        XCTAssertEqual(liveOutput.renderModel.id, responseID)
         XCTAssertEqual(liveOutput.renderModel.role, .assistant)
         XCTAssertNil(liveOutput.renderModel.thinkingText)
         XCTAssertEqual(liveOutput.renderModel.answerText, "Answer")
     }
 
+    func testLiveOutputStateKeepsStableRenderIdentityAcrossTextChanges() {
+        let responseID = UUID()
+        let first = ChatLiveOutputState(
+            responseID: responseID,
+            threadID: UUID(),
+            text: "A",
+            sourceModelName: nil,
+            runtimePhase: .answering,
+            isRunning: true,
+            pendingPhase: .generating,
+            pendingStatusText: nil
+        )
+        let second = ChatLiveOutputState(
+            responseID: responseID,
+            threadID: first.threadID,
+            text: "A longer answer",
+            sourceModelName: nil,
+            runtimePhase: .answering,
+            isRunning: true,
+            pendingPhase: .generating,
+            pendingStatusText: nil
+        )
+
+        XCTAssertEqual(first.renderModel.id, responseID)
+        XCTAssertEqual(second.renderModel.id, responseID)
+    }
+
     func testLiveOutputStateRendersDuringPendingPhaseEvenWithoutText() {
         let liveOutput = ChatLiveOutputState(
+            responseID: UUID(),
             threadID: UUID(),
             text: "",
             sourceModelName: nil,
@@ -72,6 +103,7 @@ final class ChatTranscriptSnapshotTests: XCTestCase {
 
     func testLiveOutputStateDoesNotRenderWhenIdleAndEmpty() {
         let liveOutput = ChatLiveOutputState(
+            responseID: nil,
             threadID: UUID(),
             text: "",
             sourceModelName: nil,
