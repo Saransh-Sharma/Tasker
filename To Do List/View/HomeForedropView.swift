@@ -308,6 +308,9 @@ private struct NeedsReplanCardOverlay: View {
             return "Due \(anchorDate.formatted(.dateTime.weekday(.wide).month().day().hour().minute()))"
         case .scheduledCarryOver:
             guard let anchorDate = candidate.anchorDate else { return "Scheduled on a past day" }
+            if candidate.task.isAllDay || isDateOnly(anchorDate) {
+                return "Scheduled \(anchorDate.formatted(.dateTime.weekday(.wide).month().day()))"
+            }
             return "Scheduled \(anchorDate.formatted(.dateTime.weekday(.wide).month().day().hour().minute()))"
         case .unscheduledBacklog:
             return "No due date or time • Added \(candidate.task.createdAt.formatted(.dateTime.weekday(.wide).month().day()))"
@@ -3044,7 +3047,9 @@ struct HomeBackdropForedropRootView: View {
                 onStart: {
                     if overlaySnapshot.replanState.launcherSummary?.count == 0 {
                         viewModel.dismissNeedsReplanSessionUI()
-                        onAddTask()
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                            onAddTask()
+                        }
                     } else {
                         viewModel.startNeedsReplanSession()
                     }

@@ -248,6 +248,10 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
             if launchArguments.contains("-RESET_APP_STATE") {
                 resetAppState()
             }
+
+            if launchArguments.contains("-TASKER_TEST_EVA_ACTIVATION_COMPLETED") {
+                EvaActivationDefaultsStore.markCompleted()
+            }
         }
 
         // DEBUG defaults to Firebase off to avoid noisy simulator Network.framework QUIC logs.

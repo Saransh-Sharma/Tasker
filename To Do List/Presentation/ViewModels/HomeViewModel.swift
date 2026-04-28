@@ -557,7 +557,9 @@ public final class HomeViewModel: ObservableObject {
     private var replanApplyingAction: HomeReplanApplyingAction?
     private var replanErrorMessage: String?
     private var cachedGlobalReplanRevision: HomeDataRevision?
-    private var activeGlobalReplanFetchToken = UUID()
+    private var activeGlobalReplanFetchToken: UUID?
+    private var activeGlobalReplanFetchRevision: HomeDataRevision?
+    private var pendingGlobalReplanRefreshRevision: HomeDataRevision?
 
     // MARK: - Persistence Keys
 
@@ -6408,7 +6410,7 @@ public final class HomeViewModel: ObservableObject {
         guard let candidate = activeReplanCandidates.first else { return }
         var updated = candidate.task
         updated.isComplete = true
-        updated.dateCompleted = candidate.anchorDate ?? Date()
+        updated.dateCompleted = Date()
         updated.updatedAt = Date()
         applyReplanCommand(
             .restoreTaskSnapshot(snapshot: AssistantTaskSnapshot(task: updated)),
@@ -6546,9 +6548,14 @@ public final class HomeViewModel: ObservableObject {
             updateReplanState(phase: homeReplanState.phase)
             return
         }
+        guard activeGlobalReplanFetchRevision != dataRevision else {
+            pendingGlobalReplanRefreshRevision = dataRevision
+            return
+        }
 
         let fetchToken = UUID()
         activeGlobalReplanFetchToken = fetchToken
+        activeGlobalReplanFetchRevision = dataRevision
         fetchGlobalOpenTasks(
             readModelRepository: readModelRepository,
             limit: 400,
@@ -6558,6 +6565,15 @@ public final class HomeViewModel: ObservableObject {
             DispatchQueue.main.async {
                 guard let self else { return }
                 guard self.activeGlobalReplanFetchToken == fetchToken else { return }
+                let shouldRefreshAgain = self.pendingGlobalReplanRefreshRevision == self.dataRevision
+                self.pendingGlobalReplanRefreshRevision = nil
+                self.activeGlobalReplanFetchToken = nil
+                self.activeGlobalReplanFetchRevision = nil
+                if shouldRefreshAgain {
+                    self.cachedGlobalReplanRevision = nil
+                    self.refreshNeedsReplanCandidates()
+                    return
+                }
                 switch result {
                 case .success(let tasks):
                     self.needsReplanCandidates = self.deriveNeedsReplanCandidates(from: tasks, scopedTo: nil)
@@ -6565,7 +6581,7 @@ public final class HomeViewModel: ObservableObject {
                 case .failure(let error):
                     self.errorMessage = error.localizedDescription
                     self.needsReplanCandidates = []
-                    self.cachedGlobalReplanRevision = self.dataRevision
+                    self.cachedGlobalReplanRevision = nil
                 }
                 self.refreshPassiveNeedsReplanState()
                 self.updateReplanState(phase: self.homeReplanState.phase)
@@ -6596,7 +6612,7 @@ public final class HomeViewModel: ObservableObject {
             case .success(let slice):
                 let merged = accumulated + slice.tasks
                 let nextOffset = offset + slice.tasks.count
-                let loadedAllTasks = nextOffset >= slice.totalCount || slice.tasks.isEmpty
+                let loadedAllTasks = slice.tasks.count < limit || slice.tasks.isEmpty
                 if loadedAllTasks {
                     completion(.success(merged))
                     return

@@ -3044,6 +3044,7 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
                 for request in requests {
                     _ = try await createTaskDefinition.executeAsync(request: request)
                 }
+                viewModel.invalidateTaskCaches()
             } catch {
                 logError(
                     event: "ui_test_rescue_workspace_seed_failed",
