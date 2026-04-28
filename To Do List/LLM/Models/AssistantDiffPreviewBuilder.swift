@@ -128,6 +128,18 @@ struct AssistantDiffPreviewBuilder {
                     isDestructive: false
                 )
             }
+            if let start {
+                return AssistantDiffLine(
+                    text: "Move '\(baseTitle)' start to \(format(time: start))",
+                    isDestructive: false
+                )
+            }
+            if let end {
+                return AssistantDiffLine(
+                    text: "Move '\(baseTitle)' end to \(format(time: end))",
+                    isDestructive: false
+                )
+            }
             if let dueDate {
                 return AssistantDiffLine(
                     text: "Reschedule '\(baseTitle)' to \(format(date: dueDate))",
@@ -137,7 +149,7 @@ struct AssistantDiffPreviewBuilder {
             return AssistantDiffLine(text: "Update schedule for '\(baseTitle)'", isDestructive: false)
         case let .updateTaskFields(taskID, title, _, _, _, _, _, _, _):
             let baseTitle = displayTaskTitle(taskID: taskID, taskTitleByID: taskTitleByID)
-            if let title {
+            if let title = title.setValue {
                 return AssistantDiffLine(text: "Rename '\(baseTitle)' to '\(title)'", isDestructive: false)
             }
             return AssistantDiffLine(text: "Edit fields for '\(baseTitle)'", isDestructive: false)
@@ -150,7 +162,7 @@ struct AssistantDiffPreviewBuilder {
         case let .dropTaskFromToday(taskID, destination, _):
             let baseTitle = displayTaskTitle(taskID: taskID, taskTitleByID: taskTitleByID)
             return AssistantDiffLine(
-                text: "Drop '\(baseTitle)' from today to \(destination.rawValue)",
+                text: "Drop '\(baseTitle)' from today to \(destination.displayLabel)",
                 isDestructive: true
             )
         }

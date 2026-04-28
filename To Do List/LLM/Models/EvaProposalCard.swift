@@ -44,6 +44,33 @@ struct EvaContextReceipt: Codable, Equatable, Hashable {
         guard sources.isEmpty == false else { return "EVA used task context" }
         return "EVA used \(sources.joined(separator: ", "))"
     }
+
+    var compactSourceText: String {
+        let labels = compactSourceLabels
+        guard labels.isEmpty == false else { return "task context" }
+        return labels.joined(separator: ", ")
+    }
+
+    var compactReviewText: String {
+        "Review before applying • Context: \(compactSourceText)"
+    }
+
+    private var compactSourceLabels: [String] {
+        var labels: [String] = []
+        for source in sources {
+            let normalized = source.lowercased()
+            appendCompactLabel("Today", if: normalized.contains("today"), to: &labels)
+            appendCompactLabel("overdue", if: normalized.contains("overdue"), to: &labels)
+            appendCompactLabel("upcoming", if: normalized.contains("upcoming"), to: &labels)
+            appendCompactLabel("habits", if: normalized.contains("habit"), to: &labels)
+        }
+        return labels
+    }
+
+    private func appendCompactLabel(_ label: String, if condition: Bool, to labels: inout [String]) {
+        guard condition, labels.contains(label) == false else { return }
+        labels.append(label)
+    }
 }
 
 struct EvaTaskCardSnapshot: Codable, Equatable, Hashable {
@@ -122,10 +149,18 @@ enum EvaProposalApplyGate: Equatable {
         if selectedCards.contains(where: { $0.riskLevel != .safe }) {
             return .blocked(message: "This plan includes high-impact changes. Deselect those cards before applying selected changes.")
         }
-        if selectedCards.count >= 5 {
+        if selectedCards.count >= 5 && isHomogeneousSafeRescheduleSelection(selectedCards) == false {
             return .blocked(message: "This plan changes 5 or more tasks. Apply a smaller selection first.")
         }
         return .allowed(appliedCount: selectedCards.count)
+    }
+
+    private static func isHomogeneousSafeRescheduleSelection(_ cards: [EvaProposalCard]) -> Bool {
+        guard cards.isEmpty == false else { return false }
+        return cards.count <= 20
+            && cards.allSatisfy { card in
+                card.riskLevel == .safe && (card.kind == .edit || card.kind == .deferred)
+            }
     }
 }
 
@@ -223,10 +258,15 @@ enum EvaProposalCardBuilder {
         let selectedCommands = envelope.commands.enumerated().compactMap { index, command in
             selectedIndexes.contains(index) ? command : nil
         }
+        let selectedUndoCommands = envelope.undoCommands.map { undoCommands in
+            undoCommands.enumerated().compactMap { index, command in
+                selectedIndexes.contains(index) ? command : nil
+            }
+        }
         return AssistantCommandEnvelope(
             schemaVersion: envelope.schemaVersion,
             commands: selectedCommands,
-            undoCommands: nil,
+            undoCommands: selectedUndoCommands,
             rationaleText: envelope.rationaleText
         )
     }
@@ -303,21 +343,22 @@ enum EvaProposalCardBuilder {
             )
         case .updateTaskFields(let taskID, let newTitle, _, _, _, _, _, _, _):
             let title = displayTitle(taskID: taskID, taskTitleByID: taskTitleByID)
+            let resolvedTitle = newTitle.setValue
             return editCard(
                 kind: .edit,
-                title: newTitle ?? title,
-                subtitle: newTitle == nil ? "Update task details" : "Rename from \(title)",
+                title: resolvedTitle ?? title,
+                subtitle: resolvedTitle == nil ? "Update task details" : "Rename from \(title)",
                 badgeText: "EDIT",
                 commandIndex: commandIndex,
                 runID: runID,
-                after: EvaTaskCardSnapshot(taskID: taskID, title: newTitle ?? title, iconSymbolName: nil, placement: "Task", dueDate: nil, scheduledStartAt: nil, scheduledEndAt: nil, estimatedDuration: nil)
+                after: EvaTaskCardSnapshot(taskID: taskID, title: resolvedTitle ?? title, iconSymbolName: nil, placement: "Task", dueDate: nil, scheduledStartAt: nil, scheduledEndAt: nil, estimatedDuration: nil)
             )
         case .deferTask(let taskID, let targetDate, _):
             let title = displayTitle(taskID: taskID, taskTitleByID: taskTitleByID)
             return riskCard(kind: .deferred, title: title, subtitle: "Move to \(format(date: targetDate))", badgeText: "DEFER", commandIndex: commandIndex, runID: runID)
         case .dropTaskFromToday(let taskID, let destination, _):
             let title = displayTitle(taskID: taskID, taskTitleByID: taskTitleByID)
-            return riskCard(kind: .drop, title: title, subtitle: "Drop from today to \(destination.rawValue)", badgeText: "DROP", commandIndex: commandIndex, runID: runID)
+            return riskCard(kind: .drop, title: title, subtitle: "Drop from today to \(destination.displayLabel)", badgeText: "DROP", commandIndex: commandIndex, runID: runID)
         case .deleteTask(let taskID):
             let title = displayTitle(taskID: taskID, taskTitleByID: taskTitleByID)
             return riskCard(kind: .delete, title: title, subtitle: "Delete task", badgeText: "NEEDS REVIEW", commandIndex: commandIndex, runID: runID)
@@ -390,7 +431,8 @@ enum EvaProposalCardBuilder {
     }
 
     private static func riskCard(kind: EvaProposalKind, title: String, subtitle: String, badgeText: String, commandIndex: Int, runID: UUID?) -> EvaProposalCard {
-        EvaProposalCard(
+        let isDeferral = kind == .deferred
+        return EvaProposalCard(
             id: UUID(),
             runID: runID,
             commandIndexes: [commandIndex],
@@ -400,12 +442,12 @@ enum EvaProposalCardBuilder {
             before: nil,
             after: nil,
             badgeText: badgeText,
-            tone: kind == .deferred ? .warning : .destructive,
+            tone: isDeferral ? .edit : .destructive,
             primaryAction: .save,
             secondaryActions: [.show, .edit, .discard],
-            riskLevel: kind == .deferred ? .needsReview : .destructive,
-            contextExplanation: "EVA needs confirmation before applying this change.",
-            isSelectedByDefault: false
+            riskLevel: isDeferral ? .safe : .destructive,
+            contextExplanation: isDeferral ? "You asked EVA to move this task." : "EVA needs confirmation before applying this change.",
+            isSelectedByDefault: isDeferral
         )
     }
 

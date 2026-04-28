@@ -1,4 +1,5 @@
 import Foundation
+import CryptoKit
 import MLXLMCommon
 
 enum AssistantPlannerError: LocalizedError {
@@ -295,10 +296,18 @@ struct EvaPlanResponseDelivery {
 @MainActor
 final class AssistantPlannerService {
     private let llm: LLMEvaluator
+    private let taskReadModelRepository: TaskReadModelRepositoryProtocol?
+    private let nowProvider: () -> Date
 
     /// Initializes a new instance.
-    init(llm: LLMEvaluator? = nil) {
+    init(
+        llm: LLMEvaluator? = nil,
+        taskReadModelRepository: TaskReadModelRepositoryProtocol? = nil,
+        nowProvider: @escaping () -> Date = Date.init
+    ) {
         self.llm = llm ?? LLMRuntimeCoordinator.shared.evaluator
+        self.taskReadModelRepository = taskReadModelRepository
+        self.nowProvider = nowProvider
     }
 
     /// Executes generatePlan.
@@ -325,7 +334,7 @@ final class AssistantPlannerService {
             projectNameByID: projectNameByID,
             knownTaskIDs: effectiveKnownTaskIDs,
             contextReceipt: contextReceipt,
-            now: Date()
+            now: nowProvider()
         )
         let intent = EvaPlannerIntent.classify(userPrompt, route: turnRoute)
         let contextPolicy = EvaContextPolicy.evaluate(route: turnRoute, contextPayload: contextPayload)
@@ -365,7 +374,7 @@ final class AssistantPlannerService {
             ))
         }
 
-        if let fallback = AssistantDeterministicPlanner.plan(context: fallbackContext) {
+        if let fallback = await deterministicPlan(context: fallbackContext) {
             return .success(buildResult(
                 envelope: fallback.envelope,
                 proposalCards: fallback.cards,
@@ -442,7 +451,7 @@ final class AssistantPlannerService {
                     "error": error.localizedDescription,
                     "json_shape": AssistantEnvelopeValidator.jsonShape(rawOutput: output).rawValue,
                     "top_level_keys": AssistantEnvelopeValidator.topLevelKeys(rawOutput: output).joined(separator: ","),
-                    "raw_preview": LoggingService.previewText(output, maxLength: 220).replacingOccurrences(of: "\n", with: "\\n")
+                    "raw_preview_hash": Self.redactedHash(output)
                 ])
             )
             if let repaired = await repairPlanOutput(
@@ -475,7 +484,7 @@ final class AssistantPlannerService {
                     "context_task_count": String(contextTaskTitleByID.count)
                 ])
             )
-            if let fallback = AssistantDeterministicPlanner.plan(context: fallbackContext) {
+            if let fallback = await deterministicPlan(context: fallbackContext) {
                 return .success(buildResult(
                     envelope: fallback.envelope,
                     proposalCards: fallback.cards,
@@ -491,7 +500,7 @@ final class AssistantPlannerService {
             logWarning(
                 event: "eva_plan_fallback_failed",
                 message: "Deterministic EVA plan fallback could not parse prompt",
-                fields: traceFields(traceContext, ["prompt_preview": LoggingService.previewText(userPrompt, maxLength: 180)])
+                fields: traceFields(traceContext, ["prompt_hash": Self.redactedHash(userPrompt)])
             )
             logWarning(
                 event: "eva_plan_failure_final",
@@ -511,7 +520,7 @@ final class AssistantPlannerService {
                     message: "Rejected EVA plan output that was not grounded in the user prompt or context",
                     fields: traceFields(traceContext, [
                         "command_count": String(parsed.envelope.commands.count),
-                        "prompt_preview": LoggingService.previewText(userPrompt, maxLength: 180)
+                        "prompt_hash": Self.redactedHash(userPrompt)
                     ])
                 )
                 let output = AssistantDeterministicPlanner.clarificationPlan(for: userPrompt)
@@ -628,7 +637,7 @@ final class AssistantPlannerService {
 
     private func cleanPlannerThread(userPrompt: String, contextPayload: String) -> Thread {
         let thread = Thread()
-        let now = Date()
+        let now = nowProvider()
         let body = """
         current_time: \(now.ISO8601Format())
         selected_day: \(Calendar.current.startOfDay(for: now).ISO8601Format())
@@ -639,6 +648,68 @@ final class AssistantPlannerService {
         """
         thread.messages.append(Message(role: .user, content: body, thread: thread))
         return thread
+    }
+
+    private func deterministicPlan(context: AssistantDeterministicPlanner.Context) async -> AssistantDeterministicPlanner.Output? {
+        if let request = AssistantDeterministicPlanner.taskSelectionRequest(context: context),
+           let tasks = await fetchDeterministicTasks(for: request) {
+            return AssistantDeterministicPlanner.plan(context: context, repositoryTasks: tasks)
+        }
+        return AssistantDeterministicPlanner.plan(context: context)
+    }
+
+    private func fetchDeterministicTasks(
+        for request: AssistantDeterministicPlanner.TaskSelectionRequest
+    ) async -> [TaskDefinition]? {
+        guard let taskReadModelRepository else { return nil }
+        let dueWindow = await fetchTasks(query: TaskReadQuery(
+            includeCompleted: false,
+            dueDateStart: request.sourceStart,
+            dueDateEnd: request.sourceEnd,
+            sortBy: .dueDateAscending,
+            limit: request.limit,
+            offset: 0
+        ))
+        let openTasks = await fetchTasks(query: TaskReadQuery(
+            includeCompleted: false,
+            sortBy: .dueDateAscending,
+            limit: request.limit,
+            offset: 0
+        ))
+        let calendar = Calendar.current
+        var byID: [UUID: TaskDefinition] = [:]
+        for task in dueWindow + openTasks {
+            guard task.isComplete == false else { continue }
+            let isInSourceWindow = [
+                task.dueDate,
+                task.scheduledStartAt
+            ].contains { date in
+                guard let date else { return false }
+                return date >= request.sourceStart && date <= request.sourceEnd
+            }
+            let isUnscheduled = request.includeUnscheduled
+                && task.dueDate == nil
+                && task.scheduledStartAt == nil
+            guard isInSourceWindow || isUnscheduled else { continue }
+            byID[task.id] = task
+        }
+        return byID.values.sorted { lhs, rhs in
+            let lhsDate = lhs.scheduledStartAt ?? lhs.dueDate ?? lhs.updatedAt
+            let rhsDate = rhs.scheduledStartAt ?? rhs.dueDate ?? rhs.updatedAt
+            if calendar.compare(lhsDate, to: rhsDate, toGranularity: .second) == .orderedSame {
+                return lhs.title.localizedCaseInsensitiveCompare(rhs.title) == .orderedAscending
+            }
+            return lhsDate < rhsDate
+        }
+    }
+
+    private func fetchTasks(query: TaskReadQuery) async -> [TaskDefinition] {
+        guard let taskReadModelRepository else { return [] }
+        return await withCheckedContinuation { continuation in
+            taskReadModelRepository.fetchTasks(query: query) { result in
+                continuation.resume(returning: (try? result.get().tasks) ?? [])
+            }
+        }
     }
 
     private func repairPlanOutput(
@@ -667,7 +738,7 @@ final class AssistantPlannerService {
         let output = await llm.generate(
             modelName: model.name,
             thread: thread,
-            systemPrompt: planSystemPrompt(),
+            systemPrompt: planSystemPrompt(referenceDate: nowProvider()),
             profile: .chatPlanJSON,
             requestOptions: .structuredOutput(for: model)
         )
@@ -690,7 +761,7 @@ final class AssistantPlannerService {
                 fields: traceFields(traceContext, [
                     "json_shape": AssistantEnvelopeValidator.jsonShape(rawOutput: output).rawValue,
                     "top_level_keys": AssistantEnvelopeValidator.topLevelKeys(rawOutput: output).joined(separator: ","),
-                    "raw_preview": LoggingService.previewText(output, maxLength: 220).replacingOccurrences(of: "\n", with: "\\n")
+                    "raw_preview_hash": Self.redactedHash(output)
                 ])
             )
             return nil
@@ -813,6 +884,11 @@ final class AssistantPlannerService {
         return traceContext.logFields.merging(fields) { _, new in new }
     }
 
+    private static func redactedHash(_ text: String) -> String {
+        let digest = SHA256.hash(data: Data(text.utf8))
+        return digest.prefix(6).map { String(format: "%02x", $0) }.joined()
+    }
+
     private static func usesModelGenerationForDeliveryGate(source: String) -> Bool {
         switch source {
         case "model", "model_normalized", "repair", "repair_normalized":
@@ -841,7 +917,7 @@ enum EvaTurnRouter {
         let habitMarkers = ["habit", "habits", "streak", "check in", "check-in", "pause habit", "resume habit"]
         let mutationMarkers = [
             "add", "create", "schedule", "setup", "set up", "make", "write", "plan", "move", "reschedule", "defer",
-            "drop", "mark", "rename", "complete", "shift", "pause", "resume", "log"
+            "drop", "mark", "rename", "complete", "shift", "push", "carry over", "pause", "resume", "log"
         ]
         if habitMarkers.contains(where: { lower.contains($0) }) &&
             mutationMarkers.contains(where: { containsWord(lower, $0) }) {
@@ -869,7 +945,7 @@ enum EvaTurnRouter {
         }
 
         let updateMarkers = [
-            "move", "reschedule", "defer", "drop", "mark", "rename", "complete", "running late", "shift"
+            "move", "reschedule", "defer", "drop", "mark", "rename", "complete", "running late", "shift", "push", "carry over"
         ]
         if updateMarkers.contains(where: { containsWord(lower, $0) || lower.contains($0) }) {
             return .taskMutation
@@ -1148,7 +1224,9 @@ enum EvaPlannerIntent: Equatable {
             "rename ",
             "complete ",
             "running late",
-            "shift "
+            "shift ",
+            "push ",
+            "carry over"
         ]
         if updateMarkers.contains(where: { lower.contains($0) }) {
             return .explicitUpdate
@@ -1274,11 +1352,22 @@ struct AssistantDeterministicPlanner {
         let dayOverviewPayload: EvaDayOverviewPayload?
     }
 
-    private struct ContextTask {
+    struct TaskSelectionRequest: Equatable {
+        let sourceStart: Date
+        let sourceEnd: Date
+        let includeUnscheduled: Bool
+        let limit: Int
+    }
+
+    struct ContextTask {
         let id: UUID
         let title: String
+        let dueDate: Date?
         let scheduledStartAt: Date?
         let scheduledEndAt: Date?
+        let estimatedDuration: TimeInterval?
+        let projectName: String?
+        let tagNames: [String]
         let isCompleted: Bool
     }
 
@@ -1324,7 +1413,7 @@ struct AssistantDeterministicPlanner {
     }
 
     static func habitClarificationPlan(for prompt: String) -> Output {
-        let message = "I can review habits and include them in planning, but habit changes are not applyable from this EVA card yet. Tell me if you want a task added to support that habit."
+        let message = "I can review habits and include them in planning, but habit changes cannot be applied from this EVA card yet. Tell me if you want a task added to support that habit."
         let envelope = AssistantCommandEnvelope(schemaVersion: 3, commands: [], rationaleText: message)
         return Output(
             envelope: envelope,
@@ -1333,11 +1422,26 @@ struct AssistantDeterministicPlanner {
         )
     }
 
-    static func plan(context: Context) -> Output? {
+    static func plan(context: Context, repositoryTasks: [TaskDefinition]? = nil) -> Output? {
         let prompt = context.userPrompt.trimmingCharacters(in: .whitespacesAndNewlines)
         guard prompt.isEmpty == false else { return nil }
-        let tasks = extractContextTasks(from: context.contextPayload)
+        let tasks = repositoryTasks.map(contextTasks(from:)) ?? extractContextTasks(from: context.contextPayload)
         let titleByID = context.taskTitleByID.merging(Dictionary(uniqueKeysWithValues: tasks.map { ($0.id, $0.title) })) { current, _ in current }
+
+        if let batch = batchReschedulePlan(prompt: prompt, tasks: tasks, now: context.now) {
+            let envelope = AssistantCommandEnvelope(
+                schemaVersion: 3,
+                commands: batch.commands,
+                rationaleText: batch.rationale
+            )
+            return Output(
+                envelope: envelope,
+                cards: batch.commands.isEmpty
+                    ? [EvaProposalCardBuilder.noOpCard(title: batch.noOpTitle ?? "No matching tasks found", subtitle: batch.rationale)]
+                    : EvaProposalCardBuilder.build(commands: envelope.commands, taskTitleByID: titleByID),
+                dayOverviewPayload: nil
+            )
+        }
 
         if let timed = timedCreatePlan(prompt: prompt, now: context.now, projectID: defaultProjectID(projectNameByID: context.projectNameByID)) {
             let envelope = AssistantCommandEnvelope(
@@ -1417,6 +1521,388 @@ struct AssistantDeterministicPlanner {
         }
 
         return nil
+    }
+
+    static func taskSelectionRequest(context: Context) -> TaskSelectionRequest? {
+        guard let intent = BatchRescheduleIntent.parse(prompt: context.userPrompt, now: context.now) else {
+            return nil
+        }
+        return TaskSelectionRequest(
+            sourceStart: intent.source.start,
+            sourceEnd: intent.source.end,
+            includeUnscheduled: intent.includeUnscheduled,
+            limit: 200
+        )
+    }
+
+    private struct DayWindow: Equatable {
+        let start: Date
+        let end: Date
+    }
+
+    private enum BatchRescheduleMode: Equatable {
+        case moveToDay(Date)
+        case shift(TimeInterval)
+        case anchor(Date)
+        case drop(AssistantDropDestination)
+    }
+
+    private struct BatchRescheduleIntent: Equatable {
+        let source: DayWindow
+        let mode: BatchRescheduleMode
+        let includeUnscheduled: Bool
+        let projectFilter: String?
+        let tagFilter: String?
+
+        static func parse(prompt: String, now: Date) -> BatchRescheduleIntent? {
+            let lower = normalized(prompt)
+            guard mentionsBatchOpenWork(lower), mentionsRescheduleAction(lower) else { return nil }
+            let source = sourceWindow(from: lower, now: now)
+            let includeUnscheduled = lower.contains("all open")
+                || lower.contains("all my open")
+                || lower.contains("unscheduled")
+                || lower.contains("everything")
+            let mode: BatchRescheduleMode
+            if lower.contains("to inbox") {
+                mode = .drop(.inbox)
+            } else if lower.contains("to later") {
+                mode = .drop(.later)
+            } else if let shift = shiftSeconds(from: lower) {
+                mode = .shift(shift)
+            } else if let anchor = anchorDate(from: lower, source: source, now: now) {
+                mode = .anchor(anchor)
+            } else {
+                let targetDay = targetDayStart(from: lower, now: now)
+                    ?? Calendar.current.date(byAdding: .day, value: 1, to: Calendar.current.startOfDay(for: now))
+                    ?? Calendar.current.startOfDay(for: now)
+                mode = .moveToDay(targetDay)
+            }
+            return BatchRescheduleIntent(
+                source: source,
+                mode: mode,
+                includeUnscheduled: includeUnscheduled,
+                projectFilter: phrase(after: "in project", in: lower) ?? phrase(after: "project", in: lower),
+                tagFilter: phrase(after: "tagged", in: lower)
+            )
+        }
+
+        private static func mentionsBatchOpenWork(_ lower: String) -> Bool {
+            let subjects = [
+                "unfinished", "open", "incomplete", "remaining", "left from today", "didn t finish",
+                "did not finish", "overdue", "past due", "everything", "all tasks", "all my tasks",
+                "carry over"
+            ]
+            return subjects.contains(where: { lower.contains($0) })
+        }
+
+        private static func mentionsRescheduleAction(_ lower: String) -> Bool {
+            ["reschedule", "move", "push", "shift", "defer", "carry over", "drop"].contains { lower.contains($0) }
+        }
+
+        private static func normalized(_ prompt: String) -> String {
+            prompt
+                .lowercased()
+                .replacingOccurrences(of: "[^a-z0-9:\\s]", with: " ", options: .regularExpression)
+                .replacingOccurrences(of: "\\s+", with: " ", options: .regularExpression)
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+        }
+
+        private static func sourceWindow(from lower: String, now: Date) -> DayWindow {
+            let calendar = Calendar.current
+            let today = calendar.startOfDay(for: now)
+            if lower.contains("yesterday") {
+                return dayWindow(start: calendar.date(byAdding: .day, value: -1, to: today) ?? today)
+            }
+            if lower.contains("from tomorrow")
+                || lower.contains("tomorrow s")
+                || lower.contains("tomorrows") {
+                return dayWindow(start: calendar.date(byAdding: .day, value: 1, to: today) ?? today)
+            }
+            if lower.contains("this week") {
+                let interval = calendar.dateInterval(of: .weekOfYear, for: now)
+                return DayWindow(start: interval?.start ?? today, end: (interval?.end ?? today).addingTimeInterval(-1))
+            }
+            if lower.contains("overdue") || lower.contains("past due") {
+                return DayWindow(start: .distantPast, end: today.addingTimeInterval(-1))
+            }
+            return dayWindow(start: today)
+        }
+
+        private static func dayWindow(start: Date) -> DayWindow {
+            let end = (Calendar.current.date(byAdding: .day, value: 1, to: start) ?? start).addingTimeInterval(-1)
+            return DayWindow(start: start, end: end)
+        }
+
+        private static func targetDayStart(from lower: String, now: Date) -> Date? {
+            let calendar = Calendar.current
+            let today = calendar.startOfDay(for: now)
+            if lower.contains("to today") { return today }
+            if lower.contains("to tomorrow") || lower.contains("next day") {
+                return calendar.date(byAdding: .day, value: 1, to: today)
+            }
+            if lower.contains("next week") {
+                return calendar.date(byAdding: .day, value: 7, to: today)
+            }
+            let weekdays = [
+                "sunday": 1, "monday": 2, "tuesday": 3, "wednesday": 4,
+                "thursday": 5, "friday": 6, "saturday": 7
+            ]
+            for (name, weekday) in weekdays where lower.contains(name) {
+                return nextWeekday(weekday, from: now)
+            }
+            if lower.contains("tomorrow")
+                && lower.contains("tomorrow s") == false
+                && lower.contains("tomorrows") == false {
+                return calendar.date(byAdding: .day, value: 1, to: today)
+            }
+            return explicitMonthDay(from: lower, now: now)
+        }
+
+        private static func nextWeekday(_ weekday: Int, from now: Date) -> Date? {
+            let calendar = Calendar.current
+            let today = calendar.startOfDay(for: now)
+            let current = calendar.component(.weekday, from: today)
+            let delta = (weekday - current + 7) % 7
+            return calendar.date(byAdding: .day, value: delta == 0 ? 7 : delta, to: today)
+        }
+
+        private static func explicitMonthDay(from lower: String, now: Date) -> Date? {
+            let months = [
+                "jan": 1, "january": 1, "feb": 2, "february": 2, "mar": 3, "march": 3,
+                "apr": 4, "april": 4, "may": 5, "jun": 6, "june": 6, "jul": 7, "july": 7,
+                "aug": 8, "august": 8, "sep": 9, "sept": 9, "september": 9,
+                "oct": 10, "october": 10, "nov": 11, "november": 11, "dec": 12, "december": 12
+            ]
+            for (name, month) in months {
+                let pattern = #"\b\#(name)\s+(\d{1,2})(?:st|nd|rd|th)?\b"#
+                guard let regex = try? NSRegularExpression(pattern: pattern),
+                      let match = regex.firstMatch(in: lower, range: NSRange(lower.startIndex..<lower.endIndex, in: lower)),
+                      let dayRange = Range(match.range(at: 1), in: lower),
+                      let day = Int(lower[dayRange]) else { continue }
+                var components = Calendar.current.dateComponents([.year], from: now)
+                components.month = month
+                components.day = day
+                return Calendar.current.date(from: components).map { Calendar.current.startOfDay(for: $0) }
+            }
+            let numericPattern = #"\b(?:to\s+)?(\d{1,2})(?:st|nd|rd|th)\b"#
+            guard let regex = try? NSRegularExpression(pattern: numericPattern),
+                  let match = regex.firstMatch(in: lower, range: NSRange(lower.startIndex..<lower.endIndex, in: lower)),
+                  let dayRange = Range(match.range(at: 1), in: lower),
+                  let day = Int(lower[dayRange]) else { return nil }
+            var components = Calendar.current.dateComponents([.year, .month], from: now)
+            components.day = day
+            return Calendar.current.date(from: components).map { Calendar.current.startOfDay(for: $0) }
+        }
+
+        private static func shiftSeconds(from lower: String) -> TimeInterval? {
+            let direction: Double
+            if lower.contains("back") || lower.contains("earlier") {
+                direction = -1
+            } else if lower.contains("forward") || lower.contains("later") || lower.contains("push") || lower.contains("shift") {
+                direction = 1
+            } else {
+                return nil
+            }
+            guard let duration = durationSeconds(in: lower) else { return nil }
+            return direction * duration
+        }
+
+        private static func anchorDate(from lower: String, source: DayWindow, now: Date) -> Date? {
+            let anchorDay = targetDayStart(from: lower, now: now) ?? source.start
+            if lower.contains("morning") {
+                return Calendar.current.date(bySettingHour: 9, minute: 0, second: 0, of: anchorDay)
+            }
+            if lower.contains("afternoon") {
+                return Calendar.current.date(bySettingHour: 13, minute: 0, second: 0, of: anchorDay)
+            }
+            if lower.contains("evening") {
+                return Calendar.current.date(bySettingHour: 18, minute: 0, second: 0, of: anchorDay)
+            }
+            let pattern = #"\b(?:at|after|from)\s+(\d{1,2}(?::\d{2})?\s*(?:am|pm))\b"#
+            guard let regex = try? NSRegularExpression(pattern: pattern),
+                  let match = regex.firstMatch(in: lower, range: NSRange(lower.startIndex..<lower.endIndex, in: lower)),
+                  let range = Range(match.range(at: 1), in: lower) else { return nil }
+            return date(for: String(lower[range]), on: anchorDay)
+        }
+
+        private static func phrase(after marker: String, in lower: String) -> String? {
+            guard let range = lower.range(of: marker) else { return nil }
+            let stopWords = Set(["to", "from", "by", "after", "tomorrow", "today", "yesterday", "next"])
+            let trailing = lower[range.upperBound...]
+                .split(separator: " ")
+                .prefix { !stopWords.contains(String($0)) }
+                .joined(separator: " ")
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+            return trailing.isEmpty ? nil : trailing
+        }
+    }
+
+    private struct BatchReschedulePlan {
+        let commands: [AssistantCommand]
+        let rationale: String
+        let noOpTitle: String?
+    }
+
+    private static func batchReschedulePlan(
+        prompt: String,
+        tasks: [ContextTask],
+        now: Date
+    ) -> BatchReschedulePlan? {
+        guard let intent = BatchRescheduleIntent.parse(prompt: prompt, now: now) else { return nil }
+        let candidates = batchCandidates(tasks: tasks, intent: intent)
+        guard candidates.isEmpty == false else {
+            return BatchReschedulePlan(
+                commands: [],
+                rationale: "I checked the requested scope and did not find open tasks to reschedule.",
+                noOpTitle: "No matching open tasks"
+            )
+        }
+        let maxCommands = 20
+        guard candidates.count <= maxCommands else {
+            return BatchReschedulePlan(
+                commands: [],
+                rationale: "I found \(candidates.count) matching open tasks. Narrow the scope before applying a batch reschedule.",
+                noOpTitle: "Too many matching tasks"
+            )
+        }
+
+        let commands: [AssistantCommand]
+        switch intent.mode {
+        case .moveToDay(let targetDay):
+            commands = candidates.map { moveCommand(task: $0, targetDay: targetDay) }
+        case .shift(let delta):
+            commands = candidates.compactMap { shiftCommand(task: $0, delta: delta) }
+        case .anchor(let anchor):
+            commands = anchoredCommands(tasks: candidates, anchor: anchor)
+        case .drop(let destination):
+            commands = candidates.map { .dropTaskFromToday(taskID: $0.id, destination: destination, reason: "Requested batch reschedule") }
+        }
+        guard commands.isEmpty == false else {
+            return BatchReschedulePlan(
+                commands: [],
+                rationale: "I found matching tasks, but they need a date or time target before EVA can reschedule them.",
+                noOpTitle: "Needs a target"
+            )
+        }
+        return BatchReschedulePlan(
+            commands: commands,
+            rationale: "I prepared \(commands.count) open task\(commands.count == 1 ? "" : "s") for review.",
+            noOpTitle: nil
+        )
+    }
+
+    private static func batchCandidates(tasks: [ContextTask], intent: BatchRescheduleIntent) -> [ContextTask] {
+        tasks
+            .filter { task in
+                guard task.isCompleted == false else { return false }
+                if let projectFilter = intent.projectFilter,
+                   task.projectName?.localizedCaseInsensitiveContains(projectFilter) != true {
+                    return false
+                }
+                if let tagFilter = intent.tagFilter,
+                   task.tagNames.contains(where: { $0.localizedCaseInsensitiveContains(tagFilter) }) == false {
+                    return false
+                }
+                if intent.includeUnscheduled, task.dueDate == nil, task.scheduledStartAt == nil {
+                    return true
+                }
+                return [task.dueDate, task.scheduledStartAt].contains { date in
+                    guard let date else { return false }
+                    return date >= intent.source.start && date <= intent.source.end
+                }
+            }
+            .sorted { lhs, rhs in
+                let lhsDate = lhs.scheduledStartAt ?? lhs.dueDate ?? .distantFuture
+                let rhsDate = rhs.scheduledStartAt ?? rhs.dueDate ?? .distantFuture
+                if lhsDate == rhsDate {
+                    return lhs.title.localizedCaseInsensitiveCompare(rhs.title) == .orderedAscending
+                }
+                return lhsDate < rhsDate
+            }
+    }
+
+    private static func moveCommand(task: ContextTask, targetDay: Date) -> AssistantCommand {
+        if let start = task.scheduledStartAt {
+            let newStart = preservingTime(from: start, on: targetDay)
+            let duration = duration(for: task, fallback: 1_800)
+            return .updateTaskSchedule(
+                taskID: task.id,
+                scheduledStartAt: newStart,
+                scheduledEndAt: newStart.addingTimeInterval(duration),
+                estimatedDuration: duration,
+                dueDate: newStart
+            )
+        }
+        return .deferTask(taskID: task.id, targetDate: targetDay, reason: .userRequested)
+    }
+
+    private static func shiftCommand(task: ContextTask, delta: TimeInterval) -> AssistantCommand? {
+        guard let start = task.scheduledStartAt ?? task.dueDate else { return nil }
+        let newStart = start.addingTimeInterval(delta)
+        if task.scheduledStartAt == nil, task.scheduledEndAt == nil {
+            return .deferTask(taskID: task.id, targetDate: newStart, reason: .userRequested)
+        }
+        let duration = duration(for: task, fallback: 1_800)
+        return .updateTaskSchedule(
+            taskID: task.id,
+            scheduledStartAt: newStart,
+            scheduledEndAt: newStart.addingTimeInterval(duration),
+            estimatedDuration: duration,
+            dueDate: newStart
+        )
+    }
+
+    private static func anchoredCommands(tasks: [ContextTask], anchor: Date) -> [AssistantCommand] {
+        var cursor = anchor
+        return tasks.map { task in
+            let duration = duration(for: task, fallback: 1_800)
+            let start = cursor
+            let end = start.addingTimeInterval(duration)
+            cursor = end
+            return .updateTaskSchedule(
+                taskID: task.id,
+                scheduledStartAt: start,
+                scheduledEndAt: end,
+                estimatedDuration: duration,
+                dueDate: start
+            )
+        }
+    }
+
+    private static func duration(for task: ContextTask, fallback: TimeInterval) -> TimeInterval {
+        if let start = task.scheduledStartAt, let end = task.scheduledEndAt, end > start {
+            return end.timeIntervalSince(start)
+        }
+        if let estimated = task.estimatedDuration, estimated > 0 {
+            return estimated
+        }
+        return fallback
+    }
+
+    private static func preservingTime(from source: Date, on day: Date) -> Date {
+        let components = Calendar.current.dateComponents([.hour, .minute, .second], from: source)
+        return Calendar.current.date(
+            bySettingHour: components.hour ?? 0,
+            minute: components.minute ?? 0,
+            second: components.second ?? 0,
+            of: day
+        ) ?? day
+    }
+
+    private static func contextTasks(from tasks: [TaskDefinition]) -> [ContextTask] {
+        tasks.map { task in
+            ContextTask(
+                id: task.id,
+                title: task.title,
+                dueDate: task.dueDate,
+                scheduledStartAt: task.scheduledStartAt,
+                scheduledEndAt: task.scheduledEndAt,
+                estimatedDuration: task.estimatedDuration,
+                projectName: task.projectName,
+                tagNames: [],
+                isCompleted: task.isComplete
+            )
+        }
     }
 
     private static func untimedCreatePlan(prompt: String) -> [UntimedTaskSpec]? {
@@ -1620,16 +2106,10 @@ struct AssistantDeterministicPlanner {
 
     private static func collectTasks(from object: Any?, into tasks: inout [ContextTask]) {
         if let dict = object as? [String: Any] {
-            if let idString = dict["id"] as? String,
-               let id = UUID(uuidString: idString),
-               let title = dict["title"] as? String {
-                tasks.append(ContextTask(
-                    id: id,
-                    title: title,
-                    scheduledStartAt: parseDate(dict["due_date"]),
-                    scheduledEndAt: nil,
-                    isCompleted: dict["is_completed"] as? Bool ?? false
-                ))
+            if let taskArray = dict["tasks"] as? [[String: Any]] {
+                for item in taskArray {
+                    appendContextTask(from: item, into: &tasks)
+                }
             }
             for value in dict.values {
                 collectTasks(from: value, into: &tasks)
@@ -1639,6 +2119,25 @@ struct AssistantDeterministicPlanner {
                 collectTasks(from: item, into: &tasks)
             }
         }
+    }
+
+    private static func appendContextTask(from dict: [String: Any], into tasks: inout [ContextTask]) {
+        guard let idString = dict["id"] as? String,
+              let id = UUID(uuidString: idString),
+              let title = dict["title"] as? String else {
+            return
+        }
+        tasks.append(ContextTask(
+            id: id,
+            title: title,
+            dueDate: parseDate(dict["due_date"]),
+            scheduledStartAt: parseDate(dict["scheduled_start_at"]),
+            scheduledEndAt: parseDate(dict["scheduled_end_at"]),
+            estimatedDuration: Self.timeInterval(from: dict["estimated_duration_minutes"]).map { $0 * 60 },
+            projectName: dict["project"] as? String,
+            tagNames: dict["tag_names"] as? [String] ?? [],
+            isCompleted: dict["is_completed"] as? Bool ?? false
+        ))
     }
 
     private static func defaultProjectID(projectNameByID: [UUID: String]) -> UUID {
@@ -1722,6 +2221,19 @@ struct AssistantDeterministicPlanner {
             return date
         }
         return ISO8601DateFormatter.taskerPlanner.date(from: string)
+    }
+
+    private static func timeInterval(from value: Any?) -> TimeInterval? {
+        if let number = value as? NSNumber {
+            return number.doubleValue
+        }
+        if let double = value as? Double {
+            return double
+        }
+        if let int = value as? Int {
+            return Double(int)
+        }
+        return nil
     }
 
     private static func cleanTitle(_ raw: String) -> String {
