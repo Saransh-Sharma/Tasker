@@ -671,7 +671,9 @@ public final class AssistantActionPipelineUseCase {
             guard var task = taskMap[taskID] else {
                 throw NSError(domain: "AssistantActionPipelineUseCase", code: 404, userInfo: [NSLocalizedDescriptionKey: "Task not found: \(taskID)"])
             }
-            if let scheduledStartAt, let scheduledEndAt, scheduledEndAt <= scheduledStartAt {
+            let effectiveStart = scheduledStartAt ?? task.scheduledStartAt
+            let effectiveEnd = scheduledEndAt ?? task.scheduledEndAt
+            if let effectiveStart, let effectiveEnd, effectiveEnd <= effectiveStart {
                 throw NSError(
                     domain: "AssistantActionPipelineUseCase",
                     code: 422,
@@ -679,12 +681,12 @@ public final class AssistantActionPipelineUseCase {
                 )
             }
             let inverse = AssistantCommand.restoreTaskSnapshot(snapshot: AssistantTaskSnapshot(task: task))
-            task.scheduledStartAt = scheduledStartAt
-            task.scheduledEndAt = scheduledEndAt
-            task.estimatedDuration = estimatedDuration ?? scheduledEndAt.flatMap { end in
-                scheduledStartAt.map { end.timeIntervalSince($0) }
+            task.scheduledStartAt = effectiveStart
+            task.scheduledEndAt = effectiveEnd
+            task.estimatedDuration = estimatedDuration ?? effectiveEnd.flatMap { end in
+                effectiveStart.map { end.timeIntervalSince($0) }
             } ?? task.estimatedDuration
-            task.dueDate = dueDate ?? scheduledStartAt ?? task.dueDate
+            task.dueDate = dueDate ?? effectiveStart ?? task.dueDate
             task.isAllDay = false
             task.replanCount = max(0, task.replanCount) + 1
             task.updatedAt = Date()
@@ -710,14 +712,26 @@ public final class AssistantActionPipelineUseCase {
                 throw NSError(domain: "AssistantActionPipelineUseCase", code: 404, userInfo: [NSLocalizedDescriptionKey: "Task not found: \(taskID)"])
             }
             let inverse = AssistantCommand.restoreTaskSnapshot(snapshot: AssistantTaskSnapshot(task: task))
-            if let title { task.title = title }
-            if let details { task.details = details }
-            if let priority { task.priority = priority }
-            if let energy { task.energy = energy }
-            if let category { task.category = category }
-            if let context { task.context = context }
-            if let lifeAreaID { task.lifeAreaID = lifeAreaID }
-            if let tagIDs { task.tagIDs = tagIDs }
+            if case .set(let title) = title { task.title = title }
+            switch details {
+            case .set(let details): task.details = details
+            case .clear: task.details = nil
+            case .absent: break
+            }
+            if case .set(let priority) = priority { task.priority = priority }
+            if case .set(let energy) = energy { task.energy = energy }
+            if case .set(let category) = category { task.category = category }
+            if case .set(let context) = context { task.context = context }
+            switch lifeAreaID {
+            case .set(let lifeAreaID): task.lifeAreaID = lifeAreaID
+            case .clear: task.lifeAreaID = nil
+            case .absent: break
+            }
+            switch tagIDs {
+            case .set(let tagIDs): task.tagIDs = tagIDs
+            case .clear: task.tagIDs = []
+            case .absent: break
+            }
             task.updatedAt = Date()
             let updated = try await withTimeout(seconds: commandTimeoutSeconds) {
                 try await self.updateTaskAsync(task)
