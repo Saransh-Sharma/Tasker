@@ -4107,13 +4107,28 @@ struct HomeBackdropForedropRootView: View {
                         persistentReplanDayEntry
                             .padding(.horizontal, spacing.s16)
                     }
+
+                    timelineBottomContentSpacer(taskListBottomInset: taskListBottomInset)
                 }
                 .padding(.top, spacing.s8)
-                .padding(.bottom, taskListBottomInset)
             }
             .scrollIndicators(.hidden)
         }
         .accessibilityIdentifier("home.timeline.surface")
+    }
+
+    private func timelineBottomContentSpacer(taskListBottomInset: CGFloat) -> some View {
+        Color.clear
+            .frame(height: timelineBottomContentClearance(taskListBottomInset: taskListBottomInset))
+            .allowsHitTesting(false)
+            .accessibilityHidden(true)
+    }
+
+    private func timelineBottomContentClearance(taskListBottomInset: CGFloat) -> CGFloat {
+        guard layoutClass == .phone else {
+            return taskListBottomInset
+        }
+        return max(taskListBottomInset + spacing.s40 + spacing.s8, 132)
     }
 
     private var calendarScheduleModuleCard: some View {
