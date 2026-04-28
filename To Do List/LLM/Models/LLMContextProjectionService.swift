@@ -869,7 +869,9 @@ struct LLMContextProjectionService {
                 "priority": task.priority.rawValue,
                 "type": task.type.rawValue,
                 "tag_names": tagNames,
-                "due_date": task.dueDate?.ISO8601Format() ?? NSNull()
+                "due_date": task.dueDate?.ISO8601Format() ?? NSNull(),
+                "scheduled_start_at": task.scheduledStartAt?.ISO8601Format() ?? NSNull(),
+                "scheduled_end_at": task.scheduledEndAt?.ISO8601Format() ?? NSNull()
             ]
 
             if compactTaskPayload == false {
@@ -937,7 +939,7 @@ struct LLMContextProjectionService {
 
     private static func habitCadencePayload(_ cadence: HabitCadenceDraft?) -> [String: Any] {
         guard let cadence else {
-            return ["rule_type": "daily"]
+            return [:]
         }
 
         switch cadence {
@@ -1704,8 +1706,13 @@ enum LLMChatContextEnvelopeBuilder {
                     await scopedService.buildUpcomingJSON()
                 }
             }
-            if Task.isCancelled {
+            if Task.isCancelled || overdueValue.timedOut || upcomingValue.timedOut {
                 habitsValue = ("{}", true)
+                logWarning(
+                    event: "chat_context_slice_short_circuit",
+                    message: "Skipped habits context slice after upstream slice timeout",
+                    fields: ["slice": Task.isCancelled ? "cancelled" : (overdueValue.timedOut ? "overdue" : "upcoming")]
+                )
             } else {
                 habitsValue = await LLMProjectionTimeout.execute(timeoutMs: timeoutMs) {
                     await scopedService.buildHabitJSON()

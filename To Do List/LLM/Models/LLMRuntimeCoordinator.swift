@@ -479,14 +479,13 @@ final class LLMRuntimeCoordinator {
 
     func switchModelIfNeeded(modelName: String) async -> Bool {
         cancelIdleUnload()
-        if let compatibility = compatibilityProvider(modelName),
-           compatibility.canActivate == false {
+        guard let compatibility = compatibilityProvider(modelName), compatibility.canActivate else {
             logWarning(
                 event: "chat_model_switch_skipped_unsupported_runtime",
                 message: "Skipped model switch because the current runtime does not support the selected catalog entry",
                 fields: [
                     "model_name": modelName,
-                    "reason": compatibility.statusReason ?? "unsupported_runtime"
+                    "reason": compatibilityProvider(modelName)?.statusReason ?? "unknown_compatibility"
                 ]
             )
             return false

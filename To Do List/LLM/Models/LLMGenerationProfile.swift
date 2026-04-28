@@ -724,22 +724,11 @@ enum LLMChatOutputClassifier {
 
 enum LLMVisibleThinkingExtractor {
     private static let plainTextThinkingPrefixes = [
-        "thinking ",
-        "thinking.",
         "thinking process:",
-        "thinking through",
-        "thinking this through",
-        "thinking this off",
         "thought process:",
         "reasoning:",
         "analysis:",
-        "i need to clarify",
-        "i need to figure",
-        "i need to answer",
-        "i should clarify",
-        "i should answer",
-        "let me think",
-        "we need to"
+        "let me think:"
     ]
 
     private static let plainTextAnswerMarkers = [

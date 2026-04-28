@@ -267,17 +267,20 @@ actor LLMInferenceEngine {
         let minAnswerTokens = profile.minAnswerTokensAfterAnswerPhase(
             isReasoningModel: isReasoningModel
         )
+        let maxKVSize = 2_048
+        let kvBits = 8
+        let prefillStepSize = 512
         let generateParameters = GenerateParameters(
             maxTokens: maxRawTokens,
-            maxKVSize: 2_048,
-            kvBits: 8,
+            maxKVSize: maxKVSize,
+            kvBits: kvBits,
             kvGroupSize: 64,
             quantizedKVStart: 128,
             temperature: profile.temperature,
             topP: profile.topP,
             repetitionPenalty: profile.repetitionPenalty,
             repetitionContextSize: profile.repetitionContextSize,
-            prefillStepSize: 512
+            prefillStepSize: prefillStepSize
         )
 
         logWarning(
@@ -293,9 +296,9 @@ actor LLMInferenceEngine {
                 "min_answer_tokens_after_answer_phase": String(minAnswerTokens),
                 "temperature": String(format: "%.2f", profile.temperature),
                 "top_p": String(format: "%.2f", profile.topP),
-                "max_kv_size": "2048",
-                "kv_bits": "8",
-                "prefill_step_size": "512",
+                "max_kv_size": String(maxKVSize),
+                "kv_bits": String(kvBits),
+                "prefill_step_size": String(prefillStepSize),
                 "repetition_penalty": profile.repetitionPenalty.map { String(format: "%.2f", $0) } ?? "nil",
                 "output_token_stride": String(outputTokenStride)
             ]

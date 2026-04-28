@@ -256,6 +256,73 @@ public enum AssistantDropDestination: String, Codable, Equatable, Hashable {
     case inbox
     case later
     case someday
+
+    var displayLabel: String {
+        switch self {
+        case .inbox: "Inbox"
+        case .later: "Later"
+        case .someday: "Someday"
+        }
+    }
+}
+
+public enum AssistantFieldUpdate<Value: Codable & Hashable>: Codable, Equatable, Hashable {
+    case absent
+    case set(Value)
+    case clear
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        if container.decodeNil() {
+            self = .clear
+        } else {
+            self = .set(try container.decode(Value.self))
+        }
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.singleValueContainer()
+        switch self {
+        case .absent, .clear:
+            try container.encodeNil()
+        case .set(let value):
+            try container.encode(value)
+        }
+    }
+
+    var setValue: Value? {
+        if case .set(let value) = self { return value }
+        return nil
+    }
+}
+
+private extension KeyedDecodingContainer {
+    func decodeFieldUpdate<Value: Codable & Hashable>(
+        _ type: Value.Type,
+        forKey key: Key
+    ) throws -> AssistantFieldUpdate<Value> {
+        guard contains(key) else { return .absent }
+        if try decodeNil(forKey: key) {
+            return .clear
+        }
+        return .set(try decode(type, forKey: key))
+    }
+}
+
+private extension KeyedEncodingContainer {
+    mutating func encodeFieldUpdate<Value: Codable & Hashable>(
+        _ update: AssistantFieldUpdate<Value>,
+        forKey key: Key
+    ) throws {
+        switch update {
+        case .absent:
+            return
+        case .clear:
+            try encodeNil(forKey: key)
+        case .set(let value):
+            try encode(value, forKey: key)
+        }
+    }
 }
 
 public enum AssistantCommand: Codable, Equatable, Hashable {
@@ -300,14 +367,14 @@ public enum AssistantCommand: Codable, Equatable, Hashable {
     )
     case updateTaskFields(
         taskID: UUID,
-        title: String?,
-        details: String?,
-        priority: TaskPriority?,
-        energy: TaskEnergy?,
-        category: TaskCategory?,
-        context: TaskContext?,
-        lifeAreaID: UUID?,
-        tagIDs: [UUID]?
+        title: AssistantFieldUpdate<String>,
+        details: AssistantFieldUpdate<String>,
+        priority: AssistantFieldUpdate<TaskPriority>,
+        energy: AssistantFieldUpdate<TaskEnergy>,
+        category: AssistantFieldUpdate<TaskCategory>,
+        context: AssistantFieldUpdate<TaskContext>,
+        lifeAreaID: AssistantFieldUpdate<UUID>,
+        tagIDs: AssistantFieldUpdate<[UUID]>
     )
     case deferTask(
         taskID: UUID,
@@ -443,14 +510,14 @@ public enum AssistantCommand: Codable, Equatable, Hashable {
         case .updateTaskFields:
             self = .updateTaskFields(
                 taskID: try container.decode(UUID.self, forKey: .taskID),
-                title: try container.decodeIfPresent(String.self, forKey: .title),
-                details: try container.decodeIfPresent(String.self, forKey: .details),
-                priority: try container.decodeIfPresent(TaskPriority.self, forKey: .priority),
-                energy: try container.decodeIfPresent(TaskEnergy.self, forKey: .energy),
-                category: try container.decodeIfPresent(TaskCategory.self, forKey: .category),
-                context: try container.decodeIfPresent(TaskContext.self, forKey: .context),
-                lifeAreaID: try container.decodeIfPresent(UUID.self, forKey: .lifeAreaID),
-                tagIDs: try container.decodeIfPresent([UUID].self, forKey: .tagIDs)
+                title: try container.decodeFieldUpdate(String.self, forKey: .title),
+                details: try container.decodeFieldUpdate(String.self, forKey: .details),
+                priority: try container.decodeFieldUpdate(TaskPriority.self, forKey: .priority),
+                energy: try container.decodeFieldUpdate(TaskEnergy.self, forKey: .energy),
+                category: try container.decodeFieldUpdate(TaskCategory.self, forKey: .category),
+                context: try container.decodeFieldUpdate(TaskContext.self, forKey: .context),
+                lifeAreaID: try container.decodeFieldUpdate(UUID.self, forKey: .lifeAreaID),
+                tagIDs: try container.decodeFieldUpdate([UUID].self, forKey: .tagIDs)
             )
         case .deferTask:
             self = .deferTask(
@@ -572,14 +639,14 @@ public enum AssistantCommand: Codable, Equatable, Hashable {
         ):
             try container.encode(Kind.updateTaskFields, forKey: .type)
             try container.encode(taskID, forKey: .taskID)
-            try container.encodeIfPresent(title, forKey: .title)
-            try container.encodeIfPresent(details, forKey: .details)
-            try container.encodeIfPresent(priority, forKey: .priority)
-            try container.encodeIfPresent(energy, forKey: .energy)
-            try container.encodeIfPresent(category, forKey: .category)
-            try container.encodeIfPresent(context, forKey: .context)
-            try container.encodeIfPresent(lifeAreaID, forKey: .lifeAreaID)
-            try container.encodeIfPresent(tagIDs, forKey: .tagIDs)
+            try container.encodeFieldUpdate(title, forKey: .title)
+            try container.encodeFieldUpdate(details, forKey: .details)
+            try container.encodeFieldUpdate(priority, forKey: .priority)
+            try container.encodeFieldUpdate(energy, forKey: .energy)
+            try container.encodeFieldUpdate(category, forKey: .category)
+            try container.encodeFieldUpdate(context, forKey: .context)
+            try container.encodeFieldUpdate(lifeAreaID, forKey: .lifeAreaID)
+            try container.encodeFieldUpdate(tagIDs, forKey: .tagIDs)
         case .deferTask(let taskID, let targetDate, let reason):
             try container.encode(Kind.deferTask, forKey: .type)
             try container.encode(taskID, forKey: .taskID)

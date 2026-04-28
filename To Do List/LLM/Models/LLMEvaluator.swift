@@ -42,15 +42,29 @@ final class LLMGenerationCancellationToken: @unchecked Sendable {
 
 private actor LLMGenerationSlot {
     private var isOccupied = false
-    private var waiters: [CheckedContinuation<Void, Never>] = []
+    private var waiters: [(id: UUID, continuation: CheckedContinuation<Void, Error>)] = []
 
-    func acquire() async -> LLMGenerationSlotLease {
+    func acquire() async throws -> LLMGenerationSlotLease {
+        if _Concurrency.Task.isCancelled {
+            throw CancellationError()
+        }
         if isOccupied == false {
             isOccupied = true
             return LLMGenerationSlotLease(slot: self)
         }
-        await withCheckedContinuation { continuation in
-            waiters.append(continuation)
+        let waiterID = UUID()
+        try await withTaskCancellationHandler {
+            try await withCheckedThrowingContinuation { continuation in
+                waiters.append((waiterID, continuation))
+            }
+        } onCancel: {
+            _Concurrency.Task {
+                await self.cancelWaiter(id: waiterID)
+            }
+        }
+        if _Concurrency.Task.isCancelled {
+            release()
+            throw CancellationError()
         }
         return LLMGenerationSlotLease(slot: self)
     }
@@ -59,8 +73,15 @@ private actor LLMGenerationSlot {
         if waiters.isEmpty {
             isOccupied = false
         } else {
-            waiters.removeFirst().resume()
+            waiters.removeFirst().continuation.resume()
         }
+    }
+
+    private func cancelWaiter(id: UUID) {
+        guard let index = waiters.firstIndex(where: { $0.id == id }) else {
+            return
+        }
+        waiters.remove(at: index).continuation.resume(throwing: CancellationError())
     }
 }
 
@@ -322,9 +343,10 @@ class LLMEvaluator {
                 fields: ["model_name": modelName]
             )
         }
-        let slotLease = await generationSlot.acquire()
-        if _Concurrency.Task.isCancelled {
-            await slotLease.release()
+        let slotLease: LLMGenerationSlotLease
+        do {
+            slotLease = try await generationSlot.acquire()
+        } catch {
             lastTerminationReason = "cancelled_while_waiting_for_generation_slot"
             return ""
         }
