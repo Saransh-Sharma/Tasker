@@ -63,6 +63,8 @@ struct ChatView: View {
     var onOpenHabitDetail: ((UUID) -> Void)? = nil
     var onPerformDayTaskAction: EvaDayTaskActionHandler? = nil
     var onPerformDayHabitAction: EvaDayHabitActionHandler? = nil
+    var showsHistoryAction: Bool = true
+    var onNavigationChromeChange: ((EvaChatNavigationChromeState) -> Void)? = nil
 
     @State var thinkingTime: TimeInterval?
 
@@ -249,6 +251,7 @@ struct ChatView: View {
 
     private var liveOutputState: ChatLiveOutputState {
         ChatLiveOutputState(
+            responseID: generationRunID,
             threadID: generatingThreadID,
             text: llm.output,
             sourceModelName: llm.loadedModelName ?? appManager.currentModelName,
@@ -298,6 +301,7 @@ struct ChatView: View {
             canSubmit: canSubmit,
             llmCancelled: llm.cancelled,
             chatTitle: chatTitle,
+            showsHistoryAction: showsHistoryAction,
             onOpenTaskDetail: onOpenTaskDetail,
             onOpenHabitDetail: onOpenHabitDetail,
             onPerformDayTaskAction: onPerformDayTaskAction,
@@ -338,7 +342,8 @@ struct ChatView: View {
             },
             onClearCurrentThread: {
                 clearCurrentThread()
-            }
+            },
+            onNavigationChromeChange: onNavigationChromeChange
         )
         .onAppear {
             handleChatViewAppear()
@@ -367,6 +372,15 @@ struct ChatView: View {
         }
         .onReceive(NotificationCenter.default.publisher(for: .taskerEvaChatLaunchRequestDidChange)) { _ in
             consumePendingChatLaunchRequest()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .requestEvaChatSettings)) { _ in
+            guard activationConfiguration?.hideUtilityActions != true else { return }
+            appManager.playHaptic()
+            showSettings.toggle()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .requestEvaChatNewThread)) { _ in
+            guard isActivationPresentation == false, currentThread != nil else { return }
+            startNewChat()
         }
         .toolbar {
             #if os(macOS)
@@ -897,7 +911,10 @@ struct ChatView: View {
             updatePendingResponsePhase(.generating, for: runID)
         }
 
-        let service = AssistantPlannerService(llm: llm)
+        let service = AssistantPlannerService(
+            llm: llm,
+            taskReadModelRepository: LLMContextRepositoryProvider.taskReadModelRepository
+        )
         let planResult = await service.generatePlan(
             userPrompt: message,
             thread: thread,
@@ -938,6 +955,8 @@ struct ChatView: View {
                     )
                     if case .persisted = result {
                         clearEvaSubmittedDraft(runID: runID, reason: "zero_command_response_persisted")
+                    } else {
+                        restoreEvaSubmittedDraftIfNeeded(runID: runID, reason: "zero_command_response_not_persisted")
                     }
                 }
                 return
@@ -1003,11 +1022,13 @@ struct ChatView: View {
                     )
                     restoreEvaSubmittedDraftIfNeeded(runID: runID, reason: "proposal_save_failed")
                 case .success(let run):
-                    let cards = EvaProposalCardBuilder.build(
-                        commands: plan.envelope.commands,
-                        taskTitleByID: [:],
-                        runID: run.id
-                    )
+                    let cards = plan.proposalCards.isEmpty
+                        ? EvaProposalCardBuilder.build(commands: plan.envelope.commands, runID: run.id)
+                        : plan.proposalCards.map { card in
+                            var updated = card
+                            updated.runID = run.id
+                            return updated
+                        }
                     let review = EvaProposalReviewPayload(
                         prompt: message,
                         summary: plan.rationale.isEmpty ? "Here's how your day is planned:" : plan.rationale,

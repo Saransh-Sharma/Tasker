@@ -1,5 +1,21 @@
 import SwiftUI
 
+struct EvaChatNavigationChromeState {
+    let title: String
+    let subtitle: String
+    let showsUtilityActions: Bool
+    let showsHistoryAction: Bool
+    let showsNewChatAction: Bool
+
+    static let empty = EvaChatNavigationChromeState(
+        title: "Eva",
+        subtitle: "Ask or use / commands",
+        showsUtilityActions: true,
+        showsHistoryAction: true,
+        showsNewChatAction: false
+    )
+}
+
 struct ChatHeaderView: View {
     let title: String
     let subtitle: String
@@ -253,9 +269,9 @@ struct ChatEmptyStateView: View {
 
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: TaskerTheme.Spacing.md) {
-                    structuredExampleChip(icon: "arrow.triangle.2.circlepath", title: "Move unfinished tasks", subtitle: "Reschedule my unfinished tasks")
-                    structuredExampleChip(icon: "graduationcap.fill", title: "Break down a study day", subtitle: "Plan my study day around classes")
-                    structuredExampleChip(icon: "checklist", title: "Turn list into steps", subtitle: "Turn this messy list into next actions")
+                    structuredExampleChip(icon: "arrow.triangle.2.circlepath", title: "Move unfinished tasks", subtitle: "Reschedule my unfinished tasks", submissionText: "Reschedule my unfinished tasks")
+                    structuredExampleChip(icon: "graduationcap.fill", title: "Break down a study day", subtitle: "Plan my study day around classes", submissionText: "Plan my study day around classes")
+                    structuredExampleChip(icon: "checklist", title: "Turn list into steps", subtitle: "Turn this messy list into next actions", submissionText: "Turn this messy list into next actions")
                 }
                 .padding(.horizontal, TaskerTheme.Spacing.xl)
                 .padding(.bottom, TaskerTheme.Spacing.sm)
@@ -264,9 +280,9 @@ struct ChatEmptyStateView: View {
         .accessibilityIdentifier("chat.emptyState.container")
     }
 
-    private func structuredExampleChip(icon: String, title: String, subtitle: String) -> some View {
+    private func structuredExampleChip(icon: String, title: String, subtitle: String, submissionText: String) -> some View {
         Button {
-            onSelectStarterPrompt(EvaStarterPrompt(id: title, title: title, submissionText: title, style: .naturalLanguage, isRecommended: false))
+            onSelectStarterPrompt(EvaStarterPrompt(id: title, title: title, submissionText: submissionText, style: .naturalLanguage, isRecommended: false))
         } label: {
             HStack(alignment: .top, spacing: TaskerTheme.Spacing.sm) {
                 Image(systemName: icon)
@@ -366,7 +382,7 @@ struct ChatEmptyStateView: View {
     }
 }
 
-private struct EvaChiefOfStaffGuideSection: Identifiable {
+struct EvaChiefOfStaffGuideSection: Identifiable, Equatable {
     let id: String
     let icon: String
     let title: String
@@ -374,13 +390,8 @@ private struct EvaChiefOfStaffGuideSection: Identifiable {
     let prompts: [EvaStarterPrompt]
 }
 
-struct EvaChiefOfStaffGuideView: View {
-    let onSelectPrompt: (EvaStarterPrompt) -> Void
-
-    @Environment(\.dismiss) private var dismiss
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-
-    private var sections: [EvaChiefOfStaffGuideSection] {
+enum EvaChiefOfStaffGuideContent {
+    static var sections: [EvaChiefOfStaffGuideSection] {
         [
             EvaChiefOfStaffGuideSection(
                 id: "how_eva_helps",
@@ -427,6 +438,39 @@ struct EvaChiefOfStaffGuideView: View {
                 ]
             ),
             EvaChiefOfStaffGuideSection(
+                id: "reschedule_open_tasks",
+                icon: "calendar.badge.clock",
+                title: "Reschedule open tasks",
+                body: "Ask Eva to carry unfinished work to another day, shift scheduled tasks, or rebuild the order. Eva shows review cards before applying changes.",
+                prompts: [
+                    guidePrompt(
+                        id: "reschedule_unfinished_tasks",
+                        title: "Reschedule unfinished tasks",
+                        submissionText: "Reschedule my unfinished tasks"
+                    ),
+                    guidePrompt(
+                        id: "carry_today_to_tomorrow",
+                        title: "Carry today to tomorrow",
+                        submissionText: "Move all my unfinished tasks from today to tomorrow"
+                    ),
+                    guidePrompt(
+                        id: "push_by_20_minutes",
+                        title: "Push by 20 minutes",
+                        submissionText: "Move all my unfinished tasks from today forward by 20 minutes"
+                    ),
+                    guidePrompt(
+                        id: "start_tomorrow_morning",
+                        title: "Start tomorrow morning",
+                        submissionText: "Move my open tasks to tomorrow morning"
+                    ),
+                    guidePrompt(
+                        id: "overdue_to_today",
+                        title: "Overdue to today",
+                        submissionText: "Move overdue tasks to today"
+                    )
+                ]
+            ),
+            EvaChiefOfStaffGuideSection(
                 id: "break_work_down",
                 icon: "checklist",
                 title: "Break work down",
@@ -465,6 +509,32 @@ struct EvaChiefOfStaffGuideView: View {
                 ]
             )
         ]
+    }
+
+    private static func guidePrompt(
+        id: String,
+        title: String,
+        submissionText: String,
+        style: EvaStarterPrompt.Style = .naturalLanguage
+    ) -> EvaStarterPrompt {
+        EvaStarterPrompt(
+            id: "eva_guide_\(id)",
+            title: title,
+            submissionText: submissionText,
+            style: style,
+            isRecommended: false
+        )
+    }
+}
+
+struct EvaChiefOfStaffGuideView: View {
+    let onSelectPrompt: (EvaStarterPrompt) -> Void
+
+    @Environment(\.dismiss) private var dismiss
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    private var sections: [EvaChiefOfStaffGuideSection] {
+        EvaChiefOfStaffGuideContent.sections
     }
 
     var body: some View {
@@ -571,20 +641,6 @@ struct EvaChiefOfStaffGuideView: View {
         .accessibilityIdentifier("eva.guide.section.\(section.id)")
     }
 
-    private func guidePrompt(
-        id: String,
-        title: String,
-        submissionText: String,
-        style: EvaStarterPrompt.Style = .naturalLanguage
-    ) -> EvaStarterPrompt {
-        EvaStarterPrompt(
-            id: "eva_guide_\(id)",
-            title: title,
-            submissionText: submissionText,
-            style: style,
-            isRecommended: false
-        )
-    }
 }
 
 private struct FlowPromptChipsView: View {
@@ -1165,6 +1221,7 @@ struct ChatScaffoldView: View {
     let canSubmit: Bool
     let llmCancelled: Bool
     let chatTitle: String
+    let showsHistoryAction: Bool
     let onOpenTaskDetail: ((TaskDefinition) -> Void)?
     let onOpenHabitDetail: ((UUID) -> Void)?
     let onPerformDayTaskAction: EvaDayTaskActionHandler?
@@ -1181,6 +1238,7 @@ struct ChatScaffoldView: View {
     let onStop: () -> Void
     let onSubmitPrompt: () -> Void
     let onClearCurrentThread: () -> Void
+    let onNavigationChromeChange: ((EvaChatNavigationChromeState) -> Void)?
 
     private var isActivationPresentation: Bool {
         if case .activation = presentationMode {
@@ -1198,48 +1256,22 @@ struct ChatScaffoldView: View {
         transcriptSnapshot.messages.contains { $0.role == .assistant }
     }
 
-    private var showsHeader: Bool {
-        isActivationPresentation == false
+    private var navigationChromeState: EvaChatNavigationChromeState {
+        EvaChatNavigationChromeState(
+            title: "Eva",
+            subtitle: currentThread == nil ? "Ask or use / commands" : chatTitle,
+            showsUtilityActions: activationConfiguration?.hideUtilityActions != true,
+            showsHistoryAction: showsHistoryAction && isActivationPresentation == false,
+            showsNewChatAction: currentThread != nil && isActivationPresentation == false
+        )
     }
 
-    private var headerTitle: String {
-        if currentThread == nil {
-            return isActivationPresentation ? "First win" : "Planning workspace"
-        }
-        return chatTitle
-    }
-
-    private var headerSubtitle: String {
-        if currentThread == nil {
-            return isActivationPresentation
-                ? "Start with something useful. Ask Eva to prioritize, plan, or break work down."
-                : "Ask, plan, then apply with confirmation."
-        }
-        return isActivationPresentation
-            ? "Private on-device planning assistant."
-            : "Keep context tight, use commands when you want structured help."
+    private func publishNavigationChromeState() {
+        onNavigationChromeChange?(navigationChromeState)
     }
 
     var body: some View {
-        NavigationStack {
-            VStack(spacing: 0) {
-                if showsHeader {
-                    ChatHeaderView(
-                        title: headerTitle,
-                        subtitle: headerSubtitle,
-                        showsNewChatAction: currentThread != nil,
-                        showsUtilityActions: activationConfiguration?.hideUtilityActions != true,
-                        onStartNewChat: {
-                            appManager.playHaptic()
-                            onStartNewChat()
-                        },
-                        onShowSettings: {
-                            appManager.playHaptic()
-                            showSettings.wrappedValue.toggle()
-                        }
-                    )
-                }
-
+        VStack(spacing: 0) {
                 if transcriptSnapshot.threadID != nil {
                     ConversationView(
                         snapshot: transcriptSnapshot,
@@ -1301,11 +1333,18 @@ struct ChatScaffoldView: View {
                 )
             }
             .background(Color.tasker(.bgCanvas))
-            .navigationTitle(chatTitle)
-            #if os(iOS) || os(visionOS)
-                .navigationBarTitleDisplayMode(.inline)
-                .navigationBarHidden(true)
-            #endif
+                .onAppear {
+                    publishNavigationChromeState()
+                }
+                .onChange(of: currentThread?.id) { _, _ in
+                    publishNavigationChromeState()
+                }
+                .onChange(of: chatTitle) { _, _ in
+                    publishNavigationChromeState()
+                }
+                .onChange(of: showsHistoryAction) { _, _ in
+                    publishNavigationChromeState()
+                }
                 .sheet(isPresented: showSettings) {
                     NavigationStack {
                         LLMSettingsView(currentThread: $currentThread, showsCloseButton: true)
@@ -1378,6 +1417,5 @@ struct ChatScaffoldView: View {
                     }
                     #endif
                 }
-        }
     }
 }

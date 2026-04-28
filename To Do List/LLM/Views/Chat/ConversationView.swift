@@ -585,6 +585,7 @@ struct MessageView: View {
     @State private var isApplyingEvaProposal = false
     @State private var appliedEvaRunIDs: Set<UUID> = []
     @State private var appliedEvaRunIDByPayloadRunID: [UUID: UUID] = [:]
+    @State private var appliedEvaUndoExpiresAtByPayloadRunID: [UUID: Date] = [:]
     @State private var pendingEvaApplyConfirmationIDs: Set<UUID>?
     @State private var isUndoingEvaRun = false
     @State private var dayTaskOverlayStates: [UUID: EvaDayTaskOverlayState] = [:]
@@ -956,30 +957,30 @@ struct MessageView: View {
         return VStack(alignment: .leading, spacing: TaskerTheme.Spacing.md) {
             evaPromptCard(prompt: proposal.prompt)
 
-            HStack(alignment: .top, spacing: TaskerTheme.Spacing.sm) {
-                Image(systemName: "info.circle.fill")
-                    .foregroundStyle(Color.tasker(.textTertiary))
-                Text("The AI may make mistakes or produce inaccurate information. Be sure to check important tasks.")
-                    .font(.tasker(.caption1))
-                    .foregroundStyle(Color.tasker(.textSecondary))
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-            .padding(.horizontal, TaskerTheme.Spacing.md)
-            .padding(.vertical, TaskerTheme.Spacing.sm)
-            .background(Color.tasker(.surfaceSecondary))
-            .clipShape(RoundedRectangle(cornerRadius: TaskerTheme.CornerRadius.lg, style: .continuous))
-
             DisclosureGroup {
-                Text(proposal.contextReceipt.sources.joined(separator: "\n"))
+                Text(proposal.contextReceipt.sources.isEmpty ? "No additional context receipt." : proposal.contextReceipt.sources.joined(separator: "\n"))
                     .font(.tasker(.caption1))
                     .foregroundStyle(Color.tasker(.textSecondary))
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(.top, TaskerTheme.Spacing.xs)
             } label: {
-                Label(proposal.contextReceipt.collapsedText, systemImage: "lock.shield")
-                    .font(.tasker(.caption1))
-                    .foregroundStyle(Color.tasker(.textSecondary))
+                Label {
+                    Text(proposal.contextReceipt.compactReviewText)
+                        .font(.tasker(.caption1))
+                        .lineLimit(1)
+                        .truncationMode(.tail)
+                        .minimumScaleFactor(0.85)
+                        .allowsTightening(true)
+                } icon: {
+                    Image(systemName: "info.circle.fill")
+                }
+                .foregroundStyle(Color.tasker(.textSecondary))
             }
+            .padding(.horizontal, TaskerTheme.Spacing.sm)
+            .padding(.vertical, TaskerTheme.Spacing.xs)
+            .background(Color.tasker(.surfaceSecondary))
+            .clipShape(RoundedRectangle(cornerRadius: TaskerTheme.CornerRadius.lg, style: .continuous))
+            .accessibilityLabel(proposal.contextReceipt.compactReviewText)
 
             Text(summaryText(proposal.summary))
                 .font(.tasker(.body))
@@ -1045,17 +1046,18 @@ struct MessageView: View {
             if isApplyable {
                 if let payloadRunID = payload.runID,
                    let appliedRunID = appliedEvaRunIDByPayloadRunID[payloadRunID] {
+                    let undoExpired = isProposalUndoExpired(payloadRunID: payloadRunID)
                     HStack(spacing: TaskerTheme.Spacing.sm) {
                         Button {
                             undoEvaRun(appliedRunID, payloadRunID: payloadRunID)
                         } label: {
-                            Label("Undo", systemImage: "arrow.uturn.backward")
+                            Label(undoExpired ? "Undo expired" : "Undo", systemImage: "arrow.uturn.backward")
                                 .font(.tasker(.buttonSmall))
                                 .frame(maxWidth: .infinity)
                         }
                         .buttonStyle(.borderedProminent)
                         .tint(Color.tasker(.accentPrimary))
-                        .disabled(isUndoingEvaRun)
+                        .disabled(isUndoingEvaRun || undoExpired)
                         .accessibilityIdentifier("eva.proposal.undo")
                     }
                 } else {
@@ -1449,75 +1451,92 @@ struct MessageView: View {
     private func evaProposalRow(_ card: EvaProposalCard) -> some View {
         let isSelected = selectedEvaCardIDs.contains(card.id)
         let isExpanded = expandedEvaCardID == card.id
+        let borderColor = isSelected ? Color.tasker(.accentPrimary) : Color.tasker(.strokeHairline)
+        let borderWidth: CGFloat = isSelected ? 2 : 1
 
-        return VStack(spacing: 0) {
-            Button {
-                if isExpanded {
-                    expandedEvaCardID = nil
-                } else {
-                    expandedEvaCardID = card.id
-                }
-            } label: {
-                HStack(alignment: .center, spacing: TaskerTheme.Spacing.md) {
-                    Image(systemName: iconName(for: card))
-                        .font(.tasker(.title3))
-                        .foregroundStyle(toneColor(card.tone))
-                        .frame(width: 36)
-
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text(card.subtitle)
-                            .font(.tasker(.caption1))
-                            .foregroundStyle(Color.tasker(.textTertiary))
-                            .lineLimit(2)
-                        Text(card.title)
-                            .font(.tasker(.headline))
-                            .foregroundStyle(Color.tasker(.textPrimary))
-                            .lineLimit(2)
-                    }
-
-                    Spacer(minLength: TaskerTheme.Spacing.sm)
-
-                    VStack(alignment: .trailing, spacing: TaskerTheme.Spacing.xs) {
-                        Text(card.badgeText)
-                            .font(.tasker(.caption2))
-                            .fontWeight(.semibold)
-                            .foregroundStyle(toneColor(card.tone))
-                            .padding(.horizontal, TaskerTheme.Spacing.xs)
-                            .padding(.vertical, 3)
-                            .background(toneColor(card.tone).opacity(0.14))
-                            .clipShape(Capsule())
-
-                        Button {
-                            toggleEvaSelection(card)
-                        } label: {
-                            Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
-                                .font(.system(size: 24, weight: .semibold))
-                                .foregroundStyle(isSelected ? Color.tasker(.accentPrimary) : Color.tasker(.accentMuted))
-                        }
-                        .buttonStyle(.plain)
-                        .accessibilityLabel(isSelected ? "Deselect \(card.title)" : "Select \(card.title)")
-                    }
-                }
-                .padding(TaskerTheme.Spacing.md)
+        return HStack(spacing: 0) {
+            if isSelected {
+                Color.tasker(.accentPrimary)
+                    .frame(width: 4)
+                    .transition(.opacity)
             }
-            .buttonStyle(.plain)
 
-            if isExpanded {
-                HStack(spacing: TaskerTheme.Spacing.sm) {
-                    ForEach(availableEvaActions(for: card), id: \.self) { action in
-                        evaCardActionButton(action, card: card)
+            VStack(spacing: 0) {
+                Button {
+                    if isExpanded {
+                        expandedEvaCardID = nil
+                    } else {
+                        expandedEvaCardID = card.id
                     }
+                } label: {
+                    HStack(alignment: .center, spacing: TaskerTheme.Spacing.md) {
+                        Image(systemName: iconName(for: card))
+                            .font(.tasker(.title3))
+                            .foregroundStyle(toneColor(card.tone))
+                            .frame(width: 36)
+
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(card.subtitle)
+                                .font(.tasker(.caption1))
+                                .foregroundStyle(Color.tasker(.textTertiary))
+                                .lineLimit(2)
+                            Text(card.title)
+                                .font(.tasker(.headline))
+                                .foregroundStyle(Color.tasker(.textPrimary))
+                                .lineLimit(2)
+                        }
+
+                        Spacer(minLength: TaskerTheme.Spacing.sm)
+
+                        VStack(alignment: .trailing, spacing: TaskerTheme.Spacing.xs) {
+                            Text(card.badgeText)
+                                .font(.tasker(.caption2))
+                                .fontWeight(.semibold)
+                                .foregroundStyle(toneColor(card.tone))
+                                .padding(.horizontal, TaskerTheme.Spacing.xs)
+                                .padding(.vertical, 3)
+                                .background(toneColor(card.tone).opacity(0.14))
+                                .clipShape(Capsule())
+
+                            Button {
+                                toggleEvaSelection(card)
+                            } label: {
+                                Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
+                                    .font(.system(size: 24, weight: .semibold))
+                                    .foregroundStyle(isSelected ? Color.tasker(.accentPrimary) : Color.tasker(.accentMuted))
+                            }
+                            .buttonStyle(.plain)
+                            .accessibilityLabel(isSelected ? "Deselect \(card.title)" : "Select \(card.title)")
+                            .accessibilityValue(isSelected ? "Selected" : "Not selected")
+                        }
+                    }
+                    .padding(TaskerTheme.Spacing.md)
                 }
-                .padding(TaskerTheme.Spacing.sm)
-                .background(Color.tasker(.accentWash).opacity(0.48))
+                .buttonStyle(.plain)
+
+                if isExpanded {
+                    LazyVGrid(
+                        columns: [GridItem(.adaptive(minimum: 104), spacing: TaskerTheme.Spacing.sm)],
+                        alignment: .leading,
+                        spacing: TaskerTheme.Spacing.sm
+                    ) {
+                        ForEach(availableEvaActions(for: card), id: \.self) { action in
+                            evaCardActionButton(action, card: card)
+                        }
+                    }
+                    .padding(TaskerTheme.Spacing.sm)
+                    .background(isSelected ? Color.tasker(.accentWash).opacity(0.38) : Color.tasker(.surfaceSecondary).opacity(0.72))
+                }
             }
         }
-        .background(Color.tasker(.surfacePrimary))
+        .background(isSelected ? Color.tasker(.accentWash).opacity(0.18) : Color.tasker(.surfacePrimary))
         .clipShape(RoundedRectangle(cornerRadius: TaskerTheme.CornerRadius.lg, style: .continuous))
         .overlay(
             RoundedRectangle(cornerRadius: TaskerTheme.CornerRadius.lg, style: .continuous)
-                .stroke(isExpanded || isSelected ? Color.tasker(.accentPrimary) : Color.tasker(.strokeHairline), lineWidth: isExpanded ? 1.5 : 1)
+                .stroke(borderColor, lineWidth: borderWidth)
         )
+        .shadow(color: isSelected ? Color.tasker(.accentPrimary).opacity(0.18) : .clear, radius: isSelected ? 8 : 0, x: 0, y: isSelected ? 3 : 0)
+        .accessibilityValue(isSelected ? "Selected" : "Not selected")
     }
 
     private func evaCardActionButton(_ action: EvaProposalAction, card: EvaProposalCard) -> some View {
@@ -1534,8 +1553,16 @@ struct MessageView: View {
                 selectedEvaCardIDs.insert(card.id)
             }
         } label: {
-            Label(action.rawValue, systemImage: actionIcon(action))
+            Label {
+                Text(action.rawValue)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
+                    .allowsTightening(true)
+            } icon: {
+                Image(systemName: actionIcon(action))
+            }
                 .font(.tasker(.buttonSmall))
+                .frame(minWidth: 104, minHeight: 44)
                 .frame(maxWidth: .infinity)
         }
         .buttonStyle(.borderedProminent)
@@ -1740,6 +1767,7 @@ struct MessageView: View {
                 appliedEvaRunIDs.insert(appliedRunID)
                 if let payloadRunID {
                     appliedEvaRunIDByPayloadRunID[payloadRunID] = appliedRunID
+                    appliedEvaUndoExpiresAtByPayloadRunID[payloadRunID] = Date().addingTimeInterval(30 * 60)
                 }
                 selectedEvaCardIDs.removeAll()
             }
@@ -1761,6 +1789,7 @@ struct MessageView: View {
                     appliedEvaRunIDs.remove(runID)
                     if let payloadRunID {
                         appliedEvaRunIDByPayloadRunID[payloadRunID] = nil
+                        appliedEvaUndoExpiresAtByPayloadRunID[payloadRunID] = nil
                     }
                     evaApplyMessage = "EVA reverted those changes."
                 case .failure(let error):
@@ -1946,6 +1975,11 @@ struct MessageView: View {
         return now >= expiresAt
     }
 
+    private func isProposalUndoExpired(payloadRunID: UUID) -> Bool {
+        guard let expiresAt = appliedEvaUndoExpiresAtByPayloadRunID[payloadRunID] else { return true }
+        return now >= expiresAt
+    }
+
     private func undoLabel(payload: AssistantCardPayload) -> String {
         guard let expiresAt = payload.expiresAt else {
             return "Undo unavailable"
@@ -2015,7 +2049,7 @@ struct ConversationView: View {
                         )
                         .padding(.horizontal, TaskerTheme.Spacing.lg)
                         .padding(.vertical, TaskerTheme.Spacing.sm)
-                        .id("output")
+                        .id(liveOutput.responseID?.uuidString ?? liveOutput.threadID?.uuidString ?? "output")
                         .onAppear {
                             scrollInterrupted = false
                         }
