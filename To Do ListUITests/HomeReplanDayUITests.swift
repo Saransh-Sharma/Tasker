@@ -33,6 +33,9 @@ final class HomeReplanDayUITests: BaseUITest {
         let persistentEntry = app.buttons["home.replanDay.entry"]
         let scrolledIntoView = scrollToElement(persistentEntry, in: homePage.taskListScrollView, maxSwipes: 8)
         XCTAssertTrue(scrolledIntoView || persistentEntry.exists, "Replan Day should remain reachable at the bottom of Home")
+        guard persistentEntry.exists else {
+            return XCTFail("Replan Day entry should exist before tapping")
+        }
 
         if persistentEntry.isHittable {
             persistentEntry.tap()

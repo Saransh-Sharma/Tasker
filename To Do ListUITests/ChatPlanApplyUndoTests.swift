@@ -4,6 +4,9 @@ final class ChatPlanApplyUndoTests: BaseUITest {
     func testChatEntryPointOpensAssistantSurfaceAndSlashPicker() throws {
         try openChatSurface()
 
+        XCTAssertFalse(app.staticTexts["Planning workspace"].exists, "Chat body should not render the old planning workspace header")
+        XCTAssertFalse(app.staticTexts["Keep context tight, use commands when you want structured help."].exists, "Open-thread guidance should not render as a body chrome row")
+
         let slashButton = app.buttons["chat.slash_button"]
         XCTAssertTrue(slashButton.waitForExistence(timeout: 3), "Slash picker button should be visible")
         slashButton.tap()
@@ -146,5 +149,64 @@ final class ChatPlanApplyUndoTests: BaseUITest {
         }
 
         throw XCTSkip("Chat entry point is not reachable with current accessibility identifiers")
+    }
+}
+
+final class ChatCompletedChromeUITests: BaseUITest {
+    override var additionalLaunchArguments: [String] {
+        [XCUIApplication.LaunchArgumentKey.testEvaActivationCompleted.rawValue]
+    }
+
+    func testCompletedChatUsesCompactNativeNavigationChrome() throws {
+        try openCompletedChatSurface()
+
+        let navTitle = app.descendants(matching: .any)["chat.nav.title"]
+        XCTAssertTrue(navTitle.waitForExistence(timeout: 3), "Completed chat should publish a native compact nav title")
+        XCTAssertEqual(navTitle.label, "Eva")
+
+        XCTAssertEqual(navTitle.value as? String, "Ask or use / commands")
+
+        XCTAssertFalse(app.staticTexts["Planning workspace"].exists, "Empty chat should not render planning workspace copy")
+        XCTAssertFalse(app.staticTexts["Keep context tight, use commands when you want structured help."].exists, "Open-thread chrome copy should be removed")
+
+        XCTAssertTrue(app.buttons["chat.header.settings"].exists || app.buttons["Settings"].exists, "Settings should live in the native navigation bar")
+        XCTAssertTrue(app.buttons["chat.header.history"].exists || app.buttons["History"].exists, "History should live in the native navigation bar")
+        XCTAssertFalse(app.buttons["chat.header.new_chat"].exists || app.buttons["New chat"].exists, "New chat should be hidden for a fresh empty chat")
+        XCTAssertTrue(app.buttons["Back"].exists || app.buttons["Close"].exists, "Back or close should remain in the native navigation bar")
+    }
+
+    @discardableResult
+    private func openCompletedChatSurface() throws -> XCUIApplication {
+        let homePage = HomePage(app: app)
+        let chatButton = homePage.chatButton.waitForExistence(timeout: 2) ? homePage.chatButton : app.buttons["Chat"]
+
+        if chatButton.waitForExistence(timeout: 2) {
+            if chatButton.isHittable {
+                chatButton.tap()
+            } else {
+                chatButton.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+            }
+        } else {
+            app.windows.firstMatch.coordinate(withNormalizedOffset: CGVector(dx: 0.60, dy: 0.92)).tap()
+        }
+
+        if waitForCompletedChatSurface(timeout: 5) {
+            return app
+        }
+
+        throw XCTSkip("Completed chat entry point is not reachable with current accessibility identifiers")
+    }
+
+    private func waitForCompletedChatSurface(timeout: TimeInterval) -> Bool {
+        let emptyState = app.descendants(matching: .any)["chat.emptyState.container"]
+        let composer = app.descendants(matching: .any)["chat.composer.container"]
+        let structuredComposer = app.descendants(matching: .any)["eva.structured.composer"]
+        let navTitle = app.descendants(matching: .any)["chat.nav.title"]
+        let emptyGreeting = app.staticTexts["Hi there!"]
+        let predicate = NSPredicate { _, _ in
+            emptyState.exists || composer.exists || structuredComposer.exists || navTitle.exists || emptyGreeting.exists
+        }
+        let expectation = XCTNSPredicateExpectation(predicate: predicate, object: app)
+        return XCTWaiter.wait(for: [expectation], timeout: timeout) == .completed
     }
 }
