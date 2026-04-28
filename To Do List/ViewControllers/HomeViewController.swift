@@ -1169,15 +1169,15 @@ private struct HomeBottomBarContainer: View {
         .padding(.horizontal, TaskerThemeManager.shared.tokens(for: layoutClass).spacing.s16)
         .padding(.bottom, 0)
         .ignoresSafeArea(.container, edges: .bottom)
-        .offset(y: 6)
+        .offset(y: 0)
         .background {
             GeometryReader { proxy in
                 Color.clear
                     .onAppear {
-                        onHeightChange(proxy.size.height + 6)
+                        onHeightChange(proxy.size.height)
                     }
                     .onChange(of: proxy.size.height) { _, newValue in
-                        onHeightChange(newValue + 6)
+                        onHeightChange(newValue)
                     }
             }
         }
@@ -1218,6 +1218,7 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
 
     private var homeHostingController: UIHostingController<HomeHostRootView>?
     private var bottomBarHostingController: UIHostingController<HomeBottomBarContainer>?
+    private var bottomBarBottomConstraint: NSLayoutConstraint?
     private var insightsViewModel: InsightsViewModel?
     private let searchState = HomeSearchState()
     private let chromeStore = HomeChromeStore()
@@ -1348,11 +1349,13 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
         refreshLayoutMetrics()
         updateInteractivePhaseIfNeeded()
         mountBottomBarOverlayIfNeeded()
+        updateBottomBarBottomConstraint()
     }
 
     override func viewSafeAreaInsetsDidChange() {
         super.viewSafeAreaInsetsDidChange()
         refreshLayoutMetrics()
+        updateBottomBarBottomConstraint()
     }
 
     /// Executes viewWillDisappear.
@@ -1921,7 +1924,7 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
         let height = view.bounds.height
         let tokens = TaskerThemeManager.shared.tokens(for: currentLayoutClass)
         let spacing = tokens.spacing
-        let defaultBottomBarHeight = (spacing.s12 * 2) + 56 + 6
+        let defaultBottomBarHeight = spacing.s12 + 56
         let shouldShowBottomBar = currentLayoutClass == .phone
             && faceCoordinator.shellPhase == .interactive
             && overlayStore.snapshot.replanState.suppressesBottomBar == false
@@ -2067,6 +2070,7 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
                 bottomBarHostingController.view.removeFromSuperview()
                 bottomBarHostingController.removeFromParent()
                 self.bottomBarHostingController = nil
+                bottomBarBottomConstraint = nil
             }
             return
         }
@@ -2074,6 +2078,7 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
         let root = makeBottomBarRoot()
         if let bottomBarHostingController {
             bottomBarHostingController.rootView = root
+            updateBottomBarBottomConstraint()
             return
         }
 
@@ -2082,11 +2087,14 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
         hostingController.view.translatesAutoresizingMaskIntoConstraints = false
         addChild(hostingController)
         view.addSubview(hostingController.view)
+        let bottomConstraint = hostingController.view.bottomAnchor.constraint(equalTo: view.bottomAnchor)
+        bottomBarBottomConstraint = bottomConstraint
         NSLayoutConstraint.activate([
             hostingController.view.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             hostingController.view.trailingAnchor.constraint(equalTo: view.trailingAnchor),
-            hostingController.view.bottomAnchor.constraint(equalTo: view.bottomAnchor)
+            bottomConstraint
         ])
+        updateBottomBarBottomConstraint()
         hostingController.didMove(toParent: self)
         bottomBarHostingController = hostingController
     }
@@ -2134,6 +2142,17 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
         guard abs(measuredBottomBarHeight - sanitizedValue) > 0.5 else { return }
         measuredBottomBarHeight = sanitizedValue
         refreshLayoutMetrics()
+    }
+
+    private func resolvedBottomBarDownshift() -> CGFloat {
+        currentLayoutClass == .phone ? max(0, view.safeAreaInsets.bottom - 10) : 0
+    }
+
+    private func updateBottomBarBottomConstraint() {
+        guard let bottomBarBottomConstraint else { return }
+        let downshift = resolvedBottomBarDownshift()
+        guard abs(bottomBarBottomConstraint.constant - downshift) > 0.5 else { return }
+        bottomBarBottomConstraint.constant = downshift
     }
 
     /// Executes mountHomeShell.
