@@ -289,6 +289,70 @@ final class HomeCalendarIntegrationTests: XCTestCase {
         XCTAssertTrue(timeline.week.days.contains { $0.allDayCount > 0 || $0.timedMarkers.isEmpty == false })
     }
 
+    func testHiddenCalendarEventStorePersistsEventDaySelections() throws {
+        let defaults = makeUserDefaultsSuite(prefix: "HomeTimelineHiddenCalendarEventStoreTests")
+        let store = HomeTimelineHiddenCalendarEventStore(defaults: defaults)
+        let today = todayDate(hour: 9)
+        let tomorrow = Calendar.current.date(byAdding: .day, value: 1, to: today) ?? today
+
+        XCTAssertTrue(store.load().isEmpty)
+        XCTAssertFalse(store.isHidden(eventID: "event-1", on: today))
+
+        store.hide(eventID: "event-1", on: today)
+        let reloadedStore = HomeTimelineHiddenCalendarEventStore(defaults: defaults)
+
+        XCTAssertTrue(reloadedStore.isHidden(eventID: "event-1", on: today))
+        XCTAssertFalse(reloadedStore.isHidden(eventID: "event-1", on: tomorrow))
+    }
+
+    func testHiddenHomeTimelineCalendarEventsAreFilteredOnlyFromTimelineProjection() {
+        let preferences = TaskerWorkspacePreferences(
+            selectedCalendarIDs: ["work"],
+            includeDeclinedCalendarEvents: false,
+            includeCanceledCalendarEvents: false,
+            includeAllDayInAgenda: true,
+            includeAllDayInBusyStrip: false,
+            showCalendarEventsInTimeline: true
+        )
+        workspaceStore.save(preferences)
+
+        let timed = event(id: "hidden_timed", start: todayDate(hour: 9), end: todayDate(hour: 10))
+        let allDay = event(id: "hidden_all_day", start: todayDate(hour: 0), end: todayDate(hour: 23, minute: 59), isAllDay: true)
+        let visible = event(id: "visible_timed", start: todayDate(hour: 11), end: todayDate(hour: 12))
+        let provider = CalendarEventsProviderStub()
+        provider.authorizationStatusValue = .authorized
+        provider.calendarsResult = .success([calendar(id: "work")])
+        provider.eventsResult = .success([allDay, timed, visible])
+
+        let coordinator = makeCoordinator(provider: provider)
+        let defaults = makeUserDefaultsSuite(prefix: "HomeTimelineHiddenCalendarEventsTests")
+        let hiddenStore = HomeTimelineHiddenCalendarEventStore(defaults: defaults)
+        hiddenStore.hide(eventID: timed.id, on: todayDate(hour: 9))
+        hiddenStore.hide(eventID: allDay.id, on: todayDate(hour: 9))
+        let viewModel = makeHomeViewModel(
+            coordinator: coordinator,
+            defaults: defaults,
+            workspacePreferences: preferences,
+            hiddenCalendarEventStore: hiddenStore
+        )
+
+        waitForMainQueue(seconds: 0.45)
+        XCTAssertEqual(viewModel.homeCalendarSnapshot.selectedDayEvents.map(\.id), ["hidden_all_day", "hidden_timed", "visible_timed"])
+
+        let timeline = viewModel.buildTimelineSnapshot(
+            calendarSnapshot: viewModel.homeCalendarSnapshot,
+            foredropAnchor: .collapsed
+        )
+
+        XCTAssertEqual(timeline.day.allDayItems.compactMap(\.eventID), [])
+        XCTAssertEqual(timeline.day.timedItems.compactMap(\.eventID), ["visible_timed"])
+
+        let todaySummary = timeline.week.days.first { Calendar.current.isDate($0.date, inSameDayAs: todayDate(hour: 9)) }
+        XCTAssertNotNil(todaySummary)
+        XCTAssertEqual(todaySummary?.allDayCount, 0)
+        XCTAssertEqual(todaySummary?.timedMarkers.count, 1)
+    }
+
     func testHomeTimelineBlocksIncludeOnlyBusyTimedCalendarEvents() {
         let preferences = TaskerWorkspacePreferences(
             selectedCalendarIDs: ["work"],
@@ -1397,16 +1461,22 @@ final class HomeCalendarIntegrationTests: XCTestCase {
     private func makeHomeViewModel(
         coordinator: UseCaseCoordinator,
         defaults: UserDefaults,
-        workspacePreferences: TaskerWorkspacePreferences? = nil
+        workspacePreferences: TaskerWorkspacePreferences? = nil,
+        hiddenCalendarEventStore: HomeTimelineHiddenCalendarEventStore? = nil
     ) -> HomeViewModel {
         if let workspacePreferences {
             return HomeViewModel(
                 useCaseCoordinator: coordinator,
                 workspacePreferencesProvider: { workspacePreferences },
-                userDefaults: defaults
+                userDefaults: defaults,
+                hiddenCalendarEventStore: hiddenCalendarEventStore
             )
         }
-        return HomeViewModel(useCaseCoordinator: coordinator, userDefaults: defaults)
+        return HomeViewModel(
+            useCaseCoordinator: coordinator,
+            userDefaults: defaults,
+            hiddenCalendarEventStore: hiddenCalendarEventStore
+        )
     }
 
     private func makeCoordinator(provider: CalendarEventsProviderProtocol, seedTasks: [TaskDefinition] = []) -> UseCaseCoordinator {

@@ -3097,9 +3097,43 @@ final class TaskListWidgetSnapshotSchemaTests: XCTestCase {
         XCTAssertTrue(snapshot.openTaskPool.isEmpty)
         XCTAssertTrue(snapshot.completedTodayTasks.isEmpty)
         XCTAssertEqual(snapshot.snapshotHealth.source, "full_query")
+        XCTAssertEqual(snapshot.calendar.status, .permissionRequired)
+        XCTAssertTrue(snapshot.calendar.timedEvents.isEmpty)
+        XCTAssertTrue(snapshot.timeline.day.timedItems.isEmpty)
     }
 
-    func testSnapshotV2RoundTripPreservesNewFields() throws {
+    func testSnapshotV2PayloadDecodesWithCalendarDefaults() throws {
+        let json = """
+        {
+          "schemaVersion": 2,
+          "updatedAt": "2026-02-28T00:00:00Z",
+          "todayTopTasks": [],
+          "upcomingTasks": [],
+          "overdueTasks": [],
+          "quickWins": [],
+          "projectSlices": [],
+          "doneTodayCount": 0,
+          "focusNow": [],
+          "waitingOn": [],
+          "energyBuckets": [],
+          "openTodayCount": 0,
+          "openTaskPool": [],
+          "completedTodayTasks": []
+        }
+        """
+
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        let snapshot = try decoder.decode(TaskListWidgetSnapshot.self, from: Data(json.utf8))
+
+        XCTAssertEqual(snapshot.schemaVersion, 2)
+        XCTAssertEqual(snapshot.calendar.status, .permissionRequired)
+        XCTAssertEqual(snapshot.calendar.selectedCalendarCount, 0)
+        XCTAssertTrue(snapshot.calendar.weekDays.isEmpty)
+        XCTAssertTrue(snapshot.timeline.weekDays.isEmpty)
+    }
+
+    func testSnapshotV4RoundTripPreservesCalendarAndTimelineFields() throws {
         let now = Date()
         let task = TaskListWidgetTask(
             id: UUID(),
@@ -3133,6 +3167,67 @@ final class TaskListWidgetSnapshotSchemaTests: XCTestCase {
                 generatedAt: now,
                 isStale: false,
                 hasCorruptionFallback: true
+            ),
+            calendar: TaskListWidgetCalendarSnapshot(
+                status: .active,
+                date: now,
+                updatedAt: now,
+                selectedCalendarCount: 1,
+                availableCalendarCount: 2,
+                eventsTodayCount: 1,
+                timedEvents: [
+                    TaskListWidgetCalendarEvent(
+                        id: "event-1",
+                        title: "Planning",
+                        calendarTitle: "Work",
+                        calendarColorHex: "#3366FF",
+                        startDate: now,
+                        endDate: now.addingTimeInterval(1_800),
+                        isAllDay: false,
+                        isBusy: true
+                    )
+                ],
+                weekDays: [
+                    TaskListWidgetCalendarDay(date: now, eventCount: 1)
+                ]
+            ),
+            timeline: TaskListWidgetTimelineSnapshot(
+                date: now,
+                updatedAt: now,
+                day: TaskListWidgetTimelineDay(
+                    date: now,
+                    wakeAnchor: now,
+                    sleepAnchor: now.addingTimeInterval(12 * 60 * 60),
+                    currentTime: now,
+                    timedItems: [
+                        TaskListWidgetTimelineItem(
+                            id: "task:\(task.id.uuidString)",
+                            source: .task,
+                            taskID: task.id,
+                            title: task.title,
+                            startDate: now,
+                            endDate: now.addingTimeInterval(1_800),
+                            systemImageName: "checklist"
+                        )
+                    ],
+                    gaps: [
+                        TaskListWidgetTimelineGap(
+                            startDate: now.addingTimeInterval(1_800),
+                            endDate: now.addingTimeInterval(3_600),
+                            suggestedTaskCount: 1
+                        )
+                    ]
+                ),
+                weekDays: [
+                    TaskListWidgetTimelineWeekDay(
+                        date: now,
+                        dayKey: "2026-04-27",
+                        allDayCount: 0,
+                        timedCount: 1,
+                        loadLevel: .light
+                    )
+                ],
+                calendarPlottingEnabled: true
             )
         )
 
@@ -3144,6 +3239,318 @@ final class TaskListWidgetSnapshotSchemaTests: XCTestCase {
         XCTAssertEqual(decoded.openTaskPool.count, 1)
         XCTAssertEqual(decoded.snapshotHealth.source, "unit_test")
         XCTAssertTrue(decoded.snapshotHealth.hasCorruptionFallback)
+        XCTAssertEqual(decoded.calendar.status, .active)
+        XCTAssertEqual(decoded.calendar.timedEvents.first?.title, "Planning")
+        XCTAssertEqual(decoded.calendar.weekDays.count, 1)
+        XCTAssertEqual(decoded.timeline.day.timedItems.first?.title, "Round Trip")
+        XCTAssertEqual(decoded.timeline.day.gaps.count, 1)
+        XCTAssertEqual(decoded.timeline.weekDays.first?.timedCount, 1)
+        XCTAssertTrue(decoded.timeline.calendarPlottingEnabled)
+    }
+
+    func testReloadComparisonIgnoresCalendarAndTimelineTimestamps() {
+        let now = Self.date(hour: 10)
+        var lhs = TaskListWidgetSnapshot(
+            updatedAt: now,
+            snapshotHealth: TaskListWidgetSnapshotHealth(generatedAt: now),
+            calendar: TaskListWidgetCalendarSnapshot(
+                status: .empty,
+                date: Self.date(hour: 0),
+                updatedAt: now
+            ),
+            timeline: TaskListWidgetTimelineSnapshot(
+                date: Self.date(hour: 0),
+                updatedAt: now,
+                day: TaskListWidgetTimelineDay(
+                    date: Self.date(hour: 0),
+                    wakeAnchor: Self.date(hour: 8),
+                    sleepAnchor: Self.date(hour: 22),
+                    currentTime: now
+                )
+            )
+        )
+        var rhs = lhs
+        rhs.updatedAt = now.addingTimeInterval(600)
+        rhs.snapshotHealth.generatedAt = now.addingTimeInterval(600)
+        rhs.calendar.updatedAt = now.addingTimeInterval(600)
+        rhs.timeline.updatedAt = now.addingTimeInterval(600)
+        rhs.timeline.day.currentTime = now.addingTimeInterval(600)
+
+        XCTAssertEqual(
+            TaskListWidgetSnapshotService.normalizedForReloadComparison(lhs),
+            TaskListWidgetSnapshotService.normalizedForReloadComparison(rhs)
+        )
+
+        lhs.calendar.eventsTodayCount = 1
+        XCTAssertNotEqual(
+            TaskListWidgetSnapshotService.normalizedForReloadComparison(lhs),
+            TaskListWidgetSnapshotService.normalizedForReloadComparison(rhs)
+        )
+    }
+
+    func testCalendarProjectionBuildsActiveTimedEventsAndWeekAgenda() {
+        let timed = calendarEvent(
+            id: "standup",
+            title: "Standup",
+            start: Self.date(hour: 10),
+            end: Self.date(hour: 10, minute: 30),
+            isAllDay: false
+        )
+        let allDay = calendarEvent(
+            id: "launch",
+            title: "Launch day",
+            start: Self.date(hour: 0),
+            end: Self.date(hour: 23),
+            isAllDay: true
+        )
+        let snapshot = calendarSnapshot(events: [timed, allDay])
+
+        let projection = TaskListWidgetCalendarProjection.make(
+            from: snapshot,
+            weekStartsOn: .monday,
+            now: Self.date(hour: 9),
+            calendar: fixedCalendar
+        )
+
+        XCTAssertEqual(projection.status, .active)
+        XCTAssertEqual(projection.eventsTodayCount, 2)
+        XCTAssertEqual(projection.timedEvents.map(\.title), ["Standup"])
+        XCTAssertEqual(projection.allDayEvents.map(\.title), ["Launch day"])
+        XCTAssertEqual(projection.weekDays.count, 7)
+        XCTAssertEqual(projection.weekDays.first?.eventCount, 2)
+    }
+
+    func testCalendarProjectionStatusVariants() {
+        let allDay = calendarEvent(
+            id: "holiday",
+            title: "Holiday",
+            start: Self.date(hour: 0),
+            end: Self.date(hour: 23),
+            isAllDay: true
+        )
+
+        XCTAssertEqual(
+            TaskListWidgetCalendarProjection.make(
+                from: calendarSnapshot(status: .denied),
+                weekStartsOn: .monday,
+                now: Self.date(hour: 9),
+                calendar: fixedCalendar
+            ).status,
+            .permissionRequired
+        )
+        XCTAssertEqual(
+            TaskListWidgetCalendarProjection.make(
+                from: calendarSnapshot(selectedCalendarIDs: []),
+                weekStartsOn: .monday,
+                now: Self.date(hour: 9),
+                calendar: fixedCalendar
+            ).status,
+            .noCalendarsSelected
+        )
+        XCTAssertEqual(
+            TaskListWidgetCalendarProjection.make(
+                from: calendarSnapshot(events: []),
+                weekStartsOn: .monday,
+                now: Self.date(hour: 9),
+                calendar: fixedCalendar
+            ).status,
+            .empty
+        )
+        XCTAssertEqual(
+            TaskListWidgetCalendarProjection.make(
+                from: calendarSnapshot(events: [allDay]),
+                weekStartsOn: .monday,
+                now: Self.date(hour: 9),
+                calendar: fixedCalendar
+            ).status,
+            .allDayOnly
+        )
+        XCTAssertEqual(
+            TaskListWidgetCalendarProjection.make(
+                from: calendarSnapshot(errorMessage: "Calendar failed"),
+                weekStartsOn: .monday,
+                now: Self.date(hour: 9),
+                calendar: fixedCalendar
+            ).status,
+            .error
+        )
+    }
+
+    func testTimelineProjectionBuildsScheduledAllDayInboxAndGaps() {
+        let morningStart = Self.date(hour: 10)
+        let noonStart = Self.date(hour: 12)
+        let scheduledNoon = TaskDefinition(
+            title: "Noon block",
+            dueDate: noonStart,
+            scheduledStartAt: noonStart,
+            scheduledEndAt: Self.date(hour: 13),
+            estimatedDuration: 60 * 60
+        )
+        let scheduledMorning = TaskDefinition(
+            title: "Morning block",
+            dueDate: morningStart,
+            scheduledStartAt: morningStart,
+            scheduledEndAt: Self.date(hour: 11),
+            estimatedDuration: 60 * 60
+        )
+        let allDay = TaskDefinition(title: "All-day due", dueDate: Self.date(hour: 0))
+        let inbox = TaskDefinition(title: "Inbox capture")
+
+        let projection = TaskListWidgetTimelineProjection.make(
+            tasks: [scheduledNoon, inbox, allDay, scheduledMorning],
+            calendarSnapshot: .empty,
+            preferences: timelinePreferences(showCalendar: false),
+            now: Self.date(hour: 9),
+            calendar: fixedCalendar
+        )
+
+        XCTAssertEqual(projection.day.timedItems.map(\.title), ["Morning block", "Noon block"])
+        XCTAssertEqual(projection.day.allDayItems.map(\.title), ["All-day due"])
+        XCTAssertEqual(projection.day.inboxItems.map(\.title), ["Inbox capture"])
+        XCTAssertFalse(projection.day.gaps.isEmpty)
+        XCTAssertEqual(projection.weekDays.count, 7)
+    }
+
+    func testTimelineProjectionRespectsCalendarVisibilityPreference() {
+        let event = calendarEvent(
+            id: "standup",
+            title: "Standup",
+            start: Self.date(hour: 10),
+            end: Self.date(hour: 10, minute: 30),
+            isAllDay: false
+        )
+        let calendarSnapshot = TaskListWidgetCalendarProjection.make(
+            from: calendarSnapshot(events: [event]),
+            weekStartsOn: .monday,
+            now: Self.date(hour: 9),
+            calendar: fixedCalendar
+        )
+
+        let hidden = TaskListWidgetTimelineProjection.make(
+            tasks: [],
+            calendarSnapshot: calendarSnapshot,
+            preferences: timelinePreferences(showCalendar: false),
+            now: Self.date(hour: 9),
+            calendar: fixedCalendar
+        )
+        let visible = TaskListWidgetTimelineProjection.make(
+            tasks: [],
+            calendarSnapshot: calendarSnapshot,
+            preferences: timelinePreferences(showCalendar: true),
+            now: Self.date(hour: 9),
+            calendar: fixedCalendar
+        )
+
+        XCTAssertTrue(hidden.day.timedItems.isEmpty)
+        XCTAssertEqual(visible.day.timedItems.map(\.title), ["Standup"])
+        XCTAssertFalse(hidden.calendarPlottingEnabled)
+        XCTAssertTrue(visible.calendarPlottingEnabled)
+    }
+
+    func testTimelineProjectionUsesWorkspaceAnchorsIncludingOvernightWindDown() {
+        let preferences = TaskerWorkspacePreferences(
+            weekStartsOn: .monday,
+            showCalendarEventsInTimeline: false,
+            timelineRiseAndShineHour: 22,
+            timelineRiseAndShineMinute: 30,
+            timelineWindDownHour: 6,
+            timelineWindDownMinute: 15
+        )
+
+        let projection = TaskListWidgetTimelineProjection.make(
+            tasks: [],
+            calendarSnapshot: .empty,
+            preferences: preferences,
+            now: Self.date(hour: 23),
+            calendar: fixedCalendar
+        )
+
+        XCTAssertEqual(fixedCalendar.component(.hour, from: projection.day.wakeAnchor), 22)
+        XCTAssertEqual(fixedCalendar.component(.minute, from: projection.day.wakeAnchor), 30)
+        XCTAssertEqual(fixedCalendar.component(.hour, from: projection.day.sleepAnchor), 6)
+        XCTAssertEqual(fixedCalendar.component(.minute, from: projection.day.sleepAnchor), 15)
+        XCTAssertGreaterThan(projection.day.sleepAnchor, projection.day.wakeAnchor)
+    }
+
+    private static var fixedCalendar: Calendar {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(secondsFromGMT: 0)!
+        calendar.firstWeekday = 2
+        return calendar
+    }
+
+    private var fixedCalendar: Calendar {
+        Self.fixedCalendar
+    }
+
+    private static func date(hour: Int, minute: Int = 0) -> Date {
+        fixedCalendar.date(from: DateComponents(year: 2026, month: 4, day: 27, hour: hour, minute: minute))!
+    }
+
+    private func timelinePreferences(showCalendar: Bool) -> TaskerWorkspacePreferences {
+        TaskerWorkspacePreferences(
+            weekStartsOn: .monday,
+            selectedCalendarIDs: ["work"],
+            showCalendarEventsInTimeline: showCalendar,
+            timelineRiseAndShineHour: 8,
+            timelineRiseAndShineMinute: 0,
+            timelineWindDownHour: 22,
+            timelineWindDownMinute: 0
+        )
+    }
+
+    private func calendarSnapshot(
+        status: TaskerCalendarAuthorizationStatus = .authorized,
+        selectedCalendarIDs: [String] = ["work"],
+        events: [TaskerCalendarEventSnapshot] = [],
+        errorMessage: String? = nil
+    ) -> TaskerCalendarSnapshot {
+        TaskerCalendarSnapshot(
+            authorizationStatus: status,
+            availableCalendars: [
+                TaskerCalendarSourceSnapshot(
+                    id: "work",
+                    title: "Work",
+                    sourceTitle: "iCloud",
+                    colorHex: "#3366FF",
+                    allowsContentModifications: true
+                )
+            ],
+            selectedCalendarIDs: selectedCalendarIDs,
+            includeDeclined: false,
+            includeCanceled: false,
+            includeAllDayInAgenda: true,
+            includeAllDayInBusyStrip: false,
+            eventsInRange: events,
+            busyBlocks: [],
+            nextMeeting: events.first(where: { $0.isAllDay == false }).map {
+                TaskerNextMeetingSummary(event: $0, isInProgress: false, minutesUntilStart: 60)
+            },
+            freeUntil: Self.date(hour: 10),
+            isLoading: false,
+            errorMessage: errorMessage
+        )
+    }
+
+    private func calendarEvent(
+        id: String,
+        title: String,
+        start: Date,
+        end: Date,
+        isAllDay: Bool
+    ) -> TaskerCalendarEventSnapshot {
+        TaskerCalendarEventSnapshot(
+            id: id,
+            calendarID: "work",
+            calendarTitle: "Work",
+            calendarColorHex: "#3366FF",
+            title: title,
+            startDate: start,
+            endDate: end,
+            isAllDay: isAllDay,
+            availability: .busy,
+            participationStatus: .accepted
+        )
     }
 }
 

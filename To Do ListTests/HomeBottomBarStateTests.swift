@@ -9,6 +9,9 @@ final class HomeBottomBarStateTests: XCTestCase {
         state.select(.home)
         XCTAssertEqual(state.selectedItem, .home)
 
+        state.select(.calendar)
+        XCTAssertEqual(state.selectedItem, .calendar)
+
         state.select(.charts)
         XCTAssertEqual(state.selectedItem, .charts)
 
@@ -25,6 +28,16 @@ final class HomeBottomBarStateTests: XCTestCase {
     func testSelectedItemDefaultsToHome() {
         let state = HomeBottomBarState()
         XCTAssertEqual(state.selectedItem, .home)
+    }
+
+    func testCalendarBottomBarSymbolBuildsDaySpecificCalendarSFImageNames() {
+        XCTAssertEqual(HomeCalendarBottomBarSymbol.symbolName(day: 1), "1.calendar")
+        XCTAssertEqual(HomeCalendarBottomBarSymbol.symbolName(day: 31), "31.calendar")
+    }
+
+    func testCalendarBottomBarSymbolFallsBackForInvalidDay() {
+        XCTAssertEqual(HomeCalendarBottomBarSymbol.symbolName(day: 0), "calendar")
+        XCTAssertEqual(HomeCalendarBottomBarSymbol.symbolName(day: 32), "calendar")
     }
 
     func testCollapsedChromeStateMinimizesBottomBar() {

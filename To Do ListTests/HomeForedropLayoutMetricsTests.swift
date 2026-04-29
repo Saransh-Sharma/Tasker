@@ -294,18 +294,21 @@ final class HomeForedropLayoutMetricsTests: XCTestCase {
 
     func testPhoneTimelineMetricsMoveSpineLeftWhileKeepingReadableTimeGutter() {
         let metrics = TimelineSurfaceMetrics.make(for: .phone)
-        let spineX = metrics.expandedTimeGutter
-            + metrics.expandedTimeToSpineGap
-            + (metrics.expandedSpineLaneWidth / 2)
-        let contentStart = metrics.expandedTimeGutter
-            + metrics.expandedTimeToSpineGap
-            + metrics.expandedSpineLaneWidth
-            + metrics.expandedContentInset
+        let rail = TimelineRailMetrics.make(for: .phone, surfaceMetrics: metrics)
 
-        XCTAssertEqual(metrics.expandedTimeGutter, 60, accuracy: 0.001)
-        XCTAssertEqual(metrics.expandedTimeGutter - 8, 52, accuracy: 0.001)
-        XCTAssertEqual(spineX, 64, accuracy: 0.001)
-        XCTAssertEqual(contentStart, 72, accuracy: 0.001)
+        XCTAssertEqual(rail.labelLeadingX, 4, accuracy: 0.001)
+        XCTAssertEqual(rail.labelWidth, 68, accuracy: 0.001)
+        XCTAssertEqual(rail.timeToSpineGap, 3, accuracy: 0.001)
+        XCTAssertEqual(rail.labelLayerWidth, 72, accuracy: 0.001)
+        XCTAssertEqual(rail.spineX, 75, accuracy: 0.001)
+        XCTAssertEqual(rail.contentLeadingGap, 8, accuracy: 0.001)
+        XCTAssertEqual(rail.contentX, 83, accuracy: 0.001)
+    }
+
+    func testTimelineRailTypographyUsesCompactMetadataSizes() {
+        XCTAssertEqual(TimelineRailTypography.compactHourSize, 14, accuracy: 0.001)
+        XCTAssertEqual(TimelineRailTypography.exactSize, 14, accuracy: 0.001)
+        XCTAssertEqual(TimelineRailTypography.currentSize, 13, accuracy: 0.001)
     }
 
     func testVisualGapFormulaKeepsSmallGapsMeaningfulAndClampsLongGaps() {
@@ -313,8 +316,75 @@ final class HomeForedropLayoutMetricsTests: XCTestCase {
         XCTAssertEqual(TimelineCanvasLayoutPlan.visualGap(for: 30), 36, accuracy: 0.001)
         XCTAssertEqual(TimelineCanvasLayoutPlan.visualGap(for: 60), 72, accuracy: 0.001)
         XCTAssertEqual(TimelineCanvasLayoutPlan.visualGap(for: 120), 93, accuracy: 0.001)
+        XCTAssertLessThanOrEqual(TimelineCanvasLayoutPlan.visualGap(for: 179), 112.001)
         XCTAssertEqual(TimelineCanvasLayoutPlan.visualGap(for: 180), 112, accuracy: 0.001)
         XCTAssertEqual(TimelineCanvasLayoutPlan.visualGap(for: 181), 112, accuracy: 0.001)
+    }
+
+    func testExpandedRailTimeFormatterUsesCompactHoursOnlyForRailLabels() {
+        let calendar = Self.fixedCalendar
+
+        XCTAssertEqual(
+            TimelineRailTimeFormatter.railText(forItemStart: Self.date(calendar: calendar, year: 2026, month: 4, day: 21, hour: 11, minute: 0), calendar: calendar),
+            "11 AM"
+        )
+        XCTAssertEqual(
+            TimelineRailTimeFormatter.railText(for: Self.date(calendar: calendar, year: 2026, month: 4, day: 21, hour: 11, minute: 0), kind: .exact, calendar: calendar),
+            "11:00 AM"
+        )
+        XCTAssertEqual(
+            TimelineRailTimeFormatter.railText(for: Self.date(calendar: calendar, year: 2026, month: 4, day: 21, hour: 22, minute: 0), kind: .exact, calendar: calendar),
+            "10:00 PM"
+        )
+        XCTAssertEqual(
+            TimelineRailTimeFormatter.railText(forItemStart: Self.date(calendar: calendar, year: 2026, month: 4, day: 21, hour: 17, minute: 12), calendar: calendar),
+            "5:12 PM"
+        )
+        XCTAssertEqual(
+            TimelineRailTimeFormatter.railText(for: Self.date(calendar: calendar, year: 2026, month: 4, day: 21, hour: 18, minute: 52), kind: .current, calendar: calendar),
+            "6:52 PM"
+        )
+    }
+
+    func testRoutineMarkerHeightUsesIconGuardrail() {
+        XCTAssertEqual(TimelineCanvasLayoutPlan.routineMarkerHeight, max(96, TimelineCanvasLayoutPlan.routineIconLayoutSize + 20), accuracy: 0.001)
+    }
+
+    func testRoutineSubtitleIncludesExactTimeAndExistingCopy() {
+        let calendar = Self.fixedCalendar
+        let wake = TimelineAnchorItem(
+            id: "wake",
+            title: "Rise and shine",
+            time: Self.date(calendar: calendar, year: 2026, month: 4, day: 21, hour: 8, minute: 0),
+            systemImageName: "alarm.fill",
+            subtitle: "Start the day"
+        )
+        let sleep = TimelineAnchorItem(
+            id: "sleep",
+            title: "Wind down",
+            time: Self.date(calendar: calendar, year: 2026, month: 4, day: 21, hour: 22, minute: 0),
+            systemImageName: "moon.fill",
+            subtitle: "Close the day"
+        )
+
+        XCTAssertEqual(TimelineRoutineTextFormatter.subtitle(for: wake, subtitle: wake.subtitle, calendar: calendar), "8:00 AM · Start the day")
+        XCTAssertEqual(TimelineRoutineTextFormatter.subtitle(for: sleep, subtitle: sleep.subtitle, calendar: calendar), "10:00 PM · Close the day")
+    }
+
+    func testRoutineTextZoneStaysSeparatedFromIconBubble() {
+        let metrics = TimelineSurfaceMetrics.make(for: .phone)
+        let rail = TimelineRailMetrics.make(for: .phone, surfaceMetrics: metrics)
+        let iconRightEdge = rail.spineX + (metrics.expandedAnchorCircleSize / 2)
+
+        XCTAssertEqual(rail.routineTextLeadingX(iconSize: metrics.expandedAnchorCircleSize), iconRightEdge + 14, accuracy: 0.001)
+        XCTAssertGreaterThanOrEqual(rail.routineTextLeadingX(iconSize: metrics.expandedAnchorCircleSize), iconRightEdge + 12)
+    }
+
+    func testTimelineBottomProtectionIsConditionalOnNextHomeWidget() {
+        let metrics = TimelineSurfaceMetrics.make(for: .phone)
+
+        XCTAssertEqual(metrics.resolvedTimelineBottomPadding(hasNextHomeWidget: true), 0, accuracy: 0.001)
+        XCTAssertGreaterThan(metrics.resolvedTimelineBottomPadding(hasNextHomeWidget: false), 0)
     }
 
     func testPhoneRenderModelUsesNormalCardForSingleTaskAndCalendarEvent() {
@@ -729,23 +799,34 @@ final class HomeForedropLayoutMetricsTests: XCTestCase {
     func testVisualTimelineReservesSpaceForRoutineAndTaskMarkerAtSameTime() {
         let calendar = Self.fixedCalendar
         let wake = Self.date(calendar: calendar, year: 2026, month: 4, day: 21, hour: 8, minute: 0)
+        let sleep = Self.date(calendar: calendar, year: 2026, month: 4, day: 21, hour: 18, minute: 0)
+        let preSleepStart = sleep.addingTimeInterval(-30 * 60)
         let projection = Self.makeProjection(
             calendar: calendar,
             wake: wake,
-            sleep: Self.date(calendar: calendar, year: 2026, month: 4, day: 21, hour: 18, minute: 0),
+            sleep: sleep,
             timedItems: [
-                Self.makeTimedItem(id: "wake-task", title: "Wake task", start: wake, end: wake.addingTimeInterval(30 * 60))
+                Self.makeTimedItem(id: "wake-task", title: "Wake task", start: wake, end: wake.addingTimeInterval(30 * 60)),
+                Self.makeTimedItem(id: "pre-sleep-task", title: "Pre-sleep task", start: preSleepStart, end: sleep)
             ]
         )
 
         let plan = TimelineCanvasLayoutPlan(projection: projection, pointsPerMinute: 1, minimumItemHeight: 44, calendar: calendar)
-        let routine = plan.visualElements.first { $0.element.id == "routine:wake" }
-        let task = plan.visualElements.first { $0.element.id.contains("task-marker:task:wake-task") }
+        let wakeRoutine = plan.visualElements.first { $0.element.id == "routine:wake" }
+        let wakeTask = plan.visualElements.first { $0.element.id.contains("task-marker:task:wake-task") }
+        let sleepRoutine = plan.visualElements.first { $0.element.id == "routine:sleep" }
+        let preSleepTask = plan.visualElements.first { $0.element.id.contains("task-marker:task:pre-sleep-task") }
 
-        XCTAssertNotNil(routine)
-        XCTAssertNotNil(task)
-        let expectedTaskY = (routine?.y ?? 0) + (routine?.height ?? 0) + TimelineCanvasLayoutPlan.minimumBlockGap
-        XCTAssertGreaterThanOrEqual((task?.y ?? 0) + 0.001, expectedTaskY)
+        XCTAssertNotNil(wakeRoutine)
+        XCTAssertNotNil(wakeTask)
+        XCTAssertNotNil(sleepRoutine)
+        XCTAssertNotNil(preSleepTask)
+
+        let expectedWakeTaskY = (wakeRoutine?.y ?? 0) + (wakeRoutine?.height ?? 0) + TimelineCanvasLayoutPlan.minimumBlockGap
+        XCTAssertGreaterThanOrEqual((wakeTask?.y ?? 0) + 0.001, expectedWakeTaskY)
+
+        let expectedSleepRoutineY = (preSleepTask?.y ?? 0) + (preSleepTask?.height ?? 0) + TimelineCanvasLayoutPlan.minimumBlockGap
+        XCTAssertGreaterThanOrEqual((sleepRoutine?.y ?? 0) + 0.001, expectedSleepRoutineY)
     }
 
     func testVisualTimelineClassifiesTaskMarkerAndCardHierarchy() {
@@ -780,6 +861,25 @@ final class HomeForedropLayoutMetricsTests: XCTestCase {
         })
         XCTAssertGreaterThan(plan.endMarker.centerY, plan.spineExtent.fadeEndY)
         XCTAssertGreaterThanOrEqual(plan.contentHeight, plan.endMarker.centerY + 22 + 120)
+    }
+
+    func testSparseTimelineEndMarkerUsesHitAreaForCompactContentHeight() {
+        let calendar = Self.fixedCalendar
+        let wake = Self.date(calendar: calendar, year: 2026, month: 4, day: 21, hour: 8, minute: 0)
+        let sleep = Self.date(calendar: calendar, year: 2026, month: 4, day: 21, hour: 22, minute: 0)
+        let projection = Self.makeProjection(calendar: calendar, wake: wake, sleep: sleep, timedItems: [])
+        let plan = TimelineCanvasLayoutPlan(projection: projection, pointsPerMinute: 1, minimumItemHeight: 44, bottomInset: 0, calendar: calendar)
+
+        XCTAssertEqual(
+            plan.endMarker.centerY,
+            plan.spineExtent.fadeEndY + TimelineCanvasLayoutPlan.endMarkerTopGapAfterFade + (TimelineCanvasLayoutPlan.endMarkerHitArea / 2),
+            accuracy: 0.001
+        )
+        XCTAssertEqual(
+            plan.contentHeight,
+            plan.endMarker.centerY + (TimelineCanvasLayoutPlan.endMarkerHitArea / 2),
+            accuracy: 0.001
+        )
     }
 
     func testCalendarHiddenSparseTimelineUsesCalendarCopyAndAction() {

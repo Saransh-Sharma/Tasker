@@ -84,11 +84,118 @@ final class TaskDetailViewModelTests: XCTestCase {
         XCTAssertEqual(viewModel.summary(for: TaskDetailDisclosureSection.context), "1 reflection · Project motivation")
     }
 
+    func testExistingScheduledValuesArePreselected() {
+        let start = makeDate(year: 2026, month: 4, day: 29, hour: 20, minute: 15)
+        let task = TaskDefinition(
+            title: "Timed task",
+            dueDate: start,
+            scheduledStartAt: start,
+            scheduledEndAt: start.addingTimeInterval(30 * 60),
+            estimatedDuration: 30 * 60
+        )
+
+        let viewModel = makeViewModel(task: task)
+
+        XCTAssertEqual(viewModel.scheduledStartAt, start)
+        XCTAssertEqual(viewModel.scheduledEndAt, start.addingTimeInterval(30 * 60))
+        XCTAssertEqual(viewModel.durationMinutes, 30)
+    }
+
+    func testChangingStartTimePersistsScheduledStartEndAndAlignedDueDate() async {
+        let originalStart = makeDate(year: 2026, month: 4, day: 29, hour: 20, minute: 15)
+        let newStart = makeDate(year: 2026, month: 4, day: 29, hour: 21, minute: 7)
+        let roundedStart = makeDate(year: 2026, month: 4, day: 29, hour: 21, minute: 0)
+        let task = TaskDefinition(
+            title: "Timed task",
+            dueDate: originalStart,
+            scheduledStartAt: originalStart,
+            scheduledEndAt: originalStart.addingTimeInterval(15 * 60),
+            estimatedDuration: 15 * 60
+        )
+        let saveExpectation = expectation(description: "Autosave updated schedule")
+        var capturedRequest: UpdateTaskDefinitionRequest?
+
+        let viewModel = makeViewModel(task: task) { _, request, completion in
+            capturedRequest = request
+            var updated = task
+            updated.dueDate = request.dueDate ?? updated.dueDate
+            updated.scheduledStartAt = request.scheduledStartAt ?? updated.scheduledStartAt
+            updated.scheduledEndAt = request.scheduledEndAt ?? updated.scheduledEndAt
+            updated.estimatedDuration = request.estimatedDuration ?? updated.estimatedDuration
+            completion(.success(updated))
+            saveExpectation.fulfill()
+        }
+
+        viewModel.setScheduledStartDate(newStart)
+        viewModel.scheduleAutosave(debounced: false)
+        await fulfillment(of: [saveExpectation], timeout: 1.0)
+
+        XCTAssertEqual(capturedRequest?.dueDate, roundedStart)
+        XCTAssertEqual(capturedRequest?.scheduledStartAt, roundedStart)
+        XCTAssertEqual(capturedRequest?.scheduledEndAt, roundedStart.addingTimeInterval(15 * 60))
+    }
+
+    func testChangingDurationPersistsEstimatedDurationAndScheduledEnd() async {
+        let start = makeDate(year: 2026, month: 4, day: 29, hour: 20, minute: 15)
+        let task = TaskDefinition(
+            title: "Timed task",
+            dueDate: start,
+            scheduledStartAt: start,
+            scheduledEndAt: start.addingTimeInterval(15 * 60),
+            estimatedDuration: 15 * 60
+        )
+        let saveExpectation = expectation(description: "Autosave updated duration")
+        var capturedRequest: UpdateTaskDefinitionRequest?
+
+        let viewModel = makeViewModel(task: task) { _, request, completion in
+            capturedRequest = request
+            var updated = task
+            updated.scheduledEndAt = request.scheduledEndAt ?? updated.scheduledEndAt
+            updated.estimatedDuration = request.estimatedDuration ?? updated.estimatedDuration
+            completion(.success(updated))
+            saveExpectation.fulfill()
+        }
+
+        viewModel.setDurationMinutes(45)
+        viewModel.scheduleAutosave(debounced: false)
+        await fulfillment(of: [saveExpectation], timeout: 1.0)
+
+        XCTAssertEqual(capturedRequest?.estimatedDuration, 45 * 60)
+        XCTAssertEqual(capturedRequest?.scheduledEndAt, start.addingTimeInterval(45 * 60))
+    }
+
+    func testDefaultStartRoundsToNextSlotAndPastExistingTimesRemainEditable() {
+        let now = makeDate(year: 2026, month: 4, day: 29, hour: 10, minute: 7)
+        let defaultStart = TaskDetailViewModel.defaultScheduledStart(now: now)
+        let pastStart = makeDate(year: 2026, month: 4, day: 20, hour: 8, minute: 15)
+        let viewModel = makeViewModel()
+
+        viewModel.setScheduledStartDate(pastStart)
+
+        XCTAssertEqual(defaultStart, makeDate(year: 2026, month: 4, day: 29, hour: 10, minute: 15))
+        XCTAssertEqual(viewModel.scheduledStartAt, pastStart)
+    }
+
+    func testScheduleRangeLabelsCompactSamePeriodAndCrossMidnightNormally() {
+        let eveningStart = makeDate(year: 2026, month: 4, day: 29, hour: 20, minute: 15)
+        let midnightStart = makeDate(year: 2026, month: 4, day: 29, hour: 23, minute: 30)
+
+        XCTAssertEqual(
+            TaskDetailViewModel.scheduleRangeLabel(start: eveningStart, end: eveningStart.addingTimeInterval(15 * 60)),
+            "8:15-8:30 PM"
+        )
+        XCTAssertEqual(
+            TaskDetailViewModel.scheduleRangeLabel(start: midnightStart, end: midnightStart.addingTimeInterval(45 * 60)),
+            "11:30 PM-12:15 AM"
+        )
+    }
+
     private func makeViewModel(
         task: TaskDefinition = TaskDefinition(title: "Task detail"),
         metadataPayload: TaskDetailMetadataPayload? = nil,
         relationshipPayload: TaskDetailRelationshipMetadataPayload? = nil,
-        children: [TaskDefinition] = []
+        children: [TaskDefinition] = [],
+        onUpdate: TaskDetailViewModel.UpdateHandler? = nil
     ) -> TaskDetailViewModel {
         let resolvedMetadataPayload = metadataPayload ?? TaskDetailMetadataPayload(
             projects: [Project.createInbox()],
@@ -103,7 +210,7 @@ final class TaskDetailViewModelTests: XCTestCase {
         return TaskDetailViewModel(
             task: task,
             projects: [Project.createInbox()],
-            onUpdate: { _, _, completion in completion(.success(task)) },
+            onUpdate: onUpdate ?? { _, _, completion in completion(.success(task)) },
             onSetCompletion: { _, _, completion in completion(.success(task)) },
             onDelete: { _, _, completion in completion(.success(())) },
             onReschedule: { _, _, completion in completion(.success(task)) },
@@ -114,5 +221,23 @@ final class TaskDetailViewModelTests: XCTestCase {
             onCreateTag: { _, completion in completion(.failure(NSError(domain: "TaskDetailViewModelTests", code: 1))) },
             onCreateProject: { _, completion in completion(.failure(NSError(domain: "TaskDetailViewModelTests", code: 2))) }
         )
+    }
+
+    private func makeDate(
+        year: Int,
+        month: Int,
+        day: Int,
+        hour: Int,
+        minute: Int
+    ) -> Date {
+        var components = DateComponents()
+        components.calendar = Calendar(identifier: .gregorian)
+        components.timeZone = TimeZone.current
+        components.year = year
+        components.month = month
+        components.day = day
+        components.hour = hour
+        components.minute = minute
+        return components.date!
     }
 }
