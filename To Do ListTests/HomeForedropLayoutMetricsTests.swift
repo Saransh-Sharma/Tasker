@@ -303,10 +303,18 @@ final class HomeForedropLayoutMetricsTests: XCTestCase {
             + metrics.expandedContentInset
 
         XCTAssertEqual(metrics.expandedTimeGutter, 60, accuracy: 0.001)
-        XCTAssertGreaterThanOrEqual(spineX, 68)
-        XCTAssertLessThanOrEqual(spineX, 74)
-        XCTAssertGreaterThanOrEqual(contentStart, 84)
-        XCTAssertLessThanOrEqual(contentStart, 90)
+        XCTAssertEqual(metrics.expandedTimeGutter - 8, 52, accuracy: 0.001)
+        XCTAssertEqual(spineX, 64, accuracy: 0.001)
+        XCTAssertEqual(contentStart, 72, accuracy: 0.001)
+    }
+
+    func testVisualGapFormulaKeepsSmallGapsMeaningfulAndClampsLongGaps() {
+        XCTAssertEqual(TimelineCanvasLayoutPlan.visualGap(for: 0), 12, accuracy: 0.001)
+        XCTAssertEqual(TimelineCanvasLayoutPlan.visualGap(for: 30), 36, accuracy: 0.001)
+        XCTAssertEqual(TimelineCanvasLayoutPlan.visualGap(for: 60), 72, accuracy: 0.001)
+        XCTAssertEqual(TimelineCanvasLayoutPlan.visualGap(for: 120), 93, accuracy: 0.001)
+        XCTAssertEqual(TimelineCanvasLayoutPlan.visualGap(for: 180), 112, accuracy: 0.001)
+        XCTAssertEqual(TimelineCanvasLayoutPlan.visualGap(for: 181), 112, accuracy: 0.001)
     }
 
     func testPhoneRenderModelUsesNormalCardForSingleTaskAndCalendarEvent() {
@@ -660,6 +668,233 @@ final class HomeForedropLayoutMetricsTests: XCTestCase {
 
         XCTAssertEqual(plan.blocks.count, 2)
         XCTAssertTrue(plan.blocks.allSatisfy { $0.block.isConflict == false })
+    }
+
+    func testVisualTimelineKeepsAdjacentMeetingsSeparateWithUniversalGap() {
+        let calendar = Self.fixedCalendar
+        let wake = Self.date(calendar: calendar, year: 2026, month: 4, day: 21, hour: 8, minute: 0)
+        let firstStart = Self.date(calendar: calendar, year: 2026, month: 4, day: 21, hour: 9, minute: 0)
+        let firstEnd = Self.date(calendar: calendar, year: 2026, month: 4, day: 21, hour: 9, minute: 30)
+        let projection = Self.makeProjection(
+            calendar: calendar,
+            wake: wake,
+            sleep: Self.date(calendar: calendar, year: 2026, month: 4, day: 21, hour: 18, minute: 0),
+            timedItems: [
+                Self.makeMeetingItem(id: "a", title: "A", start: firstStart, end: firstEnd),
+                Self.makeMeetingItem(id: "b", title: "B", start: firstEnd, end: firstEnd.addingTimeInterval(30 * 60))
+            ]
+        )
+
+        let plan = TimelineCanvasLayoutPlan(projection: projection, pointsPerMinute: 1, minimumItemHeight: 44, calendar: calendar)
+        let meetings = plan.visualElements.filter { positioned in
+            if case .meetingCard = positioned.element { return true }
+            return false
+        }
+
+        XCTAssertEqual(meetings.count, 2)
+        XCTAssertEqual(plan.blocks.count, 2)
+        let expectedSecondMeetingY = meetings[0].y + meetings[0].height + TimelineCanvasLayoutPlan.minimumBlockGap
+        XCTAssertGreaterThanOrEqual(meetings[1].y + 0.001, expectedSecondMeetingY)
+    }
+
+    func testVisualTimelineKeepsFlockAndFollowingTaskSeparatedByUniversalGap() {
+        let calendar = Self.fixedCalendar
+        let wake = Self.date(calendar: calendar, year: 2026, month: 4, day: 21, hour: 8, minute: 0)
+        let overlapStart = Self.date(calendar: calendar, year: 2026, month: 4, day: 21, hour: 10, minute: 0)
+        let nextStart = Self.date(calendar: calendar, year: 2026, month: 4, day: 21, hour: 11, minute: 0)
+        let projection = Self.makeProjection(
+            calendar: calendar,
+            wake: wake,
+            sleep: Self.date(calendar: calendar, year: 2026, month: 4, day: 21, hour: 18, minute: 0),
+            timedItems: [
+                Self.makeMeetingItem(id: "meeting", title: "Meeting", start: overlapStart, end: overlapStart.addingTimeInterval(45 * 60)),
+                Self.makeTimedItem(id: "task", title: "Task", start: overlapStart.addingTimeInterval(15 * 60), end: nextStart),
+                Self.makeTimedItem(id: "next", title: "Next", start: nextStart, end: nextStart.addingTimeInterval(30 * 60))
+            ]
+        )
+
+        let plan = TimelineCanvasLayoutPlan(projection: projection, pointsPerMinute: 1, minimumItemHeight: 44, calendar: calendar)
+        let flock = plan.visualElements.first { positioned in
+            if case .flock = positioned.element { return true }
+            return false
+        }
+        let next = plan.visualElements.first { $0.element.id.contains("task:next") }
+
+        XCTAssertNotNil(flock)
+        XCTAssertNotNil(next)
+        let expectedNextY = (flock?.y ?? 0) + (flock?.height ?? 0) + TimelineCanvasLayoutPlan.minimumBlockGap
+        XCTAssertGreaterThanOrEqual((next?.y ?? 0) + 0.001, expectedNextY)
+    }
+
+    func testVisualTimelineReservesSpaceForRoutineAndTaskMarkerAtSameTime() {
+        let calendar = Self.fixedCalendar
+        let wake = Self.date(calendar: calendar, year: 2026, month: 4, day: 21, hour: 8, minute: 0)
+        let projection = Self.makeProjection(
+            calendar: calendar,
+            wake: wake,
+            sleep: Self.date(calendar: calendar, year: 2026, month: 4, day: 21, hour: 18, minute: 0),
+            timedItems: [
+                Self.makeTimedItem(id: "wake-task", title: "Wake task", start: wake, end: wake.addingTimeInterval(30 * 60))
+            ]
+        )
+
+        let plan = TimelineCanvasLayoutPlan(projection: projection, pointsPerMinute: 1, minimumItemHeight: 44, calendar: calendar)
+        let routine = plan.visualElements.first { $0.element.id == "routine:wake" }
+        let task = plan.visualElements.first { $0.element.id.contains("task-marker:task:wake-task") }
+
+        XCTAssertNotNil(routine)
+        XCTAssertNotNil(task)
+        let expectedTaskY = (routine?.y ?? 0) + (routine?.height ?? 0) + TimelineCanvasLayoutPlan.minimumBlockGap
+        XCTAssertGreaterThanOrEqual((task?.y ?? 0) + 0.001, expectedTaskY)
+    }
+
+    func testVisualTimelineClassifiesTaskMarkerAndCardHierarchy() {
+        let calendar = Self.fixedCalendar
+        let start = Self.date(calendar: calendar, year: 2026, month: 4, day: 21, hour: 10, minute: 0)
+        let normal = Self.makeTimedItem(id: "normal", title: "Normal", start: start, end: start.addingTimeInterval(30 * 60), priority: .low)
+        let highShort = Self.makeTimedItem(id: "high-short", title: "High short", start: start, end: start.addingTimeInterval(30 * 60), priority: .high)
+        let highLong = Self.makeTimedItem(id: "high-long", title: "High long", start: start, end: start.addingTimeInterval(45 * 60), priority: .high)
+        let maxTask = Self.makeTimedItem(id: "max", title: "Max", start: start, end: start.addingTimeInterval(15 * 60), priority: .max)
+        let pinned = Self.makeTimedItem(id: "pinned", title: "Pinned", start: start, end: start.addingTimeInterval(15 * 60), priority: .low, isPinnedFocusTask: true)
+
+        XCTAssertFalse(TimelineCanvasLayoutPlan.shouldRenderTaskAsCard(normal))
+        XCTAssertFalse(TimelineCanvasLayoutPlan.shouldRenderTaskAsCard(highShort))
+        XCTAssertTrue(TimelineCanvasLayoutPlan.shouldRenderTaskAsCard(highLong))
+        XCTAssertTrue(TimelineCanvasLayoutPlan.shouldRenderTaskAsCard(maxTask))
+        XCTAssertTrue(TimelineCanvasLayoutPlan.shouldRenderTaskAsCard(pinned))
+    }
+
+    func testSparseTimelineUsesEmptyStateAndCompactSpineEnd() {
+        let calendar = Self.fixedCalendar
+        let wake = Self.date(calendar: calendar, year: 2026, month: 4, day: 21, hour: 8, minute: 0)
+        let sleep = Self.date(calendar: calendar, year: 2026, month: 4, day: 21, hour: 22, minute: 0)
+        let projection = Self.makeProjection(calendar: calendar, wake: wake, sleep: sleep, timedItems: [])
+        let plan = TimelineCanvasLayoutPlan(projection: projection, pointsPerMinute: 1, minimumItemHeight: 44, bottomInset: 120, calendar: calendar)
+
+        XCTAssertEqual(projection.timelineDensityMode, .sparse)
+        XCTAssertTrue(plan.visualElements.contains { positioned in
+            if case .emptyState(let model) = positioned.element {
+                return model.title == "No meetings today" && model.showsCalendarAction == false
+            }
+            return false
+        })
+        XCTAssertGreaterThan(plan.endMarker.centerY, plan.spineExtent.fadeEndY)
+        XCTAssertGreaterThanOrEqual(plan.contentHeight, plan.endMarker.centerY + 22 + 120)
+    }
+
+    func testCalendarHiddenSparseTimelineUsesCalendarCopyAndAction() {
+        let calendar = Self.fixedCalendar
+        let wake = Self.date(calendar: calendar, year: 2026, month: 4, day: 21, hour: 8, minute: 0)
+        let projection = Self.makeProjection(
+            calendar: calendar,
+            wake: wake,
+            sleep: Self.date(calendar: calendar, year: 2026, month: 4, day: 21, hour: 22, minute: 0),
+            timedItems: [],
+            calendarPlottingEnabled: false
+        )
+        let plan = TimelineCanvasLayoutPlan(projection: projection, pointsPerMinute: 1, minimumItemHeight: 44, calendar: calendar)
+        let empty = plan.visualElements.compactMap { positioned -> VisualTimelineElement.EmptyStateModel? in
+            guard case .emptyState(let model) = positioned.element else { return nil }
+            return model
+        }.first
+
+        XCTAssertEqual(empty?.title, "Calendar is hidden")
+        XCTAssertEqual(empty?.secondaryTitle, "Show calendar")
+        XCTAssertEqual(empty?.showsCalendarAction, true)
+    }
+
+    func testLightTimelineAddsOpenDayPromptForOneShortItem() {
+        let calendar = Self.fixedCalendar
+        let wake = Self.date(calendar: calendar, year: 2026, month: 4, day: 21, hour: 8, minute: 0)
+        let start = Self.date(calendar: calendar, year: 2026, month: 4, day: 21, hour: 16, minute: 0)
+        let projection = Self.makeProjection(
+            calendar: calendar,
+            wake: wake,
+            sleep: Self.date(calendar: calendar, year: 2026, month: 4, day: 21, hour: 22, minute: 0),
+            timedItems: [
+                Self.makeTimedItem(id: "small", title: "Small", start: start, end: start.addingTimeInterval(30 * 60))
+            ]
+        )
+        let plan = TimelineCanvasLayoutPlan(projection: projection, pointsPerMinute: 1, minimumItemHeight: 44, calendar: calendar)
+
+        XCTAssertEqual(projection.timelineDensityMode, .lightTimeline)
+        XCTAssertTrue(plan.visualElements.contains { positioned in
+            if case .emptyState(let model) = positioned.element {
+                return model.id == "empty:light" && model.title == "Plenty of open time"
+            }
+            return false
+        })
+    }
+
+    func testLongSingleItemStaysNormalTimelineMode() {
+        let calendar = Self.fixedCalendar
+        let wake = Self.date(calendar: calendar, year: 2026, month: 4, day: 21, hour: 8, minute: 0)
+        let start = Self.date(calendar: calendar, year: 2026, month: 4, day: 21, hour: 10, minute: 0)
+        let projection = Self.makeProjection(
+            calendar: calendar,
+            wake: wake,
+            sleep: Self.date(calendar: calendar, year: 2026, month: 4, day: 21, hour: 22, minute: 0),
+            timedItems: [
+                Self.makeTimedItem(id: "long", title: "Long", start: start, end: start.addingTimeInterval(120 * 60))
+            ]
+        )
+
+        XCTAssertEqual(projection.timelineDensityMode, .normal)
+    }
+
+    func testLongGapIndicatorIsCenteredInsideCompressedGap() {
+        let calendar = Self.fixedCalendar
+        let wake = Self.date(calendar: calendar, year: 2026, month: 4, day: 21, hour: 8, minute: 0)
+        let firstStart = Self.date(calendar: calendar, year: 2026, month: 4, day: 21, hour: 9, minute: 0)
+        let firstEnd = Self.date(calendar: calendar, year: 2026, month: 4, day: 21, hour: 10, minute: 0)
+        let secondStart = Self.date(calendar: calendar, year: 2026, month: 4, day: 21, hour: 14, minute: 0)
+        let projection = Self.makeProjection(
+            calendar: calendar,
+            wake: wake,
+            sleep: Self.date(calendar: calendar, year: 2026, month: 4, day: 21, hour: 22, minute: 0),
+            timedItems: [
+                Self.makeTimedItem(id: "first", title: "First", start: firstStart, end: firstEnd),
+                Self.makeTimedItem(id: "second", title: "Second", start: secondStart, end: secondStart.addingTimeInterval(30 * 60))
+            ]
+        )
+        let plan = TimelineCanvasLayoutPlan(projection: projection, pointsPerMinute: 1, minimumItemHeight: 44, calendar: calendar)
+        let taskElements = plan.visualElements.filter { positioned in
+            if case .taskMarker = positioned.element { return true }
+            return false
+        }
+
+        XCTAssertEqual(plan.longGapIndicators.count, 1)
+        XCTAssertEqual(plan.longGapIndicators.first?.text, "· · · 4h free · · ·")
+        if taskElements.count == 2, let indicator = plan.longGapIndicators.first {
+            let gapTop = taskElements[0].bottomY
+            let gapBottom = taskElements[1].y
+            XCTAssertEqual(indicator.y + (indicator.height / 2), gapTop + ((gapBottom - gapTop) / 2), accuracy: 0.001)
+        } else {
+            XCTFail("Expected two task elements around the long gap")
+        }
+    }
+
+    func testSpineEndUsesAfterSleepItemAndEndMarkerSuggestedDate() {
+        let calendar = Self.fixedCalendar
+        let wake = Self.date(calendar: calendar, year: 2026, month: 4, day: 21, hour: 8, minute: 0)
+        let sleep = Self.date(calendar: calendar, year: 2026, month: 4, day: 21, hour: 22, minute: 0)
+        let lateStart = Self.date(calendar: calendar, year: 2026, month: 4, day: 21, hour: 22, minute: 30)
+        let lateEnd = lateStart.addingTimeInterval(30 * 60)
+        let projection = Self.makeProjection(
+            calendar: calendar,
+            wake: wake,
+            sleep: sleep,
+            timedItems: [],
+            afterSleepItems: [
+                Self.makeTimedItem(id: "late", title: "Late", start: lateStart, end: lateEnd)
+            ]
+        )
+        let plan = TimelineCanvasLayoutPlan(projection: projection, pointsPerMinute: 1, minimumItemHeight: 44, calendar: calendar)
+        let late = plan.visualElements.first { $0.element.id.contains("task:late") }
+
+        XCTAssertNotNil(late)
+        XCTAssertEqual(plan.spineExtent.solidEndY, late?.centerY ?? 0, accuracy: 0.001)
+        XCTAssertEqual(plan.endMarker.suggestedDate, lateEnd)
     }
 
     func testTimelineLayoutPlanOnlyReturnsCurrentTimeYForSelectedTodayWithinVisibleWindow() {
@@ -1181,7 +1416,14 @@ private extension HomeForedropLayoutMetricsTests {
         )) ?? Date(timeIntervalSince1970: 0)
     }
 
-    static func makeTimedItem(id: String, title: String, start: Date, end: Date) -> TimelinePlanItem {
+    static func makeTimedItem(
+        id: String,
+        title: String,
+        start: Date,
+        end: Date,
+        priority: TaskPriority = .low,
+        isPinnedFocusTask: Bool = false
+    ) -> TimelinePlanItem {
         TimelinePlanItem(
             id: "task:\(id)",
             source: .task,
@@ -1195,7 +1437,9 @@ private extension HomeForedropLayoutMetricsTests {
             isComplete: false,
             tintHex: ProjectColor.blue.hexString,
             systemImageName: "checklist",
-            accessoryText: nil
+            accessoryText: nil,
+            taskPriority: priority,
+            isPinnedFocusTask: isPinnedFocusTask
         )
     }
 
@@ -1226,7 +1470,8 @@ private extension HomeForedropLayoutMetricsTests {
         beforeWakeItems: [TimelinePlanItem] = [],
         afterSleepItems: [TimelinePlanItem] = [],
         gaps: [TimelineGap] = [],
-        layoutMode: TimelineDayLayoutMode = .expanded
+        layoutMode: TimelineDayLayoutMode = .expanded,
+        calendarPlottingEnabled: Bool = true
     ) -> TimelineDayProjection {
         TimelineDayProjection(
             date: calendar.startOfDay(for: wake),
@@ -1237,6 +1482,7 @@ private extension HomeForedropLayoutMetricsTests {
             beforeWakeSummaryItems: beforeWakeItems,
             afterSleepSummaryItems: afterSleepItems,
             layoutMode: layoutMode,
+            calendarPlottingEnabled: calendarPlottingEnabled,
             wakeAnchor: TimelineAnchorItem(id: "wake", title: "Wake", time: wake, systemImageName: "sun.max.fill"),
             sleepAnchor: TimelineAnchorItem(id: "sleep", title: "Sleep", time: sleep, systemImageName: "moon.fill"),
             activeItemID: nil,

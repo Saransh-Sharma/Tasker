@@ -113,24 +113,41 @@ final class HomeHabitLastCellInteractionTests: XCTestCase {
         )
     }
 
-    func testHitTargetMetricsComputeTrailingVisualWidthFromCellCount() {
+    func testHitTargetMetricsComputeSquareCellsFromCellCount() {
         let metrics = HomeHabitRowHitTargetMetrics(
             stripWidth: 210,
             cellCount: 7,
             showsLastCellDecoration: true
         )
 
+        XCTAssertEqual(metrics.cellSide, 30, accuracy: 0.001)
+        XCTAssertEqual(metrics.rowHeight, 44, accuracy: 0.001)
         XCTAssertEqual(metrics.visualLastCellWidth, 30, accuracy: 0.001)
     }
 
-    func testHitTargetMetricsScaleTrailingVisualWidthOnWideRows() {
+    func testHitTargetMetricsCapSquareCellsOnWideRows() {
         let metrics = HomeHabitRowHitTargetMetrics(
             stripWidth: 560,
             cellCount: 7,
             showsLastCellDecoration: true
         )
 
-        XCTAssertEqual(metrics.visualLastCellWidth, 80, accuracy: 0.001)
+        XCTAssertEqual(metrics.cellSide, 48, accuracy: 0.001)
+        XCTAssertEqual(metrics.rowHeight, 48, accuracy: 0.001)
+        XCTAssertEqual(metrics.visualLastCellWidth, 48, accuracy: 0.001)
+    }
+
+    func testHitTargetMetricsUseAccessibilityCellCapAndRowHeight() {
+        let metrics = HomeHabitRowHitTargetMetrics(
+            stripWidth: 560,
+            cellCount: 7,
+            showsLastCellDecoration: true,
+            usesExpandedTitle: true
+        )
+
+        XCTAssertEqual(metrics.cellSide, 56, accuracy: 0.001)
+        XCTAssertEqual(metrics.rowHeight, 68, accuracy: 0.001)
+        XCTAssertEqual(metrics.visualLastCellWidth, 56, accuracy: 0.001)
     }
 
     func testHitTargetMetricsHideTrailingVisualWidthWhenDecorationUnavailable() {
@@ -140,6 +157,8 @@ final class HomeHabitLastCellInteractionTests: XCTestCase {
             showsLastCellDecoration: false
         )
 
+        XCTAssertEqual(metrics.cellSide, 30, accuracy: 0.001)
+        XCTAssertEqual(metrics.rowHeight, 44, accuracy: 0.001)
         XCTAssertEqual(metrics.visualLastCellWidth, 0, accuracy: 0.001)
     }
 

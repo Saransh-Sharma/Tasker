@@ -88,10 +88,26 @@ final class CalendarIntegrationServiceTests: XCTestCase {
     func testAccessActionPolicyMatchesAuthorizationState() {
         let provider = CalendarEventsProviderStub()
         let store = TaskerWorkspacePreferencesStore(defaults: defaults)
-        let service = CalendarIntegrationService(provider: provider, workspacePreferencesStore: store)
+        let attemptStore = CalendarAccessAttemptStoreStub()
+        let service = CalendarIntegrationService(
+            provider: provider,
+            workspacePreferencesStore: store,
+            accessAttemptStore: attemptStore
+        )
 
         provider.authorizationStatusValue = .notDetermined
         XCTAssertEqual(service.accessAction(), .requestPermission)
+
+        provider.authorizationStatusValue = .denied
+        XCTAssertEqual(service.accessAction(), .openSystemSettings)
+
+        attemptStore.recordFullAccessAttempt(CalendarAccessAttemptRecord(
+            source: "test",
+            statusBefore: .denied,
+            statusAfter: .denied,
+            outcome: .denied,
+            appVersion: "test"
+        ))
 
         provider.authorizationStatusValue = .denied
         XCTAssertEqual(service.accessAction(), .openSystemSettings)
@@ -100,7 +116,7 @@ final class CalendarIntegrationServiceTests: XCTestCase {
         XCTAssertEqual(service.accessAction(), .unavailable(.restricted))
 
         provider.authorizationStatusValue = .writeOnly
-        XCTAssertEqual(service.accessAction(), .openSystemSettings)
+        XCTAssertEqual(service.accessAction(), .requestPermission)
 
         provider.authorizationStatusValue = .authorized
         XCTAssertEqual(service.accessAction(), .noneNeeded)
@@ -603,12 +619,71 @@ final class CalendarIntegrationServiceTests: XCTestCase {
         XCTAssertEqual(service.snapshot.eventsInRange.map(\.id), ["canceled"])
     }
 
-    func testPerformAccessActionForWriteOnlyRoutesToSystemSettings() {
+    func testPerformAccessActionForWriteOnlyRequestsFullAccessAndLoadsContext() {
         let provider = CalendarEventsProviderStub()
         provider.authorizationStatusValue = .writeOnly
+        provider.authorizationStatusAfterAccess = .authorized
+        provider.requestAccessResult = .success(true)
+        provider.calendarsResult = .success([calendar(id: "work", title: "Work")])
+        provider.eventsResult = .success([
+            event(id: "w1", calendarID: "work", start: todayDate(hour: 9), end: todayDate(hour: 10))
+        ])
 
         let store = TaskerWorkspacePreferencesStore(defaults: defaults)
-        let service = CalendarIntegrationService(provider: provider, workspacePreferencesStore: store)
+        store.save(TaskerWorkspacePreferences(selectedCalendarIDs: ["work"]))
+        let attemptStore = CalendarAccessAttemptStoreStub()
+        let service = CalendarIntegrationService(
+            provider: provider,
+            workspacePreferencesStore: store,
+            accessAttemptStore: attemptStore
+        )
+
+        let contextExpectation = expectation(description: "Write-only upgraded and loaded")
+        contextExpectation.assertForOverFulfill = false
+        var didLoadContext = false
+        service.$snapshot
+            .dropFirst()
+            .sink { snapshot in
+                if didLoadContext == false &&
+                    snapshot.authorizationStatus == .authorized &&
+                    snapshot.eventsInRange.map(\.id) == ["w1"] {
+                    didLoadContext = true
+                    contextExpectation.fulfill()
+                }
+            }
+            .store(in: &cancellables)
+
+        var openSettingsCount = 0
+        let accessExpectation = expectation(description: "Write-only access request completed")
+        let action = service.performAccessAction(
+            openSystemSettings: { openSettingsCount += 1 },
+            completion: { granted in
+                XCTAssertTrue(granted)
+                accessExpectation.fulfill()
+            }
+        )
+
+        wait(for: [accessExpectation, contextExpectation], timeout: 2.0)
+        XCTAssertEqual(action, .requestPermission)
+        XCTAssertEqual(openSettingsCount, 0)
+        XCTAssertEqual(provider.requestAccessCallCount, 1)
+        XCTAssertEqual(provider.fetchCalendarsCallCount, 1)
+        XCTAssertEqual(provider.fetchEventsCallCount, 1)
+        XCTAssertEqual(service.snapshot.eventsInRange.map(\.id), ["w1"])
+        XCTAssertEqual(attemptStore.lastFullAccessAttempt?.outcome, .granted)
+    }
+
+    func testPerformAccessActionForDeniedRoutesToSystemSettingsWithoutRequestingAgain() {
+        let provider = CalendarEventsProviderStub()
+        provider.authorizationStatusValue = .denied
+
+        let store = TaskerWorkspacePreferencesStore(defaults: defaults)
+        let attemptStore = CalendarAccessAttemptStoreStub()
+        let service = CalendarIntegrationService(
+            provider: provider,
+            workspacePreferencesStore: store,
+            accessAttemptStore: attemptStore
+        )
 
         var openSettingsCount = 0
         let action = service.performAccessAction(
@@ -620,6 +695,127 @@ final class CalendarIntegrationServiceTests: XCTestCase {
 
         XCTAssertEqual(action, .openSystemSettings)
         XCTAssertEqual(openSettingsCount, 1)
+        XCTAssertEqual(provider.requestAccessCallCount, 0)
+        XCTAssertNil(attemptStore.lastFullAccessAttempt)
+    }
+
+    func testPerformAccessActionForDeniedAfterRecordedAttemptRoutesToSystemSettings() {
+        let provider = CalendarEventsProviderStub()
+        provider.authorizationStatusValue = .denied
+
+        let store = TaskerWorkspacePreferencesStore(defaults: defaults)
+        let attemptStore = CalendarAccessAttemptStoreStub()
+        attemptStore.recordFullAccessAttempt(CalendarAccessAttemptRecord(
+            source: "test",
+            statusBefore: .denied,
+            statusAfter: .denied,
+            outcome: .denied,
+            appVersion: "test"
+        ))
+        let service = CalendarIntegrationService(
+            provider: provider,
+            workspacePreferencesStore: store,
+            accessAttemptStore: attemptStore
+        )
+
+        var openSettingsCount = 0
+        let action = service.performAccessAction(
+            openSystemSettings: { openSettingsCount += 1 },
+            completion: { granted in
+                XCTAssertFalse(granted)
+            }
+        )
+
+        XCTAssertEqual(action, .openSystemSettings)
+        XCTAssertEqual(openSettingsCount, 1)
+        XCTAssertEqual(provider.requestAccessCallCount, 0)
+    }
+
+    func testFailedFullAccessRequestRecordsDiagnosticAttempt() {
+        let provider = CalendarEventsProviderStub()
+        provider.authorizationStatusValue = .notDetermined
+        provider.authorizationStatusAfterAccess = .denied
+        provider.requestAccessResult = .failure(NSError(
+            domain: "CalendarAccess",
+            code: 42,
+            userInfo: [NSLocalizedDescriptionKey: "Full access denied by test"]
+        ))
+
+        let store = TaskerWorkspacePreferencesStore(defaults: defaults)
+        let attemptStore = CalendarAccessAttemptStoreStub()
+        let service = CalendarIntegrationService(
+            provider: provider,
+            workspacePreferencesStore: store,
+            accessAttemptStore: attemptStore
+        )
+
+        let expectation = expectation(description: "Failed request recorded")
+        service.requestAccess(source: "unit_test") { granted in
+            XCTAssertFalse(granted)
+            expectation.fulfill()
+        }
+
+        wait(for: [expectation], timeout: 1.0)
+        XCTAssertEqual(service.snapshot.authorizationStatus, .denied)
+        XCTAssertEqual(attemptStore.lastFullAccessAttempt?.outcome, .failed)
+        XCTAssertEqual(attemptStore.lastFullAccessAttempt?.errorDomain, "CalendarAccess")
+        XCTAssertEqual(attemptStore.lastFullAccessAttempt?.errorCode, 42)
+    }
+
+    func testEventKitDaemonFailureRecordsSystemRequestFailureWithoutTerminalAttempt() {
+        let provider = CalendarEventsProviderStub()
+        provider.authorizationStatusValue = .notDetermined
+        provider.authorizationStatusAfterAccess = .denied
+        provider.requestAccessResult = .failure(NSError(
+            domain: CalendarAccessDiagnostics.eventKitDaemonErrorDomain,
+            code: CalendarAccessDiagnostics.eventKitDaemonXPCErrorCode,
+            userInfo: [NSLocalizedDescriptionKey: "XPC error communicating with calaccessd: Unknown error"]
+        ))
+
+        let store = TaskerWorkspacePreferencesStore(defaults: defaults)
+        let attemptStore = CalendarAccessAttemptStoreStub()
+        let service = CalendarIntegrationService(
+            provider: provider,
+            workspacePreferencesStore: store,
+            accessAttemptStore: attemptStore
+        )
+
+        let expectation = expectation(description: "System request failure recorded")
+        service.requestAccess(source: "unit_test") { granted in
+            XCTAssertFalse(granted)
+            expectation.fulfill()
+        }
+
+        wait(for: [expectation], timeout: 1.0)
+        XCTAssertEqual(service.snapshot.authorizationStatus, .denied)
+        XCTAssertEqual(attemptStore.lastFullAccessAttempt?.outcome, .systemRequestFailed)
+        XCTAssertEqual(attemptStore.lastFullAccessAttempt?.errorDomain, CalendarAccessDiagnostics.eventKitDaemonErrorDomain)
+        XCTAssertEqual(attemptStore.lastFullAccessAttempt?.errorCode, CalendarAccessDiagnostics.eventKitDaemonXPCErrorCode)
+        XCTAssertFalse(attemptStore.hasAttemptedFullAccessRequest)
+    }
+
+    func testCalendarContextLoadedDiagnosticsUseCountsWithoutNames() {
+        CalendarDiagnosticsStore.shared.reset()
+        let provider = CalendarEventsProviderStub()
+        provider.authorizationStatusValue = .authorized
+        provider.calendarsResult = .success([calendar(id: "work", title: "Private Work Calendar")])
+        provider.eventsResult = .success([
+            event(id: "Private Standup", calendarID: "work", start: todayDate(hour: 9), end: todayDate(hour: 10))
+        ])
+
+        let store = TaskerWorkspacePreferencesStore(defaults: defaults)
+        store.save(TaskerWorkspacePreferences(selectedCalendarIDs: ["work"]))
+        let service = CalendarIntegrationService(provider: provider, workspacePreferencesStore: store)
+
+        service.refreshContext(referenceDate: todayDate(hour: 8), reason: "diagnostics_counts")
+        waitForMainQueue(seconds: 0.2)
+
+        let diagnostics = CalendarDiagnosticsStore.shared.recentEntriesText(limit: 20)
+        XCTAssertTrue(diagnostics.contains("calendar_context_loaded"))
+        XCTAssertTrue(diagnostics.contains("availableCalendarCount=1"))
+        XCTAssertTrue(diagnostics.contains("eventCount=1"))
+        XCTAssertFalse(diagnostics.contains("Private Work Calendar"))
+        XCTAssertFalse(diagnostics.contains("Private Standup"))
     }
 
     func testUpdateSelectedCalendarIDsNoopSkipsRefreshAndWrite() {
@@ -888,5 +1084,21 @@ private final class CalendarEventsProviderRaceStub: CalendarEventsProviderProtoc
     func completeEventRequest(at index: Int, events: [TaskerCalendarEventSnapshot]) {
         let completion = eventCompletions.remove(at: index)
         completion(.success(events))
+    }
+}
+
+private final class CalendarAccessAttemptStoreStub: CalendarAccessAttemptStore {
+    private(set) var lastFullAccessAttempt: CalendarAccessAttemptRecord?
+
+    var hasAttemptedFullAccessRequest: Bool {
+        lastFullAccessAttempt?.countsAsTerminalFullAccessAttempt == true
+    }
+
+    func recordFullAccessAttempt(_ record: CalendarAccessAttemptRecord) {
+        lastFullAccessAttempt = record
+    }
+
+    func reset() {
+        lastFullAccessAttempt = nil
     }
 }

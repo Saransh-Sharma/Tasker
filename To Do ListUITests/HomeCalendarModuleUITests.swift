@@ -7,6 +7,9 @@ final class HomeCalendarModuleUITests: XCTestCase {
 
     func testCalendarCardStateTransitionsAcrossStubModes() throws {
         assertCalendarMode("permission", expectedStateID: "home.calendar.state.permission", expectsRetry: false)
+        assertCalendarMode("writeOnly", expectedStateID: "home.calendar.state.permission", expectsRetry: false)
+        assertCalendarMode("denied", expectedStateID: "home.calendar.state.permission", expectsRetry: false)
+        assertCalendarMode("deniedAfterAttempt", expectedStateID: "home.calendar.state.permission", expectsRetry: false)
         assertCalendarMode("noCalendars", expectedStateID: "home.calendar.state.noCalendars", expectsRetry: false)
         assertCalendarMode("allDayOnly", expectedStateID: "home.calendar.state.allDayOnly", expectsRetry: false)
         assertCalendarMode("empty", expectedStateID: "home.calendar.state.empty", expectsRetry: false)
@@ -39,6 +42,24 @@ final class HomeCalendarModuleUITests: XCTestCase {
         XCTAssertTrue(includeAllDayBusy.isHittable || includeAllDayBusy.isEnabled)
     }
 
+    func testSettingsCalendarDeniedShowsPrivacyRecoveryCopy() throws {
+        let app = launchApp(calendarMode: "denied")
+        let homePage = HomePage(app: app)
+        let settingsPage = homePage.tapSettings()
+        XCTAssertTrue(settingsPage.verifyIsDisplayed(timeout: 8))
+
+        let accessRow = findInScrollableView(app: app, identifier: "settings.calendar.access.row", elementType: .any)
+        XCTAssertTrue(accessRow.exists)
+        XCTAssertTrue(
+            accessRow.label.localizedCaseInsensitiveContains("Privacy & Security"),
+            "Expected Settings recovery copy to mention Privacy & Security. Actual label: \(accessRow.label)"
+        )
+        XCTAssertTrue(
+            accessRow.label.localizedCaseInsensitiveContains("reset Location & Privacy"),
+            "Expected Settings recovery copy to mention reset Location & Privacy. Actual label: \(accessRow.label)"
+        )
+    }
+
     func testCalendarCardOpensSchedule() throws {
         let app = launchApp(calendarMode: "active")
 
@@ -52,6 +73,103 @@ final class HomeCalendarModuleUITests: XCTestCase {
 
         XCTAssertTrue(scheduleSurfaceIsVisible(in: app, timeout: 8))
         XCTAssertTrue(app.descendants(matching: .any)["schedule.list"].exists)
+    }
+
+    func testCalendarPermissionCardUsesConnectCTAInsteadOfOpeningSchedule() throws {
+        let app = launchApp(calendarMode: "permission")
+
+        let card = homeCalendarCard(in: app)
+        XCTAssertTrue(
+            waitForElementWithScrolling(card, in: app, timeout: 10, scrollAttempts: 4),
+            "Expected calendar card to be visible in permission mode."
+        )
+
+        let connect = app.buttons["home.calendar.connect"]
+        XCTAssertTrue(
+            waitForElementWithScrolling(connect, in: app, timeout: 8, scrollAttempts: 4),
+            "Expected permission mode to expose the calendar connect CTA."
+        )
+
+        card.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.15)).tap()
+        XCTAssertFalse(
+            app.descendants(matching: .any)["schedule.list"].waitForExistence(timeout: 1),
+            "Permission card background should not open the schedule before access is granted."
+        )
+
+        connect.tap()
+        XCTAssertTrue(
+            app.descendants(matching: .any)["home.calendar.state.noCalendars"].waitForExistence(timeout: 8),
+            "After the stub grants calendar access, Home should leave permission state and ask for calendar selection."
+        )
+    }
+
+    func testCalendarWriteOnlyCardRequestsFullAccessInsteadOfOpeningSettings() throws {
+        let app = launchApp(calendarMode: "writeOnly")
+
+        let card = homeCalendarCard(in: app)
+        XCTAssertTrue(
+            waitForElementWithScrolling(card, in: app, timeout: 10, scrollAttempts: 4),
+            "Expected calendar card to be visible in write-only mode."
+        )
+
+        let connect = app.buttons["home.calendar.connect"]
+        XCTAssertTrue(
+            waitForElementWithScrolling(connect, in: app, timeout: 8, scrollAttempts: 4),
+            "Expected write-only mode to expose the full-access CTA."
+        )
+        XCTAssertTrue(
+            connect.label.localizedCaseInsensitiveContains("Full Calendar Access"),
+            "Expected write-only CTA to request full access. Actual label: \(connect.label)"
+        )
+
+        connect.tap()
+        XCTAssertTrue(
+            app.descendants(matching: .any)["home.calendar.state.noCalendars"].waitForExistence(timeout: 8),
+            "After the stub upgrades full access, Home should ask for calendar selection."
+        )
+    }
+
+    func testCalendarDeniedShowsSettingsRecoveryCopyWithoutFullAccessPromptCTA() throws {
+        let app = launchApp(calendarMode: "denied")
+
+        let deniedBody = app.descendants(matching: .any)["home.calendar.state.permission"]
+        XCTAssertTrue(
+            waitForElementWithScrolling(deniedBody, in: app, timeout: 8, scrollAttempts: 4),
+            "Expected denied mode to show denied recovery copy."
+        )
+
+        let connect = app.buttons["home.calendar.connect"]
+        XCTAssertTrue(
+            waitForElementWithScrolling(connect, in: app, timeout: 8, scrollAttempts: 4),
+            "Expected denied mode to expose a settings recovery CTA."
+        )
+        XCTAssertEqual(connect.label, "Open Settings")
+        XCTAssertTrue(
+            deniedBody.label.localizedCaseInsensitiveContains("Privacy & Security"),
+            "Expected recovery copy to mention Privacy & Security. Actual label: \(deniedBody.label)"
+        )
+        XCTAssertTrue(
+            deniedBody.label.localizedCaseInsensitiveContains("reset Location & Privacy"),
+            "Expected recovery copy to mention reset Location & Privacy. Actual label: \(deniedBody.label)"
+        )
+    }
+
+    func testCalendarDeniedAfterAttemptShowsSettingsRecoveryCopy() throws {
+        let app = launchApp(calendarMode: "deniedAfterAttempt")
+
+        let deniedBody = app.descendants(matching: .any)["home.calendar.state.permission"]
+        XCTAssertTrue(
+            waitForElementWithScrolling(deniedBody, in: app, timeout: 8, scrollAttempts: 4),
+            "Expected denied-after-attempt mode to show denied recovery copy."
+        )
+
+        let connect = app.buttons["home.calendar.connect"]
+        XCTAssertTrue(connect.waitForExistence(timeout: 4))
+        XCTAssertEqual(connect.label, "Open Settings")
+        XCTAssertTrue(
+            deniedBody.label.localizedCaseInsensitiveContains("Privacy & Security"),
+            "Expected recovery copy to mention Privacy & Security. Actual label: \(deniedBody.label)"
+        )
     }
 
     func testCalendarCardShowsInlineNextUpHeader() throws {
