@@ -377,6 +377,8 @@
 		B1C2D3E52F90000100AA1001 /* TaskerWidgets/TaskWidgetHomeViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1C2D3E82F90000100AA1001 /* TaskerWidgets/TaskWidgetHomeViews.swift */; };
 		B1C2D3E62F90000100AA1001 /* TaskerWidgets/TaskWidgetAccessoryViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1C2D3E92F90000100AA1001 /* TaskerWidgets/TaskWidgetAccessoryViews.swift */; };
 		B1C2D3EA2F90000100AA1001 /* TaskerWidgets/TaskWidgetDesignSystemCompat.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1C2D3EB2F90000100AA1001 /* TaskerWidgets/TaskWidgetDesignSystemCompat.swift */; };
+		B1C2D3EC2F90000100AA1001 /* TaskerWidgets/HomeCalendarWidgetView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1C2D3ED2F90000100AA1001 /* TaskerWidgets/HomeCalendarWidgetView.swift */; };
+		B1C2D3EF2F90000100AA1001 /* TaskerWidgets/HomeTimelineWidgetView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1C2D3F02F90000100AA1001 /* TaskerWidgets/HomeTimelineWidgetView.swift */; };
 		B2E100000000000000000201 /* To Do List/UseCases/Home/BuildHomeAgendaUseCase.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2E100000000000000000103 /* To Do List/UseCases/Home/BuildHomeAgendaUseCase.swift */; };
 		B2E100000000000000000202 /* To Do List/Presentation/Models/HomeTodayRow.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2E100000000000000000101 /* To Do List/Presentation/Models/HomeTodayRow.swift */; };
 		B2E100000000000000000203 /* To Do List/Presentation/Models/HomeHabitRow.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2E100000000000000000102 /* To Do List/Presentation/Models/HomeHabitRow.swift */; };
@@ -424,6 +426,7 @@
 		C4B2E3D5F6A7081C /* To Do List/View/MilestoneCelebrationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B3A1F2C4D5E6F70B /* To Do List/View/MilestoneCelebrationView.swift */; };
 		C4B2E3D5F6A7081D /* To Do List/View/BadgeDetailSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = B3A1F2C4D5E6F70C /* To Do List/View/BadgeDetailSheet.swift */; };
 		C4D5E6F70891A2B3C4D5E6F8 /* TaskDetailSheetView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4D5E6F70891A2B3C4D5E6F7 /* TaskDetailSheetView.swift */; };
+		C4D5E6F70891A2B3C4D5E701 /* TaskScheduleEditor.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4D5E6F70891A2B3C4D5E700 /* TaskScheduleEditor.swift */; };
 		C537950FC6FD78BB996E7CA5 /* To Do List/View/HomeXPHeroView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 17DC0A5BC84D9C6C792B2AB6 /* To Do List/View/HomeXPHeroView.swift */; };
 		C5E24F11E95F5281AFA4E8DD /* UIKit+TokenAdapters.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A94E5E4F9BB3AA846B56A72 /* UIKit+TokenAdapters.swift */; };
 		C6182C050AFE59B731DAD798 /* TaskerWidgets.appex in Embed App Extensions */ = {isa = PBXBuildFile; fileRef = F9A8B91DCC93833939CAE3C6 /* TaskerWidgets.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
@@ -950,6 +953,8 @@
 		B1C2D3E82F90000100AA1001 /* TaskerWidgets/TaskWidgetHomeViews.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = TaskerWidgets/TaskWidgetHomeViews.swift; sourceTree = SOURCE_ROOT; };
 		B1C2D3E92F90000100AA1001 /* TaskerWidgets/TaskWidgetAccessoryViews.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = TaskerWidgets/TaskWidgetAccessoryViews.swift; sourceTree = SOURCE_ROOT; };
 		B1C2D3EB2F90000100AA1001 /* TaskerWidgets/TaskWidgetDesignSystemCompat.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = TaskerWidgets/TaskWidgetDesignSystemCompat.swift; sourceTree = SOURCE_ROOT; };
+		B1C2D3ED2F90000100AA1001 /* TaskerWidgets/HomeCalendarWidgetView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = TaskerWidgets/HomeCalendarWidgetView.swift; sourceTree = SOURCE_ROOT; };
+		B1C2D3F02F90000100AA1001 /* TaskerWidgets/HomeTimelineWidgetView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = TaskerWidgets/HomeTimelineWidgetView.swift; sourceTree = SOURCE_ROOT; };
 		B2D4E5F6A7B8C9D0E1F2A3B4 /* KeyboardShortcutsCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeyboardShortcutsCard.swift; sourceTree = "<group>"; };
 		B2E100000000000000000101 /* To Do List/Presentation/Models/HomeTodayRow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "To Do List/Presentation/Models/HomeTodayRow.swift"; sourceTree = SOURCE_ROOT; };
 		B2E100000000000000000102 /* To Do List/Presentation/Models/HomeHabitRow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "To Do List/Presentation/Models/HomeHabitRow.swift"; sourceTree = SOURCE_ROOT; };
@@ -1003,6 +1008,7 @@
 		C4AF3952DBA8C2ACE185FEF0 /* To Do List/Domain/Models/DailyXPAggregateDefinition.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "To Do List/Domain/Models/DailyXPAggregateDefinition.swift"; sourceTree = SOURCE_ROOT; };
 		C4C3F70CE989FCF07417B5EE /* TaskReadModelRepositoryProtocol.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = TaskReadModelRepositoryProtocol.swift; sourceTree = "<group>"; };
 		C4D5E6F70891A2B3C4D5E6F7 /* TaskDetailSheetView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = TaskDetailSheetView.swift; sourceTree = "<group>"; };
+		C4D5E6F70891A2B3C4D5E700 /* TaskScheduleEditor.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = TaskScheduleEditor.swift; sourceTree = "<group>"; };
 		C5A1D20E3F4B6789ABCDEF01 /* AddTaskCreateButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddTaskCreateButton.swift; sourceTree = "<group>"; };
 		C5A1D20E3F4B6789ABCDEF02 /* AddTaskDescriptionField.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddTaskDescriptionField.swift; sourceTree = "<group>"; };
 		C5A1D20E3F4B6789ABCDEF03 /* AddTaskInlineCreator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddTaskInlineCreator.swift; sourceTree = "<group>"; };
@@ -1225,6 +1231,8 @@
 				B1C2D3E82F90000100AA1001 /* TaskerWidgets/TaskWidgetHomeViews.swift */,
 				B1C2D3E92F90000100AA1001 /* TaskerWidgets/TaskWidgetAccessoryViews.swift */,
 				B1C2D3EB2F90000100AA1001 /* TaskerWidgets/TaskWidgetDesignSystemCompat.swift */,
+				B1C2D3ED2F90000100AA1001 /* TaskerWidgets/HomeCalendarWidgetView.swift */,
+				B1C2D3F02F90000100AA1001 /* TaskerWidgets/HomeTimelineWidgetView.swift */,
 				3A74DF0E9DCAEB8A8179F375 /* TaskerWidgets/TodayXPWidget.swift */,
 				B4599EE24B534345B7E5F063 /* TaskerWidgets/WeeklyScoreboardWidget.swift */,
 				89676F376DC27DF3823AB623 /* TaskerWidgets/NextMilestoneWidget.swift */,
@@ -1819,6 +1827,7 @@
 				75A631682E8BDADC006EEA59 /* LiquidGlass */,
 				52E1464E13744427AAFDF824 /* TaskDetailComponents.swift */,
 				C4D5E6F70891A2B3C4D5E6F7 /* TaskDetailSheetView.swift */,
+				C4D5E6F70891A2B3C4D5E700 /* TaskScheduleEditor.swift */,
 				D379A868382E81C83D874E36 /* TaskRowView.swift */,
 				2A7397B50382FF7FB4FAEC5F /* TaskSectionView.swift */,
 				E526F0CB3E9299C87861646E /* TaskListView.swift */,
@@ -2782,6 +2791,8 @@
 				B1C2D3E52F90000100AA1001 /* TaskerWidgets/TaskWidgetHomeViews.swift in Sources */,
 				B1C2D3E62F90000100AA1001 /* TaskerWidgets/TaskWidgetAccessoryViews.swift in Sources */,
 				B1C2D3EA2F90000100AA1001 /* TaskerWidgets/TaskWidgetDesignSystemCompat.swift in Sources */,
+				B1C2D3EC2F90000100AA1001 /* TaskerWidgets/HomeCalendarWidgetView.swift in Sources */,
+				B1C2D3EF2F90000100AA1001 /* TaskerWidgets/HomeTimelineWidgetView.swift in Sources */,
 				CD83FC6E516299A8FB19F781 /* TaskerWidgets/TodayXPWidget.swift in Sources */,
 				7DDFA05C1E835A398268D1EF /* TaskerWidgets/WeeklyScoreboardWidget.swift in Sources */,
 				481A6828453BE977412FD2EB /* TaskerWidgets/NextMilestoneWidget.swift in Sources */,
@@ -2993,6 +3004,7 @@
 				B8E100032F70000100A0A001 /* Effects/TaskerCTABezel.metal in Sources */,
 				B77B0891A4A5B4BF8D6162DC /* TaskDetailComponents.swift in Sources */,
 				C4D5E6F70891A2B3C4D5E6F8 /* TaskDetailSheetView.swift in Sources */,
+				C4D5E6F70891A2B3C4D5E701 /* TaskScheduleEditor.swift in Sources */,
 				350E661527174B8BDEE11FCC /* TaskRowView.swift in Sources */,
 				52EA01C705B92C45F65720CA /* TaskSectionView.swift in Sources */,
 				32CEC1ABC506CDA117F1CB3B /* TaskListView.swift in Sources */,
@@ -3377,7 +3389,7 @@
 				SDKROOT = iphoneos;
 				SKIP_INSTALL = YES;
 				SWIFT_VERSION = 5.0;
-				TARGETED_DEVICE_FAMILY = 1;
+				TARGETED_DEVICE_FAMILY = "1,2";
 				VALIDATE_PRODUCT = YES;
 			};
 			name = Release;
@@ -3670,7 +3682,7 @@
 				SDKROOT = iphoneos;
 				SKIP_INSTALL = YES;
 				SWIFT_VERSION = 5.0;
-				TARGETED_DEVICE_FAMILY = 1;
+				TARGETED_DEVICE_FAMILY = "1,2";
 			};
 			name = Debug;
 		};
